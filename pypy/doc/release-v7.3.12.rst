@@ -3,7 +3,7 @@ PyPy v7.3.12: release of python 2.7, 3.9, and 3.10
 ==================================================
 
 ..
-       Changelog up to commit 365683e7da0d
+       Changelog up to commit 4cdff7fe8066
 
 .. note_::
   This is a pre-release announcement. When the release actually happens, it
@@ -24,7 +24,7 @@ The release includes three different interpreters:
     Python 3.9, including the stdlib for CPython 3.9.16.
 
   - PyPy3.10, which is an interpreter supporting the syntax and the features of
-    Python 3.10, including the stdlib for CPython 3.10.9. This is our first
+    Python 3.10, including the stdlib for CPython 3.10.11. This is our first
     release of 3.10, but based on past experience we are quite confident in
     its compatibility with upstream. Of course, we recommend testing your code
     with this new version before putting it into production. Note it does
@@ -122,6 +122,8 @@ Bugfixes
   ``ppc_64-linux-gnu`` platform tags (issue 3834_)
 - Fix various cases where a mutating ``__index__`` method could crash the
   interpreter (issue 3917_)
+- Use C99 ``NAN`` for ``Py_NAN``
+
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -152,6 +154,8 @@ Bugfixes
   name in some random function (issue 3925_)
 - Fix wrong implementation of ``_copy_base`` for slices of n-dimensional
   buffers (issue 3520_)
+- Trim the scope ID from IPV6 addresses (issue 3938_, reversing the decision in
+  issue 3628_)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -172,6 +176,7 @@ Speedups and enhancements
 .. _GH-100242: https://github.com/python/cpython/issues/100242
 .. _3280: https://foss.heptapod.net/pypy/pypy/-/issues/3280
 .. _3520: https://foss.heptapod.net/pypy/pypy/-/issues/3520
+.. _3628: https://foss.heptapod.net/pypy/pypy/-/issues/3628
 .. _3834: https://foss.heptapod.net/pypy/pypy/-/issues/3834
 .. _3874: https://foss.heptapod.net/pypy/pypy/-/issues/3874
 .. _3881: https://foss.heptapod.net/pypy/pypy/-/issues/3881
@@ -183,3 +188,4 @@ Speedups and enhancements
 .. _3906: https://foss.heptapod.net/pypy/pypy/-/issues/3906
 .. _3917: https://foss.heptapod.net/pypy/pypy/-/issues/3917
 .. _3925: https://foss.heptapod.net/pypy/pypy/-/issues/3925
+.. _3938: https://foss.heptapod.net/pypy/pypy/-/issues/3938
