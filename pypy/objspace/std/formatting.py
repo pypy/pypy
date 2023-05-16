@@ -58,8 +58,18 @@ class BaseStringFormatter(object):
         self.std_wp_number(r, prefix)
 
     def fmt_d(self, w_value):
-        "int formatting"
-        r = int_num_helper(self.space, w_value)
+        "d% formatting"
+        r = int_d_num_helper(self.space, w_value)
+        self.std_wp_int(r)
+
+    def fmt_i(self, w_value):
+        "i% formatting"
+        r = int_i_num_helper(self.space, w_value)
+        self.std_wp_int(r)
+
+    def fmt_u(self, w_value):
+        "u% formatting"
+        r = int_u_num_helper(self.space, w_value)
         self.std_wp_int(r)
 
     def fmt_x(self, w_value):
@@ -88,9 +98,6 @@ class BaseStringFormatter(object):
         else:
             prefix = ''
         self.std_wp_int(r, prefix)
-
-    fmt_i = fmt_d
-    fmt_u = fmt_d
 
     def fmt_e(self, w_value):
         self.format_float(w_value, 'e')
@@ -667,7 +674,7 @@ def maybe_float(space, w_value):
     return space.float(w_value)
 
 def format_num_helper_generator(fmt, digits, decoder=maybe_int,
-                                expect_text="a number"):
+                                expect_text="a real number"):
     def format_num_helper(space, w_value, fmt_for_error=fmt):
         if not space.isinstance_w(w_value, space.w_int):
             try:
@@ -687,7 +694,9 @@ def format_num_helper_generator(fmt, digits, decoder=maybe_int,
     return func_with_new_name(format_num_helper,
                               'base%d_num_helper' % len(digits))
 
-int_num_helper = format_num_helper_generator('%d', '0123456789')
+int_d_num_helper = format_num_helper_generator('%d', '0123456789')
+int_i_num_helper = format_num_helper_generator('%i', '0123456789')
+int_u_num_helper = format_num_helper_generator('%u', '0123456789')
 oct_num_helper = format_num_helper_generator('%o', '01234567',
                      decoder=maybe_index, expect_text="an integer")
 hex_num_helper = format_num_helper_generator('%x', '0123456789abcdef',
