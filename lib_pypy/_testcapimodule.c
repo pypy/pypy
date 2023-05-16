@@ -2185,6 +2185,7 @@ unicode_findchar(PyObject *self, PyObject *args)
 }
 
 #ifndef PYPY_VERSION
+
 static PyObject *
 unicode_copycharacters(PyObject *self, PyObject *args)
 {
@@ -4533,6 +4534,8 @@ join_temporary_c_thread(PyObject *self, PyObject *Py_UNUSED(ignored))
 
 /* marshal */
 
+#ifndef PYPY_VERSION
+
 static PyObject*
 pymarshal_write_long_to_file(PyObject* self, PyObject *args)
 {
@@ -5959,6 +5962,7 @@ static PyMethodDef TestMethods[] = {
 #ifndef PYPY_VERSION
     {"unicode_decodeutf8stateful",unicode_decodeutf8stateful,    METH_VARARGS},    {"unicode_findchar",        unicode_findchar,                METH_VARARGS},
     {"unicode_copycharacters",  unicode_copycharacters,          METH_VARARGS},
+#endif
 #if USE_UNICODE_WCHAR_CACHE
     {"unicode_encodedecimal",   unicode_encodedecimal,           METH_VARARGS},
     {"unicode_transformdecimaltoascii", unicode_transformdecimaltoascii, METH_VARARGS},
@@ -6028,6 +6032,7 @@ static PyMethodDef TestMethods[] = {
     {"call_in_temporary_c_thread", call_in_temporary_c_thread, METH_VARARGS,
      PyDoc_STR("set_error_class(error_class) -> None")},
     {"join_temporary_c_thread", join_temporary_c_thread, METH_NOARGS},
+#ifndef PYPY_VERSION
     {"pymarshal_write_long_to_file",
         pymarshal_write_long_to_file, METH_VARARGS},
     {"pymarshal_write_object_to_file",
