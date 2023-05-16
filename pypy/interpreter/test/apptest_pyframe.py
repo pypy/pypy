@@ -84,6 +84,27 @@ def test_bug_line_tracing():
             ('line', 6), ('line', 2), ('line', 3), ('line', 4), ('line', 2),
             ('return', 2)]
 
+def test_bug_line_tracing_match():
+    import sys
+    def trace(frame, event, arg):
+        lineno = frame.f_lineno - frame.f_code.co_firstlineno
+        tr.append((event, lineno))
+        return trace
+    tr = []
+    def strangematch():           # 0
+        match "x":                # 1
+            case ["go", _]:       # 2
+                a = 1             # 3
+            case _:               # 4
+                a = 2             # 5
+        return a                  # 6
+    sys.settrace(trace)
+    res = strangematch()
+    sys.settrace(None)
+    assert res == 2
+    assert tr == [('call', 0), ('line', 1), ('line', 2), ('line', 4), ('line', 5), ('line', 6), ('return', 6)]
+
+
 class JumpTracer:
     """Defines a trace function that jumps from one place to another."""
 

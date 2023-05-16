@@ -900,11 +900,13 @@ class MatchContext(object):
         # contains a POP_TOP and a jump to the next one
         self.cleanup_blocks = [self.next]
 
-    def next_case(self):
+    def next_case(self, position_node=None):
         # add the POP_TOP instructions to the cleanup blocks
         for index in range(len(self.cleanup_blocks) - 1, 0, -1):
             block = self.cleanup_blocks[index]
             self.codegen.use_next_block(block)
+            if position_node:
+                self.codegen.update_position(position_node)
             self.codegen.emit_op(ops.POP_TOP)
         self.codegen.use_next_block(self.next)
         self._reset_cleanup_blocks()

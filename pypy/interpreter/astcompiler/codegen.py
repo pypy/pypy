@@ -2059,7 +2059,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
                 self._visit_body(case.body)
                 self.emit_jump(ops.JUMP_FORWARD, end)
-                match_context.next_case()
+                match_context.next_case(case.pattern)
             self.use_next_block(end)
         # self.emit_op(ops.POP_TOP)
 
