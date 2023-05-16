@@ -2575,7 +2575,9 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self.first_lineno = cls.lineno
         if cls.decorator_list and cls.decorator_list[0].lineno > 0:
             self.first_lineno = cls.decorator_list[0].lineno
-        self.update_position(cls)
+        # bit weird, but CPython does that too: the line of the artificial
+        # first instructions is that of the first decorator
+        self.update_position((self.first_lineno, -1, -1, -1))
         self.argcount = 1
         # load (global) __name__ ...
         self.name_op("__name__", ast.Load, None)

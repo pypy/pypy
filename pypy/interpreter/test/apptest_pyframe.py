@@ -1059,6 +1059,36 @@ def test_line_tracing_bug_invalid_positions():
     sys.settrace(None)
     assert tr == [('call', 0), ('return', 0)]
 
+def test_line_tracing_bug_class_decorator():
+    def class_decorator():
+        def f(c):        # 1
+            return c     # 2
+        @f               # 3
+        class Decorated( # 4
+                int      # 5
+                ):       # 6
+            x = 2        # 7
+    tr, tracelines = make_tracelines(class_decorator)
+    sys.settrace(tracelines)
+    class_decorator()
+    sys.settrace(None)
+    assert tr == [
+        ('call', 0),
+        ('line', 1),
+        ('line', 3),
+        ('line', 4),
+        ('line', 5),
+        ('line', 4),
+        ('call', 3),
+        ('line', 3),
+        ('line', 7),
+        ('return', 7),
+        ('call', 1),
+        ('line', 2),
+        ('return', 2),
+        ('return', 4)
+    ]
+
 def test_opcode_tracing():
     import sys
     assert not sys._getframe().f_trace_opcodes
