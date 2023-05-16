@@ -50,6 +50,15 @@ def test_format_error():
     assert '%(key)s'%MyMapping2() == 'key'
     #assert u'%(key)s'%MyMapping2() == u'key'  # no py3k
 
+def test_format_error_complex():
+    with raises(TypeError) as e:
+        "%u" % 3j
+    assert "%u format: a real number" in str(e.value)
+
+    with raises(TypeError) as e:
+        "%i" % 3j
+    assert "%i format: a real number" in str(e.value)
+
 
 #from AppTestStringObject
 def test_format_item_string():
