@@ -251,6 +251,8 @@ cpython/objimpl.h
 /* Test if an object implements the garbage collector protocol */
 PyAPI_FUNC(int) PyObject_IS_GC(PyObject *obj);
 
+// Kept for backward compatibility with Python 3.8
+#define _PyGC_FINALIZED(o) PyObject_GC_IsFinalized(o)
 
 PyAPI_FUNC(PyObject *) _PyObject_GC_Malloc(size_t);
 
