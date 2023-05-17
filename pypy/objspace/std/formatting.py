@@ -506,10 +506,9 @@ def make_formatter_subclass(do_unicode):
             space = self.space
             try:
                 w_value = space.index(w_value)
-            except OperationError as e:
-                if e.async(space):
+            except OperationError as operr:
+                if not operr.match(space, space.w_TypeError):
                     raise
-                # otherwise, eats all exceptions, like CPython
             else:
                 n = space.int_w(w_value)
                 if do_unicode:
@@ -679,7 +678,9 @@ def format_num_helper_generator(fmt, digits, decoder=maybe_int,
         if not space.isinstance_w(w_value, space.w_int):
             try:
                 w_value = decoder(space, w_value)
-            except OperationError:
+            except OperationError as operr:
+                if not operr.match(space, space.w_TypeError):
+                    raise
                 raise oefmt(space.w_TypeError,
                             "%s format: %s is required, not %T",
                             fmt_for_error, expect_text, w_value)
