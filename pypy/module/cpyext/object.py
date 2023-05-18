@@ -53,9 +53,11 @@ def _dealloc(space, obj):
     assert obj.c_ob_refcnt == 0
     pto = obj.c_ob_type
     obj_voidp = rffi.cast(rffi.VOIDP, obj)
-    generic_cpy_call(space, pto.c_tp_free, obj_voidp)
-    if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
-        decref(space, rffi.cast(PyObject, pto))
+    try:
+        generic_cpy_call(space, pto.c_tp_free, obj_voidp)
+    finally:
+        if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
+            decref(space, rffi.cast(PyObject, pto))
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):

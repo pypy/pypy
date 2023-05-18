@@ -1,5 +1,5 @@
 import py
-from rpython.rlib.jit import JitDriver, set_param, Counters
+from rpython.rlib.jit import JitDriver, set_param, Counters, set_user_param
 from rpython.rlib.jit import unroll_safe, dont_look_inside, promote
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp.warmspot import get_stats
@@ -210,6 +210,30 @@ class TraceLimitTests:
         self.check_trace_count(10)
         self.check_jitcell_token_count(1)
 
+    def test_big_opencoder_model(self):
+        def g(i):
+            f(0)
+            try:
+                set_user_param(None, 'trace_limit=100000')
+            except Exception:
+                return False
+            f(1)
+            return True
+
+        myjitdriver = JitDriver(greens=['i'], reds='auto')
+        def f(i):
+            # this is unimportant, but stuff complains if theres no JitDriver
+            a = b = 0
+            while a < 10:
+                a += 1
+                myjitdriver.jit_merge_point(i=i)
+            return b
+
+        res = self.meta_interp(g, [10], backendopt=True, ProfilerClass=Profiler,
+                               translationoptions={"jit_opencoder_model": "big"})
+        assert res
+        res = self.meta_interp(g, [10], backendopt=True, ProfilerClass=Profiler)
+        assert not res
 
 class TestLLtype(TraceLimitTests, LLJitMixin):
     pass

@@ -1046,10 +1046,14 @@ def move_to_end(d, key, last=True):
         return
     d.move_to_end(key, last)
 
+NO_DEFAULT = object()
+
 @not_rpython
-def dict_to_switch(d, inline=True):
+def dict_to_switch(d, inline=True, default=NO_DEFAULT):
     """Convert dictionary with integer or char keys to a switch statement."""
     from rpython.rlib.unroll import unrolling_iterable
+
+    have_default = default is not NO_DEFAULT
 
     assert len(d) >= 1
     firstkey = next(iter(d))
@@ -1059,6 +1063,7 @@ def dict_to_switch(d, inline=True):
             assert isinstance(key, int)
     else:
         assert isinstance(firstkey, str) # only int and char allowed for now
+        assert not have_default
         for key in d:
             assert isinstance(key, str) and len(key) == 1
 
@@ -1079,10 +1084,15 @@ def dict_to_switch(d, inline=True):
                 if key == query:
                     return value
             else:
+                if have_default:
+                    return default
                 raise KeyError
         else:
             assert len(d) == cached_size, "dictionary size changed!"
-            return d[query]
+            if have_default:
+                return d.get(query, default)
+            else:
+                return d[query]
 
 
     if inline:

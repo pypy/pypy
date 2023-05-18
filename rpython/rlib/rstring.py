@@ -619,6 +619,10 @@ class ParseStringOverflowError(Exception):
     def __init__(self, parser):
         self.parser = parser
 
+class MaxDigitsError(Exception):
+    def __init__(self, digits):
+        self.digits = digits
+
 # iterator-like class
 class NumberStringParser:
 
@@ -627,7 +631,7 @@ class NumberStringParser:
                                (self.fname, self.original_base))
 
     def __init__(self, s, literal, base, fname, allow_underscores=False,
-                 no_implicit_octal=False, start=0, end=-1):
+                 no_implicit_octal=False, start=0, end=-1, max_str_digits=0):
         self.fname = fname
         sign = 1
         self.s = s
@@ -677,6 +681,10 @@ class NumberStringParser:
         if self.start == self.end:
             self.error()
         self.i = self.start
+        if max_str_digits > 0:
+            length =  self.end - self.start - self.s.count('_')
+            if length > max_str_digits:
+                raise MaxDigitsError(length)
 
     def _startswith1(self, prefix):
         if self.start >= self.end:

@@ -2,6 +2,7 @@ from ctypes import *
 
 import pytest
 import sys
+import weakref
 
 
 def test_subclass_initializer():
@@ -214,3 +215,14 @@ def test_memoryview():
         assert mv.format == 'T{>h:a:>h:b:}'
     assert mv.shape == (2, 3)
     assert mv.itemsize == 4
+
+def test_weakref():
+    # issue 3883: py_object of weakref
+    class Empty():
+        pass
+
+    e = Empty()
+    r = weakref.ref(e)
+    pr = py_object(r)
+    assert pr.value is e
+

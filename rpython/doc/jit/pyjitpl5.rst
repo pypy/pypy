@@ -171,7 +171,7 @@ article:
 
 * `Tracing the Meta-Level: PyPy's Tracing JIT Compiler`__
 
-.. __: https://bitbucket.org/pypy/extradoc/src/tip/talk/icooolps2009/bolz-tracing-jit-final.pdf
+.. __: https://foss.heptapod.net/pypy/extradoc/-/tree/branch/extradoc/icooolps2009/bolz-tracing-jit-final.pdf
 
 Chapters 5 and 6 of `Antonio Cuni's PhD thesis`__ contain an overview of how
 Tracing JITs work in general and more informations about the concrete case of
@@ -181,4 +181,4 @@ PyPy's JIT.
 
 The `blog posts with the JIT tag`__ might also contain additional information.
 
-.. __: http://morepypy.blogspot.com/search/label/jit
+.. __: https://www.pypy.org/categories/jit.html

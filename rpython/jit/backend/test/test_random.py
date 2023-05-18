@@ -61,6 +61,8 @@ def constbox(v):
 
 
 class OperationBuilder(object):
+    produce_failing_guards = True
+
     def __init__(self, cpu, loop, vars):
         self.cpu = cpu
         if not hasattr(cpu, '_faildescr_keepalive'):
@@ -482,9 +484,16 @@ class CastFloatToIntOperation(AbstractFloatOperation):
 class GuardOperation(AbstractOperation):
     def gen_guard(self, builder, r):
         v = builder.get_bool_var(r)
-        op = ResOperation(self.opnum, [v])
-        passing = ((self.opnum == rop.GUARD_TRUE and getint(v)) or
-                   (self.opnum == rop.GUARD_FALSE and not getint(v)))
+        if not builder.produce_failing_guards:
+            if getint(v):
+                opnum = rop.GUARD_TRUE
+            else:
+                opnum = rop.GUARD_FALSE
+        else:
+            opnum = self.opnum
+        op = ResOperation(opnum, [v])
+        passing = ((opnum == rop.GUARD_TRUE and getint(v)) or
+                   (opnum == rop.GUARD_FALSE and not getint(v)))
         return op, passing
 
     def produce_into(self, builder, r):
@@ -493,6 +502,7 @@ class GuardOperation(AbstractOperation):
         op.setdescr(builder.getfaildescr())
         op.setfailargs(builder.subset_of_intvars(r))
         if not passing:
+            assert builder.produce_failing_guards
             builder.should_fail_by = op
             builder.guard_op = op
 
@@ -509,8 +519,10 @@ class GuardPtrOperation(GuardOperation):
 class GuardValueOperation(GuardOperation):
     def gen_guard(self, builder, r):
         v = r.choice(builder.intvars)
-        if r.random() > 0.8:
-            other = r.choice(builder.intvars)
+        if not builder.produce_failing_guards:
+            other = ConstInt(getint(v))
+        elif r.random() > 0.8:
+            other = ConstInt(getint(r.choice(builder.intvars)))
         else:
             if r.random() < 0.75:
                 value = getint(v)
@@ -615,9 +627,10 @@ def Random():
     import random
     seed = pytest.config.option.randomseed
     print
-    print 'Random seed value is %d.' % (seed,)
+    print 'Random start seed value is %d.' % (seed,)
     print
-    r = random.Random(seed)
+    r = random.Random()
+    r.seed(seed)
     def get_random_integer():
         while True:
             result = int(r.expovariate(0.05))
@@ -669,17 +682,19 @@ class RandomLoop(object):
         self.output = output
         if startvars is None:
             startvars = []
+            # vary the number of startvars, between 1 and n_vars
+            n_vars = r.randrange(pytest.config.option.n_vars) + 1
             if cpu.supports_floats:
                 # pick up a single threshold for the whole 'inputargs', so
                 # that some loops have no or mostly no FLOATs while others
                 # have a lot of them
                 k = r.random()
                 # but make sure there is at least one INT
-                at_least_once = r.randrange(0, pytest.config.option.n_vars)
+                at_least_once = r.randrange(n_vars)
             else:
                 k = -1
                 at_least_once = 0
-            for i in range(pytest.config.option.n_vars):
+            for i in range(n_vars):
                 if r.random() < k and i != at_least_once:
                     startvars.append(InputArgFloat(r.random_float_storage()))
                 else:
@@ -730,7 +745,8 @@ class RandomLoop(object):
                                                       loop._targettoken))
 
     def generate_ops(self, builder, r, loop, startvars, needs_a_label=False):
-        block_length = pytest.config.option.block_length
+        block_length = pytest.config.option.block_length // 2
+        block_length += int(r.expovariate(1.0 / block_length))
         istart = 0
 
         for i in range(block_length):

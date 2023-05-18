@@ -57,7 +57,7 @@ class LowLevelGcHooks(GcHooks):
     def on_gc_collect(self, num_major_collects,
                       arenas_count_before, arenas_count_after,
                       arenas_bytes, rawmalloc_bytes_before,
-                      rawmalloc_bytes_after):
+                      rawmalloc_bytes_after, pinned_objects):
         action = self.w_hooks.gc_collect
         action.count += 1
         action.num_major_collects = num_major_collects
@@ -66,6 +66,7 @@ class LowLevelGcHooks(GcHooks):
         action.arenas_bytes = arenas_bytes
         action.rawmalloc_bytes_before = rawmalloc_bytes_before
         action.rawmalloc_bytes_after = rawmalloc_bytes_after
+        action.pinned_objects = pinned_objects
         action.fire()
 
 
@@ -218,6 +219,7 @@ class GcCollectHookAction(NoRecursiveAction):
     arenas_bytes = 0
     rawmalloc_bytes_before = 0
     rawmalloc_bytes_after = 0
+    pinned_objects = 0
 
     def __init__(self, space):
         NoRecursiveAction.__init__(self, space)
@@ -239,6 +241,7 @@ class GcCollectHookAction(NoRecursiveAction):
             self.arenas_bytes = NonConstant(r_uint(42))
             self.rawmalloc_bytes_before = NonConstant(r_uint(42))
             self.rawmalloc_bytes_after = NonConstant(r_uint(42))
+            self.pinned_objects = NonConstant(-42)
             self.fire()
 
     def _do_perform(self, ec, frame):
@@ -248,7 +251,9 @@ class GcCollectHookAction(NoRecursiveAction):
                                    self.arenas_count_after,
                                    self.arenas_bytes,
                                    self.rawmalloc_bytes_before,
-                                   self.rawmalloc_bytes_after)
+                                   self.rawmalloc_bytes_after,
+                                   self.pinned_objects,
+                                  )
         self.reset()
         self.space.call_function(self.w_callable, w_stats)
 
@@ -298,7 +303,7 @@ class W_GcCollectStats(W_Root):
     def __init__(self, count, num_major_collects,
                  arenas_count_before, arenas_count_after,
                  arenas_bytes, rawmalloc_bytes_before,
-                 rawmalloc_bytes_after):
+                 rawmalloc_bytes_after, pinned_objects):
         self.count = count
         self.num_major_collects = num_major_collects
         self.arenas_count_before = arenas_count_before
@@ -306,6 +311,7 @@ class W_GcCollectStats(W_Root):
         self.arenas_bytes = arenas_bytes
         self.rawmalloc_bytes_before = rawmalloc_bytes_before
         self.rawmalloc_bytes_after = rawmalloc_bytes_after
+        self.pinned_objects = pinned_objects
 
 
 # just a shortcut to make the typedefs shorter
@@ -379,5 +385,7 @@ W_GcCollectStats.typedef = TypeDef(
         "arenas_count_after",
         "arenas_bytes",
         "rawmalloc_bytes_before",
-        "rawmalloc_bytes_after"))
+        "rawmalloc_bytes_after",
+        "pinned_objects",
+     ))
     )

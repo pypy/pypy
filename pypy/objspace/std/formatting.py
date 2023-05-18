@@ -522,6 +522,8 @@ def format(space, w_fmt, values_w, w_valuedict, do_unicode):
             pass
         else:
             return space.newbytes(result)
+    if not space.isinstance_w(w_fmt, space.w_basestring):
+        return space.w_NotImplemented
     if not space.isinstance_w(w_fmt, space.w_unicode):
         w_fmt = space.call_function(space.w_unicode, w_fmt)
     fmt = space.utf8_w(w_fmt)

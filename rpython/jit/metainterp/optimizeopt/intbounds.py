@@ -87,8 +87,7 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         b = b1.sub_bound(b2)
-        if b.bounded():
-            self.getintbound(op).intersect(b)
+        self.getintbound(op).intersect(b)
 
     def optimize_INT_ADD(self, op):
         arg1 = get_box_replacement(op.getarg(0))
@@ -124,7 +123,7 @@ class OptIntBounds(Optimization):
                         prod_arg1, prod_arg2 = prod_arg2, prod_arg1
                         prod_v1, prod_v2 = prod_v2, prod_v1
                     if prod_v2.is_constant():
-                        sum = intmask(arg2.getint() + prod_arg2.getint())
+                        sum = intmask(v2.get_constant_int() + prod_v2.get_constant_int())
                         arg1 = prod_arg1
                         arg2 = ConstInt(sum)
                         op = self.replace_op_with(op, rop.INT_ADD, args=[arg1, arg2])
@@ -136,22 +135,14 @@ class OptIntBounds(Optimization):
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
         b = b1.add_bound(b2)
-        # NB: the result only gets its bound updated if b has an upper and a
-        # lower bound. This is important, to do the right thing in the presence
-        # of overflow. Example:
-        # y = x + 1 where x >= 0
-        # here it's tempting to give a bound of y >= 1, but that would be
-        # wrong, due to wraparound
-        if b.bounded():
-            r.intersect(b)
+        r.intersect(b)
 
     def postprocess_INT_MUL(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
         b = b1.mul_bound(b2)
-        if b.bounded():
-            r.intersect(b)
+        r.intersect(b)
 
     def postprocess_CALL_PURE_I(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
@@ -183,10 +174,7 @@ class OptIntBounds(Optimization):
         r = self.getintbound(op)
         b = b1.lshift_bound(b2)
         r.intersect(b)
-        # intbound.lshift_bound checks for an overflow and if the
-        # lshift can be proven not to overflow sets b.has_upper and
-        # b.has_lower
-        if b.bounded():
+        if b1.lshift_bound_cannot_overflow(b2):
             # Synthesize the reverse op for optimize_default to reuse
             self.pure_from_args(rop.INT_RSHIFT,
                                 [op, arg1], arg0)
@@ -250,22 +238,25 @@ class OptIntBounds(Optimization):
     def optimize_INT_ADD_OVF(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        resbound = b1.add_bound(b2)
-        if resbound.bounded():
+        if b1.add_bound_cannot_overflow(b2):
             # Transform into INT_ADD.  The following guard will be killed
             # by optimize_GUARD_NO_OVERFLOW; if we see instead an
             # optimize_GUARD_OVERFLOW, then InvalidLoop.
 
-            # NB: this case also takes care of int_add_ovf with 0 as on of the
-            # arguments: the result will be bounded, and then the optimization
-            # for int_add with 0 as argument will remove the op.
+            # NB: this case also takes care of int_add_ovf with 0 as one of the
+            # arguments
             op = self.replace_op_with(op, rop.INT_ADD)
         return self.emit(op)
 
     def postprocess_INT_ADD_OVF(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        resbound = b1.add_bound(b2)
+        # we can always give the result a bound. if the int_add_ovf is followed
+        # by a guard_no_overflow, then we know no overflow occurred, and the
+        # bound is correct. Otherwise, it must be followed by a guard_overflow
+        # and it is also fine to give the result a bound, because the result
+        # box must never be used in the rest of the trace
+        resbound = b1.add_bound_no_overflow(b2)
         r = self.getintbound(op)
         r.intersect(resbound)
 
@@ -277,8 +268,7 @@ class OptIntBounds(Optimization):
         if arg0.same_box(arg1):
             self.make_constant_int(op, 0)
             return None
-        resbound = b0.sub_bound(b1)
-        if resbound.bounded():
+        if b0.sub_bound_cannot_overflow(b1):
             # this case takes care of int_sub_ovf(x, 0) as well
             op = self.replace_op_with(op, rop.INT_SUB)
         return self.emit(op)
@@ -288,15 +278,14 @@ class OptIntBounds(Optimization):
         arg1 = get_box_replacement(op.getarg(1))
         b0 = self.getintbound(arg0)
         b1 = self.getintbound(arg1)
-        resbound = b0.sub_bound(b1)
+        resbound = b0.sub_bound_no_overflow(b1)
         r = self.getintbound(op)
         r.intersect(resbound)
 
     def optimize_INT_MUL_OVF(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        resbound = b1.mul_bound(b2)
-        if resbound.bounded():
+        b0 = self.getintbound(op.getarg(0))
+        b1 = self.getintbound(op.getarg(1))
+        if b0.mul_bound_cannot_overflow(b1):
             # this case also takes care of multiplication with 0 and 1
             op = self.replace_op_with(op, rop.INT_MUL)
         return self.emit(op)
@@ -304,7 +293,7 @@ class OptIntBounds(Optimization):
     def postprocess_INT_MUL_OVF(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        resbound = b1.mul_bound(b2)
+        resbound = b1.mul_bound_no_overflow(b2)
         r = self.getintbound(op)
         r.intersect(resbound)
 
@@ -506,7 +495,7 @@ class OptIntBounds(Optimization):
         v1 = self.getintbound(op)
         v2 = getptrinfo(op.getarg(0))
         intbound = self.getintbound(op.getarg(1))
-        if intbound.has_lower and v2 is not None:
+        if v2 is not None:
             lenbound = v2.getlenbound(vstring.mode_string)
             if lenbound is not None:
                 lenbound.make_gt_const(intbound.lower)
@@ -544,7 +533,7 @@ class OptIntBounds(Optimization):
         b1.make_ge_const(0)
         v2 = getptrinfo(op.getarg(0))
         intbound = self.getintbound(op.getarg(1))
-        if intbound.has_lower and v2 is not None:
+        if v2 is not None:
             lenbound = v2.getlenbound(vstring.mode_unicode)
             if lenbound is not None:
                 lenbound.make_gt_const(intbound.lower)
@@ -675,22 +664,36 @@ class OptIntBounds(Optimization):
     def propagate_bounds_INT_EQ(self, op):
         r = self.getintbound(op)
         if r.equal(1):
-            b1 = self.getintbound(op.getarg(0))
-            b2 = self.getintbound(op.getarg(1))
-            if b1.intersect(b2):
-                self.propagate_bounds_backward(op.getarg(0))
-            if b2.intersect(b1):
-                self.propagate_bounds_backward(op.getarg(1))
+            self.make_eq(op.getarg(0), op.getarg(1))
+        elif r.equal(0):
+            self.make_ne(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_NE(self, op):
         r = self.getintbound(op)
         if r.equal(0):
-            b1 = self.getintbound(op.getarg(0))
-            b2 = self.getintbound(op.getarg(1))
-            if b1.intersect(b2):
-                self.propagate_bounds_backward(op.getarg(0))
-            if b2.intersect(b1):
-                self.propagate_bounds_backward(op.getarg(1))
+            self.make_eq(op.getarg(0), op.getarg(1))
+        elif r.equal(0):
+            self.make_ne(op.getarg(0), op.getarg(1))
+
+    def make_eq(self, arg0, arg1):
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+        if b0.intersect(b1):
+            self.propagate_bounds_backward(arg0)
+        if b1.intersect(b0):
+            self.propagate_bounds_backward(arg1)
+
+    def make_ne(self, arg0, arg1):
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+        if b1.is_constant():
+            v1 = b1.get_constant_int()
+            if b0.make_ne_const(v1):
+                self.propagate_bounds_backward(arg0)
+        elif b0.is_constant():
+            v0 = b0.get_constant_int()
+            if b1.make_ne_const(v0):
+                self.propagate_bounds_backward(arg1)
 
     def _propagate_int_is_true_or_zero(self, op, valnonzero, valzero):
         if self.is_raw_ptr(op.getarg(0)):
@@ -732,13 +735,16 @@ class OptIntBounds(Optimization):
         b = r.add_bound(b2)
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
-        b = r.sub_bound(b1).mul(-1)
+        b = r.sub_bound(b1).neg_bound()
         if b2.intersect(b):
             self.propagate_bounds_backward(op.getarg(1))
 
     def propagate_bounds_INT_MUL(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
+        if op.opnum != rop.INT_MUL_OVF and not b1.mul_bound_cannot_overflow(b2):
+            # we can only do divide if the operation didn't overflow
+            return
         r = self.getintbound(op)
         b = r.py_div_bound(b2)
         if b1.intersect(b):
@@ -750,6 +756,8 @@ class OptIntBounds(Optimization):
     def propagate_bounds_INT_LSHIFT(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
+        if not b1.lshift_bound_cannot_overflow(b2):
+            return
         r = self.getintbound(op)
         b = r.rshift_bound(b2)
         if b1.intersect(b):

@@ -107,12 +107,16 @@ def test_make_unwrap_greenkey():
     assert greenargs == (42, 42.5)
     assert type(greenargs[0]) is int
 
+class FakeWarmRunnerDesc:
+    cpu = None
+    memory_manager = None
+    rtyper = None
+    jitcounter = DeterministicJitCounter()
+    class metainterp_sd:
+        class opencoder_model:
+            MAX_TRACE_LIMIT=2**14
+
 def test_make_jitdriver_callbacks_1():
-    class FakeWarmRunnerDesc:
-        cpu = None
-        memory_manager = None
-        rtyper = None
-        jitcounter = DeterministicJitCounter()
     class FakeJitDriverSD:
         jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
@@ -139,11 +143,6 @@ def test_make_jitdriver_callbacks_3():
         return "hi there"    # abuse the return type, but nobody checks it
     GET_LOCATION = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Float],
                                               lltype.Ptr(rstr.STR)))
-    class FakeWarmRunnerDesc:
-        rtyper = None
-        cpu = None
-        memory_manager = None
-        jitcounter = DeterministicJitCounter()
     class FakeJitDriverSD:
         jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
@@ -166,11 +165,6 @@ def test_make_jitdriver_callbacks_4():
         return True
     ENTER_JIT = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Float,
                                             lltype.Signed], lltype.Bool))
-    class FakeWarmRunnerDesc:
-        rtyper = None
-        cpu = None
-        memory_manager = None
-        jitcounter = DeterministicJitCounter()
     class FakeJitDriverSD:
         jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]
@@ -193,11 +187,6 @@ def test_make_jitdriver_callbacks_5():
         return True
     CAN_NEVER_INLINE = lltype.Ptr(lltype.FuncType(
         [lltype.Signed, lltype.Float], lltype.Bool))
-    class FakeWarmRunnerDesc:
-        rtyper = None
-        cpu = None
-        memory_manager = None
-        jitcounter = DeterministicJitCounter()
     class FakeJitDriverSD:
         jitdriver = None
         _green_args_spec = [lltype.Signed, lltype.Float]

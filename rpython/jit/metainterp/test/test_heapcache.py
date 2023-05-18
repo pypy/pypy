@@ -923,3 +923,25 @@ class TestHeapCache(object):
             rop.CALL_N, FakeCallDescr(FakeEffectinfo.EF_CAN_RAISE), [])
         assert not h.is_quasi_immut_known(descr2, box3)
         assert not h.is_quasi_immut_known(descr2, box4)
+
+    def test_heapcache_on_const(self):
+        h = HeapCache()
+        # two different boxes of the same value
+        box1 = ConstPtr(ConstPtr.value)
+        box2 = ConstPtr(ConstPtr.value)
+        box3 = RefFrontendOp(3)
+        box4 = RefFrontendOp(4)
+
+        # the cache unifies a bit
+        assert h.getfield(box1, descr1) is None
+        assert h.getfield(box2, descr1) is None
+        h.getfield_now_known(box1, descr1, box3)
+        assert h.heap_cache[descr1].last_const_box is box1
+        assert h.heap_cache[descr1]._unique_const_heuristic(box2) is box1
+        assert h.getfield(box1, descr1) is box3
+        assert h.getfield(box2, descr1) is box3
+
+        h.reset()
+        h.setfield(box2, box4, descr1)
+        assert h.getfield(box1, descr1) is box4
+        assert h.getfield(box2, descr1) is box4

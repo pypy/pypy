@@ -132,7 +132,7 @@ XX._annspecialcase_ = 'specialize:arg(0)'     # performance hint
 class RMD5(object):
     """RPython-level MD5 object.
     """
-    def __init__(self, initialdata=''):
+    def __init__(self, initialdata='', usedforsecurity=True):
         self._init()
         self.update(initialdata)
 

@@ -98,15 +98,13 @@ class OptRewrite(Optimization):
             self.make_constant_int(op, 0)
             return
         elif b2.is_constant():
-            val = b2.lower
-            if val == -1 or (b1.bounded() and b1.lower >= 0
-                                          and b1.upper <= val & ~(val + 1)):
+            val = b2.get_constant_int()
+            if val == -1 or (b1.lower >= 0 and b1.upper <= val & ~(val + 1)):
                 self.make_equal_to(op, op.getarg(0))
                 return
         elif b1.is_constant():
-            val = b1.lower
-            if val == -1 or (b2.bounded() and b2.lower >= 0
-                                          and b2.upper <= val & ~(val + 1)):
+            val = b1.get_constant_int()
+            if val == -1 or (b2.lower >= 0 and b2.upper <= val & ~(val + 1)):
                 self.make_equal_to(op, op.getarg(1))
                 return
 
@@ -275,8 +273,13 @@ class OptRewrite(Optimization):
         else:
             return self.emit(op)
 
-    def postprocess_INT_INVERT(self, op):
-        self.optimizer.pure_from_args(rop.INT_INVERT, [op], op.getarg(0))
+    def optimize_INT_INVERT(self, op):
+        v = get_box_replacement(op.getarg(0))
+        arg_op = self.optimizer.as_operation(v)
+        if arg_op is not None and arg_op.opnum == rop.INT_INVERT:
+            self.make_equal_to(op, arg_op.getarg(0))
+        else:
+            return self.emit(op)
 
     def optimize_FLOAT_MUL(self, op):
         arg1 = op.getarg(0)
@@ -323,10 +326,12 @@ class OptRewrite(Optimization):
         return self.emit(newop)
 
     def optimize_FLOAT_NEG(self, op):
-        return self.emit(op)
-
-    def postprocess_FLOAT_NEG(self, op):
-        self.optimizer.pure_from_args(rop.FLOAT_NEG, [op], op.getarg(0))
+        v = get_box_replacement(op.getarg(0))
+        arg_op = self.optimizer.as_operation(v)
+        if arg_op is not None and arg_op.opnum == rop.FLOAT_NEG:
+            self.make_equal_to(op, arg_op.getarg(0))
+        else:
+            return self.emit(op)
 
     def optimize_FLOAT_ABS(self, op):
         v = get_box_replacement(op.getarg(0))
