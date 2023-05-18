@@ -760,8 +760,6 @@ class rbigint(object):
 
             if selfsize <= i:
                 result = _x_mul(self, other)
-            elif 2 * selfsize <= othersize:
-                result = _k_lopsided_mul(self, other)
             else:
                 result = _k_mul(self, other)
         else:
@@ -809,19 +807,8 @@ class rbigint(object):
         div = _bigint_true_divide(self, other)
         return div
 
-    @jit.elidable
     def floordiv(self, other):
-        if other.numdigits() == 1:
-            otherint = other.digit(0) * other.sign
-            assert int_in_valid_range(otherint)
-            return self.int_floordiv(otherint)
-
-        div, mod = _divrem(self, other)
-        if mod.sign * other.sign == -1:
-            if div.sign == 0:
-                return ONENEGATIVERBIGINT
-            div = div.int_sub(1)
-
+        div, mod = self.divmod(other)
         return div
 
     def div(self, other):
@@ -858,21 +845,8 @@ class rbigint(object):
     def int_div(self, iother):
         return self.int_floordiv(iother)
 
-    @jit.elidable
     def mod(self, other):
-        if other.sign == 0:
-            raise ZeroDivisionError("long division or modulo by zero")
-        if self.sign == 0:
-            return NULLRBIGINT
-
-        if other.numdigits() == 1:
-            otherint = other.digit(0) * other.sign
-            assert int_in_valid_range(otherint)
-            return self.int_mod(otherint)
-        else:
-            div, mod = _divrem(self, other)
-        if mod.sign * other.sign == -1:
-            mod = mod.add(other)
+        div, mod = self.divmod(other)
         return mod
 
     @jit.elidable
@@ -953,6 +927,15 @@ class rbigint(object):
         have different signs.  We then subtract one from the 'div'
         part of the outcome to keep the invariant intact.
         """
+        if other.sign == 0:
+            raise ZeroDivisionError("long division or modulo by zero")
+        if self.sign == 0:
+            return TWO_NULLRBIGINTS
+        if other.numdigits() == 1 and not (-1 == other.sign != self.sign):
+            otherint = other.digit(0) * other.sign
+            assert int_in_valid_range(otherint)
+            return self.int_divmod(otherint)
+
         if self.numdigits() > 1.2 * other.numdigits() and \
                 other.numdigits() > HOLDER.DIV_LIMIT * 2: # * 2 to offset setup cost
             res = divmod_big(self, other)
@@ -1508,6 +1491,8 @@ ONENEGATIVERBIGINT = rbigint([ONEDIGIT], -1, 1)
 NULLRBIGINT = rbigint()
 FIVERBIGINT = rbigint.fromint(5)
 
+TWO_NULLRBIGINTS = (NULLRBIGINT, NULLRBIGINT)
+
 _jmapping = [(5 * SHIFT) % 5,
              (4 * SHIFT) % 5,
              (3 * SHIFT) % 5,
@@ -1866,6 +1851,9 @@ def _k_mul(a, b):
     # By picking X to be a power of 2, "*X" is just shifting, and it's
     # been reduced to 3 multiplies on numbers half the size.
 
+    # allocate result for both paths, asize + bsize is always enough
+    ret = rbigint([NULLDIGIT] * (asize + bsize), 1)
+
     # Split a & b into hi & lo pieces.
     shift = bsize >> 1
     bh, bl = _kmul_split(b, shift)
@@ -1873,27 +1861,18 @@ def _k_mul(a, b):
         ah = bh
         al = bl
     elif asize <= shift:
-        assert 0
-        return _k_lopsided_mul(a, b)
-        al = a
-        # one side is more than 2x smaller than the other. it's important that
-        # we still use .mul to get karatsuba for sub-parts
-        # the computation is just:
+        # a is more than 2x smaller than b. it's important that we still use
+        # .mul to get karatsuba for sub-parts. the computation is just:
         # a*(bh*X+bl) = a*bh*X + a*bl
 
-        # allocate result, asize + bsize is always enough
-        ret = rbigint([NULLDIGIT] * (asize + bsize), 1)
         # multiply lower bits, copy into result
         t1 = a.mul(bl)
-        assert t1.sign >= 0
         for i in range(t1.numdigits()):
             ret._digits[i] = t1._digits[i]
         t2 = a.mul(bh)
         i = ret.numdigits() - shift  # digits after shift
         carry = _v_iadd(ret, shift, i, t2, t2.numdigits())
         ret._normalize()
-        #res2 = _x_mul(a, b)
-        #assert ret.eq(res2)
         return ret
     else:
         ah, al = _kmul_split(a, shift)
@@ -1913,8 +1892,7 @@ def _k_mul(a, b):
     # 6. Compute (ah+al)*(bh+bl), and add it into the result starting
     #    at shift.
 
-    # 1. Allocate result space.
-    ret = rbigint([NULLDIGIT] * (asize + bsize), 1)
+    # 1. Allocate result space. (done, see above)
 
     # 2. t1 <- ah*bh, and copy into high digits of result.
     t1 = ah.mul(bh)
@@ -1999,61 +1977,6 @@ Note that since there's always enough room for (ah+al)*(bh+bl), and that's
 clearly >= each of ah*bh and al*bl, there's always enough room to subtract
 ah*bh and al*bl too.
 """
-
-def _k_lopsided_mul(a, b):
-    """
-    b has at least twice the digits of a, and a is big enough that Karatsuba
-    would pay off *if* the inputs had balanced sizes.  View b as a sequence
-    of slices, each with a->ob_size digits, and multiply the slices by a,
-    one at a time.  This gives k_mul balanced inputs to work with, and is
-    also cache-friendly (we compute one double-width slice of the result
-    at a time, then move on, never backtracking except for the helpful
-    single-width slice overlap between successive partial sums).
-    """
-    asize = a.numdigits()
-    bsize = b.numdigits()
-
-    assert asize > KARATSUBA_CUTOFF
-    assert 2 * asize <= bsize
-
-    # Allocate result space
-    ret = rbigint([NULLDIGIT] * (asize + bsize), 1)
-
-    # Successive slices of b are copied into bslice.
-    bslice = rbigint([NULLDIGIT] * asize, 1, asize)
-
-    # nbdone is # of b digits already multiplied
-    nbdone = 0
-    while bsize > 0:
-        nbtouse = min(bsize, asize)
-
-        # Multiply the next slice of b by a.
-
-        # bslice.digits[:nbtouse] = b.digits[nbdone : nbdone + nbtouse]
-        j = nbdone
-        last_nonnull_index = -1
-        for i in range(nbtouse):
-            d = b.digit(j)
-            bslice.setdigit(i, d)
-            if d != NULLDIGIT:
-                last_nonnull_index = i
-            j += 1
-        if last_nonnull_index >= 0:
-            bslice.size = last_nonnull_index + 1
-            product = a.mul(bslice)
-
-            # Add into result.
-            _v_iadd(ret, nbdone, ret.numdigits() - nbdone,
-                    product, product.numdigits())
-        else:
-            # otherwise bslice is 0, do nothing
-            pass
-
-        bsize -= nbtouse
-        nbdone += nbtouse
-
-    ret._normalize()
-    return ret
 
 
 def _inplace_divrem1(pout, pin, n):
@@ -2523,8 +2446,8 @@ def divmod_big(a, b):
     elif a.sign < 0:
         q, r = divmod_big(a.invert(), b)
         return q.invert(), b.add(r.invert())
-    elif a.eq(NULLRBIGINT):
-        return NULLRBIGINT, NULLRBIGINT
+    elif a.sign == 0:
+        return TWO_NULLRBIGINTS
     else:
         return _divmod_fast_pos(a, b)
 
