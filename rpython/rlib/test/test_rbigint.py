@@ -119,7 +119,6 @@ class TestRLong(object):
                 for op in "add sub mul".split():
                     r1 = getattr(rl_op1, op)(rl_op2)
                     r2 = getattr(operator, op)(op1, op2)
-                    print op, op1, op2
                     assert r1.tolong() == r2
 
     def test_frombool(self):
@@ -290,7 +289,6 @@ class TestRLong(object):
                 for op3 in gen_signs([1, 2, 5, 1000, 12312312312312235659969696l]):
                     if not op3:
                         continue
-                    print op1, op2, op3
                     r3 = rl_op1.pow(rl_op2, rbigint.fromlong(op3))
                     r4 = pow(op1, op2, op3)
                     assert r3.tolong() == r4
@@ -308,7 +306,6 @@ class TestRLong(object):
                         continue
                     r3 = rl_op1.int_pow(op2, rbigint.fromlong(op3))
                     r4 = pow(op1, op2, op3)
-                    print op1, op2, op3
                     assert r3.tolong() == r4
 
     def test_int_pow_big(self):
@@ -1023,14 +1020,6 @@ class Test_rbigint(object):
         with pytest.raises(OverflowError):
             i.tobytes(2, 'little', signed=True)
 
-    @given(strategies.binary(), strategies.booleans(), strategies.booleans())
-    def test_frombytes_tobytes_hypothesis(self, s, big, signed):
-        # check the roundtrip from binary strings to bigints and back
-        byteorder = 'big' if big else 'little'
-        bigint = rbigint.frombytes(s, byteorder=byteorder, signed=signed)
-        t = bigint.tobytes(len(s), byteorder=byteorder, signed=signed)
-        assert s == t
-
     def test_gcd(self):
         assert gcd_binary(2*3*7**2, 2**2*7) == 2*7
         pytest.raises(ValueError, gcd_binary, 2*3*7**2, -2**2*7)
@@ -1178,7 +1167,6 @@ class TestInternalFunctions(object):
                     div, rem = f1.int_divmod(sy)
                     div1, rem1 = f1.divmod(rbigint.fromlong(sy))
                     _div, _rem = divmod(sx, sy)
-                    print sx, sy, " | ", div.tolong(), rem.tolong()
                     assert div1.tolong() == _div
                     assert rem1.tolong() == _rem
                     assert div.tolong() == _div
@@ -1437,7 +1425,6 @@ class TestHypothesis(object):
             with pytest.raises(type(e)):
                 f1.divmod(f2)
         else:
-            print x, y
             a, b = f1.divmod(f2)
             assert (a.tolong(), b.tolong()) == res
 
@@ -1520,7 +1507,6 @@ class TestHypothesis(object):
             with pytest.raises(type(e)):
                 f1.int_divmod(iy)
         else:
-            print x, iy
             a, b = f1.int_divmod(iy)
             assert (a.tolong(), b.tolong()) == res
 
@@ -1528,7 +1514,7 @@ class TestHypothesis(object):
     def test_hash(self, x):
         # hash of large integers: should be equal to the hash of the
         # integer reduced modulo 2**64-1, to make decimal.py happy
-        x = randint(0, sys.maxint**5)
+        x = abs(x)
         y = x % (2**64-1)
         assert rbigint.fromlong(x).hash() == rbigint.fromlong(y).hash()
         assert rbigint.fromlong(-x).hash() == rbigint.fromlong(-y).hash()
@@ -1720,13 +1706,16 @@ class TestHypothesis(object):
 
     @given(biglongs)
     def test_fromstr_small_limit(self, l):
-        # set STR2INT_LIMIT to 2 to stress the recursive algorithm some more
+        # set limits to 2 to stress the recursive algorithm some more
         oldval = HOLDER.STR2INT_LIMIT
+        oldval2 = HOLDER.MINSIZE_STR2INT
         try:
             HOLDER.STR2INT_LIMIT = 2
+            HOLDER.MINSIZE_STR2INT = 1
             assert rbigint.fromstr(str(l)).tolong() == l
         finally:
             HOLDER.STR2INT_LIMIT = oldval
+            HOLDER.MINSIZE_STR2INT = 1
 
     @given(strategies.integers(min_value=1, max_value=10000), strategies.integers(min_value=1, max_value=10000))
     def test_str_to_int_big_w5pow(self, exp, limit):
@@ -1737,6 +1726,14 @@ class TestHypothesis(object):
     @given(biglongs)
     def test_bit_count(self, val):
         assert rbigint.fromlong(val).bit_count() == bin(abs(val)).count("1")
+
+    @given(strategies.binary(), strategies.booleans(), strategies.booleans())
+    def test_frombytes_tobytes_hypothesis(self, s, big, signed):
+        # check the roundtrip from binary strings to bigints and back
+        byteorder = 'big' if big else 'little'
+        bigint = rbigint.frombytes(s, byteorder=byteorder, signed=signed)
+        t = bigint.tobytes(len(s), byteorder=byteorder, signed=signed)
+        assert s == t
 
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])

@@ -2266,6 +2266,7 @@ class LimitHolder:
 HOLDER = LimitHolder()
 HOLDER.DIV_LIMIT = 21
 HOLDER.STR2INT_LIMIT = 2048
+HOLDER.MINSIZE_STR2INT = 6000
 
 
 def _extract_digits(a, startindex, numdigits):
@@ -3228,7 +3229,7 @@ def parse_digit_string(parser):
     base = parser.base
     if (base & (base - 1)) == 0 and base >= 2:
         return parse_string_from_binary_base(parser)
-    if base == 10 and (parser.end - parser.start) > 6000:
+    if base == 10 and (parser.end - parser.start) > HOLDER.MINSIZE_STR2INT:
         # check for errors and potentially remove underscores
         s, start, end = parser._all_digits10()
         a = _str_to_int_big_base10(s, start, end, HOLDER.STR2INT_LIMIT)
