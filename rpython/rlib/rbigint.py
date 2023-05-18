@@ -1489,7 +1489,6 @@ class rbigint(object):
 ONERBIGINT = rbigint([ONEDIGIT], 1, 1)
 ONENEGATIVERBIGINT = rbigint([ONEDIGIT], -1, 1)
 NULLRBIGINT = rbigint()
-FIVERBIGINT = rbigint.fromint(5)
 
 TWO_NULLRBIGINTS = (NULLRBIGINT, NULLRBIGINT)
 
@@ -3256,6 +3255,8 @@ def parse_digit_string(parser):
     a.sign *= parser.sign
     return a
 
+
+FIVERBIGINT = rbigint.fromint(5)
 
 def _str_to_int_big_w5pow(w, mem, limit):
     """Return 5**w and store the result.

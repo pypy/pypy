@@ -1601,11 +1601,9 @@ class TestHypothesis(object):
              99887766554433221113)
     @settings(max_examples=10)
     def test_gcd(self, x, y, z):
-        print(x, y, z)
         x, y, z = abs(x), abs(y), abs(z)
 
         def test(a, b, res):
-            print(rbigint.fromlong(a))
             g = rbigint.fromlong(a).gcd(rbigint.fromlong(b)).tolong()
 
             assert g == res
@@ -1735,6 +1733,42 @@ class TestHypothesis(object):
         t = bigint.tobytes(len(s), byteorder=byteorder, signed=signed)
         assert s == t
 
+    @given(biglongs, biglongs, biglongs)
+    def test_distributive(self, a, b, c):
+        la = rbigint.fromlong(a)
+        lb = rbigint.fromlong(b)
+        lc = rbigint.fromlong(c)
+        # a * (b + c) == a * b + a * c
+        assert la.mul(lb.add(lc)).eq(la.mul(lb).add(la.mul(lc)))
+
+    @given(biglongs, biglongs, biglongs)
+    def test_associative(self, a, b, c):
+        la = rbigint.fromlong(a)
+        lb = rbigint.fromlong(b)
+        lc = rbigint.fromlong(c)
+        # a * (b * c) == (a * b) * c
+        assert la.mul(lb.mul(lc)).eq(la.mul(lb).mul(lc))
+        # a + (b + c) == (a + b) + c
+        assert la.add(lb.add(lc)).eq(la.add(lb).add(lc))
+
+    @given(biglongs, biglongs)
+    def test_commutative(self, a, b):
+        la = rbigint.fromlong(a)
+        lb = rbigint.fromlong(b)
+        # a * b == b * a
+        assert la.mul(lb).eq(lb.mul(la))
+        # a + b == b + a
+        assert la.add(lb).eq(lb.add(la))
+
+    @given(longs, strategies.integers(0, 100), strategies.integers(0, 100))
+    @settings(max_examples=10)
+    def test_pow_mul(self, a, b, c):
+        la = rbigint.fromlong(a)
+        lb = rbigint.fromlong(b)
+        lc = rbigint.fromlong(c)
+        # a ** (b + c) == a ** b * a ** c
+        assert la.pow(lb.add(lc)).eq(la.pow(lb).mul(la.pow(lc)))
+
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
 def test_hypothesis_small_shift(methname):
@@ -1746,12 +1780,13 @@ def test_hypothesis_small_shift(methname):
     env = os.environ.copy()
     parent = os.path.dirname
     env['PYTHONPATH'] = parent(parent(parent(parent(__file__))))
-    p = subprocess.Popen([sys.executable, os.path.abspath(__file__), methname],
+    p = subprocess.Popen(" ".join([sys.executable, os.path.abspath(__file__), methname]),
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                          shell=True, env=env)
     stdout, stderr = p.communicate()
-    print stdout
-    print stderr
+    if p.returncode:
+        print stdout
+        print stderr
     assert not p.returncode
 
 def _get_hacked_rbigint(shift):
@@ -1769,7 +1804,7 @@ def _get_hacked_rbigint(shift):
 
 def run():
     shift = 9
-    print "USING SHIFT", shift
+    print "USING SHIFT", shift, sys.argv[1]
     _hacked_rbigint = _get_hacked_rbigint(shift)
     globals().update(_hacked_rbigint.__dict__) # emulate import *
     assert SHIFT == shift
