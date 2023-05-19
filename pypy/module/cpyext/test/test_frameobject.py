@@ -70,6 +70,43 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
             assert exc.traceback.tb_lineno in (-1, 42, 48) # should be 48
             assert frame.f_lineno in (-1, 42, 48)
 
+    def test_forge_frame_newer(self):
+        module = self.import_extension('foo', [
+            ("raise_exception", "METH_NOARGS",
+             """
+                 PyCodeObject *py_code = NULL;
+                 PyFrameObject *py_frame = NULL;
+                 PyObject *py_globals = NULL;
+
+                 py_code = PyCode_NewEmpty(
+                    "filename", "funcname", 42);
+                 py_globals = PyDict_New();
+
+                 py_frame = PyFrame_New(
+                     PyThreadState_Get(), /*PyThreadState *tstate,*/
+                     py_code,             /*PyCodeObject *code,*/
+                     py_globals,          /*PyObject *globals,*/
+                     NULL                 /*PyObject *locals*/
+                 );
+                 PyErr_SetString(PyExc_ValueError, "error message");
+                 PyTraceBack_Here(py_frame);
+
+                 Py_XDECREF(py_globals);
+                 Py_XDECREF(py_code);
+                 Py_XDECREF(py_frame);
+                 return NULL;
+             """),
+            ], prologue='#include "frameobject.h"')
+        exc = raises(ValueError, module.raise_exception)
+        exc.value.args[0] == 'error message'
+        frame = exc.traceback.tb_frame
+        assert frame.f_code.co_filename == "filename"
+        assert frame.f_code.co_name == "funcname"
+
+        assert exc.traceback.tb_lineno == 42
+        assert frame.f_lineno == 42
+
+
     def test_traceback_check(self):
         module = self.import_extension('foo', [
             ("traceback_check", "METH_NOARGS",
