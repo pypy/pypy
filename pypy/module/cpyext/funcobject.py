@@ -9,6 +9,8 @@ from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import pycode
+from pypy.tool.stdlib_opcode import bytecode_spec
+opcodedesc = bytecode_spec.opcodedesc
 
 CODE_FLAGS = dict(
     CO_OPTIMIZED   = 0x0001,
@@ -144,24 +146,34 @@ def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                   freevars=unwrap_list_of_texts(space, w_freevars),
                   cellvars=unwrap_list_of_texts(space, w_cellvars))
 
+raises_assertionerror_bytecode = bytes(bytearray([
+    opcodedesc.LOAD_ASSERTION_ERROR.index, 0,
+    opcodedesc.RAISE_VARARGS.index, 1,
+]))
+
 @cpython_api([CONST_STRING, CONST_STRING, rffi.INT_real], PyCodeObject)
 def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     """Creates a new empty code object with the specified source location."""
+    from pypy.interpreter.location import encode_positions
+    pos = (firstlineno, -1, -1, -1)
+    size_bc = len(raises_assertionerror_bytecode) // 2
+    linetable = encode_positions([pos] * size_bc, firstlineno)
+
     return PyCode(space,
                   argcount=0,
                   posonlyargcount=0,
                   kwonlyargcount=0,
                   nlocals=0,
-                  stacksize=0,
+                  stacksize=1,
                   flags=0,
-                  code="",
+                  code=raises_assertionerror_bytecode,
                   consts=[],
                   names=[],
                   varnames=[],
                   filename=rffi.charp2str(filename),
                   name=rffi.charp2str(funcname),
                   firstlineno=rffi.cast(lltype.Signed, firstlineno),
-                  linetable="",
+                  linetable=linetable,
                   freevars=[],
                   cellvars=[])
 
