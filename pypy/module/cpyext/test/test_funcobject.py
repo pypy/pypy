@@ -6,6 +6,7 @@ from pypy.module.cpyext.funcobject import (
     PyFunctionObject, PyCodeObject, CODE_FLAGS, PyMethod_Function,
     PyMethod_Self, PyMethod_New, PyFunction_GetCode,
     PyCode_NewEmpty, PyCode_GetNumFree, PyCode_Addr2Line)
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.interpreter.function import Function
 from pypy.interpreter.pycode import PyCode
 
@@ -122,3 +123,33 @@ class TestFunctionObject(BaseApiTest):
         assert PyCode_Addr2Line(space, w_code, 8) == 4
         assert PyCode_Addr2Line(space, w_code, -1) == -1
         assert PyCode_Addr2Line(space, w_code, 100) == -1
+
+class AppTestCall(AppTestCpythonExtensionBase):
+    def test_code_new_empty(self):
+        module = self.import_extension('foo', [
+            ("code_newempty", "METH_VARARGS",
+             """
+                const char *filename;
+                const char *funcname;
+                int firstlineno;
+
+                if (!PyArg_ParseTuple(args, "ssi:code_newempty",
+                                      &filename, &funcname, &firstlineno))
+                    return NULL;
+
+                return (PyObject *)PyCode_NewEmpty(filename, funcname, firstlineno);
+             """),
+            ])
+
+        def f():
+            return args
+        # check that calling a code object constructed by PyCode_NewEmpty
+        # doesn't crash, and produce the right file, lineno, etc
+        f.__code__ = module.code_newempty("abc", "def", 23)
+        with raises(AssertionError) as info:
+            f()
+
+        lines = list(f.__code__.co_lines())
+        assert lines == [(0, 4, 23)]
+        assert info.tb.tb_next.tb_lineno == 23
+
