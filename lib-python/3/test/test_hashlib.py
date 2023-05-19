@@ -40,7 +40,9 @@ else:
 # Otherwise import prints noise on stderr
 openssl_hashlib = import_fresh_module('hashlib', fresh=['_hashlib'])
 if builtin_hashes == default_builtin_hashes:
-    builtin_hashlib = import_fresh_module('hashlib', blocked=['_hashlib'])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        builtin_hashlib = import_fresh_module('hashlib', blocked=['_hashlib'])
 else:
     builtin_hashlib = None
 

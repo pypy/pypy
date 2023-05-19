@@ -232,3 +232,40 @@ if hasattr(lib, 'PKCS5_PBKDF2_HMAC'):
         if r == 0:
             raise ValueError
         return _bytes_with_len(key, dklen)
+
+@builtinify
+def scrypt(password, *, salt, n=None, r=None, p=None, maxmem=0, dklen=64):
+    int_max = (2 ** 31) - 1
+    if len(password) > int_max:
+        raise OverflowError("password is too long")
+    if len(salt) > int_max:
+        raise OverflowError("salt is too long")
+    def asint(val, name):
+        try:
+            return int(val)
+        except TypeError:
+            raise TypeError("%s is required and must be a unsigned int" % name)
+    n = asint(n, 'n')
+    if n < 2 or (n & (n - 1)):
+        raise TypeError("n must be a power of 2.")
+    r = asint(r, "r")
+    p = asint(p, "p")
+    if maxmem < 0 or  maxmem > int_max:
+        # OpenSSL 1.1.0 restricts maxmem to 32 MiB. It may change in the
+        #   future. The maxmem constant is private to OpenSSL.
+        raise ValueError("maxmem must be positive and smaller than %d" % int_max)
+    if dklen <= 0 or  dklen > int_max:
+        raise ValueError("dklen must be greater than 0 and smaller than %d" % int_max)
+    # let OpenSSL validate the rest
+    void_p = ffi.cast("char *", 0)
+    retval = lib.EVP_PBE_scrypt(void_p, 0, void_p, 0, n, r, p, maxmem, void_p, 0)
+    if not retval:
+        ValueError("Invalid parameter combination for n, r, p, maxmem.")
+    key = ffi.new("unsigned char[]", dklen)
+    c_password = ffi.from_buffer(password)
+    c_salt = ffi.from_buffer(salt)
+    reval = lib.EVP_PBE_scrypt(c_password, len(password), c_salt, len(salt),
+                               n, r, p, maxmem, key, dklen)
+    if not retval:
+        raise ValueError()
+    return _bytes_with_len(key, dklen)
