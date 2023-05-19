@@ -346,11 +346,19 @@ class TestRLong(object):
             fa = rbigint.fromlong(a)
             fb = rbigint.fromlong(b)
             div, mod = divmod_big(fa, fb)
-            return div.mul(fb).add(mod).eq(fa)
+            assert div.mul(fb).add(mod).eq(fa)
         check(2, 3)
         check(3, 2)
         check((2 << 1000) - 1, (2 << (65 * 3 + 2)) - 1)
         check((2 + 5 * 2 ** SHIFT) << (100 * SHIFT), 5 << (100 * SHIFT))
+
+    def test_divmod_big_is_used(self, monkeypatch):
+        # make sure that the big divmod path is actually hit
+        monkeypatch.setattr(rbigint, "_divmod_small", None)
+        fa = rbigint.fromlong(3 ** (SHIFT * HOLDER.DIV_LIMIT * 2))
+        fb = rbigint.fromlong(5 ** (SHIFT * HOLDER.DIV_LIMIT))
+        div, mod = fa.divmod(fb)
+        assert div.mul(fb).add(mod).eq(fa)
 
     def test_karatsuba_not_used_bug(self):
         a = rbigint.fromlong(2 ** 2000 + 1)
