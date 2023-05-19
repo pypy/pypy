@@ -251,6 +251,6 @@ def test_named_sequence():
 
 def test_cjk_13_missing_range_bug():
     assert unicodedb_13_0_0.name(0x30000) == 'CJK UNIFIED IDEOGRAPH-30000'
-    assert unicodedb_13_0_0.name(0x3134a) == 'CJK UNIFIED IDEOGRAPH-3134a'
-    assert unicodedb_13_0_0.name(0x3104f) == 'CJK UNIFIED IDEOGRAPH-3134a'
+    assert unicodedb_13_0_0.name(0x3134a) == 'CJK UNIFIED IDEOGRAPH-3134A'
+    assert unicodedb_13_0_0.name(0x3104f) == 'CJK UNIFIED IDEOGRAPH-3104F'
 
