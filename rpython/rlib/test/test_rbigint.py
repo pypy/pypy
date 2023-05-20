@@ -1742,6 +1742,7 @@ class TestHypothesis(object):
             HOLDER.STR2INT_LIMIT = 2
             HOLDER.MINSIZE_STR2INT = 1
             assert rbigint.fromstr(str(l)).tolong() == l
+            assert rbigint.fromstr(str(l) + "_1", allow_underscores=True).tolong() == int(str(l) + '1')
         finally:
             HOLDER.STR2INT_LIMIT = oldval
             HOLDER.MINSIZE_STR2INT = 1

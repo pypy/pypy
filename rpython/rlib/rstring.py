@@ -749,13 +749,14 @@ class NumberStringParser:
             # don't need a copy, no underscores
             return self.s, self.start, self.end
         assert self.allow_underscores
-        res = ['\x00'] * (self.end - self.start) # estimate
+
+        builder = StringBuilder(self.end - self.start)
         i = 0
         while True:
             d = self.next_digit()
             if d < 0:
-                return "".join(res[:i]), 0, i
-            res[i] = chr(d + ord('0'))
+                return builder.build(), 0, i
+            builder.append(chr(d + ord('0')))
             i += 1
 
     def prev_digit(self):
