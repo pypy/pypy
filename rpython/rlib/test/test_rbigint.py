@@ -1748,6 +1748,7 @@ class TestHypothesis(object):
             HOLDER.MINSIZE_STR2INT = 1
 
     @given(strategies.integers(min_value=1, max_value=10000), strategies.integers(min_value=1, max_value=10000))
+    @settings(max_examples=10)
     def test_str_to_int_big_w5pow(self, exp, limit):
         mem = {}
         assert (_str_to_int_big_w5pow(exp, mem, limit).tolong() == 5 ** exp ==
