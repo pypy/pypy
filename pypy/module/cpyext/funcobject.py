@@ -156,6 +156,7 @@ raises_assertionerror_bytecode = bytes(bytearray([
 def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     """Creates a new empty code object with the specified source location."""
     from pypy.interpreter.location import encode_positions
+    firstlineno = rffi.cast(lltype.Signed, firstlineno)
     pos = (firstlineno, -1, -1, -1)
     size_bc = len(raises_assertionerror_bytecode) // 2
     linetable = encode_positions([pos] * size_bc, firstlineno)
