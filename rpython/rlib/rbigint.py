@@ -2265,7 +2265,7 @@ class LimitHolder:
 HOLDER = LimitHolder()
 HOLDER.DIV_LIMIT = 21
 HOLDER.STR2INT_LIMIT = 2048
-HOLDER.MINSIZE_STR2INT = 6000
+HOLDER.MINSIZE_STR2INT = 4000
 
 
 def _extract_digits(a, startindex, numdigits):
