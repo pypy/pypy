@@ -22,6 +22,7 @@ from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
+from rpython.rtyper.tool.rfficache import platform
 
 from hypothesis import given, strategies, example, settings
 
@@ -83,6 +84,25 @@ tuples_biglongs_for_division = strategies.builds(
         strategies.data())
 
 biglongs = strategies.builds(makelong, strategies.data())
+
+
+def makerarithint(data):
+    classlist = platform.numbertype_to_rclass.values()
+    cls = data.draw(strategies.sampled_from(classlist))
+    if cls is int:
+        minimum = -sys.maxint-1
+        maximum = sys.maxint
+    else:
+        BITS = cls.BITS
+        if cls.SIGNED:
+            minimum = -2 ** (BITS - 1)
+            maximum = 2 ** (BITS - 1) - 1
+        else:
+            minimum = 0
+            maximum = 2 ** BITS - 1
+    value = data.draw(strategies.integers(minimum, maximum))
+    return cls(value)
+rarith_ints = strategies.builds(makerarithint, strategies.data())
 
 
 def gen_signs(l):
@@ -1336,11 +1356,11 @@ class TestTranslatable(object):
         assert res
 
     def test_args_from_rarith_int(self):
-        from rpython.rtyper.tool.rfficache import platform
         from rpython.rlib.rarithmetic import r_int
+        from rpython.rlib.unroll import unrolling_iterable
         from rpython.rtyper.lltypesystem.rffi import r_int_real
         classlist = platform.numbertype_to_rclass.values()
-        fnlist = []
+        cases = [] # tuples of (values, strvalues, typename)
         for r in classlist:
             if r in (r_int, r_int_real):     # and also r_longlong on 64-bit
                 continue
@@ -1354,16 +1374,19 @@ class TestTranslatable(object):
             if not signed:
                 values = [x & mask for x in values]
             values = [r(x) for x in values]
-
-            def fn(i):
-                n = rbigint.fromrarith_int(values[i])
-                return n.str()
-
-            for i in range(len(values)):
-                res = fn(i)
-                assert res == str(long(values[i]))
-                res = interpret(fn, [i])
-                assert ''.join(res.chars) == str(long(values[i]))
+            results = [str(long(x)) for x in values]
+            cases.append((values, results, str(r)))
+        cases = unrolling_iterable(cases)
+        def fn():
+            for values, results, typname in cases:
+                for i in range(len(values)):
+                    n = rbigint.fromrarith_int(values[i])
+                    n = rbigint.fromrarith_int(values[i])
+                    if n.str() != results[i]:
+                        return typname + str(i)
+            return None
+        res = interpret(fn, [])
+        assert not res
 
     def test_truediv_overflow(self):
         overflowing = 2**1024 - 2**(1024-53-1)
@@ -1776,6 +1799,11 @@ class TestHypothesis(object):
         lc = rbigint.fromlong(c)
         # a ** (b + c) == a ** b * a ** c
         assert la.pow(lb.add(lc)).eq(la.pow(lb).mul(la.pow(lc)))
+
+    @given(rarith_ints)
+    def test_args_from_rarith_int(self, i):
+        li = rbigint.fromrarith_int(i)
+        assert li.tolong() == int(i)
 
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
