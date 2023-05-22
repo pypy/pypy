@@ -1009,7 +1009,7 @@ static slotdef slotdefs[] = {
     TPSLOT("__new__", tp_new, slot_tp_new, NULL,
            "__new__(type, /, *args, **kwargs)\n--\n\n"
            "Create and return new object.  See help(type) for accurate signature."),
-    TPSLOT("__del__", tp_finalize, slot_tp_finalize, (wrapperfunc)wrap_del, ""),
+    TPSLOT("__del__", tp_del, slot_tp_del, (wrapperfunc)wrap_del, ""),
 
     AMSLOT("__await__", am_await, slot_am_await, wrap_unaryfunc,
            "__await__($self, /)\n--\n\nReturn an iterator to be used in await expression."),
