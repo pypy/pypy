@@ -3383,6 +3383,11 @@ class TestOptimizations:
             return [y for x in a for y in [f(x)]]
         """)
         assert self._code.consts_w[1].co_code.count(chr(ops.FOR_ITER)) == 1
+        self.count_instructions("""def listcomp_assignment_hack2():
+            return [y for x in [1, 2, 3] for y in []]
+        """)
+        # it's really pointless to optimize this
+        assert self._code.consts_w[1].co_code.count(chr(ops.FOR_ITER)) == 2
 
 
 class TestHugeStackDepths:
