@@ -1735,7 +1735,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         gen = generators[gen_index]
         assert isinstance(gen, ast.comprehension)
         iter = gen.iter
-        if gen_index > 0 and isinstance(iter, ast.List) and len(iter.elts) == 1:
+        if gen_index > 0 and isinstance(iter, ast.List) and iter.elts is not None and len(iter.elts) == 1:
             # assignment "idiom" (hack really)
             iter.elts[0].walkabout(self)
             start = None
