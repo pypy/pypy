@@ -1,11 +1,13 @@
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp.resoperation import rop
-from rpython.jit.metainterp import history, jitexc
-from rpython.jit.metainterp.history import ConstFloat, ConstPtrJitCode, ConstInt, IntFrontendOp, History, Const
+from rpython.jit.metainterp import history, jitexc, resume
+from rpython.jit.metainterp.history import History
 from rpython.jit.metainterp.pyjitpl import arguments
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import we_are_translated, specialize, always_inline
 from rpython.jit.codewriter.liveness import OFFSET_SIZE
+from rpython.jit.metainterp.valueapi import valueapi
+from rpython.rtyper.lltypesystem import lltype, rstr
 
 class ChangeFrame(Exception):
     pass
@@ -21,45 +23,45 @@ class MIFrame(object):
         self.metainterp = metainterp
         self.jitcode = jitcode
         self.bytecode = jitcode.code
-        self.registers_i = [None] * 128
-        self.registers_r = [None] * 128
-        self.registers_f = [None] * 128
 
-        # TODO seg fault
-        #self.registers_i = [None] * jitcode.num_regs_i()
-        #self.registers_r = [None] * jitcode.num_regs_r()
-        #self.registers_f = [None] * jitcode.num_regs_f()
+        # allocate registers
+        self.registers_offset_i = self.metainterp.alloc_regs_i(jitcode.num_regs_i())
+        self.registers_offset_r = self.metainterp.alloc_regs_r(jitcode.num_regs_r())
+        self.registers_offset_f = self.metainterp.alloc_regs_f(jitcode.num_regs_f())
         
         self.return_value = None # TODO
+        self.parent_snapshot = None
 
-        # self.copy_constants(self.registers_i, jitcode.constants_i, ConstInt)
-        # self.copy_constants(self.registers_r, jitcode.constants_r, ConstPtrJitCode)
-        # TODO self.copy_constants(self.registers_f, jitcode.constants_f, ConstFloat)
-
-    @specialize.arg(3)
-    def copy_constants(self, registers, constants, ConstClass):
-        """Copy jitcode.constants[0] to registers[255],
-                jitcode.constants[1] to registers[254],
-                jitcode.constants[2] to registers[253], etc."""
-        i = len(constants) - 1
-        while i >= 0:
-            j = 255 - i
-            assert j >= 0
-            registers[j] = ConstClass(constants[i])
-            i -= 1
+    def get_reg_i(self, index):
+        return self.metainterp.regs_i[self.registers_offset_i + index]
+    
+    def get_reg_r(self, index):
+        return self.metainterp.regs_r[self.registers_offset_r + index]
+    
+    def get_reg_f(self, index):
+        return self.metainterp.regs_f[self.registers_offset_f + index]
+    
+    def set_reg_i(self, index, value):
+        self.metainterp.regs_i[self.registers_offset_i + index] = value
+    
+    def set_reg_r(self, index, value):
+        self.metainterp.regs_r[self.registers_offset_r + index] = value
+    
+    def set_reg_f(self, index, value):
+        self.metainterp.regs_f[self.registers_offset_f+ index] = value
 
     def setup_call(self, argboxes):
         self.pc = 0
         count_i = count_r = count_f = 0
         for box in argboxes:
             if box.type == history.INT:
-                self.registers_i[count_i] = box
+                self.set_reg_i(count_i, box)
                 count_i += 1
             elif box.type == history.REF:
-                self.registers_r[count_r] = box
+                self.set_reg_r(count_r, box)
                 count_r += 1
             elif box.type == history.FLOAT:
-                self.registers_f[count_f] = box
+                self.set_reg_f(count_f, box)
                 count_f += 1
             else:
                 raise AssertionError(box.type)
@@ -69,50 +71,120 @@ class MIFrame(object):
         # whenever the 'opcode_implementations' (which is one of the 'opimpl_'
         # methods) raises ChangeFrame.  This is the case when the current frame
         # changes, due to a call or a return.
-        try:
             staticdata = self.metainterp.metainterp_sd
             while True:
                 pc = self.pc
                 op = ord(self.bytecode[pc])
-                staticdata.opcode_implementations[op](self, pc)
-        except ChangeFrame:
-            pass
+                if op == staticdata.op_live:
+                    self.pc = pc + OFFSET_SIZE + 1
+                else:
+                    try:
+                        staticdata.opcode_implementations[op](self, pc)
+                    except ChangeFrame:
+                        return
 
     def generate_guard(self, opnum, box=None, extraarg=None, resumepc=-1):
-        if isinstance(box, Const):    # no need for a guard
+        if valueapi.is_constant(box):    # no need for a guard
             return
         guard_op = self.metainterp.history.record(opnum, [box], None) # TODO
         
-        # unrealistic implementation of snapshots
-        # TODO reimpl 
-        # self.metainterp.history.snapshots.append(self.metainterp.snapshot())
+        saved_pc = 0
+        if self.metainterp.framestack:
+            frame = self.metainterp.framestack[-1]
+            saved_pc = frame.pc
+            if resumepc >= 0:
+                frame.pc = resumepc
+        resume.capture_resumedata(self.metainterp.framestack, None,
+                                  [], self.metainterp.history.trace,
+                                  False)
+        if self.metainterp.framestack:
+            self.metainterp.framestack[-1].pc = saved_pc
+        
+    def get_list_of_active_boxes(self, in_a_call, new_array, encode, after_residual_call=False):
+        from rpython.jit.codewriter.liveness import decode_offset
+        from rpython.jit.codewriter.liveness import LivenessIterator
+        if in_a_call:
+            # If we are not the topmost frame, self._result_argcode contains
+            # the type of the result of the call instruction in the bytecode.
+            # We use it to clear the box that will hold the result: this box
+            # is not defined yet.
+            argcode = self._result_argcode
+            index = ord(self.bytecode[self.pc - 1])
+            if argcode == 'i':
+                self.set_reg_i(index, history.CONST_FALSE)
+            elif argcode == 'r':
+                self.set_reg_r(index, history.CONST_NULL)
+            elif argcode == 'f':
+                self.set_reg_f(index, history.CONST_FZERO)
+            self._result_argcode = '?'     # done
+        if in_a_call or after_residual_call:
+            pc = self.pc # live instruction afterwards
+        else:
+            # there needs to be a live instruction before
+            SIZE_LIVE_OP = OFFSET_SIZE + 1
+            pc = self.pc - SIZE_LIVE_OP
+        assert ord(self.jitcode.code[pc]) == self.metainterp.metainterp_sd.op_live
+        if not we_are_translated():
+            assert pc in self.jitcode._startpoints
+        offset = decode_offset(self.jitcode.code, pc + 1)
+        all_liveness = self.metainterp.metainterp_sd.liveness_info
+        length_i = ord(all_liveness[offset])
+        length_r = ord(all_liveness[offset + 1])
+        length_f = ord(all_liveness[offset + 2])
+        offset += 3
 
+        start_i = 0
+        start_r = start_i + length_i
+        start_f = start_r + length_r
+        total   = start_f + length_f
+        # allocate a list of the correct size
+        env = new_array(total)
+        # fill it now
+        if length_i:
+            it = LivenessIterator(offset, length_i, all_liveness)
+            for index in it:
+                env[start_i] = encode(self.get_reg_i(index))
+                start_i += 1
+            offset = it.offset
+        if length_r:
+            it = LivenessIterator(offset, length_r, all_liveness)
+            for index in it:
+                env[start_r] = encode(self.get_reg_r(index))
+                start_r += 1
+            offset = it.offset
+        if length_f:
+            it = LivenessIterator(offset, length_f, all_liveness)
+            for index in it:
+                env[start_f] = encode(self.get_reg_f(index))
+                start_f += 1
+            offset = it.offset
+        return env
 
     @arguments("box", "box")
     def opimpl_int_add(self, b1, b2):
-        res = b1.getint() + b2.getint()
-        if not (b1.is_constant() and b2.is_constant()):
+        res = valueapi.get_value(b1) + valueapi.get_value(b2)
+        if not (valueapi.is_constant(b1) and valueapi.is_constant(b2)):
             res_box = self.metainterp.history.record(rop.INT_ADD, [b1, b2], res)
         else:
-            res_box = ConstInt(res)
+            res_box = valueapi.create_const(res)
         return res_box
 
     @arguments("box", "box")
     def opimpl_int_sub(self, b1, b2):
-        res = b1.getint() - b2.getint()
-        if not (b1.is_constant() and b2.is_constant()):
+        res = valueapi.get_value(b1) - valueapi.get_value(b2)
+        if not (valueapi.is_constant(b1) and valueapi.is_constant(b2)):
             res_box = self.metainterp.history.record(rop.INT_SUB, [b1, b2], res)
         else:
-            res_box = ConstInt(res)
+            res_box = valueapi.create_const(res)
         return res_box
 
     @arguments("box", "box")
     def opimpl_int_mul(self, b1, b2):
-        res = b1.getint() * b2.getint()
-        if not (b1.is_constant() and b2.is_constant()):
+        res = valueapi.get_value(b1) * valueapi.get_value(b2)
+        if not (valueapi.is_constant(b1) and valueapi.is_constant(b2)):
             res_box = self.metainterp.history.record(rop.INT_MUL, [b1, b2], res)
         else:
-            res_box = ConstInt(res)
+            res_box = valueapi.create_const(res)
         return res_box
 
     @arguments("box")
@@ -125,8 +197,8 @@ class MIFrame(object):
 
     @arguments("box", "box", "label", "orgpc")
     def opimpl_goto_if_not_int_gt(self, a, b, target, orgpc):
-        res = a.getint() > b.getint()
-        if not (a.is_constant() and b.is_constant()):
+        res = valueapi.get_value(a) > valueapi.get_value(b)
+        if not (valueapi.is_constant(a) and valueapi.is_constant(b)):
             res_box = self.metainterp.history.record(rop.INT_GT, [a, b], res)
             if res:
                 opnum = rop.GUARD_TRUE
@@ -138,8 +210,8 @@ class MIFrame(object):
 
     @arguments("box", "box", "label", "orgpc")
     def opimpl_goto_if_not_int_lt(self, a, b, target, orgpc):
-        res = a.getint() < b.getint()
-        if not (a.is_constant() and b.is_constant()):
+        res = valueapi.get_value(a) < valueapi.get_value(b)
+        if not (valueapi.is_constant(a) and valueapi.is_constant(b)):
             res_box = self.metainterp.history.record(rop.INT_LT, [a, b], res)
             if res:
                 opnum = rop.GUARD_TRUE
@@ -151,8 +223,8 @@ class MIFrame(object):
 
     @arguments("box", "box", "label", "orgpc")
     def opimpl_goto_if_not_int_eq(self, a, b, target, orgpc):
-        res = a.getint() == b.getint()
-        if not (a.is_constant() and b.is_constant()):
+        res = valueapi.get_value(a) == valueapi.get_value(b)
+        if not (valueapi.is_constant(a) and valueapi.is_constant(b)):
             res_box = self.metainterp.history.record(rop.INT_EQ, [a, b], res)
             if res:
                 opnum = rop.GUARD_TRUE
@@ -178,21 +250,22 @@ class MIFrame(object):
     
     @arguments("box", "box")
     def opimpl_strgetitem(self, strbox, indexbox):
-        res = ord(strbox._get_str()[indexbox.getint()])
-        if strbox.is_constant() and indexbox.getint():
-            return ConstInt(res)
+        s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), valueapi.get_value(strbox))
+        res = ord(s.chars[valueapi.get_value(indexbox)])
+        if (valueapi.is_constant(strbox) and valueapi.is_constant(indexbox)):
+            return valueapi.create_const(res)
         return self.metainterp.history.record(rop.STRGETITEM, [strbox, indexbox], res)
     
     @arguments("box", "descr", "orgpc")
     def opimpl_switch(self, valuebox, switchdict, orgpc):
-        search_value = valuebox.getint()
+        search_value = valueapi.get_value(valuebox)
         assert isinstance(switchdict, SwitchDictDescr)
         try:
             target = switchdict.dict[search_value]
         except KeyError:
             # TODO
             pass
-        if not valuebox.is_constant():
+        if not valueapi.is_constant(valuebox):
             self.generate_guard(rop.GUARD_VALUE, valuebox, resumepc=orgpc)
         self.pc = target
 
@@ -208,45 +281,117 @@ class MIFrame(object):
         code = self.bytecode
         for i in range(length):
             index = ord(code[position+i])
-            if index >= 128:
-                if   argcode == 'I':
-                    assert len(old_jitcode.constants_i) > (255 - index)
-                    reg = ConstInt(old_jitcode.constants_i[255 - index])
-                    f.registers_i[i] = reg
-                elif argcode == 'R':
-                    assert len(old_jitcode.constants_r) > (255 - index)
-                    reg = ConstPtrJitCode(old_jitcode.constants_r[255 - index])
-                    f.registers_r[i] = reg
-                # TODO
-                #elif argcode == 'F':
-                #    reg = ConstFloat(old_jitcode.constants_f[255 - index])
-                #    f.registers_f[i] = reg
-                else:
-                    raise AssertionError(argcode)
+            value = self.fetch_register_value(argcode, index, old_jitcode)
+            if   argcode == 'I':
+                f.set_reg_i(i, value)
+            elif argcode == 'R':
+                f.set_reg_r(i, value)
+            elif argcode == 'F':
+                f.set_reg_f(i, value)
+                
+    @specialize.arg_or_var(1)
+    def fetch_register_value(self, argcode, index, jitcode):
+        if argcode.lower() == 'i':
+            if index >= jitcode.num_regs_i():
+                value = valueapi.create_const(jitcode.constants_i[index - jitcode.num_regs_i()])
             else:
-                if   argcode == 'I':
-                    reg = self.registers_i[index]
-                    f.registers_i[i] = reg
-                elif argcode == 'R':
-                    reg = self.registers_r[index]
-                    f.registers_r[i] = reg
-                elif argcode == 'F':
-                    reg = self.registers_f[index]
-                    f.registers_f[i] = reg
-                else:
-                    raise AssertionError(argcode)
-
+                value = self.get_reg_i(index)
+        elif argcode.lower() == 'r':
+            if index >= jitcode.num_regs_r():
+                value = valueapi.create_const(jitcode.constants_r[index - jitcode.num_regs_r()])
+            else:
+                value = self.get_reg_r(index)
+        elif argcode.lower() == 'f':
+            if index >= jitcode.num_regs_f():
+                # TODO value = jitcode.constants_f[index - jitcode.num_regs_f()]
+                value = None
+            else:
+                value = self.get_reg_f(index)
+        else:
+            raise AssertionError("bad argcode")
+        
+        return value
 
 class MetaInterp(object):
     def __init__(self, metainterp_sd):
         self.framestack = []
         self.metainterp_sd = metainterp_sd
 
-    def snapshot(self):
-        res = []
-        for frame in self.framestack:
-            res.append((frame.jitcode, frame.pc, frame.registers_i[:], frame.registers_r[:], frame.registers_f[:]))
+        # total amount of registers to allocate from, will be increased if necessary 
+        # TODO good initial size?
+        self.max_regs_i = 16
+        self.max_regs_r = 16
+        self.max_regs_f = 16
+
+        # top of current allocation stack, place of next allocation
+        self.allocated_regs_i = 0
+        self.allocated_regs_r = 0
+        self.allocated_regs_f = 0
+
+        # lists of registers, both in use and free
+        self.regs_i = [None] * self.max_regs_i
+        self.regs_r = [None] * self.max_regs_r
+        self.regs_f = [None] * self.max_regs_f
+
+    def alloc_regs_i(self, num_regs_i):
+        # ensure enough space available for new frame
+        did_resize = False
+        while self.allocated_regs_i + num_regs_i > self.max_regs_i:
+            self.max_regs_i *= 2
+            did_resize = True
+        if did_resize:
+            new_regs_i = [None] * self.max_regs_i
+            # copy over old values
+            for i in range(self.allocated_regs_i):
+                new_regs_i[i] = self.regs_i[i]
+            self.regs_i = new_regs_i
+        # allocate
+        res = self.allocated_regs_i
+        self.allocated_regs_i += num_regs_i
         return res
+
+    def alloc_regs_r(self, num_regs_r):
+        # ensure enough space available for new frame
+        did_resize = False
+        while self.allocated_regs_r + num_regs_r > self.max_regs_r:
+            self.max_regs_r *= 2
+            did_resize = True
+        if did_resize:
+            new_regs_r = [None] * self.max_regs_r
+            # copy over old values
+            for i in range(self.allocated_regs_r):
+                new_regs_r[i] = self.regs_r[i]
+            self.regs_r = new_regs_r
+        # allocate
+        res = self.allocated_regs_r
+        self.allocated_regs_r += num_regs_r
+        return res
+    
+    def alloc_regs_f(self, num_regs_f):
+        # ensure enough space available for new frame
+        did_resize = False
+        while self.allocated_regs_f + num_regs_f > self.max_regs_f:
+            self.max_regs_f *= 2
+            did_resize = True
+        if did_resize:
+            new_regs_f = [None] * self.max_regs_f
+            # copy over old values
+            for i in range(self.allocated_regs_f):
+                new_regs_f[i] = self.regs_f[i]
+            self.regs_f = new_regs_f
+        # allocate
+        res = self.allocated_regs_f
+        self.allocated_regs_f += num_regs_f
+        return res
+    
+    def free_regs_i(self, num_regs_i):
+        self.allocated_regs_i -= num_regs_i
+
+    def free_regs_r(self, num_regs_r):
+        self.allocated_regs_r -= num_regs_r
+
+    def free_regs_f(self, num_regs_f):
+        self.allocated_regs_f -= num_regs_f
 
     def create_empty_history(self):
         self.history = History()
@@ -292,11 +437,17 @@ class MetaInterp(object):
     
     def finishframe(self):
         frame = self.framestack.pop()
+
+        # free allocated registers
+        self.free_regs_i(frame.jitcode.num_regs_i())
+        self.free_regs_r(frame.jitcode.num_regs_r())
+        self.free_regs_f(frame.jitcode.num_regs_f())
+
         if self.framestack:
             # TODO other return types
             cur = self.framestack[-1]
             target_index = ord(cur.bytecode[cur.pc-1])
-            cur.registers_i[target_index] = frame.return_value
+            cur.set_reg_i(target_index, frame.return_value)
             raise ChangeFrame
         else:
             raise DoneWithThisFrameInt(frame.return_value)
@@ -314,10 +465,9 @@ class MetaInterp(object):
 def wrap(value, in_const_box=False):
     assert isinstance(value, int)
     if in_const_box:
-        return ConstInt(value)
+        return valueapi.create_const(value)
     else:
-        op = IntFrontendOp(0)
-        op.setint(value)
+        op = valueapi.create_box(0, value)
         return op
 
 
@@ -348,26 +498,13 @@ def _get_opimpl_method(name, argcodes):
             if argtype == "box":     # a box, of whatever type
                 argcode = argcodes[next_argcode]
                 next_argcode = next_argcode + 1
-                if argcode == 'i':
-                    value = self.registers_i[ord(code[position])]
-                elif argcode == 'c':
-                    value = ConstInt(signedord(code[position]))
-                elif argcode == 'r':
-                    value = self.registers_r[ord(code[position])]
-                elif argcode == 'f':
-                    value = self.registers_f[ord(code[position])]
-                else:
-                    raise AssertionError("bad argcode")
-                
-                if value is None:
-                    if argcode == 'i':
-                        value = ConstInt(self.jitcode.constants_i[255 - ord(code[position])])
-                    elif argcode == 'r':
-                        value = ConstPtrJitCode(self.jitcode.constants_r[255 - ord(code[position])])
-                    # TODO
-                    # elif argcode == 'f':
-                    #    value = self.jitcode.constants_f[255 - ord(code[position])]
 
+                if argcode == 'c':
+                    value = valueapi.create_const(signedord(code[position]))
+                else:
+                    index = ord(code[position])
+                    value = self.fetch_register_value(argcode, index, self.jitcode)
+                
                 position += 1
             elif argtype == "descr" or argtype == "jitcode":
                 assert argcodes[next_argcode] == 'd'
@@ -471,7 +608,7 @@ def _get_opimpl_method(name, argcodes):
         #
         if resultbox is not None:
             target_index = ord(self.bytecode[self.pc-1])
-            self.registers_i[target_index] = resultbox # XXX only ints supported so far
+            self.set_reg_i(target_index, resultbox) # TODO only ints supported so far
         elif not we_are_translated():
             assert self._result_argcode in 'v?' or 'ovf' in name
     #

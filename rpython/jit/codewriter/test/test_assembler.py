@@ -43,8 +43,8 @@ def test_assemble_consts():
     assert jitcode.code == ("\x00\x0D"
                             "\x01\x12"   # use int_return/c for one-byte consts
                             "\x01\xFC"
-                            "\x00\xFF"   # use int_return/i for larger consts
-                            "\x00\xFE")
+                            "\x00\x0E"   # use int_return/i for larger consts
+                            "\x00\x0F")
     assert assembler.insns == {'int_return/i': 0,
                                'int_return/c': 1}
     assert jitcode.constants_i == [128, -129]
@@ -60,9 +60,9 @@ def test_assemble_float_consts():
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
     assert jitcode.code == ("\x00\x0D"
-                            "\x00\xFF"
-                            "\x00\xFE"
-                            "\x00\xFD")
+                            "\x00\x0e"
+                            "\x00\x0f"
+                            "\x00\x10")
     assert assembler.insns == {'float_return/f': 0}
     assert jitcode.constants_f == [longlong.getfloatstorage(18.0),
                                    longlong.getfloatstorage(-4.0),
@@ -106,12 +106,12 @@ def test_assemble_cast_consts():
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
     assert jitcode.code == ("\x00\x58"
-                            "\x01\xFF"
-                            "\x01\xFE"
-                            "\x02\xFF"
-                            "\x02\xFE"
-                            "\x02\xFF"
-                            "\x02\xFE")
+                            "\x01\x00"
+                            "\x01\x01"
+                            "\x02\x00"
+                            "\x02\x01"
+                            "\x02\x00"
+                            "\x02\x01")
     assert assembler.insns == {'int_return/c': 0,
                                'int_return/i': 1,
                                'ref_return/r': 2}
@@ -155,7 +155,7 @@ def test_assemble_list():
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
-    assert jitcode.code == "\x00\x03\x16\x17\xFF\x00"
+    assert jitcode.code == "\x00\x03\x16\x17\x18\x00"
     assert assembler.insns == {'foobar/IR': 0}
     assert jitcode.constants_i == [42]
 
@@ -172,10 +172,10 @@ def test_assemble_list_semibug():
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
-    assert jitcode.code == ("\x00\x01\xFF"
-                            "\x00\x01\xFF"
+    assert jitcode.code == ("\x00\x01\x00"
+                            "\x00\x01\x00"
                             "\x01\x2A"
-                            "\x02\xFE")
+                            "\x02\x01")
     assert assembler.insns == {'foobar/I': 0,
                                'baz/c': 1,    # in USE_C_FORM
                                'bok/i': 2}    # not in USE_C_FORM
