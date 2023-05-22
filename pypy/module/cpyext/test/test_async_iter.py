@@ -60,4 +60,3 @@ class AppTestAsyncIter(AppTestCpythonExtensionBase):
         g = module.gen()
         result = module.test_last_yield(g)
         assert result == 123 
-""
