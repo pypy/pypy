@@ -837,6 +837,21 @@ def slot_from_buffer_w(space, typedef):
         return 0
     return buff_w
 
+def _make_missing_wrapper(name):
+    assert name not in globals()
+    class missing_wrapper(W_PyCWrapperObject):
+        def call(self, space, w_self, __args__):
+            msg = "cpyext: missing slot wrapper %s for class %s" %(
+                    name, space.getfulltypename(w_self))
+            print msg
+            raise NotImplementedError("Slot wrapper " + name)
+    missing_wrapper.__name__ = name
+    globals()[name] = missing_wrapper
+
+missing_wrappers = ['wrap_del']
+for name in missing_wrappers:
+    _make_missing_wrapper(name)
+
 def make_missing_slot(space, typedef, name, attr):
     return None
 
@@ -994,7 +1009,7 @@ static slotdef slotdefs[] = {
     TPSLOT("__new__", tp_new, slot_tp_new, NULL,
            "__new__(type, /, *args, **kwargs)\n--\n\n"
            "Create and return new object.  See help(type) for accurate signature."),
-    TPSLOT("__del__", tp_finalize, slot_tp_finalize, NULL, ""),
+    TPSLOT("__del__", tp_finalize, slot_tp_finalize, (wrapperfunc)wrap_del, ""),
 
     AMSLOT("__await__", am_await, slot_am_await, wrap_unaryfunc,
            "__await__($self, /)\n--\n\nReturn an iterator to be used in await expression."),

@@ -271,7 +271,7 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
         raises(module.error, 'raise module.error()')
         assert module.int_const == 1969
         assert module.str_const == 'something different'
-        ex.__del__()
+        del ex
         import gc
         for i in range(3):
             gc.collect()
