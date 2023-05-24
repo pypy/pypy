@@ -12,6 +12,29 @@
 }
 END: Cython Metadata */
 
+/* The pure-python code:
+async def test_gen():
+    a = yield 123
+    assert a is None
+    yield 456
+    yield 789
+
+def run_until_complete(coro):
+    while True:
+        try:
+            fut = coro.send(None)
+        except StopIteration as ex:
+            return ex.args[0]
+
+def to_list(gen):
+    async def iterate():
+        res = []
+        async for i in gen:
+            res.append(i)
+        return res
+    return run_until_complete(iterate())
+*/
+
 #ifndef PY_SSIZE_T_CLEAN
 #define PY_SSIZE_T_CLEAN
 #endif /* PY_SSIZE_T_CLEAN */
