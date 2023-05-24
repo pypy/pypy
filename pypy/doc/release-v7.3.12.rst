@@ -12,7 +12,7 @@ PyPy v7.3.12: release of python 2.7, 3.9, and 3.10
 .. _`PyPy blog`: https://pypy.org/blog
 
 The PyPy team is proud to release version 7.3.12 of PyPy. 
-This release includes a new ``int2str`` algorithm (also appearing in CPython
+This release includes a new string-to-int algorithm (also appearing in CPython
 3.12) that is faster than the older one; support for symlinks in Windows; and
 our first Python3.10 version.
 
