@@ -12,7 +12,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
-    getbufferproc, ssizessizeobjargproc)
+    getbufferproc, ssizessizeobjargproc, destructor)
 from pypy.module.cpyext.pyobject import make_ref, from_ref, as_pyobj, decref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
@@ -474,6 +474,16 @@ class wrap_cmpfunc(W_PyCWrapperObject):
 
         return space.newint(generic_cpy_call(space, func_target, w_self, w_other))
 
+class wrap_del(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        from pypy.module.cpyext.api import generic_cpy_call_expect_null
+        self.check_args(__args__, 0)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(destructor, func)
+        generic_cpy_call(space, func_target, w_self)
+        return space.w_None
+
+
 SLOT_FACTORIES = {}
 def slot_factory(tp_name):
     def decorate(func):
@@ -837,21 +847,6 @@ def slot_from_buffer_w(space, typedef):
         return 0
     return buff_w
 
-def _make_missing_wrapper(name):
-    assert name not in globals()
-    class missing_wrapper(W_PyCWrapperObject):
-        def call(self, space, w_self, __args__):
-            msg = "cpyext: missing slot wrapper %s for class %s" %(
-                    name, space.getfulltypename(w_self))
-            print msg
-            raise NotImplementedError("Slot wrapper " + name)
-    missing_wrapper.__name__ = name
-    globals()[name] = missing_wrapper
-
-missing_wrappers = ['wrap_del']
-for name in missing_wrappers:
-    _make_missing_wrapper(name)
-
 def make_missing_slot(space, typedef, name, attr):
     return None
 
@@ -1009,7 +1004,7 @@ static slotdef slotdefs[] = {
     TPSLOT("__new__", tp_new, slot_tp_new, NULL,
            "__new__(type, /, *args, **kwargs)\n--\n\n"
            "Create and return new object.  See help(type) for accurate signature."),
-    TPSLOT("__del__", tp_finalize, slot_tp_finalize, (wrapperfunc)wrap_del, ""),
+    TPSLOT("__del__", tp_finalize, slot_tp_finalize, wrap_del, ""),
 
     AMSLOT("__await__", am_await, slot_am_await, wrap_unaryfunc,
            "__await__($self, /)\n--\n\nReturn an iterator to be used in await expression."),

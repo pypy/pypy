@@ -1735,7 +1735,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         gen = generators[gen_index]
         assert isinstance(gen, ast.comprehension)
         iter = gen.iter
-        if gen_index > 0 and isinstance(iter, ast.List) and len(iter.elts) == 1:
+        if gen_index > 0 and isinstance(iter, ast.List) and iter.elts is not None and len(iter.elts) == 1:
             # assignment "idiom" (hack really)
             iter.elts[0].walkabout(self)
             start = None
@@ -2059,7 +2059,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
                 self._visit_body(case.body)
                 self.emit_jump(ops.JUMP_FORWARD, end)
-                match_context.next_case()
+                match_context.next_case(case.pattern)
             self.use_next_block(end)
         # self.emit_op(ops.POP_TOP)
 
@@ -2575,7 +2575,9 @@ class ClassCodeGenerator(PythonCodeGenerator):
         self.first_lineno = cls.lineno
         if cls.decorator_list and cls.decorator_list[0].lineno > 0:
             self.first_lineno = cls.decorator_list[0].lineno
-        self.update_position(cls)
+        # bit weird, but CPython does that too: the line of the artificial
+        # first instructions is that of the first decorator
+        self.update_position((self.first_lineno, -1, -1, -1))
         self.argcount = 1
         # load (global) __name__ ...
         self.name_op("__name__", ast.Load, None)

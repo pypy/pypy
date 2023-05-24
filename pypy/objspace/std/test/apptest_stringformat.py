@@ -50,6 +50,26 @@ def test_format_error():
     assert '%(key)s'%MyMapping2() == 'key'
     #assert u'%(key)s'%MyMapping2() == u'key'  # no py3k
 
+def test_format_error_complex():
+    with raises(TypeError) as e:
+        "%u" % 3j
+    assert "%u format: a real number" in str(e.value)
+
+    with raises(TypeError) as e:
+        "%i" % 3j
+    assert "%i format: a real number" in str(e.value)
+
+def test_format_bad_class():
+    class RaisingNumber:
+        def __int__(self):
+            raise RuntimeError('int')
+        def __index__(self):
+            raise RuntimeError('index')
+
+    with raises(RuntimeError) as e:
+        "%d" % RaisingNumber()
+    assert "int" in str(e.value)
+
 
 #from AppTestStringObject
 def test_format_item_string():
@@ -280,14 +300,15 @@ def test___int__index__():
     assert '%c' % x == 'B'
 
 def test_index_fails():
+    class MyException(Exception):
+        pass
+
     class IndexFails(object):
         def __index__(self):
-            raise Exception
+            raise MyException
 
-    exc = raises(TypeError, "%x".__mod__, IndexFails())
-    expected = "%x format: an integer is required, not IndexFails"
-    assert str(exc.value) == expected
-    raises(TypeError, "%c".__mod__, IndexFails())
+    exc = raises(MyException, "%x".__mod__, IndexFails())
+    raises(MyException, "%c".__mod__, IndexFails())
 
 def test_formatting_huge_precision():
     prec = 2**31

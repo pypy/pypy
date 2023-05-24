@@ -16,10 +16,13 @@ from rpython.rlib import rbigint as lobj
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, LONG_BIT
 from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
-    gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError)
+    gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError,
+    _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10)
+from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
+from rpython.rtyper.tool.rfficache import platform
 
 from hypothesis import given, strategies, example, settings
 
@@ -34,7 +37,72 @@ def makelong(data):
         return -r
     return r
 
+def makelong_long_sequences(data, ndigits):
+    """ From CPython:
+    Get quasi-random long consisting of ndigits digits (in base BASE).
+    quasi == the most-significant digit will not be 0, and the number
+    is constructed to contain long strings of 0 and 1 bits.  These are
+    more likely than random bits to provoke digit-boundary errors.
+    The sign of the number is also random.
+    """
+    nbits_hi = ndigits * SHIFT
+    nbits_lo = nbits_hi - SHIFT + 1
+    answer = 0L
+    nbits = 0
+    r = data.draw(strategies.integers(0, SHIFT * 2 - 1)) | 1  # force 1 bits to start
+    while nbits < nbits_lo:
+        bits = (r >> 1) + 1
+        bits = min(bits, nbits_hi - nbits)
+        assert 1 <= bits <= SHIFT
+        nbits = nbits + bits
+        answer = answer << bits
+        if r & 1:
+            answer = answer | ((1 << bits) - 1)
+        r = data.draw(strategies.integers(0, SHIFT * 2 - 1))
+    assert nbits_lo <= nbits <= nbits_hi
+    if data.draw(strategies.booleans()):
+        answer = -answer
+    return answer
+
+
+MAXDIGITS = 15
+digitsizes = strategies.sampled_from(
+    range(1, MAXDIGITS+1) +
+    range(KARATSUBA_CUTOFF, KARATSUBA_CUTOFF + 14) +
+    [KARATSUBA_CUTOFF * 3, KARATSUBA_CUTOFF * 1000]
+)
+
+def make_biglongs_for_division(data):
+    size1 = data.draw(digitsizes)
+    val1 = makelong_long_sequences(data, size1)
+    size2 = data.draw(digitsizes)
+    val2 = makelong_long_sequences(data, size2)
+    return val1, val2
+
+tuples_biglongs_for_division = strategies.builds(
+        make_biglongs_for_division,
+        strategies.data())
+
 biglongs = strategies.builds(makelong, strategies.data())
+
+
+def makerarithint(data):
+    classlist = platform.numbertype_to_rclass.values()
+    cls = data.draw(strategies.sampled_from(classlist))
+    if cls is int:
+        minimum = -sys.maxint-1
+        maximum = sys.maxint
+    else:
+        BITS = cls.BITS
+        if cls.SIGNED:
+            minimum = -2 ** (BITS - 1)
+            maximum = 2 ** (BITS - 1) - 1
+        else:
+            minimum = 0
+            maximum = 2 ** BITS - 1
+    value = data.draw(strategies.integers(minimum, maximum))
+    return cls(value)
+rarith_ints = strategies.builds(makerarithint, strategies.data())
 
 
 def gen_signs(l):
@@ -71,7 +139,6 @@ class TestRLong(object):
                 for op in "add sub mul".split():
                     r1 = getattr(rl_op1, op)(rl_op2)
                     r2 = getattr(operator, op)(op1, op2)
-                    print op, op1, op2
                     assert r1.tolong() == r2
 
     def test_frombool(self):
@@ -242,7 +309,6 @@ class TestRLong(object):
                 for op3 in gen_signs([1, 2, 5, 1000, 12312312312312235659969696l]):
                     if not op3:
                         continue
-                    print op1, op2, op3
                     r3 = rl_op1.pow(rl_op2, rbigint.fromlong(op3))
                     r4 = pow(op1, op2, op3)
                     assert r3.tolong() == r4
@@ -260,7 +326,6 @@ class TestRLong(object):
                         continue
                     r3 = rl_op1.int_pow(op2, rbigint.fromlong(op3))
                     r4 = pow(op1, op2, op3)
-                    print op1, op2, op3
                     assert r3.tolong() == r4
 
     def test_int_pow_big(self):
@@ -301,11 +366,40 @@ class TestRLong(object):
             fa = rbigint.fromlong(a)
             fb = rbigint.fromlong(b)
             div, mod = divmod_big(fa, fb)
-            return div.mul(fb).add(mod).eq(fa)
+            assert div.mul(fb).add(mod).eq(fa)
         check(2, 3)
         check(3, 2)
         check((2 << 1000) - 1, (2 << (65 * 3 + 2)) - 1)
         check((2 + 5 * 2 ** SHIFT) << (100 * SHIFT), 5 << (100 * SHIFT))
+
+    def test_divmod_big_is_used(self, monkeypatch):
+        # make sure that the big divmod path is actually hit
+        monkeypatch.setattr(rbigint, "_divmod_small", None)
+        fa = rbigint.fromlong(3 ** (SHIFT * HOLDER.DIV_LIMIT * 2))
+        fb = rbigint.fromlong(5 ** (SHIFT * HOLDER.DIV_LIMIT))
+        div, mod = fa.divmod(fb)
+        assert div.mul(fb).add(mod).eq(fa)
+
+    def test_karatsuba_not_used_bug(self):
+        a = rbigint.fromlong(2 ** 2000 + 1)
+        b = rbigint.fromlong(2 ** 5000 + 7)
+        assert a.mul(b).tolong() == a.tolong() * b.tolong()
+
+    def test_lopsided_bug(self):
+        la = 0x1b8e499a888235ea66f6497e3640bc118592a4ecb800e53e0121af9b2dede38c9323dc160ad564c10ff34095fcc89ecefde3116e7ad99bd5a5b785d811a1e930ae0b0a919623569c99d6c1e779aa5345609a14fc64a83970991d7df672d3bf2fe800766932291b2593382495d1b2a9de1a212d0e517d35764a8a30d060d4218f034807c59728a009683887c3f239f6b958216fd6e36db778bf350941be6ee987f87ea6460ba77f1db154fff175d20117107b5ebd48305b4190d082433419f3daace778d9ce9975ca33293c8b7ad7dd253321e208c22e1bf3833535dd4c76395117e6f32444254fdb9e77cd0b5f8d98c31dafaab720067ef925
+        a = rbigint.fromlong(la)
+        lb = 0x30fcf4a0f2ae98bd28d249c3eeabf902b492ec4f8001978aacada9f76e18b0f9e9234e6013427a3ac705c82716b9fde1c35ac9a7f6d8317bd14643473bca821da73012c9ee77b66bbc287529bbd97797c82e5e327a0e9f0110346e27e894e21c471d44493cbadaed7780410a585a118ad91e88fd02a5b4608483e500ac23c9e1ccf1d4ed7e811c8280647f953cd8d3109cad389a77df7f0f8cd01074e0c52d6380e12798f84637513b41c7029891c90c8f1436a5d5ab4ce656c80405b1f53fbda529ba66c49f0a4b059ea4862fb8a5977758ae4875a74e22b05e98a5dd43f41e6361b0407925e34d8b7fa5698d6d815adf712f7e71d2a8d75ee7749e22e558157d73c1ed1089063dd7a29c915990836b5a951aa77917847bd9807d6c89b4262871127d17ca5a84e2b23bc5eb66137cce412dcbd88622b55b05b710258affcc845a8e1b99d33c187a237eacd21e9628063948f711b2e5617b647f3fe7c28bac1989612a66d6be34d59ffee63e15e0cdf10d43c6f6301c47e7c7f3ca71dc4e312873633957a6054f25d4db49dcc401aba272ff7c23e077c143510a040f5eb80fe096384c3a4ab0604d951710956f84cdefb631a2ed806ad8f5fef5ef1223dbea4b8a7b49309e9672e77c763dbb698432c77cfff875ab5c97d24f4441b5a3704deda8835135e3e6314be281a97963b49eccf06571b634efa16605a0ec2eda8148a6537e24da5fb128cfbde3ea6c28d850eac3815dd2a0a72844a14590124a6e9062befbdf7fb14c7783ee5096481a5ef0ef9dabf4bc831213afc469a5256818e1dba97cae6f63d6cf2b9584361f36b1b8fa60286fe6bc010129b7f99ee250907ed0a134900513bd3c38555de3b085e7e86
+        b = rbigint.fromlong(lb)
+        x = a.mul(b)
+        assert x.tolong() == la * lb
+
+    def test_mul_bug(self):
+        x = -0x1fffffffffffe00000000000007fffffffffffffffffe0000000000000fffffffffffffc0000000000000003fffffffffff1fffffffffffffffffffff8000000000000000ff80000000000000fffffff000000000000000000000fff800000000000003fffffffffffffffffffffffffffffffe000000000000000000fffffffffffffffffffffffffffffffffffffffffffffc3ffffffffffffff80000000003fffffffffffffe000000000000003fffffffffffffffffffffffffffffffffffffc000000000000000007ffc00000007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe00000000000000000000000fffffffffe0000000000000000000000000000000007ffffffffff8000000000000000000000000007ffffffffe00000000000001ffffffff00000000007fffffffffc0000000000000000000007fffffffffffffe0000000000ffffffffffffffffffffffffffffff0000000000000000000000000000004000000000000000000007fffffffffffffffc00fffffffff80000001fffffffffffe0000000007ffffffffffffffffc000000000000000000000003f00fffffff000000001fffffffffffffffffffffffffffffffffe000000000000003ffffffffffffffc000000000000000000000000000000000000000000000000fffffffffffff8000001ffffffffffffffffffffffffe00000000000003ffffffffffffffffffffffff00000000fffffffffff000000000L
+        y = -0x3fffffffffffc0000000000000000007ffffffffffff800000000000000000001ffffffffffffffc0000000000000000000000ffffffffffffffffffffffffffffc000000000000000000001ffffffffffffffffffffffffffffffffffffffffffffffffffffe00000000000000000000000000007fffffffffff000000000000000000000000fffffffffffffffffffffffffffffffffffffffff0000000003e007fffffffffffffffffff80000000000000000003fffffffffc000000000000007fffc0000000007ffffffffffffff0000000000010000000000000001fffffffffffffffffffffffffffffffffe000000000000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000000001ffff007fff0000000000000000000000001f000000000001fffffffffffffffffc00000000001fffffffffffffffffffffffffffffffffffffff0000000000000000001ffffffffffff00000000000000000000000000000000000003fffffffff00003fffffffe00000000000000000000ffffffffffffffffffffff800001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff8000000000000001ffe000001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000fffffffffff800000000000000000fffffffffffffffffffe00000000003ffffffffffffffffffffffffffffffffffffffffc000000000000000006000001fffffffe0000000000ffffffffffffffffffffffffff8003fffffffffffffffffffffffffffe0000007fffc0000000000000000000000001ffffffffffffffffffffffffffffffffffff0000000000001fffe00000000000000000000000000000000000000000000000000000003fffffff0000000000007ffffff8000000000000001fffffffffffffffff80001fffffffffffffffffffffffffff800000000000000000001ffffe00000000000000000003fffffffffffffffffffffffff000000000000000fffffffffffffffffffffffffffffc0000000000000003fffffe0000000000000000000000001ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000003fff00001ffffffffffffffffffff0000000000001fffffffffffffc0000000000007ffffffffffffffffffffc000000000007fffffffffffffffffff80000000000003ffffffffffffc0000000000000000000000000000000000000000000000ffffe000000000000000000000000000001ffffffffffffffffffffffffffffffffffffe007ffffffffffff000000000000003fffffffffffffffffff800000000000000ff0000000000000000000000000000001ffffffffffffe00000000000007ffffffffffffff8000000000000001ffffffffffffc0000000000007ff000003fffffffffffffffffffffffffffffffffffffe00000007ffffffffffffffffffffe00000007ffffff0000000000000000ffffc00000000000000000ffffffffff8000000000000000fffffe0000000000000000000007fffffffffc000000fe0000000000000000000001ffffff800000000000000001ffffffffff00000000000000000000000000000000000000000000000ffffffffffffffffff000000000000000000000007fffffffffffffc0000fffffffffffffffffffffffffe000003ffffffffffff800000000000001fffffffffffffc000000000000000000000000001fff8000000000000000000000000000fffffffffffffffffffffffff0000000000000000003fe00000003fffffffffffffffff00000000000000ffffffffffe07fffffffffffffffc000000000000000000000003fffffff800000000000000000000003fffffffffffc0000000000000000000000003fffffffffffffffffc0000000000ffffffffffffffffffffffffffffffffffffffffffffffffffe000ffffffffffffffffc000000000000000000000000000000000000000000ffffffffffffffff8000000000000000000000000000000000000000000000000000000000fffffffffffffffc00000000000000003fffffffffffffffffffffffffffffffffffffe00003fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0000000000003fffffff00000000007ffffffffffc0007ffffffffe00000ffffc000700000000000000fffffffffff80000000000000000000000L
+        xl = rbigint.fromlong(x)
+        yl = rbigint.fromlong(y)
+        assert xl.mul(yl).tolong() == x * y
+        assert yl.mul(xl).tolong() == x * y
 
 
 def bigint(lst, sign):
@@ -392,6 +486,8 @@ class Test_rbigint(object):
         assert rbigint.fromstr('123L', 22).tolong() == 10648 + 968 + 66 + 21
         assert rbigint.fromstr('123L', 21).tolong() == 441 + 42 + 3
         assert rbigint.fromstr('1891234174197319').tolong() == 1891234174197319
+        assert rbigint.fromstr('1891_234_17_4_19731_9', allow_underscores=True).tolong() == 1891234174197319
+        assert rbigint.fromstr('1_1' * 6000, allow_underscores=True).tolong() == int('11' * 6000)
 
     def test__from_numberstring_parser_rewind_bug(self):
         from rpython.rlib.rstring import NumberStringParser
@@ -412,9 +508,13 @@ class Test_rbigint(object):
         res = p.next_digit()
         assert res == -1
 
-    @given(longs)
-    def test_fromstr_hypothesis(self, l):
-        assert rbigint.fromstr(str(l)).tolong() == l
+    def test_fromstr_huge(self):
+        assert _str_to_int_big_base10("1" * 1000, 0, 1000).tolong() == int("1" * 1000)
+        mem = {}
+
+        result = _str_to_int_big_inner10('123952' * 1000, 0, 6000, mem, 20)
+        assert len(mem) == 13
+        assert result
 
     def test_from_numberstring_parser(self):
         from rpython.rlib.rstring import NumberStringParser
@@ -869,7 +969,7 @@ class Test_rbigint(object):
         finally:
             rbigint.pow = oldpow
 
-    def test_overzelous_assertion(self):
+    def test_overzealous_assertion(self):
         a = rbigint.fromlong(-1<<10000)
         b = rbigint.fromlong(-1<<3000)
         assert a.mul(b).tolong() == (-1<<10000)*(-1<<3000)
@@ -947,14 +1047,6 @@ class Test_rbigint(object):
             i.tobytes(3, 'little', signed=False)
         with pytest.raises(OverflowError):
             i.tobytes(2, 'little', signed=True)
-
-    @given(strategies.binary(), strategies.booleans(), strategies.booleans())
-    def test_frombytes_tobytes_hypothesis(self, s, big, signed):
-        # check the roundtrip from binary strings to bigints and back
-        byteorder = 'big' if big else 'little'
-        bigint = rbigint.frombytes(s, byteorder=byteorder, signed=signed)
-        t = bigint.tobytes(len(s), byteorder=byteorder, signed=signed)
-        assert s == t
 
     def test_gcd(self):
         assert gcd_binary(2*3*7**2, 2**2*7) == 2*7
@@ -1079,7 +1171,6 @@ class TestInternalFunctions(object):
         b = -0x131313131313131313d0
         ra = rbigint.fromlong(a)
         rb = rbigint.fromlong(b)
-        from rpython.rlib.rbigint import HOLDER
         oldval = HOLDER.DIV_LIMIT
         try:
             HOLDER.DIV_LIMIT = 2 # set limit low to test divmod_big more
@@ -1104,7 +1195,6 @@ class TestInternalFunctions(object):
                     div, rem = f1.int_divmod(sy)
                     div1, rem1 = f1.divmod(rbigint.fromlong(sy))
                     _div, _rem = divmod(sx, sy)
-                    print sx, sy, " | ", div.tolong(), rem.tolong()
                     assert div1.tolong() == _div
                     assert rem1.tolong() == _rem
                     assert div.tolong() == _div
@@ -1197,6 +1287,8 @@ class TestInternalFunctions(object):
                 self.sign = sign
                 self.i = 0
                 self._digits = digits
+                self.start = 0
+                self.end = len(digits)
             def next_digit(self):
                 i = self.i
                 if i == len(self._digits):
@@ -1264,11 +1356,11 @@ class TestTranslatable(object):
         assert res
 
     def test_args_from_rarith_int(self):
-        from rpython.rtyper.tool.rfficache import platform
         from rpython.rlib.rarithmetic import r_int
+        from rpython.rlib.unroll import unrolling_iterable
         from rpython.rtyper.lltypesystem.rffi import r_int_real
         classlist = platform.numbertype_to_rclass.values()
-        fnlist = []
+        cases = [] # tuples of (values, strvalues, typename)
         for r in classlist:
             if r in (r_int, r_int_real):     # and also r_longlong on 64-bit
                 continue
@@ -1282,16 +1374,19 @@ class TestTranslatable(object):
             if not signed:
                 values = [x & mask for x in values]
             values = [r(x) for x in values]
-
-            def fn(i):
-                n = rbigint.fromrarith_int(values[i])
-                return n.str()
-
-            for i in range(len(values)):
-                res = fn(i)
-                assert res == str(long(values[i]))
-                res = interpret(fn, [i])
-                assert ''.join(res.chars) == str(long(values[i]))
+            results = [str(long(x)) for x in values]
+            cases.append((values, results, str(r)))
+        cases = unrolling_iterable(cases)
+        def fn():
+            for values, results, typname in cases:
+                for i in range(len(values)):
+                    n = rbigint.fromrarith_int(values[i])
+                    n = rbigint.fromrarith_int(values[i])
+                    if n.str() != results[i]:
+                        return typname + str(i)
+            return None
+        res = interpret(fn, [])
+        assert not res
 
     def test_truediv_overflow(self):
         overflowing = 2**1024 - 2**(1024-53-1)
@@ -1361,7 +1456,6 @@ class TestHypothesis(object):
             with pytest.raises(type(e)):
                 f1.divmod(f2)
         else:
-            print x, y
             a, b = f1.divmod(f2)
             assert (a.tolong(), b.tolong()) == res
 
@@ -1392,7 +1486,6 @@ class TestHypothesis(object):
     @example(17, 257)
     @example(510439143470502793407446782273075179618477362188870662225920L, 108089693021945158982483698831267549521L)
     def test_divmod_big(self, x, y):
-        from rpython.rlib.rbigint import HOLDER
         oldval = HOLDER.DIV_LIMIT
         try:
             HOLDER.DIV_LIMIT = 2 # set limit low to test divmod_big more
@@ -1411,11 +1504,30 @@ class TestHypothesis(object):
                 with pytest.raises(type(e)):
                     divmod_big(f1, f2)
             else:
-                print x, y
                 a, b = divmod_big(f1, f2)
                 assert (a.tolong(), b.tolong()) == res
         finally:
             HOLDER.DIV_LIMIT = oldval
+
+    @given(tuples_biglongs_for_division)
+    def test_divmod_consistency(self, tup):
+        lx, ly = tup
+        ly = ly or 1
+        x = rbigint.fromlong(lx)
+        y = rbigint.fromlong(ly)
+        q, r = x.divmod(y)
+        q2, r2 = x.floordiv(y), x.mod(y)
+        pab, pba = x.mul(y), y.mul(x)
+        assert pab.eq(pba)
+        assert q.eq(q2)
+        assert r.eq(r2)
+        assert x.eq(q.mul(y).add(r))
+        if y.int_gt(0):
+            assert r.lt(y)
+            assert r.int_ge(0)
+        else:
+            assert y.lt(r)
+            assert y.int_le(0)
 
     @given(biglongs, ints)
     def test_int_divmod(self, x, iy):
@@ -1426,7 +1538,6 @@ class TestHypothesis(object):
             with pytest.raises(type(e)):
                 f1.int_divmod(iy)
         else:
-            print x, iy
             a, b = f1.int_divmod(iy)
             assert (a.tolong(), b.tolong()) == res
 
@@ -1434,7 +1545,7 @@ class TestHypothesis(object):
     def test_hash(self, x):
         # hash of large integers: should be equal to the hash of the
         # integer reduced modulo 2**64-1, to make decimal.py happy
-        x = randint(0, sys.maxint**5)
+        x = abs(x)
         y = x % (2**64-1)
         assert rbigint.fromlong(x).hash() == rbigint.fromlong(y).hash()
         assert rbigint.fromlong(-x).hash() == rbigint.fromlong(-y).hash()
@@ -1521,11 +1632,9 @@ class TestHypothesis(object):
              99887766554433221113)
     @settings(max_examples=10)
     def test_gcd(self, x, y, z):
-        print(x, y, z)
         x, y, z = abs(x), abs(y), abs(z)
 
         def test(a, b, res):
-            print(rbigint.fromlong(a))
             g = rbigint.fromlong(a).gcd(rbigint.fromlong(b)).tolong()
 
             assert g == res
@@ -1610,9 +1719,93 @@ class TestHypothesis(object):
         r1 = rx.abs_rshift_and_mask(r_ulonglong(shift), mask)
         assert r1 == (abs(x) >> shift) & mask
 
+    @given(biglongs, strategies.integers(min_value=1, max_value=10000))
+    def test_str_to_int_big_base10(self, l, limit):
+        l = abs(l)
+        s = str(l)
+        assert _str_to_int_big_base10(str(l), 0, len(s), limit).tolong() == l
+
+    @given(biglongs)
+    def test_fromstr(self, l):
+        assert rbigint.fromstr(str(l)).tolong() == l
+
+    @given(biglongs)
+    def test_fromstr_str_consistency(self, l):
+        assert rbigint.fromstr(rbigint.fromlong(l).str()).tolong() == l
+
+    @given(biglongs)
+    def test_fromstr_small_limit(self, l):
+        # set limits to 2 to stress the recursive algorithm some more
+        oldval = HOLDER.STR2INT_LIMIT
+        oldval2 = HOLDER.MINSIZE_STR2INT
+        try:
+            HOLDER.STR2INT_LIMIT = 2
+            HOLDER.MINSIZE_STR2INT = 1
+            assert rbigint.fromstr(str(l)).tolong() == l
+            assert rbigint.fromstr(str(l) + "_1", allow_underscores=True).tolong() == int(str(l) + '1')
+        finally:
+            HOLDER.STR2INT_LIMIT = oldval
+            HOLDER.MINSIZE_STR2INT = 1
+
+    @given(strategies.integers(min_value=1, max_value=10000), strategies.integers(min_value=1, max_value=10000))
+    @settings(max_examples=10)
+    def test_str_to_int_big_w5pow(self, exp, limit):
+        mem = {}
+        assert (_str_to_int_big_w5pow(exp, mem, limit).tolong() == 5 ** exp ==
+                rbigint.fromint(5).int_pow(exp).tolong())
+
     @given(biglongs)
     def test_bit_count(self, val):
         assert rbigint.fromlong(val).bit_count() == bin(abs(val)).count("1")
+
+    @given(strategies.binary(), strategies.booleans(), strategies.booleans())
+    def test_frombytes_tobytes_hypothesis(self, s, big, signed):
+        # check the roundtrip from binary strings to bigints and back
+        byteorder = 'big' if big else 'little'
+        bigint = rbigint.frombytes(s, byteorder=byteorder, signed=signed)
+        t = bigint.tobytes(len(s), byteorder=byteorder, signed=signed)
+        assert s == t
+
+    @given(biglongs, biglongs, biglongs)
+    def test_distributive(self, a, b, c):
+        la = rbigint.fromlong(a)
+        lb = rbigint.fromlong(b)
+        lc = rbigint.fromlong(c)
+        # a * (b + c) == a * b + a * c
+        assert la.mul(lb.add(lc)).eq(la.mul(lb).add(la.mul(lc)))
+
+    @given(biglongs, biglongs, biglongs)
+    def test_associative(self, a, b, c):
+        la = rbigint.fromlong(a)
+        lb = rbigint.fromlong(b)
+        lc = rbigint.fromlong(c)
+        # a * (b * c) == (a * b) * c
+        assert la.mul(lb.mul(lc)).eq(la.mul(lb).mul(lc))
+        # a + (b + c) == (a + b) + c
+        assert la.add(lb.add(lc)).eq(la.add(lb).add(lc))
+
+    @given(biglongs, biglongs)
+    def test_commutative(self, a, b):
+        la = rbigint.fromlong(a)
+        lb = rbigint.fromlong(b)
+        # a * b == b * a
+        assert la.mul(lb).eq(lb.mul(la))
+        # a + b == b + a
+        assert la.add(lb).eq(lb.add(la))
+
+    @given(longs, strategies.integers(0, 100), strategies.integers(0, 100))
+    @settings(max_examples=10)
+    def test_pow_mul(self, a, b, c):
+        la = rbigint.fromlong(a)
+        lb = rbigint.fromlong(b)
+        lc = rbigint.fromlong(c)
+        # a ** (b + c) == a ** b * a ** c
+        assert la.pow(lb.add(lc)).eq(la.pow(lb).mul(la.pow(lc)))
+
+    @given(rarith_ints)
+    def test_args_from_rarith_int(self, i):
+        li = rbigint.fromrarith_int(i)
+        assert li.tolong() == int(i)
 
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
@@ -1625,12 +1818,13 @@ def test_hypothesis_small_shift(methname):
     env = os.environ.copy()
     parent = os.path.dirname
     env['PYTHONPATH'] = parent(parent(parent(parent(__file__))))
-    p = subprocess.Popen([sys.executable, os.path.abspath(__file__), methname],
+    p = subprocess.Popen(" ".join([sys.executable, os.path.abspath(__file__), methname]),
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                          shell=True, env=env)
     stdout, stderr = p.communicate()
-    print stdout
-    print stderr
+    if p.returncode:
+        print stdout
+        print stderr
     assert not p.returncode
 
 def _get_hacked_rbigint(shift):
@@ -1648,7 +1842,7 @@ def _get_hacked_rbigint(shift):
 
 def run():
     shift = 9
-    print "USING SHIFT", shift
+    print "USING SHIFT", shift, sys.argv[1]
     _hacked_rbigint = _get_hacked_rbigint(shift)
     globals().update(_hacked_rbigint.__dict__) # emulate import *
     assert SHIFT == shift

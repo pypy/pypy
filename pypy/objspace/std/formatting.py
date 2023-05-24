@@ -58,8 +58,18 @@ class BaseStringFormatter(object):
         self.std_wp_number(r, prefix)
 
     def fmt_d(self, w_value):
-        "int formatting"
+        "d% formatting"
         r = int_num_helper(self.space, w_value)
+        self.std_wp_int(r)
+
+    def fmt_i(self, w_value):
+        "i% formatting"
+        r = int_num_helper(self.space, w_value, fmt_for_error="%i")
+        self.std_wp_int(r)
+
+    def fmt_u(self, w_value):
+        "u% formatting"
+        r = int_num_helper(self.space, w_value, fmt_for_error="%u")
         self.std_wp_int(r)
 
     def fmt_x(self, w_value):
@@ -88,9 +98,6 @@ class BaseStringFormatter(object):
         else:
             prefix = ''
         self.std_wp_int(r, prefix)
-
-    fmt_i = fmt_d
-    fmt_u = fmt_d
 
     def fmt_e(self, w_value):
         self.format_float(w_value, 'e')
@@ -499,10 +506,9 @@ def make_formatter_subclass(do_unicode):
             space = self.space
             try:
                 w_value = space.index(w_value)
-            except OperationError as e:
-                if e.async(space):
+            except OperationError as operr:
+                if not operr.match(space, space.w_TypeError):
                     raise
-                # otherwise, eats all exceptions, like CPython
             else:
                 n = space.int_w(w_value)
                 if do_unicode:
@@ -667,12 +673,14 @@ def maybe_float(space, w_value):
     return space.float(w_value)
 
 def format_num_helper_generator(fmt, digits, decoder=maybe_int,
-                                expect_text="a number"):
+                                expect_text="a real number"):
     def format_num_helper(space, w_value, fmt_for_error=fmt):
         if not space.isinstance_w(w_value, space.w_int):
             try:
                 w_value = decoder(space, w_value)
-            except OperationError:
+            except OperationError as operr:
+                if not operr.match(space, space.w_TypeError):
+                    raise
                 raise oefmt(space.w_TypeError,
                             "%s format: %s is required, not %T",
                             fmt_for_error, expect_text, w_value)

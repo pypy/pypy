@@ -488,3 +488,17 @@ def PyGC_Disable(space):
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyGC_Enable(space):
     return 0
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyObject_GC_IsTracked(space, w_obj):
+    """All objects in PyPy are tracked, this will always return 1
+    """
+    return 1
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyObject_GC_IsFinalized(space, w_obj):
+    """For now, always return 0
+    """
+    return 0
+
+

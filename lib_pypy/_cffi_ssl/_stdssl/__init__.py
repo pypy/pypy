@@ -770,13 +770,28 @@ class _SSLSocket(object):
             return _str_with_len(out[0], outlen[0]);
 
     def shared_ciphers(self):
-        ciphers = lib.SSL_get_ciphers(self.ssl)
-        if ciphers == ffi.NULL:
+
+        # Rather than use SSL_get_shared_ciphers, we use an equivalent
+        # algorithm because:
+        # 1) It returns a colon seperated list of strings, in an undefined
+        #    order, that we would have to post process back into tuples.
+        # 2) It will return a truncated string with no indication that it has
+        #    done so, if the buffer is too small.
+
+
+        server_ciphers = lib.SSL_get_ciphers(self.ssl)
+        if server_ciphers == ffi.NULL:
+            return None
+        client_ciphers = lib.SSL_get_client_ciphers(self.ssl)
+        if client_ciphers == ffi.NULL:
             return None
         res = []
-        count = lib.sk_SSL_CIPHER_num(ciphers)
+        count = lib.sk_SSL_CIPHER_num(server_ciphers)
         for i in range(count):
-            tup = cipher_to_tuple(lib.sk_SSL_CIPHER_value(ciphers, i))
+            cipher = lib.sk_SSL_CIPHER_value(server_ciphers, i)
+            if lib.sk_SSL_CIPHER_find(client_ciphers, cipher) < 0:
+                continue
+            tup = cipher_to_tuple(cipher)
             if not tup:
                 return None
             res.append(tup)
@@ -1169,8 +1184,6 @@ class _SSLContext(object):
         options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
         options |= lib.SSL_OP_SINGLE_DH_USE
         options |= lib.SSL_OP_SINGLE_ECDH_USE
-        if lib.Crytpography_HAS_OP_IGNORE_UNEXPECTED_EOF:
-            options |= lib.SSL_OP_IGNORE_UNEXPECTED_EOF
         lib.SSL_CTX_set_options(self.ctx, options)
 
         # A bare minimum cipher list without completely broken cipher suites.

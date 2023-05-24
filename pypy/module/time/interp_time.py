@@ -277,9 +277,10 @@ if _WIN:
             # We can't use that big number when translating for
             # 32-bit system (which windows always is currently)
             # XXX: Need to come up with a better solution
-            offset = (r_ulonglong(16384) * r_ulonglong(27) * r_ulonglong(390625)
-                     * r_ulonglong(79) * r_ulonglong(853))
-            microseconds = quad_part / 10 - offset
+            offset = (r_ulonglong(16384) * r_ulonglong(27) *
+                      r_ulonglong(390625) * r_ulonglong(79) *
+                      r_ulonglong(853)  * r_ulonglong(10))
+            microseconds10x = quad_part - offset
             if w_info:
                 with lltype.scoped_alloc(LPDWORD.TO, 1) as time_adjustment, \
                      lltype.scoped_alloc(LPDWORD.TO, 1) as time_increment, \
@@ -290,11 +291,9 @@ if _WIN:
                     _setinfo(space, w_info, "GetSystemTimeAsFileTime()",
                              intmask(time_increment[0]) * 1e-7, False, True)
             if return_ns:
-                return space.newint(tolong(microseconds) * 10**3)
+                return space.newint(tolong(microseconds10x) * 10**2)
             else:
-                tv_sec = microseconds / 10**6
-                tv_usec = microseconds % 10**6
-                return space.newfloat(tv_sec + tv_usec * 1e-6)
+                return space.newfloat(float(microseconds10x) / 1e7)
 else:
     if HAVE_GETTIMEOFDAY:
         if GETTIMEOFDAY_NO_TZ:
