@@ -402,14 +402,6 @@ class DescrOperation(object):
             w_right_impl = None
         else:
             w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, '__rpow__')
-            # sse binop_impl
-            if (w_left_src is not w_right_src
-                and space.issubtype_w(w_typ2, w_typ1)):
-                if (w_left_src and w_right_src and
-                    not space.abstract_issubclass_w(w_left_src, w_right_src) and
-                    not space.abstract_issubclass_w(w_typ1, w_right_src)):
-                    w_obj1, w_obj2 = w_obj2, w_obj1
-                    w_left_impl, w_right_impl = w_right_impl, w_left_impl
         if w_left_impl is not None:
             if space.is_w(w_obj3, space.w_None):
                 w_res = space.get_and_call_function(w_left_impl, w_obj1, w_obj2)

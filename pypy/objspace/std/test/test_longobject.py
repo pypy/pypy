@@ -252,6 +252,15 @@ class AppTestLong:
         assert pow(x, 2, 2) == long(0)
         assert pow(x, 2, long(3)) == long(1)
 
+    def test_issue_3912(self):
+
+        class A(int):
+            # A class that uses the default 0 value but does not override __pow__
+            def __rpow__(self, other, modulo):
+                return None
+
+        raises(ValueError, pow, 1, A(), A())
+
     def test_getnewargs(self):
         assert  self._long(0) .__getnewargs__() == (self._long(0),)
         assert  (-self._long(1)) .__getnewargs__() == (-self._long(1),)
