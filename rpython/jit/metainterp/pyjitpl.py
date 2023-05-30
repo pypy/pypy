@@ -1927,7 +1927,7 @@ class MIFrame(object):
                 vablebox = None
                 resbox = None
                 if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
-                    resbox = self.metainterp.direct_libffi_call(allboxes, descr)
+                    resbox = self.metainterp.direct_libffi_call(allboxes, c_result, descr)
                     # ^^^ may return None to mean "can't handle it myself"
                 if resbox is None:
                     if effectinfo.is_call_release_gil():
@@ -3469,7 +3469,7 @@ class MetaInterp(object):
         else:
             return None, op
 
-    def direct_libffi_call(self, argboxes, orig_calldescr, valueconst):
+    def direct_libffi_call(self, argboxes, valueconst, orig_calldescr):
         """Generate a direct call to C code using jit_ffi_call()
         """
         # an 'assert' that constant-folds away the rest of this function
