@@ -666,9 +666,17 @@ class FrontendOp(AbstractResOp):
 class IntFrontendOp(IntOp, FrontendOp):
     _attrs_ = ('position_and_flags', '_resint')
 
+    def __init__(self, pos, value):
+        FrontendOp.__init__(self, pos)
+        self._resint = value
+
 
 class FloatFrontendOp(FloatOp, FrontendOp):
     _attrs_ = ('position_and_flags', '_resfloat')
+
+    def __init__(self, pos, value):
+        FrontendOp.__init__(self, pos)
+        self._resfloat = value
 
 
 class RefFrontendOp(RefOp, FrontendOp):
@@ -677,6 +685,10 @@ class RefFrontendOp(RefOp, FrontendOp):
         _attrs_ += ('_heapc_flags',)   # on 64 bit, this gets stored into the
         _heapc_flags = r_uint(0)       # high 32 bits of 'position_and_flags'
     _heapc_deps = None
+
+    def __init__(self, pos, value):
+        FrontendOp.__init__(self, pos)
+        self._resref = value
 
     if LONG_BIT == 32:
         def _get_heapc_flags(self):
@@ -760,18 +772,14 @@ class History(object):
         if value is None:
             op = FrontendOp(pos)
         elif isinstance(value, bool):
-            op = IntFrontendOp(pos)
-            op.setint(int(value))
+            op = IntFrontendOp(pos, int(value))
         elif lltype.typeOf(value) == lltype.Signed:
-            op = IntFrontendOp(pos)
-            op.setint(value)
+            op = IntFrontendOp(pos, value)
         elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
-            op = FloatFrontendOp(pos)
-            op.setfloatstorage(value)
+            op = FloatFrontendOp(pos, value)
         else:
-            op = RefFrontendOp(pos)
             assert lltype.typeOf(value) == llmemory.GCREF
-            op.setref_base(value)
+            op = RefFrontendOp(pos, value)
         return op
 
     def record_nospec(self, opnum, argboxes, valueconst, descr=None):
@@ -781,17 +789,11 @@ class History(object):
             assert valueconst is None
             return FrontendOp(pos)
         elif tp == 'i':
-            res = IntFrontendOp(pos)
-            res.setint(valueconst.getint())
-            return res
+            return IntFrontendOp(pos, valueconst.getint())
         elif tp == 'f':
-            res = FloatFrontendOp(pos)
-            res.setfloatstorage(valueconst.getfloatstorage())
-            return res
+            return FloatFrontendOp(pos, valueconst.getfloatstorage())
         assert tp == 'r'
-        res = RefFrontendOp(pos)
-        res.setref_base(valueconst.getref_base())
-        return res
+        return RefFrontendOp(pos, valueconst.getref_base())
 
     def record_same_as(self, box):
         if box.type == 'i':

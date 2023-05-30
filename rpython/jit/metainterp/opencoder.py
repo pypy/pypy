@@ -301,7 +301,10 @@ class Trace(BaseTrace):
         self._snapshots = []
         if not we_are_translated() and isinstance(max_num_inputargs, list): # old api for tests
             self.inputargs = max_num_inputargs
+            for i, box in enumerate(max_num_inputargs):
+                box.position_and_flags = r_uint(i << 1)
             max_num_inputargs = len(max_num_inputargs)
+
         self.max_num_inputargs = max_num_inputargs
         self._count = max_num_inputargs # total count
         self._index = max_num_inputargs # "position" of resulting resops

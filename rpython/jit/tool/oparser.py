@@ -418,12 +418,12 @@ def pick_cls(inp):
     from rpython.jit.metainterp import history
 
     if inp.type == 'i':
-        return history.IntFrontendOp
+        return lambda pos: history.IntFrontendOp(pos, -1)
     elif inp.type == 'r':
-        return history.RefFrontendOp
+        return lambda pos: history.RefFrontendOp(pos, history.RefFrontendOp._resref)
     else:
         assert inp.type == 'f'
-        return history.FloatFrontendOp
+        return lambda pos: history.FloatFrontendOp(pos, -3.14)
 
 def convert_loop_to_trace(loop, metainterp_sd, skip_last=False):
     from rpython.jit.metainterp.opencoder import Trace

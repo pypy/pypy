@@ -1292,14 +1292,11 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         # we create *FrontendOp instances with numbers in the range
         # 0..self.count
         if kind == INT:
-            box = IntFrontendOp(num)
-            box.setint(self.cpu.get_int_value(self.deadframe, num))
+            box = IntFrontendOp(num, self.cpu.get_int_value(self.deadframe, num))
         elif kind == REF:
-            box = RefFrontendOp(num)
-            box.setref_base(self.cpu.get_ref_value(self.deadframe, num))
+            box = RefFrontendOp(num, self.cpu.get_ref_value(self.deadframe, num))
         elif kind == FLOAT:
-            box = FloatFrontendOp(num)
-            box.setfloatstorage(self.cpu.get_float_value(self.deadframe, num))
+            box = FloatFrontendOp(num, self.cpu.get_float_value(self.deadframe, num))
         else:
             assert 0, "bad kind: %d" % ord(kind)
         self.liveboxes[num] = box

@@ -78,9 +78,7 @@ def wrap(cpu, value, inputarg_position_or_neg):
             if inputarg_position_or_neg < 0:
                 return history.ConstPtr(value)
             else:
-                res = history.RefFrontendOp(inputarg_position_or_neg)
-                res.setref_base(value)
-                return res
+                return history.RefFrontendOp(inputarg_position_or_neg, value)
         else:
             value = ptr2int(value)
             # fall through to the end of the function
@@ -93,9 +91,7 @@ def wrap(cpu, value, inputarg_position_or_neg):
         if inputarg_position_or_neg < 0:
             return history.ConstFloat(value)
         else:
-            res = history.FloatFrontendOp(inputarg_position_or_neg)
-            res.setfloatstorage(value)
-            return res
+            return history.FloatFrontendOp(inputarg_position_or_neg, value)
     elif isinstance(value, str) or isinstance(value, unicode):
         assert len(value) == 1     # must be a character
         value = ord(value)
@@ -106,9 +102,7 @@ def wrap(cpu, value, inputarg_position_or_neg):
     if inputarg_position_or_neg < 0:
         return history.ConstInt(value)
     else:
-        res = history.IntFrontendOp(inputarg_position_or_neg)
-        res.setint(value)
-        return res
+        return history.IntFrontendOp(inputarg_position_or_neg, value)
 
 @specialize.arg(0)
 def equal_whatever(TYPE, x, y):

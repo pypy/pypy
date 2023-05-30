@@ -2,8 +2,11 @@ import py
 from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.resoperation import rop, InputArgInt
 from rpython.jit.metainterp.history import ConstInt, ConstPtr, BasicFailDescr
-from rpython.jit.metainterp.history import IntFrontendOp, RefFrontendOp
+from rpython.jit.metainterp.history import IntFrontendOp, RefFrontendOp as OrigRefFrontendOp
 from rpython.rtyper.lltypesystem import  llmemory, rffi
+
+def RefFrontendOp(pos):
+    return OrigRefFrontendOp(pos, OrigRefFrontendOp._resref)
 
 descr1 = object()
 descr2 = object()
@@ -339,8 +342,8 @@ class TestHeapCache(object):
         h = HeapCache()
         box1 = RefFrontendOp(1)
         box2 = RefFrontendOp(2)
-        lengthbox1 = IntFrontendOp(11)
-        lengthbox2 = IntFrontendOp(12)
+        lengthbox1 = IntFrontendOp(11, 11)
+        lengthbox2 = IntFrontendOp(12, 11)
         h.new_array(box1, lengthbox1)
         assert h.arraylen(box1) is lengthbox1
 
@@ -485,16 +488,14 @@ class TestHeapCache(object):
     def test_replace_box_with_const_in_array(self):
         h = HeapCache()
         box1 = RefFrontendOp(1)
-        lengthbox2 = IntFrontendOp(2)
-        lengthbox2.setint(10)
+        lengthbox2 = IntFrontendOp(2, 10)
         h.arraylen_now_known(box1, lengthbox2)
         assert h.arraylen(box1) is lengthbox2
         c10 = ConstInt(10)
         h.replace_box(lengthbox2, c10)
         assert c10.same_constant(h.arraylen(box1))
 
-        box2 = IntFrontendOp(2)
-        box2.setint(12)
+        box2 = IntFrontendOp(2, 12)
         h.setarrayitem(box1, index2, box2, descr1)
         assert h.getarrayitem(box1, index2, descr1) is box2
         c12 = ConstInt(12)
@@ -508,8 +509,8 @@ class TestHeapCache(object):
         box3 = RefFrontendOp(3)
         box4 = RefFrontendOp(4)
         box5 = RefFrontendOp(5)
-        lengthbox1 = IntFrontendOp(11)
-        lengthbox2 = IntFrontendOp(12)
+        lengthbox1 = IntFrontendOp(11, 12)
+        lengthbox2 = IntFrontendOp(12, 178)
         h.new_array(box1, lengthbox1)
         h.setarrayitem(box1, index1, box2, descr1)
         h.new_array(box2, lengthbox1)
@@ -541,7 +542,7 @@ class TestHeapCache(object):
         box1 = RefFrontendOp(1)
         box2 = RefFrontendOp(2)
         box3 = RefFrontendOp(3)
-        lengthbox2 = IntFrontendOp(12)
+        lengthbox2 = IntFrontendOp(12, 12)
         h.setarrayitem(box1, index1, box2, descr2)
         assert h.getarrayitem(box1, index1, descr2) is box2
         h.new_array(box2, lengthbox2)
@@ -585,7 +586,7 @@ class TestHeapCache(object):
         box2 = RefFrontendOp(2)
         box3 = RefFrontendOp(3)
         box4 = RefFrontendOp(4)
-        lengthbox1 = IntFrontendOp(11)
+        lengthbox1 = IntFrontendOp(11, 435)
         h.new_array(box1, lengthbox1)
         h.setarrayitem(box3, index1, box4, descr1)
         h.invalidate_caches_varargs(
@@ -598,8 +599,8 @@ class TestHeapCache(object):
         h = HeapCache()
         box1 = RefFrontendOp(1)
         box2 = RefFrontendOp(2)
-        lengthbox1 = IntFrontendOp(11)
-        lengthbox2 = IntFrontendOp(12)
+        lengthbox1 = IntFrontendOp(11, 1)
+        lengthbox2 = IntFrontendOp(12, 3)
         h.new_array(box1, index2)
         h.new_array(box2, index2)
         assert h.is_unescaped(box1)
@@ -682,8 +683,8 @@ class TestHeapCache(object):
         h = HeapCache()
         box1 = RefFrontendOp(1)
         box2 = RefFrontendOp(2)
-        lengthbox1 = IntFrontendOp(11)
-        lengthbox2 = IntFrontendOp(12)
+        lengthbox1 = IntFrontendOp(11, 3)
+        lengthbox2 = IntFrontendOp(12, 3)
         h.new_array(box1, index2)
         assert h.is_unescaped(box1)
         h.invalidate_caches(rop.SETARRAYITEM_GC, None, box1, index1, box2)
@@ -722,7 +723,7 @@ class TestHeapCache(object):
         h = HeapCache()
         box1 = RefFrontendOp(1)
         box3 = RefFrontendOp(3)
-        lengthbox1 = IntFrontendOp(11)
+        lengthbox1 = IntFrontendOp(11, 3)
         h.new_array(box1, index2)
         assert h.is_unescaped(box1)
         h.setarrayitem(box1, index1, box3, descr1)
@@ -840,7 +841,7 @@ class TestHeapCache(object):
         h.new_array(box1, index2)
         assert h.is_likely_virtual(box1)
         box2 = RefFrontendOp(2)
-        lengthbox = IntFrontendOp(11)
+        lengthbox = IntFrontendOp(11, 3)
         # arrays are only virtual if the length is constant
         h.new_array(box2, lengthbox)
         assert not h.is_likely_virtual(box2)
