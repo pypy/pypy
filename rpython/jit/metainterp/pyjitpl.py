@@ -1922,7 +1922,7 @@ class MIFrame(object):
             #    from the effectinfo and the 'assembler_call' flag
             if assembler_call:
                 vablebox, resbox = self.metainterp.direct_assembler_call(
-                    allboxes, descr, assembler_call_jd)
+                    allboxes, c_result, descr, assembler_call_jd)
             else:
                 vablebox = None
                 resbox = None
@@ -1932,20 +1932,18 @@ class MIFrame(object):
                 if resbox is None:
                     if effectinfo.is_call_release_gil():
                         resbox = self.metainterp.direct_call_release_gil(
-                            allboxes, descr)
+                            allboxes, c_result, descr)
                     else:
                         resbox = self.metainterp.direct_call_may_force(
-                            allboxes, descr)
+                            allboxes, c_result, descr)
 
             # 5. invalidate the heapcache based on the CALL_MAY_FORCE
             #    operation executed above in step 2
             self.metainterp.heapcache.invalidate_caches_varargs(opnum1, descr, allboxes)
 
-            # 6. put 'c_result' back into the recorded operation
             if resbox.type == 'v':
                 resbox = None    # for void calls, must return None below
             else:
-                resbox.copy_value_from(c_result)
                 self.make_result_of_lastop(resbox)
             self.metainterp.vable_after_residual_call(funcbox)
             self.metainterp.generate_guard(rop.GUARD_NOT_FORCED)
@@ -2801,9 +2799,7 @@ class MetaInterp(object):
         for i in range(endindex):
             box = boxes[i]
             if isinstance(box, Const) or box in duplicates:
-                opnum = OpHelpers.same_as_for_type(box.type)
-                op = self.history.record_default_val(opnum, [box])
-                boxes[i] = op
+                boxes[i] = self.history.record_same_as(box)
             else:
                 duplicates[box] = None
 
@@ -3440,19 +3436,18 @@ class MetaInterp(object):
             return op       # but COND_CALL_VALUE remains
         opnum = OpHelpers.call_pure_for_descr(descr)
         self.history.cut(patch_pos)
-        newop = self.history.record_nospec(opnum, argboxes, descr)
-        newop.copy_value_from(op)
+        newop = self.history.record_nospec(opnum, argboxes, resbox_as_const, descr)
         return newop
 
-    def direct_call_may_force(self, argboxes, calldescr):
+    def direct_call_may_force(self, argboxes, valueconst, calldescr):
         """ Common case: record in the history a CALL_MAY_FORCE with
         'c_result' as the result of that call.  (The actual call has
         already been done.)
         """
         opnum = rop.call_may_force_for_descr(calldescr)
-        return self.history.record_nospec(opnum, argboxes, calldescr)
+        return self.history.record_nospec(opnum, argboxes, valueconst, calldescr)
 
-    def direct_assembler_call(self, arglist, calldescr, targetjitdriver_sd):
+    def direct_assembler_call(self, arglist, valueconst, calldescr, targetjitdriver_sd):
         """ Record in the history a direct call to assembler for portal
         entry point.
         """
@@ -3463,7 +3458,7 @@ class MetaInterp(object):
         warmrunnerstate = targetjitdriver_sd.warmstate
         token = warmrunnerstate.get_assembler_token(greenargs)
         opnum = OpHelpers.call_assembler_for_descr(calldescr)
-        op = self.history.record_nospec(opnum, args, descr=token)
+        op = self.history.record_nospec(opnum, args, valueconst, descr=token)
         #
         # To fix an obscure issue, make sure the vable stays alive
         # longer than the CALL_ASSEMBLER operation.  We do it by
@@ -3474,7 +3469,7 @@ class MetaInterp(object):
         else:
             return None, op
 
-    def direct_libffi_call(self, argboxes, orig_calldescr):
+    def direct_libffi_call(self, argboxes, orig_calldescr, valueconst):
         """Generate a direct call to C code using jit_ffi_call()
         """
         # an 'assert' that constant-folds away the rest of this function
@@ -3530,11 +3525,11 @@ class MetaInterp(object):
         assert opnum == rop.call_release_gil_for_descr(calldescr)
         return self.history.record_nospec(opnum,
                                           [c_saveall, argboxes[2]] + arg_boxes,
-                                          calldescr)
+                                          valueconst, calldescr)
         # note that the result is written back to the exchange_buffer by the
         # following operation, which should be a raw_store
 
-    def direct_call_release_gil(self, argboxes, calldescr):
+    def direct_call_release_gil(self, argboxes, valueconst, calldescr):
         if not we_are_translated():       # for llgraph
             calldescr._original_func_ = argboxes[0].getint()
         effectinfo = calldescr.get_extra_info()
@@ -3544,7 +3539,7 @@ class MetaInterp(object):
         opnum = rop.call_release_gil_for_descr(calldescr)
         return self.history.record_nospec(opnum,
                                           [savebox, funcbox] + argboxes[1:],
-                                          calldescr)
+                                          valueconst, calldescr)
 
     def do_not_in_trace_call(self, allboxes, descr):
         self.clear_exception()

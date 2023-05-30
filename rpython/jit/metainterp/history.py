@@ -666,14 +666,10 @@ class FrontendOp(AbstractResOp):
 class IntFrontendOp(IntOp, FrontendOp):
     _attrs_ = ('position_and_flags', '_resint')
 
-    def copy_value_from(self, other):
-        self._resint = other.getint()
 
 class FloatFrontendOp(FloatOp, FrontendOp):
     _attrs_ = ('position_and_flags', '_resfloat')
 
-    def copy_value_from(self, other):
-        self._resfloat = other.getfloatstorage()
 
 class RefFrontendOp(RefOp, FrontendOp):
     _attrs_ = ('position_and_flags', '_resref', '_heapc_deps')
@@ -681,9 +677,6 @@ class RefFrontendOp(RefOp, FrontendOp):
         _attrs_ += ('_heapc_flags',)   # on 64 bit, this gets stored into the
         _heapc_flags = r_uint(0)       # high 32 bits of 'position_and_flags'
     _heapc_deps = None
-
-    def copy_value_from(self, other):
-        self._resref = other.getref_base()
 
     if LONG_BIT == 32:
         def _get_heapc_flags(self):
@@ -781,23 +774,33 @@ class History(object):
             op.setref_base(value)
         return op
 
-    def record_nospec(self, opnum, argboxes, descr=None):
+    def record_nospec(self, opnum, argboxes, valueconst, descr=None):
         tp = opclasses[opnum].type
         pos = self._record_op(opnum, argboxes, descr)
         if tp == 'v':
+            assert valueconst is None
             return FrontendOp(pos)
         elif tp == 'i':
-            return IntFrontendOp(pos)
+            res = IntFrontendOp(pos)
+            res.setint(valueconst.getint())
+            return res
         elif tp == 'f':
-            return FloatFrontendOp(pos)
+            res = FloatFrontendOp(pos)
+            res.setfloatstorage(valueconst.getfloatstorage())
+            return res
         assert tp == 'r'
-        return RefFrontendOp(pos)
+        res = RefFrontendOp(pos)
+        res.setref_base(valueconst.getref_base())
+        return res
 
-    def record_default_val(self, opnum, argboxes, descr=None):
-        assert rop.is_same_as(opnum)
-        op = self.record_nospec(opnum, argboxes, descr)
-        op.copy_value_from(argboxes[0])
-        return op
+    def record_same_as(self, box):
+        if box.type == 'i':
+            return self.record1(rop.SAME_AS_I, box, box.getint())
+        elif box.type == 'r':
+            return self.record1(rop.SAME_AS_R, box, box.getref_base())
+        else:
+            assert box.type == 'f'
+            return self.record1(rop.SAME_AS_F, box, box.getfloatstorage())
 
 
 # ____________________________________________________________
