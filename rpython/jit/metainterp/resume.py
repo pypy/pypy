@@ -1080,13 +1080,18 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
     return resumereader.liveboxes, virtualizable_boxes, virtualref_boxes
 
 
+def get_max_num_inputargs(storage):
+    reader = resumecode.Reader(storage.rd_numb)
+    reader.next_item()
+    return reader.next_item()
+
+
 class ResumeDataBoxReader(AbstractResumeDataReader):
     unique_id = lambda: None
     VirtualCache = get_VirtualCache_class('BoxReader')
 
     def __init__(self, storage, deadframe, metainterp):
         self._init(metainterp.staticdata, storage)
-        metainterp.create_history(max_num_inputargs=self.count)
         self.deadframe = deadframe
         self.metainterp = metainterp
         self.liveboxes = [None] * self.count

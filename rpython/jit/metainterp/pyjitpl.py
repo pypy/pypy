@@ -2767,9 +2767,11 @@ class MetaInterp(object):
         if self.resumekey_original_loop_token is None:
             raise compile.giveup() # should be rare
         self.staticdata.try_to_free_some_loops()
+        self.create_history(resume.get_max_num_inputargs(key))
         try:
+            excdata = self._prepare_exception_resumption(deadframe, resumedescr)
             inputargs = self.initialize_state_from_guard_failure(key, deadframe)
-            return self._handle_guard_failure(resumedescr, key, inputargs, deadframe)
+            return self._handle_guard_failure(resumedescr, key, inputargs, deadframe, excdata)
         except SwitchToBlackhole as stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
         finally:
@@ -2777,13 +2779,13 @@ class MetaInterp(object):
             self.staticdata.profiler.end_tracing()
             debug_stop('jit-tracing')
 
-    def _handle_guard_failure(self, resumedescr, key, inputargs, deadframe):
+    def _handle_guard_failure(self, resumedescr, key, inputargs, deadframe, excdata):
         self.current_merge_points = []
         self.resumekey = resumedescr
         self.seen_loop_header_for_jdindex = -1
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
-        self.prepare_resume_from_failure(deadframe, inputargs, resumedescr)
+        self.prepare_resume_from_failure(deadframe, inputargs, resumedescr, excdata)
         if self.resumekey_original_loop_token is None:   # very rare case
             raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
         self.interpret()
@@ -2967,7 +2969,7 @@ class MetaInterp(object):
             jitcell_token = target_token.targeting_jitcell_token
             self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
 
-    def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr):
+    def _prepare_exception_resumption(self, deadframe, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)
         if (isinstance(resumedescr, compile.ResumeGuardExcDescr) or
             isinstance(resumedescr, compile.ResumeGuardCopiedExcDescr)):
@@ -2976,11 +2978,11 @@ class MetaInterp(object):
             # the history aleady contains operations from resume.py.
             # The optimizer should remove these operations.  However,
             # 'test_guard_no_exception_incorrectly_removed_from_bridge'
-            # shows a corner case in which just putting GuARD_NO_EXCEPTION
+            # shows a corner case in which just putting GUARD_NO_EXCEPTION
             # here is a bad idea: the optimizer might remove it too.
-            # So we put a SAVE_EXCEPTION at the start, and a
-            # RESTORE_EXCEPTION just before the guard.  (rewrite.py will
-            # remove the two if they end up consecutive.)
+            # So we put a SAVE_EXCEPTION at the start, and a RESTORE_EXCEPTION
+            # just before the guard (done in prepare_resume_from_failure).
+            # rewrite.py will remove the two if they end up consecutive.
 
             # XXX too much jumps between older and newer models; clean up
             # by killing SAVE_EXC_CLASS, RESTORE_EXCEPTION and GUARD_EXCEPTION
@@ -2990,11 +2992,20 @@ class MetaInterp(object):
                 exc_class = ptr2int(exception_obj.typeptr)
             else:
                 exc_class = 0
-            assert self.history.trace is None
-            i = len(self.history._cache)
+            assert self.history.trace._pos == self.history.trace._start
             op1 = self.history.record0(rop.SAVE_EXC_CLASS, exc_class)
             op2 = self.history.record0(rop.SAVE_EXCEPTION, exception)
-            self.history._cache = self.history._cache[i:] + self.history._cache[:i]
+            return exception, op1, op2
+        else:
+            assert not exception
+            return exception, None, None
+
+    def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr, excdata):
+        if (isinstance(resumedescr, compile.ResumeGuardExcDescr) or
+            isinstance(resumedescr, compile.ResumeGuardCopiedExcDescr)):
+            exception, op1, op2 = excdata
+            exception_obj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, exception)
+
             self.history.record2(rop.RESTORE_EXCEPTION, op1, op2, None)
             self.history.set_inputargs(inputargs)
             if exception_obj:
@@ -3007,7 +3018,6 @@ class MetaInterp(object):
                 pass
         else:
             self.history.set_inputargs(inputargs)
-            assert not exception
 
     def get_procedure_token(self, greenkey):
         JitCell = self.jitdriver_sd.warmstate.JitCell
