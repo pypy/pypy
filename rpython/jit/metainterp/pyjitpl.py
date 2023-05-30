@@ -1460,7 +1460,6 @@ class MIFrame(object):
             # 'redboxes' back into the registers where it comes from.
             put_back_list_of_boxes3(self, jcposition, redboxes)
         else:
-            import pdb; pdb.set_trace()
             if jitdriver_sd.warmstate.should_unroll_one_iteration(greenboxes):
                 if self.unroll_iterations > 0:
                     self.unroll_iterations -= 1
@@ -1874,7 +1873,6 @@ class MIFrame(object):
         effectinfo = descr.get_extra_info()
         if effectinfo.oopspecindex == effectinfo.OS_NOT_IN_TRACE:
             return self.metainterp.do_not_in_trace_call(allboxes, descr)
-        cut_pos = self.metainterp.history.get_trace_position()
 
         if (assembler_call or
                 effectinfo.check_forces_virtual_or_virtualizable()):
@@ -2476,7 +2474,6 @@ class MetaInterp(object):
 
     def create_history(self, max_num_inputargs):
         self.history = history.History(max_num_inputargs, self.staticdata)
-        self.staticdata.stats.set_history(self.history)
 
     def _all_constants(self, *boxes):
         if len(boxes) == 0:
