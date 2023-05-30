@@ -46,4 +46,4 @@ class TestMiniTrace(object):
             return acc
         self.mini_interp(f, [1, 0])
 
-        assert self.metainterp.return_value.getint() == 2
+        assert valueapi.get_value_int(self.metainterp.return_value) == 2

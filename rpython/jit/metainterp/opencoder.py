@@ -6,6 +6,7 @@ for each operation (inputargs numbered with negative numbers)
 Snapshot index for guards points to snapshot stored in _snapshots of trace
 """
 
+from rpython.jit.metainterp.valueapi import TYPE_FLOAT, TYPE_REF, valueapi, TYPE_INT
 from rpython.jit.metainterp.history import (
     ConstInt, Const, ConstFloat, ConstPtr, new_ref_dict, SwitchToBlackhole,
     ConstPtrJitCode)
@@ -300,7 +301,7 @@ class Trace(BaseTrace):
         self._floats = []
         self._snapshots = []
         for i, inparg in enumerate(inputargs):
-            inparg.set_position(i)
+            valueapi.set_position(inparg, i)
         self._count = len(inputargs) # total count
         self._index = len(inputargs) # "position" of resulting resops
         self._start = len(inputargs)
@@ -356,34 +357,31 @@ class Trace(BaseTrace):
         return v
 
     def _cached_const_ptr(self, box):
-        assert isinstance(box, ConstPtr)
-        addr = box.getref_base()
+        assert valueapi.get_type(box) == TYPE_REF and valueapi.is_constant(box)
+        addr = valueapi.get_value_ref(box)
         if not addr:
             return 0
-        if isinstance(box, ConstPtrJitCode):
-            index = box.opencoder_index
-            if index >= 0:
-                self._consts_ptr_nodict += 1
-                assert self._refs[index] == addr
-                return index
+        index = valueapi.get_opencoder_index(box)
+        if index >= 0:
+            self._consts_ptr_nodict += 1
+            assert self._refs[index] == addr
+            return index
         v = self._refs_dict.get(addr, -1)
         if v == -1:
             v = len(self._refs)
             self._refs_dict[addr] = v
             self._refs.append(addr)
-        if isinstance(box, ConstPtrJitCode):
-            box.opencoder_index = v
+        valueapi.set_opencoder_index(box, v)
         return v
 
     def _encode(self, box):
-        if isinstance(box, Const):
-            if (isinstance(box, ConstInt) and
-                isinstance(box.getint(), int) and # symbolics
-                SMALL_INT_START <= box.getint() < SMALL_INT_STOP):
-                return tag(TAGINT, box.getint() - SMALL_INT_START)
-            elif isinstance(box, ConstInt):
+        if valueapi.is_constant(box):
+            if (valueapi.get_type(box) == TYPE_INT
+                and SMALL_INT_START <= valueapi.get_value_int(box) < SMALL_INT_STOP):
+                return tag(TAGINT, valueapi.get_value_int(box) - SMALL_INT_START)
+            elif valueapi.get_type(box) == TYPE_INT:
                 self._consts_bigint += 1
-                value = box.getint()
+                value = valueapi.get_value_int(box)
                 if not isinstance(value, int):
                     # symbolics, for tests, don't worry about caching
                     v = len(self._bigints) << 1
@@ -395,21 +393,20 @@ class Trace(BaseTrace):
                         self._bigints_dict[value] = v
                         self._bigints.append(value)
                 return tag(TAGCONSTOTHER, v)
-            elif isinstance(box, ConstFloat):
+            elif valueapi.get_type(box) == TYPE_FLOAT:
                 # don't intern float constants
                 self._consts_float += 1
                 v = (len(self._floats) << 1) | 1
-                self._floats.append(box.getfloatstorage())
+                self._floats.append(valueapi.get_value_floatstorage(box))
                 return tag(TAGCONSTOTHER, v)
             else:
                 self._consts_ptr += 1
                 v = self._cached_const_ptr(box)
                 return tag(TAGCONSTPTR, v)
-        elif isinstance(box, AbstractResOp):
-            assert box.get_position() >= 0
-            return tag(TAGBOX, box.get_position())
         else:
-            assert False, "unreachable code"
+            pos = valueapi.get_position(box)
+            assert pos >= 0
+            return tag(TAGBOX, pos)
 
     def _op_start(self, opnum, num_argboxes):
         old_pos = self._pos

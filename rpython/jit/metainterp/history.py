@@ -708,6 +708,9 @@ class History(object):
     trace = None
 
     def __init__(self):
+        from rpython.jit.metainterp.valueapi import valueapi
+
+        self.valueapi = valueapi
         self.descr_cache = {}
         self.descrs = {}
         self.consts = []
@@ -722,7 +725,7 @@ class History(object):
             # hack to record the ops *after* we know our inputargs
             for (opnum, argboxes, op, descr) in self._cache:
                 pos = self.trace.record_op(opnum, argboxes, descr)
-                op.set_position(pos)
+                self.valueapi.set_position(op, pos)
             self._cache = None
 
     def length(self):
@@ -749,60 +752,55 @@ class History(object):
 
     @specialize.argtype(3)
     def record(self, opnum, argboxes, value, descr=None):
-        from rpython.jit.metainterp.valueapi import valueapi
         if self.trace is None:
             pos = 2**14 - 1
         else:
             pos = self._record_op(opnum, argboxes, descr)
-        op = valueapi.create_box(pos, value)
+        op = self.valueapi.create_box(pos, value)
         if self.trace is None:
             self._cache.append((opnum, argboxes, op, descr))
         return op
 
     @specialize.argtype(2)
     def record0(self, opnum, value, descr=None):
-        from rpython.jit.metainterp.valueapi import valueapi
         if self.trace is None:
             pos = 2**14 - 1
         else:
             pos = self.trace.record_op0(opnum, descr)
-        op = valueapi.create_box(pos, value)
+        op = self.valueapi.create_box(pos, value)
         if self.trace is None:
             self._cache.append((opnum, [], op, descr))
         return op
 
     @specialize.argtype(3)
     def record1(self, opnum, argbox1, value, descr=None):
-        from rpython.jit.metainterp.valueapi import valueapi
         if self.trace is None:
             pos = 2**14 - 1
         else:
             pos = self.trace.record_op1(opnum, argbox1, descr)
-        op = valueapi.create_box(pos, value)
+        op = self.valueapi.create_box(pos, value)
         if self.trace is None:
             self._cache.append((opnum, [argbox1], op, descr))
         return op
 
     @specialize.argtype(4)
     def record2(self, opnum, argbox1, argbox2, value, descr=None):
-        from rpython.jit.metainterp.valueapi import valueapi
         if self.trace is None:
             pos = 2**14 - 1
         else:
             pos = self.trace.record_op2(opnum, argbox1, argbox2, descr)
-        op = valueapi.create_box(pos, value)
+        op = self.valueapi.create_box(pos, value)
         if self.trace is None:
             self._cache.append((opnum, [argbox1, argbox2], op, descr))
         return op
 
     @specialize.argtype(5)
     def record3(self, opnum, argbox1, argbox2, argbox3, value, descr=None):
-        from rpython.jit.metainterp.valueapi import valueapi
         if self.trace is None:
             pos = 2**14 - 1
         else:
             pos = self.trace.record_op3(opnum, argbox1, argbox2, argbox3, descr)
-        op = valueapi.create_box(pos, value)
+        op = self.valueapi.create_box(pos, value)
         if self.trace is None:
             self._cache.append((opnum, [argbox1, argbox2, argbox3], op, descr))
         return op
