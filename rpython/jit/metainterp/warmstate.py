@@ -70,14 +70,15 @@ def unwrap(TYPE, box):
         return lltype.cast_primitive(TYPE, box.getint())
 
 @specialize.ll()
-def wrap(cpu, value, in_const_box=False):
+def wrap(cpu, value, inputarg_position_or_neg):
+    assert isinstance(inputarg_position_or_neg, int)
     if isinstance(lltype.typeOf(value), lltype.Ptr):
         if lltype.typeOf(value).TO._gckind == 'gc':
             value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
-            if in_const_box:
+            if inputarg_position_or_neg < 0:
                 return history.ConstPtr(value)
             else:
-                res = history.RefFrontendOp(0)
+                res = history.RefFrontendOp(inputarg_position_or_neg)
                 res.setref_base(value)
                 return res
         else:
@@ -89,10 +90,10 @@ def wrap(cpu, value, in_const_box=False):
             value = longlong.getfloatstorage(value)
         else:
             value = rffi.cast(lltype.SignedLongLong, value)
-        if in_const_box:
+        if inputarg_position_or_neg < 0:
             return history.ConstFloat(value)
         else:
-            res = history.FloatFrontendOp(0)
+            res = history.FloatFrontendOp(inputarg_position_or_neg)
             res.setfloatstorage(value)
             return res
     elif isinstance(value, str) or isinstance(value, unicode):
@@ -102,10 +103,10 @@ def wrap(cpu, value, in_const_box=False):
         value = longlong.singlefloat2int(value)
     else:
         value = intmask(value)
-    if in_const_box:
+    if inputarg_position_or_neg < 0:
         return history.ConstInt(value)
     else:
-        res = history.IntFrontendOp(0)
+        res = history.IntFrontendOp(inputarg_position_or_neg)
         res.setint(value)
         return res
 

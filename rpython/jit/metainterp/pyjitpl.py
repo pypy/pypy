@@ -1460,6 +1460,7 @@ class MIFrame(object):
             # 'redboxes' back into the registers where it comes from.
             put_back_list_of_boxes3(self, jcposition, redboxes)
         else:
+            import pdb; pdb.set_trace()
             if jitdriver_sd.warmstate.should_unroll_one_iteration(greenboxes):
                 if self.unroll_iterations > 0:
                     self.unroll_iterations -= 1
@@ -2468,8 +2469,13 @@ class MetaInterp(object):
         if self.framestack:
             self.framestack[-1].pc = saved_pc
 
-    def create_empty_history(self):
-        self.history = history.History()
+    def create_empty_history(self, inputargs):
+        self.history = history.History(len(inputargs), self.staticdata)
+        self.history.set_inputargs(inputargs)
+        self.staticdata.stats.set_history(self.history)
+
+    def create_history(self, max_num_inputargs):
+        self.history = history.History(max_num_inputargs, self.staticdata)
         self.staticdata.stats.set_history(self.history)
 
     def _all_constants(self, *boxes):
@@ -2744,9 +2750,7 @@ class MetaInterp(object):
         self.resumekey = compile.ResumeFromInterpDescr(original_greenkey)
         self.seen_loop_header_for_jdindex = -1
         try:
-            self.create_empty_history()
-            self.history.set_inputargs(original_boxes[num_green_args:],
-                                       self.staticdata)
+            self.create_empty_history(original_boxes[num_green_args:])
             self.interpret()
         except SwitchToBlackhole as stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
@@ -2992,7 +2996,7 @@ class MetaInterp(object):
             op2 = self.history.record0(rop.SAVE_EXCEPTION, exception)
             self.history._cache = self.history._cache[i:] + self.history._cache[:i]
             self.history.record2(rop.RESTORE_EXCEPTION, op1, op2, None)
-            self.history.set_inputargs(inputargs, self.staticdata)
+            self.history.set_inputargs(inputargs)
             if exception_obj:
                 self.execute_ll_raised(exception_obj)
             else:
@@ -3002,7 +3006,7 @@ class MetaInterp(object):
             except ChangeFrame:
                 pass
         else:
-            self.history.set_inputargs(inputargs, self.staticdata)
+            self.history.set_inputargs(inputargs)
             assert not exception
 
     def get_procedure_token(self, greenkey):
@@ -3105,21 +3109,20 @@ class MetaInterp(object):
     def initialize_original_boxes(self, jitdriver_sd, *args):
         original_boxes = [None] * len(args)
         self._fill_original_boxes(jitdriver_sd, original_boxes, 0,
-                                  jitdriver_sd.num_green_args, *args)
+                                  *args)
         return original_boxes
 
     @specialize.arg(1)
     @always_inline
     def _fill_original_boxes(self, jitdriver_sd, original_boxes,
-                             position,
-                             num_green_args, *args):
+                             position, *args):
         if args:
             from rpython.jit.metainterp.warmstate import wrap
-            box = wrap(self.cpu, args[0], num_green_args > 0)
+            box = wrap(self.cpu, args[0],
+                       position - jitdriver_sd.num_green_args)
             original_boxes[position] = box
             self._fill_original_boxes(jitdriver_sd, original_boxes,
-                                      position + 1,
-                                      num_green_args-1, *args[1:])
+                                      position + 1, *args[1:])
 
     def initialize_state_from_start(self, original_boxes):
         # ----- make a new frame -----
@@ -3139,7 +3142,6 @@ class MetaInterp(object):
         rstack._stack_criticalcode_start()
         try:
             self.portal_call_depth = -1 # always one portal around
-            self.history = history.History()
             inputargs_and_holes = self.rebuild_state_after_failure(resumedescr,
                                                                    deadframe)
             return [box for box in inputargs_and_holes if box]

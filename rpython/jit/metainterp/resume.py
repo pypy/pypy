@@ -1086,6 +1086,7 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
 
     def __init__(self, storage, deadframe, metainterp):
         self._init(metainterp.staticdata, storage)
+        metainterp.create_history(max_num_inputargs=self.count)
         self.deadframe = deadframe
         self.metainterp = metainterp
         self.liveboxes = [None] * self.count
@@ -1283,14 +1284,16 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         if num < 0:
             num += len(self.liveboxes)
             assert num >= 0
+        # we create *FrontendOp instances with numbers in the range
+        # 0..self.count
         if kind == INT:
-            box = IntFrontendOp(0)
+            box = IntFrontendOp(num)
             box.setint(self.cpu.get_int_value(self.deadframe, num))
         elif kind == REF:
-            box = RefFrontendOp(0)
+            box = RefFrontendOp(num)
             box.setref_base(self.cpu.get_ref_value(self.deadframe, num))
         elif kind == FLOAT:
-            box = FloatFrontendOp(0)
+            box = FloatFrontendOp(num)
             box.setfloatstorage(self.cpu.get_float_value(self.deadframe, num))
         else:
             assert 0, "bad kind: %d" % ord(kind)
