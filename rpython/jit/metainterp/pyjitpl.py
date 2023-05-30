@@ -3162,8 +3162,10 @@ class MetaInterp(object):
             vinfo.clear_vable_token(virtualizable)
             # The field 'virtualizable_boxes' is not even present
             # if 'virtualizable_info' is None.  Check for that first.
+            startindex = len(original_boxes) - self.jitdriver_sd.num_green_args
             self.virtualizable_boxes = vinfo.read_boxes(self.cpu,
-                                                        virtualizable)
+                                                        virtualizable,
+                                                        startindex)
             original_boxes += self.virtualizable_boxes
             self.virtualizable_boxes.append(virtualizable_box)
             self.check_synchronized_virtualizable()
@@ -3320,7 +3322,8 @@ class MetaInterp(object):
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
             self.virtualizable_boxes = vinfo.read_boxes(self.cpu,
-                                                        virtualizable)
+                                                        virtualizable,
+                                                        0)
             self.virtualizable_boxes.append(virtualizable_box)
 
     def gen_store_back_in_vable(self, box):
