@@ -77,29 +77,22 @@ cffi_dependencies = {
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
-}
-
-cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
-
-if sys.platform == 'darwin' or platform.machine() == 'aarch64':
-    # TODO: use these on x86 after upgrading Docker images to manylinux2014
-    cffi_dependencies['_gdbm'] = (
-              # this does not compile on the x86 buildbot, linker is missing '_history_list'
-              'http://distfiles.macports.org/gdbm/gdbm-1.23.tar.gz',
-              '74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd',
-    # this does not compile on the linux buildbot, linker is missing '_history_list'
-              [configure_args + ['--without-readline'],
-              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
-              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ])
-    cffi_dependencies['lzma'] = (
-              # this does not compile on the linux64 buildbot, needs -fPIC
+    'lzma':  (
              'http://distfiles.macports.org/xz/xz-5.2.10.tar.bz2',
-             'e2f8d84b523eecd06c7be7626830370300fbcc15386bf5142d72758f6963ebc6',
+             '01b71df61521d9da698ce3c33148bff06a131628ff037398c09482f3a26e5408',
              [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ])
+             ]),
+    '_gdbm': ('http://distfiles.macports.org/gdbm/gdbm-1.23.tar.gz',
+              '74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd',
+              [configure_args + ['--without-readline'],
+              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+              ]),
+}
+
+cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
 
 def _unpack_tarfile(filename, extract_dir):
     """Unpack tar/tar.gz/tar.bz2/tar.xz `filename` to `extract_dir`
