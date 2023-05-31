@@ -118,7 +118,7 @@ class TraceIterator(BaseTrace):
             self.inputargs = [rop.inputarg_from_tp(arg.type) for
                               arg in self.trace.inputargs]
             for i, arg in enumerate(self.inputargs):
-               self._cache[i] = arg
+               self._cache[self.trace.inputargs[i].get_position()] = arg
         self.start = start
         self.pos = start
         self._count = start

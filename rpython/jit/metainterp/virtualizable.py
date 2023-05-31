@@ -95,6 +95,7 @@ class VirtualizableInfo(object):
                 lst = getattr(virtualizable, fieldname)
                 for i in range(len(lst)):
                     boxes.append(wrap(cpu, lst[i], startindex + i))
+                startindex += len(lst)
             return boxes
 
         def write_boxes(virtualizable, boxes):
