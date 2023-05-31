@@ -63,15 +63,15 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1t.tar.gz',
-             '8dee9b24bdb1dcbf0c3d1e9b02fb8f6bf22165e807f45adeb7c9677536859d3b',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1u.tar.gz',
+              'e2f8d84b523eecd06c7be7626830370300fbcc15386bf5142d72758f6963ebc6',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.8.tar.gz',
-              '6c13d2bf38fdf31eac3ce2a347073673f5d63263398f1f69d0df4a41253e4b3e',
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.9.tar.gz',
+              'eb1ab04781474360f77c318ab89d8c5a03abc38e63d65a603cabbf1b00a1dc90',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
@@ -85,8 +85,8 @@ if sys.platform == 'darwin' or platform.machine() == 'aarch64':
     # TODO: use these on x86 after upgrading Docker images to manylinux2014
     cffi_dependencies['_gdbm'] = (
               # this does not compile on the x86 buildbot, linker is missing '_history_list'
-              'http://distfiles.macports.org/gdbm/gdbm-1.19.tar.gz',
-              '37ed12214122b972e18a0d94995039e57748191939ef74115b1d41d8811364bc',
+              'http://distfiles.macports.org/gdbm/gdbm-1.23.tar.gz',
+              '74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd',
     # this does not compile on the linux buildbot, linker is missing '_history_list'
               [configure_args + ['--without-readline'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
@@ -94,8 +94,8 @@ if sys.platform == 'darwin' or platform.machine() == 'aarch64':
              ])
     cffi_dependencies['lzma'] = (
               # this does not compile on the linux64 buildbot, needs -fPIC
-             'http://distfiles.macports.org/xz/xz-5.2.5.tar.bz2',
-             '5117f930900b341493827d63aa910ff5e011e0b994197c3b71c08a20228a42df',
+             'http://distfiles.macports.org/xz/xz-5.2.10.tar.bz2',
+             'e2f8d84b523eecd06c7be7626830370300fbcc15386bf5142d72758f6963ebc6',
              [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
