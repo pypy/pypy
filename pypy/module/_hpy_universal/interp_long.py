@@ -5,24 +5,24 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._hpy_universal.apiset import API
 
 
-@API.func("HPy HPyLong_FromLong(HPyContext *ctx, long value)")
-def HPyLong_FromLong(space, handles, ctx, value):
+@API.func("HPy HPyLong_FromInt32_t(HPyContext *ctx, int value)")
+def HPyLong_FromInt32_t(space, handles, ctx, value):
     # XXX: cpyext does space.newlong: write a test and fix
     w_obj = space.newint(rffi.cast(lltype.Signed, value))
     return handles.new(w_obj)
 
-@API.func("HPy HPyLong_FromUnsignedLong(HPyContext *ctx, unsigned long value)")
-def HPyLong_FromUnsignedLong(space, handles, ctx, v):
+@API.func("HPy HPyLong_FromUInt32_t(HPyContext *ctx, unsigned int value)")
+def HPyLong_FromUInt32_t(space, handles, ctx, v):
     w_obj = space.newlong_from_rarith_int(v)
     return handles.new(w_obj)
 
-@API.func("HPy HPyLong_FromLongLong(HPyContext *ctx, long long v)")
-def HPyLong_FromLongLong(space, handles, ctx, v):
+@API.func("HPy HPyLong_FromInt64_t(HPyContext *ctx, long v)")
+def HPyLong_FromInt64_t(space, handles, ctx, v):
     w_obj = space.newlong_from_rarith_int(v)
     return handles.new(w_obj)
 
-@API.func("HPy HPyLong_FromUnsignedLongLong(HPyContext *ctx, unsigned long long v)")
-def HPyLong_FromUnsignedLongLong(space, handles, ctx, v):
+@API.func("HPy HPyLong_FromUInt64_t(HPyContext *ctx, unsigned long v)")
+def HPyLong_FromUInt64_t(space, handles, ctx, v):
     w_obj = space.newlong_from_rarith_int(v)
     return handles.new(w_obj)
 
@@ -43,8 +43,8 @@ LONG_MAX = (2 ** (8 * rffi.sizeof(rffi.ULONG) - 1) -1)
 LONG_MIN = (-2 ** (8 * rffi.sizeof(rffi.ULONG) - 1))
 need_to_check = maxint > ULONG_MAX
 
-@API.func("long HPyLong_AsLong(HPyContext *ctx, HPy h)",
-          error_value=API.cast("long", -1))
+@API.func("long HPyLong_AsInt32_t(HPyContext *ctx, HPy h)",
+          error_value=API.cast("int32_t", -1))
 def HPyLong_AsLong(space, handles, ctx, h):
     w_long = handles.deref(h)
     val = space.int_w(space.int(w_long))

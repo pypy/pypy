@@ -50,7 +50,6 @@ cts.parse_source("""
 typedef intptr_t HPy_ssize_t;
 typedef intptr_t HPy_hash_t;
 
-// see below for more info about HPy vs struct _HPy_s
 struct _HPy_s {
     HPy_ssize_t _i;
 };
@@ -92,7 +91,7 @@ typedef enum {
     HPyType_BuiltinShape_List = 6,
 } HPyType_BuiltinShape;
 
-// sync with hpy/devel/include/hpy/universal/autogen.h
+/* sync with lib_pypy/hpy/devel/include/hpy/universal/autogen.h */
 typedef struct _HPyContext_s {
     const char *name; // used just to make debugging and testing easier
     void *_private;   // used by implementations to store custom data
@@ -187,14 +186,14 @@ typedef struct _HPyContext_s {
     void * ctx_Long_AsUInt32_tMask;
     void * ctx_Long_AsInt64_t;
     void * ctx_Long_AsUInt64_t;
-    void * ctx_Long_AsUUInt64_tMask;
+    void * ctx_Long_AsUInt64_tMask;
     void * ctx_Long_AsSize_t;
     void * ctx_Long_AsSsize_t;
     void * ctx_Long_AsVoidPtr;
     void * ctx_Long_AsDouble;
     void * ctx_Float_FromDouble;
     void * ctx_Float_AsDouble;
-    void * ctx_Bool_FromLong;
+    void * ctx_Bool_FromBool;
     void * ctx_Length;
     void * ctx_Number_Check;
     void * ctx_Add;
@@ -265,8 +264,8 @@ typedef struct _HPyContext_s {
     void * ctx_Type;
     void * ctx_TypeCheck;
     void * ctx_Is;
-    void * ctx_AsStruct;
-    void * ctx_AsStructLegacy;
+    void * ctx_AsStruct_Object;
+    void * ctx_AsStruct_Legacy;
     void * ctx_New;
     void * ctx_Repr;
     void * ctx_Str;
@@ -341,7 +340,7 @@ typedef struct _HPyContext_s {
     HPy h_CapsuleType;
     HPy h_SliceType;
     HPy h_Builtins;
-    HPy * ctx_Capsule_New;
+    HPy ctx_Capsule_New;
     void * ctx_Capsule_Get;
     int ctx_Capsule_IsValid;
     int ctx_Capsule_Set;
@@ -350,7 +349,7 @@ typedef struct _HPyContext_s {
     HPy ctx_ContextVar_New;
     short ctx_ContextVar_Get;
     HPy ctx_ContextVar_Set;
-    const char *ctx_Type_GetName;
+    const char * ctx_Type_GetName;
     int ctx_Type_IsSubtype;
     HPy ctx_Unicode_FromEncodedObject;
     HPy ctx_Unicode_Substring;
@@ -361,7 +360,6 @@ typedef struct _HPyContext_s {
     HPy ctx_Call;
     HPy ctx_CallMethod;
 } _struct_HPyContext_s;
-
 
 typedef struct _HPyContext_s HPyContext;
 
