@@ -33,18 +33,15 @@ def test_unwrap():
 
 def test_wrap():
     def InputArgInt(a):
-        i = IntFrontendOp(0)
-        i.setint(a)
+        i = IntFrontendOp(0, a)
         return i
 
     def InputArgFloat(a):
-        i = FloatFrontendOp(0)
-        i.setfloatstorage(a)
+        i = FloatFrontendOp(0, a)
         return i
 
     def InputArgRef(a):
-        i = RefFrontendOp(0)
-        i.setref_base(a)
+        i = RefFrontendOp(0, a)
         return i
 
     def boxfloat(x):
@@ -55,24 +52,24 @@ def test_wrap():
                 box1.getvalue() == box2.getvalue())
     p = lltype.malloc(lltype.GcStruct('S'))
     po = lltype.cast_opaque_ptr(llmemory.GCREF, p)
-    assert _is(wrap(None, 42), InputArgInt(42))
-    assert _is(wrap(None, 42.5), boxfloat(42.5))
-    assert _is(wrap(None, p), InputArgRef(po))
-    assert _is(wrap(None, 42, in_const_box=True), ConstInt(42))
-    assert _is(wrap(None, 42.5, in_const_box=True), constfloat(42.5))
-    assert _is(wrap(None, p, in_const_box=True), ConstPtr(po))
+    assert _is(wrap(None, 42, 0), InputArgInt(42))
+    assert _is(wrap(None, 42.5, 0), boxfloat(42.5))
+    assert _is(wrap(None, p, 0), InputArgRef(po))
+    assert _is(wrap(None, 42, -1), ConstInt(42))
+    assert _is(wrap(None, 42.5, -1), constfloat(42.5))
+    assert _is(wrap(None, p, -1), ConstPtr(po))
     if longlong.supports_longlong:
         import sys
         from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
         value = r_longlong(-sys.maxint*17)
-        assert _is(wrap(None, value), InputArgFloat(value))
-        assert _is(wrap(None, value, in_const_box=True), ConstFloat(value))
+        assert _is(wrap(None, value, 0), InputArgFloat(value))
+        assert _is(wrap(None, value, -1), ConstFloat(value))
         value_unsigned = r_ulonglong(-sys.maxint*17)
-        assert _is(wrap(None, value_unsigned), InputArgFloat(value))
+        assert _is(wrap(None, value_unsigned, 0), InputArgFloat(value))
     sfval = r_singlefloat(42.5)
     ival = longlong.singlefloat2int(sfval)
-    assert _is(wrap(None, sfval), InputArgInt(ival))
-    assert _is(wrap(None, sfval, in_const_box=True), ConstInt(ival))
+    assert _is(wrap(None, sfval, 0), InputArgInt(ival))
+    assert _is(wrap(None, sfval, -1), ConstInt(ival))
 
 def test_specialize_value():
     assert specialize_value(lltype.Char, 0x41) == '\x41'
