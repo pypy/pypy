@@ -487,8 +487,9 @@ class Trace(BaseTrace):
         return pos
 
     def _encode_descr(self, descr):
-        if descr.descr_index != -1:
-            return descr.descr_index + 1
+        descr_index = descr.get_descr_index()
+        if descr_index != -1:
+            return descr_index + 1
         self._descrs.append(descr)
         return len(self._descrs) - 1 + len(self.metainterp_sd.all_descrs) + 1
 
