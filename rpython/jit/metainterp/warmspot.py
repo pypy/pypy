@@ -466,6 +466,7 @@ class WarmRunnerDesc(object):
                               constfold=True,
                               remove_asserts=True,
                               really_remove_asserts=True,
+                              cse=True,
                               replace_we_are_jitted=False)
 
     def prejit_optimizations_minimal_inline(self, policy, graphs):
