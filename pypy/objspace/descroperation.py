@@ -437,7 +437,7 @@ class DescrOperation(object):
             if _check_notimplemented(space, w_res):
                 return w_res
         raise oefmt(space.w_TypeError,
-            "unsupported operand type(s) for pow(): '%T', '%T', %T",
+            "unsupported operand type(s) for pow(): '%T', '%T', '%T'",
             w_obj1, w_obj2, w_obj3
         )
 
