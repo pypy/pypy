@@ -478,6 +478,7 @@ def compute_bitstrings(all_descrs):
     descrs = {'fields': set(), 'arrays': set(), 'interiorfields': set()}
     for descr in all_descrs:
         if hasattr(descr, 'get_extra_info'):
+            print descr, type(descr)
             ei = descr.get_extra_info()
             if ei is None:
                 continue
@@ -523,6 +524,7 @@ def compute_bitstrings(all_descrs):
         mapping = {}
         for (descr, eisetr, eisetw) in all_sets:
             assert descr.ei_index == sys.maxint    # not modified yet
+            print descr, type(descr)
             descr.ei_index = mapping.setdefault((eisetr, eisetw), len(mapping))
 
         for ei in effectinfos:
