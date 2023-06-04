@@ -330,35 +330,35 @@ typedef struct _HPyContext_s {
     void * ctx_AsStruct_Unicode;
     void * ctx_AsStruct_Tuple;
     void * ctx_AsStruct_List;
-    HPyType_BuiltinShape ctx_Type_GetBuiltinShape;
-    int ctx_DelItem;
-    int ctx_DelItem_i;
-    int ctx_DelItem_s;
+    void * ctx_Type_GetBuiltinShape;
+    void * ctx_DelItem;
+    void * ctx_DelItem_i;
+    void * ctx_DelItem_s;
     HPy h_ComplexType;
     HPy h_BytesType;
     HPy h_MemoryViewType;
     HPy h_CapsuleType;
     HPy h_SliceType;
     HPy h_Builtins;
-    HPy ctx_Capsule_New;
+    void * ctx_Capsule_New;
     void * ctx_Capsule_Get;
-    int ctx_Capsule_IsValid;
-    int ctx_Capsule_Set;
-    HPy ctx_Compile_s;
-    HPy ctx_EvalCode;
-    HPy ctx_ContextVar_New;
-    short ctx_ContextVar_Get;
-    HPy ctx_ContextVar_Set;
-    const char * ctx_Type_GetName;
-    int ctx_Type_IsSubtype;
-    HPy ctx_Unicode_FromEncodedObject;
-    HPy ctx_Unicode_Substring;
-    HPy ctx_Dict_Keys;
-    HPy ctx_Dict_Copy;
-    int ctx_Slice_Unpack;
-    int ctx_SetCallFunction;
-    HPy ctx_Call;
-    HPy ctx_CallMethod;
+    void * ctx_Capsule_IsValid;
+    void * ctx_Capsule_Set;
+    void * ctx_Compile_s;
+    void * ctx_EvalCode;
+    void * ctx_ContextVar_New;
+    void * ctx_ContextVar_Get;
+    void * ctx_ContextVar_Set;
+    void * ctx_Type_GetName;
+    void * ctx_Type_IsSubtype;
+    void * ctx_Unicode_FromEncodedObject;
+    void * ctx_Unicode_Substring;
+    void * ctx_Dict_Keys;
+    void * ctx_Dict_Copy;
+    void * ctx_Slice_Unpack;
+    void * ctx_SetCallFunction;
+    void * ctx_Call;
+    void * ctx_CallMethod;
 } _struct_HPyContext_s;
 
 typedef struct _HPyContext_s HPyContext;
@@ -612,8 +612,7 @@ cpy_PyMethodDef = cts.gettype('cpy_PyMethodDef')
 HPyModuleDef = cts.gettype('HPyModuleDef')
 HPyModuleDefP = cts.gettype('HPyModuleDef *')
 # CTypeSpace converts "PyMethodDef*" into lltype.Ptr(PyMethodDef), but we
-# want a CArrayPtr instead, so that we can index the items inside
-# HPyModule_Create
+# want a CArrayPtr instead
 HPyModuleDef._flds['c_legacy_methods'] = rffi.CArrayPtr(cpy_PyMethodDef)
 
 # enum HPyFunc_Signature {

@@ -175,7 +175,7 @@ class HandleManager(AbstractHandleManager):
         self.ctx.c_name = self.ctx_name()
 
         for name in CONTEXT_FIELDS:
-            if name == 'c_ctx_version':
+            if name == 'c_abi_version':
                 continue
             if name.startswith('c_ctx_'):
                 # this is a function pointer: assign a default value so we get
@@ -281,7 +281,7 @@ class DebugHandleManager(AbstractHandleManager):
     def setup_ctx(self):
         space = self.space
         self.ctx.c_name = self.ctx_name()
-        rffi.setintfield(self.ctx, 'c_ctx_version', 1)
+        rffi.setintfield(self.ctx, 'c_abi_version', 1)
         self.ctx.c__private = llapi.cts.cast('void*', 0)
         llapi.hpy_debug_ctx_init(self.ctx, self.u_handles.ctx)
         for func in DEBUG.all_functions:

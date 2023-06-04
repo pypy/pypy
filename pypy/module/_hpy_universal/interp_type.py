@@ -25,8 +25,8 @@ HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
 # objects is that they need a certain amount of "C memory" which contains the
 # user data.
 #
-# From C, you can access the "C memory" by calling HPy_AsStruct on a handle:
-# the invariant is that the pointer returned by HPy_AsStruct is valid for the
+# From C, you can access the "C memory" by calling HPy_AsStruct_* on a handle:
+# the invariant is that the pointer returned by HPy_AsStruct_* is valid for the
 # whole lifetime of the handle, so we need to ensure that the GC doesn't move
 # the memory.
 #
@@ -206,16 +206,16 @@ class W_HPyTypeObject(W_TypeObject):
         self.is_legacy = is_legacy
 
 
-@API.func("void *HPy_AsStruct(HPyContext *ctx, HPy h)")
-def HPy_AsStruct(space, handles, ctx, h):
+@API.func("void *HPy_AsStruct_Object(HPyContext *ctx, HPy h)")
+def HPy_AsStruct_Object(space, handles, ctx, h):
     w_obj = handles.deref(h)
     if not isinstance(w_obj, W_HPyObject):
         # XXX: write a test for this
         raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
     return w_obj.get_raw_data()
 
-@API.func("void *HPy_AsStructLegacy(HPyContext *ctx, HPy h)")
-def HPy_AsStructLegacy(space, handles, ctx, h):
+@API.func("void *HPy_AsStruct_Legacy(HPyContext *ctx, HPy h)")
+def HPy_AsStruct_Legacy(space, handles, ctx, h):
     w_obj = handles.deref(h)
     if not isinstance(w_obj, W_HPyObject):
         # XXX: write a test for this

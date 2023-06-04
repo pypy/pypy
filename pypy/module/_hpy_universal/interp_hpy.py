@@ -43,6 +43,9 @@ from pypy.module._hpy_universal import (
 #    init_hpy_module
 #
 # 2. init_hpy_module(debug=True) calls HPyInit_foo(dctx)
+
+# XXX UPDATE FOR hpy0.9
+
 #
 # 3. HPyInit_foo calls HPyModule_Create(), which calls dctx->ctx_Module_Create.
 #    This function is a wrapper around interp_module.debug_HPyModule_Create(),

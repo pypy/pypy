@@ -9,17 +9,6 @@ from pypy.module._hpy_universal.state import State
 from pypy.module._hpy_universal.interp_cpy_compat import attach_legacy_methods
 
 
-@API.func("HPy HPyModule_Create(HPyContext *ctx, HPyModuleDef *def)")
-def HPyModule_Create(space, handles, ctx, hpydef):
-    return _hpymodule_create(handles, hpydef)
-
-@DEBUG.func("HPy debug_HPyModule_Create(HPyContext *ctx, HPyModuleDef *def)",
-            func_name='HPyModule_Create')
-def debug_HPyModule_Create(space, handles, ctx, hpydef):
-    state = State.get(space)
-    assert ctx == state.get_handle_manager(debug=True).ctx
-    return _hpymodule_create(handles, hpydef)
-
 @specialize.arg(0)
 def _hpymodule_create(handles, hpydef):
     space = handles.space
