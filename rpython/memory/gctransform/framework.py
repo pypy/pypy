@@ -240,7 +240,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
         self.create_custom_trace_funcs(gcdata.gc, translator.rtyper)
 
         annhelper.finish()   # at this point, annotate all mix-level helpers
-        annhelper.backend_optimize()
+        # XXX this is a bit annoying, but we need cse=False, because the low
+        # level operations that the GC uses (casts to addresses, modifications
+        # there), mixed with high level setfields and getfields breaks
+        # assumptions that the common subexpression elimination makes.
+        annhelper.backend_optimize(cse=False)
 
         self.check_custom_trace_funcs(gcdata.gc, translator.rtyper)
 
