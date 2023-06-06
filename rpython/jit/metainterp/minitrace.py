@@ -287,32 +287,40 @@ class MIFrame(object):
             import pdb; pdb.set_trace()
         raise NotImplementedError(name)
     
-    def fill_registers(self, f, length, position, argcode, old_jitcode):
+    def fill_registers(self, f, length, position, argcode):
         assert argcode in 'IRF'
         code = self.bytecode
-        for i in range(length):
-            index = ord(code[position+i])
-            value = self.fetch_register_value(argcode, index, old_jitcode)
-            if   argcode == 'I':
+        if argcode == 'I':
+            for i in range(length):
+                index = ord(code[position+i])
+                value = self.fetch_register_value('i', index)
                 f.set_reg_i(i, value)
-            elif argcode == 'R':
+        elif argcode == 'R':
+            for i in range(length):
+                index = ord(code[position+i])
+                value = self.fetch_register_value('r', index)
                 f.set_reg_r(i, value)
-            elif argcode == 'F':
+        else:
+            assert argcode == 'F'
+            for i in range(length):
+                index = ord(code[position+i])
+                value = self.fetch_register_value('f', index)
                 f.set_reg_f(i, value)
                 
-    @specialize.arg_or_var(1)
-    def fetch_register_value(self, argcode, index, jitcode):
-        if argcode.lower() == 'i':
+    @specialize.arg(1)
+    def fetch_register_value(self, argcode, index):
+        jitcode = self.jitcode
+        if argcode == 'i':
             if index >= jitcode.num_regs_i():
                 value = valueapi.create_const(jitcode.constants_i[index - jitcode.num_regs_i()])
             else:
                 value = self.get_reg_i(index)
-        elif argcode.lower() == 'r':
+        elif argcode == 'r':
             if index >= jitcode.num_regs_r():
                 value = valueapi.create_const(jitcode.constants_r[index - jitcode.num_regs_r()])
             else:
                 value = self.get_reg_r(index)
-        elif argcode.lower() == 'f':
+        elif argcode == 'f':
             if index >= jitcode.num_regs_f():
                 # TODO value = jitcode.constants_f[index - jitcode.num_regs_f()]
                 assert False
@@ -495,7 +503,7 @@ def _get_opimpl_method(name, argcodes):
                     value = valueapi.create_const(signedord(code[position]))
                 else:
                     index = ord(code[position])
-                    value = self.fetch_register_value(argcode, index, self.jitcode)
+                    value = self.fetch_register_value(argcode, index)
                 
                 position += 1
             elif argtype == "descr" or argtype == "jitcode":
@@ -537,19 +545,19 @@ def _get_opimpl_method(name, argcodes):
                 # now put boxes into the right places
                 length = ord(code[position])
                 self.fill_registers(value, length, position + 1,
-                                    argcodes[next_argcode], self.jitcode)
+                                    argcodes[next_argcode])
                 next_argcode = next_argcode + 1
                 position += 1 + length
                 if argtype != "newframe": # 2/3 lists of boxes
                     length = ord(code[position])
                     self.fill_registers(value, length, position + 1,
-                                        argcodes[next_argcode], self.jitcode)
+                                        argcodes[next_argcode])
                     next_argcode = next_argcode + 1
                     position += 1 + length
                 if argtype == "newframe3": # 3 lists of boxes
                     length = ord(code[position])
                     self.fill_registers(value, length, position + 1,
-                                        argcodes[next_argcode], self.jitcode)
+                                        argcodes[next_argcode])
                     next_argcode = next_argcode + 1
                     position += 1 + length
             elif argtype == "orgpc":
