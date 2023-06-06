@@ -43,21 +43,17 @@ class ValueAPI:
             op = FrontendOp(pos)
             op = erase_box(op)
         elif isinstance(value, bool):
-            op = IntFrontendOp(pos)
-            op.setint(int(value))
+            op = IntFrontendOp(pos, int(value))
             op = erase_box(op)
         elif lltype.typeOf(value) == lltype.Signed:
-            op = IntFrontendOp(pos)
-            op.setint(value)
+            op = IntFrontendOp(pos, value)
             op = erase_box(op)
         elif lltype.typeOf(value) is longlong.FLOATSTORAGE:
-            op = FloatFrontendOp(pos)
-            op.setfloatstorage(value)
+            op = FloatFrontendOp(pos, value)
             op = erase_box(op)
         else:
-            op = RefFrontendOp(pos)
             assert lltype.typeOf(value) == llmemory.GCREF
-            op.setref_base(value)
+            op = RefFrontendOp(pos, value)
             op = erase_box(op)
         return op
 

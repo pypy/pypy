@@ -564,13 +564,9 @@ class BaseTest(LLtypeMixin):
             r = []
             for arg, v in zip(inpargs, values):
                 if arg.type == 'i':
-                    n = IntFrontendOp(0)
-                    if v is not None:
-                        n.setint(v)
+                    n = IntFrontendOp(0, v)
                 else:
-                    n = RefFrontendOp(0)
-                    if v is not None:
-                        n.setref_base(v)
+                    n = RefFrontendOp(0, v)
                     assert arg.type == 'r'
                 r.append(n)
             return r

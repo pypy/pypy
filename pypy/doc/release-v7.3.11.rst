@@ -157,4 +157,5 @@ Python 3.9
 .. _3871: https://foss.heptapod.net/pypy/pypy/-/issues/3871
 .. _3873: https://foss.heptapod.net/pypy/pypy/-/issues/3873
 .. _3876: https://foss.heptapod.net/pypy/pypy/-/issues/3876
+.. _3878: https://foss.heptapod.net/pypy/pypy/-/issues/3878
 .. _3879: https://foss.heptapod.net/pypy/pypy/-/issues/3879

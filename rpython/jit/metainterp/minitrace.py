@@ -367,8 +367,9 @@ class MetaInterp(object):
     def free_regs(self, num_regs):
         self.allocated_regs -= num_regs
 
-    def create_empty_history(self):
-        self.history = History()
+    def create_empty_history(self, inputargs):
+        self.history = History(len(inputargs), self.metainterp_sd)
+        self.history.set_inputargs(inputargs)
 
     def replace_box(self, oldbox, newbox):
         for i in range(self.allocated_regs):
@@ -381,30 +382,26 @@ class MetaInterp(object):
         self.jitdriver_sd = jitdriver_sd
         original_boxes = self.initialize_original_boxes(jitdriver_sd, *args)
         self.initialize_state_from_start(original_boxes)
-        self.create_empty_history()
         num_green_args = jitdriver_sd.num_green_args
-        self.history.set_inputargs(original_boxes[num_green_args:],
-                                   self.metainterp_sd)
+        self.create_empty_history(original_boxes[num_green_args:],)
         self.interpret()
 
     @specialize.arg(1)
     def initialize_original_boxes(self, jitdriver_sd, *args):
         original_boxes = [valueapi.NoValue] * len(args)
         self._fill_original_boxes(jitdriver_sd, original_boxes, 0,
-                                  jitdriver_sd.num_green_args, *args)
+                                  *args)
         return original_boxes
 
     @specialize.arg(1)
     @always_inline
     def _fill_original_boxes(self, jitdriver_sd, original_boxes,
-                             position,
-                             num_green_args, *args):
+                             position, *args):
         if args:
-            box = wrap(args[0], num_green_args > 0)
+            box = wrap(args[0], position - self.jitdriver_sd.num_green_args)
             original_boxes[position] = box
             self._fill_original_boxes(jitdriver_sd, original_boxes,
-                                      position + 1,
-                                      num_green_args-1, *args[1:])
+                                      position + 1, *args[1:])
 
     def initialize_state_from_start(self, original_boxes):
         self.framestack = []
@@ -443,14 +440,13 @@ class MetaInterp(object):
                 return
 
 
-def wrap(value, in_const_box=False):
+@specialize.ll()
+def wrap(value, inputarg_position_or_neg):
     assert isinstance(value, int)
-    if in_const_box:
+    if inputarg_position_or_neg < 0:
         return valueapi.create_const(value)
     else:
-        op = valueapi.create_box(0, value)
-        return op
-
+        return valueapi.create_box(inputarg_position_or_neg, value)
 
 def miniinterp_staticdata(metainterp_sd, cw):
     # replace the opcode_names and opcode_implementations

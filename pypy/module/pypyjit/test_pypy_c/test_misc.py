@@ -281,6 +281,8 @@ class TestMisc(BaseTestPyPyC):
             guard_nonnull_class(p17, ..., descr=...)
             guard_not_invalidated?
             i21 = getfield_gc_i(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
+            i22 = int_lt(i21, 0)
+            guard_false(i22, descr=...)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
             i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayBase.inst__buffer .*>)
