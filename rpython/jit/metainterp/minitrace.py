@@ -16,12 +16,9 @@ def arguments(*args):
         return func
     return decorate
 
-class ChangeFrame(Exception):
-    pass
-
-class DoneWithThisFrameInt(Exception):
-    def __init__(self, result):
-        self.result = result
+CONTINUE_EXECUTE = 0
+CHANGE_FRAME = 1
+DONE_WITH_FRAME_INT = 2
 
 class MIFrame(object):
     debug = True
@@ -78,7 +75,7 @@ class MIFrame(object):
         # methods) raises ChangeFrame.  This is the case when the current frame
         # changes, due to a call or a return.
             staticdata = self.metainterp.metainterp_sd
-            staticdata.run_one_step(self)
+            return staticdata.run_one_step(self)
 
     def generate_guard(self, opnum, box=None, extraarg=None, resumepc=-1):
         if valueapi.is_constant(box):    # no need for a guard
@@ -164,7 +161,7 @@ class MIFrame(object):
             res_box = self.metainterp.history.record(rop.INT_ADD, [b1, b2], res)
         else:
             res_box = valueapi.create_const(res)
-        return res_box
+        return res_box, CONTINUE_EXECUTE, valueapi.NoValue
 
     @arguments("box", "box")
     def opimpl_int_sub(self, b1, b2):
@@ -173,7 +170,7 @@ class MIFrame(object):
             res_box = self.metainterp.history.record(rop.INT_SUB, [b1, b2], res)
         else:
             res_box = valueapi.create_const(res)
-        return res_box
+        return res_box, CONTINUE_EXECUTE, valueapi.NoValue
 
     @arguments("box", "box")
     def opimpl_int_mul(self, b1, b2):
@@ -182,15 +179,16 @@ class MIFrame(object):
             res_box = self.metainterp.history.record(rop.INT_MUL, [b1, b2], res)
         else:
             res_box = valueapi.create_const(res)
-        return res_box
+        return res_box, CONTINUE_EXECUTE, valueapi.NoValue
 
     @arguments("box")
     def opimpl_int_copy(self, box):
-        return box
+        return box, CONTINUE_EXECUTE, valueapi.NoValue
 
     @arguments()
     def opimpl_live(self):
         self.pc += OFFSET_SIZE
+        return None, CONTINUE_EXECUTE, valueapi.NoValue
 
     @arguments("box", "box", "label", "orgpc")
     def opimpl_goto_if_not_int_gt(self, a, b, target, orgpc):
@@ -204,6 +202,7 @@ class MIFrame(object):
             self.generate_guard(opnum, res_box, resumepc=orgpc)
         if not res:
             self.pc = target
+        return None, CONTINUE_EXECUTE, valueapi.NoValue
 
     @arguments("box", "box", "label", "orgpc")
     def opimpl_goto_if_not_int_lt(self, a, b, target, orgpc):
@@ -217,6 +216,7 @@ class MIFrame(object):
             self.generate_guard(opnum, res_box, resumepc=orgpc)
         if not res:
             self.pc = target
+        return None, CONTINUE_EXECUTE, valueapi.NoValue
 
     @arguments("box", "box", "label", "orgpc")
     def opimpl_goto_if_not_int_eq(self, a, b, target, orgpc):
@@ -233,27 +233,30 @@ class MIFrame(object):
             self.generate_guard(opnum, res_box, resumepc=orgpc)
         if not res:
             self.pc = target
+        return None, CONTINUE_EXECUTE, valueapi.NoValue
 
     @arguments("newframe2")
     def opimpl_inline_call_ir_i(self, _):
-        raise ChangeFrame
+        return None, CHANGE_FRAME, valueapi.NoValue
 
     @arguments("label")
     def opimpl_goto(self, target):
         self.pc = target
+        return None, CONTINUE_EXECUTE, valueapi.NoValue
         
     @arguments("box")
     def opimpl_int_return(self, b):
         # TODO
-        self.metainterp.finishframe(b)
+        controlflow, return_value = self.metainterp.finishframe(b)
+        return None, controlflow, return_value
     
     @arguments("box", "box")
     def opimpl_strgetitem(self, strbox, indexbox):
         s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), valueapi.get_value_ref(strbox))
         res = ord(s.chars[valueapi.get_value_int(indexbox)])
         if (valueapi.is_constant(strbox) and valueapi.is_constant(indexbox)):
-            return valueapi.create_const(res)
-        return self.metainterp.history.record(rop.STRGETITEM, [strbox, indexbox], res)
+            return valueapi.create_const(res), CONTINUE_EXECUTE, valueapi.NoValue
+        return self.metainterp.history.record(rop.STRGETITEM, [strbox, indexbox], res), CONTINUE_EXECUTE, valueapi.NoValue
     
     @arguments("box", "descr", "orgpc")
     def opimpl_switch(self, valuebox, switchdict, orgpc):
@@ -274,6 +277,7 @@ class MIFrame(object):
             self.generate_guard(rop.GUARD_VALUE, valuebox, resumepc=orgpc)
             self.metainterp.replace_box(valuebox, promoted_box)
         self.pc = target
+        return None, CONTINUE_EXECUTE, valueapi.NoValue
 
     def not_implemented(self, *args):
         name = self.metainterp.metainterp_sd.opcode_names[ord(self.bytecode[self.pc])]
@@ -416,18 +420,18 @@ class MetaInterp(object):
             cur = self.framestack[-1]
             target_index = ord(cur.bytecode[cur.pc-1])
             cur.set_reg_i(target_index, return_value)
-            raise ChangeFrame
+            return CHANGE_FRAME, valueapi.NoValue
         else:
-            raise DoneWithThisFrameInt(return_value)
+            return DONE_WITH_FRAME_INT, return_value
 
     def interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
         # a ExitFrameWithException, or a ContinueRunningNormally exception.
-        try:
-            while True:
-                self.framestack[-1].run_one_step()
-        except DoneWithThisFrameInt as e:
-            self.return_value = e.result
+        while True:
+            controlflow, return_value = self.framestack[-1].run_one_step()
+            if controlflow == DONE_WITH_FRAME_INT:
+                self.return_value = return_value
+                return
 
 
 def wrap(value, in_const_box=False):
@@ -455,29 +459,24 @@ def miniinterp_staticdata(metainterp_sd, cw):
         while True:
             pc = self.pc
             op = ord(self.bytecode[pc])
-            if op == metainterp_sd.op_live:
-                self.pc = pc + OFFSET_SIZE + 1
+            if not we_are_translated():
+                controlflow, return_value = metainterp_sd.opcode_implementations[op](self, pc)
+                if controlflow != CONTINUE_EXECUTE:
+                    return controlflow, return_value
             else:
-                if not we_are_translated():
-                    try:
-                        metainterp_sd.opcode_implementations[op](self, pc)
-                    except ChangeFrame:
-                        return
-                else:
-                    for opcode_num, handler in unrolling_opcode_implementations:
-                        if opcode_num == op:
-                            try:
-                                handler(self, pc)
-                            except ChangeFrame:
-                                return
-                            break
+                for opcode_num, handler in unrolling_opcode_implementations:
+                    if opcode_num == op:
+                        controlflow, return_value = handler(self, pc)
+                        if controlflow != CONTINUE_EXECUTE:
+                            return controlflow, return_value
+                        break
         
     metainterp_sd.run_one_step = run_one_step
     metainterp_sd.op_live = insns.get('live/', -1)
 
 def _get_opimpl_method(name, argcodes):
     from rpython.jit.metainterp.blackhole import signedord
-    #
+    @always_inline
     def handler(self, position):
         assert position >= 0
         args = ()
@@ -576,7 +575,7 @@ def _get_opimpl_method(name, argcodes):
             if self.debug:
                 print '\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))),
             try:
-                resultbox = unboundmethod(self, *args)
+                resultbox, controlflow, return_value = unboundmethod(self, *args)
             except Exception as e:
                 if self.debug:
                     print '-> %s!' % e.__class__.__name__
@@ -591,13 +590,12 @@ def _get_opimpl_method(name, argcodes):
                 assert argcodes[next_argcode] == '>'
                 result_argcode = argcodes[next_argcode + 1]
         else:
-            resultbox = unboundmethod(self, *args)
+            resultbox, controlflow, return_value = unboundmethod(self, *args)
         #
         if resultbox is not None:
             target_index = ord(self.bytecode[self.pc-1])
             self.set_reg_i(target_index, resultbox) # TODO only ints supported so far
-        elif not we_are_translated():
-            assert self._result_argcode in 'v?' or 'ovf' in name
+        return controlflow, return_value
     #
     if not hasattr(MIFrame, 'opimpl_' + name):
         return MIFrame.not_implemented.im_func
@@ -649,5 +647,6 @@ def target(*args):
         metainterp.compile_and_run_once(jitdriver_sd, 1, 0)    
         t2 = time.time()
         print t2 - t1
+        #print valueapi.get_value_int(metainterp.return_value)
         return 0
     return bench_main
