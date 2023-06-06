@@ -81,7 +81,7 @@ class MIFrame(object):
     def generate_guard(self, opnum, box=None, extraarg=None, resumepc=-1):
         if valueapi.is_constant(box):    # no need for a guard
             return
-        guard_op = self.metainterp.history.record(opnum, [box], None) # TODO
+        guard_op = self.metainterp.history.record1(opnum, box, None) # TODO
         
         saved_pc = 0
         if self.metainterp.framestack:
@@ -159,7 +159,7 @@ class MIFrame(object):
     def opimpl_int_add(self, b1, b2):
         res = valueapi.get_value_int(b1) + valueapi.get_value_int(b2)
         if not (valueapi.is_constant(b1) and valueapi.is_constant(b2)):
-            res_box = self.metainterp.history.record(rop.INT_ADD, [b1, b2], res)
+            res_box = self.metainterp.history.record2(rop.INT_ADD, b1, b2, res)
         else:
             res_box = valueapi.create_const(res)
         return res_box, CONTINUE_EXECUTE, valueapi.NoValue
@@ -168,7 +168,7 @@ class MIFrame(object):
     def opimpl_int_sub(self, b1, b2):
         res = valueapi.get_value_int(b1) - valueapi.get_value_int(b2)
         if not (valueapi.is_constant(b1) and valueapi.is_constant(b2)):
-            res_box = self.metainterp.history.record(rop.INT_SUB, [b1, b2], res)
+            res_box = self.metainterp.history.record2(rop.INT_SUB, b1, b2, res)
         else:
             res_box = valueapi.create_const(res)
         return res_box, CONTINUE_EXECUTE, valueapi.NoValue
@@ -177,7 +177,7 @@ class MIFrame(object):
     def opimpl_int_mul(self, b1, b2):
         res = valueapi.get_value_int(b1) * valueapi.get_value_int(b2)
         if not (valueapi.is_constant(b1) and valueapi.is_constant(b2)):
-            res_box = self.metainterp.history.record(rop.INT_MUL, [b1, b2], res)
+            res_box = self.metainterp.history.record2(rop.INT_MUL, b1, b2, res)
         else:
             res_box = valueapi.create_const(res)
         return res_box, CONTINUE_EXECUTE, valueapi.NoValue
@@ -195,7 +195,7 @@ class MIFrame(object):
     def opimpl_goto_if_not_int_gt(self, a, b, target, orgpc):
         res = valueapi.get_value_int(a) > valueapi.get_value_int(b)
         if not (valueapi.is_constant(a) and valueapi.is_constant(b)):
-            res_box = self.metainterp.history.record(rop.INT_GT, [a, b], res)
+            res_box = self.metainterp.history.record2(rop.INT_GT, a, b, res)
             if res:
                 opnum = rop.GUARD_TRUE
             else:
@@ -209,7 +209,7 @@ class MIFrame(object):
     def opimpl_goto_if_not_int_lt(self, a, b, target, orgpc):
         res = valueapi.get_value_int(a) < valueapi.get_value_int(b)
         if not (valueapi.is_constant(a) and valueapi.is_constant(b)):
-            res_box = self.metainterp.history.record(rop.INT_LT, [a, b], res)
+            res_box = self.metainterp.history.record2(rop.INT_LT, a, b, res)
             if res:
                 opnum = rop.GUARD_TRUE
             else:
@@ -257,7 +257,7 @@ class MIFrame(object):
         res = ord(s.chars[valueapi.get_value_int(indexbox)])
         if (valueapi.is_constant(strbox) and valueapi.is_constant(indexbox)):
             return valueapi.create_const(res), CONTINUE_EXECUTE, valueapi.NoValue
-        return self.metainterp.history.record(rop.STRGETITEM, [strbox, indexbox], res), CONTINUE_EXECUTE, valueapi.NoValue
+        return self.metainterp.history.record2(rop.STRGETITEM, strbox, indexbox, res), CONTINUE_EXECUTE, valueapi.NoValue
     
     @arguments("box", "descr", "orgpc")
     def opimpl_switch(self, valuebox, switchdict, orgpc):
