@@ -320,16 +320,27 @@ class Trace(BaseTrace):
             assert len(set_positions) == len(inputargs)
             assert not set_positions or max(set_positions) < self.max_num_inputargs
 
-    def append(self, v):
+    def _grow(self):
         model = get_model(self)
-        if self._pos >= len(self._ops):
-            # grow by 2X
-            self._ops = self._ops + [rffi.cast(model.STORAGE_TP, 0)] * len(self._ops)
+        # grow by 2X
+        self._ops = self._ops + [rffi.cast(model.STORAGE_TP, 0)] * len(self._ops)
+
+    def _append(self, v, pos):
+        model = get_model(self)
+        if pos >= len(self._ops):
+            self._grow()
         if not model.MIN_VALUE <= v <= model.MAX_VALUE:
             v = 0 # broken value, but that's fine, tracing will stop soon
             self.tag_overflow = True
-        self._ops[self._pos] = rffi.cast(model.STORAGE_TP, v)
-        self._pos += 1
+        self._ops[pos] = rffi.cast(model.STORAGE_TP, v)
+        return pos + 1
+
+    def _append_no_check(self, v, pos):
+        model = get_model(self)
+        if pos >= len(self._ops):
+            self._grow()
+        self._ops[pos] = rffi.cast(model.STORAGE_TP, v)
+        return pos + 1
 
     def tag_overflow_imminent(self):
         return self._pos > get_model(self).MAX_VALUE * 0.8
@@ -420,68 +431,68 @@ class Trace(BaseTrace):
             return tag(TAGBOX, pos)
 
     def _op_start(self, opnum, num_argboxes):
-        old_pos = self._pos
-        self.append(opnum)
+        pos = self._pos
+        self._append_no_check(opnum, pos)
         expected_arity = oparity[opnum]
         if expected_arity == -1:
-            self.append(num_argboxes)
+            pos = self._append_no_check(num_argboxes, pos)
         else:
             assert num_argboxes == expected_arity
-        return old_pos
+        return pos
 
-    def _op_end(self, opnum, descr, old_pos):
+    def _op_end(self, opnum, descr, pos):
         if opwithdescr[opnum]:
             # note that for guards we always store 0 which is later
             # patched during capture_resumedata
             if descr is None:
-                self.append(0)
+                pos = self._append_no_check(0, pos)
             else:
-                self.append(self._encode_descr(descr))
+                pos = self._append(self._encode_descr(descr), pos)
         self._count += 1
         if opclasses[opnum].type != 'v':
             self._index += 1
-        if self.tag_overflow:
-            # potentially a broken op is left behind
-            # clean it up
-            self._pos = old_pos
+        if not self.tag_overflow:
+            # if tag_overflow is set, we potentially a broken op is left behind
+            # so we don't change the pos in that case
+            self._pos = pos
 
     def record_op(self, opnum, argboxes, descr=None):
-        pos = self._index
-        old_pos = self._op_start(opnum, len(argboxes))
+        index = self._index
+        pos = self._op_start(opnum, len(argboxes))
         for box in argboxes:
-            self.append(self._encode(box))
-        self._op_end(opnum, descr, old_pos)
-        return pos
+            pos = self._append(self._encode(box), pos)
+        self._op_end(opnum, descr, pos)
+        return index
 
     def record_op0(self, opnum, descr=None):
-        pos = self._index
-        old_pos = self._op_start(opnum, 0)
-        self._op_end(opnum, descr, old_pos)
-        return pos
+        index = self._index
+        pos = self._op_start(opnum, 0)
+        self._op_end(opnum, descr, pos)
+        return index
 
     def record_op1(self, opnum, argbox1, descr=None):
-        pos = self._index
-        old_pos = self._op_start(opnum, 1)
-        self.append(self._encode(argbox1))
-        self._op_end(opnum, descr, old_pos)
-        return pos
+        index = self._index
+        pos = self._op_start(opnum, 1)
+        pos = self._append(self._encode(argbox1), pos)
+        self._op_end(opnum, descr, pos)
+        return index
 
     def record_op2(self, opnum, argbox1, argbox2, descr=None):
-        pos = self._index
-        old_pos = self._op_start(opnum, 2)
-        self.append(self._encode(argbox1))
-        self.append(self._encode(argbox2))
-        self._op_end(opnum, descr, old_pos)
-        return pos
+        index = self._index
+        pos = self._op_start(opnum, 2)
+        pos = self._append(self._encode(argbox1), pos)
+        pos = self._append(self._encode(argbox2), pos)
+        self._op_end(opnum, descr, pos)
+        return index
 
     def record_op3(self, opnum, argbox1, argbox2, argbox3, descr=None):
-        pos = self._index
-        old_pos = self._op_start(opnum, 3)
-        self.append(self._encode(argbox1))
-        self.append(self._encode(argbox2))
-        self.append(self._encode(argbox3))
-        self._op_end(opnum, descr, old_pos)
-        return pos
+        index = self._index
+        pos = self._op_start(opnum, 3)
+        pos = self._append(self._encode(argbox1), pos)
+        pos = self._append(self._encode(argbox2), pos)
+        pos = self._append(self._encode(argbox3), pos)
+        self._op_end(opnum, descr, pos)
+        return index
 
     def _encode_descr(self, descr):
         descr_index = descr.get_descr_index()
