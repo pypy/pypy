@@ -604,11 +604,12 @@ def _get_opimpl_method(name, argcodes):
     handler.__name__ = 'handler_' + name
     return handler
 
-def target(*args):
+def target(driver, *args):
     from rpython.rlib import jit
     from rpython.jit.backend.llgraph import runner
     from rpython.jit.metainterp.test import support
     from rpython.jit.metainterp import pyjitpl, history, jitexc
+    driver.config.translation.taggedpointers = True
     def function(bytecode_choice, init):
         if bytecode_choice == 1:
             bytecode = "+" * 1000000 + "-" * 999999 + "r"
