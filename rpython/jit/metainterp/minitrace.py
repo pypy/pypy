@@ -19,6 +19,7 @@ def arguments(*args):
 CONTINUE_EXECUTE = 0
 CHANGE_FRAME = 1
 DONE_WITH_FRAME_INT = 2
+ABORT = 3
 
 class MIFrame(object):
     debug = True
@@ -438,6 +439,8 @@ class MetaInterp(object):
             if controlflow == DONE_WITH_FRAME_INT:
                 self.return_value = return_value
                 return
+            if controlflow == ABORT:
+                return
 
 
 @specialize.ll()
@@ -463,6 +466,9 @@ def miniinterp_staticdata(metainterp_sd, cw):
     @always_inline
     def run_one_step(self):
         while True:
+            if self.metainterp.history.trace_tag_overflow():
+                print "aborting!"
+                return ABORT, valueapi.NoValue
             pc = self.pc
             op = ord(self.bytecode[pc])
             if not we_are_translated():
@@ -476,7 +482,7 @@ def miniinterp_staticdata(metainterp_sd, cw):
                         if controlflow != CONTINUE_EXECUTE:
                             return controlflow, return_value
                         break
-        
+
     metainterp_sd.run_one_step = run_one_step
     metainterp_sd.op_live = insns.get('live/', -1)
 
@@ -618,7 +624,7 @@ def target(driver, *args):
     driver.config.translation.taggedpointers = True
     def function(bytecode_choice, init):
         if bytecode_choice == 1:
-            bytecode = "+" * 1000000 + "-" * 999999 + "r"
+            bytecode = "+" * 1000 + "-" * 999 + "r"
         else:
             bytecode = "r"
         pc = 0
@@ -649,9 +655,10 @@ def target(driver, *args):
     def bench_main(args):
         import time
         t1 = time.time()
-        metainterp = MetaInterp(metainterp_sd)
-        jitdriver_sd, = metainterp_sd.jitdrivers_sd
-        metainterp.compile_and_run_once(jitdriver_sd, 1, 0)    
+        for i in range(1000):
+            metainterp = MetaInterp(metainterp_sd)
+            jitdriver_sd, = metainterp_sd.jitdrivers_sd
+            metainterp.compile_and_run_once(jitdriver_sd, 1, 0)
         t2 = time.time()
         print t2 - t1
         #print valueapi.get_value_int(metainterp.return_value)
