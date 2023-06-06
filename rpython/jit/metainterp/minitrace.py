@@ -69,6 +69,7 @@ class MIFrame(object):
             else:
                 raise AssertionError("unknown type")
 
+    @always_inline
     def run_one_step(self):
         # Execute the frame forward.  This method contains a loop that leaves
         # whenever the 'opcode_implementations' (which is one of the 'opimpl_'
@@ -455,6 +456,7 @@ def miniinterp_staticdata(metainterp_sd, cw):
         opimpl = _get_opimpl_method(name, argcodes)
         metainterp_sd.opcode_implementations[value] = opimpl
     unrolling_opcode_implementations = unrolling_iterable(enumerate(metainterp_sd.opcode_implementations))
+    @always_inline
     def run_one_step(self):
         while True:
             pc = self.pc
