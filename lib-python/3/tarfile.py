@@ -741,7 +741,7 @@ class SpecialFileError(FilterError):
 class AbsoluteLinkError(FilterError):
     def __init__(self, tarinfo):
         self.tarinfo = tarinfo
-        super().__init__(f'{tarinfo.name!r} is a link to an absolute path')
+        super().__init__(f'{tarinfo.name!r} is a symlink to an absolute path')
 
 class LinkOutsideDestinationError(FilterError):
     def __init__(self, tarinfo, path):
@@ -801,14 +801,7 @@ def _get_filtered_attrs(member, dest_path, for_data=True):
         if member.islnk() or member.issym():
             if os.path.isabs(member.linkname):
                 raise AbsoluteLinkError(member)
-            if member.issym():
-                target_path = os.path.join(dest_path,
-                                           os.path.dirname(name),
-                                           member.linkname)
-            else:
-                target_path = os.path.join(dest_path,
-                                           member.linkname)
-            target_path = os.path.realpath(target_path)
+            target_path = os.path.realpath(os.path.join(dest_path, member.linkname))
             if os.path.commonpath([target_path, dest_path]) != dest_path:
                 raise LinkOutsideDestinationError(member, target_path)
     return new_attrs
@@ -2573,7 +2566,7 @@ class TarFile(object):
         if not hasattr(os, 'utime'):
             return
         try:
-            os.utime(targetpath, (tarinfo.mtime, tarinfo.mtime))
+            os.utime(targetpath, (mtime, mtime))
         except OSError as e:
             raise ExtractError("could not change modification time") from e
 
