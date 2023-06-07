@@ -35,34 +35,18 @@ from pypy.module._hpy_universal import (
     )
 
 # ~~~ Some info on the debug mode ~~~
+# XXX REVIEW for 0.9
 #
-# The following is an explation of what happens when you load a module in
-# debug mode and how it works:
+# The following is an explation of what happens when you load a module
 #
-# 1. someone calls _hpy_universal.load(..., debug=True), which calls
-#    init_hpy_module
+# 1. someone calls _hpy_universal.load(..., mode=MODE_XXX)
 #
-# 2. init_hpy_module(debug=True) calls HPyInit_foo(dctx)
-
-# XXX UPDATE FOR hpy0.9
-
+# 2. load() calls  get_context(mode) which returns a debug context
+#    and later calls HPyInitGlobalContext_foo(ctx) to set up a global
+#    context in the module
 #
-# 3. HPyInit_foo calls HPyModule_Create(), which calls dctx->ctx_Module_Create.
-#    This function is a wrapper around interp_module.debug_HPyModule_Create(),
-#    created by the @DEBUG.func() decorator.
-#
-# 4. The wrapper calls:
-#       handles = State.get(space).get_handle_manager(self.is_debug)
-#    and passes it to debug_HPyModule_Create()
-#    This means that depending on the value of debug, we get either
-#    HandleManager or DebugHandleManager. This handle manager is passed to
-#    _hpymodule_create() which ends up creating instances of
-#    handles.w_ExtensionFunction (i.e. of W_ExtensionFunction_d)
-#
-# 5. When we call a function or a method, we ultimately end up in
-#    W_ExtensionFunction_{u,d}.call_{noargs,o,...}, which uses self.handles: so, the
-#    net result is that depending on the value of debug at point (1), we call
-#    the underlying C function with either dctx or uctx.
+# 5. The net result is that depending on the value of mode at point (1), we
+#    call the underlying C function with either dctx or uctx.
 #
 # 6. Argument passing works in the same way: handles are created by calling
 #    self.handles.new, which in debug mode calls
@@ -127,34 +111,88 @@ def descr_load_from_spec(space, w_spec):
     origin = space.fsencode_w(space.getattr(w_spec, space.newtext("origin")))
     return descr_load(space, name, origin)
 
-@unwrap_spec(name='text', path='fsencode', debug=bool)
-def descr_load(space, name, path, debug=False):
+@unwrap_spec(name='text', path='fsencode', debug=bool, mode=int)
+def descr_load(space, name, path, w_spec, debug=False, mode=-1):
+    hmode = MODE_DEBUG if debug else MODE_UNIVERSAL
+    if mode > 0:
+        hmode = mode
+    return do_load(space, name, path, hmode, w_spec)
+
+def do_load(space, name, soname, mode, spec):
     try:
-        with rffi.scoped_str2charp(path) as ll_libname:
+        with rffi.scoped_str2charp(soname) as ll_libname:
             lib = dlopen(ll_libname, space.sys.dlopenflags)
     except DLOpenError as e:
-        w_path = space.newfilename(path)
+        w_path = space.newfilename(soname)
         raise raise_import_error(space,
             space.newfilename(e.msg), space.newtext(name), w_path)
 
-    basename = name.split('.')[-1]
+    shortname = name.split('.')[-1]
+    minor_version_symbol_name = get_required_hpy_minor_version_%s % shortname
+    major_version_symbol_name = get_required_hpy_major_version_%s % shortname
+    try:
+        minor_version_ptr = dlsym(lib, minor_version_name)
+        major_version_ptr = dlsym(lib, major_version_name)
+    except KeyError:
+        raise oef
+    except KeyError:
+        raise oefmt(space.w_RuntimeError,
+            ("Error during loading of the HPy extension module at path "
+            "'%s'. Cannot locate the required minimal HPy versions as symbols "
+            "'%s' and `%s`. "), soname, minor_version_symbol_name,
+            major_version_symbol_name)
+    vgfp = llapi.VersionGetterFuncPtr
+    required_minor_version = rffi.cast(vgfp, minor_version_ptr)()
+    required_major_version = rffi.cast(vgfp, major_version_ptr)()
+    if required_major_version != HPY_ABI_VERSION or required_minor_version > HPY_ABI_VERSION_MINOR:
+        # For now, we have only one major version, but in the future at this
+        # point we would decide which HPyContext to create
+        raise oefmt(space.w_RuntimeError,
+            ("HPy extension module '%s' requires unsupported version of the HPy "
+             "runtime. Requested version: %d.%d. Current HPy version: %d.%d."),
+            shortname, required_major_version, required_minor_version,
+            HPY_ABI_VERSION, HPY_ABI_VERSION_MINOR)
+    
+    validate_abi_tag(shortname, soname, required_major_version, required_minor_version)    
+    ctx = get_context(mode)
+
+    init_ctx_name = "HPyInitGlobalContext_" + shortname
+    try:
+        initptr = dlsym(lib, init_ctx_name)
+    except KeyError:
+        msg = b"function %s not found in library %s" % (
+            init_ctx_name, space.utf8_w(space.newfilename(soname)))
+        w_path = space.newfilename(soname)
+        raise raise_import_error(
+            space, space.newtext(msg), space.newtext(name), w_path)
+
+    if space.config.objspace.hpy_cpyext_API:
+        # Ensure cpyext is initialised, since the extension might call cpyext
+        # functions
+        space.getbuiltinmodule('cpyext')
+
+    # Set up global trampoline ctx
+    rffi.cast(llapi.InitContextFuncPtr, initptr)(ctx)
+
     init_name = 'HPyInit_' + basename
     try:
         initptr = dlsym(lib, init_name)
     except KeyError:
         msg = b"function %s not found in library %s" % (
-            init_name, space.utf8_w(space.newfilename(path)))
-        w_path = space.newfilename(path)
+            init_ctx_name, space.utf8_w(space.newfilename(soname)))
+        w_path = space.newfilename(soname)
         raise raise_import_error(
             space, space.newtext(msg), space.newtext(name), w_path)
-    if space.config.objspace.hpy_cpyext_API:
-        # Ensure cpyext is initialised, since the extension might call cpyext
-        # functions
-        space.getbuiltinmodule('cpyext')
-    if debug:
-        return init_hpy_module(space, name, path, lib, True, initptr)
-    else:
-        return init_hpy_module(space, name, path, lib, False, initptr)
+
+    hpydef = rffi.cast(llapi.InitFuncPtr, initptr)()
+    if not hpydef:
+        raise oefmt(space.w_RuntimeError,
+            ("Error during loading of the HPy extension module at "
+            "path '%s'. Function '%s' returned NULL."), soname, init_name);
+
+    pydef = HPyModuleDef_CreatePyModuleDef(hpydef)
+    
+    py_mod = HPyModule_FromDefAndSpec(pydef, spec);
 
 def descr_get_version(space):
     w_ver = space.newtext(HPY_VERSION)

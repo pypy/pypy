@@ -363,12 +363,12 @@ typedef struct _HPyContext_s {
 
 typedef struct _HPyContext_s HPyContext;
 
-typedef HPy (*HPyInitFunc)(HPyContext *ctx);
 typedef int HPyFunc_Signature;
 
 /* hpydef.h */
 
 typedef void* (*HPyCFunction)(void);
+typedef int (*VersionGetterFuncPtr)(void);
 
 typedef struct {
     HPySlot_Slot slot;     // The slot to fill
@@ -605,8 +605,6 @@ HPy_ssize_t = cts.gettype('HPy_ssize_t')
 # "struct _HPy_s"
 HPy = cts.gettype('HPy')
 HPy_NULL = rffi.cast(HPy, 0)
-
-HPyInitFunc = cts.gettype('HPyInitFunc')
 
 cpy_PyMethodDef = cts.gettype('cpy_PyMethodDef')
 HPyModuleDef = cts.gettype('HPyModuleDef')
