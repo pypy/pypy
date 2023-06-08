@@ -24,7 +24,7 @@ class GenExtension(object):
         self.precode.append("    pc = self.pc")
         self.precode.append("    while 1:")
         for index, insn in enumerate(ssarepr.insns):
-            if isinstance(insn[0], Label) or insn[0] == '---' or insn[0] == '-live-':
+            if isinstance(insn[0], Label) or insn[0] == '---':
                 continue
             pc = ssarepr._insns_pos[index]
             self.code.append("if pc == %s:" % pc)
@@ -51,6 +51,7 @@ class GenExtension(object):
                 self.code.append("    else:")
                 self.code.append("        assert 0 # unreachable")
             self.code.append("    continue")
+        self.code.append("assert 0 # unreachable")
         allcode = []
         allcode.extend(self.precode)
         for line in self.code:
@@ -68,6 +69,10 @@ class GenExtension(object):
         lines = []
         # first, write self.pc
         lines.append("self.pc = %s" % (nextpc, ))
+        if insn[0] == '-live-':
+            lines.append('pass # live')
+            return lines, False, None
+
         instruction = self.insns[ord(self.jitcode.code[pc])]
         name, argcodes = instruction.split("/")
         methodname = 'opimpl_' + name
