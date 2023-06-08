@@ -2,8 +2,9 @@
 """
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.typedef import Function, GeneratorIterator, PyTraceback, \
+from pypy.interpreter.typedef import Function, PyTraceback, \
     PyFrame, PyCode
+from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.proxyobject import W_Transparent
 from pypy.objspace.std.typeobject import W_TypeObject
 from rpython.rlib.unroll import unrolling_iterable

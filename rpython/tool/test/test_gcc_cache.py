@@ -64,10 +64,12 @@ def test_gcc_ask():
     assert try_compile_cache([f], eci)
     assert build_executable_cache([f], eci) == "hello\n"
     eci2 = ExternalCompilationInfo(include_dirs=[str(dir2)])
+    path = cache_file_path([f], eci, 'try_compile_cache')
+    if path.check():
+        path.remove()
     err = py.test.raises(CompilationError, try_compile_cache, [f], eci2)
-    print '<<<'
-    print err
-    print '>>>'
+    assert path.check
+    py.test.raises(CompilationError, try_compile_cache, [f], eci2)
 
 def test_gcc_ask_doesnt_log_errors():
     f = localudir.join('z.c')

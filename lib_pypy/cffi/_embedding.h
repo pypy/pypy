@@ -22,7 +22,8 @@ extern "C" {
 
    * _cffi_call_python_org, which on CPython is actually part of the
      _cffi_exports[] array, is the function pointer copied from
-     _cffi_backend.
+     _cffi_backend.  If _cffi_start_python() fails, then this is set
+     to NULL; otherwise, it should never be NULL.
 
    After initialization is complete, both are equal.  However, the
    first one remains equal to &_cffi_start_and_call_python until the
@@ -224,7 +225,7 @@ static int _cffi_initialize_python(void)
 
         if (f != NULL && f != Py_None) {
             PyFile_WriteString("\nFrom: " _CFFI_MODULE_NAME
-                               "\ncompiled with cffi version: 1.14.0"
+                               "\ncompiled with cffi version: 1.15.1"
                                "\n_cffi_backend module: ", f);
             modules = PyImport_GetModuleDict();
             mod = PyDict_GetItemString(modules, "_cffi_backend");
@@ -246,7 +247,9 @@ static int _cffi_initialize_python(void)
     goto done;
 }
 
+#if PY_VERSION_HEX < 0x03080000
 PyAPI_DATA(char *) _PyParser_TokenNames[];  /* from CPython */
+#endif
 
 static int _cffi_carefully_make_gil(void)
 {
@@ -329,15 +332,20 @@ static int _cffi_carefully_make_gil(void)
     /* call Py_InitializeEx() */
     if (!Py_IsInitialized()) {
         _cffi_py_initialize();
+#if PY_VERSION_HEX < 0x03070000
         PyEval_InitThreads();
+#endif
         PyEval_SaveThread();  /* release the GIL */
         /* the returned tstate must be the one that has been stored into the
            autoTLSkey by _PyGILState_Init() called from Py_Initialize(). */
     }
     else {
+#if PY_VERSION_HEX < 0x03070000
+        /* PyEval_InitThreads() is always a no-op from CPython 3.7 */
         PyGILState_STATE state = PyGILState_Ensure();
         PyEval_InitThreads();
         PyGILState_Release(state);
+#endif
     }
 
 #ifdef WITH_THREAD
@@ -361,11 +369,11 @@ PyMODINIT_FUNC _CFFI_PYTHON_STARTUP_FUNC(const void *[]);   /* forward */
 
 static struct _cffi_pypy_init_s {
     const char *name;
-    void (*func)(const void *[]);
+    void *func;    /* function pointer */
     const char *code;
 } _cffi_pypy_init = {
     _CFFI_MODULE_NAME,
-    (void(*)(const void *[]))_CFFI_PYTHON_STARTUP_FUNC,
+    _CFFI_PYTHON_STARTUP_FUNC,
     _CFFI_PYTHON_STARTUP_CODE,
 };
 

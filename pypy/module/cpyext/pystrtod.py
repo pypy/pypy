@@ -1,6 +1,6 @@
 import errno
 from pypy.interpreter.error import oefmt
-from pypy.module.cpyext.api import cpython_api, CONST_STRING, INTP_real
+from pypy.module.cpyext.api import cpython_api, INTP_real
 from pypy.module.cpyext.pyobject import PyObject
 from rpython.rlib import rdtoa
 from rpython.rlib import rfloat
@@ -22,7 +22,7 @@ DOUBLE_TO_STRING_TYPES_MAP = {
     rfloat.DIST_NAN: Py_DTST_NAN
 }
 
-@cpython_api([CONST_STRING, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0)
+@cpython_api([rffi.CONST_CCHARP, rffi.CCHARPP, PyObject], rffi.DOUBLE, error=-1.0)
 @jit.dont_look_inside       # direct use of _get_errno()
 def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
     """Convert a string s to a double, raising a Python
@@ -63,6 +63,45 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
         endpos = (rffi.cast(rffi.LONG, endptr[0]) -
                   rffi.cast(rffi.LONG, s))
         if endpos == 0 or (not user_endptr and not endptr[0][0] == '\0'):
+            low = rffi.constcharp2str(s).lower()
+            sz = 0
+            if len(low) < 3:
+                pass
+            elif low[0] == '-':
+                if low.startswith('-infinity'):
+                    result = -rfloat.INFINITY
+                    sz = len("-infinity")
+                elif low.startswith("-inf"):
+                    result = -rfloat.INFINITY
+                    sz = 4
+                elif low.startswith("-nan"):
+                    result = -rfloat.NAN
+                    sz = 4
+            elif low[0] == '+':
+                if low.startswith("+infinity"):
+                    result = rfloat.INFINITY
+                    sz = len("+infinity")
+                elif low.startswith("+inf"):
+                    result = rfloat.INFINITY
+                    sz = 4
+                elif low.startswith("+nan"):
+                    result = rfloat.NAN
+                    sz = 4
+            elif low.startswith("infinity"):
+                result = rfloat.INFINITY
+                sz = len("infinity")
+            elif low.startswith("inf"):
+                result = rfloat.INFINITY
+                sz = 3
+            elif low.startswith("nan"):
+                result = rfloat.NAN
+                sz = 3
+            # result is set to 0.0 for a parse_error in dtoa.c
+            # if it changed, we must have sucessfully converted
+            if result != 0.0:
+                if endptr:
+                    endptr[0] = rffi.cast(rffi.CCHARP, rffi.ptradd(s, sz))
+                return result
             raise oefmt(space.w_ValueError,
                         "invalid input at position %d", endpos)
         err = rffi.cast(lltype.Signed, rposix._get_errno())

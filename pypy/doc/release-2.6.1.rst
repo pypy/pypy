@@ -9,7 +9,7 @@ functionality of numpy.
 
 You can download the PyPy 2.6.1 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project, and our volunteers and contributors.  
@@ -21,10 +21,10 @@ layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ with making
 RPython's JIT even better. 
 
-.. _`PyPy`: http://doc.pypy.org 
+.. _`PyPy`: https://doc.pypy.org 
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
 
 What is PyPy?
 =============
@@ -40,10 +40,10 @@ as well as newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux.
 We also welcome developers of other
 `dynamic languages`_ to see what RPython can do for them.
 
-.. _`pypy and cpython 2.7.x`: http://speed.pypy.org
-.. _OpenBSD: http://cvsweb.openbsd.org/cgi-bin/cvsweb/ports/lang/pypy
+.. _`pypy and cpython 2.7.x`: https://speed.pypy.org
+.. _OpenBSD: https://cvsweb.openbsd.org/cgi-bin/cvsweb/ports/lang/pypy
 .. _freebsd: https://svnweb.freebsd.org/ports/head/lang/pypy/
-.. _`dynamic languages`: http://pypyjs.org
+.. _`dynamic languages`: https://pypyjs.org
 
 Highlights 
 ===========
@@ -116,7 +116,7 @@ Highlights
     one sequence argument
 
 .. _`vmprof`: https://vmprof.readthedocs.org
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-2.6.1.html
+.. _resolved: https://doc.pypy.org/en/latest/whatsnew-2.6.1.html
 
 Please try it out and let us know what you think. We welcome
 success stories, `experiments`_,  or `benchmarks`_, we know you are using PyPy, please tell us about it!

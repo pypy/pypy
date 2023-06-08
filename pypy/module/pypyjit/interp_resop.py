@@ -395,7 +395,7 @@ def get_stats_asmmemmgr(space):
     as a pair (total_memory_allocated, memory_in_use)."""
     m1 = jit_hooks.stats_asmmemmgr_allocated(None)
     m2 = jit_hooks.stats_asmmemmgr_used(None)
-    return space.newtuple([space.newint(m1), space.newint(m2)])
+    return space.newtuple2(space.newint(m1), space.newint(m2))
 
 def enable_debug(space):
     """ Set the jit debugging - completely necessary for some stats to work,

@@ -7,7 +7,7 @@ in our long journey, as PyPy 1.4 is the first PyPy release that can translate
 itself faster than CPython.  Starting today, we are using PyPy more for
 our every-day development.  So may you :) You can download it here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 What is PyPy
 ============
@@ -46,12 +46,12 @@ More highlights
 
 * Other speed improvements, like JITted calls to functions like map().
 
-.. _virtualenv: http://pypi.python.org/pypi/virtualenv
-.. _`Virtualenv support`: http://morepypy.blogspot.com/2010/08/using-virtualenv-with-pypy.html
-.. _`in production`: http://morepypy.blogspot.com/2010/11/running-large-radio-telescope-software.html
-.. _`our blog`: http://morepypy.blogspot.com
-.. _`pypy 1.4 and pypy 1.3`: http://speed.pypy.org/comparison/?exe=1%2B41,1%2B172&ben=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20&env=1&hor=false&bas=1%2B41&chart=normal+bars
-.. _`pypy 1.4 and cpython 2.6`: http://speed.pypy.org/comparison/?exe=2%2B35,1%2B172&ben=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20&env=1&hor=false&bas=2%2B35&chart=normal+bars
+.. _virtualenv: https://pypi.python.org/pypi/virtualenv
+.. _`Virtualenv support`: https://morepypy.blogspot.com/2010/08/using-virtualenv-with-pypy.html
+.. _`in production`: https://morepypy.blogspot.com/2010/11/running-large-radio-telescope-software.html
+.. _`our blog`: https://morepypy.blogspot.com
+.. _`pypy 1.4 and pypy 1.3`: https://speed.pypy.org/comparison/?exe=1%2B41,1%2B172&ben=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20&env=1&hor=false&bas=1%2B41&chart=normal+bars
+.. _`pypy 1.4 and cpython 2.6`: https://speed.pypy.org/comparison/?exe=2%2B35,1%2B172&ben=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20&env=1&hor=false&bas=2%2B35&chart=normal+bars
 
 Cheers,
 

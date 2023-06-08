@@ -7,6 +7,7 @@ from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.rstring import assert_str0
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 # ____________________________________________________________
 # Reading env vars.  Supports returning ints, uints or floats,
@@ -375,11 +376,13 @@ def _skipspace(data, pos):
 
 # ---------- Darwin ----------
 
+sysctlbyname_eci = ExternalCompilationInfo(includes=["sys/sysctl.h"])
 sysctlbyname = rffi.llexternal('sysctlbyname',
                                [rffi.CCHARP, rffi.VOIDP, rffi.SIZE_TP,
                                 rffi.VOIDP, rffi.SIZE_T],
                                rffi.INT,
-                               sandboxsafe=True)
+                               sandboxsafe=True,
+                               compilation_info=sysctlbyname_eci)
 
 def get_darwin_sysctl_signed(sysctl_name):
     rval_p = lltype.malloc(rffi.LONGLONGP.TO, 1, flavor='raw')

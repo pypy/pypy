@@ -492,6 +492,69 @@ class TestTimeDelta(HarmlessMixedComparison, unittest.TestCase):
         self.assertEqual(str(t3), str(t4))
         self.assertEqual(t4.as_hours(), -1)
 
+    def test_issue31752(self):
+        # The interpreter shouldn't crash because divmod() returns negative
+        # remainder.
+        for inttype in (int, long):
+            class BadInt(inttype):
+                def __mul__(self, other):
+                    return Prod()
+                def __rmul__(self, other):
+                    return Prod()
+                def __floordiv__(self, other):
+                    return Prod()
+                def __rfloordiv__(self, other):
+                    return Prod()
+
+            class BadLong(long):
+                def __mul__(self, other):
+                    return Prod()
+                def __rmul__(self, other):
+                    return Prod()
+                def __floordiv__(self, other):
+                    return Prod()
+                def __rfloordiv__(self, other):
+                    return Prod()
+
+            class Prod:
+                def __add__(self, other):
+                    return Sum()
+                def __radd__(self, other):
+                    return Sum()
+
+            for inttype2 in (int, long):
+                class Sum(inttype2):
+                    def __divmod__(self, other):
+                        return divmodresult
+
+                for divmodresult in [None, (), (0, 1, 2), (0, -1)]:
+                    # The following examples should not crash.
+                    try:
+                        timedelta(microseconds=BadInt(1))
+                    except TypeError:
+                        pass
+                    try:
+                        timedelta(hours=BadInt(1))
+                    except TypeError:
+                        pass
+                    try:
+                        timedelta(weeks=BadInt(1))
+                    except (TypeError, ValueError):
+                        pass
+                    try:
+                        timedelta(1) * BadInt(1)
+                    except (TypeError, ValueError):
+                        pass
+                    try:
+                        BadInt(1) * timedelta(1)
+                    except TypeError:
+                        pass
+                    try:
+                        timedelta(1) // BadInt(1)
+                    except TypeError:
+                        pass
+
+
 #############################################################################
 # date tests
 

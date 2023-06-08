@@ -138,7 +138,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         assert self.is_call_release_gil
         assert not self.asm._is_asmgcc()
-        RFASTGILPTR = r.x19    # constant &rpy_fastgil
+        RTHREADID = r.x19      # our thread ident
         RSHADOWOLD = r.x20     # old value of the shadowstack pointer,
                                #    which we save here for later comparison
 
@@ -149,8 +149,10 @@ class Aarch64CallBuilder(AbstractCallBuilder):
             self.mc.LDR_ri(RSHADOWOLD.value, r.ip1.value, 0)
 
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
-        self.mc.gen_load_int(RFASTGILPTR.value, fastgil)
-        self.mc.STLR(r.xzr.value, RFASTGILPTR.value)
+        # and save the old value of 'rpy_fastgil' into RTHREADID
+        self.mc.gen_load_int(r.ip1.value, fastgil)
+        self.mc.LDR_ri(RTHREADID.value, r.ip1.value, 0)
+        self.mc.STLR(r.xzr.value, r.ip1.value)
 
         if not we_are_translated():                     # for testing: we should not access
             self.mc.ADD_ri(r.fp.value, r.fp.value, 1)   # fp any more
@@ -201,17 +203,21 @@ class Aarch64CallBuilder(AbstractCallBuilder):
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         # try to reacquire the lock.  The following two values are saved
         # across the call and are still alive now:
-        RFASTGILPTR = r.x19    # constant &rpy_fastgil
+        RTHREADID = r.x19      # our thread ident
         RSHADOWOLD = r.x20     # old value of the shadowstack pointer
 
+        RPYFASTGIL = r.ip2     # &rpy_fastgil, loaded now:
+        self.mc.gen_load_int(RPYFASTGIL.value, fastgil)
+
         # this comes from gcc compiling this code:
-        #    while (__atomic_test_and_set(&lock, __ATOMIC_ACQUIRE))
-        #        ;
-        self.mc.gen_load_int(r.x2.value, 1)
-        self.mc.LDXR(r.x1.value, RFASTGILPTR.value)
-        self.mc.STXR(r.x3.value, r.x2.value, RFASTGILPTR.value)
-        self.mc.CBNZ_w(r.x3.value, -8)
-        # now x1 is the old value of the lock, and the lock contains 1
+        #    __sync_bool_compare_and_swap(&rpy_fastgil, old=0, new=RTHREADID);
+        self.mc.LDXR(r.x1.value, RPYFASTGIL.value)
+        self.mc.CBNZ(r.x1.value, +12)
+        self.mc.STLXR(r.x3.value, RTHREADID.value, RPYFASTGIL.value)
+        self.mc.CBNZ_w(r.x3.value, -12)
+        self.mc.DMB_ISH()
+        # now x1 is the old value of the lock, and if x1 == 0 then the lock
+        # now contains RTHREADID
 
         b1_location = self.mc.currpos()
         self.mc.BRK()        # boehm: patched with a CBZ (jump if x1 == 0)
@@ -234,7 +240,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
 
             # revert the rpy_fastgil acquired above, so that the
             # general 'reacqgil_addr' below can acquire it again...
-            self.mc.STR_ri(r.xzr.value, RFASTGILPTR.value, 0)
+            self.mc.STR_ri(r.xzr.value, RPYFASTGIL.value, 0)
 
             # patch the b1_location above, with "CBNZ here"
             pmc = OverwritingBuilder(self.mc, b1_location, WORD)
@@ -246,7 +252,7 @@ class Aarch64CallBuilder(AbstractCallBuilder):
 
         # Yes, we need to call the reacqgil() function.
         # save the result we just got
-        RSAVEDRES = RFASTGILPTR     # can reuse this reg here to save things
+        RSAVEDRES = RTHREADID     # can reuse this reg here to save things
         reg = self.resloc
         if reg is not None:
             if reg.is_core_reg():

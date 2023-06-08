@@ -1,3 +1,4 @@
+import gc
 import weakref
 from rpython.rlib import rawrefcount, objectmodel, rgc
 from rpython.rlib.rawrefcount import REFCNT_FROM_PYPY, REFCNT_FROM_PYPY_LIGHT
@@ -58,6 +59,7 @@ class TestRawRefCount:
         wr_p = weakref.ref(p)
         del ob, p
         rawrefcount._collect()
+        gc.collect()
         assert rawrefcount._p_list == []
         assert wr_ob() is None
         assert wr_p() is None
@@ -73,6 +75,7 @@ class TestRawRefCount:
         ob.c_ob_refcnt += 1      # <=
         del ob, p
         rawrefcount._collect()
+        gc.collect()
         ob = wr_ob()
         p = wr_p()
         assert ob is not None and p is not None

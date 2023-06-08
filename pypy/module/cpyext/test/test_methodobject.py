@@ -207,3 +207,50 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getarg_NO.__module__ == 'MyModule'
         mod.getarg_NO.__module__ = 'foobar'
         assert mod.getarg_NO.__module__ == 'foobar'
+
+    def test_callfunc(self):
+        mod = self.import_extension('foo', [
+            ('callfunc', 'METH_VARARGS',
+             '''
+                PyObject *func, *argseq=NULL, *kwargs=NULL;
+                if (!PyArg_ParseTuple(args, "O|OO", &func, &argseq, &kwargs)) {
+                    return NULL;
+                }
+                if (!PyCFunction_Check(func)) {
+                    Py_RETURN_FALSE;
+                }
+                if (argseq == NULL) {
+                    return PyCFunction_Call(func, NULL, NULL);
+                }
+                if (kwargs == NULL) {
+                    return PyCFunction_Call(func, argseq, NULL);
+                }
+                return PyCFunction_Call(func, argseq, kwargs);
+             '''
+             ),
+             # Define some C functions so we can test this
+             ('func_NOARGS', 'METH_NOARGS',
+              '''
+                    Py_RETURN_TRUE;
+              '''),
+            ('func_KW', 'METH_VARARGS | METH_KEYWORDS',
+             '''
+             if (!kwargs) kwargs = Py_None;
+             return Py_BuildValue("OO", args, kwargs);
+             '''
+             ),
+            ])
+        ret = mod.callfunc(mod.func_NOARGS, ())
+        assert ret is True
+        ret = mod.callfunc(mod.func_KW, (1, 2, 3), {'a':'a', 'b':'b', 'c':'c'})
+        assert ret == ((1, 2, 3), {'a':'a', 'b':'b', 'c':'c'})
+        with raises(TypeError):
+            mod.callfunc(mod.func_NOARGS, (), {'a': 'a'})
+        with raises(TypeError):
+            mod.callfunc(mod.func_NOARGS, (1, 2, 3))
+
+    def test_wrapper(self):
+        # Copy the Cython 3.0.0alpha10 version of specmethodstring tests
+        mod = self.import_module(name="specmethdocstring")
+        c = mod.C()
+        assert c.__iter__.__doc__ == "usable docstring"

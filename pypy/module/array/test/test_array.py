@@ -89,9 +89,10 @@ class AppTestArray(object):
                 assert a[i] == v
                 assert type(a[i]) is pt or (
                     # A special case: we return ints in Array('I') on 64-bits,
+                    # and in Array('L') on 64-bit Windows,
                     # whereas CPython returns longs.  The difference is
                     # probably acceptable.
-                    tc == 'I' and
+                    (tc == 'I' or tc == 'L' and sys.platform == 'win32') and
                     sys.maxint > 2147483647 and type(a[i]) is int)
             for v in ok:
                 a[1] = v
@@ -366,6 +367,7 @@ class AppTestArray(object):
         assert repr(a[2:1:-1]) == "array('i', [20])"
         assert repr(a[2:-1:-1]) == "array('i')"
         assert repr(a[-1:0:-1]) == "array('i', [20, 21])"
+        del a
 
         for a in range(-4, 5):
             for b in range(-4, 5):
@@ -383,6 +385,7 @@ class AppTestArray(object):
                             assert repr(arr) == repr(self.array('i', lst))
                         except ValueError:
                             assert not ok
+                    del arr
 
     def test_getslice_large_step(self):
         import sys
@@ -1071,5 +1074,40 @@ class AppTestArray(object):
         raises(TypeError, "a[MyInt(0)]")
         raises(TypeError, "a[MyInt(0):MyInt(5)]")
 
+    def test_index_special_method(self):
+        class MyInt(object):
+            def __init__(self, x):
+                self.x = x
+
+            def __index__(self):
+                return self.x
+
+        a = self.array('i', [1, 2, 3, 4, 5, 6])
+        assert a[MyInt(0)] == 1
+        assert a[MyInt(0):MyInt(5)] == self.array('i', [1, 2, 3, 4, 5])
+
+        a[MyInt(0)] = 2
+        assert a[MyInt(0)] == 2
+        del a[MyInt(0)]
+        assert a == self.array('i', [2, 3, 4, 5, 6])
+
     def test_fresh_array_buffer_str(self):
         assert str(buffer(self.array('i'))) == ''
+
+    def test_mutate_while_slice(self):
+        class X:
+            def __index__(self):
+                del a[:]
+                return 1
+
+        a = self.array('i', [1, 2, 3, 4, 5, 6])
+        length = len(a[:X():2])
+        assert length == 0
+
+        a = self.array('i', [1, 2, 3, 4, 5, 6])
+        length = len(a[:X():2])
+        assert length == 0
+
+        a = self.array('i', [1, 2, 3, 4, 5, 6])
+        length = len(a[:X():2])
+        assert length == 0

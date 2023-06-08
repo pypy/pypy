@@ -2,7 +2,7 @@ from __future__ import with_statement
 """
 This file is OBSCURE.  Really.  The purpose is to avoid copying and changing
 'test_c.py' from cffi/c/ in the original CFFI repository:
-    https://bitbucket.org/cffi/cffi
+    https://foss.heptapod.net/pypy/cffi/
 
 Adding a test here involves:
 1. add a test to cffi/c/test.py
@@ -12,8 +12,8 @@ Adding a test here involves:
 3. check in and (if you can) push the changes
 4. copy test_c.py into _backend_test.py here, killing the few lines of header
    - if you added a C function, it goes into _test_lib.c here
-   - if you could complete step 3, try running 'py.test test_file.py' here
-5. make the test pass in pypy ('py.test test_c.py')
+   - if you could complete step 3, try running 'python2 pytest.py test_file.py' here
+5. make the test pass in pypy ('python2 pytest.py test_c.py')
 """
 import py, sys, ctypes
 
@@ -55,6 +55,8 @@ class AppTestC(object):
             else:
                 import ctypes.util
                 path = ctypes.util.find_library(space.str_w(w_name))
+                if path is None:
+                    py.test.skip("cannot find library '%s'" % (space.str_w(w_name),))
             return space.appexec([space.wrap(path), w_is_global],
             """(path, is_global):
                 import _cffi_backend
@@ -91,6 +93,7 @@ class AppTestC(object):
         """(path, func, testfunc, underlying_version):
             import sys
             sys.path.append(path)
+            is_musl = False
             import _all_test_c
             _all_test_c.PY_DOT_PY = underlying_version
             _all_test_c.find_and_load_library = func
@@ -129,6 +132,7 @@ tmpname2 = tmpdir.join('_all_test_c.py')
 with tmpname2.open('w') as f:
     print >> f, 'import sys'
     print >> f, 'from _cffi_backend import %s' % all_names
+    print >> f, 'is_musl = False'
     print >> f, 'class py:'
     print >> f, '    class test:'
     print >> f, '        raises = staticmethod(raises)'

@@ -1,8 +1,40 @@
 Downloading and Installing PyPy
 ===============================
 
-Using a packaged PyPy
+Just like CPython, you need a base interpreter environment and then can install
+extra packages. The choices for installing the base interpreter are:
+
+- Use conda (x86_64 windows, macOS, linux, arm64 linux)
+- Use your distribution package manager (linux)
+- Use homebew (macOS, but see issue 3697_)
+- Use the prebuilt tarballs
+- Build from source
+
+Using conda
 ~~~~~~~~~~~~~~~~~~~~~
+
+If you require compiled (c-extension) modules like SciPy, we
+recommend you use conda, which works on Windows10, macOS, and linux x86_64.
+You can read more about this in the `blog post`_.
+
+.. code-block:: console
+
+    $ conda create -c conda-forge -n my_cool_pypy pypy python=3.9
+    $ conda activate my_cool_pypy
+    $ conda install scipy
+
+Using homebrew
+~~~~~~~~~~~~~~
+
+On macOS you can also use homebrew, which provides signed packages. As of April
+2023, you can find pypy2.7 and pypy3.7 there. Help moving issue 3697_ to
+provide other versions is welcome.
+
+.. _3697: https://foss.heptapod.net/pypy/pypy/-/issues/3697 
+.. _`blog post`: https://www.pypy.org/posts/2022/11/pypy-and-conda-forge.html
+
+Linux distributions
+~~~~~~~~~~~~~~~~~~~
 
 Some Linux distributions provide a pypy package. Note that in order to
 install additional modules that require compilation, you may need to install
@@ -18,20 +50,15 @@ Download a pre-built PyPy
 
 The quickest way to start using PyPy is to download a prebuilt binary for your
 OS and architecture.  You may be able to use either use the
-`most recent release`_ or one of our `development nightly build`_. These
-builds depend on dynamically linked libraries that may not be available on your
-OS. See the section about `Linux binaries`_ for more info and alternatives that
-may work on your system.
+`most recent release`_ or one of our `development nightly build`_.
 
-Please note that the nightly builds are not
-guaranteed to be as stable as official releases, use them at your own risk.
+Please note that the nightly builds are not guaranteed to be as stable as
+official releases, use them at your own risk. Also the macOS binaries are not
+signed, which means you need to convince macOS they are safe for use.
 
-.. _most recent release: http://pypy.org/download.html
-.. _development nightly build: http://buildbot.pypy.org/nightly/trunk/
-.. _Linux binaries: http://pypy.org/download.html#linux-binaries-and-common-distributions
-
-Installing PyPy
-~~~~~~~~~~~~~~~
+.. _most recent release: https://pypy.org/download.html
+.. _development nightly build: https://buildbot.pypy.org/nightly/trunk/
+.. _Linux binaries: https://pypy.org/download.html#linux-binaries-and-common-distributions
 
 PyPy is ready to be executed as soon as you unpack the tarball or the zip
 file, with no need to install it in any specific location:
@@ -63,11 +90,12 @@ explained below; then you can directly use pip inside virtualenvs):
 .. code-block:: console
 
     $ ./pypy-xxx/bin/pypy -m ensurepip
-    $ ./pypy-xxx/bin/pip install -U pip wheel # to upgrade to the latest versions
-    $ ./pypy-xxx/bin/pip install pygments  # for example
+    $ ./pypy-xxx/bin/pypy -mpip install -U pip wheel # to upgrade to the latest versions
+    $ ./pypy-xxx/bin/pypy -mpip install pygments  # for example
 
-Third party libraries will be installed in ``pypy-xxx/site-packages``, and
-the scripts in ``pypy-xxx/bin``.
+Third party libraries will be installed in ``pypy-xxx/site-packages``. As with
+CPython, scripts on linux and macOS will be in ``pypy-xxx/bin``, and on windows
+they will be in ``pypy-xxx/Scripts``
 
 
 Installing using virtualenv
@@ -94,13 +122,13 @@ so you should be able to run pypy simply by typing::
 
 You should still upgrade pip and wheel to the latest versions via::
 
-    $ my-pypy-env/bin/pip install -U pip wheel
+    $ my-pypy-env/bin/pypy -mpip install -U pip wheel
 
-.. _pip: http://pypi.python.org/pypi/pip
-.. _ensurepip: https://docs.python.org/2.7/library/ensurepip.html
+.. _pip: https://pypi.python.org/pypi/pip
+.. _ensurepip: https://docs.python.org/3/library/ensurepip.html
 
-Building PyPy yourself
-~~~~~~~~~~~~~~~~~~~~~~
+Building from source
+~~~~~~~~~~~~~~~~~~~~
 
 If you're interested in getting more involved, or doing something different with
 PyPy, consult :doc:`the build instructions <build>`.

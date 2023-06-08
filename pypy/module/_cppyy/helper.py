@@ -36,7 +36,7 @@ def _find_qualifier_index(name):
     # search from the back; note len(name) > 0 (so rtyper can use uint)
     for i in range(len(name) - 1, 0, -1):
         c = name[i]
-        if c.isalnum() or c == ">" or c == "]":
+        if c.isalnum() or c in ['_', '>', ']', ')']:
             break
     return i + 1
 

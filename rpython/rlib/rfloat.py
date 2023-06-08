@@ -2,17 +2,25 @@
 
 import math, struct
 from math import acosh, asinh, atanh, log1p, expm1
+import sys
 
 from rpython.annotator.model import SomeString, SomeChar
 from rpython.rlib import objectmodel, unroll
 from rpython.rtyper.extfunc import register_external
 from rpython.rtyper.tool import rffi_platform
+from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.objectmodel import not_rpython
 
 
+if sys.platform == 'win32':
+    libraries = []
+else:
+    libraries = ["m"]
+
 class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(includes=["float.h"])
+    _compilation_info_ = ExternalCompilationInfo(
+            includes=["float.h", "math.h"], libraries=libraries)
 
 float_constants = ["DBL_MAX", "DBL_MIN", "DBL_EPSILON"]
 int_constants = ["DBL_MAX_EXP", "DBL_MAX_10_EXP",
@@ -24,6 +32,10 @@ for const in float_constants:
 for const in int_constants:
     setattr(CConfig, const, rffi_platform.DefinedConstantInteger(const))
 del float_constants, int_constants, const
+
+nextafter = rffi.llexternal(
+    'nextafter', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
+    compilation_info=CConfig._compilation_info_, sandboxsafe=True)
 
 globals().update(rffi_platform.configure(CConfig))
 
@@ -39,25 +51,27 @@ def string_to_float(s):
     """
     from rpython.rlib.rstring import strip_spaces, ParseStringError
 
-    s = strip_spaces(s)
     if not s:
         raise ParseStringError(INVALID_MSG)
-
-    low = s.lower()
-    if low == "-inf" or low == "-infinity":
-        return -INFINITY
-    elif low == "inf" or low == "+inf":
-        return INFINITY
-    elif low == "infinity" or low == "+infinity":
-        return INFINITY
-    elif low == "nan" or low == "+nan":
-        return NAN
-    elif low == "-nan":
-        return -NAN
-
+    def iswhitespace(ch):
+        return (ch == ' ' or ch == '\f' or ch == '\n' or ch == '\r' or
+            ch == '\t' or ch == '\v')
+    if iswhitespace(s[0]) or iswhitespace(s[-1]):
+        s = strip_spaces(s)
     try:
         return rstring_to_float(s)
     except ValueError:
+        low = s.lower()
+        if low == "-inf" or low == "-infinity":
+            return -INFINITY
+        elif low == "inf" or low == "+inf":
+            return INFINITY
+        elif low == "infinity" or low == "+infinity":
+            return INFINITY
+        elif low == "nan" or low == "+nan":
+            return NAN
+        elif low == "-nan":
+            return -NAN
         raise ParseStringError(INVALID_MSG)
 
 def rstring_to_float(s):

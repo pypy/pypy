@@ -341,7 +341,7 @@ def llhelper(F, f):
     #       prebuilt_g()
 
     # the next line is the implementation for the purpose of direct running
-    return lltype.functionptr(F.TO, f.func_name, _callable=f)
+    return lltype.functionptr(F.TO, f.__name__, _callable=f)
 
 def llhelper_args(f, ARGS, RESULT):
     return llhelper(lltype.Ptr(lltype.FuncType(ARGS, RESULT)), f)

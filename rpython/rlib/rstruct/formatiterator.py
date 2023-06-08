@@ -72,6 +72,8 @@ class FormatIterator(object):
                         self.operate(fmtdesc, repetitions)
                     break
             else:
+                if c == '\0':
+                    raise StructError("embedded null character")
                 raise StructError("bad char in struct format")
             if not self._operate_is_specialized_:
                 if fmtdesc.alignment > 1:

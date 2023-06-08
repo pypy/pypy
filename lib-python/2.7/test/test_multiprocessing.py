@@ -19,17 +19,18 @@ import socket
 import random
 import logging
 import errno
+import weakref
 import test.script_helper
-from test import test_support
+from test import support
 from StringIO import StringIO
-_multiprocessing = test_support.import_module('_multiprocessing')
+_multiprocessing = support.import_module('_multiprocessing')
 # import threading after _multiprocessing to raise a more relevant error
 # message: "No module named _multiprocessing". _multiprocessing is not compiled
 # without thread support.
 import threading
 
 # Work around broken sem_open implementations
-test_support.import_module('multiprocessing.synchronize')
+support.import_module('multiprocessing.synchronize')
 
 import multiprocessing.dummy
 import multiprocessing.connection
@@ -178,6 +179,12 @@ def get_value(self):
 #
 # Testcases
 #
+
+class DummyCallable(object):
+    def __call__(self, q, c):
+        assert isinstance(c, DummyCallable)
+        q.put(5)
+
 
 class _TestProcess(BaseTestCase):
 
@@ -339,8 +346,8 @@ class _TestProcess(BaseTestCase):
         if self.TYPE == 'threads':
             self.skipTest('test not appropriate for {}'.format(self.TYPE))
 
-        testfn = test_support.TESTFN
-        self.addCleanup(test_support.unlink, testfn)
+        testfn = support.TESTFN
+        self.addCleanup(support.unlink, testfn)
 
         for reason, code in (([1, 2, 3], 1), ('ignore this', 1)):
             p = self.Process(target=self._test_sys_exit, args=(reason, testfn))
@@ -358,6 +365,19 @@ class _TestProcess(BaseTestCase):
             p.start()
             p.join(5)
             self.assertEqual(p.exitcode, reason)
+
+    def test_lose_target_ref(self):
+        c = DummyCallable()
+        wr = weakref.ref(c)
+        q = self.Queue()
+        p = self.Process(target=c, args=(q, c))
+        del c
+        p.start()
+        p.join()
+        support.gc_collect()
+        self.assertIs(wr(), None)
+        self.assertEqual(q.get(), 5)
+
 
 #
 #
@@ -626,7 +646,7 @@ class _TestQueue(BaseTestCase):
             p.join()
 
     def test_no_import_lock_contention(self):
-        with test_support.temp_cwd():
+        with support.temp_cwd():
             module_name = 'imported_by_an_imported_module'
             with open(module_name + '.py', 'w') as f:
                 f.write("""if 1:
@@ -638,12 +658,28 @@ class _TestQueue(BaseTestCase):
                     q.close()
                 """)
 
-            with test_support.DirsOnSysPath(os.getcwd()):
+            with support.DirsOnSysPath(os.getcwd()):
                 try:
                     __import__(module_name)
                 except Queue.Empty:
                     self.fail("Probable regression on import lock contention;"
                               " see Issue #22853")
+
+    def test_queue_feeder_donot_stop_onexc(self):
+        # bpo-30414: verify feeder handles exceptions correctly
+        if self.TYPE != 'processes':
+            self.skipTest('test not appropriate for {}'.format(self.TYPE))
+
+        class NotSerializable(object):
+            def __reduce__(self):
+                raise AttributeError
+        with test.support.captured_stderr():
+            q = self.Queue()
+            q.put(NotSerializable())
+            q.put(True)
+            # bpo-30595: use a timeout of 1 second for slow buildbots
+            self.assertTrue(q.get(timeout=1.0))
+
 
 #
 #
@@ -844,7 +880,13 @@ class _TestCondition(BaseTestCase):
         cond.release()
 
         # check they have all woken
-        time.sleep(DELTA)
+        for i in range(10):
+            try:
+                if get_value(woken) == 6:
+                    break
+            except NotImplementedError:
+                break
+            time.sleep(DELTA)
         self.assertReturnsIfImplemented(6, get_value, woken)
 
         # check state is not mucked up
@@ -1099,6 +1141,16 @@ class _TestContainers(BaseTestCase):
         a.append('hello')
         self.assertEqual(f[:], [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'hello']])
 
+    def test_list_iter(self):
+        a = self.list(range(10))
+        it = iter(a)
+        self.assertEqual(list(it), range(10))
+        self.assertEqual(list(it), [])  # exhausted
+        # list modified during iteration
+        it = iter(a)
+        a[0] = 100
+        self.assertEqual(next(it), 100)
+
     def test_dict(self):
         d = self.dict()
         indices = range(65, 70)
@@ -1108,6 +1160,19 @@ class _TestContainers(BaseTestCase):
         self.assertEqual(sorted(d.keys()), indices)
         self.assertEqual(sorted(d.values()), [chr(i) for i in indices])
         self.assertEqual(sorted(d.items()), [(i, chr(i)) for i in indices])
+
+    def test_dict_iter(self):
+        d = self.dict()
+        indices = range(65, 70)
+        for i in indices:
+            d[i] = chr(i)
+        it = iter(d)
+        self.assertEqual(list(it), indices)
+        self.assertEqual(list(it), [])  # exhausted
+        # dictionary changed size during iteration
+        it = iter(d)
+        d.clear()
+        self.assertRaises(RuntimeError, next, it)
 
     def test_namespace(self):
         n = self.Namespace()
@@ -1127,6 +1192,19 @@ class _TestContainers(BaseTestCase):
 def sqr(x, wait=0.0):
     time.sleep(wait)
     return x*x
+
+def identity(x):
+    return x
+
+class CountedObject(object):
+    n_instances = 0
+
+    def __new__(cls):
+        cls.n_instances += 1
+        return object.__new__(cls)
+
+    def __del__(self):
+        type(self).n_instances -= 1
 
 class SayWhenError(ValueError): pass
 
@@ -1211,10 +1289,10 @@ class _TestPool(BaseTestCase):
         self.assertRaises(SayWhenError, it.next)
 
     def test_imap_unordered(self):
-        it = self.pool.imap_unordered(sqr, range(1000))
-        self.assertEqual(sorted(it), map(sqr, range(1000)))
+        it = self.pool.imap_unordered(sqr, range(100))
+        self.assertEqual(sorted(it), map(sqr, range(100)))
 
-        it = self.pool.imap_unordered(sqr, range(1000), chunksize=53)
+        it = self.pool.imap_unordered(sqr, range(1000), chunksize=100)
         self.assertEqual(sorted(it), map(sqr, range(1000)))
 
     def test_imap_unordered_handle_iterable_exception(self):
@@ -1272,6 +1350,22 @@ class _TestPool(BaseTestCase):
 
         p.close()
         p.join()
+
+    def test_release_task_refs(self):
+        # Issue #29861: task arguments and results should not be kept
+        # alive after we are done with them.
+        objs = list(CountedObject() for i in range(10))
+        refs = list(weakref.ref(o) for o in objs)
+        self.pool.map(identity, objs)
+
+        del objs
+        support.gc_collect()
+        time.sleep(DELTA)  # let threaded cleanup code run
+        self.assertEqual(set(wr() for wr in refs), {None})
+        # With a process pool, copies of the objects are returned, check
+        # they were released too.
+        self.assertEqual(CountedObject.n_instances, 0)
+
 
 def unpickleable_result():
     class C:
@@ -1455,10 +1549,10 @@ class _TestRemoteManager(BaseTestCase):
               #'hall\xc3\xa5 v\xc3\xa4rlden'] # UTF-8
               ]
     result = values[:]
-    if test_support.have_unicode:
+    if support.have_unicode:
         #result[-1] = u'hall\xe5 v\xe4rlden'
-        uvalue = test_support.u(r'\u043f\u0440\u0438\u0432\u0456\u0442 '
-                                r'\u0441\u0432\u0456\u0442')
+        uvalue = support.u(r'\u043f\u0440\u0438\u0432\u0456\u0442 '
+                           r'\u0441\u0432\u0456\u0442')
         values.append(uvalue)
         result.append(uvalue)
 
@@ -1476,7 +1570,7 @@ class _TestRemoteManager(BaseTestCase):
         authkey = os.urandom(32)
 
         manager = QueueManager(
-            address=(test.test_support.HOST, 0), authkey=authkey, serializer=SERIALIZER
+            address=(test.support.HOST, 0), authkey=authkey, serializer=SERIALIZER
             )
         manager.start()
 
@@ -1513,7 +1607,7 @@ class _TestManagerRestart(BaseTestCase):
     def test_rapid_restart(self):
         authkey = os.urandom(32)
         manager = QueueManager(
-            address=(test.test_support.HOST, 0), authkey=authkey, serializer=SERIALIZER)
+            address=(test.support.HOST, 0), authkey=authkey, serializer=SERIALIZER)
         srvr = manager.get_server()
         addr = srvr.address
         # Close the connection.Listener socket which gets opened as a part
@@ -1522,13 +1616,14 @@ class _TestManagerRestart(BaseTestCase):
         manager.start()
 
         p = self.Process(target=self._putter, args=(manager.address, authkey))
-        p.daemon = True
         p.start()
+        p.join()
         queue = manager.get_queue()
         self.assertEqual(queue.get(), 'hello world')
         del queue
-        test_support.gc_collect()
+        support.gc_collect()
         manager.shutdown()
+
         manager = QueueManager(
             address=addr, authkey=authkey, serializer=SERIALIZER)
         manager.start()
@@ -1724,13 +1819,14 @@ class _TestConnection(BaseTestCase):
         p = self.Process(target=self._writefd, args=(child_conn, b"foo"))
         p.daemon = True
         p.start()
-        with open(test_support.TESTFN, "wb") as f:
+        self.addCleanup(support.unlink, support.TESTFN)
+        with open(support.TESTFN, "wb") as f:
             fd = f.fileno()
             if msvcrt:
                 fd = msvcrt.get_osfhandle(fd)
             reduction.send_handle(conn, fd, p.pid)
         p.join()
-        with open(test_support.TESTFN, "rb") as f:
+        with open(support.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"foo")
 
     @unittest.skipUnless(HAS_REDUCTION, "test needs multiprocessing.reduction")
@@ -1749,7 +1845,8 @@ class _TestConnection(BaseTestCase):
         p = self.Process(target=self._writefd, args=(child_conn, b"bar", True))
         p.daemon = True
         p.start()
-        with open(test_support.TESTFN, "wb") as f:
+        self.addCleanup(support.unlink, support.TESTFN)
+        with open(support.TESTFN, "wb") as f:
             fd = f.fileno()
             for newfd in range(256, MAXFD):
                 if not self._is_fd_assigned(newfd):
@@ -1762,7 +1859,7 @@ class _TestConnection(BaseTestCase):
             finally:
                 os.close(newfd)
         p.join()
-        with open(test_support.TESTFN, "rb") as f:
+        with open(support.TESTFN, "rb") as f:
             self.assertEqual(f.read(), b"bar")
 
     @classmethod
@@ -1969,7 +2066,7 @@ class _TestHeap(BaseTestCase):
         if not gc.isenabled():
             gc.enable()
             self.addCleanup(gc.disable)
-        if test_support.check_impl_detail(cpython=True):
+        if support.check_impl_detail(cpython=True):
             thresholds = gc.get_threshold()
             self.addCleanup(gc.set_threshold, *thresholds)
             gc.set_threshold(10)
@@ -2035,7 +2132,7 @@ class _TestSharedCTypes(BaseTestCase):
     def test_synchronize(self):
         self.test_sharedctypes(lock=True)
 
-    @unittest.skipUnless(test_support.check_impl_detail(pypy=False), "pypy ctypes differences")
+    @unittest.skipUnless(support.check_impl_detail(pypy=False), "pypy ctypes differences")
     def test_copy(self):
         foo = _Foo(2, 5.0)
         bar = copy(foo)
@@ -2052,6 +2149,14 @@ class _TestFinalize(BaseTestCase):
 
     ALLOWED_TYPES = ('processes',)
 
+    def setUp(self):
+        self.registry_backup = util._finalizer_registry.copy()
+        util._finalizer_registry.clear()
+
+    def tearDown(self):
+        self.assertFalse(util._finalizer_registry)
+        util._finalizer_registry.update(self.registry_backup)
+
     @classmethod
     def _test_finalize(cls, conn):
         class Foo(object):
@@ -2060,7 +2165,7 @@ class _TestFinalize(BaseTestCase):
         a = Foo()
         util.Finalize(a, conn.send, args=('a',))
         del a           # triggers callback for a
-        test_support.gc_collect()
+        support.gc_collect()
 
         b = Foo()
         close_b = util.Finalize(b, conn.send, args=('b',))
@@ -2101,6 +2206,62 @@ class _TestFinalize(BaseTestCase):
 
         result = [obj for obj in iter(conn.recv, 'STOP')]
         self.assertEqual(result, ['a', 'b', 'd10', 'd03', 'd02', 'd01', 'e'])
+
+    def test_thread_safety(self):
+        # bpo-24484: _run_finalizers() should be thread-safe
+        def cb():
+            pass
+
+        class Foo(object):
+            def __init__(self):
+                self.ref = self  # create reference cycle
+                # insert finalizer at random key
+                util.Finalize(self, cb, exitpriority=random.randint(1, 100))
+
+        finish = False
+        exc = []
+
+        def run_finalizers():
+            while not finish:
+                time.sleep(random.random() * 1e-1)
+                try:
+                    # A GC run will eventually happen during this,
+                    # collecting stale Foo's and mutating the registry
+                    util._run_finalizers()
+                except Exception as e:
+                    exc.append(e)
+
+        def make_finalizers():
+            d = {}
+            while not finish:
+                try:
+                    # Old Foo's get gradually replaced and later
+                    # collected by the GC (because of the cyclic ref)
+                    d[random.getrandbits(5)] = {Foo() for i in range(10)}
+                except Exception as e:
+                    exc.append(e)
+                    d.clear()
+
+        old_interval = sys.getcheckinterval()
+        if support.check_impl_detail(cpython=True):
+            old_threshold = gc.get_threshold()
+        try:
+            sys.setcheckinterval(10)
+            if support.check_impl_detail(cpython=True):
+                gc.set_threshold(5, 5, 5)
+            threads = [threading.Thread(target=run_finalizers),
+                       threading.Thread(target=make_finalizers)]
+            with support.start_threads(threads):
+                time.sleep(4.0)  # Wait a bit to trigger race condition
+                finish = True
+            if exc:
+                raise exc[0]
+        finally:
+            sys.setcheckinterval(old_interval)
+            if support.check_impl_detail(cpython=True):
+                gc.set_threshold(*old_threshold)
+            gc.collect()  # Collect remaining Foo's
+
 
 #
 # Test that from ... import * works for each module
@@ -2519,7 +2680,7 @@ class TestFlags(unittest.TestCase):
         flags = (tuple(sys.flags), grandchild_flags)
         print(json.dumps(flags))
 
-    @test_support.requires_unicode  # XXX json needs unicode support
+    @support.requires_unicode  # XXX json needs unicode support
     def test_flags(self):
         import json, subprocess
         # start child process using unusual flags
@@ -2565,6 +2726,9 @@ class TestForkAwareThreadLock(unittest.TestCase):
 
 class TestIgnoreEINTR(unittest.TestCase):
 
+    # Sending CONN_MAX_SIZE bytes into a multiprocessing pipe must block
+    CONN_MAX_SIZE = max(support.PIPE_MAX_SIZE, support.SOCK_MAX_SIZE)
+
     @classmethod
     def _test_ignore(cls, conn):
         def handler(signum, frame):
@@ -2573,7 +2737,7 @@ class TestIgnoreEINTR(unittest.TestCase):
         conn.send('ready')
         x = conn.recv()
         conn.send(x)
-        conn.send_bytes(b'x'*(1024*1024))   # sending 1 MB should block
+        conn.send_bytes(b'x' * cls.CONN_MAX_SIZE)
 
     @unittest.skipUnless(hasattr(signal, 'SIGUSR1'), 'requires SIGUSR1')
     def test_ignore(self):
@@ -2592,7 +2756,7 @@ class TestIgnoreEINTR(unittest.TestCase):
             self.assertEqual(conn.recv(), 1234)
             time.sleep(0.1)
             os.kill(p.pid, signal.SIGUSR1)
-            self.assertEqual(conn.recv_bytes(), b'x'*(1024*1024))
+            self.assertEqual(conn.recv_bytes(), b'x' * self.CONN_MAX_SIZE)
             time.sleep(0.1)
             p.join()
         finally:
@@ -2649,7 +2813,7 @@ def test_main(run=None):
     check_enough_semaphores()
 
     if run is None:
-        from test.test_support import run_unittest as run
+        from test.support import run_unittest as run
 
     util.get_temp_dir()     # creates temp directory for use by all processes
 
@@ -2674,7 +2838,7 @@ def test_main(run=None):
     # module during these tests is at least platform dependent and possibly
     # non-deterministic on any given platform. So we don't mind if the listed
     # warnings aren't actually raised.
-    with test_support.check_py3k_warnings(
+    with support.check_py3k_warnings(
             (".+__(get|set)slice__ has been removed", DeprecationWarning),
             (r"sys.exc_clear\(\) not supported", DeprecationWarning),
             quiet=True):

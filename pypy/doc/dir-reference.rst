@@ -2,7 +2,7 @@ PyPy directory cross-reference
 ==============================
 
 Here is a fully referenced alphabetical two-level deep
-directory overview of PyPy:
+directory overview of PyPy, plus some relevant top-level directories:
 
 ========================================  ============================================
 Directory                                 explanation/links
@@ -49,6 +49,12 @@ Directory                                 explanation/links
                                           from various places
 
 :source:`pypy/tool/pytest/`               support code for our :ref:`testing methods <testing>`
+
+:source:`lib-python/`                     our patched fork of the CPython standard library
+
+:source:`lib_pypy/`                       contains pure Python implementation of modules that CPython implements in C
+
+:source:`extra_tests/`                    extra application-level tests that are usually run after translation
 
 ``*/test/``                               many directories have a test subdirectory
                                           containing test

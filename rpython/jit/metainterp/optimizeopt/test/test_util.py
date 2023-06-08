@@ -316,6 +316,10 @@ class LLtypeMixin(object):
              EffectInfo([], [arraydescr], [], [], [arraydescr], [],
                         EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_ARRAYCOPY))
+    arraymovedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+             EffectInfo([], [arraydescr], [], [], [arraydescr], [],
+                        EffectInfo.EF_CANNOT_RAISE,
+                        oopspecindex=EffectInfo.OS_ARRAYMOVE))
 
     raw_malloc_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
              EffectInfo([], [], [], [], [], [],
@@ -469,6 +473,8 @@ class FakeWarmState(object):
 
 class FakeJitDriverStaticData(object):
     vec = False
+    class warmstate:
+        pureop_historylength = 16
 
 class FakeMetaInterpStaticData(object):
     all_descrs = []
@@ -521,6 +527,7 @@ class BaseTest(LLtypeMixin):
         metainterp_sd.virtualref_info = self.vrefinfo
         compute_bitstrings(self.cpu.fetch_all_descrs())
         self.metainterp_sd = metainterp_sd
+        self.jitdriver_sd = FakeJitDriverStaticData()
 
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
         AbstractValue._repr_memo.counter = 0
@@ -546,7 +553,7 @@ class BaseTest(LLtypeMixin):
 
     def _convert_call_pure_results(self, d):
         if d is None:
-            return
+            return args_dict()
         call_pure_results = args_dict()
         for k, v in d.items():
             call_pure_results[list(k)] = v
@@ -557,13 +564,9 @@ class BaseTest(LLtypeMixin):
             r = []
             for arg, v in zip(inpargs, values):
                 if arg.type == 'i':
-                    n = IntFrontendOp(0)
-                    if v is not None:
-                        n.setint(v)
+                    n = IntFrontendOp(0, v)
                 else:
-                    n = RefFrontendOp(0)
-                    if v is not None:
-                        n.setref_base(v)
+                    n = RefFrontendOp(0, v)
                     assert arg.type == 'r'
                 r.append(n)
             return r
@@ -582,12 +585,12 @@ class BaseTest(LLtypeMixin):
         preamble_data = compile.PreambleCompileData(
             t, runtime_boxes, call_pure_results, enable_opts=self.enable_opts)
         start_state, preamble_ops = preamble_data.optimize_trace(
-            self.metainterp_sd, None, {})
+            self.metainterp_sd, self.jitdriver_sd, {})
         preamble_data.forget_optimization_info()
         loop_data = compile.UnrolledLoopData(
             preamble_data.trace, celltoken, start_state, call_pure_results,
             enable_opts=self.enable_opts)
-        loop_info, ops = loop_data.optimize_trace(self.metainterp_sd, None, {})
+        loop_info, ops = loop_data.optimize_trace(self.metainterp_sd, self.jitdriver_sd, {})
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs
         start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs)

@@ -85,7 +85,7 @@ class W_CTypeStructOrUnion(W_CType):
         self.check_complete()
         ptr = lltype.malloc(rffi.CCHARP.TO, self.size, flavor='raw', zero=False)
         misc._raw_memcopy(source, ptr, self.size)
-        return cdataobj.W_CDataNewStd(space, ptr, self)
+        return cdataobj.W_CDataNewStd(space, ptr, self, -1, self.size)
 
     def typeoffsetof_field(self, fieldname, following):
         self.force_lazy_struct()
@@ -110,6 +110,41 @@ class W_CTypeStructOrUnion(W_CType):
         if not self._copy_from_same(cdata, w_ob):
             self.convert_struct_from_object(cdata, w_ob, optvarsize=-1)
 
+    @jit.unroll_safe
+    def _max_initializers(self):
+        if self._with_var_array:
+            return -1
+        res = 0
+        for i in range(len(self._fields_list)):
+            j = 0
+            res += not (self._fields_list[j].flags &
+                               W_CField.BF_IGNORE_IN_CTOR)
+        return res
+
+    @jit.unroll_safe
+    def _unpack_initializer(self, w_ob):
+        from pypy.objspace.std.listobject import W_ListObject
+        from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+        space = self.space
+        # this code is a bit weird. in theory, the look_inside_iff decorations
+        # on space.listview and its callees should be enough to get the correct
+        # unrolling effect. however, in a typicaly use case of ffi.new, there
+        # is too much app-level code running between the call to ffi.new and
+        # reaching convert_struct_from_object and the front-end loses the
+        # virtualness information. therefore we unroll a bit more aggressively
+        # here: we unroll, if the struct is not var-sized and the initializer
+        # length is up to the number of fields of the struct. in addition, the
+        # W_*Object must be virtual. see test_cffi_init_struct_with_list.
+        if jit.we_are_jitted() and not self._with_var_array:
+            max_num_initializer = self._max_initializers()
+            length = space.len_w(w_ob)
+            if max_num_initializer >= length:
+                if isinstance(w_ob, W_AbstractTupleObject) and space._uses_tuple_iter(w_ob):
+                    return w_ob.getitems_copy()
+                if type(w_ob) is W_ListObject:
+                    return w_ob.getitems_unroll()[:]
+        return space.listview(w_ob)
+
     @jit.look_inside_iff(
         lambda self, cdata, w_ob, optvarsize: jit.isvirtual(w_ob)
     )
@@ -119,7 +154,7 @@ class W_CTypeStructOrUnion(W_CType):
         space = self.space
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
-            lst_w = space.listview(w_ob)
+            lst_w = self._unpack_initializer(w_ob)
             j = 0
             for w_obj in lst_w:
                 try:

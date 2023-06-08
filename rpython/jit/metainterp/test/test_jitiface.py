@@ -13,7 +13,7 @@ from rpython.jit.codewriter.policy import JitPolicy
 class JitHookInterfaceTests(object):
     # !!!note!!! - don't subclass this from the backend. Subclass the LL
     # class later instead
-    
+
     def test_abort_quasi_immut(self):
         reasons = []
 
@@ -94,7 +94,7 @@ class JitHookInterfaceTests(object):
 
     def test_on_compile_bridge(self):
         called = []
-        
+
         class MyJitIface(JitHookInterface):
             def after_compile(self, di):
                 called.append("compile")
@@ -104,7 +104,7 @@ class JitHookInterfaceTests(object):
 
             def before_compile_bridge(self, di):
                 called.append("before_compile_bridge")
-            
+
         driver = JitDriver(greens = ['n', 'm'], reds = ['i'])
 
         def loop(n, m):
@@ -231,7 +231,7 @@ class JitHookInterfaceTests(object):
         driver = JitDriver(greens = ['s'], reds = ['i'], name="name")
         class Hashes(object):
             check = False
-            
+
             def __init__(self):
                 self.l = []
                 self.t = []
@@ -316,10 +316,43 @@ class JitHookInterfaceTests(object):
         assert res == 721
         assert reasons == []
 
+    def test_memmgr_release_all(self):
+        driver = JitDriver(greens = [], reds = ['i'])
+        def loop(i):
+            while i > 0:
+                driver.jit_merge_point(i=i)
+                i -= 1
+        def num_loops():
+            return jit_hooks.stats_get_counter_value(None,
+                                           Counters.TOTAL_COMPILED_LOOPS)
+        def main():
+            loop(30)
+            if num_loops() != 1:
+                return 1000 + num_loops()
+            loop(30)
+            if num_loops() != 1:
+                return 1500 + num_loops()
+            #
+            jit_hooks.stats_memmgr_release_all(None)
+            from rpython.rlib import rgc
+            rgc.collect(); rgc.collect(); rgc.collect()
+            #
+            loop(30)
+            if num_loops() != 2:
+                return 2000 + num_loops()
+            loop(30)
+            if num_loops() != 2:
+                return 2500 + num_loops()
+            return 42
+
+        res = self.meta_interp(main, [], ProfilerClass=Profiler,
+                               no_stats_history=True)
+        assert res == 42
+
 
 class LLJitHookInterfaceTests(JitHookInterfaceTests):
     # use this for any backend, instead of the super class
-    
+
     def test_ll_get_stats(self):
         driver = JitDriver(greens = [], reds = ['i', 's'])
 

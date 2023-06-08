@@ -160,7 +160,7 @@ class CCompiler:
             self.set_executable(key, args[key])
 
     def set_executable(self, key, value):
-        if isinstance(value, str):
+        if isinstance(value, basestring):
             setattr(self, key, split_quoted(value))
         else:
             setattr(self, key, value)
@@ -748,8 +748,9 @@ class CCompiler:
             for incl in includes:
                 f.write("""#include "%s"\n""" % incl)
             f.write("""\
-main (int argc, char **argv) {
+int main (int argc, char **argv) {
     %s();
+    return 0;
 }
 """ % funcname)
         finally:
@@ -872,8 +873,8 @@ main (int argc, char **argv) {
     def execute(self, func, args, msg=None, level=1):
         execute(func, args, msg, self.dry_run)
 
-    def spawn(self, cmd):
-        spawn(cmd, dry_run=self.dry_run)
+    def spawn(self, cmd, **kwargs):
+        spawn(cmd, dry_run=self.dry_run, **kwargs)
 
     def move_file(self, src, dst):
         return move_file(src, dst, dry_run=self.dry_run)
@@ -896,7 +897,6 @@ _default_compilers = (
     # on a cygwin built python we can use gcc like an ordinary UNIXish
     # compiler
     ('cygwin.*', 'unix'),
-    ('os2emx', 'emx'),
 
     # OS name mappings
     ('posix', 'unix'),
@@ -905,15 +905,14 @@ _default_compilers = (
     )
 
 def get_default_compiler(osname=None, platform=None):
-    """ Determine the default compiler to use for the given platform.
+    """Determine the default compiler to use for the given platform.
 
-        osname should be one of the standard Python OS names (i.e. the
-        ones returned by os.name) and platform the common value
-        returned by sys.platform for the platform in question.
+       osname should be one of the standard Python OS names (i.e. the
+       ones returned by os.name) and platform the common value
+       returned by sys.platform for the platform in question.
 
-        The default values are os.name and sys.platform in case the
-        parameters are not given.
-
+       The default values are os.name and sys.platform in case the
+       parameters are not given.
     """
     if osname is None:
         osname = os.name
@@ -931,7 +930,7 @@ def get_default_compiler(osname=None, platform=None):
 # is assumed to be in the 'distutils' package.)
 compiler_class = { 'unix':    ('unixccompiler', 'UnixCCompiler',
                                "standard UNIX-style compiler"),
-                   'msvc':    ('msvccompiler', 'MSVCCompiler',
+                   'msvc':    ('_msvccompiler', 'MSVCCompiler',
                                "Microsoft Visual C++"),
                    'cygwin':  ('cygwinccompiler', 'CygwinCCompiler',
                                "Cygwin port of GNU C Compiler for Win32"),
@@ -939,8 +938,6 @@ compiler_class = { 'unix':    ('unixccompiler', 'UnixCCompiler',
                                "Mingw32 port of GNU C Compiler for Win32"),
                    'bcpp':    ('bcppcompiler', 'BCPPCompiler',
                                "Borland C++ Compiler"),
-                   'emx':     ('emxccompiler', 'EMXCCompiler',
-                               "EMX port of GNU C Compiler for OS/2"),
                  }
 
 def show_compilers():
@@ -983,7 +980,7 @@ def new_compiler(plat=None, compiler=None, verbose=0, dry_run=0, force=0):
         msg = "don't know how to compile C/C++ code on platform '%s'" % plat
         if compiler is not None:
             msg = msg + " with '%s' compiler" % compiler
-        raise DistutilsPlatformError, msg
+        raise DistutilsPlatformError(msg)
 
     try:
         module_name = "distutils." + module_name
@@ -991,13 +988,13 @@ def new_compiler(plat=None, compiler=None, verbose=0, dry_run=0, force=0):
         module = sys.modules[module_name]
         klass = vars(module)[class_name]
     except ImportError:
-        raise DistutilsModuleError, \
+        raise DistutilsModuleError(
               "can't compile C/C++ code: unable to load module '%s'" % \
-              module_name
+              module_name)
     except KeyError:
-        raise DistutilsModuleError, \
-              ("can't compile C/C++ code: unable to find class '%s' " +
-               "in module '%s'") % (class_name, module_name)
+        raise DistutilsModuleError(
+               "can't compile C/C++ code: unable to find class '%s' "
+               "in module '%s'" % (class_name, module_name))
 
     # XXX The None is necessary to preserve backwards compatibility
     # with classes that expect verbose to be the first positional

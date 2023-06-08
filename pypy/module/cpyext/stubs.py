@@ -20,15 +20,6 @@ def PyBuffer_FillContiguousStrides(space, ndim, shape, strides, itemsize, fortra
     given shape with the given number of bytes per element."""
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
-def PyMemoryView_GetContiguous(space, obj, buffertype, order):
-    """Create a memoryview object to a contiguous chunk of memory (in either
-    'C' or 'F'ortran order) from an object that defines the buffer
-    interface. If memory is contiguous, the memoryview object points to the
-    original memory. Otherwise copy is made and the memoryview points to a
-    new bytes object."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCell_Check(space, ob):
     """Return true if ob is a cell object; ob must not be NULL."""
@@ -1212,13 +1203,6 @@ def PyMethod_ClearFreeList(space):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyModule_CheckExact(space, p):
-    """Return true if p is a module object, but not a subtype of
-    PyModule_Type.
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.CCHARP)
 def PyModule_GetFilename(space, module):
     """Return the name of the file from which module was loaded using module's
@@ -1238,16 +1222,6 @@ def PyModule_AddIntMacro(space, module, macro):
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyModule_AddStringMacro(space, module, macro):
     """Add a string constant to module.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyNumber_ToBase(space, n, base):
-    """Returns the integer n converted to base as a string with a base
-    marker of '0b', '0o', or '0x' if applicable.  When
-    base is not 2, 8, 10, or 16, the format is 'x#num' where x is the
-    base. If n is not an int object, it is converted with
-    PyNumber_Index() first.
     """
     raise NotImplementedError
 
@@ -1635,15 +1609,6 @@ def PyUnicode_RichCompare(space, left, right, op):
 
     Possible values for op are Py_GT, Py_GE, Py_EQ,
     Py_NE, Py_LT, and Py_LE."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyUnicode_Contains(space, container, element):
-    """Check whether element is contained in container and return true or false
-    accordingly.
-
-    element has to coerce to a one element Unicode string. -1 is returned if
-    there was an error."""
     raise NotImplementedError
 
 @cpython_api([rffi.INT_real, rffi.CCHARPP], rffi.INT_real, error=2)

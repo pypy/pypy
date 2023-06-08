@@ -47,6 +47,7 @@ DATA = '''Tracing:         1       0.006992
 Backend:        1       0.000525
 TOTAL:                  0.025532
 ops:                    2
+heapcached ops:         111
 recorded ops:           6
   calls:                3
 guards:                 1
@@ -59,6 +60,8 @@ abort: compiling:       11
 abort: vable escape:    12
 abort: bad loop:        135
 abort: force quasi-immut: 3
+abort: segmenting trace: 0
+virtualizables forced:  1123
 nvirtuals:              13
 nvholes:                14
 nvreused:               15
@@ -77,6 +80,7 @@ def test_parse():
     assert info.backend_no == 1
     assert info.backend_time == 0.000525
     assert info.ops.total == 2
+    assert info.heapcached_ops == 111
     assert info.recorded_ops.total == 6
     assert info.recorded_ops.calls == 3
     assert info.guards == 1
@@ -88,6 +92,7 @@ def test_parse():
     assert info.abort.vable_escape == 12
     assert info.abort.bad_loop == 135
     assert info.abort.force_quasiimmut == 3
+    assert info.virtualizables_forced == 1123
     assert info.nvirtuals == 13
     assert info.nvholes == 14
     assert info.nvreused == 15

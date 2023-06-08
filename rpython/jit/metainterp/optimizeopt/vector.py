@@ -768,7 +768,11 @@ class PackSet(object):
         left = lnode.getoperation()
         opnum = left.getopnum()
 
-        if opnum in AccumPack.SUPPORTED:
+        try:
+            operator = AccumPack.SUPPORTED(opnum)
+        except KeyError:
+            pass
+        else:
             right = rnode.getoperation()
             assert left.numargs() == 2 and not left.returns_void()
             scalar, index = self.getaccumulator_variable(left, right, origin_pack)
@@ -805,7 +809,6 @@ class PackSet(object):
                 # of leading/preceding signext/floatcast instructions needs to be
                 # considered. => tree pattern matching problem.
                 return None
-            operator = AccumPack.SUPPORTED[opnum]
             return AccumPack([lnode, rnode], operator, index)
         is_guard = left.is_guard() and left.getopnum() in (rop.GUARD_TRUE, rop.GUARD_FALSE)
         if is_guard:

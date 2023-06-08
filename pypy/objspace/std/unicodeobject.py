@@ -106,6 +106,7 @@ class W_UnicodeObject(W_Root):
         return space.text_w(encode_object(space, self, 'ascii', 'strict'))
 
     def utf8_w(self, space):
+        jit.record_known_result(self._length, rutf8._check_utf8, self._utf8, True, 0, -1)
         return self._utf8
 
     def readbuf_w(self, space):
@@ -503,11 +504,18 @@ class W_UnicodeObject(W_Root):
         return tformat.formatter_field_name_split()
 
     def descr_lower(self, space):
-        builder = rutf8.Utf8StringBuilder(len(self._utf8))
-        for ch in rutf8.Utf8StringIterator(self._utf8):
+        if self.is_ascii():
+            return space.newutf8(self._utf8.lower(), len(self._utf8))
+        return self._lower_unicode(self._utf8)
+
+    @staticmethod
+    @jit.elidable
+    def _lower_unicode(utf8):
+        builder = rutf8.Utf8StringBuilder(len(utf8))
+        for ch in rutf8.Utf8StringIterator(utf8):
             lower = unicodedb.tolower(ch)
             builder.append_code(lower)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     def descr_isdecimal(self, space):
         return self._is_generic(space, '_isdecimal')
@@ -650,11 +658,18 @@ class W_UnicodeObject(W_Root):
         return space.newlist(strs_w)
 
     def descr_upper(self, space):
-        builder = rutf8.Utf8StringBuilder(len(self._utf8))
-        for ch in rutf8.Utf8StringIterator(self._utf8):
+        if self.is_ascii():
+            return space.newutf8(self._utf8.upper(), len(self._utf8))
+        return self._upper_unicode(self._utf8)
+
+    @staticmethod
+    @jit.elidable
+    def _upper_unicode(utf8):
+        builder = rutf8.Utf8StringBuilder(len(utf8))
+        for ch in rutf8.Utf8StringIterator(utf8):
             ch = unicodedb.toupper(ch)
             builder.append_code(ch)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     @unwrap_spec(width=int)
     def descr_zfill(self, space, width):
@@ -680,9 +695,14 @@ class W_UnicodeObject(W_Root):
     def descr_split(self, space, w_sep=None, maxsplit=-1):
         res = []
         value = self._utf8
+        is_ascii = self.is_ascii()
         if space.is_none(w_sep):
-            res = split(value, maxsplit=maxsplit, isutf8=True)
-            return space.newlist_utf8(res, self.is_ascii())
+            # need two calls, due to the specialization
+            if is_ascii:
+                res = split(value, maxsplit=maxsplit, isutf8=False)
+            else:
+                res = split(value, maxsplit=maxsplit, isutf8=True)
+            return space.newlist_utf8(res, is_ascii)
 
         by = self.convert_arg_to_w_unicode(space, w_sep)._utf8
         if len(by) == 0:
@@ -880,8 +900,11 @@ class W_UnicodeObject(W_Root):
                                               count, isutf8=True)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "replace string is too long")
+        if type(self) is W_UnicodeObject and replacements == 0:
+            return self
 
         newlength = self._length + replacements * (w_by._length - w_sub._length)
+        assert res is not None
         return W_UnicodeObject(res, newlength)
 
     def descr_mul(self, space, w_times):
@@ -1180,7 +1203,8 @@ def encode_object(space, w_obj, encoding, errors):
              encoding == 'ascii'):
             s = space.utf8_w(w_obj)
             try:
-                rutf8.check_ascii(s)
+                if not (isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii()):
+                    rutf8.check_ascii(s)
             except rutf8.CheckError as a:
                 if space.isinstance_w(w_obj, space.w_unicode):
                     eh = unicodehelper.encode_error_handler(space)
@@ -1196,9 +1220,14 @@ def encode_object(space, w_obj, encoding, errors):
         if ((encoding is None and space.sys.defaultencoding == 'utf8') or
              encoding == 'utf-8' or encoding == 'utf8' or encoding == 'UTF-8'):
             utf8 = space.utf8_w(w_obj)
-            if rutf8.has_surrogates(utf8):
+            if isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii():
+                pass # nothing to do
+            elif rutf8.has_surrogates(utf8):
                 utf8 = rutf8.reencode_utf8_with_surrogates(utf8)
             return space.newbytes(utf8)
+        if ((encoding == "latin1" or encoding == "latin-1") and
+                isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii()):
+            return space.newbytes(w_obj._utf8)
     return encode(space, w_obj, encoding, errors)
 
 

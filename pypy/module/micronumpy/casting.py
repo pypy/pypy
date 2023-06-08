@@ -1,6 +1,6 @@
 """Functions and helpers for converting between dtypes"""
 
-from rpython.rlib import jit
+from rpython.rlib import jit, objectmodel
 from rpython.rlib.signature import signature, types as ann
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
@@ -85,11 +85,11 @@ def find_result_type(space, arrays_w, dtypes_w):
                     small_unsigned, False)
     return result
 
-simple_kind_ordering = {
+simple_kind_ordering = objectmodel.dict_to_switch({
     Bool.kind: 0, ULong.kind: 1, Long.kind: 1,
     Float64.kind: 2, Complex64.kind: 2,
     NPY.STRINGLTR: 3, NPY.STRINGLTR2: 3,
-    UnicodeType.kind: 3, VoidType.kind: 3, ObjectType.kind: 3}
+    UnicodeType.kind: 3, VoidType.kind: 3, ObjectType.kind: 3})
 
 # this is safe to unroll since it'll only be seen if we look inside
 # the find_result_type
@@ -103,17 +103,17 @@ def _use_min_scalar(arrays_w, dtypes_w):
     max_array_kind = 0
     for w_array in arrays_w:
         if w_array.is_scalar():
-            kind = simple_kind_ordering[w_array.get_dtype().kind]
+            kind = simple_kind_ordering(w_array.get_dtype().kind)
             if kind > max_scalar_kind:
                 max_scalar_kind = kind
         else:
             all_scalars = False
-            kind = simple_kind_ordering[w_array.get_dtype().kind]
+            kind = simple_kind_ordering(w_array.get_dtype().kind)
             if kind > max_array_kind:
                 max_array_kind = kind
     for dtype in dtypes_w:
         all_scalars = False
-        kind = simple_kind_ordering[dtype.kind]
+        kind = simple_kind_ordering(dtype.kind)
         if kind > max_array_kind:
             max_array_kind = kind
     return not all_scalars and max_array_kind >= max_scalar_kind

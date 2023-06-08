@@ -68,6 +68,9 @@ def build_ffi(module_name, cdef_source, verify_source, libraries=[],
     verify_source += '\n#define CRYPTOGRAPHY_PACKAGE_VERSION "{}"'.format(
         about["__version__"]
     )
+    # Add WSAGetLastError
+    if sys.platform == 'win32':
+        cdef_source += "\nint WSAGetLastError();"
     ffi.cdef(cdef_source)
     ffi.set_source(
         module_name,
@@ -85,6 +88,9 @@ def extra_link_args(compiler_type):
         # default on Python 3.3+ but not on 2.x.
         return ['/NXCOMPAT', '/DYNAMICBASE']
     else:
+        # The PyPy buildbots install OpenSSL to /usr/local/lib
+        if os.path.exists("/usr/local/lib"):
+            return["-L/usr/local/lib"]
         return []
 
 

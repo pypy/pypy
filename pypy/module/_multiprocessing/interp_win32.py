@@ -147,13 +147,13 @@ def SetNamedPipeHandleState(space, w_handle, w_pipemode, w_maxinstances,
                            zero=True)
     try:
         if not space.is_w(w_pipemode, space.w_None):
-            state[0] = space.uint_w(w_pipemode)
+            state[0] = rffi.cast(rffi.UINT, space.uint_w(w_pipemode))
             statep[0] = rffi.ptradd(state, 0)
         if not space.is_w(w_maxinstances, space.w_None):
-            state[1] = space.uint_w(w_maxinstances)
+            state[1] = rffi.cast(rffi.UINT, space.uint_w(w_maxinstances))
             statep[1] = rffi.ptradd(state, 1)
         if not space.is_w(w_timeout, space.w_None):
-            state[2] = space.uint_w(w_timeout)
+            state[2] = rffi.cast(rffi.UINT, space.uint_w(w_timeout))
             statep[2] = rffi.ptradd(state, 2)
         if not _SetNamedPipeHandleState(handle, statep[0], statep[1],
                                         statep[2]):

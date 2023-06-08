@@ -213,9 +213,6 @@ def set_mustfree_flag(data, flag):
 # ____________________________________________________________
 
 
-USE_C_LIBFFI_MSVC = getattr(clibffi, 'USE_C_LIBFFI_MSVC', False)
-
-
 # ----------
 # We attach to the classes small methods that return a 'ffi_type'
 
@@ -387,16 +384,6 @@ class CifDescrBuilder(object):
                     "does not support")
             nflat += flat
 
-        if USE_C_LIBFFI_MSVC and is_result_type:
-            # MSVC returns small structures in registers.  Pretend int32 or
-            # int64 return type.  This is needed as a workaround for what
-            # is really a bug of libffi_msvc seen as an independent library
-            # (ctypes has a similar workaround).
-            if ctype.size <= 4:
-                return clibffi.ffi_type_sint32
-            if ctype.size <= 8:
-                return clibffi.ffi_type_sint64
-
         # allocate an array of (nflat + 1) ffi_types
         elements = self.fb_alloc(rffi.sizeof(FFI_TYPE_P) * (nflat + 1))
         elements = rffi.cast(FFI_TYPE_PP, elements)
@@ -462,15 +449,22 @@ class CifDescrBuilder(object):
     def align_arg(self, n):
         return (n + 7) & ~7
 
+    def align_to(self, n, type):
+        a = rffi.getintfield(type, 'c_alignment') - 1
+        return (n + a) & ~a
+
     def fb_build_exchange(self, cif_descr):
         nargs = len(self.fargs)
 
         # first, enough room for an array of 'nargs' pointers
         exchange_offset = rffi.sizeof(rffi.CCHARP) * nargs
+
+        # then enough room for the result --- which means at least
+        # sizeof(ffi_arg), according to the ffi docs, but we also
+        # align according to the result type, for cffi issue #531
+        exchange_offset = self.align_to(exchange_offset, self.rtype)
         exchange_offset = self.align_arg(exchange_offset)
         cif_descr.exchange_result = exchange_offset
-
-        # then enough room for the result, rounded up to sizeof(ffi_arg)
         exchange_offset += max(rffi.getintfield(self.rtype, 'c_size'),
                                SIZE_OF_FFI_ARG)
 
@@ -478,9 +472,11 @@ class CifDescrBuilder(object):
         for i, farg in enumerate(self.fargs):
             if isinstance(farg, W_CTypePointer):
                 exchange_offset += 1   # for the "must free" flag
+            atype = self.atypes[i]
+            exchange_offset = self.align_to(exchange_offset, atype)
             exchange_offset = self.align_arg(exchange_offset)
             cif_descr.exchange_args[i] = exchange_offset
-            exchange_offset += rffi.getintfield(self.atypes[i], 'c_size')
+            exchange_offset += rffi.getintfield(atype, 'c_size')
 
         # store the exchange data size
         # we also align it to the next multiple of 8, in an attempt to

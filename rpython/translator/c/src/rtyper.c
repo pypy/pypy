@@ -1,9 +1,6 @@
 /************************************************************/
 /***  C header subsection: tools for RTyper-aware code    ***/
-#include "common_header.h"
-#include "structdef.h"
-#include "forwarddecl.h"
-#include "preimpl.h"
+#include "singleheader.h"
 #include <src/rtyper.h>
 
 #include <stdlib.h>

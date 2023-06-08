@@ -1,12 +1,13 @@
 import py, os, sys
-from .support import setup_make
-
+from pytest import raises
+from .support import setup_make, soext
 
 currpath = py.path.local(__file__).dirpath()
-test_dct = str(currpath.join("datatypesDict.so"))
+test_dct = str(currpath.join("datatypesDict"))+soext
 
 def setup_module(mod):
-    setup_make("datatypesDict.so")
+    setup_make("datatypes")
+
 
 class AppTestDATATYPES:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
@@ -17,12 +18,24 @@ class AppTestDATATYPES:
             import ctypes, _cppyy
             _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
-        cls.w_N = cls.space.newint(5)  # should be imported from the dictionary
+        cls.w_N = cls.space.appexec([], """():
+            import _cppyy
+            return _cppyy.gbl.N""")
+        cls.w_has_byte = cls.space.appexec([], """():
+            import _cppyy
+            return 201402 < _cppyy.gbl.gInterpreter.ProcessLine("__cplusplus;")""")
 
     def test01_instance_data_read_access(self):
         """Read access to instance public data and verify values"""
 
+        import sys
         import _cppyy as cppyy
+
+        if sys.hexversion >= 0x3000000:
+            pyunicode = str
+        else:
+            pyunicode = unicode
+
         CppyyTestData = cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
@@ -36,8 +49,18 @@ class AppTestDATATYPES:
         assert c.m_char  == 'a'
         assert c.m_schar == 'b'
         assert c.m_uchar == 'c'
+        assert type(c.m_wchar) == pyunicode
+        assert c.m_wchar == u'D'
+        assert type(c.m_char16) == pyunicode
+        assert c.m_char16 == u'\u00df'
+        assert type(c.m_char32) == pyunicode
+        assert c.m_char32 == u'\u00df'
 
         # reading integer types
+        assert c.m_int8    == - 9; assert c.get_int8_cr()    == - 9; assert c.get_int8_r()    == - 9
+        assert c.m_uint8   ==   9; assert c.get_uint8_cr()   ==   9; assert c.get_uint8_r()   ==   9
+        if self.has_byte:
+            assert c.m_byte == ord('d'); assert c.get_byte_cr() == ord('d'); assert c.get_byte_r() == ord('d')
         assert c.m_short   == -11; assert c.get_short_cr()   == -11; assert c.get_short_r()   == -11
         assert c.m_ushort  ==  11; assert c.get_ushort_cr()  ==  11; assert c.get_ushort_r()  ==  11
         assert c.m_int     == -22; assert c.get_int_cr()     == -22; assert c.get_int_r()     == -22
@@ -62,7 +85,7 @@ class AppTestDATATYPES:
         assert round(c.get_ldouble_def()  -1., 24) == 0
         assert round(c.get_ldouble_def(2) -2., 24) == 0
 
-        """# complex<double> type
+        # complex<double> type
         assert type(c.get_complex()) == complex
         assert round(c.get_complex().real    -  99., 11) == 0
         assert round(c.get_complex().imag    - 101., 11) == 0
@@ -72,6 +95,7 @@ class AppTestDATATYPES:
         assert round(c.get_complex_r().real  -  99., 11) == 0
         assert round(c.get_complex_r().imag  - 101., 11) == 0
         assert complex(cppyy.gbl.std.complex['double'](1, 2)) == complex(1, 2)
+        assert repr(cppyy.gbl.std.complex['double'](1, 2)) == '(1+2j)'
 
         # complex<int> retains C++ type in all cases (but includes pythonization to
         # resemble Python's complex more closely
@@ -84,7 +108,7 @@ class AppTestDATATYPES:
         assert type(c.get_icomplex_r()) == cppyy.gbl.std.complex[int]
         assert round(c.get_icomplex_r().real  - 121., 11) == 0
         assert round(c.get_icomplex_r().imag  - 141., 11) == 0
-        assert complex(cppyy.gbl.std.complex['int'](1, 2)) == complex(1, 2)"""
+        assert complex(cppyy.gbl.std.complex['int'](1, 2)) == complex(1, 2)
 
         # reading of enum types
         assert c.m_enum == CppyyTestData.kNothing
@@ -98,8 +122,10 @@ class AppTestDATATYPES:
             assert c.get_bool_array2()[i]   ==   bool((i+1)%2)
 
         # reading of integer array types
-        names = ['uchar',  'short', 'ushort',    'int', 'uint',    'long',  'ulong']
-        alpha = [ (1, 2), (-1, -2),   (3, 4), (-5, -6), (7, 8), (-9, -10), (11, 12)]
+        names = ['schar', 'uchar', 'short', 'ushort',    'int', 'uint',    'long',  'ulong']
+        alpha = [ (1, 2), (1, 2), (-1, -2),   (3, 4), (-5, -6), (7, 8), (-9, -10), (11, 12)]
+        if self.has_byte: names.append('byte'); alpha.append((3,4))
+
         for j in range(self.N):
             assert getattr(c, 'm_%s_array'    % names[i])[i]   == alpha[i][0]*i
             assert getattr(c, 'get_%s_array'  % names[i])()[i] == alpha[i][0]*i
@@ -114,7 +140,10 @@ class AppTestDATATYPES:
             assert round(c.m_double_array2[k] + 16.*k, 8) == 0
 
         # out-of-bounds checks
+        raises(IndexError, c.m_schar_array.__getitem__,  self.N)
         raises(IndexError, c.m_uchar_array.__getitem__,  self.N)
+        if self.has_byte:
+            raises(IndexError, c.m_byte_array.__getitem__,   self.N)
         raises(IndexError, c.m_short_array.__getitem__,  self.N)
         raises(IndexError, c.m_ushort_array.__getitem__, self.N)
         raises(IndexError, c.m_int_array.__getitem__,    self.N)
@@ -136,7 +165,14 @@ class AppTestDATATYPES:
     def test02_instance_data_write_access(self):
         """Test write access to instance public data and verify values"""
 
+        import sys
         import _cppyy as cppyy
+
+        if sys.hexversion >= 0x3000000:
+            pyunicode = str
+        else:
+            pyunicode = unicode
+
         CppyyTestData = cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
@@ -152,11 +188,15 @@ class AppTestDATATYPES:
         c.m_bool = 0;      assert c.get_bool() == False
         c.set_bool(0);     assert c.m_bool     == False
 
-        raises(ValueError, 'c.set_bool(10)')
+        raises(ValueError, c.set_bool, 10)
 
         # char types through functions
         c.set_char('c');   assert c.get_char()  == 'c'
         c.set_uchar('e');  assert c.get_uchar() == 'e'
+        c.set_wchar(u'F'); assert c.get_wchar() == u'F'
+        assert type(c.get_wchar()) == pyunicode
+        c.set_char16(u'\u00f2');     assert c.get_char16() == u'\u00f2'
+        c.set_char32(u'\U0001f31c'); assert c.get_char32() == u'\U0001f31c'
 
         # char types through data members
         c.m_char = 'b';    assert c.get_char()  ==     'b'
@@ -167,14 +207,25 @@ class AppTestDATATYPES:
         c.m_uchar = 42;    assert c.get_uchar() == chr(42)
         c.set_uchar('e');  assert c.m_uchar     ==     'e'
         c.set_uchar(43);   assert c.m_uchar     == chr(43)
+        c.m_wchar = u'G';  assert c.get_wchar() ==    u'G'
+        c.set_wchar(u'H'); assert c.m_wchar     ==    u'H'
+        c.m_char16 = u'\u00f3';  assert c.get_char16() == u'\u00f3'
+        c.set_char16(u'\u00f4'); assert c.m_char16     == u'\u00f4'
+        c.m_char32 = u'\U0001f31d';  assert c.get_char32() == u'\U0001f31d'
+        c.set_char32(u'\U0001f31e'); assert c.m_char32     == u'\U0001f31e'
 
-        raises(ValueError, 'c.set_char("string")')
-        raises(ValueError, 'c.set_char(500)')
-        raises(ValueError, 'c.set_uchar("string")')
-        raises(ValueError, 'c.set_uchar(-1)')
+        raises(ValueError, c.set_char,   "string")
+        raises(ValueError, c.set_char,   500)
+        raises(ValueError, c.set_uchar,  "string")
+        raises(ValueError, c.set_uchar,  -1)
+        raises(ValueError, c.set_wchar,  "string")
+        raises(ValueError, c.set_char16, "string")
+        raises(ValueError, c.set_char32, "string")
 
         # integer types
-        names = ['short', 'ushort', 'int', 'uint', 'long', 'ulong', 'llong', 'ullong']
+        names = ['int8', 'uint8', 'short', 'ushort', 'int', 'uint', 'long', 'ulong', 'llong', 'ullong']
+        if self.has_byte: names.append('byte')
+
         for i in range(len(names)):
             setattr(c, 'm_'+names[i], i)
             assert eval('c.get_%s()' % names[i]) == i
@@ -208,9 +259,12 @@ class AppTestDATATYPES:
 
         # integer arrays
         names = ['uchar', 'short', 'ushort', 'int', 'uint', 'long', 'ulong']
+        if self.has_byte: names.append('byte')
+
         import array
         a = range(self.N)
         atypes = ['B', 'h', 'H', 'i', 'I', 'l', 'L']
+        if self.has_byte: atypes.append('B')
         for j in range(len(names)):
             b = array.array(atypes[j], a)
             setattr(c, 'm_'+names[j]+'_array', b)     # buffer copies
@@ -269,7 +323,16 @@ class AppTestDATATYPES:
     def test04_class_read_access(self):
         """Test read access to class public data and verify values"""
 
-        import _cppyy as cppyy, sys
+        import sys
+        import _cppyy as cppyy
+
+        if sys.hexversion >= 0x3000000:
+            pylong = int
+            pyunicode = str
+        else:
+            pylong = long
+            pyunicode = unicode
+
         CppyyTestData = cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
@@ -278,10 +341,30 @@ class AppTestDATATYPES:
         # char types
         assert CppyyTestData.s_char     == 'c'
         assert c.s_char                 == 'c'
-        assert c.s_uchar                == 'u'
         assert CppyyTestData.s_uchar    == 'u'
+        assert c.s_uchar                == 'u'
+        assert CppyyTestData.s_wchar    == u'U'
+        assert c.s_wchar                == u'U'
+        assert CppyyTestData.s_char16   == u'\u6c29'
+        assert c.s_char16               == u'\u6c29'
+        assert CppyyTestData.s_char32   == u'\U0001f34b'
+        assert c.s_char32               == u'\U0001f34b'
+
+        assert type(c.s_wchar)              == pyunicode
+        assert type(CppyyTestData.s_wchar)  == pyunicode
+        assert type(c.s_char16)             == pyunicode
+        assert type(CppyyTestData.s_char16) == pyunicode
+        assert type(c.s_char32)             == pyunicode
+        assert type(CppyyTestData.s_char32) == pyunicode
 
         # integer types
+        if self.has_byte:
+            assert CppyyTestData.s_byte == ord('b')
+            assert c.s_byte             == ord('b')
+        assert CppyyTestData.s_int8     == - 87
+        assert c.s_int8                 == - 87
+        assert CppyyTestData.s_uint8    ==   87
+        assert c.s_uint8                ==   87
         assert CppyyTestData.s_short    == -101
         assert c.s_short                == -101
         assert c.s_ushort               ==  255
@@ -290,14 +373,14 @@ class AppTestDATATYPES:
         assert c.s_int                  == -202
         assert c.s_uint                 ==  202
         assert CppyyTestData.s_uint     ==  202
-        assert CppyyTestData.s_long     == -303
-        assert c.s_long                 == -303
-        assert c.s_ulong                ==  303
-        assert CppyyTestData.s_ulong    ==  303
-        assert CppyyTestData.s_llong    == -404
-        assert c.s_llong                == -404
-        assert c.s_ullong               ==  404
-        assert CppyyTestData.s_ullong   ==  404
+        assert CppyyTestData.s_long     == -pylong(303)
+        assert c.s_long                 == -pylong(303)
+        assert c.s_ulong                ==  pylong(303)
+        assert CppyyTestData.s_ulong    ==  pylong(303)
+        assert CppyyTestData.s_llong    == -pylong(404)
+        assert c.s_llong                == -pylong(404)
+        assert c.s_ullong               ==  pylong(404)
+        assert CppyyTestData.s_ullong   ==  pylong(404)
 
         # floating point types
         assert round(CppyyTestData.s_float   + 606., 5) == 0
@@ -312,7 +395,14 @@ class AppTestDATATYPES:
     def test05_class_data_write_access(self):
         """Test write access to class public data and verify values"""
 
-        import _cppyy as cppyy, sys
+        import sys
+        import _cppyy as cppyy
+
+        if sys.hexversion >= 0x3000000:
+            pylong = int
+        else:
+            pylong = long
+
         CppyyTestData = cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
@@ -329,8 +419,25 @@ class AppTestDATATYPES:
         assert CppyyTestData.s_uchar    == 'd'
         raises(ValueError, setattr, CppyyTestData, 's_uchar', -1)
         raises(ValueError, setattr, c,             's_uchar', -1)
+        CppyyTestData.s_wchar            = u'K'
+        assert c.s_wchar                == u'K'
+        c.s_wchar                        = u'L'
+        assert CppyyTestData.s_wchar    == u'L'
+        CppyyTestData.s_char16           = u'\u00df'
+        assert c.s_char16               == u'\u00df'
+        c.s_char16                       = u'\u00ef'
+        assert CppyyTestData.s_char16   == u'\u00ef'
+        CppyyTestData.s_char32           = u'\u00df'
+        assert c.s_char32               == u'\u00df'
+        c.s_char32                       = u'\u00ef'
+        assert CppyyTestData.s_char32   == u'\u00ef'
 
         # integer types
+        if self.has_byte:
+            c.s_byte                     =   66
+            assert CppyyTestData.s_byte ==   66
+            CppyyTestData.s_byte         =   66
+            assert c.s_byte             ==   66
         c.s_short                        = -102
         assert CppyyTestData.s_short    == -102
         CppyyTestData.s_short            = -203
@@ -349,14 +456,14 @@ class AppTestDATATYPES:
         assert CppyyTestData.s_uint     == 4321
         raises(ValueError, setattr, c,             's_uint', -1)
         raises(ValueError, setattr, CppyyTestData, 's_uint', -1)
-        CppyyTestData.s_long             = -87
-        assert c.s_long                 == -87
-        c.s_long                         = 876
-        assert CppyyTestData.s_long     == 876
-        CppyyTestData.s_ulong            = 876
-        assert c.s_ulong                == 876
-        c.s_ulong                        = 678
-        assert CppyyTestData.s_ulong    == 678
+        CppyyTestData.s_long             = -pylong(87)
+        assert c.s_long                 == -pylong(87)
+        c.s_long                         = pylong(876)
+        assert CppyyTestData.s_long     == pylong(876)
+        CppyyTestData.s_ulong            = pylong(876)
+        assert c.s_ulong                == pylong(876)
+        c.s_ulong                        = pylong(678)
+        assert CppyyTestData.s_ulong    == pylong(678)
         raises(ValueError, setattr, CppyyTestData, 's_ulong', -1)
         raises(ValueError, setattr, c,             's_ulong', -1)
 
@@ -405,9 +512,9 @@ class AppTestDATATYPES:
         c.m_double = -1
         assert round(c.m_double + 1.0, 8) == 0
 
-        raises(TypeError, c.m_double,  'c')
-        raises(TypeError, c.m_int,     -1.)
-        raises(TypeError, c.m_int,      1.)
+        raises(TypeError, setattr, c.m_double,  'c')
+        raises(TypeError, setattr, c.m_int,     -1.)
+        raises(TypeError, setattr, c.m_int,      1.)
 
         c.__destruct__()
 
@@ -433,7 +540,8 @@ class AppTestDATATYPES:
         import _cppyy as cppyy
         gbl = cppyy.gbl
 
-        raises(ReferenceError, 'gbl.g_pod.m_int')
+        with raises(ReferenceError):
+            gbl.g_pod.m_int
 
         c = gbl.CppyyTestPod()
         c.m_int = 42
@@ -722,13 +830,17 @@ class AppTestDATATYPES:
         CppyyTestData = cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
+        byte_array_names = []
+        if self.has_byte:
+            byte_array_names = ['get_byte_array', 'get_byte_array2']
         for func in ['get_bool_array',   'get_bool_array2',
-                     'get_uchar_array',   'get_uchar_array2',
+                     'get_uchar_array',  'get_uchar_array2',
                      'get_ushort_array', 'get_ushort_array2',
                      'get_int_array',    'get_int_array2',
                      'get_uint_array',   'get_uint_array2',
                      'get_long_array',   'get_long_array2',
-                     'get_ulong_array',  'get_ulong_array2']:
+                     'get_ulong_array',  'get_ulong_array2']+\
+                     byte_array_names:
             arr = getattr(c, func)()
             arr.reshape((self.N,))
             assert len(arr) == self.N
@@ -791,7 +903,43 @@ class AppTestDATATYPES:
         c.s_voidp = c2
         address_equality_test(c.s_voidp, c2)
 
-    def test21_function_pointers(self):
+    def test21_byte_arrays(self):
+        """Usage of unsigned char* as byte array and std::byte*"""
+
+        import _cppyy as cppyy
+        import array, ctypes
+
+        buf = b'123456789'
+        total = 0
+        for c in buf:
+            try:
+                total += ord(c)        # p2
+            except TypeError:
+                total += c             # p3
+
+        def run(self, f, buf, total):
+
+            # The following create a unique type for fixed-size C arrays: ctypes.c_char_Array_9
+            # and neither inherits from a non-sized type nor implements the buffer interface.
+            # As such, it can't be handled. TODO?
+            #pbuf = ctypes.create_string_buffer(len(buf), buf)
+            #assert f(pbuf, len(buf)) == total
+
+            pbuf = array.array('B', buf)
+            assert f(pbuf, len(buf)) == total
+
+            pbuf = (ctypes.c_ubyte * len(buf)).from_buffer_copy(buf)
+            assert f(pbuf, len(buf)) == total
+
+            pbuf = ctypes.cast(buf, ctypes.POINTER(ctypes.c_ubyte * len(buf)))[0]
+            assert f(pbuf, len(buf)) == total
+
+        run(self, cppyy.gbl.sum_uc_data, buf, total)
+
+        if self.has_byte:
+            run(self, cppyy.gbl.sum_byte_data, buf, total)
+
+    def test22_function_pointers(self):
         """Function pointer passing"""
 
         import os
@@ -805,7 +953,7 @@ class AppTestDATATYPES:
 
         import _cppyy as cppyy
 
-        f1 = cppyy.gbl.sum_of_int
+        f1 = cppyy.gbl.sum_of_int1
         f2 = cppyy.gbl.sum_of_double
         f3 = cppyy.gbl.call_double_double
 

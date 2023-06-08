@@ -1,5 +1,6 @@
 # -*- encoding: utf8 -*-
 """Tests for distutils.command.check."""
+import os
 import textwrap
 import unittest
 from test.test_support import run_unittest
@@ -8,13 +9,25 @@ from distutils.command.check import check, HAS_DOCUTILS
 from distutils.tests import support
 from distutils.errors import DistutilsSetupError
 
+try:
+    import pygments
+except ImportError:
+    pygments = None
+
+
+HERE = os.path.dirname(__file__)
+
+
 class CheckTestCase(support.LoggingSilencer,
                     support.TempdirManager,
                     unittest.TestCase):
 
-    def _run(self, metadata=None, **options):
+    def _run(self, metadata=None, cwd=None, **options):
         if metadata is None:
             metadata = {}
+        if cwd is not None:
+            old_dir = os.getcwd()
+            os.chdir(cwd)
         pkg_info, dist = self.create_dist(**metadata)
         cmd = check(dist)
         cmd.initialize_options()
@@ -22,6 +35,8 @@ class CheckTestCase(support.LoggingSilencer,
             setattr(cmd, name, value)
         cmd.ensure_finalized()
         cmd.run()
+        if cwd is not None:
+            os.chdir(old_dir)
         return cmd
 
     def test_check_metadata(self):
@@ -94,6 +109,11 @@ class CheckTestCase(support.LoggingSilencer,
         cmd = self._run(metadata, strict=1, restructuredtext=1)
         self.assertEqual(cmd._warnings, 0)
 
+        # check that includes work to test #31292
+        metadata['long_description'] = 'title\n=====\n\n.. include:: includetest.rst'
+        cmd = self._run(metadata, cwd=HERE, strict=1, restructuredtext=1)
+        self.assertEqual(cmd._warnings, 0)
+
     @unittest.skipUnless(HAS_DOCUTILS, "won't test without docutils")
     def test_check_restructuredtext_with_syntax_highlight(self):
         # Don't fail if there is a `code` or `code-block` directive
@@ -120,9 +140,15 @@ class CheckTestCase(support.LoggingSilencer,
             pkg_info, dist = self.create_dist(long_description=rest_with_code)
             cmd = check(dist)
             cmd.check_restructuredtext()
-            self.assertEqual(cmd._warnings, 0)
             msgs = cmd._check_rst_data(rest_with_code)
-            self.assertEqual(len(msgs), 0)
+            if pygments is not None:
+                self.assertEqual(len(msgs), 0)
+            else:
+                self.assertEqual(len(msgs), 1)
+                self.assertEqual(
+                    str(msgs[0][1]),
+                    'Cannot analyze code. Pygments package not found.'
+                )
 
     def test_check_all(self):
 

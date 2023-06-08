@@ -5,7 +5,7 @@ from rpython.jit.backend.llsupport.codemap import CodemapBuilder
 from rpython.jit.metainterp.history import (INT, REF, FLOAT, JitCellToken,
     ConstInt, AbstractFailDescr, VECTOR)
 from rpython.jit.metainterp.resoperation import ResOperation, rop
-from rpython.rlib import rgc
+from rpython.rlib import rgc, rmmap
 from rpython.rlib.debug import (debug_start, debug_stop, have_debug_prints_for,
                                 debug_print)
 from rpython.rlib.rarithmetic import r_uint
@@ -96,6 +96,7 @@ class BaseAssembler(object):
 
     def setup_once(self):
         # the address of the function called by 'new'
+        rmmap.enter_assembler_writing()
         gc_ll_descr = self.cpu.gc_ll_descr
         gc_ll_descr.initialize()
         if hasattr(gc_ll_descr, 'minimal_size_in_nursery'):
@@ -157,6 +158,7 @@ class BaseAssembler(object):
                                               flavor='raw',
                                               track_allocation=False)
         self.gcmap_for_finish[0] = r_uint(1)
+        rmmap.leave_assembler_writing()
 
     def setup(self, looptoken):
         if self.cpu.HAS_CODEMAP:

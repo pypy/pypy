@@ -71,7 +71,7 @@ def _stringify(value):
     if isinstance(value, (list, tuple)):
         if len(value) == 1:
             value = _stringify(value[0])
-            if value[0] == '{':
+            if _magic_re.search(value):
                 value = '{%s}' % value
         else:
             value = '{%s}' % _join(value)
@@ -85,7 +85,10 @@ def _stringify(value):
         elif _magic_re.search(value):
             # add '\' before special characters and spaces
             value = _magic_re.sub(r'\\\1', value)
+            value = value.replace('\n', r'\n')
             value = _space_re.sub(r'\\\1', value)
+            if value[0] == '"':
+                value = '\\' + value
         elif value[0] == '"' or _space_re.search(value):
             value = '{%s}' % value
     return value
@@ -586,6 +589,7 @@ class Misc:
         if not func:
             # I'd rather use time.sleep(ms*0.001)
             self.tk.call('after', ms)
+            return None
         else:
             def callit():
                 try:
@@ -609,11 +613,13 @@ class Misc:
         """Cancel scheduling of function identified with ID.
 
         Identifier returned by after or after_idle must be
-        given as first parameter."""
+        given as first parameter.
+        """
+        if not id:
+            raise ValueError('id must be a valid identifier returned from '
+                             'after or after_idle')
         try:
             data = self.tk.call('after', 'info', id)
-            # In Tk 8.3, splitlist returns: (script, type)
-            # In Tk 8.4, splitlist may return (script, type) or (script,)
             script = self.tk.splitlist(data)[0]
             self.deletecommand(script)
         except TclError:
@@ -844,8 +850,7 @@ class Misc:
             self.tk.call('winfo', 'height', self._w))
     def winfo_id(self):
         """Return identifier ID for this widget."""
-        return self.tk.getint(
-            self.tk.call('winfo', 'id', self._w))
+        return int(self.tk.call('winfo', 'id', self._w), 0)
     def winfo_interps(self, displayof=0):
         """Return the name of all Tcl interpreters for this display."""
         args = ('winfo', 'interps') + self._displayof(displayof)
@@ -855,7 +860,7 @@ class Misc:
         return getint(
             self.tk.call('winfo', 'ismapped', self._w))
     def winfo_manager(self):
-        """Return the window mananger name for this widget."""
+        """Return the window manager name for this widget."""
         return self.tk.call('winfo', 'manager', self._w)
     def winfo_name(self):
         """Return the name of this widget."""
@@ -1174,9 +1179,9 @@ class Misc:
                 elif isinstance(v, (tuple, list)):
                     nv = []
                     for item in v:
-                        if not isinstance(item, (basestring, int)):
+                        if not isinstance(item, (basestring, int, long)):
                             break
-                        elif isinstance(item, int):
+                        elif isinstance(item, (int, long)):
                             nv.append('%d' % item)
                         else:
                             # format it to proper Tcl code if it contains space
@@ -1522,7 +1527,7 @@ class Misc:
         return self.tk.splitlist(self.tk.call('image', 'names'))
 
     def image_types(self):
-        """Return a list of all available image types (e.g. phote bitmap)."""
+        """Return a list of all available image types (e.g. photo bitmap)."""
         return self.tk.splitlist(self.tk.call('image', 'types'))
 
 
@@ -2364,7 +2369,7 @@ class Canvas(Widget, XView, YView):
         """Return item which is closest to pixel at X, Y.
         If several match take the top-most.
         All items closer than HALO are considered overlapping (all are
-        closests). If START is specified the next below this tag is taken."""
+        closest). If START is specified the next below this tag is taken."""
         return self.find('closest', x, y, halo, start)
     def find_enclosed(self, x1, y1, x2, y2):
         """Return all items in rectangle defined
@@ -2424,7 +2429,7 @@ class Canvas(Widget, XView, YView):
         """Print the contents of the canvas to a postscript
         file. Valid options: colormap, colormode, file, fontmap,
         height, pageanchor, pageheight, pagewidth, pagex, pagey,
-        rotate, witdh, x, y."""
+        rotate, width, x, y."""
         return self.tk.call((self._w, 'postscript') +
                     self._options(cnf, kw))
     def tag_raise(self, *args):
@@ -3355,7 +3360,7 @@ class Image:
         return getint(
             self.tk.call('image', 'height', self.name))
     def type(self):
-        """Return the type of the imgage, e.g. "photo" or "bitmap"."""
+        """Return the type of the image, e.g. "photo" or "bitmap"."""
         return self.tk.call('image', 'type', self.name)
     def width(self):
         """Return the width of the image."""
@@ -3363,7 +3368,7 @@ class Image:
             self.tk.call('image', 'width', self.name))
 
 class PhotoImage(Image):
-    """Widget which can display colored images in GIF, PPM/PGM format."""
+    """Widget which can display images in PGM, PPM, GIF, PNG format."""
     def __init__(self, name=None, cnf={}, master=None, **kw):
         """Create an image with NAME.
 
@@ -3427,7 +3432,7 @@ class PhotoImage(Image):
         self.tk.call(args)
 
 class BitmapImage(Image):
-    """Widget which can display a bitmap."""
+    """Widget which can display images in XBM format."""
     def __init__(self, name=None, cnf={}, master=None, **kw):
         """Create a bitmap with NAME.
 
@@ -3577,7 +3582,7 @@ class Spinbox(Widget, XView):
         select to commands. If the selection isn't currently in
         the spinbox, then a new selection is created to include
         the characters between index and the most recent selection
-        anchor point, inclusive. Returns an empty string.
+        anchor point, inclusive.
         """
         return self.selection("adjust", index)
 
@@ -3585,7 +3590,7 @@ class Spinbox(Widget, XView):
         """Clear the selection
 
         If the selection isn't in this widget then the
-        command has no effect. Returns an empty string.
+        command has no effect.
         """
         return self.selection("clear")
 
@@ -3593,9 +3598,9 @@ class Spinbox(Widget, XView):
         """Sets or gets the currently selected element.
 
         If a spinbutton element is specified, it will be
-        displayed depressed
+        displayed depressed.
         """
-        return self.selection("element", element)
+        return self.tk.call(self._w, 'selection', 'element', element)
 
 ###########################################################################
 

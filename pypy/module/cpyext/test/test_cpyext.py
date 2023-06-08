@@ -34,7 +34,9 @@ class TestApi:
     def test_signature(self):
         common_functions = api.FUNCTIONS_BY_HEADER[api.pypy_decl]
         assert 'PyModule_Check' in common_functions
-        assert common_functions['PyModule_Check'].argtypes == [api.PyObject]
+        assert common_functions['PyModule_Check'].argtypes == [cts.gettype("void *")]
+        assert 'PyModule_GetDict' in common_functions
+        assert common_functions['PyModule_GetDict'].argtypes == [api.PyObject]
 
 
 class SpaceCompiler(SystemCompilationInfo):
@@ -121,7 +123,7 @@ class LeakCheckingTest(object):
     """Base class for all cpyext tests."""
     spaceconfig = dict(usemodules=['cpyext', 'thread', 'struct', 'array',
                                    'itertools', 'time', 'binascii',
-                                   'mmap'
+                                   'mmap', 'signal',
                                    ])
     spaceconfig["objspace.std.withspecialisedtuple"] = True
 
@@ -767,12 +769,13 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo', init=init, body=body)
 
         # uncaught interplevel exceptions are turned into SystemError
-        expected = "ZeroDivisionError('integer division or modulo by zero',)"
+        expected = "ZeroDivisionError('integer division"
         exc = raises(SystemError, module.crash1)
-        assert exc.value[0] == expected
+        # Work around difference in err msg btween CPython2 and PyPy2
+        assert exc.value[0].startswith(expected)
 
         exc = raises(SystemError, module.crash2)
-        assert exc.value[0] == expected
+        assert exc.value[0].startswith(expected)
 
         # caught exception, api.cpython_api return value works
         assert module.crash3() == -1
@@ -937,3 +940,15 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
              '''
              ),
         ])
+
+    def test_consistent_flags(self):
+        import sys
+        mod = self.import_extension('foo', [
+            ('test_optimize', 'METH_NOARGS',
+             '''
+                return PyLong_FromLong(Py_OptimizeFlag);
+             '''),
+        ])
+        # This is intentionally set to -1 by default from missing.c
+        # and should be set to sys.flags.optimize at startup
+        assert mod.test_optimize() == sys.flags.optimize

@@ -143,8 +143,8 @@ interpreter.   When doing its work of interpreting bytecode our Python
 implementation must behave in a static way often referenced as
 "RPythonic".
 
-.. _Starkiller: http://people.csail.mit.edu/jrb/Projects/starkiller.pdf
-.. _ShedSkin: http://shed-skin.blogspot.com/
+.. _Starkiller: https://people.csail.mit.edu/jrb/Projects/starkiller.pdf
+.. _ShedSkin: https://shed-skin.blogspot.com/
 
 However, when the PyPy interpreter is started as a Python program, it
 can use all of the Python language until it reaches a certain point in
@@ -544,7 +544,8 @@ Committing & Branching to the repository
 Using the development bug/feature tracker
 -----------------------------------------
 
-We use bitbucket for :source:`issues` tracking and :source:`pull-requests`.
+We use https://foss.heptapod.net/pypy/pypy for :source:`issues` tracking and
+:source:`pull-requests`.
 
 .. _testing:
 
@@ -562,7 +563,7 @@ basically two types of unit tests:
 - **Application Level tests**. They run at application level which means
   that they look like straight python code but they are interpreted by PyPy.
 
-.. _py.test: http://pytest.org/
+.. _py.test: https://pytest.org/
 
 
 Interpreter level tests
@@ -592,6 +593,7 @@ coding style or restrictions. If we have a choice we often
 use application level tests which are in files whose name starts with the
 `apptest_` prefix and look like this::
 
+    # spaceconfig = {"usemodules":["array"]}
     def test_this():
         # application level test code
 
@@ -605,7 +607,9 @@ host interpreter, which is usually a translated pypy executable in this case::
     pypy3 -m pytest -D pypy/
 
 Note that in interpreted mode, only a small subset of pytest's functionality is
-available.
+available.  To configure the object space, the host interpreter will parse the
+optional spaceconfig declaration.  This declaration must be in the form of a
+valid json dict. 
 
 Mixed-level tests (deprecated)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -700,9 +704,9 @@ and can once they are installed coverage testing can be invoked via::
 
   python test_all.py --cov file_or_direcory_to_cover file_or_directory
 
-.. _pytest-cov: http://pypi.python.org/pypi/pytest-cov
-.. _coverage: http://pypi.python.org/pypi/coverage
-.. _cov-core: http://pypi.python.org/pypi/cov-core
+.. _pytest-cov: https://pypi.python.org/pypi/pytest-cov
+.. _coverage: https://pypi.python.org/pypi/coverage
+.. _cov-core: https://pypi.python.org/pypi/cov-core
 
 
 Test conventions
@@ -730,10 +734,10 @@ You can simply edit or add '.rst' files which contain ReST-markuped
 files.  Here is a `ReST quickstart`_ but you can also just look
 at the existing documentation and see how things work.
 
-Note that the web site of http://pypy.org/ is maintained separately.
-For now it is in the repository https://bitbucket.org/pypy/pypy.org
+Note that the web site of https://pypy.org/ is maintained separately.
+It is in the repository https://foss.heptapod.net/pypy/pypy.org
 
-.. _ReST quickstart: http://docutils.sourceforge.net/docs/user/rst/quickref.html
+.. _ReST quickstart: https://docutils.sourceforge.net/docs/user/rst/quickref.html
 
 
 Automatically test documentation/website changes
@@ -757,4 +761,4 @@ the documentation issue::
 
 which will check that remote URLs are reachable.
 
-.. _sphinx: http://sphinx.pocoo.org/
+.. _sphinx: https://sphinx.pocoo.org/

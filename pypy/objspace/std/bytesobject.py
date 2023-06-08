@@ -37,8 +37,10 @@ class W_AbstractBytesObject(W_Root):
         s2 = space.bytes_w(w_other)
         if len(s2) > 1:
             return s1 is s2
+        if len(s2) == 0:
+            return len(s1) == 0
         else:            # strings of len <= 1 are unique-ified
-            return s1 == s2
+            return len(s1) == 1 and s1[0] == s2[0]
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
@@ -688,15 +690,33 @@ class W_BytesObject(W_AbstractBytesObject):
                 self_as_unicode._utf8.find(w_sub._utf8) >= 0)
         return self._StringMethods_descr_contains(space, w_sub)
 
-    _StringMethods_descr_replace = descr_replace
     @unwrap_spec(count=int)
     def descr_replace(self, space, w_old, w_new, count=-1):
+        from rpython.rlib.rstring import replace
         old_is_unicode = space.isinstance_w(w_old, space.w_unicode)
         new_is_unicode = space.isinstance_w(w_new, space.w_unicode)
         if old_is_unicode or new_is_unicode:
             self_as_uni = unicode_from_encoded_object(space, self, None, None)
             return self_as_uni.descr_replace(space, w_old, w_new, count)
-        return self._StringMethods_descr_replace(space, w_old, w_new, count)
+
+        # almost copy of StringMethods.descr_replace :-(
+        input = self._value
+
+        sub = self._op_val(space, w_old)
+        by = self._op_val(space, w_new)
+        # the following two lines are for being bug-to-bug compatible
+        # with CPython: see issue #2448
+        if count >= 0 and len(input) == 0:
+            return self._empty()
+        try:
+            res = replace(input, sub, by, count)
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "replace string is too long")
+        # difference: reuse self if no replacement was done
+        if type(self) is W_BytesObject and res is input:
+            return self
+
+        return self._new(res)
 
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):

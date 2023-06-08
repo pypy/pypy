@@ -1300,6 +1300,18 @@ class TestFramework(RewriteTests):
                              '%(ity2descr.arraydescr.basesize'
                              '   + itydescr.fielddescr.offset)d,'
                              '%(ity2descr.fielddescr.field_size)d)'],
+        [True, (2,), 'i3 = gc_load_indexed_i(i1, i2, 2, 40, 1)' '->'
+                     'i3 = gc_load_indexed_i(i1, i2, 2, 40, 1)'],
+        [True, (2,), 'i3 = gc_load_indexed_i(i1, 6, 8, 40, 4)' '->'
+                     'i3 = gc_load_i(i1, 88, 4)'],
+        [True, (2,), 'i3 = gc_load_indexed_i(i1, i2, 2, 40, -1)' '->'
+                     'i3 = gc_load_indexed_i(i1, i2, 2, 40, -1)'],
+        [True, (2,), 'i3 = gc_load_indexed_i(i1, 6, 8, 40, -4)' '->'
+                     'i3 = gc_load_i(i1, 88, -4)'],
+        [True, (2,), 'i3 = gc_store_indexed(i1, i2, 999, 2, 40, 1)' '->'
+                     'i3 = gc_store_indexed(i1, i2, 999, 2, 40, 1)'],
+        [True, (2,), 'i3 = gc_store_indexed(i1, 6, 999, 8, 40, 2)' '->'
+                     'i3 = gc_store(i1, 88, 999, 2)'],
     ])
     def test_gc_load_store_transform(self, support_offset, factors, fromto):
         self.cpu.load_constant_offset = support_offset
@@ -1498,3 +1510,126 @@ class TestFramework(RewriteTests):
         i4 = int_lshift(i_len, %(uni_itemscale)d)
         call_n(ConstClass(memcpy_fn), i3, i2, i4, descr=memcpy_descr)
         """)
+
+    def test_record_int_add_or_sub(self):
+        # ---- no rewrite ----
+        self.check_rewrite("""
+            [p0, i0]
+            i2 = getarrayitem_gc_i(p0, i0, descr=cdescr)
+        """, """
+            [p0, i0]
+            i3 = gc_load_indexed_i(p0, i0,   \
+                      %(cdescr.itemsize)d,   \
+                      %(cdescr.basesize)d,   \
+                      %(cdescr.itemsize)d)
+        """)
+        # ---- add 5 ----
+        self.check_rewrite("""
+            [p0, i0]
+            i1 = int_add(i0, 5)
+            i2 = getarrayitem_gc_i(p0, i1, descr=cdescr)
+        """, """
+            [p0, i0]
+            i1 = int_add(i0, 5)
+            i3 = gc_load_indexed_i(p0, i0,   \
+                      %(cdescr.itemsize)d,   \
+                      %(cdescr.basesize + 5 * cdescr.itemsize)d,   \
+                      %(cdescr.itemsize)d)
+        """)
+        # ---- subtract 1 ----
+        self.check_rewrite("""
+            [p0, i0]
+            i1 = int_sub(i0, 1)
+            i2 = getarrayitem_gc_i(p0, i1, descr=cdescr)
+        """, """
+            [p0, i0]
+            i1 = int_sub(i0, 1)
+            i3 = gc_load_indexed_i(p0, i0,   \
+                      %(cdescr.itemsize)d,   \
+                      %(cdescr.basesize - cdescr.itemsize)d,   \
+                      %(cdescr.itemsize)d)
+        """)
+        # ---- add reversed and multiple levels ----
+        self.check_rewrite("""
+            [p0, i0]
+            i1 = int_sub(i0, 1)
+            i2 = int_add(i1, 10)
+            i3 = int_add(100, i2)
+            i4 = getarrayitem_gc_i(p0, i3, descr=cdescr)
+        """, """
+            [p0, i0]
+            i1 = int_sub(i0, 1)
+            i2 = int_add(i1, 10)
+            i3 = int_add(100, i2)
+            i4 = gc_load_indexed_i(p0, i0,   \
+                      %(cdescr.itemsize)d,   \
+                      %(cdescr.basesize + 109 * cdescr.itemsize)d,   \
+                      %(cdescr.itemsize)d)
+        """)
+        # ---- a label stops the optimization ----
+        self.check_rewrite("""
+            [p0, i0]
+            i1 = int_sub(i0, 1)
+            label(p0, i0, i1)
+            i4 = getarrayitem_gc_i(p0, i1, descr=cdescr)
+        """, """
+            [p0, i0]
+            i1 = int_sub(i0, 1)
+            label(p0, i0, i1)
+            i4 = gc_load_indexed_i(p0, i1,   \
+                      %(cdescr.itemsize)d,   \
+                      %(cdescr.basesize)d,   \
+                      %(cdescr.itemsize)d)
+        """)
+        # ---- also test setarrayitem_gc ----
+        self.check_rewrite("""
+            [p0, i0, i4]
+            i1 = int_sub(i0, 1)
+            i2 = int_add(i1, 10)
+            i3 = int_add(100, i2)
+            setarrayitem_gc(p0, i3, i4, descr=cdescr)
+        """, """
+            [p0, i0, i4]
+            i1 = int_sub(i0, 1)
+            i2 = int_add(i1, 10)
+            i3 = int_add(100, i2)
+            gc_store_indexed(p0, i0, i4,   \
+                      %(cdescr.itemsize)d,   \
+                      %(cdescr.basesize + 109 * cdescr.itemsize)d,   \
+                      %(cdescr.itemsize)d)
+        """)
+        # ---- also check int_add_ovf, int_sub_ovf ----
+        self.check_rewrite("""
+            [p0, i0, i4]
+            i1 = int_sub_ovf(i0, 1)
+            guard_no_overflow(descr=guarddescr) []
+            i2 = int_add_ovf(i1, 10)
+            guard_no_overflow(descr=guarddescr) []
+            i3 = int_add_ovf(100, i2)
+            guard_no_overflow(descr=guarddescr) []
+            setarrayitem_gc(p0, i3, i4, descr=cdescr)
+        """, """
+            [p0, i0, i4]
+            i1 = int_sub_ovf(i0, 1)
+            guard_no_overflow(descr=guarddescr) []
+            i2 = int_add_ovf(i1, 10)
+            guard_no_overflow(descr=guarddescr) []
+            i3 = int_add_ovf(100, i2)
+            guard_no_overflow(descr=guarddescr) []
+            gc_store_indexed(p0, i0, i4,   \
+                      %(cdescr.itemsize)d,   \
+                      %(cdescr.basesize + 109 * cdescr.itemsize)d,   \
+                      %(cdescr.itemsize)d)
+        """)
+
+    def test_guard_always_fails(self):
+        self.check_rewrite("""
+        [i1, i2, i3]
+        guard_always_fails(descr=guarddescr) [i1, i2, i3]
+        """, """
+        [i1, i2, i3]
+        i4 = same_as_i(0)
+        guard_value(i4, 1, descr=guarddescr) [i1, i2, i3]
+        """)
+
+

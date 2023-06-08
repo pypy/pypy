@@ -35,6 +35,13 @@ def braindead_deindent(self):
 
 py.code.Source.deindent = braindead_deindent
 
+def get_marker(item, name):
+    try:
+        return item.get_closest_marker(name=name)
+    except AttributeError:
+        # pytest < 3.6
+        return item.get_marker(name=name)
+
 def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
@@ -68,9 +75,9 @@ def pytest_addoption(parser):
     group.addoption('--raise-operr', action="store_true",
             default=False, dest="raise_operr",
             help="Show the interp-level OperationError in app-level tests")
-    group.addoption('--applevel-rewrite', action="store_true",
-            default=False, dest="applevel_rewrite",
-            help="Use assert rewriting in app-level test files (slow)")
+    group.addoption('--no-applevel-rewrite', action="store_false",
+            default=True, dest="applevel_rewrite",
+            help="Don't use assert rewriting in app-level test files")
 
 @pytest.fixture(scope='class')
 def spaceconfig(request):
@@ -181,15 +188,17 @@ def skip_on_missing_buildoption(**ropts):
 def pytest_runtest_setup(item):
     if isinstance(item, py.test.collect.Function):
         config = item.config
-        if (item.get_marker(name='pypy_only') and
-                not '__pypy__' in sys.builtin_module_names):
+        appdirect = (config.getoption('runappdirect') or
+            config.getoption('direct_apptest'))
+        if (get_marker(item, name='pypy_only') and
+                appdirect and not '__pypy__' in sys.builtin_module_names):
             pytest.skip('PyPy-specific test')
         appclass = item.getparent(py.test.Class)
         if appclass is not None:
             from pypy.tool.pytest.objspace import gettestobjspace
             # Make cls.space and cls.runappdirect available in tests.
             spaceconfig = getattr(appclass.obj, 'spaceconfig', {})
-            if not (config.getoption('runappdirect') or config.getoption('direct_apptest')):
+            if not appdirect:
                 spaceconfig.setdefault('objspace.std.reinterpretasserts', True)
             appclass.obj.space = gettestobjspace(**spaceconfig)
             appclass.obj.runappdirect = config.option.runappdirect

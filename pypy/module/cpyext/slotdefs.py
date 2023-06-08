@@ -62,8 +62,10 @@ class wrap_init(W_PyCWrapperObject):
         func_init = rffi.cast(initproc, func)
         py_args = tuple_from_args_w(space, __args__.arguments_w)
         w_kwargs = w_kwargs_from_args(space, __args__)
-        res = generic_cpy_call(space, func_init, w_self, py_args, w_kwargs)
-        decref(space, py_args)
+        try:
+            res = generic_cpy_call(space, func_init, w_self, py_args, w_kwargs)
+        finally:
+            decref(space, py_args)
         if rffi.cast(lltype.Signed, res) == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
         return None
@@ -245,8 +247,10 @@ class wrap_call(W_PyCWrapperObject):
         func_target = rffi.cast(ternaryfunc, func)
         py_args = tuple_from_args_w(space, __args__.arguments_w)
         w_kwargs = w_kwargs_from_args(space, __args__)
-        ret = generic_cpy_call(space, func_target, w_self, py_args, w_kwargs)
-        decref(space, py_args)
+        try:
+            ret = generic_cpy_call(space, func_target, w_self, py_args, w_kwargs)
+        finally:
+            decref(space, py_args)
         return ret
 
 class wrap_ssizessizeobjargproc(W_PyCWrapperObject):
@@ -271,7 +275,7 @@ class wrap_lenfunc(W_PyCWrapperObject):
             space.fromcache(State).check_and_raise_exception(always=True)
         return space.newint(res)
 
-class wrap_sq_item(W_PyCWrapperObject):
+class wrap_ssizeargproc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         self.check_args(__args__, 1)
         func = self.get_func_to_call()
@@ -601,7 +605,6 @@ def make_binary_slot_int(space, typedef, name, attr):
 BINARY_SLOTS_INT = [
     'tp_as_sequence.c_sq_item',
     'tp_as_sequence.c_sq_repeat',
-    'tp_as_sequence.c_sq_repeat',
     'tp_as_sequence.c_sq_inplace_repeat',]
 for name in BINARY_SLOTS_INT:
     slot_factory(name)(make_binary_slot_int)
@@ -823,6 +826,8 @@ def slot_from___buffer__(space, typedef, buff_fn):
             try:
                 c_view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
                 c_view.c_obj = make_ref(space, w_obj)
+                if space.isinstance_w(w_obj, space.w_bytes):
+                    rffi.setintfield(c_view, 'c_readonly', 1)
             except ValueError:
                 s = buf.as_str()
                 w_s = space.newbytes(s)
@@ -865,12 +870,14 @@ def _make_missing_wrapper(name):
     assert name not in globals()
     class missing_wrapper(W_PyCWrapperObject):
         def call(self, space, w_self, __args__):
-            print "cpyext: missing slot wrapper " + name
+            msg = "cpyext: missing slot wrapper %s" %(
+                    name)
+            print msg
             raise NotImplementedError("Slot wrapper " + name)
     missing_wrapper.__name__ = name
     globals()[name] = missing_wrapper
 
-missing_wrappers = ['wrap_indexargfunc', 'wrap_delslice', 'wrap_coercefunc']
+missing_wrappers = ['wrap_delslice', 'wrap_coercefunc']
 for name in missing_wrappers:
     _make_missing_wrapper(name)
 
@@ -976,11 +983,11 @@ static slotdef slotdefs[] = {
                "x.__len__() <==> len(x)"),
         SQSLOT("__add__", sq_concat, slot_sq_concat, wrap_binaryfunc,
           "x.__add__(y) <==> x+y"),
-        SQSLOT("__mul__", sq_repeat, NULL, wrap_indexargfunc,
+        SQSLOT("__mul__", sq_repeat, NULL, wrap_ssizeargproc,
           "x.__mul__(n) <==> x*n"),
-        SQSLOT("__rmul__", sq_repeat, NULL, wrap_indexargfunc,
+        SQSLOT("__rmul__", sq_repeat, NULL, wrap_ssizeargproc,
           "x.__rmul__(n) <==> n*x"),
-        SQSLOT("__getitem__", sq_item, slot_sq_item, wrap_sq_item,
+        SQSLOT("__getitem__", sq_item, slot_sq_item, wrap_ssizeargproc,
                "x.__getitem__(y) <==> x[y]"),
         SQSLOT("__getslice__", sq_slice, slot_sq_slice, wrap_ssizessizeargfunc,
                "x.__getslice__(i, j) <==> x[i:j]\n\
@@ -1004,7 +1011,7 @@ static slotdef slotdefs[] = {
         SQSLOT("__iadd__", sq_inplace_concat, NULL,
           wrap_binaryfunc, "x.__iadd__(y) <==> x+=y"),
         SQSLOT("__imul__", sq_inplace_repeat, NULL,
-          wrap_indexargfunc, "x.__imul__(y) <==> x*=y"),
+          wrap_ssizeargproc, "x.__imul__(y) <==> x*=y"),
 
         MPSLOT("__len__", mp_length, slot_mp_length, wrap_lenfunc,
                "x.__len__() <==> len(x)"),

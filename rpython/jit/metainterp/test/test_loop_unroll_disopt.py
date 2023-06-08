@@ -19,7 +19,7 @@ for optnum in range(len(allopts)):
             pass
 
     opt = allopts[optnum]
-    exec "TestLoopNo%sLLtype = TestLLtype" % (opt[0].upper() + opt[1:])
+    exec("TestLoopNo%sLLtype = TestLLtype" % (opt[0].upper() + opt[1:]))
 
 del TestLLtype # No need to run the last set twice
 #del TestLoopNoUnrollLLtype # This case is take care of by test_loop

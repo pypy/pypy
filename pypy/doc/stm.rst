@@ -5,6 +5,13 @@ Software Transactional Memory
 
 .. contents::
 
+**Warning:** The below is relatively out of date, the ``pypy-stm``-variant is
+no longer actively being developed. For a description of the technical details
+as well as the pros and cons of the approach, you can read the 2019 `paper`__
+by Remi Meier and also his `PhD thesis`__.
+
+.. __: https://dl.acm.org/doi/abs/10.1145/3359619.3359747
+.. __: https://www.research-collection.ethz.ch/handle/20.500.11850/371019
 
 This page is about ``pypy-stm``, a special in-development version of
 PyPy which can run multiple independent CPU-hungry threads in the same
@@ -21,8 +28,8 @@ This work was done by Remi Meier and Armin Rigo.  Thanks to all donors
 for crowd-funding the work so far!  Please have a look at the `2nd call
 for donation`_.
 
-.. _`Transactional Memory`: http://en.wikipedia.org/wiki/Transactional_memory
-.. _`2nd call for donation`: http://pypy.org/tmdonate2.html
+.. _`Transactional Memory`: https://en.wikipedia.org/wiki/Transactional_memory
+.. _`2nd call for donation`: https://pypy.org/tmdonate2.html
 
 
 What pypy-stm is for
@@ -257,7 +264,7 @@ it only requires that the end programmer identifies where this
 parallelism is likely to be found, and communicates it to the system
 using a simple API.
 
-.. _OpenMP: http://en.wikipedia.org/wiki/OpenMP
+.. _OpenMP: https://en.wikipedia.org/wiki/OpenMP
 
 
 Drop-in replacement
@@ -691,8 +698,8 @@ STMGC-C7 is described in detail in a `technical report`__.
 A separate `position paper`__ gives an overview of our position about
 STM in general.
 
-.. __: http://bitbucket.org/pypy/extradoc/src/extradoc/talk/dls2014/paper/paper.pdf
-.. __: http://bitbucket.org/pypy/extradoc/src/extradoc/talk/icooolps2014/
+.. __: https://bitbucket.org/pypy/extradoc/src/extradoc/talk/dls2014/paper/paper.pdf
+.. __: https://bitbucket.org/pypy/extradoc/src/extradoc/talk/icooolps2014/
 
 
 Reference to implementation details

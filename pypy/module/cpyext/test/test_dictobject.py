@@ -411,3 +411,24 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
         ])
         assert module.dict_getitem(42, 43) is None
         assert module.dict_getitem({}, []) is None
+
+    def test_contains(self):
+        module = self.import_extension('foo', [
+            ("contains", "METH_VARARGS",
+             """
+             PyObject *d, *key;
+             if (!PyArg_ParseTuple(args, "OO", &d, &key)) {
+                return NULL;
+             }
+             int ret = PyDict_Contains(d, key);
+             if (ret < 0) return NULL;
+             return PyLong_FromLong(ret);
+             """),
+        ])
+
+        class C(dict):
+            def __contains__(self, key):
+                return dict.__contains__(self, key)
+
+        ret = module.contains(C(), 1)
+        assert ret == 0

@@ -5,7 +5,7 @@ from rpython.jit.metainterp.optimizeopt.util import args_dict
 from rpython.jit.metainterp.history import new_ref_dict
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (
-    make_dispatcher_method, get_box_replacement)
+    make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import InvalidLoop
@@ -179,6 +179,7 @@ class CachedField(AbstractCachedEntry):
 
 class ArrayCachedItem(AbstractCachedEntry):
     def __init__(self, index):
+        assert index >= 0
         self.index = index
         AbstractCachedEntry.__init__(self)
 
@@ -229,7 +230,6 @@ class OptHeap(Optimization):
         # cache of corresponding {array descrs: dict 'entries' field descr}
         self.corresponding_array_descrs = {}
         #
-        self._remove_guard_not_invalidated = False
         self._seen_guard_not_invalidated = False
 
     def setup(self):
@@ -383,7 +383,7 @@ class OptHeap(Optimization):
         flag_value = self.getintbound(op.getarg(4))
         if not flag_value.is_constant():
             return False
-        flag = flag_value.getint()
+        flag = flag_value.get_constant_int()
         if flag != FLAG_LOOKUP and flag != FLAG_STORE:
             return False
         #
@@ -479,11 +479,16 @@ class OptHeap(Optimization):
     def force_all_lazy_sets(self):
         items = self.cached_fields.items()
         if not we_are_translated():
+            # stability for tests
             items.sort(key=str, reverse=True)
         for descr, cf in items:
             cf.force_lazy_set(self, descr)
         for submap in self.cached_arrayitems.itervalues():
-            for index, cf in submap.iteritems():
+            items = submap.items()
+            if not we_are_translated():
+                # stability for tests
+                items.sort(key=lambda item: item[0])
+            for index, cf in items:
                 cf.force_lazy_set(self, None)
 
     def force_lazy_sets_for_guard(self):
@@ -557,8 +562,8 @@ class OptHeap(Optimization):
         arrayinfo = self.ensure_ptr_info_arg0(op)
         indexb = self.getintbound(op.getarg(1))
         cf = None
-        if indexb.is_constant():
-            index = indexb.getint()
+        if indexb.is_constant() and indexb.get_constant_int() >= 0:
+            index = indexb.get_constant_int()
             arrayinfo.getlenbound(None).make_gt_const(index)
             # use the cache on (arraydescr, index), which is a constant
             cf = self.arrayitem_cache(op.getdescr(), index)
@@ -579,10 +584,10 @@ class OptHeap(Optimization):
         # then remember the result of reading the array item
         arrayinfo = self.ensure_ptr_info_arg0(op)
         indexb = self.getintbound(op.getarg(1))
-        if indexb.is_constant():
-            index = indexb.getint()
+        if indexb.is_constant() and indexb.get_constant_int() >= 0:
+            index = indexb.get_constant_int()
             cf = self.arrayitem_cache(op.getdescr(), index)
-            arrayinfo.setitem(op.getdescr(), indexb.getint(),
+            arrayinfo.setitem(op.getdescr(), index,
                               get_box_replacement(op.getarg(0)),
                               get_box_replacement(op), optheap=self,
                               cf=cf)
@@ -596,8 +601,8 @@ class OptHeap(Optimization):
         arrayinfo = self.ensure_ptr_info_arg0(op)
         indexb = self.getintbound(op.getarg(1))
         cf = None
-        if indexb.is_constant():
-            index = indexb.getint()
+        if indexb.is_constant() and indexb.get_constant_int() >= 0:
+            index = indexb.get_constant_int()
             arrayinfo.getlenbound(None).make_gt_const(index)
             # use the cache on (arraydescr, index), which is a constant
             cf = self.arrayitem_cache(op.getdescr(), index)
@@ -617,11 +622,12 @@ class OptHeap(Optimization):
 
     def optimize_SETARRAYITEM_GC(self, op):
         indexb = self.getintbound(op.getarg(1))
-        if indexb.is_constant():
+        if indexb.is_constant() and indexb.get_constant_int() >= 0:
+            index = indexb.get_constant_int()
             arrayinfo = self.ensure_ptr_info_arg0(op)
             # arraybound
-            arrayinfo.getlenbound(None).make_gt_const(indexb.getint())
-            cf = self.arrayitem_cache(op.getdescr(), indexb.getint())
+            arrayinfo.getlenbound(None).make_gt_const(index)
+            cf = self.arrayitem_cache(op.getdescr(), index)
             cf.do_setfield(self, op)
         else:
             # variable index, so make sure the lazy setarrayitems are done
@@ -655,7 +661,6 @@ class OptHeap(Optimization):
         # registered.
         structvalue = self.ensure_ptr_info_arg0(op)
         if not structvalue.is_constant():
-            self._remove_guard_not_invalidated = True
             return    # not a constant at all; ignore QUASIIMMUT_FIELD
         #
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
@@ -670,11 +675,19 @@ class OptHeap(Optimization):
         if self.optimizer.quasi_immutable_deps is None:
             self.optimizer.quasi_immutable_deps = {}
         self.optimizer.quasi_immutable_deps[qmutdescr.qmut] = None
-        self._remove_guard_not_invalidated = False
 
     def optimize_GUARD_NOT_INVALIDATED(self, op):
-        if self._remove_guard_not_invalidated:
-            return
+        # logic: we need one guard_not_invalidated after every call that can
+        # invalidate something. This is independent to whether the
+        # quasiimmut_field op is removed or not! The tracer will only trace one
+        # guard_not_invalidated after each call, so even if the first
+        # quasiimmut_field is removed, the second one might not be and could
+        # rely on the presence of an earlier guard_not_invalidated. This might
+        # under rare circumstances leave a extra guard_not_invalidated in the
+        # trace! But guard_not_invalidated is cheap, it emits no instructions
+        # and its only cost is the size of the resume data. Therfore that is
+        # still a better tradeoff than capturing resume data for every
+        # quasiimmut_field in the front end *all the time*
         if self._seen_guard_not_invalidated:
             return
         self._seen_guard_not_invalidated = True
@@ -683,6 +696,8 @@ class OptHeap(Optimization):
     def serialize_optheap(self, available_boxes):
         result_getfield = []
         for descr, cf in self.cached_fields.iteritems():
+            if descr.descr_index == -1:
+                continue # not reachable via metainterp_sd.all_descrs
             if cf._lazy_set:
                 continue  # XXX safe default for now
             parent_descr = descr.get_parent_descr()
@@ -702,6 +717,8 @@ class OptHeap(Optimization):
                     result_getfield.append((box1, descr, box2))
         result_array = []
         for descr, indexdict in self.cached_arrayitems.iteritems():
+            if descr.descr_index == -1:
+                continue # not reachable via metainterp_sd.all_descrs
             for index, cf in indexdict.iteritems():
                 if cf._lazy_set:
                     continue  # XXX safe default for now
@@ -751,3 +768,4 @@ dispatch_opt = make_dispatcher_method(OptHeap, 'optimize_',
 OptHeap.propagate_forward = dispatch_opt
 dispatch_postprocess = make_dispatcher_method(OptHeap, 'postprocess_')
 OptHeap.propagate_postprocess = dispatch_postprocess
+OptHeap.have_postprocess_op = have_dispatcher_method(OptHeap, 'postprocess_')

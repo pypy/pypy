@@ -311,15 +311,20 @@ def getweakrefs(space, w_obj):
 #_________________________________________________________________
 # Proxy
 
-class W_Proxy(W_WeakrefBase):
+class W_AbstractProxy(W_WeakrefBase):
+    pass
+
+class W_Proxy(W_AbstractProxy):
     def descr__hash__(self, space):
         raise oefmt(space.w_TypeError, "unhashable type")
 
-class W_CallableProxy(W_Proxy):
+class W_CallableProxy(W_AbstractProxy):
     def descr__call__(self, space, __args__):
         w_obj = force(space, self)
         return space.call_args(w_obj, __args__)
 
+    def descr__hash__(self, space):
+        raise oefmt(space.w_TypeError, "unhashable type")
 
 def proxy(space, w_obj, w_callable=None):
     """Create a proxy object that weakly references 'obj'.
@@ -340,7 +345,7 @@ def descr__new__callableproxy(space, w_subtype, w_obj, w_callable=None):
 
 
 def force(space, proxy):
-    if not isinstance(proxy, W_Proxy):
+    if not isinstance(proxy, W_AbstractProxy):
         return proxy
     w_obj = proxy.dereference()
     if w_obj is None:
@@ -368,9 +373,26 @@ for opname, _, arity, special_methods in ObjSpace.MethodTable:
     exec py.code.Source(code).compile()
 
     func.func_name = opname
-    for special_method in special_methods:
-        proxy_typedef_dict[special_method] = interp2app(func)
-        callable_proxy_typedef_dict[special_method] = interp2app(func)
+    if len(special_methods) == 2 and special_methods[1].startswith("__r"):
+        proxy_typedef_dict[special_methods[0]] = interp2app(func)
+        callable_proxy_typedef_dict[special_methods[0]] = interp2app(func)
+
+        # HACK: need to call the space method with arguments in the reverse
+        # order!
+        code = code.replace("(w_obj0, w_obj1)", "(w_obj1, w_obj0)")
+        code = code.replace("func", "rfunc")
+
+        exec py.code.Source(code).compile()
+        rfunc.func_name = special_methods[1][2:-2]
+
+        proxy_typedef_dict[special_methods[1]] = interp2app(rfunc)
+        callable_proxy_typedef_dict[special_methods[1]] = interp2app(rfunc)
+    elif opname in ["lt", "le", "gt", "ge", "eq", "ne"]:
+        proxy_typedef_dict[special_methods[0]] = interp2app(func)
+    else:
+        for special_method in special_methods:
+            proxy_typedef_dict[special_method] = interp2app(func)
+            callable_proxy_typedef_dict[special_method] = interp2app(func)
 
 # __unicode__ is not yet a space operation
 def proxy_unicode(space, w_obj):
@@ -389,7 +411,7 @@ W_Proxy.typedef.acceptable_as_base_class = False
 
 W_CallableProxy.typedef = TypeDef("weakcallableproxy",
     __new__ = interp2app(descr__new__callableproxy),
-    __hash__ = interp2app(W_Proxy.descr__hash__),
+    __hash__ = interp2app(W_CallableProxy.descr__hash__),
     __repr__ = interp2app(W_WeakrefBase.descr__repr__),
     __call__ = interp2app(W_CallableProxy.descr__call__),
     **callable_proxy_typedef_dict)

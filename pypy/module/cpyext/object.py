@@ -53,9 +53,11 @@ def _dealloc(space, obj):
     assert obj.c_ob_refcnt == 0
     pto = obj.c_ob_type
     obj_voidp = rffi.cast(rffi.VOIDP, obj)
-    generic_cpy_call(space, pto.c_tp_free, obj_voidp)
-    if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
-        decref(space, rffi.cast(PyObject, pto))
+    try:
+        generic_cpy_call(space, pto.c_tp_free, obj_voidp)
+    finally:
+        if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
+            decref(space, rffi.cast(PyObject, pto))
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
 def _PyObject_GetDictPtr(space, op):
@@ -195,6 +197,10 @@ def PyObject_Repr(space, w_obj):
 def PyObject_Format(space, w_obj, w_format_spec):
     if w_format_spec is None:
         w_format_spec = space.newtext('')
+    # issue 3404: handle PyObject_Format(type('a'), '')
+    if (space.isinstance_w(w_format_spec, space.w_unicode) and
+                space.len_w(w_format_spec) == 0):
+        return space.unicode_from_object(w_obj)
     w_ret = space.call_method(w_obj, '__format__', w_format_spec)
     if space.isinstance_w(w_format_spec, space.w_unicode):
         return space.unicode_from_object(w_ret)
@@ -361,7 +367,7 @@ def PyObject_Hash(space, w_obj):
     This is the equivalent of the Python expression hash(o)."""
     return space.hash_w(w_obj)
 
-@cpython_api([rffi.DOUBLE], rffi.LONG, error=-1)
+@cpython_api([rffi.DOUBLE], lltype.Signed, error=-1)
 def _Py_HashDouble(space, v):
     return space.hash_w(space.newfloat(v))
 

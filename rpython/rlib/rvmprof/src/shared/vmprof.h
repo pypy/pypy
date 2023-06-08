@@ -49,7 +49,7 @@
 #endif
 
 #ifdef VMPROF_UNIX
-#if defined(X86_64) || defined(X86_32)
+#if defined(X86_64) || defined(X86_32) || defined(__powerpc64__)
 #define VMP_SUPPORTS_NATIVE_PROFILING
 #endif
 #endif

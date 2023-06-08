@@ -1,3 +1,4 @@
+# coding: utf-8
 # Used by genpytokenize.py to generate the parser in pytokenize.py
 from pypy.interpreter.pyparser.automata import DFA, DEFAULT
 
@@ -108,11 +109,11 @@ def atleastonce (states, *stateIndexPairs):
 
 # ______________________________________________________________________
 
-def closure (states, start, result = 0L):
-    if None == result:
-        result = 0L
-    if 0 == (result & (1L << start)):
-        result |= (1L << start)
+def closure(states, start, result = frozenset()):
+    if result is None:
+        result = frozenset()
+    if frozenset() == (result & {start}):
+        result |= {start}
         for label, arrow in states[start]:
             if label == EMPTY:
                 result |= closure(states, arrow, result)
@@ -120,17 +121,17 @@ def closure (states, start, result = 0L):
 
 # ______________________________________________________________________
 
-def nfaToDfa (states, start, finish):
+def nfaToDfa(states, start, finish):
     tempStates = []
     startClosure = closure(states, start)
-    crntTempState = [startClosure, [], 0 != (startClosure & (1L << finish))]
+    crntTempState = [startClosure, [], frozenset() != (startClosure & {finish})]
     tempStates.append(crntTempState)
     index = 0
     while index < len(tempStates):
         crntTempState = tempStates[index]
         crntClosure, crntArcs, crntAccept = crntTempState
         for index2 in range(0, len(states)):
-            if 0 != (crntClosure & (1L << index2)):
+            if frozenset() != (crntClosure & {index2}):
                 for label, nfaArrow in states[index2]:
                     if label == EMPTY:
                         continue
@@ -140,7 +141,7 @@ def nfaToDfa (states, start, finish):
                             foundTempArc = True
                             break
                     if not foundTempArc:
-                        tempArc = [label, -1, 0L]
+                        tempArc = [label, -1, frozenset()]
                         crntArcs.append(tempArc)
                     tempArc[2] = closure(states, nfaArrow, tempArc[2])
         for arcIndex in range(0, len(crntArcs)):
@@ -154,8 +155,7 @@ def nfaToDfa (states, start, finish):
                 arrow += 1
             if not targetFound:
                 assert arrow == len(tempStates)
-                newState = [targetStates, [], 0 != (targetStates &
-                                                    (1L << finish))]
+                newState = [targetStates, [], frozenset() != (targetStates & {finish})]
                 tempStates.append(newState)
             crntArcs[arcIndex][1] = arrow
         index += 1
@@ -237,4 +237,42 @@ def finalizeTempDfa (tempStates):
         for tempArc in tempArcs:
             arcMap[tempArc[0]] = stateMap[tempArc[1]]
     return states, accepts
+
+def _dot(states, final, r):
+    for i, state in enumerate(states):
+        shape = "circle"
+        color = ""
+        if final[i]:
+            shape = "doublecircle"
+            color = ", fillcolor=green"
+        r.append('s%s [label="", shape="%s"%s];' % (i, shape, color))
+        if isinstance(state, dict):
+            stateiter = state.iteritems()
+        else:
+            stateiter = state
+        for char, target in stateiter:
+            if char is EMPTY:
+                char = "ε"
+            elif char is DEFAULT:
+                char = "default"
+            elif type(char) is str and len(char) == 1 and ord(char) < 32:
+                char = ord(char)
+            elif char == "\\":
+                char = "\\\\"
+            elif char == '"':
+                char = '\\"'
+            r.append('s%s -> s%s [label="%s"];' % (i, target, char))
+
+def view(states, final):
+    from dotviewer import graphclient
+    import tempfile
+    r = ["digraph G {"]
+    _dot(states, final, r)
+    r.append("}")
+    with tempfile.NamedTemporaryFile() as f:
+        fn = f.name
+        print fn
+        with open(fn, "w") as f:
+            f.write("\n".join(r))
+        graphclient.display_dot_file(fn)
 

@@ -81,6 +81,7 @@ def new_erasing_pair(name):
     identity = ErasingPairIdentity(name)
 
     def erase(x):
+        assert not isinstance(x, Erased)
         return Erased(x, identity)
 
     def unerase(y):

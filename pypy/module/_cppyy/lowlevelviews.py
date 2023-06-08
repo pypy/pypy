@@ -11,7 +11,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rarithmetic import intmask
 
-from pypy.module._rawffi.array import W_ArrayInstance
+from pypy.module._rawffi.interp_array import W_ArrayInstance
 from pypy.module._rawffi.interp_rawffi import segfault_exception
 from pypy.module._cppyy import capi
 

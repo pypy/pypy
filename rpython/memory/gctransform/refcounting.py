@@ -234,7 +234,7 @@ def ll_deallocator(addr):
              'EXC_INSTANCE_TYPE': self.translator.rtyper.exceptiondata.lltype_of_exception_value,
              'll_call_destructor': ll_call_destructor,
              'HDRPTR':lltype.Ptr(self.HDR)}
-        exec src in d
+        exec(src, d)
         this = d['ll_deallocator']
         fptr = self.annotate_finalizer(this, [llmemory.Address], lltype.Void)
         self.static_deallocator_funcptrs[TYPE] = fptr

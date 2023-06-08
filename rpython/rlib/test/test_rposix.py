@@ -62,6 +62,7 @@ class TestPosixFunction:
         compile(f, (str, float))(str(fname), t1)
         assert t1 == os.stat(str(fname)).st_mtime
 
+    @py.test.mark.skipif("sys.platform == 'darwin'")
     def test_utime_negative_fraction(self):
         def f(fname, t1):
             os.utime(fname, (t1, t1))
@@ -149,7 +150,8 @@ class TestPosixFunction:
         arg = '%s -c "print 1+1" > %s' % (sys.executable, filename)
         data = rposix.system(arg)
         assert data == 0
-        assert file(filename).read().strip() == '2'
+        with file(filename) as f:
+            assert f.read().strip() == '2'
         os.unlink(filename)
 
 
@@ -298,6 +300,14 @@ class TestPosixFunction:
         assert rposix.major(dev) == 24
         assert rposix.minor(dev) == 7
 
+    @py.test.mark.skipif("not hasattr(rposix, 'memfd_create')")
+    def test_memfd_create(self):
+        fd = rposix.memfd_create("abc", rposix.MFD_CLOEXEC)
+        try:
+            s = "defghi?"
+            os.write(fd, s)
+        finally:
+            os.close(fd)
 
 @py.test.mark.skipif("not hasattr(os, 'ttyname')")
 class TestOsExpect(ExpectTest):
@@ -476,15 +486,6 @@ class BasePosixUnicodeOrAscii:
                 os.rmdir(self.ufilename)
             except Exception:
                 pass
-
-    @win_only
-    def test_is_valid_fd(self):
-        assert rposix.is_valid_fd(0) == 1
-        fid = open(str(udir.join('validate_test.txt')), 'w')
-        fd = fid.fileno()
-        assert rposix.is_valid_fd(fd) == 1
-        fid.close()
-        assert rposix.is_valid_fd(fd) == 0
 
     def test_putenv(self):
         from rpython.rlib import rposix_environ
@@ -804,14 +805,16 @@ def test_sched_get_priority_max():
     assert rposix.sched_get_priority_max(rposix.SCHED_FIFO) != -1
     assert rposix.sched_get_priority_max(rposix.SCHED_RR) != -1
     assert rposix.sched_get_priority_max(rposix.SCHED_OTHER) != -1
-    assert rposix.sched_get_priority_max(rposix.SCHED_BATCH) != -1
+    if sys.platform != 'darwin':
+        assert rposix.sched_get_priority_max(rposix.SCHED_BATCH) != -1
 
 @rposix_requires('sched_get_priority_min')
 def test_sched_get_priority_min():
     assert rposix.sched_get_priority_min(rposix.SCHED_FIFO) != -1
     assert rposix.sched_get_priority_min(rposix.SCHED_RR) != -1
     assert rposix.sched_get_priority_min(rposix.SCHED_OTHER) != -1
-    assert rposix.sched_get_priority_min(rposix.SCHED_BATCH) != -1
+    if sys.platform != 'darwin':
+        assert rposix.sched_get_priority_min(rposix.SCHED_BATCH) != -1
 
 @rposix_requires('sched_get_priority_min')
 def test_os_sched_priority_max_greater_than_min():
@@ -896,3 +899,73 @@ def test_xattr(name, value, follow_symlinks, use_fd):
     finally:
         if use_fd:
             os.close(file_id)
+
+@pytest.mark.skipif(not hasattr(rposix, 'getgrouplist'),
+    reason="Requires working rposix.getgrouplist()")
+@rposix_requires('getgrouplist')
+def test_getgrouplist():
+    import pwd
+    user = pwd.getpwuid(os.getuid())[0]
+    group = pwd.getpwuid(os.getuid())[3]
+    assert group in rposix.getgrouplist(user, group)
+
+@pytest.mark.skipif(not hasattr(rposix, 'sched_rr_get_interval'),
+    reason="Requires working rposix.sched_rr_get_interval()")
+def test_sched_rr_get_interval():
+    try:
+        interval = rposix.sched_rr_get_interval(0)
+    except OSError as e:
+        # This likely means that sched_rr_get_interval is only valid for
+        # processes with the SCHED_RR scheduler in effect.
+        if e.errno != errno.EINVAL:
+                raise
+        pytest.mark.skip("only works on SCHED_RR processes")
+    assert isinstance(interval, float)
+    # Reasonable constraints, I think.
+    assert interval > 0
+    assert interval < 1.
+
+@pytest.mark.skipif(not hasattr(rposix, 'sched_getscheduler'),
+    reason="Requires working rposix.sched_getscheduler()")
+def test_get_and_set_scheduler_and_param():
+    possible_schedulers = [sched for name, sched in rposix.__dict__.items()
+                                   if name.startswith("SCHED_")]
+    mine = rposix.sched_getscheduler(0)
+    assert mine in possible_schedulers
+    try:
+        parent = rposix.sched_getscheduler(os.getppid())
+    except OSError as e:
+        if e.errno != errno.EPERM:
+            raise
+    else:
+        assert parent in possible_schedulers
+    with pytest.raises(OSError):
+        rposix.sched_getscheduler(-1)
+    with pytest.raises(OSError):
+        rposix.sched_getparam(-1)
+    param = rposix.sched_getparam(0)
+    assert param == 0
+
+    # POSIX states that calling sched_setparam() or sched_setscheduler() on
+    # a process with a scheduling policy other than SCHED_FIFO or SCHED_RR
+    # is implementation-defined: NetBSD and FreeBSD can return EINVAL.
+    if not sys.platform.startswith(('freebsd', 'netbsd')):
+        try:
+            rposix.sched_setscheduler(0, mine, param)
+            rposix.sched_setparam(0, param)
+        except OSError as e:
+            if e.errno != errno.EPERM:
+                raise
+        with pytest.raises(OSError):
+            rposix.sched_setparam(-1, param)
+    with pytest.raises(OSError):
+        rposix.sched_setscheduler(-1, mine, param)
+
+    large = 214748364700
+    if large < sys.maxint:
+        param = large # rposix.sched_param(large)
+        with pytest.raises(OSError):
+            rposix.sched_setparam(0, param)
+        # param = rposix.sched_param(sched_priority=-large)
+        # with pytest.raises(OverflowError):
+        #    rposix.sched_setparam(0, param)

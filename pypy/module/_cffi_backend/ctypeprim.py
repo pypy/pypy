@@ -275,10 +275,10 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         w_cdata.write_raw_signed_data(value)
 
     def unpack_list_of_int_items(self, ptr, length):
-        if self.size == rffi.sizeof(rffi.LONG):
+        if self.size == rffi.sizeof(rffi.SIGNED):
             from rpython.rlib.rrawarray import populate_list_from_raw_array
             res = []
-            buf = rffi.cast(rffi.LONGP, ptr)
+            buf = rffi.cast(rffi.SIGNEDP, ptr)
             populate_list_from_raw_array(res, buf, length)
             return res
         elif self.value_smaller_than_long:
@@ -291,9 +291,9 @@ class W_CTypePrimitiveSigned(W_CTypePrimitive):
         int_list = self.space.listview_int(w_ob)
         if (int_list is not None and
                 self._within_bounds(len(int_list), expected_length)):
-            if self.size == rffi.sizeof(rffi.LONG): # fastest path
+            if self.size == rffi.sizeof(rffi.SIGNED): # fastest path
                 from rpython.rlib.rrawarray import copy_list_to_raw_array
-                cdata = rffi.cast(rffi.LONGP, cdata)
+                cdata = rffi.cast(rffi.SIGNEDP, cdata)
                 copy_list_to_raw_array(int_list, cdata)
             else:
                 overflowed = misc.pack_list_to_raw_array_bounds_signed(

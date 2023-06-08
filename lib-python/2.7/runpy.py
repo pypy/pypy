@@ -101,6 +101,9 @@ def _get_module_details(mod_name, error=ImportError):
     try:
         loader = get_loader(mod_name)
         if loader is None:
+            if mod_name == "pip":    # pypy extension
+                mod_name += (' (to install pip, you need to run once'
+                             ' "%s -m ensurepip")' % (sys.executable,))
             raise error("No module named %s" % mod_name)
         ispkg = loader.is_package(mod_name)
     except ImportError as e:

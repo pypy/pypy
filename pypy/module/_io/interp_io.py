@@ -16,7 +16,7 @@ class Cache:
     def __init__(self, space):
         self.w_unsupportedoperation = space.new_exception_class(
             "io.UnsupportedOperation",
-            space.newtuple([space.w_ValueError, space.w_IOError]))
+            space.newtuple2(space.w_ValueError, space.w_IOError))
 
 class W_BlockingIOError(W_IOError):
     def __init__(self, space):
@@ -55,11 +55,11 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
 
     reading = writing = appending = updating = text = binary = universal = False
 
-    uniq_mode = {}
-    for flag in mode:
-        uniq_mode[flag] = None
-    if len(uniq_mode) != len(mode):
-        raise oefmt(space.w_ValueError, "invalid mode: %s", mode)
+    for i in range(1, len(mode)):
+        flag = mode[i]
+        if mode.find(flag, 0, i) != -1:
+            raise oefmt(space.w_ValueError, "invalid mode: %s", mode)
+            
     for flag in mode:
         if flag == "r":
             reading = True

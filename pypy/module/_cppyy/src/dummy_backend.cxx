@@ -1,17 +1,38 @@
 #include "capi.h"
 
+// include all headers from datatype.cxx and example01.cxx here,
+//  allowing those .cxx files to be placed in the "dummy" namespace
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+#include <cwchar>
+
+#include <complex>
+#include <functional>
 #include <map>
+#include <memory>
 #include <string>
 #include <sstream>
 #include <utility>
 #include <vector>
 
-#include <assert.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
+#include <sys/types.h>
 
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
+
+#if defined(_MSC_VER)
+        #define INLINE __inline
+#elif defined(__GNUC__)
+    #if defined(__STRICT_ANSI__)
+         #define INLINE __inline__
+    #else
+         #define INLINE inline
+    #endif
+#else
+    #define INLINE
+#endif
+
 
 // union for argument passing
 struct CPPYY_G__value {
@@ -33,6 +54,22 @@ struct CPPYY_G__value {
   long ref;
   int type;
 };
+
+
+// gInterpreter
+namespace dummy {
+    class TInterpreter {
+    public:
+        int ProcessLine(const char* line) {
+            if (strcmp(line, "__cplusplus;") == 0)
+                return 0;
+            return -1;
+        }
+    };
+
+    TInterpreter gInterpreter;
+} // namespace dummy
+
 
 // add example01.cxx code
 int globalAddOneToInt(int a);
@@ -159,15 +196,36 @@ int Pseudo_kLots      = 42;
 
 struct Cppyy_InitPseudoReflectionInfo {
     Cppyy_InitPseudoReflectionInfo() {
-        // class example01 --
         static cppyy_scope_t s_scope_id  = 0;
 
         { // namespace ''
         s_handles[""] = (cppyy_scope_t)++s_scope_id;
+
+        std::vector<Cppyy_PseudoDatambrInfo> data;
+        data.push_back(Cppyy_PseudoDatambrInfo("N", "int", (ptrdiff_t)&dummy::N, true));
+        data.push_back(Cppyy_PseudoDatambrInfo(
+            "gInterpreter", "TInterpreter", (ptrdiff_t)&dummy::gInterpreter, true));
+
+        Cppyy_PseudoClassInfo info(std::vector<Cppyy_PseudoMethodInfo*>(), data);
+        s_scopes[(cppyy_scope_t)s_scope_id] = info;
         }
 
         { // namespace std
         s_handles["std"] = (cppyy_scope_t)++s_scope_id;
+        }
+
+        { // class TInterpreter
+        s_handles["TInterpreter"] = (cppyy_scope_t)++s_scope_id;
+
+        std::vector<Cppyy_PseudoMethodInfo*> methods;
+
+        std::vector<std::string> argtypes;
+        argtypes.push_back("const char*");
+        methods.push_back(new Cppyy_PseudoMethodInfo("ProcessLine", argtypes, "int"));
+        s_methods["TInterpreter::ProcessLine_cchar*"] = methods.back();
+
+        Cppyy_PseudoClassInfo info(methods, std::vector<Cppyy_PseudoDatambrInfo>());
+        s_scopes[(cppyy_scope_t)s_scope_id] = info;
         }
 
         { // class example01 --
@@ -295,6 +353,64 @@ struct Cppyy_InitPseudoReflectionInfo {
 
         //====================================================================
 
+        { // class complex<double> --
+        s_handles["complex_t"] = (cppyy_scope_t)++s_scope_id;
+        s_handles["std::complex<double>"] = s_handles["complex_t"];
+
+        std::vector<Cppyy_PseudoMethodInfo*> methods;
+
+        std::vector<std::string> argtypes;
+
+        // double real()
+        argtypes.clear();
+        methods.push_back(new Cppyy_PseudoMethodInfo("real", argtypes, "double"));
+        s_methods["std::complex<double>::real"] = methods.back();
+
+        // double imag()
+        argtypes.clear();
+        methods.push_back(new Cppyy_PseudoMethodInfo("imag", argtypes, "double"));
+        s_methods["std::complex<double>::imag"] = methods.back();
+
+        // complex<double>(double r, double i)
+        argtypes.clear();
+        argtypes.push_back("double");
+        argtypes.push_back("double");
+        methods.push_back(new Cppyy_PseudoMethodInfo("complex<double>", argtypes, "constructor", kConstructor));
+        s_methods["std::complex<double>::complex<double>_double_double"] = methods.back();
+
+        Cppyy_PseudoClassInfo info(methods, std::vector<Cppyy_PseudoDatambrInfo>());
+        s_scopes[(cppyy_scope_t)s_scope_id] = info;
+        }
+
+        { // class complex<int> --
+        s_handles["icomplex_t"] = (cppyy_scope_t)++s_scope_id;
+        s_handles["std::complex<int>"] = s_handles["icomplex_t"];
+
+        std::vector<Cppyy_PseudoMethodInfo*> methods;
+
+        std::vector<std::string> argtypes;
+
+        // int real()
+        argtypes.clear();
+        methods.push_back(new Cppyy_PseudoMethodInfo("real", argtypes, "int"));
+        s_methods["std::complex<int>::real"] = methods.back();
+
+        // int imag()
+        argtypes.clear();
+        methods.push_back(new Cppyy_PseudoMethodInfo("imag", argtypes, "int"));
+        s_methods["std::complex<int>::imag"] = methods.back();
+
+        // complex<int>(int r, int i)
+        argtypes.clear();
+        argtypes.push_back("int");
+        argtypes.push_back("int");
+        methods.push_back(new Cppyy_PseudoMethodInfo("complex<int>", argtypes, "constructor", kConstructor));
+        s_methods["std::complex<int>::complex<int>_int_int"] = methods.back();
+
+        Cppyy_PseudoClassInfo info(methods, std::vector<Cppyy_PseudoDatambrInfo>());
+        s_scopes[(cppyy_scope_t)s_scope_id] = info;
+        }
+
         { // class payload --
         s_handles["payload"] = (cppyy_scope_t)++s_scope_id;
 
@@ -337,30 +453,42 @@ struct Cppyy_InitPseudoReflectionInfo {
         s_methods["CppyyTestData::destroy_arrays"] = methods.back();
 
         std::vector<Cppyy_PseudoDatambrInfo> data;
-        PUBLIC_CPPYY_DATA2(bool,    bool);
-        PUBLIC_CPPYY_DATA (char,    char);
-        PUBLIC_CPPYY_DATA (schar,   signed char);
-        PUBLIC_CPPYY_DATA2(uchar,   unsigned char);
-        PUBLIC_CPPYY_DATA3(short,   short,              h);
-        PUBLIC_CPPYY_DATA3(ushort,  unsigned short,     H);
-        PUBLIC_CPPYY_DATA3(int,     int,                i);
-        PUBLIC_CPPYY_DATA (const_int, const int);
-        PUBLIC_CPPYY_DATA3(uint,    unsigned int,       I);
-        PUBLIC_CPPYY_DATA3(long,    long,               l);
-        PUBLIC_CPPYY_DATA3(ulong,   unsigned long,      L);
-        PUBLIC_CPPYY_DATA (llong,   long long);
-        PUBLIC_CPPYY_DATA (ullong,  unsigned long long);
-        PUBLIC_CPPYY_DATA (long64,  Long64_t);
-        PUBLIC_CPPYY_DATA (ulong64, ULong64_t);
-        PUBLIC_CPPYY_DATA3(float,   float,              f);
-        PUBLIC_CPPYY_DATA3(double,  double,             d);
-        PUBLIC_CPPYY_DATA (ldouble, long double);
-        PUBLIC_CPPYY_DATA (enum,    CppyyTestData::EWhat);
-        PUBLIC_CPPYY_DATA (voidp,   void*);
+        PUBLIC_CPPYY_DATA2(bool,          bool);
+        PUBLIC_CPPYY_DATA (char,          char);
+        PUBLIC_CPPYY_DATA2(schar,         signed char);
+        PUBLIC_CPPYY_DATA2(uchar,         unsigned char);
+        PUBLIC_CPPYY_DATA (wchar,         wchar_t);
+        PUBLIC_CPPYY_DATA (char16,        char16_t);
+        PUBLIC_CPPYY_DATA (char32,        char32_t);
+        PUBLIC_CPPYY_DATA (int8,          int8_t);
+        PUBLIC_CPPYY_DATA (uint8,         uint8_t);
+        PUBLIC_CPPYY_DATA3(short,         short,              h);
+        PUBLIC_CPPYY_DATA3(ushort,        unsigned short,     H);
+        PUBLIC_CPPYY_DATA3(int,           int,                i);
+        PUBLIC_CPPYY_DATA (const_int,     const int);
+        PUBLIC_CPPYY_DATA3(uint,          unsigned int,       I);
+        PUBLIC_CPPYY_DATA3(long,          long,               l);
+        PUBLIC_CPPYY_DATA3(ulong,         unsigned long,      L);
+        PUBLIC_CPPYY_DATA (llong,         long long);
+        PUBLIC_CPPYY_DATA (ullong,        unsigned long long);
+        PUBLIC_CPPYY_DATA (long64,        Long64_t);
+        PUBLIC_CPPYY_DATA (ulong64,       ULong64_t);
+        PUBLIC_CPPYY_DATA3(float,         float,              f);
+        PUBLIC_CPPYY_DATA3(double,        double,             d);
+        PUBLIC_CPPYY_DATA (ldouble,       long double);
+        PUBLIC_CPPYY_DATA (complex,       complex_t);
+        PUBLIC_CPPYY_DATA (icomplex,      icomplex_t);
+        PUBLIC_CPPYY_DATA (enum,          CppyyTestData::EWhat);
+        PUBLIC_CPPYY_DATA (voidp,         void*);
 
         PUBLIC_CPPYY_STATIC_DATA(char,    char);
         PUBLIC_CPPYY_STATIC_DATA(schar,   signed char);
         PUBLIC_CPPYY_STATIC_DATA(uchar,   unsigned char);
+        PUBLIC_CPPYY_STATIC_DATA(wchar,   wchar_t);
+        PUBLIC_CPPYY_STATIC_DATA(char16,  char16_t);
+        PUBLIC_CPPYY_STATIC_DATA(char32,  char32_t);
+        PUBLIC_CPPYY_STATIC_DATA(int8,    int8_t);
+        PUBLIC_CPPYY_STATIC_DATA(uint8,   uint8_t);
         PUBLIC_CPPYY_STATIC_DATA(short,   short);
         PUBLIC_CPPYY_STATIC_DATA(ushort,  unsigned short);
         PUBLIC_CPPYY_STATIC_DATA(int,     int);
@@ -413,7 +541,7 @@ struct Cppyy_InitPseudoReflectionInfo {
 
 
 /* local helpers ---------------------------------------------------------- */
-static inline char* cppstring_to_cstring(const std::string& name) {
+static INLINE char* cppstring_to_cstring(const std::string& name) {
     char* name_char = (char*)malloc(name.size() + 1);
     strcpy(name_char, name.c_str());
     return name_char;
@@ -422,7 +550,11 @@ static inline char* cppstring_to_cstring(const std::string& name) {
 
 /* name to opaque C++ scope representation -------------------------------- */
 char* cppyy_resolve_name(const char* cppitem_name) {
-    if (cppyy_is_enum(cppitem_name))
+    if (strcmp(cppitem_name, "complex_t") == 0)
+        return cppstring_to_cstring("std::complex<double>");
+    else if (strcmp(cppitem_name, "icomplex_t") == 0)
+        return cppstring_to_cstring("std::complex<int>");
+    else if (cppyy_is_enum(cppitem_name))
         return cppstring_to_cstring("internal_enum_type_t");
     else if (strcmp(cppitem_name, "aap_t") == 0)
         return cppstring_to_cstring("long double");
@@ -470,6 +602,27 @@ void cppyy_call_v(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     } else if (idx == s_methods["CppyyTestData::set_uchar"]) {
         assert(self && nargs == 1);
         ((dummy::CppyyTestData*)self)->set_uchar(((CPPYY_G__value*)args)[0].obj.uch);
+    } else if (idx == s_methods["CppyyTestData::set_wchar"]) {
+        assert(self && nargs == 1);
+        ((dummy::CppyyTestData*)self)->set_wchar(((CPPYY_G__value*)args)[0].obj.i);
+    } else if (idx == s_methods["CppyyTestData::set_char16"]) {
+        assert(self && nargs == 1);
+        ((dummy::CppyyTestData*)self)->set_char16(((CPPYY_G__value*)args)[0].obj.i);
+    } else if (idx == s_methods["CppyyTestData::set_char32"]) {
+        assert(self && nargs == 1);
+        ((dummy::CppyyTestData*)self)->set_char32(((CPPYY_G__value*)args)[0].obj.i);
+    } else if (idx == s_methods["CppyyTestData::set_int8"]) {
+        assert(self && nargs == 1);
+        ((dummy::CppyyTestData*)self)->set_int8(((CPPYY_G__value*)args)[0].obj.ch);
+    } else if (idx == s_methods["CppyyTestData::set_int8_cr"]) {
+        assert(self && nargs == 1);
+        ((dummy::CppyyTestData*)self)->set_int8_cr(*(int8_t*)&((CPPYY_G__value*)args)[0]);
+    } else if (idx == s_methods["CppyyTestData::set_uint8"]) {
+        assert(self && nargs == 1);
+        ((dummy::CppyyTestData*)self)->set_uint8(((CPPYY_G__value*)args)[0].obj.ch);
+    } else if (idx == s_methods["CppyyTestData::set_uint8_cr"]) {
+        assert(self && nargs == 1);
+        ((dummy::CppyyTestData*)self)->set_uint8_cr(*(uint8_t*)&((CPPYY_G__value*)args)[0]);
     } else if (idx == s_methods["CppyyTestData::set_short"]) {
         assert(self && nargs == 1);
         ((dummy::CppyyTestData*)self)->set_short(((CPPYY_G__value*)args)[0].obj.sh);
@@ -562,6 +715,12 @@ char cppyy_call_c(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     } else if (idx == s_methods["CppyyTestData::get_uchar"]) {
         assert(self && nargs == 0);
         result = (char)((dummy::CppyyTestData*)self)->get_uchar();
+    } else if (idx == s_methods["CppyyTestData::get_int8"]) {
+        assert(self && nargs == 0);
+        result = (long)((dummy::CppyyTestData*)self)->get_int8();
+    } else if (idx == s_methods["CppyyTestData::get_uint8"]) {
+        assert(self && nargs == 0);
+        result = (long)((dummy::CppyyTestData*)self)->get_uint8();
     } else {
         assert(!"method unknown in cppyy_call_c");
     } 
@@ -586,7 +745,11 @@ short cppyy_call_h(cppyy_method_t method, cppyy_object_t self, int nargs, void* 
 int cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     int result = 0;
     Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
-    if (idx == s_methods["static_example01::staticAddOneToInt_int"]) {
+    if (idx == s_methods["TInterpreter::ProcessLine_cchar*"]) {
+        assert(self && nargs == 1);
+        result = ((dummy::TInterpreter*)self)->ProcessLine(
+            (const char*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
+    } else if (idx == s_methods["static_example01::staticAddOneToInt_int"]) {
         assert(!self && nargs == 1);
         result = dummy::example01::staticAddOneToInt(((CPPYY_G__value*)args)[0].obj.in);
     } else if (idx == s_methods["static_example01::staticAddOneToInt_int_int"]) {
@@ -609,6 +772,12 @@ int cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* ar
     } else if (idx == s_methods["CppyyTestData::get_int"]) {
         assert(self && nargs == 0);
         result = ((dummy::CppyyTestData*)self)->get_int();
+    } else if (idx == s_methods["std::complex<int>::real"]) {
+        assert(self && nargs == 0);
+        result = ((std::complex<int>*)self)->real();
+    } else if (idx == s_methods["std::complex<int>::imag"]) {
+        assert(self && nargs == 0);
+        result = ((std::complex<int>*)self)->imag();
     } else {
         assert(!"method unknown in cppyy_call_i");
     }
@@ -618,23 +787,15 @@ int cppyy_call_i(cppyy_method_t method, cppyy_object_t self, int nargs, void* ar
 long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     long result = 0;
     Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
-    if (idx == s_methods["static_example01::staticStrcpy_cchar*"]) {
-        assert(!self && nargs == 1);
-        result = (long)dummy::example01::staticStrcpy(
-           (const char*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["static_example01::staticCyclePayload_payload*_double"]) {
-        assert(!self && nargs == 2);
-        result = (long)dummy::example01::staticCyclePayload(
-           (dummy::payload*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]),
-           ((CPPYY_G__value*)args)[1].obj.d);
-    } else if (idx == s_methods["example01::addToStringValue_cchar*"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::example01*)self)->addToStringValue(
-           (const char*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["example01::cyclePayload_payload*"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::example01*)self)->cyclePayload(
-           (dummy::payload*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
+    if (idx == s_methods["CppyyTestData::get_wchar"]) {
+        assert(self && nargs == 0);
+        result = (long)((dummy::CppyyTestData*)self)->get_wchar();
+    } else if (idx == s_methods["CppyyTestData::get_char16"]) {
+        assert(self && nargs == 0);
+        result = (long)((dummy::CppyyTestData*)self)->get_char16();
+    } else if (idx == s_methods["CppyyTestData::get_char32"]) {
+        assert(self && nargs == 0);
+        result = (long)((dummy::CppyyTestData*)self)->get_char32();
     } else if (idx == s_methods["CppyyTestData::get_uint"]) {
         assert(self && nargs == 0);
         result = (long)((dummy::CppyyTestData*)self)->get_uint();
@@ -644,118 +805,6 @@ long cppyy_call_l(cppyy_method_t method, cppyy_object_t self, int nargs, void* a
     } else if (idx == s_methods["CppyyTestData::get_ulong"]) {
         assert(self && nargs == 0);
         result = (long)((dummy::CppyyTestData*)self)->get_ulong();
-    } else if (idx == s_methods["CppyyTestData::get_bool_array"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_bool_array();
-    } else if (idx == s_methods["CppyyTestData::get_bool_array2"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_bool_array2();
-    } else if (idx == s_methods["CppyyTestData::get_uchar_array"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_uchar_array();
-    } else if (idx == s_methods["CppyyTestData::get_uchar_array2"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_uchar_array2();
-    } else if (idx == s_methods["CppyyTestData::get_short_array"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_short_array();
-    } else if (idx == s_methods["CppyyTestData::get_short_array2"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_short_array2();
-    } else if (idx == s_methods["CppyyTestData::get_ushort_array"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_ushort_array();
-    } else if (idx == s_methods["CppyyTestData::get_ushort_array2"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_ushort_array2();
-    } else if (idx == s_methods["CppyyTestData::get_int_array"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_int_array();
-    } else if (idx == s_methods["CppyyTestData::get_int_array2"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_int_array2();
-    } else if (idx == s_methods["CppyyTestData::get_uint_array"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_uint_array();
-    } else if (idx == s_methods["CppyyTestData::get_uint_array2"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_uint_array2();
-    } else if (idx == s_methods["CppyyTestData::get_long_array"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_long_array();
-    } else if (idx == s_methods["CppyyTestData::get_long_array2"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_long_array2();
-    } else if (idx == s_methods["CppyyTestData::get_ulong_array"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_ulong_array();
-    } else if (idx == s_methods["CppyyTestData::get_ulong_array2"]) {
-        assert(self && nargs == 0);
-        result = (long)((dummy::CppyyTestData*)self)->get_ulong_array2();
-    } else if (idx == s_methods["CppyyTestData::pass_array_short"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_array(
-           (*(short**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_void_array_h"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_h(
-           (*(short**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_array_ushort"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_array(
-           (*(unsigned short**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_void_array_H"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_H(
-           (*(unsigned short**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_array_int"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_array(
-           (*(int**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_void_array_i"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_i(
-           (*(int**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_array_uint"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_array(
-           (*(unsigned int**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_void_array_I"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_I(
-           (*(unsigned int**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_array_long"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_array(
-           (*(long**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_void_array_l"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_l(
-           (*(intptr_t**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_array_ulong"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_array(
-           (*(unsigned long**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_void_array_L"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_L(
-           (*(uintptr_t**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_array_float"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_array(
-           (*(float**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_void_array_f"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_f(
-           (*(float**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_array_double"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_array(
-           (*(double**)&((CPPYY_G__value*)args)[0]));
-    } else if (idx == s_methods["CppyyTestData::pass_void_array_d"]) {
-        assert(self && nargs == 1);
-        result = (long)((dummy::CppyyTestData*)self)->pass_void_array_d(
-           (*(double**)&((CPPYY_G__value*)args)[0]));
     } else {
         assert(!"method unknown in cppyy_call_l");
     }
@@ -804,6 +853,12 @@ double cppyy_call_d(cppyy_method_t method, cppyy_object_t self, int nargs, void*
     } else if (idx == s_methods["CppyyTestData::get_double"]) {
         assert(self && nargs == 0);
         result = ((dummy::CppyyTestData*)self)->get_double();
+    } else if (idx == s_methods["std::complex<double>::real"]) {
+        assert(self && nargs == 0);
+        result = ((std::complex<double>*)self)->real();
+    } else if (idx == s_methods["std::complex<double>::imag"]) {
+        assert(self && nargs == 0);
+        result = ((std::complex<double>*)self)->imag();
     } else {
         assert(!"method unknown in cppyy_call_d");
     }
@@ -831,7 +886,7 @@ double cppyy_call_nld(cppyy_method_t method, cppyy_object_t self, int nargs, voi
 }
 
 #define DISPATCH_CALL_R_GET(tpname)                                           \
-    else if (idx == s_methods["CppyyTestData::get_"#tpname"_r"]) {            \
+      else if (idx == s_methods["CppyyTestData::get_"#tpname"_r"]) {          \
         assert(self && nargs == 0);                                           \
         result = (void*)&((dummy::CppyyTestData*)self)->get_##tpname##_r();   \
     } else if (idx == s_methods["CppyyTestData::get_"#tpname"_cr"]) {         \
@@ -839,24 +894,68 @@ double cppyy_call_nld(cppyy_method_t method, cppyy_object_t self, int nargs, voi
         result = (void*)&((dummy::CppyyTestData*)self)->get_##tpname##_cr();  \
     }
 
+#define DISPATCH_CALL_R_GET2(tpname)                                          \
+    DISPATCH_CALL_R_GET(tpname)                                               \
+      else if (idx == s_methods["CppyyTestData::get_"#tpname"_array"]) {      \
+        assert(self && nargs == 0);                                           \
+        result = (void*)((dummy::CppyyTestData*)self)->get_##tpname##_array();\
+    } else if (idx == s_methods["CppyyTestData::get_"#tpname"_array2"]) {     \
+        assert(self && nargs == 0);                                           \
+        result = (void*)((dummy::CppyyTestData*)self)->get_##tpname##_array2();\
+    }
+
+#define DISPATCH_CALL_R_GET3(tpname, tpcode, type)                            \
+    DISPATCH_CALL_R_GET2(tpname)                                              \
+      else if (idx == s_methods["CppyyTestData::pass_array_"#tpname]) {       \
+        assert(self && nargs == 1);                                           \
+        result = (void*)((dummy::CppyyTestData*)self)->pass_array(            \
+           (*(type**)&((CPPYY_G__value*)args)[0]));                           \
+    } else if (idx == s_methods["CppyyTestData::pass_void_array_"#tpcode]) {  \
+        assert(self && nargs == 1);                                           \
+        result = (void*)((dummy::CppyyTestData*)self)->pass_void_array_##tpcode (\
+           (*(type**)&((CPPYY_G__value*)args)[0]));                           \
+    }
+
 void* cppyy_call_r(cppyy_method_t method, cppyy_object_t self, int nargs, void* args) {
     void* result = nullptr;
     Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
-    if (0) {}
-    DISPATCH_CALL_R_GET(bool)
-    DISPATCH_CALL_R_GET(short)
-    DISPATCH_CALL_R_GET(ushort)
-    DISPATCH_CALL_R_GET(int)
-    DISPATCH_CALL_R_GET(uint)
-    DISPATCH_CALL_R_GET(long)
-    DISPATCH_CALL_R_GET(ulong)
-    DISPATCH_CALL_R_GET(llong)
-    DISPATCH_CALL_R_GET(ullong)
-    DISPATCH_CALL_R_GET(long64)
-    DISPATCH_CALL_R_GET(ulong64)
-    DISPATCH_CALL_R_GET(float)
-    DISPATCH_CALL_R_GET(double)
-    DISPATCH_CALL_R_GET(ldouble)
+    if (idx == s_methods["static_example01::staticStrcpy_cchar*"]) {
+        assert(!self && nargs == 1);
+        result = (void*)dummy::example01::staticStrcpy(
+           (const char*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
+    } else if (idx == s_methods["static_example01::staticCyclePayload_payload*_double"]) {
+        assert(!self && nargs == 2);
+        result = (void*)dummy::example01::staticCyclePayload(
+           (dummy::payload*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]),
+           ((CPPYY_G__value*)args)[1].obj.d);
+    } else if (idx == s_methods["example01::addToStringValue_cchar*"]) {
+        assert(self && nargs == 1);
+        result = (void*)((dummy::example01*)self)->addToStringValue(
+           (const char*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
+    } else if (idx == s_methods["example01::cyclePayload_payload*"]) {
+        assert(self && nargs == 1);
+        result = (void*)((dummy::example01*)self)->cyclePayload(
+           (dummy::payload*)(*(intptr_t*)&((CPPYY_G__value*)args)[0]));
+    }
+    DISPATCH_CALL_R_GET2(bool)
+    DISPATCH_CALL_R_GET (wchar)
+    DISPATCH_CALL_R_GET (int8)
+    DISPATCH_CALL_R_GET (uint8)
+    DISPATCH_CALL_R_GET3(short,    h, short)
+    DISPATCH_CALL_R_GET3(ushort,   H, unsigned short)
+    DISPATCH_CALL_R_GET3(int,      i, int)
+    DISPATCH_CALL_R_GET3(uint,     I, unsigned int)
+    DISPATCH_CALL_R_GET3(long,     l, long)
+    DISPATCH_CALL_R_GET3(ulong,    L, unsigned long)
+    DISPATCH_CALL_R_GET (llong)
+    DISPATCH_CALL_R_GET (ullong)
+    DISPATCH_CALL_R_GET (long64)
+    DISPATCH_CALL_R_GET (ulong64)
+    DISPATCH_CALL_R_GET3(float,    f, float)
+    DISPATCH_CALL_R_GET3(double,   d, double)
+    DISPATCH_CALL_R_GET (ldouble)
+    DISPATCH_CALL_R_GET (complex)
+    DISPATCH_CALL_R_GET (icomplex)
     else {
         assert(!"method unknown in cppyy_call_r");
     }
@@ -891,9 +990,29 @@ cppyy_object_t cppyy_constructor(cppyy_method_t method, cppyy_type_t handle, int
     } else if (idx == s_methods["CppyyTestData::CppyyTestData"]) {
         assert(nargs == 0);
         result = new dummy::CppyyTestData;
+    } else if (idx == s_methods["std::complex<double>::complex<double>_double_double"]) {
+        assert(nargs == 2);
+        result = new std::complex<double>(((CPPYY_G__value*)args)[0].obj.d, ((CPPYY_G__value*)args)[1].obj.d);
+    } else if (idx == s_methods["std::complex<int>::complex<int>_int_int"]) {
+        assert(nargs == 2);
+        result = new std::complex<int>(((CPPYY_G__value*)args)[0].obj.i, ((CPPYY_G__value*)args)[1].obj.i);
     } else {
         assert(!"method unknown in cppyy_constructor");
     }       
+    return (cppyy_object_t)result;
+}
+
+cppyy_object_t cppyy_call_o(
+        cppyy_method_t method, cppyy_object_t self, int nargs, void* args, cppyy_type_t result_type) {
+    void* result = 0;
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
+    if (idx == s_methods["CppyyTestData::get_complex"]) {
+        assert(self && nargs == 0);
+        result = new std::complex<double>(((dummy::CppyyTestData*)self)->get_complex());
+    } else if (idx == s_methods["CppyyTestData::get_icomplex"]) {
+        assert(self && nargs == 0);
+        result = new std::complex<int>(((dummy::CppyyTestData*)self)->get_icomplex());
+    }
     return (cppyy_object_t)result;
 }
 
@@ -927,12 +1046,16 @@ size_t cppyy_function_arg_typeoffset() {
 
 /* scope reflection information ------------------------------------------- */
 int cppyy_is_namespace(cppyy_scope_t handle) {
-    if (handle == s_handles["pyzables"])
+    if (handle == s_handles[std::string("")] ||
+        handle == s_handles["std"] ||
+        handle == s_handles["pyzables"])
         return 1;
     return 0;
 }
 
-int cppyy_is_template(const char* /* template_name */) {
+int cppyy_is_template(const char* template_name) {
+    if (strcmp(template_name, "std::complex") == 0)
+        return 1;
     return 0;
 }
 
@@ -957,7 +1080,12 @@ char* cppyy_final_name(cppyy_type_t handle) {
 }
 
 char* cppyy_scoped_final_name(cppyy_type_t handle) {
-    return cppyy_final_name(handle);
+    const std::string& rec_name = cppyy_final_name(handle);
+    if (rec_name == "complex_t")
+        return cppstring_to_cstring("std::complex<double>");
+    else if (rec_name == "icomplex_t")
+        return cppstring_to_cstring("std::complex<int>");
+    return cppstring_to_cstring(rec_name);
 }   
 
 int cppyy_has_complex_hierarchy(cppyy_type_t /* handle */) {
@@ -1016,7 +1144,16 @@ char* cppyy_method_arg_default(cppyy_method_t method, int idx) {
     return cppstring_to_cstring("");
 }
 
-char* cppyy_method_signature(cppyy_method_t, int /* show_formalargs */) {
+char* cppyy_method_signature(cppyy_method_t method, int /* show_formalargs */) {
+    Cppyy_PseudoMethodInfo* idx = (Cppyy_PseudoMethodInfo*)method;
+    if (idx == s_methods["std::complex<double>::real"])
+        return cppstring_to_cstring("()");
+    else if (idx == s_methods["std::complex<double>::imag"])
+        return cppstring_to_cstring("()");
+    else if (idx == s_methods["std::complex<int>::real"])
+        return cppstring_to_cstring("()");
+    else if (idx == s_methods["std::complex<int>::imag"])
+        return cppstring_to_cstring("()");
     return cppstring_to_cstring("");
 }
 
@@ -1068,6 +1205,8 @@ int cppyy_is_staticmethod(cppyy_method_t method) {
 
 /* data member reflection information ------------------------------------- */
 int cppyy_num_datamembers(cppyy_scope_t handle) {
+    if (cppyy_is_namespace(handle))
+        return 0;
     return s_scopes[handle].m_datambrs.size();
 }
 
@@ -1081,6 +1220,15 @@ char* cppyy_datamember_type(cppyy_scope_t handle, int idatambr) {
 
 ptrdiff_t cppyy_datamember_offset(cppyy_scope_t handle, int idatambr) {
     return s_scopes[handle].m_datambrs[idatambr].m_offset;
+}
+
+int cppyy_datamember_index(cppyy_scope_t handle, const char* name) {
+    if (handle == s_handles[std::string("")]) {
+        if (strcmp(name, "N") == 0)            return 0;
+        if (strcmp(name, "gInterpreter") == 0) return 1;
+    }
+
+    return (int)-1;
 }
 
 

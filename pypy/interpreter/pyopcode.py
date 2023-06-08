@@ -147,10 +147,12 @@ class __extend__(pyframe.PyFrame):
         while True:
             self.last_instr = intmask(next_instr)
             if jit.we_are_jitted():
-                ec.bytecode_only_trace(self)
+                if self.debugdata:
+                    ec.bytecode_only_trace(self)
+                    next_instr = r_uint(self.last_instr)
             else:
                 ec.bytecode_trace(self)
-            next_instr = r_uint(self.last_instr)
+                next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
             next_instr += 1
 
@@ -176,10 +178,13 @@ class __extend__(pyframe.PyFrame):
                 oparg = (oparg * 65536) | (hi * 256) | lo
 
             if opcode == opcodedesc.RETURN_VALUE.index:
+                if not self.blockstack_non_empty():
+                    self.frame_finished_execution = True  # for generators
+                    raise Return
                 w_returnvalue = self.popvalue()
                 block = self.unrollstack(SReturnValue.kind)
                 if block is None:
-                    self.pushvalue(w_returnvalue)   # XXX ping pong
+                    self.pushvalue(w_returnvalue)
                     raise Return
                 else:
                     unroller = SReturnValue(w_returnvalue)
@@ -884,9 +889,11 @@ class __extend__(pyframe.PyFrame):
         self.space.delattr(w_obj, w_attributename)
 
     def STORE_GLOBAL(self, nameindex, next_instr):
-        varname = self.getname_u(nameindex)
-        w_newvalue = self.popvalue()
-        self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
+        #varname = self.getname_u(nameindex)
+        #w_newvalue = self.popvalue()
+        #self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
+        from pypy.objspace.std.celldict import STORE_GLOBAL_cached
+        STORE_GLOBAL_cached(self, nameindex, next_instr)
 
     def DELETE_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
@@ -900,7 +907,8 @@ class __extend__(pyframe.PyFrame):
             if w_value is not None:
                 self.pushvalue(w_value)
                 return
-        self.LOAD_GLOBAL(nameindex, next_instr)    # fall-back
+        #self.pushvalue(self._load_global(varname))
+        self.LOAD_GLOBAL(nameindex, next_instr)
 
     @always_inline
     def _load_global(self, varname):
@@ -919,7 +927,10 @@ class __extend__(pyframe.PyFrame):
 
     @always_inline
     def LOAD_GLOBAL(self, nameindex, next_instr):
-        self.pushvalue(self._load_global(self.getname_u(nameindex)))
+        #self.pushvalue(self._load_global(self.getname_u(nameindex)))
+        #return
+        from pypy.objspace.std.celldict import LOAD_GLOBAL_cached
+        LOAD_GLOBAL_cached(self, nameindex, next_instr)
 
     def DELETE_FAST(self, varindex, next_instr):
         if self.locals_cells_stack_w[varindex] is None:
@@ -1127,9 +1138,6 @@ class __extend__(pyframe.PyFrame):
             self.pushvalue(w_nextitem)
         return next_instr
 
-    def FOR_LOOP(self, oparg, next_instr):
-        raise BytecodeCorruption("old opcode, no longer in use")
-
     def SETUP_LOOP(self, offsettoend, next_instr):
         block = LoopBlock(self, next_instr + offsettoend, self.lastblock)
         self.lastblock = block
@@ -1315,7 +1323,7 @@ class __extend__(pyframe.PyFrame):
         for i in range(itemcount-1, -1, -1):
             w_item = self.peekvalue(i)
             self.space.call_method(w_set, 'add', w_item)
-        self.popvalues(itemcount)
+        self.dropvalues(itemcount)
         self.pushvalue(w_set)
 
     def STORE_MAP(self, oparg, next_instr):

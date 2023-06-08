@@ -11,7 +11,7 @@ class RSreJitDriver(JitDriver):
             # we print based on indices in 'args'.  We first print
             # 'ctx.pattern' from the arg number debugprint[0].
             pattern = args[debugprint[0]]
-            s = str(pattern)
+            s = str(pattern.pattern)
             if len(s) > 120:
                 s = s[:110] + '...'
             if len(debugprint) > 1:

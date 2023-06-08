@@ -6,7 +6,6 @@ import sys
 from rpython.translator import cdir
 from rpython.rlib import jit, rposix, objectmodel
 from rpython.rlib.rfloat import INFINITY, NAN, isfinite
-from rpython.rlib.rposix import UNDERSCORE_ON_WIN32
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -52,8 +51,7 @@ math_fabs = llexternal('fabs', [rffi.DOUBLE], rffi.DOUBLE)
 math_log = llexternal('log', [rffi.DOUBLE], rffi.DOUBLE)
 math_log10 = llexternal('log10', [rffi.DOUBLE], rffi.DOUBLE)
 math_log1p = math_llexternal('log1p', [rffi.DOUBLE], rffi.DOUBLE)
-math_copysign = llexternal(UNDERSCORE_ON_WIN32 + 'copysign',
-                           [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
+math_copysign = llexternal('copysign', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
                            elidable_function=True)
 math_atan2 = llexternal('atan2', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
 math_frexp = llexternal('frexp', [rffi.DOUBLE, rffi.INTP], rffi.DOUBLE)
@@ -64,8 +62,7 @@ math_pow   = llexternal('pow', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
                         save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 math_fmod  = llexternal('fmod',  [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
                         save_err=rffi.RFFI_FULL_ERRNO_ZERO)
-math_hypot = llexternal(UNDERSCORE_ON_WIN32 + 'hypot',
-                        [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
+math_hypot = llexternal('hypot', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
                         save_err=rffi.RFFI_FULL_ERRNO_ZERO)
 math_floor = llexternal('floor', [rffi.DOUBLE], rffi.DOUBLE, elidable_function=True)
 math_sqrt = llexternal('sqrt', [rffi.DOUBLE], rffi.DOUBLE)

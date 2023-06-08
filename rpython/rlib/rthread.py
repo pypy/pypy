@@ -44,14 +44,17 @@ def _emulated_start_new_thread(func):
         ident = thread.start_new_thread(func, ())
     except thread.error:
         ident = -1
-    return rffi.cast(rffi.LONG, ident)
+    return rffi.cast(lltype.Signed, ident)
 
 CALLBACK = lltype.Ptr(lltype.FuncType([], lltype.Void))
-c_thread_start = llexternal('RPyThreadStart', [CALLBACK], rffi.LONG,
+c_thread_start = llexternal('RPyThreadStart', [CALLBACK], lltype.Signed,
                             _callable=_emulated_start_new_thread,
                             releasegil=True)  # release the GIL, but most
                                               # importantly, reacquire it
                                               # around the callback
+
+c_pthread_kill = llexternal('RPyThread_kill', [lltype.Signed, rffi.INT], rffi.INT,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
 
 TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
                           compilation_info=eci)
@@ -83,6 +86,8 @@ c_thread_acquirelock_timed_NOAUTO = llexternal('RPyThreadAcquireLockTimed',
                                          rffi.INT, _nowrapper=True)
 c_thread_releaselock_NOAUTO = c_thread_releaselock
 
+c_get_native_id = llexternal('RPyThread_get_thread_native_id', [],
+                           rffi.ULONG, _nowrapper=True)
 
 def allocate_lock():
     # Add some memory pressure for the size of the lock because it is an
@@ -129,7 +134,7 @@ def start_new_thread(x, y):
     nice, but at least it avoids some levels of GC issues.
     """
     assert len(y) == 0
-    return rffi.cast(lltype.Signed, ll_start_new_thread(x))
+    return ll_start_new_thread(x)
 
 class DummyLock(object):
     def acquire(self, flag):
@@ -163,7 +168,9 @@ class Lock(object):
 
     def acquire(self, flag):
         if flag:
-            c_thread_acquirelock(self._lock, 1)
+            res = c_thread_acquirelock(self._lock, 1)
+            if rffi.cast(lltype.Signed, res) != 1:
+                raise error("lock acquire returned an unexpected error")
             return True
         else:
             res = c_thread_acquirelock_timed_NOAUTO(
@@ -419,14 +426,14 @@ class ThreadLocalReference(ThreadLocalField):
         self.get = get
         self.set = set
 
-        def _trace_tlref(gc, obj, callback, arg):
+        def _trace_tlref(gc, obj, callback, arg1, arg2):
             p = llmemory.NULL
             llop.threadlocalref_acquire(lltype.Void)
             while True:
                 p = llop.threadlocalref_enum(llmemory.Address, p)
                 if not p:
                     break
-                gc._trace_callback(callback, arg, p + offset)
+                gc._trace_callback(callback, arg1, arg2, p + offset)
             llop.threadlocalref_release(lltype.Void)
         _lambda_trace_tlref = lambda: _trace_tlref
         # WAAAH obscurity: can't use a name that may be non-unique,

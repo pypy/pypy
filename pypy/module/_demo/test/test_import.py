@@ -34,7 +34,7 @@ class TestImport:
 posixname = 'posix' if sys.platform != 'win32' else 'nt'
 
 class TestMixedModuleUnfreeze:
-    spaceconfig = dict(usemodules=('_demo', posixname))
+    spaceconfig = dict(usemodules=('_demo', 'posix'))
 
     def test_random_stuff_can_unfreeze(self):
         # When a module contains an "import" statement in applevel code, the

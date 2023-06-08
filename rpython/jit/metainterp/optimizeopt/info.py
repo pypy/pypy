@@ -486,6 +486,13 @@ class RawSlicePtrInfo(AbstractRawPtrInfo):
         return visitor.visit_vrawslice(self.offset)
 
 
+def reasonable_array_index(index):
+    """Check a given constant array index or array size for sanity.
+    In case of invalid loops or very large arrays, we shouldn't try
+    to optimize them."""
+    return index >= 0 and index <= 150000
+
+
 class ArrayPtrInfo(AbstractVirtualPtrInfo):
     _attrs_ = ('length', '_items', 'lenbound', '_clear', 'descr',
                '_is_virtual')
@@ -551,19 +558,27 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
             optforce.emit_extra(setop)
         optforce.pure_from_args(rop.ARRAYLEN_GC, [op], ConstInt(len(self._items)))
 
-    def setitem(self, descr, index, struct, op, optheap=None, cf=None):
+    def _setitem_index(self, index, op):
+        if not reasonable_array_index(index):
+            if self._items is None:
+                self._items = []
+            return
         if self._items is None:
             self._items = [None] * (index + 1)
-        if index >= len(self._items):
-            assert not self.is_virtual()
+        elif index >= len(self._items):
+            if self.is_virtual():
+                return  # bogus setarrayitem_gc into virtual, drop the operation
             self._items = self._items + [None] * (index - len(self._items) + 1)
         self._items[index] = op
+
+    def setitem(self, descr, index, struct, op, optheap=None, cf=None):
+        self._setitem_index(index, op)
         if cf is not None:
             assert not self.is_virtual()
             cf.register_info(struct, self)
 
     def getitem(self, descr, index, optheap=None):
-        if self._items is None or index >= len(self._items):
+        if self._items is None or index >= len(self._items) or index < 0:
             return None
         return self._items[index]
 
@@ -588,7 +603,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
                                    shortboxes):
         if self._items is None:
             return
-        if index >= len(self._items):
+        if index >= len(self._items) or index < 0:
             # we don't know about this item
             return
         item = self._items[index]
@@ -637,18 +652,22 @@ class ArrayStructInfo(ArrayPtrInfo):
 
     def _compute_index(self, index, fielddescr):
         all_fdescrs = fielddescr.get_arraydescr().get_all_fielddescrs()
-        if all_fdescrs is None:
-            return 0  # annotation hack
+        if all_fdescrs is None or index < 0 or index >= self.length:
+            return -1
         one_size = len(all_fdescrs)
         return index * one_size + fielddescr.get_field_descr().get_index()
 
     def setinteriorfield_virtual(self, index, fielddescr, fld):
         index = self._compute_index(index, fielddescr)
-        self._items[index] = fld
+        if index >= 0:
+            self._items[index] = fld
 
     def getinteriorfield_virtual(self, index, fielddescr):
         index = self._compute_index(index, fielddescr)
-        return self._items[index]
+        if index >= 0:
+            return self._items[index]
+        else:
+            return None
 
     def _force_elements(self, op, optforce, descr):
         i = 0

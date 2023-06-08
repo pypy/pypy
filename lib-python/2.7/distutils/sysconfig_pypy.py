@@ -8,8 +8,6 @@ get_config_vars().keys().  Additional convenience functions are also
 available.
 """
 
-__revision__ = "$Id: sysconfig.py 85358 2010-10-10 09:54:59Z antoine.pitrou $"
-
 import sys
 import os
 import imp
@@ -24,8 +22,20 @@ python_build = False
 
 
 def get_python_inc(plat_specific=0, prefix=None):
-    from os.path import join as j
-    return j(sys.prefix, 'include')
+    """Return the directory containing installed Python header files.
+
+    If 'plat_specific' is false (the default), this is the path to the
+    non-platform-specific header files, i.e. Python.h and so on;
+    otherwise, this is the path to platform-specific header files
+    (namely pyconfig.h). These are identical on PyPy.
+
+    If 'prefix' is supplied, use it.
+    """
+    if prefix is None:
+        # PyPy extension to try base_prefix (if inside virtualenv)
+        prefix = getattr(sys, 'base_prefix', sys.prefix)
+
+    return os.path.join(prefix, 'include')
 
 def get_python_version():
     """Return a string containing the major and minor Python version,
@@ -88,6 +98,13 @@ def _init_posix():
         g['CC'] += ' -arch %s' % (arch,)
         g['MACOSX_DEPLOYMENT_TARGET'] = '10.7'
 
+    # pypy only: give us control over the ABI tag in a wheel name
+    if '__pypy__' in sys.builtin_module_names:
+        for suffix, mode, type_ in imp.get_suffixes():
+            if type_ == imp.C_EXTENSION:
+                g['SOABI'] = suffix.split('.')[1]
+                break
+
     global _config_vars
     _config_vars = g
 
@@ -97,6 +114,13 @@ def _init_nt():
     g = {}
     g['EXE'] = ".exe"
     g['SO'] = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
+    g['VERSION'] = get_python_version().replace(".", "")
+    g['BINDIR'] = os.path.dirname(os.path.abspath(sys.executable))
+
+    # pypy only: give us control over the ABI tag in a wheel name
+    if '__pypy__' in sys.builtin_module_names:
+        so_ext = imp.get_suffixes()[0][0]
+        g['SOABI']= '-'.join(so_ext.split('.')[1].split('-')[:2])
 
     global _config_vars
     _config_vars = g

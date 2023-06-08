@@ -278,11 +278,11 @@ class Anchor(AbstractText):
 
 class Footnote(AbstractText):
     def __init__(self, note, symbol=False):
-        raise NotImplemented('XXX')
+        raise NotImplementedError('XXX')
 
 class Citation(AbstractText):
     def __init__(self, text, cite):
-        raise NotImplemented('XXX')
+        raise NotImplementedError('XXX')
 
 class ListItem(Paragraph):
     allow_nesting = True
@@ -383,7 +383,7 @@ class LinkTarget(Paragraph):
 
 class Substitution(AbstractText):
     def __init__(self, text, **kwargs):
-        raise NotImplemented('XXX')
+        raise NotImplementedError('XXX')
 
 class Directive(Paragraph):
     indent = '   '

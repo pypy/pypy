@@ -16,3 +16,6 @@ limitations under the License.
 
 This directory contains the fonts for the platform. They are licensed
 under the Apache 2 license.
+
+FiraMath-Regular.otf is licensed under the Open Font License 1.1, see LICENSE.
+Source: https://github.com/firamath/firamath

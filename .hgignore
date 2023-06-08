@@ -16,7 +16,7 @@ syntax: regexp
 ^testresult$
 ^site-packages$
 ^site-packages/.*$
-^site-packages/.*$
+^bin/
 ^pypy/bin/pypy-c
 ^pypy/lib/
 ^pypy/module/cpyext/src/.+\.o$
@@ -54,6 +54,7 @@ syntax: regexp
 ^rpython/translator/goal/target.+-c$
 ^rpython/translator/goal/.+\.exe$
 ^rpython/translator/goal/.+\.dll$
+^rpython/rlib/test/_hacked_rbigint.py$
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/Makefile$
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/config.guess$
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/config.h$
@@ -94,4 +95,5 @@ syntax: regexp
 .hypothesis/
 ^release/
 ^rpython/_cache$
+^lib/
 

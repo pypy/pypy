@@ -151,6 +151,7 @@ class AppTestFile(object):
         assert type(res) is str
         f.close()
 
+    @pytest.mark.skipif("config.option.runappdirect and sys.platform == 'darwin'")
     def test_unicode_filename(self):
         import sys
         try:

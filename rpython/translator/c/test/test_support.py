@@ -26,7 +26,7 @@ def gen_check(input):
     d = {}
     for _, dst, src in input:
         d[src] = '<value of %s>' % (src,)
-    exec result in d
+    exec(result, d)
     for _, dst, src in input:
         assert d[dst] == '<value of %s>' % (src,)
 

@@ -1,5 +1,4 @@
 import sys
-
 from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
@@ -19,7 +18,6 @@ class Module(MixedModule):
             'interp_connection.W_PipeConnection'
         interpleveldefs['win32'] = 'interp_win32.win32_namespace(space)'
 
-    def init(self, space):
-        MixedModule.init(self, space)
+    def startup(self, space):
         from pypy.module._multiprocessing.interp_connection import State
         space.fromcache(State).init(space)

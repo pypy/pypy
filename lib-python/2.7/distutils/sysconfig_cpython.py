@@ -25,7 +25,12 @@ EXEC_PREFIX = os.path.normpath(sys.exec_prefix)
 # Path to the base directory of the project. On Windows the binary may
 # live in project/PCBuild9.  If we're dealing with an x64 Windows build,
 # it'll live in project/PCbuild/amd64.
-project_base = os.path.dirname(os.path.abspath(sys.executable))
+if sys.executable:
+    project_base = os.path.dirname(os.path.abspath(sys.executable))
+else:
+    # sys.executable can be empty if argv[0] has been changed and Python is
+    # unable to retrieve the real program name
+    project_base = os.getcwd()
 if os.name == "nt" and "pcbuild" in project_base[-8:].lower():
     project_base = os.path.abspath(os.path.join(project_base, os.path.pardir))
 # PC/VS7.1
@@ -79,7 +84,12 @@ def get_python_inc(plat_specific=0, prefix=None):
 
     if os.name == "posix":
         if python_build:
-            buildir = os.path.dirname(sys.executable)
+            if sys.executable:
+                buildir = os.path.dirname(sys.executable)
+            else:
+                # sys.executable can be empty if argv[0] has been changed
+                # and Python is unable to retrieve the real program name
+                buildir = os.getcwd()
             if plat_specific:
                 # python.h is located in the buildir
                 inc_dir = buildir
@@ -171,8 +181,8 @@ def customize_compiler(compiler):
                 _osx_support.customize_compiler(_config_vars)
                 _config_vars['CUSTOMIZED_OSX_COMPILER'] = 'True'
 
-        (cc, cxx, opt, cflags, ccshared, ldshared, so_ext, ar, ar_flags) = \
-            get_config_vars('CC', 'CXX', 'OPT', 'CFLAGS',
+        (cc, cxx, cflags, ccshared, ldshared, so_ext, ar, ar_flags) = \
+            get_config_vars('CC', 'CXX', 'CFLAGS',
                             'CCSHARED', 'LDSHARED', 'SO', 'AR',
                             'ARFLAGS')
 
@@ -196,7 +206,7 @@ def customize_compiler(compiler):
         if 'LDFLAGS' in os.environ:
             ldshared = ldshared + ' ' + os.environ['LDFLAGS']
         if 'CFLAGS' in os.environ:
-            cflags = opt + ' ' + os.environ['CFLAGS']
+            cflags = cflags + ' ' + os.environ['CFLAGS']
             ldshared = ldshared + ' ' + os.environ['CFLAGS']
         if 'CPPFLAGS' in os.environ:
             cpp = cpp + ' ' + os.environ['CPPFLAGS']

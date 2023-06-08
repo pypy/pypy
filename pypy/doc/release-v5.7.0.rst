@@ -39,7 +39,7 @@ growing community of PyPy users. We strongly recommend updating.
 
 You can download the v5.7 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project.
@@ -80,8 +80,8 @@ The PyPy 2.7 release supports:
 
   * **s390x** running Linux
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 Highlights of the PyPy2.7, cpyext, and RPython changes (since 5.6 released Nov, 2016)
 =====================================================================================

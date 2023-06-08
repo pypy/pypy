@@ -7,7 +7,7 @@ due to issues_ reported by users.
 
 Thanks to those who reported the issues.
 
-.. _issues: http://doc.pypy.org/en/latest/whatsnew-pypy2-5.3.1.html
+.. _issues: https://doc.pypy.org/en/latest/whatsnew-pypy2-5.3.1.html
 
 What is PyPy?
 =============
@@ -30,8 +30,8 @@ This release supports:
 
   * **s390x** running Linux
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://pypyjs.org
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://pypyjs.org
 
 Please update, and continue to help us make PyPy better.
 

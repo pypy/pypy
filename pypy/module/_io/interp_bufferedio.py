@@ -9,7 +9,7 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.buffer import SimpleView
 
-from rpython.rlib.buffer import ByteBuffer, SubBuffer
+from rpython.rlib.buffer import ByteBuffer, RawByteBuffer, SubBuffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
@@ -152,7 +152,14 @@ class BufferedMixin:
             raise oefmt(space.w_ValueError,
                         "buffer size must be strictly positive")
 
-        self.buffer = ByteBuffer(self.buffer_size)
+        if space.config.translation.split_gc_address_space:
+            # When using split GC address space, it is not possible to get the
+            # raw address of a GC buffer. Therefore we use a buffer backed by
+            # raw memory.
+            self.buffer = RawByteBuffer(self.buffer_size)
+        else:
+            # TODO: test whether using the raw buffer is faster
+            self.buffer = ByteBuffer(self.buffer_size)
 
         self.lock = TryLock(space)
 
@@ -307,6 +314,7 @@ class BufferedMixin:
         finally:
             with self.lock:
                 space.call_method(self.w_raw, "close")
+        self.buffer = None
 
     def simple_flush_w(self, space):
         self._check_init(space)
@@ -378,6 +386,7 @@ class BufferedMixin:
     @unwrap_spec(w_size = WrappedDefault(None))
     def truncate_w(self, space, w_size):
         self._check_init(space)
+        self._check_closed(space, "truncate of closed file")
         with self.lock:
             if self.writable:
                 self._flush_and_rewind_unlocked(space)
@@ -668,8 +677,7 @@ class BufferedMixin:
                 pos = 0
                 found = False
                 while pos < have:
-                    # 'buffer.data[]' instead of 'buffer[]' because RPython...
-                    c = self.buffer.data[pos]
+                    c = self.buffer.getitem(pos)
                     pos += 1
                     if c == '\n':
                         self.pos = pos
@@ -731,8 +739,7 @@ class BufferedMixin:
                     self._reader_reset_buf()
                 # Make some place by shifting the buffer
                 for i in range(self.write_pos, self.write_end):
-                    # XXX: messing with buffer internals
-                    self.buffer.data[i - self.write_pos] = self.buffer.data[i]
+                    self.buffer.setitem(i - self.write_pos, self.buffer.getitem(i))
                 self.write_end -= self.write_pos
                 self.raw_pos -= self.write_pos
                 newpos = self.pos - self.write_pos

@@ -55,8 +55,8 @@ class TestServerThread(threading.Thread):
         self.test_object = test_object
 
     def run(self):
-        self.server = HTTPServer(('', 0), self.request_handler)
-        self.test_object.PORT = self.server.socket.getsockname()[1]
+        self.server = HTTPServer(('localhost', 0), self.request_handler)
+        self.test_object.HOST, self.test_object.PORT = self.server.socket.getsockname()
         self.test_object.server_started.set()
         self.test_object = None
         try:
@@ -66,6 +66,7 @@ class TestServerThread(threading.Thread):
 
     def stop(self):
         self.server.shutdown()
+        self.join()
 
 
 class BaseTestCase(unittest.TestCase):
@@ -83,7 +84,7 @@ class BaseTestCase(unittest.TestCase):
         test_support.threading_cleanup(*self._threads)
 
     def request(self, uri, method='GET', body=None, headers={}):
-        self.connection = httplib.HTTPConnection('localhost', self.PORT)
+        self.connection = httplib.HTTPConnection(self.HOST, self.PORT)
         self.connection.request(method, uri, body, headers)
         return self.connection.getresponse()
 
@@ -186,7 +187,7 @@ class BaseHTTPServerTestCase(BaseTestCase):
 
     def setUp(self):
         BaseTestCase.setUp(self)
-        self.con = httplib.HTTPConnection('localhost', self.PORT)
+        self.con = httplib.HTTPConnection(self.HOST, self.PORT)
         self.con.connect()
 
     def test_command(self):
@@ -349,6 +350,55 @@ class SimpleHTTPServerTestCase(BaseTestCase):
         self.assertIsNotNone(response.reason)
         if data:
             self.assertEqual(data, body)
+
+    def test_get_dir_redirect_location_domain_injection_bug(self):
+        """Ensure //evil.co/..%2f../../X does not put //evil.co/ in Location.
+
+        //netloc/ in a Location header is a redirect to a new host.
+        https://github.com/python/cpython/issues/87389
+
+        This checks that a path resolving to a directory on our server cannot
+        resolve into a redirect to another server.
+        """
+        os.mkdir(os.path.join(self.tempdir, 'existing_directory'))
+        url = '/python.org/..%2f..%2f..%2f..%2f..%2f../%0a%0d/../{self.tempdir_name}/existing_directory'.format(self=self)
+        expected_location = '{url}/'.format(url=url)  # /python.org.../ single slash single prefix, trailing slash
+        # Canonicalizes to /tmp/tempdir_name/existing_directory which does
+        # exist and is a dir, triggering the 301 redirect logic.
+        response = self.request(url)
+        self.check_status_and_reason(response, 301)
+        location = response.getheader('Location')
+        self.assertEqual(location, expected_location, msg='non-attack failed!')
+
+        # //python.org... multi-slash prefix, no trailing slash
+        attack_url = '/{url}'.format(url=url)
+        response = self.request(attack_url)
+        self.check_status_and_reason(response, 301)
+        location = response.getheader('Location')
+        self.assertFalse(location.startswith('//'), msg=location)
+        self.assertEqual(location, expected_location,
+                msg='Expected Location header to start with a single / and '
+                'end with a / as this is a directory redirect.')
+
+        # ///python.org... triple-slash prefix, no trailing slash
+        attack3_url = '//{url}'.format(url=url)
+        response = self.request(attack3_url)
+        self.check_status_and_reason(response, 301)
+        self.assertEqual(response.getheader('Location'), expected_location)
+
+        # If the second word in the http request (Request-URI for the http
+        # method) is a full URI, we don't worry about it, as that'll be parsed
+        # and reassembled as a full URI within BaseHTTPRequestHandler.send_head
+        # so no errant scheme-less //netloc//evil.co/ domain mixup can happen.
+        attack_scheme_netloc_2slash_url = 'https://pypi.org/{url}'.format(url=url)
+        expected_scheme_netloc_location = '{}/'.format(attack_scheme_netloc_2slash_url)
+        response = self.request(attack_scheme_netloc_2slash_url)
+        self.check_status_and_reason(response, 301)
+        location = response.getheader('Location')
+        # We're just ensuring that the scheme and domain make it through, if
+        # there are or aren't multiple slashes at the start of the path that
+        # follows that isn't important in this Location: header.
+        self.assertTrue(location.startswith('https://pypi.org/'), msg=location)
 
     def test_get(self):
         #constructs the path relative to the root directory of the HTTPServer

@@ -342,6 +342,10 @@ class AppTestBytesObject:
         assert 'one'.replace(buffer('o'), buffer('n'), 1) == 'nne'
         assert 'one'.replace(buffer('o'), buffer('n')) == 'nne'
 
+    def test_replace_no_occurrence(self):
+        x = b"xyz"
+        assert x.replace(b"a", b"b") is x
+
     def test_strip(self):
         s = " a b "
         assert s.strip() == "a b"
@@ -632,7 +636,6 @@ class AppTestBytesObject:
     def test_unicode_join_str_arg_ascii(self):
         raises(UnicodeDecodeError, u''.join, ['\xc3\xa1'])
 
-    @pytest.mark.xfail(reason='setdefaultencoding does not work?')
     def test_unicode_join_str_arg_utf8(self):
         # Need default encoding utf-8, but sys.setdefaultencoding
         # is removed after startup.
@@ -940,3 +943,9 @@ class AppTestBytesObject:
         if hasattr(bytes.upper, 'im_func'):
             e = raises(TypeError, bytes.upper.im_func, 42)
             assert "'str'" in str(e.value)
+
+    def test_is_bug(self):
+        assert 'a' is 'a'
+        assert 'a' is not ''
+        assert '' is not 'a'
+        assert '' is ''

@@ -24,22 +24,32 @@
 
 #ifdef RPY_WITH_GIL
 # include <src/thread.h>
+# include <src/threadlocal.h>
 #endif
 
 #ifdef RPY_REVERSE_DEBUGGER
 # include <src-revdb/revdb_include.h>
 #endif
 
+static char already_initialized_non_threadsafe;
+static void mark_initialized_now() { already_initialized_non_threadsafe = 1; }
+
 RPY_EXPORTED
-void rpython_startup_code(void)
+int rpython_startup_code(void)
 {
+    if (already_initialized_non_threadsafe)
+        return 67;
+
 #ifdef RPY_WITH_GIL
+    RPython_ThreadLocals_ProgramInit();
     RPyGilAcquire();
 #endif
     RPython_StartupCode();
+    mark_initialized_now();
 #ifdef RPY_WITH_GIL
     RPyGilRelease();
 #endif
+    return 0;
 }
 
 
@@ -60,6 +70,7 @@ int pypy_main_function(int argc, char *argv[])
        program starts threads, it needs to call rgil.gil_allocate().
        RPyGilAcquire() still works without that, but crash if it finds
        that it really needs to wait on a mutex. */
+    RPython_ThreadLocals_ProgramInit();
     RPyGilAcquire();
 #endif
 
@@ -79,6 +90,7 @@ int pypy_main_function(int argc, char *argv[])
 #endif
 
     RPython_StartupCode();
+    mark_initialized_now();
 
 #ifndef RPY_REVERSE_DEBUGGER
     exitcode = STANDALONE_ENTRY_POINT(argc, argv);
@@ -94,6 +106,7 @@ int pypy_main_function(int argc, char *argv[])
     }
 
     pypy_malloc_counters_results();
+    pypy_print_field_stats();
 
 #ifdef RPY_WITH_GIL
     RPyGilRelease();

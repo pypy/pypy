@@ -27,6 +27,16 @@ class ThreadLocalTest(object):
         res = self.interp_operations(f, [])
         assert res == 0x92
 
+    def test_threadlocalref_get_loopinvariant(self):
+        tlfield = rthread.ThreadLocalField(lltype.Signed, 'foobar_test_', True)
+
+        def f():
+            tlfield.setraw(0x544c)
+            return tlfield.getraw() + tlfield.getraw()
+
+        res = self.interp_operations(f, [])
+        assert res == 0x544c * 2
+        self.check_operations_history(call_loopinvariant_i=1)
 
 class TestLLtype(ThreadLocalTest, LLJitMixin):
     pass

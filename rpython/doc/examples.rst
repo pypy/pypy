@@ -30,7 +30,7 @@ Complete, functioning, but inactive
 
   * Converge 2, complete, last release version 2.1 in Feb 2015, http://convergepl.org/
   * Pyrolog, Prolog, core complete, extensions missing, last commit in Nov
-    2015, http://bitbucket.org/cfbolz/pyrolog
+    2015, https://hg.sr.ht/~cfbolz/Pyrolog
   * PyPy.js, compiles PyPy to Javascript via emscripten_, with a custom JIT 
     backend that emits asm.js_ code at runtime, http://pypyjs.org
 

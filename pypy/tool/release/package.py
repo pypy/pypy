@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from __future__ import print_function 
+from __future__ import print_function
 """ packages PyPy, provided that it's already built.
 It uses 'pypy/goal/pypy-c' and parts of the rest of the working
 copy.  Usage:
@@ -21,18 +21,27 @@ sys.path.insert(0,basedir)
 import py
 import fnmatch
 import subprocess
-import glob
 import platform
 from pypy.tool.release.smartstrip import smartstrip
 from pypy.tool.release.make_portable import make_portable
 
-USE_ZIPFILE_MODULE = sys.platform == 'win32'
+
+def get_arch():
+    if sys.platform in ('win32', 'darwin'):
+        return sys.platform
+    else:
+        return platform.uname()[-1]
+
+ARCH = get_arch()
+
+
+USE_ZIPFILE_MODULE = ARCH == 'win32'
 
 STDLIB_VER = "2.7"
 
 POSIX_EXE = 'pypy'
 
-from lib_pypy.tools.build_cffi_imports import (create_cffi_import_libraries,
+from lib_pypy.pypy_tools.build_cffi_imports import (create_cffi_import_libraries,
         MissingDependenciesError, cffi_build_scripts)
 
 def ignore_patterns(*patterns):
@@ -51,16 +60,19 @@ class PyPyCNotFound(Exception):
     pass
 
 def fix_permissions(dirname):
-    if sys.platform != 'win32':
+    if ARCH != 'win32':
         os.system("chmod -R a+rX %s" % dirname)
         os.system("chmod -R g-w %s" % dirname)
 
 
-def pypy_runs(pypy_c, quiet=False):
-    kwds = {}
+def get_python_ver(pypy_c, quiet=False):
+    kwds = {'universal_newlines': True}
     if quiet:
-        kwds['stderr'] = subprocess.PIPE
-    return subprocess.call([str(pypy_c), '-c', 'pass'], **kwds) == 0
+        kwds['stderr'] = subprocess.NULL
+    ver = subprocess.check_output([str(pypy_c), '-c',
+             'import sysconfig as s; print(s.get_python_version())'], **kwds)
+    return ver.strip()
+
 
 def create_package(basedir, options, _fake=False):
     retval = 0
@@ -74,7 +86,7 @@ def create_package(basedir, options, _fake=False):
     basedir = py.path.local(basedir)
     if not override_pypy_c:
         basename = POSIX_EXE + '-c'
-        if sys.platform == 'win32':
+        if ARCH == 'win32':
             basename += '.exe'
         pypy_c = basedir.join('pypy', 'goal', basename)
     else:
@@ -85,12 +97,22 @@ def create_package(basedir, options, _fake=False):
             ' Please compile pypy first, using translate.py,'
             ' or check that you gave the correct path'
             ' with --override_pypy_c' % pypy_c)
-    if not _fake and not pypy_runs(pypy_c):
-        raise OSError("Running %r failed!" % (str(pypy_c),))
+    builddir = py.path.local(options.builddir)
+    pypydir = builddir.ensure(name, dir=True)
+    lib_pypy = pypydir.join('lib_pypy')
+    # do not create lib_pypy yet, it will be created by the copytree below
+    if _fake:
+        python_ver = '2.7'
+    else:
+        python_ver = get_python_ver(pypy_c)
+    if ARCH == 'win32':
+        os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
+                            os.environ.get('PATH', '')
     if not options.no_cffi:
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),
             embed_dependencies=options.embed_dependencies,
+            rebuild=options.rebuild_extensions,
         )
 
         for key, module in failures:
@@ -102,15 +124,15 @@ def create_package(basedir, options, _fake=False):
         if len(failures) > 0:
             return 1, None
 
-    if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
+    if ARCH == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c, None)]
 
-    if (sys.platform != 'win32' and    # handled below
+    if (ARCH != 'win32' and    # handled below
         not _fake and os.path.getsize(str(pypy_c)) < 500000):
         # This 'pypy_c' is very small, so it means it relies on a so/dll
         # If it would be bigger, it wouldn't.  That's a hack.
-        if sys.platform.startswith('darwin'):
+        if ARCH.startswith('darwin'):
             ext = 'dylib'
         else:
             ext = 'so'
@@ -121,32 +143,46 @@ def create_package(basedir, options, _fake=False):
                                 'not find it' % (str(libpypy_c),))
         binaries.append((libpypy_c, libpypy_name, None))
     #
-    builddir = py.path.local(options.builddir)
-    pypydir = builddir.ensure(name, dir=True)
-    lib_pypy = pypydir.join('lib_pypy')
-    # do not create lib_pypy yet, it will be created by the copytree below
 
     includedir = basedir.join('include')
     shutil.copytree(str(includedir), str(pypydir.join('include')))
     pypydir.ensure('include', dir=True)
 
-    if sys.platform == 'win32':
-        os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
-                            os.environ.get('PATH', '')
+    if ARCH == 'win32':
         src, tgt, _ = binaries[0]
         pypyw = src.new(purebasename=src.purebasename + 'w')
         if pypyw.exists():
             tgt = py.path.local(tgt)
             binaries.append((pypyw, tgt.new(purebasename=tgt.purebasename + 'w').basename, None))
             print("Picking %s" % str(pypyw))
+            binaries.append((pypyw, 'pythonw.exe', None))
+            print('Picking {} as pythonw.exe'.format(pypyw))
+            binaries.append((pypyw, 'pypyw.exe', None))
+            print('Picking {} as pypyw.exe'.format(pypyw))
+        binaries.append((src, 'python.exe', None))
+        print('Picking {} as python.exe'.format(src))
+        binaries.append((src, 'pypy.exe', None))
+        print('Picking {} as pypy.exe'.format(src))
+        binaries.append((src, 'pypy{}.exe'.format(python_ver), None))
+        print('Picking {} as pypy{}.exe'.format(src, python_ver))
+        binaries.append((src, 'python{}.exe'.format(python_ver), None))
+        print('Picking {} as python{}.exe'.format(src, python_ver))
+        binaries.append((src, 'pypy{}.exe'.format(python_ver[0]), None))
+        print('Picking {} as pypy{}.exe'.format(src, python_ver[0]))
+        binaries.append((src, 'python{}.exe'.format(python_ver[0]), None))
+        print('Picking {} as python{}.exe'.format(src, python_ver[0]))
         # Can't rename a DLL
         win_extras = [('lib' + POSIX_EXE + '-c.dll', None),
-                      ('sqlite3.dll', lib_pypy)]
-        if not options.no_tk:
+                      ('sqlite3.dll', lib_pypy),
+                      ('libffi-8.dll', None),
+                     ]
+        if not options.no__tkinter:
             tkinter_dir = lib_pypy.join('_tkinter')
-            win_extras += [('tcl85.dll', tkinter_dir), ('tk85.dll', tkinter_dir)]
-
-        for extra,target_dir in win_extras:
+            win_extras += [('tcl86t.dll', tkinter_dir), ('tk86t.dll', tkinter_dir)]
+            # for testing, copy the dlls to the `base_dir` as well
+            tkinter_dir = basedir.join('lib_pypy', '_tkinter')
+            win_extras += [('tcl86t.dll', tkinter_dir), ('tk86t.dll', tkinter_dir)]
+        for extra, target_dir in win_extras:
             p = pypy_c.dirpath().join(extra)
             if not p.check():
                 p = py.path.local.sysfind(extra)
@@ -169,17 +205,17 @@ def create_package(basedir, options, _fake=False):
             # Has the lib moved, was translation not 'shared', or are
             # there no exported functions in the dll so no import
             # library was created?
-        if not options.no_tk:
+        if not options.no__tkinter:
             try:
-                p = pypy_c.dirpath().join('tcl85.dll')
+                p = pypy_c.dirpath().join('tcl86t.dll')
                 if not p.check():
-                    p = py.path.local.sysfind('tcl85.dll')
+                    p = py.path.local.sysfind('tcl86t.dll')
                     if p is None:
-                        raise WindowsError("tcl85.dll not found")
+                        raise WindowsError("tcl86t.dll not found")
                 tktcldir = p.dirpath().join('..').join('lib')
                 shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
             except WindowsError:
-                print("Packaging Tk runtime failed. tk85.dll and tcl85.dll "
+                print("Packaging Tk runtime failed. tk86t.dll and tcl86t.dll "
                       "found in %s, expecting to find runtime in %s directory "
                       "next to the dlls, as per build "
                       "instructions." %(p, tktcldir), file=sys.stderr)
@@ -197,7 +233,8 @@ def create_package(basedir, options, _fake=False):
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')), str(lib_pypy),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
-                                           '*_cffi.c', '*.o', '*.pyd-*'))
+                                           '*_cffi.c', '*.o', '*.pyd-*', '*.obj',
+                                           '*.lib', '*.exp', '*.manifest'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
@@ -213,40 +250,44 @@ def create_package(basedir, options, _fake=False):
     spdir = pypydir.ensure('site-packages', dir=True)
     shutil.copy(str(basedir.join('site-packages', 'README')), str(spdir))
     #
-    if sys.platform == 'win32':
+    if ARCH == 'win32':
         bindir = pypydir
     else:
         bindir = pypydir.join('bin')
         bindir.ensure(dir=True)
-    for source, target, target_dir in binaries:
+    for source, dst, target_dir in binaries:
         if target_dir:
-            archive = target_dir.join(target)
+            archive = target_dir.join(dst)
         else:
-            archive = bindir.join(target)
+            archive = bindir.join(dst)
         if not _fake:
             shutil.copy(str(source), str(archive))
         else:
             open(str(archive), 'wb').close()
         os.chmod(str(archive), 0755)
-    #if not _fake and not sys.platform == 'win32':
-    #    # create the pypy3 symlink
-    #    old_dir = os.getcwd()
-    #    os.chdir(str(bindir))
-    #    try:
-    #        os.symlink(POSIX_EXE, 'pypy3')
-    #    finally:
-    #        os.chdir(old_dir)
+    if not _fake and not ARCH == 'win32':
+        # create a link to pypy, python
+        old_dir = os.getcwd()
+        os.chdir(str(bindir))
+        try:
+            os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver))
+            os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver[0]))
+            os.symlink(POSIX_EXE, 'python')
+            os.symlink(POSIX_EXE, 'python{}'.format(python_ver))
+            os.symlink(POSIX_EXE, 'python{}'.format(python_ver[0]))
+        finally:
+            os.chdir(old_dir)
     fix_permissions(pypydir)
 
     old_dir = os.getcwd()
     try:
         os.chdir(str(builddir))
         if not _fake:
-            for source, target, target_dir in binaries:
+            for source, dst, target_dir in binaries:
                 if target_dir:
-                    archive = target_dir.join(target)
+                    archive = target_dir.join(dst)
                 else:
-                    archive = bindir.join(target)
+                    archive = bindir.join(dst)
                 smartstrip(archive, keep_debug=options.keep_debug)
 
             # make the package portable by adding rpath=$ORIGIN/..lib,
@@ -269,19 +310,19 @@ def create_package(basedir, options, _fake=False):
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            if sys.platform == 'darwin':
+            if ARCH == 'darwin':
                 print("Warning: tar on current platform does not suport "
                       "overriding the uid and gid for its contents. The tarball "
                       "will contain your uid and gid. If you are building the "
                       "actual release for the PyPy website, you may want to be "
                       "using another platform...", file=sys.stderr)
-                e = os.system('tar --numeric-owner -cvjf ' + archive + " " + name)
+                e = os.system('tar --numeric-owner -cjf ' + archive + " " + name)
             elif sys.platform.startswith('freebsd'):
-                e = os.system('tar --uname=root --gname=wheel -cvjf ' + archive + " " + name)
+                e = os.system('tar --uname=root --gname=wheel -cjf ' + archive + " " + name)
             elif sys.platform == 'cygwin':
-                e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cvjf ' + archive + " " + name)
+                e = os.system('tar --owner=Administrator --group=Administrators --numeric-owner -cjf ' + archive + " " + name)
             else:
-                e = os.system('tar --owner=root --group=root --numeric-owner -cvjf ' + archive + " " + name)
+                e = os.system('tar --owner=root --group=root --numeric-owner -cjf ' + archive + " " + name)
             if e:
                 raise OSError('"tar" returned exit status %r' % e)
     finally:
@@ -304,7 +345,7 @@ def package(*args, **kwds):
         def __call__(self, parser, ns, values, option):
             setattr(ns, self.dest, option[2:4] != 'no')
 
-    if sys.platform == 'win32':
+    if ARCH == 'win32':
         pypy_exe = POSIX_EXE + '.exe'
     else:
         pypy_exe = POSIX_EXE
@@ -312,8 +353,6 @@ def package(*args, **kwds):
     args = list(args)
     if args:
         args[0] = str(args[0])
-    else:
-        args.append('--help')
     for key, module in sorted(cffi_build_scripts.items()):
         if module is not None:
             parser.add_argument('--without-' + key,
@@ -337,12 +376,19 @@ def package(*args, **kwds):
     parser.add_argument('--embedded-dependencies', '--no-embedded-dependencies',
                         dest='embed_dependencies',
                         action=NegateAction,
-                        default=(sys.platform == 'darwin'),
+                        default=(ARCH in ('darwin', 'aarch64', 'x86_64')),
                         help='whether to embed dependencies in CFFI modules '
-                        '(default on OS X)')
-    parser.add_argument('--make-portable',
+                        '(default on macOS, aarch64, x86_64)')
+    parser.add_argument('--rebuild-extensions', '--no-rebuild',
+                        dest='rebuild_extensions',
+                        action=NegateAction,
+                        default=(ARCH in ('darwin', 'aarch64', 'x86_64')),
+                        help='whether to force rebuilding CFFI modules '
+                        '(default on macOS, aarch64, x86_64)')
+    parser.add_argument('--make-portable', '--no-make-portable',
                         dest='make_portable',
-                        action='store_true',
+                        action=NegateAction,
+                        default=(ARCH in ('darwin',)),
                         help='make the package portable by shipping '
                             'dependent shared objects and mangling RPATH')
     options = parser.parse_args(args)
@@ -350,11 +396,15 @@ def package(*args, **kwds):
     if os.environ.has_key("PYPY_PACKAGE_NOKEEPDEBUG"):
         options.keep_debug = False
     if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
-        options.no_tk = True
+        options.no__tkinter = True
     if os.environ.has_key("PYPY_EMBED_DEPENDENCIES"):
         options.embed_dependencies = True
     elif os.environ.has_key("PYPY_NO_EMBED_DEPENDENCIES"):
         options.embed_dependencies = False
+    if os.environ.has_key("PYPY_REBUILD_EXTENSIONS"):
+        options.rebuild_extensions = True
+    elif os.environ.has_key("PYPY_NO_REBUILD_EXTENSIONS"):
+        options.rebuild_extensions = False
     if os.environ.has_key("PYPY_MAKE_PORTABLE"):
         options.make_portable = True
     if not options.builddir:
@@ -371,7 +421,7 @@ def package(*args, **kwds):
 
 if __name__ == '__main__':
     import sys
-    if sys.platform == 'win32':
+    if ARCH == 'win32':
         # Try to avoid opeing a dialog box if one of the
         # subprocesses causes a system error
         import ctypes

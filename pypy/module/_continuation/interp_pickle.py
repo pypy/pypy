@@ -29,7 +29,7 @@ def reduce(self):
     w_dict = self.getdict(space) or space.w_None
     args = [getunpickle(space),
             space.newtuple([w_continulet_type]),
-            space.newtuple([w_frame, w_dict]),
+            space.newtuple2(w_frame, w_dict),
             ]
     return space.newtuple(args)
 

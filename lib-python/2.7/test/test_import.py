@@ -87,6 +87,8 @@ class ImportTests(unittest.TestCase):
                     "module loaded (%s) but contents invalid" % mod)
             finally:
                 if check_impl_detail(pypy=False):
+                    # pypy refuses the import the .pyc file (below) after
+                    # we remove the .py file
                     unlink(source)
 
             try:
@@ -98,6 +100,8 @@ class ImportTests(unittest.TestCase):
                 unlink(pyc)
                 unlink(pyo)
                 unload(TESTFN)
+                # in pypy, remove the .py file now (instead of above)
+                unlink(source)
 
         sys.path.insert(0, os.curdir)
         try:
@@ -406,20 +410,19 @@ class ImportTests(unittest.TestCase):
     def test_replace_parent_in_sys_modules(self):
         dir_name = os.path.abspath(TESTFN)
         os.mkdir(dir_name)
-        try:
-            pkg_dir = os.path.join(dir_name, 'sa')
-            os.mkdir(pkg_dir)
-            with open(os.path.join(pkg_dir, '__init__.py'), 'w') as init_file:
-                init_file.write("import v1")
-            with open(os.path.join(pkg_dir, 'v1.py'), 'w') as v1_file:
-                v1_file.write("import sys;"
-                              "sys.modules['sa'] = sys.modules[__name__];"
-                              "import sa")
-            sys.path.insert(0, dir_name)
-            # a segfault means the test failed!
-            import sa
-        finally:
-            rmtree(dir_name)
+        self.addCleanup(rmtree, dir_name)
+        pkg_dir = os.path.join(dir_name, 'sa')
+        os.mkdir(pkg_dir)
+        with open(os.path.join(pkg_dir, '__init__.py'), 'w') as init_file:
+            init_file.write("import v1")
+        with open(os.path.join(pkg_dir, 'v1.py'), 'w') as v1_file:
+            v1_file.write("import sys;"
+                          "sys.modules['sa'] = sys.modules[__name__];"
+                          "import sa")
+        sys.path.insert(0, dir_name)
+        self.addCleanup(sys.path.pop, 0)
+        # a segfault means the test failed!
+        import sa
 
     def test_fromlist_type(self):
         with self.assertRaises(TypeError) as cm:
@@ -556,7 +559,7 @@ class PathsTests(unittest.TestCase):
         try:
             os.listdir(unc)
         except OSError as e:
-            if e.errno in (errno.EPERM, errno.EACCES):
+            if e.errno in (errno.EPERM, errno.EACCES, errno.ENOENT):
                 # See issue #15338
                 self.skipTest("cannot access administrative share %r" % (unc,))
             raise

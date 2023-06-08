@@ -204,16 +204,16 @@ class ToAppLevelConverter(object):
             intval = self.get_signed(w_ffitype)
             return space.newint(intval)
         elif (w_ffitype is app_types.ulonglong or
-              w_ffitype is app_types.ulong or (libffi.IS_32_BIT and
-                                               w_ffitype is app_types.uint)):
+              (not libffi.IS_WIN64 and w_ffitype is app_types.ulong) or
+              (libffi.IS_32_BIT and w_ffitype is app_types.uint)):
             # Note that we the second check (for ulonglong) is meaningful only
             # on 64 bit, because on 32 bit the ulonglong case would have been
             # handled by the is_longlong() branch above. On 64 bit, ulonglong
-            # is essentially the same as ulong.
+            # is essentially the same as ulong unless we are on win64.
             #
-            # We need to be careful when the return type is ULONG, because the
-            # value might not fit into a signed LONG, and thus might require
-            # and app-evel <long>.  This is why we need to treat it separately
+            # We need to be careful when the return type is ULONGLONG, because
+            # the value might not fit into a SIGNED, and thus might require
+            # an app-level <long>.  This is why we need to treat it separately
             # than the other unsigned types.
             uintval = self.get_unsigned(w_ffitype)
             return space.newint(uintval)

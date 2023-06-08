@@ -14,7 +14,7 @@ def GetCConfigGlobal():
 
     class CConfigGlobal:
         _compilation_info_ = ExternalCompilationInfo(
-            includes = ['windows.h', 'winbase.h', 'sys/stat.h'],
+            includes = ['windows.h', 'winbase.h', 'sys/stat.h', 'fcntl.h'],
         )
         ERROR_FILE_NOT_FOUND = platform.ConstantInteger(
             'ERROR_FILE_NOT_FOUND')
@@ -31,28 +31,49 @@ def GetCConfigGlobal():
             'INVALID_FILE_ATTRIBUTES')
         ERROR_SHARING_VIOLATION = platform.ConstantInteger(
             'ERROR_SHARING_VIOLATION')
-        ERROR_ACCESS_DENIED = platform.ConstantInteger(
-            'ERROR_ACCESS_DENIED')
+        ERROR_ACCESS_DENIED = platform.ConstantInteger('ERROR_ACCESS_DENIED')
+        ERROR_CANT_ACCESS_FILE = platform.ConstantInteger(
+            'ERROR_CANT_ACCESS_FILE')
+        ERROR_INVALID_PARAMETER = platform.ConstantInteger(
+            'ERROR_INVALID_PARAMETER')
+        ERROR_NOT_SUPPORTED = platform.ConstantInteger(
+            'ERROR_NOT_SUPPORTED')
+        ERROR_INVALID_FUNCTION = platform.ConstantInteger(
+            'ERROR_INVALID_FUNCTION')
         MOVEFILE_REPLACE_EXISTING = platform.ConstantInteger(
             'MOVEFILE_REPLACE_EXISTING')
         _S_IFDIR = platform.ConstantInteger('_S_IFDIR')
         _S_IFREG = platform.ConstantInteger('_S_IFREG')
         _S_IFCHR = platform.ConstantInteger('_S_IFCHR')
         _S_IFIFO = platform.ConstantInteger('_S_IFIFO')
+        _O_APPEND = platform.ConstantInteger('_O_APPEND')
+        _O_CREAT  = platform.ConstantInteger('_O_CREAT')
+        _O_EXCL   = platform.ConstantInteger('_O_EXCL')
+        _O_RDONLY = platform.ConstantInteger('_O_RDONLY')
+        _O_RDWR   = platform.ConstantInteger('_O_RDWR')
+        _O_TRUNC  = platform.ConstantInteger('_O_TRUNC')
+        _O_WRONLY = platform.ConstantInteger('_O_WRONLY')
+        _O_BINARY = platform.ConstantInteger('_O_BINARY')
         FILE_TYPE_UNKNOWN = platform.ConstantInteger('FILE_TYPE_UNKNOWN')
         FILE_TYPE_CHAR = platform.ConstantInteger('FILE_TYPE_CHAR')
         FILE_TYPE_PIPE = platform.ConstantInteger('FILE_TYPE_PIPE')
-
-        FILE_READ_ATTRIBUTES = platform.ConstantInteger(
-            'FILE_READ_ATTRIBUTES')
+        FILE_TYPE_DISK = platform.ConstantInteger('FILE_TYPE_DISK')
+        FILE_READ_ATTRIBUTES = platform.ConstantInteger('FILE_READ_ATTRIBUTES')
         FILE_WRITE_ATTRIBUTES = platform.ConstantInteger(
             'FILE_WRITE_ATTRIBUTES')
-        OPEN_EXISTING = platform.ConstantInteger(
-            'OPEN_EXISTING')
+        GENERIC_READ = platform.ConstantInteger('GENERIC_READ')
+        FILE_SHARE_READ = platform.ConstantInteger('FILE_SHARE_READ')
+        FILE_SHARE_WRITE = platform.ConstantInteger('FILE_SHARE_WRITE')
+        OPEN_EXISTING = platform.ConstantInteger('OPEN_EXISTING')
         FILE_ATTRIBUTE_NORMAL = platform.ConstantInteger(
             'FILE_ATTRIBUTE_NORMAL')
         FILE_FLAG_BACKUP_SEMANTICS = platform.ConstantInteger(
             'FILE_FLAG_BACKUP_SEMANTICS')
+        FILE_FLAG_OPEN_REPARSE_POINT = platform.ConstantInteger(
+            'FILE_FLAG_OPEN_REPARSE_POINT')
+        FILE_ATTRIBUTE_REPARSE_POINT = platform.ConstantInteger(
+            'FILE_ATTRIBUTE_REPARSE_POINT')
+        FileAttributeTagInfo = platform.ConstantInteger('FileAttributeTagInfo')
         VOLUME_NAME_DOS = platform.ConstantInteger('VOLUME_NAME_DOS')
         VOLUME_NAME_NT = platform.ConstantInteger('VOLUME_NAME_NT')
 
@@ -78,6 +99,11 @@ def GetCConfigGlobal():
              ('nFileIndexHigh', rwin32.DWORD),
              ('nFileIndexLow', rwin32.DWORD)])
 
+        FILE_ATTRIBUTE_TAG_INFO = platform.Struct(
+            'FILE_ATTRIBUTE_TAG_INFO',
+            [('FileAttributes', rwin32.DWORD),
+             ('ReparseTag', rwin32.DWORD)])
+
     return CConfigGlobal
 
 config_global = None
@@ -101,11 +127,13 @@ def make_win32_traits(traits):
             'struct _WIN32_FIND_DATA' + suffix,
             # Only interesting fields
             [('dwFileAttributes', rwin32.DWORD),
-             ('nFileSizeHigh', rwin32.DWORD),
-             ('nFileSizeLow', rwin32.DWORD),
              ('ftCreationTime', rwin32.FILETIME),
              ('ftLastAccessTime', rwin32.FILETIME),
              ('ftLastWriteTime', rwin32.FILETIME),
+             ('nFileSizeHigh', rwin32.DWORD),
+             ('nFileSizeLow', rwin32.DWORD),
+             ('dwReserved0', rwin32.DWORD),
+             ('dwReserved1', rwin32.DWORD),
              ('cFileName', lltype.FixedSizeArray(traits.CHAR, 250))])
 
     if config_global is None:
@@ -121,18 +149,26 @@ def make_win32_traits(traits):
     class Win32Traits:
         apisuffix = suffix
 
-        for name in '''WIN32_FIND_DATA WIN32_FILE_ATTRIBUTE_DATA BY_HANDLE_FILE_INFORMATION
+        for name in '''WIN32_FIND_DATA WIN32_FILE_ATTRIBUTE_DATA
+                       BY_HANDLE_FILE_INFORMATION
+                       FILE_ATTRIBUTE_TAG_INFO
                        GetFileExInfoStandard
                        FILE_ATTRIBUTE_DIRECTORY FILE_ATTRIBUTE_READONLY
                        INVALID_FILE_ATTRIBUTES
                        _S_IFDIR _S_IFREG _S_IFCHR _S_IFIFO
                        FILE_TYPE_UNKNOWN FILE_TYPE_CHAR FILE_TYPE_PIPE
+                       ERROR_INVALID_PARAMETER FILE_TYPE_DISK GENERIC_READ
+                       FILE_SHARE_READ FILE_SHARE_WRITE ERROR_NOT_SUPPORTED
+                       FILE_FLAG_OPEN_REPARSE_POINT FileAttributeTagInfo
                        FILE_READ_ATTRIBUTES FILE_ATTRIBUTE_NORMAL
-                       FILE_WRITE_ATTRIBUTES OPEN_EXISTING FILE_FLAG_BACKUP_SEMANTICS
+                       FILE_WRITE_ATTRIBUTES OPEN_EXISTING
                        VOLUME_NAME_DOS VOLUME_NAME_NT
                        ERROR_FILE_NOT_FOUND ERROR_NO_MORE_FILES
                        ERROR_SHARING_VIOLATION MOVEFILE_REPLACE_EXISTING
-                       ERROR_ACCESS_DENIED
+                       ERROR_ACCESS_DENIED ERROR_CANT_ACCESS_FILE
+                       ERROR_INVALID_FUNCTION FILE_FLAG_BACKUP_SEMANTICS
+                       FILE_ATTRIBUTE_REPARSE_POINT
+                       _O_RDONLY _O_WRONLY _O_BINARY
                     '''.split():
             locals()[name] = config[name]
         LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
@@ -166,6 +202,12 @@ def make_win32_traits(traits):
             'GetFileAttributesEx' + suffix,
             [traits.CCHARP, GET_FILEEX_INFO_LEVELS,
              lltype.Ptr(WIN32_FILE_ATTRIBUTE_DATA)],
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
+
+        GetFileInformationByHandleEx = external(
+            'GetFileInformationByHandleEx',
+            [rwin32.HANDLE, rffi.INT, rffi.VOIDP, rwin32.DWORD],
             rwin32.BOOL,
             save_err=rffi.RFFI_SAVE_LASTERROR)
 
@@ -239,6 +281,8 @@ def make_win32_traits(traits):
             [traits.CCHARP, traits.CCHARP, rwin32.LPSECURITY_ATTRIBUTES],
             rwin32.BOOL,
             save_err=rffi.RFFI_SAVE_LASTERROR)
+
+        TagInfoSize = 2 * rffi.sizeof(rwin32.DWORD)
 
     return Win32Traits
 

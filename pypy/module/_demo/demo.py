@@ -7,7 +7,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 import math
 
-time_t = rffi_platform.getsimpletype('time_t', '#include <time.h>', rffi.LONG)
+time_t = rffi_platform.getsimpletype('time_t', '#include <time.h>', rffi.SIGNED)
 
 eci = ExternalCompilationInfo(includes=['time.h'])
 time = rffi.llexternal('time', [lltype.Signed], time_t,

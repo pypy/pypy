@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
-    cpython_struct)
+    cpython_struct, ferror)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
 from pypy.module.cpyext.funcobject import PyCodeObject
@@ -64,7 +64,7 @@ def PyEval_GetFrame(space):
     caller = space.getexecutioncontext().gettopframe_nohidden()
     return caller    # borrowed ref, may be null
 
-@cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyEval_EvalCode(space, w_code, w_globals, w_locals):
     """This is a simplified interface to PyEval_EvalCodeEx(), with just
     the code object, and the dictionaries of global and local variables.
@@ -94,6 +94,11 @@ def PyObject_Call(space, w_obj, w_args, w_kw):
     empty tuple if no arguments are needed. Returns the result of the call on
     success, or NULL on failure.  This is the equivalent of the Python expression
     apply(callable_object, args, kw) or callable_object(*args, **kw)."""
+    return space.call(w_obj, w_args, w_kw)
+
+
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
+def PyCFunction_Call(space, w_obj, w_args, w_kw):
     return space.call(w_obj, w_args, w_kw)
 
 # These constants are also defined in include/eval.h
@@ -171,6 +176,9 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
             count = rffi.cast(lltype.Signed, count)
             source += rffi.charpsize2str(buf.raw, count)
             if count < BUF_SIZE:
+                if ferror(fp):
+                    PyErr_SetFromErrno(space, space.w_IOError)
+                    return
                 if feof(fp):
                     break
                 PyErr_SetFromErrno(space, space.w_IOError)

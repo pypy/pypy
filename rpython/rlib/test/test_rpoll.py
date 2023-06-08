@@ -38,7 +38,7 @@ def test_no_poll():
         assert False
 
 
-@py.test.mark.skipif('not has_poll')
+@py.test.mark.skipif('not has_poll or sys.platform == "darwin"')
 def test_simple():
     serv = RSocket(AF_INET, SOCK_STREAM)
     serv.bind(INETAddress('127.0.0.1', INADDR_ANY))

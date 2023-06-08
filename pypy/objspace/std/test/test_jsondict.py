@@ -124,3 +124,15 @@ class AppTest(object):
         x.__dict__ = d
 
         x.foo = 'baz'  # used to segfault on pypy3
+
+        d = _pypyjson.loads(a)
+        x = Obj()
+        x.__dict__ = d
+        x.foo # used to segfault on pypy3
+
+
+    def test_copy(self):
+        import _pypyjson
+        d = _pypyjson.loads('{"a": 1}')
+        d1 = d.copy()
+        assert d1 == {"a": 1}

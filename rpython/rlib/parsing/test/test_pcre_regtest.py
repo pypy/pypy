@@ -119,7 +119,7 @@ class PythonDumper(Dumper):
     def load(self):
         d = {}
         text = self.file.read()
-        exec text in d
+        exec(text, d)
         return d['suite']
 
 def generate_output7():

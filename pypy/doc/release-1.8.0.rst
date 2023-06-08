@@ -13,9 +13,9 @@ roughly 10% on average since the previous release.
 
 you can download the PyPy 1.8 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
-.. _`list strategies`: http://morepypy.blogspot.com/2011/10/more-compact-lists-with-list-strategies.html
+.. _`list strategies`: https://morepypy.blogspot.com/2011/10/more-compact-lists-with-list-strategies.html
 
 What is PyPy?
 =============
@@ -28,7 +28,7 @@ This release supports x86 machines running Linux 32/64, Mac OS X 32/64 or
 Windows 32. Windows 64 work has been stalled, we would welcome a volunteer
 to handle that.
 
-.. _`pypy 1.8 and cpython 2.7.1`: http://speed.pypy.org
+.. _`pypy 1.8 and cpython 2.7.1`: https://speed.pypy.org
 
 
 Highlights
@@ -90,9 +90,9 @@ the release or is not ready yet. Highlights include:
 Cheers,
 The PyPy Team
 
-.. _`brief overview`: http://doc.pypy.org/en/latest/jit-hooks.html
-.. _`numpy status page`: http://buildbot.pypy.org/numpy-status/latest.html
-.. _`numpy status update blog report`: http://morepypy.blogspot.com/2012/01/numpypy-status-update.html
-.. _`numpypy`: http://pypy.org/numpydonate.html
-.. _`py3k`: http://pypy.org/py3donate.html
-.. _`our plans`: http://morepypy.blogspot.com/2012/01/transactional-memory-ii.html
+.. _`brief overview`: https://doc.pypy.org/en/latest/jit-hooks.html
+.. _`numpy status page`: https://buildbot.pypy.org/numpy-status/latest.html
+.. _`numpy status update blog report`: https://morepypy.blogspot.com/2012/01/numpypy-status-update.html
+.. _`numpypy`: https://pypy.org/numpydonate.html
+.. _`py3k`: https://pypy.org/py3donate.html
+.. _`our plans`: https://morepypy.blogspot.com/2012/01/transactional-memory-ii.html

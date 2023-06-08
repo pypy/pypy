@@ -1,3 +1,4 @@
+import pytest
 from pytest import raises, skip
 
 def test_attributes():
@@ -96,6 +97,23 @@ def test_write_code_builtin_forbidden():
         dir.func_code = f.func_code
     with raises(TypeError):
         list.append.im_func.func_code = f.func_code
+
+def test_write_attributes_builtin_forbidden():
+    for func in [dir, dict.get.im_func]:
+        with raises(TypeError):
+            func.func_defaults = (1, )
+        with raises(TypeError):
+            del func.func_defaults
+        with raises(TypeError):
+            func.func_doc = ""
+        with raises(TypeError):
+            del func.func_doc
+        with raises(TypeError):
+            func.func_name = ""
+        with raises(TypeError):
+            func.__module__ = ""
+        with raises(TypeError):
+            del func.__module__
 
 def test_set_name():
     def f(): pass
@@ -244,8 +262,8 @@ def test_get():
     meth = func.__get__(obj, object)
     assert meth() == obj
 
+@pytest.mark.skipif(True, reason="XXX issue #2083")
 def test_none_get_interaction():
-    skip("XXX issue #2083")
     assert type(None).__repr__(None) == 'None'
 
 def test_none_get_interaction_2():
@@ -613,3 +631,11 @@ def test_method_identity():
     assert id(x) != id(A.n)
     assert x is not B.m
     assert id(x) != id(B.m)
+
+def test_method_ne_NotImplemented():
+    class A(object):
+        def __ne__(self, other):
+            return "ABC"
+    meth = A.__ne__
+    assert meth.__ne__(1) is NotImplemented
+    assert (meth != A()) == "ABC"

@@ -42,7 +42,7 @@ def _cffi_call_python(ll_externpy, ll_args):
     from pypy.module._cffi_backend.ccallback import reveal_callback
     from rpython.rlib import rgil
 
-    rgil.acquire()
+    rgil.acquire_maybe_in_new_thread()
     llop.gc_stack_bottom(lltype.Void)   # marker to enter RPython from C
 
     cerrno._errno_after(rffi.RFFI_ERR_ALL | rffi.RFFI_ALT_ERRNO)

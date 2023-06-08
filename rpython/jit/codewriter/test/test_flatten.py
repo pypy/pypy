@@ -722,8 +722,6 @@ class TestFlatten:
             -live- %i0, %r0
             residual_call_r_r $<* fn g>, R[], <Descr> -> %r1
             -live- %i0, %r0, %r1
-            -live- %i0, %r0, %r1
-            -live- %i0, %r1
             int_return %i0
         """, transform=True, liveness=True)
 

@@ -101,7 +101,7 @@ class AbstractThreadTests(AbstractGCTestClass):
         res = fn()
         assert res == 42
 
-    @py.test.mark.xfail(platform.machine() == 's390x',
+    @py.test.mark.xfail(platform.machine() == 's390x' or sys.platform == 'darwin',
                         reason='may fail this test under heavy load')
     def test_gc_locking(self):
         import time

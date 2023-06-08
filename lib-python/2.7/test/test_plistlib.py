@@ -6,6 +6,19 @@ import os
 import datetime
 from test import test_support
 
+XML_PLIST_WITH_ENTITY=b'''\
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd" [
+   <!ENTITY entity "replacement text">
+  ]>
+<plist version="1.0">
+  <dict>
+    <key>A</key>
+    <string>&entity;</string>
+  </dict>
+</plist>
+'''
+
 
 # This test data was generated through Cocoa's NSDictionary class
 TESTDATA = """<?xml version="1.0" encoding="UTF-8"?>
@@ -86,6 +99,18 @@ TESTDATA = """<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 """.replace(" " * 8, "\t")  # Apple as well as plistlib.py output hard tabs
 
+XML_PLIST_WITH_ENTITY=b'''\
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd" [
+   <!ENTITY entity "replacement text">
+  ]>
+<plist version="1.0">
+  <dict>
+    <key>A</key>
+    <string>&entity;</string>
+  </dict>
+</plist>
+'''
 
 class TestPlistlib(unittest.TestCase):
 
@@ -195,10 +220,13 @@ class TestPlistlib(unittest.TestCase):
         self.assertEqual(test1, result1)
         self.assertEqual(test2, result2)
 
+    def test_xml_plist_with_entity_decl(self):
+        with self.assertRaisesRegexp(ValueError,
+                                    "XML entity declarations are not supported"):
+            plistlib.readPlistFromString(XML_PLIST_WITH_ENTITY)
 
 def test_main():
     test_support.run_unittest(TestPlistlib)
-
 
 if __name__ == '__main__':
     test_main()

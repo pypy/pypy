@@ -200,8 +200,8 @@ class W_BytearrayObject(W_Root):
         s, _, lgt = str_decode_latin_1(''.join(self.getdata()), 'strict',
             True, None)
         return space.newtuple([
-            space.type(self), space.newtuple([
-                space.newutf8(s, lgt), space.newtext('latin-1')]),
+            space.type(self), space.newtuple2(
+                space.newutf8(s, lgt), space.newtext('latin-1')),
             w_dict])
 
     @staticmethod
@@ -224,9 +224,10 @@ class W_BytearrayObject(W_Root):
             # unicode, got int object"
             w_source = encode_object(space, w_source, encoding, errors)
 
-        # Is it an int?
+        # Is it an integer?
+        # Note that we're calling space.getindex_w() instead of space.int_w().
         try:
-            count = space.int_w(w_source)
+            count = space.getindex_w(w_source, space.w_OverflowError)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
@@ -399,8 +400,7 @@ class W_BytearrayObject(W_Root):
     def descr_setitem(self, space, w_index, w_other):
         if isinstance(w_index, W_SliceObject):
             sequence2 = makebytearraydata_w(space, w_other)
-            oldsize = self._len()
-            start, stop, step, slicelength = w_index.indices4(space, oldsize)
+            start, stop, step, slicelength = self._unpack_slice(space, w_index)
             if start == 0 and step == 1 and len(sequence2) <= slicelength:
                 self._delete_from_start(slicelength - len(sequence2))
                 slicelength = len(sequence2)
@@ -418,7 +418,7 @@ class W_BytearrayObject(W_Root):
 
     def descr_delitem(self, space, w_idx):
         if isinstance(w_idx, W_SliceObject):
-            start, stop, step, slicelength = w_idx.indices4(space, self._len())
+            start, stop, step, slicelength = self._unpack_slice(space, w_idx)
             if start == 0 and step == 1:
                 self._delete_from_start(slicelength)
             else:
@@ -507,10 +507,17 @@ class W_BytearrayObject(W_Root):
         ofs = self._offset
         return (self._data, start + ofs, end + ofs, ofs)
 
+    def _unpack_slice(self, space, w_index):
+        # important: unpack the slice before computing the length. the
+        # __index__ methods can mutate the list and change its length.
+        start, stop, step = w_index.unpack(space)
+        length = self._len()
+        return w_index.adjust_indices(start, stop, step, length)
+
     def descr_getitem(self, space, w_index):
         # optimization: this version doesn't force getdata()
         if isinstance(w_index, W_SliceObject):
-            start, stop, step, sl = w_index.indices4(space, self._len())
+            start, stop, step, sl = self._unpack_slice(space, w_index)
             if sl == 0:
                 return self._empty()
             elif step == 1:
@@ -561,14 +568,14 @@ def makebytearraydata_w(space, w_source):
         return list(buf.as_str())
     return _from_byte_sequence(space, w_source)
 
-def _get_printable_location(w_type):
-    return ('bytearray_from_byte_sequence [w_type=%s]' %
-            w_type.getname(w_type.space))
+def _get_printable_location(greenkey):
+    return ('bytearray_from_byte_sequence [%s]' %
+            greenkey.iterator_greenkey_printable())
 
 _byteseq_jitdriver = jit.JitDriver(
     name='bytearray_from_byte_sequence',
-    greens=['w_type'],
-    reds=['w_iter', 'data'],
+    greens=['greenkey'],
+    reds='auto',
     get_printable_location=_get_printable_location)
 
 def _from_byte_sequence(space, w_source):
@@ -586,11 +593,9 @@ def _from_byte_sequence(space, w_source):
     return data
 
 def _from_byte_sequence_loop(space, w_iter, data):
-    w_type = space.type(w_iter)
+    greenkey = space.iterator_greenkey(w_iter)
     while True:
-        _byteseq_jitdriver.jit_merge_point(w_type=w_type,
-                                           w_iter=w_iter,
-                                           data=data)
+        _byteseq_jitdriver.jit_merge_point(greenkey=greenkey)
         try:
             w_item = space.next(w_iter)
         except OperationError as e:
@@ -1290,19 +1295,19 @@ class BytearrayBuffer(GCBuffer):
         ba = self.ba
         ba._data[ba._offset + index] = char
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if size == 0:
             return ""
         if step == 1:
-            assert 0 <= start <= stop
+            assert start >= 0
+            assert size >= 0
             ba = self.ba
             start += ba._offset
-            stop += ba._offset
             data = ba._data
-            if start != 0 or stop != len(data):
-                data = data[start:stop]
+            if start != 0 or size != len(data):
+                data = data[start:start+size]
             return "".join(data)
-        return GCBuffer.getslice(self, start, stop, step, size)
+        return GCBuffer.getslice(self, start, step, size)
 
     def setslice(self, start, string):
         # No bounds checks.

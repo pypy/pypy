@@ -168,7 +168,7 @@ class W_IncrementalNewlineDecoder(W_Root):
         flag <<= 1
         if self.pendingcr:
             flag |= 1
-        return space.newtuple([w_buffer, space.newint(flag)])
+        return space.newtuple2(w_buffer, space.newint(flag))
 
     def setstate_w(self, space, w_state):
         w_buffer, w_flag = space.unpackiterable(w_state, 2)
@@ -177,7 +177,7 @@ class W_IncrementalNewlineDecoder(W_Root):
         flag >>= 1
 
         if self.w_decoder and not space.is_w(self.w_decoder, space.w_None):
-            w_state = space.newtuple([w_buffer, space.newint(flag)])
+            w_state = space.newtuple2(w_buffer, space.newint(flag))
             space.call_method(self.w_decoder, "setstate", w_state)
 
 W_IncrementalNewlineDecoder.typedef = TypeDef(
@@ -582,7 +582,7 @@ class W_TextIOWrapper(W_TextIOBase):
             w_name_str = space.newtext("")
         else:
             w_name_str = space.mod(space.newtext("name=%r "), w_name)
-        w_args = space.newtuple([w_name_str, self.w_encoding])
+        w_args = space.newtuple2(w_name_str, self.w_encoding)
         return space.mod(
             space.newtext("<_io.TextIOWrapper %sencoding=%r>"), w_args
         )
@@ -662,6 +662,9 @@ class W_TextIOWrapper(W_TextIOBase):
             # To prepare for tell(), we need to snapshot a point in the file
             # where the decoder's input buffer is empty.
             w_state = space.call_method(self.w_decoder, "getstate")
+            if (not space.isinstance_w(w_state, space.w_tuple)
+                    or space.len_w(w_state) != 2):
+                raise oefmt(space.w_TypeError, "illegal decoder state")
             # Given this, we know there was a valid snapshot point
             # len(dec_buffer) bytes ago with decoder state (b'', dec_flags).
             w_dec_buffer, w_dec_flags = space.unpackiterable(w_state, 2)
@@ -735,6 +738,7 @@ class W_TextIOWrapper(W_TextIOBase):
             chars, lgt = self.decoded.get_chars(-1)
             w_result = space.newutf8(chars, lgt)
             w_final = space.add(w_result, w_decoded)
+            self.decoded.reset()
             self.snapshot = None
             return w_final
 
@@ -869,6 +873,10 @@ class W_TextIOWrapper(W_TextIOBase):
         else:
             w_bytes = space.call_method(self.w_encoder, "encode", w_text)
 
+        if not space.isinstance_w(w_bytes, space.w_bytes):
+            raise oefmt(space.w_TypeError,
+                        "encoder should return a bytes object, not '%T'", w_bytes)
+
         b = space.bytes_w(w_bytes)
         if not self.pending_bytes:
             self.pending_bytes = []
@@ -882,6 +890,7 @@ class W_TextIOWrapper(W_TextIOBase):
         if needflush:
             space.call_method(self.w_buffer, "flush")
 
+        self.decoded.reset()
         self.snapshot = None
 
         if self.w_decoder:
@@ -933,8 +942,8 @@ class W_TextIOWrapper(W_TextIOBase):
             space.call_method(self.w_decoder, "reset")
         else:
             space.call_method(self.w_decoder, "setstate",
-                              space.newtuple([space.newbytes(""),
-                                              space.newint(cookie.dec_flags)]))
+                              space.newtuple2(space.newbytes(""),
+                                              space.newint(cookie.dec_flags)))
 
     def _encoder_setstate(self, space, cookie):
         if cookie.start_pos == 0 and cookie.dec_flags == 0:

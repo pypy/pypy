@@ -2,7 +2,7 @@ import sys
 import _rawffi
 from _ctypes.basics import _CData, _CDataMeta, keepalive_key,\
      store_reference, ensure_objects, CArgObject
-from _ctypes.array import Array, get_format_str
+from _ctypes.array import Array, swappedorder, byteorder
 from _ctypes.pointer import _Pointer
 import inspect, __pypy__
 
@@ -119,6 +119,8 @@ class Field(object):
         if self.is_bitfield:
             # bitfield member, use direct access
             return obj._buffer.__getattr__(self.name)
+        elif not isinstance(obj, _CData):
+            raise(TypeError, 'not a ctype instance')
         else:
             fieldtype = self.ctype
             offset = self.num
@@ -142,6 +144,8 @@ class Field(object):
             from ctypes import memmove
             dest = obj._buffer.fieldaddress(self.name)
             memmove(dest, arg, fieldtype._fficompositesize_)
+        elif not isinstance(obj, _CData):
+            raise(TypeError, 'not a ctype instance')
         else:
             obj._buffer.__setattr__(self.name, arg)
 
@@ -209,6 +213,9 @@ class StructOrUnionMeta(_CDataMeta):
 
     __setattr__ = struct_setattr
 
+    def _is_abstract(self):
+        return False
+
     def from_address(self, address):
         instance = StructOrUnion.__new__(self)
         if isinstance(address, _rawffi.StructureInstance):
@@ -249,6 +256,26 @@ class StructOrUnionMeta(_CDataMeta):
         res.__dict__['_base'] = None
         res.__dict__['_index'] = -1
         return res
+
+    def _getformat(self):
+        if self._is_union or hasattr(self, '_pack_'):
+            return "B"
+        if hasattr(self, '_swappedbytes_'):
+            bo = swappedorder[sys.byteorder]
+        else:
+            bo = byteorder[sys.byteorder]
+        flds = []
+        cum_size = 0
+        for name, obj in self._fields_:
+            padding = self._ffistruct_.fieldoffset(name) - cum_size
+            if padding:
+                flds.append('%dx' % padding)
+            flds.append(obj._getformat())
+            flds.append(':')
+            flds.append(name)
+            flds.append(':')
+            cum_size += self._ffistruct_.fieldsize(name)
+        return 'T{' + ''.join(flds) + '}'
 
 class StructOrUnion(_CData):
     __metaclass__ = StructOrUnionMeta
@@ -297,12 +324,14 @@ class StructOrUnion(_CData):
         memmove(addr, origin, self._fficompositesize_)
 
     def _to_ffi_param(self):
-        return self._buffer
+        newparam = StructOrUnion.__new__(type(self))
+        self._copy_to(newparam._buffer.buffer)
+        return newparam._buffer
 
     def __buffer__(self, flags):
-        fmt = get_format_str(self)
-        itemsize = type(self)._sizeofinstances() 
-        return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt)
+        fmt = type(self)._getformat()
+        itemsize = type(self)._sizeofinstances()
+        return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt, ())
 
 class StructureMeta(StructOrUnionMeta):
     _is_union = False

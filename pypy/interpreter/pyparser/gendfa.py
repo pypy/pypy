@@ -16,6 +16,7 @@ $Id: genPytokenize.py,v 1.1 2003/10/02 17:37:17 jriehl Exp $
 
 from pypy.interpreter.pyparser.pylexer import *
 from pypy.interpreter.pyparser.automata import NonGreedyDFA, DFA, DEFAULT
+from pypy.interpreter.pyparser import pytoken
 
 def makePyPseudoDFA ():
     import string
@@ -121,33 +122,18 @@ def makePyPseudoDFA ():
     number = group(states, imagNumber, makeFloat(), intNumber)
     # ____________________________________________________________
     # Funny
-    operator = group(states,
-                     chain(states,
-                           chainStr(states, "**"),
-                           maybe(states, newArcPair(states, "="))),
-                     chain(states,
-                           chainStr(states, ">>"),
-                           maybe(states, newArcPair(states, "="))),
-                     chain(states,
-                           chainStr(states, "<<"),
-                           maybe(states, newArcPair(states, "="))),
-                     chainStr(states, "<>"),
-                     chainStr(states, "!="),
-                     chain(states,
-                           chainStr(states, "//"),
-                           maybe(states, newArcPair(states, "="))),
-                     chain(states,
-                           groupStr(states, "+-*/%&|^=<>"),
-                           maybe(states, newArcPair(states, "="))),
-                     newArcPair(states, "~"))
-    bracket = groupStr(states, "[](){}")
-    special = group(states,
-                    makeEOL(),
-                    groupStr(states, "@:;.,`"))
+    # generate from pytoken
+    funny = []
+    for op in sorted(pytoken.python_opmap):
+        if op == "$NUM":
+            continue
+        funny.append(chainStr(states, op))
     revdb_metavar = chain(states,
                           groupStr(states, "$"),
                           atleastonce(states, makeDigits()))
-    funny = group(states, operator, bracket, special, revdb_metavar)
+    funny.append(revdb_metavar)
+    funny.append(makeEOL())
+    funny = group(states, *funny)
     # ____________________________________________________________
     def makeStrPrefix ():
         return chain(states,

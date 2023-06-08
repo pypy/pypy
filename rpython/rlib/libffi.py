@@ -46,6 +46,7 @@ class types(object):
         cls.slonglong = clibffi.cast_type_to_ffitype(rffi.LONGLONG)
         cls.ulonglong = clibffi.cast_type_to_ffitype(rffi.ULONGLONG)
         cls.signed = clibffi.cast_type_to_ffitype(rffi.SIGNED)
+        cls.unsigned = clibffi.cast_type_to_ffitype(rffi.UNSIGNED)
         cls.wchar_t = clibffi.cast_type_to_ffitype(lltype.UniChar)
         # XXX long double support: clibffi.ffi_type_longdouble, but then
         # XXX fix the whole rest of this file to add a case for long double
@@ -77,6 +78,9 @@ class types(object):
         elif ffi_type is types.uint16:  return 'u'
         elif ffi_type is types.sint32:  return 'i'
         elif ffi_type is types.uint32:  return 'u'
+        #
+        elif ffi_type is types.signed:  return 'i'
+        elif ffi_type is types.unsigned:return 'u'
         ## (note that on 64-bit platforms, types.sint64 is types.slong and the
         ## case is caught above)
         elif ffi_type is types.sint64:  return 'I'
@@ -111,6 +115,7 @@ def _fits_into_signed(TYPE):
 # ======================================================================
 
 IS_32_BIT = (r_uint.BITS == 32)
+IS_WIN64 = os.name == 'nt' and (r_uint.BITS == 64)
 
 @specialize.memo()
 def _check_type(TYPE):
@@ -229,8 +234,8 @@ class Func(AbstractFuncPtr):
     funcsym = lltype.nullptr(rffi.VOIDP.TO)
 
     def __init__(self, name, argtypes, restype, funcsym, flags=FUNCFLAG_CDECL,
-                 keepalive=None):
-        AbstractFuncPtr.__init__(self, name, argtypes, restype, flags)
+                 keepalive=None, variadic_args=0):
+        AbstractFuncPtr.__init__(self, name, argtypes, restype, flags, variadic_args)
         self.keepalive = keepalive
         self.funcsym = funcsym
 
@@ -446,15 +451,15 @@ class CDLL(object):
             dlclose(self.lib)
             self.lib = rffi.cast(DLLHANDLE, 0)
 
-    def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
+    def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL, variadic_args=0):
         return Func(name, argtypes, restype, dlsym(self.lib, name),
-                    flags=flags, keepalive=self)
+                    flags=flags, keepalive=self, variadic_args=variadic_args)
 
     def getpointer_by_ordinal(self, name, argtypes, restype,
-                              flags=FUNCFLAG_CDECL):
+                              flags=FUNCFLAG_CDECL, variadic_args=0):
         return Func('by_ordinal', argtypes, restype,
                     dlsym_byordinal(self.lib, name),
-                    flags=flags, keepalive=self)
+                    flags=flags, keepalive=self, variadic_args=variadic_args)
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
 
@@ -463,13 +468,13 @@ class CDLL(object):
 
 if os.name == 'nt':
     class WinDLL(CDLL):
-        def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_STDCALL):
+        def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_STDCALL, variadic_args=0):
             return Func(name, argtypes, restype, dlsym(self.lib, name),
-                        flags=flags, keepalive=self)
+                        flags=flags, keepalive=self, variadic_args=variadic_args)
         def getpointer_by_ordinal(self, name, argtypes, restype,
-                                  flags=FUNCFLAG_STDCALL):
+                                  flags=FUNCFLAG_STDCALL, variadic_args=0):
             return Func(name, argtypes, restype, dlsym_byordinal(self.lib, name),
-                        flags=flags, keepalive=self)
+                        flags=flags, keepalive=self, variadic_args=variadic_args)
 
 # ======================================================================
 

@@ -377,6 +377,9 @@ class AppTestInt(object):
         assert a == 2
         a -= 1
         assert a == 1
+        e = raises(TypeError, "a += 'aa'")
+        assert "+=" in str(e.value)
+
 
     def test_trunc(self):
         import math

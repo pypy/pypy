@@ -1,6 +1,5 @@
 # -*- encoding: utf-8 -*-
 """Test unicode/str's format method"""
-from __future__ import with_statement
 
 
 class BaseStringFormatTests:
@@ -230,6 +229,10 @@ class AppTestUnicodeFormat(BaseStringFormatTests):
     def test_padding_utf8_bug(self):
         assert format(unichr(228), "3") == unichr(228) + u"  "
 
+    def test_precision_utf8_bug(self):
+        u = b'\xc3\xa4'.decode("utf-8")
+        assert u.__format__(".1") == u
+
 class AppTestStringFormat(BaseStringFormatTests):
     def setup_class(cls):
         cls.w_s = cls.space.w_bytes
@@ -390,7 +393,7 @@ class AppTestFloatFormatting:
             locale.setlocale(locale.LC_NUMERIC, 'C')
 
     def test_locale_german(self):
-        import locale
+        import locale, sys
         for name in ['de_DE', 'de_DE.utf8']:
             try:
                 locale.setlocale(locale.LC_NUMERIC, name)
@@ -401,9 +404,15 @@ class AppTestFloatFormatting:
             skip("no german locale")
         x = 1234.567890
         try:
-            assert locale.format('%g', x, grouping=True) == '1.234,57'
-            assert format(x, 'n') == '1.234,57'
-            assert format(12345678901234, 'n') == '12.345.678.901.234'
+            if sys.platform != "darwin":
+                assert locale.format('%g', x, grouping=True) == '1.234,57'
+                assert format(x, 'n') == '1.234,57'
+                assert format(12345678901234, 'n') == '12.345.678.901.234'
+            else:
+                # No thousands separator on German in MacOS since 10.4
+                assert locale.format('%g', x, grouping=True) == '1234,57'
+                assert format(x, 'n') == '1234,57'
+                assert format(12345678901234, 'n') == '12345678901234'
         finally:
             locale.setlocale(locale.LC_NUMERIC, 'C')
 

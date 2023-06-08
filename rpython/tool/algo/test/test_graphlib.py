@@ -1,11 +1,5 @@
-import random
+from hypothesis import given, example, assume, strategies as st
 from rpython.tool.algo.graphlib import *
-
-def copy_edges(edges):
-    result = {}
-    for key, value in edges.items():
-        result[key] = value[:]
-    return result
 
 # ____________________________________________________________
 
@@ -44,7 +38,7 @@ class TestSimple:
         for comp in result:
             comp = list(comp)
             comp.sort()
-        result = [''.join(comp) for comp in result]
+        result = [''.join(sorted(comp)) for comp in result]
         result.sort()
         assert result == ['ABE', 'C', 'D', 'F', 'G']
 
@@ -95,6 +89,16 @@ class TestSimple:
         roots = list(find_roots(edges, edges))
         roots.sort()
         assert ''.join(roots) == 'GR'
+
+    def test_remove_leaves(self):
+        edges = copy_edges(self.edges)
+        remove_leaves(dict.fromkeys(edges), edges)
+        assert "F" not in edges
+        assert "C" not in edges
+        assert len(edges["A"]) == 1
+        assert edges["A"][0].target == "B"
+        assert len(edges["E"]) == 1
+        assert edges["E"][0].target == "A"
 
 
 class TestLoops:
@@ -151,6 +155,11 @@ class TestLoops:
         roots = find_roots(self.vertices, edges)
         assert len(roots) == 1
 
+    def test_remove_leaves(self):
+        edges = copy_edges(self.edges)
+        remove_leaves(dict.fromkeys(edges), edges)
+        assert edges == self.edges
+
 
 class TestTree:
     edges = make_edge_dict([Edge(i//2, i) for i in range(1, 52)])
@@ -179,6 +188,10 @@ class TestTree:
         v = list(roots)[0]
         assert v == 0
 
+    def test_remove_leaves(self):
+        edges = copy_edges(self.edges)
+        remove_leaves(dict.fromkeys(edges), edges)
+        assert not edges
 
 class TestChainAndLoop:
     edges = make_edge_dict([Edge(i,i+1) for i in range(100)] + [Edge(100,99)])
@@ -217,39 +230,66 @@ class TestBadCase:
         print len(result)
         assert result
 
+    def test_break_cycles_v(self):
+        result = list(break_cycles_v(self.edges, self.edges))
+        assert len(set(result)) == self.NUM
+        assert len(result) == self.NUM
+        print len(result)
+        assert result
+
     def test_find_roots(self):
         roots = find_roots(self.edges, self.edges)
         assert len(roots) == 1
         assert list(roots)[0] in self.edges
 
+@st.composite
+def edges(draw):
+    max_vertex = draw(st.integers(min_value=1, max_value=200))
+    num_edges = draw(st.integers(min_value=max_vertex, max_value=max_vertex * 5))
+    return make_edge_dict([Edge(draw(st.integers(min_value=0, max_value=max_vertex)),
+                                draw(st.integers(min_value=0, max_value=max_vertex))) for i in range(num_edges)])
 
 class TestRandom:
-    edges = make_edge_dict([Edge(random.randrange(0,100),
-                                 random.randrange(0,100)) for i in range(150)])
-
-    def test_strong_components(self):
-        result = list(strong_components(self.edges, self.edges))
+    @given(edges())
+    def test_strong_components(self, edges):
+        result = list(strong_components(edges, edges))
         vertices = []
         for comp in result:
             vertices += comp
         vertices.sort()
-        expected = self.edges.keys()
+        expected = edges.keys()
         expected.sort()
         assert vertices == expected
 
-    def test_break_cycles(self):
-        list(break_cycles(self.edges, self.edges))
-        # assert is_acyclic(): included in break_cycles() itself
-
-    def test_break_cycles_v(self):
-        result = list(break_cycles_v(self.edges, self.edges))
+    @given(edges())
+    def test_break_cycles_v(self, edges):
+        # mostly a "does not crash" kind of test
+        result = list(break_cycles_v(edges, edges))
         # assert is_acyclic(): included in break_cycles_v() itself
         print len(result), 'vertices removed'
 
-    def test_find_roots(self):
-        roots = find_roots(self.edges, self.edges)
+    @given(edges())
+    def test_find_roots(self, edges):
+        roots = find_roots(edges, edges)
         reachable = set()
         for root in roots:
-            reachable |= set(vertices_reachable_from(root, self.edges,
-                                                     self.edges))
-        assert reachable == set(self.edges)
+            reachable |= set(vertices_reachable_from(root, edges,
+                                                     edges))
+        assert reachable == set(edges)
+
+    @given(edges())
+    def test_removing_leaves_doesnt_change_cycles(self, edges):
+        vertices = dict.fromkeys(edges)
+        assume(len(edges) > 0)
+        node = edges.keys()[0]
+        cycles = all_cycles(node, vertices, edges)
+        assume(len(cycles) > 0)
+        remove_leaves(vertices, edges)
+        assert all_cycles(node, vertices, edges) == cycles
+
+    @given(edges())
+    def test_removing_leaves_doesnt_change_cyclicness(self, edges):
+        vertices = dict.fromkeys(edges)
+        isacyc = is_acyclic(vertices, edges)
+        remove_leaves(vertices, edges)
+        assert isacyc == is_acyclic(vertices, edges)

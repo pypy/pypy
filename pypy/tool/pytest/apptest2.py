@@ -1,5 +1,7 @@
 import sys
 import os
+import re
+import json
 
 import pytest
 from pypy import pypydir
@@ -9,6 +11,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.module import Module
 from pypy.tool.pytest import objspace
 from pypy.tool.pytest import appsupport
+from pypy.tool.pytest.astrewriter.ast_rewrite import rewrite_asserts_ast
 
 
 class AppTestModule(pytest.Module):
@@ -18,26 +21,20 @@ class AppTestModule(pytest.Module):
 
     def collect(self):
         _, source = app_rewrite._prepare_source(self.fspath)
-        space = objspace.gettestobjspace()
+        spaceconfig = extract_spaceconfig_from_source(source)
+        space = objspace.gettestobjspace(**spaceconfig)
         w_rootdir = space.newtext(
-            os.path.join(pypydir, 'tool', 'pytest', 'ast-rewriter'))
+            os.path.join(pypydir, 'tool', 'pytest', 'astrewriter'))
         w_source = space.newtext(source)
         fname = str(self.fspath)
         w_name = space.newtext(str(self.fspath.purebasename))
         w_fname = space.newtext(fname)
         if self.rewrite_asserts:
-            w_mod = space.appexec([w_rootdir, w_source, w_fname, w_name],
-                                """(rootdir, source, fname, name):
-                import sys
-                sys.path.insert(0, rootdir)
-                from ast_rewrite import rewrite_asserts, create_module
-
-                co = rewrite_asserts(source, fname)
-                mod = create_module(name, co)
-                return mod
-            """)
-        else:
-            w_mod = create_module(space, w_name, fname, source)
+            # actually a w_code, but works fine with space.exec_
+            source = space._cached_compile(
+                fname, source, "exec", 0, False,
+                ast_transform=rewrite_asserts_ast)
+        w_mod = create_module(space, w_name, fname, source)
         mod_dict = w_mod.getdict(space).unwrap(space)
         items = []
         for name, w_obj in mod_dict.items():
@@ -59,6 +56,15 @@ def create_module(space, w_name, filename, source):
     space.exec_(source, w_dict, w_dict, filename=filename)
     return w_mod
 
+def extract_spaceconfig_from_source(source):
+    '''
+    spaceconfig is defined in a comment where it can be any valid json dictionary object
+    '''
+    for line in source.split('\n'):
+        match = re.search('#\s*spaceconfig\s*=\s*(\{.+\})\s*', line)
+        if match:
+            return json.loads(match.group(1))
+    return {}
 
 class AppError(Exception):
 
@@ -75,12 +81,27 @@ class AppTestFunction(pytest.Item):
     def runtest(self):
         target = self.w_obj
         space = target.space
+        self.check_run(space, target)
         self.execute_appex(space, target)
 
     def repr_failure(self, excinfo):
         if excinfo.errisinstance(AppError):
             excinfo = excinfo.value.excinfo
         return super(AppTestFunction, self).repr_failure(excinfo)
+
+    def check_run(self, space, w_func):
+        space.appexec([w_func], """(func):
+            if hasattr(func, 'skipif'):
+                marker = func.skipif
+                arg = marker.args[0]
+                if isinstance(arg, str):
+                    raise ValueError("str argument to skipif isn't supported")
+                else:
+                    if arg:
+                        import pytest
+                        reason = marker.kwargs.get('reason', "Skipping.")
+                        pytest.skip(reason)
+            """)
 
     def execute_appex(self, space, w_func):
         space.getexecutioncontext().set_sys_exc_info(None)

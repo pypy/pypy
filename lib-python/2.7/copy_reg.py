@@ -4,7 +4,13 @@ This is only useful to add pickle support for extension types defined in
 C, not for instances of user-defined classes.
 """
 
-from types import ClassType as _ClassType
+# This is defined in the types module, but we cannot always import it.
+# virtualenv when run with -S for instance. Instead, copy the code to create
+# the needed type to be checked.
+class types(object):
+    class _C:
+        def _m(self): pass
+    ClassType = type(_C)
 
 __all__ = ["pickle", "constructor",
            "add_extension", "remove_extension", "clear_extension_cache"]
@@ -12,7 +18,7 @@ __all__ = ["pickle", "constructor",
 dispatch_table = {}
 
 def pickle(ob_type, pickle_function, constructor_ob=None):
-    if type(ob_type) is _ClassType:
+    if type(ob_type) is types.ClassType:
         raise TypeError("copy_reg is not intended for use with classes")
 
     if not hasattr(pickle_function, '__call__'):
@@ -127,7 +133,11 @@ def _slotnames(cls):
                         continue
                     # mangled names
                     elif name.startswith('__') and not name.endswith('__'):
-                        names.append('_%s%s' % (c.__name__, name))
+                        stripped = c.__name__.lstrip('_')
+                        if stripped:
+                            names.append('_%s%s' % (stripped, name))
+                        else:
+                            names.append(name)
                     else:
                         names.append(name)
 

@@ -144,11 +144,11 @@ class TestString(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
-    def test_remove_duplicate_method_calls(self):
+    def test_remove_duplicate_method_calls_bytes(self):
         def main(n):
             lst = []
             for i in range(n):
-                s = 'Hello %d' % i
+                s = b'Hello %d' % i
                 t = s.lower()   # ID: callone
                 u = s.lower()   # ID: calltwo
                 lst.append(t)
@@ -161,6 +161,30 @@ class TestString(BaseTestPyPyC):
         assert loop.match_by_id('callone', '''
             p114 = call_r(ConstClass(ll_lower__rpy_stringPtr), p113, descr=<Callr . r EF=3>)
             guard_no_exception(descr=...)
+            ''')
+        assert loop.match_by_id('calltwo', '')    # nothing
+
+    def test_remove_duplicate_method_calls_unicode(self):
+        def main(n):
+            lst = []
+            for i in range(n):
+                s = u'H\xe4llo %d' % i
+                t = s.lower()   # ID: callone
+                u = s.lower()   # ID: calltwo
+                lst.append(t)
+                lst.append(u)
+            return len(','.join(lst))
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loops = log.loops_by_filename(self.filepath)
+        loop, = loops
+        assert loop.match_by_id('callone', '''
+            i136 = strlen(p131)
+            i137 = int_eq(i135, i136)
+            guard_false(i137, descr=...)
+            p139 = call_r(ConstClass(_lower_unicode), p131, descr=...)
+            guard_no_exception(descr=...)
+            guard_nonnull(p139, descr=...)
             ''')
         assert loop.match_by_id('calltwo', '')    # nothing
 
@@ -293,3 +317,48 @@ class TestString(BaseTestPyPyC):
             i57 = int_sub(i52, i56)
             i59 = int_sub(i38, 1)
         ''')
+
+    def test_decode_encode(self):
+        log = self.run("""
+        def main(n):
+            global s
+            u = b'ab\xc3\xa4\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa9\xe2\x80\x8d\xf0\x9f\x91\xa7\xe2\x80\x8d\xf0\x9f\x91\xa6'.decode("utf-8")
+            count = 0
+            for i in range(n):
+                b = (u + unicode(i)).encode("utf-8")
+                u = b.decode("utf-8") # ID: decode
+                count += 1
+            return count
+        """, [10000])
+        loop, = log.loops_by_filename(self.filepath)
+        # No call to _check_utf8 is necessary, because the bytes come from
+        # W_UnicodeObject.utf8_w.
+        assert loop.match_by_id('decode', '''
+            i95 = int_ge(i86, 0)
+            guard_true(i95, descr=...)
+        ''')
+
+    def test_find(self):
+        log = self.run("""
+        def main(n):
+            global s
+            b = b'abaaac' * 10000
+            count = 0
+            start = 0
+            while 1:
+                start = b.find('a', start)
+                if start < 0:
+                    break
+                b[start] # ID: index
+                count += 1
+                start += 1
+            return count
+        """, [10000])
+        loop, = log.loops_by_filename(self.filepath)
+        # no bounds check, the < 0 is done by the check for end of string.
+        # the >= len is not necessary, because find has a record_exact_value
+        # that records the fact that this is always true.
+        assert loop.match_by_id('index', '''
+            i2 = strgetitem(p1, i1)
+        ''')
+

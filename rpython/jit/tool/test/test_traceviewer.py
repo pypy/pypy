@@ -105,6 +105,21 @@ class TestSplitLoops(object):
         main(str(fname), False, view=False)
         # assert did not explode
 
+    def test_non_contiguous_loops(self):
+        data = [preparse("""
+        # Loop 1 : loop with 39 ops
+        debug_merge_point('', 0)
+        guard_class(p4, 141310752, descr=<Guard5>) [p0, p1]
+        p60 = getfield_gc(p4, descr=<GcPtrFieldDescr 16>)
+        guard_nonnull(p60, descr=<Guard6>) [p0, p1]
+        """), preparse("""
+        # Loop 4 : loop with 46 ops
+        p21 = getfield_gc(p4, descr=<GcPtrFieldDescr 16>)
+        """)]
+        real_loops, all_loops = splitloops(data)
+        assert len(all_loops) == 2
+        assert len(real_loops) == 5
+
 class TestMergPointStringExtraciton(object):
 
     def test_find_name_key(self):

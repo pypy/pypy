@@ -1236,6 +1236,18 @@ class MiniMarkGC(MovingGCBase):
                 self.prebuilt_root_objects.append(dest_addr)
         return True
 
+    def writebarrier_before_move(self, array_addr):
+        """If 'array_addr' uses cards, then this has the same effect as
+        a call to the generic writebarrier, effectively generalizing the
+        cards to "any item may be young".
+        """
+        if self.card_page_indices <= 0:     # check constant-folded
+            return     # no cards, nothing to do
+        #
+        array_hdr = self.header(array_addr)
+        if array_hdr.tid & GCFLAG_CARDS_SET != 0:
+            self.write_barrier(array_addr)
+
     def manually_copy_card_bits(self, source_addr, dest_addr, length):
         # manually copy the individual card marks from source to dest
         assert self.card_page_indices > 0
@@ -1447,7 +1459,7 @@ class MiniMarkGC(MovingGCBase):
         """obj must not be in the nursery.  This copies all the
         young objects it references out of the nursery.
         """
-        self.trace(obj, self._trace_drag_out, None)
+        self.trace(obj, self.make_callback('_trace_drag_out'), self, None)
 
     def trace_and_drag_out_of_nursery_partial(self, obj, start, stop):
         """Like trace_and_drag_out_of_nursery(), but limited to the array
@@ -1456,7 +1468,8 @@ class MiniMarkGC(MovingGCBase):
         ll_assert(start < stop, "empty or negative range "
                                 "in trace_and_drag_out_of_nursery_partial()")
         #print 'trace_partial:', start, stop, '\t', obj
-        self.trace_partial(obj, start, stop, self._trace_drag_out, None)
+        self.trace_partial(obj, start, stop,
+                           self.make_callback('_trace_drag_out'), self, None)
 
 
     def _trace_drag_out1(self, root):
@@ -1837,7 +1850,7 @@ class MiniMarkGC(MovingGCBase):
         #
         # Trace the content of the object and put all objects it references
         # into the 'objects_to_trace' list.
-        self.trace(obj, self._collect_ref_rec, None)
+        self.trace(obj, self.make_callback('_collect_ref_rec'), self, None)
 
 
     # ----------
@@ -1972,7 +1985,7 @@ class MiniMarkGC(MovingGCBase):
                 state = self._finalization_state(y)
                 if state == 0:
                     self._bump_finalization_state_from_0_to_1(y)
-                    self.trace(y, self._append_if_nonnull, pending)
+                    self.trace(y, self._append_if_nonnull, pending, None)
                 elif state == 2:
                     self._recursively_bump_finalization_state_from_2_to_3(y)
             self._recursively_bump_finalization_state_from_1_to_2(x)
@@ -2000,7 +2013,7 @@ class MiniMarkGC(MovingGCBase):
         self.old_objects_with_finalizers.delete()
         self.old_objects_with_finalizers = new_with_finalizer
 
-    def _append_if_nonnull(pointer, stack):
+    def _append_if_nonnull(pointer, stack, ignored):
         stack.append(pointer.address[0])
     _append_if_nonnull = staticmethod(_append_if_nonnull)
 
@@ -2037,7 +2050,7 @@ class MiniMarkGC(MovingGCBase):
             hdr = self.header(y)
             if hdr.tid & GCFLAG_FINALIZATION_ORDERING:     # state 2 ?
                 hdr.tid &= ~GCFLAG_FINALIZATION_ORDERING   # change to state 3
-                self.trace(y, self._append_if_nonnull, pending)
+                self.trace(y, self._append_if_nonnull, pending, None)
 
     def _recursively_bump_finalization_state_from_1_to_2(self, obj):
         # recursively convert objects from state 1 to state 2.

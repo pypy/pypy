@@ -5,7 +5,7 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.x86.arch import (WORD, IS_X86_64, IS_X86_32,
                                           PASS_ON_MY_FRAME, FRAME_FIXED_SIZE,
-                                          THREADLOCAL_OFS)
+                                          THREADLOCAL_OFS, WIN64)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -13,7 +13,7 @@ from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
 from rpython.jit.backend.x86.jump import remap_frame_layout
 from rpython.jit.backend.x86 import codebuf
 from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
-from rpython.jit.backend.llsupport import llerrno
+from rpython.jit.backend.llsupport import llerrno, lltls
 from rpython.rtyper.lltypesystem import llmemory, rffi
 
 
@@ -163,7 +163,7 @@ class CallBuilderX86(AbstractCallBuilder):
         """Load the current 'esp' value into a callee-saved register.
         Further calls just return the same register, by assuming it is
         indeed saved."""
-        assert IS_X86_32
+        assert IS_X86_32     # only for 32-bit Windows
         assert stdcall_or_cdecl and self.is_call_release_gil
         if self.saved_stack_position_reg is None:
             # pick a register saved across calls
@@ -177,25 +177,33 @@ class CallBuilderX86(AbstractCallBuilder):
 
         if handle_lasterror and (save_err & rffi.RFFI_READSAVED_LASTERROR):
             # must call SetLastError().  There are no registers to save
-            # because we are on 32-bit in this case: no register contains
+            # if we are on 32-bit in this case: no register contains
             # the arguments to the main function we want to call afterwards.
+            # On win64, though, it's more messy.  It could be better optimized
+            # but for now we save (again) the registers containing arguments,
+            # and restore them afterwards.
             from rpython.rlib.rwin32 import _SetLastError
             adr = llmemory.cast_ptr_to_adr(_SetLastError)
             SetLastError_addr = self.asm.cpu.cast_adr_to_int(adr)
-            assert isinstance(self, CallBuilder32)    # Windows 32-bit only
             #
             if save_err & rffi.RFFI_ALT_ERRNO:
                 lasterror = llerrno.get_alt_lasterror_offset(self.asm.cpu)
             else:
                 lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
-            tlofsreg = self.get_tlofs_reg()    # => esi, callee-saved
-            self.save_stack_position()         # => edi, callee-saved
-            mc.PUSH_m((tlofsreg.value, lasterror))
-            mc.CALL(imm(follow_jump(SetLastError_addr)))
-            # restore the stack position without assuming a particular
-            # calling convention of _SetLastError()
-            self.mc.stack_frame_size_delta(-WORD)
-            self.mc.MOV(esp, self.saved_stack_position_reg)
+            tlofsreg = self.get_tlofs_reg()    # => esi or r12, callee-saved
+            if not WIN64:
+                self.save_stack_position()         # => edi, callee-saved
+                mc.PUSH_m((tlofsreg.value, lasterror))
+                mc.CALL(imm(follow_jump(SetLastError_addr)))
+                # restore the stack position without assuming a particular
+                # calling convention of _SetLastError()
+                self.mc.stack_frame_size_delta(-WORD)
+                self.mc.MOV(esp, self.saved_stack_position_reg)
+            else:
+                self.win64_save_register_args()
+                mc.MOV_rm(ecx.value, (tlofsreg.value, lasterror))
+                mc.CALL(imm(follow_jump(SetLastError_addr)))
+                self.win64_restore_register_args()
 
         if save_err & rffi.RFFI_READSAVED_ERRNO:
             # Just before a call, read '*_errno' and write it into the
@@ -252,7 +260,6 @@ class CallBuilderX86(AbstractCallBuilder):
                 from rpython.rlib._rsocket_rffi import _WSAGetLastError
                 adr = llmemory.cast_ptr_to_adr(_WSAGetLastError)
             GetLastError_addr = self.asm.cpu.cast_adr_to_int(adr)
-            assert isinstance(self, CallBuilder32)    # Windows 32-bit only
             #
             if save_err & rffi.RFFI_ALT_ERRNO:
                 lasterror = llerrno.get_alt_lasterror_offset(self.asm.cpu)
@@ -262,7 +269,7 @@ class CallBuilderX86(AbstractCallBuilder):
             self.result_value_saved_early = True
             mc.CALL(imm(follow_jump(GetLastError_addr)))
             #
-            tlofsreg = self.get_tlofs_reg()    # => esi (possibly reused)
+            tlofsreg = self.get_tlofs_reg()    # => esi or r12 (possibly reused)
             mc.MOV32_mr((tlofsreg.value, lasterror), eax.value)
 
     class ReacqGilSlowPath(codebuf.SlowPath):
@@ -273,14 +280,14 @@ class CallBuilderX86(AbstractCallBuilder):
                 # This slow-path has two entry points, with two
                 # conditional jumps.  We can jump to the regular start
                 # of this slow-path with the 2nd conditional jump.  Or,
-                # we can jump past the "MOV(heap(fastgil), ecx)"
+                # we can jump past the "MOV(heap(fastgil), 0)"
                 # instruction from the 1st conditional jump.
                 # This instruction reverts the rpy_fastgil acquired
                 # previously, so that the general 'reacqgil_addr'
                 # function can acquire it again.  It must only be done
                 # if we actually succeeded in acquiring rpy_fastgil.
                 from rpython.jit.backend.x86.assembler import heap
-                mc.MOV(heap(self.fastgil), ecx)
+                mc.MOV(heap(self.fastgil), imm(0))
                 offset = mc.get_relative_pos() - self.early_jump_addr
                 mc.overwrite32(self.early_jump_addr-4, offset)
                 # scratch register forgotten here, by get_relative_pos()
@@ -300,17 +307,29 @@ class CallBuilderX86(AbstractCallBuilder):
         # (to acquiring the GIL)
         mc = self.mc
         restore_edx = False
-        old_value = ecx
         #
-        # Use XCHG as an atomic test-and-set-lock.  It also implicitly
-        # does a memory barrier.
-        mc.MOV(old_value, imm(1))
+        # Make sure we can use 'eax' in the sequel for CMPXCHG
+        # On 32-bit, we also need to check if restype is 'L' for long long,
+        # in which case we need to save eax and edx because they are both
+        # used for the return value.
+        if self.restype in (INT, 'L') and not self.result_value_saved_early:
+            self.save_result_value(save_edx = self.restype == 'L')
+            self.result_value_saved_early = True
+        #
+        # Use LOCK CMPXCHG as a compare-and-swap with memory barrier.
+        tlsreg = self.get_tlofs_reg()
+        thread_ident_ofs = lltls.get_thread_ident_offset(self.asm.cpu)
+        #
+        mc.MOV_rm(ecx.value, (tlsreg.value, thread_ident_ofs))
+        mc.XOR_rr(eax.value, eax.value)
+
         if rx86.fits_in_32bits(fastgil):
-            mc.XCHG_rj(old_value.value, fastgil)
+            mc.LOCK()
+            mc.CMPXCHG_jr(fastgil, ecx.value)
         else:
             mc.MOV_ri(X86_64_SCRATCH_REG.value, fastgil)
-            mc.XCHG_rm(old_value.value, (X86_64_SCRATCH_REG.value, 0))
-        mc.CMP(old_value, imm(0))
+            mc.LOCK()
+            mc.CMPXCHG_mr((X86_64_SCRATCH_REG.value, 0), ecx.value)
         #
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
         if bool(gcrootmap):
@@ -323,14 +342,12 @@ class CallBuilderX86(AbstractCallBuilder):
             # thread.  So here we check if the shadowstack pointer
             # is still the same as before we released the GIL (saved
             # in 'ebx'), and if not, we fall back to 'reacqgil_addr'.
-            mc.J_il(rx86.Conditions['NE'], 0xfffff)     # patched later
+            mc.J_il(rx86.Conditions['NZ'], 0xfffff)     # patched later
             early_jump_addr = mc.get_relative_pos(break_basic_block=False)
             # ^^^ this jump will go to almost the same place as the
-            # ReacqGilSlowPath() computes, but one instruction farther,
-            # i.e. just after the "MOV(heap(fastgil), ecx)".
+            # ReacqGilSlowPath() computes, but one instruction further,
+            # i.e. just after the "MOV(heap(fastgil), 0)".
 
-            # here, ecx (=old_value) is zero (so rpy_fastgil was in 'released'
-            # state before the XCHG, but the XCHG acquired it by writing 1)
             rst = gcrootmap.get_root_stack_top_addr()
             mc = self.mc
             mc.CMP(ebx, heap(rst))
@@ -338,7 +355,7 @@ class CallBuilderX86(AbstractCallBuilder):
             sp.early_jump_addr = early_jump_addr
             sp.fastgil = fastgil
         else:
-            sp = self.ReacqGilSlowPath(mc, rx86.Conditions['NE'])
+            sp = self.ReacqGilSlowPath(mc, rx86.Conditions['NZ'])
         sp.callbuilder = self
         sp.set_continue_addr(mc)
         self.asm.pending_slowpaths.append(sp)
@@ -409,7 +426,7 @@ class CallBuilder32(CallBuilderX86):
         self.num_moves = num_moves
 
     def emit_raw_call(self):
-        if stdcall_or_cdecl and self.is_call_release_gil:
+        if IS_X86_32 and stdcall_or_cdecl and self.is_call_release_gil:
             # Dynamically accept both stdcall and cdecl functions.
             # We could try to detect from pyjitpl which calling
             # convention this particular function takes, which would
@@ -419,7 +436,7 @@ class CallBuilder32(CallBuilderX86):
             self.mc.MOV(esp, self.saved_stack_position_reg)
         else:
             self.mc.CALL(self.fnloc)
-            if self.callconv != FFI_DEFAULT_ABI:
+            if IS_X86_32 and self.callconv != FFI_DEFAULT_ABI:
                 # in the STDCALL ABI, the CALL above has an effect on
                 # the stack depth.  Adjust 'mc._frame_size'.
                 delta = self._fix_stdcall(self.callconv)
@@ -499,29 +516,70 @@ class CallBuilder32(CallBuilderX86):
 
 class CallBuilder64(CallBuilderX86):
 
-    ARGUMENTS_GPR = [edi, esi, edx, ecx, r8, r9]
-    ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
-    _ALL_CALLEE_SAVE_GPR = [ebx, r12, r13, r14, r15]
+    if not WIN64:
+        ARGUMENTS_GPR = [edi, esi, edx, ecx, r8, r9]
+        ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
+    else:
+        ARGUMENTS_GPR = [ecx, edx, r8, r9]
+        ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3]
+    ARG0 = ARGUMENTS_GPR[0]
+    ARG1 = ARGUMENTS_GPR[1]
+    ARG2 = ARGUMENTS_GPR[2]
 
     next_arg_gpr = 0
     next_arg_xmm = 0
+    win64_arg_gpr = 0
+    win64_arg_xmm = 0
 
     def _unused_gpr(self, hint):
         i = self.next_arg_gpr
         self.next_arg_gpr = i + 1
+        if WIN64:
+            self.next_arg_xmm = self.next_arg_gpr
         try:
             res = self.ARGUMENTS_GPR[i]
         except IndexError:
             return None
+        if WIN64:
+            self.win64_arg_gpr |= 1 << i
         return res
 
     def _unused_xmm(self):
         i = self.next_arg_xmm
         self.next_arg_xmm = i + 1
+        if WIN64:
+            self.next_arg_gpr = self.next_arg_xmm
         try:
-            return self.ARGUMENTS_XMM[i]
+            res = self.ARGUMENTS_XMM[i]
         except IndexError:
             return None
+        if WIN64:
+            self.win64_arg_xmm |= 1 << i
+        return res
+
+    def win64_save_register_args(self):
+        # Arguments 0 to 3 are in argument registers; further arguments are already in the stack
+        # beyond 4 unused words that will be the shadow space for the CALL.  We can save these
+        # arguments 0 to 3 inside that space, but after we do, we need to reserve another shadow
+        # space for the call to SetLastError that we'll do immediately afterwards...
+        # We might instead save arguments inside esi/edi/r14/r15 at this point, which should
+        # be free and callee-save on Win64.  Unclear it's worth the crash if I'm wrong, though...
+        assert len(self.ARGUMENTS_GPR) == 4
+        assert len(self.ARGUMENTS_XMM) == 4
+        for i in range(4):
+            if self.win64_arg_gpr & (1 << i):
+                self.mc.MOV_sr(i * WORD, self.ARGUMENTS_GPR[i].value)
+            elif self.win64_arg_xmm & (1 << i):
+                self.mc.MOVSD_sx(i * WORD, self.ARGUMENTS_XMM[i].value)
+        self.mc.SUB_ri(esp.value, 4 * WORD)
+
+    def win64_restore_register_args(self):
+        self.mc.ADD_ri(esp.value, 4 * WORD)
+        for i in range(4):
+            if self.win64_arg_gpr & (1 << i):
+                self.mc.MOV_rs(self.ARGUMENTS_GPR[i].value, i * WORD)
+            elif self.win64_arg_xmm & (1 << i):
+                self.mc.MOVSD_xs(self.ARGUMENTS_XMM[i].value, i * WORD)
 
     def prepare_arguments(self):
         src_locs = []
@@ -534,6 +592,8 @@ class CallBuilder64(CallBuilderX86):
         argtypes = self.argtypes
 
         on_stack = 0
+        if WIN64:
+            on_stack = 4      # shadow parameters (space reserved by the caller)
         for i in range(len(arglocs)):
             loc = arglocs[i]
             if loc.is_float():
@@ -570,8 +630,11 @@ class CallBuilder64(CallBuilderX86):
                 if arg.is_float() or (i < len(argtypes) and argtypes[i]=='S'):
                     floats += 1
             all_args = len(arglocs)
-            stack_depth = (max(all_args - floats - len(self.ARGUMENTS_GPR), 0)
-                           + max(floats - len(self.ARGUMENTS_XMM), 0))
+            if not WIN64:
+                stack_depth = (max(all_args - floats - len(self.ARGUMENTS_GPR), 0)
+                               + max(floats - len(self.ARGUMENTS_XMM), 0))
+            else:
+                stack_depth = max(all_args, 4)
             assert stack_depth == on_stack
 
         self.subtract_esp_aligned(on_stack - self.stack_max)

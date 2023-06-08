@@ -96,6 +96,7 @@ class TestMisc(BaseTestPyPyC):
             class A(object):
                 def __init__(self, val):
                     self.val1 = self.val2 = val
+            A("x") # prevent field unboxing
             a = A(1)
             b = A(1)
             sa = 0
@@ -280,6 +281,8 @@ class TestMisc(BaseTestPyPyC):
             guard_nonnull_class(p17, ..., descr=...)
             guard_not_invalidated?
             i21 = getfield_gc_i(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
+            i22 = int_lt(i21, 0)
+            guard_false(i22, descr=...)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
             i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayBase.inst__buffer .*>)
@@ -420,3 +423,62 @@ class TestMisc(BaseTestPyPyC):
         # the following assertion fails if the loop was cancelled due
         # to "abort: vable escape"
         assert len(loops) == 1
+
+    def test_stat_result_virtual(self):
+        def main(n):
+            import os
+            res = 0
+            for i in range(n):
+                res += os.path.islink(__file__) # ID: islink
+            return res
+        log = self.run(main, [3000])
+        loop, = log.loops_by_id("islink")
+        opnames = log.opnames(loop.allops())
+        # one left (used to be 20+)
+        assert opnames.count('new_with_vtable') == 1
+        assert opnames.count('new') == 0
+        assert opnames.count('new_array_clear') == 0
+
+    def test_locals(self):
+        def main(n):
+            res = 0
+            for i in range(n):
+                locals()["abc"] = 1
+                res += locals()["abc"] + locals()["i"]
+            return res
+        log = self.run(main, [3000])
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i79 = int_lt(i76, 0)
+            guard_false(i79, descr=...)
+            i80 = int_ge(i76, i33)
+            guard_false(i80, descr=...)
+            i82 = int_add(i76, 1)
+            setfield_gc(p16, i82, descr=...)
+            guard_not_invalidated(descr=...)
+            setarrayitem_gc(p63, 1, i71, descr=...)
+            setarrayitem_gc(p63, 2, i76, descr=...)
+            setarrayitem_gc(p63, 0, i77, descr=...)
+            i87 = int_add_ovf(i71, i82)
+            guard_no_overflow(descr=...)
+
+            --TICK--
+
+            i92 = arraylen_gc(p61, descr=...)
+            i93 = arraylen_gc(p63, descr=...)
+            jump(..., descr=...)
+        """)
+
+    def test_locals_in_inlined_function(self):
+        def main(n):
+            def g():
+                locals()["ABC"] = True
+                return 1
+            res = 0
+            for i in range(n):
+                res += g()
+            return res
+        log = self.run(main, [3000])
+        loop, = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop.allops())
+        assert "new" not in opnames

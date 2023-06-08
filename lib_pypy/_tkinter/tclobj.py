@@ -51,7 +51,7 @@ def FromWideIntObj(app, value):
     wide = tkffi.new("Tcl_WideInt*")
     if tklib.Tcl_GetWideIntFromObj(app.interp, value, wide) != tklib.TCL_OK:
         app.raiseTclError()
-    return wide[0]
+    return int(wide[0])
 
 # Only when tklib.HAVE_LIBTOMMATH!
 def FromBignumObj(app, value):
@@ -142,7 +142,16 @@ def AsObj(value):
     if isinstance(value, bool):
         return tklib.Tcl_NewBooleanObj(value)
     if isinstance(value, int):
-        return tklib.Tcl_NewLongObj(value)
+        try:
+            return tklib.Tcl_NewLongObj(value)
+        except OverflowError:
+            # 64-bit windows
+            if tklib.HAVE_WIDE_INT_TYPE:
+                return tklib.Tcl_NewWideIntObj(value)
+            else:
+                import sys
+                t, v, tb = sys.exc_info()
+                raise t, v, tb
     if isinstance(value, long):
         try:
             tkffi.new("long[]", [value])
@@ -173,7 +182,6 @@ def AsObj(value):
         inbuf = tkffi.cast("Tcl_UniChar*", buf)
         return tklib.Tcl_NewUnicodeObj(inbuf, len(encoded)/2)
     if isinstance(value, TclObject):
-        tklib.Tcl_IncrRefCount(value._value)
         return value._value
 
     return AsObj(str(value))

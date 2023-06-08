@@ -2,6 +2,7 @@ import py
 from rpython.jit.metainterp.opencoder import Trace, untag, TAGINT, TAGBOX
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp
 from rpython.jit.metainterp.history import ConstInt, IntFrontendOp
+from rpython.jit.metainterp.history import ConstPtrJitCode
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp import resume
 from rpython.jit.metainterp.test.strategies import lists_of_operations
@@ -35,7 +36,7 @@ class FakeFrame(object):
         self.jitcode = jitcode
         self.boxes = boxes
 
-    def get_list_of_active_boxes(self, flag, new_array, encode):
+    def get_list_of_active_boxes(self, flag, new_array, encode, after_residual_call=False):
         a = new_array(len(self.boxes))
         for i, box in enumerate(self.boxes):
             a[i] = encode(box)
@@ -65,7 +66,7 @@ class TestOpencoder(object):
         return iter.inputargs, l, iter
 
     def test_simple_iterator(self):
-        i0, i1 = IntFrontendOp(0), IntFrontendOp(0)
+        i0, i1 = IntFrontendOp(0, 0), IntFrontendOp(1, 0)
         t = Trace([i0, i1], metainterp_sd)
         add = FakeOp(t.record_op(rop.INT_ADD, [i0, i1]))
         t.record_op(rop.INT_ADD, [add, ConstInt(1)])
@@ -79,7 +80,7 @@ class TestOpencoder(object):
         assert l[0].getarg(1) is i1
 
     def test_rd_snapshot(self):
-        i0, i1 = IntFrontendOp(0), IntFrontendOp(0)
+        i0, i1 = IntFrontendOp(0, 0), IntFrontendOp(1, 0)
         t = Trace([i0, i1], metainterp_sd)
         add = FakeOp(t.record_op(rop.INT_ADD, [i0, i1]))
         t.record_op(rop.GUARD_FALSE, [add])
@@ -103,7 +104,7 @@ class TestOpencoder(object):
         assert fstack[1].boxes == [i0, i0, l[0]]
 
     def test_read_snapshot_interface(self):
-        i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
+        i0, i1, i2 = IntFrontendOp(0, 0), IntFrontendOp(1, 0), IntFrontendOp(2, 0)
         t = Trace([i0, i1, i2], metainterp_sd)
         t.record_op(rop.GUARD_TRUE, [i1])
         frame0 = FakeFrame(1, JitCode(2), [i0, i1])
@@ -157,7 +158,7 @@ class TestOpencoder(object):
         BaseTest.assert_equal(loop1, loop2)
 
     def test_cut_trace_from(self):
-        i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
+        i0, i1, i2 = IntFrontendOp(0, 0), IntFrontendOp(1, 0), IntFrontendOp(2, 0)
         t = Trace([i0, i1, i2], metainterp_sd)
         add1 = FakeOp(t.record_op(rop.INT_ADD, [i0, i1]))
         cut_point = t.cut_point()
@@ -172,7 +173,7 @@ class TestOpencoder(object):
         assert l[0].getarglist() == [i0, i1]
 
     def test_virtualizable_virtualref(self):
-        i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
+        i0, i1, i2 = IntFrontendOp(0, 0), IntFrontendOp(1, 0), IntFrontendOp(2, 0)
         t = Trace([i0, i1, i2], metainterp_sd)
         p0 = FakeOp(t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr()))
         t.record_op(rop.GUARD_TRUE, [i0])
@@ -183,7 +184,7 @@ class TestOpencoder(object):
         assert l[1].vref_boxes == [l[0], i1]
 
     def test_liveranges(self):
-        i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
+        i0, i1, i2 = IntFrontendOp(0, 0), IntFrontendOp(1, 0), IntFrontendOp(2, 0)
         t = Trace([i0, i1, i2], metainterp_sd)
         p0 = FakeOp(t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr()))
         t.record_op(rop.GUARD_TRUE, [i0])
@@ -191,7 +192,7 @@ class TestOpencoder(object):
         assert t.get_live_ranges() == [4, 4, 4, 4]
 
     def test_deadranges(self):
-        i0, i1, i2 = IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)
+        i0, i1, i2 = IntFrontendOp(0, 0), IntFrontendOp(1, 0), IntFrontendOp(2, 0)
         t = Trace([i0, i1, i2], metainterp_sd)
         p0 = FakeOp(t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr()))
         t.record_op(rop.GUARD_TRUE, [i0])
@@ -214,3 +215,28 @@ class TestOpencoder(object):
             t.record_op(rop.FINISH, [i0])
             assert t.unpack() == ([], [])
         assert t.tag_overflow
+
+    def test_encode_caching(self):
+        from rpython.rtyper.lltypesystem import lltype, llmemory
+        S = lltype.GcStruct('S')
+        s1 = lltype.malloc(S)
+        t = Trace([], metainterp_sd)
+        c1 = ConstPtrJitCode(lltype.cast_opaque_ptr(llmemory.GCREF, s1))
+        i = t._cached_const_ptr(c1)
+        assert i == 1
+        assert c1.opencoder_index == 1
+
+        s2 = lltype.malloc(S)
+        c2 = ConstPtrJitCode(lltype.cast_opaque_ptr(llmemory.GCREF, s2))
+        i = t._cached_const_ptr(c2)
+        assert i == 2
+        assert c2.opencoder_index == 2
+
+        assert len(t._refs) == 3 # plus null ptr
+
+        # looking up again does not need the dict
+        t._bigints_dict = None
+        i = t._cached_const_ptr(c1)
+        assert i == 1
+        i = t._cached_const_ptr(c2)
+        assert i == 2

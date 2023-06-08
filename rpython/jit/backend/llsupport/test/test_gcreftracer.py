@@ -7,9 +7,10 @@ from rpython.jit.backend.llsupport.gcreftracer import make_boehm_tracer
 class FakeGC:
     def __init__(self):
         self.called = []
-    def _trace_callback(self, callback, arg, addr):
+    def _trace_callback(self, callback, arg1, arg2, addr):
         assert callback == "callback"
-        assert arg == "arg"
+        assert arg1 == "arg1"
+        assert arg2 == "arg2"
         assert lltype.typeOf(addr) == llmemory.Address
         self.called.append(addr)
 
@@ -23,7 +24,7 @@ def test_gcreftracer():
     tr.array_base_addr = base = rffi.cast(lltype.Signed, a)
     tr.array_length = 3
     gc = FakeGC()
-    gcrefs_trace(gc, llmemory.cast_ptr_to_adr(tr), "callback", "arg")
+    gcrefs_trace(gc, llmemory.cast_ptr_to_adr(tr), "callback", "arg1", "arg2")
     assert len(gc.called) == 3
     WORD = rffi.sizeof(lltype.Signed)
     for i in range(3):

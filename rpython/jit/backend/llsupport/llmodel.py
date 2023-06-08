@@ -6,6 +6,7 @@ from rpython.rtyper.annlowlevel import llhelper, MixLevelHelperAnnotator
 from rpython.rtyper.annlowlevel import hlstr, hlunicode
 from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.objectmodel import we_are_translated, specialize, compute_hash
+from rpython.rlib.rmmap import enter_assembler_writing, leave_assembler_writing
 from rpython.jit.metainterp import history, compile
 from rpython.jit.metainterp.optimize import SpeculativeError
 from rpython.jit.metainterp.support import adr2int, ptr2int
@@ -86,9 +87,10 @@ class AbstractLLCPU(AbstractCPU):
             self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize,
                                               ad.lendescr, FLAG_FLOAT)
         self.setup()
-        self._debug_errno_container = lltype.malloc(
+        self._debug_tls_errno_container = lltype.malloc(
             rffi.CArray(lltype.Signed), 7, flavor='raw', zero=True,
             track_allocation=False)
+        self._debug_tls_errno_container[1] = 1234 # dummy thread ident
 
     def getarraydescr_for_frame(self, type):
         if type == history.FLOAT:
@@ -128,7 +130,11 @@ class AbstractLLCPU(AbstractCPU):
                 if size > frame.jf_frame_info.jfi_frame_depth:
                     # update the frame_info size, which is for whatever reason
                     # not up to date
+                    # frame info lives on assembler stack, so we need to enable
+                    # writing
+                    enter_assembler_writing()
                     frame.jf_frame_info.update_frame_depth(base_ofs, size)
+                    leave_assembler_writing()
                 new_frame = jitframe.JITFRAME.allocate(frame.jf_frame_info)
                 frame.jf_forward = new_frame
                 i = 0
@@ -310,7 +316,7 @@ class AbstractLLCPU(AbstractCPU):
                         llmemory.Address)
                 else:
                     ll_threadlocal_addr = rffi.cast(llmemory.Address,
-                        self._debug_errno_container)
+                        self._debug_tls_errno_container)
                 llop.gc_writebarrier(lltype.Void, ll_frame)
                 ll_frame = func(ll_frame, ll_threadlocal_addr)
             finally:

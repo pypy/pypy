@@ -24,7 +24,7 @@ class W_Continulet(W_Root):
         ec = self.space.getexecutioncontext()
         if ec.stacklet_thread is not self.sthread:
             global_state.clear()
-            raise geterror(self.space, "inter-thread support is missing")
+            raise geterror(self.space, "cannot switch to a different thread")
 
     def descr_init(self, w_callable, __args__):
         if self.sthread is not None:

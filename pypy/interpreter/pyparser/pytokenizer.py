@@ -77,10 +77,10 @@ def generate_tokens(lines, flags):
     lnum = continued = 0
     namechars = NAMECHARS
     numchars = NUMCHARS
-    contstr, needcont = '', 0
-    contline = None
+    contstrs, needcont = [], False
     indents = [0]
     last_comment = ''
+    # contains the tokens of the opening parens
     parenstack = []
 
     # make the annotator happy
@@ -95,7 +95,7 @@ def generate_tokens(lines, flags):
         line = universal_newline(line)
         pos, max = 0, len(line)
 
-        if contstr:
+        if contstrs:
             if not line:
                 raise TokenError(
                     "end of file (EOF) while scanning triple-quoted string literal",
@@ -104,24 +104,23 @@ def generate_tokens(lines, flags):
             endmatch = endDFA.recognize(line)
             if endmatch >= 0:
                 pos = end = endmatch
-                tok = Token(tokens.STRING, contstr + line[:end], strstart[0],
+                contstrs.append(line[:end])
+                tok = Token(tokens.STRING, "".join(contstrs), strstart[0],
                        strstart[1], line)
                 token_list.append(tok)
                 last_comment = ''
-                contstr, needcont = '', 0
-                contline = None
+                contstrs, needcont = [], False
             elif (needcont and not line.endswith('\\\n') and
                                not line.endswith('\\\r\n')):
-                tok = Token(tokens.ERRORTOKEN, contstr + line, strstart[0],
+                contstrs.append(line)
+                tok = Token(tokens.ERRORTOKEN, "".join(contstrs), strstart[0],
                        strstart[1], line)
                 token_list.append(tok)
                 last_comment = ''
-                contstr = ''
-                contline = None
+                contstrs = []
                 continue
             else:
-                contstr = contstr + line
-                contline = contline + line
+                contstrs.append(line)
                 continue
 
         elif not parenstack and not continued:  # new statement
@@ -154,7 +153,10 @@ def generate_tokens(lines, flags):
         else:                                  # continued statement
             if not line:
                 if parenstack:
-                    _, lnum1, start1, line1 = parenstack[0]
+                    openparen = parenstack[0]
+                    lnum1 = openparen.lineno
+                    start1 = openparen.column
+                    line1 = openparen.line
                     raise TokenError("parenthesis is never closed", line1,
                                      lnum1, start1 + 1, token_list, lnum)
                 raise TokenError("end of file (EOF) in multi-line statement", line,
@@ -163,9 +165,9 @@ def generate_tokens(lines, flags):
 
         while pos < max:
             pseudomatch = pseudoDFA.recognize(line, pos)
+            start = whiteSpaceDFA.recognize(line, pos)
             if pseudomatch >= 0:                            # scan for tokens
                 # JDR: Modified
-                start = whiteSpaceDFA.recognize(line, pos)
                 if start < 0:
                     start = pos
                 end = pseudomatch
@@ -199,8 +201,7 @@ def generate_tokens(lines, flags):
                         last_comment = ''
                     else:
                         strstart = (lnum, start, line)
-                        contstr = line[start:]
-                        contline = line
+                        contstrs = [line[start:]]
                         break
                 elif initial in single_quoted or \
                     token[:2] in single_quoted or \
@@ -209,8 +210,7 @@ def generate_tokens(lines, flags):
                         strstart = (lnum, start, line)
                         endDFA = (endDFAs[initial] or endDFAs[token[1]] or
                                    endDFAs[token[2]])
-                        contstr, needcont = line[start:], 1
-                        contline = line
+                        contstrs, needcont = [line[start:]], True
                         break
                     else:                                  # ordinary string
                         tok = Token(tokens.STRING, token, lnum, start, line)
@@ -226,13 +226,25 @@ def generate_tokens(lines, flags):
                                        lnum, start, line))
                     last_comment = ''
                 else:
+                    if token in python_opmap:
+                        punct = python_opmap[token]
+                    else:
+                        punct = tokens.OP
+                    tok = Token(punct, token, lnum, start, line)
                     if initial in '([{':
-                        parenstack.append((initial, lnum, start, line))
+                        parenstack.append(tok)
                     elif initial in ')]}':
                         if not parenstack:
                             raise TokenError("unmatched '%s'" % initial, line,
                                              lnum, start + 1, token_list)
-                        opening, lnum1, start1, line1 = parenstack.pop()
+                        openparen = parenstack.pop()
+
+                        #opening, lnum1, start1, line1 = parenstack.pop()
+                        opening = openparen.value[0]
+                        lnum1 = openparen.lineno
+                        start1 = openparen.column
+                        line1 = openparen.line
+
                         if not ((opening == "(" and initial == ")") or
                                 (opening == "[" and initial == "]") or
                                 (opening == "{" and initial == "}")):
@@ -243,14 +255,9 @@ def generate_tokens(lines, flags):
                                 msg += " on line " + str(lnum1)
                             raise TokenError(
                                     msg, line, lnum, start + 1, token_list)
-                    if token in python_opmap:
-                        punct = python_opmap[token]
-                    else:
-                        punct = tokens.OP
-                    token_list.append(Token(punct, token, lnum, start, line))
+                    token_list.append(tok)
                     last_comment = ''
             else:
-                start = whiteSpaceDFA.recognize(line, pos)
                 if start < 0:
                     start = pos
                 if start<max and line[start] in single_quoted:

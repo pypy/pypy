@@ -31,6 +31,7 @@ class TestThread(BaseTestPyPyC):
         def main(n):
             import thread
             local = thread._local()
+            local.x = "abc" # prevent type unboxing
             local.x = 1
             i = 0
             while i < n:
@@ -64,9 +65,11 @@ class TestThread(BaseTestPyPyC):
         guard_true(i56, descr=...)
         p57 = force_token()
         setfield_gc(p0, p57, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token 8>)
-        i58 = call_release_gil_i(0, _, i37, 1, descr=<Calli 4 ii EF=7>)
+        i54 = call_release_gil_i(0, _, i37, 1, descr=<Calli 4 ii EF=7>)
         guard_not_forced(descr=...)
         guard_no_exception(descr=...)
+        i55 = int_ne(i54, 1)              # sanity-check added in 90c5a06b0923
+        guard_false(i55, descr=...)
         i58 = int_sub(i44, 1)
         i59 = call_i(ConstClass(RPyThreadReleaseLock), i37, descr=<Calli . i EF=2>)
         i60 = int_is_true(i59)

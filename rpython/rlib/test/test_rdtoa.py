@@ -1,5 +1,5 @@
 import py
-from rpython.rlib.rdtoa import strtod, dtoa
+from rpython.rlib.rdtoa import strtod, dtoa, dtoa_formatd
 from rpython.rlib import rfloat
 
 def test_strtod():
@@ -33,3 +33,6 @@ def test_dtoa_precision():
 def test_flag_cut_exp_0():
     assert dtoa(1.1e9, code="g", precision=2, flags=rfloat.DTSF_CUT_EXP_0) == "1.1e+9"
     assert dtoa(1.1e-9, code="g", precision=2, flags=rfloat.DTSF_CUT_EXP_0) == "1.1e-9"
+
+def test_g_trailing_zero_bug():
+    assert dtoa_formatd(1505.0, "g", 3, 0) == "1.5e+03"

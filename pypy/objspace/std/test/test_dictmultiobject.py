@@ -3,7 +3,8 @@ import sys
 import py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
-    W_DictObject, BytesDictStrategy, ObjectDictStrategy)
+    W_DictObject, BytesDictStrategy, ObjectDictStrategy, EmptyDictStrategy,
+    update1_dict_dict)
 
 
 class TestW_DictObject(object):
@@ -182,6 +183,17 @@ class TestW_DictObject(object):
         # w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
         # w_l = self.space.call_method(w_d, "keys")
         # assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
+
+    def test_update_empty_does_copy(self, monkeypatch):
+        w = self.space.wrap
+        wb = self.space.newbytes
+        w_empty = self.space.newdict()
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w(1), wb("a")), (w(2), wb("b"))])
+        monkeypatch.setattr(EmptyDictStrategy, "setitem", None)
+        update1_dict_dict(self.space, w_empty, w_d)
+        assert self.space.eq_w(w_empty, w_d)
+
 
 class AppTest_DictObject:
     def setup_class(cls):
@@ -1125,6 +1137,18 @@ class AppTestDictViews:
         assert (foo2, foo2_bis) in logger_copy
         assert logger_copy.issubset({(foo1, foo2_bis), (foo2, foo2_bis), (foo3, foo2_bis)})
 
+    def test_pickle(self):
+        d = {1: 1, 2: 2, 3: 3}
+        it = iter(d)
+        first = next(it)
+        reduced = it.__reduce__()
+        rebuild, args = reduced
+        new = rebuild(*args)
+        items = set(new)
+        assert len(items) == 2
+        items.add(first)
+        assert items == set(d)
+
 
 class AppTestStrategies(object):
     def setup_class(cls):
@@ -1253,9 +1277,13 @@ class FakeSpace:
         assert isinstance(integer, int)
         return integer
 
+    def float_w(self, fl, allow_conversion=True):
+        assert isinstance(fl, float)
+        return fl
+
     def wrap(self, obj):
         return obj
-    newtext = newbytes = wrap
+    newtext = newbytes = newint = newfloat = wrap
 
     def isinstance_w(self, obj, klass):
         return isinstance(obj, klass)
@@ -1263,6 +1291,9 @@ class FakeSpace:
 
     def newtuple(self, l):
         return tuple(l)
+
+    def newtuple2(self, a, b):
+        return a, b
 
     def newdict(self, module=False, instance=False):
         return W_DictObject.allocate_and_init_instance(
@@ -1297,6 +1328,8 @@ class FakeSpace:
     w_float = float
     StringObjectCls = FakeString
     UnicodeObjectCls = FakeUnicode
+    IntObjectCls = int
+    FloatObjectCls = float
     w_dict = W_DictObject
     iter = iter
     fixedview = list
@@ -1307,6 +1340,7 @@ class Config:
         class std:
             methodcachesizeexp = 11
             withmethodcachecounter = False
+        honor__builtins__ = False
 
 FakeSpace.config = Config()
 

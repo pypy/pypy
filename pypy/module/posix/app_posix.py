@@ -15,6 +15,7 @@ else:
 
 error = OSError
 
+# keep in sync with the code in interp_posix.make_stat_result
 
 class stat_result:
     __metaclass__ = structseqtype
@@ -78,31 +79,24 @@ class statvfs_result:
     f_favail = structseqfield(7)
     f_flag = structseqfield(8)
     f_namemax = structseqfield(9)
+    # f_fsid = structseqfield(10)  # not python2 compatible
 
 # Capture file.fdopen at import time, as some code replaces
 # __builtins__.file with a custom function.
 _fdopen = file.fdopen
 
-if osname == 'posix':
-    # POSIX: we want to check the file descriptor when fdopen() is called,
-    # not later when we read or write data.  So we call fstat(), letting
-    # it raise if fd is invalid.
-     def fdopen(fd, mode='r', buffering=-1):
-        """fdopen(fd [, mode='r' [, buffering]]) -> file_object
+# We want to check the file descriptor when fdopen() is called,
+# not later when we read or write data.  So we call fstat(), letting
+# it raise if fd is invalid.
+def fdopen(fd, mode='r', buffering=-1):
+    """fdopen(fd [, mode='r' [, buffering]]) -> file_object
 
-        Return an open file object connected to a file descriptor."""
-        try:
-            posix.fstat(fd)
-        except OSError as e:
-            raise OSError(e.errno, e.message)
-        return _fdopen(fd, mode, buffering)
-
-else:
-     def fdopen(fd, mode='r', buffering=-1):
-        """fdopen(fd [, mode='r' [, buffering]]) -> file_object
-
-        Return an open file object connected to a file descriptor."""
-        return _fdopen(fd, mode, buffering)
+    Return an open file object connected to a file descriptor."""
+    try:
+        posix.fstat(fd)
+    except OSError as e:
+        raise OSError(e.errno, e.message)
+    return _fdopen(fd, mode, buffering)
 
 def tmpfile():
     """Create a temporary file.

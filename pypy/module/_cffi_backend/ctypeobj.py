@@ -276,7 +276,7 @@ class W_CType(W_Root):
 
 
 W_CType.typedef = TypeDef(
-    '_cffi_backend.CTypeDescr',
+    '_cffi_backend.CType',
     __repr__ = interp2app(W_CType.repr),
     __weakref__ = make_weakref_descr(W_CType),
     kind = GetSetProperty(W_CType.fget_kind, doc="kind"),

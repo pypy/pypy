@@ -119,9 +119,6 @@ int EVP_PKEY_derive_set_peer(EVP_PKEY_CTX *, EVP_PKEY *);
 int EVP_PKEY_derive(EVP_PKEY_CTX *, unsigned char *, size_t *);
 int EVP_PKEY_set_type(EVP_PKEY *, int);
 
-int EVP_PKEY_id(const EVP_PKEY *);
-int Cryptography_EVP_PKEY_id(const EVP_PKEY *);
-
 /* in 1.1.0 _create and _destroy were renamed to _new and _free. The following
    two functions wrap both the old and new functions so we can call them
    without worrying about what OpenSSL we're running against. */
@@ -138,7 +135,7 @@ int EVP_PKEY_set1_tls_encodedpoint(EVP_PKEY *, const unsigned char *,
                                    size_t);
 
 /* EVP_PKEY * became const in 1.1.0 */
-int EVP_PKEY_bits(EVP_PKEY *);
+// int EVP_PKEY_bits(EVP_PKEY *);
 
 void OpenSSL_add_all_algorithms(void);
 int EVP_PKEY_assign_RSA(EVP_PKEY *, RSA *);
@@ -147,7 +144,6 @@ EC_KEY *EVP_PKEY_get1_EC_KEY(EVP_PKEY *);
 int EVP_PKEY_set1_EC_KEY(EVP_PKEY *, EC_KEY *);
 
 int EVP_MD_CTX_block_size(const EVP_MD_CTX *);
-int EVP_CIPHER_CTX_block_size(const EVP_CIPHER_CTX *);
 int EVP_CIPHER_CTX_ctrl(EVP_CIPHER_CTX *, int, int, void *);
 
 int PKCS5_PBKDF2_HMAC(const char *, int, const unsigned char *, int, int,
@@ -174,10 +170,6 @@ const long Cryptography_HAS_EVP_PKEY_DHX = 1;
 const long Cryptography_HAS_EVP_PKEY_DHX = 0;
 const long EVP_PKEY_DHX = -1;
 #endif
-
-int Cryptography_EVP_PKEY_id(const EVP_PKEY *key) {
-    return EVP_PKEY_id(key);
-}
 
 EVP_MD_CTX *Cryptography_EVP_MD_CTX_new(void) {
 #if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110

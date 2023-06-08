@@ -1,11 +1,11 @@
-import py
+import pytest
 
 class AppTest(object):
     spaceconfig = {"objspace.usemodules.select": False}
 
     def setup_class(cls):
         if cls.runappdirect:
-            py.test.skip("does not make sense on pypy-c")
+            pytest.skip("does not make sense on pypy-c")
 
     def test_cpumodel(self):
         import __pypy__
@@ -131,6 +131,18 @@ class AppTest(object):
         s = set([2, 3, 4])
         assert strategy(s) == "IntegerSetStrategy"
 
+    def test_instance_strategy(self):
+        import sys
+        from __pypy__ import strategy
+        if sys.maxsize < 2**32:
+            skip('not for 32-bit python')
+        class A(object):
+            pass
+        a = A()
+        a.x = 1
+        a.y = 2
+        assert strategy(a).startswith("<UnboxedPlainAttribute y DICT 0 1 immutable <UnboxedPlainAttribute x DICT 0 0 immutable <DictTerminator w_cls=<W_TypeObject 'A'")
+
 
 class AppTestJitFeatures(object):
     spaceconfig = {"translation.jit": True}
@@ -148,9 +160,9 @@ class AppTestJitFeatures(object):
         for x in supported_types:
             assert x in ['floats', 'singlefloats', 'longlong']
 
-    def test_do_what_I_mean_error(self):
+    def test_internal_error(self):
         if not self.runappdirect:
             skip("we don't wrap a random exception inside SystemError "
                  "when untranslated, because it makes testing harder")
-        from __pypy__ import do_what_I_mean
-        raises(SystemError, do_what_I_mean, 1)
+        from __pypy__ import _internal_crash
+        raises(SystemError, _internal_crash, 1)

@@ -52,7 +52,7 @@ def pypy_init(import_site):
             import site
         except:
             import sys
-            print >> sys.stderr, "import site\' failed"
+            print >> sys.stderr, "\'import site\' failed"
 ''').interphook('pypy_init')
 
 

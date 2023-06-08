@@ -42,8 +42,6 @@ from pypy.module.cpyext.typeobjectdefs import (
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 
-cts.parse_header(parse_dir / "cpyext_descrobject.h")
-
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
 PyType_Check, PyType_CheckExact = build_type_checkers_flags("Type")
@@ -75,8 +73,11 @@ class W_GetSetPropertyEx(GetSetProperty):
             self.name, self.w_type)
 
 
-def PyDescr_NewGetSet(space, getset, w_type):
-    return W_GetSetPropertyEx(getset, w_type)
+@cpython_api([PyTypeObjectPtr, lltype.Ptr(PyGetSetDef)], PyObject, result_is_ll=True)
+def PyDescr_NewGetSet(space, w_type, getset):
+    # Note the arguments are reversed
+    w_descr = W_GetSetPropertyEx(getset, w_type)
+    return make_ref(space, w_descr, w_type)
 
 def make_GetSet(space, getsetprop):
     py_getsetdef = lltype.malloc(PyGetSetDef, flavor='raw')
@@ -149,6 +150,12 @@ def init_memberdescrobject(space):
                    attach=methoddescr_attach,
                    realize=methoddescr_realize,
                    dealloc=descr_dealloc,
+                   )
+    make_typedescr(W_PyCWrapperObject.typedef,
+                   basestruct=cts.gettype('PyWrapperDescrObject'),
+                   attach=wrapperdescr_attach,
+                   realize=wrapperdescr_realize,
+                   dealloc=wrapper_dealloc,
                    )
 
 def init_descr(space, py_obj, w_type, name):
@@ -231,6 +238,36 @@ def methoddescr_realize(space, obj):
     track_reference(space, obj, w_obj)
     return w_obj
 
+def wrapperdescr_attach(space, py_obj, w_obj, w_userdata=None): 
+    assert isinstance(w_obj, W_PyCWrapperObject)
+    py_methoddescr = cts.cast('PyWrapperDescrObject*', py_obj)
+    init_descr(space, py_obj, w_obj.w_objclass, w_obj.getname(space))
+    py_methoddescr.c_d_wrapped = w_obj.get_func_to_call()
+    # CPython starts from the d_base, since this is the basic structure
+    # filled in by the slotdef macros in Objects/typeobject.c
+    # We only need it for compatibility, so we leave it all 0.
+    # see the way wrapperbase is modified in test/specmethdocstring.c,
+    # which adds a docstring to the slot function via d_base.doc
+    py_methoddescr.c_d_base = lltype.malloc(cts.gettype('struct wrapperbase'),
+                                zero=True, flavor='raw', track_allocation=False)
+
+def wrapperdescr_realize(space, obj):
+    raise oefmt(space.w_RuntimeError,
+        "cannot yet create a Python wrapper_descriptor from a C "
+        "PyWrapperDescrObject. Please report this to PyPy")
+
+@slot_function([PyObject], lltype.Void)
+def wrapper_dealloc(space, py_obj):
+    from pypy.module.cpyext.object import _dealloc
+    py_descr = cts.cast('PyDescrObject*', py_obj)
+    if py_descr:
+        decref(space, py_descr.c_d_type)
+        decref(space, py_descr.c_d_name)
+        py_wrapperdescr = cts.cast('PyWrapperDescrObject*', py_obj)
+        if py_wrapperdescr.c_d_base:
+            lltype.free(py_wrapperdescr.c_d_base, flavor="raw", track_allocation=False)
+            py_wrapperdescr.c_d_base = rffi.cast(cts.gettype('struct wrapperbase*'), 0)
+    _dealloc(space, py_obj)
 
 def convert_getset_defs(space, dict_w, getsets, w_type):
     getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), getsets)
@@ -243,7 +280,7 @@ def convert_getset_defs(space, dict_w, getsets, w_type):
             if not name:
                 break
             name = rffi.charp2str(name)
-            w_descr = PyDescr_NewGetSet(space, getset, w_type)
+            w_descr = W_GetSetPropertyEx(getset, w_type)
             dict_w[name] = w_descr
 
 def convert_member_defs(space, dict_w, members, w_type):
@@ -263,7 +300,7 @@ def convert_member_defs(space, dict_w, members, w_type):
 WARN_MISSING_SLOTS = False
 missing_slots={}
 def warn_missing_slot(space, method_name, slot_name, w_type):
-    if not we_are_translated():
+    if WARN_MISSING_SLOTS and not we_are_translated():
         if slot_name not in missing_slots:
             missing_slots[slot_name] = w_type.getname(space)
             print "missing slot %r/%r, discovered on %r" % (
@@ -287,8 +324,7 @@ def update_all_slots(space, w_type, pto):
 
         if not slot_func_helper:
             if not slot_apifunc:
-                if WARN_MISSING_SLOTS:
-                    warn_missing_slot(space, method_name, slot_name, w_type)
+                warn_missing_slot(space, method_name, slot_name, w_type)
                 continue
             slot_func_helper = slot_apifunc.get_llhelper(space)
         fill_slot(space, pto, w_type, slot_names, slot_func_helper)
@@ -595,8 +631,9 @@ def bf_getreadbuffer(space, w_buf, segment, ref):
         raise oefmt(space.w_SystemError,
                     "accessing non-existent segment")
     buf = space.readbuf_w(w_buf)
-    if isinstance(buf, StringBuffer):
-        return str_getreadbuffer(space, w_buf, segment, ref)
+    # if isinstance(buf, StringBuffer):
+    #    # Link the data pointer of buf to ref[0]
+    #    return _str_getreadbuffer(space, w_buf, segment, ref)
     address = buf.get_raw_address()
     ref[0] = address
     return len(buf)
@@ -616,6 +653,9 @@ def bf_getwritebuffer(space, w_buf, segment, ref):
 
 @slot_function([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed, error=-1)
 def str_getreadbuffer(space, w_str, segment, ref):
+    return _str_getreadbuffer(space, w_str, segment, ref)
+
+def _str_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
         raise oefmt(space.w_SystemError,
@@ -641,7 +681,7 @@ def unicode_getreadbuffer(space, w_str, segment, ref):
 
 @slot_function([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed, error=-1)
 def str_getcharbuffer(space, w_buf, segment, ref):
-    return str_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
+    return _str_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
 @slot_function([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed, error=-1)
 def buf_getreadbuffer(space, pyref, segment, ref):

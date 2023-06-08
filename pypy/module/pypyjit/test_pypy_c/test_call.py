@@ -86,7 +86,7 @@ class TestCall(BaseTestPyPyC):
             p41 = getfield_gc_r(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
             guard_value(p41, ConstPtr(ptr42), descr=...)
             i42 = getfield_gc_i(p38, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
-            i43 = int_is_zero(i42)
+            i43 = int_eq(i42, 0)
             guard_true(i43, descr=...)
             i50 = force_token()
         """)
@@ -114,6 +114,8 @@ class TestCall(BaseTestPyPyC):
                     self.a = a
                 def f(self, i):
                     return self.a + i
+            a = A("a") # stop field unboxing
+
             i = 0
             a = A(1)
             while i < n:
@@ -446,13 +448,9 @@ class TestCall(BaseTestPyPyC):
             p32 = getfield_gc_r(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
             guard_value(p32, ConstPtr(ptr33), descr=...)
             i34 = getfield_gc_i(p29, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
-            i35 = int_is_zero(i34)
+            i35 = int_eq(i34, 0)
             guard_true(i35, descr=...)
-            p37 = getfield_gc_r(ConstPtr(ptr36), descr=<FieldP pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
-            guard_nonnull_class(p37, ConstClass(W_IntObject), descr=...)
-            i39 = getfield_gc_i(p37, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
-            i40 = int_add_ovf(i22, i39)
-            guard_no_overflow(descr=...)
+            i40 = int_add(i22, 5)
             --TICK--
         """)
 
@@ -555,6 +553,26 @@ class TestCall(BaseTestPyPyC):
         calls = [op for op in allops if op.name.startswith('call')]
         assert len(calls) == 0
         assert len([op for op in allops if op.name.startswith('new')]) == 0
+
+    def test_kwargs_update_virtual1(self):
+        log = self.run("""
+        def f(**kwargs):
+            return len(kwargs)
+        def main(stop):
+            i = 0
+            res = 0
+            while i < stop:
+                d = {'a': 1, 'b': 2}
+                # used to force the dict!
+                res += f(c=2, **d) # ID: call
+                i += 1
+            return res
+        """, [1000])
+        loop, = log.loops_by_id('call')
+        ops = loop.ops_by_id('call')
+        assert log.opnames(ops) == ["guard_not_invalidated", "force_token",
+                "int_add_ovf", "guard_no_overflow"]
+
 
     def test_kwargs_non_virtual(self):
         log = self.run("""

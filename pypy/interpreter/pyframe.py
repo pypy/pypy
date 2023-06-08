@@ -23,7 +23,7 @@ from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
 for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
-POP_BLOCK END_FINALLY'''.split():
+POP_BLOCK END_FINALLY YIELD_VALUE WITH_CLEANUP'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
 
@@ -36,6 +36,7 @@ class FrameDebugData(object):
     instr_prev_plus_one      = 0
     f_lineno                 = 0      # current lineno for tracing
     is_being_profiled        = False
+    is_in_line_tracing       = False
     w_locals                 = None
 
     def __init__(self, pycode):
@@ -236,7 +237,8 @@ class PyFrame(W_Root):
                                  "an unexpected number of free variables")
         index = code.co_nlocals
         for i in range(ncellvars):
-            self.locals_cells_stack_w[index] = Cell()
+            self.locals_cells_stack_w[index] = Cell(
+                    None, self.pycode.cell_families[i])
             index += 1
         for i in range(nfreevars):
             self.locals_cells_stack_w[index] = outer_func.closure[i]
@@ -310,9 +312,12 @@ class PyFrame(W_Root):
         assert self.locals_cells_stack_w[depth] is None
         self.valuestackdepth = depth + 1
 
+    def assert_stack_index(self, index):
+        if we_are_translated():
+            return
+        assert self._check_stack_index(index)
+
     def _check_stack_index(self, index):
-        # will be completely removed by the optimizer if only used in an assert
-        # and if asserts are disabled
         code = self.pycode
         ncellvars = len(code.co_cellvars)
         nfreevars = len(code.co_freevars)
@@ -324,7 +329,7 @@ class PyFrame(W_Root):
 
     def popvalue_maybe_none(self):
         depth = self.valuestackdepth - 1
-        assert self._check_stack_index(depth)
+        self.assert_stack_index(depth)
         assert depth >= 0
         w_object = self.locals_cells_stack_w[depth]
         self.locals_cells_stack_w[depth] = None
@@ -353,7 +358,7 @@ class PyFrame(W_Root):
     def peekvalues(self, n):
         values_w = [None] * n
         base = self.valuestackdepth - n
-        assert self._check_stack_index(base)
+        self.assert_stack_index(base)
         assert base >= 0
         while True:
             n -= 1
@@ -366,7 +371,7 @@ class PyFrame(W_Root):
     def dropvalues(self, n):
         n = hint(n, promote=True)
         finaldepth = self.valuestackdepth - n
-        assert self._check_stack_index(finaldepth)
+        self.assert_stack_index(finaldepth)
         assert finaldepth >= 0
         while True:
             n -= 1
@@ -402,14 +407,14 @@ class PyFrame(W_Root):
     def peekvalue_maybe_none(self, index_from_top=0):
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
-        assert self._check_stack_index(index)
+        self.assert_stack_index(index)
         assert index >= 0
         return self.locals_cells_stack_w[index]
 
     def settopvalue(self, w_object, index_from_top=0):
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
-        assert self._check_stack_index(index)
+        self.assert_stack_index(index)
         assert index >= 0
         self.locals_cells_stack_w[index] = ll_assert_not_none(w_object)
 
@@ -465,8 +470,11 @@ class PyFrame(W_Root):
             w_tb = self.last_exception.get_w_traceback(space)
 
         d = self.getorcreatedebug()
+        w_backref = self.f_backref()
+        if w_backref is None:
+            w_backref = space.w_None
         tup_state = [
-            self.f_backref(),
+            w_backref,
             self.get_builtin(),
             self.pycode,
             w_locals_cells_stack,
@@ -590,18 +598,21 @@ class PyFrame(W_Root):
     def fast2locals(self):
         # Copy values from the fastlocals to self.w_locals
         d = self.getorcreatedebug()
-        if d.w_locals is None:
-            d.w_locals = self.space.newdict()
+        w_locals = d.w_locals
+        write = False
+        if w_locals is None:
+            w_locals = self.space.newdict(instance=True)
+            write = True
         varnames = self.getcode().getvarnames()
         for i in range(min(len(varnames), self.getcode().co_nlocals)):
             name = varnames[i]
             w_value = self.locals_cells_stack_w[i]
             if w_value is not None:
-                self.space.setitem_str(d.w_locals, name, w_value)
+                self.space.setitem_str(w_locals, name, w_value)
             else:
                 w_name = self.space.newtext(name)
                 try:
-                    self.space.delitem(d.w_locals, w_name)
+                    self.space.delitem(w_locals, w_name)
                 except OperationError as e:
                     if not e.match(self.space, self.space.w_KeyError):
                         raise
@@ -620,7 +631,9 @@ class PyFrame(W_Root):
             except ValueError:
                 pass
             else:
-                self.space.setitem_str(d.w_locals, name, w_value)
+                self.space.setitem_str(w_locals, name, w_value)
+        if write:
+            d.w_locals = w_locals
 
 
     @jit.unroll_safe
@@ -703,9 +716,25 @@ class PyFrame(W_Root):
         except OperationError:
             raise oefmt(space.w_ValueError, "lineno must be an integer")
 
+        # You can only do this from within a trace function, not via
+        # _getframe or similar hackery.
+        if space.int_w(self.fget_f_lasti(space)) == -1:
+            raise oefmt(space.w_ValueError,
+                        "can't jump from the 'call' trace event of a new frame")
         if self.get_w_f_trace() is None:
             raise oefmt(space.w_ValueError,
                         "f_lineno can only be set by a trace function.")
+
+        code = self.pycode.co_code
+        if ord(code[self.last_instr]) == YIELD_VALUE:
+            raise oefmt(space.w_ValueError,
+                        "can't jump from a yield statement")
+
+        # Only allow jumps when we're tracing a line event.
+        d = self.getorcreatedebug()
+        if not d.is_in_line_tracing:
+            raise oefmt(space.w_ValueError,
+                        "can only jump from a 'line' trace event")
 
         line = self.pycode.co_firstlineno
         if new_lineno < line:
@@ -730,7 +759,6 @@ class PyFrame(W_Root):
                         "line %d comes after the current code.", new_lineno)
 
         # Don't jump to a line with an except in it.
-        code = self.pycode.co_code
         if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
             raise oefmt(space.w_ValueError,
                         "can't jump to 'except' line as there's no exception")
@@ -817,12 +845,17 @@ class PyFrame(W_Root):
             raise oefmt(space.w_ValueError,
                         "can't jump into the middle of a block")
 
+        # Pop any blocks that we're jumping out of.
+        from pypy.interpreter.pyopcode import FinallyBlock
         while f_iblock > new_iblock:
             block = self.pop_block()
             block.cleanup(self)
             f_iblock -= 1
+            if (isinstance(block, FinallyBlock)
+                    and ord(code[block.handlerposition]) == WITH_CLEANUP):
+                self.popvalue()  # Pop the exit function.
 
-        self.getorcreatedebug().f_lineno = new_lineno
+        d.f_lineno = new_lineno
         self.last_instr = new_lasti
 
     def get_last_lineno(self):

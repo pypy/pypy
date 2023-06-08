@@ -1,7 +1,4 @@
-#include "common_header.h"
-#include "structdef.h"
-#include "forwarddecl.h"
-#include "preimpl.h"
+#include "singleheader.h"
 #include <src/int.h>
 #include <src/support.h>
 #include <src/exception.h>

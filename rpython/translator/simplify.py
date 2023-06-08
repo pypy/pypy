@@ -419,19 +419,18 @@ CanRemoveBuiltins = {
     hasattr: True,
     }
 
-def find_start_blocks(graphs):
-    start_blocks = set()
-    for graph in graphs:
-        start_blocks.add(graph.startblock)
-    return start_blocks
-
 def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
     """Remove dead operations and variables that are passed over a link
     but not used in the target block. Input is a set of blocks"""
     read_vars = set()  # set of variables really used
     dependencies = defaultdict(set) # map {Var: list-of-Vars-it-depends-on}
     set_of_blocks = set(blocks)
-    start_blocks = find_start_blocks(graphs)
+    if len(graphs) == 1:
+        start_blocks = {graphs[0].startblock}
+    else:
+        assert translator
+        start_blocks = {translator.annotator.annotated[block].startblock
+                for block in blocks}
 
     def canremove(op, block):
         return op.opname in CanRemove and op is not block.raising_op

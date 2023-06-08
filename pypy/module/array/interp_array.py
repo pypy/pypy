@@ -72,7 +72,8 @@ def compare_arrays(space, arr1, arr2, comp_op):
     if comp_op == NE and arr1.len != arr2.len:
         return space.w_True
     lgt = min(arr1.len, arr2.len)
-    for i in range(lgt):
+    i = 0
+    while i < lgt:
         arr_eq_driver.jit_merge_point(comp_func=comp_op)
         w_elem1 = arr1.w_getitem(space, i, integer_instead_of_char=True)
         w_elem2 = arr2.w_getitem(space, i, integer_instead_of_char=True)
@@ -102,6 +103,7 @@ def compare_arrays(space, arr1, arr2, comp_op):
                 return space.w_False
             elif not space.is_true(space.eq(w_elem1, w_elem2)):
                 return space.w_True
+        i += 1
     # we have some leftovers
     if comp_op == EQ:
         return space.w_True
@@ -128,7 +130,8 @@ def index_count_array(arr, w_val, count=False):
     tp_item = space.type(w_val)
     arrclass = arr.__class__
     cnt = 0
-    for i in range(arr.len):
+    i = 0
+    while i < arr.len:
         index_count_jd.jit_merge_point(
             tp_item=tp_item, count=count,
             arrclass=arrclass)
@@ -138,6 +141,7 @@ def index_count_array(arr, w_val, count=False):
                 cnt += 1
             else:
                 return i
+        i += 1
     if count:
         return cnt
     return -1
@@ -158,6 +162,7 @@ class W_ArrayBase(W_Root):
     def __del__(self):
         if self._buffer:
             lltype.free(self._buffer, flavor='raw')
+            self._buffer = lltype.nullptr(rffi.CCHARP.TO)
 
     def setlen(self, size, zero=False, overallocate=True):
         if self._buffer:
@@ -480,7 +485,7 @@ class W_ArrayBase(W_Root):
         """
         w_ptr = space.newint(self._buffer_as_unsigned())
         w_len = space.newint(self.len)
-        return space.newtuple([w_ptr, w_len])
+        return space.newtuple2(w_ptr, w_len)
 
     def descr_reduce(self, space):
         """ Return state information for pickling.
@@ -563,8 +568,8 @@ class W_ArrayBase(W_Root):
     def descr_getitem(self, space, w_idx):
         "x.__getitem__(y) <==> x[y]"
         if not space.isinstance_w(w_idx, space.w_slice):
-            idx, stop, step = space.decode_index(w_idx, self.len)
-            assert step == 0
+            idx, stop, step, slicelength = space.decode_index4(w_idx, self)
+            assert step == 0 and slicelength == 1
             return self.w_getitem(space, idx)
         else:
             return self.getitem_slice(space, w_idx)
@@ -585,7 +590,7 @@ class W_ArrayBase(W_Root):
                            w_item)
 
     def descr_delitem(self, space, w_idx):
-        start, stop, step, size = self.space.decode_index4(w_idx, self.len)
+        start, stop, step, size = self.space.decode_index4(w_idx, self)
         if step != 1:
             # I don't care about efficiency of that so far
             w_lst = self.descr_tolist(space)
@@ -812,14 +817,23 @@ class TypeCode(object):
         # hint for the annotator: track individual constant instances
         return True
 
-if rffi.sizeof(rffi.UINT) == rffi.sizeof(rffi.ULONG):
-    # 32 bits: UINT can't safely overflow into a C long (rpython int)
+if rffi.sizeof(rffi.UINT) == rffi.sizeof(lltype.Unsigned):
+    # 32 bits: UINT can't safely overflow into a lltype.Unsigned (rpython int)
     # via int_w, handle it like ULONG below
     _UINTTypeCode = \
          TypeCode(rffi.UINT,          'bigint_w')
 else:
     _UINTTypeCode = \
          TypeCode(rffi.UINT,          'int_w', True)
+if rffi.sizeof(rffi.ULONG) == rffi.sizeof(lltype.Unsigned):
+    # Overflow handled by rbigint.touint() which
+    # corresponds to lltype.Unsigned
+    _ULONGTypeCode = \
+         TypeCode(rffi.ULONG,         'bigint_w', errorname="integer")
+else:
+    # 64 bit Windows special case: ULONG is same as UINT
+    _ULONGTypeCode = \
+         TypeCode(rffi.ULONG,         'int_w', True, errorname="integer")
 types = {
     'c': TypeCode(lltype.Char,        'bytes_w', method=''),
     'u': TypeCode(lltype.UniChar,     'utf8_len_w', method=''),
@@ -830,10 +844,7 @@ types = {
     'i': TypeCode(rffi.INT,           'int_w', True, True),
     'I': _UINTTypeCode,
     'l': TypeCode(rffi.LONG,          'int_w', True, True),
-    'L': TypeCode(rffi.ULONG,         'bigint_w',   # Overflow handled by
-                  errorname="integer"),             # rbigint.touint() which
-                                                    # corresponds to the
-                                                    # C-type unsigned long
+    'L': _ULONGTypeCode,
     'f': TypeCode(lltype.SingleFloat, 'float_w', method='__float__'),
     'd': TypeCode(lltype.Float,       'float_w', method='__float__'),
     }
@@ -864,7 +875,7 @@ class ArrayBuffer(RawBuffer):
         data[index] = char
         w_array._charbuf_stop()
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if size == 0:
             return ''
         if step == 1:
@@ -873,7 +884,7 @@ class ArrayBuffer(RawBuffer):
                 return rffi.charpsize2str(rffi.ptradd(data, start), size)
             finally:
                 self.w_array._charbuf_stop()
-        return RawBuffer.getslice(self, start, stop, step, size)
+        return RawBuffer.getslice(self, start, step, size)
 
     def get_raw_address(self):
         return self.w_array._charbuf_start()
@@ -1118,7 +1129,7 @@ def make_array(mytype):
             keepalive_until_here(self)
 
         def getitem_slice(self, space, w_idx):
-            start, stop, step, size = space.decode_index4(w_idx, self.len)
+            start, stop, step, size = space.decode_index4(w_idx, self)
             w_a = mytype.w_class(self.space)
             w_a.setlen(size, overallocate=False)
             assert step != 0
@@ -1133,7 +1144,8 @@ def make_array(mytype):
             return w_a
 
         def setitem(self, space, w_idx, w_item):
-            idx, stop, step = space.decode_index(w_idx, self.len)
+            idx, stop, step, slicelength = space.decode_index4(w_idx, self)
+            assert slicelength == 1
             if step != 0:
                 raise oefmt(self.space.w_TypeError,
                             "can only assign array to array slice")
@@ -1145,7 +1157,7 @@ def make_array(mytype):
             if not isinstance(w_item, W_Array):
                 raise oefmt(space.w_TypeError,
                             "can only assign to a slice array")
-            start, stop, step, size = self.space.decode_index4(w_idx, self.len)
+            start, stop, step, size = self.space.decode_index4(w_idx, self)
             assert step != 0
             if w_item.len != size or self is w_item:
                 if start == self.len and step > 0:

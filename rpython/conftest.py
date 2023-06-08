@@ -72,6 +72,8 @@ class LeakFinder:
             return
         if not getattr(item.obj, 'dont_track_allocations', False):
             leakfinder.start_tracking_allocations()
+        from rpython.rlib import rgil
+        rgil._reset_emulated_gil_holder()
 
     @pytest.hookimpl(trylast=True)
     def pytest_runtest_call(self, item):

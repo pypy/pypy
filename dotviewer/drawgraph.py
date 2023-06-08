@@ -3,15 +3,17 @@ A custom graphic renderer for the '.plain' files produced by dot.
 
 """
 
-from __future__ import generators
+from __future__ import absolute_import, print_function
 import re, os, math
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 from pygame.locals import *
-from strunicode import forceunicode
+
+from dotviewer.strunicode import forcestr, forceunicode
 
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
-FONT = os.path.join(this_dir, 'font', 'DroidSans.ttf')
+FONT = os.path.join(this_dir, 'font', 'FiraMath-Regular.otf')
 FIXEDFONT = os.path.join(this_dir, 'font', 'DroidSansMono.ttf')
 COLOR = {
     'aliceblue': (240, 248, 255),
@@ -670,8 +672,18 @@ COLOR = {
     'yellow4': (139, 139, 0),
     'yellowgreen': (154, 205, 50),
     }
+
+GONS = {
+    b'triangle': 3,
+    b'diamond': 4,
+    b'pentagon': 5,
+    b'hexagon': 6,
+    b'septagon': 7,
+    b'octagon': 8,
+}
+
 re_nonword=re.compile(r'([^0-9a-zA-Z_.]+)')
-re_linewidth=re.compile(r'setlinewidth\((\d+(\.\d*)?|\.\d+)\)')
+re_linewidth=re.compile(forcestr(r'setlinewidth\((\d+(\.\d*)?|\.\d+)\)'))
 
 def combine(color1, color2, alpha):
     r1, g1, b1 = color1
@@ -702,6 +714,15 @@ def getcolor(name, default):
     else:
         return default
 
+def ensure_readable(fgcolor, bgcolor):
+    if bgcolor is None:
+        return fgcolor
+    r, g, b = bgcolor
+
+    l = 0.2627 * r + 0.6780 * g + 0.0593 * b
+    if l < 70:
+        return (255, 255, 255)
+    return fgcolor
 
 class GraphLayout:
     fixedfont = False
@@ -721,7 +742,7 @@ class GraphLayout:
         self.edges.append(Edge(self.nodes, *args))
 
     def get_display(self):
-        from graphdisplay import GraphDisplay
+        from dotviewer.graphdisplay import GraphDisplay
         return GraphDisplay(self)      
 
     def display(self):
@@ -765,8 +786,8 @@ class Node:
         self.label = forceunicode(label)
         self.style = style
         self.shape = shape
-        self.color = color
-        self.fillcolor = fillcolor
+        self.color = forceunicode(color)
+        self.fillcolor = forceunicode(fillcolor)
         self.highlight = False
 
     def sethighlight(self, which):
@@ -783,11 +804,13 @@ class Edge:
                        for i in range(0, cnt*2, 2)]
         rest = rest[cnt*2:]
         if len(rest) > 2:
-            self.label, xl, yl = rest[:3]
+            label, xl, yl = rest[:3]
+            self.label = forceunicode(label)
             self.xl = float(xl)
             self.yl = float(yl)
             rest = rest[3:]
         self.style, self.color = rest
+        self.color = forceunicode(self.color)
         linematch = re_linewidth.match(self.style)
         if linematch:
             num = linematch.group(1)
@@ -863,7 +886,11 @@ class Edge:
             self.cachedarrowhead = result
         return result
 
-def beziercurve((x0,y0), (x1,y1), (x2,y2), (x3,y3), resolution=8):
+def beziercurve(p0, p1, p2, p3, resolution=8):
+    (x0, y0) = p0
+    (x1, y1) = p1
+    (x2, y2) = p2
+    (x3, y3) = p3
     result = []
     f = 1.0/(resolution-1)
     append = result.append
@@ -877,10 +904,13 @@ def beziercurve((x0,y0), (x1,y1), (x2,y2), (x3,y3), resolution=8):
                 y0*t0 + y1*t1 + y2*t2 + y3*t3))
     return result
 
-def segmentdistance((x0,y0), (x1,y1), (x,y)):
+def segmentdistance(p0, p1, p):
     "Distance between the point (x,y) and the segment (x0,y0)-(x1,y1)."
-    vx = x1-x0
-    vy = y1-y0
+    (x0, y0) = p0
+    (x1, y1) = p1
+    (x, y) = p
+    vx = x1 - x0
+    vy = y1 - y0
     try:
         l = math.hypot(vx, vy)
         vx /= l
@@ -895,14 +925,23 @@ def segmentdistance((x0,y0), (x1,y1), (x,y)):
     else:
         return abs(vy*(x-x0) - vx*(y-y0))
 
+def ellipse(t, center, a, b):
+    """ compute points on an elliplse, with t running from 0 to 2*math.pi, a
+    and b being the radii and center as the origin of the ellipse. """
+    xcenter, ycenter = center
+    return int(xcenter - a / 2.0 * math.sin(t)), int(ycenter - b / 2.0 * math.cos(t))
 
 class GraphRenderer:
     MARGIN = 0.6
-    SCALEMIN = 3
-    SCALEMAX = 100
     FONTCACHE = {}
     
-    def __init__(self, screen, graphlayout, scale=75):
+    def __init__(self, screen, graphlayout, scale=75, highdpi=False):
+        if highdpi:
+            self.SCALEMIN = 10
+            self.SCALEMAX = 200
+        else:
+            self.SCALEMIN = 3
+            self.SCALEMAX = 100
         self.graphlayout = graphlayout
         self.setscale(scale)
         self.setoffset(0, 0)
@@ -1026,6 +1065,8 @@ class GraphRenderer:
             if x-nw2 < w and x+nw2 > 0 and y-nh2 < h and y+nh2 > 0:
                 self.visiblenodes.append(node)
         for edge in self.graphlayout.edges:
+            if edge.style == b"invis":
+                continue
             x1, y1, x2, y2 = edge.limits()
             x1, y1 = self.map(x1, y1)
             if x1 < w and y1 < h:
@@ -1042,6 +1083,9 @@ class GraphRenderer:
                 self.bboxh - (py + (self.ofsy - self.margin)) / self.scale)
 
     def draw_node_commands(self, node):
+        if node.shape in (b"record", b'Mrecord'):
+            return self.draw_record_commands(node)
+
         xcenter, ycenter = self.map(node.x, node.y)
         boxwidth = int(node.w * self.scale)
         boxheight = int(node.h * self.scale)
@@ -1060,7 +1104,6 @@ class GraphRenderer:
         hmax = 0
         commands = []
         bkgndcommands = []
-
         if self.font is None:
             if lines:
                 raw_line = lines[0].replace('\\l','').replace('\r','')
@@ -1128,16 +1171,31 @@ class GraphRenderer:
         ytop = ycenter - hmax//2
         x = xcenter-boxwidth//2
         y = ycenter-boxheight//2
+        center = (xcenter, ycenter)
 
-        if node.shape == 'box':
+        if node.shape in (b'box', b'rect', b'rectangle'):
             rect = (x-1, y-1, boxwidth+2, boxheight+2)
+            if rect[0] < 0:
+                rect = (0, y-1, boxwidth+2 + x-1, boxheight+2)
+            if rect[1] < 0:
+                rect = (rect[0], 0, rect[2], boxheight+2 + y-1)
             def cmd():
                 self.screen.fill(bgcolor, rect)
             bkgndcommands.append(cmd)
             def cmd():
                 pygame.draw.rect(self.screen, fgcolor, rect, 1)
             commands.append(cmd)
-        elif node.shape == 'ellipse':
+        elif node.shape == b'square':
+            width = max(boxwidth+2, boxheight+2)
+            rect = (x-1, y-1, width, width)
+            def cmd():
+                self.screen.fill(bgcolor, rect)
+            bkgndcommands.append(cmd)
+            def cmd():
+                pygame.draw.rect(self.screen, fgcolor, rect, 1)
+            commands.append(cmd)
+
+        elif node.shape == b'ellipse':
             rect = (x-1, y-1, boxwidth+2, boxheight+2)
             def cmd():
                 pygame.draw.ellipse(self.screen, bgcolor, rect, 0)
@@ -1145,7 +1203,25 @@ class GraphRenderer:
             def cmd():
                 pygame.draw.ellipse(self.screen, fgcolor, rect, 1)
             commands.append(cmd)
-        elif node.shape == 'octagon':
+        elif node.shape == b'circle':
+            radius = max(boxwidth+2, boxheight+2) // 2
+            def cmd():
+                pygame.draw.circle(self.screen, bgcolor, center, radius, 0)
+            bkgndcommands.append(cmd)
+            def cmd():
+                pygame.draw.circle(self.screen, fgcolor, center, radius, 1)
+            commands.append(cmd)
+        elif node.shape == b'doublecircle':
+            radius = max(boxwidth+2, boxheight+2) // 2
+            bigradius = int(radius * 1.05)
+            def cmd():
+                pygame.draw.circle(self.screen, bgcolor, center, bigradius, 0)
+            bkgndcommands.append(cmd)
+            def cmd():
+                pygame.draw.circle(self.screen, fgcolor, center, radius, 1)
+                pygame.draw.circle(self.screen, fgcolor, center, bigradius, 1)
+            commands.append(cmd)
+        elif node.shape == b'octagon':
             step = 1-math.sqrt(2)/2
             points = [(int(x+boxwidth*fx), int(y+boxheight*fy))
                       for fx, fy in [(step,0), (1-step,0),
@@ -1158,6 +1234,43 @@ class GraphRenderer:
             def cmd():
                 pygame.draw.polygon(self.screen, fgcolor, points, 1)
             commands.append(cmd)
+        elif node.shape == b'doubleoctagon' or node.shape == b'tripleoctagon':
+            radius = max(boxwidth+2, boxheight+2)
+            # not quite right: not all sides are parallel
+            width = int(radius * 1.05) - radius
+            count = 8
+            points = [ellipse((2 * math.pi) / float(count) * (i + 0.5),
+                        center, boxwidth, boxheight)
+                      for i in range(count)]
+            points2 = [ellipse((2 * math.pi) / float(count) * (i + 0.5),
+                        center, boxwidth + width, boxheight + width)
+                      for i in range(count)]
+            points3 = [ellipse((2 * math.pi) / float(count) * (i + 0.5),
+                        center, boxwidth + 2 * width, boxheight + 2 * width)
+                      for i in range(count)]
+            if node.shape != b'tripleoctagon':
+                points3 = points2
+            def cmd():
+                pygame.draw.polygon(self.screen, bgcolor, points3, 0)
+            bkgndcommands.append(cmd)
+            def cmd():
+                pygame.draw.polygon(self.screen, fgcolor, points, 1)
+                pygame.draw.polygon(self.screen, fgcolor, points2, 1)
+                pygame.draw.polygon(self.screen, fgcolor, points3, 1)
+            commands.append(cmd)
+        elif node.shape in GONS:
+            count = GONS[node.shape]
+            points = [ellipse((2 * math.pi) / float(count) * i, center, boxwidth, boxheight)
+                      for i in range(count)]
+            def cmd():
+                pygame.draw.polygon(self.screen, bgcolor, points, 0)
+            bkgndcommands.append(cmd)
+            def cmd():
+                pygame.draw.polygon(self.screen, fgcolor, points, 1)
+            commands.append(cmd)
+
+        elif node.shape in (b'none', b'plain', b'plaintext'):
+            pass
         return bkgndcommands, commands
 
     def draw_commands(self):
@@ -1197,6 +1310,44 @@ class GraphRenderer:
                     edgeheadcmd.append(drawedgelabel)
 
         return edgebodycmd + nodebkgndcmd + edgeheadcmd + nodecmd
+
+    def draw_record_commands(self, node):
+        xcenter, ycenter = self.map(node.x, node.y)
+        boxwidth = int(node.w * self.scale)
+        boxheight = int(node.h * self.scale)
+        fgcolor = getcolor(node.color, (0,0,0))
+        bgcolor = getcolor(node.fillcolor, (255,255,255))
+        if node.highlight:
+            fgcolor = highlight_color(fgcolor)
+            bgcolor = highlight_color(bgcolor)
+
+        text = node.label
+
+        img = TextSnippetRecordLR.make(self, text, (boxwidth, boxheight), fgcolor, bgcolor)
+        wmax, hmax = img.get_size()
+        xleft = xcenter - boxwidth//2
+        ytop = ycenter - boxheight//2
+        def cmd(img=img, y=0):
+            img.draw(xleft, ytop+y)
+        commands = [cmd]
+        bkgndcommands = []
+
+        x = xcenter-boxwidth//2
+        y = ycenter-boxheight//2
+
+        # draw box
+        rect = (x-1, y-1, boxwidth+2, boxheight+2)
+        if rect[0] < 0:
+            rect = (0, y-1, boxwidth+2 + x-1, boxheight+2)
+        if rect[1] < 0:
+            rect = (rect[0], 0, rect[2], boxheight+2 + y-1)
+        def cmd():
+            self.screen.fill(bgcolor, rect)
+        bkgndcommands.append(cmd)
+        def cmd():
+            pygame.draw.rect(self.screen, fgcolor, rect, 1)
+        commands.append(cmd)
+        return bkgndcommands, commands
 
     def render(self):
         self.computevisible()
@@ -1239,30 +1390,33 @@ class GraphRenderer:
     def findall(self, searchstr):
         """Return an iterator for all nodes and edges that contain a searchstr.
         """
-        for item in self.graphlayout.nodes.itervalues():
+        for item in self.graphlayout.nodes.values():
             if item.label and searchstr in item.label:
                 yield item
         for item in self.graphlayout.edges:
             if item.label and searchstr in item.label:
                 yield item
 
-    def at_position(self, (x, y)):
+    def at_position(self, p):
         """Figure out the word under the cursor."""
+        x, y = p
         for rx, ry, rw, rh, word in self.textzones:
             if rx <= x < rx+rw and ry <= y < ry+rh:
                 return word
         return None
 
-    def node_at_position(self, (x, y)):
+    def node_at_position(self, p):
         """Return the Node under the cursor."""
+        x, y = p
         x, y = self.revmap(x, y)
         for node in self.visiblenodes:
             if 2.0*abs(x-node.x) <= node.w and 2.0*abs(y-node.y) <= node.h:
                 return node
         return None
 
-    def edge_at_position(self, (x, y), distmax=14):
+    def edge_at_position(self, p, distmax=14):
         """Return the Edge near the cursor."""
+        x, y = p
         # XXX this function is very CPU-intensive and makes the display kinda sluggish
         distmax /= self.scale
         xy = self.revmap(x, y)
@@ -1280,6 +1434,7 @@ class GraphRenderer:
 class TextSnippet:
     
     def __init__(self, renderer, text, fgcolor, bgcolor=None, font=None):
+        fgcolor = ensure_readable(fgcolor, bgcolor)
         self.renderer = renderer
         self.imgs = []
         self.parts = []
@@ -1335,3 +1490,156 @@ class TextSnippet:
             self.renderer.textzones.append((x, y, w, h, word))
             x += w
 
+
+def record_to_nested_lists(s):
+    try:
+        # Python 2
+        from HTMLParser import HTMLParser
+        unescape = HTMLParser().unescape
+    except ImportError:
+        # Python 3
+        from html import unescape
+    def delimit_string():
+        curr.append(unescape("".join(curr_string).strip("\n")))
+        del curr_string[:]
+    curr = []
+    stack = []
+    curr_string = []
+    index = 0
+    prev = ''
+    while index < len(s):
+        char = s[index]
+        if char == "|":
+            if prev != '}':
+                delimit_string()
+        elif char == "{":
+            if prev == "\\":
+                curr_string[-1] = "{"
+            else:
+                stack.append(curr)
+                curr = []
+        elif char == "}":
+            if prev == "\\":
+                curr_string[-1] = "}"
+            else:
+                delimit_string()
+                stack[-1].append(curr)
+                curr = stack.pop()
+        elif char == "<":
+            index = s.find(">", index) + 1
+            if index == 0:
+                assert 0
+            else:
+                prev = ">"
+                continue
+        else:
+            curr_string.append(char)
+        index += 1
+        prev = char
+    if curr_string or prev == "|":
+        delimit_string()
+    assert not stack
+    return curr
+
+
+class TextSnippetRecordLR:
+    def __init__(self, renderer, snippets, fgcolor, bgcolor=None, font=None):
+        if font is None:
+            font = renderer.font
+        self.snippets = snippets
+        self.renderer = renderer
+        self.fgcolor = fgcolor
+
+    @staticmethod
+    def make(renderer, s, bbox, fgcolor, bgcolor=None, font=None):
+        fgcolor = ensure_readable(fgcolor, bgcolor)
+        l = record_to_nested_lists(s)
+        res = TextSnippetRecordLR.make_from_list(renderer, l, fgcolor, bgcolor, font)
+        res._compute_offsets(bbox)
+        return res
+
+    @classmethod
+    def make_from_list(cls, renderer, l, fgcolor, bgcolor, font):
+        snippets = []
+        for element in l:
+            if isinstance(element, list):
+                snippets.append(cls.othercls.make_from_list(renderer, element, fgcolor, bgcolor, font))
+            else:
+                snippets.append(TextSnippet(renderer, element, fgcolor, bgcolor, font))
+        return cls(renderer, snippets, fgcolor, bgcolor, font)
+
+    def get_size(self):
+        if self.snippets:
+            sizes = [img.get_size() for img in self.snippets]
+            return sum([w for w,h in sizes]), max([h for w,h in sizes])
+        else:
+            return 0, 0
+
+    def draw(self, x, y):
+        for i, img in enumerate(self.snippets):
+            w, h = img.get_size()
+            if not isinstance(img, TextSnippetRecordLR):
+                img.draw(x + self.offsets[i] + self.spacing, y + (self.bbox[1] - h) // 2)
+            else:
+                img.draw(x + self.offsets[i], y)
+            if i != 0:
+                start = x + self.offsets[i], y
+                end = x + self.offsets[i], y + self.bbox[1]
+                pygame.draw.line(self.renderer.screen, self.fgcolor, start, end)
+
+    def _compute_offsets(self, bbox):
+        self.bbox = bbox
+        width_content, height_content = self.get_size()
+        width, height = bbox
+        spacing = (width - width_content) / 2.0 / len(self.snippets)
+        offset = 0
+        offsets = []
+        for i, img in enumerate(self.snippets):
+            w, h = img.get_size()
+            offsets.append(int(offset))
+            offset += w + 2 * spacing
+            if not isinstance(img, TextSnippet):
+                img._compute_offsets((w + 2 * spacing, height))
+        self.offsets = offsets
+        self.spacing = spacing
+
+class TextSnippetRecordTD(TextSnippetRecordLR):
+    othercls = TextSnippetRecordLR
+
+    def get_size(self):
+        if self.snippets:
+            sizes = [img.get_size() for img in self.snippets]
+            return max([w for w,h in sizes]), sum([h for w,h in sizes])
+        else:
+            return 0, 0
+
+    def draw(self, x, y):
+        for i, img in enumerate(self.snippets):
+            w, h = img.get_size()
+            if not isinstance(img, TextSnippetRecordLR):
+                img.draw(x + (self.bbox[0] - w) // 2, y + self.offsets[i] + self.spacing)
+            else:
+                img.draw(x, y + self.offsets[i])
+            if i != 0:
+                start = x, y + self.offsets[i]
+                end = x + self.bbox[0], y  + self.offsets[i]
+                pygame.draw.line(self.renderer.screen, self.fgcolor, start, end)
+
+    def _compute_offsets(self, bbox):
+        self.bbox = bbox
+        width_content, height_content = self.get_size()
+        width, height = bbox
+        spacing = (height - height_content) / 2.0 / len(self.snippets)
+        offset = 0
+        offsets = []
+        for i, img in enumerate(self.snippets):
+            w, h = img.get_size()
+            offsets.append(int(offset))
+            offset += h + 2 * spacing
+            if not isinstance(img, TextSnippet):
+                img._compute_offsets((width, h + 2 * spacing))
+        self.offsets = offsets
+        self.spacing = spacing
+
+
+TextSnippetRecordLR.othercls = TextSnippetRecordTD

@@ -7,7 +7,7 @@ if sys.platform != 'darwin':
     py.test.skip("Darwin only")
 
 from rpython.tool.udir import udir
-from rpython.translator.platform.darwin import Darwin_i386, Darwin_x86_64, Darwin_PowerPC
+from rpython.translator.platform.darwin import Darwin_i386, Darwin_x86_64, Darwin_PowerPC, Darwin_arm64
 from rpython.translator.platform.test.test_platform import TestPlatform as BasicTest
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -18,6 +18,8 @@ if platform.machine() == 'i386':
         host_factory = Darwin_x86_64
 elif platform.machine() == 'x86_64':
     host_factory = Darwin_x86_64
+elif platform.machine() == 'arm64':
+    host_factory = Darwin_arm64
 else:
     host_factory = Darwin_PowerPC
 
@@ -83,7 +85,9 @@ class TestDarwin(BasicTest):
         self.check_res(res, expected="23\n")
 
 
+    @py.test.skip("i386 not supported any more")
     def test_64_32_results(self):
+        py.test.skip("i386 not supported any more")
         if not is_x86():
             py.test.skip("i386 only")
         plat32 = Darwin_i386()
@@ -125,6 +129,7 @@ class TestDarwin(BasicTest):
         res = self.platform.execute(executable)
         self.check_res(res, str(sys.maxint) + '\n')
 
+    @py.test.skip("i386 not supported any more")
     def test_32bit_makefile(self):
         if not is_x86():
             py.test.skip("i386 only")

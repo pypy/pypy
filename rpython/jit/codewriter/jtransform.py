@@ -286,6 +286,38 @@ class Transformer(object):
     def rewrite_op_jit_record_exact_class(self, op):
         return SpaceOperation("record_exact_class", [op.args[0], op.args[1]], None)
 
+    def rewrite_op_jit_record_known_result(self, op):
+        for arg in op.args:
+            if getkind(arg.concretetype) == 'float':
+                raise Exception("record_known_result %s does not support floats" % op)
+        # hack: use op.args[0] as the result var, which is correct with regards
+        # to the concretetype, the only thing that getcalldescr accesses
+        callop = SpaceOperation('direct_call', op.args[1:], op.args[0])
+        calldescr = self.callcontrol.getcalldescr(
+                callop,
+                calling_graph=self.graph)
+        assert calldescr.get_extra_info().check_is_elidable()
+        if getkind(op.args[0].concretetype) == "int":
+            opname = "record_known_result_i"
+        else:
+            assert getkind(op.args[0].concretetype) == "ref"
+            opname = "record_known_result_r"
+        op1 = self.rewrite_call(op, opname,
+                                op.args[:2], args=op.args[2:],
+                                calldescr=calldescr, force_ir=True)
+        if self.callcontrol.calldescr_canraise(calldescr):
+            op1 = [op1, SpaceOperation('-live-', [], None)]
+        return op1
+
+    def rewrite_op_jit_record_exact_value(self, op):
+        if getkind(op.args[0].concretetype) == "int":
+            assert getkind(op.args[1].concretetype) == "int"
+            return SpaceOperation("record_exact_value_i", [op.args[0], op.args[1]], None)
+        else:
+            assert getkind(op.args[0].concretetype) == "ref"
+            assert getkind(op.args[1].concretetype) == "ref"
+            return SpaceOperation("record_exact_value_r", [op.args[0], op.args[1]], None)
+
     def rewrite_op_debug_assert_not_none(self, op):
         if isinstance(op.args[0], Variable):
             return SpaceOperation('assert_not_none', [op.args[0]], None)
@@ -380,7 +412,7 @@ class Transformer(object):
                      calldescr=None, force_ir=False):
         """Turn 'i0 = direct_call(fn, i1, i2, ref1, ref2)'
            into 'i0 = xxx_call_ir_i(fn, descr, [i1,i2], [ref1,ref2])'.
-           The name is one of '{residual,direct}_call_{r,ir,irf}_{i,r,f,v}'."""
+           The name is one of '{residual,inline,conditional}_call_{r,ir,irf}_{i,r,f,v}'."""
         if args is None:
             args = op.args[1:]
         self._check_no_vable_array(args)
@@ -617,6 +649,8 @@ class Transformer(object):
         if hints.get('force_no_const'):   # for tests only
             assert getkind(op.args[0].concretetype) == 'int'
             return SpaceOperation('int_same_as', [op.args[0]], op.result)
+        if hints.get('fresh_virtualizable') or hints.get('access_directly'):
+            return # those are handled, no need to warn
         log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
     def _rewrite_raw_malloc(self, op, name, args):
@@ -1474,7 +1508,7 @@ class Transformer(object):
                           ('cast_longlong_to_float',   'TO_FLOAT'),
                           ('cast_uint_to_longlong',    'FROM_UINT'),
                           ]:
-        exec py.code.Source('''
+        exec(py.code.Source('''
             def rewrite_op_%s(self, op):
                 args = op.args
                 op1 = self.prepare_builtin_call(op, "llong_%s", args)
@@ -1484,7 +1518,7 @@ class Transformer(object):
                 if %r == "TO_INT":
                     assert op2.result.concretetype == lltype.Signed
                 return op2
-        ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile()
+        ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile())
 
     for _op, _oopspec in [('cast_int_to_ulonglong',     'FROM_INT'),
                           ('cast_uint_to_ulonglong',    'FROM_UINT'),
@@ -1506,7 +1540,7 @@ class Transformer(object):
                           ('ullong_lshift', 'LSHIFT'),
                           ('ullong_rshift', 'URSHIFT'),
                          ]:
-        exec py.code.Source('''
+        exec(py.code.Source('''
             def rewrite_op_%s(self, op):
                 args = op.args
                 op1 = self.prepare_builtin_call(op, "ullong_%s", args)
@@ -1514,7 +1548,7 @@ class Transformer(object):
                                                 EffectInfo.OS_LLONG_%s,
                                                 EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
                 return op2
-        ''' % (_op, _oopspec.lower(), _oopspec)).compile()
+        ''' % (_op, _oopspec.lower(), _oopspec)).compile())
 
     def _normalize(self, oplist):
         if isinstance(oplist, SpaceOperation):
@@ -1581,11 +1615,11 @@ class Transformer(object):
                        ('adr_add', 'int_add'),
                        ]:
         assert _old not in locals()
-        exec py.code.Source('''
+        exec(py.code.Source('''
             def rewrite_op_%s(self, op):
                 op1 = SpaceOperation(%r, op.args, op.result)
                 return self.rewrite_operation(op1)
-        ''' % (_old, _new)).compile()
+        ''' % (_old, _new)).compile())
 
     def rewrite_op_float_is_true(self, op):
         op1 = SpaceOperation('float_ne',
@@ -1767,16 +1801,16 @@ class Transformer(object):
         func = op.args[0].value._obj._callable
         # base hints on the name of the ll function, which is a bit xxx-ish
         # but which is safe for now
-        assert func.func_name.startswith('ll_')
+        assert func.__name__.startswith('ll_')
         # check that we have carefully placed the oopspec in
         # pypy/rpython/rlist.py.  There should not be an oopspec on
         # a ll_getitem or ll_setitem that expects a 'func' argument.
         # The idea is that a ll_getitem/ll_setitem with dum_checkidx
         # should get inlined by the JIT, so that we see the potential
         # 'raise IndexError'.
-        assert 'func' not in func.func_code.co_varnames
-        non_negative = '_nonneg' in func.func_name
-        fast = '_fast' in func.func_name
+        assert 'func' not in func.__code__.co_varnames
+        non_negative = '_nonneg' in func.__name__
+        fast = '_fast' in func.__name__
         return non_negative or fast
 
     def _prepare_list_getset(self, op, descr, args, checkname):
@@ -1876,6 +1910,11 @@ class Transformer(object):
 
     def do_fixed_list_ll_arraycopy(self, op, args, arraydescr):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_ARRAYCOPY)
+
+    def do_fixed_list_ll_arraymove(self, op, args, arraydescr):
+        # this case is unreachable for now: ll_arraymove is only called on
+        # lists which have insert() or pop() or del called on them
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_ARRAYMOVE)
 
     def do_fixed_void_list_getitem(self, op, args):
         self._prepare_void_list_getset(op)

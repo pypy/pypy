@@ -447,7 +447,7 @@ def setcopyright():
         "PyPy is maintained by the PyPy developers: http://pypy.org/")
     __builtin__.license = _Printer(
         "license",
-        "See https://bitbucket.org/pypy/pypy/src/default/LICENSE")
+        "See https://foss.heptapod.net/pypy/pypy/-/blob/branch/default/LICENSE")
 
 
 class _Helper(object):

@@ -13,7 +13,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import rutf8
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, dict_to_switch
 import rpython.rlib.rposix as rposix
 
 _MS_WINDOWS = os.name == "nt"
@@ -63,6 +63,8 @@ if _MS_WINDOWS:
     TYPEMAP_PTR_LETTERS += 'X'
     TYPEMAP_NUMBER_LETTERS += 'v'
 
+TYPEMAP_FUNCTION = dict_to_switch(TYPEMAP)
+
 def size_alignment(ffi_type):
     return intmask(ffi_type.c_size), intmask(ffi_type.c_alignment)
 
@@ -95,7 +97,7 @@ if _MS_WINDOWS:
     LL_TYPEMAP['v'] = rffi.SHORT
 
 def letter2tp(space, key):
-    from pypy.module._rawffi.array import PRIMITIVE_ARRAY_TYPES
+    from pypy.module._rawffi.interp_array import PRIMITIVE_ARRAY_TYPES
     try:
         return PRIMITIVE_ARRAY_TYPES[key]
     except KeyError:
@@ -126,7 +128,7 @@ def unpack_shape_with_length(space, w_shape):
         try:
             result = shape._array_shapes[length]
         except KeyError:
-            from pypy.module._rawffi.array import W_Array
+            from pypy.module._rawffi.interp_array import W_Array
             if isinstance(shape, W_Array) and length == 1:
                 result = shape
             else:
@@ -161,8 +163,8 @@ class W_CDLL(W_Root):
         self.w_cache = space.newdict()
         self.space = space
 
-    @unwrap_spec(flags=int)
-    def ptr(self, space, w_name, w_argtypes, w_restype, flags=FUNCFLAG_CDECL):
+    @unwrap_spec(flags=int, variadic_args=int)
+    def ptr(self, space, w_name, w_argtypes, w_restype, flags=FUNCFLAG_CDECL, variadic_args=0):
         """ Get a pointer for function name with provided argtypes
         and restype
         """
@@ -195,7 +197,7 @@ class W_CDLL(W_Root):
 
             try:
                 ptr = self.cdll.getrawpointer(name, ffi_argtypes, ffi_restype,
-                                              flags)
+                                              flags, variadic_args)
             except KeyError:
                 raise oefmt(space.w_AttributeError,
                             "No symbol %s found in library %s",
@@ -207,7 +209,7 @@ class W_CDLL(W_Root):
             ordinal = space.int_w(w_name)
             try:
                 ptr = self.cdll.getrawpointer_byordinal(ordinal, ffi_argtypes,
-                                                        ffi_restype, flags)
+                                                        ffi_restype, flags, variadic_args)
             except KeyError:
                 raise oefmt(space.w_AttributeError,
                             "No symbol %d found in library %s",
@@ -337,8 +339,8 @@ class W_DataShape(W_Root):
 
     @unwrap_spec(n=int)
     def descr_size_alignment(self, space, n=1):
-        return space.newtuple([space.newint(self.size * n),
-                               space.newint(self.alignment)])
+        return space.newtuple2(space.newint(self.size * n),
+                               space.newint(self.alignment))
 
 
 class W_DataInstance(W_Root):
@@ -360,7 +362,7 @@ class W_DataInstance(W_Root):
         self.ll_buffer = rffi.ptradd(self.ll_buffer, n)
 
     def byptr(self, space):
-        from pypy.module._rawffi.array import ARRAY_OF_PTRS
+        from pypy.module._rawffi.interp_array import ARRAY_OF_PTRS
         array = ARRAY_OF_PTRS.allocate(space, 1)
         array.setitem(space, 0, self)
         return array
@@ -485,7 +487,7 @@ class W_FuncPtr(W_Root):
         return space.newint(rffi.cast(lltype.Unsigned, self.ptr.funcsym))
 
     def byptr(self, space):
-        from pypy.module._rawffi.array import ARRAY_OF_PTRS
+        from pypy.module._rawffi.interp_array import ARRAY_OF_PTRS
         array = ARRAY_OF_PTRS.allocate(space, 1)
         array.setitem(space, 0, self.getbuffer(space))
         if tracker.DO_TRACING:
@@ -495,7 +497,7 @@ class W_FuncPtr(W_Root):
         return array
 
     def call(self, space, args_w):
-        from pypy.module._rawffi.array import W_ArrayInstance
+        from pypy.module._rawffi.interp_array import W_ArrayInstance
         from pypy.module._rawffi.structure import W_StructureInstance
         from pypy.module._rawffi.structure import W_Structure
         argnum = len(args_w)
@@ -582,7 +584,7 @@ def _create_new_accessor(func_name, name):
             raise oefmt(space.w_ValueError, "Expecting string of length one")
         tp_letter = tp_letter[0] # fool annotator
         try:
-            return space.newint(intmask(getattr(TYPEMAP[tp_letter], name)))
+            return space.newint(intmask(getattr(TYPEMAP_FUNCTION(tp_letter), name)))
         except KeyError:
             raise oefmt(space.w_ValueError, "Unknown type specification %s",
                         tp_letter)
@@ -661,7 +663,7 @@ def set_errno(space, w_errno):
 
 if sys.platform == 'win32':
     # see also
-    # https://bitbucket.org/pypy/pypy/issue/1944/ctypes-on-windows-getlasterror
+    # issue #1944 ctypes-on-windows-getlasterror
     def get_last_error(space):
         return space.newint(rwin32.GetLastError_alt_saved())
     @unwrap_spec(error=int)
@@ -669,7 +671,7 @@ if sys.platform == 'win32':
         rwin32.SetLastError_alt_saved(error)
 else:
     # always have at least a dummy version of these functions
-    # (https://bugs.pypy.org/issue1242)
+    # issue 1242
     def get_last_error(space):
         return space.newint(0)
     @unwrap_spec(error=int)

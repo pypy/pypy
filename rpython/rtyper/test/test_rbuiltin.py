@@ -23,6 +23,14 @@ def enum_direct_calls(translator, func):
                 yield op
 
 
+def skip_if_m1():
+    """ Bugs in libffi linked against python make ll2ctypes unusable
+    for variadic functions on m1 platform, skip those tests
+    """
+    import sys, platform
+    if sys.platform == 'darwin' and platform.machine() == 'arm64':
+        py.test.skip("Variadic functions on m1 unsupported on ll2ctypes")
+
 class TestRbuiltin(BaseRtypingTest):
 
     def test_method_join(self):
@@ -192,6 +200,7 @@ class TestRbuiltin(BaseRtypingTest):
         assert self.ll_to_string(res) == fn()
 
     def test_os_write(self):
+        skip_if_m1()
         tmpdir = str(udir.udir.join("os_write_test"))
         def wr_open(fname):
             fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
@@ -208,6 +217,7 @@ class TestRbuiltin(BaseRtypingTest):
         py.test.raises(OSError, os.write, fd, "hello world")
 
     def test_os_write_single_char(self):
+        skip_if_m1()
         tmpdir = str(udir.udir.join("os_write_test_char"))
         def wr_open(fname):
             fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)

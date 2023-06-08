@@ -1,4 +1,5 @@
 import __future__
+import pytest
 import py, sys
 from pypy.interpreter.pycompiler import PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
@@ -344,6 +345,16 @@ class BaseTestCompiler:
             ex = e.value
             ex.normalize_exception(self.space)
             assert ex.match(self.space, self.space.w_SyntaxError)
+
+    def test_future_error_offset(self):
+        space = self.space
+        with pytest.raises(OperationError) as excinfo:
+            self.compiler.compile("from __future__ import bogus", "tmp", "exec", 0)
+        ex = excinfo.value
+        assert ex.match(space, space.w_SyntaxError)
+        ex.normalize_exception(space)
+        w_exc = ex.get_w_value(space)
+        assert space.int_w(w_exc.w_offset) == 1
 
     def test_globals_warnings(self):
         space = self.space
@@ -774,6 +785,27 @@ class AppTestCompiler:
         assert math.copysign(1., b[1]) == 1.0
         assert math.copysign(1., c[0]) == -1.0
         assert math.copysign(1., c[1]) == -1.0
+
+    def test_zeros_not_mixed_in_lambdas(self):
+        import math
+        code = compile("x = lambda: -0.0; y = lambda: 0.0", "<test>", "exec")
+        consts = code.co_consts
+        x, y, z = consts
+        assert isinstance(x, type(code)) and isinstance(y, type(code))
+        assert x is not y
+        assert x != y
+
+    @py.test.mark.skipif('config.option.runappdirect')
+    def test_dont_share_lambdas(self):
+        # the two lambdas's codes aren't shared (CPython does that but it's
+        # completely pointless: it only applies to identical lambdas that are
+        # defined on the same line)
+        code = compile("x = lambda: 0; y = lambda: 0", "<test>", "exec")
+        consts = code.co_consts
+        x, y, z = consts
+        assert isinstance(x, type(code)) and isinstance(y, type(code))
+        assert x is not y
+        assert x == y
 
     def test_dict_and_set_literal_order(self):
         x = 1

@@ -57,6 +57,15 @@ def test_call_some_args(dll):
     result = f(b"abcd", ord("b"))
     assert result == b"bcd"
 
+def test_variadic_sum(dll):
+    f = dll.variadic_sum
+    f.argtypes = [c_long]
+    f.restype = c_long
+    result = f(3, 13, 38, 100)
+    assert result == 13 + 38 + 100
+    result = f(2, 13, 38)
+    assert result == 13 + 38
+
 @pytest.mark.pypy_only
 def test_keepalive_buffers(monkeypatch, dll):
     import gc

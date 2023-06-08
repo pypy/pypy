@@ -190,15 +190,15 @@ def _divmod(space, x, y):
         raise oefmt(space.w_ZeroDivisionError, "integer divmod by zero")
     # no overflow possible
     m = x % y
-    return space.newtuple([space.newint(z), space.newint(m)])
+    return space.newtuple2(space.newint(z), space.newint(m))
 
 
 def _divmod_ovf2small(space, x, y):
     from pypy.objspace.std.smalllongobject import W_SmallLongObject
     a = r_longlong(x)
     b = r_longlong(y)
-    return space.newtuple([W_SmallLongObject(a // b),
-                           W_SmallLongObject(a % b)])
+    return space.newtuple2(W_SmallLongObject(a // b),
+                           W_SmallLongObject(a % b))
 
 
 def _lshift(space, a, b):
@@ -343,6 +343,17 @@ def _make_ovf2long(opname, ovf2small=None):
 
     return ovf2long
 
+@jit.elidable
+def _bit_length(val):
+    bits = 0
+    if val < 0:
+        # warning, "-val" overflows here
+        val = -((val + 1) >> 1)
+        bits = 1
+    while val:
+        bits += 1
+        val >>= 1
+    return bits
 
 class W_IntObject(W_AbstractIntObject):
 
@@ -420,7 +431,7 @@ class W_IntObject(W_AbstractIntObject):
     def descr_coerce(self, space, w_other):
         if not isinstance(w_other, W_AbstractIntObject):
             return space.w_NotImplemented
-        return space.newtuple([self, w_other])
+        return space.newtuple2(self, w_other)
 
     def descr_long(self, space):
         return space.newlong(self.intval)
@@ -462,16 +473,7 @@ class W_IntObject(W_AbstractIntObject):
         return space.newtuple([wrapint(space, self.intval)])
 
     def descr_bit_length(self, space):
-        val = self.intval
-        bits = 0
-        if val < 0:
-            # warning, "-val" overflows here
-            val = -((val + 1) >> 1)
-            bits = 1
-        while val:
-            bits += 1
-            val >>= 1
-        return space.newint(bits)
+        return space.newint(_bit_length(self.intval))
 
     def descr_repr(self, space):
         res = str(self.intval)
@@ -595,10 +597,14 @@ class W_IntObject(W_AbstractIntObject):
     descr_or, descr_ror = _make_generic_descr_binop('or', ovf=False)
     descr_xor, descr_rxor = _make_generic_descr_binop('xor', ovf=False)
 
-    def _make_descr_binop(func, ovf=True, ovf2small=None):
+    def _make_descr_binop(func, ovf=True, ovf2small=None, ovf_func=None):
         opname = func.__name__[1:]
         if ovf:
-            ovf2long = _make_ovf2long(opname, ovf2small)
+            if ovf_func:
+                ovf2long = ovf_func
+                assert not ovf2small # must be part of ovf_func
+            else:
+                ovf2long = _make_ovf2long(opname, ovf2small)
 
         @func_renamer('descr_' + opname)
         def descr_binop(self, space, w_other):
@@ -632,8 +638,20 @@ class W_IntObject(W_AbstractIntObject):
 
         return descr_binop, descr_rbinop
 
+    def _ovf2long_lshift(space, x, w_x, y, w_y):
+        if _recover_with_smalllong(space):
+            return _lshift_ovf2small(space, x, y)
+
+        from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
+        if w_x is None or not isinstance(w_x, W_AbstractLongObject):
+            w_x = W_LongObject.fromint(space, x)
+
+        # crucially, *don't* convert w_y to W_LongObject, it will just be
+        # converted back (huge lshifts always overflow)
+        return w_x._int_lshift(space, y)
+
     descr_lshift, descr_rlshift = _make_descr_binop(
-        _lshift, ovf2small=_lshift_ovf2small)
+        _lshift, ovf_func=_ovf2long_lshift)
     descr_rshift, descr_rrshift = _make_descr_binop(_rshift, ovf=False)
 
     descr_floordiv, descr_rfloordiv = _make_descr_binop(_floordiv)

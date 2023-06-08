@@ -127,9 +127,11 @@ ENVIRONMENT
     If set to a non-empty value, print a random #pypy IRC
     topic at startup of interactive mode.
 
+``PYPY_DISABLE_JIT``
+    If set to a non-empty value, disable JIT.
 
 .. include:: ../gc_info.rst
-   :start-line: 7
+   :start-line: 305
 
 SEE ALSO
 ========

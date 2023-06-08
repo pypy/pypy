@@ -5,7 +5,7 @@ from rpython.jit.metainterp.history import ResOperation, TargetToken,\
 from rpython.jit.metainterp.history import (ConstInt, ConstPtr, Const,
                                             BasicFailDescr, BasicFinalDescr)
 from rpython.jit.backend.detect_cpu import getcpuclass
-from rpython.jit.backend.x86.arch import WORD
+from rpython.jit.backend.x86.arch import WORD, WIN64
 from rpython.jit.backend.x86.rx86 import fits_in_32bits
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.metainterp.resoperation import rop, InputArgInt, InputArgRef
@@ -74,7 +74,7 @@ class TestX86(LLtypeBackendTest):
         assert u.chars[3] == u'd'
 
     @staticmethod
-    def _resbuf(res, item_tp=ctypes.c_long):
+    def _resbuf(res, item_tp=ctypes.c_long if not WIN64 else ctypes.c_longlong):
         return ctypes.cast(res._obj.intval, ctypes.POINTER(item_tp))
 
     def test_allocations(self):

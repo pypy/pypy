@@ -4,10 +4,25 @@
 From the command-line it's easier to use sshgraphserver.py instead of this.
 """
 
-import sys
-import msgstruct
-from cStringIO import StringIO
+from __future__ import print_function, absolute_import
 
+import os, sys
+
+PARENTDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# make dotviewer importable
+sys.path.insert(0, PARENTDIR)
+
+from dotviewer import msgstruct
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
+
+try:
+    import thread
+except ImportError:
+    import _thread as thread
 
 class Server(object):
 
@@ -25,7 +40,6 @@ class Server(object):
             self.process_next_message()
         # start a background thread to process further messages
         if not only_one_graph:
-            import thread
             thread.start_new_thread(self.process_all_messages, ())
         # give control to pygame
         self.display.run1()
@@ -35,7 +49,7 @@ class Server(object):
             while True:
                 self.process_next_message()
         except EOFError:
-            from drawgraph import display_async_quit
+            from dotviewer.drawgraph import display_async_quit
             display_async_quit()
 
     def process_next_message(self):
@@ -47,20 +61,20 @@ class Server(object):
             self.log("unknown message code %r" % (msg[0],))
 
     def log(self, info):
-        print >> sys.stderr, info
+        print(info, file=sys.stderr)
 
     def setlayout(self, layout):
         if self.display is None:
             # make the initial display
-            from graphdisplay import GraphDisplay
+            from dotviewer.graphdisplay import GraphDisplay
             self.display = GraphDisplay(layout)
         else:
             # send an async command to the display running the main thread
-            from drawgraph import display_async_cmd
+            from dotviewer.drawgraph import display_async_cmd
             display_async_cmd(layout=layout)
 
     def cmsg_start_graph(self, graph_id, scale, width, height, *rest):
-        from drawgraph import GraphLayout
+        from dotviewer.drawgraph import GraphLayout
         self.newlayout = GraphLayout(float(scale), float(width), float(height))
 
         def request_reload():
@@ -123,10 +137,10 @@ def listen_server(local_address, s1=None):
         s1 = socket.socket()
         s1.bind(local_address)
     s1.listen(5)
-    print 'listening on %r...' % (s1.getsockname(),)
+    print('listening on %r...' % (s1.getsockname(),))
     while True:
         conn, addr = s1.accept()
-        print 'accepted connection from %r' % (addr,)
+        print('accepted connection from %r' % (addr,))
         sock_io = msgstruct.SocketIO(conn)
         handler_io = graphclient.spawn_local_handler()
         thread.start_new_thread(copy_all, (sock_io, handler_io))
@@ -148,15 +162,16 @@ if __name__ == '__main__':
             import sshgraphserver
             sshgraphserver.ssh_graph_server(['LOCAL'])
             sys.exit(0)
-        print >> sys.stderr, __doc__
+        print(__doc__, file=sys.stderr)
         sys.exit(2)
     if sys.argv[1] == '--stdio':
         # a one-shot server running on stdin/stdout
-        io = msgstruct.FileIO(sys.stdin, sys.stdout)
+        io = msgstruct.FileIO(getattr(sys.stdin, 'buffer', sys.stdin),
+                              getattr(sys.stdout, 'buffer', sys.stdout))
         srv = Server(io)
         try:
             srv.run()
-        except Exception, e:
+        except Exception as e:
             import traceback
             f = StringIO()
             traceback.print_exc(file=f)
@@ -164,15 +179,16 @@ if __name__ == '__main__':
             help = (" | if you want to debug on a remote machine, see\n"
                     " | instructions in dotviewer/sshgraphserver.py\n")
             try:
+                os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
                 import pygame
                 if isinstance(e, pygame.error):
-                    print >> f, help
-            except Exception, e:
+                    print(help, file=f)
+            except Exception as e:
                 f.seek(0)
                 f.truncate()
-                print >> f, "%s: %s" % (e.__class__.__name__, e)
-                print >> f, " | Pygame is not installed; either install it, or"
-                print >> f, help
+                print("%s: %s" % (e.__class__.__name__, e), file=f)
+                print(" | Pygame is not installed; either install it, or", file=f)
+                print(help, file=f)
             io.sendmsg(msgstruct.MSG_ERROR, f.getvalue())
     else:
         listen_server(sys.argv[1])

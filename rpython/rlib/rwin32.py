@@ -10,19 +10,28 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
+from rpython.translator import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_longlong, widen
 from rpython.rlib import jit
 
 # This module can be imported on any platform,
 # but most symbols are not usable...
 WIN32 = os.name == "nt"
+srcdir = os.path.join(os.path.dirname(__file__), 'src')
 
 if WIN32:
     eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h'],
+        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h', 'winreparse.h'],
+        include_dirs = [srcdir, cdir],
         libraries = ['kernel32'],
+        separate_module_files = [os.path.join(srcdir, "winreparse.c")],
         )
+
+    def external(name, args, result, compilation_info=eci, **kwds):
+        return rffi.llexternal(name, args, result,
+                               compilation_info=compilation_info, **kwds)
+
 else:
     eci = ExternalCompilationInfo()
 
@@ -30,8 +39,8 @@ class CConfig:
     _compilation_info_ = eci
 
     if WIN32:
-        DWORD_PTR = rffi_platform.SimpleType("DWORD_PTR", rffi.LONG)
-        WORD = rffi_platform.SimpleType("WORD", rffi.UINT)
+        DWORD_PTR = rffi_platform.SimpleType("DWORD_PTR", rffi.UNSIGNED)
+        WORD = rffi_platform.SimpleType("WORD", rffi.USHORT)
         DWORD = rffi_platform.SimpleType("DWORD", rffi.UINT)
         BOOL = rffi_platform.SimpleType("BOOL", rffi.LONG)
         BYTE = rffi_platform.SimpleType("BYTE", rffi.UCHAR)
@@ -46,9 +55,11 @@ class CConfig:
         LPWSTR = rffi_platform.SimpleType("LPWSTR", rffi.CWCHARP)
         LPCWSTR = rffi_platform.SimpleType("LPCWSTR", rffi.CWCHARP)
         LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.UINTP)
+        LPWORD = rffi_platform.SimpleType("LPWORD", rffi.USHORTP)
         LPBOOL = rffi_platform.SimpleType("LPBOOL", rffi.LONGP)
+        LPBYTE = rffi_platform.SimpleType("LPBYTE", rffi.UCHARP)
         SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)
-        ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.ULONG)
+        ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.UNSIGNED)
 
         HRESULT = rffi_platform.SimpleType("HRESULT", rffi.LONG)
         HLOCAL = rffi_platform.SimpleType("HLOCAL", rffi.VOIDP)
@@ -113,8 +124,11 @@ class CConfig:
                        MB_ERR_INVALID_CHARS ERROR_NO_UNICODE_TRANSLATION
                        WC_NO_BEST_FIT_CHARS STD_INPUT_HANDLE STD_OUTPUT_HANDLE
                        STD_ERROR_HANDLE HANDLE_FLAG_INHERIT FILE_TYPE_CHAR
-                       LOAD_WITH_ALTERED_SEARCH_PATH
+                       LOAD_WITH_ALTERED_SEARCH_PATH CT_CTYPE3 C3_HIGHSURROGATE
                        CP_ACP CP_UTF8 CP_UTF7 CP_OEMCP MB_ERR_INVALID_CHARS
+                       LOAD_LIBRARY_SEARCH_DEFAULT_DIRS SEM_FAILCRITICALERRORS
+                       LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR
+                       _Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE
                     """
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
@@ -138,6 +152,15 @@ if WIN32:
     HMODULE = HANDLE
     NULL_HANDLE = rffi.cast(HANDLE, 0)
     INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
+    GENERIC_READ     = rffi.cast(DWORD, r_longlong(0x80000000))
+    GENERIC_WRITE    = rffi.cast(DWORD, r_longlong(0x40000000))
+    GENERIC_EXECUTE  = rffi.cast(DWORD, r_longlong(0x20000000))
+    GENERIC_ALL      = rffi.cast(DWORD, r_longlong(0x10000000))
+    FILE_SHARE_READ  = rffi.cast(DWORD, r_longlong(0x00000001))
+    FILE_SHARE_WRITE = rffi.cast(DWORD, r_longlong(0x00000002))
+    ALL_READ_WRITE   = rffi.cast(DWORD, r_longlong(0xC0000003))
+    SHARE_READ_WRITE = rffi.cast(DWORD, r_longlong(0x00000003))
+
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
     _GetLastError = winexternal('GetLastError', [], DWORD,
@@ -156,7 +179,9 @@ if WIN32:
         (into the same "saved LastError" variable).
         """
         from rpython.rlib import rthread
-        return rffi.cast(lltype.Signed, rthread.tlfield_rpy_lasterror.getraw())
+        # extra cast to LONG to match CPython behaviour
+        lasterror = rffi.cast(rffi.LONG, rthread.tlfield_rpy_lasterror.getraw())
+        return rffi.cast(lltype.Signed, lasterror)
 
     def SetLastError_saved(err):
         """Set the value of the saved LastError.  This value will be used in
@@ -179,7 +204,9 @@ if WIN32:
         (into the same "saved alt LastError" variable).
         """
         from rpython.rlib import rthread
-        return rffi.cast(lltype.Signed, rthread.tlfield_alt_lasterror.getraw())
+        # extra cast to LONG to match CPython behaviour
+        lasterror = rffi.cast(rffi.LONG, rthread.tlfield_alt_lasterror.getraw())
+        return rffi.cast(lltype.Signed, lasterror)
 
     def SetLastError_alt_saved(err):
         """Set the value of the saved alt LastError.  This value will be used in
@@ -198,7 +225,7 @@ if WIN32:
     LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE,
                               save_err=rffi.RFFI_SAVE_LASTERROR)
     def wrap_loadlibraryex(func):
-        def loadlibrary(name, flags=LOAD_WITH_ALTERED_SEARCH_PATH):
+        def loadlibrary(name, flags):
             # Requires a full path name with '/' -> '\\'
             return func(name, NULL_HANDLE, flags)
         return loadlibrary
@@ -236,12 +263,23 @@ if WIN32:
     _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], rffi.INTP)
 
     def get_osfhandle(fd):
-        from rpython.rlib.rposix import FdValidator
-        with FdValidator(fd):
+        from rpython.rlib.rposix import SuppressIPH
+        with SuppressIPH():
             handle = rffi.cast(HANDLE, _get_osfhandle(fd))
         if handle == INVALID_HANDLE_VALUE:
             raise WindowsError(ERROR_INVALID_HANDLE, "Invalid file handle")
         return handle
+
+    _open_osfhandle = rffi.llexternal('_open_osfhandle', [rffi.INTP, rffi.INT], rffi.INT)
+
+    def open_osfhandle(handle, flags):
+        from rpython.rlib.rposix import SuppressIPH
+        fd = _open_osfhandle(handle, flags)
+        with SuppressIPH():
+            return fd
+
+    wcsncpy_s = rffi.llexternal('wcsncpy_s',
+                    [rffi.CWCHARP, rffi.SIZE_T, rffi.CWCHARP, rffi.SIZE_T], rffi.INT)
 
     def build_winerror_to_errno():
         """Build a dictionary mapping windows error numbers to POSIX errno.
@@ -343,7 +381,10 @@ if WIN32:
         return WindowsError(code, context)
 
     def FAILED(hr):
-        return rffi.cast(HRESULT, hr) < 0
+        # XXX convert to int before checking result
+        #     because 32-bit arithmetic is unimplemented on win64
+        #     this is fine since HRESULT is defined as (signed) LONG
+        return int(rffi.cast(HRESULT, hr)) < 0
 
     _GetModuleFileName = winexternal('GetModuleFileNameA',
                                      [HMODULE, rffi.CCHARP, DWORD],
@@ -522,7 +563,7 @@ if WIN32:
         try:
             if not _GetHandleInformation(handle, pflags):
                 raise lastSavedWindowsError("GetHandleInformation")
-            flags = pflags[0]
+            flags = widen(pflags[0])
         finally:
             lltype.free(pflags, flavor='raw')
         return (flags & HANDLE_FLAG_INHERIT) != 0
@@ -554,3 +595,60 @@ if WIN32:
                 os.close(fd2)
                 raise
         return res
+
+    GetConsoleMode = winexternal(
+        'GetConsoleMode', [HANDLE, LPDWORD], BOOL)
+
+    GetNumberOfConsoleInputEvents = winexternal(
+        'GetNumberOfConsoleInputEvents', [HANDLE, LPDWORD], BOOL)
+
+    ERROR_INSUFFICIENT_BUFFER = 122
+    ERROR_OPERATION_ABORTED   = 995
+    CP_UTF8 = 65001
+
+    ReadConsoleW = winexternal(
+        'ReadConsoleW', [HANDLE, LPWSTR, DWORD, LPDWORD, LPVOID], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    WriteConsoleW = winexternal(
+        'WriteConsoleW', [HANDLE, LPVOID, DWORD, LPDWORD, LPVOID], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    GetStringTypeW = winexternal(
+        'GetStringTypeW', [DWORD, rffi.CWCHARP, rffi.INT, LPWORD], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    _SetEnvironmentVariableW = winexternal(
+        'SetEnvironmentVariableW', [LPWSTR, LPWSTR], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    def SetEnvironmentVariableW(name, value):
+        with rffi.scoped_unicode2wcharp(name) as nameWbuf:
+            with rffi.scoped_unicode2wcharp(value) as valueWbuf:
+                return _SetEnvironmentVariableW(nameWbuf, valueWbuf)
+
+    _AddDllDirectory = winexternal('AddDllDirectory', [LPWSTR], rffi.VOIDP,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    def AddDllDirectory(path, length):
+        with rffi.scoped_utf82wcharp(path, length) as pathW:
+            return _AddDllDirectory(pathW)
+
+    RemoveDllDirectory = winexternal('RemoveDllDirectory', [rffi.VOIDP], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    # Don't save the err since this is called before checking err in rdynload
+    SetErrorMode = winexternal('SetErrorMode', [rffi.UINT], rffi.UINT) 
+
+    # int os_readlink_impl(wchar_t *path_to_check, char * reparse_data_buffer, 
+    #                  wchar_t **result);
+    # returns the number of wchar_t chars in result, -1 if error, for a given
+    # path_to_check. The result pointer will be somewhere inside the pre-allocated
+    # reparse_data_buffer, which should be of length _Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE
+    os_readlink_impl = winexternal("os_readlink_impl",
+        [rffi.CWCHARP, rffi.VOIDP, rffi.CWCHARPP], rffi.INT,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    os_symlink_impl = winexternal("os_symlink_impl",
+        [rffi.CWCHARP, rffi.CWCHARP, rffi.INT], rffi.INT,
+        save_err=rffi.RFFI_SAVE_LASTERROR)

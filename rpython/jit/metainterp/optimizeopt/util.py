@@ -45,9 +45,25 @@ def make_dispatcher_method(Class, name_prefix, op_prefix=None, default=None):
                 return func(self, op, *args)
             if default:
                 return default(self, op, *args)
-    dispatch.func_name = "dispatch_" + name_prefix
+    dispatch.__name__ = "dispatch_" + name_prefix
     return dispatch
 
+def have_dispatcher_method(Class, name_prefix, op_prefix=None, default=None):
+    ops = _findall(Class, name_prefix, op_prefix)
+    if default:
+        def check(self, opnum):
+            return True
+    else:
+        def check(self, opnum):
+            if we_are_translated():
+                for value, cls, func in ops:
+                    if opnum == value:
+                        return True
+                return False
+            else:
+                return hasattr(Class, name_prefix + resoperation.opname[opnum].upper())
+    check.__name__ = "check_" + name_prefix
+    return check
 
 def partition(array, left, right):
     last_item = array[right]

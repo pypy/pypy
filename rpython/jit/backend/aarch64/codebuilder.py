@@ -428,10 +428,9 @@ class AbstractAarch64Builder(object):
     #    base = 0b1100100001011111111111
     #    self.write32((base << 10) | (rn << 5) | rt)
 
-    #def STLXR(self, rt, rn, rs):
-    #    don't use any more
-    #    base = 0b11001000000
-    #    self.write32((base << 21) | (rs << 16) | (0b111111 << 10) | (rn << 5) | rt)
+    def STLXR(self, rs, rt, rn):
+        base = 0b11001000000
+        self.write32((base << 21) | (rs << 16) | (0b111111 << 10) | (rn << 5) | rt)
 
     def NOP(self):
         self.write32(0b11010101000000110010000000011111)
@@ -498,9 +497,8 @@ class AbstractAarch64Builder(object):
     def BRK(self):
         self.write32(0b11010100001 << 21)
 
-    #def DMB(self):
-    #    don't use any more
-    #    self.write32(0b11010101000000110011111110111111)
+    def DMB_ISH(self):
+        self.write32(0xd5033bbf)    # from gcc
 
     def gen_load_int_full(self, r, value):
         self.MOVZ_r_u16(r, value & 0xFFFF, 0)

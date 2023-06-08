@@ -67,6 +67,10 @@ class DummyFTPHandler(asynchat.async_chat):
         self.rest = None
         self.next_retr_data = RETR_DATA
         self.push('220 welcome')
+        # We use this as the string IPv4 address to direct the client
+        # to in response to a PASV command.  To test security behavior.
+        # https://bugs.python.org/issue43285/.
+        self.fake_pasv_server_ip = '252.253.254.255'
 
     def collect_incoming_data(self, data):
         self.in_buffer.append(data)
@@ -109,8 +113,9 @@ class DummyFTPHandler(asynchat.async_chat):
         sock.bind((self.socket.getsockname()[0], 0))
         sock.listen(5)
         sock.settimeout(10)
-        ip, port = sock.getsockname()[:2]
-        ip = ip.replace('.', ',')
+        port = sock.getsockname()[1]
+        ip = self.fake_pasv_server_ip
+        ip = ip.replace('.', ','); p1 = port // 256; p2 = port % 256
         p1, p2 = divmod(port, 256)
         self.push('227 entering passive mode (%s,%d,%d)' %(ip, p1, p2))
         conn, addr = sock.accept()
@@ -218,12 +223,18 @@ class DummyFTPServer(asyncore.dispatcher, threading.Thread):
         threading.Thread.__init__(self)
         asyncore.dispatcher.__init__(self)
         self.create_socket(af, socket.SOCK_STREAM)
-        self.bind(address)
-        self.listen(5)
-        self.active = False
-        self.active_lock = threading.Lock()
-        self.host, self.port = self.socket.getsockname()[:2]
-        self.handler_instance = None
+        try:
+            self.bind(address)
+            self.listen(5)
+            self.active = False
+            self.active_lock = threading.Lock()
+            self.host, self.port = self.socket.getsockname()[:2]
+            self.handler_instance = None
+        except:
+            # unregister the server on bind() error,
+            # needed by TestIPv6Environment.setUpClass()
+            self.del_channel()
+            raise
 
     def start(self):
         assert not self.active
@@ -439,6 +450,9 @@ class TestFTPClass(TestCase):
         self.assertEqual(self.client.sanitize('PASS 12345'), repr('PASS *****'))
 
     def test_exceptions(self):
+        self.assertRaises(ValueError, self.client.sendcmd, 'echo 40\r\n0')
+        self.assertRaises(ValueError, self.client.sendcmd, 'echo 40\n0')
+        self.assertRaises(ValueError, self.client.sendcmd, 'echo 40\r0')
         self.assertRaises(ftplib.error_temp, self.client.sendcmd, 'echo 400')
         self.assertRaises(ftplib.error_temp, self.client.sendcmd, 'echo 499')
         self.assertRaises(ftplib.error_perm, self.client.sendcmd, 'echo 500')
@@ -574,6 +588,26 @@ class TestFTPClass(TestCase):
         # IPv4 is in use, just make sure send_epsv has not been used
         self.assertEqual(self.server.handler_instance.last_received_cmd, 'pasv')
 
+    def test_makepasv_issue43285_security_disabled(self):
+        """Test the opt-in to the old vulnerable behavior."""
+        self.client.trust_server_pasv_ipv4_address = True
+        bad_host, port = self.client.makepasv()
+        self.assertEqual(
+                bad_host, self.server.handler_instance.fake_pasv_server_ip)
+        # Opening and closing a connection keeps the dummy server happy
+        # instead of timing out on accept.
+        socket.create_connection((self.client.sock.getpeername()[0], port),
+                                 timeout=TIMEOUT).close()
+
+    def test_makepasv_issue43285_security_enabled_default(self):
+        self.assertFalse(self.client.trust_server_pasv_ipv4_address)
+        trusted_host, port = self.client.makepasv()
+        self.assertNotEqual(
+                trusted_host, self.server.handler_instance.fake_pasv_server_ip)
+        # Opening and closing a connection keeps the dummy server happy
+        # instead of timing out on accept.
+        socket.create_connection((trusted_host, port), timeout=TIMEOUT).close()
+
     def test_line_too_long(self):
         self.assertRaises(ftplib.Error, self.client.sendcmd,
                           'x' * self.client.maxline * 2)
@@ -672,6 +706,7 @@ class TestTLS_FTPClass(TestCase):
         # clear text
         sock = self.client.transfercmd('list')
         self.assertNotIsInstance(sock, ssl.SSLSocket)
+        self.assertEqual(sock.recv(1024), LIST_DATA.encode('ascii'))
         sock.close()
         self.assertEqual(self.client.voidresp(), "226 transfer complete")
 
@@ -679,6 +714,9 @@ class TestTLS_FTPClass(TestCase):
         self.client.prot_p()
         sock = self.client.transfercmd('list')
         self.assertIsInstance(sock, ssl.SSLSocket)
+        # consume from SSL socket to finalize handshake and avoid
+        # "SSLError [SSL] shutdown while in init"
+        self.assertEqual(sock.recv(1024), LIST_DATA.encode('ascii'))
         sock.close()
         self.assertEqual(self.client.voidresp(), "226 transfer complete")
 
@@ -686,6 +724,7 @@ class TestTLS_FTPClass(TestCase):
         self.client.prot_c()
         sock = self.client.transfercmd('list')
         self.assertNotIsInstance(sock, ssl.SSLSocket)
+        self.assertEqual(sock.recv(1024), LIST_DATA.encode('ascii'))
         sock.close()
         self.assertEqual(self.client.voidresp(), "226 transfer complete")
 
@@ -707,11 +746,11 @@ class TestTLS_FTPClass(TestCase):
             self.client.auth()
             self.assertRaises(ValueError, self.client.auth)
         finally:
-            self.client.ssl_version = ssl.PROTOCOL_TLSv1
+            self.client.ssl_version = ssl.PROTOCOL_TLS
 
     def test_context(self):
         self.client.quit()
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS)
         self.assertRaises(ValueError, ftplib.FTP_TLS, keyfile=CERTFILE,
                           context=ctx)
         self.assertRaises(ValueError, ftplib.FTP_TLS, certfile=CERTFILE,
@@ -736,7 +775,7 @@ class TestTLS_FTPClass(TestCase):
 
     def test_check_hostname(self):
         self.client.quit()
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS)
         ctx.verify_mode = ssl.CERT_REQUIRED
         ctx.check_hostname = True
         ctx.load_verify_locations(CAFILE)

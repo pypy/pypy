@@ -228,7 +228,7 @@ class ParserCompiler(object):
         miniglobals = globals().copy()
         miniglobals["baseclass"] = self.parser.__class__
         #print "\n".join(self.allcode)
-        exec py.code.Source("\n".join(self.allcode)).compile() in miniglobals
+        exec(py.code.Source("\n".join(self.allcode)).compile(), miniglobals)
         kls = miniglobals["CompileableParser"]
         # XXX
         parsetable = self.parser.parsetablefactory([], self.parser)

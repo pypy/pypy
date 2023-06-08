@@ -1,5 +1,6 @@
 import py
 
+from rpython.rlib import rmmap
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.backend.test.calling_convention_test import CallingConvTests, parse
@@ -19,10 +20,14 @@ class TestARMCallingConvention(CallingConvTests):
     # ../../test/calling_convention_test.py
 
     def make_function_returning_stack_pointer(self):
-        mc = InstrBuilder()
-        mc.MOV_rr(r.x0.value, r.sp.value)
-        mc.RET_r(r.lr.value)
-        return mc.materialize(self.cpu, [])
+        rmmap.enter_assembler_writing()
+        try:
+            mc = InstrBuilder()
+            mc.MOV_rr(r.x0.value, r.sp.value)
+            mc.RET_r(r.lr.value)
+            return mc.materialize(self.cpu, [])
+        finally:
+            rmmap.leave_assembler_writing()
 
     def get_alignment_requirements(self):
         return 16

@@ -202,7 +202,7 @@ if sys.platform == "win32":
 
     def _setfd_binary(fd):
         # Allow this to succeed on invalid fd's
-        if rposix.is_valid_fd(fd):
+        with rposix.SuppressIPH():
             _setmode(fd, os.O_BINARY)
 
     def ftruncate_win32(fd, size):
@@ -526,7 +526,7 @@ def PassThrough(meth_name, flush_buffers):
                       return self.base.%s(%s)
 """
     d = {}
-    exec code % (meth_name, args, meth_name, args) in d
+    exec(code % (meth_name, args, meth_name, args), d)
     return d[meth_name]
 
 
@@ -660,10 +660,9 @@ class BufferingInputStream(Stream):
     def readall(self):
         pos = self.pos
         assert pos >= 0
+        builder = StringBuilder()
         if self.buf:
-            chunks = [self.buf[pos:]]
-        else:
-            chunks = []
+            builder.append_slice(self.buf, pos, len(self.buf))
         self.buf = ""
         self.pos = 0
         bufsize = self.bufsize
@@ -673,14 +672,14 @@ class BufferingInputStream(Stream):
             except OSError as o:
                 # like CPython < 3.4, partial results followed by an error
                 # are returned as data
-                if not chunks:
+                if not builder.getlength():
                     raise
                 break
             if not data:
                 break
-            chunks.append(data)
+            builder.append(data)
             bufsize = min(bufsize*2, self.bigsize)
-        return "".join(chunks)
+        return builder.build()
 
     def read(self, n=-1):
         assert isinstance(n, int)
@@ -696,7 +695,8 @@ class BufferingInputStream(Stream):
             self.pos += n
             return result
         else:
-            chunks = [self.buf[start:]]
+            builder = StringBuilder(n)
+            builder.append_slice(self.buf, start, len(self.buf))
             while 1:
                 self.buf = self.do_read(self.bufsize)
                 if not self.buf:
@@ -707,12 +707,12 @@ class BufferingInputStream(Stream):
                     self.pos = len(self.buf) - (currentsize - n)
                     stop = self.pos
                     assert stop >= 0
-                    chunks.append(self.buf[:stop])
+                    builder.append_slice(self.buf, 0, stop)
                     break
                 buf = self.buf
                 assert buf is not None
-                chunks.append(buf)
-            return ''.join(chunks)
+                builder.append(buf)
+            return builder.build()
 
     def readline(self):
         pos = self.pos
@@ -738,7 +738,9 @@ class BufferingInputStream(Stream):
             self.pos = 0
             return temp
         # need to keep getting data until we find a new line
-        chunks = [temp, self.buf]
+        builder = StringBuilder(len(temp) + len(self.buf)) # at least
+        builder.append(temp)
+        builder.append(self.buf)
         while 1:
             self.buf = self.do_read(self.bufsize)
             if not self.buf:
@@ -747,11 +749,11 @@ class BufferingInputStream(Stream):
             i = self.buf.find("\n")
             if i >= 0:
                 i += 1
-                chunks.append(self.buf[:i])
+                builder.append_slice(self.buf, 0, i)
                 self.pos = i
                 break
-            chunks.append(self.buf)
-        return "".join(chunks)
+            builder.append(self.buf)
+        return builder.build()
 
     def peek(self):
         return (self.pos, self.buf)

@@ -38,10 +38,13 @@ def pytest_ignore_collect(path, config):
             return True
 
 disabled = None
+if sys.maxsize > 2**32 and sys.platform == 'win32':
+    # cppyy not yet supported on windows 64 bit
+    disabled = True
 
 def pytest_configure(config):
     global disabled
-    if config.getoption('runappdirect') or config.getoption('direct_apptest'):
+    if disabled or config.getoption('runappdirect') or config.getoption('direct_apptest'):
         if py.path.local.sysfind('genreflex') is None:
             disabled = True  # can't run dummy tests in -A
         return
@@ -63,12 +66,16 @@ def pytest_configure(config):
             srcpath = pkgpath.join('src')
             incpath = pkgpath.join('include')
             tstpath = pkgpath.join('test')
+            compile_extra = ['-DRPY_EXTERN=RPY_EXPORTED', '-DCPPYY_DUMMY_BACKEND']
+            if platform.name == 'msvc':
+                compile_extra += ['-std:c++14']
+            else:
+                compile_extra += ['-fno-strict-aliasing', '-std=c++14']
 
             eci = ExternalCompilationInfo(
                 separate_module_files=[srcpath.join('dummy_backend.cxx')],
                 include_dirs=[incpath, tstpath, cdir],
-                compile_extra=['-DRPY_EXTERN=RPY_EXPORTED', '-DCPPYY_DUMMY_BACKEND',
-                               '-fno-strict-aliasing', '-std=c++14'],
+                compile_extra=compile_extra,
                 use_cpp_linker=True,
             )
 

@@ -145,5 +145,5 @@ class RffiSource(object):
         from rpython.rtyper.lltypesystem import lltype
         from rpython.rtyper.lltypesystem import rffi
         """, self.source)
-        exec src.compile() in globs
+        exec(src.compile(), globs)
         return globs

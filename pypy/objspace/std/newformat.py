@@ -251,8 +251,8 @@ def make_template_formatting_class(for_unicode):
                     if w_obj is not None:
                         w_obj = space.getattr(w_obj, w_attr)
                     else:
-                        self.parser_list_w.append(space.newtuple([
-                            space.w_True, w_attr]))
+                        self.parser_list_w.append(space.newtuple2(
+                            space.w_True, w_attr))
                 elif c == "[":
                     got_bracket = False
                     i += 1
@@ -274,8 +274,8 @@ def make_template_formatting_class(for_unicode):
                     if w_obj is not None:
                         w_obj = space.getitem(w_obj, w_item)
                     else:
-                        self.parser_list_w.append(space.newtuple([
-                            space.w_False, w_item]))
+                        self.parser_list_w.append(space.newtuple2(
+                            space.w_False, w_item))
                 else:
                     raise oefmt(space.w_ValueError,
                                 "Only '[' and '.' may follow ']'")
@@ -305,8 +305,8 @@ def make_template_formatting_class(for_unicode):
             self.parser_list_w = []
             self._resolve_lookups(None, name, i, end)
             #
-            return space.newtuple([w_first,
-                                   space.iter(space.newlist(self.parser_list_w))])
+            return space.newtuple2(w_first,
+                                   space.iter(space.newlist(self.parser_list_w)))
 
         def _convert(self, w_obj, conversion):
             space = self.space
@@ -594,7 +594,13 @@ def make_formatting_class(for_unicode):
             if precision != -1 and length >= precision:
                 assert precision >= 0
                 length = precision
-                string = string[:precision]
+                if for_unicode:
+                    w_slice = space.newslice(
+                        space.newint(0), space.newint(precision), space.w_None)
+                    w_string = space.getitem(w_string, w_slice)
+                    string = space.utf8_w(w_string)
+                else:
+                    string = string[:precision]
             self._calc_padding(string, length)
             return self.wrap(self._pad(string))
 

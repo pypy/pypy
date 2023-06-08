@@ -7,7 +7,7 @@ This beta adds one new feature to the 2.1 release and contains several bugfixes 
 
 You can download the PyPy 2.1 beta 1 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 Highlights
 ==========
@@ -56,10 +56,10 @@ We suggest using PyPy from a `virtualenv`_. Once you have a virtualenv
 installed, you can follow instructions from `pypy documentation`_ on how
 to proceed. This document also covers other `installation schemes`_.
 
-.. _`pypy documentation`: http://doc.pypy.org/en/latest/getting-started.html#installing-using-virtualenv
-.. _`virtualenv`: http://www.virtualenv.org/en/latest/
-.. _`installation schemes`: http://doc.pypy.org/en/latest/getting-started.html#installing-pypy
-.. _`PyPy and pip`: http://doc.pypy.org/en/latest/getting-started.html#installing-pypy
+.. _`pypy documentation`: https://doc.pypy.org/en/latest/getting-started.html#installing-using-virtualenv
+.. _`virtualenv`: https://www.virtualenv.org/en/latest/
+.. _`installation schemes`: https://doc.pypy.org/en/latest/getting-started.html#installing-pypy
+.. _`PyPy and pip`: https://doc.pypy.org/en/latest/getting-started.html#installing-pypy
 
 
 Cheers,

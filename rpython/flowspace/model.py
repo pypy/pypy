@@ -48,11 +48,11 @@ class FunctionGraph(object):
 
     @property
     def startline(self):
-        return self.func.func_code.co_firstlineno
+        return self.func.__code__.co_firstlineno
 
     @property
     def filename(self):
-        return self.func.func_code.co_filename
+        return self.func.__code__.co_filename
 
     def __str__(self):
         if hasattr(self, 'func'):

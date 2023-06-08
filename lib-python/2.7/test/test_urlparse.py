@@ -1,4 +1,6 @@
 from test import test_support
+import sys
+import unicodedata
 import unittest
 import urlparse
 
@@ -22,16 +24,20 @@ parse_qsl_test_cases = [
     ("&a=b", [('a', 'b')]),
     ("a=a+b&b=b+c", [('a', 'a b'), ('b', 'b c')]),
     ("a=1&a=2", [('a', '1'), ('a', '2')]),
-    (";", []),
-    (";;", []),
-    (";a=b", [('a', 'b')]),
-    ("a=a+b;b=b+c", [('a', 'a b'), ('b', 'b c')]),
-    ("a=1;a=2", [('a', '1'), ('a', '2')]),
-    (b";", []),
-    (b";;", []),
-    (b";a=b", [(b'a', b'b')]),
-    (b"a=a+b;b=b+c", [(b'a', b'a b'), (b'b', b'b c')]),
-    (b"a=1;a=2", [(b'a', b'1'), (b'a', b'2')]),
+    (b"", []),
+    (b"&", []),
+    (b"&&", []),
+    (b"=", [(b'', b'')]),
+    (b"=a", [(b'', b'a')]),
+    (b"a", [(b'a', b'')]),
+    (b"a=", [(b'a', b'')]),
+    (b"&a=b", [(b'a', b'b')]),
+    (b"a=a+b&b=b+c", [(b'a', b'a b'), (b'b', b'b c')]),
+    (b"a=1&a=2", [(b'a', b'1'), (b'a', b'2')]),
+    (";a=b", [(';a', 'b')]),
+    ("a=a+b;b=b+c", [('a', 'a b;b=b c')]),
+    (b";a=b", [(b';a', b'b')]),
+    (b"a=a+b;b=b+c", [(b'a', b'a b;b=b c')]),
 ]
 
 parse_qs_test_cases = [
@@ -55,16 +61,10 @@ parse_qs_test_cases = [
     (b"&a=b", {b'a': [b'b']}),
     (b"a=a+b&b=b+c", {b'a': [b'a b'], b'b': [b'b c']}),
     (b"a=1&a=2", {b'a': [b'1', b'2']}),
-    (";", {}),
-    (";;", {}),
-    (";a=b", {'a': ['b']}),
-    ("a=a+b;b=b+c", {'a': ['a b'], 'b': ['b c']}),
-    ("a=1;a=2", {'a': ['1', '2']}),
-    (b";", {}),
-    (b";;", {}),
-    (b";a=b", {b'a': [b'b']}),
-    (b"a=a+b;b=b+c", {b'a': [b'a b'], b'b': [b'b c']}),
-    (b"a=1;a=2", {b'a': [b'1', b'2']}),
+    (";a=b", {';a': ['b']}),
+    ("a=a+b;b=b+c", {'a': ['a b;b=b c']}),
+    (b";a=b", {b';a': [b'b']}),
+    (b"a=a+b;b=b+c", {b'a':[ b'a b;b=b c']}),
 ]
 
 class UrlParseTestCase(unittest.TestCase):
@@ -543,6 +543,35 @@ class UrlParseTestCase(unittest.TestCase):
         self.assertEqual(p1.params, 'phone-context=+1-914-555')
 
 
+    def test_urlsplit_remove_unsafe_bytes(self):
+        # Remove ASCII tabs and newlines from input
+        url = "http://www.python.org/java\nscript:\talert('msg\r\n')/#frag"
+        p = urlparse.urlsplit(url)
+        self.assertEqual(p.scheme, "http")
+        self.assertEqual(p.netloc, "www.python.org")
+        self.assertEqual(p.path, "/javascript:alert('msg')/")
+        self.assertEqual(p.query, "")
+        self.assertEqual(p.fragment, "frag")
+        self.assertEqual(p.username, None)
+        self.assertEqual(p.password, None)
+        self.assertEqual(p.hostname, "www.python.org")
+        self.assertEqual(p.port, None)
+        self.assertEqual(p.geturl(), "http://www.python.org/javascript:alert('msg')/#frag")
+
+        # Remove ASCII tabs and newlines from input as bytes.
+        url = b"http://www.python.org/java\nscript:\talert('msg\r\n')/#frag"
+        p = urlparse.urlsplit(url)
+        self.assertEqual(p.scheme, b"http")
+        self.assertEqual(p.netloc, b"www.python.org")
+        self.assertEqual(p.path, b"/javascript:alert('msg')/")
+        self.assertEqual(p.query, b"")
+        self.assertEqual(p.fragment, b"frag")
+        self.assertEqual(p.username, None)
+        self.assertEqual(p.password, None)
+        self.assertEqual(p.hostname, b"www.python.org")
+        self.assertEqual(p.port, None)
+        self.assertEqual(p.geturl(), b"http://www.python.org/javascript:alert('msg')/#frag")
+
     def test_attributes_bad_port(self):
         """Check handling of non-integer ports."""
         p = urlparse.urlsplit("http://www.example.net:foo")
@@ -623,6 +652,45 @@ class UrlParseTestCase(unittest.TestCase):
         self.assertEqual(urlparse.urlparse("https:"),('https','','','','',''))
         self.assertEqual(urlparse.urlparse("http://www.python.org:80"),
                 ('http','www.python.org:80','','','',''))
+
+    def test_urlsplit_normalization(self):
+        # Certain characters should never occur in the netloc,
+        # including under normalization.
+        # Ensure that ALL of them are detected and cause an error
+        illegal_chars = u'/:#?@'
+        hex_chars = {'{:04X}'.format(ord(c)) for c in illegal_chars}
+        denorm_chars = [
+            c for c in map(unichr, range(128, sys.maxunicode))
+            if (hex_chars & set(unicodedata.decomposition(c).split()))
+            and c not in illegal_chars
+        ]
+        # Sanity check that we found at least one such character
+        self.assertIn(u'\u2100', denorm_chars)
+        self.assertIn(u'\uFF03', denorm_chars)
+
+        # bpo-36742: Verify port separators are ignored when they
+        # existed prior to decomposition
+        urlparse.urlsplit(u'http://\u30d5\u309a:80')
+        with self.assertRaises(ValueError):
+            urlparse.urlsplit(u'http://\u30d5\u309a\ufe1380')
+
+        for scheme in [u"http", u"https", u"ftp"]:
+            for netloc in [u"netloc{}false.netloc", u"n{}user@netloc"]:
+                for c in denorm_chars:
+                    url = u"{}://{}/path".format(scheme, netloc.format(c))
+                    if test_support.verbose:
+                        print "Checking %r" % url
+                    with self.assertRaises(ValueError):
+                        urlparse.urlsplit(url)
+
+        # check error message: invalid netloc must be formated with repr()
+        # to get an ASCII error message
+        with self.assertRaises(ValueError) as cm:
+            urlparse.urlsplit(u'http://example.com\uFF03@bing.com')
+        self.assertEqual(str(cm.exception),
+                         "netloc u'example.com\\uff03@bing.com' contains invalid characters "
+                         "under NFKC normalization")
+        self.assertIsInstance(cm.exception.args[0], str)
 
 def test_main():
     test_support.run_unittest(UrlParseTestCase)

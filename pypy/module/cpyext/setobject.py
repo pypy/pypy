@@ -83,6 +83,8 @@ def PySet_Add(space, w_s, w_obj):
     Like PyTuple_SetItem() in that it can be used to fill-in the
     values of brand new frozensets before they are exposed to other code."""
     if not PySet_Check(space, w_s):
+        if isinstance(w_s, W_FrozensetObject) and w_s.cpyext_add_frozen(w_obj):
+            return 0
         PyErr_BadInternalCall(space)
     space.call_method(space.w_set, 'add', w_s, w_obj)
     return 0

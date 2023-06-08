@@ -166,8 +166,8 @@ class __extend__(pairtype(SomeTypeOf, SomeTypeOf)):
 
 # cloning a function with identical code, for the can_only_throw attribute
 def _clone(f, can_only_throw = None):
-    newfunc = type(f)(f.func_code, f.func_globals, f.func_name,
-                      f.func_defaults, f.func_closure)
+    newfunc = type(f)(f.__code__, f.__globals__, f.__name__,
+                      f.__defaults__, f.__closure__)
     if can_only_throw is not None:
         newfunc.can_only_throw = can_only_throw
     return newfunc
@@ -377,12 +377,6 @@ class __extend__(pairtype(SomeChar, SomeChar)):
         no_nul = chr1.no_nul and chr2.no_nul
         return SomeChar(no_nul=no_nul)
 
-
-class __extend__(pairtype(SomeChar, SomeUnicodeCodePoint),
-                 pairtype(SomeUnicodeCodePoint, SomeChar)):
-    def union((uchr1, uchr2)):
-        no_nul = uchr1.no_nul and uchr2.no_nul
-        return SomeUnicodeCodePoint(no_nul=no_nul)
 
 class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
     def union((uchr1, uchr2)):
@@ -645,6 +639,20 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeString),
         if str1.is_immutable_constant() and str2.is_immutable_constant():
             result.const = str1.const + str2.const
         return result
+
+for cmp_op in [op.lt, op.le, op.eq, op.ne, op.gt, op.ge]:
+    @cmp_op.register(SomeUnicodeString, SomeString)
+    @cmp_op.register(SomeUnicodeString, SomeChar)
+    @cmp_op.register(SomeString, SomeUnicodeString)
+    @cmp_op.register(SomeChar, SomeUnicodeString)
+    @cmp_op.register(SomeUnicodeCodePoint, SomeString)
+    @cmp_op.register(SomeUnicodeCodePoint, SomeChar)
+    @cmp_op.register(SomeString, SomeUnicodeCodePoint)
+    @cmp_op.register(SomeChar, SomeUnicodeCodePoint)
+    def cmp_str_unicode(annotator, v1, v2):
+        raise AnnotatorError(
+            "Comparing byte strings with unicode strings is not RPython")
+
 
 class __extend__(pairtype(SomeInteger, SomeList)):
 

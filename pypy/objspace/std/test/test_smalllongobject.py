@@ -1,22 +1,22 @@
-import py
+import pytest
 import sys
 from pypy.objspace.std.smalllongobject import W_SmallLongObject
 from pypy.objspace.std.test import test_longobject
 from pypy.objspace.std.test.test_intobject import AppTestInt, TestW_IntObject
-from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.rlib.rarithmetic import r_longlong
 from pypy.interpreter.error import OperationError
 
 
-def test_direct():
-    space = gettestobjspace(**{"objspace.std.withsmalllong": True})
+@pytest.mark.parametrize('spaceconfig', [{"objspace.std.withsmalllong": True}])
+def test_direct(space):
     w5 = space.wrap(r_longlong(5))
     assert isinstance(w5, W_SmallLongObject)
     wlarge = space.wrap(r_longlong(0x123456789ABCDEFL))
     #
     assert space.int_w(w5) == 5
     if sys.maxint < 0x123456789ABCDEFL:
-        py.test.raises(OperationError, space.int_w, wlarge)
+        with pytest.raises(OperationError):
+            space.int_w(wlarge)
     else:
         assert space.int_w(wlarge) == 0x123456789ABCDEF
     #

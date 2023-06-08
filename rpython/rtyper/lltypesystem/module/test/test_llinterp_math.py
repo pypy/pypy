@@ -39,14 +39,14 @@ class TestMath(BaseRtypingTest):
     for name in ll_math.unary_math_functions + ['log', 'log10', 'log1p', 'sin', 'cos', 'sqrt']:
         func_name = 'test_%s' % (name,)
         next_test = new_unary_test(name)
-        next_test.func_name = func_name
+        next_test.__name__ = func_name
         locals()[func_name] = next_test
         del next_test
 
     for name in ['atan2', 'fmod', 'hypot', 'pow']:
         func_name = 'test_%s' % (name,)
         next_test = new_binary_test(name)
-        next_test.func_name = func_name
+        next_test.__name__ = func_name
         locals()[func_name] = next_test
         del next_test
 

@@ -2,8 +2,9 @@
 
 import copy
 import pickle
+import pyexpat
 from StringIO import StringIO
-from test.test_support import verbose, run_unittest, findfile
+from test import support
 import unittest
 
 import xml.dom
@@ -12,9 +13,10 @@ import xml.parsers.expat
 
 from xml.dom.minidom import parse, Node, Document, parseString
 from xml.dom.minidom import getDOMImplementation
+from xml.parsers.expat import ExpatError
 
 
-tstfile = findfile("test.xml", subdir="xmltestdata")
+tstfile = support.findfile("test.xml", subdir="xmltestdata")
 sample = ("<?xml version='1.0' encoding='us-ascii'?>\n"
           "<!DOCTYPE doc PUBLIC 'http://xml.python.org/public'"
           " 'http://xml.python.org/system' [\n"
@@ -711,6 +713,57 @@ class MinidomTest(unittest.TestCase):
     def testClonePIDeep(self):
         self.check_clone_pi(1, "testClonePIDeep")
 
+    def check_clone_node_entity(self, clone_document):
+        # bpo-35052: Test user data handler in cloneNode() on a document with
+        # an entity
+        document = xml.dom.minidom.parseString("""
+            <?xml version="1.0" ?>
+            <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+                "http://www.w3.org/TR/html4/strict.dtd"
+                [ <!ENTITY smile ":-)"> ]
+            >
+            <doc>Don't let entities make you frown &smile;</doc>
+        """.strip())
+
+        class Handler:
+            def handle(self, operation, key, data, src, dst):
+                self.operation = operation
+                self.key = key
+                self.data = data
+                self.src = src
+                self.dst = dst
+
+        handler = Handler()
+        doctype = document.doctype
+        entity = doctype.entities['smile']
+        entity.setUserData("key", "data", handler)
+
+        if clone_document:
+            # clone Document
+            clone = document.cloneNode(deep=True)
+
+            self.assertEqual(clone.documentElement.firstChild.wholeText,
+                             "Don't let entities make you frown :-)")
+            operation = xml.dom.UserDataHandler.NODE_IMPORTED
+            dst = clone.doctype.entities['smile']
+        else:
+            # clone DocumentType
+            with support.swap_attr(doctype, 'ownerDocument', None):
+                clone = doctype.cloneNode(deep=True)
+
+            operation = xml.dom.UserDataHandler.NODE_CLONED
+            dst = clone.entities['smile']
+
+        self.assertEqual(handler.operation, operation)
+        self.assertEqual(handler.key, "key")
+        self.assertEqual(handler.data, "data")
+        self.assertIs(handler.src, entity)
+        self.assertIs(handler.dst, dst)
+
+    def testCloneNodeEntity(self):
+        self.check_clone_node_entity(False)
+        self.check_clone_node_entity(True)
+
     def testNormalize(self):
         doc = parseString("<doc/>")
         root = doc.documentElement
@@ -1000,7 +1053,13 @@ class MinidomTest(unittest.TestCase):
 
         # Verify that character decoding errors raise exceptions instead
         # of crashing
-        self.assertRaises(UnicodeDecodeError, parseString,
+        if pyexpat.version_info >= (2, 4, 5):
+            self.assertRaises(ExpatError, parseString,
+                    b'<fran\xe7ais></fran\xe7ais>')
+            self.assertRaises(ExpatError, parseString,
+                    b'<franais>Comment \xe7a va ? Tr\xe8s bien ?</franais>')
+        else:
+            self.assertRaises(UnicodeDecodeError, parseString,
                 '<fran\xe7ais>Comment \xe7a va ? Tr\xe8s bien ?</fran\xe7ais>')
 
         doc.unlink()
@@ -1446,7 +1505,7 @@ class MinidomTest(unittest.TestCase):
 
 
 def test_main():
-    run_unittest(MinidomTest)
+    support.run_unittest(MinidomTest)
 
 if __name__ == "__main__":
     test_main()

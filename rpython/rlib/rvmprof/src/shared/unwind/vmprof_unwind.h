@@ -15,6 +15,10 @@ typedef int32_t unw_sword_t;
 #define UNW_REG_IP 16
 typedef uint64_t unw_word_t;
 typedef int64_t unw_sword_t;
+#elif defined (__powerpc64__)
+#define UNW_REG_IP 32
+typedef uint64_t unw_word_t;
+typedef int64_t unw_sword_t;
 #else
 // not supported platform
 #endif

@@ -34,10 +34,10 @@ class AppTestSupport(BaseNumpyAppTest):
         import numpy as np
         doc = int.bit_length.__doc__
         try:
-            np.set_docstring(int.bit_length, 'foo')
-            assert int.bit_length.__doc__ == 'foo'
+            np.set_docstring(np.ndarray.shape, 'foo')
+            assert np.ndarray.shape.__doc__ == 'foo'
         finally:
-            np.set_docstring(int.bit_length, doc)
+            np.set_docstring(np.ndarray.shape, doc)
 
     def test_property_docstring(self):
         import numpy as np

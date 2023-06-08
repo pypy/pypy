@@ -1,4 +1,4 @@
-import random
+import random, py
 from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
@@ -94,9 +94,10 @@ def test_malloc_with_fragment():
 
 
 class TestAsmMemoryManager:
+    AMMClass = AsmMemoryManager
 
     def setup_method(self, _):
-        self.asmmemmgr = AsmMemoryManager(min_fragment=8,
+        self.asmmemmgr = self.AMMClass(min_fragment=8,
                                        num_indices=10,
                                        large_alloc_size=8192)
         self.codemap = CodemapStorage()
@@ -115,26 +116,29 @@ class TestAsmMemoryManager:
             self.setup_method(None)
 
     def test_random(self):
+        seed = random.randrange(0, 10**5)
+        print "random seed:", seed
+        r = random.Random(seed)
         got = []
         real_use = 0
         prev_total = 0
         iterations_without_allocating_more = 0
         while True:
             #
-            if got and (random.random() < 0.4 or len(got) == 1000):
+            if got and (r.random() < 0.4 or len(got) == 1000):
                 # free
-                start, stop = got.pop(random.randrange(0, len(got)))
+                start, stop = got.pop(r.randrange(0, len(got)))
                 self.asmmemmgr.free(start, stop)
                 real_use -= (stop - start)
                 assert real_use >= 0
             #
             else:
                 # allocate
-                reqsize = random.randrange(1, 200)
-                if random.random() < 0.5:
+                reqsize = r.randrange(1, 200)
+                if r.random() < 0.5:
                     reqmaxsize = reqsize
                 else:
-                    reqmaxsize = reqsize + random.randrange(0, 200)
+                    reqmaxsize = reqsize + r.randrange(0, 200)
                 (start, stop) = self.asmmemmgr.malloc(reqsize, reqmaxsize)
                 assert reqsize <= stop - start < reqmaxsize + 8
                 for otherstart, otherstop in got:           # no overlap
@@ -155,6 +159,8 @@ class TestAsmMemoryManager:
                     prev_total = new_total
 
     def test_insert_gcroot_marker(self):
+        if self.AMMClass is not AsmMemoryManager:
+            py.test.skip("not for TestFakeAsmMemoryManager")
         puts = []
         class FakeGcRootMap:
             def register_asm_addr(self, retaddr, mark):
@@ -189,6 +195,19 @@ class TestAsmMemoryManager:
         assert blockstart <= rawstart < rawstart + 6 <= blockend
         assert puts == [(rawstart + 2, ['a', 'b', 'c', 'd']),
                         (rawstart + 4, ['e', 'f', 'g'])]
+
+
+class TestFakeAsmMemoryManager(TestAsmMemoryManager):
+    class AMMClass(AsmMemoryManager):
+        def __init__(self, *args, **kwds):
+            AsmMemoryManager.__init__(self, *args, **kwds)
+            self._pool = [0x100000 + n * 8192 for n in range(18)]
+            random.shuffle(self._pool)
+        def _mmap_alloc(self, size):
+            assert size == 8192
+            return self._pool.pop()
+        def _delete(self):
+            pass
 
 
 def test_blockbuildermixin(translated=True):

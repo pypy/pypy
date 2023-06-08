@@ -134,12 +134,13 @@ def transform_list_contains(self, block_subset):
                     s_dict.dictdef.generalize_key(self.binding(op.args[1]))
 
 
-def transform_dead_op_vars(self, block_subset):
+def transform_dead_op_vars(ann, block_subset):
     # we redo the same simplification from simplify.py,
     # to kill dead (never-followed) links,
     # which can possibly remove more variables.
     from rpython.translator.simplify import transform_dead_op_vars_in_blocks
-    transform_dead_op_vars_in_blocks(block_subset, self.translator.graphs)
+    transform_dead_op_vars_in_blocks(block_subset, ann.translator.graphs,
+            ann.translator)
 
 def transform_dead_code(self, block_subset):
     """Remove dead code: these are the blocks that are not annotated at all

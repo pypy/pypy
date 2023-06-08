@@ -21,6 +21,7 @@ from platform import machine
 import py
 import os
 import sys
+import ctypes
 import ctypes.util
 
 
@@ -29,46 +30,47 @@ _MSVC = platform.name == "msvc"
 _MINGW = platform.name == "mingw32"
 _WIN32 = _MSVC or _MINGW
 _WIN64 = _WIN32 and is_emulated_long
-_MAC_OS = platform.name == "darwin"
+_MAC_OS = platform.name.startswith("darwin")
 
 _LITTLE_ENDIAN = sys.byteorder == 'little'
 _BIG_ENDIAN = sys.byteorder == 'big'
 
-_ARM = rffi_platform.getdefined('__arm__', '')
+_ARM32 = rffi_platform.getdefined('__arm__', '')
+_ARM64 = rffi_platform.getdefined('__aarch64', '')
+_MAC_OS_ARM64 = _MAC_OS and _ARM64
 
 if _WIN32:
     from rpython.rlib import rwin32
-
-if _WIN32:
     separate_module_sources = ['''
-    #include "src/precommondefs.h"
     #include <stdio.h>
     #include <windows.h>
 
     /* Get the module where the "fopen" function resides in */
     RPY_EXTERN
-    HANDLE pypy_get_libc_handle() {
+    HMODULE pypy_get_libc_handle(void) {
         MEMORY_BASIC_INFORMATION  mi;
         char buf[1000];
         memset(&mi, 0, sizeof(mi));
 
         if( !VirtualQueryEx(GetCurrentProcess(), &fopen, &mi, sizeof(mi)) )
-            return 0;
+            return (HMODULE)0;
 
         GetModuleFileName((HMODULE)mi.AllocationBase, buf, 500);
 
         return (HMODULE)mi.AllocationBase;
     }
     ''']
+    post_include_bits = ['RPY_EXTERN HMODULE pypy_get_libc_handle(void);\n',]
 else:
     separate_module_sources = []
+    post_include_bits = []
 
 
 if not _WIN32:
     includes = ['ffi.h']
 
     if _MAC_OS:
-        pre_include_bits = ['#define MACOSX']
+        pre_include_bits = ['#define MACOSX\n#define USE_FFI_CLOSURE_ALLOC 1']
     else:
         pre_include_bits = []
 
@@ -80,6 +82,7 @@ if not _WIN32:
         includes = includes,
         libraries = libraries,
         separate_module_sources = separate_module_sources,
+        post_include_bits = post_include_bits,
         include_dirs = platform.include_dirs_for_libffi(),
         library_dirs = platform.library_dirs_for_libffi(),
         link_files = link_files,
@@ -93,6 +96,7 @@ elif _MINGW:
         libraries = libraries,
         includes = includes,
         separate_module_sources = separate_module_sources,
+        post_include_bits = post_include_bits,
         )
 
     eci = rffi_platform.configure_external_library(
@@ -102,22 +106,11 @@ elif _MINGW:
          dict(prefix=r'c:\\mingw64', include_dir='include', library_dir='lib'),
          ])
 else:
-    USE_C_LIBFFI_MSVC = True
-    libffidir = py.path.local(cdir).join('src', 'libffi_msvc')
-    if not _WIN64:
-        asm_ifc = 'win32.c'
-    else:
-        asm_ifc = 'win64.asm'
     eci = ExternalCompilationInfo(
         includes = ['ffi.h', 'windows.h'],
-        libraries = ['kernel32'],
-        include_dirs = [libffidir, cdir],
+        libraries = ['kernel32', 'libffi-8'],
         separate_module_sources = separate_module_sources,
-        separate_module_files = [libffidir.join('ffi.c'),
-                                 libffidir.join('prep_cif.c'),
-                                 libffidir.join(asm_ifc),
-                                 libffidir.join('pypy_ffi.c'),
-                                 ],
+        post_include_bits = post_include_bits,
         )
 
 FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())
@@ -133,7 +126,7 @@ class CConfig:
     if _WIN32 and not _WIN64:
         FFI_STDCALL = rffi_platform.ConstantInteger('FFI_STDCALL')
 
-    if _ARM:
+    if _ARM32:
         FFI_SYSV = rffi_platform.ConstantInteger('FFI_SYSV')
         FFI_VFP = rffi_platform.ConstantInteger('FFI_VFP')
 
@@ -260,7 +253,7 @@ def winexternal(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci, calling_conv='win')
 
 
-if not _MSVC:
+if 1 or not _MSVC:
     def check_fficall_result(result, flags):
         pass # No check
 else:
@@ -285,11 +278,26 @@ else:
                 "arguments (%d bytes in excess) " % (result,))
 
 if not _WIN32:
+    # prefer using ctypes.util.find_library() as it takes care of some
+    # platform specifics -- however, it is not 100% portable
     libc_name = ctypes.util.find_library('c')
-    assert libc_name is not None, "Cannot find C library, ctypes.util.find_library('c') returned None"
-
-    def get_libc_name():
-        return libc_name
+    if libc_name is not None:
+        def get_libc_name():
+            return libc_name
+    elif sys.platform == 'darwin':
+        def get_libc_name():
+            return '/usr/lib/libc.dylib'
+    else:
+        # try falling back to generic "libc.so" as that should work
+        # for the majority of ELF systems (except for GNU/Linux)
+        try:
+            ctypes.CDLL('libc.so')
+        except OSError:
+            raise AssertionError(
+                "Cannot find C library, ctypes.util.find_library('c') returned None")
+        else:
+            def get_libc_name():
+                return 'libc.so'
 elif _MSVC:
     get_libc_handle = external('pypy_get_libc_handle', [], DLLHANDLE)
 
@@ -312,7 +320,7 @@ FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
 FFI_DEFAULT_ABI = cConfig.FFI_DEFAULT_ABI
 if _WIN32 and not _WIN64:
     FFI_STDCALL = cConfig.FFI_STDCALL
-if _ARM:
+if _ARM32:
     FFI_SYSV = cConfig.FFI_SYSV
     FFI_VFP = cConfig.FFI_VFP
 FFI_TYPE_STRUCT = cConfig.FFI_TYPE_STRUCT
@@ -324,7 +332,12 @@ VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 
 c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, FFI_ABI, rffi.UINT,
                                            FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
-if _MSVC:
+c_ffi_prep_cif_var = external('ffi_prep_cif_var', [FFI_CIFP, FFI_ABI, rffi.UINT, rffi.UINT,
+                                           FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
+c_ffi_closure_alloc = external('ffi_closure_alloc', [rffi.SIZE_T, rffi.VOIDPP],
+                               rffi.VOIDP, _nowrapper=True)
+c_ffi_closure_free = external('ffi_closure_free', [rffi.VOIDP], lltype.Void, _nowrapper=True)
+if 0 and _MSVC:
     c_ffi_call_return_type = rffi.INT
 else:
     c_ffi_call_return_type = lltype.Void
@@ -334,8 +347,8 @@ c_ffi_call = external('ffi_call', [FFI_CIFP, rffi.VOIDP, rffi.VOIDP,
 # Note: the RFFI_ALT_ERRNO flag matches the one in pyjitpl.direct_libffi_call
 CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
                              lltype.Void)
-c_ffi_prep_closure = external('ffi_prep_closure', [FFI_CLOSUREP, FFI_CIFP,
-                                                   CALLBACK_TP, rffi.VOIDP],
+c_ffi_prep_closure_loc = external('ffi_prep_closure_loc', [FFI_CLOSUREP, FFI_CIFP,
+                                                       CALLBACK_TP, rffi.VOIDP, rffi.VOIDP],
                               rffi.INT)
 
 FFI_STRUCT_P = lltype.Ptr(lltype.Struct('FFI_STRUCT',
@@ -438,35 +451,6 @@ class StackCheckError(ValueError):
 class LibFFIError(Exception):
     pass
 
-CHUNK = 4096
-CLOSURES = rffi.CArrayPtr(FFI_CLOSUREP.TO)
-
-class ClosureHeap(object):
-
-    def __init__(self):
-        self.free_list = lltype.nullptr(rffi.VOIDP.TO)
-
-    def _more(self):
-        chunk = rffi.cast(CLOSURES, alloc(CHUNK))
-        count = CHUNK//rffi.sizeof(FFI_CLOSUREP.TO)
-        for i in range(count):
-            rffi.cast(rffi.VOIDPP, chunk)[0] = self.free_list
-            self.free_list = rffi.cast(rffi.VOIDP, chunk)
-            chunk = rffi.ptradd(chunk, 1)
-
-    def alloc(self):
-        if not self.free_list:
-            self._more()
-        p = self.free_list
-        self.free_list = rffi.cast(rffi.VOIDPP, p)[0]
-        return rffi.cast(FFI_CLOSUREP, p)
-
-    def free(self, p):
-        rffi.cast(rffi.VOIDPP, p)[0] = self.free_list
-        self.free_list = rffi.cast(rffi.VOIDP, p)
-
-closureHeap = ClosureHeap()
-
 FUNCFLAG_STDCALL   = 0    # on Windows: for WINAPI calls
 FUNCFLAG_CDECL     = 1    # on Windows: for __cdecl calls
 FUNCFLAG_PYTHONAPI = 4
@@ -487,7 +471,7 @@ class AbstractFuncPtr(object):
 
     _immutable_fields_ = ['argtypes', 'restype']
 
-    def __init__(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
+    def __init__(self, name, argtypes, restype, flags=FUNCFLAG_CDECL, variadic_args=0):
         self.name = name
         self.argtypes = argtypes
         self.restype = restype
@@ -509,10 +493,17 @@ class AbstractFuncPtr(object):
                 elif restype.c_size <= 8:
                     restype = ffi_type_sint64
 
-        res = c_ffi_prep_cif(self.ll_cif,
-                             rffi.cast(rffi.USHORT, get_call_conv(flags,False)),
-                             rffi.cast(rffi.UINT, argnum), restype,
-                             self.ll_argtypes)
+        if variadic_args > 0:
+            res = c_ffi_prep_cif_var(self.ll_cif,
+                                     rffi.cast(rffi.USHORT, get_call_conv(flags,False)),
+                                     rffi.cast(rffi.UINT, argnum - variadic_args),
+                                     rffi.cast(rffi.UINT, argnum), restype,
+                                     self.ll_argtypes)
+        else:
+            res = c_ffi_prep_cif(self.ll_cif,
+                                 rffi.cast(rffi.USHORT, get_call_conv(flags,False)),
+                                 rffi.cast(rffi.UINT, argnum), restype,
+                                 self.ll_argtypes)
         if not res == FFI_OK:
             raise LibFFIError
 
@@ -533,23 +524,31 @@ class CallbackFuncPtr(AbstractFuncPtr):
     # additional_arg should really be a non-heap type like a integer,
     # it cannot be any kind of movable gc reference
     def __init__(self, argtypes, restype, func, additional_arg=0,
-                 flags=FUNCFLAG_CDECL):
-        AbstractFuncPtr.__init__(self, "callback", argtypes, restype, flags)
-        self.ll_closure = closureHeap.alloc()
+                 flags=FUNCFLAG_CDECL, variadic_args=0):
+        AbstractFuncPtr.__init__(self, "callback", argtypes, restype, flags,
+                                 variadic_args)
+        self.ll_code = lltype.malloc(rffi.VOIDPP.TO, 1, flavor='raw')
+        self.ll_closure = rffi.cast(FFI_CLOSUREP,
+            c_ffi_closure_alloc(rffi.cast(rffi.SIZE_T, rffi.sizeof(FFI_CLOSUREP.TO)), self.ll_code))
         self.ll_userdata = lltype.malloc(USERDATA_P.TO, flavor='raw',
                                          track_allocation=False)
         self.ll_userdata.callback = rffi.llhelper(CALLBACK_TP, func)
         self.ll_userdata.addarg = additional_arg
-        res = c_ffi_prep_closure(self.ll_closure, self.ll_cif,
+        res = c_ffi_prep_closure_loc(self.ll_closure, self.ll_cif,
                                  ll_callback, rffi.cast(rffi.VOIDP,
-                                                        self.ll_userdata))
+                                                        self.ll_userdata),
+                                 self.ll_code[0])
         if not res == FFI_OK:
             raise LibFFIError
+
+    def get_closure(self):
+        return self.ll_code[0]
 
     def __del__(self):
         AbstractFuncPtr.__del__(self)
         if self.ll_closure:
-            closureHeap.free(self.ll_closure)
+            c_ffi_closure_free(self.ll_closure)
+            lltype.free(self.ll_code, flavor='raw')
             self.ll_closure = lltype.nullptr(FFI_CLOSUREP.TO)
         if self.ll_userdata:
             lltype.free(self.ll_userdata, flavor='raw', track_allocation=False)
@@ -558,8 +557,8 @@ class CallbackFuncPtr(AbstractFuncPtr):
 class RawFuncPtr(AbstractFuncPtr):
 
     def __init__(self, name, argtypes, restype, funcsym, flags=FUNCFLAG_CDECL,
-                 keepalive=None):
-        AbstractFuncPtr.__init__(self, name, argtypes, restype, flags)
+                 keepalive=None, variadic_args=0):
+        AbstractFuncPtr.__init__(self, name, argtypes, restype, flags, variadic_args)
         self.keepalive = keepalive
         self.funcsym = funcsym
 
@@ -581,9 +580,9 @@ class FuncPtr(AbstractFuncPtr):
     ll_result = lltype.nullptr(rffi.VOIDP.TO)
 
     def __init__(self, name, argtypes, restype, funcsym, flags=FUNCFLAG_CDECL,
-                 keepalive=None):
+                 keepalive=None, variadic_args=0):
         # initialize each one of pointers with null
-        AbstractFuncPtr.__init__(self, name, argtypes, restype, flags)
+        AbstractFuncPtr.__init__(self, name, argtypes, restype, flags, variadic_args)
         self.keepalive = keepalive
         self.funcsym = funcsym
         self.argnum = len(self.argtypes)
@@ -667,25 +666,25 @@ class RawCDLL(object):
     def __init__(self, handle):
         self.lib = handle
 
-    def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
+    def getpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL, variadic_args=0):
         # these arguments are already casted to proper ffi
         # structures!
         return FuncPtr(name, argtypes, restype, dlsym(self.lib, name),
-                       flags=flags, keepalive=self)
+                       flags=flags, keepalive=self, variadic_args=variadic_args)
 
-    def getrawpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL):
+    def getrawpointer(self, name, argtypes, restype, flags=FUNCFLAG_CDECL, variadic_args=0):
         # these arguments are already casted to proper ffi
         # structures!
         return RawFuncPtr(name, argtypes, restype, dlsym(self.lib, name),
-                          flags=flags, keepalive=self)
+                          flags=flags, keepalive=self, variadic_args=variadic_args)
 
     def getrawpointer_byordinal(self, ordinal, argtypes, restype,
-                                flags=FUNCFLAG_CDECL):
+                                flags=FUNCFLAG_CDECL, variadic_args=0):
         # these arguments are already casted to proper ffi
         # structures!
         return RawFuncPtr(name, argtypes, restype,
                           dlsym_byordinal(self.lib, ordinal), flags=flags,
-                          keepalive=self)
+                          keepalive=self, variadic_args=variadic_args)
 
     def getaddressindll(self, name):
         return dlsym(self.lib, name)

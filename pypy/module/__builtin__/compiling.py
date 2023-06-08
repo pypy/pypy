@@ -95,9 +95,7 @@ If only globals is given, locals defaults to it.
     elif space.is_none(w_locals):
         w_locals = w_globals
 
-    # xxx removed: adding '__builtins__' to the w_globals dict, if there
-    # is none.  This logic was removed as costly (it requires to get at
-    # the gettopframe_nohidden()).  I bet no test fails, and it's a really
-    # obscure case.
+    if space.finditem_str(w_globals, "__builtins__") is None:
+        space.setitem_str(w_globals, "__builtins__", space.builtin)
 
     return w_code.exec_code(space, w_globals, w_locals)

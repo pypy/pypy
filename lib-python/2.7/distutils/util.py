@@ -178,8 +178,13 @@ def check_environ ():
         return
 
     if os.name == 'posix' and 'HOME' not in os.environ:
-        import pwd
-        os.environ['HOME'] = pwd.getpwuid(os.getuid())[5]
+        try:
+            import pwd
+            os.environ['HOME'] = pwd.getpwuid(os.getuid())[5]
+        except (ImportError, KeyError):
+            # bpo-10496: if the current user identifier doesn't exist in the
+            # password database, do nothing
+            pass
 
     if 'PLAT' not in os.environ:
         os.environ['PLAT'] = get_platform()
@@ -200,9 +205,12 @@ def subst_vars (s, local_vars):
     def _subst (match, local_vars=local_vars):
         var_name = match.group(1)
         if var_name in local_vars:
-            return str(local_vars[var_name])
+            ret = str(local_vars[var_name])
         else:
-            return os.environ[var_name]
+            ret = os.environ[var_name]
+        if ret == 'UNKNOWN':
+            return ''
+        return ret
 
     try:
         return re.sub(r'\$([a-zA-Z_][a-zA-Z_0-9]*)', _subst, s)

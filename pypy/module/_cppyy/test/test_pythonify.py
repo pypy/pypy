@@ -1,14 +1,14 @@
 import py, os, sys
-from .support import setup_make
+from .support import setup_make, soext
 
 from pypy.module._cppyy import interp_cppyy, executor
 
-
 currpath = py.path.local(__file__).dirpath()
-test_dct = str(currpath.join("example01Dict.so"))
+test_dct = str(currpath.join("example01Dict"))+soext
 
 def setup_module(mod):
-    setup_make("example01Dict.so")
+    setup_make("example01")
+
 
 class AppTestPYTHONIFY:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])

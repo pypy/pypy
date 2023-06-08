@@ -16,6 +16,19 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.sourcetools import func_with_new_name
 
+# ~~~ NOTE ~~~
+# The exact value returned by a function is NOT DEFINED. The returned value is
+# IGNORED EVERYWHERE in RPython and the question "was_an_exception_raised()"
+# is implemented by checking the content of the global exc_data.
+#
+# The only case in which the returned error value is significant is for
+# llhelpers which can be called by 3rd-party C functions, such as e.g. the HPy
+# API. In that case, the error value is specified by @llhelper_error_value.
+#
+# The following table defines the default error values to return, but in
+# general the returned value is not guaranteed. The only case in which it is
+# guaranteed is for functions decorated with @llhelper_error_value
+
 PrimitiveErrorValue = {lltype.Signed: -1,
                        lltype.Unsigned: r_uint(-1),
                        lltype.SignedLongLong: r_longlong(-1),
@@ -33,15 +46,33 @@ for TYPE in rffi.NUMBER_TYPES:
     PrimitiveErrorValue[TYPE] = lltype.cast_primitive(TYPE, -1)
 del TYPE
 
-def error_value(T):
+def default_error_value(T):
     if isinstance(T, lltype.Primitive):
         return PrimitiveErrorValue[T]
     elif isinstance(T, lltype.Ptr):
         return lltype.nullptr(T.TO)
     assert 0, "not implemented yet"
 
-def error_constant(T):
-    return Constant(error_value(T), T)
+def has_llhelper_error_value(graph):
+    return hasattr(graph, 'func') and hasattr(graph.func, '_llhelper_error_value_')
+
+def error_value(graph):
+    assert isinstance(graph, FunctionGraph)
+    T = graph.returnblock.inputargs[0].concretetype
+    if has_llhelper_error_value(graph):
+        # custom case
+        errval = graph.func._llhelper_error_value_
+        if lltype.typeOf(errval) != T:
+            raise TypeError('Wrong type for @llhelper_error_value: expected %s '
+                            'but got %s' % (T, lltype.typeOf(errval)))
+        return errval
+    # default case
+    return default_error_value(T)
+
+def error_constant(graph):
+    assert isinstance(graph, FunctionGraph)
+    T = graph.returnblock.inputargs[0].concretetype
+    return Constant(error_value(graph), T)
 
 def constant_value(llvalue):
     return Constant(llvalue, lltype.typeOf(llvalue))
@@ -251,7 +282,8 @@ class ExceptionTransformer(object):
               len(block.operations) and
               (block.exits[0].args[0].concretetype is lltype.Void or
                block.exits[0].args[0] is block.operations[-1].result) and
-              block.operations[-1].opname not in ('malloc', 'malloc_varsize')):     # special cases
+              block.operations[-1].opname not in ('malloc', 'malloc_varsize') and
+              not has_llhelper_error_value(graph)):  # special cases
             last_operation -= 1
         lastblock = block
         for i in range(last_operation, -1, -1):
@@ -264,7 +296,7 @@ class ExceptionTransformer(object):
             if lastblock is block:
                 lastblock = afterblock
 
-            self.gen_exc_check(block, graph.returnblock, afterblock)
+            self.gen_exc_check(graph, block, graph.returnblock, afterblock)
             n_gen_exc_checks += 1
         if need_exc_matching:
             assert lastblock.canraise
@@ -321,8 +353,7 @@ class ExceptionTransformer(object):
                                varoftype(lltype.Void)),
                 ]
         link.target = block
-        RETTYPE = graph.returnblock.inputargs[0].concretetype
-        l = Link([error_constant(RETTYPE)], graph.returnblock)
+        l = Link([error_constant(graph)], graph.returnblock)
         block.recloseblock(l)
 
     def insert_matching(self, block, graph):
@@ -365,7 +396,7 @@ class ExceptionTransformer(object):
         newgraph = FunctionGraph("dummy_exc1", startblock)
         startblock.closeblock(Link([result], newgraph.returnblock))
         newgraph.returnblock.inputargs[0].concretetype = op.result.concretetype
-        self.gen_exc_check(startblock, newgraph.returnblock)
+        self.gen_exc_check(newgraph, startblock, newgraph.returnblock)
         excblock = Block([])
 
         llops = rtyper.LowLevelOpList(None)
@@ -387,7 +418,7 @@ class ExceptionTransformer(object):
         fptr = self.constant_func("dummy_exc1", ARGTYPES, op.result.concretetype, newgraph)
         return newgraph, SpaceOperation("direct_call", [fptr] + callargs, op.result)
 
-    def gen_exc_check(self, block, returnblock, normalafterblock=None):
+    def gen_exc_check(self, graph, block, returnblock, normalafterblock=None):
         llops = rtyper.LowLevelOpList(None)
 
         spaceop = block.operations[-1]
@@ -410,7 +441,7 @@ class ExceptionTransformer(object):
         b = Block([])
         b.operations = [SpaceOperation('debug_record_traceback', [],
                                        varoftype(lltype.Void))]
-        l = Link([error_constant(returnblock.inputargs[0].concretetype)], returnblock)
+        l = Link([error_constant(graph)], returnblock)
         b.closeblock(l)
         l = Link([], b)
         l.exitcase = l.llexitcase = False

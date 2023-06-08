@@ -20,7 +20,7 @@ def _extract_debug_symbols(exe, debug):
         os.system("objcopy --only-keep-debug %s %s" % (exe, debug))
         os.system("objcopy --add-gnu-debuglink=%s %s" % (debug, exe))
         perm = debug.stat().mode
-        perm &= ~(0111) # remove the 'x' bit
+        perm &= ~(0o111) # remove the 'x' bit
         debug.chmod(perm)
 
 def smartstrip(exe, keep_debug=True):

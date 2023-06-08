@@ -75,13 +75,30 @@ c_fclose = llexternal('fclose', [FILEP], rffi.INT,
 c_pclose = llexternal('pclose', [FILEP], rffi.INT,
                       save_err=rffi.RFFI_SAVE_ERRNO)
 
+def wrap_fclose(filep):
+    with rposix.SuppressIPH():
+        return c_fclose(filep)
+
+def wrap_pclose(filep):
+    with rposix.SuppressIPH():
+        return c_fclose(filep)
+
 # Note: the following two functions are called from __del__ methods,
 # so must be 'releasegil=False'.  Otherwise, a program using both
 # threads and the RFile class cannot translate.  See c684bf704d1f
 c_fclose_in_del = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
 c_pclose_in_del = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
-_fclose2 = (c_fclose, c_fclose_in_del)
-_pclose2 = (c_pclose, c_pclose_in_del)
+
+def wrap_fclose_in_del(filep):
+    with rposix.SuppressIPH_del():
+        return c_fclose_in_del(filep)
+
+def wrap_pclose_in_del(filep):
+    with rposix.SuppressIPH_del():
+        return c_pclose_in_del(filep)
+
+_fclose2 = (wrap_fclose, wrap_fclose_in_del)
+_pclose2 = (wrap_pclose, wrap_pclose_in_del)
 
 c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True)
 c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT)
@@ -107,11 +124,11 @@ c_ferror = llexternal('ferror', [FILEP], rffi.INT)
 c_clearerr = llexternal('clearerr', [FILEP], lltype.Void)
 
 c_stdin = rffi.CExternVariable(FILEP, 'stdin', eci, c_type='FILE*',
-                               getter_only=True)
+                               getter_only=True, declare_as_extern=False)
 c_stdout = rffi.CExternVariable(FILEP, 'stdout', eci, c_type='FILE*',
-                                getter_only=True)
+                                getter_only=True, declare_as_extern=False)
 c_stderr = rffi.CExternVariable(FILEP, 'stderr', eci, c_type='FILE*',
-                                getter_only=True)
+                                getter_only=True, declare_as_extern=False)
 
 
 def _error(ll_file):
@@ -175,7 +192,7 @@ def create_fdopen_rfile(fd, mode="r", buffering=-1):
     newmode = _sanitize_mode(mode)
     ll_mode = rffi.str2charp(newmode)
     try:
-        with rposix.FdValidator(fd):
+        with rposix.SuppressIPH():
             ll_file = c_fdopen(fd, ll_mode)
         if not ll_file:
             errno = rposix.get_saved_errno()

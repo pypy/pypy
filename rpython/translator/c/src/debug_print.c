@@ -119,7 +119,7 @@ void pypy_debug_ensure_opened(void)
     pypy_debug_open();
 }
 
-void pypy_debug_forked(long original_offset)
+void pypy_debug_forked(Signed original_offset)
 {
   /* 'original_offset' ignored.  It used to be that the forked log
      files started with this offset printed out, so that we can
@@ -211,7 +211,7 @@ static long long display_startstop(const char *prefix, const char *postfix,
   return timestamp;
 }
 
-long long pypy_debug_start(const char *category, long timestamp)
+long long pypy_debug_start(const char *category, Signed timestamp)
 {
   long long result = 42;
   pypy_debug_ensure_opened();
@@ -236,7 +236,7 @@ long long pypy_debug_start(const char *category, long timestamp)
   return display_startstop("{", "", category, debug_start_colors_1);
 }
 
-long long pypy_debug_stop(const char *category, long timestamp)
+long long pypy_debug_stop(const char *category, Signed timestamp)
 {
   long long result = 42;
   if (debug_profile | (pypy_have_debug_prints & 1))

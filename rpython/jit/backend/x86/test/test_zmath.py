@@ -45,7 +45,7 @@ def get_test_case((fnname, args, expected)):
                 debug_print('unexpected result:', got)
                 return False
     #
-    testfn.func_name = 'test_' + fnname
+    testfn.__name__ = 'test_' + fnname
     return testfn
 
 

@@ -53,8 +53,8 @@ This release supports:
   * **s390x** running Linux
 
 .. _cffi: https://cffi.readthedocs.io
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://pypyjs.org
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://pypyjs.org
 
 Please update, and continue to help us make PyPy better.
 

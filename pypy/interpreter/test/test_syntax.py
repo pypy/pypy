@@ -663,6 +663,14 @@ class AppTestSyntaxError:
         else:
             raise Exception("no SyntaxError??")
 
+    def test_codegen_error_location(self):
+        try:
+            exec("if 1:\n     break")
+        except SyntaxError as e:
+            assert e.lineno == 2
+            assert e.text == "     break"
+            assert e.offset == 6
+
     def test_bad_encoding(self):
         program = """
 # -*- coding: uft-8 -*-

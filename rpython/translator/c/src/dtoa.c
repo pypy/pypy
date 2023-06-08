@@ -64,6 +64,9 @@
  *  7. __Py_dg_strtod has been modified so that it doesn't accept strings with
  *     leading whitespace.
  *
+ *  8. A corner case where __Py_dg_dtoa didn't strip trailing zeros has been
+ *     fixed. (bugs.python.org/issue40780)
+ *
  ***************************************************************/
 
 /* Please send bug reports for the original dtoa.c code to David M. Gay (dmg
@@ -119,9 +122,15 @@
 #define HAVE_UINT32_T
 #define HAVE_INT32_T
 #define HAVE_UINT64_T
+#ifndef PY_UINT32_T
 #define PY_UINT32_T unsigned int
+#endif
+#ifndef PY_INT32_T
 #define PY_INT32_T int
+#endif
+#ifndef PY_UINT64_T
 #define PY_UINT64_T unsigned long long
+#endif
 #include <limits.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -753,7 +762,7 @@ pow5mult(Bigint *b, int k)
 {
     Bigint *b1, *p5, *p51;
     int i;
-    static int p05[3] = { 5, 25, 125 };
+    static const int p05[3] = { 5, 25, 125 };
 
     if ((i = k & 3)) {
         b = multadd(b, p05[i-1], 0);
@@ -809,7 +818,7 @@ pow5mult(Bigint *b, int k)
 {
     Bigint *b1, *p5, *p51;
     int i;
-    static int p05[3] = { 5, 25, 125 };
+    static const int p05[3] = { 5, 25, 125 };
 
     if ((i = k & 3)) {
         b = multadd(b, p05[i-1], 0);
@@ -1093,7 +1102,7 @@ sd2b(U *d, int scale, int *e)
     b = Balloc(1);
     if (b == NULL)
         return NULL;
-    
+
     /* First construct b and e assuming that scale == 0. */
     b->wds = 2;
     b->x[0] = word1(d);
@@ -2291,7 +2300,7 @@ rv_alloc(int i)
 }
 
 static char *
-nrv_alloc(char *s, char **rve, int n)
+nrv_alloc(const char *s, char **rve, int n)
 {
     char *rv, *t;
 
@@ -2679,6 +2688,14 @@ __Py_dg_dtoa(double dd, int mode, int ndigits,
                             break;
                         }
                     ++*s++;
+                }
+                else {
+                    /* Strip trailing zeros. This branch was missing from the
+                       original dtoa.c, leading to surplus trailing zeros in
+                       some cases. See bugs.python.org/issue40780. */
+                    while (s > s0 && s[-1] == '0') {
+                        --s;
+                    }
                 }
                 break;
             }

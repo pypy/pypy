@@ -1,6 +1,7 @@
 import sys
 
 import py
+import pytest
 
 from rpython.flowspace.model import summary
 from rpython.rlib.rarithmetic import r_longlong
@@ -11,6 +12,8 @@ from rpython.rtyper.rclass import (IR_IMMUTABLE, IR_IMMUTABLE_ARRAY,
     IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY)
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.translator.translator import TranslationContext, graphof
+
+from rpython.rtyper.annlowlevel import llstr, hlstr
 
 
 class EmptyBase(object):
@@ -1225,6 +1228,28 @@ class TestRclass(BaseRtypingTest):
         assert self.interpret(f, [True]) == f(True)
         assert self.interpret(f, [False]) == f(False)
 
+    @pytest.mark.xfail # XXX next support in rpython is broken!
+    def test_iter_bug_exception(self):
+        class Iterable(object):
+            def __iter__(self):
+                return self
+
+            def next(self):
+                raise TyperError
+
+        def f():
+            i = Iterable()
+            it = iter(i)
+            try:
+                next(it)
+            except StopIteration:
+                return -7
+            except TypeError:
+                return -9
+            return 12
+
+        assert self.interpret(f, []) == f()
+
     def test_indexing(self):
         class A(object):
             def __init__(self, data):
@@ -1316,3 +1341,28 @@ class TestRclass(BaseRtypingTest):
         def f():
             return a.next.next.next.next is not None
         assert self.interpret(f, []) == True
+
+    def test_str_of_type(self):
+        class A(object):
+            pass
+
+        class B(A):
+            pass
+
+        def f(i):
+            if i:
+                a = A()
+            else:
+                a = B()
+            return str(type(a))
+        assert "A" in hlstr(self.interpret(f, [1]))
+        assert "B" in hlstr(self.interpret(f, [0]))
+
+        def g(i):
+            if i:
+                a = A()
+            else:
+                a = B()
+            return str(a.__class__)
+        assert "A" in hlstr(self.interpret(g, [1]))
+        assert "B" in hlstr(self.interpret(g, [0]))

@@ -155,14 +155,14 @@ def utf8_encode_latin_1(s, errors, errorhandler):
     try:
         rutf8.check_ascii(s)
         return s
-    except rutf8.CheckError:
-        return _utf8_encode_latin_1_slowpath(s, errors, errorhandler)
+    except rutf8.CheckError, e:
+        return _utf8_encode_latin_1_slowpath(s, e.pos, errors, errorhandler)
 
-def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
+def _utf8_encode_latin_1_slowpath(s, first_non_ascii_char, errors, errorhandler):
     size = len(s)
     result = StringBuilder(size)
-    index = 0
-    pos = 0
+    result.append_slice(s, 0, first_non_ascii_char)
+    pos = index = first_non_ascii_char
     while pos < size:
         ch = rutf8.codepoint_at_pos(s, pos)
         if ch <= 0xFF:
@@ -445,13 +445,15 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
             continue
 
         # - Escapes
-        pos += 1
-        if pos >= size:
+        if pos + 1 >= size:
+            if not final:
+                break
             message = "\\ at end of string"
             res, pos = errorhandler(errors, "unicodeescape",
-                                    message, s, pos - 1, size)
+                                    message, s, pos, size)
             builder.append(res)
             continue
+        pos += 1
 
         ch = s[pos]
         pos += 1
@@ -498,18 +500,27 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
         # \xXX
         elif ch == 'x':
             digits = 2
+            if pos + digits > len(s) and not final:
+                pos -= 2
+                break
             message = "truncated \\xXX escape"
             pos = hexescape(builder, s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
         # \uXXXX
         elif ch == 'u':
             digits = 4
+            if pos + digits > len(s) and not final:
+                pos -= 2
+                break
             message = "truncated \\uXXXX escape"
             pos = hexescape(builder, s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
         #  \UXXXXXXXX
         elif ch == 'U':
             digits = 8
+            if pos + digits > len(s) and not final:
+                pos -= 2
+                break
             message = "truncated \\UXXXXXXXX escape"
             pos = hexescape(builder, s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
@@ -536,10 +547,16 @@ def str_decode_unicode_escape(s, errors, final, errorhandler, ud_handler):
                     pos = look + 1
                     builder.append_code(code)
                 else:
+                    if not final:
+                        pos -= 2
+                        break
                     res, pos = errorhandler(errors, "unicodeescape",
                                             message, s, pos - 1, look + 1)
                     builder.append(res)
             else:
+                if not final:
+                    pos -= 2
+                    break
                 res, pos = errorhandler(errors, "unicodeescape",
                                         message, s, pos - 1, look + 1)
                 builder.append(res)

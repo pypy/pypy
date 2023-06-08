@@ -433,6 +433,11 @@ class AppTestAppSetTest:
         s1 = set([1, 2.0, "3"])
         s1.update(set(["3", 4, 5.0]))
 
+    def test_update_not_iterable_error(self):
+        with raises(TypeError) as e:
+            set().update(1)
+        assert "'int' object is not iterable" in str(e.value)
+
     def test_recursive_repr(self):
         class A(object):
             def __init__(self, s):
@@ -839,6 +844,7 @@ class AppTestAppSetTest:
 
     def test_empty_unhashable(self):
         s = set()
+        raises(TypeError, s.__contains__, [[]])
         raises(TypeError, s.difference, [[]])
         raises(TypeError, s.difference_update, [[]])
         raises(TypeError, s.intersection, [[]])
@@ -1080,4 +1086,12 @@ class AppTestAppSetTest:
         assert "frozenset" in str(e.value)
         if hasattr(frozenset.copy, 'im_func'):
             e = raises(TypeError, frozenset.copy.im_func, 42)
-            assert "'set-or-frozenset'" in str(e.value)
+            assert "'frozenset' object expected, got 'int' instead" in str(e.value)
+        if hasattr(set.copy, 'im_func'):
+            e = raises(TypeError, set.copy.im_func, 42)
+            assert "'set' object expected, got 'int' instead" in str(e.value)
+
+    def test_cant_mutate_frozenset_via_set(self):
+        x = frozenset()
+        raises(TypeError, set.add.im_func, x, 1)
+        raises(TypeError, set.__ior__.im_func, x, set([2]))

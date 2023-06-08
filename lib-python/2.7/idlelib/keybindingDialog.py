@@ -182,7 +182,7 @@ class GetKeysDialog(Toplevel):
 
     def LoadFinalKeyList(self):
         #these tuples are also available for use in validity checks
-        self.functionKeys=('F1','F2','F2','F4','F5','F6','F7','F8','F9',
+        self.functionKeys=('F1','F2','F3','F4','F5','F6','F7','F8','F9',
                 'F10','F11','F12')
         self.alphanumKeys=tuple(string.ascii_lowercase+string.digits)
         self.punctuationKeys=tuple('~!@#%^&*()_-+={}[]|;:,.<>/?')
@@ -217,10 +217,12 @@ class GetKeysDialog(Toplevel):
     def OK(self, event=None):
         if self.advanced or self.KeysOK():  # doesn't check advanced string yet
             self.result=self.keyString.get()
+            self.grab_release()
             self.destroy()
 
     def Cancel(self, event=None):
         self.result=''
+        self.grab_release()
         self.destroy()
 
     def KeysOK(self):

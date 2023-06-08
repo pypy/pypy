@@ -254,32 +254,47 @@ class Platform(object):
     def _library_dirs_for_libffi(self):
         raise NotImplementedError("Needs to be overwritten")
 
+    def include_dirs_for_openssl(self):
+        dirs = self._include_dirs_for_openssl()
+        if 'PYPY_LOCALBASE' in os.environ:
+            return [os.environ['PYPY_LOCALBASE'] + '/include'] + dirs
+        return dirs
+
+    def library_dirs_for_openssl(self):
+        dirs = self._library_dirs_for_openssl()
+        if 'PYPY_LOCALBASE' in os.environ:
+            return [os.environ['PYPY_LOCALBASE'] + '/lib'] + dirs
+        return dirs
+
+    def _include_dirs_for_openssl(self):
+        return []
+
+    def _library_dirs_for_openssl(self):
+        return []
+
     def check___thread(self):
         return True
 
+    def get_multiarch(self):
+        return ''
 
 if sys.platform.startswith('linux'):
-    from rpython.translator.platform.linux import Linux, LinuxPIC
-    import platform
-    # Only required on armhf and mips{,el}, not armel. But there's no way to
-    # detect armhf without shelling out
-    if (platform.architecture()[0] == '64bit'
-            or platform.machine().startswith(
-                ('arm', 'm68k', 'mips', 'parisc', 'ppc', 'sh4'))):
-        host_factory = LinuxPIC
-    else:
-        host_factory = Linux
+    from rpython.translator.platform.linux import Linux
+    host_factory = Linux
 elif sys.platform == 'darwin':
-    from rpython.translator.platform.darwin import Darwin_i386, Darwin_x86_64, Darwin_PowerPC
+    from rpython.translator.platform.darwin import Darwin_i386, Darwin_x86_64, Darwin_PowerPC, Darwin_arm64
     import platform
-    assert platform.machine() in ('Power Macintosh', 'i386', 'x86_64')
 
     if  platform.machine() == 'Power Macintosh':
         host_factory = Darwin_PowerPC
     elif sys.maxint <= 2147483647:
         host_factory = Darwin_i386
-    else:
+    elif platform.machine() == 'x86_64':
         host_factory = Darwin_x86_64
+    elif platform.machine() == 'arm64':
+        host_factory = Darwin_arm64
+    else:
+        assert False, platform.machine()
 elif "gnukfreebsd" in sys.platform:
     from rpython.translator.platform.freebsd import GNUkFreebsd, GNUkFreebsd_64
     import platform

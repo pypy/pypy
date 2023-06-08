@@ -22,7 +22,7 @@ def setcolor(s, color):
 for name in colors.__dict__:
     if name.startswith('_'):
         continue
-    exec """
+    exec("""
 def %s(s):
     return setcolor(s, colors.%s)
-""" % (name, name)
+""" % (name, name))

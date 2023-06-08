@@ -815,6 +815,21 @@ class __extend__(pairtype(MultipleFrozenPBCReprBase,
     def convert_from_to((r_pbc1, r_pbc2), v, llops):
         return inputconst(Void, r_pbc2.frozendesc)
 
+class __extend__(pairtype(FunctionRepr, MultipleFrozenPBCRepr)):
+    def convert_from_to((r_fn1, r_frozen2), v, llops):
+        if r_fn1.s_pbc.is_constant():
+            value = r_frozen2.convert_const(r_fn1.s_pbc.const)
+            lltype = r_frozen2.lowleveltype
+            return Constant(value, lltype)
+        return NotImplemented
+
+class __extend__(pairtype(MultipleFrozenPBCRepr, FunctionRepr)):
+    def convert_from_to((r_frozen1, r_fn2), v, llops):
+        if r_fn2.lowleveltype is Void:
+            value = r_fn2.s_pbc.const
+            return Constant(value, Void)
+        return NotImplemented
+
 
 class MethodOfFrozenPBCRepr(Repr):
     """Representation selected for a PBC of method object(s) of frozen PBCs.
@@ -823,7 +838,9 @@ class MethodOfFrozenPBCRepr(Repr):
 
     def __init__(self, rtyper, s_pbc):
         self.rtyper = rtyper
-        self.funcdesc = s_pbc.any_description().funcdesc
+        funcdescs = set([desc.funcdesc for desc in s_pbc.descriptions])
+        assert len(funcdescs) == 1
+        self.funcdesc = funcdescs.pop()
 
         # a hack to force the underlying function to show up in call_families
         # (generally not needed, as normalizecalls() should ensure this,
@@ -836,14 +853,7 @@ class MethodOfFrozenPBCRepr(Repr):
             raise TyperError("unsupported: variable of type "
                              "method-of-frozen-PBC or None")
 
-        im_selves = []
-        for desc in s_pbc.descriptions:
-            if desc.funcdesc is not self.funcdesc:
-                raise TyperError(
-                    "You can't mix a set of methods on a frozen PBC in "
-                    "RPython that are different underlying functions")
-            im_selves.append(desc.frozendesc)
-
+        im_selves = [desc.frozendesc for desc in s_pbc.descriptions]
         self.s_im_self = annmodel.SomePBC(im_selves)
         self.r_im_self = rtyper.getrepr(self.s_im_self)
         self.lowleveltype = self.r_im_self.lowleveltype

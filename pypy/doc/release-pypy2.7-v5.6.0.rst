@@ -7,7 +7,7 @@ This new PyPy2.7 release includes the upstream stdlib version 2.7.12.
 
 We continue to make incremental improvements to our C-API
 compatibility layer (cpyext). We pass all but a few of the tests in the
-upstream numpy `test suite`_. 
+upstream numpy test suite. 
 
 Work proceeds at a good pace on the PyPy3.5
 version due to a grant_ from the Mozilla Foundation, and some of those
@@ -30,7 +30,7 @@ growing community of PyPy users. We strongly recommend updating.
 
 You can download the PyPy2.7 v5.6 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project.
@@ -41,13 +41,12 @@ layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
 with making RPython's JIT even better.
 
-.. _`test suite`: https://bitbucket.org/pypy/pypy/wiki/Adventures%20in%20cpyext%20compatibility
 .. _CFFI: https://cffi.readthedocs.io/en/latest/whatsnew.html
 .. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
-.. _`PyPy`: http://doc.pypy.org
+.. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
 .. _`enhanced`: https://morepypy.blogspot.co.at/2016/11/vectorization-extended-powerpc-and-s390x.html
 
 What is PyPy?
@@ -71,8 +70,8 @@ This release supports:
 
   * **s390x** running Linux
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 Other Highlights (since 5.4 released Aug 31, 2016)
 =========================================================
@@ -148,7 +147,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
   * Refactor and remove dead code from ``optimizeopt``, ``resume``
   
 
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.6.0.html
+.. _resolved: https://doc.pypy.org/en/latest/whatsnew-5.6.0.html
 
 Please update, and continue to help us make PyPy better.
 

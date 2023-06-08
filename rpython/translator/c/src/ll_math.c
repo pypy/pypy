@@ -15,7 +15,6 @@
 #ifdef _MSC_VER
 #define PyPy_IS_NAN _isnan
 #define PyPy_IS_INFINITY(X) (!_finite(X) && !_isnan(X))
-#define copysign _copysign
 #else
 #define PyPy_IS_NAN(X) ((X) != (X))
 #define Py_FORCE_DOUBLE(X) ((double)(X))

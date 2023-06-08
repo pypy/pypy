@@ -20,7 +20,7 @@ def all_operations(graphs):
 def annotate(translator, func, result, args):
     args   = [arg.concretetype for arg in args]
     graph  = translator.rtyper.annotate_helper(func, args)
-    fptr   = lltype.functionptr(lltype.FuncType(args, result.concretetype), func.func_name, graph=graph)
+    fptr   = lltype.functionptr(lltype.FuncType(args, result.concretetype), func.__name__, graph=graph)
     c      = inputconst(lltype.typeOf(fptr), fptr)
     return c
 

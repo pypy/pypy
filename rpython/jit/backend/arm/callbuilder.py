@@ -97,6 +97,7 @@ class ARMCallbuilder(AbstractCallBuilder):
         if self.asm.cpu.cpuinfo.arch_version >= 7:
             self.mc.DMB()
         self.mc.gen_load_int(r.r6.value, fastgil)
+        self.mc.LDR_ri(r.r8.value, r.r6.value)   # => our thread ident
         self.mc.MOV_ri(r.ip.value, 0)
         self.mc.STR_ri(r.ip.value, r.r6.value)
 
@@ -109,10 +110,10 @@ class ARMCallbuilder(AbstractCallBuilder):
         #     r5 == &root_stack_top
         #     r6 == fastgil
         #     r7 == previous value of root_stack_top
+        #     r8 == our thread ident
         self.mc.LDREX(r.r3.value, r.r6.value)    # load the lock value
-        self.mc.MOV_ri(r.ip.value, 1)
         self.mc.CMP_ri(r.r3.value, 0)            # is the lock free?
-        self.mc.STREX(r.r3.value, r.ip.value, r.r6.value, c=c.EQ)
+        self.mc.STREX(r.r3.value, r.r8.value, r.r6.value, c=c.EQ)
                                                  # try to claim the lock
         self.mc.CMP_ri(r.r3.value, 0, cond=c.EQ) # did this succeed?
         if self.asm.cpu.cpuinfo.arch_version >= 7:
@@ -178,8 +179,8 @@ class ARMCallbuilder(AbstractCallBuilder):
         if save_err & rffi.RFFI_READSAVED_ERRNO:
             # Just before a call, read '*_errno' and write it into the
             # real 'errno'.  The r0-r3 registers contain arguments to the
-            # future call; the r5-r7 registers contain various stuff.
-            # We still have r8-r12.
+            # future call; the r5-r8 registers contain various stuff.
+            # We still have r9-r12.
             if save_err & rffi.RFFI_ALT_ERRNO:
                 rpy_errno = llerrno.get_alt_errno_offset(self.asm.cpu)
             else:
@@ -202,7 +203,7 @@ class ARMCallbuilder(AbstractCallBuilder):
     def read_real_errno(self, save_err):
         if save_err & rffi.RFFI_SAVE_ERRNO:
             # Just after a call, read the real 'errno' and save a copy of
-            # it inside our thread-local '*_errno'.  Registers r8-r12
+            # it inside our thread-local '*_errno'.  Registers r9-r12
             # are unused here, and registers r2-r3 never contain anything
             # after the call.
             if save_err & rffi.RFFI_ALT_ERRNO:

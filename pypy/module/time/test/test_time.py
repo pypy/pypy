@@ -1,3 +1,10 @@
+import pytest
+from rpython.rtyper.lltypesystem.ll2ctypes import libc_name
+
+YEAR_10000_CRASHES = False
+if libc_name == 'msvcr90.dll':
+    YEAR_10000_CRASHES = True
+
 class AppTestTime:
     spaceconfig = {
         "usemodules": ['time', 'struct', 'binascii'],
@@ -119,10 +126,7 @@ class AppTestTime:
             assert time.mktime(time.localtime(-1)) == -1
 
         res = time.mktime((2000, 1, 1, 0, 0, 0, -1, -1, -1))
-        if os.name == 'nt':
-            assert time.ctime(res) == 'Sat Jan 01 00:00:00 2000'
-        else:
-            assert time.ctime(res) == 'Sat Jan  1 00:00:00 2000'
+        assert time.ctime(res) == 'Sat Jan  1 00:00:00 2000'
 
     def test_asctime(self):
         import time
@@ -233,6 +237,15 @@ class AppTestTime:
             elif os.environ.has_key('TZ'):
                 del os.environ['TZ']
             time.tzset()
+
+    @pytest.mark.skipif(YEAR_10000_CRASHES, reason='MSVC<10 crashes unconditionally')
+    def test_large_year_does_not_crash(self):
+        # may fail on windows but should not crash
+        import time
+        try:
+            time.strftime('%Y', (10000, 0, 0, 0, 0, 0, 0, 0, 0))
+        except ValueError:
+            pass
 
     def test_strftime(self):
         import time

@@ -135,7 +135,9 @@ class AppTestStruct(BaseAppTestFFI):
     def test_getfield_setfield_signed_types(self):
         import sys
         from _rawffi.alt import _StructDescr, Field, types
-        longsize = types.slong.sizeof()
+        maxlong = sys.maxint
+        if sys.platform == 'win32':
+            maxlong = 2147483647
         fields = [
             Field('sbyte', types.sbyte),
             Field('sshort', types.sshort),
@@ -150,15 +152,17 @@ class AppTestStruct(BaseAppTestFFI):
         assert struct.getfield('sshort') == -32768
         struct.setfield('sint', 43)
         assert struct.getfield('sint') == 43
-        struct.setfield('slong', sys.maxint+1)
-        assert struct.getfield('slong') == -sys.maxint-1
-        struct.setfield('slong', sys.maxint*3)
-        assert struct.getfield('slong') == sys.maxint-2
+        struct.setfield('slong', maxlong+1)
+        assert struct.getfield('slong') == -maxlong-1
+        struct.setfield('slong', maxlong*3)
+        assert struct.getfield('slong') == maxlong-2
 
     def test_getfield_setfield_unsigned_types(self):
         import sys
         from _rawffi.alt import _StructDescr, Field, types
-        longsize = types.slong.sizeof()
+        maxlong = sys.maxint
+        if sys.platform == 'win32':
+            maxlong = 2147483647
         fields = [
             Field('ubyte', types.ubyte),
             Field('ushort', types.ushort),
@@ -177,11 +181,11 @@ class AppTestStruct(BaseAppTestFFI):
         struct.setfield('uint', 43)
         assert struct.getfield('uint') == 43
         struct.setfield('ulong', -1)
-        assert struct.getfield('ulong') == sys.maxint*2 + 1
-        struct.setfield('ulong', sys.maxint*2 + 2)
+        assert struct.getfield('ulong') == maxlong*2 + 1
+        struct.setfield('ulong', maxlong*2 + 2)
         assert struct.getfield('ulong') == 0
-        struct.setfield('char', 'a')
-        assert struct.getfield('char') == 'a'
+        struct.setfield('char', b'a')
+        assert struct.getfield('char') == b'a'
         struct.setfield('unichar', u'\u1234')
         assert struct.getfield('unichar') == u'\u1234'
         struct.setfield('ptr', -1)

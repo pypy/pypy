@@ -55,6 +55,16 @@ static int count_mallocs=0, count_frees=0;
 #endif /* COUNT_OP_MALLOCS */
 
 
+#ifndef RPY_COUNT_FIELDACCESS
+
+#define pypy_print_field_stats() /* nothing */
+
+#else /* RPY_COUNT_FIELDACCESS */
+
+#define pypy_print_field_stats() _pypy_print_field_stats()
+
+#endif /* RPY_COUNT_FIELDACCESS */
+
 /*** tracking raw mallocs and frees for debugging ***/
 
 #ifndef RPY_ASSERT

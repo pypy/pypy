@@ -76,7 +76,9 @@ class CodeWriter(object):
             if not count % 500:
                 log.info("Produced %d jitcodes" % count)
         self.assembler.finished(self.callcontrol.callinfocollection)
-        log.info("there are %d JitCode instances." % count)
+        log.info("There are %d JitCode instances." % count)
+        log.info("There are %d -live- ops. Size of liveness is %s bytes" % (
+            self.assembler.num_liveness_ops, self.assembler.all_liveness_length))
         return all_jitcodes
 
     def setup_vrefinfo(self, vrefinfo):

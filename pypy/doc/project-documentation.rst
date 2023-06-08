@@ -69,7 +69,7 @@ allow you to customize PyPy.
 
 :doc:`directory cross-reference <dir-reference>`
 
-.. _dynamic-language translation: https://bitbucket.org/pypy/extradoc/raw/tip/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
+.. _dynamic-language translation: https://foss.heptapod.net/pypy/extradoc/-/tree/branch/extradoc/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
 
 .. toctree::
    :hidden:

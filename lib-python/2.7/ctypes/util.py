@@ -19,6 +19,8 @@ if os.name == "nt":
         i = i + len(prefix)
         s, rest = sys.version[i:].split(" ", 1)
         majorVersion = int(s[:-2]) - 6
+        if majorVersion >= 13:
+            majorVersion += 1
         minorVersion = int(s[2:3]) / 10.0
         # I don't think paths are affected by minor version in version 6
         if majorVersion == 6:
@@ -36,8 +38,12 @@ if os.name == "nt":
             return None
         if version <= 6:
             clibname = 'msvcrt'
-        else:
+        elif version <= 13:
             clibname = 'msvcr%d' % (version * 10)
+        else:
+            # CRT is no longer directly loadable. See issue23606 for the
+            # discussion about alternative approaches.
+            return None
 
         # If python was built with in debug mode
         import imp
@@ -59,16 +65,6 @@ if os.name == "nt":
             if os.path.isfile(fname):
                 return fname
         return None
-
-if os.name == "ce":
-    # search path according to MSDN:
-    # - absolute path specified by filename
-    # - The .exe launch directory
-    # - the Windows directory
-    # - ROM dll files (where are they?)
-    # - OEM specified search path: HKLM\Loader\SystemPath
-    def find_library(name):
-        return name
 
 if os.name == "posix" and sys.platform == "darwin":
     def find_library(name):

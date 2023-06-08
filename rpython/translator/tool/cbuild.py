@@ -119,6 +119,10 @@ class ExternalCompilationInfo(object):
                     macro, value = macro.split('=')
                 else:
                     value = '1'
+                if macro == '_XOPEN_SOURCE':
+                    # use default _XOPEN_SOURCE since we always define
+                    # _GNU_SOURCE, which then defines a _XOPEN_SOURCE itself
+                    continue
                 pre_include_bits.append('#define %s %s' % (macro, value))
             elif arg.startswith('-L') or arg.startswith('-l'):
                 raise ValueError('linker flag found in compiler options: %r'

@@ -4,7 +4,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import W_Root
-from rpython.rlib.rarithmetic import r_uint, intmask, widen
+from rpython.rlib.rarithmetic import r_uint, intmask, widen, LONG_BIT
 from rpython.rlib import rbigint, rrandom, rstring
 
 
@@ -67,15 +67,17 @@ class W_Random(W_Root):
         # independent of platfrom, since the below condition is only
         # true on 32 bit platforms anyway
         w_add = space.pow(space.newint(2), space.newint(32), space.w_None)
+        _state = [r_uint(0)] * rrandom.N
         for i in range(rrandom.N):
             w_item = space.getitem(w_state, space.newint(i))
             if space.is_true(space.lt(w_item, w_zero)):
                 w_item = space.add(w_item, w_add)
-            self._rnd.state[i] = space.uint_w(w_item)
+            _state[i] = space.uint_w(w_item)
         w_item = space.getitem(w_state, space.newint(rrandom.N))
         index = space.int_w(w_item)
         if index < 0 or index > rrandom.N:
             raise oefmt(space.w_ValueError, "invalid state")
+        self._rnd.state = _state
         self._rnd.index = index
 
     def jumpahead(self, space, w_n):
@@ -88,9 +90,15 @@ class W_Random(W_Root):
 
     @unwrap_spec(k=int)
     def getrandbits(self, space, k):
+        """ getrandbits(k) -> x.  Generates a long int with k random bits. """
         if k <= 0:
             raise oefmt(space.w_ValueError,
                         "number of bits must be greater than zero")
+        if k < 32: # XXX could go up to 63 bits, but let's start with this
+            # fits an int, don't do the bytes-to-long-to-int dance
+            r = self._rnd.genrand32()
+            r >>= (32 - k)
+            return space.newint(intmask(r))
         bytes = ((k - 1) // 32 + 1) * 4
         bytesarray = rstring.StringBuilder(bytes)
         for i in range(0, bytes, 4):

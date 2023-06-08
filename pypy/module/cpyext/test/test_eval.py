@@ -114,7 +114,8 @@ class TestEval(BaseApiTest):
         w_globals = space.newdict()
         assert 42 * 43 == space.unwrap(
             run("42 * 43", Py_eval_input, w_globals, w_globals))
-        assert PyObject_Size(space, w_globals) == 0
+        # __builtins__ is added
+        assert PyObject_Size(space, w_globals) == 1
 
         assert run("a = 42 * 43", Py_single_input,
                    w_globals, w_globals) == space.w_None
@@ -146,11 +147,13 @@ class TestEval(BaseApiTest):
         c_fclose(fp)
 
         # try again, but with a closed file
-        fp = c_fopen(str(filepath), "rb")
-        os.close(c_fileno(fp))
-        with raises_w(space, IOError):
-            PyRun_File(space, fp, filename, Py_file_input, w_globals, w_locals)
+        if self.runappdirect:
+            # according to man 2 fclose, any access of fp is undefined
+            # behaviour. This crashes on some linux systems untranslated
+            fp = c_fopen(str(filepath), "rb")
             c_fclose(fp)
+            with raises_w(space, IOError):
+                PyRun_File(space, fp, filename, Py_file_input, w_globals, w_locals)
         rffi.free_charp(filename)
 
     def test_getbuiltins(self, space):

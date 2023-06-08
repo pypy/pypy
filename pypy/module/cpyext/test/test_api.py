@@ -1,11 +1,13 @@
 import py, pytest
 import contextlib
 from rpython.rtyper.lltypesystem import lltype
+from rpython.translator.c.database import LowLevelDatabase
+from rpython.tool.cparser import parse_source
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.api import (
     slot_function, cpython_api, copy_header_files, INTERPLEVEL_API,
-    Py_ssize_t, Py_ssize_tP, PyObject, cts)
+    Py_ssize_t, Py_ssize_tP, PyObject, cts, ApiFunction)
 from pypy.module.cpyext.test.test_cpyext import (
     freeze_refcnts, LeakCheckingTest)
 from pypy.interpreter.error import OperationError
@@ -23,6 +25,7 @@ class BaseApiTest(LeakCheckingTest):
     def setup_class(cls):
         space = cls.space
         cls.preload_builtins(space)
+        cls.w_runappdirect = space.wrap(cls.runappdirect)
 
         class CAPI:
             def __repr__(self):
@@ -106,3 +109,18 @@ def test_copy_header_files(tmpdir):
     check('Python.h')
     check('modsupport.h')
     check('pypy_decl.h')
+
+def test_write_func():
+    db = LowLevelDatabase()
+    cdef = """
+    typedef ssize_t Py_ssize_t;
+    """
+    cts = parse_source(cdef)
+    cdecl = "Py_ssize_t * some_func(Py_ssize_t*)"
+    decl = cts.parse_func(cdecl)
+    api_function = ApiFunction(
+        decl.get_llargs(cts), decl.get_llresult(cts), lambda space, x: None,
+        cdecl=decl)
+    assert (api_function.get_api_decl('some_func', db)
+            == "PyAPI_FUNC(Py_ssize_t *) some_func(Py_ssize_t * arg0);")
+

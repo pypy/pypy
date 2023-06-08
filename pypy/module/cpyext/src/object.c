@@ -16,6 +16,22 @@ extern void *_PyPy_Malloc(Py_ssize_t size);
  */
 void* _pypy_rawrefcount_w_marker_deallocating = (void*) 0xDEADFFF;
 
+/* 
+ * Mangle for translation.
+ * For tests, we want to mangle as if they were c-api functions so
+ * it will not be confused with the host's similarly named function
+ */
+
+#ifdef CPYEXT_TESTS
+#define _Py_Dealloc _cpyexttest_Dealloc
+#ifdef __GNUC__
+__attribute__((visibility("default")))
+#else
+__declspec(dllexport)
+#endif
+#else  /* CPYEXT_TESTS */
+#define _Py_Dealloc _PyPy_Dealloc
+#endif  /* CPYEXT_TESTS */
 void
 _Py_Dealloc(PyObject *obj)
 {
@@ -25,8 +41,18 @@ _Py_Dealloc(PyObject *obj)
     pto->tp_dealloc(obj);
 }
 
+#ifdef CPYEXT_TESTS
+#define _Py_object_dealloc _cpyexttest_object_dealloc
+#ifdef __GNUC__
+__attribute__((visibility("default")))
+#else
+__declspec(dllexport)
+#endif
+#else  /* CPYEXT_TESTS */
+#define _Py_object_dealloc _PyPy_object_dealloc
+#endif  /* CPYEXT_TESTS */
 void
-_PyPy_object_dealloc(PyObject *obj)
+_Py_object_dealloc(PyObject *obj)
 {
     PyTypeObject *pto;
     assert(obj->ob_refcnt == 0);

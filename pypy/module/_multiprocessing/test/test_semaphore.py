@@ -1,4 +1,5 @@
 import sys
+import pytest
 
 from pypy.module._multiprocessing.interp_semaphore import (
     RECURSIVE_MUTEX, SEMAPHORE)
@@ -18,8 +19,15 @@ class AppTestSemaphore:
         cls.w_SEMAPHORE = cls.space.wrap(SEMAPHORE)
         cls.w_RECURSIVE = cls.space.wrap(RECURSIVE_MUTEX)
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+        # import here since importing _multiprocessing imports multiprocessing
+        # (in interp_connection) to get the BufferTooShort exception, which on
+        # win32 imports msvcrt which imports via cffi which allocates ccharp
+        # that are never released. This trips up the LeakChecker if done in a
+        # test function
+        cls.w_multiprocessing = cls.space.appexec([],
+                                  '(): import multiprocessing as m; return m')
 
-    def test_semaphore(self):
+    def test_semaphore_basic(self):
         from _multiprocessing import SemLock
         import sys
         assert SemLock.SEM_VALUE_MAX > 10
@@ -55,6 +63,7 @@ class AppTestSemaphore:
         sem._after_fork()
         assert sem._count() == 0
 
+    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_recursive(self):
         from _multiprocessing import SemLock
         kind = self.RECURSIVE
@@ -77,6 +86,33 @@ class AppTestSemaphore:
         sem.release()
         sem.release()
 
+    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
+    def test_semaphore_maxvalue(self):
+        from _multiprocessing import SemLock
+        import sys
+        kind = self.SEMAPHORE
+        value = SemLock.SEM_VALUE_MAX
+        maxvalue = SemLock.SEM_VALUE_MAX
+        sem = SemLock(kind, value, maxvalue)
+
+        for i in range(10):
+            res = sem.acquire()
+            assert res == True
+            assert sem._count() == i+1
+            if sys.platform != 'darwin':
+                assert sem._get_value() == maxvalue - (i+1)
+
+        value = 0
+        maxvalue = SemLock.SEM_VALUE_MAX
+        sem = SemLock(kind, value, maxvalue)
+
+        for i in range(10):
+            sem.release()
+            assert sem._count() == -(i+1)
+            if sys.platform != 'darwin':
+                assert sem._get_value() == i+1
+
+    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_semaphore_wait(self):
         from _multiprocessing import SemLock
         kind = self.SEMAPHORE
@@ -89,6 +125,7 @@ class AppTestSemaphore:
         res = sem.acquire(timeout=0.1)
         assert res == False
 
+    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_semaphore_rebuild(self):
         from _multiprocessing import SemLock
         kind = self.SEMAPHORE
@@ -99,6 +136,7 @@ class AppTestSemaphore:
         sem2 = SemLock._rebuild(sem.handle, kind, value)
         assert sem.handle == sem2.handle
 
+    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_semaphore_contextmanager(self):
         from _multiprocessing import SemLock
         kind = self.SEMAPHORE
@@ -110,6 +148,7 @@ class AppTestSemaphore:
             assert sem._count() == 1
         assert sem._count() == 0
 
+    @pytest.mark.skipif(sys.platform == 'darwin', reason="Hangs on macOSX")
     def test_in_threads(self):
         from _multiprocessing import SemLock
         from threading import Thread

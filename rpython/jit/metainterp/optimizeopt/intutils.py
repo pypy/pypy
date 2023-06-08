@@ -27,11 +27,9 @@ def next_pow2_m1(n):
 
 
 class IntBound(AbstractInfo):
-    _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower')
+    _attrs_ = ('upper', 'lower')
 
     def __init__(self, lower, upper):
-        self.has_upper = True
-        self.has_lower = True
         self.upper = upper
         self.lower = lower
         # check for unexpected overflows:
@@ -41,43 +39,60 @@ class IntBound(AbstractInfo):
 
     # Returns True if the bound was updated
     def make_le(self, other):
-        if other.has_upper:
-            if not self.has_upper or other.upper < self.upper:
-                self.has_upper = True
-                self.upper = other.upper
-                return True
+        return self.make_le_const(other.upper)
+
+    def make_le_const(self, other):
+        if other < self.upper:
+            self.upper = other
+            return True
         return False
 
     def make_lt(self, other):
-        return self.make_le(other.add(-1))
+        return self.make_lt_const(other.upper)
+
+    def make_lt_const(self, other):
+        try:
+            other = ovfcheck(other - 1)
+        except OverflowError:
+            return False
+        return self.make_le_const(other)
 
     def make_ge(self, other):
-        if other.has_lower:
-            if not self.has_lower or other.lower > self.lower:
-                self.has_lower = True
-                self.lower = other.lower
-                return True
-        return False
+        return self.make_ge_const(other.lower)
 
     def make_ge_const(self, other):
-        return self.make_ge(ConstIntBound(other))
+        if other > self.lower:
+            self.lower = other
+            return True
+        return False
 
     def make_gt_const(self, other):
-        return self.make_gt(ConstIntBound(other))
+        try:
+            other = ovfcheck(other + 1)
+        except OverflowError:
+            return False
+        return self.make_ge_const(other)
 
     def make_eq_const(self, intval):
-        self.has_upper = True
-        self.has_lower = True
         self.upper = intval
         self.lower = intval
 
+    def make_ne_const(self, intval):
+        if self.lower < intval == self.upper:
+            self.upper -= 1
+            return True
+        if self.lower == intval < self.upper:
+            self.lower += 1
+            return True
+        return False
+
     def make_gt(self, other):
-        return self.make_ge(other.add(1))
+        return self.make_gt_const(other.lower)
 
     def is_constant(self):
-        return self.has_upper and self.has_lower and self.lower == self.upper
+        return self.lower == self.upper
 
-    def getint(self):
+    def get_constant_int(self):
         assert self.is_constant()
         return self.lower
 
@@ -86,18 +101,23 @@ class IntBound(AbstractInfo):
             return False
         return self.lower == value
 
-    def bounded(self):
-        return self.has_lower and self.has_upper
+    def known_lt_const(self, other):
+        return self.upper < other
+
+    def known_le_const(self, other):
+        return self.upper <= other
+
+    def known_gt_const(self, other):
+        return self.lower > other
+
+    def known_ge_const(self, other):
+        return self.lower >= other
 
     def known_lt(self, other):
-        if self.has_upper and other.has_lower and self.upper < other.lower:
-            return True
-        return False
+        return self.known_lt_const(other.lower)
 
     def known_le(self, other):
-        if self.has_upper and other.has_lower and self.upper <= other.lower:
-            return True
-        return False
+        return self.known_le_const(other.lower)
 
     def known_gt(self, other):
         return other.known_lt(self)
@@ -106,94 +126,121 @@ class IntBound(AbstractInfo):
         return other.known_le(self)
 
     def known_nonnegative(self):
-        return self.has_lower and 0 <= self.lower
+        return 0 <= self.lower
 
     def intersect(self, other):
+        from rpython.jit.metainterp.optimize import InvalidLoop
+        if self.known_gt(other) or self.known_lt(other):
+            # they don't overlap, which makes the loop invalid
+            # this never happens in regular linear traces, but it can happen in
+            # combination with unrolling/loop peeling
+            raise InvalidLoop("two integer ranges don't overlap")
+
         r = False
-
-        if other.has_lower:
-            if other.lower > self.lower or not self.has_lower:
-                self.lower = other.lower
-                self.has_lower = True
-                r = True
-
-        if other.has_upper:
-            if other.upper < self.upper or not self.has_upper:
-                self.upper = other.upper
-                self.has_upper = True
-                r = True
-
+        if self.make_ge_const(other.lower):
+            r = True
+        if self.make_le_const(other.upper):
+            r = True
         return r
 
-    def add(self, offset):
-        res = self.clone()
-        try:
-            res.lower = ovfcheck(res.lower + offset)
-        except OverflowError:
-            res.has_lower = False
-        try:
-            res.upper = ovfcheck(res.upper + offset)
-        except OverflowError:
-            res.has_upper = False
-        return res
-
-    def mul(self, value):
-        return self.mul_bound(IntBound(value, value))
+    def intersect_const(self, lower, upper):
+        r = self.make_ge_const(lower)
+        if self.make_le_const(upper):
+            r = True
+        return r
 
     def add_bound(self, other):
-        res = self.clone()
-        if other.has_upper:
-            try:
-                res.upper = ovfcheck(res.upper + other.upper)
-            except OverflowError:
-                res.has_upper = False
-        else:
-            res.has_upper = False
-        if other.has_lower:
-            try:
-                res.lower = ovfcheck(res.lower + other.lower)
-            except OverflowError:
-                res.has_lower = False
-        else:
-            res.has_lower = False
-        return res
+        """ add two bounds. must be correct even in the presence of possible
+        overflows. """
+        try:
+            lower = ovfcheck(self.lower + other.lower)
+        except OverflowError:
+            return IntUnbounded()
+        try:
+            upper = ovfcheck(self.upper + other.upper)
+        except OverflowError:
+            return IntUnbounded()
+        return IntBound(lower, upper)
+
+    def add_bound_cannot_overflow(self, other):
+        """ returns True if self + other can never overflow """
+        try:
+            ovfcheck(self.upper + other.upper)
+            ovfcheck(self.lower + other.lower)
+        except OverflowError:
+            return False
+        return True
+
+    def add_bound_no_overflow(self, other):
+        """ return the bound that self + other must have, if no overflow occured,
+        eg after an int_add_ovf(...), guard_no_overflow() """
+        lower = MININT
+        try:
+            lower = ovfcheck(self.lower + other.lower)
+        except OverflowError:
+            pass
+        upper = MAXINT
+        try:
+            upper = ovfcheck(self.upper + other.upper)
+        except OverflowError:
+            pass
+        return IntBound(lower, upper)
 
     def sub_bound(self, other):
-        res = self.clone()
-        if other.has_lower:
-            try:
-                res.upper = ovfcheck(res.upper - other.lower)
-            except OverflowError:
-                res.has_upper = False
-        else:
-            res.has_upper = False
-        if other.has_upper:
-            try:
-                res.lower = ovfcheck(res.lower - other.upper)
-            except OverflowError:
-                res.has_lower = False
-        else:
-            res.has_lower = False
-        return res
+        try:
+            lower = ovfcheck(self.lower - other.upper)
+        except OverflowError:
+            return IntUnbounded()
+        try:
+            upper = ovfcheck(self.upper - other.lower)
+        except OverflowError:
+            return IntUnbounded()
+        return IntBound(lower, upper)
+
+    def sub_bound_cannot_overflow(self, other):
+        try:
+            ovfcheck(self.lower - other.upper)
+            ovfcheck(self.upper - other.lower)
+        except OverflowError:
+            return False
+        return True
+
+    def sub_bound_no_overflow(self, other):
+        lower = MININT
+        try:
+            lower = ovfcheck(self.lower - other.upper)
+        except OverflowError:
+            pass
+        upper = MAXINT
+        try:
+            upper = ovfcheck(self.upper - other.lower)
+        except OverflowError:
+            pass
+        return IntBound(lower, upper)
 
     def mul_bound(self, other):
-        if self.has_upper and self.has_lower and \
-           other.has_upper and other.has_lower:
-            try:
-                vals = (ovfcheck(self.upper * other.upper),
-                        ovfcheck(self.upper * other.lower),
-                        ovfcheck(self.lower * other.upper),
-                        ovfcheck(self.lower * other.lower))
-                return IntBound(min4(vals), max4(vals))
-            except OverflowError:
-                return IntUnbounded()
-        else:
+        try:
+            vals = (ovfcheck(self.upper * other.upper),
+                    ovfcheck(self.upper * other.lower),
+                    ovfcheck(self.lower * other.upper),
+                    ovfcheck(self.lower * other.lower))
+            return IntBound(min4(vals), max4(vals))
+        except OverflowError:
             return IntUnbounded()
+    mul_bound_no_overflow = mul_bound # can be improved
+
+    def mul_bound_cannot_overflow(self, other):
+        try:
+            ovfcheck(self.upper * other.upper)
+            ovfcheck(self.upper * other.lower)
+            ovfcheck(self.lower * other.upper)
+            ovfcheck(self.lower * other.lower)
+        except OverflowError:
+            return False
+        return True
 
     def py_div_bound(self, other):
-        if self.has_upper and self.has_lower and \
-           other.has_upper and other.has_lower and \
-           not other.contains(0):
+        if not other.contains(0):
             try:
                 # this gives the bounds for 'int_py_div', so use the
                 # Python-style handling of negative numbers and not
@@ -204,27 +251,24 @@ class IntBound(AbstractInfo):
                         ovfcheck(self.lower / other.lower))
                 return IntBound(min4(vals), max4(vals))
             except OverflowError:
-                return IntUnbounded()
-        else:
-            return IntUnbounded()
+                pass
+        return IntUnbounded()
 
     def mod_bound(self, other):
         r = IntUnbounded()
         if other.is_constant():
-            val = other.getint()
+            val = other.get_constant_int()
             if val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
-                r.make_ge(IntBound(0, 0))
-                r.make_lt(IntBound(val, val))
+                r.make_ge_const(0)
+                r.make_lt_const(val)
             else:               # with Python's modulo:  neg < (x % neg) <= 0
-                r.make_gt(IntBound(val, val))
-                r.make_le(IntBound(0, 0))
+                r.make_gt_const(val)
+                r.make_le_const(0)
         return r
 
     def lshift_bound(self, other):
-        if self.has_upper and self.has_lower and \
-           other.has_upper and other.has_lower and \
-           other.known_nonnegative() and \
-           other.known_lt(IntBound(LONG_BIT, LONG_BIT)):
+        if other.known_nonnegative() and \
+           other.known_lt_const(LONG_BIT):
             try:
                 vals = (ovfcheck(self.upper << other.upper),
                         ovfcheck(self.upper << other.lower),
@@ -232,15 +276,26 @@ class IntBound(AbstractInfo):
                         ovfcheck(self.lower << other.lower))
                 return IntBound(min4(vals), max4(vals))
             except (OverflowError, ValueError):
-                return IntUnbounded()
-        else:
-            return IntUnbounded()
+                pass
+        return IntUnbounded()
+
+    def lshift_bound_cannot_overflow(self, other):
+        if other.known_nonnegative() and \
+           other.known_lt_const(LONG_BIT):
+            try:
+                ovfcheck(self.upper << other.upper)
+                ovfcheck(self.upper << other.lower)
+                ovfcheck(self.lower << other.upper)
+                ovfcheck(self.lower << other.lower)
+                return True
+            except (OverflowError, ValueError):
+                pass
+        return False
+
 
     def rshift_bound(self, other):
-        if self.has_upper and self.has_lower and \
-           other.has_upper and other.has_lower and \
-           other.known_nonnegative() and \
-           other.known_lt(IntBound(LONG_BIT, LONG_BIT)):
+        if other.known_nonnegative() and \
+           other.known_lt_const(LONG_BIT):
             vals = (self.upper >> other.upper,
                     self.upper >> other.lower,
                     self.lower >> other.upper,
@@ -254,7 +309,7 @@ class IntBound(AbstractInfo):
         pos2 = other.known_nonnegative()
         r = IntUnbounded()
         if pos1 or pos2:
-            r.make_ge(IntBound(0, 0))
+            r.make_ge_const(0)
         if pos1:
             r.make_le(self)
         if pos2:
@@ -265,55 +320,51 @@ class IntBound(AbstractInfo):
         r = IntUnbounded()
         if self.known_nonnegative() and \
                 other.known_nonnegative():
-            if self.has_upper and other.has_upper:
-                mostsignificant = self.upper | other.upper
-                r.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
-            else:
-                r.make_ge(IntBound(0, 0))
+            mostsignificant = self.upper | other.upper
+            r.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
         return r
+
+    def invert_bound(self):
+        upper = ~self.lower
+        lower = ~self.upper
+        return IntBound(lower, upper)
+
+    def neg_bound(self):
+        try:
+            upper = ovfcheck(-self.lower)
+        except OverflowError:
+            return IntUnbounded()
+        try:
+            lower = ovfcheck(-self.upper)
+        except OverflowError:
+            return IntUnbounded()
+        return IntBound(lower, upper)
 
     def contains(self, val):
         if not we_are_translated():
             assert not isinstance(val, long)
         if not isinstance(val, int):
-            if ((not self.has_lower or self.lower == MININT) and
-                not self.has_upper or self.upper == MAXINT):
+            if (self.lower == MININT and self.upper == MAXINT):
                 return True # workaround for address as int
-        if self.has_lower and val < self.lower:
+        if val < self.lower:
             return False
-        if self.has_upper and val > self.upper:
+        if val > self.upper:
             return False
         return True
 
     def contains_bound(self, other):
         assert isinstance(other, IntBound)
-        if other.has_lower:
-            if not self.contains(other.lower):
-                return False
-        elif self.has_lower:
+        if not self.contains(other.lower):
             return False
-        if other.has_upper:
-            if not self.contains(other.upper):
-                return False
-        elif self.has_upper:
+        if not self.contains(other.upper):
             return False
         return True
 
     def __repr__(self):
-        if self.has_lower:
-            l = '%d' % self.lower
-        else:
-            l = '-Inf'
-        if self.has_upper:
-            u = '%d' % self.upper
-        else:
-            u = 'Inf'
-        return '%s <= x <= %s' % (l, u)
+        return '%d <= x <= %u' % (self.lower, self.upper)
 
     def clone(self):
         res = IntBound(self.lower, self.upper)
-        res.has_lower = self.has_lower
-        res.has_upper = self.has_upper
         return res
 
     def make_guards(self, box, guards, optimizer):
@@ -321,13 +372,13 @@ class IntBound(AbstractInfo):
             guards.append(ResOperation(rop.GUARD_VALUE,
                                        [box, ConstInt(self.upper)]))
             return
-        if self.has_lower and self.lower > MININT:
+        if self.lower > MININT:
             bound = self.lower
             op = ResOperation(rop.INT_GE, [box, ConstInt(bound)])
             guards.append(op)
             op = ResOperation(rop.GUARD_TRUE, [op])
             guards.append(op)
-        if self.has_upper and self.upper < MAXINT:
+        if self.upper < MAXINT:
             bound = self.upper
             op = ResOperation(rop.INT_LE, [box, ConstInt(bound)])
             guards.append(op)
@@ -335,8 +386,8 @@ class IntBound(AbstractInfo):
             guards.append(op)
 
     def is_bool(self):
-        return (self.bounded() and self.known_nonnegative() and
-                self.known_le(ConstIntBound(1)))
+        return (self.known_nonnegative() and
+                self.known_le_const(1))
 
     def make_bool(self):
         self.intersect(IntBound(0, 1))
@@ -344,32 +395,39 @@ class IntBound(AbstractInfo):
     def getconst(self):
         if not self.is_constant():
             raise Exception("not a constant")
-        return ConstInt(self.getint())
+        return ConstInt(self.get_constant_int())
 
     def getnullness(self):
-        if self.known_gt(IntBound(0, 0)) or \
-           self.known_lt(IntBound(0, 0)):
+        if self.known_gt_const(0) or \
+           self.known_lt_const(0):
             return INFO_NONNULL
         if self.known_nonnegative() and \
-           self.known_le(IntBound(0, 0)):
+           self.known_le_const(0):
             return INFO_NULL
         return INFO_UNKNOWN
 
+    def widen(self):
+        info = self.clone()
+        info.widen_update()
+        return info
+
+    def widen_update(self):
+        if self.lower < MININT / 2:
+            self.lower = MININT
+        if self.upper > MAXINT / 2:
+            self.upper = MAXINT
+
+
 def IntUpperBound(upper):
-    b = IntBound(lower=0, upper=upper)
-    b.has_lower = False
+    b = IntBound(lower=MININT, upper=upper)
     return b
 
 def IntLowerBound(lower):
-    b = IntBound(upper=0, lower=lower)
-    b.has_upper = False
+    b = IntBound(upper=MAXINT, lower=lower)
     return b
 
 def IntUnbounded():
-    b = IntBound(upper=0, lower=0)
-    b.has_lower = False
-    b.has_upper = False
-    return b
+    return IntBound(MININT, MAXINT)
 
 def ConstIntBound(value):
     return IntBound(value, value)

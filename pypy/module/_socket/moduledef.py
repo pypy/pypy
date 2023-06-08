@@ -30,16 +30,19 @@ class Module(MixedModule):
             fromfd socketpair
             ntohs ntohl htons htonl inet_aton inet_ntoa inet_pton inet_ntop
             getaddrinfo getnameinfo
-            getdefaulttimeout setdefaulttimeout
+            getdefaulttimeout setdefaulttimeout sethostname
             """.split():
 
-            if name in ('inet_pton', 'inet_ntop', 'fromfd', 'socketpair') \
+            if name in ('inet_pton', 'inet_ntop', 'fromfd', 'socketpair',
+                        'sethostname') \
                     and not hasattr(rsocket, name):
                 continue
 
             Module.interpleveldefs[name] = 'interp_func.%s' % (name, )
 
         for constant, value in rsocket.constants.iteritems():
+            if constant in ("SOCK_NONBLOCK", "SOCK_CLOEXEC"):
+                continue
             Module.interpleveldefs[constant] = "space.wrap(%r)" % value
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)

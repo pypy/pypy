@@ -4,6 +4,7 @@ Tests for the entry point of pypy-c, app_main.py.
 from __future__ import with_statement
 import py
 import sys, os, re, runpy, subprocess
+import shutil
 from rpython.tool.udir import udir
 from contextlib import contextmanager
 from pypy import pypydir
@@ -99,6 +100,7 @@ class TestParseCommandLine:
         saved_sys_argv = sys.argv[:]
         saved_sys_stdout = sys.stdout
         saved_sys_stderr = sys.stdout
+        app_main.WE_ARE_TRANSLATED = False
         app_main.os = os
         try:
             os.environ.update(env)
@@ -118,6 +120,7 @@ class TestParseCommandLine:
             sys.stderr = saved_sys_stderr
             if __pypy__:
                 __pypy__.set_debug(True)
+            app_main.WE_ARE_TRANSLATED = True
 
     def test_all_combinations_I_can_think_of(self):
         self.check([], {}, sys_argv=[''], run_stdin=True)
@@ -146,7 +149,9 @@ class TestParseCommandLine:
         self.check(['-S', '-tO', '--version'], {}, output_contains='Python')
         self.check(['-S', '-tOV'], {}, output_contains='Python')
         self.check(['--jit', 'off', '-S'], {}, sys_argv=[''],
-                   run_stdin=True, no_site=1)
+                   run_stdin=True, no_site=1, _jitoptions='off')
+        self.check(['-X', 'jit-off', '-S'], {}, sys_argv=[''],
+                   run_stdin=True, no_site=1, _jitoptions='off')
         self.check(['-c', 'pass'], {}, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass'], {}, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass','x'], {}, sys_argv=['-c','x'], run_command='pass')
@@ -184,6 +189,8 @@ class TestParseCommandLine:
         self.check([], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
         self.check(['-O'], {'PYTHONOPTIMIZE': '10'}, sys_argv=[''], run_stdin=True, optimize=10)
         self.check(['-OOO'], {'PYTHONOPTIMIZE': 'abc'}, sys_argv=[''], run_stdin=True, optimize=3)
+
+        self.check([], {'PYPY_DISABLE_JIT': '1'}, sys_argv=[''], run_stdin=True, _jitoptions='off')
 
     def test_sysflags(self):
         flags = (
@@ -227,6 +234,7 @@ class TestParseCommandLine:
         monkeypatch.setattr(sys, 'pypy_set_track_resources', pypy_set_track_resources, raising=False)
         self.check(['-X', 'track-resources'], {}, sys_argv=[''], run_stdin=True)
         assert myflag[0] == True
+
 
 class TestInteraction:
     """
@@ -647,8 +655,8 @@ class TestNonInteractive:
         if os.name == 'nt':
             if __pypy__ is None:
                 py.test.skip('app_main cannot run on non-pypy for windows')
-        cmdline = '%s %s "%s" %s' % (sys.executable, python_flags,
-                                     app_main, cmdline)
+        cmdline = '%s %s "%s" %s %s' % (sys.executable, python_flags,
+                                     app_main, python_flags, cmdline)
         print 'POPEN:', cmdline
         process = subprocess.Popen(
             cmdline,
@@ -770,6 +778,7 @@ class TestNonInteractive:
         assert 'hello world\n' in data
         assert '42\n' in data
 
+    @py.test.mark.skipif('sys.platform=="win32"', reason="windows, sendata, and quoting problems")  
     def test_putenv_fires_interactive_within_process(self):
         try:
             import __pypy__
@@ -856,6 +865,14 @@ class TestNonInteractive:
                 if old_pythonpath is not None:
                     os.putenv('PYTHONPATH', old_pythonpath)
 
+        # if we are running in a virtualenv, messing with site.py will
+        # make runpy.py and pkgutil unavailable. They are needed to run
+        # app_main. Copy them into the tmpdir
+        runpy_dir = os.path.dirname(runpy.__file__)
+        import pkgutil
+        pkgutil_dir = os.path.dirname(pkgutil.__file__)
+        shutil.copy(os.path.join(runpy_dir, 'runpy.py'), str(tmpdir))
+        shutil.copy(os.path.join(pkgutil_dir, 'pkgutil.py'), str(tmpdir))
         tmpdir.join('site.py').write('print "SHOULD NOT RUN"')
         runme_py = tmpdir.join('runme.py')
         runme_py.write('print "some text"')

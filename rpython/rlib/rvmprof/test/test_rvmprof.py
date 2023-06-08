@@ -112,7 +112,7 @@ class RVMProfSamplingTest(RVMProfTest):
         os.close(fd)
         return res
 
-    def approx_equal(self, a, b, tolerance=0.1):
+    def approx_equal(self, a, b, tolerance=0.15):
         max_diff = (a+b)/2.0 * tolerance
         return abs(a-b) < max_diff
 

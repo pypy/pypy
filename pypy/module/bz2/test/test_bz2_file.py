@@ -1,5 +1,3 @@
-from __future__ import with_statement
-
 import os
 import random
 
@@ -43,7 +41,7 @@ def setup_module(mod):
 
     mod.TEXT = 'root:x:0:0:root:/root:/bin/bash\nbin:x:1:1:bin:/bin:\ndaemon:x:2:2:daemon:/sbin:\nadm:x:3:4:adm:/var/adm:\nlp:x:4:7:lp:/var/spool/lpd:\nsync:x:5:0:sync:/sbin:/bin/sync\nshutdown:x:6:0:shutdown:/sbin:/sbin/shutdown\nhalt:x:7:0:halt:/sbin:/sbin/halt\nmail:x:8:12:mail:/var/spool/mail:\nnews:x:9:13:news:/var/spool/news:\nuucp:x:10:14:uucp:/var/spool/uucp:\noperator:x:11:0:operator:/root:\ngames:x:12:100:games:/usr/games:\ngopher:x:13:30:gopher:/usr/lib/gopher-data:\nftp:x:14:50:FTP User:/var/ftp:/bin/bash\nnobody:x:65534:65534:Nobody:/home:\npostfix:x:100:101:postfix:/var/spool/postfix:\nniemeyer:x:500:500::/home/niemeyer:/bin/bash\npostgres:x:101:102:PostgreSQL Server:/var/lib/pgsql:/bin/bash\nmysql:x:102:103:MySQL server:/var/lib/mysql:/bin/bash\nwww:x:103:104::/var/www:/bin/false\n'
     mod.DATA = DATA
-    mod.DATA_CRLF = DATA_CRLF 
+    mod.DATA_CRLF = DATA_CRLF
     mod.create_temp_file = create_temp_file
     mod.decompress = decompress
     mod.create_broken_temp_file = create_broken_temp_file
@@ -57,9 +55,9 @@ class AppTestBZ2File(CheckAllocation):
     }
 
     def setup_class(cls):
-        cls.w_TEXT = cls.space.wrap(TEXT)
-        cls.w_DATA = cls.space.wrap(DATA)
-        cls.w_DATA_CRLF = cls.space.wrap(DATA_CRLF)
+        cls.w_TEXT = cls.space.newbytes(TEXT)
+        cls.w_DATA = cls.space.newbytes(DATA)
+        cls.w_DATA_CRLF = cls.space.newbytes(DATA_CRLF)
         cls.w_temppath = cls.space.wrap(
             str(py.test.ensuretemp("bz2").join("foo")))
         if cls.runappdirect:
@@ -148,6 +146,7 @@ class AppTestBZ2File(CheckAllocation):
 
         bz2f.seek(0)
         assert bz2f.tell() == 0
+        bz2f.close()
         del bz2f   # delete from this frame, which is captured in the traceback
 
     def test_open_close_del(self):
@@ -186,7 +185,6 @@ class AppTestBZ2File(CheckAllocation):
         bz2f.close()
 
     def test_seek_backwards(self):
-        #skip("currently does not work")
         from bz2 import BZ2File
         self.create_temp_file()
 
@@ -197,7 +195,6 @@ class AppTestBZ2File(CheckAllocation):
         bz2f.close()
 
     def test_seek_backwards_from_end(self):
-        #skip("currently does not work")
         from bz2 import BZ2File
         self.create_temp_file()
 
@@ -213,7 +210,7 @@ class AppTestBZ2File(CheckAllocation):
         bz2f = BZ2File(self.temppath)
         bz2f.seek(150000)
         assert bz2f.tell() == len(self.TEXT)
-        assert bz2f.read() == ""
+        assert bz2f.read() == b""
         bz2f.close()
 
     def test_seek_post_end_twice(self):
@@ -224,7 +221,7 @@ class AppTestBZ2File(CheckAllocation):
         bz2f.seek(150000)
         bz2f.seek(150000)
         assert bz2f.tell() == len(self.TEXT)
-        assert bz2f.read() == ""
+        assert bz2f.read() == b""
         bz2f.close()
 
     def test_seek_pre_start(self):
@@ -271,7 +268,7 @@ class AppTestBZ2File(CheckAllocation):
         self.create_broken_temp_file()
         bz2f = BZ2File(self.temppath)
         raises(EOFError, bz2f.read)
-        del bz2f   # delete from this frame, which is captured in the traceback
+        bz2f.close()
 
     def test_subsequent_read_broken_file(self):
         from bz2 import BZ2File
@@ -285,19 +282,19 @@ class AppTestBZ2File(CheckAllocation):
                 raise Exception("should generate EOFError earlier")
         except EOFError:
             pass
-        del bz2f   # delete from this frame, which is captured in the traceback
+        bz2f.close()
 
     def test_read_chunk9(self):
         from bz2 import BZ2File
         self.create_temp_file()
 
         bz2f = BZ2File(self.temppath)
-        text_read = ""
+        text_read = b""
         while True:
             data = bz2f.read(9) # 9 doesn't divide evenly into data length
             if not data:
                 break
-            text_read = "%s%s" % (text_read, data)
+            text_read += data
         assert text_read == self.TEXT
         bz2f.close()
 
@@ -425,8 +422,8 @@ class AppTestBZ2File(CheckAllocation):
         from bz2 import BZ2File
 
         bz2f = BZ2File(self.temppath, 'r')
-        raises(IOError, bz2f.write, "abc")
-        raises(IOError, bz2f.writelines, ["abc"])
+        raises(IOError, bz2f.write, b"abc")
+        raises(IOError, bz2f.writelines, [b"abc"])
         bz2f.close()
 
     def test_write_bigger_file(self):
@@ -444,11 +441,11 @@ class AppTestBZ2File(CheckAllocation):
 
         with BZ2File(self.temppath, 'w') as f:
             assert not f.closed
-            f.write("abc")
+            f.write(b"abc")
         assert f.closed
         with BZ2File(self.temppath, 'r') as f:
             data = f.read()
-            assert data == "abc"
+            assert data == b"abc"
         assert f.closed
 
 

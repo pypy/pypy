@@ -5,6 +5,14 @@ class AppTestVersion:
                 "GCC " in sys.version or
                 "(untranslated)" in sys.version)
 
+    def test_version_info(self):
+        import sys
+        assert str(sys.version_info).startswith('sys.version_info')
+
+    def test_pypy_version_info(self):
+        import sys
+        assert str(sys.pypy_version_info).startswith('sys.pypy_version_info')
+
 def test_get_version():
     from pypy.module.sys import version
     res = version._make_version_template(PYPY_VERSION=(2,5,0, "final", 1))

@@ -5,7 +5,7 @@ from pypy.interpreter import executioncontext
 from pypy.interpreter.executioncontext import ExecutionContext
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rdynload import DLLHANDLE
-from rpython.rlib import rawrefcount
+from rpython.rlib import rawrefcount, rgil
 import sys
 
 
@@ -195,15 +195,7 @@ class State:
 
     @specialize.arg(1)
     def ccall(self, name, *args):
-        from pypy.module.cpyext.api import cpyext_glob_tid_ptr
-        # This is similar to doing a direct call to state.C.PyXxx(), but
-        # must be used for any function that might potentially call back
-        # RPython code---most of them can, e.g. PyErr_NoMemory().
-        assert cpyext_glob_tid_ptr[0] == 0
-        cpyext_glob_tid_ptr[0] = -1
-        result = getattr(self.C, name)(*args)
-        cpyext_glob_tid_ptr[0] = 0
-        return result
+        return getattr(self.C, name)(*args)
 
 
 class CNamespace:

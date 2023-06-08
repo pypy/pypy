@@ -10,6 +10,19 @@
 #include <assert.h>
 #include <sys/time.h>
 
+#if defined(__linux__)
+#   include <sys/syscall.h>     /* syscall(SYS_gettid) */
+#elif defined(__FreeBSD__)
+#   include <pthread_np.h>      /* pthread_getthreadid_np() */
+#elif defined(__OpenBSD__)
+#   include <unistd.h>          /* getthrid() */
+#elif defined(_AIX)
+#   include <sys/thread.h>      /* thread_self() */
+#elif defined(__NetBSD__)
+#   include <lwp.h>             /* _lwp_self() */
+#endif
+
+
 /* The following is hopefully equivalent to what CPython does
    (which is trying to compile a snippet of code using it) */
 #ifdef PTHREAD_SCOPE_SYSTEM
@@ -58,14 +71,14 @@
 
 static long _pypythread_stacksize = 0;
 
-long RPyThreadStart(void (*func)(void))
+Signed RPyThreadStart(void (*func)(void))
 {
     /* a kind-of-invalid cast, but the 'func' passed here doesn't expect
        any argument, so it's unlikely to cause problems */
     return RPyThreadStartEx((void(*)(void *))func, NULL);
 }
 
-long RPyThreadStartEx(void (*func)(void *), void *arg)
+Signed RPyThreadStartEx(void (*func)(void *), void *arg)
 {
 	pthread_t th;
 	int status;
@@ -113,21 +126,21 @@ long RPyThreadStartEx(void (*func)(void *), void *arg)
 
 #ifdef __CYGWIN__
 	/* typedef __uint32_t pthread_t; */
-	return (long) th;
+	return (Signed) th;
 #else
-	if (sizeof(pthread_t) <= sizeof(long))
-		return (long) th;
+	if (sizeof(pthread_t) <= sizeof(Signed))
+		return (Signed) th;
 	else
-		return (long) *(long *) &th;
+		return (Signed) *(Signed *) &th;
 #endif
 }
 
-long RPyThreadGetStackSize(void)
+Signed RPyThreadGetStackSize(void)
 {
 	return _pypythread_stacksize;
 }
 
-long RPyThreadSetStackSize(long newsize)
+Signed RPyThreadSetStackSize(Signed newsize)
 {
 #if defined(THREAD_STACK_SIZE)
 	pthread_attr_t attrs;
@@ -185,6 +198,37 @@ do { \
 int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag)
 {
     return RPyThreadAcquireLockTimed(lock, waitflag ? -1 : 0, /*intr_flag=*/0);
+}
+
+unsigned long
+RPyThread_get_thread_native_id(void)
+{
+#ifdef __APPLE__
+    uint64_t native_id;
+    (void) pthread_threadid_np(NULL, &native_id);
+#elif defined(__linux__)
+    pid_t native_id;
+    native_id = syscall(SYS_gettid);
+#elif defined(__FreeBSD__)
+    int native_id;
+    native_id = pthread_getthreadid_np();
+#elif defined(__OpenBSD__)
+    pid_t native_id;
+    native_id = getthrid();
+#elif defined(_AIX)
+    tid_t native_id;
+    native_id = thread_self();
+#elif defined(__NetBSD__)
+    lwpid_t native_id;
+    native_id = _lwp_self();
+#endif
+    return (unsigned long) native_id;
+}
+
+int
+RPyThread_kill(Signed id, int signal)
+{
+    return pthread_kill((pthread_t)id, signal);
 }
 
 /************************************************************/
@@ -279,7 +323,7 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
 	return success;
 }
 
-long RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
+Signed RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 {
     sem_t *thelock = &lock->sem;
     int status, error = 0;
@@ -440,10 +484,10 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
 	return success;
 }
 
-long RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
+Signed RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 {
 	int status, error = 0;
-        long result;
+    Signed result;
 
 	status = pthread_mutex_lock( &lock->mut );
 	CHECK_STATUS("pthread_mutex_lock[3]");

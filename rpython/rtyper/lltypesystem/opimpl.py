@@ -60,10 +60,10 @@ def get_primitive_op_src(fullopname):
         def op_function(x, y):
             if not isinstance(x, str) or len(x) != 1:
                 raise TypeError("%r arg must be a char, got %r instead" % (
-                    fullopname, typname, type(x).__name__))
+                    fullopname, type(x).__name__))
             if not isinstance(y, str) or len(y) != 1:
                 raise TypeError("%r arg must be a char, got %r instead" % (
-                    fullopname, typname, type(y).__name__))
+                    fullopname, type(y).__name__))
             return func(x, y)
 
     else:
@@ -569,6 +569,17 @@ def op_gc_writebarrier_before_copy(source, dest,
     assert type(length) is int
     return True
 
+def op_gc_writebarrier_before_move(array):
+    A = lltype.typeOf(array)
+    if isinstance(A.TO, lltype.GcArray):
+        if isinstance(A.TO.OF, lltype.Ptr):
+            assert A.TO.OF.TO._gckind == 'gc'
+        else:
+            assert isinstance(A.TO.OF, lltype.Struct)
+    else:
+        assert isinstance(A.TO, lltype.GcStruct)
+        assert A.TO._arrayfld is not None
+
 def op_getfield(p, name):
     checkptr(p)
     TYPE = lltype.typeOf(p).TO
@@ -634,6 +645,9 @@ def op_jit_force_quasi_immutable(*args):
     pass
 
 def op_jit_record_exact_class(x, y):
+    pass
+
+def op_jit_record_exact_value(x, y):
     pass
 
 def op_jit_ffi_save_result(*args):

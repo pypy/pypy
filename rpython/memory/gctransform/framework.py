@@ -348,6 +348,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
         elif GCClass.needs_write_barrier:
             raise NotImplementedError("GC needs write barrier, but does not provide writebarrier_before_copy functionality")
 
+        if hasattr(GCClass, 'writebarrier_before_move'):
+            self.wb_before_move_ptr = \
+                    getfn(GCClass.writebarrier_before_move.im_func,
+                    [s_gc, SomeAddress()], annmodel.s_None)
+        elif GCClass.needs_write_barrier:
+            raise NotImplementedError("GC needs write barrier, but does not provide writebarrier_before_move functionality")
+
         # in some GCs we can inline the common case of
         # malloc_fixedsize(typeid, size, False, False, False)
         if getattr(GCClass, 'inline_simple_malloc', False):
@@ -585,11 +592,11 @@ class BaseFrameworkGCTransformer(GCTransformer):
             [(self.get_type_id(TP), func) for TP, func in custom_trace_funcs])
 
         @specialize.arg(2)
-        def custom_trace_dispatcher(obj, typeid, callback, arg):
+        def custom_trace_dispatcher(obj, typeid, callback, arg1, arg2):
             for type_id_exp, func in custom_trace_funcs_unrolled:
                 if (llop.combine_ushort(lltype.Signed, typeid, 0) ==
                     llop.combine_ushort(lltype.Signed, type_id_exp, 0)):
-                    func(gc, obj, callback, arg)
+                    func(gc, obj, callback, arg1, arg2)
                     return
             else:
                 assert False
@@ -604,10 +611,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
         # detect if one of the custom trace functions uses the GC
         # (it must not!)
         for TP, func in rtyper.custom_trace_funcs:
-            def no_op_callback(obj, arg):
+            if getattr(func, '_skip_collect_analyzer_', False):
+                continue
+            def no_op_callback(obj, arg1, arg2):
                 pass
             def ll_check_no_collect(obj):
-                func(gc, obj, no_op_callback, None)
+                func(gc, obj, no_op_callback, None, None)
             annhelper = annlowlevel.MixLevelHelperAnnotator(rtyper)
             graph1 = annhelper.getgraph(ll_check_no_collect, [SomeAddress()],
                                         annmodel.s_None)
@@ -1106,6 +1115,17 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                 resulttype=llmemory.Address)
         hop.genop('direct_call', [self.wb_before_copy_ptr, self.c_const_gc,
                                   source_addr, dest_addr] + op.args[2:],
+                  resultvar=op.result)
+
+    def gct_gc_writebarrier_before_move(self, hop):
+        op = hop.spaceop
+        if not hasattr(self, 'wb_before_move_ptr'):
+            # no need to do anything in that case
+            return
+        array_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
+                               resulttype=llmemory.Address)
+        hop.genop('direct_call', [self.wb_before_move_ptr, self.c_const_gc,
+                                  array_addr],
                   resultvar=op.result)
 
     def gct_weakref_create(self, hop):

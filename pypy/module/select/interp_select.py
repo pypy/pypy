@@ -74,15 +74,15 @@ class Poll(W_Root):
             w_errortype = space.fromcache(Cache).w_error
             message = e.get_msg()
             raise OperationError(w_errortype,
-                                 space.newtuple([space.newint(e.errno),
-                                                 space.newtext(message)]))
+                                 space.newtuple2(space.newint(e.errno),
+                                                 space.newtext(message)))
         finally:
             self.running = False
 
         retval_w = []
         for fd, revents in retval:
-            retval_w.append(space.newtuple([space.newint(fd),
-                                            space.newint(revents)]))
+            retval_w.append(space.newtuple2(space.newint(fd),
+                                            space.newint(revents)))
         return space.newlist(retval_w)
 
 pollmethods = {}
@@ -132,8 +132,8 @@ def _call_select(space, iwtd_w, owtd_w, ewtd_w,
         errno = _c.geterrno()
         msg = _c.socket_strerror_str(errno)
         w_errortype = space.fromcache(Cache).w_error
-        raise OperationError(w_errortype, space.newtuple([
-            space.newint(errno), space.newtext(msg)]))
+        raise OperationError(w_errortype, space.newtuple2(
+            space.newint(errno), space.newtext(msg)))
 
     resin_w = []
     resout_w = []

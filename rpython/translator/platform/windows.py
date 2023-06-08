@@ -32,8 +32,8 @@ def Windows(cc=None):
     return _get_compiler_type(cc, False)
 
 def Windows_x64(cc=None, ver0=None):
-    raise Exception("Win64 is not supported.  You must either build for Win32"
-                    " or contribute the missing support in PyPy.")
+    #raise Exception("Win64 is not supported.  You must either build for Win32"
+    #                " or contribute the missing support in PyPy.")
     return _get_compiler_type(cc, True)
 
 def _find_vcvarsall(version, x64flag):
@@ -104,7 +104,10 @@ def _get_msvc_env(vsver, x64flag):
     env = {}
     for key, value in vcdict.items():
         if key.upper() in ['PATH', 'INCLUDE', 'LIB']:
-            env[key.upper()] = value
+            if sys.version_info[0] < 3:
+                env[key.upper()] = value.encode('utf-8')
+            else:
+                env[key.upper()] = value
     if 'PATH' not in env:
         log.msg('Did not find "PATH" in stdout\n%s' %(stdout))
     if not _find_executable('mt.exe', env['PATH']):
@@ -123,7 +126,7 @@ def _get_msvc_env(vsver, x64flag):
     return env
 
 def find_msvc_env(x64flag=False, ver0=None):
-    vcvers = [140, 141, 150, 90, 100]
+    vcvers = [160, 150, 141, 140, 100, 90]
     if ver0 in vcvers:
         vcvers.insert(0, ver0)
     errs = []
@@ -171,8 +174,10 @@ class MsvcPlatform(Platform):
     if _find_executable('jom.exe'):
         make = 'jom.exe'
 
-    cflags = ('/MD', '/O2', '/Zi')
-    link_flags = ('/debug','/LARGEADDRESSAWARE')
+    cflags = ('/MD', '/O2', '/FS', '/Zi')
+    # allow >2GB address space, set stack to 3MB (1MB is too small)
+    link_flags = ('/nologo', '/debug','/LARGEADDRESSAWARE',
+                  '/STACK:3145728', '/MANIFEST:EMBED')
     standalone_only = ()
     shared_only = ()
     environ = None
@@ -182,43 +187,38 @@ class MsvcPlatform(Platform):
         patch_os_env(self.externals)
         self.c_environ = os.environ.copy()
         if cc is None:
-            # prefer compiler used to build host. Python2 only
-            if ver0 is None:
-                ver0 = _get_vcver0()
             msvc_compiler_environ, self.vsver = find_msvc_env(x64, ver0=ver0)
             Platform.__init__(self, 'cl.exe')
             if msvc_compiler_environ:
                 self.c_environ.update(msvc_compiler_environ)
-                if x64:
-                    self.externals_branch = 'win34_%d' % self.vsver
+                self.version = "MSVC %s" % str(self.vsver)
+                if self.vsver > 90:
+                    tag = '14x'
                 else:
-                    self.externals_branch = 'win32_%d' % self.vsver
+                    tag = '%d' % self.vsver
+                if x64:
+                    self.externals_branch = 'win64_%s' % tag
+                else:
+                    self.externals_branch = 'win32_%s' % tag
         else:
             self.cc = cc
 
-        # detect version of current compiler
-        try:
-            returncode, stdout, stderr = _run_subprocess(self.cc, [],
-                                                     env=self.c_environ)
-        except EnvironmentError:
-            log.msg('Could not run %s using PATH=\n%s' %(self.cc,
-                '\n'.join(self.c_environ['PATH'].split(';'))))
-            raise
-        r = re.search(r'Microsoft.+C/C\+\+.+\s([0-9]+)\.([0-9]+).*', stderr)
-        if r is not None:
-            self.version = int(''.join(r.groups())) / 10 - 60
-        else:
-            # Probably not a msvc compiler...
-            self.version = 0
-
         # Try to find a masm assembler
-        returncode, stdout, stderr = _run_subprocess('ml.exe', [],
-                                                     env=self.c_environ)
-        r = re.search('Macro Assembler', stderr)
+        # Dilemma: raise now or later if masm is not found. Postponing the
+        # exception means we can use a fake compiler for testing on linux
+        # but may mean cryptic error messages and wasted build time.
+        try:
+            returncode, stdout, stderr = _run_subprocess(
+                'ml.exe' if not x64 else 'ml64.exe', [], env=self.c_environ)
+            r = re.search('Macro Assembler', stderr)
+        except (EnvironmentError, OSError):
+            r = None
+            masm32 = "'Could not find ml.exe'"
+            masm64 = "'Could not find ml.exe'"
         if r is None and os.path.exists('c:/masm32/bin/ml.exe'):
             masm32 = 'c:/masm32/bin/ml.exe'
             masm64 = 'c:/masm64/bin/ml64.exe'
-        else:
+        elif r:
             masm32 = 'ml.exe'
             masm64 = 'ml64.exe'
 
@@ -289,21 +289,11 @@ class MsvcPlatform(Platform):
         if not standalone:
             args = self._args_for_shared(args)
 
-        # Tell the linker to generate a manifest file
-        temp_manifest = exe_name.dirpath().join(
-            exe_name.purebasename + '.manifest')
-        args += ["/MANIFEST", "/MANIFESTFILE:%s" % (temp_manifest,)]
+        # Tell the linker to embed a manifest with the default
+        # UAC level asInvoker (Visual Studio 2008 +)
+        args += ["/MANIFEST:EMBED"]
 
         self._execute_c_compiler(self.link, args, exe_name)
-
-        # Now, embed the manifest into the program
-        if standalone:
-            mfid = 1
-        else:
-            mfid = 2
-        out_arg = '-outputresource:%s;%s' % (exe_name, mfid)
-        args = ['-nologo', '-manifest', str(temp_manifest), out_arg]
-        self._execute_c_compiler('mt.exe', args, exe_name)
 
         return exe_name
 
@@ -331,23 +321,25 @@ class MsvcPlatform(Platform):
             path = cfiles[0].dirpath()
 
         rpypath = py.path.local(rpydir)
+        m = NMakefile(path)
 
         if exe_name is None:
-            exe_name = cfiles[0].new(ext=self.exe_ext)
-        else:
-            exe_name = exe_name.new(ext=self.exe_ext)
-
+            exe_name = cfiles[0].new(ext='')
         if shared:
-            so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,
+            so_name = exe_name.new(purebasename='lib' + exe_name.basename,
                                    ext=self.so_ext)
-            wtarget_name = exe_name.new(purebasename=exe_name.purebasename + 'w',
+            wtarget_name = exe_name.new(purebasename=exe_name.basename + 'w',
                                    ext=self.exe_ext)
             target_name = so_name.basename
+            m.so_name = path.join(target_name)
+            m.wtarget_name = path.join(wtarget_name.basename)
+            m.exe_name = path.join(exe_name.basename + '.' + self.exe_ext)
         else:
-            target_name = exe_name.basename
+            target_name = exe_name.basename + '.' + self.exe_ext
+            wtarget_name = exe_name.basename + 'w.' + self.exe_ext
+            m.exe_name = path.join(target_name)
+            m.wtarget_name = path.join(wtarget_name)
 
-        m = NMakefile(path)
-        m.exe_name = path.join(exe_name.basename)
         m.eci = eci
 
         linkflags = list(self.link_flags)
@@ -378,7 +370,7 @@ class MsvcPlatform(Platform):
         definitions = [
             ('RPYDIR', '"%s"' % rpydir),
             ('TARGET', target_name),
-            ('DEFAULT_TARGET', exe_name.basename),
+            ('DEFAULT_TARGET', m.exe_name.basename),
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
             ('LIBS', self._libs(eci.libraries)),
@@ -400,8 +392,16 @@ class MsvcPlatform(Platform):
         if self.x64:
             definitions.append(('_WIN64', '1'))
 
-        rules = [
-            ('all', '$(DEFAULT_TARGET) $(WTARGET)', []),
+        if shared and self.make == 'jom.exe':
+            # Add `.SYNC` for jom.exe and get it to create
+            # main.c, wmain.c in a separate step before trying to compile them
+            rules = [('all',
+                      'main.c wmain.c .SYNC $(DEFAULT_TARGET) .SYNC $(WTARGET)',
+                      []),
+                    ]
+        else:
+            rules = [('all', '$(DEFAULT_TARGET) $(WTARGET)', []),]
+        rules += [
             ('.asm.obj', '', '$(MASM) /nologo /Fo$@ /c $< $(INCLUDEDIRS)'),
             ]
 
@@ -446,14 +446,23 @@ class MsvcPlatform(Platform):
             rules.append(('.c.obj', '',
                           '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
                           '/Fo$@ /c $< $(INCLUDEDIRS)'))
-
+            if shared:
+                rules.append(('main.obj', 'main.c',
+                              '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+                              '/Fo$@ /c main.c $(INCLUDEDIRS)'))
+                rules.append(('wmain.obj', 'wmain.c',
+                              '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+                              '/Fo$@ /c wmain.c $(INCLUDEDIRS)'))
 
         icon = config.translation.icon if config else None
+        manifest = config.translation.manifest if config else None
         if icon:
             shutil.copyfile(icon, str(path.join('icon.ico')))
             rc_file = path.join('icon.rc')
             rc_file.write('IDI_ICON1 ICON DISCARDABLE "icon.ico"')
             rules.append(('icon.res', 'icon.rc', 'rc icon.rc'))
+        if manifest:
+            shutil.copyfile(manifest, str(path.join('pypy.manifest')))
 
 
         for args in definitions:
@@ -462,7 +471,7 @@ class MsvcPlatform(Platform):
         for rule in rules:
             m.rule(*rule)
 
-        if len(headers_to_precompile)>0 and self.version >= 80:
+        if len(headers_to_precompile) > 0:
             # at least from VS2013 onwards we need to include PCH
             # objects in the final link command
             linkobjs = 'stdafx.obj '
@@ -477,21 +486,17 @@ class MsvcPlatform(Platform):
         if icon and not shared:
             extra_deps.append('icon.res')
             linkobjs = 'icon.res ' + linkobjs
-        if self.version < 80:
-            m.rule('$(TARGET)', ['$(OBJECTS)'] + extra_deps,
-                    [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) /out:$@' +\
-                      ' $(LIBDIRS) $(LIBS) ' + linkobjs,
-                   ])
-        else:
-            m.rule('$(TARGET)', ['$(OBJECTS)'] + extra_deps,
-                    [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + \
-                      ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST' + \
-                      ' /MANIFESTFILE:$*.manifest ' + linkobjs,
-                    'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
-                    ])
+        if manifest and not shared:
+            linkflags.append('/MANIFESTINPUT:pypy.manifest')
+        m.rule('$(TARGET)', ['$(OBJECTS)'] + extra_deps,
+                [ '$(CC_LINK) $(LDFLAGS) $(LDFLAGSEXTRA)' +
+                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' +
+                  linkobjs,
+                ])
         m.rule('debugmode_$(TARGET)', ['$(OBJECTS)'] + extra_deps,
-                [ '$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + \
-                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' + linkobjs,
+                [ '$(CC_LINK) /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' +
+                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' +
+                  linkobjs,
                 ])
 
         if shared:
@@ -504,36 +509,41 @@ class MsvcPlatform(Platform):
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
             deps = ['main.obj']
             m.rule('wmain.c', '',
-                   ['echo #define WIN32_LEAN_AND_MEAN > $@',
-                   'echo #include "stdlib.h" >> $@',
-                   'echo #include "windows.h" >> $@',
-                   'echo int $(PYPY_MAIN_FUNCTION)(int, char*[]); >> $@',
-                   'echo int WINAPI WinMain( >> $@',
-                   'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@',
-                   'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@',
-                   'echo     LPSTR lpCmdLine,          /* pointer to command line */ >> $@',
-                   'echo     int nCmdShow              /* show state of window */ >> $@',
-                   'echo ) >> $@',
-                   'echo    { return $(PYPY_MAIN_FUNCTION)(__argc, __argv); } >> $@'])
+                   ['echo #define WIN32_LEAN_AND_MEAN > $@.tmp',
+                   'echo #include "stdlib.h" >> $@.tmp',
+                   'echo #include "windows.h" >> $@.tmp',
+                   'echo int $(PYPY_MAIN_FUNCTION)(int, char*[]); >> $@.tmp',
+                   'echo int WINAPI WinMain( >> $@.tmp',
+                   'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@.tmp',
+                   'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@.tmp',
+                   'echo     LPSTR lpCmdLine,          /* pointer to command line */ >> $@.tmp',
+                   'echo     int nCmdShow              /* show state of window */ >> $@.tmp',
+                   'echo ) >> $@.tmp',
+                   'echo    { return $(PYPY_MAIN_FUNCTION)(__argc, __argv); } >> $@.tmp',
+                   'move $@.tmp $@',
+                   ])
             wdeps = ['wmain.obj']
             if icon:
                 deps.append('icon.res')
                 wdeps.append('icon.res')
+            manifest_args = '/MANIFEST:EMBED'
+            if manifest:
+                manifest_args += ' /MANIFESTINPUT:pypy.manifest'
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)'] + deps,
-                   ['$(CC_LINK) /nologo /debug /LARGEADDRESSAWARE %s ' % (' '.join(deps),) + \
-                    '$(SHARED_IMPORT_LIB) /out:$@ ' + \
-                    '/MANIFEST /MANIFESTFILE:$*.manifest',
-                    'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                   ['$(CC_LINK) /DEBUG /LARGEADDRESSAWARE /STACK:3145728 ' +
+                    ' '.join(deps) + ' $(SHARED_IMPORT_LIB) ' +
+                    manifest_args + ' /out:$@ '
                     ])
             m.rule('$(WTARGET)', ['$(TARGET)'] + wdeps,
-                   ['$(CC_LINK) /nologo /debug /LARGEADDRESSAWARE /SUBSYSTEM:WINDOWS %s ' % (
-                    ' '.join(wdeps),) + '$(SHARED_IMPORT_LIB) /out:$@ ' + \
-                    '/MANIFEST /MANIFESTFILE:$*.manifest',
-                    'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                   ['$(CC_LINK) /DEBUG /LARGEADDRESSAWARE /STACK:3145728 ' +
+                    '/SUBSYSTEM:WINDOWS '  +
+                    ' '.join(wdeps) + ' $(SHARED_IMPORT_LIB) ' +
+                    manifest_args + ' /out:$@ '
                     ])
             m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)']+deps,
-                   ['$(CC_LINK) /nologo /DEBUG /LARGEADDRESSAWARE %s ' % (' '.join(deps),) + \
-                    'debugmode_$(SHARED_IMPORT_LIB) /out:$@',
+                   ['$(CC_LINK) /DEBUG /LARGEADDRESSAWARE /STACK:3145728 ' +
+                    ' '.join(deps) + ' debugmode_$(SHARED_IMPORT_LIB) ' +
+                    manifest_args + ' /out:$@ '
                     ])
 
         return m

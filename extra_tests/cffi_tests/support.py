@@ -34,9 +34,14 @@ class StdErrCapture(object):
             from io import StringIO
         self.old_stderr = sys.stderr
         sys.stderr = f = StringIO()
+        if hasattr(sys, '__unraisablehook__'):           # work around pytest
+            self.old_unraisablebook = sys.unraisablehook # on recent CPythons
+            sys.unraisablehook = sys.__unraisablehook__
         return f
     def __exit__(self, *args):
         sys.stderr = self.old_stderr
+        if hasattr(self, 'old_unraisablebook'):
+            sys.unraisablehook = self.old_unraisablebook
 
 
 class FdWriteCapture(object):
@@ -45,8 +50,8 @@ class FdWriteCapture(object):
 
     def __init__(self, capture_fd=2):    # stderr by default
         if sys.platform == 'win32':
-            import py
-            py.test.skip("seems not to work, too bad")
+            import pytest
+            pytest.skip("seems not to work, too bad")
         self.capture_fd = capture_fd
 
     def __enter__(self):
@@ -113,3 +118,12 @@ else:
         extra_compile_args = ['-Werror', '-Wall', '-Wextra', '-Wconversion',
                               '-Wno-unused-parameter',
                               '-Wno-unreachable-code']
+
+is_musl = False
+if sys.platform == 'linux':
+    try:
+        from packaging.tags import platform_tags
+        is_musl = any(t.startswith('musllinux') for t in platform_tags())
+        del platform_tags
+    except ImportError:
+        pass

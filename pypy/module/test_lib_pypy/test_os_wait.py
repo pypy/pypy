@@ -2,6 +2,7 @@
 from __future__ import absolute_import
 import os
 import py
+import sys
 from pypy.module.test_lib_pypy import test_resource   # side-effect: skip()
 
 
@@ -36,5 +37,7 @@ def test_os_wait4():
         assert isinstance(rusage.ru_maxrss, int)
 
 def test_errors():
-    py.test.raises(OSError, _pypy_wait.wait3, -999)
+    # MacOS ignores invalid options
+    if sys.platform != 'darwin':
+        py.test.raises(OSError, _pypy_wait.wait3, -999)
     py.test.raises(OSError, _pypy_wait.wait4, -999, -999)

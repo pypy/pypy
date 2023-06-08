@@ -719,6 +719,10 @@ def _ll_dict_insert_no_index(d, key, value):
     rc = d.resize_counter - 3
     d.resize_counter = rc
 
+@jit.dont_look_inside
+def ll_len_of_d_indexes(d):
+    return _ll_len_of_d_indexes(d)
+
 def _ll_len_of_d_indexes(d):
     # xxx Haaaack: returns len(d.indexes).  Works independently of
     # the exact type pointed to by d, using a forced cast...
@@ -921,6 +925,7 @@ def ll_ensure_indexes(d):
         ll_assert((num & FUNC_MASK) != FUNC_MUST_REINDEX,
                   "bad combination in lookup_function_no")
 
+@jit.look_inside_iff(lambda d: jit.isvirtual(d))
 def ll_dict_create_initial_index(d):
     """Create the initial index for a dictionary.  The common case is
     that 'd' is empty.  The uncommon case is that it is a prebuilt
@@ -1279,8 +1284,14 @@ def ll_dict_setdefault(dict, key, default):
     else:
         return dict.entries[index].value
 
+@jit.look_inside_iff(lambda dict: jit.isvirtual(dict))
 def ll_dict_copy(dict):
-    ll_ensure_indexes(dict)
+    # we never have to reindex while jitting, because dict is virtual
+    if not jit.we_are_jitted():
+        ll_ensure_indexes(dict)
+    else:
+        num = dict.lookup_function_no
+        assert (num & FUNC_MASK) != FUNC_MUST_REINDEX
 
     DICT = lltype.typeOf(dict).TO
     newdict = DICT.allocate()
@@ -1296,9 +1307,37 @@ def ll_dict_copy(dict):
     rgc.ll_arraycopy(dict.entries, newdict.entries, 0, 0,
                      newdict.num_ever_used_items)
 
-    ll_dict_reindex(newdict, _ll_len_of_d_indexes(dict))
+    fun = dict.lookup_function_no & FUNC_MASK
+    if fun == FUNC_BYTE:
+        indexes = lltype.cast_opaque_ptr(DICTINDEX_BYTE, dict.indexes)
+        n = len(indexes)
+        newindexes = lltype.malloc(DICTINDEX_BYTE.TO, n, zero=True)
+        rgc.ll_arraycopy(indexes, newindexes, 0, 0, n)
+        newdict.indexes = lltype.cast_opaque_ptr(llmemory.GCREF, newindexes)
+        newdict.lookup_function_no = FUNC_BYTE
+    elif fun == FUNC_SHORT:
+        indexes = lltype.cast_opaque_ptr(DICTINDEX_SHORT, dict.indexes)
+        n = len(indexes)
+        newindexes = lltype.malloc(DICTINDEX_SHORT.TO, n, zero=True)
+        rgc.ll_arraycopy(indexes, newindexes, 0, 0, n)
+        newdict.indexes = lltype.cast_opaque_ptr(llmemory.GCREF, newindexes)
+        newdict.lookup_function_no = FUNC_SHORT
+    elif IS_64BIT and fun == FUNC_INT:
+        indexes = lltype.cast_opaque_ptr(DICTINDEX_INT, dict.indexes)
+        n = len(indexes)
+        newindexes = lltype.malloc(DICTINDEX_INT.TO, n, zero=True)
+        rgc.ll_arraycopy(indexes, newindexes, 0, 0, n)
+        newdict.indexes = lltype.cast_opaque_ptr(llmemory.GCREF, newindexes)
+        newdict.lookup_function_no = FUNC_INT
+    else:
+        indexes = lltype.cast_opaque_ptr(DICTINDEX_LONG, dict.indexes)
+        n = len(indexes)
+        newindexes = lltype.malloc(DICTINDEX_LONG.TO, n, zero=True)
+        rgc.ll_arraycopy(indexes, newindexes, 0, 0, n)
+        newdict.indexes = lltype.cast_opaque_ptr(llmemory.GCREF, newindexes)
+        newdict.lookup_function_no = FUNC_LONG
+    newdict.resize_counter = dict.resize_counter
     return newdict
-ll_dict_copy.oopspec = 'odict.copy(dict)'
 
 def ll_dict_clear(d):
     if d.num_ever_used_items == 0:
@@ -1317,6 +1356,7 @@ def ll_dict_clear(d):
     # old_entries.delete() XXX
 ll_dict_clear.oopspec = 'odict.clear(d)'
 
+@jit.look_inside_iff(lambda dic1, dic2: jit.isvirtual(dic1) and jit.isvirtual(dic2))
 def ll_dict_update(dic1, dic2):
     if dic1 == dic2:
         return
@@ -1333,7 +1373,6 @@ def ll_dict_update(dic1, dic2):
             index = dic1.lookup_function(dic1, key, hash, FLAG_STORE)
             _ll_dict_setitem_lookup_done(dic1, key, value, hash, index)
         i += 1
-ll_dict_update.oopspec = 'odict.update(dic1, dic2)'
 
 def ll_prepare_dict_update(d, num_extra):
     # Prescale 'd' for 'num_extra' items, assuming that most items don't

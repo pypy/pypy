@@ -95,7 +95,7 @@ def find_end_of_string_simd_unaligned(ll_chars, startpos, length):
     ch = ll_chars[startpos]
     strhash = (ord(ch) << 7) ^ 0x345678
 
-    wordarray = rffi.cast(rffi.ULONGP, rffi.ptradd(ll_chars, startpos))
+    wordarray = rffi.cast(rffi.UNSIGNEDP, rffi.ptradd(ll_chars, startpos))
     num_safe_reads = (length - startpos) // WORD_SIZE
 
     bits = 0
@@ -142,7 +142,7 @@ def find_end_of_string_simd_unaligned(ll_chars, startpos, length):
 def find_end_of_string_simd_unaligned_no_hash(ll_chars, startpos, length):
     ch = ll_chars[startpos]
 
-    wordarray = rffi.cast(rffi.ULONGP, rffi.ptradd(ll_chars, startpos))
+    wordarray = rffi.cast(rffi.UNSIGNEDP, rffi.ptradd(ll_chars, startpos))
     num_safe_reads = (length - startpos) // WORD_SIZE
 
     bits = 0

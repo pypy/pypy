@@ -22,9 +22,8 @@ class CBuffer(RawBuffer):
     def getitem(self, index):
         return self.view.ptr[index]
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         assert step == 1
-        assert stop - start == size
         ptr = rffi.ptradd(cts.cast('char *', self.view.ptr), start)
         return rffi.charpsize2str(ptr, size)
 
@@ -91,7 +90,9 @@ class CPyBuffer(BufferView):
                     finally:
                         lltype.free(fmt, flavor='raw')
                         lltype.free(pybuf, flavor='raw')
-                decref(self.space, self.pyobj)
+                        decref(self.space, self.pyobj)
+                else:
+                    decref(self.space, self.pyobj)
             self.pyobj = lltype.nullptr(PyObject.TO)
             self.w_obj = None
         else:

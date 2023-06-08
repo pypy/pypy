@@ -60,3 +60,21 @@ class ExceptionData(object):
         s_excinst = SomePtr(self.lltype_of_exception_value)
         helper_fn = rtyper.annotate_helper_fn(ll_type, [s_excinst])
         return helper_fn
+
+    def generate_exception_match(self, oplist, var_etype, const_etype):
+        # generate the content of rclass.ll_issubclass(_const)
+        from rpython.rtyper.rtyper import LowLevelOpList
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.flowspace.model import Constant, Variable, SpaceOperation
+        llops = LowLevelOpList(None)
+        field = llops.genop(
+            'getfield', [var_etype, llops.genvoidconst('subclassrange_min')], lltype.Signed)
+        res = llops.genop(
+            'int_between', [
+                llops.genconst(const_etype.value.subclassrange_min),
+                field,
+                llops.genconst(const_etype.value.subclassrange_max),
+            ],
+            lltype.Bool)
+        oplist.extend(llops)
+        return res

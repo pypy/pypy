@@ -53,11 +53,11 @@ European Union's IST programme.
 Where to start? 
 -----------------------------
 
-Getting started:    http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
+Getting started:    https://codespeak.net/pypy/dist/pypy/doc/getting-started.html
 
-PyPy Documentation: http://codespeak.net/pypy/dist/pypy/doc/ 
+PyPy Documentation: https://codespeak.net/pypy/dist/pypy/doc/ 
 
-PyPy Homepage:      http://codespeak.net/pypy/
+PyPy Homepage:      https://codespeak.net/pypy/
 
 The interpreter and object model implementations shipped with
 the 0.8 version can run on their own and implement the core
@@ -94,7 +94,7 @@ not have got that far without the coding and feedback support
 from numerous people.   Please feel free to give feedback and 
 raise questions. 
 
-    contact points: http://codespeak.net/pypy/dist/pypy/doc/contact.html
+    contact points: https://codespeak.net/pypy/dist/pypy/doc/contact.html
 
 
 have fun, 
@@ -102,7 +102,7 @@ have fun,
     the pypy team, (Armin Rigo, Samuele Pedroni, 
     Holger Krekel, Christian Tismer, 
     Carl Friedrich Bolz, Michael Hudson, 
-    and many others: http://codespeak.net/pypy/dist/pypy/doc/contributor.html)
+    and many others: https://codespeak.net/pypy/dist/pypy/doc/contributor.html)
 
 PyPy development and activities happen as an open source project  
 and with the support of a consortium partially funded by a two 

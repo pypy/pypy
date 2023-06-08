@@ -9,7 +9,7 @@ statistical profiler.
 
 You can download the PyPy 2.6.0 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects, as well as our
@@ -32,9 +32,9 @@ so we can finish those projects! The three sub-projects are:
   available `on bitbucket`_
 
 .. _`cffi`: https://cffi.readthedocs.org
-.. _`Py3k`: http://pypy.org/py3donate.html
-.. _`STM`: http://pypy.org/tmdonate2.html
-.. _`NumPy`: http://pypy.org/numpydonate.html
+.. _`Py3k`: https://pypy.org/py3donate.html
+.. _`STM`: https://pypy.org/tmdonate2.html
+.. _`NumPy`: https://pypy.org/numpydonate.html
 .. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy
 
 We would also like to encourage new people to join the project. PyPy has many
@@ -43,10 +43,10 @@ improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ wit
 RPython's JIT even better. Nine new people contributed since the last release,
 you too could be one of them.
 
-.. _`PyPy`: http://doc.pypy.org 
+.. _`PyPy`: https://doc.pypy.org 
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
 
 What is PyPy?
 =============
@@ -64,11 +64,11 @@ bit python is still stalling, we would welcome a volunteer
 to `handle that`_. We also welcome developers with other operating systems or
 `dynamic languages`_ to see what RPython can do for them.
 
-.. _`pypy and cpython 2.7.x`: http://speed.pypy.org
-.. _OpenBSD: http://cvsweb.openbsd.org/cgi-bin/cvsweb/ports/lang/pypy
+.. _`pypy and cpython 2.7.x`: https://speed.pypy.org
+.. _OpenBSD: https://cvsweb.openbsd.org/cgi-bin/cvsweb/ports/lang/pypy
 .. _freebsd: https://svnweb.freebsd.org/ports/head/lang/pypy/
-.. _`handle that`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
-.. _`dynamic languages`: http://pypyjs.org
+.. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`dynamic languages`: https://pypyjs.org
 
 Highlights 
 ===========
@@ -115,7 +115,7 @@ Highlights
     over 7 times faster than cpython
 
 .. _`vmprof`: https://vmprof.readthedocs.org
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-2.6.0.html
+.. _resolved: https://doc.pypy.org/en/latest/whatsnew-2.6.0.html
 
 Please try it out and let us know what you think. We welcome
 success stories, `experiments`_,  or `benchmarks`_, we know you are using PyPy, please tell us about it!

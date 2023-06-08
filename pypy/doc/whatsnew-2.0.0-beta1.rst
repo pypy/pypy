@@ -59,7 +59,7 @@ Start to clean up a bit the flow object space.
 
 .. branch: ffi-backend
 
-Support CFFI.  http://morepypy.blogspot.ch/2012/08/cffi-release-03.html
+Support CFFI.  https://morepypy.blogspot.ch/2012/08/cffi-release-03.html
 
 .. branch: speedup-unpackiterable
 

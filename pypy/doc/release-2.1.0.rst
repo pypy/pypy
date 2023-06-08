@@ -8,17 +8,17 @@ This release also contains several bugfixes and performance improvements.
 
 You can download the PyPy 2.1 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank the `Raspberry Pi Foundation`_ for supporting the work
 to finish PyPy's ARM support.
 
-.. _`Raspberry Pi Foundation`: http://www.raspberrypi.org
+.. _`Raspberry Pi Foundation`: https://www.raspberrypi.org
 
 The first beta of PyPy3 2.1, targeting version 3 of the Python language, was
 just released, more details can be found `here`_.
 
-.. _`here`: http://morepypy.blogspot.com/2013/07/pypy3-21-beta-1.html
+.. _`here`: https://morepypy.blogspot.com/2013/07/pypy3-21-beta-1.html
 
 What is PyPy?
 =============
@@ -42,7 +42,7 @@ currently target ``ARMv7``.
 Windows 64 work is still stalling, we would welcome a volunteer
 to handle that.
 
-.. _`pypy 2.1 and cpython 2.7.2`: http://speed.pypy.org
+.. _`pypy 2.1 and cpython 2.7.2`: https://speed.pypy.org
 
 Highlights
 ==========

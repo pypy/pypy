@@ -1,7 +1,7 @@
 """ The ffi for rpython
 """
 
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -75,7 +75,7 @@ eci = eci.copy_without('includes')
 
 eci = eci.merge(ExternalCompilationInfo(
    post_include_bits=[
-        "RPY_EXTERN char *rpy_curses_setupterm(char *, int);\n"
+        "RPY_EXTERN int rpy_curses_setupterm(char *, int, int *);\n"
         "RPY_EXTERN char *rpy_curses_tigetstr(char *);\n"
         "RPY_EXTERN char *rpy_curses_tparm(char *, int, int, int, int,"
         " int, int, int, int, int);"
@@ -85,20 +85,8 @@ eci = eci.merge(ExternalCompilationInfo(
 %(include_lines)s
 
 RPY_EXTERN
-char *rpy_curses_setupterm(char *term, int fd)
-{
-    int errret = -42;
-    if (setupterm(term, fd, &errret) == ERR) {
-        switch (errret) {
-        case 0:
-            return "setupterm: could not find terminal";
-        case -1:
-            return "setupterm: could not find terminfo database";
-        default:
-            return "setupterm: unknown error";
-        }
-    }
-    return NULL;
+int rpy_curses_setupterm(char *t, int fd, int *errret) {
+    return setupterm(t, fd, errret);
 }
 
 RPY_EXTERN
@@ -120,9 +108,9 @@ char *rpy_curses_tparm(char *str, int x0, int x1, int x2, int x3,
 """ % globals()]))
 
 
-rpy_curses_setupterm = rffi.llexternal(
-    "rpy_curses_setupterm", [rffi.CCHARP, rffi.INT], rffi.CCHARP,
-    compilation_info=eci)
+setupterm = rffi.llexternal(
+    "rpy_curses_setupterm", [rffi.CCHARP, rffi.INT, rffi.INTP],
+                            rffi.INT, compilation_info=eci)
 
 rpy_curses_tigetstr = rffi.llexternal(
     "rpy_curses_tigetstr", [rffi.CCHARP], rffi.CCHARP,

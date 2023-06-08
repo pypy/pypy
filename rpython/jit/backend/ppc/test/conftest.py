@@ -1,12 +1,18 @@
 """
-This conftest disables the backend tests on non PPC platforms
+This disables the backend tests on non PPC platforms.
+Note that you need "--slow" to run translation tests.
 """
-import py, os
+import os
+import pytest
 from rpython.jit.backend import detect_cpu
 
 cpu = detect_cpu.autodetect()
+IS_PPC = cpu.startswith('ppc')
+THIS_DIR = os.path.dirname(__file__)
 
-def pytest_collect_directory(path, parent):
-    if not cpu.startswith('ppc'):
-        py.test.skip("PPC tests skipped: cpu is %r" % (cpu,))
-pytest_collect_file = pytest_collect_directory
+@pytest.hookimpl(tryfirst=True)
+def pytest_ignore_collect(path, config):
+    path = str(path)
+    if not IS_PPC:
+        if os.path.commonprefix([path, THIS_DIR]) == THIS_DIR:  # workaround for bug in pytest<3.0.5
+            return True

@@ -1,7 +1,6 @@
 from pypy.objspace.std.specialisedtupleobject import _specialisations
 from pypy.objspace.std.test import test_tupleobject
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.tool.pytest.objspace import gettestobjspace
 
 
 for cls in _specialisations:

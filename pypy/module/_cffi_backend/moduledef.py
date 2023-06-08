@@ -61,8 +61,17 @@ class Module(MixedModule):
         'FFI_DEFAULT_ABI': 'space.wrap(%d)' % FFI_DEFAULT_ABI,
         'FFI_CDECL':       'space.wrap(%d)' % FFI_DEFAULT_ABI,  # win32 name
 
-        # CFFI 1.0
+        # types
         'FFI': 'ffi_obj.W_FFIObject',
+        'Lib': 'lib_obj.W_LibObject',
+        'CType': 'ctypeobj.W_CType',
+        'CField': 'ctypestruct.W_CField',
+        'CLibrary': 'libraryobj.W_Library',
+        '_CDataBase': 'cdataobj.W_CData',
+        '__FFIAllocator': 'allocator.W_Allocator',
+        '__FFIGlobSupport': 'cglob.W_GlobSupport',
+        '__CData_iterator': 'ctypearray.W_CDataIter',
+        '__FFIFunctionWrapper': 'wrapper.W_FunctionWrapper',
         }
     if sys.platform == 'win32':
         interpleveldefs['getwinerror'] = 'cerrno.getwinerror'

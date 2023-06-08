@@ -294,6 +294,22 @@ class AppTestFcntl:
             os.close(mfd)
             os.close(sfd)
 
+    def test_ioctl_use_mask_on_op(self):
+        import os
+        import fcntl
+        import pty
+        try:
+            from termios import TCFLSH, TCIOFLUSH
+        except ImportError:
+            skip("don't know how to test ioctl() on this platform")
+
+        mfd, sfd = pty.openpty()
+        try:
+            assert fcntl.ioctl(mfd, TCFLSH | 0x1000000000000000000000, TCIOFLUSH) == 0
+        finally:
+            os.close(mfd)
+            os.close(sfd)
+
     def test_large_flag(self):
         import sys
         if any(plat in sys.platform

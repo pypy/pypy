@@ -1,11 +1,12 @@
-from __future__ import generators
+from __future__ import print_function, absolute_import
 import os, time, sys
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 from pygame.locals import *
-from drawgraph import GraphRenderer, FIXEDFONT
-from drawgraph import Node, Edge
-from drawgraph import EventQueue, wait_for_events
-from strunicode import forceunicode, forcestr
+from dotviewer.drawgraph import GraphRenderer, FIXEDFONT
+from dotviewer.drawgraph import Node, Edge
+from dotviewer.drawgraph import EventQueue, wait_for_events
+from dotviewer.strunicode import forceunicode, forcestr, unicode
 
 
 METAKEYS = dict([
@@ -25,6 +26,7 @@ KEYS = dict([
     (ident[len('K_'):].lower(), getattr(pygame.locals, ident))
     for ident in dir(pygame.locals) if ident.startswith('K_')
 ])
+
 
 KEYS['plus'] = ('=', '+', '.')
 KEYS['quit'] = ('q', 'escape')
@@ -46,14 +48,20 @@ def permute_mods(base, args):
 
 class Display(object):
 
-    def __init__(self, (w,h)=(800,680)):
+    def __init__(self, size=(800,680)):
+        w, h = size
         # initialize the modules by hand, to avoid initializing too much
         # (e.g. the sound system)
         pygame.display.init()
+        self.highdpi = pygame.display.Info().current_h > 1500
+        if self.highdpi:
+            w *= 2
+            h *= 2
         pygame.font.init()
         self.resize((w,h))
 
-    def resize(self, (w,h)):
+    def resize(self, size):
+        w, h = size
         self.width = w
         self.height = h
         self.screen = pygame.display.set_mode((w, h), HWSURFACE|RESIZABLE, 32)
@@ -61,7 +69,7 @@ class Display(object):
 class GraphDisplay(Display):
     STATUSBARFONT = FIXEDFONT
     ANIM_STEP = 0.03
-    KEY_REPEAT = (500, 30)
+    KEY_REPEAT = (500, 50)
     STATUSBAR_ALPHA = 0.75
     STATUSBAR_FGCOLOR = (255, 255, 80)
     STATUSBAR_BGCOLOR = (128, 0, 0)
@@ -142,7 +150,11 @@ class GraphDisplay(Display):
 
     def __init__(self, layout):
         super(GraphDisplay, self).__init__()
-        self.font = pygame.font.Font(self.STATUSBARFONT, 16)
+        if self.highdpi:
+            fontsize = 32
+        else:
+            fontsize = 16
+        self.font = pygame.font.Font(self.STATUSBARFONT, fontsize)
         self.viewers_history = []
         self.forward_viewers_history = []
         self.highlight_word = None
@@ -163,16 +175,14 @@ class GraphDisplay(Display):
         
         mask = 0
 
-        for strnames, methodname in self.KEYS.iteritems():
+        for strnames, methodname in self.KEYS.items():
             names = strnames.split()
-            if not isinstance(methodname, basestring):
+            if not isinstance(methodname, (bytes, unicode)):
                 methodname, args = methodname[0], methodname[1:]
             else:
                 args = ()
             method = getattr(self, methodname, None)
             if method is None:
-                print 'Can not implement key mapping %r, %s.%s does not exist' % (
-                        strnames, self.__class__.__name__, methodname)
                 continue
 
             mods = []
@@ -188,7 +198,7 @@ class GraphDisplay(Display):
                 else:
                     val = GET_KEY(name)
                     assert len(keys) == 0
-                    if not isinstance(val, (int, basestring)):
+                    if not isinstance(val, (int, bytes, unicode)):
                         keys.extend([GET_KEY(k) for k in val])
                     else:
                         keys.append(val)
@@ -287,7 +297,7 @@ class GraphDisplay(Display):
                     if e.key == K_ESCAPE:
                         return None
                     elif e.key == K_RETURN:
-                        return forcestr(text) # return encoded unicode
+                        return forceunicode(text) # return encoded unicode
                     elif e.key == K_BACKSPACE:
                         text = text[:-1]
                     elif e.unicode and ord(e.unicode) >= ord(' '):
@@ -309,6 +319,7 @@ class GraphDisplay(Display):
         if not searchstr:
             return
         self.searchstr = searchstr
+        self.viewer.highlightwords[searchstr] = searchstr
         self.searchpos = -1
         self.searchresults = list(self.viewer.findall(self.searchstr))
         self.find_next()
@@ -352,7 +363,7 @@ class GraphDisplay(Display):
             self.viewers_history.append(self.viewer)
             del self.forward_viewers_history[:]
         self.layout = layout
-        self.viewer = GraphRenderer(self.screen, layout)
+        self.viewer = GraphRenderer(self.screen, layout, highdpi=self.highdpi)
         self.searchpos = 0
         self.searchresults = []
         self.zoom_to_fit()
@@ -382,11 +393,13 @@ class GraphDisplay(Display):
     def reoffset(self):
         self.viewer.reoffset(self.width, self.height)
     
-    def pan(self, (x, y)):
+    def pan(self, p):
+        x, y = p
         self.viewer.shiftoffset(x * (self.width // 8), y * (self.height // 8))
         self.updated_viewer()
 
-    def fast_pan(self, (x, y)):
+    def fast_pan(self, p):
+        x, y = p
         self.pan((x * 4, y * 4))
     
     def update_status_bar(self):
@@ -583,7 +596,7 @@ class GraphDisplay(Display):
         method = self.method_cache.get(event.type, KeyError)
         if method is KeyError:
             method = getattr(self, 'process_%s' % (pygame.event.event_name(event.type),), None)
-            self.method_cache[method] = method
+            self.method_cache[event.type] = method
         if method is not None:
             method(event)
         
@@ -714,7 +727,7 @@ def shortlabel(label):
     return label and label.replace('\\l', '\n').splitlines()[0]
 
 
-def renderline(text, font, fgcolor, width, maxheight=sys.maxint,
+def renderline(text, font, fgcolor, width, maxheight=sys.maxsize,
                overflowcolor=None):
     """Render a single line of text into a list of images.
 
@@ -749,7 +762,7 @@ def renderline(text, font, fgcolor, width, maxheight=sys.maxint,
     return lines
 
 
-def rendertext(text, font, fgcolor, width, maxheight=sys.maxint,
+def rendertext(text, font, fgcolor, width, maxheight=sys.maxsize,
                overflowcolor=None):
     """Render a multiline string into a list of images.
 

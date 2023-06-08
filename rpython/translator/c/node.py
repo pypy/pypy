@@ -255,7 +255,7 @@ class ArrayDefNode(NodeWithDependencies):
         for fname, typename in self.gcfields:
             yield '\t' + cdecl(typename, fname) + ';'
         if not self.ARRAY._hints.get('nolength', False):
-            yield '\tlong length;'
+            yield '\tSigned length;'
         varlength = self.varlength
         if varlength is not None:
             varlength += self.ARRAY._hints.get('extra_item_after_alloc', 0)
@@ -947,7 +947,7 @@ class ExtType_OpaqueNode(ContainerNode):
 def opaquenode_factory(db, T, obj):
     if T == RuntimeTypeInfo:
         return db.gcpolicy.rtti_node_factory()(db, T, obj)
-    if T.hints.get("render_structure", False):
+    if T._hints.get("render_structure", False):
         return ExtType_OpaqueNode(db, T, obj)
     raise Exception("don't know about %r" % (T,))
 

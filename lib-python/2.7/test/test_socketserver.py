@@ -69,17 +69,32 @@ def simple_subprocess(testcase):
     testcase.assertEqual(72 << 8, status)
 
 
+def close_server(server):
+    server.server_close()
+
+    if hasattr(server, 'active_children'):
+        # ForkingMixIn: Manually reap all child processes, since server_close()
+        # calls waitpid() in non-blocking mode using the WNOHANG flag.
+        for pid in server.active_children.copy():
+            try:
+                os.waitpid(pid, 0)
+            except ChildProcessError:
+                pass
+        server.active_children.clear()
+
+
 @unittest.skipUnless(threading, 'Threading required for this test.')
 class SocketServerTest(unittest.TestCase):
     """Test all socket servers."""
 
     def setUp(self):
+        self.addCleanup(signal_alarm, 0)
         signal_alarm(60)  # Kill deadlocks after 60 seconds.
         self.port_seed = 0
         self.test_files = []
 
     def tearDown(self):
-        signal_alarm(0)  # Didn't deadlock.
+        self.doCleanups()
         reap_children()
 
         for fn in self.test_files:
@@ -118,7 +133,7 @@ class SocketServerTest(unittest.TestCase):
         class MyServer(svrcls):
             def handle_error(self, request, client_address):
                 self.close_request(request)
-                self.server_close()
+                close_server(self)
                 raise
 
         class MyHandler(hdlrbase):
@@ -158,7 +173,7 @@ class SocketServerTest(unittest.TestCase):
         if verbose: print "waiting for server"
         server.shutdown()
         t.join()
-        server.server_close()
+        close_server(server)
         self.assertRaises(socket.error, server.socket.fileno)
         if verbose: print "done"
 
@@ -314,6 +329,7 @@ class SocketServerTest(unittest.TestCase):
             s.shutdown()
         for t, s in threads:
             t.join()
+            close_server(s)
 
     def test_tcpserver_bind_leak(self):
         # Issue #22435: the server socket wouldn't be closed if bind()/listen()
@@ -347,7 +363,7 @@ class MiscTestCase(unittest.TestCase):
         s.close()
         server.handle_request()
         self.assertEqual(server.shutdown_called, 1)
-        server.server_close()
+        close_server(server)
 
 
 def test_main():

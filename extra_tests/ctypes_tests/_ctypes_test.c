@@ -13,6 +13,7 @@
 #include <math.h>
 #include <string.h>
 #include <wchar.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <errno.h>
 
@@ -87,6 +88,22 @@ EXPORT(double) _testfunc_d_bhilfd(signed char b, short h, int i, long l, float f
 EXPORT(char *) _testfunc_p_p(void *s)
 {
 	return (char *)s;
+}
+
+EXPORT(long) variadic_sum(long n, ...)
+{
+    va_list ptr;
+    int sum = 0;
+    printf("n: %ld\n", n);
+
+    va_start(ptr, n);
+    for (int i = 0; i < n; i++) {
+        int foo = va_arg(ptr, int);
+        sum += foo;
+        printf("Arg %d: %d\n", i, foo);
+    }
+    va_end(ptr);
+    return sum;
 }
 
 EXPORT(void *) _testfunc_c_p_p(int *argcp, char **argv)

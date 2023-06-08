@@ -90,16 +90,11 @@ class UnrollOptimizer(Optimizer):
             if preamble_info.is_nonnull():
                 self.make_nonnull(op)
         elif isinstance(preamble_info, intutils.IntBound):
-            fix_lo = preamble_info.has_lower and preamble_info.lower >= MININT/2
-            fix_up = preamble_info.has_upper and preamble_info.upper <= MAXINT/2
-            if fix_lo or fix_up:
-                intbound = self.getintbound(op)
-                if fix_lo:
-                    intbound.has_lower = True
-                    intbound.lower = preamble_info.lower
-                if fix_up:
-                    intbound.has_upper = True
-                    intbound.upper = preamble_info.upper
+            loop_info = preamble_info.widen()
+            fix_lo = preamble_info.lower >= MININT/2
+            fix_up = preamble_info.upper <= MAXINT/2
+            intbound = self.getintbound(op)
+            intbound.intersect(loop_info)
         elif isinstance(preamble_info, info.FloatConstInfo):
             op.set_forwarded(preamble_info._const)
 
@@ -308,6 +303,22 @@ class OptUnroll(Optimization):
 
 
     def jump_to_existing_trace(self, jump_op, label_op, runtime_boxes, force_boxes=False):
+        # there is a big conceptual problem here: it's not safe at all to catch
+        # InvalidLoop in the callers of _jump_to_existing_trace and then
+        # continue trying to jump to some other label, because inlining the
+        # short preamble could have worked partly, leaving some unwanted new
+        # ops at the end of the trace. Here's at least a stopgap to stop
+        # terrible things from happening: we *must not* move any of those bogus
+        # guards earlier into the trace. see
+        # test_unroll_shortpreamble_mutates_bug in test_loop, and issue #3598
+
+        # leaving the bogus operations at the end of the trace is not great,
+        # but should be safe: at worst, they just always do a bit of stuff and
+        # then fail
+        with self.optimizer.cant_replace_guards():
+            return self._jump_to_existing_trace(jump_op, label_op, runtime_boxes, force_boxes)
+
+    def _jump_to_existing_trace(self, jump_op, label_op, runtime_boxes, force_boxes=False):
         jitcelltoken = jump_op.getdescr()
         assert isinstance(jitcelltoken, JitCellToken)
         virtual_state = self.get_virtual_state(jump_op.getarglist())

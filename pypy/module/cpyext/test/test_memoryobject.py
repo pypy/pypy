@@ -161,6 +161,22 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
                     return NULL;
                  Py_RETURN_NONE;
              """),
+            ("get_contiguous", "METH_O",
+             """
+               return PyMemoryView_GetContiguous(args, PyBUF_READ, 'C');
+            """),
+            ("get_readonly", "METH_O",
+             """
+                Py_buffer view;
+                int readonly;
+                memset(&view, 0, sizeof(view));
+                if (PyObject_GetBuffer(args, &view, PyBUF_SIMPLE) != 0) {
+                    return NULL;
+                }
+                readonly = view.readonly;
+                PyBuffer_Release(&view);
+                return PyLong_FromLong(readonly);
+            """),
             ])
         module = self.import_module(name='buffer_test')
         arr = module.PyMyArray(10)
@@ -171,6 +187,19 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         ten = foo.test_buffer(arr)
         assert ten == 10
         foo.test_contiguous(arr)
+        contig = foo.get_contiguous(arr)
+        foo.test_contiguous(contig)
+        ro = foo.get_readonly(b'abc')
+        assert ro == 1
+        try:
+            from _numpypy import multiarray as np
+        except ImportError:
+            skip('pypy built without _numpypy')
+        a = np.arange(20)[::2]
+        skip('not implemented yet')
+        contig = foo.get_contiguous(a)
+        foo.test_contiguous(contig)
+
 
     def test_releasebuffer(self):
         module = self.import_extension('foo', [
@@ -274,22 +303,8 @@ class AppTestBufferInfo(AppTestCpythonExtensionBase):
               ('c', 'i')],
              )
         x = np.arange(dt1.itemsize, dtype='int8').view(dt1)
-        # pytest can catch warnings from v2.8 and up, we ship 2.5
-        import warnings
-        warnings.filterwarnings("error")
-        try:
-            try:
-                y = get_buffer_info(x, ['SIMPLE'])
-            except UserWarning as e:
-                pass
-            else:
-                assert False ,"PyPy-specific UserWarning not raised" \
-                          " on too long format string"
-        finally:
-            warnings.resetwarnings()
         # calling get_buffer_info on x creates a memory leak,
         # which is detected as an error at test teardown:
         # Exception TypeError: "'NoneType' object is not callable"
         #         in <bound method ConcreteArray.__del__ ...> ignored
-
 

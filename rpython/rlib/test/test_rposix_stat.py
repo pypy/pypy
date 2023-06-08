@@ -10,12 +10,15 @@ class TestPosixStatFunctions:
     @py.test.mark.skipif("sys.platform == 'win32'",
                          reason="win32 only has the portable fields")
     def test_has_all_fields(self):
+        if sys.platform == "darwin":
+            assert rposix_stat.STAT_FIELDS == rposix_stat.ALL_STAT_FIELDS
         # XXX this test is obscure!  it will fail if the exact set of
         # XXX stat fields found differs from the one we expect on Linux.
         # XXX Why?
-        assert rposix_stat.STAT_FIELDS == (
-            rposix_stat.ALL_STAT_FIELDS[:13] +
-            rposix_stat.ALL_STAT_FIELDS[-3:])
+        else:
+            assert rposix_stat.STAT_FIELDS == (
+                rposix_stat.ALL_STAT_FIELDS[:13] +
+                rposix_stat.ALL_STAT_FIELDS[-3:])
 
     def test_stat(self):
         def check(f):
@@ -25,8 +28,8 @@ class TestPosixStatFunctions:
             assert abs(int(rposix_stat.stat(unicode(f)).st_mtime * 1000) - expected) < 2
 
         if sys.platform == 'win32':
-            check('c:/')
-            check(os.environ['TEMP'])
+            check(os.environ['SYSTEMDRIVE'])   # C:
+            check(os.environ['PROGRAMDATA'])  # C:\ProgramData
         else:
             check('/')
             check('/dev')
@@ -74,9 +77,10 @@ class TestPosixStatFunctions:
         assert st.st_dev == st.st_ino == 0
         st = rposix_stat.stat3('C:\\')
         assert st.st_dev != 0 and st.st_ino != 0
+        assert st.st_file_attributes & 0x16  # FILE_ATTRIBUTE_DIRECTORY
+        assert st.st_reparse_tag == 0
         st2 = rposix_stat.lstat3('C:\\')
         assert (st2.st_dev, st2.st_ino) == (st.st_dev, st.st_ino)
-
 
 @py.test.mark.skipif("not hasattr(rposix_stat, 'fstatat')")
 def test_fstatat(tmpdir):
@@ -88,6 +92,7 @@ def test_fstatat(tmpdir):
         os.close(dirfd)
     assert result.st_atime == tmpdir.join('file').atime()
 
+@py.test.mark.skipif('sys.platform == "darwin"')
 def test_high_precision_stat_time():
     def f():
         st = os.stat('.')
@@ -108,6 +113,11 @@ def test_high_precision_stat_time():
     if rposix_stat.TIMESPEC is not None:
         with lltype.scoped_alloc(rposix_stat.STAT_STRUCT.TO) as stresult:
             rposix_stat.c_stat(".", stresult)
-            assert 0 <= stresult.c_st_ctim.c_tv_nsec <= 999999999
-            assert highprec == (int(stresult.c_st_ctim.c_tv_sec) * 1000000000
-                                + int(stresult.c_st_ctim.c_tv_nsec))
+            if sys.platform == "darwin":
+                assert 0 <= stresult.c_st_ctimespec.c_tv_nsec <= 999999999
+                assert highprec == (int(stresult.c_st_ctimespec.c_tv_sec) * 1000000000
+                                    + int(stresult.c_st_ctimespec.c_tv_nsec))
+            else:
+                assert 0 <= stresult.c_st_ctim.c_tv_nsec <= 999999999
+                assert highprec == (int(stresult.c_st_ctim.c_tv_sec) * 1000000000
+                                    + int(stresult.c_st_ctim.c_tv_nsec))

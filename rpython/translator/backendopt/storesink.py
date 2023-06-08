@@ -4,8 +4,10 @@ from rpython.flowspace.model import mkentrymap, Variable
 from rpython.translator.backendopt import removenoops
 from rpython.translator import simplify
 
+OK_OPS = frozenset(['debug_assert', 'debug_assert_not_none', 'jit_force_virtualizable'])
+
 def has_side_effects(op):
-    if op.opname == 'debug_assert' or op.opname == 'jit_force_virtualizable':
+    if op.opname in OK_OPS:
         return False
     try:
         return getattr(llop, op.opname).sideeffects

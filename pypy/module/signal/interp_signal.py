@@ -67,6 +67,12 @@ class CheckSignalAction(PeriodicAsyncAction):
 
         @rgc.no_collect
         def _after_thread_switch():
+            # if threadlocals is the fake ThreadLocals from miscutils, we
+            # cannot ever end up here, it's only called after a thread switch
+            ec = self.space.threadlocals.get_ec()
+            if ec is not None and ec.w_async_exception_type:
+                self.space.actionflag.rearm_ticker() # ensure perform is called
+                return
             if self.fire_in_another_thread:
                 if self.space.threadlocals.signals_enabled():
                     self.fire_in_another_thread = False
@@ -85,6 +91,10 @@ class CheckSignalAction(PeriodicAsyncAction):
             rgil.invoke_after_thread_switch(self._after_thread_switch)
 
     def perform(self, executioncontext, frame):
+        w_exc = executioncontext.w_async_exception_type
+        if w_exc is not None:
+            executioncontext.w_async_exception_type = None
+            raise oefmt(w_exc, "asynchronous exception triggered from another thread")
         self._poll_for_signals()
 
     @jit.dont_look_inside
@@ -282,8 +292,13 @@ def siginterrupt(space, signum, flag):
 #__________________________________________________________
 
 def timeval_from_double(d, timeval):
-    rffi.setintfield(timeval, 'c_tv_sec', int(d))
-    rffi.setintfield(timeval, 'c_tv_usec', int((d - int(d)) * 1000000))
+    c_tv_sec = int(d)
+    c_tv_usec = int((d - int(d)) * 1000000)
+    # Don't disable the timer if the computation above rounds down to zero.
+    if d > 0.0 and c_tv_sec == 0 and c_tv_usec == 0:
+        c_tv_usec = 1
+    rffi.setintfield(timeval, 'c_tv_sec', c_tv_sec)
+    rffi.setintfield(timeval, 'c_tv_usec', c_tv_usec)
 
 
 def double_from_timeval(tv):
@@ -294,7 +309,7 @@ def double_from_timeval(tv):
 def itimer_retval(space, val):
     w_value = space.newfloat(double_from_timeval(val.c_it_value))
     w_interval = space.newfloat(double_from_timeval(val.c_it_interval))
-    return space.newtuple([w_value, w_interval])
+    return space.newtuple2(w_value, w_interval)
 
 
 class Cache:

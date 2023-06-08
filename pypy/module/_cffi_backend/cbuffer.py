@@ -3,55 +3,22 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 from pypy.module._cffi_backend import ctypestruct
-from pypy.objspace.std.bufferobject import W_Buffer
+from pypy.objspace.std.bufferobject import W_AbstractBuffer
 from pypy.interpreter.buffer import SimpleView
 
-from rpython.rlib.buffer import RawBuffer
-from rpython.rtyper.annlowlevel import llstr
-from rpython.rtyper.lltypesystem import rffi
-from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
-
-
-class LLBuffer(RawBuffer):
-    _immutable_ = True
-
-    def __init__(self, raw_cdata, size):
-        self.raw_cdata = raw_cdata
-        self.size = size
-        self.readonly = False
-
-    def getlength(self):
-        return self.size
-
-    def getitem(self, index):
-        return self.raw_cdata[index]
-
-    def setitem(self, index, char):
-        self.raw_cdata[index] = char
-
-    def get_raw_address(self):
-        return self.raw_cdata
-
-    def getslice(self, start, stop, step, size):
-        if step == 1:
-            return rffi.charpsize2str(rffi.ptradd(self.raw_cdata, start), size)
-        return RawBuffer.getslice(self, start, stop, step, size)
-
-    def setslice(self, start, string):
-        raw_cdata = rffi.ptradd(self.raw_cdata, start)
-        copy_string_to_raw(llstr(string), raw_cdata, 0, len(string))
+from rpython.rlib.buffer import LLBuffer
 
 
 # Override the typedef to narrow down the interface that's exposed to app-level
 
-class MiniBuffer(W_Buffer):
+class MiniBuffer(W_AbstractBuffer):
     def __init__(self, buffer, keepalive=None):
-        W_Buffer.__init__(self, buffer)
+        W_AbstractBuffer.__init__(self, buffer)
         self.keepalive = keepalive
 
     def descr_setitem(self, space, w_index, w_obj):
         try:
-            W_Buffer.descr_setitem(self, space, w_index, w_obj)
+            W_AbstractBuffer.descr_setitem(self, space, w_index, w_obj)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 e.w_type = space.w_ValueError
@@ -115,6 +82,7 @@ def _memcmp(buf1, buf2, length):
 
 @unwrap_spec(w_cdata=cdataobj.W_CData, size=int)
 def MiniBuffer___new__(space, w_subtype, w_cdata, size=-1):
+    explicit_size = size >= 0
     ctype = w_cdata.ctype
     if isinstance(ctype, ctypeptr.W_CTypePointer):
         if size < 0:
@@ -133,6 +101,16 @@ def MiniBuffer___new__(space, w_subtype, w_cdata, size=-1):
     if size < 0:
         raise oefmt(space.w_TypeError,
                     "don't know the size pointed to by '%s'", ctype.name)
+
+    if explicit_size:
+        max_size = w_cdata.get_maximum_buffer_size()
+        if max_size >= 0 and size > max_size:
+            msg = ("ffi.buffer(cdata, bytes): creating a buffer of %d "
+                   "bytes over a cdata that owns only %d bytes.  This "
+                   "will crash if you access the extra memory")
+            msg = msg % (size, max_size)
+            space.warn(space.newtext(msg), space.w_UserWarning)
+
     ptr = w_cdata.unsafe_escaping_ptr()    # w_cdata kept alive by MiniBuffer()
     return MiniBuffer(LLBuffer(ptr, size), w_cdata)
 

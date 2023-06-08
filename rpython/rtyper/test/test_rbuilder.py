@@ -98,6 +98,42 @@ class TestStringBuilderDirect(object):
         assert s == StringBuilderRepr.ll_build(sb)
         assert s == StringBuilderRepr.ll_build(sb)
 
+    def test_large_build(self):
+        s1 = 'xyz' * 500
+        s2 = 'XYZ' * 500
+        #
+        sb = StringBuilderRepr.ll_new(32)
+        StringBuilderRepr.ll_append(sb, llstr(s1))
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == s1
+        #
+        sb = StringBuilderRepr.ll_new(32)
+        StringBuilderRepr.ll_append(sb, llstr(s1))
+        StringBuilderRepr.ll_append(sb, llstr(s2))
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == s1 + s2
+        #
+        sb = StringBuilderRepr.ll_new(32)
+        StringBuilderRepr.ll_append(sb, llstr(s1))
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == s1
+        StringBuilderRepr.ll_append(sb, llstr(s2))
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == s1 + s2
+        #
+        sb = StringBuilderRepr.ll_new(32)
+        StringBuilderRepr.ll_append(sb, llstr(s1))
+        StringBuilderRepr.ll_append_char(sb, '.')
+        s = StringBuilderRepr.ll_build(sb)
+        assert hlstr(s) == s1 + '.'
+        #
+        for start in [0, 1]:
+            for stop in [len(s1), len(s1) - 1]:
+                sb = StringBuilderRepr.ll_new(32)
+                StringBuilderRepr.ll_append_slice(sb, llstr(s1), start, stop)
+                s = StringBuilderRepr.ll_build(sb)
+                assert hlstr(s) == s1[start:stop]
+
 
 class TestStringBuilder(BaseRtypingTest):
     def test_simple(self):

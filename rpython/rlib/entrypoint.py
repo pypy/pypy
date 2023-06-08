@@ -60,7 +60,7 @@ def entrypoint_highlevel(key, argtypes, c_name=None):
 
         def wrapper(%(args)s):
             # acquire the GIL
-            rgil.acquire()
+            rgil.acquire_maybe_in_new_thread()
             #
             llop.gc_stack_bottom(lltype.Void)   # marker to enter RPython from C
             # this should not raise
@@ -87,7 +87,7 @@ def entrypoint_highlevel(key, argtypes, c_name=None):
         exec source.compile() in d
         wrapper = d['wrapper']
         secondary_entrypoints.setdefault(key, []).append((wrapper, argtypes))
-        wrapper.func_name = func.func_name
+        wrapper.__name__ = func.__name__
         if c_name is not None:
             wrapper.c_name = c_name
         export_symbol(wrapper)

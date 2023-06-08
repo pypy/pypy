@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
-    BaseTest, convert_old_style_to_targets)
+    BaseTest, convert_old_style_to_targets, FakeJitDriverStaticData)
 from rpython.jit.metainterp import compile
 from rpython.jit.tool import oparser
 from rpython.jit.metainterp.resoperation import ResOperation, rop
@@ -33,7 +33,8 @@ class TestOptimizeBridge(BaseTest):
             self.convert_values(bridge.operations[-1].getarglist(), bridge_values),
             None, enable_opts=self.enable_opts,
             inline_short_preamble=inline_short_preamble)
-        bridge_info, ops = data.optimize_trace(self.metainterp_sd, None, {})
+        jitdriver_sd = FakeJitDriverStaticData()
+        bridge_info, ops = data.optimize_trace(self.metainterp_sd, jitdriver_sd, {})
         loop.check_consistency(check_descr=False)
         info.preamble.check_consistency(check_descr=False)
         bridge.operations = ([ResOperation(rop.LABEL, bridge_info.inputargs)] +
@@ -117,6 +118,3 @@ class TestOptimizeBridge(BaseTest):
         self.optimize(loop, bridge, expected,
                       jump_values=[None, self.simpleaddr],
                       bridge_values=[None, self.simpleaddr])
-
-    def test_virtual_state_guard_needed(self):
-        pass

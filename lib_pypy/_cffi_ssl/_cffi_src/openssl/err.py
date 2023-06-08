@@ -18,10 +18,53 @@ static const int ERR_LIB_EVP;
 static const int ERR_LIB_EC;
 static const int ERR_LIB_PEM;
 static const int ERR_LIB_ASN1;
-static const int ERR_LIB_RSA;
+static const int ERR_LIB_ASYNC;
+static const int ERR_LIB_BIO;
+static const int ERR_LIB_BN;
+static const int ERR_LIB_BUF;
+static const int ERR_LIB_CMP;
+static const int ERR_LIB_CMS;
+static const int ERR_LIB_COMP;
+static const int ERR_LIB_CONF;
+static const int ERR_LIB_CRMF;
+static const int ERR_LIB_CRYPTO;
+static const int ERR_LIB_CT;
+static const int ERR_LIB_DH;
+static const int ERR_LIB_DSA;
+static const int ERR_LIB_DSO;
+static const int ERR_LIB_EC;
+static const int ERR_LIB_ECDH;
+static const int ERR_LIB_ECDSA;
+static const int ERR_LIB_ENGINE;
+static const int ERR_LIB_ESS;
+static const int ERR_LIB_EVP;
+static const int ERR_LIB_FIPS;
+static const int ERR_LIB_HMAC;
+static const int ERR_LIB_HTTP;
+static const int ERR_LIB_KDF;
+static const int ERR_LIB_MASK;
+static const int ERR_LIB_NONE;
+static const int ERR_LIB_OBJ;
+static const int ERR_LIB_OCSP;
+static const int ERR_LIB_OFFSET;
+static const int ERR_LIB_OSSL_DECODER;
+static const int ERR_LIB_OSSL_ENCODER;
+static const int ERR_LIB_OSSL_STORE;
+static const int ERR_LIB_PEM;
 static const int ERR_LIB_PKCS12;
+static const int ERR_LIB_PKCS7;
+static const int ERR_LIB_PROP;
+static const int ERR_LIB_PROV;
+static const int ERR_LIB_RAND;
+static const int ERR_LIB_RSA;
+static const int ERR_LIB_SM2;
 static const int ERR_LIB_SSL;
+static const int ERR_LIB_SYS;
+static const int ERR_LIB_TS;
+static const int ERR_LIB_UI;
+static const int ERR_LIB_USER;
 static const int ERR_LIB_X509;
+static const int ERR_LIB_X509V3;
 
 static const int ERR_R_MALLOC_FAILURE;
 static const int EVP_R_MEMORY_LIMIT_EXCEEDED;
@@ -66,7 +109,6 @@ static const int EVP_R_DIFFERENT_KEY_TYPES;
 static const int EVP_R_INITIALIZATION_ERROR;
 static const int EVP_R_INPUT_NOT_INITIALIZED;
 static const int EVP_R_INVALID_KEY_LENGTH;
-static const int EVP_R_KEYGEN_FAILURE;
 static const int EVP_R_MISSING_PARAMETERS;
 static const int EVP_R_NO_CIPHER_SET;
 static const int EVP_R_NO_DIGEST_SET;
@@ -155,10 +197,8 @@ unsigned long ERR_get_error(void);
 unsigned long ERR_peek_error(void);
 unsigned long ERR_peek_last_error(void);
 void ERR_clear_error(void);
-void ERR_put_error(int, int, int, const char *, int);
 
 int ERR_GET_LIB(unsigned long);
-int ERR_GET_FUNC(unsigned long);
 int ERR_GET_REASON(unsigned long);
 
 """
@@ -178,5 +218,19 @@ static const long Cryptography_HAS_EVP_R_MEMORY_LIMIT_EXCEEDED = 1;
 #else
 static const long EVP_R_MEMORY_LIMIT_EXCEEDED = 0;
 static const long Cryptography_HAS_EVP_R_MEMORY_LIMIT_EXCEEDED = 0;
+#endif
+
+#if CRYPTOGRAPHY_OPENSSL_300_OR_GREATER
+#else
+static const int ERR_LIB_CMP = -42;
+static const int ERR_LIB_CRMF = -42;
+static const int ERR_LIB_ESS = -42;
+static const int ERR_LIB_HTTP = -42;
+static const int ERR_LIB_MASK = -42;
+static const int ERR_LIB_OFFSET = -42;
+static const int ERR_LIB_OSSL_DECODER = -42;
+static const int ERR_LIB_OSSL_ENCODER = -42;
+static const int ERR_LIB_PROP = -42;
+static const int ERR_LIB_PROV = -42;
 #endif
 """

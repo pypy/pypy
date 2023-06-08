@@ -537,12 +537,20 @@ class SomePBC(SomeObject):
                 self.const = desc.pyobj
         elif len(descriptions) > 1:
             from rpython.annotator.classdesc import ClassDesc
-            if self.getKind() is ClassDesc:
+            from rpython.annotator.description import MethodOfFrozenDesc
+            kind = self.getKind()
+            if kind is ClassDesc:
                 # a PBC of several classes: enforce them all to be
                 # built, without support for specialization.  See
                 # rpython/test/test_rpbc.test_pbc_of_classes_not_all_used
                 for desc in descriptions:
                     desc.getuniqueclassdef()
+            elif kind is MethodOfFrozenDesc:
+                funcdescs = set(desc.funcdesc for desc in descriptions)
+                if len(funcdescs) > 1:
+                    raise AnnotatorError(
+                        "You can't mix a set of methods on a frozen PBC in "
+                        "RPython that are different underlying functions")
 
     def any_description(self):
         return iter(self.descriptions).next()

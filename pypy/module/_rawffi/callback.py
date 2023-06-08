@@ -45,7 +45,7 @@ def callback(ll_args, ll_res, ll_userdata):
                     space, rffi.cast(rffi.SIZE_T, ll_args[i]))
             else:
                 # XXX other types?
-                args_w[i] = space.newint(rffi.cast(rffi.ULONG, ll_args[i]))
+                args_w[i] = space.newint(rffi.cast(lltype.Unsigned, ll_args[i]))
         w_res = space.call(w_callable, space.newtuple(args_w))
         if callback_ptr.result is not None: # don't return void
             ptr = ll_res
@@ -90,9 +90,9 @@ class W_CallbackPtr(W_DataInstance):
                                                callback, self.number, flags)
         except LibFFIError:
             raise got_libffi_error(space)
-        self.ll_buffer = rffi.cast(rffi.VOIDP, self.ll_callback.ll_closure)
+        self.ll_buffer = rffi.cast(rffi.VOIDP, self.ll_callback.get_closure())
         if tracker.DO_TRACING:
-            addr = rffi.cast(lltype.Signed, self.ll_callback.ll_closure)
+            addr = rffi.cast(lltype.Signed, self.ll_callback.get_closure())
             tracker.trace_allocation(addr, self)
         #
         # We must setup the GIL here, in case the callback is invoked in
@@ -105,7 +105,7 @@ class W_CallbackPtr(W_DataInstance):
 
     def free(self):
         if tracker.DO_TRACING:
-            addr = rffi.cast(lltype.Signed, self.ll_callback.ll_closure)
+            addr = rffi.cast(lltype.Signed, self.ll_callback.get_closure())
             tracker.trace_free(addr)
         global_counter.remove(self.number)
 

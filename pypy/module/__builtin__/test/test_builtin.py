@@ -51,6 +51,11 @@ class AppTestBuiltinApp:
         assert bytes is str
         assert isinstance(eval("b'hi'"), str)
 
+    def test_eval_adds_builtins(self):
+        d = {}
+        eval('1', d)
+        assert "__builtins__" in d
+
     def test_import(self):
         m = __import__('pprint')
         assert m.pformat({}) == '{}'
@@ -225,6 +230,86 @@ class AppTestBuiltinApp:
                 assert other is None
                 return 42
         assert sum([Foo()], None) == 42
+
+    def test_sum_fast_path(self):
+        # Fast paths for expected behaviour
+        start = []
+        assert sum([[1, 2], [3]], start) == [1, 2, 3]
+        assert start == []
+
+        start = [1, 2]
+        assert sum([[3]], start) == [1, 2, 3]
+        assert start == [1, 2]
+
+        assert sum([(1, 2), (3,)], ()) == (1, 2, 3)
+        assert sum([(3,)], (1, 2)) == (1, 2, 3)
+        assert sum(([x + 1] for x in range(3)), []) == [1, 2, 3]
+
+    def test_sum_empty_edge_cases(self):
+        assert sum([], []) == []
+        assert sum(iter([]), []) == []
+        assert sum([], ()) == ()
+        start = []
+        assert sum([], start) is start
+        assert sum([[]], start) is not start
+
+    def test_sum_type_errors(self):
+        with raises(TypeError):
+            sum([[]], ())
+        with raises(TypeError):
+            sum([()], [])
+        with raises(TypeError):
+            sum([[], [], ()], [])
+
+    def test_sum_strange_objects(self):
+        # All that follows should be rare, but needs care
+        class TupleTail(object):
+            def __radd__(self, other):
+                assert isinstance(other, tuple)
+                return other[1:]
+
+        strange_seq = [(1, 2), (3, 4), TupleTail(), (5,)]
+        assert sum(strange_seq, (2, 3, 4, 5))
+        assert sum(iter(strange_seq), (2, 3, 4, 5))
+
+        class NotAList(list):
+            def __add__(self, _):
+                return "!"
+
+            def __radd__(self, _):
+                return "?"
+
+            def __iadd__(self, _):
+                raise RuntimeError(
+                    "Calling __iadd__ breaks CPython compatability"
+                )
+
+        assert sum([[1]], NotAList()) == "!"
+        assert sum([[1], NotAList()], []) == "?"
+
+    def test_sum_first_object_edge_cases(self):
+        class X(list):
+            def __radd__(self, other):
+                return Y()
+
+        class Y(object):
+            calls = []
+
+            def __add__(self, other):
+                Y.calls.append("add")
+
+            def __iadd__(self, other):
+                Y.calls.append("iadd")
+
+        assert sum([X(), []], []) is None
+        assert Y.calls == ["add"]
+
+        class Z(tuple):
+            def __radd__(self, other):
+                return Y()
+
+        assert sum([Z(), []], []) is None
+        assert Y.calls == ["add", "add"]
 
     def test_type_selftest(self):
         assert type(type) is type

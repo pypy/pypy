@@ -173,3 +173,13 @@ class AppTestKwargsDictStrategy(object):
         d = f(a=2, b=3, c=4)
         for key, value in d.iteritems():
             None in d
+
+    def test_popitem_bug(self):
+        def f(**args):
+            return args
+        d = f(a=1, b=2)
+        x = d.popitem()
+        assert x == ('b', 2)
+        x = d.popitem()
+        assert x == ('a', 1)
+        raises(KeyError, d.popitem)

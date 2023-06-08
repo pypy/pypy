@@ -170,6 +170,15 @@ class TestRrange(BaseRtypingTest):
         res = self.interpret(fn, [2])
         assert res == 789
 
+    def test_enumerate_startindex(self):
+        def fn(n):
+            for i, x in enumerate([123, 456, 789, 654], 5):
+                if i == n:
+                    return x
+            return 5
+        res = self.interpret(fn, [7])
+        assert res == 789
+
     def test_enumerate_instances(self):
         class A:
             pass

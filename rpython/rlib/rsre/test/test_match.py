@@ -1,5 +1,5 @@
 import re, random, py
-from rpython.rlib.rsre import rsre_char
+from rpython.rlib.rsre import rsre_char, rsre_constants
 from rpython.rlib.rsre.rpy import get_code, VERSION
 from rpython.rlib.rsre.test.support import match, fullmatch, Position as P
 
@@ -306,6 +306,10 @@ class TestMatch:
         rsre_char.set_unicode_db(unicodedb)
         #
         r = get_code(u"[\U00010428-\U0001044f]", re.I)
-        assert r.pattern.count(27) == 1       # OPCODE_RANGE
-        r.pattern[r.pattern.index(27)] = 32   # => OPCODE_RANGE_IGNORE
+        assert r.pattern.count(rsre_constants.OPCODE_RANGE) == 1
+        if rsre_constants.V37:
+            repl = rsre_constants.OPCODE37_RANGE_UNI_IGNORE
+        else:
+            repl = rsre_constants.OPCODE27_RANGE_IGNORE
+        r.pattern[r.pattern.index(rsre_constants.OPCODE_RANGE)] = repl
         assert match(r, u"\U00010428")

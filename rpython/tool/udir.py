@@ -36,8 +36,6 @@ def make_udir(dir=None, basename=None):
             if basename == '?':
                 basename = 'unknown' # directories with ? are not fun
                 # especially on windows
-            if isinstance(basename, unicode):
-                basename = basename.encode(sys.getdefaultencoding())
         else:
             basename = ''
     basename = basename.replace('/', '--')

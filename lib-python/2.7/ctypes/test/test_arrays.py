@@ -1,4 +1,6 @@
 import unittest
+from test.support import precisionbigmemtest, _2G
+import sys
 from ctypes import *
 from test.test_support import impl_detail
 
@@ -142,6 +144,32 @@ class ArrayTestCase(unittest.TestCase):
         t1 = my_int * 1
         t2 = my_int * 1
         self.assertIs(t1, t2)
+
+    def test_empty_element_struct(self):
+        class EmptyStruct(Structure):
+            _fields_ = []
+
+        obj = (EmptyStruct * 2)()  # bpo37188: Floating point exception
+        self.assertEqual(sizeof(obj), 0)
+
+    def test_empty_element_array(self):
+        class EmptyArray(Array):
+            _type_ = c_int
+            _length_ = 0
+
+        obj = (EmptyArray * 2)()  # bpo37188: Floating point exception
+        self.assertEqual(sizeof(obj), 0)
+
+    def test_bpo36504_signed_int_overflow(self):
+        # The overflow check in PyCArrayType_new() could cause signed integer
+        # overflow.
+        with self.assertRaises(OverflowError):
+            c_char * sys.maxsize * 2
+
+    @unittest.skipUnless(sys.maxsize > 2**32, 'requires 64bit platform')
+    @precisionbigmemtest(size=_2G, memuse=1, dry_run=False)
+    def test_large_array(self, size):
+        a = c_char * size
 
 if __name__ == '__main__':
     unittest.main()

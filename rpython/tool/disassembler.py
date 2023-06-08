@@ -94,7 +94,7 @@ def dis(x=None):
     if hasattr(x, 'im_func'):
         x = x.im_func
     if hasattr(x, 'func_code'):
-        x = x.func_code
+        x = x.__code__
     if hasattr(x, '__dict__'):
         xxx
         items = sorted(x.__dict__.items())

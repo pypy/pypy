@@ -8,7 +8,7 @@ What's new in PyPy2.7 5.4
 .. 418b05f95db5
 
 Improve CPython compatibility for ``is``. Now code like ``if x is ():``
-works the same way as it does on CPython.  See http://pypy.readthedocs.io/en/latest/cpython_differences.html#object-identity-of-primitive-values-is-and-id .
+works the same way as it does on CPython.  See https://pypy.readthedocs.io/en/latest/cpython_differences.html#object-identity-of-primitive-values-is-and-id .
 
 .. pull request #455
 

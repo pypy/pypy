@@ -114,7 +114,7 @@ def test_apptest_fail_plain(testdir):
             x = 'foo'
             assert x == 'bar'
     """)
-    result = testdir.runpytest(p)
+    result = testdir.runpytest(p, "--no-applevel-rewrite")
     assert result.ret == 1
     result.stdout.fnmatch_lines([
         "*E*(application-level) AssertionError",
@@ -127,10 +127,37 @@ def test_apptest_fail_rewrite(testdir):
             x = 'foo'
             assert x == 'bar'
     """)
-    result = testdir.runpytest(p, "--applevel-rewrite")
+    result = testdir.runpytest(p)
     assert result.ret == 1
     result.stdout.fnmatch_lines([
         "*E*application-level*AssertionError: assert 'foo' == 'bar'",
-        "*E*- foo*",
-        "*E*+ bar*",
     ])
+
+def test_apptest_spaceconfig(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile(apptest_raise="""
+        # spaceconfig = {"usemodules":["array"]}
+        import array
+        def test_array():
+            a = array.array('i', [1,2,3])
+            assert len(a) == 3
+            assert a[2] == 3
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 0
+
+def test_apptest_skipif(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile(apptest_raise="""
+        import pytest
+
+        @pytest.mark.skipif(True, reason="Bad test")
+        def test_bad():
+            assert False
+
+        def test_success():
+            assert True
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 0
+    result.assert_outcomes(passed=1, skipped=1)

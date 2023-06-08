@@ -4,7 +4,7 @@ import sys
 import time
 
 from rpython.rlib import jit, rgc, rthread
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -22,7 +22,7 @@ if sys.platform == 'win32':
     from pypy.module._multiprocessing.interp_win32 import (
         _GetTickCount, handle_w)
 
-    SEM_VALUE_MAX = sys.maxint
+    SEM_VALUE_MAX = int(2**31-1) # max rffi.LONG
 
     _CreateSemaphore = rwin32.winexternal(
         'CreateSemaphoreA', [rffi.VOIDP, rffi.LONG, rffi.LONG, rwin32.LPCSTR],
@@ -33,7 +33,7 @@ if sys.platform == 'win32':
     _ReleaseSemaphore = rwin32.winexternal(
         'ReleaseSemaphore', [rwin32.HANDLE, rffi.LONG, rffi.LONGP],
         rwin32.BOOL,
-        save_err=rffi.RFFI_SAVE_LASTERROR, releasegil=True)
+        save_err=rffi.RFFI_SAVE_LASTERROR, releasegil=False)
 
 else:
     from rpython.rlib import rposix
@@ -316,7 +316,7 @@ if sys.platform == 'win32':
         try:
             if not _ReleaseSemaphore(self.handle, 1, previous_ptr):
                 raise rwin32.lastSavedWindowsError("ReleaseSemaphore")
-            return previous_ptr[0] + 1
+            return intmask(previous_ptr[0]) + 1
         finally:
             lltype.free(previous_ptr, flavor='raw')
 

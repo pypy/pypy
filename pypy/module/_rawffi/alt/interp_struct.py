@@ -177,7 +177,7 @@ class W__StructInstance(W_Root):
             self.rawmem = lltype.nullptr(rffi.VOIDP.TO)
 
     def getaddr(self, space):
-        addr = rffi.cast(rffi.ULONG, self.rawmem)
+        addr = rffi.cast(lltype.Unsigned, self.rawmem)
         return space.newint(addr)
 
     @unwrap_spec(name='text')

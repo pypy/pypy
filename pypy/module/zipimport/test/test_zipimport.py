@@ -199,6 +199,15 @@ class AppTestZipimport:
                "__import__('xxbad_pyc', globals(), locals(), [])")
         assert 'xxbad_pyc' not in sys.modules
 
+    def test_short_pyc(self):
+        import zipimport
+        import sys
+        test_pyc = b"abc"
+        self.writefile("xxbad_pyc.pyc", test_pyc)
+        raises(zipimport.ZipImportError,
+               "__import__('xxbad_pyc', globals(), locals(), [])")
+        assert 'xxbad_pyc' not in sys.modules
+
     def test_force_py(self):
         import sys
         m0 = ord(self.test_pyc[0])

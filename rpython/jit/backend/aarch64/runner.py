@@ -1,4 +1,5 @@
 
+from rpython.rlib import rgc, rmmap
 from rpython.rtyper.lltypesystem import llmemory, lltype
 from rpython.jit.backend.aarch64.assembler import AssemblerARM64
 from rpython.jit.backend.aarch64 import registers as r
@@ -14,6 +15,7 @@ class CPU_ARM64(AbstractLLCPU):
     gen_regs = r.all_regs
     float_regs = VFPRegisterManager.all_regs
     supports_floats = True
+    HAS_CODEMAP = True
 
     from rpython.jit.backend.aarch64.arch import JITFRAME_FIXED_SIZE
 
@@ -29,6 +31,8 @@ class CPU_ARM64(AbstractLLCPU):
 
     def setup_once(self):
         self.assembler.setup_once()
+        if self.HAS_CODEMAP:
+            self.codemap.setup()
 
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True, logger=None):
@@ -41,6 +45,7 @@ class CPU_ARM64(AbstractLLCPU):
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
 
+    @rgc.no_release_gil
     def invalidate_loop(self, looptoken):
         """Activate all GUARD_NOT_INVALIDATED in the loop and its attached
         bridges.  Before this call, all GUARD_NOT_INVALIDATED do nothing;
@@ -49,10 +54,14 @@ class CPU_ARM64(AbstractLLCPU):
         possible then to re-call invalidate_loop() on the same looptoken,
         which must invalidate all newer GUARD_NOT_INVALIDATED, but not the
         old one that already has a bridge attached to it."""
-        for jmp, tgt in looptoken.compiled_loop_token.invalidate_positions:
-            mc = InstrBuilder()
-            mc.B_ofs(tgt)
-            mc.copy_to_raw_memory(jmp)
+        rmmap.enter_assembler_writing()
+        try:
+            for jmp, tgt in looptoken.compiled_loop_token.invalidate_positions:
+                mc = InstrBuilder()
+                mc.B_ofs(tgt)
+                mc.copy_to_raw_memory(jmp)
+        finally:
+            rmmap.leave_assembler_writing()
         # positions invalidated
         looptoken.compiled_loop_token.invalidate_positions = []
 

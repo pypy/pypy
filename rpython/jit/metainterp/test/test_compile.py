@@ -41,6 +41,7 @@ class FakeLogger(object):
 class FakeState(object):
     enable_opts = ALL_OPTS_DICT.copy()
     enable_opts.pop('unroll')
+    pureop_historylength = 16
 
     def attach_unoptimized_bridge_from_interp(*args):
         pass
@@ -96,7 +97,7 @@ def test_compile_loop():
     metainterp = FakeMetaInterp()
     metainterp.staticdata = staticdata
     metainterp.cpu = cpu
-    metainterp.history = History()
+    metainterp.history = History(len(loop.inputargs), staticdata)
     t = convert_loop_to_trace(loop, staticdata)
     metainterp.history.inputargs = t.inputargs
     metainterp.history.trace = t

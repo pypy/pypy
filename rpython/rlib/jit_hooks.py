@@ -128,12 +128,16 @@ def stats_asmmemmgr_allocated(warmrunnerdesc):
 def stats_asmmemmgr_used(warmrunnerdesc):
     return warmrunnerdesc.metainterp_sd.cpu.asmmemmgr.get_stats()[1]
 
+@register_helper(None)
+def stats_memmgr_release_all(warmrunnerdesc):
+    warmrunnerdesc.memory_manager.release_all_loops()
+
 # ---------------------- jitcell interface ----------------------
 
 def _new_hook(name, resulttype):
     def hook(name, *greenkey):
         raise Exception("need to run translated")
-    hook.func_name = name
+    hook.__name__ = name
 
     class GetJitCellEntry(ExtRegistryEntry):
         _about_ = hook
@@ -156,4 +160,5 @@ def _new_hook(name, resulttype):
 get_jitcell_at_key = _new_hook('get_jitcell_at_key', SomePtr(llmemory.GCREF))
 trace_next_iteration = _new_hook('trace_next_iteration', None)
 dont_trace_here = _new_hook('dont_trace_here', None)
+mark_as_being_traced = _new_hook('mark_as_being_traced', None)
 trace_next_iteration_hash = _new_hook('trace_next_iteration_hash', None)

@@ -1,7 +1,4 @@
-#include "common_header.h"
-#include "structdef.h"
-#include "forwarddecl.h"
-#include "preimpl.h"
+#include "singleheader.h"
 #include "src/debug_traceback.h"
 #include <stdio.h>
 #include <stdlib.h>

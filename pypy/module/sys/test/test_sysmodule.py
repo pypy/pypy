@@ -141,6 +141,15 @@ class AppTestAppSysTests:
         exc = raises(SystemExit, sys.exit, (1, 2, 3))
         assert exc.value.code == (1, 2, 3)
 
+    def test_sys_flags(self):
+        import sys
+        # sanity check
+        assert sys.flags.optimize is not None
+        # make sure the flags are read-only
+        exc = raises(TypeError, 'sys.flags.optimize = 3')
+        assert 'readonly' in str(exc.value)
+        raises(AttributeError, 'sys.flags.not_a_sys_flag = 2')
+
 
 class AppTestSysModulePortedFromCPython:
 

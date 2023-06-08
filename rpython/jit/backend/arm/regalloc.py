@@ -857,7 +857,6 @@ class Regalloc(BaseRegalloc):
         assert boxes[3].getint() == 1    # scale
         ofs = boxes[4].getint()
         size = boxes[5].getint()
-        assert check_imm_arg(ofs)
         return [value_loc, base_loc, index_loc, imm(size), imm(ofs)]
 
     def _prepare_op_gc_load_indexed(self, op, fcond):
@@ -867,7 +866,6 @@ class Regalloc(BaseRegalloc):
         assert boxes[2].getint() == 1    # scale
         ofs = boxes[3].getint()
         nsize = boxes[4].getint()
-        assert check_imm_arg(ofs)
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         res_loc = self.force_allocate_reg(op)

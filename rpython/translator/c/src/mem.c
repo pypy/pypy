@@ -47,7 +47,7 @@ void pypy_debug_alloc_stop(void *addr)
 RPY_EXTERN
 void pypy_debug_alloc_results(void)
 {
-  long count = 0;
+  Signed count = 0;
   struct pypy_debug_alloc_s *p;
   for (p = pypy_debug_alloc_list; p; p = p->next)
     count++;

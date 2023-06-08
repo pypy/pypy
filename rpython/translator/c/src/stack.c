@@ -19,12 +19,12 @@ rpy_stacktoobig_t rpy_stacktoobig = {
 
 void LL_stack_set_length_fraction(double fraction)
 {
-	rpy_stacktoobig.stack_length = (long)(MAX_STACK_SIZE * fraction);
+	rpy_stacktoobig.stack_length = (Signed)(MAX_STACK_SIZE * fraction);
 }
 
-char LL_stack_too_big_slowpath(long current)
+char LL_stack_too_big_slowpath(Signed current)
 {
-	long diff, max_stack_size;
+	Signed diff, max_stack_size;
 	char *baseptr, *curptr = (char*)current;
 	char *tl;
 	struct pypy_threadlocal_s *tl1;
@@ -44,12 +44,12 @@ char LL_stack_too_big_slowpath(long current)
 	}
 	else {
 		diff = baseptr - curptr;
-		if (((unsigned long)diff) <= (unsigned long)max_stack_size) {
+		if (((Unsigned)diff) <= (Unsigned)max_stack_size) {
 			/* within bounds, probably just had a thread switch */
 			rpy_stacktoobig.stack_end = baseptr;
 			return 0;
 		}
-		if (((unsigned long)-diff) <= (unsigned long)max_stack_size) {
+		if (((Unsigned)-diff) <= (Unsigned)max_stack_size) {
 			/* stack underflowed: the initial estimation of
 			   the stack base must be revised */
 		}

@@ -40,8 +40,8 @@ class W_Count(W_Root):
             args_w = [self.w_c]
         else:
             args_w = [self.w_c, self.w_step]
-        return space.newtuple([space.gettypefor(W_Count),
-                               space.newtuple(args_w)])
+        return space.newtuple2(space.gettypefor(W_Count),
+                               space.newtuple(args_w))
 
 def check_number(space, w_obj):
     if (space.lookup(w_obj, '__int__') is None and
@@ -322,10 +322,12 @@ W_IFilterFalse.typedef = TypeDef(
     """)
 
 
+def get_printable_location(greenkey):
+    return "islice_ignore_items [%s]" % (greenkey.iterator_greenkey_printable(), )
 islice_ignore_items_driver = jit.JitDriver(name='islice_ignore_items',
-                                           greens=['tp'],
-                                           reds=['num', 'w_islice',
-                                                 'w_iterator'])
+                                           greens=['greenkey'],
+                                           reds='auto',
+                                           get_printable_location=get_printable_location)
 
 class W_ISlice(W_Root):
     def __init__(self, space, w_iterable, w_startstop, args_w):
@@ -418,12 +420,9 @@ class W_ISlice(W_Root):
         if w_iterator is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
-        tp = self.space.type(w_iterator)
+        greenkey = self.space.iterator_greenkey(w_iterator)
         while True:
-            islice_ignore_items_driver.jit_merge_point(tp=tp,
-                                                       num=num,
-                                                       w_islice=self,
-                                                       w_iterator=w_iterator)
+            islice_ignore_items_driver.jit_merge_point(greenkey=greenkey)
             try:
                 self.space.next(w_iterator)
             except OperationError as e:
@@ -870,6 +869,7 @@ def tee(space, w_iterable, n=2):
 
 class TeeChainedListNode(object):
     w_obj = None
+    running = False
 
 
 class W_TeeIterable(W_Root):
@@ -884,9 +884,16 @@ class W_TeeIterable(W_Root):
 
     def next_w(self):
         chained_list = self.chained_list
+        if chained_list.running:
+            raise oefmt(self.space.w_RuntimeError,
+                        "cannot re-enter the tee iterator")
         w_obj = chained_list.w_obj
         if w_obj is None:
-            w_obj = self.space.next(self.w_iterator)
+            chained_list.running = True
+            try:
+                w_obj = self.space.next(self.w_iterator)
+            finally:
+                chained_list.running = False
             chained_list.next = TeeChainedListNode()
             chained_list.w_obj = w_obj
         self.chained_list = chained_list.next
@@ -935,7 +942,7 @@ class W_GroupBy(W_Root):
         self._skip_to_next_iteration_group()
         w_key = self.w_tgtkey = self.w_currkey
         w_grouper = W_GroupByIterator(self, w_key)
-        return self.space.newtuple([w_key, w_grouper])
+        return self.space.newtuple2(w_key, w_grouper)
 
     def _skip_to_next_iteration_group(self):
         space = self.space

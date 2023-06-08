@@ -345,3 +345,42 @@ class AppTestSequenceObject(AppTestCpythonExtensionBase):
 
         assert module.test_fast_sequence(Map()) is True
 
+    def test_getitem(self):
+        module = self.import_extension('foo', [
+            ("dict_assignment", "METH_VARARGS",
+             """
+                PyObject *cls = PyTuple_GetItem(args, 0);
+                PyObject *func = PyTuple_GetItem(args, 1);
+                if (cls == NULL)
+                    return NULL;
+                if (func == NULL)
+                    return NULL;
+                /* Assign the func to the cls.__dict__ */
+                if (PyObject_SetAttrString(cls, "__getitem__", func) != 0){
+                    return NULL;
+                }
+                Py_RETURN_NONE;
+            """),
+            ("test_get_item", "METH_VARARGS",
+             """
+                PyObject *obj, *result=NULL;
+                int i;
+                if (PyArg_ParseTuple(args, "Oi:test_get_item", &obj, &i)) {
+                    result = PySequence_GetItem(obj, i);
+                };
+                return result;
+             """),
+            ])
+        class A(object):
+            pass
+
+        def getitem(*args):
+            return 42
+
+        module.dict_assignment(A, getitem)
+        a = A()
+        assert a[12] == 42
+        assert module.test_get_item(a, 0) == 42
+        assert module.test_get_item(b'a', 0) == 'a'
+        raises(IndexError, module.test_get_item, b'a', -2)
+        raises(IndexError, module.test_get_item, b'a', 1)

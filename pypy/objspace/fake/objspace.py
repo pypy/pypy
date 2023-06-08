@@ -3,6 +3,7 @@ from rpython.rlib.objectmodel import (instantiate, we_are_translated, specialize
     not_rpython)
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
+from rpython.rlib.debug import make_sure_not_resized
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype
 from pypy.tool.option import make_config
@@ -149,6 +150,12 @@ class FakeObjSpace(ObjSpace):
         is_root(w_obj)
         return NonConstant(False)
 
+    def hash_w(self, w_obj):
+        return NonConstant(32)
+
+    def len_w(self, w_obj):
+        return NonConstant(37)
+
     def utf8_len_w(self, space):
         return NonConstant((NonConstant("utf8len_foobar"), NonConstant(14)))
 
@@ -161,8 +168,12 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     def newtuple(self, list_w):
+        make_sure_not_resized(list_w)
         for w_x in list_w:
             is_root(w_x)
+        return w_some_obj()
+
+    def newtuple2(self, w_a, w_b):
         return w_some_obj()
 
     def newset(self, list_w=None):
@@ -173,6 +184,9 @@ class FakeObjSpace(ObjSpace):
     newfrozenset = newset
 
     def newlist(self, list_w):
+        # make sure that the annotator thinks that the list is resized
+        list_w.append(W_Root())
+        #
         for w_x in list_w:
             is_root(w_x)
         return W_MyListObj()
@@ -324,11 +338,7 @@ class FakeObjSpace(ObjSpace):
         is_root(w_subtype)
         return instantiate(cls)
 
-    def decode_index(self, w_index_or_slice, seqlength):
-        is_root(w_index_or_slice)
-        return (NonConstant(42), NonConstant(42), NonConstant(42))
-
-    def decode_index4(self, w_index_or_slice, seqlength):
+    def decode_index4(self, w_index_or_slice, w_obj):
         is_root(w_index_or_slice)
         return (NonConstant(42), NonConstant(42),
                 NonConstant(42), NonConstant(42))

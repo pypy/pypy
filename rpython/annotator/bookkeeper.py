@@ -415,8 +415,8 @@ class Bookkeeper(object):
             signature = Signature(['entry'])     # haaaaaack
             defaults = ()
         else:
-            signature = cpython_code_signature(pyfunc.func_code)
-            defaults = pyfunc.func_defaults
+            signature = cpython_code_signature(pyfunc.__code__)
+            defaults = pyfunc.__defaults__
         # get the specializer based on the tag of the 'pyobj'
         # (if any), according to the current policy
         tag = getattr(pyfunc, '_annspecialcase_', None)
@@ -582,7 +582,7 @@ class Bookkeeper(object):
 
 def origin_of_meth(boundmeth):
     func = boundmeth.im_func
-    candname = func.func_name
+    candname = func.__name__
     for cls in inspect.getmro(boundmeth.im_class):
         dict = cls.__dict__
         if dict.get(candname) is func:

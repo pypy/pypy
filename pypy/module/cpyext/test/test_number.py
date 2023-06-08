@@ -169,3 +169,81 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
             ''')])
         val = mod.test_PyNumber_Check(10)
         assert val == 1
+
+    def test_number_tobase(self):
+        import sys
+        mod = self.import_extension('foo', [
+            ("pynumber_tobase", "METH_VARARGS",
+            """
+                PyObject *obj;
+                int base;
+                if (!PyArg_ParseTuple(args, "Oi:pynumber_tobase",
+                                      &obj, &base)) {
+                    return NULL;
+                }
+                return PyNumber_ToBase(obj, base);
+            """)])
+        assert mod.pynumber_tobase(123, 2) == '0b1111011'
+        assert mod.pynumber_tobase(123, 8) == '0o173'
+        assert mod.pynumber_tobase(123, 10) == '123'
+        assert mod.pynumber_tobase(123, 16) == '0x7b'
+        assert mod.pynumber_tobase(-123, 2) == '-0b1111011'
+        assert mod.pynumber_tobase(-123, 8) == '-0o173'
+        assert mod.pynumber_tobase(-123, 10) == '-123'
+        assert mod.pynumber_tobase(-123, 16) == '-0x7b'
+        try:
+            mod.pynumber_tobase(123.0, 10)
+        except TypeError:
+            pass
+        else:
+            assert False, 'expected TypeError'
+        try:
+            mod.pynumber_tobase('123', 10)
+        except TypeError:
+            pass
+        else:
+            assert False, 'expected TypeError'
+        if 'PyPy' in sys.version or sys.version_info >= (3,7):
+            # bpo 38643
+            try:
+                mod.pynumber_tobase(123, 0)
+            except ValueError:
+                pass
+            else:
+                assert False, 'expected TypeError'
+        # large number:
+        num = 2**66
+        assert mod.pynumber_tobase(num, 2) == '0b1' + '0' * 66
+        assert mod.pynumber_tobase(num, 8) == '0o10000000000000000000000'
+        assert mod.pynumber_tobase(num, 10) == str(num)
+        assert mod.pynumber_tobase(num, 16) == '0x40000000000000000'
+
+
+    def test_number_to_ssize_t(self):
+        import sys
+        mod = self.import_extension('foo', [
+            ("to_ssize_t", "METH_VARARGS",
+            """
+                PyObject *obj;
+                PyObject *exc = NULL;
+                long long value;
+                if (!PyArg_ParseTuple(args, "O|O:to_ssize_t",
+                                      &obj, &exc)) {
+                    return NULL;
+                }
+                if (exc == NULL) {
+                    printf("got no exc\\n");
+                } else {
+                    printf("got exc\\n");
+                }
+                value = PyNumber_AsSsize_t(obj, exc);
+                if (PyErr_Occurred()) {
+                    return NULL;
+                }
+                return PyLong_FromLongLong(value);
+            """)])
+        assert mod.to_ssize_t(2 ** 68) == sys.maxsize
+        assert mod.to_ssize_t(12) == 12
+        raises(TypeError, mod.to_ssize_t, 2 ** 68, TypeError)
+
+ 

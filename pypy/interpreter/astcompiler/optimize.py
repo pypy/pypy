@@ -40,9 +40,9 @@ class __extend__(ast.expr):
     def accept_jump_if(self, gen, condition, target):
         self.walkabout(gen)
         if condition:
-            gen.emit_jump(ops.POP_JUMP_IF_TRUE, target, True)
+            gen.emit_jump(ops.POP_JUMP_IF_TRUE, target)
         else:
-            gen.emit_jump(ops.POP_JUMP_IF_FALSE, target, True)
+            gen.emit_jump(ops.POP_JUMP_IF_FALSE, target)
 
 
 class __extend__(ast.Num):

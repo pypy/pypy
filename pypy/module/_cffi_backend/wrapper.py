@@ -138,7 +138,7 @@ def prepare_args(space, rawfunctype, args_w, start_index):
 
 
 W_FunctionWrapper.typedef = TypeDef(
-        'FFIFunctionWrapper',
+        '_cffi_backend.__FFIFunctionWrapper',
         __repr__ = interp2app(W_FunctionWrapper.descr_repr),
         __call__ = interp2app(W_FunctionWrapper.descr_call),
         __name__ = interp_attrproperty('fnname', cls=W_FunctionWrapper, wrapfn="newtext"),

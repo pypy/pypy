@@ -1,3 +1,4 @@
+import os
 import sys
 
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -9,8 +10,17 @@ from rpython.rlib._rsocket_rffi import SAVE_ERR
 
 
 if sys.platform == 'win32' and platform.name != 'mingw32':
-    libraries = ['libeay32', 'ssleay32', 'zlib',
-                 'user32', 'advapi32', 'gdi32', 'msvcrt', 'ws2_32']
+    windows_link_legacy_openssl = os.environ.get(
+        "CRYPTOGRAPHY_WINDOWS_LINK_LEGACY_OPENSSL", None
+    )
+    if windows_link_legacy_openssl is None:
+        # Link against the 1.1.0 names
+        libraries = ["libssl", "libcrypto"]
+    else:
+        # Link against the 1.0.2 and lower names
+        libraries = ["libeay32", "ssleay32"]
+    libraries += ['zlib', "crypt32", 'user32', 'advapi32', 'gdi32', 'msvcrt',
+                  'ws2_32']
     includes = [
         # ssl.h includes winsock.h, which will conflict with our own
         # need of winsock2.  Remove this when separate compilation is
@@ -28,12 +38,14 @@ include_dirs = []
 library_dirs = []
 
 #
-# Work around the fact that since 10.11, OS X no longer ships
-# openssl system-wide, and Homebrew does not install it system-wide.
+# Work around the facts that 
+# - since 10.11, OS X no longer ships openssl system-wide,
+# - Homebrew does not install it system-wide.
+# - on the docker buildbot images, openssl is in /usr/local
 #
 # Make sure your PKG_CONFIG_PATH looks in the right direction, though.
 #
-if sys.platform == 'darwin':
+if sys.platform in ('posix', 'darwin'):
     include_dirs = platform.include_dirs_for_openssl()
     library_dirs = platform.library_dirs_for_openssl()
 
@@ -88,7 +100,7 @@ X509_NAME = rffi.COpaquePtr('X509_NAME')
 X509_VERIFY_PARAM = rffi.COpaquePtr('X509_VERIFY_PARAM')
 stack_st_X509_OBJECT = rffi.COpaquePtr('STACK_OF(X509_OBJECT)')
 DIST_POINT = rffi.COpaquePtr('DIST_POINT')
-stack_st_DIST_POINT = rffi.COpaquePtr('STACK_OF(X509_OBJECT)')
+stack_st_DIST_POINT = rffi.COpaquePtr('STACK_OF(DIST_POINT)')
 DH = rffi.COpaquePtr('DH')
 EC_KEY = rffi.COpaquePtr('EC_KEY')
 AUTHORITY_INFO_ACCESS = rffi.COpaquePtr('AUTHORITY_INFO_ACCESS')

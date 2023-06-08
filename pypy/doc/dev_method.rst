@@ -1,6 +1,16 @@
 Distributed and agile development in PyPy
 =========================================
 
+.. note::
+  This page describes the mode of development that preceeds the current models
+  of Open Source development. While people are welcome to join our (now yearly)
+  sprints, we encourage engagement via the gitlab repo at
+  https://foss.heptapod.net/pypy/pypy. Issues can be filed and discussed in the
+  `issue tracker`_ and we welcome `merge requests`_.
+
+.. _`issue tracker`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/issues
+.. _`merge requests`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/merge_requests
+
 PyPy isn't just about producing code - it's also about how we produce code.
 The challenges of coordinating work within a community and making sure it is
 fused together with the parts of the project that is EU funded are tricky

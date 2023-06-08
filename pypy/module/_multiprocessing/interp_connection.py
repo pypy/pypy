@@ -2,7 +2,7 @@ import sys
 from errno import EINTR
 
 from rpython.rlib import rpoll, rsocket
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -446,7 +446,7 @@ class W_PipeConnection(W_BaseConnection):
                                   left_ptr):
                 raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
 
-            length = intmask(read_ptr[0] + left_ptr[0])
+            length = intmask(read_ptr[0]) + intmask(left_ptr[0])
             if length > maxlength: # bad message, close connection
                 self.flags &= ~READABLE
                 if self.flags == 0:
@@ -454,17 +454,18 @@ class W_PipeConnection(W_BaseConnection):
                 raise oefmt(space.w_IOError, "bad message length")
 
             newbuf = lltype.malloc(rffi.CCHARP.TO, length + 1, flavor='raw')
-            for i in range(read_ptr[0]):
+            length_read = intmask(read_ptr[0])
+            for i in range(length_read):
                 newbuf[i] = self.buffer[i]
 
             result = _ReadFile(self.handle,
-                               rffi.ptradd(newbuf, read_ptr[0]), left_ptr[0],
+                               rffi.ptradd(newbuf, length_read), left_ptr[0],
                                read_ptr, rffi.NULL)
             if not result:
                 rffi.free_charp(newbuf)
                 raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
 
-            assert read_ptr[0] == left_ptr[0]
+            assert r_uint(read_ptr[0]) == r_uint(left_ptr[0])
             return length, newbuf
         finally:
             lltype.free(read_ptr, flavor='raw')
@@ -483,7 +484,7 @@ class W_PipeConnection(W_BaseConnection):
                                   bytes_ptr,
                                   lltype.nullptr(rwin32.LPDWORD.TO)):
                 raise wrap_windowserror(space, rwin32.lastSavedWindowsError())
-            bytes = bytes_ptr[0]
+            bytes = r_uint(bytes_ptr[0])
         finally:
             lltype.free(bytes_ptr, flavor='raw')
 
@@ -510,7 +511,7 @@ class W_PipeConnection(W_BaseConnection):
                                       lltype.nullptr(rwin32.LPDWORD.TO)):
                     raise wrap_windowserror(space,
                                             rwin32.lastSavedWindowsError())
-                bytes = bytes_ptr[0]
+                bytes = r_uint(bytes_ptr[0])
             finally:
                 lltype.free(bytes_ptr, flavor='raw')
 

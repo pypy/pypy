@@ -86,8 +86,13 @@ def builtin_range(*args):
 builtin_xrange = builtin_range # xxx for now allow it
 
 
-def builtin_enumerate(s_obj):
-    return SomeIterator(s_obj, "enumerate")
+def builtin_enumerate(s_obj, s_start=None):
+    const = None
+    if s_start is not None:
+        if not s_start.is_constant():
+            raise AnnotatorError("second argument to enumerate must be constant")
+        const = s_start.const
+    return SomeIterator(s_obj, "enumerate", const)
 
 
 def builtin_reversed(s_obj):

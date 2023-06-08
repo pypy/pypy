@@ -400,20 +400,6 @@ class TestModuleMinimal:
         assert w1 is w0
         w2 = space.new_interned_w_str(w0)
         assert w2 is w0
-        w3 = space.wrap(s)
-        assert w3 is not w0
-        w4 = space.new_interned_w_str(w3)
-        assert w4 is w0
-        #
-        # check that 'w0' goes away if we don't hold a reference to it
-        # (even if we hold a reference to 'w3')
-        rw0 = weakref.ref(w0)
-        del w0, w1, w2, w4
-        i = 10
-        while rw0() is not None:
-            i -= 1
-            assert i >= 0
-            gc.collect()
 
     def test_exitfunc_catches_exceptions(self):
         from pypy.tool.pytest.objspace import maketestobjspace

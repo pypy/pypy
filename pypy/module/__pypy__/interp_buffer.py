@@ -1,6 +1,6 @@
-#
-# An app-level interface to tp_as_buffer->bf_getbuffer.
-#
+"""
+Allow use of the buffer interface from python
+"""
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app
@@ -51,6 +51,9 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
                   "shape/itemsize %s/%d does not match obj len/itemsize %d/%d",
                   str(shape), itemsize, lgt, old_size)
     else:
+        if itemsize == 0:
+            raise oefmt(space.w_ValueError,
+                "cannot guess shape when itemsize==0")
         if nbytes % itemsize != 0:
             raise oefmt(space.w_ValueError,
                   "itemsize %d does not match obj len/itemsize %d/%d",
@@ -58,7 +61,7 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
         shape = [nbytes / itemsize,]
     ndim = len(shape)
     if w_strides:
-        strides = [] 
+        strides = []
         for w_v in space.listview(w_strides):
             v = space.int_w(w_v)
             strides.append(v)

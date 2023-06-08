@@ -15,6 +15,9 @@ try:
 except ImportError:
     ssl = None
 
+from test.test_urllib import FakeHTTPMixin
+
+
 # XXX
 # Request
 # CacheFTPHandler (hard to write)
@@ -134,6 +137,7 @@ def test_password_manager(self):
     >>> add("Some Realm", "http://example.com/ni", "ni", "ni")
     >>> add("c", "http://example.com/foo", "foo", "ni")
     >>> add("c", "http://example.com/bar", "bar", "nini")
+    >>> add("c", "http://example.com/foo/bar", "foobar", "nibar")
     >>> add("b", "http://example.com/", "first", "blah")
     >>> add("b", "http://example.com/", "second", "spam")
     >>> add("a", "http://example.com", "1", "a")
@@ -155,6 +159,22 @@ def test_password_manager(self):
     ('foo', 'ni')
     >>> mgr.find_user_password("c", "http://example.com/bar")
     ('bar', 'nini')
+    >>> mgr.find_user_password("c", "http://example.com/foo/")
+    ('foo', 'ni')
+    >>> mgr.find_user_password("c", "http://example.com/foo/bar")
+    ('foo', 'ni')
+    >>> mgr.find_user_password("c", "http://example.com/foo/baz")
+    ('foo', 'ni')
+    >>> mgr.find_user_password("c", "http://example.com/foobar")
+    (None, None)
+
+    >>> add("c", "http://example.com/baz/", "baz", "ninini")
+    >>> mgr.find_user_password("c", "http://example.com/baz")
+    (None, None)
+    >>> mgr.find_user_password("c", "http://example.com/baz/")
+    ('baz', 'ninini')
+    >>> mgr.find_user_password("c", "http://example.com/baz/bar")
+    ('baz', 'ninini')
 
     Actually, this is really undefined ATM
 ##     Currently, we use the highest-level path where more than one match:
@@ -285,8 +305,6 @@ class MockHTTPResponse:
         self.reason = reason
     def read(self):
         return ''
-    def _reuse(self): pass
-    def _drop(self): pass
 
 class MockHTTPClass:
     def __init__(self):
@@ -1128,42 +1146,67 @@ class HandlerTests(unittest.TestCase):
         self.assertEqual(req.get_host(), "proxy.example.com:3128")
         self.assertEqual(req.get_header("Proxy-authorization"),"FooBar")
 
-    def test_basic_auth(self, quote_char='"'):
+    def check_basic_auth(self, headers, realm):
         opener = OpenerDirector()
         password_manager = MockPasswordManager()
         auth_handler = urllib2.HTTPBasicAuthHandler(password_manager)
-        realm = "ACME Widget Store"
-        http_handler = MockHTTPHandler(
-            401, 'WWW-Authenticate: Basic realm=%s%s%s\r\n\r\n' %
-            (quote_char, realm, quote_char) )
+        body = '\r\n'.join(headers) + '\r\n\r\n'
+        http_handler = MockHTTPHandler(401, body)
         opener.add_handler(auth_handler)
         opener.add_handler(http_handler)
         self._test_basic_auth(opener, auth_handler, "Authorization",
                               realm, http_handler, password_manager,
                               "http://acme.example.com/protected",
-                              "http://acme.example.com/protected"
-                             )
+                              "http://acme.example.com/protected")
 
-    def test_basic_auth_with_single_quoted_realm(self):
-        self.test_basic_auth(quote_char="'")
+    def test_basic_auth(self):
+        realm = "realm2@example.com"
+        realm2 = "realm2@example.com"
+        basic = 'Basic realm="{realm}"'.format(realm=realm)
+        basic2 = 'Basic realm="{realm2}"'.format(realm2=realm2)
+        other_no_realm = 'Otherscheme xxx'
+        digest = ('Digest realm="{realm2}", '
+                  'qop="auth, auth-int", '
+                  'nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093", '
+                  'opaque="5ccc069c403ebaf9f0171e9517f40e41"'
+                  .format(realm2=realm2))
+        for realm_str in (
+            # test "quote" and 'quote'
+            'Basic realm="{realm}"'.format(realm=realm),
+            "Basic realm='{realm}'".format(realm=realm),
 
-    def test_basic_auth_with_unquoted_realm(self):
-        opener = OpenerDirector()
-        password_manager = MockPasswordManager()
-        auth_handler = urllib2.HTTPBasicAuthHandler(password_manager)
-        realm = "ACME Widget Store"
-        http_handler = MockHTTPHandler(
-            401, 'WWW-Authenticate: Basic realm=%s\r\n\r\n' % realm)
-        opener.add_handler(auth_handler)
-        opener.add_handler(http_handler)
-        msg = "Basic Auth Realm was unquoted"
-        with test_support.check_warnings((msg, UserWarning)):
-            self._test_basic_auth(opener, auth_handler, "Authorization",
-                                  realm, http_handler, password_manager,
-                                  "http://acme.example.com/protected",
-                                  "http://acme.example.com/protected"
-                                 )
+            # charset is ignored
+            'Basic realm="{realm}", charset="UTF-8"'.format(realm=realm),
 
+            # Multiple challenges per header
+            ', '.join((basic, basic2)),
+            ', '.join((basic, other_no_realm)),
+            ', '.join((other_no_realm, basic)),
+            ', '.join((basic, digest)),
+            ', '.join((digest, basic)),
+        ):
+            headers = ['WWW-Authenticate: {realm_str}'
+                       .format(realm_str=realm_str)]
+            self.check_basic_auth(headers, realm)
+
+        # no quote: expect a warning
+        with test_support.check_warnings(("Basic Auth Realm was unquoted",
+                                     UserWarning)):
+            headers = ['WWW-Authenticate: Basic realm={realm}'
+                       .format(realm=realm)]
+            self.check_basic_auth(headers, realm)
+
+        # Multiple headers: one challenge per header.
+        # Use the first Basic realm.
+        for challenges in (
+            [basic,  basic2],
+            [basic,  digest],
+            [digest, basic],
+        ):
+            headers = ['WWW-Authenticate: {challenge}'
+                       .format(challenge=challenge)
+                       for challenge in challenges]
+            self.check_basic_auth(headers, realm)
 
     def test_proxy_basic_auth(self):
         opener = OpenerDirector()
@@ -1265,7 +1308,7 @@ class HandlerTests(unittest.TestCase):
         self.assertEqual(len(http_handler.requests), 1)
         self.assertFalse(http_handler.requests[0].has_header(auth_header))
 
-class MiscTests(unittest.TestCase):
+class MiscTests(unittest.TestCase, FakeHTTPMixin):
 
     def test_build_opener(self):
         class MyHTTPHandler(urllib2.HTTPHandler): pass
@@ -1319,6 +1362,70 @@ class MiscTests(unittest.TestCase):
             str(exc.exception),
             "Unsupported digest authentication algorithm 'invalid'"
         )
+
+    @unittest.skipUnless(ssl, "ssl module required")
+    def test_url_path_with_control_char_rejected(self):
+        for char_no in range(0, 0x21) + range(0x7f, 0x100):
+            char = chr(char_no)
+            schemeless_url = "//localhost:7777/test%s/" % char
+            self.fakehttp(b"HTTP/1.1 200 OK\r\n\r\nHello.")
+            try:
+                # We explicitly test urllib.request.urlopen() instead of the top
+                # level 'def urlopen()' function defined in this... (quite ugly)
+                # test suite.  They use different url opening codepaths.  Plain
+                # urlopen uses FancyURLOpener which goes via a codepath that
+                # calls urllib.parse.quote() on the URL which makes all of the
+                # above attempts at injection within the url _path_ safe.
+                escaped_char_repr = repr(char).replace('\\', r'\\')
+                InvalidURL = httplib.InvalidURL
+                with self.assertRaisesRegexp(
+                    InvalidURL, "contain control.*" + escaped_char_repr):
+                    urllib2.urlopen("http:" + schemeless_url)
+                with self.assertRaisesRegexp(
+                    InvalidURL, "contain control.*" + escaped_char_repr):
+                    urllib2.urlopen("https:" + schemeless_url)
+            finally:
+                self.unfakehttp()
+
+    @unittest.skipUnless(ssl, "ssl module required")
+    def test_url_path_with_newline_header_injection_rejected(self):
+        self.fakehttp(b"HTTP/1.1 200 OK\r\n\r\nHello.")
+        host = "localhost:7777?a=1 HTTP/1.1\r\nX-injected: header\r\nTEST: 123"
+        schemeless_url = "//" + host + ":8080/test/?test=a"
+        try:
+            # We explicitly test urllib2.urlopen() instead of the top
+            # level 'def urlopen()' function defined in this... (quite ugly)
+            # test suite.  They use different url opening codepaths.  Plain
+            # urlopen uses FancyURLOpener which goes via a codepath that
+            # calls urllib.parse.quote() on the URL which makes all of the
+            # above attempts at injection within the url _path_ safe.
+            InvalidURL = httplib.InvalidURL
+            with self.assertRaisesRegexp(InvalidURL,
+                    r"contain control.*\\r.*(found at least . .)"):
+                urllib2.urlopen("http:{}".format(schemeless_url))
+            with self.assertRaisesRegexp(InvalidURL,
+                    r"contain control.*\\n"):
+                urllib2.urlopen("https:{}".format(schemeless_url))
+        finally:
+            self.unfakehttp()
+
+    @unittest.skipUnless(ssl, "ssl module required")
+    def test_url_host_with_control_char_rejected(self):
+        for char_no in list(range(0, 0x21)) + [0x7f]:
+            char = chr(char_no)
+            schemeless_url = "//localhost{}/test/".format(char)
+            self.fakehttp(b"HTTP/1.1 200 OK\r\n\r\nHello.")
+            try:
+                escaped_char_repr = repr(char).replace('\\', r'\\')
+                InvalidURL = httplib.InvalidURL
+                with self.assertRaisesRegexp(InvalidURL,
+                    "contain control.*{}".format(escaped_char_repr)):
+                        urllib2.urlopen("http:{}".format(schemeless_url))
+                with self.assertRaisesRegexp(InvalidURL,
+                    "contain control.*{}".format(escaped_char_repr)):
+                        urllib2.urlopen("https:{}".format(schemeless_url))
+            finally:
+                self.unfakehttp()
 
 
 class RequestTests(unittest.TestCase):

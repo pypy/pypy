@@ -291,7 +291,7 @@ class Connection(object):
             raise ProgrammingError(
                 "SQLite objects created in a thread can only be used in that "
                 "same thread. The object was created in thread id %d and this "
-                "is thread id %d" % (self.__thread_ident, _thread_get_ident()))
+                "is thread id %d." % (self.__thread_ident, _thread_get_ident()))
 
     def _check_thread_wrap(func):
         @wraps(func)
@@ -705,6 +705,8 @@ class Cursor(object):
         self.__initialized = True
 
     def close(self):
+        if not self.__initialized:
+            raise ProgrammingError("Base Cursor.__init__ not called.")
         self.__connection._check_thread()
         self.__connection._check_closed()
         if self.__statement:
@@ -988,6 +990,7 @@ class Cursor(object):
         return list(self)
 
     def __get_connection(self):
+        self.__check_cursor()
         return self.__connection
     connection = property(__get_connection)
 
@@ -999,9 +1002,22 @@ class Cursor(object):
         try:
             return self.__description
         except AttributeError:
-            if self.__statement:
-                self.__description = self.__statement._get_description()
-                return self.__description
+            if not self.__statement:
+                return None
+            statement = self.__statement
+            if not statement._valid:
+                return None
+
+            if not (hasattr(self, '_Cursor__next_row') or statement._type == _STMT_TYPE_SELECT):
+                return None
+            desc = []
+            for i in xrange(_lib.sqlite3_column_count(statement._statement)):
+                name = _lib.sqlite3_column_name(statement._statement, i)
+                if name:
+                    name = _ffi.string(name).split("[")[0].strip()
+                desc.append((name, None, None, None, None, None, None))
+            self.__description = tuple(desc)
+            return self.__description
     description = property(__get_description)
 
     def __get_lastrowid(self):
@@ -1029,7 +1045,7 @@ class Statement(object):
             raise ValueError("the query contains a null character")
 
         
-        if sql:
+        if sql.strip():
             first_word = sql.lstrip().split()[0].upper()
             if first_word == '':
                 self._type = _STMT_TYPE_INVALID
@@ -1050,6 +1066,9 @@ class Statement(object):
 
         if isinstance(sql, unicode):
             sql = sql.encode('utf-8')
+
+        self._valid = True
+
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
         c_sql = _ffi.new("char[]", sql)
@@ -1060,10 +1079,11 @@ class Statement(object):
         if ret == _lib.SQLITE_OK and not self._statement:
             # an empty statement, work around that, as it's the least trouble
             self._type = _STMT_TYPE_SELECT
-            c_sql = _ffi.new("char[]", b"select 42")
+            c_sql = _ffi.new("char[]", b"select 42 where 42 = 23")
             ret = _lib.sqlite3_prepare_v2(self.__con._db, c_sql, -1,
                                           statement_star, next_char)
             self._statement = statement_star[0]
+            self._valid = False
 
         if ret != _lib.SQLITE_OK:
             raise self.__con._get_exception(ret)
@@ -1103,10 +1123,6 @@ class Statement(object):
                             "just switch your application to Unicode strings.")
 
     def __set_param(self, idx, param):
-        cvt = converters.get(type(param))
-        if cvt is not None:
-            param = cvt(param)
-
         try:
             param = adapt(param)
         except:
@@ -1179,21 +1195,6 @@ class Statement(object):
         else:
             raise ValueError("parameters are of unsupported type")
 
-    def _get_description(self):
-        if self._type in (
-            _STMT_TYPE_INSERT,
-            _STMT_TYPE_UPDATE,
-            _STMT_TYPE_DELETE,
-            _STMT_TYPE_REPLACE
-        ):
-            return None
-        desc = []
-        for i in xrange(_lib.sqlite3_column_count(self._statement)):
-            name = _lib.sqlite3_column_name(self._statement, i)
-            if name:
-                name = _ffi.string(name).split("[")[0].strip()
-            desc.append((name, None, None, None, None, None, None))
-        return desc
 
 
 class Row(object):

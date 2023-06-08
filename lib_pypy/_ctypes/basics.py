@@ -1,5 +1,6 @@
 import _rawffi
 from _rawffi import alt as _ffi
+from __pypy__ import newmemoryview
 import sys
 
 try:
@@ -45,6 +46,9 @@ class COMError(Exception):
         self.details = details
 
 class _CDataMeta(type):
+    def _is_abstract(self):
+        return getattr(self, '_type_', 'abstract') == 'abstract'
+
     def from_param(self, value):
         if isinstance(value, self):
             return value
@@ -95,6 +99,8 @@ class _CDataMeta(type):
         return self.from_address(dll.__pypy_dll__.getaddressindll(name))
 
     def from_buffer(self, obj, offset=0):
+        if self._is_abstract():
+            raise TypeError('abstract class')
         size = self._sizeofinstances()
         if isinstance(obj, (str, unicode)):
             # hack, buffer(str) will always return a readonly buffer.
@@ -121,6 +127,8 @@ class _CDataMeta(type):
         return result
 
     def from_buffer_copy(self, obj, offset=0):
+        if self._is_abstract():
+            raise TypeError('abstract class')
         size = self._sizeofinstances()
         buf = buffer(obj, offset, size)
         if len(buf) < size:
@@ -142,6 +150,9 @@ class _CDataMeta(type):
         result = self.__new__(self)
         result._init_no_arg_()
         return result
+
+    def _getformat(self):
+        raise ValueError('cannot get format string for %r' % self)
 
 
 class CArgObject(object):
@@ -203,7 +214,10 @@ class _CData(bufferable):
             return self.value
 
     def __buffer__(self, flags):
-        return buffer(self._buffer)
+        rawview = memoryview(self._buffer)
+        fmt = type(self)._getformat()
+        itemsize = sizeof(type(self))
+        return newmemoryview(rawview, itemsize, fmt, ())
 
     def _get_b_base(self):
         try:
@@ -235,8 +249,7 @@ def alignment(tp):
 
 @builtinify
 def byref(cdata, offset=0):
-    # "pointer" is imported at the end of this module to avoid circular
-    # imports
+    from _ctypes.pointer import pointer
     ptr = pointer(cdata)
     if offset != 0:
         ptr._buffer[0] += offset
@@ -311,7 +324,3 @@ def as_ffi_pointer(value, ffitype):
         raise ArgumentError("expected %s instance, got %s" % (type(value),
                                                               ffitype))
     return value._get_buffer_value()
-
-
-# used by "byref"
-from _ctypes.pointer import pointer

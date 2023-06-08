@@ -40,13 +40,15 @@ class BaseAppTestFFI(object):
     def setup_class(cls):
         space = cls.space
         cls.w_iswin32 = space.wrap(sys.platform == 'win32')
+        cls.w_iswin64 = space.wrap(sys.platform == 'win32'
+                                   and sys.maxint == 2**63-1)
         cls.w_libfoo_name = space.wrap(cls.prepare_c_example())
         cls.w_libc_name = space.wrap(get_libc_name())
         libm_name = get_libm_name(sys.platform)
         cls.w_libm_name = space.wrap(libm_name)
         libm = CDLL(libm_name)
         pow = libm.getpointer('pow', [], types.void)
-        pow_addr = rffi.cast(rffi.LONG, pow.funcsym)
+        pow_addr = rffi.cast(rffi.SIGNED, pow.funcsym)
         cls._libm = libm     # otherwise it gets unloaded - argh!
         cls.w_pow_addr = space.wrap(pow_addr)
 
@@ -208,10 +210,10 @@ class AppTestFFI(BaseAppTestFFI):
         mystrlen = libfoo.getfunc('mystrlen', [types.char_p], types.slong)
         #
         # first, try automatic conversion from a string
-        assert mystrlen('foobar') == 6
+        assert mystrlen(b'foobar') == 6
         # then, try to pass an explicit pointer
         CharArray = _rawffi.Array('c')
-        mystr = CharArray(7, 'foobar')
+        mystr = CharArray(7, b'foobar')
         assert mystrlen(mystr.buffer) == 6
         mystr.free()
         mystrlen.free_temp_buffers()
@@ -258,7 +260,7 @@ class AppTestFFI(BaseAppTestFFI):
         do_nothing = libfoo.getfunc('do_nothing', [types.char_p], types.char_p)
         CharArray = _rawffi.Array('c')
         #
-        ptr = do_nothing('foobar')
+        ptr = do_nothing(b'foobar')
         array = CharArray.fromaddress(ptr, 7)
         assert list(array) == list('foobar\00')
         do_nothing.free_temp_buffers()
@@ -302,13 +304,16 @@ class AppTestFFI(BaseAppTestFFI):
         """
         import sys
         from _rawffi.alt import CDLL, types
+        maxlong = sys.maxint
+        if sys.platform == 'win32':
+            maxlong = 2147483647
         libfoo = CDLL(self.libfoo_name)
         sum_xy = libfoo.getfunc('sum_xy_ul', [types.ulong, types.ulong],
                                 types.ulong)
-        assert sum_xy(sys.maxint, 12) == sys.maxint+12
-        assert sum_xy(sys.maxint+1, 12) == sys.maxint+13
+        assert sum_xy(maxlong, 12) == maxlong+12
+        assert sum_xy(maxlong+1, 12) == maxlong+13
         #
-        res = sum_xy(sys.maxint*2+3, 0)
+        res = sum_xy(maxlong*2+3, 0)
         assert res == 1
 
     def test_unsigned_short_args(self):
@@ -380,7 +385,9 @@ class AppTestFFI(BaseAppTestFFI):
         libfoo = CDLL(self.libfoo_name)
         my_toupper = libfoo.getfunc('my_toupper', [types.char],
                                     types.char)
-        assert my_toupper('c') == 'C'
+        res = my_toupper(b'c')
+        assert type(res) is bytes
+        assert res == b'C'
 
     def test_unichar_args(self):
         """
@@ -572,8 +579,9 @@ class AppTestFFI(BaseAppTestFFI):
         raises(AttributeError, "libnone.getfunc('I_do_not_exist', [], types.void)")
 
     def test_calling_convention1(self):
-        if not self.iswin32:
-            skip("windows specific")
+        # win64 doesn't have __stdcall
+        if not self.iswin32 or self.iswin64:
+            skip("windows 32-bit specific")
         from _rawffi.alt import WinDLL, types
         libm = WinDLL(self.libm_name)
         pow = libm.getfunc('pow', [types.double, types.double], types.double)
@@ -593,8 +601,9 @@ class AppTestFFI(BaseAppTestFFI):
         sleep(10)
 
     def test_calling_convention3(self):
-        if not self.iswin32:
-            skip("windows specific")
+        # win64 doesn't have __stdcall
+        if not self.iswin32 or self.iswin64:
+            skip("windows 32-bit specific")
         from _rawffi.alt import CDLL, types
         wrong_kernel = CDLL('Kernel32.dll')
         wrong_sleep = wrong_kernel.getfunc('Sleep', [types.uint], types.void)
@@ -606,8 +615,9 @@ class AppTestFFI(BaseAppTestFFI):
             assert 0, 'test must assert, wrong calling convention'
 
     def test_func_fromaddr2(self):
-        if not self.iswin32:
-            skip("windows specific")
+        # win64 doesn't have __stdcall
+        if not self.iswin32 or self.iswin64:
+            skip("windows 32-bit specific")
         from _rawffi.alt import CDLL, types, FuncPtr
         from _rawffi import FUNCFLAG_STDCALL
         libm = CDLL(self.libm_name)
@@ -622,6 +632,7 @@ class AppTestFFI(BaseAppTestFFI):
             assert 0, 'test must assert, wrong calling convention'
 
     def test_func_fromaddr3(self):
+        # win64: check FUNCFLAG_STDCALL is ignored on win64, as it should be
         if not self.iswin32:
             skip("windows specific")
         from _rawffi.alt import WinDLL, types, FuncPtr
