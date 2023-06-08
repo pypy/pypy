@@ -61,3 +61,23 @@ class TestGenExtension(LLJitMixin):
             return res
         res = self.meta_interp(f, [6, 7], backendopt=True)
         assert res == f(6, 7)
+
+    def test_call(self):
+        def dec(x):
+            return x - 1
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+        @warmup_critical_function
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                res += x
+                y = dec(y)
+            return res
+        res = self.meta_interp(f, [6, 7])
+        assert res == 42
+        self.check_trace_count(1)
+        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
+                           'guard_true': 2, 'int_sub': 2})
+
