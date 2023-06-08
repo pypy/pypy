@@ -63,9 +63,12 @@ class TestGenExtension(LLJitMixin):
         assert res == f(6, 7)
 
     def test_call(self):
+        @warmup_critical_function
         def dec(x):
             return x - 1
+
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+
         @warmup_critical_function
         def f(x, y):
             res = 0

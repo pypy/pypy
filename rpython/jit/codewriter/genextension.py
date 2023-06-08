@@ -15,24 +15,46 @@ class GenExtension(object):
         self.precode = []
         self.code = []
         self.globals = {}
+        self._reset_insn()
+
+    def _reset_insn(self):
+        # the following attributes are set for each instruction emitted
+        self.name = None
+        self.methodname = None
+        self.argcodes = None
+        self.insn = None
+        self.args = None
+        self.returncode = None
+        self.returnindex = None
 
     def generate(self, ssarepr, jitcode):
         from rpython.jit.codewriter.flatten import Label
         from rpython.jit.codewriter.jitcode import JitCode
+        from rpython.jit.metainterp.pyjitpl import ChangeFrame
         self.setup(ssarepr, jitcode)
         self.precode.append("def jit_shortcut(self):")
         self.precode.append("    pc = self.pc")
         self.precode.append("    while 1:")
         for index, insn in enumerate(ssarepr.insns):
+            self._reset_insn()
             if isinstance(insn[0], Label) or insn[0] == '---':
                 continue
+            self.insn = insn
             pc = ssarepr._insns_pos[index]
             self.code.append("if pc == %s:" % pc)
             if index == len(self.ssarepr.insns) - 1:
                 nextpc = len(self.jitcode.code)
             else:
                 nextpc = self.ssarepr._insns_pos[index + 1]
-            lines, needed_orgpc, needed_label = self._emit_instruction(insn, index, pc, nextpc)
+            self.code.append("    self.pc = %s" % (nextpc, ))
+            instruction = self.insns[ord(self.jitcode.code[pc])]
+            self.name, self.argcodes = instruction.split("/")
+            self.methodname = 'opimpl_' + self.name
+            lines, needed_orgpc, needed_label = self._parse_args(index, pc, nextpc)
+            for line in lines:
+                self.code.append("    " + line)
+            meth = getattr(self, "emit_" + self.name, self.emit_default)
+            lines = meth()
             for line in lines:
                 self.code.append("    " + line)
             pcs = self.next_possible_pcs(insn, needed_label, nextpc)
@@ -57,26 +79,19 @@ class GenExtension(object):
         for line in self.code:
             allcode.append(" " * 8 + line)
         jitcode._genext_source = "\n".join(allcode)
-        d = {"ConstInt": ConstInt, "JitCode": JitCode}
+        d = {"ConstInt": ConstInt, "JitCode": JitCode, "ChangeFrame": ChangeFrame}
         source = py.code.Source(jitcode._genext_source)
         exec source.compile() in d
         print jitcode._genext_source
         jitcode.genext_function = d['jit_shortcut']
+        jitcode.genext_function.__name__ += "_" + jitcode.name
 
-    def _emit_instruction(self, insn, index, pc, nextpc):
+    def _parse_args(self, index, pc, nextpc):
         from rpython.jit.metainterp.pyjitpl import MIFrame
         from rpython.jit.metainterp.blackhole import signedord
         lines = []
-        # first, write self.pc
-        lines.append("self.pc = %s" % (nextpc, ))
-        if insn[0] == '-live-':
-            lines.append('pass # live')
-            return lines, False, None
 
-        instruction = self.insns[ord(self.jitcode.code[pc])]
-        name, argcodes = instruction.split("/")
-        methodname = 'opimpl_' + name
-        unboundmethod = getattr(MIFrame, methodname).im_func
+        unboundmethod = getattr(MIFrame, self.methodname).im_func
         argtypes = unboundmethod.argtypes
 
         # collect arguments, this is a 'timeshifted' version of the code in
@@ -91,7 +106,7 @@ class GenExtension(object):
         needed_label = None
         for argtype in argtypes:
             if argtype == "box":     # a box, of whatever type
-                argcode = argcodes[next_argcode]
+                argcode = self.argcodes[next_argcode]
                 next_argcode = next_argcode + 1
                 if argcode == 'i':
                     value = "self.registers_i[%s]" % (ord(code[position]), )
@@ -105,7 +120,7 @@ class GenExtension(object):
                     raise AssertionError("bad argcode")
                 position += 1
             elif argtype == "descr" or argtype == "jitcode":
-                assert argcodes[next_argcode] == 'd'
+                assert self.argcodes[next_argcode] == 'd'
                 next_argcode = next_argcode + 1
                 index = ord(code[position]) | (ord(code[position+1])<<8)
                 argname = "arg%s" % position
@@ -115,7 +130,7 @@ class GenExtension(object):
                     self.code.append("    assert isinstance(%s, JitCode)" % argname)
                 position += 2
             elif argtype == "label":
-                assert argcodes[next_argcode] == 'L'
+                assert self.argcodes[next_argcode] == 'L'
                 next_argcode = next_argcode + 1
                 assert needed_label is None # only one label per instruction
                 needed_label = ord(code[position]) | (ord(code[position+1])<<8)
@@ -125,7 +140,7 @@ class GenExtension(object):
                 length = ord(code[position])
                 value = [None] * length
                 self.prepare_list_of_boxes(value, 0, position,
-                                           argcodes[next_argcode])
+                                           self.argcodes[next_argcode])
                 next_argcode = next_argcode + 1
                 position += 1 + length
                 value = '[' + ",".join(value) + "]"
@@ -135,9 +150,9 @@ class GenExtension(object):
                 length2 = ord(code[position2])
                 value = [None] * (length1 + length2)
                 self.prepare_list_of_boxes(value, 0, position,
-                                           argcodes[next_argcode])
+                                           self.argcodes[next_argcode])
                 self.prepare_list_of_boxes(value, length1, position2,
-                                           argcodes[next_argcode + 1])
+                                           self.argcodes[next_argcode + 1])
                 next_argcode = next_argcode + 2
                 position = position2 + 1 + length2
                 value = '[' + ",".join(value) + "]"
@@ -149,11 +164,11 @@ class GenExtension(object):
                 length3 = ord(code[position3])
                 value = [None] * (length1 + length2 + length3)
                 self.prepare_list_of_boxes(value, 0, position,
-                                           argcodes[next_argcode])
+                                           self.argcodes[next_argcode])
                 self.prepare_list_of_boxes(value, length1, position2,
-                                           argcodes[next_argcode + 1])
+                                           self.argcodes[next_argcode + 1])
                 self.prepare_list_of_boxes(value, length1 + length2, position3,
-                                           argcodes[next_argcode + 2])
+                                           self.argcodes[next_argcode + 2])
                 next_argcode = next_argcode + 3
                 position = position3 + 1 + length3
                 value = '[' + ",".join(value) + "]"
@@ -165,7 +180,7 @@ class GenExtension(object):
                 # into the correct position of a new MIFrame
 
                 # first get the jitcode
-                assert argcodes[next_argcode] == 'd'
+                assert self.argcodes[next_argcode] == 'd'
                 next_argcode = next_argcode + 1
                 index = ord(code[position]) | (ord(code[position+1])<<8)
                 value = argname = "arg%s" % position
@@ -179,28 +194,26 @@ class GenExtension(object):
                 # generate code to put boxes into the right places
                 length = ord(code[position])
                 self.fill_registers(lines, argname, length, position + 1,
-                                    argcodes[next_argcode])
+                                    self.argcodes[next_argcode])
                 next_argcode = next_argcode + 1
                 position += 1 + length
                 if argtype != "newframe": # 2/3 lists of boxes
                     length = ord(code[position])
                     self.fill_registers(lines, argname, length, position + 1,
-                                        argcodes[next_argcode])
+                                        self.argcodes[next_argcode])
                     next_argcode = next_argcode + 1
                     position += 1 + length
                 if argtype == "newframe3": # 3 lists of boxes
                     length = ord(code[position])
                     self.fill_registers(lines, argname, length, position + 1,
-                                        argcodes[next_argcode])
+                                        self.argcodes[next_argcode])
                     next_argcode = next_argcode + 1
                     position += 1 + length
-                lines.append("return # change frame %s" % (insn, ))
-                return lines, needed_orgpc, needed_label
             elif argtype == "orgpc":
                 value = str(orgpc)
                 needed_orgpc = True
             elif argtype == "int":
-                argcode = argcodes[next_argcode]
+                argcode = self.argcodes[next_argcode]
                 next_argcode = next_argcode + 1
                 if argcode == 'i':
                     pos = ord(code[position])
@@ -218,36 +231,74 @@ class GenExtension(object):
             else:
                 raise AssertionError("bad argtype: %r" % (argtype,))
             args.append(value)
-        strargs = ", ".join(args)
-
-        if insn[0] == "goto":
-            assert len(args) == 1
-            lines.append("pc = self.pc = %s # goto" % (args[0], ))
-            lines.append("continue")
-            return lines, needed_orgpc, needed_label
-
-        num_return_args = len(argcodes) - next_argcode
+        num_return_args = len(self.argcodes) - next_argcode
         assert num_return_args == 0 or num_return_args == 2
         if num_return_args:
+            returncode = self.argcodes[next_argcode + 1]
+            resindex = ord(code[position])
+        else:
+            returncode = 'v'
+            resindex = -1
+        self.args = args
+        self.returncode = returncode
+        self.resindex = resindex
+        return lines, needed_orgpc, needed_label
+
+    def emit_live(self):
+        return ["pass # live"]
+
+    def emit_goto(self):
+        assert len(self.args) == 1
+        lines = []
+        lines.append("pc = self.pc = %s # goto" % (self.args[0], ))
+        lines.append("continue")
+        return lines
+
+    def emit_newframe_function(self):
+        return ["return # change frame"]
+    emit_inline_call_r_i = emit_newframe_function
+    emit_inline_call_r_r = emit_newframe_function
+    emit_inline_call_r_v = emit_newframe_function
+    emit_inline_call_ir_i = emit_newframe_function
+    emit_inline_call_ir_r = emit_newframe_function
+    emit_inline_call_ir_v = emit_newframe_function
+    emit_inline_call_irf_i = emit_newframe_function
+    emit_inline_call_irf_r = emit_newframe_function
+    emit_inline_call_irf_f = emit_newframe_function
+    emit_inline_call_irf_v = emit_newframe_function
+
+    def emit_default(self):
+        lines = []
+        strargs = ", ".join(self.args)
+        if self.returncode != 'v':
             # Save the type of the resulting box.  This is needed if there is
             # a get_list_of_active_boxes().  See comments there.
-            lines.append("self._result_argcode = %r" % (argcodes[next_argcode + 1], ))
-            resindex = ord(code[position])
-            if argcodes[next_argcode + 1] == "i":
-                prefix = "self.registers_i[%s] = " % resindex
-            elif argcodes[next_argcode + 1] == "r":
-                prefix = "self.registers_r[%s] = " % resindex
-            elif argcodes[next_argcode + 1] == "f":
-                prefix = "self.registers_f[%s] = " % resindex
+            lines.append("self._result_argcode = %r" % (self.returncode, ))
+            if self.returncode == "i":
+                prefix = "self.registers_i[%s] = " % self.resindex
+            elif self.returncode == "r":
+                prefix = "self.registers_r[%s] = " % self.resindex
+            elif self.returncode == "f":
+                prefix = "self.registers_f[%s] = " % self.resindex
             else:
                 assert 0
-            position += 1
         else:
             lines.append("self._result_argcode = 'v'")
             prefix = ''
 
-        lines.append("%sself.%s(%s)" % (prefix, methodname, strargs))
-        return lines, needed_orgpc, needed_label
+        lines.append("%sself.%s(%s)" % (prefix, self.methodname, strargs))
+        return lines
+
+    def emit_return(self):
+        lines = []
+        lines.append("try:")
+        lines.append("    self.%s(%s)" % (self.methodname, self.args[0]))
+        lines.append("except ChangeFrame: return")
+        return lines
+
+    emit_int_return = emit_return
+    emit_ref_return = emit_return
+    emit_float_return = emit_return
 
     def prepare_list_of_boxes(self, outvalue, startindex, position, argcode):
         assert argcode in 'IRF'
