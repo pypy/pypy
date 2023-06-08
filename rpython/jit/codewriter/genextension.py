@@ -203,7 +203,11 @@ class GenExtension(object):
                 argcode = argcodes[next_argcode]
                 next_argcode = next_argcode + 1
                 if argcode == 'i':
-                    value = "self.registers_i[%s].getint()" % (ord(code[position]), )
+                    pos = ord(code[position])
+                    if 255 - pos < len(self.jitcode.constants_i):
+                        value = str(self.jitcode.constants_i[255 - pos])
+                    else:
+                        value = "self.registers_i[%s].getint()" % (pos, )
                 elif argcode == 'c':
                     value = str(signedord(code[position]))
                 else:
@@ -215,6 +219,12 @@ class GenExtension(object):
                 raise AssertionError("bad argtype: %r" % (argtype,))
             args.append(value)
         strargs = ", ".join(args)
+
+        if insn[0] == "goto":
+            assert len(args) == 1
+            lines.append("pc = self.pc = %s # goto" % (args[0], ))
+            lines.append("continue")
+            return lines, needed_orgpc, needed_label
 
         num_return_args = len(argcodes) - next_argcode
         assert num_return_args == 0 or num_return_args == 2
