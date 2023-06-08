@@ -259,6 +259,10 @@ _name_mapping = {
     'md5-sha1': 'md5_sha1',
     'sha512-224': 'sha512_224',
     'sha512-256': 'sha512_256',
+    'sha3-224': 'sha3_224',
+    'sha3-256': 'sha3_256',
+    'sha3-384': 'sha3_384',
+    'sha3-512': 'sha3_512',
     }
 
 _inverse_name_mapping = {value: key for key, value in _name_mapping.items()}
