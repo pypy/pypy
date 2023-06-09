@@ -119,7 +119,7 @@ def remove_repeated_live(ssarepr):
 # ____________________________________________________________
 # helper functions for compactly encoding and decoding liveness info
 
-# liveness is encoded as a 4 byte offset into the single string all_liveness
+# liveness is encoded as a 2 byte offset into the single string all_liveness
 # (which is stored on the metainterp_sd)
 
 OFFSET_SIZE = 2
