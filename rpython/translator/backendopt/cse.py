@@ -56,10 +56,9 @@ class Cache(object):
             if var in local_versions or not isinstance(var, Variable):
                 heapcache[_translate_arg(var), field] = _translate_arg(res)
         purecache = {}
-        for (var, concretetype, args), res in self.purecache.iteritems():
-            if var in local_versions or not isinstance(var, Variable):
-                args = tuple([_translate_arg(arg) for arg in args])
-                purecache[_translate_arg(var), concretetype, args] = _translate_arg(res)
+        for (op, concretetype, args), res in self.purecache.iteritems():
+            args = tuple([_translate_arg(arg) for arg in args])
+            purecache[op, concretetype, args] = _translate_arg(res)
         return Cache(purecache, heapcache)
 
     def clear_for(self, concretetype, fieldname):
