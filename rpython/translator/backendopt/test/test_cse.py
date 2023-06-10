@@ -191,8 +191,7 @@ class TestCSE(object):
             y = (i + 1) * (i + 1)
             return x - y
 
-        # int_mul should be 1 too, but later
-        self.check(f, [int], int_add=1, int_mul=1)
+        self.check(f, [int], int_add=0, int_mul=0)
 
     def test_pure_split(self):
         def f(i, j):
