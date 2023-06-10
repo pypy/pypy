@@ -260,3 +260,16 @@ class TestCSE(object):
         def f(a, b):
             return 1 * (0 + ((a + 0) - 0) * 1) + (b & 0) + (0 & b) + ((0 | b) - (b | 0))
         self.check(f, [int, int], int_add=0, int_sub=0, int_mul=0, int_and=0, int_or=0)
+
+    def test_ptr_iszero_nonzero(self):
+        class A:
+            pass
+        l = [A(), None, A(), None, None]
+        def f(i):
+            x = l[i]
+            if x:
+                return 15
+            if x is not None:
+                return 17
+            return 19
+        self.check(f, [int], ptr_iszero=0, ptr_nonzero=1)

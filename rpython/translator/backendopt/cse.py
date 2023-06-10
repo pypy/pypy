@@ -1,5 +1,6 @@
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rtyper.lltypesystem import lltype
 from rpython.flowspace.model import mkentrymap, Variable, Constant
 from rpython.translator.backendopt import removenoops
 from rpython.translator import simplify
@@ -34,11 +35,13 @@ class Cache(object):
         self.heapcache = heapcache
         self.variable_families = UnionFind()
 
-    def translate_cache(self, link):
+    def translate_cache(self, link, exitswitch=None):
         if link.target.operations == (): # exit or except block:
             return None
         block = link.target
-        local_versions = {var1: var2 for var1, var2 in zip(link.args, block.inputargs)}
+        local_versions = {self._var_rep(var1): var2 for var1, var2 in zip(link.args, block.inputargs)}
+        if isinstance(exitswitch, Variable):
+            local_versions[self._var_rep(exitswitch)] = Constant(link.exitcase, exitswitch.concretetype)
         def _translate_arg(arg):
             if isinstance(arg, Variable):
                 res = local_versions.get(arg, None)
@@ -57,8 +60,15 @@ class Cache(object):
                 heapcache[_translate_arg(var), field] = _translate_arg(res)
         purecache = {}
         for (op, concretetype, args), res in self.purecache.iteritems():
-            args = tuple([_translate_arg(arg) for arg in args])
-            purecache[op, concretetype, args] = _translate_arg(res)
+            newargs = tuple([_translate_arg(arg) for arg in args])
+            purecache[op, concretetype, newargs] = _translate_arg(res)
+            if len(args) == 1 and res is exitswitch:
+                # do some boolean rewrites logic
+                exitcase = link.exitcase
+                if op == "ptr_nonzero":
+                    invop = "ptr_iszero"
+                    purecache[invop, concretetype, newargs] = Constant(
+                            not exitcase, lltype.Bool)
         return Cache(purecache, heapcache)
 
     def clear_for(self, concretetype, fieldname):
@@ -170,8 +180,9 @@ class Cache(object):
         return number_same_as
 
 def cse_graph(graph):
-    """ remove superfluous getfields. use a super-local method: all non-join
-    blocks inherit the heap information from their (single) predecessor
+    """ remove superfluous getfields and do CSE on pure operation, as well as
+    some small simplifications. use a super-local method: all non-join blocks
+    inherit the heap information from their (single) predecessor
     """
     number_same_as = 0
     entrymap = mkentrymap(graph)
@@ -192,7 +203,7 @@ def cse_graph(graph):
             number_same_as += cache.cse_block(block, inputlink)
         for link in block.exits:
             if len(entrymap[link.target]) == 1:
-                new_cache = cache.translate_cache(link)
+                new_cache = cache.translate_cache(link, block.exitswitch)
                 todo.append((link.target, new_cache, link))
 
     assert visited == len(entrymap)
