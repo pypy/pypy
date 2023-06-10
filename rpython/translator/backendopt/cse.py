@@ -23,6 +23,14 @@ def can_fold(op):
         return op.args[0].concretetype.TO._immutable_field(field)
     return False
 
+def can_cast(var, targetvar):
+    if var.concretetype == targetvar.concretetype:
+        return True
+    try:
+        # make sure we have a *more* precise type
+        return lltype.castable(var.concretetype, targetvar.concretetype) <= 0
+    except lltype.InvalidCast:
+        assert 0
 
 class Cache(object):
     def __init__(self, purecache=None, heapcache=None):
@@ -40,7 +48,7 @@ class Cache(object):
             return None
         block = link.target
         local_versions = {self._var_rep(var1): var2 for var1, var2 in zip(link.args, block.inputargs)}
-        if isinstance(exitswitch, Variable):
+        if isinstance(exitswitch, Variable) and link.exitcase != 'default':
             local_versions[self._var_rep(exitswitch)] = Constant(link.exitcase, exitswitch.concretetype)
         def _translate_arg(arg):
             if isinstance(arg, Variable):
@@ -77,8 +85,12 @@ class Cache(object):
                 del self.heapcache[k]
 
     def _replace_with(self, op, res):
-        op.opname = 'same_as'
-        op.args = [res]
+        if op.result.concretetype != res.concretetype:
+            op.opname = 'cast_pointer'
+            op.args = [res]
+        else:
+            op.opname = 'same_as'
+            op.args = [res]
         self.variable_families.union(res, op.result)
 
     def _var_rep(self, var):
@@ -157,7 +169,7 @@ class Cache(object):
             elif op.opname == 'getfield':
                 key = (self._var_rep(op.args[0]), op.args[1].value)
                 res = self.heapcache.get(key, None)
-                if res is not None:
+                if res is not None and can_cast(res, op.result):
                     self._replace_with(op, res)
                     number_same_as += 1
                 else:
@@ -169,7 +181,7 @@ class Cache(object):
                 if op.args[0].concretetype.TO._immutable_field(field):
                     # it's an initializing store
                     key = ('getfield', op.args[2].concretetype,
-                           (self._var_rep(op.args[0]), self._var_rep(op.args[1])))
+                           (self._var_rep(op.args[0]), op.args[1]))
                     self.purecache[key] = op.args[2]
                 else:
                     self.clear_for(op.args[0].concretetype, field)
@@ -208,7 +220,7 @@ def cse_graph(graph):
 
     assert visited == len(entrymap)
     if number_same_as:
-        removenoops.remove_same_as(graph)
+        removenoops.remove_duplicate_casts(graph, None)
         simplify.transform_dead_op_vars(graph)
     return number_same_as
 

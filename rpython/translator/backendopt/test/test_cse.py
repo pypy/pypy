@@ -4,6 +4,14 @@ from rpython.translator.backendopt import removenoops
 from rpython.flowspace.model import checkgraph, summary
 from rpython.conftest import option
 
+def check_getfields_setfields(graph):
+    for block in graph.iterblocks():
+        for op in block.operations:
+            if op.opname == "getfield" or op.opname == "setfield":
+                TYP = op.args[0].concretetype.TO
+                # check that nothing went wrong with casts
+                assert hasattr(TYP, op.args[1].value)
+
 class TestCSE(object):
     def translate(self, func, argtypes):
         t = TranslationContext()
@@ -26,6 +34,7 @@ class TestCSE(object):
         if option.view:
             t.view()
         checkgraph(graph)
+        check_getfields_setfields(graph)
         s = summary(graph)
         for key, val in expected.items():
             assert s.get(key, 0) == val
@@ -273,3 +282,27 @@ class TestCSE(object):
                 return 17
             return 19
         self.check(f, [int], ptr_iszero=0, ptr_nonzero=1)
+
+    def test_bug_casts(self):
+        class Typ(object):
+            def __init__(self, size):
+                self.size = size
+        class Array(Typ):
+            pass
+        class Data(object):
+            def __init__(self, ctyp):
+                self.ctyp = ctyp
+            def sizeof(self):
+                return self.ctyp.size
+        l = [Data(Typ(12)), Data(Array(10))]
+        def new(i, size):
+            d = l[i]
+            ctype = d.ctyp
+            if type(ctype) is Array:
+                size = d.ctyp.size
+            if size < 0:
+                print(str(ctype))
+            return size
+        # getfields: ctyp, typeptr, size
+        self.check(new, [int, int], getfield=3)
+
