@@ -54,46 +54,6 @@ fill_free_list(void)
     return p + N_INTOBJECTS - 1;
 }
 
-#ifndef NSMALLPOSINTS
-#define NSMALLPOSINTS           257
-#endif
-#ifndef NSMALLNEGINTS
-#define NSMALLNEGINTS           5
-#endif
-#if NSMALLNEGINTS + NSMALLPOSINTS > 0
-/* References to small integers are saved in this array so that they
-   can be shared.
-   The integers that are saved are those in the range
-   -NSMALLNEGINTS (inclusive) to NSMALLPOSINTS (not inclusive).
-*/
-static PyIntObject *small_ints[NSMALLNEGINTS + NSMALLPOSINTS];
-#endif
-
-PyObject *
-PyInt_FromLong(long ival)
-{
-    register PyIntObject *v;
-    /*
-#if NSMALLNEGINTS + NSMALLPOSINTS > 0
-    if (-NSMALLNEGINTS <= ival && ival < NSMALLPOSINTS) {
-        v = small_ints[ival + NSMALLNEGINTS];
-        Py_INCREF(v);
-        return (PyObject *) v;
-    }
-#endif
-    */
-    if (free_list == NULL) {
-        if ((free_list = fill_free_list()) == NULL)
-            return NULL;
-    }
-    /* Inline PyObject_New */
-    v = free_list;
-    free_list = (PyIntObject *)Py_TYPE(v);
-    (void)PyObject_INIT(v, &PyInt_Type);
-    v->ob_ival = ival;
-    return (PyObject *) v;
-}
-
 /* this is CPython's int_dealloc */
 #ifdef CPYEXT_TESTS
 #define _Py_int_dealloc _cpyexttest_int_dealloc
