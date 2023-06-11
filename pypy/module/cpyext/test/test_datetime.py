@@ -486,5 +486,5 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
             tic1 = time.time()
         tic2 = module.getsystemclock()
         tic3 = time.time()
-        assert tic1 <= tic2
-        assert tic2 <= tic3
+        assert tic1 <= tic2, "%s, %s" % (tic1, tic2)
+        assert tic2 <= tic3, "%s, %s" % (tic2, tic3)
