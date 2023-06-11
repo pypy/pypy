@@ -106,8 +106,8 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(TypeError, "obj.char_member = 'spam'")
         raises(TypeError, "obj.char_member = 42")
         #
-        import sys
-        bignum = sys.maxsize - 42
+        import sys, struct
+        bignum = struct.unpack_from("@L", b"\xFF" * 8)[0]//2 - 42
         obj.short_member = -12345;     assert obj.short_member == -12345
         obj.long_member = -bignum;     assert obj.long_member == -bignum
         obj.ushort_member = 45678;     assert obj.ushort_member == 45678
