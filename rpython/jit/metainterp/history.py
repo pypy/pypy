@@ -91,10 +91,15 @@ def repr_rpython(box, typechars):
 
 
 class AbstractDescr(AbstractValue):
-    __slots__ = ('descr_index', 'ei_index')
+    _attrs_ = []
+    __slots__ = ()
     llopaque = True
-    descr_index = -1
-    ei_index = sys.maxint
+
+    def get_descr_index(self):
+        return -1
+
+    def get_ei_index(self):
+        return sys.maxint
 
     def repr_of_descr(self):
         return '%r' % (self,)
@@ -1082,3 +1087,14 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
+
+
+class BackendDescr(AbstractDescr):
+    descr_index = -1
+
+    def get_descr_index(self):
+        return self.descr_index
+
+    def get_ei_index(self):
+        return self.ei_index
+
