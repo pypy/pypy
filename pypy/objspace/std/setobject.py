@@ -158,11 +158,7 @@ class W_BaseSetObject(W_Root):
 
     # app-level operations
 
-    def descr_init(self, space, __args__):
-        w_iterable, = __args__.parse_obj(
-                None, 'set',
-                init_signature,
-                init_defaults)
+    def descr_init(self, space, w_iterable=None, __posonly__=None):
         _initialize_set(space, self, w_iterable)
 
     def descr_repr(self, space):
@@ -1722,8 +1718,6 @@ def _update_from_iterable(space, w_set, w_iterable):
         w_set.add(w_item)
 
 
-init_signature = Signature(['some_iterable'], None, None)
-init_defaults = [None]
 def _initialize_set(space, w_obj, w_iterable=None):
     w_obj.clear()
     set_strategy_and_setdata(space, w_obj, w_iterable)
