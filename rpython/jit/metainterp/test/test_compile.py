@@ -97,7 +97,7 @@ def test_compile_loop():
     metainterp = FakeMetaInterp()
     metainterp.staticdata = staticdata
     metainterp.cpu = cpu
-    metainterp.history = History()
+    metainterp.history = History(len(loop.inputargs), staticdata)
     t = convert_loop_to_trace(loop, staticdata)
     metainterp.history.inputargs = t.inputargs
     metainterp.history.trace = t

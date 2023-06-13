@@ -39,6 +39,16 @@ def arguments(*args):
         return func
     return decorate
 
+
+special_handlers = {}
+
+def special_handler(argcodes):
+    def decorate(func):
+        assert func.__name__.startswith("special_")
+        special_handlers[func.__name__[len("special_"):], argcodes] = func
+        return func
+    return decorate
+
 # ____________________________________________________________
 
 FASTPATHS_SAME_BOXES = {
@@ -264,6 +274,38 @@ class MIFrame(object):
             def opimpl_%s(self, b1, b2):
                 return self.execute(rop.%s, b1, b2)
         ''' % (_opimpl, _opimpl.upper())).compile())
+
+    @special_handler("ic>i")
+    def special_int_add(self, position):
+        from rpython.jit.metainterp.blackhole import signedord
+        from rpython.jit.metainterp.history import IntFrontendOp
+        # bit of a micro-optimization: int_add with a constant argument is one
+        # of the most common opcodes in PyPy, and this way we
+        # - allocate one ConstInt fewer in the (common) non-recorded case
+        # - don't wrap and unwrap
+        # - only check one of the arguments for constness
+        assert position >= 0
+        code = self.bytecode
+        position += 1
+        regs = self.registers_i
+        b1 = regs[ord(code[position])]
+        position += 1
+
+        c = signedord(code[position])
+        position += 1
+        profiler = self.metainterp.staticdata.profiler
+        profiler.count_ops(rop.INT_ADD)
+        if b1.is_constant():
+            assert isinstance(b1, ConstInt)
+            val = b1.getint()
+            resvalue = val + c
+            resbox = ConstInt(resvalue)
+        else:
+            assert isinstance(b1, IntFrontendOp)
+            resvalue = b1.getint() + c
+            resbox = self.metainterp._record_helper(rop.INT_ADD, resvalue, None, b1, ConstInt(c))
+        regs[ord(code[position])] = resbox
+        self.pc = position + 1
 
     for _opimpl in ['int_eq', 'int_ne', 'int_lt', 'int_le', 'int_gt', 'int_ge',
                     'ptr_eq', 'ptr_ne',
@@ -1780,10 +1822,20 @@ class MIFrame(object):
         # changes, due to a call or a return.
         try:
             staticdata = self.metainterp.staticdata
+            pc = self.pc
             while True:
-                pc = self.pc
-                op = ord(self.bytecode[pc])
+                bytecode = self.bytecode
+                op = ord(bytecode[pc])
+                if op == staticdata.op_live:
+                    pc += OFFSET_SIZE + 1
+                    self.pc = pc
+                    continue
+                elif op == staticdata.op_goto:
+                    pc = ord(bytecode[pc + 1]) | (ord(bytecode[pc + 2])<<8)
+                    self.pc = pc
+                    continue
                 staticdata.opcode_implementations[op](self, pc)
+                pc = self.pc
         except ChangeFrame:
             pass
 
@@ -1873,7 +1925,6 @@ class MIFrame(object):
         effectinfo = descr.get_extra_info()
         if effectinfo.oopspecindex == effectinfo.OS_NOT_IN_TRACE:
             return self.metainterp.do_not_in_trace_call(allboxes, descr)
-        cut_pos = self.metainterp.history.get_trace_position()
 
         if (assembler_call or
                 effectinfo.check_forces_virtual_or_virtualizable()):
@@ -1923,30 +1974,28 @@ class MIFrame(object):
             #    from the effectinfo and the 'assembler_call' flag
             if assembler_call:
                 vablebox, resbox = self.metainterp.direct_assembler_call(
-                    allboxes, descr, assembler_call_jd)
+                    allboxes, c_result, descr, assembler_call_jd)
             else:
                 vablebox = None
                 resbox = None
                 if effectinfo.oopspecindex == effectinfo.OS_LIBFFI_CALL:
-                    resbox = self.metainterp.direct_libffi_call(allboxes, descr)
+                    resbox = self.metainterp.direct_libffi_call(allboxes, c_result, descr)
                     # ^^^ may return None to mean "can't handle it myself"
                 if resbox is None:
                     if effectinfo.is_call_release_gil():
                         resbox = self.metainterp.direct_call_release_gil(
-                            allboxes, descr)
+                            allboxes, c_result, descr)
                     else:
                         resbox = self.metainterp.direct_call_may_force(
-                            allboxes, descr)
+                            allboxes, c_result, descr)
 
             # 5. invalidate the heapcache based on the CALL_MAY_FORCE
             #    operation executed above in step 2
             self.metainterp.heapcache.invalidate_caches_varargs(opnum1, descr, allboxes)
 
-            # 6. put 'c_result' back into the recorded operation
             if resbox.type == 'v':
                 resbox = None    # for void calls, must return None below
             else:
-                resbox.copy_value_from(c_result)
                 self.make_result_of_lastop(resbox)
             self.metainterp.vable_after_residual_call(funcbox)
             self.metainterp.generate_guard(rop.GUARD_NOT_FORCED)
@@ -2108,6 +2157,7 @@ class MetaInterpStaticData(object):
             opimpl = _get_opimpl_method(name, argcodes)
             self.opcode_implementations[value] = opimpl
         self.op_live = insns.get('live/', -1)
+        self.op_goto = insns.get('goto/L', -1)
         self.op_catch_exception = insns.get('catch_exception/L', -1)
         self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
 
@@ -2468,9 +2518,13 @@ class MetaInterp(object):
         if self.framestack:
             self.framestack[-1].pc = saved_pc
 
-    def create_empty_history(self):
-        self.history = history.History()
+    def create_empty_history(self, inputargs):
+        self.history = history.History(len(inputargs), self.staticdata)
+        self.history.set_inputargs(inputargs)
         self.staticdata.stats.set_history(self.history)
+
+    def create_history(self, max_num_inputargs):
+        self.history = history.History(max_num_inputargs, self.staticdata)
 
     def _all_constants(self, *boxes):
         if len(boxes) == 0:
@@ -2744,9 +2798,7 @@ class MetaInterp(object):
         self.resumekey = compile.ResumeFromInterpDescr(original_greenkey)
         self.seen_loop_header_for_jdindex = -1
         try:
-            self.create_empty_history()
-            self.history.set_inputargs(original_boxes[num_green_args:],
-                                       self.staticdata)
+            self.create_empty_history(original_boxes[num_green_args:])
             self.interpret()
         except SwitchToBlackhole as stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
@@ -2763,9 +2815,11 @@ class MetaInterp(object):
         if self.resumekey_original_loop_token is None:
             raise compile.giveup() # should be rare
         self.staticdata.try_to_free_some_loops()
+        self.create_history(resume.get_max_num_inputargs(key))
         try:
+            excdata = self._prepare_exception_resumption(deadframe, resumedescr)
             inputargs = self.initialize_state_from_guard_failure(key, deadframe)
-            return self._handle_guard_failure(resumedescr, key, inputargs, deadframe)
+            return self._handle_guard_failure(resumedescr, key, inputargs, deadframe, excdata)
         except SwitchToBlackhole as stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
         finally:
@@ -2773,13 +2827,13 @@ class MetaInterp(object):
             self.staticdata.profiler.end_tracing()
             debug_stop('jit-tracing')
 
-    def _handle_guard_failure(self, resumedescr, key, inputargs, deadframe):
+    def _handle_guard_failure(self, resumedescr, key, inputargs, deadframe, excdata):
         self.current_merge_points = []
         self.resumekey = resumedescr
         self.seen_loop_header_for_jdindex = -1
         if isinstance(key, compile.ResumeAtPositionDescr):
             self.seen_loop_header_for_jdindex = self.jitdriver_sd.index
-        self.prepare_resume_from_failure(deadframe, inputargs, resumedescr)
+        self.prepare_resume_from_failure(deadframe, inputargs, resumedescr, excdata)
         if self.resumekey_original_loop_token is None:   # very rare case
             raise SwitchToBlackhole(Counters.ABORT_BRIDGE)
         self.interpret()
@@ -2798,9 +2852,7 @@ class MetaInterp(object):
         for i in range(endindex):
             box = boxes[i]
             if isinstance(box, Const) or box in duplicates:
-                opnum = OpHelpers.same_as_for_type(box.type)
-                op = self.history.record_default_val(opnum, [box])
-                boxes[i] = op
+                boxes[i] = self.history.record_same_as(box)
             else:
                 duplicates[box] = None
 
@@ -2963,7 +3015,7 @@ class MetaInterp(object):
             jitcell_token = target_token.targeting_jitcell_token
             self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
 
-    def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr):
+    def _prepare_exception_resumption(self, deadframe, resumedescr):
         exception = self.cpu.grab_exc_value(deadframe)
         if (isinstance(resumedescr, compile.ResumeGuardExcDescr) or
             isinstance(resumedescr, compile.ResumeGuardCopiedExcDescr)):
@@ -2972,11 +3024,11 @@ class MetaInterp(object):
             # the history aleady contains operations from resume.py.
             # The optimizer should remove these operations.  However,
             # 'test_guard_no_exception_incorrectly_removed_from_bridge'
-            # shows a corner case in which just putting GuARD_NO_EXCEPTION
+            # shows a corner case in which just putting GUARD_NO_EXCEPTION
             # here is a bad idea: the optimizer might remove it too.
-            # So we put a SAVE_EXCEPTION at the start, and a
-            # RESTORE_EXCEPTION just before the guard.  (rewrite.py will
-            # remove the two if they end up consecutive.)
+            # So we put a SAVE_EXCEPTION at the start, and a RESTORE_EXCEPTION
+            # just before the guard (done in prepare_resume_from_failure).
+            # rewrite.py will remove the two if they end up consecutive.
 
             # XXX too much jumps between older and newer models; clean up
             # by killing SAVE_EXC_CLASS, RESTORE_EXCEPTION and GUARD_EXCEPTION
@@ -2986,13 +3038,22 @@ class MetaInterp(object):
                 exc_class = ptr2int(exception_obj.typeptr)
             else:
                 exc_class = 0
-            assert self.history.trace is None
-            i = len(self.history._cache)
+            assert self.history.trace._pos == self.history.trace._start
             op1 = self.history.record0(rop.SAVE_EXC_CLASS, exc_class)
             op2 = self.history.record0(rop.SAVE_EXCEPTION, exception)
-            self.history._cache = self.history._cache[i:] + self.history._cache[:i]
+            return exception, op1, op2
+        else:
+            assert not exception
+            return exception, None, None
+
+    def prepare_resume_from_failure(self, deadframe, inputargs, resumedescr, excdata):
+        if (isinstance(resumedescr, compile.ResumeGuardExcDescr) or
+            isinstance(resumedescr, compile.ResumeGuardCopiedExcDescr)):
+            exception, op1, op2 = excdata
+            exception_obj = lltype.cast_opaque_ptr(rclass.OBJECTPTR, exception)
+
             self.history.record2(rop.RESTORE_EXCEPTION, op1, op2, None)
-            self.history.set_inputargs(inputargs, self.staticdata)
+            self.history.set_inputargs(inputargs)
             if exception_obj:
                 self.execute_ll_raised(exception_obj)
             else:
@@ -3002,8 +3063,7 @@ class MetaInterp(object):
             except ChangeFrame:
                 pass
         else:
-            self.history.set_inputargs(inputargs, self.staticdata)
-            assert not exception
+            self.history.set_inputargs(inputargs)
 
     def get_procedure_token(self, greenkey):
         JitCell = self.jitdriver_sd.warmstate.JitCell
@@ -3105,21 +3165,20 @@ class MetaInterp(object):
     def initialize_original_boxes(self, jitdriver_sd, *args):
         original_boxes = [None] * len(args)
         self._fill_original_boxes(jitdriver_sd, original_boxes, 0,
-                                  jitdriver_sd.num_green_args, *args)
+                                  *args)
         return original_boxes
 
     @specialize.arg(1)
     @always_inline
     def _fill_original_boxes(self, jitdriver_sd, original_boxes,
-                             position,
-                             num_green_args, *args):
+                             position, *args):
         if args:
             from rpython.jit.metainterp.warmstate import wrap
-            box = wrap(self.cpu, args[0], num_green_args > 0)
+            box = wrap(self.cpu, args[0],
+                       position - jitdriver_sd.num_green_args)
             original_boxes[position] = box
             self._fill_original_boxes(jitdriver_sd, original_boxes,
-                                      position + 1,
-                                      num_green_args-1, *args[1:])
+                                      position + 1, *args[1:])
 
     def initialize_state_from_start(self, original_boxes):
         # ----- make a new frame -----
@@ -3139,7 +3198,6 @@ class MetaInterp(object):
         rstack._stack_criticalcode_start()
         try:
             self.portal_call_depth = -1 # always one portal around
-            self.history = history.History()
             inputargs_and_holes = self.rebuild_state_after_failure(resumedescr,
                                                                    deadframe)
             return [box for box in inputargs_and_holes if box]
@@ -3157,8 +3215,10 @@ class MetaInterp(object):
             vinfo.clear_vable_token(virtualizable)
             # The field 'virtualizable_boxes' is not even present
             # if 'virtualizable_info' is None.  Check for that first.
+            startindex = len(original_boxes) - self.jitdriver_sd.num_green_args
             self.virtualizable_boxes = vinfo.read_boxes(self.cpu,
-                                                        virtualizable)
+                                                        virtualizable,
+                                                        startindex)
             original_boxes += self.virtualizable_boxes
             self.virtualizable_boxes.append(virtualizable_box)
             self.check_synchronized_virtualizable()
@@ -3315,7 +3375,8 @@ class MetaInterp(object):
             virtualizable_box = self.virtualizable_boxes[-1]
             virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
             self.virtualizable_boxes = vinfo.read_boxes(self.cpu,
-                                                        virtualizable)
+                                                        virtualizable,
+                                                        0)
             self.virtualizable_boxes.append(virtualizable_box)
 
     def gen_store_back_in_vable(self, box):
@@ -3431,19 +3492,18 @@ class MetaInterp(object):
             return op       # but COND_CALL_VALUE remains
         opnum = OpHelpers.call_pure_for_descr(descr)
         self.history.cut(patch_pos)
-        newop = self.history.record_nospec(opnum, argboxes, descr)
-        newop.copy_value_from(op)
+        newop = self.history.record_nospec(opnum, argboxes, resbox_as_const, descr)
         return newop
 
-    def direct_call_may_force(self, argboxes, calldescr):
+    def direct_call_may_force(self, argboxes, valueconst, calldescr):
         """ Common case: record in the history a CALL_MAY_FORCE with
         'c_result' as the result of that call.  (The actual call has
         already been done.)
         """
         opnum = rop.call_may_force_for_descr(calldescr)
-        return self.history.record_nospec(opnum, argboxes, calldescr)
+        return self.history.record_nospec(opnum, argboxes, valueconst, calldescr)
 
-    def direct_assembler_call(self, arglist, calldescr, targetjitdriver_sd):
+    def direct_assembler_call(self, arglist, valueconst, calldescr, targetjitdriver_sd):
         """ Record in the history a direct call to assembler for portal
         entry point.
         """
@@ -3454,7 +3514,7 @@ class MetaInterp(object):
         warmrunnerstate = targetjitdriver_sd.warmstate
         token = warmrunnerstate.get_assembler_token(greenargs)
         opnum = OpHelpers.call_assembler_for_descr(calldescr)
-        op = self.history.record_nospec(opnum, args, descr=token)
+        op = self.history.record_nospec(opnum, args, valueconst, descr=token)
         #
         # To fix an obscure issue, make sure the vable stays alive
         # longer than the CALL_ASSEMBLER operation.  We do it by
@@ -3465,7 +3525,7 @@ class MetaInterp(object):
         else:
             return None, op
 
-    def direct_libffi_call(self, argboxes, orig_calldescr):
+    def direct_libffi_call(self, argboxes, valueconst, orig_calldescr):
         """Generate a direct call to C code using jit_ffi_call()
         """
         # an 'assert' that constant-folds away the rest of this function
@@ -3521,11 +3581,11 @@ class MetaInterp(object):
         assert opnum == rop.call_release_gil_for_descr(calldescr)
         return self.history.record_nospec(opnum,
                                           [c_saveall, argboxes[2]] + arg_boxes,
-                                          calldescr)
+                                          valueconst, calldescr)
         # note that the result is written back to the exchange_buffer by the
         # following operation, which should be a raw_store
 
-    def direct_call_release_gil(self, argboxes, calldescr):
+    def direct_call_release_gil(self, argboxes, valueconst, calldescr):
         if not we_are_translated():       # for llgraph
             calldescr._original_func_ = argboxes[0].getint()
         effectinfo = calldescr.get_extra_info()
@@ -3535,7 +3595,7 @@ class MetaInterp(object):
         opnum = rop.call_release_gil_for_descr(calldescr)
         return self.history.record_nospec(opnum,
                                           [savebox, funcbox] + argboxes[1:],
-                                          calldescr)
+                                          valueconst, calldescr)
 
     def do_not_in_trace_call(self, allboxes, descr):
         self.clear_exception()
@@ -3559,6 +3619,8 @@ class ChangeFrame(jitexc.JitException):
 
 def _get_opimpl_method(name, argcodes):
     from rpython.jit.metainterp.blackhole import signedord
+    if (name, argcodes) in special_handlers:
+        return special_handlers[name, argcodes]
     #
     def handler(self, position):
         assert position >= 0
