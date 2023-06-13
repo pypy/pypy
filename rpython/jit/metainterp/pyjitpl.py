@@ -487,7 +487,7 @@ class MIFrame(object):
         self.pc = target
 
     @arguments("box", "label", "orgpc")
-    def opimpl_goto_if_not(self, box, target, orgpc):
+    def opimpl_goto_if_not(self, box, target, orgpc, replace=True):
         switchcase = box.getint()
         if switchcase:
             assert switchcase == 1
@@ -501,17 +501,21 @@ class MIFrame(object):
             self.pc = target
         if isinstance(box, Const):
             return
-        self.metainterp.replace_box(box, promoted_box)
+        if replace:
+            self.metainterp.replace_box(box, promoted_box)
 
     @arguments("box", "label", "orgpc")
     def opimpl_goto_if_not_int_is_true(self, box, target, orgpc):
         condbox = self.execute(rop.INT_IS_TRUE, box)
-        self.opimpl_goto_if_not(condbox, target, orgpc)
+        # does not make sense to replace condbox, because it does not appear
+        # anywhere in any register, we either just made it or it's constant
+        # anyway
+        self.opimpl_goto_if_not(condbox, target, orgpc, replace=False)
 
     @arguments("box", "label", "orgpc")
     def opimpl_goto_if_not_int_is_zero(self, box, target, orgpc):
         condbox = self.execute(rop.INT_IS_ZERO, box)
-        self.opimpl_goto_if_not(condbox, target, orgpc)
+        self.opimpl_goto_if_not(condbox, target, orgpc, replace=False)
 
     for _opimpl in ['int_lt', 'int_le', 'int_eq', 'int_ne', 'int_gt', 'int_ge',
                     'ptr_eq', 'ptr_ne', 'float_lt', 'float_le', 'float_eq',
@@ -520,12 +524,14 @@ class MIFrame(object):
             @arguments("box", "box", "label", "orgpc")
             def opimpl_goto_if_not_%s(self, b1, b2, target, orgpc):
                 if %s and b1 is b2:
-                    condbox = %s
+                    if not %s:
+                        self.pc = target
+                    return
                 else:
                     condbox = self.execute(rop.%s, b1, b2)
-                self.opimpl_goto_if_not(condbox, target, orgpc)
+                    self.opimpl_goto_if_not(condbox, target, orgpc, replace=False)
         ''' % (_opimpl, not _opimpl.startswith('float_'),
-               FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
+               FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]] == 'history.CONST_TRUE', _opimpl.upper())
         ).compile())
 
     def _establish_nullity(self, box, orgpc):
