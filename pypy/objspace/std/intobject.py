@@ -334,11 +334,11 @@ def _make_ovf2long(opname, ovf2small=None):
             return W_SmallLongObject(op(a, b))
 
         from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
-        if w_x is None or not isinstance(w_x, W_AbstractLongObject):
-            w_x = W_LongObject.fromint(space, x)
-        if w_y is None or not isinstance(w_y, W_AbstractLongObject):
-            w_y = W_LongObject.fromint(space, y)
-
+        w_x = W_LongObject.fromint(space, x)
+        assert w_y is not None
+        # call the W_LongObject implementation with the unconverted w_y.
+        # W_LongObject can deal with W_IntObject arguments just fine, and it
+        # has a slightly better code path for long/int combinations
         return getattr(w_x, 'descr_' + opname)(space, w_y)
 
     return ovf2long
