@@ -713,15 +713,25 @@ class W_IntObject(W_AbstractIntObject):
     def _make_descr_cmp(opname):
         op = getattr(operator, opname)
         descr_name = 'descr_' + opname
+
+        if opname ==   'lt': revopname = 'gt'
+        elif opname == 'le': revopname = 'ge'
+        elif opname == 'eq': revopname = 'eq'
+        elif opname == 'ne': revopname = 'ne'
+        elif opname == 'gt': revopname = 'lt'
+        elif opname == 'ge': revopname = 'le'
+        bigintintrevop = getattr(rbigint, "int_" + revopname)
+
         @func_renamer(descr_name)
         def descr_cmp(self, space, w_other):
+            from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
             if isinstance(w_other, W_IntObject):
                 i = self.intval
                 j = w_other.intval
                 return space.newbool(op(i, j))
             elif isinstance(w_other, W_AbstractIntObject):
-                self = self.as_w_long(space)
-                return getattr(self, descr_name)(space, w_other)
+                assert isinstance(w_other, W_LongObject)
+                return space.newbool(bigintintrevop(w_other.asbigint(), self.intval))
             return space.w_NotImplemented
         return descr_cmp
 
