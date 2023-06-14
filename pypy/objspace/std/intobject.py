@@ -730,7 +730,8 @@ class W_IntObject(W_AbstractIntObject):
                 j = w_other.intval
                 return space.newbool(op(i, j))
             elif isinstance(w_other, W_AbstractIntObject):
-                assert isinstance(w_other, W_LongObject)
+                if not space.config.objspace.std.withsmalllong:
+                    assert isinstance(w_other, W_LongObject)
                 return space.newbool(bigintintrevop(w_other.asbigint(), self.intval))
             return space.w_NotImplemented
         return descr_cmp
