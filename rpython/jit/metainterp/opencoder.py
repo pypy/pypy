@@ -48,11 +48,6 @@ def _get_model(metainterp_sd):
 SMALL_INT_STOP  = (2 ** (15 - TAGSHIFT)) - 1
 SMALL_INT_START = -SMALL_INT_STOP # we might want to distribute them uneven
 
-def expand_sizes_to_signed():
-    """ This function will make sure we can use sizes all the
-    way up to lltype.Signed for indexes everywhere
-    """
-
 class BaseTrace(object):
     pass
 
@@ -118,7 +113,7 @@ class TraceIterator(BaseTrace):
             self.inputargs = [rop.inputarg_from_tp(arg.type) for
                               arg in self.trace.inputargs]
             for i, arg in enumerate(self.inputargs):
-               self._cache[i] = arg
+               self._cache[self.trace.inputargs[i].get_position()] = arg
         self.start = start
         self.pos = start
         self._count = start
@@ -283,7 +278,7 @@ class TopSnapshot(Snapshot):
 class Trace(BaseTrace):
     _deadranges = (-1, None)
 
-    def __init__(self, inputargs, metainterp_sd):
+    def __init__(self, max_num_inputargs, metainterp_sd):
         self.metainterp_sd = metainterp_sd
         self._ops = [rffi.cast(get_model(self).STORAGE_TP, 0)] * get_model(self).INIT_SIZE
         self._pos = 0
@@ -299,14 +294,25 @@ class Trace(BaseTrace):
         self._bigints_dict = {}
         self._floats = []
         self._snapshots = []
-        for i, inparg in enumerate(inputargs):
-            inparg.set_position(i)
-        self._count = len(inputargs) # total count
-        self._index = len(inputargs) # "position" of resulting resops
-        self._start = len(inputargs)
+        if not we_are_translated() and isinstance(max_num_inputargs, list): # old api for tests
+            self.inputargs = max_num_inputargs
+            for i, box in enumerate(max_num_inputargs):
+                box.position_and_flags = r_uint(i << 1)
+            max_num_inputargs = len(max_num_inputargs)
+
+        self.max_num_inputargs = max_num_inputargs
+        self._count = max_num_inputargs # total count
+        self._index = max_num_inputargs # "position" of resulting resops
+        self._start = max_num_inputargs
         self._pos = self._start
-        self.inputargs = inputargs
         self.tag_overflow = False
+
+    def set_inputargs(self, inputargs):
+        self.inputargs = inputargs
+        if not we_are_translated():
+            set_positions = {box.get_position() for box in inputargs}
+            assert len(set_positions) == len(inputargs)
+            assert not set_positions or max(set_positions) < self.max_num_inputargs
 
     def append(self, v):
         model = get_model(self)
@@ -476,8 +482,9 @@ class Trace(BaseTrace):
         return pos
 
     def _encode_descr(self, descr):
-        if descr.descr_index != -1:
-            return descr.descr_index + 1
+        descr_index = descr.get_descr_index()
+        if descr_index != -1:
+            return descr_index + 1
         self._descrs.append(descr)
         return len(self._descrs) - 1 + len(self.metainterp_sd.all_descrs) + 1
 
