@@ -2,7 +2,7 @@ import py
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.backend.llsupport import symbolic, support
-from rpython.jit.metainterp.history import AbstractDescr, getkind, FLOAT, INT
+from rpython.jit.metainterp.history import BackendDescr, getkind, FLOAT, INT
 from rpython.jit.metainterp import history
 from rpython.jit.metainterp.support import ptr2int, int2adr
 from rpython.jit.codewriter import heaptracker, longlong
@@ -57,7 +57,7 @@ class GcCache(object):
 # ____________________________________________________________
 # SizeDescrs
 
-class SizeDescr(AbstractDescr):
+class SizeDescr(BackendDescr):
     size = 0      # help translation
     tid = llop.combine_ushort(lltype.Signed, 0, 0)
     vtable = lltype.nullptr(rclass.OBJECT_VTABLE)
@@ -137,7 +137,7 @@ FLAG_SIGNED   = 'S'
 FLAG_STRUCT   = 'X'
 FLAG_VOID     = 'V'
 
-class ArrayOrFieldDescr(AbstractDescr):
+class ArrayOrFieldDescr(BackendDescr):
     vinfo = None
 
     def get_vinfo(self):
@@ -381,7 +381,7 @@ def get_array_descr(gccache, ARRAY_OR_STRUCT):
 # ____________________________________________________________
 # InteriorFieldDescr
 
-class InteriorFieldDescr(AbstractDescr):
+class InteriorFieldDescr(BackendDescr):
     arraydescr = ArrayDescr(0, 0, None, '\x00')  # workaround for the annotator
     fielddescr = FieldDescr('', 0, 0, '\x00')
 
@@ -447,7 +447,7 @@ def _missing_call_stub_r(func, args_i, args_r, args_f):
 def _missing_call_stub_f(func, args_i, args_r, args_f):
     return longlong.ZEROF
 
-class CallDescr(AbstractDescr):
+class CallDescr(BackendDescr):
     arg_classes = ''     # <-- annotation hack
     result_type = '\x00'
     result_flag = '\x00'

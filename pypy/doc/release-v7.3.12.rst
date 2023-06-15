@@ -3,17 +3,19 @@ PyPy v7.3.12: release of python 2.7, 3.9, and 3.10
 ==================================================
 
 ..
-       Changelog up to commit 4cdff7fe8066
+       Changelog up to commit 24beab5e4a50
 
-.. note_::
+.. note::
   This is a pre-release announcement. When the release actually happens, it
   will be announced on the `PyPy blog`_
 
 .. _`PyPy blog`: https://pypy.org/blog
 
 The PyPy team is proud to release version 7.3.12 of PyPy. 
-There are only minimal bugfixes since the last release. We did implement
-support for symlinks in Windows, and are releasing a Python3.10 version.
+This release includes a new string-to-int algorithm (also appearing in CPython
+3.12) that is faster than the older one; support for symlinks in Windows; and
+our first Python3.10 version.
+
 The release includes three different interpreters:
 
   - PyPy2.7, which is an interpreter supporting the syntax and the features of
@@ -28,7 +30,7 @@ The release includes three different interpreters:
     release of 3.10, but based on past experience we are quite confident in
     its compatibility with upstream. Of course, we recommend testing your code
     with this new version before putting it into production. Note it does
-    require a new version of cython that has yet to be released.
+    require at least cython 0.29.35 or cython 3.0.0b3
 
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the other 7.3
@@ -129,6 +131,9 @@ Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 - Do less string copies in the bytecode compiler
 - Add missing CJK range in unicodedata version 13
+- Implement the base 10 ``string-to-int`` conversion using a divide an conquer
+  algorithm with complexity ``O(n**1.58)``. The algorithm is due to Bjorn
+  Martinsson and is part of CPython 3.12.
 
 Python 3.9+
 -----------
@@ -156,6 +161,10 @@ Bugfixes
   buffers (issue 3520_)
 - Trim the scope ID from IPV6 addresses (issue 3938_, reversing the decision in
   issue 3628_)
+- Add ``_hashlib.scrypt`` (issue 3921_)
+- Properly create a C-level wrapper that calls ``tp_finalize`` when ``__del__``
+  is called, which allows us to use ``CYTHON_USE_TP_FINALIZE`` in cython
+- Move ``hpy.dist-info`` to ``hpy-0.0.4.dist-info`` (issue 3579_)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -171,11 +180,14 @@ Speedups and enhancements
   observable applevel difference between ``W_IntObject`` and ``W_LongObject``
 - Provide ``_PyEval_GetAsyncGenFirstiter`` and ``_PyEval_GetAsyncGenFinalizer``
   for use by cython, towards fixing issue 3280_
+- Squeeze a little more accuracy out of windows ``time.time()``, to make a
+  cython test pass
 
 .. _bpo-37648: https://bugs.python.org/issue37648
 .. _GH-100242: https://github.com/python/cpython/issues/100242
 .. _3280: https://foss.heptapod.net/pypy/pypy/-/issues/3280
 .. _3520: https://foss.heptapod.net/pypy/pypy/-/issues/3520
+.. _3579: https://foss.heptapod.net/pypy/pypy/-/issues/3579
 .. _3628: https://foss.heptapod.net/pypy/pypy/-/issues/3628
 .. _3834: https://foss.heptapod.net/pypy/pypy/-/issues/3834
 .. _3874: https://foss.heptapod.net/pypy/pypy/-/issues/3874
@@ -187,5 +199,6 @@ Speedups and enhancements
 .. _3892: https://foss.heptapod.net/pypy/pypy/-/issues/3892
 .. _3906: https://foss.heptapod.net/pypy/pypy/-/issues/3906
 .. _3917: https://foss.heptapod.net/pypy/pypy/-/issues/3917
+.. _3921: https://foss.heptapod.net/pypy/pypy/-/issues/3921
 .. _3925: https://foss.heptapod.net/pypy/pypy/-/issues/3925
 .. _3938: https://foss.heptapod.net/pypy/pypy/-/issues/3938

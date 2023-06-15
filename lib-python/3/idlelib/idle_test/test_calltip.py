@@ -70,7 +70,7 @@ class Get_argspecTest(unittest.TestCase):
               'Create and return a new object.  '
               'See help(type) for accurate signature.')
         tiptest(list.__init__,
-              '(self, *args, **keywords)\n'
+              '(self, iterable=<no value>, /)\n'
               'Initialize self.  See help(type(self)) for accurate signature.')
         append_doc = "\nAppend object to the end of the list."
         tiptest(list.append, '(self, item)' + append_doc)

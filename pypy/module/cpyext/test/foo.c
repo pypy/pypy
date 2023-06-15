@@ -691,7 +691,7 @@ static PyTypeObject TupleLike = {
 
 static PyObject *size_of_instances(PyObject *self, PyObject *t)
 {
-    return PyInt_FromLong(((PyTypeObject *)t)->tp_basicsize);
+    return PyLong_FromSsize_t(((PyTypeObject *)t)->tp_basicsize);
 }
 
 
@@ -699,8 +699,8 @@ static PyObject * is_TupleLike(PyObject *self, PyObject * t)
 {
     int tf = t->ob_type == &TupleLike;
     if (t->ob_type->tp_itemsize == 0)
-        return PyInt_FromLong(-1);
-    return PyInt_FromLong(tf);
+        return PyLong_FromLong(-1);
+    return PyLong_FromLong(tf);
 }
 
 static PyTypeObject GetType1 = {
@@ -757,13 +757,6 @@ static struct PyModuleDef moduledef = {
     NULL,
 };
 #define INITERROR return NULL
-
-/* Initialize this module. */
-#ifdef __GNUC__
-extern __attribute__((visibility("default")))
-#else
-extern __declspec(dllexport)
-#endif
 
 PyMODINIT_FUNC
 PyInit_foo(void)
