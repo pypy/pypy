@@ -142,18 +142,6 @@ class FieldUpdater(object):
     def setfield(self, fieldbox):
         self.cache.do_write_with_aliasing(self.ref_box, fieldbox)
 
-class DummyFieldUpdater(FieldUpdater):
-    def __init__(self):
-        self.currfieldbox = None
-
-    def getfield_now_known(self, fieldbox):
-        pass
-
-    def setfield(self, fieldbox):
-        pass
-
-dummy_field_updater = DummyFieldUpdater()
-
 
 class HeapCache(object):
     def __init__(self):
@@ -530,6 +518,7 @@ class HeapCache(object):
             return cache.read(box)
         return None
 
+    @always_inline
     def get_field_updater(self, box, descr):
         cache = self.heap_cache.get(descr, None)
         if cache is None:

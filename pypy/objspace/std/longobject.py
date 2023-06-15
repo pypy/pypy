@@ -259,13 +259,15 @@ class W_LongObject(W_AbstractLongObject):
         op = getattr(rbigint, opname)
         intop = getattr(rbigint, "int_" + opname)
 
+        @func_renamer('descr_' + opname)
         def descr_impl(self, space, w_other):
             if isinstance(w_other, W_IntObject):
                 return space.newbool(intop(self.num, w_other.int_w(space)))
             elif not isinstance(w_other, W_AbstractLongObject):
                 return space.w_NotImplemented
             return space.newbool(op(self.num, w_other.asbigint()))
-        return func_with_new_name(descr_impl, "descr_" + opname)
+
+        return descr_impl
 
     descr_lt = _make_descr_cmp('lt')
     descr_le = _make_descr_cmp('le')

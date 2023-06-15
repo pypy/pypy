@@ -4478,6 +4478,9 @@ join_temporary_c_thread(PyObject *self, PyObject *Py_UNUSED(ignored))
     Py_RETURN_NONE;
 }
 
+
+#ifndef PYPY_VERSION
+
 /* marshal */
 
 #ifndef PYPY_VERSION

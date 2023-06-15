@@ -3,7 +3,7 @@ from rpython.jit.backend import model
 from rpython.jit.backend.llgraph import support
 from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.vector_ext import VectorExt
-from rpython.jit.metainterp.history import AbstractDescr
+from rpython.jit.metainterp.history import BackendDescr
 from rpython.jit.metainterp.history import Const, getkind
 from rpython.jit.metainterp.history import INT, REF, FLOAT, VOID
 from rpython.jit.metainterp.resoperation import rop
@@ -72,7 +72,7 @@ class LLTrace(object):
                 newop.setfailargs(map(mapping, op.getfailargs()))
             self.operations.append(newop)
 
-class WeakrefDescr(AbstractDescr):
+class WeakrefDescr(BackendDescr):
     def __init__(self, realdescr):
         self.realdescrref = weakref.ref(realdescr)
         self.final_descr = getattr(realdescr, 'final_descr', False)
@@ -86,7 +86,7 @@ class Jump(Exception):
         self.jump_target = jump_target
         self.args = args
 
-class CallDescr(AbstractDescr):
+class CallDescr(BackendDescr):
     def __init__(self, RESULT, ARGS, extrainfo, ABI=FFI_DEFAULT_ABI):
         self.RESULT = RESULT
         self.ARGS = ARGS
@@ -118,7 +118,7 @@ class TypeIDSymbolic(Symbolic):
     def __ne__(self, other):
         return not self == other
 
-class SizeDescr(AbstractDescr):
+class SizeDescr(BackendDescr):
     def __init__(self, S, vtable, runner):
         assert not isinstance(vtable, bool)
         self.S = S
@@ -149,7 +149,7 @@ class SizeDescr(AbstractDescr):
     def __repr__(self):
         return 'SizeDescr(%r)' % (self.S,)
 
-class FieldDescr(AbstractDescr):
+class FieldDescr(BackendDescr):
     def __init__(self, S, fieldname):
         self.S = S
         self.fieldname = fieldname
@@ -207,7 +207,7 @@ def _is_signed_kind(TYPE):
     return (TYPE is not lltype.Bool and isinstance(TYPE, lltype.Number) and
             rffi.cast(TYPE, -1) == -1)
 
-class ArrayDescr(AbstractDescr):
+class ArrayDescr(BackendDescr):
     all_interiorfielddescrs = None
 
     def __init__(self, A, runner):
@@ -269,7 +269,7 @@ class ArrayDescr(AbstractDescr):
         return TypeIDSymbolic(self.A)     # integer-like symbolic
 
 
-class InteriorFieldDescr(AbstractDescr):
+class InteriorFieldDescr(BackendDescr):
     def __init__(self, A, fieldname, runner):
         self.A = A
         self.fieldname = fieldname

@@ -378,7 +378,7 @@ def make_ref(space, w_obj, w_userdata=None, immortal=False):
         # XXX: adapt for pypy3
         state = space.fromcache(State)
         intval = space.int_w(w_obj)
-        return state.ccall("PyInt_FromLong", intval)
+        return state.ccall("PyLong_FromLong", intval)
     return get_pyobj_and_incref(space, w_obj, w_userdata, immortal=False)
 
 @specialize.ll()
