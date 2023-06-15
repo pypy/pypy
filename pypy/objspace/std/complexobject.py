@@ -5,6 +5,7 @@ from rpython.rlib.rarithmetic import intmask, r_ulonglong
 from rpython.rlib.rbigint import rbigint
 from rpython.rlib.rfloat import (
     DTSF_STR_PRECISION, formatd, string_to_float)
+from rpython.rlib.special_value import NAN
 from rpython.rlib.rstring import ParseStringError
 from rpython.tool.sourcetools import func_with_new_name
 
@@ -55,7 +56,7 @@ def _split_complex(s):
 
     realstop = i
 
-    # return appropriate strings is only one number is there
+    # return appropriate strings if only one number is there
     if i >= slen:
         newstop = realstop - 1
         if newstop < 0:
@@ -194,6 +195,31 @@ def unpackcomplex(space, w_complex, strict_typing=True, firstarg=True):
                         "complex() second argument must be a number, not '%T'",
                          w_complex)
 
+# Python3 semantics of c_pow have changed slightly
+
+def c_pow(x, y):
+    (a_r, a_i), (b_r, b_i) = x, y
+    if b_r == 0 and b_i == 0:
+        rr, ir = (1., 0.)
+    elif (a_r == 0. or math.isinf(a_r)) and a_i == 0:
+        if b_i != 0. or b_r < 0:
+            raise ZeroDivisionError
+        rr, ir = (0.0, 0.0)
+    else:
+        vabs = math.hypot(a_r, a_i)
+        len = math.pow(vabs, b_r)
+        at = math.atan2(a_i, a_r)
+        phase = at * b_r 
+        if b_i != 0.0:
+            len /= math.exp(at * b_i)
+            phase += b_i * math.log(vabs)
+        try:
+            rr = len * math.cos(phase)
+            ir = len * math.sin(phase)
+        except ValueError:
+            rr = NAN
+            ir = NAN
+    return (rr, ir)
 
 
 class W_ComplexObject(W_Root):
@@ -227,7 +253,7 @@ class W_ComplexObject(W_Root):
         return W_ComplexObject(rr, ir)
 
     def pow(self, other):
-        rr, ir = rcomplex.c_pow(self.as_tuple(), other.as_tuple())
+        rr, ir = c_pow(self.as_tuple(), other.as_tuple())
         return W_ComplexObject(rr, ir)
 
     def pow_small_int(self, n):

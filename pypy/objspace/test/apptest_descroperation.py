@@ -903,4 +903,4 @@ def test_error_pow():
     assert "unsupported operand type(s) for ** or pow(): 'NoneType' and 'int'" in str(info.value)
     with raises(TypeError) as info:
         pow(None, 2, 2.1)
-    assert "unsupported operand type(s) for ** or pow(): 'NoneType', 'int', 'float'" in str(info.value)
+    assert "unsupported operand type(s) for pow(): 'NoneType', 'int', 'float'" in str(info.value)

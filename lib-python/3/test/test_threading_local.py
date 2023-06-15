@@ -207,6 +207,22 @@ class BaseLocalTest:
         _testcapi.join_temporary_c_thread()
 
 
+    def test_threading_local_clear_race(self):
+        # See https://github.com/python/cpython/issues/100892
+
+        try:
+            import _testcapi
+        except ImportError:
+            unittest.skip("requires _testcapi")
+
+        _testcapi.call_in_temporary_c_thread(lambda: None, False)
+
+        for _ in range(1000):
+            _ = threading.local()
+
+        _testcapi.join_temporary_c_thread()
+
+
 class ThreadLocalTest(unittest.TestCase, BaseLocalTest):
     _local = _thread._local
 
