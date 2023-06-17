@@ -23,7 +23,7 @@ class W_SliceObject(W_Root):
     def unwrap(w_slice, space):
         return slice(space.unwrap(w_slice.w_start), space.unwrap(w_slice.w_stop), space.unwrap(w_slice.w_step))
 
-    def indices3(w_slice, space, length):
+    def unpack(w_slice, space):
         if space.is_w(w_slice.w_step, space.w_None):
             step = 1
         else:
@@ -32,46 +32,47 @@ class W_SliceObject(W_Root):
                 raise oefmt(space.w_ValueError, "slice step cannot be zero")
         if space.is_w(w_slice.w_start, space.w_None):
             if step < 0:
-                start = length - 1
+                start = sys.maxint
             else:
                 start = 0
         else:
             start = _eval_slice_index(space, w_slice.w_start)
-            if start < 0:
-                start += length
-                if start < 0:
-                    if step < 0:
-                        start = -1
-                    else:
-                        start = 0
-            elif start >= length:
-                if step < 0:
-                    start = length - 1
-                else:
-                    start = length
         if space.is_w(w_slice.w_stop, space.w_None):
             if step < 0:
-                stop = -1
+                stop = -sys.maxint-1
             else:
-                stop = length
+                stop = sys.maxint
         else:
             stop = _eval_slice_index(space, w_slice.w_stop)
-            if stop < 0:
-                stop += length
-                if stop < 0:
-                    if step < 0:
-                        stop = -1
-                    else:
-                        stop = 0
-            elif stop >= length:
-                if step < 0:
-                    stop = length - 1
-                else:
-                    stop = length
         return start, stop, step
 
-    def indices4(w_slice, space, length):
-        start, stop, step = w_slice.indices3(space, length)
+    @staticmethod
+    def adjust_indices(start, stop, step, length):
+        if start < 0:
+            start += length
+            if start < 0:
+                if step < 0:
+                    start = -1
+                else:
+                    start = 0
+        elif start >= length:
+            if step < 0:
+                start = length - 1
+            else:
+                start = length
+
+        if stop < 0:
+            stop += length
+            if stop < 0:
+                if step < 0:
+                    stop = -1
+                else:
+                    stop = 0
+        elif stop >= length:
+            if step < 0:
+                stop = length - 1
+            else:
+                stop = length
         if (step < 0 and stop >= start) or (step > 0 and start >= stop):
             slicelength = 0
         elif step < 0:
@@ -79,6 +80,15 @@ class W_SliceObject(W_Root):
         else:
             slicelength = (stop - start - 1) / step + 1
         return start, stop, step, slicelength
+
+    def indices3(w_slice, space, length):
+        start, stop, step = w_slice.unpack(space)
+        start, stop, step, slicelength = w_slice.adjust_indices(start, stop, step, length)
+        return start, stop, step
+
+    def indices4(w_slice, space, length):
+        start, stop, step = w_slice.unpack(space)
+        return w_slice.adjust_indices(start, stop, step, length)
 
     def __repr__(self):
         return "<W_SliceObject(%r, %r, %r)>" % (
@@ -113,9 +123,9 @@ class W_SliceObject(W_Root):
     def descr__reduce__(self, space):
         from pypy.objspace.std.sliceobject import W_SliceObject
         assert isinstance(self, W_SliceObject)
-        return space.newtuple([
+        return space.newtuple2(
             space.type(self),
-            space.newtuple([self.w_start, self.w_stop, self.w_step])])
+            space.newtuple([self.w_start, self.w_stop, self.w_step]))
 
     def descr_eq(self, space, w_other):
         # We need this because CPython considers that slice1 == slice1

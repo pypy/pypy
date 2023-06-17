@@ -339,8 +339,8 @@ class W_DataShape(W_Root):
 
     @unwrap_spec(n=int)
     def descr_size_alignment(self, space, n=1):
-        return space.newtuple([space.newint(self.size * n),
-                               space.newint(self.alignment)])
+        return space.newtuple2(space.newint(self.size * n),
+                               space.newint(self.alignment))
 
 
 class W_DataInstance(W_Root):

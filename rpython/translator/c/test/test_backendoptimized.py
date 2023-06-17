@@ -18,6 +18,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
         assert fn(False) == 456
 
     def test__del__(self):
+        import gc
         class B(object):
             pass
         b = B()
@@ -48,6 +49,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
         assert res == 6
 
     def test_del_inheritance(self):
+        import gc
         class State:
             pass
         s = State()
@@ -68,6 +70,7 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
             A()
             B()
             C()
+            gc.collect()
             if x:
                 return s.a_dels * 10 + s.b_dels
             else:

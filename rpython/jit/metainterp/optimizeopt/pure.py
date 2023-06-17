@@ -3,7 +3,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
      ResOperation
 from rpython.jit.metainterp.optimizeopt.util import (
-    make_dispatcher_method, get_box_replacement)
+    make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import SpeculativeError
 
@@ -34,16 +34,17 @@ class CallPureOptimizationResult(OptimizationResult):
 
 
 class RecentPureOps(object):
-    REMEMBER_LIMIT = 16
-
-    def __init__(self):
-        self.lst = [None] * self.REMEMBER_LIMIT
+    def __init__(self, limit=16):
+        self.lst = [None] * limit
         self.next_index = 0
 
     def add(self, op):
         assert isinstance(op, AbstractResOp)
         next_index = self.next_index
-        self.next_index = (next_index + 1) % self.REMEMBER_LIMIT
+        new = next_index + 1
+        if new == len(self.lst):
+            new = 0
+        self.next_index = new
         self.lst[next_index] = op
 
     def force_preamble_op(self, opt, op, i):
@@ -54,7 +55,7 @@ class RecentPureOps(object):
         return op
 
     def lookup1(self, opt, box0, descr):
-        for i in range(self.REMEMBER_LIMIT):
+        for i in range(len(self.lst)):
             op = self.lst[i]
             if op is None:
                 break
@@ -64,7 +65,7 @@ class RecentPureOps(object):
         return None
 
     def lookup2(self, opt, box0, box1, descr):
-        for i in range(self.REMEMBER_LIMIT):
+        for i in range(len(self.lst)):
             op = self.lst[i]
             if op is None:
                 break
@@ -102,11 +103,9 @@ class OptPure(Optimization):
     def propagate_forward(self, op):
         return dispatch_opt(self, op)
 
-    def propagate_postprocess(self, op):
-        dispatch_postprocess(self, op)
-
     def optimize_default(self, op):
         canfold = rop.is_always_pure(op.opnum)
+        ovf = False
         if rop.is_ovf(op.opnum):
             self.postponed_op = op
             return
@@ -115,6 +114,7 @@ class OptPure(Optimization):
             op = self.postponed_op
             self.postponed_op = None
             canfold = nextop.getopnum() == rop.GUARD_NO_OVERFLOW
+            ovf = True
         else:
             nextop = None
 
@@ -132,25 +132,42 @@ class OptPure(Optimization):
                 return
 
             # did we do the exact same operation already?
-            recentops = self.getrecentops(op.getopnum())
+            recentops = self.getrecentops(op.getopnum(), create=False)
             save = True
-            oldop = recentops.lookup(self.optimizer, op)
-            if oldop is not None:
-                self.optimizer.make_equal_to(op, oldop)
-                return
+            if recentops is not None:
+                oldop = recentops.lookup(self.optimizer, op)
+                if oldop is not None and self._can_reuse_oldop(
+                            recentops, oldop, op, ovf):
+                    self.optimizer.make_equal_to(op, oldop)
+                    return
 
         # otherwise, the operation remains
+        if nextop is None and not save and not rop.returns_bool_result(op.getopnum()):
+            # for this case DefaultOptimizationResult would do nothing
+            return self.emit(op)
         return self.emit_result(DefaultOptimizationResult(self, op, save, nextop))
 
-    def getrecentops(self, opnum):
+    def _can_reuse_oldop(self, recentops, oldop, op, ovf):
+        if ovf:
+            # careful! this is an ovf operation. so we can only
+            # re-use the result of a prior ovf operation, but not a
+            # regular int_... up, because that might have
+            # overflowed (the other direction is fine). therefore
+            # we need to check that the previous op and the current
+            # op have the same opnum.
+            return isinstance(oldop, AbstractResOp) and oldop.opnum == op.opnum
+        return True
+
+    def getrecentops(self, opnum, create=True):
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
             opnum = opnum - rop._OVF_FIRST
         else:
             opnum = opnum - rop._ALWAYS_PURE_FIRST
         assert 0 <= opnum < len(self._pure_operations)
         recentops = self._pure_operations[opnum]
-        if recentops is None:
-            self._pure_operations[opnum] = recentops = RecentPureOps()
+        if recentops is None and create:
+            length = self.optimizer.jitdriver_sd.warmstate.pureop_historylength
+            self._pure_operations[opnum] = recentops = RecentPureOps(length)
         return recentops
 
     def optimize_call_pure(self, op, start_index=0):
@@ -264,7 +281,9 @@ class OptPure(Optimization):
         self.pure(opnum, newop)
 
     def get_pure_result(self, op):
-        recentops = self.getrecentops(op.getopnum())
+        recentops = self.getrecentops(op.getopnum(), create=False)
+        if not recentops:
+            return None
         return recentops.lookup(self.optimizer, op)
 
     def produce_potential_short_preamble_ops(self, sb):
@@ -293,4 +312,5 @@ class OptPure(Optimization):
 
 dispatch_opt = make_dispatcher_method(OptPure, 'optimize_',
                                       default=OptPure.optimize_default)
-dispatch_postprocess = make_dispatcher_method(OptPure, 'postprocess_')
+OptPure.propagate_postprocess = make_dispatcher_method(OptPure, 'postprocess_')
+OptPure.have_postprocess_op = have_dispatcher_method(OptPure, 'postprocess_')

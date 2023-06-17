@@ -18,6 +18,7 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rlib import longlong2float
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.rstring import StringBuilder
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -160,12 +161,48 @@ def _do_extend_from_iterable(space, w_list, w_iterable):
         i += 1
     return i
 
+def _get_printable_location(strategy_type, typ):
+    return 'list.repr [%s, %s]' % (
+        strategy_type,
+        typ)
+
+listrepr_jitdriver = jit.JitDriver(
+    name='list.repr',
+    greens=['strategy_type', 'typ'],
+    reds='auto',
+    get_printable_location=_get_printable_location)
+
+def listrepr(space, w_currently_in_repr, w_list):
+    length = w_list.length()
+    if space.contains_w(w_currently_in_repr, w_list):
+        return space.newtext('[...]')
+    space.setitem(w_currently_in_repr, w_list, space.newint(1))
+    try:
+        assert length > 0
+        builder = StringBuilder()
+        builder.append('[')
+        w_first = w_list.getitem(0)
+        builder.append(space.text_w(space.repr(w_first)))
+        typ = type(w_first)
+        for i in range(1, length):
+            listrepr_jitdriver.jit_merge_point(
+                typ=typ,
+                strategy_type=type(w_list.strategy))
+            builder.append(', ')
+            w_item = w_list.getitem(i)
+            builder.append(space.text_w(space.repr(w_item)))
+        builder.append(']')
+        return space.newtext(builder.build())
+    finally:
+        try:
+            space.delitem(w_currently_in_repr, w_list)
+        except OperationError as e:
+            if not e.match(space, space.w_KeyError):
+                raise
+
 
 def list_unroll_condition(w_list1, space, w_list2):
-    return (jit.loop_unrolling_heuristic(w_list1, w_list1.length(),
-                                         UNROLL_CUTOFF) or
-            jit.loop_unrolling_heuristic(w_list2, w_list2.length(),
-                                         UNROLL_CUTOFF))
+    return (w_list1._unrolling_heuristic() or w_list2._unrolling_heuristic())
 
 
 class W_ListObject(W_Root):
@@ -180,6 +217,10 @@ class W_ListObject(W_Root):
         else:
             self.strategy = space.fromcache(ObjectListStrategy)
         self.init_from_list_w(wrappeditems)
+
+    def _unrolling_heuristic(self):
+        strategy = self.strategy
+        return strategy._unrolling_heuristic(self)
 
     @staticmethod
     def from_storage_and_strategy(space, storage, strategy):
@@ -432,6 +473,7 @@ class W_ListObject(W_Root):
             self.extend(w_iterable)
 
     def descr_repr(self, space):
+        return self.strategy.repr(self)
         if self.length() == 0:
             return space.newtext('[]')
         return listrepr(space, space.get_objects_in_repr(), self)
@@ -543,10 +585,16 @@ class W_ListObject(W_Root):
         self.inplace_mul(times)
         return self
 
+    def _unpack_slice(self, w_index):
+        # important: unpack the slice before computing the length. the
+        # __index__ methods can mutate the list and change its length.
+        start, stop, step = w_index.unpack(self.space)
+        length = self.length()
+        return w_index.adjust_indices(start, stop, step, length)
+
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
-            length = self.length()
-            start, stop, step, slicelength = w_index.indices4(space, length)
+            start, stop, step, slicelength = self._unpack_slice(w_index)
             assert slicelength >= 0
             if slicelength == 0:
                 return make_empty_list(space)
@@ -585,8 +633,7 @@ class W_ListObject(W_Root):
                 w_other.copy_into(self)
                 return
 
-            oldsize = self.length()
-            start, stop, step, slicelength = w_index.indices4(space, oldsize)
+            start, stop, step, slicelength = self._unpack_slice(w_index)
             if isinstance(w_any, W_ListObject):
                 w_other = w_any
             else:
@@ -614,8 +661,7 @@ class W_ListObject(W_Root):
 
     def descr_delitem(self, space, w_idx):
         if isinstance(w_idx, W_SliceObject):
-            start, stop, step, slicelength = w_idx.indices4(
-                    space, self.length())
+            start, stop, step, slicelength = self._unpack_slice(w_idx)
             self.deleteslice(start, step, slicelength)
             return
 
@@ -963,6 +1009,18 @@ class ListStrategy(object):
     def physical_size(self, w_list):
         raise oefmt(self.space.w_ValueError, "can't get physical size of list")
 
+    def repr(self, w_list):
+        space = self.space
+        if self.length(w_list) == 0:
+            return space.newtext('[]')
+        return listrepr(space, space.get_objects_in_repr(), w_list)
+
+    def _unrolling_heuristic(self, w_list):
+        # default implementation: we will only go by size, not whether the list
+        # is virtual
+        size = self.length(w_list)
+        return size == 0 or (jit.isconstant(size) and size <= UNROLL_CUTOFF)
+
 
 class EmptyListStrategy(ListStrategy):
     """EmptyListStrategy is used when a W_List withouth elements is created.
@@ -1128,6 +1186,13 @@ class EmptyListStrategy(ListStrategy):
     def physical_size(self, w_list):
         return 0
 
+    def repr(self, w_list):
+        space = self.space
+        return space.newtext('[]')
+
+    def _unrolling_heuristic(self, w_list):
+        return True
+
 
 class SizeListStrategy(EmptyListStrategy):
     """Like empty, but when modified it'll preallocate the size to sizehint."""
@@ -1236,6 +1301,8 @@ class BaseRangeListStrategy(ListStrategy):
         if step > 0 and reverse or step < 0 and not reverse:
             self.switch_to_integer_strategy(w_list)
             w_list.sort(reverse)
+
+    # default _unrolling_heuristic is fine
 
 
 class SimpleRangeListStrategy(BaseRangeListStrategy):
@@ -1519,13 +1586,11 @@ class AbstractUnwrappedStrategy(object):
             func_with_new_name(getitems_copy, "getitems_unroll"))
 
     getitems_copy = jit.look_inside_iff(lambda self, w_list:
-            jit.loop_unrolling_heuristic(w_list, w_list.length(),
-                                         UNROLL_CUTOFF))(getitems_copy)
+            w_list._unrolling_heuristic())(getitems_copy)
 
 
     @jit.look_inside_iff(lambda self, w_list:
-            jit.loop_unrolling_heuristic(w_list, w_list.length(),
-                                         UNROLL_CUTOFF))
+            w_list._unrolling_heuristic())
     def getitems_fixedsize(self, w_list):
         return self.getitems_unroll(w_list)
 
@@ -1738,6 +1803,10 @@ class AbstractUnwrappedStrategy(object):
         l = self.unerase(w_list.lstorage)
         return list_get_physical_size(l)
 
+    def _unrolling_heuristic(self, w_list):
+        storage = self.unerase(w_list.lstorage)
+        return jit.loop_unrolling_heuristic(storage, len(storage), UNROLL_CUTOFF)
+
 
 class ObjectListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
@@ -1758,8 +1827,7 @@ class ObjectListStrategy(ListStrategy):
     unerase = staticmethod(unerase)
 
     @jit.look_inside_iff(lambda self, w_list:
-            jit.loop_unrolling_heuristic(w_list, w_list.length(),
-                                         UNROLL_CUTOFF))
+            w_list._unrolling_heuristic())
     def getitems_copy(self, w_list):
         storage = self.unerase(w_list.lstorage)
         return storage[:]
@@ -1890,6 +1958,11 @@ class IntegerListStrategy(ListStrategy):
         # no, fall back to ObjectListStrategy
         w_list.switch_to_object_strategy()
 
+    def repr(self, w_list):
+        space = self.space
+        res = str(self.unerase(w_list.lstorage))
+        return space.newtext(res)
+
 
 class FloatListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
@@ -2008,6 +2081,20 @@ class FloatListStrategy(ListStrategy):
                     return
         # no, fall back to ObjectListStrategy
         w_list.switch_to_object_strategy()
+
+    def repr(self, w_list):
+        from pypy.objspace.std.floatobject import float_repr
+        l = self.unerase(w_list.lstorage)
+        if len(l) == 0:
+            return self.space.newtext('[]')
+        b = StringBuilder()
+        b.append('[')
+        for i in range(len(l)):
+            if i > 0:
+                b.append(', ')
+            b.append(float_repr(l[i]))
+        b.append(']')
+        return self.space.newtext(b.build())
 
 
 class IntOrFloatListStrategy(ListStrategy):
@@ -2132,6 +2219,26 @@ class IntOrFloatListStrategy(ListStrategy):
             return result
         raise ValueError
 
+    def repr(self, w_list):
+        from pypy.objspace.std.floatobject import float_repr
+        l = self.unerase(w_list.lstorage)
+        if len(l) == 0:
+            return self.space.newtext('[]')
+        b = StringBuilder()
+        b.append('[')
+        for i in range(len(l)):
+            if i > 0:
+                b.append(', ')
+            llval = l[i]
+            if longlong2float.is_int32_from_longlong_nan(llval):
+                intval = longlong2float.decode_int32_from_longlong_nan(llval)
+                b.append(str(intval))
+            else:
+                floatval = longlong2float.longlong2float(llval)
+                b.append(float_repr(floatval))
+        b.append(']')
+        return self.space.newtext(b.build())
+
 
 class BytesListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
@@ -2208,22 +2315,6 @@ class AsciiListStrategy(ListStrategy):
 init_signature = Signature(['sequence'], None, None)
 init_defaults = [None]
 
-app = applevel("""
-    def listrepr(currently_in_repr, l):
-        'The app-level part of repr().'
-        if l in currently_in_repr:
-            return '[...]'
-        currently_in_repr[l] = 1
-        try:
-            return "[" + ", ".join([repr(x) for x in l]) + ']'
-        finally:
-            try:
-                del currently_in_repr[l]
-            except:
-                pass
-""", filename=__file__)
-
-listrepr = app.interphook("listrepr")
 
 # ____________________________________________________________
 # Sorting

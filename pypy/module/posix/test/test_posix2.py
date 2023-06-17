@@ -1009,6 +1009,7 @@ class AppTestPosix:
             assert os.WEXITSTATUS(status1) == expected
 
     if hasattr(os, 'symlink'):
+        @pytest.mark.skipif("config.option.runappdirect and sys.platform == 'darwin'")
         def test_symlink(self):
             posix = self.posix
             unicode_dir = self.unicode_dir

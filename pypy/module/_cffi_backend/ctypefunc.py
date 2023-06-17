@@ -449,15 +449,22 @@ class CifDescrBuilder(object):
     def align_arg(self, n):
         return (n + 7) & ~7
 
+    def align_to(self, n, type):
+        a = rffi.getintfield(type, 'c_alignment') - 1
+        return (n + a) & ~a
+
     def fb_build_exchange(self, cif_descr):
         nargs = len(self.fargs)
 
         # first, enough room for an array of 'nargs' pointers
         exchange_offset = rffi.sizeof(rffi.CCHARP) * nargs
+
+        # then enough room for the result --- which means at least
+        # sizeof(ffi_arg), according to the ffi docs, but we also
+        # align according to the result type, for cffi issue #531
+        exchange_offset = self.align_to(exchange_offset, self.rtype)
         exchange_offset = self.align_arg(exchange_offset)
         cif_descr.exchange_result = exchange_offset
-
-        # then enough room for the result, rounded up to sizeof(ffi_arg)
         exchange_offset += max(rffi.getintfield(self.rtype, 'c_size'),
                                SIZE_OF_FFI_ARG)
 
@@ -465,9 +472,11 @@ class CifDescrBuilder(object):
         for i, farg in enumerate(self.fargs):
             if isinstance(farg, W_CTypePointer):
                 exchange_offset += 1   # for the "must free" flag
+            atype = self.atypes[i]
+            exchange_offset = self.align_to(exchange_offset, atype)
             exchange_offset = self.align_arg(exchange_offset)
             cif_descr.exchange_args[i] = exchange_offset
-            exchange_offset += rffi.getintfield(self.atypes[i], 'c_size')
+            exchange_offset += rffi.getintfield(atype, 'c_size')
 
         # store the exchange data size
         # we also align it to the next multiple of 8, in an attempt to

@@ -24,6 +24,7 @@ _MS_WINDOWS = os.name == "nt"
 _64BIT = "64bit" in platform.architecture()[0]
 _CYGWIN = "cygwin" == sys.platform
 _DARWIN = "darwin" == sys.platform
+_ARM64 = "arm64" == platform.machine()
 
 class RMMapError(Exception):
     def __init__(self, message):
@@ -60,7 +61,7 @@ if _POSIX:
     constant_names = ['MAP_SHARED', 'MAP_PRIVATE', 'MAP_FIXED',
                       'PROT_READ', 'PROT_WRITE',
                       'MS_SYNC']
-    if sys.platform == 'darwin':
+    if _DARWIN and _ARM64:
         constant_names.append('MAP_JIT')
     opt_constant_names = ['MAP_ANON', 'MAP_ANONYMOUS', 'MAP_NORESERVE',
                           'PROT_EXEC',
@@ -204,7 +205,7 @@ if _POSIX:
                                                        includes=includes)
     _get_allocation_granularity = _get_page_size = lambda: _pagesize
 
-    if _DARWIN:
+    if _DARWIN and _ARM64:
         _, c_pthread_jit_write_protect_np = external('pthread_jit_write_protect_np',
             [rffi.INT], lltype.Void)
 
@@ -676,7 +677,7 @@ def _check_map_size(size):
     if size < 0:
         raise RTypeError("memory mapped size must be positive")
 
-if _DARWIN:
+if _DARWIN and _ARM64:
 
     class Nester(object):
         def __init__(self):
@@ -784,7 +785,7 @@ if _POSIX:
 
     def alloc_hinted(hintp, map_size):
         flags = MAP_PRIVATE | MAP_ANONYMOUS
-        if _DARWIN:
+        if _DARWIN and _ARM64:
             flags |= MAP_JIT
         prot = PROT_EXEC | PROT_READ | PROT_WRITE
         if we_are_translated():

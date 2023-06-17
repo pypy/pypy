@@ -73,7 +73,7 @@ class W_ZipCache(W_Root):
         return space.newlist(values_w)
 
     def items(self, space):
-        items_w = [space.newtuple([space.newtext(key), self.getitem(space, key)])
+        items_w = [space.newtuple2(space.newtext(key), self.getitem(space, key))
                    for key in self.cache.keys()]
         return space.newlist(items_w)
 

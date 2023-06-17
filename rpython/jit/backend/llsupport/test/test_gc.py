@@ -204,7 +204,7 @@ def test_custom_tracer():
     def indexof(no):
         return (frame_adr + jitframe.getofs('jf_frame') +
                 jitframe.BASEITEMOFS + jitframe.SIGN_SIZE * no)
-    
+
     frame_info = lltype.malloc(jitframe.JITFRAMEINFO, zero=True, flavor='raw')
     frame = lltype.malloc(jitframe.JITFRAME, 200, zero=True)
     frame.jf_frame_info = frame_info
@@ -221,16 +221,17 @@ def test_custom_tracer():
     #
     all_addrs = []
     class FakeGC:
-        def _trace_callback(self, callback, arg, addr):
+        def _trace_callback(self, callback, arg1, arg2, addr):
             assert callback == "hello"
-            assert arg == "world"
+            assert arg1 == "world"
+            assert arg2 == "foo"
             all_addrs.append(addr)
-    jitframe.jitframe_trace(FakeGC(), frame_adr, "hello", "world")
+    jitframe.jitframe_trace(FakeGC(), frame_adr, "hello", "world", "foo")
     #
     counter = 0
     for name in jitframe.JITFRAME._names:
         TP = getattr(jitframe.JITFRAME, name)
-        if isinstance(TP, lltype.Ptr) and TP.TO._gckind == 'gc': 
+        if isinstance(TP, lltype.Ptr) and TP.TO._gckind == 'gc':
             assert all_addrs[counter] == frame_adr + jitframe.getofs(name)
             counter += 1
     assert counter == 5
@@ -257,7 +258,7 @@ def test_custom_tracer():
     lltype.free(frame_info, flavor='raw')
     lltype.free(frame.jf_gcmap, flavor='raw')
 
-def test_custom_tracer_2():    
+def test_custom_tracer_2():
     frame_info = lltype.malloc(jitframe.JITFRAMEINFO, zero=True, flavor='raw')
     frame = lltype.malloc(jitframe.JITFRAME, 200, zero=True)
     frame.jf_frame_info = frame_info
@@ -267,10 +268,11 @@ def test_custom_tracer_2():
     frame.jf_gcmap[2] = r_uint(3)
     frame_adr = llmemory.cast_ptr_to_adr(frame)
     class FakeGC:
-        def _trace_callback(self, callback, arg, addr):
+        def _trace_callback(self, callback, arg1, arg2, addr):
             assert callback == "hello"
-            assert arg == "world"
-    jitframe.jitframe_trace(FakeGC(), frame_adr, "hello", "world")
+            assert arg1 == "world"
+            assert arg2 == "foo"
+    jitframe.jitframe_trace(FakeGC(), frame_adr, "hello", "world", "foo")
     # assert did not hang
 
     lltype.free(frame_info, flavor='raw')

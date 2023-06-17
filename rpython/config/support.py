@@ -18,7 +18,7 @@ def detect_number_of_processors(filename_or_file='/proc/cpuinfo'):
             f = open(filename_or_file, "r")
         else:
             f = filename_or_file
-        count = max([int(re.split('processor.*(\d+)', line)[1])
+        count = max([int(re.split('processor[^\d]*(\d+)', line)[1])
                     for line in f.readlines()
                     if line.startswith('processor')]) + 1
         if count >= 4:

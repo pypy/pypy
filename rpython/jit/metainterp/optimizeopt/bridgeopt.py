@@ -93,16 +93,15 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
         triples_struct, triples_array = optimizer.optheap.serialize_optheap(available_boxes)
         # can only encode descrs that have a known index into
         # metainterp_sd.all_descrs
-        triples_struct = [triple for triple in triples_struct if triple[1].descr_index != -1]
         numb_state.append_int(len(triples_struct))
         for box1, descr, box2 in triples_struct:
-            descr_index = descr.descr_index
+            descr_index = descr.get_descr_index()
             numb_state.append_short(tag_box(box1, liveboxes_from_env, memo))
             numb_state.append_int(descr_index)
             numb_state.append_short(tag_box(box2, liveboxes_from_env, memo))
         numb_state.append_int(len(triples_array))
         for box1, index, descr, box2 in triples_array:
-            descr_index = descr.descr_index
+            descr_index = descr.get_descr_index()
             numb_state.append_short(tag_box(box1, liveboxes_from_env, memo))
             numb_state.append_int(index)
             numb_state.append_int(descr_index)

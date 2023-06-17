@@ -1,4 +1,5 @@
 import py
+import pytest
 import sys
 from rpython.rlib.rarithmetic import intmask
 from rpython.rtyper.lltypesystem import lltype
@@ -470,7 +471,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected, expected)
 
     def test_int_is_true_is_zero(self):
-        py.test.skip("in-progress")
         ops = """
         [i0]
         i1 = int_add(i0, 1)
@@ -753,8 +753,8 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_compare_with_itself_uint(self):
-        py.test.skip("implement me")
         ops = """
         []
         i0 = escape_i()
@@ -2614,8 +2614,8 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_duplicate_getarrayitem_after_setarrayitem_2(self):
-        py.test.skip("setarrayitem with variable index")
         ops = """
         [p1, p2, p3, i1]
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
@@ -3124,7 +3124,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected, preamble)
 
     def test_remove_multiple_add_1(self):
-        py.test.skip("disabled")
         ops = """
         [i0]
         i1 = int_add(i0, 1)
@@ -3142,7 +3141,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_remove_multiple_add_2(self):
-        py.test.skip("disabled")
         ops = """
         [i0]
         i1 = int_add(i0, 1)
@@ -3170,7 +3168,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_remove_multiple_add_3(self):
-        py.test.skip("disabled")
         ops = """
         [i0]
         i1 = int_add(i0, %s)
@@ -4453,10 +4450,11 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
-    def test_bound_lt_add_before(self):
+    def test_bound_lt_add_ovf_before(self):
         ops = """
         [i0]
-        i2 = int_add(i0, 10)
+        i2 = int_add_ovf(i0, 10)
+        guard_no_overflow() []
         i3 = int_lt(i2, 15)
         guard_true(i3) []
         i1 = int_lt(i0, 6)
@@ -4465,7 +4463,8 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         preamble = """
         [i0]
-        i2 = int_add(i0, 10)
+        i2 = int_add_ovf(i0, 10)
+        guard_no_overflow() []
         i3 = int_lt(i2, 15)
         guard_true(i3) []
         jump(i0)
@@ -4886,8 +4885,8 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_add_sub_ovf_second_operation_regular(self):
-        py.test.skip("Smalltalk would like this to pass")
         # This situation occurs in Smalltalk because it uses 1-based indexing.
         # The below code is equivalent to a loop over an array.
         ops = """
@@ -5659,136 +5658,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
-    def test_bound_lshift(self):
-        ops = """
-        [i0, i1, i1b, i2, i3]
-        i4 = int_lt(i1, 7)
-        guard_true(i4) []
-        i4b = int_lt(i1b, 7)
-        guard_true(i4b) []
-        i4c = int_ge(i1b, 0)
-        guard_true(i4c) []
-        i5 = int_lt(i3, 2)
-        guard_true(i5) []
-        i6 = int_ge(i3, 0)
-        guard_true(i6) []
-        i7 = int_lshift(i1, i3)
-        i8 = int_le(i7, 14)
-        guard_true(i8) []
-        i8b = int_lshift(i1, i2)
-        i9 = int_le(i8b, 14)
-        guard_true(i9) []
-        i10 = int_lshift(i0, i3)
-        i11 = int_le(i10, 14)
-        guard_true(i11) []
-        i12 = int_lt(i0, 15)
-        guard_true(i12) []
-        i13 = int_lshift(i1b, i3)
-        i14 = int_le(i13, 14)
-        guard_true(i14) []
-        i15 = int_lshift(i1b, i2)
-        i16 = int_le(i15, 14)
-        guard_true(i16) []
-        jump(i0, i1, i1b, i2, i3)
-        """
-        preamble = """
-        [i0, i1, i1b, i2, i3]
-        i4 = int_lt(i1, 7)
-        guard_true(i4) []
-        i4b = int_lt(i1b, 7)
-        guard_true(i4b) []
-        i4c = int_ge(i1b, 0)
-        guard_true(i4c) []
-        i5 = int_lt(i3, 2)
-        guard_true(i5) []
-        i6 = int_ge(i3, 0)
-        guard_true(i6) []
-        i7 = int_lshift(i1, i3)
-        i8 = int_le(i7, 14)
-        guard_true(i8) []
-        i8b = int_lshift(i1, i2)
-        i9 = int_le(i8b, 14)
-        guard_true(i9) []
-        i10 = int_lshift(i0, i3)
-        i11 = int_le(i10, 14)
-        guard_true(i11) []
-        i13 = int_lshift(i1b, i3)
-        i15 = int_lshift(i1b, i2)
-        i16 = int_le(i15, 14)
-        guard_true(i16) []
-        jump(i0, i1, i1b, i2, i3)
-        """
-        expected = """
-        [i0, i1, i1b, i2, i3]
-        jump(i0, i1, i1b, i2, i3)
-        """
-        self.optimize_loop(ops, expected, preamble)
-
-    def test_bound_rshift(self):
-        ops = """
-        [i0, i1, i1b, i2, i3]
-        i4 = int_lt(i1, 7)
-        guard_true(i4) []
-        i4b = int_lt(i1b, 7)
-        guard_true(i4b) []
-        i4c = int_ge(i1b, 0)
-        guard_true(i4c) []
-        i5 = int_lt(i3, 2)
-        guard_true(i5) []
-        i6 = int_ge(i3, 0)
-        guard_true(i6) []
-        i7 = int_rshift(i1, i3)
-        i8 = int_le(i7, 14)
-        guard_true(i8) []
-        i8b = int_rshift(i1, i2)
-        i9 = int_le(i8b, 14)
-        guard_true(i9) []
-        i10 = int_rshift(i0, i3)
-        i11 = int_le(i10, 14)
-        guard_true(i11) []
-        i12 = int_lt(i0, 25)
-        guard_true(i12) []
-        i13 = int_rshift(i1b, i3)
-        i14 = int_le(i13, 14)
-        guard_true(i14) []
-        i15 = int_rshift(i1b, i2)
-        i16 = int_le(i15, 14)
-        guard_true(i16) []
-        jump(i0, i1, i1b, i2, i3)
-        """
-        preamble = """
-        [i0, i1, i1b, i2, i3]
-        i4 = int_lt(i1, 7)
-        guard_true(i4) []
-        i4b = int_lt(i1b, 7)
-        guard_true(i4b) []
-        i4c = int_ge(i1b, 0)
-        guard_true(i4c) []
-        i5 = int_lt(i3, 2)
-        guard_true(i5) []
-        i6 = int_ge(i3, 0)
-        guard_true(i6) []
-        i7 = int_rshift(i1, i3)
-        i8b = int_rshift(i1, i2)
-        i9 = int_le(i8b, 14)
-        guard_true(i9) []
-        i10 = int_rshift(i0, i3)
-        i11 = int_le(i10, 14)
-        guard_true(i11) []
-        i12 = int_lt(i0, 25)
-        guard_true(i12) []
-        i13 = int_rshift(i1b, i3)
-        i15 = int_rshift(i1b, i2)
-        i16 = int_le(i15, 14)
-        guard_true(i16) []
-        jump(i0, i1, i1b, i2, i3)
-        """
-        expected = """
-        [i0, i1, i1b, i2, i3]
-        jump(i0, i1, i1b, i2, i3)
-        """
-        self.optimize_loop(ops, expected, preamble)
-
     def test_bound_dont_backpropagate_rshift(self):
         ops = """
         [i0]
@@ -5799,44 +5668,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         jump(i11)
         """
         self.optimize_loop(ops, ops, ops)
-
-    def test_bound_backpropagate_int_signext(self):
-        ops = """
-        []
-        i0 = escape_i()
-        i1 = int_signext(i0, 1)
-        i2 = int_eq(i0, i1)
-        guard_true(i2) []
-        i3 = int_le(i0, 127)    # implied by equality with int_signext
-        guard_true(i3) []
-        i5 = int_gt(i0, -129)   # implied by equality with int_signext
-        guard_true(i5) []
-        jump()
-        """
-        expected = """
-        []
-        i0 = escape_i()
-        i1 = int_signext(i0, 1)
-        i2 = int_eq(i0, i1)
-        guard_true(i2) []
-        jump()
-        """
-        self.optimize_loop(ops, expected)
-
-    def test_bound_backpropagate_int_signext_2(self):
-        ops = """
-        []
-        i0 = escape_i()
-        i1 = int_signext(i0, 1)
-        i2 = int_eq(i0, i1)
-        guard_true(i2) []
-        i3 = int_le(i0, 126)    # false for i1 == 127
-        guard_true(i3) []
-        i5 = int_gt(i0, -128)   # false for i1 == -128
-        guard_true(i5) []
-        jump()
-        """
-        self.optimize_loop(ops, ops)
 
     def test_mul_ovf(self):
         ops = """
@@ -8234,9 +8065,9 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_forced_counter(self):
         # XXX: VIRTUALHEAP (see above)
-        py.test.skip("would be fixed by make heap optimizer aware of virtual setfields")
         ops = """
         [p5, p8]
         i9 = getfield_gc_i(p5, descr=valuedescr)
@@ -8339,9 +8170,8 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_exploding_duplication(self):
-        py.test.skip("maybe we want to revisit this guy, but in the new model"
-                     " it fails for same_as reasons")
         ops = """
         [i1, i2]
         i3 = int_add(i1, i1)
@@ -8367,7 +8197,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected, expected_short=short)
 
     def test_prioritize_getfield1(self):
-        py.test.skip("we no longer do it, and while unfortunate I don't think it's that relevant")
         ops = """
         [p1, p2]
         i1 = getfield_gc_i(p1, descr=valuedescr)
@@ -8385,7 +8214,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         self.optimize_loop(ops, expected)
 
     def test_prioritize_getfield2(self):
-        # Same as previous, but with descrs intercahnged which means
+        # Same as previous, but with descrs interchanged which means
         # that the getfield is discovered first when looking for
         # potential short boxes during tests
         ops = """
@@ -8456,8 +8285,8 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
     def test_heap_cache_virtuals_forced_by_delayed_setfield(self):
-        py.test.skip('not yet supoprted')
         ops = """
         [i1, p0]
         p1 = new(descr=ssize)

@@ -631,3 +631,11 @@ def test_method_identity():
     assert id(x) != id(A.n)
     assert x is not B.m
     assert id(x) != id(B.m)
+
+def test_method_ne_NotImplemented():
+    class A(object):
+        def __ne__(self, other):
+            return "ABC"
+    meth = A.__ne__
+    assert meth.__ne__(1) is NotImplemented
+    assert (meth != A()) == "ABC"

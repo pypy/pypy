@@ -1190,6 +1190,35 @@ class TestStandalone(StandaloneTests):
         # check that the precompiled header was generated
         assert cbuilder.targetdir.join("singleheader.h.gch").check()
 
+    def test_field_access_stats(self):
+        t = TranslationContext(self.config)
+        t.config.translation.countfieldaccess = True
+        class A:
+            pass
+        def entry_point(argv):
+            l = []
+            for i in range(100):
+                a = A()
+                a.x = i
+                l.append(a)
+            res = 0
+            for a in l + l:
+                res += a.x
+            print(res)
+            return 0
+        entry_point([])
+
+        t.buildannotator().build_types(entry_point, [s_list_of_strings])
+        t.buildrtyper().specialize()
+        #
+        cbuilder = CStandaloneBuilder(t, entry_point, t.config)
+        cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
+        cbuilder.compile()
+        fn = udir.join("fieldstats")
+        data = cbuilder.cmdexec(env={"PYPYLOG": "stats-fields:%s" % fn})
+        stats = fn.read()
+        assert "write a_inst_x 100" in stats
+        assert "read a_inst_x 200" in stats
 
 class TestThread(object):
     gcrootfinder = 'shadowstack'

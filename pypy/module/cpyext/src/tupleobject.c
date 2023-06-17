@@ -61,8 +61,18 @@ PyTuple_New(register Py_ssize_t size)
 }
 
 /* this is CPython's tupledealloc */
+#ifdef CPYEXT_TESTS
+#define _Py_tuple_dealloc _cpyexttest_tuple_dealloc
+#ifdef __GNUC__
+__attribute__((visibility("default")))
+#else
+__declspec(dllexport)
+#endif
+#else  /* CPYEXT_TESTS */
+#define _Py_tuple_dealloc _PyPy_tuple_dealloc
+#endif  /* CPYEXT_TESTS */
 void
-_PyPy_tuple_dealloc(register PyObject *_op)
+_Py_tuple_dealloc(register PyObject *_op)
 {
     register PyTupleObject *op = (PyTupleObject *)_op;
     register Py_ssize_t i;
@@ -93,8 +103,18 @@ done:
 static PyObject *
 tuple_subtype_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
 
+#ifdef CPYEXT_TESTS
+#define _Py_tuple_new _cpyexttest_tuple_new
+#ifdef __GNUC__
+__attribute__((visibility("default")))
+#else
+__declspec(dllexport)
+#endif
+#else  /* CPYEXT_TESTS */
+#define _Py_tuple_new _PyPy_tuple_new
+#endif  /* CPYEXT_TESTS */
 PyObject *
-_PyPy_tuple_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+_Py_tuple_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 {
     PyObject *arg = NULL;
     static char *kwlist[] = {"sequence", 0};
@@ -117,7 +137,7 @@ tuple_subtype_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
     Py_ssize_t i, n;
 
     assert(PyType_IsSubtype(type, &PyTuple_Type));
-    tmp = _PyPy_tuple_new(&PyTuple_Type, args, kwds);
+    tmp = _Py_tuple_new(&PyTuple_Type, args, kwds);
     if (tmp == NULL)
         return NULL;
     assert(PyTuple_Check(tmp));

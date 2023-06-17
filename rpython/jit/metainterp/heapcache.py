@@ -1,10 +1,10 @@
-from rpython.jit.metainterp.history import Const, ConstInt
+from rpython.jit.metainterp.history import Const, ConstInt, ConstPtr
 from rpython.jit.metainterp.history import FrontendOp, RefFrontendOp
 from rpython.jit.metainterp.history import new_ref_dict
 from rpython.jit.metainterp.resoperation import rop, OpHelpers
 from rpython.jit.metainterp.executor import constant_from_op
 from rpython.rlib.rarithmetic import r_uint32, r_uint
-from rpython.rlib.objectmodel import always_inline
+from rpython.rlib.objectmodel import always_inline, specialize
 
 """ A big note: we don't do heap caches on Consts, because it used
 to be done with the identity of the Const instance. This gives very wonky
@@ -65,6 +65,8 @@ class CacheEntry(object):
         # set of refs for *constants* that we've seen a quasi-immut field on.
         self.quasiimmut_seen_refs = None
 
+        self.last_const_box = None
+
     def _clear_cache_on_write(self, seen_allocation_of_target):
         if not seen_allocation_of_target:
             self.cache_seen_allocation.clear()
@@ -86,11 +88,23 @@ class CacheEntry(object):
             return self.cache_anything
 
     def do_write_with_aliasing(self, ref_box, fieldbox):
+        ref_box = self._unique_const_heuristic(ref_box)
         seen_alloc = self._seen_alloc(ref_box)
         self._clear_cache_on_write(seen_alloc)
         self._getdict(seen_alloc)[ref_box] = fieldbox
 
+    def _unique_const_heuristic(self, ref_box):
+        # we don't want a dict lookup for every constptr, but comparing against
+        # the last used constptr for the current descr is often enough
+        if isinstance(ref_box, ConstPtr):
+            if self.last_const_box and self.last_const_box.same_constant(ref_box):
+                ref_box = self.last_const_box
+            else:
+                self.last_const_box = ref_box
+        return ref_box
+
     def read(self, ref_box):
+        ref_box = self._unique_const_heuristic(ref_box)
         dict = self._getdict(self._seen_alloc(ref_box))
         try:
             res_box = dict[ref_box]
@@ -99,6 +113,7 @@ class CacheEntry(object):
         return maybe_replace_with_const(res_box)
 
     def read_now_known(self, ref_box, fieldbox):
+        ref_box = self._unique_const_heuristic(ref_box)
         self._getdict(self._seen_alloc(ref_box))[ref_box] = fieldbox
 
     def invalidate_unescaped(self):
@@ -126,18 +141,6 @@ class FieldUpdater(object):
 
     def setfield(self, fieldbox):
         self.cache.do_write_with_aliasing(self.ref_box, fieldbox)
-
-class DummyFieldUpdater(FieldUpdater):
-    def __init__(self):
-        self.currfieldbox = None
-
-    def getfield_now_known(self, fieldbox):
-        pass
-
-    def setfield(self, fieldbox):
-        pass
-
-dummy_field_updater = DummyFieldUpdater()
 
 
 class HeapCache(object):
@@ -205,9 +208,18 @@ class HeapCache(object):
             ref_frontend_op._set_heapc_flags(f)
             ref_frontend_op._heapc_deps = None
 
-    def invalidate_caches(self, opnum, descr, argboxes):
-        self.mark_escaped(opnum, descr, argboxes)
-        self.clear_caches(opnum, descr, argboxes)
+    def invalidate_caches_varargs(self, opnum, descr, argboxes):
+        self.mark_escaped_varargs(opnum, descr, argboxes)
+        if self.clear_caches_not_necessary(opnum, descr):
+            return
+        self.clear_caches_varargs(opnum, descr, argboxes)
+
+    @specialize.arg(1)
+    def invalidate_caches(self, opnum, descr, *argboxes):
+        self.mark_escaped(opnum, descr, *argboxes)
+        if self.clear_caches_not_necessary(opnum, descr):
+            return
+        self.clear_caches(opnum, descr, *argboxes)
 
     def _escape_from_write(self, box, fieldbox):
         if self.is_unescaped(box) and self.is_unescaped(fieldbox):
@@ -216,7 +228,9 @@ class HeapCache(object):
         elif fieldbox is not None:
             self._escape_box(fieldbox)
 
-    def mark_escaped(self, opnum, descr, argboxes):
+    @specialize.arg(1)
+    def mark_escaped(self, opnum, descr, *argboxes):
+        assert opnum != rop.CALL_N
         if opnum == rop.SETFIELD_GC:
             assert len(argboxes) == 2
             box, fieldbox = argboxes
@@ -225,7 +239,37 @@ class HeapCache(object):
             assert len(argboxes) == 3
             box, indexbox, fieldbox = argboxes
             self._escape_from_write(box, fieldbox)
-        elif (opnum == rop.CALL_N and
+        # these operations don't escape their arguments
+        elif (opnum != rop.GETFIELD_GC_R and
+              opnum != rop.GETFIELD_GC_I and
+              opnum != rop.GETFIELD_GC_F and
+              opnum != rop.PTR_EQ and
+              opnum != rop.PTR_NE and
+              opnum != rop.INSTANCE_PTR_EQ and
+              opnum != rop.INSTANCE_PTR_NE and
+              opnum != rop.ASSERT_NOT_NONE):
+            self._escape_argboxes(*argboxes)
+
+    def _escape_argboxes(self, *argboxes):
+        if len(argboxes) == 0:
+            return
+        self._escape_box(argboxes[0])
+        self._escape_argboxes(*argboxes[1:])
+
+    def mark_escaped_varargs(self, opnum, descr, argboxes):
+        # these opnums should never reach here, they should always end up in
+        # the mark_escaped variant
+        assert (opnum != rop.SETFIELD_GC and
+                opnum != rop.SETARRAYITEM_GC and
+                opnum != rop.GETFIELD_GC_R and
+                opnum != rop.GETFIELD_GC_I and
+                opnum != rop.GETFIELD_GC_F and
+                opnum != rop.PTR_EQ and
+                opnum != rop.PTR_NE and
+                opnum != rop.INSTANCE_PTR_EQ and
+                opnum != rop.INSTANCE_PTR_NE and
+                opnum != rop.ASSERT_NOT_NONE)
+        if (opnum == rop.CALL_N and
               descr.get_extra_info().oopspecindex == descr.get_extra_info().OS_ARRAYCOPY and
               isinstance(argboxes[3], ConstInt) and
               isinstance(argboxes[4], ConstInt) and
@@ -244,16 +288,7 @@ class HeapCache(object):
             # ARRAYMOVE with constant starts and constant length doesn't escape
             # its argument
             pass
-        # GETFIELD_GC, PTR_EQ, and PTR_NE don't escape their
-        # arguments
-        elif (opnum != rop.GETFIELD_GC_R and
-              opnum != rop.GETFIELD_GC_I and
-              opnum != rop.GETFIELD_GC_F and
-              opnum != rop.PTR_EQ and
-              opnum != rop.PTR_NE and
-              opnum != rop.INSTANCE_PTR_EQ and
-              opnum != rop.INSTANCE_PTR_NE and
-              opnum != rop.ASSERT_NOT_NONE):
+        else:
             for box in argboxes:
                 self._escape_box(box)
 
@@ -273,7 +308,8 @@ class HeapCache(object):
                     for i in range(1, len(deps)):
                         self._escape_box(deps[i])
 
-    def clear_caches(self, opnum, descr, argboxes):
+    @specialize.arg_or_var(1)
+    def clear_caches_not_necessary(self, opnum, descr):
         if (opnum == rop.SETFIELD_GC or
             opnum == rop.SETARRAYITEM_GC or
             opnum == rop.SETFIELD_RAW or
@@ -289,11 +325,17 @@ class HeapCache(object):
             opnum == rop.RECORD_EXACT_CLASS or
             opnum == rop.RAW_STORE or
             opnum == rop.ASSERT_NOT_NONE):
-            return
+            return True
         if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST or
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
             rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST):
-            return
+            return True
+        return False
+
+    def clear_caches(self, opnum, descr, *argboxes):
+        self.clear_caches_varargs(opnum, descr, list(argboxes))
+
+    def clear_caches_varargs(self, opnum, descr, argboxes):
         self.need_guard_not_invalidated = True # can do better, but good start
         if (OpHelpers.is_plain_call(opnum) or
             OpHelpers.is_call_loopinvariant(opnum) or
@@ -461,7 +503,13 @@ class HeapCache(object):
                        | HF_KNOWN_NULLITY)
 
     def new_array(self, box, lengthbox):
-        self.new(box)
+        assert isinstance(box, RefFrontendOp)
+        self.update_version(box)
+        flags = HF_SEEN_ALLOCATION | HF_KNOWN_NULLITY
+        if isinstance(lengthbox, Const):
+            # only constant-length arrays are virtuals
+            flags |= HF_LIKELY_VIRTUAL | HF_IS_UNESCAPED
+        add_flags(box, flags)
         self.arraylen_now_known(box, lengthbox)
 
     def getfield(self, box, descr):
@@ -470,9 +518,8 @@ class HeapCache(object):
             return cache.read(box)
         return None
 
+    @always_inline
     def get_field_updater(self, box, descr):
-        if not isinstance(box, RefFrontendOp):
-            return dummy_field_updater
         cache = self.heap_cache.get(descr, None)
         if cache is None:
             cache = self.heap_cache[descr] = CacheEntry(self)

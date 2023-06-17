@@ -1104,26 +1104,6 @@ class LLHelpers(AbstractLLHelpers):
             raise ValueError
         return sign * val
 
-    # interface to build strings:
-    #   x = ll_build_start(n)
-    #   ll_build_push(x, next_string, 0)
-    #   ll_build_push(x, next_string, 1)
-    #   ...
-    #   ll_build_push(x, next_string, n-1)
-    #   s = ll_build_finish(x)
-
-    @staticmethod
-    def ll_build_start(parts_count):
-        return malloc(TEMP, parts_count)
-
-    @staticmethod
-    def ll_build_push(builder, next_string, index):
-        builder[index] = next_string
-
-    @staticmethod
-    def ll_build_finish(builder):
-        return LLHelpers.ll_join_strs(len(builder), builder, StringRepr.lowleveltype)
-
     @staticmethod
     @specialize.memo()
     def ll_constant(s):

@@ -282,8 +282,10 @@ def isconstant(value):
 @specialize.call_location()
 def isvirtual(value):
     """
-    Returns if this value is virtual, while tracing, it's relatively
-    conservative and will miss some cases.
+    Returns if this value is virtual, while tracing. can be wrong in both
+    directions. it tries to be conservative by default, but can also sometimes
+    return True for something that does not end up completely virtual (eg a
+    resizable list).
 
     This is for advanced usage only.
     """
@@ -293,7 +295,10 @@ def isvirtual(value):
 def loop_unrolling_heuristic(lst, size, cutoff=2):
     """ In which cases iterating over items of lst can be unrolled
     """
-    return size == 0 or isvirtual(lst) or (isconstant(size) and size <= cutoff)
+    # isvirtual(lst) is often lying! for a resizable list it will return True
+    # if the containing *struct* is virtual, not the whole list. therefore also
+    # require the size to be constant, always.
+    return size == 0 or (isconstant(size) and (isvirtual(lst) or size <= cutoff))
 
 class Entry(ExtRegistryEntry):
     _about_ = hint
@@ -301,15 +306,16 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, s_x, **kwds_s):
         from rpython.annotator import model as annmodel
         s_x = annmodel.not_const(s_x)
-        access_directly = 's_access_directly' in kwds_s
+        s_access_directly = kwds_s.get('s_access_directly')
         fresh_virtualizable = 's_fresh_virtualizable' in kwds_s
-        if access_directly or fresh_virtualizable:
-            assert access_directly, "lone fresh_virtualizable hint"
+        if s_access_directly or fresh_virtualizable:
+            assert isinstance(s_access_directly, annmodel.SomeBool) and s_access_directly.is_constant()
+            assert s_access_directly, "lone fresh_virtualizable hint"
             if isinstance(s_x, annmodel.SomeInstance):
                 from rpython.flowspace.model import Constant
                 classdesc = s_x.classdef.classdesc
                 virtualizable = classdesc.get_param('_virtualizable_')
-                if virtualizable is not None:
+                if s_access_directly.const == True and virtualizable is not None:
                     flags = s_x.flags.copy()
                     flags['access_directly'] = True
                     if fresh_virtualizable:
@@ -317,6 +323,17 @@ class Entry(ExtRegistryEntry):
                     s_x = annmodel.SomeInstance(s_x.classdef,
                                                 s_x.can_be_None,
                                                 flags)
+                else:
+                    assert s_access_directly.const == False or virtualizable is None
+                    if 'access_directly' in s_x.flags or 'fresh_virtualizable' in s_x.flags:
+                        flags = s_x.flags.copy()
+                        if 'access_directly' in flags:
+                            del flags['access_directly']
+                        if 'fresh_virtualizable' in flags:
+                            del flags['fresh_virtualizable']
+                        s_x = annmodel.SomeInstance(s_x.classdef,
+                                                    s_x.can_be_None,
+                                                    flags)
         return s_x
 
     def specialize_call(self, hop, **kwds_i):
@@ -554,6 +571,7 @@ PARAMETER_DOCS = {
     'inlining': 'inline python functions or not (1/0)',
     'loop_longevity': 'a parameter controlling how long loops will be kept before being freed, an estimate',
     'retrace_limit': 'how many times we can try retracing before giving up',
+    'pureop_historylength': 'how many pure operations the optimizer should remember for CSE (internal)',
     'max_retrace_guards': 'number of extra guards a retrace can cause',
     'max_unroll_loops': 'number of extra unrollings a loop can cause',
     'disable_unrolling': 'after how many operations we should not unroll',
@@ -575,6 +593,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'inlining': 1,
               'loop_longevity': 1000,
               'retrace_limit': 0,
+              'pureop_historylength': 16,
               'max_retrace_guards': 15,
               'max_unroll_loops': 0,
               'disable_unrolling': 200,
@@ -841,11 +860,15 @@ def set_user_param(driver, text):
             for name1, _ in unroll_parameters:
                 if name1 == name and name1 != 'enable_opts':
                     try:
-                        if name1 == 'trace_limit' and int(value) > 2**14:
-                            raise TraceLimitTooHigh
-                        set_param(driver, name1, int(value))
+                        ivalue = int(value)
                     except ValueError:
                         raise
+                    try:
+                        set_param(driver, name1, ivalue)
+                    except ValueError:
+                        if name1 == 'trace_limit' and ivalue >= 0:
+                            # turn it into a somewhat more understandable exception
+                            raise TraceLimitTooHigh
                     break
             else:
                 raise ValueError
@@ -1408,6 +1431,7 @@ class Counters(object):
     ABORT_ESCAPE
     ABORT_FORCE_QUASIIMMUT
     ABORT_SEGMENTED_TRACE
+    FORCE_VIRTUALIZABLES
     NVIRTUALS
     NVHOLES
     NVREUSED

@@ -121,7 +121,7 @@ If you don't have a regular PyPy installed, you should, because it's
 faster to translate; but you can also run the same line with ``python``
 in front.
 
-.. _repository: https://bitbucket.org/pypy/pypy
+.. _repository: https://foss.heptapod.net/pypy/pypy
 
 
 To run it, use the tools in the pypy/sandbox directory::

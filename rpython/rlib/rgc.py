@@ -98,7 +98,7 @@ def pin(obj):
     """
     _pinned_objects.append(obj)
     return True
-        
+
 
 class PinEntry(ExtRegistryEntry):
     _about_ = pin
@@ -238,7 +238,7 @@ def can_move(p):
 
 class SplitAddrSpaceEntry(ExtRegistryEntry):
     _about_ = must_split_gc_address_space
- 
+
     def compute_result_annotation(self):
         config = self.bookkeeper.annotator.translator.config
         result = config.translation.split_gc_address_space
@@ -540,13 +540,13 @@ def no_collect(func):
 
 def must_be_light_finalizer(func):
     """Mark a __del__ method as being a destructor, calling only a limited
-    set of operations.  See pypy/doc/discussion/finalizer-order.rst.  
+    set of operations.  See pypy/doc/discussion/finalizer-order.rst.
 
     If you use the same decorator on a class, this class and all its
     subclasses are only allowed to have __del__ methods which are
     similarly decorated (or no __del__ at all).  It prevents a class
     hierarchy from having destructors in some parent classes, which are
-    overridden in subclasses with (non-light, old-style) finalizers.  
+    overridden in subclasses with (non-light, old-style) finalizers.
     (This case is the original motivation for FinalizerQueue.)
     """
     func._must_be_light_finalizer_ = True
@@ -1158,8 +1158,8 @@ def register_custom_trace_hook(TP, lambda_func):
     call, for internal reasons.  Note that the func will be automatically
     specialized on the 'callback' argument value.  Example:
 
-        def customtrace(gc, obj, callback, arg):
-            gc._trace_callback(callback, arg, obj + offset_of_x)
+        def customtrace(gc, obj, callback, arg1, arg2):
+            gc._trace_callback(callback, arg1, arg2, obj + offset_of_x)
         lambda_customtrace = lambda: customtrace
     """
 
@@ -1251,7 +1251,7 @@ def clear_gcflag_extra(fromlist):
             pending.extend(get_rpy_referents(gcref))
 
 all_typeids = {}
-        
+
 def get_typeid(obj):
     raise Exception("does not work untranslated")
 

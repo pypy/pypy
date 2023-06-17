@@ -218,7 +218,7 @@ How do I compile my own interpreters?
 
 Begin by reading `Andrew Brown's tutorial`_ .
 
-.. _Andrew Brown's tutorial: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
+.. _Andrew Brown's tutorial: https://www.pypy.org/posts/2011/04/tutorial-writing-interpreter-with-pypy-3785910476193156295.html
 
 
 Can RPython modules for PyPy be translated independently?

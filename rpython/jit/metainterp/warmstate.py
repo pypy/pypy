@@ -70,16 +70,15 @@ def unwrap(TYPE, box):
         return lltype.cast_primitive(TYPE, box.getint())
 
 @specialize.ll()
-def wrap(cpu, value, in_const_box=False):
+def wrap(cpu, value, inputarg_position_or_neg):
+    assert isinstance(inputarg_position_or_neg, int)
     if isinstance(lltype.typeOf(value), lltype.Ptr):
         if lltype.typeOf(value).TO._gckind == 'gc':
             value = lltype.cast_opaque_ptr(llmemory.GCREF, value)
-            if in_const_box:
+            if inputarg_position_or_neg < 0:
                 return history.ConstPtr(value)
             else:
-                res = history.RefFrontendOp(0)
-                res.setref_base(value)
-                return res
+                return history.RefFrontendOp(inputarg_position_or_neg, value)
         else:
             value = ptr2int(value)
             # fall through to the end of the function
@@ -89,12 +88,10 @@ def wrap(cpu, value, in_const_box=False):
             value = longlong.getfloatstorage(value)
         else:
             value = rffi.cast(lltype.SignedLongLong, value)
-        if in_const_box:
+        if inputarg_position_or_neg < 0:
             return history.ConstFloat(value)
         else:
-            res = history.FloatFrontendOp(0)
-            res.setfloatstorage(value)
-            return res
+            return history.FloatFrontendOp(inputarg_position_or_neg, value)
     elif isinstance(value, str) or isinstance(value, unicode):
         assert len(value) == 1     # must be a character
         value = ord(value)
@@ -102,12 +99,10 @@ def wrap(cpu, value, in_const_box=False):
         value = longlong.singlefloat2int(value)
     else:
         value = intmask(value)
-    if in_const_box:
+    if inputarg_position_or_neg < 0:
         return history.ConstInt(value)
     else:
-        res = history.IntFrontendOp(0)
-        res.setint(value)
-        return res
+        return history.IntFrontendOp(inputarg_position_or_neg, value)
 
 @specialize.arg(0)
 def equal_whatever(TYPE, x, y):
@@ -184,6 +179,10 @@ class BaseJitCell(object):
         this particular function.  (We only set this flag when aborting
         due to a trace too long, so we use the same flag as a hint to
         also mean "please trace from here as soon as possible".)
+
+        JC_FORCE_FINISH: when from a cell with that flag set, if the trace
+        becomes too long, "segment" it, ie finish it with a guard_always_fails.
+        this prevents re-tracing and failing this again and again.
     """
     flags = 0     # JC_xxx flags
     wref_procedure_token = None
@@ -261,6 +260,10 @@ class WarmEnterState(object):
         self.increment_trace_eagerness = self._compute_threshold(value)
 
     def set_param_trace_limit(self, value):
+        if value < 0:
+            raise ValueError
+        if value > self.warmrunnerdesc.metainterp_sd.opencoder_model.MAX_TRACE_LIMIT:
+            raise ValueError
         self.trace_limit = value
 
     def set_param_decay(self, decay):
@@ -297,6 +300,9 @@ class WarmEnterState(object):
         if self.warmrunnerdesc:
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.retrace_limit = value
+
+    def set_param_pureop_historylength(self, value):
+        self.pureop_historylength = value
 
     def set_param_max_retrace_guards(self, value):
         if self.warmrunnerdesc:
@@ -638,6 +644,11 @@ class WarmEnterState(object):
             def dont_trace_here(*greenargs):
                 cell = JitCell._ensure_jit_cell_at_key(*greenargs)
                 cell.flags |= JC_DONT_TRACE_HERE
+
+            @staticmethod
+            def mark_as_being_traced(*greenargs):
+                cell = JitCell._ensure_jit_cell_at_key(*greenargs)
+                cell.flags |= JC_TRACING
         #
         self.JitCell = JitCell
         return JitCell
@@ -674,6 +685,11 @@ class WarmEnterState(object):
             cell = JitCell.ensure_jit_cell_at_key(greenkey)
             cell.flags |= JC_DONT_TRACE_HERE
         self.dont_trace_here = dont_trace_here
+
+        def mark_as_being_traced(greenkey):
+            cell = JitCell.ensure_jit_cell_at_key(greenkey)
+            cell.flags |= JC_TRACING
+        self.mark_as_being_traced = mark_as_being_traced
 
         def mark_force_finish_tracing(greenkey):
             """ mark greenkey as "please definitely finish a trace for it the

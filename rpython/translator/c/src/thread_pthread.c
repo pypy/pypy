@@ -10,6 +10,19 @@
 #include <assert.h>
 #include <sys/time.h>
 
+#if defined(__linux__)
+#   include <sys/syscall.h>     /* syscall(SYS_gettid) */
+#elif defined(__FreeBSD__)
+#   include <pthread_np.h>      /* pthread_getthreadid_np() */
+#elif defined(__OpenBSD__)
+#   include <unistd.h>          /* getthrid() */
+#elif defined(_AIX)
+#   include <sys/thread.h>      /* thread_self() */
+#elif defined(__NetBSD__)
+#   include <lwp.h>             /* _lwp_self() */
+#endif
+
+
 /* The following is hopefully equivalent to what CPython does
    (which is trying to compile a snippet of code using it) */
 #ifdef PTHREAD_SCOPE_SYSTEM
@@ -185,6 +198,37 @@ do { \
 int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag)
 {
     return RPyThreadAcquireLockTimed(lock, waitflag ? -1 : 0, /*intr_flag=*/0);
+}
+
+unsigned long
+RPyThread_get_thread_native_id(void)
+{
+#ifdef __APPLE__
+    uint64_t native_id;
+    (void) pthread_threadid_np(NULL, &native_id);
+#elif defined(__linux__)
+    pid_t native_id;
+    native_id = syscall(SYS_gettid);
+#elif defined(__FreeBSD__)
+    int native_id;
+    native_id = pthread_getthreadid_np();
+#elif defined(__OpenBSD__)
+    pid_t native_id;
+    native_id = getthrid();
+#elif defined(_AIX)
+    tid_t native_id;
+    native_id = thread_self();
+#elif defined(__NetBSD__)
+    lwpid_t native_id;
+    native_id = _lwp_self();
+#endif
+    return (unsigned long) native_id;
+}
+
+int
+RPyThread_kill(Signed id, int signal)
+{
+    return pthread_kill((pthread_t)id, signal);
 }
 
 /************************************************************/

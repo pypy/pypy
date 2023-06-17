@@ -67,8 +67,6 @@ def test_frontendop():
     assert f.get_position() == 42
     f = FrontendOp(-56)
     assert f.get_position() == -56
-    f.set_position(6519)
-    assert f.get_position() == 6519
 
 def fresh_ref():
     S = lltype.GcStruct('S')

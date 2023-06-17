@@ -649,6 +649,8 @@ class Transformer(object):
         if hints.get('force_no_const'):   # for tests only
             assert getkind(op.args[0].concretetype) == 'int'
             return SpaceOperation('int_same_as', [op.args[0]], op.result)
+        if hints.get('fresh_virtualizable') or hints.get('access_directly'):
+            return # those are handled, no need to warn
         log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
     def _rewrite_raw_malloc(self, op, name, args):

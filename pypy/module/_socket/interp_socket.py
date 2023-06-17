@@ -19,8 +19,8 @@ from pypy.interpreter.typedef import (
 # XXX Hack to separate rpython and pypy
 def addr_as_object(addr, fd, space):
     if isinstance(addr, rsocket.INETAddress):
-        return space.newtuple([space.newtext(addr.get_host()),
-                               space.newint(addr.get_port())])
+        return space.newtuple2(space.newtext(addr.get_host()),
+                               space.newint(addr.get_port()))
     elif isinstance(addr, rsocket.INET6Address):
         return space.newtuple([space.newtext(addr.get_host()),
                                space.newint(addr.get_port()),
@@ -35,8 +35,8 @@ def addr_as_object(addr, fd, space):
     elif rsocket.HAS_AF_UNIX and isinstance(addr, rsocket.UNIXAddress):
         return space.newtext(addr.get_path())
     elif rsocket.HAS_AF_NETLINK and isinstance(addr, rsocket.NETLINKAddress):
-        return space.newtuple([space.newint(addr.get_pid()),
-                               space.newint(addr.get_groups())])
+        return space.newtuple2(space.newint(addr.get_pid()),
+                               space.newint(addr.get_groups()))
     # If we don't know the address family, don't raise an
     # exception -- return it as a tuple.
     from rpython.rlib import _rsocket_rffi as _c
@@ -45,8 +45,8 @@ def addr_as_object(addr, fd, space):
     datalen = addr.addrlen - rsocket.offsetof(_c.sockaddr, 'c_sa_data')
     rawdata = ''.join([a.c_sa_data[i] for i in range(datalen)])
     addr.unlock()
-    return space.newtuple([space.newint(family),
-                           space.newtext(rawdata)])
+    return space.newtuple2(space.newint(family),
+                           space.newtext(rawdata))
 
 # XXX Hack to seperate rpython and pypy
 # XXX a bit of code duplication
@@ -196,8 +196,8 @@ class W_Socket(W_Root):
             fd, addr = self.sock.accept()
             sock = rsocket.make_socket(
                 fd, self.sock.family, self.sock.type, self.sock.proto)
-            return space.newtuple([W_Socket(space, sock),
-                                   addr_as_object(addr, sock.fd, space)])
+            return space.newtuple2(W_Socket(space, sock),
+                                   addr_as_object(addr, sock.fd, space))
         except SocketError as e:
             raise converted_error(space, e)
 
@@ -378,7 +378,7 @@ class W_Socket(W_Root):
                 w_addr = addr_as_object(addr, self.sock.fd, space)
             else:
                 w_addr = space.w_None
-            return space.newtuple([space.newbytes(data), w_addr])
+            return space.newtuple2(space.newbytes(data), w_addr)
         except SocketError as e:
             raise converted_error(space, e)
 
@@ -526,7 +526,7 @@ class W_Socket(W_Root):
                 w_addr = addr_as_object(addr, self.sock.fd, space)
             else:
                 w_addr = space.w_None
-            return space.newtuple([space.newint(readlgt), w_addr])
+            return space.newtuple2(space.newint(readlgt), w_addr)
         except SocketError as e:
             raise converted_error(space, e)
 

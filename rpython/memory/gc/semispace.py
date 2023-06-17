@@ -413,7 +413,7 @@ class SemiSpaceGC(MovingGCBase):
         return self._make_a_copy_with_tid(obj, objsize, tid)
 
     def trace_and_copy(self, obj):
-        self.trace(obj, self._trace_copy, None)
+        self.trace(obj, self.make_callback('_trace_copy'), self, None)
 
     def _trace_copy(self, pointer, ignored):
         pointer.address[0] = self.copy(pointer.address[0])
@@ -522,7 +522,7 @@ class SemiSpaceGC(MovingGCBase):
         while self.objects_with_finalizers.non_empty():
             x = self.objects_with_finalizers.popleft()
             fq_nr = self.objects_with_finalizers.popleft()
-            ll_assert(self._finalization_state(x) != 1, 
+            ll_assert(self._finalization_state(x) != 1,
                       "bad finalization state 1")
             if self.surviving(x):
                 new_with_finalizer.append(self.get_forwarding_address(x))
@@ -536,7 +536,7 @@ class SemiSpaceGC(MovingGCBase):
                 state = self._finalization_state(y)
                 if state == 0:
                     self._bump_finalization_state_from_0_to_1(y)
-                    self.trace(y, self._append_if_nonnull, pending)
+                    self.trace(y, self._append_if_nonnull, pending, None)
                 elif state == 2:
                     self._recursively_bump_finalization_state_from_2_to_3(y)
             scan = self._recursively_bump_finalization_state_from_1_to_2(
@@ -567,7 +567,7 @@ class SemiSpaceGC(MovingGCBase):
         self.objects_with_finalizers = new_with_finalizer
         return scan
 
-    def _append_if_nonnull(pointer, stack):
+    def _append_if_nonnull(pointer, stack, ignored):
         stack.append(pointer.address[0])
     _append_if_nonnull = staticmethod(_append_if_nonnull)
 
@@ -604,7 +604,7 @@ class SemiSpaceGC(MovingGCBase):
             hdr = self.header(y)
             if hdr.tid & GCFLAG_FINALIZATION_ORDERING:     # state 2 ?
                 hdr.tid &= ~GCFLAG_FINALIZATION_ORDERING   # change to state 3
-                self.trace(y, self._append_if_nonnull, pending)
+                self.trace(y, self._append_if_nonnull, pending, None)
 
     def _recursively_bump_finalization_state_from_1_to_2(self, obj, scan):
         # recursively convert objects from state 1 to state 2.
@@ -722,7 +722,7 @@ class SemiSpaceGC(MovingGCBase):
         self._ll_typeid_map[idx].count += 1
         totsize = self.get_size(adr) + self.size_gc_header()
         self._ll_typeid_map[idx].size += llmemory.raw_malloc_usage(totsize)
-        self.trace(adr, self.track_heap_parent, adr)
+        self.trace(adr, self.make_callback('track_heap_parent'), self, adr)
 
     @staticmethod
     def _track_heap_root(obj, self):

@@ -1,6 +1,6 @@
 from rpython.jit.codewriter.flatten import Register, ListOfKind, Label, TLabel
 from rpython.jit.codewriter.jitcode import SwitchDictDescr
-
+from rpython.rlib import objectmodel
 
 # Some instructions require liveness information (the ones that can end up
 # in generate_guard() in pyjitpl.py).  This is done by putting special
@@ -119,7 +119,7 @@ def remove_repeated_live(ssarepr):
 # ____________________________________________________________
 # helper functions for compactly encoding and decoding liveness info
 
-# liveness is encoded as a 4 byte offset into the single string all_liveness
+# liveness is encoded as a 2 byte offset into the single string all_liveness
 # (which is stored on the metainterp_sd)
 
 OFFSET_SIZE = 2
@@ -165,7 +165,10 @@ def encode_liveness(live):
         liveness.append(chr(char))
     return "".join(liveness)
 
+#@objectmodel.never_allocate # can't be enabled because of some tests that
+# don't optimize
 class LivenessIterator(object):
+    @objectmodel.always_inline
     def __init__(self, offset, length, all_liveness):
         self.all_liveness = all_liveness
         self.offset = offset
@@ -174,9 +177,11 @@ class LivenessIterator(object):
         self.curr_byte = 0
         self.count = 0
 
+    @objectmodel.always_inline
     def __iter__(self):
         return self
 
+    @objectmodel.always_inline
     def next(self):
         if not self.length:
             raise StopIteration

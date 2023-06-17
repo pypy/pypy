@@ -104,3 +104,11 @@ class AppTestStructseq:
         mydata = self.get_mydata()
         x = mydata(range(100, 113))
         raises((TypeError, AttributeError), "x.some_random_attribute = 1")
+
+    def test_dict_argument(self):
+        mydata = self.get_mydata()
+        with raises(TypeError) as data:
+            mydata(range(100, 113), dict=None)
+        assert "mydata() takes a dict as second arg, if any"
+
+

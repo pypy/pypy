@@ -4,7 +4,7 @@ from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rmmap as mmap
-from rpython.rlib.rmmap import RTypeError, RValueError, alloc, free, write_protect
+from rpython.rlib.rmmap import RTypeError, RValueError, alloc, free
 from rpython.rlib.rmmap import madvise_free
 
 
@@ -507,10 +507,8 @@ def test_alloc_free():
     map_size = 65536
     data = alloc(map_size)
 
-    write_protect(0)
     for i in range(0, map_size, 171):
         data[i] = chr(i & 0xff)
-    write_protect(1)
     for i in range(0, map_size, 171):
         assert data[i] == chr(i & 0xff)
     madvise_free(data, map_size)

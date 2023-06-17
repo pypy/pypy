@@ -190,15 +190,15 @@ def _divmod(space, x, y):
         raise oefmt(space.w_ZeroDivisionError, "integer divmod by zero")
     # no overflow possible
     m = x % y
-    return space.newtuple([space.newint(z), space.newint(m)])
+    return space.newtuple2(space.newint(z), space.newint(m))
 
 
 def _divmod_ovf2small(space, x, y):
     from pypy.objspace.std.smalllongobject import W_SmallLongObject
     a = r_longlong(x)
     b = r_longlong(y)
-    return space.newtuple([W_SmallLongObject(a // b),
-                           W_SmallLongObject(a % b)])
+    return space.newtuple2(W_SmallLongObject(a // b),
+                           W_SmallLongObject(a % b))
 
 
 def _lshift(space, a, b):
@@ -334,11 +334,11 @@ def _make_ovf2long(opname, ovf2small=None):
             return W_SmallLongObject(op(a, b))
 
         from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
-        if w_x is None or not isinstance(w_x, W_AbstractLongObject):
-            w_x = W_LongObject.fromint(space, x)
-        if w_y is None or not isinstance(w_y, W_AbstractLongObject):
-            w_y = W_LongObject.fromint(space, y)
-
+        w_x = W_LongObject.fromint(space, x)
+        assert w_y is not None
+        # call the W_LongObject implementation with the unconverted w_y.
+        # W_LongObject can deal with W_IntObject arguments just fine, and it
+        # has a slightly better code path for long/int combinations
         return getattr(w_x, 'descr_' + opname)(space, w_y)
 
     return ovf2long
@@ -431,7 +431,7 @@ class W_IntObject(W_AbstractIntObject):
     def descr_coerce(self, space, w_other):
         if not isinstance(w_other, W_AbstractIntObject):
             return space.w_NotImplemented
-        return space.newtuple([self, w_other])
+        return space.newtuple2(self, w_other)
 
     def descr_long(self, space):
         return space.newlong(self.intval)

@@ -53,31 +53,32 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    'lzma': ('http://distfiles.macports.org/xz/xz-5.2.5.tar.bz2',
-             '5117f930900b341493827d63aa910ff5e011e0b994197c3b71c08a20228a42df',
-             [configure_args,
-              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
-              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ]),
-    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1o.tar.gz',
-             '9384a2b0570dd80358841464677115df785edb941c71211f75076d72fe6b438f',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1u.tar.gz',
+              'e2f8d84b523eecd06c7be7626830370300fbcc15386bf5142d72758f6963ebc6',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.3.tar.gz',
-              'ee0078adcef1de5f003c62c80cc96527721609c6f3bb42b7795df31f8b558c0b',
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.9.tar.gz',
+              'eb1ab04781474360f77c318ab89d8c5a03abc38e63d65a603cabbf1b00a1dc90',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
+    'lzma': ('http://distfiles.macports.org/xz/xz-5.2.10.tar.bz2',
+             '01b71df61521d9da698ce3c33148bff06a131628ff037398c09482f3a26e5408',
+             [configure_args,
+              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+             ]),
 }
+
 cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
 
-if sys.platform == 'darwin':
-    # this does not compile on the buildbot, linker is missing '_history_list'
+if sys.platform == "darwin":
+    # this does not compile on the linux buildbot, linker is missing '_history_list'
     cffi_dependencies['gdbm'] = (
               'http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
               '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
@@ -244,6 +245,11 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 print("stderr:")
                 print(bld_stderr, file=sys.stderr)
                 raise RuntimeError('building {} failed'.format(key))
+            elif key in ("_ssl",):
+                print("stdout:")
+                print(bld_stdout, file=sys.stderr)
+                print("stderr:")
+                print(bld_stderr, file=sys.stderr)
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))

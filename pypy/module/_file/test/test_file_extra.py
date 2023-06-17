@@ -641,6 +641,7 @@ class AppTestAFewExtra:
     def test_docstrings(self):
         assert file.closed.__doc__ == 'True if the file is closed'
 
+    @py.test.mark.skipif("config.option.runappdirect and sys.platform == 'darwin'")
     def test_repr_unicode_filename(self):
         with open(unicode(self.temptestfile), 'w') as f:
             assert repr(f).startswith("<open file " +

@@ -58,7 +58,7 @@ def alignof(space, w_ctype):
 @unwrap_spec(w_ctype=ctypeobj.W_CType, following=int)
 def typeoffsetof(space, w_ctype, w_field_or_index, following=0):
     ctype, offset = w_ctype.direct_typeoffsetof(w_field_or_index, following)
-    return space.newtuple([ctype, space.newint(offset)])
+    return space.newtuple2(ctype, space.newint(offset))
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType, w_cdata=cdataobj.W_CData, offset=int)
 def rawaddressof(space, w_ctype, w_cdata, offset):
@@ -87,8 +87,8 @@ def unpack(space, w_cdata, length):
 # ____________________________________________________________
 
 def _get_types(space):
-    return space.newtuple([space.gettypefor(cdataobj.W_CData),
-                           space.gettypefor(ctypeobj.W_CType)])
+    return space.newtuple2(space.gettypefor(cdataobj.W_CData),
+                           space.gettypefor(ctypeobj.W_CType))
 
 # ____________________________________________________________
 

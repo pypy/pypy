@@ -1080,6 +1080,12 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
     return resumereader.liveboxes, virtualizable_boxes, virtualref_boxes
 
 
+def get_max_num_inputargs(storage):
+    reader = resumecode.Reader(storage.rd_numb)
+    reader.next_item()
+    return reader.next_item()
+
+
 class ResumeDataBoxReader(AbstractResumeDataReader):
     unique_id = lambda: None
     VirtualCache = get_VirtualCache_class('BoxReader')
@@ -1283,15 +1289,14 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         if num < 0:
             num += len(self.liveboxes)
             assert num >= 0
+        # we create *FrontendOp instances with numbers in the range
+        # 0..self.count
         if kind == INT:
-            box = IntFrontendOp(0)
-            box.setint(self.cpu.get_int_value(self.deadframe, num))
+            box = IntFrontendOp(num, self.cpu.get_int_value(self.deadframe, num))
         elif kind == REF:
-            box = RefFrontendOp(0)
-            box.setref_base(self.cpu.get_ref_value(self.deadframe, num))
+            box = RefFrontendOp(num, self.cpu.get_ref_value(self.deadframe, num))
         elif kind == FLOAT:
-            box = FloatFrontendOp(0)
-            box.setfloatstorage(self.cpu.get_float_value(self.deadframe, num))
+            box = FloatFrontendOp(num, self.cpu.get_float_value(self.deadframe, num))
         else:
             assert 0, "bad kind: %d" % ord(kind)
         self.liveboxes[num] = box
@@ -1359,6 +1364,7 @@ def blackhole_from_resumedata(blackholeinterpbuilder, jitcodes,
     return curbh
 
 def force_from_resumedata(metainterp_sd, storage, deadframe, vinfo, ginfo):
+    metainterp_sd.profiler.count(jitprof.Counters.FORCE_VIRTUALIZABLES)
     resumereader = ResumeDataDirectReader(metainterp_sd, storage, deadframe)
     resumereader.handling_async_forcing()
     vrefinfo = metainterp_sd.virtualref_info
