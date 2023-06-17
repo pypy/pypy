@@ -34,6 +34,9 @@ def assert_in(a, b):
 
 
 pypy_versions = {
+                 '7.3.12': {'python_version': ['3.10.12', '3.9.17', '2.7.18'],
+                           'date': '2023-06-16',
+                          },
                  '7.3.12rc2': {'python_version': ['3.10.11', '3.9.16', '2.7.18'],
                            'date': '2023-05-28',
                           },
@@ -159,6 +162,7 @@ def check_versions(data, url, verbose=0, check_times=True, nightly_only=False):
             assert_equal(latest_pypys[d['python_version']], d['pypy_version'])
         else:
             try:
+                # Make sure there is only one latest version
                 assert_different(latest_pypys[d['python_version']], d['pypy_version'])
             except KeyError:
                 assert 'rc' in d['pypy_version']

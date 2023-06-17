@@ -210,24 +210,24 @@ class EffectInfo(object):
 
     def check_readonly_descr_field(self, fielddescr):
         return bitstring.bitcheck(self.bitstring_readonly_descrs_fields,
-                                  fielddescr.ei_index)
+                                  fielddescr.get_ei_index())
     def check_write_descr_field(self, fielddescr):
         return bitstring.bitcheck(self.bitstring_write_descrs_fields,
-                                  fielddescr.ei_index)
+                                  fielddescr.get_ei_index())
     def check_readonly_descr_array(self, arraydescr):
         return bitstring.bitcheck(self.bitstring_readonly_descrs_arrays,
-                                  arraydescr.ei_index)
+                                  arraydescr.get_ei_index())
     def check_write_descr_array(self, arraydescr):
         return bitstring.bitcheck(self.bitstring_write_descrs_arrays,
-                                  arraydescr.ei_index)
+                                  arraydescr.get_ei_index())
     def check_readonly_descr_interiorfield(self, interiorfielddescr):
         # NOTE: this is not used so far
         return bitstring.bitcheck(self.bitstring_readonly_descrs_interiorfields,
-                                  interiorfielddescr.ei_index)
+                                  interiorfielddescr.get_ei_index())
     def check_write_descr_interiorfield(self, interiorfielddescr):
         # NOTE: this is not used so far
         return bitstring.bitcheck(self.bitstring_write_descrs_interiorfields,
-                                  interiorfielddescr.ei_index)
+                                  interiorfielddescr.get_ei_index())
 
     def check_can_raise(self, ignore_memoryerror=False):
         if ignore_memoryerror:

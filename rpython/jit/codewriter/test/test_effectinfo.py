@@ -144,11 +144,14 @@ class TestVirtualizableAnalyzer(object):
 
 
 def test_compute_bitstrings():
-    class FDescr:
+    class D(object):
+        def get_ei_index(self):
+            return self.ei_index
+    class FDescr(D):
         pass
-    class ADescr:
+    class ADescr(D):
         pass
-    class CDescr:
+    class CDescr(D):
         def __init__(self, ei):
             self._ei = ei
         def get_extra_info(self):

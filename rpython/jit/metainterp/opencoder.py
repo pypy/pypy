@@ -48,11 +48,6 @@ def _get_model(metainterp_sd):
 SMALL_INT_STOP  = (2 ** (15 - TAGSHIFT)) - 1
 SMALL_INT_START = -SMALL_INT_STOP # we might want to distribute them uneven
 
-def expand_sizes_to_signed():
-    """ This function will make sure we can use sizes all the
-    way up to lltype.Signed for indexes everywhere
-    """
-
 class BaseTrace(object):
     pass
 
@@ -487,8 +482,9 @@ class Trace(BaseTrace):
         return pos
 
     def _encode_descr(self, descr):
-        if descr.descr_index != -1:
-            return descr.descr_index + 1
+        descr_index = descr.get_descr_index()
+        if descr_index != -1:
+            return descr_index + 1
         self._descrs.append(descr)
         return len(self._descrs) - 1 + len(self.metainterp_sd.all_descrs) + 1
 

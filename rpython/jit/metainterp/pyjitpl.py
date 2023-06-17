@@ -39,6 +39,16 @@ def arguments(*args):
         return func
     return decorate
 
+
+special_handlers = {}
+
+def special_handler(argcodes):
+    def decorate(func):
+        assert func.__name__.startswith("special_")
+        special_handlers[func.__name__[len("special_"):], argcodes] = func
+        return func
+    return decorate
+
 # ____________________________________________________________
 
 FASTPATHS_SAME_BOXES = {
@@ -265,6 +275,38 @@ class MIFrame(object):
                 return self.execute(rop.%s, b1, b2)
         ''' % (_opimpl, _opimpl.upper())).compile())
 
+    @special_handler("ic>i")
+    def special_int_add(self, position):
+        from rpython.jit.metainterp.blackhole import signedord
+        from rpython.jit.metainterp.history import IntFrontendOp
+        # bit of a micro-optimization: int_add with a constant argument is one
+        # of the most common opcodes in PyPy, and this way we
+        # - allocate one ConstInt fewer in the (common) non-recorded case
+        # - don't wrap and unwrap
+        # - only check one of the arguments for constness
+        assert position >= 0
+        code = self.bytecode
+        position += 1
+        regs = self.registers_i
+        b1 = regs[ord(code[position])]
+        position += 1
+
+        c = signedord(code[position])
+        position += 1
+        profiler = self.metainterp.staticdata.profiler
+        profiler.count_ops(rop.INT_ADD)
+        if b1.is_constant():
+            assert isinstance(b1, ConstInt)
+            val = b1.getint()
+            resvalue = val + c
+            resbox = ConstInt(resvalue)
+        else:
+            assert isinstance(b1, IntFrontendOp)
+            resvalue = b1.getint() + c
+            resbox = self.metainterp._record_helper(rop.INT_ADD, resvalue, None, b1, ConstInt(c))
+        regs[ord(code[position])] = resbox
+        self.pc = position + 1
+
     for _opimpl in ['int_eq', 'int_ne', 'int_lt', 'int_le', 'int_gt', 'int_ge',
                     'ptr_eq', 'ptr_ne',
                     'instance_ptr_eq', 'instance_ptr_ne']:
@@ -445,7 +487,7 @@ class MIFrame(object):
         self.pc = target
 
     @arguments("box", "label", "orgpc")
-    def opimpl_goto_if_not(self, box, target, orgpc):
+    def opimpl_goto_if_not(self, box, target, orgpc, replace=True):
         switchcase = box.getint()
         if switchcase:
             assert switchcase == 1
@@ -459,17 +501,21 @@ class MIFrame(object):
             self.pc = target
         if isinstance(box, Const):
             return
-        self.metainterp.replace_box(box, promoted_box)
+        if replace:
+            self.metainterp.replace_box(box, promoted_box)
 
     @arguments("box", "label", "orgpc")
     def opimpl_goto_if_not_int_is_true(self, box, target, orgpc):
         condbox = self.execute(rop.INT_IS_TRUE, box)
-        self.opimpl_goto_if_not(condbox, target, orgpc)
+        # does not make sense to replace condbox, because it does not appear
+        # anywhere in any register, we either just made it or it's constant
+        # anyway
+        self.opimpl_goto_if_not(condbox, target, orgpc, replace=False)
 
     @arguments("box", "label", "orgpc")
     def opimpl_goto_if_not_int_is_zero(self, box, target, orgpc):
         condbox = self.execute(rop.INT_IS_ZERO, box)
-        self.opimpl_goto_if_not(condbox, target, orgpc)
+        self.opimpl_goto_if_not(condbox, target, orgpc, replace=False)
 
     for _opimpl in ['int_lt', 'int_le', 'int_eq', 'int_ne', 'int_gt', 'int_ge',
                     'ptr_eq', 'ptr_ne', 'float_lt', 'float_le', 'float_eq',
@@ -478,12 +524,14 @@ class MIFrame(object):
             @arguments("box", "box", "label", "orgpc")
             def opimpl_goto_if_not_%s(self, b1, b2, target, orgpc):
                 if %s and b1 is b2:
-                    condbox = %s
+                    if not %s:
+                        self.pc = target
+                    return
                 else:
                     condbox = self.execute(rop.%s, b1, b2)
-                self.opimpl_goto_if_not(condbox, target, orgpc)
+                    self.opimpl_goto_if_not(condbox, target, orgpc, replace=False)
         ''' % (_opimpl, not _opimpl.startswith('float_'),
-               FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
+               FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]] == 'history.CONST_TRUE', _opimpl.upper())
         ).compile())
 
     def _establish_nullity(self, box, orgpc):
@@ -1783,10 +1831,20 @@ class MIFrame(object):
             staticdata.profiler.count(Counters.FAST_TRACING_FUNCTION_EXECUTIONS)
             return self.jitcode.genext_function(self)
         try:
+            pc = self.pc
             while True:
-                pc = self.pc
-                op = ord(self.bytecode[pc])
+                bytecode = self.bytecode
+                op = ord(bytecode[pc])
+                if op == staticdata.op_live:
+                    pc += OFFSET_SIZE + 1
+                    self.pc = pc
+                    continue
+                elif op == staticdata.op_goto:
+                    pc = ord(bytecode[pc + 1]) | (ord(bytecode[pc + 2])<<8)
+                    self.pc = pc
+                    continue
                 staticdata.opcode_implementations[op](self, pc)
+                pc = self.pc
         except ChangeFrame:
             pass
 
@@ -2108,6 +2166,7 @@ class MetaInterpStaticData(object):
             opimpl = _get_opimpl_method(name, argcodes)
             self.opcode_implementations[value] = opimpl
         self.op_live = insns.get('live/', -1)
+        self.op_goto = insns.get('goto/L', -1)
         self.op_catch_exception = insns.get('catch_exception/L', -1)
         self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
 
@@ -3569,6 +3628,8 @@ class ChangeFrame(jitexc.JitException):
 
 def _get_opimpl_method(name, argcodes):
     from rpython.jit.metainterp.blackhole import signedord
+    if (name, argcodes) in special_handlers:
+        return special_handlers[name, argcodes]
     #
     def handler(self, position):
         assert position >= 0
