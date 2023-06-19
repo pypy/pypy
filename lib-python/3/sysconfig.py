@@ -108,7 +108,7 @@ if _HAS_USER_BASE:
             },
         'osx_framework_user': {
             'stdlib': '{userbase}/lib/{implementation_lower}',
-        '    platstdlib': '{userbase}/lib/{implementation_lower}',
+            'platstdlib': '{userbase}/lib/{implementation_lower}',
             'purelib': '{userbase}/lib/{implementation_lower}/site-packages',
             'platlib': '{userbase}/lib/{implementation_lower}/site-packages',
             'include': '{userbase}/include/{implementation_lower}{py_version_short}',
