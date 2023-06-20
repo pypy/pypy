@@ -1561,6 +1561,7 @@ class TestRlist(BaseRtypingTest):
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
+        t.config.translation.gc = 'incminimark' # not ref, otherwise this won't work
         rtyper = t.buildrtyper()
         rtyper.specialize()
 
@@ -1589,6 +1590,33 @@ class TestRlist(BaseRtypingTest):
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
+        rtyper = t.buildrtyper()
+        rtyper.specialize()
+
+        s_A_list = s.items[0]
+        s_B_list = s.items[1]
+
+        r_A_list = rtyper.getrepr(s_A_list)
+        assert isinstance(r_A_list, self.rlist.ListRepr)
+        r_B_list = rtyper.getrepr(s_B_list)
+        assert isinstance(r_B_list, self.rlist.ListRepr)
+
+        assert r_A_list.lowleveltype == r_B_list.lowleveltype
+
+    def test_type_erase_var_size_gcref(self):
+        class A(object):
+            pass
+
+        def f():
+            la = [A()]
+            lb = ["abc"]
+            la.append(None)
+            lb.append(None)
+            return la, lb
+
+        t = TranslationContext()
+        s = t.buildannotator().build_types(f, [])
+        t.config.translation.gc = 'incminimark' # not ref, otherwise this won't work
         rtyper = t.buildrtyper()
         rtyper.specialize()
 
