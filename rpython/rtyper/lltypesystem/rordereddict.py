@@ -1438,7 +1438,8 @@ def _make_ll_keys_values_items(kind):
             i += 1
         assert p == res.ll_length()
         return res
-    ll_kvi.oopspec = 'odict.%s(dic)' % kind
+    if kind != "items":
+        ll_kvi.oopspec = 'odict.%s(dic)' % kind
     return ll_kvi
 
 ll_dict_keys   = _make_ll_keys_values_items('keys')
