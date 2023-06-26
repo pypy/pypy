@@ -110,7 +110,9 @@ class TaggedInstanceRepr(InstanceRepr):
 
     def rtype_setattr(self, hop):
         # only for UnboxedValue.__init__(), which is not actually called
-        hop.genop('UnboxedValue_setattr', [])
+        const = hop.inputconst(lltype.Bool, False)
+        error = hop.inputconst(lltype.Void, "UnboxedValue.__init__ must be unreachable")
+        hop.genop('debug_assert', [const, error])
 
     def ll_str(self, i):
         if lltype.cast_ptr_to_int(i) & 1:
