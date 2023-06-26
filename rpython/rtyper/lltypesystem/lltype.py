@@ -995,6 +995,8 @@ def cast_opaque_ptr(PTRTYPE, ptr):
         except AttributeError:
             raise InvalidCast("%r does not come from a container" % (ptr,))
         solid = getattr(ptr._obj, 'solid', False)
+        if isinstance(container, int): # tagged int
+            return _ptr(PTRTYPE, container, solid=True)
         p = _ptr(Ptr(typeOf(container)), container, solid)
         return cast_pointer(PTRTYPE, p)
     elif (not isinstance(CURTYPE.TO, OpaqueType)
