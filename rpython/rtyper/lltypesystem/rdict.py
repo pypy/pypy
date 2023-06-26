@@ -1,7 +1,7 @@
 from rpython.tool.pairtype import pairtype
 from rpython.flowspace.model import Constant
 from rpython.rtyper.rdict import AbstractDictRepr, AbstractDictIteratorRepr
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import objectmodel, jit
 from rpython.rtyper.debug import ll_assert
@@ -212,7 +212,6 @@ class DictRepr(AbstractDictRepr):
 
 
     def convert_const(self, dictobj):
-        from rpython.rtyper.lltypesystem import llmemory
         # get object from bound dict methods
         #dictobj = getattr(dictobj, '__self__', dictobj)
         if dictobj is None:
@@ -823,29 +822,32 @@ def ll_prepare_dict_update(d, num_extra):
 # and very efficient functions are created.
 
 def recast(P, v):
+    # XXX this function is a terrible hack
+    if P is llmemory.GCREF:
+        return lltype.cast_opaque_ptr(llmemory.GCREF, v)
     if isinstance(P, lltype.Ptr):
         return lltype.cast_pointer(P, v)
     else:
         return v
 
 def _make_ll_keys_values_items(kind):
-    def ll_kvi(LIST, dic):
+    def ll_kvi(LIST, dic, EXTERNAL_ELEM=None):
         res = LIST.ll_newlist(dic.num_items)
         entries = dic.entries
         dlen = len(entries)
         items = res.ll_items()
+        ELEM = lltype.typeOf(items).TO.OF
         i = 0
         p = 0
         while i < dlen:
             if entries.valid(i):
-                ELEM = lltype.typeOf(items).TO.OF
                 if ELEM is not lltype.Void:
                     entry = entries[i]
                     if kind == 'items':
-                        r = lltype.malloc(ELEM.TO)
-                        r.item0 = recast(ELEM.TO.item0, entry.key)
-                        r.item1 = recast(ELEM.TO.item1, entry.value)
-                        items[p] = r
+                        r = lltype.malloc(EXTERNAL_ELEM.TO)
+                        r.item0 = recast(EXTERNAL_ELEM.TO.item0, entry.key)
+                        r.item1 = recast(EXTERNAL_ELEM.TO.item1, entry.value)
+                        items[p] = recast(ELEM, r)
                     elif kind == 'keys':
                         items[p] = recast(ELEM, entry.key)
                     elif kind == 'values':
