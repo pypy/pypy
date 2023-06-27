@@ -1069,6 +1069,32 @@ class TestRDict(BaseTestRDict):
 
         assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
 
+    def test_type_erase_gcref(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+
+        def f():
+            d = {}
+            d[A()] = B()
+            d2 = {}
+            d2[B()] = "abc"
+            return d, d2
+
+        t = TranslationContext()
+        t.config.translation.gc = 'incminimark' # not ref, otherwise this won't work
+        s = t.buildannotator().build_types(f, [])
+        rtyper = t.buildrtyper()
+        rtyper.specialize()
+
+        s_AB_dic = s.items[0]
+        s_BA_dic = s.items[1]
+
+        r_AB_dic = rtyper.getrepr(s_AB_dic)
+        r_BA_dic = rtyper.getrepr(s_BA_dic)
+
+        assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
 
     def test_opt_dummykeymarker(self):
         def f():
@@ -1175,6 +1201,11 @@ class Action(object):
 
 class PseudoRTyper:
     cache_dummy_values = {}
+    class annotator:
+        class translator:
+            class config:
+                class translation:
+                    gc = 'ref'
 
 # XXX: None keys crash the test, but translation sort-of allows it
 keytypes_s = [

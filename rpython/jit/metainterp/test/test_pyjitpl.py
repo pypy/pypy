@@ -82,15 +82,13 @@ def test_remove_consts_and_duplicates():
         assert box.getint() == referencebox.getint()
         return True
     metainterp = pyjitpl.MetaInterp(FakeStaticData(), None)
-    metainterp.history = History()
-    b1 = IntFrontendOp(1)
-    b1.setint(1)
-    b2 = IntFrontendOp(2)
-    b2.setint(2)
+    metainterp.history = History(4, FakeStaticData())
+    b1 = IntFrontendOp(1, 1)
+    b2 = IntFrontendOp(2, 2)
     c3 = ConstInt(3)
     boxes = [b1, b2, b1, c3]
     dup = {}
-    metainterp.history.set_inputargs([b1, b2], FakeStaticData())
+    metainterp.history.set_inputargs([b1, b2])
     metainterp.remove_consts_and_duplicates(boxes, 4, dup)
     assert boxes[0] is b1
     assert boxes[1] is b2
