@@ -2176,7 +2176,7 @@ def test_smallfuncsets_basic():
     rtyper.specialize()
     graph = graphof(t, f)
     calldispatcherop = graph.startblock.exits[0].target.operations[0]
-    assert calldispatcherop.args[0].value._obj0.graph.name == "dispatcher_h_etc"
+    assert calldispatcherop.args[0].value._obj0.graph.name == "dispatcher_g_etc"
     interp = LLInterpreter(rtyper)
     res = interp.eval_graph(graph, [0, 0])
     assert res == -1
