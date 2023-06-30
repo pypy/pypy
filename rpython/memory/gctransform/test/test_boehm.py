@@ -1,6 +1,5 @@
 from rpython.memory.gctransform.boehm import BoehmGCTransformer
 from rpython.memory.gctransform.test.test_transform import rtype_and_transform, getops
-from rpython.memory.gctransform.test.test_refcounting import make_deallocator
 from rpython.rtyper.lltypesystem import lltype
 from rpython.translator.translator import graphof
 from rpython.translator.c.gc import BoehmGcPolicy
@@ -11,8 +10,27 @@ class TestLLInterpedBoehm(LLInterpedTranformerTests):
     gcpolicy = BoehmGcPolicy
 
 def make_boehm_finalizer(TYPE):
-    return make_deallocator(TYPE, attr="finalizer_funcptr_for_type",
-                            cls=BoehmGCTransformer)
+    from rpython.translator.translator import TranslationContext, graphof
+    from rpython.conftest import option
+    if TYPE._is_varsize():
+        def f():
+            return lltype.malloc(TYPE, 1)
+    else:
+        def f():
+            return lltype.malloc(TYPE)
+    t = TranslationContext()
+    t.buildannotator().build_types(f, [])
+    t.buildrtyper().specialize()
+    transformer = BoehmGCTransformer(t)
+    fptr = transformer.finalizer_funcptr_for_type(TYPE)
+    transformer.transform_graph(graphof(t, f))
+    transformer.finish(backendopt=False)
+    if option.view:
+        t.view()
+    if fptr:
+        return fptr._obj.graph, t
+    else:
+        return None, t
 
 def test_boehm_simple():
     class C:
