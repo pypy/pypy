@@ -89,86 +89,6 @@ class BasicGcPolicy(object):
             op.args[0])
 
 
-class RefcountingInfo:
-    static_deallocator = None
-
-class RefcountingGcPolicy(BasicGcPolicy):
-
-    def gettransformer(self, translator, gchooks):
-        from rpython.memory.gctransform import refcounting
-        return refcounting.RefcountingGCTransformer(translator)
-
-    # for structs
-
-    def struct_setup(self, structdefnode, rtti):
-        if rtti is not None:
-            transformer = structdefnode.db.gctransformer
-            fptr = transformer.static_deallocation_funcptr_for_type(
-                structdefnode.STRUCT)
-            structdefnode.gcinfo = RefcountingInfo()
-            structdefnode.gcinfo.static_deallocator = structdefnode.db.get(fptr)
-
-    # for arrays
-
-    def array_setup(self, arraydefnode):
-        pass
-
-    # for rtti node
-
-    def rtti_type(self):
-        return 'void (@)(void *)'   # void dealloc_xx(struct xx *)
-
-    def rtti_node_factory(self):
-        return RefcountingRuntimeTypeInfo_OpaqueNode
-
-    # zero malloc impl
-
-    def OP_GC_CALL_RTTI_DESTRUCTOR(self, funcgen, op):
-        args = [funcgen.expr(v) for v in op.args]
-        line = '%s(%s);' % (args[0], ', '.join(args[1:]))
-        return line
-
-    def OP_GC_FREE(self, funcgen, op):
-        args = [funcgen.expr(v) for v in op.args]
-        return 'OP_FREE(%s);' % (args[0], )
-
-    def OP_GC__COLLECT(self, funcgen, op):
-        return ''
-
-    def OP_GC__DISABLE_FINALIZERS(self, funcgen, op):
-        return ''
-
-    def OP_GC__ENABLE_FINALIZERS(self, funcgen, op):
-        return ''
-
-
-class RefcountingRuntimeTypeInfo_OpaqueNode(ContainerNode):
-    nodekind = 'refcnt rtti'
-    globalcontainer = True
-    typename = 'void (@)(void *)'
-    _funccodegen_owner = None
-
-    def __init__(self, db, T, obj):
-        assert T == RuntimeTypeInfo
-        assert isinstance(obj.about, RttiStruct)
-        self.db = db
-        self.T = T
-        self.obj = obj
-        defnode = db.gettypedefnode(obj.about)
-        self.implementationtypename = 'void (@)(void *)'
-        self.name = defnode.gcinfo.static_deallocator
-
-    def getptrname(self):
-        return '((void (*)(void *)) %s)' % (self.name,)
-
-    def enum_dependencies(self):
-        return []
-
-    def implementation(self):
-        return []
-
-
-
 class BoehmInfo:
     finalizer = None
 
@@ -292,7 +212,7 @@ class FrameworkGcRuntimeTypeInfo_OpaqueNode(BoehmGcRuntimeTypeInfo_OpaqueNode):
 
 class NoneGcPolicy(BoehmGcPolicy):
 
-    gc_startup_code = RefcountingGcPolicy.gc_startup_code.im_func
+    gc_startup_code = BasicGcPolicy.gc_startup_code.im_func
 
     def compilation_info(self):
         eci = BasicGcPolicy.compilation_info(self)
@@ -494,7 +414,6 @@ class ShadowStackFrameworkGcPolicy(BasicFrameworkGcPolicy):
 
 name_to_gcpolicy = {
     'boehm': BoehmGcPolicy,
-    'ref': RefcountingGcPolicy,
     'none': NoneGcPolicy,
     'framework+shadowstack': ShadowStackFrameworkGcPolicy,
 }

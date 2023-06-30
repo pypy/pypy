@@ -493,7 +493,7 @@ def test_name():
     f.c_name = 'pypy_xyz_f'
     f.exported_symbol = True
 
-    t = Translation(f, [], backend="c")
+    t = Translation(f, [], backend="c", gc='none')
     t.annotate()
     t.compile_c()
     if py.test.config.option.view:
@@ -509,7 +509,7 @@ def test_entrypoints():
     def g(x):
         return x + 42
 
-    t = Translation(f, [], backend="c", secondaryentrypoints="test_entrypoints42")
+    t = Translation(f, [], backend="c", secondaryentrypoints="test_entrypoints42", gc='none')
     t.annotate()
     t.compile_c()
     if py.test.config.option.view:

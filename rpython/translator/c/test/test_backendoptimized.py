@@ -17,69 +17,6 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
         assert fn(True) == 123
         assert fn(False) == 456
 
-    def test__del__(self):
-        import gc
-        class B(object):
-            pass
-        b = B()
-        b.nextid = 0
-        b.num_deleted = 0
-        class A(object):
-            def __init__(self):
-                self.id = b.nextid
-                b.nextid += 1
-
-            def __del__(self):
-                b.num_deleted += 1
-
-        def f(x):
-            a = A()
-            for i in range(x):
-                a = A()
-            gc.collect()
-            gc.collect()
-            gc.collect()
-            return b.num_deleted
-
-        fn = self.getcompiled(f, [int], gcpolicy='ref')
-        res = f(5)
-        assert res == 5
-        res = fn(5)
-        # translated function loses its last reference earlier
-        assert res == 6
-
-    def test_del_inheritance(self):
-        import gc
-        class State:
-            pass
-        s = State()
-        s.a_dels = 0
-        s.b_dels = 0
-        class A(object):
-            def __del__(self):
-                s.a_dels += 1
-        class B(A):
-            def __del__(self):
-                s.b_dels += 1
-        class C(A):
-            pass
-        def f(x):
-            A()
-            B()
-            C()
-            A()
-            B()
-            C()
-            gc.collect()
-            if x:
-                return s.a_dels * 10 + s.b_dels
-            else:
-                return -1
-        fn = self.getcompiled(f, [int], gcpolicy='ref')
-        res = f(1)
-        assert res == 42
-        res = fn(1)
-        assert res == 42
 
 class TestTypedOptimizedSwitchTestCase:
     def getcompiled(self, func, argtypes):

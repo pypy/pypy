@@ -41,7 +41,7 @@ class LowLevelDatabase(object):
         self.split_gc_address_space = split_gc_address_space
         self.reverse_debugger       = reverse_debugger
         if gcpolicyclass is None:
-            gcpolicyclass = gc.RefcountingGcPolicy
+            gcpolicyclass = gc.BoehmGcPolicy
         self.gcpolicy = gcpolicyclass(self, thread_enabled)
         self.exctransformer = exctransformer
 
