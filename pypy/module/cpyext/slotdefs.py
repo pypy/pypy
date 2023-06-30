@@ -719,11 +719,24 @@ def make_tp_iternext(space, typedef, name, attr):
     if iternext_fn is None:
         return
 
-    @slot_function([PyObject], PyObject)
-    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
-    def slot_tp_iternext(space, w_self):
-         return space.call_function(iternext_fn, w_self)
-    return slot_tp_iternext
+    if w_type.name == "coroutine_wrapper":
+        # issue 3956
+        @slot_function([PyObject], PyObject)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_tp_iternext(space, w_self):
+            return space.call_function(iternext_fn, w_self)
+        return slot_tp_iternext
+    else:
+        @slot_function([PyObject], PyObject)
+        @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+        def slot_tp_iternext(space, w_self):
+            try:
+                return space.call_function(iternext_fn, w_self)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                return None
+        return slot_tp_iternext
 
 @slot_factory('tp_init')
 def make_tp_init(space, typedef, name, attr):
