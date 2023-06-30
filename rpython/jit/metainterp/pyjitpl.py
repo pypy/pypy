@@ -244,7 +244,7 @@ class MIFrame(object):
             registers = self.registers_f
         else:
             assert 0, oldbox
-        if registers is None:
+        if not count:
             return
         for i in range(count):
             if registers[i] is oldbox:
