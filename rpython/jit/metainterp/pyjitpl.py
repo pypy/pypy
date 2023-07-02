@@ -1381,6 +1381,12 @@ class MIFrame(object):
             self.metainterp.heapcache.class_now_known(box)
         return clsbox
 
+    @arguments("int", "boxes3", "jitcode_position", "boxes3", "orgpc")
+    def opimpl_jit_emit_jump(self, jdindex, greenboxes,
+                             jcposition, redboxes, orgpc):
+        args = [ConstInt(jdindex)] + greenboxes + redboxes
+        self.metainterp.history.record(rop.JIT_EMIT_JUMP, args, None)
+
     @arguments("int", "orgpc")
     def opimpl_loop_header(self, jdindex, orgpc):
         self.metainterp.seen_loop_header_for_jdindex = jdindex

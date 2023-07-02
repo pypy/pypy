@@ -158,3 +158,7 @@ def test_types():
     assert op.type == 'i'
     assert op.datatype == 'i'
     assert op.bytesize == 4
+
+def test_threaded_code():
+    op = rop.ResOperation(rop.rop.JIT_EMIT_JUMP, None)
+    assert rop.rop.is_jit_emit_jump(op.opnum)

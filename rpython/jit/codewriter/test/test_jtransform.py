@@ -1027,6 +1027,39 @@ def test_jit_merge_point_1():
     assert list(oplist[5].args[4]) == [v3, v4]
     assert oplist[6].opname == '-live-'
 
+def test_jit_emit_jump():
+    class FakeJitDriverSD:
+        index = 42
+        class jitdriver:
+            active = True
+            greens = ['green1', 'green2', 'voidgreen3']
+            reds = ['red1', 'red2', 'voidred3']
+            numreds = 3
+
+    jd = FakeJitDriverSD()
+    v1 = varoftype(lltype.Signed)
+    v2 = varoftype(lltype.Signed)
+    vvoid1 = varoftype(lltype.Void)
+    v3 = varoftype(lltype.Signed)
+    v4 = varoftype(lltype.Signed)
+    vvoid2 = varoftype(lltype.Void)
+    v5 = varoftype(lltype.Void)
+    op = SpaceOperation('jit_marker', [Constant('jit_emit_jump', lltype.Void),
+                                       Constant(jd.jitdriver, lltype.Void),
+                                       v1, v2, vvoid1, v3, v4, vvoid2], v5)
+    tr = Transformer()
+    tr.portal_jd = jd
+    oplist = tr.rewrite_operation(op)
+    assert len(oplist) == 7
+    assert oplist[0].opname == '-live-'
+    assert oplist[1].opname == 'int_guard_value'
+    assert oplist[1].args   == [v1]
+    assert oplist[2].opname == '-live-'
+    assert oplist[3].opname == 'int_guard_value'
+    assert oplist[3].args   == [v2]
+    assert oplist[4].opname == '-live-'
+    assert oplist[5].opname == 'jit_emit_jump'
+
 def test_getfield_gc():
     S = lltype.GcStruct('S', ('x', lltype.Char))
     v1 = varoftype(lltype.Ptr(S))

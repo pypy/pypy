@@ -229,5 +229,22 @@ class MultipleJitDriversTests(object):
         self.meta_interp(f, [0])
         self.check_simple_loop(enter_portal_frame=1, leave_portal_frame=1)
 
+    def test_threaded_code(self):
+        from rpython.rlib import jit
+        myjitdriver = JitDriver(greens=[], reds=['x', 'y', 'res'])
+
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                myjitdriver.jit_emit_jump(x=x, y=y, res=res)
+                res += x
+                y -= 1
+            return res
+
+        res = self.meta_interp(f, [6, 7])
+        self.check_simple_loop(jit_emit_jump=1)
+
 class TestLLtype(MultipleJitDriversTests, LLJitMixin):
     pass

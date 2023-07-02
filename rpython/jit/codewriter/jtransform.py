@@ -1714,6 +1714,28 @@ class Transformer(object):
         c_index = Constant(jd.index, lltype.Signed)
         return SpaceOperation('loop_header', [c_index], None)
 
+    def handle_jit_marker__jit_emit_jump(self, op, jitdriver):
+        assert self.portal_jd is not None, (
+            "'jit_etmi_jump' in non-portal graph!")
+        assert jitdriver is self.portal_jd.jitdriver, (
+            "general mix-up of jitdrivers?")
+        ops = self.promote_greens(op.args[2:], jitdriver)
+        num_green_args = len(jitdriver.greens)
+        redlists = self.make_three_lists(op.args[2+num_green_args:])
+        for redlist in redlists:
+            for v in redlist:
+                assert isinstance(v, Variable), (
+                    "Constant specified red in jit_merge_point()")
+            assert len(dict.fromkeys(redlist)) == len(list(redlist)), (
+                "duplicate red variable on jit_emit_jump()")
+        args = ([Constant(self.portal_jd.index, lltype.Signed)] +
+                self.make_three_lists(op.args[2:2+num_green_args]) +
+                redlists)
+        op1 = SpaceOperation('jit_emit_jump', args, None)
+        op2 = SpaceOperation('-live-', [], None)
+        op3 = SpaceOperation('-live-', [], None)
+        return ops + [op3, op1, op2]
+
     # a 'can_enter_jit' in the source graph becomes a 'loop_header'
     # operation in the transformed graph, as its only purpose in
     # the transformed graph is to detect loops.
