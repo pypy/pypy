@@ -359,7 +359,7 @@ class TestJIT(BaseRtypingTest):
             enter_portal_frame(1)
             leave_portal_frame()
         t = Translation(g, [])
-        t.compile_c() # does not crash
+        t.compile_c(gc='none') # does not crash
 
     def test_record_exact_value(self):
         class A(object):
