@@ -37,7 +37,7 @@ def expect(f, g, fnname, args, result, resulttype=None):
         write_message(g, result, resulttype)
     g.flush()
 
-def compile(f, gc='ref', **kwds):
+def compile(f, gc='boehm', **kwds):
     t = Translation(f, backend='c', sandbox=True, gc=gc,
                     check_str_without_nul=True, **kwds)
     return str(t.compile())
