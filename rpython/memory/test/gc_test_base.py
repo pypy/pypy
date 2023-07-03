@@ -39,7 +39,7 @@ class GCTest(object):
         llinterp.log.output_disabled = True
 
     def interpret(self, func, values, **kwds):
-        interp, graph = get_interpreter(func, values, **kwds)
+        interp, graph = get_interpreter(func, values, gcrootfinder='llinterp', **kwds)
         gcwrapper.prepare_graphs_and_create_gc(interp, self.GCClass,
                                                self.GC_PARAMS)
         return interp.eval_graph(graph, values)

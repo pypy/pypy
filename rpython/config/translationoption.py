@@ -92,7 +92,7 @@ translation_optiondescription = OptionDescription(
                default=IS_64_BITS, cmdline="--gcremovetypeptr"),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
-                 ["n/a", "shadowstack"],
+                 ["n/a", "shadowstack", "llinterp"],
                  "shadowstack",
                  cmdline="--gcrootfinder",
                  requires={
