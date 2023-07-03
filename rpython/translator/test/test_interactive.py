@@ -72,7 +72,7 @@ def test_simple_compile_c():
         return x+y
 
     t = Translation(f, [int, int])
-    t.source(backend='c')
+    t.source(backend='c', gc='none')
     t.compile()
 
     dll = ctypes.CDLL(str(t.driver.c_entryp))
