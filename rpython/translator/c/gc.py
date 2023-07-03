@@ -1,7 +1,5 @@
 import sys
 from rpython.flowspace.model import Constant
-from rpython.rtyper.lltypesystem.lltype import (RttiStruct,
-     RuntimeTypeInfo)
 from rpython.translator.c.node import ContainerNode
 from rpython.translator.c.support import cdecl
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -45,9 +43,6 @@ class BasicGcPolicy(object):
 
     def array_setup(self, arraydefnode):
         return None
-
-    def rtti_type(self):
-        return ''
 
     def OP_GC_SET_MAX_HEAP_SIZE(self, funcgen, op):
         return ''
@@ -104,12 +99,6 @@ class BoehmGcPolicy(BasicGcPolicy):
 
     def struct_setup(self, structdefnode, rtti):
         pass
-
-    def rtti_type(self):
-        return BoehmGcRuntimeTypeInfo_OpaqueNode.typename
-
-    def rtti_node_factory(self):
-        return BoehmGcRuntimeTypeInfo_OpaqueNode
 
     def compilation_info(self):
         eci = BasicGcPolicy.compilation_info(self)
@@ -179,34 +168,6 @@ class BoehmGcPolicy(BasicGcPolicy):
     def GC_KEEPALIVE(self, funcgen, v):
         return 'pypy_asm_keepalive(%s);' % funcgen.expr(v)
 
-class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
-    nodekind = 'boehm rtti'
-    globalcontainer = True
-    typename = 'char @'
-    _funccodegen_owner = None
-
-    def __init__(self, db, T, obj):
-        assert T == RuntimeTypeInfo
-        assert isinstance(obj.about, RttiStruct)
-        self.db = db
-        self.T = T
-        self.obj = obj
-        defnode = db.gettypedefnode(obj.about)
-        self.implementationtypename = self.typename
-        self.name = self.db.namespace.uniquename('g_rtti_v_'+ defnode.barename)
-
-    def getptrname(self):
-        return '(&%s)' % (self.name,)
-
-    def enum_dependencies(self):
-        return []
-
-    def implementation(self):
-        yield 'char %s  /* uninitialized */;' % self.name
-
-class FrameworkGcRuntimeTypeInfo_OpaqueNode(BoehmGcRuntimeTypeInfo_OpaqueNode):
-    nodekind = 'framework rtti'
-
 
 # to get an idea how it looks like with no refcount/gc at all
 
@@ -247,12 +208,6 @@ class BasicFrameworkGcPolicy(BasicGcPolicy):
 
     def array_setup(self, arraydefnode):
         pass
-
-    def rtti_type(self):
-        return FrameworkGcRuntimeTypeInfo_OpaqueNode.typename
-
-    def rtti_node_factory(self):
-        return FrameworkGcRuntimeTypeInfo_OpaqueNode
 
     def gc_startup_code(self):
         fnptr = self.db.gctransformer.frameworkgc_setup_ptr.value

@@ -136,9 +136,7 @@ class LowLevelDatabase(object):
             argtypes = ', '.join(argtypes) or 'void'
             return resulttype.replace('@', '(@)(%s)' % argtypes)
         elif isinstance(T, OpaqueType):
-            if T == RuntimeTypeInfo:
-                return  self.gcpolicy.rtti_type()
-            elif T._hints.get("render_structure", False):
+            if T._hints.get("render_structure", False):
                 node = self.gettypedefnode(T, varlength=varlength)
                 if who_asks is not None:
                     who_asks.dependencies.add(node)
