@@ -130,7 +130,6 @@ class MissingRTypeAttribute(TyperError):
 #  A root class "object" has:
 #
 #      struct object_vtable {
-#          RuntimeTypeInfo * rtti;
 #          Signed subclassrange_min;  //this is also the id of the class itself
 #          Signed subclassrange_max;
 #          RPyString * name;
@@ -167,7 +166,6 @@ OBJECTPTR = Ptr(OBJECT)
 OBJECT_VTABLE.become(Struct('object_vtable',
                             ('subclassrange_min', Signed),
                             ('subclassrange_max', Signed),
-                            ('rtti', Ptr(RuntimeTypeInfo)),
                             ('name', Ptr(rstr.STR)),
                             ('instantiate', Ptr(FuncType([], OBJECTPTR))),
                             hints={'immutable': True,
@@ -346,8 +344,6 @@ class ClassRepr(Repr):
             vtable.subclassrange_max = sys.maxint
         rinstance = getinstancerepr(self.rtyper, self.classdef)
         rinstance.setup()
-        if rinstance.gcflavor == 'gc':
-            vtable.rtti = getRuntimeTypeInfo(rinstance.object_type)
         if self.classdef is None:
             name = 'object'
         else:
@@ -616,15 +612,7 @@ class InstanceRepr(Repr):
             else:
                 destrptr = None
             self.rtyper.call_all_setups()  # compute ForwardReferences now
-            args_s = [SomePtr(Ptr(OBJECT))]
-            graph = self.rtyper.annotate_helper(ll_runtime_type_info, args_s)
-            s = self.rtyper.annotation(graph.getreturnvar())
-            if (not isinstance(s, SomePtr) or
-                s.ll_ptrtype != Ptr(RuntimeTypeInfo)):
-                raise TyperError("runtime type info function returns %r, "
-                                "expected Ptr(RuntimeTypeInfo)" % (s))
-            funcptr = self.rtyper.getcallable(graph)
-            attachRuntimeTypeInfo(self.object_type, funcptr, destrptr)
+            attachRuntimeTypeInfo(self.object_type, None, destrptr)
 
             vtable = self.rclass.getvtable()
             self.rtyper.set_type_for_typeptr(vtable, self.lowleveltype.TO)
@@ -1166,9 +1154,6 @@ def make_ll_isinstance(rtyper, cls):
         result = (ll_isinstance_const, ll_isinstance_const_nonnull)
         rtyper.isinstance_helpers[cls._obj] = result
         return result
-
-def ll_runtime_type_info(obj):
-    return obj.typeptr.rtti
 
 def ll_inst_type(obj):
     if obj:

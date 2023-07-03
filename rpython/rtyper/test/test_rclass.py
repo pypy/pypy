@@ -1016,7 +1016,6 @@ class TestRclass(BaseRtypingTest):
         graph = graphof(t, f)
         TYPE = graph.startblock.operations[0].args[0].value
         RTTI = getRuntimeTypeInfo(TYPE)
-        RTTI._obj.query_funcptr # should not raise
         destrptr = RTTI._obj.destructor_funcptr
         assert destrptr is not None
 
@@ -1056,9 +1055,6 @@ class TestRclass(BaseRtypingTest):
         RTTIB = getRuntimeTypeInfo(TYPEB)
         TYPEC = graph.startblock.operations[6].args[0].value
         RTTIC = getRuntimeTypeInfo(TYPEC)
-        queryptra = RTTIA._obj.query_funcptr # should not raise
-        queryptrb = RTTIB._obj.query_funcptr # should not raise
-        queryptrc = RTTIC._obj.query_funcptr # should not raise
         destrptra = RTTIA._obj.destructor_funcptr
         destrptrb = RTTIB._obj.destructor_funcptr
         destrptrc = RTTIC._obj.destructor_funcptr
