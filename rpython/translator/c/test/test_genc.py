@@ -525,7 +525,7 @@ def test_exportstruct():
     foo = malloc(FOO, flavor="raw")
     foo.field1 = 43
     export_struct("BarStruct", foo._obj)
-    t = Translation(f, [], backend="c")
+    t = Translation(f, [], backend="c", gc='none')
     t.annotate()
     t.compile_c()
     if py.test.config.option.view:
