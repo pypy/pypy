@@ -25,7 +25,6 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rarithmetic import is_valid_int
 from rpython.rlib.debug import ll_assert
 
-
 def erase_int(x):
     assert is_valid_int(x)
     res = 2 * x + 1

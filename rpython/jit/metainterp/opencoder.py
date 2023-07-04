@@ -316,7 +316,7 @@ class Trace(BaseTrace):
     def set_inputargs(self, inputargs):
         self.inputargs = inputargs
         if not we_are_translated():
-            set_positions = {box._x.get_position() for box in inputargs}
+            set_positions = {valueapi.get_position(box) for box in inputargs}
             assert len(set_positions) == len(inputargs)
             assert not set_positions or max(set_positions) < self.max_num_inputargs
 
