@@ -566,7 +566,7 @@ class BaseTestRffi:
                     s.raw[i] = d[i]
                 return s.str(len(d)-1)
         assert f() == d[:-1]
-        fn = self.compile(f, [], gcpolicy='ref')
+        fn = self.compile(f, [])
         assert fn() == d[:-1]
 
     def test_nonmoving_unicode(self):
@@ -577,7 +577,7 @@ class BaseTestRffi:
                     s.raw[i] = d[i]
                 return s.str(len(d)-1).encode('ascii')
         assert f() == d[:-1]
-        fn = self.compile(f, [], gcpolicy='ref')
+        fn = self.compile(f, [])
         assert fn() == d[:-1]
 
     def test_nonmovingbuffer(self):
@@ -593,7 +593,7 @@ class BaseTestRffi:
             finally:
                 free_nonmovingbuffer_ll(buf, llobj, flag)
         assert f() == len(d)
-        fn = self.compile(f, [], gcpolicy='ref')
+        fn = self.compile(f, [])
         assert fn() == len(d)
 
     def test_nonmovingbuffer_semispace(self):
