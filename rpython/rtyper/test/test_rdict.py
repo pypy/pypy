@@ -1205,7 +1205,7 @@ class PseudoRTyper:
         class translator:
             class config:
                 class translation:
-                    gc = 'ref'
+                    gcrootfinder = 'llinterp'
 
 # XXX: None keys crash the test, but translation sort-of allows it
 keytypes_s = [
