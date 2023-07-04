@@ -410,6 +410,7 @@ def _make_execute_list():
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.JIT_EMIT_JUMP,
+                         rop.JIT_EMIT_RET,
                          rop.ENTER_PORTAL_FRAME,
                          rop.LEAVE_PORTAL_FRAME,
                          rop.SETARRAYITEM_RAW,

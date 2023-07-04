@@ -1016,6 +1016,10 @@ class BlackholeInterpreter(object):
     def bhimpl_jit_emit_jump(jdindex, *args):
         pass
 
+    @arguments()
+    def bhimpl_jit_emit_ret(jdindex, *args):
+        pass
+
     @arguments("i")
     def bhimpl_int_assert_green(x):
         pass

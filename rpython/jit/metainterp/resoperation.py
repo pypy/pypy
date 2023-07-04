@@ -1136,7 +1136,10 @@ _oplist = [
     'LEAVE_PORTAL_FRAME/1/n',     # debugging only
     'JIT_DEBUG/*/n',              # debugging only
     '_JIT_DEBUG_LAST',
+    '_JIT_THREADED_CODE_FIRST',
     'JIT_EMIT_JUMP/*/n',          # threaded code only
+    'JIT_EMIT_RET/*/n',           # threaded code only
+    '_JIT_THREADED_CODE_LAST',
     'ESCAPE/*/rfin',              # tests only
     'FORCE_SPILL/1/n',            # tests only
     'VIRTUAL_REF_FINISH/2/n',   # removed before it's passed to the backend
@@ -1377,8 +1380,16 @@ class rop(object):
         return rop._JIT_DEBUG_FIRST <= opnum <= rop._JIT_DEBUG_LAST
 
     @staticmethod
+    def is_jit_threaded_code(opnum):
+        return rop._JIT_THREADED_CODE_FIRST <= rop._JIT_THREADED_CODE_LAST
+
+    @staticmethod
     def is_jit_emit_jump(opnum):
         return rop.JIT_EMIT_JUMP == opnum
+
+    @staticmethod
+    def is_jit_emit_ret(opnum):
+        return rop.JIT_EMIT_RET == opnum
 
     @staticmethod
     @specialize.arg_or_var(0)

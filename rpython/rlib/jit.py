@@ -774,6 +774,10 @@ class JitDriver(object):
         if _self.check_untranslated:
             _self._check_arguments(livevars, False)
 
+    def jit_emit_ret(_self, **livevars):
+        if _self.check_untranslated:
+            _self._check_arguments(livevars, False)
+
     def inline(self, call_jit_merge_point):
         assert False, "@inline off: see skipped failures in test_warmspot."
         #
@@ -809,10 +813,11 @@ class JitDriver(object):
         self.can_enter_jit = self.can_enter_jit
         self.loop_header = self.loop_header
         self.jit_emit_jump = self.jit_emit_jump # for threaded code generation
+        self.jit_emit_ret = self.jit_emit_ret
         class Entry(ExtEnterLeaveMarker):
             _about_ = (self.jit_merge_point, self.can_enter_jit,
                        # XXX: tentatively put it here
-                       self.jit_emit_jump)
+                       self.jit_emit_jump, self.jit_emit_ret)
 
         class Entry(ExtLoopHeader):
             _about_ = self.loop_header

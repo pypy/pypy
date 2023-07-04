@@ -162,3 +162,5 @@ def test_types():
 def test_threaded_code():
     op = rop.ResOperation(rop.rop.JIT_EMIT_JUMP, None)
     assert rop.rop.is_jit_emit_jump(op.opnum)
+    op = rop.ResOperation(rop.rop.JIT_EMIT_RET, None)
+    assert rop.rop.is_jit_emit_ret(op.opnum)

@@ -241,10 +241,11 @@ class MultipleJitDriversTests(object):
                 myjitdriver.jit_emit_jump(x=x, y=y, res=res)
                 res += x
                 y -= 1
+                myjitdriver.jit_emit_ret(x=x, y=y, res=res)
             return res
 
         res = self.meta_interp(f, [6, 7])
-        self.check_simple_loop(jit_emit_jump=1)
+        self.check_simple_loop(jit_emit_jump=1, jit_emit_ret=1)
 
 class TestLLtype(MultipleJitDriversTests, LLJitMixin):
     pass
