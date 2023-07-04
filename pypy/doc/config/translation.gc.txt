@@ -1,9 +1,6 @@
 Choose the Garbage Collector used by the translated program.
 The recommended default is "incminimark".
 
-  - "ref": reference counting. Takes very long to translate and the result is
-    slow.  Used only for tests.  Don't use it for real RPython programs.
-
   - "none": no GC.  Leaks everything.  Don't use it for real RPython
     programs: the rate of leaking is immense.
 
