@@ -146,14 +146,15 @@ class ValueAPI:
         unerased = unerase_box(box_or_const)
         return unerased.type
 
-    def get_position(self, box_or_const):
-        if is_integer(box_or_const):
-            value = unerase_int(box_or_const)
+    def get_position(self, box):
+        if is_integer(box):
+            value = unerase_int(box)
             assert not is_constant(value)
             pos, _ = decode_int(value)
             return pos
 
-        unerased = unerase_box(box_or_const)
+        unerased = unerase_box(box)
+        assert not unerased.is_constant()
         return unerased.get_position()
     
     def get_opencoder_index(self, box_or_const):
