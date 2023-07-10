@@ -403,46 +403,46 @@ class MetaInterp(object):
             import pdb; pdb.set_trace()
         raise NotImplementedError(name)
     
-    def fill_registers(self, length, position, argcode, offset = 0):
+    def fill_registers(self, length, position, argcode, new_jitcode):
         assert argcode in 'IRF'
         jitcode = self.jitcodes[-1]
         code = jitcode.code
         if argcode == 'I':
             for i in range(length):
                 index = ord(code[position+i])
-                value = self.fetch_register_value('i', index, offset)
-                self.set_reg_i(i, value)
+                value = self.fetch_register_value('i', index)
+                self.regs[self.allocated_regs + i] = value
         elif argcode == 'R':
             for i in range(length):
                 index = ord(code[position+i])
-                value = self.fetch_register_value('r', index, offset)
-                self.set_reg_r(i, value)
+                value = self.fetch_register_value('r', index)
+                self.regs[self.allocated_regs + new_jitcode.num_regs_i() + i] = value
         else:
             assert argcode == 'F'
             for i in range(length):
                 index = ord(code[position+i])
-                value = self.fetch_register_value('f', index, offset)
-                self.set_reg_f(i, value)
+                value = self.fetch_register_value('f', index)
+                self.regs[self.allocated_regs + new_jitcode.num_regs_i() + new_jitcode.num_regs_r() + i] = value
                 
     @specialize.arg(1)
-    def fetch_register_value(self, argcode, index, offset = 0):
+    def fetch_register_value(self, argcode, index):
         jitcode = self.jitcodes[-1]
         if argcode == 'i':
             if index >= jitcode.num_regs_i():
                 value = valueapi.create_const(jitcode.constants_i[index - jitcode.num_regs_i()])
             else:
-                value = self.get_reg_i(index - offset)
+                value = self.get_reg_i(index)
         elif argcode == 'r':
             if index >= jitcode.num_regs_r():
                 value = valueapi.create_const(jitcode.constants_r[index - jitcode.num_regs_r()])
             else:
-                value = self.get_reg_r(index- offset)
+                value = self.get_reg_r(index)
         elif argcode == 'f':
             if index >= jitcode.num_regs_f():
                 # TODO
                 assert False
             else:
-                value = self.get_reg_f(index - offset)
+                value = self.get_reg_f(index)
         else:
             raise AssertionError("bad argcode")
         
@@ -546,31 +546,29 @@ def _get_opimpl_method(name, argcodes):
                 jitcode = self.metainterp_sd.opcode_descrs[index]
                 assert isinstance(jitcode, JitCode)
                 position += 2
-                self.next_jitcode = jitcode
                 # make a new frame
-                self.newframe(jitcode)
                 value = len(self.jitcodes)
-                offset = jitcode.num_regs_i() + jitcode.num_regs_r() + jitcode.num_regs_f()
 
                 # now put boxes into the right places
                 length = ord(code[position])
                 self.fill_registers(length, position + 1,
-                                    argcodes[next_argcode], offset)
+                                    argcodes[next_argcode], jitcode)
                 next_argcode = next_argcode + 1
                 position += 1 + length
                 if argtype != "newframe": # 2/3 lists of boxes
                     length = ord(code[position])
                     self.fill_registers(length, position + 1,
-                                        argcodes[next_argcode], offset)
+                                        argcodes[next_argcode], jitcode)
                     next_argcode = next_argcode + 1
                     position += 1 + length
                 if argtype == "newframe3": # 3 lists of boxes
                     length = ord(code[position])
                     self.fill_registers(length, position + 1,
-                                        argcodes[next_argcode], offset)
+                                        argcodes[next_argcode], jitcode)
                     next_argcode = next_argcode + 1
                     position += 1 + length
 
+                self.newframe(jitcode)
                 self.jitcodes.append(jitcode)
             elif argtype == "orgpc":
                 value = orgpc
@@ -594,8 +592,13 @@ def _get_opimpl_method(name, argcodes):
         self.pc = position
         #
         if not we_are_translated():
+            def transform(x):
+                    try:
+                        return repr(valueapi.get_value_int(x))
+                    except:
+                        return repr(x)
             if self.debug:
-                print '\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))),
+                print '\tpyjitpl: %s(%s)' % (name, ', '.join(map(transform, args))),
             try:
                 resultbox, controlflow, return_value = unboundmethod(self, *args)
             except Exception as e:
@@ -608,7 +611,7 @@ def _get_opimpl_method(name, argcodes):
                 assert resultbox is None
             else:
                 if self.debug:
-                    print '-> %r' % (resultbox,)
+                    print '-> %s' % (transform(resultbox),)
                 assert argcodes[next_argcode] == '>'
                 result_argcode = argcodes[next_argcode + 1]
         else:
