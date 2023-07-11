@@ -192,7 +192,8 @@ def do_load(space, name, soname, mode, spec):
 
     pydef = HPyModuleDef_CreatePyModuleDef(hpydef)
     
-    py_mod = HPyModule_FromDefAndSpec(pydef, spec);
+    py_mod = HPyModule_FromDefAndSpec(pydef, spec)
+    return space.w_rpython(py_mod)
 
 def descr_get_version(space):
     w_ver = space.newtext(HPY_VERSION)
