@@ -1083,6 +1083,48 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         x = list(it)
         assert x == [1]
 
+    def test_gen_tp_iter(self):
+        """
+        module = self.import_extension('foo', [
+           ("gen_tp_iternext", "METH_VARARGS",
+            '''
+                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                 iternextfunc next = Py_TYPE(obj)->tp_iternext;
+                 PyObject *result = next(obj);
+                 /* In py3, returning NULL from tp_iternext means the iterator
+                  * is exhausted, and the result is given in a StopIteration object */
+                 if (!result) {
+                     if (!PyErr_Occurred()) {
+                         PyErr_SetString(PyExc_AssertionError, "No StopIteration with NULL return value");
+                         return NULL;
+                     }
+
+                     PyObject *ptype, *pvalue, *ptraceback;
+                     PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+                     if (PyErr_GivenExceptionMatches(pvalue, PyExc_StopIteration)) {
+                         result = PyObject_GetAttrString(pvalue, "value");
+                         Py_XDECREF(pvalue);
+                     }
+                     else {
+                         result = pvalue;
+                     }
+                     Py_XDECREF(ptype);
+                     Py_XDECREF(ptraceback);
+                 }
+                 return result;
+             '''
+             )
+            ])
+
+        def generator():
+            yield 1
+            return 3
+
+        gen = generator()
+        assert module.gen_tp_iternext(gen) == 1
+        assert module.gen_tp_iternext(gen) == 3
+        """
+
     def test_intlike(self):
         module = self.import_extension('foo', [
             ("newInt", "METH_VARARGS",
