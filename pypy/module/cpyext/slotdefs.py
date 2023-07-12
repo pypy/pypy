@@ -733,7 +733,7 @@ def make_tp_iternext(space, typedef, name, attr):
         try:
             return space.call_function(iternext_fn, w_self)
         except OperationError as e:
-            if not e.match(space, space.w_StopIteration) or raises_stopiter:
+            if raises_stopiter or not e.match(space, space.w_StopIteration):
                 raise
             return None
     return slot_tp_iternext
