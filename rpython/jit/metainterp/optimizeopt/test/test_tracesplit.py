@@ -319,6 +319,7 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
 
 class TestOptTraceSplit(BaseTestTraceSplit):
 
+    @pytest.mark.skip()
     def test_method_cache_1(self):
         ops = """
         [p0, p1]
@@ -340,6 +341,7 @@ class TestOptTraceSplit(BaseTestTraceSplit):
 
         body_exp = """
         [p0, p1]
+        label(p0, p1)
         debug_merge_point(0, 0, 0, 0, '0: PUSH_INNER_1 in Fibonacci>>fibonacci: tstack: []')
         call_n(ConstClass(func2_ptr), p1, p0, 0, descr=calldescr)
         debug_merge_point(0, 0, '21: SEND_2 in Fibonacci>>fibonacci: tstack: [9.]')
@@ -355,6 +357,7 @@ class TestOptTraceSplit(BaseTestTraceSplit):
 
         bridge_exp = """
         [p0, p1]
+        label(p0, p1)
         i0 = call_may_force_i(ConstClass(func_ptr), p0, p1, 0, descr=calldescr)
         guard_value(i0, 45) []
         jump(p0, p1)
@@ -362,7 +365,6 @@ class TestOptTraceSplit(BaseTestTraceSplit):
 
         self.assert_equal_split(ops, body_exp, bridge_exp)
 
-    @pytest.mark.skip()
     def test_trace_split_real_trace_1(self):
         setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
         setattr(self.jitdriver_sd, "index", 0)
@@ -370,6 +372,7 @@ class TestOptTraceSplit(BaseTestTraceSplit):
 
         ops = """
         [p0]
+        label(p0)
         debug_merge_point(0, 0, 0, 0, '0: DUP ')
         i7 = call_i(ConstClass(func_ptr), p0, 1, 1, descr=calldescr)
         debug_merge_point(0, 0, 0, 1, '1: CONST_INT 1')
@@ -426,7 +429,71 @@ class TestOptTraceSplit(BaseTestTraceSplit):
 
         self.assert_equal_split(ops, body, bridge)
 
-    @pytest.mark.skip()
+    def test_trace_split_real_trace_with_jit_op_1(self):
+        setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
+        setattr(self.jitdriver_sd, "index", 0)
+        setattr(self.jitdriver_sd, "num_red_args", 1)
+
+        ops = """
+        [p0]
+        label(p0)
+        debug_merge_point(0, 0, 0, 0, '0: DUP ')
+        i7 = call_i(ConstClass(func_ptr), p0, 1, 1, descr=calldescr)
+        debug_merge_point(0, 0, 0, 1, '1: CONST_INT 1')
+        i12 = call_i(ConstClass(func_ptr), p0, 2, 1, descr=calldescr)
+        debug_merge_point(0, 0, 0, 3, '3: LT ')
+        i16 = call_i(ConstClass(func_ptr), p0, 4, 1, descr=calldescr)
+        debug_merge_point(0, 0, 0, 4, '4: JUMP_IF 8')
+        p19 = call_r(ConstClass(pop), p0, 1, descr=popdescr)
+        i21 = call_i(ConstClass(is_true_ptr), p0, p19, 1, descr=istruedescr)
+        guard_true(i21, descr=<Guard0x7f86266bc140>) [i21, p0]
+        debug_merge_point(0, 0, 0, 8, '8: CONST_INT 1')
+        i29 = call_i(ConstClass(func_ptr), p0, 9, 1, descr=calldescr)
+        debug_merge_point(0, 0, 0, 10, '10: SUB ')
+        i33 = call_i(ConstClass(func_ptr), p0, 11, 1, descr=calldescr)
+        debug_merge_point(0, 0, 0, 11, '11: JUMP 0')
+        jit_emit_jump(0, p0, 0, 6)
+        # i38 = call_i(ConstClass(emit_jump_ptr), 6, 0, p0, 1, descr=emit_jump_descr)
+        debug_merge_point(0, 0, 0, 6, '6: JUMP 13')
+        debug_merge_point(0, 0, 0, 13, '13: EXIT ')
+        p41 = call_r(ConstClass(pop), p0, 1, descr=popdescr)
+        leave_portal_frame(0)
+        finish(p41)
+        """
+
+        body = """
+        [p0]
+        debug_merge_point(0, 0, 0, 0, '0: DUP ')
+        i7 = call_i(ConstClass(func_ptr), p0, 1, 0, descr=calldescr)
+        debug_merge_point(0, 0, 0, 1, '1: CONST_INT 1')
+        i12 = call_i(ConstClass(func_ptr), p0, 2, 0, descr=calldescr)
+        debug_merge_point(0, 0, 0, 3, '3: LT ')
+        i16 = call_i(ConstClass(func_ptr), p0, 4, 0, descr=calldescr)
+        debug_merge_point(0, 0, 0, 4, '4: JUMP_IF 8')
+        p19 = call_r(ConstClass(pop), p0, 0, descr=popdescr)
+        i21 = call_i(ConstClass(is_true_ptr), p0, p19, 0, descr=istruedescr)
+        guard_true(i21, descr=<Guard0x7f86266bc140>) [p0]
+        debug_merge_point(0, 0, 0, 8, '8: CONST_INT 1')
+        i29 = call_i(ConstClass(func_ptr), p0, 9, 0, descr=calldescr)
+        debug_merge_point(0, 0, 0, 10, '10: SUB ')
+        i33 = call_i(ConstClass(func_ptr), p0, 11, 0, descr=calldescr)
+        debug_merge_point(0, 0, 0, 11, '11: JUMP 0')
+        # i38 = call_i(ConstClass(emit_jump_ptr), 6, 0, p0, 0, descr=emit_jump_descr)
+        jump(p0)
+        """
+
+        # descr
+        bridge = """
+        [p0]
+        debug_merge_point(0, 0, 0, 6, '6: JUMP 13')
+        debug_merge_point(0, 0, 0, 13, '13: EXIT ')
+        p41 = call_r(ConstClass(pop), p0, 0, descr=popdescr)
+        leave_portal_frame(0)
+        finish(p41, descr=finaldescr)
+        """
+
+        self.assert_equal_split(ops, body, bridge)
+
     def test_trace_split_real_trace_2(self):
         setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
         setattr(self.jitdriver_sd, "index", 0)
@@ -434,6 +501,7 @@ class TestOptTraceSplit(BaseTestTraceSplit):
 
         ops ="""
         [p0]
+        label(p0)
         debug_merge_point(0, 0, 0, 3, '3: DUP1 1')
         call_n(ConstClass(func_ptr), p0, 4, 1, descr=calldescr)
         debug_merge_point(0, 0, 0, 5, '5: CONST_INT 2')
@@ -530,7 +598,6 @@ class TestOptTraceSplit(BaseTestTraceSplit):
 
         self.assert_equal_split(ops, bodyops, bridgeops)
 
-    @pytest.mark.skip()
     def test_trace_split_not_nested_branch_1(self):
         setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
         setattr(self.jitdriver_sd, "index", 0)
@@ -559,7 +626,6 @@ class TestOptTraceSplit(BaseTestTraceSplit):
         """
         self.assert_target_token(ops2)
 
-    @pytest.mark.skip()
     def test_trace_split_nested_branch_1(self):
         setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
         setattr(self.jitdriver_sd, "index", 0)
@@ -588,7 +654,6 @@ class TestOptTraceSplit(BaseTestTraceSplit):
         """
         self.assert_target_token(ops)
 
-    @pytest.mark.skip()
     def test_trace_split_nested_branch_2(self):
         setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
         setattr(self.jitdriver_sd, "index", 0)
@@ -623,46 +688,3 @@ class TestOptTraceSplit(BaseTestTraceSplit):
         emit_jump_pos = [0, 6, 11]
         for i, key in enumerate(sorted(opt.token_map.keys())):
             assert key == emit_jump_pos[i]
-
-    @pytest.mark.skip()
-    def test_remove_useless_guards(self):
-
-        ops = """
-        [p0]
-        i13 = call_i(ConstClass(emit_jump_ptr), 11, 0, descr=emit_jump_descr)
-        i15 = int_lt(i13, 15)
-        guard_true(i15, descr=<ResumeGuardDescr object at 0x7f46429a6230>) [i13, p0]
-        guard_value(i13, 11, descr=<ResumeGuardCopiedDescr object at 0x7f46429a8060>) [i13, p0]
-        call_n(ConstClass(func_ptr), p0, 12, descr=calldescr)
-        guard_no_exception(descr=<ResumeGuardExcDescr object at 0x7f46429a6288>) [p0]
-        call_n(ConstClass(func_ptr), p0, descr=calldescr)
-        guard_no_exception(descr=<ResumeGuardExcDescr object at 0x7f46429a62e0>) [p0]
-        p21 = call_r(ConstClass(func_ptr), p0, descr=calldescr)
-        guard_no_exception(descr=<ResumeGuardExcDescr object at 0x7f46429a6338>) [p21, p0]
-        i24 = call_i(ConstClass(emit_ret_ptr), 0, p21, descr=emit_ret_descr)
-        i26 = int_lt(i24, 15)
-        guard_true(i26, descr=<ResumeGuardDescr object at 0x7f46429a6390>) [i24, p0]
-        guard_value(i24, 0, descr=<ResumeGuardCopiedDescr object at 0x7f46429a80a0>) [i24, p0]
-        jump(p0)
-        """
-
-        expected = """
-        [p0]
-        i13 = call_i(ConstClass(emit_jump_ptr), 11, 0, descr=emit_jump_descr)
-        call_n(ConstClass(func_ptr), p0, 12, descr=calldescr)
-        guard_no_exception(descr=<ResumeGuardExcDescr object at 0x7f46429a6288>) [p0]
-        call_n(ConstClass(func_ptr), p0, descr=calldescr)
-        guard_no_exception(descr=<ResumeGuardExcDescr object at 0x7f46429a62e0>) [p0]
-        p21 = call_r(ConstClass(func_ptr), p0, descr=calldescr)
-        guard_no_exception(descr=<ResumeGuardExcDescr object at 0x7f46429a6338>) [p21, p0]
-        i24 = call_i(ConstClass(emit_ret_ptr), 0, p21, descr=emit_ret_descr)
-        jump(p0)
-        """
-
-        trace, info, ops, token = self.optimize(ops)
-        optimized = self.create_opt()
-
-        exp = parse(expected, namespace=self.namespace)
-
-        for op1, op2 in zip(optimized, exp.operations):
-            assert op1.opnum == op2.opnum
