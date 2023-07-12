@@ -246,6 +246,10 @@ class OptTraceSplit(Optimizer):
                 if endswith(name, "emit_ptr_eq"):
                     self._slow_path_emit_ptr_eq = op
 
+            if rop.is_jit_emit_jump(opnum):
+                self._handle_emit_jump(op)
+                continue
+
             self.send_extra_operation(op)
             trace.kill_cache_at(deadranges[i + trace.start_index])
             if op.type != 'v':
@@ -365,7 +369,7 @@ class OptTraceSplit(Optimizer):
 
         target = targetbox.getint()
         if target in self.token_map.keys():
-            target_token = self.get_from_token_map(target)
+            target_token = self._get_token(target)
         else:
             target_token = self._create_token()
             self._invest_label_jump_dest(targetbox, target_token)
@@ -373,6 +377,42 @@ class OptTraceSplit(Optimizer):
         self.token_map[target] = target_token
 
         jump_op = ResOperation(rop.JUMP, inputargs, target_token)
+        info = TraceSplitInfo(target_token, self._newoperations[0], inputargs, self.resumekey)
+
+        self._newopsandinfo.append((info, self._newoperations[1:] + [jump_op]))
+        self._newoperations = []
+
+        self._already_setup_current_token = False
+
+        if len(self._fdescrstack) > 0:
+            self.resumekey = self._fdescrstack.pop()
+
+    def _handle_emit_jump(self, op, emit_label=False):
+        # backward jump
+        jd = self.jitdriver_sd
+        inputargs = self.inputargs
+
+        arglist = op.getarglist()
+        num_green_args = jd.num_green_args
+        num_red_args = jd.num_red_args
+        greenargs = arglist[1+num_red_args:1+num_red_args+num_green_args]
+        args = arglist[1:num_red_args+1]
+
+        # create token
+        targetbox = greenargs[0]
+        assert isinstance(targetbox, ConstInt)
+        target = targetbox.getvalue()
+        if target in self.token_map.keys():
+            target_token = self._get_token(target)
+        else:
+            # TODO: should get target_token from jitcelltoken.target_tokens
+            target_token = self._create_token()
+            self._invest_label_jump_dest(targetbox, target_token)
+
+        # TODO: should add target_token to jitcelltoken.target_tokens
+        self.token_map[target] = target_token
+
+        jump_op = ResOperation(rop.JUMP, args, descr=target_token)
         info = TraceSplitInfo(target_token, self._newoperations[0], inputargs, self.resumekey)
 
         self._newopsandinfo.append((info, self._newoperations[1:] + [jump_op]))
@@ -431,7 +471,7 @@ class OptTraceSplit(Optimizer):
         adr = cast_int_to_adr(arg0.getint())
         return self.metainterp_sd.get_name_from_address(adr)
 
-    def get_from_token_map(self, key):
+    def _get_token(self, key):
         if self.token_map is None:
             raise Exception("token_map is None")
 
