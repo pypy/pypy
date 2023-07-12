@@ -2525,3 +2525,23 @@ class TestComplexIntOpts(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_int_eq_propagates(self):
+        ops = """
+        [i1, i2, i3]
+        i4 = int_eq(i1, i2)
+        guard_true(i4) []
+        i5 = int_eq(i2, i3)
+        guard_true(i5) []
+        i6 = int_eq(i3, i1)
+        guard_true(i6) []
+        jump()
+        """
+        expected = """
+        [i1, i2, i3]
+        i4 = int_eq(i1, i2)
+        guard_true(i4) []
+        i5 = int_eq(i2, i3)
+        guard_true(i5) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
