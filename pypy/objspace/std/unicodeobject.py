@@ -1107,10 +1107,14 @@ class W_UnicodeObject(W_Root):
     def _strip_none(self, space, left, right):
         "internal function called by str_xstrip methods"
         value = self._utf8
+        lgt = self._len()
+        return self._strip_none_unboxed(value, lgt, left, right)
 
+    @staticmethod
+    @jit.elidable
+    def _strip_none_unboxed(value, lgt, left, right):
         lpos = 0
         rpos = len(value)
-        lgt = self._len()
 
         if left:
             while lpos < rpos and rutf8.isspace(value, lpos):
@@ -1126,17 +1130,24 @@ class W_UnicodeObject(W_Root):
                 lgt -= 1
 
         assert rpos >= lpos    # annotator hint, don't remove
-        return self._utf8_sliced(lpos, rpos, lgt)
+        assert lpos >= 0
+        assert rpos >= 0
+        return W_UnicodeObject(value[lpos:rpos], lgt)
 
     def _strip(self, space, w_chars, left, right, name='strip'):
         "internal function called by str_xstrip methods"
         value = self._utf8
         chars = self.convert_arg_to_w_unicode(space, w_chars, strict=name)._utf8
 
-        lpos = 0
-        rpos = len(value)
         lgt = self._len()
 
+        return self._strip_unboxed(value, lgt, chars, left, right)
+
+    @staticmethod
+    @jit.elidable
+    def _strip_unboxed(value, lgt, chars, left, right):
+        lpos = 0
+        rpos = len(value)
         if left:
             while lpos < rpos and rutf8.utf8_in_chars(value, lpos, chars):
                 lpos = rutf8.next_codepoint_pos(value, lpos)
@@ -1151,7 +1162,9 @@ class W_UnicodeObject(W_Root):
                 lgt -= 1
 
         assert rpos >= lpos    # annotator hint, don't remove
-        return self._utf8_sliced(lpos, rpos, lgt)
+        assert lpos >= 0
+        assert rpos >= 0
+        return W_UnicodeObject(value[lpos:rpos], lgt)
 
     def descr_getnewargs(self, space):
         return space.newtuple([W_UnicodeObject(self._utf8, self._length)])

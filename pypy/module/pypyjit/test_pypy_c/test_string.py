@@ -362,3 +362,21 @@ class TestString(BaseTestPyPyC):
             i2 = strgetitem(p1, i1)
         ''')
 
+    def test_unicode_strip_doesnt_escape_uniobject(self):
+        log = self.run("""
+        def main(n):
+            l = [unicode(x) for x in range(10000)]
+            res = 0
+            for data in l:
+                res += len(data.strip(u'1')) # ID: stripnone
+            for data in l:
+                res += len(data.strip()) # ID: striparg
+            return res
+        """, [10000])
+        _, loop1, loop2 = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop1.ops_by_id('stripnone'))
+        assert "new_with_vtable" not in opnames
+        assert "call_may_force_r" not in opnames
+        opnames = log.opnames(loop1.ops_by_id('striparg'))
+        assert "new_with_vtable" not in opnames
+        assert "call_may_force_r" not in opnames
