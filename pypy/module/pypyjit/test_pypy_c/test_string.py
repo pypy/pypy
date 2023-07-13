@@ -35,7 +35,7 @@ class TestString(BaseTestPyPyC):
             i24 = int_ge(i83, i12)
             guard_false(i24, descr=...)
             i93 = int_add(i83, 1)
-            i94 = int_gt(i93, i56)
+            i94 = int_gt(i93, i12)
             guard_false(i94, descr=...)
             p96 = newstr(1)
             strsetitem(p96, 0, i89)
