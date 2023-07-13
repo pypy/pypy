@@ -1114,9 +1114,9 @@ class W_UnicodeObject(W_Root):
             lpos = 0
             rpos = len(value)
             if left:
-                lpos = self._strip_none_ascii_unboxed_left(value)
+                lpos = self._strip_none_bytes_unboxed_left(value)
             if right:
-                rpos = self._strip_none_ascii_unboxed_right(value, lpos)
+                rpos = self._strip_none_bytes_unboxed_right(value, lpos)
             return self._utf8_sliced(lpos, rpos, rpos - lpos)
         return self._strip_none_unboxed(value, lgt, left, right)
 
@@ -1144,23 +1144,6 @@ class W_UnicodeObject(W_Root):
         assert rpos >= 0
         return W_UnicodeObject(value[lpos:rpos], lgt)
 
-    @staticmethod
-    @jit.elidable
-    def _strip_none_ascii_unboxed_left(value):
-        lpos = 0
-        rpos = len(value)
-        while lpos < rpos and value[lpos].isspace():
-            lpos += 1
-        return lpos
-
-    @staticmethod
-    @jit.elidable
-    def _strip_none_ascii_unboxed_right(value, lpos):
-        rpos = len(value) - 1
-        while rpos > lpos and value[rpos].isspace():
-            rpos -= 1
-        return rpos + 1
-
     def _strip(self, space, w_chars, left, right, name='strip'):
         "internal function called by str_xstrip methods"
         value = self._utf8
@@ -1174,9 +1157,9 @@ class W_UnicodeObject(W_Root):
             lpos = 0
             rpos = len(value)
             if left:
-                lpos = self._strip_ascii_unboxed_left(value, chars)
+                lpos = self._strip_bytes_unboxed_left(value, chars)
             if right:
-                rpos = self._strip_ascii_unboxed_right(value, chars, lpos)
+                rpos = self._strip_bytes_unboxed_right(value, chars, lpos)
             return self._utf8_sliced(lpos, rpos, rpos - lpos)
         return self._strip_unboxed(value, lgt, chars, left, right)
 
@@ -1202,27 +1185,6 @@ class W_UnicodeObject(W_Root):
         assert lpos >= 0
         assert rpos >= 0
         return W_UnicodeObject(value[lpos:rpos], lgt)
-
-    @staticmethod
-    @jit.elidable
-    def _strip_ascii_unboxed_left(value, chars):
-        lpos = 0
-        rpos = len(value)
-        # chars does not necessarily need to be ascii, but it's still fine to
-        # check for containment with 'in'
-        while lpos < rpos and value[lpos] in chars:
-            lpos += 1
-        return lpos
-
-    @staticmethod
-    @jit.elidable
-    def _strip_ascii_unboxed_right(value, chars, lpos):
-        rpos = len(value)
-        while rpos > lpos and value[rpos - 1] in chars:
-            rpos -= 1
-        return rpos
-
-
 
     def descr_getnewargs(self, space):
         return space.newtuple([W_UnicodeObject(self._utf8, self._length)])
