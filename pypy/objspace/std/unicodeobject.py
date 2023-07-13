@@ -1217,10 +1217,15 @@ class W_UnicodeObject(W_Root):
     @staticmethod
     @jit.elidable
     def _strip_ascii_unboxed_right(value, chars, lpos):
-        rpos = len(value) - 1
-        while rpos > lpos and value[rpos] in chars:
-            rpos -= 1
-        return rpos + 1
+        rpos = len(value)
+        while rpos > lpos:
+            prev = rpos - 1
+            if not value[prev] in chars:
+                break
+            rpos = prev
+        return rpos
+
+
 
     def descr_getnewargs(self, space):
         return space.newtuple([W_UnicodeObject(self._utf8, self._length)])

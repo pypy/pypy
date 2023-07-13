@@ -608,6 +608,10 @@ class AppTestUnicodeString:
         raises(UnicodeDecodeError, "\x80".lstrip, u"")
         raises(UnicodeDecodeError, "\x80".rstrip, u"")
 
+    def test_rstrip_bug(self):
+        assert u"aaaaaaaaaaaaaaaaaaa".rstrip(u"a") == u""
+        assert u"äääääääääääääääääääääääää".rstrip(u"ä") == u""
+
     def test_long_from_unicode(self):
         assert long(u'12345678901234567890') == 12345678901234567890
         assert int(u'12345678901234567890') == 12345678901234567890
