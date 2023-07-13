@@ -665,16 +665,17 @@ class StringMethods(object):
         rpos = len(value)
 
         if left:
-            lpos = self._strip_bytes_unboxed_left(value, chars)
+            lpos = StringMethods._strip_bytes_unboxed_left(value, chars)
 
         if right:
-            rpos = self._strip_bytes_unboxed_right(value, chars, lpos)
+            rpos = StringMethods._strip_bytes_unboxed_right(value, chars, lpos)
 
         assert rpos >= lpos    # annotator hint, don't remove
         return self._sliced(space, value, lpos, rpos, self)
 
     @staticmethod
     @jit.elidable
+    @specialize.argtype(0)
     def _strip_bytes_unboxed_left(value, chars):
         lpos = 0
         rpos = len(value)
@@ -684,6 +685,7 @@ class StringMethods(object):
 
     @staticmethod
     @jit.elidable
+    @specialize.argtype(0)
     def _strip_bytes_unboxed_right(value, chars, lpos):
         rpos = len(value)
         while rpos > lpos and value[rpos - 1] in chars:
@@ -698,16 +700,17 @@ class StringMethods(object):
         rpos = len(value)
 
         if left:
-            lpos = self._strip_none_bytes_unboxed_left(value)
+            lpos = StringMethods._strip_none_bytes_unboxed_left(value)
 
         if right:
-            rpos = self._strip_none_bytes_unboxed_right(value, lpos)
+            rpos = StringMethods._strip_none_bytes_unboxed_right(value, lpos)
 
         assert rpos >= lpos    # annotator hint, don't remove
         return self._sliced(space, value, lpos, rpos, self)
 
     @staticmethod
     @jit.elidable
+    @specialize.argtype(0)
     def _strip_none_bytes_unboxed_left(value):
         lpos = 0
         rpos = len(value)
@@ -717,6 +720,7 @@ class StringMethods(object):
 
     @staticmethod
     @jit.elidable
+    @specialize.argtype(0)
     def _strip_none_bytes_unboxed_right(value, lpos):
         rpos = len(value)
         while rpos > lpos and value[rpos - 1].isspace():

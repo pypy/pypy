@@ -1114,9 +1114,9 @@ class W_UnicodeObject(W_Root):
             lpos = 0
             rpos = len(value)
             if left:
-                lpos = self._strip_none_bytes_unboxed_left(value)
+                lpos = StringMethods._strip_none_bytes_unboxed_left(value)
             if right:
-                rpos = self._strip_none_bytes_unboxed_right(value, lpos)
+                rpos = StringMethods._strip_none_bytes_unboxed_right(value, lpos)
             return self._utf8_sliced(lpos, rpos, rpos - lpos)
         return self._strip_none_unboxed(value, lgt, left, right)
 
@@ -1157,9 +1157,9 @@ class W_UnicodeObject(W_Root):
             lpos = 0
             rpos = len(value)
             if left:
-                lpos = self._strip_bytes_unboxed_left(value, chars)
+                lpos = StringMethods._strip_bytes_unboxed_left(value, chars)
             if right:
-                rpos = self._strip_bytes_unboxed_right(value, chars, lpos)
+                rpos = StringMethods._strip_bytes_unboxed_right(value, chars, lpos)
             return self._utf8_sliced(lpos, rpos, rpos - lpos)
         return self._strip_unboxed(value, lgt, chars, left, right)
 
