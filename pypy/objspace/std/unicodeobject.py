@@ -1218,11 +1218,8 @@ class W_UnicodeObject(W_Root):
     @jit.elidable
     def _strip_ascii_unboxed_right(value, chars, lpos):
         rpos = len(value)
-        while rpos > lpos:
-            prev = rpos - 1
-            if not value[prev] in chars:
-                break
-            rpos = prev
+        while rpos > lpos and value[rpos - 1] in chars:
+            rpos -= 1
         return rpos
 
 
