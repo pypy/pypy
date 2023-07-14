@@ -6,6 +6,7 @@ except ImportError:
 import os
 from pypy.module._io.interp_bytesio import W_BytesIO
 from pypy.module._io.interp_textio import (W_TextIOWrapper, DecodeBuffer,
+        W_IncrementalNewlineDecoder,
         SEEN_CR, SEEN_LF)
 
 # workaround suggestion for slowness by David McIver:
@@ -93,7 +94,26 @@ def test_readline_none(space, data):
         elif limit:
             break
     output = txt.replace("\r\n", "\n").replace("\r", "\n")
+
     assert output.startswith(u''.join(lines))
+@given(data=st_readline())
+@settings(deadline=None, database=None)
+@example(data=(u'\n\r\n', [0, -1, 2, -1, 0, -1]))
+def test_incremental_decoder(space, data):
+    txt, limits = data
+    w_dec = W_IncrementalNewlineDecoder(space)
+    w_dec.descr_init(space, space.w_None, 1)
+    w_txt = space.newutf8(txt.encode("utf-8"), len(txt))
+    w_res = w_dec.decode_w(space, w_txt, True)
+    line = space.utf8_w(w_res).decode('utf-8')
+    output = txt.replace(u"\r\n", u"\n").replace(u"\r", u"\n")
+    assert line == output
+
+    w_dec.descr_init(space, space.w_None, 0)
+    w_txt = space.newutf8(txt.encode("utf-8"), len(txt))
+    w_res = w_dec.decode_w(space, w_txt, True)
+    line = space.utf8_w(w_res).decode('utf-8')
+    assert line == txt
 
 @given(st.text())
 def test_read_buffer(text):
