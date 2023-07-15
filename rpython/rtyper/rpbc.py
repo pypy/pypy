@@ -484,7 +484,7 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
         commonprefix = os.path.commonprefix(names) # bit silly, but works well
 
         if not commonprefix:
-            commonprefix = names[0] + "_etc" # just pick one
+            commonprefix = sorted(names)[0] + "_etc" # just pick one
         return "dispatcher_" + commonprefix
 
     def call(self, hop):

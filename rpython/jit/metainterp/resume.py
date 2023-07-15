@@ -84,17 +84,17 @@ class AccumInfo(VectorInfo):
                                               self.location)
 
 def _ensure_parent_resumedata(framestack, n, t, snapshot):
-    if n == 0:
-        return
-    target = framestack[n]
-    back = framestack[n - 1]
-    if target.parent_snapshot:
-        snapshot.prev = target.parent_snapshot
-        return
-    s = t.create_snapshot(back.jitcode, back.pc, back, True)
-    snapshot.prev = s
-    _ensure_parent_resumedata(framestack, n - 1, t, s)
-    target.parent_snapshot = s
+    while n > 0:
+        target = framestack[n]
+        back = framestack[n - 1]
+        if target.parent_snapshot:
+            snapshot.prev = target.parent_snapshot
+            return
+        s = t.create_snapshot(back.jitcode, back.pc, back, True)
+        snapshot.prev = s
+        target.parent_snapshot = s
+        n -= 1
+        snapshot = s
 
 def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t, after_residual_call=False):
     n = len(framestack) - 1

@@ -112,6 +112,8 @@ def _run_with_blackhole(testself, args):
     cw = testself.cw
     blackholeinterpbuilder = BlackholeInterpBuilder(cw)
     blackholeinterp = blackholeinterpbuilder.acquire_interp()
+    [jitdriver_sd] = cw.callcontrol.jitdrivers_sd
+    blackholeinterp.setposition(jitdriver_sd.mainjitcode, 0)
     count_i = count_r = count_f = 0
     for value in args:
         T = lltype.typeOf(value)
@@ -127,8 +129,6 @@ def _run_with_blackhole(testself, args):
             count_f += 1
         else:
             raise TypeError(T)
-    [jitdriver_sd] = cw.callcontrol.jitdrivers_sd
-    blackholeinterp.setposition(jitdriver_sd.mainjitcode, 0)
     blackholeinterp.run()
     return blackholeinterp._final_result_anytype()
 
