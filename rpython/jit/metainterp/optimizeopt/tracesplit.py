@@ -178,6 +178,13 @@ class OptTraceSplit(Optimizer):
                 if isinstance(lastarg, ConstInt) and lastarg.getint() == 1:
                     op.setarg(numargs - 1, ConstInt(0))
 
+            if rop.is_jit_emit_jump(opnum):
+                self._handle_emit_jump(op)
+                continue
+            elif rop.is_jit_emit_ret(opnum):
+                self._handle_emit_ret(op)
+                continue
+
             if self._slow_path_flag:
                 # re-encountering DEBUG_MERGE_POINT when the slow flag is True
                 # means the slow path ends just before
@@ -245,10 +252,6 @@ class OptTraceSplit(Optimizer):
 
                 if endswith(name, "emit_ptr_eq"):
                     self._slow_path_emit_ptr_eq = op
-
-            if rop.is_jit_emit_jump(opnum):
-                self._handle_emit_jump(op)
-                continue
 
             self.send_extra_operation(op)
             trace.kill_cache_at(deadranges[i + trace.start_index])
@@ -360,6 +363,44 @@ class OptTraceSplit(Optimizer):
         if len(self._fdescrstack) > 0:
             self.resumekey = self._fdescrstack.pop()
 
+    def _handle_emit_ret(self, op):
+        inputargs = self.inputargs
+        jd_no = self.jitdriver_sd.index
+        result_type = self.jitdriver_sd.result_type
+        sd = self.metainterp_sd
+        numargs = op.numargs()
+        assert numargs > 1, "emit_ret must have at least one argument"
+        if result_type == history.VOID:
+            exits = []
+            finishtoken = sd.done_with_this_frame_descr_void
+        elif result_type == history.INT:
+            exits = [op.getarg(numargs - 1)]
+            finishtoken = sd.done_with_this_frame_descr_int
+        elif result_type == history.REF:
+            exits = [op.getarg(numargs - 1)]
+            finishtoken = sd.done_with_this_frame_descr_ref
+        elif result_type == history.FLOAT:
+            exits = [op.getarg(numargs - 1)]
+            finishtoken = sd.done_with_this_frame_descr_float
+        else:
+            assert False
+
+        # host-stack style
+        ret_ops = [
+            ResOperation(rop.LEAVE_PORTAL_FRAME, [ConstInt(jd_no)], None),
+            ResOperation(rop.FINISH, exits, finishtoken)
+        ]
+
+        label_op = self._newoperations[0]
+        info = TraceSplitInfo(label_op.getdescr(), label_op, inputargs, self.resumekey)
+        self._newopsandinfo.append((info, self._newoperations[1:] + ret_ops))
+        self._newoperations = []
+
+        self._already_setup_current_token = False
+
+        if len(self._fdescrstack) > 0:
+            self.resumekey = self._fdescrstack.pop()
+
     def handle_emit_jump(self, op, emit_label=False):
         # backward jump
         inputargs = self.inputargs
@@ -388,7 +429,6 @@ class OptTraceSplit(Optimizer):
             self.resumekey = self._fdescrstack.pop()
 
     def _handle_emit_jump(self, op, emit_label=False):
-        # backward jump
         jd = self.jitdriver_sd
         inputargs = self.inputargs
 
