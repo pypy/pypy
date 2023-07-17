@@ -482,3 +482,17 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         opnames = log.opnames(loop.allops())
         assert "new" not in opnames
+
+    def test_sys_flags_access(self):
+        def main(n):
+            import sys
+            x = 0
+            for i in range(n):
+                import sys
+                flags = sys.flags # ID: flags
+                x += flags.debug
+        log = self.run(main, [3000])
+        loop, = log.loops_by_id("flags", is_entry_bridge=True)
+        ops = loop.ops_by_id("flags")
+        assert ops == [] # used to be a getfield_gc_r on an ObjectMutableCell
+
