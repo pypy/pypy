@@ -168,6 +168,7 @@ def unregister(space, w_search_function):
     except ValueError:
         return space.newint(-1)
 
+@jit.elidable
 def normalize(encoding):
     """ Normalize an encoding name.
 
