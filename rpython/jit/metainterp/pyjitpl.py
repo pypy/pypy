@@ -65,44 +65,56 @@ class MIFrame(object):
 
     def __init__(self, metainterp):
         self.metainterp = metainterp
-        self.registers_i = [None] * 256
-        self.registers_r = [None] * 256
-        self.registers_f = [None] * 256
+        self.registers_i = None
+        self.registers_r = None
+        self.registers_f = None
 
     def setup(self, jitcode, greenkey=None):
         # if not translated, fill the registers with MissingValue()
-        if not we_are_translated():
-            self.registers_i = [MissingValue()] * 256
-            self.registers_r = [MissingValue()] * 256
-            self.registers_f = [MissingValue()] * 256
         assert isinstance(jitcode, JitCode)
         self.jitcode = jitcode
         self.bytecode = jitcode.code
         # this is not None for frames that are recursive portal calls
         self.greenkey = greenkey
-        # copy the constants in place
-        self.copy_constants(self.registers_i, jitcode.constants_i, ConstInt)
-        self.copy_constants(self.registers_r, jitcode.constants_r, ConstPtrJitCode)
-        self.copy_constants(self.registers_f, jitcode.constants_f, ConstFloat)
+        # create registers_* lists and copy the constants in place
+        num_regs_and_consts_i = jitcode.num_regs_and_consts_i()
+        num_regs_and_consts_r = jitcode.num_regs_and_consts_r()
+        num_regs_and_consts_f = jitcode.num_regs_and_consts_f()
+        if num_regs_and_consts_i:
+            self.registers_i = self.copy_constants(self.registers_i, jitcode.constants_i, jitcode.num_regs_i(), ConstInt)
+        if num_regs_and_consts_r:
+            self.registers_r = self.copy_constants(self.registers_r, jitcode.constants_r, jitcode.num_regs_r(), ConstPtrJitCode)
+        if num_regs_and_consts_f:
+            self.registers_f = self.copy_constants(self.registers_f, jitcode.constants_f, jitcode.num_regs_f(), ConstFloat)
         self._result_argcode = 'v'
         # for resume.py operation
         self.parent_snapshot = None
         # counter for unrolling inlined loops
         self.unroll_iterations = 1
 
-    @specialize.arg(3)
-    def copy_constants(self, registers, constants, ConstClass):
-        """Copy jitcode.constants[0] to registers[255],
-                jitcode.constants[1] to registers[254],
-                jitcode.constants[2] to registers[253], etc."""
+    @specialize.arg(4)
+    def copy_constants(self, registers, constants, targetindex, ConstClass):
+        """Copy jitcode.constants[0] to registers[self.jitcode.num_regs_x() + 0],
+                jitcode.constants[1] to registers[self.jitcode.num_regs_x() + 1],
+                jitcode.constants[2] to registers[self.jitcode.num_regs_x() + 2],
+                etc."""
+        if not we_are_translated():
+            missing = MissingValue()
+        else:
+            missing = None
+        num_regs_and_consts = targetindex + len(constants)
+        # increase size if its too small
+        if registers is None or len(registers) < num_regs_and_consts:
+            registers = [missing] * num_regs_and_consts
+        elif not we_are_translated():
+            for i in range(len(registers)):
+                registers[i] = missing
         if nonconst.NonConstant(0):             # force the right type
             constants[0] = ConstClass.value     # (useful for small tests)
-        i = len(constants) - 1
-        while i >= 0:
-            j = 255 - i
-            assert j >= 0
-            registers[j] = ConstClass(constants[i])
-            i -= 1
+        for i in range(len(constants)):
+            registers[targetindex] = ConstClass(constants[i])
+            targetindex += 1
+        return registers
 
     def cleanup_registers(self):
         # To avoid keeping references alive, this cleans up the registers_r.
@@ -232,6 +244,8 @@ class MIFrame(object):
             registers = self.registers_f
         else:
             assert 0, oldbox
+        if not count:
+            return
         for i in range(count):
             if registers[i] is oldbox:
                 registers[i] = newbox
@@ -2398,7 +2412,7 @@ class MetaInterp(object):
                     (jitcode.jitdriver_sd, None, self.history.get_trace_position()))
         # we save the freed MIFrames to avoid needing to re-create new
         # MIFrame objects all the time; they are a bit big, with their
-        # 3*256 register entries.
+        # up to 3*256 register entries.
         frame.cleanup_registers()
         self.free_frames_list.append(frame)
 

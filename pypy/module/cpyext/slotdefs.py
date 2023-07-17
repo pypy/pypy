@@ -712,6 +712,12 @@ def make_tp_call(space, typedef, name, attr):
         return space.call_args(call_fn, args)
     return slot_tp_call
 
+# issue 3956
+TP_ITERNEXT_RAISES_STOPITERATION = (
+    "coroutine_wrapper",
+    "generator",
+)
+
 @slot_factory('tp_iternext')
 def make_tp_iternext(space, typedef, name, attr):
     w_type = space.gettypeobject(typedef)
@@ -719,13 +725,15 @@ def make_tp_iternext(space, typedef, name, attr):
     if iternext_fn is None:
         return
 
+    raises_stopiter = w_type.name in TP_ITERNEXT_RAISES_STOPITERATION
+
     @slot_function([PyObject], PyObject)
     @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
     def slot_tp_iternext(space, w_self):
         try:
             return space.call_function(iternext_fn, w_self)
         except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
+            if raises_stopiter or not e.match(space, space.w_StopIteration):
                 raise
             return None
     return slot_tp_iternext
