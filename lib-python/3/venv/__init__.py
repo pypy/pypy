@@ -298,8 +298,12 @@ class EnvBuilder:
                     for f in os.listdir(libsrc):
                         src = os.path.join(libsrc, f)
                         dst = os.path.join(libdst, f)
-                        if f == pypylib or os.path.exists(dst):
+                        if f == pypylib:
                             # be sure not to copy the stdlib
+                            continue
+                        if os.path.isdir(src) and f not in ('tk', 'tcl'):
+                            continue
+                        if os.path.exists(dst):
                             # also skip directories when upgrading
                             continue
                         copier(src, dst)
