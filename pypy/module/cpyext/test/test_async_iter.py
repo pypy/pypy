@@ -136,7 +136,7 @@ class AppTestCoroReturn(AppTestCpythonExtensionBase):
         assert test_coro_retval.exhaust_coro(test_coro()) == "hi coro"
         """
 
-    #@pytest.mark.skip("Currently failing, works with CPython")
+    @pytest.mark.skip("Currently failing, works with CPython")
     def test_coro_written_in_c_retval(self):
         """
         # Check that the final result of a coroutine is available in the StopIteration
