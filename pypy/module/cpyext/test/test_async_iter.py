@@ -135,3 +135,65 @@ class AppTestCoroReturn(AppTestCpythonExtensionBase):
             return "hi coro"
         assert test_coro_retval.exhaust_coro(test_coro()) == "hi coro"
         """
+
+    #@pytest.mark.skip("Currently failing, works with CPython")
+    def test_coro_written_in_c_retval(self):
+        """
+        # Check that the final result of a coroutine is available in the StopIteration
+        # that should be raised by the final call to its tp_iternext method
+        module = self.import_extension('coro_in_c', [
+            ("my_awaitable", "METH_NOARGS", '''
+                return PyObject_New(PyObject, &MyAwaitable_Type);
+            '''),
+            ("toggle_build_exception_object", "METH_NOARGS", '''
+                _build_exception_object = !_build_exception_object;
+                Py_RETURN_NONE;
+            '''),
+            ("build_exception_object", "METH_NOARGS", '''
+                return PyBool_FromLong(_build_exception_object);
+            ''')
+            ],
+            prologue='''
+            static int _build_exception_object = 1;
+            static PyObject *return_value_via_stopiteration(PyObject *self) {
+                if (_build_exception_object) {
+                    PyObject *stop_iteration_object = PyObject_CallOneArg(PyExc_StopIteration, PyLong_FromLong(30));
+                    PyErr_SetObject(PyExc_StopIteration, stop_iteration_object);
+                    Py_DECREF(stop_iteration_object);
+                }
+                else {
+                    PyObject *stop_iteration_args = PyTuple_New(1);
+                    PyTuple_SET_ITEM(stop_iteration_args, 0, PyLong_FromLong(30));
+                    PyErr_SetObject(PyExc_StopIteration, stop_iteration_args);
+                    Py_DECREF(stop_iteration_args);
+                }
+                return NULL;
+            };
+            static PyObject *_self(PyObject *self) {
+                Py_INCREF(self);
+                return self;
+            };
+            static PyAsyncMethods my_awaitable_async_methods = {
+                .am_await = _self,
+            };
+            PyTypeObject MyAwaitable_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "my_awaitable",
+            };
+            ''', more_init='''
+                MyAwaitable_Type.tp_as_async = &my_awaitable_async_methods;
+                MyAwaitable_Type.tp_iter = _self;
+                MyAwaitable_Type.tp_iternext = return_value_via_stopiteration;
+                if (PyType_Ready(&MyAwaitable_Type) < 0) INITERROR;
+            ''')
+
+        import asyncio
+        async def arun(coro):
+            return await coro
+
+        for _ in range(2):
+            print("Trying with build_exception_object = %d" % module.build_exception_object())
+            x = asyncio.run(arun(module.my_awaitable()))
+            assert x == 30
+            module.toggle_build_exception_object();
+        """
