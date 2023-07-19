@@ -416,7 +416,13 @@ def create_package(basedir, options, _fake=False):
                 os.chdir(str(name))
                 if not os.path.exists('lib'):
                     os.mkdir('lib')
-                make_portable(copytree, python_ver)
+                deps = make_portable(copytree, python_ver)
+                with open("lib/PYPY_PORTABLE_DEPS.txt", "wt") as fid:
+                    for k in deps.keys():
+                        fid.write("%s\n" % k)
+                    if not options.no__tkinter:
+                        fid.write("tk8.6\n")
+                        fid.write("tcl8.6\n")
                 os.chdir(str(builddir))
         if USE_ZIPFILE_MODULE:
             import zipfile
