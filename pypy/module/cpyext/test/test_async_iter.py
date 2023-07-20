@@ -70,7 +70,7 @@ class AppTestCoroReturn(AppTestCpythonExtensionBase):
         # Check that the final result of a coroutine is available in the StopIteration
         # that should be raised by the final call to its tp_iternext method
         body = '''
-        static PyObject *value_from_stopiteration()
+        static PyObject *value_from_stopiteration(void)
         {
             PyObject *ptype, *pvalue, *ptraceback, *return_value;
             PyErr_Fetch(&ptype, &pvalue, &ptraceback);
