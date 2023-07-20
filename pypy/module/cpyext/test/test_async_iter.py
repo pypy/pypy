@@ -187,13 +187,19 @@ class AppTestCoroReturn(AppTestCpythonExtensionBase):
                 if (PyType_Ready(&MyAwaitable_Type) < 0) INITERROR;
             ''')
 
-        import asyncio
         async def arun(coro):
             return await coro
 
+        def run_until_complete(coro):
+            while True:
+                try:
+                    fut = coro.send(None)
+                except StopIteration as ex:
+                    return ex.args[0]
+
         for _ in range(2):
             print("Trying with build_exception_object = %d" % module.build_exception_object())
-            x = asyncio.run(arun(module.my_awaitable()))
+            x = run_until_complete(arun(module.my_awaitable()))
             assert x == 30
             module.toggle_build_exception_object();
         """
