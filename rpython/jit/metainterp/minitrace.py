@@ -668,12 +668,12 @@ def target(driver, *args):
     def bench_main(args):
         import time
         t1 = time.time()
-        for i in range(1000):
+        for _ in range(1000):
             metainterp = MetaInterp(metainterp_sd)
             jitdriver_sd, = metainterp_sd.jitdrivers_sd
             metainterp.compile_and_run_once(jitdriver_sd, 1, 0)
         t2 = time.time()
-        print t2 - t1
+        print "total:", (t2 - t1) * 1000, "ms avg:", (t2 - t1), "ms"
         #print valueapi.get_value_int(metainterp.return_value)
         return 0
     return bench_main
