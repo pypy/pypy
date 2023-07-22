@@ -2199,6 +2199,11 @@ class Transformer(object):
     def rewrite_op_jit_leave_portal_frame(self, op):
         return [op]
 
+    def rewrite_op_jit_emit_jump(self, op):
+        return [op]
+    def rewrite_op_jit_emit_ret(self, op):
+        return [op]
+
     # ---------
     # ll_math.sqrt_nonneg()
 

@@ -1137,8 +1137,8 @@ _oplist = [
     'JIT_DEBUG/*/n',              # debugging only
     '_JIT_DEBUG_LAST',
     '_JIT_THREADED_CODE_FIRST',
-    'JIT_EMIT_JUMP/*/n',          # threaded code only
-    'JIT_EMIT_RET/*/n',           # threaded code only
+    'JIT_EMIT_JUMP/2/n',          # threaded code only
+    'JIT_EMIT_RET/2/n',           # threaded code only
     '_JIT_THREADED_CODE_LAST',
     'ESCAPE/*/rfin',              # tests only
     'FORCE_SPILL/1/n',            # tests only

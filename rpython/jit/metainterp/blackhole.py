@@ -1012,12 +1012,12 @@ class BlackholeInterpreter(object):
     def bhimpl_jit_leave_portal_frame():
         pass
 
-    @arguments()
-    def bhimpl_jit_emit_jump(jdindex, *args):
+    @arguments("R")
+    def bhimpl_jit_emit_jump(targetbox):
         pass
 
-    @arguments()
-    def bhimpl_jit_emit_ret(jdindex, *args):
+    @arguments("R")
+    def bhimpl_jit_emit_ret(returnbox):
         pass
 
     @arguments("i")

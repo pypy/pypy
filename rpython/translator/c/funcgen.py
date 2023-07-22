@@ -1010,6 +1010,12 @@ class FunctionCodeGenerator(object):
     def OP_JIT_LEAVE_PORTAL_FRAME(self, op):
         return '/* JIT_LEAVE_PORTAL_FRAME %s */' % op
 
+    def OP_JIT_EMIT_JUMP(self, op):
+        return '/* JIT_EMIT_JUMP %s */' % op
+
+    def OP_JIT_EMIT_RET(self, op):
+        return '/* JIT_EMIT_RET %s */' % op
+
     def OP_GET_GROUP_MEMBER(self, op):
         typename = self.db.gettype(op.result.concretetype)
         return '%s = (%s)_OP_GET_GROUP_MEMBER(%s, %s);' % (

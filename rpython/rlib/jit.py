@@ -770,14 +770,6 @@ class JitDriver(object):
         # special-cased by ExtRegistryEntry
         pass
 
-    def jit_emit_jump(_self, **livevars):
-        if _self.check_untranslated:
-            _self._check_arguments(livevars, False)
-
-    def jit_emit_ret(_self, **livevars):
-        if _self.check_untranslated:
-            _self._check_arguments(livevars, False)
-
     def inline(self, call_jit_merge_point):
         assert False, "@inline off: see skipped failures in test_warmspot."
         #
@@ -812,12 +804,8 @@ class JitDriver(object):
         self.jit_merge_point = self.jit_merge_point
         self.can_enter_jit = self.can_enter_jit
         self.loop_header = self.loop_header
-        self.jit_emit_jump = self.jit_emit_jump # for threaded code generation
-        self.jit_emit_ret = self.jit_emit_ret
         class Entry(ExtEnterLeaveMarker):
-            _about_ = (self.jit_merge_point, self.can_enter_jit,
-                       # XXX: tentatively put it here
-                       self.jit_emit_jump, self.jit_emit_ret)
+            _about_ = (self.jit_merge_point, self.can_enter_jit)
 
         class Entry(ExtLoopHeader):
             _about_ = self.loop_header
@@ -1419,6 +1407,16 @@ def leave_portal_frame():
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.lltypesystem.lloperation import llop
     llop.jit_leave_portal_frame(lltype.Void)
+
+def emit_jump(targetbox):
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.jit_emit_jump(lltype.Void, targetbox)
+
+def emit_ret(returnbox):
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.jit_emit_ret(lltype.Void, returnbox)
 
 class Counters(object):
     counters="""

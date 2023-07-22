@@ -1381,18 +1381,6 @@ class MIFrame(object):
             self.metainterp.heapcache.class_now_known(box)
         return clsbox
 
-    @arguments("int", "boxes3", "jitcode_position", "boxes3", "orgpc")
-    def opimpl_jit_emit_jump(self, jdindex, greenboxes,
-                             jcposition, redboxes, orgpc):
-        args = [ConstInt(jdindex)] + greenboxes + redboxes
-        self.metainterp.history.record(rop.JIT_EMIT_JUMP, args, None)
-
-    @arguments("int", "boxes3", "jitcode_position", "boxes3", "orgpc")
-    def opimpl_jit_emit_ret(self, jdindex, greenboxes,
-                             jcposition, redboxes, orgpc):
-        args = [ConstInt(jdindex)] + greenboxes + redboxes
-        self.metainterp.history.record(rop.JIT_EMIT_RET, args, None)
-
     @arguments("int", "orgpc")
     def opimpl_loop_header(self, jdindex, orgpc):
         self.metainterp.seen_loop_header_for_jdindex = jdindex
@@ -1618,6 +1606,18 @@ class MIFrame(object):
     def opimpl_jit_leave_portal_frame(self):
         jd_no = self.metainterp.jitdriver_sd.mainjitcode.index # fish
         self.metainterp.leave_portal_frame(jd_no)
+
+    @arguments("box")
+    def opimpl_jit_emit_jump(self, pcbox):
+        jd_no = self.metainterp.jitdriver_sd.mainjitcode.index
+        self.metainterp.history.record2(rop.JIT_EMIT_JUMP,
+                                        ConstInt(jd_no), pcbox, None)
+
+    @arguments("box")
+    def opimpl_jit_emit_ret(self, box):
+        jd_no = self.metainterp.jitdriver_sd.mainjitcode.index
+        self.metainterp.history.record2(rop.JIT_EMIT_RET,
+                                        ConstInt(jd_no), box, None)
 
     @arguments("box")
     def _opimpl_assert_green(self, box):
@@ -2315,7 +2315,6 @@ class MetaInterp(object):
 
     def leave_portal_frame(self, jd_no):
         self.history.record1(rop.LEAVE_PORTAL_FRAME, ConstInt(jd_no), None)
-
 
     def popframe(self, leave_portal_frame=True):
         frame = self.framestack.pop()

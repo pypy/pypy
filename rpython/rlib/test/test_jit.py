@@ -6,7 +6,7 @@ from rpython.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
     JitHintError, oopspec, isconstant, conditional_call,
     elidable, unroll_safe, dont_look_inside, conditional_call_elidable,
     enter_portal_frame, leave_portal_frame, record_known_result,
-    record_exact_value)
+    record_exact_value, emit_ret, emit_jump)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem import lltype
@@ -407,3 +407,12 @@ class TestJIT(BaseRtypingTest):
         call_f(10)  # doesn't crash
         t = Translation(call_f, [int])
         t.rtype() # does not crash
+
+    def test_threaded_code(self):
+        from rpython.translator.interactive import Translation
+        def g():
+            emit_ret(42)
+            emit_jump(1)
+
+        t = Translation(g, [])
+        t.compile_c() # does not crash

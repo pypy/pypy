@@ -191,7 +191,7 @@ class MultipleJitDriversTests(object):
     def test_get_unique_id(self):
         def get_unique_id(pc):
             return pc + 1
-        
+
         driver = JitDriver(greens=["pc"], reds='auto',
                            get_unique_id=get_unique_id, is_recursive=True)
 
@@ -238,10 +238,10 @@ class MultipleJitDriversTests(object):
             while y > 0:
                 myjitdriver.can_enter_jit(x=x, y=y, res=res)
                 myjitdriver.jit_merge_point(x=x, y=y, res=res)
-                myjitdriver.jit_emit_jump(x=x, y=y, res=res)
+                jit.emit_jump(y)
                 res += x
                 y -= 1
-                myjitdriver.jit_emit_ret(x=x, y=y, res=res)
+                jit.emit_ret(res)
             return res
 
         res = self.meta_interp(f, [6, 7])

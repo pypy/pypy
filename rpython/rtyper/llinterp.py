@@ -568,6 +568,12 @@ class LLFrame(object):
     def op_jit_marker(self, *args):
         pass
 
+    def op_emit_jump(self, *args):
+        pass
+
+    def op_emit_ret(self, *args):
+        pass
+
     def op_jit_record_exact_class(self, *args):
         pass
 

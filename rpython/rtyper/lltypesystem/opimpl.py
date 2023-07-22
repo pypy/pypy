@@ -659,6 +659,12 @@ def op_jit_enter_portal_frame(x):
 def op_jit_leave_portal_frame():
     pass
 
+def op_jit_emit_jump(x):
+    pass
+
+def op_jit_emit_ret(x):
+    pass
+
 def op_get_group_member(TYPE, grpptr, memberoffset):
     from rpython.rtyper.lltypesystem import llgroup
     assert isinstance(memberoffset, llgroup.GroupMemberOffset)

@@ -452,7 +452,7 @@ class TestOptTraceSplit(BaseTestTraceSplit):
         debug_merge_point(0, 0, 0, 10, '10: SUB ')
         i33 = call_i(ConstClass(func_ptr), p0, 11, 1, descr=calldescr)
         debug_merge_point(0, 0, 0, 11, '11: JUMP 0')
-        jit_emit_jump(0, p0, 0, 6)
+        jit_emit_jump(0, 6)
         # i38 = call_i(ConstClass(emit_jump_ptr), 6, 0, p0, 1, descr=emit_jump_descr)
         debug_merge_point(0, 0, 0, 6, '6: JUMP 13')
         debug_merge_point(0, 0, 0, 13, '13: EXIT ')
@@ -637,7 +637,7 @@ class TestOptTraceSplit(BaseTestTraceSplit):
         guard_no_exception(descr=<Guard0x7f68864604a0>) [p0]
         debug_merge_point(0, 0, 0, 24, '24: RET 1')
         p32 = call_r(ConstClass(func_ptr), p0, 25, 1, descr=calldescr)
-        jit_emit_ret(0, 6, 0, p32)
+        jit_emit_ret(0, p32)
         debug_merge_point(0, 0, 0, 10, '10: CONST_INT 1')
         call_n(ConstClass(func_ptr), p0, 11, 1, descr=calldescr)
         guard_no_exception(descr=<Guard0x7f6886460560>) [p0]
