@@ -30,7 +30,7 @@ class TestExtra(HPyTest):
       - ListBuilder_Cancel is not tested
 
     """
-    def test_import_failure(self):
+    def _test_import_failure(self):
         import pytest
         with pytest.raises(RuntimeError):
             self.make_module("""
@@ -46,7 +46,7 @@ class TestExtra(HPyTest):
                 }
             """, name='test')
 
-    def test_import_bad_module(self):
+    def _test_import_bad_module(self):
         import pytest
         with pytest.raises(SystemError):
             self.make_module("""

@@ -10,6 +10,7 @@ from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.state import State
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal.llapi import BASE_DIR
+from pypy.module._hpy_universal.interp_module import _hpymodule_create
 
 # these imports have side effects, as they call @API.func()
 from pypy.module._hpy_universal import (
@@ -33,6 +34,11 @@ from pypy.module._hpy_universal import (
     interp_field,
     interp_state,
     )
+
+MODE_INVALID = -1
+MODE_UNIVERSAL = 0
+MODE_DEBUG = 1
+MODE_TRACE = 2
 
 # ~~~ Some info on the debug mode ~~~
 # XXX REVIEW for 0.9
@@ -73,7 +79,7 @@ def startup(space, w_mod):
     state = State.get(space)
     state.setup(space)
     setup_hpy_storage()
-    if not hasattr(space, 'is_fake_objspace'):
+    if 0 and not hasattr(space, 'is_fake_objspace'):
         # the following lines break test_ztranslation :(
         handles = state.get_handle_manager(debug=False)
         h_debug_mod = llapi.HPyInit__debug()
@@ -118,6 +124,37 @@ def descr_load(space, name, path, w_spec, debug=False, mode=-1):
         hmode = mode
     return do_load(space, name, path, hmode, w_spec)
 
+def validate_abi_tag(shortname, soname, req_major_version, req_minor_version):
+    i = soname.find(".hpy")
+    if i > 0:
+        i += len(".hpy")
+        if soname[i] >= "0" and soname[i] <= "9":
+            # it is a number w/o sign and whitespace, we can parse it
+            abi_tag = int(soname[i])
+            if abi_tag == req_major_version:
+                return True
+            raise RuntimeError(
+                "HPy extension module '%s' at path '%s': mismatch between the "
+                "HPy ABI tag encoded in the filename and the major version requested "
+                "by the HPy extension itself. Major version tag parsed from "
+                "filename: %d. Requested version: %d.%d." % (shortname,
+                soname, abi_tag, req_major_version, req_minor_version))
+    raise RuntimeError(       
+         "HPy extension module '%s' at path '%s': could not find "
+         "HPy ABI tag encoded in the filename. The extension claims to be compiled with "
+         "HPy ABI version: %d.%d." % (shortname, soname,
+             req_major_version, req_minor_version))
+
+
+def get_handle_manager(space, mode):
+    if mode == MODE_INVALID:
+        raise RuntimeError("invalid moded")
+    elif mode == MODE_TRACE:
+        raise NotImplementedError("trace mode not implemented")
+    state = State.get(space)
+    return state.get_handle_manager(mode == MODE_DEBUG)
+
+
 def do_load(space, name, soname, mode, spec):
     try:
         with rffi.scoped_str2charp(soname) as ll_libname:
@@ -128,11 +165,11 @@ def do_load(space, name, soname, mode, spec):
             space.newfilename(e.msg), space.newtext(name), w_path)
 
     shortname = name.split('.')[-1]
-    minor_version_symbol_name = get_required_hpy_minor_version_%s % shortname
-    major_version_symbol_name = get_required_hpy_major_version_%s % shortname
+    minor_version_symbol_name = "get_required_hpy_minor_version_%s" % shortname
+    major_version_symbol_name = "get_required_hpy_major_version_%s" % shortname
     try:
-        minor_version_ptr = dlsym(lib, minor_version_name)
-        major_version_ptr = dlsym(lib, major_version_name)
+        minor_version_ptr = dlsym(lib, minor_version_symbol_name)
+        major_version_ptr = dlsym(lib, major_version_symbol_name)
     except KeyError:
         raise oef
     except KeyError:
@@ -144,17 +181,18 @@ def do_load(space, name, soname, mode, spec):
     vgfp = llapi.VersionGetterFuncPtr
     required_minor_version = rffi.cast(vgfp, minor_version_ptr)()
     required_major_version = rffi.cast(vgfp, major_version_ptr)()
-    if required_major_version != HPY_ABI_VERSION or required_minor_version > HPY_ABI_VERSION_MINOR:
+    if (required_major_version != llapi.HPY_ABI_VERSION or 
+        required_minor_version > llapi.HPY_ABI_VERSION_MINOR):
         # For now, we have only one major version, but in the future at this
         # point we would decide which HPyContext to create
         raise oefmt(space.w_RuntimeError,
             ("HPy extension module '%s' requires unsupported version of the HPy "
              "runtime. Requested version: %d.%d. Current HPy version: %d.%d."),
             shortname, required_major_version, required_minor_version,
-            HPY_ABI_VERSION, HPY_ABI_VERSION_MINOR)
+            llapi.HPY_ABI_VERSION, llapi.HPY_ABI_VERSION_MINOR)
     
     validate_abi_tag(shortname, soname, required_major_version, required_minor_version)    
-    ctx = get_context(mode)
+    manager = get_handle_manager(space, mode)
 
     init_ctx_name = "HPyInitGlobalContext_" + shortname
     try:
@@ -172,14 +210,14 @@ def do_load(space, name, soname, mode, spec):
         space.getbuiltinmodule('cpyext')
 
     # Set up global trampoline ctx
-    rffi.cast(llapi.InitContextFuncPtr, initptr)(ctx)
+    rffi.cast(llapi.InitContextFuncPtr, initptr)(manager.ctx)
 
-    init_name = 'HPyInit_' + basename
+    init_name = 'HPyInit_' + shortname
     try:
         initptr = dlsym(lib, init_name)
     except KeyError:
         msg = b"function %s not found in library %s" % (
-            init_ctx_name, space.utf8_w(space.newfilename(soname)))
+            init_name, space.utf8_w(space.newfilename(soname)))
         w_path = space.newfilename(soname)
         raise raise_import_error(
             space, space.newtext(msg), space.newtext(name), w_path)
@@ -190,10 +228,10 @@ def do_load(space, name, soname, mode, spec):
             ("Error during loading of the HPy extension module at "
             "path '%s'. Function '%s' returned NULL."), soname, init_name);
 
-    pydef = HPyModuleDef_CreatePyModuleDef(hpydef)
-    
-    py_mod = HPyModule_FromDefAndSpec(pydef, spec)
-    return space.w_rpython(py_mod)
+    w_mod = _hpymodule_create(manager, name, hpydef)
+    # TODO: find and call a function in the HPy_mod_exec slot
+    # PyModule_ExecDef(py_mod, pydef)
+    return w_mod
 
 def descr_get_version(space):
     w_ver = space.newtext(HPY_VERSION)
