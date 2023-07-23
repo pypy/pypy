@@ -95,6 +95,7 @@ def PyModule_Create2(space, module, api_version):
 createfunctype = lltype.Ptr(lltype.FuncType([PyObject, PyModuleDef], PyObject))
 execfunctype = lltype.Ptr(lltype.FuncType([PyObject], rffi.INT_real))
 
+Py_mod_exec = 2
 
 def create_module_from_def_and_spec(space, moddef, w_spec, name):
     moddef = rffi.cast(PyModuleDef, moddef)
@@ -115,11 +116,11 @@ def create_module_from_def_and_spec(space, moddef, w_spec, name):
                     raise oefmt(space.w_SystemError,
                                 "module %s has multiple create slots", name)
                 createf = cur_slot[0].c_value
-            elif slot < 0 or slot > 2:
+            elif slot == Py_mod_exec:
+                has_execution_slots = True
+            else:
                 raise oefmt(space.w_SystemError,
                             "module %s uses unknown slot ID %d", name, slot)
-            else:
-                has_execution_slots = True
             cur_slot = rffi.ptradd(cur_slot, 1)
     if createf:
         createf = rffi.cast(createfunctype, createf)
@@ -160,7 +161,7 @@ def exec_def(space, mod, moddef):
             rffi.VOIDP.TO, moddef.c_m_size, flavor='raw', zero=True)
     pyobj = rffi.cast(PyObject, mod)
     while cur_slot and rffi.cast(lltype.Signed, cur_slot[0].c_slot):
-        if rffi.cast(lltype.Signed, cur_slot[0].c_slot) == 2:
+        if rffi.cast(lltype.Signed, cur_slot[0].c_slot) == Py_mod_exec:
             execf = rffi.cast(execfunctype, cur_slot[0].c_value)
             res = generic_cpy_call_dont_convert_result(space, execf, pyobj)
             state = space.fromcache(State)
