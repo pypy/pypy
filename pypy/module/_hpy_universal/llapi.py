@@ -11,6 +11,10 @@ BASE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'devel')
 INCLUDE_DIR = BASE_DIR.join('include')
 DEBUG_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'debug', 'src')
 
+HPY_ABI_VERSION = 0
+HPY_ABI_VERSION_MINOR = 0
+HPY_ABI_TAG = "hpy0"
+
 eci = ExternalCompilationInfo(
     compile_extra = ["-DHPY_ABI_UNIVERSAL"],
     includes=["hpy.h", "hpyerr.h", "rffi_hacks.h", "dctx.h"],
@@ -368,7 +372,6 @@ typedef int HPyFunc_Signature;
 /* hpydef.h */
 
 typedef void* (*HPyCFunction)(void);
-typedef int (*VersionGetterFuncPtr)(void);
 
 typedef struct {
     HPySlot_Slot slot;     // The slot to fill
@@ -473,11 +476,11 @@ typedef struct {
 typedef void cpy_PyMethodDef;
 
 typedef struct {
-    const char* name;
     const char* doc;
     HPy_ssize_t size;
     cpy_PyMethodDef *legacy_methods;
     HPyDef **defines;   /* points to an array of 'HPyDef *' */
+    HPyGlobal **globals;
 } HPyModuleDef;
 
 /* hpytype.h */
@@ -545,6 +548,10 @@ typedef struct {
 
 typedef int (*HPyFunc_visitproc)(HPyField *, void *);
 
+typedef int (*VersionGetterFuncPtr)(void);
+typedef HPyModuleDef* (*InitFuncPtr)(void);
+typedef void (*InitContextFuncPtr)(HPyContext*);
+
 /* autogen_hpyfunc_declare.h */
 
 typedef HPy (*HPyFunc_noargs)(HPyContext *ctx, HPy self);
@@ -609,6 +616,9 @@ HPy_NULL = rffi.cast(HPy, 0)
 cpy_PyMethodDef = cts.gettype('cpy_PyMethodDef')
 HPyModuleDef = cts.gettype('HPyModuleDef')
 HPyModuleDefP = cts.gettype('HPyModuleDef *')
+VersionGetterFuncPtr = cts.gettype('VersionGetterFuncPtr')
+InitFuncPtr = cts.gettype('InitFuncPtr')
+InitContextFuncPtr = cts.gettype('InitContextFuncPtr')
 # CTypeSpace converts "PyMethodDef*" into lltype.Ptr(PyMethodDef), but we
 # want a CArrayPtr instead
 HPyModuleDef._flds['c_legacy_methods'] = rffi.CArrayPtr(cpy_PyMethodDef)

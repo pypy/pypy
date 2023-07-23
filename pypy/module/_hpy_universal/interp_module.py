@@ -10,9 +10,8 @@ from pypy.module._hpy_universal.interp_cpy_compat import attach_legacy_methods
 
 
 @specialize.arg(0)
-def _hpymodule_create(handles, hpydef):
+def _hpymodule_create(handles, modname, hpydef):
     space = handles.space
-    modname = rffi.constcharp2str(hpydef.c_name)
     w_mod = Module(space, space.newtext(modname))
     #
     # add the functions defined in hpydef.c_legacy_methods
@@ -45,7 +44,7 @@ def _hpymodule_create(handles, hpydef):
         w_doc = space.w_None
     space.setattr(w_mod, space.newtext('__doc__'), w_doc)
     init_extra_module_attrs(space, w_mod)
-    return handles.new(w_mod)
+    return w_mod
 
 def get_doc(c_doc):
     if not c_doc:
