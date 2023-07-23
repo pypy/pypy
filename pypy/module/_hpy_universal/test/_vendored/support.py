@@ -1,9 +1,16 @@
 import os, sys
-import pytest, py
+# from filelock import FileLock
+import pytest
+from pathlib import Path
 import re
+import subprocess
 import textwrap
+import distutils
 
 PY2 = sys.version_info[0] == 2
+
+# HPY_ROOT = Path(__file__).parent.parent
+# LOCK = FileLock(HPY_ROOT / ".hpy.lock")
 
 # True if `sys.executable` is set to a value that allows a Python equivalent to
 # the current Python to be launched via, e.g., `python_subprocess.run(...)`.
@@ -11,6 +18,11 @@ PY2 = sys.version_info[0] == 2
 SUPPORTS_SYS_EXECUTABLE = False
 # True if we are running on the CPython debug build
 IS_PYTHON_DEBUG_BUILD = False
+
+# pytest marker to run tests only on linux
+ONLY_LINUX = pytest.mark.skipif(sys.platform!='linux', reason='linux only')
+
+SUPPORTS_MEM_PROTECTION = '_HPY_DEBUG_FORCE_DEFAULT_MEM_PROTECT' not in os.environ
 
 def reindent(s, indent):
     s = textwrap.dedent(s)
@@ -79,21 +91,6 @@ class DefaultExtensionTemplate(object):
     };
 
     HPy_MODINIT(%(name)s, moduledef)
-    static HPy init_%(name)s_impl(HPyContext *ctx)
-    {
-        HPy m = HPy_NULL;
-        m = HPyModule_Create(ctx, &moduledef);
-        if (HPy_IsNull(m))
-            goto MODINIT_ERROR;
-        %(init_types)s
-        return m;
-
-        MODINIT_ERROR:
-
-        if (!HPy_IsNull(m))
-            HPy_Close(ctx, m);
-        return HPy_NULL;
-    }
     """)
 
     INIT_TEMPLATE_WITH_TYPES_INIT = textwrap.dedent(
@@ -398,6 +395,50 @@ class ExtensionCompiler:
         return module
 
 
+class PythonSubprocessRunner:
+    def __init__(self, verbose, hpy_abi):
+        self.verbose = verbose
+        self.hpy_abi = hpy_abi
+
+    def run(self, mod, code):
+        """ Starts new subprocess that loads given module as 'mod' using the
+            correct ABI mode and then executes given code snippet. Use
+            "--subprocess-v" to enable logging from this.
+        """
+        env = os.environ.copy()
+        pythonpath = [os.path.dirname(mod.so_filename)]
+        if 'PYTHONPATH' in env:
+            pythonpath.append(env['PYTHONPATH'])
+        env["PYTHONPATH"] = os.pathsep.join(pythonpath)
+        if self.hpy_abi in ['universal', 'debug']:
+            # HPy module
+            load_module = "import sys;" + \
+                          "import hpy.universal;" + \
+                          "import importlib.util;" + \
+                          "spec = importlib.util.spec_from_file_location('{name}', '{so_filename}');" + \
+                          "mod = hpy.universal.load('{name}', '{so_filename}', spec, debug={debug});"
+            escaped_filename = mod.so_filename.replace("\\", "\\\\")  # Needed for Windows paths
+            load_module = load_module.format(name=mod.name, so_filename=escaped_filename,
+                                             debug=self.hpy_abi == 'debug')
+        else:
+            # CPython module
+            assert self.hpy_abi == 'cpython'
+            load_module = "import {} as mod;".format(mod.name)
+        if self.verbose:
+            print("\n---\nExecuting in subprocess: {}".format(load_module + code))
+        result = atomic_run([sys.executable, "-c", load_module + code], env=env,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if self.verbose:
+            print("stdout/stderr:")
+            try:
+                out = result.stdout.decode('latin-1')
+                err = result.stderr.decode('latin-1')
+                print("----\n{out}--\n{err}-----".format(out=out, err=err))
+            except UnicodeDecodeError:
+                print("Warning: stdout or stderr could not be decoded with 'latin-1' encoding")
+        return result
+
+
 @pytest.mark.usefixtures('initargs')
 class HPyTest:
     ExtensionTemplate = DefaultExtensionTemplate
@@ -456,6 +497,15 @@ class HPyTest:
             method.
         """
         return True
+
+    def supports_refcounts(self):
+        """ Returns True if the underlying Python implementation supports
+            the vectorcall protocol.
+
+            By default, this returns True for Python version 3.8+ on all
+            implementations.
+        """
+        return sys.version_info >= (3, 8)
 
     def supports_sys_executable(self):
         """ Returns True is `sys.executable` is set to a value that allows
