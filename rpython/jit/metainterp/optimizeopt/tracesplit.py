@@ -431,15 +431,10 @@ class OptTraceSplit(Optimizer):
     def _handle_emit_jump(self, op, emit_label=False):
         jd = self.jitdriver_sd
         inputargs = self.inputargs
-
-        arglist = op.getarglist()
-        num_green_args = jd.num_green_args
-        num_red_args = jd.num_red_args
-        greenargs = arglist[1+num_red_args:1+num_red_args+num_green_args]
-        args = arglist[1:num_red_args+1]
+        numargs = op.numargs()
 
         # create token
-        targetbox = greenargs[0]
+        targetbox = op.getarg(numargs - 1)
         assert isinstance(targetbox, ConstInt)
         target = targetbox.getvalue()
         if target in self.token_map.keys():
@@ -452,7 +447,7 @@ class OptTraceSplit(Optimizer):
         # TODO: should add target_token to jitcelltoken.target_tokens
         self.token_map[target] = target_token
 
-        jump_op = ResOperation(rop.JUMP, args, descr=target_token)
+        jump_op = ResOperation(rop.JUMP, inputargs, descr=target_token)
         info = TraceSplitInfo(target_token, self._newoperations[0], inputargs, self.resumekey)
 
         self._newopsandinfo.append((info, self._newoperations[1:] + [jump_op]))
