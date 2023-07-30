@@ -4750,6 +4750,25 @@ class TestAnnotateTestCase:
         s = ann.build_types(g, [int])
         assert s.const == 43
 
+    def test_isinstance_const(self):
+        class A(object):
+            pass
+
+        class B(A):
+            pass
+        B.singleton = B()
+        class C(A):
+            pass
+        C.singleton = C()
+        def f():
+            x = B.singleton
+            if not isinstance(x, B):
+                if not isinstance(x, C):
+                    raise TypeError
+            return 12
+        ann = self.RPythonAnnotator()
+        s = ann.build_types(f, [])
+
 
 def g(n):
     return [0, 1, 2, n]
