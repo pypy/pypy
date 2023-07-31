@@ -2291,3 +2291,26 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         # Make sure o.tp_dealloc was called
         new_list = module.global_list[:]
         assert len(new_list) == len(old_list) + 1, "%s %s" %(old_list, new_list)
+
+    def test_issubclass(self):
+        # issue 3976
+        module = self.import_extension("foo", [
+            ("issubclass", "METH_VARARGS",
+             """
+                PyObject *x = NULL, *y = NULL;
+                if (!PyArg_ParseTuple(args, "OO", &x, &y)) {
+                    return NULL;
+                }
+                if (!PyType_Check(x) | !PyType_Check(y))
+                    return PyLong_FromLong(42);
+                int subtype = PyType_IsSubtype((PyTypeObject *) x, (PyTypeObject *) y);
+                return PyLong_FromLong(subtype);
+             """)])
+        class Base: pass
+        class A(Base): pass
+        class B(Base): pass
+        assert not issubclass(B, A)
+        assert not module.issubclass(B, A)
+        B.__bases__ = (A,)
+        assert issubclass(B, A)
+        assert module.issubclass(B, A)
