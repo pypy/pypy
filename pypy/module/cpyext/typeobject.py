@@ -775,6 +775,30 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     pto.c_tp_flags = rffi.cast(rffi.ULONG, widen(pto.c_tp_flags) | Py_TPFLAGS_READY)
     return pto
 
+def type_reattach(space, w_type):
+    """Called when the w_type base class or bases has been changed, need to
+    re-assign many c slots
+    """
+
+    pto = rffi.cast(PyTypeObjectPtr, w_type._cpyext_as_pyobj(space))
+    w_base = best_base(space, w_type.bases_w)
+    pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
+    finish_type_1(space, pto, w_type.bases_w)
+    finish_type_2(space, pto, w_type)
+
+    typedescr = get_typedescr(w_type.layout.typedef)
+    pto.c_tp_basicsize = rffi.sizeof(typedescr.basestruct)
+    if pto.c_tp_base:
+        if pto.c_tp_base.c_tp_basicsize > pto.c_tp_basicsize:
+            pto.c_tp_basicsize = pto.c_tp_base.c_tp_basicsize
+        if pto.c_tp_itemsize < pto.c_tp_base.c_tp_itemsize:
+            pto.c_tp_itemsize = pto.c_tp_base.c_tp_itemsize
+
+    if w_type.is_heaptype():
+        update_all_slots(space, w_type, pto)
+    else:
+        update_all_slots_builtin(space, w_type, pto)
+
 def py_type_ready(space, pto):
     if widen(pto.c_tp_flags) & Py_TPFLAGS_READY:
         return
