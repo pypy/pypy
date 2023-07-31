@@ -67,13 +67,6 @@ find_jmp = jit.JitDriver(
     get_printable_location=get_printable_location_find_or_count)
 
 
-find_jmp = jit.JitDriver(
-    greens=['is_find', 'tp'],
-    reds='auto',
-    name='deque._find_or_count',
-    get_printable_location=get_printable_location_find_or_count
-)
-
 def get_printable_location_extend(is_extend_right, greenkey):
     if is_extend_right:
         name = ""
