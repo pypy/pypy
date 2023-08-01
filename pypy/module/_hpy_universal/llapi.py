@@ -338,12 +338,12 @@ typedef struct _HPyContext_s {
     void * ctx_DelItem;
     void * ctx_DelItem_i;
     void * ctx_DelItem_s;
-    HPy h_ComplexType;
-    HPy h_BytesType;
-    HPy h_MemoryViewType;
-    HPy h_CapsuleType;
-    HPy h_SliceType;
-    HPy h_Builtins;
+    struct _HPy_s h_ComplexType;
+    struct _HPy_s h_BytesType;
+    struct _HPy_s h_MemoryViewType;
+    struct _HPy_s h_CapsuleType;
+    struct _HPy_s h_SliceType;
+    struct _HPy_s h_Builtins;
     void * ctx_Capsule_New;
     void * ctx_Capsule_Get;
     void * ctx_Capsule_IsValid;

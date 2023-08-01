@@ -100,6 +100,11 @@ CONSTANTS = [
     ('UnicodeType', lambda space: space.w_unicode),
     ('TupleType', lambda space: space.w_tuple),
     ('ListType', lambda space: space.w_list),
+    ('ComplexType', lambda space: space.w_complex),
+    ('BytesType', lambda space: space.w_bytes),
+    ('MemoryViewType', lambda space: space.w_memoryview),
+    ('SliceType', lambda space: space.w_slice),
+    ('Builtins', lambda space: space.getattr(space.builtin, space.newtext("__dict__"))),
 ]
 
 CONTEXT_FIELDS = unrolling_iterable(llapi.HPyContext.TO._names)
