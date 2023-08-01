@@ -124,26 +124,33 @@ def descr_load(space, name, path, w_spec, debug=False, mode=-1):
         hmode = mode
     return do_load(space, name, path, hmode, w_spec)
 
-def validate_abi_tag(shortname, soname, req_major_version, req_minor_version):
+def validate_abi_tag(space, shortname, soname, req_major_version, req_minor_version):
     i = soname.find(".hpy")
     if i > 0:
         i += len(".hpy")
         if soname[i] >= "0" and soname[i] <= "9":
-            # it is a number w/o sign and whitespace, we can parse it
-            abi_tag = int(soname[i])
+            # it is a number w/o sign and whitespace. In C we could use atio,
+            # but here we need to scan for the end of the digits
+            abi_tag = 0
+            while (soname[i] >= "0" and soname[i] <= "9"):
+                abi_tag *= 10
+                abi_tag += int(soname[i])
+                i += 1
+                if (i >= len(soname)):
+                    break
             if abi_tag == req_major_version:
                 return True
-            raise RuntimeError(
+            raise oefmt(space.w_RuntimeError,
                 "HPy extension module '%s' at path '%s': mismatch between the "
                 "HPy ABI tag encoded in the filename and the major version requested "
                 "by the HPy extension itself. Major version tag parsed from "
-                "filename: %d. Requested version: %d.%d." % (shortname,
-                soname, abi_tag, req_major_version, req_minor_version))
-    raise RuntimeError(       
+                "filename: %d. Requested version: %d.%d.", shortname,
+                soname, abi_tag, req_major_version, req_minor_version)
+    raise oefmt(space.w_RuntimeError,       
          "HPy extension module '%s' at path '%s': could not find "
          "HPy ABI tag encoded in the filename. The extension claims to be compiled with "
-         "HPy ABI version: %d.%d." % (shortname, soname,
-             req_major_version, req_minor_version))
+         "HPy ABI version: %d.%d.", shortname, soname,
+             req_major_version, req_minor_version)
 
 
 def get_handle_manager(space, mode):
@@ -191,7 +198,7 @@ def do_load(space, name, soname, mode, spec):
             shortname, required_major_version, required_minor_version,
             llapi.HPY_ABI_VERSION, llapi.HPY_ABI_VERSION_MINOR)
     
-    validate_abi_tag(shortname, soname, required_major_version, required_minor_version)    
+    validate_abi_tag(space, shortname, soname, required_major_version, required_minor_version)    
     manager = get_handle_manager(space, mode)
 
     init_ctx_name = "HPyInitGlobalContext_" + shortname

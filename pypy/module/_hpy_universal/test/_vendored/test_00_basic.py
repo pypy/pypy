@@ -8,7 +8,6 @@ to be able to use e.g. pytest.raises (which on PyPy will be implemented by a
 """
 from .support import HPyTest
 # from hpy.devel.abitag import HPY_ABI_VERSION, HPY_ABI_VERSION_MINOR
-import shutil
 
 
 class TestBasic(HPyTest):
@@ -50,6 +49,8 @@ class TestBasic(HPyTest):
             assert False, "Expected exception"
 
     def test_abi_tag_check(self):
+        # XXX importing shutil is expensive untranslated, maybe refactor?
+        import shutil
         HPY_ABI_VERSION = 0
         HPY_ABI_VERSION_MINOR = 0
         if self.compiler.hpy_abi != 'universal':

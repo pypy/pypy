@@ -82,10 +82,10 @@ class HPyAppTest(object):
             module = compiler.compile_module(main_src, ExtensionTemplate,
                                                   name, extra_sources)
             so_filename = module.so_filename.replace(".py", ".hpy.so")
-            debug = hpy_abi == 'debug'
+            debug = int(hpy_abi == 'debug')
             w_mod = space.appexec([space.newtext(so_filename),
                                    space.newtext(name),
-                                   space.newbool(debug)],
+                                   space.newint(debug)],
                 """(path, modname, debug):
                     import _hpy_universal
                     return _hpy_universal.load(modname, path, debug)
@@ -93,6 +93,32 @@ class HPyAppTest(object):
             )
             return w_mod
         self.w_make_module = self.space.wrap(interp2app(descr_make_module))
+
+        @unwrap_spec(main_src='text', w_ExtensionTemplate=W_Root, name='text',
+                     w_extra_sources=W_Root)
+        def descr_compile_module(space, main_src, w_ExtensionTemplate=None,
+                           name='mytest', w_extra_sources=None):
+            if w_extra_sources is None:
+                extra_sources = ()
+            else:
+                items_w = space.unpackiterable(w_extra_sources)
+                extra_sources = [space.text_w(item) for item in items_w]
+            if w_ExtensionTemplate is not None:
+                raise NotImplementedError
+            module = compiler.compile_module(main_src, ExtensionTemplate,
+                                                  name, extra_sources)
+            # All we need for tests is module.so_filename
+            w_class_with_so_filename = space.appexec([
+                    space.newtext(module.so_filename)],
+                """(so_filename,):
+                    class ClassWithSoFilename():
+                        def __init__(self, so_filename):
+                            self.so_filename = so_filename
+                    return ClassWithSoFilename(so_filename)
+                """
+            )
+            return w_class_with_so_filename
+        self.w_compile_module = self.space.wrap(interp2app(descr_compile_module))
 
         def supports_refcounts(space):
             return space.w_False
@@ -108,10 +134,27 @@ class HPyAppTest(object):
         self.w_supports_sys_executable = self.space.wrap(
             interp2app(supports_sys_executable))
 
-        self.w_compiler = self.space.appexec([self.space.newtext(hpy_abi)],
-            """(abi):
+        @unwrap_spec(name='text', so_filename='text', mode=int)
+        def descr_load_universal_module(space, name, so_filename, mode):
+            w_mod = space.appexec([space.newtext(name),
+                                   space.newtext(so_filename),
+                                   space.newint(mode)],
+                """(modname, so_filename, mode):
+                    import _hpy_universal
+                    return _hpy_universal.load(modname, so_filename, mode)
+                """
+            )
+            return w_mod
+
+        w_load_universal_module = self.space.wrap(interp2app(descr_load_universal_module))
+
+        self.w_compiler = self.space.appexec([self.space.newtext(hpy_abi),
+                                              w_load_universal_module,
+                                             ],
+            """(abi, _load_universal_module):
                 class compiler:
                     hpy_abi = abi
+                    load_universal_module = _load_universal_module
                 return compiler
             """)
 
