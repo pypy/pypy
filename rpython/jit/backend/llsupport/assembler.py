@@ -292,6 +292,12 @@ class BaseAssembler(object):
             self.codemap_builder.leave_portal_frame(op.getarg(0).getint(),
                                                     pos)
 
+    def jit_emit_ret(self, op):
+        pass
+
+    def jit_emit_jump(self, op):
+        pass
+
     def call_assembler(self, op, argloc, vloc, result_loc, tmploc):
         """
             * argloc: location of the frame argument that we're passing to
