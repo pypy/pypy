@@ -29,11 +29,15 @@ class State(object):
     def get(space):
         return space.fromcache(State)
 
-    @specialize.arg(1)
-    def get_handle_manager(self, debug):
-        if debug:
+    def get_handle_manager(self, mode):
+        if mode == llapi.MODE_DEBUG:
             return self.d_handles
-        return self.u_handles
+        elif mode == llapi.MODE_UNIVERSAL:
+            return self.u_handles
+        elif mode == llapi.MODE_TRACE:
+            raise oefmt(self.space.w_NotImplementedError, "MODE_TRACE not implemented yet")
+        else:
+            raise oefmt(self.space.w_RuntimError, "MODE %d not valid", mode)
 
     def setup_bridge(self):
         if self.space.config.translating:

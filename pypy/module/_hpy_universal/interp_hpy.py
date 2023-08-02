@@ -9,7 +9,7 @@ from pypy.interpreter.error import oefmt
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.state import State
 from pypy.module._hpy_universal.apiset import API
-from pypy.module._hpy_universal.llapi import BASE_DIR
+from pypy.module._hpy_universal.llapi import BASE_DIR, MODE_UNIVERSAL, MODE_DEBUG
 from pypy.module._hpy_universal.interp_module import _hpymodule_create
 
 # these imports have side effects, as they call @API.func()
@@ -34,11 +34,6 @@ from pypy.module._hpy_universal import (
     interp_field,
     interp_state,
     )
-
-MODE_INVALID = -1
-MODE_UNIVERSAL = 0
-MODE_DEBUG = 1
-MODE_TRACE = 2
 
 # ~~~ Some info on the debug mode ~~~
 # XXX REVIEW for 0.9
@@ -81,7 +76,7 @@ def startup(space, w_mod):
     setup_hpy_storage()
     if 0 and not hasattr(space, 'is_fake_objspace'):
         # the following lines break test_ztranslation :(
-        handles = state.get_handle_manager(debug=False)
+        handles = state.get_handle_manager(MODE_DEBUG)
         h_debug_mod = llapi.HPyInit__debug()
         w_debug_mod = handles.consume(h_debug_mod)
         w_set_on_invalid_handle = get_set_on_invalid_handle(space)
@@ -98,9 +93,9 @@ HPY_VERSION, HPY_GIT_REV = load_version()
 
 
 @specialize.arg(4)
-def init_hpy_module(space, name, origin, lib, debug, initfunc_ptr):
+def init_hpy_module(space, name, origin, lib, mode, initfunc_ptr):
     state = space.fromcache(State)
-    handles = state.get_handle_manager(debug)
+    handles = state.get_handle_manager(mode)
     initfunc_ptr = rffi.cast(llapi.HPyInitFunc, initfunc_ptr)
     h_module = initfunc_ptr(handles.ctx)
     error = state.clear_exception()
@@ -112,10 +107,11 @@ def init_hpy_module(space, name, origin, lib, debug, initfunc_ptr):
             name)
     return handles.consume(h_module)
 
-def descr_load_from_spec(space, w_spec):
+@unwrap_spec(mode=int)
+def descr_load_from_spec(space, w_spec, mode):
     name = space.text_w(space.getattr(w_spec, space.newtext("name")))
     origin = space.fsencode_w(space.getattr(w_spec, space.newtext("origin")))
-    return descr_load(space, name, origin)
+    return descr_load(space, name, origin, w_spec, mode=mode)
 
 @unwrap_spec(name='text', path='fsencode', debug=bool, mode=int)
 def descr_load(space, name, path, w_spec, debug=False, mode=-1):
@@ -153,16 +149,9 @@ def validate_abi_tag(space, shortname, soname, req_major_version, req_minor_vers
              req_major_version, req_minor_version)
 
 
-def get_handle_manager(space, mode):
-    if mode == MODE_INVALID:
-        raise RuntimeError("invalid moded")
-    elif mode == MODE_TRACE:
-        raise NotImplementedError("trace mode not implemented")
-    state = State.get(space)
-    return state.get_handle_manager(mode == MODE_DEBUG)
-
-
-def do_load(space, name, soname, mode, spec):
+def do_load(space, name, soname, mode, w_spec):
+    """This is hpy/hpy/universal/src/hpymodule.c:do_load
+    """
     try:
         with rffi.scoped_str2charp(soname) as ll_libname:
             lib = dlopen(ll_libname, space.sys.dlopenflags)
@@ -177,8 +166,6 @@ def do_load(space, name, soname, mode, spec):
     try:
         minor_version_ptr = dlsym(lib, minor_version_symbol_name)
         major_version_ptr = dlsym(lib, major_version_symbol_name)
-    except KeyError:
-        raise oef
     except KeyError:
         raise oefmt(space.w_RuntimeError,
             ("Error during loading of the HPy extension module at path "
@@ -199,7 +186,8 @@ def do_load(space, name, soname, mode, spec):
             llapi.HPY_ABI_VERSION, llapi.HPY_ABI_VERSION_MINOR)
     
     validate_abi_tag(space, shortname, soname, required_major_version, required_minor_version)    
-    manager = get_handle_manager(space, mode)
+    state = State.get(space)
+    manager = state.get_handle_manager(mode)
 
     init_ctx_name = "HPyInitGlobalContext_" + shortname
     try:

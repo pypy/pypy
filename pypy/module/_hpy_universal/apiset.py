@@ -168,7 +168,11 @@ class APISet(object):
                         if not rgil.am_I_holding_the_GIL():
                             no_gil_error(fn.__name__)
                     state = space.fromcache(State)
-                    handles = state.get_handle_manager(self.is_debug)
+                    if self.is_debug:
+                        mode = llapi.MODE_DEBUG
+                    else:
+                        mode = llapi.MODE_UNIVERSAL
+                    handles = state.get_handle_manager(mode)
                     try:
                         retval = fn(space, handles, *args)
                     except OperationError as e:

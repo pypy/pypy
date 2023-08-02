@@ -14,6 +14,11 @@ DEBUG_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'debug'
 HPY_ABI_VERSION = 0
 HPY_ABI_VERSION_MINOR = 0
 HPY_ABI_TAG = "hpy0"
+MODE_INVALID = -1
+MODE_UNIVERSAL = 0
+MODE_DEBUG = 1
+MODE_TRACE = 2
+
 
 eci = ExternalCompilationInfo(
     compile_extra = ["-DHPY_ABI_UNIVERSAL"],
