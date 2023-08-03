@@ -345,7 +345,7 @@ class W_Deque(W_Root):
         self.del_item(i)
 
     def contains(self, w_x):
-        i = self._find(w_x)
+        i = self._find_or_count(w_x)
         return self.space.newbool(i >= 0)
 
     def reverse(self):
