@@ -720,7 +720,11 @@ def _parse_command_line(argv):
 
     if WE_ARE_TRANSLATED:
         flags = [options[flag] for flag in sys_flags]
-        sys.flags = type(sys.flags)(flags)
+        oldflags = sys.flags
+        # hack: delete the flags first to make sure they don't turn into an
+        # cell in the celldict
+        del sys.flags
+        sys.flags = type(oldflags)(flags)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
 
 ##    if not WE_ARE_TRANSLATED:
