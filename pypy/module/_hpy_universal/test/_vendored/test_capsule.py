@@ -156,6 +156,7 @@ class TestHPyCapsule(HPyTest):
     ExtensionTemplate = CapsuleTemplate
 
     def test_capsule_new(self):
+        import pytest
         mod = self.make_module("""
             @DEFINE_SomeObject
             @DEFINE_Capsule_New
@@ -178,6 +179,7 @@ class TestHPyCapsule(HPyTest):
             mod.capsule_new()
 
     def test_capsule_getter_and_setter(self):
+        import pytest
         mod = self.make_module("""
             #include <string.h>
 
@@ -385,6 +387,7 @@ class TestHPyCapsule(HPyTest):
             mod.capsule_freename(p)
 
     def test_capsule_isvalid(self):
+        import pytest
         mod = self.make_module("""
             @DEFINE_SomeObject
             @DEFINE_Capsule_New
@@ -455,6 +458,7 @@ class TestHPyCapsule(HPyTest):
         assert mod.pointer_freed()
 
     def test_capsule_new_with_invalid_destructor(self):
+        import pytest
         mod = self.make_module("""
             static HPyCapsule_Destructor mydtor = { NULL, NULL };
 
