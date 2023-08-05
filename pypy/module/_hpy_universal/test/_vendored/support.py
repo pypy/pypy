@@ -599,7 +599,8 @@ def _build(tmpdir, ext, hpy_devel, hpy_abi, compiler_verbose=0, debug=None):
     dist.hpy_abi = hpy_abi
     # For testing, we want to use static libs to avoid repeated compilation
     # of the same sources which slows down testing.
-    dist.hpy_use_static_libs = True
+    # XXX for untranslated PyPy tests, leave this False
+    dist.hpy_use_static_libs = False
     dist.hpy_ext_modules = [ext]
     # We need to explicitly specify which Python modules we expect because some
     # test cases create several distributions in the same temp directory.

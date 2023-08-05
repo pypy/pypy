@@ -345,7 +345,7 @@ class build_ext_hpy_mixin:
         else:
             # If we should not use (pre-compiled) static libs or if they are
             # not available, we just add the sources of the helpers to the
-            # extension. They are then compiler with the extension.
+            # extension. They are then compiled with the extension.
             ext.sources += self.hpydevel.get_extra_sources()
         ext.define_macros.append(('HPY', None))
         if ext.hpy_abi == 'cpython':

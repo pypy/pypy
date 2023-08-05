@@ -33,6 +33,7 @@ eci = ExternalCompilationInfo(
     separate_module_files=[
         SRC_DIR.join('bridge.c'),
         SRC_DIR.join('hpyerr.c'),
+        SRC_DIR.join('argparse.c'),
         # <debug mode>
         SRC_DIR.join('dctx.c'),
         DEBUG_DIR.join('debug_ctx.c'),
