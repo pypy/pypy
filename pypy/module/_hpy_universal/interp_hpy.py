@@ -95,7 +95,7 @@ HPY_VERSION, HPY_GIT_REV = load_version()
 @specialize.arg(4)
 def init_hpy_module(space, name, origin, lib, mode, initfunc_ptr):
     state = space.fromcache(State)
-    handles = state.get_handle_manager(mode)
+    handles = get_handle_manager(space, mode)
     initfunc_ptr = rffi.cast(llapi.HPyInitFunc, initfunc_ptr)
     h_module = initfunc_ptr(handles.ctx)
     error = state.clear_exception()
@@ -148,10 +148,27 @@ def validate_abi_tag(space, shortname, soname, req_major_version, req_minor_vers
          "HPy ABI version: %d.%d.", shortname, soname,
              req_major_version, req_minor_version)
 
+def get_handle_manager(space, mode):
+    # So the result can be pre-built
+    state = State.get(space)
+    if mode == llapi.MODE_DEBUG:
+        return state.get_handle_manager(llapi.MODE_DEBUG)
+    elif mode == llapi.MODE_UNIVERSAL:
+        return state.get_handle_manager(llapi.MODE_UNIVERSAL)
+    elif mode == llapi.MODE_TRACE:
+        return state.get_handle_manager(llapi.MODE_TRACE)
+    else:
+        return state.get_handle_manager(llapi.MODE_INVALID)
+
 
 def do_load(space, name, soname, mode, w_spec):
     """This is hpy/hpy/universal/src/hpymodule.c:do_load
     """
+    if space.config.objspace.hpy_cpyext_API:
+        # Ensure cpyext is initialised, since the extension might call cpyext
+        # functions
+        space.getbuiltinmodule('cpyext')
+
     try:
         with rffi.scoped_str2charp(soname) as ll_libname:
             lib = dlopen(ll_libname, space.sys.dlopenflags)
@@ -186,8 +203,7 @@ def do_load(space, name, soname, mode, w_spec):
             llapi.HPY_ABI_VERSION, llapi.HPY_ABI_VERSION_MINOR)
     
     validate_abi_tag(space, shortname, soname, required_major_version, required_minor_version)    
-    state = State.get(space)
-    manager = state.get_handle_manager(mode)
+    manager = get_handle_manager(space, mode)
 
     init_ctx_name = "HPyInitGlobalContext_" + shortname
     try:
@@ -198,11 +214,6 @@ def do_load(space, name, soname, mode, w_spec):
         w_path = space.newfilename(soname)
         raise raise_import_error(
             space, space.newtext(msg), space.newtext(name), w_path)
-
-    if space.config.objspace.hpy_cpyext_API:
-        # Ensure cpyext is initialised, since the extension might call cpyext
-        # functions
-        space.getbuiltinmodule('cpyext')
 
     # Set up global trampoline ctx
     rffi.cast(llapi.InitContextFuncPtr, initptr)(manager.ctx)

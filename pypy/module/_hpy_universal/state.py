@@ -29,6 +29,7 @@ class State(object):
     def get(space):
         return space.fromcache(State)
 
+    @specialize.arg(1)
     def get_handle_manager(self, mode):
         if mode == llapi.MODE_DEBUG:
             return self.d_handles
