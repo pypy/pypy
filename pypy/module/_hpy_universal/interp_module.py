@@ -43,6 +43,7 @@ def _hpymodule_create(handles, modname, hpydef):
     else:
         w_doc = space.w_None
     space.setattr(w_mod, space.newtext('__doc__'), w_doc)
+    space.setattr(w_mod, space.newtext('__file__'), space.w_None)
     init_extra_module_attrs(space, w_mod)
     return w_mod
 

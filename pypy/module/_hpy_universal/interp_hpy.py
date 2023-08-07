@@ -234,6 +234,9 @@ def do_load(space, name, soname, mode, w_spec):
             ("Error during loading of the HPy extension module at "
             "path '%s'. Function '%s' returned NULL."), soname, init_name);
 
+    # upstream calls this, which is why we need w_spec
+    # pydef = _HPyModuleDef_CreatePyModuleDef(hpydef)
+    # py_mode = PyModule_FromDefAndSpec(pydef, spec)
     w_mod = _hpymodule_create(manager, name, hpydef)
     # TODO: find and call a function in the HPy_mod_exec slot
     # PyModule_ExecDef(py_mod, pydef)

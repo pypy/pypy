@@ -82,13 +82,27 @@ class HPyAppTest(object):
             module = compiler.compile_module(main_src, ExtensionTemplate,
                                                   name, extra_sources)
             so_filename = module.so_filename.replace(".py", ".hpy.so")
-            debug = int(hpy_abi == 'debug')
-            w_mod = space.appexec([space.newtext(so_filename),
-                                   space.newtext(name),
-                                   space.newint(debug)],
-                """(path, modname, debug):
+            if hpy_abi == "debug":
+                mode = llapi.MODE_DEBUG
+            elif hpy_abi == "universal":
+                mode = llapi.MODE_UNIVERSAL
+            elif hpy_abi == "trace":
+                mode = llapi.MODE_TRACE
+            else:
+                mode = -1
+            w_mod = space.appexec([space.newtext(name),
+                                   space.newtext(so_filename),
+                                   space.newint(mode)],
+                """(name, so_filename, mode):
+                    import sys
                     import _hpy_universal
-                    return _hpy_universal.load(modname, path, debug)
+                    import importlib.util
+                    assert name not in sys.modules
+                    spec = importlib.util.spec_from_file_location(name, so_filename)
+                    mod = _hpy_universal.load(name, so_filename, spec, mode=mode)
+                    mod.__file__ == so_filename
+                    mod.__spec__ == spec
+                    return mod
                 """
             )
             return w_mod
