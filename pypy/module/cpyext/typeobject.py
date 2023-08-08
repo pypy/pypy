@@ -20,7 +20,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_TUPLE_SUBCLASS, Py_TPFLAGS_UNICODE_SUBCLASS,
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS,
-    Py_TPFLAGS_BYTES_SUBCLASS,
+    Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE,
     Py_TPPYPYFLAGS_FLOAT_SUBCLASS,
     )
 
@@ -613,11 +613,11 @@ class W_PyCTypeObject(W_TypeObject):
         else:
             minsize = rffi.sizeof(PyObject.TO)
         new_layout = (pto.c_tp_basicsize > minsize or pto.c_tp_itemsize > 0)
-
         self.flag_cpytype = True
         W_TypeObject.__init__(self, space, name,
             bases_w or [space.w_object], dict_w, force_new_layout=new_layout,
             is_heaptype=flag_heaptype)
+
         # if a sequence or a mapping, then set the flag to force it
         if pto.c_tp_as_sequence and pto.c_tp_as_sequence.c_sq_item:
             self.flag_map_or_seq = 'S'
@@ -631,6 +631,15 @@ class W_PyCTypeObject(W_TypeObject):
     def _cpyext_attach_pyobj(self, space, py_obj):
         self._cpy_ref = py_obj
         rawrefcount.create_link_pyobj(self, py_obj)
+
+    def acceptable_as_base_class(self, space):
+        if not self.layout.typedef.acceptable_as_base_class:
+            return False
+        pyref = make_ref(space, self)
+        pto = rffi.cast(PyTypeObjectPtr, pyref)
+        acceptable_as_base_class = bool(widen(pto.c_tp_flags) & Py_TPFLAGS_BASETYPE)
+        decref(space, pyref)
+        return acceptable_as_base_class
 
 @bootstrap_function
 def init_typeobject(space):
@@ -707,6 +716,8 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     pto.c_tp_free = state.C.PyObject_Free
     pto.c_tp_alloc = state.C.PyType_GenericAlloc
     builder = state.builder
+    if w_type.layout.typedef.acceptable_as_base_class:
+        pto.c_tp_flags = rffi.cast(rffi.ULONG, widen(pto.c_tp_flags) | Py_TPFLAGS_BASETYPE)
     if ((widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE) != 0
             and builder.cpyext_type_init is None):
             # this ^^^ is not None only during startup of cpyext.  At that
@@ -983,12 +994,12 @@ def get_ht_slot(ht, slotnum):
     PyType_FromSpecWithBases(PyType_Spec *spec, PyObject *bases)""",
     result_is_ll=True)
 def PyType_FromSpecWithBases(space, spec, bases):
-    return PyType_FromSpecWithBases(space, None, spec, bases)
+    return PyType_FromModuleAndSpec(space, None, spec, bases)
 
 @cts.decl("""PyObject *
-    PyType_FromModuleAndSpec(PyObject *, PyType_Spec *spec, PyObject *bases)""",
+    PyType_FromModuleAndSpec(PyObject *module, PyType_Spec *spec, PyObject *bases)""",
     result_is_ll=True)
-def PyType_FromSpecWithBases(space, module, spec, bases):
+def PyType_FromModuleAndSpec(space, module, spec, bases):
     from pypy.module.cpyext.unicodeobject import PyUnicode_FromString
     state = space.fromcache(State)
     p_type = cts.cast('PyTypeObject*', make_ref(space, space.w_type))
@@ -1033,10 +1044,10 @@ def PyType_FromSpecWithBases(space, module, spec, bases):
         bases_w = space.fixedview(from_ref(space, bases))
     w_base = best_base(space, bases_w)
     base = cts.cast('PyTypeObject*', make_ref(space, w_base))
-    if False:  # not widen(base.c_tp_flags) & Py_TPFLAGS_BASETYPE:
+    if not widen(base.c_tp_flags) & Py_TPFLAGS_BASETYPE:
         raise oefmt(space.w_TypeError,
             "type '%s' is not an acceptable base type",
-            rffi.charp2str(base.c_tp_name))
+            rffi.constcharp2str(base.c_tp_name))
 
     typ.c_tp_as_async = res.c_as_async
     typ.c_tp_as_number = res.c_as_number

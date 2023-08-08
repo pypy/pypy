@@ -2358,15 +2358,18 @@ class AppTestFlags(AppTestCpythonExtensionBase):
 
                 return PyType_FromSpecWithBases(&HeapType_spec, args);
             """)])
-        # smoke test
+
+        # bool cannot be a base class
+        with raises(TypeError):
+            module.subclass_from_class((bool,))
+
         inttype = module.subclass_from_class((int,))
-        assert isinstance(inttype(), int)
 
         # the type does not set Py_TPFLAGS_BASETYPE, so cannot inherit
         with raises(TypeError):
             class int2(inttype):
                 pass
 
-        # bool cannot be a base class
-        with raises(TypeError):
-            module.subclass_from_class((bool,))
+        # Make sure the flag passes to app-level
+        assert isinstance(inttype(), int)
+

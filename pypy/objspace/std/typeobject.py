@@ -769,6 +769,9 @@ class W_TypeObject(W_Root):
         raise oefmt_attribute_error(
             space, self, w_name, "type object '%N' has no attribute %R")
 
+    def acceptable_as_base_class(self, space):
+        # Overridden by cpyext W_PyCTypeObject
+        return self.layout.typedef.acceptable_as_base_class
 
 def descr__new__(space, w_typetype, __args__):
     """This is used to create user-defined classes only."""
@@ -1217,7 +1220,7 @@ def check_and_find_best_base(space, bases_w):
     if w_bestbase is None:
         raise oefmt(space.w_TypeError,
                     "a new-style class can't have only classic bases")
-    if not w_bestbase.layout.typedef.acceptable_as_base_class:
+    if not w_bestbase.acceptable_as_base_class(space):
         raise oefmt(space.w_TypeError,
                     "type '%s' is not an acceptable base type", w_bestbase.name)
 
