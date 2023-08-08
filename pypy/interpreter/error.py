@@ -570,9 +570,9 @@ def get_operrcls2(valuefmt):
                         lgt += len(result)
                     elif fmt == 'R':
                         try:
-                            s = space.repr(value)
-                            result = space.utf8_w(s)
-                            lgt += space.len_w(result)
+                            w_s = space.repr(value)
+                            result = space.utf8_w(w_s)
+                            lgt += space.len_w(w_s)
                         except OperationError as e:
                             e.write_unraisable(space, "exception formatting: ", value)
                             result = '<repr raised>'
