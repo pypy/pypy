@@ -2337,3 +2337,36 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         B.__bases__ = (A,)
         assert issubclass(B, A)
         assert module.issubclass(B, A)
+
+    def test_subclass_from_spec(self):
+        module = self.import_extension("foo", [
+            ("subclass_from_class", "METH_O",
+            """
+                static PyType_Slot HeapType_slots[] = {
+                    {Py_tp_doc, "HeapType()\\n--\\n\\nA type with a signature"},
+                    {0, 0},
+                };
+
+
+                static PyType_Spec HeapType_spec = {
+                    "module.HeapType",
+                    sizeof(PyObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT,
+                    HeapType_slots
+                };
+
+                return PyType_FromSpecWithBases(&HeapType_spec, args);
+            """)])
+        # smoke test
+        inttype = module.subclass_from_class((int,))
+        assert isinstance(inttype(), int)
+
+        # the type does not set Py_TPFLAGS_BASETYPE, so cannot inherit
+        with raises(TypeError):
+            class int2(inttype):
+                pass
+
+        # bool cannot be a base class
+        with raises(TypeError):
+            module.subclass_from_class((bool,))
