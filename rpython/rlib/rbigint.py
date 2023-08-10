@@ -1480,6 +1480,21 @@ class rbigint(object):
         other """
         return gcd_lehmer(self.abs(), other.abs())
 
+    def isqrt(self):
+        """ Compute the integer square root of self """
+        if self.int_lt(0):
+            raise ValueError("isqrt() argument must be nonnegative")
+        if self.int_eq(0):
+            return NULLRBIGINT
+        c = (self.bit_length() - 1) // 2
+        a = ONERBIGINT
+        d = 0
+        for s in range(bits_in_digit(_store_digit(c)) - 1, -1, -1):
+            # Loop invariant: (a-1)**2 < (self >> 2*(c - d)) < (a+1)**2
+            e = d
+            d = c >> s
+            a = a.lshift(d - e - 1).add(self.rshift(2*c - e - d + 1).floordiv(a))
+        return a.int_sub(a.mul(a).gt(self))
 
     def __repr__(self):
         return "<rbigint digits=%s, sign=%s, size=%d, len=%d, %s>" % (self._digits,
