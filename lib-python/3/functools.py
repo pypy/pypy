@@ -20,6 +20,8 @@ from collections import namedtuple
 from reprlib import recursive_repr
 from _thread import RLock
 from types import GenericAlias
+try: from __pypy__ import hidden_applevel
+except ImportError: builtinify = lambda f: f
 
 
 ################################################################################
@@ -297,6 +299,7 @@ class partial:
         self.keywords = keywords
         return self
 
+    @hidden_applevel
     def __call__(self, /, *args, **keywords):
         keywords = {**self.keywords, **keywords}
         return self.func(*self.args, *args, **keywords)
