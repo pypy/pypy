@@ -464,6 +464,8 @@ LL_OPERATIONS = {
     'jit_leave_portal_frame': LLOp(canrun=True),
     'jit_emit_jump': LLOp(canrun=True),
     'jit_emit_ret': LLOp(canrun=True),
+    'begin_slow_path': LLOp(canrun=True),
+    'end_slow_path': LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
     'do_malloc_fixedsize':LLOp(canmallocgc=True),

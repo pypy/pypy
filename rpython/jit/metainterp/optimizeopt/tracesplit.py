@@ -102,7 +102,7 @@ class OptTraceSplit(Optimizer):
         self._newopsandinfo = []
         self._fdescrstack = []
 
-        self._newoperations_tmp = []
+        self._newoperations_slow_path = []
 
         self._slow_ops = []
         self._slow_path_flag = False
@@ -184,11 +184,23 @@ class OptTraceSplit(Optimizer):
             elif rop.is_jit_emit_ret(opnum):
                 self._handle_emit_ret(op)
                 continue
+            elif rop.is_begin_slow_path(opnum):
+                self._slow_path_flag = True
+                jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
+                original_jitcell_token = self.token.original_jitcell_token
+                token = TargetToken(jitcell_token,
+                                    original_jitcell_token=original_jitcell_token)
+                label = ResOperation(rop.LABEL, self.inputargs, descr=token)
+
+                self._newoperations_slow_path = self._newoperations
+                self._newoperations = self._slow_ops
+                self.send_extra_operation(label)
+                continue
 
             if self._slow_path_flag:
                 # re-encountering DEBUG_MERGE_POINT when the slow flag is True
                 # means the slow path ends just before
-                if opnum == rop.DEBUG_MERGE_POINT:
+                if rop.is_debug_merge_point(opnum):
                     assert slow_ops_jump_op is not None
                     self.send_extra_operation(slow_ops_jump_op)
                     slow_ops_jump_op = None
@@ -200,9 +212,9 @@ class OptTraceSplit(Optimizer):
                     self._slow_path_newopsandinfo.append((info, self._slow_ops[1:]))
                     self._slow_path_recorded.append(self._slow_ops[1:])
 
-                    self._newoperations = self._newoperations_tmp
+                    self._newoperations = self._newoperations_slow_path[:]
                     self._slow_ops = []
-                    self._newoperations_tmp = []
+                    self._newoperations_slow_path = []
                     self._slow_path_flag = False
 
                     self.send_extra_operation(slow_path_label)
@@ -211,45 +223,22 @@ class OptTraceSplit(Optimizer):
                     self.send_extra_operation(op)
                     continue
 
-                elif rop.is_call(opnum):
-                    name = self._get_name_from_op(op)
-                    if name.find("end_slow_path") != - 1:
-                        numargs = op.numargs()
-                        arg1 = op.getarg(1)
-                        arg2 = op.getarg(2)
+                elif rop.is_end_slow_path(opnum):
+                    jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
+                    original_jitcell_token = self.token.original_jitcell_token
+                    token_jump_to = TargetToken(jitcell_token,
+                                                original_jitcell_token=original_jitcell_token)
+                    jump_op = ResOperation(rop.JUMP, self.inputargs, descr=token_jump_to)
+                    slow_path_label = ResOperation(rop.LABEL, self.inputargs, descr=token_jump_to)
+                    slow_ops_jump_op = jump_op
 
-                        jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
-                        original_jitcell_token = self.token.original_jitcell_token
-                        token_jump_to = TargetToken(jitcell_token,
-                                                    original_jitcell_token=original_jitcell_token)
-                        jump_op = ResOperation(rop.JUMP, self.inputargs, descr=token_jump_to)
-                        slow_path_label = ResOperation(rop.LABEL, self.inputargs, descr=token_jump_to)
-                        slow_ops_jump_op = jump_op
-
-                        continue
+                    continue
 
                 self.send_extra_operation(op)
                 continue
 
             if rop.is_call(opnum):
                 name = self._get_name_from_op(op)
-                numargs = op.numargs()
-
-                if name.find("begin_slow_path") != -1:
-                    self._slow_path_flag = True
-                    jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
-                    original_jitcell_token = self.token.original_jitcell_token
-                    token = TargetToken(jitcell_token,
-                                        original_jitcell_token=original_jitcell_token)
-                    arg1 = op.getarg(1)
-                    arg2 = op.getarg(2)
-                    label = ResOperation(rop.LABEL, [arg1, arg2], descr=token)
-
-                    self._newoperations_tmp = self._newoperations
-                    self._newoperations = self._slow_ops
-                    self.send_extra_operation(label)
-                    continue
-
                 if endswith(name, "emit_ptr_eq"):
                     self._slow_path_emit_ptr_eq = op
 

@@ -247,5 +247,23 @@ class MultipleJitDriversTests(object):
         res = self.meta_interp(f, [6, 7])
         self.check_simple_loop(jit_emit_jump=1, jit_emit_ret=1)
 
+    def test_threaded_code_slow_path(self):
+        from rpython.rlib import jit
+        myjitdriver = JitDriver(greens=[], reds=['x', 'y', 'res'])
+
+        def f(x, y):
+            res = 0
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                jit.begin_slow_path()
+                res += x
+                y -= 1
+                jit.end_slow_path()
+            return res
+
+        res = self.meta_interp(f, [6, 7])
+        self.check_simple_loop(begin_slow_path=1, end_slow_path=1)
+
 class TestLLtype(MultipleJitDriversTests, LLJitMixin):
     pass

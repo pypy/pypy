@@ -1354,6 +1354,12 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     def consider_jit_emit_jump(self, op):
         pass
 
+    def consider_begin_slow_path(self, op):
+        pass
+
+    def consider_end_slow_path(self, op):
+        pass
+
     def _consider_force_spill(self, op):
         # This operation is used only for testing
         self.force_spill_var(op.getarg(0))

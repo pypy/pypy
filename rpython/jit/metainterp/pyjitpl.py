@@ -1619,6 +1619,14 @@ class MIFrame(object):
         self.metainterp.history.record2(rop.JIT_EMIT_RET,
                                         ConstInt(jd_no), box, None)
 
+    @arguments()
+    def opimpl_begin_slow_path(self):
+        self.metainterp.history.record0(rop.BEGIN_SLOW_PATH, None)
+
+    @arguments()
+    def opimpl_end_slow_path(self):
+        self.metainterp.history.record0(rop.END_SLOW_PATH, None)
+
     @arguments("box")
     def _opimpl_assert_green(self, box):
         if not isinstance(box, Const):

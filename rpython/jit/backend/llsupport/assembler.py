@@ -298,6 +298,12 @@ class BaseAssembler(object):
     def jit_emit_jump(self, op):
         pass
 
+    def begin_slow_path(self, op):
+        pass
+
+    def end_slow_path(self, op):
+        pass
+
     def call_assembler(self, op, argloc, vloc, result_loc, tmploc):
         """
             * argloc: location of the frame argument that we're passing to

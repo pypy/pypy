@@ -1408,6 +1408,10 @@ def leave_portal_frame():
     from rpython.rtyper.lltypesystem.lloperation import llop
     llop.jit_leave_portal_frame(lltype.Void)
 
+# -----
+# For threaded code
+# -----
+
 def emit_jump(targetbox):
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.lltypesystem.lloperation import llop
@@ -1417,6 +1421,16 @@ def emit_ret(returnbox):
     from rpython.rtyper.lltypesystem import lltype
     from rpython.rtyper.lltypesystem.lloperation import llop
     llop.jit_emit_ret(lltype.Void, returnbox)
+
+def begin_slow_path():
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.begin_slow_path(lltype.Void)
+
+def end_slow_path():
+    from rpython.rtyper.lltypesystem import lltype
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    llop.end_slow_path(lltype.Void)
 
 class Counters(object):
     counters="""

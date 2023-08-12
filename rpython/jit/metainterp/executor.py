@@ -411,6 +411,8 @@ def _make_execute_list():
                          rop.JIT_DEBUG,
                          rop.JIT_EMIT_JUMP,
                          rop.JIT_EMIT_RET,
+                         rop.BEGIN_SLOW_PATH,
+                         rop.END_SLOW_PATH,
                          rop.ENTER_PORTAL_FRAME,
                          rop.LEAVE_PORTAL_FRAME,
                          rop.SETARRAYITEM_RAW,

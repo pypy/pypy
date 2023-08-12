@@ -1139,6 +1139,8 @@ _oplist = [
     '_JIT_THREADED_CODE_FIRST',
     'JIT_EMIT_JUMP/2/n',          # threaded code only
     'JIT_EMIT_RET/2/n',           # threaded code only
+    'BEGIN_SLOW_PATH/0/n',        # threaded code only
+    'END_SLOW_PATH/0/n',          # threaded code only
     '_JIT_THREADED_CODE_LAST',
     'ESCAPE/*/rfin',              # tests only
     'FORCE_SPILL/1/n',            # tests only
@@ -1390,6 +1392,22 @@ class rop(object):
     @staticmethod
     def is_jit_emit_ret(opnum):
         return rop.JIT_EMIT_RET == opnum
+
+    @staticmethod
+    def is_slow_path(opnum):
+        return rop.BEGIN_SLOW_PATH <= opnum <= rop.END_SLOW_PATH
+
+    @staticmethod
+    def is_begin_slow_path(opnum):
+        return rop.BEGIN_SLOW_PATH == opnum
+
+    @staticmethod
+    def is_end_slow_path(opnum):
+        return rop.END_SLOW_PATH == opnum
+
+    @staticmethod
+    def is_debug_merge_point(opnum):
+        return rop.DEBUG_MERGE_POINT == opnum
 
     @staticmethod
     @specialize.arg_or_var(0)

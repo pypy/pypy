@@ -1020,6 +1020,14 @@ class BlackholeInterpreter(object):
     def bhimpl_jit_emit_ret(returnbox):
         pass
 
+    @arguments()
+    def bhimpl_begin_slow_path():
+        pass
+
+    @arguments()
+    def bhimpl_end_slow_path():
+        pass
+
     @arguments("i")
     def bhimpl_int_assert_green(x):
         pass

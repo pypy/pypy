@@ -574,6 +574,12 @@ class LLFrame(object):
     def op_emit_ret(self, *args):
         pass
 
+    def op_begin_slow_path(self, *args):
+        pass
+
+    def op_end_slow_path(self, *args):
+        pass
+
     def op_jit_record_exact_class(self, *args):
         pass
 

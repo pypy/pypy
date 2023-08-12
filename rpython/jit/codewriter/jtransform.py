@@ -2204,6 +2204,11 @@ class Transformer(object):
     def rewrite_op_jit_emit_ret(self, op):
         return [op]
 
+    def rewrite_op_begin_slow_path(self, op):
+        return [op]
+    def rewrite_op_end_slow_path(self, op):
+        return [op]
+
     # ---------
     # ll_math.sqrt_nonneg()
 
