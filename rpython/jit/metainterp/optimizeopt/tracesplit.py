@@ -290,13 +290,7 @@ class OptTraceSplit(Optimizer):
 
     def optimize_CALL_N(self, op):
         name = self._get_name_from_op(op)
-        if endswith(name, mark.JUMP):
-            self.emit_pseudoop(op)
-            self.handle_emit_jump(op)
-        elif endswith(name, mark.RET):
-            self.emit_pseudoop(op)
-            self.handle_emit_ret(op)
-        elif self.check_if_cond_marked(op):
+        if self.check_if_cond_marked(op):
             self._specialguardop.append(op)
             self.emit(op)
         else:
@@ -313,44 +307,6 @@ class OptTraceSplit(Optimizer):
     optimize_CALL_I = optimize_CALL_N
     optimize_CALL_F = optimize_CALL_N
     optimize_CALL_R = optimize_CALL_N
-
-    def handle_emit_ret(self, op):
-        inputargs = self.inputargs
-        jd_no = self.jitdriver_sd.index
-        result_type = self.jitdriver_sd.result_type
-        sd = self.metainterp_sd
-        numargs = op.numargs()
-        assert numargs > 1, "emit_ret must have at least one argument"
-        if result_type == history.VOID:
-            exits = []
-            finishtoken = sd.done_with_this_frame_descr_void
-        elif result_type == history.INT:
-            exits = [op.getarg(numargs - 1)]
-            finishtoken = sd.done_with_this_frame_descr_int
-        elif result_type == history.REF:
-            exits = [op.getarg(numargs - 1)]
-            finishtoken = sd.done_with_this_frame_descr_ref
-        elif result_type == history.FLOAT:
-            exits = [op.getarg(numargs - 1)]
-            finishtoken = sd.done_with_this_frame_descr_float
-        else:
-            assert False
-
-        # host-stack style
-        ret_ops = [
-            ResOperation(rop.LEAVE_PORTAL_FRAME, [ConstInt(jd_no)], None),
-            ResOperation(rop.FINISH, exits, finishtoken)
-        ]
-
-        label_op = self._newoperations[0]
-        info = TraceSplitInfo(label_op.getdescr(), label_op, inputargs, self.resumekey)
-        self._newopsandinfo.append((info, self._newoperations[1:] + ret_ops))
-        self._newoperations = []
-
-        self._already_setup_current_token = False
-
-        if len(self._fdescrstack) > 0:
-            self.resumekey = self._fdescrstack.pop()
 
     def _handle_emit_ret(self, op):
         inputargs = self.inputargs
@@ -383,33 +339,6 @@ class OptTraceSplit(Optimizer):
         label_op = self._newoperations[0]
         info = TraceSplitInfo(label_op.getdescr(), label_op, inputargs, self.resumekey)
         self._newopsandinfo.append((info, self._newoperations[1:] + ret_ops))
-        self._newoperations = []
-
-        self._already_setup_current_token = False
-
-        if len(self._fdescrstack) > 0:
-            self.resumekey = self._fdescrstack.pop()
-
-    def handle_emit_jump(self, op, emit_label=False):
-        # backward jump
-        inputargs = self.inputargs
-        currentbox, targetbox = op.getarg(1), op.getarg(2)
-        assert isinstance(currentbox, ConstInt)
-        assert isinstance(targetbox, ConstInt)
-
-        target = targetbox.getint()
-        if target in self.token_map.keys():
-            target_token = self._get_token(target)
-        else:
-            target_token = self._create_token()
-            self._invest_label_jump_dest(targetbox, target_token)
-
-        self.token_map[target] = target_token
-
-        jump_op = ResOperation(rop.JUMP, inputargs, target_token)
-        info = TraceSplitInfo(target_token, self._newoperations[0], inputargs, self.resumekey)
-
-        self._newopsandinfo.append((info, self._newoperations[1:] + [jump_op]))
         self._newoperations = []
 
         self._already_setup_current_token = False
