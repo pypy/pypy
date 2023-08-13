@@ -2373,3 +2373,32 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         # Make sure the flag passes to app-level
         assert isinstance(inttype(), int)
 
+    def test_subclass_from_default(self):
+        # CPython allows static types to subclass base classes without
+        # the Py_TPFLAGS_BASETYPE flag
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )], prologue='''
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            static PyTypeObject Base_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.base",
+            };
+            ''', more_init = '''
+                Base_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                if (PyType_Ready(&Base_Type) < 0) INITERROR;
+                Foo_Type.tp_base = &Base_Type;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+
+        obj = module.new_obj()
+        print(type(obj).mro())
+        assert str(type(obj).mro()) == "[<class 'foo.foo'>, <class 'foo.base'>, <class 'object'>]"

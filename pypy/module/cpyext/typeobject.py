@@ -1044,7 +1044,9 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
         bases_w = space.fixedview(from_ref(space, bases))
     w_base = best_base(space, bases_w)
     base = cts.cast('PyTypeObject*', make_ref(space, w_base))
-    if not widen(base.c_tp_flags) & Py_TPFLAGS_BASETYPE:
+    if False: # not widen(base.c_tp_flags) & Py_TPFLAGS_BASETYPE:
+        # CPython allows this, but disallows inheriting from
+        # python, see W_PyCTypeObject.acceptable_as_base_class
         raise oefmt(space.w_TypeError,
             "type '%s' is not an acceptable base type",
             rffi.constcharp2str(base.c_tp_name))
