@@ -30,10 +30,12 @@ class TestString(BaseTestPyPyC):
             i22 = int_ge(i83, i10)
             guard_false(i22, descr=...)
             i89 = strgetitem(p55, i83)
+            i99 = int_eq(i74, i12)
+            guard_true(i99, descr=...)
             i24 = int_ge(i83, i12)
             guard_false(i24, descr=...)
             i93 = int_add(i83, 1)
-            i94 = int_gt(i93, i56)
+            i94 = int_gt(i93, i12)
             guard_false(i94, descr=...)
             p96 = newstr(1)
             strsetitem(p96, 0, i89)
@@ -362,3 +364,68 @@ class TestString(BaseTestPyPyC):
             i2 = strgetitem(p1, i1)
         ''')
 
+    def test_strip_doesnt_escape_bytes(self):
+        log = self.run("""
+        def main(n):
+            l = [unicode(x).decode("ascii") for x in range(10000)]
+            res = 0
+            for data in l:
+                res += len(data.strip(b'1')) # ID: striparg
+            for data in l:
+                res += len(data.strip()) # ID: stripnone
+            return res
+        """, [10000])
+        _, loop1, loop2 = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop1.ops_by_id('striparg'))
+        assert "new_with_vtable" not in opnames
+        assert "call_may_force_r" not in opnames
+        assert opnames.count("call_i") == 2 # _strip_bytes_unboxed_left/right
+        opnames = log.opnames(loop2.ops_by_id('stripnone'))
+        assert "new_with_vtable" not in opnames
+        assert "call_may_force_r" not in opnames
+        assert opnames.count("call_i") == 2 # _strip_bytes_unboxed_left/right
+
+    def test_unicode_strip_doesnt_escape_uniobject(self):
+        log = self.run("""
+        def main(n):
+            uni = b'\xc3\xa4'.decode("utf-8")
+            l = [unicode(x) + uni + unicode(x) for x in range(10000)]
+            res = 0
+            for data in l:
+                res += len(data.strip(u'1')) # ID: stripnone
+            for data in l:
+                res += len(data.strip()) # ID: striparg
+            return res
+        """, [10000])
+        _, loop1, loop2 = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop1.ops_by_id('stripnone'))
+        assert "new_with_vtable" not in opnames
+        assert "call_may_force_r" not in opnames
+        assert "call_r" in opnames # _strip_unboxed
+        opnames = log.opnames(loop2.ops_by_id('striparg'))
+        assert "new_with_vtable" not in opnames
+        assert "call_may_force_r" not in opnames
+        assert "call_r" in opnames # _strip_none_unboxed
+
+    def test_unicode_strip_doesnt_escape_uniobject_ascii(self):
+        log = self.run("""
+        def main(n):
+            l = [unicode(x) for x in range(10000)]
+            res = 0
+            for data in l:
+                res += len(data.strip(u'1')) # ID: stripnone
+            for data in l:
+                res += len(data.strip()) # ID: striparg
+            return res
+        """, [10000])
+        _, loop1, loop2 = log.loops_by_filename(self.filepath)
+        opnames = log.opnames(loop1.ops_by_id('stripnone'))
+        assert "new_with_vtable" not in opnames
+        assert "call_may_force_r" not in opnames
+        assert "call_r" not in opnames
+        assert opnames.count("call_i") == 2 # _strip_ascii_unboxed_left/right
+        opnames = log.opnames(loop2.ops_by_id('striparg'))
+        assert "new_with_vtable" not in opnames
+        assert "call_may_force_r" not in opnames
+        assert "call_r" not in opnames
+        assert opnames.count("call_i") == 2 # _strip_none_ascii_unboxed_left/right

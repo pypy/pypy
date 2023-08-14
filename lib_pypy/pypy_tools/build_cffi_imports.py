@@ -53,27 +53,26 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    'lzma': ('http://distfiles.macports.org/xz/xz-5.2.5.tar.bz2',
-             '5117f930900b341493827d63aa910ff5e011e0b994197c3b71c08a20228a42df',
-             [configure_args,
-              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
-              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ]),
-    # 1.1.1q is released but does not build on darwin https://github.com/openssl/openssl/issues/18720
-    '_ssl1': ('http://artfiles.org/openssl.org/source/old/1.1.1/openssl-1.1.1p.tar.gz',
-             'bf61b62aaa66c7c7639942a94de4c9ae8280c08f17d4eac2e44644d9fc8ace6f',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1v.tar.gz',
+              'd6697e2871e77238460402e9362d47d18382b15ef9f246aba6c7bd780d38a6b0',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.5.tar.gz',
-              'aa7d8d9bef71ad6525c55ba11e5f4397889ce49c2c9349dcea6d3e4f0b024a7a',
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.10.tar.gz',
+              '1761d4f5b13a1028b9b6f3d4b8e17feb0cedc9370f6afe61d7193d2cdce83323',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
+    'lzma': ('http://distfiles.macports.org/xz/xz-5.2.10.tar.bz2',
+             '01b71df61521d9da698ce3c33148bff06a131628ff037398c09482f3a26e5408',
+             [configure_args,
+              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+             ]),
 }
 
 cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
@@ -246,6 +245,11 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 print("stderr:")
                 print(bld_stderr, file=sys.stderr)
                 raise RuntimeError('building {} failed'.format(key))
+            elif key in ("_ssl",):
+                print("stdout:")
+                print(bld_stdout, file=sys.stderr)
+                print("stderr:")
+                print(bld_stderr, file=sys.stderr)
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))

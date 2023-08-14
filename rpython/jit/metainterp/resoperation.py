@@ -574,9 +574,6 @@ class IntOp(object):
     def setint(self, intval):
         self._resint = intval
 
-    def copy_value_from(self, other):
-        self.setint(other.getint())
-
     def constbox(self):
         from rpython.jit.metainterp import history
         return history.ConstInt(self.getint())
@@ -602,9 +599,6 @@ class FloatOp(object):
     def setfloatstorage(self, floatval):
         assert lltype.typeOf(floatval) is longlong.FLOATSTORAGE
         self._resfloat = floatval
-
-    def copy_value_from(self, other):
-        self.setfloatstorage(other.getfloatstorage())
 
     def constbox(self):
         from rpython.jit.metainterp import history
@@ -637,9 +631,6 @@ class RefOp(object):
     def getref(self, PTR):
         return lltype.cast_opaque_ptr(PTR, self.getref_base())
     getref._annspecialcase_ = 'specialize:arg(1)'
-
-    def copy_value_from(self, other):
-        self.setref_base(other.getref_base())
 
     def nonnull(self):
         return bool(self._resref)

@@ -852,6 +852,8 @@ class EmptySetStrategy(SetStrategy):
         return []
 
     def has_key(self, w_set, w_key):
+        # make sure the key is hashable, issue 3824
+        self.space.hash_w(w_key)
         return False
 
     def equals(self, w_set, w_other):

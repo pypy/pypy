@@ -51,7 +51,7 @@ def test_ctr():
 @pytest.mark.parametrize("host, suffix", (
             (windows.MsvcPlatform, '.exe'),
             (darwin.Darwin, ''),
-            (linux.BaseLinux, '')),
+            (linux.Linux, '')),
             ids=('windows', 'macOS', 'linux'))
 def test_compile_c(host, suffix):
 

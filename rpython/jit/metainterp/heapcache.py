@@ -1,4 +1,4 @@
-from rpython.jit.metainterp.history import Const, ConstInt
+from rpython.jit.metainterp.history import Const, ConstInt, ConstPtr
 from rpython.jit.metainterp.history import FrontendOp, RefFrontendOp
 from rpython.jit.metainterp.history import new_ref_dict
 from rpython.jit.metainterp.resoperation import rop, OpHelpers
@@ -65,6 +65,8 @@ class CacheEntry(object):
         # set of refs for *constants* that we've seen a quasi-immut field on.
         self.quasiimmut_seen_refs = None
 
+        self.last_const_box = None
+
     def _clear_cache_on_write(self, seen_allocation_of_target):
         if not seen_allocation_of_target:
             self.cache_seen_allocation.clear()
@@ -86,11 +88,23 @@ class CacheEntry(object):
             return self.cache_anything
 
     def do_write_with_aliasing(self, ref_box, fieldbox):
+        ref_box = self._unique_const_heuristic(ref_box)
         seen_alloc = self._seen_alloc(ref_box)
         self._clear_cache_on_write(seen_alloc)
         self._getdict(seen_alloc)[ref_box] = fieldbox
 
+    def _unique_const_heuristic(self, ref_box):
+        # we don't want a dict lookup for every constptr, but comparing against
+        # the last used constptr for the current descr is often enough
+        if isinstance(ref_box, ConstPtr):
+            if self.last_const_box and self.last_const_box.same_constant(ref_box):
+                ref_box = self.last_const_box
+            else:
+                self.last_const_box = ref_box
+        return ref_box
+
     def read(self, ref_box):
+        ref_box = self._unique_const_heuristic(ref_box)
         dict = self._getdict(self._seen_alloc(ref_box))
         try:
             res_box = dict[ref_box]
@@ -99,6 +113,7 @@ class CacheEntry(object):
         return maybe_replace_with_const(res_box)
 
     def read_now_known(self, ref_box, fieldbox):
+        ref_box = self._unique_const_heuristic(ref_box)
         self._getdict(self._seen_alloc(ref_box))[ref_box] = fieldbox
 
     def invalidate_unescaped(self):
@@ -126,18 +141,6 @@ class FieldUpdater(object):
 
     def setfield(self, fieldbox):
         self.cache.do_write_with_aliasing(self.ref_box, fieldbox)
-
-class DummyFieldUpdater(FieldUpdater):
-    def __init__(self):
-        self.currfieldbox = None
-
-    def getfield_now_known(self, fieldbox):
-        pass
-
-    def setfield(self, fieldbox):
-        pass
-
-dummy_field_updater = DummyFieldUpdater()
 
 
 class HeapCache(object):
@@ -500,7 +503,13 @@ class HeapCache(object):
                        | HF_KNOWN_NULLITY)
 
     def new_array(self, box, lengthbox):
-        self.new(box)
+        assert isinstance(box, RefFrontendOp)
+        self.update_version(box)
+        flags = HF_SEEN_ALLOCATION | HF_KNOWN_NULLITY
+        if isinstance(lengthbox, Const):
+            # only constant-length arrays are virtuals
+            flags |= HF_LIKELY_VIRTUAL | HF_IS_UNESCAPED
+        add_flags(box, flags)
         self.arraylen_now_known(box, lengthbox)
 
     def getfield(self, box, descr):
@@ -509,9 +518,8 @@ class HeapCache(object):
             return cache.read(box)
         return None
 
+    @always_inline
     def get_field_updater(self, box, descr):
-        if not isinstance(box, RefFrontendOp):
-            return dummy_field_updater
         cache = self.heap_cache.get(descr, None)
         if cache is None:
             cache = self.heap_cache[descr] = CacheEntry(self)

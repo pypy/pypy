@@ -65,12 +65,9 @@ class W_UnicodeBuilder(W_Root):
         return W_UnicodeBuilder(space, 3 * size)
 
     def descr_append(self, space, w_s):
-        if isinstance(w_s, W_UnicodeObject):
-            self.builder.append_utf8(w_s._utf8, w_s._len())
-        else:
-            w_unicode = W_UnicodeObject.convert_arg_to_w_unicode(space, w_s)
-            s = space.utf8_w(w_unicode)
-            self.builder.append(s)
+        if not isinstance(w_s, W_UnicodeObject):
+            w_s = W_UnicodeObject.convert_arg_to_w_unicode(space, w_s)
+        self.builder.append_utf8(w_s._utf8, w_s._len())
 
     @unwrap_spec(start=int, end=int)
     def descr_append_slice(self, space, w_s, start, end):
@@ -79,7 +76,7 @@ class W_UnicodeBuilder(W_Root):
             raise oefmt(space.w_ValueError, "bad start/stop")
         byte_start = w_unicode._index_to_byte(start)
         byte_end = w_unicode._index_to_byte(end)
-        self.builder.append_slice(w_unicode._utf8, byte_start, byte_end)
+        self.builder.append_utf8_slice(w_unicode._utf8, byte_start, byte_end, end - start)
 
     def descr_build(self, space):
         w_s = space.newutf8(self.builder.build(), self.builder.getlength())

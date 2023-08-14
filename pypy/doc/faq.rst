@@ -42,8 +42,8 @@ Module xyz does not work with PyPy: ImportError
 -----------------------------------------------
 
 A module installed for CPython is not automatically available for PyPy
---- just like a module installed for CPython 2.6 is not automatically
-available for CPython 2.7 if you installed both.  In other words, you
+--- just like a module installed for CPython 3.6 is not automatically
+available for CPython 3.7 if you installed both.  In other words, you
 need to install the module xyz specifically for PyPy.
 
 On Linux, this means that you cannot use ``apt-get`` or some similar
@@ -141,19 +141,17 @@ works on Mac and Windows: it is tested there, but most of us are running
 Linux so fixes may depend on 3rd-party contributions.
 
 To bootstrap from sources, PyPy can use either CPython 2.7 or
-another (e.g. older) PyPy.  Cross-translation is not really supported:
+PyPy 2.7.  Cross-translation is not really supported:
 e.g. to build a 32-bit PyPy, you need to have a 32-bit environment.
 
-Which Python version (2.x?) does PyPy implement?
-------------------------------------------------
+Which Python versions does PyPy implement?
+------------------------------------------
 
-PyPy comes in two versions:
+PyPy will always support 2.7 since RPython is written for it. In addition, PyPy
+supports various Python3 versions, see the `release notes`_ for the latest
+releases. Typically, we will support one or two versions of Python3.
 
-* one is fully compatible with Python 2.7;
-
-* the other is fully compatible with one 3.x version.  At the time of
-  this writing, this is 3.7.
-
+.. _ `release notes`: index-of-release-notes.html
 
 .. _threading:
 
@@ -198,9 +196,8 @@ has two pieces:
     PyPy (but it might be dropped in the future).
 
   * a fork_ of the official numpy repository maintained by us and informally
-    called ``numpypy``: even more confusing, the name of the repo on bitbucket
-    is ``numpy``.  The main difference with the upstream numpy, is that it is
-    based on the micronumpy module written in RPython, instead of of
+    called ``numpypy``:  The main difference with the upstream numpy, is that
+    it is based on the micronumpy module written in RPython, instead of of
     ``numpy.core.multiarray`` which is written in C.
 
 
@@ -227,10 +224,9 @@ matrix calculations, and reached around an 80% parity with the upstream
 numpy. However, 80% is far from 100%.  Since cpyext/numpy compatibility is
 progressing fast, we have discontinued support for ``numpypy``.
 
-.. _`started to reimplement`: https://morepypy.blogspot.co.il/2011/05/numpy-in-pypy-status-and-roadmap.html
-.. _fork: https://bitbucket.org/pypy/numpy
-.. _`PyPy binary wheels`: https://github.com/antocuni/pypy-wheels
-.. _HPy: https://morepypy.blogspot.com/2019/12/hpy-kick-off-sprint-report.html
+.. _`started to reimplement`: https://www.pypy.org/posts/2011/05/numpy-in-pypy-status-and-roadmap-8332894230779779992.html
+.. _fork: https://github.com/pypy/numpypy
+.. _HPy: https://hpyproject.org/
 
 Is PyPy more clever than CPython about Tail Calls?
 --------------------------------------------------
@@ -372,15 +368,14 @@ Currently, we have `Topaz`_, a Ruby interpreter; `Hippy`_, a PHP
 interpreter; preliminary versions of a `JavaScript interpreter`_
 (Leonardo Santagada as his Summer of PyPy project); a `Prolog interpreter`_
 (Carl Friedrich Bolz as his Bachelor thesis); and a `SmallTalk interpreter`_
-(produced during a sprint).  On the `PyPy bitbucket page`_ there is also a
-Scheme and an Io implementation; both of these are unfinished at the moment.
+(produced during a sprint).  There is also an unfinished `Scheme`_ implementation.
 
 .. _Topaz: https://github.com/topazproject/topaz
 .. _Hippy: https://morepypy.blogspot.ch/2012/07/hello-everyone.html
-.. _JavaScript interpreter: https://bitbucket.org/pypy/lang-js/
+.. _JavaScript interpreter: https://github.com/progval/rpython-langjs
 .. _Prolog interpreter: https://bitbucket.org/cfbolz/pyrolog/
 .. _SmallTalk interpreter: https://dx.doi.org/10.1007/978-3-540-89275-5_7
-.. _PyPy bitbucket page: https://bitbucket.org/pypy/
+.. _Scheme: https://github.com/tomoh1r/rpython-lang-scheme
 
 
 How do I get into PyPy development?  Can I come to sprints?

@@ -5,7 +5,7 @@ import platform
 import sys
 from rpython.translator.platform.posix import BasePosix
 
-class BaseLinux(BasePosix):
+class Linux(BasePosix):
     name = "linux"
 
     link_flags = tuple(
@@ -36,15 +36,3 @@ class BaseLinux(BasePosix):
         return self._pkg_config("libffi", "--libs-only-L",
                                 ['/usr/lib/libffi'],
                                 check_result_dir=True)
-
-
-class Linux(BaseLinux):
-    if platform.machine().startswith('arm'):
-        shared_only = ('-fPIC',) # ARM requires compiling with -fPIC
-    else:
-        shared_only = () # it seems that on 32-bit linux, compiling with -fPIC
-                         # gives assembler that asmgcc is not happy about.
-                         # Now that asmgcc is gone, should be always enable it?
-
-class LinuxPIC(BaseLinux):
-    pass

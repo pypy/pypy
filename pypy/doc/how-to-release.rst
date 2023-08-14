@@ -69,12 +69,23 @@ Then, we need to do the same for the 3.x branch::
 
 To change the version, you need to edit three files:
 
-  - ``module/sys/version.py``
+  - ``module/sys/version.py``: the ``PYPY_VERSION`` should be something like
+    ``(7, 3, 10, "final", 0)`` or ``(7, 3, 9, "candidate", 2)`` for rc2.
 
-  - ``module/cpyext/include/patchlevel.h``
+  - ``module/cpyext/include/patchlevel.h``:  the ``PYPY_VERSION`` should be
+    something like "7.3.10" for the final release or "7.3.10-candidate3" for
+    rc3.
 
   - ``doc/conf.py``
 
+Add tags to the repo. Never change tags once commited: it breaks downstream
+packaging workflows.
+
+  - Make sure the version checks pass (they ensure ``version.py`` and
+    ``patchlevel.h`` agree)
+  - Make sure the tag matches the version in version.py/patchlevel.h. While
+    the repackage.sh script checks this, it is too late to change once the tags
+    are public
 
 Other steps
 -----------
@@ -103,8 +114,7 @@ Other steps
   * go to pypy/tool/release and run
     ``force-builds.py <release branch>``
     The following JIT binaries should be built, however, we need more buildbots
-    windows, linux-32, linux-64, osx64, armhf-raspberrian, armel,
-    freebsd64 
+    windows-64, linux-32, linux-64, macos_x86_64, macos_arm64, aarch64, s390x
 
   * wait for builds to complete, make sure there are no failures
 

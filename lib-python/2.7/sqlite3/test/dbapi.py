@@ -483,11 +483,11 @@ class CursorTests(unittest.TestCase):
         self.cu.execute("select * from test")
 
         actual = self.cu.description
-        expected = [
+        expected = (
             ('id', None, None, None, None, None, None),
             ('name', None, None, None, None, None, None),
             ('income', None, None, None, None, None, None),
-        ]
+        )
         self.assertEqual(expected, actual)
 
     def CheckCurDescriptionVoidStatement(self):

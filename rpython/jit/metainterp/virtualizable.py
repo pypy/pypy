@@ -83,17 +83,19 @@ class VirtualizableInfo(object):
         self.array_field_by_descrs = dict(
             [(descr, i) for (i, descr) in enumerate(self.array_field_descrs)])
 
-        def read_boxes(cpu, virtualizable):
+        def read_boxes(cpu, virtualizable, startindex):
             assert lltype.typeOf(virtualizable) == llmemory.GCREF
             virtualizable = cast_gcref_to_vtype(virtualizable)
             boxes = []
             for _, fieldname in unroll_static_fields:
                 x = getattr(virtualizable, fieldname)
-                boxes.append(wrap(cpu, x))
+                boxes.append(wrap(cpu, x, startindex))
+                startindex += 1
             for _, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
                 for i in range(len(lst)):
-                    boxes.append(wrap(cpu, lst[i]))
+                    boxes.append(wrap(cpu, lst[i], startindex + i))
+                startindex += len(lst)
             return boxes
 
         def write_boxes(virtualizable, boxes):

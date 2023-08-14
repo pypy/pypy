@@ -16,6 +16,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
+from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.jit_libffi import CIF_DESCRIPTION_P
 
 SIZE_LIVE_OP = OFFSET_SIZE + 1
@@ -54,7 +55,6 @@ class BlackholeInterpBuilder(object):
         self.setup_insns(asm.insns)
         self.setup_descrs(asm.descrs)
         self.metainterp_sd = metainterp_sd
-        self.num_interpreters = 0
         self.blackholeinterps = None
 
     def _cleanup_(self):
@@ -245,8 +245,7 @@ class BlackholeInterpBuilder(object):
             self.blackholeinterps = res.back
             return res
         else:
-            self.num_interpreters += 1
-            return BlackholeInterpreter(self, self.num_interpreters)
+            return BlackholeInterpreter(self)
 
     def release_interp(self, interp):
         interp.cleanup_registers()
@@ -264,7 +263,8 @@ def check_list_of_plain_integers(s_arg, bookkeeper):
     from rpython.annotator import model as annmodel
     assert isinstance(s_arg, annmodel.SomeList)
     s_arg.listdef.never_resize()
-    assert s_arg.listdef.listitem.s_value.knowntype is int
+    s_value = s_arg.listdef.listitem.s_value
+    assert s_value.knowntype is int or isinstance(s_value, annmodel.SomeImpossibleValue)
 
 def _check_int(s_arg, bookkeeper):
     assert s_arg.knowntype is int
@@ -274,17 +274,17 @@ def plain_int(x):
     check_annotation(x, _check_int)
     return x
 
+EMPTY_LIST_I = [] # shared
 
 class BlackholeInterpreter(object):
 
-    def __init__(self, builder, count_interpreter):
+    def __init__(self, builder):
         self.builder            = builder
         self.cpu                = builder.cpu
         self.dispatch_loop      = builder.dispatch_loop
         self.descrs             = builder.descrs
         self.op_catch_exception = builder.op_catch_exception
         self.op_rvmprof_code    = builder.op_rvmprof_code
-        self.count_interpreter  = count_interpreter
         #
         if we_are_translated():
             default_i = 0
@@ -294,28 +294,42 @@ class BlackholeInterpreter(object):
             default_i = MissingValue()
             default_r = MissingValue()
             default_f = MissingValue()
-        self.registers_i = [default_i] * 256
-        self.registers_r = [default_r] * 256
-        self.registers_f = [default_f] * 256
+        self.registers_i = EMPTY_LIST_I
+        self.registers_r = None
+        self.registers_f = None
         self.tmpreg_i = default_i
         self.tmpreg_r = default_r
         self.tmpreg_f = default_f
         self.jitcode = None
-        self.back = None # chain unused interpreters together via this
         check_annotation(self.registers_i, check_list_of_plain_integers)
 
     def __repr__(self):
-        return '<BHInterp #%d>' % self.count_interpreter
+        return '<BHInterp %s>' % self.jitcode
 
     def setposition(self, jitcode, position):
-        if jitcode is not self.jitcode:
-            # the real performance impact of the following code is unclear,
-            # but it should be minimized by the fact that a given
-            # BlackholeInterpreter instance is likely to be reused with
-            # exactly the same jitcode, so we don't do the copy again.
-            self.copy_constants(self.registers_i, jitcode.constants_i)
-            self.copy_constants(self.registers_r, jitcode.constants_r)
-            self.copy_constants(self.registers_f, jitcode.constants_f)
+        num_regs_and_consts_i = jitcode.num_regs_and_consts_i()
+        num_regs_and_consts_r = jitcode.num_regs_and_consts_r()
+        num_regs_and_consts_f = jitcode.num_regs_and_consts_f()
+        if we_are_translated():
+            default_i = 0
+            default_r = NULL
+            default_f = longlong.ZEROF
+        else:
+            default_i = MissingValue()
+            default_r = MissingValue()
+            default_f = MissingValue()
+        if num_regs_and_consts_i:
+            if self.registers_i is None or len(self.registers_i) < num_regs_and_consts_i:
+                self.registers_i = [default_i] * num_regs_and_consts_i
+            self.copy_constants(self.registers_i, jitcode.constants_i, jitcode.num_regs_i())
+        if num_regs_and_consts_r:
+            if self.registers_r is None or len(self.registers_r) < num_regs_and_consts_r:
+                self.registers_r = [default_r] * num_regs_and_consts_r
+            self.copy_constants(self.registers_r, jitcode.constants_r, jitcode.num_regs_r())
+        if num_regs_and_consts_f:
+            if self.registers_f is None or len(self.registers_f) < num_regs_and_consts_f:
+                self.registers_f = [default_f] * num_regs_and_consts_f
+            self.copy_constants(self.registers_f, jitcode.constants_f, jitcode.num_regs_f())
         self.jitcode = jitcode
         self.position = position
 
@@ -421,18 +435,15 @@ class BlackholeInterpreter(object):
                 from rpython.rlib.rvmprof import cintf
                 cintf.jit_rvmprof_code(0, arg2)
 
-    def copy_constants(self, registers, constants):
+    def copy_constants(self, registers, constants, targetindex):
         """Copy jitcode.constants[0] to registers[255],
                 jitcode.constants[1] to registers[254],
                 jitcode.constants[2] to registers[253], etc."""
         make_sure_not_resized(registers)
         make_sure_not_resized(constants)
-        i = len(constants) - 1
-        while i >= 0:
-            j = 255 - i
-            assert j >= 0
-            registers[j] = constants[i]
-            i -= 1
+        for i in range(len(constants)):
+            registers[targetindex] = constants[i]
+            targetindex += 1
     copy_constants._annspecialcase_ = 'specialize:arglistitemtype(1)'
 
     # ----------

@@ -272,3 +272,16 @@ class TestOtherContainers(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         opnames = log.opnames(loop.allops())
         assert opnames.count('new_with_vtable') == 0
+
+    def test_unpack_list(self):
+        def main():
+            l = [1, 4, 6]
+            for x in range(10000):
+                a, b, c = l # ID: unpack
+                a, b, c = l
+                a, b, c = l
+        log = self.run(main, [])
+        loop, = log.loops_by_id("unpack", is_entry_bridge=True)
+        opnames = log.opnames(loop.allops())
+        assert opnames.count('new_with_vtable') == 0
+        assert opnames.count('new_array_clear') == 0

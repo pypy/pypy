@@ -1,1 +1,2 @@
 sphinx-affiliates
+sphinx_rtd_theme

@@ -46,6 +46,7 @@ PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
 PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
                topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
+PYPY_DISABLE_JIT: if set to a non-empty value, disable JIT.
 """
 
 try:
@@ -256,6 +257,7 @@ def funroll_loops(*args):
 
 
 def set_jit_option(options, jitparam, *args):
+    options['_jitoptions'] = jitparam
     if jitparam == 'help':
         _print_jit_help()
         raise SystemExit
@@ -556,6 +558,8 @@ def parse_command_line(argv):
             options["unbuffered"] = 1
         parse_env('PYTHONVERBOSE', "verbose", options)
         parse_env('PYTHONOPTIMIZE', "optimize", options)
+        if getenv('PYPY_DISABLE_JIT'):
+            set_jit_option(options, 'off')
     if (options["interactive"] or
         (not options["ignore_environment"] and getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
@@ -568,7 +572,11 @@ def parse_command_line(argv):
 
     if WE_ARE_TRANSLATED:
         flags = [options[flag] for flag in sys_flags]
-        sys.flags = type(sys.flags)(flags)
+        oldflags = sys.flags
+        # hack: delete the flags first to make sure they don't turn into an
+        # cell in the celldict
+        del sys.flags
+        sys.flags = type(oldflags)(flags)
         sys.py3kwarning = bool(sys.flags.py3k_warning)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
 

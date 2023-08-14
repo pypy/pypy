@@ -477,10 +477,7 @@ class NotVirtualStateInfoInt(NotVirtualStateInfo):
         NotVirtualStateInfo.__init__(self, cpu, type, info)
         assert type == 'i'
         if isinstance(info, IntBound):
-            if info.lower < MININT / 2:
-                info.lower = MININT
-            if info.upper > MAXINT / 2:
-                info.upper = MAXINT
+            info.widen_update()
             self.intbound = info
 
     def _generate_guards_unkown(self, other, box, runtime_box, extra_guards,

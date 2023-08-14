@@ -112,6 +112,7 @@ def create_package(basedir, options, _fake=False):
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),
             embed_dependencies=options.embed_dependencies,
+            rebuild=options.rebuild_extensions,
         )
 
         for key, module in failures:
@@ -377,7 +378,13 @@ def package(*args, **kwds):
                         action=NegateAction,
                         default=(ARCH in ('darwin', 'aarch64', 'x86_64')),
                         help='whether to embed dependencies in CFFI modules '
-                        '(default on OS X)')
+                        '(default on macOS, aarch64, x86_64)')
+    parser.add_argument('--rebuild-extensions', '--no-rebuild',
+                        dest='rebuild_extensions',
+                        action=NegateAction,
+                        default=(ARCH in ('darwin', 'aarch64', 'x86_64')),
+                        help='whether to force rebuilding CFFI modules '
+                        '(default on macOS, aarch64, x86_64)')
     parser.add_argument('--make-portable', '--no-make-portable',
                         dest='make_portable',
                         action=NegateAction,
@@ -394,6 +401,10 @@ def package(*args, **kwds):
         options.embed_dependencies = True
     elif os.environ.has_key("PYPY_NO_EMBED_DEPENDENCIES"):
         options.embed_dependencies = False
+    if os.environ.has_key("PYPY_REBUILD_EXTENSIONS"):
+        options.rebuild_extensions = True
+    elif os.environ.has_key("PYPY_NO_REBUILD_EXTENSIONS"):
+        options.rebuild_extensions = False
     if os.environ.has_key("PYPY_MAKE_PORTABLE"):
         options.make_portable = True
     if not options.builddir:

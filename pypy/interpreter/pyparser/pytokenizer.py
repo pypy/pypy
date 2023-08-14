@@ -80,6 +80,7 @@ def generate_tokens(lines, flags):
     contstrs, needcont = [], False
     indents = [0]
     last_comment = ''
+    # contains the tokens of the opening parens
     parenstack = []
 
     # make the annotator happy
@@ -152,7 +153,10 @@ def generate_tokens(lines, flags):
         else:                                  # continued statement
             if not line:
                 if parenstack:
-                    _, lnum1, start1, line1 = parenstack[0]
+                    openparen = parenstack[0]
+                    lnum1 = openparen.lineno
+                    start1 = openparen.column
+                    line1 = openparen.line
                     raise TokenError("parenthesis is never closed", line1,
                                      lnum1, start1 + 1, token_list, lnum)
                 raise TokenError("end of file (EOF) in multi-line statement", line,
@@ -222,13 +226,25 @@ def generate_tokens(lines, flags):
                                        lnum, start, line))
                     last_comment = ''
                 else:
+                    if token in python_opmap:
+                        punct = python_opmap[token]
+                    else:
+                        punct = tokens.OP
+                    tok = Token(punct, token, lnum, start, line)
                     if initial in '([{':
-                        parenstack.append((initial, lnum, start, line))
+                        parenstack.append(tok)
                     elif initial in ')]}':
                         if not parenstack:
                             raise TokenError("unmatched '%s'" % initial, line,
                                              lnum, start + 1, token_list)
-                        opening, lnum1, start1, line1 = parenstack.pop()
+                        openparen = parenstack.pop()
+
+                        #opening, lnum1, start1, line1 = parenstack.pop()
+                        opening = openparen.value[0]
+                        lnum1 = openparen.lineno
+                        start1 = openparen.column
+                        line1 = openparen.line
+
                         if not ((opening == "(" and initial == ")") or
                                 (opening == "[" and initial == "]") or
                                 (opening == "{" and initial == "}")):
@@ -239,11 +255,7 @@ def generate_tokens(lines, flags):
                                 msg += " on line " + str(lnum1)
                             raise TokenError(
                                     msg, line, lnum, start + 1, token_list)
-                    if token in python_opmap:
-                        punct = python_opmap[token]
-                    else:
-                        punct = tokens.OP
-                    token_list.append(Token(punct, token, lnum, start, line))
+                    token_list.append(tok)
                     last_comment = ''
             else:
                 if start < 0:

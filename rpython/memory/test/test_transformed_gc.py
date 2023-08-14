@@ -1430,7 +1430,7 @@ class MyGcHooks(GcHooks):
     def on_gc_collect(self, num_major_collects,
                       arenas_count_before, arenas_count_after,
                       arenas_bytes, rawmalloc_bytes_before,
-                      rawmalloc_bytes_after):
+                      rawmalloc_bytes_after, pinned_objects):
         self.stats.collects += 1
 
 

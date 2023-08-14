@@ -422,7 +422,9 @@ def getaddrinfo_pydotorg(i, result):
     found = False
     for family, socktype, protocol, canonname, addr in lst:
         if addr.get_host() in ('138.197.63.241', '104.130.43.121',
-                               '23.253.135.79', '45.55.99.72'):
+                               '23.253.135.79', '45.55.99.72',
+                               '151.101.129.168', '151.101.193.168',
+                               '151.101.64.223'):
             found = True
         elif family == AF_INET:
             print 'pydotorg changed to', addr.get_host()
@@ -774,3 +776,12 @@ def test_sethostname():
     with pytest.raises(CSocketError) as e:
         sethostname(s)
     assert e.value.errno == errno.EPERM
+
+@pytest.mark.skipif(sys.platform != "linux",
+        reason='this behaviour of MSG_TRUNC is linux specific')
+def test_msg_trunc_weirdness_linux():
+    import socket
+    (a, b) = socketpair(rsocket.AF_UNIX, rsocket.SOCK_DGRAM)
+    a.send(b'abcdefgh')
+    result = b.recv(2, socket.MSG_TRUNC)
+    assert result == b'ab'

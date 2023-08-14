@@ -283,6 +283,7 @@ class OperationError(Exception):
         w_value = self._w_value
         if w_value is None:
             value = self._compute_value(space)
+
             self._w_value = w_value = space.newtext(value)
         return w_value
 
@@ -379,7 +380,11 @@ def get_operrcls2(valuefmt):
                     lst[i + i] = self.xstrings[i]
                     value = getattr(self, attr)
                     if fmt == 'R':
-                        result = space.text_w(space.repr(value))
+                        try:
+                            result = space.text_w(space.repr(value))
+                        except OperationError as e:
+                            e.write_unraisable(space, "exception formatting: ", value)
+                            result = '<repr raised>'
                     elif fmt == 'T':
                         result = space.type(value).name
                     elif fmt == 'N':
