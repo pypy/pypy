@@ -1,5 +1,5 @@
 
-from rpython.rlib.jit import JitDriver
+from rpython.rlib.jit import JitDriver, warmup_critical_function
 
 
 class W_Object:
@@ -114,6 +114,7 @@ class Frame(object):
         self.stack[stackpos] = None
         return res
 
+    @warmup_critical_function
     def interp(self):
         bytecode = self.bytecode
         pc = 0

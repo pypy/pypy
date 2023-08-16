@@ -65,6 +65,7 @@ class __extend__(pyframe.PyFrame):
             self.last_exception = None
             return self.popvalue()
 
+    @jit.warmup_critical_function
     def handle_bytecode(self, co_code, next_instr, ec):
         try:
             next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
@@ -143,6 +144,7 @@ class __extend__(pyframe.PyFrame):
         return self.space.call_function(w_func, w_typ, w_val, w_tb)
 
     @jit.unroll_safe
+    @jit.warmup_critical_function
     def dispatch_bytecode(self, co_code, next_instr, ec):
         while True:
             self.last_instr = intmask(next_instr)

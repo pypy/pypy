@@ -4,7 +4,7 @@ This is transformed to become a JIT by code elsewhere: rpython/jit/*
 """
 
 from rpython.rlib.rarithmetic import r_uint, intmask
-from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
+from rpython.rlib.jit import JitDriver, hint, warmup_critical_function, we_are_jitted, dont_look_inside
 from rpython.rlib import jit, jit_hooks
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.jit import current_trace_length, unroll_parameters,\
@@ -76,6 +76,7 @@ pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
 
 class __extend__(PyFrame):
 
+    @warmup_critical_function
     def dispatch(self, pycode, next_instr, ec):
         self = hint(self, access_directly=True)
         next_instr = r_uint(next_instr)
@@ -98,6 +99,7 @@ class __extend__(PyFrame):
             self.last_exception = None
             return self.popvalue()
 
+    @warmup_critical_function
     def jump_absolute(self, jumpto, ec):
         if we_are_jitted():
             #

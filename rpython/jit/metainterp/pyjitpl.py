@@ -1827,10 +1827,12 @@ class MIFrame(object):
         # methods) raises ChangeFrame.  This is the case when the current frame
         # changes, due to a call or a return.
         staticdata = self.metainterp.staticdata
-        if self.jitcode.genext_function:
-            staticdata.profiler.count(Counters.FAST_TRACING_FUNCTION_EXECUTIONS)
-            return self.jitcode.genext_function(self)
         try:
+            if self.jitcode.genext_function:
+                staticdata.profiler.count(Counters.FAST_TRACING_FUNCTION_EXECUTIONS)
+                return self.jitcode.genext_function(self)
+        
+            staticdata.profiler.count(Counters.SLOW_TRACING_FUNCTION_EXECUTIONS)
             pc = self.pc
             while True:
                 bytecode = self.bytecode

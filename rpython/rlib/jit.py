@@ -1439,12 +1439,13 @@ class Counters(object):
     NVIRTUALS
     NVHOLES
     NVREUSED
+    FAST_TRACING_FUNCTION_EXECUTIONS
+    SLOW_TRACING_FUNCTION_EXECUTIONS
     TOTAL_COMPILED_LOOPS
     TOTAL_COMPILED_BRIDGES
     TOTAL_FREED_LOOPS
     TOTAL_FREED_BRIDGES
-    FAST_TRACING_FUNCTION_EXECUTIONS
-    """
+    """ 
 
     counter_names = []
 
@@ -1455,5 +1456,8 @@ class Counters(object):
             setattr(Counters, name, i)
             Counters.counter_names.append(name)
         Counters.ncounters = len(names)
+        # last four counters are handeld special in profiler
+        for name in Counters.counter_names[-4:]:
+            assert name.startswith("TOTAL")
 
 Counters._setup()

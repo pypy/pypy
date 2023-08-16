@@ -83,7 +83,7 @@ class GraphFlattener(object):
         genextension = False
         if graph:
             name = graph.name
-            genextension = getattr(graph.func, "generate_jit_extension", False)
+            genextension = getattr(getattr(graph, "func", None), "generate_jit_extension", False)
         else:
             name = '?'
         self.ssarepr = SSARepr(name, genextension)

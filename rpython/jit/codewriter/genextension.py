@@ -255,7 +255,7 @@ class GenExtension(object):
         return lines
 
     def emit_newframe_function(self):
-        return ["return # change frame"]
+        return ["self._result_argcode = %r" % (self.returncode, ), "return # change frame"]
     emit_inline_call_r_i = emit_newframe_function
     emit_inline_call_r_r = emit_newframe_function
     emit_inline_call_r_v = emit_newframe_function
