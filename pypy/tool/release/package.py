@@ -215,6 +215,9 @@ def create_package(basedir, options, _fake=False):
     os.makedirs(str(target))
     if not _fake:
         generate_sysconfigdata(pypy_c, str(target))
+        import _testmultiphase_build
+        import _ctypes_test_build
+        import _testcapi
     if ARCH == 'win32':
         os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
                             os.environ.get('PATH', '')
