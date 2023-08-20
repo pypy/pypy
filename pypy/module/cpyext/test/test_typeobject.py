@@ -2314,3 +2314,68 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         B.__bases__ = (A,)
         assert issubclass(B, A)
         assert module.issubclass(B, A)
+
+    def test_subclass_from_spec(self):
+        module = self.import_extension("foo", [
+            ("subclass_from_class", "METH_O",
+            """
+                static PyType_Slot HeapType_slots[] = {
+                    {Py_tp_doc, "HeapType()\\n--\\n\\nA type with a signature"},
+                    {0, 0},
+                };
+
+
+                static PyType_Spec HeapType_spec = {
+                    "module.HeapType",
+                    sizeof(PyObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT,
+                    HeapType_slots
+                };
+
+                return PyType_FromSpecWithBases(&HeapType_spec, args);
+            """)])
+
+        # bool cannot be a base class
+        with raises(TypeError):
+            module.subclass_from_class((bool,))
+
+        inttype = module.subclass_from_class((int,))
+
+        # the type does not set Py_TPFLAGS_BASETYPE, so cannot inherit
+        with raises(TypeError):
+            class int2(inttype):
+                pass
+
+        # Make sure the flag passes to app-level
+        assert isinstance(inttype(), int)
+
+    def test_subclass_from_default(self):
+        # CPython allows static types to subclass base classes without
+        # the Py_TPFLAGS_BASETYPE flag
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )], prologue='''
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            static PyTypeObject Base_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.base",
+            };
+            ''', more_init = '''
+                Base_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                if (PyType_Ready(&Base_Type) < 0) INITERROR;
+                Foo_Type.tp_base = &Base_Type;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+
+        obj = module.new_obj()
+        print(type(obj).mro())
+        assert str(type(obj).mro()) == "[<class 'foo.foo'>, <class 'foo.base'>, <class 'object'>]"
