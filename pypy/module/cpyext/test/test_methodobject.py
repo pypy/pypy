@@ -269,6 +269,7 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.with_signature_and_extra_newlines.__doc__
         assert (mod.with_signature_and_extra_newlines.__text_signature__ ==
                 '($module, /, parameter)')
+        assert mod.HeapType().__doc__ == "A type with a signature"
 
     def test_callfunc(self):
         mod = self.import_extension('foo', [
@@ -318,3 +319,8 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert c.__iter__.__doc__ == "usable docstring"
         assert mod.C.__qualname__ == "C"
         assert c.__iter__.__qualname__ == "C.__iter__"
+
+    def test_module_name(self):
+        # issue 3993
+        mod = self.import_module(name="test_func")
+        assert mod.f.__module__ == "test_func"
