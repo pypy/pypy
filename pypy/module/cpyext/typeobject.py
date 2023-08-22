@@ -660,6 +660,7 @@ def type_dealloc(space, obj):
     decref(space, obj_pto.c_tp_cache) # let's do it like cpython
     decref(space, obj_pto.c_tp_dict)
     if widen(obj_pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE:
+        # TODO release tp_doc?
         heaptype = rffi.cast(PyHeapTypeObject, obj)
         decref(space, heaptype.c_ht_name)
         decref(space, heaptype.c_ht_qualname)
@@ -1055,7 +1056,7 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
                         assert widen(member.c_flags) == structmemberdefs.READONLY
                         vectorcalloffset = member.c_offset
         elif slot == cts.macros['Py_tp_doc']:
-            from_pfunc = rffi.constcharp2str(slotdef.c_pfunc)
+            from_pfunc = rffi.charp2str(cts.cast("char *", slotdef.c_pfunc))
             # Remove the signature if any from the docstring
             tp_doc = extract_doc(from_pfunc, name)
         i += 1
@@ -1113,7 +1114,7 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     typ.c_tp_basicsize = cts.cast('Py_ssize_t', spec.c_basicsize)
     typ.c_tp_itemsize = cts.cast('Py_ssize_t', spec.c_itemsize)
     if tp_doc is not None:
-        typ.c_tp_doc = rffi.str2constcharp(tp_doc)
+        typ.c_tp_doc = rffi.str2constcharp(tp_doc, track_allocation=False)
 
     i = 0
     while True:
