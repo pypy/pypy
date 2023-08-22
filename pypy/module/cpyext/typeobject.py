@@ -296,10 +296,10 @@ def convert_member_defs(space, dict_w, members, w_type):
         i = 0
         while True:
             member = members[i]
-            name = member.c_name
-            if not name:
+            cname = member.c_name
+            if not cname:
                 break
-            name = rffi.constcharp2str(name)
+            name = rffi.constcharp2str(cname)
             w_descr = W_MemberDescr(member, w_type)
             dict_w[name] = w_descr
             i += 1
@@ -711,6 +711,8 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         pto.c_tp_itemsize = 1
     elif space.is_w(w_type, space.w_tuple):
         pto.c_tp_itemsize = rffi.sizeof(PyObject)
+    elif space.is_w(w_type, space.w_type):
+        pto.c_tp_itemsize = rffi.sizeof(PyMemberDef)
 
     state = space.fromcache(State)
     pto.c_tp_free = state.C.PyObject_Free
