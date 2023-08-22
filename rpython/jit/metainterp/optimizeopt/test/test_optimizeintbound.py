@@ -1146,7 +1146,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_true(i3) []
         i4 = int_lt(i1, 5)
         guard_true(i4) []
-        jump(i2, i2)
+        jump(i0, i1)
         """
         expected = """
         [i0, i1]
@@ -1154,7 +1154,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_true(i2) []
         i3 = int_eq(i0, i1)
         guard_true(i3) []
-        jump(1, 1)
+        jump(i0, i1)
         """
         self.optimize_loop(ops, expected)
 
@@ -1702,14 +1702,14 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_true(i3) []
         i5 = int_gt(i0, -129)   # implied by equality with int_signext
         guard_true(i5) []
-        jump(i2)
+        jump(i1)
         """
         expected = """
         [i0]
         i1 = int_signext(i0, 1)
         i2 = int_eq(i0, i1)
         guard_true(i2) []
-        jump(1)
+        jump(i1)
         """
         self.optimize_loop(ops, expected)
 
@@ -1719,12 +1719,11 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i1 = int_signext(i0, 1)
         i2 = int_eq(i0, i1)
         guard_true(i2) []
-        i3 = int_le(i1, 126)    # false for i1 == 127
+        i3 = int_le(i0, 126)    # false for i1 == 127
         guard_true(i3) []
-        i5 = int_gt(i1, -128)   # false for i1 == -128
+        i5 = int_gt(i0, -128)   # false for i1 == -128
         guard_true(i5) []
-        i6 = int_add(i1, 10)
-        jump(i6)
+        jump(i1)
         """
         self.optimize_loop(ops, ops)
 
@@ -2526,23 +2525,3 @@ class TestComplexIntOpts(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
-    def test_int_eq_propagates(self):
-        ops = """
-        [i1, i2, i3]
-        i4 = int_eq(i1, i2)
-        guard_true(i4) []
-        i5 = int_eq(i2, i3)
-        guard_true(i5) []
-        i6 = int_eq(i3, i1)
-        guard_true(i6) []
-        jump()
-        """
-        expected = """
-        [i1, i2, i3]
-        i4 = int_eq(i1, i2)
-        guard_true(i4) []
-        i5 = int_eq(i2, i3)
-        guard_true(i5) []
-        jump()
-        """
-        self.optimize_loop(ops, expected)

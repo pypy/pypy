@@ -682,8 +682,6 @@ class OptIntBounds(Optimization):
             self.propagate_bounds_backward(arg0)
         if b1.intersect(b0):
             self.propagate_bounds_backward(arg1)
-        if not arg0.is_constant() and not arg1.is_constant():
-            self.make_equal_to(arg0, arg1)
 
     def make_ne(self, arg0, arg1):
         b0 = self.getintbound(arg0)
