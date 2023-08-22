@@ -1073,7 +1073,7 @@ def str2constcharp(s, track_allocation=True):
     """
     cp = str2charp(s, track_allocation)
     return cast(CONST_CCHARP, cp)
-str2constcharp._annenforceargs_ = [str]
+str2constcharp._annenforceargs_ = [str, bool]
 
 @not_rpython
 def _deprecated_get_nonmovingbuffer(*args):
