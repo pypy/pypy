@@ -6,6 +6,11 @@ from opcode import EXTENDED_ARG, HAVE_ARGUMENT
 import opcode
 from rpython.flowspace.argument import Signature
 
+try:
+    from __pypy__ import _promote
+except ImportError:
+    _promote = lambda x: x
+
 CO_GENERATOR = 0x0020
 CO_VARARGS = 0x0004
 CO_VARKEYWORDS = 0x0008
@@ -36,7 +41,7 @@ class HostCode(object):
     """
     A wrapper around a native code object of the host interpreter
     """
-    opnames = host_bytecode_spec.method_names
+    opnames = tuple(host_bytecode_spec.method_names)
 
     def __init__(self, argcount, nlocals, stacksize, flags,
                  code, consts, names, varnames, filename,
@@ -111,7 +116,7 @@ class HostCode(object):
 
         if ord(HASJREL[opnum]):
             oparg += next_offset
-        opname = self.opnames[opnum]
+        opname = self.opnames[_promote(opnum)]
         return next_offset, opname, oparg
 
     @property
