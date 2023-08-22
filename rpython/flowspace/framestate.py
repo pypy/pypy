@@ -92,11 +92,11 @@ class FrameState(object):
     def getoutputargs(self, targetstate):
         "Return the output arguments needed to link self to targetstate."
         result = []
-        for w_output, w_target in zip(self.mergeable, targetstate.mergeable):
+        mergeable = self.mergeable
+        for i, w_target in enumerate(targetstate.mergeable):
             if isinstance(w_target, Variable):
-                result.append(w_output)
+                result.append(mergeable[i])
         return result
-
 
 class UnionError(Exception):
     "The two states should be merged."
