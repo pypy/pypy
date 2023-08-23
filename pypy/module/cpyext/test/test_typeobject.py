@@ -535,20 +535,34 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         p = property(lambda: "never used", pset, pdel)
         assert module.tp_descr_set(p) is True
 
-    def test_text_signature(self):
+    def test_signature_and_attributes(self):
         import sys
-        module = self.import_module(name='docstrings')
-        assert module.SomeType.__text_signature__ == '()'
-        assert module.SomeType.__doc__ == 'A type with a signature'
-        if '__pypy__' in sys.modules:
-            assert module.HeapType.__text_signature__ == '()'
-        else:  # XXX: bug in CPython?
-            assert module.HeapType.__text_signature__ is None
-        assert module.HeapType.__doc__ == 'A type with a signature'
+        mod = self.import_module(name='docstrings')
+        assert mod.no_doc.__doc__ is None
+        assert mod.no_doc.__text_signature__ is None
+        assert mod.empty_doc.__doc__ is None
+        assert mod.empty_doc.__text_signature__ is None
+        assert mod.no_sig.__doc__
+        assert mod.no_sig.__text_signature__ is None
+        assert mod.invalid_sig.__doc__
+        assert mod.invalid_sig.__text_signature__ is None
+        assert mod.invalid_sig2.__doc__
+        assert mod.invalid_sig2.__text_signature__ is None
+        assert mod.with_sig.__doc__
+        assert mod.with_sig.__text_signature__ == '($module, /, sig)'
+        assert mod.with_sig_but_no_doc.__doc__ is None
+        assert mod.with_sig_but_no_doc.__text_signature__ == '($module, /, sig)'
+        assert mod.with_signature_and_extra_newlines.__doc__
+        assert (mod.with_signature_and_extra_newlines.__text_signature__ ==
+                '($module, /, parameter)')
 
-    def test_heaptype_attributes(self):
-        module = self.import_module(name='docstrings')
-        htype = module.HeapType
+        htype = mod.HeapType
+        assert htype().__doc__ == "A type with a signature"
+        assert mod.SomeType.__text_signature__ == '()'
+        assert mod.SomeType.__doc__ == 'A type with a signature'
+        assert htype.__text_signature__ is None
+
+        print(htype.__module__)
         assert htype.__module__ == 'docstrings'
         assert htype.__name__ == 'HeapType'
         assert htype.__qualname__ == 'HeapType'

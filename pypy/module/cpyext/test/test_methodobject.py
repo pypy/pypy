@@ -250,27 +250,6 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         mod.getarg_NO.__module__ = 'foobar'
         assert mod.getarg_NO.__module__ == 'foobar'
 
-    def test_text_signature(self):
-        mod = self.import_module('docstrings')
-        assert mod.no_doc.__doc__ is None
-        assert mod.no_doc.__text_signature__ is None
-        assert mod.empty_doc.__doc__ is None
-        assert mod.empty_doc.__text_signature__ is None
-        assert mod.no_sig.__doc__
-        assert mod.no_sig.__text_signature__ is None
-        assert mod.invalid_sig.__doc__
-        assert mod.invalid_sig.__text_signature__ is None
-        assert mod.invalid_sig2.__doc__
-        assert mod.invalid_sig2.__text_signature__ is None
-        assert mod.with_sig.__doc__
-        assert mod.with_sig.__text_signature__ == '($module, /, sig)'
-        assert mod.with_sig_but_no_doc.__doc__ is None
-        assert mod.with_sig_but_no_doc.__text_signature__ == '($module, /, sig)'
-        assert mod.with_signature_and_extra_newlines.__doc__
-        assert (mod.with_signature_and_extra_newlines.__text_signature__ ==
-                '($module, /, parameter)')
-        assert mod.HeapType().__doc__ == "A type with a signature"
-
     def test_callfunc(self):
         mod = self.import_extension('foo', [
             ('callfunc', 'METH_VARARGS',
