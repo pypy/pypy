@@ -474,12 +474,10 @@ def add_tp_new_wrapper(space, dict_w, pto):
                                           from_ref(space, pyo), None)
 
 def inherit_special(space, pto, w_obj, base_pto):
-    # XXX missing: copy basicsize and flags in a magical way
-    # (minimally, if tp_basicsize is zero or too low, we copy it from the base)
+    # if tp_basicsize is zero or too low, we copy it from the base
+    # tp_itemsize will be set elsewhere
     if pto.c_tp_basicsize < base_pto.c_tp_basicsize:
         pto.c_tp_basicsize = base_pto.c_tp_basicsize
-    if pto.c_tp_itemsize < base_pto.c_tp_itemsize:
-        pto.c_tp_itemsize = base_pto.c_tp_itemsize
 
     #/* Setup fast subclass flags */
     flags = widen(pto.c_tp_flags)
@@ -763,8 +761,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     if pto.c_tp_base:
         if pto.c_tp_base.c_tp_basicsize > pto.c_tp_basicsize:
             pto.c_tp_basicsize = pto.c_tp_base.c_tp_basicsize
-        if pto.c_tp_itemsize < pto.c_tp_base.c_tp_itemsize:
-            pto.c_tp_itemsize = pto.c_tp_base.c_tp_itemsize
+        # Do not override pto.c_tp_itemsize
 
     if w_type.is_heaptype():
         update_all_slots(space, w_type, pto)
