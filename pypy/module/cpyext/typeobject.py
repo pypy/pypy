@@ -478,6 +478,7 @@ def inherit_special(space, pto, w_obj, base_pto):
     # tp_itemsize will be set elsewhere
     if pto.c_tp_basicsize < base_pto.c_tp_basicsize:
         pto.c_tp_basicsize = base_pto.c_tp_basicsize
+    # tp_itemsize is set elsewhere
 
     #/* Setup fast subclass flags */
     flags = widen(pto.c_tp_flags)
@@ -761,7 +762,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     if pto.c_tp_base:
         if pto.c_tp_base.c_tp_basicsize > pto.c_tp_basicsize:
             pto.c_tp_basicsize = pto.c_tp_base.c_tp_basicsize
-        # Do not override pto.c_tp_itemsize
+        # Do not override pto.c_tp_itemsize here, it is done elsewhere
 
     if w_type.is_heaptype():
         update_all_slots(space, w_type, pto)
@@ -858,6 +859,15 @@ def _type_realize(space, py_obj):
         # borrowed reference, but w_object is unlikely to disappear
         base = as_pyobj(space, space.w_object)
         py_type.c_tp_base = rffi.cast(PyTypeObjectPtr, base)
+    
+    if py_type.c_tp_itemsize == 0:
+        w_base = from_ref(space, py_type.c_tp_base)
+        if space.is_w(w_base, space.w_bytes):
+            py_type.c_tp_itemsize = 1
+        elif space.is_w(w_base, space.w_tuple):
+            py_type.c_tp_itemsize = rffi.sizeof(PyObject)
+        # elif space.is_w(w_base, space.w_type):
+        #    py_type.c_tp_itemsize = rffi.sizeof(PyMemberDef)
 
     finish_type_1(space, py_type)
     ob_type = rffi.cast(PyObject, py_type).c_ob_type
