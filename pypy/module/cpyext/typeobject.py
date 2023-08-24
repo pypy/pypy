@@ -475,7 +475,6 @@ def add_tp_new_wrapper(space, dict_w, pto):
 
 def inherit_special(space, pto, w_obj, base_pto):
     # if tp_basicsize is zero or too low, we copy it from the base
-    # tp_itemsize will be set elsewhere
     if pto.c_tp_basicsize < base_pto.c_tp_basicsize:
         pto.c_tp_basicsize = base_pto.c_tp_basicsize
     # tp_itemsize is set elsewhere
@@ -707,9 +706,9 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
 
     typedescr = get_typedescr(w_type.layout.typedef)
 
-    if space.is_w(w_type, space.w_bytes):
+    if space.issubtype_w(w_type, space.w_bytes):
         pto.c_tp_itemsize = 1
-    elif space.is_w(w_type, space.w_tuple):
+    elif space.issubtype_w(w_type, space.w_tuple):
         pto.c_tp_itemsize = rffi.sizeof(PyObject)
     elif space.is_w(w_type, space.w_type):
         pto.c_tp_itemsize = rffi.sizeof(PyMemberDef)
@@ -861,7 +860,7 @@ def _type_realize(space, py_obj):
         py_type.c_tp_base = rffi.cast(PyTypeObjectPtr, base)
     
     if py_type.c_tp_itemsize == 0:
-        w_base = from_ref(space, py_type.c_tp_base)
+        w_base = from_ref(space, rffi.cast(PyObject, py_type.c_tp_base))
         if space.is_w(w_base, space.w_bytes):
             py_type.c_tp_itemsize = 1
         elif space.is_w(w_base, space.w_tuple):
