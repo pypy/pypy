@@ -2,7 +2,7 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.rlib.debug import debug_print
 from rpython.rtyper.lltypesystem.llmemory import AddressAsInt, cast_int_to_adr
 from rpython.rlib.rjitlog import rjitlog as jl
-from rpython.rlib.rstring import find, endswith
+from rpython.rlib.rstring import find, startswith, endswith
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.jit.metainterp.history import (
     AbstractFailDescr, ConstInt, ConstFloat, RefFrontendOp, IntFrontendOp, FloatFrontendOp,
@@ -31,21 +31,7 @@ class TokenMapError(Exception):
             self.message = "%s, key is %d" % (message, key)
 
 class mark(object):
-    JUMP = "emit_jump"
-    RET = "emit_ret"
     CALL_ASSEMBLER = "CALL_ASSEMBLER"
-
-    @staticmethod
-    def is_pseudo_jump(name):
-        return name.find(mark.JUMP) != -1
-
-    @staticmethod
-    def is_pseudo_ret(name):
-        return name.find(mark.RET) != -1
-
-    @staticmethod
-    def is_pseudo_op(name):
-        return name.find(mark.JUMP) != -1 or name.find(mark.RET) != -1
 
 class TraceSplitInfo(BasicLoopInfo):
     """ A state after splitting the trace, containing the following:
@@ -272,7 +258,7 @@ class OptTraceSplit(Optimizer):
 
     def optimize_GUARD_VALUE(self, op):
         self.emit(op)
-        if self.check_if_guard_marked(op):
+        if self._check_if_guard_marked(op):
             newfailargs = []
             for farg in op.getfailargs():
                 if not farg in self._specialguardop:
@@ -290,7 +276,7 @@ class OptTraceSplit(Optimizer):
 
     def optimize_CALL_N(self, op):
         name = self._get_name_from_op(op)
-        if self.check_if_cond_marked(op):
+        if self._check_if_cond_marked(op):
             self._specialguardop.append(op)
             self.emit(op)
         else:
@@ -299,7 +285,7 @@ class OptTraceSplit(Optimizer):
     def optimize_CALL_MAY_FORCE_R(self, op):
         name = self._get_name_from_op(op)
         if endswith(name, mark.CALL_ASSEMBLER):
-            self.handle_call_assembler(op)
+            self._handle_call_assembler(op)
             # self.emit(op)
         else:
             self.emit(op)
@@ -376,7 +362,7 @@ class OptTraceSplit(Optimizer):
         if len(self._fdescrstack) > 0:
             self.resumekey = self._fdescrstack.pop()
 
-    def handle_call_assembler(self, op):
+    def _handle_call_assembler(self, op):
         "convert recursive calls to an op using `call_assembler_x'"
         jd = self.jitdriver_sd
 
@@ -454,7 +440,7 @@ class OptTraceSplit(Optimizer):
                     return name.find(mark) != -1
         return False
 
-    def check_if_guard_marked(self, op):
+    def _check_if_guard_marked(self, op):
         conditions = self.conditions
         for cond in conditions:
             if not self._is_guard_marked(op, cond):
@@ -462,7 +448,7 @@ class OptTraceSplit(Optimizer):
             return True
         return False
 
-    def check_if_cond_marked(self, op):
+    def _check_if_cond_marked(self, op):
         conditions = self.conditions
         name = self._get_name_from_op(op)
         for cond in conditions:
@@ -470,7 +456,6 @@ class OptTraceSplit(Optimizer):
                 continue
             return True
         return False
-
 
 dispatch_opt = make_dispatcher_method(OptTraceSplit, 'optimize_',
                                       default=OptTraceSplit.optimize_default)

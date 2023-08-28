@@ -332,10 +332,10 @@ class TestOptTraceSplit(BaseTestTraceSplit):
         p35 = call_r(ConstClass(func2_ptr), p0, p1, 1, descr=calldescr)
         p36 = call_r(ConstClass(func2_ptr), p0, p1, p35, descr=calldescr)
         p38 = call_r(ConstClass(func2_ptr), p0, p1, 0, p36, 1, descr=calldescr)
-        p50 = call_r(ConstClass(begin_slow_path_ptr), p0, p1, 345, descr=calldescr)
+        begin_slow_path()
         i57 = call_may_force_i(ConstClass(func_ptr), p0, p1, 0, descr=calldescr)
         guard_value(i57, 45) []
-        call_n(ConstClass(end_slow_path_ptr), p0, p1, 345, descr=calldescr)
+        end_slow_path()
         finish(p0)
         """
 
