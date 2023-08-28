@@ -4,7 +4,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.module._hpy_universal.apiset import API, DEBUG
-from pypy.module._hpy_universal import interp_extfunc
+from pypy.module._hpy_universal import interp_extfunc, llapi
 from pypy.module._hpy_universal.state import State
 from pypy.module._hpy_universal.interp_cpy_compat import attach_legacy_methods
 
@@ -13,6 +13,7 @@ from pypy.module._hpy_universal.interp_cpy_compat import attach_legacy_methods
 def _hpymodule_create(handles, modname, hpydef):
     space = handles.space
     w_mod = Module(space, space.newtext(modname))
+    kinds = llapi.cts.gettype("HPyDef_Kind")
     #
     # add the functions defined in hpydef.c_legacy_methods
     if hpydef.c_legacy_methods:
@@ -30,13 +31,20 @@ def _hpymodule_create(handles, modname, hpydef):
         i = 0
         while p[i]:
             # hpy native methods
-            hpymeth = p[i].c_meth
-            name = rffi.constcharp2str(hpymeth.c_name)
-            sig = rffi.cast(lltype.Signed, hpymeth.c_signature)
-            doc = get_doc(hpymeth.c_doc)
-            w_extfunc = handles.w_ExtensionFunction(
-                space, handles, name, sig, doc, hpymeth.c_impl, w_mod)
-            space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
+            kind = p[i].c_kind
+            if kind == kinds.HPyDef_Kind_Slot:
+                hpyslot = llapi.cts.cast("HPySlot *", p[i].c_meth)
+                # XXX What to do with it?
+                # It must be either HPy_mod_create or HPy_mod_exec
+                # CPython stores the info in the PyModeDef.m_slots
+            else:
+                hpymeth = p[i].c_meth
+                name = rffi.constcharp2str(hpymeth.c_name)
+                sig = rffi.cast(lltype.Signed, hpymeth.c_signature)
+                doc = get_doc(hpymeth.c_doc)
+                w_extfunc = handles.w_ExtensionFunction(
+                    space, handles, name, sig, doc, hpymeth.c_impl, w_mod)
+                space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
             i += 1
     if hpydef.c_doc:
         w_doc = space.newtext(rffi.constcharp2str(hpydef.c_doc))

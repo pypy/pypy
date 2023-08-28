@@ -100,8 +100,8 @@ class HPyAppTest(object):
                     assert name not in sys.modules
                     spec = importlib.util.spec_from_file_location(name, so_filename)
                     mod = _hpy_universal.load(name, so_filename, spec, mode=mode)
-                    mod.__file__ == so_filename
-                    mod.__spec__ == spec
+                    mod.__file__ = so_filename
+                    mod.__spec__ = spec
                     return mod
                 """
             )
