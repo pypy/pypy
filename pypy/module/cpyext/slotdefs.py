@@ -12,7 +12,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
-    getbufferproc, ssizessizeobjargproc)
+    getbufferproc, ssizessizeobjargproc, destructor)
 from pypy.module.cpyext.pyobject import make_ref, from_ref, as_pyobj, decref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
@@ -474,6 +474,16 @@ class wrap_cmpfunc(W_PyCWrapperObject):
 
         return space.newint(generic_cpy_call(space, func_target, w_self, w_other))
 
+class wrap_del(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        from pypy.module.cpyext.api import generic_cpy_call_expect_null
+        self.check_args(__args__, 0)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(destructor, func)
+        generic_cpy_call(space, func_target, w_self)
+        return space.w_None
+
+
 SLOT_FACTORIES = {}
 def slot_factory(tp_name):
     def decorate(func):
@@ -702,6 +712,12 @@ def make_tp_call(space, typedef, name, attr):
         return space.call_args(call_fn, args)
     return slot_tp_call
 
+# issue 3956
+TP_ITERNEXT_RAISES_STOPITERATION = (
+    "coroutine_wrapper",
+    "generator",
+)
+
 @slot_factory('tp_iternext')
 def make_tp_iternext(space, typedef, name, attr):
     w_type = space.gettypeobject(typedef)
@@ -709,13 +725,15 @@ def make_tp_iternext(space, typedef, name, attr):
     if iternext_fn is None:
         return
 
+    raises_stopiter = w_type.name in TP_ITERNEXT_RAISES_STOPITERATION
+
     @slot_function([PyObject], PyObject)
     @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
     def slot_tp_iternext(space, w_self):
         try:
             return space.call_function(iternext_fn, w_self)
         except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
+            if raises_stopiter or not e.match(space, space.w_StopIteration):
                 raise
             return None
     return slot_tp_iternext
@@ -836,21 +854,6 @@ def slot_from_buffer_w(space, typedef):
             return ret
         return 0
     return buff_w
-
-def _make_missing_wrapper(name):
-    assert name not in globals()
-    class missing_wrapper(W_PyCWrapperObject):
-        def call(self, space, w_self, __args__):
-            msg = "cpyext: missing slot wrapper %s for class %s" %(
-                    name, space.getfulltypename(w_self))
-            print msg
-            raise NotImplementedError("Slot wrapper " + name)
-    missing_wrapper.__name__ = name
-    globals()[name] = missing_wrapper
-
-missing_wrappers = ['wrap_del']
-for name in missing_wrappers:
-    _make_missing_wrapper(name)
 
 def make_missing_slot(space, typedef, name, attr):
     return None
@@ -1009,7 +1012,7 @@ static slotdef slotdefs[] = {
     TPSLOT("__new__", tp_new, slot_tp_new, NULL,
            "__new__(type, /, *args, **kwargs)\n--\n\n"
            "Create and return new object.  See help(type) for accurate signature."),
-    TPSLOT("__del__", tp_finalize, slot_tp_finalize, (wrapperfunc)wrap_del, ""),
+    TPSLOT("__del__", tp_finalize, slot_tp_finalize, wrap_del, ""),
 
     AMSLOT("__await__", am_await, slot_am_await, wrap_unaryfunc,
            "__await__($self, /)\n--\n\nReturn an iterator to be used in await expression."),

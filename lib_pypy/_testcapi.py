@@ -12,7 +12,7 @@ else:
     output_dir = _pypy_testcapi.get_hashed_dir(os.path.join(thisdir, cfile))
     modfile = '_testcapi' + _pypy_testcapi._get_c_extension_suffix()
     spec = spec_from_file_location('_testcapi',
-                                   os.path.join(output_dir, modfile))
+                                   os.path.join(thisdir, modfile))
     try:
         module_from_spec(spec)
     except ImportError:
@@ -22,7 +22,7 @@ else:
                 import setuptools
             except ImportError:
                 pass
-        mod = _pypy_testcapi.compile_shared(cfile, '_testcapi', output_dir)
+        mod = _pypy_testcapi.compile_shared(cfile, '_testcapi', thisdir)
 
 class awaitType:
     def __init__(self, iterator):

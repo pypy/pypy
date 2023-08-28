@@ -111,7 +111,7 @@ def create_module_from_def_and_spec(space, moddef, w_spec, name):
             slot = rffi.cast(lltype.Signed, cur_slot[0].c_slot)
             if slot == 0:
                 break
-            elif slot == 1:
+            elif slot == 1: # Py_mod_create
                 if createf:
                     raise oefmt(space.w_SystemError,
                                 "module %s has multiple create slots", name)

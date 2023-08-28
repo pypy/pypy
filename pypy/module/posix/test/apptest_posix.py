@@ -50,3 +50,14 @@ def test_cpu_count():
 def test_putenv_invalid_name():
     with pytest.raises(ValueError):
         posix.putenv("foo=bar", "xxx")
+
+def test_all_pathconf_defined():
+    import sys
+    import posix
+    try:
+        fd = sys.stdin.fileno()
+    except ValueError:
+        # translated test run with a fake sys.stdin with no fileno
+        fd = 1
+    for name in posix.pathconf_names:
+        posix.fpathconf(fd, name) # does not crash

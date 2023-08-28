@@ -222,6 +222,10 @@ def create_ref(space, w_obj, w_userdata=None, immortal=False):
         # override the default tp_itemsize (see also unicode_alloc)
         # Maybe this snippet should use the ptype.tp_alloc to allocate the py_obj?
         itemsize = 1
+    elif space.is_w(w_type, space.w_type):
+        # Subclasses of "type" (which has space for PyMemberDef) do not
+        # need space for tp_member like heap types do
+        itemsize = 0
     else:
         itemsize = pytype.c_tp_itemsize
     if itemsize != 0:
@@ -378,7 +382,7 @@ def make_ref(space, w_obj, w_userdata=None, immortal=False):
         # XXX: adapt for pypy3
         state = space.fromcache(State)
         intval = space.int_w(w_obj)
-        return state.ccall("PyInt_FromLong", intval)
+        return state.ccall("PyLong_FromLong", intval)
     return get_pyobj_and_incref(space, w_obj, w_userdata, immortal=False)
 
 @specialize.ll()

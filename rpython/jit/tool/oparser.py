@@ -418,12 +418,12 @@ def pick_cls(inp):
     from rpython.jit.metainterp import history
 
     if inp.type == 'i':
-        return history.IntFrontendOp
+        return lambda pos: history.IntFrontendOp(pos, -1)
     elif inp.type == 'r':
-        return history.RefFrontendOp
+        return lambda pos: history.RefFrontendOp(pos, history.RefFrontendOp._resref)
     else:
         assert inp.type == 'f'
-        return history.FloatFrontendOp
+        return lambda pos: history.FloatFrontendOp(pos, -3.14)
 
 def convert_loop_to_trace(loop, metainterp_sd, skip_last=False):
     from rpython.jit.metainterp.opencoder import Trace
@@ -438,12 +438,15 @@ def convert_loop_to_trace(loop, metainterp_sd, skip_last=False):
     class jitcode:
         index = 200
 
-    inputargs = [pick_cls(inparg)(i) for i, inparg in
-                 enumerate(loop.inputargs)]
+    inputargs = []
+    for i, inparg in enumerate(loop.inputargs):
+        inputargs.append(pick_cls(inparg)(i * 2))
+        inputargs.append(None) # emulate "holes"
     mapping = {}
-    for one, two in zip(loop.inputargs, inputargs):
+    for one, two in zip(loop.inputargs, inputargs[::2]):
         mapping[one] = two
-    trace = Trace(inputargs, metainterp_sd)
+    trace = Trace(len(inputargs), metainterp_sd)
+    trace.set_inputargs([x for x in inputargs if x is not None])
     ops = loop.operations
     if skip_last:
         ops = ops[:-1]

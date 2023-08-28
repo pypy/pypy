@@ -162,6 +162,12 @@ try:
 except NameError:
     complex = float
 
+_SNIFFER_RES = [re.compile(restr, re.DOTALL | re.MULTILINE) for restr in
+    (r'(?P<delim>[^\w\n"\'])(?P<space> ?)(?P<quote>["\']).*?(?P=quote)(?P=delim)', # ,".*?",
+     r'(?:^|\n)(?P<quote>["\']).*?(?P=quote)(?P<delim>[^\w\n"\'])(?P<space> ?)',   #  ".*?",
+     r'(?P<delim>[^\w\n"\'])(?P<space> ?)(?P<quote>["\']).*?(?P=quote)(?:$|\n)',   # ,".*?"
+     r'(?:^|\n)(?P<quote>["\']).*?(?P=quote)(?:$|\n)')]                            #  ".*?" (no delim, no space)
+
 class Sniffer:
     '''
     "Sniffs" the format of a CSV file (i.e. delimiter, quotechar)
@@ -214,11 +220,9 @@ class Sniffer:
         """
 
         matches = []
-        for restr in (r'(?P<delim>[^\w\n"\'])(?P<space> ?)(?P<quote>["\']).*?(?P=quote)(?P=delim)', # ,".*?",
-                      r'(?:^|\n)(?P<quote>["\']).*?(?P=quote)(?P<delim>[^\w\n"\'])(?P<space> ?)',   #  ".*?",
-                      r'(?P<delim>[^\w\n"\'])(?P<space> ?)(?P<quote>["\']).*?(?P=quote)(?:$|\n)',   # ,".*?"
-                      r'(?:^|\n)(?P<quote>["\']).*?(?P=quote)(?:$|\n)'):                            #  ".*?" (no delim, no space)
-            regexp = re.compile(restr, re.DOTALL | re.MULTILINE)
+        # PyPy difference: compile the regular expressions only once, globally,
+        # instead of on every call to sniff
+        for regexp in _SNIFFER_RES:
             matches = regexp.findall(data)
             if matches:
                 break

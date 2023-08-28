@@ -36,6 +36,8 @@ class Storage:
     rd_virtuals = None
     rd_pendingfields = None
 
+dummyref = RefFrontendOp._resref
+
 
 class FakeOptimizer(object):
     metainterp_sd = None
@@ -183,10 +185,9 @@ class MyMetaInterp:
     def execute_and_record(self, opnum, descr, *argboxes):
         resvalue = executor.execute(self.cpu, None, opnum, descr, *argboxes)
         if isinstance(resvalue, int):
-            op = IntFrontendOp(0)
+            op = IntFrontendOp(0, resvalue)
         else:
-            op = RefFrontendOp(0)
-        setvalue(op, resvalue)
+            op = RefFrontendOp(0, resvalue)
         self.trace.append((opnum, list(argboxes), resvalue, descr))
         return op
 
@@ -600,8 +601,8 @@ class Frame(object):
         return a
 
 def test_ResumeDataLoopMemo_number():
-    b1, b2, b3, b4, b5 = [IntFrontendOp(0), IntFrontendOp(1), IntFrontendOp(2),
-                          RefFrontendOp(3), RefFrontendOp(4)]
+    b1, b2, b3, b4, b5 = [IntFrontendOp(0, 0), IntFrontendOp(1, 0), IntFrontendOp(2, 0),
+                          RefFrontendOp(3, dummyref), RefFrontendOp(4, dummyref)]
     c1, c2, c3, c4 = [ConstInt(1), ConstInt(2), ConstInt(3), ConstInt(4)]
 
     env = [b1, c1, b2, b1, c2]
@@ -710,7 +711,7 @@ def test_ResumeDataLoopMemo_number():
         ] + [0, 0]
 
 @given(strategies.lists(
-    strategies.builds(IntFrontendOp, strategies.just(0)) | intconsts,
+    strategies.builds(IntFrontendOp, strategies.just(0), strategies.just(1)) | intconsts,
     min_size=1))
 def test_ResumeDataLoopMemo_random(lst):
     inpargs = [box for box in lst if not isinstance(box, Const)]
@@ -741,7 +742,7 @@ def test_ResumeDataLoopMemo_random(lst):
 
 def test_ResumeDataLoopMemo_number_boxes():
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    b1, b2 = [IntFrontendOp(0), IntFrontendOp(0)]
+    b1, b2 = [IntFrontendOp(0, 0), IntFrontendOp(0, 0)]
     assert memo.num_cached_boxes() == 0
     boxes = []
     num = memo.assign_number_to_box(b1, boxes)
@@ -770,7 +771,7 @@ def test_ResumeDataLoopMemo_number_boxes():
 
 def test_ResumeDataLoopMemo_number_virtuals():
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
-    b1, b2 = [IntFrontendOp(0), IntFrontendOp(0)]
+    b1, b2 = [IntFrontendOp(0, 0), IntFrontendOp(0, 0)]
     assert memo.num_cached_virtuals() == 0
     num = memo.assign_number_to_virtual(b1)
     assert num == -1
@@ -790,8 +791,8 @@ def test_ResumeDataLoopMemo_number_virtuals():
     assert memo.num_cached_virtuals() == 0
 
 def test_register_virtual_fields():
-    b1, b2 = IntFrontendOp(0), IntFrontendOp(1)
-    vbox = RefFrontendOp(2)
+    b1, b2 = IntFrontendOp(0, 0), IntFrontendOp(1, 0)
+    vbox = RefFrontendOp(2, dummyref)
     modifier = ResumeDataVirtualAdder(FakeOptimizer(), None, None, None, None)
     modifier.liveboxes_from_env = {}
     modifier.liveboxes = {}
@@ -976,8 +977,8 @@ def test_virtual_adder_make_constant():
 
 
 def test_virtual_adder_make_virtual():
-    b2s, b3s, b4s, b5s = [RefFrontendOp(0), IntFrontendOp(0), RefFrontendOp(0),
-                          RefFrontendOp(0)]
+    b2s, b3s, b4s, b5s = [RefFrontendOp(0, dummyref), IntFrontendOp(0, 0), RefFrontendOp(0, dummyref),
+                          RefFrontendOp(0, dummyref)]
     c1s = ConstInt(111)
     storage = Storage()
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
@@ -1007,7 +1008,7 @@ def test_virtual_adder_make_virtual():
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = Numbering([0])
     # resume
-    b3t, b5t = [IntFrontendOp(0), RefFrontendOp(0)]
+    b3t, b5t = [IntFrontendOp(0, 0), RefFrontendOp(0, dummyref)]
     b5t.setref_base(demo55o)
     b3t.setint(33)
     newboxes = _resume_remap(liveboxes, [#b2s -- virtual
@@ -1058,7 +1059,7 @@ class CompareableConsts(object):
         del Const.__eq__
 
 def test_virtual_adder_make_varray():
-    b2s, b4s = [RefFrontendOp(0), IntFrontendOp(0)]
+    b2s, b4s = [RefFrontendOp(0, dummyref), IntFrontendOp(0, 0)]
     b4s.setint(4)
     c1s = ConstInt(111)
     storage = Storage()
@@ -1078,7 +1079,7 @@ def test_virtual_adder_make_varray():
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = Numbering([0])
     # resume
-    b1t, b3t, b4t = [IntFrontendOp(0), IntFrontendOp(0), IntFrontendOp(0)]
+    b1t, b3t, b4t = [IntFrontendOp(0, 0), IntFrontendOp(0, 0), IntFrontendOp(0, 0)]
     b1t.setint(11)
     b3t.setint(33)
     b4t.setint(44)
@@ -1111,7 +1112,7 @@ def test_virtual_adder_make_varray():
 
 
 def test_virtual_adder_make_vstruct():
-    b2s, b4s = [RefFrontendOp(0), RefFrontendOp(0)]
+    b2s, b4s = [RefFrontendOp(0, dummyref), RefFrontendOp(0, dummyref)]
     c1s = ConstInt(111)
     storage = Storage()
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
@@ -1130,7 +1131,7 @@ def test_virtual_adder_make_vstruct():
     dump_storage(storage, liveboxes)
     storage.rd_consts = memo.consts[:]
     storage.rd_numb = Numbering([0])
-    b4t = RefFrontendOp(0)
+    b4t = RefFrontendOp(0, dummyref)
     newboxes = _resume_remap(liveboxes, [#b2s -- virtual
                                          b4s], b4t)
     #
@@ -1158,7 +1159,7 @@ def test_virtual_adder_make_vstruct():
 
 
 def test_virtual_adder_pending_fields():
-    b2s, b4s = [RefFrontendOp(0), RefFrontendOp(0)]
+    b2s, b4s = [RefFrontendOp(0, dummyref), RefFrontendOp(0, dummyref)]
     storage = Storage()
     memo = ResumeDataLoopMemo(FakeMetaInterpStaticData())
     modifier = ResumeDataVirtualAdder(None, storage, storage, None, memo)
@@ -1178,9 +1179,9 @@ def test_virtual_adder_pending_fields():
     storage.rd_numb = Numbering([0])
     # resume
     demo55.next = lltype.nullptr(LLtypeMixin.NODE)
-    b2t = RefFrontendOp(0)
+    b2t = RefFrontendOp(0, dummyref)
     b2t.setref_base(demo55o)
-    b4t = RefFrontendOp(0)
+    b4t = RefFrontendOp(0, dummyref)
     b4t.setref_base(demo66o)
     newboxes = _resume_remap(liveboxes, [b2s, b4s], b2t, b4t)
 
@@ -1210,8 +1211,8 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     field_a = FieldDescr()
     storage = Storage()
     modifier = ResumeDataVirtualAdder(None, storage, storage, None, None)
-    a = IntFrontendOp(0)
-    b = IntFrontendOp(0)
+    a = IntFrontendOp(0, 0)
+    b = IntFrontendOp(0, 0)
     modifier.liveboxes_from_env = {a: rffi.cast(rffi.SHORT, 1042),
                                    b: rffi.cast(rffi.SHORT, 1061)}
     modifier._add_pending_fields(
@@ -1227,10 +1228,10 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     array_a = FieldDescr()
     storage = Storage()
     modifier = ResumeDataVirtualAdder(None, storage, storage, None, None)
-    a42 = IntFrontendOp(0)
-    a61 = IntFrontendOp(0)
-    a62 = IntFrontendOp(0)
-    a63 = IntFrontendOp(0)
+    a42 = IntFrontendOp(0, 0)
+    a61 = IntFrontendOp(0, 0)
+    a62 = IntFrontendOp(0, 0)
+    a63 = IntFrontendOp(0, 0)
     modifier.liveboxes_from_env = {a42: rffi.cast(rffi.SHORT, 1042),
                                    a61: rffi.cast(rffi.SHORT, 1061),
                                    a62: rffi.cast(rffi.SHORT, 1062),

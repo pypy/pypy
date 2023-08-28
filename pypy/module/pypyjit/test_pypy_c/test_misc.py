@@ -237,6 +237,8 @@ class TestMisc(BaseTestPyPyC):
             guard_nonnull_class(p17, ..., descr=...)
             guard_not_invalidated?
             i21 = getfield_gc_i(p17, descr=<FieldS .*W_Array.*.inst_len .*>)
+            i22 = int_lt(i21, 0)
+            guard_false(i22, descr=...)
             i23 = int_lt(0, i21)
             guard_true(i23, descr=...)
             i24 = getfield_gc_i(p17, descr=<FieldU .*W_ArrayBase.inst__buffer .*>)
@@ -463,3 +465,17 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         opnames = log.opnames(loop.allops())
         assert "new" not in opnames
+
+    def test_sys_flags_access(self):
+        def main(n):
+            import sys
+            x = 0
+            for i in range(n):
+                import sys
+                flags = sys.flags # ID: flags
+                x += flags.debug
+        log = self.run(main, [3000])
+        loop, = log.loops_by_id("flags", is_entry_bridge=True)
+        ops = loop.ops_by_id("flags")
+        assert ops == [] # used to be a getfield_gc_r on an ObjectMutableCell
+

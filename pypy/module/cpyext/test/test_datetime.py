@@ -471,3 +471,20 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
         o = tzinfo()
         assert module.checks(o) == (False,) * 8 + (True,) * 2
 
+    def test_getsystemclock(self):
+        # Taken from the cython time_pxd.pyx test_time() test
+        module = self.import_extension('foo', [
+            ("getsystemclock", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                _PyTime_t tic = _PyTime_GetSystemClock();
+                double r = _PyTime_AsSecondsDouble(tic);
+                return PyFloat_FromDouble(r);
+            """)], prologue='#include "datetime.h"\n')
+        import time
+        # warm up the time.time function
+        for _ in range(2000):
+            tic1 = time.time()
+        tic2 = module.getsystemclock()
+        tic3 = time.time()
+        assert tic1 <= tic2, "%s, %s" % (tic1, tic2)
+        assert tic2 <= tic3, "%s, %s" % (tic2, tic3)

@@ -88,10 +88,18 @@ class W_IncrementalNewlineDecoder(W_Root):
                         "decoder should return a string result")
 
         output, output_len = space.utf8_len_w(w_output)
+        w_result = self._decoder_w_unboxed(space, output, output_len, final)
+        if w_result is None:
+            return w_output
+        return w_result
+
+    def _decoder_w_unboxed(self, space, output, output_len, final):
+        changed = False
         if self.pendingcr and (final or output_len):
             output = '\r' + output
             self.pendingcr = False
             output_len += 1
+            changed = True
 
         # retain last \r even when not translating data:
         # then readline() is sure to get \r\n in one pass
@@ -102,6 +110,7 @@ class W_IncrementalNewlineDecoder(W_Root):
                 output = output[:last]
                 self.pendingcr = True
                 output_len -= 1
+                changed = True
 
         if output_len == 0:
             return space.newutf8("", 0)
@@ -114,10 +123,12 @@ class W_IncrementalNewlineDecoder(W_Root):
         if rpos < 0:
             # If no \r, quick scan for a possible "\n" character.
             # (there's nothing else to be done, even when in translation mode)
-            if output.find('\n') >= 0:
-                seennl |= SEEN_LF
-                # Finished: we have scanned for newlines, and none of them
-                # need translating.
+            if not (seennl & SEEN_LF) and output.find('\n') >= 0:
+                self.seennl |= SEEN_LF
+            # Finished: we have scanned for newlines, and none of them
+            # need translating.
+            if not changed:
+                return None # means we can reuse the w_output in the caller
         elif not self.translate:
             i = 0
             while i < len(output):
@@ -133,12 +144,16 @@ class W_IncrementalNewlineDecoder(W_Root):
                         i += 1
                     else:
                         seennl |= SEEN_CR
+            if not changed:
+                self.seennl |= seennl
+                return None
         else:
+            changed = True
             assert rpos >= 0
             # Translate!
             builder = StringBuilder(len(output))
             if output.find("\n", 0, rpos) >= 0:
-                self.seennl |= SEEN_LF
+                seennl |= SEEN_LF
             builder.append_slice(output, 0, rpos)
             i = rpos
             while i < len(output):

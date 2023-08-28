@@ -63,43 +63,36 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1t.tar.gz',
-             '8dee9b24bdb1dcbf0c3d1e9b02fb8f6bf22165e807f45adeb7c9677536859d3b',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1v.tar.gz',
+              'd6697e2871e77238460402e9362d47d18382b15ef9f246aba6c7bd780d38a6b0',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.8.tar.gz',
-              '6c13d2bf38fdf31eac3ce2a347073673f5d63263398f1f69d0df4a41253e4b3e',
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.10.tar.gz',
+              '1761d4f5b13a1028b9b6f3d4b8e17feb0cedc9370f6afe61d7193d2cdce83323',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
-}
-
-cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
-
-if sys.platform == 'darwin' or platform.machine() == 'aarch64':
-    # TODO: use these on x86 after upgrading Docker images to manylinux2014
-    cffi_dependencies['_gdbm'] = (
-              # this does not compile on the x86 buildbot, linker is missing '_history_list'
-              'http://distfiles.macports.org/gdbm/gdbm-1.19.tar.gz',
-              '37ed12214122b972e18a0d94995039e57748191939ef74115b1d41d8811364bc',
-    # this does not compile on the linux buildbot, linker is missing '_history_list'
-              [configure_args + ['--without-readline'],
-              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
-              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ])
-    cffi_dependencies['lzma'] = (
-              # this does not compile on the linux64 buildbot, needs -fPIC
-             'http://distfiles.macports.org/xz/xz-5.2.5.tar.bz2',
-             '5117f930900b341493827d63aa910ff5e011e0b994197c3b71c08a20228a42df',
+    'lzma':  (
+             'http://distfiles.macports.org/xz/xz-5.2.10.tar.bz2',
+             '01b71df61521d9da698ce3c33148bff06a131628ff037398c09482f3a26e5408',
              [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ])
+             ]),
+    '_gdbm': ('http://distfiles.macports.org/gdbm/gdbm-1.23.tar.gz',
+              '74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd',
+              [configure_args + ['--without-readline'],
+              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+              ]),
+}
+
+cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
 
 def _unpack_tarfile(filename, extract_dir):
     """Unpack tar/tar.gz/tar.bz2/tar.xz `filename` to `extract_dir`

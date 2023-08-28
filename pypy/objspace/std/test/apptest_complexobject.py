@@ -170,8 +170,12 @@ def test_pow():
     b = 5.1+2.3j
     raises(ValueError, pow, a, b, 0)
 
-    b = complex(float('inf'), 0.0) ** complex(10., 3.)
-    assert repr(b) == "(nan+nanj)"
+    raises(ZeroDivisionError, pow, complex(float('inf'), 0.0), complex(10., 3.))
+
+    # issue 3944
+    b = pow(1, -1.j)
+    assert repr(b.imag) == "-0.0"
+
 
 def test_boolcontext():
     for i in range(100):
