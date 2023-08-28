@@ -26,16 +26,17 @@ class FrameState(object):
 
     @property
     def mergeable(self):
+        from rpython.flowspace.flowcontext import FlowSignal
         if self._mergeable is not None:
             return self._mergeable
-        self._mergeable = data = self.locals_w + self.stack
+
+        self._mergeable = data = self.locals_w + recursively_flatten(self.stack)
         if self.last_exception is None:
             data.append(Constant(None))
             data.append(Constant(None))
         else:
             data.append(self.last_exception.w_type)
             data.append(self.last_exception.w_value)
-        recursively_flatten(data)
         return data
 
     def copy(self):
@@ -91,11 +92,11 @@ class FrameState(object):
     def getoutputargs(self, targetstate):
         "Return the output arguments needed to link self to targetstate."
         result = []
-        for w_output, w_target in zip(self.mergeable, targetstate.mergeable):
+        mergeable = self.mergeable
+        for i, w_target in enumerate(targetstate.mergeable):
             if isinstance(w_target, Variable):
-                result.append(w_output)
+                result.append(mergeable[i])
         return result
-
 
 class UnionError(Exception):
     "The two states should be merged."
@@ -129,10 +130,19 @@ def union(w1, w2):
 
 def recursively_flatten(lst):
     from rpython.flowspace.flowcontext import FlowSignal
-    i = 0
+    if not lst:
+        return lst
+    i = -1
+    for i in range(len(lst)):
+        if isinstance(lst[i], FlowSignal):
+            break
+    else:
+        return lst
+    lst = lst[:]
     while i < len(lst):
         unroller = lst[i]
         if not isinstance(unroller, FlowSignal):
             i += 1
         else:
             lst[i:i + 1] = unroller.args
+    return lst

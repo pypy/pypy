@@ -129,7 +129,11 @@ class PureOperation(HLOperation):
                 msg = "%s%r always raises %s: %s" % (
                     self.opname, tuple(args), type(e), e)
                 raise FlowingError(msg)
-            else:
+            return self._pure_result(result)
+
+    def _pure_result(self, result):
+                # indented for history preservation
+
                 # don't try to constant-fold operations giving a 'long'
                 # result.  The result is probably meant to be sent to
                 # an intmask(), but the 'long' constant confuses the
@@ -147,6 +151,43 @@ class PureOperation(HLOperation):
                         # type cannot sanely appear in flow graph,
                         # store operation with variable result instead
                         pass
+
+class PureOperation1(PureOperation):
+    pure = True
+
+    def constfold(self):
+        w_arg0, = self.args
+        if not w_arg0.foldable():
+            return
+        arg0 = w_arg0.value
+        # argument is constant: call the operator now
+        try:
+            result = self.pyfunc(arg0)
+        except Exception as e:
+            from rpython.flowspace.flowcontext import FlowingError
+            msg = "%s%r always raises %s: %s" % (
+                self.opname, (arg0, ), type(e), e)
+            raise FlowingError(msg)
+        return self._pure_result(result)
+
+class PureOperation2(PureOperation):
+    pure = True
+
+    def constfold(self):
+        w_arg0, w_arg1 = self.args
+        if not w_arg0.foldable() or not w_arg1.foldable():
+            return
+        arg0 = w_arg0.value
+        arg1 = w_arg1.value
+        # argument is constant: call the operator now
+        try:
+            result = self.pyfunc(arg0, arg1)
+        except Exception as e:
+            from rpython.flowspace.flowcontext import FlowingError
+            msg = "%s%r always raises %s: %s" % (
+                self.opname, (arg0, arg1), type(e), e)
+            raise FlowingError(msg)
+        return self._pure_result(result)
 
 class OverflowingOperation(PureOperation):
     can_overflow = True
@@ -269,7 +310,12 @@ def add_operator(name, arity, dispatch=None, pyfunc=None, pure=False, ovf=False)
         assert pure
         base_cls = OverflowingOperation
     elif pure:
-        base_cls = PureOperation
+        if arity == 1:
+            base_cls = PureOperation1
+        elif arity == 2:
+            base_cls = PureOperation2
+        else:
+            base_cls = PureOperation
     else:
         base_cls = HLOperation
     bases.append(base_cls)
