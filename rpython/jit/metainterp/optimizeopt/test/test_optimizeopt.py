@@ -7395,13 +7395,11 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         expected = """
         [p0, p1, p3, ii, ii2, i1, i2]
-        setfield_gc(p3, i2, descr=abisdescr)
-        setfield_gc(p3, i1, descr=adescr)
-        i4 = int_eq(i1, i2)
-        guard_true(i4) []
+        setfield_gc(p3, i1, descr=abisdescr)
+        setfield_gc(p3, i2, descr=adescr)
         i5 = int_gt(ii, 42)
         guard_true(i5) []
-        jump(p0, p1, p3, ii2, ii, i2, i2)
+        jump(p0, p1, p3, ii2, ii, i1, i2)
         """
         self.optimize_loop(ops, expected)
 

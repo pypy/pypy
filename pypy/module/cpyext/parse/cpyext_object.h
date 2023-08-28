@@ -316,6 +316,10 @@ typedef struct _heaptypeobject {
     PyObject *ht_module;
 } PyHeapTypeObject;
 
+/* access macro to the members which are floating "behind" the object */
+#define PyHeapType_GET_MEMBERS(etype) \
+    ((PyMemberDef *)(((char *)etype) + Py_TYPE(etype)->tp_basicsize))
+
 typedef struct {
     PyCFunctionObject func;
     PyTypeObject *mm_class; /* Class that defines this method */

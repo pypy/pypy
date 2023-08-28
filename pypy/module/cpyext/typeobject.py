@@ -295,10 +295,10 @@ def convert_member_defs(space, dict_w, members, w_type):
         i = 0
         while True:
             member = members[i]
-            name = member.c_name
-            if not name:
+            cname = member.c_name
+            if not cname:
                 break
-            name = rffi.constcharp2str(name)
+            name = rffi.constcharp2str(cname)
             w_descr = W_MemberDescr(member, w_type)
             dict_w[name] = w_descr
             i += 1
@@ -475,12 +475,10 @@ def add_tp_new_wrapper(space, dict_w, pto):
                                           from_ref(space, pyo), None)
 
 def inherit_special(space, pto, w_obj, base_pto):
-    # XXX missing: copy basicsize and flags in a magical way
-    # (minimally, if tp_basicsize is zero or too low, we copy it from the base)
+    # if tp_basicsize is zero or too low, we copy it from the base
     if pto.c_tp_basicsize < base_pto.c_tp_basicsize:
         pto.c_tp_basicsize = base_pto.c_tp_basicsize
-    if pto.c_tp_itemsize < base_pto.c_tp_itemsize:
-        pto.c_tp_itemsize = base_pto.c_tp_itemsize
+    # tp_itemsize is set elsewhere
 
     #/* Setup fast subclass flags */
     flags = widen(pto.c_tp_flags)
@@ -664,6 +662,7 @@ def type_dealloc(space, obj):
     decref(space, obj_pto.c_tp_cache) # let's do it like cpython
     decref(space, obj_pto.c_tp_dict)
     if widen(obj_pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE:
+        # TODO release tp_doc?
         heaptype = rffi.cast(PyHeapTypeObject, obj)
         decref(space, heaptype.c_ht_name)
         decref(space, heaptype.c_ht_qualname)
@@ -711,10 +710,12 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
 
     typedescr = get_typedescr(w_type.layout.typedef)
 
-    if space.is_w(w_type, space.w_bytes):
+    if space.issubtype_w(w_type, space.w_bytes):
         pto.c_tp_itemsize = 1
-    elif space.is_w(w_type, space.w_tuple):
+    elif space.issubtype_w(w_type, space.w_tuple):
         pto.c_tp_itemsize = rffi.sizeof(PyObject)
+    elif space.is_w(w_type, space.w_type):
+        pto.c_tp_itemsize = rffi.sizeof(PyMemberDef)
 
     state = space.fromcache(State)
     pto.c_tp_free = state.C.PyObject_Free
@@ -764,8 +765,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     if pto.c_tp_base:
         if pto.c_tp_base.c_tp_basicsize > pto.c_tp_basicsize:
             pto.c_tp_basicsize = pto.c_tp_base.c_tp_basicsize
-        if pto.c_tp_itemsize < pto.c_tp_base.c_tp_itemsize:
-            pto.c_tp_itemsize = pto.c_tp_base.c_tp_itemsize
+        # Do not override pto.c_tp_itemsize here, it is done elsewhere
 
     if w_type.is_heaptype():
         update_all_slots(space, w_type, pto)
@@ -886,6 +886,15 @@ def _type_realize(space, py_obj):
         # borrowed reference, but w_object is unlikely to disappear
         base = as_pyobj(space, space.w_object)
         py_type.c_tp_base = rffi.cast(PyTypeObjectPtr, base)
+    
+    if py_type.c_tp_itemsize == 0:
+        w_base = from_ref(space, rffi.cast(PyObject, py_type.c_tp_base))
+        if space.is_w(w_base, space.w_bytes):
+            py_type.c_tp_itemsize = 1
+        elif space.is_w(w_base, space.w_tuple):
+            py_type.c_tp_itemsize = rffi.sizeof(PyObject)
+        # elif space.is_w(w_base, space.w_type):
+        #    py_type.c_tp_itemsize = rffi.sizeof(PyMemberDef)
 
     finish_type_1(space, py_type)
     ob_type = rffi.cast(PyObject, py_type).c_ob_type
@@ -1018,10 +1027,7 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     from pypy.module.cpyext.unicodeobject import PyUnicode_FromString
     state = space.fromcache(State)
     p_type = cts.cast('PyTypeObject*', make_ref(space, space.w_type))
-    res = state.ccall("PyType_GenericAlloc", p_type, 0)
-    res = cts.cast('PyHeapTypeObject *', res)
-    typ = res.c_ht_type
-    typ.c_tp_flags = rffi.cast(rffi.ULONG, widen(spec.c_flags) | Py_TPFLAGS_HEAPTYPE)
+    slotdefs = rffi.cast(rffi.CArrayPtr(cts.gettype('PyType_Slot')), spec.c_slots)
     specname = rffi.constcharp2str(spec.c_name)
     dotpos = specname.rfind('.')
     if dotpos < 0:
@@ -1030,6 +1036,63 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     else:
         name = specname[dotpos + 1:]
         modname = specname[:dotpos]
+    # XXX Traverse the slots, look for errors, raise them before allocating the
+    # type. Also:
+    # - set nmembers since the alloc should allow size to hold them
+    #   and then set typ.tp_member to point to them
+    # - calculate tp_doc if Py_tp_doc is used
+    nmembers = weaklistoffset = dictoffset = vectorcalloffset = 0;
+    tp_doc = None
+    module_from_spec = False
+    i = 0
+    while True:
+        slotdef = slotdefs[i]
+        slot = rffi.cast(lltype.Signed, slotdef.c_slot)
+        if slot == 0:
+            break
+        if slot < 0:  # or slot > len(slotoffsets):
+            raise oefmt(space.w_RuntimeError, "invalid slot offset")
+        if slot == cts.macros['Py_tp_members']:
+            if nmembers != 0:
+                raise oefmt(space.w_SystemError,
+                            "Multiple Py_tp_member slots are not supported")
+            members = rffi.cast(rffi.CArrayPtr(PyMemberDef), slotdef.c_pfunc)
+            if members:
+                while True:
+                    member = members[nmembers]
+                    cname = member.c_name
+                    nmembers += 1  # make sure nmembers includes the null finalizer
+                    if not cname:
+                        break
+                    name = rffi.constcharp2str(cname)
+                    if name == "__weaklistoffset__":
+                        assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
+                        assert widen(member.c_flags) == structmemberdefs.READONLY
+                        weaklistoffset = member.c_offset
+                    elif name == "__dictoffset__":
+                        assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
+                        assert widen(member.c_flags) == structmemberdefs.READONLY
+                        dictoffset = member.c_offset
+                    elif name == "__vectorcalloffset__":
+                        assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
+                        assert widen(member.c_flags) == structmemberdefs.READONLY
+                        vectorcalloffset = member.c_offset
+                    elif name == "__module__":
+                        module_from_spec = True
+
+        elif slot == cts.macros['Py_tp_doc']:
+            from_pfunc = rffi.charp2str(cts.cast("char *", slotdef.c_pfunc))
+            # Remove the signature if any from the docstring
+            tp_doc = extract_doc(from_pfunc, name)
+        i += 1
+    if not spec.c_name:
+        raise oefmt(space.w_SystemError,
+                        "Type spec does not define the name field.");
+
+    res = state.ccall("PyType_GenericAlloc", p_type, nmembers)
+    res = cts.cast('PyHeapTypeObject *', res)
+    typ = res.c_ht_type
+    typ.c_tp_flags = rffi.cast(rffi.ULONG, widen(spec.c_flags) | Py_TPFLAGS_HEAPTYPE)
     res.c_ht_name = make_ref(space, space.newtext(name))
     res.c_ht_qualname = res.c_ht_name
     incref(space, res.c_ht_qualname)
@@ -1037,7 +1100,6 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     if module:
         incref(space, module)
         res.c_ht_module = module
-    slotdefs = rffi.cast(rffi.CArrayPtr(cts.gettype('PyType_Slot')), spec.c_slots)
     if not bases:
         w_base = space.w_object
         bases_w = []
@@ -1066,6 +1128,7 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
             "type '%s' is not an acceptable base type",
             rffi.constcharp2str(base.c_tp_name))
 
+    # Initialize essential fields
     typ.c_tp_as_async = res.c_as_async
     typ.c_tp_as_number = res.c_as_number
     typ.c_tp_as_sequence = res.c_as_sequence
@@ -1075,6 +1138,8 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     typ.c_tp_base = base
     typ.c_tp_basicsize = cts.cast('Py_ssize_t', spec.c_basicsize)
     typ.c_tp_itemsize = cts.cast('Py_ssize_t', spec.c_itemsize)
+    if tp_doc is not None:
+        typ.c_tp_doc = rffi.str2constcharp(tp_doc, track_allocation=False)
 
     i = 0
     while True:
@@ -1084,49 +1149,40 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
             break
         if slot < 0:  # or slot > len(slotoffsets):
             raise oefmt(space.w_RuntimeError, "invalid slot offset")
-        if slot in (cts.macros['Py_tp_base'], cts.macros['Py_tp_bases']):
+        elif slot in (cts.macros['Py_tp_base'], cts.macros['Py_tp_bases'], cts.macros['Py_tp_doc']):
+            pass
             # Processed above
-            i += 1
-            continue
-        if slot == cts.macros['Py_tp_members']:
-            members = rffi.cast(rffi.CArrayPtr(PyMemberDef), slotdef.c_pfunc)
-            if members:
-                m = 0
-                while True:
-                    member = members[m]
-                    name = member.c_name
-                    if not name:
-                        break
-                    name = rffi.constcharp2str(name)
-                    if name == "__weaklistoffset__":
-                        assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
-                        assert widen(member.c_flags) == structmemberdefs.READONLY
-                        typ.c_tp_weaklistoffset = member.c_offset
-                    elif name == "__dictoffset__":
-                        assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
-                        assert widen(member.c_flags) == structmemberdefs.READONLY
-                        typ.c_tp_dictoffset = member.c_offset
-                    elif name == "__vectorcalloffset__":
-                        assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
-                        assert widen(member.c_flags) == structmemberdefs.READONLY
-                        typ.c_tp_vectorcall_offset = member.c_offset
-                    m += 1
-        fill_ht_slot(res, slot, slotdef.c_pfunc)
-        # XXX: need to make a copy of the docstring slot, which usually
-        # points to a static string literal
+        elif slot == cts.macros['Py_tp_members']:
+            # Move the member defs to the heap type itself, including the
+            # {0,0,0} finalizer
+            ob_type = rffi.cast(PyObject, typ).c_ob_type
+            length =  ob_type.c_tp_itemsize * nmembers
+            # loc = PyHeapType_GETMEMBERS(typ)
+            loc = rffi.ptradd(cts.cast("char *", typ), ob_type.c_tp_basicsize)  
+            rffi.c_memcpy(loc, slotdef.c_pfunc, length)
+            typ.c_tp_members = cts.cast("PyMemberDef *", loc)
+        else:
+            fill_ht_slot(res, slot, slotdef.c_pfunc)
         i += 1
 
     if not typ.c_tp_dealloc:
         typ.c_tp_dealloc = state.C._PyPy_subtype_dealloc
 
+    if vectorcalloffset:
+        typ.c_tp_vectorcall_offset = vectorcalloffset
+    if weaklistoffset:
+        typ.c_tp_weaklistoffset = weaklistoffset
+    if dictoffset:
+        typ.c_tp_dictoffset = dictoffset
+    
     py_type_ready(space, typ)
+
     res = cts.cast('PyObject*', res)
-    if modname is not None:
-        w_type = from_ref(space, res)
+    w_type = from_ref(space, res)
+    if not module_from_spec and modname is not None:
         w_type.setdictvalue(space, '__module__', space.newtext(modname))
     # Convert getsets
     if typ.c_tp_getset:
-        w_type = from_ref(space, res)
         getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), typ.c_tp_getset)
         i = -1
         while True:

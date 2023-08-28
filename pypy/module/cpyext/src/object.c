@@ -147,8 +147,9 @@ _generic_alloc(PyTypeObject *type, Py_ssize_t nitems)
         Py_INCREF(type);
 
     size = type->tp_basicsize;
-    if (type->tp_itemsize)
+    if (type->tp_itemsize) {
         size += nitems * type->tp_itemsize;
+    }
 
     pyobj = (PyObject*)_PyPy_Malloc(size);
     if (pyobj == NULL)
