@@ -1066,9 +1066,10 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
                         module_from_spec = True
 
         elif slot == cts.macros['Py_tp_doc']:
-            from_pfunc = rffi.charp2str(cts.cast("char *", slotdef.c_pfunc))
-            # Remove the signature if any from the docstring
-            tp_doc = extract_doc(from_pfunc, name)
+            if slotdef.c_pfunc:
+                from_pfunc = rffi.charp2str(cts.cast("char *", slotdef.c_pfunc))
+                # Remove the signature if any from the docstring
+                tp_doc = extract_doc(from_pfunc, name)
         i += 1
     if not spec.c_name:
         raise oefmt(space.w_SystemError,
