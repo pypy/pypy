@@ -22,30 +22,6 @@ TNUM_ONLY_VALUE_DEFAULT = r_uint(0)
 TNUM_ONLY_MASK_UNKNOWN = r_uint(-1)
 TNUM_ONLY_MASK_DEFAULT = TNUM_ONLY_MASK_UNKNOWN
 
-def next_pow2_m1(n):
-    """Calculate next power of 2 minus one, greater than n"""
-    assert isinstance(n, r_uint)
-    n |= n >> 1
-    n |= n >> 2
-    n |= n >> 4
-    n |= n >> 8
-    n |= n >> 16
-    if IS_64_BIT:
-        n |= n >> 32
-    return n
-
-def leading_zeros_mask(n):
-    """
-    calculates a bitmask in which only the leading zeros
-    of `n` are set (1).
-    """
-    assert isinstance(n, r_uint)
-    if n == r_uint(-1):
-        return r_uint(0)
-    elif n == r_uint(0):
-        return r_uint(-1)
-    else:
-        return ~next_pow2_m1(n)
 
 class IntBound(AbstractInfo):
     """
@@ -71,7 +47,6 @@ class IntBound(AbstractInfo):
         self.upper = upper
 
         # known-bit analysis using tristate numbers
-        #  see https://arxiv.org/pdf/2105.05398.pdf
         assert is_valid_tnum(tvalue, tmask)
         self.tvalue = tvalue
         self.tmask = tmask         # bit=1 means unknown
@@ -1327,21 +1302,46 @@ def IntLowerUpperBoundKnownbits(lower, upper, value, mask, do_unmask=False):
                  tmask=mask)
     return b
 
-def unmask_zero(value, mask):
-    """
-    Sets all unknowns determined by
-    `mask` in `value` bit-wise to 0 (zero)
-    and returns the result.
-    """
-    return value & ~mask
 
-def unmask_one(value, mask):
+def flip_msb(val_uint):
+    return val_uint ^ r_uint(MININT)
+
+def is_valid_tnum(tvalue, tmask):
     """
-    Sets all unknowns determined by
-    `mask` in `value` bit-wise to 1 (one)
-    and returns the result.
+    Returns `True` iff `tvalue` and `tmask`
+    would be valid tri-state number fields
+    of an abstract integer, meeting all
+    conventions and requirements.
     """
-    return value | mask
+    if not isinstance(tvalue, r_uint):
+        return False
+    if not isinstance(tmask, r_uint):
+        return False
+    return 0 == (r_uint(tvalue) & r_uint(tmask))
+
+def leading_zeros_mask(n):
+    """
+    calculates a bitmask in which only the leading zeros
+    of `n` are set (1).
+    """
+    assert isinstance(n, r_uint)
+    if n == MAXINT:
+        return r_uint(0)
+    elif n == 0:
+        return r_uint(-1)
+    else:
+        return ~next_pow2_m1(n)
+
+def lowest_set_bit_only(val_uint):
+    """
+    Returns an val_int, but with all bits
+    deleted but the lowest one that was set.
+    """
+    #assert isinstance(val_uint, r_uint)
+    working_val = ~val_uint
+    increased_val = working_val + 1
+    result = (working_val^increased_val) & ~working_val
+    return result
 
 def min4(t):
     """
@@ -1364,32 +1364,30 @@ def msbonly(v):
     """
     return v & (1 << (LONG_BIT-1))
 
-def is_valid_tnum(tvalue, tmask):
-    """
-    Returns `True` iff `tvalue` and `tmask`
-    would be valid tri-state number fields
-    of an abstract integer, meeting all
-    conventions and requirements.
-    """
-    if not isinstance(tvalue, r_uint):
-        return False
-    if not isinstance(tmask, r_uint):
-        return False
-    return 0 == (r_uint(tvalue) & r_uint(tmask))
+def next_pow2_m1(n):
+    """Calculate next power of 2 minus one, greater than n"""
+    assert isinstance(n, r_uint)
+    n |= n >> 1
+    n |= n >> 2
+    n |= n >> 4
+    n |= n >> 8
+    n |= n >> 16
+    if IS_64_BIT:
+        n |= n >> 32
+    return n
 
-def lowest_set_bit_only(val_uint):
+def unmask_one(value, mask):
     """
-    Returns an val_int, but with all bits
-    deleted but the lowest one that was set.
+    Sets all unknowns determined by
+    `mask` in `value` bit-wise to 1 (one)
+    and returns the result.
     """
-    assert isinstance(val_uint, r_uint)
-    if val_uint == r_uint(0):
-        return 0
-    else:
-        working_val = ~val_uint
-        increased_val = working_val + 1
-        result = (working_val^increased_val) & ~working_val
-        return result
+    return value | mask
 
-def flip_msb(val_uint):
-    return val_uint ^ r_uint(MININT)
+def unmask_zero(value, mask):
+    """
+    Sets all unknowns determined by
+    `mask` in `value` bit-wise to 0 (zero)
+    and returns the result.
+    """
+    return value & ~mask
