@@ -63,6 +63,9 @@ class IntBound(AbstractInfo):
             assert type(upper) is not long or is_valid_int(upper)
             assert type(lower) is not long or is_valid_int(lower)
 
+        if not self.knownbits_and_bounds_agree():
+            import pdb; pdb.set_trace()
+
         assert self.knownbits_and_bounds_agree()
 
     def __repr__(self):
@@ -392,8 +395,8 @@ class IntBound(AbstractInfo):
             #      approaches for Bit-Vector Theory"
             u_max_threshold = r_uint(threshold)
             #import pdb; pdb.set_trace()
-            # now create our working value, the to-be minimum
-            working_max = u_max_threshold # start at given minimum threshold
+            # now create our working value, the to-be maximum
+            working_max = u_max_threshold # start at given maximum threshold
             working_max &= unmask_one(self.tvalue, self.tmask) # clear known 0s
             working_max |= self.tvalue # set known 1s
             # incpect changed bits
@@ -1165,9 +1168,9 @@ class IntBound(AbstractInfo):
         any values!
         """
         min_knownbits = self.get_minimum_signed_by_knownbits()
+        max_knownbits = self.get_maximum_signed_by_knownbits()
         if not min_knownbits <= self.upper:
             return False
-        max_knownbits = self.get_maximum_signed_by_knownbits()
         if not max_knownbits >= self.lower:
             return False
         # just to make sure
@@ -1181,13 +1184,20 @@ class IntBound(AbstractInfo):
                or self.lower > val or self.upper < val:
                 return False
         else:
-            # can't be empty if one of the bounds agrees with tvalue
-            if (self.tvalue != unmask_zero(r_uint(self.lower), self.tmask)) \
-               and (self.tvalue != unmask_zero(r_uint(self.upper), self.tmask)):
-                # check if there is a ? within the bounds realm
-                bound_bits = next_pow2_m1(r_uint(self.lower) ^ r_uint(self.upper))
-                if 0 == (bound_bits & self.tmask):
-                    return False
+            # we have no constant, so keep checking
+            u_lower = r_uint(self.lower)
+            u_upper = r_uint(self.upper)
+            # check if bounds common prefix agrees with known-bits  
+            hbm_bounds = leading_zeros_mask(u_lower ^ u_upper)
+            bounds_common_prefix = u_lower & hbm_bounds
+            if unmask_zero(bounds_common_prefix, self.tmask) != self.tvalue & hbm_bounds:
+                return False
+            # for the rest of the bunch, check by minima/maxima with threshold.
+            #   (side note: the whole check can be reduced to this, but for the
+            #    sake of robustness we want to keep the other checks above.)
+            if self.get_minimum_signed_by_knownbits_above(self.lower) > self.upper \
+               or self.get_maximum_signed_by_knownbits_below(self.upper) < self.lower:
+                return False
         return True
 
     def knownbits_string(self, unk_sym = '?'):

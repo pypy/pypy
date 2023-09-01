@@ -970,24 +970,24 @@ def test_tnum_contains_bound_bug():
     assert b1.contains_bound(b2)
 
 @given(knownbits_and_bound_with_contained_number)
-#@example((IntBound(lower=-524289, upper=4398046511103, tvalue=r_uint(0), tmask=~(r_uint(MININT)>>7), do_shrinking=False), 0))
-#@example((IntBound(lower=-2097153, upper=-2, tvalue=r_uint(0b1111111111111111111111110111111111111111111100000000000000000001), tmask=r_uint(MININT)>>24, do_shrinking=False), 0b1111111111111111111111110111111111111111111100000000000000000001))
+@example((IntBound(lower=-524289, upper=4398046511103, tvalue=r_uint(0), tmask=~(r_uint(MININT)>>7), do_shrinking=False), 0))
+@example((IntBound(lower=-2097153, upper=-2, tvalue=r_uint(0b1111111111111111111111110111111111111111111100000000000000000001), tmask=r_uint(MININT)>>24, do_shrinking=False), intmask(0b1111111111111111111111111111111111111111111100000000000000000001)))
 @example((IntBound(lower=-99, upper=0, tvalue=r_uint(0), tmask=r_uint(0b1111111111111111111111111111111111111111111111111111111110011110), do_shrinking=False), -98))
 def test_minmax_shrinking_random(t1):
     b0, n0 = t1
-    n1 = n0
-    #import pdb; pdb.set_trace()
+    assert not isinstance(n0, r_uint)
     b1 = IntBound(lower=b0.lower, upper=b0.upper,
                  tvalue=b0.tvalue, tmask=b0.tmask,
                  do_shrinking=True)
-    assert b1.lower <= n1 <= b1.upper
+    assert b1.lower <= n0
+    assert n0 <= b1.upper
     minimum = b1.get_minimum_signed()
     assert minimum >= b1.lower
-    assert minimum <= n1
+    assert minimum <= n0
     assert b1.contains(minimum)
     maximum = b1.get_maximum_signed()
     assert maximum <= b1.upper
-    assert maximum >= n1
+    assert maximum >= n0
     assert b1.contains(maximum)
     assert minimum <= maximum
 
@@ -996,7 +996,8 @@ def test_minmax_shrinking_random(t1):
 def test_minmax_noshrink_random(t1):
     b1, n1 = t1
     #import pdb; pdb.set_trace()
-    assert b1.lower <= n1 <= b1.upper
+    assert b1.lower <= n1
+    assert n1 <= b1.upper
     minimum = b1.get_minimum_signed()
     assert minimum >= b1.lower
     assert minimum <= n1
