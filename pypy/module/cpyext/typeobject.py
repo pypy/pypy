@@ -562,17 +562,14 @@ class GettersAndSetters:
         finally:
             decref(space, pyref)
 
-def get_type_name(name, is_heaptype):
+def get_type_name(name):
     # This is a refactored copy of W_TypeObject.getname()
     # we cannot use self.getname since the self is not fully initialized
-    if is_heaptype:
-        result = name
+    dot = name.rfind('.')
+    if dot >= 0:
+        result = name[dot+1:]
     else:
-        dot = name.rfind('.')
-        if dot >= 0:
-            result = name[dot+1:]
-        else:
-            result = name
+        result = name
     return result
 
 
@@ -585,7 +582,10 @@ class W_PyCTypeObject(W_TypeObject):
 
         flag_heaptype = widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE
         name = rffi.constcharp2str(pto.c_tp_name)
-        type_name = get_type_name(name, flag_heaptype)
+        if flag_heaptype:
+            type_name = space.text_w(from_ref(space, rffi.cast(PyHeapTypeObject, pto).c_ht_name))
+        else:
+            type_name = get_type_name(name)
         _add_operators(space, self, dict_w, pto, type_name)
         convert_method_defs(space, dict_w, pto.c_tp_methods, self, type_name=type_name)
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
@@ -1064,20 +1064,20 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
                     nmembers += 1  # make sure nmembers includes the null finalizer
                     if not cname:
                         break
-                    name = rffi.constcharp2str(cname)
-                    if name == "__weaklistoffset__":
+                    m_name = rffi.constcharp2str(cname)
+                    if m_name == "__weaklistoffset__":
                         assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
                         assert widen(member.c_flags) == structmemberdefs.READONLY
                         weaklistoffset = member.c_offset
-                    elif name == "__dictoffset__":
+                    elif m_name == "__dictoffset__":
                         assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
                         assert widen(member.c_flags) == structmemberdefs.READONLY
                         dictoffset = member.c_offset
-                    elif name == "__vectorcalloffset__":
+                    elif m_name == "__vectorcalloffset__":
                         assert widen(member.c_type) == structmemberdefs.T_PYSSIZET
                         assert widen(member.c_flags) == structmemberdefs.READONLY
                         vectorcalloffset = member.c_offset
-                    elif name == "__module__":
+                    elif m_name == "__module__":
                         module_from_spec = True
 
         elif slot == cts.macros['Py_tp_doc']:
@@ -1097,7 +1097,7 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     res.c_ht_name = make_ref(space, space.newtext(name))
     res.c_ht_qualname = res.c_ht_name
     incref(space, res.c_ht_qualname)
-    typ.c_tp_name = cts.cast('const char*', rffi.str2charp(name))
+    typ.c_tp_name = spec.c_name
     if module:
         incref(space, module)
         res.c_ht_module = module

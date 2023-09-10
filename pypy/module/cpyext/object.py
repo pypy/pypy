@@ -9,7 +9,6 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, from_ref, incref, decref,
     get_typedescr, hack_for_result_often_existing_obj)
 from pypy.module.cpyext.pyerrors import PyErr_NoMemory, PyErr_BadInternalCall
-from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.bytesobject import invoke_bytes_method
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.executioncontext import ExecutionContext
