@@ -583,10 +583,11 @@ class W_PyCTypeObject(W_TypeObject):
         dict_w = {}
 
         flag_heaptype = widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE
-        name = rffi.constcharp2str(pto.c_tp_name)
         if flag_heaptype:
             type_name = space.text_w(from_ref(space, rffi.cast(PyHeapTypeObject, pto).c_ht_name))
+            name = type_name
         else:
+            name = rffi.constcharp2str(pto.c_tp_name)
             type_name = get_type_name(name)
         _add_operators(space, self, dict_w, pto, type_name)
         convert_method_defs(space, dict_w, pto.c_tp_methods, self, type_name=type_name)
