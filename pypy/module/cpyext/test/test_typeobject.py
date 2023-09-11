@@ -2424,3 +2424,24 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         assert not module.has_tp_call(obj)
         assert module.has_tp_call(module.new_obj)
         assert not module.has_tp_call(C())
+
+    def test_heap_type(self):
+        # issue 3318, make sure the name does not include the module
+        module = self.import_extension("foo", [
+            ("get_type", "METH_NOARGS",
+             """
+                PyType_Slot CustomHeap_Type_slots[] = {
+                    {0, 0},
+                };
+
+                PyType_Spec CustomHeap_Type_spec = {
+                    "custom.CustomHeap",
+                    0,
+                    0,
+                    Py_TPFLAGS_DEFAULT,
+                    CustomHeap_Type_slots,
+                };
+                return PyType_FromSpec(&CustomHeap_Type_spec);
+             """),])
+        custom = module.get_type()
+        assert custom.__name__ == "CustomHeap"
