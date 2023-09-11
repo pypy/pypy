@@ -562,7 +562,6 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert mod.SomeType.__doc__ == 'A type with a signature'
         assert htype.__text_signature__ is None
 
-        print(htype.__module__)
         assert htype.__module__ == 'docstrings'
         assert htype.__name__ == 'HeapType'
         assert htype.__qualname__ == 'HeapType'
@@ -2397,6 +2396,11 @@ class AppTestFlags(AppTestCpythonExtensionBase):
                 obj = PyObject_New(PyObject, &Foo_Type);
                 return obj;
             '''
+            ),
+            ("has_tp_call", "METH_O",
+             """
+                return PyBool_FromLong((Py_TYPE(args)->tp_call != NULL));
+             """
             )], prologue='''
             static PyTypeObject Foo_Type = {
                 PyVarObject_HEAD_INIT(NULL, 0)
@@ -2414,5 +2418,9 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             ''')
 
         obj = module.new_obj()
-        print(type(obj).mro())
         assert str(type(obj).mro()) == "[<class 'foo.foo'>, <class 'foo.base'>, <class 'object'>]"
+        # Make sure tp_call is not initialized
+        class C: pass
+        assert not module.has_tp_call(obj)
+        assert module.has_tp_call(module.new_obj)
+        assert not module.has_tp_call(C())

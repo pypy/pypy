@@ -321,8 +321,10 @@ def update_all_slots(space, w_type, pto):
         if w_descr:
             # use the slot_apifunc (userslots) to lookup at runtime
             pass
+        elif method_name == "__call__":
+            continue
         elif len(slot_names) ==1:
-            # 'inherit' from tp_base
+            # 'inherit' from tp_base, but not __call__
             slot_func_helper = getattr(pto.c_tp_base, slot_names[0])
         else:
             struct = getattr(pto.c_tp_base, slot_names[0])
