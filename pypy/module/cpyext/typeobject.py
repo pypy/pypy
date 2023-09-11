@@ -320,8 +320,10 @@ def update_all_slots(space, w_type, pto):
         if w_descr:
             # use the slot_apifunc (userslots) to lookup at runtime
             pass
+        elif method_name == "__call__":
+            # 'inherit' from tp_base, but not __call__
+            continue
         elif len(slot_names) ==1:
-            # 'inherit' from tp_base
             slot_func_helper = getattr(pto.c_tp_base, slot_names[0])
         else:
             struct = getattr(pto.c_tp_base, slot_names[0])
@@ -581,10 +583,11 @@ class W_PyCTypeObject(W_TypeObject):
         dict_w = {}
 
         flag_heaptype = widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE
-        name = rffi.constcharp2str(pto.c_tp_name)
         if flag_heaptype:
             type_name = space.text_w(from_ref(space, rffi.cast(PyHeapTypeObject, pto).c_ht_name))
+            name = type_name
         else:
+            name = rffi.constcharp2str(pto.c_tp_name)
             type_name = get_type_name(name)
         _add_operators(space, self, dict_w, pto, type_name)
         convert_method_defs(space, dict_w, pto.c_tp_methods, self, type_name=type_name)
@@ -841,6 +844,43 @@ def best_base(space, bases_w):
         return None
     return find_best_base(bases_w)
 
+num_names = unrolling_iterable(("c_nb_add", "c_nb_subtract", "c_nb_multiply",
+            "c_nb_divmod", "c_nb_power", "c_nb_negative", "c_nb_positive",
+            "c_nb_absolute", "c_nb_bool", "c_nb_invert", "c_nb_lshift",
+            "c_nb_rshift", "c_nb_and", "c_nb_xor", "c_nb_or", "c_nb_int",
+            "c_nb_float", "c_nb_inplace_add", "c_nb_inplace_subtract",
+            "c_nb_inplace_multiply", "c_nb_inplace_remainder",
+            "c_nb_inplace_power", "c_nb_inplace_lshift", "c_nb_inplace_rshift",
+            "c_nb_inplace_and", "c_nb_inplace_xor", "c_nb_inplace_or",
+            "c_nb_true_divide", "c_nb_floor_divide",
+            "c_nb_inplace_true_divide", "c_nb_inplace_floor_divide",
+            "c_nb_index", "c_nb_matrix_multiply", "c_nb_remainder",
+            "c_nb_inplace_matrix_multiply"))
+def copynum(pto, base):
+    for nb in num_names:
+        if not getattr(pto.c_tp_as_number, nb):
+            setattr(pto.c_tp_as_number, nb, getattr(base.c_tp_as_number, nb))
+
+async_names = unrolling_iterable(["c_am_await", "c_am_aiter", "c_am_anext"])
+def copyasync(pto, base):
+    for nb in async_names:
+        if not getattr(pto.c_tp_as_async, nb):
+            setattr(pto.c_tp_as_async, nb, getattr(base.c_tp_as_async, nb))
+
+seq_names = unrolling_iterable(["c_sq_length", "c_sq_concat", "c_sq_repeat", "c_sq_item",
+               "c_sq_ass_item", "c_sq_contains", "c_sq_inplace_concat",
+               "c_sq_inplace_repeat"])
+def copyseq(pto, base):
+    for nb in seq_names:
+        if not getattr(pto.c_tp_as_sequence, nb):
+            setattr(pto.c_tp_as_sequence, nb, getattr(base.c_tp_as_sequence, nb))
+
+map_names = unrolling_iterable(["c_mp_length", "c_mp_subscript", "c_mp_ass_subscript"])
+def copymap(pto, base):
+    for nb in map_names:
+        if not getattr(pto.c_tp_as_mapping, nb):
+            setattr(pto.c_tp_as_mapping, nb, getattr(base.c_tp_as_mapping, nb))
+
 def inherit_slots(space, pto, w_base):
     base_pyo = make_ref(space, w_base)
     try:
@@ -870,6 +910,27 @@ def inherit_slots(space, pto, w_base):
                 pto_as.c_bf_releasebuffer = base_as.c_bf_releasebuffer
         if pto.c_tp_vectorcall_offset == 0:
             pto.c_tp_vectorcall_offset = base.c_tp_vectorcall_offset
+
+        if not pto.c_tp_as_number:
+            pto.c_tp_as_number = base.c_tp_as_number
+        elif base.c_tp_as_number:
+            copynum(pto, base)
+
+        if not pto.c_tp_as_async:
+            pto.c_tp_as_async = base.c_tp_as_async
+        elif base.c_tp_as_async:
+            copyasync(pto, base)
+
+        if not pto.c_tp_as_sequence:
+            pto.c_tp_as_sequence = base.c_tp_as_sequence
+        elif base.c_tp_as_sequence:
+            copyseq(pto, base)
+
+        if not pto.c_tp_as_mapping:
+            pto.c_tp_as_mapping = base.c_tp_as_mapping
+        elif base.c_tp_as_mapping:
+            copymap(pto, base)
+
     finally:
         decref(space, base_pyo)
 
@@ -917,16 +978,6 @@ def _type_realize(space, py_obj):
 
     finish_type_2(space, py_type, w_obj)
     base = py_type.c_tp_base
-    if base:
-        # XXX refactor - parts of this are done in finish_type_2 -> inherit_slots
-        if not py_type.c_tp_as_number:
-            py_type.c_tp_as_number = base.c_tp_as_number
-        if not py_type.c_tp_as_sequence:
-            py_type.c_tp_as_sequence = base.c_tp_as_sequence
-        if not py_type.c_tp_as_mapping:
-            py_type.c_tp_as_mapping = base.c_tp_as_mapping
-        #if not py_type.c_tp_as_buffer: py_type.c_tp_as_buffer = base.c_tp_as_buffer
-
     return w_obj
 
 def finish_type_1(space, pto, bases_w=None):
