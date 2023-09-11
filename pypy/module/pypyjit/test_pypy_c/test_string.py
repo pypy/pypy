@@ -30,8 +30,6 @@ class TestString(BaseTestPyPyC):
             i22 = int_ge(i83, i10)
             guard_false(i22, descr=...)
             i89 = strgetitem(p55, i83)
-            i99 = int_eq(i74, i12)
-            guard_true(i99, descr=...)
             i24 = int_ge(i83, i12)
             guard_false(i24, descr=...)
             i93 = int_add(i83, 1)
