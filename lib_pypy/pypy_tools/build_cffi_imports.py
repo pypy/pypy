@@ -63,8 +63,8 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1v.tar.gz',
-              'd6697e2871e77238460402e9362d47d18382b15ef9f246aba6c7bd780d38a6b0',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1w.tar.gz',
+              'cf3098950cb4d853ad95c0841f1f9c6d3dc102dccfcacd521d93925208b76ac8',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
