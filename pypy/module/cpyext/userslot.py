@@ -74,7 +74,7 @@ def slot_tp_repr(space, w_obj):
 
 @slot_function([PyObject], PyObject)
 def slot_nb_int(space, w_obj):
-    return space.int(w_obj)
+    return space.call_function(space.w_int, w_obj)
 
 @slot_function([PyObject], PyObject)
 def slot_nb_float(space, w_obj):
