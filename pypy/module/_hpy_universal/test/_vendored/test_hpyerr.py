@@ -144,7 +144,9 @@ class TestErr(HPyTest):
             with pytest.raises(type) as err:
                 mod.f(type)
 
-            assert err.value.errno == errno.EINVAL
+            if self.runappdirect:
+                # untranslated the errno can get reset by the calls to ll2ctypes
+                assert err.value.errno == errno.EINVAL
 
     def test_HPyErr_SetFromErrnoWithFilenameObjects(self):
         import pytest
@@ -173,13 +175,17 @@ class TestErr(HPyTest):
         file1 = "some/file/name/to/be/asserted"
         with pytest.raises(OSError) as err:
             mod.f(OSError, file1, None)
-        assert err.value.errno == errno.EINVAL
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert err.value.errno == errno.EINVAL
         assert err.value.filename == file1
 
         file2 = "some/different/file/name/to/be/asserted"
         with pytest.raises(OSError) as err:
             mod.f(OSError, file1, file2)
-        assert err.value.errno == errno.EINVAL
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert err.value.errno == errno.EINVAL
         assert err.value.filename == file1
         assert err.value.filename2 == file2
 
@@ -201,7 +207,9 @@ class TestErr(HPyTest):
         with pytest.raises(OSError) as err:
             mod.f(OSError)
 
-        assert err.value.errno == errno.EINVAL
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert err.value.errno == errno.EINVAL
         assert "Some message that will be asserted" in str(err.value)
 
     def test_h_exceptions(self):

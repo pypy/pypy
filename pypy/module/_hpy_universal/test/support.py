@@ -28,6 +28,7 @@ class HPyAppTest(object):
     def setup_class(cls):
         if cls.runappdirect:
             pytest.skip()
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     @pytest.fixture
     def compiler(self):
