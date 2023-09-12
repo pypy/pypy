@@ -461,6 +461,7 @@ class rbigint(object):
                 digits = ''.join([digits[i] for i in range(length-1, -1, -1)])
         return digits
 
+    @jit.elidable
     def toint(self):
         """
         Get an integer from a bigint object.

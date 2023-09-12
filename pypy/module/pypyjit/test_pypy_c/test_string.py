@@ -83,17 +83,7 @@ class TestString(BaseTestPyPyC):
             strsetitem(p25, 0, i23)
             p93 = call_r(ConstClass(fromstr), p25, 16, 0, descr=<Callr . rii EF=4>)
             guard_no_exception(descr=...)
-            i101 = getfield_gc_i(p93, descr=<FieldS rpython.rlib.rbigint.rbigint.inst__size .*>)
-            # abs of size
-            i103 = int_rshift(i101, 63)
-            i104 = int_xor(i101, i103)
-            i95 = int_sub(i104, i103)
-            i105 = int_is_true(i95)
-            guard_true(i105, descr=...)
-
-            i96 = int_gt(i95, #)
-            guard_false(i96, descr=...)
-            i94 = call_i(ConstClass(rbigint._toint_helper), p93, descr=<Calli . r EF=4>)
+            i94 = call_i(ConstClass(rbigint.toint), p93, descr=<Calli . r EF=4>)
             guard_no_exception(descr=...)
             i95 = int_add_ovf(i6, i94)
             guard_no_overflow(descr=...)
