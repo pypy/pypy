@@ -1,6 +1,5 @@
 import pytest
 from .support import HPyTest
-from hpy.devel.abitag import get_hpy_ext_suffix
 
 @pytest.fixture(params=['cpython', 'universal', 'hybrid', 'debug'])
 def hpy_abi(request):
@@ -36,6 +35,7 @@ class TestImporting(HPyTest):
         import pytest
         if not self.supports_ordinary_make_module_imports():
             pytest.skip()
+        from hpy.devel.abitag import get_hpy_ext_suffix
         mod = self.make_module("""
             @INIT
         """, name='mytest')
