@@ -408,7 +408,7 @@ class TestString(BaseTestPyPyC):
     def test_strip_doesnt_escape_bytes(self):
         log = self.run("""
         def main(n):
-            l = [str(x).decode("ascii") for x in range(10000)]
+            l = [bytes(x) for x in range(10000)]
             res = 0
             for data in l:
                 res += len(data.strip(b'1')) # ID: striparg
@@ -429,7 +429,7 @@ class TestString(BaseTestPyPyC):
     def test_unicode_strip_doesnt_escape_uniobject(self):
         log = self.run("""
         def main(n):
-            uni = b'\xc3\xa4'.decode("utf-8")
+            uni = bytes(bytearray([0xc3, 0xa4])).decode("utf-8")
             l = [str(x) + uni + str(x) for x in range(10000)]
             res = 0
             for data in l:
