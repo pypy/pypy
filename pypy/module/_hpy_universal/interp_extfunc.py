@@ -73,13 +73,13 @@ class W_ExtensionFunctionMixin(object):
             if has_keywords:
                 k = 0
                 while i < n:
-                    args_h[i] = self.handles.new(__args__.keyword_names_w[k])
+                    args_h[i] = self.handles.new(__args__.keywords_w[k])
                     i += 1
                     k += 1
             try:
                 if has_keywords:
                     if k > 0:
-                        w_kw = space.newtuple(__args__.keywords_w)
+                        w_kw = space.newtuple(__args__.keyword_names_w)
                         h_kw = self.handles.new(w_kw)
                         try:
                             h_result = self.call_keywords(space, h_self, args_h, n_args, h_kw)

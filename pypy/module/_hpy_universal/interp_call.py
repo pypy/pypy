@@ -32,19 +32,19 @@ def HPy_CallTupleDict(space, handles, ctx, h_callable, h_args, h_kw):
 
 @API.func("HPy HPy_CallMethod(HPyContext *ctx, HPy name, const HPy* args, size_t nargs, HPy kwnames)")
 def HPy_CallMethod(space, handles, ctx, h_name, h_argsp, nargs, h_kwargs):
-    # XXX why is h_kwargs a dict and not a list of names?
+    # h_kwargs is a list of names, h_argsp has nargs plus len(h_kwargs) values
     if not h_kwargs:
-        n_kwargs = -1
+        n_kwargs = 0
         w_kwargs = None
     else:
         w_kwargs = handles.deref(h_kwargs)
-        # n_kwargs = space.len_w(w_kwargs)
+        n_kwargs = space.len_w(w_kwargs)
     w_name = handles.deref(h_name)
     n = Vectorcall_NARGS(nargs)
     n_minus_1 = n - 1
     if n_minus_1 < 0:
         raise oefmt(space.w_ValueError, "n<1 in call to PyObject_VectorcallMethod")
-    w_obj, args_w = obj_and_tuple_from_h_array(handles, h_argsp, n_minus_1)
+    w_obj, args_w = obj_and_tuple_from_h_array(handles, h_argsp, n_minus_1 + n_kwargs)
     if w_kwargs is None:
         # fast path. Cannot use call_method(... *args_w)
         name = space.text_w(w_name)
@@ -60,14 +60,13 @@ def HPy_CallMethod(space, handles, ctx, h_name, h_argsp, nargs, h_kwargs):
             w_meth = space.getattr(w_obj, w_name)
             w_result = space.call(w_meth, space.newtuple(args_w))
     else:
-        # w_kwargs = space.newdict()
-        # for i in range(n_kwargs):
-        #     import pdb;pdb.set_trace()
-        #     w_k =  space.getitem(w_argnames, space.newint(i))
-        #     w_v = handles.deref(h_argsp[n + i])
-        #     space.setitem(w_kwargs, w_k, w_v)
+        w_dict = space.newdict()
+        for i in range(n_kwargs):
+            w_v =  args_w[i + n_minus_1]
+            w_k = space.getitem(w_kwargs, space.newint(i))
+            space.setitem(w_dict, w_k, w_v)
         w_meth = space.getattr(w_obj, w_name)
-        w_result = space.call(w_meth, space.newtuple(args_w), w_kwargs)
+        w_result = space.call(w_meth, space.newtuple(args_w[:n_minus_1]), w_dict)
     return handles.new(w_result)
 
 
@@ -90,8 +89,8 @@ def HPy_Call(space, handles, ctx, h_callable, h_argsp, nargs, h_kwargs):
     else:
         w_dict = space.newdict()
         for i in range(n_kwargs):
-            w_k =  args_w[i + n]
-            w_v = space.getitem(w_kwargs, space.newint(i))
+            w_v =  args_w[i + n]
+            w_k = space.getitem(w_kwargs, space.newint(i))
             space.setitem(w_dict, w_k, w_v)
         w_result = space.call(w_callable, space.newtuple(args_w[:n]), w_dict)
     return handles.new(w_result)
