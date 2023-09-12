@@ -322,7 +322,7 @@ class W_LongObject(W_AbstractLongObject):
             return space.w_NotImplemented
         else:
             exp_bigint = w_exponent.asbigint()
-            sign = exp_bigint.sign
+            sign = exp_bigint.get_sign()
 
         if space.is_none(w_modulus):
             if sign < 0:
@@ -460,7 +460,7 @@ class W_LongObject(W_AbstractLongObject):
         return descr_binop, descr_rbinop
 
     def _lshift(self, space, w_other):
-        if w_other.asbigint().sign < 0:
+        if w_other.asbigint().get_sign() < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
         try:
             shift = w_other.asbigint().toint()
@@ -476,7 +476,7 @@ class W_LongObject(W_AbstractLongObject):
     descr_lshift, descr_rlshift = _make_descr_binop(_lshift, _int_lshift)
 
     def _rshift(self, space, w_other):
-        if w_other.asbigint().sign < 0:
+        if w_other.asbigint().get_sign() < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
         try:
             shift = w_other.asbigint().toint()
