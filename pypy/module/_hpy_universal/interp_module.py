@@ -15,6 +15,13 @@ def _hpymodule_create(handles, modname, hpydef):
     w_mod = Module(space, space.newtext(modname))
     kinds = llapi.cts.gettype("HPyDef_Kind")
     #
+    if hpydef.c_size < 0:
+        raise oefmt(space.w_SystemError,
+            "HPy does not permit HPyModuleDef.size < 0")
+    elif hpydef.c_size > 0:
+        raise oefmt(space.w_SystemError,
+            "Module state is not supported yet in HPy, set "
+            "HPyModuleDef.size = 0 if module state is not needed")
     # add the functions defined in hpydef.c_legacy_methods
     if hpydef.c_legacy_methods:
         if space.config.objspace.hpy_cpyext_API:
