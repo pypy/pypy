@@ -56,7 +56,9 @@ class W_ExtensionFunctionMixin(object):
     def call_varargs_kw(self, space, h_self, __args__, skip_args, has_keywords):
         # this function is more or less the equivalent of
         # ctx_CallRealFunctionFromTrampoline in cpython-universal
-        n = len(__args__.arguments_w) - skip_args
+        n = n_args = len(__args__.arguments_w) - skip_args
+        if has_keywords and __args__.keyword_names_w:
+            n += len(__args__.keyword_names_w)
 
         # XXX this looks inefficient: ideally, we would like the equivalent of
         # alloca(): do we have it in RPython? The alternative is to wrap
@@ -65,12 +67,26 @@ class W_ExtensionFunctionMixin(object):
         # functpr
         with lltype.scoped_alloc(rffi.CArray(llapi.HPy), n) as args_h:
             i = 0
-            while i < n:
+            while i < n_args:
                 args_h[i] = self.handles.new(__args__.arguments_w[i + skip_args])
                 i += 1
+            if has_keywords:
+                k = 0
+                while i < n:
+                    args_h[i] = self.handles.new(__args__.keyword_names_w[k])
+                    i += 1
+                    k += 1
             try:
                 if has_keywords:
-                    h_result = self.call_keywords(space, h_self, args_h, n, __args__)
+                    if k > 0:
+                        w_kw = space.newtuple(__args__.keywords_w)
+                        h_kw = self.handles.new(w_kw)
+                        try:
+                            h_result = self.call_keywords(space, h_self, args_h, n_args, h_kw)
+                        finally:
+                            self.handles.close(h_kw)
+                    else:    
+                        h_result = self.call_keywords(space, h_self, args_h, n)
                 else:
                     h_result = self.call_varargs(space, h_self, args_h, n)
             finally:
@@ -85,25 +101,11 @@ class W_ExtensionFunctionMixin(object):
         fptr = llapi.cts.cast('HPyFunc_varargs', self.cfuncptr)
         return fptr(self.handles.ctx, h_self, args_h, n)
 
-    def call_keywords(self, space, h_self, args_h, n, __args__):
+    def call_keywords(self, space, h_self, args_h, n, h_kw=0):
         # XXX: if there are no keywords, should we pass HPy_NULL or an empty
         # dict?
-        h_kw = 0
-        if __args__.keyword_names_w:
-            w_kw = space.newdict()
-            for i in range(len(__args__.keyword_names_w)):
-                w_key = __args__.keyword_names_w[i]
-                w_value = __args__.keywords_w[i]
-                space.setitem(w_kw, w_key, w_value)
-            h_kw = self.handles.new(w_kw)
-
         fptr = llapi.cts.cast('HPyFunc_keywords', self.cfuncptr)
-        try:
-            return fptr(self.handles.ctx, h_self, args_h, n, h_kw)
-        finally:
-            if h_kw:
-                self.handles.consume(h_kw)
-
+        return fptr(self.handles.ctx, h_self, args_h, n, h_kw)
 
     def descr_call(self, space, __args__):
         with self.handles.using(self.w_self) as h_self:
