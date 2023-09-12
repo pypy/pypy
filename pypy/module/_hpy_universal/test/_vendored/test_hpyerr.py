@@ -461,14 +461,20 @@ class TestErr(HPyTest):
         """)
 
         # NOTE: trampoline is defined in support.py
+        import sys
+        ISPYPY = "__pypy__" in sys.modules
         def check_warning(arg, category, message, file):
             with warnings.catch_warnings(record=True) as warnings_list:
-                trampoline(mod.f, arg)
+                if ISPYPY:
+                    mod.f(arg)
+                else:
+                    trampoline(mod.f, arg)
                 assert len(warnings_list) == 1, str(category)
                 w = warnings_list[-1]
                 assert issubclass(w.category, category), str(category)
                 assert str(w.message) == message, str(category)
-                assert w.filename.endswith(file), str(category)
+                if not ISPYPY:
+                    assert w.filename.endswith(file), str(category)
 
         check_warning(0, RuntimeWarning, "warn qzp", "support.py")
         check_warning(1, FutureWarning, "warn rtq", "test_hpyerr.py")
