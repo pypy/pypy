@@ -1,4 +1,3 @@
-import types
 from .support import HPyTest
 
 class TestModule(HPyTest):
@@ -92,6 +91,7 @@ class TestModule(HPyTest):
         runtime and the extension can only populate that module object in the
         init slots.
         """
+        import types
         mod = self.make_module("""
             HPyDef_SLOT(create, HPy_mod_create)
             static HPy create_impl(HPyContext *ctx, HPy spec)

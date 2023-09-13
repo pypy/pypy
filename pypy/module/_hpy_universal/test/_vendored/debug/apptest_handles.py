@@ -8,7 +8,7 @@ def hpy_abi():
 def make_leak_module(compiler):
     # for convenience
     return compiler.make_module("""
-        HPyDef_METH(leak, "leak", leak_impl, HPyFunc_O)
+        HPyDef_METH(leak, "leak", HPyFunc_O)
         static HPy leak_impl(HPyContext *ctx, HPy self, HPy arg)
         {
             HPy_Dup(ctx, arg); // leak!
@@ -26,7 +26,7 @@ def test_debug_ctx_name(compiler):
     #   2. in pypy we run HPyTest with only hpy_abi==universal, so this
     #      tests something which is NOT tested by test_00_basic
     mod = compiler.make_module("""
-        HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+        HPyDef_METH(f, "f", HPyFunc_NOARGS)
         static HPy f_impl(HPyContext *ctx, HPy self)
         {
             return HPyUnicode_FromString(ctx, ctx->name);
@@ -56,7 +56,7 @@ def test_get_open_handles(compiler):
 def test_leak_from_method(compiler):
     from hpy.universal import _debug
     mod = compiler.make_module("""
-        HPyDef_METH(Dummy_leak, "leak", Dummy_leak_impl, HPyFunc_O)
+        HPyDef_METH(Dummy_leak, "leak", HPyFunc_O)
         static HPy Dummy_leak_impl(HPyContext *ctx, HPy self, HPy arg) {
             HPy_Dup(ctx, arg); // leak!
             return HPy_Dup(ctx, ctx->h_None);
@@ -174,7 +174,7 @@ def test_closed_handles(compiler):
 def test_closed_handles_queue_max_size(compiler):
     from hpy.universal import _debug
     mod = compiler.make_module("""
-        HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+        HPyDef_METH(f, "f", HPyFunc_O)
         static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
         {
             return HPy_Dup(ctx, ctx->h_None);
@@ -213,7 +213,7 @@ def test_closed_handles_queue_max_size(compiler):
 def test_reuse_closed_handles(compiler):
     from hpy.universal import _debug
     mod = compiler.make_module("""
-        HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+        HPyDef_METH(f, "f", HPyFunc_O)
         static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
         {
             return HPy_Dup(ctx, ctx->h_None);
@@ -276,7 +276,7 @@ def test_set_on_invalid_handle(compiler):
 def test_cant_use_closed_handle(compiler):
     from hpy.universal import _debug
     mod = compiler.make_module("""
-        HPyDef_METH(f, "f", f_impl, HPyFunc_O, .doc="double close")
+        HPyDef_METH(f, "f", HPyFunc_O, .doc="double close")
         static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
         {
             HPy h = HPy_Dup(ctx, arg);
@@ -285,7 +285,7 @@ def test_cant_use_closed_handle(compiler):
             return HPy_Dup(ctx, ctx->h_None);
         }
 
-        HPyDef_METH(g, "g", g_impl, HPyFunc_O, .doc="use after close")
+        HPyDef_METH(g, "g", HPyFunc_O, .doc="use after close")
         static HPy g_impl(HPyContext *ctx, HPy self, HPy arg)
         {
             HPy h = HPy_Dup(ctx, arg);
@@ -313,7 +313,7 @@ def test_keeping_and_reusing_argument_handle(compiler):
     mod = compiler.make_module("""
         HPy keep;
 
-        HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+        HPyDef_METH(f, "f", HPyFunc_O)
         static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
         {
             keep = arg;
@@ -321,7 +321,7 @@ def test_keeping_and_reusing_argument_handle(compiler):
             return HPyLong_FromSsize_t(ctx, len);
         }
 
-        HPyDef_METH(g, "g", g_impl, HPyFunc_NOARGS)
+        HPyDef_METH(g, "g", HPyFunc_NOARGS)
         static HPy g_impl(HPyContext *ctx, HPy self)
         {
             HPy_ssize_t len = HPy_Length(ctx, keep);
