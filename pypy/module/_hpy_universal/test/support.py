@@ -66,7 +66,21 @@ class HPyAppTest(object):
                                                  keep=0)  # keep everything
 
         hpy_devel = HPyDevel(str(BASE_DIR))
-        compiler = _support.ExtensionCompiler(tmpdir, hpy_devel, 'universal',
+        if hpy_abi in ("debug", "hybrid+debug"):
+            mode = llapi.MODE_DEBUG
+        elif hpy_abi in ("universal", "hybrid"):
+            mode = llapi.MODE_UNIVERSAL
+        elif hpy_abi == "trace":
+            mode = llapi.MODE_TRACE
+        else:
+            mode = -1
+        if hpy_abi == 'debug' or hpy_abi == 'trace':
+            # there is no compile-time difference between universal and debug
+            # extensions. The only difference happens at load time
+            hpy_abi = 'universal'
+        elif hpy_abi in ('hybrid+debug', 'hybrid+trace'):
+            hpy_abi = 'hybrid'
+        compiler = _support.ExtensionCompiler(tmpdir, hpy_devel, hpy_abi,
                                               compiler_verbose=COMPILER_VERBOSE,
                                               extra_link_args=self.extra_link_args,
                                               extra_include_dirs=cpyext_include_dirs)
@@ -83,14 +97,6 @@ class HPyAppTest(object):
             module = compiler.compile_module(main_src, ExtensionTemplate,
                                                   name, extra_sources)
             so_filename = module.so_filename.replace(".py", ".hpy.so")
-            if hpy_abi == "debug":
-                mode = llapi.MODE_DEBUG
-            elif hpy_abi == "universal":
-                mode = llapi.MODE_UNIVERSAL
-            elif hpy_abi == "trace":
-                mode = llapi.MODE_TRACE
-            else:
-                mode = -1
             w_mod = space.appexec([space.newtext(name),
                                    space.newtext(so_filename),
                                    space.newint(mode)],
@@ -210,3 +216,11 @@ class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
         HPyAppTest.setup_class.im_func(cls)
+
+    # override the initargs fixture to run the tests in hybrid mode
+    @pytest.fixture(params=['hybrid', 'hybrid+debug'], autouse=True)
+    def initargs(self, request):
+        hpy_abi = request.param
+        self._init(request, hpy_abi)
+
+

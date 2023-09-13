@@ -10,6 +10,7 @@ SRC_DIR = PYPYDIR.join('module', '_hpy_universal', 'src')
 BASE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'devel')
 INCLUDE_DIR = BASE_DIR.join('include')
 DEBUG_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'debug', 'src')
+CAPI_DIR = PYPYDIR.join('module', '_hpy_universal', 'capi_stub')
 
 HPY_ABI_VERSION = 0
 HPY_ABI_VERSION_MINOR = 0
@@ -21,7 +22,7 @@ MODE_TRACE = 2
 
 
 eci = ExternalCompilationInfo(
-    compile_extra = ["-DHPY_ABI_UNIVERSAL"],
+    compile_extra = ["-DHPY_ABI_HYBRID"],
     includes=["hpy.h", "hpyerr.h", "rffi_hacks.h", "dctx.h"],
     include_dirs=[
         cdir,                       # for precommondefs.h
@@ -29,6 +30,7 @@ eci = ExternalCompilationInfo(
         SRC_DIR,                    # for hpyerr.h
         DEBUG_DIR,                  # for debug_internal.h
         DEBUG_DIR.join('include'),  # for hpy_debug.h
+        CAPI_DIR,                   # for Python.h stub for hybrid tests
     ],
     separate_module_files=[
         SRC_DIR.join('bridge.c'),

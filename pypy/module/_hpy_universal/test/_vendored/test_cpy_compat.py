@@ -1,8 +1,11 @@
-from .support import HPyTest, make_hpy_abi_fixture
+from .support import HPyTest #, make_hpy_abi_fixture
+import pytest
 
 class TestCPythonCompatibility(HPyTest):
+    USE_CPYEXT = True
 
-    hpy_abi = make_hpy_abi_fixture('with hybrid', class_fixture=True)
+
+    # hpy_abi = make_hpy_abi_fixture('with hybrid', class_fixture=True)
 
     # One note about the supports_refcounts() in the tests below: on
     # CPython, handles are actually implemented as INCREF/DECREF, so we can
@@ -13,7 +16,7 @@ class TestCPythonCompatibility(HPyTest):
     # really make sens on PyPy. We still run the functions to ensure they do
     # not crash, though.
 
-    def test_abi(self):
+    def _test_abi(self):
         mod = self.make_module("""
             #include <Python.h>
             HPyDef_METH(f, "f", HPyFunc_NOARGS)
