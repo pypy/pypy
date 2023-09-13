@@ -198,6 +198,12 @@ class W_wrap_lenfunc(object):
             space.fromcache(State).raise_current_exception()
         return space.newint(result)
 
+class W_wrap_call(object):
+    def call(self, space, __args__):
+        w_func = self.handles.w_ExtensionMethod(space, self.handles, "__call__",
+            llapi.HPyFunc_KEYWORDS, "", self.cfuncptr, self.w_objclass)
+        return space.call_args(w_func, __args__)
+
 def sq_getindex(space, w_sequence, w_idx):
     """
     This is equivalent to CPython's typeobject.c:getindex().
@@ -502,7 +508,7 @@ SLOTS = unrolling_iterable([
     ('sq_repeat',                  '__mul__',       W_wrap_indexargfunc),
 #   ('tp_base',                    '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_bases',                   '__xxx__',       AGS.W_SlotWrapper_...),
-#   ('tp_call',                    '__xxx__',       AGS.W_SlotWrapper_...),
+    ('tp_call',                    '__call__',      W_wrap_call),
 #   ('tp_clear',                   '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_del',                     '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_descr_get',               '__xxx__',       AGS.W_SlotWrapper_...),
