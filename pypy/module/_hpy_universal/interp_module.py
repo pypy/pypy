@@ -8,12 +8,20 @@ from pypy.module._hpy_universal import interp_extfunc, llapi
 from pypy.module._hpy_universal.state import State
 from pypy.module._hpy_universal.interp_cpy_compat import attach_legacy_methods
 
+NON_DEFAULT_MESSAGE = ("This is not allowed because custom " 
+    "HPy_mod_create slot cannot return a builtin module "
+    "object and cannot make any use of any other data "
+    "defined in the HPyModuleDef. Either do not define "
+    "HPy_mod_create slot and let the runtime create a builtin "
+    "module object from the provided HPyModuleDef, or do not define "
+    "anything else but the HPy_mod_create slot.")
 
 @specialize.arg(0)
-def _hpymodule_create(handles, modname, hpydef):
+def hpymod_create(handles, modname, hpydef):
     space = handles.space
     w_mod = Module(space, space.newtext(modname))
     kinds = llapi.cts.gettype("HPyDef_Kind")
+    slots = llapi.cts.gettype("HPySlot_Slot")
     #
     if hpydef.c_size < 0:
         raise oefmt(space.w_SystemError,
@@ -32,8 +40,10 @@ def _hpymodule_create(handles, modname, hpydef):
                 "Module %s contains legacy methods, but _hpy_universal "
                 "was compiled without cpyext support", modname)
     #
-    # add the native HPy defines
+    # add the native HPy module-level defines
     if hpydef.c_defines:
+        found_create = False
+        found_non_create = False
         p = hpydef.c_defines
         i = 0
         while p[i]:
@@ -41,9 +51,19 @@ def _hpymodule_create(handles, modname, hpydef):
             kind = p[i].c_kind
             if kind == kinds.HPyDef_Kind_Slot:
                 hpyslot = llapi.cts.cast("HPySlot *", p[i].c_meth)
-                # XXX What to do with it?
-                # It must be either HPy_mod_create or HPy_mod_exec
-                # CPython stores the info in the PyModeDef.m_slots
+                slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
+                if slot_num == slots.HPy_mod_create:
+                    if found_create:
+                        raise oefmt(space.w_SystemError,
+                            "Multiple definitions of the HPy_mod_create "
+                            "slot in HPyModuleDef.defines.")
+                    found_create = True
+                elif slot_num != slots.HPy_mod_exec:
+                    raise oefmt(space.w_SystemError,
+                        "Unsupported slot in HPyModuleDef.defines (value: %d).",
+                         slot_num)
+                else:
+                    found_non_create = True
             else:
                 hpymeth = p[i].c_meth
                 name = rffi.constcharp2str(hpymeth.c_name)
@@ -52,7 +72,18 @@ def _hpymodule_create(handles, modname, hpydef):
                 w_extfunc = handles.w_ExtensionFunction(
                     space, handles, name, sig, doc, hpymeth.c_impl, w_mod)
                 space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
+                found_non_create = True
             i += 1
+        if found_create and found_non_create:
+            raise oefmt(space.w_SystemError,
+                "HPyModuleDef defines a HPy_mod_create slot and some other "
+                "slots or methods. %s", NON_DEFAULT_MESSAGE)
+        if found_create and (hpydef.c_legacy_methods or hpydef.c_size > 0 or
+            hpydef.c_doc or hpydef.c_globals):
+            raise oefmt(space.w_SystemError,
+                "HPyModuleDef defines a HPy_mod_create slot and some "
+                "of the other fields are not set to their default "
+                "value. %s", NON_DEFAULT_MESSAGE)
     if hpydef.c_doc:
         w_doc = space.newtext(rffi.constcharp2str(hpydef.c_doc))
     else:
@@ -61,6 +92,30 @@ def _hpymodule_create(handles, modname, hpydef):
     space.setattr(w_mod, space.newtext('__file__'), space.w_None)
     init_extra_module_attrs(space, w_mod)
     return w_mod
+
+def hpymod_exec_def(handles, w_mod, hpydef):
+    """ Traverse the hpydef, and execute any HPy_mod_exec slot
+    """
+    kinds = llapi.cts.gettype("HPyDef_Kind")
+    slots = llapi.cts.gettype("HPySlot_Slot")
+    space = handles.space
+    if hpydef.c_defines:
+        p = hpydef.c_defines
+        i = 0
+        while p[i]:
+            # hpy native methods
+            kind = p[i].c_kind
+            if kind == kinds.HPyDef_Kind_Slot:
+                hpyslot = llapi.cts.cast("HPySlot *", p[i].c_meth)
+                slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
+                if slot_num == slots.HPy_mod_exec:
+                    # fast-call directly to W_ExtensionFunctionMixin.call_o
+                    func = llapi.cts.cast("HPyFunc_o", hpyslot.c_impl)
+                    with handles.using(w_mod) as h_arg:
+                        result = func(handles.ctx, h_arg, h_arg)
+                    if result != 0:
+                        space.fromcache(State).raise_current_exception()
+            i += 1
 
 def get_doc(c_doc):
     if not c_doc:

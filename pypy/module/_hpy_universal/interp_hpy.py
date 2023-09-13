@@ -10,7 +10,7 @@ from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.state import State
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal.llapi import BASE_DIR, MODE_UNIVERSAL, MODE_DEBUG
-from pypy.module._hpy_universal.interp_module import _hpymodule_create
+from pypy.module._hpy_universal.interp_module import hpymod_create, hpymod_exec_def
 
 # these imports have side effects, as they call @API.func()
 from pypy.module._hpy_universal import (
@@ -237,9 +237,9 @@ def do_load(space, name, soname, mode, w_spec):
     # upstream calls this, which is why we need w_spec
     # pydef = _HPyModuleDef_CreatePyModuleDef(hpydef)
     # py_mode = PyModule_FromDefAndSpec(pydef, spec)
-    w_mod = _hpymodule_create(manager, name, hpydef)
-    # TODO: find and call a function in the HPy_mod_exec slot
-    # PyModule_ExecDef(py_mod, pydef)
+    w_mod = hpymod_create(manager, name, hpydef)
+    # find and call functions in the HPy_mod_exec slot
+    hpymod_exec_def(manager, w_mod, hpydef)
     return w_mod
 
 def descr_get_version(space):
