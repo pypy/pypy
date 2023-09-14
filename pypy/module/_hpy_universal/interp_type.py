@@ -270,9 +270,11 @@ def get_bases_from_params(handles, params):
     return make_sure_not_resized(bases_w[:])
 
 def check_legacy_consistent(space, spec):
-    if spec.c_legacy_slots and not widen(spec.c_legacy):
+    shapes = llapi.cts.gettype("HPyType_BuiltinShape")
+    if spec.c_legacy_slots and not widen(spec.c_builtin_shape) != shapes.HPyType_BuiltinShape_Legacy:
         raise oefmt(space.w_TypeError,
-                    "cannot specify .legacy_slots without setting .legacy=true")
+            "cannot specify .legacy_slots without setting .builtin_shape "
+            "to HPyType_BuiltinShape_Legacy")
     if widen(spec.c_flags) & llapi.HPy_TPFLAGS_INTERNAL_PURE:
         raise oefmt(space.w_TypeError,
                     "HPy_TPFLAGS_INTERNAL_PURE should not be used directly,"
@@ -326,7 +328,8 @@ def _hpytype_fromspec(handles, spec, params):
         dict_w['__module__'] = space.newtext(modname)
 
     bases_w = get_bases_from_params(handles, params)
-    is_legacy = bool(widen(spec.c_legacy))
+    shapes = llapi.cts.gettype("HPyType_BuiltinShape")
+    is_legacy =  widen(spec.c_builtin_shape) == shapes.HPyType_BuiltinShape_Legacy
     if not bases_w:
         # override object.__new__ with one that allocates space for the C
         # struct. It could be further overridden via a tp_new in the spec

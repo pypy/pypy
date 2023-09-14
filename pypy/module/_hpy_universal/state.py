@@ -38,7 +38,7 @@ class State(object):
         elif mode == llapi.MODE_TRACE:
             raise oefmt(self.space.w_NotImplementedError, "MODE_TRACE not implemented yet")
         else:
-            raise oefmt(self.space.w_RuntimError, "MODE %d not valid", mode)
+            raise oefmt(self.space.w_RuntimeError, "MODE %d not valid", mode)
 
     def setup_bridge(self):
         if self.space.config.translating:

@@ -67,11 +67,11 @@ class W_ExtensionFunctionMixin(object):
         # functpr
         with lltype.scoped_alloc(rffi.CArray(llapi.HPy), n) as args_h:
             i = 0
+            k = 0
             while i < n_args:
                 args_h[i] = self.handles.new(__args__.arguments_w[i + skip_args])
                 i += 1
             if has_keywords:
-                k = 0
                 while i < n:
                     args_h[i] = self.handles.new(__args__.keywords_w[k])
                     i += 1

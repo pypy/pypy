@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rdynload import dlopen, dlsym, DLOpenError
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import widen
 
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.error import raise_import_error
@@ -190,8 +191,8 @@ def do_load(space, name, soname, mode, w_spec):
             "'%s' and `%s`. "), soname, minor_version_symbol_name,
             major_version_symbol_name)
     vgfp = llapi.VersionGetterFuncPtr
-    required_minor_version = rffi.cast(vgfp, minor_version_ptr)()
-    required_major_version = rffi.cast(vgfp, major_version_ptr)()
+    required_minor_version = widen(rffi.cast(vgfp, minor_version_ptr)())
+    required_major_version = widen(rffi.cast(vgfp, major_version_ptr)())
     if (required_major_version != llapi.HPY_ABI_VERSION or 
         required_minor_version > llapi.HPY_ABI_VERSION_MINOR):
         # For now, we have only one major version, but in the future at this
@@ -237,9 +238,29 @@ def do_load(space, name, soname, mode, w_spec):
     # upstream calls this, which is why we need w_spec
     # pydef = _HPyModuleDef_CreatePyModuleDef(hpydef)
     # py_mode = PyModule_FromDefAndSpec(pydef, spec)
-    w_mod = hpymod_create(manager, name, hpydef)
-    # find and call functions in the HPy_mod_exec slot
-    hpymod_exec_def(manager, w_mod, hpydef)
+    #
+    # specialize hpymod_create and hpymod_exec_def, which requires
+    # a constant 'manager'
+    state = State.get(space)
+    if mode == llapi.MODE_DEBUG:
+        manager = state.get_handle_manager(llapi.MODE_DEBUG)
+        w_mod = hpymod_create(manager, name, hpydef)
+        # find and call functions in the HPy_mod_exec slot
+        hpymod_exec_def(manager, w_mod, hpydef)
+    elif mode == llapi.MODE_UNIVERSAL:
+        manager = state.get_handle_manager(llapi.MODE_UNIVERSAL)
+        w_mod = hpymod_create(manager, name, hpydef)
+        # find and call functions in the HPy_mod_exec slot
+        hpymod_exec_def(manager, w_mod, hpydef)
+    elif mode == llapi.MODE_TRACE:
+        manager = state.get_handle_manager(llapi.MODE_TRACE)
+        w_mod = hpymod_create(manager, name, hpydef)
+        # find and call functions in the HPy_mod_exec slot
+        hpymod_exec_def(manager, w_mod, hpydef)
+    else:
+        # Raises an error, but pretend it doesn't for translation
+        manager = state.get_handle_manager(llapi.MODE_INVALID)
+        w_mod = hpymod_create(manager, name, hpydef)
     return w_mod
 
 def descr_get_version(space):

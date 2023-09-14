@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib.rarithmetic import widen
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.module import Module, init_extra_module_attrs
@@ -48,7 +49,7 @@ def hpymod_create(handles, modname, hpydef):
         i = 0
         while p[i]:
             # hpy native methods
-            kind = p[i].c_kind
+            kind = widen(p[i].c_kind)
             if kind == kinds.HPyDef_Kind_Slot:
                 hpyslot = llapi.cts.cast("HPySlot *", p[i].c_meth)
                 slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
@@ -93,6 +94,7 @@ def hpymod_create(handles, modname, hpydef):
     init_extra_module_attrs(space, w_mod)
     return w_mod
 
+@specialize.arg(0)
 def hpymod_exec_def(handles, w_mod, hpydef):
     """ Traverse the hpydef, and execute any HPy_mod_exec slot
     """
@@ -104,7 +106,7 @@ def hpymod_exec_def(handles, w_mod, hpydef):
         i = 0
         while p[i]:
             # hpy native methods
-            kind = p[i].c_kind
+            kind = widen(p[i].c_kind)
             if kind == kinds.HPyDef_Kind_Slot:
                 hpyslot = llapi.cts.cast("HPySlot *", p[i].c_meth)
                 slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)

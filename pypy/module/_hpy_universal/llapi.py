@@ -498,7 +498,7 @@ typedef struct {
     int basicsize;
     int itemsize;
     unsigned long flags;
-    int legacy;
+    HPyType_BuiltinShape builtin_shape;
     void *legacy_slots; // PyType_Slot *
     HPyDef **defines;   /* points to an array of 'HPyDef *' */
     const char* doc;    /* UTF-8 doc string or NULL */
