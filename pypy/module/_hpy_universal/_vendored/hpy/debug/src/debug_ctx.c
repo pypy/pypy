@@ -559,7 +559,7 @@ const char *debug_ctx_Type_GetName(HPyContext *dctx, DHPy type)
     ctx_info->is_valid = false;
     const char *name = HPyType_GetName(uctx, uh_type);
     ctx_info->is_valid = true;
-    n_name = strlen(name);
+    n_name = strlen(name) + 1;
     return (const char *)protect_and_associate_data_ptr(type, (void *)name, n_name);
 }
 
