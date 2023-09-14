@@ -329,7 +329,10 @@ def _hpytype_fromspec(handles, spec, params):
 
     bases_w = get_bases_from_params(handles, params)
     shapes = llapi.cts.gettype("HPyType_BuiltinShape")
-    is_legacy =  widen(spec.c_builtin_shape) == shapes.HPyType_BuiltinShape_Legacy
+    shape = widen(spec.c_builtin_shape)
+    if shape < shapes.HPyType_BuiltinShape_Legacy or shape > shapes.HPyType_BuiltinShape_List:
+        raise oefmt(space.w_ValueError, "invalid shape %d", shape)
+    is_legacy =  shape == shapes.HPyType_BuiltinShape_Legacy
     if not bases_w:
         # override object.__new__ with one that allocates space for the C
         # struct. It could be further overridden via a tp_new in the spec
@@ -466,3 +469,10 @@ def HPyType_GenericNew(space, handles, ctx, h_type, args, nargs, kw):
     w_type = handles.deref(h_type)
     w_result = _create_instance(space, w_type)
     return handles.new(w_result)
+
+@API.func("char * HPyType_GetName(HPyContext *ctx, HPy type)")
+def HPyType_GetName(space, handles, ctx, h_type):
+    w_obj = handles.deref(h_type)
+    s = w_obj.name
+    return handles.str2ownedptr(s, owner=h_type)  
+
