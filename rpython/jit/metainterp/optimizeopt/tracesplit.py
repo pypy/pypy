@@ -158,7 +158,7 @@ class OptTraceSplit(Optimizer):
                 break
 
             # shallow tracing: turn on flags
-            if rop.is_plain_call(opnum) or rop.is_call_may_force(opnum):
+            if rop.is_call(opnum):
                 numargs = op.numargs()
                 lastarg = op.getarg(numargs - 1)
                 if isinstance(lastarg, ConstInt) and lastarg.getint() == 1:
@@ -181,6 +181,12 @@ class OptTraceSplit(Optimizer):
                 self._newoperations_slow_path = self._newoperations
                 self._newoperations = self._slow_ops
                 self.send_extra_operation(label)
+
+                original_jitcell_token = self.token.original_jitcell_token
+                token = TargetToken(jitcell_token,
+                                    original_jitcell_token=original_jitcell_token)
+                label = ResOperation(rop.LABEL, self.inputargs, descr=token)
+                self._slow_ops.append(label)
                 continue
 
             if self._slow_path_flag:
@@ -227,6 +233,18 @@ class OptTraceSplit(Optimizer):
                 name = self._get_name_from_op(op)
                 if endswith(name, "emit_ptr_eq"):
                     self._slow_path_emit_ptr_eq = op
+                elif startswith(name, "handler_"):
+                    arglist = op.getarglist()
+
+                    newfunc = arglist[-2]
+                    offset = numargs - 2
+                    assert offset > 0
+                    newargs = arglist[:offset]
+                    newargs[0] = newfunc
+
+                    newop = op.copy_and_change(opnum, newargs)
+                    op.set_forwarded(newop)
+
 
             self.send_extra_operation(op)
             trace.kill_cache_at(deadranges[i + trace.start_index])
