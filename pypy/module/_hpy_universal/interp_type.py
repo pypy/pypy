@@ -473,6 +473,14 @@ def HPyType_GenericNew(space, handles, ctx, h_type, args, nargs, kw):
 @API.func("char * HPyType_GetName(HPyContext *ctx, HPy type)")
 def HPyType_GetName(space, handles, ctx, h_type):
     w_obj = handles.deref(h_type)
-    s = w_obj.name
-    return handles.str2ownedptr(s, owner=h_type)  
+    if isinstance(w_obj, W_TypeObject):
+        s = w_obj.name
+        return handles.str2ownedptr(s, owner=h_type)
+    else:
+        raise oefmt(space.w_TypeError, "non-type passed to HPyType_GetName")
 
+@API.func("long HPyType_GetBuiltinShape(HPyContext *ctx, HPy type)", error_value="CANNOT_FAIL")
+def HPyType_GetBuiltinShape(space, handles, ctx, h_type):
+    w_obj = handles.deref(h_type)
+    # XXX FIXME
+    return 0

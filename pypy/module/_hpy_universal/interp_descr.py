@@ -79,9 +79,21 @@ def member_get(w_descr, space, w_obj):
         return space.newtext(value)
     elif kind == Enum.HPyMember_NONE:
         return space.w_None
+    elif kind == Enum.HPyMember_OBJECT:
+        from pypy.module._hpy_universal.interp_field import field_load_w
+        if llapi.cts.cast("HPy*", addr)[0] == 0:
+            return space.w_None
+        w_obj = field_load_w(addr)
+        return w_obj
+    elif kind == Enum.HPyMember_OBJECT_EX:
+        from pypy.module._hpy_universal.interp_field import field_load_w
+        if llapi.cts.cast("HPy*", addr)[0] == 0:
+            raise oefmt(space.w_AttributeError,
+                        "%R object has no attribute %s", w_descr, name)
+        w_obj = field_load_w(addr)
+        return w_obj
     else:
-        # missing: OBJECT, OBJECT_EX
-        raise oefmt(space.w_NotImplementedError, '...')
+        raise oefmt(space.w_NotImplementedError, 'cannot handle get for %d', kind)
 
 
 def member_set(w_descr, space, w_obj, w_value):
@@ -134,13 +146,33 @@ def member_set(w_descr, space, w_obj, w_value):
                   Enum.HPyMember_STRING_INPLACE,
                   Enum.HPyMember_NONE):
         raise oefmt(space.w_TypeError, 'readonly attribute')
+    elif kind in (Enum.HPyMember_OBJECT, Enum.HPyMember_OBJECT_EX):
+        from pypy.module._hpy_universal.interp_field import field_store_w
+        ptr = llapi.cts.cast("HPyField *", addr)
+        field_store_w(ptr, w_obj, w_value)
     else:
         raise oefmt(space.w_NotImplementedError, '...')
 
 def member_del(w_descr, space, w_obj):
+    from .interp_type import W_HPyObject
+    assert isinstance(w_descr, W_HPyMemberDescriptor)
     check_descr(space, w_obj, w_descr.w_type)
-    raise oefmt(space.w_TypeError,
-                "can't delete numeric/char attribute")
+    assert isinstance(w_obj, W_HPyObject)
+    # POSSIBLE DRAGONS AHEAD: here we take the address of the HPy object and
+    # later we write into it (look for ptr[0] = ...). This is correct because
+    # at the moment we allocate HPY_STORAGE as nonmovable=True, but if/when we
+    # refactor to use movable memory, we will need to ensure that no GC
+    # operations can happen between this cast and the various
+    # ptr[0]=... below.
+    addr = rffi.cast(ADDRESS, w_obj.get_raw_data()) + w_descr.offset
+    kind = w_descr.kind
+    if kind in (Enum.HPyMember_OBJECT, Enum.HPyMember_OBJECT_EX):
+        from pypy.module._hpy_universal.interp_field import field_delete_w
+        ptr = llapi.cts.cast("HPyField *", addr)
+        field_delete_w(ptr)
+    else:
+        raise oefmt(space.w_TypeError,
+                    "can't delete numeric/char attribute")
 
 
 class W_HPyMemberDescriptor(GetSetProperty):
