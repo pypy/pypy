@@ -75,7 +75,7 @@ class TestParseItem(HPyTest):
             "function a str is required"
         )
 
-    def test_B(self):
+    def test_upper_b(self):
         mod = self.make_parse_item("B", "char", "char_to_hpybytes")
         assert mod.f(0) == b"\x00"
         assert mod.f(1) == b"\x01"
@@ -102,7 +102,7 @@ class TestParseItem(HPyTest):
             "function signed short integer is less than minimum"
         )
 
-    def test_H_short(self):
+    def test_upper_h_short(self):
         mod = self.make_parse_item("H", "short", "HPyLong_FromLong")
         assert mod.f(0) == 0
         assert mod.f(1) == 1
@@ -114,7 +114,7 @@ class TestParseItem(HPyTest):
         assert mod.f(2**16) == 0
         assert mod.f(-2**16) == 0
 
-    def test_H_unsigned_short(self):
+    def test_upper_h_unsigned_short(self):
         mod = self.make_parse_item(
             "H", "unsigned short", "HPyLong_FromUnsignedLong"
         )
@@ -147,7 +147,7 @@ class TestParseItem(HPyTest):
             "Python int too large to convert to C long",  # where sizeof(long) == 4
         )
 
-    def test_I_signed(self):
+    def test_upper_i_signed(self):
         mod = self.make_parse_item("I", "int", "HPyLong_FromLong")
         assert mod.f(0) == 0
         assert mod.f(1) == 1
@@ -159,7 +159,7 @@ class TestParseItem(HPyTest):
         assert mod.f(2**32) == 0
         assert mod.f(-2**32) == 0
 
-    def test_I_unsigned(self):
+    def test_upper_i_unsigned(self):
         mod = self.make_parse_item(
             "I", "unsigned int", "HPyLong_FromUnsignedLong"
         )
@@ -211,7 +211,7 @@ class TestParseItem(HPyTest):
         assert mod.f(2**ULONG_BITS) == 0
         assert mod.f(-2**ULONG_BITS) == 0
 
-    def test_L(self):
+    def test_upper_l(self):
         import pytest
         mod = self.make_parse_item("L", "long long", "HPyLong_FromLongLong")
         assert mod.f(0) == 0
@@ -224,7 +224,7 @@ class TestParseItem(HPyTest):
         with pytest.raises(OverflowError):
             mod.f(-2**63 - 1)
 
-    def test_K_signed(self):
+    def test_upper_k_signed(self):
         mod = self.make_parse_item("K", "long long", "HPyLong_FromLongLong")
         assert mod.f(0) == 0
         assert mod.f(1) == 1
@@ -236,7 +236,7 @@ class TestParseItem(HPyTest):
         assert mod.f(2**64) == 0
         assert mod.f(-2**64) == 0
 
-    def test_K_unsigned(self):
+    def test_upper_k_unsigned(self):
         mod = self.make_parse_item(
             "K", "unsigned long long", "HPyLong_FromUnsignedLongLong"
         )
@@ -277,7 +277,7 @@ class TestParseItem(HPyTest):
         with pytest.raises(TypeError):
             mod.f("x")
 
-    def test_O(self):
+    def test_upper_o(self):
         mod = self.make_parse_item("O", "HPy", "HPy_Dup")
         assert mod.f("a") == "a"
         assert mod.f(5) == 5
