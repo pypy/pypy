@@ -238,11 +238,14 @@ class OptTraceSplit(Optimizer):
 
                     newfunc = arglist[-2]
                     offset = numargs - 2
-                    assert offset > 0
+                    assert offset >= 0
                     newargs = arglist[:offset]
                     newargs[0] = newfunc
 
-                    newop = op.copy_and_change(opnum, newargs)
+                    descr = op.getdescr()
+                    descr.set_without_dummy_flag_variant_to_arg_types()
+
+                    newop = op.copy_and_change(opnum, newargs, descr=descr)
                     op.set_forwarded(newop)
 
 

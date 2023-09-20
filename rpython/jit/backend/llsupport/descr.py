@@ -452,6 +452,7 @@ class CallDescr(BackendDescr):
     result_type = '\x00'
     result_flag = '\x00'
     ffi_flags = 1
+    without_dummy_flag_variant = None    # <-- dummy flag hack for threaded code gen.
 
     def __init__(self, arg_classes, result_type, result_signed, result_size,
                  extrainfo=None, ffi_flags=1):
@@ -471,6 +472,9 @@ class CallDescr(BackendDescr):
         self.call_stub_i = _missing_call_stub_i
         self.call_stub_r = _missing_call_stub_r
         self.call_stub_f = _missing_call_stub_f
+        offset = len(self.arg_classes) - 2
+        if offset >= 0:
+            self.without_dummy_flag_variant = self.arg_classes[:offset]
         # NB. the default ffi_flags is 1, meaning FUNCFLAG_CDECL, which
         # makes sense on Windows as it's the one for all the C functions
         # we are compiling together with the JIT.  On non-Windows platforms
@@ -533,6 +537,12 @@ class CallDescr(BackendDescr):
 
     def get_result_size(self):
         return self.result_size
+
+    def get_without_dummy_flag_variant(self):
+        return self.without_dummy_flag_variant
+
+    def set_without_dummy_flag_variant_to_arg_types(self):
+        self.arg_classes = self.without_dummy_flag_variant
 
     def is_result_signed(self):
         return self.result_flag == FLAG_SIGNED
