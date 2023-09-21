@@ -525,7 +525,7 @@ class KnownBitsCheck(AbstractOperation):
 
 
 OPERATIONS = OperationBuilder.OPERATIONS + [CallIntPyModPyDiv(rop.CALL_PURE_I)] + [
-        RangeCheck(None), KnownBitsCheck(None)] * 100
+        RangeCheck(None), KnownBitsCheck(None)] * 10
 
 
 class Z3OperationBuilder(OperationBuilder):
