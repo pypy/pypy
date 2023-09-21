@@ -2740,4 +2740,17 @@ class TestComplexIntOpts(BaseTestBasic):
         guard_value(i3, 18014398509481984) []
         jump()
         """
-        self.optimize_loop(ops, ops)
+        self.optimize_loop(ops, ops) # used to crash
+
+    def test_mul_backwards_bug(self):
+        ops = """
+        [i1]
+        i0 = int_and(i1, 59)
+        guard_value(i0, 40) []
+        i2 = int_mul_ovf(-25, i1)
+        guard_no_overflow() []
+        i3 = int_and(i2, 8)
+        guard_value(i3, 8) []
+        jump()
+        """
+        self.optimize_loop(ops, ops) # used to crash
