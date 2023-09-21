@@ -504,8 +504,28 @@ class RangeCheck(AbstractOperation):
         op.setfailargs(builder.subset_of_intvars(r))
         ops.append(op)
 
+class KnownBitsCheck(AbstractOperation):
+    def produce_into(self, builder, r):
+        # inject knowledge about a random subset of the bits of an integer
+        # variable
+        from rpython.jit.backend.test.test_random import getint
+        v_int = r.choice(list(set(builder.intvars) - set(builder.boolvars)))
+        val = getint(v_int)
+        ops = builder.loop.operations
+        mask = r.random_integer()
+        res = val & mask
+        op = ResOperation(rop.INT_AND, [v_int, ConstInt(mask)])
+        op._example_int = res
+        ops.append(op)
 
-OPERATIONS = OperationBuilder.OPERATIONS + [CallIntPyModPyDiv(rop.CALL_PURE_I), RangeCheck(None)]
+        op = ResOperation(rop.GUARD_VALUE, [op, ConstInt(res)])
+        op.setdescr(builder.getfaildescr())
+        op.setfailargs(builder.subset_of_intvars(r))
+        ops.append(op)
+
+
+OPERATIONS = OperationBuilder.OPERATIONS + [CallIntPyModPyDiv(rop.CALL_PURE_I)] + [
+        RangeCheck(None), KnownBitsCheck(None)] * 100
 
 
 class Z3OperationBuilder(OperationBuilder):

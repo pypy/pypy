@@ -1489,7 +1489,31 @@ def test_knownbits_rshift_backwards_random(t1, t2):
     # this should not fail
     b1.intersect(newb1)
 
+def test_knownbits_div_bug():
+    b1 = IntUnbounded()
+    b2 = knownbits(0b1, r_uint(-2))  # ?????1
+    r = b1.py_div_bound(b2)
+    assert r.lower == MININT and r.upper == MAXINT
 
+@given(knownbits_with_contained_number, knownbits_with_contained_number)
+def test_knownbits_div_bound_random(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    b3 = b1.py_div_bound(b2)
+    if n1 == -sys.maxint-1 and n2 == -1:
+        return # overflow
+    if n2 != 0:
+        assert b3.contains(n1 / n2)   # Python-style div
+
+@given(knownbits_with_contained_number, knownbits_with_contained_number)
+def test_knownbits_mod_bound_random(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    b3 = b1.mod_bound(b2)
+    if n1 == -sys.maxint-1 and n2 == -1:
+        return # overflow
+    if n2 != 0:
+        assert b3.contains(n1 % n2)   # Python-style mod
 
 def knownbits(tvalue, tmask=0, do_unmask=False):
     if not isinstance(tvalue, r_uint):

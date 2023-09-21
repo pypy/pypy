@@ -620,7 +620,11 @@ class IntBound(AbstractInfo):
         the result.
         (Does not mutate `self`.)
         """
-        if not other.contains(0):
+        # we need to make sure that the 0 is not in the interval because
+        # otherwise [-4, 4] / [-4, 4] would return [-1, 1], which is nonsense
+        # see test_knownbits_div_bug. the first part of the check is not
+        # enough, because 0 could be excluded by the known bits
+        if not other.contains(0) and not (other.lower < 0 < other.upper):
             try:
                 # this gives the bounds for 'int_py_div', so use the
                 # Python-style handling of negative numbers and not
