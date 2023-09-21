@@ -477,7 +477,26 @@ typedef struct {
     HPyDef_Kind kind;
     HPyGetSet getset;
 } _pypy_HPyDef_as_getset;
+ 
+typedef void (*HPyFunc_Capsule_Destructor)(const char *name, void *pointer, void *context);
+typedef HPy (*HPyFunc_keywords)(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
 
+typedef struct {
+    void *cpy_trampoline;
+    HPyFunc_Capsule_Destructor impl;
+} HPyCapsule_Destructor;
+
+typedef struct {
+    void *pointer;
+    const char *name;
+    void *context;
+    HPyCapsule_Destructor destructor;
+} HPyCapsule;
+
+typedef struct {
+    void *cpy_trampoline;
+    HPyFunc_keywords impl;
+} HPyCallFunction;
 
 /* hpymodule.h */
 
@@ -565,7 +584,6 @@ typedef void (*InitContextFuncPtr)(HPyContext*);
 typedef HPy (*HPyFunc_noargs)(HPyContext *ctx, HPy self);
 typedef HPy (*HPyFunc_o)(HPyContext *ctx, HPy self, HPy arg);
 typedef HPy (*HPyFunc_varargs)(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs);
-typedef HPy (*HPyFunc_keywords)(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
 typedef HPy (*HPyFunc_unaryfunc)(HPyContext *ctx, HPy);
 typedef HPy (*HPyFunc_binaryfunc)(HPyContext *ctx, HPy, HPy);
 typedef HPy (*HPyFunc_ternaryfunc)(HPyContext *ctx, HPy, HPy, HPy);

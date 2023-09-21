@@ -12,7 +12,8 @@ from pypy.interpreter.typedef import interp2app
 from pypy.module.cpyext.pyobject import as_pyobj, PyObject
 from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import llapi
-from .interp_slot import fill_slot, W_wrap_getbuffer, get_slot_cls
+from .interp_slot import (fill_slot, W_wrap_getbuffer, get_slot_cls,
+                          W_wrap_call, W_wrap_call_at_offset)
 from .interp_descr import add_member, add_getset
 from rpython.rlib.rutf8 import surrogate_in_utf8
 
@@ -342,6 +343,24 @@ def _hpytype_fromspec(handles, spec, params):
         # on such an instance.
         dict_w['__new__'] = get_default_new(space)
     basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
+    
+    if has_tp_slot(spec, [HPySlot_Slot.HPy_tp_call]):
+        if widen(spec.c_itemsize):
+            # Slot 'HPy_tp_call' will add a hidden field to
+            # the type's struct on CPython. The field can only be appended
+            # which conflicts with var objects. So, we don't allow this if
+            # itemsize != 0. */
+            raise oefmt(space.w_TypeError,
+                "Cannot use HPy call protocol with var objects")
+        if basicsize == 0 and is_legacy:
+            # CPython cannot safely add the hidden field in case of a legacy
+            # type that inherits the basicsize since we don't know it.
+            # In this case, we reject to use HPy_tp_call but since it
+            # is a legacy type, legacy slot Py_tp_call can be used.
+            raise oefmt(space.w_TypeError,
+                "Cannot use HPy call protocol with legacy types that"
+                " inherit the struct. Either set the basicsize to a"
+                "non-zero value or use legacy slot 'Py_tp_call'.")
 
     w_result = _create_new_type(
         space, space.w_type, name, bases_w, dict_w, basicsize, is_legacy=is_legacy)
@@ -353,18 +372,20 @@ def _hpytype_fromspec(handles, spec, params):
                          [HPySlot_Slot.HPy_tp_traverse, HPySlot_Slot.HPy_tp_destroy])
         attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots, needs_hpytype_dealloc)
     if spec.c_defines:
-        add_slot_defs(handles, w_result, spec.c_defines)
+        add_slot_defs(handles, w_result, spec)
     check_inheritance_constraints(space, w_result)
     return handles.new(w_result)
 
 @specialize.arg(0)
-def add_slot_defs(handles, w_result, c_defines):
+def add_slot_defs(handles, w_result, spec):
     from .interp_module import get_doc  # avoid circular import
     space = handles.space
-    p = c_defines
+    p = spec.c_defines
     i = 0
     HPyDef_Kind = llapi.cts.gettype('HPyDef_Kind')
     rbp = llapi.cts.cast('HPyFunc_releasebufferproc', 0)
+    vectorcalloffset = 0
+    has_tp_call = False
     while p[i]:
         kind = rffi.cast(lltype.Signed, p[i].c_kind)
         if kind == HPyDef_Kind.HPyDef_Kind_Slot:
@@ -374,7 +395,7 @@ def add_slot_defs(handles, w_result, c_defines):
                 rbp = llapi.cts.cast('HPyFunc_releasebufferproc',
                                      hpyslot.c_impl)
             else:
-                fill_slot(handles, w_result, hpyslot)
+                has_tp_call = fill_slot(handles, w_result, hpyslot)
         elif kind == HPyDef_Kind.HPyDef_Kind_Meth:
             hpymeth = p[i].c_meth
             name = rffi.constcharp2str(hpymeth.c_name)
@@ -386,19 +407,33 @@ def add_slot_defs(handles, w_result, c_defines):
                 space, rffi.constcharp2str(hpymeth.c_name), w_extfunc)
         elif kind == HPyDef_Kind.HPyDef_Kind_Member:
             hpymember = llapi.cts.cast('_pypy_HPyDef_as_member*', p[i]).c_member
-            add_member(space, w_result, hpymember)
+            old_vectorcalloffset = vectorcalloffset
+            vectorcalloffset = add_member(space, w_result, hpymember)
+            if old_vectorcalloffset > 0 and vectorcalloffset > 0:
+                raise oefmt(space.w_ValueError, "set __vectoroffset__ twice")
         elif kind == HPyDef_Kind.HPyDef_Kind_GetSet:
             hpygetset = llapi.cts.cast('_pypy_HPyDef_as_getset*', p[i]).c_getset
             add_getset(handles, w_result, hpygetset)
         else:
             raise oefmt(space.w_ValueError, "Unspported HPyDef.kind: %d", kind)
         i += 1
+    if has_tp_call and vectorcalloffset > 0:
+        raise oefmt(space.w_TypeError,
+            "Cannot have HPy_tp_call and explicit member"
+            "'__vectorcalloffset__'. Specify just one of them.")
     if rbp:
         w_buffer_wrapper = w_result.getdictvalue(space, '__buffer__')
         # XXX: this is horrible :-(
         getbuffer_cls = get_slot_cls(handles, W_wrap_getbuffer)
         if w_buffer_wrapper and isinstance(w_buffer_wrapper, getbuffer_cls):
             w_buffer_wrapper.rbp = rbp
+    if vectorcalloffset > 0:
+        # Make the type callable with the function at __vectorcalloffset__
+        void = llapi.cts.cast('HPyFunc_keywords', 0)
+        cls = get_slot_cls(handles, W_wrap_call_at_offset)
+        w_slot = cls(HPySlot_Slot.HPy_tp_call, "__call__", void, w_result)
+        w_slot.offset = vectorcalloffset
+        w_result.setdictvalue(space, "__call__", w_slot)
 
 def has_tp_slot(spec, slots):
     if not spec.c_defines:
@@ -484,3 +519,14 @@ def HPyType_GetBuiltinShape(space, handles, ctx, h_type):
     w_obj = handles.deref(h_type)
     # XXX FIXME
     return 0
+
+@API.func("int HPy_SetCallFunction(HPyContext *ctx, HPy h, HPyCallFunction *func)", error_value=API.int(-1))
+def HPy_SetCallFunction(space, handles, ctx, h, func):
+    w_obj = handles.deref(h)
+    # Unconditionally override the __call__ slot on the object
+    w_type = space.type(w_obj)
+    cls = get_slot_cls(handles, W_wrap_call)
+    w_slot = cls(HPySlot_Slot.HPy_tp_call, "__call__", func.c_impl, w_type)
+    w_type.setdictvalue(space, "__call__", w_slot)
+    return API.int(0)
+    

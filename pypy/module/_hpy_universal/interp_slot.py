@@ -204,6 +204,17 @@ class W_wrap_call(object):
             llapi.HPyFunc_KEYWORDS, "", self.cfuncptr, self.w_objclass)
         return space.call_args(w_func, __args__)
 
+class W_wrap_call_at_offset(object):
+    def call(self, space, __args__):
+        from .interp_type import W_HPyObject
+        w_obj = __args__.arguments_w[0]
+        assert isinstance(w_obj, W_HPyObject)
+        addr = rffi.cast(lltype.Signed, w_obj.get_raw_data()) + self.offset
+        callfunc = llapi.cts.cast('HPyCallFunction*', addr)
+        w_func = self.handles.w_ExtensionMethod(space, self.handles, "__call__",
+            llapi.HPyFunc_KEYWORDS, "", callfunc.c_impl, self.w_objclass)
+        return space.call_args(w_func, __args__)
+
 def sq_getindex(space, w_sequence, w_idx):
     """
     This is equivalent to CPython's typeobject.c:getindex().
@@ -544,35 +555,37 @@ SLOTS = unrolling_iterable([
 def fill_slot(handles, w_type, hpyslot):
     space = handles.space
     slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
+    has_tp_call = False
     # special cases
     if slot_num == HPySlot_Slot.HPy_tp_new:
         # this is the moral equivalent of CPython's add_tp_new_wrapper
         cls = get_tp_new_wrapper_cls(handles)
         w_func = cls(hpyslot.c_impl, w_type)
         w_type.setdictvalue(space, '__new__', w_func)
-        return
+        return has_tp_call
     elif slot_num == HPySlot_Slot.HPy_tp_destroy:
         w_type.tp_destroy = llapi.cts.cast('HPyFunc_destroyfunc', hpyslot.c_impl)
-        return
+        return has_tp_call
     elif slot_num == HPySlot_Slot.HPy_tp_traverse:
         w_type.tp_traverse = llapi.cts.cast('HPyFunc_traverseproc', hpyslot.c_impl)
-        return
+        return has_tp_call
     elif slot_num == HPySlot_Slot.HPy_tp_richcompare:
         for methname, opval in CMP_SLOTS:
             cls = get_cmp_wrapper_cls(handles, methname, opval)
             w_slot = cls(slot_num, methname, hpyslot.c_impl, w_type)
             w_type.setdictvalue(space, methname, w_slot)
-        return
+        return has_tp_call
     elif slot_num == HPySlot_Slot.HPy_tp_finalize:
         # This is not a normal __slot__ since we want __del__ to be called as a
         # finalizer, not when the object __del__ is called.
         cls = get_slot_cls(handles, W_wrap_voidfunc)
         w_slot = cls(slot_num, "__del__", hpyslot.c_impl, w_type)
         w_type.tp_finalize = w_slot
-        return
+        return has_tp_call
     elif slot_num == HPySlot_Slot.HPy_bf_releasebuffer:
-        return
-
+        return has_tp_call
+    elif slot_num == HPySlot_Slot.HPy_tp_call:
+        has_tp_call = True
     # generic cases
     found = False
     for slotname, methname, mixin in SLOTS:
@@ -586,3 +599,4 @@ def fill_slot(handles, w_type, hpyslot):
 
     if not found:
         raise oefmt(space.w_NotImplementedError, "Unimplemented slot: %s", str(slot_num))
+    return has_tp_call

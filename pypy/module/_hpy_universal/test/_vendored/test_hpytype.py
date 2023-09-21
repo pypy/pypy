@@ -1043,6 +1043,7 @@ class TestType(HPyTest):
 
         # the negative 'x' will cause that 'Point_special_call' is used
         p1 = mod.Point(-1, 2)
+        print(p1.__call__)
         assert p1(3, 4, 5, factor=2) == -26
 
         # error case: setting call function on object that does not implement
@@ -1102,10 +1103,12 @@ class TestType(HPyTest):
             @EXPORT(create_vcall)
             @INIT
         """)
-        with pytest.raises(TypeError):
+        with pytest.raises(TypeError) as err:
             mod.create_var_type()
-        with pytest.raises(TypeError):
+        assert "Cannot use HPy call protocol with var" in str(err.value)
+        with pytest.raises(TypeError) as err:
             mod.create_call_and_vectorcalloffset_type()
+        assert "Cannot use HPy call protocol with legacy" in str(err.value)
 
     def test_call_explicit_offset(self):
         mod = self.make_module("""

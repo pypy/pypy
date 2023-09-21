@@ -219,6 +219,10 @@ def add_member(space, w_type, hpymember):
     doc = rffi.constcharp2str(hpymember.c_doc) if hpymember.c_doc else None
     w_descr = W_HPyMemberDescriptor(w_type, kind, name, doc, offset, readonly)
     w_type.setdictvalue(space, name, w_descr)
+    if name == "__vectorcalloffset__":
+        return offset
+    else:
+        return 0
 
 
 # ======== HPyDef_Kind_GetSet ========
