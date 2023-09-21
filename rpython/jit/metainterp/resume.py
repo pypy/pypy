@@ -84,17 +84,17 @@ class AccumInfo(VectorInfo):
                                               self.location)
 
 def _ensure_parent_resumedata(framestack, n, t, snapshot):
-    if n == 0:
-        return
-    target = framestack[n]
-    back = framestack[n - 1]
-    if target.parent_snapshot:
-        snapshot.prev = target.parent_snapshot
-        return
-    s = t.create_snapshot(back.jitcode, back.pc, back, True)
-    snapshot.prev = s
-    _ensure_parent_resumedata(framestack, n - 1, t, s)
-    target.parent_snapshot = s
+    while n > 0:
+        target = framestack[n]
+        back = framestack[n - 1]
+        if target.parent_snapshot:
+            snapshot.prev = target.parent_snapshot
+            return
+        s = t.create_snapshot(back.jitcode, back.pc, back, True)
+        snapshot.prev = s
+        target.parent_snapshot = s
+        n -= 1
+        snapshot = s
 
 def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t, after_residual_call=False):
     n = len(framestack) - 1
@@ -1080,6 +1080,12 @@ def rebuild_from_resumedata(metainterp, storage, deadframe,
     return resumereader.liveboxes, virtualizable_boxes, virtualref_boxes
 
 
+def get_max_num_inputargs(storage):
+    reader = resumecode.Reader(storage.rd_numb)
+    reader.next_item()
+    return reader.next_item()
+
+
 class ResumeDataBoxReader(AbstractResumeDataReader):
     unique_id = lambda: None
     VirtualCache = get_VirtualCache_class('BoxReader')
@@ -1283,15 +1289,14 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         if num < 0:
             num += len(self.liveboxes)
             assert num >= 0
+        # we create *FrontendOp instances with numbers in the range
+        # 0..self.count
         if kind == INT:
-            box = IntFrontendOp(0)
-            box.setint(self.cpu.get_int_value(self.deadframe, num))
+            box = IntFrontendOp(num, self.cpu.get_int_value(self.deadframe, num))
         elif kind == REF:
-            box = RefFrontendOp(0)
-            box.setref_base(self.cpu.get_ref_value(self.deadframe, num))
+            box = RefFrontendOp(num, self.cpu.get_ref_value(self.deadframe, num))
         elif kind == FLOAT:
-            box = FloatFrontendOp(0)
-            box.setfloatstorage(self.cpu.get_float_value(self.deadframe, num))
+            box = FloatFrontendOp(num, self.cpu.get_float_value(self.deadframe, num))
         else:
             assert 0, "bad kind: %d" % ord(kind)
         self.liveboxes[num] = box

@@ -275,6 +275,8 @@ class Platform(object):
     def check___thread(self):
         return True
 
+    def get_multiarch(self):
+        return ''
 
 if sys.platform.startswith('linux'):
     from rpython.translator.platform.linux import Linux

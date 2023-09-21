@@ -53,6 +53,9 @@ c_thread_start = llexternal('RPyThreadStart', [CALLBACK], lltype.Signed,
                                               # importantly, reacquire it
                                               # around the callback
 
+c_pthread_kill = llexternal('RPyThread_kill', [lltype.Signed, rffi.INT], rffi.INT,
+                          save_err=rffi.RFFI_SAVE_ERRNO)
+
 TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
                           compilation_info=eci)
 TLOCKP_SIZE = rffi_platform.sizeof('struct RPyOpaque_ThreadLock', eci)

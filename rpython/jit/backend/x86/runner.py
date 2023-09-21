@@ -80,7 +80,7 @@ class AbstractX86CPU(AbstractLLCPU):
         """
         NOT_RPYTHON
         """
-        from rpython.jit.backend.x86.tool.viewcode import machine_code_dump
+        from rpython.jit.backend.tool.viewcode import machine_code_dump
         data = []
         label_list = [(offset, name) for name, offset in
                       looptoken._x86_ops_offset.iteritems()]

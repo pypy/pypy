@@ -696,7 +696,7 @@ class OptHeap(Optimization):
     def serialize_optheap(self, available_boxes):
         result_getfield = []
         for descr, cf in self.cached_fields.iteritems():
-            if descr.descr_index == -1:
+            if descr.get_descr_index() == -1:
                 continue # not reachable via metainterp_sd.all_descrs
             if cf._lazy_set:
                 continue  # XXX safe default for now
@@ -717,7 +717,7 @@ class OptHeap(Optimization):
                     result_getfield.append((box1, descr, box2))
         result_array = []
         for descr, indexdict in self.cached_arrayitems.iteritems():
-            if descr.descr_index == -1:
+            if descr.get_descr_index() == -1:
                 continue # not reachable via metainterp_sd.all_descrs
             for index, cf in indexdict.iteritems():
                 if cf._lazy_set:

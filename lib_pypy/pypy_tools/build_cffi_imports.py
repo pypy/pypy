@@ -53,26 +53,26 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    'lzma': ('http://distfiles.macports.org/xz/xz-5.2.5.tar.bz2',
-             '5117f930900b341493827d63aa910ff5e011e0b994197c3b71c08a20228a42df',
-             [configure_args,
-              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
-              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ]),
-    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1s.tar.gz',
-             'c5ac01e760ee6ff0dab61d6b2bbd30146724d063eb322180c6f18a6f74e4b6aa',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1w.tar.gz',
+              'cf3098950cb4d853ad95c0841f1f9c6d3dc102dccfcacd521d93925208b76ac8',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.7.tar.gz',
-              '83049d042a260e696f62406ac5c08bf706fd84383f945cf21bd61e9ed95c396e',
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.10.tar.gz',
+              '1761d4f5b13a1028b9b6f3d4b8e17feb0cedc9370f6afe61d7193d2cdce83323',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
+    'lzma': ('http://distfiles.macports.org/xz/xz-5.2.10.tar.bz2',
+             '01b71df61521d9da698ce3c33148bff06a131628ff037398c09482f3a26e5408',
+             [configure_args,
+              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+             ]),
 }
 
 cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']

@@ -2523,7 +2523,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     arenas_count_after=self.ac.arenas_count,
                     arenas_bytes=self.ac.total_memory_used,
                     rawmalloc_bytes_before=self.stat_rawmalloced_total_size,
-                    rawmalloc_bytes_after=self.rawmalloced_total_size)
+                    rawmalloc_bytes_after=self.rawmalloced_total_size,
+                    pinned_objects = self.pinned_objects_in_nursery)
                 #
                 # Max heap size: gives an upper bound on the threshold.  If we
                 # already have at least this much allocated, raise MemoryError.

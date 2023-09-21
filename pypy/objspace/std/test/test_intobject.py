@@ -80,6 +80,24 @@ class TestW_IntObject:
         assert space.isinstance_w(v, space.w_long)
         assert space.bigint_w(v).eq(rbigint.fromlong(x + y))
 
+    def test_add_ovf_int_op_shortcut(self, monkeypatch):
+        from pypy.objspace.std.longobject import W_LongObject, rbigint
+        @staticmethod
+        def fromint(space, x):
+            assert x == sys.maxint # only the maxint is converted, not the 1!
+            return W_LongObject(rbigint.fromint(x))
+
+        monkeypatch.setattr(W_LongObject, 'fromint', fromint)
+
+        space = self.space
+        x = sys.maxint
+        y = 1
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
+        v = f1.descr_add(space, f2)
+        assert space.isinstance_w(v, space.w_long)
+        assert space.bigint_w(v).eq(rbigint.fromlong(x + y))
+
     def test_sub(self):
         space = self.space
         x = 1

@@ -40,8 +40,7 @@ class W_AbstractBuffer(W_Root):
         return space.newint(self.buf.getlength())
 
     def descr_getitem(self, space, w_index):
-        start, stop, step, size = space.decode_index4(w_index,
-                                                      self.buf.getlength())
+        start, stop, step, size = space.decode_index4(w_index, self)
         if step == 0:  # index only
             return space.newbytes(self.buf.getitem(start))
         res = self.buf.getslice(start, step, size)
@@ -50,8 +49,7 @@ class W_AbstractBuffer(W_Root):
     def descr_setitem(self, space, w_index, w_obj):
         if self.buf.readonly:
             raise oefmt(space.w_TypeError, "buffer is read-only")
-        start, stop, step, size = space.decode_index4(w_index,
-                                                      self.buf.getlength())
+        start, stop, step, size = space.decode_index4(w_index, self)
         value = space.readbuf_w(w_obj)
         if step == 0:  # index only
             if value.getlength() != 1:
