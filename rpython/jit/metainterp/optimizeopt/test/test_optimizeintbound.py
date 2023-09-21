@@ -2732,3 +2732,12 @@ class TestComplexIntOpts(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_lshift_backwards_bug(self):
+        ops = """
+        [i1]
+        i2 = uint_le(27, i1)
+        i3 = int_lshift(i2, 54)
+        guard_value(i3, 18014398509481984) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
