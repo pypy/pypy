@@ -98,6 +98,14 @@ class IntBound(AbstractInfo):
         u = self.upper
         return '(%s <= 0b%s <= %s)' % (l, self.knownbits_string(), u)
 
+    def set_tvalue_tmask(self, tvalue, tmask):
+        changed = self.tvalue != tvalue or self.tmask != tmask
+        if changed:
+            self.tvalue = tvalue
+            self.tmask = tmask
+            self.shrink_bounds_by_knownbits()
+        return changed
+
     def make_le(self, other):
         """
         Sets the bounds of `self` so that it only
@@ -452,11 +460,8 @@ class IntBound(AbstractInfo):
             # combination with unrolling/loop peeling
             raise InvalidLoop("two integer ranges don't overlap")
 
-        r = False
-        if self.make_ge_const(other.lower):
-            r = True
-        if self.make_le_const(other.upper):
-            r = True
+        r = self.make_ge_const(other.lower)
+        r |= self.make_le_const(other.upper)
 
         # tnum stuff.
         union_val = self.tvalue | other.tvalue
@@ -468,9 +473,9 @@ class IntBound(AbstractInfo):
         assert unmasked_self == unmasked_other
         # calculate intersect value and mask
         if self.tmask != intersect_masks:
-            self.tvalue = unmask_zero(union_val, intersect_masks)
-            self.tmask = intersect_masks
-            r = True
+            r = self.set_tvalue_tmask(unmask_zero(union_val, intersect_masks),
+                                      intersect_masks)
+            assert r
 
         # we also assert agreement between knownbits and bounds
         assert self.knownbits_and_bounds_agree()
@@ -782,9 +787,7 @@ class IntBound(AbstractInfo):
         self_pmask = self.tvalue | self.tmask
         other_pmask = other.tvalue | other.tmask
         and_vals = self.tvalue & other.tvalue
-        r.tvalue = and_vals
-        r.tmask = self_pmask & other_pmask & ~and_vals
-        r.shrink_bounds_by_knownbits()
+        r.set_tvalue_tmask(and_vals, self_pmask & other_pmask & ~and_vals)
         return r
 
     def or_bound(self, other):

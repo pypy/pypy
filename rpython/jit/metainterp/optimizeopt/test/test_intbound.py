@@ -816,6 +816,30 @@ def test_knownbits_intersect_disagree_examples():
     # not expecting an exception
     b1.intersect(b3)
 
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
+def test_knownbits_intersect_random(t1, t2):
+    b1, n1 = t1
+    b = b1.clone()
+    b2, n2 = t2
+    try:
+        b.intersect(b2)
+    except Exception:
+        # the bounds were incompatible, so the examples can't be contained in
+        # the other bound
+        assert not b1.contains(n2)
+        assert not b2.contains(n1)
+    else:
+        # the intersection worked. check that at least the lower and upper
+        # bounds are in b1 and b2
+        assert b1.contains(b.get_minimum_signed())
+        assert b1.contains(b.get_maximum_signed())
+        assert b2.contains(b.get_minimum_signed())
+        assert b2.contains(b.get_maximum_signed())
+        if b1.contains(n2):
+            assert b.contains(n2)
+        if b2.contains(n1):
+            assert b.contains(n1)
+
 @pytest.mark.xfail(reason="semantics unclear")
 def test_knownbits_contains_examples():
     bA = knownbits(0b001000,
