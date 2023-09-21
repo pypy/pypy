@@ -81,8 +81,7 @@ def build_some_bits_known_bounded(a, b, c, d):
         u_c = u_c >> 1
     c = intmask(u_c)
     res_bound = IntBound(lower=a, upper=d,
-                    tvalue=u(b&~c), tmask=u(c),
-                    do_shrinking=False)
+                    tvalue=u(b&~c), tmask=u(c))
 
     res_val = intmask((res_bound.tvalue&~res_bound.tmask) | (b&res_bound.tmask))
     return (res_bound, res_val)
@@ -149,7 +148,7 @@ knownbits_with_contained_number = strategies.one_of(
     constant, some_bits_known, unbounded)
 
 knownbits_and_bound_with_contained_number = strategies.one_of(
-    constant, some_bits_known_bounded, unbounded)
+    constant, lower_bounded, upper_bounded, some_bits_known_bounded, unbounded)
 
 nbr = range(-5, 6)
 nnbr = list(set(range(-9, 10)) - set(nbr))
@@ -518,7 +517,7 @@ def test_make_random(t1, t2):
         assert changed == (d(b1) != d(b))
 
 
-@given(bound_with_contained_number, bound_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_add_bound_random(t1, t2):
     b1, n1 = t1
     # first check that 0 + b1 is b1
@@ -551,7 +550,7 @@ def test_add_bound_random(t1, t2):
     #    assert b3.contains_bound(b3viasub)
 
 @example((bound(-100, None), -99), (bound(None, -100), -100))
-@given(bound_with_contained_number, bound_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_sub_bound_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -577,7 +576,7 @@ def test_sub_bound_random(t1, t2):
     #    assert b3.contains_bound(b3viaadd)
 
 
-@given(bound_with_contained_number, bound_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_mul_bound_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -589,7 +588,7 @@ def test_mul_bound_random(t1, t2):
     else:
         assert b3.contains(r)
 
-@given(bound_with_contained_number, bound_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_div_bound_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -599,7 +598,7 @@ def test_div_bound_random(t1, t2):
     if n2 != 0:
         assert b3.contains(n1 / n2)   # Python-style div
 
-@given(bound_with_contained_number, bound_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_mod_bound_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -616,7 +615,7 @@ shift_amount = strategies.builds(
 )
 
 
-@given(bound_with_contained_number, shift_amount)
+@given(knownbits_and_bound_with_contained_number, shift_amount)
 def test_lshift_bound_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -629,7 +628,7 @@ def test_lshift_bound_random(t1, t2):
         b3.contains(r)
     assert b3.contains(intmask(r_uint(n1) << r_uint(n2)))
 
-@given(bound_with_contained_number, bound_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_and_bound_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -637,7 +636,7 @@ def test_and_bound_random(t1, t2):
     r = n1 & n2
     assert b3.contains(r)
 
-@given(bound_with_contained_number, bound_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_or_bound_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -645,7 +644,7 @@ def test_or_bound_random(t1, t2):
     r = n1 | n2
     assert b3.contains(r)
 
-@given(bound_with_contained_number, bound_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_xor_bound_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -653,13 +652,13 @@ def test_xor_bound_random(t1, t2):
     r = n1 ^ n2
     assert b3.contains(r)
 
-@given(bound_with_contained_number)
+@given(knownbits_and_bound_with_contained_number)
 def test_invert_bound_random(t1):
     b1, n1 = t1
     b2 = b1.invert_bound()
     assert b2.contains(~n1)
 
-@given(bound_with_contained_number)
+@given(knownbits_and_bound_with_contained_number)
 @example((ConstIntBound(MININT), MININT))
 @example((IntUpperBound(-100), MININT))
 @example((IntLowerUpperBound(MININT, MININT+9), MININT))
@@ -682,7 +681,7 @@ def test_neg_bound_random(t1):
     assert bound_eq(b2, b2viasub)
 
 
-@given(bound_with_contained_number)
+@given(knownbits_and_bound_with_contained_number)
 def test_widen_random(t):
     b, n = t
     b1 = b.widen()
