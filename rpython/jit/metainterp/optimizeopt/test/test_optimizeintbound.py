@@ -2279,6 +2279,29 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_and_knownbits_bounds_agreement_bug(self):
+        ops = """
+        [i1]
+        i3 = int_and(i1, -27)
+        guard_value(i3, 5) []
+        i4 = int_ge(i1, 3)
+        guard_true(i4) []
+        i5 = int_le(i1, 9)
+        guard_true(i5) []
+        i6 = int_and(i1, -44)
+        guard_value(i6, 4) []
+        jump()
+        """
+        expected = """
+        [i1]
+        i3 = int_and(i1, -27)
+        guard_value(i3, 5) []
+        i5 = int_le(i1, 9)
+        guard_true(i5) []
+        i6 = int_and(i1, -44)
+        jump()
+        """
+        self.optimize_loop(ops, expected) # crash
 
 class TestComplexIntOpts(BaseTestBasic):
 

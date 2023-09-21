@@ -785,7 +785,7 @@ class IntBound(AbstractInfo):
         and_vals = self.tvalue & other.tvalue
         r.tvalue = and_vals
         r.tmask = self_pmask & other_pmask & ~and_vals
-
+        r.shrink_bounds_by_knownbits()
         return r
 
     def or_bound(self, other):
