@@ -429,7 +429,7 @@ def add_slot_defs(handles, w_result, spec):
             w_buffer_wrapper.rbp = rbp
     if vectorcalloffset > 0:
         # Make the type callable with the function at __vectorcalloffset__
-        void = llapi.cts.cast('HPyFunc_keywords', 0)
+        void = llapi.cts.cast('HPyCFunction', 0)
         cls = get_slot_cls(handles, W_wrap_call_at_offset)
         w_slot = cls(HPySlot_Slot.HPy_tp_call, "__call__", void, w_result)
         w_slot.offset = vectorcalloffset
@@ -526,7 +526,8 @@ def HPy_SetCallFunction(space, handles, ctx, h, func):
     # Unconditionally override the __call__ slot on the object
     w_type = space.type(w_obj)
     cls = get_slot_cls(handles, W_wrap_call)
-    w_slot = cls(HPySlot_Slot.HPy_tp_call, "__call__", func.c_impl, w_type)
+    cfuncptr = llapi.cts.cast('HPyCFunction', func.c_impl)
+    w_slot = cls(HPySlot_Slot.HPy_tp_call, "__call__", cfuncptr, w_type)
     w_type.setdictvalue(space, "__call__", w_slot)
     return API.int(0)
     

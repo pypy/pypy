@@ -211,8 +211,9 @@ class W_wrap_call_at_offset(object):
         assert isinstance(w_obj, W_HPyObject)
         addr = rffi.cast(lltype.Signed, w_obj.get_raw_data()) + self.offset
         callfunc = llapi.cts.cast('HPyCallFunction*', addr)
+        cfuncptr = llapi.cts.cast('HPyCFunction', callfunc.c_impl)
         w_func = self.handles.w_ExtensionMethod(space, self.handles, "__call__",
-            llapi.HPyFunc_KEYWORDS, "", callfunc.c_impl, self.w_objclass)
+            llapi.HPyFunc_KEYWORDS, "", cfuncptr, self.w_objclass)
         return space.call_args(w_func, __args__)
 
 def sq_getindex(space, w_sequence, w_idx):
