@@ -917,6 +917,10 @@ class RSocket(object):
         with rffi.scoped_alloc_buffer(buffersize) as buf:
             llbuf = LLBuffer(buf.raw, buffersize)
             read_bytes = self.recvinto(llbuf, buffersize, flags)
+            if _c.linux and flags & _c.MSG_TRUNC and read_bytes > buffersize:
+                # on linux, if MSG_TRUNC is given, read_bytes is the size of
+                # the packet, not the amounts of bytes written into buf
+                read_bytes = buffersize
             return buf.str(read_bytes)
 
     def recvinto(self, rwbuffer, nbytes, flags=0):

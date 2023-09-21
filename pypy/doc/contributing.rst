@@ -183,7 +183,7 @@ Merge Request
 
 * If you get closer to the regular day-to-day development, you'll notice
   that we generally push small changes as one or a few commits directly
-  to the branch ``default`` or ``py3.6``.  Also, we often collaborate even if
+  to the branch ``default`` or ``py3.9``.  Also, we often collaborate even if
   we are on other branches, which do not really "belong" to anyone.  At this
   point you'll need ``hg merge`` and learn how to resolve conflicts that
   sometimes occur when two people try to push different commits in
@@ -320,7 +320,7 @@ our own tests in ``pypy/*/test/``.
 .. _`build requirements`: build.html#install-build-time-dependencies
 
 App level testing
-^^^^^^^^^^^^^^^^^
+-----------------
 
 While the usual invocation of `python2 pytest.py` runs app-level tests on an
 untranslated PyPy that runs on top of CPython, we have a test extension to run tests
@@ -346,7 +346,7 @@ with::
 
 
 Testing After Translation
-^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------
 
 If you run translation, you will end up with a binary named ``pypy-c`` (or
 ``pypy3-c`` for the Python3 branches) in the directory where you ran the
@@ -358,6 +358,20 @@ Python way, i.e. (use the exact binary name)::
     ./pypy3-c -m test.test_datetime
     # or
     ./pypy3-c lib-python/3/test/test_audit.py
+
+Buildbot
+--------
+
+PyPy runs a buildbot-based CI system at https://buildbot.pypy.org. This is
+driven by the code at https://foss.heptapod.net/pypy/buildbot. The linux
+runners on x86_64, i686, and aarch64 use a docker container, which manages
+dependencies. See the Dockerfile_ for more info. The windows runner uses
+dependencies from the ``win64_14x`` branch of the externals_ repo. The macos
+runners (x86_64, arm64), use a venv on a M1 machine.
+
+.. _Dockerfile: https://foss.heptapod.net/pypy/buildbot/-/tree/branch/default/docker
+.. _externals: https://foss.heptapod.net/pypy/externals
+
 
 
 Tooling & Utilities

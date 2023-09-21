@@ -307,7 +307,3 @@ good work that needs to be finished:
 **pygame** https://github.com/CTPUG/pygame_cffi
 
     Status: Last release was in 2017
-
-Work has begun on HPy_ to enable a faster C-API.
-
-.. _HPy: https://hpy.readthedocs.io/en/latest/

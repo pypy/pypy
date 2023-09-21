@@ -73,7 +73,7 @@ class RecentPureOps(object):
                 box1.same_box(get_box_replacement(op.getarg(1))) and
                 op.getdescr() is descr):
                 op = self.force_preamble_op(opt, op, i)
-                return op
+                return get_box_replacement(op)
         return None
 
     def lookup(self, optimizer, op):
@@ -136,9 +136,8 @@ class OptPure(Optimization):
             save = True
             if recentops is not None:
                 oldop = recentops.lookup(self.optimizer, op)
-                # careful! if this is an ovf operation we can only re-use the
-                # result of a prior ovf operation (the other direction is fine)
-                if oldop is not None and (not ovf or oldop.opnum == op.opnum):
+                if oldop is not None and self._can_reuse_oldop(
+                            recentops, oldop, op, ovf):
                     self.optimizer.make_equal_to(op, oldop)
                     return
 
@@ -147,6 +146,17 @@ class OptPure(Optimization):
             # for this case DefaultOptimizationResult would do nothing
             return self.emit(op)
         return self.emit_result(DefaultOptimizationResult(self, op, save, nextop))
+
+    def _can_reuse_oldop(self, recentops, oldop, op, ovf):
+        if ovf:
+            # careful! this is an ovf operation. so we can only
+            # re-use the result of a prior ovf operation, but not a
+            # regular int_... up, because that might have
+            # overflowed (the other direction is fine). therefore
+            # we need to check that the previous op and the current
+            # op have the same opnum.
+            return isinstance(oldop, AbstractResOp) and oldop.opnum == op.opnum
+        return True
 
     def getrecentops(self, opnum, create=True):
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:

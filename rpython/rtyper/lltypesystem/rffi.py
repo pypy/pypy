@@ -1130,6 +1130,8 @@ def wcharp2utf8n(w, maxlen):
 
 def utf82wcharp(utf8, utf8len, track_allocation=True):
     from rpython.rlib import rutf8
+    if not we_are_translated():
+        assert utf8len == rutf8.codepoints_in_utf8(utf8)
 
     if track_allocation:
         w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw', track_allocation=True)
