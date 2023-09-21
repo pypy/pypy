@@ -80,11 +80,7 @@ class IntBound(AbstractInfo):
         #import pdb; pdb.set_trace()
 
         if do_shrinking:
-            # two passes of bounds-knownbits synchronization
-            self.shrink_bounds_by_knownbits()
-            self.shrink_knownbits_by_bounds()
-            self.shrink_bounds_by_knownbits()
-            self.shrink_knownbits_by_bounds()
+            self.shrink()
 
         # check for unexpected overflows:
         if not we_are_translated():
@@ -1113,16 +1109,26 @@ class IntBound(AbstractInfo):
         # ignore bounds # TODO: bounds
         return IntBoundKnownbits(tvalue, tmask)
 
+    def shrink(self):
+        # some passes of bounds-knownbits synchronization
+        for i in range(4):
+            changed = self.shrink_bounds_by_knownbits()
+            changed |= self.shrink_knownbits_by_bounds()
+            if not changed:
+                return
+
     def shrink_bounds_by_knownbits(self):
         """
         Shrinks the bounds by the known bits.
         """
         # lower bound
         min_by_knownbits = self.get_minimum_signed_by_knownbits_above(self.lower)
+        max_by_knownbits = self.get_maximum_signed_by_knownbits_below(self.upper)
+        changed = self.lower != min_by_knownbits or self.upper != max_by_knownbits
         self.lower = min_by_knownbits
         # and same for upper bound
-        max_by_knownbits = self.get_maximum_signed_by_knownbits_below(self.upper)
         self.upper = max_by_knownbits
+        return changed
 
     def shrink_knownbits_by_bounds(self):
         """
@@ -1138,7 +1144,7 @@ class IntBound(AbstractInfo):
             # nothing to do if signs are different
             # this should actually not be necessary,
             # but remains as a safe guard
-            return
+            return False
         # calculate higher bit mask by bounds
         work_lower = r_uint(self.lower)
         work_upper = r_uint(self.upper)
@@ -1148,8 +1154,12 @@ class IntBound(AbstractInfo):
         assert unmask_zero(bounds_common, self.tmask) == (self.tvalue & hbm_bounds)
         hbm = hbm_bounds & self.tmask
         # apply the higher bit mask to the knownbits
-        self.tmask &= ~hbm  # make bits known
-        self.tvalue = (bounds_common & hbm) | (self.tvalue & ~hbm)
+        tmask = self.tmask & ~hbm
+        tvalue = (bounds_common & hbm) | (self.tvalue & ~hbm)
+        changed = self.tvalue != tvalue or self.tmask != tmask
+        self.tmask = tmask
+        self.tvalue = tvalue
+        return changed
 
     def knownbits_and_bounds_agree(self):
         """
