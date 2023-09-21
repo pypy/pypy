@@ -4,6 +4,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.jit.metainterp.resoperation import rop, ResOperation
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.info import AbstractInfo, INFO_NONNULL,\
      INFO_UNKNOWN, INFO_NULL
 from rpython.jit.metainterp.history import ConstInt
@@ -99,7 +100,7 @@ class IntBound(AbstractInfo):
         if changed:
             self.tvalue = tvalue
             self.tmask = tmask
-            self.shrink_bounds_by_knownbits()
+            self.shrink()
         return changed
 
     def make_le(self, other):
@@ -121,8 +122,10 @@ class IntBound(AbstractInfo):
         (Mutates `self`.)
         """
         if value < self.upper:
+            if value < self.lower:
+                raise InvalidLoop
             self.upper = value
-            self.shrink_knownbits_by_bounds()
+            self.shrink()
             return True
         return False
 
@@ -147,7 +150,7 @@ class IntBound(AbstractInfo):
             value = ovfcheck(value - 1)
         except OverflowError:
             return False
-        self.shrink_knownbits_by_bounds()
+        self.shrink()
         return self.make_le_const(value)
 
     def make_ge(self, other):
@@ -169,8 +172,10 @@ class IntBound(AbstractInfo):
         (Mutates `self`.)
         """
         if value > self.lower:
+            if value > self.upper:
+                raise InvalidLoop
             self.lower = value
-            self.shrink_knownbits_by_bounds()
+            self.shrink()
             return True
         return False
 
@@ -211,11 +216,11 @@ class IntBound(AbstractInfo):
     def make_ne_const(self, intval):
         if self.lower < intval == self.upper:
             self.upper -= 1
-            self.shrink_knownbits_by_bounds()
+            self.shrink()
             return True
         if self.lower == intval < self.upper:
             self.lower += 1
-            self.shrink_knownbits_by_bounds()
+            self.shrink()
             return True
         return False
 
@@ -549,6 +554,7 @@ class IntBound(AbstractInfo):
             pass
         res.lower = lower
         res.upper = upper
+        res.shrink()
         return res
 
     def sub_bound(self, other):
@@ -584,6 +590,7 @@ class IntBound(AbstractInfo):
             pass
         res.lower = lower
         res.upper = upper
+        res.shrink()
         return res
 
     def mul_bound(self, other):
@@ -648,7 +655,9 @@ class IntBound(AbstractInfo):
         r = IntUnbounded()
         if other.is_constant():
             val = other.get_constant_int()
-            if val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
+            if val == 0:
+                pass # div by 0
+            elif val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
                 r.make_ge_const(0)
                 r.make_lt_const(val)
             else:               # with Python's modulo:  neg < (x % neg) <= 0
@@ -1112,12 +1121,12 @@ class IntBound(AbstractInfo):
     def shrink(self):
         # some passes of bounds-knownbits synchronization
         for i in range(4):
-            changed = self.shrink_bounds_by_knownbits()
-            changed |= self.shrink_knownbits_by_bounds()
+            changed = self._shrink_bounds_by_knownbits()
+            changed |= self._shrink_knownbits_by_bounds()
             if not changed:
                 return
 
-    def shrink_bounds_by_knownbits(self):
+    def _shrink_bounds_by_knownbits(self):
         """
         Shrinks the bounds by the known bits.
         """
@@ -1130,7 +1139,7 @@ class IntBound(AbstractInfo):
         self.upper = max_by_knownbits
         return changed
 
-    def shrink_knownbits_by_bounds(self):
+    def _shrink_knownbits_by_bounds(self):
         """
         Infers known bits from the bounds.
         Basically fills a common prefix

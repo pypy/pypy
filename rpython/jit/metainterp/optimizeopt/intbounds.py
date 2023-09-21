@@ -814,7 +814,6 @@ class OptIntBounds(Optimization):
             return
         b0 = self.getintbound(op.getarg(0))
         b1 = self.getintbound(op.getarg(1))
-        #import pdb; pdb.set_trace()
         if b0.is_constant():
             b = b1.and_bound_backwards(b0, r.get_constant_int())
             if b1.intersect(b):

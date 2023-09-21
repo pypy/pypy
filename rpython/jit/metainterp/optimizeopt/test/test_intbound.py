@@ -5,6 +5,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound,
 from copy import copy
 import sys
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck, r_uint, intmask
+from rpython.jit.metainterp.optimize import InvalidLoop
 
 from hypothesis import given, strategies, example, seed
 
@@ -226,56 +227,72 @@ def test_make():
 
             gt = IntUnbounded()
             gt.make_gt(b1)
-            gt.make_gt(b2)
-            for n in nbr:
-                c = const(n)
-                if b1.known_ge(c) or b2.known_ge(c):
-                    assert gt.known_gt(c)
-                else:
-                    assert not gt.known_gt(c)
-            assert not gt.known_lt(c)
-            assert not gt.known_le(c)
+            try:
+                gt.make_gt(b2)
+            except InvalidLoop: # 
+                pass
+            else:
+                for n in nbr:
+                    c = const(n)
+                    if b1.known_ge(c) or b2.known_ge(c):
+                        assert gt.known_gt(c)
+                    else:
+                        assert not gt.known_gt(c)
+                assert not gt.known_lt(c)
+                assert not gt.known_le(c)
 
             le = IntUnbounded()
             le.make_le(b1)
-            le.make_le(b2)
-            for n in nbr:
-                c = const(n)
-                if b1.known_le(c) or b2.known_le(c):
-                    assert le.known_le(c)
-                else:
-                    assert not le.known_le(c)
-                assert not le.known_gt(c)
-                assert not le.known_ge(c)
+            try:
+                le.make_le(b2)
+            except InvalidLoop:
+                pass
+            else:
+                for n in nbr:
+                    c = const(n)
+                    if b1.known_le(c) or b2.known_le(c):
+                        assert le.known_le(c)
+                    else:
+                        assert not le.known_le(c)
+                    assert not le.known_gt(c)
+                    assert not le.known_ge(c)
 
 
             ge = IntUnbounded()
             ge.make_ge(b1)
-            ge.make_ge(b2)
-            for n in nbr:
-                c = const(n)
-                if b1.known_ge(c) or b2.known_ge(c):
-                    assert ge.known_ge(c)
-                else:
-                    assert not ge.known_ge(c)
-                assert not ge.known_lt(c)
-                assert not ge.known_le(c)
+            try:
+                ge.make_ge(b2)
+            except InvalidLoop: # 
+                pass
+            else:
+                for n in nbr:
+                    c = const(n)
+                    if b1.known_ge(c) or b2.known_ge(c):
+                        assert ge.known_ge(c)
+                    else:
+                        assert not ge.known_ge(c)
+                    assert not ge.known_lt(c)
+                    assert not ge.known_le(c)
 
             gl = IntUnbounded()
             gl.make_ge(b1)
-            gl.make_le(b2)
-            for n in nbr:
-                c = const(n)
-                if b1.known_ge(c):
-                    assert gl.known_ge(c)
-                else:
-                    assert not gl.known_ge(c)
-                    assert not gl.known_gt(c)
-                if  b2.known_le(c):
-                    assert gl.known_le(c)
-                else:
-                    assert not gl.known_le(c)
-                    assert not gl.known_lt(c)
+            try:
+                gl.make_le(b2)
+            except InvalidLoop: # 
+                pass
+            else:
+                for n in nbr:
+                    c = const(n)
+                    if b1.known_ge(c):
+                        assert gl.known_ge(c)
+                    else:
+                        assert not gl.known_ge(c)
+                        assert not gl.known_gt(c)
+                    if  b2.known_le(c):
+                        assert gl.known_le(c)
+                    else:
+                        assert not gl.known_le(c)
+                        assert not gl.known_lt(c)
 
 def test_make_ne():
     ge = IntUnbounded()
@@ -510,7 +527,10 @@ def test_make_random(t1, t2):
 
     for meth in [IntBound.make_le, IntBound.make_lt, IntBound.make_ge, IntBound.make_gt]:
         b = b1.clone()
-        changed = meth(b, b2)
+        try:
+            changed = meth(b, b2)
+        except InvalidLoop:
+            continue
         data = d(b)
         assert not meth(b, b2)
         assert data == d(b) # idempotent

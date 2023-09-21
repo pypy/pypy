@@ -2301,7 +2301,23 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i6 = int_and(i1, -44)
         jump()
         """
-        self.optimize_loop(ops, expected) # crash
+        self.optimize_loop(ops, expected) # used to crash
+
+    def test_not_enough_intbound_shrinking_bug(self):
+        ops = """
+        [i1]
+        i4 = int_mul_ovf(i1, 15)
+        guard_no_overflow() []
+        i41616 = int_le(i1, 27)
+        guard_true(i41616) []
+        i41620 = int_and(i1, 23)
+        guard_value(i41620, 7) []
+        i41613 = int_le(i1, i4)
+        guard_false(i41613) []
+        jump()
+        """
+        self.optimize_loop(ops, ops) # used to crash
+
 
 class TestComplexIntOpts(BaseTestBasic):
 
