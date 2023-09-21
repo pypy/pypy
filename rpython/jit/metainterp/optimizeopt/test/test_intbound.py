@@ -505,16 +505,17 @@ def test_widen():
 @given(bound_with_contained_number, bound_with_contained_number)
 def test_make_random(t1, t2):
     def d(b):
-        return b.lower, b.upper
+        return b.lower, b.upper, b.tvalue, b.tmask
     b1, n1 = t1
     b2, n2 = t2
 
     for meth in [IntBound.make_le, IntBound.make_lt, IntBound.make_ge, IntBound.make_gt]:
         b = b1.clone()
-        meth(b, b2)
+        changed = meth(b, b2)
         data = d(b)
         assert not meth(b, b2)
         assert data == d(b) # idempotent
+        assert changed == (d(b1) != d(b))
 
 
 @given(bound_with_contained_number, bound_with_contained_number)

@@ -118,8 +118,8 @@ class IntBound(AbstractInfo):
         """
         if value < self.upper:
             self.upper = value
+            self.shrink_knownbits_by_bounds()
             return True
-        self.shrink_knownbits_by_bounds()
         return False
 
     def make_lt(self, other):
@@ -166,8 +166,8 @@ class IntBound(AbstractInfo):
         """
         if value > self.lower:
             self.lower = value
+            self.shrink_knownbits_by_bounds()
             return True
-        self.shrink_knownbits_by_bounds()
         return False
 
     def make_gt(self, other):
@@ -191,7 +191,6 @@ class IntBound(AbstractInfo):
             value = ovfcheck(value + 1)
         except OverflowError:
             return False
-        self.shrink_knownbits_by_bounds()
         return self.make_ge_const(value)
 
     def make_eq_const(self, intval):
