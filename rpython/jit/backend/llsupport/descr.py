@@ -9,6 +9,7 @@ from rpython.jit.codewriter import heaptracker, longlong
 from rpython.jit.codewriter.longlong import is_longlong
 from rpython.jit.metainterp.optimizeopt import intbounds
 from rpython.rtyper import rclass
+from rpython.rlib.rstring import endswith
 
 
 class GcCache(object):
@@ -452,7 +453,6 @@ class CallDescr(BackendDescr):
     result_type = '\x00'
     result_flag = '\x00'
     ffi_flags = 1
-    without_dummy_flag_variant = None    # <-- dummy flag hack for threaded code gen.
 
     def __init__(self, arg_classes, result_type, result_signed, result_size,
                  extrainfo=None, ffi_flags=1):
@@ -472,9 +472,6 @@ class CallDescr(BackendDescr):
         self.call_stub_i = _missing_call_stub_i
         self.call_stub_r = _missing_call_stub_r
         self.call_stub_f = _missing_call_stub_f
-        offset = len(self.arg_classes) - 2
-        if offset >= 0:
-            self.without_dummy_flag_variant = self.arg_classes[:offset]
         # NB. the default ffi_flags is 1, meaning FUNCFLAG_CDECL, which
         # makes sense on Windows as it's the one for all the C functions
         # we are compiling together with the JIT.  On non-Windows platforms
@@ -495,6 +492,13 @@ class CallDescr(BackendDescr):
         else:
             raise NotImplementedError("result_type = '%s'" % (result_type,))
         self.result_flag = result_flag
+        self.calldescr_without_flag = None
+        if endswith(self.arg_classes, "ii"):
+            offset = len(self.arg_classes) - 2
+            assert offset >= 0
+            self.calldescr_without_flag = CallDescr(
+                arg_classes[:offset], result_type, result_signed, result_size,
+                extrainfo, ffi_flags)
 
     def __repr__(self):
         res = 'CallDescr(%s)' % (self.arg_classes,)
@@ -538,11 +542,8 @@ class CallDescr(BackendDescr):
     def get_result_size(self):
         return self.result_size
 
-    def get_without_dummy_flag_variant(self):
-        return self.without_dummy_flag_variant
-
-    def set_without_dummy_flag_variant_to_arg_types(self):
-        self.arg_classes = self.without_dummy_flag_variant
+    def get_calldescr_without_flag(self):
+        return self.calldescr_without_flag
 
     def is_result_signed(self):
         return self.result_flag == FLAG_SIGNED
