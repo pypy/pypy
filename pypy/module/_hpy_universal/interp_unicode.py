@@ -127,3 +127,45 @@ def HPyUnicode_ReadChar(space, handles, ctx, h, index):
     w_ch = space.getitem(w_unicode, space.newint(index))
     return rffi.cast(rffi.LONG, space.int_w(space.ord(w_ch)))
     
+@API.func("HPy HPyUnicode_Substring(HPyContext *ctx, HPy str, HPy_ssize_t start, HPy_ssize_t end)")
+def HPyUnicode_Substring(space, handles, ctx, h, start, end):
+    w_obj = handles.deref(h)
+    if not space.isinstance_w(w_obj, space.w_text):
+        raise oefmt(space.w_TypeError, "expected string object")
+    if start == 0 and end == space.len_w(w_obj):
+        return handles.new(w_obj)
+    if start < 0 or end < 0:
+        raise oefmt(space.w_IndexError, "string index out of range")
+    w_result = space.call_method(w_obj, '__getitem__',
+                         space.newslice(space.newint(start), space.newint(end),
+                                        space.newint(1)))
+    return handles.new(w_result)
+
+@API.func("HPy HPyUnicode_FromEncodedObject(HPyContext *ctx, HPy obj, const char *encoding, const char *errors)")
+def HPyUnicode_FromEncodedObject(space, handles, ctx, h, encoding, errors):
+    if not h:
+        raise oefmt(space.w_SystemError, "NULL handle passed to HPyUnicode_FromEncodedObject")
+    w_obj = handles.deref(h)
+    if space.isinstance_w(w_obj, space.w_bytes):
+        s = space.bytes_w(w_obj)
+        if not s:
+            return space.newtext('')
+    elif space.isinstance_w(w_obj, space.w_unicode):
+        raise oefmt(space.w_TypeError, "decoding str is not supported")
+    elif space.isinstance_w(w_obj, space.w_bytearray):   # Python 2.x specific
+        raise oefmt(space.w_TypeError, "decoding bytearray is not supported")
+    else:
+        s = space.charbuf_w(w_obj)
+    if encoding:
+        w_encoding = space.newtext(rffi.charp2str(encoding))
+    else:
+        w_encoding = space.newtext('utf-8')
+    w_str = space.newbytes(s)
+    if errors:
+        w_errors = space.newtext(rffi.charp2str(errors))
+    else:
+        w_errors = None
+    w_result = space.call_method(w_str, 'decode', w_encoding, w_errors)
+    return handles.new(w_result)
+
+

@@ -3,11 +3,8 @@
 *Eval*                test_eval.py
 *DelItem*             test_object.py
 *Dict_Copy            test_hpydict.py
-traverse, finalize    test_hpyfield.py
 Slice_Unpack          test_hpyslice.py
 StructSequence_NewType test_hpystructseq.py
-Unicode_Substring
-Unicode_FromEncodedObject test_hpyunicode.py
 
 
 Summary:
@@ -17,7 +14,6 @@ $ sed -e "s/.*\(test_[^:]*\):.*/\1/" /tmp/test_output.txt | grep "^test" | uniq 
       2 test_contextvar.py
       2 test_hpyerr.py
       2 test_hpyslice.py
-      3 test_hpyfield.py
       4 test_eval.py
       4 test_hpybuildvalue.py
       4 test_hpydict.py
@@ -25,12 +21,10 @@ $ sed -e "s/.*\(test_[^:]*\):.*/\1/" /tmp/test_output.txt | grep "^test" | uniq 
       6 test_extra.py
       6 test_hpymodule.py
       6 test_object.py
+      6 test_slots.py
      10 test_capsule.py
-     10 test_hpyunicode.py
-     11 test_handles.py
-     11 test_slots.py
-     14 test_hpytype.py
+     10 test_hpytype.py
+     11 apptest_handles.py
      50 test_slots_legacy.py
-     58 test_hpytype_legacy.py
-
+     52 test_hpytype_legacy.py
 

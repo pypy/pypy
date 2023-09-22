@@ -1,9 +1,5 @@
 # -*- encoding: utf-8 -*-
-import itertools
-import re
 import sys
-
-import pytest
 
 from .support import HPyTest
 
@@ -222,10 +218,13 @@ class TestUnicode(HPyTest):
         assert mod.f('ABC') == "ABC"
         assert mod.g().encode('ascii') == b'ab\0c'
 
-    def test_FromFormat(self, hpy_abi):
+    def test_FromFormat(self):
         # Later we generate an HPy function for each case described below:
         # Most of the test cases are taken from CPython:Modules/_testcapi/unicode.c
         # Future work can improve this to add tests from Lib/test/test_capi/test_unicode.py
+        import itertools
+        import re
+        import pytest
         cases = [
             # Unrecognized
             (    "%y%d", (SystemError, "invalid format string"), "'w', 42"),
@@ -652,11 +651,11 @@ class TestUnicode(HPyTest):
         # Change False->True to also check comparison with CPython.
         # Works only for 3.12 or higher, lower versions have bugs that are
         # fixed in HPy
-        compare_with_cpython = False and \
-                               hpy_abi == 'cpython' and \
-                               sys.implementation.name == 'cpython' and \
-                               sys.implementation.version.major >= 3 and \
-                               sys.implementation.version.minor >= 12
+        compare_with_cpython = False # and \
+                               # hpy_abi == 'cpython' and \
+                               # sys.implementation.name == 'cpython' and \
+                               # sys.implementation.version.major >= 3 and \
+                               # sys.implementation.version.minor >= 12
 
         # Create functions for each case using the "makefun" template, export them
         lines = ['#define CPM_WITH_CPYTHON'] if compare_with_cpython else []
@@ -692,6 +691,7 @@ class TestUnicode(HPyTest):
 
     def test_FromFormat_Ptr(self):
         # '%p' is platform dependent to some extent, so we need to use regex
+        import re
         mod = self.make_module("""
             HPyDef_METH(p, "p", HPyFunc_NOARGS)
             static HPy p_impl(HPyContext *ctx, HPy self)
@@ -750,6 +750,7 @@ class TestUnicode(HPyTest):
         assert mod.A(MyObj()) == 'prefix-MyObj.__repr__\\xfc-suffix'
 
     def test_FromFormat_NoAsciiEncodedFmt(self):
+        import pytest
         mod = self.make_module("""
             HPyDef_METH(no_ascii_fmt, "no_ascii_fmt", HPyFunc_O)
             static HPy no_ascii_fmt_impl(HPyContext *ctx, HPy self, HPy arg)
@@ -809,6 +810,7 @@ class TestUnicode(HPyTest):
 
     def test_FromFormat_Limits(self):
         import sys
+        import pytest
         mod = self.make_module("""
                 #include <stdio.h>
 
