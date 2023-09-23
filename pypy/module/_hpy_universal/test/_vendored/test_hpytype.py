@@ -1108,7 +1108,7 @@ class TestType(HPyTest):
         assert "Cannot use HPy call protocol with var" in str(err.value)
         with pytest.raises(TypeError) as err:
             mod.create_call_and_vectorcalloffset_type()
-        assert "Cannot use HPy call protocol with legacy" in str(err.value)
+        assert "Cannot have HPy_tp_call and explicit member" in str(err.value)
 
     def test_call_explicit_offset(self):
         mod = self.make_module("""

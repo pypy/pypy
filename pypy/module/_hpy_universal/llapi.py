@@ -526,8 +526,8 @@ typedef struct {
 typedef enum {
     HPyType_SpecParam_Base = 1,
     HPyType_SpecParam_BasesTuple = 2,
-    //HPyType_SpecParam_Metaclass = 3,
-    //HPyType_SpecParam_Module = 4,
+    HPyType_SpecParam_Metaclass = 3,
+    HPyType_SpecParam_Module = 4,
 } HPyType_SpecParam_Kind;
 
 typedef struct {

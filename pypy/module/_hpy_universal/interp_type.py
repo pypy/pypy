@@ -12,12 +12,14 @@ from pypy.interpreter.typedef import interp2app
 from pypy.module.cpyext.pyobject import as_pyobj, PyObject
 from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import llapi
+from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from .interp_slot import (fill_slot, W_wrap_getbuffer, get_slot_cls,
                           W_wrap_call, W_wrap_call_at_offset)
 from .interp_descr import add_member, add_getset
 from rpython.rlib.rutf8 import surrogate_in_utf8
 
 HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
+Shapes = llapi.cts.gettype("HPyType_BuiltinShape")
 
 
 # ========== Implementation of HPy objects ==========
@@ -177,7 +179,7 @@ class W_HPyObject(W_ObjectObject):
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
         assert w_type.is_legacy
-        return rffi.cast(PyObject, self.get_raw_data()) 
+        return rffi.cast(PyObject, self.get_raw_data())
 
     def _finalize_(self):
         w_type = self.space.type(self)
@@ -190,21 +192,46 @@ class W_HPyObject(W_ObjectObject):
 
 
 class W_HPyTypeObject(W_TypeObject):
+    hpy_storage = lltype.nullptr(HPY_STORAGE)
     basicsize = 0
     tp_destroy = lltype.nullptr(llapi.cts.gettype('HPyFunc_destroyfunc').TO)
     tp_traverse = lltype.nullptr(llapi.cts.gettype('HPyFunc_traverseproc').TO)
     tp_finalize = None
     # flag to create a pyobj for this w_obj
     has_tp_dealloc = False
+    shape = 0
+
+
+    def get_raw_data(self):
+        return storage_get_raw_data(self.hpy_storage)
+
+    def get_pyobject(self):
+        storage = self.get_raw_data()
+        w_type = self.space.type(self)
+        assert isinstance(w_type, W_HPyTypeObject)
+        assert w_type.is_legacy
+        return rffi.cast(PyObject, self.get_raw_data())
+
+    def _finalize_(self):
+        w_type = self.space.type(self)
+        assert isinstance(w_type, W_HPyTypeObject)
+        if w_type.tp_finalize:
+            from pypy.interpreter.argument import Arguments
+            w_type.tp_finalize.call(self.space, Arguments(self.space, [self]))
+        if w_type.tp_destroy:
+            w_type.tp_destroy(self.get_raw_data())
 
     def __init__(self, space, name, bases_w, dict_w, basicsize=0,
-                 is_legacy=False):
+                 shape=0):
         # XXX: there is a discussion going on to make it possible to create
         # non-heap types with HPyType_FromSpec. Remember to fix this place
         # when it's the case.
         W_TypeObject.__init__(self, space, name, bases_w, dict_w, is_heaptype=True)
         self.basicsize = basicsize
-        self.is_legacy = is_legacy
+        self.shape = shape
+
+    def is_legacy(self):
+        return self.shape == Shapes.HPyType_BuiltinShape_Legacy
 
 
 @API.func("void *HPy_AsStruct_Object(HPyContext *ctx, HPy h)")
@@ -234,14 +261,15 @@ def _HPy_New(space, handles, ctx, h_type, data):
 
 
 @specialize.arg(0)
-def get_bases_from_params(handles, params):
+def get_bases_and_metaclass_from_params(handles, params):
     KIND = llapi.cts.gettype('HPyType_SpecParam_Kind')
     params = rffi.cast(rffi.CArrayPtr(llapi.cts.gettype('HPyType_SpecParam')), params)
     if not params:
-        return []
+        return [], None
     found_base = False
     found_basestuple = False
     bases_w = []
+    w_metaclass = None
     i = 0
     while True:
         # in llapi.py, HPyType_SpecParam.object is declared of type "struct
@@ -256,23 +284,30 @@ def get_bases_from_params(handles, params):
             w_base = handles.deref(p_h)
             bases_w.append(w_base)
         elif p_kind == KIND.HPyType_SpecParam_BasesTuple:
+            if found_basestuple:
+                raise oefmt(handles.space.w_TypeError,
+                    "multiple specifications of HPyType_SpecParam_BasesTuple")
             found_basestuple = True
             w_bases = handles.deref(p_h)
             bases_w = handles.space.unpackiterable(w_bases)
+        elif p_kind == KIND.HPyType_SpecParam_Metaclass:
+            if w_metaclass:
+                raise oefmt(handles.space.w_ValueError,
+                    "metaclass was specified multiple times")
+            w_metaclass = handles.deref(p_h)
         else:
             raise NotImplementedError('XXX write a test')
 
-    if found_basestuple > 1:
-        raise NotImplementedError('XXX write a test')
     if found_basestuple and found_base:
-        raise NotImplementedError('XXX write a test')
+        raise oefmt(handles.space.w_TypeError,
+            "cannot specify both HPyType_SpecParam_Base and "
+            "HPytype_SpecParam_BasesTuple")
 
     # return a copy of bases_w to ensure that it's a not-resizable list
-    return make_sure_not_resized(bases_w[:])
+    return make_sure_not_resized(bases_w[:]), w_metaclass
 
 def check_legacy_consistent(space, spec):
-    shapes = llapi.cts.gettype("HPyType_BuiltinShape")
-    if spec.c_legacy_slots and not widen(spec.c_builtin_shape) != shapes.HPyType_BuiltinShape_Legacy:
+    if spec.c_legacy_slots and not widen(spec.c_builtin_shape) != Shapes.HPyType_BuiltinShape_Legacy:
         raise oefmt(space.w_TypeError,
             "cannot specify .legacy_slots without setting .builtin_shape "
             "to HPyType_BuiltinShape_Legacy")
@@ -284,8 +319,8 @@ def check_legacy_consistent(space, spec):
 def check_inheritance_constraints(space, w_type):
     assert isinstance(w_type, W_HPyTypeObject)
     w_base = find_best_base(w_type.bases_w)
-    if (isinstance(w_base, W_HPyTypeObject) and not w_base.is_legacy and
-            w_type.is_legacy):
+    if (isinstance(w_base, W_HPyTypeObject) and not w_base.is_legacy() and
+            w_type.is_legacy()):
         raise oefmt(space.w_TypeError,
             "A legacy type should not inherit its memory layout from a"
             " pure type")
@@ -328,12 +363,11 @@ def _hpytype_fromspec(handles, spec, params):
     if modname is not None:
         dict_w['__module__'] = space.newtext(modname)
 
-    bases_w = get_bases_from_params(handles, params)
-    shapes = llapi.cts.gettype("HPyType_BuiltinShape")
+    bases_w, w_metaclass = get_bases_and_metaclass_from_params(handles, params)
     shape = widen(spec.c_builtin_shape)
-    if shape < shapes.HPyType_BuiltinShape_Legacy or shape > shapes.HPyType_BuiltinShape_List:
+    if shape < Shapes.HPyType_BuiltinShape_Legacy or shape > Shapes.HPyType_BuiltinShape_List:
         raise oefmt(space.w_ValueError, "invalid shape %d", shape)
-    is_legacy =  shape == shapes.HPyType_BuiltinShape_Legacy
+    is_legacy =  shape == Shapes.HPyType_BuiltinShape_Legacy
     if not bases_w:
         # override object.__new__ with one that allocates space for the C
         # struct. It could be further overridden via a tp_new in the spec
@@ -343,7 +377,7 @@ def _hpytype_fromspec(handles, spec, params):
         # on such an instance.
         dict_w['__new__'] = get_default_new(space)
     basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
-    
+
     if has_tp_slot(spec, [HPySlot_Slot.HPy_tp_call]):
         if widen(spec.c_itemsize):
             # Slot 'HPy_tp_call' will add a hidden field to
@@ -361,9 +395,11 @@ def _hpytype_fromspec(handles, spec, params):
                 "Cannot use HPy call protocol with legacy types that"
                 " inherit the struct. Either set the basicsize to a"
                 "non-zero value or use legacy slot 'Py_tp_call'.")
+    if not w_metaclass:
+        w_metaclass = space.w_type
 
     w_result = _create_new_type(
-        space, space.w_type, name, bases_w, dict_w, basicsize, is_legacy=is_legacy)
+        space, name, w_metaclass, bases_w, dict_w, basicsize, shape)
     if spec.c_doc:
         w_doc = space.newtext(rffi.constcharp2str(spec.c_doc))
         w_result.setdictvalue(space, '__doc__', w_doc)
@@ -453,14 +489,17 @@ def has_tp_slot(spec, slots):
     return False
 
 def _create_new_type(
-        space, w_typetype, name, bases_w, dict_w, basicsize, is_legacy):
+        space, name, w_metatype, bases_w, dict_w, basicsize, shape):
     pos = surrogate_in_utf8(name)
     if pos >= 0:
         raise oefmt(space.w_ValueError, "can't encode character in position "
                     "%d, surrogates not allowed", pos)
-
-    w_type = W_HPyTypeObject(
-        space, name, bases_w or [space.w_object], dict_w, basicsize, is_legacy)
+    w_type = space.allocate_instance(W_HPyTypeObject, w_metatype)
+    w_type.space = space
+    w_type.hpy_storage = storage_alloc(basicsize)
+    # XXX handle tp_traverse, tp_destroy, tp_finalize
+    W_HPyTypeObject.__init__(w_type,
+        space, name, bases_w or [space.w_object], dict_w, basicsize, shape)
     w_type.ready()
     return w_type
 
@@ -517,6 +556,8 @@ def HPyType_GetName(space, handles, ctx, h_type):
 @API.func("long HPyType_GetBuiltinShape(HPyContext *ctx, HPy type)", error_value="CANNOT_FAIL")
 def HPyType_GetBuiltinShape(space, handles, ctx, h_type):
     w_obj = handles.deref(h_type)
+    if isinstance(w_obj, W_HPyTypeObject):
+        return w_obj.shape
     # XXX FIXME
     return 0
 
@@ -530,4 +571,16 @@ def HPy_SetCallFunction(space, handles, ctx, h, func):
     w_slot = cls(HPySlot_Slot.HPy_tp_call, "__call__", cfuncptr, w_type)
     w_type.setdictvalue(space, "__call__", w_slot)
     return API.int(0)
+
+@API.func("void * HPy_AsStruct_Type(HPyContext *ctx, HPy h)", error_value="CANNOT_FAIL")
+def HPy_AsStruct_Type(space, handles, ctx, h):
+    w_obj = handles.deref(h)
+    return w_obj.get_raw_data()
+
+@API.func("int HPyType_IsSubtype(HPyContext *ctx, HPy sub, HPy type)", error_value="CANNOT_FAIL")
+def HPyType_IsSubtype(space, handles, ctx, sub, typ):
+    w_sub = handles.deref(sub)
+    w_type = handles.deref(typ)
+    return int(abstract_issubclass_w(space, w_sub, w_type))
     
+

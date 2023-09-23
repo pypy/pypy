@@ -149,7 +149,7 @@ def HPyUnicode_FromEncodedObject(space, handles, ctx, h, encoding, errors):
     if space.isinstance_w(w_obj, space.w_bytes):
         s = space.bytes_w(w_obj)
         if not s:
-            return space.newtext('')
+            return handles.new(space.newtext(''))
     elif space.isinstance_w(w_obj, space.w_unicode):
         raise oefmt(space.w_TypeError, "decoding str is not supported")
     elif space.isinstance_w(w_obj, space.w_bytearray):   # Python 2.x specific
@@ -157,12 +157,12 @@ def HPyUnicode_FromEncodedObject(space, handles, ctx, h, encoding, errors):
     else:
         s = space.charbuf_w(w_obj)
     if encoding:
-        w_encoding = space.newtext(rffi.charp2str(encoding))
+        w_encoding = space.newtext(rffi.constcharp2str(encoding))
     else:
         w_encoding = space.newtext('utf-8')
     w_str = space.newbytes(s)
     if errors:
-        w_errors = space.newtext(rffi.charp2str(errors))
+        w_errors = space.newtext(rffi.constcharp2str(errors))
     else:
         w_errors = None
     w_result = space.call_method(w_str, 'decode', w_encoding, w_errors)
