@@ -726,6 +726,9 @@ class OptIntBounds(Optimization):
                 if b1.known_nonnegative():
                     b1.make_gt_const(0)
                     self.propagate_bounds_backward(op.getarg(0))
+                elif b1.known_le_const(0):
+                    b1.make_lt_const(0)
+                    self.propagate_bounds_backward(op.getarg(0))
             elif r.get_constant_int() == valzero:
                 self.make_constant_int(op.getarg(0), 0)
                 self.propagate_bounds_backward(op.getarg(0))

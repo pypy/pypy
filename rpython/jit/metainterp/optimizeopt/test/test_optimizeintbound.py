@@ -2318,6 +2318,29 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, ops) # used to crash
 
+    def test_int_is_true_nonpositive(self):
+        ops = """
+        [i75]
+        i77 = int_and(i75, -9223372036854775808)
+        i78 = int_is_true(i77)
+        guard_true(i78) []
+        i80 = uint_gt(i75, 0)
+        guard_true(i80) []
+        i84 = uint_rshift(i75, 63)
+        guard_true(i84) []
+        jump()
+        """
+        expected = """
+        [i75]
+        i77 = int_and(i75, -9223372036854775808)
+        i78 = int_is_true(i77)
+        guard_true(i78) []
+        i80 = uint_gt(i75, 0) # XXX this should go away too
+        guard_true(i80) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 
