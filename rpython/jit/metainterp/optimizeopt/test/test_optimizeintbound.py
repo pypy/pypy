@@ -2341,6 +2341,23 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_intdiv_pow2(self):
+        ops = """
+        [i0, i1]
+        i2 = int_and(i0, 31)
+        i3 = int_lshift(1, i2)
+        i4 = call_pure_i(321, i1, i3, descr=int_py_div_descr)
+        jump(i4)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_and(i0, 31)
+        i3 = int_lshift(1, i2)
+        i4 = int_rshift(i1, i2)
+        jump(i4)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

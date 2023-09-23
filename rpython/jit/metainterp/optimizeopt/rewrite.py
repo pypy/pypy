@@ -12,7 +12,7 @@ from rpython.jit.metainterp.optimizeopt.util import (
     _findall, make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, opclasses, OpHelpers)
-from rpython.rlib.rarithmetic import highest_bit
+from rpython.rlib.rarithmetic import highest_bit, LONG_BIT
 import math
 
 
@@ -888,6 +888,13 @@ class OptRewrite(Optimization):
         self.optimizer.notice_guard_future_condition(op)
 
     def _optimize_CALL_INT_PY_DIV(self, op):
+        def _replace_with_shift(self, op, arg1, shiftvar):
+            from rpython.jit.metainterp.history import DONT_CHANGE
+            op = self.replace_op_with(op, rop.INT_RSHIFT,
+                        args=[arg1, shiftvar],
+                        descr=DONT_CHANGE)  # <- xxx rename? means "kill"
+            self.optimizer.send_extra_operation(op)
+            return True
         arg1 = op.getarg(1)
         b1 = self.getintbound(arg1)
         arg2 = op.getarg(2)
@@ -898,6 +905,16 @@ class OptRewrite(Optimization):
             self.last_emitted_operation = REMOVED
             return True
         if not b2.is_constant():
+            shiftop = self.optimizer.as_operation(get_box_replacement(arg2))
+            if (shiftop and shiftop.opnum == rop.INT_LSHIFT and
+                    shiftop.getarg(0).is_constant() and
+                    shiftop.getarg(0).getint() == 1):
+                # x // (1 << y) == 1 >> y
+                # but only if 0 <= y < LONG_BIT
+                shiftvar = get_box_replacement(shiftop.getarg(1))
+                shiftbound = self.getintbound(shiftvar)
+                if shiftbound.known_nonnegative() and shiftbound.known_lt_const(LONG_BIT):
+                    return _replace_with_shift(self, op, arg1, shiftvar)
             return False
         val = b2.get_constant_int()
         if val <= 0:
@@ -907,12 +924,7 @@ class OptRewrite(Optimization):
             self.last_emitted_operation = REMOVED
             return True
         elif val & (val - 1) == 0:   # val == 2**shift
-            from rpython.jit.metainterp.history import DONT_CHANGE
-            op = self.replace_op_with(op, rop.INT_RSHIFT,
-                        args=[arg1, ConstInt(highest_bit(val))],
-                        descr=DONT_CHANGE)  # <- xxx rename? means "kill"
-            self.optimizer.send_extra_operation(op)
-            return True
+            return _replace_with_shift(self, op, arg1, ConstInt(highest_bit(val)))
         else:
             from rpython.jit.metainterp.optimizeopt import intdiv
             known_nonneg = b1.known_nonnegative()
