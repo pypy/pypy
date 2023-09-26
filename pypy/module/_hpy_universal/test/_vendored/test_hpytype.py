@@ -1043,7 +1043,6 @@ class TestType(HPyTest):
 
         # the negative 'x' will cause that 'Point_special_call' is used
         p1 = mod.Point(-1, 2)
-        print(p1.__call__)
         assert p1(3, 4, 5, factor=2) == -26
 
         # error case: setting call function on object that does not implement

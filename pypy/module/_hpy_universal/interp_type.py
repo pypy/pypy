@@ -226,13 +226,13 @@ class W_HPyTypeObject(W_TypeObject):
         # XXX: there is a discussion going on to make it possible to create
         # non-heap types with HPyType_FromSpec. Remember to fix this place
         # when it's the case.
-        W_TypeObject.__init__(self, space, name, bases_w, dict_w, is_heaptype=True)
+        W_TypeObject.__init__(self, space, name, 
+            bases_w, dict_w, is_heaptype=True)
         self.basicsize = basicsize
         self.shape = shape
 
     def is_legacy(self):
         return self.shape == Shapes.HPyType_BuiltinShape_Legacy
-
 
 @API.func("void *HPy_AsStruct_Object(HPyContext *ctx, HPy h)")
 def HPy_AsStruct_Object(space, handles, ctx, h):
@@ -368,15 +368,19 @@ def _hpytype_fromspec(handles, spec, params):
     if shape < Shapes.HPyType_BuiltinShape_Legacy or shape > Shapes.HPyType_BuiltinShape_List:
         raise oefmt(space.w_ValueError, "invalid shape %d", shape)
     is_legacy =  shape == Shapes.HPyType_BuiltinShape_Legacy
+    basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
     if not bases_w:
         # override object.__new__ with one that allocates space for the C
         # struct. It could be further overridden via a tp_new in the spec
         #
-        # For now assume that inheriting from builtin types will never require
-        # add C-level fields, only methods, so HPy_AsStruct will never be called
-        # on such an instance.
         dict_w['__new__'] = get_default_new(space)
-    basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
+    elif basicsize > 0:
+        # Hmm. In order for this to work, the type will have to mix W_HPyTypeObject
+        # and the base type to have some storage space. But then _create_instance
+        # cannot use space.allocate_instance, since the typedefs will not align
+        # How does cpyext work around this?
+        raise oefmt(space.w_RuntimeError,
+            "cannot yet isntantiate a class with storage and a base class")
 
     if has_tp_slot(spec, [HPySlot_Slot.HPy_tp_call]):
         if widen(spec.c_itemsize):
@@ -489,12 +493,12 @@ def has_tp_slot(spec, slots):
     return False
 
 def _create_new_type(
-        space, name, w_metatype, bases_w, dict_w, basicsize, shape):
+        space, name, w_metaclass, bases_w, dict_w, basicsize, shape):
     pos = surrogate_in_utf8(name)
     if pos >= 0:
         raise oefmt(space.w_ValueError, "can't encode character in position "
                     "%d, surrogates not allowed", pos)
-    w_type = space.allocate_instance(W_HPyTypeObject, w_metatype)
+    w_type = space.allocate_instance(W_HPyTypeObject, w_metaclass)
     w_type.space = space
     w_type.hpy_storage = storage_alloc(basicsize)
     # XXX handle tp_traverse, tp_destroy, tp_finalize
@@ -536,7 +540,6 @@ descr_new = interp2app(_create_instance)
 @specialize.memo()
 def get_default_new(space):
     return descr_new.get_function(space)
-
 
 @API.func("HPy HPyType_GenericNew(HPyContext *ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")
 def HPyType_GenericNew(space, handles, ctx, h_type, args, nargs, kw):
@@ -581,6 +584,6 @@ def HPy_AsStruct_Type(space, handles, ctx, h):
 def HPyType_IsSubtype(space, handles, ctx, sub, typ):
     w_sub = handles.deref(sub)
     w_type = handles.deref(typ)
-    return int(abstract_issubclass_w(space, w_sub, w_type))
+    return API.int(abstract_issubclass_w(space, w_sub, w_type))
     
 
