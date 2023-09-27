@@ -165,6 +165,56 @@ class AppTestListObject(AppTestCpythonExtensionBase):
         assert p == 3
         assert l == [-5]
 
+    def test_list_spec(self):
+        module = self.import_extension("foo", [
+            ("setslice_slot", "METH_VARARGS",
+             """
+                PyObject *l = PyTuple_GetItem(args, 0);
+                PyObject *seq = PyTuple_GetItem(args, 1);
+        
+                PyMappingMethods* mp = Py_TYPE(l)->tp_as_mapping;
+                if (mp && mp->mp_ass_subscript) {
+                    if (seq == Py_None) seq = NULL;
+                    PyObject *py_slice, *py_start, *py_stop;
+                    py_start = PyLong_FromSsize_t(1);
+                    py_stop = PyLong_FromSsize_t(4);
+                    py_slice = PySlice_New(py_start, py_stop, Py_None);
+                    int result = mp->mp_ass_subscript(l, py_slice, seq);
+                    Py_DECREF(py_start);
+                    Py_DECREF(py_stop);
+                    Py_DECREF(py_slice);
+                    if (result < 0)
+                        return NULL;
+                }
+                else {
+                    PyErr_Format(PyExc_TypeError,
+                        "slice assignment not supported");
+                    return NULL;
+                }
+                Py_RETURN_NONE;
+             """),
+            ("get_sublist", "METH_NOARGS",
+            """
+            PyType_Slot slots[] = {
+                {0, 0},
+            };
+            PyType_Spec sublist_spec = {
+                "sublist",
+                0, 0,
+                Py_TPFLAGS_DEFAULT,
+                slots,
+            };
+            PyObject *t1 = PyTuple_Pack(1, (PyObject *)(&PyList_Type)); 
+            PyObject *ret = PyType_FromSpecWithBases(&sublist_spec, t1);
+            Py_DECREF(t1);
+            return ret;
+            """)])
+    
+        sublist = module.get_sublist()
+        l = sublist(range(6))
+        module.setslice_slot(l, ['a'])
+        assert l == [0, 'a', 4, 5]
+
     def test_list_macros(self):
         """The PyList_* macros cast, and calls expecting that build."""
         module = self.import_extension('foo', [

@@ -314,6 +314,15 @@ def test_with_exit_True():
         assert False, "unreachable"
     assert g() == 42
 
+def test_unraisable_error_in_repr():
+    class ReprError():
+        def __repr__(self):
+            raise RuntimeError("Oh no!")
+    try:
+        [].index(ReprError())
+    except ValueError as e:
+        assert str(e) == '<repr raised> is not in list'
+
 def test_pop_exception_value():
     # assert that this code don't crash
     for i in range(10):

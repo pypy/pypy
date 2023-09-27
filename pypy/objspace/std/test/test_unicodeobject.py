@@ -516,6 +516,20 @@ class AppTestUnicodeString:
         assert 'xyzzyhelloxyzzy'.rstrip('xyz') == 'xyzzyhello'
         raises(TypeError, s.strip, bytearray(b'a'))
 
+    def test_strip_nonascii(self):
+        s = u" ä b "
+        assert s.strip() == u"ä b"
+        assert s.rstrip() == u" ä b"
+        assert s.lstrip() == u"ä b "
+        assert u'xyzzyh³lloxyzzy'.strip(u'xyzü') == u'h³llo'
+        assert u'xyzzyh³lloxyzzy'.lstrip(u'xyzü') == u'h³lloxyzzy'
+        assert u'xyzzyh³lloxyzzy'.rstrip(u'xyzü') == u'xyzzyh³llo'
+
+
+    def test_rstrip_bug(self):
+        assert u"aaaaaaaaaaaaaaaaaaa".rstrip(u"a") == u""
+        assert u"äääääääääääääääääääääääää".rstrip(u"ä") == u""
+
     def test_long_from_unicode(self):
         assert int('12345678901234567890') == 12345678901234567890
         assert int('123', 7) == 66

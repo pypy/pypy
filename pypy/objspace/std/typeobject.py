@@ -769,6 +769,9 @@ class W_TypeObject(W_Root):
         raise oefmt_attribute_error(
             space, self, w_name, "type object '%N' has no attribute %R")
 
+    def acceptable_as_base_class(self, space):
+        # Overridden by cpyext W_PyCTypeObject
+        return self.layout.typedef.acceptable_as_base_class
 
 def descr__new__(space, w_typetype, __args__):
     """This is used to create user-defined classes only."""
@@ -1208,7 +1211,7 @@ def find_best_base(bases_w):
             w_bestbase = w_candidate
     return w_bestbase
 
-def check_and_find_best_base(space, bases_w):
+def check_and_find_best_base(space, bases_w, is_cpytype=False):
     """The best base is one of the bases in the given list: the one
        whose layout a new type should use as a starting point.
        This version checks that bases_w is an acceptable tuple of bases.
@@ -1217,7 +1220,9 @@ def check_and_find_best_base(space, bases_w):
     if w_bestbase is None:
         raise oefmt(space.w_TypeError,
                     "a new-style class can't have only classic bases")
-    if not w_bestbase.layout.typedef.acceptable_as_base_class:
+    if (not (is_cpytype and w_bestbase.is_cpytype()) and 
+        not w_bestbase.acceptable_as_base_class(space)):
+        # CPython allows cpytype classes with cpytype bestbase to violate this. Go figure.
         raise oefmt(space.w_TypeError,
                     "type '%s' is not an acceptable base type", w_bestbase.name)
 
@@ -1350,7 +1355,7 @@ def create_weakref_slot(w_self):
 def setup_user_defined_type(w_self, force_new_layout):
     if len(w_self.bases_w) == 0:
         w_self.bases_w = [w_self.space.w_object]
-    w_bestbase = check_and_find_best_base(w_self.space, w_self.bases_w)
+    w_bestbase = check_and_find_best_base(w_self.space, w_self.bases_w, w_self.is_cpytype())
     for w_base in w_self.bases_w:
         if not isinstance(w_base, W_TypeObject):
             continue

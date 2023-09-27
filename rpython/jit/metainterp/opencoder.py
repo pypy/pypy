@@ -48,11 +48,6 @@ def _get_model(metainterp_sd):
 SMALL_INT_STOP  = (2 ** (15 - TAGSHIFT)) - 1
 SMALL_INT_START = -SMALL_INT_STOP # we might want to distribute them uneven
 
-def expand_sizes_to_signed():
-    """ This function will make sure we can use sizes all the
-    way up to lltype.Signed for indexes everywhere
-    """
-
 class BaseTrace(object):
     pass
 

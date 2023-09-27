@@ -306,6 +306,11 @@ class FlowContext(object):
         The locals are ordered according to self.pycode.signature.
         """
         self.nlocals = code.co_nlocals
+        # locals_w is immutable in the sense that every write should make a new
+        # list first. this means FlowContext.getstate does not have to make a
+        # copy of locals_w. This is a good trade-off, because changes to
+        # locals_w (in STORE_FAST and DELETE_FAST) are much less common that
+        # calls to getstate, which happens after every bytecode
         self.locals_w = [None] * code.co_nlocals
         self.stack = []
 
@@ -339,7 +344,7 @@ class FlowContext(object):
         del self.stack[finaldepth:]
 
     def getstate(self, next_offset):
-        return FrameState(self.locals_w[:], self.stack[:],
+        return FrameState(self.locals_w, self.stack[:],
                 self.last_exception, self.blockstack[:], next_offset)
 
     def setstate(self, state):
@@ -873,6 +878,7 @@ class FlowContext(object):
     def STORE_FAST(self, varindex):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
+        self.locals_w = self.locals_w[:]
         self.locals_w[varindex] = w_newvalue
         if isinstance(w_newvalue, Variable):
             w_newvalue.rename(self.getlocalvarname(varindex))
@@ -1090,6 +1096,7 @@ class FlowContext(object):
             varname = self.getlocalvarname(varindex)
             message = "local variable '%s' referenced before assignment"
             raise UnboundLocalError(message, varname)
+        self.locals_w = self.locals_w[:]
         self.locals_w[varindex] = None
 
     def STORE_MAP(self, oparg):
