@@ -399,7 +399,7 @@ def _test_decode_cert(path):
         lib.BIO_free(cert)
         raise ssl_error("Can't malloc memory to read file")
     try:
-        epath = path.encode()
+        epath = str(path).encode()
         if lib.BIO_read_filename(cert, epath) <= 0:
             raise ssl_error("Can't open file")
 

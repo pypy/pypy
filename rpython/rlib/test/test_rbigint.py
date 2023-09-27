@@ -835,8 +835,11 @@ class Test_rbigint(object):
     def test_normalize(self):
         f1 = bigint([1, 0], 1)
         f1._normalize()
-        assert f1.size == 1
+        assert f1.numdigits() == 1
         f0 = bigint([0], 0)
+        f0._normalize()
+        assert f0.numdigits() == 1
+        assert f0._size == 0
         assert f1.sub(f1).eq(f0)
 
     def test_invert(self):
