@@ -2025,7 +2025,7 @@ unicode_decodeutf8stateful(PyObject *self, PyObject *args)
     }
     return Py_BuildValue("(Nn)", result, consumed);
 }
-#ifndef PYPY_VERSION
+#endif
 
 static PyObject *
 unicode_findchar(PyObject *self, PyObject *args)
