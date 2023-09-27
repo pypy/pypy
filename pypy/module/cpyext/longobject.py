@@ -52,6 +52,8 @@ ULONG_MASK = (2 ** (8 * rffi.sizeof(rffi.ULONG)) -1)
 ULONG_MAX = (2 ** (8 * rffi.sizeof(rffi.ULONG)) -1)
 LONG_MAX = (2 ** (8 * rffi.sizeof(rffi.ULONG) - 1) -1)
 LONG_MIN = (-2 ** (8 * rffi.sizeof(rffi.ULONG) - 1))
+INT_MAX = (2 ** (8 * rffi.sizeof(rffi.UINT) - 1) -1)
+INT_MIN = (-2 ** (8 * rffi.sizeof(rffi.UINT) - 1))
 need_to_check = maxint > ULONG_MAX
 
 @cpython_api([PyObject], rffi.ULONG, error=-1)
@@ -117,6 +119,30 @@ def PyLong_AsLong(space, w_long):
         raise oefmt(space.w_OverflowError,
                     "Python int too large to convert to C long")
     return rffi.cast(rffi.LONG, val)
+
+@cpython_api([PyObject], rffi.INT, error=-1)
+def _PyLong_AsInt(space, w_long):
+    """
+    Get a C int from an int object or any object that has an __int__
+    method.  Return -1 and set an error if overflow occurs.
+    """
+    try:
+        if space.lookup(w_long, '__index__'):
+            val = space.int_w(space.index(w_long))
+        else:
+            val = space.int_w(space.int(w_long))
+    except OperationError as e:
+        if e.match(space, space.w_ValueError):
+            e.w_type = space.w_OverflowError
+        if (e.match(space, space.w_OverflowError) and 
+                space.isinstance_w(w_long, space.w_int)):
+            raise oefmt(space.w_OverflowError,
+                "Python int too large to convert to C int")
+        raise e
+    if val > INT_MAX or val < INT_MIN:
+        raise oefmt(space.w_OverflowError,
+                    "Python int too large to convert to C int")
+    return rffi.cast(rffi.INT, val)
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyLong_AsSsize_t(space, w_long):
