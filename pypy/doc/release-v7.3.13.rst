@@ -2,11 +2,15 @@
 PyPy v7.3.13: release of python 2.7, 3.9, and 3.10
 ==================================================
 
+.. note::
+     This is a pre-release announcement. When the release actually happens, it
+  will be announced on the PyPy blog_
+
 
 The PyPy team is proud to release version 7.3.13 of PyPy.
-This is primarily a bug-fix release. CPython released security patches, and
-this release also improves the ability to use multi-phase module initialization
-from the C-API.
+This is primarily a security/bug-fix release. CPython released security
+patches, and this release also improves the ability to use multi-phase module
+initialization from the C-API. There are also some small speed-ups.
 
 The release includes three different interpreters:
 
@@ -19,7 +23,7 @@ The release includes three different interpreters:
 
   - PyPy3.10, which is an interpreter supporting the syntax and the features of
     Python 3.10, including the stdlib for CPython 3.10.13. Note it requires at
-    least cython 0.29.35 or cython 3.0.0b3
+    least cython 0.29.35 or cython 3.0.0b3.
 
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the other 7.3
@@ -92,8 +96,7 @@ Changelog
 
 For all versions
 ----------------
-- Update to ssl 1.1.1w, or 3.0.10 when embedding
-  libraries for a portable build
+- Update to ssl 1.1.1w, or 3.0.10 when embedding libraries for a portable build
 
 Bugfixes
 ~~~~~~~~
