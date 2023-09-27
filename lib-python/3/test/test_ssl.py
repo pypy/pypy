@@ -10,6 +10,7 @@ from test.support import os_helper
 from test.support import socket_helper
 from test.support import threading_helper
 from test.support import warnings_helper
+import re
 import socket
 import select
 import struct
@@ -5172,6 +5173,7 @@ class TestPreHandshakeClose(unittest.TestCase):
                 timeout=timeout)
         server.__enter__()  # starts it
         self.addCleanup(server.__exit__)  # ... & unittest.TestCase stops it.
+
         # Redundant; call_after_accept sets SO_LINGER on the accepted conn.
         set_socket_so_linger_on_with_zero_timeout(server.listener)
 
