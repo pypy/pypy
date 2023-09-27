@@ -1,5 +1,6 @@
-import sys
 import os
+import pathlib
+import sys
 import time
 import _thread
 import weakref
@@ -960,6 +961,8 @@ def _fs_decode(name):
     return name.decode(sys.getfilesystemencoding())
 def _fs_converter(name):
     """ name must not be None """
+    if isinstance(name, pathlib.Path):
+        name = str(name)
     if isinstance(name, str):
         return name.encode(sys.getfilesystemencoding())
     return bytes(name)
@@ -1386,7 +1389,7 @@ class _SSLContext(object):
         prev_errno = ffi.errno
         try:
             ffi.errno = 0
-            certfilebuf = _str_to_ffi_buffer(certfile)
+            certfilebuf = _str_to_ffi_buffer(str(certfile))
             ret = lib.SSL_CTX_use_certificate_chain_file(self.ctx, certfilebuf)
             if ret != 1:
                 if pw_info.operationerror:
@@ -1400,7 +1403,7 @@ class _SSLContext(object):
                     raise ssl_error(None)
 
             ffi.errno = 0
-            buf = _str_to_ffi_buffer(keyfile)
+            buf = _str_to_ffi_buffer(str(keyfile))
             ret = lib.SSL_CTX_use_PrivateKey_file(self.ctx, buf,
                                                   lib.SSL_FILETYPE_PEM)
             if ret != 1:
@@ -1459,11 +1462,11 @@ class _SSLContext(object):
                 if cafile is None:
                     cafilebuf = ffi.NULL
                 else:
-                    cafilebuf = _str_to_ffi_buffer(cafile)
+                    cafilebuf = _str_to_ffi_buffer(str(cafile))
                 if capath is None:
                     capathbuf = ffi.NULL
                 else:
-                    capathbuf = _str_to_ffi_buffer(capath)
+                    capathbuf = _str_to_ffi_buffer(str(capath))
                 ret = lib.SSL_CTX_load_verify_locations(self.ctx, cafilebuf, capathbuf)
                 if ret != 1:
                     _errno = ffi.errno
