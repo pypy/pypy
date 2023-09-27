@@ -959,13 +959,15 @@ class _SSLSocket(object):
 
 def _fs_decode(name):
     return name.decode(sys.getfilesystemencoding())
-def _fs_converter(name):
+def _fs_converter(name, argname):
     """ name must not be None """
     if isinstance(name, pathlib.Path):
         name = str(name)
     if isinstance(name, str):
         return name.encode(sys.getfilesystemencoding())
-    return bytes(name)
+    elif isinstance(name, bytes):     
+        return bytes(name)
+    raise TypeError(f"{argname} should be a valid filesystem path")
 
 
 def cipher_to_tuple(cipher):
@@ -1389,7 +1391,7 @@ class _SSLContext(object):
         prev_errno = ffi.errno
         try:
             ffi.errno = 0
-            certfilebuf = _str_to_ffi_buffer(str(certfile))
+            certfilebuf = _str_to_ffi_buffer(_fs_converter(certfile, "certfile"))
             ret = lib.SSL_CTX_use_certificate_chain_file(self.ctx, certfilebuf)
             if ret != 1:
                 if pw_info.operationerror:
@@ -1403,7 +1405,7 @@ class _SSLContext(object):
                     raise ssl_error(None)
 
             ffi.errno = 0
-            buf = _str_to_ffi_buffer(str(keyfile))
+            buf = _str_to_ffi_buffer(_fs_converter(keyfile, "keyfile"))
             ret = lib.SSL_CTX_use_PrivateKey_file(self.ctx, buf,
                                                   lib.SSL_FILETYPE_PEM)
             if ret != 1:
@@ -1459,14 +1461,15 @@ class _SSLContext(object):
 
             # load cafile or capath
             if cafile is not None or capath is not None:
+                print(cafile, capath)
                 if cafile is None:
                     cafilebuf = ffi.NULL
                 else:
-                    cafilebuf = _str_to_ffi_buffer(str(cafile))
+                    cafilebuf = _str_to_ffi_buffer(_fs_converter(cafile, "cafile"))
                 if capath is None:
                     capathbuf = ffi.NULL
                 else:
-                    capathbuf = _str_to_ffi_buffer(str(capath))
+                    capathbuf = _str_to_ffi_buffer(_fs_converter(capath, "capath"))
                 ret = lib.SSL_CTX_load_verify_locations(self.ctx, cafilebuf, capathbuf)
                 if ret != 1:
                     _errno = ffi.errno
@@ -1633,7 +1636,7 @@ class _SSLContext(object):
             ffi.errno = 0
             if filepath is None:
                 raise TypeError("filepath must not be None")
-            buf = _fs_converter(filepath)
+            buf = _fs_converter(filepath, "filepath")
             mode = ffi.new("char[]",b"rb")
             ffi.errno = 0
             bio = lib.BIO_new_file(buf, mode)
@@ -1686,7 +1689,7 @@ class _SSLContext(object):
         # needs to be zero terminated
         if name is None:
             raise TypeError()
-        buf = _fs_converter(name)
+        buf = _fs_converter(name, "name")
         nid = lib.OBJ_sn2nid(buf)
         if nid == 0:
             raise ValueError("unknown elliptic curve name '%s'" % name)
