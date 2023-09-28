@@ -98,7 +98,7 @@ class TestBuildValue(HPyTest):
         for i, (code, expected_error) in enumerate(test_cases):
             with pytest.raises(SystemError) as e:
                 mod.f(i)
-            assert expected_error in str(e), code
+            assert expected_error in str(e.value), code
 
     def test_O_and_aliases(self):
         mod = self.make_module("""
@@ -176,11 +176,11 @@ class TestBuildValue(HPyTest):
         for i in [0, 1]:
             with pytest.raises(ValueError) as e:
                 mod.with_msg(i)
-            assert "Some err msg that will be asserted" in str(e)
+            assert "Some err msg that will be asserted" in str(e.value)
         for i in [0, 1]:
             with pytest.raises(SystemError) as e:
                 mod.no_msg(i)
-            assert 'HPy_NULL object passed to HPy_BuildValue' in str(e)
+            assert 'HPy_NULL object passed to HPy_BuildValue' in str(e.value)
 
 
     def test_OO_pars_with_new_objects(self):
