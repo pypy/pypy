@@ -29,6 +29,7 @@ from pypy.module._hpy_universal import (
     interp_builder,
     interp_object,
     interp_cpy_compat,
+    interp_slice,
     interp_type,
     interp_tracker,
     interp_import,
