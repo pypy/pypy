@@ -1386,6 +1386,8 @@ class LLFrame(object):
             oopspecindex = effectinfo.oopspecindex
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 return self._do_math_sqrt(args[0])
+            if oopspecindex == EffectInfo.OS_MAX_FLOAT:
+                return self._do_max_float(args[0], args[1])
         TP = llmemory.cast_int_to_adr(func).ptr._obj._TYPE
         call_args = support.cast_call_args_in_order(TP.ARGS, args)
         try:

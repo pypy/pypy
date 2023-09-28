@@ -1430,6 +1430,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     def genop_math_sqrt(self, op, arglocs, resloc):
         self.mc.SQRTSD(arglocs[0], resloc)
 
+    def genop_max_float(self, op, arglocs, resloc):
+        self.mc.MAXPD(arglocs[0], arglocs[1], resloc)
+
     def genop_int_signext(self, op, arglocs, resloc):
         argloc, numbytesloc = arglocs
         assert isinstance(numbytesloc, ImmedLoc)
@@ -2745,6 +2748,7 @@ for name, value in iterate:
         opname = name[len('genop_'):]
         num = getattr(rop, opname.upper())
         genop_list[num] = value
+    genop_math_list[EffectInfo.OS_MAX_FLOAT] = Assembler386.genop_max_float
 
 genop_llong_list = dict_to_switch(genop_llong_list)
 genop_math_list = dict_to_switch(genop_math_list)

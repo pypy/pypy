@@ -497,6 +497,8 @@ class Transformer(object):
             prepare = self._handle_libffi_call
         elif oopspec_name.startswith('math.sqrt'):
             prepare = self._handle_math_sqrt_call
+        elif oopspec_name.startswith('float.max'):
+            prepare = self._handle_max_float_call
         elif oopspec_name.startswith('rgc.'):
             prepare = self._handle_rgc_call
         elif oopspec_name.startswith('rvmprof.'):
@@ -2173,6 +2175,10 @@ class Transformer(object):
 
     def _handle_math_sqrt_call(self, op, oopspec_name, args):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_MATH_SQRT,
+                                         EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+
+    def _handle_max_float_call(self, op, oopspec_name, args):
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_MAX_FLOAT,
                                          EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
 
     def _handle_dict_lookup_call(self, op, oopspec_name, args):

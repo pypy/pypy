@@ -104,6 +104,8 @@ class EffectInfo(object):
     OS_JIT_FORCE_VIRTUAL        = 120
     OS_JIT_FORCE_VIRTUALIZABLE  = 121
 
+    OS_MAX_FLOAT                = 122
+
     # for debugging:
     _OS_CANRAISE = set([
         OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL, OS_RAW_MALLOC_VARSIZE_CHAR,

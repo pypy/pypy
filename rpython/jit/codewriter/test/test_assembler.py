@@ -266,3 +266,5 @@ def test_assemble_r_int():
     jitcode = assembler.assemble(ssarepr, num_regs={'int': 3})
     assert jitcode.constants_i == [42424242, 42424243]
     assert map(type, jitcode.constants_i) == [int, int]
+
+# TODO(max): Add float max test
