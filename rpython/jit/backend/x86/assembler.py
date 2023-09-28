@@ -2744,11 +2744,12 @@ for name, value in iterate:
         opname = name[len('genop_math_'):]
         num = getattr(EffectInfo, 'OS_MATH_' + opname.upper())
         genop_math_list[num] = value
+    elif name.startswith('genop_max_float'):
+        genop_math_list[EffectInfo.OS_MAX_FLOAT] = Assembler386.genop_max_float
     elif name.startswith('genop_'):
         opname = name[len('genop_'):]
         num = getattr(rop, opname.upper())
         genop_list[num] = value
-    genop_math_list[EffectInfo.OS_MAX_FLOAT] = Assembler386.genop_max_float
 
 genop_llong_list = dict_to_switch(genop_llong_list)
 genop_math_list = dict_to_switch(genop_math_list)
