@@ -659,3 +659,25 @@ class TestInline(BaseRtypingTest):
         interp = LLInterpreter(t.rtyper)
         result = interp.eval_graph(graphof(t, f), [10])
         assert result == f(10)
+
+    def test_float_max(self):
+        def f(x, y):
+            return max(x, y)
+        t = self.translate(f, [float, float])
+        interp = LLInterpreter(t.rtyper)
+        result = interp.eval_graph(graphof(t, f), [-1.0, 0.0])
+        assert result == f(-1.0, 0.0)
+        result = interp.eval_graph(graphof(t, f), [1.0, 0.0])
+        assert result == f(1.0, 0.0)
+        # nan = float("nan")
+        # TODO(max): eval_graph might be wrong here? It produces 0.0 when it
+        # should produce nan
+        # result = interp.eval_graph(graphof(t, f), [nan, 0.0])
+        # assert result is f(nan, 0.0)
+        # TODO(max): eval_graph might be wrong here? It produces nan when it
+        # should produce 0.0
+        # result = interp.eval_graph(graphof(t, f), [0.0, nan])
+        # assert result == f(0.0, nan)
+        # TODO(max): Test inf, subnormals, ...
+        assert summary(graphof(t, f)) == {'direct_call': 1}
+
