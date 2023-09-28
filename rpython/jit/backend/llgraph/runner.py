@@ -1364,6 +1364,12 @@ class LLFrame(object):
         x = math.sqrt(y)
         return support.cast_to_floatstorage(x)
 
+    def _do_max_float(self, left, right):
+        leftf = support.cast_from_floatstorage(lltype.Float, left)
+        rightf = support.cast_from_floatstorage(lltype.Float, right)
+        result = max(leftf, rightf)
+        return support.cast_to_floatstorage(result)
+
     def execute_cond_call(self, calldescr, cond, func, *args):
         if not cond:
             return
