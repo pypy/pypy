@@ -9,8 +9,9 @@ PyPy v7.3.13: release of python 2.7, 3.9, and 3.10
 
 The PyPy team is proud to release version 7.3.13 of PyPy.
 This is primarily a security/bug-fix release. CPython released security
-patches, and this release also improves the ability to use multi-phase module
-initialization from the C-API. There are also some small speed-ups.
+patches, and this release also improves the ability to use type
+specfifications via ``PyType_FromSpec`` and friends. There are also some
+small speed-ups.
 
 The release includes three different interpreters:
 
@@ -171,7 +172,6 @@ Bugfixes
 - Add missing slot macro ``Py_am_send`` (issue 3990_)
 
 .. _bpo-41832: https://bugs.python.org/issue41832
-.. _GH-100242: https://github.com/python/cpython/issues/100242
 .. _2742: https://foss.heptapod.net/pypy/pypy/-/issues/2742
 .. _3611: https://foss.heptapod.net/pypy/pypy/-/issues/3611
 .. _3956: https://foss.heptapod.net/pypy/pypy/-/issues/3956
