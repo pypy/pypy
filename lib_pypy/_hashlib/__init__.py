@@ -513,8 +513,7 @@ def hmac_new(key, msg=b"", digestmod=None):
         # _hmac_update
         view = memoryview(msg)
         if len(view) > 2048:  # HASHLIB_GIL_MINSIZE
-            self.lock = Lock()
-            with self.lock():
+            with self.lock:
                 result = lib.HMAC_Update(ctx, _str_to_ffi_buffer(msg), len(view))
         else:
             result = lib.HMAC_Update(ctx, _str_to_ffi_buffer(msg), len(view))

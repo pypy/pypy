@@ -57,7 +57,12 @@ class CodeWriter(object):
         # of bytes and lists of constants.  It's during this step that
         # constants are cast to their normalized type (Signed, GCREF or
         # Float).
-        self.assembler.assemble(ssarepr, jitcode)
+        num_regs = {kind:
+                (max(regallocs[kind]._coloring.values()) + 1
+                    if regallocs[kind]._coloring
+                    else 0)
+                for kind in KINDS}
+        self.assembler.assemble(ssarepr, jitcode, num_regs)
         jitcode.index = index
         #
         # print the resulting assembler

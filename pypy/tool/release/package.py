@@ -140,7 +140,7 @@ def get_platlibdir(pypy_c, quiet=False):
              'import sysconfig as s; print(s.get_config_var("platlibdir"))'], **kwds)
     return ver.strip()
 
-    
+
 def generate_sysconfigdata(pypy_c, stdlib):
     """Create a _sysconfigdata_*.py file that is platform specific and can be
     parsed by non-python tools. Used in cross-platform package building and
@@ -148,7 +148,7 @@ def generate_sysconfigdata(pypy_c, stdlib):
     """
     if ARCH == 'win32':
         return
-    # run ./config.guess to add the HOST_GNU_TYPE (copied from CPython, 
+    # run ./config.guess to add the HOST_GNU_TYPE (copied from CPython,
     # apparently useful for the crossenv package)
     config_guess = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 'config.guess')
@@ -171,10 +171,7 @@ def generate_sysconfigdata(pypy_c, stdlib):
     assert len(sysconfigdata_names) == 1
     shutil.copy(os.path.join(dirname, sysconfigdata_names[0]), stdlib)
     shutil.rmtree(dirname)
-       
-        
-    
-                
+
 
 def create_package(basedir, options, _fake=False):
     retval = 0
@@ -215,6 +212,9 @@ def create_package(basedir, options, _fake=False):
     os.makedirs(str(target))
     if not _fake:
         generate_sysconfigdata(pypy_c, str(target))
+        subprocess.check_call([str(pypy_c), "-c", "import _testmultiphase_build"])
+        subprocess.check_call([str(pypy_c), "-c", "import _ctypes_test_build"])
+        subprocess.check_call([str(pypy_c), "-c", "import _testcapi"])
     if ARCH == 'win32':
         os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
                             os.environ.get('PATH', '')
@@ -416,7 +416,13 @@ def create_package(basedir, options, _fake=False):
                 os.chdir(str(name))
                 if not os.path.exists('lib'):
                     os.mkdir('lib')
-                make_portable(copytree, python_ver)
+                deps = make_portable(copytree, python_ver)
+                with open("lib/PYPY_PORTABLE_DEPS.txt", "wt") as fid:
+                    for k in deps.keys():
+                        fid.write("%s\n" % k)
+                    if not options.no__tkinter:
+                        fid.write("tk8.6\n")
+                        fid.write("tcl8.6\n")
                 os.chdir(str(builddir))
         if USE_ZIPFILE_MODULE:
             import zipfile
@@ -505,7 +511,7 @@ def package(*args, **kwds):
                     dest='no_' + key,
                     action='store_true',
                     help='do not build and package the %r cffi module' % (key,))
-            
+
     parser.add_argument('--without-_tkinter',
             dest='no__tkinter',
             default=no__tkinter_default,

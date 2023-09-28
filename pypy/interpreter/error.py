@@ -569,13 +569,23 @@ def get_operrcls2(valuefmt):
                         result = str(value)
                         lgt += len(result)
                     elif fmt == 'R':
-                        s = space.repr(value)
-                        result = space.utf8_w(s)
-                        lgt += space.len_w(s)
+                        try:
+                            w_s = space.repr(value)
+                            result = space.utf8_w(w_s)
+                            lgt += space.len_w(w_s)
+                        except OperationError as e:
+                            e.write_unraisable(space, "exception formatting: ", value)
+                            result = '<repr raised>'
+                            lgt += len(result)
                     elif fmt == 'S':
-                        s = space.str(value)
-                        result = space.utf8_w(s)
-                        lgt += space.len_w(s)
+                        try:
+                            s = space.str(value)
+                            result = space.utf8_w(s)
+                            lgt += space.len_w(s)
+                        except OperationError as e:
+                            e.write_unraisable(space, "exception formatting: ", value)
+                            result = '<str raised>'
+                            lgt += len(result)
                     elif fmt == 'T':
                         result = space.type(value).name
                         lgt += rutf8.codepoints_in_utf8(result)

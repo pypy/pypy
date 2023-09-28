@@ -3,13 +3,7 @@ PyPy v7.3.12: release of python 2.7, 3.9, and 3.10
 ==================================================
 
 ..
-       Changelog up to commit 24beab5e4a50
-
-.. note::
-  This is a pre-release announcement. When the release actually happens, it
-  will be announced on the `PyPy blog`_
-
-.. _`PyPy blog`: https://pypy.org/blog
+       Changelog up to commit ba2e9a6c433e
 
 The PyPy team is proud to release version 7.3.12 of PyPy. 
 This release includes a new string-to-int algorithm (also appearing in CPython
@@ -23,10 +17,10 @@ The release includes three different interpreters:
     backported security updates)
 
   - PyPy3.9, which is an interpreter supporting the syntax and the features of
-    Python 3.9, including the stdlib for CPython 3.9.16.
+    Python 3.9, including the stdlib for CPython 3.9.17.
 
   - PyPy3.10, which is an interpreter supporting the syntax and the features of
-    Python 3.10, including the stdlib for CPython 3.10.11. This is our first
+    Python 3.10, including the stdlib for CPython 3.10.12. This is our first
     release of 3.10, but based on past experience we are quite confident in
     its compatibility with upstream. Of course, we recommend testing your code
     with this new version before putting it into production. Note it does
@@ -106,7 +100,8 @@ Changelog
 For all versions
 ----------------
 - Update vendored version of pycparser
-- Update to ssl 1.1.1t, 3.0.8 when embedding libraries
+- Update to ssl 1.1.1u, 3.0.9; lzma 5.2.10; and gdbm 1.23 when embedding
+  libraries for a portable build
 
 Bugfixes
 ~~~~~~~~
@@ -134,6 +129,21 @@ Speedups and enhancements
 - Implement the base 10 ``string-to-int`` conversion using a divide an conquer
   algorithm with complexity ``O(n**1.58)``. The algorithm is due to Bjorn
   Martinsson and is part of CPython 3.12.
+- Small refactoring in the JIT History class. It can now use the proper
+  opencoder encoding of a trace immediately, not only after the inputargs are
+  known
+- Inline ``get_field_updater`` in JITted code to allow ``FieldUpdater`` to be
+  alloc-removed everywhere
+- Improve warmup a little bit:
+  - directly put the two most common opcodes into the loop
+  - add a special case for the int_add variant with a constant argument 
+
+- Use the ``rbigint.add_int`` (etc) shortcuts for the ``int+int`` overflowing
+  operations
+- Optimize the ``goto_if_not_*`` code:
+  - don't call replace_box for fresh boxes that can't be stored anywhere yet
+  - make the "same box" shortcut faster
+
 
 Python 3.9+
 -----------
@@ -165,6 +175,8 @@ Bugfixes
 - Properly create a C-level wrapper that calls ``tp_finalize`` when ``__del__``
   is called, which allows us to use ``CYTHON_USE_TP_FINALIZE`` in cython
 - Move ``hpy.dist-info`` to ``hpy-0.0.4.dist-info`` (issue 3579_)
+- Fix edged cases in ``__rpow__`` and ``pow()`` (issues 3912_ and 3944_)
+- Remove ``PyInt_FromLong`` which was leftover from Python2
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -182,6 +194,8 @@ Speedups and enhancements
   for use by cython, towards fixing issue 3280_
 - Squeeze a little more accuracy out of windows ``time.time()``, to make a
   cython test pass
+- Use posonly args for ``list.__init__`` and ``set.__init__``, simplifying code
+- Use ``rbigint.*_int`` fast paths for comparisons between ints
 
 .. _bpo-37648: https://bugs.python.org/issue37648
 .. _GH-100242: https://github.com/python/cpython/issues/100242
@@ -198,7 +212,9 @@ Speedups and enhancements
 .. _3890: https://foss.heptapod.net/pypy/pypy/-/issues/3890
 .. _3892: https://foss.heptapod.net/pypy/pypy/-/issues/3892
 .. _3906: https://foss.heptapod.net/pypy/pypy/-/issues/3906
+.. _3912: https://foss.heptapod.net/pypy/pypy/-/issues/3912
 .. _3917: https://foss.heptapod.net/pypy/pypy/-/issues/3917
 .. _3921: https://foss.heptapod.net/pypy/pypy/-/issues/3921
 .. _3925: https://foss.heptapod.net/pypy/pypy/-/issues/3925
 .. _3938: https://foss.heptapod.net/pypy/pypy/-/issues/3938
+.. _3944: https://foss.heptapod.net/pypy/pypy/-/issues/3944

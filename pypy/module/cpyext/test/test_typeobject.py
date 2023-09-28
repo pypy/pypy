@@ -535,20 +535,33 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         p = property(lambda: "never used", pset, pdel)
         assert module.tp_descr_set(p) is True
 
-    def test_text_signature(self):
+    def test_signature_and_attributes(self):
         import sys
-        module = self.import_module(name='docstrings')
-        assert module.SomeType.__text_signature__ == '()'
-        assert module.SomeType.__doc__ == 'A type with a signature'
-        if '__pypy__' in sys.modules:
-            assert module.HeapType.__text_signature__ == '()'
-        else:  # XXX: bug in CPython?
-            assert module.HeapType.__text_signature__ is None
-        assert module.HeapType.__doc__ == 'A type with a signature'
+        mod = self.import_module(name='docstrings')
+        assert mod.no_doc.__doc__ is None
+        assert mod.no_doc.__text_signature__ is None
+        assert mod.empty_doc.__doc__ is None
+        assert mod.empty_doc.__text_signature__ is None
+        assert mod.no_sig.__doc__
+        assert mod.no_sig.__text_signature__ is None
+        assert mod.invalid_sig.__doc__
+        assert mod.invalid_sig.__text_signature__ is None
+        assert mod.invalid_sig2.__doc__
+        assert mod.invalid_sig2.__text_signature__ is None
+        assert mod.with_sig.__doc__
+        assert mod.with_sig.__text_signature__ == '($module, /, sig)'
+        assert mod.with_sig_but_no_doc.__doc__ is None
+        assert mod.with_sig_but_no_doc.__text_signature__ == '($module, /, sig)'
+        assert mod.with_signature_and_extra_newlines.__doc__
+        assert (mod.with_signature_and_extra_newlines.__text_signature__ ==
+                '($module, /, parameter)')
 
-    def test_heaptype_attributes(self):
-        module = self.import_module(name='docstrings')
-        htype = module.HeapType
+        htype = mod.HeapType
+        assert htype().__doc__ == "A type with a signature"
+        assert mod.SomeType.__text_signature__ == '()'
+        assert mod.SomeType.__doc__ == 'A type with a signature'
+        assert htype.__text_signature__ is None
+
         assert htype.__module__ == 'docstrings'
         assert htype.__name__ == 'HeapType'
         assert htype.__qualname__ == 'HeapType'
@@ -1082,6 +1095,48 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert type(it) is type(iter([]))
         x = list(it)
         assert x == [1]
+
+    def test_gen_tp_iter(self):
+        """
+        module = self.import_extension('foo', [
+           ("gen_tp_iternext", "METH_VARARGS",
+            '''
+                 PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                 iternextfunc next = Py_TYPE(obj)->tp_iternext;
+                 PyObject *result = next(obj);
+                 /* In py3, returning NULL from tp_iternext means the iterator
+                  * is exhausted, and the result is given in a StopIteration object */
+                 if (!result) {
+                     if (!PyErr_Occurred()) {
+                         PyErr_SetString(PyExc_AssertionError, "No StopIteration with NULL return value");
+                         return NULL;
+                     }
+
+                     PyObject *ptype, *pvalue, *ptraceback;
+                     PyErr_Fetch(&ptype, &pvalue, &ptraceback);
+                     if (PyErr_GivenExceptionMatches(pvalue, PyExc_StopIteration)) {
+                         result = PyObject_GetAttrString(pvalue, "value");
+                         Py_XDECREF(pvalue);
+                     }
+                     else {
+                         result = pvalue;
+                     }
+                     Py_XDECREF(ptype);
+                     Py_XDECREF(ptraceback);
+                 }
+                 return result;
+             '''
+             )
+            ])
+
+        def generator():
+            yield 1
+            return 3
+
+        gen = generator()
+        assert module.gen_tp_iternext(gen) == 1
+        assert module.gen_tp_iternext(gen) == 3
+        """
 
     def test_intlike(self):
         module = self.import_extension('foo', [
@@ -2249,3 +2304,121 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         # Make sure o.tp_dealloc was called
         new_list = module.global_list[:]
         assert len(new_list) == len(old_list) + 1, "%s %s" %(old_list, new_list)
+
+    def test_issubclass(self):
+        # issue 3976
+        module = self.import_extension("foo", [
+            ("issubclass", "METH_VARARGS",
+             """
+                PyObject *x = NULL, *y = NULL;
+                if (!PyArg_ParseTuple(args, "OO", &x, &y)) {
+                    return NULL;
+                }
+                if (!PyType_Check(x) | !PyType_Check(y))
+                    return PyLong_FromLong(42);
+                int subtype = PyType_IsSubtype((PyTypeObject *) x, (PyTypeObject *) y);
+                return PyLong_FromLong(subtype);
+             """)])
+        class Base: pass
+        class A(Base): pass
+        class B(Base): pass
+        assert not issubclass(B, A)
+        assert not module.issubclass(B, A)
+        B.__bases__ = (A,)
+        assert issubclass(B, A)
+        assert module.issubclass(B, A)
+
+    def test_subclass_from_spec(self):
+        module = self.import_extension("foo", [
+            ("subclass_from_class", "METH_O",
+            """
+                static PyType_Slot HeapType_slots[] = {
+                    {Py_tp_doc, "HeapType()\\n--\\n\\nA type with a signature"},
+                    {0, 0},
+                };
+
+
+                static PyType_Spec HeapType_spec = {
+                    "module.HeapType",
+                    sizeof(PyObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT,
+                    HeapType_slots
+                };
+
+                return PyType_FromSpecWithBases(&HeapType_spec, args);
+            """)])
+
+        # bool cannot be a base class
+        with raises(TypeError):
+            module.subclass_from_class((bool,))
+
+        inttype = module.subclass_from_class((int,))
+
+        # the type does not set Py_TPFLAGS_BASETYPE, so cannot inherit
+        with raises(TypeError):
+            class int2(inttype):
+                pass
+
+        # Make sure the flag passes to app-level
+        assert isinstance(inttype(), int)
+
+    def test_subclass_from_default(self):
+        # CPython allows static types to subclass base classes without
+        # the Py_TPFLAGS_BASETYPE flag
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            ),
+            ("has_tp_call", "METH_O",
+             """
+                return PyBool_FromLong((Py_TYPE(args)->tp_call != NULL));
+             """
+            )], prologue='''
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            static PyTypeObject Base_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.base",
+            };
+            ''', more_init = '''
+                Base_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                if (PyType_Ready(&Base_Type) < 0) INITERROR;
+                Foo_Type.tp_base = &Base_Type;
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+
+        obj = module.new_obj()
+        assert str(type(obj).mro()) == "[<class 'foo.foo'>, <class 'foo.base'>, <class 'object'>]"
+        # Make sure tp_call is not initialized
+        class C: pass
+        assert not module.has_tp_call(obj)
+        assert module.has_tp_call(module.new_obj)
+        assert not module.has_tp_call(C())
+
+    def test_heap_type(self):
+        # issue 3318, make sure the name does not include the module
+        module = self.import_extension("foo", [
+            ("get_type", "METH_NOARGS",
+             """
+                PyType_Slot CustomHeap_Type_slots[] = {
+                    {0, 0},
+                };
+
+                PyType_Spec CustomHeap_Type_spec = {
+                    "custom.CustomHeap",
+                    0,
+                    0,
+                    Py_TPFLAGS_DEFAULT,
+                    CustomHeap_Type_slots,
+                };
+                return PyType_FromSpec(&CustomHeap_Type_spec);
+             """),])
+        custom = module.get_type()
+        assert custom.__name__ == "CustomHeap"

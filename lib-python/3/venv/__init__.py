@@ -288,21 +288,22 @@ class EnvBuilder:
                         if not os.path.islink(dest_library):
                             os.chmod(dest_library, 0o755)
                 libsrc = os.path.join(context.python_dir, '..', 'lib')
-                if os.path.exists(libsrc):
+                deps_file = os.path.join(libsrc, "PYPY_PORTABLE_DEPS.txt")
+                if os.path.exists(libsrc) and os.path.exists(deps_file):
                     # PyPy: also copy lib/*.so*, lib/tk, lib/tcl for portable
                     # builds
                     libdst = os.path.join(context.env_dir, 'lib')
-                    pypylib = 'pypy%d.%d' % sys.version_info[:2]
                     if not os.path.exists(libdst):
                         os.mkdir(libdst)
-                    for f in os.listdir(libsrc):
-                        src = os.path.join(libsrc, f)
-                        dst = os.path.join(libdst, f)
-                        if f == pypylib or os.path.exists(dst):
-                            # be sure not to copy the stdlib
-                            # also skip directories when upgrading
-                            continue
-                        copier(src, dst)
+                    with open(deps_file, encoding="utf-8") as fid:
+                        for f in fid:
+                            src = os.path.join(libsrc, f)
+                            dst = os.path.join(libdst, f)
+                            if os.path.exists(src):
+                                if os.path.exists(dst):
+                                    # skip directories when upgrading
+                                    continue
+                                copier(src, dst)
             #
         else:
             if self.symlinks:

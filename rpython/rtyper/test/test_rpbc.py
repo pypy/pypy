@@ -2175,8 +2175,43 @@ def test_smallfuncsets_basic():
     rtyper = t.buildrtyper()
     rtyper.specialize()
     graph = graphof(t, f)
+    calldispatcherop = graph.startblock.exits[0].target.operations[0]
+    assert calldispatcherop.args[0].value._obj0.graph.name == "dispatcher_g_etc"
     interp = LLInterpreter(rtyper)
     res = interp.eval_graph(graph, [0, 0])
     assert res == -1
     res = interp.eval_graph(graph, [0, 1])
     assert res == 1
+
+def test_smallfuncsets_method():
+    from rpython.translator.translator import TranslationContext, graphof
+    from rpython.config.translationoption import get_combined_translation_config
+    from rpython.rtyper.llinterp import LLInterpreter
+    config = get_combined_translation_config(translating=True)
+    config.translation.withsmallfuncsets = 10
+
+    class A(object):
+        def meth(self, x):
+            return x - 1
+    class B(A):
+        def meth(self, x):
+            return x + 1
+    def f(x, y):
+        if y > 0:
+            a = A()
+        else:
+            a = B()
+        return a.meth(x)
+    t = TranslationContext(config=config)
+    a = t.buildannotator()
+    a.build_types(f, [int, int])
+    rtyper = t.buildrtyper()
+    rtyper.specialize()
+    graph = graphof(t, f)
+    calldispatcherop = [op for (_, op) in graph.iterblockops() if op.opname == "direct_call"][0]
+    assert calldispatcherop.args[0].value._obj0.graph.name == "dispatcher_meth"
+    interp = LLInterpreter(rtyper)
+    res = interp.eval_graph(graph, [0, 0])
+    assert res == f(0, 0)
+    res = interp.eval_graph(graph, [0, 1])
+    assert res == f(0, 1)

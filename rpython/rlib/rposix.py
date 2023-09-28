@@ -3039,11 +3039,12 @@ elif not _WIN32:
         with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_len:
             p_len[0] = rffi.cast(OFF_T, count)
             res = c_sendfile(in_fd, out_fd, offset, p_len, lltype.nullptr(rffi.VOIDP.TO), 0)
+            sbytes = p_len[0]
             if res != 0:
+                if get_saved_errno() in (errno.EAGAIN, errno.EBUSY) and sbytes != 0:
+                    return sbytes
                 return handle_posix_error('sendfile', res)
-            res = p_len[0]
-        return res
-
+            return sbytes
 
 # ____________________________________________________________
 # Support for *xattr functions

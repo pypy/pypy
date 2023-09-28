@@ -80,3 +80,6 @@
 #define Py_am_anext 79
 /* New in 3.5 */
 #define Py_tp_finalize 80
+/* New in 3.10 */
+#define Py_am_send 81
+

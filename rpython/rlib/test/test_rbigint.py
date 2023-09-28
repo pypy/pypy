@@ -835,8 +835,11 @@ class Test_rbigint(object):
     def test_normalize(self):
         f1 = bigint([1, 0], 1)
         f1._normalize()
-        assert f1.size == 1
+        assert f1.numdigits() == 1
         f0 = bigint([0], 0)
+        f0._normalize()
+        assert f0.numdigits() == 1
+        assert f0._size == 0
         assert f1.sub(f1).eq(f0)
 
     def test_invert(self):
@@ -1401,6 +1404,15 @@ class TestTranslatable(object):
         res = interpret(fn, [])
         assert res == -42.0
 
+    def test_isqrt(self):
+        def fn(x):
+            num = rbigint.fromint(3).int_pow(x)
+            return num.mul(num).isqrt().eq(num)
+
+
+        res = interpret(fn, [100])
+        assert res == True
+
 
 class TestTranslated(StandaloneTests):
 
@@ -1806,6 +1818,21 @@ class TestHypothesis(object):
     def test_args_from_rarith_int(self, i):
         li = rbigint.fromrarith_int(i)
         assert li.tolong() == int(i)
+
+    @given(biglongs)
+    @example(3**100)
+    def test_isqrt(self, a):
+        a = abs(a)
+        la = rbigint.fromlong(a)
+        lsq = la.isqrt()
+        sq = lsq.tolong()
+        assert sq * sq <= a
+        assert (sq + 1) ** 2 > a
+
+        x = a * a
+        lx = rbigint.fromlong(x)
+        assert lx.isqrt().tolong() == a
+
 
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])

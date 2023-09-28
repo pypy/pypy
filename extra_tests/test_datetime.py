@@ -388,3 +388,8 @@ def test_normalize_datetime():
     normalize = datetime._normalize_datetime
     abnormal = (2002, 13, 35, 30, 95, 75, 1000001)
     assert normalize(*abnormal) == (2003, 2, 5, 7, 36, 16, 1)
+
+def test_isoformat_error():
+    # issue 3989
+    with pytest.raises(ValueError):
+        datetime.datetime.fromisoformat("2023")

@@ -135,5 +135,5 @@ GC written as more RPython code.  The best one we have so far is in
 ``rpython/memory/gc/incminimark.py``.
 
 .. _`Getting Started with RPython`: https://rpython.readthedocs.io/en/latest/getting-started.html
-.. _RPython By Example: https://mesapy.org/rpython-by-example/
+.. _RPython By Example: https://mssun.github.io/rpython-by-example/index.html
 

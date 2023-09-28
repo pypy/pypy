@@ -271,6 +271,8 @@ def _wrap_strftime(object, format, timetuple):
 def _parse_isoformat_date(dtstr):
     # It is assumed that this function will only be called with a
     # string of length exactly 10, and (though this is not used) ASCII-only
+    if len(dtstr) < 10:
+        raise ValueError('isoformat expects a string of length 10')
     year = int(dtstr[0:4])
     if dtstr[4] != '-':
         raise ValueError('Invalid date separator: %s' % dtstr[4])
