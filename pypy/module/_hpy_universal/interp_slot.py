@@ -198,6 +198,19 @@ class W_wrap_lenfunc(object):
             space.fromcache(State).raise_current_exception()
         return space.newint(result)
 
+class W_wrap_hashfunc(object):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_hashfunc", self.cfuncptr)
+        self.check_args(space, __args__, 1)
+        w_self = __args__.arguments_w[0]
+        with self.handles.using(w_self) as h_self:
+            result = func(self.ctx, h_self)
+        if widen(result) == -1:
+            operror = space.fromcache(State).clear_exception()
+            if operror:
+                raise operror
+        return space.newint(result)
+
 class W_wrap_call(object):
     def call(self, space, __args__):
         w_func = self.handles.w_ExtensionMethod(space, self.handles, "__call__",
@@ -528,7 +541,7 @@ SLOTS = unrolling_iterable([
 #   ('tp_doc',                     '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_getattr',                 '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_getattro',                '__xxx__',       AGS.W_SlotWrapper_...),
-#   ('tp_hash',                    '__xxx__',       AGS.W_SlotWrapper_...),
+    ('tp_hash',                    '__hash__',      W_wrap_hashfunc),
     ('tp_init',                    '__init__',      W_wrap_init),
 #   ('tp_is_gc',                   '__xxx__',       AGS.W_SlotWrapper_...),
 #    ('tp_iter',                    '__iter__',      W_wrap_unaryfunc),
@@ -538,7 +551,7 @@ SLOTS = unrolling_iterable([
 #   tp_richcompare  SPECIAL-CASED
 #   ('tp_setattr',                 '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_setattro',                '__xxx__',       AGS.W_SlotWrapper_...),
-#    ('tp_str',                     '__str__',       W_wrap_unaryfunc),
+    ('tp_str',                     '__str__',       W_wrap_unaryfunc),
 #   tp_traverse  SPECIAL-CASED
     ('nb_matrix_multiply',         '__matmul__',    W_wrap_binaryfunc),
     ('nb_inplace_matrix_multiply', '__imatmul__',   W_wrap_binaryfunc),

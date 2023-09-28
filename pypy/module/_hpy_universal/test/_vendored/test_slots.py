@@ -419,6 +419,7 @@ class TestSlots(HPyTest):
                 assert sys.getrefcount(arr) == init_refcount + 1
             for i in range(12):
                 assert mv[i] == i
+        del mv
         if self.supports_refcounts():
             assert sys.getrefcount(arr) == init_refcount
         mv2 = memoryview(arr)  # doesn't raise
@@ -462,6 +463,7 @@ class TestSlots(HPyTest):
         assert repr(p) == 'repr(Point(1, 2))'
 
     def test_tp_hash(self):
+        import pytest
         mod = self.make_module("""
             @DEFINE_PointObject
             @DEFINE_Point_new
@@ -771,7 +773,6 @@ class TestSqSlots(HPyTest):
             'hello' in p
 
     def test_tp_richcompare(self):
-        import pytest
         mod = self.make_module("""
             @DEFINE_PointObject
             @DEFINE_Point_new
