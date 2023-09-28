@@ -4483,6 +4483,28 @@ class LLtypeBackendTest(BaseBackendTest):
                          'float', descr=calldescr)
             assert longlong.getrealfloat(res) == expected
 
+    def test_max_float(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
+
+        def max_float(a):
+            assert False, 'should not be called'
+        from rpython.jit.codewriter.effectinfo import EffectInfo
+
+        effectinfo = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE, EffectInfo.OS_MAX_FLOAT)
+        FPTR = self.Ptr(self.FuncType([lltype.Float, lltype.Float], lltype.Float))
+        func_ptr = llhelper(FPTR, max_float)
+        FUNC = FPTR.TO
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, effectinfo)
+        testcases = [((1.0, 4.0), 4.0), ((-1.0, 0.0), 0.0)]
+        for (arg0, arg1), expected in testcases:
+            res = self.execute_operation(rop.CALL_F,
+                        [funcbox, boxfloat(arg0), boxfloat(arg1)],
+                         'float', descr=calldescr)
+            assert longlong.getrealfloat(res) == expected
+
     def test_check_memory_error(self):
         self.execute_operation(
                        rop.CHECK_MEMORY_ERROR, [InputArgInt(12345)], 'void')
