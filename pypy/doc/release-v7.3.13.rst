@@ -105,64 +105,70 @@ Bugfixes
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-- Do type-erasure for rpython dicts and lists more generally, unifying all gced
-  pointer types into one implementation (as opposed to just unifying all
-  *instances* together, but not eg strings). This makes pypy-c ~700KiB smaller.
-- Stop allocating three lists of length 256 for the registers in the MIFrames
-  and the blackhole frames. Almost all jitcodes have much smaller frame sizes.
-  Seems to make tracing a little bit faster.
-- Improve ``strip()`` to not force the object
-- Make sure that ``sys.flags`` are not in a cell in the sys module to speed up
-  access (especially important on py3.x, where every bytes.decode call checks
-  sys.flags.utf8_mode)
-- Speed up the flowspace a lot for huge functions
+
+- Shrink the size of the PyPy binaries by about ~700KiB by auto-generating
+  fewer versions of the RPython dict and list types.
+- Speed up tracing and code generation in the JIT slightly by reducing the size
+  in memory of one of its central data structures, the ``MIFrame``. This is
+  done by not allocating three lists of length 256 for the registers in the
+  MIFrames and the blackhole frames. Almost all jitcodes have much smaller
+  frame sizes.
+- Improve ``str.strip()`` to make it better optimizable by the JIT.
+- Make access to ``sys.flags`` faster by making sure the JIT can constant-fold
+  the access most of the time. (especially important on py3.x, where every
+  ``bytes.decode`` call checks ``sys.flags.utf8_mode``)
+- Speed up the flowspace a lot for huge functions. This makes building the PyPy
+  binary a little bit faster.
 - Make ``UnicodeIO`` store its data in a list of ``r_int32``, as opposed to
   using the rpython (Python2.7) unicode type. we want to get rid of the unicode
   type and also it requires an extra copy all the time.
-- Make every ``rbigint`` one word smaller by storing the sign in the size field
+- Make every Python integer that doesn't fit into a machine word use one word
+  less memory by storing the sign differently.
+
 
 Python 3.9+
 -----------
+
 - Create c-extension modules used in tests as part of the build (in
-  package.py), not as part of testing
+  package.py), not as part of testing.
 
 Bugfixes
 ~~~~~~~~
 - More selectively clear ``StopIteration`` exceptions on ``tp_iternext`` (issue
-  _3956)
+  3956_)
 - Copy less when creating a venv by using a ``PYPY_PORTABLE_DEPS.txt`` file to
-  state which dlls to copy in a portable build (issue _3611)
-- On macos ``sendifle`` can return an error while sending part of the file
-  (issue _3964)
+  state which dlls to copy in a portable build (issue 3611_)
+- On macos ``sendfile`` can return an error while sending part of the file
+  (issue 3964_)
 - Fixes on both app-level and C level for ``Py_TPFLAGS_BASETYPE=0`` (issue
-  _2742). Also set ``PyType_Type.tp_itemsize`` to ``sizeof(PyMemberDef)`` like
+  2742_). Also set ``PyType_Type.tp_itemsize`` to ``sizeof(PyMemberDef)`` like
   on CPython
 - Fix ``PyType_FromSpecWithBases`` to correctly use ``Py_tp_doc``,
   ``Py_tp_members`` in spec, fix ``__module__`` assignment, better handle
   ``__name__`` and ``tp_name``
 - Hide ``functools`` wrappers from the stack when reporting warnings (issue
-  _3988)
-- Fix edge case of datetime isoformat parsing (issue _3989)
-- Accept NULL ``tp_doc`` (_bpo-41832)
+  3988_)
+- Fix edge case of datetime isoformat parsing (issue 3989_)
+- Accept NULL ``tp_doc`` (bpo-41832_)
 - Align ``nb_int`` with ``PyNumber_Long`` (to get consistent error messages)
-- Handle ``pathlib.Path`` objects in ``_ssl`` (issue _4002)
+- Handle ``pathlib.Path`` objects in ``_ssl`` (issue 4002_)
 - Implement ``_PyLong_AsInt`` which is not part of the stable API but used in
   testing
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-- Avoid compiling a new regex where not needed (in email, csv,  and
-  elsewhere) (issue _3961)
+- Avoid compiling a new regex where not needed (in ``email``, ``csv``, and
+  elsewhere) (issue 3961_)
 
 Python 3.10
 -----------
 
 Bugfixes
 ~~~~~~~~
-- Fix, test locking in HMAC update (issue _3962)
+- Fix, test locking in HMAC update (issue 3962_)
 - When re-assigning to ``type.__bases__``, rebuild the cpyext type struct
-  (issue _3976)
-- Add missing slot macro ``Py_am_send`` (issue _3990)
+  (issue 3976_)
+- Add missing slot macro ``Py_am_send`` (issue 3990_)
 
 .. _bpo-41832: https://bugs.python.org/issue41832
 .. _GH-100242: https://github.com/python/cpython/issues/100242
