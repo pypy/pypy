@@ -420,6 +420,9 @@ class TestSlots(HPyTest):
             for i in range(12):
                 assert mv[i] == i
         del mv
+        import gc
+        for i in range(3):
+            gc.collect()
         if self.supports_refcounts():
             assert sys.getrefcount(arr) == init_refcount
         mv2 = memoryview(arr)  # doesn't raise
