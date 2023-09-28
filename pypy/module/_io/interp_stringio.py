@@ -12,6 +12,7 @@ from pypy.module._io.interp_textio import (
     W_TextIOBase, W_IncrementalNewlineDecoder)
 from pypy.module._io.interp_iobase import convert_size
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
+from rpython.rlib import rarithmetic
 
 
 def _find_end(start, size, total):
@@ -24,21 +25,33 @@ def _find_end(start, size, total):
         return end
 
 class UnicodeIO(object):
-    def __init__(self, data=None):
+    def __init__(self, data=None, length=0):
         if data is None:
             data = ''
-        self.data = []
-        self.write(data, 0)
+        self.data = [] # list of r_int32
+        self.write(data, length, 0)
+
+    def getdata(self, i):
+        return rarithmetic.widen(self.data[i])
+
+    def setdata(self, i, val):
+        self.data[i] = rarithmetic.r_int32(val)
+
+    def getdata_slice(self, start, end):
+        builder = Utf8StringBuilder(end - start)
+        for index in range(start, end):
+            builder.append_code(self.getdata(index))
+        return builder
 
     def resize(self, newlength):
         if len(self.data) > newlength:
             self.data = self.data[:newlength]
         if len(self.data) < newlength:
-            self.data.extend([u'\0'] * (newlength - len(self.data)))
+            self.data.extend([0] * (newlength - len(self.data)))
 
     def read(self, start, size):
         end = _find_end(start, size, len(self.data))
-        return u''.join(self.data[start:end])
+        return self.getdata_slice(start, end)
 
     def _convert_limit(self, limit, start):
         if limit < 0 or limit > len(self.data) - start:
@@ -52,32 +65,33 @@ class UnicodeIO(object):
         limit = self._convert_limit(limit, start)
         end = start + limit
         pos = start
+        builder = Utf8StringBuilder()
         while pos < end:
-            ch = self.data[pos]
+            ch = self.getdata(pos)
+            builder.append_code(ch)
             pos += 1
-            if ch == u'\n':
+            if ch == ord('\n'):
                 break
-            if ch == u'\r':
+            if ch == ord('\r'):
                 if pos >= end:
                     break
-                if self.data[pos] == u'\n':
+                if self.getdata(pos) == ord('\n'):
+                    builder.append_code(ch)
                     pos += 1
                     break
                 else:
                     break
-        result = u''.join(self.data[start:pos])
-        return result
+        return builder
 
     def readline(self, marker, start, limit):
         limit = self._convert_limit(limit, start)
         end = start + limit
         found = False
-        marker = marker.decode('utf-8')
         for pos in range(start, end - len(marker) + 1):
-            ch = self.data[pos]
-            if ch == marker[0]:
+            ch = self.getdata(pos)
+            if ch == ord(marker[0]):
                 for j in range(1, len(marker)):
-                    if self.data[pos + j] != marker[j]:
+                    if self.getdata(pos + j) != ord(marker[j]):
                         break  # from inner loop
                 else:
                     pos += len(marker)
@@ -85,24 +99,23 @@ class UnicodeIO(object):
                     break
         if not found:
             pos = end
-        result = u''.join(self.data[start:pos])
-        return result
+        return self.getdata_slice(start, pos)
 
-    def write(self, string, start):
-        ustr = string.decode('utf-8')
-        newlen = start + len(ustr)
+    def write(self, string, length, start):
+        newlen = start + length
         if newlen > len(self.data):
             self.resize(newlen)
-        for i in range(len(ustr)):
-            self.data[start + i] = ustr[i]
-        return len(ustr)
+        for ch in Utf8StringIterator(string):
+            self.setdata(start, ch)
+            start += 1
+        return length
 
     def truncate(self, size):
         if size < len(self.data):
             self.resize(size)
 
     def getvalue(self):
-        return u''.join(self.data).encode('utf-8')
+        return self.getdata_slice(0, len(self.data))
 
 READING, ACCUMULATING, RWBUFFER, CLOSED = range(4)
 
@@ -247,7 +260,7 @@ class W_StringIO(W_TextIOBase):
 
     def write_w(self, space, w_obj):
         w_decoded = self._decode_string(space, w_obj)
-        string = space.utf8_w(w_decoded)
+        string, length = space.utf8_len_w(w_decoded)
         orig_size = space.len_w(w_obj)
         if not string:
             return space.newint(orig_size)
@@ -260,21 +273,22 @@ class W_StringIO(W_TextIOBase):
                 self.state = ACCUMULATING
             else:
                 # switch to RWBUFFER
-                self.buf = UnicodeIO(space.utf8_w(self.w_value))
+                s, l = space.utf8_len_w(self.w_value)
+                self.buf = UnicodeIO(s, l)
                 self.w_value = None
                 self.state = RWBUFFER
         elif self.state == ACCUMULATING and self.pos != self.get_length():
             s = self.builder.build()
-            self.buf = UnicodeIO(s)
+            self.buf = UnicodeIO(s, self.builder.getlength())
             self.builder = None
             self.state = RWBUFFER
 
         if self.state == ACCUMULATING:
-            written = w_decoded._len()
-            self.builder.append_utf8(string, written)
+            written = length
+            self.builder.append_utf8(string, length)
         else:
             assert self.state == RWBUFFER
-            written = self.buf.write(string, self.pos)
+            written = self.buf.write(string, length, self.pos)
         self.pos += written
         return space.newint(orig_size)
 
@@ -298,13 +312,16 @@ class W_StringIO(W_TextIOBase):
             end = _find_end(self.pos, size, length)
             if self.pos > end:
                 return space.newutf8('', 0)
+            if self.pos == 0 and end == length:
+                self.pos = end
+                return self.w_value
             w_res = self.w_value._unicode_sliced(space, self.pos, end)
             self.pos = end
             return w_res
         assert self.state == RWBUFFER
-        result_u = self.buf.read(self.pos, size)
-        self.pos += len(result_u)
-        return space.newutf8(result_u.encode('utf-8'), len(result_u))
+        result_builder = self.buf.read(self.pos, size)
+        self.pos += result_builder.getlength()
+        return W_UnicodeObject.from_utf8builder(result_builder)
 
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
@@ -324,14 +341,14 @@ class W_StringIO(W_TextIOBase):
                 for ch in it:
                     if self.pos >= end:
                         break
-                    if ch == ord(u'\n'):
+                    if ch == ord('\n'):
                         self.pos += 1
                         break
-                    elif ch == ord(u'\r'):
+                    elif ch == ord('\r'):
                         self.pos += 1
                         if self.pos >= end:
                             break
-                        if it.next() == ord(u'\n'):
+                        if it.next() == ord('\n'):
                             self.pos += 1
                             break
                         else:
@@ -369,16 +386,16 @@ class W_StringIO(W_TextIOBase):
                 return w_res
 
         if self.readuniversal:
-            result_u = self.buf.readline_universal(self.pos, limit)
+            result_builder = self.buf.readline_universal(self.pos, limit)
         else:
             if self.readtranslate:
                 # Newlines are already translated, only search for \n
                 newline = '\n'
             else:
                 newline = self.readnl
-            result_u = self.buf.readline(newline, self.pos, limit)
-        self.pos += len(result_u)
-        return space.newutf8(result_u.encode('utf-8'), len(result_u))
+            result_builder = self.buf.readline(newline, self.pos, limit)
+        self.pos += result_builder.getlength()
+        return W_UnicodeObject.from_utf8builder(result_builder)
 
     @unwrap_spec(pos=int, mode=int)
     def seek_w(self, space, pos, mode=0):
@@ -424,9 +441,8 @@ class W_StringIO(W_TextIOBase):
             self._realize(space)
         if self.state == READING:
             return self.w_value
-        v = self.buf.getvalue()
-        lgt = codepoints_in_utf8(v)
-        return space.newutf8(v, lgt)
+        builder = self.buf.getvalue()
+        return W_UnicodeObject.from_utf8builder(builder)
 
     def readable_w(self, space):
         self._check_closed(space)

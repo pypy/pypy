@@ -53,15 +53,15 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1u.tar.gz',
-              'e2f8d84b523eecd06c7be7626830370300fbcc15386bf5142d72758f6963ebc6',
+    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1w.tar.gz',
+              'cf3098950cb4d853ad95c0841f1f9c6d3dc102dccfcacd521d93925208b76ac8',
              [
               ['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.9.tar.gz',
-              'eb1ab04781474360f77c318ab89d8c5a03abc38e63d65a603cabbf1b00a1dc90',
+    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.10.tar.gz',
+              '1761d4f5b13a1028b9b6f3d4b8e17feb0cedc9370f6afe61d7193d2cdce83323',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],

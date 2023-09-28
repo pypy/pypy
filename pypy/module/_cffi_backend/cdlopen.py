@@ -157,7 +157,7 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
                 ll_set_cdl_realize_global_int(nglobs[i])
                 bigint = space.bigint_w(w_integer)
                 ullvalue = bigint.ulonglongmask()
-                rffi.setintfield(nintconsts[i], 'neg', int(bigint.sign <= 0))
+                rffi.setintfield(nintconsts[i], 'neg', int(bigint.get_sign() <= 0))
                 rffi.setintfield(nintconsts[i], 'value', ullvalue)
         ffi.ctxobj.ctx.c_globals = nglobs
         rffi.setintfield(ffi.ctxobj.ctx, 'c_num_globals', n)

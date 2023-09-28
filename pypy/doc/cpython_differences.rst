@@ -454,7 +454,8 @@ Miscellaneous
   support (see ``multiline_input()``).  On the other hand,
   ``parse_and_bind()`` calls are ignored (issue `#2072`_).
 
-* ``sys.getsizeof()`` always raises ``TypeError``.  This is because a
+* ``sys.getsizeof()`` always raises ``TypeError`` (and objects do not have a
+  ``__sizeof__`` method). This is because a
   memory profiler using this function is most likely to give results
   inconsistent with reality on PyPy.  It would be possible to have
   ``sys.getsizeof()`` return a number (with enough work), but that may
@@ -473,7 +474,7 @@ Miscellaneous
   items' size, that operation will by itself create one million integer
   objects that never existed in the first place.  Note that some of
   these concerns also exist on CPython, just less so.  For this reason
-  we explicitly don't implement ``sys.getsizeof()``.
+  we explicitly don't implement ``sys.getsizeof()`` (nor ``__sizeof__``).
 
 * The ``timeit`` module behaves differently under PyPy: it prints the average
   time and the standard deviation, instead of the minimum, since the minimum is

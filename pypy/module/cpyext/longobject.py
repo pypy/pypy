@@ -1,3 +1,4 @@
+
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rbigint import rbigint, InvalidSignednessError
 from pypy.module.cpyext.api import (
@@ -230,7 +231,7 @@ def _PyLong_NumBits(space, w_long):
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def _PyLong_Sign(space, w_long):
     assert isinstance(w_long, W_LongObject)
-    return w_long.num.sign
+    return w_long.num.get_sign()
 
 CONST_UCHARP = lltype.Ptr(lltype.Array(rffi.UCHAR, hints={'nolength': True,
                                        'render_as_const': True}))

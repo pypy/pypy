@@ -8,6 +8,7 @@ from rpython.flowspace.model import (
 from rpython.translator.simplify import simplify_graph
 from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError, FlowContext
+from rpython.flowspace.bytecode import HostCode
 from rpython.conftest import option
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 
@@ -22,9 +23,12 @@ def patching_opcodes(**opcodes):
     for name, num in opcodes.items():
         old_name[num] = meth_names[num]
         meth_names[num] = name
+    old_tuple = HostCode.opnames
+    HostCode.opnames = tuple(host_bytecode_spec.method_names)
     yield
     for name in opcodes:
         meth_names[num] = old_name[num]
+    HostCode.opname = old_tuple
 
 
 class Base:
