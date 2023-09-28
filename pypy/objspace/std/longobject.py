@@ -212,7 +212,7 @@ class W_LongObject(W_AbstractLongObject):
 
         exponent = w_exponent.asbigint()
         if space.is_none(w_modulus):
-            if exponent.sign < 0:
+            if exponent.get_sign() < 0:
                 self = self.descr_float(space)
                 w_exponent = w_exponent.descr_float(space)
                 return space.pow(self, w_exponent, space.w_None)
@@ -223,7 +223,7 @@ class W_LongObject(W_AbstractLongObject):
             return space.w_NotImplemented
 
         base = self.num
-        if exponent.sign < 0:
+        if exponent.get_sign() < 0:
             w_base = invmod(space, self, space.abs(w_modulus))
             if isinstance(w_base, W_IntObject):
                 w_base = w_base.as_w_long(space)
@@ -345,12 +345,12 @@ class W_LongObject(W_AbstractLongObject):
         return descr_binop, descr_rbinop
 
     def _lshift(self, space, w_other):
-        if w_other.asbigint().sign < 0:
+        if w_other.asbigint().get_sign() < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
         try:
             shift = w_other.asbigint().toint()
         except OverflowError:   # b too big
-            if self.num.sign == 0:
+            if self.num.get_sign() == 0:
                 return self
             raise oefmt(space.w_OverflowError, "shift count too large")
         return W_LongObject(self.num.lshift(shift))
@@ -363,12 +363,12 @@ class W_LongObject(W_AbstractLongObject):
     descr_lshift, descr_rlshift = _make_descr_binop(_lshift, _int_lshift)
 
     def _rshift(self, space, w_other):
-        if w_other.asbigint().sign < 0:
+        if w_other.asbigint().get_sign() < 0:
             raise oefmt(space.w_ValueError, "negative shift count")
         try:
             shift = w_other.asbigint().toint()
         except OverflowError:
-            if self.num.sign < 0:
+            if self.num.get_sign() < 0:
                 return space.newint(-1)
             return space.newint(0)
             raise oefmt(space.w_OverflowError, "shift count too large")
@@ -463,7 +463,7 @@ def _hash_long(v):
         if x >= HASH_MODULUS:
             x -= HASH_MODULUS
         i -= 1
-    h = intmask(intmask(x) * v.sign)
+    h = intmask(intmask(x) * v.get_sign())
     return h - (h == -1)
 
 

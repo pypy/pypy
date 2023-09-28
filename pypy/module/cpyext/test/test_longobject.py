@@ -352,6 +352,14 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                 }
                 return PyLong_FromLong(n);
              """),
+            ("as_int", "METH_O",
+             """
+                int n = _PyLong_AsInt(args);
+                if (n == -1 && PyErr_Occurred()) {
+                    return NULL;
+                }
+                return PyLong_FromLong(n);
+             """),
             ("long_max", "METH_NOARGS",
              """
                 return  PyLong_FromLong(LONG_MAX);
@@ -360,6 +368,16 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
             ("long_min", "METH_NOARGS",
              """
                 return  PyLong_FromLong(LONG_MIN);
+             """
+            ),
+            ("int_max", "METH_NOARGS",
+             """
+                return  PyLong_FromLong(INT_MAX);
+             """
+            ),
+            ("int_min", "METH_NOARGS",
+             """
+                return  PyLong_FromLong(INT_MIN);
              """
             ),
             ])
@@ -383,6 +401,27 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         assert int(a) == 21
         # new for python3.8: first try __index__
         assert module.as_long(a) == 42
+
+        assert module.as_int(123) == 123
+        assert module.as_int(-1) == -1
+        assert module.as_int(1.23) == 1
+        INT_MAX = module.int_max()
+        INT_MIN = module.int_min()
+        assert module.as_int(INT_MAX) == INT_MAX
+        raises(OverflowError, module.as_int, INT_MAX+ 1)
+        assert module.as_int(INT_MIN) == INT_MIN
+        raises(OverflowError, module.as_int, INT_MIN - 1)
+        class A:
+            def __index__(self):
+                return 42
+
+            def __int__(self):
+                return 21
+
+        a = A()
+        assert int(a) == 21
+        # new for python3.8: first try __index__
+        assert module.as_int(a) == 42
 
     def test_strtol(self):
         module = self.import_extension('foo', [
