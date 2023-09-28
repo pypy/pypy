@@ -619,6 +619,23 @@ typedef void (*HPyFunc_destroyfunc)(void *);
 
 struct _HPyThreadState { intptr_t _i; };
 typedef intptr_t HPyThreadState;
+
+typedef enum {
+    /** Parse isolated expressions (e.g. ``a + b``). */
+    HPy_SourceKind_Expr = 0,
+
+    /**
+     * Parse sequences of statements as read from a file or other source. This
+     * is the symbol to use when compiling arbitrarily long Python source code.
+     */
+    HPy_SourceKind_File = 1,
+
+    /**
+     * Parse a single statement. This is the mode used for the interactive
+     * interpreter loop.
+     */
+    HPy_SourceKind_Single = 2,
+} HPy_SourceKind;
 """)
 
 # HACK! We manually assign _hints['eci'] to ensure that the eci is included in

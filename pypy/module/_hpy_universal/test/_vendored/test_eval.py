@@ -1,9 +1,9 @@
-from textwrap import dedent
 from .support import HPyTest
 
 class TestEval(HPyTest):
     def test_compile(self):
         import pytest
+        from textwrap import dedent
         mod = self.make_module("""
             HPyDef_METH(f, "f", HPyFunc_VARARGS)
             static HPy f_impl(HPyContext *ctx, HPy self, const HPy *args, size_t nargs)
