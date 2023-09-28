@@ -58,7 +58,7 @@ def hpymod_create(handles, modname, hpydef):
                         raise oefmt(space.w_SystemError,
                             "Multiple definitions of the HPy_mod_create "
                             "slot in HPyModuleDef.defines.")
-                    found_create = True
+                    found_create = p[i].c_meth
                 elif slot_num != slots.HPy_mod_exec:
                     raise oefmt(space.w_SystemError,
                         "Unsupported slot in HPyModuleDef.defines (value: %d).",
@@ -75,16 +75,30 @@ def hpymod_create(handles, modname, hpydef):
                 space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
                 found_non_create = True
             i += 1
-        if found_create and found_non_create:
-            raise oefmt(space.w_SystemError,
-                "HPyModuleDef defines a HPy_mod_create slot and some other "
-                "slots or methods. %s", NON_DEFAULT_MESSAGE)
-        if found_create and (hpydef.c_legacy_methods or hpydef.c_size > 0 or
-            hpydef.c_doc or hpydef.c_globals):
-            raise oefmt(space.w_SystemError,
-                "HPyModuleDef defines a HPy_mod_create slot and some "
-                "of the other fields are not set to their default "
-                "value. %s", NON_DEFAULT_MESSAGE)
+        if found_create:
+            if found_non_create:
+                raise oefmt(space.w_SystemError,
+                    "HPyModuleDef defines a HPy_mod_create slot and some "
+                    "other slots or methods. %s", NON_DEFAULT_MESSAGE)
+            if (hpydef.c_legacy_methods or hpydef.c_size > 0 or
+                hpydef.c_doc or hpydef.c_globals):
+                raise oefmt(space.w_SystemError,
+                    "HPyModuleDef defines a HPy_mod_create slot and some "
+                    "of the other fields are not set to their default "
+                    "value. %s", NON_DEFAULT_MESSAGE)
+            # fast-call directly to W_ExtensionFunctionMixin.call_o
+            func = llapi.cts.cast("HPyFunc_o", found_create.c_impl)
+            with handles.using(w_mod) as h_arg:
+                h = func(handles.ctx, h_arg, h_arg)
+            if h == 0:
+                space.fromcache(State).raise_current_exception()
+            w_result = handles.deref(h)
+            if w_result and isinstance(w_result, type(w_mod)):
+                raise oefmt(space.w_SystemError,
+                    "HPy_mod_create slot returned a builtin module object. "
+                    "This is currently not supported.")
+            # Throw away the w_mod and return the result of mod_create()
+            return w_result
     if hpydef.c_doc:
         w_doc = space.newtext(rffi.constcharp2str(hpydef.c_doc))
     else:

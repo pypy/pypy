@@ -119,7 +119,9 @@ def descr_load(space, name, path, w_spec, debug=False, mode=-1):
     hmode = MODE_DEBUG if debug else MODE_UNIVERSAL
     if mode > 0:
         hmode = mode
-    return do_load(space, name, path, hmode, w_spec)
+    w_mod = do_load(space, name, path, hmode)
+    space.setattr(w_mod, space.newtext("spec"), w_spec)
+    return w_mod
 
 def validate_abi_tag(space, shortname, soname, req_major_version, req_minor_version):
     i = soname.find(".hpy")
@@ -162,7 +164,7 @@ def get_handle_manager(space, mode):
         return state.get_handle_manager(llapi.MODE_INVALID)
 
 
-def do_load(space, name, soname, mode, w_spec):
+def do_load(space, name, soname, mode):
     """This is hpy/hpy/universal/src/hpymodule.c:do_load
     """
     if space.config.objspace.hpy_cpyext_API:
@@ -235,10 +237,6 @@ def do_load(space, name, soname, mode, w_spec):
             ("Error during loading of the HPy extension module at "
             "path '%s'. Function '%s' returned NULL."), soname, init_name);
 
-    # upstream calls this, which is why we need w_spec
-    # pydef = _HPyModuleDef_CreatePyModuleDef(hpydef)
-    # py_mode = PyModule_FromDefAndSpec(pydef, spec)
-    #
     # specialize hpymod_create and hpymod_exec_def, which requires
     # a constant 'manager'
     state = State.get(space)
