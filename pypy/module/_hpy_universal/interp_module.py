@@ -43,7 +43,7 @@ def hpymod_create(handles, modname, hpydef):
     #
     # add the native HPy module-level defines
     if hpydef.c_defines:
-        found_create = False
+        create_func = llapi.cts.cast("HPySlot *", 0)
         found_non_create = False
         p = hpydef.c_defines
         i = 0
@@ -54,11 +54,11 @@ def hpymod_create(handles, modname, hpydef):
                 hpyslot = llapi.cts.cast("HPySlot *", p[i].c_meth)
                 slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
                 if slot_num == slots.HPy_mod_create:
-                    if found_create:
+                    if create_func:
                         raise oefmt(space.w_SystemError,
                             "Multiple definitions of the HPy_mod_create "
                             "slot in HPyModuleDef.defines.")
-                    found_create = p[i].c_meth
+                    create_func = hpyslot
                 elif slot_num != slots.HPy_mod_exec:
                     raise oefmt(space.w_SystemError,
                         "Unsupported slot in HPyModuleDef.defines (value: %d).",
@@ -75,7 +75,7 @@ def hpymod_create(handles, modname, hpydef):
                 space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
                 found_non_create = True
             i += 1
-        if found_create:
+        if create_func:
             if found_non_create:
                 raise oefmt(space.w_SystemError,
                     "HPyModuleDef defines a HPy_mod_create slot and some "
@@ -87,7 +87,7 @@ def hpymod_create(handles, modname, hpydef):
                     "of the other fields are not set to their default "
                     "value. %s", NON_DEFAULT_MESSAGE)
             # fast-call directly to W_ExtensionFunctionMixin.call_o
-            func = llapi.cts.cast("HPyFunc_o", found_create.c_impl)
+            func = llapi.cts.cast("HPyFunc_o", create_func.c_impl)
             with handles.using(w_mod) as h_arg:
                 h = func(handles.ctx, h_arg, h_arg)
             if h == 0:
