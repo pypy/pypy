@@ -1,20 +1,23 @@
 """ HPyType slot tests on legacy types. """
 
-from .support import HPyTest, make_hpy_abi_fixture
+from .support import HPyTest #, make_hpy_abi_fixture
 from .test_hpytype_legacy import LegacyPointTemplate
 from .test_slots import TestSlots as _TestSlots, TestSqSlots as _TestSqSlots
 
-hpy_abi = make_hpy_abi_fixture('with hybrid')
+# hpy_abi = make_hpy_abi_fixture('with hybrid')
 
 class TestLegacySlots(_TestSlots):
     ExtensionTemplate = LegacyPointTemplate
+    USE_CPYEXT = True
 
 
 class TestLegacySqSlots(_TestSqSlots):
     ExtensionTemplate = LegacyPointTemplate
+    USE_CPYEXT = True
 
 
 class TestCustomLegacySlotsFeatures(HPyTest):
+    USE_CPYEXT = True
 
     def test_legacy_slots(self):
         mod = self.make_module("""

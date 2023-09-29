@@ -307,10 +307,10 @@ def get_bases_and_metaclass_from_params(handles, params):
     return make_sure_not_resized(bases_w[:]), w_metaclass
 
 def check_legacy_consistent(space, spec):
-    if spec.c_legacy_slots and not widen(spec.c_builtin_shape) != Shapes.HPyType_BuiltinShape_Legacy:
+    if spec.c_legacy_slots and widen(spec.c_builtin_shape) != Shapes.HPyType_BuiltinShape_Legacy:
         raise oefmt(space.w_TypeError,
-            "cannot specify .legacy_slots without setting .builtin_shape "
-            "to HPyType_BuiltinShape_Legacy")
+            "cannot specify .legacy_slots without setting .builtin_shape"
+            "=HPyType_BuiltinShape_Legacy")
     if widen(spec.c_flags) & llapi.HPy_TPFLAGS_INTERNAL_PURE:
         raise oefmt(space.w_TypeError,
                     "HPy_TPFLAGS_INTERNAL_PURE should not be used directly,"
