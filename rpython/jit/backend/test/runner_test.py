@@ -4504,6 +4504,7 @@ class LLtypeBackendTest(BaseBackendTest):
         testcases = [
                 ((1.0, 4.0), 4.0),
                 ((-1.0, 0.0), 0.0),
+                ((-0.0, 0.0), 0.0),
                 ((ninf, 0.0), 0.0),
                 ((inf, 0.0), inf),
                 ((ninf, inf), inf),
