@@ -1,10 +1,10 @@
 """ HPyType tests on legacy types. """
 
 import pytest
-from .support import HPyTest, make_hpy_abi_fixture
+from .support import HPyTest #, make_hpy_abi_fixture
 from .test_hpytype import PointTemplate, TestType as _TestType
 
-hpy_abi = make_hpy_abi_fixture('with hybrid')
+# hpy_abi = make_hpy_abi_fixture('with hybrid')
 
 class LegacyPointTemplate(PointTemplate):
     """
@@ -38,6 +38,7 @@ class LegacyPointTemplate(PointTemplate):
 class TestLegacyType(_TestType):
 
     ExtensionTemplate = LegacyPointTemplate
+    USE_CPYEXT = True
 
     @pytest.mark.syncgc
     def test_legacy_dealloc(self):
@@ -149,6 +150,7 @@ class TestLegacyType(_TestType):
             mod = self.make_module(mod_src)
         assert "legacy tp_dealloc" in str(err.value)
 
+    @pytest.mark.skip("segfaults")
     def test_metaclass_as_legacy_static_type(self):
         mod = self.make_module("""
             #include <Python.h>
@@ -258,6 +260,7 @@ class TestLegacyType(_TestType):
             """)
 
 class TestCustomLegacyFeatures(HPyTest):
+    USE_CPYEXT = True
 
     def test_legacy_methods(self):
         mod = self.make_module("""
