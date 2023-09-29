@@ -4512,6 +4512,18 @@ class LLtypeBackendTest(BaseBackendTest):
                 # things in CPython. Is that what is expected here? If one
                 # argument is nan, fmax/maxsd return the other argument.
                 # This is different from x < y ? y : x
+                # It looks like fmax compiles to:
+                #   movapd %xmm0,%xmm2
+                #   cmpunordsd %xmm0,%xmm2
+                #   movapd %xmm2,%xmm3
+                #   andpd  %xmm1,%xmm3
+                #   maxsd  %xmm0,%xmm1
+                #   andnpd %xmm1,%xmm2
+                #   orpd   %xmm3,%xmm2
+                #   movapd %xmm2,%xmm0
+                #   ret
+                # Unless you use -ffast-math (inadvisable), in which case it's
+                # just maxsd.
                 ((nan, 0.0), 0.0),
                 ((nan, inf), inf),
                 ((nan, ninf), ninf),
