@@ -2,9 +2,25 @@ import sys, os
 import py
 from rpython.tool.udir import udir
 from pypy.module.posix.test import test_posix2
+from pypy.module.posix.interp_posix import symlink as interp_posix_symlink
+
+try:
+    from os import symlink as os_symlink
+except ImportError:
+    # WIN32 on Python 2.7.
+    os_symlink = None
 
 
-def _make_dir(dirname, content):
+def _symlink(space, source, link_name):
+    if os_symlink is not None:
+        os_symlink(source, link_name)
+    else:
+        w_source = space.newtext(source)
+        w_link_name = space.newtext(link_name)
+        interp_posix_symlink(space, w_source, w_link_name)
+
+
+def _make_dir(space, dirname, content):
     d = os.path.join(str(udir), dirname)
     os.mkdir(d)
     for key, value in content.items():
@@ -15,13 +31,13 @@ def _make_dir(dirname, content):
             with open(filename, 'w') as f:
                 pass
         elif value == 'symlink-file':
-            os.symlink(str(udir.ensure('some_file')), filename)
+            _symlink(space, str(udir.ensure('some_file')), filename)
         elif value == 'symlink-dir':
-            os.symlink(str(udir), filename)
+            _symlink(space, str(udir), filename)
         elif value == 'symlink-broken':
-            os.symlink(filename + '-broken', filename)
+            _symlink(space, filename + '-broken', filename)
         elif value == 'symlink-error':
-            os.symlink(filename, filename)
+            _symlink(space, filename, filename)
         else:
             raise NotImplementedError(repr(value))
     return d.decode(sys.getfilesystemencoding())
@@ -36,17 +52,16 @@ class AppTestScandir(object):
         cls.w_sep = space.newtext(os.sep)
         cls.w_sepB = space.newbytes(os.sep)
         cls.w_posix = space.appexec([], test_posix2.GET_POSIX)
-        cls.w_dir_empty = space.wrap(_make_dir('empty', {}))
-        cls.w_dir0 = space.wrap(_make_dir('dir0', {'f1': 'file',
-                                                   'f2': 'file',
-                                                   'f3': 'file'}))
-        cls.w_dir1 = space.wrap(_make_dir('dir1', {'file1': 'file'}))
-        cls.w_dir2 = space.wrap(_make_dir('dir2', {'subdir2': 'dir'}))
-        if sys.platform != 'win32':
-            cls.w_dir3 = space.wrap(_make_dir('dir3', {'sfile3': 'symlink-file'}))
-            cls.w_dir4 = space.wrap(_make_dir('dir4', {'sdir4': 'symlink-dir'}))
-            cls.w_dir5 = space.wrap(_make_dir('dir5', {'sbrok5': 'symlink-broken'}))
-            cls.w_dir6 = space.wrap(_make_dir('dir6', {'serr6': 'symlink-error'}))
+        cls.w_dir_empty = space.wrap(_make_dir(space, 'empty', {}))
+        cls.w_dir0 = space.wrap(_make_dir(space, 'dir0', {'f1': 'file',
+                                                         'f2': 'file',
+                                                         'f3': 'file'}))
+        cls.w_dir1 = space.wrap(_make_dir(space, 'dir1', {'file1': 'file'}))
+        cls.w_dir2 = space.wrap(_make_dir(space, 'dir2', {'subdir2': 'dir'}))
+        cls.w_dir3 = space.wrap(_make_dir(space, 'dir3', {'sfile3': 'symlink-file'}))
+        cls.w_dir4 = space.wrap(_make_dir(space, 'dir4', {'sdir4': 'symlink-dir'}))
+        cls.w_dir5 = space.wrap(_make_dir(space, 'dir5', {'sbrok5': 'symlink-broken'}))
+        cls.w_dir6 = space.wrap(_make_dir(space, 'dir6', {'serr6': 'symlink-error'}))
 
     def test_scandir_empty(self):
         posix = self.posix
@@ -94,7 +109,6 @@ class AppTestScandir(object):
         assert d.stat().st_mode & 0o170000 == 0o100000    # S_IFREG
         assert d.stat().st_size == 0
 
-    @py.test.mark.skipif(sys.platform == "win32", reason="no symlink support so far")
     def test_stat4(self):
         posix = self.posix
         d = next(posix.scandir(self.dir4))
@@ -124,7 +138,6 @@ class AppTestScandir(object):
         assert not d.is_file(follow_symlinks=False)
         assert     d.is_dir(follow_symlinks=False)
 
-    @py.test.mark.skipif(sys.platform == "win32", reason="no symlink support so far")
     def test_dir3(self):
         posix = self.posix
         d = next(posix.scandir(self.dir3))
@@ -135,7 +148,6 @@ class AppTestScandir(object):
         assert     d.is_file(follow_symlinks=True)
         assert not d.is_file(follow_symlinks=False)
 
-    @py.test.mark.skipif(sys.platform == "win32", reason="no symlink support so far")
     def test_dir4(self):
         posix = self.posix
         d = next(posix.scandir(self.dir4))
@@ -146,7 +158,6 @@ class AppTestScandir(object):
         assert     d.is_dir(follow_symlinks=True)
         assert not d.is_dir(follow_symlinks=False)
 
-    @py.test.mark.skipif(sys.platform == "win32", reason="no symlink support so far")
     def test_dir5(self):
         posix = self.posix
         d = next(posix.scandir(self.dir5))
@@ -156,7 +167,6 @@ class AppTestScandir(object):
         assert     d.is_symlink()
         raises(OSError, d.stat)
 
-    @py.test.mark.skipif(sys.platform == "win32", reason="no symlink support so far")
     def test_dir6(self):
         posix = self.posix
         d = next(posix.scandir(self.dir6))
