@@ -4512,6 +4512,10 @@ class LLtypeBackendTest(BaseBackendTest):
                 ((nan, ninf), ninf),
                 ]
         for (arg0, arg1), expected in testcases:
+            # TODO(max): This appears to be raising because someone is doing
+            # ConstInt.getfloatstorage() and that does not exist. Upon further
+            # inspection, the ConstInt appears to be the address of the
+            # function max_float. Why is that happening?
             res = self.execute_operation(rop.CALL_F,
                         [funcbox, boxfloat(arg0), boxfloat(arg1)],
                          'float', descr=calldescr)
