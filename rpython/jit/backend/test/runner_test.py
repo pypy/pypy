@@ -4508,6 +4508,10 @@ class LLtypeBackendTest(BaseBackendTest):
                 ((ninf, 0.0), 0.0),
                 ((inf, 0.0), inf),
                 ((ninf, inf), inf),
+                # TODO(max): max(nan,0.0) and max(0.0,nan) return different
+                # things in CPython. Is that what is expected here? If one
+                # argument is nan, fmax/maxsd return the other argument.
+                # This is different from x < y ? y : x
                 ((nan, 0.0), 0.0),
                 ((nan, inf), inf),
                 ((nan, ninf), ninf),
