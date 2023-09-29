@@ -4517,6 +4517,11 @@ class LLtypeBackendTest(BaseBackendTest):
                         [funcbox, boxfloat(arg0), boxfloat(arg1)],
                          'float', descr=calldescr)
             assert longlong.getrealfloat(res) == expected
+            # Try the operand order both ways
+            res = self.execute_operation(rop.CALL_F,
+                        [funcbox, boxfloat(arg1), boxfloat(arg0)],
+                         'float', descr=calldescr)
+            assert longlong.getrealfloat(res) == expected
 
     def test_check_memory_error(self):
         self.execute_operation(
