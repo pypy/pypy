@@ -1393,7 +1393,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_float_sub = _binaryop('SUBSD')
     genop_float_mul = _binaryop('MULSD')
     genop_float_truediv = _binaryop('DIVSD')
-    genop_max_float = _binaryop('MAXPD')
+    genop_max_float = _binaryop('MAXSD')
 
     def genop_uint_mul_high(self, op, arglocs, result_loc):
         self.mc.MUL(arglocs[0])
