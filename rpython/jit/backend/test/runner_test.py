@@ -4498,7 +4498,19 @@ class LLtypeBackendTest(BaseBackendTest):
         funcbox = self.get_funcbox(self.cpu, func_ptr)
 
         calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, effectinfo)
-        testcases = [((1.0, 4.0), 4.0), ((-1.0, 0.0), 0.0)]
+        inf = float("inf")
+        ninf = float("-inf")
+        nan = float("nan")
+        testcases = [
+                ((1.0, 4.0), 4.0),
+                ((-1.0, 0.0), 0.0),
+                ((ninf, 0.0), 0.0),
+                ((inf, 0.0), inf),
+                ((ninf, inf), inf),
+                ((nan, 0.0), 0.0),
+                ((nan, inf), inf),
+                ((nan, ninf), ninf),
+                ]
         for (arg0, arg1), expected in testcases:
             res = self.execute_operation(rop.CALL_F,
                         [funcbox, boxfloat(arg0), boxfloat(arg1)],

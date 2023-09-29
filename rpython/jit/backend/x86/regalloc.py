@@ -667,6 +667,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_float_sub = _consider_float_op
     consider_float_mul = _consider_float_op      # xxx could be _symm
     consider_float_truediv = _consider_float_op
+    # _consider_max_float = _consider_float_op
 
     def _consider_float_cmp(self, op):
         vx = op.getarg(0)
@@ -810,9 +811,23 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.perform_math(op, [loc0], loc0)
 
     def _consider_max_float(self, op):
-        loc0 = self.xrm.force_result_in_reg(op, op.getarg(1))
-        loc1 = self.xrm.make_sure_var_in_reg(op, op.getarg(2))
-        self.perform_math(op, [loc0, loc1], loc0)
+        # # loc1 = self.xrm.loc(op.getarg(1))
+        # # loc1 = self.xrm.force_allocate_reg(op)
+        # # TODO(max): Offline right now; figure out which one is the dst and if
+        # # both actually need to be regs
+        # # Signs point to operand 0 being the dst (IIRC it's like ADDPD and
+        # # friends) and they do not seem to require two registers
+        # loc0 = self.xrm.force_result_in_reg(op, op.getarg(0))
+        # loc1 = self.xrm.make_sure_var_in_reg(op.getarg(1))
+        # # args = op.getarglist()
+        # # loc0 = self.xrm.force_result_in_reg(op, op.getarg(0), args)
+        # self.perform_math(op, [loc0, loc1], loc0)
+
+        loc1 = self.xrm.loc(op.getarg(1))
+        args = op.getarglist()
+        loc0 = self.xrm.force_result_in_reg(op, op.getarg(0), args)
+        self.perform(op, [loc0, loc1], loc0)
+
 
     def _consider_threadlocalref_get(self, op):
         if self.translate_support_code:

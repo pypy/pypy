@@ -1393,6 +1393,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     genop_float_sub = _binaryop('SUBSD')
     genop_float_mul = _binaryop('MULSD')
     genop_float_truediv = _binaryop('DIVSD')
+    genop_max_float = _binaryop('MAXPD')
 
     def genop_uint_mul_high(self, op, arglocs, result_loc):
         self.mc.MUL(arglocs[0])
@@ -1429,9 +1430,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def genop_math_sqrt(self, op, arglocs, resloc):
         self.mc.SQRTSD(arglocs[0], resloc)
-
-    def genop_max_float(self, op, arglocs, resloc):
-        self.mc.MAXPD(arglocs[0], arglocs[1], resloc)
 
     def genop_int_signext(self, op, arglocs, resloc):
         argloc, numbytesloc = arglocs
