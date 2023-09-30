@@ -3,7 +3,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import (unwrap_spec, interp2app)
 from pypy.interpreter.typedef import TypeDef
 from pypy.module._hpy_universal.test._vendored.support import ExtensionCompiler
-from pypy.module._hpy_universal.llapi import BASE_DIR
+from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal._vendored.hpy.devel import HPyDevel
 
 COMPILER_VERBOSE = False
@@ -27,13 +27,27 @@ class W_ExtensionCompiler(W_Root):
             extra_sources = [space.text_w(item) for item in items_w]
         module = self.compiler.compile_module(
             main_src, self.compiler.ExtensionTemplate, name, extra_sources)
-        debug = hpy_abi == 'debug'
-        w_mod = space.appexec([space.newtext(module.so_filename),
-                                space.newtext(name),
-                                space.newbool(debug)],
-            """(path, modname, debug):
+        if hpy_abi in ("debug", "hybrid+debug"):
+            mode = llapi.MODE_DEBUG
+        elif hpy_abi in ("universal", "hybrid"):
+            mode = llapi.MODE_UNIVERSAL
+        elif hpy_abi == "trace":
+            mode = llapi.MODE_TRACE
+        else:
+            mode = -1
+        w_mod = space.appexec([space.newtext(name),
+                               space.newtext(module.so_filename),
+                               space.newint(mode)],
+            """(name, so_filename, mode):
+                import sys
                 import _hpy_universal
-                return _hpy_universal.load(modname, path, debug)
+                import importlib.util
+                assert name not in sys.modules
+                spec = importlib.util.spec_from_file_location(name, so_filename)
+                mod = _hpy_universal.load(name, so_filename, spec, mode=mode)
+                mod.__file__ = so_filename
+                mod.__spec__ = spec
+                return mod
             """
         )
         return w_mod
@@ -45,7 +59,7 @@ W_ExtensionCompiler.typedef = TypeDef("ExtensionCompiler",
 
 def compiler(space, config):
     hpy_abi = 'debug'
-    hpy_devel = HPyDevel(str(BASE_DIR))
+    hpy_devel = HPyDevel(str(llapi.BASE_DIR))
     if space.config.objspace.usemodules.cpyext:
         from pypy.module import cpyext
         cpyext_include_dirs = cpyext.api.include_dirs
