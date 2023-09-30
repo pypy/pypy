@@ -218,7 +218,7 @@ def test_reuse_closed_handles(compiler):
         {
             return HPy_Dup(ctx, ctx->h_None);
         }
-        HPyDef_METH(leak, "leak", leak_impl, HPyFunc_O)
+        HPyDef_METH(leak, "leak", HPyFunc_O)
         static HPy leak_impl(HPyContext *ctx, HPy self, HPy arg)
         {
             HPy_Dup(ctx, arg); // leak!

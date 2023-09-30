@@ -77,11 +77,12 @@ def startup(space, w_mod):
     state = State.get(space)
     state.setup(space)
     setup_hpy_storage()
-    if 0 and not hasattr(space, 'is_fake_objspace'):
+    if not hasattr(space, 'is_fake_objspace'):
         # the following lines break test_ztranslation :(
-        handles = state.get_handle_manager(MODE_DEBUG)
-        h_debug_mod = llapi.HPyInit__debug()
-        w_debug_mod = handles.consume(h_debug_mod)
+        manager = state.get_handle_manager(MODE_UNIVERSAL)
+        hpydef = llapi.HPyInit__debug()
+        w_debug_mod = hpymod_create(manager, "_debug", hpydef)
+        hpymod_exec_def(manager, w_debug_mod, hpydef)
         w_set_on_invalid_handle = get_set_on_invalid_handle(space)
         w_debug_mod.setdictvalue(space, 'set_on_invalid_handle', w_set_on_invalid_handle)
         w_mod.setdictvalue(space, '_debug', w_debug_mod)
@@ -94,21 +95,6 @@ def load_version():
     return d['__version__'], d['__git_revision__']
 HPY_VERSION, HPY_GIT_REV = load_version()
 
-
-@specialize.arg(4)
-def init_hpy_module(space, name, origin, lib, mode, initfunc_ptr):
-    state = space.fromcache(State)
-    handles = get_handle_manager(space, mode)
-    initfunc_ptr = rffi.cast(llapi.HPyInitFunc, initfunc_ptr)
-    h_module = initfunc_ptr(handles.ctx)
-    error = state.clear_exception()
-    if error:
-        raise error
-    if not h_module:
-        raise oefmt(space.w_SystemError,
-            "initialization of %s failed without raising an exception",
-            name)
-    return handles.consume(h_module)
 
 @unwrap_spec(mode=int)
 def descr_load_from_spec(space, w_spec, mode):
@@ -274,4 +260,5 @@ def HPy_Dup(space, handles, ctx, h):
 
 @API.func("void HPy_Close(HPyContext *ctx, HPy h)")
 def HPy_Close(space, handles, ctx, h):
-    handles.close(h)
+    if h:
+        handles.close(h)
