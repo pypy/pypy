@@ -4,7 +4,7 @@
     "python_version": "3.10.13",
     "stable": true,
     "latest_pypy": true,
-    "date": "2023-08-29",
+    "date": "2023-09-29",
     "files": [
       {
         "filename": "pypy3.10-v7.3.13-aarch64.tar.bz2",
@@ -55,7 +55,7 @@
     "python_version": "3.9.18",
     "stable": true,
     "latest_pypy": true,
-    "date": "2023-08-29",
+    "date": "2023-09-29",
     "files": [
       {
         "filename": "pypy3.9-v7.3.13-aarch64.tar.bz2",
@@ -106,7 +106,7 @@
     "python_version": "2.7.18",
     "stable": true,
     "latest_pypy": true,
-    "date": "2023-08-29",
+    "date": "2023-09-29",
     "files": [
       {
         "filename": "pypy2.7-v7.3.13-aarch64.tar.bz2",
