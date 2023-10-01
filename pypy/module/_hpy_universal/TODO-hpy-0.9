@@ -5,13 +5,12 @@ StructSequence_NewType test_hpystructseq.py
 
 Summary:
 $ sed -e "s/.*\(test_[^:]*\):.*/\1/" /tmp/test_output.txt | grep "^test" | uniq -c | sort -n
-      2 test_00_basic.py
+      1 test_00_basic.py (test_ctx_name)
       2 test_capsule_legacy.py
       2 test_contextvar.py
-      2 test_hpyerr.py
+      3 apptest_handles.py 
+      4 test_hpyerr.py ("fixture 'python_subprocess' not found")
       4 test_hpystructseq.py
-      4 test_hpytype.py
+      4 test_hpytype.py (using a base class/metaclass with additional storage)
       6 test_hpytype_legacy.py
      10 test_capsule.py
-     11 apptest_handles.py
-
