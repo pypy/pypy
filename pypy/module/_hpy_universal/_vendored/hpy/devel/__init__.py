@@ -74,6 +74,7 @@ class HPyDevel:
             self.src_dir.joinpath('buildvalue.c'),
             self.src_dir.joinpath('format.c'),
             self.src_dir.joinpath('helpers.c'),
+            self.src_dir.joinpath('structseq.c'),
         ]))
 
     def _scan_static_lib_dir(self):
@@ -187,8 +188,11 @@ def handle_hpy_ext_modules(dist, attr, hpy_ext_modules):
     dist.__class__.hpy_abi = DEFAULT_HPY_ABI
     dist.__class__.hpy_use_static_libs = False
     dist.__class__.global_options += [
-        ('hpy-abi=', None, 'Specify the HPy ABI mode (default: %s)' % DEFAULT_HPY_ABI),
-        ('hpy-no-static-libs', None, 'Compile context and extra sources with extension (default: False)')
+        ('hpy-abi=', None, 'Specify the HPy ABI mode (default: %s)'
+                           % DEFAULT_HPY_ABI),
+        ('hpy-use-static-libs', None, 'Use static library containing context '
+                                      'and helper functions for building '
+                                      'extensions (default: False)')
     ]
     hpydevel = HPyDevel()
     hpydevel.fix_distribution(dist)
@@ -345,7 +349,7 @@ class build_ext_hpy_mixin:
         else:
             # If we should not use (pre-compiled) static libs or if they are
             # not available, we just add the sources of the helpers to the
-            # extension. They are then compiled with the extension.
+            # extension. They are then compiler with the extension.
             ext.sources += self.hpydevel.get_extra_sources()
         ext.define_macros.append(('HPY', None))
         if ext.hpy_abi == 'cpython':

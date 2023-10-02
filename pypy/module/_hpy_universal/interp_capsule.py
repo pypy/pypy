@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi
+from rpython.rlib.rarithmetic import widen
 from pypy.interpreter.error import oefmt
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import llapi
@@ -54,6 +55,7 @@ def HPyCapsule_New(space, handles, ctx, pointer, name, destructor):
 @API.func("void * HPyCapsule_Get(HPyContext *ctx, HPy capsule, int key, const char *name)")
 def HPyCapsule_Get(space, handles, ctx, h_capsule, key, name):
     w_capsule = _get_legal_capsule(space, handles, h_capsule, "HPyCapsule_Get")
+    key = widen(key)
     if key == Keys.HPyCapsule_key_Pointer:
         if not name_matches(w_capsule, name):
             raise oefmt(space.w_ValueError,
@@ -71,6 +73,7 @@ def HPyCapsule_Get(space, handles, ctx, h_capsule, key, name):
 @API.func("int HPyCapsule_Set(HPyContext *, HPy, int, void *)", error_value=API.int(-1))
 def HPyCapsule_Set(space, handles, ctx, h_capsule, key, ptr):
     w_capsule = _get_legal_capsule(space, handles, h_capsule, "HPyCapsule_Set")
+    key = widen(key)
     if key == Keys.HPyCapsule_key_Pointer:
         w_capsule.pointer = ptr
     elif key == Keys.HPyCapsule_key_Name:

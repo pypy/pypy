@@ -83,14 +83,14 @@ def member_get(w_descr, space, w_obj):
         from pypy.module._hpy_universal.interp_field import field_load_w
         if llapi.cts.cast("HPy*", addr)[0] == 0:
             return space.w_None
-        w_obj = field_load_w(addr)
+        w_obj = field_load_w(llapi.cts.cast("HPyField", addr))
         return w_obj
     elif kind == Enum.HPyMember_OBJECT_EX:
         from pypy.module._hpy_universal.interp_field import field_load_w
         if llapi.cts.cast("HPy*", addr)[0] == 0:
             raise oefmt(space.w_AttributeError,
                         "%R object has no attribute %s", w_descr, name)
-        w_obj = field_load_w(addr)
+        w_obj = field_load_w(llapi.cts.cast("HPyField", addr))
         return w_obj
     else:
         raise oefmt(space.w_NotImplementedError, 'cannot handle get for %d', kind)
