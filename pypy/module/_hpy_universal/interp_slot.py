@@ -430,6 +430,7 @@ def get_slot_cls(handles, mixin):
     class wrapper(W_SlotWrapper):
         import_from_mixin(mixin)
         handles = _handles
+        ctx = _handles.ctx
 
     wrapper.__name__ = mixin.__name__ + handles.cls_suffix
     _WRAPPER_CACHE[handles, mixin] = wrapper
