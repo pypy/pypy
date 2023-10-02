@@ -461,4 +461,6 @@ class build_ext_hpy_mixin:
         exports = self._mixin_super.get_export_symbols(self, ext)
         if hasattr(ext, "hpy_abi") and ext.hpy_abi in ('universal', 'hybrid'):
             exports = [re.sub(r"^PyInit_", "HPyInit_", name) for name in exports]
+            # On untranslated PyPy tests, the exports will be of the python2 form
+            exports = [re.sub(r"^init", "HPyInit_", name) for name in exports]
         return exports
