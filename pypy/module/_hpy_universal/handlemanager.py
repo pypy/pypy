@@ -195,6 +195,8 @@ class HandleManager(AbstractHandleManager):
                 h_struct = getattr(self.ctx, 'c_h_' + name)
                 h_struct.c__i = i
             i = i + 1
+        h_struct = getattr(self.ctx, "c_h_CapsuleType")
+        h_struct.c__i = 2048
 
         for func in API.all_functions:
             if func.cpyext and not space.config.objspace.hpy_cpyext_API:

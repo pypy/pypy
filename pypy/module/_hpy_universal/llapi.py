@@ -636,6 +636,14 @@ typedef enum {
      */
     HPy_SourceKind_Single = 2,
 } HPy_SourceKind;
+
+typedef enum {
+    HPyCapsule_key_Pointer = 0,
+    HPyCapsule_key_Name = 1,
+    HPyCapsule_key_Context = 2,
+    HPyCapsule_key_Destructor = 3,
+} _HPyCapsule_key;
+
 """)
 
 # HACK! We manually assign _hints['eci'] to ensure that the eci is included in

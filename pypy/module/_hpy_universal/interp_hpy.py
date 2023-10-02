@@ -18,6 +18,7 @@ from pypy.module._hpy_universal import (
     interp_builder,
     interp_bytes,
     interp_call,
+    interp_capsule,
     interp_cpy_compat,
     interp_dict,
     interp_err,
