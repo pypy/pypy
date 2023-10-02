@@ -1,10 +1,12 @@
 import pytest
-from .support import HPyTest, make_hpy_abi_fixture
+from .support import HPyTest #, make_hpy_abi_fixture
 from .test_capsule import CapsuleTemplate
 
-hpy_abi = make_hpy_abi_fixture('with hybrid')
+# hpy_abi = make_hpy_abi_fixture('with hybrid')
 
 class TestHPyCapsuleLegacy(HPyTest):
+    USE_CPYEXT = True
+    
 
     ExtensionTemplate = CapsuleTemplate
 

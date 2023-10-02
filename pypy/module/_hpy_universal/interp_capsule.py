@@ -1,17 +1,17 @@
 from rpython.rtyper.lltypesystem import rffi
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.baseobjspace import W_Root
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import llapi
+from pypy.objspace.std.capsuleobject import W_Capsule
 
 Keys = llapi.cts.gettype("_HPyCapsule_key")
 
 def _get_legal_capsule(space, handles, h_capsule, func):
     if not h_capsule:
         raise oefmt(space.w_ValueError,
-            "% called with NULL capsule", func)
+            "%s called with NULL capsule", func)
     w_capsule = handles.deref(h_capsule)
-    if not isinstance(w_capsule, W_HPyCapsule):
+    if not isinstance(w_capsule, W_Capsule):
         raise oefmt(space.w_ValueError,
             "%s called with invalid capsule object", func)
     if not w_capsule.pointer:
@@ -35,20 +35,20 @@ def name_matches(w_capsule, name):
         i+= 1
     return True
 
-def get_destructor_impl(space, ptr):
+def check_destructor_impl(space, ptr):
     if not ptr:
-        return llapi.cts.cast("HPyFunc_Capsule_Destructor*", 0)
+        return 
     if not ptr.c_impl:
         raise oefmt(space.w_ValueError,
             "invalid HPyCapsule destructor")
-    return ptr.c_impl
 
 @API.func("HPy HPyCapsule_New(HPyContext *ctx, void *pointer, const char *name, HPyCapsule_Destructor *destructor)")
 def HPyCapsule_New(space, handles, ctx, pointer, name, destructor):
     if not pointer:
         raise oefmt(space.w_ValueError, "HPyCapsule_New called with null pointer")
-    func = get_destructor_impl(space, destructor)
-    w_capsule = W_HPyCapsule(space, pointer, name, destructor)
+    check_destructor_impl(space, destructor)
+    voidp = rffi.cast(rffi.VOIDP, destructor)
+    w_capsule = W_Capsule(space, pointer, name, voidp)
     return handles.new(w_capsule)
 
 @API.func("void * HPyCapsule_Get(HPyContext *ctx, HPy capsule, int key, const char *name)")
@@ -79,8 +79,8 @@ def HPyCapsule_Set(space, handles, ctx, h_capsule, key, ptr):
         w_capsule.context = ptr
     elif key == Keys.HPyCapsule_key_Destructor:
         destructor = llapi.cts.cast("HPyCapsule_Destructor *", ptr)
-        func = get_destructor_impl(space, destructor)
-        w_capsule.destructor = func
+        check_destructor_impl(space, destructor)
+        w_capsule.destructor = rffi.cast(rffi.VOIDP, destructor)
     else:
         raise oefmt(space.w_ValueError,
            "Invalid operation: unknown key")
@@ -91,21 +91,8 @@ def HPyCapsule_IsValid(space, handles, ctx, h_capsule, name):
     if not h_capsule:
         return API.int(0)
     w_capsule = handles.deref(h_capsule)
-    if not isinstance(w_capsule, W_HPyCapsule):
+    if not isinstance(w_capsule, W_Capsule):
         return API.int(0)
     if not w_capsule.pointer:
         return API.int(0)
     return API.int(name_matches(w_capsule, name))
-
-
-class W_HPyCapsule(W_Root):
-    def __init__(self, space, pointer, name, destructor):
-        self.space = space
-        self.pointer = pointer
-        self.name = name
-        self.destructor = destructor
-        self.context = rffi.cast(rffi.VOIDP, 0)
-
-    def _finalize_(self):
-        pass
-
