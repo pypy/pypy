@@ -2358,6 +2358,39 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_knownbits_equality(self):
+        ops = """
+        [i0, i1]
+        i2 = int_or(i0, 3) # set lowest three bits
+        i3 = int_and(i1, 252) # unset lowest two bits
+        i4 = int_eq(i2, i3)
+        guard_false(i4) []
+        jump(i2)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_or(i0, 3) # set lowest three bits
+        i3 = int_and(i1, 252) # unset lowest two bits
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0, i1]
+        i2 = int_or(i0, 3) # set lowest three bits
+        i3 = int_and(i1, 252) # unset lowest two bits
+        i4 = int_ne(i2, i3)
+        guard_true(i4) []
+        jump(i2)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_or(i0, 3) # set lowest three bits
+        i3 = int_and(i1, 252) # unset lowest two bits
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

@@ -331,6 +331,16 @@ class IntBound(AbstractInfo):
         """
         return other.known_le(self)
 
+    def known_ne(self, other):
+        """ return True if the sets of numbers self and other must be disjoint.
+        """
+        if self.known_lt(other):
+            return True
+        if self.known_gt(other):
+            return True
+        both_known = self.tmask | other.tmask
+        return unmask_zero(self.tvalue, both_known) != unmask_zero(other.tvalue, both_known)
+
     def known_nonnegative(self):
         """
         Returns `True` if this abstract integer

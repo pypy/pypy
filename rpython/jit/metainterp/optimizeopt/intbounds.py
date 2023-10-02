@@ -426,9 +426,7 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(arg0)
         arg1 = get_box_replacement(op.getarg(1))
         b2 = self.getintbound(arg1)
-        if b1.known_gt(b2):
-            self.make_constant_int(op, 0)
-        elif b1.known_lt(b2):
+        if b1.known_ne(b2):
             self.make_constant_int(op, 0)
         elif arg0.same_box(arg1):
             self.make_constant_int(op, 1)
@@ -440,11 +438,9 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(arg0)
         arg1 = get_box_replacement(op.getarg(1))
         b2 = self.getintbound(arg1)
-        if b1.known_gt(b2):
+        if b1.known_ne(b2):
             self.make_constant_int(op, 1)
-        elif b1.known_lt(b2):
-            self.make_constant_int(op, 1)
-        elif arg0 is arg1:
+        if arg0 is arg1:
             self.make_constant_int(op, 0)
         else:
             return self.emit(op)
