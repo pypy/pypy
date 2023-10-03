@@ -63,8 +63,8 @@ class IntBound(AbstractInfo):
             assert type(upper) is not long or is_valid_int(upper)
             assert type(lower) is not long or is_valid_int(lower)
 
-        if not self.knownbits_and_bounds_agree():
-            import pdb; pdb.set_trace()
+        #if not self.knownbits_and_bounds_agree():
+        #    import pdb; pdb.set_trace()
 
         assert self.knownbits_and_bounds_agree()
 
