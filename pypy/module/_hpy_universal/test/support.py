@@ -41,9 +41,10 @@ class HPyAppTest(object):
     # redeclare initargs as autouse=True, so it's automatically used by all
     # tests.
     @pytest.fixture(params=['universal', 'debug'], autouse=True)
-    def initargs(self, request):
+    def initargs(self, request, capfd):
         hpy_abi = request.param
         self._init(request, hpy_abi)
+        self.capfd = capfd
 
     def _init(self, request, hpy_abi):
         state = self.space.fromcache(State)
@@ -178,6 +179,29 @@ class HPyAppTest(object):
                     load_universal_module = _load_universal_module
                 return compiler
             """)
+
+        @unwrap_spec(main_src='text', error='text')
+        def descr_expect_make_error(space, main_src, error):
+            try:
+                compiler.compile_module(main_src, ExtensionTemplate, "mytest")
+            except Exception as err:
+                pass
+            #
+            # capfd.readouterr() "eats" the output, but we want to still see it in
+            # case of failure. Just print it again
+            cap = self.capfd.readouterr()
+            sys.stdout.write(cap[0])
+            sys.stderr.write(cap[1])
+            #
+            # gcc prints compiler errors to stderr, but MSVC seems to print them
+            # to stdout. Let's just check both
+            if error in cap[0] or error in cap[1]:
+                # the error was found, we are good
+                return
+            raise Exception("The following error message was not found in the compiler "
+                        "output:\n    " + error)
+
+        self.w_expect_make_error = self.space.wrap(interp2app(descr_expect_make_error))
 
 class HPyDebugAppTest(HPyAppTest):
 

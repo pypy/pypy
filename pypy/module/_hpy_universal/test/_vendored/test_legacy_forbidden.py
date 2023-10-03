@@ -5,7 +5,7 @@ get the expected compile time errors
 
 import sys
 import pytest
-from .support import HPyTest, make_hpy_abi_fixture, ONLY_LINUX
+from .support import HPyTest, ONLY_LINUX #, make_hpy_abi_fixture
 
 # this is not strictly correct, we should check whether the actual compiler
 # is GCC. But for the CI and most cases, it's enough to assume that if we are
@@ -19,7 +19,7 @@ ONLY_GCC = ONLY_LINUX
 
 class TestLegacyForbidden(HPyTest):
 
-    hpy_abi = make_hpy_abi_fixture(['universal'], class_fixture=True)
+    # hpy_abi = make_hpy_abi_fixture(['universal'], class_fixture=True)
 
     LEGACY_ERROR = "Cannot use legacy functions when targeting the HPy Universal ABI"
 
@@ -29,7 +29,7 @@ class TestLegacyForbidden(HPyTest):
         """
         self.expect_make_error(src, "this is a compile time error")
 
-    def test_Python_h_forbidden(self, capfd):
+    def test_Python_h_forbidden(self):
         src = """
                 #include <Python.h>
                 @INIT
@@ -39,7 +39,7 @@ class TestLegacyForbidden(HPyTest):
             "when targeting the HPy Universal ABI")
 
     @ONLY_GCC
-    def test_HPy_AsPyObject(self, capfd):
+    def test_HPy_AsPyObject(self):
         # NOTE: in this test we don't include Python.h. We want to test that
         # we get a nice compile-time error by just calling HPy_AsPyObject.
         # that's why we use "cpy_PyObject" (which is available because defined
@@ -58,7 +58,7 @@ class TestLegacyForbidden(HPyTest):
         self.expect_make_error(src, self.LEGACY_ERROR)
 
     @ONLY_GCC
-    def test_HPy_FromPyObject(self, capfd):
+    def test_HPy_FromPyObject(self):
         # NOTE: in this test we don't include Python.h. We want to test that
         # we get a nice compile-time error by just calling HPy_AsPyObject.
         # that's why we use "cpy_PyObject" (which is available because defined
