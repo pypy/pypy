@@ -35,12 +35,12 @@ class UntranslatedHPyFieldStorage(object):
         # NOTE: with he current strategy, self._fields is never cleared so an
         # HPyField_Store keeps the object alive forever. That's bad but we
         # don't care for now, since it's used only by a few tests.
-        unique_id = llapi.cts.cast('long', pf)
+        unique_id = rffi.cast(lltype.Signed, pf)
         pf[0] = unique_id
         self._fields[unique_id] = w_obj
 
     def delete(self, pf):
-        unique_id = llapi.cts.cast('long', pf)
+        unique_id = rffi.cast(lltype.Signed, pf)
         self._fields.pop(unique_id, None)
         pf[0] = 0
 
@@ -146,7 +146,7 @@ def _collect_fields(space, handles, f, arg):
     Only for tests, see hpy_get_referents
     """
     assert not we_are_translated()
-    unique_id = llapi.cts.cast('long', f)
+    unique_id = rffi.cast(lltype.Signed, f)
     w_obj = _STORAGE._fields[unique_id]
     _collect_fields.allfields.append(w_obj)
     return API.int(0)
