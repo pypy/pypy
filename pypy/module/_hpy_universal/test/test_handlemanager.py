@@ -10,6 +10,9 @@ class Config(object):
         self.objspace = space
         self.translating = True
 
+class FakeModule(object):
+    __dict__ = {}
+
 class FakeSpace(object):
     def __init__(self):
         self._cache = {}
@@ -26,6 +29,16 @@ class FakeSpace(object):
             return w_func()
         else:
             raise RuntimeError('space.call not fully implemented')
+
+    def getattr(self, obj, name):
+        return getattr(obj, name)
+
+    def newtext(self, txt):
+        return txt
+
+    @property
+    def builtin(self):
+        return FakeModule()
 
     def __getattr__(self, name):
         return '<fakespace.%s>' % name
