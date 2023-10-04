@@ -379,6 +379,11 @@ class W_DirEntry(W_Root):
             """
             try:
                 st = self.get_stat_or_lstat(follow_symlinks)
+            except WindowsError as e:
+                if e.winerror == 2:    # not found
+                    return -1
+                raise wrap_oserror2(self.space, e, self.fget_path(self.space),
+                                    eintr_retry=False)
             except OSError as e:
                 if e.errno == ENOENT:    # not found
                     return -1
