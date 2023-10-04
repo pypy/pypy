@@ -380,7 +380,11 @@ class W_DirEntry(W_Root):
             try:
                 st = self.get_stat_or_lstat(follow_symlinks)
             except WindowsError as e:
-                if e.winerror == 2:    # not found
+                if e.winerror == 2:
+                    # ERROR_FILE_NOT_FOUND is 2 according to
+                    # <https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499->.
+                    # This is coincidentally the same value as ENOENT (2), but
+                    # winerror and errno values are not interchangeable.
                     return -1
                 raise wrap_oserror2(self.space, e, self.fget_path(self.space),
                                     eintr_retry=False)
