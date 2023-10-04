@@ -35,54 +35,48 @@ def _make_dir(tmpdir, dirname, content):
     return d
 
 
-@pytest.fixture
-def dir_empty(tmpdir):
+def _make_dir_empty(tmpdir):
     return _make_dir(tmpdir, 'empty', {})
 
 
-@pytest.fixture
-def dir0(tmpdir):
+def _make_dir0(tmpdir):
     return _make_dir(tmpdir, 'dir0', {'f1': 'file',
                                       'f2': 'file',
                                       'f3': 'file'})
 
 
-@pytest.fixture
-def dir1(tmpdir):
+def _make_dir1(tmpdir):
     return _make_dir(tmpdir, 'dir1', {'file1': 'file'})
 
 
-@pytest.fixture
-def dir2(tmpdir):
+def _make_dir2(tmpdir):
     return _make_dir(tmpdir, 'dir2', {'subdir2': 'dir'})
 
 
-@pytest.fixture
-def dir3(tmpdir):
+def _make_dir3(tmpdir):
     return _make_dir(tmpdir, 'dir3', {'sfile3': 'symlink-file'})
 
 
-@pytest.fixture
-def dir4(tmpdir):
+def _make_dir4(tmpdir):
     return _make_dir(tmpdir, 'dir4', {'sdir4': 'symlink-dir'})
 
 
-@pytest.fixture
-def dir5(tmpdir):
+def _make_dir5(tmpdir):
     return _make_dir(tmpdir, 'dir5', {'sbrok5': 'symlink-broken'})
 
 
-@pytest.fixture
-def dir6(tmpdir):
+def _make_dir6(tmpdir):
     return _make_dir(tmpdir, 'dir6', {'serr6': 'symlink-error'})
 
 
-def test_scandir_empty(dir_empty):
+def test_scandir_empty(tmpdir):
+    dir_empty = _make_dir_empty(tmpdir)
     sd = os.scandir(dir_empty)
     assert list(sd) == []
 
 
-def test_scandir_files(dir0):
+def test_scandir_files(tmpdir):
+    dir0 = _make_dir0(tmpdir)
     sd = os.scandir(dir0)
     names = [d.name for d in sd]
     assert sorted(names) == ['f1', 'f2', 'f3']
@@ -115,7 +109,8 @@ def test_unicode_versus_bytes():
     assert d.path == b'/' + d.name
 
 
-def test_stat1(dir1):
+def test_stat1(tmpdir):
+    dir1 = _make_dir1(tmpdir)
     d = next(os.scandir(dir1))
     assert d.name == 'file1'
     assert d.stat().st_mode & 0o170000 == 0o100000    # S_IFREG
@@ -123,7 +118,8 @@ def test_stat1(dir1):
 
 
 @pytest.mark.skipif(not has_os_symlink, reason="no symlink support")
-def test_stat4(dir4):
+def test_stat4(tmpdir):
+    dir4 = _make_dir4(tmpdir)
     d = next(os.scandir(dir4))
     assert d.name == 'sdir4'
     assert d.stat().st_mode & 0o170000 == 0o040000    # S_IFDIR
@@ -131,7 +127,8 @@ def test_stat4(dir4):
     assert d.stat(follow_symlinks=False).st_mode&0o170000 == 0o120000 #IFLNK
 
 
-def test_dir1(dir1):
+def test_dir1(tmpdir):
+    dir1 = _make_dir1(tmpdir)
     d = next(os.scandir(dir1))
     assert d.name == 'file1'
     assert     d.is_file()
@@ -143,7 +140,8 @@ def test_dir1(dir1):
     assert not d.is_dir(follow_symlinks=False)
 
 
-def test_dir2(dir2):
+def test_dir2(tmpdir):
+    dir2 = _make_dir2(tmpdir)
     d = next(os.scandir(dir2))
     assert d.name == 'subdir2'
     assert not d.is_file()
@@ -154,7 +152,8 @@ def test_dir2(dir2):
 
 
 @pytest.mark.skipif(not has_os_symlink, reason="no symlink support")
-def test_dir3(dir3):
+def test_dir3(tmpdir):
+    dir3 = _make_dir3(tmpdir)
     d = next(os.scandir(dir3))
     assert d.name == 'sfile3'
     assert     d.is_file()
@@ -165,7 +164,8 @@ def test_dir3(dir3):
 
 
 @pytest.mark.skipif(not has_os_symlink, reason="no symlink support")
-def test_dir4(dir4):
+def test_dir4(tmpdir):
+    dir4 = _make_dir4(tmpdir)
     d = next(os.scandir(dir4))
     assert d.name == 'sdir4'
     assert not d.is_file()
@@ -176,7 +176,8 @@ def test_dir4(dir4):
 
 
 @pytest.mark.skipif(not has_os_symlink, reason="no symlink support")
-def test_dir5(dir5):
+def test_dir5(tmpdir):
+    dir5 = _make_dir5(tmpdir)
     d = next(os.scandir(dir5))
     assert d.name == 'sbrok5'
     assert not d.is_file()
@@ -187,7 +188,8 @@ def test_dir5(dir5):
 
 
 @pytest.mark.skipif(not has_os_symlink, reason="no symlink support")
-def test_dir6(dir6):
+def test_dir6(tmpdir):
+    dir6 = _make_dir6(tmpdir)
     d = next(os.scandir(dir6))
     assert d.name == 'serr6'
     with pytest.raises(OSError):
@@ -197,8 +199,10 @@ def test_dir6(dir6):
     assert d.is_symlink()
 
 
-def test_fdopendir(dir0, dir2):
+def test_fdopendir(tmpdir):
     import stat
+    dir0 = _make_dir0(tmpdir)
+    dir2 = _make_dir2(tmpdir)
     if 'HAVE_FDOPENDIR' in posix._have_functions:
         with pytest.raises(OSError):
             os.scandir(1234)
@@ -225,33 +229,38 @@ def test_fdopendir(dir0, dir2):
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="no inode support")
-def test_inode(dir1):
+def test_inode(tmpdir):
+    dir1 = _make_dir1(tmpdir)
     d = next(os.scandir(dir1))
     assert d.name == 'file1'
     ino = d.inode()
     assert ino == d.stat().st_ino
 
 
-def test_repr(dir1):
+def test_repr(tmpdir):
+    dir1 = _make_dir1(tmpdir)
     d = next(os.scandir(dir1))
     assert isinstance(d, os.DirEntry)
     assert repr(d) == "<DirEntry 'file1'>"
 
 
-def test_direntry_unpicklable(dir1):
+def test_direntry_unpicklable(tmpdir):
     import pickle
+    dir1 = _make_dir1(tmpdir)
     d = next(os.scandir(dir1))
     with pytest.raises(TypeError):
         pickle.dumps(d)
 
 
-def test_fspath(dir1):
+def test_fspath(tmpdir):
+    dir1 = _make_dir1(tmpdir)
     d = next(os.scandir(dir1))
     assert os.fspath(d).endswith('dir1' + os.sep + 'file1')
 
 
-def test_resource_warning(dir1):
+def test_resource_warning(tmpdir):
     import warnings, gc
+    dir1 = _make_dir1(tmpdir)
     iterator = os.scandir(dir1)
     next(iterator)
     with warnings.catch_warnings(record=True) as l:
@@ -270,8 +279,9 @@ def test_resource_warning(dir1):
     assert len(l) == 0
 
 
-def test_context_manager(dir1):
+def test_context_manager(tmpdir):
     import warnings, gc
+    dir1 = _make_dir1(tmpdir)
     with warnings.catch_warnings(record=True) as l:
         warnings.simplefilter("always")
         with os.scandir(dir1) as iterator:
@@ -281,7 +291,8 @@ def test_context_manager(dir1):
     assert not l
 
 
-def test_lstat(dir1):
+def test_lstat(tmpdir):
+    dir1 = _make_dir1(tmpdir)
     d = next(os.scandir(dir1))
     with open(d) as fp:
         length = len(fp.read())
