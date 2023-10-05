@@ -28,7 +28,7 @@ def extension_suffixes(space):
     # On PyPy, we don't want to allow bare ".so", so we add "hpy0.so"
     if space.config.objspace.usemodules._hpy_universal:
         from pypy.module._hpy_universal.llapi import HPY_ABI_TAG
-        hpy_ext = HPY_ABI_TAG + importing.SO
+        hpy_ext = "." + HPY_ABI_TAG + importing.SO
         suffixes_w.append(space.newtext(hpy_ext))
     return space.newlist(suffixes_w)
 
