@@ -1,6 +1,6 @@
 import os
 import pytest
-from test.support import SUPPORTS_SYS_EXECUTABLE, SUPPORTS_MEM_PROTECTION
+from ..support import SUPPORTS_SYS_EXECUTABLE, SUPPORTS_MEM_PROTECTION
 
 # Tests detection of usage of char pointers associated with invalid already
 # closed handles. For now, the debug mode does not provide any hook for this

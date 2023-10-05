@@ -1,5 +1,8 @@
 import pytest
-from hpy.trace import get_call_counts, get_durations, set_trace_functions
+try:
+    from hpy.trace import get_call_counts, get_durations, set_trace_functions
+except ModuleNotFoundError:
+    pytest.mark.skip("no hpy.trace")
 
 @pytest.fixture
 def hpy_abi():
