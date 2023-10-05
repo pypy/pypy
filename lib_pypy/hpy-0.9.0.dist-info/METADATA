@@ -1,21 +1,20 @@
 Metadata-Version: 2.1
 Name: hpy
-Version: 0.9.0rc1
+Version: 0.9.0
 Summary: A better C API for Python
 Home-page: https://hpyproject.org
 Author: The HPy team
 Author-email: hpy-dev@python.org
 License: MIT
-Platform: UNKNOWN
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: setuptools (>=64.0)
+Requires-Dist: setuptools >=64.0
 Provides-Extra: dev
-Requires-Dist: filelock ; extra == 'dev'
 Requires-Dist: pytest ; extra == 'dev'
 Requires-Dist: pytest-xdist ; extra == 'dev'
+Requires-Dist: filelock ; extra == 'dev'
 
 # HPy: a better API for Python
 
@@ -98,5 +97,3 @@ use fully opaque handles to represent and pass around Python objects.
 ## Donate to HPy
 
 Become a financial contributor and help us sustain the HPy community: [Contribute to HPy](https://opencollective.com/hpy/contribute).
-
-
