@@ -109,7 +109,8 @@ errno_eci = ExternalCompilationInfo(
 # Direct getters/setters, don't use directly!
 _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
                                          CConstantErrno, sandboxsafe=True,
-                                         _nowrapper=True, c_type='int')
+                                         _nowrapper=True, c_type='int',
+                                         declare_as_extern=False)
 
 def get_saved_errno():
     """Return the value of the "saved errno".
