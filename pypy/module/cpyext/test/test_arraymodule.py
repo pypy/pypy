@@ -103,6 +103,23 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         res = [1, 2, 3] * arr
         assert res == [1, 2, 3, 1, 2, 3]
 
+    def test_binop_sub(self):
+        module = self.import_module(name='array')
+
+        class MyType(module.array):
+            def __truediv__(self, other):
+                return -1
+
+        obj = MyType('i', [3])
+        arr = module.array('i', [5])
+        res0 = arr.__truediv__(None)
+        assert res0 is NotImplemented
+        res1 = obj.__truediv__(None)
+        assert res1 == -1
+        res2 = arr.__truediv__(obj)
+        assert res2 == 42
+        
+
     @pytest.mark.xfail
     def test_subclass_dealloc(self):
         module = self.import_module(name='array')

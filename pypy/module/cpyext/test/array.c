@@ -2367,11 +2367,22 @@ array_multiply(PyObject* obj1, PyObject* obj2)
     return Py_NotImplemented;
 }
 
+static PyObject*
+array_divide(PyObject* obj1, PyObject* obj2)
+{
+    PyNumberMethods *num1 = Py_TYPE(obj1)->tp_as_number;
+    PyNumberMethods *num2 = Py_TYPE(obj2)->tp_as_number;
+    if (num1 && num2 && num1->nb_true_divide == num2->nb_true_divide) {
+        return PyLong_FromLong(42);
+    }
+    Py_INCREF(Py_NotImplemented);
+    return Py_NotImplemented;
+}
+
+
 static PyNumberMethods array_as_number = {
-    (binaryfunc)NULL, /* nb_add*/
-    (binaryfunc)NULL, /* nb_subtract */
-    (binaryfunc)array_multiply, /* nb_multiply */
-    (binaryfunc)NULL, /* nb_divide */
+    .nb_multiply = array_multiply,
+    .nb_true_divide = array_divide,
 };
 
 static PyObject*
