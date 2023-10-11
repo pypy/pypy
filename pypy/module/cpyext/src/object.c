@@ -143,6 +143,12 @@ _PyObject_NewVar(PyTypeObject *type, Py_ssize_t nitems)
 }
 
 PyObject *
+PyType_GenericNew(PyTypeObject *typ, PyObject *args, PyObject * kwds)
+{
+    return typ->tp_alloc(typ, 0);
+}
+
+PyObject *
 PyObject_Init(PyObject *obj, PyTypeObject *type)
 {
     obj->ob_type = type;

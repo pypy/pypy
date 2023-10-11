@@ -678,9 +678,13 @@ def type_alloc(typedescr, space, w_metatype, itemsize=0):
         if not flags & Py_TPFLAGS_HEAPTYPE:
             decref(space, metatype)
 
+    # Follow the logic in _PyObject_VAR_SIZE, allocate at least 1 itemsize
+    # see test_heaptype_metaclass, the metaclass_bad type has tp_itemsize
+    # instead of tp_basicsize
     basicsize = max(rffi.sizeof(PyHeapTypeObject.TO), metatype.c_tp_basicsize)
+    extra_size = metatype.c_tp_itemsize
     heaptype = lltype.malloc(rffi.VOIDP.TO,
-                             basicsize,
+                             basicsize + extra_size,
                              flavor='raw', zero=True,
                              add_memory_pressure=True)
     heaptype = rffi.cast(PyHeapTypeObject, heaptype)
@@ -1009,11 +1013,6 @@ def PyType_IsSubtype(space, a, b):
     w_type1 = from_ref(space, rffi.cast(PyObject, a))
     w_type2 = from_ref(space, rffi.cast(PyObject, b))
     return int(abstract_issubclass_w(space, w_type1, w_type2)) #XXX correct?
-
-@cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject)
-def PyType_GenericNew(space, type, w_args, w_kwds):
-    return generic_cpy_call(
-        space, type.c_tp_alloc, type, 0)
 
 def _parse_typeslots():
     slots_hdr = CTypeSpace()
