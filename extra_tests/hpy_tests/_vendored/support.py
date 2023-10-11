@@ -50,9 +50,15 @@ def make_hpy_abi_fixture(ABIs, class_fixture=False):
         hpy_abi = make_hpy_abi_fixture('with hybrid', class_fixture=True)
     """
     if ABIs == 'default':
-        ABIs = ['cpython', 'universal', 'debug']
+        if sys.implementation.name == 'cpython':
+            ABIs = ['cpython', 'universal', 'debug']
+        else:
+            ABIs = ['universal', 'debug']
     elif ABIs == 'with hybrid':
-        ABIs = ['cpython', 'hybrid', 'hybrid+debug']
+        if sys.implementation.name == 'cpython':
+            ABIs = ['cpython', 'hybrid', 'hybrid+debug']
+        else:
+            ABIs = ['hybrid', 'hybrid+debug']
     elif isinstance(ABIs, list):
         pass
     else:
