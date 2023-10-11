@@ -6,7 +6,7 @@ from pathlib import Path
 
 IS_VALGRIND_RUN = False
 
-def pytest_addoption(parser):
+def _pytest_addoption(parser):
     parser.addoption(
         "--compiler-v", action="store_true",
         help="Print to stdout the commands used to invoke the compiler")
