@@ -339,6 +339,8 @@ PyAPI_FUNC(const char *) _PyType_Name(PyTypeObject *);
 
 
 PyAPI_FUNC(PyObject *) PyType_GenericAlloc(PyTypeObject *, Py_ssize_t);
+PyAPI_FUNC(PyObject *) PyType_GenericNew(PyTypeObject *,
+                                               PyObject *, PyObject *);
 
 /*
 #define PyObject_NEW(type, typeobj) \
