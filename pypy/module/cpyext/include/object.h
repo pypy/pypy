@@ -596,6 +596,8 @@ static inline PyObject* _Py_XNewRef(PyObject *obj)
 #define Py_NewRef(obj) _Py_NewRef(_PyObject_CAST(obj))
 #define Py_XNewRef(obj) _Py_XNewRef(_PyObject_CAST(obj))
 
+PyAPI_FUNC(PyObject *) PyType_GenericNew(PyTypeObject *,
+                                               PyObject *, PyObject *);
 
 /*
 _Py_NoneStruct is an object of undefined type which can be used in contexts

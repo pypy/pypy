@@ -1250,6 +1250,10 @@ def attach_c_functions(space, eci, prefix):
         mangle_name(prefix, '_Py_tuple_new'),
         [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
+    state.C.PyType_GenericNew = rffi.llexternal(
+        mangle_name(prefix, 'PyType_GenericNew'),
+        [PyTypeObjectPtr, PyObject, PyObject], PyObject,
+        compilation_info=eci, _nowrapper=True)
     state.C.tuple_new = rffi.llexternal(
         mangle_name(prefix, '_Py_tuple_new'),
         [PyTypeObjectPtr, PyObject, PyObject], PyObject,
