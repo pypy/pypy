@@ -119,7 +119,7 @@ typedef struct {
  *   structure that will serve as a specification of the module that should be
  *   created by the interpreter. HPy supports only multi-phase module
  *   initialization (PEP 451). Any module initialization code can be added
- *   to the HPy_mod_execute slot of the module if needed.
+ *   to the HPy_mod_exec slot of the module if needed.
  *
  * Example:
  *
