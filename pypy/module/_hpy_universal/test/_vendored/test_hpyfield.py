@@ -326,6 +326,7 @@ class TestHPyField(HPyTest):
             // nicely with pytest, but if the finalizer gets called after the
             // test has finished, we have no choice but to abort to signal
             // the error
+            static void on_unexpected_finalize_call(void);
             static void on_unexpected_finalize_call() {
                 if (test_finished)
                     abort();
