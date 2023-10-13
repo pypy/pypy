@@ -5,7 +5,7 @@ from pypy.module._hpy_universal import llapi
 @API.func("HPy HPyContextVar_New(HPyContext *ctx, const char *name, HPy default_value)")
 def HPyContextVar_New(space, handles, ctx, name, h_default):
     if name:
-        w_str = space.newbytes(rffi.charp2str(name))
+        w_str = space.newbytes(rffi.constcharp2str(name))
         w_name = space.call_method(w_str, 'decode', space.newtext("utf-8"))
     else:
         w_name = space.newtext('')
