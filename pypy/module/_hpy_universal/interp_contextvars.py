@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi
+from pypy.interpreter.error import OperationError
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import llapi
 
@@ -55,7 +56,7 @@ def HPyContextVar_Get(space, handles, ctx,  h_ovar, h_default, val):
             """)
         except OperationError as e:
             if e.match(space, space.w_LookupError):
-                val[0] = rffi.cast(HPy, 0)
+                val[0] = llapi.cts.cast("HPy", 0)
                 return API.int(0)
             raise e
     h = handles.new(w_ret)
