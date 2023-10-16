@@ -1006,14 +1006,6 @@ def finish_type_2(space, pto, w_obj):
     # unbound GetSetProperty into bound PyGetSetDescrObject
     pto.c_tp_dict = make_ref(space, w_dict, w_obj)
 
-@cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
-def PyType_IsSubtype(space, a, b):
-    """Return true if a is a subtype of b.
-    """
-    w_type1 = from_ref(space, rffi.cast(PyObject, a))
-    w_type2 = from_ref(space, rffi.cast(PyObject, b))
-    return int(abstract_issubclass_w(space, w_type1, w_type2)) #XXX correct?
-
 def _parse_typeslots():
     slots_hdr = CTypeSpace()
     slots_hdr.parse_header(parse_dir / "typeslots.h")
