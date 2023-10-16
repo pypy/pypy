@@ -133,7 +133,7 @@ def hpy_get_referents(space, w_obj):
         ll_collect_fields = _collect_fields.get_llhelper(space)
         assert _collect_fields.allfields == []
         NULL = llapi.cts.cast('void *', 0)
-        w_type.tp_traverse(w_obj.get_raw_data(), ll_collect_fields, NULL)
+        w_type.tp_traverse(w_obj._hpy_get_raw_storage(space), ll_collect_fields, NULL)
         result = _collect_fields.allfields
         _collect_fields.allfields = []
         return result

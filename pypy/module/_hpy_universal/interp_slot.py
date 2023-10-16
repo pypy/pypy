@@ -222,7 +222,10 @@ class W_wrap_call_at_offset(object):
         from .interp_type import W_HPyObject
         w_obj = __args__.arguments_w[0]
         assert isinstance(w_obj, W_HPyObject)
-        addr = rffi.cast(lltype.Signed, w_obj.get_raw_data()) + self.offset
+        storage = w_obj._hpy_get_raw_storage(space)
+        if not storage:
+            raise oefmt(space.w_TypeError, "non-HPy object in __call__")
+        addr = rffi.cast(lltype.Signed, storage) + self.offset
         callfunc = llapi.cts.cast('HPyCallFunction*', addr)
         cfuncptr = llapi.cts.cast('HPyCFunction', callfunc.c_impl)
         w_func = self.handles.w_ExtensionMethod(space, self.handles, "__call__",

@@ -166,20 +166,33 @@ def setup_hpy_storage():
     rgc.register_custom_trace_hook(HPY_STORAGE, lambda: hpy_customtrace)
 
 # =====================================================
+def check_true(s_arg, bookeeper):
+    assert s_arg.const is True
+
+def w_root_raw_storage(w_obj, space):
+    from rpython.rlib.debug import check_annotation
+    # make sure that translation crashes if we see this while translating
+    # without _hpy_universal
+    check_annotation(space.config.objspace.usemodules._hpy_universal, check_true)
+    # default implementation of _hpy_get_raw_storage
+    try:
+        storage = w_obj.hpy_storage
+    except AttributeError:
+        return rffi.cast(rffi.VOIDP, 0)
+    return storage_get_raw_data(storage)
+
+# =====================================================
 
 
 class W_HPyObject(W_ObjectObject):
     hpy_storage = lltype.nullptr(HPY_STORAGE)
 
-    def get_raw_data(self):
-        return storage_get_raw_data(self.hpy_storage)
-
     def get_pyobject(self):
-        storage = self.get_raw_data()
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
         assert w_type.is_legacy
-        return rffi.cast(PyObject, self.get_raw_data())
+        storage = self._hpy_get_raw_storage(space)
+        return rffi.cast(PyObject, storage)
 
     def _finalize_(self):
         w_type = self.space.type(self)
@@ -187,8 +200,10 @@ class W_HPyObject(W_ObjectObject):
         if w_type.tp_finalize:
             from pypy.interpreter.argument import Arguments
             w_type.tp_finalize.call(self.space, Arguments(self.space, [self]))
-        if w_type.tp_destroy:
-            w_type.tp_destroy(self.get_raw_data())
+        storage = self._hpy_get_raw_storage(space)
+        if w_type.tp_destroy and storage:
+            w_type.tp_destroy(strorage)
+            w_type.hpy_storage = rffi.cast(rffi.VOIDP, 0)
 
 
 class W_HPyTypeObject(W_TypeObject):
@@ -202,15 +217,12 @@ class W_HPyTypeObject(W_TypeObject):
     shape = 0
 
 
-    def get_raw_data(self):
-        return storage_get_raw_data(self.hpy_storage)
-
     def get_pyobject(self):
-        storage = self.get_raw_data()
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
         assert w_type.is_legacy
-        return rffi.cast(PyObject, self.get_raw_data())
+        storage = self._hpy_get_raw_storage(space)
+        return rffi.cast(PyObject, storage)
 
     def _finalize_(self):
         w_type = self.space.type(self)
@@ -218,8 +230,10 @@ class W_HPyTypeObject(W_TypeObject):
         if w_type.tp_finalize:
             from pypy.interpreter.argument import Arguments
             w_type.tp_finalize.call(self.space, Arguments(self.space, [self]))
-        if w_type.tp_destroy:
-            w_type.tp_destroy(self.get_raw_data())
+        storage = self._hpy_get_raw_storage(space)
+        if w_type.tp_destroy and storage:
+            w_type.tp_destroy(strorage)
+            w_type.hpy_storage = rffi.cast(rffi.VOIDP, 0)
 
     def __init__(self, space, name, bases_w, dict_w, basicsize=0,
                  shape=0):
@@ -237,10 +251,11 @@ class W_HPyTypeObject(W_TypeObject):
 @API.func("void *HPy_AsStruct_Object(HPyContext *ctx, HPy h)")
 def HPy_AsStruct_Object(space, handles, ctx, h):
     w_obj = handles.deref(h)
-    if not isinstance(w_obj, W_HPyObject):
+    storage = w_obj._hpy_get_raw_storage(space)
+    if not storage:
         # XXX: write a test for this
         raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
-    return w_obj.get_raw_data()
+    return storage
 
 @API.func("void *HPy_AsStruct_Legacy(HPyContext *ctx, HPy h)")
 def HPy_AsStruct_Legacy(space, handles, ctx, h):
@@ -248,14 +263,18 @@ def HPy_AsStruct_Legacy(space, handles, ctx, h):
     if not isinstance(w_obj, W_HPyObject):
         # XXX: write a test for this
         raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
-    return w_obj.get_raw_data()
+    return w_obj._hpy_get_raw_storage(space)
 
 @API.func("HPy _HPy_New(HPyContext *ctx, HPy h_type, void **data)")
 def _HPy_New(space, handles, ctx, h_type, data):
     w_type = handles.deref(h_type)
+    # XXX create an Argument and call space.call()
     w_result = _create_instance(space, w_type)
     data = llapi.cts.cast('void**', data)
-    data[0] = w_result.get_raw_data()
+    storage = w_result._hpy_get_raw_storage(space)
+    if not storage:
+        raise oefmt(space.w_TypeError, "Object of type '%N' is not a valid HPy object.", w_type)
+    data[0] = storage
     h = handles.new(w_result)
     return h
 
@@ -374,13 +393,10 @@ def _hpytype_fromspec(handles, spec, params):
         # struct. It could be further overridden via a tp_new in the spec
         #
         dict_w['__new__'] = get_default_new(space)
-    elif basicsize > 0:
-        # Hmm. In order for this to work, the type will have to mix W_HPyTypeObject
-        # and the base type to have some storage space. But then _create_instance
-        # cannot use space.allocate_instance, since the typedefs will not align
-        # How does cpyext work around this?
-        raise oefmt(space.w_RuntimeError,
-            "cannot yet isntantiate a class with storage and a base class")
+    elif  basicsize > 0:
+        dict_w['__new__'] = get_default_new_subtype(space)
+    else:
+        pass
 
     if has_tp_slot(spec, [HPySlot_Slot.HPy_tp_call]):
         if widen(spec.c_itemsize):
@@ -507,9 +523,27 @@ def _create_new_type(
     w_type.ready()
     return w_type
 
-def _create_instance(space, w_type):
-    # w_type = space.interp_w(W_HPyTypeObject, w_type)
+def _create_instance(space, w_type, __args__=None):
+    # XXX make sure there are no __args__
     w_result = space.allocate_instance(W_HPyObject, w_type)
+    return _finish_create_instance(space, w_result, w_type)
+
+def _create_instance_subtype(space, w_type, __args__=None):
+    w_bestbase = find_best_base(w_type.bases_w)
+    # implementation of W_TypeObect.descr_call
+    # w_result = space.call_obj_args(w_bestbase, w_type, __args__)
+    w_newtype, w_newdescr = w_bestbase.lookup_where('__new__')
+    if space.config.objspace.usemodules.cpyext:
+        w_newtype, w_newdescr = w_bestbase.hack_which_new_to_call(
+            w_newtype, w_newdescr)
+    #
+    w_newfunc = space.get(w_newdescr, space.w_None, w_type=w_bestbase)
+    # Here we switch "self" with "w_type"
+    w_result = space.call_obj_args(w_newfunc, w_type, __args__)
+    return _finish_create_instance(space, w_result, w_type)
+
+def _finish_create_instance(space, w_result, w_type):
+    w_result.space = space
     if isinstance(w_type, W_HPyTypeObject):
         w_hpybase = w_type
     else:
@@ -522,7 +556,7 @@ def _create_instance(space, w_type):
         else:
             # Can this ever happen?
             raise oefmt(space.w_TypeError, "bad call to __new__")
-    w_result.space = space
+    # print "allocating %d for storage" % w_hpybase.basicsize
     w_result.hpy_storage = storage_alloc(w_hpybase.basicsize)
     w_result.hpy_storage.tp_traverse = w_hpybase.tp_traverse
     if w_hpybase.tp_destroy or w_hpybase.tp_finalize:
@@ -536,14 +570,20 @@ def _create_instance(space, w_type):
     return w_result
 
 descr_new = interp2app(_create_instance)
+descr_new_subtype = interp2app(_create_instance_subtype)
 
 @specialize.memo()
 def get_default_new(space):
     return descr_new.get_function(space)
 
+@specialize.memo()
+def get_default_new_subtype(space):
+    return descr_new_subtype.get_function(space)
+
 @API.func("HPy HPyType_GenericNew(HPyContext *ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")
 def HPyType_GenericNew(space, handles, ctx, h_type, args, nargs, kw):
     w_type = handles.deref(h_type)
+    # XXX create an Argument and call space.call()
     w_result = _create_instance(space, w_type)
     return handles.new(w_result)
 
@@ -578,7 +618,7 @@ def HPy_SetCallFunction(space, handles, ctx, h, func):
 @API.func("void * HPy_AsStruct_Type(HPyContext *ctx, HPy h)", error_value="CANNOT_FAIL")
 def HPy_AsStruct_Type(space, handles, ctx, h):
     w_obj = handles.deref(h)
-    return w_obj.get_raw_data()
+    return w_obj._hpy_get_raw_storage(space)
 
 @API.func("int HPyType_IsSubtype(HPyContext *ctx, HPy sub, HPy type)", error_value="CANNOT_FAIL")
 def HPyType_IsSubtype(space, handles, ctx, sub, typ):

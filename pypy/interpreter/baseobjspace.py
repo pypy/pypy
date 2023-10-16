@@ -229,6 +229,12 @@ class W_Root(object):
         from pypy.module.cpyext.pyobject import w_root_attach_pyobj
         return w_root_attach_pyobj(self, space, py_obj)
 
+    # -------------------------------------------------------------------
+
+    # hpy support
+    def _hpy_get_raw_storage(self, space):
+        from pypy.module._hpy_universal.interp_type import w_root_raw_storage
+        return w_root_raw_storage(self, space)
 
     # -------------------------------------------------------------------
 
