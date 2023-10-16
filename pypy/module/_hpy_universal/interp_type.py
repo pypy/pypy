@@ -618,7 +618,8 @@ def HPy_SetCallFunction(space, handles, ctx, h, func):
 @API.func("void * HPy_AsStruct_Type(HPyContext *ctx, HPy h)", error_value="CANNOT_FAIL")
 def HPy_AsStruct_Type(space, handles, ctx, h):
     w_obj = handles.deref(h)
-    return w_obj._hpy_get_raw_storage(space)
+    w_type = space.type(w_obj)
+    return w_type._hpy_get_raw_storage(space)
 
 @API.func("int HPyType_IsSubtype(HPyContext *ctx, HPy sub, HPy type)", error_value="CANNOT_FAIL")
 def HPyType_IsSubtype(space, handles, ctx, sub, typ):
