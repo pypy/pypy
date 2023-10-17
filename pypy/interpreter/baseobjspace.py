@@ -232,9 +232,12 @@ class W_Root(object):
     # -------------------------------------------------------------------
 
     # hpy support
+
     def _hpy_get_raw_storage(self, space):
-        from pypy.module._hpy_universal.interp_type import w_root_raw_storage
-        return w_root_raw_storage(self, space)
+        raise oefmt(space.w_SystemError, "trying to read hpy storage from wrong object of type %T", self)
+
+    def _hpy_set_raw_storage(self, space, storage):
+        raise oefmt(space.w_SystemError, "trying to write hpy storage into wrong object of type %T", self)
 
     # -------------------------------------------------------------------
 

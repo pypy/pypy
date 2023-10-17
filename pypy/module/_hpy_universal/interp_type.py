@@ -9,6 +9,7 @@ from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.typedef import interp2app
+from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.pyobject import as_pyobj, PyObject
 from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import llapi
@@ -170,6 +171,7 @@ def check_true(s_arg, bookeeper):
     assert s_arg.const is True
 
 def w_root_raw_storage(w_obj, space):
+    # XXX unused now?
     from rpython.rlib.debug import check_annotation
     # make sure that translation crashes if we see this while translating
     # without _hpy_universal
@@ -181,11 +183,19 @@ def w_root_raw_storage(w_obj, space):
         return rffi.cast(rffi.VOIDP, 0)
     return storage_get_raw_data(storage)
 
+
+class HPyStorageHolder(W_Root):
+    typedef = None
+    hpy_storage = lltype.nullptr(HPY_STORAGE)
+
+
 # =====================================================
 
 
 class W_HPyObject(W_ObjectObject):
     hpy_storage = lltype.nullptr(HPY_STORAGE)
+
+    # XXX make _hpy_get_raw_storage more efficient for object subclasses
 
     def get_pyobject(self):
         w_type = self.space.type(self)
@@ -200,6 +210,7 @@ class W_HPyObject(W_ObjectObject):
         if w_type.tp_finalize:
             from pypy.interpreter.argument import Arguments
             w_type.tp_finalize.call(self.space, Arguments(self.space, [self]))
+        # XXX this is still wrong
         storage = self._hpy_get_raw_storage(space)
         if w_type.tp_destroy and storage:
             w_type.tp_destroy(strorage)
@@ -557,8 +568,9 @@ def _finish_create_instance(space, w_result, w_type):
             # Can this ever happen?
             raise oefmt(space.w_TypeError, "bad call to __new__")
     # print "allocating %d for storage" % w_hpybase.basicsize
-    w_result.hpy_storage = storage_alloc(w_hpybase.basicsize)
-    w_result.hpy_storage.tp_traverse = w_hpybase.tp_traverse
+    hpy_storage = storage_alloc(w_hpybase.basicsize)
+    hpy_storage.tp_traverse = w_hpybase.tp_traverse
+    w_result._hpy_set_raw_storage(space, hpy_storage)
     if w_hpybase.tp_destroy or w_hpybase.tp_finalize:
         w_result.register_finalizer(space)
     if w_hpybase.has_tp_dealloc:
