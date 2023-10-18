@@ -5,7 +5,7 @@ from rpython.rlib import jit
 from rpython.rlib.rarithmetic import widen
 from rpython.rlib.debug import make_sure_not_resized, debug_print
 from rpython.rlib.objectmodel import specialize
-from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
+from pypy.objspace.std.typeobject import W_TypeObject, find_best_base, _check as check_is_type
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.typedef import interp2app
@@ -211,7 +211,7 @@ class W_HPyObject(W_ObjectObject):
             from pypy.interpreter.argument import Arguments
             w_type.tp_finalize.call(self.space, Arguments(self.space, [self]))
         # XXX this is still wrong
-        storage = self._hpy_get_raw_storage(space)
+        storage = self._hpy_get_raw_storage(self.space)
         if w_type.tp_destroy and storage:
             w_type.tp_destroy(strorage)
             w_type.hpy_storage = rffi.cast(rffi.VOIDP, 0)
@@ -537,9 +537,11 @@ def _create_new_type(
 def _create_instance(space, w_type, __args__=None):
     # XXX make sure there are no __args__
     w_result = space.allocate_instance(W_HPyObject, w_type)
+    w_result.space = space
     return _finish_create_instance(space, w_result, w_type)
 
 def _create_instance_subtype(space, w_type, __args__=None):
+    w_type = check_is_type(space, w_type)
     w_bestbase = find_best_base(w_type.bases_w)
     # implementation of W_TypeObect.descr_call
     # w_result = space.call_obj_args(w_bestbase, w_type, __args__)
@@ -554,7 +556,6 @@ def _create_instance_subtype(space, w_type, __args__=None):
     return _finish_create_instance(space, w_result, w_type)
 
 def _finish_create_instance(space, w_result, w_type):
-    w_result.space = space
     if isinstance(w_type, W_HPyTypeObject):
         w_hpybase = w_type
     else:

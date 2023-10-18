@@ -764,6 +764,7 @@ class MapdictHPySupport(object):
         if holder is None:
             holder = HPyStorageHolder()
             self._get_mapdict_map().write(self, "hpy", SPECIAL, holder)
+        assert isinstance(holder, HPyStorageHolder)
         holder.storage = storage
 
 
