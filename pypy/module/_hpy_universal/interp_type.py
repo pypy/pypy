@@ -263,18 +263,19 @@ class W_HPyTypeObject(W_TypeObject):
 def HPy_AsStruct_Object(space, handles, ctx, h):
     w_obj = handles.deref(h)
     storage = w_obj._hpy_get_raw_storage(space)
-    if not storage:
-        # XXX: write a test for this
-        raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
     return storage
 
 @API.func("void *HPy_AsStruct_Legacy(HPyContext *ctx, HPy h)")
 def HPy_AsStruct_Legacy(space, handles, ctx, h):
     w_obj = handles.deref(h)
-    if not isinstance(w_obj, W_HPyObject):
-        # XXX: write a test for this
-        raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
-    return w_obj._hpy_get_raw_storage(space)
+    storage = w_obj._hpy_get_raw_storage(space)
+    return storage
+
+@API.func("void * HPy_AsStruct_Type(HPyContext *ctx, HPy h)", error_value="CANNOT_FAIL")
+def HPy_AsStruct_Type(space, handles, ctx, h):
+    w_obj = handles.deref(h)
+    storage = w_obj._hpy_get_raw_storage(space)
+    return storage
 
 @API.func("HPy _HPy_New(HPyContext *ctx, HPy h_type, void **data)")
 def _HPy_New(space, handles, ctx, h_type, data):
@@ -527,11 +528,21 @@ def _create_new_type(
                     "%d, surrogates not allowed", pos)
     w_type = space.allocate_instance(W_HPyTypeObject, w_metaclass)
     w_type.space = space
-    w_type.hpy_storage = storage_alloc(basicsize)
-    # XXX handle tp_traverse, tp_destroy, tp_finalize
+    metasize = 0
+    try:
+        metasize = w_metaclass.basicsize
+    except AttributeError:
+        pass
+    if metasize > 0:
+        hpy_storage = storage_alloc(metasize)
+        # print "setting", hpy_storage, "on", name
+        hpy_storage.tp_traverse = w_type.tp_traverse
+        w_type._hpy_set_raw_storage(space, hpy_storage)
+    # XXX handle tp_destroy, tp_finalize
     W_HPyTypeObject.__init__(w_type,
         space, name, bases_w or [space.w_object], dict_w, basicsize, shape)
     w_type.ready()
+    # print "creating", name, "with", basicsize, 'result basicsize', w_type.basicsize, "metaclass basicsize", metasize
     return w_type
 
 def _create_instance(space, w_type, __args__=None):
@@ -627,12 +638,6 @@ def HPy_SetCallFunction(space, handles, ctx, h, func):
     w_slot = cls(HPySlot_Slot.HPy_tp_call, "__call__", cfuncptr, w_type)
     w_type.setdictvalue(space, "__call__", w_slot)
     return API.int(0)
-
-@API.func("void * HPy_AsStruct_Type(HPyContext *ctx, HPy h)", error_value="CANNOT_FAIL")
-def HPy_AsStruct_Type(space, handles, ctx, h):
-    w_obj = handles.deref(h)
-    w_type = space.type(w_obj)
-    return w_type._hpy_get_raw_storage(space)
 
 @API.func("int HPyType_IsSubtype(HPyContext *ctx, HPy sub, HPy type)", error_value="CANNOT_FAIL")
 def HPyType_IsSubtype(space, handles, ctx, sub, typ):
