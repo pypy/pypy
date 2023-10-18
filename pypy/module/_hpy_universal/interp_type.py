@@ -201,7 +201,7 @@ class W_HPyObject(W_ObjectObject):
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
         assert w_type.is_legacy
-        storage = self._hpy_get_raw_storage(space)
+        storage = self._hpy_get_raw_storage(self.space)
         return rffi.cast(PyObject, storage)
 
     def _finalize_(self):
