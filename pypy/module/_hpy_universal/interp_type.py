@@ -213,8 +213,8 @@ class W_HPyObject(W_ObjectObject):
         # XXX this is still wrong
         storage = self._hpy_get_raw_storage(self.space)
         if w_type.tp_destroy and storage:
-            w_type.tp_destroy(strorage)
-            w_type.hpy_storage = rffi.cast(rffi.VOIDP, 0)
+            w_type.tp_destroy(storage)
+            w_type.hpy_storage = lltype.nullptr(HPY_STORAGE)
 
 
 class W_HPyTypeObject(W_TypeObject):
@@ -241,10 +241,10 @@ class W_HPyTypeObject(W_TypeObject):
         if w_type.tp_finalize:
             from pypy.interpreter.argument import Arguments
             w_type.tp_finalize.call(self.space, Arguments(self.space, [self]))
-        storage = self._hpy_get_raw_storage(space)
+        storage = self._hpy_get_raw_storage(self.space)
         if w_type.tp_destroy and storage:
-            w_type.tp_destroy(strorage)
-            w_type.hpy_storage = rffi.cast(rffi.VOIDP, 0)
+            w_type.tp_destroy(storage)
+            w_type.hpy_storage = lltype.nullptr(HPY_STORAGE)
 
     def __init__(self, space, name, bases_w, dict_w, basicsize=0,
                  shape=0):
@@ -253,6 +253,7 @@ class W_HPyTypeObject(W_TypeObject):
         # when it's the case.
         W_TypeObject.__init__(self, space, name, 
             bases_w, dict_w, is_heaptype=True)
+        assert isinstance(self, W_HPyTypeObject)
         self.basicsize = basicsize
         self.shape = shape
 
@@ -529,10 +530,8 @@ def _create_new_type(
     w_type = space.allocate_instance(W_HPyTypeObject, w_metaclass)
     w_type.space = space
     metasize = 0
-    try:
+    if isinstance(w_metaclass, W_HPyTypeObject):
         metasize = w_metaclass.basicsize
-    except AttributeError:
-        pass
     if metasize > 0:
         hpy_storage = storage_alloc(metasize)
         # print "setting", hpy_storage, "on", name
@@ -580,6 +579,7 @@ def _finish_create_instance(space, w_result, w_type):
             # Can this ever happen?
             raise oefmt(space.w_TypeError, "bad call to __new__")
     # print "allocating %d for storage" % w_hpybase.basicsize
+    assert isinstance(w_hpybase, W_HPyTypeObject)
     hpy_storage = storage_alloc(w_hpybase.basicsize)
     hpy_storage.tp_traverse = w_hpybase.tp_traverse
     w_result._hpy_set_raw_storage(space, hpy_storage)
