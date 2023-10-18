@@ -455,7 +455,8 @@ class StdObjSpace(ObjSpace):
         """Allocate the memory needed for an instance of an internal or
         user-defined type, without actually __init__ializing the instance."""
         w_type = self.gettypeobject(cls.typedef)
-        if self.is_w(w_type, w_subtype):
+        from pypy.module._hpy_universal.interp_type import W_HPyTypeObject
+        if self.is_w(w_type, w_subtype) and not cls == W_HPyTypeObject:
             instance = instantiate(cls)
         elif cls.typedef.acceptable_as_base_class:
             # the purpose of the above check is to avoid the code below
