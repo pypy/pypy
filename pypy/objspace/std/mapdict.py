@@ -746,13 +746,21 @@ class MapdictHPySupport(object):
 
     def _hpy_get_raw_storage(self, space):
         # XXX move this logic to pypy.module._hpy_universal
-        from pypy.module._hpy_universal.interp_type import HPY_STORAGE, storage_get_raw_data, HPyStorageHolder
+        from pypy.module._hpy_universal.interp_type import storage_get_raw_data, HPyStorageHolder
         from rpython.rtyper.lltypesystem import rffi
         holder = self._get_mapdict_map().read(self, "hpy", SPECIAL)
         if holder is None:
             return rffi.cast(rffi.VOIDP, 0)
         assert isinstance(holder, HPyStorageHolder)
         return storage_get_raw_data(holder.storage)
+
+    def _hpy_get_gc_storage(self, space):
+        # XXX move this logic to pypy.module._hpy_universal
+        from pypy.module._hpy_universal.interp_type import HPyStorageHolder
+        from rpython.rtyper.lltypesystem import rffi
+        holder = self._get_mapdict_map().read(self, "hpy", SPECIAL)
+        assert isinstance(holder, HPyStorageHolder)
+        return holder.storage
 
     def _hpy_set_raw_storage(self, space, storage):
         from pypy.module._hpy_universal.interp_type import HPyStorageHolder

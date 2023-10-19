@@ -55,14 +55,14 @@ class UntranslatedHPyFieldStorage(object):
 _STORAGE = UntranslatedHPyFieldStorage()
 
 @jit.dont_look_inside
-def field_store_w(pf, w_target, w_value):
+def field_store_w(space, pf, w_target, w_value):
     ll_assert(isinstance(w_target, W_HPyObject), 'h_target is not a valid HPy object')
     assert isinstance(w_target, W_HPyObject)
     assert isinstance(w_value, W_Root)
     if not we_are_translated():
         _STORAGE.store_w(pf, w_value)
     else:
-        rgc.ll_writebarrier(w_target.hpy_storage)
+        rgc.ll_writebarrier(w_target._hpy_get_gc_storage(space))
         #
         gcref = rgc.cast_instance_to_gcref(w_value)
         pf[0] = rffi.cast(lltype.Signed, gcref)
@@ -88,7 +88,7 @@ def HPyField_Store(space, handles, ctx, h_target, pf, h):
         w_target = handles.deref(h_target)
         ll_assert(isinstance(w_target, W_HPyObject), 'h_target is not a valid HPy object')
         assert isinstance(w_target, W_HPyObject)
-        rgc.ll_writebarrier(w_target.hpy_storage)
+        rgc.ll_writebarrier(w_target._hpy_get_gc_storage(space))
         #
         w_obj = handles.deref(h)
         gcref = rgc.cast_instance_to_gcref(w_obj)

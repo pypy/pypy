@@ -170,19 +170,6 @@ def setup_hpy_storage():
 def check_true(s_arg, bookeeper):
     assert s_arg.const is True
 
-def w_root_raw_storage(w_obj, space):
-    # XXX unused now?
-    from rpython.rlib.debug import check_annotation
-    # make sure that translation crashes if we see this while translating
-    # without _hpy_universal
-    check_annotation(space.config.objspace.usemodules._hpy_universal, check_true)
-    # default implementation of _hpy_get_raw_storage
-    try:
-        storage = w_obj.hpy_storage
-    except AttributeError:
-        return rffi.cast(rffi.VOIDP, 0)
-    return storage_get_raw_data(storage)
-
 
 class HPyStorageHolder(W_Root):
     typedef = None

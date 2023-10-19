@@ -236,6 +236,9 @@ class W_Root(object):
     def _hpy_get_raw_storage(self, space):
         raise oefmt(space.w_SystemError, "trying to read hpy storage from wrong object of type %T", self)
 
+    def _hpy_get_gc_storage(self, space):
+        raise oefmt(space.w_SystemError, "trying to read hpy storage from wrong object of type %T", self)
+
     def _hpy_set_raw_storage(self, space, storage):
         raise oefmt(space.w_SystemError, "trying to write hpy storage into wrong object of type %T", self)
 

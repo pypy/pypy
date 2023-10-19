@@ -153,7 +153,7 @@ def member_set(w_descr, space, w_obj, w_value):
     elif kind in (Enum.HPyMember_OBJECT, Enum.HPyMember_OBJECT_EX):
         from pypy.module._hpy_universal.interp_field import field_store_w
         ptr = llapi.cts.cast("HPyField *", addr)
-        field_store_w(ptr, w_obj, w_value)
+        field_store_w(space, ptr, w_obj, w_value)
     else:
         raise oefmt(space.w_NotImplementedError, '...')
 
