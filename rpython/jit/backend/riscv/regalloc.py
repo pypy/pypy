@@ -754,7 +754,9 @@ class Regalloc(BaseRegalloc):
         if effectinfo is not None:
             oopspecindex = effectinfo.oopspecindex
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
-                assert False, 'unimplemented'
+                args = self._prepare_op_math_sqrt(op)
+                self.assembler.math_sqrt(op, args)
+                return
             elif oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
                 assert False, 'unimplemented'
         return self._prepare_call(op)

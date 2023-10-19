@@ -366,6 +366,10 @@ class OpAssembler(BaseAssembler):
     emit_op_cast_ptr_to_int = _emit_op_same_as
     emit_op_cast_int_to_ptr = _emit_op_same_as
 
+    def math_sqrt(self, op, arglocs):
+        l1, res = arglocs
+        self.mc.FSQRT_D(res.value, l1.value)
+
     def _emit_op_call(self, op, arglocs):
         is_call_release_gil = rop.is_call_release_gil(op.getopnum())
 
