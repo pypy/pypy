@@ -398,6 +398,7 @@ def _hpytype_fromspec(handles, spec, params):
     else:
         pass
 
+    has_tp_call = False
     if has_tp_slot(spec, [HPySlot_Slot.HPy_tp_call]):
         if widen(spec.c_itemsize):
             # Slot 'HPy_tp_call' will add a hidden field to
@@ -406,15 +407,7 @@ def _hpytype_fromspec(handles, spec, params):
             # itemsize != 0. */
             raise oefmt(space.w_TypeError,
                 "Cannot use HPy call protocol with var objects")
-        if basicsize == 0 and is_legacy:
-            # CPython cannot safely add the hidden field in case of a legacy
-            # type that inherits the basicsize since we don't know it.
-            # In this case, we reject to use HPy_tp_call but since it
-            # is a legacy type, legacy slot Py_tp_call can be used.
-            raise oefmt(space.w_TypeError,
-                "Cannot use HPy call protocol with legacy types that"
-                " inherit the struct. Either set the basicsize to a"
-                "non-zero value or use legacy slot 'Py_tp_call'.")
+        has_tp_call = True
     if not w_metaclass:
         w_metaclass = space.w_type
 
@@ -429,6 +422,17 @@ def _hpytype_fromspec(handles, spec, params):
         attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots, needs_hpytype_dealloc)
     if spec.c_defines:
         add_slot_defs(handles, w_result, spec)
+    if  has_tp_call and basicsize == 0 and is_legacy:
+        # This condition is really only a CPython problem.
+        #
+        # CPython cannot safely add the hidden field in case of a legacy
+        # type that inherits the basicsize since we don't know it.
+        # In this case, we reject to use HPy_tp_call but since it
+        # is a legacy type, legacy slot Py_tp_call can be used.
+        raise oefmt(space.w_TypeError,
+            "Cannot use HPy call protocol with legacy types that"
+            " inherit the struct. Either set the basicsize to a"
+            "non-zero value or use legacy slot 'Py_tp_call'.")
     check_inheritance_constraints(space, w_result)
     return handles.new(w_result)
 
@@ -490,6 +494,7 @@ def add_slot_defs(handles, w_result, spec):
         w_slot = cls(HPySlot_Slot.HPy_tp_call, "__call__", void, w_result)
         w_slot.offset = vectorcalloffset
         w_result.setdictvalue(space, "__call__", w_slot)
+
 
 def has_tp_slot(spec, slots):
     if not spec.c_defines:
