@@ -501,15 +501,6 @@ class HPyTest:
         """
         return True
 
-    def supports_refcounts(self):
-        """ Returns True if the underlying Python implementation supports
-            the vectorcall protocol.
-
-            By default, this returns True for Python version 3.8+ on all
-            implementations.
-        """
-        return sys.version_info >= (3, 8)
-
 
 class HPyDebugCapture:
     """
