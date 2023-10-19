@@ -201,7 +201,7 @@ class W_HPyObject(W_ObjectObject):
         storage = self._hpy_get_raw_storage(self.space)
         if w_type.tp_destroy and storage:
             w_type.tp_destroy(storage)
-            w_type.hpy_storage = lltype.nullptr(HPY_STORAGE)
+            self._hpy_set_raw_storage(self.space, lltype.nullptr(HPY_STORAGE))
 
 
 class W_HPyTypeObject(W_TypeObject):
@@ -231,7 +231,7 @@ class W_HPyTypeObject(W_TypeObject):
         storage = self._hpy_get_raw_storage(self.space)
         if w_type.tp_destroy and storage:
             w_type.tp_destroy(storage)
-            w_type.hpy_storage = lltype.nullptr(HPY_STORAGE)
+            self._hpy_set_raw_storage(self.space, lltype.nullptr(HPY_STORAGE))
 
     def __init__(self, space, name, bases_w, dict_w, basicsize=0,
                  shape=0):
