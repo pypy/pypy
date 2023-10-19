@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
 from rpython.jit.backend.llsupport.assembler import BaseAssembler, GuardToken
+from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import JITFRAME_FIXED_SIZE, XLEN
+from rpython.jit.backend.riscv.callbuilder import RISCVCallBuilder
 from rpython.jit.backend.riscv.codebuilder import BRANCH_BUILDER
 from rpython.jit.backend.riscv.instruction_util import check_simm21_arg
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
@@ -363,6 +365,49 @@ class OpAssembler(BaseAssembler):
     emit_op_same_as_f = _emit_op_same_as
     emit_op_cast_ptr_to_int = _emit_op_same_as
     emit_op_cast_int_to_ptr = _emit_op_same_as
+
+    def _emit_op_call(self, op, arglocs):
+        is_call_release_gil = rop.is_call_release_gil(op.getopnum())
+
+        # arglocs = [resloc, size, sign, funcloc, args...]
+        # -- or --
+        # arglocs = [resloc, size, sign, save_err_loc, funcloc, args...]
+
+        resloc = arglocs[0]
+        sizeloc = arglocs[1]
+        signloc = arglocs[2]
+        func_index = 3 + is_call_release_gil
+        funcloc = arglocs[func_index]
+
+        assert sizeloc.is_imm()
+        assert signloc.is_imm()
+
+        descr = op.getdescr()
+        assert isinstance(descr, CallDescr)
+
+        cb = RISCVCallBuilder(self, funcloc, arglocs[func_index + 1:], resloc,
+                              descr.get_result_type(), sizeloc.value)
+        cb.callconv = descr.get_call_conv()
+        cb.argtypes = descr.get_arg_types()
+        cb.restype  = descr.get_result_type()
+        cb.ressize = sizeloc.value
+        cb.ressign = signloc.value
+
+        if is_call_release_gil:
+            save_err_loc = arglocs[3]
+            assert save_err_loc.is_imm()
+            cb.emit_call_release_gil(save_err_loc.value)
+        else:
+            effectinfo = descr.get_extra_info()
+            if effectinfo is None or effectinfo.check_can_collect():
+                cb.emit()
+            else:
+                cb.emit_no_collect()
+
+    emit_op_call_i = _emit_op_call
+    emit_op_call_f = _emit_op_call
+    emit_op_call_r = _emit_op_call
+    emit_op_call_n = _emit_op_call
 
     def emit_op_load_from_gc_table(self, op, arglocs):
         res = arglocs[0]

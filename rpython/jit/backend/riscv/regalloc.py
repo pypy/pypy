@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.jump import remap_frame_layout_mixed
 from rpython.jit.backend.llsupport.regalloc import (
     BaseRegalloc, FrameManager, RegisterManager, TempVar,
@@ -13,6 +14,7 @@ from rpython.jit.backend.riscv.instruction_util import (
 from rpython.jit.backend.riscv.locations import (
     ConstFloatLoc, ImmLocation, StackLocation, get_fp_offset)
 from rpython.jit.codewriter import longlong
+from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (
     Const, ConstFloat, ConstInt, ConstPtr, FLOAT, INT, REF, TargetToken)
 from rpython.jit.metainterp.resoperation import rop
@@ -675,6 +677,92 @@ class Regalloc(BaseRegalloc):
     prepare_op_same_as_f = _prepare_op_same_as
     prepare_op_cast_ptr_to_int = _prepare_op_same_as
     prepare_op_cast_int_to_ptr = _prepare_op_same_as
+
+    def _prepare_op_math_sqrt(self, op):
+        # res = call_f(math_sqrt, arg1)
+        l1 = self.make_sure_var_in_reg(op.getarg(1))
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op)
+        return [l1, res]
+
+    def _prepare_op_threadlocalref_get(self, op):
+        # res = call_r(threadlocalref_get)
+        res = self.force_allocate_reg(op)
+        return [res]
+
+    def before_call(self, force_store=[], save_all_regs=False):
+        # Spill caller save registers.
+        self.rm.before_call(force_store=force_store,
+                            save_all_regs=save_all_regs)
+        self.fprm.before_call(force_store=force_store,
+                              save_all_regs=save_all_regs)
+
+    def after_call(self, v):
+        # Bind the return register to the variable `v`, which should hold the
+        # returned value.
+        if v.type == 'v':
+            return
+        if v.type == FLOAT:
+            return self.fprm.after_call(v)
+        else:
+            return self.rm.after_call(v)
+
+    def _call(self, op, gc_level):
+        # Spill variables that need to be saved around calls:
+        # gc_level == 0: callee cannot invoke the GC
+        # gc_level == 1: can invoke GC, save all regs that contain pointers
+        # gc_level == 2: can force, save all regs
+        save_all_regs = gc_level == 2
+        self.fprm.before_call(save_all_regs=save_all_regs)
+        if gc_level == 1 and self.cpu.gc_ll_descr.gcrootmap:
+            save_all_regs = 2
+        self.rm.before_call(save_all_regs=save_all_regs)
+        resloc = self.after_call(op)
+        return resloc
+
+    def _prepare_call(self, op, save_all_regs=False, first_arg_index=1):
+        locs = [None] * (op.numargs() + 3)
+        calldescr = op.getdescr()
+        assert isinstance(calldescr, CallDescr)
+        assert len(calldescr.arg_classes) == op.numargs() - first_arg_index
+
+        for i in range(op.numargs()):
+            locs[i + 3] = self.loc(op.getarg(i))
+
+        size = calldescr.get_result_size()
+        sign = calldescr.is_result_signed()
+        sign_loc = ImmLocation(sign)
+        locs[1] = ImmLocation(size)
+        locs[2] = sign_loc
+
+        effectinfo = calldescr.get_extra_info()
+        if save_all_regs:
+            gc_level = 2
+        elif effectinfo is None or effectinfo.check_can_collect():
+            gc_level = 1
+        else:
+            gc_level = 0
+
+        locs[0] = self._call(op, gc_level)
+        return locs
+
+    def _prepare_op_call(self, op):
+        calldescr = op.getdescr()
+        assert calldescr is not None
+        effectinfo = calldescr.get_extra_info()
+        if effectinfo is not None:
+            oopspecindex = effectinfo.oopspecindex
+            if oopspecindex == EffectInfo.OS_MATH_SQRT:
+                assert False, 'unimplemented'
+            elif oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
+                assert False, 'unimplemented'
+        return self._prepare_call(op)
+
+    prepare_op_call_i = _prepare_op_call
+    prepare_op_call_f = _prepare_op_call
+    prepare_op_call_r = _prepare_op_call
+    prepare_op_call_n = _prepare_op_call
 
     def prepare_op_load_from_gc_table(self, op):
         res = self.force_allocate_reg(op)

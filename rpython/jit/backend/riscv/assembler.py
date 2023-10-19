@@ -531,6 +531,9 @@ class AssemblerRISCV(OpAssembler):
     def _mov_fp_reg_to_loc(self, prev_loc, loc):
         if loc.is_fp_reg():
             self.mc.FMV_D(loc.value, prev_loc.value)
+        elif loc.is_core_reg():
+            assert XLEN == 8 and FLEN == 8
+            self.mc.FMV_X_D(loc.value, prev_loc.value)
         elif loc.is_stack():
             self.mc.store_float(prev_loc.value, r.jfp.value, loc.value)
         else:
@@ -542,6 +545,25 @@ class AssemblerRISCV(OpAssembler):
         elif loc.is_stack():
             self._load_fp_imm(r.f31, prev_loc)
             self.mc.store_float(r.f31.value, r.jfp.value, loc.value)
+        else:
+            assert 0, 'unsupported case'
+
+    def mov_loc_to_raw_stack(self, loc, sp_offset):
+        # Move a value to sp[sp_offset], which is usually for foreign function
+        # calls.
+        if loc.is_core_reg():
+            self.mc.store_int(loc.value, r.sp.value, sp_offset)
+        elif loc.is_stack():
+            # Move a value from JITFRAME stack to raw stack.
+            scratch_reg = r.x31
+            self.mc.load_int(scratch_reg.value, r.jfp.value, loc.value)
+            self.mc.store_int(scratch_reg.value, r.sp.value, sp_offset)
+        elif loc.is_fp_reg():
+            self.mc.store_float(loc.value, r.sp.value, sp_offset)
+        elif loc.is_imm():
+            scratch_reg = r.x31
+            self.mc.load_int_imm(scratch_reg.value, loc.value)
+            self.mc.store_int(scratch_reg.value, r.sp.value, sp_offset)
         else:
             assert 0, 'unsupported case'
 
