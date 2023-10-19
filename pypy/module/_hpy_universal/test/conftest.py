@@ -96,3 +96,10 @@ def make_hpy_apptest(collector, name, cls):
     setattr(collector.obj, appname, appcls)
     return appname
 
+@pytest.fixture(scope='class')
+def python_subprocess(request):
+    pytest.skip("no subprocess available")
+
+@pytest.fixture(scope='class')
+def fatal_exit_code(request):
+    return -1
