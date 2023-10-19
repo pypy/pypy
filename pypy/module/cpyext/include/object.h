@@ -390,6 +390,8 @@ typedef union _gc_head {
                 }                                                       \
         } while (0)
 
+/* Generic type check */
+PyAPI_FUNC(int) PyType_IsSubtype(PyTypeObject *, PyTypeObject *);
 #define PyObject_TypeCheck(ob, tp) \
     (Py_TYPE(ob) == (tp) || PyType_IsSubtype(Py_TYPE(ob), (tp)))
 
