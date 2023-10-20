@@ -1,10 +1,23 @@
 import pytest
+     
 from .support import ExtensionCompiler, DefaultExtensionTemplate,\
     PythonSubprocessRunner, HPyDebugCapture, make_hpy_abi_fixture
-from hpy.debug.leakdetector import LeakDetector
 from pathlib import Path
 
 IS_VALGRIND_RUN = False
+
+disabled = None
+try:
+    import hpy
+except ModuleNotFoundError:
+    disable = True
+
+def pytest_ignore_collect(path, config):
+    path = str(path)
+    if disabled:
+        if commonprefix([path, THIS_DIR]) == THIS_DIR:  # workaround for bug in pytest<3.0.5
+            return True
+
 
 def _pytest_addoption(parser):
     parser.addoption(
@@ -48,6 +61,7 @@ def leakdetector(hpy_abi):
     """
     Automatically detect leaks when the hpy_abi == 'debug'
     """
+    from hpy.debug.leakdetector import LeakDetector
     if 'debug' in hpy_abi:
         with LeakDetector() as ld:
             yield ld
