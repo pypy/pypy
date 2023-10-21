@@ -181,7 +181,7 @@ def PySequence_GetItem(space, w_obj, i):
             # Prevent things like 'abc'[-4] from turning into 'abc'[-1]
             # since this can end up calling space.getitem()
             raise oefmt(space.w_IndexError,
-                "%T index out of range")
+                "%T index out of range", w_obj)
     return PySequence_ITEM(space, w_obj, i)
 
 @cpython_api([PyObject], PyObject)
