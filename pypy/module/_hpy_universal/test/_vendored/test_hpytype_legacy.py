@@ -262,8 +262,7 @@ class TestLegacyType(_TestType):
     def test_legacy_class_method(self):
         mod = self.make_module("""
             @DEFINE_PointObject
-            @DEFINE_Point_new
-            static HPyDef *Point_defines[] = {&Point_new, NULL};
+            @DEFINE_Point_xy
             static PyObject * point_class_getitem(PyObject *cls, PyObject *args)
             {
                 Py_ssize_t args_len = PyTuple_Check(args) ? PyTuple_Size(args) : 1;
@@ -287,8 +286,10 @@ class TestLegacyType(_TestType):
 
             static PyType_Slot Point_slots[] = {
                 {Py_tp_methods, point_methods},
+                {Py_tp_new, (void*)PyType_GenericNew},
                 {0, NULL},
             };
+            static HPyDef *Point_defines[] = {&Point_x, &Point_y, NULL};
             static HPyType_Spec Point_spec = {
                 .name = "mytest.Point",
                 .basicsize = sizeof(PointObject),
@@ -303,6 +304,9 @@ class TestLegacyType(_TestType):
         # Calls __class_getitem__
         t = mod.Point[int]
         assert str(t) == "mytest.Point[int]"
+        pt = mod.Point()
+        assert pt.x == 0
+        assert pt.y == 0
 
 
 class TestCustomLegacyFeatures(HPyTest):

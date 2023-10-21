@@ -219,6 +219,12 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dea
                 pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
                 pytype.c_tp_dealloc = rffi.cast(destructor, funcptr)
     
+        elif slotnum == cpyts.macros['Py_tp_new']:
+            from pypy.module.cpyext.pyobject import as_pyobj
+            from pypy.module.cpyext.typeobjectdefs import newfunc
+            funcptr = slotdef.c_pfunc
+            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
+            pytype.c_tp_new = rffi.cast(newfunc, funcptr)
         else:
             attach_legacy_slot(space, w_type, slotdef, slotnum, type_name)
         i += 1
@@ -229,7 +235,8 @@ def attach_legacy_slot(space, w_type, slotdef, slotnum, type_name):
         if num == slotnum:
             if wrapper_class is None:
                 # XXX: we probably need to handle manually these slots
-                raise NotImplementedError("slot wrapper for slot %d" % num)
+                raise oefmt(space.w_NotImplementedError,
+                            "slot wrapper for slot %d %s",num, method_name)
             funcptr = slotdef.c_pfunc
             w_wrapper = wrapper_class(space, w_type, method_name, doc, funcptr, type_name)
             w_type.setdictvalue(space, method_name, w_wrapper)
