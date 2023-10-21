@@ -45,7 +45,12 @@ def attach_legacy_methods(space, pymethods, w_obj, modname, type_name):
     """
     pymethods = cpyts.cast('PyMethodDef*', pymethods)
     dict_w = {}
-    convert_method_defs(space, dict_w, pymethods, None, w_obj, modname, type_name)
+    if modname:
+        # module conversion
+        convert_method_defs(space, dict_w, pymethods, None, w_obj, modname, type_name)
+    else:
+        # type conversion
+        convert_method_defs(space, dict_w, pymethods, w_obj, w_obj, modname, type_name)
     for key, w_func in dict_w.items():
         space.setattr(w_obj, space.newtext(key), w_func)
 

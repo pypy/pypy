@@ -259,6 +259,52 @@ class TestLegacyType(_TestType):
                 @INIT
             """)
 
+    def test_legacy_class_method(self):
+        mod = self.make_module("""
+            @DEFINE_PointObject
+            @DEFINE_Point_new
+            static HPyDef *Point_defines[] = {&Point_new, NULL};
+            static PyObject * point_class_getitem(PyObject *cls, PyObject *args)
+            {
+                Py_ssize_t args_len = PyTuple_Check(args) ? PyTuple_Size(args) : 1;
+                if (args_len != 1) {
+                    return PyErr_Format(PyExc_TypeError,
+                                        "Too %s arguments for %s",
+                                        args_len > 1 ? "many" : "few",
+                                        ((PyTypeObject *)cls)->tp_name);
+                }
+                return Py_GenericAlias(cls, args);
+            }
+
+            static PyMethodDef point_methods[] = {
+                /* for typing; requires python >= 3.9 */
+                {"__class_getitem__",
+                    (PyCFunction)point_class_getitem,
+                    METH_CLASS | METH_O, NULL},
+                {NULL, NULL, 0, NULL}           /* sentinel */
+            };
+
+
+            static PyType_Slot Point_slots[] = {
+                {Py_tp_methods, point_methods},
+                {0, NULL},
+            };
+            static HPyType_Spec Point_spec = {
+                .name = "mytest.Point",
+                .basicsize = sizeof(PointObject),
+                .builtin_shape = SHAPE(PointObject),
+                .legacy_slots = Point_slots,
+                .defines = Point_defines,
+            };
+
+            @EXPORT_TYPE("Point", Point_spec)
+            @INIT
+        """)
+        # Calls __class_getitem__
+        t = mod.Point[int]
+        assert str(t) == "mytest.Point[int]"
+
+
 class TestCustomLegacyFeatures(HPyTest):
     USE_CPYEXT = True
 
