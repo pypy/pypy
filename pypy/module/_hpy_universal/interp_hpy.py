@@ -5,12 +5,11 @@ from rpython.rlib.rarithmetic import widen
 
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.error import raise_import_error
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.state import State
 from pypy.module._hpy_universal.apiset import API
-from pypy.module._hpy_universal.llapi import BASE_DIR, MODE_UNIVERSAL, MODE_DEBUG
 from pypy.module._hpy_universal.interp_module import hpymod_create, hpymod_exec_def
 
 # these imports have side effects, as they call @API.func()
@@ -81,7 +80,7 @@ def startup(space, w_mod):
     setup_hpy_storage()
     if not hasattr(space, 'is_fake_objspace'):
         # the following lines break test_ztranslation :(
-        manager = state.get_handle_manager(MODE_UNIVERSAL)
+        manager = state.get_handle_manager(llapi.MODE_UNIVERSAL)
         hpydef = llapi.HPyInit__debug()
         w_debug_mod = hpymod_create(manager, "_debug", hpydef)
         hpymod_exec_def(manager, w_debug_mod, hpydef)
@@ -91,27 +90,75 @@ def startup(space, w_mod):
 
 def load_version():
     # eval the content of _vendored/hpy/devel/version.py without importing it
-    version_py = BASE_DIR.join('version.py').read()
+    version_py = llapi.BASE_DIR.join('version.py').read()
     d = {}
     exec(version_py, d)
     return d['__version__'], d['__git_revision__']
 HPY_VERSION, HPY_GIT_REV = load_version()
 
-
-@unwrap_spec(mode=int)
-def descr_load_from_spec(space, w_spec, mode):
-    name = space.text_w(space.getattr(w_spec, space.newtext("name")))
-    origin = space.fsencode_w(space.getattr(w_spec, space.newtext("origin")))
-    return descr_load(space, name, origin, w_spec, mode=mode)
-
 @unwrap_spec(name='text', path='fsencode', debug=bool, mode=int)
 def descr_load(space, name, path, w_spec, debug=False, mode=-1):
-    hmode = MODE_DEBUG if debug else MODE_UNIVERSAL
+    hmode = llapi.MODE_DEBUG if debug else llapi.MODE_UNIVERSAL
     if mode > 0:
         hmode = mode
     w_mod = do_load(space, name, path, hmode)
     space.setattr(w_mod, space.newtext("spec"), w_spec)
     return w_mod
+
+@unwrap_spec(ext_name="text", path="fsencode")
+def descr__load_bootstrap(space, w_name, ext_name, w_package, path, w_loader, w_spec, w_env):
+    """Internal function intended to be used by the stub loader. This function
+    will honor env var 'HPY' and correctly set the attributes of the module.
+    """
+    name = space.text_w(w_name)
+    w_file = space.newtext(ext_name)
+
+    hmode = get_hpy_mode_from_environ(space, name, w_env);
+    w_mod = do_load(space, name, path, hmode)
+    space.setattr(w_mod, space.newtext("__name__"), w_name)
+    space.setattr(w_mod, space.newtext("__file__"), w_file)
+    space.setattr(w_mod, space.newtext("__loader__"), w_loader)
+    space.setattr(w_mod, space.newtext("__package__"), w_package)
+    space.setattr(w_mod, space.newtext("origin"), w_file)
+    space.setattr(w_mod, space.newtext("__spec__"), w_spec)
+
+def get_mode_from_value(value):
+    if value.startswith("universal"):
+        return llapi.MODE_UNIVERSAL
+    elif value.startswith("debug"):
+        return llapi.MODE_DEBUG
+    elif value.startswith("trace"):
+        return llapi.MODE_TRACE
+    return llapi.MODE_INVALID
+    
+def get_hpy_mode_from_environ(space, name, w_env):
+    """w_env is os.environ. w_env[HPY] is HPY_MODE
+    HPY_MODE := MODE | (MODULE_NAME ':' MODE { ',' MODULE_NAME ':' MODE })
+    MODULE_NAME := IDENTIFIER
+    MODE := 'debug' | 'trace' | 'universal'
+    """
+    try:
+        w_HPY = space.newtext("HPY")
+        try:
+            w_value = space.getitem(w_env, w_HPY)
+        except OperationError:
+            return llapi.MODE_UNIVERSAL
+        value = space.text_w(w_value)
+        res = llapi.MODE_INVALID
+        if ":" not in value:
+            res = get_mode_from_value(value)
+        pieces = value.split(",")
+        for p in pieces:
+            if ":" in p:
+                mod_name, mode = p.split(":")
+                if mod_name == name:
+                    res = get_mode_from_value(mode)
+        if res == llapi.MODE_INVALID:
+            raise oefmt(space.w_ValueError, "invalid HPY env value: %s", value)
+        return res
+    except Exception:
+        return llapi.MODE_INVALID 
+    
 
 def validate_abi_tag(space, shortname, soname, req_major_version, req_minor_version):
     i = soname.find(".hpy")
