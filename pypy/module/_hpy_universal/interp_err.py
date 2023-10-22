@@ -40,13 +40,21 @@ from .state import State
 def HPyErr_SetString(space, handles, ctx, h_exc_type, utf8):
     w_obj = _maybe_utf8_to_w(space, utf8)
     w_exc_type = handles.deref(h_exc_type)
-    raise OperationError(w_exc_type, w_obj)
+    operr = OperationError(w_exc_type, w_obj)
+    operr.record_context(space, space.getexecutioncontext())
+    state = space.fromcache(State)
+    state.set_exception(operr)
+    return 0  # HPy_NULL
 
 @API.func("HPy HPyErr_SetObject(HPyContext *ctx, HPy type, HPy value)")
 def HPyErr_SetObject(space, handles, ctx, h_exc_type, h_exc_value):
     w_exc_type = handles.deref(h_exc_type)
     w_obj = handles.deref(h_exc_value)
-    raise OperationError(w_exc_type, w_obj)
+    operr = OperationError(w_exc_type, w_obj)
+    operr.record_context(space, space.getexecutioncontext())
+    state = space.fromcache(State)
+    state.set_exception(operr)
+    return 0  # HPy_NULL
 
 @API.func("HPy HPyErr_SetFromErrnoWithFilename(HPyContext *ctx, HPy type, const char *filename)")
 def HPyErr_SetFromErrnoWithFilename(space, handles, ctx, h_exc_type, utf8):
