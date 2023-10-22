@@ -3,7 +3,7 @@ from rpython.rlib.rarithmetic import widen
 from rpython.rlib import rgc
 from rpython.rlib.unroll import unrolling_iterable
 #
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -225,6 +225,12 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dea
             funcptr = slotdef.c_pfunc
             pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
             pytype.c_tp_new = rffi.cast(newfunc, funcptr)
+        elif slotnum == cpyts.macros['Py_tp_alloc']:
+            from pypy.module.cpyext.pyobject import as_pyobj
+            from pypy.module.cpyext.typeobjectdefs import allocfunc
+            funcptr = slotdef.c_pfunc
+            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
+            pytype.c_tp_alloc = rffi.cast(allocfunc, funcptr)
         else:
             attach_legacy_slot(space, w_type, slotdef, slotnum, type_name)
         i += 1
@@ -242,4 +248,5 @@ def attach_legacy_slot(space, w_type, slotdef, slotnum, type_name):
             w_type.setdictvalue(space, method_name, w_wrapper)
             break
     else:
-        assert False, 'cannot find the slot %d' % (slotnum)
+        raise oefmt(space.w_NotImplementedError,
+            'cannot find the slot %d when creating type %s', slotnum, type_name)

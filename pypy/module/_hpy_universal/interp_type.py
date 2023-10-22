@@ -7,7 +7,7 @@ from rpython.rlib.debug import make_sure_not_resized, debug_print
 from rpython.rlib.objectmodel import specialize
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base, _check as check_is_type
 from pypy.objspace.std.objectobject import W_ObjectObject
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.typedef import interp2app
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module.cpyext.pyobject import as_pyobj, PyObject
@@ -356,7 +356,12 @@ def check_have_gc_and_tp_traverse(space, spec):
 
 @API.func("HPy HPyType_FromSpec(HPyContext *ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
 def HPyType_FromSpec(space, handles, ctx, spec, params):
-    return _hpytype_fromspec(handles, spec, params)
+    try:
+        return _hpytype_fromspec(handles, spec, params)
+    except OperationError as e:
+        # XXX NumPy does not print the error?
+        e.write_unraisable(space, "HPyType_FromSpec")
+        raise
 
 @DEBUG.func("HPy debug_HPyType_FromSpec(HPyContext *ctx, HPyType_Spec *spec, HPyType_SpecParam *params)", func_name='HPyType_FromSpec')
 def debug_HPyType_FromSpec(space, handles, ctx, spec, params):
