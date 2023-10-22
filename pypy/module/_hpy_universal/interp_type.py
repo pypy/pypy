@@ -614,8 +614,8 @@ def HPyType_GetName(space, handles, ctx, h_type):
     if isinstance(w_obj, W_TypeObject):
         s = w_obj.name
         return handles.str2ownedptr(s, owner=h_type)
-    else:
-        raise oefmt(space.w_TypeError, "non-type passed to HPyType_GetName")
+    print "non-type %s (%s) passed to HPyType_GetName" %(str(w_obj), space.text_w(space.str(w_obj)))
+    return handles.str2ownedptr("<unknown>", owner=h_type)
 
 @API.func("long HPyType_GetBuiltinShape(HPyContext *ctx, HPy type)", error_value="CANNOT_FAIL")
 def HPyType_GetBuiltinShape(space, handles, ctx, h_type):
