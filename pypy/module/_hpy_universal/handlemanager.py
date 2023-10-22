@@ -260,7 +260,7 @@ class HandleManager(AbstractHandleManager):
             self.release_callbacks[index].append(cb)
 
     def str2ownedptr(self, s, owner):
-        # Used in converting a handle to a `const char *` via a non-moving buffer
+        # Used in converting a string to a `const char *` via a non-moving buffer
         llbuf, llstring, flag = rffi.get_nonmovingbuffer_ll_final_null(s)
         cb = FreeNonMovingBuffer(llbuf, llstring, flag)
         self.attach_release_callback(owner, cb)

@@ -1,6 +1,6 @@
 from .apiset import API
 
-@API.func('HPy HPyTuple_FromArray(HPyContext *ctx, HPy items[], HPy_ssize_t n)')
+@API.func('HPy HPyTuple_FromArray(HPyContext *ctx, const HPy items[], HPy_ssize_t n)')
 def HPyTuple_FromArray(space, handles, ctx, items, n):
     items_w = [None] * n
     for i in range(n):
