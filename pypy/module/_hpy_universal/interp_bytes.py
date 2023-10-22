@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rutf8
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.module._hpy_universal.apiset import API
 
 @API.func("int HPyBytes_Check(HPyContext *ctx, HPy h)", error_value='CANNOT_FAIL')
