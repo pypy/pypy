@@ -143,7 +143,13 @@ def HPyGlobal_Load(space, handles, ctx, h_global):
     state = State.get(space)
     d_globals = state.global_handles
     if h_global not in d_globals:
-        raise oefmt(space.w_ValueError, "unknown HPyGlobal* in HPyGlobal_Load")
+        if h_global:
+            w_global = handles.deref(h_global)
+            w_s = space.repr(w_global)
+            s = space.text_w(w_s)
+        else:
+            s = "<None>"
+        raise oefmt(space.w_ValueError, "unknown HPyGlobal* in HPyGlobal_Load (%s)", s)
     return handles.new(d_globals[h_global])
 
 @API.func("void HPyGlobal_Store(HPyContext *ctx, HPyGlobal *global, HPy h)")
