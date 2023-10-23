@@ -356,12 +356,7 @@ def check_have_gc_and_tp_traverse(space, spec):
 
 @API.func("HPy HPyType_FromSpec(HPyContext *ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
 def HPyType_FromSpec(space, handles, ctx, spec, params):
-    try:
-        return _hpytype_fromspec(handles, spec, params)
-    except OperationError as e:
-        # XXX NumPy does not print the error?
-        e.write_unraisable(space, "HPyType_FromSpec")
-        raise
+    return _hpytype_fromspec(handles, spec, params)
 
 @DEBUG.func("HPy debug_HPyType_FromSpec(HPyContext *ctx, HPyType_Spec *spec, HPyType_SpecParam *params)", func_name='HPyType_FromSpec')
 def debug_HPyType_FromSpec(space, handles, ctx, spec, params):
@@ -614,7 +609,7 @@ def HPyType_GetName(space, handles, ctx, h_type):
     if isinstance(w_obj, W_TypeObject):
         s = w_obj.name
         return handles.str2ownedptr(s, owner=h_type)
-    print "non-type %s (%s) passed to HPyType_GetName" %(str(w_obj), space.text_w(space.str(w_obj)))
+    print "non-type passed to HPyType_GetName"
     return handles.str2ownedptr("<unknown>", owner=h_type)
 
 @API.func("long HPyType_GetBuiltinShape(HPyContext *ctx, HPy type)", error_value="CANNOT_FAIL")
