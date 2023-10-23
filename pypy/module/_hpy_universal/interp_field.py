@@ -86,8 +86,8 @@ def HPyField_Store(space, handles, ctx, h_target, pf, h):
         pf[0] = 0
     else:
         w_target = handles.deref(h_target)
-        ll_assert(isinstance(w_target, W_HPyObject), 'h_target is not a valid HPy object')
-        assert isinstance(w_target, W_HPyObject)
+        ll_assert(isinstance(w_target, W_HPyObject) or isinstance(w_target, W_HPyTypeObject), 'h_target is not a valid HPy object')
+        assert (isinstance(w_target, W_HPyObject) or isinstance(w_target, W_HPyTypeObject))
         rgc.ll_writebarrier(w_target._hpy_get_gc_storage(space))
         #
         w_obj = handles.deref(h)
@@ -95,8 +95,11 @@ def HPyField_Store(space, handles, ctx, h_target, pf, h):
         pf[0] = rffi.cast(lltype.Signed, gcref)
 
 @jit.dont_look_inside
-def field_load_w(f):
+def field_load_w(space, w_source, f):
     if we_are_translated():
+        ll_assert(isinstance(w_source, W_HPyObject) or isinstance(w_source, W_HPyTypeObject), 'h_target is not a valid HPy object')
+        assert (isinstance(w_source, W_HPyObject) or isinstance(w_source, W_HPyTypeObject))
+        rgc.ll_writebarrier(w_source._hpy_get_gc_storage(space))
         gcref = rffi.cast(llmemory.GCREF, f)
         w_obj = rgc.try_cast_gcref_to_instance(W_Root, gcref)
         # if w_obj is None it means that the gcref didn't contain a W_Root, but
@@ -116,11 +119,12 @@ def field_delete_w(pf):
 
 @API.func("HPy HPyField_Load(HPyContext *ctx, HPy source_object, HPyField source_field)")
 def HPyField_Load(space, handles, ctx, h_source, f):
-    w_obj = field_load_w(f)
+    w_source = handles.deref(h_source)
+    w_obj = field_load_w(space, w_source, f)
     return handles.new(w_obj)
 
 def is_hpy_object(w_obj):
-    return isinstance(w_obj, W_HPyObject)
+    return isinstance(w_obj, W_HPyObject) or isinstance(w_obj, W_HPyTypeObject)
 
 def hpy_get_referents(space, w_obj):
     """
