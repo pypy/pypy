@@ -1102,10 +1102,12 @@ class TestType(HPyTest):
             @EXPORT(create_vcall)
             @INIT
         """)
-        with pytest.raises(TypeError):
+        with pytest.raises(TypeError) as err:
             mod.create_var_type()
-        with pytest.raises(TypeError):
+        assert "Cannot use HPy call protocol with var" in str(err.value)
+        with pytest.raises(TypeError) as err:
             mod.create_call_and_vectorcalloffset_type()
+        assert "Cannot have HPy_tp_call and explicit member" in str(err.value)
 
     def test_call_explicit_offset(self):
         mod = self.make_module("""
@@ -1483,7 +1485,7 @@ class TestType(HPyTest):
             mod.create_type("mytest.DummyIntMeta", int)
 
     def test_get_name(self):
-        import array
+        import struct
         mod = self.make_module("""
             static HPyType_Spec Dummy_spec = {
                 .name = "mytest.Dummy",
@@ -1508,7 +1510,7 @@ class TestType(HPyTest):
         assert mod.Dummy.__name__ == "Dummy"
         assert mod.get_name(mod.Dummy) == "Dummy"
         assert mod.get_name(str) == "str"
-        assert mod.get_name(array.array) == "array"
+        assert mod.get_name(struct.Struct) == "Struct"
 
     def test_issubtype(self):
         mod = self.make_module("""
