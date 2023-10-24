@@ -56,7 +56,7 @@ _HPy_HIDDEN void ctx_TupleBuilder_Cancel(HPyContext *ctx,
                                          HPyTupleBuilder builder);
 
 // ctx_tuple.c
-_HPy_HIDDEN HPy ctx_Tuple_FromArray(HPyContext *ctx, HPy items[], HPy_ssize_t n);
+_HPy_HIDDEN HPy ctx_Tuple_FromArray(HPyContext *ctx, const HPy items[], HPy_ssize_t n);
 
 // ctx_capsule.c
 _HPy_HIDDEN HPy ctx_Capsule_New(HPyContext *ctx,
