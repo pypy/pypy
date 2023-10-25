@@ -572,9 +572,10 @@ def _finish_create_instance(space, w_result, w_type):
             raise oefmt(space.w_TypeError, "bad call to __new__")
     # print "allocating %d for storage" % w_hpybase.basicsize
     assert isinstance(w_hpybase, W_HPyTypeObject)
-    hpy_storage = storage_alloc(w_hpybase.basicsize)
-    hpy_storage.tp_traverse = w_hpybase.tp_traverse
-    w_result._hpy_set_raw_storage(space, hpy_storage)
+    if w_hpybase.basicsize > 0:
+        hpy_storage = storage_alloc(w_hpybase.basicsize)
+        hpy_storage.tp_traverse = w_hpybase.tp_traverse
+        w_result._hpy_set_raw_storage(space, hpy_storage)
     if w_hpybase.tp_destroy or w_hpybase.tp_finalize:
         w_result.register_finalizer(space)
     if w_hpybase.has_tp_dealloc:
