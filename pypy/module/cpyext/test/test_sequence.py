@@ -345,7 +345,7 @@ class AppTestSequenceObject(AppTestCpythonExtensionBase):
 
         assert module.test_fast_sequence(Map()) is True
 
-    def test_getitem(self):
+    def test_getitem_c(self):
         module = self.import_extension('foo', [
             ("dict_assignment", "METH_VARARGS",
              """
@@ -382,5 +382,6 @@ class AppTestSequenceObject(AppTestCpythonExtensionBase):
         assert a[12] == 42
         assert module.test_get_item(a, 0) == 42
         assert module.test_get_item(b'a', 0) == ord('a')
-        raises(IndexError, module.test_get_item, b'a', -2)
+        e = raises(IndexError, module.test_get_item, b'a', -2)
+        assert "bytes index out of range" in str(e.value)
         raises(IndexError, module.test_get_item, b'a', 1)

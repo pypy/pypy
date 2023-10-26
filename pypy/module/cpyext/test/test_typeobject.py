@@ -2217,17 +2217,15 @@ class AppTestFlags(AppTestCpythonExtensionBase):
 
     def test_heaptype_metaclass(self):
         # Taken from https://github.com/wjakob/pypy_issues at commit 03890103
-        import gc
+        # Fixed so both cases pass in 769acaa69cfe, issue 4013_
         module = self.import_module(name='nanobind1', filename="nanobind1")
         # 2 vs 3 shenanigans to declare
         # class X(object, metaclass=module.metaclass): pass
         X = module.metaclass_good('X', (object,), {})
         x = X()
 
-        import sys
-        if '__pypy__' in sys.builtin_module_names:
-            exc = raises(SystemError, module.metaclass_bad, 'X', (object,), {})
-            assert 'tp_itemsize' in str(exc.value)
+        X = module.metaclass_bad('X', (object,), {})
+        x = X()
 
     def test_vectorcall2(self):
         # Taken from https://github.com/wjakob/pypy_issues at commit 03890103

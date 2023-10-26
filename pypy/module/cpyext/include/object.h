@@ -292,7 +292,7 @@ given type object has a specified feature.
 /* Type structure has tp_finalize member (3.4) */
 #define Py_TPFLAGS_HAVE_FINALIZE (1UL << 0)
 
-PyAPI_FUNC(long) PyType_GetFlags(PyTypeObject*);
+PyAPI_FUNC(unsigned long) PyType_GetFlags(PyTypeObject*);
 
 #ifdef Py_LIMITED_API
 #define PyType_HasFeature(t,f)  ((PyType_GetFlags(t) & (f)) != 0)
@@ -339,6 +339,8 @@ PyAPI_FUNC(const char *) _PyType_Name(PyTypeObject *);
 
 
 PyAPI_FUNC(PyObject *) PyType_GenericAlloc(PyTypeObject *, Py_ssize_t);
+PyAPI_FUNC(PyObject *) PyType_GenericNew(PyTypeObject *,
+                                               PyObject *, PyObject *);
 
 /*
 #define PyObject_NEW(type, typeobj) \
@@ -388,6 +390,8 @@ typedef union _gc_head {
                 }                                                       \
         } while (0)
 
+/* Generic type check */
+PyAPI_FUNC(int) PyType_IsSubtype(PyTypeObject *, PyTypeObject *);
 #define PyObject_TypeCheck(ob, tp) \
     (Py_TYPE(ob) == (tp) || PyType_IsSubtype(Py_TYPE(ob), (tp)))
 

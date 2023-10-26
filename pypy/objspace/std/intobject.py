@@ -707,7 +707,7 @@ class W_IntObject(W_AbstractIntObject):
             return w_base.descr_pow(space, self, w_modulus)
         elif isinstance(w_base, W_AbstractIntObject):
             self = self.as_w_long(space)
-            return self.descr_rpow(space, self, w_modulus)
+            return self.descr_rpow(space, w_base, w_modulus)
         return space.w_NotImplemented
 
     def _make_descr_cmp(opname):

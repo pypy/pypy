@@ -655,8 +655,9 @@ SYMBOLS_C = [
     'PyTraceMalloc_Track', 'PyTraceMalloc_Untrack',
     'PyBytes_FromFormat', 'PyBytes_FromFormatV',
 
-    'PyType_FromSpec', 'PyType_GetModule', 'PyType_GetModuleState',
-    'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
+    'PyType_FromSpec', 'PyType_GetModule', 'PyType_GetModuleState', 'PyType_IsSubtype',
+    'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del',
+    'PyType_GenericAlloc', 'PyType_GenericNew',
     '_PyObject_New', '_PyObject_NewVar',
     '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar',
@@ -1246,6 +1247,10 @@ def attach_c_functions(space, eci, prefix):
         compilation_info=eci, _nowrapper=True)
     state.C.tuple_new = rffi.llexternal(
         mangle_name(prefix, '_Py_tuple_new'),
+        [PyTypeObjectPtr, PyObject, PyObject], PyObject,
+        compilation_info=eci, _nowrapper=True)
+    state.C.PyType_GenericNew = rffi.llexternal(
+        mangle_name(prefix, 'PyType_GenericNew'),
         [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
     if we_are_translated():

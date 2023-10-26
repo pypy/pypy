@@ -678,9 +678,13 @@ def type_alloc(typedescr, space, w_metatype, itemsize=0):
         if not flags & Py_TPFLAGS_HEAPTYPE:
             decref(space, metatype)
 
+    # Follow the logic in _PyObject_VAR_SIZE, allocate at least 1 itemsize
+    # see test_heaptype_metaclass, the metaclass_bad type has tp_itemsize
+    # instead of tp_basicsize
     basicsize = max(rffi.sizeof(PyHeapTypeObject.TO), metatype.c_tp_basicsize)
+    extra_size = metatype.c_tp_itemsize
     heaptype = lltype.malloc(rffi.VOIDP.TO,
-                             basicsize,
+                             basicsize + extra_size,
                              flavor='raw', zero=True,
                              add_memory_pressure=True)
     heaptype = rffi.cast(PyHeapTypeObject, heaptype)
@@ -784,6 +788,30 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         decref(space, base_object_pyo)
     pto.c_tp_flags = rffi.cast(rffi.ULONG, widen(pto.c_tp_flags) | Py_TPFLAGS_READY)
     return pto
+
+def type_reattach(space, w_type):
+    """Called when the w_type base class or bases has been changed, need to
+    re-assign many c slots
+    """
+
+    pto = rffi.cast(PyTypeObjectPtr, w_type._cpyext_as_pyobj(space))
+    w_base = best_base(space, w_type.bases_w)
+    pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
+    finish_type_1(space, pto, w_type.bases_w)
+    finish_type_2(space, pto, w_type)
+
+    typedescr = get_typedescr(w_type.layout.typedef)
+    pto.c_tp_basicsize = rffi.sizeof(typedescr.basestruct)
+    if pto.c_tp_base:
+        if pto.c_tp_base.c_tp_basicsize > pto.c_tp_basicsize:
+            pto.c_tp_basicsize = pto.c_tp_base.c_tp_basicsize
+        if pto.c_tp_itemsize < pto.c_tp_base.c_tp_itemsize:
+            pto.c_tp_itemsize = pto.c_tp_base.c_tp_itemsize
+
+    if w_type.is_heaptype():
+        update_all_slots(space, w_type, pto)
+    else:
+        update_all_slots_builtin(space, w_type, pto)
 
 def py_type_ready(space, pto):
     if widen(pto.c_tp_flags) & Py_TPFLAGS_READY:
@@ -1001,19 +1029,6 @@ def finish_type_2(space, pto, w_obj):
     # pass in the w_obj to convert any values that are
     # unbound GetSetProperty into bound PyGetSetDescrObject
     pto.c_tp_dict = make_ref(space, w_dict, w_obj)
-
-@cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
-def PyType_IsSubtype(space, a, b):
-    """Return true if a is a subtype of b.
-    """
-    w_type1 = from_ref(space, rffi.cast(PyObject, a))
-    w_type2 = from_ref(space, rffi.cast(PyObject, b))
-    return int(abstract_issubclass_w(space, w_type1, w_type2)) #XXX correct?
-
-@cpython_api([PyTypeObjectPtr, PyObject, PyObject], PyObject)
-def PyType_GenericNew(space, type, w_args, w_kwds):
-    return generic_cpy_call(
-        space, type.c_tp_alloc, type, 0)
 
 def _parse_typeslots():
     slots_hdr = CTypeSpace()

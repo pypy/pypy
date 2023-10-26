@@ -234,11 +234,14 @@ def create_ref(space, w_obj, w_userdata=None, immortal=False):
             itemcount = space.len_w(w_obj)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
-                raise oefmt(space.w_SystemError,
-                            "cpyext: Failure to allocate '%N' (with a non-zero "
-                            "tp_itemsize) when len(obj) cannot be calculated",
-                            w_type)
-            raise
+                # issue 4013: is this correct?
+                itemcount = 0
+                # raise oefmt(space.w_SystemError,
+                #            "cpyext: Failure to allocate '%N' (with a non-zero "
+                #            "tp_itemsize) when len(obj) cannot be calculated",
+                #            w_type)
+            else:
+                raise
     else:
         itemcount = 0
     py_obj = typedescr.allocate(space, w_type, itemcount=itemcount, immortal=immortal)
