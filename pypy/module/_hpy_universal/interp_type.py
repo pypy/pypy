@@ -524,16 +524,20 @@ def _create_new_type(
     metasize = 0
     if isinstance(w_metaclass, W_HPyTypeObject):
         metasize = w_metaclass.basicsize
+    elif w_metaclass.is_cpytype():
+        from pypy.module.cpyext.pyobject import make_ref, cts
+        pyobj = make_ref(space, w_metaclass)
+        pytype = cts.cast("PyTypeObject*", pyobj)
+        metasize = pytype.c_tp_basicsize
     if metasize > 0:
         hpy_storage = storage_alloc(metasize)
-        # print "setting", hpy_storage, "on", name
         hpy_storage.tp_traverse = w_type.tp_traverse
         w_type._hpy_set_raw_storage(space, hpy_storage)
     # XXX handle tp_destroy, tp_finalize
     W_HPyTypeObject.__init__(w_type,
         space, name, bases_w or [space.w_object], dict_w, basicsize, shape)
     w_type.ready()
-    # print "creating", name, "with", basicsize, 'result basicsize', w_type.basicsize, "metaclass basicsize", metasize
+    # print "creating", name, "with", basicsize, 'result basicsize', w_type.basicsize, "metaclass", w_metaclass.name, "basicsize", metasize
     return w_type
 
 def _create_instance(space, w_type, __args__=None):
@@ -610,14 +614,16 @@ def HPyType_GetName(space, handles, ctx, h_type):
     if isinstance(w_obj, W_TypeObject):
         s = w_obj.name
         return handles.str2ownedptr(s, owner=h_type)
-    print "non-type passed to HPyType_GetName"
+    # print "non-type passed to HPyType_GetName"
     return handles.str2ownedptr("<unknown>", owner=h_type)
 
 @API.func("long HPyType_GetBuiltinShape(HPyContext *ctx, HPy type)", error_value="CANNOT_FAIL")
 def HPyType_GetBuiltinShape(space, handles, ctx, h_type):
     w_obj = handles.deref(h_type)
-    if isinstance(w_obj, W_HPyTypeObject):
-        return w_obj.shape
+    if w_obj.is_cpytype():
+        return -1 # HPyTYpe_BuiltinShape_Legacy
+    # if isinstance(w_obj, W_HPyTypeObject):
+    #    return w_obj.shape
     # XXX FIXME
     return 0
 

@@ -150,7 +150,6 @@ class TestLegacyType(_TestType):
             mod = self.make_module(mod_src)
         assert "legacy tp_dealloc" in str(err.value)
 
-    @pytest.mark.skip("segfaults")
     def test_metaclass_as_legacy_static_type(self):
         mod = self.make_module("""
             #include <Python.h>
