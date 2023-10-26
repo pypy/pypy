@@ -622,8 +622,8 @@ def HPyType_GetBuiltinShape(space, handles, ctx, h_type):
     w_obj = handles.deref(h_type)
     if w_obj.is_cpytype():
         return -1 # HPyTYpe_BuiltinShape_Legacy
-    # if isinstance(w_obj, W_HPyTypeObject):
-    #    return w_obj.shape
+    if isinstance(w_obj, W_HPyTypeObject):
+        return w_obj.shape
     # XXX FIXME
     return 0
 
