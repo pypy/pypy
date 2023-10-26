@@ -292,8 +292,8 @@ class EnvBuilder:
                         os.mkdir(libdst)
                     with open(deps_file, encoding="utf-8") as fid:
                         for f in fid:
-                            src = os.path.join(libsrc, f)
-                            dst = os.path.join(libdst, f)
+                            src = os.path.join(libsrc, f.strip())
+                            dst = os.path.join(libdst, f.strip())
                             if os.path.exists(src):
                                 if os.path.exists(dst):
                                     # skip directories when upgrading
