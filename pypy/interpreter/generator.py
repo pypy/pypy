@@ -602,6 +602,7 @@ class AsyncGenerator(GeneratorOrCoroutine):
 
     def __init__(self, frame, name=None, qualname=None):
         self.hooks_inited = False
+        self.ag_running = False
         GeneratorOrCoroutine.__init__(self, frame, name, qualname)
 
     def init_hooks(self):
@@ -662,7 +663,7 @@ AsyncGenerator.typedef = TypeDef("async_generator",
                             descrmismatch='__aiter__'),
     __anext__  = interp2app(AsyncGenerator.descr__anext__,
                             descrmismatch='__anext__'),
-    ag_running = interp_attrproperty('running', cls=AsyncGenerator, wrapfn="newbool"),
+    ag_running = interp_attrproperty('ag_running', cls=AsyncGenerator, wrapfn="newbool"),
     ag_frame   = GetSetProperty(AsyncGenerator.descr_gicr_frame),
     ag_code    = interp_attrproperty_w('pycode', cls=AsyncGenerator),
     ag_await=GetSetProperty(AsyncGenerator.descr_delegate),
@@ -718,6 +719,7 @@ class AsyncGenABase(W_Root):
         if isinstance(w_value, AsyncGenValueWrapper):
             w_value = self.space.call_function(self.space.w_StopIteration,
                                                w_value.w_value)
+            self.async_gen.ag_running = False
             raise OperationError(self.space.w_StopIteration, w_value)
         else:
             return w_value
@@ -750,11 +752,16 @@ class AsyncGenASend(AsyncGenABase):
             if space.is_w(w_arg_or_err, space.w_None):
                 w_arg_or_err = self.w_value_to_send
             self.state = self.ST_ITER
+            if self.async_gen.ag_running:
+                raise oefmt(space.w_RuntimeError,
+                    "asynchronous generator is already running")
+            self.async_gen.ag_running = True
 
         try:
             w_value = self.async_gen.send_ex(w_arg_or_err)
             return self.unwrap_value(w_value)
         except OperationError as e:
+            self.async_gen.ag_running = False
             self.state = self.ST_CLOSED
             raise
 
@@ -769,6 +776,7 @@ class AsyncGenASend(AsyncGenABase):
             w_value = self.async_gen.throw(w_type, w_val, w_tb)
             return self.unwrap_value(w_value)
         except OperationError as e:
+            self.async_gen.ag_running = False
             self.state = self.ST_CLOSED
             raise
 

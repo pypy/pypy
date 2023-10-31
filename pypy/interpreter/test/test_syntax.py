@@ -98,6 +98,14 @@ INVALID = splitcases("""
         yield
         return 42
 
+    async def foo():
+        return (yield 1)
+
+    async def foo():
+        if a:
+            return 42
+        yield
+
 """)
 
 

@@ -712,6 +712,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(self._binop(binop.op))
 
     def visit_Return(self, ret):
+        if ret.value is not None and self.scope.is_coroutine and self.scope.is_generator:
+            self.error("'return' with value in async generator", ret)
         preserve_tos = ret.value is not None and not isinstance(ret.value, ast.Constant)
         if preserve_tos:
             ret.value.walkabout(self)

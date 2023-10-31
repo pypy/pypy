@@ -758,6 +758,9 @@ PyAPI_FUNC(PyObject *) _PyType_GetModuleByDef(PyTypeObject *, struct PyModuleDef
         Py_DECREF(_py_tmp);                     \
     } while (0)
 
+/* Generic type check */
+PyAPI_FUNC(int) PyType_IsSubtype(PyTypeObject *, PyTypeObject *);
+
 #define Py_XSETREF(op, op2)                     \
     do {                                        \
         PyObject *_py_tmp = _PyObject_CAST(op); \

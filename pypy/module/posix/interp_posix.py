@@ -966,10 +966,14 @@ def strerror(space, code):
 def getlogin(space):
     """Return the currently logged in user."""
     try:
-        cur = os.getlogin()
+        if _WIN32:
+            cur = rwin32.getlogin()
+        else:
+            cur = os.getlogin()
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
     return space.newfilename(cur)
+           
 
 # ____________________________________________________________
 
@@ -2185,7 +2189,15 @@ def getppid(space):
 
     Return the parent's process id.
     """
-    return space.newint(os.getppid())
+    if not _WIN32:
+        return space.newint(os.getppid())
+    else:
+        from pypy.module.posix.interp_nt import win32_getppid
+        try:
+            return space.newint(win32_getppid())
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+    return space.w_None
 
 @unwrap_spec(pid=c_int)
 def getpgid(space, pid):

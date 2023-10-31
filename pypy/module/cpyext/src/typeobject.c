@@ -13,7 +13,6 @@ PyType_FromSpec(PyType_Spec *spec)
 
 #ifdef CPYEXT_TESTS
 #define _Py_subtype_dealloc _cpyexttest_subtype_dealloc
-#define PyType_IsSubtype cpyexttestType_IsSubtype
 #ifdef __GNUC__
 __attribute__((visibility("default")))
 #else
@@ -21,7 +20,6 @@ __declspec(dllexport)
 #endif
 #else  /* CPYEXT_TESTS */
 #define _Py_subtype_dealloc _PyPy_subtype_dealloc
-#define PyType_IsSubtype PyPyType_IsSubtype
 #endif  /* CPYEXT_TESTS */
 void
 _Py_subtype_dealloc(PyObject *obj)
@@ -79,6 +77,16 @@ type_is_subtype_base_chain(PyTypeObject *a, PyTypeObject *b)
     return (b == &PyBaseObject_Type);
 }
 
+#ifdef CPYEXT_TESTS
+#define PyType_IsSubtype cpyexttestType_IsSubtype
+#ifdef __GNUC__
+__attribute__((visibility("default")))
+#else
+__declspec(dllexport)
+#endif
+#else  /* CPYEXT_TESTS */
+#define PyType_IsSubtype PyPyType_IsSubtype
+#endif  /* CPYEXT_TESTS */
 int
 PyType_IsSubtype(PyTypeObject *a, PyTypeObject *b)
 {
