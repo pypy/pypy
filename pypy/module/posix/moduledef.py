@@ -51,6 +51,8 @@ corresponding Unix manual entries for more information on calls."""
         'stat': 'interp_posix.stat',
         'lstat': 'interp_posix.lstat',
         'stat_float_times': 'interp_posix.stat_float_times',
+        'getlogin': 'interp_posix.getlogin',
+        'getppid': 'interp_posix.getppid',
 
         'dup': 'interp_posix.dup',
         'dup2': 'interp_posix.dup2',
@@ -159,8 +161,6 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['mknod'] = 'interp_posix.mknod'
     if hasattr(os, 'nice'):
         interpleveldefs['nice'] = 'interp_posix.nice'
-    if hasattr(os, 'getlogin'):
-        interpleveldefs['getlogin'] = 'interp_posix.getlogin'
     if hasattr(os, 'ctermid'):
         interpleveldefs['ctermid'] = 'interp_posix.ctermid'
     if hasattr(rposix, 'sched_rr_get_interval'):
@@ -175,7 +175,7 @@ corresponding Unix manual entries for more information on calls."""
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
                  'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp',
-                 'setpgrp', 'getppid', 'getpgid', 'setpgid', 'setreuid',
+                 'setpgrp', 'getpgid', 'setpgid', 'setreuid',
                  'setregid', 'getsid', 'setsid', 'fstatvfs', 'statvfs',
                  'setgroups', 'initgroups', 'tcgetpgrp', 'tcsetpgrp',
                  'getresuid', 'getresgid', 'setresuid', 'setresgid']:
