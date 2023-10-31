@@ -16,12 +16,13 @@ def HPyLong_FromUInt32_t(space, handles, ctx, v):
     w_obj = space.newlong_from_rarith_int(v)
     return handles.new(w_obj)
 
-@API.func("HPy HPyLong_FromInt64_t(HPyContext *ctx, long v)")
+# On windows, long is 4 bytes, on all platforms long long is 8
+@API.func("HPy HPyLong_FromInt64_t(HPyContext *ctx, long long v)")
 def HPyLong_FromInt64_t(space, handles, ctx, v):
     w_obj = space.newlong_from_rarith_int(v)
     return handles.new(w_obj)
 
-@API.func("HPy HPyLong_FromUInt64_t(HPyContext *ctx, unsigned long v)")
+@API.func("HPy HPyLong_FromUInt64_t(HPyContext *ctx, unsigned long long v)")
 def HPyLong_FromUInt64_t(space, handles, ctx, v):
     w_obj = space.newlong_from_rarith_int(v)
     return handles.new(w_obj)
