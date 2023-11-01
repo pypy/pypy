@@ -1,7 +1,7 @@
 #pragma once
 
 #ifdef _WIN32
-#define intptr_t long // XXX windows VC++ 2008 lacks stdint.h
+#include <stdint.h>
 #else
 #include <unistd.h>
 #endif
