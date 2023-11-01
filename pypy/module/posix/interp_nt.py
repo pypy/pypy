@@ -5,6 +5,7 @@ from rpython.rlib.rwin32file import make_win32_traits
 from rpython.rlib._os_support import UnicodeTraits
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.rposix import get_saved_errno
 
 
 # XXX: pypy_GetFinalPathNameByHandle is needed to call the dynamically
@@ -20,18 +21,51 @@ pypy_GetFinalPathNameByHandle(FARPROC address, HANDLE hFile,
     *(FARPROC*)&func = address;
     return func(hFile, lpszFilePath, cchFilePath, dwFlags);
 }
+
+DWORD
+pypy_Getppid()
+    /* Copied from CPython win32_getppid */
+{
+    HANDLE snapshot;
+    DWORD mypid;
+    DWORD result = (DWORD)(-1);
+    BOOL have_record;
+    PROCESSENTRY32 pe;
+
+    mypid = getpid(); /* This function never fails */
+
+    snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == INVALID_HANDLE_VALUE)
+        return (DWORD)(-1);
+    pe.dwSize = sizeof(pe);
+    have_record = Process32First(snapshot, &pe);
+    while (have_record) {
+        if (mypid == pe.th32ProcessID) {
+            result = pe.th32ParentProcessID;
+            break;
+        }
+        have_record = Process32Next(snapshot, &pe);
+    }
+    CloseHandle(snapshot);
+    return result;
+}    
 """
 eci = ExternalCompilationInfo(
-    includes=['windows.h'],
+    includes=['windows.h', 'tlhelp32.h'],
     include_dirs=[cdir],
     post_include_bits=[
         "RPY_EXTERN DWORD "
-        "pypy_GetFinalPathNameByHandle(FARPROC, HANDLE, LPTSTR, DWORD, DWORD);"],
+        "pypy_GetFinalPathNameByHandle(FARPROC, HANDLE, LPTSTR, DWORD, DWORD);",
+        "RPY_EXTERN DWORD ",
+        "pypy_Getppid();",
+    ],
     separate_module_sources=[separate_module_source])
 pypy_GetFinalPathNameByHandle = rffi.llexternal(
     'pypy_GetFinalPathNameByHandle',
     [rffi.VOIDP, rwin32.HANDLE, rffi.CWCHARP, rwin32.DWORD, rwin32.DWORD],
     rwin32.DWORD, compilation_info=eci)
+pypy_Getppid = rffi.llexternal(
+    'pypy_Getppid', [], rwin32.DWORD, compilation_info=eci)
 
 
 # plain NotImplementedError is invalid RPython
@@ -134,3 +168,10 @@ def make__getfinalpathname_impl(traits):
 
 _getfileinformation = make__getfileinformation_impl(UnicodeTraits())
 _getfinalpathname = make__getfinalpathname_impl(UnicodeTraits())
+
+
+def win32_getppid():
+    ret = pypy_Getppid()
+    if ret == rffi.cast(rwin32.DWORD, -1):
+        raise OSError(get_saved_errno(), 'getppid failed')
+    return ret

@@ -1907,9 +1907,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         self.root_walker.finished_minor_collection()
         #
-        debug_stop("gc-minor")
         duration = time.time() - start
         self.total_gc_time += duration
+        debug_print("time taken:", duration)
+        debug_stop("gc-minor")
         self.hooks.fire_gc_minor(
             duration=duration,
             total_memory_used=total_memory_used,
@@ -2562,9 +2563,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             ll_assert(False, "bogus gc_state")
 
         debug_print("stopping, now in gc state: ", GC_STATES[self.gc_state])
-        debug_stop("gc-collect-step")
         duration = time.time() - start
         self.total_gc_time += duration
+        debug_print("time taken: ", duration)
+        debug_stop("gc-collect-step")
         self.hooks.fire_gc_collect_step(
             duration=duration,
             oldstate=oldstate,

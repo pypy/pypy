@@ -1052,6 +1052,10 @@ def descr_set__bases__(space, w_type, w_value):
         for w_subclass in w_type.get_subclasses():
             if isinstance(w_subclass, W_TypeObject):
                 w_subclass._version_tag = None
+    if space.config.objspace.usemodules.cpyext and bool(w_type._cpyext_as_pyobj(space)):
+        # issue #3976: recalculate the related C structure fields
+        from pypy.module.cpyext.typeobject import type_reattach
+        type_reattach(space, w_type)
 
 def descr__base(space, w_type):
     w_type = _check(space, w_type)

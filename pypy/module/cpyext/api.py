@@ -655,7 +655,7 @@ SYMBOLS_C = [
     'PyTraceMalloc_Track', 'PyTraceMalloc_Untrack',
     'PyBytes_FromFormat', 'PyBytes_FromFormatV',
 
-    'PyType_FromSpec', 'PyType_GetModule', 'PyType_GetModuleState',
+    'PyType_FromSpec', 'PyType_GetModule', 'PyType_GetModuleState', 'PyType_IsSubtype',
     'Py_IncRef', 'Py_DecRef', 'PyObject_Free', 'PyObject_GC_Del',
     'PyType_GenericAlloc', 'PyType_GenericNew',
     '_PyObject_New', '_PyObject_NewVar',

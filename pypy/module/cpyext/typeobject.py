@@ -789,6 +789,30 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     pto.c_tp_flags = rffi.cast(rffi.ULONG, widen(pto.c_tp_flags) | Py_TPFLAGS_READY)
     return pto
 
+def type_reattach(space, w_type):
+    """Called when the w_type base class or bases has been changed, need to
+    re-assign many c slots
+    """
+
+    pto = rffi.cast(PyTypeObjectPtr, w_type._cpyext_as_pyobj(space))
+    w_base = best_base(space, w_type.bases_w)
+    pto.c_tp_base = rffi.cast(PyTypeObjectPtr, make_ref(space, w_base))
+    finish_type_1(space, pto, w_type.bases_w)
+    finish_type_2(space, pto, w_type)
+
+    typedescr = get_typedescr(w_type.layout.typedef)
+    pto.c_tp_basicsize = rffi.sizeof(typedescr.basestruct)
+    if pto.c_tp_base:
+        if pto.c_tp_base.c_tp_basicsize > pto.c_tp_basicsize:
+            pto.c_tp_basicsize = pto.c_tp_base.c_tp_basicsize
+        if pto.c_tp_itemsize < pto.c_tp_base.c_tp_itemsize:
+            pto.c_tp_itemsize = pto.c_tp_base.c_tp_itemsize
+
+    if w_type.is_heaptype():
+        update_all_slots(space, w_type, pto)
+    else:
+        update_all_slots_builtin(space, w_type, pto)
+
 def py_type_ready(space, pto):
     if widen(pto.c_tp_flags) & Py_TPFLAGS_READY:
         return
@@ -1005,14 +1029,6 @@ def finish_type_2(space, pto, w_obj):
     # pass in the w_obj to convert any values that are
     # unbound GetSetProperty into bound PyGetSetDescrObject
     pto.c_tp_dict = make_ref(space, w_dict, w_obj)
-
-@cpython_api([PyTypeObjectPtr, PyTypeObjectPtr], rffi.INT_real, error=CANNOT_FAIL)
-def PyType_IsSubtype(space, a, b):
-    """Return true if a is a subtype of b.
-    """
-    w_type1 = from_ref(space, rffi.cast(PyObject, a))
-    w_type2 = from_ref(space, rffi.cast(PyObject, b))
-    return int(abstract_issubclass_w(space, w_type1, w_type2)) #XXX correct?
 
 def _parse_typeslots():
     slots_hdr = CTypeSpace()
