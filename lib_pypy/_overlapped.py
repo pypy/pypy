@@ -1,7 +1,7 @@
 """
 Support routines for overlapping io.
 Currently, this extension module is only required when using the
-modules on Windows.
+modules on Windows. It is used in asyncio
 """
 
 import sys
@@ -177,6 +177,10 @@ def initiailize_function_ptrs():
 
 initiailize_function_ptrs()
 
+# This is the class used in asyncio. It is different than the one used
+# in multiprocessing, which is in _winapi. See
+# https://github.com/python/cpython/issues/64613 for a tiny discussion of
+# merging the two
 
 class Overlapped(object):
     def __init__(self, event=_ffi.NULL):
