@@ -43,7 +43,7 @@ def print_CalledProcessError(p):
 
 @pytest.fixture(scope='session')
 def venv_template(request, tmpdir_factory):
-    if request.config.option.reuse_venv:
+    if getattr(request.config.option, "reuse_venv", False):
         d = py.path.local('/tmp/venv-for-hpytest')
         if d.check(dir=True):
             # if it exists, we assume it's correct. If you want to recreate,
