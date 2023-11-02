@@ -58,8 +58,9 @@ def venv_template(request, tmpdir_factory):
     # after we clone the template. Yes, we could try to fix the shebangs, but
     # it's just easier to use e.g. python -m pip
     attach_python_to_venv(d)
+    keep = ['python', 'pypy', 'lib']
     for script in d.bin.listdir():
-        if script.basename.startswith('python'):
+        if any([script.basename.startswith(k) for k in keep]):
             continue
         script.remove()
     #
@@ -69,11 +70,11 @@ def venv_template(request, tmpdir_factory):
             check=True,
             capture_output=True,
         )
-        atomic_run(
-            [str(d.python), '-m', 'pip', 'install', str(HPY_ROOT)],
-            check=True,
-            capture_output=True,
-        )
+        # atomic_run(
+        #     [str(d.python), '-m', 'pip', 'install', str(HPY_ROOT)],
+        #     check=True,
+        #     capture_output=True,
+        # )
     except subprocess.CalledProcessError as cpe:
         print_CalledProcessError(cpe)
         raise
@@ -86,6 +87,9 @@ def attach_python_to_venv(d):
         d.bin = d.join('bin')
     d.python = d.bin.join('python')
 
+modes = ['hybrid', 'universal']
+if sys.implementation.name == 'cpython':
+    modes += ['cpython']
 
 @pytest.mark.usefixtures('initargs')
 class TestDistutils:
@@ -95,14 +99,14 @@ class TestDistutils:
         self.tmpdir = tmpdir
         # create a fresh venv by copying the template
         self.venv = tmpdir.join('venv')
-        shutil.copytree(venv_template, self.venv)
+        shutil.copytree(venv_template, self.venv, symlinks=True)
         attach_python_to_venv(self.venv)
         # create the files for our test project
         self.hpy_test_project = tmpdir.join('hpy_test_project').ensure(dir=True)
         self.gen_project()
         self.hpy_test_project.chdir()
 
-    @pytest.fixture(params=['cpython', 'hybrid', 'universal'])
+    @pytest.fixture(params=modes)
     def hpy_abi(self, request):
         return request.param
 
