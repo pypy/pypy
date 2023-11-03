@@ -1,24 +1,11 @@
 import pytest
-     
 from .support import ExtensionCompiler, DefaultExtensionTemplate,\
     PythonSubprocessRunner, HPyDebugCapture, make_hpy_abi_fixture
 from pathlib import Path
 
 IS_VALGRIND_RUN = False
 
-disabled = None
-try:
-    import hpy
-except ModuleNotFoundError:
-    disable = True
-
-def pytest_ignore_collect(path, config):
-    path = str(path)
-    if disabled:
-        if commonprefix([path, THIS_DIR]) == THIS_DIR:  # workaround for bug in pytest<3.0.5
-            return True
-
-
+# addoption only works in a top-level conftest file
 def _pytest_addoption(parser):
     parser.addoption(
         "--compiler-v", action="store_true",

@@ -134,7 +134,6 @@ class TestModule(HPyTest):
             @HPy_MODINIT(moduledef)
         """)
         assert isinstance(mod, types.SimpleNamespace)
-        print("mod.spec", mod.spec, "mod.__spec__", mod.__spec__)
         assert mod.spec is mod.__spec__
 
     def test_HPyModule_error_when_create_returns_module(self):
