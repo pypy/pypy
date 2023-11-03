@@ -1,8 +1,14 @@
 import pytest
+import sys
 from .support import HPyTest
 from hpy.devel.abitag import get_hpy_ext_suffix
 
-@pytest.fixture(params=['cpython', 'universal', 'hybrid', 'debug'])
+modes = ['universal', 'hybrid', 'debug']
+if sys.implementation.name == "cpython":
+    modes.append("cpython")
+
+
+@pytest.fixture(params=modes)
 def hpy_abi(request):
     abi = request.param
     yield abi
