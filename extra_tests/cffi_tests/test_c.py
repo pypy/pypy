@@ -26,7 +26,7 @@ from _cffi_backend import __version__
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.15.1", ("This test_c.py file is for testing a version"
+assert __version__ == "1.16.0", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -75,6 +75,8 @@ def find_and_load_library(name, flags=RTLD_NOW):
         path = None
     else:
         path = ctypes.util.find_library(name)
+        if path is None and sys.platform == 'darwin' and sys.version_info[:2] == (3, 8):
+            pytest.xfail("find_library usually broken on MacOS Python 3.8")
         if path is None and name == 'c':
             assert sys.platform == 'win32'
             assert (sys.version_info >= (3,) or
@@ -1529,7 +1531,7 @@ def test_callback_return_type():
 
 def test_a_lot_of_callbacks():
     BIGNUM = 10000
-    if 'PY_DOT_PY' in globals(): BIGNUM = 100   # tests on pypy
+    if 'PY_DOT_PY' in globals(): BIGNUM = 100   # tests on py.py
     #
     BInt = new_primitive_type("int")
     BFunc = new_function_type((BInt,), BInt, False)
@@ -2620,7 +2622,7 @@ def test_errno():
 
 def test_errno_callback():
     if globals().get('PY_DOT_PY'):
-        pytest.skip("cannot run this test on pypy (e.g. fails on Windows)")
+        pytest.skip("cannot run this test on py.py (e.g. fails on Windows)")
     set_errno(95)
     def cb():
         e = get_errno()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cffi
-Version: 1.15.1
+Version: 1.16.0
 Summary: Foreign Function Interface for Python calling C code.
 Home-page: http://cffi.readthedocs.org
 Author: Armin Rigo, Maciej Fijalkowski
@@ -8,14 +8,12 @@ Author-email: python-cffi@googlegroups.com
 License: MIT
 Platform: UNKNOWN
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: License :: OSI Approved :: MIT License

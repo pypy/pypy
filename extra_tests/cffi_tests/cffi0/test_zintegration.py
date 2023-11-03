@@ -20,7 +20,7 @@ def create_venv(name):
             # in random cases on random machines
                                '-p', os.path.abspath(sys.executable),
                                str(tmpdir)])
-    except OSError as e:
+    except (subprocess.CalledProcessError, OSError) as e:
         pytest.skip("Cannot execute virtualenv: %s" % (e,))
 
     site_packages = None
