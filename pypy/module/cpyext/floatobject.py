@@ -4,7 +4,6 @@ from pypy.module.cpyext.api import (PyObjectFields, bootstrap_function,
     CANNOT_FAIL, cpython_api, PyObject, CONST_STRING)
 from pypy.module.cpyext.pyobject import (
     make_typedescr, track_reference, from_ref)
-from pypy.interpreter.error import OperationError
 from rpython.rlib.rstruct import runpack
 from pypy.objspace.std.floatobject import W_FloatObject
 

@@ -55,8 +55,11 @@ def _HasAttr(space, w_obj, w_name):
 def HPy_SetAttr(space, handles, ctx, h_obj, h_name, h_value):
     w_obj = handles.deref(h_obj)
     w_name = handles.deref(h_name)
-    w_value = handles.deref(h_value)
-    operation.setattr(space, w_obj, w_name, w_value)
+    if not h_value:
+        operation.delattr(space, w_obj, w_name)
+    else:
+        w_value = handles.deref(h_value)
+        operation.setattr(space, w_obj, w_name, w_value)
     return API.int(0)
 
 @API.func("int HPy_SetAttr_s(HPyContext *ctx, HPy h_obj, const char *name, HPy h_value)",
@@ -64,8 +67,11 @@ def HPy_SetAttr(space, handles, ctx, h_obj, h_name, h_value):
 def HPy_SetAttr_s(space, handles, ctx, h_obj, name, h_value):
     w_obj = handles.deref(h_obj)
     w_name = API.ccharp2text(space, name)
-    w_value = handles.deref(h_value)
-    operation.setattr(space, w_obj, w_name, w_value)
+    if not h_value:
+        operation.delattr(space, w_obj, w_name)
+    else:
+        w_value = handles.deref(h_value)
+        operation.setattr(space, w_obj, w_name, w_value)
     return API.int(0)
 
 
@@ -254,3 +260,24 @@ def _HPy_Contains(space, handles, ctx, h_container, h_key):
     w_key = handles.deref(h_key)
     w_res = space.contains(w_container, w_key)
     return API.int(space.int_w(w_res))
+
+@API.func("int HPy_DelItem(HPyContext *ctx, HPy obj, HPy key)", error_value=API.int(-1))
+def HPy_DelItem(space, handles, ctx, h_obj, h_key):
+    w_obj = handles.deref(h_obj)
+    w_key = handles.deref(h_key)
+    space.delitem(w_obj, w_key)
+    return API.int(0)
+
+@API.func("int HPy_DelItem_i(HPyContext *ctx, HPy obj, HPy_ssize_t key)", error_value=API.int(-1))
+def HPy_DelItem_i(space, handles, ctx, h_obj, key):
+    w_obj = handles.deref(h_obj)
+    w_key = space.newint(key)
+    space.delitem(w_obj, w_key)
+    return API.int(0)
+
+@API.func("int HPy_DelItem_s(HPyContext *ctx, HPy obj, const char *key)", error_value=API.int(-1))
+def HPy_DelItem_s(space, handles, ctx, h_obj, key):
+    w_obj = handles.deref(h_obj)
+    w_key = API.ccharp2text(space, key)
+    space.delitem(w_obj, w_key)
+    return API.int(0)

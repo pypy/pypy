@@ -8,7 +8,34 @@
 #include "hpy.h"
 #include "hpy_debug.h"
 
-#define HPY_DEBUG_MAGIC 0xDEB00FF
+#define HPY_DEBUG_INFO_MAGIC     0xDEB00FF
+#define HPY_DEBUG_CTX_INFO_MAGIC 0xDDA003F
+
+/* === DHQueue === */
+
+/**
+ * This struct is meant to be embedded in the actual payload struct to avoid
+ * a separate allocation of the queue node.
+ */
+typedef struct _DHQueueNode_s {
+    struct _DHQueueNode_s *next;
+    struct _DHQueueNode_s *prev;
+    HPy_ssize_t size;
+} DHQueueNode;
+
+typedef struct {
+    DHQueueNode *head;
+    DHQueueNode *tail;
+    HPy_ssize_t size;
+} DHQueue;
+
+void DHQueue_init(DHQueue *q);
+void DHQueue_append(DHQueue *q, DHQueueNode *h);
+DHQueueNode *DHQueue_popfront(DHQueue *q);
+void DHQueue_remove(DHQueue *q, DHQueueNode *h);
+void DHQueue_sanity_check(DHQueue *q);
+
+/* === DHQueue === */
 
 /* The Debug context is a wrapper around an underlying context, which we will
    call Universal. Inside the debug mode we manipulate handles which belongs
@@ -104,6 +131,25 @@
 
 typedef HPy UHPy;
 typedef HPy DHPy;
+typedef HPyTupleBuilder UHPyTupleBuilder;
+typedef HPyTupleBuilder DHPyTupleBuilder;
+typedef HPyListBuilder UHPyListBuilder;
+typedef HPyListBuilder DHPyListBuilder;
+
+#define DHPyTupleBuilder_IsNull(h) ((h)._tup == 0)
+#define DHPyListBuilder_IsNull(h) ((h)._lst == 0)
+
+#if defined(_MSC_VER) && defined(__cplusplus) // MSVC C4576
+#  define UHPyListBuilder_NULL {0}
+#  define UHPyTupleBuilder_NULL {0}
+#  define DHPyListBuilder_NULL UHPyListBuilder_NULL
+#  define DHPyTupleBuilder_NULL UHPyTupleBuilder_NULL
+#else
+#  define UHPyListBuilder_NULL ((UHPyListBuilder){0})
+#  define UHPyTupleBuilder_NULL ((UHPyTupleBuilder){0})
+#  define DHPyListBuilder_NULL ((DHPyListBuilder){0})
+#  define DHPyTupleBuilder_NULL ((DHPyTupleBuilder){0})
+#endif
 
 /* Under CPython:
      - UHPy always end with 1 (see hpy.universal's _py2h and _h2py)
@@ -135,18 +181,32 @@ static inline void UHPy_sanity_check(UHPy uh) {
 // alternative implementation is to put special placeholders inside the list
 // to mark the creation of a new generation
 typedef struct DebugHandle {
+    DHQueueNode node;
     UHPy uh;
     long generation;
-    bool is_closed;
+    bool is_closed:1;
+    bool is_immortal:1;
     // pointer to and size of any raw data associated with
     // the lifetime of the handle:
     void *associated_data;
     // allocation_stacktrace information if available
     char *allocation_stacktrace;
     HPy_ssize_t associated_data_size;
-    struct DebugHandle *prev;
-    struct DebugHandle *next;
 } DebugHandle;
+
+/** A debug handle for a tuple or list builder. */
+typedef struct DebugBuilderHandle {
+    DHQueueNode node;
+    union {
+        UHPyTupleBuilder tuple_builder;
+        UHPyListBuilder list_builder;
+    } uh;
+
+    /**
+     * ``true`` if the builder was consumed by the build function or cancelled.
+     */
+    bool is_closed:1;
+} DebugBuilderHandle;
 
 static inline DebugHandle * as_DebugHandle(DHPy dh) {
     DHPy_sanity_check(dh);
@@ -157,11 +217,36 @@ static inline DHPy as_DHPy(DebugHandle *handle) {
     return (DHPy){(HPy_ssize_t)handle};
 }
 
+static inline DebugBuilderHandle * DHPyTupleBuilder_as_DebugBuilderHandle(DHPyTupleBuilder dh) {
+    if (DHPyTupleBuilder_IsNull(dh))
+        return NULL;
+    return (DebugBuilderHandle *)dh._tup;
+}
+
+static inline DHPyTupleBuilder as_DHPyTupleBuilder(DebugBuilderHandle *handle) {
+    return (DHPyTupleBuilder){(HPy_ssize_t)handle};
+}
+
+static inline DebugBuilderHandle * DHPyListBuilder_as_DebugBuilderHandle(DHPyListBuilder dh) {
+    if (DHPyListBuilder_IsNull(dh))
+        return NULL;
+    return (DebugBuilderHandle *)dh._lst;
+}
+
+static inline DHPyListBuilder as_DHPyListBuilder(DebugBuilderHandle *handle) {
+    return (DHPyListBuilder){(HPy_ssize_t)handle};
+}
+
 DHPy DHPy_open(HPyContext *dctx, UHPy uh);
+DHPy DHPy_open_immortal(HPyContext *dctx, UHPy uh);
 void DHPy_close(HPyContext *dctx, DHPy dh);
 void DHPy_close_and_check(HPyContext *dctx, DHPy dh);
 void DHPy_free(HPyContext *dctx, DHPy dh);
 void DHPy_invalid_handle(HPyContext *dctx, DHPy dh);
+DHPyTupleBuilder DHPyTupleBuilder_open(HPyContext *dctx, UHPyTupleBuilder uh);
+DHPyListBuilder DHPyListBuilder_open(HPyContext *dctx, UHPyListBuilder uh);
+void DHPy_invalid_builder_handle(HPyContext *dctx);
+void DHPy_builder_handle_close(HPyContext *dctx, DebugBuilderHandle *handle);
 
 static inline UHPy DHPy_unwrap(HPyContext *dctx, DHPy dh)
 {
@@ -173,29 +258,49 @@ static inline UHPy DHPy_unwrap(HPyContext *dctx, DHPy dh)
     return handle->uh;
 }
 
-/* === DHQueue === */
+#define BUILDER_UNWRAP(TYPE, ACCESS) \
+    static inline U##TYPE D##TYPE##_unwrap(HPyContext *dctx, D##TYPE dh) \
+    { \
+        DebugBuilderHandle *handle = D##TYPE##_as_DebugBuilderHandle(dh); \
+        if (handle == NULL) \
+            return U##TYPE##_NULL; \
+        if (handle->is_closed) { \
+            DHPy_invalid_builder_handle(dctx); \
+            return U##TYPE##_NULL; \
+        } \
+        return handle->uh.ACCESS; \
+    }
 
-typedef struct {
-    DebugHandle *head;
-    DebugHandle *tail;
-    HPy_ssize_t size;
-} DHQueue;
-
-void DHQueue_init(DHQueue *q);
-void DHQueue_append(DHQueue *q, DebugHandle *h);
-DebugHandle *DHQueue_popfront(DHQueue *q);
-void DHQueue_remove(DHQueue *q, DebugHandle *h);
-void DHQueue_sanity_check(DHQueue *q);
+BUILDER_UNWRAP(HPyTupleBuilder, tuple_builder)
+BUILDER_UNWRAP(HPyListBuilder, list_builder)
 
 /* === HPyDebugInfo === */
 
 static const HPy_ssize_t DEFAULT_CLOSED_HANDLES_QUEUE_MAX_SIZE = 1024;
 static const HPy_ssize_t DEFAULT_PROTECTED_RAW_DATA_MAX_SIZE = 1024 * 1024 * 10;
+static const HPy_ssize_t HPY_DEBUG_DEFAULT_STACKTRACE_LIMIT = 16;
+#define HPY_DEBUG_CTX_CACHE_SIZE 16 // Keep in sync with test_context_reuse.py
+
+// We intentionally create multiple HPyContext instances to check that
+// the extension is not relying on the HPyContext identity. Before bouncing
+// to HPy function in the CallRealFunctionFromTrampoline, we take next debug
+// context copy from a circular buffer and mark the current one as invalid.
+//
+// HPyDebugInfo: represents meta-data shared between all the copies of the
+// debug context.
+//
+// HPyDebugCtxInfo represents meta-data specific to each debug context
+// instance. At this point it is main flag is_valid that is checked by all
+// the context functions as the first thing.
 
 typedef struct {
     long magic_number; // used just for sanity checks
     HPyContext *uctx;
     long current_generation;
+
+    // Array of cached debug contexts used as a circular buffer
+    HPyContext *dctx_cache[HPY_DEBUG_CTX_CACHE_SIZE];
+    size_t dctx_cache_current_index;
 
     // the following should be an HPyField, but it's complicate:
     // HPyFields should be used only on memory which is known by the GC, which
@@ -204,7 +309,10 @@ typedef struct {
     //   1. a generic HPy_GcMalloc() OR
     //   2. HPy_{Un}TrackMemory(), so that we can add manually allocated
     //      memory as a GC root
+    // Alternative is to put it into a module state or to put it into HPyGlobal
+    // once those features are implemented
     UHPy uh_on_invalid_handle;
+    UHPy uh_on_invalid_builder_handle;
     HPy_ssize_t closed_handles_queue_max_size; // configurable by the user
     HPy_ssize_t protected_raw_data_max_size;
     HPy_ssize_t protected_raw_data_size;
@@ -213,15 +321,33 @@ typedef struct {
     HPy_ssize_t handle_alloc_stacktrace_limit;
     DHQueue open_handles;
     DHQueue closed_handles;
+    DHQueue closed_builder;
 } HPyDebugInfo;
 
-static inline HPyDebugInfo *get_info(HPyContext *dctx)
+typedef struct {
+    long magic_number; // used just for sanity checks
+    bool is_valid;
+    HPyDebugInfo *info;
+} HPyDebugCtxInfo;
+
+static inline HPyDebugCtxInfo *get_ctx_info(HPyContext *dctx)
 {
-    HPyDebugInfo *info = (HPyDebugInfo*)dctx->_private;
-    assert(info->magic_number == HPY_DEBUG_MAGIC); // sanity check
+    HPyDebugCtxInfo *info = (HPyDebugCtxInfo*)dctx->_private;
+    assert(info->magic_number == HPY_DEBUG_CTX_INFO_MAGIC); // sanity check
     return info;
 }
 
+static inline HPyDebugInfo *get_info(HPyContext *dctx)
+{
+    HPyDebugInfo *info = get_ctx_info(dctx)->info;
+    assert(info->magic_number == HPY_DEBUG_INFO_MAGIC); // sanity check
+    return info;
+}
+
+
+HPyContext* hpy_debug_get_next_dctx_from_cache(HPyContext *dctx);
+
+void report_invalid_debug_context(void);
 
 void *raw_data_copy(const void* data, HPy_ssize_t size, bool write_protect);
 void raw_data_protect(void* data, HPy_ssize_t size);

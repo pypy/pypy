@@ -1,6 +1,6 @@
 #include "debug_internal.h"
 
-#if (__linux__ && __GNU_LIBRARY__)
+#if ((__linux__ && __GNU_LIBRARY__) || __APPLE__)
 
 // Basic implementation that uses backtrace from glibc
 
@@ -85,7 +85,8 @@ void create_stacktrace(char **target, HPy_ssize_t max_frames_count) {
 void create_stacktrace(char **target, HPy_ssize_t max_frames_count) {
     const char msg[] =
             "Current HPy build does not support getting C stack traces.\n"
-            "At the moment this is only supported on Linux with glibc.";
+            "At the moment this is only supported on Linux with glibc"
+            " and macOS.";
     *target = malloc(sizeof(msg));
     memcpy(*target, msg, sizeof(msg));
 }

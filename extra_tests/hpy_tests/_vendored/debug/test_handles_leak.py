@@ -26,7 +26,7 @@ def with_alloc_trace(request):
 def make_leak_module(compiler):
     # for convenience
     return compiler.make_module("""
-        HPyDef_METH(leak, "leak", leak_impl, HPyFunc_O)
+        HPyDef_METH(leak, "leak", HPyFunc_O)
         static HPy leak_impl(HPyContext *ctx, HPy self, HPy arg)
         {
             HPy_Dup(ctx, arg); // leak!
@@ -44,7 +44,7 @@ def test_debug_ctx_name(compiler):
     #   2. in pypy we run HPyTest with only hpy_abi==universal, so this
     #      tests something which is NOT tested by test_00_basic
     mod = compiler.make_module("""
-        HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+        HPyDef_METH(f, "f", HPyFunc_NOARGS)
         static HPy f_impl(HPyContext *ctx, HPy self)
         {
             return HPyUnicode_FromString(ctx, ctx->name);
@@ -74,7 +74,7 @@ def test_get_open_handles(compiler):
 def test_leak_from_method(compiler):
     from hpy.universal import _debug
     mod = compiler.make_module("""
-        HPyDef_METH(Dummy_leak, "leak", Dummy_leak_impl, HPyFunc_O)
+        HPyDef_METH(Dummy_leak, "leak", HPyFunc_O)
         static HPy Dummy_leak_impl(HPyContext *ctx, HPy self, HPy arg) {
             HPy_Dup(ctx, arg); // leak!
             return HPy_Dup(ctx, ctx->h_None);
@@ -192,7 +192,7 @@ def test_closed_handles(compiler, with_alloc_trace):
 def test_closed_handles_queue_max_size(compiler):
     from hpy.universal import _debug
     mod = compiler.make_module("""
-        HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+        HPyDef_METH(f, "f", HPyFunc_O)
         static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
         {
             return HPy_Dup(ctx, ctx->h_None);
@@ -231,12 +231,12 @@ def test_closed_handles_queue_max_size(compiler):
 def test_reuse_closed_handles(compiler):
     from hpy.universal import _debug
     mod = compiler.make_module("""
-        HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+        HPyDef_METH(f, "f", HPyFunc_O)
         static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
         {
             return HPy_Dup(ctx, ctx->h_None);
         }
-        HPyDef_METH(leak, "leak", leak_impl, HPyFunc_O)
+        HPyDef_METH(leak, "leak", HPyFunc_O)
         static HPy leak_impl(HPyContext *ctx, HPy self, HPy arg)
         {
             HPy_Dup(ctx, arg); // leak!

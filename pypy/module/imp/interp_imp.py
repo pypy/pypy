@@ -20,6 +20,16 @@ def extension_suffixes(space):
         suffixes_w.append(space.newtext("powerpc64le-linux-gnu"))
     elif "ppc_64" in so_ext:
         suffixes_w.append(space.newtext("ppc_64-linux-gnu"))
+    # On CPython3.10, extension_suffixes is
+    # ['.cpython-310-x86_64-linux-gnu.so', '.abi3.so', '.so']
+    # This will pick up the HPy suffix, which is "hpy0.so" and allow
+    # the import machinery to add a loader for HPy extensions.
+    #
+    # On PyPy, we don't want to allow bare ".so", so we add "hpy0.so"
+    if space.config.objspace.usemodules._hpy_universal:
+        from pypy.module._hpy_universal.llapi import HPY_ABI_TAG
+        hpy_ext = "." + HPY_ABI_TAG + importing.SO
+        suffixes_w.append(space.newtext(hpy_ext))
     return space.newlist(suffixes_w)
 
 def get_magic(space):

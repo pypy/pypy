@@ -410,32 +410,32 @@ parse_item(HPyContext *ctx, HPyTracker *ht, HPy current_arg, int current_arg_tmp
  *     The execution context.
  * :param ht:
  *     An optional pointer to an HPyTracker. If the format string never
- *     results in new handles being created, `ht` may be `NULL`. Currently
- *     no formatting options to this function require an HPyTracker.
+ *     results in new handles being created, ``ht`` may be ``NULL``. Currently
+ *     only the ``O`` formatting option to this function requires an HPyTracker.
  * :param args:
  *     The array of positional arguments to parse.
  * :param nargs:
- *     The number of elements in args.
+ *     The number of elements in ``args``.
  * :param fmt:
  *     The format string to use to parse the arguments.
  * :param ...:
  *     A va_list of references to variables in which to store the parsed
  *     arguments. The number and types of the arguments should match the
- *     the format strint, `fmt`.
+ *     the format string, ``fmt``.
  *
- * :returns: 0 on failure, 1 on success.
+ * :returns: ``0`` on failure, ``1`` on success.
  *
- * If a `NULL` pointer is passed to `ht` and an `HPyTracker` is required by
- * the format string, an exception will be raised.
+ * If a ``NULL`` pointer is passed to ``ht`` and an HPyTracker is required by
+ * the format string, a ``SystemError`` will be raised.
  *
- * If a pointer is provided to `ht`, the `HPyTracker` will always be created
- * and must be closed with `HPyTracker_Close` if parsing succeeds (after all
+ * If a pointer is provided to ``ht``, the HPyTracker will always be created
+ * and must be closed with ``HPyTracker_Close`` if parsing succeeds (after all
  * handles returned are no longer needed). If parsing fails, this function
- * will close the `HPyTracker` automatically.
+ * will close the HPyTracker automatically.
  *
  * Examples:
  *
- * Using `HPyArg_Parse` without an `HPyTracker`:
+ * Using ``HPyArg_Parse`` without an HPyTracker:
  *
  * .. code-block:: c
  *
@@ -444,7 +444,7 @@ parse_item(HPyContext *ctx, HPyTracker *ht, HPy current_arg, int current_arg_tmp
  *         return HPy_NULL;
  *     ...
  *
- * Using `HPyArg_Parse` with an `HPyTracker`:
+ * Using ``HPyArg_Parse`` with an HPyTracker:
  *
  * .. code-block:: c
  *
@@ -458,19 +458,19 @@ parse_item(HPyContext *ctx, HPyTracker *ht, HPy current_arg, int current_arg_tmp
  *
  * .. note::
  *
- *    Currently `HPyArg_Parse` never requires the use of an `HPyTracker`.
+ *    Currently ``HPyArg_Parse`` never requires the use of an HPyTracker.
  *    The option exists only to support releasing temporary storage used by
  *    future format string codes (e.g. for character strings).
  */
 HPyAPI_HELPER int
-HPyArg_Parse(HPyContext *ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, const char *fmt, ...)
+HPyArg_Parse(HPyContext *ctx, HPyTracker *ht, const HPy *args, size_t nargs, const char *fmt, ...)
 {
     const char *fmt1 = fmt;
     const char *err_fmt = NULL;
     const char *fmt_end = NULL;
 
     int optional = 0;
-    HPy_ssize_t i = 0;
+    size_t i = 0;
     HPy current_arg;
 
     fmt_end = parse_err_fmt(fmt, &err_fmt);
@@ -516,84 +516,34 @@ HPyArg_Parse(HPyContext *ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, cons
     va_end(vl);
     return 1;
 
-    error:
-        va_end(vl);
-        if (ht != NULL) {
-            HPyTracker_Close(ctx, *ht);
-        }
-        return 0;
+error:
+    va_end(vl);
+    if (ht != NULL) {
+        HPyTracker_Close(ctx, *ht);
+    }
+    return 0;
 }
 
+static HPy
+find_keyword(HPyContext *ctx, HPy kwnames, HPy_ssize_t n_kwnames, const HPy *args, const char *key)
+{
+    for (HPy_ssize_t i = 0; i < n_kwnames; i++) {
+        HPy kwname = HPy_GetItem_i(ctx, kwnames, i);
+        HPy h_key = HPyUnicode_FromString(ctx, key);
+        int eq = HPy_RichCompareBool(ctx, kwname, h_key, HPy_EQ);
+        HPy_Close(ctx, h_key);
+        HPy_Close(ctx, kwname);
+        if (eq) {
+            return args[i];
+        }
+    }
+    return HPy_NULL;
+}
 
-/**
- * Parse positional and keyword arguments.
- *
- * :param ctx:
- *     The execution context.
- * :param ht:
- *     An optional pointer to an HPyTracker. If the format string never
- *     results in new handles being created, `ht` may be `NULL`. Currently
- *     only the `O` formatting option to this function requires an HPyTracker.
- * :param args:
- *     The array of positional arguments to parse.
- * :param nargs:
- *     The number of elements in args.
- * :param kw:
- *     A handle to the dictionary of keyword arguments.
- * :param fmt:
- *     The format string to use to parse the arguments.
- * :param keywords:
- *     An `NULL` terminated array of argument names. The number of names
- *     should match the format string provided. Positional only arguments
- *     should have the name `""` (i.e. the null-terminated empty string).
- *     Positional only arguments must preceded all other arguments.
- * :param ...:
- *     A va_list of references to variables in which to store the parsed
- *     arguments. The number and types of the arguments should match the
- *     the format strint, `fmt`.
- *
- * :returns: 0 on failure, 1 on success.
- *
- * If a `NULL` pointer is passed to `ht` and an `HPyTracker` is required by
- * the format string, an exception will be raised.
- *
- * If a pointer is provided to `ht`, the `HPyTracker` will always be created
- * and must be closed with `HPyTracker_Close` if parsing succeeds (after all
- * handles returned are no longer needed). If parsing fails, this function
- * will close the `HPyTracker` automatically.
- *
- * Examples:
- *
- * Using `HPyArg_ParseKeywords` without an `HPyTracker`:
- *
- * .. code-block:: c
- *
- *     long a, b;
- *     if (!HPyArg_ParseKeywords(ctx, NULL, args, nargs, kw, "ll", &a, &b))
- *         return HPy_NULL;
- *     ...
- *
- * Using `HPyArg_ParseKeywords` with an `HPyTracker`:
- *
- * .. code-block:: c
- *
- *     HPy a, b;
- *     HPyTracker ht;
- *     if (!HPyArg_ParseKeywords(ctx, &ht, args, nargs, kw, "OO", &a, &b))
- *         return HPy_NULL;
- *     ...
- *     HPyTracker_Close(ctx, ht);
- *     ...
- *
- * .. note::
- *
- *     Currently `HPyArg_ParseKeywords` only requires the use of an `HPyTracker`
- *     when the `O` format is used. In future other new format string codes
- *     (e.g. for character strings) may also require it.
- */
-HPyAPI_HELPER int
-HPyArg_ParseKeywords(HPyContext *ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, HPy kw,
-                     const char *fmt, const char *keywords[], ...)
+static int
+parse_keywords(HPyContext *ctx, HPyTracker *ht, const HPy *args,
+               size_t nargs, HPy kw, int kwnames, const char *fmt,
+               const char *keywords[], va_list *p_va)
 {
     const char *fmt1 = fmt;
     const char *err_fmt = NULL;
@@ -601,10 +551,13 @@ HPyArg_ParseKeywords(HPyContext *ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nar
 
     int optional = 0;
     int keyword_only = 0;
-    HPy_ssize_t i = 0;
-    HPy_ssize_t nkw = 0;
+    size_t i = 0;
+    size_t nkw = 0;
+    HPy_ssize_t n_kwnames = 0;
     HPy current_arg;
     int current_arg_needs_closing = 0;
+
+    assert(p_va != NULL);
 
     fmt_end = parse_err_fmt(fmt, &err_fmt);
 
@@ -629,8 +582,14 @@ HPyArg_ParseKeywords(HPyContext *ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nar
         }
     }
 
-    va_list vl;
-    va_start(vl, keywords);
+    if (kwnames && !HPy_IsNull(kw)) {
+        n_kwnames = HPy_Length(ctx, kw);
+        if (n_kwnames < 0) {
+            set_error(ctx, ctx->h_SystemError, err_fmt,
+                "could not retrieve length of keyword names tuple");
+            return 0;
+        }
+    }
 
     while (fmt1 != fmt_end) {
         if (*fmt1 == '|') {
@@ -665,20 +624,33 @@ HPyArg_ParseKeywords(HPyContext *ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nar
             current_arg = args[i];
         }
         else if (!HPy_IsNull(kw) && *keywords[i]) {
-            current_arg = HPy_GetItem_s(ctx, kw, keywords[i]);
-            // Track the handle or lear any KeyError that was raised. If an
-            // error was raised current_arg will be HPy_NULL and will be
-            // handled appropriately below depending on whether the current
-            // argument is optional or not
-            if (!HPy_IsNull(current_arg)) {
-                current_arg_needs_closing = 1;
-            }
-            else {
-                HPyErr_Clear(ctx);
+            if (kwnames) {
+                current_arg = find_keyword(ctx, kw, n_kwnames, args+nargs,
+                                           keywords[i]);
+                /*
+                 * Clear any error that was raised. If an error was raised
+                 * current_arg will be HPy_NULL and will be handled
+                 * appropriately below depending on whether the current argument
+                 * is optional or not.
+                 */
+                if (HPy_IsNull(current_arg)) {
+                    HPyErr_Clear(ctx);
+                }
+            } else {
+                current_arg = HPy_GetItem_s(ctx, kw, keywords[i]);
+                /*
+                 * Track the handle or clear any KeyError that was raised (for
+                 * the same reason as explained above).
+                 */
+                if (!HPy_IsNull(current_arg)) {
+                    current_arg_needs_closing = 1;
+                } else {
+                    HPyErr_Clear(ctx);
+                }
             }
         }
         if (!HPy_IsNull(current_arg) || optional) {
-            if (!parse_item(ctx, ht, current_arg, 1, &fmt1, &vl, err_fmt)) {
+            if (!parse_item(ctx, ht, current_arg, 1, &fmt1, p_va, err_fmt)) {
                 goto error;
             }
         }
@@ -698,17 +670,150 @@ HPyArg_ParseKeywords(HPyContext *ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nar
             "mismatched args (too many keywords for fmt)");
         goto error;
     }
-
-    va_end(vl);
     return 1;
 
-    error:
-        va_end(vl);
-        if (ht != NULL) {
-            HPyTracker_Close(ctx, *ht);
-        }
-        if (current_arg_needs_closing) {
-            HPy_Close(ctx, current_arg);
-        }
-        return 0;
+error:
+    if (ht != NULL) {
+        HPyTracker_Close(ctx, *ht);
+    }
+    if (current_arg_needs_closing) {
+        HPy_Close(ctx, current_arg);
+    }
+    return 0;
+}
+
+
+/**
+ * Parse positional and keyword arguments.
+ *
+ * :param ctx:
+ *     The execution context.
+ * :param ht:
+ *     An optional pointer to an HPyTracker. If the format string never
+ *     results in new handles being created, ``ht`` may be ``NULL``. Currently
+ *     only the ``O`` formatting option to this function requires an HPyTracker.
+ * :param args:
+ *     The array of positional arguments to parse.
+ * :param nargs:
+ *     The number of elements in ``args``.
+ * :param kwnames:
+ *     A handle to the tuple of keyword argument names (may be ``HPy_NULL``).
+ *     The values of the keyword arguments are appended to ``args``. Argument
+ *     ``nargs`` does not include the keyword argument count.
+ * :param fmt:
+ *     The format string to use to parse the arguments.
+ * :param keywords:
+ *     A ``NULL``-terminated array of argument names. The number of names
+ *     should match the format string provided. Positional only arguments
+ *     should have the name ``""`` (i.e. the null-terminated empty string).
+ *     Positional only arguments must preceded all other arguments.
+ * :param ...:
+ *     A va_list of references to variables in which to store the parsed
+ *     arguments. The number and types of the arguments should match the
+ *     the format string, ``fmt``.
+ *
+ * :returns: ``0`` on failure, ``1`` on success.
+ *
+ * If a ``NULL`` pointer is passed to ``ht`` and an HPyTracker is required by
+ * the format string, a ``SystemError`` will be raised.
+ *
+ * If a pointer is provided to ``ht``, the HPyTracker will always be created and
+ * must be closed with ``HPyTracker_Close`` if parsing succeeds (after all
+ * handles returned are no longer needed). If parsing fails, this function will
+ * close the HPyTracker automatically.
+ *
+ * Examples:
+ *
+ * Using `HPyArg_ParseKeywords` without an `HPyTracker`:
+ *
+ * .. code-block:: c
+ *
+ *     long a, b;
+ *     if (!HPyArg_ParseKeywords(ctx, NULL, args, nargs, kwnames, "ll", &a, &b))
+ *         return HPy_NULL;
+ *     ...
+ *
+ * Using `HPyArg_ParseKeywords` with an `HPyTracker`:
+ *
+ * .. code-block:: c
+ *
+ *     HPy a, b;
+ *     HPyTracker ht;
+ *     if (!HPyArg_ParseKeywords(ctx, &ht, args, nargs, kwnames, "OO", &a, &b))
+ *         return HPy_NULL;
+ *     ...
+ *     HPyTracker_Close(ctx, ht);
+ *     ...
+ *
+ * .. note::
+ *
+ *     Currently ``HPyArg_ParseKeywords`` only requires the use of an
+ *     ``HPyTracker`` when the ``O`` format is used. In future other new format
+ *     string codes (e.g. for character strings) may also require it.
+ */
+HPyAPI_HELPER int
+HPyArg_ParseKeywords(HPyContext *ctx, HPyTracker *ht, const HPy *args,
+                     size_t nargs, HPy kwnames, const char *fmt,
+                     const char *keywords[], ...)
+{
+    int retval;
+    va_list va;
+
+    va_start(va, keywords);
+    retval = parse_keywords(ctx, ht, args, nargs, kwnames, 1, fmt, keywords, &va);
+    va_end(va);
+    return retval;
+}
+
+/**
+ * Parse positional arguments and keyword arguments in a dict.
+ *
+ * :param ctx:
+ *     The execution context.
+ * :param ht:
+ *     An optional pointer to an HPyTracker. If the format string never
+ *     results in new handles being created, ``ht`` may be ``NULL``. Currently
+ *     only the ``O`` formatting option to this function requires an HPyTracker.
+ * :param args:
+ *     The array of positional arguments to parse.
+ * :param nargs:
+ *     The number of elements in ``args``.
+ * :param kw:
+ *     A handle to the dictionary of keyword arguments (may be ``HPy_NULL``).
+ * :param fmt:
+ *     The format string to use to parse the arguments.
+ * :param keywords:
+ *     A ``NULL``-terminated array of argument names. The number of names
+ *     should match the format string provided. Positional only arguments
+ *     should have the name ``""`` (i.e. the null-terminated empty string).
+ *     Positional only arguments must preceded all other arguments.
+ * :param ...:
+ *     A va_list of references to variables in which to store the parsed
+ *     arguments. The number and types of the arguments should match the
+ *     the format string, ``fmt``.
+ *
+ * :returns: ``0`` on failure, ``1`` on success.
+ *
+ * If a ``NULL`` pointer is passed to ``ht`` and an HPyTracker is required by
+ * the format string, a ``SystemError`` will be raised.
+ *
+ * If a pointer is provided to ``ht``, the HPyTracker will always be created and
+ * must be closed with ``HPyTracker_Close`` if parsing succeeds (after all
+ * handles returned are no longer needed). If parsing fails, this function will
+ * close the HPyTracker automatically.
+ *
+ * For examples, see :c:func:`HPyArg_ParseKeywords`.
+ */
+HPyAPI_HELPER int
+HPyArg_ParseKeywordsDict(HPyContext *ctx, HPyTracker *ht, const HPy *args,
+                         HPy_ssize_t nargs, HPy kw, const char *fmt,
+                         const char *keywords[], ...)
+{
+    int retval;
+    va_list va;
+
+    va_start(va, keywords);
+    retval = parse_keywords(ctx, ht, args, nargs, kw, 0, fmt, keywords, &va);
+    va_end(va);
+    return retval;
 }

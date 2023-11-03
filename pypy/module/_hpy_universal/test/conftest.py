@@ -24,6 +24,13 @@ disable = False
 if sys.platform.startswith('linux') and sys.maxsize <= 2**31:
     # skip all tests on linux32
     disable = True
+else:
+    # Monkeypatch distutils.sysconfig.get_config_var for the target system
+    from distutils import sysconfig
+    d = sysconfig.get_config_vars()
+    # XXX do better: what about windows, macOS
+    d['EXT_SUFFIX'] = ".pypy39-pp73-x86_64-linux-gnu.so"
+    
 
 # ========================================================================
 # pytest hooks to automatically generate AppTests from HPy vendored tests
@@ -89,3 +96,10 @@ def make_hpy_apptest(collector, name, cls):
     setattr(collector.obj, appname, appcls)
     return appname
 
+@pytest.fixture(scope='class')
+def python_subprocess(request):
+    pytest.skip("no subprocess available")
+
+@pytest.fixture(scope='class')
+def fatal_exit_code(request):
+    return -1

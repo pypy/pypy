@@ -4,7 +4,7 @@ class TestBytes(HPyTest):
 
     def test_Check(self):
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 if (HPyBytes_Check(ctx, arg))
@@ -23,7 +23,7 @@ class TestBytes(HPyTest):
 
     def test_Size(self):
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 HPy_ssize_t a = HPyBytes_Size(ctx, arg);
@@ -37,12 +37,12 @@ class TestBytes(HPyTest):
 
     def test_AsString(self):
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 long res = 0;
                 HPy_ssize_t n = HPyBytes_Size(ctx, arg);
-                char *buf = HPyBytes_AsString(ctx, arg);
+                const char *buf = HPyBytes_AsString(ctx, arg);
                 for(int i=0; i<n; i++)
                     res = (res * 10) + buf[i];
                 return HPyLong_FromLong(ctx, res);
@@ -54,12 +54,12 @@ class TestBytes(HPyTest):
 
     def test_AS_STRING(self):
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 long res = 0;
                 HPy_ssize_t n = HPyBytes_Size(ctx, arg);
-                char *buf = HPyBytes_AS_STRING(ctx, arg);
+                const char *buf = HPyBytes_AS_STRING(ctx, arg);
                 for(int i=0; i<n; i++)
                     res = (res * 10) + buf[i];
                 return HPyLong_FromLong(ctx, res);
@@ -71,10 +71,10 @@ class TestBytes(HPyTest):
 
     def test_FromString(self):
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
-                char *buf;
+                const char *buf;
                 buf = HPyBytes_AsString(ctx, arg);
                 return HPyBytes_FromString(ctx, buf);
             }
@@ -88,13 +88,13 @@ class TestBytes(HPyTest):
     def test_FromStringAndSize(self):
         import pytest
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
-            static HPy f_impl(HPyContext *ctx, HPy self, HPy *args,
-                              HPy_ssize_t nargs)
+            HPyDef_METH(f, "f", HPyFunc_VARARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self, const HPy *args,
+                              size_t nargs)
             {
                 HPy src;
                 long len;
-                char *buf;
+                const char *buf;
                 if (!HPyArg_Parse(ctx, NULL, args, nargs, "Ol", &src, &len)) {
                     return HPy_NULL;
                 }
@@ -102,9 +102,9 @@ class TestBytes(HPyTest):
                 return HPyBytes_FromStringAndSize(ctx, buf, len);
             }
 
-            HPyDef_METH(f_null, "f_null", f_null_impl, HPyFunc_VARARGS)
-            static HPy f_null_impl(HPyContext *ctx, HPy self, HPy *args,
-                                   HPy_ssize_t nargs)
+            HPyDef_METH(f_null, "f_null", HPyFunc_VARARGS)
+            static HPy f_null_impl(HPyContext *ctx, HPy self, const HPy *args,
+                                   size_t nargs)
             {
                 long len;
                 if (!HPyArg_Parse(ctx, NULL, args, nargs, "l", &len)) {

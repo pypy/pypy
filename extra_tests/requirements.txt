@@ -1,4 +1,5 @@
 pytest<=4.0
-setuptools<60.0
+setuptools<61.0, >=60.2
 hypothesis
 vmprof
+filelock

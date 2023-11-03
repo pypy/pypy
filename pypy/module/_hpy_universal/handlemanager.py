@@ -100,6 +100,11 @@ CONSTANTS = [
     ('UnicodeType', lambda space: space.w_unicode),
     ('TupleType', lambda space: space.w_tuple),
     ('ListType', lambda space: space.w_list),
+    ('ComplexType', lambda space: space.w_complex),
+    ('BytesType', lambda space: space.w_bytes),
+    ('MemoryViewType', lambda space: space.w_memoryview),
+    ('SliceType', lambda space: space.w_slice),
+    ('Builtins', lambda space: space.getattr(space.builtin, space.newtext("__dict__"))),
 ]
 
 CONTEXT_FIELDS = unrolling_iterable(llapi.HPyContext.TO._names)
@@ -175,7 +180,7 @@ class HandleManager(AbstractHandleManager):
         self.ctx.c_name = self.ctx_name()
 
         for name in CONTEXT_FIELDS:
-            if name == 'c_ctx_version':
+            if name == 'c_abi_version':
                 continue
             if name.startswith('c_ctx_'):
                 # this is a function pointer: assign a default value so we get
@@ -190,6 +195,8 @@ class HandleManager(AbstractHandleManager):
                 h_struct = getattr(self.ctx, 'c_h_' + name)
                 h_struct.c__i = i
             i = i + 1
+        h_struct = getattr(self.ctx, "c_h_CapsuleType")
+        h_struct.c__i = 2048
 
         for func in API.all_functions:
             if func.cpyext and not space.config.objspace.hpy_cpyext_API:
@@ -253,7 +260,7 @@ class HandleManager(AbstractHandleManager):
             self.release_callbacks[index].append(cb)
 
     def str2ownedptr(self, s, owner):
-        # Used in converting a handle to a `const char *` via a non-moving buffer
+        # Used in converting a string to a `const char *` via a non-moving buffer
         llbuf, llstring, flag = rffi.get_nonmovingbuffer_ll_final_null(s)
         cb = FreeNonMovingBuffer(llbuf, llstring, flag)
         self.attach_release_callback(owner, cb)
@@ -281,7 +288,7 @@ class DebugHandleManager(AbstractHandleManager):
     def setup_ctx(self):
         space = self.space
         self.ctx.c_name = self.ctx_name()
-        rffi.setintfield(self.ctx, 'c_ctx_version', 1)
+        rffi.setintfield(self.ctx, 'c_abi_version', 0)
         self.ctx.c__private = llapi.cts.cast('void*', 0)
         llapi.hpy_debug_ctx_init(self.ctx, self.u_handles.ctx)
         for func in DEBUG.all_functions:

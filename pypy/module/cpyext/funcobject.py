@@ -6,7 +6,6 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, from_ref, decref, make_typedescr)
 from rpython.rlib.unroll import unrolling_iterable
-from pypy.interpreter.error import OperationError
 from pypy.interpreter.function import Function, Method
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter import pycode

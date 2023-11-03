@@ -11,6 +11,35 @@
 */
 
 typedef struct {
+    cpy_PyObject *self;
+    cpy_PyObject * result;
+} _HPyFunc_args_NOARGS;
+
+#define _HPyFunc_TRAMPOLINE_HPyFunc_NOARGS(SYM, IMPL) \
+    static cpy_PyObject *SYM(cpy_PyObject *self) \
+    { \
+        _HPyFunc_args_NOARGS a = { self }; \
+        _HPy_CallRealFunctionFromTrampoline( \
+           _ctx_for_trampolines, HPyFunc_NOARGS, (HPyCFunction)IMPL, &a); \
+        return a.result; \
+    }
+
+typedef struct {
+    cpy_PyObject *self;
+    cpy_PyObject *arg;
+    cpy_PyObject * result;
+} _HPyFunc_args_O;
+
+#define _HPyFunc_TRAMPOLINE_HPyFunc_O(SYM, IMPL) \
+    static cpy_PyObject *SYM(cpy_PyObject *self, cpy_PyObject *arg) \
+    { \
+        _HPyFunc_args_O a = { self, arg }; \
+        _HPy_CallRealFunctionFromTrampoline( \
+           _ctx_for_trampolines, HPyFunc_O, (HPyCFunction)IMPL, &a); \
+        return a.result; \
+    }
+
+typedef struct {
     cpy_PyObject *arg0;
     cpy_PyObject * result;
 } _HPyFunc_args_UNARYFUNC;

@@ -6,11 +6,11 @@ class TestImport(HPyTest):
         import pytest
         import sys
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy h_name)
             {
                 // we use bytes because ATM we don't have HPyUnicode_AsUTF8 or similar
-                char *name = HPyBytes_AsString(ctx, h_name);
+                const char *name = HPyBytes_AsString(ctx, h_name);
                 if (name == NULL)
                     return HPy_NULL;
                 return HPyImport_ImportModule(ctx, name);
