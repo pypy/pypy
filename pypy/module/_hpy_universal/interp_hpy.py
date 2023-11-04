@@ -121,6 +121,7 @@ def descr__load_bootstrap(space, w_name, ext_name, w_package, path, w_loader, w_
     space.setattr(w_mod, space.newtext("__package__"), w_package)
     space.setattr(w_mod, space.newtext("origin"), w_file)
     space.setattr(w_mod, space.newtext("__spec__"), w_spec)
+    return w_mod
 
 def get_mode_from_value(value):
     if value.startswith("universal"):
