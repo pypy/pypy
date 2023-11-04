@@ -338,7 +338,7 @@ class TestDistutils:
                   install_requires = [],
             )
         """)
-        self.python('setup.py', 'install')
+        self.python('setup.py', f"--hpy-abi={hpy_abi}", 'install')
         src = 'import hpymod_legacy; print(hpymod_legacy.f())'
         out = self.python('-c', src, capture=True)
         assert out == '1234'
