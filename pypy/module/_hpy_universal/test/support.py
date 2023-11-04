@@ -55,6 +55,7 @@ class HPyAppTest(object):
             cpyext_include_dirs = cpyext.api.include_dirs
         else:
             cpyext_include_dirs = None
+        self.w_hpy_abi = self.space.newtext(hpy_abi)
         #
         # it would be nice to use the 'compiler' fixture to provide
         # make_module as the std HPyTest do. However, we don't have the space

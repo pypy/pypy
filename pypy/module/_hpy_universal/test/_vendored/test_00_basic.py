@@ -481,7 +481,7 @@ class TestBasic(HPyTest):
             @INIT
         """)
         ctx_name = mod.f()
-        hpy_abi = self.compiler.hpy_abi
+        hpy_abi = self.hpy_abi
         if hpy_abi == 'cpython':
             assert ctx_name == 'HPy CPython ABI'
         elif hpy_abi == 'universal':
