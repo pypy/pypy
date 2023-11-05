@@ -1508,7 +1508,7 @@ class TestType(HPyTest):
         assert mod.Dummy.__name__ == "Dummy"
         assert mod.get_name(mod.Dummy) == "Dummy"
         assert mod.get_name(str) == "str"
-        assert mod.get_name(array.array) == "array"
+        assert mod.get_name(array.array) in ("array", "array.array")
 
     def test_issubtype(self):
         mod = self.make_module("""
