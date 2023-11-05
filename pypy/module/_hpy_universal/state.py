@@ -24,6 +24,7 @@ class State(object):
     def setup(self, space):
         self.u_handles.setup_ctx()
         self.d_handles.setup_ctx()
+        self.t_handles.setup_ctx()
         self.global_handles = {}
         self.setup_bridge()
 

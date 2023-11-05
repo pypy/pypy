@@ -371,7 +371,6 @@ class TraceHandleManager(AbstractHandleManager):
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
             setattr(self.ctx, ctx_field, funcptr)
-        llapi.hpy_trace_set_ctx(self.ctx)
 
 
 

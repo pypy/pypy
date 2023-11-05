@@ -150,7 +150,7 @@ typedef struct {
     }                                                          \
     HPy_EXPORTED_FUNC HPyModuleDef*                            \
     HPyInit_##ext_name(void);                                  \
-    HPyModuleDef *HPyInit_##ext_name()                                       \
+    HPyModuleDef *HPyInit_##ext_name()                         \
     {                                                          \
         return &mod_def;                                       \
     }
