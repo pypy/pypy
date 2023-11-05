@@ -582,7 +582,7 @@ HPyAPI_FUNC int HPyTuple_Check(HPyContext *ctx, HPy h) {
      return ctx->ctx_Tuple_Check ( ctx, h ); 
 }
 
-HPyAPI_FUNC HPy HPyTuple_FromArray(HPyContext *ctx, HPy items[], HPy_ssize_t n) {
+HPyAPI_FUNC HPy HPyTuple_FromArray(HPyContext *ctx, const HPy items[], HPy_ssize_t n) {
      return ctx->ctx_Tuple_FromArray ( ctx, items, n ); 
 }
 

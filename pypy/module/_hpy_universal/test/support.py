@@ -98,7 +98,7 @@ class HPyAppTest(object):
                 extra_sources = [space.text_w(item) for item in items_w]
             module = compiler.compile_module(main_src, ExtensionTemplate,
                                                   name, extra_sources)
-            so_filename = module.so_filename.replace(".py", ".hpy.so")
+            so_filename = module.so_filename
             w_mod = space.appexec([space.newtext(name),
                                    space.newtext(so_filename),
                                    space.newint(mode)],

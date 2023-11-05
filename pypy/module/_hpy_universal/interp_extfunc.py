@@ -146,6 +146,9 @@ class W_ExtensionFunction_u(W_AbstractExtensionFunction):
 class W_ExtensionFunction_d(W_AbstractExtensionFunction):
     import_from_mixin(W_ExtensionFunctionMixin)
 
+class W_ExtensionFunction_t(W_AbstractExtensionFunction):
+    import_from_mixin(W_ExtensionFunctionMixin)
+
 
 W_AbstractExtensionFunction.typedef = TypeDef(
     'extension_function',
@@ -190,6 +193,9 @@ class W_ExtensionMethod_u(W_AbstractExtensionMethod):
     import_from_mixin(W_ExtensionMethodMixin)
 
 class W_ExtensionMethod_d(W_AbstractExtensionMethod):
+    import_from_mixin(W_ExtensionMethodMixin)
+
+class W_ExtensionMethod_t(W_AbstractExtensionMethod):
     import_from_mixin(W_ExtensionMethodMixin)
 
 W_AbstractExtensionMethod.typedef = TypeDef(

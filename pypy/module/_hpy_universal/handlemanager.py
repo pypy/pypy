@@ -5,7 +5,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import ll_assert
 from pypy.interpreter.error import OperationError
 from pypy.module._hpy_universal import llapi
-from pypy.module._hpy_universal.apiset import API, DEBUG
+from pypy.module._hpy_universal.apiset import API, DEBUG, TRACE
 from .buffer import setup_hpybuffer
 
 
@@ -342,6 +342,37 @@ class DebugHandleManager(AbstractHandleManager):
 
     def str2ownedptr(self, s, owner):
         return self.u_handles.str2ownedptr(s, owner)
+
+class TraceHandleManager(AbstractHandleManager):
+    cls_suffix = '_t'
+
+    def __init__(self, space, tctx, u_handles):
+        from .interp_extfunc import W_ExtensionFunction_t, W_ExtensionMethod_t
+        AbstractHandleManager.__init__(self, space, tctx, is_debug=True)
+        self.u_handles = u_handles
+        self.w_ExtensionFunction = W_ExtensionFunction_t
+        self.w_ExtensionMethod = W_ExtensionMethod_t
+
+    @staticmethod
+    @specialize.memo()
+    def ctx_name():
+        # by using specialize.memo() this becomes a statically allocated
+        # charp, like a C string literal
+        return rffi.str2constcharp("HPy Trace Mode ABI (PyPy backend)",
+                                   track_allocation=False)
+
+    def setup_ctx(self):
+        space = self.space
+        self.ctx.c_name = self.ctx_name()
+        rffi.setintfield(self.ctx, 'c_abi_version', 0)
+        self.ctx.c__private = llapi.cts.cast('void*', 0)
+        llapi.hpy_trace_ctx_init(self.ctx, self.u_handles.ctx)
+        for func in TRACE.all_functions:
+            funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
+            ctx_field = 'c_ctx_' + func.basename
+            setattr(self.ctx, ctx_field, funcptr)
+        llapi.hpy_trace_set_ctx(self.ctx)
+
 
 
 class HandleReleaseCallback(object):

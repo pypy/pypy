@@ -78,15 +78,21 @@ def startup(space, w_mod):
     state = State.get(space)
     state.setup(space)
     setup_hpy_storage()
-    if not hasattr(space, 'is_fake_objspace'):
-        # the following lines break test_ztranslation :(
-        manager = state.get_handle_manager(llapi.MODE_UNIVERSAL)
-        hpydef = llapi.HPyInit__debug()
-        w_debug_mod = hpymod_create(manager, "_debug", hpydef)
-        hpymod_exec_def(manager, w_debug_mod, hpydef)
-        w_set_on_invalid_handle = get_set_on_invalid_handle(space)
-        w_debug_mod.setdictvalue(space, 'set_on_invalid_handle', w_set_on_invalid_handle)
-        w_mod.setdictvalue(space, '_debug', w_debug_mod)
+
+    # do the following lines break test_ztranslation?
+    manager = state.get_handle_manager(llapi.MODE_UNIVERSAL)
+    hpydef_debug = llapi.HPyInit__debug()
+    w_debug_mod = hpymod_create(manager, "_debug", hpydef_debug)
+    hpymod_exec_def(manager, w_debug_mod, hpydef_debug)
+    w_set_on_invalid_handle = get_set_on_invalid_handle(space)
+    w_debug_mod.setdictvalue(space, 'set_on_invalid_handle', w_set_on_invalid_handle)
+    w_mod.setdictvalue(space, '_debug', w_debug_mod)
+
+    hpydef_trace = llapi.HPyInit__trace()
+    w_trace_mod = hpymod_create(manager, "_trace", hpydef_trace)
+    hpymod_exec_def(manager, w_trace_mod, hpydef_trace)
+    w_mod.setdictvalue(space, '_trace', w_trace_mod)
+        
 
 def load_version():
     # eval the content of _vendored/hpy/devel/version.py without importing it

@@ -218,7 +218,7 @@ struct _HPyContext_s {
     int (*ctx_Dict_Check)(HPyContext *ctx, HPy h);
     HPy (*ctx_Dict_New)(HPyContext *ctx);
     int (*ctx_Tuple_Check)(HPyContext *ctx, HPy h);
-    HPy (*ctx_Tuple_FromArray)(HPyContext *ctx, HPy items[], HPy_ssize_t n);
+    HPy (*ctx_Tuple_FromArray)(HPyContext *ctx, const HPy items[], HPy_ssize_t n);
     HPy (*ctx_Import_ImportModule)(HPyContext *ctx, const char *utf8_name);
     HPy (*ctx_FromPyObject)(HPyContext *ctx, cpy_PyObject *obj);
     cpy_PyObject *(*ctx_AsPyObject)(HPyContext *ctx, HPy h);

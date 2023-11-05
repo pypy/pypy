@@ -15,8 +15,10 @@ class State(object):
         self.space = space
         uctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
         dctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
+        tctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
         self.u_handles = handlemanager.HandleManager(space, uctx)
         self.d_handles = handlemanager.DebugHandleManager(space, dctx, self.u_handles)
+        self.t_handles = handlemanager.TraceHandleManager(space, tctx, self.u_handles)
 
     @jit.dont_look_inside
     def setup(self, space):
@@ -36,7 +38,7 @@ class State(object):
         elif mode == llapi.MODE_UNIVERSAL:
             return self.u_handles
         elif mode == llapi.MODE_TRACE:
-            raise oefmt(self.space.w_NotImplementedError, "MODE_TRACE not implemented yet")
+            return self.t_handles
         else:
             raise oefmt(self.space.w_RuntimeError, "MODE %d not valid", mode)
 

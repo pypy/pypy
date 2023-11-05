@@ -357,7 +357,7 @@ HPyAPI_FUNC void HPyTupleBuilder_Cancel(HPyContext *ctx, HPyTupleBuilder builder
     ctx_TupleBuilder_Cancel(ctx, builder);
 }
 
-HPyAPI_FUNC HPy HPyTuple_FromArray(HPyContext *ctx, HPy items[], HPy_ssize_t n)
+HPyAPI_FUNC HPy HPyTuple_FromArray(HPyContext *ctx, const HPy items[], HPy_ssize_t n)
 {
     return ctx_Tuple_FromArray(ctx, items, n);
 }

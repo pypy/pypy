@@ -10,6 +10,7 @@ SRC_DIR = PYPYDIR.join('module', '_hpy_universal', 'src')
 BASE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'devel')
 INCLUDE_DIR = BASE_DIR.join('include')
 DEBUG_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'debug', 'src')
+TRACE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'trace', 'src')
 CAPI_DIR = PYPYDIR.join('module', '_hpy_universal', 'capi_stub')
 
 HPY_ABI_VERSION = 0
@@ -22,14 +23,16 @@ MODE_TRACE = 2
 
 
 eci = ExternalCompilationInfo(
-    compile_extra = ["-DHPY_ABI_HYBRID"],
+    compile_extra = ["-DHPY_ABI_HYBRID", "-DHPY_EMBEDDED_MODULES"],
     includes=["hpy.h", "hpyerr.h", "rffi_hacks.h", "dctx.h"],
     include_dirs=[
         cdir,                       # for precommondefs.h
         INCLUDE_DIR,                # for universal/hpy.h
         SRC_DIR,                    # for hpyerr.h
-        DEBUG_DIR,                  # for debug_internal.h
+        DEBUG_DIR,                  # for debug module
         DEBUG_DIR.join('include'),  # for hpy_debug.h
+        TRACE_DIR,                  # for trace module
+        TRACE_DIR.join('include'),  # for hpy_trace.h
         CAPI_DIR,                   # for Python.h stub for hybrid tests
     ],
     separate_module_files=[
@@ -46,8 +49,15 @@ eci = ExternalCompilationInfo(
         DEBUG_DIR.join('autogen_debug_wrappers.c'),
         DEBUG_DIR.join('dhqueue.c'),
         DEBUG_DIR.join('memprotect.c'),
-        BASE_DIR.join('src', 'runtime', 'ctx_tracker.c'),
         # </debug mode>
+        # <trace mode>
+        SRC_DIR.join('tctx.c'),
+        TRACE_DIR.join('trace_ctx.c'),
+        TRACE_DIR.join('_tracemod.c'),
+        TRACE_DIR.join('autogen_trace_wrappers.c'),
+        TRACE_DIR.join('autogen_trace_func_table.c'),
+        # </trace mode>
+        BASE_DIR.join('src', 'runtime', 'ctx_tracker.c'),
     ],
 )
 
@@ -722,4 +732,29 @@ hpy_debug_close_handle = rffi.llexternal(
 
 HPyInit__debug = rffi.llexternal(
     'pypy_HPyInit__debug', [], HPyModuleDefP,
+    compilation_info=eci, _nowrapper=True)
+
+#trace mode
+hpy_trace_get_ctx = rffi.llexternal(
+    'pypy_hpy_trace_get_ctx', [HPyContext], HPyContext,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_trace_ctx_init = rffi.llexternal(
+    'pypy_hpy_trace_ctx_init', [HPyContext, HPyContext], rffi.INT_real,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_trace_ctx_free = rffi.llexternal(
+    'pypy_hpy_trace_ctx_free', [HPyContext], rffi.INT_real,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_trace_get_func_name = rffi.llexternal(
+    'pypy_hpy_trace_get_func_name', [rffi.INT_real], rffi.CCHARP,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_trace_get_nfunc = rffi.llexternal(
+    'pypy_hpy_trace_get_nfunc', [], rffi.INT_real,
+    compilation_info=eci, _nowrapper=True)
+
+HPyInit__trace = rffi.llexternal(
+    'pypy_HPyInit__trace', [], HPyModuleDefP,
     compilation_info=eci, _nowrapper=True)

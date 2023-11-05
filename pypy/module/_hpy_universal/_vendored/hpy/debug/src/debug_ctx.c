@@ -256,7 +256,7 @@ const char *debug_ctx_Bytes_AS_STRING(HPyContext *dctx, DHPy h)
     return (const char *)protect_and_associate_data_ptr(h, (void *)ptr, data_size);
 }
 
-DHPy debug_ctx_Tuple_FromArray(HPyContext *dctx, DHPy dh_items[], HPy_ssize_t n)
+DHPy debug_ctx_Tuple_FromArray(HPyContext *dctx, const DHPy dh_items[], HPy_ssize_t n)
 {
     if (!get_ctx_info(dctx)->is_valid) {
         report_invalid_debug_context();

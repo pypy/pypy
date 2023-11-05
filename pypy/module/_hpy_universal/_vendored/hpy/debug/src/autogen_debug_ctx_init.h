@@ -155,7 +155,7 @@ DHPy debug_ctx_Dict_New(HPyContext *dctx);
 DHPy debug_ctx_Dict_Keys(HPyContext *dctx, DHPy h);
 DHPy debug_ctx_Dict_Copy(HPyContext *dctx, DHPy h);
 int debug_ctx_Tuple_Check(HPyContext *dctx, DHPy h);
-DHPy debug_ctx_Tuple_FromArray(HPyContext *dctx, DHPy items[], HPy_ssize_t n);
+DHPy debug_ctx_Tuple_FromArray(HPyContext *dctx, const DHPy items[], HPy_ssize_t n);
 int debug_ctx_Slice_Unpack(HPyContext *dctx, DHPy slice, HPy_ssize_t *start, HPy_ssize_t *stop, HPy_ssize_t *step);
 DHPy debug_ctx_Import_ImportModule(HPyContext *dctx, const char *utf8_name);
 DHPy debug_ctx_Capsule_New(HPyContext *dctx, void *pointer, const char *utf8_name, HPyCapsule_Destructor *destructor);
