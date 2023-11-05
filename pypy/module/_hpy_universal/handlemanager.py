@@ -372,6 +372,14 @@ class TraceHandleManager(AbstractHandleManager):
             ctx_field = 'c_ctx_' + func.basename
             setattr(self.ctx, ctx_field, funcptr)
 
+    def new(self, w_object):
+        return self.u_handles.new(w_object)
+
+    def close(self, index):
+        return self.u_handles.close(index)
+
+    def consume(self, index):
+        return self.u_handles.consume(index)
 
 
 class HandleReleaseCallback(object):

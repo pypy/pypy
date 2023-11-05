@@ -64,7 +64,7 @@ def test_get_durations(compiler):
 
         @EXPORT(f)
         @INIT
-    """)
+    """, hpy_abi="trace")
     # Don't rely on absolute durations numbers since the module setup could
     # already do some API calls we don't expect.
     durations0 = get_durations().copy()
@@ -93,7 +93,7 @@ def test_trace_funcs(compiler):
 
         @EXPORT(f)
         @INIT
-    """)
+    """, hpy_abi="trace")
     on_enter_cnt = [0]
     on_exit_cnt = [0]
 

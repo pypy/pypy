@@ -15,7 +15,7 @@ class State(object):
         self.space = space
         uctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
         dctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
-        tctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
+        tctx = llapi.hpy_trace_get_ctx(uctx)
         self.u_handles = handlemanager.HandleManager(space, uctx)
         self.d_handles = handlemanager.DebugHandleManager(space, dctx, self.u_handles)
         self.t_handles = handlemanager.TraceHandleManager(space, tctx, self.u_handles)
