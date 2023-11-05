@@ -17,9 +17,9 @@ class W_ExtensionCompiler(W_Root):
     def descr_new(space, w_type):
         return W_ExtensionCompiler()
 
-    @unwrap_spec(main_src='text', name='text', w_extra_sources=W_Root)
+    @unwrap_spec(main_src='text', name='text', w_extra_sources=W_Root, hpy_abi='text')
     def descr_make_module(self, space, main_src, name='mytest',
-                            w_extra_sources=None):
+                            w_extra_sources=None, hpy_abi=hpy_abi):
         if w_extra_sources is None:
             extra_sources = ()
         else:

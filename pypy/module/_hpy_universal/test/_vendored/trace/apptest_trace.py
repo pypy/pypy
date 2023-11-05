@@ -35,7 +35,7 @@ def test_get_call_counts(compiler):
 
         @EXPORT(f)
         @INIT
-    """)
+    """, hpy_abi="trace")
     # Don't rely on absolute call count numbers since the module setup could
     # already do some API calls we don't expect.
     call_counter_0 = get_call_counter()
