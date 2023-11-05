@@ -114,9 +114,8 @@ DUMMY_FUNC = lltype.FuncType([], lltype.Void)
 class AbstractHandleManager(object):
     NULL = 0
 
-    def __init__(self, space, ctx, is_debug):
+    def __init__(self, space, is_debug):
         self.space = space
-        self.ctx = ctx
         self.is_debug = is_debug
         # setup a helper class for creating views in the bf_getbuffer slot
         setup_hpybuffer(self)
@@ -137,6 +136,9 @@ class AbstractHandleManager(object):
         raise NotImplementedError
 
     def attach_release_callback(self, index, cb):
+        raise NotImplementedError
+
+    def get_ctx(self):
         raise NotImplementedError
 
     @specialize.arg(0)
@@ -160,7 +162,8 @@ class HandleManager(AbstractHandleManager):
 
     def __init__(self, space, uctx):
         from .interp_extfunc import W_ExtensionFunction_u, W_ExtensionMethod_u
-        AbstractHandleManager.__init__(self, space, uctx, is_debug=False)
+        AbstractHandleManager.__init__(self, space, is_debug=False)
+        self.ctx = uctx
         self.handles_w = [build_value(space) for name, build_value in CONSTANTS]
         self.release_callbacks = [None] * len(self.handles_w)
         self.free_list = []
@@ -175,7 +178,7 @@ class HandleManager(AbstractHandleManager):
         return rffi.str2constcharp("HPy Universal ABI (PyPy backend)",
                                    track_allocation=False)
 
-    def setup_ctx(self):
+    def setup_universal_ctx(self):
         space = self.space
         self.ctx.c_name = self.ctx_name()
 
@@ -211,6 +214,8 @@ class HandleManager(AbstractHandleManager):
 
         self.ctx.c_ctx_FatalError = rffi.cast(rffi.VOIDP, llapi.pypy_HPy_FatalError)
 
+    def get_ctx(self):
+        return self.ctx
 
     def new(self, w_object):
         if len(self.free_list) == 0:
@@ -272,7 +277,8 @@ class DebugHandleManager(AbstractHandleManager):
 
     def __init__(self, space, dctx, u_handles):
         from .interp_extfunc import W_ExtensionFunction_d, W_ExtensionMethod_d
-        AbstractHandleManager.__init__(self, space, dctx, is_debug=True)
+        AbstractHandleManager.__init__(self, space, is_debug=True)
+        self.ctx = dctx
         self.u_handles = u_handles
         self.w_ExtensionFunction = W_ExtensionFunction_d
         self.w_ExtensionMethod = W_ExtensionMethod_d
@@ -285,7 +291,7 @@ class DebugHandleManager(AbstractHandleManager):
         return rffi.str2constcharp("HPy Debug Mode ABI (PyPy backend)",
                                    track_allocation=False)
 
-    def setup_ctx(self):
+    def setup_debug_ctx(self):
         space = self.space
         self.ctx.c_name = self.ctx_name()
         rffi.setintfield(self.ctx, 'c_abi_version', 0)
@@ -296,6 +302,9 @@ class DebugHandleManager(AbstractHandleManager):
             ctx_field = 'c_ctx_' + func.basename
             setattr(self.ctx, ctx_field, funcptr)
         llapi.hpy_debug_set_ctx(self.ctx)
+
+    def get_ctx(self):
+        return self.ctx
 
     def new(self, w_object):
         uh = self.u_handles.new(w_object)
@@ -346,9 +355,9 @@ class DebugHandleManager(AbstractHandleManager):
 class TraceHandleManager(AbstractHandleManager):
     cls_suffix = '_t'
 
-    def __init__(self, space, tctx, u_handles):
+    def __init__(self, space, u_handles):
         from .interp_extfunc import W_ExtensionFunction_t, W_ExtensionMethod_t
-        AbstractHandleManager.__init__(self, space, tctx, is_debug=True)
+        AbstractHandleManager.__init__(self, space, is_debug=False)
         self.u_handles = u_handles
         self.w_ExtensionFunction = W_ExtensionFunction_t
         self.w_ExtensionMethod = W_ExtensionMethod_t
@@ -361,16 +370,20 @@ class TraceHandleManager(AbstractHandleManager):
         return rffi.str2constcharp("HPy Trace Mode ABI (PyPy backend)",
                                    track_allocation=False)
 
-    def setup_ctx(self):
+    def setup_trace_ctx(self):
         space = self.space
-        self.ctx.c_name = self.ctx_name()
-        rffi.setintfield(self.ctx, 'c_abi_version', 0)
-        self.ctx.c__private = llapi.cts.cast('void*', 0)
-        llapi.hpy_trace_ctx_init(self.ctx, self.u_handles.ctx)
+        ctx = llapi.hpy_trace_get_ctx(self.u_handles.ctx)
+        ctx.c_name = self.ctx_name()
+        rffi.setintfield(ctx, 'c_abi_version', 0)
+        ctx.c__private = llapi.cts.cast('void*', 0)
+        llapi.hpy_trace_ctx_init(ctx, self.u_handles.ctx)
         for func in TRACE.all_functions:
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
-            setattr(self.ctx, ctx_field, funcptr)
+            setattr(ctx, ctx_field, funcptr)
+
+    def get_ctx(self):
+        return llapi.hpy_trace_get_ctx(self.u_handles.ctx)
 
     def new(self, w_object):
         return self.u_handles.new(w_object)

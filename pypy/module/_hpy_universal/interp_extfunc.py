@@ -40,7 +40,7 @@ class W_ExtensionFunctionMixin(object):
 
     def call_noargs(self, space, h_self):
         func = llapi.cts.cast('HPyFunc_noargs', self.cfuncptr)
-        h_result = func(self.handles.ctx, h_self)
+        h_result = func(self.handles.get_ctx(), h_self)
         if not h_result:
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
@@ -48,7 +48,7 @@ class W_ExtensionFunctionMixin(object):
     def call_o(self, space, h_self, w_arg):
         with self.handles.using(w_arg) as h_arg:
             func = llapi.cts.cast('HPyFunc_o', self.cfuncptr)
-            h_result = func(self.handles.ctx, h_self, h_arg)
+            h_result = func(self.handles.get_ctx(), h_self, h_arg)
         if not h_result:
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
@@ -99,13 +99,13 @@ class W_ExtensionFunctionMixin(object):
 
     def call_varargs(self, space, h_self, args_h, n):
         fptr = llapi.cts.cast('HPyFunc_varargs', self.cfuncptr)
-        return fptr(self.handles.ctx, h_self, args_h, n)
+        return fptr(self.handles.get_ctx(), h_self, args_h, n)
 
     def call_keywords(self, space, h_self, args_h, n, h_kw=0):
         # XXX: if there are no keywords, should we pass HPy_NULL or an empty
         # dict?
         fptr = llapi.cts.cast('HPyFunc_keywords', self.cfuncptr)
-        return fptr(self.handles.ctx, h_self, args_h, n, h_kw)
+        return fptr(self.handles.get_ctx(), h_self, args_h, n, h_kw)
 
     def descr_call(self, space, __args__):
         with self.handles.using(self.w_self) as h_self:

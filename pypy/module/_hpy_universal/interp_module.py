@@ -89,7 +89,7 @@ def hpymod_create(handles, modname, hpydef):
             # fast-call directly to W_ExtensionFunctionMixin.call_o
             func = llapi.cts.cast("HPyFunc_o", create_func.c_impl)
             with handles.using(w_mod) as h_arg:
-                h = func(handles.ctx, h_arg, h_arg)
+                h = func(handles.get_ctx(), h_arg, h_arg)
             if h == 0:
                 space.fromcache(State).raise_current_exception()
             w_result = handles.deref(h)
@@ -128,7 +128,7 @@ def hpymod_exec_def(handles, w_mod, hpydef):
                     # fast-call directly to W_ExtensionFunctionMixin.call_o
                     func = llapi.cts.cast("HPyFunc_o", hpyslot.c_impl)
                     with handles.using(w_mod) as h_arg:
-                        result = func(handles.ctx, h_arg, h_arg)
+                        result = func(handles.get_ctx(), h_arg, h_arg)
                     if result != 0:
                         space.fromcache(State).raise_current_exception()
             i += 1

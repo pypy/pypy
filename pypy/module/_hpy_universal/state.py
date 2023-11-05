@@ -15,16 +15,16 @@ class State(object):
         self.space = space
         uctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
         dctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
-        tctx = llapi.hpy_trace_get_ctx(uctx)
+
         self.u_handles = handlemanager.HandleManager(space, uctx)
         self.d_handles = handlemanager.DebugHandleManager(space, dctx, self.u_handles)
-        self.t_handles = handlemanager.TraceHandleManager(space, tctx, self.u_handles)
+        self.t_handles = handlemanager.TraceHandleManager(space, self.u_handles)
 
     @jit.dont_look_inside
     def setup(self, space):
-        self.u_handles.setup_ctx()
-        self.d_handles.setup_ctx()
-        self.t_handles.setup_ctx()
+        self.u_handles.setup_universal_ctx()
+        self.d_handles.setup_debug_ctx()
+        self.t_handles.setup_trace_ctx()
         self.global_handles = {}
         self.setup_bridge()
 
