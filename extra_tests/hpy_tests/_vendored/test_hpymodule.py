@@ -25,7 +25,11 @@ class TestModule(HPyTest):
 
             @HPy_MODINIT(moduledef)
         """)
-        assert mod.__name__ == mod.__spec__.name
+        import sys
+        ISPYPY = "__pypy__" in sys.modules
+        if not ISPYPY:
+            # see https://github.com/hpyproject/hpy/issues/456
+            assert mod.__name__ == mod.__spec__.name
         assert mod.__doc__ == "Some doc"
         assert mod.f() == 42
 
