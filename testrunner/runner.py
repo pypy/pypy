@@ -336,17 +336,19 @@ class RunParam(object):
             entries = []
         entries.sort()
 
+        collected = False
         if p != self.root:
             for p1 in entries:
                 if self.is_test_py_file(p1):
                     self.collect_one_testdir(testdirs, reldir,
                                    [self.reltoroot(t) for t in entries
                                     if self.is_test_py_file(t)])
+                    collected = True
                     break
-
-        for p1 in entries:
-            if p1.check(dir=1, link=0):
-                self.collect_testdirs(testdirs, p1)
+        if not collected:
+            for p1 in entries:
+                if p1.check(dir=1, link=0):
+                    self.collect_testdirs(testdirs, p1)
 
     def cleanup(self, testdir):
         pass
