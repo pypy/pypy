@@ -8,7 +8,7 @@ class TestAPISet(object):
 
     @pytest.fixture
     def api(self):
-        return APISet(llapi.cts, is_debug=False)
+        return APISet(llapi.cts, mode="universal")
 
     def test_parse_signature(self, api):
         sig = 'HPy HPyNumber_Add(HPyContext *ctx, HPy x, HPy y)'

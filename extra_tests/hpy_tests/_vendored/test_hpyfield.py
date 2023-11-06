@@ -156,7 +156,8 @@ class TestHPyField(HPyTest):
             @INIT
         """)
         p = mod.Pair("hello", "world")
-        referents = gc.get_referents(p)
+        # PyPy also returns a second Pair object, filter it out
+        referents = [x for x in gc.get_referents(p) if isinstance(x, str)]
         referents.sort()
         assert referents == ['hello', 'world']
 

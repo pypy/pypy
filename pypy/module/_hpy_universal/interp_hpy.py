@@ -263,7 +263,7 @@ def do_load(space, name, soname, mode):
             space, space.newtext(msg), space.newtext(name), w_path)
 
     # Set up global trampoline ctx
-    rffi.cast(llapi.InitContextFuncPtr, initptr)(manager.ctx)
+    rffi.cast(llapi.InitContextFuncPtr, initptr)(manager.get_ctx())
 
     init_name = 'HPyInit_' + shortname
     try:
