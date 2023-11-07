@@ -62,14 +62,6 @@ from pypy.module._hpy_universal import (
 #    HandleManager/ctx: so the same applies for W_ExtensionMethod and
 #    W_SlotWrapper.
 
-
-def set_on_invalid_handle(space, w_f):
-    raise oefmt(space.w_RuntimeError, "cannot use on_invalid_handle hook in PyPy")
-
-@specialize.memo()
-def get_set_on_invalid_handle(space):
-    return interp2app(set_on_invalid_handle).spacebind(space)
-
 def startup(space, w_mod):
     """
     Initialize _hpy_universal. This is called by moduledef.Module.__init__
@@ -84,8 +76,6 @@ def startup(space, w_mod):
     hpydef_debug = llapi.HPyInit__debug()
     w_debug_mod = hpymod_create(manager, "_debug", hpydef_debug)
     hpymod_exec_def(manager, w_debug_mod, hpydef_debug)
-    w_set_on_invalid_handle = get_set_on_invalid_handle(space)
-    w_debug_mod.setdictvalue(space, 'set_on_invalid_handle', w_set_on_invalid_handle)
     w_mod.setdictvalue(space, '_debug', w_debug_mod)
 
     hpydef_trace = llapi.HPyInit__trace()
@@ -263,7 +253,16 @@ def do_load(space, name, soname, mode):
             space, space.newtext(msg), space.newtext(name), w_path)
 
     # Set up global trampoline ctx
-    rffi.cast(llapi.InitContextFuncPtr, initptr)(manager.get_ctx())
+    if mode == llapi.MODE_DEBUG:
+        ctx = manager.ctx
+    elif mode == llapi.MODE_UNIVERSAL:
+        ctx = manager.ctx
+    elif mode == llapi.MODE_TRACE:
+        ctx = llapi.hpy_trace_get_ctx(manager.u_handles.ctx)
+    else:
+        # Cannot happen
+        ctx = llapi.cts.cast("HPyContext *", 0)    
+    rffi.cast(llapi.InitContextFuncPtr, initptr)(ctx)
 
     init_name = 'HPyInit_' + shortname
     try:

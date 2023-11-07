@@ -132,16 +132,20 @@ def HPy_SetItem_s(space, handles, ctx, h_obj, key, h_val):
 
 @API.func("HPy HPy_Repr(HPyContext *ctx, HPy h_obj)")
 def HPy_Repr(space, handles, ctx, h_obj):
-    # XXX: cpyext checks and returns <NULL>. Add a test to HPy and fix here
     w_obj = handles.deref(h_obj)
-    w_res = space.repr(w_obj)
+    if w_obj is None:
+        w_res = space.newtext("<NULL>")
+    else:
+        w_res = space.repr(w_obj)
     return handles.new(w_res)
 
 @API.func("HPy HPy_Str(HPyContext *ctx, HPy h_obj)")
 def HPy_Str(space, handles, ctx, h_obj):
-    # XXX: cpyext checks and returns <NULL>. Add a test to HPy and fix here
     w_obj = handles.deref(h_obj)
-    w_res = space.str(w_obj)
+    if w_obj is None:
+        w_res = space.newtext("<NULL>")
+    else:
+        w_res = space.str(w_obj)
     return handles.new(w_res)
 
 @API.func("HPy HPy_ASCII(HPyContext *ctx, HPy h_obj)")
