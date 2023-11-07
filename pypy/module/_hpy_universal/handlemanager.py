@@ -225,7 +225,6 @@ class HandleManager(AbstractHandleManager):
         else:
             index = self.free_list.pop()
             self.handles_w[index] = w_object
-            # releasers[index] is already set to None by close()
         return index
 
     def close(self, index):
@@ -309,23 +308,16 @@ class DebugHandleManager(AbstractHandleManager):
     def new(self, w_object):
         uh = self.u_handles.new(w_object)
         ret = llapi.hpy_debug_open_handle(self.ctx, uh)
-        # print 'new', ret, uh, w_object
+        # print 'debug new', ret, uh
         return ret
 
     def close(self, dh):
         # tricky, we need to deref dh but use index for all self.u_handles interactions
         index = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         ll_assert(index > 0, 'HandleManager.close: index > 0')
-        if self.u_handles.release_callbacks[index] is not None:
-            w_obj = self.deref(dh)
-            for f in self.u_handles.release_callbacks[index]:
-                # print 'calling release with', dh, index, w_obj
-                f.release(dh, w_obj)
-            self.u_handles.release_callbacks[index] = None
-        # print 'close', index, dh, self.deref(dh)
-        self.u_handles.handles_w[index] = None
-        self.u_handles.free_list.append(index)
+        # print 'debug close', index, dh
         llapi.hpy_debug_close_handle(self.ctx, dh)
+        self.u_handles.close(index)
 
     def deref(self, dh):
         # print 'deref', dh

@@ -1,5 +1,12 @@
 # spaceconfig = {"usemodules":["_hpy_universal"], "objspace.hpy_cpyext_API":false}
 
+import pytest
+from hpy.debug.leakdetector import LeakDetector
+
+@pytest.fixture
+def hpy_abi():
+    with LeakDetector():
+        yield "debug"
 
 
 def test_cant_use_closed_handle(compiler):  # , hpy_debug_capture):
