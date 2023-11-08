@@ -115,5 +115,7 @@ def test_union():
     assert d.default_factory is str
     assert d == {1: 0, 2: "", 3: ""}
 
-    raises(TypeError, "d1 | list(d2.items())")
-    raises(TypeError, "list(d2.items()) | d1")
+    with raises(TypeError):
+        d1 | list(d2.items())
+    with raises(TypeError):
+        list(d2.items()) | d1

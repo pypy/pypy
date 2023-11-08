@@ -54,7 +54,8 @@ def test_maxlen_attribute():
     assert deque('abc').maxlen is None
     assert deque('abc', maxlen=4).maxlen == 4
     assert deque('abc', maxlen=0).maxlen == 0
-    raises((AttributeError, TypeError), "deque('abc').maxlen = 10")
+    with raises((AttributeError, TypeError)):
+        deque('abc').maxlen = 10
 
 def test_runtimeerror():
     d = deque('abcdefg')
@@ -117,7 +118,8 @@ def test_add():
 
 def test_cannot_add_list():
     from _collections import deque
-    raises(TypeError, "deque([2]) + [3]")
+    with raises(TypeError):
+        deque([2]) + [3]
 
 def test_iadd():
     from _collections import deque
@@ -142,8 +144,10 @@ def test_getitem():
     d = deque(l)
     for j in range(-n, n):
         assert d[j] == l[j]
-    raises(IndexError, "d[-n-1]")
-    raises(IndexError, "d[n]")
+    with raises(IndexError):
+        d[-n-1]
+    with raises(IndexError):
+        d[n]
 
 def test_setitem():
     n = 200

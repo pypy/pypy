@@ -91,7 +91,8 @@ def test_truediv():
     raises(ZeroDivisionError, complex.__truediv__, 1+1j, 0+0j)
 
 def test_floordiv():
-    raises(TypeError, "3+0j // 0+0j")
+    with raises(TypeError):
+        3+0j // 0+0j
 
 def test_convert():
     exc = raises(TypeError, complex.__int__, 3j)
@@ -136,7 +137,8 @@ def test_richcompare_boundaries():
 
 def test_mod():
     a = 3.33+4.43j
-    raises(TypeError, "a % a")
+    with raises(TypeError):
+        a % a
 
 def test_divmod():
     raises(TypeError, divmod, 1+1j, 0+0j)
@@ -156,8 +158,10 @@ def test_pow():
     assert 3j ** 0j == 1
     assert 3j ** 0 == 1
 
-    raises(ZeroDivisionError, "0j ** a")
-    raises(ZeroDivisionError, "0j ** (3-2j)")
+    with raises(ZeroDivisionError):
+        0j ** a
+    with raises(ZeroDivisionError):
+        0j ** (3-2j)
 
     # The following is used to exercise certain code paths
     assert a ** 105 == a ** 105
@@ -255,7 +259,8 @@ def test_constructor():
 
     # SF bug 543840:  complex(string) accepts strings with \0
     # Fixed in 2.3.
-    raises(ValueError, complex, '1+1j\0j')
+    with raises(ValueError):
+        complex("1+1j\0j")
 
     raises(TypeError, int, 5+3j)
     raises(TypeError, float, 5+3j)
@@ -340,10 +345,12 @@ def test_constructor_bad_error_message():
     assert str(err) == "complex() second argument must be a number, not 'dict'"
 
 def test_error_messages():
-    err = raises(ZeroDivisionError, "1+1j / 0").value
-    assert str(err) == "complex division by zero"
-    err = raises(TypeError, "1+1j // 0").value
-    assert str(err) == "can't take floor of complex number."
+    with raises(ZeroDivisionError) as err:
+        1+1j / 0
+    assert str(err.value) == "complex division by zero"
+    with raises(TypeError) as err:
+        1+1j // 0
+    assert str(err.value) == "can't take floor of complex number."
 
 
 def test_hash():
@@ -577,10 +584,12 @@ def test_format():
     assert format(1.5+0.5j, '#f') == '1.500000+0.500000j'
 
     # zero padding is invalid
-    raises(ValueError, (1.5+0.5j).__format__, '010f')
+    with raises(ValueError):
+        (1.5+0.5j).__format__("010f")
 
     # '=' alignment is invalid
-    raises(ValueError, (1.5+3j).__format__, '=20')
+    with raises(ValueError):
+        (1.5+3j).__format__("=20")
 
     # integer presentation types are an error
     for t in 'bcdoxX%':

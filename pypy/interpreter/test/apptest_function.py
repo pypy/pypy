@@ -30,7 +30,8 @@ def test_qualname():
     assert f().__qualname__ == 'test_qualname.<locals>.f.<locals>.g'
     f.__qualname__ = 'qualname'
     assert f.__qualname__ == 'qualname'
-    raises(TypeError, "f.__qualname__ = b'name'")
+    with raises(TypeError):
+        f.__qualname__ = b'name'
 
 def test_qualname_method():
     class A:

@@ -16,11 +16,12 @@ def test_defaults():
                 ('ignore', None, PendingDeprecationWarning, None, 0),
                 ('ignore', None, ImportWarning, None, 0),
                 ('ignore', None, ResourceWarning, None, 0)]
-    try:
-        import pkg_resources
-        expected.append(('ignore', None, pkg_resources.PEP440Warning, None, 0))
-    except:
-        pass
+    if pytest.__version__[0] < '6':
+        try:
+            import pkg_resources
+            expected.append(('ignore', None, pkg_resources.PEP440Warning, None, 0))
+        except:
+            pass
     assert expected == _warnings.filters
 
 def test_warn():
@@ -75,9 +76,9 @@ def test_ignore():
         assert list(__warningregistry__) == ['version']
 
 def test_show_source_line():
-    # Something is wrong with pytest 4.0.0 (which is the version run for -D
+    # Something is wrong with pytest >4.0.0 (which is the version run for -D
     # pypy tests: it cannot redirect sys.stderr
-    if getattr(pytest, "__version__", "untranslated") == '4.0.0':
+    if int(getattr(pytest, "__version__", "2.9.0").split(".")[0]) >= 4:
         pytest.skip("fails on this version of pytest")
 
     def inner(message, stacklevel=1):
@@ -110,9 +111,9 @@ def test_filename_none():
 
 
 def test_warn_unicode():
-    # Something is wrong with pytest 4.0.0 (which is the version run for -D
+    # Something is wrong with pytest >4.0.0 (which is the version run for -D
     # pypy tests: it cannot redirect sys.stderr
-    if getattr(pytest, "__version__", "untranslated") == '4.0.0':
+    if int(getattr(pytest, "__version__", "2.9.0").split(".")[0]) >= 4:
         pytest.skip("fails on this version of pytest")
 
     old = sys.stderr, warnings.showwarning

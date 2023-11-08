@@ -19,7 +19,8 @@ class suspend:
 def test_cannot_iterate():
     async def f(x):
         pass
-    pytest.raises(TypeError, "for i in f(5): pass")
+    with pytest.raises(TypeError):
+        for i in f(5): pass
     pytest.raises(TypeError, iter, f(5))
     pytest.raises(TypeError, next, f(5))
 
