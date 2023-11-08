@@ -43,12 +43,21 @@ int hpy_trace_ctx_free(HPyContext *tctx)
     return 0;
 }
 
-HPyContext * hpy_trace_get_ctx(HPyContext *uctx)
+HPyContext * hpy_trace_get_ctx(HPyContext *uctx, int reset)
 {
     HPyContext *tctx = &g_trace_ctx;
     if (uctx == tctx) {
         HPy_FatalError(uctx, "hpy_trace_get_ctx: expected an universal ctx, "
                              "got a trace ctx");
+    }
+    if (reset) {
+        if (tctx->_private) {
+            /* tests may reset the context state. Since this is global, it needs
+             * resetting
+             */
+            free(tctx->_private);
+        }
+        tctx->_private = NULL;
     }
     if (hpy_trace_ctx_init(tctx, uctx) < 0)
         return NULL;

@@ -13,9 +13,12 @@
 
   If you call hpy_trace_get_ctx twice on the same uctx, you get the same
   result.
+
+  If reset !=0, then the context will be forced to reset. This is helpful in tests
+  which may reuse the global static compiled code, but restart the state.
 */
 
-HPyContext * hpy_trace_get_ctx(HPyContext *uctx);
+HPyContext * hpy_trace_get_ctx(HPyContext *uctx, int reset);
 int hpy_trace_ctx_init(HPyContext *tctx, HPyContext *uctx);
 int hpy_trace_ctx_free(HPyContext *tctx);
 int hpy_trace_get_nfunc(void);

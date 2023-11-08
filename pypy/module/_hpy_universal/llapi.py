@@ -736,7 +736,7 @@ HPyInit__debug = rffi.llexternal(
 
 #trace mode
 hpy_trace_get_ctx = rffi.llexternal(
-    'pypy_hpy_trace_get_ctx', [HPyContext], HPyContext,
+    'pypy_hpy_trace_get_ctx', [HPyContext, rffi.INT_real], HPyContext,
     compilation_info=eci, _nowrapper=True)
 
 hpy_trace_ctx_init = rffi.llexternal(
