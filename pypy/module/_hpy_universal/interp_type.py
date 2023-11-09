@@ -96,8 +96,8 @@ def storage_get_raw_data(storage):
     raw_mem = rffi.cast(rffi.VOIDP, data_adr)
     return raw_mem
 
-def hpy_customtrace(gc, adr, callback, arg1, arg2):
-    storage = llmemory.cast_adr_to_ptr(adr, lltype.Ptr(HPY_STORAGE))
+def hpy_customtrace(gc, addr, callback, arg1, arg2):
+    storage = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(HPY_STORAGE))
     if storage.tp_traverse:
         trace_one_field = make_trace_one_field(callback)
         ll_trace_one_field = trace_one_field.get_llhelper()
@@ -105,7 +105,7 @@ def hpy_customtrace(gc, adr, callback, arg1, arg2):
         trace_one_field.arg1 = arg1
         trace_one_field.arg2 = arg2
         #
-        data_adr = (adr + DATA_OFS + DATA_ITEM0_OFS)
+        data_adr = (addr + DATA_OFS + DATA_ITEM0_OFS)
         data_ptr = llmemory.cast_adr_to_ptr(data_adr, rffi.VOIDP)
         NULL = rffi.cast(rffi.VOIDP, 0)
         storage.tp_traverse(data_ptr, ll_trace_one_field, NULL)
@@ -522,8 +522,10 @@ def _create_new_type(
     w_type = space.allocate_instance(W_HPyTypeObject, w_metaclass)
     w_type.space = space
     metasize = 0
+    tp_traverse = lltype.nullptr(llapi.cts.gettype('HPyFunc_traverseproc').TO)
     if isinstance(w_metaclass, W_HPyTypeObject):
         metasize = w_metaclass.basicsize
+        tp_traverse = w_metaclass.tp_traverse
     elif w_metaclass.is_cpytype():
         from pypy.module.cpyext.pyobject import make_ref, cts
         pyobj = make_ref(space, w_metaclass)
@@ -531,7 +533,7 @@ def _create_new_type(
         metasize = pytype.c_tp_basicsize
     if metasize > 0:
         hpy_storage = storage_alloc(metasize)
-        hpy_storage.tp_traverse = w_type.tp_traverse
+        hpy_storage.tp_traverse = tp_traverse
         w_type._hpy_set_raw_storage(space, hpy_storage)
     # XXX handle tp_destroy, tp_finalize
     W_HPyTypeObject.__init__(w_type,

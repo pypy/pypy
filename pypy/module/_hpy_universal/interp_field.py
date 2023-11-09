@@ -62,7 +62,10 @@ def field_store_w(space, pf, w_target, w_value):
     if not we_are_translated():
         _STORAGE.store_w(pf, w_value)
     else:
-        rgc.ll_writebarrier(w_target._hpy_get_gc_storage(space))
+        storage = w_target._hpy_get_gc_storage(space)
+        # Should never happen
+        llassert(bool(storage.tp_traverse), "required tp_traverse function missing on storage")
+        rgc.ll_writebarrier(storage)
         #
         gcref = rgc.cast_instance_to_gcref(w_value)
         pf[0] = rffi.cast(lltype.Signed, gcref)
@@ -88,7 +91,10 @@ def HPyField_Store(space, handles, ctx, h_target, pf, h):
         w_target = handles.deref(h_target)
         ll_assert(isinstance(w_target, W_HPyObject) or isinstance(w_target, W_HPyTypeObject), 'h_target is not a valid HPy object')
         assert (isinstance(w_target, W_HPyObject) or isinstance(w_target, W_HPyTypeObject))
-        rgc.ll_writebarrier(w_target._hpy_get_gc_storage(space))
+        storage = w_target._hpy_get_gc_storage(space)
+        # Should never happen
+        llassert(bool(storage.tp_traverse), "required tp_traverse function missing on storage")
+        rgc.ll_writebarrier(storage)
         #
         w_obj = handles.deref(h)
         gcref = rgc.cast_instance_to_gcref(w_obj)
@@ -99,7 +105,6 @@ def field_load_w(space, w_source, f):
     if we_are_translated():
         ll_assert(isinstance(w_source, W_HPyObject) or isinstance(w_source, W_HPyTypeObject), 'h_target is not a valid HPy object')
         assert (isinstance(w_source, W_HPyObject) or isinstance(w_source, W_HPyTypeObject))
-        rgc.ll_writebarrier(w_source._hpy_get_gc_storage(space))
         gcref = rffi.cast(llmemory.GCREF, f)
         w_obj = rgc.try_cast_gcref_to_instance(W_Root, gcref)
         # if w_obj is None it means that the gcref didn't contain a W_Root, but
