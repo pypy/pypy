@@ -73,6 +73,8 @@ class State(object):
         """
         self.setup_bridge()
         llapi.hpy_debug_set_ctx(self.d_handles.ctx)
+        tctx = llapi.hpy_trace_get_ctx(self.u_handles.ctx)
+        tctx.c__private = llapi.cts.cast('void*', 0)
         self.global_handles = {}
 
     def set_exception(self, operror):
