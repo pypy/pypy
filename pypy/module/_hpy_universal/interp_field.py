@@ -64,7 +64,7 @@ def field_store_w(space, pf, w_target, w_value):
     else:
         storage = w_target._hpy_get_gc_storage(space)
         # Should never happen
-        llassert(bool(storage.tp_traverse), "required tp_traverse function missing on storage")
+        ll_assert(bool(storage.tp_traverse), "required tp_traverse function missing on storage")
         rgc.ll_writebarrier(storage)
         #
         gcref = rgc.cast_instance_to_gcref(w_value)
@@ -93,7 +93,7 @@ def HPyField_Store(space, handles, ctx, h_target, pf, h):
         assert (isinstance(w_target, W_HPyObject) or isinstance(w_target, W_HPyTypeObject))
         storage = w_target._hpy_get_gc_storage(space)
         # Should never happen
-        llassert(bool(storage.tp_traverse), "required tp_traverse function missing on storage")
+        ll_assert(bool(storage.tp_traverse), "required tp_traverse function missing on storage")
         rgc.ll_writebarrier(storage)
         #
         w_obj = handles.deref(h)
