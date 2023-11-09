@@ -621,11 +621,11 @@ def HPyType_GetName(space, handles, ctx, h_type):
 def HPyType_GetBuiltinShape(space, handles, ctx, h_type):
     w_obj = handles.deref(h_type)
     if w_obj.is_cpytype():
-        return -1 # HPyTYpe_BuiltinShape_Legacy
+        return rffi.cast(rffi.LONG, -1) # HPyTYpe_BuiltinShape_Legacy
     if isinstance(w_obj, W_HPyTypeObject):
-        return w_obj.shape
+        return rffi.cast(rffi.LONG, w_obj.shape)
     # XXX FIXME
-    return 0
+    return rffi.cast(rffi.LONG, 0)
 
 @API.func("int HPy_SetCallFunction(HPyContext *ctx, HPy h, HPyCallFunction *func)", error_value=API.int(-1))
 def HPy_SetCallFunction(space, handles, ctx, h, func):
