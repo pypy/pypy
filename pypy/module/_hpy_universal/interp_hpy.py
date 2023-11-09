@@ -258,8 +258,7 @@ def do_load(space, name, soname, mode):
     elif mode == llapi.MODE_UNIVERSAL:
         ctx = manager.ctx
     elif mode == llapi.MODE_TRACE:
-        reset = rffi.cast(rffi.INT_real, 0)
-        ctx = llapi.hpy_trace_get_ctx(manager.u_handles.ctx, reset)
+        ctx = llapi.hpy_trace_get_ctx(manager.u_handles.ctx)
     else:
         # Cannot happen
         ctx = llapi.cts.cast("HPyContext *", 0)    

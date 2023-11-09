@@ -364,21 +364,18 @@ class TraceHandleManager(AbstractHandleManager):
 
     def setup_trace_ctx(self):
         space = self.space
-        reset = rffi.cast(rffi.INT_real, 1)
-        ctx = llapi.hpy_trace_get_ctx(self.u_handles.ctx, reset)
+        ctx = llapi.hpy_trace_get_ctx(self.u_handles.ctx)
         ctx.c_name = self.ctx_name()
         rffi.setintfield(ctx, 'c_abi_version', 0)
         ctx.c__private = llapi.cts.cast('void*', 0)
-        ret = llapi.hpy_trace_ctx_init(ctx, self.u_handles.ctx)
-        # XXX do something on failure
+        llapi.hpy_trace_ctx_init(ctx, self.u_handles.ctx)
         for func in TRACE.all_functions:
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
             setattr(ctx, ctx_field, funcptr)
 
     def get_ctx(self):
-        reset = rffi.cast(rffi.INT_real, 0)
-        return llapi.hpy_trace_get_ctx(self.u_handles.ctx, reset)
+        return llapi.hpy_trace_get_ctx(self.u_handles.ctx)
 
     def new(self, w_object):
         return self.u_handles.new(w_object)

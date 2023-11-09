@@ -58,7 +58,7 @@ static inline HPy posix_time_to_ns(HPyContext *uctx, HPy *s_to_ns, _HPyTime_t t)
 HPyDef_METH(get_durations, "get_durations", HPyFunc_NOARGS)
 static HPy get_durations_impl(HPyContext *uctx, HPy self)
 {
-    HPyContext *tctx = hpy_trace_get_ctx(uctx, 0);
+    HPyContext *tctx = hpy_trace_get_ctx(uctx);
     HPyTraceInfo *info = get_info(tctx);
     HPyTracker ht = HPyTracker_New(uctx, hpy_trace_get_nfunc());
 
@@ -100,7 +100,7 @@ fail:
 HPyDef_METH(get_call_counts, "get_call_counts", HPyFunc_NOARGS)
 static HPy get_call_counts_impl(HPyContext *uctx, HPy self)
 {
-    HPyContext *tctx = hpy_trace_get_ctx(uctx, 0);
+    HPyContext *tctx = hpy_trace_get_ctx(uctx);
     HPyTraceInfo *info = get_info(tctx);
     HPyTracker ht = HPyTracker_New(uctx, hpy_trace_get_nfunc());
     HPy res = HPyDict_New(uctx);
@@ -153,8 +153,8 @@ static HPy set_trace_functions_impl(HPyContext *uctx, HPy self, const HPy *args,
 {
     HPy h_on_enter = HPy_NULL;
     HPy h_on_exit = HPy_NULL;
-    HPyContext *tctx = hpy_trace_get_ctx(uctx, 0);
-    HPyTraceInfo *info = get_info(tctx);
+    HPyContext *dctx = hpy_trace_get_ctx(uctx);
+    HPyTraceInfo *info = get_info(dctx);
     HPyTracker ht;
 
     static const char *kwlist[] = { "on_enter", "on_exit", NULL };
@@ -176,7 +176,7 @@ HPyDef_METH(get_frequency, "get_frequency", HPyFunc_NOARGS,
         .doc="Resolution of the used clock in Hertz.")
 static HPy get_frequency_impl(HPyContext *uctx, HPy self)
 {
-    HPyContext *tctx = hpy_trace_get_ctx(uctx, 0);
+    HPyContext *tctx = hpy_trace_get_ctx(uctx);
     HPyTraceInfo *info = get_info(tctx);
 #ifdef _WIN32
     long long f = (long long) info->counter_freq.QuadPart;
