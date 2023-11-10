@@ -64,9 +64,7 @@ def test_charptr_use_after_implicit_arg_handle_close(compiler, python_subprocess
         result = python_subprocess.run(mod, code)
         assert result.returncode != 0
         assert result.stdout == b""
-        if sys.implementation.name == 'pypy':
-            assert b"RPython" in result.stderr
-        elif SUPPORTS_MEM_PROTECTION:
+        if SUPPORTS_MEM_PROTECTION:
             assert result.stderr == b""
         else:
             # The garbage we override the data with will cause this error
@@ -117,9 +115,7 @@ def test_charptr_use_after_handle_close(compiler, python_subprocess):
         result = python_subprocess.run(mod, code)
         assert result.returncode != 0
         assert result.stdout == b""
-        if sys.implementation.name == 'pypy':
-            assert b"RPython" in result.stderr
-        elif SUPPORTS_MEM_PROTECTION:
+        if SUPPORTS_MEM_PROTECTION:
             assert result.stderr == b""
         else:
             # The garbage we override the data with will cause this error
