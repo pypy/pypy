@@ -23,7 +23,7 @@ MODE_TRACE = 2
 
 
 eci = ExternalCompilationInfo(
-    compile_extra = ["-DHPY_ABI_HYBRID", "-DHPY_EMBEDDED_MODULES"],
+    compile_extra = ["-DHPY_ABI_HYBRID", "-DHPY_EMBEDDED_MODULES", "-D_HPY_DEBUG_MEM_PROTECT_USEMMAP"],
     includes=["hpy.h", "hpyerr.h", "rffi_hacks.h", "dctx.h", "tctx.h"],
     include_dirs=[
         cdir,                       # for precommondefs.h

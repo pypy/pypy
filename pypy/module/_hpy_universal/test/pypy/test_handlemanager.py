@@ -136,22 +136,30 @@ class TestReleaseCallback(object):
         mgr.attach_release_callback(h1, self.MyCallback(seen, 'bar'))
         assert seen == []
         #
+        h1_u = h1
+        h0_u = h0
+        if mgr.is_debug:
+            h1_u = llapi.hpy_debug_unwrap_handle(mgr.ctx, h1)
+            h0_u = llapi.hpy_debug_unwrap_handle(mgr.ctx, h0)
         mgr.close(h1)
-        assert seen == [(h1, 'hello', 'bar')]
+        assert seen == [(h1_u, 'hello', 'bar')]
         #
         mgr.close(h2)
-        assert seen == [(h1, 'hello', 'bar')]
+        assert seen == [(h1_u, 'hello', 'bar')]
         #
         mgr.close(h0)
-        assert seen == [(h1, 'hello', 'bar'),
-                        (h0, 'hello', 'foo')]
+        assert seen == [(h1_u, 'hello', 'bar'),
+                        (h0_u, 'hello', 'foo')]
 
     def test_clear(self, mgr):
         seen = []
         h0 = mgr.new('hello')
         mgr.attach_release_callback(h0, self.MyCallback(seen, 'foo'))
+        h0_u = h0
+        if mgr.is_debug:
+            h0_u = llapi.hpy_debug_unwrap_handle(mgr.ctx, h0)
         mgr.close(h0)
-        assert seen == [(h0, 'hello', 'foo')]
+        assert seen == [(h0_u, 'hello', 'foo')]
         #
         # check that the releaser array is cleared when we close the handle
         # and that we don't run the releaser for a wrong object
@@ -159,16 +167,19 @@ class TestReleaseCallback(object):
         if not mgr.is_debug:
             assert h1 == h0
         mgr.close(h1)
-        assert seen == [(h0, 'hello', 'foo')]
+        assert seen == [(h0_u, 'hello', 'foo')]
 
     def test_multiple_releasers(self, mgr):
         seen = []
         h0 = mgr.new('hello')
         mgr.attach_release_callback(h0, self.MyCallback(seen, 'foo'))
         mgr.attach_release_callback(h0, self.MyCallback(seen, 'bar'))
+        h0_u = h0
+        if mgr.is_debug:
+            h0_u = llapi.hpy_debug_unwrap_handle(mgr.ctx, h0)
         mgr.close(h0)
-        assert seen == [(h0, 'hello', 'foo'),
-                        (h0, 'hello', 'bar')]
+        assert seen == [(h0_u, 'hello', 'foo'),
+                        (h0_u, 'hello', 'bar')]
 
 
 

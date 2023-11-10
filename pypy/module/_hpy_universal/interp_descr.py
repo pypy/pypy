@@ -93,7 +93,7 @@ def member_get(w_descr, space, w_obj):
         addr_contents = llapi.cts.cast("HPyField*", addr)[0]
         if addr_contents == 0:
             raise oefmt(space.w_AttributeError,
-                        "%R object has no attribute %s", w_descr, name)
+                        "%R object has no attribute '%s'", w_descr.w_type, w_descr.name)
         w_res = field_load_w(space, w_obj, addr_contents)
         return w_res
     else:
@@ -198,7 +198,7 @@ class W_HPyMemberDescriptor(GetSetProperty):
             deleter = member_del
         GetSetProperty.__init__(
             self, member_get, setter, deleter, doc,
-            cls=None, use_closure=True, tag="hpy_member")
+            cls=None, use_closure=True, tag="hpy_member", name=name)
 
     def readonly_attribute(self, space):   # overwritten
         raise oefmt(space.w_AttributeError,

@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.function import descr_function_get
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
 from pypy.objspace.std.typeobject import W_TypeObject
@@ -19,9 +19,44 @@ SUPPORTED_SIGNATURES = (
 )
 
 class W_AbstractExtensionFunction(W_Root):
+    _immutable_fields_ = ["sig", "name", "doc"]
     # XXX: should we have separate classes for each sig?
+
     def descr_call(self, space, __args__):
         raise NotImplementedError
+
+    def fget_module(self, space):
+        if self.w_module is None:
+            return space.w_None
+        return self.w_module
+
+    def fset_module(self, space, w_module):
+        self.w_module = w_module
+
+    def fdel_module(self, space):
+        self.w_module = space.w_None
+
+    def get_txtsig(self, space):
+        from pypy.module.cpyext.methodobject import extract_txtsig
+        rawdoc = self.doc
+        if rawdoc:
+            txtsig = extract_txtsig(rawdoc, self.name)
+            if txtsig is not None:
+                return space.newtext(txtsig)
+        return space.w_None
+
+    def get_doc(self, space):
+        from pypy.module.cpyext.methodobject import extract_doc
+        rawdoc = self.doc
+        if rawdoc:
+            doc = extract_doc(rawdoc, self.name)
+            if doc is not None:
+                return space.newtext(doc)
+        return space.w_None
+
+    def get_name(self, space):
+        return space.newtext(self.name)
+
 
 class W_ExtensionFunctionMixin(object):
     _immutable_fields_ = ["sig", "name"]
@@ -31,6 +66,10 @@ class W_ExtensionFunctionMixin(object):
         self.handles = handles
         self.w_self = w_self
         self.name = name
+        # W_PyCFunctionObject accepts an additional type_name
+        self.qualname = self.name
+        # W_PyCFunctionObject accepts an additional w_module
+        self.w_module = None
         self.sig = sig
         if self.sig not in SUPPORTED_SIGNATURES:
             raise oefmt(space.w_ValueError, "Unsupported HPyMeth signature")
@@ -153,8 +192,14 @@ class W_ExtensionFunction_t(W_AbstractExtensionFunction):
 W_AbstractExtensionFunction.typedef = TypeDef(
     'extension_function',
     __call__ = interpindirect2app(W_AbstractExtensionFunction.descr_call),
-    __doc__ = interp_attrproperty('doc', cls=W_AbstractExtensionFunction,
-                                  wrapfn="newtext_or_none"),
+    __doc__ = GetSetProperty(W_AbstractExtensionFunction.get_doc),
+    __name__ = GetSetProperty(W_AbstractExtensionFunction.get_name),
+    __text_signature__ = GetSetProperty(W_AbstractExtensionFunction.get_txtsig),
+    __module__ = GetSetProperty(W_AbstractExtensionFunction.fget_module,
+                                W_AbstractExtensionFunction.fset_module,
+                                W_AbstractExtensionFunction.fdel_module),
+    __qualname__ = interp_attrproperty('qualname',
+                 cls=W_AbstractExtensionFunction, wrapfn="newtext_or_none"),
     )
 W_AbstractExtensionFunction.typedef.acceptable_as_base_class = False
 

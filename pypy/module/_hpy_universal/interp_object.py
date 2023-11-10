@@ -1,5 +1,6 @@
 import os
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.debug import ll_assert
 from pypy.interpreter.error import OperationError, oefmt
 import pypy.module.__builtin__.operation as operation
 from pypy.objspace.std.bytesobject import invoke_bytes_method
@@ -230,12 +231,18 @@ def HPy_Type(space, handles, ctx, h_obj):
     return handles.new(space.type(w_obj))
 
 @API.func("int HPy_TypeCheck(HPyContext *ctx, HPy obj, HPy type)",
-          error_value='CANNOT_FAIL')
+          error_value=API.int(0))
 def HPy_TypeCheck(space, handles, ctx, h_obj, h_type):
     w_obj = handles.deref(h_obj)
     w_type = handles.deref(h_type)
+    ll_assert(space.isinstance_w(w_type, space.w_type), "h_type is not a type object")
     assert space.isinstance_w(w_type, space.w_type)
-    return API.int(space.issubtype_w(space.type(w_obj), w_type))
+    try:
+        return API.int(space.issubtype_w(space.type(w_obj), w_type))
+    except:
+        # print "issubtype_w failed", space.text_w(space.repr(w_obj)), w_type.name
+        pass
+    return API.int(0)
 
 @API.func("int HPy_Is(HPyContext *ctx, HPy obj, HPy other)",
           error_value='CANNOT_FAIL')
@@ -254,9 +261,12 @@ def _HPy_Dump(space, handles, ctx, h_obj):
     os.write(stderr, "object type     : %r\n" % (w_type,))
     os.write(stderr, "object type name: %s\n" % (w_type.name,))
     os.write(stderr, "object rpy repr : %r\n" % (w_obj,))
-    w_repr = space.repr(w_obj)
-    s = space.text_w(w_repr)
-    os.write(stderr, "object repr     : %s\n" % (s,))
+    try:
+        w_repr = space.repr(w_obj)
+        s = space.text_w(w_repr)
+        os.write(stderr, "object repr     : %s\n" % (s,))
+    except:
+        os.write(stderr, "objec repr      : <failed>\n")
 
 @API.func("int _HPy_Contains(HPyContext *ctx, HPy container, HPy key)", error_value=API.int(-1))
 def _HPy_Contains(space, handles, ctx, h_container, h_key):
