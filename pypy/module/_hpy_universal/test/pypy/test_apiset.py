@@ -62,15 +62,15 @@ class TestAPISet(object):
             def fromcache(cls):
                 return FakeState()
 
-        @api.func('double divide(long a, long b)', error_value=-1.0)
+        @api.func('double divide(double a, double b)', error_value=-1.0)
         def divide(space, handles, a, b):
             assert space is fakespace
             assert handles == 'fake manager'
-            return float(a)/b
+            return a/b
         #
         fakespace = FakeSpace()
         lldivide = divide.get_llhelper(fakespace)
-        assert lldivide(5, 2) == 2.5
+        assert lldivide(5.0, 2.0) == 2.5
 
     def test_freeze(self, api):
         @api.func('void foo(void)')
