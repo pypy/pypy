@@ -261,9 +261,12 @@ def _HPy_Dump(space, handles, ctx, h_obj):
     os.write(stderr, "object type     : %r\n" % (w_type,))
     os.write(stderr, "object type name: %s\n" % (w_type.name,))
     os.write(stderr, "object rpy repr : %r\n" % (w_obj,))
-    w_repr = space.repr(w_obj)
-    s = space.text_w(w_repr)
-    os.write(stderr, "object repr     : %s\n" % (s,))
+    try:
+        w_repr = space.repr(w_obj)
+        s = space.text_w(w_repr)
+        os.write(stderr, "object repr     : %s\n" % (s,))
+    except:
+        os.write(stderr, "objec repr      : <failed>\n")
 
 @API.func("int _HPy_Contains(HPyContext *ctx, HPy container, HPy key)", error_value=API.int(-1))
 def _HPy_Contains(space, handles, ctx, h_container, h_key):
