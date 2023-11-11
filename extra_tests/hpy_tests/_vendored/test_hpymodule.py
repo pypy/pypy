@@ -108,7 +108,7 @@ class TestModule(HPyTest):
                     return HPy_NULL;
 
                 ns_type = HPy_GetAttr_s(ctx, types, "SimpleNamespace");
-                if (HPy_IsNull(types))
+                if (HPy_IsNull(ns_type))
                     goto cleanup;
                 dict = HPyDict_New(ctx);
                 HPy_SetItem_s(ctx, dict, "spec", spec);
