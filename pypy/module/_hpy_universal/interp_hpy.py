@@ -115,7 +115,7 @@ def descr__load_bootstrap(space, w_name, ext_name, w_package, path, w_loader, w_
     space.setattr(w_mod, space.newtext("__file__"), w_file)
     space.setattr(w_mod, space.newtext("__loader__"), w_loader)
     space.setattr(w_mod, space.newtext("__package__"), w_package)
-    space.setattr(w_mod, space.newtext("origin"), w_file)
+    space.setattr(w_spec, space.newtext("origin"), space.newtext(path))
     space.setattr(w_mod, space.newtext("__spec__"), w_spec)
     return w_mod
 
