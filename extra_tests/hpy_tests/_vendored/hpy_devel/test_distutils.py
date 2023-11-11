@@ -294,6 +294,8 @@ class TestDistutils:
         doc = self.get_docstring('hpymod')
         assert doc == f'hpymod with HPy ABI: {hpy_abi}'
 
+    @pytest.mark.skipif(sys.implementation.name != "cpython",
+                        reason="cpython only")
     def test_dont_mix_cpython_and_universal_abis(self):
         """
         See issue #322
