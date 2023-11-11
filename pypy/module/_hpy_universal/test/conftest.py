@@ -3,8 +3,6 @@ import os
 import types
 import pytest
 from pypy.conftest import APPLEVEL_FN
-from pypy.tool.pytest.apptest2 import AppTestModule
-from ..state import State
 
 THIS_DIR = os.path.dirname(__file__)
 
@@ -27,7 +25,7 @@ disable = False
 if sys.platform.startswith('linux') and sys.maxsize <= 2**31:
     # skip all tests on linux32
     disable = True
-   
+
 # Monkeypatch distutils.sysconfig.get_config_var for the parse_ext_suffix
 # check in devel/abitag.py. Needed for "cross-compilation" when
 # untranslated so the distutils machinery can get at the "pypy39-pp73"
@@ -45,6 +43,25 @@ def pytest_pycollect_makemodule(path, parent):
     if path.fnmatch(APPLEVEL_FN):
         if parent.config.getoption('direct_apptest'):
             return
+
+        from pypy.tool.pytest.apptest2 import AppTestModule
+        from ..state import State
+
+        class AppTestModuleHPy(AppTestModule):
+            def setup(self):
+                space = None
+                for item in self.session.items:
+                    try:
+                        space = item.w_obj.space
+                        break
+                    except AttributeError:
+                        continue
+                else:
+                    # cannot happen: there must be at least one apptest test
+                    raise ValueError("no apptest but AppTestModuleHPy called??")
+                state = space.fromcache(State)
+                state.reset()
+
         rewrite = parent.config.getoption('applevel_rewrite')
         return AppTestModuleHPy(path, parent, rewrite_asserts=rewrite)
     # Let the default collect handle it
@@ -119,18 +136,4 @@ def python_subprocess(request):
 def fatal_exit_code(request):
     return -1
 
-class AppTestModuleHPy(AppTestModule):
-    def setup(self):
-        space = None
-        for item in self.session.items:
-            try:
-                space = item.w_obj.space
-                break
-            except AttributeError:
-                continue
-        else:
-            # cannot happen: there must be at least one apptest test
-            raise ValueError("no apptest but AppTestModuleHPy called??")
-        state = space.fromcache(State)
-        if state.was_already_setup():
-            state.reset()
+
