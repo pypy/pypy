@@ -16,7 +16,7 @@ def test_defaults():
                 ('ignore', None, PendingDeprecationWarning, None, 0),
                 ('ignore', None, ImportWarning, None, 0),
                 ('ignore', None, ResourceWarning, None, 0)]
-    if pytest.__version__[0] < '6':
+    if int(getattr(pytest, "__version__", "2.9.0").split(".")[0]) < 6:
         try:
             import pkg_resources
             expected.append(('ignore', None, pkg_resources.PEP440Warning, None, 0))
