@@ -616,10 +616,10 @@ SYMBOLS_C = [
     'PyObject_DelItemString', 'PyObject_GetBuffer', 'PyBuffer_Release',
     '_Py_setfilesystemdefaultencoding',
 
-    'PyCapsule_New', 'PyCapsule_IsValid', 'PyCapsule_GetPointer',
+    'PyCapsule_IsValid', 'PyCapsule_GetPointer',
     'PyCapsule_GetName', 'PyCapsule_GetDestructor', 'PyCapsule_GetContext',
     'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
-    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', '_Py_get_capsule_type',
+    'PyCapsule_SetContext', 'PyCapsule_Import', '_Py_get_capsule_type',
 
     'PyComplex_AsCComplex', 'PyComplex_FromCComplex',
 

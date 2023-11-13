@@ -18,17 +18,7 @@
 extern "C" {
 #endif
 
-PyAPI_DATA(PyTypeObject) PyCapsule_Type;
-
-typedef void (*PyCapsule_Destructor)(PyObject *);
-
-#define PyCapsule_CheckExact(op) (Py_TYPE(op) == &PyCapsule_Type)
-
-
-PyAPI_FUNC(PyObject *) PyCapsule_New(
-    void *pointer,
-    const char *name,
-    PyCapsule_Destructor destructor);
+#include "cpyext_capsule.h"
 
 PyAPI_FUNC(void *) PyCapsule_GetPointer(PyObject *capsule, const char *name);
 

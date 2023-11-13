@@ -54,6 +54,7 @@ import pypy.module.cpyext.number
 import pypy.module.cpyext.sliceobject
 import pypy.module.cpyext.stubsactive
 import pypy.module.cpyext.pystate
+import pypy.module.cpyext.capsule
 import pypy.module.cpyext.cdatetime
 import pypy.module.cpyext.complexobject
 import pypy.module.cpyext.weakrefobject
