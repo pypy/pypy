@@ -36,6 +36,7 @@ from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.functional import W_ReversedIterator, W_Range
 #from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.__pypy__.interp_buffer import W_Bufferable
+from pypy.objspace.std.capsuleobject import W_Capsule
 from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import SuppressIPH
 from rpython.rlib.unroll import unrolling_iterable
@@ -643,6 +644,7 @@ SYMBOLS_C = [
     'PyStructSequence_SetItem', 
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
+    'PyCapsule_Type',
 
     'Py_FrozenFlag', # not part of sys.flags
     'Py_UnbufferedStdioFlag',  # not part of sys.flags (python3)
@@ -764,6 +766,7 @@ def build_exported_objects():
         'PyFunction_Type': 'space.gettypeobject(Function.typedef)',
         'PyMethod_Type': 'space.gettypeobject(Method.typedef)',
         'PyTraceBack_Type': 'space.gettypeobject(PyTraceback.typedef)',
+        'PyCapsule_Type': 'space.gettypeobject(W_Capsule.typedef)',
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 

@@ -2,16 +2,6 @@
 
 #include "Python.h"
 
-/* Internal structure of PyCapsule */
-typedef struct {
-    PyObject_HEAD
-    void *pointer;
-    const char *name;
-    void *context;
-    PyCapsule_Destructor destructor;
-} PyCapsule;
-
-
 
 static int
 _is_legal_capsule(PyCapsule *capsule, const char *invalid_capsule)
@@ -39,7 +29,7 @@ name_matches(const char *name1, const char *name2) {
 }
 
 
-
+/*
 PyObject *
 PyCapsule_New(void *pointer, const char *name, PyCapsule_Destructor destructor)
 {
@@ -62,7 +52,7 @@ PyCapsule_New(void *pointer, const char *name, PyCapsule_Destructor destructor)
 
     return (PyObject *)capsule;
 }
-
+*/
 
 int
 PyCapsule_IsValid(PyObject *o, const char *name)
@@ -130,6 +120,7 @@ PyCapsule_GetContext(PyObject *o)
 }
 
 
+/*
 int
 PyCapsule_SetPointer(PyObject *o, void *pointer)
 {
@@ -147,7 +138,6 @@ PyCapsule_SetPointer(PyObject *o, void *pointer)
     capsule->pointer = pointer;
     return 0;
 }
-
 
 int
 PyCapsule_SetName(PyObject *o, const char *name)
@@ -189,7 +179,7 @@ PyCapsule_SetContext(PyObject *o, void *context)
     capsule->context = context;
     return 0;
 }
-
+*/
 
 void *
 PyCapsule_Import(const char *name, int no_block)
@@ -253,6 +243,7 @@ EXIT:
 }
 
 
+/*
 static void
 capsule_dealloc(PyObject *o)
 {
@@ -282,7 +273,7 @@ capsule_repr(PyObject *o)
     return PyUnicode_FromFormat("<capsule object %s%s%s at %p>",
         quote, name, quote, capsule);
 }
-
+*/
 
 
 PyDoc_STRVAR(PyCapsule_Type__doc__,
@@ -296,6 +287,7 @@ to other extension modules, so that extension modules can use the\n\
 Python import mechanism to link to one another.\n\
 ");
 
+#if 0
 PyTypeObject PyCapsule_Type = {
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
     "PyCapsule",                /*tp_name*/
@@ -320,6 +312,7 @@ PyTypeObject PyCapsule_Type = {
     0,                          /*tp_flags*/
     PyCapsule_Type__doc__       /*tp_doc*/
 };
+#endif
 
 PyTypeObject *_Py_get_capsule_type(void)
 {
