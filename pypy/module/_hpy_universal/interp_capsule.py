@@ -50,7 +50,7 @@ def HPyCapsule_New(space, handles, ctx, pointer, name, destructor):
     check_destructor_impl(space, destructor)
     w_capsule = W_Capsule(space, pointer, name)
     if destructor:
-        w_capsule.set_destructor_hpy(space, destructor.c_impl)
+        w_capsule.set_destructor_hpy(space, destructor)
     return handles.new(w_capsule)
 
 @API.func("void * HPyCapsule_Get(HPyContext *ctx, HPy capsule, int key, const char *name)")
@@ -84,7 +84,8 @@ def HPyCapsule_Set(space, handles, ctx, h_capsule, key, ptr):
     elif key == Keys.HPyCapsule_key_Destructor:
         destructor = llapi.cts.cast("HPyCapsule_Destructor *", ptr)
         check_destructor_impl(space, destructor)
-        w_capsule.set_destructor_hpy(space, destructor.c_impl)
+        if destructor:
+            w_capsule.set_destructor_hpy(space, destructor)
     else:
         raise oefmt(space.w_ValueError,
            "Invalid operation: unknown key")
