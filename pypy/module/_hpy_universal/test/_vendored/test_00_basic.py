@@ -584,3 +584,28 @@ class TestBasic(HPyTest):
             @INIT
         """)
         assert mod.f() == 0
+
+    def test_is_null(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", HPyFunc_NOARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self)
+            {
+                HPy h0 = HPyLong_FromSize_t(ctx, 0);
+                if (HPy_Is(ctx, h0, HPy_NULL)) {
+                    HPy_Close(ctx, h0);
+                    return HPyLong_FromSize_t(ctx, -1);
+                }
+                if (HPy_Is(ctx, HPy_NULL, h0)) {
+                    HPy_Close(ctx, h0);
+                    return HPyLong_FromSize_t(ctx, -1);
+                }
+                HPy_Close(ctx, h0);
+                if (HPy_Is(ctx, HPy_NULL, HPy_NULL)) {
+                    return HPyLong_FromSize_t(ctx, 0);
+                }
+                return HPyLong_FromSize_t(ctx, -1);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.f() == 0

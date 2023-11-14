@@ -247,6 +247,10 @@ def HPy_TypeCheck(space, handles, ctx, h_obj, h_type):
 @API.func("int HPy_Is(HPyContext *ctx, HPy obj, HPy other)",
           error_value='CANNOT_FAIL')
 def HPy_Is(space, handles, ctx, h_obj, h_other):
+    if not h_obj:
+        return API.int(not bool(h_other))
+    if not h_other:
+        return API.int(0)
     w_obj = handles.deref(h_obj)
     w_other = handles.deref(h_other)
     return API.int(space.is_w(w_obj, w_other))
