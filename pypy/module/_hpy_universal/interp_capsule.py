@@ -43,21 +43,14 @@ def check_destructor_impl(space, ptr):
         raise oefmt(space.w_ValueError,
             "invalid HPyCapsule destructor")
 
-def call_destructor(capsule):
-    capsule.c_func(capsule.name, capsule.pointer, capsule.context)
-
 @API.func("HPy HPyCapsule_New(HPyContext *ctx, void *pointer, const char *name, HPyCapsule_Destructor *destructor)")
 def HPyCapsule_New(space, handles, ctx, pointer, name, destructor):
     if not pointer:
         raise oefmt(space.w_ValueError, "HPyCapsule_New called with null pointer")
     check_destructor_impl(space, destructor)
+    w_capsule = W_Capsule(space, pointer, name)
     if destructor:
-        destructor_func = call_destructor
-    else:
-        destructor_func = None
-    w_capsule = W_Capsule(space, pointer, name, destructor_func)
-    if destructor:
-        w_capsule.c_func = destructor.c_impl
+        w_capsule.set_destructor_hpy(space, destructor.c_impl)
     return handles.new(w_capsule)
 
 @API.func("void * HPyCapsule_Get(HPyContext *ctx, HPy capsule, int key, const char *name)")
@@ -91,11 +84,7 @@ def HPyCapsule_Set(space, handles, ctx, h_capsule, key, ptr):
     elif key == Keys.HPyCapsule_key_Destructor:
         destructor = llapi.cts.cast("HPyCapsule_Destructor *", ptr)
         check_destructor_impl(space, destructor)
-        if destructor:
-            w_capsule.destructor = call_destructor
-            w_capsule.c_func = destructor.c_impl
-        else:
-            w_capsule.destructor = None
+        w_capsule.set_destructor_hpy(space, destructor.c_impl)
     else:
         raise oefmt(space.w_ValueError,
            "Invalid operation: unknown key")

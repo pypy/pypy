@@ -6,32 +6,42 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 
+
 class W_Capsule(W_Root):
-    def __init__(self, space, pointer, name, destructor, is_cpyext=True):
+    def __init__(self, space, pointer, name):
+        from pypy.module._hpy_universal.llapi import cts as cts_hpy
+        from pypy.module.cpyext.api import cts as cts_cpyext
         self.space = space
         self.pointer = pointer
         self.name = name
-        self.destructor = destructor
-        if destructor:
-            self.register_finalizer(space)
         self.context = rffi.cast(rffi.VOIDP, 0)
+        self.destructor_hpy = cts_hpy.cast("HPyFunc_Capsule_Destructor", 0)
+        self.destructor_cpyext = cts_cpyext.cast("PyCapsule_Destructor", 0)
 
     def descr_repr(self, space):
         if self.name:
-            quote = '"'
+            name = '"' + rffi.constcharp2str(self.name) + '"'
         else:
-            quote = ""
-        name = rffi.constcharp2str(self.name)
+            name = ""
         addr = hex(rffi.cast(rffi.SIGNED, self.pointer))
-        return space.newtext("capsule object %s%s%s at %s" %(quote, name, quote, addr))
+        return space.newtext("capsule object %s at %s" %(name, addr))
 
     def _finalize_(self):
-        if self.destructor:
-            self.destructor(self)
+        if self.destructor_hpy:
+            self.destructor_hpy(self.name, self.pointer, self.context)
+        elif self.destructor_cpyext:
+            from pypy.module.cpyext.pyobject import make_ref
+            pyobj = make_ref(self.space, self)
+            self.destructor_cpyext(pyobj)
 
-    def set_destructor(self, destructor):
-        self.destructor = destructor
-        if destructor:
+    def set_destructor_hpy(self, space, destructor):
+        self.destructor_hpy = destructor
+        if self.destructor_hpy:
+            self.register_finalizer(space)
+
+    def set_destructor_cpyext(self, space, destructor):
+        self.destructor_cpyext = destructor
+        if self.destructor_cpyext:
             self.register_finalizer(space)
 
 W_Capsule.typedef = TypeDef(

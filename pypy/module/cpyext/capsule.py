@@ -1,8 +1,8 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (bootstrap_function, slot_function,
     PyObject, build_type_checkers, cts, parse_dir)
-from pypy.module.cpyext.pyobject import (
-    make_typedescr, track_reference, from_ref)
+from pypy.module.cpyext.pyobject import (make_ref, from_ref,
+    make_typedescr, track_reference)
 from pypy.interpreter.error import oefmt
 from pypy.objspace.std.capsuleobject import W_Capsule
 
@@ -19,6 +19,10 @@ def init_capsuleobject(space):
                    dealloc=capsule_dealloc,
                   )
 
+def call_destructor(capsule):
+    if capsule.destructor:
+        pyobj = make_ref(capsule.space, capsule)
+        capsule.destructor(pyobj)
 
 def capsule_attach(space, py_obj, w_obj, w_userdata=None):
     """
@@ -30,13 +34,15 @@ def capsule_attach(space, py_obj, w_obj, w_userdata=None):
     pycapsule_obj.c_pointer = w_obj.pointer
     pycapsule_obj.c_name = w_obj.name
     pycapsule_obj.c_context = w_obj.context
-    pycapsule_obj.c_destructor = w_obj.destructor
+    if w_obj.destructor_cpyext:
+        pycapsule_obj.c_destructor = w_obj.destructor_cpyext
 
 
 def capsule_realize(space, obj):
     # Allocate and fill a w_obj from a pyobj
-    py_obj = rffi.cast(PyCapsule, obj)
-    w_obj = W_Capsule(space, py_obj.c_pointer, py_obj.c_name, py_obj.c_destructor)
+    py_obj = cts.cast("PyCapsule*", obj)
+    w_obj = W_Capsule(space, py_obj.c_pointer, py_obj.c_name)
+    w_obj.set_destructor_cpyext(space, py_obj.c_destructor)
     w_obj.context = py_obj.c_context
     track_reference(space, obj, w_obj)
     return w_obj
@@ -47,8 +53,9 @@ def capsule_dealloc(space, py_obj):
     """
     from pypy.module.cpyext.object import _dealloc
     py_capsule = cts.cast("PyCapsule*", py_obj)
-    if py_capsule.c_destructor:
-        py_capsule.c_destructor(py_obj)
+    # Called by the finalizer
+    # if py_capsule.c_destructor:
+    #    py_capsule.c_destructor(py_obj)
     _dealloc(space, py_obj)
 
 @cts.decl("""PyObject *
@@ -56,7 +63,9 @@ def capsule_dealloc(space, py_obj):
 def PyCapsule_New(space, pointer, name, destructor):
     if not pointer:
         raise oefmt(space.w_ValueError, "PyCapsule_New called with null pointer")
-    return W_Capsule(space, pointer, name, destructor)
+    w_obj = W_Capsule(space, pointer, name)
+    w_obj.set_destructor_cpyext(space, destructor)
+    return w_obj
 
 @cts.decl("int PyCapsule_SetPointer(PyObject *capsule, void *pointer)", error=-1)
 def PyCapsule_SetPointer(space, py_obj, pointer):
@@ -65,6 +74,7 @@ def PyCapsule_SetPointer(space, py_obj, pointer):
     py_capsule = cts.cast("PyCapsule*", py_obj)
     py_capsule.c_pointer = pointer
     w_obj = from_ref(space, py_obj)
+    assert isinstance(w_obj, W_Capsule)
     w_obj.pointer = pointer
     return 0
 
@@ -75,7 +85,8 @@ def PyCapsule_SetDestructor(space, py_obj, destructor):
     py_capsule = cts.cast("PyCapsule*", py_obj)
     py_capsule.c_destructor = destructor
     w_obj = from_ref(space, py_obj)
-    w_obj.set_destructor(destructor)
+    assert isinstance(w_obj, W_Capsule)
+    w_obj.set_destructor_cpyext(space, destructor)
     return 0
 
 @cts.decl("int PyCapsule_SetName(PyObject *capsule, const char *name)", error=-1)
@@ -85,6 +96,7 @@ def PyCapsule_SetName(space, py_obj, name):
     py_capsule = cts.cast("PyCapsule*", py_obj)
     py_capsule.c_name = name
     w_obj = from_ref(space, py_obj)
+    assert isinstance(w_obj, W_Capsule)
     w_obj.name = name
     return 0
 
@@ -95,5 +107,6 @@ def PyCapsule_SetContext(space, py_obj, context):
     py_capsule = cts.cast("PyCapsule*", py_obj)
     py_capsule.c_context = context
     w_obj = from_ref(space, py_obj)
+    assert isinstance(w_obj, W_Capsule)
     w_obj.context = context
     return 0
