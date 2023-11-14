@@ -120,7 +120,11 @@ def _build_dependency(name, patches=[]):
     if not os.path.exists(archive) or _sha256(archive) != dgst:
         print('fetching archive', url, file=sys.stderr)
         # Since we do not have a functioning ssl module, we cannot use urllib
-        status, stdout, stderr = run_subprocess('wget', ['-O', archive, url])
+        # On one of the buildbots, wget is broken
+        if os.environ.get("USE_CURL", False):
+            status, stdout, stderr = run_subprocess('curl', ['-sSo', archive, url])
+        else:
+            status, stdout, stderr = run_subprocess('wget', ['-O', archive, url])
         if status != 0:
             return status, stdout, stderr
 
