@@ -254,10 +254,12 @@ class HandleManager(AbstractHandleManager):
         return w_object
 
     def dup(self, index):
+        assert index > 0
         w_object = self.handles_w[index]
         return self.new(w_object)
 
     def attach_release_callback(self, index, cb):
+        assert index > 0
         if self.release_callbacks[index] is None:
             self.release_callbacks[index] = [cb]
         else:
