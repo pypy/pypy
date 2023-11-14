@@ -311,6 +311,8 @@ def descr_get_version(space):
 
 @API.func("HPy HPy_Dup(HPyContext *ctx, HPy h)")
 def HPy_Dup(space, handles, ctx, h):
+    if not h:
+        return h
     return handles.dup(h)
 
 @API.func("void HPy_Close(HPyContext *ctx, HPy h)")

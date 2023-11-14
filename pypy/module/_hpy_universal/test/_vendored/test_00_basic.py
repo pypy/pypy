@@ -567,3 +567,20 @@ class TestBasic(HPyTest):
             @INIT
         """)
         assert mod.f("abraka") == 3
+
+    def test_dup_null(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", HPyFunc_NOARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self)
+            {
+                HPy h = HPy_Dup(ctx, HPy_NULL);
+                if (HPy_IsNull(h)) {
+                    return HPyLong_FromSize_t(ctx, 0);
+                }
+                HPy_Close(ctx, h);
+                return HPyLong_FromSize_t(ctx, -1);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.f() == 0
