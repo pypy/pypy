@@ -83,8 +83,6 @@ cffi_dependencies = {
               ]),
 }
 
-cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
-
 def _unpack_tarfile(filename, extract_dir):
     """Unpack tar/tar.gz/tar.bz2/tar.xz `filename` to `extract_dir`
     """
