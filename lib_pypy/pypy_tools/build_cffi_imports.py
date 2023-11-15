@@ -69,7 +69,7 @@ cffi_dependencies = {
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
-    'lzma': ('https://tukaani.org/xz/xz-5.2.12.tar.gz',
+    'lzma': ('https://github.com/tukaani-project/xz/releases/download/v5.2.12/xz-5.2.12.tar.gz',
              '61bda930767dcb170a5328a895ec74cab0f5aac4558cdda561c83559db582a13',
              [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
