@@ -271,10 +271,6 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
         raises(module.error, 'raise module.error()')
         assert module.int_const == 1969
         assert module.str_const == 'something different'
-        ex.__del__()
-        import gc
-        for i in range(3):
-            gc.collect()
 
     def test_reload(self):
         import importlib
@@ -361,3 +357,9 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
             module = self.load_from_name(name, origin=origin, use_prefix=False)
             assert module.__name__ == name
             assert module.__doc__ == "Module named in %s" % lang
+
+    def test_get_module(self):
+        module = self.load_from_name("meth_state_access")
+        print("module", dir(module))
+        instance0 = module.StateAccessType()
+        assert instance0.get_defining_module() == module
