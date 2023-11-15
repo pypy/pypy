@@ -158,7 +158,7 @@ class OptTraceSplit(Optimizer):
                 break
 
             # shallow tracing: turn on flags
-            if rop.is_plain_call(opnum) or rop.is_call_may_force(opnum):
+            if rop.is_call(opnum):
                 numargs = op.numargs()
                 lastarg = op.getarg(numargs - 1)
                 if isinstance(lastarg, ConstInt) and lastarg.getint() == 1:
@@ -181,6 +181,12 @@ class OptTraceSplit(Optimizer):
                 self._newoperations_slow_path = self._newoperations
                 self._newoperations = self._slow_ops
                 self.send_extra_operation(label)
+
+                original_jitcell_token = self.token.original_jitcell_token
+                token = TargetToken(jitcell_token,
+                                    original_jitcell_token=original_jitcell_token)
+                label = ResOperation(rop.LABEL, self.inputargs, descr=token)
+                self._slow_ops.append(label)
                 continue
 
             if self._slow_path_flag:
@@ -217,7 +223,6 @@ class OptTraceSplit(Optimizer):
                     jump_op = ResOperation(rop.JUMP, self.inputargs, descr=token_jump_to)
                     slow_path_label = ResOperation(rop.LABEL, self.inputargs, descr=token_jump_to)
                     slow_ops_jump_op = jump_op
-
                     continue
 
                 self.send_extra_operation(op)
@@ -279,6 +284,9 @@ class OptTraceSplit(Optimizer):
         if self._check_if_cond_marked(op):
             self._specialguardop.append(op)
             self.emit(op)
+        elif startswith(name, "handler_"):
+            self._handle_dummy_flag(op)
+            self.emit(op)
         else:
             self.emit(op)
 
@@ -287,8 +295,15 @@ class OptTraceSplit(Optimizer):
         if endswith(name, mark.CALL_ASSEMBLER):
             self._handle_call_assembler(op)
             # self.emit(op)
+        elif startswith(name, "handler_"):
+            self._handle_dummy_flag(op)
+            self.emit(op)
         else:
             self.emit(op)
+
+    optimize_CALL_MAY_FORCE_I = optimize_CALL_MAY_FORCE_R
+    optimize_CALL_MAY_FORCE_F = optimize_CALL_MAY_FORCE_R
+    optimize_CALL_MAY_FORCE_N = optimize_CALL_MAY_FORCE_R
 
     optimize_CALL_I = optimize_CALL_N
     optimize_CALL_F = optimize_CALL_N
@@ -378,6 +393,23 @@ class OptTraceSplit(Optimizer):
         newop = op.copy_and_change(opnum, args, new_token)
         op.set_forwarded(newop)
         self.emit(newop)
+
+    def _handle_dummy_flag(self, op):
+        numargs = op.numargs()
+        opnum = op.getopnum()
+        arglist = op.getarglist()
+
+        newfunc = arglist[-2]
+        offset = numargs - 2
+        assert offset >= 0
+        newargs = arglist[:offset]
+        newargs[0] = newfunc
+
+        descr = op.getdescr()
+        newdescr = descr.get_calldescr_without_flag()
+
+        newop = op.copy_and_change(opnum, newargs, descr=newdescr)
+        op.set_forwarded(newop)
 
     def _check_and_insert_label(self, ops, targetbox, token):
         for i, op in enumerate(ops):
