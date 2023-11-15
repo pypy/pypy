@@ -144,6 +144,14 @@ class State:
             func(space)
             self.check_and_raise_exception()
 
+        # Since Python 3.9, this is part of Py_Initialize
+        if space.config.translation.thread:
+            from pypy.module.thread import os_thread
+            if not os_thread.threads_initialized(space):
+                os_thread.setup_threads(space)
+            
+        
+
     def get_programname(self):
         if not self.programname:
             space = self.space
