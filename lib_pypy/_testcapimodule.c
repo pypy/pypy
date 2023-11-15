@@ -954,6 +954,8 @@ raise_error(void *unused)
     return NULL;
 }
 
+static PyObject *collect_func = NULL;
+
 static int
 test_buildvalue_N_error(const char *fmt)
 {
@@ -964,16 +966,23 @@ test_buildvalue_N_error(const char *fmt)
         return -1;
     }
 
+    size_t arg_cnt = Py_REFCNT(arg);
     Py_INCREF(arg);
     res = Py_BuildValue(fmt, return_none, NULL, arg);
     if (res == NULL) {
         return -1;
     }
+    /* This should call the dealloc function for res, which should release arg 
+     * But if res is a list, it created the RPython object, so we need the PyPy
+     * gc to collect the object
+     */  
     Py_DECREF(res);
-    if (Py_REFCNT(arg) != 1) {
+    PyObject_CallFunction(collect_func, NULL);
+    size_t diff = Py_REFCNT(arg) - arg_cnt;
+    if (diff != 0) {
         PyErr_Format(TestError, "test_buildvalue_N: "
                      "arg was not decrefed in successful "
-                     "Py_BuildValue(\"%s\")", fmt);
+                     "Py_BuildValue(\"%s\"): %ld", fmt, diff);
         return -1;
     }
 
@@ -985,7 +994,7 @@ test_buildvalue_N_error(const char *fmt)
         return -1;
     }
     PyErr_Clear();
-    if (Py_REFCNT(arg) != 1) {
+    if (Py_REFCNT(arg) - arg_cnt != 0) {
         PyErr_Format(TestError, "test_buildvalue_N: "
                      "arg was not decrefed in failed "
                      "Py_BuildValue(\"%s\")", fmt);
@@ -1005,6 +1014,7 @@ test_buildvalue_N(PyObject *self, PyObject *Py_UNUSED(ignored))
         return NULL;
     }
     Py_INCREF(arg);
+    size_t arg_cnt = Py_REFCNT(arg);
     res = Py_BuildValue("N", arg);
     if (res == NULL) {
         return NULL;
@@ -1013,7 +1023,7 @@ test_buildvalue_N(PyObject *self, PyObject *Py_UNUSED(ignored))
         return raiseTestError("test_buildvalue_N",
                               "Py_BuildValue(\"N\") returned wrong result");
     }
-    if (Py_REFCNT(arg) != 2) {
+    if (Py_REFCNT(arg) - arg_cnt != 0) {
         return raiseTestError("test_buildvalue_N",
                               "arg was not decrefed in Py_BuildValue(\"N\")");
     }
@@ -7153,6 +7163,8 @@ PyInit__testcapi(void)
     if (PyModule_AddObject(m, "ContainerNoGC",
                            (PyObject *) &ContainerNoGC_type) < 0)
         return NULL;
+    PyObject *module = PyImport_ImportModule("gc");
+    collect_func = PyObject_GetAttrString(module, "collect");
 
 #ifndef PYPY_VERSION
     PyState_AddModule(m, &_testcapimodule);
