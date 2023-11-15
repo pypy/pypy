@@ -240,7 +240,7 @@ PyModuleDef_Slot main_slots[] = {
 static PyModuleDef main_def = TEST_MODULE_DEF("main", main_slots, testexport_methods);
 
 PyMODINIT_FUNC
-PyInit_multiphase2(PyObject *spec)
+PyInit__testmultiphase(PyObject *spec)
 {
     return PyModuleDef_Init(&main_def);
 }

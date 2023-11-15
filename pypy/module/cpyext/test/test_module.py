@@ -238,10 +238,10 @@ class AppTestMultiPhase(AppTestCpythonExtensionBase):
 
 class AppTestMultiPhase2(AppTestCpythonExtensionBase):
     def setup_class(cls):
-        cls.w_name = cls.space.wrap('multiphase2')
+        cls.w_name = cls.space.wrap('_testmultiphase')
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
 
-    def test_multiphase2(self):
+    def test__testmultiphase(self):
         import sys
         from importlib import machinery, util
         module = self.import_module(name=self.name, use_imp=True)
