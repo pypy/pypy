@@ -321,3 +321,8 @@ typedef struct {
     PyCFunctionObject func;
     PyTypeObject *mm_class; /* Class that defines this method */
 } PyCMethodObject;
+
+/* CPython uses PyObject *const * for the third arg, but we drop the const */
+typedef PyObject *(*PyCMethod)(PyObject *, PyTypeObject *, PyObject **,
+                               size_t, PyObject *);
+
