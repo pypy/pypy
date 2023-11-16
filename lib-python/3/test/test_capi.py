@@ -492,15 +492,12 @@ class CAPITest(unittest.TestCase):
         self.assertEqual(ref(), inst)
         self.assertEqual(inst.weakreflist, ref)
 
-    @unittest.skipIf(support.check_impl_detail(pypy=True),
-                 'segfaults: calls the inst dealloc before the releasebuffer callback')
-    def _test_heaptype_with_buffer(self):
+    def test_heaptype_with_buffer(self):
         inst = _testcapi.HeapCTypeWithBuffer()
         b = bytes(inst)
         self.assertEqual(b, b"1234")
-        # release the buffer
+        # release the buffer on PyPy
         del inst
-        import gc; gc.collect()
 
     @refcount_test
     def test_c_subclass_of_heap_ctype_with_tpdealloc_decrefs_once(self):

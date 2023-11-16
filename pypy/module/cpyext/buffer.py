@@ -91,6 +91,7 @@ class CPyBuffer(BufferView):
                     pybuf.c_ndim = cts.cast('int', self.ndim)
                     pybuf.c_shape = cts.cast('Py_ssize_t*', pybuf.c__shape)
                     pybuf.c_strides = cts.cast('Py_ssize_t*', pybuf.c__strides)
+                    pybuf.c_obj = self.pyobj
                     for i in range(self.ndim):
                         pybuf.c_shape[i] = self.shape[i]
                         pybuf.c_strides[i] = self.strides[i]
