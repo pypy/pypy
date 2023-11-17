@@ -40,11 +40,13 @@ Example_traverse(ExampleObject *self, visitproc visit, void *arg)
     return 0;
 }
 
+#ifndef PYPY_VERSION    
 static void
 Example_finalize(ExampleObject *self)
 {
     Py_CLEAR(self->x_attr);
 }
+#endif
 
 static PyObject *
 Example_demo(ExampleObject *self, PyObject *args)
