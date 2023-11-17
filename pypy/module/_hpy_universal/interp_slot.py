@@ -1,7 +1,8 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import (specialize, import_from_mixin)
+from rpython.rlib.objectmodel import specialize, import_from_mixin
+from rpython.rlib import jit
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
@@ -568,6 +569,7 @@ SLOTS = unrolling_iterable([
     ])
 
 
+@jit.dont_look_inside
 @specialize.arg(0)
 def fill_slot(handles, w_type, hpyslot):
     space = handles.space

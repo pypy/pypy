@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
-from rpython.rlib import rgc
+from rpython.rlib import rgc, jit
 from rpython.rlib.unroll import unrolling_iterable
 #
 from pypy.interpreter.error import oefmt
@@ -188,6 +188,7 @@ def make_slot_wrappers_table():
     return table
 SLOT_WRAPPERS_TABLE = unrolling_iterable(make_slot_wrappers_table())
 
+@jit.dont_look_inside
 def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dealloc):
     from pypy.module.cpyext.slotdefs import wrap_unaryfunc
     from pypy.module.cpyext.pyobject import as_pyobj

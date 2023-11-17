@@ -96,6 +96,7 @@ def storage_get_raw_data(storage):
     raw_mem = rffi.cast(rffi.VOIDP, data_adr)
     return raw_mem
 
+@jit.dont_look_inside
 def hpy_customtrace(gc, addr, callback, arg1, arg2):
     storage = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(HPY_STORAGE))
     if storage.tp_traverse:
@@ -513,6 +514,7 @@ def has_tp_slot(spec, slots):
         i += 1
     return False
 
+@jit.dont_look_inside
 def _create_new_type(
         space, name, w_metaclass, bases_w, dict_w, basicsize, shape):
     pos = surrogate_in_utf8(name)
@@ -563,6 +565,7 @@ def _create_instance_subtype(space, w_type, __args__=None):
     w_result = space.call_obj_args(w_newfunc, w_type, __args__)
     return _finish_create_instance(space, w_result, w_type)
 
+@jit.dont_look_inside
 def _finish_create_instance(space, w_result, w_type):
     if isinstance(w_type, W_HPyTypeObject):
         w_hpybase = w_type
