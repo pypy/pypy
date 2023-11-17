@@ -127,7 +127,7 @@ def _build_dependency(name, patches=[]):
         # On one of the buildbots, wget is broken
         if os.environ.get("USE_CURL", False):
             print('fetching archive via curl', url, file=sys.stderr)
-            status, stdout, stderr = run_subprocess('curl', ['-sSo', archive, url])
+            status, stdout, stderr = run_subprocess('curl', ['-sSLo', archive, url])
         else:
             print('fetching archive via wget', url, file=sys.stderr)
             status, stdout, stderr = run_subprocess('wget', ['-O', archive, url])
