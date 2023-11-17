@@ -9,13 +9,12 @@ from pypy.interpreter.gateway import interp2app
 
 class W_Capsule(W_Root):
     def __init__(self, space, pointer, name):
-        from pypy.module._hpy_universal.llapi import cts as cts_hpy
         from pypy.module.cpyext.api import cts as cts_cpyext
         self.space = space
         self.pointer = pointer
         self.name = name
         self.context = rffi.cast(rffi.VOIDP, 0)
-        self.destructor_hpy = cts_hpy.cast("HPyCapsule_Destructor*", 0)
+        self.destructor_hpy = rffi.cast(rffi.VOIDP, 0)
         self.destructor_cpyext = cts_cpyext.cast("PyCapsule_Destructor", 0)
 
     def descr_repr(self, space):
@@ -28,14 +27,16 @@ class W_Capsule(W_Root):
 
     def _finalize_(self):
         if self.destructor_hpy:
-            self.destructor_hpy.c_impl(self.name, self.pointer, self.context)
+            from pypy.module._hpy_universal.llapi import cts as cts_hpy
+            destructor_hpy = cts_hpy.cast("HPyCapsule_Destructor*", self.destructor_hpy)
+            destructor_hpy.c_impl(self.name, self.pointer, self.context)
         elif self.destructor_cpyext:
             from pypy.module.cpyext.pyobject import make_ref
             pyobj = make_ref(self.space, self)
             self.destructor_cpyext(pyobj)
 
     def set_destructor_hpy(self, space, destructor):
-        self.destructor_hpy = destructor
+        self.destructor_hpy = rffi.cast(rffi.VOIDP, destructor)
         if self.destructor_hpy:
             self.register_finalizer(space)
 
