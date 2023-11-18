@@ -34,6 +34,8 @@ class W_BytearrayObject(W_Root):
 
     def __init__(self, data):
         check_list_of_chars(data)
+        # add null byte
+        data += "\0"
         self._data = resizable_list_supporting_raw_ptr(data)
         self._offset = 0
         # NOTE: the bytearray data is in 'self._data[self._offset:]'
@@ -49,7 +51,7 @@ class W_BytearrayObject(W_Root):
     def __repr__(self):
         """representation for debugging purposes"""
         return "%s(%s)" % (self.__class__.__name__,
-                           ''.join(self._data[self._offset:]))
+                           ''.join(self._data[self._offset:-1]))
 
     def buffer_w(self, space, flags):
         return SimpleView(BytearrayBuffer(self), w_obj=self)
@@ -62,7 +64,7 @@ class W_BytearrayObject(W_Root):
 
     def _new(self, value):
         if value is self._data:
-            value = value[:]
+            value = value[:-1]
         return W_BytearrayObject(value)
 
     def _new_from_buffer(self, buffer):
@@ -75,16 +77,16 @@ class W_BytearrayObject(W_Root):
         return W_BytearrayObject([])
 
     def _len(self):
-        return len(self._data) - self._offset
+        return len(self._data) - self._offset - 1
 
     def _fixindex(self, space, index, errmsg="bytearray index out of range"):
         # for getitem/setitem/delitem of a single char
         if index >= 0:
             index += self._offset
-            if index >= len(self._data):
+            if index >= len(self._data) - 1:
                 raise OperationError(space.w_IndexError, space.newtext(errmsg))
         else:
-            index += len(self._data)    # count from the end
+            index += len(self._data) - 1    # count from the end
             if index < self._offset:
                 raise OperationError(space.w_IndexError, space.newtext(errmsg))
         check_nonneg(index)
@@ -95,7 +97,8 @@ class W_BytearrayObject(W_Root):
         return space.newint(ord(character))
 
     def _val(self, space):
-        return self.getdata()
+        # For use outside the class, it removes the NULL char
+        return self.getdata()[:-1]
 
     @staticmethod
     def _use_rstr_ops(space, w_other):
@@ -192,7 +195,7 @@ class W_BytearrayObject(W_Root):
         w_dict = self.getdict(space)
         if w_dict is None:
             w_dict = space.w_None
-        s, _, lgt = str_decode_latin_1(''.join(self.getdata()), 'strict',
+        s, _, lgt = str_decode_latin_1(''.join(self.getdata()[:-1]), 'strict',
             True, None)
         return space.newtuple([
             space.type(self), space.newtuple2(
@@ -216,6 +219,7 @@ class W_BytearrayObject(W_Root):
     def descr_init(self, space, w_source=None, encoding=None, errors=None):
         assert isinstance(self, W_BytearrayObject)
         data = [c for c in newbytesdata_w(space, w_source, encoding, errors)]
+        data += "\0"
         self._data = resizable_list_supporting_raw_ptr(data)
         self._offset = 0
         _tweak_for_tests(self)
@@ -281,13 +285,13 @@ class W_BytearrayObject(W_Root):
                 return space.w_NotImplemented
             raise
 
-        value = self._val(space)
+        value = self.getdata()
         buffer_len = buffer.getlength()
 
-        if len(value) != buffer_len:
+        if self._len() != buffer_len:
             return space.newbool(False)
 
-        min_length = min(len(value), buffer_len)
+        min_length = min(self._len(), buffer_len)
         return space.newbool(_memcmp(value, buffer, min_length) == 0)
 
     def descr_ne(self, space, w_other):
@@ -301,26 +305,26 @@ class W_BytearrayObject(W_Root):
                 return space.w_NotImplemented
             raise
 
-        value = self._val(space)
+        value = self.getdata()
         buffer_len = buffer.getlength()
 
-        if len(value) != buffer_len:
+        if self._len() != buffer_len:
             return space.newbool(True)
 
-        min_length = min(len(value), buffer_len)
+        min_length = min(self._len(), buffer_len)
         return space.newbool(_memcmp(value, buffer, min_length) != 0)
 
     def _comparison_helper(self, space, w_other):
-        value = self._val(space)
+        value = self.getdata()
 
         if isinstance(w_other, W_BytearrayObject):
             other = w_other.getdata()
             other_len = len(other)
-            cmp = _memcmp(value, other, min(len(value), len(other)))
+            cmp = _memcmp(value, other, min(self._len(), len(other)))
         elif isinstance(w_other, W_BytesObject):
             other = w_other.bytes_w(space)
             other_len = len(other)
-            cmp = _memcmp(value, other, min(len(value), len(other)))
+            cmp = _memcmp(value, other, min(self._len(), len(other)))
         else:
             try:
                 buffer = space.readbuf_w(w_other)
@@ -329,7 +333,7 @@ class W_BytearrayObject(W_Root):
                     return False, 0, 0
                 raise
             other_len = len(buffer)
-            cmp = _memcmp(value, buffer, min(len(value), len(buffer)))
+            cmp = _memcmp(value, buffer, min(self._len(), len(buffer)))
 
         return True, cmp, other_len
 
@@ -358,17 +362,21 @@ class W_BytearrayObject(W_Root):
         return space.newbool(cmp > 0 or (cmp == 0 and self._len() >= other_len))
 
     def descr_isascii(self, space):
-        for i in self._data[self._offset:]:
+        for i in self._data[self._offset:-1]:
             if ord(i) > 127:
                 return space.w_False
         return space.w_True
 
     def descr_inplace_add(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
-            self._data += w_other.getdata()
-            return self
-
-        self._data += self._op_val(space, w_other)
+            other_data = w_other.getdata()[:-1]
+        else:
+            other_data = self._op_val(space, w_other)
+        # pop off the null byte
+        data = self.getdata()
+        data.pop()
+        data += other_data
+        data.append("\0")
         return self
 
     def descr_inplace_mul(self, space, w_times):
@@ -379,7 +387,11 @@ class W_BytearrayObject(W_Root):
                 return space.w_NotImplemented
             raise
         data = self.getdata()
+        # pop off the null byte
+        if data:
+            data.pop()
         data *= times
+        data.append("\0")
         return self
 
     def descr_setitem(self, space, w_index, w_other):
@@ -419,24 +431,31 @@ class W_BytearrayObject(W_Root):
     def _delete_from_start(self, n):
         assert n >= 0
         self._offset += n
-        jit.conditional_call(self._offset > len(self._data) / 2,
+        jit.conditional_call(self._offset > (len(self._data) - 1) / 2,
                              _shrink_after_delete_from_start, self)
 
     def descr_append(self, space, w_item):
-        self._data.append(space.byte_w(w_item))
+        data = self.getdata()
+        data.insert(-1, space.byte_w(w_item))
 
     def descr_extend(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
-            self._data += w_other.getdata()
+            other_data = w_other.getdata()[:-1]
         elif isinstance(w_other, W_BytesObject):    # performance only
-            self._data += w_other.bytes_w(space)
+            other_data = w_other.bytes_w(space)
         else:
-            self._data += makebytesdata_w(space, w_other)
+            other_data = makebytesdata_w(space, w_other)
+        data = self.getdata()
+        # pop off the null byte
+        if data:
+            data.pop()
+        data += other_data
+        data.append("\0")
 
     def descr_insert(self, space, w_idx, w_other):
         where = space.int_w(w_idx)
         data = self.getdata()
-        index = get_positive_index(where, len(data))
+        index = get_positive_index(where, len(data) - 1)
         val = space.byte_w(w_other)
         data.insert(index, val)
 
@@ -452,7 +471,7 @@ class W_BytearrayObject(W_Root):
     def descr_remove(self, space, w_char):
         char = space.int_w(space.index(w_char))
         _data = self._data
-        for index in range(self._offset, len(_data)):
+        for index in range(self._offset, len(_data) - 1):
             if ord(_data[index]) == char:
                 del _data[index]
                 return
@@ -460,7 +479,7 @@ class W_BytearrayObject(W_Root):
 
     def descr_add(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
-            return self._new(self.getdata() + w_other.getdata())
+            return self._new(self.getdata()[:-1] + w_other.getdata()[:-1])
 
         try:
             byte_string = self._op_val(space, w_other)
@@ -468,17 +487,23 @@ class W_BytearrayObject(W_Root):
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
-        return self._new(self.getdata() + list(byte_string))
+        return self._new(self.getdata()[:-1] + list(byte_string))
 
     def descr_reverse(self, space):
-        self.getdata().reverse()
+        data = self.getdata()
+        # leave the NULL byte at the end
+        for i in range((len(data) - 1) // 2):
+            tmp = data[-i - 2]
+            data[-i - 2] = data[i]
+            data[i] = tmp
+        print data
 
     def descr_clear(self, space):
-        self._data = []
+        self._data = ["\0"]
         self._offset = 0
 
     def descr_copy(self, space):
-        return self._new(self._data[self._offset:])
+        return self._new(self._data[self._offset:-1])
 
     def descr_hex(self, space, w_sep=None, w_bytes_per_sep=None):
         """
@@ -503,7 +528,7 @@ class W_BytearrayObject(W_Root):
         """
         sep, bytes_per_sep = unwrap_hex_sep_arguments(space, w_sep, w_bytes_per_sep)
         data = self.getdata()
-        return _array_to_hexstring(space, data, 0, 1, len(data), True,
+        return _array_to_hexstring(space, data, 0, 1, len(data)-1, True,
                 sep=sep, bytes_per_sep=bytes_per_sep)
 
     def descr_mod(self, space, w_values):
@@ -520,7 +545,7 @@ class W_BytearrayObject(W_Root):
         return self._getitem_result(space, index)
 
     def descr_alloc(self, space):
-        return space.newint(len(self._data) + 1)   # includes the _offset part
+        return space.newint(len(self._data))   # includes the _offset part
 
     def _convert_idx_params(self, space, w_start, w_end):
         # optimization: this version doesn't force getdata()
@@ -553,12 +578,6 @@ class W_BytearrayObject(W_Root):
         index = space.getindex_w(w_index, space.w_IndexError, self._KIND1)
         return self._getitem_result(space, index)
 
-
-# ____________________________________________________________
-# helpers for slow paths, moved out because they contain loops
-
-def _make_data(s):
-    return [s[i] for i in range(len(s))]
 
 # ____________________________________________________________
 
