@@ -362,7 +362,7 @@ class W_BytearrayObject(W_Root):
         return space.newbool(cmp > 0 or (cmp == 0 and self._len() >= other_len))
 
     def descr_isascii(self, space):
-        for i in self._data[self._offset:-1]:
+        for i in self._data[self._offset:]:
             if ord(i) > 127:
                 return space.w_False
         return space.w_True
@@ -371,7 +371,7 @@ class W_BytearrayObject(W_Root):
         if isinstance(w_other, W_BytearrayObject):
             other_data = w_other.getdata()[:-1]
         else:
-            other_data = self._op_val(space, w_other)
+            other_data = list(self._op_val(space, w_other))
         # pop off the null byte
         data = self.getdata()
         data.pop()
@@ -436,19 +436,20 @@ class W_BytearrayObject(W_Root):
 
     def descr_append(self, space, w_item):
         data = self.getdata()
-        data.insert(-1, space.byte_w(w_item))
+        location = len(data) - 1
+        assert location >= 0
+        data.insert(location, space.byte_w(w_item))
 
     def descr_extend(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
             other_data = w_other.getdata()[:-1]
         elif isinstance(w_other, W_BytesObject):    # performance only
-            other_data = w_other.bytes_w(space)
+            other_data = list(w_other.bytes_w(space))
         else:
-            other_data = makebytesdata_w(space, w_other)
+            other_data = list(makebytesdata_w(space, w_other))
         data = self.getdata()
         # pop off the null byte
-        if data:
-            data.pop()
+        data.pop()
         data += other_data
         data.append("\0")
 
@@ -503,7 +504,9 @@ class W_BytearrayObject(W_Root):
         self._offset = 0
 
     def descr_copy(self, space):
-        return self._new(self._data[self._offset:-1])
+        stop = len(self._data) - 1
+        assert stop >= 0
+        return self._new(self._data[self._offset:stop])
 
     def descr_hex(self, space, w_sep=None, w_bytes_per_sep=None):
         """
