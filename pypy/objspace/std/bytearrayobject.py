@@ -319,8 +319,8 @@ class W_BytearrayObject(W_Root):
 
         if isinstance(w_other, W_BytearrayObject):
             other = w_other.getdata()
-            other_len = len(other)
-            cmp = _memcmp(value, other, min(self._len(), len(other)))
+            other_len = w_other._len()
+            cmp = _memcmp(value, other, min(self._len(), other_len))
         elif isinstance(w_other, W_BytesObject):
             other = w_other.bytes_w(space)
             other_len = len(other)
@@ -497,7 +497,6 @@ class W_BytearrayObject(W_Root):
             tmp = data[-i - 2]
             data[-i - 2] = data[i]
             data[i] = tmp
-        print data
 
     def descr_clear(self, space):
         self._data = ["\0"]

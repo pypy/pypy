@@ -812,3 +812,28 @@ class AppTestBytesArray:
         a = bytearray([0])
         assert a[0:2:X()] == bytearray()
         assert a == bytearray()
+
+    def test_compare(self):
+        b1 = bytearray([1, 2, 3])
+        b2 = bytearray([1, 2, 3])
+        b3 = bytearray([1, 3])
+
+        assert b1 == b2
+        assert b2 != b3
+        assert b1 <= b2
+        assert b1 <= b3
+        assert b1 <  b3
+        assert b1 >= b2
+        assert b3 >= b2
+        assert b3 >  b2
+
+        assert not b1 != b2
+        assert not b2 == b3
+        assert not b1 >  b2
+        assert not b1 >  b3
+        assert not b1 >= b3
+        assert not b1 <  b2
+        assert not b3 <  b2
+        assert not b3 <= b2
+
+
