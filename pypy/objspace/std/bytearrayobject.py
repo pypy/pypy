@@ -57,7 +57,7 @@ class W_BytearrayObject(W_Root):
         return SimpleView(BytearrayBuffer(self), w_obj=self)
 
     def bytearray_list_of_chars_w(self, space):
-        return self.getdata()
+        return self._val(space)
 
     def nonmovable_carray(self, space):
         return BytearrayBuffer(self).get_raw_address()
@@ -554,7 +554,7 @@ class W_BytearrayObject(W_Root):
         # optimization: this version doesn't force getdata()
         start, end = unwrap_start_stop(space, self._len(), w_start, w_end)
         ofs = self._offset
-        return (self._data, start + ofs, end + ofs, ofs)
+        return (self._val(space), start + ofs, end + ofs, ofs)
 
     def _unpack_slice(self, space, w_index):
         # important: unpack the slice before computing the length. the
