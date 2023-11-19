@@ -2,21 +2,32 @@
 # the destructor is a python function or None.
 
 from rpython.rtyper.lltypesystem import rffi
+from rpython.tool.cparser import CTypeSpace
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 
+cts = CTypeSpace()
+cts.parse_source("""
+
+typedef void (*PyCapsule_Destructor)(void *);
+typedef void (*HPyFunc_Capsule_Destructor)(const char *name, void *pointer, void *context);
+
+typedef struct {
+    void *cpy_trampoline;
+    HPyFunc_Capsule_Destructor impl;
+} HPyCapsule_Destructor;
+""")
+
 
 class W_Capsule(W_Root):
     def __init__(self, space, pointer, name):
-        from pypy.module._hpy_universal.llapi import cts as cts_hpy
-        from pypy.module.cpyext.api import cts as cts_cpyext
         self.space = space
         self.pointer = pointer
         self.name = name
         self.context = rffi.cast(rffi.VOIDP, 0)
-        self.destructor_hpy = cts_hpy.cast("HPyCapsule_Destructor*", 0)
-        self.destructor_cpyext = cts_cpyext.cast("PyCapsule_Destructor", 0)
+        self.destructor_hpy = cts.cast("HPyCapsule_Destructor*", 0)
+        self.destructor_cpyext = cts.cast("PyCapsule_Destructor", 0)
 
     def descr_repr(self, space):
         if self.name:
@@ -35,12 +46,12 @@ class W_Capsule(W_Root):
             self.destructor_cpyext(pyobj)
 
     def set_destructor_hpy(self, space, destructor):
-        self.destructor_hpy = destructor
+        self.destructor_hpy = cts.cast("HPyCapsule_Destructor*", destructor)
         if self.destructor_hpy:
             self.register_finalizer(space)
 
     def set_destructor_cpyext(self, space, destructor):
-        self.destructor_cpyext = destructor
+        self.destructor_cpyext = cts.cast("PyCapsule_Destructor", destructor)
         if self.destructor_cpyext:
             self.register_finalizer(space)
 

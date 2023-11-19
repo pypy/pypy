@@ -19,11 +19,6 @@ def init_capsuleobject(space):
                    dealloc=capsule_dealloc,
                   )
 
-def call_destructor(capsule):
-    if capsule.destructor:
-        pyobj = make_ref(capsule.space, capsule)
-        capsule.destructor(pyobj)
-
 def capsule_attach(space, py_obj, w_obj, w_userdata=None):
     """
     Fills a newly allocated PyCapsule with the given capsule object. The
@@ -35,7 +30,8 @@ def capsule_attach(space, py_obj, w_obj, w_userdata=None):
     pycapsule_obj.c_name = w_obj.name
     pycapsule_obj.c_context = w_obj.context
     if w_obj.destructor_cpyext:
-        pycapsule_obj.c_destructor = w_obj.destructor_cpyext
+        destructor = cts.cast("PyCapsule_Destructor", w_obj.destructor_cpyext)
+        pycapsule_obj.c_destructor = destructor
 
 
 def capsule_realize(space, obj):
