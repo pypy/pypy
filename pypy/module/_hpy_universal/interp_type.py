@@ -553,6 +553,8 @@ def _create_instance(space, w_type, __args__=None):
 def _create_instance_subtype(space, w_type, __args__=None):
     w_type = check_is_type(space, w_type)
     w_bestbase = find_best_base(w_type.bases_w)
+    if not w_bestbase:
+        w_bestbase = space.w_type
     # implementation of W_TypeObect.descr_call
     # w_result = space.call_obj_args(w_bestbase, w_type, __args__)
     w_newtype, w_newdescr = w_bestbase.lookup_where('__new__')
