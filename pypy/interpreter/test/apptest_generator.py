@@ -847,3 +847,16 @@ def test_return_stopiteration():
         gen.send(StopIteration(2))
     assert isinstance(excinfo.value, StopIteration)
     assert excinfo.value.value.value == 2
+
+def test_list_building_wrong_exception():
+    def gen1():
+        raise ValueError
+        yield 2
+    with raises(ValueError):
+        [*gen1()]
+
+    def gen1():
+        raise ValueError
+        yield from [1, 2, 3]
+    with raises(ValueError):
+        [*gen1()]

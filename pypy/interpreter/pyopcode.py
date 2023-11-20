@@ -1460,8 +1460,7 @@ class __extend__(pyframe.PyFrame):
         try:
             space.call_method(v, 'extend', w)
         except OperationError as e:
-            if (e.match(space, space.w_TypeError) and
-                    space.is_iterable(w)):
+            if space.is_iterable(w):
                 raise
             raise oefmt(space.w_TypeError,
                         "Value after * must be an iterable, not %T",
