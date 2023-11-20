@@ -349,9 +349,13 @@ def test_star_badarg():
             raise TypeError("myerror")
 
     def f(): pass
-    
+
     with raises(TypeError) as e:
         f(1, 2, *BrokenSequence())
+    assert str(e.value) == "myerror"
+
+    with raises(TypeError) as e:
+        [*BrokenSequence()]
     assert str(e.value) == "myerror"
 
 def test_default_arg():
