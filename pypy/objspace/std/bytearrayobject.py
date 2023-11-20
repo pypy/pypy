@@ -553,7 +553,7 @@ class W_BytearrayObject(W_Root):
         # optimization: this version doesn't force getdata()
         start, end = unwrap_start_stop(space, self._len(), w_start, w_end)
         ofs = self._offset
-        return (self._val(space), start + ofs, end + ofs, ofs)
+        return (self._data, start + ofs, end + ofs, ofs)
 
     def _unpack_slice(self, space, w_index):
         # important: unpack the slice before computing the length. the
