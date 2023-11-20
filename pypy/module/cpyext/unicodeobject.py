@@ -885,7 +885,7 @@ def PyUnicode_FSDecoder(space, w_obj, result):
                     "path should be %s, not %T",
                     allowed_types, w_obj)
         else:
-            tp = space.type(w_value).name
+            tp = space.type(w_obj).name
             space.warn(space.newtext(
                 "path should be %s, not %s" % (allowed_types, tp,)),
                 space.w_DeprecationWarning)
