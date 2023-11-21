@@ -1,4 +1,15 @@
+import sys
+import pytest
 from .support import HPyTest
+
+# PyPy tests are always run with python2
+ISPYPY = sys.version_info[0] < 3
+
+if not ISPYPY:
+    @pytest.fixture(params=['cpython', 'universal', 'hybrid', 'debug'])
+    def hpy_abi(request):
+        abi = request.param
+        yield abi
 
 
 class TestImporting(HPyTest):
@@ -25,10 +36,11 @@ class TestImporting(HPyTest):
                 del sys.modules[name]
         return module
 
-    def disabled_test_importing_attributes(self, hpy_abi, tmpdir):
+    def test_importing_attributes(self):
         import pytest
         if not self.supports_ordinary_make_module_imports():
             pytest.skip()
+        from hpy.devel.abitag import get_hpy_ext_suffix
         mod = self.make_module("""
             @INIT
         """, name='mytest')
@@ -41,11 +53,9 @@ class TestImporting(HPyTest):
         assert mod.__spec__.name == 'mytest'
         assert mod.__file__
 
-        if hpy_abi == 'cpython':
-            from sysconfig import get_config_var
-            ext = get_config_var('EXT_SUFFIX')
-        else:
-            ext = '.hpy.so'
-
+        hpy_abi = self.compiler.hpy_abi
+        if hpy_abi == 'debug':
+            hpy_abi = 'universal'
+        ext_suffix = get_hpy_ext_suffix(hpy_abi)
         assert repr(mod) == '<module \'mytest\' from {}>'.format(
-            repr(str(tmpdir.join('mytest' + ext))))
+            repr(str(self.compiler.tmpdir.join('mytest' + ext_suffix))))

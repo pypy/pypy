@@ -15,6 +15,12 @@ from pypy.objspace.std.dictmultiobject import (
 from pypy.objspace.std.typeobject import MutableCell
 
 
+# this file implements the various features of subclassing of builtin types
+# (including object): a dict, weakrefs, slots, etc
+# https://www.pypy.org/posts/2010/11/efficiently-implementing-python-objects-3838329944323946932.html
+# the various mixins are combined together in
+# pypy.interpreter.typedef.get_unique_interplevel_subclass
+
 
 erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage item")
 erase_map,  unerase_map = rerased.new_erasing_pair("map")
@@ -732,6 +738,42 @@ class MapdictWeakrefSupport(object):
     def delweakref(self):
         self._get_mapdict_map().write(self, "weakref", SPECIAL, None)
     delweakref._cannot_really_call_random_things_ = True
+
+
+class MapdictHPySupport(object):
+    # methods used by hpy to attach the raw storage to an instance of an
+    # hpy-defined subclass
+
+    def _hpy_get_raw_storage(self, space):
+        # XXX move this logic to pypy.module._hpy_universal
+        from pypy.module._hpy_universal.interp_type import storage_get_raw_data, HPyStorageHolder
+        from rpython.rtyper.lltypesystem import rffi
+        holder = self._get_mapdict_map().read(self, "hpy", SPECIAL)
+        if holder is None:
+            return rffi.cast(rffi.VOIDP, 0)
+        assert isinstance(holder, HPyStorageHolder)
+        return storage_get_raw_data(holder.storage)
+
+    def _hpy_get_gc_storage(self, space):
+        # XXX move this logic to pypy.module._hpy_universal
+        from pypy.module._hpy_universal.interp_type import HPyStorageHolder
+        from rpython.rtyper.lltypesystem import rffi
+        holder = self._get_mapdict_map().read(self, "hpy", SPECIAL)
+        assert isinstance(holder, HPyStorageHolder)
+        return holder.storage
+
+    def _hpy_set_raw_storage(self, space, storage):
+        from pypy.module._hpy_universal.interp_type import HPyStorageHolder
+        from rpython.rtyper.lltypesystem import lltype
+        # XXX for now the HPyStorageHolder indirection is because all the
+        # mapdict fields are W_Root instances. we could lift this restriction
+        # with some work and save an indirection
+        holder = self._get_mapdict_map().read(self, "hpy", SPECIAL)
+        if holder is None:
+            holder = HPyStorageHolder()
+            self._get_mapdict_map().write(self, "hpy", SPECIAL, holder)
+        assert isinstance(holder, HPyStorageHolder)
+        holder.storage = storage
 
 
 class MapdictDictSupport(object):

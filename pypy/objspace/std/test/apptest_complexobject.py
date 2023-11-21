@@ -259,7 +259,8 @@ def test_constructor():
 
     # SF bug 543840:  complex(string) accepts strings with \0
     # Fixed in 2.3.
-    raises(ValueError, complex, '1+1j\0j')
+    with raises(ValueError):
+        complex("1+1j\0j")
 
     raises(TypeError, int, 5+3j)
     raises(TypeError, float, 5+3j)
@@ -582,10 +583,12 @@ def test_format():
     assert format(1.5+0.5j, '#f') == '1.500000+0.500000j'
 
     # zero padding is invalid
-    raises(ValueError, (1.5+0.5j).__format__, '010f')
+    with raises(ValueError):
+        (1.5+0.5j).__format__("010f")
 
     # '=' alignment is invalid
-    raises(ValueError, (1.5+3j).__format__, '=20')
+    with raises(ValueError):
+        (1.5+3j).__format__("=20")
 
     # integer presentation types are an error
     for t in 'bcdoxX%':

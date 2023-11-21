@@ -746,6 +746,74 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert module.is_ascii(a) is True
         assert module.is_compact(a) is False
 
+    def test_fsconverter(self):
+        module = self.import_extension("foo", [
+            ('fsdecoder', "METH_O",
+             """
+                PyObject *result = Py_None;
+                int ret;
+                Py_INCREF(result);
+                Py_INCREF(result);
+                if (args == Py_None) {
+                    ret = PyUnicode_FSDecoder(NULL, &result);
+                    if (ret != 1)
+                        return PyLong_FromLong(ret);
+                }
+                else
+                    ret = PyUnicode_FSDecoder(args, &result);
+                if (ret == 0)
+                    return NULL;
+                if (ret == 1)
+                    return Py_None;
+                if (ret != Py_CLEANUP_SUPPORTED)
+                    return NULL;
+                return result;
+             """),
+            ('fsconverter', "METH_O",
+             """
+                PyObject *result = Py_None;
+                int ret;
+                Py_INCREF(result);
+                Py_INCREF(result);
+                if (args == Py_None) {
+                    ret = PyUnicode_FSDecoder(NULL, &result);
+                    if (ret != 1)
+                        return PyLong_FromLong(ret);
+                }
+                else
+                    ret = PyUnicode_FSConverter(args, &result);
+                if (ret == 0)
+                    return NULL;
+                if (ret == 1)
+                    return Py_None;
+                if (ret != Py_CLEANUP_SUPPORTED)
+                    return NULL;
+                return result;
+             """)])
+        
+        assert module.fsdecoder(None) is None
+        assert module.fsconverter(None) is None
+        # Input is bytes
+        assert module.fsdecoder(b"test") == "test"
+        assert module.fsconverter(b"test") == b"test"
+
+        # Input is unicode
+        assert module.fsdecoder("test") == "test"
+        assert module.fsconverter("test") == b"test"
+
+        # Input has __fspath__, returns str
+        class pathlike_str(object):
+            def __fspath__(self):
+                return "test"
+
+        inpt = pathlike_str()
+        assert module.fsdecoder(inpt) == "test"
+        assert module.fsconverter(inpt) == b"test"
+
+        # Input is invalid
+        with raises(TypeError):
+            module.fsconverter(42)
+
  
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
@@ -915,39 +983,6 @@ class TestUnicode(BaseApiTest):
             assert space.eq_w(w_decoded, w_u)
             w_decoded = PyUnicode_DecodeFSDefault(space, encoded)
             assert space.eq_w(w_decoded, w_u)
-
-    def test_fsconverter(self, space):
-        # Input is bytes
-        w_input = space.newbytes("test")
-        with lltype.scoped_alloc(PyObjectP.TO, 1) as result:
-            # Decoder
-            ret = PyUnicode_FSDecoder(space, w_input, result)
-            assert ret == Py_CLEANUP_SUPPORTED
-            assert space.isinstance_w(from_ref(space, result[0]), space.w_unicode)
-            assert PyUnicode_FSDecoder(space, None, result) == 1
-            # Converter
-            ret = PyUnicode_FSConverter(space, w_input, result)
-            assert ret == Py_CLEANUP_SUPPORTED
-            assert space.eq_w(from_ref(space, result[0]), w_input)
-            assert PyUnicode_FSDecoder(space, None, result) == 1
-        # Input is unicode
-        w_input = space.wrap("test")
-        with lltype.scoped_alloc(PyObjectP.TO, 1) as result:
-            # Decoder
-            ret = PyUnicode_FSDecoder(space, w_input, result)
-            assert ret == Py_CLEANUP_SUPPORTED
-            assert space.eq_w(from_ref(space, result[0]), w_input)
-            assert PyUnicode_FSDecoder(space, None, result) == 1
-            # Converter
-            ret = PyUnicode_FSConverter(space, w_input, result)
-            assert ret == Py_CLEANUP_SUPPORTED
-            assert space.isinstance_w(from_ref(space, result[0]), space.w_bytes)
-            assert PyUnicode_FSDecoder(space, None, result) == 1
-        # Input is invalid
-        w_input = space.newint(42)
-        with lltype.scoped_alloc(PyObjectP.TO, 1) as result:
-            with pytest.raises(OperationError):
-                PyUnicode_FSConverter(space, w_input, result)
 
 
     def test_locale(self, space):

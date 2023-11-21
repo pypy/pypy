@@ -196,7 +196,8 @@ def test_notimplemented():
         return NotImplemented
 
     def check(expr, x, y, operator=operator):
-        raises(TypeError, expr)
+        with raises(TypeError):
+            exec(expr, locals={"x":x, "y":y})
 
     for metaclass in [type]:   # [type, types.ClassType]:
         for name, expr, iexpr in [

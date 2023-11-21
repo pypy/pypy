@@ -12,8 +12,8 @@
 
 #define _HPyFunc_DECLARE_HPyFunc_NOARGS(SYM) static HPy SYM(HPyContext *ctx, HPy self)
 #define _HPyFunc_DECLARE_HPyFunc_O(SYM) static HPy SYM(HPyContext *ctx, HPy self, HPy arg)
-#define _HPyFunc_DECLARE_HPyFunc_VARARGS(SYM) static HPy SYM(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs)
-#define _HPyFunc_DECLARE_HPyFunc_KEYWORDS(SYM) static HPy SYM(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw)
+#define _HPyFunc_DECLARE_HPyFunc_VARARGS(SYM) static HPy SYM(HPyContext *ctx, HPy self, const HPy *args, size_t nargs)
+#define _HPyFunc_DECLARE_HPyFunc_KEYWORDS(SYM) static HPy SYM(HPyContext *ctx, HPy self, const HPy *args, size_t nargs, HPy kwnames)
 #define _HPyFunc_DECLARE_HPyFunc_UNARYFUNC(SYM) static HPy SYM(HPyContext *ctx, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_BINARYFUNC(SYM) static HPy SYM(HPyContext *ctx, HPy, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_TERNARYFUNC(SYM) static HPy SYM(HPyContext *ctx, HPy, HPy, HPy)
@@ -36,7 +36,8 @@
 #define _HPyFunc_DECLARE_HPyFunc_ITERNEXTFUNC(SYM) static HPy SYM(HPyContext *ctx, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_DESCRGETFUNC(SYM) static HPy SYM(HPyContext *ctx, HPy, HPy, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_DESCRSETFUNC(SYM) static int SYM(HPyContext *ctx, HPy, HPy, HPy)
-#define _HPyFunc_DECLARE_HPyFunc_INITPROC(SYM) static int SYM(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw)
+#define _HPyFunc_DECLARE_HPyFunc_INITPROC(SYM) static int SYM(HPyContext *ctx, HPy self, const HPy *args, HPy_ssize_t nargs, HPy kw)
+#define _HPyFunc_DECLARE_HPyFunc_NEWFUNC(SYM) static HPy SYM(HPyContext *ctx, HPy type, const HPy *args, HPy_ssize_t nargs, HPy kw)
 #define _HPyFunc_DECLARE_HPyFunc_GETTER(SYM) static HPy SYM(HPyContext *ctx, HPy, void *)
 #define _HPyFunc_DECLARE_HPyFunc_SETTER(SYM) static int SYM(HPyContext *ctx, HPy, HPy, void *)
 #define _HPyFunc_DECLARE_HPyFunc_OBJOBJPROC(SYM) static int SYM(HPyContext *ctx, HPy, HPy)
@@ -45,11 +46,12 @@
 #define _HPyFunc_DECLARE_HPyFunc_TRAVERSEPROC(SYM) static int SYM(void *object, HPyFunc_visitproc visit, void *arg)
 #define _HPyFunc_DECLARE_HPyFunc_DESTRUCTOR(SYM) static void SYM(HPyContext *ctx, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_DESTROYFUNC(SYM) static void SYM(void *)
+#define _HPyFunc_DECLARE_HPyFunc_MOD_CREATE(SYM) static HPy SYM(HPyContext *ctx, HPy)
 
 typedef HPy (*HPyFunc_noargs)(HPyContext *ctx, HPy self);
 typedef HPy (*HPyFunc_o)(HPyContext *ctx, HPy self, HPy arg);
-typedef HPy (*HPyFunc_varargs)(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs);
-typedef HPy (*HPyFunc_keywords)(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
+typedef HPy (*HPyFunc_varargs)(HPyContext *ctx, HPy self, const HPy *args, size_t nargs);
+typedef HPy (*HPyFunc_keywords)(HPyContext *ctx, HPy self, const HPy *args, size_t nargs, HPy kwnames);
 typedef HPy (*HPyFunc_unaryfunc)(HPyContext *ctx, HPy);
 typedef HPy (*HPyFunc_binaryfunc)(HPyContext *ctx, HPy, HPy);
 typedef HPy (*HPyFunc_ternaryfunc)(HPyContext *ctx, HPy, HPy, HPy);
@@ -72,7 +74,8 @@ typedef HPy (*HPyFunc_getiterfunc)(HPyContext *ctx, HPy);
 typedef HPy (*HPyFunc_iternextfunc)(HPyContext *ctx, HPy);
 typedef HPy (*HPyFunc_descrgetfunc)(HPyContext *ctx, HPy, HPy, HPy);
 typedef int (*HPyFunc_descrsetfunc)(HPyContext *ctx, HPy, HPy, HPy);
-typedef int (*HPyFunc_initproc)(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
+typedef int (*HPyFunc_initproc)(HPyContext *ctx, HPy self, const HPy *args, HPy_ssize_t nargs, HPy kw);
+typedef HPy (*HPyFunc_newfunc)(HPyContext *ctx, HPy type, const HPy *args, HPy_ssize_t nargs, HPy kw);
 typedef HPy (*HPyFunc_getter)(HPyContext *ctx, HPy, void *);
 typedef int (*HPyFunc_setter)(HPyContext *ctx, HPy, HPy, void *);
 typedef int (*HPyFunc_objobjproc)(HPyContext *ctx, HPy, HPy);
@@ -81,3 +84,4 @@ typedef void (*HPyFunc_releasebufferproc)(HPyContext *ctx, HPy, HPy_buffer *);
 typedef int (*HPyFunc_traverseproc)(void *object, HPyFunc_visitproc visit, void *arg);
 typedef void (*HPyFunc_destructor)(HPyContext *ctx, HPy);
 typedef void (*HPyFunc_destroyfunc)(void *);
+typedef HPy (*HPyFunc_mod_create)(HPyContext *ctx, HPy);

@@ -1,0 +1,15 @@
+Summary:
+
+FAIL pypy/module/_hpy_universal/test/_vendored/test_00_basic.py::AppTestBasic::()::test_ctx_name[debug]
+FAIL pypy/module/_hpy_universal/test/_vendored/test_capsule.py::AppTestHPyCapsule::()::test_capsule_new_with_destructor[universal]
+FAIL pypy/module/_hpy_universal/test/_vendored/test_capsule.py::AppTestHPyCapsule::()::test_capsule_new_with_destructor[debug]
+FAIL pypy/module/_hpy_universal/test/_vendored/test_capsule_legacy.py::AppTestHPyCapsuleLegacy::()::test_legacy_capsule_compat[hybrid]
+FAIL pypy/module/_hpy_universal/test/_vendored/test_capsule_legacy.py::AppTestHPyCapsuleLegacy::()::test_legacy_capsule_compat[hybrid+debug]
+FAIL pypy/module/_hpy_universal/test/_vendored/test_hpytype_legacy.py::AppTestLegacyType::()::test_legacy_dealloc[hybrid]
+FAIL pypy/module/_hpy_universal/test/_vendored/test_hpytype_legacy.py::AppTestLegacyType::()::test_legacy_dealloc[hybrid+debug]
+FAIL pypy/module/_hpy_universal/test/_vendored/test_slots.py::AppTestSlots::()::test_tp_destroy[universal]
+FAIL pypy/module/_hpy_universal/test/_vendored/test_slots.py::AppTestSlots::()::test_tp_destroy[debug]
+FAIL pypy/module/_hpy_universal/test/_vendored/test_slots_legacy.py::AppTestLegacySlots::()::test_tp_destroy[hybrid]
+FAIL pypy/module/_hpy_universal/test/_vendored/test_slots_legacy.py::AppTestLegacySlots::()::test_tp_destroy[hybrid+debug]
+
+Also: build the static library for tests, undo c0b5e7390876

@@ -191,6 +191,9 @@ class EnvBuilder:
             Try symlinking a file, and if that fails, fall back to copying.
             """
             force_copy = not self.symlinks
+            if os.path.islink(src):
+                os.symlink(src, dst)
+                return
             if not force_copy:
                 try:
                     if not os.path.islink(dst): # can't link to itself!
@@ -212,6 +215,9 @@ class EnvBuilder:
             """
             Try symlinking a file, and if that fails, fall back to copying.
             """
+            if os.path.islink(src):
+                os.symlink(src, dst)
+                return
             bad_src = os.path.lexists(src) and not os.path.exists(src)
             if self.symlinks and not bad_src and not os.path.islink(dst):
                 try:
@@ -266,7 +272,7 @@ class EnvBuilder:
             copier(context.executable, path)
             if not os.path.islink(path):
                 os.chmod(path, 0o755)
-            for suffix in ('python', 'python3', f'python3.{sys.version_info[1]}', 'pypy3', 'pypy'):
+            for suffix in ('python', 'python3', f'python3.{sys.version_info[1]}', 'pypy3', 'pypy', 'lib*'):
                 path = os.path.join(binpath, suffix)
                 if not os.path.exists(path):
                     # Issue 18807: make copies if

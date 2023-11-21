@@ -56,8 +56,8 @@ check_version_status() {
     #  - hpy.devel.version.__version__ should match hpy.dist-info/METADATA
 
     pushd "$HPY/hpy/devel" > /dev/null
-    sha_py=$(python -c 'import version;print(version.__git_revision__)')
-    ver_py=$(python -c 'import version;print(version.__version__)')
+    sha_py=$(python3 -c 'import version;print(version.__git_revision__)')
+    ver_py=$(python3 -c 'import version;print(version.__version__)')
     popd > /dev/null
 
     sha_git=$(git -C "$HPY" rev-parse --short HEAD)

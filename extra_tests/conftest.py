@@ -29,6 +29,11 @@ def pytest_addoption(parser):
         "--subprocess-v", action="store_true",
         help="Print to stdout the stdout and stderr of Python subprocesses"
              "executed via run_python_subprocess")
+    parser.addoption(
+        "--dump-dir",
+        help="Enables dump mode and specifies where to write generated test "
+             "sources. This will then only generate the sources and skip "
+             "evaluation of the tests.")
 
 def pytest_collection_modifyitems(config, items):
     skip1 = pytest.mark.skip(reason="PyPy does not warn")

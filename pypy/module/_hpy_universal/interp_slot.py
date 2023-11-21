@@ -1,7 +1,8 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import (specialize, import_from_mixin)
+from rpython.rlib.objectmodel import specialize, import_from_mixin
+from rpython.rlib import jit
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
@@ -197,6 +198,40 @@ class W_wrap_lenfunc(object):
         if widen(result) == -1:
             space.fromcache(State).raise_current_exception()
         return space.newint(result)
+
+class W_wrap_hashfunc(object):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_hashfunc", self.cfuncptr)
+        self.check_args(space, __args__, 1)
+        w_self = __args__.arguments_w[0]
+        with self.handles.using(w_self) as h_self:
+            result = func(self.ctx, h_self)
+        if widen(result) == -1:
+            operror = space.fromcache(State).clear_exception()
+            if operror:
+                raise operror
+        return space.newint(result)
+
+class W_wrap_call(object):
+    def call(self, space, __args__):
+        w_func = self.handles.w_ExtensionMethod(space, self.handles, "__call__",
+            llapi.HPyFunc_KEYWORDS, "", self.cfuncptr, self.w_objclass)
+        return space.call_args(w_func, __args__)
+
+class W_wrap_call_at_offset(object):
+    def call(self, space, __args__):
+        from .interp_type import W_HPyObject
+        w_obj = __args__.arguments_w[0]
+        assert isinstance(w_obj, W_HPyObject)
+        storage = w_obj._hpy_get_raw_storage(space)
+        if not storage:
+            raise oefmt(space.w_TypeError, "non-HPy object in __call__")
+        addr = rffi.cast(lltype.Signed, storage) + self.offset
+        callfunc = llapi.cts.cast('HPyCallFunction*', addr)
+        cfuncptr = llapi.cts.cast('HPyCFunction', callfunc.c_impl)
+        w_func = self.handles.w_ExtensionMethod(space, self.handles, "__call__",
+            llapi.HPyFunc_KEYWORDS, "", cfuncptr, self.w_objclass)
+        return space.call_args(w_func, __args__)
 
 def sq_getindex(space, w_sequence, w_idx):
     """
@@ -502,7 +537,7 @@ SLOTS = unrolling_iterable([
     ('sq_repeat',                  '__mul__',       W_wrap_indexargfunc),
 #   ('tp_base',                    '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_bases',                   '__xxx__',       AGS.W_SlotWrapper_...),
-#   ('tp_call',                    '__xxx__',       AGS.W_SlotWrapper_...),
+    ('tp_call',                    '__call__',      W_wrap_call),
 #   ('tp_clear',                   '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_del',                     '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_descr_get',               '__xxx__',       AGS.W_SlotWrapper_...),
@@ -510,7 +545,7 @@ SLOTS = unrolling_iterable([
 #   ('tp_doc',                     '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_getattr',                 '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_getattro',                '__xxx__',       AGS.W_SlotWrapper_...),
-#   ('tp_hash',                    '__xxx__',       AGS.W_SlotWrapper_...),
+    ('tp_hash',                    '__hash__',      W_wrap_hashfunc),
     ('tp_init',                    '__init__',      W_wrap_init),
 #   ('tp_is_gc',                   '__xxx__',       AGS.W_SlotWrapper_...),
 #    ('tp_iter',                    '__iter__',      W_wrap_unaryfunc),
@@ -520,7 +555,7 @@ SLOTS = unrolling_iterable([
 #   tp_richcompare  SPECIAL-CASED
 #   ('tp_setattr',                 '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_setattro',                '__xxx__',       AGS.W_SlotWrapper_...),
-#    ('tp_str',                     '__str__',       W_wrap_unaryfunc),
+    ('tp_str',                     '__str__',       W_wrap_unaryfunc),
 #   tp_traverse  SPECIAL-CASED
     ('nb_matrix_multiply',         '__matmul__',    W_wrap_binaryfunc),
     ('nb_inplace_matrix_multiply', '__imatmul__',   W_wrap_binaryfunc),
@@ -534,39 +569,42 @@ SLOTS = unrolling_iterable([
     ])
 
 
+@jit.dont_look_inside
 @specialize.arg(0)
 def fill_slot(handles, w_type, hpyslot):
     space = handles.space
     slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
+    has_tp_call = False
     # special cases
     if slot_num == HPySlot_Slot.HPy_tp_new:
         # this is the moral equivalent of CPython's add_tp_new_wrapper
         cls = get_tp_new_wrapper_cls(handles)
         w_func = cls(hpyslot.c_impl, w_type)
         w_type.setdictvalue(space, '__new__', w_func)
-        return
+        return has_tp_call
     elif slot_num == HPySlot_Slot.HPy_tp_destroy:
         w_type.tp_destroy = llapi.cts.cast('HPyFunc_destroyfunc', hpyslot.c_impl)
-        return
+        return has_tp_call
     elif slot_num == HPySlot_Slot.HPy_tp_traverse:
         w_type.tp_traverse = llapi.cts.cast('HPyFunc_traverseproc', hpyslot.c_impl)
-        return
+        return has_tp_call
     elif slot_num == HPySlot_Slot.HPy_tp_richcompare:
         for methname, opval in CMP_SLOTS:
             cls = get_cmp_wrapper_cls(handles, methname, opval)
             w_slot = cls(slot_num, methname, hpyslot.c_impl, w_type)
             w_type.setdictvalue(space, methname, w_slot)
-        return
+        return has_tp_call
     elif slot_num == HPySlot_Slot.HPy_tp_finalize:
         # This is not a normal __slot__ since we want __del__ to be called as a
         # finalizer, not when the object __del__ is called.
         cls = get_slot_cls(handles, W_wrap_voidfunc)
         w_slot = cls(slot_num, "__del__", hpyslot.c_impl, w_type)
         w_type.tp_finalize = w_slot
-        return
+        return has_tp_call
     elif slot_num == HPySlot_Slot.HPy_bf_releasebuffer:
-        return
-
+        return has_tp_call
+    elif slot_num == HPySlot_Slot.HPy_tp_call:
+        has_tp_call = True
     # generic cases
     found = False
     for slotname, methname, mixin in SLOTS:
@@ -580,3 +618,4 @@ def fill_slot(handles, w_type, hpyslot):
 
     if not found:
         raise oefmt(space.w_NotImplementedError, "Unimplemented slot: %s", str(slot_num))
+    return has_tp_call

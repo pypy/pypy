@@ -1356,6 +1356,9 @@ class AppTestPosix:
             assert e.value.filename == dest + '-DOESNT-EXIST'
 
     def test_getlogin(self):
+        # Fails inside a docker instance, see 
+        # https://stackoverflow.com/questions/74187896/os-getlogin-in-docker-container-throws-filenotfounderror
+        skip("fails inside docker on buildbots")
         assert isinstance(self.posix.getlogin(), str)
         # How else could we test that getlogin is properly
         # working?

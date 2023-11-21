@@ -27,9 +27,9 @@ def no_gil_error(funcname):
 
 class APISet(object):
 
-    def __init__(self, cts, is_debug, prefix=r'^_?HPy_?', force_c_name=False):
+    def __init__(self, cts, mode, prefix=r'^_?HPy_?', force_c_name=False):
         self.cts = cts
-        self.is_debug = is_debug
+        self.mode = mode
         self.prefix = re.compile(prefix)
         self.force_c_name = force_c_name
         self.all_functions = []
@@ -168,7 +168,13 @@ class APISet(object):
                         if not rgil.am_I_holding_the_GIL():
                             no_gil_error(fn.__name__)
                     state = space.fromcache(State)
-                    handles = state.get_handle_manager(self.is_debug)
+                    if self.mode == "debug":
+                        mode = llapi.MODE_DEBUG
+                    elif self.mode == "trace":
+                        mode = llapi.MODE_TRACE
+                    else:
+                        mode = llapi.MODE_UNIVERSAL
+                    handles = state.get_handle_manager(mode)
                     try:
                         retval = fn(space, handles, *args)
                     except OperationError as e:
@@ -222,5 +228,6 @@ class APISet(object):
 
 
 
-API = APISet(llapi.cts, is_debug=False)
-DEBUG = APISet(llapi.cts, is_debug=True)
+API = APISet(llapi.cts, mode="universal")
+DEBUG = APISet(llapi.cts, mode="debug")
+TRACE = APISet(llapi.cts, mode="trace")

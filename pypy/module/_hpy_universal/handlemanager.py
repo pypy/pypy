@@ -5,7 +5,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.debug import ll_assert
 from pypy.interpreter.error import OperationError
 from pypy.module._hpy_universal import llapi
-from pypy.module._hpy_universal.apiset import API, DEBUG
+from pypy.module._hpy_universal.apiset import API, DEBUG, TRACE
 from .buffer import setup_hpybuffer
 
 
@@ -100,6 +100,11 @@ CONSTANTS = [
     ('UnicodeType', lambda space: space.w_unicode),
     ('TupleType', lambda space: space.w_tuple),
     ('ListType', lambda space: space.w_list),
+    ('ComplexType', lambda space: space.w_complex),
+    ('BytesType', lambda space: space.w_bytes),
+    ('MemoryViewType', lambda space: space.w_memoryview),
+    ('SliceType', lambda space: space.w_slice),
+    ('Builtins', lambda space: space.getattr(space.builtin, space.newtext("__dict__"))),
 ]
 
 CONTEXT_FIELDS = unrolling_iterable(llapi.HPyContext.TO._names)
@@ -109,9 +114,8 @@ DUMMY_FUNC = lltype.FuncType([], lltype.Void)
 class AbstractHandleManager(object):
     NULL = 0
 
-    def __init__(self, space, ctx, is_debug):
+    def __init__(self, space, is_debug):
         self.space = space
-        self.ctx = ctx
         self.is_debug = is_debug
         # setup a helper class for creating views in the bf_getbuffer slot
         setup_hpybuffer(self)
@@ -132,6 +136,9 @@ class AbstractHandleManager(object):
         raise NotImplementedError
 
     def attach_release_callback(self, index, cb):
+        raise NotImplementedError
+
+    def get_ctx(self):
         raise NotImplementedError
 
     @specialize.arg(0)
@@ -155,7 +162,8 @@ class HandleManager(AbstractHandleManager):
 
     def __init__(self, space, uctx):
         from .interp_extfunc import W_ExtensionFunction_u, W_ExtensionMethod_u
-        AbstractHandleManager.__init__(self, space, uctx, is_debug=False)
+        AbstractHandleManager.__init__(self, space, is_debug=False)
+        self.ctx = uctx
         self.handles_w = [build_value(space) for name, build_value in CONSTANTS]
         self.release_callbacks = [None] * len(self.handles_w)
         self.free_list = []
@@ -170,12 +178,12 @@ class HandleManager(AbstractHandleManager):
         return rffi.str2constcharp("HPy Universal ABI (PyPy backend)",
                                    track_allocation=False)
 
-    def setup_ctx(self):
+    def setup_universal_ctx(self):
         space = self.space
         self.ctx.c_name = self.ctx_name()
 
         for name in CONTEXT_FIELDS:
-            if name == 'c_ctx_version':
+            if name == 'c_abi_version':
                 continue
             if name.startswith('c_ctx_'):
                 # this is a function pointer: assign a default value so we get
@@ -190,6 +198,8 @@ class HandleManager(AbstractHandleManager):
                 h_struct = getattr(self.ctx, 'c_h_' + name)
                 h_struct.c__i = i
             i = i + 1
+        h_struct = getattr(self.ctx, "c_h_CapsuleType")
+        h_struct.c__i = 2048
 
         for func in API.all_functions:
             if func.cpyext and not space.config.objspace.hpy_cpyext_API:
@@ -204,6 +214,8 @@ class HandleManager(AbstractHandleManager):
 
         self.ctx.c_ctx_FatalError = rffi.cast(rffi.VOIDP, llapi.pypy_HPy_FatalError)
 
+    def get_ctx(self):
+        return self.ctx
 
     def new(self, w_object):
         if len(self.free_list) == 0:
@@ -213,7 +225,6 @@ class HandleManager(AbstractHandleManager):
         else:
             index = self.free_list.pop()
             self.handles_w[index] = w_object
-            # releasers[index] is already set to None by close()
         return index
 
     def close(self, index):
@@ -243,17 +254,19 @@ class HandleManager(AbstractHandleManager):
         return w_object
 
     def dup(self, index):
+        assert index > 0
         w_object = self.handles_w[index]
         return self.new(w_object)
 
     def attach_release_callback(self, index, cb):
+        assert index > 0
         if self.release_callbacks[index] is None:
             self.release_callbacks[index] = [cb]
         else:
             self.release_callbacks[index].append(cb)
 
     def str2ownedptr(self, s, owner):
-        # Used in converting a handle to a `const char *` via a non-moving buffer
+        # Used in converting a string to a `const char *` via a non-moving buffer
         llbuf, llstring, flag = rffi.get_nonmovingbuffer_ll_final_null(s)
         cb = FreeNonMovingBuffer(llbuf, llstring, flag)
         self.attach_release_callback(owner, cb)
@@ -265,7 +278,8 @@ class DebugHandleManager(AbstractHandleManager):
 
     def __init__(self, space, dctx, u_handles):
         from .interp_extfunc import W_ExtensionFunction_d, W_ExtensionMethod_d
-        AbstractHandleManager.__init__(self, space, dctx, is_debug=True)
+        AbstractHandleManager.__init__(self, space, is_debug=True)
+        self.ctx = dctx
         self.u_handles = u_handles
         self.w_ExtensionFunction = W_ExtensionFunction_d
         self.w_ExtensionMethod = W_ExtensionMethod_d
@@ -278,10 +292,10 @@ class DebugHandleManager(AbstractHandleManager):
         return rffi.str2constcharp("HPy Debug Mode ABI (PyPy backend)",
                                    track_allocation=False)
 
-    def setup_ctx(self):
+    def setup_debug_ctx(self):
         space = self.space
         self.ctx.c_name = self.ctx_name()
-        rffi.setintfield(self.ctx, 'c_ctx_version', 1)
+        rffi.setintfield(self.ctx, 'c_abi_version', 0)
         self.ctx.c__private = llapi.cts.cast('void*', 0)
         llapi.hpy_debug_ctx_init(self.ctx, self.u_handles.ctx)
         for func in DEBUG.all_functions:
@@ -290,26 +304,22 @@ class DebugHandleManager(AbstractHandleManager):
             setattr(self.ctx, ctx_field, funcptr)
         llapi.hpy_debug_set_ctx(self.ctx)
 
+    def get_ctx(self):
+        return self.ctx
+
     def new(self, w_object):
         uh = self.u_handles.new(w_object)
         ret = llapi.hpy_debug_open_handle(self.ctx, uh)
-        # print 'new', ret, uh, w_object
+        # print 'debug new', ret, uh
         return ret
 
     def close(self, dh):
         # tricky, we need to deref dh but use index for all self.u_handles interactions
         index = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         ll_assert(index > 0, 'HandleManager.close: index > 0')
-        if self.u_handles.release_callbacks[index] is not None:
-            w_obj = self.deref(dh)
-            for f in self.u_handles.release_callbacks[index]:
-                # print 'calling release with', dh, index, w_obj
-                f.release(dh, w_obj)
-            self.u_handles.release_callbacks[index] = None
-        # print 'close', index, dh, self.deref(dh)
-        self.u_handles.handles_w[index] = None
-        self.u_handles.free_list.append(index)
+        # print 'debug close', index, dh
         llapi.hpy_debug_close_handle(self.ctx, dh)
+        self.u_handles.close(index)
 
     def deref(self, dh):
         # print 'deref', dh
@@ -335,6 +345,48 @@ class DebugHandleManager(AbstractHandleManager):
 
     def str2ownedptr(self, s, owner):
         return self.u_handles.str2ownedptr(s, owner)
+
+class TraceHandleManager(AbstractHandleManager):
+    cls_suffix = '_t'
+
+    def __init__(self, space, u_handles):
+        from .interp_extfunc import W_ExtensionFunction_t, W_ExtensionMethod_t
+        AbstractHandleManager.__init__(self, space, is_debug=False)
+        self.u_handles = u_handles
+        self.w_ExtensionFunction = W_ExtensionFunction_t
+        self.w_ExtensionMethod = W_ExtensionMethod_t
+
+    @staticmethod
+    @specialize.memo()
+    def ctx_name():
+        # by using specialize.memo() this becomes a statically allocated
+        # charp, like a C string literal
+        return rffi.str2constcharp("HPy Trace Mode ABI (PyPy backend)",
+                                   track_allocation=False)
+
+    def setup_trace_ctx(self):
+        space = self.space
+        ctx = llapi.hpy_trace_get_ctx(self.u_handles.ctx)
+        ctx.c_name = self.ctx_name()
+        rffi.setintfield(ctx, 'c_abi_version', 0)
+        ctx.c__private = llapi.cts.cast('void*', 0)
+        llapi.hpy_trace_ctx_init(ctx, self.u_handles.ctx)
+        for func in TRACE.all_functions:
+            funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
+            ctx_field = 'c_ctx_' + func.basename
+            setattr(ctx, ctx_field, funcptr)
+
+    def get_ctx(self):
+        return llapi.hpy_trace_get_ctx(self.u_handles.ctx)
+
+    def new(self, w_object):
+        return self.u_handles.new(w_object)
+
+    def close(self, index):
+        return self.u_handles.close(index)
+
+    def consume(self, index):
+        return self.u_handles.consume(index)
 
 
 class HandleReleaseCallback(object):

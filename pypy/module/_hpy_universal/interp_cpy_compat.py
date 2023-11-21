@@ -1,9 +1,9 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
-from rpython.rlib import rgc
+from rpython.rlib import rgc, jit
 from rpython.rlib.unroll import unrolling_iterable
 #
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
@@ -45,7 +45,12 @@ def attach_legacy_methods(space, pymethods, w_obj, modname, type_name):
     """
     pymethods = cpyts.cast('PyMethodDef*', pymethods)
     dict_w = {}
-    convert_method_defs(space, dict_w, pymethods, None, w_obj, modname, type_name)
+    if modname:
+        # module conversion
+        convert_method_defs(space, dict_w, pymethods, None, w_obj, modname, type_name)
+    else:
+        # type conversion
+        convert_method_defs(space, dict_w, pymethods, w_obj, w_obj, modname, type_name)
     for key, w_func in dict_w.items():
         space.setattr(w_obj, space.newtext(key), w_func)
 
@@ -183,8 +188,11 @@ def make_slot_wrappers_table():
     return table
 SLOT_WRAPPERS_TABLE = unrolling_iterable(make_slot_wrappers_table())
 
+@jit.dont_look_inside
 def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dealloc):
     from pypy.module.cpyext.slotdefs import wrap_unaryfunc
+    from pypy.module.cpyext.pyobject import as_pyobj
+    from pypy.module.cpyext.typeobjectdefs import newfunc, destructor, allocfunc, freefunc
     slotdefs = rffi.cast(rffi.CArrayPtr(cpyts.gettype('PyType_Slot')), c_legacy_slots)
     i = 0
     type_name = w_type.getqualname(space)
@@ -200,8 +208,6 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dea
         elif slotnum == cpyts.macros['Py_tp_getset']:
             attach_legacy_getsets(space, slotdef.c_pfunc, w_type)
         elif slotnum == cpyts.macros['Py_tp_dealloc']:
-            from pypy.module.cpyext.pyobject import as_pyobj
-            from pypy.module.cpyext.typeobjectdefs import destructor
             if needs_hpytype_dealloc:
                 raise oefmt(space.w_TypeError,
                     "legacy tp_dealloc is incompatible with HPy_tp_traverse"
@@ -214,6 +220,18 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dea
                 pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
                 pytype.c_tp_dealloc = rffi.cast(destructor, funcptr)
     
+        elif slotnum == cpyts.macros['Py_tp_new']:
+            funcptr = slotdef.c_pfunc
+            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
+            pytype.c_tp_new = rffi.cast(newfunc, funcptr)
+        elif slotnum == cpyts.macros['Py_tp_alloc']:
+            funcptr = slotdef.c_pfunc
+            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
+            pytype.c_tp_alloc = rffi.cast(allocfunc, funcptr)
+        elif slotnum == cpyts.macros['Py_tp_free']:
+            funcptr = slotdef.c_pfunc
+            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
+            pytype.c_tp_free = rffi.cast(freefunc, funcptr)
         else:
             attach_legacy_slot(space, w_type, slotdef, slotnum, type_name)
         i += 1
@@ -224,10 +242,12 @@ def attach_legacy_slot(space, w_type, slotdef, slotnum, type_name):
         if num == slotnum:
             if wrapper_class is None:
                 # XXX: we probably need to handle manually these slots
-                raise NotImplementedError("slot wrapper for slot %d" % num)
+                raise oefmt(space.w_NotImplementedError,
+                            "slot wrapper for slot %d %s",num, method_name)
             funcptr = slotdef.c_pfunc
             w_wrapper = wrapper_class(space, w_type, method_name, doc, funcptr, type_name)
             w_type.setdictvalue(space, method_name, w_wrapper)
             break
     else:
-        assert False, 'cannot find the slot %d' % (slotnum)
+        raise oefmt(space.w_NotImplementedError,
+            'cannot find the slot %d when creating type %s', slotnum, type_name)

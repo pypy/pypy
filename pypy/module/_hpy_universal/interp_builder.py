@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.debug import make_sure_not_resized
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.module._hpy_universal.apiset import API
@@ -13,6 +13,7 @@ from pypy.module._hpy_universal.apiset import API
 # (re)use HandleManager to get this unique index.
 class W_ListBuilder(W_Root):
     def __init__(self, initial_size):
+        self.initial_size = initial_size
         self.items_w = [None] * initial_size
 
 @API.func("HPyListBuilder HPyListBuilder_New(HPyContext *ctx, HPy_ssize_t initial_size)",
@@ -33,6 +34,8 @@ def HPyListBuilder_Set(space, handles, ctx, builder, index, h_item):
 
 @API.func("HPy HPyListBuilder_Build(HPyContext *ctx, HPyListBuilder builder)")
 def HPyListBuilder_Build(space, handles, ctx, builder):
+    if not builder:
+        raise oefmt(space.w_MemoryError, "HPyListBuilder called with NULL")
     w_builder = handles.deref(builder)
     assert isinstance(w_builder, W_ListBuilder)
     w_list = space.newlist(w_builder.items_w)
@@ -40,10 +43,12 @@ def HPyListBuilder_Build(space, handles, ctx, builder):
 
 @API.func("void HPyListBuilder_Cancel(HPyContext *ctx, HPyListBuilder builder)")
 def HPyListBuilder_Cancel(space, handles, ctx, builder):
-    # XXX write a test
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return
-    raise NotImplementedError
+    if not builder:
+        return
+    w_builder = handles.deref(builder)
+    assert isinstance(w_builder, W_ListBuilder)
+    for i in range(w_builder.initial_size):
+        w_builder.items_w[i] = None
 
 
 # ~~~ HPyTupleBuilder ~~~
@@ -72,6 +77,8 @@ def HPyTupleBuilder_Set(space, handles, ctx, builder, index, h_item):
 
 @API.func("HPy HPyTupleBuilder_Build(HPyContext *ctx, HPyTupleBuilder builder)")
 def HPyTupleBuilder_Build(space, handles, ctx, builder):
+    if not builder:
+        raise oefmt(space.w_MemoryError, "HPyTupleBuilder called with NULL")
     w_builder = handles.deref(builder)
     assert isinstance(w_builder, W_TupleBuilder)
     w_tuple = space.newtuple(w_builder.items_w)
@@ -79,6 +86,8 @@ def HPyTupleBuilder_Build(space, handles, ctx, builder):
 
 @API.func("void HPyTupleBuilder_Cancel(HPyContext *ctx, HPyTupleBuilder builder)")
 def HPyTupleBuilder_Cancel(space, handles, ctx, builder):
+    if not builder:
+        return
     w_builder = handles.deref(builder)
     assert isinstance(w_builder, W_TupleBuilder)
     for i in range(w_builder.initial_size):

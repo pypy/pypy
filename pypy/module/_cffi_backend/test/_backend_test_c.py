@@ -5,7 +5,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.15.1", ("This test_c.py file is for testing a version"
+assert __version__ == "1.16.0", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -54,6 +54,8 @@ def find_and_load_library(name, flags=RTLD_NOW):
         path = None
     else:
         path = ctypes.util.find_library(name)
+        if path is None and sys.platform == 'darwin' and sys.version_info[:2] == (3, 8):
+            pytest.xfail("find_library usually broken on MacOS Python 3.8")
         if path is None and name == 'c':
             assert sys.platform == 'win32'
             assert (sys.version_info >= (3,) or

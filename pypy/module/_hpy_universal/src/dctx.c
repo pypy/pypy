@@ -28,9 +28,8 @@ void pypy_hpy_debug_close_handle(HPyContext *dctx, HPy_ssize_t _dh) {
     hpy_debug_close_handle(dctx, dh);
 }
 
-HPy_ssize_t pypy_HPyInit__debug(HPyContext *uctx) {
-    HPy h_mod = HPyInit__debug(uctx);
-    return h_mod._i;
+HPyModuleDef* pypy_HPyInit__debug() {
+    return HPyInit__debug();
 }
 
 void pypy_hpy_debug_set_ctx(HPyContext *dctx) {

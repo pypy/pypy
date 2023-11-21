@@ -10,20 +10,35 @@ SRC_DIR = PYPYDIR.join('module', '_hpy_universal', 'src')
 BASE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'devel')
 INCLUDE_DIR = BASE_DIR.join('include')
 DEBUG_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'debug', 'src')
+TRACE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'trace', 'src')
+CAPI_DIR = PYPYDIR.join('module', '_hpy_universal', 'capi_stub')
+
+HPY_ABI_VERSION = 0
+HPY_ABI_VERSION_MINOR = 0
+HPY_ABI_TAG = "hpy0"
+MODE_INVALID = -1
+MODE_UNIVERSAL = 0
+MODE_DEBUG = 1
+MODE_TRACE = 2
+
 
 eci = ExternalCompilationInfo(
-    compile_extra = ["-DHPY_UNIVERSAL_ABI"],
-    includes=["hpy.h", "hpyerr.h", "rffi_hacks.h", "dctx.h"],
+    compile_extra = ["-DHPY_ABI_HYBRID", "-DHPY_EMBEDDED_MODULES", "-D_HPY_DEBUG_MEM_PROTECT_USEMMAP"],
+    includes=["hpy.h", "hpyerr.h", "rffi_hacks.h", "dctx.h", "tctx.h"],
     include_dirs=[
         cdir,                       # for precommondefs.h
         INCLUDE_DIR,                # for universal/hpy.h
         SRC_DIR,                    # for hpyerr.h
-        DEBUG_DIR,                  # for debug_internal.h
+        DEBUG_DIR,                  # for debug module
         DEBUG_DIR.join('include'),  # for hpy_debug.h
+        TRACE_DIR,                  # for trace module
+        TRACE_DIR.join('include'),  # for hpy_trace.h
+        CAPI_DIR,                   # for Python.h stub for hybrid tests
     ],
     separate_module_files=[
         SRC_DIR.join('bridge.c'),
         SRC_DIR.join('hpyerr.c'),
+        SRC_DIR.join('argparse.c'),
         # <debug mode>
         SRC_DIR.join('dctx.c'),
         DEBUG_DIR.join('debug_ctx.c'),
@@ -34,8 +49,15 @@ eci = ExternalCompilationInfo(
         DEBUG_DIR.join('autogen_debug_wrappers.c'),
         DEBUG_DIR.join('dhqueue.c'),
         DEBUG_DIR.join('memprotect.c'),
-        BASE_DIR.join('src', 'runtime', 'ctx_tracker.c'),
         # </debug mode>
+        # <trace mode>
+        SRC_DIR.join('tctx.c'),
+        TRACE_DIR.join('trace_ctx.c'),
+        TRACE_DIR.join('_tracemod.c'),
+        TRACE_DIR.join('autogen_trace_wrappers.c'),
+        TRACE_DIR.join('autogen_trace_func_table.c'),
+        # </trace mode>
+        BASE_DIR.join('src', 'runtime', 'ctx_tracker.c'),
     ],
 )
 
@@ -50,7 +72,6 @@ cts.parse_source("""
 typedef intptr_t HPy_ssize_t;
 typedef intptr_t HPy_hash_t;
 
-// see below for more info about HPy vs struct _HPy_s
 struct _HPy_s {
     HPy_ssize_t _i;
 };
@@ -81,10 +102,22 @@ typedef struct _HPyGlobal_s {
 } _struct_HPyGlobal_s;
 typedef HPy_ssize_t HPyGlobal;
 
+typedef enum {
+    HPyType_BuiltinShape_Legacy = -1,
+    HPyType_BuiltinShape_Object = 0,
+    HPyType_BuiltinShape_Type = 1,
+    HPyType_BuiltinShape_Long = 2,
+    HPyType_BuiltinShape_Float = 3,
+    HPyType_BuiltinShape_Unicode = 4,
+    HPyType_BuiltinShape_Tuple = 5,
+    HPyType_BuiltinShape_List = 6,
+} HPyType_BuiltinShape;
+
+/* sync with lib_pypy/hpy/devel/include/hpy/universal/autogen.h */
 typedef struct _HPyContext_s {
     const char *name; // used just to make debugging and testing easier
     void *_private;   // used by implementations to store custom data
-    int ctx_version;
+    int abi_version;
     struct _HPy_s h_None;
     struct _HPy_s h_True;
     struct _HPy_s h_False;
@@ -162,28 +195,27 @@ typedef struct _HPyContext_s {
     struct _HPy_s h_UnicodeType;
     struct _HPy_s h_TupleType;
     struct _HPy_s h_ListType;
-    void * ctx_Module_Create;
     void * ctx_Dup;
     void * ctx_Close;
-    void * ctx_Long_FromLong;
-    void * ctx_Long_FromUnsignedLong;
-    void * ctx_Long_FromLongLong;
-    void * ctx_Long_FromUnsignedLongLong;
+    void * ctx_Long_FromInt32_t;
+    void * ctx_Long_FromUInt32_t;
+    void * ctx_Long_FromInt64_t;
+    void * ctx_Long_FromUInt64_t;
     void * ctx_Long_FromSize_t;
     void * ctx_Long_FromSsize_t;
-    void * ctx_Long_AsLong;
-    void * ctx_Long_AsUnsignedLong;
-    void * ctx_Long_AsUnsignedLongMask;
-    void * ctx_Long_AsLongLong;
-    void * ctx_Long_AsUnsignedLongLong;
-    void * ctx_Long_AsUnsignedLongLongMask;
+    void * ctx_Long_AsInt32_t;
+    void * ctx_Long_AsUInt32_t;
+    void * ctx_Long_AsUInt32_tMask;
+    void * ctx_Long_AsInt64_t;
+    void * ctx_Long_AsUInt64_t;
+    void * ctx_Long_AsUInt64_tMask;
     void * ctx_Long_AsSize_t;
     void * ctx_Long_AsSsize_t;
     void * ctx_Long_AsVoidPtr;
     void * ctx_Long_AsDouble;
     void * ctx_Float_FromDouble;
     void * ctx_Float_AsDouble;
-    void * ctx_Bool_FromLong;
+    void * ctx_Bool_FromBool;
     void * ctx_Length;
     void * ctx_Number_Check;
     void * ctx_Add;
@@ -254,8 +286,8 @@ typedef struct _HPyContext_s {
     void * ctx_Type;
     void * ctx_TypeCheck;
     void * ctx_Is;
-    void * ctx_AsStruct;
-    void * ctx_AsStructLegacy;
+    void * ctx_AsStruct_Object;
+    void * ctx_AsStruct_Legacy;
     void * ctx_New;
     void * ctx_Repr;
     void * ctx_Str;
@@ -314,12 +346,45 @@ typedef struct _HPyContext_s {
     void * ctx_Global_Store;
     void * ctx_Global_Load;
     void * ctx_Dump;
+    void * ctx_AsStruct_Type;
+    void * ctx_AsStruct_Long;
+    void * ctx_AsStruct_Float;
+    void * ctx_AsStruct_Unicode;
+    void * ctx_AsStruct_Tuple;
+    void * ctx_AsStruct_List;
+    void * ctx_Type_GetBuiltinShape;
+    void * ctx_DelItem;
+    void * ctx_DelItem_i;
+    void * ctx_DelItem_s;
+    struct _HPy_s h_ComplexType;
+    struct _HPy_s h_BytesType;
+    struct _HPy_s h_MemoryViewType;
+    struct _HPy_s h_CapsuleType;
+    struct _HPy_s h_SliceType;
+    struct _HPy_s h_Builtins;
+    void * ctx_Capsule_New;
+    void * ctx_Capsule_Get;
+    void * ctx_Capsule_IsValid;
+    void * ctx_Capsule_Set;
+    void * ctx_Compile_s;
+    void * ctx_EvalCode;
+    void * ctx_ContextVar_New;
+    void * ctx_ContextVar_Get;
+    void * ctx_ContextVar_Set;
+    void * ctx_Type_GetName;
+    void * ctx_Type_IsSubtype;
+    void * ctx_Unicode_FromEncodedObject;
+    void * ctx_Unicode_Substring;
+    void * ctx_Dict_Keys;
+    void * ctx_Dict_Copy;
+    void * ctx_Slice_Unpack;
+    void * ctx_SetCallFunction;
+    void * ctx_Call;
+    void * ctx_CallMethod;
 } _struct_HPyContext_s;
-
 
 typedef struct _HPyContext_s HPyContext;
 
-typedef HPy (*HPyInitFunc)(HPyContext *ctx);
 typedef int HPyFunc_Signature;
 
 /* hpydef.h */
@@ -422,18 +487,37 @@ typedef struct {
     HPyDef_Kind kind;
     HPyGetSet getset;
 } _pypy_HPyDef_as_getset;
+ 
+typedef void (*HPyFunc_Capsule_Destructor)(const char *name, void *pointer, void *context);
+typedef HPy (*HPyFunc_keywords)(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
 
+typedef struct {
+    void *cpy_trampoline;
+    HPyFunc_Capsule_Destructor impl;
+} HPyCapsule_Destructor;
+
+typedef struct {
+    void *pointer;
+    const char *name;
+    void *context;
+    HPyCapsule_Destructor destructor;
+} HPyCapsule;
+
+typedef struct {
+    void *cpy_trampoline;
+    HPyFunc_keywords impl;
+} HPyCallFunction;
 
 /* hpymodule.h */
 
 typedef void cpy_PyMethodDef;
 
 typedef struct {
-    const char* name;
     const char* doc;
     HPy_ssize_t size;
     cpy_PyMethodDef *legacy_methods;
     HPyDef **defines;   /* points to an array of 'HPyDef *' */
+    HPyGlobal **globals;
 } HPyModuleDef;
 
 /* hpytype.h */
@@ -443,7 +527,7 @@ typedef struct {
     int basicsize;
     int itemsize;
     unsigned long flags;
-    int legacy;
+    HPyType_BuiltinShape builtin_shape;
     void *legacy_slots; // PyType_Slot *
     HPyDef **defines;   /* points to an array of 'HPyDef *' */
     const char* doc;    /* UTF-8 doc string or NULL */
@@ -452,8 +536,8 @@ typedef struct {
 typedef enum {
     HPyType_SpecParam_Base = 1,
     HPyType_SpecParam_BasesTuple = 2,
-    //HPyType_SpecParam_Metaclass = 3,
-    //HPyType_SpecParam_Module = 4,
+    HPyType_SpecParam_Metaclass = 3,
+    HPyType_SpecParam_Module = 4,
 } HPyType_SpecParam_Kind;
 
 typedef struct {
@@ -501,12 +585,15 @@ typedef struct {
 
 typedef int (*HPyFunc_visitproc)(HPyField *, void *);
 
+typedef int (*VersionGetterFuncPtr)(void);
+typedef HPyModuleDef* (*InitFuncPtr)(void);
+typedef void (*InitContextFuncPtr)(HPyContext*);
+
 /* autogen_hpyfunc_declare.h */
 
 typedef HPy (*HPyFunc_noargs)(HPyContext *ctx, HPy self);
 typedef HPy (*HPyFunc_o)(HPyContext *ctx, HPy self, HPy arg);
 typedef HPy (*HPyFunc_varargs)(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs);
-typedef HPy (*HPyFunc_keywords)(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
 typedef HPy (*HPyFunc_unaryfunc)(HPyContext *ctx, HPy);
 typedef HPy (*HPyFunc_binaryfunc)(HPyContext *ctx, HPy, HPy);
 typedef HPy (*HPyFunc_ternaryfunc)(HPyContext *ctx, HPy, HPy, HPy);
@@ -542,6 +629,31 @@ typedef void (*HPyFunc_destroyfunc)(void *);
 
 struct _HPyThreadState { intptr_t _i; };
 typedef intptr_t HPyThreadState;
+
+typedef enum {
+    /** Parse isolated expressions (e.g. ``a + b``). */
+    HPy_SourceKind_Expr = 0,
+
+    /**
+     * Parse sequences of statements as read from a file or other source. This
+     * is the symbol to use when compiling arbitrarily long Python source code.
+     */
+    HPy_SourceKind_File = 1,
+
+    /**
+     * Parse a single statement. This is the mode used for the interactive
+     * interpreter loop.
+     */
+    HPy_SourceKind_Single = 2,
+} HPy_SourceKind;
+
+typedef enum {
+    HPyCapsule_key_Pointer = 0,
+    HPyCapsule_key_Name = 1,
+    HPyCapsule_key_Context = 2,
+    HPyCapsule_key_Destructor = 3,
+} _HPyCapsule_key;
+
 """)
 
 # HACK! We manually assign _hints['eci'] to ensure that the eci is included in
@@ -562,13 +674,14 @@ HPy_ssize_t = cts.gettype('HPy_ssize_t')
 HPy = cts.gettype('HPy')
 HPy_NULL = rffi.cast(HPy, 0)
 
-HPyInitFunc = cts.gettype('HPyInitFunc')
-
 cpy_PyMethodDef = cts.gettype('cpy_PyMethodDef')
 HPyModuleDef = cts.gettype('HPyModuleDef')
+HPyModuleDefP = cts.gettype('HPyModuleDef *')
+VersionGetterFuncPtr = cts.gettype('VersionGetterFuncPtr')
+InitFuncPtr = cts.gettype('InitFuncPtr')
+InitContextFuncPtr = cts.gettype('InitContextFuncPtr')
 # CTypeSpace converts "PyMethodDef*" into lltype.Ptr(PyMethodDef), but we
-# want a CArrayPtr instead, so that we can index the items inside
-# HPyModule_Create
+# want a CArrayPtr instead
 HPyModuleDef._flds['c_legacy_methods'] = rffi.CArrayPtr(cpy_PyMethodDef)
 
 # enum HPyFunc_Signature {
@@ -618,5 +731,30 @@ hpy_debug_close_handle = rffi.llexternal(
     compilation_info=eci, _nowrapper=True)
 
 HPyInit__debug = rffi.llexternal(
-    'pypy_HPyInit__debug', [HPyContext], HPy,
+    'pypy_HPyInit__debug', [], HPyModuleDefP,
+    compilation_info=eci, _nowrapper=True)
+
+#trace mode
+hpy_trace_get_ctx = rffi.llexternal(
+    'pypy_hpy_trace_get_ctx', [HPyContext], HPyContext,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_trace_ctx_init = rffi.llexternal(
+    'pypy_hpy_trace_ctx_init', [HPyContext, HPyContext], rffi.INT_real,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_trace_ctx_free = rffi.llexternal(
+    'pypy_hpy_trace_ctx_free', [HPyContext], rffi.INT_real,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_trace_get_func_name = rffi.llexternal(
+    'pypy_hpy_trace_get_func_name', [rffi.INT_real], rffi.CCHARP,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_trace_get_nfunc = rffi.llexternal(
+    'pypy_hpy_trace_get_nfunc', [], rffi.INT_real,
+    compilation_info=eci, _nowrapper=True)
+
+HPyInit__trace = rffi.llexternal(
+    'pypy_HPyInit__trace', [], HPyModuleDefP,
     compilation_info=eci, _nowrapper=True)

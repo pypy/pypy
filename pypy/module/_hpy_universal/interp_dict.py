@@ -16,3 +16,28 @@ def HPyDict_Check(space, handles, ctx, h):
     res = (space.is_w(w_obj_type, space.w_dict) or
            space.issubtype_w(w_obj_type, space.w_dict))
     return API.int(res)
+
+@API.func("HPy HPyDict_Copy(HPyContext *ctx, HPy h)")
+def HPyDict_Copy(space, handles, ctx, h):
+    if not h:
+        raise oefmt(space.w_SystemError, "NULL handle passed to HPyDict_Copy")
+    w_obj = handles.deref(h)
+    w_obj_type = space.type(w_obj)
+    if not (space.is_w(w_obj_type, space.w_dict) or
+           space.issubtype_w(w_obj_type, space.w_dict)):
+        raise oefmt(space.w_SystemError, "non-dict passed to HPyDict_Copy")
+    w_ret = space.call_method(space.w_dict, "copy", w_obj)
+    return handles.new(w_ret)
+
+@API.func("HPy HPyDict_Keys(HPyContext *ctx, HPy h)")
+def HPyDict_Keys(space, handles, ctx, h):
+    if not h:
+        raise oefmt(space.w_SystemError, "NULL handle passed to HPyDict_Keys")
+    w_obj = handles.deref(h)
+    w_obj_type = space.type(w_obj)
+    if not (space.is_w(w_obj_type, space.w_dict) or
+           space.issubtype_w(w_obj_type, space.w_dict)):
+        raise oefmt(space.w_SystemError, "non-dict passed to HPyDict_Keys")
+    w_k = space.call_method(space.w_dict, "keys", w_obj)
+    w_ret = space.call_function(space.w_list, w_k)
+    return handles.new(w_ret)

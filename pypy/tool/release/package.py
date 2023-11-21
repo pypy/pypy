@@ -505,7 +505,7 @@ def package(*args, **kwds):
     args = list(args)
     if args:
         args[0] = str(args[0])
-    for key, module in sorted(cffi_build_scripts.items()):
+    for key, module in cffi_build_scripts:
         if module is not None and key != '_tkinter':
             parser.add_argument('--without-' + key,
                     dest='no_' + key,

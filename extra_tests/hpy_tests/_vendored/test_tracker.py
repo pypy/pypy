@@ -12,9 +12,9 @@ from .support import HPyTest
 class TestHPyTracker(HPyTest):
     def hpytracker_module(self, ops, size=0):
         return self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
+            HPyDef_METH(f, "f", HPyFunc_VARARGS)
             static HPy f_impl(HPyContext *ctx, HPy self,
-                              HPy *args, HPy_ssize_t nargs)
+                              const HPy *args, size_t nargs)
             {{
                 HPyTracker ht;
                 HPy result = HPy_NULL;
@@ -62,9 +62,9 @@ class TestHPyTracker(HPyTest):
     def test_squares_example(self):
         import pytest
         mod = self.make_module("""
-            HPyDef_METH(squares, "squares", squares_impl, HPyFunc_VARARGS)
+            HPyDef_METH(squares, "squares", HPyFunc_VARARGS)
             static HPy squares_impl(HPyContext *ctx, HPy self,
-                              HPy *args, HPy_ssize_t nargs)
+                              const HPy *args, size_t nargs)
             {
                 long i, n;
                 long n_err = -1; // simulate an error at the given index

@@ -108,6 +108,9 @@ def PyOS_FSPath(space, w_path):
     as it is a str or bytes object. Otherwise TypeError is raised and NULL is
     returned.
     """
+    return pyos_fspath(space, w_path)
+
+def pyos_fspath(space, w_path):
     if (space.isinstance_w(w_path, space.w_unicode) or
         space.isinstance_w(w_path, space.w_bytes)):
         return w_path

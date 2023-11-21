@@ -217,9 +217,12 @@ def test_format_subclass_with_str():
             assert '%X' % sl == m+('YYL' if extra_tail == 'l' else 'YY')
             assert '%o' % sl == m+('Zzl' if extra_tail == 'l' else 'Zz')
     extra_stuff = '??'
-    raises(ValueError, "'%x' % sl")
-    raises(ValueError, "'%X' % sl")
-    raises(ValueError, "'%o' % sl")
+    with raises(ValueError):
+        '%x' % sl
+    with raises(ValueError):
+        '%X' % sl
+    with raises(ValueError):
+        '%o' % sl
 
 def test_format_list():
     l = [1,2]
@@ -268,7 +271,8 @@ def test_format_char():
     raises(TypeError, '%c'.__mod__, ("bla",))
     raises(TypeError, '%c'.__mod__, ("",))
     raises(TypeError, '%c'.__mod__, (['c'],))
-    raises(TypeError, '%c'.__mod__, b'A')
+    with raises(TypeError):
+        '%c'.__mod__(b'A')
     surrogate = 0xd800
     assert '%c' % surrogate == '\ud800'
 
@@ -425,7 +429,8 @@ def test_unicode_d():
 def test_unicode_overflow():
     skip("nicely passes on top of CPython but requires > 2GB of RAM")
     
-    raises((OverflowError, MemoryError), 'u"%.*d" % (sys.maxint, 1)')
+    with raises((OverflowError, MemoryError)):
+        u"%.*d" % (sys.maxint, 1)
 
 def test_unicode_format_a():
     ten = 10
