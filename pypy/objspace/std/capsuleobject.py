@@ -41,9 +41,13 @@ class W_Capsule(W_Root):
         if self.destructor_hpy:
             self.destructor_hpy.c_impl(self.name, self.pointer, self.context)
         elif self.destructor_cpyext:
-            from pypy.module.cpyext.pyobject import make_ref
-            pyobj = make_ref(self.space, self)
-            self.destructor_cpyext(pyobj)
+            from rpython.rlib import rawrefcount
+            from pypy.module.cpyext.api import PyObject 
+            # The capsule_dealloc may already have been called,
+            # and there is no more c-level object to call
+            pyobj = rawrefcount.from_obj(PyObject, self)
+            if pyobj:
+                self.destructor_cpyext(cts.cast("void *", pyobj))
 
     def set_destructor_hpy(self, space, destructor):
         self.destructor_hpy = cts.cast("HPyCapsule_Destructor*", destructor)
@@ -54,6 +58,7 @@ class W_Capsule(W_Root):
         self.destructor_cpyext = cts.cast("PyCapsule_Destructor", destructor)
         if self.destructor_cpyext:
             self.register_finalizer(space)
+
 
 W_Capsule.typedef = TypeDef(
    "PyCapsule",

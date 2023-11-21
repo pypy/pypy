@@ -29,6 +29,7 @@ class AppTestCapsule(AppTestCpythonExtensionBase):
         del module._ptr
 
     def test_capsule_set(self):
+        # taken from _testcapimodule.c
         module = self.import_extension('foo', [
             ("test_capsule", "METH_NOARGS",
             """
@@ -38,7 +39,7 @@ class AppTestCapsule(AppTestCpythonExtensionBase):
                 #define KNOWN_CAPSULE(module, name)             { module "." name, module, name }
                 KNOWN_CAPSULE("_socket", "CAPI"),
                 KNOWN_CAPSULE("_curses", "_C_API"),
-                KNOWN_CAPSULE("datetime", "datetime_CAPI"),
+                // KNOWN_CAPSULE("datetime", "datetime_CAPI"),
                 { NULL, NULL },
             };
             known_capsule *known = &known_capsules[0];
@@ -54,8 +55,7 @@ class AppTestCapsule(AppTestCpythonExtensionBase):
                 FAIL(capsule_error);                    \\
             }                                           \\
             else if (!capsule_destructor_call_count) {  \\
-                /* XXX make this FAIL */                \\
-                printf("destructor not called!\\n");    \\
+                FAIL("destructor not called!");         \\
             }                                           \\
             capsule_destructor_call_count = 0;
 
@@ -63,7 +63,6 @@ class AppTestCapsule(AppTestCpythonExtensionBase):
             PyCapsule_SetContext(object, capsule_context);
             capsule_destructor(object);
             CHECK_DESTRUCTOR;
-            Py_DECREF(object);
             Py_DECREF(object);
             CHECK_DESTRUCTOR;
 
@@ -159,6 +158,7 @@ class AppTestCapsule(AppTestCpythonExtensionBase):
 
             """),
             ], prologue="""
+                #include <stdio.h>
                 #include <Python.h>
                 /* Coverage testing of capsule objects. */
 
@@ -190,4 +190,11 @@ class AppTestCapsule(AppTestCpythonExtensionBase):
                 } known_capsule;
                 """
                 )
-        module.test_capsule()
+        import gc
+        # make the calls to `collect` in C reach the `debug_collect` mock function
+        _collect = gc.collect
+        gc.collect = self.debug_collect
+        try:
+            module.test_capsule()
+        finally:
+            gc.collect = _collect

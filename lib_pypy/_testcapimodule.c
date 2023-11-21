@@ -3037,9 +3037,11 @@ test_capsule(PyObject *self, PyObject *Py_UNUSED(ignored))
     void *pointer2;
     known_capsule known_capsules[] = {
         #define KNOWN_CAPSULE(module, name)             { module "." name, module, name }
+#ifndef PYPY_VERSION
         KNOWN_CAPSULE("_socket", "CAPI"),
         KNOWN_CAPSULE("_curses", "_C_API"),
         KNOWN_CAPSULE("datetime", "datetime_CAPI"),
+#endif
         { NULL, NULL },
     };
     known_capsule *known = &known_capsules[0];
