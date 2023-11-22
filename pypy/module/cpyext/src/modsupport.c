@@ -704,13 +704,6 @@ PyModule_AddType(PyObject *module, PyTypeObject *type)
 {
     if (PyType_Ready(type) < 0) {
         return -1;
-}
-
-int
-PyModule_AddType(PyObject *module, PyTypeObject *type)
-{
-    if (PyType_Ready(type) < 0) {
-        return -1;
     }
 
     const char *name = _PyType_Name(type);
