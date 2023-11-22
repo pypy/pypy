@@ -322,3 +322,26 @@ def test_collections_abc_mapping():
         case [*_]: assert 0, "unreachable"
         case {}: x = 111213434
     assert x == 111213434
+
+def test_abstract_isinstance_check():
+    class ABC(type):
+
+        def __instancecheck__(cls, inst):
+            """Implement isinstance(inst, cls)."""
+            return any(cls.__subclasscheck__(c)
+                       for c in set([type(inst), inst.__class__]))
+
+        def __subclasscheck__(cls, sub):
+            """Implement issubclass(sub, cls)."""
+            candidates = cls.__dict__.get("__subclass__", set()) | set([cls])
+            return any(c in candidates for c in sub.mro())
+
+    class Integer(metaclass=ABC):
+        __subclass__ = set([int])
+
+    assert isinstance(12, Integer)
+
+    match 12:
+        case Integer(): pass
+        case _: assert 0 # unreachable
+
