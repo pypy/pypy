@@ -1883,6 +1883,8 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
     old_context = state.package_context
     state.package_context = name, path
     try:
+        if state.clear_exception():
+            raise oefmt(space.w_SystemError, "error before call to initialization of %s", name)
         initfunc = rffi.cast(initfunctype, initptr)
         initret = generic_cpy_call_dont_convert_result(space, initfunc)
         if not initret:
@@ -2026,10 +2028,14 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
             has_new_error = (error is not None) and (error is not preexist_error)
             has_result = ret is not None
             if not expect_null and has_new_error and has_result:
+                state = space.fromcache(State)
+                state.clear_exception()
                 raise oefmt(space.w_SystemError,
                             "An exception was set, but function returned a "
                             "value")
             elif not expect_null and not has_new_error and not has_result:
+                state = space.fromcache(State)
+                state.clear_exception()
                 raise oefmt(space.w_SystemError,
                             "Function returned a NULL result without setting "
                             "an exception")
