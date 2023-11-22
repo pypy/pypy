@@ -88,10 +88,13 @@ class RISCVCallBuilder(AbstractCallBuilder):
                                scratch_fp_reg)
 
     def push_gcmap(self):
-        pass
+        noregs = self.asm.cpu.gc_ll_descr.is_shadow_stack()
+        gcmap = self.asm._regalloc.get_gcmap([r.x10], noregs=noregs)
+        self.asm.push_gcmap(self.mc, gcmap)
 
     def pop_gcmap(self):
-        pass
+        self.asm._reload_frame_if_necessary(self.mc)
+        self.asm.pop_gcmap(self.mc)
 
     def emit_raw_call(self):
         assert self.fnloc is r.ra

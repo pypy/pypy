@@ -219,6 +219,23 @@ BRANCH_BUILDER = {
 }
 
 
+class OverwritingBuilder(AbstractRISCVBuilder):
+    def __init__(self, cb, start, size):
+        AbstractRISCVBuilder.__init__(self)
+        self.cb = cb
+        self.index = start
+        self.start = start
+        self.end = start + size
+
+    def currpos(self):
+        return self.index
+
+    def writechar(self, char):
+        assert self.index <= self.end
+        self.cb.overwrite(self.index, char)
+        self.index += 1
+
+
 class InstrBuilder(BlockBuilderMixin, AbstractRISCVBuilder):
     def __init__(self):
         AbstractRISCVBuilder.__init__(self)

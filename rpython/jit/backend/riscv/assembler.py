@@ -469,7 +469,43 @@ class AssemblerRISCV(OpAssembler):
         pass
 
     def _build_cond_call_slowpath(self, supports_floats, callee_only):
-        pass
+        """ This builds a general call slowpath, for whatever call happens to
+        come.
+
+        The address of the callee function comes in r.x31.
+        The returning value is stored in r.x31.
+        """
+        mc = InstrBuilder()
+
+        # Spill registers to JITFRAME
+        #
+        # Ignore jfp for _reload_frame_if_necessary and x31 for return.
+        ignore_regs_for_push_pop = [r.jfp, r.x31]
+        self._push_all_regs_to_jitframe(mc, ignore_regs_for_push_pop,
+                                        supports_floats,
+                                        callee_only)  # Spills r.ra
+
+        # Branch to the callee function.
+        mc.JALR(r.ra.value, r.x31.value, 0)
+
+        # Move return value to r.x31.
+        mc.MV(r.x31.value, r.x10.value)
+
+        # Restore registers from JITFRAME
+        self._reload_frame_if_necessary(mc)
+        self._pop_all_regs_from_jitframe(mc, ignore_regs_for_push_pop,
+                                         supports_floats,
+                                         callee_only)  # Restores r.ra
+        mc.RET()
+        return mc.materialize(self.cpu, [])
+
+    def _reload_frame_if_necessary(self, mc):
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            assert False, 'unimplemented'
+        wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
+        if gcrootmap and wbdescr:
+            assert False, 'unimplemented'
 
     def _build_stack_check_slowpath(self):
         pass

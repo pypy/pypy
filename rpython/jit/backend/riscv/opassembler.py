@@ -4,13 +4,15 @@ from rpython.jit.backend.llsupport.assembler import BaseAssembler, GuardToken
 from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.riscv import registers as r
-from rpython.jit.backend.riscv.arch import JITFRAME_FIXED_SIZE, XLEN
+from rpython.jit.backend.riscv.arch import INST_SIZE, JITFRAME_FIXED_SIZE, XLEN
 from rpython.jit.backend.riscv.callbuilder import RISCVCallBuilder
-from rpython.jit.backend.riscv.codebuilder import BRANCH_BUILDER
+from rpython.jit.backend.riscv.codebuilder import (
+    BRANCH_BUILDER, OverwritingBuilder)
 from rpython.jit.backend.riscv.instruction_util import check_simm21_arg
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
 from rpython.jit.metainterp.history import AbstractFailDescr, TargetToken
 from rpython.jit.metainterp.resoperation import rop
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 class OpAssembler(BaseAssembler):
@@ -412,6 +414,80 @@ class OpAssembler(BaseAssembler):
     emit_op_call_f = _emit_op_call
     emit_op_call_r = _emit_op_call
     emit_op_call_n = _emit_op_call
+
+    def _emit_op_cond_call(self, op, arglocs):
+        """Emit instructions for COND_CALL and COND_CALL_VALUE_I/R.
+
+            # cond_call(cond, func, *args)
+            cond = arglocs[0]
+            if cond != 0:
+                func(*args)
+
+            # res = cond_call_value(cond, func, *args)
+            # res = cond or func(*args)
+            cond, res = arglocs
+            if cond == 0:
+                res = func(*args)
+        """
+
+        if len(arglocs) == 2:
+            res_loc = arglocs[1]     # cond_call_value
+        else:
+            res_loc = None           # cond_call
+
+        # see x86.regalloc for why we skip res_loc in the gcmap
+        gcmap = self._regalloc.get_gcmap([res_loc])
+
+        # Save the conditional branch position (will be overwritten after we
+        # generate the instructions in the middle).
+        cond_branch_addr = self.mc.get_relative_pos()
+        self.mc.EBREAK()
+
+        self.push_gcmap(self.mc, gcmap)
+
+        # Load callee function address.
+        callee_func_addr_reg = r.x31
+        callee_func_addr = rffi.cast(lltype.Signed, op.getarg(1).getint())
+        self.mc.load_int_imm(callee_func_addr_reg.value, callee_func_addr)
+
+        # Check whether there are alive registers that we must reload after
+        # cond_call.
+        callee_only = False
+        floats = False
+        if self._regalloc is not None:
+            for reg in self._regalloc.rm.reg_bindings.values():
+                if reg not in self._regalloc.rm.save_around_call_regs:
+                    break
+            else:
+                callee_only = True
+            if self._regalloc.fprm.reg_bindings:
+                floats = True
+
+        # Jump to cond_call trampoline.
+        trampoline_addr = self.cond_call_slowpath[floats * 2 + callee_only]
+        assert trampoline_addr
+        self.mc.load_int_imm(r.ra.value, trampoline_addr)
+        self.mc.JALR(r.ra.value, r.ra.value, 0)
+
+        # If this is a COND_CALL_VALUE, we need to move the result in place
+        # from its current location
+        if res_loc is not None:
+            self.mc.MV(res_loc.value, r.x31.value)
+
+        self.pop_gcmap(self.mc)
+
+        # Overwrite the conditional branch offset.
+        branch_dest_addr = self.mc.get_relative_pos()
+        branch_offset = branch_dest_addr - cond_branch_addr
+        pmc = OverwritingBuilder(self.mc, cond_branch_addr, INST_SIZE)
+        if res_loc is None:
+            pmc.BEQZ(arglocs[0].value, branch_offset)
+        else:
+            pmc.BNEZ(arglocs[0].value, branch_offset)
+
+    emit_op_cond_call = _emit_op_cond_call
+    emit_op_cond_call_value_i = _emit_op_cond_call
+    emit_op_cond_call_value_r = _emit_op_cond_call
 
     def emit_op_load_from_gc_table(self, op, arglocs):
         res = arglocs[0]

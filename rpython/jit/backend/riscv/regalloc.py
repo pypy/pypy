@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 
 from rpython.jit.backend.llsupport.descr import CallDescr
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.jump import remap_frame_layout_mixed
 from rpython.jit.backend.llsupport.regalloc import (
     BaseRegalloc, FrameManager, RegisterManager, TempVar,
     compute_vars_longevity)
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (
-    SHAMT_MAX, SINT12_IMM_MAX, SINT12_IMM_MIN, XLEN)
+    JITFRAME_FIXED_SIZE, SHAMT_MAX, SINT12_IMM_MAX, SINT12_IMM_MIN, XLEN)
 from rpython.jit.backend.riscv.instruction_util import (
     COND_BEQ, COND_BGE, COND_BGEU, COND_BLT, COND_BLTU, COND_BNE,
     get_negated_branch_inst)
@@ -18,6 +19,7 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (
     Const, ConstFloat, ConstInt, ConstPtr, FLOAT, INT, REF, TargetToken)
 from rpython.jit.metainterp.resoperation import rop
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -766,6 +768,48 @@ class Regalloc(BaseRegalloc):
     prepare_op_call_r = _prepare_op_call
     prepare_op_call_n = _prepare_op_call
 
+    def _prepare_op_cond_call(self, op):
+        assert 2 <= op.numargs() <= 4 + 2
+
+        func_addr = op.getarg(1)
+        assert isinstance(func_addr, Const)
+
+        # Move function arguments to argument registers.
+        _FUNC_ARGS = [r.x10, r.x11, r.x12, r.x13, r.x14, r.x15, r.x16, r.x17]
+        allocated_arg_vars = []
+        for i in range(2, op.numargs()):
+            reg = _FUNC_ARGS[i - 2]
+            arg = op.getarg(i)
+            assert arg.type != FLOAT
+            self.make_sure_var_in_reg(arg, allocated_arg_vars, selected_reg=reg)
+            allocated_arg_vars.append(arg)
+
+        # Move the `cond` variable to a register.
+        argloc = self.make_sure_var_in_reg(op.getarg(0), allocated_arg_vars)
+
+        if op.type == 'v':
+            # A plain COND_CALL.  Calls the function when args[0] is true.
+            # Often used just after a comparison operation.
+            return [argloc]
+        else:
+            # COND_CALL_VALUE_I/R.  Calls the function when args[0] is equal to
+            # 0 or NULL.  Returns the result from the function call if done, or
+            # args[0] if it was not 0/NULL.  Implemented by forcing the result
+            # to live in the same register as args[0], and overwriting it if we
+            # really do the call.
+
+            # Load the register for the result.  Possibly reuse 'args[0]'.  But
+            # the old value of args[0], if it survives, is first spilled away.
+            # We can't overwrite any of op.args[2:] here.
+            args = op.getarglist()
+            resloc = self.rm.force_result_in_reg(op, args[0],
+                                                 forbidden_vars=args[2:])
+            return [argloc, resloc]
+
+    prepare_op_cond_call = _prepare_op_cond_call
+    prepare_op_cond_call_value_i = _prepare_op_cond_call
+    prepare_op_cond_call_value_r = _prepare_op_cond_call
+
     def prepare_op_load_from_gc_table(self, op):
         res = self.force_allocate_reg(op)
         return [res]
@@ -960,6 +1004,25 @@ class Regalloc(BaseRegalloc):
     def next_instruction(self):
         self.rm.next_instruction()
         self.fprm.next_instruction()
+
+    def get_gcmap(self, forbidden_regs=[], noregs=False):
+        frame_depth = self.frame_manager.get_frame_depth()
+        gcmap = allocate_gcmap(self.assembler,
+                               frame_depth, JITFRAME_FIXED_SIZE)
+        for box, loc in self.rm.reg_bindings.iteritems():
+            if loc in forbidden_regs:
+                continue
+            if box.type == REF and self.rm.is_still_alive(box):
+                assert not noregs
+                assert loc.is_core_reg()
+                val = self.cpu.all_reg_indexes[loc.value]
+                gcmap[val // XLEN // 8] |= r_uint(1) << (val % (XLEN * 8))
+        for box, loc in self.frame_manager.bindings.iteritems():
+            if box.type == REF and self.rm.is_still_alive(box):
+                assert loc.is_stack()
+                val = loc.position + JITFRAME_FIXED_SIZE
+                gcmap[val // XLEN // 8] |= r_uint(1) << (val % (XLEN * 8))
+        return gcmap
 
     def get_final_frame_depth(self):
         return self.frame_manager.get_frame_depth()

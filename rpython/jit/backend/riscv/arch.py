@@ -33,3 +33,6 @@ SHAMT_MAX = 8 * XLEN - 1
 
 # RISC-V ABI requires stack pointer to be aligned to 128-bit.
 ABI_STACK_ALIGN = 16
+
+# Instruction size (in bytes)
+INST_SIZE = 4
