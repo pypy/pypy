@@ -2095,7 +2095,8 @@ def match_class_attr(space, w_subject, w_name, w_type, seen):
 
 @jit.unroll_safe
 def _match_class(space, nargs, w_names, w_type, w_subject):
-    if not space.isinstance_w(w_subject, w_type):
+    w_res = space.call_method(space.builtin, "isinstance", w_subject, w_type)
+    if not space.is_true(w_res):
         return None
 
     seen = {}
