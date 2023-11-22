@@ -865,7 +865,7 @@ def findsource(object):
     if iscode(object):
         if not hasattr(object, 'co_firstlineno'):
             raise OSError('could not find function definition')
-        lnum = min(object.co_firstlineno, len(lines)) - 1
+        lnum = object.co_firstlineno - 1
         pat = re.compile(r'^(\s*def\s)|(\s*async\s+def\s)|(.*(?<!\w)lambda(:|\s))|^(\s*@)')
         while lnum > 0:
             try:
