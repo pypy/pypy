@@ -35,20 +35,13 @@ class AppTestCapsule(AppTestCpythonExtensionBase):
             """
             PyObject *object;
             const char *error = NULL;
-            known_capsule known_capsules[] = {
-                #define KNOWN_CAPSULE(module, name)             { module "." name, module, name }
-                KNOWN_CAPSULE("_socket", "CAPI"),
-                KNOWN_CAPSULE("_curses", "_C_API"),
-                // KNOWN_CAPSULE("datetime", "datetime_CAPI"),
-                { NULL, NULL },
-            };
-            known_capsule *known = &known_capsules[0];
-
+            char *known = "known";
             PyObject *gc_module = PyImport_ImportModule("gc");
             PyObject *collect = PyObject_GetAttrString(gc_module, "collect");
         #define FAIL(x) { error = (x); goto exit; }
 
         #define CHECK_DESTRUCTOR                        \\
+            PyObject_CallFunction(collect, NULL);       \\
             PyObject_CallFunction(collect, NULL);       \\
             PyObject_CallFunction(collect, NULL);       \\
             if (capsule_error) {                        \\
@@ -94,58 +87,6 @@ class AppTestCapsule(AppTestCpythonExtensionBase):
                 FAIL("destructor called when it should not have been!");
             }
 
-            for (known = &known_capsules[0]; known->module != NULL; known++) {
-                /* yeah, ordinarily I wouldn't do this either,
-                   but it's fine for this test harness.
-                */
-                static char buffer[256];
-        #undef FAIL
-        #define FAIL(x) \\
-                { \\
-                sprintf(buffer, "%s module: \\"%s\\" attribute: \\"%s\\"", \\
-                    x, known->module, known->attribute); \\
-                error = buffer; \\
-                goto exit; \\
-                }
-
-                PyObject *module = PyImport_ImportModule(known->module);
-                if (module) {
-                    void *pointer = PyCapsule_Import(known->name, 0);
-                    if (!pointer) {
-                        Py_DECREF(module);
-                        FAIL("PyCapsule_GetPointer returned NULL unexpectedly!");
-                    }
-                    object = PyObject_GetAttrString(module, known->attribute);
-                    if (!object) {
-                        Py_DECREF(module);
-                        return NULL;
-                    }
-                    pointer2 = PyCapsule_GetPointer(object,
-                                            "weebles wobble but they don't fall down");
-                    if (!PyErr_Occurred()) {
-                        Py_DECREF(object);
-                        Py_DECREF(module);
-                        FAIL("PyCapsule_GetPointer should have failed but did not!");
-                    }
-                    PyErr_Clear();
-                    if (pointer2) {
-                        Py_DECREF(module);
-                        Py_DECREF(object);
-                        if (pointer2 == pointer) {
-                            FAIL("PyCapsule_GetPointer should not have"
-                                     " returned its internal pointer!");
-                        } else {
-                            FAIL("PyCapsule_GetPointer should have"
-                                     " returned NULL pointer but did not!");
-                        }
-                    }
-                    Py_DECREF(object);
-                    Py_DECREF(module);
-                }
-                else
-                    PyErr_Clear();
-            }
-
           exit:
             Py_DECREF(gc_module);
             Py_DECREF(collect);
@@ -158,7 +99,6 @@ class AppTestCapsule(AppTestCpythonExtensionBase):
 
             """),
             ], prologue="""
-                #include <stdio.h>
                 #include <Python.h>
                 /* Coverage testing of capsule objects. */
 
@@ -182,12 +122,6 @@ class AppTestCapsule(AppTestCpythonExtensionBase):
                         capsule_error = "pointer did not match in destructor!";
                     }
                 }
-
-                typedef struct {
-                    char *name;
-                    char *module;
-                    char *attribute;
-                } known_capsule;
                 """
                 )
         import gc

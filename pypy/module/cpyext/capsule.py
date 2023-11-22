@@ -29,16 +29,11 @@ def capsule_attach(space, py_obj, w_obj, w_userdata=None):
     pycapsule_obj.c_pointer = w_obj.pointer
     pycapsule_obj.c_name = w_obj.name
     pycapsule_obj.c_context = w_obj.context
-    if w_obj.destructor_cpyext:
-        destructor = cts.cast("PyCapsule_Destructor", w_obj.destructor_cpyext)
-        pycapsule_obj.c_destructor = destructor
-
 
 def capsule_realize(space, obj):
     # Allocate and fill a w_obj from a pyobj
     py_obj = cts.cast("PyCapsule*", obj)
     w_obj = W_Capsule(space, py_obj.c_pointer, py_obj.c_name)
-    w_obj.set_destructor_cpyext(space, py_obj.c_destructor)
     w_obj.context = py_obj.c_context
     track_reference(space, obj, w_obj)
     return w_obj
@@ -48,19 +43,21 @@ def capsule_dealloc(space, py_obj):
     """Frees allocated PyBytesObject resources.
     """
     from pypy.module.cpyext.object import _dealloc
-    py_capsule = cts.cast("PyCapsule*", py_obj)
+    py_capsule = cts.cast("PyCapsule *", py_obj)
     if py_capsule.c_destructor:
         py_capsule.c_destructor(py_obj)
     _dealloc(space, py_obj)
 
 @cts.decl("""PyObject *
-    PyCapsule_New(void *pointer, const char *name, PyCapsule_Destructor destructor)""")
+    PyCapsule_New(void *pointer, const char *name, PyCapsule_Destructor destructor)""",
+    result_is_ll=True)
 def PyCapsule_New(space, pointer, name, destructor):
     if not pointer:
         raise oefmt(space.w_ValueError, "PyCapsule_New called with null pointer")
     w_obj = W_Capsule(space, pointer, name)
-    w_obj.set_destructor_cpyext(space, destructor)
-    return w_obj
+    pyobj = cts.cast("PyCapsule *", make_ref(space, w_obj))
+    pyobj.c_destructor = destructor
+    return pyobj
 
 @cts.decl("int PyCapsule_SetPointer(PyObject *capsule, void *pointer)", error=-1)
 def PyCapsule_SetPointer(space, py_obj, pointer):
@@ -79,9 +76,6 @@ def PyCapsule_SetDestructor(space, py_obj, destructor):
     # mechanism since this is in-place modification
     py_capsule = cts.cast("PyCapsule*", py_obj)
     py_capsule.c_destructor = destructor
-    w_obj = from_ref(space, py_obj)
-    assert isinstance(w_obj, W_Capsule)
-    w_obj.set_destructor_cpyext(space, destructor)
     return 0
 
 @cts.decl("int PyCapsule_SetName(PyObject *capsule, const char *name)", error=-1)
