@@ -832,14 +832,11 @@ def gmtime(space, w_seconds=None):
     # rpython does not support that a variable has two incompatible builtins
     # as value so we have to duplicate the code. NOT GOOD! see localtime() too
     seconds = _get_inttime(space, w_seconds)
-    t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
-    t_ref[0] = seconds
-    p = c_gmtime(t_ref)
-    lltype.free(t_ref, flavor='raw')
-
-    if not p:
-        raise OperationError(space.w_ValueError,
-                             space.newtext(*_get_error_msg()))
+    with lltype.scoped_alloc(rffi.TIME_TP.TO, 1) as t_ref:
+        t_ref[0] = seconds
+        p = c_gmtime(t_ref)
+        if not p:
+            raise exception_from_saved_errno(space, space.w_OSError)
     return _tm_to_tuple(space, p, zone="UTC", offset=0)
 
 def localtime(space, w_seconds=None):
@@ -850,14 +847,11 @@ def localtime(space, w_seconds=None):
     When 'seconds' is not passed in, convert the current time instead."""
 
     seconds = _get_inttime(space, w_seconds)
-    t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
-    t_ref[0] = seconds
-    p = c_localtime(t_ref)
-    lltype.free(t_ref, flavor='raw')
-
-    if not p:
-        raise OperationError(space.w_OSError,
-                             space.newtext(*_get_error_msg()))
+    with lltype.scoped_alloc(rffi.TIME_TP.TO, 1) as t_ref:
+        t_ref[0] = seconds
+        p = c_localtime(t_ref)
+        if not p:
+            raise exception_from_saved_errno(space, space.w_OSError)
     if HAS_TM_ZONE:
         return _tm_to_tuple(space, p)
     else:

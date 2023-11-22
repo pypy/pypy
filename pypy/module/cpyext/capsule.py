@@ -49,9 +49,8 @@ def capsule_dealloc(space, py_obj):
     """
     from pypy.module.cpyext.object import _dealloc
     py_capsule = cts.cast("PyCapsule*", py_obj)
-    # Called by the finalizer
-    # if py_capsule.c_destructor:
-    #    py_capsule.c_destructor(py_obj)
+    if py_capsule.c_destructor:
+        py_capsule.c_destructor(py_obj)
     _dealloc(space, py_obj)
 
 @cts.decl("""PyObject *

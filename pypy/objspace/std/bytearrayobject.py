@@ -4,7 +4,8 @@ import sys
 from rpython.rlib.objectmodel import (
     import_from_mixin, newlist_hint, resizelist_hint, specialize)
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.rstring import StringBuilder, ByteListBuilder
+from rpython.rlib.rstring import (
+    StringBuilder, ByteListBuilder, startswith, endswith)
 from rpython.rlib.debug import check_list_of_chars, check_nonneg
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
@@ -579,6 +580,24 @@ class W_BytearrayObject(W_Root):
 
         index = space.getindex_w(w_index, space.w_IndexError, self._KIND1)
         return self._getitem_result(space, index)
+
+    def _startswith(self, space, value, w_prefix, start, end):
+        prefix = self._op_val(space, w_prefix)
+        stop = len(value) - 1
+        assert stop >= 0
+        value1 = value[:stop]
+        if start > stop:
+            return False
+        return startswith(value1, prefix, start, end)
+
+    def _endswith(self, space, value, w_prefix, start, end):
+        prefix = self._op_val(space, w_prefix)
+        stop = len(value) - 1
+        assert stop >= 0
+        value1 = value[:stop]
+        if start > stop:
+            return False
+        return endswith(value1, prefix, start, end)
 
 
 # ____________________________________________________________
