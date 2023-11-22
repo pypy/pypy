@@ -734,19 +734,6 @@ PyModule_AddType(PyObject *module, PyTypeObject *type)
     const char *name = _PyType_Name(type);
     assert(name != NULL);
 
-    return PyModule_AddObjectRef(module, name, (PyObject *)type);
-}
-
-int
-PyModule_AddType(PyObject *module, PyTypeObject *type)
-{
-    if (PyType_Ready(type) < 0) {
-        return -1;
-    }
-
-    const char *name = _PyType_Name(type);
-    assert(name != NULL);
-
     Py_INCREF(type);
     if (PyModule_AddObject(module, name, (PyObject *)type) < 0) {
         Py_DECREF(type);
