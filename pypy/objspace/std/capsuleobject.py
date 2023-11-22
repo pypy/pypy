@@ -26,8 +26,14 @@ class W_Capsule(W_Root):
         self.pointer = pointer
         self.name = name
         self.context = rffi.cast(rffi.VOIDP, 0)
-        self.destructor_hpy = cts.cast("HPyCapsule_Destructor*", 0)
-        self.destructor_cpyext = cts.cast("PyCapsule_Destructor", 0)
+        if space.config.objspace.usemodules._hpy_universal:
+            self.destructor_hpy = cts.cast("HPyCapsule_Destructor*", 0)
+        else:
+            self.destructor_hpy = None
+        if space.config.objspace.usemodules.cpyext:
+            self.destructor_cpyext = cts.cast("PyCapsule_Destructor", 0)
+        else:
+            self.destructor_cpyext = None
 
     def descr_repr(self, space):
         if self.name:
