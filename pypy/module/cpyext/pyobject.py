@@ -17,7 +17,7 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_base_ptr
 from rpython.rlib import rawrefcount, jit
-from rpython.rlib.debug import ll_assert, fatalerror
+from rpython.rlib.debug import ll_assert, fatalerror, check_annotation
 
 
 #________________________________________________________
@@ -33,7 +33,6 @@ def check_true(s_arg, bookeeper):
     assert s_arg.const is True
 
 def w_root_as_pyobj(w_obj, space):
-    from rpython.rlib.debug import check_annotation
     # make sure that translation crashes if we see this while translating
     # without cpyext
     check_annotation(space.config.objspace.usemodules.cpyext, check_true)
@@ -41,7 +40,6 @@ def w_root_as_pyobj(w_obj, space):
     return rawrefcount.from_obj(PyObject, w_obj)
 
 def w_root_attach_pyobj(w_obj, space, py_obj):
-    from rpython.rlib.debug import check_annotation
     check_annotation(space.config.objspace.usemodules.cpyext, check_true)
     assert space.config.objspace.usemodules.cpyext
     # default implementation of _cpyext_attach_pyobj

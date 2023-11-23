@@ -18,6 +18,12 @@ def collect(space, generation=0):
 
     rgc.collect()
     _run_finalizers(space)
+    if space.config.objspace.usemodules.cpyext:
+        # perform dealloc callbacks now, instead of waiting for the next
+        # AsyncAction to fire. Like the _run_finalizers call, this ensures
+        # tp_dealloc will be called as part of gc.collect()
+        from pypy.module.cpyext.state import _rawrefcount_perform
+        _rawrefcount_perform(space)
 
 def _run_finalizers(space):
     # if we are running in gc.disable() mode but gc.collect() is called,

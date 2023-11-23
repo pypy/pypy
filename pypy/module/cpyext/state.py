@@ -2,7 +2,6 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import executioncontext
-from pypy.interpreter.executioncontext import ExecutionContext
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.rdynload import DLLHANDLE
 from rpython.rlib import rawrefcount, rgil
@@ -11,7 +10,7 @@ import sys
 
 # Keep track of exceptions raised in cpyext for a particular execution
 # context.
-ExecutionContext.cpyext_operror = None
+executioncontext.ExecutionContext.cpyext_operror = None
 
 
 class State:
