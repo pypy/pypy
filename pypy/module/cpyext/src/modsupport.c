@@ -740,7 +740,7 @@ PyModule_AddType(PyObject *module, PyTypeObject *type)
         return -1;
     }
 
-    return 0;
+    return PyModule_AddObjectRef(module, name, (PyObject *)type);
 }
 
 PyModuleDef*
