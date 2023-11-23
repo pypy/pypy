@@ -715,12 +715,6 @@ PyModule_AddType(PyObject *module, PyTypeObject *type)
         return -1;
     }
 
-    return 0;
-    }
-
-    const char *name = _PyType_Name(type);
-    assert(name != NULL);
-
     return PyModule_AddObjectRef(module, name, (PyObject *)type);
 }
 
