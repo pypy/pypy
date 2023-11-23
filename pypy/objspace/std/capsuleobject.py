@@ -26,8 +26,10 @@ class W_Capsule(W_Root):
         self.pointer = pointer
         self.name = name
         self.context = rffi.cast(rffi.VOIDP, 0)
-        self.destructor_hpy = cts.cast("HPyCapsule_Destructor*", 0)
-        self.destructor_cpyext = cts.cast("PyCapsule_Destructor", 0)
+        if space.config.objspace.usemodules._hpy_universal:
+            self.destructor_hpy = cts.cast("HPyCapsule_Destructor*", 0)
+        else:
+            self.destructor_hpy = None
 
     def descr_repr(self, space):
         if self.name:
@@ -40,23 +42,10 @@ class W_Capsule(W_Root):
     def _finalize_(self):
         if self.destructor_hpy:
             self.destructor_hpy.c_impl(self.name, self.pointer, self.context)
-        elif self.destructor_cpyext:
-            from rpython.rlib import rawrefcount
-            from pypy.module.cpyext.api import PyObject 
-            # The capsule_dealloc may already have been called,
-            # and there is no more c-level object to call
-            pyobj = rawrefcount.from_obj(PyObject, self)
-            if pyobj:
-                self.destructor_cpyext(cts.cast("void *", pyobj))
 
     def set_destructor_hpy(self, space, destructor):
         self.destructor_hpy = cts.cast("HPyCapsule_Destructor*", destructor)
         if self.destructor_hpy:
-            self.register_finalizer(space)
-
-    def set_destructor_cpyext(self, space, destructor):
-        self.destructor_cpyext = cts.cast("PyCapsule_Destructor", destructor)
-        if self.destructor_cpyext:
             self.register_finalizer(space)
 
 

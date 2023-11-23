@@ -3178,17 +3178,21 @@ test_capsule(PyObject *self, PyObject *Py_UNUSED(ignored))
         { NULL, NULL },
     };
     known_capsule *known = &known_capsules[0];
+    PyObject *gc_module = PyImport_ImportModule("gc");
+    PyObject *collect = PyObject_GetAttrString(gc_module, "collect");
 
 #define FAIL(x) { error = (x); goto exit; }
 
 #define CHECK_DESTRUCTOR \
-    if (capsule_error) { \
-        FAIL(capsule_error); \
-    } \
-    else if (!capsule_destructor_call_count) {          \
-        FAIL("destructor not called!"); \
-    } \
-    capsule_destructor_call_count = 0; \
+    PyObject_CallFunction(collect, NULL); \
+    PyObject_CallFunction(collect, NULL); \
+    if (capsule_error) {                  \
+        FAIL(capsule_error);              \
+    }                                     \
+    else if (!capsule_destructor_call_count) {\
+        FAIL("destructor not called!");   \
+    }                                     \
+    capsule_destructor_call_count = 0;    \
 
     object = PyCapsule_New(capsule_pointer, capsule_name, capsule_destructor);
     PyCapsule_SetContext(object, capsule_context);
@@ -3278,6 +3282,8 @@ test_capsule(PyObject *self, PyObject *Py_UNUSED(ignored))
     }
 
   exit:
+    Py_DECREF(gc_module);
+    Py_DECREF(collect);
     if (error) {
         return raiseTestError("test_capsule", error);
     }
