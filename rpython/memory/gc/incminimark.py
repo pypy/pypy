@@ -3163,8 +3163,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
     def rawrefcount_next_dead(self):
-        if self.rrc_dealloc_pending.non_empty():
-            return self.rrc_dealloc_pending.pop()
+        if self.rrc_enabled:
+            if self.rrc_dealloc_pending.non_empty():
+                return self.rrc_dealloc_pending.pop()
         return llmemory.NULL
 
 
