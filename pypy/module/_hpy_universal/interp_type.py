@@ -3,13 +3,14 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib import rgc
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import widen
-from rpython.rlib.debug import make_sure_not_resized, debug_print
+from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import specialize
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base, _check as check_is_type
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.typedef import interp2app
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.argument import Arguments
 from pypy.module.cpyext.pyobject import as_pyobj, PyObject
 from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import llapi
@@ -269,9 +270,20 @@ def HPy_AsStruct_Type(space, handles, ctx, h):
 @API.func("HPy _HPy_New(HPyContext *ctx, HPy h_type, void **data)")
 def _HPy_New(space, handles, ctx, h_type, data):
     w_type = handles.deref(h_type)
-    # XXX create an Argument and call space.call()
-    w_result = _create_instance(space, w_type)
+    # XXX there must be a better way to figure this out ...
+    use__create_instance = False
+    try:
+        space.w_object.check_user_subclass(w_type)
+        use__create_instance = True
+    except:
+        pass
+    if use__create_instance:
+        w_result = _create_instance(space, w_type)
+    else:
+        w_result = _create_instance_subtype(space, w_type, Arguments(space, []))
     data = llapi.cts.cast('void**', data)
+    # XXX if the w_type is a cpyext type, make sure the storage is the same as
+    # the cpyext one. 
     storage = w_result._hpy_get_raw_storage(space)
     if not storage:
         raise oefmt(space.w_TypeError, "Object of type '%N' is not a valid HPy object.", w_type)

@@ -78,7 +78,7 @@ class TestLegacyType(_TestType):
         assert mod.get_counter() == 0
         p = mod.Point(0, 0)
         del p
-        import gc; gc.collect()
+        import gc; gc.collect(); gc.collect(); gc.collect()
         assert mod.get_counter() == 1
 
     def test_legacy_dealloc_and_HPy_tp_traverse(self):
@@ -410,6 +410,9 @@ class TestInheritBaseLegacy(HPyTest):
                     PyObject_HEAD
                     double obval;
             } PyDoubleScalarObject;
+
+            HPyGlobal float64global;
+
             HPyType_LEGACY_HELPERS(PyDoubleScalarObject);
 
             HPyDef_SLOT(double_arrtype_new, HPy_tp_new)
@@ -417,8 +420,7 @@ class TestInheritBaseLegacy(HPyTest):
             double_arrtype_new_impl(HPyContext *ctx, HPy type, const HPy *args, HPy_ssize_t nargs, HPy kwds)
             {
                 /* allow base-class (if any) to do conversion */
-                void *data;
-                HPy targs = HPyTuple_FromArray(ctx, args, nargs);
+                HPy targs = HPyTuple_FromArray(ctx, (HPy*)args, nargs);
 
                 HPy from_superclass = HPy_CallTupleDict(ctx, ctx->h_FloatType, targs, kwds);
 
@@ -463,6 +465,21 @@ class TestInheritBaseLegacy(HPyTest):
                 .defines = PyGenericArrType_Type_hpy_slots,
                 .basicsize = sizeof(PyObject),
             };
+
+            HPyDef_METH(new_float64, "new_float64", HPyFunc_O)
+            static HPy new_float64_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                double a = HPyFloat_AsDouble(ctx, arg);
+                HPy h_PyDoubleArrType_Type = HPyGlobal_Load(ctx, float64global);
+                if (HPy_IsNull(h_PyDoubleArrType_Type))
+                    return HPy_NULL;
+                PyDoubleScalarObject  *val=NULL;
+                HPy h_obj = HPy_New(ctx, h_PyDoubleArrType_Type, &val);
+                HPy_Close(ctx, h_PyDoubleArrType_Type);
+                val->obval = a;
+                return h_obj;
+            }
+
 
             void make_Float64(HPyContext *ctx, HPy module)
             {
@@ -512,13 +529,18 @@ class TestInheritBaseLegacy(HPyTest):
                 if (HPy_IsNull(h_PyDoubleArrType_Type))
                     return;
                 HPy_SetAttr_s(ctx, module, "float64", h_PyDoubleArrType_Type);
+                HPyGlobal_Store(ctx, &float64global, h_PyDoubleArrType_Type);
                 HPy_Close(ctx, h_PyDoubleArrType_Type);
             };
             @EXTRA_INIT_FUNC(make_Float64)
+            @EXPORT(new_float64)
+            @EXPORT_GLOBAL(float64global)
             @INIT
         """)
         assert isinstance(mod.float64, type)
         assert mod.float64() == 0.0
         assert mod.float64(42) == 42.0
+        assert mod.new_float64(0.0) == 0.0
+        assert mod.new_float64(42.0) == 42.0
 
 
