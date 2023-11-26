@@ -272,6 +272,9 @@ class AppTestBytesArray:
         assert bytearray(b"").replace(b"", b"a", 1) == bytearray(b"a")
         assert bytearray(b"").replace(b"", b"a", 121344) == bytearray(b"a")
 
+    def test_empty_ops_empty(self):
+        assert bytearray(b'').count(bytearray(b''), 1, 1) == 0
+        assert bytearray(b'').find(bytearray(b''), 1, 1) == -1
 
     def test_xjust_no_mutate(self):
         # a previous regression
