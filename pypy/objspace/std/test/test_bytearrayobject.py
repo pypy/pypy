@@ -225,10 +225,10 @@ class AppTestBytesArray:
             assert False, 'Expected TypeError'
 
     def test_startswith_too_large(self):
+        assert bytearray(b'0').startswith(bytearray(b''), 1, -1) is False
         assert bytearray(b'ab').startswith(bytearray(b'b'), 1) is True
         assert bytearray(b'ab').startswith(bytearray(b''), 2) is True
         assert bytearray(b'ab').startswith(bytearray(b''), 3) is False
-        assert bytearray(b'0').startswith(bytearray(b''), 1, -1) is False
         assert bytearray(b'ab').endswith(bytearray(b'b'), 1) is True
         assert bytearray(b'ab').endswith(bytearray(b''), 2) is True
         assert bytearray(b'ab').endswith(bytearray(b''), 3) is False
@@ -272,6 +272,11 @@ class AppTestBytesArray:
         assert bytearray(b"").replace(b"", b"a", 1) == bytearray(b"a")
         assert bytearray(b"").replace(b"", b"a", 121344) == bytearray(b"a")
 
+    def test_empty_ops_empty(self):
+        empty = bytearray(b'')
+        assert empty.find(b'') == 0
+        assert empty.count(empty, 1, 1) == 0
+        assert empty.find(empty, 1, 1) == -1
 
     def test_xjust_no_mutate(self):
         # a previous regression

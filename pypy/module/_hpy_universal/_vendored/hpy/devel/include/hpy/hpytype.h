@@ -202,7 +202,15 @@ typedef struct {
 #define HPy_TPFLAGS_HAVE_GC (1UL << 14)
 
 /** Convenience macro which is equivalent to:
-    ``HPyType_HELPERS(TYPE, HPyType_BuiltinShape_Legacy)`` */
+    ``HPyType_HELPERS(TYPE, HPyType_BuiltinShape_Legacy)`` 
+    For instance, HPyType_LEGACY_HELPERS(DummyMeta) will produce
+
+    enum { DummyMeta_SHAPE = (int)HPyType_BuiltinShape_Legacy }; 
+    __attribute__((unused)) static inline 
+    DummyMeta * 
+    DummyMeta_AsStruct(HPyContext *ctx, HPy h) { 
+        return (DummyMeta *) _HPy_AsStruct_Legacy(ctx, h); 
+    } */
 #define HPyType_LEGACY_HELPERS(TYPE) \
     HPyType_HELPERS(TYPE, HPyType_BuiltinShape_Legacy)
 
