@@ -227,7 +227,6 @@ class W_BytearrayObject(W_Root):
 
     def descr_repr(self, space):
         s, start, end, _ = self._convert_idx_params(space, None, None)
-        end += 1
         cls_name = space.type(self).getname(space)
 
         # Good default if there are no replacements.
@@ -556,7 +555,9 @@ class W_BytearrayObject(W_Root):
         # but then because of the final null byte, end needs adjustment
         start, end = unwrap_start_stop(space, self._len(), w_start, w_end)
         ofs = self._offset
-        return (self._data, start + ofs, end + ofs - 1, ofs)
+        if self._len() < 1:
+            ofs += 1
+        return (self._data, start + ofs, end + ofs, ofs)
 
     def _unpack_slice(self, space, w_index):
         # important: unpack the slice before computing the length. the
@@ -582,27 +583,6 @@ class W_BytearrayObject(W_Root):
 
         index = space.getindex_w(w_index, space.w_IndexError, self._KIND1)
         return self._getitem_result(space, index)
-
-    def _startswith(self, space, value, w_prefix, start, end):
-        # because of the final null byte, value and end need adjustment
-        prefix = self._op_val(space, w_prefix)
-        stop = len(value)- 1
-        assert stop >= 0
-        value1 = value[:stop]
-        if start > stop:
-            return False
-        return startswith(value1, prefix, start, end+1)
-
-    def _endswith(self, space, value, w_prefix, start, end):
-        # because of the final null byte, value and end need adjustment
-        prefix = self._op_val(space, w_prefix)
-        stop = len(value) - 1
-        assert stop >= 0
-        value1 = value[:stop]
-        if start > stop:
-            return False
-        return endswith(value1, prefix, start, end+1)
-
 
 # ____________________________________________________________
 
