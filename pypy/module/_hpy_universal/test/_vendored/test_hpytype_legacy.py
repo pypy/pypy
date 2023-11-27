@@ -265,7 +265,7 @@ class TestLegacyType(_TestType):
                 @INIT
             """)
 
-    def test_legacy_class_method(self):
+    def test_legacy_class(self):
         mod = self.make_module("""
             @DEFINE_PointObject
             @DEFINE_Point_xy
@@ -303,7 +303,16 @@ class TestLegacyType(_TestType):
                 .legacy_slots = Point_slots,
                 .defines = Point_defines,
             };
-
+            HPyDef_METH(basicsize, "basicsize", HPyFunc_O)
+            static HPy basicsize_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                PyObject *o = HPy_AsPyObject(ctx, arg);
+                size_t diff = ((PyTypeObject *)o)->tp_basicsize - sizeof(PointObject);
+                HPy h_res = HPyLong_FromLong(ctx, diff);
+                Py_DecRef(o);
+                return h_res;
+            }
+            @EXPORT(basicsize)
             @EXPORT_TYPE("Point", Point_spec)
             @INIT
         """)
@@ -313,6 +322,7 @@ class TestLegacyType(_TestType):
         pt = mod.Point()
         assert pt.x == 0
         assert pt.y == 0
+        assert mod.basicsize(mod.Point) == 0
 
 
 class TestCustomLegacyFeatures(HPyTest):

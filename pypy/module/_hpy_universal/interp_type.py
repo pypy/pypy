@@ -377,7 +377,10 @@ def debug_HPyType_FromSpec(space, handles, ctx, spec, params):
 
 @specialize.arg(0)
 def _hpytype_fromspec(handles, spec, params):
-    from .interp_cpy_compat import attach_legacy_slots_to_type  # avoid circular import
+    """
+    """
+    # avoid circular import
+    from .interp_cpy_compat import attach_legacy_slots_to_type
     space = handles.space
     check_legacy_consistent(space, spec)
     check_have_gc_and_tp_traverse(space, spec)

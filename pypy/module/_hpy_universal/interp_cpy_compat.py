@@ -6,7 +6,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import GetSetProperty
 #
 from pypy.module.cpyext import pyobject
 from pypy.module.cpyext.methodobject import PyMethodDef, PyCFunction
@@ -28,7 +28,7 @@ def HPy_FromPyObject(space, handles, ctx, obj):
 
 @API.func("void *HPy_AsPyObject(HPyContext *ctx, HPy h)", cpyext=True)
 def HPy_AsPyObject(space, handles, ctx, h):
-    if h == 0:
+    if not h:
         return rffi.cast(rffi.VOIDP, 0)
     w_obj = handles.deref(h)
     pyobj = pyobject.make_ref(space, w_obj)
@@ -196,6 +196,9 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dea
     slotdefs = rffi.cast(rffi.CArrayPtr(cpyts.gettype('PyType_Slot')), c_legacy_slots)
     i = 0
     type_name = w_type.getqualname(space)
+    # Force the creation of a new PyObject ref, and set its basicsize
+    pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
+    pytype.c_tp_basicsize = w_type.basicsize
     while True:
         slotdef = slotdefs[i]
         slotnum = rffi.cast(lltype.Signed, slotdef.c_slot)
@@ -217,20 +220,16 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dea
             funcptr = slotdef.c_pfunc
             if not hasattr(space, 'is_fake_objspace'):
                 # the following lines break test_ztranslation :(
-                pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
                 pytype.c_tp_dealloc = rffi.cast(destructor, funcptr)
     
         elif slotnum == cpyts.macros['Py_tp_new']:
             funcptr = slotdef.c_pfunc
-            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
             pytype.c_tp_new = rffi.cast(newfunc, funcptr)
         elif slotnum == cpyts.macros['Py_tp_alloc']:
             funcptr = slotdef.c_pfunc
-            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
             pytype.c_tp_alloc = rffi.cast(allocfunc, funcptr)
         elif slotnum == cpyts.macros['Py_tp_free']:
             funcptr = slotdef.c_pfunc
-            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
             pytype.c_tp_free = rffi.cast(freefunc, funcptr)
         else:
             attach_legacy_slot(space, w_type, slotdef, slotnum, type_name)

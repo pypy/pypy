@@ -1162,7 +1162,7 @@ for regex, repl in slotdef_replacements:
     slotdefs_str = re.sub(regex, repl, slotdefs_str)
 
 slotdefs = eval(slotdefs_str)
-# PyPy addition
+# PyPy addition, was added to CPython 3.12
 slotdefs += (
     TPSLOT("__buffer__", "tp_as_buffer.c_bf_getbuffer", None, "wrap_getbuffer", ""),
 )
