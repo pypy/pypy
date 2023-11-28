@@ -58,3 +58,6 @@ __version__ = '1.1.0'
 #XXX platform dependant?
 RTLD_LOCAL = 0
 RTLD_GLOBAL = 256
+
+def PyObj_FromPtr(ptr):
+    raise NotImplementedError("cannot get pyobject from ptr on PyPy")
