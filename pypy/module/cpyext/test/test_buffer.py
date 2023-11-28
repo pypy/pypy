@@ -47,3 +47,26 @@ class AppTestMmap(AppTestCpythonExtensionBase):
             f.flush()
             m = mmap.mmap(f.fileno(), 3)
             assert module.isbuffer(m) == 1
+
+    def test_applevel(self):
+        module = self.import_extension("foo", [
+            ("getbuffer", "METH_O", """
+            Py_buffer view;
+            if (!PyObject_CheckBuffer(args)) {
+                PyErr_SetString(PyExc_TypeError, "no buffer interface");
+                return NULL;
+            }
+            if (PyObject_GetBuffer(args, &view, PyBUF_SIMPLE) != 0) {
+                return NULL;
+            }
+            PyObject *ret = view.obj;
+            Py_INCREF(ret);
+            PyBuffer_Release(&view);
+            return ret;
+            """)])
+        class B():
+            def __buffer__(self, flags):
+                return memoryview(b'hello')
+        
+        ret = module.getbuffer(B())
+        assert ret == b'hello'     
