@@ -841,4 +841,7 @@ class AppTestBytesArray:
         assert not b3 <  b2
         assert not b3 <= b2
 
-
+    def test_endswith_special(self):
+        b1 = bytearray(b'0')
+        b2 = bytearray(b'0')
+        assert b1.endswith(b2, 0, 2)

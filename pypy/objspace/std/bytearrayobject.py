@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import (
     import_from_mixin, newlist_hint, resizelist_hint, specialize)
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rstring import (
-    StringBuilder, ByteListBuilder, startswith, endswith)
+    StringBuilder, ByteListBuilder)
 from rpython.rlib.debug import check_list_of_chars, check_nonneg
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
@@ -553,10 +553,13 @@ class W_BytearrayObject(W_Root):
     def _convert_idx_params(self, space, w_start, w_end):
         # optimization: this version doesn't force getdata()
         # but then because of the final null byte, end needs adjustment
-        start, end = unwrap_start_stop(space, self._len(), w_start, w_end)
+        length = self._len()
+        start, end = unwrap_start_stop(space, length, w_start, w_end)
         ofs = self._offset
-        if self._len() < 1:
+        if length < 1:
             ofs += 1
+        if end > length:
+            end = length
         return (self._data, start + ofs, end + ofs, ofs)
 
     def _unpack_slice(self, space, w_index):
