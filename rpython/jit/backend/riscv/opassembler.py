@@ -8,7 +8,8 @@ from rpython.jit.backend.riscv.arch import INST_SIZE, JITFRAME_FIXED_SIZE, XLEN
 from rpython.jit.backend.riscv.callbuilder import RISCVCallBuilder
 from rpython.jit.backend.riscv.codebuilder import (
     BRANCH_BUILDER, OverwritingBuilder)
-from rpython.jit.backend.riscv.instruction_util import check_simm21_arg
+from rpython.jit.backend.riscv.instruction_util import (
+    COND_INVALID, check_simm21_arg)
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
 from rpython.jit.metainterp.history import AbstractFailDescr, TargetToken
 from rpython.jit.metainterp.resoperation import rop
@@ -99,6 +100,9 @@ class OpAssembler(BaseAssembler):
     emit_op_int_lt = _emit_op_int_lt
     emit_op_int_gt = _emit_op_int_lt
 
+    emit_comp_op_int_lt = emit_op_int_lt
+    emit_comp_op_int_gt = emit_op_int_gt
+
     def _emit_op_int_le(self, op, arglocs):
         l0, l1, res = arglocs
         if l1.is_imm():
@@ -113,6 +117,9 @@ class OpAssembler(BaseAssembler):
     emit_op_int_le = _emit_op_int_le
     emit_op_int_ge = _emit_op_int_le
 
+    emit_comp_op_int_le = emit_op_int_le
+    emit_comp_op_int_ge = emit_op_int_ge
+
     def _emit_op_uint_lt(self, op, arglocs):
         l0, l1, res = arglocs
         assert not l0.is_imm()
@@ -123,6 +130,9 @@ class OpAssembler(BaseAssembler):
 
     emit_op_uint_lt = _emit_op_uint_lt
     emit_op_uint_gt = _emit_op_uint_lt
+
+    emit_comp_op_uint_lt = emit_op_uint_lt
+    emit_comp_op_uint_gt = emit_op_uint_gt
 
     def _emit_op_uint_le(self, op, arglocs):
         l0, l1, res = arglocs
@@ -142,6 +152,9 @@ class OpAssembler(BaseAssembler):
     emit_op_uint_le = _emit_op_uint_le
     emit_op_uint_ge = _emit_op_uint_le
 
+    emit_comp_op_uint_le = emit_op_uint_le
+    emit_comp_op_uint_ge = emit_op_uint_ge
+
     def emit_op_int_eq(self, op, arglocs):
         l0, l1, res = arglocs
         assert not l0.is_imm()
@@ -154,6 +167,8 @@ class OpAssembler(BaseAssembler):
         else:
             self.mc.XOR(res.value, l0.value, l1.value)
             self.mc.SEQZ(res.value, res.value)
+
+    emit_comp_op_int_eq = emit_op_int_eq
 
     def emit_op_int_ne(self, op, arglocs):
         l0, l1, res = arglocs
@@ -168,9 +183,13 @@ class OpAssembler(BaseAssembler):
             self.mc.XOR(res.value, l0.value, l1.value)
             self.mc.SNEZ(res.value, res.value)
 
+    emit_comp_op_int_ne = emit_op_int_ne
+
     def emit_op_int_is_true(self, op, arglocs):
         l0, res = arglocs
         self.mc.SNEZ(res.value, l0.value)
+
+    emit_comp_op_int_is_true = emit_op_int_is_true
 
     def emit_op_int_neg(self, op, arglocs):
         l0, res = arglocs
@@ -183,6 +202,8 @@ class OpAssembler(BaseAssembler):
     def emit_op_int_is_zero(self, op, arglocs):
         l0, res = arglocs
         self.mc.SEQZ(res.value, l0.value)
+
+    emit_comp_op_int_is_zero = emit_op_int_is_zero
 
     def emit_op_int_force_ge_zero(self, op, arglocs):
         l0, res = arglocs
@@ -239,6 +260,9 @@ class OpAssembler(BaseAssembler):
     emit_op_float_lt = _emit_op_float_lt
     emit_op_float_gt = _emit_op_float_lt
 
+    emit_comp_op_float_lt = emit_op_float_lt
+    emit_comp_op_float_gt = emit_op_float_gt
+
     def _emit_op_float_le(self, op, arglocs):
         l0, l1, res = arglocs
         self.mc.FLE_D(res.value, l0.value, l1.value)
@@ -246,14 +270,21 @@ class OpAssembler(BaseAssembler):
     emit_op_float_le = _emit_op_float_le
     emit_op_float_ge = _emit_op_float_le
 
+    emit_comp_op_float_le = emit_op_float_le
+    emit_comp_op_float_ge = emit_op_float_ge
+
     def emit_op_float_eq(self, op, arglocs):
         l0, l1, res = arglocs
         self.mc.FEQ_D(res.value, l0.value, l1.value)
+
+    emit_comp_op_float_eq = emit_op_float_eq
 
     def emit_op_float_ne(self, op, arglocs):
         l0, l1, res = arglocs
         self.mc.FEQ_D(res.value, l0.value, l1.value)
         self.mc.XORI(res.value, res.value, 1)
+
+    emit_comp_op_float_ne = emit_op_float_ne
 
     def emit_op_float_neg(self, op, arglocs):
         l0, res = arglocs
@@ -356,6 +387,10 @@ class OpAssembler(BaseAssembler):
 
     emit_guard_op_guard_overflow    = _emit_guard_op_guard_overflow_op
     emit_guard_op_guard_no_overflow = _emit_guard_op_guard_overflow_op
+
+    def emit_op_guard_no_exception(self, op, arglocs):
+        # TODO: Implement guard_no_exception properly.
+        pass
 
     def _emit_op_same_as(self, op, arglocs):
         l0, res = arglocs
@@ -488,6 +523,13 @@ class OpAssembler(BaseAssembler):
     emit_op_cond_call = _emit_op_cond_call
     emit_op_cond_call_value_i = _emit_op_cond_call
     emit_op_cond_call_value_r = _emit_op_cond_call
+
+    def emit_guard_op_cond_call(self, cond_op, op, arglocs, guard_branch_inst):
+        # TODO: Optimize guard_branch_inst when cond_op is using integer
+        # comparison.
+        assert guard_branch_inst == COND_INVALID
+
+        self._emit_op_cond_call(op, arglocs)
 
     def emit_op_load_from_gc_table(self, op, arglocs):
         res = arglocs[0]

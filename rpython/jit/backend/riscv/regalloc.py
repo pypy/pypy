@@ -10,10 +10,11 @@ from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (
     JITFRAME_FIXED_SIZE, SHAMT_MAX, SINT12_IMM_MAX, SINT12_IMM_MIN, XLEN)
 from rpython.jit.backend.riscv.instruction_util import (
-    COND_BEQ, COND_BGE, COND_BGEU, COND_BLT, COND_BLTU, COND_BNE,
+    COND_BEQ, COND_BGE, COND_BGEU, COND_BLT, COND_BLTU, COND_BNE, COND_INVALID,
     get_negated_branch_inst)
 from rpython.jit.backend.riscv.locations import (
     ConstFloatLoc, ImmLocation, StackLocation, get_fp_offset)
+from rpython.jit.backend.riscv.opassembler import asm_comp_operations
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import (
@@ -348,6 +349,12 @@ class Regalloc(BaseRegalloc):
     prepare_op_uint_lt = prepare_op_int_lt
     prepare_op_uint_gt = prepare_op_int_gt
 
+    prepare_comp_op_int_lt = prepare_op_int_lt
+    prepare_comp_op_int_gt = prepare_op_int_gt
+
+    prepare_comp_op_uint_lt = prepare_op_uint_lt
+    prepare_comp_op_uint_gt = prepare_op_uint_gt
+
     def _gen_prepare_op_int_le(swap_operands):
         def _prepare_op_int_le(self, op):
             boxes = op.getarglist()
@@ -375,6 +382,9 @@ class Regalloc(BaseRegalloc):
 
     prepare_op_int_le = _gen_prepare_op_int_le(swap_operands=False)
     prepare_op_int_ge = _gen_prepare_op_int_le(swap_operands=True)
+
+    prepare_comp_op_int_le = prepare_op_int_le
+    prepare_comp_op_int_ge = prepare_op_int_ge
 
     def _gen_prepare_op_uint_le(swap_operands):
         def _prepare_op_uint_le(self, op):
@@ -404,6 +414,9 @@ class Regalloc(BaseRegalloc):
     prepare_op_uint_le = _gen_prepare_op_uint_le(swap_operands=False)
     prepare_op_uint_ge = _gen_prepare_op_uint_le(swap_operands=True)
 
+    prepare_comp_op_uint_le = prepare_op_uint_le
+    prepare_comp_op_uint_ge = prepare_op_uint_ge
+
     def _prepare_op_int_commutative_compare_op(self, op):
         boxes = op.getarglist()
         a0, a1 = boxes
@@ -426,6 +439,9 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_eq = _prepare_op_int_commutative_compare_op
     prepare_op_int_ne = _prepare_op_int_commutative_compare_op
 
+    prepare_comp_op_int_eq = prepare_op_int_eq
+    prepare_comp_op_int_ne = prepare_op_int_ne
+
     def _prepare_op_unary_op(self, op):
         boxes = op.getarglist()
         a0 = boxes[0]
@@ -440,6 +456,9 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_invert = _prepare_op_unary_op
     prepare_op_int_is_zero = _prepare_op_unary_op
     prepare_op_int_force_ge_zero = _prepare_op_unary_op
+
+    prepare_comp_op_int_is_true = prepare_op_int_is_true
+    prepare_comp_op_int_is_zero = prepare_op_int_is_zero
 
     def prepare_op_int_signext(self, op):
         a0, a1 = op.getarglist()
@@ -487,6 +506,13 @@ class Regalloc(BaseRegalloc):
     prepare_op_float_ge = _prepare_op_float_binary_op_swapped
     prepare_op_float_eq = _prepare_op_float_binary_op
     prepare_op_float_ne = _prepare_op_float_binary_op
+
+    prepare_comp_op_float_lt = prepare_op_float_lt
+    prepare_comp_op_float_le = prepare_op_float_le
+    prepare_comp_op_float_gt = prepare_op_float_gt
+    prepare_comp_op_float_ge = prepare_op_float_ge
+    prepare_comp_op_float_eq = prepare_op_float_eq
+    prepare_comp_op_float_ne = prepare_op_float_ne
 
     prepare_op_float_neg = _prepare_op_unary_op
     prepare_op_float_abs = _prepare_op_unary_op
@@ -662,6 +688,10 @@ class Regalloc(BaseRegalloc):
     prepare_guard_op_guard_no_overflow = \
         _gen_prepare_guard_op_guard_overflow_op(False)
 
+    def prepare_op_guard_no_exception(self, op):
+        # TODO: Implement guard_no_exception properly.
+        pass
+
     def _prepare_op_same_as(self, op):
         boxes = op.getarglist()
         a0 = boxes[0]
@@ -809,6 +839,20 @@ class Regalloc(BaseRegalloc):
     prepare_op_cond_call = _prepare_op_cond_call
     prepare_op_cond_call_value_i = _prepare_op_cond_call
     prepare_op_cond_call_value_r = _prepare_op_cond_call
+
+    def prepare_guard_op_cond_call(self, cond_op, cond_call_op):
+        # Allocate and emit `cond_op`.
+        #
+        # Note: We do this before `_prepare_op_cond_call` because
+        # `_prepare_op_cond_call` may generate code to move register around.
+        prepare_cond_op = regalloc_comp_operations[cond_op.getopnum()]
+        cond_op_arglocs = prepare_cond_op(self, cond_op)
+        asm_comp_operations[cond_op.getopnum()](self.assembler, cond_op,
+                                                cond_op_arglocs)
+
+        # Allocate registers for `cond_call_op`.
+        op_arglocs = self._prepare_op_cond_call(cond_call_op)
+        return (op_arglocs, COND_INVALID)
 
     def prepare_op_load_from_gc_table(self, op):
         res = self.force_allocate_reg(op)
