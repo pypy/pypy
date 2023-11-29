@@ -829,6 +829,11 @@ class AppTestBytesObject:
         with raises(UnicodeDecodeError):
             b"\xd8=a".decode("utf-16-be", "surrogatepass")
 
+    def test_decode_surrogates_in_encoding(self):
+        with raises(UnicodeEncodeError):
+            # encoding the encoding fails with surrogates
+            b"abc".decode("utf-8\udce2\udc80\udc9d")
+
     def test_encode(self):
         assert 'hello'.encode() == b'hello'
         assert type('hello'.encode()) is bytes
