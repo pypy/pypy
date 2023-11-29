@@ -263,9 +263,13 @@ def HPy_AsStruct_Legacy(space, handles, ctx, h):
 
 @API.func("void * HPy_AsStruct_Type(HPyContext *ctx, HPy h)", error_value="CANNOT_FAIL")
 def HPy_AsStruct_Type(space, handles, ctx, h):
+    from pypy.module.cpyext.typeobject import PyHeapTypeObject
     w_obj = handles.deref(h)
     storage = w_obj._hpy_get_raw_storage(space)
-    return storage
+    base_adr = llmemory.cast_ptr_to_adr(storage)
+    data_adr = base_adr + rffi.sizeof(PyHeapTypeObject.TO)
+    raw_mem = rffi.cast(rffi.VOIDP, data_adr)
+    return raw_mem
 
 @API.func("HPy _HPy_New(HPyContext *ctx, HPy h_type, void **data)")
 def _HPy_New(space, handles, ctx, h_type, data):
@@ -380,7 +384,7 @@ def _hpytype_fromspec(handles, spec, params):
     """
     """
     # avoid circular import
-    from .interp_cpy_compat import attach_legacy_slots_to_type
+    from .interp_cpy_compat import attach_legacy_slots_to_type, create_pyobject_from_storage
     space = handles.space
     check_legacy_consistent(space, spec)
     check_have_gc_and_tp_traverse(space, spec)
@@ -432,12 +436,15 @@ def _hpytype_fromspec(handles, spec, params):
     if spec.c_doc:
         w_doc = space.newtext(rffi.constcharp2str(spec.c_doc))
         w_result.setdictvalue(space, '__doc__', w_doc)
+    if spec.c_defines:
+        add_slot_defs(handles, w_result, spec)
+    check_inheritance_constraints(space, w_result)
+    if is_legacy:
+        py_obj = create_pyobject_from_storage(space, w_result, w_metatype=w_metaclass)
     if spec.c_legacy_slots:
         needs_hpytype_dealloc = has_tp_slot(spec,
                          [HPySlot_Slot.HPy_tp_traverse, HPySlot_Slot.HPy_tp_destroy])
         attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots, needs_hpytype_dealloc)
-    if spec.c_defines:
-        add_slot_defs(handles, w_result, spec)
     if  has_tp_call and basicsize == 0 and is_legacy:
         # This condition is really only a CPython problem.
         #
@@ -449,7 +456,6 @@ def _hpytype_fromspec(handles, spec, params):
             "Cannot use HPy call protocol with legacy types that"
             " inherit the struct. Either set the basicsize to a"
             "non-zero value or use legacy slot 'Py_tp_call'.")
-    check_inheritance_constraints(space, w_result)
     return handles.new(w_result)
 
 @specialize.arg(0)
@@ -532,31 +538,37 @@ def has_tp_slot(spec, slots):
 @jit.dont_look_inside
 def _create_new_type(
         space, name, w_metaclass, bases_w, dict_w, basicsize, shape):
+    from pypy.module.cpyext.typeobject import PyHeapTypeObject
     pos = surrogate_in_utf8(name)
     if pos >= 0:
         raise oefmt(space.w_ValueError, "can't encode character in position "
                     "%d, surrogates not allowed", pos)
     w_type = space.allocate_instance(W_HPyTypeObject, w_metaclass)
     w_type.space = space
-    metasize = 0
+    storagesize = 0
     tp_traverse = lltype.nullptr(llapi.cts.gettype('HPyFunc_traverseproc').TO)
     if isinstance(w_metaclass, W_HPyTypeObject):
-        metasize = w_metaclass.basicsize
+        storagesize = w_metaclass.basicsize
         tp_traverse = w_metaclass.tp_traverse
+        if shape == Shapes.HPyType_BuiltinShape_Legacy:
+            storagesize += rffi.sizeof(PyHeapTypeObject.TO)
     elif w_metaclass.is_cpytype():
+        # The metaclass is a c-api type, without any HPy
         from pypy.module.cpyext.pyobject import make_ref, cts
         pyobj = make_ref(space, w_metaclass)
         pytype = cts.cast("PyTypeObject*", pyobj)
-        metasize = pytype.c_tp_basicsize
-    if metasize > 0:
-        hpy_storage = storage_alloc(metasize)
-        hpy_storage.tp_traverse = tp_traverse
+        storagesize = max(rffi.sizeof(PyHeapTypeObject.TO), pytype.c_tp_basicsize)
+        storagesize += pytype.c_tp_itemsize
+    elif shape == Shapes.HPyType_BuiltinShape_Legacy:
+        storagesize = rffi.sizeof(PyHeapTypeObject.TO)
+    if storagesize > 0:
+        hpy_storage = storage_alloc(storagesize)
         w_type._hpy_set_raw_storage(space, hpy_storage)
-    # XXX handle tp_destroy, tp_finalize
+        hpy_storage.tp_traverse = tp_traverse
     W_HPyTypeObject.__init__(w_type,
         space, name, bases_w or [space.w_object], dict_w, basicsize, shape)
     w_type.ready()
-    # print "creating", name, "with", basicsize, 'result basicsize', w_type.basicsize, "metaclass", w_metaclass.name, "basicsize", metasize
+    w_type.tp_traverse = tp_traverse
     return w_type
 
 def _create_instance(space, w_type, __args__=None):
@@ -584,6 +596,9 @@ def _create_instance_subtype(space, w_type, __args__=None):
 
 @jit.dont_look_inside
 def _finish_create_instance(space, w_result, w_type):
+    # avoid circular import
+    from pypy.module._hpy_universal.interp_cpy_compat import create_pyobject_from_storage
+    from pypy.module.cpyext.pyobject import make_ref, cts
     if isinstance(w_type, W_HPyTypeObject):
         w_hpybase = w_type
     else:
@@ -600,16 +615,16 @@ def _finish_create_instance(space, w_result, w_type):
     assert isinstance(w_hpybase, W_HPyTypeObject)
     if w_hpybase.basicsize > 0:
         hpy_storage = storage_alloc(w_hpybase.basicsize)
-        hpy_storage.tp_traverse = w_hpybase.tp_traverse
         w_result._hpy_set_raw_storage(space, hpy_storage)
+        hpy_storage.tp_traverse = w_hpybase.tp_traverse
+        if w_hpybase.is_cpytype() or w_hpybase.is_legacy():
+            pyobj = create_pyobject_from_storage(space, w_result)
+            pyobj.c_ob_type = cts.cast("PyTypeObject *", make_ref(space, w_hpybase)) 
+    elif w_hpybase.is_cpytype() or w_hpybase.is_legacy():
+        # raise oefmt(space.w_RuntimeError, "see issue 459")
+        pass
     if w_hpybase.tp_destroy or w_hpybase.tp_finalize:
         w_result.register_finalizer(space)
-    if w_hpybase.has_tp_dealloc:
-        # legacy: create a pyobj with refcnt == 0 so that when w_result
-        # is collected, the pyobj's ob_type.tp_dealloc will be called
-        if not hasattr(space, 'is_fake_objspace'):
-            # the following lines break test_ztranslation :(
-            as_pyobj(space, w_result)
     return w_result
 
 descr_new = interp2app(_create_instance)

@@ -234,12 +234,14 @@ class TestLegacyType(_TestType):
         assert mod.DummyMeta is type(mod.Dummy)
         assert mod.set_meta_data(mod.Dummy) is None
         assert mod.get_meta_data(mod.Dummy) == 42 + 11
+        # XXX TODO: Does DummyMeta_AsStruct() return anything?
+        # XXX TODO: make sure Dummy_AsStruct and (Dummy*)pyobj point to the same memory
 
         d = mod.Dummy()
         mod.set_member(d)
         assert d.member == 123614
 
-    def test_call_zero_basicsize(self):
+    def test_call_zero_basicsize_legacy(self):
         import pytest
         # type 'Dummy' has basicsize == 0; we cannot use the HPy call protocol
         # with legacy types that inherit their struct since we then don't know

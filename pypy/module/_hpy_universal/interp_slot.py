@@ -608,17 +608,6 @@ def fill_slot(handles, w_type, hpyslot):
         cls = get_slot_cls(handles, W_wrap_getbuffer)
         w_slot = cls(slot_num,"__buffer__", hpyslot.c_impl, w_type)
         w_type.setdictvalue(space, "__buffer__", w_slot)
-        if w_type.is_legacy():
-            # Also set the legacy slot, since the c-api expects bf_getbuffer
-            # to be present on the C level, and does not look it up in the w_obj
-            # XXX should we update _all_ the empty slots?
-            from pypy.module.cpyext.userslot import slot_bf_getbuffer
-            from pypy.module.cpyext.api import PyTypeObjectPtr
-            from pypy.module.cpyext.pyobject import as_pyobj
-            slot_apifunc = slot_bf_getbuffer.api_func
-            slot_func_helper = slot_apifunc.get_llhelper(space)
-            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
-            pytype.c_tp_as_buffer.c_bf_getbuffer = slot_func_helper
     elif slot_num == HPySlot_Slot.HPy_tp_call:
         has_tp_call = True
     # generic cases
