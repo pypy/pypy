@@ -560,6 +560,11 @@ class W_BytearrayObject(W_Root):
             ofs += 1
         if end > length:
             end = length
+        # prevent overflow if start is close to sys.maxsize
+        # this will fail if length is close to sys.maxsize, but that is very
+        # unlikely
+        if start > length + 1:
+            start = length + 1
         return (self._data, start + ofs, end + ofs, ofs)
 
     def _unpack_slice(self, space, w_index):
