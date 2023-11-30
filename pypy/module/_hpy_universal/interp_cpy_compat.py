@@ -40,7 +40,7 @@ def HPy_AsPyObject(space, handles, ctx, h):
 def ObjectFreeNOOP(space, *args):
     pass
 
-def create_pyobject_from_storage(space, w_obj, w_metatype=None):
+def create_pyobject_from_storage(space, w_obj, w_metatype=None, basicsize=0):
     # Taken from create_ref, but do not allocate
     storage = w_obj._hpy_get_raw_storage(space)
     assert not pyobject.w_obj_has_pyobj(w_obj)
@@ -68,8 +68,9 @@ def create_pyobject_from_storage(space, w_obj, w_metatype=None):
     # py_obj.c_ob_refcnt += 1
     # but I think a no-op free function is nicer
     if w_metatype:
-        pto = rffi.cast(PyTypeObjectPtr, storage)
-        if pto.c_tp_basicsize > 0:
+        pto = rffi.cast(PyTypeObjectPtr, py_obj)
+        pto.c_tp_basicsize = basicsize
+        if basicsize:
             # Disable freeing the PyObject memory since it is managed via the storage
             ll_objectfree = ObjectFreeNOOP.get_llhelper(space)
             pto.c_tp_free = ll_objectfree
