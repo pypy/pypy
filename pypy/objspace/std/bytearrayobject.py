@@ -42,6 +42,7 @@ class W_BytearrayObject(W_Root):
         # NOTE: the bytearray data is in 'self._data[self._offset:]'
         check_nonneg(self._offset)
         _tweak_for_tests(self)
+        print "tweaked offset to", self._offset
 
     def getdata(self):
         if self._offset > 0:
