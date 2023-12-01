@@ -196,11 +196,14 @@ class W_HPyObject(W_ObjectObject):
     def _finalize_(self):
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
+        storage = self._hpy_get_raw_storage(self.space)
+        if w_type.is_cpytype() or w_type.is_legacy():
+            # XXX make sure the tp_refcnt is "0"
+            pass
         if w_type.tp_finalize:
             from pypy.interpreter.argument import Arguments
             w_type.tp_finalize.call(self.space, Arguments(self.space, [self]))
         # XXX this is still wrong
-        storage = self._hpy_get_raw_storage(self.space)
         if w_type.tp_destroy and storage:
             w_type.tp_destroy(storage)
             self._hpy_set_raw_storage(self.space, lltype.nullptr(HPY_STORAGE))
@@ -227,10 +230,13 @@ class W_HPyTypeObject(W_TypeObject):
     def _finalize_(self):
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
+        storage = self._hpy_get_raw_storage(self.space)
+        if w_type.is_cpytype() or w_type.is_legacy():
+            # XXX make sure the tp_refcnt is "0"
+            pass
         if w_type.tp_finalize:
             from pypy.interpreter.argument import Arguments
             w_type.tp_finalize.call(self.space, Arguments(self.space, [self]))
-        storage = self._hpy_get_raw_storage(self.space)
         if w_type.tp_destroy and storage:
             w_type.tp_destroy(storage)
             self._hpy_set_raw_storage(self.space, lltype.nullptr(HPY_STORAGE))
@@ -437,7 +443,7 @@ def _hpytype_fromspec(handles, spec, params):
         add_slot_defs(handles, w_result, spec)
     check_inheritance_constraints(space, w_result)
     if is_legacy:
-        py_obj = create_pyobject_from_storage(space, w_result, w_metatype=w_metaclass,
+        create_pyobject_from_storage(space, w_result, w_metatype=w_metaclass,
                                               basicsize=basicsize)
     if spec.c_legacy_slots:
         needs_hpytype_dealloc = has_tp_slot(spec,
@@ -624,7 +630,7 @@ def _finish_create_instance(space, w_result, w_type):
         w_result._hpy_set_raw_storage(space, hpy_storage)
         if w_hpybase.is_cpytype() or w_hpybase.is_legacy():
             pyobj = create_pyobject_from_storage(space, w_result)
-            pyobj.c_ob_type = cts.cast("PyTypeObject *", make_ref(space, w_hpybase)) 
+            pyobj.c_ob_type = cts.cast("PyTypeObject *", make_ref(space, w_hpybase))
     elif w_hpybase.is_cpytype() or w_hpybase.is_legacy():
         # raise oefmt(space.w_RuntimeError, "see issue 459")
         pass

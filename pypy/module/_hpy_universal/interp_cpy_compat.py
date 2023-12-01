@@ -40,10 +40,13 @@ def HPy_AsPyObject(space, handles, ctx, h):
 def ObjectFreeNOOP(space, *args):
     pass
 
+@jit.dont_look_inside
 def create_pyobject_from_storage(space, w_obj, w_metatype=None, basicsize=0):
     # Taken from create_ref, but do not allocate
     storage = w_obj._hpy_get_raw_storage(space)
-    assert not pyobject.w_obj_has_pyobj(w_obj)
+    if pyobject.w_obj_has_pyobj(w_obj):
+        raise oefmt(space.w_TypeError,
+            "internal error: seeing a PyObject before one was expected")
     # Make sure all the parent pyobjs have been created
     w_type = space.type(w_obj)
     pyobject.as_pyobj(space, w_type)
@@ -64,9 +67,7 @@ def create_pyobject_from_storage(space, w_obj, w_metatype=None, basicsize=0):
         pto.c_tp_itemsize = 0
     pyobject.track_reference(space, py_obj, w_obj)
     typedescr.attach(space, py_obj, w_obj)
-    # We could just do this
-    # py_obj.c_ob_refcnt += 1
-    # but I think a no-op free function is nicer
+    py_obj.c_ob_refcnt += 1
     if w_metatype:
         pto = rffi.cast(PyTypeObjectPtr, py_obj)
         pto.c_tp_basicsize = basicsize
