@@ -443,12 +443,13 @@ class W_BytearrayObject(W_Root):
 
     def descr_extend(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
-            other_data = w_other.getdata()[:-1]
+            other_data = list(w_other.getdata()[:-1])
         elif isinstance(w_other, W_BytesObject):    # performance only
             other_data = list(w_other.bytes_w(space))
         else:
             other_data = list(makebytesdata_w(space, w_other))
         data = self.getdata()
+        assert data[len(data) - 1] == "\0"
         # pop off the null byte
         data.pop()
         data += other_data

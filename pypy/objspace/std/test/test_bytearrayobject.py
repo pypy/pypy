@@ -474,8 +474,9 @@ class AppTestBytesArray:
     def test_extend(self):
         b = bytearray(b'abc')
         b.extend(bytearray(b'def'))
+        assert b == b'abcdef', b
         b.extend(b'ghi')
-        assert b == b'abcdefghi'
+        assert b == b'abcdefghi', b
         b.extend(memoryview(b'jkl'))
         assert b == b'abcdefghijkl'
 
