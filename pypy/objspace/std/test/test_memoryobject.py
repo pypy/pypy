@@ -595,6 +595,27 @@ class AppTestMemoryViewMockBuffer(object):
         # ensure we can cast this even though the format starts with '<'
         assert buf.cast('B')[0] == ord('a')
 
+    def test_too_many_dims(self):
+        import sys
+        if '__pypy__' not in sys.modules:
+            skip('PyPy-only test')
+
+        # create a memoryview with ndimes
+        from __pypy__ import bufferable, newmemoryview
+        class B(bufferable.bufferable):
+            def __init__(self, ndims):
+                self.data = bytearray(b'a')
+                self.ndims = ndims
+
+            def __buffer__(self, flags):
+                return newmemoryview(memoryview(self.data), 1, 'B', shape=[1]*self.ndims)
+
+        obj = B(64)
+        buf = memoryview(obj)
+        assert buf.ndim == 64
+        obj = B(65)
+        with raises(RuntimeError):
+            memoryview(obj)
 
 class AppTestMemoryViewReversed(object):
     spaceconfig = dict(usemodules=['array'])

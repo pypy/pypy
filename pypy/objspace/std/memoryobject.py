@@ -77,6 +77,9 @@ class W_MemoryView(W_Root):
 
     def buffer_w(self, space, flags):
         self._check_released(space)
+        if self.getndim() > MEMORYVIEW_MAX_DIM:
+            raise oefmt(space.w_RuntimeError,
+                "cannot export buffer with %d dimensions", self.getndim())
         space.check_buf_flags(flags, self.view.readonly)
         return self.view
 
