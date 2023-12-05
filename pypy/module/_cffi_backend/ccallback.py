@@ -303,7 +303,7 @@ jitdriver1 = jit.JitDriver(name='cffi_callback',
 def get_printable_location2(externpython):
     with externpython as ptr:
         externpy = rffi.cast(parse_c_type.PEXTERNPY, ptr)
-        return 'cffi_call_python ' + rffi.charp2str(externpy.c_name)
+        return 'cffi_call_python ' + rffi.constcharp2str(externpy.c_name)
 
 jitdriver2 = jit.JitDriver(name='cffi_call_python',
                            greens=['externpython'],
