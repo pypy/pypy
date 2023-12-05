@@ -79,7 +79,7 @@ def prepare(space, cdef, module_name, source, w_includes=None,
             **kwargs)
     ffiplatform.compile(str(rdir), ext)
 
-    for extension in [get_ext_suffix(), 'so', 'pyd', 'dylib']:
+    for extension in [get_ext_suffix(), 'so', 'pyd', 'dylib', 'pypy-73.so']:
         so_file = str(rdir.join('%s.%s' % (path, extension)))
         if os.path.exists(so_file):
             break
@@ -1625,6 +1625,7 @@ class AppTestRecompiler:
         res = lib.bok()
         assert [res.a, res.b, res.c] == [10, 20, 30]
 
+    @pytest.mark.skipif("not config.option.runappdirect", reason="no longdouble in _rawrffi/alt")
     def test_extern_python_long_double(self):
         ffi, lib = self.prepare("""
             extern "Python" int bar(int, long double, int);

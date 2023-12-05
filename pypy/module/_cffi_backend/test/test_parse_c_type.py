@@ -22,26 +22,28 @@ assert global_names == sorted(global_names)
 ctx = lltype.malloc(parse_c_type.PCTX.TO, flavor='raw', zero=True,
                     track_allocation=False)
 
-c_struct_names = [rffi.str2charp(_n.encode('ascii')) for _n in struct_names]
+c_struct_names = [rffi.cast(rffi.CONST_CCHARP, rffi.str2charp(_n.encode('ascii')))
+                  for _n in struct_names]
 ctx_structs = lltype.malloc(rffi.CArray(parse_c_type.STRUCT_UNION_S),
                             len(struct_names), flavor='raw', zero=True,
                             track_allocation=False)
 for _i in range(len(struct_names)):
     ctx_structs[_i].c_name = c_struct_names[_i]
 rffi.setintfield(ctx_structs[3], 'c_flags', cffi_opcode.F_UNION)
-ctx.c_struct_unions = ctx_structs
+ctx.c_struct_unions = rffi.cast(lltype.Ptr(parse_c_type.STRUCT_UNION_S), ctx_structs)
 rffi.setintfield(ctx, 'c_num_struct_unions', len(struct_names))
 
-c_enum_names = [rffi.str2charp(_n.encode('ascii')) for _n in enum_names]
+c_enum_names = [rffi.cast(rffi.CONST_CCHARP, rffi.str2charp(_n.encode('ascii')))
+                for _n in enum_names]
 ctx_enums = lltype.malloc(rffi.CArray(parse_c_type.ENUM_S),
                             len(enum_names), flavor='raw', zero=True,
                             track_allocation=False)
 for _i in range(len(enum_names)):
     ctx_enums[_i].c_name = c_enum_names[_i]
-ctx.c_enums = ctx_enums
+ctx.c_enums = rffi.cast(lltype.Ptr(parse_c_type.ENUM_S), ctx_enums)
 rffi.setintfield(ctx, 'c_num_enums', len(enum_names))
 
-c_identifier_names = [rffi.str2charp(_n.encode('ascii'))
+c_identifier_names = [rffi.cast(rffi.CONST_CCHARP, rffi.str2charp(_n.encode('ascii')))
                       for _n in identifier_names]
 ctx_identifiers = lltype.malloc(rffi.CArray(parse_c_type.TYPENAME_S),
                                 len(identifier_names), flavor='raw', zero=True,
@@ -49,7 +51,7 @@ ctx_identifiers = lltype.malloc(rffi.CArray(parse_c_type.TYPENAME_S),
 for _i in range(len(identifier_names)):
     ctx_identifiers[_i].c_name = c_identifier_names[_i]
     rffi.setintfield(ctx_identifiers[_i], 'c_type_index', 100 + _i)
-ctx.c_typenames = ctx_identifiers
+ctx.c_typenames = rffi.cast(lltype.Ptr(parse_c_type.TYPENAME_S), ctx_identifiers)
 rffi.setintfield(ctx, 'c_num_typenames', len(identifier_names))
 
 def fetch_constant_five(p):
@@ -66,7 +68,8 @@ FETCH_CB_P = rffi.CCallback([rffi.ULONGLONGP], rffi.INT)
 ctx_globals = lltype.malloc(rffi.CArray(parse_c_type.GLOBAL_S),
                             len(global_names), flavor='raw', zero=True,
                             track_allocation=False)
-c_glob_names = [rffi.str2charp(_n.encode('ascii')) for _n in global_names]
+c_glob_names = [rffi.cast(rffi.CONST_CCHARP, rffi.str2charp(_n.encode('ascii')))
+                for _n in global_names]
 _helpers_keepalive = []
 for _i, _fn in enumerate([fetch_constant_five,
                           fetch_constant_neg,
@@ -78,7 +81,7 @@ for _i, _fn in enumerate([fetch_constant_five,
     type_op = (cffi_opcode.OP_CONSTANT_INT if _i != 1
                else cffi_opcode.OP_ENUM)
     ctx_globals[_i].c_type_op = rffi.cast(rffi.VOIDP, type_op)
-ctx.c_globals = ctx_globals
+ctx.c_globals = rffi.cast(lltype.Ptr(parse_c_type.GLOBAL_S), ctx_globals)
 rffi.setintfield(ctx, 'c_num_globals', len(global_names))
 
 
