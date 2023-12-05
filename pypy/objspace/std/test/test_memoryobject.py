@@ -614,7 +614,7 @@ class AppTestMemoryViewMockBuffer(object):
         buf = memoryview(obj)
         assert buf.ndim == 64
         obj = B(65)
-        with raises(RuntimeError):
+        with raises(ValueError):
             memoryview(obj)
 
 class AppTestMemoryViewReversed(object):
