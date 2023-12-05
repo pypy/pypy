@@ -87,7 +87,7 @@ int opened_profile(const char *interp_name, int memory, int proflines, int nativ
 PY_STACK_FRAME_T *get_vmprof_stack(void);
 RPY_EXTERN
 intptr_t vmprof_get_traceback(void *stack, void *ucontext,
-                              void **result_p, intptr_t result_length);
+                              intptr_t *result_p, intptr_t result_length);
 #endif
 
 int vmprof_get_signal_type(void);
