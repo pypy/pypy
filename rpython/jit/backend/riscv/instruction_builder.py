@@ -121,6 +121,33 @@ def _gen_a_type_instr_assembler(opcode, funct25):
         self.write32(bits)
     return assemble
 
+def _gen_f_type_instr_assembler(opcode, funct3, fm):
+    bits = (fm << 28) | (funct3 << 12) | opcode
+    def assemble(self, pred, succ):
+        pred = int(pred) << 24
+        succ = int(succ) << 20
+        self.write32(bits | pred | succ)
+    return assemble
+
+def _gen_amo2_type_instr_assembler(opcode, funct3, funct5):
+    bits = (funct5 << 27) | (funct3 << 12) | opcode
+    def assemble(self, rd, rs1, aqrl):
+        rd = int(rd) << 7
+        rs1 = int(rs1) << 15
+        aqrl = int(aqrl) << 25
+        self.write32(bits | aqrl | rs1 | rd)
+    return assemble
+
+def _gen_amo3_type_instr_assembler(opcode, funct3, funct5):
+    bits = (funct5 << 27) | (funct3 << 12) | opcode
+    def assemble(self, rd, rs2, rs1, aqrl):
+        rd = int(rd) << 7
+        rs1 = int(rs1) << 15
+        rs2 = int(rs2) << 20
+        aqrl = int(aqrl) << 25
+        self.write32(bits | aqrl | rs2 | rs1 | rd)
+    return assemble
+
 _INSTR_TYPE_DICT = {
     'R': _gen_r_type_instr_assembler,
     'I': _gen_i_type_instr_assembler,
@@ -135,6 +162,9 @@ _INSTR_TYPE_DICT = {
     'I12': _gen_i12_type_instr_assembler,
     'I12_RM': _gen_i12_rm_type_instr_assembler,
     'A': _gen_a_type_instr_assembler,
+    'F': _gen_f_type_instr_assembler,
+    'AMO2': _gen_amo2_type_instr_assembler,
+    'AMO3': _gen_amo3_type_instr_assembler,
 }
 
 def _gen_instr_assembler(instr_type, fields):

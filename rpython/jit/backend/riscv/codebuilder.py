@@ -114,6 +114,20 @@ class AbstractRISCVBuilder(object):
     def store_int(self, rs2, rs1, imm):
         self.SD(rs2, rs1, imm)
 
+    # Atomic-swap XLEN-bit integer.  Load old value to rd and store new value
+    # from rs2 to memory address 0(rs1).
+    def atomic_swap_int(self, rd, rs2, rs1, acrl):
+        self.AMOSWAP_D(rd, rs2, rs1, acrl)
+
+    # Load-and-reserve XLEN-bit integer from memory address 0(rs1) to rd.
+    def load_reserve_int(self, rd, rs1, acrl):
+        self.LR_D(rd, rs1, acrl)
+
+    # Store-conditional XLEN-bit integer rs2 to memory address 0(rs1) and write
+    # zero to rd on success (conversely, non-zero to rd on failure).
+    def store_conditional_int(self, rd, rs2, rs1, acrl):
+        self.SC_D(rd, rs2, rs1, acrl)
+
     # Load an FLEN-bit float from imm(rs1)
     def load_float(self, rd, rs1, imm):
         self.FLD(rd, rs1, imm)

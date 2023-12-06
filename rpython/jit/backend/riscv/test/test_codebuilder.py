@@ -4,7 +4,9 @@ from hypothesis import assume, given, settings, strategies
 from rpython.jit.backend.riscv import codebuilder
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv import rounding_modes
-from rpython.jit.backend.riscv.instructions import all_instructions
+from rpython.jit.backend.riscv.instructions import (
+    AMO_ACQUIRE, AMO_RELEASE, FMO_INPUT, FMO_OUTPUT, FMO_READ, FMO_WRITE,
+    all_instructions)
 from rpython.jit.backend.riscv.test.external_assembler import assemble
 
 
@@ -25,6 +27,26 @@ class TestCodeBuilder(object):
 
 def _get_op_name(mnemonic):
     return mnemonic.replace('_', '.')
+
+def _get_fence_memory_order_str(mo_bits):
+    res = ''
+    if mo_bits & FMO_INPUT:
+        res += 'i'
+    if mo_bits & FMO_OUTPUT:
+        res += 'o'
+    if mo_bits & FMO_READ:
+        res += 'r'
+    if mo_bits & FMO_WRITE:
+        res += 'w'
+    return res
+
+def _get_amo_suffix(aqrl):
+    res = ''
+    if aqrl & AMO_ACQUIRE:
+        res += 'aq'
+    if aqrl & AMO_RELEASE:
+        res += 'rl'
+    return '.' + res if res else ''
 
 def _get_op_test_strategy(op_spec):
     if op_spec == 'R' or op_spec == 'RB':
@@ -47,6 +69,16 @@ def _get_op_test_strategy(op_spec):
         return strategies.integers(min_value=0, max_value=2**6 - 1)
     elif op_spec == 'RM':
         return strategies.sampled_from(rounding_modes.all_rounding_modes)
+    elif op_spec == 'FMO':
+        return strategies.integers(min_value=1, max_value=15)
+    elif op_spec == 'AMO':
+        return strategies.integers(min_value=0, max_value=3)
+    elif op_spec == 'AMOLR':
+        return strategies.sampled_from([0, AMO_ACQUIRE,
+                                        AMO_ACQUIRE | AMO_RELEASE])
+    elif op_spec == 'AMOSC':
+        return strategies.sampled_from([0, AMO_RELEASE,
+                                        AMO_ACQUIRE | AMO_RELEASE])
     assert False, 'unhandled op spec: ' + op_spec
 
 def _gen_r_type_instr_test(mnemonic, instr_type, op_spec):
@@ -315,6 +347,73 @@ def _gen_a_type_instr_test(mnemonic, instr_type, op_spec):
 
     return test
 
+def _gen_f_type_instr_test(mnemonic, instr_type, op_spec):
+    op_spec = op_spec.split(':')
+    assert len(op_spec) == 2
+
+    @settings(max_examples=20)
+    @given(pred_order=_get_op_test_strategy(op_spec[0]),
+           succ_order=_get_op_test_strategy(op_spec[1]))
+    def test(self, pred_order, succ_order):
+        cb = CodeBuilder()
+        getattr(cb, mnemonic)(pred_order, succ_order)
+        test_out = cb.hexdump()
+
+        op_name = _get_op_name(mnemonic)
+        pred_order_str = _get_fence_memory_order_str(pred_order)
+        succ_order_str = _get_fence_memory_order_str(succ_order)
+        asm = '%s %s, %s' % (op_name, pred_order_str, succ_order_str)
+        ref_out = assemble(asm)
+
+        assert ref_out == test_out
+
+    return test
+
+def _gen_amo2_type_instr_test(mnemonic, instr_type, op_spec):
+    op_spec = op_spec.split(':')
+    assert len(op_spec) == 3
+
+    @settings(max_examples=20)
+    @given(rd=_get_op_test_strategy(op_spec[0]),
+           rs1=_get_op_test_strategy(op_spec[1]),
+           aqrl=_get_op_test_strategy(op_spec[2]))
+    def test(self, rd, rs1, aqrl):
+        cb = CodeBuilder()
+        getattr(cb, mnemonic)(rd, rs1, aqrl)
+        test_out = cb.hexdump()
+
+        op_name = _get_op_name(mnemonic) + _get_amo_suffix(aqrl)
+        asm = '%s %s, (%s)' % (op_name, rd, rs1)
+        ref_out = assemble(asm)
+
+        assert ref_out == test_out
+
+    return test
+
+def _gen_amo3_type_instr_test(mnemonic, instr_type, op_spec):
+    op_spec = op_spec.split(':')
+    assert len(op_spec) == 4
+
+    @settings(max_examples=20)
+    @given(rd=_get_op_test_strategy(op_spec[0]),
+           rs2=_get_op_test_strategy(op_spec[1]),
+           rs1=_get_op_test_strategy(op_spec[2]),
+           aqrl=_get_op_test_strategy(op_spec[3]))
+    def test(self, rd, rs2, rs1, aqrl):
+        cb = CodeBuilder()
+        getattr(cb, mnemonic)(rd, rs2, rs1, aqrl)
+        test_out = cb.hexdump()
+
+        op_name = _get_op_name(mnemonic) + _get_amo_suffix(aqrl)
+        # Note: AMO instruction assembly puts rs2 in parentheses and at the
+        # end.
+        asm = '%s %s, %s, (%s)' % (op_name, rd, rs2, rs1)
+        ref_out = assemble(asm)
+
+        assert ref_out == test_out
+
+    return test
+
 _INSTR_TYPE_DICT = {
     'R': _gen_r_type_instr_test,
     'I': _gen_i_type_instr_test,
@@ -329,6 +428,9 @@ _INSTR_TYPE_DICT = {
     'I12': _gen_i12_type_instr_test,
     'I12_RM': _gen_i12_rm_type_instr_test,
     'A': _gen_a_type_instr_test,
+    'F': _gen_f_type_instr_test,
+    'AMO2': _gen_amo2_type_instr_test,
+    'AMO3': _gen_amo3_type_instr_test,
 }
 
 def _gen_instr_test(mnemonic, instr_type, op_spec):

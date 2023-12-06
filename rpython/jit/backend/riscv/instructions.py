@@ -14,6 +14,10 @@
 #   SH5: 5-bit shift amount
 #   SH6: 6-bit shift amount
 #   RM: Rounding mode
+#   FMO: Fence instruction memory order (see FMO_ constants below)
+#   AMO: Acquire/release field for AMO instructions
+#   AMOL: Acquire/release field for load reserve
+#   AMOS: Acquire/release field for store conditional
 #
 # Type-specific fields are:
 #   R: (opcode, funct3, funct7)
@@ -29,44 +33,48 @@
 #   I12: (opcode, funct3, funct12)
 #   I12_RM: (opcode, funct12)
 #   A: (opcode, funct25)
+#   F: (opcode, funct3, fm)
+#   AMO2/AMO3: (opcode, funct3, funct5)
 
 rv_base_i_instructions = [
-    ('LUI',    'U', 'R:U20',    (0b0110111,)),
-    ('AUIPC',  'U', 'R:U20',    (0b0010111,)),
-    ('JAL',    'J', 'R:I21',    (0b1101111,)),
-    ('JALR',   'I', 'R:RB:I12', (0b1100111, 0b000)),
-    ('BEQ',    'B', 'R:R:I13',  (0b1100011, 0b000)),
-    ('BNE',    'B', 'R:R:I13',  (0b1100011, 0b001)),
-    ('BLT',    'B', 'R:R:I13',  (0b1100011, 0b100)),
-    ('BGE',    'B', 'R:R:I13',  (0b1100011, 0b101)),
-    ('BLTU',   'B', 'R:R:I13',  (0b1100011, 0b110)),
-    ('BGEU',   'B', 'R:R:I13',  (0b1100011, 0b111)),
-    ('LB',     'I', 'R:RB:I12', (0b0000011, 0b000)),
-    ('LH',     'I', 'R:RB:I12', (0b0000011, 0b001)),
-    ('LW',     'I', 'R:RB:I12', (0b0000011, 0b010)),
-    ('LBU',    'I', 'R:RB:I12', (0b0000011, 0b100)),
-    ('LHU',    'I', 'R:RB:I12', (0b0000011, 0b101)),
-    ('SB',     'S', 'R:RB:I12', (0b0100011, 0b000)),
-    ('SH',     'S', 'R:RB:I12', (0b0100011, 0b001)),
-    ('SW',     'S', 'R:RB:I12', (0b0100011, 0b010)),
-    ('ADDI',   'I', 'R:R:I12',  (0b0010011, 0b000)),
-    ('SLTI',   'I', 'R:R:I12',  (0b0010011, 0b010)),
-    ('SLTIU',  'I', 'R:R:I12',  (0b0010011, 0b011)),
-    ('XORI',   'I', 'R:R:I12',  (0b0010011, 0b100)),
-    ('ORI',    'I', 'R:R:I12',  (0b0010011, 0b110)),
-    ('ANDI',   'I', 'R:R:I12',  (0b0010011, 0b111)),
-    ('ADD',    'R', 'R:R:R',    (0b0110011, 0b000, 0b0000000)),
-    ('SUB',    'R', 'R:R:R',    (0b0110011, 0b000, 0b0100000)),
-    ('SLL',    'R', 'R:R:R',    (0b0110011, 0b001, 0b0000000)),
-    ('SLT',    'R', 'R:R:R',    (0b0110011, 0b010, 0b0000000)),
-    ('SLTU',   'R', 'R:R:R',    (0b0110011, 0b011, 0b0000000)),
-    ('XOR',    'R', 'R:R:R',    (0b0110011, 0b100, 0b0000000)),
-    ('SRL',    'R', 'R:R:R',    (0b0110011, 0b101, 0b0000000)),
-    ('SRA',    'R', 'R:R:R',    (0b0110011, 0b101, 0b0100000)),
-    ('OR',     'R', 'R:R:R',    (0b0110011, 0b110, 0b0000000)),
-    ('AND',    'R', 'R:R:R',    (0b0110011, 0b111, 0b0000000)),
-    ('ECALL',  'A', '',         (0b1110011, 0b0000000000000000000000000)),
-    ('EBREAK', 'A', '',         (0b1110011, 0b0000000000010000000000000)),
+    ('LUI',       'U', 'R:U20',    (0b0110111,)),
+    ('AUIPC',     'U', 'R:U20',    (0b0010111,)),
+    ('JAL',       'J', 'R:I21',    (0b1101111,)),
+    ('JALR',      'I', 'R:RB:I12', (0b1100111, 0b000)),
+    ('BEQ',       'B', 'R:R:I13',  (0b1100011, 0b000)),
+    ('BNE',       'B', 'R:R:I13',  (0b1100011, 0b001)),
+    ('BLT',       'B', 'R:R:I13',  (0b1100011, 0b100)),
+    ('BGE',       'B', 'R:R:I13',  (0b1100011, 0b101)),
+    ('BLTU',      'B', 'R:R:I13',  (0b1100011, 0b110)),
+    ('BGEU',      'B', 'R:R:I13',  (0b1100011, 0b111)),
+    ('LB',        'I', 'R:RB:I12', (0b0000011, 0b000)),
+    ('LH',        'I', 'R:RB:I12', (0b0000011, 0b001)),
+    ('LW',        'I', 'R:RB:I12', (0b0000011, 0b010)),
+    ('LBU',       'I', 'R:RB:I12', (0b0000011, 0b100)),
+    ('LHU',       'I', 'R:RB:I12', (0b0000011, 0b101)),
+    ('SB',        'S', 'R:RB:I12', (0b0100011, 0b000)),
+    ('SH',        'S', 'R:RB:I12', (0b0100011, 0b001)),
+    ('SW',        'S', 'R:RB:I12', (0b0100011, 0b010)),
+    ('ADDI',      'I', 'R:R:I12',  (0b0010011, 0b000)),
+    ('SLTI',      'I', 'R:R:I12',  (0b0010011, 0b010)),
+    ('SLTIU',     'I', 'R:R:I12',  (0b0010011, 0b011)),
+    ('XORI',      'I', 'R:R:I12',  (0b0010011, 0b100)),
+    ('ORI',       'I', 'R:R:I12',  (0b0010011, 0b110)),
+    ('ANDI',      'I', 'R:R:I12',  (0b0010011, 0b111)),
+    ('ADD',       'R', 'R:R:R',    (0b0110011, 0b000, 0b0000000)),
+    ('SUB',       'R', 'R:R:R',    (0b0110011, 0b000, 0b0100000)),
+    ('SLL',       'R', 'R:R:R',    (0b0110011, 0b001, 0b0000000)),
+    ('SLT',       'R', 'R:R:R',    (0b0110011, 0b010, 0b0000000)),
+    ('SLTU',      'R', 'R:R:R',    (0b0110011, 0b011, 0b0000000)),
+    ('XOR',       'R', 'R:R:R',    (0b0110011, 0b100, 0b0000000)),
+    ('SRL',       'R', 'R:R:R',    (0b0110011, 0b101, 0b0000000)),
+    ('SRA',       'R', 'R:R:R',    (0b0110011, 0b101, 0b0100000)),
+    ('OR',        'R', 'R:R:R',    (0b0110011, 0b110, 0b0000000)),
+    ('AND',       'R', 'R:R:R',    (0b0110011, 0b111, 0b0000000)),
+    ('ECALL',     'A', '',         (0b1110011, 0b0000000000000000000000000)),
+    ('EBREAK',    'A', '',         (0b1110011, 0b0000000000010000000000000)),
+    ('FENCE',     'F', 'FMO:FMO',  (0b0001111, 0b000, 0b0000)),
+    ('FENCE_TSO', 'A', '',         (0b0001111, 0b1000001100110000000000000)),
 ]
 
 rv32_base_i_instructions = [
@@ -150,13 +158,52 @@ rv64_ext_d_instructions = [
     ('FMV_D_X',   'I12',    'F:R',    (0b1010011, 0b000, 0b111100100000)),
 ]
 
+rv_ext_a_instructions = [
+    ('LR_W',      'AMO2', 'R:R:AMOLR',   (0b0101111, 0b010, 0b00010)),
+    ('SC_W',      'AMO3', 'R:R:R:AMOSC', (0b0101111, 0b010, 0b00011)),
+    ('AMOSWAP_W', 'AMO3', 'R:R:R:AMO',   (0b0101111, 0b010, 0b00001)),
+    ('AMOADD_W',  'AMO3', 'R:R:R:AMO',   (0b0101111, 0b010, 0b00000)),
+    ('AMOXOR_W',  'AMO3', 'R:R:R:AMO',   (0b0101111, 0b010, 0b00100)),
+    ('AMOAND_W',  'AMO3', 'R:R:R:AMO',   (0b0101111, 0b010, 0b01100)),
+    ('AMOOR_W',   'AMO3', 'R:R:R:AMO',   (0b0101111, 0b010, 0b01000)),
+    ('AMOMIN_W',  'AMO3', 'R:R:R:AMO',   (0b0101111, 0b010, 0b10000)),
+    ('AMOMAX_W',  'AMO3', 'R:R:R:AMO',   (0b0101111, 0b010, 0b10100)),
+    ('AMOMINU_W', 'AMO3', 'R:R:R:AMO',   (0b0101111, 0b010, 0b11000)),
+    ('AMOMAXU_W', 'AMO3', 'R:R:R:AMO',   (0b0101111, 0b010, 0b11100)),
+]
+
+rv64_ext_a_instructions = [
+    ('LR_D',      'AMO2', 'R:R:AMOLR',   (0b0101111, 0b011, 0b00010)),
+    ('SC_D',      'AMO3', 'R:R:R:AMOSC', (0b0101111, 0b011, 0b00011)),
+    ('AMOSWAP_D', 'AMO3', 'R:R:R:AMO',   (0b0101111, 0b011, 0b00001)),
+    ('AMOADD_D',  'AMO3', 'R:R:R:AMO',   (0b0101111, 0b011, 0b00000)),
+    ('AMOXOR_D',  'AMO3', 'R:R:R:AMO',   (0b0101111, 0b011, 0b00100)),
+    ('AMOAND_D',  'AMO3', 'R:R:R:AMO',   (0b0101111, 0b011, 0b01100)),
+    ('AMOOR_D',   'AMO3', 'R:R:R:AMO',   (0b0101111, 0b011, 0b01000)),
+    ('AMOMIN_D',  'AMO3', 'R:R:R:AMO',   (0b0101111, 0b011, 0b10000)),
+    ('AMOMAX_D',  'AMO3', 'R:R:R:AMO',   (0b0101111, 0b011, 0b10100)),
+    ('AMOMINU_D', 'AMO3', 'R:R:R:AMO',   (0b0101111, 0b011, 0b11000)),
+    ('AMOMAXU_D', 'AMO3', 'R:R:R:AMO',   (0b0101111, 0b011, 0b11100)),
+]
+
 all_instructions = \
     rv_base_i_instructions + \
     rv64_base_i_instructions + \
     rv_ext_m_instructions + \
     rv64_ext_m_instructions + \
     rv_ext_d_instructions + \
-    rv64_ext_d_instructions
+    rv64_ext_d_instructions + \
+    rv_ext_a_instructions + \
+    rv64_ext_a_instructions
+
+# fence instruction memory ordering immediate fields
+FMO_WRITE  = 0b0001
+FMO_READ   = 0b0010
+FMO_OUTPUT = 0b0100
+FMO_INPUT  = 0b1000
+
+AMO_ACQUIRE = 0b10
+AMO_RELEASE = 0b01
 
 def _main():
     has_error = False
@@ -184,6 +231,9 @@ def _main():
         'I12': 3,
         'I12_RM': 2,
         'A': 2,
+        'F': 3,
+        'AMO2': 3,
+        'AMO3': 3,
     }
     for mnemonic, instr_type, op_spec, fields in all_instructions:
         if len(fields) != _EXPECTED_NUM_FIELDS[instr_type]:
@@ -205,6 +255,9 @@ def _main():
         'I12': {'F:F', 'F:R', 'R:F'},
         'I12_RM': {'F:F:RM', 'F:R:RM', 'R:F:RM'},
         'A': {''},
+        'F': {'FMO:FMO'},
+        'AMO2': {'R:R:AMOLR'},
+        'AMO3': {'R:R:R:AMO', 'R:R:R:AMOSC'},
     }
     for mnemonic, instr_type, op_spec, fields in all_instructions:
         if op_spec not in _SUPPORTED_OP_SPEC[instr_type]:
