@@ -425,6 +425,7 @@ class TestHPyCapsule(HPyTest):
 
     @pytest.mark.syncgc
     def test_capsule_new_with_destructor(self):
+        import gc
         mod = self.make_module("""
             static int pointer_freed = 0;
 
@@ -455,6 +456,7 @@ class TestHPyCapsule(HPyTest):
         p = mod.capsule_new(789, "Hello, World!")
         assert mod.capsule_getname(p) == "some_capsule"
         del p
+        gc.collect()
         assert mod.pointer_freed()
 
     def test_capsule_new_with_invalid_destructor(self):

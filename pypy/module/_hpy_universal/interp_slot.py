@@ -602,7 +602,12 @@ def fill_slot(handles, w_type, hpyslot):
         w_type.tp_finalize = w_slot
         return has_tp_call
     elif slot_num == HPySlot_Slot.HPy_bf_releasebuffer:
+        # Handled befor this function
         return has_tp_call
+    elif slot_num == HPySlot_Slot.HPy_bf_getbuffer:
+        cls = get_slot_cls(handles, W_wrap_getbuffer)
+        w_slot = cls(slot_num,"__buffer__", hpyslot.c_impl, w_type)
+        w_type.setdictvalue(space, "__buffer__", w_slot)
     elif slot_num == HPySlot_Slot.HPy_tp_call:
         has_tp_call = True
     # generic cases

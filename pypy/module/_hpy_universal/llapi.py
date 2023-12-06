@@ -505,19 +505,34 @@ typedef struct {
 
 typedef struct {
     void *cpy_trampoline;
-    HPyFunc_keywords impl;
+    /* Should be HPyFunc_keywords, but the declaration above is too different
+     * from the actual one (HPy -> HPy_s, func returns a struct) which
+     * confuses RPython
+     */
+    void* impl;  
 } HPyCallFunction;
 
 /* hpymodule.h */
 
-typedef void cpy_PyMethodDef;
+typedef void *(*PyCFunction)(void *, void *);
+struct PyMethodDef {
+    const char  *ml_name;   /* The name of the built-in function/method */
+    PyCFunction  ml_meth;   /* The C function that implements it */
+    int          ml_flags;  /* Combination of METH_xxx flags, which mostly
+                               describe the args expected by the C func */
+    const char  *ml_doc;    /* The __doc__ attribute, or NULL */
+};
+typedef struct PyMethodDef PyMethodDef;
 
 typedef struct {
     const char* doc;
     HPy_ssize_t size;
-    cpy_PyMethodDef *legacy_methods;
-    HPyDef **defines;   /* points to an array of 'HPyDef *' */
-    HPyGlobal **globals;
+    PyMethodDef *legacy_methods;
+    HPyDef **defines;
+    /* Should be HPyGlobal**, but after translation HPGlobal is a struct
+     * which confuses RPython
+     */
+    void *globals;
 } HPyModuleDef;
 
 /* hpytype.h */
@@ -674,7 +689,7 @@ HPy_ssize_t = cts.gettype('HPy_ssize_t')
 HPy = cts.gettype('HPy')
 HPy_NULL = rffi.cast(HPy, 0)
 
-cpy_PyMethodDef = cts.gettype('cpy_PyMethodDef')
+PyMethodDef = cts.gettype('PyMethodDef')
 HPyModuleDef = cts.gettype('HPyModuleDef')
 HPyModuleDefP = cts.gettype('HPyModuleDef *')
 VersionGetterFuncPtr = cts.gettype('VersionGetterFuncPtr')
@@ -682,7 +697,7 @@ InitFuncPtr = cts.gettype('InitFuncPtr')
 InitContextFuncPtr = cts.gettype('InitContextFuncPtr')
 # CTypeSpace converts "PyMethodDef*" into lltype.Ptr(PyMethodDef), but we
 # want a CArrayPtr instead
-HPyModuleDef._flds['c_legacy_methods'] = rffi.CArrayPtr(cpy_PyMethodDef)
+HPyModuleDef._flds['c_legacy_methods'] = rffi.CArrayPtr(PyMethodDef)
 
 # enum HPyFunc_Signature {
 HPyFunc_VARARGS  = 1

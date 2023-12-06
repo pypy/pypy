@@ -1,19 +1,21 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
-from rpython.rlib import rgc, jit
+from rpython.rlib import rgc, jit, rawrefcount
 from rpython.rlib.unroll import unrolling_iterable
 #
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.typedef import GetSetProperty
 #
 from pypy.module.cpyext import pyobject
 from pypy.module.cpyext.methodobject import PyMethodDef, PyCFunction
 from pypy.module.cpyext.modsupport import convert_method_defs
-from pypy.module.cpyext.api import PyTypeObjectPtr, cts as cpyts, generic_cpy_call
+from pypy.module.cpyext.api import (PyTypeObjectPtr, cts as cpyts,
+            generic_cpy_call, Py_TPFLAGS_HEAPTYPE)
 from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.state import State
+from pypy.module.cpyext.typeobject import PyHeapTypeObject
 #
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal.interp_descr import W_HPyMemberDescriptor
@@ -28,11 +30,57 @@ def HPy_FromPyObject(space, handles, ctx, obj):
 
 @API.func("void *HPy_AsPyObject(HPyContext *ctx, HPy h)", cpyext=True)
 def HPy_AsPyObject(space, handles, ctx, h):
-    if h == 0:
+    if not h:
         return rffi.cast(rffi.VOIDP, 0)
     w_obj = handles.deref(h)
     pyobj = pyobject.make_ref(space, w_obj)
     return rffi.cast(rffi.VOIDP, pyobj)
+
+@API.func("void ObjectFreeNOOP(void *)", cpyext=True, is_helper=True)
+def ObjectFreeNOOP(space, *args):
+    pass
+
+@jit.dont_look_inside
+def create_pyobject_from_storage(space, w_obj, w_metatype=None, basicsize=0):
+    # Taken from create_ref, but do not allocate
+    storage = w_obj._hpy_get_raw_storage(space)
+    if pyobject.w_obj_has_pyobj(w_obj):
+        raise oefmt(space.w_TypeError,
+            "internal error: seeing a PyObject before one was expected")
+    # Make sure all the parent pyobjs have been created
+    w_type = space.type(w_obj)
+    pyobject.as_pyobj(space, w_type)
+
+    typedescr = pyobject.get_typedescr(w_obj.typedef)
+    py_obj = rffi.cast(pyobject.PyObject, storage)
+    if w_metatype:
+        py_obj.c_ob_type = rffi.cast(PyTypeObjectPtr, pyobject.make_ref(space, w_metatype))
+        # Adjust the heaptype pointers
+        py_heaptype = rffi.cast(PyHeapTypeObject, py_obj)
+        pto = py_heaptype.c_ht_type
+        pto.c_tp_flags = rffi.cast(rffi.ULONG, Py_TPFLAGS_HEAPTYPE)
+        pto.c_tp_as_async = py_heaptype.c_as_async
+        pto.c_tp_as_number = py_heaptype.c_as_number
+        pto.c_tp_as_sequence = py_heaptype.c_as_sequence
+        pto.c_tp_as_mapping = py_heaptype.c_as_mapping
+        pto.c_tp_as_buffer = py_heaptype.c_as_buffer
+        pto.c_tp_itemsize = 0
+    pyobject.track_reference(space, py_obj, w_obj)
+    typedescr.attach(space, py_obj, w_obj)
+    py_obj.c_ob_refcnt += 1
+    if w_metatype:
+        pto = rffi.cast(PyTypeObjectPtr, py_obj)
+        pto.c_tp_basicsize = basicsize
+        if basicsize:
+            # Disable freeing the PyObject memory since it is managed via the storage
+            ll_objectfree = ObjectFreeNOOP.get_llhelper(space)
+            pto.c_tp_free = ll_objectfree
+        else:
+            # There will be no HPy storage, just a "regular" cpyext allocation
+            # Make sure tp_basicsize is reasonable
+            pto.c_tp_basicsize = rffi.sizeof(pyobject.PyObject.TO)
+    return py_obj
+    
 
 # ~~~ legacy_methods ~~~
 # This is used by both modules and types
@@ -191,11 +239,11 @@ SLOT_WRAPPERS_TABLE = unrolling_iterable(make_slot_wrappers_table())
 @jit.dont_look_inside
 def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dealloc):
     from pypy.module.cpyext.slotdefs import wrap_unaryfunc
-    from pypy.module.cpyext.pyobject import as_pyobj
     from pypy.module.cpyext.typeobjectdefs import newfunc, destructor, allocfunc, freefunc
     slotdefs = rffi.cast(rffi.CArrayPtr(cpyts.gettype('PyType_Slot')), c_legacy_slots)
     i = 0
     type_name = w_type.getqualname(space)
+    pytype = rffi.cast(PyTypeObjectPtr, pyobject.as_pyobj(space, w_type))
     while True:
         slotdef = slotdefs[i]
         slotnum = rffi.cast(lltype.Signed, slotdef.c_slot)
@@ -217,20 +265,18 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots, needs_hpytype_dea
             funcptr = slotdef.c_pfunc
             if not hasattr(space, 'is_fake_objspace'):
                 # the following lines break test_ztranslation :(
-                pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
                 pytype.c_tp_dealloc = rffi.cast(destructor, funcptr)
     
         elif slotnum == cpyts.macros['Py_tp_new']:
             funcptr = slotdef.c_pfunc
-            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
             pytype.c_tp_new = rffi.cast(newfunc, funcptr)
         elif slotnum == cpyts.macros['Py_tp_alloc']:
             funcptr = slotdef.c_pfunc
-            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
             pytype.c_tp_alloc = rffi.cast(allocfunc, funcptr)
         elif slotnum == cpyts.macros['Py_tp_free']:
             funcptr = slotdef.c_pfunc
-            pytype = rffi.cast(PyTypeObjectPtr, as_pyobj(space, w_type))
+            # XXX this will mess up the no-op free, so maybe
+            # raise an error?
             pytype.c_tp_free = rffi.cast(freefunc, funcptr)
         else:
             attach_legacy_slot(space, w_type, slotdef, slotnum, type_name)

@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import (
     import_from_mixin, newlist_hint, resizelist_hint, specialize)
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rstring import (
-    StringBuilder, ByteListBuilder, startswith, endswith)
+    StringBuilder, ByteListBuilder)
 from rpython.rlib.debug import check_list_of_chars, check_nonneg
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.rgc import (resizable_list_supporting_raw_ptr,
@@ -443,12 +443,13 @@ class W_BytearrayObject(W_Root):
 
     def descr_extend(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
-            other_data = w_other.getdata()[:-1]
+            other_data = list(w_other.getdata()[:-1])
         elif isinstance(w_other, W_BytesObject):    # performance only
             other_data = list(w_other.bytes_w(space))
         else:
             other_data = list(makebytesdata_w(space, w_other))
         data = self.getdata()
+        assert data[len(data) - 1] == "\0"
         # pop off the null byte
         data.pop()
         data += other_data
@@ -553,10 +554,18 @@ class W_BytearrayObject(W_Root):
     def _convert_idx_params(self, space, w_start, w_end):
         # optimization: this version doesn't force getdata()
         # but then because of the final null byte, end needs adjustment
-        start, end = unwrap_start_stop(space, self._len(), w_start, w_end)
+        length = self._len()
+        start, end = unwrap_start_stop(space, length, w_start, w_end)
         ofs = self._offset
-        if self._len() < 1:
+        if length < 1:
             ofs += 1
+        if end > length:
+            end = length
+        # prevent overflow if start is close to sys.maxsize
+        # this will fail if length is close to sys.maxsize, but that is very
+        # unlikely
+        if start > length + 1:
+            start = length + 1
         return (self._data, start + ofs, end + ofs, ofs)
 
     def _unpack_slice(self, space, w_index):

@@ -274,3 +274,88 @@ class TestCustomLegacySlotsFeatures(HPyTest):
             self.make_module(mod_src)
         assert str(err.value) == (
             "cannot specify .legacy_slots without setting .builtin_shape=HPyType_BuiltinShape_Legacy")
+
+    def test_buffer_legacy(self):
+        # Copy the code from non-legacy test_buffer, and use the C-API interfaces
+        # make sure C-level gets the HPy-level bf_getbuffer function
+        mod = self.make_module("""
+            #include <Python.h>
+            typedef struct {
+                PyObject_HEAD
+                int exports;
+            } FakeArrayObject;
+
+            HPyType_LEGACY_HELPERS(FakeArrayObject);
+
+            static char static_mem[12] = {0,1,2,3,4,5,6,7,8,9,10,11};
+            static HPy_ssize_t _shape[1] = {12};
+            static HPy_ssize_t _strides[1] = {1};
+
+            HPyDef_SLOT_IMPL(FakeArray_getbuffer, _getbuffer_impl, HPy_bf_getbuffer)
+            static int _getbuffer_impl(HPyContext *ctx, HPy self, HPy_buffer* buf, int flags) {
+                FakeArrayObject *arr = FakeArrayObject_AsStruct(ctx, self);
+                if (arr->exports > 0) {
+                    buf->obj = HPy_NULL;
+                    HPyErr_SetString(ctx, ctx->h_BufferError,
+                               "only one buffer allowed");
+                    return -1;
+                }
+                arr->exports++;
+                buf->buf = static_mem;
+                buf->len = 12;
+                buf->itemsize = 1;
+                buf->readonly = 1;
+                buf->ndim = 1;
+                buf->format = (char*)"B";
+                buf->shape = _shape;
+                buf->strides = _strides;
+                buf->suboffsets = NULL;
+                buf->internal = NULL;
+                buf->obj = HPy_Dup(ctx, self);
+                return 0;
+            }
+
+            HPyDef_SLOT_IMPL(FakeArray_releasebuffer, _relbuffer_impl, HPy_bf_releasebuffer)
+            static void _relbuffer_impl(HPyContext *ctx, HPy h_obj, HPy_buffer* buf) {
+                FakeArrayObject *arr = FakeArrayObject_AsStruct(ctx, h_obj);
+                arr->exports--;
+            }
+
+            static HPyDef *FakeArray_defines[] = {
+                &FakeArray_getbuffer,
+                &FakeArray_releasebuffer,
+                NULL
+            };
+
+            static HPyType_Spec FakeArray_Spec = {
+                .name = "mytest.FakeArray",
+                .basicsize = sizeof(FakeArrayObject),
+                .builtin_shape = SHAPE(FakeArrayObject),
+                .defines = FakeArray_defines,
+            };
+
+            HPyDef_METH(pybuffer, "pybuffer", HPyFunc_O)
+            static HPy pybuffer_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                Py_buffer view;
+                PyObject *o = HPy_AsPyObject(ctx, arg);
+                size_t hasbuffer = PyObject_CheckBuffer(o);
+                if (!hasbuffer) {
+                    Py_DecRef(o);
+                    HPyErr_SetString(ctx, ctx->h_RuntimeError, "PyObject_CheckBuffer failed");
+                    return HPy_NULL;
+                }
+                if (PyObject_GetBuffer(o, &view, PyBUF_SIMPLE) != 0) {
+                    Py_DecRef(o);
+                    return HPy_NULL;
+                }
+                PyBuffer_Release(&view);
+                return HPyLong_FromLong(ctx, 0);
+            }
+
+            @EXPORT(pybuffer)
+            @EXPORT_TYPE("FakeArray", FakeArray_Spec)
+            @INIT
+        """)
+        arr = mod.FakeArray()
+        assert mod.pybuffer(arr) == 0

@@ -234,12 +234,14 @@ class TestLegacyType(_TestType):
         assert mod.DummyMeta is type(mod.Dummy)
         assert mod.set_meta_data(mod.Dummy) is None
         assert mod.get_meta_data(mod.Dummy) == 42 + 11
+        # XXX TODO: Does DummyMeta_AsStruct() return anything?
+        # XXX TODO: make sure Dummy_AsStruct and (Dummy*)pyobj point to the same memory
 
         d = mod.Dummy()
         mod.set_member(d)
         assert d.member == 123614
 
-    def test_call_zero_basicsize(self):
+    def test_call_zero_basicsize_legacy(self):
         import pytest
         # type 'Dummy' has basicsize == 0; we cannot use the HPy call protocol
         # with legacy types that inherit their struct since we then don't know
@@ -265,7 +267,7 @@ class TestLegacyType(_TestType):
                 @INIT
             """)
 
-    def test_legacy_class_method(self):
+    def test_legacy_class(self):
         mod = self.make_module("""
             @DEFINE_PointObject
             @DEFINE_Point_xy
@@ -303,7 +305,16 @@ class TestLegacyType(_TestType):
                 .legacy_slots = Point_slots,
                 .defines = Point_defines,
             };
-
+            HPyDef_METH(basicsize, "basicsize", HPyFunc_O)
+            static HPy basicsize_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                PyObject *o = HPy_AsPyObject(ctx, arg);
+                size_t diff = ((PyTypeObject *)o)->tp_basicsize - sizeof(PointObject);
+                HPy h_res = HPyLong_FromLong(ctx, diff);
+                Py_DecRef(o);
+                return h_res;
+            }
+            @EXPORT(basicsize)
             @EXPORT_TYPE("Point", Point_spec)
             @INIT
         """)
@@ -313,6 +324,7 @@ class TestLegacyType(_TestType):
         pt = mod.Point()
         assert pt.x == 0
         assert pt.y == 0
+        assert mod.basicsize(mod.Point) == 0
 
 
 class TestCustomLegacyFeatures(HPyTest):

@@ -185,7 +185,7 @@ PY_STACK_FRAME_T *get_vmprof_stack(void)
 #endif
 
 intptr_t vmprof_get_traceback(void *stack, void *ucontext,
-                              void **result_p, intptr_t result_length)
+                              intptr_t *result_p, intptr_t result_length)
 {
     int n;
     int enabled;
@@ -201,7 +201,7 @@ intptr_t vmprof_get_traceback(void *stack, void *ucontext,
     enabled = vmp_native_enabled();
     vmp_native_disable();
 #endif
-    n = get_stack_trace(stack, result_p, result_length - 2, pc);
+    n = get_stack_trace(stack, (void**)result_p, result_length - 2, pc);
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
     if (enabled) {
         vmp_native_enable();
