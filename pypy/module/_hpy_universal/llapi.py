@@ -505,7 +505,11 @@ typedef struct {
 
 typedef struct {
     void *cpy_trampoline;
-    HPyFunc_keywords impl;
+    /* Should be HPyFunc_keywords, but the declaration above is too different
+     * from the actual one (HPy -> HPy_s, func returns a struct) which
+     * confuses RPython
+     */
+    void* impl;  
 } HPyCallFunction;
 
 /* hpymodule.h */
@@ -525,7 +529,10 @@ typedef struct {
     HPy_ssize_t size;
     PyMethodDef *legacy_methods;
     HPyDef **defines;
-    HPyGlobal **globals;
+    /* Should be HPyGlobal**, but after translation HPGlobal is a struct
+     * which confuses RPython
+     */
+    void *globals;
 } HPyModuleDef;
 
 /* hpytype.h */
