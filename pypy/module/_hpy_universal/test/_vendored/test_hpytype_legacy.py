@@ -79,15 +79,8 @@ class TestLegacyType(_TestType):
         assert mod.get_counter() == 0
         p = mod.Point(0, 0)
         del p
-        import gc
-        # make the calls to `collect` use the mock function
-        _collect = gc.collect
-        gc.collect = self.debug_collect
-        try:
-            gc.collect(); gc.collect(); gc.collect()
-            assert mod.get_counter() == 1
-        finally:
-            gc.collect = _collect
+        self.debug_collect()
+        assert mod.get_counter() == 1
 
     def test_legacy_dealloc_and_HPy_tp_traverse(self):
         import pytest

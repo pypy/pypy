@@ -304,7 +304,7 @@ class TestHPyField(HPyTest):
         finally:
             gc.enable()
         #
-        gc.collect()
+        self.debug_collect()
         assert count_pairs() == 0
 
     def test_tp_finalize(self):
