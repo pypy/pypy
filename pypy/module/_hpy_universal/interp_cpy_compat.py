@@ -67,7 +67,7 @@ def create_pyobject_from_storage(space, w_obj, w_metatype=None, basicsize=0):
         pto.c_tp_itemsize = 0
     pyobject.track_reference(space, py_obj, w_obj)
     typedescr.attach(space, py_obj, w_obj)
-    py_obj.c_ob_refcnt += 1
+    # py_obj.c_ob_refcnt += 1
     if w_metatype:
         pto = rffi.cast(PyTypeObjectPtr, py_obj)
         pto.c_tp_basicsize = basicsize

@@ -61,11 +61,12 @@ class TestSlots(HPyTest):
             @INIT
         """)
         point = mod.Point(7, 3)
+        self.debug_collect()
         assert mod.get_destroyed_x() == 0
         del point
-        gc.collect()
+        self.debug_collect()
         assert mod.get_destroyed_x() == 7
-        gc.collect()
+        self.debug_collect()
         assert mod.get_destroyed_x() == 7
 
     @pytest.mark.syncgc
@@ -97,9 +98,9 @@ class TestSlots(HPyTest):
         point = mod.Point(7, 3)
         assert mod.get_finalized_x() == 0
         del point
-        gc.collect()
+        self.debug_collect()
         assert mod.get_finalized_x() == 7
-        gc.collect()
+        self.debug_collect()
         assert mod.get_finalized_x() == 7
 
     @pytest.mark.syncgc
@@ -147,9 +148,9 @@ class TestSlots(HPyTest):
         point = mod.Point(7, 3)
         assert mod.get_finalized_x() == 0
         del point
-        gc.collect()
+        self.debug_collect()
         assert mod.get_finalized_x() == 7
-        gc.collect()
+        self.debug_collect()
         assert mod.get_finalized_x() == 7
 
     def test_nb_ops_binary(self):
