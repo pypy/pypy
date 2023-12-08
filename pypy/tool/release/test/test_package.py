@@ -31,7 +31,7 @@ class TestPackaging:
         cpyver = 'pypy%d.%d' % CPYTHON_VERSION[:2]
         if sys.platform == 'win32':
             stdlib = prefix.join('lib',)
-            stdpath = 'lib'
+            stdpath = 'Lib'
         else:
             stdlib = prefix.join('lib', cpyver)
             stdpath = 'lib/%s' % cpyver
