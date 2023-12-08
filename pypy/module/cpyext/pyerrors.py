@@ -14,6 +14,7 @@ from pypy.module.cpyext.pyobject import (
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
 from rpython.rlib import rposix, jit
+from rpython.rlib import rwin32
 
 PyStopIterationObjectStruct = lltype.ForwardReference()
 PyStopIterationObject = lltype.Ptr(PyStopIterationObjectStruct)
@@ -49,6 +50,9 @@ def stopiteration_dealloc(space, py_obj):
 def PyErr_SetObject(space, w_type, w_value):
     """This function is similar to PyErr_SetString() but lets you specify an
     arbitrary Python object for the "value" of the exception."""
+    pyerr_setobject(space, w_type, w_value)
+
+def pyerr_setobject(space, w_type, w_value):
     state = space.fromcache(State)
     operr = OperationError(w_type, w_value)
     operr.record_context(space, space.getexecutioncontext())
@@ -57,19 +61,62 @@ def PyErr_SetObject(space, w_type, w_value):
 @cpython_api([PyObject, CONST_STRING], lltype.Void)
 def PyErr_SetString(space, w_type, message_ptr):
     message = rffi.charp2str(message_ptr)
-    PyErr_SetObject(space, w_type, space.newtext(message))
+    pyerr_setobject(space, w_type, space.newtext(message))
 
 @cpython_api([PyObject], lltype.Void, error=CANNOT_FAIL)
 def PyErr_SetNone(space, w_type):
     """This is a shorthand for PyErr_SetObject(type, Py_None)."""
-    PyErr_SetObject(space, w_type, space.w_None)
+    pyerr_setobject(space, w_type, space.w_None)
 
 if os.name == 'nt':
     # For some reason CPython returns a (PyObject*)NULL
     # This confuses the annotator, so set result_is_ll
     @cpython_api([rffi.INT_real], PyObject, error=CANNOT_FAIL, result_is_ll=True)
     def PyErr_SetFromWindowsErr(space, err):
-        PyErr_SetObject(space, space.w_OSError, space.newint(err))
+        pyerr_setobject(space, space.w_OSError, space.newint(err))
+        return rffi.cast(PyObject, 0)
+
+    @cpython_api([rffi.INT_real, CONST_STRING], PyObject, error=CANNOT_FAIL, result_is_ll=True)
+    def PyErr_SetFromWindowsErrWithFilename(space, err, filename):
+        state = space.fromcache(State)
+        if filename:
+            filename = rffi.charp2str(filename)
+            try:
+                w_filename = space.fsdecode(space.newbytes(filename))
+            except:
+                w_filename = space.w_None
+        else:
+            w_filename = space.w_None
+        return pyerr_setexcfromwindows(space, space.w_WindowsError, err,
+                                       w_filename)
+
+    @cpython_api([PyObject, rffi.INT_real, PyObject], PyObject, error=CANNOT_FAIL, result_is_ll=True)
+    def PyErr_SetExcFromWindowsErrWithFilenameObject(space, w_exc, err, w_filename):
+        return pyerr_setexcfromwindows(space, w_exc, err, w_filename)
+
+    @cpython_api([PyObject, rffi.INT_real, PyObject, PyObject], PyObject, error=CANNOT_FAIL, result_is_ll=True)
+    def PyErr_SetExcFromWindowsErrWithFilenameObjects(space, w_exc, err, w_filename, w_filename2):
+        return pyerr_setexcfromwindows(space, w_exc, err, w_filename, w_filename2)
+
+    def pyerr_setexcfromwindows(space, w_exc, err, w_filename=None, w_filename2=None):
+        # Take from error._wrap_oserror2_impl
+        try:
+            msg, lgt = rwin32.FormatErrorW(err)
+        except ValueError:
+            msg = 'Windows Error %d' % err
+            lgt = len(msg)
+        w_msg = space.newtext(msg, lgt)
+        w_winerror = space.newint(err)
+        if not w_filename:
+            w_filename = space.w_None
+        if not w_filename2:
+            w_filename2 = space.w_None
+        w_error = space.call_function(w_exc, space.w_None, w_msg, w_filename,
+                                      w_winerror, w_filename2)
+        state = space.fromcache(State)
+        operr = OperationError(space.type(w_error), w_error)
+        operr.record_context(space, space.getexecutioncontext())
+        state.set_exception(operr)
         return rffi.cast(PyObject, 0)
 
 @cpython_api([], PyObject, result_borrowed=True)
