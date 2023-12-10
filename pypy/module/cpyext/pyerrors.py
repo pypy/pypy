@@ -14,6 +14,7 @@ from pypy.module.cpyext.state import State
 from pypy.module.cpyext.import_ import PyImport_Import
 from rpython.rlib import rposix, jit
 from rpython.rlib import rwin32
+from rpython.rlib.rarithmetic import widen
 
 PyStopIterationObjectStruct = lltype.ForwardReference()
 PyStopIterationObject = lltype.Ptr(PyStopIterationObjectStruct)
@@ -99,6 +100,7 @@ if os.name == 'nt':
 
     def pyerr_setexcfromwindows(space, w_exc, err, w_filename=None, w_filename2=None):
         # Take from error._wrap_oserror2_impl
+        err = widen(err)
         try:
             msg, lgt = rwin32.FormatErrorW(err)
         except ValueError:
