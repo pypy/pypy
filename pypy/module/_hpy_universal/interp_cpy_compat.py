@@ -36,6 +36,17 @@ def HPy_AsPyObject(space, handles, ctx, h):
     pyobj = pyobject.make_ref(space, w_obj)
     return rffi.cast(rffi.VOIDP, pyobj)
 
+@API.func("void *HPy_AsStruct_Legacy(HPyContext *ctx, HPy h)")
+def HPy_AsStruct_Legacy(space, handles, ctx, h):
+    w_obj = handles.deref(h)
+    storage = w_obj._hpy_get_raw_storage(space)
+    if not storage:
+        print "HPy_AsStruct_Legacy called on handle with no storage, expect problems"
+    else:
+        pyobject.incref(space, rffi.cast(pyobject.PyObject, storage))
+    return storage
+
+
 @API.func("void ObjectFreeNOOP(void *)", cpyext=True, is_helper=True)
 def ObjectFreeNOOP(space, *args):
     pass
@@ -44,11 +55,11 @@ def ObjectFreeNOOP(space, *args):
 def create_pyobject_from_storage(space, w_obj, w_metatype=None, basicsize=0):
     # Taken from create_ref, but do not allocate
     storage = w_obj._hpy_get_raw_storage(space)
+    w_type = space.type(w_obj)
     if pyobject.w_obj_has_pyobj(w_obj):
         raise oefmt(space.w_TypeError,
             "internal error: seeing a PyObject before one was expected")
     # Make sure all the parent pyobjs have been created
-    w_type = space.type(w_obj)
     pyobject.as_pyobj(space, w_type)
 
     typedescr = pyobject.get_typedescr(w_obj.typedef)

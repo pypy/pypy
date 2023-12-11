@@ -261,11 +261,9 @@ def HPy_AsStruct_Object(space, handles, ctx, h):
     storage = w_obj._hpy_get_raw_storage(space)
     return storage
 
-@API.func("void *HPy_AsStruct_Legacy(HPyContext *ctx, HPy h)")
-def HPy_AsStruct_Legacy(space, handles, ctx, h):
-    w_obj = handles.deref(h)
-    storage = w_obj._hpy_get_raw_storage(space)
-    return storage
+# @API.func("void *HPy_AsStruct_Legacy(HPyContext *ctx, HPy h)")
+# def HPy_AsStruct_Legacy(space, handles, ctx, h):
+#    see interp_cpy_compat, since this must incref the return value
 
 @API.func("void * HPy_AsStruct_Type(HPyContext *ctx, HPy h)", error_value="CANNOT_FAIL")
 def HPy_AsStruct_Type(space, handles, ctx, h):
@@ -595,12 +593,17 @@ def _create_instance_subtype(space, w_type, __args__=None):
         w_bestbase = space.w_type
     # implementation of W_TypeObect.descr_call
     # w_result = space.call_obj_args(w_bestbase, w_type, __args__)
+    w_oldtype, w_olddescr = w_type.lookup_where('__new__')
     w_newtype, w_newdescr = w_bestbase.lookup_where('__new__')
     if space.config.objspace.usemodules.cpyext:
         w_newtype, w_newdescr = w_bestbase.hack_which_new_to_call(
             w_newtype, w_newdescr)
     #
     w_newfunc = space.get(w_newdescr, space.w_None, w_type=w_bestbase)
+    w_oldfunc = space.get(w_olddescr, space.w_None, w_type=w_type)
+    if w_newfunc == w_oldfunc:
+        # prevent recursion
+        return _create_instance(space, w_type)
     # Here we switch "self" with "w_type"
     w_result = space.call_obj_args(w_newfunc, w_type, __args__)
     return _finish_create_instance(space, w_result, w_type)
@@ -621,16 +624,19 @@ def _finish_create_instance(space, w_result, w_type):
                 break
         else:
             # Can this ever happen?
+            print space.text_w(space.repr(w_type)), "has no HPy base", [space.text_w(space.repr(x)) for x in w_type.bases_w]
             raise oefmt(space.w_TypeError, "bad call to __new__")
-    # print "allocating %d for storage" % w_hpybase.basicsize
     assert isinstance(w_hpybase, W_HPyTypeObject)
     if w_hpybase.basicsize > 0:
-        hpy_storage = storage_alloc(w_hpybase.basicsize)
-        hpy_storage.tp_traverse = w_hpybase.tp_traverse
-        w_result._hpy_set_raw_storage(space, hpy_storage)
-        if w_hpybase.is_cpytype() or w_hpybase.is_legacy():
-            pyobj = create_pyobject_from_storage(space, w_result)
-            pyobj.c_ob_type = cts.cast("PyTypeObject *", make_ref(space, w_hpybase))
+        if w_result._hpy_get_raw_storage(space):
+            print "already allocated storage"
+        else:
+            hpy_storage = storage_alloc(w_hpybase.basicsize)
+            hpy_storage.tp_traverse = w_hpybase.tp_traverse
+            w_result._hpy_set_raw_storage(space, hpy_storage)
+            if w_hpybase.is_cpytype() or w_hpybase.is_legacy():
+                pyobj = create_pyobject_from_storage(space, w_result)
+                pyobj.c_ob_type = cts.cast("PyTypeObject *", make_ref(space, w_hpybase))
     elif w_hpybase.is_cpytype() or w_hpybase.is_legacy():
         # raise oefmt(space.w_RuntimeError, "see issue 459")
         pass
@@ -662,7 +668,6 @@ def HPyType_GetName(space, handles, ctx, h_type):
     if isinstance(w_obj, W_TypeObject):
         s = w_obj.name
         return handles.str2ownedptr(s, owner=h_type)
-    # print "non-type passed to HPyType_GetName"
     return handles.str2ownedptr("<unknown>", owner=h_type)
 
 @API.func("long HPyType_GetBuiltinShape(HPyContext *ctx, HPy type)", error_value="CANNOT_FAIL")
