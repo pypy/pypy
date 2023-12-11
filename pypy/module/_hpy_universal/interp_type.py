@@ -291,7 +291,7 @@ def _HPy_New(space, handles, ctx, h_type, data):
     # the cpyext one. 
     storage = w_result._hpy_get_raw_storage(space)
     if not storage:
-        print "HPy_New: setting storage for type '%s' to NULL" % space.text_w(space.repr(w_type))
+        # print "HPy_New: setting storage for type '%s' to NULL" % space.text_w(space.repr(w_type))
     data[0] = storage
     h = handles.new(w_result)
     return h
@@ -637,7 +637,7 @@ def _finish_create_instance(space, w_result, w_type):
     assert isinstance(w_hpybase, W_HPyTypeObject)
     if w_hpybase.basicsize > 0:
         if w_result._hpy_get_raw_storage(space):
-            print "already allocated storage"
+            # print "already allocated storage"
         else:
             hpy_storage = storage_alloc(w_hpybase.basicsize)
             hpy_storage.tp_traverse = w_hpybase.tp_traverse
