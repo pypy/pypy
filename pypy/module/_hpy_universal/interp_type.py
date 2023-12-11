@@ -291,7 +291,7 @@ def _HPy_New(space, handles, ctx, h_type, data):
     # the cpyext one. 
     storage = w_result._hpy_get_raw_storage(space)
     if not storage:
-        raise oefmt(space.w_TypeError, "Object of type '%N' is not a valid HPy object.", w_type)
+        print "HPy_New: setting storage for type '%s' to NULL" % space.text_w(space.repr(w_type))
     data[0] = storage
     h = handles.new(w_result)
     return h
@@ -470,6 +470,7 @@ def add_slot_defs(handles, w_result, spec):
     rbp = llapi.cts.cast('HPyFunc_releasebufferproc', 0)
     vectorcalloffset = 0
     has_tp_call = False
+    filled_mp_subscript = False
     while p[i]:
         kind = rffi.cast(lltype.Signed, p[i].c_kind)
         if kind == HPyDef_Kind.HPyDef_Kind_Slot:
@@ -478,8 +479,15 @@ def add_slot_defs(handles, w_result, spec):
             if slot_num == HPySlot_Slot.HPy_bf_releasebuffer:
                 rbp = llapi.cts.cast('HPyFunc_releasebufferproc',
                                      hpyslot.c_impl)
-            else:
-                has_tp_call = fill_slot(handles, w_result, hpyslot)
+                i += 1
+                continue
+            elif slot_num == HPySlot_Slot.HPy_sq_item:
+                if filled_mp_subscript:
+                    i += 1
+                    continue
+            elif slot_num == HPySlot_Slot.HPy_mp_subscript:
+                filled_mp_subscript = True
+            has_tp_call = fill_slot(handles, w_result, hpyslot)
         elif kind == HPyDef_Kind.HPyDef_Kind_Meth:
             hpymeth = p[i].c_meth
             name = rffi.constcharp2str(hpymeth.c_name)
@@ -618,14 +626,14 @@ def _finish_create_instance(space, w_result, w_type):
     else:
         # a subclass?
         assert isinstance(w_type, W_TypeObject)
-        for w_b in w_type.bases_w:
+        w_hpybase = w_type
+        for w_b in w_type.mro_w:
             if isinstance(w_b, W_HPyTypeObject):
                 w_hpybase = w_b
                 break
         else:
-            # Can this ever happen?
-            print space.text_w(space.repr(w_type)), "has no HPy base", [space.text_w(space.repr(x)) for x in w_type.bases_w]
-            raise oefmt(space.w_TypeError, "bad call to __new__")
+            # This can happen via a direct call to HPy_New of a non-hpy type
+            return w_result
     assert isinstance(w_hpybase, W_HPyTypeObject)
     if w_hpybase.basicsize > 0:
         if w_result._hpy_get_raw_storage(space):

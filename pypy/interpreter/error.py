@@ -895,6 +895,8 @@ def get_converted_unexpected_exception(space, e):
         # translated, an RPython-level RuntimeError is turned into
         # an app-level RuntimeError by the next case.
         rstackovf.check_stack_overflow()
+        # print "maximum recurson depth exceeded"
+        # assert False
         return oefmt(space.w_RecursionError,
                      "maximum recursion depth exceeded")
     except RuntimeError:   # not on top of py.py
