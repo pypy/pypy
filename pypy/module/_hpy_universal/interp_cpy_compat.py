@@ -41,7 +41,9 @@ def HPy_AsStruct_Legacy(space, handles, ctx, h):
     w_obj = handles.deref(h)
     storage = w_obj._hpy_get_raw_storage(space)
     if not storage:
-        print "HPy_AsStruct_Legacy called on handle with no storage, expect problems"
+        print "HPy_AsStruct_Legacy called on handle with no storage, returning cpext object instead"
+        pyobj = pyobject.make_ref(space, w_obj)
+        return rffi.cast(rffi.VOIDP, pyobj)
     else:
         pyobject.incref(space, rffi.cast(pyobject.PyObject, storage))
     return storage
