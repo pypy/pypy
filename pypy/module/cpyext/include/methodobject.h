@@ -31,6 +31,10 @@ extern "C" {
 #define METH_FASTCALL  0x0080
 #endif
 
+/* Specifies that a signature is attached to the PyMethodDef behind the ml_name
+ * field. */
+#define METH_TYPED 0x1000
+
 /* METH_METHOD means the function stores an
  * additional reference to the class that defines it;
  * both self and class are passed to it.

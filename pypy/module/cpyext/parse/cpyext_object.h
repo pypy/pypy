@@ -190,6 +190,17 @@ struct PyMethodDef {
 };
 typedef struct PyMethodDef PyMethodDef;
 
+#define T_PY_OBJECT 0
+#define T_C_LONG 1
+
+struct PyPyTypedMethodMetadata {
+  int arg_type;
+  int ret_type;
+  void* underlying_func;
+  const char ml_name[100];
+};
+typedef struct PyPyTypedMethodMetadata PyPyTypedMethodMetadata;
+
 typedef struct {
     PyObject_HEAD
     PyMethodDef *m_ml; /* Description of the C function to call */

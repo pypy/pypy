@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem import llmemory, lltype, rffi
 from rpython.rlib import jit
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -11,14 +11,15 @@ from pypy.interpreter.typedef import (
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_FASTCALL,
-    METH_NOARGS, METH_O, METH_STATIC, METH_VARARGS, METH_METHOD,
+    METH_NOARGS, METH_O, METH_STATIC, METH_TYPED, METH_VARARGS, METH_METHOD,
     PyObject, bootstrap_function, cpython_api, generic_cpy_call,
     CANNOT_FAIL, slot_function, cts, build_type_checkers,
-    PyObjectP, Py_ssize_t)
+    PyObjectP, Py_ssize_t, include_dirs)
 from pypy.module.cpyext.pyobject import (
     decref, from_ref, make_ref, as_pyobj, make_typedescr)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.tupleobject import tuple_from_args_w, PyTupleObject
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 PyMethodDef = cts.gettype('PyMethodDef')
 PyCFunction = cts.gettype('PyCFunction')
@@ -28,6 +29,33 @@ PyCFunctionKwArgsFast = cts.gettype('_PyCFunctionFastWithKeywords')
 PyCMethod = cts.gettype('PyCMethod')
 PyCFunctionObject = cts.gettype('PyCFunctionObject*')
 PyCMethodObject = cts.gettype('PyCMethodObject*')
+TypedMethodMetadata = cts.gettype('PyPyTypedMethodMetadata')
+
+eci = ExternalCompilationInfo(
+    includes = ['Python.h', 'assert.h'],
+    include_dirs = include_dirs,
+    post_include_bits = [
+        "RPY_EXTERN\n"
+        "PyPyTypedMethodMetadata* PyPyGetTypedSignature(PyMethodDef*);"
+        ],
+    separate_module_sources = ['''
+PyPyTypedMethodMetadata*
+PyPyGetTypedSignature(PyMethodDef* def)
+{
+  assert(def->ml_flags & METH_TYPED);
+  return (PyPyTypedMethodMetadata*)(def->ml_name - offsetof(PyPyTypedMethodMetadata, ml_name));
+}
+    '''],
+)
+
+pypy_get_typed_signature = rffi.llexternal(
+    "PyPyGetTypedSignature",
+    [lltype.Ptr(PyMethodDef)],
+    lltype.Ptr(TypedMethodMetadata),
+    compilation_info=eci,
+)
+
+long_to_long = lltype.Ptr(lltype.FuncType([rffi.LONG], rffi.LONG))
 
 @bootstrap_function
 def init_functionobject(space):
@@ -179,6 +207,8 @@ class W_PyCFunctionObject(W_Root):
                 raise oefmt(space.w_TypeError,
                             "%s() takes exactly one argument (%d given)",
                             self.name, length)
+            if flags & METH_TYPED:
+                return self.call_o_typed(space, w_self, __args__)
             return self.call_o(space, w_self, __args__)
         elif flags & METH_VARARGS:
             return self.call_varargs(space, w_self, __args__)
@@ -192,6 +222,19 @@ class W_PyCFunctionObject(W_Root):
     def call_o(self, space, w_self, __args__):
         func = self.ml.c_ml_meth
         w_o = __args__.arguments_w[0]
+        return generic_cpy_call(space, func, w_self, w_o)
+
+    def call_o_typed(self, space, w_self, __args__):
+        sig = pypy_get_typed_signature(self.ml)
+        args = __args__.arguments_w
+        if sig.c_arg_type == 1 and len(args) == 1:
+            # TODO(max): Don't raise if overflow or wrong type
+            long_arg = space.int_w(args[0])
+            underlying_func = rffi.cast(long_to_long, sig.c_underlying_func)
+            result_long = underlying_func(long_arg)
+            # TODO(max): Don't raise if overflow
+            return space.newint(result_long)
+        assert False
         return generic_cpy_call(space, func, w_self, w_o)
 
     def call_varargs(self, space, w_self, __args__):
