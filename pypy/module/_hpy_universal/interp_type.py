@@ -472,6 +472,11 @@ def add_slot_defs(handles, w_result, spec):
     vectorcalloffset = 0
     has_tp_call = False
     filled_mp_subscript = False
+    filled_nb_multiply = False
+    filled_nb_add = False
+    filled_nb_inplace_multiply = False
+    filled_nb_inplace_add = False
+    filled_mp_ass_subscript = False
     while p[i]:
         kind = rffi.cast(lltype.Signed, p[i].c_kind)
         if kind == HPyDef_Kind.HPyDef_Kind_Slot:
@@ -482,12 +487,49 @@ def add_slot_defs(handles, w_result, spec):
                                      hpyslot.c_impl)
                 i += 1
                 continue
+            # prefer mp_subscript over sq_item
             elif slot_num == HPySlot_Slot.HPy_sq_item:
                 if filled_mp_subscript:
                     i += 1
                     continue
             elif slot_num == HPySlot_Slot.HPy_mp_subscript:
                 filled_mp_subscript = True
+            # prefer nb_add over sq_concat
+            elif slot_num == HPySlot_Slot.HPy_sq_concat:
+                if filled_nb_add:
+                    i += 1
+                    continue
+            elif slot_num == HPySlot_Slot.HPy_nb_add:
+                filled_nb_add = True
+            # prefer nb_multiply over sq_repeat
+            elif slot_num == HPySlot_Slot.HPy_sq_repeat:
+                if filled_nb_multiply:
+                    i += 1
+                    continue
+            elif slot_num == HPySlot_Slot.HPy_nb_multiply:
+                filled_nb_multiply = True
+            # prefer nb_inplace_add over sq_inplace_concat
+            elif slot_num == HPySlot_Slot.HPy_sq_inplace_concat:
+                if filled_nb_inplace_add:
+                    i += 1
+                    continue
+            elif slot_num == HPySlot_Slot.HPy_nb_inplace_add:
+                filled_nb_inplace_add = True
+            # prefer nb_inplace_multiply over sq_inplace_repeat
+            elif slot_num == HPySlot_Slot.HPy_sq_inplace_repeat:
+                if filled_nb_inplace_multiply:
+                    i += 1
+                    continue
+            elif slot_num == HPySlot_Slot.HPy_nb_inplace_multiply:
+                filled_nb_inplace_multiply = True
+            # prefer mp_ass_subscript over sq_ass_item
+            elif slot_num == HPySlot_Slot.HPy_sq_ass_item:
+                if filled_mp_ass_subscript:
+                    i += 1
+                    continue
+            elif slot_num == HPySlot_Slot.HPy_mp_ass_subscript:
+                filled_mp_ass_subscript = True
+            #
             has_tp_call = fill_slot(handles, w_result, hpyslot)
         elif kind == HPyDef_Kind.HPyDef_Kind_Meth:
             hpymeth = p[i].c_meth
