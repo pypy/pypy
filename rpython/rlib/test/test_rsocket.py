@@ -785,3 +785,7 @@ def test_msg_trunc_weirdness_linux():
     a.send(b'abcdefgh')
     result = b.recv(2, socket.MSG_TRUNC)
     assert result == b'ab'
+
+def test_if_nameindex():
+    nameindex = rsocket.if_nameindex()
+    assert len(nameindex) > 0
