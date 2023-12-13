@@ -105,7 +105,7 @@ Speedups and enhancements
 Python 3.9+
 -----------
 
-- xxx
+- Improve ``os.scandir()`` handling of symlinks on Windows
 
 Bugfixes
 ~~~~~~~~
@@ -113,7 +113,7 @@ Bugfixes
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
-- xxx
+- Follow upstream performance patch for datetime.py (:issue:`4008`)
 
 Python 3.10
 -----------
