@@ -45,7 +45,11 @@ def HPy_AsStruct_Legacy(space, handles, ctx, h):
         pyobj = pyobject.make_ref(space, w_obj)
         return rffi.cast(rffi.VOIDP, pyobj)
     else:
-        pyobject.incref(space, rffi.cast(pyobject.PyObject, storage))
+        pyobj = rffi.cast(pyobject.PyObject, storage)
+        if pyobj.c_ob_refcnt > 0:
+            # maybe called in a c-api-level finalizer after disconnecting the
+            # w_obj/pyobj connection, in that case do not incref
+            pyobject.incref(space, pyobj)
     return storage
 
 
