@@ -54,7 +54,7 @@ if _SOLARIS:
 
 if _WIN32:
     includes = ()
-    libraries = ('ws2_32',)
+    libraries = ('ws2_32', 'Iphlpapi')
     calling_conv = 'win'
     header_lines = [
         '#include <WinSock2.h>',
@@ -340,16 +340,16 @@ CConfig.protoent = platform.Struct('struct protoent',
 
 CConfig.HAVE_ACCEPT4 = platform.Has('accept4')
 
-CConfig.if_nameindex_s = platform.Struct('struct if_nameindex',
-                                        [('if_index', rffi.UINT),
-                                         ('if_name', rffi.CCHARP)])
-
 if _POSIX:
     CConfig.nfds_t = platform.SimpleType('nfds_t')
     CConfig.pollfd = platform.Struct('struct pollfd',
                                             [('fd', socketfd_type),
                                              ('events', rffi.SHORT),
                                              ('revents', rffi.SHORT)])
+    CConfig.if_nameindex_s = platform.Struct('struct if_nameindex',
+                                        [('if_index', rffi.UINT),
+                                         ('if_name', rffi.CCHARP)])
+
     if _HAS_AF_PACKET:
         CConfig.sockaddr_ll = platform.Struct('struct sockaddr_ll',
                               [('sll_family', rffi.INT),
@@ -363,6 +363,10 @@ if _POSIX:
         CConfig.ifreq = platform.Struct('struct ifreq',
                                 [('ifr_ifindex', rffi.INT),
                                  ('ifr_name', rffi.CFixedArray(rffi.CHAR, 8))])
+else:
+    CConfig.if_nameindex_s = rffi.CStruct('if_nameindex',
+                                        ('if_index', rffi.UINT),
+                                         ('if_name', rffi.CCHARP))
 
 includes = []
 separate_module_sources = []
@@ -399,7 +403,7 @@ if HAVE_SENDMSG:
         #define SOCKLEN_T_LIMIT INT_MAX
         #endif
 
-        // ################################################################################################
+        // #########################################################################
         // Recvmsg implementation and associated functions
 
         // Taken from CPython. Determines the minimum memory space required for the ancillary data.
@@ -733,7 +737,7 @@ if HAVE_SENDMSG:
         }
 
 
-        // ################################################################################################
+        // ##########################################################################
         // Sendmsg implementation and associated functions
 
         #ifdef CMSG_LEN
@@ -892,7 +896,7 @@ if HAVE_SENDMSG:
             return retval;
         }
 
-        // ################################################################################################
+        // ############################################################################
         // Wrappers for CMSG_SPACE and CMSG_LEN
 
         /*
@@ -921,7 +925,7 @@ if HAVE_SENDMSG:
         }
         #endif
 
-        // ################################################################################################
+        // ###########################################################################
         // Extra functions that I needed
 
         /*
@@ -991,47 +995,49 @@ if _WIN32:
 
     CConfig.FROM_PROTOCOL_INFO = platform.DefinedConstantInteger(
         'FROM_PROTOCOL_INFO')
-    includes += ["Iphlpapi.h"]
-    post_include_bits +=["struct if_nameindex {",
-                         "  unsigned int if_index;",
-                         "  char * if_name;",
-                         "};",
-                         "",
-                         "RPY_EXTERN "
-                         " struc if_nameindex * if_nameindex(void*);",
-                         "RPY_EXTERN "
-                         "void if_freenameindex(struct if_nameindex *ptr);",
-                        ]
+    post_include_bits +=[dedent("""\
+        struct if_nameindex {
+            unsigned int if_index;
+            char * if_name;
+        };
+        RPY_EXTERN struct if_nameindex * if_nameindex(void);
+        RPY_EXTERN void if_freenameindex(struct if_nameindex *ptr);
+        """)]
     separate_module_sources += [dedent("""\
+        #include <Iphlpapi.h>
+        #include <stdlib.h>
         RPY_EXTERN
-        struct if_nameindex * if_nameindex(void*) {
+        struct if_nameindex * if_nameindex(void) {
             PMIB_IF_TABLE2 tbl;
             int ret;
             if (GetIfTable2Ex(MibIfTableRaw, &tbl) != NO_ERROR) {
                 return NULL;
             }
-            struct if_nameindex *out = (struct if_index*)malloc(sizeof(struct if_nameindex) * (tbl->NumEntries + 1));
+            size_t memsize = sizeof(struct if_nameindex) * (tbl->NumEntries + 1);
+            struct if_nameindex *out = malloc(memsize);
             if (out == NULL) {
                 return NULL;
             }
-            for (ULONG i = 0; i < tbl->NumEntries; ++i) {",
+            ULONG i = 0;
+            for (i; i < tbl->NumEntries; i++) {
                 MIB_IF_ROW2 r = tbl->Table[i];
                 WCHAR buf[NDIS_IF_MAX_STRING_SIZE + 1];
                 if ((ret = ConvertInterfaceLuidToNameW(&r.InterfaceLuid, buf,
-                                                       Py_ARRAY_LENGTH(buf)))) {
+                                                       NDIS_IF_MAX_STRING_SIZE))) {
                     FreeMibTable(tbl);
                     for (ULONG j=0; j<i; j++) {
-                        free out[j].if_name;
+                        free(out[j].if_name);
                     }
                     free(out);
                     return NULL;
                 }
                 /* convert from wchar_t to char */
                 size_t origsize = wcslen(buf) + 1;
-                size_t newsize = origsize * 2;
+                size_t newsize = origsize * 2 + 2;
                 size_t convertedChars = 0; 
-                out[i].if_name = (char *)malloc(newsize);
-                wcstombs_s(&convertedChars, out[i].if_name, newsize, orig, _TRUNCATE);
+                out[i].if_name = malloc(newsize);
+                out[i].if_name[0] = '\\0';
+                wcstombs_s(&convertedChars, out[i].if_name, newsize, buf, newsize - 1);
                 out[i].if_index = r.InterfaceIndex;
             }
             out[i].if_name = NULL;
@@ -1215,7 +1221,7 @@ if WIN32:
 else:
     SAVE_ERR = rffi.RFFI_SAVE_ERRNO
 timeval = cConfig.timeval
-if_nameindex_s = cConfig.if_nameindex_s
+if_nameindex_s = CConfig.if_nameindex_s
 
 
 def external(name, args, result, **kwds):
@@ -1383,10 +1389,13 @@ select = external('select',
                   rffi.INT,
                   save_err=SAVE_ERR)
 
-if_nameindex = external('if_nameindex', [], lltype.Ptr(if_nameindex_s),
-                        save_err=SAVE_ERR)
-if_freenameindex = external('if_freenameindex', [lltype.Ptr(if_nameindex_s)],
-                        lltype.Void, save_err=SAVE_ERR)
+if_nameindex = rffi.llexternal('if_nameindex', [], lltype.Ptr(if_nameindex_s),
+                        save_err=SAVE_ERR, compilation_info=compilation_info,
+                        calling_conv=calling_conv)
+
+if_freenameindex = rffi.llexternal('if_freenameindex', [lltype.Ptr(if_nameindex_s)],
+                        lltype.Void, save_err=SAVE_ERR, compilation_info=compilation_info,
+                        calling_conv=calling_conv)
 
 FD_CLR = external_c('FD_CLR', [rffi.INT, fd_set], lltype.Void, macro=True)
 FD_ISSET = external_c('FD_ISSET', [rffi.INT, fd_set], rffi.INT, macro=True)

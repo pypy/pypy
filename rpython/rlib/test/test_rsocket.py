@@ -788,5 +788,4 @@ def test_msg_trunc_weirdness_linux():
 
 def test_if_nameindex():
     nameindex = rsocket.if_nameindex()
-    print nameindex
     assert len(nameindex) > 0
