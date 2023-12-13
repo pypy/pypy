@@ -1804,4 +1804,4 @@ def if_nameindex():
             break
         out.append((v.c_if_index, rffi.charp2str(v.c_if_name)))
         i += 1
-    return tuple(out) 
+    return out 

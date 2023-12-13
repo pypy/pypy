@@ -1214,14 +1214,15 @@ if _POSIX:
     if _HAS_AF_PACKET:
         sockaddr_ll = cConfig.sockaddr_ll
         ifreq = cConfig.ifreq
+    if_nameindex_s = cConfig.if_nameindex_s
 if WIN32:
     WSAEVENT = cConfig.WSAEVENT
     WSANETWORKEVENTS = cConfig.WSANETWORKEVENTS
     SAVE_ERR = rffi.RFFI_SAVE_WSALASTERROR
+    if_nameindex_s = CConfig.if_nameindex_s
 else:
     SAVE_ERR = rffi.RFFI_SAVE_ERRNO
 timeval = cConfig.timeval
-if_nameindex_s = CConfig.if_nameindex_s
 
 
 def external(name, args, result, **kwds):
