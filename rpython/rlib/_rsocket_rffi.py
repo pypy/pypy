@@ -8,6 +8,7 @@ from rpython.translator.platform import platform as target_platform
 
 from rpython.rlib.rarithmetic import intmask, r_uint
 import os,sys
+from textwrap import dedent
 
 _POSIX = os.name == "posix"
 _WIN32 = sys.platform == "win32"
@@ -278,8 +279,9 @@ addrinfo_ptr = lltype.Ptr(lltype.ForwardReference())
 
 # struct types
 CConfig.sockaddr = platform.Struct('struct sockaddr',
-                                             [('sa_family', rffi.INT),
-                                   ('sa_data', rffi.CFixedArray(rffi.CHAR, 1))])
+                                      [('sa_family', rffi.INT),
+                                       ('sa_data', rffi.CFixedArray(rffi.CHAR, 1)),
+                                      ])
 CConfig.in_addr = platform.Struct('struct in_addr',
                                          [('s_addr', rffi.UINT)])
 CConfig.in6_addr = platform.Struct('struct in6_addr',
@@ -338,13 +340,16 @@ CConfig.protoent = platform.Struct('struct protoent',
 
 CConfig.HAVE_ACCEPT4 = platform.Has('accept4')
 
+CConfig.if_nameindex_s = platform.Struct('struct if_nameindex',
+                                        [('if_index', rffi.UINT),
+                                         ('if_name', rffi.CCHARP)])
+
 if _POSIX:
     CConfig.nfds_t = platform.SimpleType('nfds_t')
     CConfig.pollfd = platform.Struct('struct pollfd',
                                             [('fd', socketfd_type),
                                              ('events', rffi.SHORT),
                                              ('revents', rffi.SHORT)])
-
     if _HAS_AF_PACKET:
         CConfig.sockaddr_ll = platform.Struct('struct sockaddr_ll',
                               [('sll_family', rffi.INT),
@@ -359,10 +364,13 @@ if _POSIX:
                                 [('ifr_ifindex', rffi.INT),
                                  ('ifr_name', rffi.CFixedArray(rffi.CHAR, 8))])
 
+includes = []
+separate_module_sources = []
+post_include_bits = []
 # insert handler for sendmsg / recvmsg here
 HAVE_SENDMSG = bool(_POSIX)
 if HAVE_SENDMSG:
-    includes = ['stddef.h',
+    includes += ['stddef.h',
                 'sys/socket.h',
                 'unistd.h',
                 'string.h',
@@ -373,7 +381,7 @@ if HAVE_SENDMSG:
                 'sys/types.h',
                 'netinet/in.h',
                 'arpa/inet.h']
-    separate_module_sources = ['''
+    separate_module_sources += ['''
 
         // special defines for returning from recvmsg
         #define BAD_MSG_SIZE_GIVEN -10000
@@ -943,7 +951,7 @@ if HAVE_SENDMSG:
 
     ''',]
 
-    post_include_bits =[ "RPY_EXTERN "
+    post_include_bits +=[ "RPY_EXTERN "
                          "int sendmsg_implementation(int socket, struct sockaddr* address, socklen_t addrlen, long* length_of_messages, char** messages, int no_of_messages, long* levels, long* types, char** file_descriptors, long* no_of_fds, int control_length, int flag );\n"
                          "RPY_EXTERN "
                          "int recvmsg_implementation(int socket_fd, int ancillary_size, int flags, struct sockaddr* address, socklen_t* addrlen, int* message_lengths, char** messages, int no_of_messages, long* size_of_ancillary, long** levels, long** types, char** file_descr, long** descr_per_ancillary, long* flag);\n"
@@ -969,16 +977,6 @@ if HAVE_SENDMSG:
                          "int free_ptr_to_charp(char** ptrtofree);\n"
                          ]
 
-
-    compilation_info = eci.merge(ExternalCompilationInfo(
-                                    includes=includes,
-                                    separate_module_sources=separate_module_sources,
-                                    post_include_bits=post_include_bits,
-                               ))
-else:
-    compilation_info = eci
-
-
 if _WIN32:
     CConfig.WSAEVENT = platform.SimpleType('WSAEVENT', rffi.VOIDP)
     CConfig.WSANETWORKEVENTS = platform.Struct(
@@ -993,6 +991,71 @@ if _WIN32:
 
     CConfig.FROM_PROTOCOL_INFO = platform.DefinedConstantInteger(
         'FROM_PROTOCOL_INFO')
+    includes += ["Iphlpapi.h"]
+    post_include_bits +=["struct if_nameindex {",
+                         "  unsigned int if_index;",
+                         "  char * if_name;",
+                         "};",
+                         "",
+                         "RPY_EXTERN "
+                         " struc if_nameindex * if_nameindex(void*);",
+                         "RPY_EXTERN "
+                         "void if_freenameindex(struct if_nameindex *ptr);",
+                        ]
+    separate_module_sources += [dedent("""\
+        RPY_EXTERN
+        struct if_nameindex * if_nameindex(void*) {
+            PMIB_IF_TABLE2 tbl;
+            int ret;
+            if (GetIfTable2Ex(MibIfTableRaw, &tbl) != NO_ERROR) {
+                return NULL;
+            }
+            struct if_nameindex *out = (struct if_index*)malloc(sizeof(struct if_nameindex) * (tbl->NumEntries + 1));
+            if (out == NULL) {
+                return NULL;
+            }
+            for (ULONG i = 0; i < tbl->NumEntries; ++i) {",
+                MIB_IF_ROW2 r = tbl->Table[i];
+                WCHAR buf[NDIS_IF_MAX_STRING_SIZE + 1];
+                if ((ret = ConvertInterfaceLuidToNameW(&r.InterfaceLuid, buf,
+                                                       Py_ARRAY_LENGTH(buf)))) {
+                    FreeMibTable(tbl);
+                    for (ULONG j=0; j<i; j++) {
+                        free out[j].if_name;
+                    }
+                    free(out);
+                    return NULL;
+                }
+                /* convert from wchar_t to char */
+                size_t origsize = wcslen(buf) + 1;
+                size_t newsize = origsize * 2;
+                size_t convertedChars = 0; 
+                out[i].if_name = (char *)malloc(newsize);
+                wcstombs_s(&convertedChars, out[i].if_name, newsize, orig, _TRUNCATE);
+                out[i].if_index = r.InterfaceIndex;
+            }
+            out[i].if_name = NULL;
+            out[i].if_index = 0;
+            return out;
+        }
+ 
+        RPY_EXTERN
+        void if_freenameindex(struct if_nameindex *ptr) {
+            if (ptr == NULL) return;
+            int index = 0;
+            while (1) {
+                if (ptr[index].if_name == NULL) break;
+                free(ptr[index].if_name);
+                index += 1;
+            }
+            free(ptr);
+        }""")]
+
+compilation_info = eci.merge(ExternalCompilationInfo(
+                                includes=includes,
+                                separate_module_sources=separate_module_sources,
+                                post_include_bits=post_include_bits,
+                           ))
 
 CConfig.timeval = platform.Struct('struct timeval',
                                          [('tv_sec', rffi.LONG),
@@ -1152,6 +1215,7 @@ if WIN32:
 else:
     SAVE_ERR = rffi.RFFI_SAVE_ERRNO
 timeval = cConfig.timeval
+if_nameindex_s = cConfig.if_nameindex_s
 
 
 def external(name, args, result, **kwds):
@@ -1318,6 +1382,11 @@ select = external('select',
                    fd_set, lltype.Ptr(timeval)],
                   rffi.INT,
                   save_err=SAVE_ERR)
+
+if_nameindex = external('if_nameindex', [], lltype.Ptr(if_nameindex_s),
+                        save_err=SAVE_ERR)
+if_freenameindex = external('if_freenameindex', [lltype.Ptr(if_nameindex_s)],
+                        lltype.Void, save_err=SAVE_ERR)
 
 FD_CLR = external_c('FD_CLR', [rffi.INT, fd_set], lltype.Void, macro=True)
 FD_ISSET = external_c('FD_ISSET', [rffi.INT, fd_set], rffi.INT, macro=True)
