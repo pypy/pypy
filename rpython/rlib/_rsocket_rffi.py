@@ -35,11 +35,12 @@ if _POSIX:
                 'stdint.h',
                 'errno.h',
                 'limits.h',
+                'net/if.h',
                 )
     if _HAS_AF_PACKET:
         includes += ('netpacket/packet.h',
                      'sys/ioctl.h',
-                     'net/if.h')
+                    )
 
     cond_includes = [('AF_NETLINK', 'linux/netlink.h')]
 
