@@ -589,7 +589,6 @@ def has_tp_slot(spec, slots):
     return False
 
 
-@jit.dont_look_inside
 def _create_new_type(
         space, name, w_metaclass, bases_w, dict_w, basicsize, shape):
     from pypy.module.cpyext.typeobject import PyHeapTypeObject
@@ -659,7 +658,6 @@ def _create_instance_subtype(space, w_type, __args__=None):
     w_result = space.call_obj_args(w_newfunc, w_type, __args__)
     return _finish_create_instance(space, w_result, w_type)
 
-@jit.dont_look_inside
 def _finish_create_instance(space, w_result, w_type):
     # avoid circular import
     from pypy.module._hpy_universal.interp_cpy_compat import create_pyobject_from_storage
