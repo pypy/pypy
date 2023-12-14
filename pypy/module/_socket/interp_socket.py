@@ -1178,6 +1178,7 @@ def if_indextoname(space, index):
         raise oefmt(space.w_OverflowError, "can't convert negative value to unsigned int")
     interfaces = rsocket.if_nameindex()
     for indx, name in interfaces:
+        indx = widen(indx)
         if indx == index:
             return space.newtext(name)
     raise oefmt(space.w_OSError, "No such device or address")
