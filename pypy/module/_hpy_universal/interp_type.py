@@ -189,7 +189,7 @@ class W_HPyObject(W_ObjectObject):
     def get_pyobject(self):
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
-        assert w_type.is_legacy
+        assert w_type.is_legacy()
         storage = self._hpy_get_raw_storage(self.space)
         return rffi.cast(PyObject, storage)
 
@@ -223,7 +223,7 @@ class W_HPyTypeObject(W_TypeObject):
     def get_pyobject(self):
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
-        assert w_type.is_legacy
+        assert w_type.is_legacy()
         storage = self._hpy_get_raw_storage(space)
         return rffi.cast(PyObject, storage)
 
