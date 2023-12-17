@@ -239,7 +239,7 @@ def build_stat_result(space, st):
         if i < rposix_stat.N_INDEXABLE_FIELDS:
             # get the first 10 items by indexing; this gives us
             # 'st_Xtime' as an integer, too
-            w_value = space.newint(st[i])
+            w_value = space.newint(int(st[i]))
             lst[i] = w_value
         else:
             break
