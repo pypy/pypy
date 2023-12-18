@@ -80,10 +80,13 @@ def cmethod_dealloc(space, py_obj):
 def w_kwargs_from_args(space, __args__):
     if __args__.keyword_names_w is None:
         return None
+    length = len(__args__.keyword_names_w)
+    if length == 0:
+        return None
     # CCC: we should probably have a @jit.look_inside_iff if the
     # keyword count is constant, as we do in Arguments.unpack
     w_kwargs = space.newdict()
-    for i in range(len(__args__.keyword_names_w)):
+    for i in range(length):
         w_key = __args__.keyword_names_w[i]
         w_obj = __args__.keywords_w[i]
         space.setitem(w_kwargs, w_key, w_obj)
