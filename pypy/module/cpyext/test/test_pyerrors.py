@@ -578,6 +578,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                  '''),
                 ("test_err", "METH_NOARGS",
                  '''
+                    PyObject * helper(PyObject *exception, char * fmt, ...);
                     PyObject * helper(PyObject *exception, char * fmt, ...) {
                         va_list va;
                         va_start(va, fmt);
