@@ -137,11 +137,18 @@ new-style classes).  You get a RuntimeWarning in PyPy.  To fix these cases
 just make sure there is a ``__del__`` method in the class to start with
 (even containing only ``pass``; replacing or overriding it later works fine).
 
-Last note: CPython tries to do a ``gc.collect()`` automatically when the
+CPython tries to do a ``gc.collect()`` automatically when the
 program finishes; not PyPy.  (It is possible in both CPython and PyPy to
 design a case where several ``gc.collect()`` are needed before all objects
 die.  This makes CPython's approach only work "most of the time" anyway.)
 
+Missing ``sys.getrefcount``
+---------------------------
+
+Because of the different strategy above, ``sys.getrefcount()`` would return
+an unreliable number. So PyPy does not implement that, trying to use it will
+raise ``AttributeError: module 'sys' has no attribute 'getrefcount'``. Note
+that newer versions of CPython also change the meaining of ``sys.getrefcount()``.
 
 Subclasses of built-in types
 ----------------------------
