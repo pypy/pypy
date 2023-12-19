@@ -286,20 +286,20 @@ def make_stat_result(tup):
         positional.append(value)
     kwds = {}
     if sys.platform == 'win32':
-        positional[7] = tup[7] + 1e-9 * tup[-5]
-        positional[8] = tup[8] + 1e-9 * tup[-4]
-        positional[9] = tup[9] + 1e-9 * tup[-3]
+        kwds['st_atime'] = tup[7] + 1e-9 * tup[-5]
+        kwds['st_mtime'] = tup[8] + 1e-9 * tup[-4]
+        kwds['st_ctime'] = tup[9] + 1e-9 * tup[-3]
         kwds['st_file_attributes'] = tup[-2]
         kwds['st_reparse_tag'] = tup[-1]
     else:
-        positional[7] = tup[7] + 1e-9 * tup[-3]
-        positional[8] = tup[8] + 1e-9 * tup[-2]
-        positional[9] = tup[9] + 1e-9 * tup[-1]
+        kwds['st_atime'] = tup[7] + 1e-9 * tup[-3]
+        kwds['st_atime'] = tup[8] + 1e-9 * tup[-2]
+        kwds['st_atime'] = tup[9] + 1e-9 * tup[-1]
     for value, (name, TYPE) in zip(tup, STAT_FIELDS)[N_INDEXABLE_FIELDS:]:
         if name.startswith('nsec_'):
             continue   # ignore the nsec_Xtime here
         kwds[name] = lltype.cast_primitive(TYPE, value)
-    return stat_result(*positional, **kwds)
+    return os.stat_result(positional, kwds)
 
 
 class MakeStatResultEntry(extregistry.ExtRegistryEntry):

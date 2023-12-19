@@ -239,7 +239,7 @@ def build_stat_result(space, st):
         if i < rposix_stat.N_INDEXABLE_FIELDS:
             # get the first 10 items by indexing; this gives us
             # 'st_Xtime' as an integer, too
-            w_value = space.newint(int(st[i]))
+            w_value = space.newint(st[i])
             lst[i] = w_value
         else:
             break
@@ -267,9 +267,9 @@ def build_stat_result(space, st):
         w_result.setdictvalue(space, 'st_mtime', space.newfloat(st.st_mtime))
         w_result.setdictvalue(space, 'st_ctime', space.newfloat(st.st_ctime))
     else:
-        w_result.setdictvalue(space, 'st_atime', space.newint(int(st[7])))
-        w_result.setdictvalue(space, 'st_mtime', space.newint(int(st[8])))
-        w_result.setdictvalue(space, 'st_ctime', space.newint(int(st[9])))
+        w_result.setdictvalue(space, 'st_atime', space.newint(st[7]))
+        w_result.setdictvalue(space, 'st_mtime', space.newint(st[8]))
+        w_result.setdictvalue(space, 'st_ctime', space.newint(st[9]))
     return w_result
 
 
