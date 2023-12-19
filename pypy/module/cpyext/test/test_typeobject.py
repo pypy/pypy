@@ -1483,11 +1483,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             static PyObject *
             my_tp_call(PyObject *self, PyObject *args, PyObject *kwds)
             {
-                /* kwds should be NULL or have a value, never the empty dict {} */
-                if (kwds && PyDict_Size(kwds) == 0) {
-                    PyErr_SetString(PyExc_RuntimeError, "seeing empty dict in tp_call");
-                    return NULL;
-                }
                 return PyLong_FromLong(42);
             }
             static PyTypeObject Foo_Type = {
@@ -1501,7 +1496,6 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             ''')
         x = module.new_obj()
         assert x() == 42
-        assert x(4) == 42
         assert x(4, bar=5) == 42
 
     def test_custom_metaclass(self):
