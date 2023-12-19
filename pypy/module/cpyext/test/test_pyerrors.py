@@ -578,7 +578,6 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                  '''),
                 ("test_err", "METH_NOARGS",
                  '''
-                    PyObject * helper(PyObject *exception, char * fmt, ...);
                     PyObject * helper(PyObject *exception, char * fmt, ...) {
                         va_list va;
                         va_start(va, fmt);
@@ -587,8 +586,11 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                         return NULL;
                     }
                     return helper(PyExc_ValueError, "foo %d bar %d", 42, 11);
-                 '''),
-                ])
+                 ''')],
+                 prologue="""
+                    PyObject * helper(PyObject *exception, char * fmt, ...);
+                 """ 
+                )
         with warnings.catch_warnings(record=True) as l:
             module.test_warning()
         assert len(l) == 1
