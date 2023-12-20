@@ -293,8 +293,8 @@ def make_stat_result(tup):
         kwds['st_reparse_tag'] = tup[-1]
     else:
         kwds['st_atime'] = tup[7] + 1e-9 * tup[-3]
-        kwds['st_atime'] = tup[8] + 1e-9 * tup[-2]
-        kwds['st_atime'] = tup[9] + 1e-9 * tup[-1]
+        kwds['st_mtime'] = tup[8] + 1e-9 * tup[-2]
+        kwds['st_ctime'] = tup[9] + 1e-9 * tup[-1]
     for value, (name, TYPE) in zip(tup, STAT_FIELDS)[N_INDEXABLE_FIELDS:]:
         if name.startswith('nsec_'):
             continue   # ignore the nsec_Xtime here
@@ -497,13 +497,11 @@ else:
 # these global vars only list the fields defined in the underlying platform
 STAT_FIELD_TYPES = dict(STAT_FIELDS)      # {'st_xxx': TYPE}
 STAT_FIELD_NAMES = [_name for (_name, _TYPE) in STAT_FIELDS]
-STAT_RESULT_NAMES = [_name for (_name, _TYPE) in STAT_FIELDS if not _name.startswith("nsec")]
 del _name, _TYPE
 
 STATVFS_FIELD_TYPES = dict(STATVFS_FIELDS)
 STATVFS_FIELD_NAMES = [name for name, tp in STATVFS_FIELDS]
 statvfs_result = collections.namedtuple('statvfs_result', STATVFS_FIELD_NAMES)
-stat_result = collections.namedtuple('stat_result', STAT_RESULT_NAMES)
 
 def build_stat_result(st):
     # only for LL backends
