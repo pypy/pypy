@@ -1,5 +1,5 @@
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, Py_MAX_NDIMS, build_type_checkers,
+    cpython_api, CANNOT_FAIL, PyBUF_MAX_NDIM, build_type_checkers,
     Py_ssize_tP, cts, parse_dir, bootstrap_function, Py_bufferP, slot_function,
     PyBUF_READ, PyBUF_WRITE)
 from pypy.module.cpyext.pyobject import (
@@ -38,9 +38,10 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
     py_obj = rffi.cast(PyMemoryViewObject, py_obj)
     view = py_obj.c_view
     ndim = w_obj.getndim()
-    if ndim >= Py_MAX_NDIMS:
-        # XXX warn?
-        return
+    if ndim >= PyBUF_MAX_NDIM:
+        raise oefmt(space.w_RuntimeError,
+                    "cannot create PyMemoryViewObject with ndim (%d) > %d",
+                    ndim, PyBUF_MAX_NDIM)
     fill_Py_buffer(space, w_obj.view, view)
     try:
         view.c_buf = rffi.cast(rffi.VOIDP, w_obj.view.get_raw_address())

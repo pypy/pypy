@@ -8,8 +8,9 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rlib import debug, jit, rstring, rthread, types
 from rpython.rlib._os_support import (
     _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
-    POSIX_SIZE_T, POSIX_SSIZE_T,
+    POSIX_SIZE_T, POSIX_SSIZE_T, unicode_traits,
     _prefer_unicode, _preferred_traits, _preferred_traits2)
+from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
 from rpython.rlib.rarithmetic import intmask, widen
@@ -108,7 +109,8 @@ errno_eci = ExternalCompilationInfo(
 # Direct getters/setters, don't use directly!
 _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
                                          CConstantErrno, sandboxsafe=True,
-                                         _nowrapper=True, c_type='int')
+                                         _nowrapper=True, c_type='int',
+                                         declare_as_extern=False)
 
 def get_saved_errno():
     """Return the value of the "saved errno".
@@ -313,23 +315,22 @@ class CConfig:
                                    [('actime', rffi.INT),
                                     ('modtime', rffi.INT)])
     CLOCK_T = rffi_platform.SimpleType('clock_t', rffi.INT)
+    _HAVE_STRUCT_TERMIOS_C_ISPEED = rffi_platform.Defined(
+            '_HAVE_STRUCT_TERMIOS_C_ISPEED')
+    _HAVE_STRUCT_TERMIOS_C_OSPEED = rffi_platform.Defined(
+            '_HAVE_STRUCT_TERMIOS_C_OSPEED')
     if not _WIN32:
         UID_T = rffi_platform.SimpleType('uid_t', rffi.UINT)
         GID_T = rffi_platform.SimpleType('gid_t', rffi.UINT)
         ID_T = rffi_platform.SimpleType('id_t', rffi.UINT)
         TIOCGWINSZ = rffi_platform.DefinedConstantInteger('TIOCGWINSZ')
+        NCCS = rffi_platform.DefinedConstantInteger('NCCS')
 
         TMS = rffi_platform.Struct(
             'struct tms', [('tms_utime', rffi.INT),
                            ('tms_stime', rffi.INT),
                            ('tms_cutime', rffi.INT),
                            ('tms_cstime', rffi.INT)])
-
-        WINSIZE = rffi_platform.Struct(
-            'struct winsize', [('ws_row', rffi.USHORT),
-                           ('ws_col', rffi.USHORT),
-                           ('ws_xpixel', rffi.USHORT),
-                           ('ws_ypixel', rffi.USHORT)])
 
     GETPGRP_HAVE_ARG = rffi_platform.Has("getpgrp(0)")
     SETPGRP_HAVE_ARG = rffi_platform.Has("setpgrp(0, 0)")
@@ -565,8 +566,8 @@ if not _WIN32:
             POSIX_FADV_NOREUSE = rffi_platform.DefinedConstantInteger('POSIX_FADV_NOREUSE')
             POSIX_FADV_DONTNEED = rffi_platform.DefinedConstantInteger('POSIX_FADV_DONTNEED')
 
-        config = rffi_platform.configure(CConfig)
-        globals().update(config)
+        advise_config = rffi_platform.configure(CConfig)
+        globals().update(advise_config)
 
         c_posix_fadvise = external('posix_fadvise',
                                    [rffi.INT, OFF_T, OFF_T, rffi.INT], rffi.INT,
@@ -959,14 +960,36 @@ def spawnve(mode, path, args, env):
     rffi.free_charpp(l_args)
     return handle_posix_error('spawnve', childpid)
 
-c_fork = external('fork', [], rffi.PID_T, _nowrapper = True)
-c_openpty = external('openpty',
-                     [rffi.INTP, rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
-                     rffi.INT,
-                     save_err=rffi.RFFI_SAVE_ERRNO)
-c_forkpty = external('forkpty',
-                     [rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
-                     rffi.PID_T, _nowrapper = True)
+if not _WIN32:
+    TCFLAG_T = rffi.UINT
+    CC_T = rffi.UCHAR
+    SPEED_T = rffi.UINT
+    _add = []
+    if config['_HAVE_STRUCT_TERMIOS_C_ISPEED']:
+        _add.append(('c_ispeed', SPEED_T))
+    if config['_HAVE_STRUCT_TERMIOS_C_OSPEED']:
+        _add.append(('c_ospeed', SPEED_T))
+
+    TERMIOS = rffi.CStruct('termios', ('c_iflag', TCFLAG_T), ('c_oflag', TCFLAG_T),
+                               ('c_cflag', TCFLAG_T), ('c_lflag', TCFLAG_T),
+                               ('c_line', CC_T),
+                               ('c_cc', lltype.FixedSizeArray(CC_T, NCCS)), *_add)
+    WINSIZE = rffi.CStruct('winsize', ('ws_row', rffi.USHORT),
+                       ('ws_col', rffi.USHORT),
+                       ('ws_xpixel', rffi.USHORT),
+                       ('ws_ypixel', rffi.USHORT))
+
+
+    TERMIOS_P = lltype.Ptr(TERMIOS)
+    WINSIZE_P = lltype.Ptr(WINSIZE)
+    c_fork = external('fork', [], rffi.PID_T, _nowrapper = True)
+    c_openpty = external('openpty',
+                         [rffi.INTP, rffi.INTP, rffi.VOIDP, TERMIOS_P, WINSIZE_P],
+                         rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
+    c_forkpty = external('forkpty',
+                         [rffi.INTP, rffi.VOIDP, TERMIOS_P, WINSIZE_P],
+                         rffi.PID_T, _nowrapper = True)
 
 @replace_os_function('fork')
 @jit.dont_look_inside
@@ -991,7 +1014,9 @@ def openpty():
     slave_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
     try:
         handle_posix_error(
-            'openpty', c_openpty(master_p, slave_p, None, None, None))
+            'openpty', c_openpty(master_p, slave_p, None,
+                                 rffi.cast(TERMIOS_P, 0),
+                                 rffi.cast(WINSIZE_P, 0)))
         return (widen(master_p[0]), widen(slave_p[0]))
     finally:
         lltype.free(master_p, flavor='raw')
@@ -1006,7 +1031,9 @@ def forkpty():
     try:
         ofs = debug.debug_offset()
         opaqueaddr = rthread.gc_thread_before_fork()
-        childpid = c_forkpty(master_p, null, null, null)
+        childpid = c_forkpty(master_p, null, 
+                             rffi.cast(TERMIOS_P, 0),
+                             rffi.cast(WINSIZE_P, 0))
         errno = _get_errno()
         rthread.gc_thread_after_fork(childpid, opaqueaddr)
         rthread.tlfield_rpy_errno.setraw(errno)
@@ -1182,9 +1209,17 @@ def unlink(path):
     if not _WIN32:
         handle_posix_error('unlink', c_unlink(_as_bytes0(path)))
     else:
-        traits = _preferred_traits(path)
-        win32traits = make_win32_traits(traits)
-        if not win32traits.DeleteFile(traits.as_str0(path)):
+        if isinstance(path, str):
+            # python2
+            traits = _preferred_traits(path)
+            win32traits = make_win32_traits(traits)
+            ret = win32traits.DeleteFile(traits.as_str0(path))
+        else:
+            src_utf8 = path.as_utf8()
+            src_wch = rffi.utf82wcharp(src_utf8, codepoints_in_utf8(src_utf8))
+            ret = rwin32.os_unlink_impl(src_wch)
+            rffi.free_wcharp(src_wch)
+        if not ret:
             raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('mkdir')
@@ -1193,9 +1228,18 @@ def mkdir(path, mode=0o777):
     if not _WIN32:
         handle_posix_error('mkdir', c_mkdir(_as_bytes0(path), mode))
     else:
-        traits = _preferred_traits(path)
-        win32traits = make_win32_traits(traits)
-        if not win32traits.CreateDirectory(traits.as_str0(path), None):
+        if isinstance(path, str):
+            # python2
+            traits = _preferred_traits(path)
+            win32traits = make_win32_traits(traits)
+            result = win32traits.CreateDirectory(traits.as_str0(path), None)
+        else:
+            win32traits = make_win32_traits(unicode_traits)
+            src_utf8 = path.as_utf8()
+            src_wch = rffi.utf82wcharp(src_utf8, codepoints_in_utf8(src_utf8))
+            result = win32traits.CreateDirectory(src_wch, None)
+            rffi.free_wcharp(src_wch) 
+        if not result:
             raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('rmdir')
@@ -1312,9 +1356,9 @@ if _WIN32:
         _compilation_info_ = eci
     for name in constants:
         setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
-    config = rffi_platform.configure(CConfig)
+    pipe_config = rffi_platform.configure(CConfig)
     for name in constants:
-        locals()[name] = config[name]
+        locals()[name] = pipe_config[name]
 else:
     INT_ARRAY_P = rffi.CArrayPtr(rffi.INT)
     c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT,
@@ -1325,11 +1369,11 @@ else:
         HAVE_DUP3 = rffi_platform.Has('dup3')
     for name in constants:
         setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
-    config = rffi_platform.configure(CConfig)
+    pipe_config = rffi_platform.configure(CConfig)
     for name in constants:
-        locals()[name] = config[name]
-    HAVE_PIPE2 = config['HAVE_PIPE2']
-    HAVE_DUP3 = config['HAVE_DUP3']
+        locals()[name] = pipe_config[name]
+    HAVE_PIPE2 = pipe_config['HAVE_PIPE2']
+    HAVE_DUP3 = pipe_config['HAVE_DUP3']
     if HAVE_PIPE2:
         c_pipe2 = external('pipe2', [INT_ARRAY_P, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
@@ -1446,8 +1490,8 @@ if HAVE_UTIMES:
         TIMEVAL = rffi_platform.Struct('struct timeval', [
             ('tv_sec', rffi.LONG),
             ('tv_usec', rffi.LONG)])
-    config = rffi_platform.configure(CConfig)
-    TIMEVAL = config['TIMEVAL']
+    times_config = rffi_platform.configure(CConfig)
+    TIMEVAL = times_config['TIMEVAL']
     TIMEVAL2P = rffi.CArrayPtr(TIMEVAL)
     c_utimes = external('utimes', [rffi.CCHARP, TIMEVAL2P], rffi.INT,
                         save_err=rffi.RFFI_SAVE_ERRNO)
@@ -1998,8 +2042,8 @@ if not _WIN32:
             ('release',  CHARARRAY1),
             ('version',  CHARARRAY1),
             ('machine',  CHARARRAY1)])
-    config = rffi_platform.configure(CConfig)
-    UTSNAMEP = lltype.Ptr(config['UTSNAME'])
+    uts_config = rffi_platform.configure(CConfig)
+    UTSNAMEP = lltype.Ptr(uts_config['UTSNAME'])
 
     c_uname = external('uname', [UTSNAMEP], rffi.INT,
                        compilation_info=CConfig._compilation_info_,
@@ -3032,11 +3076,12 @@ elif not _WIN32:
         with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_len:
             p_len[0] = rffi.cast(OFF_T, count)
             res = c_sendfile(in_fd, out_fd, offset, p_len, lltype.nullptr(rffi.VOIDP.TO), 0)
+            sbytes = p_len[0]
             if res != 0:
+                if get_saved_errno() in (errno.EAGAIN, errno.EBUSY) and sbytes != 0:
+                    return sbytes
                 return handle_posix_error('sendfile', res)
-            res = p_len[0]
-        return res
-
+            return sbytes
 
 # ____________________________________________________________
 # Support for *xattr functions

@@ -2,15 +2,10 @@
 PyPy v7.3.13: release of python 2.7, 3.9, and 3.10
 ==================================================
 
-.. note::
-     This is a pre-release announcement. When the release actually happens, it
-  will be announced on the PyPy blog_
-
-
 The PyPy team is proud to release version 7.3.13 of PyPy.
 This is primarily a security/bug-fix release. CPython released security
 patches, and this release also improves the ability to use type
-specfifications via ``PyType_FromSpec`` and friends. There are also some
+specifications via ``PyType_FromSpec`` and friends. There are also some
 small speed-ups.
 
 The release includes three different interpreters:
@@ -102,7 +97,7 @@ For all versions
 Bugfixes
 ~~~~~~~~
 - Report exceptions that are created when forcing an oefmt as unraisable (issue
-  _3978)
+  3978_)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -136,7 +131,7 @@ Python 3.9+
 Bugfixes
 ~~~~~~~~
 - More selectively clear ``StopIteration`` exceptions on ``tp_iternext`` (issue
-  3956_)
+  3956_). Diagnosed and fixed by a new contributor.
 - Copy less when creating a venv by using a ``PYPY_PORTABLE_DEPS.txt`` file to
   state which dlls to copy in a portable build (issue 3611_)
 - On macos ``sendfile`` can return an error while sending part of the file

@@ -86,6 +86,13 @@ and the callback will not be invoked.  (Issue `#2030`__)
 .. __: https://docs.python.org/2/library/weakref.html
 .. __: https://foss.heptapod.net/pypy/pypy/-/issues/2030/
 
+A new difference: before CPython 3.4, a weakref to ``x`` was always
+cleared before the ``x.__del__()`` method was called.  Since CPython 3.4
+the picture is more muddy.  Often, the weakref is still alive while
+``x.__del__()`` runs, but not always (e.g. not in case of reference
+cycles).  In PyPy3 we have kept the more consistent pre-3.4 behavior; we
+can't do something really different if there are cycles or not.
+
 ---------------------------------
 
 There are a few extra implications from the difference in the GC.  Most
@@ -137,11 +144,18 @@ new-style classes).  You get a RuntimeWarning in PyPy.  To fix these cases
 just make sure there is a ``__del__`` method in the class to start with
 (even containing only ``pass``; replacing or overriding it later works fine).
 
-Last note: CPython tries to do a ``gc.collect()`` automatically when the
+CPython tries to do a ``gc.collect()`` automatically when the
 program finishes; not PyPy.  (It is possible in both CPython and PyPy to
 design a case where several ``gc.collect()`` are needed before all objects
 die.  This makes CPython's approach only work "most of the time" anyway.)
 
+Missing ``sys.getrefcount``
+---------------------------
+
+Because of the different strategy above, ``sys.getrefcount()`` would return
+an unreliable number. So PyPy does not implement that, trying to use it will
+raise ``AttributeError: module 'sys' has no attribute 'getrefcount'``. Note
+that newer versions of CPython also change the meaining of ``sys.getrefcount()``.
 
 Subclasses of built-in types
 ----------------------------
@@ -290,7 +304,7 @@ that there is a total order on floats, but that is wrong for NaNs).
 .. __: https://foss.heptapod.net/pypy/pypy/-/issues/1974
 
 Permitted ABI tags in extensions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--------------------------------
 
 CPython supports the limited C-API with modules that have an ``abi3`` ABI tag,
 and will also import extension modules with no ABI or platform tags. This can
@@ -363,10 +377,13 @@ your code anyway. So you should anyway replace the code with::
 
 Miscellaneous
 -------------
+  .. _hash-randomization:
 
 * Hash randomization (``-R``) `is ignored in PyPy`_.  In CPython
   before 3.4 it has `little point`_.  Both CPython >= 3.4 and PyPy3
   implement the randomized SipHash algorithm and ignore ``-R``.
+
+  .. _non-string-locals-keys:
 
 * You can't store non-string keys in type objects.  For example::
 
@@ -375,26 +392,28 @@ Miscellaneous
 
   won't work.
 
+  .. _setrecursionlimit:
+
 * ``sys.setrecursionlimit(n)`` sets the limit only approximately,
   by setting the usable stack space to ``n * 768`` bytes.  On Linux,
   depending on the compiler settings, the default of 768KB is enough
   for about 1400 calls.
+
+  .. _hash_calls:
 
 * since the implementation of dictionary is different, the exact number
   of times that ``__hash__`` and ``__eq__`` are called is different. 
   Since CPython
   does not give any specific guarantees either, don't rely on it.
 
-* assignment to ``__class__`` is limited to the cases where it
-  works on CPython 2.5.  On CPython 2.6 and 2.7 it works in a bit
-  more cases, which are not supported by PyPy so far.  (If needed,
-  it could be supported, but then it will likely work in many
-  *more* case on PyPy than on CPython 2.6/2.7.)
+  .. _builtins:
 
 * the ``__builtins__`` name is always referencing the ``__builtin__`` module,
   never a dictionary as it sometimes is in CPython. Assigning to
   ``__builtins__`` has no effect.  (For usages of tools like
   RestrictedPython, see `issue #2653`_.)
+
+  .. _dunder-failures:
 
 * directly calling the internal magic methods of a few built-in types
   with invalid arguments may have a slightly different result.  For
@@ -404,6 +423,8 @@ Miscellaneous
   both raise ``TypeError`` everywhere.)  This difference is an
   implementation detail that shows up because of internal C-level slots
   that PyPy does not have.
+
+  .. _method-types:
 
 * on CPython, ``[].__add__`` is a ``method-wrapper``,  ``list.__add__``
   is a ``slot wrapper`` and ``list.extend``  is a (built-in) ``method``
@@ -417,6 +438,8 @@ Miscellaneous
   on PyPy3 we have ``isfunction(list.extend) == True``.  On CPython
   all of these are False.
 
+  .. _builtin-change-attribute:
+
 * in CPython, the built-in types have attributes that can be
   implemented in various ways.  Depending on the way, if you try to
   write to (or delete) a read-only (or undeletable) attribute, you get
@@ -424,6 +447,8 @@ Miscellaneous
   strike some middle ground between full consistency and full
   compatibility here.  This means that a few corner cases don't raise
   the same exception, like ``del (lambda:None).__closure__``.
+
+  .. _subclass-methods:
 
 * in pure Python, if you write ``class A(object): def f(self): pass``
   and have a subclass ``B`` which doesn't override ``f()``, then
@@ -437,6 +462,8 @@ Miscellaneous
   Anyway, the proper fix is arguably to use a regular method call in
   the first place: ``datetime.date.today().strftime(...)``
   
+  .. _gc-functions:
+
 * some functions and attributes of the ``gc`` module behave in a
   slightly different way: for example, ``gc.enable`` and
   ``gc.disable`` are supported, but "enabling and disabling the GC" has
@@ -444,15 +471,21 @@ Miscellaneous
   actually enable and disable the major collections and the
   execution of finalizers.
 
+  .. _irc-topic:
+
 * PyPy prints a random line from past #pypy IRC topics at startup in
   interactive mode. In a released version, this behaviour is suppressed, but
   setting the environment variable PYPY_IRC_TOPIC will bring it back. Note that
   downstream package providers have been known to totally disable this feature.
 
+  .. _readline:
+
 * PyPy's readline module was rewritten from scratch: it is not GNU's
   readline.  It should be mostly compatible, and it adds multiline
   support (see ``multiline_input()``).  On the other hand,
   ``parse_and_bind()`` calls are ignored (issue `#2072`_).
+
+  .. _sys-getsizeof:
 
 * ``sys.getsizeof()`` always raises ``TypeError`` (and objects do not have a
   ``__sizeof__`` method). This is because a
@@ -476,14 +509,26 @@ Miscellaneous
   these concerns also exist on CPython, just less so.  For this reason
   we explicitly don't implement ``sys.getsizeof()`` (nor ``__sizeof__``).
 
+  .. _timeit:
+
 * The ``timeit`` module behaves differently under PyPy: it prints the average
   time and the standard deviation, instead of the minimum, since the minimum is
   often misleading.
+
+  .. _get_config_vars:
 
 * The ``get_config_vars`` method of ``sysconfig`` and ``distutils.sysconfig``
   are not complete. On POSIX platforms, CPython fishes configuration variables
   from the Makefile used to build the interpreter. PyPy should bake the values
   in during compilation, but does not do that yet.
+
+* CPython's ``sys.settrace()`` sometimes reports an ``exception`` at the
+  end of ``for`` or ``yield from`` lines for the ``StopIteration``, and
+  sometimes not.  The problem is that it occurs in an ill-defined subset
+  of cases.  PyPy attempts to emulate that but the precise set of cases
+  is not exactly the same.
+
+  .. _mod-long:
 
 * ``"%d" % x`` and ``"%x" % x`` and similar constructs, where ``x`` is
   an instance of a subclass of ``long`` that overrides the special
@@ -495,6 +540,8 @@ Miscellaneous
   the rest is kept.  If you return an unexpected string from
   ``__hex__()`` you get an exception (or a crash before CPython 2.7.13).
 
+  .. _kwargs-strings:
+
 * In PyPy, dictionaries passed as ``**kwargs`` can contain only string keys,
   even for ``dict()`` and ``dict.update()``.  CPython 2.7 allows non-string
   keys in these two cases (and only there, as far as we know).  E.g. this
@@ -502,15 +549,26 @@ Miscellaneous
   ``dict(**{1: 2})``.  (Note that ``dict(**d1)`` is equivalent to
   ``dict(d1)``.)
 
-* PyPy3: ``__class__`` attribute assignment between heaptypes and non heaptypes.
-  CPython allows that for module subtypes, but not for e.g. ``int``
+  .. _class_assignment:
+
+* assignment to ``__class__`` is limited to the cases where it
+  works on CPython 2.5.  On CPython 2.6 and 2.7 it works in a bit
+  more cases, which are not supported by PyPy so far.  (If needed,
+  it could be supported, but then it will likely work in many
+  *more* case on PyPy than on CPython 2.6/2.7.)
+  In PyPy 3, ``__class__`` attribute assignment between heaptypes and non
+  heaptypes.  CPython allows that for module subtypes, but not for e.g. ``int``
   or ``float`` subtypes. Currently PyPy does not support the
   ``__class__`` attribute assignment for any non heaptype subtype.
+
+  .. _del_class_attributes:
 
 * In PyPy, module and class dictionaries are optimized under the assumption
   that deleting attributes from them are rare. Because of this, e.g.
   ``del foo.bar`` where ``foo`` is a module (or class) that contains the
   function ``bar``, is significantly slower than CPython.
+
+  .. _positional-keyword:
 
 * Various built-in functions in CPython accept only positional arguments
   and not keyword arguments.  That can be considered a long-running
@@ -521,16 +579,24 @@ Miscellaneous
   versions of PyPy may have to rename the arguments if CPython starts
   accepting them too.
 
+  .. _distutils-windows:
+
 * PyPy3: ``distutils`` has been enhanced to allow finding ``VsDevCmd.bat`` in the
   directory pointed to by the ``VS%0.f0COMNTOOLS`` (typically ``VS140COMNTOOLS``)
   environment variable. CPython searches for ``vcvarsall.bat`` somewhere **above**
   that value.
 
+  .. _syntax-error-messages:
+
 * SyntaxError_ s try harder to give details about the cause of the failure, so
   the error messages are not the same as in CPython
 
+  .. _ordered-sets:
+
 * Dictionaries and sets are ordered on PyPy.  On CPython < 3.6 they are not;
   on CPython >= 3.6 dictionaries (but not sets) are ordered.
+
+  .. _lonepycfile-pypy2:
 
 * PyPy2 refuses to load lone ``.pyc`` files, i.e. ``.pyc`` files that are
   still there after you deleted the ``.py`` file.  PyPy3 instead behaves like

@@ -346,6 +346,12 @@ class UnicodeWithEncoding:
             res = unicode_encode_mbcs(self.unistr, len(self.unistr),
                                       "strict")
             return rstring.assert_str0(res)
+
+        def as_utf8(self):
+            from rpython.rlib.runicode import unicode_encode_utf_8
+            res = unicode_encode_utf_8(self.unistr, len(self.unistr), "strict")
+            return rstring.assert_str0(res)
+                        
     else:
         def as_bytes(self):
             from rpython.rlib.runicode import unicode_encode_utf_8
@@ -735,6 +741,33 @@ if sys.platform.startswith('linux'):
         os.close(fd)
         s2.close()
         s1.close()
+
+if sys.platform == "darwin":
+   def test_sendfile_partial(tmpdir):
+        # issue 3964
+        from rpython.rlib.rsocket import socketpair
+        wsock, rsock = socketpair()
+        wsock.setblocking(False)
+        rsock.setblocking(False)
+
+        recvd = 0
+        with open(str(tmpdir / "sendfile.txt"), "wb+") as file:
+            file.write(b"x" * 131072)
+            file.flush()
+            file.seek(0)
+
+            sent = rposix.sendfile(wsock.fd, file.fileno(),
+                               offset=0, count=131072)
+            assert sent > 0
+            try:
+                chunk = rsock.recv(1024)
+                while chunk:
+                    recvd += len(chunk)
+                    chunk = rsock.recv(1024)
+            except Exception as e:
+                pass
+        assert recvd  == sent
+
 
 @rposix_requires('pread')
 def test_pread():
