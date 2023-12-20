@@ -179,7 +179,7 @@ class W_TypeObject(W_Root):
                           'hasmro?',
                           ]
 
-    # wether the class has an overridden __getattribute__
+    # whether the class has an overridden __getattribute__
     # (False is a conservative default, fixed during real usage)
     uses_object_getattribute = False
 

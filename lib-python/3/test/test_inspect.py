@@ -478,7 +478,7 @@ class TestRetrievingSourceCode(GetSourceBase):
         self.assertEqual(inspect.getdoc(mod.FesteringGob.contradiction),
                          'The automatic gainsaying.')
 
-    # @cpython_only  # XXX: _finddoc() is broken on PyPy, but getdoc() seems OK
+    @cpython_only  # _finddoc() is broken on PyPy, but getdoc() is OK
     @unittest.skipIf(MISSING_C_DOCSTRINGS, "test requires docstrings")
     def test_finddoc(self):
         finddoc = inspect._finddoc

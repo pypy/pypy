@@ -946,6 +946,9 @@ class AppTestInt(object):
             assert x.bit_count() == bin(x).count("1")
             assert (-x).bit_count() == bin(x).count("1")
 
+    def test_rpow_bug(self):
+        assert (1).__rpow__(2 ** 100) == 2 ** 100
+
 
 def test_hash_examples():
     for i in range(1000):

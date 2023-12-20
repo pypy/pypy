@@ -311,3 +311,61 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
             return PyMemoryView_FromBuffer(&info);
              """)])
         raises(ValueError, module.new)
+
+    def test_release_before_dealloc(self):
+        module = self.import_extension("foo", [
+            ("get_type","METH_NOARGS", """
+               return PyType_FromSpec(&HeapCTypeWithBuffer_spec); 
+            """)], prologue="""
+                typedef struct {
+                    PyObject_HEAD
+                    int value;
+                } HeapCTypeObject;
+
+                typedef struct {
+                    HeapCTypeObject base;
+                    char buffer[4];
+                } HeapCTypeWithBufferObject;
+
+                static int
+                heapctypewithbuffer_getbuffer(HeapCTypeWithBufferObject *self,
+                                              Py_buffer *view, int flags)
+                {
+                    self->buffer[0] = '1';
+                    self->buffer[1] = '2';
+                    self->buffer[2] = '3';
+                    self->buffer[3] = '4';
+                    int ret = PyBuffer_FillInfo(
+                        view, (PyObject*)self, (void *)self->buffer, 4, 1, flags);
+                    return ret;
+                }
+
+                static void
+                heapctypewithbuffer_releasebuffer(HeapCTypeWithBufferObject *self,
+                                                  Py_buffer *view)
+                {
+                    /* Make sure this is called before the dealloc */
+                    assert(view->obj == (void*) self);
+                }
+
+                static PyType_Slot HeapCTypeWithBuffer_slots[] = {
+                    {Py_bf_getbuffer, heapctypewithbuffer_getbuffer},
+                    {Py_bf_releasebuffer, heapctypewithbuffer_releasebuffer},
+                    {0, 0},
+                };
+
+                static PyType_Spec HeapCTypeWithBuffer_spec = {
+                    "HeapCTypeWithBuffer",
+                    sizeof(HeapCTypeWithBufferObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    HeapCTypeWithBuffer_slots
+                };
+                """)
+        HeapCTypeWithBuffer = module.get_type()
+        inst = HeapCTypeWithBuffer()
+        b = bytes(inst)
+        assert b == b"1234"
+        # release the buffer
+        del inst
+        import gc; gc.collect()

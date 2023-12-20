@@ -151,7 +151,7 @@ PyPy will always support 2.7 since RPython is written for it. In addition, PyPy
 supports various Python3 versions, see the `release notes`_ for the latest
 releases. Typically, we will support one or two versions of Python3.
 
-.. _ `release notes`: index-of-release-notes.html
+.. _`release notes`: index-of-release-notes.html
 
 .. _threading:
 
@@ -205,13 +205,12 @@ Should I install numpy or numpypy?
 -----------------------------------
 
 TL;DR version: you should use numpy. You can install it by doing ``pypy -m pip
-install numpy``.  You might also be interested in using the experimental `PyPy
-binary wheels`_ to save compilation time.
+install numpy``. 
 
 The upstream ``numpy`` is written in C, and runs under the cpyext
 compatibility layer.  Nowadays, cpyext is mature enough that you can simply
-use the upstream ``numpy``, since it passes the test suite. At the
-moment of writing (October 2017) the main drawback of ``numpy`` is that cpyext
+use the upstream ``numpy``, since it passes the test suite. The main drawback
+of ``numpy`` is that cpyext
 is infamously slow, and thus it has worse performance compared to
 ``numpypy``. However, we are actively working on improving it, as we expect to
 reach the same speed when HPy_ can be used.
@@ -222,7 +221,7 @@ be completely compatible: over the years the project slowly matured and
 eventually it was able to call out to the LAPACK and BLAS libraries to speed
 matrix calculations, and reached around an 80% parity with the upstream
 numpy. However, 80% is far from 100%.  Since cpyext/numpy compatibility is
-progressing fast, we have discontinued support for ``numpypy``.
+complete, we have discontinued support for ``numpypy``.
 
 .. _`started to reimplement`: https://www.pypy.org/posts/2011/05/numpy-in-pypy-status-and-roadmap-8332894230779779992.html
 .. _fork: https://github.com/pypy/numpypy

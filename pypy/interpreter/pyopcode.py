@@ -1460,8 +1460,7 @@ class __extend__(pyframe.PyFrame):
         try:
             space.call_method(v, 'extend', w)
         except OperationError as e:
-            if (e.match(space, space.w_TypeError) and
-                    space.is_iterable(w)):
+            if space.is_iterable(w):
                 raise
             raise oefmt(space.w_TypeError,
                         "Value after * must be an iterable, not %T",
@@ -2096,7 +2095,8 @@ def match_class_attr(space, w_subject, w_name, w_type, seen):
 
 @jit.unroll_safe
 def _match_class(space, nargs, w_names, w_type, w_subject):
-    if not space.isinstance_w(w_subject, w_type):
+    w_res = space.call_method(space.builtin, "isinstance", w_subject, w_type)
+    if not space.is_true(w_res):
         return None
 
     seen = {}

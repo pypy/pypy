@@ -295,8 +295,6 @@ class FunctionScope(Scope):
 
     def note_return(self, ret):
         if ret.value:
-            if self.is_coroutine and self.is_generator:
-                self.error("'return' with value in async generator", ret)
             self.return_with_value = True
             self.ret = ret
 

@@ -1,3 +1,4 @@
+import pytest
 import sys
 
 def f():
@@ -17,6 +18,7 @@ def recurse(n):
     else:
         return do_check()
 
+@pytest.mark.skipif(sys.platform == "win32", reason="reliably crashes on windows")
 def test_recursion():
     """
     Test that sys.exc_info() is cleared after RecursionError was raised.

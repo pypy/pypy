@@ -1015,6 +1015,8 @@ raise_error(void *unused)
     return NULL;
 }
 
+static PyObject *collect_func = NULL;
+
 static int
 test_buildvalue_N_error(const char *fmt)
 {
@@ -1025,16 +1027,23 @@ test_buildvalue_N_error(const char *fmt)
         return -1;
     }
 
+    size_t arg_cnt = Py_REFCNT(arg);
     Py_INCREF(arg);
     res = Py_BuildValue(fmt, return_none, NULL, arg);
     if (res == NULL) {
         return -1;
     }
+    /* This should call the dealloc function for res, which should release arg 
+     * But if res is a list, it created the RPython object, so we need the PyPy
+     * gc to collect the object
+     */  
     Py_DECREF(res);
-    if (Py_REFCNT(arg) != 1) {
+    PyObject_CallFunction(collect_func, NULL);
+    size_t diff = Py_REFCNT(arg) - arg_cnt;
+    if (diff != 0) {
         PyErr_Format(TestError, "test_buildvalue_N: "
                      "arg was not decrefed in successful "
-                     "Py_BuildValue(\"%s\")", fmt);
+                     "Py_BuildValue(\"%s\"): %ld", fmt, diff);
         return -1;
     }
 
@@ -1046,7 +1055,7 @@ test_buildvalue_N_error(const char *fmt)
         return -1;
     }
     PyErr_Clear();
-    if (Py_REFCNT(arg) != 1) {
+    if (Py_REFCNT(arg) - arg_cnt != 0) {
         PyErr_Format(TestError, "test_buildvalue_N: "
                      "arg was not decrefed in failed "
                      "Py_BuildValue(\"%s\")", fmt);
@@ -1066,6 +1075,7 @@ test_buildvalue_N(PyObject *self, PyObject *Py_UNUSED(ignored))
         return NULL;
     }
     Py_INCREF(arg);
+    size_t arg_cnt = Py_REFCNT(arg);
     res = Py_BuildValue("N", arg);
     if (res == NULL) {
         return NULL;
@@ -1074,7 +1084,7 @@ test_buildvalue_N(PyObject *self, PyObject *Py_UNUSED(ignored))
         return raiseTestError("test_buildvalue_N",
                               "Py_BuildValue(\"N\") returned wrong result");
     }
-    if (Py_REFCNT(arg) != 2) {
+    if (Py_REFCNT(arg) - arg_cnt != 0) {
         return raiseTestError("test_buildvalue_N",
                               "arg was not decrefed in Py_BuildValue(\"N\")");
     }
@@ -3160,23 +3170,29 @@ test_capsule(PyObject *self, PyObject *Py_UNUSED(ignored))
     void *pointer2;
     known_capsule known_capsules[] = {
         #define KNOWN_CAPSULE(module, name)             { module "." name, module, name }
+#ifndef PYPY_VERSION
         KNOWN_CAPSULE("_socket", "CAPI"),
         KNOWN_CAPSULE("_curses", "_C_API"),
         KNOWN_CAPSULE("datetime", "datetime_CAPI"),
+#endif
         { NULL, NULL },
     };
     known_capsule *known = &known_capsules[0];
+    PyObject *gc_module = PyImport_ImportModule("gc");
+    PyObject *collect = PyObject_GetAttrString(gc_module, "collect");
 
 #define FAIL(x) { error = (x); goto exit; }
 
 #define CHECK_DESTRUCTOR \
-    if (capsule_error) { \
-        FAIL(capsule_error); \
-    } \
-    else if (!capsule_destructor_call_count) {          \
-        FAIL("destructor not called!"); \
-    } \
-    capsule_destructor_call_count = 0; \
+    PyObject_CallFunction(collect, NULL); \
+    PyObject_CallFunction(collect, NULL); \
+    if (capsule_error) {                  \
+        FAIL(capsule_error);              \
+    }                                     \
+    else if (!capsule_destructor_call_count) {\
+        FAIL("destructor not called!");   \
+    }                                     \
+    capsule_destructor_call_count = 0;    \
 
     object = PyCapsule_New(capsule_pointer, capsule_name, capsule_destructor);
     PyCapsule_SetContext(object, capsule_context);
@@ -3266,6 +3282,8 @@ test_capsule(PyObject *self, PyObject *Py_UNUSED(ignored))
     }
 
   exit:
+    Py_DECREF(gc_module);
+    Py_DECREF(collect);
     if (error) {
         return raiseTestError("test_capsule", error);
     }
@@ -7575,6 +7593,8 @@ PyInit__testcapi(void)
     if (PyModule_AddObject(m, "ContainerNoGC",
                            (PyObject *) &ContainerNoGC_type) < 0)
         return NULL;
+    PyObject *module = PyImport_ImportModule("gc");
+    collect_func = PyObject_GetAttrString(module, "collect");
 
 #ifndef PYPY_VERSION
     PyState_AddModule(m, &_testcapimodule);

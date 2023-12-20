@@ -682,9 +682,13 @@ def type_alloc(typedescr, space, w_metatype, itemsize=0):
         if not flags & Py_TPFLAGS_HEAPTYPE:
             decref(space, metatype)
 
+    # Follow the logic in _PyObject_VAR_SIZE, allocate at least 1 itemsize
+    # see test_heaptype_metaclass, the metaclass_bad type has tp_itemsize
+    # instead of tp_basicsize
     basicsize = max(rffi.sizeof(PyHeapTypeObject.TO), metatype.c_tp_basicsize)
+    extra_size = metatype.c_tp_itemsize
     heaptype = lltype.malloc(rffi.VOIDP.TO,
-                             basicsize,
+                             basicsize + extra_size,
                              flavor='raw', zero=True,
                              add_memory_pressure=True)
     heaptype = rffi.cast(PyHeapTypeObject, heaptype)
@@ -1229,8 +1233,8 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     
     py_type_ready(space, typ)
 
-    res = cts.cast('PyObject*', res)
-    w_type = from_ref(space, res)
+    res_obj = cts.cast('PyObject*', res)
+    w_type = from_ref(space, res_obj)
     if not module_from_spec and modname is not None:
         w_type.setdictvalue(space, '__module__', space.newtext(modname))
     # Convert getsets
@@ -1246,7 +1250,7 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
             name = rffi.constcharp2str(name)
             w_descr = W_GetSetPropertyEx(getset, w_type)
             w_type.setdictvalue(space, name, w_descr)
-    return res
+    return res_obj
 
 @cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP)
 def PyType_GetSlot(space, typ, slot):

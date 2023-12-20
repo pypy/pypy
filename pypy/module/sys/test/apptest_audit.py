@@ -2,6 +2,8 @@ import sys
 import __pypy__
 
 class TestHook:
+    __test__ = False
+
     def __init__(self, raise_on_events=None, exc_type=RuntimeError):
         self.raise_on_events = raise_on_events or ()
         self.exc_type = exc_type

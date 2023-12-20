@@ -295,9 +295,9 @@ class W_SRE_Pattern(W_Root):
         return rsre_core.StrMatchContext(str,
                                          pos, endpos)
 
-    def getmatch(self, ctx, found):
+    def getmatch(self, ctx, found, w_string):
         if found:
-            return W_SRE_Match(self, ctx)
+            return W_SRE_Match(self, ctx, w_string)
         else:
             return self.space.w_None
 
@@ -305,14 +305,14 @@ class W_SRE_Pattern(W_Root):
     def match_w(self, w_string, pos=0, endpos=sys.maxint):
         """Matches zero or more characters at the beginning of the string."""
         ctx = self.make_ctx(w_string, pos, endpos)
-        return self.getmatch(ctx, matchcontext(self.space, ctx, self.code))
+        return self.getmatch(ctx, matchcontext(self.space, ctx, self.code), w_string)
 
     @unwrap_spec(pos=int, endpos=int)
     def fullmatch_w(self, w_string, pos=0, endpos=sys.maxint):
         """Matches against all of the string."""
         ctx = self.make_ctx(w_string, pos, endpos)
         ctx.match_mode = rsre_core.MODE_FULL
-        return self.getmatch(ctx, matchcontext(self.space, ctx, self.code))
+        return self.getmatch(ctx, matchcontext(self.space, ctx, self.code), w_string)
 
     @unwrap_spec(pos=int, endpos=int)
     def search_w(self, w_string, pos=0, endpos=sys.maxint):
@@ -320,7 +320,7 @@ class W_SRE_Pattern(W_Root):
 
 Return None if no position in the string matches."""
         ctx = self.make_ctx(w_string, pos, endpos)
-        return self.getmatch(ctx, searchcontext(self.space, ctx, self.code))
+        return self.getmatch(ctx, searchcontext(self.space, ctx, self.code), w_string)
 
     @unwrap_spec(pos=int, endpos=int)
     def findall_w(self, w_string, pos=0, endpos=sys.maxint):
@@ -356,7 +356,7 @@ For each match, the iterator returns a match object."""
         # this also works as the implementation of the undocumented
         # scanner() method.
         ctx = self.make_ctx(w_string, pos, endpos)
-        scanner = W_SRE_Scanner(self, ctx, self.code)
+        scanner = W_SRE_Scanner(self, ctx, self.code, w_string)
         return scanner
 
     @unwrap_spec(maxsplit=int)
@@ -487,7 +487,7 @@ For each match, the iterator returns a match object."""
             if 1:  # keeps the following block indented
                 last_pos = ctx.match_end
                 if filter_is_callable:
-                    w_match = self.getmatch(ctx, True)
+                    w_match = self.getmatch(ctx, True, w_string)
                     # make a copy of 'ctx'; see test_sub_matches_stay_valid
                     ctx = self.fresh_copy(ctx)
                     w_piece = space.call_function(w_filter, w_match)
@@ -659,10 +659,11 @@ W_SRE_Pattern.typedef.acceptable_as_base_class = False
 class W_SRE_Match(W_Root):
     flatten_cache = None
 
-    def __init__(self, srepat, ctx):
+    def __init__(self, srepat, ctx, w_string):
         self.space = srepat.space
         self.srepat = srepat
         self.ctx = ctx
+        self.w_string = w_string
 
     def repr_w(self):
         space = self.space
@@ -847,19 +848,7 @@ For 0 returns the entire match."""
         return space.newtuple(result_w)
 
     def fget_string(self, space):
-        ctx = self.ctx
-        if isinstance(ctx, rsre_core.BufMatchContext):
-            return space.newbytes(ctx._buffer.as_str())
-        elif isinstance(ctx, UnicodeAsciiMatchContext):
-            return space.newutf8(ctx._string, len(ctx._string))
-        elif isinstance(ctx, rsre_core.StrMatchContext):
-            return space.newbytes(ctx._string)
-        elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
-            lgt = rutf8.codepoints_in_utf8(ctx._utf8)
-            return space.newutf8(ctx._utf8, lgt)
-        else:
-            raise SystemError
-
+        return self.w_string
 
 W_SRE_Match.typedef = TypeDef(
     're.Match',
@@ -897,11 +886,12 @@ W_SRE_Match.typedef.acceptable_as_base_class = False
 # Our version is also directly iterable, to make finditer() easier.
 
 class W_SRE_Scanner(W_Root):
-    def __init__(self, pattern, ctx, code):
+    def __init__(self, pattern, ctx, code, w_string):
         self.space = pattern.space
         self.srepat = pattern
         self.ctx = ctx
         self.code = code
+        self.w_string = w_string
         # 'self.ctx' is always a fresh context in which no searching
         # or matching succeeded so far.  It is None when the iterator is
         # exhausted.
@@ -934,7 +924,7 @@ class W_SRE_Scanner(W_Root):
             nextstart = ctx.match_end
             self.ctx = self.srepat.fresh_copy(ctx)
             self.ctx.reset(nextstart, thisstart == nextstart)
-            match = W_SRE_Match(self.srepat, ctx)
+            match = W_SRE_Match(self.srepat, ctx, self.w_string)
             return match
         else:
             self.ctx = None

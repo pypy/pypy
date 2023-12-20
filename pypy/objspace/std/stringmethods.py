@@ -640,6 +640,7 @@ class StringMethods(object):
         return space.w_False
 
     # This is overridden in unicodeobject, _startswith_tuple is not.
+    # This is overridden in bytearrayobject to remove the trailing NULL
     def _startswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
         if start > len(value):
@@ -669,6 +670,7 @@ class StringMethods(object):
         return space.w_False
 
     # This is overridden in unicodeobject, but _endswith_tuple is not.
+    # This is overridden in bytearrayobject
     def _endswith(self, space, value, w_prefix, start, end):
         prefix = self._op_val(space, w_prefix)
         if start > len(value):

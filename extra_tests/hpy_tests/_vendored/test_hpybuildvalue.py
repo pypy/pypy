@@ -12,7 +12,7 @@ class TestBuildValue(HPyTest):
         return self.make_module("""
             #include <limits.h>
 
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {{
                 switch (HPyLong_AsLong(ctx, arg)) {{
@@ -36,6 +36,7 @@ class TestBuildValue(HPyTest):
             ('return HPy_BuildValue(ctx, "I", 33);', 33),
             ('return HPy_BuildValue(ctx, "k", 1);', 1),
             ('return HPy_BuildValue(ctx, "K", 6543);', 6543),
+            ('return HPy_BuildValue(ctx, "n", 9876);', 9876),
             ('return HPy_BuildValue(ctx, "l", 345L);', 345),
             ('return HPy_BuildValue(ctx, "l", -876L);', -876),
             ('return HPy_BuildValue(ctx, "L", 545LL);', 545),
@@ -101,13 +102,13 @@ class TestBuildValue(HPyTest):
 
     def test_O_and_aliases(self):
         mod = self.make_module("""
-            HPyDef_METH(fo, "fo", fo_impl, HPyFunc_O)
+            HPyDef_METH(fo, "fo", HPyFunc_O)
             static HPy fo_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 return HPy_BuildValue(ctx, "O", arg);
             }
 
-            HPyDef_METH(fs, "fs", fs_impl, HPyFunc_O)
+            HPyDef_METH(fs, "fs", HPyFunc_O)
             static HPy fs_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 return HPy_BuildValue(ctx, "S", arg);
@@ -129,7 +130,7 @@ class TestBuildValue(HPyTest):
         # the caller still needs to close it, otherwise -> handle leak
         mod = self.make_module("""
             #include <stdio.h>
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 HPy o = HPyLong_FromLong(ctx, 42);
@@ -151,7 +152,7 @@ class TestBuildValue(HPyTest):
     def test_O_with_null(self):
         import pytest
         mod = self.make_module("""
-            HPyDef_METH(no_msg, "no_msg", no_msg_impl, HPyFunc_O)
+            HPyDef_METH(no_msg, "no_msg", HPyFunc_O)
             static HPy no_msg_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 if (HPyLong_AsLong(ctx, arg)) {
@@ -161,7 +162,7 @@ class TestBuildValue(HPyTest):
                 }
             }
 
-            HPyDef_METH(with_msg, "with_msg", with_msg_impl, HPyFunc_O)
+            HPyDef_METH(with_msg, "with_msg", HPyFunc_O)
             static HPy with_msg_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 HPyErr_SetString(ctx, ctx->h_ValueError, "Some err msg that will be asserted");
@@ -185,7 +186,7 @@ class TestBuildValue(HPyTest):
     def test_OO_pars_with_new_objects(self):
         mod = self.make_module("""
             #include <stdio.h>
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            HPyDef_METH(f, "f", HPyFunc_O)
             static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 HPy o1 = HPyLong_FromLong(ctx, 1);
@@ -208,6 +209,7 @@ class TestBuildValue(HPyTest):
             ('return HPy_BuildValue(ctx, "(iI)", -1, UINT_MAX);',),
             ('return HPy_BuildValue(ctx, "(ik)", -1, ULONG_MAX);',),
             ('return HPy_BuildValue(ctx, "(iK)", -1, ULLONG_MAX);',),
+            ('return HPy_BuildValue(ctx, "(nn)", HPY_SSIZE_T_MIN, HPY_SSIZE_T_MAX);',),
         ]
         mod = self.make_tests_module(test_cases)
         for i, (test,) in enumerate(test_cases):

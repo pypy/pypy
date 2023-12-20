@@ -932,3 +932,9 @@ class AppTestMMap:
         assert repr(m) == "<mmap.mmap closed=False, access=ACCESS_DEFAULT, length=1024, pos=0, offset=0>"
         m.close()
         assert repr(m) == "<mmap.mmap closed=True>"
+
+    def test_assign_buffer(self):
+        import mmap
+        m = mmap.mmap(-1, 1024)
+        m[0:5] = bytearray(b'12345')
+        assert m[0:5] == b'12345'

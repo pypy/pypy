@@ -20,8 +20,10 @@ from collections import namedtuple
 from reprlib import recursive_repr
 from _thread import RLock
 from types import GenericAlias
-try: from __pypy__ import hidden_applevel
-except ImportError: builtinify = lambda f: f
+try:
+    from __pypy__ import hidden_applevel
+except ImportError:
+    hidden_applevel = lambda f: f
 
 
 ################################################################################

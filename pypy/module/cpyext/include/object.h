@@ -596,6 +596,8 @@ static inline PyObject* _Py_XNewRef(PyObject *obj)
 #define Py_NewRef(obj) _Py_NewRef(_PyObject_CAST(obj))
 #define Py_XNewRef(obj) _Py_XNewRef(_PyObject_CAST(obj))
 
+PyAPI_FUNC(PyObject *) PyType_GenericNew(PyTypeObject *,
+                                               PyObject *, PyObject *);
 
 /*
 _Py_NoneStruct is an object of undefined type which can be used in contexts
@@ -755,6 +757,9 @@ PyAPI_FUNC(PyObject *) _PyType_GetModuleByDef(PyTypeObject *, struct PyModuleDef
         (op) = (op2);                           \
         Py_DECREF(_py_tmp);                     \
     } while (0)
+
+/* Generic type check */
+PyAPI_FUNC(int) PyType_IsSubtype(PyTypeObject *, PyTypeObject *);
 
 #define Py_XSETREF(op, op2)                     \
     do {                                        \

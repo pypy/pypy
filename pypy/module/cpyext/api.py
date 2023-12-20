@@ -36,6 +36,7 @@ from pypy.module.__builtin__.descriptor import W_Property
 from pypy.module.__builtin__.functional import W_ReversedIterator, W_Range
 #from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.__pypy__.interp_buffer import W_Bufferable
+from pypy.objspace.std.capsuleobject import W_Capsule
 from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import SuppressIPH
 from rpython.rlib.unroll import unrolling_iterable
@@ -142,7 +143,7 @@ Py_TPFLAGS_READY Py_TPFLAGS_READYING
 METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_FASTCALL METH_O
 Py_TPFLAGS_HEAPTYPE METH_METHOD
-Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
+Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE PyBUF_MAX_NDIM
 Py_CLEANUP_SUPPORTED PyBUF_READ
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE PyBUF_WRITE
 PY_SSIZE_T_MAX PY_SSIZE_T_MIN
@@ -601,7 +602,7 @@ SYMBOLS_C = [
     '_Py_BuildValue_SizeT', '_Py_VaBuildValue_SizeT', 'PyUnicode_AppendAndDel',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
-    'PyErr_WarnFormat', '_PyErr_FormatFromCause',
+    'PyErr_WarnFormat', '_PyErr_FormatFromCause', 'PyErr_FormatV',
     'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
@@ -611,10 +612,10 @@ SYMBOLS_C = [
     'PyObject_DelItemString', 'PyObject_GetBuffer', 'PyBuffer_Release',
     '_Py_setfilesystemdefaultencoding',
 
-    'PyCapsule_New', 'PyCapsule_IsValid', 'PyCapsule_GetPointer',
+    'PyCapsule_IsValid', 'PyCapsule_GetPointer',
     'PyCapsule_GetName', 'PyCapsule_GetDestructor', 'PyCapsule_GetContext',
     'PyCapsule_SetPointer', 'PyCapsule_SetName', 'PyCapsule_SetDestructor',
-    'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', '_Py_get_capsule_type',
+    'PyCapsule_SetContext', 'PyCapsule_Import', '_Py_get_capsule_type',
 
     'PyComplex_AsCComplex', 'PyComplex_FromCComplex', 'PyNumber_Check', 'PyIndex_Check',
 
@@ -638,6 +639,7 @@ SYMBOLS_C = [
     'PyStructSequence_SetItem', 
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
+    'PyCapsule_Type',
 
     'Py_FrozenFlag', # not part of sys.flags
     'Py_UnbufferedStdioFlag',  # not part of sys.flags (python3)
@@ -765,6 +767,7 @@ def build_exported_objects():
         'PyFunction_Type': 'space.gettypeobject(Function.typedef)',
         'PyMethod_Type': 'space.gettypeobject(Method.typedef)',
         'PyTraceBack_Type': 'space.gettypeobject(PyTraceback.typedef)',
+        'PyCapsule_Type': 'space.gettypeobject(W_Capsule.typedef)',
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 
@@ -1248,6 +1251,10 @@ def attach_c_functions(space, eci, prefix):
         compilation_info=eci, _nowrapper=True)
     state.C.tuple_new = rffi.llexternal(
         mangle_name(prefix, '_Py_tuple_new'),
+        [PyTypeObjectPtr, PyObject, PyObject], PyObject,
+        compilation_info=eci, _nowrapper=True)
+    state.C.PyType_GenericNew = rffi.llexternal(
+        mangle_name(prefix, 'PyType_GenericNew'),
         [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
     state.C.tuple_new = rffi.llexternal(
@@ -1875,6 +1882,8 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
     old_context = state.package_context
     state.package_context = name, path
     try:
+        if state.clear_exception():
+            raise oefmt(space.w_SystemError, "error before call to initialization of %s", name)
         initfunc = rffi.cast(initfunctype, initptr)
         initret = generic_cpy_call_dont_convert_result(space, initfunc)
         if not initret:
@@ -2018,10 +2027,14 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
             has_new_error = (error is not None) and (error is not preexist_error)
             has_result = ret is not None
             if not expect_null and has_new_error and has_result:
+                state = space.fromcache(State)
+                state.clear_exception()
                 raise oefmt(space.w_SystemError,
                             "An exception was set, but function returned a "
                             "value")
             elif not expect_null and not has_new_error and not has_result:
+                state = space.fromcache(State)
+                state.clear_exception()
                 raise oefmt(space.w_SystemError,
                             "Function returned a NULL result without setting "
                             "an exception")

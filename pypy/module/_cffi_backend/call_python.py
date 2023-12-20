@@ -51,7 +51,7 @@ def _cffi_call_python(ll_externpy, ll_args):
         # Not initialized!  We don't have a space at all.
         # Write the error to the file descriptor stderr.
         try:
-            funcname = rffi.charp2str(ll_externpy.c_name)
+            funcname = rffi.constcharp2str(ll_externpy.c_name)
             msg = ("extern \"Python\": function %s() called, but no code was "
                    "attached to it yet with @ffi.def_extern().  "
                    "Returning 0.\n" % (funcname,))
@@ -95,8 +95,9 @@ def externpy_deco(space, w_ffi, w_python_callable, w_name, w_error, w_onerror):
     index = parse_c_type.search_in_globals(ctx, name)
     if index < 0:
         raise externpy_not_found(ffi, name)
+    globals = rffi.cast(rffi.CArrayPtr(parse_c_type.GLOBAL_S), ctx.c_globals)
 
-    g = ctx.c_globals[index]
+    g = globals[index]
     if getop(g.c_type_op) != cffi_opcode.OP_EXTERN_PYTHON:
         raise externpy_not_found(ffi, name)
 

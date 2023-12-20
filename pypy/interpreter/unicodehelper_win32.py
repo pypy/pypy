@@ -61,7 +61,10 @@ def _unibuf_to_utf8(dataptr, insize):
     flags = 0
     cp = rwin32.CP_UTF8
     used_default_p = lltype.nullptr(BOOLP.TO)
-    # first get the size of the result
+    # first get the size of the result. This will crash if insize == 0
+    # It is checked before this call, but check again to make sure
+    if insize < 1:
+        return ''
     outsize = WideCharToMultiByte(cp, flags, dataptr, insize,
                                 None, 0, None, used_default_p)
     if outsize == 0:

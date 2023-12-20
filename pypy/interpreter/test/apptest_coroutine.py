@@ -919,3 +919,21 @@ def test_async_listcomp_bug():
 
     assert run_async(run_list()) == ([], [11, 21, 31])
 
+def test_ag_running_asend_send():
+    async def agen():
+        await suspend('coro')
+        yield 0
+
+    a = agen()
+    assert a.ag_running is False
+    coro = a.asend(None)
+    res = coro.send(None)
+    assert res == 'coro'
+    assert a.ag_running is True
+    with raises(RuntimeError):
+        a.asend(None).send(None)
+    with raises(StopIteration) as info:
+        res = coro.send(None)
+    assert info.value.value == 0
+    assert a.ag_running is False
+

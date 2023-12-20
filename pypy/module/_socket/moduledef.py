@@ -15,6 +15,9 @@ class Module(MixedModule):
         'gaierror'  :  'interp_socket.get_error(space, "gaierror")',
         'timeout'   :  'space.w_TimeoutError',
         'close'     :  'interp_socket.close',
+        'if_nameindex'  :  'interp_socket.if_nameindex',
+        'if_nametoindex'  :  'interp_socket.if_nametoindex',
+        'if_indextoname'  :  'interp_socket.if_indextoname',
         'SOMAXCONN' :  'space.wrap(%d)' % SOMAXCONN,
     }
 

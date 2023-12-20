@@ -247,13 +247,12 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert e.strerror == os.strerror(errno.EBADF)
             assert e.filename is None
 
-    def test_SetFromErrnoWithFilename(self):
+    def test_SetFromErrnoWithFilename_basic(self):
         char = self.special_char
         if char is None:
             char = "a" # boring
-        import errno, os
-
-        module = self.import_extension('foo', [
+        import errno, os, sys
+        codestr = [
                 ("set_from_errno", "METH_NOARGS",
                  '''
                  errno = EBADF;
@@ -266,7 +265,44 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                  PyErr_SetFromErrnoWithFilename(PyExc_OSError, "/path/to/%s");
                  return NULL;
                  ''' % (char, )),
-                ],
+                ]
+        if sys.platform == "win32":
+            codestr += [
+                ("set_from_windowserr", "METH_NOARGS",
+                """
+                    /* this error code has no message, Python formats it
+                       as hexadecimal */
+                    int code = 376526934;
+                    PyObject *ret = PyErr_SetFromWindowsErr(code);
+                    return NULL;
+                """),
+                ("set_from_windowserr_filename", "METH_O",
+                """
+                    int code = 376526934;
+                    char *filename = NULL;
+                    if (args != Py_None)
+                        filename = PyBytes_AsString(args);
+                    PyObject *ret = PyErr_SetFromWindowsErrWithFilename(code, filename);
+                    return NULL;
+                """),
+                ("set_from_windowserr_filename_object", "METH_O",
+                """
+                    int code = 376526934;
+                    PyObject *ret = PyErr_SetExcFromWindowsErrWithFilenameObject(PyExc_OSError, code, args);
+                    return NULL;
+                """),
+                ("set_from_windowserr_filename_objects", "METH_VARARGS",
+                """
+                    int code = 376526934;
+                    PyObject *arg1, *arg2;
+                    if (!PyArg_ParseTuple(args, "OO", &arg1, &arg2)) {
+                        return NULL;
+                    }
+                    PyObject *ret = PyErr_SetExcFromWindowsErrWithFilenameObjects(PyExc_OSError, code, arg1, arg2);
+                    return NULL;
+                """),
+            ]
+        module = self.import_extension('foo', codestr, 
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == "/path/to/file"
@@ -281,6 +317,38 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             # untranslated the errno can get reset by the calls to ll2ctypes
             assert exc_info.value.errno == errno.EBADF
             assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if sys.platform == "win32":
+            exc_info = raises(OSError, module.set_from_windowserr)
+            if self.runappdirect:
+                # untranslated the errno can get reset by the calls to ll2ctypes
+                assert exc_info.value.errno == 376526934
+
+            exc_info = raises(OSError, module.set_from_windowserr_filename,
+                              None)
+            if self.runappdirect:
+                assert exc_info.value.errno == 376526934 
+
+            exc_info = raises(OSError, module.set_from_windowserr_filename,
+                              b"myfile.py")
+            if self.runappdirect:
+                assert exc_info.value.errno ==  376526934
+            assert exc_info.value.filename == "myfile.py"
+
+            exc_info = raises(OSError, module.set_from_windowserr_filename_object,
+                              "myfile.py")
+            print(exc_info.value.filename)
+            if self.runappdirect:
+                assert exc_info.value.errno == 376526934
+            assert exc_info.value.filename == "myfile.py"
+
+            exc_info = raises(OSError, module.set_from_windowserr_filename_objects,
+                              "myfile.py", "myfile2.py")
+            print(exc_info.value, exc_info.value.filename) 
+            if self.runappdirect:
+                assert exc_info.value.errno == 376526934
+            assert exc_info.value.filename == "myfile.py"
+            assert exc_info.value.filename2== "myfile2.py"
+
 
     def test_SetFromErrnoWithFilename_NULL(self):
         import errno, os
@@ -499,20 +567,35 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert new_exc_info == (new_exc.__class__, new_exc, None)
             assert new_exc_info == new_sys_exc_info
 
-    def test_PyErr_WarnFormat(self):
+    def test_PyErr_Format(self):
         import warnings
 
         module = self.import_extension('foo', [
-                ("test", "METH_NOARGS",
+                ("test_warning", "METH_NOARGS",
                  '''
                  PyErr_WarnFormat(PyExc_UserWarning, 1, "foo %d bar", 42);
                  Py_RETURN_NONE;
                  '''),
-                ])
+                ("test_err", "METH_NOARGS",
+                 '''
+                    PyObject * helper(PyObject *exception, char * fmt, ...) {
+                        va_list va;
+                        va_start(va, fmt);
+                        PyErr_FormatV(exception, fmt, va);
+                        va_end(va);
+                        return NULL;
+                    }
+                    return helper(PyExc_ValueError, "foo %d bar %d", 42, 11);
+                 ''')],
+                 prologue="""
+                    PyObject * helper(PyObject *exception, char * fmt, ...);
+                 """ 
+                )
         with warnings.catch_warnings(record=True) as l:
-            module.test()
+            module.test_warning()
         assert len(l) == 1
         assert "foo 42 bar" in str(l[0])
+        raises (ValueError, module.test_err)
 
     def test_StopIteration_value(self):
         module = self.import_extension('foo', [

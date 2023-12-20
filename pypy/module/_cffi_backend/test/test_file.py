@@ -2,9 +2,11 @@ import urllib2, py
 
 
 def test_same_file():
+    from pypy.module._cffi_backend import VERSION
     # '_backend_test_c.py' is a copy of 'c/test_c.py' from the CFFI repo,
-    # with the header lines (up to '# _____') stripped.
-    url = 'https://foss.heptapod.net/pypy/cffi/raw/branch/default/c/test_c.py'
+    # with the header lines (up to '# _____') stripped. Get the file at
+    # the tag of our VERSION
+    url = 'https://raw.githubusercontent.com/python-cffi/cffi/v%s/src/c/test_c.py' % VERSION
     source = urllib2.urlopen(url).read()
     #
     dest = py.path.local(__file__).join('..', '_backend_test_c.py').read()
@@ -20,7 +22,8 @@ def test_metadata_version():
     from pypy.module._cffi_backend import VERSION
     line = "Version: %s\n" % VERSION
     metadatafile = py.path.local(__file__).join('..', '..', '..', '..', '..',
-                                           'lib_pypy', 'cffi.dist-info',
+                                           'lib_pypy',
+                                           'cffi.%s.dist-info' % VERSION,
                                            'METADATA')
     assert line in metadatafile.readlines()
 

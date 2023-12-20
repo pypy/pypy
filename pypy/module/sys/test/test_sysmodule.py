@@ -57,8 +57,6 @@ class AppTestAppSysTests:
 
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
-        filesystemenc = codecs.lookup(sys.getfilesystemencoding()).name
-        cls.w_filesystemenc = cls.space.wrap(filesystemenc)
 
     def test_sys_in_modules(self):
         import sys
@@ -137,12 +135,8 @@ class AppTestAppSysTests:
     def test_getfilesystemencoding(self):
         import sys
         enc = sys.getfilesystemencoding()
-        # even before bootstraping, the encoding should match
-        assert enc == self.filesystemenc
-        if not self.appdirect:
-            # see comment in 'setup_after_space_initialization'
-            untranslated_enc = {'win32': 'utf-8', 'darwin': 'utf-8'}.get(enc, 'utf-8')
-            assert enc == untranslated_enc
+        # always utf-8
+        assert enc == "utf-8"
 
     def test_float_info(self):
         import sys
@@ -230,11 +224,13 @@ class AppTestAppSysTests:
 
     def test_multiarch(self):
         import sys
-        if sys.platform == 'linux':
+        multiarch = ''
+        try:
             multiarch = sys.implementation._multiarch
-            assert 'linux' in multiarch
+        except AttributeError:
+            assert sys.platform == 'win32'
         else:
-            assert not sys.implemenation.hasattr('_multiarch')
+            assert 'linux' in multiarch
 
     def test_audit(self):
         import sys

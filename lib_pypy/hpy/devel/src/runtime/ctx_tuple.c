@@ -1,7 +1,7 @@
 #include <Python.h>
 #include "hpy.h"
 
-#ifdef HPY_UNIVERSAL_ABI
+#ifndef HPY_ABI_CPYTHON
    // for _h2py and _py2h
 #  include "handles.h"
 #endif

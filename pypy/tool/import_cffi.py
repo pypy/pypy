@@ -2,10 +2,10 @@
 """ A simple tool for importing the cffi version into pypy, should sync
 whatever version you provide. Usage:
 
-import_cffi.py <path-to-cffi>
+python3.9 pypy/tool/import_cffi.py <path-to-cffi>
 """
 
-import sys, py
+import sys, pathlib
 
 def mangle(lines, ext):
     if ext == '.py':
@@ -25,26 +25,28 @@ def fixeol(s):
     return s
 
 def main(cffi_dir):
-    cffi_dir = py.path.local(cffi_dir)
-    rootdir = py.path.local(__file__).join('..', '..', '..')
+    cffi_dir = pathlib.Path(cffi_dir)
+    rootdir = pathlib.Path(__file__).parent.parent.parent
     cffi_dest = rootdir / 'lib_pypy' / 'cffi'
-    cffi_dest.ensure(dir=1)
+    cffi_dest.mkdir(exist_ok=True)
     test_dest = rootdir / 'extra_tests' / 'cffi_tests'
-    test_dest.ensure(dir=1)
-    for p in (list(cffi_dir.join('cffi').visit(fil='*.py')) +
-              list(cffi_dir.join('cffi').visit(fil='*.h'))):
-        cffi_dest.join('..', p.relto(cffi_dir)).write_binary(fixeol(p.read()))
-    for p in (list(cffi_dir.join('testing').visit(fil='*.py')) +
-              list(cffi_dir.join('testing').visit(fil='*.h')) +
-              list(cffi_dir.join('testing').visit(fil='*.c'))):
-        path = test_dest.join(p.relto(cffi_dir.join('testing')))
-        path.join('..').ensure(dir=1)
-        path.write_binary(fixeol(''.join(mangle(p.readlines(), p.ext))))
-    path = test_dest.join('test_c.py')
-    path.write_binary(fixeol(cffi_dir.join('c', 'test_c.py').read()))
+    test_dest.mkdir(exist_ok=True)
+    testing = cffi_dir / "testing"
+    source = cffi_dir / "src"
+    for p in (list((source / 'cffi').glob('*.py')) +
+              list((source/ 'cffi').glob('*.h'))):
+        (cffi_dest.parent / p.relative_to(source)).write_text(fixeol(p.read_text()))
+    for p in (list(testing.glob('*.py')) +
+              list(testing.glob('*.h')) +
+              list(testing.glob('*.c'))):
+        path = test_dest / p.relative_to(testing)
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(fixeol(''.join(mangle(p.read_text(), p.suffix))))
+    path = test_dest / 'test_c.py'
+    path.write_text(fixeol(cffi_dir.joinpath('src', 'c', 'test_c.py').read_text()))
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print __doc__
+        print(__doc__)
         sys.exit(2)
     main(sys.argv[1])

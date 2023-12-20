@@ -1536,7 +1536,6 @@ class _SSLContext(object):
 
             # load cafile or capath
             if cafile is not None or capath is not None:
-                print(cafile, capath)
                 if cafile is None:
                     cafilebuf = ffi.NULL
                 else:

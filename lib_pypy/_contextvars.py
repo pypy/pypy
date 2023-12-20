@@ -1,6 +1,10 @@
 from __pypy__ import get_contextvar_context, set_contextvar_context
 from _immutables_map import Map
 from _pypy_generic_alias import GenericAlias
+try:
+    from __pypy__ import hidden_applevel
+except ImportError:
+    hidden_applevel = lambda f: f
 # implementation taken from PEP-0567 https://www.python.org/dev/peps/pep-0567/
 
 _NO_DEFAULT = object()
@@ -31,6 +35,7 @@ class Context(metaclass=Unsubclassable):
         self._data = Map()
         self._is_entered = False
 
+    @hidden_applevel
     def run(self, callable, *args, **kwargs):
         if self._is_entered:
             raise RuntimeError(

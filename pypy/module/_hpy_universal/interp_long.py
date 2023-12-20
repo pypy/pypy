@@ -5,24 +5,25 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._hpy_universal.apiset import API
 
 
-@API.func("HPy HPyLong_FromLong(HPyContext *ctx, long value)")
-def HPyLong_FromLong(space, handles, ctx, value):
+@API.func("HPy HPyLong_FromInt32_t(HPyContext *ctx, int value)")
+def HPyLong_FromInt32_t(space, handles, ctx, value):
     # XXX: cpyext does space.newlong: write a test and fix
     w_obj = space.newint(rffi.cast(lltype.Signed, value))
     return handles.new(w_obj)
 
-@API.func("HPy HPyLong_FromUnsignedLong(HPyContext *ctx, unsigned long value)")
-def HPyLong_FromUnsignedLong(space, handles, ctx, v):
+@API.func("HPy HPyLong_FromUInt32_t(HPyContext *ctx, unsigned int value)")
+def HPyLong_FromUInt32_t(space, handles, ctx, v):
     w_obj = space.newlong_from_rarith_int(v)
     return handles.new(w_obj)
 
-@API.func("HPy HPyLong_FromLongLong(HPyContext *ctx, long long v)")
-def HPyLong_FromLongLong(space, handles, ctx, v):
+# On windows, long is 4 bytes, on all platforms long long is 8
+@API.func("HPy HPyLong_FromInt64_t(HPyContext *ctx, long long v)")
+def HPyLong_FromInt64_t(space, handles, ctx, v):
     w_obj = space.newlong_from_rarith_int(v)
     return handles.new(w_obj)
 
-@API.func("HPy HPyLong_FromUnsignedLongLong(HPyContext *ctx, unsigned long long v)")
-def HPyLong_FromUnsignedLongLong(space, handles, ctx, v):
+@API.func("HPy HPyLong_FromUInt64_t(HPyContext *ctx, unsigned long long v)")
+def HPyLong_FromUInt64_t(space, handles, ctx, v):
     w_obj = space.newlong_from_rarith_int(v)
     return handles.new(w_obj)
 
@@ -43,9 +44,9 @@ LONG_MAX = (2 ** (8 * rffi.sizeof(rffi.ULONG) - 1) -1)
 LONG_MIN = (-2 ** (8 * rffi.sizeof(rffi.ULONG) - 1))
 need_to_check = maxint > ULONG_MAX
 
-@API.func("long HPyLong_AsLong(HPyContext *ctx, HPy h)",
+@API.func("long HPyLong_AsInt32_t(HPyContext *ctx, HPy h)",
           error_value=API.cast("long", -1))
-def HPyLong_AsLong(space, handles, ctx, h):
+def HPyLong_AsInt32_t(space, handles, ctx, h):
     w_long = handles.deref(h)
     val = space.int_w(space.int(w_long))
     if need_to_check and (val > LONG_MAX or val < LONG_MIN):
@@ -55,9 +56,9 @@ def HPyLong_AsLong(space, handles, ctx, h):
                     "Python int too large to convert to C long")
     return rffi.cast(rffi.LONG, val)
 
-@API.func("unsigned long HPyLong_AsUnsignedLong(HPyContext *ctx, HPy h)",
+@API.func("unsigned long HPyLong_AsUInt32_t(HPyContext *ctx, HPy h)",
           error_value=API.cast("unsigned long", -1))
-def HPyLong_AsUnsignedLong(space, handles, ctx, h):
+def HPyLong_AsUInt32_t(space, handles, ctx, h):
     w_long = handles.deref(h)
     try:
         val = space.uint_w(w_long)
@@ -72,9 +73,9 @@ def HPyLong_AsUnsignedLong(space, handles, ctx, h):
                     "Python int too large to convert to C unsigned long")
     return rffi.cast(rffi.ULONG, val)
 
-@API.func("unsigned long HPyLong_AsUnsignedLongMask(HPyContext *ctx, HPy h)",
+@API.func("unsigned long HPyLong_AsUInt32_tMask(HPyContext *ctx, HPy h)",
           error_value=API.cast("unsigned long", -1))
-def HPyLong_AsUnsignedLongMask(space, handles, ctx, h):
+def HPyLong_AsUInt32_tMask(space, handles, ctx, h):
     w_long = handles.deref(h)
     num = space.bigint_w(w_long)
     val = num.uintmask()
@@ -86,15 +87,15 @@ def HPyLong_AsUnsignedLongMask(space, handles, ctx, h):
         val &= ULONG_MASK
     return rffi.cast(rffi.ULONG, val)
 
-@API.func("long long HPyLong_AsLongLong(HPyContext *ctx, HPy h)",
+@API.func("long long HPyLong_AsInt64_t(HPyContext *ctx, HPy h)",
           error_value=API.cast("long long", -1))
-def HPyLong_AsLongLong(space, handles, ctx, h):
+def HPyLong_AsInt64_t(space, handles, ctx, h):
     w_long = handles.deref(h)
     return rffi.cast(rffi.LONGLONG, space.r_longlong_w(w_long))
 
-@API.func("unsigned long long HPyLong_AsUnsignedLongLong(HPyContext *ctx, HPy h)",
+@API.func("unsigned long long HPyLong_AsUInt64_t(HPyContext *ctx, HPy h)",
           error_value=API.cast("unsigned long long", -1))
-def HPyLong_AsUnsignedLongLong(space, handles, ctx, h):
+def HPyLong_AsUInt64_t(space, handles, ctx, h):
     w_long = handles.deref(h)
     try:
         return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(
@@ -104,9 +105,9 @@ def HPyLong_AsUnsignedLongLong(space, handles, ctx, h):
             e.w_type = space.w_OverflowError
         raise
 
-@API.func("unsigned long long HPyLong_AsUnsignedLongLongMask(HPyContext *ctx, HPy h)",
+@API.func("unsigned long long HPyLong_AsUInt64_tMask(HPyContext *ctx, HPy h)",
           error_value=API.cast("unsigned long long", -1))
-def HPyLong_AsUnsignedLongLongMask(space, handles, ctx, h):
+def HPyLong_AsUInt64_tMask(space, handles, ctx, h):
     w_long = handles.deref(h)
     num = space.bigint_w(w_long)
     return num.ulonglongmask()

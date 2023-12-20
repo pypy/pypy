@@ -2,16 +2,16 @@
 #include <Python.h>
 #include "hpy.h"
 
-#ifdef HPY_UNIVERSAL_ABI
+#ifndef HPY_ABI_CPYTHON
    // for _h2py and _py2h
 #  include "handles.h"
 #endif
 
 
 _HPy_HIDDEN HPyListBuilder
-ctx_ListBuilder_New(HPyContext *ctx, HPy_ssize_t initial_size)
+ctx_ListBuilder_New(HPyContext *ctx, HPy_ssize_t size)
 {
-    PyObject *lst = PyList_New(initial_size);
+    PyObject *lst = PyList_New(size);
     if (lst == NULL)
         PyErr_Clear();   /* delay the MemoryError */
     return (HPyListBuilder){(HPy_ssize_t)lst};
