@@ -269,11 +269,7 @@ class W_LibObject(W_Root):
         #
         if isinstance(w_value, W_FunctionWrapper):
             # '&func' returns a regular cdata pointer-to-function
-            if w_value.directfnptr:
-                ctype = w_value.typeof(self.ffi)
-                return W_CData(space, w_value.directfnptr, ctype)
-            else:
-                return w_value    # backward compatibility
+            return w_value.try_extract_direct_fnptr_as_cdata(space)
         #
         if (isinstance(w_value, W_CData) and
                 isinstance(w_value.ctype, W_CTypeFunc)):
