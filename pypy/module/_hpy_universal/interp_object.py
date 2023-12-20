@@ -1,5 +1,6 @@
 import os
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.debug import ll_assert
 from pypy.interpreter.error import OperationError, oefmt
 import pypy.module.__builtin__.operation as operation
 from pypy.objspace.std.bytesobject import invoke_bytes_method
@@ -55,8 +56,11 @@ def _HasAttr(space, w_obj, w_name):
 def HPy_SetAttr(space, handles, ctx, h_obj, h_name, h_value):
     w_obj = handles.deref(h_obj)
     w_name = handles.deref(h_name)
-    w_value = handles.deref(h_value)
-    operation.setattr(space, w_obj, w_name, w_value)
+    if not h_value:
+        operation.delattr(space, w_obj, w_name)
+    else:
+        w_value = handles.deref(h_value)
+        operation.setattr(space, w_obj, w_name, w_value)
     return API.int(0)
 
 @API.func("int HPy_SetAttr_s(HPyContext *ctx, HPy h_obj, const char *name, HPy h_value)",
@@ -64,8 +68,11 @@ def HPy_SetAttr(space, handles, ctx, h_obj, h_name, h_value):
 def HPy_SetAttr_s(space, handles, ctx, h_obj, name, h_value):
     w_obj = handles.deref(h_obj)
     w_name = API.ccharp2text(space, name)
-    w_value = handles.deref(h_value)
-    operation.setattr(space, w_obj, w_name, w_value)
+    if not h_value:
+        operation.delattr(space, w_obj, w_name)
+    else:
+        w_value = handles.deref(h_value)
+        operation.setattr(space, w_obj, w_name, w_value)
     return API.int(0)
 
 
@@ -126,16 +133,20 @@ def HPy_SetItem_s(space, handles, ctx, h_obj, key, h_val):
 
 @API.func("HPy HPy_Repr(HPyContext *ctx, HPy h_obj)")
 def HPy_Repr(space, handles, ctx, h_obj):
-    # XXX: cpyext checks and returns <NULL>. Add a test to HPy and fix here
     w_obj = handles.deref(h_obj)
-    w_res = space.repr(w_obj)
+    if w_obj is None:
+        w_res = space.newtext("<NULL>")
+    else:
+        w_res = space.repr(w_obj)
     return handles.new(w_res)
 
 @API.func("HPy HPy_Str(HPyContext *ctx, HPy h_obj)")
 def HPy_Str(space, handles, ctx, h_obj):
-    # XXX: cpyext checks and returns <NULL>. Add a test to HPy and fix here
     w_obj = handles.deref(h_obj)
-    w_res = space.str(w_obj)
+    if w_obj is None:
+        w_res = space.newtext("<NULL>")
+    else:
+        w_res = space.str(w_obj)
     return handles.new(w_res)
 
 @API.func("HPy HPy_ASCII(HPyContext *ctx, HPy h_obj)")
@@ -220,16 +231,26 @@ def HPy_Type(space, handles, ctx, h_obj):
     return handles.new(space.type(w_obj))
 
 @API.func("int HPy_TypeCheck(HPyContext *ctx, HPy obj, HPy type)",
-          error_value='CANNOT_FAIL')
+          error_value=API.int(0))
 def HPy_TypeCheck(space, handles, ctx, h_obj, h_type):
     w_obj = handles.deref(h_obj)
     w_type = handles.deref(h_type)
+    ll_assert(space.isinstance_w(w_type, space.w_type), "h_type is not a type object")
     assert space.isinstance_w(w_type, space.w_type)
-    return API.int(space.issubtype_w(space.type(w_obj), w_type))
+    try:
+        return API.int(space.issubtype_w(space.type(w_obj), w_type))
+    except:
+        # print "issubtype_w failed", space.text_w(space.repr(w_obj)), w_type.name
+        pass
+    return API.int(0)
 
 @API.func("int HPy_Is(HPyContext *ctx, HPy obj, HPy other)",
           error_value='CANNOT_FAIL')
 def HPy_Is(space, handles, ctx, h_obj, h_other):
+    if not h_obj:
+        return API.int(not bool(h_other))
+    if not h_other:
+        return API.int(0)
     w_obj = handles.deref(h_obj)
     w_other = handles.deref(h_other)
     return API.int(space.is_w(w_obj, w_other))
@@ -244,9 +265,12 @@ def _HPy_Dump(space, handles, ctx, h_obj):
     os.write(stderr, "object type     : %r\n" % (w_type,))
     os.write(stderr, "object type name: %s\n" % (w_type.name,))
     os.write(stderr, "object rpy repr : %r\n" % (w_obj,))
-    w_repr = space.repr(w_obj)
-    s = space.text_w(w_repr)
-    os.write(stderr, "object repr     : %s\n" % (s,))
+    try:
+        w_repr = space.repr(w_obj)
+        s = space.text_w(w_repr)
+        os.write(stderr, "object repr     : %s\n" % (s,))
+    except:
+        os.write(stderr, "objec repr      : <failed>\n")
 
 @API.func("int _HPy_Contains(HPyContext *ctx, HPy container, HPy key)", error_value=API.int(-1))
 def _HPy_Contains(space, handles, ctx, h_container, h_key):
@@ -254,3 +278,24 @@ def _HPy_Contains(space, handles, ctx, h_container, h_key):
     w_key = handles.deref(h_key)
     w_res = space.contains(w_container, w_key)
     return API.int(space.int_w(w_res))
+
+@API.func("int HPy_DelItem(HPyContext *ctx, HPy obj, HPy key)", error_value=API.int(-1))
+def HPy_DelItem(space, handles, ctx, h_obj, h_key):
+    w_obj = handles.deref(h_obj)
+    w_key = handles.deref(h_key)
+    space.delitem(w_obj, w_key)
+    return API.int(0)
+
+@API.func("int HPy_DelItem_i(HPyContext *ctx, HPy obj, HPy_ssize_t key)", error_value=API.int(-1))
+def HPy_DelItem_i(space, handles, ctx, h_obj, key):
+    w_obj = handles.deref(h_obj)
+    w_key = space.newint(key)
+    space.delitem(w_obj, w_key)
+    return API.int(0)
+
+@API.func("int HPy_DelItem_s(HPyContext *ctx, HPy obj, const char *key)", error_value=API.int(-1))
+def HPy_DelItem_s(space, handles, ctx, h_obj, key):
+    w_obj = handles.deref(h_obj)
+    w_key = API.ccharp2text(space, key)
+    space.delitem(w_obj, w_key)
+    return API.int(0)

@@ -15,14 +15,14 @@ class TestHPyGlobal(HPyTest):
         mod = self.make_module("""
             HPyGlobal myglobal;
 
-            HPyDef_METH(setg, "setg", setg_impl, HPyFunc_O)
+            HPyDef_METH(setg, "setg", HPyFunc_O)
             static HPy setg_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 HPyGlobal_Store(ctx, &myglobal, arg);
                 return HPy_Dup(ctx, ctx->h_None);
             }
 
-            HPyDef_METH(getg, "getg", getg_impl, HPyFunc_NOARGS)
+            HPyDef_METH(getg, "getg", HPyFunc_NOARGS)
             static HPy getg_impl(HPyContext *ctx, HPy self)
             {
                 return HPyGlobal_Load(ctx, myglobal);

@@ -77,6 +77,10 @@ class W_MemoryView(W_Root):
 
     def buffer_w(self, space, flags):
         self._check_released(space)
+        if self.getndim() > MEMORYVIEW_MAX_DIM:
+            raise oefmt(space.w_ValueError,
+                "memoryview: number of dimensions must not exceed 64, got %d",
+                self.getndim())
         space.check_buf_flags(flags, self.view.readonly)
         return self.view
 
@@ -361,6 +365,8 @@ class W_MemoryView(W_Root):
 
     def descr_release(self, space):
         'Release the underlying buffer exposed by the memoryview object.'
+        if self.view:
+            self.view.releasebuffer()
         self.view = None
 
     def _check_released(self, space):
@@ -373,6 +379,8 @@ class W_MemoryView(W_Root):
         return self
 
     def descr_exit(self, space, __args__):
+        if self.view:
+            self.view.releasebuffer()
         self.view = None
         return space.w_None
 

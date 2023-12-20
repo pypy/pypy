@@ -1,6 +1,7 @@
 
 from collections import OrderedDict
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import ResOperation, OpHelpers,\
      rop, AbstractResOp, AbstractInputArg
 from rpython.jit.metainterp.history import Const, make_hashable_int,\
@@ -454,6 +455,7 @@ class ExtendedShortPreambleBuilder(AbstractShortPreambleBuilder):
         self.sb = sb
         self.extra_same_as = self.sb.extra_same_as
         self.target_token = target_token
+        self.label_args = None
 
     def setup(self, jump_args, short, label_args):
         self.jump_args = jump_args
@@ -467,6 +469,9 @@ class ExtendedShortPreambleBuilder(AbstractShortPreambleBuilder):
         op = preamble_op.op.get_box_replacement()
         if preamble_op.invented_name:
             self.extra_same_as.append(op)
+        if self.label_args is None:
+            # setup not called, rather abandon the trace than crash
+            raise InvalidLoop("ExtendedShortPreambleBuilder not properly initialized")
         self.label_args.append(op)
         self.jump_args.append(preamble_op.preamble_op)
 

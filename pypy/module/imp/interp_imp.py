@@ -95,6 +95,11 @@ def is_builtin(space, w_name):
     return space.newint(1)
 
 def is_frozen(space, w_name):
+    name = space.text_w(w_name)
+    if name in ("_frozen_importlib", "_frozen_importlib_external", "zipimport",
+                # For tests, not implemented on PyPy
+                "__hello__", "__phello__", "_phello__.spam"):
+        return space.w_True
     return space.w_False
 
 def get_frozen_object(space, w_name):

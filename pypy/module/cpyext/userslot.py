@@ -10,11 +10,15 @@ track changes to an app-level Python class (addition or removal of
 '__xxx__' special methods) after initalization of the PyTypeObject.
 """
 
+from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import widen
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.argument import Arguments
-from pypy.module.cpyext.api import slot_function, PyObject, Py_ssize_t
-from pypy.module.cpyext.api import PyTypeObjectPtr
-from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.module.cpyext.api import (
+    slot_function, PyObject, Py_ssize_t, Py_bufferP, PyTypeObjectPtr,
+    )
+from pypy.module.cpyext.memoryobject import fill_Py_buffer
+from pypy.module.cpyext.pyobject import make_ref
 
 @slot_function([PyObject], Py_ssize_t, error=-1)
 def slot_sq_length(space, w_obj):
@@ -175,3 +179,34 @@ def slot_am_anext(space, w_self):
         raise oefmt(space.w_TypeError,
             "object %T does not have __anext__ method", w_self)
     return space.get_and_call_function(w_anext, w_self)
+
+@slot_function([PyObject, Py_bufferP, rffi.INT_real], rffi.INT_real, error=-1)
+def slot_bf_getbuffer(space, w_self, c_view, flags):
+    if c_view:
+        c_view.c_obj = rffi.cast(PyObject, 0)
+        w_buffer = space.lookup(w_self, "__buffer__")
+        if not w_buffer:
+            raise oefmt(space.w_BufferError,
+                "object %T does have the buffer interface (via the __buffer__ method)",
+                 w_self)
+        flags = widen(flags)
+        args = Arguments(space, [w_self, space.newint(flags)])
+        w_obj = space.call_args(w_buffer, args)
+        # Like slot_from_buffer_w, fill c_view from w_obj
+        buf = space.buffer_w(w_obj, flags)
+        try:
+            c_view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+            c_view.c_obj = make_ref(space, w_obj)
+            if space.isinstance_w(w_obj, space.w_bytes):
+                rffi.setintfield(c_view, 'c_readonly', 1)
+        except ValueError:
+            s = buf.as_str()
+            w_s = space.newbytes(s)
+            c_view.c_obj = make_ref(space, w_s)
+            c_view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
+                                    s, track_allocation=False))
+            rffi.setintfield(c_view, 'c_readonly', 1)
+        ret = fill_Py_buffer(space, buf, c_view)
+        return ret
+    return 0
+

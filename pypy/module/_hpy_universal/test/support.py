@@ -12,6 +12,9 @@ from .. import llapi
 
 COMPILER_VERBOSE = False
 
+def debug_collect():
+    import gc
+    gc.collect()
 
 class HPyAppTest(object):
     """
@@ -28,6 +31,8 @@ class HPyAppTest(object):
     def setup_class(cls):
         if cls.runappdirect:
             pytest.skip()
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+        cls.w_debug_collect = cls.space.wrap(interp2app(debug_collect))
 
     @pytest.fixture
     def compiler(self):
@@ -40,9 +45,10 @@ class HPyAppTest(object):
     # redeclare initargs as autouse=True, so it's automatically used by all
     # tests.
     @pytest.fixture(params=['universal', 'debug'], autouse=True)
-    def initargs(self, request):
+    def initargs(self, request, capfd):
         hpy_abi = request.param
         self._init(request, hpy_abi)
+        self.capfd = capfd
 
     def _init(self, request, hpy_abi):
         state = self.space.fromcache(State)
@@ -53,6 +59,7 @@ class HPyAppTest(object):
             cpyext_include_dirs = cpyext.api.include_dirs
         else:
             cpyext_include_dirs = None
+        self.w_hpy_abi = self.space.newtext(hpy_abi)
         #
         # it would be nice to use the 'compiler' fixture to provide
         # make_module as the std HPyTest do. However, we don't have the space
@@ -65,7 +72,21 @@ class HPyAppTest(object):
                                                  keep=0)  # keep everything
 
         hpy_devel = HPyDevel(str(BASE_DIR))
-        compiler = _support.ExtensionCompiler(tmpdir, hpy_devel, 'universal',
+        if hpy_abi in ("debug", "hybrid+debug"):
+            mode = llapi.MODE_DEBUG
+        elif hpy_abi in ("universal", "hybrid"):
+            mode = llapi.MODE_UNIVERSAL
+        elif hpy_abi == "trace":
+            mode = llapi.MODE_TRACE
+        else:
+            mode = -1
+        if hpy_abi == 'debug' or hpy_abi == 'trace':
+            # there is no compile-time difference between universal and debug
+            # extensions. The only difference happens at load time
+            hpy_abi = 'universal'
+        elif hpy_abi in ('hybrid+debug', 'hybrid+trace'):
+            hpy_abi = 'hybrid'
+        compiler = _support.ExtensionCompiler(tmpdir, hpy_devel, hpy_abi,
                                               compiler_verbose=COMPILER_VERBOSE,
                                               extra_link_args=self.extra_link_args,
                                               extra_include_dirs=cpyext_include_dirs)
@@ -81,18 +102,50 @@ class HPyAppTest(object):
                 extra_sources = [space.text_w(item) for item in items_w]
             module = compiler.compile_module(main_src, ExtensionTemplate,
                                                   name, extra_sources)
-            so_filename = module.so_filename.replace(".py", ".hpy.so")
-            debug = hpy_abi == 'debug'
-            w_mod = space.appexec([space.newtext(so_filename),
-                                   space.newtext(name),
-                                   space.newbool(debug)],
-                """(path, modname, debug):
+            so_filename = module.so_filename
+            w_mod = space.appexec([space.newtext(name),
+                                   space.newtext(so_filename),
+                                   space.newint(mode)],
+                """(name, so_filename, mode):
+                    import sys
                     import _hpy_universal
-                    return _hpy_universal.load(modname, path, debug)
+                    import importlib.util
+                    assert name not in sys.modules
+                    spec = importlib.util.spec_from_file_location(name, so_filename)
+                    mod = _hpy_universal.load(name, so_filename, spec, mode=mode)
+                    mod.__file__ = so_filename
+                    mod.__spec__ = spec
+                    return mod
                 """
             )
             return w_mod
         self.w_make_module = self.space.wrap(interp2app(descr_make_module))
+
+        @unwrap_spec(main_src='text', w_ExtensionTemplate=W_Root, name='text',
+                     w_extra_sources=W_Root)
+        def descr_compile_module(space, main_src, w_ExtensionTemplate=None,
+                           name='mytest', w_extra_sources=None):
+            if w_extra_sources is None:
+                extra_sources = ()
+            else:
+                items_w = space.unpackiterable(w_extra_sources)
+                extra_sources = [space.text_w(item) for item in items_w]
+            if w_ExtensionTemplate is not None:
+                raise NotImplementedError
+            module = compiler.compile_module(main_src, ExtensionTemplate,
+                                                  name, extra_sources)
+            # All we need for tests is module.so_filename
+            w_class_with_so_filename = space.appexec([
+                    space.newtext(module.so_filename)],
+                """(so_filename,):
+                    class ClassWithSoFilename():
+                        def __init__(self, so_filename):
+                            self.so_filename = so_filename
+                    return ClassWithSoFilename(so_filename)
+                """
+            )
+            return w_class_with_so_filename
+        self.w_compile_module = self.space.wrap(interp2app(descr_compile_module))
 
         def supports_refcounts(space):
             return space.w_False
@@ -108,12 +161,52 @@ class HPyAppTest(object):
         self.w_supports_sys_executable = self.space.wrap(
             interp2app(supports_sys_executable))
 
-        self.w_compiler = self.space.appexec([self.space.newtext(hpy_abi)],
-            """(abi):
+        @unwrap_spec(name='text', so_filename='text', mode=int)
+        def descr_load_universal_module(space, name, so_filename, mode):
+            w_mod = space.appexec([space.newtext(name),
+                                   space.newtext(so_filename),
+                                   space.newint(mode)],
+                """(modname, so_filename, mode):
+                    import _hpy_universal
+                    return _hpy_universal.load(modname, so_filename, mode)
+                """
+            )
+            return w_mod
+
+        w_load_universal_module = self.space.wrap(interp2app(descr_load_universal_module))
+
+        self.w_compiler = self.space.appexec([self.space.newtext(hpy_abi),
+                                              w_load_universal_module,
+                                             ],
+            """(abi, _load_universal_module):
                 class compiler:
                     hpy_abi = abi
+                    load_universal_module = _load_universal_module
                 return compiler
             """)
+
+        @unwrap_spec(main_src='text', error='text')
+        def descr_expect_make_error(space, main_src, error):
+            try:
+                compiler.compile_module(main_src, ExtensionTemplate, "mytest")
+            except Exception as err:
+                pass
+            #
+            # capfd.readouterr() "eats" the output, but we want to still see it in
+            # case of failure. Just print it again
+            cap = self.capfd.readouterr()
+            sys.stdout.write(cap[0])
+            sys.stderr.write(cap[1])
+            #
+            # gcc prints compiler errors to stderr, but MSVC seems to print them
+            # to stdout. Let's just check both
+            if error in cap[0] or error in cap[1]:
+                # the error was found, we are good
+                return
+            raise Exception("The following error message was not found in the compiler "
+                        "output:\n    " + error)
+
+        self.w_expect_make_error = self.space.wrap(interp2app(descr_expect_make_error))
 
 class HPyDebugAppTest(HPyAppTest):
 
@@ -150,5 +243,13 @@ class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
     spaceconfig = {'usemodules': ['_hpy_universal', 'cpyext', 'mmap']}
 
     def setup_class(cls):
-        AppTestCpythonExtensionBase.setup_class.im_func(cls)
         HPyAppTest.setup_class.im_func(cls)
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+
+    # override the initargs fixture to run the tests in hybrid mode
+    @pytest.fixture(params=['hybrid', 'hybrid+debug'], autouse=True)
+    def initargs(self, request):
+        hpy_abi = request.param
+        self._init(request, hpy_abi)
+
+

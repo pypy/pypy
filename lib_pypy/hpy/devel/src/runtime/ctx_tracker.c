@@ -98,11 +98,6 @@ ctx_Tracker_New(HPyContext *ctx, HPy_ssize_t capacity)
     }
     hp->capacity = capacity;
     hp->length = 0;
-    // cppcheck thinks that hp->handles is a memory leak because we cast the
-    // pointer to an int (and thus the pointer is "lost" from its POV, I
-    // suppose). But it's not a real leak because we free it in
-    // ctx_Tracker_Close:
-    // cppcheck-suppress memleak
     return _hp2ht(hp);
 }
 

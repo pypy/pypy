@@ -5,6 +5,7 @@ from rpython.rlib import rstring, rutf8
 from rpython.tool.sourcetools import func_renamer
 
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.buffer import BufferInterfaceNotFound
 from pypy.interpreter.unicodehelper import (
     wcharpsize2utf8, str_decode_utf_16_helper, str_decode_utf_32_helper,
     unicode_encode_decimal, utf8_encode_utf_16_helper, BYTEORDER,
@@ -21,6 +22,7 @@ from pypy.module.cpyext.pyobject import (
     make_typedescr, get_typedescr, as_pyobj, pyobj_has_w_obj, BaseCpyTypedescr,
     incref, decref)
 from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
+from pypy.module.cpyext.pyfile import pyos_fspath
 from pypy.module._codecs.interp_codecs import (
     CodecState, latin_1_decode, utf_16_decode, utf_32_decode)
 from pypy.module.cpyext.state import State
@@ -746,6 +748,9 @@ def PyUnicode_FromObject(space, w_obj):
 
     Objects other than Unicode or its subtypes will cause a TypeError.
     """
+    return pyunicode_fromobject(space, w_obj)
+
+def pyunicode_fromobject(space, w_obj):
     if space.is_w(space.type(w_obj), space.w_unicode):
         return w_obj
     elif space.isinstance_w(w_obj, space.w_unicode):
@@ -830,11 +835,12 @@ def PyUnicode_FSConverter(space, w_obj, result):
         # Implement ParseTuple cleanup support
         decref(space, result[0])
         return 1
-    if space.isinstance_w(w_obj, space.w_bytes):
-        w_output = w_obj
+    w_path = pyos_fspath(space, w_obj)
+    if space.isinstance_w(w_path, space.w_bytes):
+        w_output = w_path
     else:
-        w_obj = PyUnicode_FromObject(space, w_obj)
-        w_output = space.fsencode(w_obj)
+        w_output = space.fsencode(w_path)
+    
         if not space.isinstance_w(w_output, space.w_bytes):
             raise oefmt(space.w_TypeError, "encoder failed to return bytes")
     data = space.bytes0_w(w_output)  # Check for NUL bytes
@@ -855,11 +861,38 @@ def PyUnicode_FSDecoder(space, w_obj, result):
         return 1
     if space.isinstance_w(w_obj, space.w_unicode):
         w_output = w_obj
-    else:
-        w_obj = PyBytes_FromObject(space, w_obj)
+    elif space.isinstance_w(w_obj, space.w_bytes):
         w_output = space.fsdecode(w_obj)
-        if not space.isinstance_w(w_output, space.w_unicode):
-            raise oefmt(space.w_TypeError, "decoder failed to return unicode")
+    else:
+        allowed_types = "string, bytes or os.PathLike"
+        try:
+            space._try_buffer_w(w_obj, space.BUF_FULL_RO)
+        except BufferInterfaceNotFound:
+            w_fspath_method = space.lookup(w_obj, '__fspath__')
+            if w_fspath_method:
+                w_result = space.get_and_call_function(w_fspath_method, w_obj)
+                if space.isinstance_w(w_result, space.w_unicode):
+                    w_output = w_result
+                elif space.isinstance_w(w_result, space.w_bytes):
+                    w_output = space.fsdecode(w_result)
+                else:
+                    raise oefmt(space.w_TypeError,
+                        "expected %S.__fspath__() to return str or bytes, not %T",
+                        w_obj, w_result)
+            else:
+                raise oefmt(
+                    space.w_TypeError,
+                    "path should be %s, not %T",
+                    allowed_types, w_obj)
+        else:
+            tp = space.type(w_obj).name
+            space.warn(space.newtext(
+                "path should be %s, not %s" % (allowed_types, tp,)),
+                space.w_DeprecationWarning)
+            buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
+            w_output =  space.fsdecode(space.newbytes(buffer.as_str()))
+    if not space.isinstance_w(w_output, space.w_unicode):
+        raise oefmt(space.w_TypeError, "decoder failed to return unicode")
     data = space.utf8_0_w(w_output)  # Check for NUL bytes
     result[0] = make_ref(space, w_output)
     return Py_CLEANUP_SUPPORTED

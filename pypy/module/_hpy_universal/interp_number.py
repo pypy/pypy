@@ -111,8 +111,8 @@ def HPyNumber_Check(space, handles, ctx, h):
         return API.int(1)
     return API.int(0)
 
-@API.func("HPy HPyBool_FromLong(HPyContext *ctx, long v)")
-def HPyBool_FromLong(space, handles, ctx, value):
+@API.func("HPy HPyBool_FromBool(HPyContext *ctx, int v)")
+def HPyBool_FromBool(space, handles, ctx, value):
     if widen(value) != 0:
         return handles.new(space.w_True)
     return handles.new(space.w_False)

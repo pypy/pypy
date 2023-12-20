@@ -346,6 +346,12 @@ class UnicodeWithEncoding:
             res = unicode_encode_mbcs(self.unistr, len(self.unistr),
                                       "strict")
             return rstring.assert_str0(res)
+
+        def as_utf8(self):
+            from rpython.rlib.runicode import unicode_encode_utf_8
+            res = unicode_encode_utf_8(self.unistr, len(self.unistr), "strict")
+            return rstring.assert_str0(res)
+                        
     else:
         def as_bytes(self):
             from rpython.rlib.runicode import unicode_encode_utf_8

@@ -104,15 +104,12 @@ PyVarObject * _PyObject_GC_NewVar(PyTypeObject *type, Py_ssize_t nitems)
 static PyObject *
 _generic_alloc(PyTypeObject *type, Py_ssize_t nitems)
 {
-    Py_ssize_t size;
     PyObject *pyobj;
     if (type->tp_flags & Py_TPFLAGS_HEAPTYPE)
         Py_INCREF(type);
 
-    size = type->tp_basicsize;
-    if (type->tp_itemsize) {
-        size += nitems * type->tp_itemsize;
-    }
+    const size_t size = _PyObject_VAR_SIZE(type, nitems+1);
+    /* note that we need to add one, for the sentinel */
 
     pyobj = (PyObject*)_PyPy_Malloc(size);
     if (pyobj == NULL)
@@ -144,6 +141,7 @@ _PyObject_NewVar(PyTypeObject *type, Py_ssize_t nitems)
     else
         return PyObject_INIT_VAR((PyVarObject*)py_obj, type, nitems);
 }
+
 
 PyObject *
 PyObject_Init(PyObject *obj, PyTypeObject *type)

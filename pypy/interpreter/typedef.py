@@ -164,7 +164,8 @@ def _getusercls(cls):
     from pypy.objspace.std.objectobject import W_ObjectObject
     from pypy.objspace.std.mapdict import (BaseUserClassMapdict,
             MapdictDictSupport, MapdictWeakrefSupport,
-            _make_storage_mixin_size_n, MapdictStorageMixin)
+            _make_storage_mixin_size_n, MapdictStorageMixin,
+            MapdictHPySupport)
     # some subtleties here: We want w_obj.getclass to be a small func
     # set, ie less than 5 different implementations. That way, it can be
     # inlined into its callers. This means we cannot give every single
@@ -198,6 +199,7 @@ def _getusercls(cls):
         # support
         shared_methods.append(MapdictWeakrefSupport)
         name += "Weakrefable"
+    shared_methods.append(MapdictHPySupport)
 
     class subcls(cls):
         user_overridden_class = True

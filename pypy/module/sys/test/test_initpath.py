@@ -1,6 +1,7 @@
 import pytest
 import py
 import os.path
+import sys
 from pypy.module.sys.initpath import (compute_stdlib_path_sourcetree,
     find_executable, find_stdlib, resolvedirof, pypy_init_home, pypy_init_free,
     find_pyvenv_cfg)
@@ -14,8 +15,11 @@ def build_hierarchy_srctree(prefix):
     return a, b
 
 def build_hierarchy_package(prefix, platlibdir="lib"):
-    dot_ver = 'pypy%d.%d' % CPYTHON_VERSION[:2]
-    b = prefix.join(platlibdir, dot_ver).ensure(dir=1)
+    if sys.platform == "win32":
+        b = prefix.join(platlibdir).ensure(dir=1)
+    else:
+        dot_ver = 'pypy%d.%d' % CPYTHON_VERSION[:2]
+        b = prefix.join(platlibdir, dot_ver).ensure(dir=1)
     b.join('site.py').ensure(dir=0)
     return b
 
@@ -32,7 +36,11 @@ def test_find_stdlib(tmpdir):
     assert prefix is not None
     assert cwd.startswith(str(prefix))
 
-@pytest.mark.parametrize("platlibdir", ["lib", "lib64"])
+if sys.platform == "win32":
+    libdirnames = ["Lib"]
+else:
+    libdirnames = ["lib", "lib64"]
+@pytest.mark.parametrize("platlibdir", libdirnames)
 def test_find_stdlib_package(tmpdir, platlibdir):
     bin_dir = tmpdir.join('bin').ensure(dir=True)
     pypy = bin_dir.join('pypy3').ensure(file=True)

@@ -25,6 +25,7 @@ PyCFunction = cts.gettype('PyCFunction')
 PyCFunctionFast = cts.gettype('_PyCFunctionFast')
 PyCFunctionKwArgs = cts.gettype('PyCFunctionWithKeywords')
 PyCFunctionKwArgsFast = cts.gettype('_PyCFunctionFastWithKeywords')
+PyCMethod = cts.gettype('PyCMethod')
 PyCFunctionObject = cts.gettype('PyCFunctionObject*')
 PyCMethodObject = cts.gettype('PyCMethodObject*')
 
@@ -230,11 +231,13 @@ class W_PyCFunctionObject(W_Root):
             decref(space, py_args)
 
     def call_keywords_fastcall_method(self, space, w_self, __args__):
-        func = rffi.cast(PyCFunctionKwArgsFast, self.ml.c_ml_meth)
+        func = rffi.cast(PyCMethod, self.ml.c_ml_meth)
         py_args, len_args, w_kwnames = w_fastcall_args_from_args(space, __args__)
         try:
-            return generic_cpy_call(space, func, w_self,
-                                    py_args.c_ob_item, len_args, w_kwnames)
+            # Signature is (PyObject *, PyTypeObject*, PyObject ** args, size_t nargs, PyObject*kwnames)
+            py_type = cts.cast("PyTypeObject*", make_ref(space, self.w_objclass))
+            return generic_cpy_call(space, func, w_self, py_type, py_args.c_ob_item,
+                                    rffi.cast(rffi.SIZE_T, len_args), w_kwnames)
         finally:
             decref(space, py_args)
 

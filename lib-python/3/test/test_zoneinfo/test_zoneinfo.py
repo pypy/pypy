@@ -19,7 +19,7 @@ from functools import cached_property
 
 from . import _support as test_support
 from ._support import OS_ENV_LOCK, TZPATH_TEST_LOCK, ZoneInfoTestBase
-from test.support import import_module
+from test.support import import_module, cpython_only
 
 lzma = import_module('lzma')
 py_zoneinfo, c_zoneinfo = test_support.get_modules()
@@ -1777,12 +1777,14 @@ class ExtensionBuiltTest(unittest.TestCase):
     rely on these tests as an indication of stable properties of these classes.
     """
 
+    @cpython_only
     def test_cache_location(self):
         # The pure Python version stores caches on attributes, but the C
         # extension stores them in C globals (at least for now)
         self.assertFalse(hasattr(c_zoneinfo.ZoneInfo, "_weak_cache"))
         self.assertTrue(hasattr(py_zoneinfo.ZoneInfo, "_weak_cache"))
 
+    @cpython_only
     def test_gc_tracked(self):
         # The pure Python version is tracked by the GC but (for now) the C
         # version is not.

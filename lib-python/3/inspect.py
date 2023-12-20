@@ -865,7 +865,7 @@ def findsource(object):
     if iscode(object):
         if not hasattr(object, 'co_firstlineno'):
             raise OSError('could not find function definition')
-        lnum = min(object.co_firstlineno, len(lines)) - 1
+        lnum = object.co_firstlineno - 1
         pat = re.compile(r'^(\s*def\s)|(\s*async\s+def\s)|(.*(?<!\w)lambda(:|\s))|^(\s*@)')
         while lnum > 0:
             try:
@@ -2381,8 +2381,16 @@ def _signature_from_callable(obj, *,
             sig = _get_signature_of(call)
         else:
             factory_method = None
-            new = _signature_get_user_defined_method(obj, '__new__')
-            init = _signature_get_user_defined_method(obj, '__init__')
+            # pypy specific logic: in pypy, a lot of builtin functions have
+            # sensible signatures. therefore we don't call
+            # _signature_get_user_defined_method, but just use getattr and
+            # exclude object/type new/init (handled below)
+            new = getattr(obj, '__new__', None)
+            if new is object.__new__ or new is type.__new__:
+                new = None
+            init = getattr(obj, '__init__', None)
+            if init is object.__init__ or init is type.__init__:
+                init = None
             # Now we check if the 'obj' class has an own '__new__' method
             if '__new__' in obj.__dict__:
                 factory_method = new

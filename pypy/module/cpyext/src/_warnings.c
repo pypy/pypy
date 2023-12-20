@@ -23,3 +23,12 @@ PyErr_WarnFormat(PyObject *category, Py_ssize_t stack_level,
     va_end(vargs);
     return ret;
 }
+
+PyObject *
+PyErr_FormatV(PyObject * exception, const char * format, va_list vargs) {
+    PyObject * string = PyUnicode_FromFormatV(format, vargs);
+    if (string != NULL) {
+        PyErr_SetObject(exception, string);
+    }
+    return NULL;
+}

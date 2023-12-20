@@ -39,7 +39,6 @@ skips = []
 if support.check_impl_detail(pypy=True):
     skips += [
         'test_lazy_hash_inheritance',
-        'test_capsule',
     ]
 
 def testfunction(self):
@@ -496,6 +495,8 @@ class CAPITest(unittest.TestCase):
         inst = _testcapi.HeapCTypeWithBuffer()
         b = bytes(inst)
         self.assertEqual(b, b"1234")
+        # release the buffer on PyPy
+        del inst
 
     @refcount_test
     def test_c_subclass_of_heap_ctype_with_tpdealloc_decrefs_once(self):

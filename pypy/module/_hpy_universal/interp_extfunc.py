@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.function import descr_function_get
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
 from pypy.objspace.std.typeobject import W_TypeObject
@@ -19,9 +19,44 @@ SUPPORTED_SIGNATURES = (
 )
 
 class W_AbstractExtensionFunction(W_Root):
+    _immutable_fields_ = ["sig", "name", "doc"]
     # XXX: should we have separate classes for each sig?
+
     def descr_call(self, space, __args__):
         raise NotImplementedError
+
+    def fget_module(self, space):
+        if self.w_module is None:
+            return space.w_None
+        return self.w_module
+
+    def fset_module(self, space, w_module):
+        self.w_module = w_module
+
+    def fdel_module(self, space):
+        self.w_module = space.w_None
+
+    def get_txtsig(self, space):
+        from pypy.module.cpyext.methodobject import extract_txtsig
+        rawdoc = self.doc
+        if rawdoc:
+            txtsig = extract_txtsig(rawdoc, self.name)
+            if txtsig is not None:
+                return space.newtext(txtsig)
+        return space.w_None
+
+    def get_doc(self, space):
+        from pypy.module.cpyext.methodobject import extract_doc
+        rawdoc = self.doc
+        if rawdoc:
+            doc = extract_doc(rawdoc, self.name)
+            if doc is not None:
+                return space.newtext(doc)
+        return space.w_None
+
+    def get_name(self, space):
+        return space.newtext(self.name)
+
 
 class W_ExtensionFunctionMixin(object):
     _immutable_fields_ = ["sig", "name"]
@@ -31,6 +66,10 @@ class W_ExtensionFunctionMixin(object):
         self.handles = handles
         self.w_self = w_self
         self.name = name
+        # W_PyCFunctionObject accepts an additional type_name
+        self.qualname = self.name
+        # W_PyCFunctionObject accepts an additional w_module
+        self.w_module = None
         self.sig = sig
         if self.sig not in SUPPORTED_SIGNATURES:
             raise oefmt(space.w_ValueError, "Unsupported HPyMeth signature")
@@ -40,7 +79,7 @@ class W_ExtensionFunctionMixin(object):
 
     def call_noargs(self, space, h_self):
         func = llapi.cts.cast('HPyFunc_noargs', self.cfuncptr)
-        h_result = func(self.handles.ctx, h_self)
+        h_result = func(self.handles.get_ctx(), h_self)
         if not h_result:
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
@@ -48,7 +87,7 @@ class W_ExtensionFunctionMixin(object):
     def call_o(self, space, h_self, w_arg):
         with self.handles.using(w_arg) as h_arg:
             func = llapi.cts.cast('HPyFunc_o', self.cfuncptr)
-            h_result = func(self.handles.ctx, h_self, h_arg)
+            h_result = func(self.handles.get_ctx(), h_self, h_arg)
         if not h_result:
             space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
@@ -56,7 +95,9 @@ class W_ExtensionFunctionMixin(object):
     def call_varargs_kw(self, space, h_self, __args__, skip_args, has_keywords):
         # this function is more or less the equivalent of
         # ctx_CallRealFunctionFromTrampoline in cpython-universal
-        n = len(__args__.arguments_w) - skip_args
+        n = n_args = len(__args__.arguments_w) - skip_args
+        if has_keywords and __args__.keyword_names_w:
+            n += len(__args__.keyword_names_w)
 
         # XXX this looks inefficient: ideally, we would like the equivalent of
         # alloca(): do we have it in RPython? The alternative is to wrap
@@ -65,12 +106,26 @@ class W_ExtensionFunctionMixin(object):
         # functpr
         with lltype.scoped_alloc(rffi.CArray(llapi.HPy), n) as args_h:
             i = 0
-            while i < n:
+            k = 0
+            while i < n_args:
                 args_h[i] = self.handles.new(__args__.arguments_w[i + skip_args])
                 i += 1
+            if has_keywords:
+                while i < n:
+                    args_h[i] = self.handles.new(__args__.keywords_w[k])
+                    i += 1
+                    k += 1
             try:
                 if has_keywords:
-                    h_result = self.call_keywords(space, h_self, args_h, n, __args__)
+                    if k > 0:
+                        w_kw = space.newtuple(__args__.keyword_names_w)
+                        h_kw = self.handles.new(w_kw)
+                        try:
+                            h_result = self.call_keywords(space, h_self, args_h, n_args, h_kw)
+                        finally:
+                            self.handles.close(h_kw)
+                    else:    
+                        h_result = self.call_keywords(space, h_self, args_h, n)
                 else:
                     h_result = self.call_varargs(space, h_self, args_h, n)
             finally:
@@ -83,27 +138,13 @@ class W_ExtensionFunctionMixin(object):
 
     def call_varargs(self, space, h_self, args_h, n):
         fptr = llapi.cts.cast('HPyFunc_varargs', self.cfuncptr)
-        return fptr(self.handles.ctx, h_self, args_h, n)
+        return fptr(self.handles.get_ctx(), h_self, args_h, n)
 
-    def call_keywords(self, space, h_self, args_h, n, __args__):
+    def call_keywords(self, space, h_self, args_h, n, h_kw=0):
         # XXX: if there are no keywords, should we pass HPy_NULL or an empty
         # dict?
-        h_kw = 0
-        if __args__.keyword_names_w:
-            w_kw = space.newdict()
-            for i in range(len(__args__.keyword_names_w)):
-                w_key = __args__.keyword_names_w[i]
-                w_value = __args__.keywords_w[i]
-                space.setitem(w_kw, w_key, w_value)
-            h_kw = self.handles.new(w_kw)
-
         fptr = llapi.cts.cast('HPyFunc_keywords', self.cfuncptr)
-        try:
-            return fptr(self.handles.ctx, h_self, args_h, n, h_kw)
-        finally:
-            if h_kw:
-                self.handles.consume(h_kw)
-
+        return fptr(self.handles.get_ctx(), h_self, args_h, n, h_kw)
 
     def descr_call(self, space, __args__):
         with self.handles.using(self.w_self) as h_self:
@@ -144,12 +185,21 @@ class W_ExtensionFunction_u(W_AbstractExtensionFunction):
 class W_ExtensionFunction_d(W_AbstractExtensionFunction):
     import_from_mixin(W_ExtensionFunctionMixin)
 
+class W_ExtensionFunction_t(W_AbstractExtensionFunction):
+    import_from_mixin(W_ExtensionFunctionMixin)
+
 
 W_AbstractExtensionFunction.typedef = TypeDef(
     'extension_function',
     __call__ = interpindirect2app(W_AbstractExtensionFunction.descr_call),
-    __doc__ = interp_attrproperty('doc', cls=W_AbstractExtensionFunction,
-                                  wrapfn="newtext_or_none"),
+    __doc__ = GetSetProperty(W_AbstractExtensionFunction.get_doc),
+    __name__ = GetSetProperty(W_AbstractExtensionFunction.get_name),
+    __text_signature__ = GetSetProperty(W_AbstractExtensionFunction.get_txtsig),
+    __module__ = GetSetProperty(W_AbstractExtensionFunction.fget_module,
+                                W_AbstractExtensionFunction.fset_module,
+                                W_AbstractExtensionFunction.fdel_module),
+    __qualname__ = interp_attrproperty('qualname',
+                 cls=W_AbstractExtensionFunction, wrapfn="newtext_or_none"),
     )
 W_AbstractExtensionFunction.typedef.acceptable_as_base_class = False
 
@@ -188,6 +238,9 @@ class W_ExtensionMethod_u(W_AbstractExtensionMethod):
     import_from_mixin(W_ExtensionMethodMixin)
 
 class W_ExtensionMethod_d(W_AbstractExtensionMethod):
+    import_from_mixin(W_ExtensionMethodMixin)
+
+class W_ExtensionMethod_t(W_AbstractExtensionMethod):
     import_from_mixin(W_ExtensionMethodMixin)
 
 W_AbstractExtensionMethod.typedef = TypeDef(

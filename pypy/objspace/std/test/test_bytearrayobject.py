@@ -225,10 +225,10 @@ class AppTestBytesArray:
             assert False, 'Expected TypeError'
 
     def test_startswith_too_large(self):
+        assert bytearray(b'0').startswith(bytearray(b''), 1, -1) is False
         assert bytearray(b'ab').startswith(bytearray(b'b'), 1) is True
         assert bytearray(b'ab').startswith(bytearray(b''), 2) is True
         assert bytearray(b'ab').startswith(bytearray(b''), 3) is False
-        assert bytearray(b'0').startswith(bytearray(b''), 1, -1) is False
         assert bytearray(b'ab').endswith(bytearray(b'b'), 1) is True
         assert bytearray(b'ab').endswith(bytearray(b''), 2) is True
         assert bytearray(b'ab').endswith(bytearray(b''), 3) is False
@@ -272,6 +272,14 @@ class AppTestBytesArray:
         assert bytearray(b"").replace(b"", b"a", 1) == bytearray(b"a")
         assert bytearray(b"").replace(b"", b"a", 121344) == bytearray(b"a")
 
+    def test_empty_ops_empty(self):
+        import sys
+        empty = bytearray(b'')
+        assert empty.find(b'') == 0
+        assert empty.count(empty, 1, 1) == 0
+        assert empty.find(empty, 1, 1) == -1
+        assert empty.count(empty, sys.maxsize, 0) == 0
+        assert empty.find(empty, sys.maxsize, 0) == -1
 
     def test_xjust_no_mutate(self):
         # a previous regression
@@ -413,6 +421,7 @@ class AppTestBytesArray:
         raises(TypeError, b.__iadd__, "")
         #
         b += bytearray(b'XX')
+        print('b', b)
         assert b == b'abcdefXX'
         assert b is b0
         #
@@ -465,8 +474,9 @@ class AppTestBytesArray:
     def test_extend(self):
         b = bytearray(b'abc')
         b.extend(bytearray(b'def'))
+        assert b == b'abcdef', b
         b.extend(b'ghi')
-        assert b == b'abcdefghi'
+        assert b == b'abcdefghi', b
         b.extend(memoryview(b'jkl'))
         assert b == b'abcdefghijkl'
 
@@ -812,3 +822,31 @@ class AppTestBytesArray:
         a = bytearray([0])
         assert a[0:2:X()] == bytearray()
         assert a == bytearray()
+
+    def test_compare(self):
+        b1 = bytearray([1, 2, 3])
+        b2 = bytearray([1, 2, 3])
+        b3 = bytearray([1, 3])
+
+        assert b1 == b2
+        assert b2 != b3
+        assert b1 <= b2
+        assert b1 <= b3
+        assert b1 <  b3
+        assert b1 >= b2
+        assert b3 >= b2
+        assert b3 >  b2
+
+        assert not b1 != b2
+        assert not b2 == b3
+        assert not b1 >  b2
+        assert not b1 >  b3
+        assert not b1 >= b3
+        assert not b1 <  b2
+        assert not b3 <  b2
+        assert not b3 <= b2
+
+    def test_endswith_special(self):
+        b1 = bytearray(b'0')
+        b2 = bytearray(b'0')
+        assert b1.endswith(b2, 0, 2)

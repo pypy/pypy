@@ -176,7 +176,7 @@ class AppTestTime:
                 assert time.ctime(testval)[20:] == str(year)
 
     def test_gmtime(self):
-        import time
+        import time, sys
         raises(TypeError, time.gmtime, "foo")
         time.gmtime()
         time.gmtime(None)
@@ -191,6 +191,13 @@ class AppTestTime:
         assert time.gmtime(t) == time.gmtime(t)
         raises(OverflowError, time.gmtime, 2**64)
         raises(OverflowError, time.gmtime, -2**64)
+        if sys.platform == 'win32':
+            # This is 
+            # datetime.datetime.max.replace(tzinfo=datetime.timezone.utc).timestamp()) - 1
+            # and is checked in aiohttp
+            # see
+            # https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/localtime-localtime32-localtime64
+            raises(OSError, time.gmtime, 253402300799)
 
     def test_localtime(self):
         import time

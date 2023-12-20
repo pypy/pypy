@@ -19,7 +19,8 @@ class suspend:
 def test_cannot_iterate():
     async def f(x):
         pass
-    pytest.raises(TypeError, "for i in f(5): pass")
+    with pytest.raises(TypeError):
+        for i in f(5): pass
     pytest.raises(TypeError, iter, f(5))
     pytest.raises(TypeError, next, f(5))
 
@@ -895,3 +896,21 @@ def test_async_generator_wrapped_value_is_real_type():
         finally:
             sys.settrace(None)
     raises(StopIteration, run)
+
+def test_ag_running_asend_send():
+    async def agen():
+        await suspend('coro')
+        yield 0
+
+    a = agen()
+    assert a.ag_running is False
+    coro = a.asend(None)
+    res = coro.send(None)
+    assert res == 'coro'
+    assert a.ag_running is True
+    with raises(RuntimeError):
+        a.asend(None).send(None)
+    with raises(StopIteration) as info:
+        res = coro.send(None)
+    assert info.value.value == 0
+    assert a.ag_running is False

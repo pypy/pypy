@@ -143,7 +143,11 @@ def pytest_pycollect_makemodule(path, parent):
         rewrite = parent.config.getoption('applevel_rewrite')
         return AppTestModule(path, parent, rewrite_asserts=rewrite)
     else:
-        return PyPyModule(path, parent)
+        if hasattr(PyPyModule, "from_parent"):
+            # pytest 6.0+
+            return PyPyModule.from_parent(parent, fspath=path)
+        else:
+            return PyPyModule(path, parent)
 
 def is_applevel(item):
     from pypy.tool.pytest.apptest import AppTestMethod
@@ -213,7 +217,7 @@ def skip_on_missing_buildoption(**ropts):
 def pytest_runtest_setup(item):
     if isinstance(item, py.test.collect.Function):
         config = item.config
-        if item.get_marker(name='pypy_only'):
+        if hasattr(item, "get_marker") and item.get_marker(name='pypy_only'):
             if config.applevel is not None and not config.applevel.is_pypy:
                 pytest.skip('PyPy-specific test')
         appclass = item.getparent(py.test.Class)

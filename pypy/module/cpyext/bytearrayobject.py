@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import specialize, we_are_translated
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 from pypy.objspace.std.bytearrayobject import new_bytearray
 from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, build_type_checkers,

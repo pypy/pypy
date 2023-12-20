@@ -73,7 +73,7 @@ def compile_shared(csource, modulename, output_dir):
     if sys.platform == 'win32':
         ccflags = ['-D_CRT_SECURE_NO_WARNINGS']
     else:
-        ccflags = ['-fPIC', '-Wimplicit-function-declaration']
+        ccflags = ['-fPIC', '-Wimplicit-function-declaration', '-O0', '-g3']
     sysconfig.customize_compiler(compiler)
     res = compiler.compile([os.path.join(thisdir, csource)],
                            include_dirs=[include_dir],

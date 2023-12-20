@@ -15,13 +15,16 @@ class State(object):
         self.space = space
         uctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
         dctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
+
         self.u_handles = handlemanager.HandleManager(space, uctx)
         self.d_handles = handlemanager.DebugHandleManager(space, dctx, self.u_handles)
+        self.t_handles = handlemanager.TraceHandleManager(space, self.u_handles)
 
     @jit.dont_look_inside
     def setup(self, space):
-        self.u_handles.setup_ctx()
-        self.d_handles.setup_ctx()
+        self.u_handles.setup_universal_ctx()
+        self.d_handles.setup_debug_ctx()
+        self.t_handles.setup_trace_ctx()
         self.global_handles = {}
         self.setup_bridge()
 
@@ -30,10 +33,15 @@ class State(object):
         return space.fromcache(State)
 
     @specialize.arg(1)
-    def get_handle_manager(self, debug):
-        if debug:
+    def get_handle_manager(self, mode):
+        if mode == llapi.MODE_DEBUG:
             return self.d_handles
-        return self.u_handles
+        elif mode == llapi.MODE_UNIVERSAL:
+            return self.u_handles
+        elif mode == llapi.MODE_TRACE:
+            return self.t_handles
+        else:
+            raise oefmt(self.space.w_RuntimeError, "MODE %d not valid", mode)
 
     def setup_bridge(self):
         if self.space.config.translating:
@@ -65,6 +73,8 @@ class State(object):
         """
         self.setup_bridge()
         llapi.hpy_debug_set_ctx(self.d_handles.ctx)
+        tctx = llapi.hpy_trace_get_ctx(self.u_handles.ctx)
+        tctx.c__private = llapi.cts.cast('void*', 0)
         self.global_handles = {}
 
     def set_exception(self, operror):

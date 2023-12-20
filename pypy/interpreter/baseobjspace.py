@@ -229,6 +229,18 @@ class W_Root(object):
         from pypy.module.cpyext.pyobject import w_root_attach_pyobj
         return w_root_attach_pyobj(self, space, py_obj)
 
+    # -------------------------------------------------------------------
+
+    # hpy support
+
+    def _hpy_get_raw_storage(self, space):
+        raise oefmt(space.w_SystemError, "trying to read hpy storage from wrong object of type %T", self)
+
+    def _hpy_get_gc_storage(self, space):
+        raise oefmt(space.w_SystemError, "trying to read hpy storage from wrong object of type %T", self)
+
+    def _hpy_set_raw_storage(self, space, storage):
+        raise oefmt(space.w_SystemError, "trying to write hpy storage into wrong object of type %T", self)
 
     # -------------------------------------------------------------------
 

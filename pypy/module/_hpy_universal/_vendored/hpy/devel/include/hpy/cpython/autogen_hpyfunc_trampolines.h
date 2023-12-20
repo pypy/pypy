@@ -10,6 +10,20 @@
 
 */
 
+typedef HPy (*_HPyCFunction_NOARGS)(HPyContext *, HPy);
+#define _HPyFunc_TRAMPOLINE_HPyFunc_NOARGS(SYM, IMPL) \
+    static cpy_PyObject *SYM(cpy_PyObject *self) \
+    { \
+        _HPyCFunction_NOARGS func = (_HPyCFunction_NOARGS)IMPL; \
+        return _h2py(func(_HPyGetContext(), _py2h(self))); \
+    }
+typedef HPy (*_HPyCFunction_O)(HPyContext *, HPy, HPy);
+#define _HPyFunc_TRAMPOLINE_HPyFunc_O(SYM, IMPL) \
+    static cpy_PyObject *SYM(cpy_PyObject *self, cpy_PyObject *arg) \
+    { \
+        _HPyCFunction_O func = (_HPyCFunction_O)IMPL; \
+        return _h2py(func(_HPyGetContext(), _py2h(self), _py2h(arg))); \
+    }
 typedef HPy (*_HPyCFunction_UNARYFUNC)(HPyContext *, HPy);
 #define _HPyFunc_TRAMPOLINE_HPyFunc_UNARYFUNC(SYM, IMPL) \
     static cpy_PyObject *SYM(cpy_PyObject *arg0) \
@@ -50,28 +64,28 @@ typedef HPy (*_HPyCFunction_SSIZEARGFUNC)(HPyContext *, HPy, HPy_ssize_t);
     static cpy_PyObject *SYM(cpy_PyObject *arg0, HPy_ssize_t arg1) \
     { \
         _HPyCFunction_SSIZEARGFUNC func = (_HPyCFunction_SSIZEARGFUNC)IMPL; \
-        return _h2py(func(_HPyGetContext(), _py2h(arg0), arg1)); \
+        return _h2py(func(_HPyGetContext(), _py2h(arg0), (arg1))); \
     }
 typedef HPy (*_HPyCFunction_SSIZESSIZEARGFUNC)(HPyContext *, HPy, HPy_ssize_t, HPy_ssize_t);
 #define _HPyFunc_TRAMPOLINE_HPyFunc_SSIZESSIZEARGFUNC(SYM, IMPL) \
     static cpy_PyObject *SYM(cpy_PyObject *arg0, HPy_ssize_t arg1, HPy_ssize_t arg2) \
     { \
         _HPyCFunction_SSIZESSIZEARGFUNC func = (_HPyCFunction_SSIZESSIZEARGFUNC)IMPL; \
-        return _h2py(func(_HPyGetContext(), _py2h(arg0), arg1, arg2)); \
+        return _h2py(func(_HPyGetContext(), _py2h(arg0), (arg1), (arg2))); \
     }
 typedef int (*_HPyCFunction_SSIZEOBJARGPROC)(HPyContext *, HPy, HPy_ssize_t, HPy);
 #define _HPyFunc_TRAMPOLINE_HPyFunc_SSIZEOBJARGPROC(SYM, IMPL) \
     static int SYM(cpy_PyObject *arg0, HPy_ssize_t arg1, cpy_PyObject *arg2) \
     { \
         _HPyCFunction_SSIZEOBJARGPROC func = (_HPyCFunction_SSIZEOBJARGPROC)IMPL; \
-        return (func(_HPyGetContext(), _py2h(arg0), arg1, _py2h(arg2))); \
+        return (func(_HPyGetContext(), _py2h(arg0), (arg1), _py2h(arg2))); \
     }
 typedef int (*_HPyCFunction_SSIZESSIZEOBJARGPROC)(HPyContext *, HPy, HPy_ssize_t, HPy_ssize_t, HPy);
 #define _HPyFunc_TRAMPOLINE_HPyFunc_SSIZESSIZEOBJARGPROC(SYM, IMPL) \
     static int SYM(cpy_PyObject *arg0, HPy_ssize_t arg1, HPy_ssize_t arg2, cpy_PyObject *arg3) \
     { \
         _HPyCFunction_SSIZESSIZEOBJARGPROC func = (_HPyCFunction_SSIZESSIZEOBJARGPROC)IMPL; \
-        return (func(_HPyGetContext(), _py2h(arg0), arg1, arg2, _py2h(arg3))); \
+        return (func(_HPyGetContext(), _py2h(arg0), (arg1), (arg2), _py2h(arg3))); \
     }
 typedef int (*_HPyCFunction_OBJOBJARGPROC)(HPyContext *, HPy, HPy, HPy);
 #define _HPyFunc_TRAMPOLINE_HPyFunc_OBJOBJARGPROC(SYM, IMPL) \
@@ -85,7 +99,7 @@ typedef void (*_HPyCFunction_FREEFUNC)(HPyContext *, void *);
     static void SYM(void *arg0) \
     { \
         _HPyCFunction_FREEFUNC func = (_HPyCFunction_FREEFUNC)IMPL; \
-        func(_HPyGetContext(), arg0); \
+        func(_HPyGetContext(), (arg0)); \
         return; \
     }
 typedef HPy (*_HPyCFunction_GETATTRFUNC)(HPyContext *, HPy, char *);
@@ -93,7 +107,7 @@ typedef HPy (*_HPyCFunction_GETATTRFUNC)(HPyContext *, HPy, char *);
     static cpy_PyObject *SYM(cpy_PyObject *arg0, char *arg1) \
     { \
         _HPyCFunction_GETATTRFUNC func = (_HPyCFunction_GETATTRFUNC)IMPL; \
-        return _h2py(func(_HPyGetContext(), _py2h(arg0), arg1)); \
+        return _h2py(func(_HPyGetContext(), _py2h(arg0), (arg1))); \
     }
 typedef HPy (*_HPyCFunction_GETATTROFUNC)(HPyContext *, HPy, HPy);
 #define _HPyFunc_TRAMPOLINE_HPyFunc_GETATTROFUNC(SYM, IMPL) \
@@ -107,7 +121,7 @@ typedef int (*_HPyCFunction_SETATTRFUNC)(HPyContext *, HPy, char *, HPy);
     static int SYM(cpy_PyObject *arg0, char *arg1, cpy_PyObject *arg2) \
     { \
         _HPyCFunction_SETATTRFUNC func = (_HPyCFunction_SETATTRFUNC)IMPL; \
-        return (func(_HPyGetContext(), _py2h(arg0), arg1, _py2h(arg2))); \
+        return (func(_HPyGetContext(), _py2h(arg0), (arg1), _py2h(arg2))); \
     }
 typedef int (*_HPyCFunction_SETATTROFUNC)(HPyContext *, HPy, HPy, HPy);
 #define _HPyFunc_TRAMPOLINE_HPyFunc_SETATTROFUNC(SYM, IMPL) \
@@ -163,14 +177,14 @@ typedef HPy (*_HPyCFunction_GETTER)(HPyContext *, HPy, void *);
     static cpy_PyObject *SYM(cpy_PyObject *arg0, void *arg1) \
     { \
         _HPyCFunction_GETTER func = (_HPyCFunction_GETTER)IMPL; \
-        return _h2py(func(_HPyGetContext(), _py2h(arg0), arg1)); \
+        return _h2py(func(_HPyGetContext(), _py2h(arg0), (arg1))); \
     }
 typedef int (*_HPyCFunction_SETTER)(HPyContext *, HPy, HPy, void *);
 #define _HPyFunc_TRAMPOLINE_HPyFunc_SETTER(SYM, IMPL) \
     static int SYM(cpy_PyObject *arg0, cpy_PyObject *arg1, void *arg2) \
     { \
         _HPyCFunction_SETTER func = (_HPyCFunction_SETTER)IMPL; \
-        return (func(_HPyGetContext(), _py2h(arg0), _py2h(arg1), arg2)); \
+        return (func(_HPyGetContext(), _py2h(arg0), _py2h(arg1), (arg2))); \
     }
 typedef int (*_HPyCFunction_OBJOBJPROC)(HPyContext *, HPy, HPy);
 #define _HPyFunc_TRAMPOLINE_HPyFunc_OBJOBJPROC(SYM, IMPL) \

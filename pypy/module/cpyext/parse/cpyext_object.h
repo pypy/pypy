@@ -48,7 +48,7 @@ typedef int(*objobjargproc)(PyObject *, PyObject *, PyObject *);
 
 /* Py3k buffer interface, adapted for PyPy */
 /* XXX remove this constant, us a PyObject_VAR_HEAD instead */
-#define Py_MAX_NDIMS 36
+#define PyBUF_MAX_NDIM 64
 typedef struct bufferinfo {
     void *buf;
     PyObject *obj;        /* owned reference */
@@ -64,8 +64,8 @@ typedef struct bufferinfo {
     void *internal; /* always NULL for app-level objects */
     /* PyPy extensions */
     int flags;
-    Py_ssize_t _strides[Py_MAX_NDIMS];
-    Py_ssize_t _shape[Py_MAX_NDIMS];
+    Py_ssize_t _strides[PyBUF_MAX_NDIM];
+    Py_ssize_t _shape[PyBUF_MAX_NDIM];
     /* static store for shape and strides of
        mono-dimensional buffers. */
     /* Py_ssize_t smalltable[2]; */
@@ -321,3 +321,8 @@ typedef struct {
     PyCFunctionObject func;
     PyTypeObject *mm_class; /* Class that defines this method */
 } PyCMethodObject;
+
+/* CPython uses PyObject *const * for the third arg, but we drop the const */
+typedef PyObject *(*PyCMethod)(PyObject *, PyTypeObject *, PyObject **,
+                               size_t, PyObject *);
+

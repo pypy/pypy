@@ -191,6 +191,17 @@ if not _WIN32:
     FLAG_STAT  = 256
     FLAG_LSTAT = 512
 
+else:
+    # The highest used bit by Windows for file attributes is 0x00400000 according to
+    # <https://learn.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants>.
+    # Using the 0x40000000 and 0x80000000 bits should be safe.
+    assert 0 <= rposix_scandir.win32traits.FILE_ATTRIBUTE_READONLY <= 0x3FFFFFFF
+    assert 0 <= rposix_scandir.win32traits.FILE_ATTRIBUTE_DIRECTORY <= 0x3FFFFFFF
+    assert 0 <= rposix_scandir.win32traits.FILE_ATTRIBUTE_NORMAL <= 0x3FFFFFFF
+    assert 0 <= rposix_scandir.win32traits.FILE_ATTRIBUTE_REPARSE_POINT <= 0x3FFFFFFF
+    FLAG_STAT = 0x40000000
+    FLAG_LSTAT = 0x80000000
+
 
 class W_DirEntry(W_Root):
     w_path = None
@@ -320,17 +331,69 @@ class W_DirEntry(W_Root):
 
     else:
         # Win32
-        stat_cached = False
+
+        def get_lstat(self):
+            """Get the lstat() of the direntry."""
+            if (self.flags & FLAG_LSTAT) == 0:
+                w_path = self.space.utf8_0_w(self.fget_path(self.space))
+                st = rposix_stat.lstat(w_path)
+                self.d_lstat = st
+                self.flags |= FLAG_LSTAT
+            return self.d_lstat
+
+        def get_stat(self):
+            """Get the stat() of the direntry."""
+            if (self.flags & FLAG_STAT) == 0:
+                # We don't have the 'd_stat'.  Try to get and cache the
+                # 'd_lstat'.  Then, or if we already have a 'd_lstat' from
+                # before, *and* if the 'd_lstat' is not a S_ISLNK, we can
+                # reuse it unchanged for 'd_stat'.
+                if (self.flags & FLAG_LSTAT) == 0:
+                    self.get_lstat()    # fill the 'd_lstat' cache
+
+                # We have the lstat() but not the stat().  They are the same,
+                # unless the 'd_lstat' is a S_IFLNK.
+                must_call_stat = stat.S_ISLNK(self.d_lstat.st_mode)
+
+                if must_call_stat:
+                    w_path = self.space.utf8_0_w(self.fget_path(self.space))
+                    st = rposix_stat.stat(w_path)
+                else:
+                    st = self.d_lstat
+
+                self.d_stat = st
+                self.flags |= FLAG_STAT
+            return self.d_stat
+
+        def get_stat_or_lstat(self, follow_symlinks):
+            if follow_symlinks:
+                return self.get_stat()
+            else:
+                return self.get_lstat()
 
         def check_mode(self, follow_symlinks):
-            return self.flags
-
-        def get_stat_or_lstat(self, follow_symlinks):     # 'follow_symlinks' ignored
-            if not self.stat_cached:
-                path = self.space.utf8_0_w(self.fget_path(self.space))
-                self.d_stat = rposix_stat.stat(path)
-                self.stat_cached = True
-            return self.d_stat
+            """Get the stat() or lstat() of the direntry, and return the
+            S_IFMT.  If calling stat()/lstat() gives us ENOENT, return -1
+            instead; it is better to give up and answer "no, not this type"
+            to requests, rather than propagate the error.
+            """
+            try:
+                st = self.get_stat_or_lstat(follow_symlinks)
+            except WindowsError as e:
+                if e.winerror == 2:
+                    # ERROR_FILE_NOT_FOUND is 2 according to
+                    # <https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes--0-499->.
+                    # This is coincidentally the same value as ENOENT (2), but
+                    # winerror and errno values are not interchangeable.
+                    return -1
+                raise wrap_oserror2(self.space, e, self.fget_path(self.space),
+                                    eintr_retry=False)
+            except OSError as e:
+                if e.errno == ENOENT:    # not found
+                    return -1
+                raise wrap_oserror2(self.space, e, self.fget_path(self.space),
+                                    eintr_retry=False)
+            return stat.S_IFMT(st.st_mode)
 
 
     def is_dir(self, follow_symlinks):
