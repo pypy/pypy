@@ -1167,3 +1167,28 @@ def close(space, fd):
     if res:
         converted_error(space, rsocket.last_error())
 
+
+def if_nameindex(space):
+    """Returns a list of network interface information (index, name) tuples.
+    """
+    return space.newlist([space.newtuple([space.newint(i), space.newtext(n)]) 
+                          for i,n in rsocket.if_nameindex()])
+
+@unwrap_spec(index=int)
+def if_indextoname(space, index):
+    if index < 0:
+        raise oefmt(space.w_OverflowError, "can't convert negative value to unsigned int")
+    interfaces = rsocket.if_nameindex()
+    for indx, name in interfaces:
+        indx = widen(indx)
+        if indx == index:
+            return space.newtext(name)
+    raise oefmt(space.w_OSError, "No such device or address")
+
+@unwrap_spec(name='text')
+def if_nametoindex(space, name):
+    interfaces = rsocket.if_nameindex()
+    for indx, nam in interfaces:
+        if nam == name:
+            return space.newint(indx)
+    raise oefmt(space.w_OSError, "No such device or address")

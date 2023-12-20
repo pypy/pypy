@@ -12,6 +12,9 @@ from .. import llapi
 
 COMPILER_VERBOSE = False
 
+def debug_collect():
+    import gc
+    gc.collect()
 
 class HPyAppTest(object):
     """
@@ -29,6 +32,7 @@ class HPyAppTest(object):
         if cls.runappdirect:
             pytest.skip()
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+        cls.w_debug_collect = cls.space.wrap(interp2app(debug_collect))
 
     @pytest.fixture
     def compiler(self):
@@ -239,8 +243,8 @@ class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
     spaceconfig = {'usemodules': ['_hpy_universal', 'cpyext', 'mmap']}
 
     def setup_class(cls):
-        AppTestCpythonExtensionBase.setup_class.im_func(cls)
         HPyAppTest.setup_class.im_func(cls)
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
 
     # override the initargs fixture to run the tests in hybrid mode
     @pytest.fixture(params=['hybrid', 'hybrid+debug'], autouse=True)

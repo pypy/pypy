@@ -567,20 +567,35 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             assert new_exc_info == (new_exc.__class__, new_exc, None)
             assert new_exc_info == new_sys_exc_info
 
-    def test_PyErr_WarnFormat(self):
+    def test_PyErr_Format(self):
         import warnings
 
         module = self.import_extension('foo', [
-                ("test", "METH_NOARGS",
+                ("test_warning", "METH_NOARGS",
                  '''
                  PyErr_WarnFormat(PyExc_UserWarning, 1, "foo %d bar", 42);
                  Py_RETURN_NONE;
                  '''),
-                ])
+                ("test_err", "METH_NOARGS",
+                 '''
+                    PyObject * helper(PyObject *exception, char * fmt, ...) {
+                        va_list va;
+                        va_start(va, fmt);
+                        PyErr_FormatV(exception, fmt, va);
+                        va_end(va);
+                        return NULL;
+                    }
+                    return helper(PyExc_ValueError, "foo %d bar %d", 42, 11);
+                 ''')],
+                 prologue="""
+                    PyObject * helper(PyObject *exception, char * fmt, ...);
+                 """ 
+                )
         with warnings.catch_warnings(record=True) as l:
-            module.test()
+            module.test_warning()
         assert len(l) == 1
         assert "foo 42 bar" in str(l[0])
+        raises (ValueError, module.test_err)
 
     def test_StopIteration_value(self):
         module = self.import_extension('foo', [

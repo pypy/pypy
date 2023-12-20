@@ -1050,6 +1050,85 @@ class TestType(HPyTest):
         with pytest.raises(TypeError):
             mod.call_set(object())
 
+    def test_HPy_New_nonhpy(self):
+        mod = self.make_module("""
+            HPyDef_METH(call_new, "call_new", HPyFunc_O)
+            static HPy call_new_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                void * data = NULL;
+                return HPy_New(ctx, arg, &data);
+            }
+
+            @DEFINE_PointObject
+            @DEFINE_Point_new
+            @EXPORT_POINT_TYPE(&Point_new)
+            @EXPORT(call_new)
+            @INIT
+        """)
+
+        class A(mod.Point):
+            def value(self):
+                return 42
+
+        a = mod.call_new(A)
+        assert a.value() == 42
+
+        class B(A):
+            pass
+        
+        b = mod.call_new(B)
+        assert b.value() == 42
+
+    def test_getitem(self):
+        # Check that mp_subscript is given precedence over sq_item
+        # since it is more generic
+        mod = self.make_module("""
+            @TYPE_STRUCT_BEGIN(FooObject)
+                int member;
+            @TYPE_STRUCT_END
+
+            HPyDef_SLOT(Foo_new, HPy_tp_new)
+            static HPy Foo_new_impl(HPyContext *ctx, HPy cls, const HPy *args,
+                                      HPy_ssize_t nargs, HPy kw)
+            {
+                FooObject *foo;
+                HPy h_obj = HPy_New(ctx, cls, &foo);
+                if (HPy_IsNull(h_obj))
+                    return HPy_NULL;
+                foo->member = 42;
+                return h_obj;
+            }
+
+            HPyDef_SLOT(foo_subscript, HPy_mp_subscript)
+            HPy foo_subscript_impl(HPyContext *ctx, HPy h_self, HPy h_op)
+            {
+                return HPyLong_FromLong(ctx, 11);
+            }
+            HPyDef_SLOT(foo_item, HPy_sq_item)
+            HPy foo_item_impl(HPyContext *ctx, HPy h_self, HPy_ssize_t i)
+            {
+                return HPyLong_FromLong(ctx, 22);
+            }
+            static HPyDef *Foo_defines[] = {
+                    &Foo_new,
+                    &foo_subscript,
+                    &foo_item,
+                    NULL
+            };
+
+            static HPyType_Spec Foo_spec = {
+                .name = "test_mod.Foo",
+                .basicsize = sizeof(FooObject),
+                .builtin_shape = SHAPE(FooObject),
+                .defines = Foo_defines
+            };
+
+            @EXPORT_TYPE("Foo", Foo_spec)
+            @INIT
+        """)
+
+        foo = mod.Foo(33)
+        assert mod.Foo.__getitem__(foo, ()) == 11
     def test_call_invalid_specs(self):
         import pytest
         mod = self.make_module("""

@@ -293,7 +293,7 @@ if _WIN:
             if return_ns:
                 return space.newint(tolong(microseconds10x) * 10**2)
             else:
-                return space.newfloat(float(microseconds10x) / 1e7)
+                return space.newfloat(float(tolong(microseconds10x)) / 1e7)
 else:
     if HAVE_GETTIMEOFDAY:
         if GETTIMEOFDAY_NO_TZ:

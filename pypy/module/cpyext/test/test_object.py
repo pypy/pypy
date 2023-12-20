@@ -343,9 +343,30 @@ class AppTestObject(AppTestCpythonExtensionBase):
                  }
                  fclose(fp);
                  Py_RETURN_TRUE;
-             """)])
+             """),
+             ("print_empty", "METH_O",
+              """
+                 FILE *fp = fopen(_PyUnicode_AsString(args), "wb");
+                 if (fp == NULL)
+                     Py_RETURN_NONE;
+                 PyObject *obj = PyUnicode_FromStringAndSize(NULL, 0);
+                 int ret = PyObject_Print(obj, fp, 0);
+                 fclose(fp);
+                 if (ret < 0) {
+                     return NULL;
+                 }
+                 Py_RETURN_TRUE;
+              """)])
         assert module.dump(self.tmpname, None)
-        assert open(self.tmpname).read() == 'None<nil>'
+        result = ''
+        with open(self.tmpname) as fid:
+            result = fid.read()
+        assert result == 'None<nil>'
+        assert module.print_empty(self.tmpname)
+        with open(self.tmpname) as fid:
+            result = fid.read()
+        # print("result=", result, len(result))
+        assert result == "''"
 
     def test_isinstance(self):
         module = self.import_extension('foo', [

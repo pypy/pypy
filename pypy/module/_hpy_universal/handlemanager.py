@@ -6,6 +6,7 @@ from rpython.rlib.debug import ll_assert
 from pypy.interpreter.error import OperationError
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.apiset import API, DEBUG, TRACE
+from pypy.objspace.std.capsuleobject import W_Capsule
 from .buffer import setup_hpybuffer
 
 
@@ -105,6 +106,7 @@ CONSTANTS = [
     ('MemoryViewType', lambda space: space.w_memoryview),
     ('SliceType', lambda space: space.w_slice),
     ('Builtins', lambda space: space.getattr(space.builtin, space.newtext("__dict__"))),
+    ('CapsuleType', lambda space: space.gettypeobject(W_Capsule.typedef)),
 ]
 
 CONTEXT_FIELDS = unrolling_iterable(llapi.HPyContext.TO._names)
@@ -198,8 +200,6 @@ class HandleManager(AbstractHandleManager):
                 h_struct = getattr(self.ctx, 'c_h_' + name)
                 h_struct.c__i = i
             i = i + 1
-        h_struct = getattr(self.ctx, "c_h_CapsuleType")
-        h_struct.c__i = 2048
 
         for func in API.all_functions:
             if func.cpyext and not space.config.objspace.hpy_cpyext_API:

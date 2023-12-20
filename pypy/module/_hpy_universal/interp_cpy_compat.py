@@ -36,6 +36,23 @@ def HPy_AsPyObject(space, handles, ctx, h):
     pyobj = pyobject.make_ref(space, w_obj)
     return rffi.cast(rffi.VOIDP, pyobj)
 
+@API.func("void *HPy_AsStruct_Legacy(HPyContext *ctx, HPy h)")
+def HPy_AsStruct_Legacy(space, handles, ctx, h):
+    w_obj = handles.deref(h)
+    storage = w_obj._hpy_get_raw_storage(space)
+    if not storage:
+        # print "HPy_AsStruct_Legacy called on handle with no storage, returning cpext object instead"
+        pyobj = pyobject.make_ref(space, w_obj)
+        return rffi.cast(rffi.VOIDP, pyobj)
+    else:
+        pyobj = rffi.cast(pyobject.PyObject, storage)
+        if pyobj.c_ob_refcnt > 0:
+            # maybe called in a c-api-level finalizer after disconnecting the
+            # w_obj/pyobj connection, in that case do not incref
+            pyobject.incref(space, pyobj)
+    return storage
+
+
 @API.func("void ObjectFreeNOOP(void *)", cpyext=True, is_helper=True)
 def ObjectFreeNOOP(space, *args):
     pass
@@ -44,11 +61,11 @@ def ObjectFreeNOOP(space, *args):
 def create_pyobject_from_storage(space, w_obj, w_metatype=None, basicsize=0):
     # Taken from create_ref, but do not allocate
     storage = w_obj._hpy_get_raw_storage(space)
+    w_type = space.type(w_obj)
     if pyobject.w_obj_has_pyobj(w_obj):
         raise oefmt(space.w_TypeError,
             "internal error: seeing a PyObject before one was expected")
     # Make sure all the parent pyobjs have been created
-    w_type = space.type(w_obj)
     pyobject.as_pyobj(space, w_type)
 
     typedescr = pyobject.get_typedescr(w_obj.typedef)
@@ -67,7 +84,7 @@ def create_pyobject_from_storage(space, w_obj, w_metatype=None, basicsize=0):
         pto.c_tp_itemsize = 0
     pyobject.track_reference(space, py_obj, w_obj)
     typedescr.attach(space, py_obj, w_obj)
-    py_obj.c_ob_refcnt += 1
+    # py_obj.c_ob_refcnt += 1
     if w_metatype:
         pto = rffi.cast(PyTypeObjectPtr, py_obj)
         pto.c_tp_basicsize = basicsize

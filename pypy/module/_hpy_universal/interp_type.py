@@ -189,7 +189,7 @@ class W_HPyObject(W_ObjectObject):
     def get_pyobject(self):
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
-        assert w_type.is_legacy
+        assert w_type.is_legacy()
         storage = self._hpy_get_raw_storage(self.space)
         return rffi.cast(PyObject, storage)
 
@@ -223,7 +223,7 @@ class W_HPyTypeObject(W_TypeObject):
     def get_pyobject(self):
         w_type = self.space.type(self)
         assert isinstance(w_type, W_HPyTypeObject)
-        assert w_type.is_legacy
+        assert w_type.is_legacy()
         storage = self._hpy_get_raw_storage(space)
         return rffi.cast(PyObject, storage)
 
@@ -261,11 +261,9 @@ def HPy_AsStruct_Object(space, handles, ctx, h):
     storage = w_obj._hpy_get_raw_storage(space)
     return storage
 
-@API.func("void *HPy_AsStruct_Legacy(HPyContext *ctx, HPy h)")
-def HPy_AsStruct_Legacy(space, handles, ctx, h):
-    w_obj = handles.deref(h)
-    storage = w_obj._hpy_get_raw_storage(space)
-    return storage
+# @API.func("void *HPy_AsStruct_Legacy(HPyContext *ctx, HPy h)")
+# def HPy_AsStruct_Legacy(space, handles, ctx, h):
+#    see interp_cpy_compat, since this must incref the return value
 
 @API.func("void * HPy_AsStruct_Type(HPyContext *ctx, HPy h)", error_value="CANNOT_FAIL")
 def HPy_AsStruct_Type(space, handles, ctx, h):
@@ -293,7 +291,8 @@ def _HPy_New(space, handles, ctx, h_type, data):
     # the cpyext one. 
     storage = w_result._hpy_get_raw_storage(space)
     if not storage:
-        raise oefmt(space.w_TypeError, "Object of type '%N' is not a valid HPy object.", w_type)
+        # print "HPy_New: setting storage for type '%s' to NULL" % space.text_w(space.repr(w_type))
+        pass
     data[0] = storage
     h = handles.new(w_result)
     return h
@@ -472,6 +471,12 @@ def add_slot_defs(handles, w_result, spec):
     rbp = llapi.cts.cast('HPyFunc_releasebufferproc', 0)
     vectorcalloffset = 0
     has_tp_call = False
+    filled_mp_subscript = False
+    filled_nb_multiply = False
+    filled_nb_add = False
+    filled_nb_inplace_multiply = False
+    filled_nb_inplace_add = False
+    filled_mp_ass_subscript = False
     while p[i]:
         kind = rffi.cast(lltype.Signed, p[i].c_kind)
         if kind == HPyDef_Kind.HPyDef_Kind_Slot:
@@ -480,8 +485,52 @@ def add_slot_defs(handles, w_result, spec):
             if slot_num == HPySlot_Slot.HPy_bf_releasebuffer:
                 rbp = llapi.cts.cast('HPyFunc_releasebufferproc',
                                      hpyslot.c_impl)
-            else:
-                has_tp_call = fill_slot(handles, w_result, hpyslot)
+                i += 1
+                continue
+            # prefer mp_subscript over sq_item
+            elif slot_num == HPySlot_Slot.HPy_sq_item:
+                if filled_mp_subscript:
+                    i += 1
+                    continue
+            elif slot_num == HPySlot_Slot.HPy_mp_subscript:
+                filled_mp_subscript = True
+            # prefer nb_add over sq_concat
+            elif slot_num == HPySlot_Slot.HPy_sq_concat:
+                if filled_nb_add:
+                    i += 1
+                    continue
+            elif slot_num == HPySlot_Slot.HPy_nb_add:
+                filled_nb_add = True
+            # prefer nb_multiply over sq_repeat
+            elif slot_num == HPySlot_Slot.HPy_sq_repeat:
+                if filled_nb_multiply:
+                    i += 1
+                    continue
+            elif slot_num == HPySlot_Slot.HPy_nb_multiply:
+                filled_nb_multiply = True
+            # prefer nb_inplace_add over sq_inplace_concat
+            elif slot_num == HPySlot_Slot.HPy_sq_inplace_concat:
+                if filled_nb_inplace_add:
+                    i += 1
+                    continue
+            elif slot_num == HPySlot_Slot.HPy_nb_inplace_add:
+                filled_nb_inplace_add = True
+            # prefer nb_inplace_multiply over sq_inplace_repeat
+            elif slot_num == HPySlot_Slot.HPy_sq_inplace_repeat:
+                if filled_nb_inplace_multiply:
+                    i += 1
+                    continue
+            elif slot_num == HPySlot_Slot.HPy_nb_inplace_multiply:
+                filled_nb_inplace_multiply = True
+            # prefer mp_ass_subscript over sq_ass_item
+            elif slot_num == HPySlot_Slot.HPy_sq_ass_item:
+                if filled_mp_ass_subscript:
+                    i += 1
+                    continue
+            elif slot_num == HPySlot_Slot.HPy_mp_ass_subscript:
+                filled_mp_ass_subscript = True
+            #
+            has_tp_call = fill_slot(handles, w_result, hpyslot)
         elif kind == HPyDef_Kind.HPyDef_Kind_Meth:
             hpymeth = p[i].c_meth
             name = rffi.constcharp2str(hpymeth.c_name)
@@ -540,7 +589,6 @@ def has_tp_slot(spec, slots):
     return False
 
 
-@jit.dont_look_inside
 def _create_new_type(
         space, name, w_metaclass, bases_w, dict_w, basicsize, shape):
     from pypy.module.cpyext.typeobject import PyHeapTypeObject
@@ -595,17 +643,21 @@ def _create_instance_subtype(space, w_type, __args__=None):
         w_bestbase = space.w_type
     # implementation of W_TypeObect.descr_call
     # w_result = space.call_obj_args(w_bestbase, w_type, __args__)
+    w_oldtype, w_olddescr = w_type.lookup_where('__new__')
     w_newtype, w_newdescr = w_bestbase.lookup_where('__new__')
     if space.config.objspace.usemodules.cpyext:
         w_newtype, w_newdescr = w_bestbase.hack_which_new_to_call(
             w_newtype, w_newdescr)
     #
     w_newfunc = space.get(w_newdescr, space.w_None, w_type=w_bestbase)
+    w_oldfunc = space.get(w_olddescr, space.w_None, w_type=w_type)
+    if w_newfunc == w_oldfunc:
+        # prevent recursion
+        return _create_instance(space, w_type)
     # Here we switch "self" with "w_type"
     w_result = space.call_obj_args(w_newfunc, w_type, __args__)
     return _finish_create_instance(space, w_result, w_type)
 
-@jit.dont_look_inside
 def _finish_create_instance(space, w_result, w_type):
     # avoid circular import
     from pypy.module._hpy_universal.interp_cpy_compat import create_pyobject_from_storage
@@ -615,22 +667,26 @@ def _finish_create_instance(space, w_result, w_type):
     else:
         # a subclass?
         assert isinstance(w_type, W_TypeObject)
-        for w_b in w_type.bases_w:
+        w_hpybase = w_type
+        for w_b in w_type.mro_w:
             if isinstance(w_b, W_HPyTypeObject):
                 w_hpybase = w_b
                 break
         else:
-            # Can this ever happen?
-            raise oefmt(space.w_TypeError, "bad call to __new__")
-    # print "allocating %d for storage" % w_hpybase.basicsize
+            # This can happen via a direct call to HPy_New of a non-hpy type
+            return w_result
     assert isinstance(w_hpybase, W_HPyTypeObject)
     if w_hpybase.basicsize > 0:
-        hpy_storage = storage_alloc(w_hpybase.basicsize)
-        hpy_storage.tp_traverse = w_hpybase.tp_traverse
-        w_result._hpy_set_raw_storage(space, hpy_storage)
-        if w_hpybase.is_cpytype() or w_hpybase.is_legacy():
-            pyobj = create_pyobject_from_storage(space, w_result)
-            pyobj.c_ob_type = cts.cast("PyTypeObject *", make_ref(space, w_hpybase))
+        if w_result._hpy_get_raw_storage(space):
+            # print "already allocated storage"
+            pass
+        else:
+            hpy_storage = storage_alloc(w_hpybase.basicsize)
+            hpy_storage.tp_traverse = w_hpybase.tp_traverse
+            w_result._hpy_set_raw_storage(space, hpy_storage)
+            if w_hpybase.is_cpytype() or w_hpybase.is_legacy():
+                pyobj = create_pyobject_from_storage(space, w_result)
+                pyobj.c_ob_type = cts.cast("PyTypeObject *", make_ref(space, w_hpybase))
     elif w_hpybase.is_cpytype() or w_hpybase.is_legacy():
         # raise oefmt(space.w_RuntimeError, "see issue 459")
         pass
@@ -662,7 +718,6 @@ def HPyType_GetName(space, handles, ctx, h_type):
     if isinstance(w_obj, W_TypeObject):
         s = w_obj.name
         return handles.str2ownedptr(s, owner=h_type)
-    # print "non-type passed to HPyType_GetName"
     return handles.str2ownedptr("<unknown>", owner=h_type)
 
 @API.func("long HPyType_GetBuiltinShape(HPyContext *ctx, HPy type)", error_value="CANNOT_FAIL")

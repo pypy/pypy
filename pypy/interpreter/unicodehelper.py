@@ -717,6 +717,8 @@ def wcharpsize2utf8(space, wcharp, size):
     Raises app-level ValueError if any wchar value is outside the valid
     codepoint range.
     """
+    if size < 1:
+        return ''
     if _WIN32:
         import pypy.interpreter.unicodehelper_win32 as win32
         # wcharp is actually utf16

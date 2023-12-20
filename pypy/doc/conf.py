@@ -47,6 +47,7 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.todo',
               'sphinx.ext.ifconfig',
               'sphinx.ext.graphviz',
+              'sphinx_issues',
               'pypyconfig',
               # 'sphinx_affiliates',
              ]
@@ -76,6 +77,11 @@ master_doc = 'index'
 # General information about the project.
 project = u'PyPy'
 copyright = u'2023, The PyPy Project'
+
+# For sphinx_issues extension v1.2.0
+issues_uri = "https://foss.heptapod.net/pypy/pypy/-/issues/{issue}"
+issues_pr_uri = "https://foss.heptapod.net/pypy/pypy/-/merge_requests/{pr}"
+issues_commit_uri = "https://foss.heptapod.net/pypy/pypy/-/commit/{commit}"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -166,7 +172,7 @@ html_title = 'PyPy documentation'
 
 # If not '', a 'Last updated on:' timestamp is inserted at every page bottom,
 # using the given strftime format.
-#html_last_updated_fmt = '%b %d, %Y'
+html_last_updated_fmt = '%b %d, %Y'
 
 # If true, SmartyPants will be used to convert quotes and dashes to
 # typographically correct entities.

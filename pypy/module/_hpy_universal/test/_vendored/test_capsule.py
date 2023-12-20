@@ -456,7 +456,7 @@ class TestHPyCapsule(HPyTest):
         p = mod.capsule_new(789, "Hello, World!")
         assert mod.capsule_getname(p) == "some_capsule"
         del p
-        gc.collect()
+        self.debug_collect()
         assert mod.pointer_freed()
 
     def test_capsule_new_with_invalid_destructor(self):

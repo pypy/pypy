@@ -58,9 +58,6 @@ configure_args = ['./configure',
             '--enable-silent-rules',
             '--disable-dependency-tracking',
         ]
-# please note the deliberate use of a mirror site: we can't use HTTPS
-# without an _ssl module, but the OpenSSL download site redirect HTTP
-# to HTTPS
 cffi_dependencies = {
     '_ssl': ('https://www.openssl.org/source/openssl-3.0.12.tar.gz',
               'f93c9e8edde5e9166119de31755fc87b4aa34863662f67ddfcba14d0b6b69b61',

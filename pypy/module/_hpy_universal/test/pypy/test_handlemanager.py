@@ -4,6 +4,7 @@ from pypy.module._hpy_universal.state import State
 # import for the side effect of adding the API functions
 from pypy.module._hpy_universal import interp_hpy
 from pypy.module._hpy_universal import llapi
+from pypy.objspace.std.typeobject import TypeCache
 
 class Config(object):
     def __init__(self, space):
@@ -30,10 +31,20 @@ class FakeSpace(object):
         else:
             raise RuntimeError('space.call not fully implemented')
 
+    def gettypeobject(self, typedef):
+        assert typedef is not None
+        return self.fromcache(TypeCache).build(typedef)
+        
     def getattr(self, obj, name):
         return getattr(obj, name)
 
     def newtext(self, txt):
+        return txt
+
+    def wrap(self, obj):
+        return obj
+
+    def newtext_or_none(self, txt):
         return txt
 
     @property
