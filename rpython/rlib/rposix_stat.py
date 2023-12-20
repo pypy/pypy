@@ -152,7 +152,7 @@ class SomeStatResult(annmodel.SomeObject):
 
     if sys.platform == 'win32':
         def _get_rmarshall_support_(self):     # for rlib.rmarshal
-            # reduce and recreate stat_result objects from 10-tuples
+            # reduce and recreate stat_result objects from 10-tuples or 12-tuples
             # (we ignore the extra values here for simplicity and portability)
             def stat_result_reduce(st):
                 return (st[0], st[1], st[2], st[3], st[4],
@@ -172,8 +172,8 @@ class SomeStatResult(annmodel.SomeObject):
             s_reduced = annmodel.SomeTuple([lltype_to_annotation(TYPE)
                                         for name, TYPE in PORTABLE_STAT_FIELDS[:7]]
                                  + 3 * [lltype_to_annotation(lltype.Float)]
-                                 + 2 * [lltype_to_annotation(lltype.Int)])
-            extra_zeroes = (0,) * (len(STAT_FIELDS) - len(PORTABLE_STAT_FIELDS) - 3)
+                                 + 2 * [lltype_to_annotation(lltype.Signed)])
+            extra_zeroes = (0,) * (len(STAT_FIELDS) - len(PORTABLE_STAT_FIELDS) - 5)
             return s_reduced, stat_result_reduce, stat_result_recreate
     else:
         def _get_rmarshall_support_(self):     # for rlib.rmarshal
