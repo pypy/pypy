@@ -41,9 +41,10 @@ it and encourage submissions to our blog_ via a pull request
 to https://github.com/pypy/pypy.org
 
 We would also like to thank our contributors and encourage new people to join
-the project. PyPy has many layers and we need help with all of them: bug fixes,
-`PyPy`_ and `RPython`_ documentation improvements, or general `help`_ with making
-RPython's JIT even better.
+the project. Since the last release we have contributions from three new
+contributors.  PyPy has many layers and we need help with all of them: bug
+fixes, `PyPy`_ and `RPython`_ documentation improvements, or general `help`_
+with making RPython's JIT even better.
 
 If you are a python library maintainer and use C-extensions, please consider
 making a HPy_ / CFFI_ / cppyy_ version of your library that would be performant
