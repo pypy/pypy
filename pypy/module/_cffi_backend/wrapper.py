@@ -107,6 +107,15 @@ class W_FunctionWrapper(W_Root):
         # pydoc displays useful information (namely, the __repr__)
         return self
 
+    def try_extract_direct_fnptr_as_cdata(self, space):
+        # returns a <cdata 'fnptr'>, except in backward compatibility
+        # mode where self.directfnptr might be missing.
+        if self.directfnptr:
+            ctype = self.typeof(self.ffi)
+            return W_CData(space, self.directfnptr, ctype)
+        else:
+            return self    # backward compatibility
+
 
 @jit.unroll_safe
 def prepare_args(space, rawfunctype, args_w, start_index):

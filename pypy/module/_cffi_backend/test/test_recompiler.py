@@ -2173,3 +2173,46 @@ class AppTestRecompiler:
         # too, but likely the check in the code ">= 1000" usually triggers
         # before that, and raise a RuntimeError too, but with the more
         # explicit message.
+
+    def test_convert_api_mode_builtin_function_to_cdata(self):
+        ffi, lib = self.prepare(
+            """struct s { int x; };
+            struct s add1(struct s); struct s add2(struct s);
+            int mycall(struct s(*)(struct s)); int mycall2(void *);""",
+            "test_convert_api_mode_builtin_function_to_cdata", """
+            struct s { int x; };
+            static struct s add1(struct s a) {
+                struct s r; r.x = a.x + 1; return r;
+            }
+            static struct s add2(struct s a) {
+                struct s r; r.x = a.x + 2; return r;
+            }
+            static int mycall(struct s(*cb)(struct s)) {
+                struct s a; a.x = 100;
+                return cb(a).x;
+            }
+            static int mycall2(void *cb) {
+                struct s a; a.x = 200;
+                return ((struct s(*)(struct s))cb)(a).x;
+            }
+        """)
+        s_ptr = ffi.new("struct s *", [42])
+        s = s_ptr[0]
+        assert lib.add1(s).x == 43
+        assert lib.add2(s).x == 44
+        assert lib.mycall(lib.add1) == 101
+        assert lib.mycall(lib.add2) == 102
+        assert lib.mycall2(lib.add1) == 201
+        assert lib.mycall2(lib.add2) == 202
+        s.x = -42
+        my_array = ffi.new("struct s(*[2])(struct s)")
+        my_array[0] = lib.add1
+        my_array[1] = lib.add2
+        assert my_array[0](s).x == -41
+        assert my_array[1](s).x == -40
+        s.x = 84
+        p = ffi.cast("void *", lib.add1)
+        assert ffi.cast("struct s(*)(struct s)", p)(s).x == 85
+        s.x = 300
+        my_array_2 = ffi.new("void *[]", [lib.add1, lib.add2])
+        assert ffi.cast("struct s(*)(struct s)", my_array_2[1])(s).x == 302
