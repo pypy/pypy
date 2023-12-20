@@ -2213,6 +2213,8 @@ class AppTestRecompiler:
         s.x = 84
         p = ffi.cast("void *", lib.add1)
         assert ffi.cast("struct s(*)(struct s)", p)(s).x == 85
+        q = ffi.cast("intptr_t", lib.add2)
+        assert ffi.cast("struct s(*)(struct s)", q)(s).x == 86
         s.x = 300
         my_array_2 = ffi.new("void *[]", [lib.add1, lib.add2])
         assert ffi.cast("struct s(*)(struct s)", my_array_2[1])(s).x == 302
