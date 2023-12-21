@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import llmemory, lltype, rffi
 from rpython.rlib import jit
+from rpython.rlib.rarithmetic import intmask
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -227,7 +228,7 @@ class W_PyCFunctionObject(W_Root):
     def call_o_typed(self, space, w_self, __args__):
         sig = pypy_get_typed_signature(self.ml)
         args = __args__.arguments_w
-        if sig.c_arg_type == 1 and len(args) == 1:
+        if intmask(sig.c_arg_type) == 1 and len(args) == 1:
             # TODO(max): Don't raise if overflow or wrong type
             long_arg = space.int_w(args[0])
             underlying_func = rffi.cast(long_to_long, sig.c_underlying_func)
