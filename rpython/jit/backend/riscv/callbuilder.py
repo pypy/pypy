@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from rpython.jit.backend.llsupport import llerrno
 from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 from rpython.jit.backend.llsupport.jump import remap_frame_layout
 from rpython.jit.backend.riscv import registers as r
@@ -177,14 +178,70 @@ class RISCVCallBuilder(AbstractCallBuilder):
             self.mc.ADDI(r.jfp.value, r.jfp.value, 1)
 
     def write_real_errno(self, save_err):
+        # Use caller-saved registers as scratch registers.
+        #
+        # Note: Skip x10-x17 registers because they contain the arguments to
+        # the future call.
+        tls_reg = r.x31
+        addr_reg = r.x30
+        scratch_reg = r.x29
+
         if save_err & rffi.RFFI_READSAVED_ERRNO:
-            assert False, 'unimplemented'
+            # Just before a call, read `*_errno` and write it into the real
+            # `errno`.
+
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rpy_errno = llerrno.get_alt_errno_offset(self.asm.cpu)
+            else:
+                rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
+
+            p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
+
+            # TODO: Replace saved_threadlocal_addr with RISCV architecture `tp`
+            # (thread pointer) register.
+            self.mc.load_int(tls_reg.value, r.sp.value,
+                             self.asm.saved_threadlocal_addr + self.current_sp)
+            self.mc.load_int_from_base_plus_offset(addr_reg.value,
+                                                   tls_reg.value, p_errno)
+            self.mc.load_rffi_int_from_base_plus_offset(scratch_reg.value,
+                                                        tls_reg.value,
+                                                        rpy_errno)
+            self.mc.store_rffi_int(scratch_reg.value, addr_reg.value, 0)
         elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
-            assert False, 'unimplemented'
+            # Same, but write zero.
+            p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
+            self.mc.load_int(tls_reg.value, r.sp.value,
+                             self.asm.saved_threadlocal_addr + self.current_sp)
+            self.mc.load_int_from_base_plus_offset(addr_reg.value,
+                                                   tls_reg.value, p_errno)
+            self.mc.store_rffi_int(r.x0.value, addr_reg.value, 0)
 
     def read_real_errno(self, save_err):
         if save_err & rffi.RFFI_SAVE_ERRNO:
-            assert False, 'unimplemented'
+            # Just after a call, read the real `errno` and save a copy of
+            # it inside our thread-local `*_errno`.
+
+            # Use caller-saved registers as scratch registers.
+            tls_reg = r.x30
+            scratch_reg = r.x31
+            scratch2_reg = r.x29
+
+            if save_err & rffi.RFFI_ALT_ERRNO:
+                rpy_errno = llerrno.get_alt_errno_offset(self.asm.cpu)
+            else:
+                rpy_errno = llerrno.get_rpy_errno_offset(self.asm.cpu)
+
+            p_errno = llerrno.get_p_errno_offset(self.asm.cpu)
+
+            self.mc.load_int(tls_reg.value, r.sp.value,
+                             self.asm.saved_threadlocal_addr)
+            self.mc.load_int_from_base_plus_offset(scratch_reg.value,
+                                                   tls_reg.value, p_errno)
+            self.mc.load_rffi_int(scratch_reg.value, scratch_reg.value, 0)
+            self.mc.store_rffi_int_to_base_plus_offset(scratch_reg.value,
+                                                       tls_reg.value,
+                                                       rpy_errno,
+                                                       tmp=scratch2_reg.value)
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         # Try to reacquire the lock. The following two values are saved across

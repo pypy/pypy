@@ -11,7 +11,7 @@ from rpython.jit.backend.riscv.arch import (
     JITFRAME_FIXED_SIZE, SHAMT_MAX, SINT12_IMM_MAX, SINT12_IMM_MIN, XLEN)
 from rpython.jit.backend.riscv.instruction_util import (
     COND_BEQ, COND_BGE, COND_BGEU, COND_BLT, COND_BLTU, COND_BNE, COND_INVALID,
-    get_negated_branch_inst)
+    check_imm_arg, get_negated_branch_inst)
 from rpython.jit.backend.riscv.locations import (
     ConstFloatLoc, ImmLocation, StackLocation, get_fp_offset)
 from rpython.jit.backend.riscv.opassembler import asm_comp_operations
@@ -182,9 +182,6 @@ class FloatRegisterManager(RISCVRegisterManager):
         self.temp_boxes.append(box)
         return reg
 
-
-def check_imm_arg(imm):
-    return imm >= SINT12_IMM_MIN and imm <= SINT12_IMM_MAX
 
 def check_imm_box(arg):
     if isinstance(arg, ConstInt):

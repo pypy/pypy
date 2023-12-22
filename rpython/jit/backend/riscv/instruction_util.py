@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from rpython.jit.backend.riscv.arch import SINT12_IMM_MAX, SINT12_IMM_MIN
 from rpython.jit.metainterp.resoperation import rop
 
 
@@ -51,6 +52,9 @@ _NEGATED_BRANCH_INST = [
 def get_negated_branch_inst(branch_inst):
     """Returns the branch op with the negated condition."""
     return _NEGATED_BRANCH_INST[branch_inst]
+
+def check_imm_arg(imm):
+    return imm >= SINT12_IMM_MIN and imm <= SINT12_IMM_MAX
 
 def check_simm21_arg(imm):
     return imm >= -2**20 and imm <= 2**20 - 1 and imm & 0x1 == 0

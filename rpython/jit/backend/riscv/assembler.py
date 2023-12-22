@@ -220,6 +220,11 @@ class AssemblerRISCV(OpAssembler):
 
     def _call_header(self):
         self._push_callee_save_regs_to_stack(self.mc)
+
+        # Save the thread local address to tls[0].
+        self.saved_threadlocal_addr = 0 * XLEN
+        self.mc.store_int(r.x11.value, r.sp.value, 0 * XLEN)
+
         self.mc.MV(r.jfp.value, r.x10.value)
 
     def _call_footer(self, mc):
@@ -228,7 +233,12 @@ class AssemblerRISCV(OpAssembler):
         mc.RET()
 
     def _calculate_callee_save_area_size(self):
-        core_reg_begin = 0
+        # Extra thread local storage (see. riscv/callbuiler.py)
+        #
+        # tls[0 * XLEN]: saved_threadlocal_addr (_call_header)
+        tls_size = XLEN * 1
+
+        core_reg_begin = tls_size
         core_reg_size = XLEN * len(r.callee_saved_registers_except_ra_sp_fp)
 
         fp_reg_begin = core_reg_begin + core_reg_size

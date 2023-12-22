@@ -7,7 +7,8 @@ from rpython.jit.backend.riscv.arch import (
 from rpython.jit.backend.riscv.instruction_builder import (
     gen_all_instr_assemblers)
 from rpython.jit.backend.riscv.instruction_util import (
-    COND_BEQ, COND_BGE, COND_BGEU, COND_BLT, COND_BLTU, COND_BNE)
+    COND_BEQ, COND_BGE, COND_BGEU, COND_BLT, COND_BLTU, COND_BNE,
+    check_imm_arg)
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.udir import udir
@@ -114,6 +115,28 @@ class AbstractRISCVBuilder(object):
     def store_int(self, rs2, rs1, imm):
         self.SD(rs2, rs1, imm)
 
+    # Load an XLEN-bit integer from rs1+imm (imm can be a large constant)
+    def load_int_from_base_plus_offset(self, rd, rs1, imm, tmp=-1):
+        if tmp == -1:
+            tmp = rd
+        assert tmp != rs1
+        if check_imm_arg(imm):
+            self.load_int(rd, rs1, imm)
+        else:
+            self.load_int_imm(tmp, imm)
+            self.ADD(tmp, tmp, rs1)
+            self.load_int(rd, tmp, 0)
+
+    # Store an XLEN-bit integer to rs1+imm (imm can be a large constant)
+    def store_int_to_base_plus_offset(self, rs2, rs1, imm, tmp):
+        assert tmp != rs2 and tmp != rs1
+        if check_imm_arg(imm):
+            self.store_int(rs2, rs1, imm)
+        else:
+            self.load_int_imm(tmp, imm)
+            self.ADD(tmp, tmp, rs1)
+            self.store_int(rs2, tmp, 0)
+
     # Atomic-swap XLEN-bit integer.  Load old value to rd and store new value
     # from rs2 to memory address 0(rs1).
     def atomic_swap_int(self, rd, rs2, rs1, acrl):
@@ -135,6 +158,37 @@ class AbstractRISCVBuilder(object):
     # Store an FLEN-bit float to imm(rs1)
     def store_float(self, rs2, rs1, imm):
         self.FSD(rs2, rs1, imm)
+
+    # Load a rffi.INT from imm(rs1)
+    def load_rffi_int(self, rd, rs1, imm):
+        # Note: On RV64 (LP64), rffi.INT is 32-bit signed integer.
+        self.LW(rd, rs1, imm)
+
+    # Store a rffi.INT to imm(rs1)
+    def store_rffi_int(self, rs2, rs1, imm):
+        self.SW(rs2, rs1, imm)
+
+    # Load a rffi.INT from rs1+imm (imm can be a large constant)
+    def load_rffi_int_from_base_plus_offset(self, rd, rs1, imm, tmp=-1):
+        if tmp == -1:
+            tmp = rd
+        assert tmp != rs1
+        if check_imm_arg(imm):
+            self.load_rffi_int(rd, rs1, imm)
+        else:
+            self.load_int_imm(tmp, imm)
+            self.ADD(tmp, tmp, rs1)
+            self.load_rffi_int(rd, tmp, 0)
+
+    # Store a rffi.INT to rs1+imm (imm can be a large constant)
+    def store_rffi_int_to_base_plus_offset(self, rs2, rs1, imm, tmp):
+        assert tmp != rs2 and tmp != rs1
+        if check_imm_arg(imm):
+            self.store_rffi_int(rs2, rs1, imm)
+        else:
+            self.load_int_imm(tmp, imm)
+            self.ADD(tmp, tmp, rs1)
+            self.store_rffi_int(rs2, tmp, 0)
 
     # Splits an immediate value (or a pc-relative offset) into an upper part
     # for the auipc/lui instruction and a lower part for the
