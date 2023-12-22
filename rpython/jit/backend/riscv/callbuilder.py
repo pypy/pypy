@@ -3,8 +3,14 @@
 from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 from rpython.jit.backend.llsupport.jump import remap_frame_layout
 from rpython.jit.backend.riscv import registers as r
-from rpython.jit.backend.riscv.arch import ABI_STACK_ALIGN, FLEN, XLEN
+from rpython.jit.backend.riscv.arch import (
+    ABI_STACK_ALIGN, FLEN, INST_SIZE, XLEN)
+from rpython.jit.backend.riscv.codebuilder import OverwritingBuilder
+from rpython.jit.backend.riscv.instructions import (
+    AMO_ACQUIRE, AMO_RELEASE)
 from rpython.jit.metainterp.history import FLOAT
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rtyper.lltypesystem import rffi
 
 
 class RISCVCallBuilder(AbstractCallBuilder):
@@ -142,13 +148,147 @@ class RISCVCallBuilder(AbstractCallBuilder):
                 self.mc.SRAI(resloc.value, resloc.value, 56)
 
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
-        assert False, 'unimplemented'
+        assert self.is_call_release_gil
+        assert not self.asm._is_asmgcc()
+
+        # `r.thread_id` holds our thread identifier.
+        # `r.shadow_old` holds the old value of the shadow stack pointer, which
+        # we save here for later comparison.
+
+        scratch_reg = r.x31
+
+        gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            rst = gcrootmap.get_root_stack_top_addr()
+            self.mc.load_int_imm(scratch_reg.value, rst)
+            self.mc.load_int(r.shadow_old.value, scratch_reg.value, 0)
+
+        # Change `rpy_fastgil` to 0 (it should be non-zero right now) and save
+        # the old value of `rpy_fastgil` into `r.thread_id`.
+        self.mc.load_int_imm(scratch_reg.value, fastgil)
+        self.mc.load_int(r.thread_id.value, scratch_reg.value, 0)
+
+        # atomic_store_int(0, &rpy_fastgil, mo_release)
+        self.mc.atomic_swap_int(r.x0.value, r.x0.value, scratch_reg.value,
+                                AMO_RELEASE)
+
+        if not we_are_translated():
+            # For testing, we should not access the jfp register any more.
+            self.mc.ADDI(r.jfp.value, r.jfp.value, 1)
 
     def write_real_errno(self, save_err):
-        assert False, 'unimplemented'
+        if save_err & rffi.RFFI_READSAVED_ERRNO:
+            assert False, 'unimplemented'
+        elif save_err & rffi.RFFI_ZERO_ERRNO_BEFORE:
+            assert False, 'unimplemented'
 
     def read_real_errno(self, save_err):
-        assert False, 'unimplemented'
+        if save_err & rffi.RFFI_SAVE_ERRNO:
+            assert False, 'unimplemented'
 
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
-        assert False, 'unimplemented'
+        # Try to reacquire the lock. The following two values are saved across
+        # the call and are still alive now:
+        #
+        # r.thread_id   # our thread ident
+        # r.shadow_old  # old value of the shadowstack pointer
+
+        # Scratch registers (these must be caller-saved registers)
+        scratch_reg = r.x31
+        rpy_fastgil_adr_reg = r.x30
+        old_fastgil_reg = r.x29
+
+        # Load the address of rpy_fastgil.
+        self.mc.load_int_imm(rpy_fastgil_adr_reg.value, fastgil)
+
+        # Compare-and-swap rpy_fastgil:
+        #
+        # atomic_compare_exchange_strong(old=0, new=r.thread_id,
+        #                                addr=&rpy_fastgil)
+        self.mc.load_reserve_int(old_fastgil_reg.value,
+                                 rpy_fastgil_adr_reg.value,
+                                 AMO_ACQUIRE | AMO_RELEASE)
+        self.mc.BNEZ(old_fastgil_reg.value, 12)
+        self.mc.store_conditional_int(scratch_reg.value, r.thread_id.value,
+                                      rpy_fastgil_adr_reg.value,
+                                      AMO_ACQUIRE | AMO_RELEASE)
+        self.mc.BNEZ(scratch_reg.value, -12)  # Re-try for spurious SC failure.
+
+        # Now, the `old_fastgil_reg` keeps the old value of the lock, and if
+        # `old_fastgil_reg == 0` then the lock now contains `r.thread_id`.
+
+        # Patch Location:
+        # - boehm: `BEQZ old_fastgil_reg, end`
+        # - shadowstack: `BNEZ old_fastgil_reg, reacqgil_slowpath`
+        b1_location = self.mc.get_relative_pos()
+        self.mc.EBREAK()
+
+        gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            # When doing a call_release_gil with shadowstack, there is the risk
+            # that the `rpy_fastgil` was free but the current shadowstack can
+            # be the one of a different thread. So here we check if the
+            # shadowstack pointer is still the same as before we released the
+            # GIL (saved in `r.shadow_old`), and if not, we fall back to
+            # `reacqgil_addr`.
+            rst = gcrootmap.get_root_stack_top_addr()
+            self.mc.load_int_imm(scratch_reg.value, rst)
+            self.mc.load_int(scratch_reg.value, scratch_reg.value, 0)
+
+            # Patch Location: `BEQ scratch_reg, r.shadow_old, end`
+            b3_location = self.mc.get_relative_pos()
+            self.mc.EBREAK()
+
+            # Revert the rpy_fastgil acquired above, so that the general
+            # `self.asm.reacqgil_addr` below can acquire it again.
+            #
+            # atomic_store_int(0, &rpy_fastgil, mo_release)
+            self.mc.atomic_swap_int(r.x0.value, r.x0.value,
+                                    rpy_fastgil_adr_reg.value, AMO_RELEASE)
+
+            # Patch the b1_location above.
+            pmc = OverwritingBuilder(self.mc, b1_location, INST_SIZE)
+            pmc.BNEZ(old_fastgil_reg.value,
+                     self.mc.get_relative_pos() - b1_location)
+
+            open_location = b3_location
+        else:
+            open_location = b1_location
+
+        # LABEL[reacqgil_slowpath]:
+        #
+        # Save the result value across `reacqgil`.
+        saved_res = r.thread_id  # Reuse `r.thread_id` to save things
+        reg = self.resloc
+        if reg is not None:
+            if reg.is_core_reg():
+                self.mc.MV(saved_res.value, reg.value)
+            elif reg.is_fp_reg():
+                assert XLEN == FLEN
+                self.mc.FMV_X_D(saved_res.value, reg.value)
+
+        # Call the `reacqgil` function.
+        self.mc.load_int_imm(r.ra.value, self.asm.reacqgil_addr)
+        self.mc.JALR(r.ra.value, r.ra.value, 0)
+
+        # Restore the saved register
+        if reg is not None:
+            if reg.is_core_reg():
+                self.mc.MV(reg.value, saved_res.value)
+            elif reg.is_fp_reg():
+                assert XLEN == FLEN
+                self.mc.FMV_D_X(reg.value, saved_res.value)
+
+        # LABEL[end]:
+        #
+        # Patch the `open_location` jump above:
+        pmc = OverwritingBuilder(self.mc, open_location, INST_SIZE)
+        offset = self.mc.get_relative_pos() - open_location
+        if gcrootmap:
+            pmc.BEQ(scratch_reg.value, r.shadow_old.value, offset)
+        else:
+            pmc.BEQZ(old_fastgil_reg.value, offset)
+
+        if not we_are_translated():
+            # For testing, now we can access the jfp register again.
+            self.mc.ADDI(r.jfp.value, r.jfp.value, -1)

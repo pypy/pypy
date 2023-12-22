@@ -854,6 +854,18 @@ class Regalloc(BaseRegalloc):
         op_arglocs = self._prepare_op_cond_call(cond_call_op)
         return (op_arglocs, COND_INVALID)
 
+    def prepare_guard_op_guard_not_forced(self, op, guard_op):
+        if rop.is_call_release_gil(op.getopnum()):
+            arglocs = self._prepare_call(op, save_all_regs=True,
+                                         first_arg_index=2)
+        elif rop.is_call_assembler(op.getopnum()):
+            assert False, 'unimplemented'
+        else:
+            assert rop.is_call_may_force(op.getopnum())
+            assert False, 'unimplemented'
+        guard_arglocs = self._prepare_guard_arglocs(guard_op)
+        return arglocs + guard_arglocs, len(arglocs)
+
     def prepare_op_load_from_gc_table(self, op):
         res = self.force_allocate_reg(op)
         return [res]

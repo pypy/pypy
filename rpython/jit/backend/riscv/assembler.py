@@ -167,6 +167,28 @@ class AssemblerRISCV(OpAssembler):
                 regalloc.possibly_free_vars_for_op(guard_op)
                 # Free the return var of the guard op (if no longer used).
                 regalloc.possibly_free_var(guard_op)
+            elif (rop.is_call_may_force(op.getopnum()) or
+                  rop.is_call_release_gil(op.getopnum()) or
+                  rop.is_call_assembler(op.getopnum())):
+                guard_op = operations[i + 1]
+                guard_num = guard_op.getopnum()
+                assert guard_num in (rop.GUARD_NOT_FORCED,
+                                     rop.GUARD_NOT_FORCED_2)
+
+                # `arglocs` contains the locations for `op` and `guard_op`.
+                # The first `num_arglocs` locations are for `op` and the
+                # remainings are for `guard_op`.
+                arglocs, num_arglocs = \
+                        regalloc_guard_operations[guard_num](regalloc, op,
+                                                             guard_op)
+                if arglocs is not None:
+                    asm_guard_operations[guard_num](self, op, guard_op, arglocs,
+                                                    num_arglocs)
+                regalloc.next_instruction()  # Advance one more
+
+                # Free argument vars of the guard op (if no longer used).
+                regalloc.possibly_free_vars(guard_op.getfailargs())
+                regalloc.possibly_free_vars_for_op(guard_op)
             else:
                 arglocs = regalloc_operations[opnum](regalloc, op)
                 if arglocs is not None:

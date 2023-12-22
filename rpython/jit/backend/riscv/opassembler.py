@@ -531,6 +531,37 @@ class OpAssembler(BaseAssembler):
 
         self._emit_op_cond_call(op, arglocs)
 
+    def _store_force_index(self, guard_op):
+        faildescr = guard_op.getdescr()
+        faildescrindex = self.get_gcref_from_faildescr(faildescr)
+        ofs = self.cpu.get_ofs_of_frame_field('jf_force_descr')
+        scratch_reg = r.x31
+        self.load_from_gc_table(scratch_reg.value, faildescrindex)
+        self.mc.store_int(scratch_reg.value, r.jfp.value, ofs)
+
+    def emit_guard_op_guard_not_forced(self, call_op, guard_op, arglocs,
+                                       num_arglocs):
+        # arglocs is call_op_arglocs + guard_op_arglocs, split them
+        if rop.is_call_assembler(call_op.getopnum()):
+            assert False, 'unimplemented'
+        else:
+            assert num_arglocs == call_op.numargs() + 3
+            call_op_arglocs = arglocs[0:num_arglocs]
+            guard_op_arglocs = arglocs[num_arglocs:]
+            self._store_force_index(guard_op)
+            self._emit_op_call(call_op, call_op_arglocs)
+
+        # Implement guard_not_forced:
+        #
+        #     if frame.jf_descr != 0:
+        #         goto guard_handler
+        #
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        scratch_reg = r.x31
+        self.mc.load_int(scratch_reg.value, r.jfp.value, ofs)
+        self.mc.BEQZ(scratch_reg.value, 8)
+        self._emit_pending_guard(guard_op, guard_op_arglocs)
+
     def emit_op_load_from_gc_table(self, op, arglocs):
         res = arglocs[0]
         index = op.getarg(0).getint()

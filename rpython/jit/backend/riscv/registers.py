@@ -53,8 +53,11 @@ callee_saved_registers = [sp] + callee_saved_registers_except_sp
 argument_regs = [x10, x11, x12, x13, x14, x15, x16, x17]
 
 allocatable_registers = [x5, x6, x7, x10, x11, x12, x13, x14, x15, x16, x17,
-                         x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28,
-                         x29, x30]
+                         x18, x19, x20, x21, x22, x23, x24, x25, x28, x29, x30]
+
+# Registers for GIL and shadow stack.  (See also. callbuilder.py)
+thread_id = x26
+shadow_old = x27
 
 caller_saved_fp_registers = [f0, f1, f2, f3, f4, f5, f6, f7, f10, f11, f12, f13,
                              f14, f15, f16, f17, f28, f29, f30, f31]
@@ -96,6 +99,12 @@ if __name__ == '__main__':
     # f31 must not be in the allocatable_fp_registers because we want to use it
     # as a scratch fp register.
     assert f31 not in allocatable_fp_registers
+
+    # Reserve two callee-saved registers for GIL and shadow stack support.
+    assert thread_id not in allocatable_registers
+    assert thread_id in callee_saved_registers
+    assert shadow_old not in allocatable_registers
+    assert shadow_old in callee_saved_registers
 
     print 'Core registers'
     print '* Number of caller saved:', len(caller_saved_registers)
