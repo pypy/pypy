@@ -105,6 +105,8 @@ For all versions
   used in a callback to a C function call, or written to a C structure field of
   the correct pointer-to-function type. You can also use ``ffi.cast()`` or
   `ffi.typeof()`` on it.
+- Convert all usages of ``stat64`` to ``stat``, which fixes compilation on
+  ``>=musl-1.2.4 libc`` (:issue:`4048`)
 
 Bugfixes
 ~~~~~~~~
