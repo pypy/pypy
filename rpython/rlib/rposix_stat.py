@@ -411,10 +411,7 @@ if sys.platform.startswith('win'):
     _name_struct_stat = '_stati64'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h']
 else:
-    if _LINUX:
-        _name_struct_stat = 'stat64'
-    else:
-        _name_struct_stat = 'stat'
+    _name_struct_stat = 'stat'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h', 'unistd.h']
 
 compilation_info = ExternalCompilationInfo(
@@ -564,17 +561,17 @@ def build_statvfs_result(st):
 # Implement and register os.stat() & variants
 
 if not _WIN32:
-  c_fstat = rffi.llexternal('fstat64' if _LINUX else 'fstat',
+  c_fstat = rffi.llexternal('fstat',
                             [rffi.INT, STAT_STRUCT], rffi.INT,
                             compilation_info=compilation_info,
                             save_err=rffi.RFFI_SAVE_ERRNO,
                             macro=True)
-  c_stat = rffi.llexternal('stat64' if _LINUX else 'stat',
+  c_stat = rffi.llexternal('stat',
                            [rffi.CCHARP, STAT_STRUCT], rffi.INT,
                            compilation_info=compilation_info,
                            save_err=rffi.RFFI_SAVE_ERRNO,
                            macro=True)
-  c_lstat = rffi.llexternal('lstat64' if _LINUX else 'lstat',
+  c_lstat = rffi.llexternal('lstat',
                             [rffi.CCHARP, STAT_STRUCT], rffi.INT,
                             compilation_info=compilation_info,
                             save_err=rffi.RFFI_SAVE_ERRNO,
@@ -676,7 +673,7 @@ def lstat3(path):
 
 if rposix.HAVE_FSTATAT:
     from rpython.rlib.rposix import AT_FDCWD, AT_SYMLINK_NOFOLLOW
-    c_fstatat = rffi.llexternal('fstatat64' if _LINUX else 'fstatat',
+    c_fstatat = rffi.llexternal('fstatat',
         [rffi.INT, rffi.CCHARP, STAT_STRUCT, rffi.INT], rffi.INT,
         compilation_info=compilation_info,
         save_err=rffi.RFFI_SAVE_ERRNO, macro=True)
