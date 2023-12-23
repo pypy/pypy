@@ -673,7 +673,7 @@ def lstat3(path):
 
 if rposix.HAVE_FSTATAT:
     from rpython.rlib.rposix import AT_FDCWD, AT_SYMLINK_NOFOLLOW
-    c_fstatat = rffi.llexternal('fstatat64' if _LINUX else 'fstatat',
+    c_fstatat = rffi.llexternal('fstatat',
         [rffi.INT, rffi.CCHARP, STAT_STRUCT, rffi.INT], rffi.INT,
         compilation_info=compilation_info,
         save_err=rffi.RFFI_SAVE_ERRNO, macro=True)
