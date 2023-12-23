@@ -859,7 +859,7 @@ class Regalloc(BaseRegalloc):
             assert False, 'unimplemented'
         else:
             assert rop.is_call_may_force(op.getopnum())
-            assert False, 'unimplemented'
+            arglocs = self._prepare_call(op, save_all_regs=True)
         guard_arglocs = self._prepare_guard_arglocs(guard_op)
         return arglocs + guard_arglocs, len(arglocs)
 
