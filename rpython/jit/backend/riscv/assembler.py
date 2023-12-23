@@ -454,6 +454,8 @@ class AssemblerRISCV(OpAssembler):
                                                         allblocks)
         self.mc.datablockwrapper = self.datablockwrapper
 
+        self._finish_gcmap = jitframe.NULLGCMAP
+
     def teardown(self):
         self.current_clt = None
         self._regalloc = None

@@ -13,6 +13,7 @@ from rpython.jit.backend.riscv.instruction_util import (
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
 from rpython.jit.metainterp.history import AbstractFailDescr, REF, TargetToken
 from rpython.jit.metainterp.resoperation import rop
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -562,6 +563,18 @@ class OpAssembler(BaseAssembler):
         self.mc.BEQZ(scratch_reg.value, 8)
         self._emit_pending_guard(guard_op, guard_op_arglocs)
 
+    def emit_op_guard_not_forced_2(self, op, arglocs):
+        frame_depth = arglocs[0].value
+        fail_locs = arglocs[1:]
+        pos = self.mc.get_relative_pos()
+        guardtok = self._build_guard_token(op, frame_depth, fail_locs, pos)
+        self._finish_gcmap = guardtok.gcmap
+        self._store_force_index(op)
+        self.store_info_on_descr(pos, guardtok)
+
+    def emit_op_force_token(self, op, arglocs):
+        self.mc.MV(arglocs[0].value, r.jfp.value)
+
     def emit_op_load_from_gc_table(self, op, arglocs):
         res = arglocs[0]
         index = op.getarg(0).getint()
@@ -599,7 +612,18 @@ class OpAssembler(BaseAssembler):
 
         # Update `jf_gcmap`.
         if op.numargs() > 0 and op.getarg(0).type == REF:
-            gcmap = self.gcmap_for_finish
+            if self._finish_gcmap:
+                # We're returning with a `op_guard_not_forced_2`. We need to
+                # say that frame slot 0 (stored above) contains a reference
+                # too.
+                self._finish_gcmap[0] |= r_uint(1) << 0
+                gcmap = self._finish_gcmap
+            else:
+                gcmap = self.gcmap_for_finish
+            self.push_gcmap(self.mc, gcmap)
+        elif self._finish_gcmap:
+            # We're returning with a `op_guard_not_forced_2`.
+            gcmap = self._finish_gcmap
             self.push_gcmap(self.mc, gcmap)
         else:
             # Note that 0 here is redundant, but I would rather keep that one

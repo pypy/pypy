@@ -863,6 +863,16 @@ class Regalloc(BaseRegalloc):
         guard_arglocs = self._prepare_guard_arglocs(guard_op)
         return arglocs + guard_arglocs, len(arglocs)
 
+    def prepare_op_guard_not_forced_2(self, op):
+        self.rm.before_call(force_store=op.getfailargs(), save_all_regs=True)
+        self.fprm.before_call(force_store=op.getfailargs(), save_all_regs=True)
+        arglocs = self._prepare_guard_arglocs(op)
+        return arglocs
+
+    def prepare_op_force_token(self, op):
+        res = self.force_allocate_reg(op)
+        return [res]
+
     def prepare_op_load_from_gc_table(self, op):
         res = self.force_allocate_reg(op)
         return [res]
