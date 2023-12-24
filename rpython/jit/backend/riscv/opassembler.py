@@ -482,7 +482,7 @@ class OpAssembler(BaseAssembler):
         self.push_gcmap(self.mc, gcmap)
 
         # Load callee function address.
-        callee_func_addr_reg = r.x31
+        callee_func_addr_reg = r.x30
         callee_func_addr = rffi.cast(lltype.Signed, op.getarg(1).getint())
         self.mc.load_int_imm(callee_func_addr_reg.value, callee_func_addr)
 
@@ -508,7 +508,7 @@ class OpAssembler(BaseAssembler):
         # If this is a COND_CALL_VALUE, we need to move the result in place
         # from its current location
         if res_loc is not None:
-            self.mc.MV(res_loc.value, r.x31.value)
+            self.mc.MV(res_loc.value, r.x30.value)
 
         self.pop_gcmap(self.mc)
 

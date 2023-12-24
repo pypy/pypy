@@ -801,6 +801,11 @@ class Regalloc(BaseRegalloc):
         func_addr = op.getarg(1)
         assert isinstance(func_addr, Const)
 
+        # Allocate `r.x30` as a scratch reg because `cond_call_slowpath`
+        # returns the result with `r.x30` and uses `r.x31` as a scratch
+        # register internally.
+        self.rm.get_scratch_reg(INT, selected_reg=r.x30)
+
         # Move function arguments to argument registers.
         _FUNC_ARGS = [r.x10, r.x11, r.x12, r.x13, r.x14, r.x15, r.x16, r.x17]
         allocated_arg_vars = []

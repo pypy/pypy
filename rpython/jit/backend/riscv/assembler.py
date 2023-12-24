@@ -506,24 +506,25 @@ class AssemblerRISCV(OpAssembler):
         """ This builds a general call slowpath, for whatever call happens to
         come.
 
-        The address of the callee function comes in r.x31.
-        The returning value is stored in r.x31.
+        The address of the callee function comes in r.x30.
+        The returning value is stored in r.x30.
         """
         mc = InstrBuilder()
 
         # Spill registers to JITFRAME
         #
-        # Ignore jfp for _reload_frame_if_necessary and x31 for return.
-        ignore_regs_for_push_pop = [r.jfp, r.x31]
+        # Ignore jfp for _reload_frame_if_necessary, x30 for return, x31 for
+        # scratch.
+        ignore_regs_for_push_pop = [r.jfp, r.x30, r.x31]
         self._push_all_regs_to_jitframe(mc, ignore_regs_for_push_pop,
                                         supports_floats,
                                         callee_only)  # Spills r.ra
 
         # Branch to the callee function.
-        mc.JALR(r.ra.value, r.x31.value, 0)
+        mc.JALR(r.ra.value, r.x30.value, 0)
 
-        # Move return value to r.x31.
-        mc.MV(r.x31.value, r.x10.value)
+        # Move return value to r.x30.
+        mc.MV(r.x30.value, r.x10.value)
 
         # Restore registers from JITFRAME
         self._reload_frame_if_necessary(mc)
