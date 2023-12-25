@@ -305,6 +305,14 @@ class OpAssembler(BaseAssembler):
         l0, res = arglocs
         self.mc.FCVT_D_L(res.value, l0.value, DYN.value)
 
+    def emit_op_convert_float_bytes_to_longlong(self, op, arglocs):
+        l0, res = arglocs
+        self.mc.FMV_X_D(res.value, l0.value)
+
+    def emit_op_convert_longlong_bytes_to_float(self, op, arglocs):
+        l0, res = arglocs
+        self.mc.FMV_D_X(res.value, l0.value)
+
     def _build_guard_token(self, op, frame_depth, arglocs, offset):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)

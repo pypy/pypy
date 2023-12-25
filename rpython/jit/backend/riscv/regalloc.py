@@ -515,6 +515,8 @@ class Regalloc(BaseRegalloc):
     prepare_op_float_abs = _prepare_op_unary_op
     prepare_op_cast_float_to_int = _prepare_op_unary_op
     prepare_op_cast_int_to_float = _prepare_op_unary_op
+    prepare_op_convert_float_bytes_to_longlong = _prepare_op_unary_op
+    prepare_op_convert_longlong_bytes_to_float= _prepare_op_unary_op
 
     def _prepare_guard_arglocs(self, op):
         arglocs = [None] * (len(op.getfailargs()) + 1)
