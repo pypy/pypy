@@ -2,6 +2,8 @@ import pytest
 from pathlib import Path
 from . import support
 
+if True:
+    pytest.skip('tests only available after translation')
 
 def expand_template(template, name):
     return support.DefaultExtensionTemplate(template, name).expand()
@@ -24,11 +26,11 @@ def test_expand_template():
         'globals_defs': '',
         'globals_field': '',
     }
-    assert expanded.rstrip() == f"""#include <hpy.h>
+    assert expanded.rstrip() == """#include <hpy.h>
 
 some more C stuff
-{init_code}
-""".rstrip()
+{}
+""".format(init_code).rstrip()
 
 
 TEST_DIR = Path(__file__).parent
