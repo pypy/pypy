@@ -14,7 +14,7 @@ import os
 # Keep in sync with MACOSX_DEPLOYMENT_TARGET, for pypy see
 # lib_pypy/_sysconfigdata.py
 #
-DARWIN_VERSION_MIN = '-mmacosx-version-min=10.9'
+DARWIN_VERSION_MIN = '-mmacosx-version-min=10.13'
 
 class Darwin(posix.BasePosix):
     name = "darwin"
