@@ -315,7 +315,11 @@ class RunParam(object):
 
     def is_test_py_file(self, p):
         name = p.basename
-        return name.startswith('test_') and name.endswith('.py')
+        if name.startswith('test_') and name.endswith('.py'):
+            return True
+        if name.startswith('apptest_' and name.endswith('.py'):
+            return True
+        return False
 
     def reltoroot(self, p):
         rel = p.relto(self.root)
