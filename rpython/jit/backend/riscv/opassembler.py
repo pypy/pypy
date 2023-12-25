@@ -5,12 +5,12 @@ from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (
-    ABI_STACK_ALIGN, INST_SIZE, JITFRAME_FIXED_SIZE, XLEN)
+    ABI_STACK_ALIGN, FLEN, INST_SIZE, JITFRAME_FIXED_SIZE, XLEN)
 from rpython.jit.backend.riscv.callbuilder import RISCVCallBuilder
 from rpython.jit.backend.riscv.codebuilder import (
     BRANCH_BUILDER, OverwritingBuilder)
 from rpython.jit.backend.riscv.instruction_util import (
-    COND_INVALID, check_simm21_arg)
+    COND_INVALID, check_imm_arg, check_simm21_arg)
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
 from rpython.jit.metainterp.history import AbstractFailDescr, REF, TargetToken
 from rpython.jit.metainterp.resoperation import rop
@@ -312,6 +312,160 @@ class OpAssembler(BaseAssembler):
     def emit_op_convert_longlong_bytes_to_float(self, op, arglocs):
         l0, res = arglocs
         self.mc.FMV_D_X(res.value, l0.value)
+
+    def emit_op_gc_store(self, op, arglocs):
+        value_loc, base_loc, ofs_loc, size_loc = arglocs
+        self._store_to_mem(value_loc, base_loc, ofs_loc, size_loc.value)
+
+    def _emit_op_gc_load(self, op, arglocs):
+        base_loc, ofs_loc, res_loc, nsize_loc = arglocs
+        nsize = nsize_loc.value
+        signed = (nsize < 0)
+        self._load_from_mem(res_loc, base_loc, ofs_loc, abs(nsize), signed)
+
+    emit_op_gc_load_i = _emit_op_gc_load
+    emit_op_gc_load_r = _emit_op_gc_load
+    emit_op_gc_load_f = _emit_op_gc_load
+
+    def _emit_gc_indexed_full_offset(self, index_loc, ofs_loc):
+        # Compute the full offset.
+        #
+        # Note: result = (index * scale) + ofs, where scale == 1
+
+        scratch_reg = r.x31
+        assert index_loc.is_core_reg()
+
+        if ofs_loc.is_imm():
+            if ofs_loc.value == 0:
+                return index_loc
+            if check_imm_arg(ofs_loc.value):
+                self.mc.ADDI(scratch_reg.value, index_loc.value, ofs_loc.value)
+            else:
+                assert index_loc is not scratch_reg
+                self.mc.load_int_imm(scratch_reg.value, ofs_loc.value)
+                self.mc.ADD(scratch_reg.value, scratch_reg.value,
+                            index_loc.value)
+            return scratch_reg
+
+        self.mc.ADD(scratch_reg.value, index_loc.value, ofs_loc.value)
+        return scratch_reg
+
+    def emit_op_gc_store_indexed(self, op, arglocs):
+        value_loc, base_loc, index_loc, ofs_loc, size_loc = arglocs
+
+        full_ofs_loc = self._emit_gc_indexed_full_offset(index_loc, ofs_loc)
+        self._store_to_mem(value_loc, base_loc, full_ofs_loc, size_loc.value)
+
+    def _emit_op_gc_load_indexed(self, op, arglocs):
+        base_loc, index_loc, ofs_loc, res_loc, nsize_loc = arglocs
+
+        nsize = nsize_loc.value
+        signed = (nsize < 0)
+
+        full_ofs_loc = self._emit_gc_indexed_full_offset(index_loc, ofs_loc)
+        self._load_from_mem(res_loc, base_loc, full_ofs_loc, abs(nsize),
+                            signed)
+
+    emit_op_gc_load_indexed_i = _emit_op_gc_load_indexed
+    emit_op_gc_load_indexed_r = _emit_op_gc_load_indexed
+    emit_op_gc_load_indexed_f = _emit_op_gc_load_indexed
+
+    def _normalize_base_offset(self, base_loc, ofs_loc, scratch_reg):
+        # Normalize the calculation of `base + offset`.
+
+        if ofs_loc.is_core_reg():
+            self.mc.ADD(scratch_reg.value, base_loc.value, ofs_loc.value)
+            return (scratch_reg, 0)
+
+        assert ofs_loc.is_imm()
+        if check_imm_arg(ofs_loc.value):
+            return (base_loc, ofs_loc.value)
+        else:
+            assert base_loc is not scratch_reg
+            self.mc.load_int_imm(scratch_reg.value, ofs_loc.value)
+            self.mc.ADD(scratch_reg.value, scratch_reg.value,
+                        base_loc.value)
+            return (scratch_reg, 0)
+
+    def _store_to_mem(self, value_loc, base_loc, ofs_loc, type_size):
+        # Store a value of size `type_size` at the address
+        # `base_ofs + ofs_loc`.
+        #
+        # Note: `ofs_loc` can be `scratch_reg`. Use with caution.
+
+        assert XLEN == 8 and FLEN == 8, 'implementation below assumes 64-bit'
+        assert base_loc.is_core_reg()
+
+        scratch_reg = r.x31
+        base_loc, ofs_int = self._normalize_base_offset(base_loc, ofs_loc,
+                                                        scratch_reg)
+
+        if type_size == 8:
+            # 64-bit
+            if value_loc.is_float():
+                # 64-bit float
+                self.mc.FSD(value_loc.value, base_loc.value, ofs_int)
+                return
+            # 64-bit int
+            self.mc.SD(value_loc.value, base_loc.value, ofs_int)
+            return
+
+        if type_size == 4:
+            # 32-bit int
+            self.mc.SW(value_loc.value, base_loc.value, ofs_int)
+            return
+
+        if type_size == 2:
+            # 16-bit int
+            self.mc.SH(value_loc.value, base_loc.value, ofs_int)
+            return
+
+        assert type_size == 1
+        self.mc.SB(value_loc.value, base_loc.value, ofs_int)
+
+    def _load_from_mem(self, res_loc, base_loc, ofs_loc, type_size, signed):
+        # Load a value of `type_size` bytes, from the memory location
+        # `base_loc + ofs_loc`.
+
+        assert XLEN == 8 and FLEN == 8, 'implementation below assumes 64-bit'
+        assert base_loc.is_core_reg()
+
+        scratch_reg = r.x31
+        base_loc, ofs_int = self._normalize_base_offset(base_loc, ofs_loc,
+                                                        scratch_reg)
+
+        if type_size == 8:
+            # 64-bit
+            if res_loc.is_float():
+                # 64-bit float
+                self.mc.FLD(res_loc.value, base_loc.value, ofs_int)
+                return
+            # 64-bit int
+            self.mc.LD(res_loc.value, base_loc.value, ofs_int)
+            return
+
+        if type_size == 4:
+            # 32-bit int
+            if signed:
+                self.mc.LW(res_loc.value, base_loc.value, ofs_int)
+            else:
+                self.mc.LWU(res_loc.value, base_loc.value, ofs_int)
+            return
+
+        if type_size == 2:
+            # 16-bit int
+            if signed:
+                self.mc.LH(res_loc.value, base_loc.value, ofs_int)
+            else:
+                self.mc.LHU(res_loc.value, base_loc.value, ofs_int)
+            return
+
+        assert type_size == 1
+        # 8-bit int
+        if signed:
+            self.mc.LB(res_loc.value, base_loc.value, ofs_int)
+        else:
+            self.mc.LBU(res_loc.value, base_loc.value, ofs_int)
 
     def _build_guard_token(self, op, frame_depth, arglocs, offset):
         descr = op.getdescr()

@@ -518,6 +518,68 @@ class Regalloc(BaseRegalloc):
     prepare_op_convert_float_bytes_to_longlong = _prepare_op_unary_op
     prepare_op_convert_longlong_bytes_to_float= _prepare_op_unary_op
 
+    def prepare_op_gc_store(self, op):
+        boxes = op.getarglist()
+        base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
+        ofs = boxes[1]
+        if check_imm_box(ofs):
+            ofs_loc = self.convert_to_imm(ofs)
+        else:
+            ofs_loc = self.make_sure_var_in_reg(ofs, boxes)
+        value_loc = self.make_sure_var_in_reg(boxes[2], boxes)
+        size_loc = self.convert_to_imm(boxes[3])
+        return [value_loc, base_loc, ofs_loc, size_loc]
+
+    def _prepare_op_gc_load(self, op):
+        boxes = op.getarglist()
+        base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
+        ofs = boxes[1]
+        if check_imm_box(ofs):
+            ofs_loc = self.convert_to_imm(ofs)
+        else:
+            ofs_loc = self.make_sure_var_in_reg(ofs, boxes)
+        nsize_loc = self.convert_to_imm(boxes[2])  # Negative for "signed"
+        self.possibly_free_vars_for_op(op)
+        res_loc = self.force_allocate_reg(op)
+        return [base_loc, ofs_loc, res_loc, nsize_loc]
+
+    prepare_op_gc_load_i = _prepare_op_gc_load
+    prepare_op_gc_load_r = _prepare_op_gc_load
+    prepare_op_gc_load_f = _prepare_op_gc_load
+
+    def prepare_op_gc_store_indexed(self, op):
+        boxes = op.getarglist()
+        base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
+        index_loc = self.make_sure_var_in_reg(boxes[1], boxes)
+        value_loc = self.make_sure_var_in_reg(boxes[2], boxes)
+        assert boxes[3].getint() == 1  # scale
+        ofs = boxes[4]
+        if check_imm_box(ofs):
+            ofs_loc = self.convert_to_imm(ofs)
+        else:
+            ofs_loc = self.make_sure_var_in_reg(ofs, boxes)
+        size_loc = self.convert_to_imm(boxes[5])
+        return [value_loc, base_loc, index_loc, ofs_loc, size_loc]
+
+    def _prepare_op_gc_load_indexed(self, op):
+        boxes = op.getarglist()
+        base_loc = self.make_sure_var_in_reg(boxes[0], boxes)
+        index_loc = self.make_sure_var_in_reg(boxes[1], boxes)
+        assert boxes[2].getint() == 1  # scale
+        ofs = boxes[3]
+        if check_imm_box(ofs):
+            ofs_loc = self.convert_to_imm(ofs)
+        else:
+            ofs_loc = self.make_sure_var_in_reg(ofs, boxes)
+        nsize_loc = self.convert_to_imm(boxes[4])  # Negative for "signed"
+        self.possibly_free_vars_for_op(op)
+        res_loc = self.force_allocate_reg(op)
+        return [base_loc, index_loc, ofs_loc, res_loc, nsize_loc]
+
+    prepare_op_gc_load_indexed_i = _prepare_op_gc_load_indexed
+    prepare_op_gc_load_indexed_r = _prepare_op_gc_load_indexed
+    prepare_op_gc_load_indexed_f = _prepare_op_gc_load_indexed
+
     def _prepare_guard_arglocs(self, op):
         arglocs = [None] * (len(op.getfailargs()) + 1)
         arglocs[0] = ImmLocation(self.frame_manager.get_frame_depth())
