@@ -100,7 +100,8 @@ class RISCVCallBuilder(AbstractCallBuilder):
         self.asm.push_gcmap(self.mc, gcmap)
 
     def pop_gcmap(self):
-        self.asm._reload_frame_if_necessary(self.mc)
+        scratch_reg = r.x12  # caller-saved scratch reg other than ra, x31
+        self.asm._reload_frame_if_necessary(self.mc, tmplocs=[scratch_reg])
         self.asm.pop_gcmap(self.mc)
 
     def emit_raw_call(self):

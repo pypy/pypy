@@ -4,7 +4,8 @@ from rpython.jit.backend.llsupport.assembler import BaseAssembler, GuardToken
 from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.riscv import registers as r
-from rpython.jit.backend.riscv.arch import INST_SIZE, JITFRAME_FIXED_SIZE, XLEN
+from rpython.jit.backend.riscv.arch import (
+    ABI_STACK_ALIGN, INST_SIZE, JITFRAME_FIXED_SIZE, XLEN)
 from rpython.jit.backend.riscv.callbuilder import RISCVCallBuilder
 from rpython.jit.backend.riscv.codebuilder import (
     BRANCH_BUILDER, OverwritingBuilder)
@@ -13,6 +14,7 @@ from rpython.jit.backend.riscv.instruction_util import (
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
 from rpython.jit.metainterp.history import AbstractFailDescr, REF, TargetToken
 from rpython.jit.metainterp.resoperation import rop
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -531,6 +533,191 @@ class OpAssembler(BaseAssembler):
         assert guard_branch_inst == COND_INVALID
 
         self._emit_op_cond_call(op, arglocs)
+
+    def _write_barrier_fastpath(self, mc, descr, arglocs, tmplocs, array=False,
+                                is_frame=False):
+        # Emits the fast path for a GC write barrier.
+        #
+        # This function emits instructions that is equivalent to
+        # `write_barrier` or `write_barrier_from_array` in
+        # `rpython/memory/gc/incminimark.py`.
+        #
+        # This fast path `GCFLAG_TRACK_YOUNG_PTRS` (`jit_wb_if_flag`) and
+        # `GCFLAG_CARDS_SET` (`jit_wb_cards_set`).  This is the overall
+        # structure of this function:
+        #
+        #     if GCFLAG_TRACK_YOUNG_PTRS | GCFLAG_CARDS_SET:
+        #       if GCFLAG_CARDS_SET:
+        #         update_card_table()
+        #         return
+        #       write_barrier_slowpath()
+        #       if GCFLAG_CARDS_SET:
+        #         update_card_table()
+        #
+        # The card table is a utility data structure to assist generational GC.
+        # It is prepended to *large* arrays so that the garbage collector
+        # doesn't have to scan the complete array object if only some of them
+        # are updated.  The card table maps `card_page_indices` (default: 128)
+        # indices into one bit, thus we need the byte/bit index calculation.
+        #
+        # The `write_barrier_slowpath` (`jit_remember_young_pointer_from_array`)
+        # only updates the `GCFLAGS_CARDS_SET` bit in its fast path, thus we
+        # must update card table afterward.
+        #
+        # OTOH, small arrays don't have card tables, thus we need the second
+        # `if GCFLAG_CARDS_SET` after returning from `write_barrier_slowpath`.
+
+        if we_are_translated():
+            cls = self.cpu.gc_ll_descr.has_write_barrier_class()
+            assert cls is not None and isinstance(descr, cls)
+
+        card_marking = 0
+        mask = descr.jit_wb_if_flag_singlebyte
+        if array and descr.jit_wb_cards_set != 0:
+            # Asserts the assumptions the rest of the `_write_barrier_fastpath`
+            # function and `self.wb_slowpath[n]`.
+            assert (descr.jit_wb_cards_set_byteofs ==
+                    descr.jit_wb_if_flag_byteofs)
+            assert descr.jit_wb_cards_set_singlebyte == -0x80
+            card_marking = 1
+            mask |= -0x80
+
+        loc_base = arglocs[0]
+        assert loc_base.is_core_reg()
+        assert not is_frame or loc_base is r.jfp
+
+        scratch_reg = r.x31
+        mc.LBU(scratch_reg.value, loc_base.value, descr.jit_wb_if_flag_byteofs)
+        mc.ANDI(scratch_reg.value, scratch_reg.value, mask & 0xff)
+
+        # Patch Location: BEQZ scratch_reg, end
+        jz_location = mc.get_relative_pos()
+        mc.EBREAK()
+
+        # For `cond_call_gc_wb_array`, also add another fast path:
+        # If `GCFLAG_CARDS_SET`, then we can just update the card table (set
+        # one bit) and done.
+        js_location = 0
+        if card_marking:
+            # GCFLAG_CARDS_SET is in this byte at 0x80
+            mc.ANDI(scratch_reg.value, scratch_reg.value, 0x80)
+
+            # Patch Location: BNEZ scratch_reg, update_card_table
+            js_location = mc.get_relative_pos()
+            mc.EBREAK()
+
+        # Write only a CALL to the helper prepared in advance, passing it as
+        # argument the address of the structure we are writing into
+        # (the first argument to COND_CALL_GC_WB).
+        helper_num = card_marking
+        if is_frame:
+            helper_num = 4
+        elif self._regalloc is not None and self._regalloc.fprm.reg_bindings:
+            helper_num += 2  # Slowpath must spill float registers
+
+        if self.wb_slowpath[helper_num] == 0:  # Tests only
+            assert not we_are_translated()
+            self.cpu.gc_ll_descr.write_barrier_descr = descr
+            self._build_wb_slowpath(card_marking,
+                                    bool(self._regalloc.fprm.reg_bindings))
+            assert self.wb_slowpath[helper_num] != 0
+
+        # Save `r.x10` to stack.
+        stack_size = 0
+        if loc_base is not r.x10:
+            stack_size = ((XLEN * 1) + ABI_STACK_ALIGN - 1) // \
+                    ABI_STACK_ALIGN * ABI_STACK_ALIGN
+            mc.ADDI(r.sp.value, r.sp.value, -stack_size)
+            mc.store_int(r.x10.value, r.sp.value, 0)
+            mc.MV(r.x10.value, loc_base.value)
+            if is_frame:
+                assert loc_base is r.jfp
+
+        # Call the slow path of the write barrier.
+        mc.load_int_imm(r.ra.value, self.wb_slowpath[helper_num])
+        mc.JALR(r.ra.value, r.ra.value, 0)
+
+        # Restore `r.x10` from stack.
+        if loc_base is not r.x10:
+            mc.load_int(r.x10.value, r.sp.value, 0)
+            mc.ADDI(r.sp.value, r.sp.value, stack_size)
+
+        jns_location = 0
+        if card_marking:
+            # The helper ends again with a check of the flag in the object.
+
+            # After the `wb_slowpath`, we check `GCFLAG_CARDS_SET` again.  If
+            # `GCFLAG_CARDS_SET` isn't set, it implies that the object doesn't
+            # have a card table (e.g. small array) and we can skip to the end.
+
+            # Patch Location: BEQZ x31, end_update_card_table
+            jns_location = mc.get_relative_pos()
+            mc.EBREAK()
+
+            # LABEL[update_card_table]:
+
+            # Patch the `js_location` above.
+            offset = mc.get_relative_pos() - js_location
+            pmc = OverwritingBuilder(mc, js_location, INST_SIZE)
+            pmc.BNEZ(scratch_reg.value, offset)
+
+            # Update the card table if `GCFLAG_CARDS_SET` is set.
+            loc_index = arglocs[1]
+            assert loc_index.is_core_reg()
+
+            # Allocate scratch registers.
+            scratch2_reg = r.ra
+            scratch3_reg = tmplocs[0]
+
+            # byte_index:
+            # scratch_reg = ~(index >> (descr.jit_wb_card_page_shift + lg2(8)))
+            mc.SRLI(scratch_reg.value, loc_index.value,
+                    descr.jit_wb_card_page_shift + 3)
+            mc.XORI(scratch_reg.value, scratch_reg.value, -1)
+
+            # byte_addr:
+            mc.ADD(scratch_reg.value, loc_base.value, scratch_reg.value)
+
+            # bit_index:
+            # scratch2_reg = (index >> descr.jit_wb_card_page_shift) & 0x7
+            mc.SRLI(scratch2_reg.value, loc_index.value,
+                    descr.jit_wb_card_page_shift)
+            mc.ANDI(scratch2_reg.value, scratch2_reg.value, 0x07)
+
+            # bit_mask:
+            # scratch2_reg = (1 << scratch2_reg)
+            mc.load_int_imm(scratch3_reg.value, 1)
+            mc.SLL(scratch2_reg.value, scratch3_reg.value, scratch2_reg.value)
+
+            # Set the bit
+            mc.LBU(scratch3_reg.value, scratch_reg.value, 0)
+            mc.OR(scratch3_reg.value, scratch3_reg.value, scratch2_reg.value)
+            mc.SB(scratch3_reg.value, scratch_reg.value, 0)
+
+            # LABEL[end_update_card_table]:
+
+            # Patch the `jns_location` above.
+            offset = mc.get_relative_pos() - jns_location
+            pmc = OverwritingBuilder(mc, jns_location, INST_SIZE)
+            pmc.BEQZ(r.x31.value, offset)
+
+        # LABEL[end]:
+
+        # Patch `jz_location` above.
+        offset = mc.get_relative_pos() - jz_location
+        pmc = OverwritingBuilder(mc, jz_location, INST_SIZE)
+        pmc.BEQZ(scratch_reg.value, offset)
+
+    def emit_op_cond_call_gc_wb(self, op, arglocs):
+        tmplocs = arglocs[:1]
+        arglocs = arglocs[1:]
+        self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs, tmplocs)
+
+    def emit_op_cond_call_gc_wb_array(self, op, arglocs):
+        tmplocs = arglocs[:1]
+        arglocs = arglocs[1:]
+        self._write_barrier_fastpath(self.mc, op.getdescr(), arglocs, tmplocs,
+                                     array=True)
 
     def _store_force_index(self, guard_op):
         faildescr = guard_op.getdescr()

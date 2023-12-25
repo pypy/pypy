@@ -856,6 +856,20 @@ class Regalloc(BaseRegalloc):
         op_arglocs = self._prepare_op_cond_call(cond_call_op)
         return (op_arglocs, COND_INVALID)
 
+    def _prepare_op_cond_call_gc_wb(self, op):
+        # Allocate an extra scratch register for `_write_barrier_fastpath`.
+        tmplocs = [self.rm.get_scratch_reg(INT)]
+
+        # We force all arguments in a reg because it will be needed anyway by
+        # the following gc_store. It avoids loading it twice from the memory.
+        args = op.getarglist()
+        arglocs = [self.make_sure_var_in_reg(op.getarg(i), args)
+                   for i in range(op.numargs())]
+        return tmplocs + arglocs
+
+    prepare_op_cond_call_gc_wb = _prepare_op_cond_call_gc_wb
+    prepare_op_cond_call_gc_wb_array = _prepare_op_cond_call_gc_wb
+
     def prepare_guard_op_guard_not_forced(self, op, guard_op):
         if rop.is_call_release_gil(op.getopnum()):
             arglocs = self._prepare_call(op, save_all_regs=True,

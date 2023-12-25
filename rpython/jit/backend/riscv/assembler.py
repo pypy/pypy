@@ -28,6 +28,7 @@ class AssemblerRISCV(OpAssembler):
     def __init__(self, cpu, translate_support_code=False):
         OpAssembler.__init__(self, cpu, translate_support_code)
         self.failure_recovery_code = [0, 0, 0, 0]
+        self.wb_slowpath = [0, 0, 0, 0, 0]
 
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
                       operations, looptoken, log):
@@ -489,8 +490,113 @@ class AssemblerRISCV(OpAssembler):
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
-        """Build write barrier slow path"""
-        pass
+        # Build a slow path to call GC write barrier.
+        #
+        # This builds a helper function called from the fast path of write
+        # barriers.  It must save all registers, and optionally all fp
+        # registers.  It takes a single argument which is in `r.x10`.  It must
+        # keep stack alignment accordingly.
+
+        descr = self.cpu.gc_ll_descr.write_barrier_descr
+        if descr is None:
+            return
+
+        if not withcards:
+            func = descr.get_write_barrier_fn(self.cpu)
+        else:
+            if descr.jit_wb_cards_set == 0:
+                return
+            func = descr.get_write_barrier_from_array_fn(self.cpu)
+            if func == 0:
+                return
+
+        mc = InstrBuilder()
+
+        # Allocate two callee-save scratch registers to handle exception
+        # save and restore.
+        exc0 = r.x24
+        exc1 = r.x25
+        fp_align_size = 0
+        stack_size = 0
+        core_regs_to_be_spilled = []
+
+        if not for_frame:
+            self._push_all_regs_to_jitframe(mc, [], withfloats,
+                                            callee_only=True)
+        else:
+            # NOTE: Don't save registers to the jitframe here!  It might
+            # override already-saved values that will be restored later.
+            #
+            # we're possibly called from the slowpath of malloc.  save the
+            # caller saved registers assuming GC does not collect here.
+
+            core_regs_to_be_spilled = r.caller_saved_registers + [exc0, exc1]
+
+            core_reg_size = len(core_regs_to_be_spilled) * XLEN
+            core_reg_size_aligned = (core_reg_size + FLEN - 1) // FLEN * FLEN
+            fp_align_size = core_reg_size_aligned - core_reg_size
+            fp_reg_size = len(r.caller_saved_fp_registers) * FLEN
+            stack_size = (core_reg_size_aligned + fp_reg_size +
+                          ABI_STACK_ALIGN - 1) \
+                    // ABI_STACK_ALIGN * ABI_STACK_ALIGN
+
+            mc.ADDI(r.sp.value, r.sp.value, -stack_size)
+
+            # Spill caller-saved registers.
+            cur_stack = 0
+            for reg in core_regs_to_be_spilled:
+                mc.store_int(reg.value, r.sp.value, cur_stack)
+                cur_stack += XLEN
+
+            # Spill caller-saved float registers.
+            cur_stack += fp_align_size
+            for reg in r.caller_saved_fp_registers:
+                mc.store_float(reg.value, r.sp.value, cur_stack)
+                cur_stack += FLEN
+
+            # TODO:
+            # self._store_and_reset_exception(mc, exc0, exc1)
+
+        func = rffi.cast(lltype.Signed, func)
+        mc.load_int_imm(r.ra.value, func)
+        mc.JALR(r.ra.value, r.ra.value, 0)
+
+        if not for_frame:
+            self._pop_all_regs_from_jitframe(mc, [], withfloats,
+                                             callee_only=True)
+        else:
+            # TODO:
+            # self._restore_exception(mc, exc0, exc1)
+
+            # Restore caller-saved registers.
+            cur_stack = 0
+            for reg in core_regs_to_be_spilled:
+                mc.load_int(reg.value, r.sp.value, cur_stack)
+                cur_stack += XLEN
+
+            # Restore caller-saved float registers.
+            cur_stack += fp_align_size
+            for reg in r.caller_saved_fp_registers:
+                mc.load_float(reg.value, r.sp.value, cur_stack)
+                cur_stack += FLEN
+
+            mc.ADDI(r.sp.value, r.sp.value, stack_size)
+
+        if withcards:
+            # Load and mask the `jit_wb_cards_set_singlebyte` to `x31`, so that
+            # the caller of the `wb_slowpath` can emit a simple
+            # `BEQZ x31, end_update_card_table`.  This helps us save 2
+            # instructions per `COND_CALL_GC_WB_ARRAY`.
+            mc.LBU(r.x31.value, r.x10.value, descr.jit_wb_if_flag_byteofs)
+            mc.ANDI(r.x31.value, r.x31.value, 0x80)
+
+        mc.RET()
+
+        rawstart = mc.materialize(self.cpu, [])
+        if for_frame:
+            self.wb_slowpath[4] = rawstart
+        else:
+            self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def build_frame_realloc_slowpath(self):
         pass
@@ -527,20 +633,27 @@ class AssemblerRISCV(OpAssembler):
         mc.MV(r.x30.value, r.x10.value)
 
         # Restore registers from JITFRAME
-        self._reload_frame_if_necessary(mc)
+        tmplocs = [r.x29]  # Use callee-saved register as scratch regs
+        self._reload_frame_if_necessary(mc, tmplocs)
         self._pop_all_regs_from_jitframe(mc, ignore_regs_for_push_pop,
                                          supports_floats,
                                          callee_only)  # Restores r.ra
         mc.RET()
         return mc.materialize(self.cpu, [])
 
-    def _reload_frame_if_necessary(self, mc):
+    def _reload_frame_if_necessary(self, mc, tmplocs):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
-            assert False, 'unimplemented'
+            stack_top_ptr_addr = gcrootmap.get_root_stack_top_addr()
+            mc.load_int_imm(r.jfp.value, stack_top_ptr_addr)
+            mc.load_int(r.jfp.value, r.jfp.value, 0)
+            mc.load_int(r.jfp.value, r.jfp.value, -XLEN)
         wbdescr = self.cpu.gc_ll_descr.write_barrier_descr
         if gcrootmap and wbdescr:
-            assert False, 'unimplemented'
+            # Frame never uses card marking, so we enforce this is not an
+            # array.
+            self._write_barrier_fastpath(mc, wbdescr, [r.jfp], tmplocs,
+                                         array=False, is_frame=True)
 
     def _build_stack_check_slowpath(self):
         pass
