@@ -559,6 +559,50 @@ class OpAssembler(BaseAssembler):
     emit_guard_op_guard_overflow    = _emit_guard_op_guard_overflow_op
     emit_guard_op_guard_no_overflow = _emit_guard_op_guard_overflow_op
 
+    def emit_op_guard_class(self, op, arglocs):
+        # Implements guard_class(obj, cls):
+        #
+        #     if type(obj) != cls:
+        #         goto guard_fail
+
+        obj_loc, cls_loc = arglocs[:2]
+        failargs = arglocs[2:]
+
+        scratch_reg = r.x31
+        offset = self.cpu.vtable_offset
+        if offset is not None:
+            self.mc.load_int(scratch_reg.value, obj_loc.value, offset)
+            self.mc.BEQ(scratch_reg.value, cls_loc.value, 8)
+        else:
+            assert False, 'gcremovetypeptr unimplemented'
+        self._emit_pending_guard(op, failargs)
+
+    def emit_op_guard_nonnull_class(self, op, arglocs):
+        # Implements guard_nonnull_class(obj, cls):
+        #
+        #     if !obj:
+        #         goto guard_fail
+        #     if type(obj) != cls:
+        #         goto guard_fail
+
+        obj_loc, cls_loc = arglocs[:2]
+        failargs = arglocs[2:]
+
+        scratch_reg = r.x31
+        offset = self.cpu.vtable_offset
+        if offset is not None:
+            # BEQZ obj, guard_fail
+            self.mc.BEQZ(obj_loc.value, 12)
+
+            # Test `type(obj) == cls`
+            self.mc.load_int(scratch_reg.value, obj_loc.value, offset)
+            self.mc.BEQ(scratch_reg.value, cls_loc.value, 8)
+        else:
+            assert False, 'gcremovetypeptr unimplemented'
+
+        # LABEL[guard_fail]:
+        self._emit_pending_guard(op, failargs)
+
     def emit_op_guard_exception(self, op, arglocs):
         expected_exc_tp_loc, res_exc_val_loc = arglocs[:2]
         failargs = arglocs[2:]

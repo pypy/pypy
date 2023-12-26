@@ -758,6 +758,17 @@ class Regalloc(BaseRegalloc):
     prepare_guard_op_guard_no_overflow = \
         _gen_prepare_guard_op_guard_overflow_op(False)
 
+    def prepare_op_guard_class(self, op):
+        boxes = op.getarglist()
+        a0, a1 = boxes
+        obj_loc = self.make_sure_var_in_reg(a0, boxes)
+        cls_loc = self.make_sure_var_in_reg(a1, boxes)
+        # Note[#dont_free_vars]: Do not call `possibly_free_vars_for_op` or
+        # `free_temp_vars`.
+        return [obj_loc, cls_loc] + self._prepare_guard_arglocs(op)
+
+    prepare_op_guard_nonnull_class = prepare_op_guard_class
+
     def prepare_op_guard_exception(self, op):
         boxes = op.getarglist()
 
