@@ -599,6 +599,9 @@ class OpAssembler(BaseAssembler):
         exc_tp_loc, exc_val_loc = arglocs
         self._restore_exception(self.mc, exc_val_loc, exc_tp_loc)
 
+    def emit_op_check_memory_error(self, op, arglocs):
+        self.propagate_memoryerror_if_reg_is_null(arglocs[0])
+
     def _emit_op_same_as(self, op, arglocs):
         l0, res = arglocs
         if l0 is not res:

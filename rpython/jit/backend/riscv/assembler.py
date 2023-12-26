@@ -5,8 +5,10 @@ from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (
-    ABI_STACK_ALIGN, FLEN, JITFRAME_FIXED_SIZE, SCRATCH_STACK_SLOT_SIZE, XLEN)
-from rpython.jit.backend.riscv.codebuilder import InstrBuilder
+    ABI_STACK_ALIGN, FLEN, INST_SIZE, JITFRAME_FIXED_SIZE,
+    SCRATCH_STACK_SLOT_SIZE, XLEN)
+from rpython.jit.backend.riscv.codebuilder import (
+    InstrBuilder, OverwritingBuilder)
 from rpython.jit.backend.riscv.instruction_util import (
     can_fuse_into_compare_and_branch, check_simm21_arg)
 from rpython.jit.backend.riscv.opassembler import (
@@ -21,6 +23,7 @@ from rpython.rlib.jit import AsmInfo
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.rjitlog import rjitlog as jl
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -28,6 +31,7 @@ class AssemblerRISCV(OpAssembler):
     def __init__(self, cpu, translate_support_code=False):
         OpAssembler.__init__(self, cpu, translate_support_code)
         self.failure_recovery_code = [0, 0, 0, 0]
+        self.propagate_exception_path = 0
         self.wb_slowpath = [0, 0, 0, 0, 0]
 
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
@@ -508,6 +512,20 @@ class AssemblerRISCV(OpAssembler):
         rawstart = mc.materialize(self.cpu, [])
         self.failure_recovery_code[exc + 2 * withfloats] = rawstart
 
+    def propagate_memoryerror_if_reg_is_null(self, reg_loc):
+        # Patch Location: BNEZ reg_loc, end
+        cond_branch_addr = self.mc.get_relative_pos()
+        self.mc.EBREAK()
+
+        # Branch to `propagate_exception_path`
+        self.mc.load_int_imm(r.ra.value, self.propagate_exception_path)
+        self.mc.JR(r.ra.value)
+
+        # LABEL[end]:
+        offset = self.mc.get_relative_pos() - cond_branch_addr
+        pmc = OverwritingBuilder(self.mc, cond_branch_addr, INST_SIZE)
+        pmc.BNEZ(reg_loc.value, offset)
+
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         # Build a slow path to call GC write barrier.
         #
@@ -687,7 +705,31 @@ class AssemblerRISCV(OpAssembler):
         mc.store_int(exc_tp_loc.value, scratch_reg.value, 0)
 
     def _build_propagate_exception_path(self):
-        pass
+        mc = InstrBuilder()
+
+        # Allocate scratch registers.
+        #
+        # Note: Use `r.x29` instead of `r.x31` because
+        # `_store_and_reset_exception` uses `r.x31` internally.
+        scratch_reg = r.x29
+
+        self._store_and_reset_exception(mc, scratch_reg)
+
+        ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+        mc.store_int(scratch_reg.value, r.jfp.value, ofs)
+
+        # Store propagate_exception_descr into frame
+        propagate_exception_descr = rffi.cast(
+            lltype.Signed,
+            cast_instance_to_gcref(self.cpu.propagate_exception_descr))
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        mc.load_int_imm(scratch_reg.value, propagate_exception_descr)
+        mc.store_int(scratch_reg.value, r.jfp.value, ofs)
+
+        self._call_footer(mc)
+
+        rawstart = mc.materialize(self.cpu, [])
+        self.propagate_exception_path = rawstart
 
     def _build_cond_call_slowpath(self, supports_floats, callee_only):
         """ This builds a general call slowpath, for whatever call happens to

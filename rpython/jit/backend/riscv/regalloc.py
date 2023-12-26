@@ -779,6 +779,10 @@ class Regalloc(BaseRegalloc):
         exc_val_loc = self.make_sure_var_in_reg(boxes[1], boxes)
         return [exc_tp_loc, exc_val_loc]
 
+    def prepare_op_check_memory_error(self, op):
+        l0 = self.make_sure_var_in_reg(op.getarg(0))
+        return [l0]
+
     def _prepare_op_same_as(self, op):
         boxes = op.getarglist()
         a0 = boxes[0]
