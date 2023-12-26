@@ -752,9 +752,32 @@ class Regalloc(BaseRegalloc):
     prepare_guard_op_guard_no_overflow = \
         _gen_prepare_guard_op_guard_overflow_op(False)
 
+    def prepare_op_guard_exception(self, op):
+        boxes = op.getarglist()
+
+        expected_exc_tp_loc = self.make_sure_var_in_reg(boxes[0], boxes)
+        if op in self.longevity and self.rm.stays_alive(op):
+            res_exc_val_loc = self.force_allocate_reg(op, boxes)
+        else:
+            res_exc_val_loc = None
+
+        arglocs = [expected_exc_tp_loc, res_exc_val_loc]
+        return arglocs + self._prepare_guard_arglocs(op)
+
     def prepare_op_guard_no_exception(self, op):
-        # TODO: Implement guard_no_exception properly.
-        pass
+        return self._prepare_guard_arglocs(op)  # Only failargs
+
+    def prepare_op_save_exception(self, op):
+        res = self.force_allocate_reg(op)
+        return [res]
+
+    prepare_op_save_exc_class = prepare_op_save_exception
+
+    def prepare_op_restore_exception(self, op):
+        boxes = op.getarglist()
+        exc_tp_loc = self.make_sure_var_in_reg(boxes[0], boxes)
+        exc_val_loc = self.make_sure_var_in_reg(boxes[1], boxes)
+        return [exc_tp_loc, exc_val_loc]
 
     def _prepare_op_same_as(self, op):
         boxes = op.getarglist()

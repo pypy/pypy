@@ -10,7 +10,7 @@ from rpython.jit.backend.riscv.callbuilder import RISCVCallBuilder
 from rpython.jit.backend.riscv.codebuilder import (
     BRANCH_BUILDER, OverwritingBuilder)
 from rpython.jit.backend.riscv.instruction_util import (
-    COND_INVALID, check_imm_arg, check_simm21_arg)
+    COND_BEQ, COND_BNE, COND_INVALID, check_imm_arg, check_simm21_arg)
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
 from rpython.jit.metainterp.history import AbstractFailDescr, REF, TargetToken
 from rpython.jit.metainterp.resoperation import rop
@@ -553,9 +553,51 @@ class OpAssembler(BaseAssembler):
     emit_guard_op_guard_overflow    = _emit_guard_op_guard_overflow_op
     emit_guard_op_guard_no_overflow = _emit_guard_op_guard_overflow_op
 
+    def emit_op_guard_exception(self, op, arglocs):
+        expected_exc_tp_loc, res_exc_val_loc = arglocs[:2]
+        failargs = arglocs[2:]
+
+        # Load the type of the pending exception.
+        scratch_reg = r.x31
+        self.mc.load_int_imm(scratch_reg.value, self.cpu.pos_exception())
+        self.mc.load_int(scratch_reg.value, scratch_reg.value, 0)
+
+        # Compare the expected type and pending type.
+        self.mc.BEQ(scratch_reg.value, expected_exc_tp_loc.value, 8)
+        self._emit_pending_guard(op, failargs)
+
+        # Copy the exception value.
+        self._store_and_reset_exception(self.mc, res_exc_val_loc)
+
     def emit_op_guard_no_exception(self, op, arglocs):
-        # TODO: Implement guard_no_exception properly.
-        pass
+        failargs = arglocs  # All arglocs are for failargs
+
+        scratch_reg = r.x31
+        self.mc.load_int_imm(scratch_reg.value, self.cpu.pos_exception())
+        self.mc.load_int(scratch_reg.value, scratch_reg.value, 0)
+
+        self.mc.BEQZ(scratch_reg.value, 8)
+        self._emit_pending_guard(op, failargs)
+
+        # If the previous operation was a `COND_CALL`, overwrite its
+        # conditional jump to jump over this GUARD_NO_EXCEPTION as well.
+        if self._find_nearby_operation(-1).getopnum() == rop.COND_CALL:
+            cond_branch_addr, branch_inst, arg = self.previous_cond_call_branch
+            new_offset = self.mc.get_relative_pos() - cond_branch_addr
+            pmc = OverwritingBuilder(self.mc, cond_branch_addr, INST_SIZE)
+            BRANCH_BUILDER[branch_inst](pmc, arg.value, r.x0.value, new_offset)
+
+    def emit_op_save_exc_class(self, op, arglocs):
+        res = arglocs[0]
+        self.mc.load_int_imm(res.value, self.cpu.pos_exception())
+        self.mc.load_int(res.value, res.value, 0)
+
+    def emit_op_save_exception(self, op, arglocs):
+        self._store_and_reset_exception(self.mc, arglocs[0])
+
+    def emit_op_restore_exception(self, op, arglocs):
+        exc_tp_loc, exc_val_loc = arglocs
+        self._restore_exception(self.mc, exc_val_loc, exc_tp_loc)
 
     def _emit_op_same_as(self, op, arglocs):
         l0, res = arglocs
@@ -682,8 +724,12 @@ class OpAssembler(BaseAssembler):
         pmc = OverwritingBuilder(self.mc, cond_branch_addr, INST_SIZE)
         if res_loc is None:
             pmc.BEQZ(arglocs[0].value, branch_offset)
+            self.previous_cond_call_branch = (cond_branch_addr, COND_BEQ,
+                                              arglocs[0])
         else:
             pmc.BNEZ(arglocs[0].value, branch_offset)
+            self.previous_cond_call_branch = (cond_branch_addr, COND_BNE,
+                                              arglocs[0])
 
     emit_op_cond_call = _emit_op_cond_call
     emit_op_cond_call_value_i = _emit_op_cond_call
@@ -888,6 +934,10 @@ class OpAssembler(BaseAssembler):
         scratch_reg = r.x31
         self.load_from_gc_table(scratch_reg.value, faildescrindex)
         self.mc.store_int(scratch_reg.value, r.jfp.value, ofs)
+
+    def _find_nearby_operation(self, delta):
+        regalloc = self._regalloc
+        return regalloc.operations[regalloc.rm.position + delta]
 
     def emit_guard_op_guard_not_forced(self, call_op, guard_op, arglocs,
                                        num_arglocs):

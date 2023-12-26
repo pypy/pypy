@@ -481,8 +481,27 @@ class AssemblerRISCV(OpAssembler):
         self._push_all_regs_to_jitframe(mc, [], withfloats)
 
         if exc:
-            # TODO: Support exception handling
-            pass
+            # Move the exception from `self.cpu.pos_exc_value()` to JITFrame
+            # `jf_guard_exc` and then reset the data in
+            # `self.cpu.pos_exc_value()` and `self.cpu.pos_exception()`.
+
+            scratch_reg = r.x31
+            scratch2_reg = r.x10  # Will be set by `_call_footer` soon.
+
+            # Load exc_value from `self.cpu.pos_exc_value()`.
+            mc.load_int_imm(scratch_reg.value, self.cpu.pos_exc_value())
+            mc.load_int(scratch2_reg.value, scratch_reg.value, 0)
+
+            # Clear `self.cpu.pos_exc_value()`.
+            mc.store_int(r.x0.value, scratch_reg.value, 0)
+
+            # Store exc_value to `jf_guard_exc`.
+            ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            mc.store_int(scratch2_reg.value, r.jfp.value, ofs)
+
+            # Clear `self.cpu.pos_exception()`.
+            mc.load_int_imm(scratch_reg.value, self.cpu.pos_exception())
+            mc.store_int(r.x0.value, scratch_reg.value, 0)
 
         self._call_footer(mc)
 
@@ -554,8 +573,7 @@ class AssemblerRISCV(OpAssembler):
                 mc.store_float(reg.value, r.sp.value, cur_stack)
                 cur_stack += FLEN
 
-            # TODO:
-            # self._store_and_reset_exception(mc, exc0, exc1)
+            self._store_and_reset_exception(mc, exc0, exc1)
 
         func = rffi.cast(lltype.Signed, func)
         mc.load_int_imm(r.ra.value, func)
@@ -565,8 +583,7 @@ class AssemblerRISCV(OpAssembler):
             self._pop_all_regs_from_jitframe(mc, [], withfloats,
                                              callee_only=True)
         else:
-            # TODO:
-            # self._restore_exception(mc, exc0, exc1)
+            self._restore_exception(mc, exc0, exc1)
 
             # Restore caller-saved registers.
             cur_stack = 0
@@ -604,6 +621,70 @@ class AssemblerRISCV(OpAssembler):
     def update_frame_depth(self, frame_depth):
         baseofs = self.cpu.get_baseofs_of_frame_field()
         self.current_clt.frame_info.update_frame_depth(baseofs, frame_depth)
+
+    def _store_and_reset_exception(self, mc, exc_val_loc=None,
+                                   exc_tp_loc=None, on_frame=False):
+        # Move the exception object and type from the addresses provided by
+        # `self.cpu.pos_exc_value()` and `self.cpu.pos_excption()` to (1) the
+        # specified registers and/or (2) `JITFrame.jf_guard_exc` and then
+        # reset the data at the addresses provided by `self.cpu.pos_*()`.
+
+        scratch_reg = r.x31
+        assert exc_val_loc is not scratch_reg
+        assert exc_tp_loc is not scratch_reg
+
+        # Move the data at `self.cpu.pos_exc_value()` to specified location.
+        mc.load_int_imm(scratch_reg.value, self.cpu.pos_exc_value())
+        if exc_val_loc is not None:
+            assert exc_val_loc.is_core_reg()
+            mc.load_int(exc_val_loc.value, scratch_reg.value, 0)
+        if on_frame:
+            # Store exc_value to the JITFRAME.jf_guard_exc
+            scratch2_reg = r.ra  # Clobber r.ra is fine when `on_frame=True`.
+            ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            mc.load_int(scratch2_reg.value, scratch_reg.value, 0)
+            mc.store_int(scratch2_reg.value, r.jfp.value, ofs)
+
+        # Reset `self.cpu.pos_exc_value()`.
+        mc.store_int(r.x0.value, scratch_reg.value, 0)
+
+        # Move the data at `self.cpu.pos_exception()` to specified location.
+        mc.load_int_imm(scratch_reg.value, self.cpu.pos_exception())
+        if exc_tp_loc is not None:
+            assert exc_tp_loc.is_core_reg()
+            mc.load_int(exc_tp_loc.value, scratch_reg.value, 0)
+
+        # Reset `self.cpu.pos_exception()`.
+        mc.store_int(r.x0.value, scratch_reg.value, 0)
+
+    def _restore_exception(self, mc, exc_val_loc, exc_tp_loc):
+        # Restore `self.cpu.pos_exc_value()` and `self.cpu.pos_exception()`
+        # from `exc_val_loc` (or `jf_guard_exc`) and `exc_tp_loc` registers.
+
+        # Allocate scratch registeres.
+        scratch_reg = r.x31
+        scratch2_reg = r.ra
+        assert (exc_val_loc is not scratch_reg and
+                exc_val_loc is not scratch2_reg)
+        assert (exc_tp_loc is not scratch_reg and
+                exc_tp_loc is not scratch2_reg)
+
+        # Restore `pos_exc_value`.
+        mc.load_int_imm(scratch_reg.value, self.cpu.pos_exc_value())
+        if exc_val_loc is not None:
+            mc.store_int(exc_val_loc.value, scratch_reg.value, 0)
+        else:
+            # Load `exc_value` from JITFRAME and put it in `pos_exc_value`.
+            ofs = self.cpu.get_ofs_of_frame_field('jf_guard_exc')
+            mc.load_int(scratch2_reg.value, r.jfp.value, ofs)
+            mc.store_int(scratch2_reg.value, scratch_reg.value, 0)
+
+            # Reset `jf_guard_exc` in the JITFRAME.
+            mc.store_int(r.x0.value, r.jfp.value, ofs)
+
+        # Restore `pos_exception` from `exc_tp_loc`.
+        mc.load_int_imm(scratch_reg.value, self.cpu.pos_exception())
+        mc.store_int(exc_tp_loc.value, scratch_reg.value, 0)
 
     def _build_propagate_exception_path(self):
         pass
