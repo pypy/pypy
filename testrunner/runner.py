@@ -317,7 +317,7 @@ class RunParam(object):
         name = p.basename
         if name.startswith('test_') and name.endswith('.py'):
             return True
-        if name.startswith('apptest_' and name.endswith('.py'):
+        if name.startswith('apptest_') and name.endswith('.py'):
             return True
         return False
 
