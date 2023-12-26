@@ -106,10 +106,13 @@ class CoreRegisterManager(RISCVRegisterManager):
         return r.x10
 
     def convert_to_imm(self, c):
+        # Note: `c.value` below have different types.
         if isinstance(c, ConstInt):
             val = rffi.cast(lltype.Signed, c.value)
-            return ImmLocation(val)
-        raise NotImplementedError('imm type not supported')
+        else:
+            assert isinstance(c, ConstPtr)
+            val = rffi.cast(lltype.Signed, c.value)
+        return ImmLocation(val)
 
     def return_constant(self, v, forbidden_vars=[], selected_reg=None):
         self._check_type(v)
@@ -120,7 +123,7 @@ class CoreRegisterManager(RISCVRegisterManager):
                 assert isinstance(v, ConstPtr)
                 reg_type = REF
 
-            if v.value == 0 and selected_reg is None:
+            if not v.nonnull() and selected_reg is None:
                 return r.zero
 
             loc = self.get_scratch_reg(reg_type, forbidden_vars,
