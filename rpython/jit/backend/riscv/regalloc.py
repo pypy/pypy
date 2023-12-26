@@ -442,6 +442,12 @@ class Regalloc(BaseRegalloc):
     prepare_comp_op_int_eq = prepare_op_int_eq
     prepare_comp_op_int_ne = prepare_op_int_ne
 
+    prepare_op_ptr_eq = prepare_op_instance_ptr_eq = prepare_op_int_eq
+    prepare_op_ptr_ne = prepare_op_instance_ptr_ne = prepare_op_int_ne
+
+    prepare_comp_op_ptr_eq = prepare_op_int_eq
+    prepare_comp_op_ptr_ne = prepare_op_int_ne
+
     def _prepare_op_unary_op(self, op):
         boxes = op.getarglist()
         a0 = boxes[0]

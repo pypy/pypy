@@ -171,7 +171,10 @@ class OpAssembler(BaseAssembler):
             self.mc.XOR(res.value, l0.value, l1.value)
             self.mc.SEQZ(res.value, res.value)
 
+    emit_op_ptr_eq = emit_op_instance_ptr_eq = emit_op_int_eq
+
     emit_comp_op_int_eq = emit_op_int_eq
+    emit_comp_op_ptr_eq = emit_op_int_eq
 
     def emit_op_int_ne(self, op, arglocs):
         l0, l1, res = arglocs
@@ -186,7 +189,10 @@ class OpAssembler(BaseAssembler):
             self.mc.XOR(res.value, l0.value, l1.value)
             self.mc.SNEZ(res.value, res.value)
 
+    emit_op_ptr_ne = emit_op_instance_ptr_ne = emit_op_int_ne
+
     emit_comp_op_int_ne = emit_op_int_ne
+    emit_comp_op_ptr_ne = emit_op_int_ne
 
     def emit_op_int_is_true(self, op, arglocs):
         l0, res = arglocs
