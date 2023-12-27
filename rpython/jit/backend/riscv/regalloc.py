@@ -249,6 +249,48 @@ class Regalloc(BaseRegalloc):
         self.possibly_free_vars(list(inputargs))
         return operations
 
+    def prepare_bridge(self, inputargs, arglocs, operations, allgcrefs,
+                       frame_info):
+        operations = self._prepare(inputargs, operations, allgcrefs)
+        self._update_bindings(arglocs, inputargs)
+        return operations
+
+    def _update_bindings(self, locs, inputargs):
+        # Bind the boxes to locations (e.g. registers or stack slots).
+        used = {}
+        i = 0
+        for loc in locs:
+            if loc is None:
+                loc = r.jfp
+            arg = inputargs[i]
+            i += 1
+            if loc.is_core_reg():
+                self.rm.reg_bindings[arg] = loc
+                used[loc] = None
+            elif loc.is_fp_reg():
+                self.fprm.reg_bindings[arg] = loc
+                used[loc] = None
+            else:
+                assert loc.is_stack()
+                self.frame_manager.bind(arg, loc)
+
+        # Collect the free registers.
+        self.rm.free_regs = []
+        for reg in self.rm.all_regs:
+            if reg not in used:
+                self.rm.free_regs.append(reg)
+        self.fprm.free_regs = []
+        for reg in self.fprm.all_regs:
+            if reg not in used:
+                self.fprm.free_regs.append(reg)
+
+        # Note: we need to make a copy of inputargs because possibly_free_vars
+        # is also used on op args, which is a non-resizable list.
+        self.possibly_free_vars(list(inputargs))
+
+        self.frame_manager.finish_binding()
+        self._check_invariants()
+
     def _prepare_op_int_commutative_binary_op(self, op):
         boxes = op.getarglist()
         a0, a1 = boxes
@@ -1093,6 +1135,10 @@ class Regalloc(BaseRegalloc):
         assert isinstance(descr, TargetToken)
         self.jump_target_descr = descr
         arglocs = descr._riscv_arglocs
+
+        # If we are jumping to another loop/bridge, check the frame
+        # depth before we jump.
+        self.assembler.check_frame_depth_before_jump(self.jump_target_descr)
 
         # Core registers
         src_core_locs = []

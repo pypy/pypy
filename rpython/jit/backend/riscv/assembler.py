@@ -8,24 +8,32 @@ from rpython.jit.backend.riscv.arch import (
     ABI_STACK_ALIGN, FLEN, INST_SIZE, JITFRAME_FIXED_SIZE,
     SCRATCH_STACK_SLOT_SIZE, XLEN)
 from rpython.jit.backend.riscv.codebuilder import (
-    InstrBuilder, OverwritingBuilder)
+    InstrBuilder, MAX_NUM_INSTS_FOR_LOAD_INT_IMM, OverwritingBuilder)
 from rpython.jit.backend.riscv.instruction_util import (
     can_fuse_into_compare_and_branch, check_simm21_arg)
 from rpython.jit.backend.riscv.opassembler import (
     OpAssembler, asm_guard_operations, asm_operations)
 from rpython.jit.backend.riscv.regalloc import (
     Regalloc, regalloc_guard_operations, regalloc_operations)
+from rpython.jit.backend.riscv.locations import StackLocation, get_fp_offset
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractFailDescr, FLOAT
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import AsmInfo
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import compute_unique_id, we_are_translated
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import lltype, rffi
 
+
+# Maximum size for an absolute branch stub (load addr + jalr).
+_REDIRECT_BRANCH_STUB_SIZE = (MAX_NUM_INSTS_FOR_LOAD_INT_IMM + 1) * INST_SIZE
+
+def _emit_nop_until_larger(mc, start, end):
+    for i in range(start, end, INST_SIZE):
+        mc.NOP()
 
 class AssemblerRISCV(OpAssembler):
     def __init__(self, cpu, translate_support_code=False):
@@ -33,6 +41,7 @@ class AssemblerRISCV(OpAssembler):
         self.failure_recovery_code = [0, 0, 0, 0]
         self.propagate_exception_path = 0
         self.wb_slowpath = [0, 0, 0, 0, 0]
+        self._frame_realloc_slowpath = 0
 
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
                       operations, looptoken, log):
@@ -69,7 +78,8 @@ class AssemblerRISCV(OpAssembler):
 
         frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
                                                    operations)
-        self.update_frame_depth(frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE)
+        frame_depth = frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE
+        self.update_frame_depth(frame_depth)
 
         size_excluding_failure_stuff = self.mc.get_relative_pos()
 
@@ -81,6 +91,7 @@ class AssemblerRISCV(OpAssembler):
 
         self.patch_gcref_table(looptoken, rawstart)
         self.process_pending_guards(rawstart)
+        self.patch_frame_depth_checks(frame_depth, rawstart)
         self.fixup_target_tokens(rawstart)
 
         if log and not we_are_translated():
@@ -115,6 +126,104 @@ class AssemblerRISCV(OpAssembler):
 
         return AsmInfo(ops_offset, rawstart + loop_head,
                        size_excluding_failure_stuff - loop_head)
+
+    def assemble_bridge(self, logger, faildescr, inputargs, operations,
+                        original_loop_token, log):
+        if not we_are_translated():
+            # Arguments should be unique
+            assert len(set(inputargs)) == len(inputargs)
+
+        self.setup(original_loop_token)
+
+        descr_number = compute_unique_id(faildescr)
+        #if log:
+        #    operations = self._inject_debugging_code(faildescr, operations,
+        #                                             'b', descr_number)
+
+        assert isinstance(faildescr, AbstractFailDescr)
+
+        arglocs = self.rebuild_faillocs_from_descr(faildescr, inputargs)
+
+        regalloc = Regalloc(self)
+        allgcrefs = []
+        operations = regalloc.prepare_bridge(inputargs, arglocs, operations,
+                                             allgcrefs,
+                                             self.current_clt.frame_info)
+        self.reserve_gcref_table(allgcrefs)
+        start_pos = self.mc.get_relative_pos()
+
+        self._check_frame_depth(self.mc, regalloc.get_gcmap(),
+                                expected_size=-1)
+
+        bridge_start_pos = self.mc.get_relative_pos()
+        frame_depth_no_fixed_size = self._assemble(regalloc, inputargs,
+                                                   operations)
+
+        # Generate extra NOPs if the size is too small. We need this because
+        # `redirect_call_assembler` may want to patch the beginning with a far
+        # branch to another loop or bridge.
+        _emit_nop_until_larger(self.mc, self.mc.get_relative_pos(),
+                               start_pos + _REDIRECT_BRANCH_STUB_SIZE)
+
+        code_end_pos = self.mc.get_relative_pos()
+
+        self.write_pending_failure_recoveries()
+
+        fullsize = self.mc.get_relative_pos()
+        rawstart = self.materialize_loop(original_loop_token)
+
+        self.patch_gcref_table(original_loop_token, rawstart)
+        self.process_pending_guards(rawstart)
+
+        # Patch frame depth check.
+        bridge_frame_depth = frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE
+        self.patch_frame_depth_checks(bridge_frame_depth, rawstart)
+
+        # Update the frame depth in compiled_loop_token.
+        frame_depth = max(self.current_clt.frame_info.jfi_frame_depth,
+                          bridge_frame_depth)
+        self.update_frame_depth(frame_depth)
+
+        # Replace _ll_loop_code relative offset with an absolute address.
+        self.fixup_target_tokens(rawstart)
+
+        # Patch the jump from original guard.
+        self.patch_trace(faildescr, original_loop_token, rawstart + start_pos,
+                         regalloc)
+
+        if log and not we_are_translated():
+            self.mc._dump_trace(rawstart, 'bridge.asm')
+
+        ops_offset = self.mc.ops_offset
+
+        #if logger:
+        #    log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+        #    log.write(inputargs, operations, ops_offset)
+        #    # Log that the already written bridge is stitched to a descr.
+        #    logger.log_patch_guard(descr_number, rawstart)
+
+        #    # Legacy
+        #    if logger.logger_ops:
+        #        logger.logger_ops.log_bridge(inputargs, operations,
+        #                                     'rewritten', faildescr,
+        #                                     ops_offset=ops_offset)
+
+        debug_start("jit-backend-addr")
+        debug_print("bridge out of Guard 0x%x has address 0x%x to 0x%x" %
+                    (r_uint(descr_number), r_uint(rawstart + start_pos),
+                        r_uint(rawstart + code_end_pos)))
+        debug_print("       gc table: 0x%x" % r_uint(rawstart))
+        debug_print("    jump target: 0x%x" % r_uint(rawstart + start_pos))
+        debug_print("         resops: 0x%x" % r_uint(rawstart +
+                                                     bridge_start_pos))
+        debug_print("       failures: 0x%x" % r_uint(rawstart + code_end_pos))
+        debug_print("            end: 0x%x" % r_uint(rawstart + fullsize))
+        debug_stop("jit-backend-addr")
+
+        self.teardown()
+
+        return AsmInfo(ops_offset, start_pos + rawstart,
+                       code_end_pos - start_pos)
 
     def _assemble(self, regalloc, inputargs, operations):
         # Fill in the frame location hints so that we can reduce stack-to-stack
@@ -353,6 +462,32 @@ class AssemblerRISCV(OpAssembler):
             for reg in r.fp_registers:
                 mc.load_float(reg.value, r.jfp.value, ofs + reg.value * FLEN)
 
+    def _push_regs_to_jitframe(self, mc, selected_regs):
+        # Push specified regs to JITFrame.
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        fp_ofs = base_ofs + len(r.registers) * XLEN
+        for reg in selected_regs:
+            if reg.is_core_reg():
+                mc.store_int(reg.value, r.jfp.value,
+                             base_ofs + reg.value * XLEN)
+            else:
+                assert reg.is_fp_reg()
+                mc.store_float(reg.value, r.jfp.value,
+                               fp_ofs + reg.value * FLEN)
+
+    def _pop_regs_from_jitframe(self, mc, selected_regs):
+        # Pop specified regs from JITFrame.
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        fp_ofs = base_ofs + len(r.registers) * XLEN
+        for reg in selected_regs:
+            if reg.is_core_reg():
+                mc.load_int(reg.value, r.jfp.value,
+                            base_ofs + reg.value * XLEN)
+            else:
+                assert reg.is_fp_reg()
+                mc.load_float(reg.value, r.jfp.value,
+                              fp_ofs + reg.value * FLEN)
+
     def store_jf_descr(self, descrindex):
         scratch_reg = r.x31
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
@@ -379,6 +514,48 @@ class AssemblerRISCV(OpAssembler):
         ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
         mc.store_int(r.x0.value, r.jfp.value, ofs)
 
+    def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
+        # Patch the quick failure stub to jump to the bridge.
+
+        # Before:
+        #
+        #     old_trace:
+        #
+        #         ... instructions  ...
+        #
+        #         if guard_fails:
+        #             goto quick_failure_stub_i
+        #
+        #         ... instructions  ...
+        #
+        #         quick_failure_stub_i:
+        #             push_gcmap()
+        #             goto failure_recovery_code
+        #
+        # After:
+        #
+        #     old_trace:
+        #
+        #         ... instructions  ...
+        #
+        #         if guard_fails:
+        #             goto quick_failure_stub_i
+        #
+        #         ... instructions  ...
+        #
+        #         quick_failure_stub_i:
+        #             bridge_addr = ...
+        #             goto bridge_addr
+
+        patch_addr = faildescr.adr_jump_offset
+        assert patch_addr != 0
+
+        pmc = InstrBuilder()
+        pmc.jal_abs(r.zero.value, bridge_addr)
+        pmc.copy_to_raw_memory(patch_addr)
+
+        faildescr.adr_jump_offset = 0
+
     def generate_quick_failure(self, guardtok):
         startpos = self.mc.get_relative_pos()
         faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
@@ -387,6 +564,12 @@ class AssemblerRISCV(OpAssembler):
         self.push_gcmap(self.mc, guardtok.gcmap)
         assert target
         self.mc.jal_abs(r.zero.value, target)
+
+        # Generate extra NOPs if this stub size is too small. We need this
+        # padding because `patch_trace` will patch this stub to jump to the
+        # compiled bridge.
+        _emit_nop_until_larger(self.mc, self.mc.get_relative_pos(),
+                               startpos + _REDIRECT_BRANCH_STUB_SIZE)
         return startpos
 
     def write_pending_failure_recoveries(self):
@@ -459,6 +642,7 @@ class AssemblerRISCV(OpAssembler):
                                                         allblocks)
         self.mc.datablockwrapper = self.datablockwrapper
 
+        self._frame_depth_to_patch = []
         self._finish_gcmap = jitframe.NULLGCMAP
 
     def teardown(self):
@@ -634,7 +818,146 @@ class AssemblerRISCV(OpAssembler):
             self.wb_slowpath[withcards + 2 * withfloats] = rawstart
 
     def build_frame_realloc_slowpath(self):
-        pass
+        # Build a frame realloc slowpath, which reallocates the frame if the
+        # existing frame is smaller than the new size.
+        #
+        # The slowpath assumes:
+        # 1. `r.jfp` holds the old frame address.
+        # 2. `r.x31` holds the new frame size.
+        # 3. `r.ra` holds the return address
+
+        # Overview: This code should do the following steps:
+        #
+        # 1. Save all registers to the JITFrame
+        # 2. Save exceptions to JITFrame
+        # 3. call realloc_frame
+        # 4. Set the jfp to point to the new JITFrame
+        # 5. Update the JITFrame address on the shadow stack
+        # 6. Set the `jf_gcmap` to 0
+        # 7. Restore registers
+        # 8. Return
+
+        mc = InstrBuilder()
+
+        # Save all registers (except `r.jfp`).
+        self._push_all_regs_to_jitframe(mc, [r.jfp], self.cpu.supports_floats)
+
+        # Allocate one callee-saved scratch register for
+        # `_store_and_reset_exception`.
+        exc_type_reg = r.x25
+
+        # Note: Other backends save the gcmap to `jf_gcmap` here. But in RISCV
+        # implementation, we require the caller of this slowpath to set the
+        # gcmap so that we don't have to spill another register in the fast
+        # path.
+
+        # Set up arguments for `realloc_frame(old_jitframe, new_size)`.
+        mc.MV(r.x10.value, r.jfp.value)
+        mc.MV(r.x11.value, r.x31.value)
+
+        # Store a possibly present exception.
+        self._store_and_reset_exception(mc, None, exc_type_reg,
+                                        on_frame=True) # Clobber r.x31 & r.ra
+
+        # Call `realloc_frame(old_jitframe, new_size)`.
+        #
+        # See also. `rpython/jit/backend/llsupport/llmodel.py` for
+        # `realloc_frame`.
+        func = rffi.cast(lltype.Signed, self.cpu.realloc_frame)
+        mc.load_int_imm(r.ra.value, func)
+        mc.JALR(r.ra.value, r.ra.value, 0)
+
+        # Set `r.jfp` to the new JITFrame returned from the previous call.
+        mc.MV(r.jfp.value, r.x10.value)
+
+        # Restore a possibly present exception.
+        self._restore_exception(mc, None, exc_type_reg)  # Clobber r.ra & r.x31
+
+        # Updates the address at the top of the shadow stack.
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            scratch_reg = r.x31
+            rst = gcrootmap.get_root_stack_top_addr()
+            mc.load_int_imm(scratch_reg.value, rst)
+            mc.load_int(scratch_reg.value, scratch_reg.value, 0)
+
+            # Update the JITFrame address on the shadow stack.
+            mc.store_int(r.jfp.value, scratch_reg.value, -XLEN)
+
+        # Reset the `jf_gcmap`.
+        gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.store_int(r.x0.value, r.jfp.value, gcmap_ofs)
+
+        # Restore all registers (except `r.jfp`).
+        self._pop_all_regs_from_jitframe(mc, [r.jfp], self.cpu.supports_floats)
+
+        # Return
+        mc.RET()
+
+        rawstart = mc.materialize(self.cpu, [])
+        self._frame_realloc_slowpath = rawstart
+
+    def _check_frame_depth(self, mc, gcmap, expected_size):
+        # Check if the frame is of enough depth to follow this bridge.
+        #
+        # If the frame isn't large enough, call `_frame_realloc_slowpath` to
+        # enlarge the frame.
+
+        scratch_reg = r.x31
+        scratch2_reg = r.ra
+
+        # Load the frame depth from the JITFrame.
+        descrs = self.cpu.gc_ll_descr.getframedescrs(self.cpu)
+        ofs = self.cpu.unpack_fielddescr(descrs.arraydescr.lendescr)
+        mc.load_int(scratch2_reg.value, r.jfp.value, ofs)
+
+        # Load the target for the frame depth.
+        if expected_size == -1:
+            stack_check_cmp_ofs = mc.get_relative_pos()
+            for _ in range(MAX_NUM_INSTS_FOR_LOAD_INT_IMM):
+                mc.NOP()
+            self._frame_depth_to_patch.append(stack_check_cmp_ofs)
+        else:
+            mc.load_int_imm(scratch_reg.value, expected_size)
+
+        # Patch Location: `BGE scratch2_reg, scratch_reg, end`
+        jg_location = mc.get_relative_pos()
+        mc.EBREAK()
+
+        # Store gcmap to frame.
+        gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.load_int_imm(scratch2_reg.value, rffi.cast(lltype.Signed, gcmap))
+        mc.store_int(scratch2_reg.value, r.jfp.value, gcmap_ofs)
+
+        # Call `_frame_realloc_slowpath(x31=new_size)`
+        mc.load_int_imm(r.ra.value, self._frame_realloc_slowpath)
+        mc.JALR(r.ra.value, r.ra.value, 0)
+
+        # LABEL[end]:
+
+        # Patch the `jg_location` above.
+        currpos = mc.get_relative_pos()
+        pmc = OverwritingBuilder(mc, jg_location, INST_SIZE)
+        pmc.BGE(scratch2_reg.value, scratch_reg.value, currpos - jg_location)
+
+    def check_frame_depth_before_jump(self, target_token):
+        if target_token in self.target_tokens_currently_compiling:
+            return
+        if target_token._riscv_clt is self.current_clt:
+            return
+
+        # If we are jumping to another loop or bridge, their frame depth
+        # requirement can be larger than what we currently have. Thus, emit
+        # `_check_frame_depth` sequence, which enlarges JITFrame if necessary.
+        expected_size = target_token._riscv_clt.frame_info.jfi_frame_depth
+        gcmap = self._regalloc.get_gcmap()
+        self._check_frame_depth(self.mc, gcmap, expected_size)
+
+    def patch_frame_depth_checks(self, frame_depth, rawstart):
+        for ofs in self._frame_depth_to_patch:
+            mc = InstrBuilder()
+            mc.load_int_imm(r.x31.value, frame_depth)
+            mc.copy_to_raw_memory(ofs + rawstart)
 
     def update_frame_depth(self, frame_depth):
         baseofs = self.cpu.get_baseofs_of_frame_field()
@@ -919,3 +1242,11 @@ class AssemblerRISCV(OpAssembler):
             self.regalloc_mov(src, tmp)
             return tmp
         return src
+
+    def new_stack_loc(self, i, tp):
+        # Create a StackLocation at `i` of type `tp`.
+        #
+        # Note: This function is called by rebuild_faillocs_from_descr()
+
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        return StackLocation(i, get_fp_offset(base_ofs, i), tp)

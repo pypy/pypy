@@ -3,7 +3,7 @@
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (
-    PC_REL_MAX, PC_REL_MIN, SINT12_IMM_MAX, SINT12_IMM_MIN)
+    PC_REL_MAX, PC_REL_MIN, SINT12_IMM_MAX, SINT12_IMM_MIN, XLEN)
 from rpython.jit.backend.riscv.instruction_builder import (
     gen_all_instr_assemblers)
 from rpython.jit.backend.riscv.instruction_util import (
@@ -18,6 +18,11 @@ _SINT32_MIN = -2**31
 _SINT32_MAX = 2**31 - 1
 _SINT64_MIN = -2**63
 _SINT64_MAX = 2**63 - 1
+
+# Maximum number to load an integer immediate to a register.
+MAX_NUM_INSTS_FOR_LOAD_INT_IMM = (
+    (2  # 2 insts for first 32-bit
+     + ((XLEN * 8 - 32 + 12 - 1) // 12) * 2))  # 2 for each 12-bit
 
 
 class AbstractRISCVBuilder(object):

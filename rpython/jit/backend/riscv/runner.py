@@ -29,6 +29,14 @@ class AbstractRISCVCPU(AbstractLLCPU):
     def setup_once(self):
         self.assembler.setup_once()
 
+    def compile_bridge(self, faildescr, inputargs, operations,
+                       original_loop_token, log=True, logger=None):
+        clt = original_loop_token.compiled_loop_token
+        clt.compiling_a_bridge()
+        return self.assembler.assemble_bridge(logger, faildescr, inputargs,
+                                              operations, original_loop_token,
+                                              log=log)
+
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
         return AbstractRISCVCPU.cast_adr_to_int(adr)
