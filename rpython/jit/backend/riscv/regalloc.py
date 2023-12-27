@@ -811,6 +811,9 @@ class Regalloc(BaseRegalloc):
 
     prepare_op_guard_nonnull_class = prepare_op_guard_class
 
+    def prepare_op_guard_not_invalidated(self, op):
+        return self._prepare_guard_arglocs(op)
+
     def prepare_op_guard_exception(self, op):
         boxes = op.getarglist()
 

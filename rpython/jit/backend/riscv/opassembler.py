@@ -484,15 +484,21 @@ class OpAssembler(BaseAssembler):
                           guard_opnum=op.getopnum(), frame_depth=frame_depth,
                           faildescrindex=faildescrindex)
 
-    def _emit_pending_guard(self, op, arglocs):
+    def _emit_pending_guard(self, op, arglocs, is_guard_not_invalidated=False):
         pos = self.mc.get_relative_pos()
         guardtok = self._build_guard_token(op, arglocs[0].value, arglocs[1:],
                                            pos)
         guardtok.offset = pos
         self.pending_guards.append(guardtok)
-        if guardtok.guard_not_invalidated():
+        assert guardtok.guard_not_invalidated() == is_guard_not_invalidated
+        if is_guard_not_invalidated:
+            # For `GUARD_NOT_INVALIDATED`, just emit an no-op.  It will be
+            # patched by `invalidate_loop` (in `runner.py`) when invalidation
+            # is needed.
             self.mc.NOP()
         else:
+            # Emit an `EBREAK` here and `process_pending_guards` will patch it
+            # with a branch to a recovery stub.
             self.mc.EBREAK()
 
     def emit_op_guard_true(self, op, arglocs):
@@ -602,6 +608,9 @@ class OpAssembler(BaseAssembler):
 
         # LABEL[guard_fail]:
         self._emit_pending_guard(op, failargs)
+
+    def emit_op_guard_not_invalidated(self, op, arglocs):
+        self._emit_pending_guard(op, arglocs, is_guard_not_invalidated=True)
 
     def emit_op_guard_exception(self, op, arglocs):
         expected_exc_tp_loc, res_exc_val_loc = arglocs[:2]

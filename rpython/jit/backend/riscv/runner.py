@@ -4,6 +4,7 @@ from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.riscv import arch
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.assembler import AssemblerRISCV
+from rpython.jit.backend.riscv.codebuilder import InstrBuilder
 from rpython.rtyper.lltypesystem import llmemory
 
 
@@ -36,6 +37,17 @@ class AbstractRISCVCPU(AbstractLLCPU):
         return self.assembler.assemble_bridge(logger, faildescr, inputargs,
                                               operations, original_loop_token,
                                               log=log)
+
+    def invalidate_loop(self, looptoken):
+        # Replace `GUARD_NOT_INVALIDATED` in the loop with a branch instruction
+        # to the recovery stub.
+
+        for jmp, tgt in looptoken.compiled_loop_token.invalidate_positions:
+            mc = InstrBuilder()
+            mc.J(tgt)
+            mc.copy_to_raw_memory(jmp)
+
+        looptoken.compiled_loop_token.invalidate_positions = []
 
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)
