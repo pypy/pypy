@@ -18,3 +18,28 @@ class TestRISCV(LLtypeBackendTest):
         cpu = CPU(rtyper=None, stats=FakeStats())
         cpu.setup_once()
         return cpu
+
+    # `test_compile_asmlen` expected outputs
+    add_loop_instructions = (
+        'ld; '  # same_as
+        + 'add; '  # int_add
+        + 'bnez; j; '  # guard_true
+        + 'j; '  # jump
+        + 'ebreak;')
+    bridge_loop_instructions = (
+        # Load the current frame depth
+        'ld; '
+        # Load the expected frame depth
+        + 'li; (nop; )*'
+        # Compare current to expected frame depth
+        + 'bge; '
+        # Store gcmap to jf_gcmap
+        + 'lui; addiw; (slli; addi; )*(slli; )*'
+        + 'sd; '
+        # Branch to frame_realloc_slowpath
+        + 'lui; addiw; (slli; addi; )*(slli; )*'
+        + 'jalr; '
+        # Jump to a target token
+        + 'lui; addiw; (slli; addi; )*(slli; )*'
+        + 'jr; '
+        + 'ebreak;')
