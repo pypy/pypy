@@ -12,7 +12,8 @@ from rpython.jit.backend.riscv.codebuilder import (
 from rpython.jit.backend.riscv.instruction_util import (
     COND_BEQ, COND_BNE, COND_INVALID, check_imm_arg, check_simm21_arg)
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
-from rpython.jit.metainterp.history import AbstractFailDescr, REF, TargetToken
+from rpython.jit.metainterp.history import (
+    AbstractFailDescr, FLOAT, INT, REF, TargetToken, VOID)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint
@@ -1005,7 +1006,24 @@ class OpAssembler(BaseAssembler):
                                        num_arglocs):
         # arglocs is call_op_arglocs + guard_op_arglocs, split them
         if rop.is_call_assembler(call_op.getopnum()):
-            assert False, 'unimplemented'
+            if num_arglocs == 3:
+                [argloc, vloc, result_loc] = arglocs[:3]
+            else:
+                [argloc, result_loc] = arglocs[:2]
+                vloc = self.imm(0)
+            guard_op_arglocs = arglocs[num_arglocs:]
+            self._store_force_index(guard_op)
+            # Note: In the `call_assembler` implementation:
+            #
+            # `tmploc` refers to the register holding the returned JITFrame
+            # address, which is `r.x10` in RISC-V.
+            #
+            # `result_loc` refers to the register allocated for the returned
+            # value of the `call_assembler` op. For now, it is the returned by
+            # `after_call`, which returns `r.x10` for integers and `r.f10` for
+            # floats.
+            self.call_assembler(call_op, argloc, vloc, result_loc,
+                                tmploc=r.x10)
         else:
             assert num_arglocs == call_op.numargs() + 3
             call_op_arglocs = arglocs[0:num_arglocs]
@@ -1023,6 +1041,93 @@ class OpAssembler(BaseAssembler):
         self.mc.load_int(scratch_reg.value, r.jfp.value, ofs)
         self.mc.BEQZ(scratch_reg.value, 8)
         self._emit_pending_guard(guard_op, guard_op_arglocs)
+
+    def simple_call(self, fnloc, arglocs, result_loc=r.x10):
+        if result_loc is None:
+            result_type = VOID
+            result_size = 0
+        elif result_loc.is_fp_reg():
+            result_type = FLOAT
+            result_size = FLEN
+        else:
+            result_type = INT
+            result_size = XLEN
+        cb = RISCVCallBuilder(self, fnloc, arglocs, result_loc, result_type,
+                              result_size)
+        cb.emit()
+
+    # Note: Read the `call_assembler` function in
+    # `rpython/jit/backend/llsupport/assembler.py` to understand how these
+    # `_call_assembler_*` functions work.
+
+    def _call_assembler_emit_call(self, addr, argloc, tmploc):
+        # Move the threadlocal to r.x11.
+        self.mc.load_int(r.x11.value, r.sp.value, self.saved_threadlocal_addr)
+
+        assert argloc is r.x10
+        assert tmploc is r.x10
+        self.simple_call(addr, [argloc, r.x11], result_loc=tmploc)
+
+    def _call_assembler_check_descr(self, expected_descr, tmploc):
+        scratch_reg = r.x31
+
+        ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
+        self.mc.load_int(scratch_reg.value, tmploc.value, ofs)
+
+        if check_imm_arg(-expected_descr):
+            self.mc.ADDI(scratch_reg.value, scratch_reg.value, -expected_descr)
+        else:
+            scratch2_reg = r.ra
+            self.mc.load_int_imm(scratch2_reg.value, expected_descr)
+            self.mc.SUB(scratch_reg.value, scratch_reg.value,
+                        scratch2_reg.value)
+
+        # Patch Location: BEQZ x31, load_result_fast_path
+        pos = self.mc.get_relative_pos()
+        self.mc.EBREAK()
+        return pos
+
+    def _call_assembler_emit_helper_call(self, addr, arglocs, resloc):
+        self.simple_call(addr, arglocs, result_loc=resloc)
+
+    def _call_assembler_patch_je(self, result_loc, jmp_location):
+        # Patch Location: J end
+        pos = self.mc.get_relative_pos()
+        self.mc.EBREAK()
+
+        # LABEL[load_result_fast_path]:
+
+        # Patch the check_descr patch location.
+        currpos = self.mc.get_relative_pos()
+        pmc = OverwritingBuilder(self.mc, jmp_location, INST_SIZE)
+        pmc.BEQZ(r.x31.value, currpos - jmp_location)
+
+        return pos
+
+    def _call_assembler_load_result(self, op, result_loc):
+        # LABEL[load_result_fast_path]:
+        if op.type != 'v':
+            # Load the return value from the returned frame.
+
+            kind = op.type
+            descr = self.cpu.getarraydescr_for_frame(kind)
+            ofs = self.cpu.unpack_arraydescr(descr)
+            # Note: The code above should be equivalent to
+            # `ofs = self.cpu.get_baseofs_of_frame_field()` used in
+            # `OP_FINISH`.
+
+            if kind == FLOAT:
+                assert result_loc.is_fp_reg()
+                self.mc.load_float(result_loc.value, r.x10.value, ofs)
+            else:
+                assert result_loc.is_core_reg()
+                self.mc.load_int(result_loc.value, r.x10.value, ofs)
+
+    def _call_assembler_patch_jmp(self, jmp_location):
+        # LABEL[end]:
+        currpos = self.mc.get_relative_pos()
+        pmc = OverwritingBuilder(self.mc, jmp_location, INST_SIZE)
+        pmc.J(currpos - jmp_location)
 
     def emit_op_guard_not_forced_2(self, op, arglocs):
         frame_depth = arglocs[0].value

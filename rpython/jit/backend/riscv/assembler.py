@@ -15,7 +15,8 @@ from rpython.jit.backend.riscv.opassembler import (
     OpAssembler, asm_guard_operations, asm_operations)
 from rpython.jit.backend.riscv.regalloc import (
     Regalloc, regalloc_guard_operations, regalloc_operations)
-from rpython.jit.backend.riscv.locations import StackLocation, get_fp_offset
+from rpython.jit.backend.riscv.locations import (
+    ImmLocation, StackLocation, get_fp_offset)
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractFailDescr, FLOAT
 from rpython.jit.metainterp.resoperation import rop
@@ -1242,6 +1243,9 @@ class AssemblerRISCV(OpAssembler):
             self.regalloc_mov(src, tmp)
             return tmp
         return src
+
+    def imm(self, value):
+        return ImmLocation(value)
 
     def new_stack_loc(self, i, tp):
         # Create a StackLocation at `i` of type `tp`.
