@@ -1,19 +1,19 @@
 #!/usr/bin/env python
 
 from rpython.jit.backend.llsupport.assembler import BaseAssembler, GuardToken
-from rpython.jit.backend.llsupport.descr import CallDescr
+from rpython.jit.backend.llsupport.descr import CallDescr, unpack_arraydescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (
     ABI_STACK_ALIGN, FLEN, INST_SIZE, JITFRAME_FIXED_SIZE, XLEN)
 from rpython.jit.backend.riscv.callbuilder import RISCVCallBuilder
 from rpython.jit.backend.riscv.codebuilder import (
-    BRANCH_BUILDER, OverwritingBuilder)
+    AbstractRISCVBuilder, BRANCH_BUILDER, OverwritingBuilder)
 from rpython.jit.backend.riscv.instruction_util import (
     COND_BEQ, COND_BNE, COND_INVALID, check_imm_arg, check_simm21_arg)
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
 from rpython.jit.metainterp.history import (
-    AbstractFailDescr, FLOAT, INT, REF, TargetToken, VOID)
+    AbstractFailDescr, ConstInt, FLOAT, INT, REF, TargetToken, VOID)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint
@@ -1145,6 +1145,147 @@ class OpAssembler(BaseAssembler):
         res = arglocs[0]
         index = op.getarg(0).getint()
         self.load_from_gc_table(res.value, index)
+
+    def emit_op_zero_array(self, op, arglocs):
+        # ZERO_ARRAY(base, start, size, scale_start, scale_size)
+        #
+        # Assume `base` is a byte pointer. Initialize
+        # `base + (start * scale_start)` to
+        # `base + (start * scale_start) + (size * scale_size)` with zeros.
+
+        assert len(arglocs) == 0, 'regalloc should not alloc for OP_ZERO_ARRAY'
+        boxes = op.getarglist()
+        base, start, size, scale_start, scale_size = boxes
+
+        # The scaling arguments should always be `ConstInt(1)` on RISC-V.
+        assert isinstance(scale_start, ConstInt) and scale_start.getint() == 1
+        assert isinstance(scale_size, ConstInt) and scale_size.getint() == 1
+
+        # Trivial case: size == 0, no code needed.
+        if isinstance(size, ConstInt) and size.getint() == 0:
+            return
+
+        item_size, base_ofs, _ = unpack_arraydescr(op.getdescr())
+
+        base_loc = self._regalloc.rm.make_sure_var_in_reg(base, boxes)
+
+        if isinstance(start, ConstInt):
+            start_loc = None
+            const_start = start.getint()
+            assert const_start >= 0
+        else:
+            start_loc = self._regalloc.rm.make_sure_var_in_reg(start, boxes)
+            const_start = -1
+
+        # `base_loc` and `start_loc` are in two regs here (or start_loc is an
+        # immediate).  Compute the `dstaddr_loc`, which is the raw address that
+        # we will pass as first argument to `memset()`.
+        dstaddr_loc = r.x31  # scratch_reg
+        if const_start >= 0:
+            ofs = base_ofs + const_start
+            reg = base_loc
+        else:
+            self.mc.ADD(dstaddr_loc.value, base_loc.value, start_loc.value)
+            ofs = base_ofs
+            reg = dstaddr_loc
+
+        if check_imm_arg(ofs):
+            self.mc.ADDI(dstaddr_loc.value, reg.value, ofs)
+        else:
+            scratch2_reg = r.ra
+            self.mc.load_int_imm(scratch2_reg.value, ofs)
+            self.mc.ADD(dstaddr_loc.value, reg.value, scratch2_reg.value)
+
+        # Use SB, SH, SW or SD based on whether the array item size is a
+        # multiple of 1, 2, 4, or 8.
+        if   item_size & 1: item_size = 1
+        elif item_size & 2: item_size = 2
+        elif item_size & 4: item_size = 4
+        else:               item_size = XLEN
+
+        pre_align = 0
+        single_store_size = item_size
+        if item_size < XLEN and const_start >= 0:
+            # Optimize SB/SH/SW into SW/SD.
+            #
+            # Assume that all arrays are naturally aligned to `XLEN` bytes, we
+            # can increase the `item_size` to `XLEN` if (1) `start` is a
+            # constant and (2) we emit pre-alignment zero initialization.
+            pre_align = (-(const_start + base_ofs)) & (XLEN - 1)
+            single_store_size = XLEN
+
+        # Inline limitation: An estimation on the number of instructions to be
+        # emited to zero-initialize the array.
+        #
+        # RISC-V GCC `__builtin_memset(ptr, 0, n)` inlines up to 15
+        # instructions. We decrease it by 5 if `pre_align` is not zero becuase
+        # we need more pre/post-alignment store instructions.
+        inline_limit = (15 if pre_align == 0 else 10) * single_store_size
+
+        if isinstance(size, ConstInt) and size.getint() <= inline_limit:
+            # Implement zero_array with a series of store instructions,
+            # starting at 'dstaddr_loc'.
+
+            # Note: In RISC-V, misaligned exception will only be raised when
+            # the effective address (`reg[base] + imm`) is not aligned, thus we
+            # don't have to insert `ADDI` to align `dstaddr` or `dst_i`.
+
+            total_size = size.getint()
+
+            # Pre-alignment zero initialization
+            dst_i = 0
+            if pre_align > 0:
+                pre_align = min(pre_align, total_size)
+                if pre_align & 1:
+                    self.mc.SB(r.x0.value, dstaddr_loc.value, dst_i)
+                    dst_i += 1
+                if pre_align & 2:
+                    self.mc.SH(r.x0.value, dstaddr_loc.value, dst_i)
+                    dst_i += 2
+                if pre_align & 4:
+                    self.mc.SW(r.x0.value, dstaddr_loc.value, dst_i)
+                    dst_i += 4
+                total_size -= pre_align
+
+            # Zero initialization
+            if single_store_size == 8:
+                emit_store_inst = AbstractRISCVBuilder.SD
+            elif single_store_size == 4:
+                emit_store_inst = AbstractRISCVBuilder.SW
+            elif single_store_size == 2:
+                emit_store_inst = AbstractRISCVBuilder.SH
+            else:
+                emit_store_inst = AbstractRISCVBuilder.SB
+
+            while total_size >= single_store_size:
+                emit_store_inst(self.mc, r.x0.value, dstaddr_loc.value, dst_i)
+                dst_i += single_store_size
+                total_size -= single_store_size
+
+            # Post-alignment zero initialization
+            post_align = total_size
+            if post_align & 4:
+                self.mc.SW(r.x0.value, dstaddr_loc.value, dst_i)
+                dst_i += 4
+            if post_align & 2:
+                self.mc.SH(r.x0.value, dstaddr_loc.value, dst_i)
+                dst_i += 2
+            if post_align & 1:
+                self.mc.SB(r.x0.value, dstaddr_loc.value, dst_i)
+                dst_i += 1
+        else:
+            if isinstance(size, ConstInt):
+                size_loc = self.imm(size.getint())
+            else:
+                size_loc = self._regalloc.rm.make_sure_var_in_reg(size, boxes)
+
+            # Call `memset(dstaddr, 0, size)`
+            malloc_func_adr = self.imm(self.memset_addr)
+            malloc_arglocs = [dstaddr_loc, self.imm(0), size_loc]
+            self._regalloc.before_call()
+            cb = RISCVCallBuilder(self, malloc_func_adr, malloc_arglocs,
+                                  resloc=None, restype=VOID, ressize=0)
+            cb.emit_no_collect()
 
     def emit_op_jit_debug(self, op, arglocs):
         pass

@@ -1046,6 +1046,11 @@ class Regalloc(BaseRegalloc):
         arglocs = self._prepare_guard_arglocs(op)
         return arglocs
 
+    def prepare_op_zero_array(self, op):
+        # There are multiple implementations for `zero_array`. Leave the
+        # register allocation to `opassembler.py`.
+        return []
+
     def prepare_op_force_token(self, op):
         res = self.force_allocate_reg(op)
         return [res]
