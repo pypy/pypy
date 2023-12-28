@@ -1054,6 +1054,15 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op)
         return [res]
 
+    def prepare_op_jit_debug(self, op):
+        return []
+
+    def prepare_op_increment_debug_counter(self, op):
+        boxes = op.getarglist()
+        a0 = boxes[0]
+        base_loc = self.make_sure_var_in_reg(a0, boxes)
+        return [base_loc]
+
     def compute_hint_frame_locations(self, operations):
         # Fill in the `hint_frame_pos` dictionary of `frame_manager` based on
         # the JUMP at the end of the loop, by looking at where we would like

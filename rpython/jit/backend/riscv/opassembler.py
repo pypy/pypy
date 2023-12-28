@@ -1146,6 +1146,16 @@ class OpAssembler(BaseAssembler):
         index = op.getarg(0).getint()
         self.load_from_gc_table(res.value, index)
 
+    def emit_op_jit_debug(self, op, arglocs):
+        pass
+
+    def emit_op_increment_debug_counter(self, op, arglocs):
+        base_loc = arglocs[0]
+        scratch_reg = r.x31
+        self.mc.load_int(scratch_reg.value, base_loc.value, 0)
+        self.mc.ADDI(scratch_reg.value, scratch_reg.value, 1)
+        self.mc.store_int(scratch_reg.value, base_loc.value, 0)
+
     def emit_op_label(self, op, arglocs):
         pass
 

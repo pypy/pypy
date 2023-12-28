@@ -61,9 +61,9 @@ class AssemblerRISCV(OpAssembler):
         clt.frame_info = rffi.cast(jitframe.JITFRAMEINFOPTR, frame_info)
         clt.frame_info.clear()
 
-        #if log:
-        #    operations = self._inject_debugging_code(looptoken, operations,
-        #                                             'e', looptoken.number)
+        if log:
+            operations = self._inject_debugging_code(looptoken, operations,
+                                                     'e', looptoken.number)
 
         regalloc = Regalloc(self)
         allgcrefs = []
@@ -106,14 +106,14 @@ class AssemblerRISCV(OpAssembler):
 
         ops_offset = self.mc.ops_offset
 
-        #if logger:
-        #    log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
-        #    log.write(inputargs, operations, ops_offset=ops_offset)
-        #
-        #    if logger.logger_ops:
-        #        logger.logger_ops.log_loop(inputargs, operations, 0,
-        #                                   'rewritten', name=loopname,
-        #                                   ops_offset=ops_offset)
+        if logger:
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset=ops_offset)
+
+            if logger.logger_ops:
+                logger.logger_ops.log_loop(inputargs, operations, 0,
+                                           'rewritten', name=loopname,
+                                           ops_offset=ops_offset)
 
         debug_start('jit-backend-addr')
         debug_print('Loop %d (%s) has address 0x%x to 0x%x (bootstrap 0x%x)' % (
@@ -143,9 +143,9 @@ class AssemblerRISCV(OpAssembler):
         self.setup(original_loop_token)
 
         descr_number = compute_unique_id(faildescr)
-        #if log:
-        #    operations = self._inject_debugging_code(faildescr, operations,
-        #                                             'b', descr_number)
+        if log:
+            operations = self._inject_debugging_code(faildescr, operations,
+                                                     'b', descr_number)
 
         assert isinstance(faildescr, AbstractFailDescr)
 
@@ -203,17 +203,17 @@ class AssemblerRISCV(OpAssembler):
 
         ops_offset = self.mc.ops_offset
 
-        #if logger:
-        #    log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
-        #    log.write(inputargs, operations, ops_offset)
-        #    # Log that the already written bridge is stitched to a descr.
-        #    logger.log_patch_guard(descr_number, rawstart)
+        if logger:
+            log = logger.log_trace(jl.MARK_TRACE_ASM, None, self.mc)
+            log.write(inputargs, operations, ops_offset)
+            # Log that the already written bridge is stitched to a descr.
+            logger.log_patch_guard(descr_number, rawstart)
 
-        #    # Legacy
-        #    if logger.logger_ops:
-        #        logger.logger_ops.log_bridge(inputargs, operations,
-        #                                     'rewritten', faildescr,
-        #                                     ops_offset=ops_offset)
+            # Legacy
+            if logger.logger_ops:
+                logger.logger_ops.log_bridge(inputargs, operations,
+                                             'rewritten', faildescr,
+                                             ops_offset=ops_offset)
 
         debug_start("jit-backend-addr")
         debug_print("bridge out of Guard 0x%x has address 0x%x to 0x%x" %
