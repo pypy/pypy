@@ -82,6 +82,12 @@ class AssemblerRISCV(OpAssembler):
         frame_depth = frame_depth_no_fixed_size + JITFRAME_FIXED_SIZE
         self.update_frame_depth(frame_depth)
 
+        # Generate extra NOPs if the size is too small. We need this because
+        # `redirect_call_assembler` may want to patch the beginning with a far
+        # branch to another loop or bridge.
+        _emit_nop_until_larger(self.mc, self.mc.get_relative_pos(),
+                               function_pos + _REDIRECT_BRANCH_STUB_SIZE)
+
         size_excluding_failure_stuff = self.mc.get_relative_pos()
 
         self.write_pending_failure_recoveries()
@@ -225,6 +231,30 @@ class AssemblerRISCV(OpAssembler):
 
         return AsmInfo(ops_offset, start_pos + rawstart,
                        code_end_pos - start_pos)
+
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        # Some minimal sanity checking
+        old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
+        new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
+        assert old_nbargs == new_nbargs
+
+        # We overwrite the instructions at the old `_ll_function_addr` to start
+        # with a jump to the new _ll_function_addr.
+        oldadr = oldlooptoken._ll_function_addr
+        target = newlooptoken._ll_function_addr
+
+        # Copy frame info
+        baseofs = self.cpu.get_baseofs_of_frame_field()
+        newlooptoken.compiled_loop_token.update_frame_info(
+            oldlooptoken.compiled_loop_token, baseofs)
+
+        mc = InstrBuilder()
+        scratch_reg = r.x31  # Pick a caller-saved reg excluding x10-17 & ra
+        mc.load_int_imm(scratch_reg.value, target)
+        mc.JALR(r.x0.value, scratch_reg.value, 0)
+        mc.copy_to_raw_memory(oldadr)
+
+        jl.redirect_assembler(oldlooptoken, newlooptoken, newlooptoken.number)
 
     def _assemble(self, regalloc, inputargs, operations):
         # Fill in the frame location hints so that we can reduce stack-to-stack

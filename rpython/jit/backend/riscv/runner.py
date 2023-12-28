@@ -38,6 +38,9 @@ class AbstractRISCVCPU(AbstractLLCPU):
                                               operations, original_loop_token,
                                               log=log)
 
+    def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
+
     def invalidate_loop(self, looptoken):
         # Replace `GUARD_NOT_INVALIDATED` in the loop with a branch instruction
         # to the recovery stub.
