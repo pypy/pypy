@@ -1287,6 +1287,12 @@ class OpAssembler(BaseAssembler):
                                   resloc=None, restype=VOID, ressize=0)
             cb.emit_no_collect()
 
+    def emit_op_enter_portal_frame(self, op, arglocs):
+        pass
+
+    def emit_op_leave_portal_frame(self, op, arglocs):
+        pass
+
     def emit_op_jit_debug(self, op, arglocs):
         pass
 

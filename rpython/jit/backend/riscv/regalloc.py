@@ -1059,6 +1059,12 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op)
         return [res]
 
+    def prepare_op_enter_portal_frame(self, op):
+        return []
+
+    def prepare_op_leave_portal_frame(self, op):
+        return []
+
     def prepare_op_jit_debug(self, op):
         return []
 
