@@ -160,14 +160,12 @@ class CFunctions(unittest.TestCase):
         self.assertEqual(self._dll.tf_bd(0, 42.), 14.)
         self.assertEqual(self.S(), 42)
 
-    @impl_detail('long double not supported by PyPy', pypy=False)
     def test_longdouble(self):
         self._dll.tf_D.restype = c_longdouble
         self._dll.tf_D.argtypes = (c_longdouble,)
         self.assertEqual(self._dll.tf_D(42.), 14.)
         self.assertEqual(self.S(), 42)
 
-    @impl_detail('long double not supported by PyPy', pypy=False)
     def test_longdouble_plus(self):
         self._dll.tf_bD.restype = c_longdouble
         self._dll.tf_bD.argtypes = (c_byte, c_longdouble)

@@ -90,6 +90,9 @@ class W_FFIType(W_Root):
     def is_singlefloat(self):
         return self is app_types.float
 
+    def is_longdouble(self):
+        return self is app_types.longdouble
+
     def is_void(self):
         return self is app_types.void
 
@@ -134,6 +137,7 @@ def build_ffi_types():
         W_FFIType('char',      libffi.types.uchar),
         W_FFIType('unichar',   libffi.types.wchar_t),
         #
+        W_FFIType('longdouble',libffi.types.longdouble),
         W_FFIType('double',    libffi.types.double),
         W_FFIType('float',     libffi.types.float),
         W_FFIType('void',      libffi.types.void),

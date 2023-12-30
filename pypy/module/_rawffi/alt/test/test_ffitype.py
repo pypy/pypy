@@ -7,6 +7,7 @@ class AppTestFFIType(object):
         assert str(types.uint) == "<ffi type uint>"
         assert types.sint.name == 'sint'
         assert types.uint.name == 'uint'
+        assert types.longdouble.name == 'longdouble'
 
     def test_sizeof(self):
         from _rawffi.alt import types
