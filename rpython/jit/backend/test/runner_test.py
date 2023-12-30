@@ -4483,6 +4483,62 @@ class LLtypeBackendTest(BaseBackendTest):
                          'float', descr=calldescr)
             assert longlong.getrealfloat(res) == expected
 
+    def test_max_float(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
+
+        def max_float(a):
+            assert False, 'should not be called'
+        from rpython.jit.codewriter.effectinfo import EffectInfo
+
+        effectinfo = EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE, EffectInfo.OS_MAX_FLOAT)
+        FPTR = self.Ptr(self.FuncType([lltype.Float, lltype.Float], lltype.Float))
+        func_ptr = llhelper(FPTR, max_float)
+        FUNC = FPTR.TO
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, effectinfo)
+        inf = float("inf")
+        ninf = float("-inf")
+        nan = float("nan")
+        testcases = [
+                ((1.0, 4.0), 4.0),
+                ((-1.0, 0.0), 0.0),
+                ((-0.0, 0.0), 0.0),
+                ((ninf, 0.0), 0.0),
+                ((inf, 0.0), inf),
+                ((ninf, inf), inf),
+                # TODO(max): max(nan,0.0) and max(0.0,nan) return different
+                # things in CPython. Is that what is expected here? If one
+                # argument is nan, fmax/maxsd return the other argument.
+                # This is different from x < y ? y : x
+                # It looks like fmax compiles to:
+                #   movapd %xmm0,%xmm2
+                #   cmpunordsd %xmm0,%xmm2
+                #   movapd %xmm2,%xmm3
+                #   andpd  %xmm1,%xmm3
+                #   maxsd  %xmm0,%xmm1
+                #   andnpd %xmm1,%xmm2
+                #   orpd   %xmm3,%xmm2
+                #   movapd %xmm2,%xmm0
+                #   ret
+                # Unless you use -ffast-math (inadvisable), in which case it's
+                # just maxsd.
+                ((nan, 0.0), 0.0),
+                ((nan, inf), inf),
+                ((nan, ninf), ninf),
+                ]
+        for (arg0, arg1), expected in testcases:
+            res = self.execute_operation(rop.CALL_F,
+                        [funcbox, boxfloat(arg0), boxfloat(arg1)],
+                         'float', descr=calldescr)
+            assert longlong.getrealfloat(res) == expected
+            # Try the operand order both ways
+            res = self.execute_operation(rop.CALL_F,
+                        [funcbox, boxfloat(arg1), boxfloat(arg0)],
+                         'float', descr=calldescr)
+            assert longlong.getrealfloat(res) == expected
+
     def test_check_memory_error(self):
         self.execute_operation(
                        rop.CHECK_MEMORY_ERROR, [InputArgInt(12345)], 'void')

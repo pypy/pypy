@@ -8,6 +8,7 @@ from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.module import ll_math
+from rpython.rtyper.rbuiltin import ll_max_float
 from rpython.translator.unsimplify import varoftype
 from rpython.jit.codewriter import heaptracker, effectinfo
 from rpython.jit.codewriter.flatten import ListOfKind
@@ -119,6 +120,7 @@ class FakeBuiltinCallControl:
             ARRAYPTR = rffi.CArrayPtr(lltype.Char)
             argtypes = {
              EI.OS_MATH_SQRT:  ([FLOAT], FLOAT),
+             EI.OS_MAX_FLOAT:  ([FLOAT, FLOAT], FLOAT),
              EI.OS_STR2UNICODE:([PSTR], PUNICODE),
              EI.OS_STR_CONCAT: ([PSTR, PSTR], PSTR),
              EI.OS_STR_SLICE:  ([PSTR, INT, INT], PSTR),
@@ -1345,6 +1347,25 @@ def test_math_sqrt():
     assert op1.args[3] == ListOfKind('float', [v1])
     assert op1.args[4] == 'calldescr-%d' % effectinfo.EffectInfo.OS_MATH_SQRT
     assert op1.result == v2
+
+def test_max_float():
+    # test that the oopspec is present and correctly transformed
+    FLOAT = lltype.Float
+    FUNC = lltype.FuncType([FLOAT, FLOAT], FLOAT)
+    func = lltype.functionptr(FUNC, 'rbuiltin', _callable=ll_max_float)
+    v1 = varoftype(FLOAT)
+    v2 = varoftype(FLOAT)
+    v3 = varoftype(FLOAT)
+    op = SpaceOperation('direct_call', [const(func), v1, v2], v3)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op1 = tr.rewrite_operation(op)
+    assert op1.opname == 'residual_call_irf_f'
+    assert op1.args[0].value == func
+    assert op1.args[1] == ListOfKind("int", [])
+    assert op1.args[2] == ListOfKind("ref", [])
+    assert op1.args[3] == ListOfKind('float', [v1, v2])
+    assert op1.args[4] == 'calldescr-%d' % effectinfo.EffectInfo.OS_MAX_FLOAT
+    assert op1.result == v3
 
 def test_quasi_immutable():
     from rpython.rtyper.rclass import FieldListAccessor, IR_QUASIIMMUTABLE

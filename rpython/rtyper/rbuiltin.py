@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
-from rpython.rlib import rarithmetic, objectmodel
+from rpython.rlib import jit, rarithmetic, objectmodel
 from rpython.rtyper import raddress, rptr, extregistry, rrange
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr
@@ -247,12 +247,20 @@ def ll_min(i1, i2):
 def rtype_builtin_max(hop):
     v1, v2 = hop.inputargs(hop.r_result, hop.r_result)
     hop.exception_cannot_occur()
+    if hop.r_result.lowleveltype == lltype.Float:
+        return hop.gendirectcall(ll_max_float, v1, v2)
     return hop.gendirectcall(ll_max, v1, v2)
 
 def ll_max(i1, i2):
     if i1 > i2:
         return i1
     return i2
+
+@jit.oopspec("float.max(f1, f2)")
+def ll_max_float(f1, f2):
+    if f1 > f2:
+        return f1
+    return f2
 
 
 @typer_for(reversed)

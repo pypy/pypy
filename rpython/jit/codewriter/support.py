@@ -14,7 +14,7 @@ from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory, rstr as ll_rstr, rdict as ll_rdict
-from rpython.rtyper import rclass
+from rpython.rtyper import rbuiltin, rclass
 from rpython.rtyper.lltypesystem import rordereddict
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.module import ll_math
@@ -486,6 +486,8 @@ class LLtypeHelpers:
     # ---------- strings and unicode ----------
 
     _ll_1_str_str2unicode = ll_rstr.LLHelpers.ll_str2unicode
+
+    _ll_2_float_max = rbuiltin.ll_max_float
 
     def _ll_4_str_eq_slice_checknull(s1, start, length, s2):
         """str1[start : start + length] == str2."""

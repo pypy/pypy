@@ -717,6 +717,7 @@ class LocationCodeBuilder(object):
     SUBSD = _binaryop('SUBSD')
     MULSD = _binaryop('MULSD')
     DIVSD = _binaryop('DIVSD')
+    MAXSD = _binaryop('MAXSD')
 
     # packed
     ADDPD = _binaryop('ADDPD')

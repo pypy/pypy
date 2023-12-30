@@ -1364,6 +1364,12 @@ class LLFrame(object):
         x = math.sqrt(y)
         return support.cast_to_floatstorage(x)
 
+    def _do_max_float(self, left, right):
+        leftf = support.cast_from_floatstorage(lltype.Float, left)
+        rightf = support.cast_from_floatstorage(lltype.Float, right)
+        result = max(leftf, rightf)
+        return support.cast_to_floatstorage(result)
+
     def execute_cond_call(self, calldescr, cond, func, *args):
         if not cond:
             return
@@ -1386,6 +1392,8 @@ class LLFrame(object):
             oopspecindex = effectinfo.oopspecindex
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 return self._do_math_sqrt(args[0])
+            if oopspecindex == EffectInfo.OS_MAX_FLOAT:
+                return self._do_max_float(args[0], args[1])
         TP = llmemory.cast_int_to_adr(func).ptr._obj._TYPE
         call_args = support.cast_call_args_in_order(TP.ARGS, args)
         try:

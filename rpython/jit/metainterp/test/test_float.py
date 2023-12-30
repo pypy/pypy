@@ -84,6 +84,18 @@ class FloatTests:
         res = self.interp_operations(g, [-12345])
         assert type(res) is float and res == float(long(r_uint(-12345)))
 
+    def test_max(self):
+        def f(a, b):
+            return max(a, b)
+        res = self.interp_operations(f, [-5.25, 3])
+        assert res == 3
+        # TODO(emacs): Figure out why nan causes issues here
+        # nan = float("nan")
+        # res = self.interp_operations(f, [nan, 1.0])
+        # assert res is nan
+        # res = self.interp_operations(f, [1.0, nan])
+        # assert res == 1.0
+
 
 class TestLLtype(FloatTests, LLJitMixin):
     pass

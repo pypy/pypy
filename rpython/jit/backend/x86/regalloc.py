@@ -667,6 +667,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
     consider_float_sub = _consider_float_op
     consider_float_mul = _consider_float_op      # xxx could be _symm
     consider_float_truediv = _consider_float_op
+    # _consider_max_float = _consider_float_op
 
     def _consider_float_cmp(self, op):
         vx = op.getarg(0)
@@ -809,6 +810,14 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         loc0 = self.xrm.force_result_in_reg(op, op.getarg(1))
         self.perform_math(op, [loc0], loc0)
 
+    def _consider_max_float(self, op):
+        # op.getarg(0) is the address of max_float
+        loc1 = self.xrm.loc(op.getarg(2))
+        args = op.getarglist()
+        loc0 = self.xrm.force_result_in_reg(op, op.getarg(1), args)
+        self.perform_math(op, [loc0, loc1], loc0)
+
+
     def _consider_threadlocalref_get(self, op):
         if self.translate_support_code:
             offset = op.getarg(1).getint()   # getarg(0) == 'threadlocalref_get'
@@ -899,6 +908,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                         return
             if oopspecindex == EffectInfo.OS_MATH_SQRT:
                 return self._consider_math_sqrt(op)
+            if oopspecindex == EffectInfo.OS_MAX_FLOAT:
+                return self._consider_max_float(op)
             if oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
                 return self._consider_threadlocalref_get(op)
             if oopspecindex == EffectInfo.OS_MATH_READ_TIMESTAMP:
