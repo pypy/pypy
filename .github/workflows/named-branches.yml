@@ -1,12 +1,12 @@
 name: 'Named Branches'
 on: push
 jobs:
-named-branches:
+  named-branches:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    with:
+    - uses: actions/checkout@v4
+      with:
         fetch-depth: 0
-    - uses: Julian/named-branch-action@main
-    with:
+    - uses: Julian/named-branch-action@v1
+      with:
         github_token: '${{ secrets.GITHUB_TOKEN }}'
