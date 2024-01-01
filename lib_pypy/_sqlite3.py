@@ -28,7 +28,6 @@ import os
 import string
 import sys
 import threading
-import types
 import weakref
 from collections import OrderedDict
 from functools import wraps
@@ -961,50 +960,76 @@ class Cursor(object):
             if self.__connection._begin_statement and self.__statement._is_dml:
                 if _lib.sqlite3_get_autocommit(self.__connection._db):
                     self.__connection._begin()
-
-            for params in many_params:
-                self.__statement._set_params(params, self.__in_use_token)
-
-                # Actually execute the SQL statement
-
-                ret = _lib.sqlite3_step(self.__statement._statement)
-
-                # PyPy: if we get SQLITE_LOCKED, it's probably because
-                # one of the cursors created previously is still alive
-                # and not reset and the operation we're trying to do
-                # makes Sqlite unhappy about that.  In that case, we
-                # automatically reset all old cursors and try again.
-                if ret == _lib.SQLITE_LOCKED:
-                    self.__connection._reset_already_committed_statements()
-                    ret = _lib.sqlite3_step(self.__statement._statement)
-
-                if self.__statement._is_dml:
-                    if self.__rowcount == -1:
-                        self.__rowcount = 0
-                    self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
+            
+            try:
+                num_params = len(many_params)
+                if num_params == 0:
+                    pass
+                elif num_params == 1:
+                    self.__execute_statement(many_params[0], multiple)
+                elif num_params == 2:
+                    self.__execute_statement(many_params[0], multiple)
+                    self.__execute_statement(many_params[1], multiple)
+                elif num_params == 3:
+                    self.__execute_statement(many_params[0], multiple)
+                    self.__execute_statement(many_params[1], multiple)
+                    self.__execute_statement(many_params[2], multiple)
+                elif num_params == 4:
+                    self.__execute_statement(many_params[0], multiple)
+                    self.__execute_statement(many_params[1], multiple)
+                    self.__execute_statement(many_params[2], multiple)
+                    self.__execute_statement(many_params[3], multiple)
                 else:
-                    self.__rowcount = -1
-
-                if not multiple:
-                    self.__lastrowid = _lib.sqlite3_last_insert_rowid(self.__connection._db)
-
-                if ret == _lib.SQLITE_ROW:
-                    if multiple:
-                        raise ProgrammingError("executemany() can only execute DML statements.")
-                    self.__build_row_cast_map()
-                    self.__next_row = self.__fetch_one_row()
-                elif ret == _lib.SQLITE_DONE:
-                    if not multiple:
-                        self.__statement._reset(self.__in_use_token)
-                else:
-                    self.__statement._reset(self.__in_use_token)
-                    raise self.__connection._get_exception(ret)
-
-                if multiple:
-                    self.__statement._reset(self.__in_use_token)
+                    for params in many_params:
+                        self.__execute_statement(params, multiple)
+            # TypeError is raised when many_params is a generator or a MyIter
+            except TypeError:
+                for params in many_params:
+                    self.__execute_statement(params, multiple)
         finally:
             self.__locked = False
         return self
+
+    def __execute_statement(self, params, multiple):
+        self.__statement._set_params(params, self.__in_use_token)
+
+        # Actually execute the SQL statement
+
+        ret = _lib.sqlite3_step(self.__statement._statement)
+
+        # PyPy: if we get SQLITE_LOCKED, it's probably because
+        # one of the cursors created previously is still alive
+        # and not reset and the operation we're trying to do
+        # makes Sqlite unhappy about that.  In that case, we
+        # automatically reset all old cursors and try again.
+        if ret == _lib.SQLITE_LOCKED:
+            self.__connection._reset_already_committed_statements()
+            ret = _lib.sqlite3_step(self.__statement._statement)
+
+        if self.__statement._is_dml:
+            if self.__rowcount == -1:
+                self.__rowcount = 0
+            self.__rowcount += _lib.sqlite3_changes(self.__connection._db)
+        else:
+            self.__rowcount = -1
+
+        if not multiple:
+            self.__lastrowid = _lib.sqlite3_last_insert_rowid(self.__connection._db)
+
+        if ret == _lib.SQLITE_ROW:
+            if multiple:
+                raise ProgrammingError("executemany() can only execute DML statements.")
+            self.__build_row_cast_map()
+            self.__next_row = self.__fetch_one_row()
+        elif ret == _lib.SQLITE_DONE:
+            if not multiple:
+                self.__statement._reset(self.__in_use_token)
+        else:
+            self.__statement._reset(self.__in_use_token)
+            raise self.__connection._get_exception(ret)
+
+        if multiple:
+            self.__statement._reset(self.__in_use_token)
 
     @__check_cursor_wrap
     def execute(self, sql, params=[]):
@@ -1217,7 +1242,7 @@ class Statement(object):
             _lib.sqlite3_reset(self._statement)
             self._in_use_token = None
 
-    def __set_param(self, idx, param):
+    def __set_param(self, idx, param, error_msg, error_param):
         typ = type(param)
         if BASE_TYPE_ADAPTED or (
             typ is not bytearray
@@ -1253,6 +1278,11 @@ class Statement(object):
                                         len(param), _SQLITE_TRANSIENT)
         else:
             rc = _UNSUPPORTED_TYPE
+        
+        if rc is _UNSUPPORTED_TYPE:
+            raise InterfaceError(error_msg % error_param)
+        if rc != _lib.SQLITE_OK:
+            raise self.__con._get_exception(rc)
         return rc
 
     def _set_params(self, params, token):
@@ -1272,14 +1302,28 @@ class Statement(object):
                                        "The current statement uses %d, and "
                                        "there are %d supplied." %
                                        (num_params_needed, num_params))
-            for i in range(num_params):
-                rc = self.__set_param(i + 1, params[i])
-                if rc is _UNSUPPORTED_TYPE:
-                    raise InterfaceError("Error binding parameter %d - "
-                                         "probably unsupported type." % i)
-                if rc != _lib.SQLITE_OK:
-                    raise self.__con._get_exception(rc)
+            error_msg = "Error binding parameter %d - probably unsupported type."
+            if num_params == 0:
+                pass
+            elif num_params == 1:
+                self.__set_param(1, params[0], error_msg, 0)
+            elif num_params == 2:
+                self.__set_param(1, params[0], error_msg, 0)
+                self.__set_param(2, params[1], error_msg, 1)
+            elif num_params == 3:
+                self.__set_param(1, params[0], error_msg, 0)
+                self.__set_param(2, params[1], error_msg, 1)
+                self.__set_param(3, params[2], error_msg, 2)
+            elif num_params == 4:
+                self.__set_param(1, params[0], error_msg, 0)
+                self.__set_param(2, params[1], error_msg, 1)
+                self.__set_param(3, params[2], error_msg, 2)
+                self.__set_param(4, params[3], error_msg, 3)
+            else:
+                for i in range(num_params):
+                    self.__set_param(i + 1, params[i], error_msg, i)
         elif isinstance(params, dict):
+            error_msg = "Error binding parameter :%s - probably unsupported type."
             for i in range(1, num_params_needed + 1):
                 param_name = _lib.sqlite3_bind_parameter_name(self._statement, i)
                 if not param_name:
@@ -1292,13 +1336,7 @@ class Statement(object):
                 except KeyError:
                     raise ProgrammingError("You did not supply a value for "
                                            "binding %d." % i)
-                rc = self.__set_param(i, param)
-                if rc is _UNSUPPORTED_TYPE:
-                    raise InterfaceError("Error binding parameter :%s - "
-                                         "probably unsupported type." %
-                                         param_name)
-                if rc != _lib.SQLITE_OK:
-                    raise self.__con._get_exception(rc)
+                self.__set_param(i, param, error_msg, param_name)
         else:
             raise ValueError("parameters are of unsupported type")
 
