@@ -1065,6 +1065,9 @@ class Regalloc(BaseRegalloc):
     def prepare_op_leave_portal_frame(self, op):
         return []
 
+    def prepare_op_keepalive(self, op):
+        return []
+
     def prepare_op_jit_debug(self, op):
         return []
 

@@ -1293,6 +1293,9 @@ class OpAssembler(BaseAssembler):
     def emit_op_leave_portal_frame(self, op, arglocs):
         pass
 
+    def emit_op_keepalive(self, op, arglocs):
+        pass
+
     def emit_op_jit_debug(self, op, arglocs):
         pass
 
