@@ -5,6 +5,7 @@ on:
     branches: [ "main", "py3.9", "py3.10"]
   pull_request:
     branches: [ "main", "py3.9", "py3.10"]
+  workflow_dispatch:    
 
 permissions:
   contents: read
