@@ -11,7 +11,7 @@ from rpython.jit.backend.riscv.codebuilder import (
 from rpython.jit.backend.riscv.instruction_util import (
     COND_INVALID, check_simm21_arg)
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
-from rpython.jit.metainterp.history import AbstractFailDescr, TargetToken
+from rpython.jit.metainterp.history import AbstractFailDescr, REF, TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -593,8 +593,19 @@ class OpAssembler(BaseAssembler):
             else:
                 self.mc.store_int(return_val.value, r.jfp.value, base_ofs)
 
+        # Store `op.getdescr()` to `jf_descr`.
         faildescrindex = self.get_gcref_from_faildescr(op.getdescr())
         self.store_jf_descr(faildescrindex)
+
+        # Update `jf_gcmap`.
+        if op.numargs() > 0 and op.getarg(0).type == REF:
+            gcmap = self.gcmap_for_finish
+            self.push_gcmap(self.mc, gcmap)
+        else:
+            # Note that 0 here is redundant, but I would rather keep that one
+            # and kill all the others.
+            ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+            self.mc.store_int(r.x0.value, r.jfp.value, ofs)
 
         self._call_footer(self.mc)
 
