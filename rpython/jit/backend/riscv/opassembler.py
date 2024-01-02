@@ -30,6 +30,8 @@ class OpAssembler(BaseAssembler):
         else:
             self.mc.ADD(res.value, l0.value, l1.value)
 
+    emit_op_nursery_ptr_increment = emit_op_int_add
+
     def emit_op_int_sub(self, op, arglocs):
         l0, l1, res = arglocs
         assert not l0.is_imm()

@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-from rpython.jit.backend.llsupport import jitframe
+from rpython.jit.backend.llsupport import jitframe, rewrite
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
+from rpython.jit.backend.llsupport.descr import ArrayDescr
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (
@@ -10,7 +11,7 @@ from rpython.jit.backend.riscv.arch import (
 from rpython.jit.backend.riscv.codebuilder import (
     InstrBuilder, MAX_NUM_INSTS_FOR_LOAD_INT_IMM, OverwritingBuilder)
 from rpython.jit.backend.riscv.instruction_util import (
-    can_fuse_into_compare_and_branch, check_simm21_arg)
+    can_fuse_into_compare_and_branch, check_imm_arg, check_simm21_arg)
 from rpython.jit.backend.riscv.opassembler import (
     OpAssembler, asm_guard_operations, asm_operations)
 from rpython.jit.backend.riscv.regalloc import (
@@ -1216,6 +1217,296 @@ class AssemblerRISCV(OpAssembler):
             # array.
             self._write_barrier_fastpath(mc, wbdescr, [r.jfp], tmplocs,
                                          array=False, is_frame=True)
+
+    def _build_malloc_slowpath(self, kind):
+        # malloc_slowpath for various kinds (fixed, str, unicode, var):
+        #
+        # x10, x11 = malloc_slowpath_fixed(x10=nursery_free_adr,
+        #                                  x11=(nursery_free_adr + size)
+        #                                  x31=gcmap)
+        #
+        # x10, x11 = malloc_slowpath_str/unicode(x10=length_of_string,
+        #                                        x31=gcmap)
+        #
+        # x10, x11 = malloc_slowpath_var(x10=itemsize,
+        #                                x11=tid,
+        #                                x12=length_of_array,
+        #                                x31=gcmap)
+        #
+        # Returns:
+        # x10 = new_object_adr
+        # X11 = new_nursery_free_adr
+
+        assert kind in ['fixed', 'str', 'unicode', 'var']
+        mc = InstrBuilder()
+
+        # Push registers to JITFrame.
+
+        # Ignore fp for _reload_frame_if_necessary, x10-12 for args, x31 for
+        # scratch.
+        if kind == 'var':
+            ignore_regs_for_push_pop = [r.jfp, r.x10, r.x11, r.x12, r.x31]
+        else:
+            ignore_regs_for_push_pop = [r.jfp, r.x10, r.x11, r.x31]
+
+        self._push_all_regs_to_jitframe(mc, ignore_regs_for_push_pop,
+                                        self.cpu.supports_floats)
+
+        # Select the callee function according to the `kind`.
+        if kind == 'fixed':
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
+        elif kind == 'str':
+            addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_str')
+        elif kind == 'unicode':
+            addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_unicode')
+        else:
+            addr = self.cpu.gc_ll_descr.get_malloc_slowpath_array_addr()
+
+        # Setup the arguments.
+        if kind == 'fixed':
+            # malloc_slowpath_addr(x10=size)
+            # malloc_slowpath_addr(x10=size, x11=jfp)
+
+            # At this point we know that the values we need to compute the size
+            # are stored in `r.x10` and `r.x11`.
+            mc.SUB(r.x10.value, r.x11.value, r.x10.value)
+            if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
+                mc.MV(r.x11.value, r.jfp.value)
+        elif kind == 'str' or kind == 'unicode':
+            # malloc_str(x10=len), malloc_unicode(x10=len)
+            pass
+        else:  # var
+            # malloc_slowpath_array_addr(x10=itemsize, x11=tid, x12=len)
+            pass
+
+        # Store `gcmap` to `jf_gcmap`.
+        jf_gcmap_ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.store_int(r.x31.value, r.jfp.value, jf_gcmap_ofs)
+
+        # Call the callee function
+        mc.load_int_imm(r.ra.value, rffi.cast(lltype.Signed, addr))
+        mc.JALR(r.ra.value, r.ra.value, 0)
+
+        # Patch Loation: BNEZ x10, succeeded
+        branch_inst_pos = mc.get_relative_pos()
+        mc.EBREAK()
+
+        # If the slowpath malloc failed, we raise a MemoryError that always
+        # interrupts the current loop, as a "good enough" approximation.
+        mc.load_int_imm(r.ra.value, self.propagate_exception_path)
+        mc.JR(r.ra.value)
+
+        # LABEL[succeeded]:
+        currpos = mc.get_relative_pos()
+        pmc = OverwritingBuilder(mc, branch_inst_pos, INST_SIZE)
+        pmc.BNEZ(r.x10.value, currpos - branch_inst_pos)
+
+        # Allocate another caller-save as a scratch register.
+        #
+        # This must not be `r.ra` nor `r.x31` because `_write_barrier_fastpath`
+        # has used them. This can be any other register saved by
+        # `_push_all_regs_to_jitframe`.
+        scratch2_reg = r.x30
+
+        # Reload the frame.
+        self._reload_frame_if_necessary(mc, tmplocs=[scratch2_reg])
+
+        # Pop registers from JITFrame.
+        self._pop_all_regs_from_jitframe(mc, ignore_regs_for_push_pop,
+                                         self.cpu.supports_floats)
+
+        # Load the nursery_free_adr back to r.x11 because the fast path will
+        # store the value in `r.x11` to `&nursery_free_adr`.
+        nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
+        mc.load_int_imm(r.x11.value, nursery_free_adr)
+        mc.load_int(r.x11.value, r.x11.value, 0)
+
+        # Clear the `jf_gcmap`.
+        mc.store_int(r.x0.value, r.jfp.value, jf_gcmap_ofs)
+
+        mc.RET()
+
+        rawstart = mc.materialize(self.cpu, [])
+        return rawstart
+
+    def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
+        assert size & (XLEN - 1) == 0
+
+        # Load nursery_free_adr
+        self.mc.load_int_imm(r.x10.value, nursery_free_adr)
+        self.mc.load_int(r.x10.value, r.x10.value, 0)
+
+        # Add the size to be allocated
+        if check_imm_arg(size):
+            self.mc.ADDI(r.x11.value, r.x10.value, size)
+        else:
+            self.mc.load_int_imm(r.x11.value, size)
+            self.mc.ADD(r.x11.value, r.x10.value, r.x11.value)
+
+        # Load nursery_top_adr
+        scratch_reg = r.x31
+        self.mc.load_int_imm(scratch_reg.value, nursery_top_adr)
+        self.mc.load_int(scratch_reg.value, scratch_reg.value, 0)
+
+        # Patch Location: BGEU scratch_reg, x11, end
+        branch_inst_pos = self.mc.get_relative_pos()
+        self.mc.EBREAK()
+
+        # x10, x11 = malloc_slowpath(x10=nursery_free_addr,
+        #                            x11=(nursery_free_addr + size),
+        #                            x31=gcmap)
+        #
+        # Returns:
+        #
+        # x10: new object address
+        # X11: new nursery_free_adr
+
+        self.mc.load_int_imm(r.x31.value, rffi.cast(lltype.Signed, gcmap))
+
+        self.mc.load_int_imm(r.ra.value, self.malloc_slowpath)
+        self.mc.JALR(r.ra.value, r.ra.value, 0)
+
+        # LABEL[end]:
+        currpos = self.mc.get_relative_pos()
+        pmc = OverwritingBuilder(self.mc, branch_inst_pos, INST_SIZE)
+        pmc.BGEU(scratch_reg.value, r.x11.value, currpos - branch_inst_pos)
+
+        # Update `nursery_free_adr` after allocation.
+        self.mc.load_int_imm(scratch_reg.value, nursery_free_adr)
+        self.mc.store_int(r.x11.value, scratch_reg.value, 0)
+
+    def malloc_cond_varsize_frame(self, nursery_free_adr, nursery_top_adr,
+                                  size_loc, gcmap):
+        assert size_loc.is_core_reg()
+        assert size_loc is not r.x10 and size_loc is not r.x11
+
+        # Load nursery_free_adr
+        self.mc.load_int_imm(r.x10.value, nursery_free_adr)
+        self.mc.load_int(r.x10.value, r.x10.value, 0)
+
+        # Add the size to be allocated
+        self.mc.ADD(r.x11.value, r.x10.value, size_loc.value)
+
+        # Load nursery_top_adr
+        scratch_reg = r.x31
+        self.mc.load_int_imm(scratch_reg.value, nursery_top_adr)
+        self.mc.load_int(scratch_reg.value, scratch_reg.value, 0)
+
+        # Patch Location: BGEU scratch_reg, x11, end
+        branch_inst_pos = self.mc.get_relative_pos()
+        self.mc.EBREAK()
+
+        # x10, x11 = malloc_slowpath(x10=nursery_free_addr,
+        #                            x11=(nursery_free_addr + size),
+        #                            x31=gcmap)
+
+        self.mc.load_int_imm(r.x31.value, rffi.cast(lltype.Signed, gcmap))
+
+        self.mc.load_int_imm(r.ra.value, self.malloc_slowpath)
+        self.mc.JALR(r.ra.value, r.ra.value, 0)
+
+        # LABEL[end]:
+        currpos = self.mc.get_relative_pos()
+        pmc = OverwritingBuilder(self.mc, branch_inst_pos, INST_SIZE)
+        pmc.BGEU(scratch_reg.value, r.x11.value, currpos - branch_inst_pos)
+
+        self.mc.load_int_imm(scratch_reg.value, nursery_free_adr)
+        self.mc.store_int(r.x11.value, scratch_reg.value, 0)
+
+    def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
+                            length_loc, itemsize, max_length, gcmap,
+                            arraydescr):
+        assert isinstance(arraydescr, ArrayDescr)
+
+        scratch_reg = r.x31
+
+        self.mc.load_int_imm(scratch_reg.value, max_length)
+
+        # Patch Location: BLT scratch_reg, length, call_slowpath
+        jmp_adr0 = self.mc.get_relative_pos()
+        self.mc.EBREAK()
+
+        # Load nursery_free_adr to r.x10
+        self.mc.load_int_imm(r.x10.value, nursery_free_adr)
+        self.mc.load_int(r.x10.value, r.x10.value, 0)
+
+        # Calculate total size (header_size + itemsize * len) to be allocated
+        self.mc.load_int_imm(scratch_reg.value, itemsize)
+        # x11 = length * itemsize
+        self.mc.MUL(r.x11.value, length_loc.value, scratch_reg.value)
+
+        assert arraydescr.basesize >= self.gc_minimal_size_in_nursery
+        constsize = arraydescr.basesize + self.gc_size_of_header
+        force_realignment = (itemsize % XLEN) != 0
+        if force_realignment:
+            constsize += XLEN - 1
+        # x11 = x11 + constsize
+        if check_imm_arg(constsize):
+            self.mc.ADDI(r.x11.value, r.x11.value, constsize)
+        else:
+            self.mc.load_int_imm(scratch_reg.value, constsize)
+            self.mc.ADD(r.x11.value, r.x11.value, scratch_reg.value)
+
+        # Calculate new nursery_free_adr
+        self.mc.ADD(r.x11.value, r.x11.value, r.x10.value)
+        if force_realignment:
+            self.mc.ANDI(r.x11.value, r.x11.value, -XLEN)
+
+        # Load nursery_top_adr
+        self.mc.load_int_imm(scratch_reg.value, nursery_top_adr)
+        self.mc.load_int(scratch_reg.value, scratch_reg.value, 0)
+
+        # Patch Location: BGEU scratch_reg, x11, finish_fast_alloc
+        jmp_adr1 = self.mc.get_relative_pos()
+        self.mc.EBREAK()
+
+        # LABEL[call_slowpath]:
+        currpos = self.mc.get_relative_pos()
+        pmc = OverwritingBuilder(self.mc, jmp_adr0, INST_SIZE)
+        pmc.BLT(scratch_reg.value, length_loc.value, currpos - jmp_adr0)
+
+        # Setup the arguments to slowpaths (see also. _build_malloc_slowpath)
+        if kind == rewrite.FLAG_ARRAY:
+            self.mc.load_int_imm(r.x10.value, itemsize)
+            self.mc.load_int_imm(r.x11.value, arraydescr.tid)
+            self.regalloc_mov(length_loc, r.x12)
+            addr = self.malloc_slowpath_varsize
+        else:
+            if kind == rewrite.FLAG_STR:
+                addr = self.malloc_slowpath_str
+            else:
+                assert kind == rewrite.FLAG_UNICODE
+                addr = self.malloc_slowpath_unicode
+            self.regalloc_mov(length_loc, r.x10)
+
+        # Load the gcmap to r.x31
+        self.mc.load_int_imm(r.x31.value, rffi.cast(lltype.Signed, gcmap))
+
+        # Call the callee
+        self.mc.load_int_imm(r.ra.value, addr)
+        self.mc.JALR(r.ra.value, r.ra.value, 0)
+
+        # Patch Location: J done
+        jmp_location = self.mc.get_relative_pos()
+        self.mc.EBREAK()
+
+        # LABEL[finish_fast_alloc]:
+        currpos = self.mc.get_relative_pos()
+        pmc = OverwritingBuilder(self.mc, jmp_adr1, INST_SIZE)
+        pmc.BGEU(scratch_reg.value, r.x11.value, currpos - jmp_adr1)
+
+        # Write down the tid.
+        self.mc.load_int_imm(scratch_reg.value, arraydescr.tid)
+        self.mc.store_int(scratch_reg.value, r.x10.value, 0)
+
+        # Write the new `nursery_free_adr`.
+        self.mc.load_int_imm(scratch_reg.value, nursery_free_adr)
+        self.mc.store_int(r.x11.value, scratch_reg.value, 0)
+
+        # LABEL[done]:
+        currpos = self.mc.get_relative_pos()
+        pmc = OverwritingBuilder(self.mc, jmp_location, INST_SIZE)
+        pmc.J(currpos - jmp_location)
 
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()

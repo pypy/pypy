@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from rpython.jit.backend.llsupport import rewrite
 from rpython.jit.backend.llsupport.descr import CallDescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.jump import remap_frame_layout_mixed
@@ -314,6 +315,7 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_and = _prepare_op_int_commutative_binary_op
     prepare_op_int_or  = _prepare_op_int_commutative_binary_op
     prepare_op_int_xor = _prepare_op_int_commutative_binary_op
+    prepare_op_nursery_ptr_increment = _prepare_op_int_commutative_binary_op
 
     def prepare_op_int_sub(self, op):
         boxes = op.getarglist()
@@ -1054,6 +1056,84 @@ class Regalloc(BaseRegalloc):
         self.fprm.before_call(force_store=op.getfailargs(), save_all_regs=True)
         arglocs = self._prepare_guard_arglocs(op)
         return arglocs
+
+    def prepare_op_call_malloc_nursery(self, op):
+        size_box = op.getarg(0)
+        assert isinstance(size_box, ConstInt)
+
+        # Allocate registers for `malloc_slowpath`
+        self.rm.get_scratch_reg(INT, selected_reg=r.x10)
+        self.rm.get_scratch_reg(INT, selected_reg=r.x11)
+
+        gcmap = self.get_gcmap([r.x10, r.x11])
+
+        self.rm.free_temp_vars()
+        self.rm.force_allocate_reg(op, selected_reg=r.x10)
+
+        # Emit code for `malloc_nursery`.
+        gc_ll_descr = self.cpu.gc_ll_descr
+        self.assembler.malloc_cond(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(), size_box.getint(), gcmap)
+
+    def prepare_op_call_malloc_nursery_varsize_frame(self, op):
+        size_box = op.getarg(0)
+        assert not isinstance(size_box, ConstInt)  # We can't have a const here
+
+        # Allocate registers for `malloc_slowpath`
+        self.rm.get_scratch_reg(INT, selected_reg=r.x10)
+        self.rm.get_scratch_reg(INT, selected_reg=r.x11)
+        size_loc = self.rm.make_sure_var_in_reg(size_box)
+
+        gcmap = self.get_gcmap([r.x10, r.x11])
+
+        self.rm.possibly_free_vars_for_op(op)
+        self.rm.free_temp_vars()
+        self.rm.force_allocate_reg(op, selected_reg=r.x10)
+
+        # Emit code for `malloc_nursery_varsize_frame`.
+        gc_ll_descr = self.cpu.gc_ll_descr
+        self.assembler.malloc_cond_varsize_frame(
+            gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(), size_loc, gcmap)
+
+    def prepare_op_call_malloc_nursery_varsize(self, op):
+        # malloc_nursery_varsize(kind, itemsize, length)
+
+        gc_ll_descr = self.cpu.gc_ll_descr
+        if not hasattr(gc_ll_descr, 'max_size_of_young_obj'):
+            raise Exception('unreachable code')
+            # for boehm, this function should never be called
+
+        arraydescr = op.getdescr()
+        kind = op.getarg(0).getint()
+        itemsize = op.getarg(1).getint()
+        length_box = op.getarg(2)
+        assert not isinstance(length_box, Const)
+
+        # Allocate registers for `malloc_slowpath`
+        self.rm.get_scratch_reg(INT, selected_reg=r.x10)
+        self.rm.get_scratch_reg(INT, selected_reg=r.x11)
+        if kind == rewrite.FLAG_ARRAY:
+            self.rm.get_scratch_reg(INT, selected_reg=r.x12)
+
+        length_loc = self.rm.make_sure_var_in_reg(length_box)
+
+        if kind == rewrite.FLAG_ARRAY:
+            gcmap = self.get_gcmap([r.x10, r.x11, r.x12])
+        else:
+            gcmap = self.get_gcmap([r.x10, r.x11])
+
+        self.rm.possibly_free_vars_for_op(op)
+        self.rm.free_temp_vars()
+        self.rm.force_allocate_reg(op, selected_reg=r.x10)
+
+        # Emit code for `malloc_nursery_varsize`.
+        maxlength = (gc_ll_descr.max_size_of_young_obj - XLEN * 2) / itemsize
+        self.assembler.malloc_cond_varsize(
+            kind, gc_ll_descr.get_nursery_free_addr(),
+            gc_ll_descr.get_nursery_top_addr(), length_loc, itemsize,
+            maxlength, gcmap, arraydescr)
 
     def prepare_op_zero_array(self, op):
         # There are multiple implementations for `zero_array`. Leave the
