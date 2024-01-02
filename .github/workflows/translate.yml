@@ -30,7 +30,7 @@ jobs:
 
     - name: install dependencies
       run: |
-        sudo apt install libffi-dev pkg-config zlib1g-dev libbz2-dev libsqlite3-dev libncurses5-dev libexpat1-dev libssl-dev libgdbm-dev tk-dev libgc-dev liblzma-dev libncursesw5-dev
+        sudo apt install libffi-dev pkg-config zlib1g-dev libbz2-dev libsqlite3-dev libncurses5-dev libexpat1-dev libssl-dev libgdbm-dev tk-dev libgc-dev liblzma-dev libncursesw5-dev patchelf
         pypy -m pip install -r requirements.txt
 
     - name: run objspace unit tests
@@ -44,10 +44,10 @@ jobs:
 
     - name: package
       run: |
-        ./pypy/goal/pypy-c pypy/tool/release/package.py
+        ./pypy/goal/pypy-c pypy/tool/release/package.py --make-portable
 
     - name: upload
       uses: actions/upload-artifact@v3
       with:
         name: pypy-ci-build-${{ matrix.os }}
-        path: /tmp/usession-pypy-*/build/pypy-nightly.tar.bz2
+        path: /tmp/usession-pypy-*-runner/build/pypy-nightly.tar.bz2
