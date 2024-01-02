@@ -2,9 +2,9 @@ name: Translate PyPy
 
 on:
   push:
-    branches: [ "main", "py3.9", "py3.10" ]
+    branches: [ "main", "py3.9", "py3.10", "branch/rudimentary-github-ci" ]
   pull_request:
-    branches: [ "main", "py3.9", "py3.10" ]
+    branches: [ "main", "py3.9", "py3.10", "branch/rudimentary-github-ci" ]
 
 permissions:
   contents: read
