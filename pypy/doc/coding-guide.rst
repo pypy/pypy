@@ -544,7 +544,7 @@ Committing & Branching to the repository
 Using the development bug/feature tracker
 -----------------------------------------
 
-We use https://github.com/pypy/pypy/ for :source:`issues` tracking and
+We use https://github.com/pypy/pypy for :source:`issues` tracking and
 :source:`pull-requests`.
 
 .. _testing:
