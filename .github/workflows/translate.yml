@@ -1,0 +1,40 @@
+name: Translate PyPy
+
+on:
+  push:
+    branches: [ "main", "py3.9", "py3.10" ]
+  pull_request:
+    branches: [ "main", "py3.9", "py3.10" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04]
+
+    steps:
+    - uses: actions/checkout@v4
+      fetch-depth: 1
+
+    - name: Set up PyPy 2.7
+      uses: actions/setup-python@v4
+      with:
+        python-version: "pypy-2.7-v7.3.10"
+
+    - name: install dependencies
+      run: |
+        pypy -m pip install -r requirements.txt
+
+    - name: run objspace unit tests
+      run: |
+        pypy pytest.py pypy/objspace -v
+
+    - name: translate
+      run: |
+        pypy rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
