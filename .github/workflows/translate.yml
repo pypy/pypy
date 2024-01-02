@@ -5,7 +5,7 @@ on:
     branches: [ "main", "py3.9", "py3.10"]
   pull_request:
     branches: [ "main", "py3.9", "py3.10"]
-  workflow_dispatch:    
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -41,11 +41,11 @@ jobs:
     - name: translate
       run: |
         pypy rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
-        mv pypy-c libpypy-c.so pypy/goal/
+        mv pypy*-c libpypy*-c.so pypy/goal/
 
     - name: package
       run: |
-        ./pypy/goal/pypy-c pypy/tool/release/package.py --make-portable
+        ./pypy/goal/pypy*-c pypy/tool/release/package.py --make-portable
 
     - name: upload
       uses: actions/upload-artifact@v3
