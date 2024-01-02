@@ -30,6 +30,7 @@ jobs:
 
     - name: install dependencies
       run: |
+        apt install libffi-dev pkg-config zlib1g-dev libbz2-dev libsqlite3-dev libncurses5-dev libexpat1-dev libssl-dev libgdbm-dev tk-dev libgc-dev liblzma-dev libncursesw5-dev
         pypy -m pip install -r requirements.txt
 
     - name: run objspace unit tests
@@ -39,3 +40,14 @@ jobs:
     - name: translate
       run: |
         pypy rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
+        mv pypy-c libpypy-c.so pypy/goal/
+
+    - name: package
+      run: |
+        ./pypy/goal/pypy-c pypy/tool/release/package.py
+
+    - name: upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: pypy-ci-build-${{ matrix.os }}
+        path: /tmp/usession-pypy-*/pypy-nightly.tar.bz2
