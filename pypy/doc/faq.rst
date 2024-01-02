@@ -392,12 +392,12 @@ the most immediate way to get feedback (at least during some parts of the day;
 most PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
 
-We also encourage engagement via the gitlab repo at
-https://foss.heptapod.net/pypy/pypy. Issues can be filed and discussed in the
-`issue tracker`_ and we welcome `merge requests`.
+We also encourage engagement via the GitHub repo at
+https://github.com/pypy/pypy. Issues can be filed and discussed in the
+`issue tracker`_ and we welcome `pull requests`.
 
-.. _`issue tracker`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/issues
-.. _`merge requests`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/merge_requests
+.. _`issue tracker`: https://github.com/pypy/pypy/issues/
+.. _`pull requests`: https://github.com/pypy/pypy/pulls/
 
 .. _mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
 
@@ -422,7 +422,7 @@ Be sure to enable it again if you need it!
 How should I report a bug?
 --------------------------
 
-Our bug tracker is here: https://foss.heptapod.net/pypy/pypy/issues/
+Our bug tracker is here: https://github.com/pypy/pypy/issues/
 
 Missing features or incompatibilities with CPython are considered
 bugs, and they are welcome.  (See also our list of `known
@@ -441,7 +441,7 @@ Debugging PyPy can be annoying.
 `This is a clear and useful bug report.`__  (Admittedly, sometimes
 the problem is really hard to reproduce, but please try to.)
 
-.. __: https://foss.heptapod.net/pypy/pypy/issues/2363/segfault-in-gc-pinned-object-in
+.. __: https://github.com/pypy/pypy/issues/2363
 
 In more details:
 

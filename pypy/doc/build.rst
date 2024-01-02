@@ -39,7 +39,7 @@ the current development.
 You must issue the following command on your
 command line, DOS box, or terminal::
 
-    hg clone https://foss.heptapod.net/pypy/pypy pypy
+    git clone https://github.com/pypy/pypy.git
 
 This will clone the repository and place it into a directory
 named ``pypy``, and will get you the PyPy source in ``pypy/pypy`` and
@@ -97,7 +97,7 @@ after building PyPy, otherwise the corresponding CFFI modules are not
 built (you can run or re-run `lib_pypy/pypy_tools/build_cffi_imports.py`_ to
 build them; you don't need to re-translate the whole PyPy):
 
-.. _`lib_pypy/pypy_tools/build_cffi_imports.py`: https://foss.heptapod.net/pypy/pypy/-/blob/branch/default/lib_pypy/pypy_tools/build_cffi_imports.py
+.. _`lib_pypy/pypy_tools/build_cffi_imports.py`: https://github.com/pypy/pypy/blob/main/lib_pypy/pypy_tools/build_cffi_imports.py
 
 sqlite3
     libsqlite3
