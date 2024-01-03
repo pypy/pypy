@@ -82,9 +82,10 @@ Some ideas for first contributions are:
 Source Control
 --------------
 
-PyPy's main repositories are hosted here: https://github.com/pypy.
+PyPy's main git repositories are hosted here: https://github.com/pypy,
+and legacy repositories are hosted here: https://foss.heptapod.net/pypy.
 
-Pypy's repositories used to be hosted on `Heptapod <https://heptapod.net/>`_.
+Pypy's legacy repositories are hosted on `Heptapod <https://heptapod.net/>`_.
 Heptapod is a friendly fork of GitLab Community
 Edition supporting Mercurial. https://foss.heptapod.net is a public instance
 for Free and Open-Source Software (more information `here
