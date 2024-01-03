@@ -7,6 +7,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import TypeDef
+from pypy.objspace.std.objectobject import ObjectObjectDocstrings
 from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
     normalize_simple_slice)
 from pypy.objspace.std.util import negate, IDTAG_SPECIAL, IDTAG_SHIFT
@@ -251,11 +252,11 @@ tuple(sequence) -> tuple initialized from sequence's items
 
 If the argument is a tuple, the return value is the same object.""",
     __new__ = interp2app(W_AbstractTupleObject.descr_new,
-                         doc=TupleDocstrings.__new__.__doc__),
+                         doc=ObjectObjectDocstrings.__new__.__doc__),
     __repr__ = interp2app(W_AbstractTupleObject.descr_repr,
-                          doc=TupleDocstrings.__repr__.__doc__),
+                          doc=ObjectObjectDocstrings.__repr__.__doc__),
     __hash__ = interpindirect2app(W_AbstractTupleObject.descr_hash,
-                                  doc=TupleDocstrings.__hash__.__doc__),
+                                  doc=ObjectObjectDocstrings.__hash__.__doc__),
 
     __eq__ = interpindirect2app(W_AbstractTupleObject.descr_eq,
                                 doc=TupleDocstrings.__eq__.__doc__),
@@ -406,15 +407,6 @@ def wraptuple2(space, w_a, w_b):
     return W_TupleObject([w_a, w_b])
 
 class TupleDocstrings:
-
-    def __new__():
-        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
-
-    def __repr__():
-        """x.__repr__() <==> repr(x)"""
-
-    def __hash__():
-        """x.__hash__() <==> hash(x)"""
 
     def __eq__():
         """x.__eq__(y) <==> x==y'"""
