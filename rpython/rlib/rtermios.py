@@ -17,10 +17,6 @@ eci = ExternalCompilationInfo(
 
 class CConfig:
     _compilation_info_ = eci
-    _HAVE_STRUCT_TERMIOS_C_ISPEED = rffi_platform.Defined(
-            '_HAVE_STRUCT_TERMIOS_C_ISPEED')
-    _HAVE_STRUCT_TERMIOS_C_OSPEED = rffi_platform.Defined(
-            '_HAVE_STRUCT_TERMIOS_C_OSPEED')
 
 CONSTANT_NAMES = (
     # cfgetospeed(), cfsetospeed() constants
@@ -105,32 +101,20 @@ for name in CONSTANT_NAMES:
         globals()[name] = value
         all_constants[name] = value
             
-TCFLAG_T = rffi.UINT
-CC_T = rffi.UCHAR
 SPEED_T = rffi.UINT
-
-_add = []
-if c_config['_HAVE_STRUCT_TERMIOS_C_ISPEED']:
-    _add.append(('c_ispeed', SPEED_T))
-if c_config['_HAVE_STRUCT_TERMIOS_C_OSPEED']:
-    _add.append(('c_ospeed', SPEED_T))
-TERMIOSP = rffi.CStructPtr('termios', ('c_iflag', TCFLAG_T), ('c_oflag', TCFLAG_T),
-                           ('c_cflag', TCFLAG_T), ('c_lflag', TCFLAG_T),
-                           ('c_line', CC_T),
-                           ('c_cc', lltype.FixedSizeArray(CC_T, NCCS)), *_add)
 
 def c_external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
 
-c_tcgetattr = c_external('tcgetattr', [rffi.INT, TERMIOSP], rffi.INT,
+c_tcgetattr = c_external('tcgetattr', [rffi.INT, rposix.TERMIOS_P], rffi.INT,
                          save_err=rffi.RFFI_SAVE_ERRNO)
-c_tcsetattr = c_external('tcsetattr', [rffi.INT, rffi.INT, TERMIOSP], rffi.INT,
+c_tcsetattr = c_external('tcsetattr', [rffi.INT, rffi.INT, rposix.TERMIOS_P], rffi.INT,
                          save_err=rffi.RFFI_SAVE_ERRNO)
-c_cfgetispeed = c_external('cfgetispeed', [TERMIOSP], SPEED_T)
-c_cfgetospeed = c_external('cfgetospeed', [TERMIOSP], SPEED_T)
-c_cfsetispeed = c_external('cfsetispeed', [TERMIOSP, SPEED_T], rffi.INT,
+c_cfgetispeed = c_external('cfgetispeed', [rposix.TERMIOS_P], SPEED_T)
+c_cfgetospeed = c_external('cfgetospeed', [rposix.TERMIOS_P], SPEED_T)
+c_cfsetispeed = c_external('cfsetispeed', [rposix.TERMIOS_P, SPEED_T], rffi.INT,
                            save_err=rffi.RFFI_SAVE_ERRNO)
-c_cfsetospeed = c_external('cfsetospeed', [TERMIOSP, SPEED_T], rffi.INT,
+c_cfsetospeed = c_external('cfsetospeed', [rposix.TERMIOS_P, SPEED_T], rffi.INT,
                            save_err=rffi.RFFI_SAVE_ERRNO)
 
 c_tcsendbreak = c_external('tcsendbreak', [rffi.INT, rffi.INT], rffi.INT,
@@ -144,7 +128,7 @@ c_tcflow = c_external('tcflow', [rffi.INT, rffi.INT], rffi.INT,
 
 
 def tcgetattr(fd):
-    with lltype.scoped_alloc(TERMIOSP.TO) as c_struct:
+    with lltype.scoped_alloc(rposix.TERMIOS_P.TO) as c_struct:
         if c_tcgetattr(fd, c_struct) < 0:
             raise OSError(rposix.get_saved_errno(), 'tcgetattr failed')
         cc = [chr(c_struct.c_c_cc[i]) for i in range(NCCS)]
@@ -159,7 +143,7 @@ def tcgetattr(fd):
 # This function is not an exact replacement of termios.tcsetattr:
 # the last attribute must be a list of chars.
 def tcsetattr(fd, when, attributes):
-    with lltype.scoped_alloc(TERMIOSP.TO) as c_struct:
+    with lltype.scoped_alloc(rposix.TERMIOS_P.TO) as c_struct:
         rffi.setintfield(c_struct, 'c_c_iflag', attributes[0])
         rffi.setintfield(c_struct, 'c_c_oflag', attributes[1])
         rffi.setintfield(c_struct, 'c_c_cflag', attributes[2])

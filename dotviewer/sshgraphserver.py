@@ -51,7 +51,7 @@ def ssh_graph_server(sshargs):
                          stdout=subprocess.PIPE)
     p.stdin.write(forcestr(repr('port=%d\n%s' % (remoteport, REMOTE_SOURCE)) + '\n'))
     line = p.stdout.readline()
-    assert line == 'OK\n'
+    assert line == b'OK\n'
 
     graphserver.listen_server(None, s1=s1)
 

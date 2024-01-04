@@ -111,7 +111,7 @@ def range_with_longs(space, w_start, w_stop, w_step):
 
     if not step.tobool():
         raise oefmt(space.w_ValueError, "step argument must not be zero")
-    elif step.sign < 0:
+    elif step.get_sign() < 0:
         lo, hi, st = hi, lo, st.neg()
 
     if lo.lt(hi):

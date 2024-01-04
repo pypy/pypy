@@ -1,5 +1,5 @@
 from __future__ import print_function
-import sys, shutil, os, tempfile, hashlib, collections
+import sys, shutil, os, tempfile, hashlib
 import sysconfig
 from os.path import join
 
@@ -22,7 +22,7 @@ class MissingDependenciesError(Exception):
     pass
 
 
-cffi_build_scripts = collections.OrderedDict({
+cffi_build_scripts = [
     ("_ctypes._ctypes_cffi",
      "_ctypes/_ctypes_build.py" if sys.platform == 'darwin' else None),
     ("_pypy_util_cffi_inner", "_pypy_util_build.py"), # this needs to come before ssl
@@ -37,7 +37,7 @@ cffi_build_scripts = collections.OrderedDict({
     ("resource", "_resource_build.py" if sys.platform != "win32" else None),
     # ("_decimal", "_decimal_build.py"),  # issue 3024
     ("xx", None),    # for testing: 'None' should be completely ignored
-    })
+    ]
 
 # for distribution, we may want to fetch dependencies not provided by
 # the OS, such as a recent openssl/libressl.
@@ -49,39 +49,27 @@ configure_args = ['./configure',
             '--enable-silent-rules',
             '--disable-dependency-tracking',
         ]
-# please note the deliberate use of a mirror site: we can't use HTTPS
-# without an _ssl module, but the OpenSSL download site redirect HTTP
-# to HTTPS
 cffi_dependencies = {
-    '_ssl1': ('http://artfiles.org/openssl.org/source/openssl-1.1.1v.tar.gz',
-              'd6697e2871e77238460402e9362d47d18382b15ef9f246aba6c7bd780d38a6b0',
-             [
-              ['./config', '--prefix=/usr', 'no-shared'],
-              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
-              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ]),
-    '_ssl3': ('http://artfiles.org/openssl.org/source/openssl-3.0.10.tar.gz',
-              '1761d4f5b13a1028b9b6f3d4b8e17feb0cedc9370f6afe61d7193d2cdce83323',
+    '_ssl': ('https://www.openssl.org/source/openssl-3.0.12.tar.gz',
+              'f93c9e8edde5e9166119de31755fc87b4aa34863662f67ddfcba14d0b6b69b61',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
-    'lzma': ('http://distfiles.macports.org/xz/xz-5.2.10.tar.bz2',
-             '01b71df61521d9da698ce3c33148bff06a131628ff037398c09482f3a26e5408',
+    'lzma': ('https://github.com/tukaani-project/xz/releases/download/v5.2.12/xz-5.2.12.tar.gz',
+             '61bda930767dcb170a5328a895ec74cab0f5aac4558cdda561c83559db582a13',
              [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
 }
 
-cffi_dependencies['_ssl'] = cffi_dependencies['_ssl1']
-
 if sys.platform == "darwin":
     # this does not compile on the linux buildbot, linker is missing '_history_list'
     cffi_dependencies['gdbm'] = (
-              'http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
-              '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
+              'https://ftp.gnu.org/gnu/gdbm/gdbm-1.23.tar.gz',
+              '74b1081d21fff13ae4bd7c16e5d6e504a4c26f7cde1dca0d963a484174bbcacd',
               [configure_args + ['--without-readline'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
@@ -114,11 +102,6 @@ def _build_dependency(name, patches=[]):
     from rpython.tool.runsubprocess import run_subprocess
 
     try:
-        from urllib.request import urlretrieve
-    except ImportError:
-        from urllib import urlretrieve
-
-    try:
         url, dgst, build_cmds = cffi_dependencies[name]
     except KeyError:
         return 0, None, None
@@ -132,8 +115,16 @@ def _build_dependency(name, patches=[]):
 
     # next, fetch the archive to disk, if needed
     if not os.path.exists(archive) or _sha256(archive) != dgst:
-        print('fetching archive', url, file=sys.stderr)
-        urlretrieve(url, archive)
+        # Since we do not have a functioning ssl module, we cannot use urllib
+        # On one of the buildbots, wget is broken
+        if os.environ.get("USE_CURL", False):
+            print('fetching archive via curl', url, file=sys.stderr)
+            status, stdout, stderr = run_subprocess('curl', ['-sSLo', archive, url])
+        else:
+            print('fetching archive via wget', url, file=sys.stderr)
+            status, stdout, stderr = run_subprocess('wget', ['-O', archive, url])
+        if status != 0:
+            return status, stdout, stderr
 
     # make sure the hash matches
     if _sha256(archive) != dgst:
@@ -199,7 +190,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         status, stdout, stderr = run_subprocess(str(pypy_c), ['-m', 'ensurepip'])
     failures = []
 
-    for key, module in cffi_build_scripts.items():
+    for key, module in cffi_build_scripts:
         if only and key not in only:
             print("* SKIPPING", key, '(not specified in --only)')
             continue
@@ -329,10 +320,10 @@ libraries (see error messages just above) and then re-run the command:
     if len(sys.argv) > 1 and sys.argv[1] == '--test':
         # monkey patch a failure, just to test
         print('This line should be followed by a traceback', file=sys.stderr)
-        for k in cffi_build_scripts:
+        for k, m in cffi_build_scripts:
             setattr(options, 'no_' + k, True)
         must_fail = '_missing_build_script.py'
         assert not os.path.exists(str(join(join(basedir,'lib_pypy'),must_fail)))
-        cffi_build_scripts['should_fail'] = must_fail
+        cffi_build_scripts.append('should_fail', must_fail)
         failures = create_cffi_import_libraries(exename, options, basedir, only=only)
         assert len(failures) == 1

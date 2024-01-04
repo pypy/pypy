@@ -200,3 +200,38 @@ os_symlink_impl(wchar_t *src, wchar_t *dst, int target_is_directory)
     }
     return (int)result;
 }
+
+RPY_EXPORTED int
+os_unlink_impl(wchar_t *lpFileName)
+{
+    /* Taken from Py_DeleteFileW in posixmodule.c */
+    WIN32_FILE_ATTRIBUTE_DATA info;
+    WIN32_FIND_DATAW find_data;
+    HANDLE find_data_handle;
+    int is_directory = 0;
+    int is_link = 0;
+
+    if (GetFileAttributesExW(lpFileName, GetFileExInfoStandard, &info)) {
+        is_directory = info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY;
+
+        /* Get WIN32_FIND_DATA structure for the path to determine if
+           it is a symlink */
+        if(is_directory &&
+           info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) {
+            find_data_handle = FindFirstFileW(lpFileName, &find_data);
+
+            if(find_data_handle != INVALID_HANDLE_VALUE) {
+                /* IO_REPARSE_TAG_SYMLINK if it is a symlink and
+                   IO_REPARSE_TAG_MOUNT_POINT if it is a junction point. */
+                is_link = find_data.dwReserved0 == IO_REPARSE_TAG_SYMLINK ||
+                          find_data.dwReserved0 == IO_REPARSE_TAG_MOUNT_POINT;
+                FindClose(find_data_handle);
+            }
+        }
+    }
+
+    if (is_directory && is_link)
+        return (int)RemoveDirectoryW(lpFileName);
+
+    return (int)DeleteFileW(lpFileName);
+}

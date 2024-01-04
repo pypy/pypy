@@ -161,7 +161,7 @@ def marshal_long(space, w_long, m):
     SHIFT = 15
     MASK = (1 << SHIFT) - 1
     num = w_long.asbigint()
-    sign = num.sign
+    sign = num.get_sign()
     num = num.abs()
     total_length = (num.bit_length() + (SHIFT - 1)) / SHIFT
     m.put_int(total_length * sign)

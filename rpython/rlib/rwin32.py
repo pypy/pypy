@@ -24,7 +24,7 @@ if WIN32:
     eci = ExternalCompilationInfo(
         includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h', 'winreparse.h'],
         include_dirs = [srcdir, cdir],
-        libraries = ['kernel32'],
+        libraries = ['kernel32', 'Advapi32'],
         separate_module_files = [os.path.join(srcdir, "winreparse.c")],
         )
 
@@ -652,3 +652,26 @@ if WIN32:
     os_symlink_impl = winexternal("os_symlink_impl",
         [rffi.CWCHARP, rffi.CWCHARP, rffi.INT], rffi.INT,
         save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    os_unlink_impl = winexternal("os_unlink_impl", [rffi.CWCHARP], rffi.INT,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    GetUserNameW = winexternal('GetUserNameW', [LPWSTR, LPDWORD], rffi.INT,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    def getlogin():
+        UNLEN = 256  # from lmcons.h
+        with lltype.scoped_alloc(LPWSTR.TO, UNLEN) as user_name:
+            num_chars = lltype.malloc(LPDWORD.TO, 1, flavor='raw')
+            try:
+                num_chars[0] = rffi.cast(DWORD, UNLEN)
+                n = GetUserNameW(user_name, num_chars)
+                if n == -1:
+                    error = GetLastError_saved()
+                    raise WindowsError(error, "getlogin failed")
+                utf8, codepoints = rffi.wcharp2utf8n(user_name,
+                                                     widen(num_chars[0]))
+                return utf8
+            finally:
+                lltype.free(num_chars, flavor="raw")
+ 

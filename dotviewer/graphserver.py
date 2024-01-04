@@ -126,7 +126,7 @@ class Server(object):
 
 
 def listen_server(local_address, s1=None):
-    import socket, graphclient, thread
+    import socket, graphclient
     if isinstance(local_address, str):
         if ':' in local_address:
             interface, port = local_address.split(':')

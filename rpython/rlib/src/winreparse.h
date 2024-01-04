@@ -52,10 +52,13 @@ typedef struct {
 #endif
 
 RPY_EXPORTED int
-os_readlink_impl(wchar_t *path_wide, void *target_buffer, wchar_t *result);
+os_readlink_impl(wchar_t *path_wide, void *target_buffer, wchar_t **result);
 
 RPY_EXPORTED int
 os_symlink_impl(wchar_t *src, wchar_t *dst, int target_is_directory);
+
+RPY_EXPORTED int
+os_unlink_impl(wchar_t *src);
 
 #ifdef __cplusplus
 }

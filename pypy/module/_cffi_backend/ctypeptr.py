@@ -46,9 +46,13 @@ class W_CTypePtrOrArray(W_CType):
         if self.size < 0:
             return W_CType.cast(self, w_ob)
         space = self.space
+        from pypy.module._cffi_backend import wrapper
         if (isinstance(w_ob, cdataobj.W_CData) and
                 isinstance(w_ob.ctype, W_CTypePtrOrArray)):
             value = w_ob.unsafe_escaping_ptr()
+        elif (isinstance(w_ob, wrapper.W_FunctionWrapper) and
+                w_ob.directfnptr):
+            value = w_ob.directfnptr
         else:
             value = misc.as_unsigned_long(space, w_ob, strict=False)
             value = rffi.cast(rffi.CCHARP, value)
@@ -164,7 +168,11 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
 
     def convert_from_object(self, cdata, w_ob):
         if not isinstance(w_ob, cdataobj.W_CData):
-            raise self._convert_error("cdata pointer", w_ob)
+            from pypy.module._cffi_backend import wrapper
+            if isinstance(w_ob, wrapper.W_FunctionWrapper):
+                w_ob = w_ob.try_extract_direct_fnptr_as_cdata(self.space)
+            if not isinstance(w_ob, cdataobj.W_CData):
+                raise self._convert_error("cdata pointer", w_ob)
         other = w_ob.ctype
         if not isinstance(other, W_CTypePtrBase):
             from pypy.module._cffi_backend import ctypearray
