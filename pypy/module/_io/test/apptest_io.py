@@ -413,3 +413,16 @@ def test_io_after_close(tempfile):
         raises(ValueError, f.write, b"" if "b" in kwargs['mode'] else u"")
         raises(ValueError, f.writelines, [])
         raises(ValueError, next, f)
+
+def test_bug_newlines_rr_at_end():
+    import io
+    lines = io.TextIOWrapper(io.BytesIO(b"\r\r"), newline="").readlines()
+    assert lines == [u'\r', u'\r']
+    lines = io.TextIOWrapper(io.BytesIO(b"\r\r\r\r"), newline="").readlines()
+    assert lines == [u'\r', u'\r', u'\r', u'\r']
+    lines = io.TextIOWrapper(io.BytesIO(b"a\r\rb\r\r"), newline="").readlines()
+    assert lines == [u'a\r', u'\r', u'b\r', u'\r']
+    lines = io.TextIOWrapper(io.BytesIO(b"a\r\rb\r\rc"), newline="").readlines()
+    assert lines == [u'a\r', u'\r', u'b\r', u'\r', u'c']
+    lines = io.TextIOWrapper(io.BytesIO(b"a\r\rb\r\n"), newline="").readlines()
+    assert lines == [u'a\r', u'\r', u'b\r\n']

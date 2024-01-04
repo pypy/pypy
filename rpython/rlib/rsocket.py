@@ -1790,3 +1790,18 @@ if hasattr(_c, 'sethostname'):
             res = _c.sethostname(buf, len(hostname))
             if res < 0:
                 raise last_error()
+
+def if_nameindex():
+    if_nameindex_s_ptr = _c.if_nameindex()
+    if not if_nameindex_s_ptr:
+        raise last_error()
+    if_nameindex_arr = rffi.cast(rffi.CArrayPtr(_c.if_nameindex_s), if_nameindex_s_ptr)
+    out = []
+    i = 0
+    while 1:
+        v = if_nameindex_arr[i]
+        if not v.c_if_name:
+            break
+        out.append((v.c_if_index, rffi.charp2str(v.c_if_name)))
+        i += 1
+    return out 

@@ -29,7 +29,7 @@ RPY_EXTERN struct pypy_threadlocal_s *
 _RPython_ThreadLocals_Enum(struct pypy_threadlocal_s *prev);
 
 /* will return the head of the list */
-RPY_EXTERN struct pypy_threadlocal_s *_RPython_ThreadLocals_Head();
+RPY_EXTERN struct pypy_threadlocal_s *_RPython_ThreadLocals_Head(void);
 
 #define OP_THREADLOCALREF_ACQUIRE(r)   _RPython_ThreadLocals_Acquire()
 #define OP_THREADLOCALREF_RELEASE(r)   _RPython_ThreadLocals_Release()

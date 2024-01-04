@@ -183,7 +183,7 @@ def realize_global_int(ffi, g, gindex):
         got = "%d" % (rffi.cast(rffi.LONGLONG, value),)
     raise oefmt(ffi.w_FFIError,
                 "the C compiler says '%s' is equal to %s, "
-                "but the cdef disagrees", rffi.charp2str(g.c_name), got)
+                "but the cdef disagrees", rffi.constcharp2str(g.c_name), got)
 
 
 class W_RawFuncType(W_Root):
@@ -311,9 +311,9 @@ def _realize_name(prefix, charp_src_name):
     # "$1" => "struct $1"
     if (charp_src_name[0] == '$' and charp_src_name[1] != '$'
             and not ('0' <= charp_src_name[1] <= '9')):
-        return rffi.charp2str(rffi.ptradd(charp_src_name, 1))
+        return rffi.constcharp2str(rffi.ptradd(charp_src_name, 1))
     else:
-        return prefix + rffi.charp2str(charp_src_name)
+        return prefix + rffi.constcharp2str(charp_src_name)
 
 
 def _realize_c_struct_or_union(ffi, sindex):
@@ -321,7 +321,8 @@ def _realize_c_struct_or_union(ffi, sindex):
         # returns a single global cached opaque type
         return ffi.space.fromcache(RealizeCache).get_file_struct()
 
-    s = ffi.ctxobj.ctx.c_struct_unions[sindex]
+    unions = rffi.cast(rffi.CArrayPtr(parse_c_type.STRUCT_UNION_S), ffi.ctxobj.ctx.c_struct_unions)
+    s = unions[sindex]
     type_index = rffi.getintfield(s, 'c_type_index')
     if ffi.cached_types[type_index] is not None:
         return ffi.cached_types[type_index] #found already in the "primary" slot
@@ -358,11 +359,11 @@ def _realize_c_struct_or_union(ffi, sindex):
             raise oefmt(ffi.w_FFIError,
                     "'%s %s' should come from ffi.include() but was not found",
                     "union" if c_flags & cffi_opcode.F_UNION else "struct",
-                    rffi.charp2str(s.c_name))
+                    rffi.constcharp2str(s.c_name))
         assert isinstance(x, ctypestruct.W_CTypeStructOrUnion)
         if (c_flags & cffi_opcode.F_OPAQUE) == 0 and x.size < 0:
             prefix = "union" if c_flags & cffi_opcode.F_UNION else "struct"
-            name = rffi.charp2str(s.c_name)
+            name = rffi.constcharp2str(s.c_name)
             raise oefmt(space.w_NotImplementedError,
                     "'%s %s' is opaque in the ffi.include(), but no "
                     "longer in the ffi doing the include (workaround: don't "
@@ -385,7 +386,9 @@ def _realize_c_struct_or_union(ffi, sindex):
     return x
 
 def _realize_c_enum(ffi, eindex):
-    e = ffi.ctxobj.ctx.c_enums[eindex]
+    enums = rffi.cast(rffi.CArrayPtr(parse_c_type.ENUM_S), ffi.ctxobj.ctx.c_enums)
+    globals = rffi.cast(rffi.CArrayPtr(parse_c_type.GLOBAL_S), ffi.ctxobj.ctx.c_globals)
+    e = enums[eindex]
     type_index = rffi.getintfield(e, 'c_type_index')
     if ffi.cached_types[type_index] is not None:
         return ffi.cached_types[type_index] #found already in the "primary" slot
@@ -401,12 +404,12 @@ def _realize_c_enum(ffi, eindex):
             j = 0
             while p[j] != ',' and p[j] != '\x00':
                 j += 1
-            enname = rffi.charpsize2str(p, j)
+            enname = rffi.constcharpsize2str(p, j)
             enumerators_w.append(space.newtext(enname))
 
             gindex = parse_c_type.search_in_globals(ffi.ctxobj.ctx, enname)
             assert gindex >= 0
-            g = ffi.ctxobj.ctx.c_globals[gindex]
+            g = globals[gindex]
             assert getop(g.c_type_op) == cffi_opcode.OP_ENUM
             assert getarg(g.c_type_op) == -1
 
@@ -497,8 +500,8 @@ def realize_c_type_or_func_now(ffi, op, opcodes, index):
         # essential: the TYPENAME opcode resolves the type index looked
         # up in the 'ctx.c_typenames' array, but it does so in 'ctx.c_types'
         # instead of in 'opcodes'!
-        type_index = rffi.getintfield(ffi.ctxobj.ctx.c_typenames[getarg(op)],
-                                      'c_type_index')
+        typenames = rffi.cast(rffi.CArrayPtr(parse_c_type.TYPENAME_S), ffi.ctxobj.ctx.c_typenames)
+        type_index = rffi.getintfield(typenames[getarg(op)], 'c_type_index')
         x = realize_c_type_or_func(ffi, ffi.ctxobj.ctx.c_types, type_index)
 
     else:
@@ -521,9 +524,10 @@ def do_realize_lazy_struct(w_ctype):
     num_fields = rffi.getintfield(s, 'c_num_fields')
     fields_w = [None] * num_fields
 
+    fields = rffi.cast(rffi.CArrayPtr(parse_c_type.FIELD_S), ffi.ctxobj.ctx.c_fields)
     for i in range(num_fields):
-        fld = ffi.ctxobj.ctx.c_fields[first_field + i]
-        field_name   = rffi.charp2str(fld.c_name)
+        fld = fields[first_field + i]
+        field_name   = rffi.constcharp2str(fld.c_name)
         field_size   = rffi.getintfield(fld, 'c_field_size')
         field_offset = rffi.getintfield(fld, 'c_field_offset')
         op = rffi.getintfield(fld, 'c_field_type_op')
@@ -588,7 +592,7 @@ def do_realize_lazy_struct(w_ctype):
 
 
 def _fetch_external_struct_or_union(s, included_ffis_libs):
-    name = rffi.charp2str(s.c_name)
+    name = rffi.constcharp2str(s.c_name)
     #
     for ffi1, _ in included_ffis_libs:
         ctx1 = ffi1.ctxobj.ctx
@@ -596,7 +600,8 @@ def _fetch_external_struct_or_union(s, included_ffis_libs):
         if sindex < 0:   # not found at all
             continue
 
-        s1 = ctx1.c_struct_unions[sindex]
+        unions = rffi.cast(rffi.CArrayPtr(parse_c_type.STRUCT_UNION_S), ctx1.c_struct_unions)
+        s1 = unions[sindex]
         s1_flags = rffi.getintfield(s1, 'c_flags')
         s_flags  = rffi.getintfield(s,  'c_flags')
         if ((s1_flags & (cffi_opcode.F_EXTERNAL | cffi_opcode.F_UNION))

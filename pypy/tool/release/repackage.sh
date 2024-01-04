@@ -1,11 +1,11 @@
 #! /bin/bash
 
 # Edit these appropriately before running this script
-pmaj=3  # python main version: 2 or 3
-pmin=10  # python minor version
+pmaj=2  # python main version: 2 or 3
+pmin=7  # python minor version
 maj=7
 min=3
-rev=12
+rev=14
 #rc=rc2  # comment this line for actual release
 
 function maybe_exit {

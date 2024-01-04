@@ -197,7 +197,7 @@ def test_stat_result():
     assert sttuple[3] == st[3]
     assert sttuple[4] == st[4]
     assert sttuple[5] == st[5]
-    assert len(sttuple) == 10
+    assert len(sttuple) in (10, 12)
 
 def test_longlong():
     # get_loader for (r_longolong, nonneg=True) used to return

@@ -73,8 +73,9 @@ class TestPosixStatFunctions:
 
     @py.test.mark.skipif(sys.platform != 'win32', reason='win32 test')
     def test_stat3_ino_dev(self):
-        st = rposix_stat.stat('C:\\')
-        assert st.st_dev == st.st_ino == 0
+        # PyPy 2 uses python3 semantics
+        # st = rposix_stat.stat('C:\\')
+        # assert st.st_dev == st.st_ino == 0
         st = rposix_stat.stat3('C:\\')
         assert st.st_dev != 0 and st.st_ino != 0
         assert st.st_file_attributes & 0x16  # FILE_ATTRIBUTE_DIRECTORY

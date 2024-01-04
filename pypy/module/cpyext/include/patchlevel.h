@@ -32,8 +32,8 @@
  *     module/sys/version.py
  *     doc/conf.py
  */
-#define PYPY_VERSION "7.3.13-alpha0"
-#define PYPY_VERSION_NUM  0x07030d00
+#define PYPY_VERSION "7.3.15-alpha0"
+#define PYPY_VERSION_NUM  0x07030f00
 /* Defined to mean a PyPy where cpyext holds more regular references
    to PyObjects, e.g. staying alive as long as the internal PyPy object
    stays alive. */

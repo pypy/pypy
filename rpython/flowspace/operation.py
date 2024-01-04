@@ -156,6 +156,8 @@ class PureOperation1(PureOperation):
     pure = True
 
     def constfold(self):
+        if len(self.args) != 1:
+            return PureOperation.constfold(self)
         w_arg0, = self.args
         if not w_arg0.foldable():
             return

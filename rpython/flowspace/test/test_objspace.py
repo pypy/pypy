@@ -1393,6 +1393,11 @@ class TestFlowObjSpace(Base):
         e = py.test.raises(ValueError, build_flow, Exception.__init__)
         assert ' is not RPython:' in str(e.value)
 
+    def test_dont_crash_fold_wrong_arity(self):
+        def f():
+            return str()
+        graph = self.codetest(f)
+        assert graph.startblock.exits[0].args[0].value == ''
 
 DATA = {'x': 5,
         'y': 6}

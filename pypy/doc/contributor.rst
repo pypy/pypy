@@ -147,6 +147,7 @@ Contributors
   Dusty Phillips
   Guenter Jantzen
   Nils Müller
+  Max Bernstein
   Amit Regmi
   Ned Batchelder
   Jasper Schulz
@@ -160,6 +161,7 @@ Contributors
   Nicholas Riley
   Michael Schneider
   Yusuke Tsutsumi
+  Tim Matussek
   Rocco Moretti
   Gintautas Miliauskas
   Michael Twomey
@@ -186,6 +188,7 @@ Contributors
   Aaron Iles
   Christian Hudon
   Daniel Patrick
+  Rodrigo Tobar
   Justas Sadzevicius
   Gasper Zejn
   Neil Shepperd
@@ -234,7 +237,7 @@ Contributors
   Arianna Avanzini
   Matt Billenstein
   Sebastian Berg
-  Tim Matussek
+  Caleb Burns
   Jacek Generowicz
   Sylvain Thenault
   Alejandro J. Cura

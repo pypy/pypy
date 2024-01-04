@@ -152,7 +152,7 @@ class SomeStatResult(annmodel.SomeObject):
 
     if sys.platform == 'win32':
         def _get_rmarshall_support_(self):     # for rlib.rmarshal
-            # reduce and recreate stat_result objects from 10-tuples
+            # reduce and recreate stat_result objects from 10-tuples or 12-tuples
             # (we ignore the extra values here for simplicity and portability)
             def stat_result_reduce(st):
                 return (st[0], st[1], st[2], st[3], st[4],
@@ -172,8 +172,8 @@ class SomeStatResult(annmodel.SomeObject):
             s_reduced = annmodel.SomeTuple([lltype_to_annotation(TYPE)
                                         for name, TYPE in PORTABLE_STAT_FIELDS[:7]]
                                  + 3 * [lltype_to_annotation(lltype.Float)]
-                                 + 2 * [lltype_to_annotation(lltype.Int)])
-            extra_zeroes = (0,) * (len(STAT_FIELDS) - len(PORTABLE_STAT_FIELDS) - 3)
+                                 + 2 * [lltype_to_annotation(lltype.Signed)])
+            extra_zeroes = (0,) * (len(STAT_FIELDS) - len(PORTABLE_STAT_FIELDS) - 5)
             return s_reduced, stat_result_reduce, stat_result_recreate
     else:
         def _get_rmarshall_support_(self):     # for rlib.rmarshal
@@ -411,10 +411,7 @@ if sys.platform.startswith('win'):
     _name_struct_stat = '_stati64'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h']
 else:
-    if _LINUX:
-        _name_struct_stat = 'stat64'
-    else:
-        _name_struct_stat = 'stat'
+    _name_struct_stat = 'stat'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h', 'unistd.h']
 
 compilation_info = ExternalCompilationInfo(
@@ -494,7 +491,7 @@ if sys.platform == 'win32':
 else:
     STAT_FIELDS += ALL_STAT_FIELDS[-3:]   # nsec_Xtime
 
-# these two global vars only list the fields defined in the underlying platform
+# these global vars only list the fields defined in the underlying platform
 STAT_FIELD_TYPES = dict(STAT_FIELDS)      # {'st_xxx': TYPE}
 STAT_FIELD_NAMES = [_name for (_name, _TYPE) in STAT_FIELDS]
 del _name, _TYPE
@@ -564,17 +561,17 @@ def build_statvfs_result(st):
 # Implement and register os.stat() & variants
 
 if not _WIN32:
-  c_fstat = rffi.llexternal('fstat64' if _LINUX else 'fstat',
+  c_fstat = rffi.llexternal('fstat',
                             [rffi.INT, STAT_STRUCT], rffi.INT,
                             compilation_info=compilation_info,
                             save_err=rffi.RFFI_SAVE_ERRNO,
                             macro=True)
-  c_stat = rffi.llexternal('stat64' if _LINUX else 'stat',
+  c_stat = rffi.llexternal('stat',
                            [rffi.CCHARP, STAT_STRUCT], rffi.INT,
                            compilation_info=compilation_info,
                            save_err=rffi.RFFI_SAVE_ERRNO,
                            macro=True)
-  c_lstat = rffi.llexternal('lstat64' if _LINUX else 'lstat',
+  c_lstat = rffi.llexternal('lstat',
                             [rffi.CCHARP, STAT_STRUCT], rffi.INT,
                             compilation_info=compilation_info,
                             save_err=rffi.RFFI_SAVE_ERRNO,
@@ -676,7 +673,7 @@ def lstat3(path):
 
 if rposix.HAVE_FSTATAT:
     from rpython.rlib.rposix import AT_FDCWD, AT_SYMLINK_NOFOLLOW
-    c_fstatat = rffi.llexternal('fstatat64' if _LINUX else 'fstatat',
+    c_fstatat = rffi.llexternal('fstatat',
         [rffi.INT, rffi.CCHARP, STAT_STRUCT, rffi.INT], rffi.INT,
         compilation_info=compilation_info,
         save_err=rffi.RFFI_SAVE_ERRNO, macro=True)
@@ -856,7 +853,9 @@ if _WIN32:
     def win32_attributes_to_mode(win32traits, attributes):
         m = 0
         attributes = widen(attributes)
-        if attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
+        if attributes & win32traits.FILE_ATTRIBUTE_REPARSE_POINT:
+            m |= win32traits._S_IFLNK
+        elif attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
             m |= win32traits._S_IFDIR | 0111 # IFEXEC for user,group,other
         else:
             m |= win32traits._S_IFREG

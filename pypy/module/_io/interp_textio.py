@@ -390,8 +390,7 @@ class DecodeBuffer(object):
                 if scanned >= limit:
                     return False
                 if self.exhausted():
-                    # don't split potential \r\n
-                    return False
+                    return True
                 ch = self.text[self.pos]
                 if ch == '\n':
                     self._advance_codepoint()
