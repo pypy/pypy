@@ -42,6 +42,7 @@ class AssemblerRISCV(OpAssembler):
         self.failure_recovery_code = [0, 0, 0, 0]
         self.propagate_exception_path = 0
         self.wb_slowpath = [0, 0, 0, 0, 0]
+        self.stack_check_slowpath = 0
         self._frame_realloc_slowpath = 0
 
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
@@ -362,6 +363,42 @@ class AssemblerRISCV(OpAssembler):
 
     def _call_header_with_stack_check(self):
         self._call_header()
+
+        if self.stack_check_slowpath == 0:
+            pass  # No stack check (e.g. not translated)
+        else:
+            endaddr, lengthaddr, _ = self.cpu.insert_stack_check()
+
+            # hi: endaddr
+            #     stack pointer
+            # lo: startaddr = endaddr - lengthaddr
+
+            scratch_reg = r.x31
+            scratch2_reg = r.x30
+
+            # Load stack end
+            self.mc.load_int_imm(scratch_reg.value, endaddr)
+            self.mc.load_int(scratch_reg.value, scratch_reg.value, 0)
+
+            # Load stack length
+            self.mc.load_int_imm(scratch2_reg.value, lengthaddr)
+            self.mc.load_int(scratch2_reg.value, scratch2_reg.value, 0)
+
+            # Calculate stack_start = stack_end - stack_len
+            self.mc.SUB(scratch_reg.value, scratch_reg.value,
+                        scratch2_reg.value)
+
+            # Patch Location: BGEU sp, stack_start, end
+            pos = self.mc.get_relative_pos()
+            self.mc.EBREAK()
+
+            self.mc.load_int_imm(r.ra.value, self.stack_check_slowpath)
+            self.mc.JALR(r.ra.value, r.ra.value, 0)
+
+            # LABEL[end]:
+            offset = self.mc.get_relative_pos() - pos
+            pmc = OverwritingBuilder(self.mc, pos, INST_SIZE)
+            pmc.BGEU(r.sp.value, scratch_reg.value, offset)
 
     def _call_header(self):
         self._push_callee_save_regs_to_stack(self.mc)
@@ -1133,7 +1170,58 @@ class AssemblerRISCV(OpAssembler):
                                          array=False, is_frame=True)
 
     def _build_stack_check_slowpath(self):
-        pass
+        _, _, slowpathaddr = self.cpu.insert_stack_check()
+        if slowpathaddr == 0 or not self.cpu.propagate_exception_descr:
+            return  # No stack check (for tests, or non-translated)
+
+        # Make a "function" that is called immediately at the start of
+        # an assembler function.  In particular, the stack looks like:
+        #
+        #    | saved argument regs |
+        #    | retaddr             |  <-- sp
+        #    +---------------------+
+        #
+        mc = InstrBuilder()
+
+        # Save argument registers and return address
+        stack_size = (((len(r.argument_regs) + 1) * XLEN + ABI_STACK_ALIGN - 1)
+                      // ABI_STACK_ALIGN * ABI_STACK_ALIGN)
+
+        mc.ADDI(r.sp.value, r.sp.value, -stack_size)
+        mc.store_int(r.ra.value, r.sp.value, 0)
+        for i in range(len(r.argument_regs)):
+            mc.store_int(r.argument_regs[i].value, r.sp.value, (i + 1) * XLEN)
+
+        # Pass current stack pointer as argument to the call
+        mc.MV(r.x10.value, r.sp.value)
+        mc.load_int_imm(r.ra.value, slowpathaddr)
+        mc.JALR(r.ra.value, r.ra.value, 0)
+
+        # Check for an exception
+        mc.load_int_imm(r.x10.value, self.cpu.pos_exception())
+        mc.load_int(r.x10.value, r.x10.value, 0)
+
+        # Patch Location: BNEZ r.x10, propagate_exc
+        jmp = mc.get_relative_pos()
+        mc.EBREAK()
+
+        # Restore registers and return
+        for i in range(len(r.argument_regs)):
+            mc.load_int(r.argument_regs[i].value, r.sp.value, (i + 1) * XLEN)
+        mc.load_int(r.ra.value, r.sp.value, 0)
+        mc.ADDI(r.sp.value, r.sp.value, stack_size)
+        mc.RET()
+
+        # LABEL[propagate_exc]:
+        pmc = OverwritingBuilder(mc, jmp, INST_SIZE)
+        pmc.BNEZ(r.x10.value, mc.get_relative_pos() - jmp)
+
+        mc.ADDI(r.sp.value, r.sp.value, stack_size)
+        mc.load_int_imm(r.ra.value, self.propagate_exception_path)
+        mc.JR(r.ra.value)
+
+        rawstart = mc.materialize(self.cpu, [])
+        self.stack_check_slowpath = rawstart
 
     def _load_fp_imm(self, loc, imm):
         """Load a float immediate value to a fp register."""
