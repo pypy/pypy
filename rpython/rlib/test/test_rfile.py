@@ -3,6 +3,8 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool.udir import udir
 from rpython.rlib import rfile
 
+__pypy__ = "__pypy__" in sys.builtin_module_names
+
 
 class TestFile(BaseRtypingTest):
     def setup_class(cls):
@@ -135,11 +137,19 @@ class TestFile(BaseRtypingTest):
         def f():
             f = open(fname, 'w', 128)
             f.write('dupa\ndupb')
-            f2 = open(fname, 'r')
+            f2 = open(fname, 'r', 0)
             assert f2.read() == ''
             f.write('z' * 120)
+            if __pypy__:
+                # PyPy will flush all 129 characters in a single op
+                # causing the second read bellow to fail without this:
+                f.write('z')
+
+            # This read should get all of the flushed data, but not everything
+            # (because our writes are buffered)
             assert f2.read() != ''
             f.close()
+            # Closing the file should flush the unread bytes
             assert f2.read() != ''
             f2.close()
 
@@ -156,11 +166,19 @@ class TestFile(BaseRtypingTest):
             f = os.fdopen(os.dup(g.fileno()), 'w', 128)
             g.close()
             f.write('dupa\ndupb')
-            f2 = open(fname, 'r')
+            f2 = open(fname, 'r', 0)
             assert f2.read() == ''
             f.write('z' * 120)
+            if __pypy__:
+                # PyPy will flush all 129 characters in a single op
+                # causing the second read bellow to fail without this:
+                f.write('z')
+
+            # This read should get all of the flushed data, but not everything
+            # (because our writes are buffered)
             assert f2.read() != ''
             f.close()
+            # Closing the file should flush the unread bytes
             assert f2.read() != ''
             f2.close()
 
