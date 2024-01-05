@@ -23,7 +23,7 @@ def test_metadata_version():
     line = "Version: %s\n" % VERSION
     metadatafile = py.path.local(__file__).join('..', '..', '..', '..', '..',
                                            'lib_pypy',
-                                           'cffi.%s.dist-info' % VERSION,
+                                           'cffi-%s.dist-info' % VERSION,
                                            'METADATA')
     assert line in metadatafile.readlines()
 
