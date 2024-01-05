@@ -80,7 +80,7 @@ jobs:
       # hanging forever while a subprocess waits on stdin
       run: |
           export PYPY_DONT_RUN_SUBPROCESS=1
-          pypy2 pytest.py -vs rpython/jit/backend/x86
+          pypy2 pytest.py -v rpython/jit/backend/x86
 
   test-jit-other:
     runs-on: ${{ matrix.os }}
@@ -103,7 +103,7 @@ jobs:
       # hanging forever while a subprocess waits on stdin
       run: |
           export PYPY_DONT_RUN_SUBPROCESS=1
-          pypy2 pytest.py -vs rpython/jit --ignore=rpython/jit/backend/x86
+          pypy2 pytest.py -v rpython/jit --ignore=rpython/jit/backend/x86
 
   test-memory:
     runs-on: ${{ matrix.os }}
