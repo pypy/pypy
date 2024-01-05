@@ -320,6 +320,10 @@ def test_get_referents():
     assert x1.stuff in lst2
     assert x2 not in lst2
 
+@py.test.mark.skipif(
+    "__pypy__" in sys.builtin_module_names,
+    reason="rgc.get_rpy_memory_usage does not work on pypy",
+)
 def test_get_memory_usage():
     class X(object):
         pass
