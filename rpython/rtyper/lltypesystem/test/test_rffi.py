@@ -944,7 +944,7 @@ def test_force_cast_unichar():
     if sys.maxunicode == 65535:
         assert cast(LONG, x) == 65535
     else:
-        assert cast(LONG, cast(INT, x)) == -1
+        assert cast(LONG, cast(INT, x)) == sys.maxunicode
 
 def test_c_memcpy():
     p1 = str2charp("hello")
