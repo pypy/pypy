@@ -135,23 +135,22 @@ class TestFile(BaseRtypingTest):
         fname = str(self.tmpdir.join('file_1b'))
 
         def f():
-            f = open(fname, 'w', 128)
-            f.write('dupa\ndupb')
-            f2 = open(fname, 'r', 0)
-            assert f2.read() == ''
-            f.write('z' * 120)
-            if __pypy__:
-                # PyPy will flush all 129 characters in a single op
-                # causing the second read bellow to fail without this:
-                f.write('z')
+            with open(fname, "w", 128) as f_writer:
+                f_writer.write('dupa\ndupb')
+                with open(fname, "r", 0) as f_reader:
+                    assert f_reader.read() == ''
+                    f_writer.write('z' * 120)
+                    if __pypy__:
+                        # PyPy will flush all 129 characters in a single op
+                        # causing the second read bellow to fail without this:
+                        f_writer.write('z')
 
-            # This read should get all of the flushed data, but not everything
-            # (because our writes are buffered)
-            assert f2.read() != ''
-            f.close()
-            # Closing the file should flush the unread bytes
-            assert f2.read() != ''
-            f2.close()
+                    # This read should get all of the flushed data, but not everything
+                    # (because our writes are buffered)
+                    assert f_reader.read() != ''
+                    f_writer.close()
+                    # Closing the file should flush the unread bytes
+                    assert f_reader.read() != ''
 
         f()
         os.unlink(fname)
@@ -162,25 +161,24 @@ class TestFile(BaseRtypingTest):
         fname = str(self.tmpdir.join('file_1b'))
 
         def f():
-            g = open(fname, 'w')
-            f = os.fdopen(os.dup(g.fileno()), 'w', 128)
-            g.close()
-            f.write('dupa\ndupb')
-            f2 = open(fname, 'r', 0)
-            assert f2.read() == ''
-            f.write('z' * 120)
-            if __pypy__:
-                # PyPy will flush all 129 characters in a single op
-                # causing the second read bellow to fail without this:
-                f.write('z')
+            with open(fname, "w") as g:
+                with os.fdopen(os.dup(g.fileno()), 'w', 128) as f_writer:
+                    g.close()
+                    f_writer.write('dupa\ndupb')
+                    with open(fname, 'r', 0) as f_reader:
+                        assert f_reader.read() == ''
+                        f_writer.write('z' * 120)
+                        if __pypy__:
+                            # PyPy will flush all 129 characters in a single op
+                            # causing the second read bellow to fail without this:
+                            f_writer.write('z')
 
-            # This read should get all of the flushed data, but not everything
-            # (because our writes are buffered)
-            assert f2.read() != ''
-            f.close()
-            # Closing the file should flush the unread bytes
-            assert f2.read() != ''
-            f2.close()
+                        # This read should get all of the flushed data, but not everything
+                        # (because our writes are buffered)
+                        assert f_reader.read() != ''
+                        f_writer.close()
+                        # Closing the file should flush the unread bytes
+                        assert f_reader.read() != ''
 
         f()
         os.unlink(fname)
