@@ -221,42 +221,6 @@ def descr___format__(space, w_obj, w_format_spec):
         space.warn(space.newtext(msg), space.w_PendingDeprecationWarning)
     return space.format(w_as_str, w_format_spec)
 
-
-W_ObjectObject.typedef = TypeDef("object",
-    __rpython_level_class__ = W_ObjectObject,
-    __doc__ = "The most base type",
-    __new__ = interp2app(descr__new__,
-                         doc=ObjectObjectDocstrings.__new__.__doc__),
-    __subclasshook__ = interp2app(descr___subclasshook__, as_classmethod=True,
-                                  doc=ObjectObjectDocstrings.__subclasshook__.__doc__),
-
-    # these are actually implemented in pypy.objspace.descroperation
-    __getattribute__ = interp2app(Object.descr__getattribute__.im_func,
-                                  doc=ObjectObjectDocstrings.__getattribute__.__doc__),
-    __setattr__ = interp2app(Object.descr__setattr__.im_func,
-                             doc=ObjectObjectDocstrings.__setattr__.__doc__),
-    __delattr__ = interp2app(Object.descr__delattr__.im_func,
-                             doc=ObjectObjectDocstrings.__delattr__.__doc__),
-
-    __init__ = interp2app(descr__init__,
-                          doc=ObjectObjectDocstrings.__init__.__doc__),
-    __class__ = GetSetProperty(descr_get___class__, descr_set___class__,
-                               doc=ObjectObjectDocstrings.__class__.__doc__),
-    __repr__ = interp2app(descr__repr__,
-                          doc=ObjectObjectDocstrings.__repr__.__doc__),
-    __str__ = interp2app(descr__str__,
-                         doc=ObjectObjectDocstrings.__str__.__doc__),
-    __hash__ = interp2app(default_identity_hash,
-                          doc=ObjectObjectDocstrings.__hash__.__doc__),
-    __reduce__ = interp2app(descr__reduce__,
-                            doc=ObjectObjectDocstrings.__reduce__.__doc__),
-    __reduce_ex__ = interp2app(descr__reduce_ex__,
-                               doc=ObjectObjectDocstrings.__reduce_ex__.__doc__),
-    __format__ = interp2app(descr___format__,
-                            doc=ObjectObjectDocstrings.__format__.__doc__),
-)
-
-
 class ObjectObjectDocstrings:
 
     def __new__():
@@ -304,3 +268,37 @@ class ObjectObjectDocstrings:
 
     def __format__():
         """default object formatter"""
+
+W_ObjectObject.typedef = TypeDef("object",
+    __rpython_level_class__ = W_ObjectObject,
+    __doc__ = "The most base type",
+    __new__ = interp2app(descr__new__,
+                         doc=ObjectObjectDocstrings.__new__.__doc__),
+    __subclasshook__ = interp2app(descr___subclasshook__, as_classmethod=True,
+                                  doc=ObjectObjectDocstrings.__subclasshook__.__doc__),
+
+    # these are actually implemented in pypy.objspace.descroperation
+    __getattribute__ = interp2app(Object.descr__getattribute__.im_func,
+                                  doc=ObjectObjectDocstrings.__getattribute__.__doc__),
+    __setattr__ = interp2app(Object.descr__setattr__.im_func,
+                             doc=ObjectObjectDocstrings.__setattr__.__doc__),
+    __delattr__ = interp2app(Object.descr__delattr__.im_func,
+                             doc=ObjectObjectDocstrings.__delattr__.__doc__),
+
+    __init__ = interp2app(descr__init__,
+                          doc=ObjectObjectDocstrings.__init__.__doc__),
+    __class__ = GetSetProperty(descr_get___class__, descr_set___class__,
+                               doc=ObjectObjectDocstrings.__class__.__doc__),
+    __repr__ = interp2app(descr__repr__,
+                          doc=ObjectObjectDocstrings.__repr__.__doc__),
+    __str__ = interp2app(descr__str__,
+                         doc=ObjectObjectDocstrings.__str__.__doc__),
+    __hash__ = interp2app(default_identity_hash,
+                          doc=ObjectObjectDocstrings.__hash__.__doc__),
+    __reduce__ = interp2app(descr__reduce__,
+                            doc=ObjectObjectDocstrings.__reduce__.__doc__),
+    __reduce_ex__ = interp2app(descr__reduce_ex__,
+                               doc=ObjectObjectDocstrings.__reduce_ex__.__doc__),
+    __format__ = interp2app(descr___format__,
+                            doc=ObjectObjectDocstrings.__format__.__doc__),
+)
