@@ -59,43 +59,45 @@ jobs:
     - name: Test Tool
       run: pypy2 pytest.py rpython/tool
 
-  test-jit-x86:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-20.04]
+  # FIXME: jit tests hang for 6 hours under pypy + linux
+  # Possibly enable cpython + linux tests as a half-way house?
+  # test-jit-x86:
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       os: [ubuntu-20.04]
 
-    steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "pypy2.7-7.3.10"
-    - run: |
-          echo "Install requirements"
-          sudo apt-get install -y libgc-dev
-          pypy2 -m pip install --user hypothesis==4.39.3
-    - name: Test Jit - X86
-      run: pypy2 pytest.py -v rpython/jit/backend/x86
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - uses: actions/setup-python@v5
+  #     with:
+  #       python-version: "pypy2.7-7.3.10"
+  #   - run: |
+  #         echo "Install requirements"
+  #         sudo apt-get install -y libgc-dev
+  #         pypy2 -m pip install --user hypothesis==4.39.3
+  #   - name: Test Jit - X86
+  #     run: pypy2 pytest.py -v rpython/jit/backend/x86
 
-  test-jit-other:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-20.04]
+  # test-jit-other:
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       os: [ubuntu-20.04]
 
-    steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "pypy2.7-7.3.10"
-    - run: |
-          echo "Install requirements"
-          sudo apt-get install -y libgc-dev
-          pypy2 -m pip install --user hypothesis==4.39.3
-    - name: Test Jit - Other
-      run: pypy2 pytest.py -v rpython/jit --ignore=rpython/jit/backend/x86
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - uses: actions/setup-python@v5
+  #     with:
+  #       python-version: "pypy2.7-7.3.10"
+  #   - run: |
+  #         echo "Install requirements"
+  #         sudo apt-get install -y libgc-dev
+  #         pypy2 -m pip install --user hypothesis==4.39.3
+  #   - name: Test Jit - Other
+  #     run: pypy2 pytest.py -v rpython/jit --ignore=rpython/jit/backend/x86
 
   test-memory:
     runs-on: ${{ matrix.os }}
