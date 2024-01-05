@@ -154,7 +154,12 @@ jobs:
           sudo apt-get install -y libgc-dev
           pypy2 -m pip install --user hypothesis==4.39.3
     - name: Test RTyper
-      run: pypy2 pytest.py rpython/rtyper -v
+      # Note we split out test_rlist.py due to occasional segfaults
+      # with test_memoryerror that only occur when run with the full
+      # test suite
+      run: |
+          pypy2 pytest.py rpython/rtyper --ignore=rpython/rtyper/test/test_rlist.py
+          pypy2 pytest.py -v rpython/rtyper/test/test_rlist.py
 
   test-translator:
     runs-on: ${{ matrix.os }}
