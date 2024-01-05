@@ -267,10 +267,6 @@ translation_optiondescription = OptionDescription(
                    "without relying on the C compiler",
                    default=False),
 
-        BoolOption("stack_optimization",
-                   "Tranform graphs in SSI form into graphs tailored for "
-                   "stack based virtual machines (only for backends that support it)",
-                   default=True),
         BoolOption("storesink", "Perform store sinking", default=True),
         BoolOption("replace_we_are_jitted",
                    "Replace we_are_jitted() calls by False",
