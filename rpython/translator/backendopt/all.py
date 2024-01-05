@@ -6,7 +6,6 @@ from rpython.translator.backendopt.constfold import replace_we_are_jitted
 from rpython.translator.backendopt.stat import print_statistics
 from rpython.translator.backendopt.merge_if_blocks import merge_if_blocks
 from rpython.translator import simplify
-from rpython.translator.backendopt import mallocprediction
 from rpython.translator.backendopt.removeassert import remove_asserts
 from rpython.translator.backendopt.support import log
 from rpython.translator.backendopt.storesink import storesink_graph
@@ -89,22 +88,6 @@ def backend_optimizations(translator, graphs=None, secondary=False,
                                     inline_heuristic=heuristic,
                          inline_graph_from_anywhere=inline_graph_from_anywhere)
         constfold(config, graphs)
-
-    if config.clever_malloc_removal:
-        threshold = config.clever_malloc_removal_threshold
-        heuristic = get_function(config.clever_malloc_removal_heuristic)
-        log.inlineandremove("phase with threshold factor: %s" % threshold)
-        log.inlineandremove("heuristic: %s.%s" % (heuristic.__module__,
-                                                  heuristic.__name__))
-        count = mallocprediction.clever_inlining_and_malloc_removal(
-            translator, graphs,
-            threshold = threshold,
-            heuristic=heuristic)
-        log.inlineandremove("removed %d simple mallocs in total" % count)
-        constfold(config, graphs)
-        if config.print_statistics:
-            print "after clever inlining and malloc removal"
-            print_statistics(translator.graphs[0], translator)
 
     if config.storesink:
         for graph in graphs:
