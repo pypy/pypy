@@ -547,7 +547,7 @@ Since RPython is built on top of Python2 and that is extremely unlikely to
 change, the Python2 version of PyPy will be around "forever", i.e. as long as
 PyPy itself is around.
 
-_ `Mercurial and bitbucket`: https://www.pypy.org/posts/2010/12/pypy-migrates-to-mercurial-3308736161543832134.html
-_ `git notes`: https://git-scm.com/docs/git-notes
-_ `conda-forge: https://www.pypy.org/posts/2022/11/pypy-and-conda-forge.html
-_ `moved to Git/GitHub`: https://www.pypy.org/posts/2023/12/pypy-moved-to-git-github.html
+.. _`mercurial and bitbucket`: https://www.pypy.org/posts/2010/12/pypy-migrates-to-mercurial-3308736161543832134.html
+.. _`git notes`: https://git-scm.com/docs/git-notes
+.. _`conda-forge`: https://www.pypy.org/posts/2022/11/pypy-and-conda-forge.html
+.. _`moved to Git/GitHub`: https://www.pypy.org/posts/2023/12/pypy-moved-to-git-github.html
