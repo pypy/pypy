@@ -677,6 +677,29 @@ class OpAssembler(BaseAssembler):
         l1, res = arglocs
         self.mc.FSQRT_D(res.value, l1.value)
 
+    def threadlocalref_get(self, op, arglocs):
+        res_loc = arglocs[0]
+
+        # Use `r.ra` as a scratch register.
+        #
+        # Note: Don't use `r.x31` here because `_load_from_mem` uses `r.x31` as
+        # a scratch register when it must add large offset immediate.
+        tls_reg = r.ra
+
+        # Load TLS address
+        self.mc.load_int(tls_reg.value, r.sp.value,
+                         self.saved_threadlocal_addr)
+
+        # TLS field offset as an immediate
+        ofs_loc = self.imm(op.getarg(1).getint())
+
+        # TLS field type
+        calldescr = op.getdescr()
+        type_size = calldescr.get_result_size()
+        signed = calldescr.is_result_signed()
+
+        self._load_from_mem(res_loc, tls_reg, ofs_loc, type_size, signed)
+
     def _emit_op_call(self, op, arglocs):
         is_call_release_gil = rop.is_call_release_gil(op.getopnum())
 

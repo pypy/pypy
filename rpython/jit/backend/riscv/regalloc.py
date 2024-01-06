@@ -943,7 +943,9 @@ class Regalloc(BaseRegalloc):
                 self.assembler.math_sqrt(op, args)
                 return
             elif oopspecindex == EffectInfo.OS_THREADLOCALREF_GET:
-                assert False, 'unimplemented'
+                args = self._prepare_op_threadlocalref_get(op)
+                self.assembler.threadlocalref_get(op, args)
+                return
         return self._prepare_call(op)
 
     prepare_op_call_i = _prepare_op_call
