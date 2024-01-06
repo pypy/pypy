@@ -409,10 +409,58 @@ class AssemblerRISCV(OpAssembler):
 
         self.mc.MV(r.jfp.value, r.x10.value)
 
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self.gen_shadowstack_header(gcrootmap)
+
     def _call_footer(self, mc):
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            self.gen_shadowstack_footer(gcrootmap, mc)
+
         mc.MV(r.x10.value, r.jfp.value)
         self._pop_callee_save_regs_from_stack(mc)
         mc.RET()
+
+    def gen_shadowstack_header(self, gcrootmap):
+        scratch_reg = r.x31
+        scratch2_reg = r.x30
+        scratch3_reg = r.x29
+
+        # scratch_reg = &root_stack_top_addr (address to pointer to stack top)
+        rst = gcrootmap.get_root_stack_top_addr()
+        self.mc.load_int_imm(scratch_reg.value, rst)
+        # scratch2_reg = root_stack_top_addr (address to stack top)
+        self.mc.load_int(scratch2_reg.value, scratch_reg.value, 0)
+
+        # We push two words, like the x86 backend does:
+        # The '1' is to benefit from the shadowstack 'is_minor' optimization
+
+        # scratch2_reg[0] = 1
+        self.mc.load_int_imm(scratch3_reg.value, 1)
+        self.mc.store_int(scratch3_reg.value, scratch2_reg.value, 0)
+        # scratch2_reg[1] = r.jfp
+        self.mc.store_int(r.jfp.value, scratch2_reg.value, XLEN)
+
+        # scratch2_reg += 2 * XLEN
+        self.mc.ADDI(scratch2_reg.value, scratch2_reg.value, 2 * XLEN)
+        # root_stack_top_addr = scratch2_reg
+        self.mc.store_int(scratch2_reg.value, scratch_reg.value, 0)
+
+    def gen_shadowstack_footer(self, gcrootmap, mc):
+        scratch_reg = r.x31
+        scratch2_reg = r.x30
+
+        # scratch_reg = &root_stack_top_addr
+        rst = gcrootmap.get_root_stack_top_addr()
+        mc.load_int_imm(scratch_reg.value, rst)
+        # scratch2_reg = root_stack_top_addr
+        mc.load_int(scratch2_reg.value, scratch_reg.value, 0)
+
+        # scratch2_reg -= 2 * XLEN
+        mc.ADDI(scratch2_reg.value, scratch2_reg.value, -(2 * XLEN))
+        # root_stack_top_addr = scratch2_reg
+        mc.store_int(scratch2_reg.value, scratch_reg.value, 0)
 
     def _calculate_callee_save_area_size(self):
         # Extra thread local storage (see. riscv/callbuiler.py)
