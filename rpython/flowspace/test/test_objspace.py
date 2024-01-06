@@ -1,4 +1,4 @@
-from __future__ import with_statement
+from __future__ import print_function, with_statement
 import types
 import py
 from contextlib import contextmanager
@@ -114,16 +114,25 @@ class TestFlowObjSpace(Base):
 
     #__________________________________________________________
     def print_(i):
-        print i
+        print(i, end=" ")
+        print(i)
 
     def test_print(self):
         x = self.codetest(self.print_)
 
     def test_bad_print(self):
         def f(x):
-            print >> x, "Hello"
+            print("Hello", file=x)
         with py.test.raises(FlowingError):
             self.codetest(f)
+
+    def test_bad_print2(self):
+        def f(x):
+            args = ["Hello", x]
+            print(*args)
+        with py.test.raises(FlowingError):
+            self.codetest(f)
+
     #__________________________________________________________
     def while_(i):
         while i > 0:
@@ -444,14 +453,6 @@ class TestFlowObjSpace(Base):
         assert ops[0].args == [const(g), const(error)]
 
     #__________________________________________________________
-    def raise2(msg):
-        raise IndexError, msg
-
-    def test_raise2(self):
-        x = self.codetest(self.raise2)
-        # XXX can't check the shape of the graph, too complicated...
-
-    #__________________________________________________________
     def raise3(msg):
         raise IndexError(msg)
 
@@ -465,13 +466,6 @@ class TestFlowObjSpace(Base):
 
     def test_raise4(self):
         x = self.codetest(self.raise4)
-
-    #__________________________________________________________
-    def raisez(z, tb):
-        raise z.__class__,z, tb
-
-    def test_raisez(self):
-        x = self.codetest(self.raisez)
 
     #__________________________________________________________
     def raise_and_catch_1(exception_instance):
