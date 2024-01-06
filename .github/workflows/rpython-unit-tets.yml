@@ -178,4 +178,10 @@ jobs:
           sudo apt-get install -y libgc-dev
           pypy2 -m pip install --user hypothesis==4.39.3
     - name: Test Translator
-      run: pypy2 pytest.py rpython/translator
+      run: |
+        # we don't need to run test_typed.py, because test_backendoptimized.py
+        # runs the same tests, just with more optimizations
+        pypy2 pytest.py rpython/translator --ignore=rpython/translator/c/test/test_typed.py --ignore=rpython/translator/c/test/test_newgc.py
+        # only run the tests for the incminimark GC, the one that we always use
+        # in practice
+        pypy2 pytest.py rpython/translator/c/test/test_newgc.py -k TestIncrementalMiniMarkGC
