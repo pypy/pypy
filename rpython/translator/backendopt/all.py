@@ -35,7 +35,7 @@ def backend_optimizations(translator, graphs=None, secondary=False,
     # sensible keywords are
     # inline_threshold, mallocs
     # merge_if_blocks, constfold, heap2stack
-    # clever_malloc_removal, remove_asserts
+    # remove_asserts
     # replace_we_are_jitted
 
     config = translator.config.translation.backendopt.copy(as_default=True)
