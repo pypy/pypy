@@ -1884,7 +1884,8 @@ class _array(_parentable):
         try:
             # first check it's a reasonable amount of memory
             # because range lists don't take much space on pypy
-            [0] * n
+            if n > 2 ** 30:
+                raise MemoryError("8 GiB should be enough for tests")
             return range(n)
         except OverflowError:
             raise MemoryError("definitely too many items")
