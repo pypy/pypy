@@ -580,7 +580,9 @@ class TranslationDriver(SimpleTaskEngine):
         driver = cls(config=config, default_goal=default_goal,
                      disable=disable)
         target = targetspec_dic['target']
+        driver.timer.start_event("loading target")
         spec = target(driver, args)
+        driver.timer.end_event("loading target")
 
         try:
             entry_point, inputtypes, policy = spec
