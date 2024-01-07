@@ -801,15 +801,22 @@ class Regalloc(BaseRegalloc):
         _gen_prepare_guard_op_guard_overflow_op(False)
 
     def prepare_op_guard_class(self, op):
-        boxes = op.getarglist()
-        a0, a1 = boxes
-        obj_loc = self.make_sure_var_in_reg(a0, boxes)
-        cls_loc = self.make_sure_var_in_reg(a1, boxes)
+        obj_loc = self.make_sure_var_in_reg(op.getarg(0))
+        cls_loc = ImmLocation(rffi.cast(lltype.Signed, op.getarg(1).getint()))
         # Note[#dont_free_vars]: Do not call `possibly_free_vars_for_op` or
         # `free_temp_vars`.
         return [obj_loc, cls_loc] + self._prepare_guard_arglocs(op)
 
     prepare_op_guard_nonnull_class = prepare_op_guard_class
+
+    prepare_op_guard_gc_type = prepare_op_guard_class
+    prepare_op_guard_subclass = prepare_op_guard_class
+
+    def prepare_op_guard_is_object(self, op):
+        obj_loc = self.make_sure_var_in_reg(op.getarg(0))
+        # Note[#dont_free_vars]: Do not call `possibly_free_vars_for_op` or
+        # `free_temp_vars`.
+        return [obj_loc] + self._prepare_guard_arglocs(op)
 
     def prepare_op_guard_not_invalidated(self, op):
         return self._prepare_guard_arglocs(op)

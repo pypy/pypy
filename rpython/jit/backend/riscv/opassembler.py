@@ -17,6 +17,7 @@ from rpython.jit.metainterp.history import (
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import lltype, rffi
 
 
@@ -566,6 +567,25 @@ class OpAssembler(BaseAssembler):
     emit_guard_op_guard_overflow    = _emit_guard_op_guard_overflow_op
     emit_guard_op_guard_no_overflow = _emit_guard_op_guard_overflow_op
 
+    def _emit_load_typeid_from_obj(self, dest_loc, obj_loc):
+        # Note that the typeid half-word is at offset 0 on a little-endian
+        # machine; it would be at offset 2 or 4 on a big-endian machine.
+        if XLEN == 8:
+            self.mc.LWU(dest_loc.value, obj_loc.value, 0)
+        else:
+            self.mc.LHU(dest_loc.value, obj_loc.value, 0)
+
+    def _emit_cmp_guard_gc_type(self, obj_loc, expected_typeid,
+                                success_branch_offset):
+        assert self.cpu.supports_guard_gc_type
+
+        scratch_reg = r.x31
+        scratch2_reg = r.ra
+        self._emit_load_typeid_from_obj(scratch_reg, obj_loc)
+        self.mc.load_int_imm(scratch2_reg.value, expected_typeid)
+        self.mc.BEQ(scratch_reg.value, scratch2_reg.value,
+                    success_branch_offset)
+
     def emit_op_guard_class(self, op, arglocs):
         # Implements guard_class(obj, cls):
         #
@@ -576,12 +596,18 @@ class OpAssembler(BaseAssembler):
         failargs = arglocs[2:]
 
         scratch_reg = r.x31
+        scratch2_reg = r.ra
         offset = self.cpu.vtable_offset
         if offset is not None:
             self.mc.load_int(scratch_reg.value, obj_loc.value, offset)
-            self.mc.BEQ(scratch_reg.value, cls_loc.value, 8)
+            self.mc.load_int_imm(scratch2_reg.value, cls_loc.value)
+            self.mc.BEQ(scratch_reg.value, scratch2_reg.value, 8)
         else:
-            assert False, 'gcremovetypeptr unimplemented'
+            expected_typeid = (self.cpu.gc_ll_descr
+                               .get_typeid_from_classptr_if_gcremovetypeptr(
+                                   cls_loc.value))
+            self._emit_cmp_guard_gc_type(obj_loc, expected_typeid,
+                                         success_branch_offset=8)
         self._emit_pending_guard(op, failargs)
 
     def emit_op_guard_nonnull_class(self, op, arglocs):
@@ -596,18 +622,119 @@ class OpAssembler(BaseAssembler):
         failargs = arglocs[2:]
 
         scratch_reg = r.x31
+        scratch2_reg = r.ra
+
+        # LABEL[guard_nonnull]:
+        # Patch Location: BEQZ obj, guard_fail
+        branch_inst_location = self.mc.get_relative_pos()
+        self.mc.EBREAK()
+
         offset = self.cpu.vtable_offset
         if offset is not None:
-            # BEQZ obj, guard_fail
-            self.mc.BEQZ(obj_loc.value, 12)
-
             # Test `type(obj) == cls`
             self.mc.load_int(scratch_reg.value, obj_loc.value, offset)
-            self.mc.BEQ(scratch_reg.value, cls_loc.value, 8)
+            self.mc.load_int_imm(scratch2_reg.value, cls_loc.value)
+            self.mc.BEQ(scratch_reg.value, scratch2_reg.value, 8)
         else:
-            assert False, 'gcremovetypeptr unimplemented'
+            expected_typeid = (self.cpu.gc_ll_descr
+                               .get_typeid_from_classptr_if_gcremovetypeptr(
+                                   cls_loc.value))
+            self._emit_cmp_guard_gc_type(obj_loc, expected_typeid,
+                                         success_branch_offset=8)
 
         # LABEL[guard_fail]:
+        currpos = self.mc.get_relative_pos()
+        pmc = OverwritingBuilder(self.mc, branch_inst_location, INST_SIZE)
+        pmc.BEQZ(obj_loc.value, currpos - branch_inst_location)
+
+        self._emit_pending_guard(op, failargs)
+
+    def emit_op_guard_gc_type(self, op, arglocs):
+        obj_loc = arglocs[0]
+        expected_typeid_imm = arglocs[1]
+        failargs = arglocs[2:]
+
+        self._emit_cmp_guard_gc_type(obj_loc, expected_typeid_imm.value,
+                                     success_branch_offset=8)
+        self._emit_pending_guard(op, failargs)
+
+    def emit_op_guard_subclass(self, op, arglocs):
+        assert self.cpu.supports_guard_gc_type
+        obj_loc = arglocs[0]
+        check_against_class_loc = arglocs[1]
+        failargs = arglocs[2:]
+
+        scratch_reg = r.x31
+        scratch2_reg = r.ra
+
+        offset = self.cpu.vtable_offset
+        subclassrange_min_offset = self.cpu.subclassrange_min_offset
+        if offset is not None:
+            # Read this field to get the vtable pointer
+            self.mc.load_int(scratch_reg.value, obj_loc.value, offset)
+            # Read the vtable's subclassrange_min field
+            self.mc.load_int(scratch_reg.value, scratch_reg.value,
+                             subclassrange_min_offset)
+        else:
+            # Read the typeid
+            self._emit_load_typeid_from_obj(scratch_reg, obj_loc)
+            # Read the vtable's subclassrange_min field, as a single step with
+            # the correct offset.
+            base_type_info, shift_by, sizeof_ti = (
+                self.cpu.gc_ll_descr.get_translated_info_for_typeinfo())
+
+            self.mc.load_int_imm(scratch2_reg.value,
+                                 base_type_info + sizeof_ti +
+                                 subclassrange_min_offset)
+            if shift_by > 0:
+                self.mc.SLLI(scratch_reg.value, scratch_reg.value, shift_by)
+            self.mc.ADD(scratch_reg.value, scratch_reg.value,
+                        scratch2_reg.value)
+            self.mc.load_int(scratch_reg.value, scratch_reg.value, 0)
+
+        # Get the two bounds to check against
+        vtable_ptr = check_against_class_loc.value
+        vtable_ptr = rffi.cast(rclass.CLASSTYPE, vtable_ptr)
+        check_min = vtable_ptr.subclassrange_min
+        check_max = vtable_ptr.subclassrange_max
+        assert check_max > check_min
+        check_diff = check_max - check_min - 1
+
+        # Check by doing the unsigned comparison (max - min - 1) >= (tmp - min)
+        self.mc.load_int_imm(scratch2_reg.value, check_min)
+        self.mc.SUB(scratch_reg.value, scratch_reg.value, scratch2_reg.value)
+        self.mc.load_int_imm(scratch2_reg.value, check_diff)
+        self.mc.BGEU(scratch2_reg.value, scratch_reg.value, 8)
+
+        self._emit_pending_guard(op, failargs)
+
+    def emit_op_guard_is_object(self, op, arglocs):
+        assert self.cpu.supports_guard_gc_type
+
+        obj_loc = arglocs[0]
+        failargs = arglocs[1:]
+
+        scratch_reg = r.x31
+        scratch2_reg = r.ra
+
+        # Read the typeid, fetch one byte of the field 'infobits' from the big
+        # typeinfo table, and check the flag 'T_IS_RPYTHON_INSTANCE'.
+        self._emit_load_typeid_from_obj(scratch_reg, obj_loc)
+
+        base_type_info, shift_by, sizeof_ti = (
+            self.cpu.gc_ll_descr.get_translated_info_for_typeinfo())
+        infobits_offset, IS_OBJECT_FLAG = (
+            self.cpu.gc_ll_descr.get_translated_info_for_guard_is_object())
+
+        self.mc.load_int_imm(scratch2_reg.value,
+                             base_type_info + infobits_offset)
+        if shift_by > 0:
+            self.mc.SLLI(scratch_reg.value, scratch_reg.value, shift_by)
+        self.mc.ADD(scratch_reg.value, scratch_reg.value, scratch2_reg.value)
+        self.mc.LBU(scratch_reg.value, scratch_reg.value, 0)
+        self.mc.ANDI(scratch_reg.value, scratch_reg.value,
+                     IS_OBJECT_FLAG & 0xff)
+        self.mc.BNEZ(scratch_reg.value, 8)
         self._emit_pending_guard(op, failargs)
 
     def emit_op_guard_not_invalidated(self, op, arglocs):
