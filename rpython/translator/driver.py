@@ -5,7 +5,7 @@ import shutil
 from rpython.translator.translator import TranslationContext
 from rpython.translator.tool.taskengine import SimpleTaskEngine
 from rpython.translator.goal import query
-from rpython.translator.goal.timing import Timer
+from rpython.translator.timing import Timer
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.annotator import policy as annpolicy
 from rpython.tool.udir import udir
