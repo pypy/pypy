@@ -41,10 +41,10 @@ Simple tasks for newcomers
 --------------------------
 
 * Optimize random:
-  https://foss.heptapod.net/pypy/pypy/-/issues/1901
+  https://github.com/pypy/pypy/issues/1901
 
 * Implement AF_XXX packet types of sockets:
-  https://foss.heptapod.net/pypy/pypy/-/issues/1942
+  https://github.com/pypy/pypy/issues/1942
 
 * Help with documentation. One task would be to document rpython configuration
   options currently listed only on :doc:`this site <configuration>` also on the
@@ -70,7 +70,7 @@ own improvement ideas. In any case, if you feel like working on some of those
 projects, or anything else in PyPy, pop up on IRC or write to us on the
 `mailing list`_.
 
-.. _issue tracker: https://foss.heptapod.net/pypy/pypy/-/issues
+.. _issue tracker: https://github.com/pypy/pypy/issues/
 .. _mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
 
 

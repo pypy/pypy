@@ -30,7 +30,7 @@ On macOS you can also use homebrew, which provides signed packages. As of April
 2023, you can find pypy2.7 and pypy3.7 there. Help moving issue 3697_ to
 provide other versions is welcome.
 
-.. _3697: https://foss.heptapod.net/pypy/pypy/-/issues/3697 
+.. _3697: https://github.com/pypy/pypy/issues/3697 
 .. _`blog post`: https://www.pypy.org/posts/2022/11/pypy-and-conda-forge.html
 
 Linux distributions
@@ -103,13 +103,13 @@ Installing using virtualenv
 
 It is often convenient to run pypy inside a virtualenv.  To do this
 you need a version of virtualenv -- 1.6.1 or greater.  You can
-then install PyPy both from a precompiled tarball or from a mercurial
+then install PyPy both from a precompiled tarball or from a git
 checkout after translation::
 
 	# from a tarball
 	$ virtualenv -p /opt/pypy-xxx/bin/pypy my-pypy-env
 
-	# from the mercurial checkout
+	# from the git checkout
 	$ virtualenv -p /path/to/pypy/pypy/translator/goal/pypy-c my-pypy-env
 
 	# in any case activate it
