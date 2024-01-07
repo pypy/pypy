@@ -275,7 +275,27 @@ class Block(object):
 
     view = show
 
-
+    def get_base_label(self, blocknum):
+        # Generate a more friendly C label for this block
+        if self.operations:
+            txt = "block"
+        elif (not self.exits) and len(self.inputargs) == 1:
+            txt = "return_block"
+        elif (not self.exits) and len(self.inputargs) == 2:
+            txt = "raise_block"
+        else:
+            txt = "block"
+        return '%s%d' % (txt, blocknum)
+    
+    def firstop(self):
+        """
+        Get the first (non-comment) operation
+        """
+        for op in self.operations:
+            if op.opname != 'comment':
+                return op
+                
+ 
 class Variable(object):
     __slots__ = ["_name", "_nr", "annotation", "concretetype"]
 

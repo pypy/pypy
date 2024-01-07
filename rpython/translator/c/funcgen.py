@@ -1,3 +1,4 @@
+import inspect
 import sys
 from rpython.translator.c.support import cdecl
 from rpython.translator.c.support import llvalue_from_constant, gen_assignments
@@ -27,6 +28,13 @@ def make_funcgen(graph, db, exception_policy, functionname):
     if db.gctransformer:
         db.gctransformer.transform_graph(graph)
     return FunctionCodeGenerator(graph, db, exception_policy, functionname)
+
+def escape_c_comments(py_src):
+    # Escape C comments within RPython source, to avoid generating bogus
+    # comments in our generated C source:
+    py_src = py_src.replace('/*', '')
+    py_src = py_src.replace('*/', '')
+    return py_src
 
 class FunctionCodeGenerator(object):
     """
@@ -180,6 +188,28 @@ class FunctionCodeGenerator(object):
             if extra_enter_text:
                 yield extra_enter_text
         graph = self.graph
+        # Try to print python source code:
+        if hasattr(graph, 'func'):
+            try:
+                src, startline = inspect.getsourcelines(graph.func)
+            except IOError:
+                pass # No source found
+            except IndexError:
+                pass # Bulletproofing
+            else:
+                filename = inspect.getfile(graph.func)
+                yield '/* RPython source %r' % filename
+                for i, line in enumerate(src):
+                    line = line.rstrip()
+                    line = escape_c_comments(line)
+                    # FuncNode.funcgen_implementation treats lines ending in ':'
+                    # as C blocks and special-cases them, which messes up the
+                    # formatting.
+                    # Work around this by adding a trailing space:
+                    if line.endswith(':'):
+                        line += ' '
+                    yield ' * %4d : %s' % (startline + i, line)
+                yield ' */'
 
         # ----- for gc_enter_roots_frame
         _seen = set()
