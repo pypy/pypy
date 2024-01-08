@@ -15,7 +15,7 @@ from rpython.rlib import jit
 
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rlib.rbigint import rbigint
-from rpython.rlib.objectmodel import always_inline
+from rpython.rlib.objectmodel import always_inline, dont_inline
 
 
 funccallunrolling = unrolling_iterable(range(4))
@@ -498,23 +498,28 @@ class Method(W_Root):
                 space.abstract_isinstance_w(w_firstarg, self.w_class)):
             pass  # ok
         else:
-            clsdescr = self.w_class.getname(space)
-            if clsdescr and clsdescr != '?':
-                clsdescr += " instance"
-            else:
-                clsdescr = "instance"
-            if w_firstarg is None:
-                instdescr = "nothing"
-            else:
-                instname = space.abstract_getclass(w_firstarg).getname(space)
-                if instname and instname != '?':
-                    instdescr = instname + " instance"
-                else:
-                    instdescr = "instance"
-            raise oefmt(space.w_TypeError,
-                        "unbound method %N() must be called with %s as first "
-                        "argument (got %s instead)", self, clsdescr, instdescr)
+            self._raise_unbound_type_exception(w_firstarg)
         return space.call_args(self.w_function, args)
+
+    @dont_inline
+    def _raise_unbound_type_exception(self, w_firstarg):
+        space = self.space
+        clsdescr = self.w_class.getname(space)
+        if clsdescr and clsdescr != '?':
+            clsdescr += " instance"
+        else:
+            clsdescr = "instance"
+        if w_firstarg is None:
+            instdescr = "nothing"
+        else:
+            instname = space.abstract_getclass(w_firstarg).getname(space)
+            if instname and instname != '?':
+                instdescr = instname + " instance"
+            else:
+                instdescr = "instance"
+        raise oefmt(space.w_TypeError,
+                    "unbound method %N() must be called with %s as first "
+                    "argument (got %s instead)", self, clsdescr, instdescr)
 
     def descr_method_get(self, w_obj, w_cls=None):
         space = self.space
