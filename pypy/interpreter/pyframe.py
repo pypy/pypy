@@ -344,12 +344,18 @@ class PyFrame(W_Root):
     def _new_popvalues():
         @jit.unroll_safe
         def popvalues(self, n):
+            n_orig = n
             values_w = [None] * n
+            base = self.valuestackdepth
             while True:
                 n -= 1
+                base -= 1
                 if n < 0:
                     break
-                values_w[n] = self.popvalue()
+                w_value = ll_assert_not_none(self.locals_cells_stack_w[base])
+                self.locals_cells_stack_w[base] = None
+                values_w[n] = w_value
+            self.valuestackdepth -= n_orig
             return values_w
         return popvalues
     popvalues = _new_popvalues()
