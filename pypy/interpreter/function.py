@@ -177,8 +177,10 @@ class Function(W_Root):
         # code is a PyCode
         new_frame = self.space.createframe(code, self.w_func_globals,
                                                    self)
+        base = frame.valuestackdepth - nargs
+        frame.assert_stack_index(base)
         for i in xrange(nargs):
-            w_arg = frame.peekvalue(nargs-1-i)
+            w_arg = frame.locals_cells_stack_w[base + i]
             new_frame.locals_cells_stack_w[i] = w_arg
 
         return new_frame.run()
