@@ -60,7 +60,26 @@ class __extend__(pyframe.PyFrame):
 
         try:
             while True:
-                next_instr = self.handle_bytecode(co_code, next_instr, ec)
+                # this is handle_bytecode, manually inlined
+                try:
+                    next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
+                except OperationError as operr:
+                    next_instr = self.handle_operation_error(ec, operr)
+                except RaiseWithExplicitTraceback as e:
+                    next_instr = self.handle_operation_error(ec, e.operr,
+                                                             attach_tb=False)
+                except KeyboardInterrupt:
+                    next_instr = self.handle_asynchronous_error(ec,
+                        self.space.w_KeyboardInterrupt)
+                except MemoryError:
+                    next_instr = self.handle_asynchronous_error(ec,
+                        self.space.w_MemoryError)
+                except rstackovf.StackOverflow as e:
+                    # Note that this case catches AttributeError!
+                    rstackovf.check_stack_overflow()
+                    next_instr = self.handle_asynchronous_error(ec,
+                        self.space.w_RuntimeError,
+                        self.space.newtext("maximum recursion depth exceeded"))
         except ExitFrame:
             self.last_exception = None
             return self.popvalue()

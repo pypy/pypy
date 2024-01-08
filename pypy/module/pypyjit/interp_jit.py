@@ -5,7 +5,7 @@ This is transformed to become a JIT by code elsewhere: rpython/jit/*
 
 from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
-from rpython.rlib import jit, jit_hooks
+from rpython.rlib import jit, jit_hooks, rstackovf
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.jit import current_trace_length, unroll_parameters,\
      JitHookInterface
@@ -77,6 +77,7 @@ pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
 class __extend__(PyFrame):
 
     def dispatch(self, pycode, next_instr, ec):
+        from pypy.interpreter.pyopcode import RaiseWithExplicitTraceback
         self = hint(self, access_directly=True)
         next_instr = r_uint(next_instr)
         is_being_profiled = self.get_is_being_profiled()
@@ -87,7 +88,27 @@ class __extend__(PyFrame):
                     is_being_profiled=is_being_profiled)
                 co_code = pycode.co_code
                 self.valuestackdepth = hint(self.valuestackdepth, promote=True)
-                next_instr = self.handle_bytecode(co_code, next_instr, ec)
+                # this is handle_bytecode, manually inlined
+                try:
+                    next_instr = self.dispatch_bytecode(co_code, next_instr, ec)
+                except OperationError as operr:
+                    next_instr = self.handle_operation_error(ec, operr)
+                except RaiseWithExplicitTraceback as e:
+                    next_instr = self.handle_operation_error(ec, e.operr,
+                                                             attach_tb=False)
+                except KeyboardInterrupt:
+                    next_instr = self.handle_asynchronous_error(ec,
+                        self.space.w_KeyboardInterrupt)
+                except MemoryError:
+                    next_instr = self.handle_asynchronous_error(ec,
+                        self.space.w_MemoryError)
+                except rstackovf.StackOverflow as e:
+                    # Note that this case catches AttributeError!
+                    rstackovf.check_stack_overflow()
+                    next_instr = self.handle_asynchronous_error(ec,
+                        self.space.w_RuntimeError,
+                        self.space.newtext("maximum recursion depth exceeded"))
+                # end handle_bytecode
                 is_being_profiled = self.get_is_being_profiled()
         except Yield:
             self.last_exception = None
