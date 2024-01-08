@@ -163,7 +163,7 @@ class DescrOperation(object):
     def get_and_call_function(space, w_descr, w_obj, *args_w):
         typ = type(w_descr)
         # a special case for performance and to avoid infinite recursion
-        # (possibly; but note issue3255 in the get() metehod, which might
+        # (possibly; but note issue3255 in the get() method, which might
         # also remove the infinite recursion here)
         if typ is Function or typ is FunctionWithFixedCode:
             # isinstance(typ, Function) would not be correct here:

@@ -15,6 +15,7 @@ from rpython.rlib import jit
 
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rlib.rbigint import rbigint
+from rpython.rlib.objectmodel import always_inline
 
 
 funccallunrolling = unrolling_iterable(range(4))
@@ -57,18 +58,21 @@ class Function(W_Root):
             name = '?'
         return "<%s %s>" % (self.__class__.__name__, name)
 
+    @always_inline
     def call_args(self, args):
         # delegate activation to code
         w_res = self.getcode().funcrun(self, args)
         assert isinstance(w_res, W_Root)
         return w_res
 
+    @always_inline
     def call_obj_args(self, w_obj, args):
         # delegate activation to code
         w_res = self.getcode().funcrun_obj(self, w_obj, args)
         assert isinstance(w_res, W_Root)
         return w_res
 
+    @always_inline
     def getcode(self):
         if jit.we_are_jitted():
             if not self.can_change_code:

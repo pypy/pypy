@@ -7,7 +7,7 @@ from rpython.rlib.debug import make_sure_not_resized, check_nonneg
 from rpython.rlib.debug import ll_assert_not_none
 from rpython.rlib.jit import hint
 from rpython.rlib.objectmodel import instantiate, specialize, we_are_translated
-from rpython.rlib.objectmodel import not_rpython
+from rpython.rlib.objectmodel import not_rpython, always_inline
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.tool.pairtype import extendabletype
 
@@ -112,7 +112,7 @@ class PyFrame(W_Root):
             self.builtin = space.builtin.pick_builtin(w_globals)
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
-        self.initialize_frame_scopes(outer_func, code)
+        self._initialize_frame_scopes(outer_func, code)
 
     def getdebug(self):
         return self.debugdata
@@ -204,7 +204,8 @@ class PyFrame(W_Root):
             return self.space.builtin
 
     @jit.unroll_safe
-    def initialize_frame_scopes(self, outer_func, code):
+    @always_inline
+    def _initialize_frame_scopes(self, outer_func, code):
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
         # CO_NEWLOCALS: make a locals dict unless optimized is also set
@@ -244,6 +245,7 @@ class PyFrame(W_Root):
             self.locals_cells_stack_w[index] = outer_func.closure[i]
             index += 1
 
+    @always_inline
     def run(self):
         """Start this frame's execution."""
         if self.getcode().co_flags & pycode.CO_GENERATOR:
