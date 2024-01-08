@@ -85,42 +85,60 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
 @jit.unroll_safe
 def CALL_METHOD(f, oparg, *ignored):
     # opargs contains the arg, and kwarg count, excluding the implicit 'self'
+    space = f.space
     n_args = oparg & 0xff
     n_kwargs = (oparg >> 8) & 0xff
     w_self = f.peekvalue_maybe_none(n_args + (2 * n_kwargs))
+    w_callable = f.peekvalue(n_args + (2 * n_kwargs) + 1)
     n = n_args + (w_self is not None)
+    if not n_kwargs and not (f.get_is_being_profiled() and function.is_builtin_code(w_callable)):
+        methodcall = w_self is not None
+        if isinstance(w_callable, function.Method):
+            w_inst = w_callable.w_instance
+            if w_inst is not None:
+                if isinstance(w_callable.w_function, function.Function):
+                    w_callable = w_callable.w_function
+                    # re-use either callable or self slot
+                    f.settopvalue(w_inst, n)
+                    n += 1
+                    methodcall = True
+            else:
+                if n > 0 and (
+                    space.abstract_isinstance_w(f.peekvalue(n-1),
+                                               w_callable.w_class)):
+                    w_func = w_callable.w_function
 
-    if not n_kwargs:
-        w_callable = f.peekvalue(n_args + (2 * n_kwargs) + 1)
-        try:
-            w_result = f.space.call_valuestack(
-                    w_callable, n, f, methodcall=w_self is not None)
-        finally:
-            f.dropvalues(n_args + 2)
+        if isinstance(w_callable, function.Function):
+            try:
+                w_result = w_callable.funccall_valuestack(
+                    n, f, methodcall=methodcall)
+            finally:
+                f.dropvalues(n_args + 2)
+            f.pushvalue(w_result)
+            return
+    keywords = [None] * n_kwargs
+    keywords_w = [None] * n_kwargs
+    while True:
+        n_kwargs -= 1
+        if n_kwargs < 0:
+            break
+        w_value = f.popvalue()
+        w_key = f.popvalue()
+        key = space.text_w(w_key)
+        keywords[n_kwargs] = key
+        keywords_w[n_kwargs] = w_value
+
+    arguments = f.popvalues(n)    # includes w_self if it is not None
+    args = f.argument_factory(
+            arguments, keywords, keywords_w, None, None,
+            methodcall=w_self is not None)
+    if w_self is None:
+        f.popvalue_maybe_none()    # removes w_self, which is None
+    f.popvalue() # pop w_callable
+    if f.get_is_being_profiled() and function.is_builtin_code(w_callable):
+        w_result = space.call_args_and_c_profile(f, w_callable, args)
     else:
-        keywords = [None] * n_kwargs
-        keywords_w = [None] * n_kwargs
-        while True:
-            n_kwargs -= 1
-            if n_kwargs < 0:
-                break
-            w_value = f.popvalue()
-            w_key = f.popvalue()
-            key = f.space.text_w(w_key)
-            keywords[n_kwargs] = key
-            keywords_w[n_kwargs] = w_value
-
-        arguments = f.popvalues(n)    # includes w_self if it is not None
-        args = f.argument_factory(
-                arguments, keywords, keywords_w, None, None,
-                methodcall=w_self is not None)
-        if w_self is None:
-            f.popvalue_maybe_none()    # removes w_self, which is None
-        w_callable = f.popvalue()
-        if f.get_is_being_profiled() and function.is_builtin_code(w_callable):
-            w_result = f.space.call_args_and_c_profile(f, w_callable, args)
-        else:
-            w_result = f.space.call_args(w_callable, args)
+        w_result = space.call_args(w_callable, args)
     f.pushvalue(w_result)
 
 
