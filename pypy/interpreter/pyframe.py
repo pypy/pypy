@@ -352,10 +352,13 @@ class PyFrame(W_Root):
                 base -= 1
                 if n < 0:
                     break
+                assert base >= 0
                 w_value = ll_assert_not_none(self.locals_cells_stack_w[base])
                 self.locals_cells_stack_w[base] = None
                 values_w[n] = w_value
-            self.valuestackdepth -= n_orig
+            base += 1
+            assert base >= 0
+            self.valuestackdepth = base
             return values_w
         return popvalues
     popvalues = _new_popvalues()

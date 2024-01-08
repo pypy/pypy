@@ -178,10 +178,12 @@ class Function(W_Root):
         new_frame = self.space.createframe(code, self.w_func_globals,
                                                    self)
         base = frame.valuestackdepth - nargs
+        assert base >= 0
         frame.assert_stack_index(base)
         for i in xrange(nargs):
-            w_arg = frame.locals_cells_stack_w[base + i]
+            w_arg = frame.locals_cells_stack_w[base]
             new_frame.locals_cells_stack_w[i] = w_arg
+            base += 1
 
         return new_frame.run()
 
