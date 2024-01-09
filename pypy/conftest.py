@@ -79,6 +79,8 @@ def pytest_configure(config):
         config.applevel = PythonInterpreter(config.option.python)
     else:
         config.applevel = None
+    config.addinivalue_line("markers", "flaky: test that sometimes fails")
+
 
 def pytest_addoption(parser):
     group = parser.getgroup("pypy options")

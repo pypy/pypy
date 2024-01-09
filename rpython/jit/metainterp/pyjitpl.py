@@ -1256,13 +1256,47 @@ class MIFrame(object):
 
     @arguments("newframe")
     def _opimpl_inline_call1(self, _):
+        self._try_tco()
         raise ChangeFrame
     @arguments("newframe2")
     def _opimpl_inline_call2(self, _):
+        self._try_tco()
         raise ChangeFrame
     @arguments("newframe3")
     def _opimpl_inline_call3(self, _):
+        self._try_tco()
         raise ChangeFrame
+
+    def _try_tco(self):
+        if self.jitcode.jitdriver_sd:
+            return
+        argcode = self._result_argcode
+        pc = self.pc
+        if argcode == 'v':
+            target_index = -1
+        else:
+            target_index = ord(self.bytecode[pc - 1])
+        op = ord(self.bytecode[pc])
+        if op != self.metainterp.staticdata.op_live:
+            # XXX should really not happen
+            return
+        next_pc = pc + SIZE_LIVE_OP
+        if next_pc >= len(self.bytecode):
+            return
+        next_op = ord(self.bytecode[next_pc])
+        if ((argcode == 'i' and next_op == self.metainterp.staticdata.op_int_return) or
+            (argcode == 'r' and next_op == self.metainterp.staticdata.op_ref_return) or
+            (argcode == 'f' and next_op == self.metainterp.staticdata.op_float_return) or
+            (argcode == 'v' and next_op == self.metainterp.staticdata.op_void_return)
+        ):
+            # we have a return of the same type. check whether it's the result register
+            if (target_index < 0 or
+                    ord(self.bytecode[next_pc + 1]) == target_index):
+                debug_start("jit-tco")
+                debug_print("removed frame", self.jitcode.name)
+                debug_stop("jit-tco")
+                assert self.metainterp.framestack[-2] is self
+                del self.metainterp.framestack[-2]
 
     opimpl_inline_call_r_i = _opimpl_inline_call1
     opimpl_inline_call_r_r = _opimpl_inline_call1
@@ -2182,6 +2216,10 @@ class MetaInterpStaticData(object):
         self.op_goto = insns.get('goto/L', -1)
         self.op_catch_exception = insns.get('catch_exception/L', -1)
         self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
+        self.op_int_return = insns.get('int_return/i', -1)
+        self.op_ref_return = insns.get('ref_return/r', -1)
+        self.op_float_return = insns.get('float_return/f', -1)
+        self.op_void_return = insns.get('void_return/', -1)
 
     def setup_descrs(self, descrs):
         self.opcode_descrs = descrs
