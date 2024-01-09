@@ -21,8 +21,16 @@ PyPyTypedMethodMetadata inc_sig = {
   .ml_name = "inc",
 };
 
+PyPyTypedMethodMetadata wrong_sig = {
+  .arg_type = 100,
+  .ret_type = T_C_LONG,
+  .underlying_func = inc_impl,
+  .ml_name = "wrong",
+};
+
 static PyMethodDef signature_methods[] = {
     {inc_sig.ml_name, inc, METH_O | METH_TYPED, "Add one to an int"},
+    {wrong_sig.ml_name, inc, METH_O | METH_TYPED, "Have a silly signature"},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef signature_definition = {

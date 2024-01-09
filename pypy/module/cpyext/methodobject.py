@@ -235,8 +235,9 @@ class W_PyCFunctionObject(W_Root):
             underlying_func = rffi.cast(long_to_long, sig.c_underlying_func)
             result_long = underlying_func(long_arg)
             # TODO(max): Don't raise if overflow
+            # TODO(max): Handle the ret type (not everything is an int)
             return space.newint(result_long)
-        return generic_cpy_call(space, func, w_self, w_o)
+        raise oefmt(space.w_RuntimeError, "unreachable: unexpected METH_TYPED signature")
 
     def call_varargs(self, space, w_self, __args__):
         state = space.fromcache(State)
