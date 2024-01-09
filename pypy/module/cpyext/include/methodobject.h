@@ -27,7 +27,7 @@ extern "C" {
 
 #define METH_COEXIST   0x0040
 
-#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x03100000
+#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x030A0000
 #define METH_FASTCALL  0x0080
 #endif
 
