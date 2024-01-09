@@ -896,10 +896,14 @@ class __extend__(pyframe.PyFrame):
 
     def STORE_ATTR(self, nameindex, next_instr):
         "obj.attributename = newvalue"
-        w_attributename = self.getname_w(nameindex)
         w_obj = self.popvalue()
         w_newvalue = self.popvalue()
-        self.space.setattr(w_obj, w_attributename, w_newvalue)
+        if not jit.we_are_jitted():
+            from pypy.objspace.std.mapdict import STORE_ATTR_caching
+            STORE_ATTR_caching(self.getcode(), w_obj, nameindex, w_newvalue)
+        else:
+            w_attributename = self.getname_w(nameindex)
+            self.space.setattr(w_obj, w_attributename, w_newvalue)
 
     def DELETE_ATTR(self, nameindex, next_instr):
         "del obj.attributename"
