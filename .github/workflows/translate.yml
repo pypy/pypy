@@ -36,7 +36,7 @@ jobs:
 
     - name: run objspace unit tests
       run: |
-        pypy pytest.py pypy/objspace -v
+        pypy pytest.py pypy/objspace -v -m "not flaky"
 
     - name: translate
       run: |

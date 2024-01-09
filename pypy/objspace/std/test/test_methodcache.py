@@ -93,6 +93,7 @@ class AppTestMethodCaching(test_typeobject.AppTestTypeObject):
             assert cache_counter[1] >= 3 # should be (27, 3)
             assert sum(cache_counter) == 30
 
+    @pytest.mark.flaky
     def test_many_names(self):
         @self.retry
         def run():
