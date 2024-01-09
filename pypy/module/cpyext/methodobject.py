@@ -236,7 +236,6 @@ class W_PyCFunctionObject(W_Root):
             result_long = underlying_func(long_arg)
             # TODO(max): Don't raise if overflow
             return space.newint(result_long)
-        assert False
         return generic_cpy_call(space, func, w_self, w_o)
 
     def call_varargs(self, space, w_self, __args__):
