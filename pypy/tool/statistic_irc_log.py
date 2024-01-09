@@ -41,7 +41,7 @@ if __name__ == '__main__':
             #print 'RENAMED', log_filename, 'TO', rename_to
 
     # print sorted list of filenames of daily logs
-    print 'irc://irc.freenode.org/pypy'
+    print 'irc://irc.libera.chat/pypy'
     print 'date, messages, visitors'
     for log_filename in pypydir.listdir('#pypy.log.*'):
         n_messages, visitors = 0, {}
