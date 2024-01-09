@@ -23,9 +23,6 @@ try:
 except ImportError:
     unicode_legacy_string = None
 
-# This will create the _testmultiphaseimport c-extension module if it does not exist
-import _testmultiphase_build
-
 __all__ = [
     # globals
     "PIPE_MAX_SIZE", "verbose", "max_memuse", "use_resources", "failfast",
