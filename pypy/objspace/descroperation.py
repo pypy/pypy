@@ -223,16 +223,15 @@ class DescrOperation(object):
 
     def _handle_getattribute(space, w_descr, w_obj, w_name):
         try:
-            if w_descr is None:   # obscure case
-                raise OperationError(space.w_AttributeError, space.w_None)
-            return space.get_and_call_function(w_descr, w_obj, w_name)
+            if w_descr is not None:   # w_descr == None is a pretty obscure case
+                return space.get_and_call_function(w_descr, w_obj, w_name)
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            w_descr = space.lookup(w_obj, '__getattr__')
-            if w_descr is None:
-                raise
-            return space.get_and_call_function(w_descr, w_obj, w_name)
+        w_descr = space.lookup(w_obj, '__getattr__')
+        if w_descr is None:
+            raise
+        return space.get_and_call_function(w_descr, w_obj, w_name)
 
     def setattr(space, w_obj, w_name, w_val):
         w_descr = space.lookup(w_obj, '__setattr__')
