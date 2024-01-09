@@ -39,6 +39,7 @@ eci = ExternalCompilationInfo(
         "RPY_EXTERN\n"
         "PyPyTypedMethodMetadata* PyPyGetTypedSignature(PyMethodDef*);"
         ],
+    # TODO(max): Do this in RPython to avoid C call
     separate_module_sources = ['''
 PyPyTypedMethodMetadata*
 PyPyGetTypedSignature(PyMethodDef* def)
