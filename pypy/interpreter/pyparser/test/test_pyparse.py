@@ -555,3 +555,6 @@ class TestIncompleteInput(object):
 
     def test_ifelse(self):
         self.check_incomplete("if 9==3:\n   pass\nelse:")
+
+    def test_line_continuation(self):
+        self.check_incomplete("a = \\")

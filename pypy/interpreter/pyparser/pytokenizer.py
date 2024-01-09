@@ -17,6 +17,7 @@ TYPE_COMMENT_PREFIX = 'type'
 TYPE_IGNORE = 'ignore'
 
 TRIPLE_QUOTE_UNTERMINATED_ERROR = "unterminated triple-quoted string literal"
+EOF_MULTI_LINE_STATEMENT_ERROR = "unexpected end of file (EOF) in multi-line statement"
 
 def match_encoding_declaration(comment):
     """returns the declared encoding or None
@@ -300,7 +301,7 @@ def generate_tokens(lines, flags):
                     raise TokenError("'%s' was never closed" % (parenkind, ), line1,
                                      lnum1, start1 + 1, token_list, lnum)
                 prevline = lines[lines_index - 1]
-                raise TokenError("unexpected end of file (EOF) in multi-line statement", prevline,
+                raise TokenError(EOF_MULTI_LINE_STATEMENT_ERROR , prevline,
                                  lnum - 1, len(prevline) - 1, token_list) # XXX why is the offset 0 here?
             continued = False
 
