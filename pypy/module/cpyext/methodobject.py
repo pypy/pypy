@@ -39,6 +39,7 @@ eci = ExternalCompilationInfo(
         "RPY_EXTERN\n"
         "PyPyTypedMethodMetadata* PyPyGetTypedSignature(PyMethodDef*);"
         ],
+    # TODO(max): Figure out how to get PyPy not to release the GIL.
     separate_module_sources = ['''
 PyPyTypedMethodMetadata*
 PyPyGetTypedSignature(PyMethodDef* def)
