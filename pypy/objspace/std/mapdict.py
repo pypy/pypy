@@ -1288,12 +1288,13 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                 from pypy.interpreter.typedef import Member
                 if isinstance(w_descr, Member):    # it is a slot -- easy case
                     attrname, attrkind = ("slot", SLOTS_STARTING_FROM + w_descr.index)
-            else:
-                # There is a non-data descriptor in the class.  If there is
-                # also a dict attribute, use the latter, caching its storageindex.
-                # If not, we loose.  We could do better in this case too,
-                # but we don't care too much; the common case of a method
-                # invocation is handled by LOOKUP_METHOD_xxx below.
+            elif not space.type(w_descr).is_heaptype():
+                # There is a non-data descriptor in the class. This would mean
+                # we use the dict entry, however, the class of w_descr could be
+                # changed to add a __get__/__set__ without the cache noticing,
+                # so we can only use the cache if w_descr is an instance of an
+                # immutable type. see
+                # test_load_attr_bug_class_name_turns_into_descriptor
                 attrname = name
                 attrkind = DICT
             #

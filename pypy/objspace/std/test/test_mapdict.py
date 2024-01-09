@@ -1664,6 +1664,26 @@ class AppTestWithMapDictAndCounters(object):
         assert res1 == "mymethod"
         assert res2 == "foobar"
 
+    def test_load_attr_bug_class_name_turns_into_descriptor(self):
+        class WillTurnIntoDescr(object):
+            pass
+
+        class Obj(object):
+            f = WillTurnIntoDescr()
+        o = Obj()
+        o.f = 12
+
+        def readf(o):
+            return o.f
+
+        # this used to fill the cache
+        assert readf(o) == 12
+
+        # make WillTurnIntoDescr a descriptor
+        WillTurnIntoDescr.__get__ = lambda *args: 15
+        WillTurnIntoDescr.__set__ = lambda *args: None
+        assert readf(o) == 15 # used to return 12
+
     def test_store_attr_simple(self):
         class A(object):
             pass
