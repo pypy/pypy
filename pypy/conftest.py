@@ -83,6 +83,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "pypy_only: only run test on PyPy"
     )
+    config.addinivalue_line("markers", "flaky: test that sometimes fails")
 
 
 def pytest_addoption(parser):

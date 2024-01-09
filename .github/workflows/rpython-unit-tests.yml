@@ -1,0 +1,187 @@
+name: Rpython Unit Tests
+# === Implementation notes ===
+# Since the test suite is too large to run in a reasonable amount of time
+# we split this into tests by sub-folder within the rpython folder
+
+# Note: this action will only run if there are changes to one of:
+#  - rpython folder
+#  - .github folder
+#  - pytest.py
+# add more items to `paths` if we missed some!
+
+on:
+  push:
+    branches: [ "main", "py3.9", "py3.10" ]
+    paths:
+        - "rpython/**/*"
+        - "pytest.py"
+        - ".github/**/*"
+  pull_request:
+    branches: [ "main", "py3.9", "py3.10" ]
+    paths:
+      - "rpython/**/*"
+      - "pytest.py"
+      - ".github/**/*"
+  workflow_dispatch:
+
+# Limit tests to latest commit on branches other than main
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+
+permissions:
+  contents: read
+
+jobs:
+  test-misc:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04]
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "pypy2.7-7.3.10"
+    - run: |
+          echo "Install requirements"
+          sudo apt-get install -y libgc-dev
+          pypy2 -m pip install --user hypothesis==4.39.3
+    - name: Test Annotator
+      run: pypy2 pytest.py rpython/annotator
+    - name: Test Config
+      run: pypy2 pytest.py rpython/config
+    - name: Test Flowspace
+      run: pypy2 pytest.py rpython/flowspace
+    - name: Test Tool
+      run: pypy2 pytest.py rpython/tool
+
+  # FIXME: jit tests hang for 6 hours under pypy + linux
+  # Possibly enable cpython + linux tests as a half-way house?
+  # test-jit-x86:
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       os: [ubuntu-20.04]
+
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - uses: actions/setup-python@v5
+  #     with:
+  #       python-version: "pypy2.7-7.3.10"
+  #   - run: |
+  #         echo "Install requirements"
+  #         sudo apt-get install -y libgc-dev
+  #         pypy2 -m pip install --user hypothesis==4.39.3
+  #   - name: Test Jit - X86
+  #     run: pypy2 pytest.py -v rpython/jit/backend/x86
+
+  # test-jit-other:
+  #   runs-on: ${{ matrix.os }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       os: [ubuntu-20.04]
+
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   - uses: actions/setup-python@v5
+  #     with:
+  #       python-version: "pypy2.7-7.3.10"
+  #   - run: |
+  #         echo "Install requirements"
+  #         sudo apt-get install -y libgc-dev
+  #         pypy2 -m pip install --user hypothesis==4.39.3
+  #   - name: Test Jit - Other
+  #     run: pypy2 pytest.py -v rpython/jit --ignore=rpython/jit/backend/x86
+
+  test-memory:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04]
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "pypy2.7-7.3.10"
+    - run: |
+          echo "Install requirements"
+          sudo apt-get install -y libgc-dev
+          pypy2 -m pip install --user hypothesis==4.39.3
+    - name: Test Memory
+      run: pypy2 pytest.py rpython/memory
+
+  test-rlib:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04]
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "pypy2.7-7.3.10"
+    - run: |
+          echo "Install requirements"
+          sudo apt-get install -y libgc-dev
+          pypy2 -m pip install --user hypothesis==4.39.3
+    - name: Test RLib
+      run: pypy2 pytest.py rpython/rlib
+
+  test-rtyper:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04]
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "pypy2.7-7.3.10"
+    - run: |
+          echo "Install requirements"
+          sudo apt-get install -y libgc-dev
+          pypy2 -m pip install --user hypothesis==4.39.3
+    - name: Test RTyper
+      # Note we split out test_rlist.py due to occasional segfaults
+      # with test_memoryerror that only occur when run with the full
+      # test suite
+      run: |
+          pypy2 pytest.py rpython/rtyper --ignore=rpython/rtyper/test/test_rlist.py
+          pypy2 pytest.py -v rpython/rtyper/test/test_rlist.py
+
+  test-translator:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04]
+
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "pypy2.7-7.3.10"
+    - run: |
+          echo "Install requirements"
+          sudo apt-get install -y libgc-dev
+          pypy2 -m pip install --user hypothesis==4.39.3
+    - name: Test Translator
+      run: |
+        # we don't need to run test_typed.py, because test_backendoptimized.py
+        # runs the same tests, just with more optimizations
+        pypy2 pytest.py rpython/translator --ignore=rpython/translator/c/test/test_typed.py --ignore=rpython/translator/c/test/test_newgc.py
+        # only run the tests for the incminimark GC, the one that we always use
+        # in practice
+        pypy2 pytest.py rpython/translator/c/test/test_newgc.py -k TestIncrementalMiniMarkGC

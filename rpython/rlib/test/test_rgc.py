@@ -47,14 +47,17 @@ def test_enable_disable():
         b = gc.isenabled()
         return a and not b
 
-    t, typer, graph = gengraph(f, [])
-    blockops = list(graph.iterblockops())
-    opnames = [op.opname for block, op in blockops
-               if op.opname.startswith('gc__')]
-    assert opnames == ['gc__enable', 'gc__isenabled',
-                       'gc__disable', 'gc__isenabled']
-    res = interpret(f, [])
-    assert res
+    try:
+        t, typer, graph = gengraph(f, [])
+        blockops = list(graph.iterblockops())
+        opnames = [op.opname for block, op in blockops
+                if op.opname.startswith('gc__')]
+        assert opnames == ['gc__enable', 'gc__isenabled',
+                        'gc__disable', 'gc__isenabled']
+        res = interpret(f, [])
+        assert res
+    finally:
+        gc.enable()
 
 def test_collect_step():
     def f():
@@ -317,6 +320,10 @@ def test_get_referents():
     assert x1.stuff in lst2
     assert x2 not in lst2
 
+@py.test.mark.skipif(
+    "__pypy__" in sys.builtin_module_names,
+    reason="rgc.get_rpy_memory_usage does not work on pypy",
+)
 def test_get_memory_usage():
     class X(object):
         pass
@@ -330,10 +337,10 @@ def test_register_custom_trace_hook():
     def trace_func():
         xxx # should not be annotated here
     lambda_trace_func = lambda: trace_func
-    
+
     def f():
         rgc.register_custom_trace_hook(TP, lambda_trace_func)
-    
+
     t, typer, graph = gengraph(f, [])
 
     assert typer.custom_trace_funcs == [(TP, trace_func)]
