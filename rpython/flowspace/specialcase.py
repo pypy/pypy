@@ -79,6 +79,24 @@ def rpython_print_item(s):
     buf.append(' ')
 rpython_print_item._annenforceargs_ = (str,)
 
+def rpython_print_end(s):
+    buf = stdoutbuffer.linebuf
+    if not s:
+        return
+
+    if s[0] == '\n':
+        rpython_print_newline()
+    elif buf:
+        buf[-1] = s[0]
+    else:
+        buf.append(s[0])
+
+    for c in s[1:]:
+        if c == '\n':
+            rpython_print_newline()
+        else:
+            buf.append(c)
+
 def rpython_print_newline():
     buf = stdoutbuffer.linebuf
     if buf:
