@@ -1,3 +1,4 @@
+import pytest
 from pypy.objspace.std.test import test_typeobject
 
 
