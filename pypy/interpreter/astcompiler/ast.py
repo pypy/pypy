@@ -395,6 +395,8 @@ class stmt(AST):
             return Raise.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Try):
             return Try.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_TryStar):
+            return TryStar.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Assert):
             return Assert.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Import):
@@ -415,7 +417,7 @@ class stmt(AST):
             return Continue.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
                 "expected some sort of stmt, but got %R", w_node)
-State.ast_type('stmt', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['end_lineno', 'end_col_offset'], doc='stmt = FunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)\n     | AsyncFunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)\n     | ClassDef(identifier name, expr* bases, keyword* keywords, stmt* body, expr* decorator_list)\n     | Return(expr? value)\n     | Delete(expr* targets)\n     | Assign(expr* targets, expr value, string? type_comment)\n     | AugAssign(expr target, operator op, expr value)\n     | AnnAssign(expr target, expr annotation, expr? value, int simple)\n     | For(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | AsyncFor(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | While(expr test, stmt* body, stmt* orelse)\n     | If(expr test, stmt* body, stmt* orelse)\n     | With(withitem* items, stmt* body, string? type_comment)\n     | AsyncWith(withitem* items, stmt* body, string? type_comment)\n     | Match(expr subject, match_case* cases)\n     | Raise(expr? exc, expr? cause)\n     | Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)\n     | Assert(expr test, expr? msg)\n     | Import(alias* names)\n     | ImportFrom(identifier? module, alias* names, int? level)\n     | Global(identifier* names)\n     | Nonlocal(identifier* names)\n     | Expr(expr value)\n     | Pass\n     | Break\n     | Continue')
+State.ast_type('stmt', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['end_lineno', 'end_col_offset'], doc='stmt = FunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)\n     | AsyncFunctionDef(identifier name, arguments args, stmt* body, expr* decorator_list, expr? returns, string? type_comment)\n     | ClassDef(identifier name, expr* bases, keyword* keywords, stmt* body, expr* decorator_list)\n     | Return(expr? value)\n     | Delete(expr* targets)\n     | Assign(expr* targets, expr value, string? type_comment)\n     | AugAssign(expr target, operator op, expr value)\n     | AnnAssign(expr target, expr annotation, expr? value, int simple)\n     | For(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | AsyncFor(expr target, expr iter, stmt* body, stmt* orelse, string? type_comment)\n     | While(expr test, stmt* body, stmt* orelse)\n     | If(expr test, stmt* body, stmt* orelse)\n     | With(withitem* items, stmt* body, string? type_comment)\n     | AsyncWith(withitem* items, stmt* body, string? type_comment)\n     | Match(expr subject, match_case* cases)\n     | Raise(expr? exc, expr? cause)\n     | Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)\n     | TryStar(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)\n     | Assert(expr test, expr? msg)\n     | Import(alias* names)\n     | ImportFrom(identifier? module, alias* names, int? level)\n     | Global(identifier* names)\n     | Nonlocal(identifier* names)\n     | Expr(expr value)\n     | Pass\n     | Break\n     | Continue')
 
 class FunctionDef(stmt):
 
@@ -1797,6 +1799,108 @@ class Try(stmt):
 State.ast_type('Try', 'stmt', ['body', 'handlers', 'orelse', 'finalbody'], default_none_fields=[], doc='Try(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)')
 
 
+class TryStar(stmt):
+
+    def __init__(self, body, handlers, orelse, finalbody, lineno, col_offset, end_lineno, end_col_offset):
+        self.body = body
+        self.handlers = handlers
+        self.orelse = orelse
+        self.finalbody = finalbody
+        stmt.__init__(self, lineno, col_offset, end_lineno, end_col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_TryStar(self)
+
+    def mutate_over(self, visitor):
+        if self.body:
+            for i in range(len(self.body)):
+                if self.body[i] is not None:
+                    self.body[i] = self.body[i].mutate_over(visitor)
+        if self.handlers:
+            for i in range(len(self.handlers)):
+                if self.handlers[i] is not None:
+                    self.handlers[i] = self.handlers[i].mutate_over(visitor)
+        if self.orelse:
+            for i in range(len(self.orelse)):
+                if self.orelse[i] is not None:
+                    self.orelse[i] = self.orelse[i].mutate_over(visitor)
+        if self.finalbody:
+            for i in range(len(self.finalbody)):
+                if self.finalbody[i] is not None:
+                    self.finalbody[i] = self.finalbody[i].mutate_over(visitor)
+        return visitor.visit_TryStar(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_TryStar)
+        if self.body is None:
+            body_w = []
+        else:
+            body_w = [node.to_object(space) for node in self.body] # stmt
+        w_body = space.newlist(body_w)
+        assert w_body is not None
+        space.setattr(w_node, space.newtext('body'), w_body)
+        if self.handlers is None:
+            handlers_w = []
+        else:
+            handlers_w = [node.to_object(space) for node in self.handlers] # excepthandler
+        w_handlers = space.newlist(handlers_w)
+        assert w_handlers is not None
+        space.setattr(w_node, space.newtext('handlers'), w_handlers)
+        if self.orelse is None:
+            orelse_w = []
+        else:
+            orelse_w = [node.to_object(space) for node in self.orelse] # stmt
+        w_orelse = space.newlist(orelse_w)
+        assert w_orelse is not None
+        space.setattr(w_node, space.newtext('orelse'), w_orelse)
+        if self.finalbody is None:
+            finalbody_w = []
+        else:
+            finalbody_w = [node.to_object(space) for node in self.finalbody] # stmt
+        w_finalbody = space.newlist(finalbody_w)
+        assert w_finalbody is not None
+        space.setattr(w_node, space.newtext('finalbody'), w_finalbody)
+        w_lineno = space.newint(self.lineno)  # int
+        assert w_lineno is not None
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        assert w_col_offset is not None
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        w_end_lineno = space.newint(self.end_lineno)  # int
+        assert w_end_lineno is not None
+        space.setattr(w_node, space.newtext('end_lineno'), w_end_lineno)
+        w_end_col_offset = space.newint(self.end_col_offset)  # int
+        assert w_end_col_offset is not None
+        space.setattr(w_node, space.newtext('end_col_offset'), w_end_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_body = get_field(space, w_node, 'body', False)
+        w_handlers = get_field(space, w_node, 'handlers', False)
+        w_orelse = get_field(space, w_node, 'orelse', False)
+        w_finalbody = get_field(space, w_node, 'finalbody', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        w_end_lineno = get_field(space, w_node, 'end_lineno', True)
+        w_end_col_offset = get_field(space, w_node, 'end_col_offset', True)
+        body_w = space.unpackiterable(w_body)
+        _body = [stmt.from_object(space, w_item) for w_item in body_w]
+        handlers_w = space.unpackiterable(w_handlers)
+        _handlers = [excepthandler.from_object(space, w_item) for w_item in handlers_w]
+        orelse_w = space.unpackiterable(w_orelse)
+        _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
+        finalbody_w = space.unpackiterable(w_finalbody)
+        _finalbody = [stmt.from_object(space, w_item) for w_item in finalbody_w]
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        _end_lineno = obj_to_int(space, w_end_lineno, True)
+        _end_col_offset = obj_to_int(space, w_end_col_offset, True)
+        return TryStar(_body, _handlers, _orelse, _finalbody, _lineno, _col_offset, _end_lineno, _end_col_offset)
+
+State.ast_type('TryStar', 'stmt', ['body', 'handlers', 'orelse', 'finalbody'], default_none_fields=[], doc='TryStar(stmt* body, excepthandler* handlers, stmt* orelse, stmt* finalbody)')
+
+
 class Assert(stmt):
 
     def __init__(self, test, msg, lineno, col_offset, end_lineno, end_col_offset):
@@ -2335,7 +2439,7 @@ class expr(AST):
             return Slice.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
                 "expected some sort of expr, but got %R", w_node)
-State.ast_type('expr', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['end_lineno', 'end_col_offset'], doc='expr = BoolOp(boolop op, expr* values)\n     | NamedExpr(expr target, expr value)\n     | BinOp(expr left, operator op, expr right)\n     | UnaryOp(unaryop op, expr operand)\n     | Lambda(arguments args, expr body)\n     | IfExp(expr test, expr body, expr orelse)\n     | Dict(expr* keys, expr* values)\n     | Set(expr* elts)\n     | ListComp(expr elt, comprehension* generators)\n     | SetComp(expr elt, comprehension* generators)\n     | DictComp(expr key, expr value, comprehension* generators)\n     | GeneratorExp(expr elt, comprehension* generators)\n     | Await(expr value)\n     | Yield(expr? value)\n     | YieldFrom(expr value)\n     | Compare(expr left, cmpop* ops, expr* comparators)\n     | Call(expr func, expr* args, keyword* keywords)\n     | RevDBMetaVar(int metavar)\n     | FormattedValue(expr value, int? conversion, expr? format_spec)\n     | JoinedStr(expr* values)\n     | Constant(constant value, string? kind)\n     | Attribute(expr value, identifier attr, expr_context ctx)\n     | Subscript(expr value, expr slice, expr_context ctx)\n     | Starred(expr value, expr_context ctx)\n     | Name(identifier id, expr_context ctx)\n     | List(expr* elts, expr_context ctx)\n     | Tuple(expr* elts, expr_context ctx)\n     | Slice(expr? lower, expr? upper, expr? step)')
+State.ast_type('expr', 'AST', None, ['lineno', 'col_offset', 'end_lineno', 'end_col_offset'], default_none_fields=['end_lineno', 'end_col_offset'], doc='expr = BoolOp(boolop op, expr* values)\n     | NamedExpr(expr target, expr value)\n     | BinOp(expr left, operator op, expr right)\n     | UnaryOp(unaryop op, expr operand)\n     | Lambda(arguments args, expr body)\n     | IfExp(expr test, expr body, expr orelse)\n     | Dict(expr* keys, expr* values)\n     | Set(expr* elts)\n     | ListComp(expr elt, comprehension* generators)\n     | SetComp(expr elt, comprehension* generators)\n     | DictComp(expr key, expr value, comprehension* generators)\n     | GeneratorExp(expr elt, comprehension* generators)\n     | Await(expr value)\n     | Yield(expr? value)\n     | YieldFrom(expr value)\n     | Compare(expr left, cmpop* ops, expr* comparators)\n     | Call(expr func, expr* args, keyword* keywords)\n     | RevDBMetaVar(int metavar)\n     | FormattedValue(expr value, int conversion, expr? format_spec)\n     | JoinedStr(expr* values)\n     | Constant(constant value, string? kind)\n     | Attribute(expr value, identifier attr, expr_context ctx)\n     | Subscript(expr value, expr slice, expr_context ctx)\n     | Starred(expr value, expr_context ctx)\n     | Name(identifier id, expr_context ctx)\n     | List(expr* elts, expr_context ctx)\n     | Tuple(expr* elts, expr_context ctx)\n     | Slice(expr? lower, expr? upper, expr? step)')
 
 class BoolOp(expr):
 
@@ -3523,7 +3627,7 @@ class FormattedValue(expr):
     @staticmethod
     def from_object(space, w_node):
         w_value = get_field(space, w_node, 'value', False)
-        w_conversion = get_field(space, w_node, 'conversion', True)
+        w_conversion = get_field(space, w_node, 'conversion', False)
         w_format_spec = get_field(space, w_node, 'format_spec', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
@@ -3532,7 +3636,7 @@ class FormattedValue(expr):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _conversion = obj_to_int(space, w_conversion, True)
+        _conversion = obj_to_int(space, w_conversion, False)
         _format_spec = expr.from_object(space, w_format_spec)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
@@ -3540,7 +3644,7 @@ class FormattedValue(expr):
         _end_col_offset = obj_to_int(space, w_end_col_offset, True)
         return FormattedValue(_value, _conversion, _format_spec, _lineno, _col_offset, _end_lineno, _end_col_offset)
 
-State.ast_type('FormattedValue', 'expr', ['value', 'conversion', 'format_spec'], default_none_fields=['conversion', 'format_spec'], doc='FormattedValue(expr value, int? conversion, expr? format_spec)')
+State.ast_type('FormattedValue', 'expr', ['value', 'conversion', 'format_spec'], default_none_fields=['format_spec'], doc='FormattedValue(expr value, int conversion, expr? format_spec)')
 
 
 class JoinedStr(expr):
@@ -5606,6 +5710,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Try(self, node):
         return self.default_visitor(node)
+    def visit_TryStar(self, node):
+        return self.default_visitor(node)
     def visit_Assert(self, node):
         return self.default_visitor(node)
     def visit_Import(self, node):
@@ -5836,6 +5942,13 @@ class GenericASTVisitor(ASTVisitor):
             node.cause.walkabout(self)
 
     def visit_Try(self, node):
+        self.visited(node)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.handlers)
+        self.visit_sequence(node.orelse)
+        self.visit_sequence(node.finalbody)
+
+    def visit_TryStar(self, node):
         self.visited(node)
         self.visit_sequence(node.body)
         self.visit_sequence(node.handlers)
