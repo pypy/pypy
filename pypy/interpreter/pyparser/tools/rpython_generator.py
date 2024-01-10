@@ -449,7 +449,9 @@ def main():
     with open(out_file, "w") as file:
         gen = RPythonParserGenerator(grammar, file)
         gen.generate(grammar_file)
-    print(grammar)
+    print("Clean Grammar:")
+    for line in str(grammar).splitlines():
+        print(" ", line)
 
 if __name__ == '__main__':
     main()
