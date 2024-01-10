@@ -119,12 +119,6 @@ typedef struct _object {
 #define _PyVarObject_CAST(op) ((PyVarObject*)(op))
 #define _PyVarObject_CAST_CONST(op) ((const PyVarObject*)(op))
 
-
-// Test if the 'x' object is the 'y' object, the same as "x is y" in Python.
-PyAPI_FUNC(int) Py_Is(PyObject *x, PyObject *y);
-#define Py_Is(x, y) ((x) == (y))
-
-
 static inline Py_ssize_t _Py_REFCNT(const PyObject *ob) {
     return ob->ob_refcnt;
 }
