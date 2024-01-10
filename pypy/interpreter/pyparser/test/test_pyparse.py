@@ -507,6 +507,13 @@ match x:
         pass
 """)
 
+    def test_except_star(self):
+        self.parse("""
+try:
+    f(x)
+except* ValueError:
+    pass""")
+
 class TestIncompleteInput(object):
     def setup_class(self):
         self.parser = pyparse.PegParser(self.space)
