@@ -145,7 +145,7 @@ Bugfixes
 - Start implementing the ``ag_running`` logic of asynchronous generators
   (:issue:`3995`)
 - Handle ``pathlib.path`` in ``PyUnicode_FSDecoder``, ``PyUnicode_FSDecoder``
-  (:issue:`3167`)
+  (:issue:`3168`)
 - Raise ``OSError`` in ``gmtime`` like in ``localtime``
 - Make the construction arguments of builtin types more introspectable
   (:issue:`4033`)
