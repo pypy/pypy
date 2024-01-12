@@ -114,9 +114,10 @@ Speedups and enhancements
 - Remove dead RPython code
 - Improve the ability to run untranslated tests on top of PyPy2.7 (instead of
   CPython2.7)
-- Do tail call optimization in the metainterp while tracing. this will in
-  particular mean storing fewer frames in the resume data and making
-  blackholing and resuming for tracing bridges more efficient.
+- Speed up tracing function calls (both on the Python as well as on the
+  implentation level) by doing tail call optimization in the tracing
+  interpreter. This might improve JIT warmup times and JIT memory usage a small
+  amount for specific kinds of programs.
 
 Python 3.9+
 -----------
