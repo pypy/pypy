@@ -58,11 +58,11 @@ class AppTestFfi:
         }
 
         const char *static_str = "xxxxxx";
-        RPY_EXPORTED
+        RPY_EXPORTED long static_int;
         long static_int = 42;
-        RPY_EXPORTED
+        RPY_EXPORTED double static_double;
         double static_double = 42.42;
-        RPY_EXPORTED
+        RPY_EXPORTED long double static_longdouble;
         long double static_longdouble = 42.42;
 
         RPY_EXPORTED
