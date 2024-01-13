@@ -19,6 +19,8 @@ from rpython.flowspace.model import summary
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import r_singlefloat
 
+PYPY_HOST = '__pypy__' in sys.modules
+
 class BaseTestRffi:
     def test_basic(self):
         c_source = py.code.Source("""
@@ -938,6 +940,7 @@ def test_enforced_args():
     mixann.getgraph(f2, [], s_None)
     mixann.finish()
 
+@py.test.mark.skipif(PYPY_HOST, reason="ll2ctypes cannot do this cast on PyPy2")
 def test_force_cast_unichar():
     x = cast(lltype.UniChar, -1)
     assert isinstance(x, unicode)
