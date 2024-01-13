@@ -1087,7 +1087,10 @@ def ctypes2lltype(T, cobj, force_real_ctypes_function=False):
             except (ValueError, OverflowError):
                 for tc in 'HIL':
                     if array(tc).itemsize == array('u').itemsize:
-                        cobj &= sys.maxunicode
+                        import struct
+                        cobj &= 256 ** struct.calcsize(tc) - 1
+                        # CPython2 allows this
+                        # PyPy2 will create the array but not allow indexing it
                         llobj = array('u', array(tc, (cobj,)).tostring())[0]
                         break
                 else:
