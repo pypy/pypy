@@ -19,6 +19,8 @@ class AbstractRISCVCPU(AbstractLLCPU):
 
     JITFRAME_FIXED_SIZE = arch.JITFRAME_FIXED_SIZE
 
+    HAS_CODEMAP = True
+
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
@@ -29,6 +31,8 @@ class AbstractRISCVCPU(AbstractLLCPU):
 
     def setup_once(self):
         self.assembler.setup_once()
+        if self.HAS_CODEMAP:
+            self.codemap.setup()
 
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True, logger=None):

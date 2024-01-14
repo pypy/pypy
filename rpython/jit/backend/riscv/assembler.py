@@ -57,6 +57,9 @@ class AssemblerRISCV(OpAssembler):
         looptoken.compiled_loop_token = clt
 
         self.setup(looptoken)
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.enter_portal_frame(jd_id, unique_id,
+                                                    self.mc.get_relative_pos())
 
         frame_info = self.datablockwrapper.malloc_aligned(
             jitframe.JITFRAMEINFO_SIZE, alignment=XLEN)
@@ -143,6 +146,9 @@ class AssemblerRISCV(OpAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(original_loop_token)
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.inherit_code_from_position(
+                faildescr.adr_jump_offset)
 
         descr_number = compute_unique_id(faildescr)
         if log:
@@ -779,6 +785,9 @@ class AssemblerRISCV(OpAssembler):
         size = self.mc.get_relative_pos()
         rawstart = self.mc.materialize(self.cpu, allblocks,
                                        self.cpu.gc_ll_descr.gcrootmap)
+        # Registers the materialized loop to the codemap.
+        self.cpu.codemap.register_codemap(
+            self.codemap_builder.get_final_bytecode(rawstart, size))
         return rawstart
 
     def _build_failure_recovery(self, exc, withfloats=False):

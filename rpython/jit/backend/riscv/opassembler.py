@@ -1440,10 +1440,10 @@ class OpAssembler(BaseAssembler):
             cb.emit_no_collect()
 
     def emit_op_enter_portal_frame(self, op, arglocs):
-        pass
+        self.enter_portal_frame(op)
 
     def emit_op_leave_portal_frame(self, op, arglocs):
-        pass
+        self.leave_portal_frame(op)
 
     def emit_op_keepalive(self, op, arglocs):
         pass

@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-import py
 from rpython.jit.backend.llsupport.codemap import unpack_traceback
 from rpython.jit.backend.riscv.test.test_basic import JitRISCVMixin
 from rpython.jit.metainterp.test.test_recursive import RecursiveTests
@@ -11,8 +10,6 @@ class TestRecursive(JitRISCVMixin, RecursiveTests):
     # ====> ../../../metainterp/test/test_recursive.py
 
     def check_get_unique_id(self, codemaps):
-        py.test.skip('codemap unimplemented by RISCV')
-
         assert len(codemaps) == 3
         # we want to create a map of differences, so unpacking the tracebacks
         # byte by byte
