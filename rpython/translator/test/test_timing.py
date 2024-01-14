@@ -1,6 +1,6 @@
 
 import py
-from rpython.translator.goal.timing import Timer
+from rpython.translator.timing import Timer
 
 def test_timing():
     t = Timer(list(reversed([1,2,3,4,5,6])).pop)
@@ -14,4 +14,3 @@ def test_timing():
     t.end_event('z')
     assert t.events == [('x', 1), ('y', 1), ('z', 1)]
     assert t.ttime() == 5
-    

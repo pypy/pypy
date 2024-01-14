@@ -210,6 +210,7 @@ class TestTypeDef:
             A3()
         """)
         gc.collect(); gc.collect()
+        self.space.user_del_action.perform(ec, None)
         assert space.unwrap(w_seen) == [1]
         #
         w_seen = space.newlist([])
@@ -222,6 +223,7 @@ class TestTypeDef:
             A4()
         """)
         gc.collect(); gc.collect()
+        self.space.user_del_action.perform(ec, None)
         assert space.unwrap(w_seen) == [4, 1]    # user __del__, and _finalize_
         #
         w_seen = space.newlist([])
@@ -232,6 +234,7 @@ class TestTypeDef:
             A5()
         """)
         gc.collect(); gc.collect()
+        self.space.user_del_action.perform(ec, None)
         assert space.unwrap(w_seen) == [1]     # _finalize_ only
 
     def test_multiple_inheritance(self):

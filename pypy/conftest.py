@@ -60,6 +60,8 @@ def pytest_configure(config):
     if not mode_A and not mode_D:  # 'own' tests
         from rpython.conftest import LeakFinder
         config.pluginmanager.register(LeakFinder())
+    config.addinivalue_line("markers", "flaky: test that sometimes fails")
+
 
 def pytest_addoption(parser):
     group = parser.getgroup("pypy options")
