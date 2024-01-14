@@ -1,24 +1,16 @@
 # encoding: utf-8
 from __future__ import print_function
 # NOTE: run this script with LANG=en_US.UTF-8
-# works with pip install mercurial==3.0
 
-try:
-    from pathlib import Path
-except ImportError:
-    import py
-    Path = py.path.local
 import sys
 from collections import defaultdict
 import operator
 import re
-import mercurial.hg
-import mercurial.ui
+import subprocess
 
-ROOT = Path(__file__, '..', '..', '..', '..')
 author_re = re.compile('(.*) <.*>')
 pair_programming_re = re.compile(r'^\((.*?)\)')
-excluded = set(["pypy", "convert-repo", "hgattic", '"Miss Islington (bot)"'])
+excluded = set(["pypy", "convert-repo", "hgattic", '"Miss Islington (bot)"', "remote-hg"])
 
 alias = {
     'Anders Chrigstrom': ['arre'],
@@ -97,7 +89,7 @@ alias = {
     'John Witulski': ['witulski'],
     'Andrew Lawrence': ['andrew.lawrence@siemens.com', 'andrewjlawrence'],
     'Batuhan Taskaya': ['isidentical'],
-    'Ondrej Baranovič': ['nulano'],
+    'Ondrej Baranovič': ['nulano', 'Nulano'],
     'Brad Kish': ['rtkbkish'],
     'Michał Górny': ['mgorny'],
     'David Hewitt': ['davidhewitt'],
@@ -106,6 +98,8 @@ alias = {
     'Simon Cross': ['hodgestar'],
     'Łukasz Langa': ['ambv'],
     'Wenzel Jakob': ['Jakob Wenzel'],
+    'Maxwell Bernstein': ['Max Bernstein'],
+    'Paul Gey': ['narpfel'],
     }
 
 alias_map = {}
@@ -146,14 +140,19 @@ def get_more_authors(log):
     return authors
 
 def main(show_numbers):
-    ui = mercurial.ui.ui()
-    repo = mercurial.hg.repository(ui, str(ROOT).encode('utf-8'))
+    txt = subprocess.check_output(["git", "log", "--all", "--no-merges", '--format="%an#%s"'], text=True)
     authors_count = defaultdict(int)
-    for i in repo:
-        ctx = repo[i]
+    with open("/tmp/authors", "w") as fid:
+        fid.write(txt)
+    for line in txt.split('\n'):
+        if "#" not in line:
+            continue
+        if "#Notes added by" in line:
+            continue
+        author_src, description = line.strip('"').split("#", 1)
         authors = set()
-        authors.add(get_canonical_author(ctx.user().decode('utf-8')))
-        authors.update(get_more_authors(ctx.description().decode('utf-8')))
+        authors.add(get_canonical_author(author_src))
+        authors.update(get_more_authors(description))
         for author in authors:
             if author not in excluded:
                 authors_count[author] += 1

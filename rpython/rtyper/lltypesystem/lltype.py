@@ -1882,6 +1882,10 @@ class _array(_parentable):
         # checks that it's ok to make an array of size 'n', and returns
         # range(n).  Explicitly overridden by some tests.
         try:
+            # first check it's a reasonable amount of memory
+            # because range lists don't take much space on pypy
+            if n > 2 ** 30:
+                raise MemoryError("8 GiB should be enough for tests")
             return range(n)
         except OverflowError:
             raise MemoryError("definitely too many items")

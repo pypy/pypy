@@ -221,6 +221,14 @@ def compute_stdlib_path_maybe(state, platlibdir, prefix):
 
 @unwrap_spec(executable='fsencode')
 def pypy_find_executable(space, executable):
+    if _WIN32:
+        module_filename = pypy_init_executable()
+        if module_filename:
+            module_path = rffi.charp2str(module_filename)
+            pypy_init_free(module_filename)
+            module_path = rpath.rabspath(module_path)
+            if _exists_and_is_executable(module_path):
+                return space.newfilename(module_path)
     return space.newfilename(find_executable(executable))
 
 
@@ -292,6 +300,23 @@ char *_pypy_init_home(void)
     }
     return p;
 }
+
+char *_pypy_init_executable(void)
+{
+    DWORD res;
+    char *p;
+
+    p = malloc(_MAX_PATH);
+    if (p == NULL)
+        return NULL;
+    res = GetModuleFileName(NULL, p, _MAX_PATH);
+    if (res >= _MAX_PATH || res <= 0) {
+        free(p);
+        fprintf(stderr, "PyPy initialization: GetModuleFileName() failed\n");
+        return NULL;
+    }
+    return p;
+}
 """
 
 else:
@@ -334,6 +359,8 @@ else:
     post_include_bits=['RPY_EXPORTED char *_pypy_init_home(void);',
                        'RPY_EXPORTED void _pypy_init_free(char*);',
                       ]
+    if _WIN32:
+        post_include_bits.append('RPY_EXPORTED char *_pypy_init_executable(void);')
 
 _eci = ExternalCompilationInfo(separate_module_sources=[_source_code],
                                post_include_bits=post_include_bits)
@@ -343,3 +370,6 @@ pypy_init_home = rffi.llexternal("_pypy_init_home", [], rffi.CCHARP,
                                  _nowrapper=True, compilation_info=_eci)
 pypy_init_free = rffi.llexternal("_pypy_init_free", [rffi.CCHARP], lltype.Void,
                                  _nowrapper=True, compilation_info=_eci)
+if _WIN32:
+    pypy_init_executable = rffi.llexternal("_pypy_init_executable", [], rffi.CCHARP,
+                                           _nowrapper=True, compilation_info=_eci)

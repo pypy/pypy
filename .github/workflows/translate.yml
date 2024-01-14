@@ -1,0 +1,54 @@
+name: Translate PyPy
+
+on:
+  push:
+    branches: [ "main", "py3.9", "py3.10"]
+  pull_request:
+    branches: [ "main", "py3.9", "py3.10"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04]
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: Set up PyPy 2.7
+      uses: actions/setup-python@v4
+      with:
+        python-version: "pypy-2.7-v7.3.10"
+
+    - name: install dependencies
+      run: |
+        sudo apt install libffi-dev pkg-config zlib1g-dev libbz2-dev libsqlite3-dev libncurses5-dev libexpat1-dev libssl-dev libgdbm-dev tk-dev libgc-dev liblzma-dev libncursesw5-dev patchelf
+        pypy -m pip install -r requirements.txt
+
+    - name: run objspace unit tests
+      run: |
+        pypy pytest.py pypy/objspace -v -m "not flaky"
+
+    - name: translate
+      run: |
+        pypy rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
+        mv pypy*-c libpypy*-c.so pypy/goal/
+
+    - name: package
+      run: |
+        ./pypy/goal/pypy*-c pypy/tool/release/package.py --make-portable
+
+    - name: upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: pypy-ci-build-${{ matrix.os }}
+        path: /tmp/usession-pypy-*-runner/build/pypy-nightly.tar.bz2
