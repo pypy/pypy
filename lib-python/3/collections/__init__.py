@@ -457,8 +457,8 @@ def namedtuple(typename, field_names, *, rename=False, defaults=None, module=Non
     else:
         star = ""
     arguments = "\n".join(
-        f"            {field}=_self.{field} if {field} is _not_given else {field},"
-        for field in field_names
+        f"            {field}=_self[{i}] if {field} is _not_given else {field},"
+        for i, field in enumerate(field_names)
     )
     code = f"""\
 _not_given = object()

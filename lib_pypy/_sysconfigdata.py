@@ -97,5 +97,5 @@ if sys.platform[:6] == "darwin":
     #
     # In any case, keep this in sync with DARWIN_VERSION_MIN in
     # rpython/translator/platform/darwin.py and Lib/_osx_support.py
-    build_time_vars['MACOSX_DEPLOYMENT_TARGET'] = '10.9'
+    build_time_vars['MACOSX_DEPLOYMENT_TARGET'] = '10.13'
 

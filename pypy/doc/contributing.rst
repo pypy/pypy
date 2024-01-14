@@ -46,14 +46,14 @@ coding sprints which are separately announced and are usually announced on `the
 blog`_.
 
 Like any Open Source project, issues should be filed on the `issue tracker`_,
-and `merge requests`_ to fix issues are welcome.
+and `pull requests`_ to fix issues are welcome.
 
 Further Reading: :ref:`Contact <contact>`
 
 .. _the blog: https://pypy.org/blog
 .. _pypy-dev mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
-.. _`PyPy group page`: https://foss.heptapod.net/pypy
-.. _`merge requests`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/merge_requests
+.. _`PyPy group page`: https://github.com/pypy
+.. _`pull requests`: https://github.com/pypy/pypy/pulls/
 
 
 Your first contribution
@@ -77,14 +77,16 @@ Some ideas for first contributions are:
 * Missing language features - these are listed in our `issue tracker`_
 
 .. _nightly builds: https://buildbot.pypy.org/nightly/
-.. _issue tracker: https://foss.heptapod.net/pypy/pypy/issues
+.. _issue tracker: https://github.com/pypy/pypy/issues/
 
 Source Control
 --------------
 
-PyPy's main repositories are hosted here: https://foss.heptapod.net/pypy.
+PyPy's main git repositories are hosted here: https://github.com/pypy,
+and legacy repositories are hosted here: https://foss.heptapod.net/pypy.
 
-`Heptapod <https://heptapod.net/>`_ is a friendly fork of GitLab Community
+Pypy's legacy repositories are hosted on `Heptapod <https://heptapod.net/>`_.
+Heptapod is a friendly fork of GitLab Community
 Edition supporting Mercurial. https://foss.heptapod.net is a public instance
 for Free and Open-Source Software (more information `here
 <https://foss.heptapod.net/heptapod/foss.heptapod.net>`_).
@@ -102,65 +104,39 @@ Thanks to `Octobus <https://octobus.net/>`_ and `Clever Cloud
      </a>
    </h1>
 
-Get Access
-----------
-
-As stated above, you need to request access to the repo.
-Since the free hosting on foss.heptapod.net does not allow personal forks, you
-need permissions to push your changes directly to our repo. Once you sign in to
-https://foss.heptapod.net using either a new login or your GitHub or Atlassian
-logins, you can get developer status for pushing directly to
-the project (just ask by clicking the link at foss.heptapod.net/pypy just under
-the logo, and you'll get it, basically).  Once you have it you can rewrite your
-file ``.hg/hgrc`` to contain ``default = ssh://hg@foss.heptapod.net/pypy/pypy``.
-Your changes will then be pushed directly to a branch on the official repo, and
-we will review the branches you want to merge.
 
 Clone
 -----
 
 * Clone the PyPy repo to your local machine with the command
-  ``hg clone https://foss.heptapod.net/pypy/pypy``.  It takes a minute or two
+  ``git clone https://github.com/pypy/pypy.git``.  It takes a minute or two
   operation but only ever needs to be done once.  See also
   https://pypy.org/download.html#building-from-source .
-  If you already cloned the repo before, even if some time ago,
-  then you can reuse the same clone by editing the file ``.hg/hgrc`` in
-  your clone to contain the line ``default =
-  https://foss.heptapod.net/pypy/pypy``, and then do ``hg pull && hg
-  up``.  If you already have such a clone but don't want to change it,
-  you can clone that copy with ``hg clone /path/to/other/copy``, and
-  then edit ``.hg/hgrc`` as above and do ``hg pull && hg up``.
 
-* Now you have a complete copy of the PyPy repo.  Make a long-lived branch
-  with a command like ``hg branch name_of_your_branch``.
+
+* Now you have a complete copy of the PyPy repo.
 
 Edit
 ----
 
-* Edit things.  Use ``hg diff`` to see what you changed.  Use ``hg add``
-  to make Mercurial aware of new files you added, e.g. new test files.
-  Use ``hg status`` to see if there are such files.  Write and run tests!
+* Edit things.  Use ``git diff`` to see what you changed.  Use ``git add``
+  to make git aware of new files you added, e.g. new test files.
+  Use ``git status`` to see if there are such files.  Write and run tests!
   (See the rest of this page.)
 
-* Commit regularly with ``hg commit``.  A one-line commit message is
+* Commit regularly with ``git commit``.  A one-line commit message is
   fine.  We love to have tons of commits; make one as soon as you have
   some progress, even if it is only some new test that doesn't pass yet,
   or fixing things even if not all tests pass.  Step by step, you are
   building the history of your changes, which is the point of a version
-  control system.  (There are commands like ``hg log`` and ``hg up``
+  control system.  (There are commands like ``git log``
   that you should read about later, to learn how to navigate this
   history.)
 
-* The commits stay on your machine until you do ``hg push`` to "push"
-  them back to the repo named in the file ``.hg/hgrc``.  Repos are
-  basically just collections of commits (a commit is also called a
-  changeset): there is one repo per url, plus one for each local copy on
-  each local machine.  The commands ``hg push`` and ``hg pull`` copy
+* The commits stay on your machine until you do ``git push`` to "push"
+  them back to your fork.  The commands ``git push`` and ``git pull`` copy
   commits around, with the goal that all repos in question end up with
-  the exact same set of commits.  By opposition, ``hg up`` only updates
-  the "working copy" by reading the local repository, i.e. it makes the
-  files that you see correspond to the latest (or any other) commit
-  locally present.
+  the exact same set of commits.
 
 * You should push often; there is no real reason not to.  Remember that
   even if they are pushed, with the setup above, the commits are only in the
@@ -172,10 +148,10 @@ Edit
   accept it as is for PyPy, asking you instead to improve some things,
   but we are not going to judge you unless you don't write tests.
 
-Merge Request
+Pull Request
 -------------
 
-* The final step is to open a merge request, so that we know that you'd
+* The final step is to open a pull request, so that we know that you'd
   like to merge that branch back to the original ``pypy/pypy`` repo.
   This can also be done several times if you have interesting
   intermediate states, but if you get there, then we're likely to
@@ -185,7 +161,7 @@ Merge Request
   that we generally push small changes as one or a few commits directly
   to the branch ``default`` or ``py3.9``.  Also, we often collaborate even if
   we are on other branches, which do not really "belong" to anyone.  At this
-  point you'll need ``hg merge`` and learn how to resolve conflicts that
+  point you'll need ``git merge`` and learn how to resolve conflicts that
   sometimes occur when two people try to push different commits in
   parallel on the same branch.  But it is likely an issue for later ``:-)``
 

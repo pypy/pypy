@@ -76,12 +76,10 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'PyPy'
-copyright = u'2023, The PyPy Project'
+copyright = u'2024, The PyPy Project'
 
 # For sphinx_issues extension v1.2.0
-issues_uri = "https://foss.heptapod.net/pypy/pypy/-/issues/{issue}"
-issues_pr_uri = "https://foss.heptapod.net/pypy/pypy/-/merge_requests/{pr}"
-issues_commit_uri = "https://foss.heptapod.net/pypy/pypy/-/commit/{commit}"
+issues_github_path = "pypy/pypy"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

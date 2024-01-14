@@ -415,13 +415,13 @@ class AppTestBytesArray:
 
     def test_iadd(self):
         b = b0 = bytearray(b'abc')
+        xx = bytearray(b'XX')
         b += b'def'
         assert b == b'abcdef'
         assert b is b0
         raises(TypeError, b.__iadd__, "")
         #
-        b += bytearray(b'XX')
-        print('b', b)
+        b += xx
         assert b == b'abcdefXX'
         assert b is b0
         #

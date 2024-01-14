@@ -398,7 +398,7 @@ def test_list_operations():
         return len(l)
 
     t = rtype(f, [])
-    backend_optimizations(t, clever_malloc_removal=False, storesink=True)
+    backend_optimizations(t, storesink=True)
     etrafo = ExceptionTransformer(t)
     graph = etrafo.transform_completely()
     collect_analyzer = CollectAnalyzer(t)
