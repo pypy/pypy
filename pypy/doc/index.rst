@@ -82,7 +82,7 @@ Further resources
 Contact
 -------
 
-`#pypy on irc.freenode.net`_
+`#pypy on irc.libera.chat`_
     Many of the core developers are hanging out here. You are welcome to join
     and ask questions (if they are not already answered in the :doc:`FAQ
     <faq>`). You can find logs of the channel here_.
@@ -106,7 +106,7 @@ Twitter handle `#pypyproject`_
 
 Watch us on twitch_
 
-.. _#pypy on irc.freenode.net: irc://irc.freenode.net/pypy
+.. _#pypy on irc.libera.chat: irc://irc.libera.chat/pypy
 .. _here: https://quodlibet.duckdns.org/irc/pypy/latest.log.html#irc-end
 .. _Development mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
 .. _Commit mailing list: https://mail.python.org/mailman/listinfo/pypy-commit
