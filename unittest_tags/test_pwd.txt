@@ -1,0 +1,3 @@
+*lib-python.3.test.test_pwd.PwdTest.test_errors
+*lib-python.3.test.test_pwd.PwdTest.test_values
+*lib-python.3.test.test_pwd.PwdTest.test_values_extended

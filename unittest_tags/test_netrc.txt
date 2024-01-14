@@ -1,0 +1,15 @@
+*lib-python.3.test.test_netrc.NetrcTestCase.test_comment_at_end_of_machine_line
+*lib-python.3.test.test_netrc.NetrcTestCase.test_comment_at_end_of_machine_line_no_space
+*lib-python.3.test.test_netrc.NetrcTestCase.test_comment_at_end_of_machine_line_pass_has_hash
+*lib-python.3.test.test_netrc.NetrcTestCase.test_comment_before_machine_line
+*lib-python.3.test.test_netrc.NetrcTestCase.test_comment_before_machine_line_hash_only
+*lib-python.3.test.test_netrc.NetrcTestCase.test_comment_before_machine_line_no_space
+*lib-python.3.test.test_netrc.NetrcTestCase.test_default
+*lib-python.3.test.test_netrc.NetrcTestCase.test_file_not_found_explicit
+*lib-python.3.test.test_netrc.NetrcTestCase.test_file_not_found_in_home
+*lib-python.3.test.test_netrc.NetrcTestCase.test_home_not_set
+*lib-python.3.test.test_netrc.NetrcTestCase.test_macros
+*lib-python.3.test.test_netrc.NetrcTestCase.test_password_with_internal_hash
+*lib-python.3.test.test_netrc.NetrcTestCase.test_password_with_leading_hash
+*lib-python.3.test.test_netrc.NetrcTestCase.test_password_with_trailing_hash
+*lib-python.3.test.test_netrc.NetrcTestCase.test_security

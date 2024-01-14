@@ -1,0 +1,6 @@
+*lib-python.3.test.test_xdrlib.ConversionErrorTest.test_double
+*lib-python.3.test.test_xdrlib.ConversionErrorTest.test_float
+*lib-python.3.test.test_xdrlib.ConversionErrorTest.test_pack_int
+*lib-python.3.test.test_xdrlib.ConversionErrorTest.test_pack_uint
+*lib-python.3.test.test_xdrlib.ConversionErrorTest.test_uhyper
+*lib-python.3.test.test_xdrlib.XDRTest.test_xdr

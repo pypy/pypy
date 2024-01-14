@@ -1,0 +1,14 @@
+*lib-python.3.test.test_pipes.SimplePipeTests.testBadAppendOptions
+*lib-python.3.test.test_pipes.SimplePipeTests.testBadOpenMode
+*lib-python.3.test.test_pipes.SimplePipeTests.testBadPrependOptions
+*lib-python.3.test.test_pipes.SimplePipeTests.testClone
+*lib-python.3.test.test_pipes.SimplePipeTests.testEmptyPipeline1
+*lib-python.3.test.test_pipes.SimplePipeTests.testEmptyPipeline2
+*lib-python.3.test.test_pipes.SimplePipeTests.testEmptyPipeline3
+*lib-python.3.test.test_pipes.SimplePipeTests.testReadOpenSink
+*lib-python.3.test.test_pipes.SimplePipeTests.testRepr
+*lib-python.3.test.test_pipes.SimplePipeTests.testSetDebug
+*lib-python.3.test.test_pipes.SimplePipeTests.testSimplePipe1
+*lib-python.3.test.test_pipes.SimplePipeTests.testSimplePipe2
+*lib-python.3.test.test_pipes.SimplePipeTests.testSimplePipe3
+*lib-python.3.test.test_pipes.SimplePipeTests.testWriteOpenSource

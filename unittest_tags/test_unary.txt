@@ -1,0 +1,6 @@
+*lib-python.3.test.test_unary.UnaryOpTestCase.test_bad_types
+*lib-python.3.test.test_unary.UnaryOpTestCase.test_invert
+*lib-python.3.test.test_unary.UnaryOpTestCase.test_negation_of_exponentiation
+*lib-python.3.test.test_unary.UnaryOpTestCase.test_negative
+*lib-python.3.test.test_unary.UnaryOpTestCase.test_no_overflow
+*lib-python.3.test.test_unary.UnaryOpTestCase.test_positive

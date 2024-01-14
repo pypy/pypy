@@ -1,0 +1,9 @@
+*lib-python.3.test.test_codecmaps_cn.TestGB18030Map.test_errorhandle
+*lib-python.3.test.test_codecmaps_cn.TestGB18030Map.test_mapping_file
+*lib-python.3.test.test_codecmaps_cn.TestGB18030Map.test_mapping_supplemental
+*lib-python.3.test.test_codecmaps_cn.TestGB2312Map.test_errorhandle
+*lib-python.3.test.test_codecmaps_cn.TestGB2312Map.test_mapping_file
+*lib-python.3.test.test_codecmaps_cn.TestGB2312Map.test_mapping_supplemental
+*lib-python.3.test.test_codecmaps_cn.TestGBKMap.test_errorhandle
+*lib-python.3.test.test_codecmaps_cn.TestGBKMap.test_mapping_file
+*lib-python.3.test.test_codecmaps_cn.TestGBKMap.test_mapping_supplemental

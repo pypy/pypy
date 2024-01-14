@@ -1,0 +1,12 @@
+*lib-python.3.test.test_code.CodeConstsTest.test_interned_string
+*lib-python.3.test.test_code.CodeConstsTest.test_interned_string_default
+*lib-python.3.test.test_code.CodeConstsTest.test_interned_string_in_frozenset
+*lib-python.3.test.test_code.CodeConstsTest.test_interned_string_in_tuple
+*lib-python.3.test.test_code.CodeConstsTest.test_interned_string_with_null
+*lib-python.3.test.test_code.CodeTest.test_closure_injection
+*lib-python.3.test.test_code.CodeTest.test_constructor
+*lib-python.3.test.test_code.CodeTest.test_empty_linetable
+*lib-python.3.test.test_code.CodeTest.test_newempty
+*lib-python.3.test.test_code.CodeTest.test_replace
+*lib-python.3.test.test_code.CodeWeakRefTest.test_basic
+*lib-python.3.test.test_code.TestMain.test_main

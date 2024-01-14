@@ -1,0 +1,6 @@
+*lib-python.3.test.test_c_locale_coercion.LocaleCoercionTests.test_LC_ALL_set_to_C
+*lib-python.3.test.test_c_locale_coercion.LocaleCoercionTests.test_PYTHONCOERCECLOCALE_not_set
+*lib-python.3.test.test_c_locale_coercion.LocaleCoercionTests.test_PYTHONCOERCECLOCALE_not_zero
+*lib-python.3.test.test_c_locale_coercion.LocaleCoercionTests.test_PYTHONCOERCECLOCALE_set_to_one
+*lib-python.3.test.test_c_locale_coercion.LocaleCoercionTests.test_PYTHONCOERCECLOCALE_set_to_warn
+*lib-python.3.test.test_c_locale_coercion.LocaleCoercionTests.test_PYTHONCOERCECLOCALE_set_to_zero

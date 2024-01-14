@@ -1,0 +1,6 @@
+*lib-python.3.test.test_pow.PowTest.test_bug643260
+*lib-python.3.test.test_pow.PowTest.test_bug705231
+*lib-python.3.test.test_pow.PowTest.test_negative_exponent
+*lib-python.3.test.test_pow.PowTest.test_other
+*lib-python.3.test.test_pow.PowTest.test_powfloat
+*lib-python.3.test.test_pow.PowTest.test_powint

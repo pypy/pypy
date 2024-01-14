@@ -1,0 +1,13 @@
+*lib-python.3.test.test_structseq.StructSeqTest.test_cmp
+*lib-python.3.test.test_structseq.StructSeqTest.test_concat
+*lib-python.3.test.test_structseq.StructSeqTest.test_constructor
+*lib-python.3.test.test_structseq.StructSeqTest.test_contains
+*lib-python.3.test.test_structseq.StructSeqTest.test_eviltuple
+*lib-python.3.test.test_structseq.StructSeqTest.test_extended_getslice
+*lib-python.3.test.test_structseq.StructSeqTest.test_fields
+*lib-python.3.test.test_structseq.StructSeqTest.test_hash
+*lib-python.3.test.test_structseq.StructSeqTest.test_match_args
+*lib-python.3.test.test_structseq.StructSeqTest.test_reduce
+*lib-python.3.test.test_structseq.StructSeqTest.test_repeat
+*lib-python.3.test.test_structseq.StructSeqTest.test_repr
+*lib-python.3.test.test_structseq.StructSeqTest.test_tuple

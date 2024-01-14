@@ -1,0 +1,14 @@
+*lib-python.3.test.test_largefile.CLargeFileTest.test_large_read
+*lib-python.3.test.test_largefile.CLargeFileTest.test_lseek
+*lib-python.3.test.test_largefile.CLargeFileTest.test_osstat
+*lib-python.3.test.test_largefile.CLargeFileTest.test_seek_read
+*lib-python.3.test.test_largefile.CLargeFileTest.test_seekable
+*lib-python.3.test.test_largefile.CLargeFileTest.test_truncate
+*lib-python.3.test.test_largefile.PyLargeFileTest.test_large_read
+*lib-python.3.test.test_largefile.PyLargeFileTest.test_lseek
+*lib-python.3.test.test_largefile.PyLargeFileTest.test_osstat
+*lib-python.3.test.test_largefile.PyLargeFileTest.test_seek_read
+*lib-python.3.test.test_largefile.PyLargeFileTest.test_seekable
+*lib-python.3.test.test_largefile.PyLargeFileTest.test_truncate
+*lib-python.3.test.test_largefile.TestCopyfile.test_it
+*lib-python.3.test.test_largefile.TestSocketSendfile.test_it

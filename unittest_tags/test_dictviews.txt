@@ -1,0 +1,16 @@
+*lib-python.3.test.test_dictviews.DictSetTest.test_abc_registry
+*lib-python.3.test.test_dictviews.DictSetTest.test_compare_error
+*lib-python.3.test.test_dictviews.DictSetTest.test_constructors_not_callable
+*lib-python.3.test.test_dictviews.DictSetTest.test_copy
+*lib-python.3.test.test_dictviews.DictSetTest.test_deeply_nested_repr
+*lib-python.3.test.test_dictviews.DictSetTest.test_dict_items
+*lib-python.3.test.test_dictviews.DictSetTest.test_dict_keys
+*lib-python.3.test.test_dictviews.DictSetTest.test_dict_mixed_keys_items
+*lib-python.3.test.test_dictviews.DictSetTest.test_dict_repr
+*lib-python.3.test.test_dictviews.DictSetTest.test_dict_values
+*lib-python.3.test.test_dictviews.DictSetTest.test_items_set_operations
+*lib-python.3.test.test_dictviews.DictSetTest.test_keys_set_operations
+*lib-python.3.test.test_dictviews.DictSetTest.test_pickle
+*lib-python.3.test.test_dictviews.DictSetTest.test_recursive_repr
+*lib-python.3.test.test_dictviews.DictSetTest.test_set_operations_with_iterator
+*lib-python.3.test.test_dictviews.DictSetTest.test_set_operations_with_noniterable

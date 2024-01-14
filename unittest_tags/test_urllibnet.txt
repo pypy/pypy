@@ -1,0 +1,12 @@
+*lib-python.3.test.test_urllibnet.URLTimeoutTest.testURLread
+*lib-python.3.test.test_urllibnet.urlopenNetworkTests.test_bad_address
+*lib-python.3.test.test_urllibnet.urlopenNetworkTests.test_basic
+*lib-python.3.test.test_urllibnet.urlopenNetworkTests.test_getcode
+*lib-python.3.test.test_urllibnet.urlopenNetworkTests.test_geturl
+*lib-python.3.test.test_urllibnet.urlopenNetworkTests.test_info
+*lib-python.3.test.test_urllibnet.urlopenNetworkTests.test_readlines
+*lib-python.3.test.test_urllibnet.urlretrieveNetworkTests.test_basic
+*lib-python.3.test.test_urllibnet.urlretrieveNetworkTests.test_data_header
+*lib-python.3.test.test_urllibnet.urlretrieveNetworkTests.test_header
+*lib-python.3.test.test_urllibnet.urlretrieveNetworkTests.test_reporthook
+*lib-python.3.test.test_urllibnet.urlretrieveNetworkTests.test_specified_path

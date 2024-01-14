@@ -1,0 +1,16 @@
+*lib-python.3.test.test_stat.TestFilemodeCStat.test_devices
+*lib-python.3.test.test_stat.TestFilemodeCStat.test_directory
+*lib-python.3.test.test_stat.TestFilemodeCStat.test_fifo
+*lib-python.3.test.test_stat.TestFilemodeCStat.test_file_attribute_constants
+*lib-python.3.test.test_stat.TestFilemodeCStat.test_link
+*lib-python.3.test.test_stat.TestFilemodeCStat.test_mode
+*lib-python.3.test.test_stat.TestFilemodeCStat.test_module_attributes
+*lib-python.3.test.test_stat.TestFilemodeCStat.test_socket
+*lib-python.3.test.test_stat.TestFilemodePyStat.test_devices
+*lib-python.3.test.test_stat.TestFilemodePyStat.test_directory
+*lib-python.3.test.test_stat.TestFilemodePyStat.test_fifo
+*lib-python.3.test.test_stat.TestFilemodePyStat.test_file_attribute_constants
+*lib-python.3.test.test_stat.TestFilemodePyStat.test_link
+*lib-python.3.test.test_stat.TestFilemodePyStat.test_mode
+*lib-python.3.test.test_stat.TestFilemodePyStat.test_module_attributes
+*lib-python.3.test.test_stat.TestFilemodePyStat.test_socket

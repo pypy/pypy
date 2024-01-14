@@ -1,0 +1,9 @@
+*lib-python.3.test.test_numeric_tower.ComparisonTest.test_complex
+*lib-python.3.test.test_numeric_tower.ComparisonTest.test_mixed_comparisons
+*lib-python.3.test.test_numeric_tower.HashTest.test_binary_floats
+*lib-python.3.test.test_numeric_tower.HashTest.test_bools
+*lib-python.3.test.test_numeric_tower.HashTest.test_complex
+*lib-python.3.test.test_numeric_tower.HashTest.test_decimals
+*lib-python.3.test.test_numeric_tower.HashTest.test_fractions
+*lib-python.3.test.test_numeric_tower.HashTest.test_hash_normalization
+*lib-python.3.test.test_numeric_tower.HashTest.test_integers

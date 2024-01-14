@@ -1,0 +1,10 @@
+*lib-python.3.test.test_utf8_mode.UTF8ModeTests.test_cmd_line
+*lib-python.3.test.test_utf8_mode.UTF8ModeTests.test_device_encoding
+*lib-python.3.test.test_utf8_mode.UTF8ModeTests.test_filesystemencoding
+*lib-python.3.test.test_utf8_mode.UTF8ModeTests.test_io
+*lib-python.3.test.test_utf8_mode.UTF8ModeTests.test_io_encoding
+*lib-python.3.test.test_utf8_mode.UTF8ModeTests.test_locale_getpreferredencoding
+*lib-python.3.test.test_utf8_mode.UTF8ModeTests.test_optim_level
+*lib-python.3.test.test_utf8_mode.UTF8ModeTests.test_posix_locale
+*lib-python.3.test.test_utf8_mode.UTF8ModeTests.test_pyio_encoding
+*lib-python.3.test.test_utf8_mode.UTF8ModeTests.test_xoption

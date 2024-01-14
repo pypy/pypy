@@ -1,0 +1,9 @@
+*lib-python.3.test.test_dbm_ndbm.DbmTestCase.test_bytes
+*lib-python.3.test.test_dbm_ndbm.DbmTestCase.test_context_manager
+*lib-python.3.test.test_dbm_ndbm.DbmTestCase.test_empty_value
+*lib-python.3.test.test_dbm_ndbm.DbmTestCase.test_keys
+*lib-python.3.test.test_dbm_ndbm.DbmTestCase.test_modes
+*lib-python.3.test.test_dbm_ndbm.DbmTestCase.test_nonascii_filename
+*lib-python.3.test.test_dbm_ndbm.DbmTestCase.test_nonexisting_file
+*lib-python.3.test.test_dbm_ndbm.DbmTestCase.test_unicode
+*lib-python.3.test.test_dbm_ndbm.DbmTestCase.test_write_readonly_file

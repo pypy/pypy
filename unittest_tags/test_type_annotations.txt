@@ -1,0 +1,5 @@
+*lib-python.3.test.test_type_annotations.TypeAnnotationTests.test_annotations_are_created_correctly
+*lib-python.3.test.test_type_annotations.TypeAnnotationTests.test_annotations_getset_raises
+*lib-python.3.test.test_type_annotations.TypeAnnotationTests.test_descriptor_still_works
+*lib-python.3.test.test_type_annotations.TypeAnnotationTests.test_lazy_create_annotations
+*lib-python.3.test.test_type_annotations.TypeAnnotationTests.test_setting_annotations

@@ -1,0 +1,7 @@
+*lib-python.3.test.test_compare.ComparisonTest.test_comparisons
+*lib-python.3.test.test_compare.ComparisonTest.test_id_comparisons
+*lib-python.3.test.test_compare.ComparisonTest.test_issue_1393
+*lib-python.3.test.test_compare.ComparisonTest.test_ne_defaults_to_not_eq
+*lib-python.3.test.test_compare.ComparisonTest.test_ne_high_priority
+*lib-python.3.test.test_compare.ComparisonTest.test_ne_low_priority
+*lib-python.3.test.test_compare.ComparisonTest.test_other_delegation

@@ -1,0 +1,5 @@
+*lib-python.3.test.test_smtpnet.SmtpSSLTest.test_connect
+*lib-python.3.test.test_smtpnet.SmtpSSLTest.test_connect_default_port
+*lib-python.3.test.test_smtpnet.SmtpSSLTest.test_connect_using_sslcontext
+*lib-python.3.test.test_smtpnet.SmtpSSLTest.test_connect_using_sslcontext_verified
+*lib-python.3.test.test_smtpnet.SmtpTest.test_connect_starttls

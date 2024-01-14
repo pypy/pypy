@@ -1,0 +1,14 @@
+*lib-python.3.test.test_getpass.GetpassGetuserTest.test_username_falls_back_to_pwd
+*lib-python.3.test.test_getpass.GetpassGetuserTest.test_username_priorities_of_env_values
+*lib-python.3.test.test_getpass.GetpassGetuserTest.test_username_takes_username_from_env
+*lib-python.3.test.test_getpass.GetpassRawinputTest.test_flushes_stream_after_prompt
+*lib-python.3.test.test_getpass.GetpassRawinputTest.test_raises_on_empty_input
+*lib-python.3.test.test_getpass.GetpassRawinputTest.test_trims_trailing_newline
+*lib-python.3.test.test_getpass.GetpassRawinputTest.test_uses_stderr_as_default
+*lib-python.3.test.test_getpass.GetpassRawinputTest.test_uses_stdin_as_default_input
+*lib-python.3.test.test_getpass.GetpassRawinputTest.test_uses_stdin_as_different_locale
+*lib-python.3.test.test_getpass.UnixGetpassTest.test_falls_back_to_fallback_if_termios_raises
+*lib-python.3.test.test_getpass.UnixGetpassTest.test_falls_back_to_stdin
+*lib-python.3.test.test_getpass.UnixGetpassTest.test_flushes_stream_after_input
+*lib-python.3.test.test_getpass.UnixGetpassTest.test_resets_termios
+*lib-python.3.test.test_getpass.UnixGetpassTest.test_uses_tty_directly

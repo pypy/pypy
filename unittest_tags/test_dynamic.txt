@@ -1,0 +1,9 @@
+*lib-python.3.test.test_dynamic.RebindBuiltinsTests.test_cannot_change_globals_or_builtins_with_eval
+*lib-python.3.test.test_dynamic.RebindBuiltinsTests.test_cannot_change_globals_or_builtins_with_exec
+*lib-python.3.test.test_dynamic.RebindBuiltinsTests.test_cannot_replace_builtins_dict_between_calls
+*lib-python.3.test.test_dynamic.RebindBuiltinsTests.test_cannot_replace_builtins_dict_while_active
+*lib-python.3.test.test_dynamic.RebindBuiltinsTests.test_eval_gives_lambda_custom_globals
+*lib-python.3.test.test_dynamic.RebindBuiltinsTests.test_globals_shadow_builtins
+*lib-python.3.test.test_dynamic.RebindBuiltinsTests.test_modify_builtins
+*lib-python.3.test.test_dynamic.RebindBuiltinsTests.test_modify_builtins_from_leaf_function
+*lib-python.3.test.test_dynamic.RebindBuiltinsTests.test_modify_builtins_while_generator_active

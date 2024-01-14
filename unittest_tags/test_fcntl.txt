@@ -1,0 +1,11 @@
+*lib-python.3.test.test_fcntl.TestFcntl.test_fcntl_64_bit
+*lib-python.3.test.test_fcntl.TestFcntl.test_fcntl_bad_file
+*lib-python.3.test.test_fcntl.TestFcntl.test_fcntl_bad_file_overflow
+*lib-python.3.test.test_fcntl.TestFcntl.test_fcntl_f_getpath
+*lib-python.3.test.test_fcntl.TestFcntl.test_fcntl_f_pipesize
+*lib-python.3.test.test_fcntl.TestFcntl.test_fcntl_file_descriptor
+*lib-python.3.test.test_fcntl.TestFcntl.test_fcntl_fileno
+*lib-python.3.test.test_fcntl.TestFcntl.test_flock
+*lib-python.3.test.test_fcntl.TestFcntl.test_flock_overflow
+*lib-python.3.test.test_fcntl.TestFcntl.test_lockf_exclusive
+*lib-python.3.test.test_fcntl.TestFcntl.test_lockf_share

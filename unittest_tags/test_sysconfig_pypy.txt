@@ -1,0 +1,1 @@
+*lib-python.3.test.test_sysconfig_pypy.TestSysConfigPypy.test_install_schemes

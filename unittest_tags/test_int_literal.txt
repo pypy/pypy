@@ -1,0 +1,6 @@
+*lib-python.3.test.test_int_literal.TestHexOctBin.test_bin_baseline
+*lib-python.3.test.test_int_literal.TestHexOctBin.test_bin_unsigned
+*lib-python.3.test.test_int_literal.TestHexOctBin.test_hex_baseline
+*lib-python.3.test.test_int_literal.TestHexOctBin.test_hex_unsigned
+*lib-python.3.test.test_int_literal.TestHexOctBin.test_oct_baseline
+*lib-python.3.test.test_int_literal.TestHexOctBin.test_oct_unsigned

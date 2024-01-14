@@ -1,0 +1,6 @@
+*lib-python.3.test.test_eof.EOFTestCase.test_EOFS
+*lib-python.3.test.test_eof.EOFTestCase.test_EOFS_with_file
+*lib-python.3.test.test_eof.EOFTestCase.test_EOF_single_quote
+*lib-python.3.test.test_eof.EOFTestCase.test_eof_with_line_continuation
+*lib-python.3.test.test_eof.EOFTestCase.test_line_continuation_EOF
+*lib-python.3.test.test_eof.EOFTestCase.test_line_continuation_EOF_from_file_bpo2180

@@ -1,0 +1,5 @@
+*lib-python.3.test.test_popen.PopenTest.test_contextmanager
+*lib-python.3.test.test_popen.PopenTest.test_iterating
+*lib-python.3.test.test_popen.PopenTest.test_keywords
+*lib-python.3.test.test_popen.PopenTest.test_popen
+*lib-python.3.test.test_popen.PopenTest.test_return_code

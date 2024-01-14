@@ -1,0 +1,14 @@
+*lib-python.3.test.test_format.FormatTest.test_bytes_and_bytearray_format
+*lib-python.3.test.test_format.FormatTest.test_common_format
+*lib-python.3.test.test_format.FormatTest.test_g_format_has_no_trailing_zeros
+*lib-python.3.test.test_format.FormatTest.test_locale
+*lib-python.3.test.test_format.FormatTest.test_non_ascii
+*lib-python.3.test.test_format.FormatTest.test_nul
+*lib-python.3.test.test_format.FormatTest.test_optimisations
+*lib-python.3.test.test_format.FormatTest.test_precision
+*lib-python.3.test.test_format.FormatTest.test_precision_c_limits
+*lib-python.3.test.test_format.FormatTest.test_str_format
+*lib-python.3.test.test_format.FormatTest.test_with_a_commas_and_an_underscore_in_format_specifier
+*lib-python.3.test.test_format.FormatTest.test_with_an_underscore_and_a_comma_in_format_specifier
+*lib-python.3.test.test_format.FormatTest.test_with_two_commas_in_format_specifier
+*lib-python.3.test.test_format.FormatTest.test_with_two_underscore_in_format_specifier

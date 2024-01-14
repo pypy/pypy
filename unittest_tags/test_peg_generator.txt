@@ -1,0 +1,4 @@
+*unittest.loader.ModuleSkipped.test.test_peg_generator.test_c_parser
+*unittest.loader.ModuleSkipped.test.test_peg_generator.test_first_sets
+*unittest.loader.ModuleSkipped.test.test_peg_generator.test_grammar_validator
+*unittest.loader.ModuleSkipped.test.test_peg_generator.test_pegen

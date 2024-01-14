@@ -1,0 +1,1 @@
+*lib-python.3.test.test_osx_env.OSXEnvironmentVariableTestCase.test_pythonexecutable_sets_sys_executable

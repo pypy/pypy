@@ -1,0 +1,10 @@
+*unittest.loader.ModuleSkipped.test.test_tools.test_fixcid
+*unittest.loader.ModuleSkipped.test.test_tools.test_gprof2html
+*unittest.loader.ModuleSkipped.test.test_tools.test_i18n
+*unittest.loader.ModuleSkipped.test.test_tools.test_lll
+*unittest.loader.ModuleSkipped.test.test_tools.test_md5sum
+*unittest.loader.ModuleSkipped.test.test_tools.test_pathfix
+*unittest.loader.ModuleSkipped.test.test_tools.test_pdeps
+*unittest.loader.ModuleSkipped.test.test_tools.test_pindent
+*unittest.loader.ModuleSkipped.test.test_tools.test_reindent
+*unittest.loader.ModuleSkipped.test.test_tools.test_sundry

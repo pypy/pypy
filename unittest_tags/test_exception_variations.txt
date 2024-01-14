@@ -1,0 +1,11 @@
+*lib-python.3.test.test_exception_variations.ExceptionTestCase.test_nested
+*lib-python.3.test.test_exception_variations.ExceptionTestCase.test_nested_else
+*lib-python.3.test.test_exception_variations.ExceptionTestCase.test_try_except
+*lib-python.3.test.test_exception_variations.ExceptionTestCase.test_try_except_else
+*lib-python.3.test.test_exception_variations.ExceptionTestCase.test_try_except_else_finally
+*lib-python.3.test.test_exception_variations.ExceptionTestCase.test_try_except_else_finally_no_exception
+*lib-python.3.test.test_exception_variations.ExceptionTestCase.test_try_except_else_no_exception
+*lib-python.3.test.test_exception_variations.ExceptionTestCase.test_try_except_finally
+*lib-python.3.test.test_exception_variations.ExceptionTestCase.test_try_except_finally_no_exception
+*lib-python.3.test.test_exception_variations.ExceptionTestCase.test_try_except_no_exception
+*lib-python.3.test.test_exception_variations.ExceptionTestCase.test_try_finally_no_exception
