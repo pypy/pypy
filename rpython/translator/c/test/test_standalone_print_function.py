@@ -17,8 +17,13 @@ class TestStandalonePrintFunction(test_standalone.StandaloneTestsVerified):
             argv = argv[1:]
             print("argument count:", len(argv))
             print("arguments:", argv)
+            # with a space
+            print("argument lengths:", end=" ")
+            print([len(s) for s in argv])
+            # with no space
             print("argument lengths:", end="")
             print([len(s) for s in argv])
+            # strange ending
             print("end", "is", end="\nstrange!\r\n")
             return 0
 
@@ -29,6 +34,7 @@ class TestStandalonePrintFunction(test_standalone.StandaloneTestsVerified):
             "argument count: 2\n"
             "arguments: [hi, there]\n"
             "argument lengths: [2, 5]\n"
+            "argument lengths:[2, 5]\n"
             "end is\nstrange!\n"
         )
         # NB. RPython has only str, not repr, so str() on a list of strings
