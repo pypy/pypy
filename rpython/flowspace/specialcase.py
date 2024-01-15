@@ -92,10 +92,9 @@ def rpython_print_end(s):
         buf.append(s[0])
 
     for c in s[1:]:
+        buf.append(c)
         if c == '\n':
             rpython_print_newline()
-        else:
-            buf.append(c)
 
 def rpython_print_newline():
     buf = stdoutbuffer.linebuf
