@@ -410,6 +410,9 @@ class AssemblerRISCV(OpAssembler):
     def _call_header(self):
         self._push_callee_save_regs_to_stack(self.mc)
 
+        if self.cpu.translate_support_code:
+            self._call_header_vmprof()
+
         # Save the thread local address to tls[0].
         self.saved_threadlocal_addr = 0 * XLEN
         self.mc.store_int(r.x11.value, r.sp.value, 0 * XLEN)
@@ -424,6 +427,9 @@ class AssemblerRISCV(OpAssembler):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self.gen_shadowstack_footer(gcrootmap, mc)
+
+        if self.cpu.translate_support_code:
+            self._call_footer_vmprof(mc)
 
         mc.MV(r.x10.value, r.jfp.value)
         self._pop_callee_save_regs_from_stack(mc)
@@ -469,11 +475,54 @@ class AssemblerRISCV(OpAssembler):
         # root_stack_top_addr = scratch2_reg
         mc.store_int(scratch2_reg.value, scratch_reg.value, 0)
 
+    def _call_header_vmprof(self):
+        from rpython.rlib.rvmprof.rvmprof import cintf, VMPROF_JITTED_TAG
+
+        # tloc = &pypy_threadlocal_s
+        tloc = r.x11
+        scratch_reg = r.x31
+        scratch2_reg = r.x30
+
+        # scratch_reg = &vmprof_tl_stack (old vmprof_tl_stack top)
+        offset = rffi.cast(lltype.Signed, cintf.vmprof_tl_stack.getoffset())
+        self.mc.load_int_from_base_plus_offset(scratch_reg.value, tloc.value,
+                                               offset)
+        # stack->next = old vmprof_tl_stack top
+        self.mc.store_int(scratch_reg.value, r.sp.value, 1 * XLEN)
+        # stack->value = sp
+        self.mc.store_int(r.sp.value, r.sp.value, 2 * XLEN)
+        # stack->kind = VMPROF_JITTED_TAG
+        self.mc.load_int_imm(scratch_reg.value, VMPROF_JITTED_TAG)
+        self.mc.store_int(scratch_reg.value, r.sp.value, 3 * XLEN)
+        # Set vmprof_tl_stack top to the new entry.
+        self.mc.ADDI(scratch_reg.value, r.sp.value, 1 * XLEN)
+        self.mc.store_int_to_base_plus_offset(scratch_reg.value, tloc.value,
+                                              offset, tmp=scratch2_reg.value)
+
+    def _call_footer_vmprof(self, mc):
+        from rpython.rlib.rvmprof.rvmprof import cintf
+
+        tloc = r.x11
+        scratch_reg = r.x31
+        scratch2_reg = r.x30
+
+        # tloc = &pypy_threadlocal_s
+        mc.load_int(tloc.value, r.sp.value, 0 * XLEN)
+        # scratch_reg = thread local vmprof_tl_stack->next
+        mc.load_int(scratch_reg.value, r.sp.value, 1 * XLEN)
+        # Set vmprof_tl_stack top to vmprof_tl_stack->next (pop stack)
+        offset = rffi.cast(lltype.Signed, cintf.vmprof_tl_stack.getoffset())
+        mc.store_int_to_base_plus_offset(scratch_reg.value, tloc.value,
+                                         offset, tmp=scratch2_reg.value)
+
     def _calculate_callee_save_area_size(self):
-        # Extra thread local storage (see. riscv/callbuiler.py)
+        # Extra thread local storage.
         #
         # tls[0 * XLEN]: saved_threadlocal_addr (_call_header)
-        tls_size = XLEN * 1
+        # tls[1 * XLEN]: VMPROFSTACK->next  (vmprof)
+        # tls[2 * XLEN]: VMPROFSTACK->value (vmprof)
+        # tls[3 * XLEN]: VMPROFSTACK->kind  (vmprof)
+        tls_size = XLEN * 4
 
         core_reg_begin = tls_size
         core_reg_size = XLEN * len(r.callee_saved_registers_except_ra_sp_fp)
