@@ -2,12 +2,8 @@
 PyPy v7.3.15: release of python 2.7, 3.9, and 3.10
 ==================================================
 
-.. note::
-    This is a pre-release announcement. When the release actually happens, it
-    will be announced on the PyPy blog_
-
-
 The PyPy team is proud to release version 7.3.15 of PyPy.
+
 This is primarily a bug-fix release, and includes work done to migrate PyPy to
 Git and Github.
 
