@@ -143,6 +143,7 @@ function repackage_source {
     echo "node: $githash" > ../.hg_archival.txt
     echo "branch: $branchname" >> ../.hg_archival.txt
     echo "tag: $tagname" >> ../.hg_archival.txt
+    git config tar.tar.bz2.command "bzip2 -c"
     $(cd ..; git archive --prefix $rel-src/ --add-file=.hg_archival.txt --output=${cwd}/$rel-src.tar.bz2 $tagname)
     $(cd ..; git archive --prefix $rel-src/ --add-file=.hg_archival.txt --output=${cwd}/$rel-src.zip $tagname)
 }
