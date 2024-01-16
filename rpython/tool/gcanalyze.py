@@ -4,6 +4,7 @@ and run it by:
 
 gcanalyze.py logfile [--plot]
 """
+from __future__ import print_function
 
 import sys
 from rpython.tool.logparser import parse_log
@@ -23,8 +24,8 @@ def main(arg, plot=False):
 def format_output(all, plot=False):
     avg = sum(all) / len(all)
     max_t = max(all)
-    print "AVG:", "%.1fms" % avg, "MAX:", "%.1fms" % max_t, "TOTAL:" , "%.1fms" % sum(all)
-    print
+    print("AVG:", "%.1fms" % avg, "MAX:", "%.1fms" % max_t, "TOTAL:" , "%.1fms" % sum(all))
+    print()
     buckets = [0] * NO_BUCKETS
     for item in all:
         bucket = int(item / max_t * NO_BUCKETS)
@@ -41,18 +42,18 @@ def format_output(all, plot=False):
             l3.append("-" * len(elem) + "+")
         l1.insert(0, "")
         l2.insert(0, "")
-        print "".join(l3)
-        print "|".join(l1) + "|"
-        print "".join(l3)
-        print "|".join(l2) + "|"
-        print "".join(l3)
+        print("".join(l3))
+        print("|".join(l1) + "|")
+        print("".join(l3))
+        print("|".join(l2) + "|")
+        print("".join(l3))
     else:
-        print " ".join(l1)
-        print " ".join(l2)
+        print(" ".join(l1))
+        print(" ".join(l2))
 
 if __name__ == '__main__':
     if len(sys.argv) < 2 or len(sys.argv) > 3:
-        print __doc__
+        print(__doc__)
         sys.exit(1)
     plot = False
     if len(sys.argv) == 3:
@@ -63,7 +64,7 @@ if __name__ == '__main__':
             plot = True
             arg = sys.argv[1]
         else:
-            print "Wrong command line options:", sys.argv
+            print("Wrong command line options:", sys.argv)
             sys.exit(1)
     else:
         arg = sys.argv[1]

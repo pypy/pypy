@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 
 import re, os, sys, operator
 
@@ -52,12 +54,12 @@ def configure_vm(logfile, flags):
             vm_config_name = vm_name
             break
     if vm_config_name is not None:
-        print "Using VM configuration %s" % vm_name
+        print("Using VM configuration %s" % vm_name)
         SET_VM(vm_name)
     else:
-        print "No VM configuration found in filename '%s'. Available configurations: %s" % \
-                (logfile, AVAILABLE_VMS)
-        print "Please add new VM configuration or rename logfile. Turning on -a flag to avoid errors."
+        print("No VM configuration found in filename '%s'. Available configurations: %s" %
+              (logfile, AVAILABLE_VMS))
+        print("Please add new VM configuration or rename logfile. Turning on -a flag to avoid errors.")
         flags.allstorage = True
 
 # ====================================================================
@@ -92,7 +94,7 @@ def parse_line(line, flags):
     result = line_pattern.match(line)
     if result is None:
         if flags.verbose:
-            print "Could not parse line: %s" % line[:-1]
+            print("Could not parse line: %s" % line[:-1])
         return None
     operation = str(result.group('operation'))
     old_storage = result.group('old')
@@ -113,7 +115,7 @@ def parse_line(line, flags):
         if operation in STORAGE_SOURCES:
             old_storage = STORAGE_SOURCES[operation]
         else:
-            print "Using operation %s as storage source." % operation
+            print("Using operation %s as storage source." % operation)
     old_storage = str(old_storage)
 
     if new_storage in NODE_RENAMINGS:
@@ -206,7 +208,7 @@ class Operations(object):
 
     def prefixprint(self, key="", total=None):
         if not self.empty():
-            print "%s%s" % (key, self.__str__(total))
+            print("%s%s" % (key, self.__str__(total)))
 
 class ClassOperations(object):
 
@@ -399,19 +401,19 @@ class StorageGraph(object):
                 assert edge in self.edges.values(), "Edge not in graph's edges: %s" % edge
                 visited_edges.add(edge)
                 if not edge.target is node:
-                    print "Wrong edge target: %s\nIncoming edge: %s\nIn node: %s" % (edge.target, edge, node)
+                    print("Wrong edge target: %s\nIncoming edge: %s\nIn node: %s" % (edge.target, edge, node))
                     assert False
                 if not edge in edge.origin.outgoing:
-                    print "Edge not in origin's outgoing: %s\nIncoming edge: %s\nIn node: %s" % (edge.origin.outgoing, edge, node)
+                    print("Edge not in origin's outgoing: %s\nIncoming edge: %s\nIn node: %s" % (edge.origin.outgoing, edge, node))
                     assert False
             for edge in node.outgoing:
                 assert edge in self.edges.values(), "Edge not in graph's edges: %s" % edge
                 visited_edges.add(edge)
                 if not edge.origin is node:
-                    print "Wrong edge origin: %s\nOutgoing edge: %s\nIn node: %s" % (edge.origin, edge, node)
+                    print("Wrong edge origin: %s\nOutgoing edge: %s\nIn node: %s" % (edge.origin, edge, node))
                     assert False
                 if not edge in edge.target.incoming:
-                    print "Edge not in origin's incoming: %s\nOutgoing edge: %s\nIn node: %s" % (edge.target.incoming, edge, node)
+                    print("Edge not in origin's incoming: %s\nOutgoing edge: %s\nIn node: %s" % (edge.target.incoming, edge, node))
                     assert False
         assert len(visited_edges) == len(self.edges.values()), "Not all of graph's edges visited."
 
@@ -484,11 +486,11 @@ def command_summarize(logfile, flags):
         node.print_summary(flags, graph.operations)
 
 def StorageNode_print_summary(self, flags, all_operations):
-    print "\n%s:" % self.name
+    print("\n%s:" % self.name)
     sum = StorageEdge()
     total_incoming = self.sum_all_incoming().total() if flags.percent else None
 
-    print "\tIncoming:"
+    print("\tIncoming:")
     for operation in all_operations:
         if flags.detailed:
             edges = [ (edge.origin.name, edge) for edge in self.incoming_edges(operation) ]
@@ -498,7 +500,7 @@ def StorageNode_print_summary(self, flags, all_operations):
             edge.print_with_name("\t\t\t", edgename, total_incoming, flags)
             sum += edge
 
-    print "\tOutgoing:"
+    print("\tOutgoing:")
     for operation in all_operations:
         if flags.detailed:
             edges = [ (edge.target.name, edge) for edge in self.outgoing_edges(operation) ]
@@ -514,7 +516,7 @@ StorageNode.print_summary = StorageNode_print_summary
 
 def StorageEdge_print_with_name(self, prefix, edgename, total_reference, flags):
     if flags.classes:
-        print "%s%s:" % (prefix, edgename)
+        print("%s%s:" % (prefix, edgename))
         prefix += "\t\t"
         operations = self.classes.classes.items()
         operations.sort(reverse=True, key=operator.itemgetter(1))
@@ -532,20 +534,20 @@ StorageEdge.print_with_name = StorageEdge_print_with_name
 # Output is valid dot code and can be parsed by the graphviz dot utility.
 def command_print_dot(logfile, flags):
     graph = make_graph(logfile, flags)
-    print "/*"
-    print "Storage Statistics (dot format):"
-    print "================================"
-    print "*/"
-    print dot_string(graph, flags)
+    print("/*")
+    print("Storage Statistics (dot format):")
+    print("================================")
+    print("*/")
+    print(dot_string(graph, flags))
 
 def run_dot(logfile, flags, output_type):
     import subprocess
     dot = dot_string(make_graph(logfile, flags), flags)
     command = ["dot", "-T%s" % output_type, "-o%s.%s" % (flags.logfile, output_type)]
-    print "Running:\n%s" % " ".join(command)
+    print("Running:\n%s" % " ".join(command))
     p = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     output = p.communicate(input=dot)[0]
-    print output
+    print(output)
 
 def command_dot(logfile, flags):
     run_dot(logfile, flags, "jpg")
@@ -626,11 +628,11 @@ def command_aggregate(logfile, flags):
         logentries = edge.as_log_entries()
         logentries.sort()
         for entry in logentries:
-            print entry
+            print(entry)
 
 def command_print_entries(logfile, flags):
     def callback(entry):
-        print entry
+        print(entry)
     parse(logfile, flags, callback)
 
 # ====================================================================
@@ -657,8 +659,8 @@ class Flags(object):
         return "[%s]" % " | ".join(descriptions)
 
 def usage(flags, commands):
-    print "Arguments: logfile command %s" % flags
-    print "Available commands: %s" % commands
+    print("Arguments: logfile command %s" % flags)
+    print("Available commands: %s" % commands)
     exit(1)
 
 def main(argv):

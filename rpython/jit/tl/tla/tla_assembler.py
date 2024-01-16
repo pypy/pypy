@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 
 import sys
 import py
@@ -6,7 +7,7 @@ from rpython.jit.tl.tla.test_tla import assemble
 py.path.local(__file__)
 
 def usage():
-    print >> sys.stderr, 'Usage: tla_assembler.py filename.tla.py'
+    print('Usage: tla_assembler.py filename.tla.py', file=sys.stderr)
     sys.exit(1)
 
 def main():
@@ -24,7 +25,7 @@ def main():
     f = open(outname, 'w')
     f.write(bytecode)
     f.close()
-    print '%s successfully assembled' % outname
+    print('%s successfully assembled' % outname)
 
 if __name__ == '__main__':
     main()
