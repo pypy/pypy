@@ -65,7 +65,7 @@ file, with no need to install it in any specific location:
 
 .. code-block:: console
 
-    $ tar xf pypy-x.y.z.tar.bz2
+    $ tar xf pypy-x.y.z.tar.xz
     $ ./pypy-x.y.z/bin/pypy
     Python 2.7.x (xxxxxxxxxxxx, Date, Time)
     [PyPy x.y.z with GCC x.y.z] on linux2

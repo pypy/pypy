@@ -8,6 +8,9 @@ min=3
 rev=15
 #rc=rc2  # comment this line for actual release
 
+XZ_OPT=${XZ_OPT-"-T0"}
+export XZ_OPT
+
 function maybe_exit {
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         # script is being run, not "sourced" (as in "source repackage.sh")
@@ -58,24 +61,24 @@ function repackage_builds {
     for plat in linux linux64 macos_x86_64 macos_arm64 s390x aarch64
       do
         echo downloading package for $plat
-        if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.bz2
+        if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.xz
         then
             echo $plat downloaded 
         else
             echo $plat no download available
             continue
         fi
-        gitcheck=`tar -tf pypy-c-jit-latest-$plat.tar.bz2 |head -n1 | cut -d- -f5`
+        gitcheck=`tar -tf pypy-c-jit-latest-$plat.tar.xz |head -n1 | cut -d- -f5`
         if [ "$gitcheck" != "$githash" ]
         then
             echo xxxxxxxxxxxxxxxxxxxxxx
             echo $plat git short hash mismatch, expected $githash, got $gitcheck
             echo xxxxxxxxxxxxxxxxxxxxxx
-            rm pypy-c-jit-latest-$plat.tar.bz2
+            rm pypy-c-jit-latest-$plat.tar.xz
             continue
         fi
-        tar -xf pypy-c-jit-latest-$plat.tar.bz2
-        rm pypy-c-jit-latest-$plat.tar.bz2
+        tar -xf pypy-c-jit-latest-$plat.tar.xz
+        rm pypy-c-jit-latest-$plat.tar.xz
 
         # Check that this is the correct version
         if [ "$pmin" == "7" ] # python2.7, 3.7
@@ -101,7 +104,7 @@ function repackage_builds {
         fi
         mv pypy-c-jit-*-$plat $rel-$plat_final
         echo packaging $plat_final
-        tar --owner=root --group=root --numeric-owner -cjf $rel-$plat_final.tar.bz2 $rel-$plat_final
+        tar --owner=root --group=root --numeric-owner -cjf $rel-$plat_final.tar.xz $rel-$plat_final
         rm -rf $rel-$plat_final
       done
     # end of "for" loop
@@ -143,13 +146,13 @@ function repackage_source {
     echo "node: $githash" > ../.hg_archival.txt
     echo "branch: $branchname" >> ../.hg_archival.txt
     echo "tag: $tagname" >> ../.hg_archival.txt
-    git config tar.tar.bz2.command "bzip2 -c"
-    $(cd ..; git archive --prefix $rel-src/ --add-file=.hg_archival.txt --output=${cwd}/$rel-src.tar.bz2 $tagname)
+    git config tar.tar.xz.command "xz -c"
+    $(cd ..; git archive --prefix $rel-src/ --add-file=.hg_archival.txt --output=${cwd}/$rel-src.tar.xz $tagname)
     $(cd ..; git archive --prefix $rel-src/ --add-file=.hg_archival.txt --output=${cwd}/$rel-src.zip $tagname)
 }
 
 function print_sha256 {
-    sha256sum *.bz2 *.zip
+    sha256sum *.xz *.zip
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
@@ -159,4 +162,4 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     repackage_source
     print_sha256
 fi
-# Now upload all the bz2 and zip
+# Now upload all the xz and zip

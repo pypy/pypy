@@ -309,7 +309,7 @@ def create_package(basedir, options, _fake=False):
                     zf.write(filename)
             zf.close()
         else:
-            archive = str(builddir.join(name + '.tar.bz2'))
+            archive = str(builddir.join(name + '.tar.xz'))
             if ARCH == 'darwin':
                 print("Warning: tar on current platform does not suport "
                       "overriding the uid and gid for its contents. The tarball "

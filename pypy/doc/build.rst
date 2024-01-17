@@ -273,9 +273,9 @@ imported the first time.
 
     python pypy/tool/release/package.py --archive-name=pypy-VER-PLATFORM
 
-This creates a clean and prepared hierarchy, as well as a ``.tar.bz2``
+This creates a clean and prepared hierarchy, as well as a ``.tar.xz``
 with the same content; the directory to find these will be printed out.  You
-can then either move the file hierarchy or unpack the ``.tar.bz2`` at the
+can then either move the file hierarchy or unpack the ``.tar.xz`` at the
 correct place.
 
 It is recommended to use package.py because custom scripts will

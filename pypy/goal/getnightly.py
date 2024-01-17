@@ -39,7 +39,7 @@ if '--nojit' in sys.argv:
 else:
     kind = 'jit'
 
-filename = 'pypy-c-%s-latest-%s.tar.bz2' % (kind, arch)
+filename = 'pypy-c-%s-latest-%s.tar.xz' % (kind, arch)
 url = 'http://buildbot.pypy.org/nightly/%s/%s' % (branch, filename)
 tmp = tempfile.mkdtemp()
 pypy_latest = os.path.join(tmp, filename)
