@@ -3346,6 +3346,14 @@ class BasicTests:
         # used to be 22
         assert len(get_stats().loops[0].operations[4]._descr.rd_numb.code) == 12
 
+    def test_uint_mul_high(self):
+        from rpython.rlib.rarithmetic import uint_mul_high, intmask, r_uint
+        def f(x, y):
+            return intmask(uint_mul_high(r_uint(x), r_uint(y)))
+        res = self.interp_operations(f, [40, 2])
+        assert res == 0
+        self.check_operations_history(uint_mul_high=1)
+
 
 class BaseLLtypeTests(BasicTests):
 
