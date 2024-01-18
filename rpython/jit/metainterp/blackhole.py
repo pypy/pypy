@@ -11,7 +11,8 @@ from rpython.rlib import longlong2float
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
 from rpython.rlib.debug import check_annotation
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
+from rpython.rlib.rarithmetic import (intmask, LONG_BIT, r_uint, ovfcheck,
+    uint_mul_high)
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper import rclass
@@ -469,7 +470,7 @@ class BlackholeInterpreter(object):
         from rpython.jit.metainterp.optimizeopt import intdiv
         a = r_uint(a)
         b = r_uint(b)
-        c = intdiv.unsigned_mul_high(a, b)
+        c = uint_mul_high(a, b)
         return intmask(c)
 
     @arguments("L", "i", "i", returns="iL")
