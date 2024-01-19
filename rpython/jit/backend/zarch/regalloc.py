@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                     TempVar, compute_vars_longevity,
                                                     BaseRegalloc, NoVariableToSpill,
@@ -324,7 +326,7 @@ class ZARCHRegisterManager(RegisterManager):
                     continue # duh!
                 self._sync_var_to_stack(orig_var_odd)
                 del self.reg_bindings[orig_var_odd]
-            
+
             # well, we got away with a single spill :)
             self.free_regs = [fr for fr in self.free_regs \
                               if fr is not even and \
@@ -779,7 +781,7 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
             return rffi.cast(lltype.Signed, c.value)
 
     # ******************************************************
-    # *         P R E P A R E  O P E R A T I O N S         * 
+    # *         P R E P A R E  O P E R A T I O N S         *
     # ******************************************************
 
     def prepare_increment_debug_counter(self, op):
@@ -1404,7 +1406,6 @@ if not we_are_translated():
     if __name__ == '__main__':
         for m in missing:
             print(" " * 4 + m)
-        print
+        print()
         print("regalloc implements %d of %d = %.2f%% of all resops" % \
               (implemented_count, total_count, (100.0 * implemented_count / total_count)))
-

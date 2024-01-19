@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 
 import py
@@ -643,19 +645,19 @@ class MIFrame(object):
                 if resvalue != tobox.getint():
                     self.metainterp._record_helper(rop.GETARRAYITEM_GC_I, resvalue, arraydescr, arraybox, indexbox)
                     self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
-                    print "assertion in GETARRAYITEM_GC_I failed", resvalue, tobox.getint()
+                    print("assertion in GETARRAYITEM_GC_I failed", resvalue, tobox.getint())
                     assert 0
             elif typ == 'r':
                 if resvalue != tobox.getref_base():
                     self.metainterp._record_helper(rop.GETARRAYITEM_GC_R, resvalue, arraydescr, arraybox, indexbox)
                     self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
-                    print "assertion in GETARRAYITEM_GC_R failed", resvalue, tobox.getref_base()
+                    print("assertion in GETARRAYITEM_GC_R failed", resvalue, tobox.getref_base())
                     assert 0
             elif typ == 'f':
                 if not ConstFloat(resvalue).same_constant(tobox.constbox()):
                     self.metainterp._record_helper(rop.GETARRAYITEM_GC_F, resvalue, arraydescr, arraybox, indexbox)
                     self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
-                    print "assertion in GETARRAYITEM_GC_F failed", resvalue, tobox.getfloat()
+                    print("assertion in GETARRAYITEM_GC_F failed", resvalue, tobox.getfloat())
                     assert 0
             else:
                 assert 0, "unreachable"
@@ -2523,15 +2525,15 @@ class MetaInterp(object):
             if jitcode.jitdriver_sd:
                 portal_call_depth += 1
         if portal_call_depth != self.portal_call_depth:
-            print "portal_call_depth problem!!!"
-            print portal_call_depth, self.portal_call_depth
+            print("portal_call_depth problem!!!")
+            print(portal_call_depth, self.portal_call_depth)
             for frame in self.framestack:
                 jitcode = frame.jitcode
                 if jitcode.jitdriver_sd:
-                    print "P",
+                    print("P", end=" ")
                 else:
-                    print " ",
-                print jitcode.name
+                    print(" ", end=" ")
+                print(jitcode.name)
             raise AssertionError
 
     def generate_guard(self, opnum, box=None, extraarg=None, resumepc=-1):
@@ -3818,20 +3820,20 @@ def _get_opimpl_method(name, argcodes):
         #
         if not we_are_translated():
             if self.debug:
-                print '\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))),
+                print('\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))), end=" ")
             try:
                 resultbox = unboundmethod(self, *args)
             except Exception as e:
                 if self.debug:
-                    print '-> %s!' % e.__class__.__name__
+                    print('-> %s!' % e.__class__.__name__)
                 raise
             if num_return_args == 0:
                 if self.debug:
-                    print
+                    print()
                 assert resultbox is None
             else:
                 if self.debug:
-                    print '-> %r' % (resultbox,)
+                    print('-> %r' % (resultbox,))
                 assert argcodes[next_argcode] == '>'
                 result_argcode = argcodes[next_argcode + 1]
                 if 'ovf' not in name:

@@ -23,6 +23,7 @@ Example:
 Some functions are provided for the benefit of interactive testing.
 Try dir(snippet) for list of current snippets.
 """
+from __future__ import print_function
 
 import os
 import sys
@@ -62,7 +63,7 @@ if __name__ == '__main__':
     try:
         setup_readline()
     except ImportError as err:
-        print "Disabling readline support (%s)" % err
+        print("Disabling readline support (%s)" % err)
     from rpython.translator.test import snippet
     from rpython.rtyper.rtyper import RPythonTyper
 
@@ -70,7 +71,7 @@ if __name__ == '__main__':
         os.path.curdir not in sys.path):
         sys.path.insert(0, os.getcwd())
 
-    print __doc__
+    print(__doc__)
 
     import os
     os.putenv("PYTHONINSPECT", "1")

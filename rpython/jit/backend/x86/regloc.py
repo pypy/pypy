@@ -112,7 +112,7 @@ class RawEspLoc(AssemblerLocation):
 
 class FrameLoc(RawEbpLoc):
     _immutable_ = True
-    
+
     def __init__(self, position, ebp_offset, type):
         # _getregkey() returns self.value; the value returned must not
         # conflict with RegLoc._getregkey().  It doesn't a bit by chance,
@@ -344,7 +344,7 @@ xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12,
 # we actually do:
 #     mov r11, 0xDEADBEEFDEADBEEF
 #     mov rax, [r11]
-# 
+#
 # NB: You can use the scratch register as a temporary register in
 # assembler.py, but care must be taken when doing so. A call to a method in
 # LocationCodeBuilder could clobber the scratch register when certain
@@ -565,7 +565,7 @@ class LocationCodeBuilder(object):
             #print '_addr_as_reg_offset(%x) [too far]' % (addr,)
             # else: fall through
         #else:
-        #    print '_addr_as_reg_offset(%x) [new]' % (addr,)
+        #    print('_addr_as_reg_offset(%x) [new]' % (addr,))
         self._scratch_register_value = addr
         self.MOV_ri(X86_64_SCRATCH_REG.value, addr)
         return (X86_64_SCRATCH_REG.value, 0)
@@ -617,7 +617,7 @@ class LocationCodeBuilder(object):
                 return
             #print '_load_scratch(%x) [too far]' % (value,)
         #else:
-        #    print '_load_scratch(%x) [new]' % (value,)
+        #    print('_load_scratch(%x) [new]' % (value,))
         self._scratch_register_value = value
         self.MOV_ri(X86_64_SCRATCH_REG.value, value)
 
@@ -737,7 +737,7 @@ class LocationCodeBuilder(object):
     CVTPS2PD = _binaryop('CVTPS2PD')
     CVTPD2DQ = _binaryop('CVTPD2DQ')
     CVTDQ2PD = _binaryop('CVTDQ2PD')
-    
+
     SQRTSD = _binaryop('SQRTSD')
 
     ANDPD = _binaryop('ANDPD')
