@@ -1,3 +1,4 @@
+# coding=utf-8
 import sys, os
 import py
 from rpython.tool.udir import udir
