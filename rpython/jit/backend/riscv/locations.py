@@ -147,20 +147,16 @@ def get_fp_offset(base_ofs, position):
     return base_ofs + XLEN * (position + JITFRAME_FIXED_SIZE)
 
 
-class ConstFloatLoc(AssemblerLocation):
-    """This class represents an imm float value which is stored in memory at
-    the address stored in the field value"""
+class FloatImmLocation(AssemblerLocation):
+    """This class represents an imm float value (bitcasted to integer)"""
     _immutable_ = True
     type = FLOAT
 
     def __init__(self, value):
         self.value = value
 
-    def get_addr(self):
-        return self.value
-
     def __repr__(self):
-        return "imm_float(stored at %d)" % (self.value)
+        return "imm_float(bits=%x)" % (self.value)
 
     def is_imm_float(self):
         return True

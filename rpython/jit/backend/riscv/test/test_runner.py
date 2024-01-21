@@ -34,12 +34,12 @@ class TestRISCV(LLtypeBackendTest):
         # Compare current to expected frame depth
         + 'bge; '
         # Store gcmap to jf_gcmap
-        + 'lui; addiw; (slli; addi; )*(slli; )*'
+        + '(((auipc; )*ld; )|((lui; )*addiw*; ))'
         + 'sd; '
         # Branch to frame_realloc_slowpath
-        + 'lui; addiw; (slli; addi; )*(slli; )*'
+        + '(((auipc; )*ld; )|((lui; )*addiw*; ))'
         + 'jalr; '
         # Jump to a target token
-        + 'lui; addiw; (slli; addi; )*(slli; )*'
+        + '(((auipc; )*ld; )|((lui; )*addiw*; ))'
         + 'jr; '
         + 'ebreak;')

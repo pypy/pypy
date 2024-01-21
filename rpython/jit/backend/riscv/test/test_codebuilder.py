@@ -4,21 +4,39 @@ from hypothesis import assume, given, settings, strategies
 from rpython.jit.backend.riscv import codebuilder
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv import rounding_modes
+from rpython.jit.backend.riscv.arch import XLEN
 from rpython.jit.backend.riscv.instructions import (
     AMO_ACQUIRE, AMO_RELEASE, FMO_INPUT, FMO_OUTPUT, FMO_READ, FMO_WRITE,
     all_instructions)
 from rpython.jit.backend.riscv.test.external_assembler import assemble
+import py
 
 
 class CodeBuilder(codebuilder.AbstractRISCVBuilder):
     def __init__(self):
         self.buffer = []
+        self._int_const_pool = {}
+        self._float_const_pool = {}
 
     def writechar(self, char):
         self.buffer.append(char)
 
+    def overwrite(self, index, char):
+        self.buffer[index] = char
+
     def hexdump(self):
         return ''.join(self.buffer)
+
+    def append_pending_int_constant(self, load_inst_pos, reg, const_value):
+        self._int_const_pool[load_inst_pos] = (reg, const_value)
+
+    def append_pending_float_constant(self, load_inst_pos, reg, const_value):
+        self._float_const_pool[load_inst_pos] = (reg, const_value)
+
+    def _get_relative_pos_for_load_imm(self, break_basic_block=False):
+        return len(self.buffer)
+
+    emit_pending_constants = codebuilder._emit_pending_constants
 
 
 class TestCodeBuilder(object):
@@ -534,50 +552,45 @@ class TestLoadImm(object):
 
         assert ref_out == test_out
 
-    def test_load_int_imm_addi_slli(self):
-        rd = r.x5
-        imm = -0x4100000000
+    def test_load_int_imm_large_imm(self):
+        if XLEN != 8:
+            py.test.skip('only 64-bit need constant pool, skip 32-bit')
+
+        rd = r.x10
+        imm = 0x1122334455667788
 
         cb = CodeBuilder()
         cb.load_int_imm(rd.value, imm)
+        cb.RET()
+        cb.emit_pending_constants()
         test_out = cb.hexdump()
 
         cb = CodeBuilder()
-        cb.ADDI(rd.value, r.zero.value, -0x41)
-        cb.SLLI(rd.value, rd.value, 32)
+        cb.AUIPC(rd.value, 0)
+        cb.load_int(rd.value, rd.value, 16)
+        cb.RET()
+        cb.write32(0)  # Automatically inserted alignment
+        cb.write64(imm)
         ref_out = cb.hexdump()
 
         assert ref_out == test_out
 
-    def test_load_int_imm_lui_addiw_slli(self):
-        rd = r.x5
-        imm = 0x1234567900000000
+    def test_load_float_imm(self):
+        rd = r.f10
+        imm = 0x3ff0000000000000
 
         cb = CodeBuilder()
-        cb.load_int_imm(rd.value, imm)
+        cb.load_float_imm(rd.value, imm)
+        cb.RET()
+        cb.emit_pending_constants()
         test_out = cb.hexdump()
 
         cb = CodeBuilder()
-        cb.LUI(rd.value, 0x12345)
-        cb.ADDIW(rd.value, rd.value, 0x679)
-        cb.SLLI(rd.value, rd.value, 32)
-        ref_out = cb.hexdump()
-
-        assert ref_out == test_out
-
-    def test_load_int_imm_lui_addiw_slli_addi(self):
-        rd = r.x5
-        imm = 0x01234567900007ff
-
-        cb = CodeBuilder()
-        cb.load_int_imm(rd.value, imm)
-        test_out = cb.hexdump()
-
-        cb = CodeBuilder()
-        cb.LUI(rd.value, 0x12345)
-        cb.ADDIW(rd.value, rd.value, 0x679)
-        cb.SLLI(rd.value, rd.value, 28)
-        cb.ADDI(rd.value, rd.value, 0x7ff)
+        cb.AUIPC(r.x31.value, 0)
+        cb.load_float(rd.value, r.x31.value, 16)
+        cb.RET()
+        cb.write32(0)  # Automatically inserted alignment
+        cb.write64(imm)
         ref_out = cb.hexdump()
 
         assert ref_out == test_out

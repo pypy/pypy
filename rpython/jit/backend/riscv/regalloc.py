@@ -14,7 +14,7 @@ from rpython.jit.backend.riscv.instruction_util import (
     COND_BEQ, COND_BGE, COND_BGEU, COND_BLT, COND_BLTU, COND_BNE, COND_INVALID,
     check_imm_arg, get_negated_branch_inst)
 from rpython.jit.backend.riscv.locations import (
-    ConstFloatLoc, ImmLocation, StackLocation, get_fp_offset)
+    FloatImmLocation, ImmLocation, StackLocation, get_fp_offset)
 from rpython.jit.backend.riscv.opassembler import asm_comp_operations
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -161,10 +161,8 @@ class FloatRegisterManager(RISCVRegisterManager):
         return r.f10
 
     def convert_to_imm(self, c):
-        adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
-        x = c.getfloatstorage()
-        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
-        return ConstFloatLoc(adr)
+        imm_bits = longlong.extract_bits(c.getfloatstorage())
+        return FloatImmLocation(imm_bits)
 
     def return_constant(self, v, forbidden_vars=[], selected_reg=None):
         self._check_type(v)
