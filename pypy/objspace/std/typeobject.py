@@ -157,7 +157,7 @@ class W_TypeObject(W_Root):
                           'mro_w?[*]',
                           ]
 
-    # wether the class has an overridden __getattribute__/__setattr__
+    # whether the class has an overridden __getattribute__/__setattr__
     # (False is a conservative default, fixed during real usage)
     uses_object_getattribute = False
     uses_object_setattr = False
