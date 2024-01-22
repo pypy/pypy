@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import sys, os, subprocess
 
@@ -251,13 +253,13 @@ class ExternalCompilationInfo(object):
         f = open(os.path.join(cdir, 'src', 'precommondefs.h'))
         fileobj.write(f.read())
         f.close()
-        print >> fileobj
+        print(file=fileobj)
         for piece in self.pre_include_bits:
-            print >> fileobj, piece
+            print(piece, file=fileobj)
         for path in self.includes:
-            print >> fileobj, '#include <%s>' % (path,)
+            print('#include <%s>' % (path,), file=fileobj)
         for piece in self.post_include_bits:
-            print >> fileobj, piece
+            print(piece, file=fileobj)
 
     def _copy_attributes(self):
         d = {}

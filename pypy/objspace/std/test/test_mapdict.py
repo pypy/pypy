@@ -1701,6 +1701,72 @@ class AppTestWithMapDictAndCounters(object):
         assert res1 == "mymethod"
         assert res2 == "foobar"
 
+    def test_load_attr_bug_class_name_turns_into_descriptor(self):
+        class WillTurnIntoDescr(object):
+            pass
+
+        class Obj(object):
+            f = WillTurnIntoDescr()
+        o = Obj()
+        o.f = 12
+
+        def readf(o):
+            return o.f
+
+        # this used to fill the cache
+        assert readf(o) == 12
+
+        # make WillTurnIntoDescr a descriptor
+        WillTurnIntoDescr.__get__ = lambda *args: 15
+        WillTurnIntoDescr.__set__ = lambda *args: None
+        assert readf(o) == 15 # used to return 12
+
+    def test_store_attr_simple(self):
+        class A(object):
+            pass
+        a = A()
+        a.x = 0
+        def f():
+            a.x = 12
+            return 42
+        res = self.check(f, 'x')
+        assert res == (1, 0, 0)
+        res = self.check(f, 'x')
+        assert res == (0, 1, 0)
+        assert a.x == 12
+
+    def test_store_attr_simple_shared_with_load(self):
+        class A(object):
+            pass
+        a = A()
+        a.x = 0
+        def f():
+            a.x = a.x + 1
+            return 42
+        res = self.check(f, 'x')
+        assert res == (1, 1, 0) # miss for the first read, hit for the write
+        res = self.check(f, 'x')
+        assert res == (0, 2, 0)
+        assert a.x == 2
+
+    def test_store_attr_slots(self):
+        class A(object):
+            __slots__ = ['x']
+        a = A()
+        a.x = 42
+        def f():
+            a.x = 12
+            return 42
+        #
+        res = self.check(f, 'x')
+        assert res == (1, 0, 0)
+        res = self.check(f, 'x')
+        assert res == (0, 1, 0)
+        res = self.check(f, 'x')
+        assert res == (0, 1, 0)
+        res = self.check(f, 'x')
+        assert res == (0, 1, 0)
+        assert a.x == 12
 
 @pytest.mark.skipif('config.option.runappdirect')
 class AppTestGlobalCaching(AppTestWithMapDict):

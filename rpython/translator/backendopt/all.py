@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.translator.backendopt import removenoops
 from rpython.translator.backendopt import inline
 from rpython.translator.backendopt.malloc import remove_mallocs
@@ -47,7 +49,7 @@ def backend_optimizations(translator, graphs=None, secondary=False,
         assert not hasattr(graph, '_seen_by_the_backend')
 
     if config.print_statistics:
-        print "before optimizations:"
+        print("before optimizations:")
         print_statistics(translator.graphs[0], translator, "per-graph.txt")
 
     if config.replace_we_are_jitted:
@@ -72,7 +74,7 @@ def backend_optimizations(translator, graphs=None, secondary=False,
             removenoops.remove_duplicate_casts(graph, translator)
 
         if config.print_statistics:
-            print "after no-op removal:"
+            print("after no-op removal:")
             print_statistics(translator.graphs[0], translator)
 
     remove_obvious_noops()
@@ -116,7 +118,7 @@ def backend_optimizations(translator, graphs=None, secondary=False,
             merge_if_blocks(graph, translator.config.translation.verbose)
 
     if config.print_statistics:
-        print "after if-to-switch:"
+        print("after if-to-switch:")
         print_statistics(translator.graphs[0], translator)
 
     remove_obvious_noops()
@@ -148,7 +150,7 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
                          inline_graph_from_anywhere=inline_graph_from_anywhere)
 
         if config.print_statistics:
-            print "after inlining:"
+            print("after inlining:")
             print_statistics(translator.graphs[0], translator)
 
     # vaporize mallocs
@@ -157,5 +159,5 @@ def inline_malloc_removal_phase(config, translator, graphs, inline_threshold,
         remove_mallocs(translator, graphs)
 
         if config.print_statistics:
-            print "after malloc removal:"
+            print("after malloc removal:")
             print_statistics(translator.graphs[0], translator)

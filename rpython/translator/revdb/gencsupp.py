@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py, random, sys
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper.lltypesystem.lloperation import LL_OPERATIONS
@@ -162,20 +164,20 @@ def prepare_database(db):
 def write_revdb_def_file(db, target_path):
     f = target_path.open('w')
     funcnames = sorted(db.stack_bottom_funcnames)
-    ## print >> f, "#define RDB_VERSION  0x%x" % random.randrange(0, sys.maxint)
-    ## print >> f
+    ## print("#define RDB_VERSION  0x%x" % random.randrange(0, sys.maxint), file=f)
+    ## print(file=f)
     for i, fn in enumerate(funcnames):
-        print >> f, '#define RPY_CALLBACKLOC_%s %d' % (fn, i)
-    print >> f
-    print >> f, '#define RPY_CALLBACKLOCS \\'
+        print('#define RPY_CALLBACKLOC_%s %d' % (fn, i), file=f)
+    print(file=f)
+    print('#define RPY_CALLBACKLOCS \\', file=f)
     funcnames = funcnames or ['NULL']
     for i, fn in enumerate(funcnames):
         if i == len(funcnames) - 1:
             tail = ''
         else:
             tail = ', \\'
-        print >> f, '\t(void *)%s%s' % (fn, tail)
-    ## print >> f
+        print('\t(void *)%s%s' % (fn, tail), file=f)
+    ## print(file=f)
 
     ## def _base(name):
     ##     assert name.startswith('RPY_RDB_A(')
@@ -185,18 +187,18 @@ def write_revdb_def_file(db, target_path):
     ##     return name
 
     ## rawstructs = sorted(db.all_raw_structures, key=lambda node: node.name)
-    ## print >> f, '#define RPY_RDB_A(name)  (*rpy_rdb_struct.name)'
-    ## print >> f, 'struct rpy_rdb_a_s {'
+    ## print('#define RPY_RDB_A(name)  (*rpy_rdb_struct.name)', file=f)
+    ## print('struct rpy_rdb_a_s {', file=f)
     ## for i, node in enumerate(rawstructs):
-    ##     print >> f, '\t%s;' % (cdecl(node.typename, '*'+_base(node.name)),)
+    ##     print('\t%s;' % (cdecl(node.typename, '*'+_base(node.name)),), file=f)
     ## if not rawstructs:
-    ##     print >> f, '\tchar dummy;'
-    ## print >> f, '};'
-    ## print >> f, 'RPY_EXTERN struct rpy_rdb_a_s rpy_rdb_struct;'
-    ## print >> f
-    ## print >> f, '#define RPY_RDB_STRUCT_CONTENT \\'
+    ##     print('\tchar dummy;', file=f)
+    ## print('};', file=f)
+    ## print('RPY_EXTERN struct rpy_rdb_a_s rpy_rdb_struct;', file=f)
+    ## print(file=f)
+    ## print('#define RPY_RDB_STRUCT_CONTENT \\', file=f)
     ## if not rawstructs:
-    ##     print >> f, '\t0'
+    ##     print('\t0', file=f)
     ## else:
     ##     for i, node in enumerate(rawstructs):
     ##         if i == len(rawstructs) - 1:
@@ -206,5 +208,5 @@ def write_revdb_def_file(db, target_path):
     ##         name = '&' + _base(node.name)
     ##         if node.typename != node.implementationtypename:
     ##             name = '(%s)%s' % (cdecl(node.typename, '*'), name)
-    ##         print >> f, '\t%s%s' % (name, tail)
+    ##         print('\t%s%s' % (name, tail), file=f)
     f.close()

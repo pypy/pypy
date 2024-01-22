@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 
 try:
@@ -568,7 +570,7 @@ class _parentable_mixin(object):
                             "double conversion from lltype to ctypes?")
         # XXX don't store here immortal structures
         if DEBUG_ALLOCATED:
-            print >> sys.stderr, "LL2CTYPES:", hex(addr)
+            print("LL2CTYPES:", hex(addr), file=sys.stderr)
         ALLOCATED[addr] = self
 
     def _addressof_storage(self):
@@ -582,7 +584,7 @@ class _parentable_mixin(object):
         # allow the ctypes object to go away now
         addr = ctypes.cast(self._storage, ctypes.c_void_p).value
         if DEBUG_ALLOCATED:
-            print >> sys.stderr, "LL2C FREE:", hex(addr)
+            print("LL2C FREE:", hex(addr), file=sys.stderr)
         try:
             del ALLOCATED[addr]
         except KeyError:

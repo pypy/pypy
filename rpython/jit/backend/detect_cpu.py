@@ -1,6 +1,8 @@
 """
 Processor auto-detection
 """
+from __future__ import print_function
+
 import sys, os
 from rpython.rtyper.tool.rffi_platform import getdefined
 from rpython.translator.platform import is_host_build
@@ -160,6 +162,6 @@ if __name__ == '__main__':
         name = 'auto'
         x = autodetect()
     x = (x, getcpuclassname(name), getcpufeatures(name))
-    print 'autodetect:     ', x[0]
-    print 'getcpuclassname:', x[1]
-    print 'getcpufeatures: ', x[2]
+    print('autodetect:     ', x[0])
+    print('getcpuclassname:', x[1])
+    print('getcpufeatures: ', x[2])

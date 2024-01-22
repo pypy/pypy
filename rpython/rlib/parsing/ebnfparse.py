@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 
 from rpython.rlib.parsing.parsing import PackratParser, Rule
@@ -319,7 +321,7 @@ class TransformerMaker(Codebuilder):
         self.end_block("ToAST")
         code = self.get_code()
         if print_code:
-            print code
+            print(code)
         ns = {"RPythonVisitor": RPythonVisitor, "Nonterminal": Nonterminal,
               "we_are_translated": we_are_translated, "py": py}
         exec(py.code.Source(code).compile(), ns)
@@ -2134,5 +2136,5 @@ if __name__ == '__main__':
     newcontent = "%s%s%s\nparser = %r\n%s\n%s%s" % (
             pre, s, transformer.replace("ToAST", "EBNFToAST"),
             parser, lexer.get_dummy_repr(), s, after)
-    print newcontent
+    print(newcontent)
     f.write(newcontent)
