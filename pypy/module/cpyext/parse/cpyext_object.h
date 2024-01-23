@@ -192,9 +192,10 @@ typedef struct PyMethodDef PyMethodDef;
 
 #define T_PY_OBJECT 0
 #define T_C_LONG 1
+#define T_C_DOUBLE 2
 
 struct PyPyTypedMethodMetadata {
-  int arg_type;
+  int* arg_types;
   int ret_type;
   void* underlying_func;
   const char ml_name[100];

@@ -14,23 +14,60 @@ PyObject* inc(PyObject* module, PyObject* obj) {
   return PyLong_FromLong(result);
 }
 
+int inc_arg_types[] = {T_C_LONG, -1};
+
 PyPyTypedMethodMetadata inc_sig = {
-  .arg_type = T_C_LONG,
+  .arg_types = inc_arg_types,
   .ret_type = T_C_LONG,
   .underlying_func = inc_impl,
   .ml_name = "inc",
 };
 
+int wrong_arg_types[] = {100, -1};
+
 PyPyTypedMethodMetadata wrong_sig = {
-  .arg_type = 100,
+  .arg_types = wrong_arg_types,
   .ret_type = T_C_LONG,
   .underlying_func = inc_impl,
   .ml_name = "wrong",
 };
 
+double add_impl(double left, double right) {
+  return left + right;
+}
+
+PyObject* add(PyObject* module, PyObject*const *args, Py_ssize_t nargs) {
+  (void)module;
+  if (nargs != 2) {
+    return PyErr_Format(PyExc_TypeError, "add expected 2 arguments but got %ld", nargs);
+  }
+  if (!PyFloat_CheckExact(args[0])) {
+    return PyErr_Format(PyExc_TypeError, "add expected float but got %s", Py_TYPE(args[0])->tp_name);
+  }
+  double left = PyFloat_AsDouble(args[0]);
+  if (PyErr_Occurred()) return NULL;
+  if (!PyFloat_CheckExact(args[1])) {
+    return PyErr_Format(PyExc_TypeError, "add expected float but got %s", Py_TYPE(args[1])->tp_name);
+  }
+  double right = PyFloat_AsDouble(args[1]);
+  if (PyErr_Occurred()) return NULL;
+  double result = add_impl(left, right);
+  return PyFloat_FromDouble(result);
+}
+
+int add_arg_types[] = {T_C_DOUBLE, T_C_DOUBLE, -1};
+
+PyPyTypedMethodMetadata add_sig = {
+  .arg_types = add_arg_types,
+  .ret_type = T_C_DOUBLE,
+  .underlying_func = add_impl,
+  .ml_name = "add",
+};
+
 static PyMethodDef signature_methods[] = {
     {inc_sig.ml_name, inc, METH_O | METH_TYPED, "Add one to an int"},
     {wrong_sig.ml_name, inc, METH_O | METH_TYPED, "Have a silly signature"},
+    {add_sig.ml_name, (PyCFunction)(void*)add, METH_FASTCALL | METH_TYPED, "Add two doubles"},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef signature_definition = {

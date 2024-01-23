@@ -63,6 +63,7 @@ pypy_get_typed_signature = rffi.llexternal(
 )
 
 long_to_long = lltype.Ptr(lltype.FuncType([rffi.LONG], rffi.LONG))
+double_double_to_double = lltype.Ptr(lltype.FuncType([rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE))
 
 @bootstrap_function
 def init_functionobject(space):
@@ -181,6 +182,19 @@ class CSig(object):
         self.ret_type = ret_type
         self.underlying_func = underlying_func
 
+    @staticmethod
+    def from_ml(ml):
+        sig = pypy_get_typed_signature(ml)
+        arg_types = []
+        idx = 0
+        while True:
+            arg_type = intmask(sig.c_arg_types[idx])
+            if arg_type == -1:
+                break
+            arg_types.append(arg_type)
+            idx += 1
+        return CSig(arg_types[:], intmask(sig.c_ret_type), sig.c_underlying_func)
+
 
 class W_PyCFunctionObject(W_Root):
     _immutable_fields_ = ["flags", "ml", "csig"]
@@ -197,9 +211,8 @@ class W_PyCFunctionObject(W_Root):
         self.w_self = w_self
         self.w_module = w_module
         flags = self.flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST)
-        if flags & (METH_O | METH_TYPED):
-            sig = pypy_get_typed_signature(self.ml)
-            self.csig = CSig([intmask(sig.c_arg_type)], intmask(sig.c_ret_type), sig.c_underlying_func)
+        if flags & METH_TYPED:
+            self.csig = CSig.from_ml(ml)
         else:
             self.csig = None
 
@@ -217,6 +230,8 @@ class W_PyCFunctionObject(W_Root):
                 if flags & METH_METHOD:
                     return self.call_keywords_fastcall_method(space, w_self, __args__)
                 return self.call_keywords_fastcall(space, w_self, __args__)
+            if self.csig is not None:
+                return self.call_varargs_fastcall_typed(space, w_self, __args__)
             return self.call_varargs_fastcall(space, w_self, __args__)
         elif flags & METH_KEYWORDS:
             return self.call_keywords(space, w_self, __args__)
@@ -230,7 +245,7 @@ class W_PyCFunctionObject(W_Root):
                 raise oefmt(space.w_TypeError,
                             "%s() takes exactly one argument (%d given)",
                             self.name, length)
-            if flags & METH_TYPED:
+            if self.csig is not None:
                 return self.call_o_typed(space, w_self, __args__)
             return self.call_o(space, w_self, __args__)
         elif flags & METH_VARARGS:
@@ -249,11 +264,13 @@ class W_PyCFunctionObject(W_Root):
 
     def call_o_typed(self, space, w_self, __args__):
         sig = self.csig
+        assert sig is not None
         args = __args__.arguments_w
         if (len(sig.arg_types) == 1 and
                 sig.arg_types[0] == 1 and
                 len(args) == 1 and
                 sig.ret_type == 1):
+            # long -> long
             # TODO(max): Don't raise if overflow or wrong type
             long_arg = space.int_w(args[0])
             underlying_func = rffi.cast(long_to_long, sig.underlying_func)
@@ -261,7 +278,7 @@ class W_PyCFunctionObject(W_Root):
             # TODO(max): Don't raise if overflow
             # TODO(max): Handle the ret type (not everything is an int)
             return space.newint(result_long)
-        raise oefmt(space.w_RuntimeError, "unreachable: unexpected METH_TYPED signature")
+        raise oefmt(space.w_RuntimeError, "unreachable: unexpected METH_O|METH_TYPED signature")
 
     def call_varargs(self, space, w_self, __args__):
         state = space.fromcache(State)
@@ -280,6 +297,27 @@ class W_PyCFunctionObject(W_Root):
                                     py_args.c_ob_item, len_args)
         finally:
             decref(space, py_args)
+
+    def call_varargs_fastcall_typed(self, space, w_self, __args__):
+        sig = self.csig
+        assert sig is not None
+        args = __args__.arguments_w
+        if len(sig.arg_types) != len(args):
+            return self.call_varargs_fastcall(space, w_self, __args__)
+        if (len(sig.arg_types) == 2 and
+                sig.arg_types[0] == 2 and
+                sig.arg_types[1] == 2 and
+                sig.ret_type == 2):
+            # double -> double
+            if (not space.isinstance_w(args[0], space.w_float) or
+                not space.isinstance_w(args[1], space.w_float)):
+                return self.call_varargs_fastcall(space, w_self, __args__)
+            left = space.float_w(args[0])
+            right = space.float_w(args[1])
+            underlying_func = rffi.cast(double_double_to_double, sig.underlying_func)
+            result_double = underlying_func(left, right)
+            return space.newfloat(result_double)
+        raise oefmt(space.w_RuntimeError, "unreachable: unexpected METH_FASTCALL|METH_TYPED signature")
 
     def call_keywords(self, space, w_self, __args__):
         func = rffi.cast(PyCFunctionKwArgs, self.ml.c_ml_meth)
