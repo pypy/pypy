@@ -241,7 +241,7 @@ class W_PyCFunctionObject(W_Root):
             result_long = underlying_func(long_arg)
             # TODO(max): Don't raise if overflow
             # TODO(max): Handle the ret type (not everything is an int)
-            assert sig.c_ret_type == 1
+            assert intmask(sig.c_ret_type) == 1
             return space.newint(result_long)
         raise oefmt(space.w_RuntimeError, "unreachable: unexpected METH_TYPED signature")
 
