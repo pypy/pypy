@@ -89,7 +89,7 @@ def pytest_ignore_collect(path, config):
 
 
 def pytest_collect_file(path, parent):
-    if (config.getoption('runappdirect') or config.getoption('direct_apptest')
+    if (parent.config.getoption('runappdirect') or parent.config.getoption('direct_apptest')
             or disable):
         pytest.skip("_hpy_universal tests skipped, module not active")
 
