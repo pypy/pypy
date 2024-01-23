@@ -56,6 +56,10 @@ pypy_get_typed_signature = rffi.llexternal(
     lltype.Ptr(TypedMethodMetadata),
     compilation_info=eci,
     releasegil=False,
+    # TODO(max): Is this true? What if the def is mutable?
+    # elidable_function=True,
+    # sandboxsafe=True,
+    # _nowrapper=True,
 )
 
 long_to_long = lltype.Ptr(lltype.FuncType([rffi.LONG], rffi.LONG))
