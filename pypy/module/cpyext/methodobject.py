@@ -172,8 +172,18 @@ def extract_txtsig(raw_doc, name):
             return raw_doc[len(name): end_sig + 1]
     return None
 
+
+class CSig(object):
+    _immutable_fields_ = ["arg_types[*]", "ret_type", "underlying_func"]
+
+    def __init__(self, arg_types, ret_type, underlying_func):
+        self.arg_types = arg_types
+        self.ret_type = ret_type
+        self.underlying_func = underlying_func
+
+
 class W_PyCFunctionObject(W_Root):
-    _immutable_fields_ = ["flags", "ml"]
+    _immutable_fields_ = ["flags", "ml", "csig"]
 
     def __init__(self, space, ml, w_self, w_module=None, type_name=None):
         self.ml = ml
@@ -186,6 +196,12 @@ class W_PyCFunctionObject(W_Root):
         self.flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
         self.w_self = w_self
         self.w_module = w_module
+        flags = self.flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST)
+        if flags & (METH_O | METH_TYPED):
+            sig = pypy_get_typed_signature(self.ml)
+            self.csig = CSig([intmask(sig.c_arg_type)], intmask(sig.c_ret_type), sig.c_underlying_func)
+        else:
+            self.csig = None
 
     def descr_call(self, space, __args__):
         return self.call(space, self.w_self, __args__)
@@ -232,16 +248,18 @@ class W_PyCFunctionObject(W_Root):
         return generic_cpy_call(space, func, w_self, w_o)
 
     def call_o_typed(self, space, w_self, __args__):
-        sig = pypy_get_typed_signature(self.ml)
+        sig = self.csig
         args = __args__.arguments_w
-        if intmask(sig.c_arg_type) == 1 and len(args) == 1:
+        if (len(sig.arg_types) == 1 and
+                sig.arg_types[0] == 1 and
+                len(args) == 1 and
+                sig.ret_type == 1):
             # TODO(max): Don't raise if overflow or wrong type
             long_arg = space.int_w(args[0])
-            underlying_func = rffi.cast(long_to_long, sig.c_underlying_func)
+            underlying_func = rffi.cast(long_to_long, sig.underlying_func)
             result_long = underlying_func(long_arg)
             # TODO(max): Don't raise if overflow
             # TODO(max): Handle the ret type (not everything is an int)
-            assert intmask(sig.c_ret_type) == 1
             return space.newint(result_long)
         raise oefmt(space.w_RuntimeError, "unreachable: unexpected METH_TYPED signature")
 
