@@ -1731,6 +1731,26 @@ class AppTestWithMapDictAndCounters(object):
         assert res == (0, 1, 0)
         assert a.x == 12
 
+    def test_store_attr_load_attr_interaction_bug(self):
+        class A(object):
+            def __setattr__(self, name, value):
+                raise TypeError
+
+        a = A()
+        object.__setattr__(a, "buggyattr", 12)
+        with raises(TypeError):
+            a.buggyattr *= 2 # load_attr reads the cache, store_attr reuses it, bug
+
+        class A(object):
+            def __getattribute__(self, name):
+                raise TypeError
+
+        a = A()
+        a.buggyattr = 12 # initialize, doesn't fill cache
+        a.buggyattr = 12 # fill cache
+        with raises(TypeError):
+            a.buggyattr # store_attr makes a cache entry, load_attr reuses it (but shouldn't)
+
 
 class AppTestGlobalCaching(AppTestWithMapDict):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
