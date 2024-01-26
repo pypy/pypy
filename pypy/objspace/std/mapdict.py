@@ -1371,28 +1371,28 @@ def STORE_ATTR_caching(pycode, w_obj, nameindex, w_value):
 
 def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry):
     space = pycode.space
-    # there is still a (not inlined) fast path for stores that add a new
-    # attribute
-    if entry.valid_for_store and map is not None and map.terminator.w_cls.version_tag() is entry.version_tag:
-        entry_map = entry.map_wref()
-        attr_to_add = entry.attr_wref()
-        if (entry_map is not None and
-                isinstance(entry_map, PlainAttribute) and
-                attr_to_add is entry_map
-                and entry_map.back is map):
-            if space.config.objspace.std.withmethodcachecounter:
-                entry.success_counter += 1
-            attr_to_add._switch_map_and_write_storage(w_obj, w_value)
-            return
 
     w_name = pycode.co_names_w[nameindex]
     if map is not None:
         w_type = map.terminator.w_cls
+        version_tag = w_type.version_tag()
+        # there is still a (not inlined) fast path for stores that add a new
+        # attribute
+        if entry.valid_for_store and version_tag is entry.version_tag:
+            entry_map = entry.map_wref()
+            attr_to_add = entry.attr_wref()
+            if (entry_map is not None and
+                    isinstance(entry_map, PlainAttribute) and
+                    attr_to_add is entry_map
+                    and entry_map.back is map):
+                if space.config.objspace.std.withmethodcachecounter:
+                    entry.success_counter += 1
+                attr_to_add._switch_map_and_write_storage(w_obj, w_value)
+                return
         w_descr = w_type.setattr_if_not_from_object()
         if w_descr:
             return space.get_and_call_function(w_descr, w_obj, w_name, w_value)
             return
-        version_tag = w_type.version_tag()
         if version_tag is not None:
             name = space.text_w(w_name)
             _, w_descr = w_type._pure_lookup_where_with_method_cache(
@@ -1412,7 +1412,7 @@ def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry):
                     if w_type.getattribute_if_not_from_object() is None:
                         _fill_cache(pycode, nameindex, map, version_tag, attr,
                                     valid_for_store=True)
-                    if not attr.ever_mutated: # xxx move ever_mutated change to _direct_write
+                    if not attr.ever_mutated:
                         attr.ever_mutated = True
                     attr._direct_write(w_obj, w_value)
                     return
@@ -1423,7 +1423,6 @@ def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry):
                     # the next condition checks whether any attribute reordering happened
                     if isinstance(mapnew, PlainAttribute) and mapnew.back is map:
                         assert mapnew.name == name and mapnew.attrkind == attrkind
-                        # XXX unify the _fill_cache calls
                         if w_type.getattribute_if_not_from_object() is None:
                             _fill_cache(pycode, nameindex, mapnew, version_tag, mapnew,
                                         valid_for_store=True)
