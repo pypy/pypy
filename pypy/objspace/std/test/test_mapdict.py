@@ -1303,7 +1303,6 @@ class AppTestWithMapDictAndCounters(object):
 
         def is_immutable(space, w_obj, name):
             map = w_obj._get_mapdict_map()
-            import pdb;pdb.set_trace()
             attr = map.find_map_attr(name, DICT)
             return space.newbool(not attr.ever_mutated)
         is_immutable.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, 'text']
