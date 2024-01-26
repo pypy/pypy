@@ -1780,6 +1780,20 @@ class AppTestWithMapDictAndCounters(object):
         res = self.check(f, 'attrinitb')
         assert res == (0, 2, 0)
 
+    def test_store_cache_unboxing_problem(self):
+        class A(object):
+            pass
+        def f():
+            a = A()
+            a.attrinita = 10.12
+            a = A()
+            a.attrinita = 10.12
+            a = A()
+            a.attrinita = 12
+            return a.attrinita + 30
+        res = self.check(f, 'attrinita')
+        assert res == (2, 2, 0)
+
 
 class AppTestGlobalCaching(AppTestWithMapDict):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

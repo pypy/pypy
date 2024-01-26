@@ -1385,10 +1385,15 @@ def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry):
                     isinstance(entry_map, PlainAttribute) and
                     attr_to_add is entry_map
                     and entry_map.back is map):
-                if space.config.objspace.std.withmethodcachecounter:
-                    entry.success_counter += 1
-                attr_to_add._switch_map_and_write_storage(w_obj, w_value)
-                return
+                if isinstance(attr_to_add, UnboxedPlainAttribute):
+                    typsafe = type(w_value) is attr_to_add.typ
+                else:
+                    typsafe = True
+                if typsafe:
+                    if space.config.objspace.std.withmethodcachecounter:
+                        entry.success_counter += 1
+                    attr_to_add._switch_map_and_write_storage(w_obj, w_value)
+                    return
         w_descr = w_type.setattr_if_not_from_object()
         if w_descr:
             return space.get_and_call_function(w_descr, w_obj, w_name, w_value)
