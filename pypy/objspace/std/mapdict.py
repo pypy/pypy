@@ -38,6 +38,7 @@ LIMIT_MAP_ATTRIBUTES = 80
 
 class AbstractAttribute(object):
     _immutable_fields_ = ['terminator']
+    _attrs_ = ['terminator', 'space', 'cache_attrs']
     cache_attrs = None
 
     def __init__(self, space, terminator):
@@ -1218,7 +1219,7 @@ class CacheEntry(object):
             return False
         return self._is_valid_for_map(map)
 
-    @jit.dont_look_inside
+    @objectmodel.always_inline
     def _is_valid_for_map(self, map):
         # note that 'map' can be None here
         mymap = self.map_wref()
@@ -1258,10 +1259,6 @@ def _fill_cache(pycode, nameindex, map, version_tag, attr, w_method=None, valid_
     entry.version_tag = version_tag
     entry.w_method = w_method
     entry.valid_for_store = valid_for_store
-    if attr_to_add:
-        entry.attr_to_add_wref = weakref.ref(attr_to_add)
-    else:
-        entry.attr_to_add_wref = dead_ref
     if pycode.space.config.objspace.std.withmethodcachecounter:
         entry.failure_counter += 1
 
@@ -1370,18 +1367,24 @@ def STORE_ATTR_caching(pycode, w_obj, nameindex, w_value):
                 attr.ever_mutated = True
             attr._direct_write(w_obj, w_value)
             return
-    return STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry, entry_valid)
+    return STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry)
 
-def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry, entry_valid):
+def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry):
+    space = pycode.space
     # there is still a (not inlined) fast path for stores that add a new
     # attribute
-    if entry_valid:
-        assert entry.attr_wref() is None
-        attr_to_add = entry.attr_to_add_wref()
-        if attr_to_add is not None:
+    if entry.valid_for_store and map is not None and map.terminator.w_cls.version_tag() is entry.version_tag:
+        entry_map = entry.map_wref()
+        attr_to_add = entry.attr_wref()
+        if (entry_map is not None and
+                isinstance(entry_map, PlainAttribute) and
+                attr_to_add is entry_map
+                and entry_map.back is map):
+            if space.config.objspace.std.withmethodcachecounter:
+                entry.success_counter += 1
             attr_to_add._switch_map_and_write_storage(w_obj, w_value)
             return
-    space = pycode.space
+
     w_name = pycode.co_names_w[nameindex]
     if map is not None:
         w_type = map.terminator.w_cls
@@ -1409,7 +1412,7 @@ def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry, entry_val
                     if w_type.getattribute_if_not_from_object() is None:
                         _fill_cache(pycode, nameindex, map, version_tag, attr,
                                     valid_for_store=True)
-                    if not attr.ever_mutated:
+                    if not attr.ever_mutated: # xxx move ever_mutated change to _direct_write
                         attr.ever_mutated = True
                     attr._direct_write(w_obj, w_value)
                     return
@@ -1418,10 +1421,12 @@ def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry, entry_val
                     map.terminator._write_terminator(w_obj, name, attrkind, w_value)
                     mapnew = w_obj._get_mapdict_map()
                     # the next condition checks whether any attribute reordering happened
-                    if mapnew.back is map:
+                    if isinstance(mapnew, PlainAttribute) and mapnew.back is map:
                         assert mapnew.name == name and mapnew.attrkind == attrkind
-                        _fill_cache(pycode, nameindex, map, version_tag, None, valid_for_store=True,
-                                    attr_to_add=mapnew)
+                        # XXX unify the _fill_cache calls
+                        if w_type.getattribute_if_not_from_object() is None:
+                            _fill_cache(pycode, nameindex, mapnew, version_tag, mapnew,
+                                        valid_for_store=True)
                     return
 
     space.setattr(w_obj, w_name, w_value)

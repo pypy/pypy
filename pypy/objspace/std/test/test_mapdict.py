@@ -1774,11 +1774,11 @@ class AppTestWithMapDictAndCounters(object):
             a = A()
             a.attrinita = 10
             a.attrinitb = 12
-            return 42
-        res = self.check(f, 'attrinita')
-        assert res == (1, 0, 0)
-        res = self.check(f, 'attrinita')
-        assert res == (0, 1, 0)
+            return a.attrinitb + 30
+        res = self.check(f, 'attrinitb')
+        assert res == (1, 1, 0)
+        res = self.check(f, 'attrinitb')
+        assert res == (0, 2, 0)
 
 
 class AppTestGlobalCaching(AppTestWithMapDict):
