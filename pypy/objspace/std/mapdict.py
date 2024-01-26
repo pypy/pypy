@@ -1395,10 +1395,12 @@ def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value):
                     attrname, attrkind = ("slot", SLOTS_STARTING_FROM + w_descr.index)
             if attrkind != INVALID:
                 attr = map.find_map_attr(attrname, attrkind)
-                if attr is not None and not attr.ever_mutated:
+                if attr is not None:
                     if w_type.getattribute_if_not_from_object() is None:
                         _fill_cache(pycode, nameindex, map, version_tag, attr,
                                     valid_for_store=True)
+                    if not attr.ever_mutated:
+                        attr.ever_mutated = True
                     attr._direct_write(w_obj, w_value)
                     return
     space.setattr(w_obj, w_name, w_value)

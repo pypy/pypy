@@ -1301,6 +1301,14 @@ class AppTestWithMapDictAndCounters(object):
         check.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, 'text']
         cls.w_check = cls.space.wrap(gateway.interp2app(check))
 
+        def is_immutable(space, w_obj, name):
+            map = w_obj._get_mapdict_map()
+            import pdb;pdb.set_trace()
+            attr = map.find_map_attr(name, DICT)
+            return space.newbool(not attr.ever_mutated)
+        is_immutable.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, 'text']
+        cls.w_is_immutable = cls.space.wrap(gateway.interp2app(is_immutable))
+
     def test_simple(self):
         class A(object):
             pass
@@ -1751,6 +1759,14 @@ class AppTestWithMapDictAndCounters(object):
         with raises(TypeError):
             a.buggyattr # store_attr makes a cache entry, load_attr reuses it (but shouldn't)
 
+    def test_store_attr_immutability_bug(self):
+        class A(object):
+            pass
+        a = A()
+        a.x = 12
+        assert self.is_immutable(a, 'x')
+        a.x = 13
+        assert not self.is_immutable(a, 'x')
 
 class AppTestGlobalCaching(AppTestWithMapDict):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
