@@ -1767,6 +1767,20 @@ class AppTestWithMapDictAndCounters(object):
         a.x = 13
         assert not self.is_immutable(a, 'x')
 
+    def test_store_cache_init(self):
+        class A(object):
+            pass
+        def f():
+            a = A()
+            a.attrinita = 10
+            a.attrinitb = 12
+            return 42
+        res = self.check(f, 'attrinita')
+        assert res == (1, 0, 0)
+        res = self.check(f, 'attrinita')
+        assert res == (0, 1, 0)
+
+
 class AppTestGlobalCaching(AppTestWithMapDict):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
 

@@ -3,6 +3,7 @@ import weakref, sys
 from rpython.rlib import jit, objectmodel, debug, rerased
 from rpython.rlib.rarithmetic import intmask, r_uint, LONG_BIT
 from rpython.rlib.longlong2float import longlong2float, float2longlong
+from rpython.rlib.rweakref import dead_ref
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import _share_methods
@@ -1203,6 +1204,7 @@ class CacheEntry(object):
     success_counter = 0
     failure_counter = 0
     valid_for_store = True
+    attr_to_add = None
 
     @objectmodel.specialize.arg(2)
     def is_valid_for_obj(self, w_obj, store=False):
@@ -1241,7 +1243,7 @@ def init_mapdict_cache(pycode):
     pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
 
 @jit.dont_look_inside
-def _fill_cache(pycode, nameindex, map, version_tag, attr, w_method=None, valid_for_store=False):
+def _fill_cache(pycode, nameindex, map, version_tag, attr, w_method=None, valid_for_store=False, attr_to_add=None):
     if not pycode.space._side_effects_ok():
         return
     entry = pycode._mapdict_caches[nameindex]
@@ -1252,10 +1254,14 @@ def _fill_cache(pycode, nameindex, map, version_tag, attr, w_method=None, valid_
     if attr:
         entry.attr_wref = weakref.ref(attr)
     else:
-        entry.attr_wref = None
+        entry.attr_wref = dead_ref
     entry.version_tag = version_tag
     entry.w_method = w_method
     entry.valid_for_store = valid_for_store
+    if attr_to_add:
+        entry.attr_to_add_wref = weakref.ref(attr_to_add)
+    else:
+        entry.attr_to_add_wref = dead_ref
     if pycode.space.config.objspace.std.withmethodcachecounter:
         entry.failure_counter += 1
 
@@ -1272,6 +1278,7 @@ def LOAD_ATTR_caching(pycode, w_obj, nameindex):
             return attr._direct_read(w_obj)
     return LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map)
 
+@objectmodel.dont_inline
 def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
     space = pycode.space
     w_name = pycode.co_names_w[nameindex]
@@ -1321,7 +1328,6 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
     if space.config.objspace.std.withmethodcachecounter:
         INVALID_CACHE_ENTRY.failure_counter += 1
     return space.getattr(w_obj, w_name)
-LOAD_ATTR_slowpath._dont_inline_ = True
 
 def LOOKUP_METHOD_mapdict(f, nameindex, w_obj):
     pycode = f.getcode()
@@ -1352,25 +1358,29 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
         return
     _fill_cache(pycode, nameindex, map, version_tag, None, w_method)
 
-# XXX fix me: if a function contains a loop with both LOAD_ATTR and
-# XXX LOOKUP_METHOD on the same attribute name, it keeps trashing and
-# XXX rebuilding the cache
-
 @objectmodel.always_inline
 def STORE_ATTR_caching(pycode, w_obj, nameindex, w_value):
     entry = pycode._mapdict_caches[nameindex]
     map = w_obj._get_mapdict_map()
-    if entry.is_valid_for_map(map, store=True) and entry.w_method is None:
-        # everything matches, it's incredibly fast
+    entry_valid = entry.is_valid_for_map(map, store=True) and entry.w_method is None
+    if entry_valid:
         attr = entry.attr_wref()
         if attr is not None:
             if not attr.ever_mutated:
                 attr.ever_mutated = True
             attr._direct_write(w_obj, w_value)
             return
-    return STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value)
+    return STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry, entry_valid)
 
-def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value):
+def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value, entry, entry_valid):
+    # there is still a (not inlined) fast path for stores that add a new
+    # attribute
+    if entry_valid:
+        assert entry.attr_wref() is None
+        attr_to_add = entry.attr_to_add_wref()
+        if attr_to_add is not None:
+            attr_to_add._switch_map_and_write_storage(w_obj, w_value)
+            return
     space = pycode.space
     w_name = pycode.co_names_w[nameindex]
     if map is not None:
@@ -1403,4 +1413,15 @@ def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value):
                         attr.ever_mutated = True
                     attr._direct_write(w_obj, w_value)
                     return
+                if attr is None and attrkind == DICT and isinstance(map.terminator, DictTerminator):
+                    # do the write
+                    map.terminator._write_terminator(w_obj, name, attrkind, w_value)
+                    mapnew = w_obj._get_mapdict_map()
+                    # the next condition checks whether any attribute reordering happened
+                    if mapnew.back is map:
+                        assert mapnew.name == name and mapnew.attrkind == attrkind
+                        _fill_cache(pycode, nameindex, map, version_tag, None, valid_for_store=True,
+                                    attr_to_add=mapnew)
+                    return
+
     space.setattr(w_obj, w_name, w_value)
