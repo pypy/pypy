@@ -11,15 +11,12 @@ from pypy.interpreter.error import OperationError
 def extension_suffixes(space):
     suffixes_w = []
     so_ext = importing.get_so_extension(space)
-    if 1:   #if space.config.objspace.usemodules.cpyext:
+    if "powerpc64le" in so_ext or "ppc_64" in so_ext:
+        # force adding a backward-compatible suffix (issue 3833)
+        suffixes_w.append(space.newtext(".pypy39-pp73-ppc_64-linux-gnu.so"))
+        suffixes_w.append(space.newtext(".pypy39-pp73-powerpc64le-linux-gnu.so"))
+    else:   #if space.config.objspace.usemodules.cpyext:
         suffixes_w.append(space.newtext(so_ext))
-    # force adding a backward-compatible suffix on powerpc (issue 3834)
-    # remove this for new Python versions
-    # note that PyPy does not really support big-endian powerpc
-    if "powerpc64le" in so_ext:
-        suffixes_w.append(space.newtext("powerpc64le-linux-gnu"))
-    elif "ppc_64" in so_ext:
-        suffixes_w.append(space.newtext("ppc_64-linux-gnu"))
     return space.newlist(suffixes_w)
 
 def get_magic(space):
