@@ -172,6 +172,26 @@ class AbstractRISCVBuilder(object):
     def store_float(self, rs2, rs1, imm):
         self.FSD(rs2, rs1, imm)
 
+    # Load an FLEN-bit float from rs1+imm (imm can be a large constant)
+    def load_float_from_base_plus_offset(self, rd, rs1, imm, tmp):
+        assert tmp != rs1
+        if check_imm_arg(imm):
+            self.load_float(rd, rs1, imm)
+        else:
+            self.load_int_imm(tmp, imm)
+            self.ADD(tmp, tmp, rs1)
+            self.load_float(rd, tmp, 0)
+
+    # Store an FLEN-bit float to rs1+imm (imm can be a large constant)
+    def store_float_to_base_plus_offset(self, rs2, rs1, imm, tmp):
+        assert tmp != rs1
+        if check_imm_arg(imm):
+            self.store_float(rs2, rs1, imm)
+        else:
+            self.load_int_imm(tmp, imm)
+            self.ADD(tmp, tmp, rs1)
+            self.store_float(rs2, tmp, 0)
+
     # Load a rffi.INT from imm(rs1)
     def load_rffi_int(self, rd, rs1, imm):
         # Note: On RV64 (LP64), rffi.INT is 32-bit signed integer.

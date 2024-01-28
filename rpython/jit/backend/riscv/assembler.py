@@ -1671,9 +1671,11 @@ class AssemblerRISCV(OpAssembler):
     def _mov_stack_to_loc(self, prev_loc, loc):
         offset = prev_loc.value
         if loc.is_core_reg():
-            self.mc.load_int(loc.value, r.jfp.value, offset)
+            self.mc.load_int_from_base_plus_offset(loc.value, r.jfp.value,
+                                                   offset)
         elif loc.is_fp_reg():
-            self.mc.load_float(loc.value, r.jfp.value, offset)
+            self.mc.load_float_from_base_plus_offset(loc.value, r.jfp.value,
+                                                     offset, tmp=r.x31.value)
         else:
             assert 0, 'unsupported case'
 
@@ -1681,7 +1683,15 @@ class AssemblerRISCV(OpAssembler):
         if loc.is_core_reg():
             self.mc.MV(loc.value, prev_loc.value)
         elif loc.is_stack():
-            self.mc.store_int(prev_loc.value, r.jfp.value, loc.value)
+            # Use `r.shadow_old` as `scratch_reg`.  We can't use `r.x31`
+            # because `prev_loc` can be `r.x31` (see also.
+            # `regalloc_prepare_move`).  We can't use `r.ra` because `r.ra` is
+            # allocated for the callee function address in `callbuiler.py`
+            # and its lifetime overlaps with `remap_frame_layout`.
+            scratch_reg = r.shadow_old
+            self.mc.store_int_to_base_plus_offset(prev_loc.value, r.jfp.value,
+                                                  loc.value,
+                                                  tmp=scratch_reg.value)
         else:
             assert 0, 'unsupported case'
 
@@ -1692,7 +1702,9 @@ class AssemblerRISCV(OpAssembler):
             assert XLEN == 8 and FLEN == 8
             self.mc.FMV_X_D(loc.value, prev_loc.value)
         elif loc.is_stack():
-            self.mc.store_float(prev_loc.value, r.jfp.value, loc.value)
+            self.mc.store_float_to_base_plus_offset(prev_loc.value,
+                                                    r.jfp.value, loc.value,
+                                                    tmp=r.x31.value)
         else:
             assert 0, 'unsupported case'
 
@@ -1701,7 +1713,8 @@ class AssemblerRISCV(OpAssembler):
             self.mc.load_float_imm(loc.value, prev_loc.value)
         elif loc.is_stack():
             self.mc.load_float_imm(r.f31.value, prev_loc.value)
-            self.mc.store_float(r.f31.value, r.jfp.value, loc.value)
+            self.mc.store_float_to_base_plus_offset(r.f31.value, r.jfp.value,
+                                                    loc.value, tmp=r.x31.value)
         else:
             assert 0, 'unsupported case'
 
@@ -1713,7 +1726,8 @@ class AssemblerRISCV(OpAssembler):
         elif loc.is_stack():
             # Move a value from JITFRAME stack to raw stack.
             scratch_reg = r.x31
-            self.mc.load_int(scratch_reg.value, r.jfp.value, loc.value)
+            self.mc.load_int_from_base_plus_offset(scratch_reg.value,
+                                                   r.jfp.value, loc.value)
             self.mc.store_int(scratch_reg.value, r.sp.value, sp_offset)
         elif loc.is_fp_reg():
             self.mc.store_float(loc.value, r.sp.value, sp_offset)
