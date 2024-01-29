@@ -134,8 +134,6 @@ def _pyio_get_console_type(space, w_path_or_fd):
     # Another alternative to this whole mess would be to adapt the ctypes-based
     # https://pypi.org/project/win_unicode_console/ which also implements PEP 528
 
-    return '\0'
-
     if space.isinstance_w(w_path_or_fd, space.w_int):
         fd = space.int_w(w_path_or_fd)
         handle = rwin32.get_osfhandle(fd)
