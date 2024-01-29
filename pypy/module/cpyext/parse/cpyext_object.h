@@ -190,12 +190,19 @@ struct PyMethodDef {
 };
 typedef struct PyMethodDef PyMethodDef;
 
-#define T_PY_OBJECT 0
+// If a Python exception has been raised, return -1.
 #define T_C_LONG 1
+// If a Python exception has been raised, return -0.0.
 #define T_C_DOUBLE 2
+// If a Python exception has been raised, return NULL.
+#define T_PY_OBJECT 3
+
+// TODO(Max): Define METH_TYPED_VERSION
 
 struct PyPyTypedMethodMetadata {
   int* arg_types;
+  // Negative if underlying function can raise Python exception. The
+  // error-signaling value is different per type; see above.
   int ret_type;
   void* underlying_func;
   const char ml_name[100];

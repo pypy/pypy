@@ -63,6 +63,7 @@ pypy_get_typed_signature = rffi.llexternal(
 )
 
 long_to_long = lltype.Ptr(lltype.FuncType([rffi.LONG], rffi.LONG))
+double_to_double = lltype.Ptr(lltype.FuncType([rffi.DOUBLE], rffi.DOUBLE))
 double_double_to_double = lltype.Ptr(lltype.FuncType([rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE))
 
 @bootstrap_function
@@ -177,10 +178,11 @@ def extract_txtsig(raw_doc, name):
 class CSig(object):
     _immutable_fields_ = ["arg_types[*]", "ret_type", "underlying_func"]
 
-    def __init__(self, arg_types, ret_type, underlying_func):
+    def __init__(self, arg_types, ret_type, underlying_func, can_raise):
         self.arg_types = arg_types
         self.ret_type = ret_type
         self.underlying_func = underlying_func
+        self.can_raise = can_raise
 
     @staticmethod
     def from_ml(ml):
@@ -189,11 +191,18 @@ class CSig(object):
         idx = 0
         while True:
             arg_type = intmask(sig.c_arg_types[idx])
+            assert arg_type != 0
             if arg_type == -1:
                 break
             arg_types.append(arg_type)
             idx += 1
-        return CSig(arg_types[:], intmask(sig.c_ret_type), sig.c_underlying_func)
+        ret_type = intmask(sig.c_ret_type)
+        assert ret_type != 0
+        can_raise = False
+        if ret_type < 0:
+            ret_type = -ret_type
+            can_raise = True
+        return CSig(arg_types[:], ret_type, sig.c_underlying_func, can_raise)
 
 
 class W_PyCFunctionObject(W_Root):
@@ -277,7 +286,27 @@ class W_PyCFunctionObject(W_Root):
             result_long = underlying_func(long_arg)
             # TODO(max): Don't raise if overflow
             # TODO(max): Handle the ret type (not everything is an int)
+            if sig.can_raise and result_long == -1:
+                state = space.fromcache(State)
+                if state.get_exception() is not None:
+                    state.check_and_raise_exception(always=True)
             return space.newint(result_long)
+        if (len(sig.arg_types) == 1 and
+            sig.arg_types[0] == 2 and
+            len(args) == 1 and
+            sig.ret_type == 2):
+            # double -> double
+            arg = args[0]
+            if not space.isinstance_w(arg, space.w_float):
+                return self.call_varargs_fastcall(space, w_self, __args__)
+            arg_float = space.float_w(arg)
+            underlying_func = rffi.cast(double_to_double, sig.underlying_func)
+            result_double = underlying_func(arg_float)
+            if sig.can_raise and result_double == -0.0:
+                state = space.fromcache(State)
+                if state.get_exception() is not None:
+                    state.check_and_raise_exception(always=True)
+            return space.newfloat(result_double)
         raise oefmt(space.w_RuntimeError, "unreachable: unexpected METH_O|METH_TYPED signature")
 
     def call_varargs(self, space, w_self, __args__):
@@ -316,6 +345,7 @@ class W_PyCFunctionObject(W_Root):
             right = space.float_w(args[1])
             underlying_func = rffi.cast(double_double_to_double, sig.underlying_func)
             result_double = underlying_func(left, right)
+            # TODO(max): Check for error
             return space.newfloat(result_double)
         raise oefmt(space.w_RuntimeError, "unreachable: unexpected METH_FASTCALL|METH_TYPED signature")
 

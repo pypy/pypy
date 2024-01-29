@@ -27,6 +27,17 @@ class AppTestSignature(AppTestCpythonExtensionBase):
             module.wrong(1)
         assert str(info.value) == "unreachable: unexpected METH_O|METH_TYPED signature", str(info.value)
 
+    def test_call_long_does_not_raise(self):
+        module = self.import_module(name='signature')
+        result = module.raise_long(8)
+        assert result == 8
+
+    def test_call_long_raises(self):
+        module = self.import_module(name='signature')
+        with raises(RuntimeError) as info:
+            module.raise_long(123)
+        assert str(info.value) == "got 123. raising"
+
     # double -> double -> double
 
     def test_call_add(self):
@@ -45,3 +56,14 @@ class AppTestSignature(AppTestCpythonExtensionBase):
         with raises(TypeError) as info:
             module.add(4, 5)
         assert str(info.value) == "add expected float but got int", str(info.value)
+
+    def test_call_double_does_not_raise(self):
+        module = self.import_module(name='signature')
+        result = module.raise_double(1.0)
+        assert result == 1.0
+
+    def test_call_double_raises(self):
+        module = self.import_module(name='signature')
+        with raises(RuntimeError) as info:
+            module.raise_double(0.0)
+        assert str(info.value) == "got 0. raising"
