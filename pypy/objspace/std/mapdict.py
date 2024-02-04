@@ -1274,13 +1274,22 @@ class CacheEntry(object):
     w_method = None # for callmethod
     success_counter = 0
     failure_counter = 0
+    valid_for_store = True
 
-    def is_valid_for_obj(self, w_obj):
+    @objectmodel.specialize.arg(2)
+    def is_valid_for_obj(self, w_obj, store=False):
         map = w_obj._get_mapdict_map()
-        return self.is_valid_for_map(map)
+        return self.is_valid_for_map(map, store)
+
+    @objectmodel.specialize.arg(2)
+    @objectmodel.always_inline
+    def is_valid_for_map(self, map, store=False):
+        if store and not self.valid_for_store:
+            return False
+        return self._is_valid_for_map(map)
 
     @jit.dont_look_inside
-    def is_valid_for_map(self, map):
+    def _is_valid_for_map(self, map):
         # note that 'map' can be None here
         mymap = self.map_wref()
         if mymap is not None and mymap is map:
@@ -1297,13 +1306,14 @@ _invalid_cache_entry_map.terminator = None
 INVALID_CACHE_ENTRY = CacheEntry()
 INVALID_CACHE_ENTRY.map_wref = weakref.ref(_invalid_cache_entry_map)
                                  # different from any real map ^^^
+INVALID_CACHE_ENTRY.valid_for_store = False
 
 def init_mapdict_cache(pycode):
     num_entries = len(pycode.co_names_w)
     pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
 
 @jit.dont_look_inside
-def _fill_cache(pycode, nameindex, map, version_tag, attr, w_method=None):
+def _fill_cache(pycode, nameindex, map, version_tag, attr, w_method=None, valid_for_store=False):
     if not pycode.space._side_effects_ok():
         return
     entry = pycode._mapdict_caches[nameindex]
@@ -1317,9 +1327,11 @@ def _fill_cache(pycode, nameindex, map, version_tag, attr, w_method=None):
         entry.attr_wref = None
     entry.version_tag = version_tag
     entry.w_method = w_method
+    entry.valid_for_store = valid_for_store
     if pycode.space.config.objspace.std.withmethodcachecounter:
         entry.failure_counter += 1
 
+@objectmodel.always_inline
 def LOAD_ATTR_caching(pycode, w_obj, nameindex):
     # this whole mess is to make the interpreter quite a bit faster; it's not
     # used if we_are_jitted().
@@ -1331,7 +1343,6 @@ def LOAD_ATTR_caching(pycode, w_obj, nameindex):
         if attr is not None:
             return attr._direct_read(w_obj)
     return LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map)
-LOAD_ATTR_caching._always_inline_ = True
 
 def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
     space = pycode.space
@@ -1360,12 +1371,13 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                 from pypy.interpreter.typedef import Member
                 if isinstance(w_descr, Member):    # it is a slot -- easy case
                     attrname, attrkind = ("slot", SLOTS_STARTING_FROM + w_descr.index)
-            else:
-                # There is a non-data descriptor in the class.  If there is
-                # also a dict attribute, use the latter, caching its storageindex.
-                # If not, we loose.  We could do better in this case too,
-                # but we don't care too much; the common case of a method
-                # invocation is handled by LOAD_METHOD_xxx below.
+            elif not space.type(w_descr).is_heaptype():
+                # There is a non-data descriptor in the class. This would mean
+                # we use the dict entry, however, the class of w_descr could be
+                # changed to add a __get__/__set__ without the cache noticing,
+                # so we can only use the cache if w_descr is an instance of an
+                # immutable type. see
+                # test_load_attr_bug_class_name_turns_into_descriptor
                 attrname = name
                 attrkind = DICT
             #
@@ -1375,7 +1387,8 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                     # Note that if map.terminator is a DevolvedDictTerminator
                     # or the class provides its own dict, not using mapdict, then:
                     # map.find_map_attr will always return None if attrkind==DICT.
-                    _fill_cache(pycode, nameindex, map, version_tag, attr)
+                    _fill_cache(pycode, nameindex, map, version_tag, attr,
+                                valid_for_store=w_type.setattr_if_not_from_object() is None)
                     return attr._direct_read(w_obj)
     if space.config.objspace.std.withmethodcachecounter:
         INVALID_CACHE_ENTRY.failure_counter += 1
@@ -1414,3 +1427,52 @@ def LOAD_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
 # XXX fix me: if a function contains a loop with both LOAD_ATTR and
 # XXX LOAD_METHOD on the same attribute name, it keeps trashing and
 # XXX rebuilding the cache
+
+@objectmodel.always_inline
+def STORE_ATTR_caching(pycode, w_obj, nameindex, w_value):
+    entry = pycode._mapdict_caches[nameindex]
+    map = w_obj._get_mapdict_map()
+    if entry.is_valid_for_map(map, store=True) and entry.w_method is None:
+        # everything matches, it's incredibly fast
+        attr = entry.attr_wref()
+        if attr is not None:
+            if not attr.ever_mutated:
+                attr.ever_mutated = True
+            attr._direct_write(w_obj, w_value)
+            return
+    return STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value)
+
+def STORE_ATTR_slowpath(pycode, w_obj, nameindex, map, w_value):
+    space = pycode.space
+    w_name = pycode.co_names_w[nameindex]
+    if map is not None:
+        w_type = map.terminator.w_cls
+        w_descr = w_type.setattr_if_not_from_object()
+        if w_descr:
+            return space.get_and_call_function(w_descr, w_obj, w_name, w_value)
+            return
+        version_tag = w_type.version_tag()
+        if version_tag is not None:
+            name = space.text_w(w_name)
+            _, w_descr = w_type._pure_lookup_where_with_method_cache(
+                name, version_tag)
+            attrname, attrkind = ("", INVALID)
+            if w_descr is None:
+                attrname, attrkind = (name, DICT) # common case: no such attr in the class
+            elif isinstance(w_descr, MutableCell):
+                pass # we have a MutableCell in the class: give up
+            elif space.is_data_descr(w_descr):
+                from pypy.interpreter.typedef import Member
+                if isinstance(w_descr, Member):    # it is a slot -- easy case
+                    attrname, attrkind = ("slot", SLOTS_STARTING_FROM + w_descr.index)
+            if attrkind != INVALID:
+                attr = map.find_map_attr(attrname, attrkind)
+                if attr is not None:
+                    if w_type.getattribute_if_not_from_object() is None:
+                        _fill_cache(pycode, nameindex, map, version_tag, attr,
+                                    valid_for_store=True)
+                    if not attr.ever_mutated:
+                        attr.ever_mutated = True
+                    attr._direct_write(w_obj, w_value)
+                    return
+    space.setattr(w_obj, w_name, w_value)

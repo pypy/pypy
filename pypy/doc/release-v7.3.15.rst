@@ -2,12 +2,8 @@
 PyPy v7.3.15: release of python 2.7, 3.9, and 3.10
 ==================================================
 
-.. note::
-    This is a pre-release announcement. When the release actually happens, it
-    will be announced on the PyPy blog_
-
-
 The PyPy team is proud to release version 7.3.15 of PyPy.
+
 This is primarily a bug-fix release, and includes work done to migrate PyPy to
 Git and Github.
 
@@ -104,7 +100,7 @@ For all versions
 
 Bugfixes
 ~~~~~~~~
-- Change ``PyBUF_MAX_NDIM`` back to 36 for ABI consistancy (:issue:`4816`)
+- Change ``PyBUF_MAX_NDIM`` back to 36 for ABI consistency (:issue:`4816`)
 - Init ``sys.executable`` from ``GetModuleFileName`` on Windows (:issue:`4003`)
 
 
@@ -114,8 +110,8 @@ Speedups and enhancements
 - Remove dead RPython code
 - Improve the ability to run untranslated tests on top of PyPy2.7 (instead of
   CPython2.7)
-- Speed up tracing function calls (both on the Python as well as on the
-  implentation level) by doing tail call optimization in the tracing
+- Speed up tracing function calls (both on the Python level as well as on the
+  implementation level) by doing tail call optimization in the tracing
   interpreter. This might improve JIT warmup times and JIT memory usage a small
   amount for specific kinds of programs.
 

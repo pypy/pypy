@@ -13,3 +13,23 @@ def test_crash():
                     continue
     return
 
+def test_property_immutability_bug():
+    class A(object):
+        @property
+        def x(self):
+            return 23
+
+
+    def f():
+        res = 0
+        for i in range(10000):
+            res += A().x
+        return res
+
+    res = f()
+    assert res == 10000 * 23
+
+    A.x.__init__(lambda self: 24)
+
+    res = f()
+    assert res == 10000 * 24

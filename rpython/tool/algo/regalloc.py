@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 from rpython.flowspace.model import Variable
 from rpython.tool.algo.color import DependencyGraph
@@ -113,9 +115,9 @@ class RegAllocator(object):
         self._coloring = self._depgraph.find_node_coloring()
         if self.DEBUG_REGALLOC:
             for block in self.graph.iterblocks():
-                print block
+                print(block)
                 for v in block.getvariables():
-                    print '\t', v, '\t', self.getcolor(v)
+                    print('\t', v, '\t', self.getcolor(v))
 
     def find_num_colors(self):
         if self._coloring:

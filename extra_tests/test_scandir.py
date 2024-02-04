@@ -1,3 +1,4 @@
+# coding=utf-8
 import pytest
 import os
 import sys
@@ -58,7 +59,7 @@ def _make_dir3(tmpdir):
 
 
 def _make_dir4(tmpdir):
-    return _make_dir(tmpdir, 'dir4', {'sdir4': 'symlink-dir'})
+    return _make_dir(tmpdir, 'dir4', {'ünicode': 'symlink-dir'})
 
 
 def _make_dir5(tmpdir):
@@ -121,7 +122,7 @@ def test_stat1(tmpdir):
 def test_stat4(tmpdir):
     dir4 = _make_dir4(tmpdir)
     d = next(os.scandir(dir4))
-    assert d.name == 'sdir4'
+    assert d.name == 'ünicode'
     assert d.stat().st_mode & 0o170000 == 0o040000    # S_IFDIR
     assert d.stat(follow_symlinks=True).st_mode &0o170000 == 0o040000
     assert d.stat(follow_symlinks=False).st_mode&0o170000 == 0o120000 #IFLNK

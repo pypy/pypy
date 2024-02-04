@@ -1328,6 +1328,13 @@ class AppTestWithMapDictAndCounters(object):
         check.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, 'text']
         cls.w_check = cls.space.wrap(gateway.interp2app(check))
 
+        def is_immutable(space, w_obj, name):
+            map = w_obj._get_mapdict_map()
+            attr = map.find_map_attr(name, DICT)
+            return space.newbool(not attr.ever_mutated)
+        is_immutable.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, 'text']
+        cls.w_is_immutable = cls.space.wrap(gateway.interp2app(is_immutable))
+
     def test_simple(self):
         class A(object):
             pass
@@ -1701,6 +1708,101 @@ class AppTestWithMapDictAndCounters(object):
         assert res1 == "mymethod"
         assert res2 == "foobar"
 
+    def test_load_attr_bug_class_name_turns_into_descriptor(self):
+        class WillTurnIntoDescr(object):
+            pass
+
+        class Obj(object):
+            f = WillTurnIntoDescr()
+        o = Obj()
+        o.f = 12
+
+        def readf(o):
+            return o.f
+
+        # this used to fill the cache
+        assert readf(o) == 12
+
+        # make WillTurnIntoDescr a descriptor
+        WillTurnIntoDescr.__get__ = lambda *args: 15
+        WillTurnIntoDescr.__set__ = lambda *args: None
+        assert readf(o) == 15 # used to return 12
+
+    def test_store_attr_simple(self):
+        class A(object):
+            pass
+        a = A()
+        a.x = 0
+        def f():
+            a.x = 12
+            return 42
+        res = self.check(f, 'x')
+        assert res == (1, 0, 0)
+        res = self.check(f, 'x')
+        assert res == (0, 1, 0)
+        assert a.x == 12
+
+    def test_store_attr_simple_shared_with_load(self):
+        class A(object):
+            pass
+        a = A()
+        a.x = 0
+        def f():
+            a.x = a.x + 1
+            return 42
+        res = self.check(f, 'x')
+        assert res == (1, 1, 0) # miss for the first read, hit for the write
+        res = self.check(f, 'x')
+        assert res == (0, 2, 0)
+        assert a.x == 2
+
+    def test_store_attr_slots(self):
+        class A(object):
+            __slots__ = ['x']
+        a = A()
+        a.x = 42
+        def f():
+            a.x = 12
+            return 42
+        #
+        res = self.check(f, 'x')
+        assert res == (1, 0, 0)
+        res = self.check(f, 'x')
+        assert res == (0, 1, 0)
+        res = self.check(f, 'x')
+        assert res == (0, 1, 0)
+        res = self.check(f, 'x')
+        assert res == (0, 1, 0)
+        assert a.x == 12
+
+    def test_store_attr_load_attr_interaction_bug(self):
+        class A(object):
+            def __setattr__(self, name, value):
+                raise TypeError
+
+        a = A()
+        object.__setattr__(a, "buggyattr", 12)
+        with raises(TypeError):
+            a.buggyattr *= 2 # load_attr reads the cache, store_attr reuses it, bug
+
+        class A(object):
+            def __getattribute__(self, name):
+                raise TypeError
+
+        a = A()
+        a.buggyattr = 12 # initialize, doesn't fill cache
+        a.buggyattr = 12 # fill cache
+        with raises(TypeError):
+            a.buggyattr # store_attr makes a cache entry, load_attr reuses it (but shouldn't)
+
+    def test_store_attr_immutability_bug(self):
+        class A(object):
+            pass
+        a = A()
+        a.x = 12
+        assert self.is_immutable(a, 'x')
+        a.x = 13
+        assert not self.is_immutable(a, 'x')
 
 @pytest.mark.skipif('config.option.runappdirect')
 class AppTestGlobalCaching(AppTestWithMapDict):
