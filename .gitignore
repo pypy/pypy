@@ -43,9 +43,14 @@ lib_pypy/_resource_cffi*
 lib_pypy/_sqlite3_cffi*
 lib_pypy/_syslog_cffi*
 lib_pypy/_tkinter/tklib_cffi*
+lib_pypy/_sha3/_sha3_cffi*
+lib_pypy/_blake2/_blake2*_cffi*
+lib_pypy/_blake2/impl/*.o
+lib_pypy/_*test*.pypy*.so
 rpython/rlib/rvmprof/src/shared/libbacktrace/config.h
 include/pypy*
 lib/pypy*
+pybuilddir.txt
 pypy/doc/config/*.rst
 pypy/doc/config/*.txt
 pypy/doc/_build
