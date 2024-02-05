@@ -197,7 +197,9 @@ typedef struct PyMethodDef PyMethodDef;
 // If a Python exception has been raised, return NULL.
 #define T_PY_OBJECT 3
 
-// TODO(Max): Define METH_TYPED_VERSION
+// TODO(max): Define METH_TYPED_VERSION
+
+// TODO(max): Add a None type to avoid boxing and unboxing on the return path
 
 struct PyPyTypedMethodMetadata {
   int* arg_types;
