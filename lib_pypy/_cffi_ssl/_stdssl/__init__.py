@@ -686,7 +686,7 @@ class _SSLSocket(object):
             shutdown = False
             while True:
                 retval = lib.SSL_read_ex(self.ssl, mem, length, count)
-                err = _PySSL_errno(retval==0, self.ssl, retval)
+                err = _PySSL_errno(retval==0, self.ssl, count[0])
                 self.err = err
 
                 check_signals()
@@ -745,7 +745,7 @@ class _SSLSocket(object):
         count = ffi.new("size_t[1]", [0])
         while True:
             retval = lib.SSL_read_ex(self.ssl, mem, length, count);
-            err = _PySSL_errno(retval==0, self.ssl, count)
+            err = _PySSL_errno(retval==0, self.ssl, count[0])
             self.err = err
 
             check_signals()
