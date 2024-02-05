@@ -403,10 +403,8 @@ class _SSLSocket(object):
 
     def __init__(self, sslctx):
         self.ctx = sslctx
-        self.peer_cert = ffi.NULL
         self.ssl = ffi.NULL
         self.shutdown_seen_zero = 0
-        self.handshake_done = 0
         self._owner = None
         self.server_hostname = None
         self.socket = None
@@ -524,11 +522,10 @@ class _SSLSocket(object):
         if ret < 1:
             raise pyssl_error(self, ret)
 
-        self.handshake_done = 1
         return None
 
     def getpeercert(self, binary_mode):
-        if not self.handshake_done:
+        if not lib.SSL_is_init_finished(self.ssl):
             raise ValueError("handshake not done yet")
         peer_cert = lib.SSL_get_peer_certificate(self.ssl);
         if peer_cert == ffi.NULL:
@@ -945,7 +942,7 @@ class _SSLSocket(object):
             raise ValueError("Session refers to a different SSLContext.")
         if self.socket_type != SSL_CLIENT:
             raise ValueError("Cannot set session for server-side SSLSocket.")
-        if self.handshake_done:
+        if lib.SSL_is_init_finished(self.ssl):
             raise ValueError("Cannot set session after handshake.")
         if not lib.SSL_set_session(self.ssl, value._session):
             raise pyssl_error(self, 0)
