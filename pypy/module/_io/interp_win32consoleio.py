@@ -166,6 +166,7 @@ def _pyio_get_console_type(space, w_path_or_fd):
         return m
 
     # Handle things like 'c:\users\user\appdata\local\temp\usession\CONOUT$
+    assert '\x00' not in decoded, "NUL byte in string"
     dlower = getfullpathname(decoded).lower()
     if dlower[:4] == '\\\\.\\' or dlower[:4] == '\\\\?\\':
         dlower = dlower[4:]
@@ -243,9 +244,12 @@ class W_WinConsoleIO(W_RawIOBase):
         # is undefined later
         w_path = w_nameobj
         if self.fd < 0:
-            from pypy.module.posix.interp_posix import fspath
-            w_path = fspath(space, w_nameobj)
-            console_type = _pyio_get_console_type(space, w_path)
+            if w_nameobj:
+                from pypy.module.posix.interp_posix import fspath
+                w_path = fspath(space, w_nameobj)
+                console_type = _pyio_get_console_type(space, w_path)
+            else:
+                console_type == '\0'
             if not console_type:
                 raise oefmt(space.w_ValueError,
                         "Invalid console type")
