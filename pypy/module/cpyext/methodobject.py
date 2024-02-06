@@ -176,7 +176,7 @@ def extract_txtsig(raw_doc, name):
 
 
 class CSig(object):
-    _immutable_fields_ = ["arg_types[*]", "ret_type", "underlying_func"]
+    _immutable_fields_ = ["arg_types[*]", "ret_type", "underlying_func", "can_raise"]
 
     def __init__(self, arg_types, ret_type, underlying_func, can_raise):
         self.arg_types = arg_types
@@ -206,6 +206,7 @@ class CSig(object):
 
 
 class W_PyCFunctionObject(W_Root):
+    # TODO(max): Maybe add w_self as immutable field
     _immutable_fields_ = ["flags", "ml", "csig"]
 
     def __init__(self, space, ml, w_self, w_module=None, type_name=None):
