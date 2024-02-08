@@ -175,6 +175,11 @@ def extract_txtsig(raw_doc, name):
     return None
 
 
+T_C_LONG = 1
+T_C_DOUBLE = 2
+T_PY_OBJECT = 3
+
+
 class CSig(object):
     _immutable_fields_ = ["arg_types[*]", "ret_type", "underlying_func", "can_raise"]
 
@@ -277,9 +282,9 @@ class W_PyCFunctionObject(W_Root):
         assert sig is not None
         args = __args__.arguments_w
         if (len(sig.arg_types) == 1 and
-                sig.arg_types[0] == 1 and
+                sig.arg_types[0] == T_C_LONG and
                 len(args) == 1 and
-                sig.ret_type == 1):
+                sig.ret_type == T_C_LONG):
             # long -> long
             # TODO(max): Don't raise if overflow or wrong type
             long_arg = space.int_w(args[0])
@@ -293,9 +298,9 @@ class W_PyCFunctionObject(W_Root):
                     state.check_and_raise_exception(always=True)
             return space.newint(result_long)
         if (len(sig.arg_types) == 1 and
-            sig.arg_types[0] == 2 and
+            sig.arg_types[0] == T_C_DOUBLE and
             len(args) == 1 and
-            sig.ret_type == 2):
+            sig.ret_type == T_C_DOUBLE):
             # double -> double
             arg = args[0]
             if not space.isinstance_w(arg, space.w_float):
@@ -335,9 +340,9 @@ class W_PyCFunctionObject(W_Root):
         if len(sig.arg_types) != len(args):
             return self.call_varargs_fastcall(space, w_self, __args__)
         if (len(sig.arg_types) == 2 and
-                sig.arg_types[0] == 2 and
-                sig.arg_types[1] == 2 and
-                sig.ret_type == 2):
+                sig.arg_types[0] == T_C_DOUBLE and
+                sig.arg_types[1] == T_C_DOUBLE and
+                sig.ret_type == T_C_DOUBLE):
             # double -> double
             if (not space.isinstance_w(args[0], space.w_float) or
                 not space.isinstance_w(args[1], space.w_float)):
