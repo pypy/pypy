@@ -8,6 +8,10 @@ def test_venv_of_venv(tmpdir):
     subprocess.run([sys.executable, '-mvenv', str(tmpdir / 'venv1')])
     # 'bin' or 'Script'
     path = os.path.split(sysconfig.get_path('scripts'))[-1]
+    print(f"{path=}")
+    exe2 = str(tmpdir / 'venv1' / path / exe)
+    print(f"exe '{exe2}'")
+    print(f"exe exists {os.path.exists(exe2)}") 
     subprocess.run([str(tmpdir / 'venv1' / path / exe),
                     '-mvenv', str(tmpdir / 'venv2')])
 
@@ -18,6 +22,8 @@ def test_multiprocessing(tmpdir):
     # 'bin' or 'Script'
     path = os.path.split(sysconfig.get_path('scripts'))[-1]
     exe = str(tmpdir / 'venv' / path / os.path.split(sys.executable)[-1])
+    print(f"exe '{exe}'")
+    print(f"exe exists {os.path.exists(exe)}") 
     result = subprocess.run([exe, '-c',
                              'from multiprocessing import Pool; ' +
                              'print(Pool(1).apply_async(eval, ("__import__(\'sys\').executable",)).get(3))'],
