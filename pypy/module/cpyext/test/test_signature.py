@@ -4,6 +4,8 @@ class AppTestSignature(AppTestCpythonExtensionBase):
     def test_import(self):
         module = self.import_module(name='signature')
 
+    # long -> long
+
     def test_call_inc(self):
         module = self.import_module(name='signature')
         result = module.inc(4)
@@ -56,6 +58,8 @@ class AppTestSignature(AppTestCpythonExtensionBase):
         with raises(TypeError) as info:
             module.add(4, 5)
         assert str(info.value) == "add expected float but got int", str(info.value)
+
+    # double -> double
 
     def test_call_double_does_not_raise(self):
         module = self.import_module(name='signature')
