@@ -71,3 +71,22 @@ class AppTestSignature(AppTestCpythonExtensionBase):
         with raises(RuntimeError) as info:
             module.raise_double(0.0)
         assert str(info.value) == "got 0. raising"
+
+    # PyObject -> long
+
+    def test_call_pyobject_long_with_too_few_args_raises_type_error(self):
+        module = self.import_module(name='signature')
+        with raises(TypeError) as info:
+            module.takes_object(1)
+        assert str(info.value) == "takes_object expected 2 arguments but got 1", str(info.value)
+
+    def test_call_pyobject_long_with_too_many_args_raises_type_error(self):
+        module = self.import_module(name='signature')
+        with raises(TypeError) as info:
+            module.takes_object(1, 2, 3)
+        assert str(info.value) == "takes_object expected 2 arguments but got 3", str(info.value)
+
+    def test_call_pyobject_long_returns_int(self):
+        module = self.import_module(name='signature')
+        result = module.takes_object(object(), 8)
+        assert result == 9, "%s %s" % (type(result), result)

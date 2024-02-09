@@ -63,6 +63,7 @@ pypy_get_typed_signature = rffi.llexternal(
 )
 
 long_to_long = lltype.Ptr(lltype.FuncType([rffi.LONG], rffi.LONG))
+pyobject_long_to_long = lltype.Ptr(lltype.FuncType([PyObject, rffi.LONG], rffi.LONG))
 double_to_double = lltype.Ptr(lltype.FuncType([rffi.DOUBLE], rffi.DOUBLE))
 double_double_to_double = lltype.Ptr(lltype.FuncType([rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE))
 
@@ -353,6 +354,24 @@ class W_PyCFunctionObject(W_Root):
             result_double = underlying_func(left, right)
             # TODO(max): Check for error
             return space.newfloat(result_double)
+        if (len(sig.arg_types) == 2 and
+                sig.arg_types[0] == T_PY_OBJECT and
+                sig.arg_types[1] == T_C_LONG and
+                sig.ret_type == T_C_LONG):
+            # object -> long -> long
+            # TODO(max): Don't raise if overflow or wrong type
+            obj_arg = make_ref(space, args[0])
+            long_arg = space.int_w(args[1])
+            underlying_func = rffi.cast(pyobject_long_to_long, sig.underlying_func)
+            result_long = underlying_func(obj_arg, long_arg)
+            # TODO(max): Don't raise if overflow
+            # TODO(max): Handle the ret type (not everything is an int)
+            decref(space, obj_arg)
+            if sig.can_raise and result_long == -1:
+                state = space.fromcache(State)
+                if state.get_exception() is not None:
+                    state.check_and_raise_exception(always=True)
+            return space.newint(result_long)
         raise oefmt(space.w_RuntimeError, "unreachable: unexpected METH_FASTCALL|METH_TYPED signature")
 
     def call_keywords(self, space, w_self, __args__):
