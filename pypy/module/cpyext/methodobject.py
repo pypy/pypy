@@ -17,7 +17,7 @@ from pypy.module.cpyext.api import (
     CANNOT_FAIL, slot_function, cts, build_type_checkers,
     PyObjectP, Py_ssize_t, include_dirs)
 from pypy.module.cpyext.pyobject import (
-    decref, from_ref, make_ref, as_pyobj, make_typedescr, get_w_obj_and_decref)
+    decref, from_ref, make_ref, make_typedescr, get_w_obj_and_decref)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.tupleobject import tuple_from_args_w, PyTupleObject
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
