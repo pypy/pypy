@@ -17,7 +17,7 @@ from pypy.module.cpyext.api import (
     CANNOT_FAIL, slot_function, cts, build_type_checkers,
     PyObjectP, Py_ssize_t, include_dirs)
 from pypy.module.cpyext.pyobject import (
-    decref, from_ref, make_ref, as_pyobj, make_typedescr)
+    decref, from_ref, make_ref, as_pyobj, make_typedescr, get_w_obj_and_decref)
 from pypy.module.cpyext.state import State
 from pypy.module.cpyext.tupleobject import tuple_from_args_w, PyTupleObject
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -64,6 +64,7 @@ pypy_get_typed_signature = rffi.llexternal(
 
 long_to_long = lltype.Ptr(lltype.FuncType([rffi.LONG], rffi.LONG))
 pyobject_long_to_long = lltype.Ptr(lltype.FuncType([PyObject, rffi.LONG], rffi.LONG))
+pyobject_to_pyobject = lltype.Ptr(lltype.FuncType([PyObject], PyObject))
 double_to_double = lltype.Ptr(lltype.FuncType([rffi.DOUBLE], rffi.DOUBLE))
 double_double_to_double = lltype.Ptr(lltype.FuncType([rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE))
 
@@ -298,6 +299,19 @@ class W_PyCFunctionObject(W_Root):
                 if state.get_exception() is not None:
                     state.check_and_raise_exception(always=True)
             return space.newint(result_long)
+        if (len(sig.arg_types) == 1 and
+                sig.arg_types[0] == T_PY_OBJECT and
+                len(args) == 1 and
+                sig.ret_type == T_PY_OBJECT):
+            # object -> object
+            obj_arg = make_ref(space, args[0])
+            underlying_func = rffi.cast(pyobject_to_pyobject, sig.underlying_func)
+            result_obj = underlying_func(obj_arg)
+            decref(space, obj_arg)
+            if sig.can_raise and result_obj == 0:
+                state = space.fromcache(State)
+                state.check_and_raise_exception(always=True)
+            return get_w_obj_and_decref(space, result_obj)
         if (len(sig.arg_types) == 1 and
             sig.arg_types[0] == T_C_DOUBLE and
             len(args) == 1 and

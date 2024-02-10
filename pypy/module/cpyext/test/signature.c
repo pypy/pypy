@@ -153,6 +153,25 @@ PyPyTypedMethodMetadata takes_object_sig = {
   .ml_name = "takes_object",
 };
 
+PyObject* takes_only_object_impl(PyObject* arg) {
+  Py_INCREF(arg);
+  return arg;
+}
+
+PyObject* takes_only_object(PyObject* module, PyObject* obj) {
+  (void)module;
+  return takes_only_object_impl(obj);
+}
+
+int takes_only_object_arg_types[] = {T_PY_OBJECT, -1};
+
+PyPyTypedMethodMetadata takes_only_object_sig = {
+  .arg_types = takes_only_object_arg_types,
+  .ret_type = T_PY_OBJECT,
+  .underlying_func = takes_only_object_impl,
+  .ml_name = "takes_only_object",
+};
+
 static PyMethodDef signature_methods[] = {
     {inc_sig.ml_name, inc, METH_O | METH_TYPED, "Add one to an int"},
     {wrong_sig.ml_name, inc, METH_O | METH_TYPED, "Have a silly signature"},
@@ -160,6 +179,7 @@ static PyMethodDef signature_methods[] = {
     {raise_long_sig.ml_name, raise_long, METH_O | METH_TYPED, "Raise an exception (long)"},
     {raise_double_sig.ml_name, raise_double, METH_O | METH_TYPED, "Raise an exception (double)"},
     {takes_object_sig.ml_name, (PyCFunction)(void*)takes_object, METH_FASTCALL | METH_TYPED, "Inc but also takes a PyObject*"},
+    {takes_only_object_sig.ml_name, takes_only_object, METH_O | METH_TYPED, "id(x)"},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef signature_definition = {

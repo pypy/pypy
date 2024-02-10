@@ -90,3 +90,23 @@ class AppTestSignature(AppTestCpythonExtensionBase):
         module = self.import_module(name='signature')
         result = module.takes_object(object(), 8)
         assert result == 9, "%s %s" % (type(result), result)
+
+    # PyObject -> PyObject
+
+    def test_call_pyobject_with_too_few_args_raises_type_error(self):
+        module = self.import_module(name='signature')
+        with raises(TypeError) as info:
+            module.takes_only_object()
+        assert str(info.value) == "takes_only_object() takes exactly one argument (0 given)", str(info.value)
+
+    def test_call_pyobject_with_too_many_args_raises_type_error(self):
+        module = self.import_module(name='signature')
+        with raises(TypeError) as info:
+            module.takes_only_object(1, 2)
+        assert str(info.value) == "takes_only_object() takes exactly one argument (2 given)", str(info.value)
+
+    def test_call_pyobject_returns_same_object(self):
+        module = self.import_module(name='signature')
+        obj = object()
+        result = module.takes_only_object(obj)
+        assert result is obj
