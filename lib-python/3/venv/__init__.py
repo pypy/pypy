@@ -345,8 +345,15 @@ class EnvBuilder:
                     src = os.path.join(dirname, "pypy3.9-c.exe")
                     dst = os.path.join(binpath, exe)
                     copier(src, dst)
+                elif not suffixes:
+                    # dirname is a source build from dirname\pypy\goal
+                    # so add that to dirname and try again
+                    src = os.path.join(dirname, "pypy", "goal", "pypy3.9-c.exe")
+                    dst = os.path.join(binpath, exe)
+                    copier(src, dst)
                 else:
-                    raise RuntimeError("should not happen")
+                    raise RuntimeError(f"problem finding exes in {suffixes}")
+
             if sysconfig.is_python_build(True):
                 # copy init.tcl
                 for root, dirs, files in os.walk(context.python_dir):
