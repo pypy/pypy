@@ -14,8 +14,18 @@ class AbstractRISCVCPU(AbstractLLCPU):
 
     # These are required by BaseAssembler.store_info_on_descr()
     frame_reg = r.jfp
-    all_reg_indexes = range(32)
-    gen_regs = r.registers  # List of general-purpose registers
+    # Map register to the indices in JITFRAME_FIXED_SIZE. We put x10 (the
+    # return value register at 0 because AbstractFailDescr assumes the return
+    # value is at index 0.
+    all_reg_indexes = [10, 1,  2,  3,  4,  5,  6,  7,
+                       8,  9,  0,  11, 12, 13, 14, 15,
+                       16, 17, 18, 19, 20, 21, 22, 23,
+                       24, 25, 26, 27, 28, 29, 30, 31]
+    # The inverse map that maps indices back to general purpose registers.
+    gen_regs = [r.x10, r.x1,  r.x2,  r.x3,  r.x4,  r.x5,  r.x6,  r.x7,
+                r.x8,  r.x9,  r.x0,  r.x11, r.x12, r.x13, r.x14, r.x15,
+                r.x16, r.x17, r.x18, r.x19, r.x20, r.x21, r.x22, r.x23,
+                r.x24, r.x25, r.x26, r.x27, r.x28, r.x29, r.x30, r.x31]
     float_regs = r.fp_registers  # List of floating point registers
 
     JITFRAME_FIXED_SIZE = arch.JITFRAME_FIXED_SIZE

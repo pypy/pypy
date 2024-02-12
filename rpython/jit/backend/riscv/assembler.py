@@ -628,7 +628,8 @@ class AssemblerRISCV(OpAssembler):
         if not ignored_regs:
             for reg in regs:
                 mc.store_int(reg.value, r.jfp.value,
-                             base_ofs + reg.value * XLEN)
+                             base_ofs +
+                             self.cpu.all_reg_indexes[reg.value] * XLEN)
         else:
             for reg in ignored_regs:
                 assert reg.is_core_reg()
@@ -636,7 +637,8 @@ class AssemblerRISCV(OpAssembler):
                 if reg in ignored_regs:
                     continue
                 mc.store_int(reg.value, r.jfp.value,
-                             base_ofs + reg.value * XLEN)
+                             base_ofs +
+                             self.cpu.all_reg_indexes[reg.value] * XLEN)
 
         if withfloats:
             # Push floating point registers
@@ -656,7 +658,8 @@ class AssemblerRISCV(OpAssembler):
         if not ignored_regs:
             for reg in regs:
                 mc.load_int(reg.value, r.jfp.value,
-                            base_ofs + reg.value * XLEN)
+                            base_ofs +
+                            self.cpu.all_reg_indexes[reg.value] * XLEN)
         else:
             for reg in ignored_regs:
                 assert reg.is_core_reg()
@@ -664,7 +667,8 @@ class AssemblerRISCV(OpAssembler):
                 if reg in ignored_regs:
                     continue
                 mc.load_int(reg.value, r.jfp.value,
-                            base_ofs + reg.value * XLEN)
+                            base_ofs +
+                            self.cpu.all_reg_indexes[reg.value] * XLEN)
 
         if withfloats:
             # Pop floating point registers
@@ -679,7 +683,8 @@ class AssemblerRISCV(OpAssembler):
         for reg in selected_regs:
             if reg.is_core_reg():
                 mc.store_int(reg.value, r.jfp.value,
-                             base_ofs + reg.value * XLEN)
+                             base_ofs +
+                             self.cpu.all_reg_indexes[reg.value] * XLEN)
             else:
                 assert reg.is_fp_reg()
                 mc.store_float(reg.value, r.jfp.value,
@@ -692,7 +697,8 @@ class AssemblerRISCV(OpAssembler):
         for reg in selected_regs:
             if reg.is_core_reg():
                 mc.load_int(reg.value, r.jfp.value,
-                            base_ofs + reg.value * XLEN)
+                            base_ofs +
+                            self.cpu.all_reg_indexes[reg.value] * XLEN)
             else:
                 assert reg.is_fp_reg()
                 mc.load_float(reg.value, r.jfp.value,
