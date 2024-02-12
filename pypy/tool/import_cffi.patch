@@ -1,6 +1,6 @@
-diff -u1 -r lib_pypy/cffi/_shimmed_dist_utils.py lib_pypy_new/cffi/_shimmed_dist_utils.py
---- lib_pypy/cffi/_shimmed_dist_utils.py	2024-02-12 12:07:00.190296239 +0000
-+++ lib_pypy_new/cffi/_shimmed_dist_utils.py	2024-02-12 12:07:58.010530209 +0000
+diff -u1 -r ../pypy-base/lib_pypy/cffi/_shimmed_dist_utils.py lib_pypy/cffi/_shimmed_dist_utils.py
+--- ../pypy-base/lib_pypy/cffi/_shimmed_dist_utils.py	2024-02-12 13:18:08.632452561 +0000
++++ lib_pypy/cffi/_shimmed_dist_utils.py	2024-02-12 12:17:09.422614238 +0000
 @@ -15,3 +15,3 @@
          # Python 3.12 has no built-in distutils to fall back on, so any import problem is fatal
 -        raise Exception("This CFFI feature requires setuptools on Python >= 3.12. The setuptools module is missing or non-functional.") from ex
@@ -15,17 +15,17 @@ diff -u1 -r lib_pypy/cffi/_shimmed_dist_utils.py lib_pypy_new/cffi/_shimmed_dist
 -    raise Exception("This CFFI feature requires distutils. Please install the distutils or setuptools package.") from ex
 +    raise Exception("This CFFI feature requires distutils. Please install the distutils or setuptools package.")
  
-diff -u1 -r extra_tests/cffi_tests/cffi0/test_version.py extra_tests_new/cffi_tests/cffi0/test_version.py
---- extra_tests/cffi_tests/cffi0/test_version.py	2024-02-12 12:07:00.250292330 +0000
-+++ extra_tests_new/cffi_tests/cffi0/test_version.py	2024-02-12 12:08:34.964123289 +0000
+diff -u1 -r '--exclude=__pycache__' ../pypy-base/extra_tests/cffi_tests/cffi0/test_version.py extra_tests/cffi_tests/cffi0/test_version.py
+--- ../pypy-base/extra_tests/cffi_tests/cffi0/test_version.py	2024-02-12 13:18:08.668450218 +0000
++++ extra_tests/cffi_tests/cffi0/test_version.py	2024-02-12 12:17:09.422614238 +0000
 @@ -4,3 +4,3 @@
  import cffi, _cffi_backend
 -from pathlib import Path
 +#from pathlib import Path --- but on pypy, this module should be skipped anyway
  
-diff -u1 -r extra_tests/cffi_tests/cffi1/test_parse_c_type.py extra_tests_new/cffi_tests/cffi1/test_parse_c_type.py
---- extra_tests/cffi_tests/cffi1/test_parse_c_type.py	2024-02-12 12:07:00.262291549 +0000
-+++ extra_tests_new/cffi_tests/cffi1/test_parse_c_type.py	2024-02-12 12:10:30.980566696 +0000
+diff -u1 -r '--exclude=__pycache__' ../pypy-base/extra_tests/cffi_tests/cffi1/test_parse_c_type.py extra_tests/cffi_tests/cffi1/test_parse_c_type.py
+--- ../pypy-base/extra_tests/cffi_tests/cffi1/test_parse_c_type.py	2024-02-12 13:18:08.688448917 +0000
++++ extra_tests/cffi_tests/cffi1/test_parse_c_type.py	2024-02-12 12:17:09.422614238 +0000
 @@ -5,3 +5,2 @@
  from cffi import cffi_opcode
 -from pathlib import Path
@@ -35,39 +35,52 @@ diff -u1 -r extra_tests/cffi_tests/cffi1/test_parse_c_type.py extra_tests_new/cf
 -cffi_dir = str(Path(os.path.dirname(__file__)).parent.parent / "src/cffi")
 +cffi_dir = os.path.dirname(cffi_opcode.__file__)
  
-diff -u1 -r extra_tests/cffi_tests/test_c.py extra_tests_new/cffi_tests/test_c.py
---- extra_tests/cffi_tests/test_c.py	2024-02-12 12:07:00.282290246 +0000
-+++ extra_tests_new/cffi_tests/test_c.py	2024-02-12 12:16:12.722307418 +0000
-@@ -1,6 +1,3 @@
+diff -u1 -r '--exclude=__pycache__' ../pypy-base/extra_tests/cffi_tests/test_c.py extra_tests/cffi_tests/test_c.py
+--- ../pypy-base/extra_tests/cffi_tests/test_c.py	2024-02-12 13:18:08.732446053 +0000
++++ extra_tests/cffi_tests/test_c.py	2024-02-12 13:23:06.921031740 +0000
+@@ -1,10 +1,3 @@
 -from __future__ import annotations
 -
- import contextlib
- import traceback
+-import contextlib
+-import traceback
 -import unittest.mock
- 
-@@ -8,3 +5,2 @@
+-
+ import pytest
  import sys
 -import typing as t
  
-@@ -1347,10 +1343,8 @@
- @contextlib.contextmanager
+@@ -1346,33 +1339,4 @@
+ 
+-@contextlib.contextmanager
 -def _assert_unraisable(error_type: type[Exception] | None, message: str = '', traceback_tokens: list[str] | None = None):
-+def _assert_unraisable(error_type, message='', traceback_tokens=None):
-     """Assert that a given sys.unraisablehook interaction occurred (or did not occur, if error_type is None) while this context was active"""
+-    """Assert that a given sys.unraisablehook interaction occurred (or did not occur, if error_type is None) while this context was active"""
 -    raised_errors: list[Exception] = []
 -    raised_traceback: str = ''
- 
-+    raised_tracebacks = []
-     # sys.unraisablehook is called more than once for chained exceptions; accumulate the errors and tracebacks for inspection
-     def _capture_unraisable_hook(ur_args):
+-
+-    # sys.unraisablehook is called more than once for chained exceptions; accumulate the errors and tracebacks for inspection
+-    def _capture_unraisable_hook(ur_args):
 -        nonlocal raised_traceback
-         raised_errors.append(ur_args.exc_value)
-@@ -1358,3 +1352,3 @@
-         # NB: need to use the old etype/value/tb form until 3.10 is the minimum
+-        raised_errors.append(ur_args.exc_value)
+-
+-        # NB: need to use the old etype/value/tb form until 3.10 is the minimum
 -        raised_traceback += (ur_args.err_msg or '' + '\n') + ''.join(traceback.format_exception(None, ur_args.exc_value, ur_args.exc_traceback))
-+        raised_tracebacks.append((ur_args.err_msg or '' + '\n') + ''.join(traceback.format_exception(None, ur_args.exc_value, ur_args.exc_traceback)))
- 
-@@ -1365,2 +1359,3 @@
- 
-+    raised_traceback = '\n\n'.join(raised_tracebacks)
-     if error_type is None:
+-
+-
+-    with pytest.MonkeyPatch.context() as mp:
+-        mp.setattr(sys, 'unraisablehook', _capture_unraisable_hook)
+-        yield
+-
+-    if error_type is None:
+-        assert not raised_errors
+-        assert not raised_traceback
+-        return
+-
+-    assert any(type(raised_error) is error_type for raised_error in raised_errors)
+-    assert any(message in str(raised_error) for raised_error in raised_errors)
+-    for t in traceback_tokens or []:
+-        assert t in raised_traceback
+-
+-
+ def test_callback_exception():
++    pytest.skip("XXX not written for Python 2")
+     def check_value(x):
