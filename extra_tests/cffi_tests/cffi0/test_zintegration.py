@@ -15,11 +15,28 @@ if sys.version_info < (2, 7):
 def create_venv(name):
     tmpdir = udir.join(name)
     try:
+        # FUTURE: we should probably update this to use venv for at least more modern Pythons, and
+        # install setuptools/pip/etc explicitly for the tests that require them (as venv has stopped including
+        # setuptools and wheel by default for newer versions).
         subprocess.check_call(['virtualenv', 
             #'--never-download', <= could be added, but causes failures
             # in random cases on random machines
                                '-p', os.path.abspath(sys.executable),
                                str(tmpdir)])
+
+        # Python 3.12 venv/virtualenv no longer include setuptools and wheel by default, which
+        # breaks a number of these tests; ensure it's always present for 3.12+
+        if sys.version_info >= (3, 12):
+            subprocess.check_call([
+                os.path.join(tmpdir, 'bin/python'),
+                '-m',
+                'pip',
+                'install',
+                'setuptools',
+                'wheel',
+                '--upgrade'
+            ])
+
     except OSError as e:
         pytest.skip("Cannot execute virtualenv: %s" % (e,))
 
