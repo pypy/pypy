@@ -431,6 +431,7 @@ class Parser(object):
                             typedef_example="*(%s *)0" % (decl.name,))
                     self._declare('typedef ' + decl.name, realtype, quals=quals)
                 elif decl.__class__.__name__ == 'Pragma':
+                    # skip pragma, only in pycparser 2.15
                     import warnings
                     warnings.warn(
                         "#pragma in cdef() are entirely ignored. "
