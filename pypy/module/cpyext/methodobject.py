@@ -308,9 +308,14 @@ class W_PyCFunctionObject(W_Root):
             underlying_func = rffi.cast(pyobject_to_pyobject, sig.underlying_func)
             result_obj = underlying_func(obj_arg)
             decref(space, obj_arg)
-            if sig.can_raise and not result_obj:  # if == NULL
-                state = space.fromcache(State)
-                state.check_and_raise_exception(always=True)
+            if sig.can_raise:
+                if not result_obj:  # if == NULL
+                    state = space.fromcache(State)
+                    state.check_and_raise_exception(always=True)
+            else:
+                assert result_obj
+            # TODO(max): Does this need to get tail duplicated for
+            # sig.can_raise / non-NULL optimization?
             return get_w_obj_and_decref(space, result_obj)
         if (len(sig.arg_types) == 1 and
             sig.arg_types[0] == T_C_DOUBLE and
