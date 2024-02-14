@@ -1,6 +1,8 @@
 # Copied from <cffi>/c/test_c.py
 # Make sure the files are identical starting from the # ________ line below
 
+import contextlib
+import traceback
 
 # ____________________________________________________________
 
@@ -54,6 +56,8 @@ def find_and_load_library(name, flags=RTLD_NOW):
         path = None
     else:
         path = ctypes.util.find_library(name)
+        if path is None and sys.platform == 'darwin' and sys.version_info[:2] == (3, 8):
+            pytest.xfail("find_library usually broken on MacOS Python 3.8")
         if path is None and name == 'c':
             assert sys.platform == 'win32'
             assert (sys.version_info >= (3,) or
@@ -1343,8 +1347,8 @@ def test_callback_exception():
         return x * 3
     BShort = new_primitive_type("short")
     BFunc = new_function_type((BShort,), BShort, False)
+
     f = callback(BFunc, Zcb1, -42)
-    #
     seen = []
     oops_result = None
     def oops(*args):

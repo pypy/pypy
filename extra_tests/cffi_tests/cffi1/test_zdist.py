@@ -45,7 +45,8 @@ class TestDist(object):
         pathlist = sys.path[:]
         if cwd is None:
             pathlist.insert(0, self.rootdir)
-        env['PYTHONPATH'] = os.pathsep.join(pathlist)
+        if sys.version_info > (3, 0, 0):
+            env['PYTHONPATH'] = os.pathsep.join(pathlist)
         try:
             subprocess.check_call([self.executable] + args, cwd=cwd, env=env)
         finally:
