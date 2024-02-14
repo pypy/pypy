@@ -7,3 +7,13 @@ def test_delete_attrs():
         with pytest.raises(TypeError) as info:
             delattr(Exception(), attr)
         assert str(info.value).endswith("may not be deleted")
+
+def test_notes():
+    base = BaseException()
+    base.add_note('test note')
+    assert base.__notes__ == ['test note']
+    base.add_note('second note')
+    assert base.__notes__ == ['test note', 'second note']
+    with pytest.raises(TypeError):
+        base.add_note(42)
+    assert base.__notes__ == ['test note', 'second note']

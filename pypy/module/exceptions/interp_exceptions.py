@@ -268,6 +268,24 @@ class W_BaseException(W_Root):
                         "are raised in the actual program they will "
                         "accumulate more frames and never free them.")
 
+    def descr_add_note(self, space, w_note):
+        """Exception.add_note(note) --
+           add a note to the exception"""
+        if not space.isinstance_w(w_note, space.w_unicode):
+            raise oefmt(space.w_TypeError,
+                        "note must be a str, not %T",
+                        w_note)
+        w_dict = self.getdict(space)
+        w_attr = space.newtext("__notes__")
+        try:
+            w_list = space.getitem(w_dict, w_attr)
+        except OperationError as e:
+            if not e.match(space, space.w_KeyError):
+                raise
+            space.setitem(w_dict, w_attr, space.newlist([w_note]))
+            return
+        space.call_method(w_list, "append", w_note)
+
 def _new(cls, basecls=None):
     if basecls is None:
         basecls = cls
@@ -309,6 +327,7 @@ W_BaseException.typedef = TypeDef(
     __traceback__ = GetSetProperty(W_BaseException.descr_gettraceback,
                                    W_BaseException.descr_settraceback,
                                    W_BaseException.descr_deltraceback),
+    add_note = interp2app(W_BaseException.descr_add_note),
 )
 
 def _new_exception(name, base, docstring, **kwargs):
