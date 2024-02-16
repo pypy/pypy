@@ -1,11 +1,13 @@
 # Copied from <cffi>/c/test_c.py
 # Make sure the files are identical starting from the # ________ line below
 
+import contextlib
+import traceback
 
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.16.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.17.0.dev0", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -1345,8 +1347,8 @@ def test_callback_exception():
         return x * 3
     BShort = new_primitive_type("short")
     BFunc = new_function_type((BShort,), BShort, False)
+
     f = callback(BFunc, Zcb1, -42)
-    #
     seen = []
     oops_result = None
     def oops(*args):

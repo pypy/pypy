@@ -58,7 +58,6 @@ def format_assembler(ssarepr):
             prefix = '%4d  ' % ssarepr._insns_pos[i]
         else:
             prefix = ''
-        print("loop", i, asm, "prefix: '%s'" % prefix)
         if isinstance(asm[0], Label):
             if asm[0].name in seenlabels:
                 print(prefix + '%s:' % getlabelname(asm[0]), file=output)
