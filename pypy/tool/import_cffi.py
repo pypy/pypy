@@ -30,20 +30,21 @@ def main(cffi_dir):
     cffi_dest = rootdir / 'lib_pypy' / 'cffi'
     cffi_dest.mkdir(exist_ok=True)
     test_dest = rootdir / 'extra_tests' / 'cffi_tests'
-    test_dest.mkdir(exist_ok=True)
-    testing = cffi_dir / "testing"
-    source = cffi_dir / "src"
-    for p in (list((source / 'cffi').glob('*.py')) +
-              list((source/ 'cffi').glob('*.h'))):
-        (cffi_dest.parent / p.relative_to(source)).write_text(fixeol(p.read_text()))
-    for p in (list(testing.glob('*.py')) +
-              list(testing.glob('*.h')) +
-              list(testing.glob('*.c'))):
-        path = test_dest / p.relative_to(testing)
-        path.parent.mkdir(exist_ok=True)
-        path.write_text(fixeol(''.join(mangle(p.read_text(), p.suffix))))
-    path = test_dest / 'test_c.py'
-    path.write_text(fixeol(cffi_dir.joinpath('src', 'c', 'test_c.py').read_text()))
+    test_dest.ensure(dir=1)
+    for p in (list(cffi_dir.join('src', 'cffi').visit(fil='*.py')) +
+              list(cffi_dir.join('src', 'cffi').visit(fil='*.h'))):
+        cffi_dest.join(p.relto(cffi_dir.join('src', 'cffi'))).write_binary(fixeol(p.read()))
+    for p in (list(cffi_dir.join('testing').visit(fil='*.py')) +
+              list(cffi_dir.join('testing').visit(fil='*.h')) +
+              list(cffi_dir.join('testing').visit(fil='*.c'))):
+        path = test_dest.join(p.relto(cffi_dir.join('testing')))
+        path.join('..').ensure(dir=1)
+        path.write_binary(fixeol(''.join(mangle(p.readlines(), p.ext))))
+    path = test_dest.join('test_c.py')
+    path.write_binary(fixeol(cffi_dir.join('src', 'c', 'test_c.py').read()))
+    #
+    # hack around a little bit...
+    os.system("cd '%s' && patch -p0 < pypy/tool/import_cffi.patch" % str(rootdir))
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
