@@ -33,16 +33,9 @@ try:
         from distutils.msvc9compiler import MSVCCompiler
 except Exception as ex:
     if sys.version_info >= (3, 12):
-<<<<<<< HEAD
         raise Exception("This CFFI feature requires setuptools on Python >= 3.12. Please install the setuptools package.") from ex
 
     # anything older, just let the underlying distutils import error fly
     raise Exception("This CFFI feature requires distutils. Please install the distutils or setuptools package.") from ex
-=======
-        raise Exception("This CFFI feature requires setuptools on Python >= 3.12. Please install the setuptools package.")
-
-    # anything older, just let the underlying distutils import error fly
-    raise Exception("This CFFI feature requires distutils. Please install the distutils or setuptools package.")
->>>>>>> main
 
 del sys
