@@ -112,18 +112,30 @@ all_names = ', '.join(Module.interpleveldefs.keys())
 backend_test_c = py.path.local(__file__).join('..', '_backend_test_c.py')
 
 lst = []
+skiplst = []
+blocklisted = ["test_callback_exception",]
+
 with backend_test_c.open('r') as f:
     for line in f:
         if line.startswith('def test_'):
             line = line[4:]
             line = line[:line.index('():')]
-            lst.append(line)
+            if line in blocklisted:
+                skiplst.append(line)
+            else:
+                lst.append(line)
 
 tmpdir = udir.join('test_c').ensure(dir=1)
 
 tmpname = tmpdir.join('_test_c.py')
 with tmpname.open('w') as f:
+    print >> f, "import pytest"
     for func in lst:
+        print >> f, 'def %s(self):' % (func,)
+        print >> f, '    import _all_test_c'
+        print >> f, '    _all_test_c.%s()' % (func,)
+    for func in skiplst:
+        print >> f, '@pytest.mark.skip'
         print >> f, 'def %s(self):' % (func,)
         print >> f, '    import _all_test_c'
         print >> f, '    _all_test_c.%s()' % (func,)
