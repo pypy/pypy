@@ -15,7 +15,11 @@ if sys.platform == 'win32':
 
 def pytest_collection_modifyitems(config, items):
     if config.getoption('runappdirect') or config.getoption('direct_apptest'):
-        skip = pytest.mark.skip(reason="PyPy2.7 does not warn")
         for item in items:
             if item.name == "test_more_buffer_warning":
+                skip = pytest.mark.skip(reason="PyPy2.7 does not warn")
                 item.add_marker(skip)
+    for item in items:
+        if item.name == "test_callback_exception":
+            skip = pytest.mark.skip(reason="PyPy does not report a traceback")
+            item.add_marker(skip)
