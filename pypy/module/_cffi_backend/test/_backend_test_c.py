@@ -61,6 +61,12 @@ def _assert_unraisable(error_type: type[Exception] | None, message: str = '', tr
     for t in traceback_tokens or []:
         assert t in raised_traceback
 
+@contextlib.contextmanager
+def _assert_unraisable(error_type, message='', traceback_tokens=None):
+    """Assert that a given sys.unraisablehook interaction occurred (or did not
+    occur, if error_type is None) while this context was active"""
+    raise RuntimeError("python3 only")
+
 # ____________________________________________________________
 
 import sys
