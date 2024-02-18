@@ -246,7 +246,7 @@ def PyModule_GetFilenameObject(space, w_mod):
     a reference to a PyUnicodeObject.
     """
     if not isinstance(w_mod, Module):
-        raise oefmt(space.w_SystemError, "PyModule_GetName(): not a module")
+        raise oefmt(space.w_SystemError, "PyModule_GetFilenameObject(): not a module")
     
     w_dict = w_mod.getdict(space)
     return space.getitem(w_dict, space.newtext("__file__"))
@@ -257,7 +257,7 @@ def PyModule_GetNameObject(space, w_mod):
     Return the name of module
     """
     if not isinstance(w_mod, Module):
-        raise oefmt(space.w_SystemError, "PyModule_GetName(): not a module")
+        raise oefmt(space.w_SystemError, "PyModule_GetNameObject(): not a module")
     return w_mod.w_name
 
 @cpython_api([PyObject, lltype.Ptr(PyMethodDef)], rffi.INT_real, error=-1)
