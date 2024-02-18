@@ -110,6 +110,22 @@ class AppTestModuleObject(AppTestCpythonExtensionBase):
         a = module.subtype('abc')
         assert module.is_ascii(a) is True
 
+    def test_getobject(self):
+        module = self.import_extension('foo', [
+            ('get_name', "METH_O",
+            """
+                return PyModule_GetNameObject(args);
+            """),
+            ('get_file', "METH_O",
+            """
+                return PyModule_GetFilenameObject(args);
+            """),])
+        import os
+        assert module.get_name(module) == "foo"
+        # should return full path to file with `foo.pypy*`
+        file = module.get_file(module)
+        assert "foo.pypy" in file
+        assert os.path.exists(file)
 
 class AppTestMultiPhase(AppTestCpythonExtensionBase):
     def test_basic(self):
