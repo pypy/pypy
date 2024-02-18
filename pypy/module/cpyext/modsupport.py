@@ -237,6 +237,29 @@ def PyModule_GetName(space, w_mod):
     from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
     return PyUnicode_AsUTF8(space, as_pyobj(space, w_mod.w_name))
 
+@cpython_api([PyObject], PyObject)
+def PyModule_GetFilenameObject(space, w_mod):
+    """
+    Return the name of the file from which module was loaded using module's
+    __file__ attribute.  If this is not defined, or if it is not a
+    unicode string, raise SystemError and return NULL; otherwise return
+    a reference to a PyUnicodeObject.
+    """
+    if not isinstance(w_mod, Module):
+        raise oefmt(space.w_SystemError, "PyModule_GetName(): not a module")
+    
+    w_dict = w_mod.getdict(space)
+    return space.getitem(w_dict, space.newtext("__file__"))
+
+@cpython_api([PyObject], PyObject)
+def PyModule_GetNameObject(space, w_mod):
+    """
+    Return the name of module
+    """
+    if not isinstance(w_mod, Module):
+        raise oefmt(space.w_SystemError, "PyModule_GetName(): not a module")
+    return w_mod.w_name
+
 @cpython_api([PyObject, lltype.Ptr(PyMethodDef)], rffi.INT_real, error=-1)
 def PyModule_AddFunctions(space, w_mod, methods):
     if not isinstance(w_mod, Module):
