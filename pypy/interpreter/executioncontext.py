@@ -3,6 +3,7 @@ from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib import jit, rgc, objectmodel
+from rpython.rlib.rarithmetic import r_uint
 
 TICK_COUNTER_STEP = 100
 
@@ -435,8 +436,11 @@ class AbstractActionFlag(object):
     def __init__(self):
         self._periodic_actions = []
         self._nonperiodic_actions = []
+        # a bitmask where the ith bit is set if self._nonperiodic_actions[i]
+        # has fired
+        self._fired_bitmask = r_uint(0)
+
         self.has_bytecode_counter = False
-        self._fired_actions_reset()
         # the default value is not 100, unlike CPython 2.7, but a much
         # larger value, because we use a technique that not only allows
         # but actually *forces* another thread to run whenever the counter
@@ -446,29 +450,13 @@ class AbstractActionFlag(object):
 
     def fire(self, action):
         """Request for the action to be run before the next opcode."""
-        if not action._fired:
-            action._fired = True
-            self._fired_actions_append(action)
+        assert action._action_index >= 0 # period actions must not call fire
+        mask = r_uint(1) << action._action_index
+        if not self._fired_bitmask & mask:
+            self._fired_bitmask |= mask
             # set the ticker to -1 in order to force action_dispatcher()
             # to run at the next possible bytecode
             self.reset_ticker(-1)
-
-    def _fired_actions_reset(self):
-        # linked list of actions. We cannot use a normal RPython list because
-        # we want AsyncAction.fire() to be marked as @rgc.collect: this way,
-        # we can call it from e.g. GcHooks or cpyext's dealloc_trigger.
-        self._fired_actions_first = None
-        self._fired_actions_last = None
-
-    @rgc.no_collect
-    def _fired_actions_append(self, action):
-        assert action._next is None
-        if self._fired_actions_first is None:
-            self._fired_actions_first = action
-            self._fired_actions_last = action
-        else:
-            self._fired_actions_last._next = action
-            self._fired_actions_last = action
 
     @not_rpython
     def register_periodic_action(self, action, use_bytecode_counter):
@@ -489,6 +477,13 @@ class AbstractActionFlag(object):
         else:
             self._periodic_actions.insert(0, action)
         self._rebuild_action_dispatcher()
+
+    @not_rpython
+    def register_nonperiodic_action(self, action):
+        self._nonperiodic_actions.append(action)
+        assert len(self._nonperiodic_actions) < 32
+        self._rebuild_action_dispatcher()
+        return len(self._nonperiodic_actions) - 1
 
     def getcheckinterval(self):
         return self.checkinterval_scaled // TICK_COUNTER_STEP
@@ -514,26 +509,25 @@ class AbstractActionFlag(object):
                 action.perform(ec, frame)
 
             # nonperiodic actions
-            action = self._fired_actions_first
-            if action:
-                self._fired_actions_reset()
+            if self._fired_bitmask:
                 # NB. in case there are several actions, we reset each
-                # 'action._fired' to false only when we're about to call
+                # fired bit to 0  only when we're about to call
                 # 'action.perform()'.  This means that if
                 # 'action.fire()' happens to be called any time before
                 # the corresponding perform(), the fire() has no
                 # effect---which is the effect we want, because
-                # perform() will be called anyway.  All such pending
-                # actions with _fired == True are still inside the old
-                # chained list.  As soon as we reset _fired to False,
-                # we also reset _next to None and we are ready for
-                # another fire().
-                while action is not None:
-                    next_action = action._next
-                    action._next = None
-                    action._fired = False
-                    action.perform(ec, frame)
-                    action = next_action
+                # perform() will be called anyway.
+                for i in range(len(self._nonperiodic_actions)):
+                    mask = r_uint(1) << i
+                    if self._fired_bitmask & mask:
+                        action = self._nonperiodic_actions[i]
+                        self._fired_bitmask  &= ~mask
+                        action.perform(ec, frame)
+                # one of the actions with higher index re-triggered one of the
+                # earlier actions. don't run them in a loop here, execute some
+                # python code first.
+                if self._fired_bitmask:
+                    self.reset_ticker(-1)
 
         self.action_dispatcher = action_dispatcher
 
@@ -565,11 +559,14 @@ class AsyncAction(object):
     asynchronously with regular bytecode execution, but that still need
     to occur between two opcodes, not at a completely random time.
     """
-    _fired = False
-    _next = None
 
+    @not_rpython
     def __init__(self, space):
         self.space = space
+        if not isinstance(self, PeriodicAsyncAction):
+            self._action_index = self.space.actionflag.register_nonperiodic_action(self)
+        else:
+            self._action_index = -1
 
     @rgc.no_collect
     def fire(self):
