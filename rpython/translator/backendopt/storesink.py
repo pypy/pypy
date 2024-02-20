@@ -90,7 +90,11 @@ def _storesink_block(block, cache, inputlink):
         if op.opname == 'getfield':
             arg0 = get_rep(op.args[0])
             field = op.args[1].value
-            if isinstance(arg0, Constant) and arg0.concretetype.TO._immutable_field(field):
+            if (
+                    isinstance(arg0, Constant) and
+                    arg0.concretetype.TO._immutable_field(field) and
+                    not isinstance(arg0.value._obj, int) # tagged int
+            ):
                 # reading an immutable field from a constant
                 llres = getattr(arg0.value, field)
                 concretetype = getattr(arg0.concretetype.TO, field)
