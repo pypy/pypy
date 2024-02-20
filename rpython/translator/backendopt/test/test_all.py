@@ -328,6 +328,5 @@ class TestLLType(object):
                 return a.f()
         t = self.translateopt(f, [int])
         graph = graphof(t, f)
-        graph.view()
         s = summary(graph)
         assert 'getfield' not in s
