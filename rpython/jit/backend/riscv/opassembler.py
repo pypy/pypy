@@ -601,7 +601,8 @@ class OpAssembler(BaseAssembler):
         scratch2_reg = r.ra
         offset = self.cpu.vtable_offset
         if offset is not None:
-            self.mc.load_int(scratch_reg.value, obj_loc.value, offset)
+            self.mc.load_int_from_base_plus_offset(scratch_reg.value,
+                                                   obj_loc.value, offset)
             self.mc.load_int_imm(scratch2_reg.value, cls_loc.value)
             self.mc.BEQ(scratch_reg.value, scratch2_reg.value, 8)
         else:
@@ -634,7 +635,8 @@ class OpAssembler(BaseAssembler):
         offset = self.cpu.vtable_offset
         if offset is not None:
             # Test `type(obj) == cls`
-            self.mc.load_int(scratch_reg.value, obj_loc.value, offset)
+            self.mc.load_int_from_base_plus_offset(scratch_reg.value,
+                                                   obj_loc.value, offset)
             self.mc.load_int_imm(scratch2_reg.value, cls_loc.value)
             self.mc.BEQ(scratch_reg.value, scratch2_reg.value, 8)
         else:
@@ -673,10 +675,13 @@ class OpAssembler(BaseAssembler):
         subclassrange_min_offset = self.cpu.subclassrange_min_offset
         if offset is not None:
             # Read this field to get the vtable pointer
-            self.mc.load_int(scratch_reg.value, obj_loc.value, offset)
+            self.mc.load_int_from_base_plus_offset(scratch_reg.value,
+                                                   obj_loc.value, offset)
             # Read the vtable's subclassrange_min field
-            self.mc.load_int(scratch_reg.value, scratch_reg.value,
-                             subclassrange_min_offset)
+            self.mc.load_int_from_base_plus_offset(scratch_reg.value,
+                                                   scratch_reg.value,
+                                                   subclassrange_min_offset,
+                                                   tmp=scratch2_reg)
         else:
             # Read the typeid
             self._emit_load_typeid_from_obj(scratch_reg, obj_loc)
