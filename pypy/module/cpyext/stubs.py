@@ -1097,15 +1097,6 @@ def PyModule_GetFilename(space, module):
     unencodable filenames, use PyModule_GetFilenameObject() instead."""
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyModule_GetFilenameObject(space, module):
-    """
-    Return the name of the file from which module was loaded using module's
-    __file__ attribute.  If this is not defined, or if it is not a
-    unicode string, raise SystemError and return NULL; otherwise return
-    a reference to a PyUnicodeObject.
-    raise NotImplementedError
-
 @cpython_api([PyFrameObject], rffi.INT_real, error=-1)
 def PyFrame_GetLineNumber(space, frame):
     """Return the line number that frame is currently executing."""
