@@ -100,6 +100,7 @@ class BaseExceptionGroup(BaseException):
 
     def derive(self, excs):
         # copy notes over, this is here in the backport too
+        # TODO: Test this!
         eg = BaseExceptionGroup(self.message, excs)
         if hasattr(self, "__notes__"):
             # Create a new list so that add_note() only affects one exceptiongroup
