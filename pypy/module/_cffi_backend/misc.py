@@ -439,7 +439,7 @@ def dlopen_w(space, w_filename, flags):
             fname = None
         else:
             fname = space.fsencode_w(w_filename)
-        flags = win32_fix_dlopen_flags(utf8_name, flags)
+            flags = win32_fix_dlopen_flags(fname, flags)
         with rffi.scoped_str2charp(fname) as ll_libname:
             if fname is None:
                 fname = "<None>"
