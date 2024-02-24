@@ -5,6 +5,7 @@ from rpython.jit.backend.riscv import arch
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.assembler import AssemblerRISCV
 from rpython.jit.backend.riscv.codebuilder import InstrBuilder
+from rpython.rlib import rgc, rmmap
 from rpython.rtyper.lltypesystem import llmemory
 
 
@@ -29,10 +30,17 @@ class AbstractRISCVCPU(AbstractLLCPU):
     def setup(self):
         self.assembler = AssemblerRISCV(self, self.translate_support_code)
 
+    @rgc.no_release_gil
     def setup_once(self):
         self.assembler.setup_once()
         if self.HAS_CODEMAP:
             self.codemap.setup()
+
+    @rgc.no_release_gil
+    def finish_once(self):
+        if self.HAS_CODEMAP:
+            self.codemap.finish_once()
+        self.assembler.finish_once()
 
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True, logger=None):
@@ -45,14 +53,19 @@ class AbstractRISCVCPU(AbstractLLCPU):
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         self.assembler.redirect_call_assembler(oldlooptoken, newlooptoken)
 
+    @rgc.no_release_gil
     def invalidate_loop(self, looptoken):
         # Replace `GUARD_NOT_INVALIDATED` in the loop with a branch instruction
         # to the recovery stub.
 
-        for jmp, tgt in looptoken.compiled_loop_token.invalidate_positions:
-            mc = InstrBuilder()
-            mc.J(tgt)
-            mc.copy_to_raw_memory(jmp)
+        rmmap.enter_assembler_writing()
+        try:
+            for jmp, tgt in looptoken.compiled_loop_token.invalidate_positions:
+                mc = InstrBuilder()
+                mc.J(tgt)
+                mc.copy_to_raw_memory(jmp)
+        finally:
+            rmmap.leave_assembler_writing()
 
         looptoken.compiled_loop_token.invalidate_positions = []
 

@@ -23,6 +23,7 @@ from rpython.jit.metainterp.history import (
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 
 class TempInt(TempVar):
@@ -1383,15 +1384,18 @@ class Regalloc(BaseRegalloc):
 
 
 def not_implemented(self, op):
-    print '[riscv/regalloc] %s not implemented' % op.getopname()
+    llop.debug_print(lltype.Void,
+                     '[riscv/regalloc] %s not implemented' % op.getopname())
     raise NotImplementedError(op)
 
 def not_implemented_guard_op(self, op, prevop):
-    print '[riscv/regalloc] %s not implemented' % op.getopname()
+    llop.debug_print(lltype.Void,
+                     '[riscv/regalloc] %s not implemented' % op.getopname())
     raise NotImplementedError(op)
 
 def not_implemented_comp_op(self, op):
-    print '[riscv/regalloc] %s not implemented' % op.getopname()
+    llop.debug_print(lltype.Void,
+                     '[riscv/regalloc] %s not implemented' % op.getopname())
     raise NotImplementedError(op)
 
 regalloc_operations = [not_implemented] * (rop._LAST + 1)

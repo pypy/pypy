@@ -21,6 +21,7 @@ from rpython.jit.backend.riscv.locations import (
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import AbstractFailDescr, FLOAT
 from rpython.jit.metainterp.resoperation import rop
+from rpython.rlib import rgc, rmmap
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import AsmInfo
 from rpython.rlib.objectmodel import compute_unique_id, we_are_translated
@@ -46,8 +47,18 @@ class AssemblerRISCV(OpAssembler):
         self.stack_check_slowpath = 0
         self._frame_realloc_slowpath = 0
 
+    @rgc.no_release_gil
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
                       operations, looptoken, log):
+        rmmap.enter_assembler_writing()
+        try:
+            return self._assemble_loop(jd_id, unique_id, logger, loopname,
+                                       inputargs, operations, looptoken, log)
+        finally:
+            rmmap.leave_assembler_writing()
+
+    def _assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
+                       operations, looptoken, log):
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
@@ -143,8 +154,18 @@ class AssemblerRISCV(OpAssembler):
         return AsmInfo(ops_offset, rawstart + loop_head,
                        size_excluding_failure_stuff - loop_head)
 
+    @rgc.no_release_gil
     def assemble_bridge(self, logger, faildescr, inputargs, operations,
                         original_loop_token, log):
+        rmmap.enter_assembler_writing()
+        try:
+            return self._assemble_bridge(logger, faildescr, inputargs,
+                                         operations, original_loop_token, log)
+        finally:
+            rmmap.leave_assembler_writing()
+
+    def _assemble_bridge(self, logger, faildescr, inputargs, operations,
+                         original_loop_token, log):
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
@@ -248,7 +269,15 @@ class AssemblerRISCV(OpAssembler):
         return AsmInfo(ops_offset, start_pos + rawstart,
                        code_end_pos - start_pos)
 
+    @rgc.no_release_gil
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
+        rmmap.enter_assembler_writing()
+        try:
+            self._redirect_call_assembler(oldlooptoken, newlooptoken)
+        finally:
+            rmmap.leave_assembler_writing()
+
+    def _redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # Some minimal sanity checking
         old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
         new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs

@@ -19,6 +19,7 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 
 
 class OpAssembler(BaseAssembler):
@@ -1518,15 +1519,18 @@ class OpAssembler(BaseAssembler):
 
 
 def not_implemented_op(self, op, arglocs):
-    print "[riscv/asm] %s not implemented" % op.getopname()
+    llop.debug_print(lltype.Void,
+                     '[riscv/asm] %s not implemented' % op.getopname())
     raise NotImplementedError(op)
 
 def not_implemented_comp_op(self, op, arglocs):
-    print "[riscv/asm] %s not implemented" % op.getopname()
+    llop.debug_print(lltype.Void,
+                     '[riscv/asm] %s not implemented' % op.getopname())
     raise NotImplementedError(op)
 
 def not_implemented_guard_op(self, op, guard_op, arglocs, guard_branch_inst):
-    print "[riscv/asm] %s not implemented" % op.getopname()
+    llop.debug_print(lltype.Void,
+                     '[riscv/asm] %s not implemented' % op.getopname())
     raise NotImplementedError(op)
 
 asm_operations = [not_implemented_op] * (rop._LAST + 1)
