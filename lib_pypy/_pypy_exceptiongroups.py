@@ -64,7 +64,7 @@ class BaseExceptionGroup(BaseException):
             # this is the difference to split!
             return self
         elif exceptions:
-            group = self.derive(exceptions)
+            group = _derive_and_copy_attrs(self, exceptions)
             return group
         else:
             return None
@@ -90,28 +90,16 @@ class BaseExceptionGroup(BaseException):
 
         matching_group = None
         if matching_exceptions:
-            matching_group = self.derive(matching_exceptions)
+            matching_group = _derive_and_copy_attrs(self, matching_exceptions)
 
         nonmatching_group = None
         if nonmatching_exceptions:
-            nonmatching_group = self.derive(nonmatching_exceptions)
+            nonmatching_group = _derive_and_copy_attrs(self, nonmatching_exceptions)
 
         return (matching_group, nonmatching_group)
 
     def derive(self, excs):
-        # copy notes over, this is here in the backport too
-        # TODO: Test this!
         eg = BaseExceptionGroup(self.message, excs)
-        if hasattr(self, "__notes__"):
-            # Create a new list so that add_note() only affects one exceptiongroup
-            eg.__notes__ = list(self.__notes__)
-        # TODO: Test whether or not having this here breaks things
-        #       because the backport implementation does this caller-side
-        #       Maybe they did that so that it won't be overwritten
-        #       when overriding derive?
-        eg.__cause__ = self.__cause__
-        eg.__context__ = self.__context__
-        eg.__traceback__ = self.__traceback__
         return eg
 
     def __str__(self):
@@ -120,6 +108,16 @@ class BaseExceptionGroup(BaseException):
 
     def __repr__(self):
         return f"{self.__class__.__name__}({self.message!r}, {list(self._exceptions)!r})"
+
+def _derive_and_copy_attrs(self, excs):
+    eg = self.derive(excs)
+    if hasattr(self, "__notes__"):
+        # Create a new list so that add_note() only affects one exceptiongroup
+        eg.__notes__ = list(self.__notes__)
+    eg.__cause__ = self.__cause__
+    eg.__context__ = self.__context__
+    eg.__traceback__ = self.__traceback__
+    return eg
 
 class ExceptionGroup(BaseExceptionGroup, Exception):
     pass

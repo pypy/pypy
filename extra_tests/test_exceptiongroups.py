@@ -103,9 +103,7 @@ def test_fields_are_readonly():
     with pytest.raises(AttributeError):
         eg.exceptions = [OSError("xyz")]
 
-@pytest.mark.xfail(reason="TODO add_note is not available!")
 def test_notes_is_list_of_strings_if_it_exists():
-    # FIXME
     eg = h_create_simple_eg()
     note = "This is a happy note for the exception group"
     assert not hasattr(eg, "__notes__")
@@ -456,3 +454,28 @@ def test_deep_subgroup():
     e = h_make_deep_eg()
     with pytest.raises(RecursionError):
         e.subgroup(TypeError)
+
+def test_subgroup_copies_cause_etc():
+    e = h_create_simple_eg()
+    e.__notes__ = ['hello']
+    se = e.subgroup(ValueError)
+    assert e.__cause__ == se.__cause__
+    assert e.__traceback__ == se.__traceback__
+    assert e.__context__ == se.__context__
+    assert e.__notes__ == se.__notes__
+
+def test_derive_does_not_copies_cause_etc():
+    e = h_create_simple_eg()
+    e.__notes__ = ['hello']
+    se = e.derive([IndexError()])
+    assert se.__cause__ is None
+    assert se.__traceback__ is None
+    assert se.__context__ is None
+    assert not hasattr(se, '__notes__')
+
+def test_derive_always_creates_exception_group():
+    class MyEG(ExceptionGroup):
+        pass
+    eg = MyEG("abc", [ValueError(), TypeError()])
+    eg2 = eg.derive([ValueError()])
+    assert type(eg2) is ExceptionGroup
