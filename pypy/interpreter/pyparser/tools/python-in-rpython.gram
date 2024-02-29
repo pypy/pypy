@@ -489,7 +489,7 @@ try_stmt[ast.Try]:
         ast.Try(body=b, handlers=ex, orelse=el, finalbody=f, LOCATIONS)
      }
     | 'try' &&':' b=block ex=except_star_block+ el=[else_block] f=[finally_block] {
-        self.check_version(stmt_ty, 11, "Exception groups are", 
+        self.check_version((3, 11), "Exception groups are", 
                            ast.TryStar(b, ex, el, f, LOCATIONS)) }
 
 
@@ -508,10 +508,6 @@ except_star_block[excepthandler_ty]:
         ast.ExceptHandler(e, self.extract_id(t), b, LOCATIONS) }
     | invalid_except_stmt
 finally_block[list]:
-    | invalid_except_star_stmt_indent
-    | 'except' '*' e=expression t=['as' z=NAME { z }] ':' b=block {
-        ast.ExceptHandler(e, self.extract_id(t), b, LOCATIONS) }
-    | invalid_except_stmt
     | invalid_finally_stmt
     | 'finally' &&':' a=block { a }
 
