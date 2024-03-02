@@ -422,6 +422,7 @@ class AppTestBytesArray:
         raises(TypeError, b.__iadd__, "")
         #
         b += xx
+        print(repr(b))
         assert b == b'abcdefXX'
         assert b is b0
         #
