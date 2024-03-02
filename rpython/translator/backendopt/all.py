@@ -92,6 +92,7 @@ def backend_optimizations(translator, graphs=None, secondary=False,
         constfold(config, graphs)
 
     if config.storesink:
+        remove_obvious_noops()
         for graph in graphs:
             storesink_graph(graph)
 

@@ -605,24 +605,57 @@ class W_UnicodeObject(W_Root):
         value = self._utf8
         if not value:
             return self._empty()
+        if tabsize == 0:
+            res, replacements = replace_count(value, '\t', '')
+            if not replacements and type(self) is W_UnicodeObject:
+                return self
+            newlength = self._length - replacements
+            assert res is not None
+            return W_UnicodeObject(res, newlength)
 
         splitted = value.split('\t')
 
         try:
-            if tabsize > 0:
-                ovfcheck(len(splitted) * tabsize)
+            ovfcheck(len(splitted) * tabsize)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "new string is too long")
-        expanded = oldtoken = splitted.pop(0)
-        newlen = self._len() - len(splitted)
+        newlen = self._len() - len(splitted) + 1
+        builder = StringBuilder(len(value))
+        oldtoken = splitted[0]
+        builder.append(oldtoken)
 
-        for token in splitted:
+        for index in range(1, len(splitted)):
+            token = splitted[index]
             dist = self._tabindent(oldtoken, tabsize)
-            expanded += ' ' * dist + token
+            builder.append_multiple_char(' ', dist)
+            builder.append(token)
             newlen += dist
             oldtoken = token
 
-        return W_UnicodeObject(expanded, newlen)
+        return W_UnicodeObject(builder.build(), newlen)
+
+    def _tabindent(self, token, tabsize):
+        if tabsize <= 0:
+            return 0
+        distance = tabsize
+        if token:
+            distance = 0
+            offset = len(token)
+
+            while 1:
+                if token[offset-1] == "\n" or token[offset-1] == "\r":
+                    break
+                distance += 1
+                offset = rutf8.prev_codepoint_pos(token, offset)
+                if offset == 0:
+                    break
+
+            # the same like distance = len(token) - (offset + 1)
+            distance = (tabsize - distance) % tabsize
+            if distance == 0:
+                distance = tabsize
+
+        return distance
 
     def _join_utf8_len_w(self, space, w_element, i):
         try:
