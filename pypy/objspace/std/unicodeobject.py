@@ -469,16 +469,20 @@ class W_UnicodeObject(W_Root):
                 ovfcheck(len(splitted) * tabsize)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "new string is too long")
-        expanded = oldtoken = splitted.pop(0)
-        newlen = self._len() - len(splitted)
+        newlen = self._len() - len(splitted) + 1
+        builder = StringBuilder(len(value))
+        oldtoken = splitted[0]
+        builder.append(oldtoken)
 
-        for token in splitted:
+        for index in range(1, len(splitted)):
+            token = splitted[index]
             dist = self._tabindent(oldtoken, tabsize)
-            expanded += ' ' * dist + token
+            builder.append_multiple_char(' ', dist)
+            builder.append(token)
             newlen += dist
             oldtoken = token
 
-        return W_UnicodeObject(expanded, newlen)
+        return W_UnicodeObject(builder.build(), newlen)
 
     def _tabindent(self, token, tabsize):
         if tabsize <= 0:

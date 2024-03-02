@@ -761,8 +761,6 @@ class AppTestUnicodeString:
 
     def test_expandtabs_overflows_gracefully(self):
         import sys
-        if sys.maxint > (1 << 32):
-            skip("Wrong platform")
         raises((OverflowError, MemoryError), u't\tt\t'.expandtabs, sys.maxint)
 
     def test_expandtabs_0(self):
