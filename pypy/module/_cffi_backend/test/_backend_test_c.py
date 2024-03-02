@@ -2,8 +2,6 @@
 # Make sure the files are identical starting from the # ________ line below
 
 import contextlib
-import traceback
-import unittest.mock
 
 import pytest
 import sys
@@ -33,8 +31,13 @@ from _cffi_backend import __version__
 
 
 @contextlib.contextmanager
-def _assert_unraisable(error_type: type[Exception] | None, message: str = '', traceback_tokens: list[str] | None = None):
-    """Assert that a given sys.unraisablehook interaction occurred (or did not occur, if error_type is None) while this context was active"""
+def _assert_unraisable(error_type, message='', traceback_tokens = None):
+    """Assert that a given sys.unraisablehook interaction occurred (or did not
+    occur, if error_type is None) while this context was active"""
+    # This check and the test_callback_exception test are skipped, since PyPy
+    # raises an error but one frame above the CPython one (in the callback
+    # caller)
+    import traceback
     raised_errors: list[Exception] = []
     raised_traceback: str = ''
 
@@ -47,9 +50,12 @@ def _assert_unraisable(error_type: type[Exception] | None, message: str = '', tr
         raised_traceback += (ur_args.err_msg or '' + '\n') + ''.join(traceback.format_exception(None, ur_args.exc_value, ur_args.exc_traceback))
 
 
-    with pytest.MonkeyPatch.context() as mp:
-        mp.setattr(sys, 'unraisablehook', _capture_unraisable_hook)
+    old_unraisable = sys.unraisablehook
+    try:
+        sys.unraisablehook = _capture_unraisable_hook
         yield
+    finally:
+        sys.unraisablehook = old_unraisable
 
     if error_type is None:
         assert not raised_errors
@@ -60,12 +66,6 @@ def _assert_unraisable(error_type: type[Exception] | None, message: str = '', tr
     assert any(message in str(raised_error) for raised_error in raised_errors)
     for t in traceback_tokens or []:
         assert t in raised_traceback
-
-@contextlib.contextmanager
-def _assert_unraisable(error_type, message='', traceback_tokens=None):
-    """Assert that a given sys.unraisablehook interaction occurred (or did not
-    occur, if error_type is None) while this context was active"""
-    raise RuntimeError("python3 only")
 
 # ____________________________________________________________
 
