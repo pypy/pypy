@@ -769,6 +769,9 @@ class AppTestUnicodeString:
         assert u'x\ty'.expandtabs(0) == u'xy'
         assert u'x\ty'.expandtabs(-42) == u'xy'
 
+    def test_expandtabs_bug(self):
+        assert u"a\u266f\ttest".expandtabs() == u'a\u266f      test'
+
     def test_translate(self):
         assert u'bbbc' == u'abababc'.translate({ord('a'):None})
         assert u'iiic' == u'abababc'.translate({ord('a'):None, ord('b'):ord('i')})

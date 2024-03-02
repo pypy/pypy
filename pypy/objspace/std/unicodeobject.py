@@ -480,6 +480,29 @@ class W_UnicodeObject(W_Root):
 
         return W_UnicodeObject(expanded, newlen)
 
+    def _tabindent(self, token, tabsize):
+        if tabsize <= 0:
+            return 0
+        distance = tabsize
+        if token:
+            distance = 0
+            offset = len(token)
+
+            while 1:
+                if token[offset-1] == "\n" or token[offset-1] == "\r":
+                    break
+                distance += 1
+                offset = rutf8.prev_codepoint_pos(token, offset)
+                if offset == 0:
+                    break
+
+            # the same like distance = len(token) - (offset + 1)
+            distance = (tabsize - distance) % tabsize
+            if distance == 0:
+                distance = tabsize
+
+        return distance
+
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):
         l = space.listview_ascii(w_list)
