@@ -466,6 +466,7 @@ class W_UnicodeObject(W_Root):
             if not replacements and type(self) is W_UnicodeObject:
                 return self
             newlength = self._length - replacements
+            assert res is not None
             return W_UnicodeObject(res, newlength)
 
         splitted = value.split('\t')

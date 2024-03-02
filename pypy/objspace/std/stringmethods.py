@@ -201,14 +201,19 @@ class StringMethods(object):
                 ovfcheck(len(splitted) * tabsize)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "new string is too long")
-        expanded = oldtoken = splitted.pop(0)
+        newlen = self._len() - len(splitted) + 1
+        builder = self._builder(len(value))
+        oldtoken = splitted[0]
+        builder.append(oldtoken)
 
-        for token in splitted:
-            expanded += self._multi_chr(self._chr(' ')) * self._tabindent(oldtoken,
-                                                         tabsize) + token
+        for index in range(1, len(splitted)):
+            token = splitted[index]
+            dist = self._tabindent(oldtoken, tabsize)
+            builder.append_multiple_char(' ', dist)
+            builder.append(token)
+            newlen += dist
             oldtoken = token
-
-        return self._new(expanded)
+        return self._new(builder.build())
 
     def _tabindent(self, token, tabsize):
         """calculates distance behind the token to the next tabstop"""
