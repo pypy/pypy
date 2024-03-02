@@ -461,12 +461,17 @@ class W_UnicodeObject(W_Root):
         value = self._utf8
         if not value:
             return self._empty()
+        if tabsize == 0:
+            res, replacements = replace_count(value, '\t', '')
+            if not replacements and type(self) is W_UnicodeObject:
+                return self
+            newlength = self._length - replacements
+            return W_UnicodeObject(res, newlength)
 
         splitted = value.split('\t')
 
         try:
-            if tabsize > 0:
-                ovfcheck(len(splitted) * tabsize)
+            ovfcheck(len(splitted) * tabsize)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "new string is too long")
         newlen = self._len() - len(splitted) + 1
