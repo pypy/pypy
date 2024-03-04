@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rlib.jit import JitDriver
 
 
@@ -62,20 +64,20 @@ SQUARE_LIST = [
     ALLOCATE,    3,
     MOV_A_R,     0,   # i = a
     MOV_A_R,     1,   # copy of 'a'
-    
+
     SET_A,       0,
     MOV_A_R,     2,   # res = 0
 
     # 10:
     SET_A,       1,
     NEG_A,
-    ADD_R_TO_A,  0,   
+    ADD_R_TO_A,  0,
     MOV_A_R,     0,   # i--
-    
+
     MOV_R_A,     2,
     ADD_R_TO_A,  1,
     MOV_A_R,     2,   # res += a
-    
+
     MOV_R_A,     0,
     JUMP_IF_A,  10,   # if i!=0: goto 10
 
@@ -88,6 +90,6 @@ SQUARE = ''.join([chr(n) for n in SQUARE_LIST])
 if __name__ == '__main__':
     import sys
     if len(sys.argv) >= 2 and sys.argv[1] == 'assemble':
-        print SQUARE
+        print(SQUARE)
     else:
-        print ','.join([str(n) for n in SQUARE_LIST])
+        print(','.join([str(n) for n in SQUARE_LIST]))

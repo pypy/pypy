@@ -78,7 +78,7 @@ class StandaloneTests(object):
         return t, cbuilder
 
 
-class TestStandalone(StandaloneTests):
+class StandaloneTestsVerified(StandaloneTests):
 
     def compile(self, *args, **kwds):
         t, builder = StandaloneTests.compile(self, *args, **kwds)
@@ -113,6 +113,9 @@ class TestStandalone(StandaloneTests):
                 assert name in seen, "did not see '%r' exported" % name
         #
         return t, builder
+
+
+class TestStandalone(StandaloneTestsVerified):
 
     def test_hello_world(self):
         def entry_point(argv):

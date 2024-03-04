@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 from rpython.flowspace.model import Constant
 from rpython.rtyper.lltypesystem import lltype
@@ -58,22 +60,23 @@ def format_assembler(ssarepr):
             prefix = ''
         if isinstance(asm[0], Label):
             if asm[0].name in seenlabels:
-                print >> output, prefix + '%s:' % getlabelname(asm[0])
+                print(prefix + '%s:' % getlabelname(asm[0]), file=output)
         else:
-            print >> output, prefix + asm[0],
+            print(prefix + asm[0], end="", file=output)
             if len(asm) > 1:
+                print(' ', end="", file=output)
                 if asm[-2] == '->':
                     if len(asm) == 3:
-                        print >> output, '->', repr(asm[-1])
+                        print('->', repr(asm[-1]), file=output)
                     else:
                         lst = map(repr, asm[1:-2])
-                        print >> output, ', '.join(lst), '->', repr(asm[-1])
+                        print(', '.join(lst), '->', repr(asm[-1]), file=output)
                 else:
                     lst = map(repr, asm[1:])
                     if asm[0] == '-live-': lst.sort()
-                    print >> output, ', '.join(lst)
+                    print(', '.join(lst), file=output)
             else:
-                print >> output
+                print(file=output)
     res = output.getvalue()
     return res
 

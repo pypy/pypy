@@ -1,4 +1,5 @@
 """Support for Windows."""
+from __future__ import print_function
 
 import py, os, sys, re, shutil
 
@@ -586,11 +587,11 @@ class WinDefinition(posix.Definition):
         def write_list(prefix, lst):
             lst = lst or ['']
             for i, fn in enumerate(lst):
-                print >> f, prefix, fn,
+                print(prefix, fn, end=" ", file=f)
                 if i < len(lst)-1:
-                    print >> f, '\\'
+                    print('\\', file=f)
                 else:
-                    print >> f
+                    print(file=f)
                 prefix = ' ' * len(prefix)
         name, value = self.name, self.value
         if isinstance(value, str):

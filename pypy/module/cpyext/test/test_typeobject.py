@@ -2067,6 +2067,43 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         res = module.test_fastcalldict(pyfunc, (1, ), {"arg2": 2})
         assert res == [1, 2]
 
+    def test_getset_doc(self):
+        module = self.import_extension("foo", [
+            ("getset_type", "METH_NOARGS",
+            """
+            PyObject *ret = PyType_FromSpec(&test_spec);
+            return ret;
+            """)], prologue="""
+            typedef struct {
+                PyObject_HEAD
+            } Test;
+
+            static int test_init(PyObject *self, PyObject *args, PyObject *kwd) { return 0; }
+            static PyObject *test_getter(PyObject *self, void* payload) { return PyLong_FromLong(123); }
+
+            static PyGetSetDef test_getset[] = {
+                { "prop", test_getter, NULL, "A docstring", NULL },
+                {NULL, NULL, NULL, NULL, NULL }
+            };
+
+            static PyType_Slot test_slots[] = {
+                { Py_tp_init, test_init },
+                { Py_tp_getset, test_getset },
+                { 0, NULL }
+            };
+
+            static PyType_Spec test_spec = {
+                .name = "Test",
+                .flags = Py_TPFLAGS_DEFAULT,
+                .slots = test_slots,
+                .basicsize = (int) sizeof(Test),
+                .itemsize = 0
+            };
+            """)
+
+        test = module.getset_type()
+        assert test.prop.__doc__ == "A docstring"
+        
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
@@ -2400,7 +2437,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         assert module.has_tp_call(module.new_obj)
         assert not module.has_tp_call(C())
 
-    def test_heap_type(self):
+    def test_heap_type1(self):
         # issue 3318, make sure the name does not include the module
         module = self.import_extension("foo", [
             ("get_type", "METH_NOARGS",
@@ -2420,3 +2457,37 @@ class AppTestFlags(AppTestCpythonExtensionBase):
              """),])
         custom = module.get_type()
         assert custom.__name__ == "CustomHeap"
+
+    def test_heap_type2(self):
+        # issue 4826: note type->tp_as_buffer is not set (not needed since
+        # O.__buffer__ does not exist)
+        module = self.import_extension("foo", [], more_init="""
+            PyObject *make_new_python_type(PyObject* scope,
+                         const char *full_name, PyTypeObject *base) {
+            PyHeapTypeObject *heap_type = (PyHeapTypeObject *)PyType_Type.tp_alloc(&PyType_Type, 0);
+            heap_type->ht_name = PyUnicode_FromString(full_name);
+
+            PyTypeObject *type = &heap_type->ht_type;
+            type->tp_name = full_name;
+            Py_INCREF(base);
+            type->tp_base = base;
+            type->tp_basicsize = 0;
+            type->tp_as_number = &heap_type->as_number;
+            type->tp_as_sequence = &heap_type->as_sequence;
+            type->tp_as_mapping = &heap_type->as_mapping;
+            type->tp_as_async = &heap_type->as_async;
+            type->tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_BASETYPE;
+            PyType_Ready(type);
+            PyObject_SetAttrString(scope, full_name, (PyObject*)type);
+            return (PyObject *) type;
+            }
+
+            /* No error checking */
+            PyObject *op = make_new_python_type(mod, "O", &PyBaseObject_Type);
+            PyObject *ap = make_new_python_type(mod, "A", (PyTypeObject *) op);
+            PyObject *bp = make_new_python_type(mod, "B", (PyTypeObject *) op);
+            PyObject *a_tuple_p = PyTuple_New(1);
+            PyTuple_SetItem(a_tuple_p, 0, ap);
+            PyObject_SetAttrString(bp, "__bases__", a_tuple_p);
+        """)
+        assert module.B.__bases__ == (module.A,)

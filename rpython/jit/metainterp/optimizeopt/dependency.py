@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 
 from rpython.jit.metainterp import compile
@@ -77,7 +79,7 @@ class Path(object):
             i += 1
         if exclude_last:
             count -= 1
-        while i < count: 
+        while i < count:
             node = self.path[i]
             if node.is_imaginary():
                 i += 1
@@ -110,10 +112,10 @@ class Path(object):
         seen = set()
         for segment in self.path:
             if segment in seen:
-                print "path:"
+                print("path:")
                 for segment in self.path:
-                    print " ->", segment
-                print ""
+                    print(" ->", segment)
+                print("")
                 assert 0, "segment %s was already seen. this makes the path cyclic!" % segment
             else:
                 seen.add(segment)
@@ -258,7 +260,7 @@ class Node(object):
         for edge in self.adjacent_list:
             if edge.to is to:
                 return edge
-        return None 
+        return None
 
     def dependencies(self):
         return self.adjacent_list[:] + self.adjacent_list_back[:] # COPY
@@ -300,7 +302,7 @@ class Node(object):
 
     def iterate_paths(self, to, backwards=False, path_max_len=-1, blacklist=False):
         """ Yield all nodes from self leading to 'to'.
-            
+
             backwards: Determines the iteration direction.
             blacklist: Marks nodes that have already been visited.
                        It comes in handy if a property must hold for every path.
@@ -410,7 +412,7 @@ class ImaginaryNode(Node):
 class Dependency(object):
     def __init__(self, at, to, arg, failarg=False):
         assert at != to
-        self.args = [] 
+        self.args = []
         if arg is not None:
             self.add_dependency(at, to, arg)
         self.at = at
@@ -899,7 +901,7 @@ class IntegralForwardModification(object):
         if self.is_const_integral(box_a0) and self.is_const_integral(box_a1):
             idx_ref = IndexVar(box_r)
             idx_ref.constant = box_a0.getint() {op} box_a1.getint()
-            self.index_vars[box_r] = idx_ref 
+            self.index_vars[box_r] = idx_ref
         elif self.is_const_integral(box_a0):
             idx_ref = self.get_or_create(box_a1)
             idx_ref = idx_ref.clone()
@@ -927,7 +929,7 @@ class IntegralForwardModification(object):
         if self.is_const_integral(box_a0) and self.is_const_integral(box_a1):
             idx_ref = IndexVar(box_r)
             idx_ref.constant = box_a0.getint() {cop} box_a1.getint()
-            self.index_vars[box_r] = idx_ref 
+            self.index_vars[box_r] = idx_ref
         elif self.is_const_integral(box_a0):
             idx_ref = self.get_or_create(box_a1)
             idx_ref = idx_ref.clone()

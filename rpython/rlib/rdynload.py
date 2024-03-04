@@ -107,7 +107,17 @@ if not _WIN32:
             # uncommon case: may happen if 'name' is a linker script
             # (which the C-level dlopen() can't handle) and we are
             # directly running on pypy (whose implementation of ctypes
-            # or cffi will resolve linker scripts).  In that case, 
+            # or cffi will resolve linker scripts).  In that case,
+            # we flag up the 'ELF header' issue that cpython would have
+            # raised - seeing this, the caller will use _retry_as_ldscript
+            # to correctly handle the file
+            if os.path.exists(name) and "__pypy__" in sys.builtin_module_names:
+                return (
+                    "%s: opening with ctypes.CDLL() works but not with "
+                    "c_dlopen()! On PyPy, so possible invalid ELF header?"
+                    % (name,)
+                )
+
             # unsure what we can do.
             return ("opening %r with ctypes.CDLL() works, "
                     "but not with c_dlopen()??" % (name,))

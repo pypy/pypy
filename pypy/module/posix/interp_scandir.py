@@ -13,7 +13,7 @@ from pypy.interpreter.buffer import BufferInterfaceNotFound
 from pypy.objspace.std.util import generic_alias_class_getitem
 
 from pypy.module.posix.interp_posix import (path_or_fd, build_stat_result,
-                                            _WIN32, dup)
+                                            _WIN32, dup, FileEncoder)
 
 
 # XXX: update os.supports_fd when fd support is implemented
@@ -335,8 +335,8 @@ class W_DirEntry(W_Root):
         def get_lstat(self):
             """Get the lstat() of the direntry."""
             if (self.flags & FLAG_LSTAT) == 0:
-                w_path = self.space.utf8_0_w(self.fget_path(self.space))
-                st = rposix_stat.lstat(w_path)
+                path = FileEncoder(self.space, self.fget_path(self.space))
+                st = rposix_stat.lstat(path)
                 self.d_lstat = st
                 self.flags |= FLAG_LSTAT
             return self.d_lstat
@@ -356,8 +356,8 @@ class W_DirEntry(W_Root):
                 must_call_stat = stat.S_ISLNK(self.d_lstat.st_mode)
 
                 if must_call_stat:
-                    w_path = self.space.utf8_0_w(self.fget_path(self.space))
-                    st = rposix_stat.stat(w_path)
+                    path = FileEncoder(self.space, self.fget_path(self.space))
+                    st = rposix_stat.stat(path)
                 else:
                     st = self.d_lstat
 

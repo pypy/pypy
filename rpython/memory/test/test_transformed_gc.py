@@ -52,6 +52,12 @@ class GCTest(object):
     taggedpointers = False
     gchooks = None
 
+    def setup(self):
+        # This snippet is an attempt to clean the WeakKeyDict
+        # rpython.memory.gcheader.header2obj between tests
+        import gc
+        gc.collect()
+
     def setup_class(cls):
         cls.marker = lltype.malloc(rffi.CArray(lltype.Signed), 1,
                                    flavor='raw', zero=True)

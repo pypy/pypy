@@ -545,6 +545,23 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert a.y == 43
         assert a.__dict__ is nd
 
+    def test_Py_Is(self):
+        module = self.import_extension('foo', [
+            ('test_is', 'METH_VARARGS',
+             """
+                 PyObject *obj1 = PyTuple_GET_ITEM(args, 0);
+                 PyObject *obj2 = PyTuple_GET_ITEM(args, 1);
+                 int res = Py_Is(obj1, obj2);
+                 return PyLong_FromLong(res);
+             """)])
+        nan1 = float('nan')
+        nan2 = float('nan')
+        assert module.test_is(nan1, nan2)
+        a = 1
+        b = 1
+        assert module.test_is(a, b)
+        assert not module.test_is(a, nan1)
+
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     """

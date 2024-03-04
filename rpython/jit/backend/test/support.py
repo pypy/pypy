@@ -42,7 +42,7 @@ class BaseCompiledMixin(object):
                 res = function(*args)
                 for k in range(%d - 1):
                     res = function(*args)
-                print res
+                print(res)
                 return 0
             """ % (arglist, repeat))
         else:
@@ -50,7 +50,7 @@ class BaseCompiledMixin(object):
             def entry_point(argv):
                 args = %s
                 res = function(*args)
-                print res
+                print(res)
                 return 0
             """ % (arglist,))
         exec(src.compile(), locals())
