@@ -19,7 +19,7 @@ def _construct_positionful_frame(f, last_i, *args, **kwargs):
         # last_i represents the offset in terms of bytes, so for normalizing it
         # for a list of instructions we need to divide it by 2.
         instr_index = last_i // 2
-        positions = f.f_code._positions()
+        positions = f.f_code.co_positions()
         if len(positions) > instr_index:
             _, f_summary.end_lineno, f_summary.colno, f_summary.end_colno = positions[instr_index]
 

@@ -1456,7 +1456,7 @@ def f():
                 )
 
             co = function.__code__
-            positions = co._positions()
+            positions = co.co_positions()
         """, 'positions', [
             (3, 3, 8, 9),
             (4, 4, 8, 9),

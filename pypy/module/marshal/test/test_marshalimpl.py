@@ -44,7 +44,7 @@ class AppTestMarshalMore:
         import marshal
         s = marshal.dumps(foo.__code__)
         code2 = marshal.loads(s)
-        assert code2._positions() == foo.__code__._positions()
+        assert code2.co_positions() == foo.__code__.co_positions()
 
     def test_unmarshal_ascii(self):
         import marshal

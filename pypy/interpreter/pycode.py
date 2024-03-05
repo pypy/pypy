@@ -430,7 +430,7 @@ class PyCode(eval.Code):
         ]
         return space.newtuple2(new_inst, space.newtuple(tup))
 
-    def descr_positions(self, space):
+    def descr_co_positions(self, space):
         """A list of 4-element tuples that represent the position information corresponding to each
         instruction."""
         from pypy.interpreter.location import _decode_entry, DecodeError
