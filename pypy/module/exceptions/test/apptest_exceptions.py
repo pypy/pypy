@@ -17,3 +17,9 @@ def test_notes():
     with pytest.raises(TypeError):
         base.add_note(42)
     assert base.__notes__ == ['test note', 'second note']
+
+
+def test_exception_group():
+    # the actual tests are in extra_tests, this is a simple smoke test that the
+    # integration into builtins works
+    assert issubclass(ExceptionGroup, BaseExceptionGroup)
