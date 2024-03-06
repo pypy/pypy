@@ -1,4 +1,3 @@
-
 """Python's standard exception class hierarchy.
 
 Before Python 1.5, the standard exceptions were all simple string objects.
@@ -360,7 +359,7 @@ W_Exception = _new_exception('Exception', W_BaseException,
                          """Common base class for all non-exit exceptions.""")
 
 W_GeneratorExit = _new_exception('GeneratorExit', W_BaseException,
-                          """Request that a generator exit.""")
+                         """Request that a generator exit.""")
 
 W_BufferError = _new_exception('BufferError', W_Exception,
                          """Buffer error.""")

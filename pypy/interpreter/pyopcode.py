@@ -266,6 +266,8 @@ class __extend__(pyframe.PyFrame):
                 self.CALL_METHOD(oparg, next_instr)
             elif opcode == opcodedesc.CALL_METHOD_KW.index:
                 self.CALL_METHOD_KW(oparg, next_instr)
+            elif opcode == opcodedesc.CHECK_EG_MATCH.index:
+                self.CHECK_EG_MATCH(oparg, next_instr)
             elif opcode == opcodedesc.COMPARE_OP.index:
                 self.COMPARE_OP(oparg, next_instr)
             elif opcode == opcodedesc.IS_OP.index:
@@ -366,6 +368,8 @@ class __extend__(pyframe.PyFrame):
                 self.POP_EXCEPT(oparg, next_instr)
             elif opcode == opcodedesc.POP_TOP.index:
                 self.POP_TOP(oparg, next_instr)
+            elif opcode == opcodedesc.PREP_RERAISE_STAR.index:
+                self.PREP_RERAISE_STAR(oparg, next_instr)
             elif opcode == opcodedesc.PRINT_EXPR.index:
                 self.PRINT_EXPR(oparg, next_instr)
             elif opcode == opcodedesc.RAISE_VARARGS.index:
@@ -1815,6 +1819,20 @@ class __extend__(pyframe.PyFrame):
         for i in range(oparg - 1):
             self.settopvalue(self.peekvalue(i + 1), i)
         self.settopvalue(w_top, oparg - 1)
+
+    def CHECK_EG_MATCH(self, oparg, next_instr):
+        w_typ = self.popvalue()
+        w_eg = self.popvalue()
+        import pdb; pdb.set_trace()
+        self.pushvalue(self.space.w_None)
+        self.pushvalue(self.space.w_None)
+
+    def PREP_RERAISE_STAR(self, oparg, next_instr):
+        w_res = self.popvalue()
+        w_orig = self.popvalue()
+        import pdb; pdb.set_trace()
+        self.pushvalue(self.space.w_None)
+
 
 def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
     # invoke a "send" or "throw" by method name to a non-generator w_yf

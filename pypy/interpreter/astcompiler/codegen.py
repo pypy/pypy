@@ -994,6 +994,136 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             return self._visit_try_except(tr)
 
+    def visit_TryStar(self, tr):
+        """
+        Code generated for "try: S except* E1 as V1: S1 except* E2 as V2: S2 ...":
+        (The contents of the value stack is shown in [], with the top
+        at the right; 'tb' is trace-back info, 'val' the exception instance,
+        and 'typ' the exception's type.)
+
+        Value stack                   Label         Instruction     Argument
+        []                                         SETUP_FINALLY         L1 TODO: is SETUP_EXCEPT
+        []                                         <code for S>
+        []                                         POP_BLOCK
+        []                                         JUMP                  L0
+
+        [exc]                            L1:       COPY 1       )  save copy of the original exception
+        [orig, exc]                                BUILD_LIST   )  list for raised/reraised excs ("result")
+        [orig, exc, res]                           SWAP 2 TODO: can use ROT_TWO?
+
+        [orig, res, exc]                           <evaluate E1>
+        [orig, res, exc, E1]                       CHECK_EG_MATCH:     # TODO: new bytecode
+        [orig, res, rest/exc, match?]              COPY 1              # TODO: DUP
+        [orig, res, rest/exc, match?, match?]      POP_JUMP_IF_NONE      C1 # TODO: use LOAD_CONST(None), IS_OP, POP_JUMP_IF_TRUE
+
+        [orig, res, rest, match]                   <assign to V1>  (or POP if no V1) # TODO: also delete after block!
+
+        [orig, res, rest]                          SETUP_FINALLY         R1: TODO: is SETUP_EXCEPT?
+        [orig, res, rest]                          <code for S1>
+        [orig, res, rest]                          JUMP                  L2 TODO: missing POP_BLOCK before the jump?
+
+        [orig, res, rest, i, v]          R1:       LIST_APPEND   3 ) exc raised in except* body - add to res
+        [orig, res, rest, i]                       POP
+        [orig, res, rest]                          JUMP                  LE2
+
+        [orig, res, rest]                L2:       NOP  ) for lineno
+        [orig, res, rest]                          JUMP                  LE2
+
+        [orig, res, rest/exc, None]      C1:       POP
+
+        [orig, res, rest]               LE2:       <evaluate E2>
+        .............................etc.......................
+
+        [orig, res, rest]                Ln+1:     LIST_APPEND 1  ) add unhandled exc to res (could be None)
+
+        [orig, res]                                PREP_RERAISE_STAR: TODO: implement me
+        [exc]                                      COPY 1
+        [exc, exc]                                 POP_JUMP_IF_NOT_NONE  RER: TODO: don't have POP_JUMP_IF_NOT_NONE
+        [exc]                                      POP_TOP
+        []                                         JUMP                  L0
+
+        [exc]                            RER:      SWAP 2
+        [exc, prev_exc_info]                       POP_EXCEPT
+        [exc]                                      RERAISE               0
+
+        []                               L0:       <next statement>
+        """
+        import pdb; pdb.set_trace()
+        body = self.new_block()
+        exc = self.new_block() # L1 in comment above
+        otherwise = self.new_block() # L0 in comment above
+        end = self.new_block()
+        self.emit_jump(ops.SETUP_EXCEPT, exc)
+        body = self.use_next_block(body)
+        self.push_frame_block(F_TRY_EXCEPT, body)
+        self._visit_body(tr.body)
+        self.pop_frame_block(F_TRY_EXCEPT, body)
+        self.no_position_info()
+        self.emit_op(ops.POP_BLOCK)
+        self.emit_jump(ops.JUMP_FORWARD, otherwise)
+        self.use_next_block(exc)
+        self.push_frame_block(F_EXCEPTION_HANDLER, None)
+        handler = None
+        for i, handler in enumerate(tr.handlers):
+            assert isinstance(handler, ast.ExceptHandler)
+            self.update_position(handler)
+            pop_next_except = self.new_block() # C1 in comment above
+            next_except = self.new_block() # LE2 in comment above
+            next_except_with_nop = self.new_block() # L2 in comment above
+            assert handler.type is not None
+            if i == 0:
+                self.emit_op(ops.POP_TOP) # XXX pypy difference: exception type is on stack
+                self.emit_op(ops.DUP_TOP)
+                self.emit_op(ops.BUILD_LIST)
+                self.emit_op(ops.ROT_TWO)
+            handler.type.walkabout(self)
+            self.emit_op(ops.CHECK_EG_MATCH)
+            self.emit_op(ops.DUP_TOP)
+            self.load_const(self.space.w_None)
+            self.emit_op(ops.IS_OP)
+            self.emit_jump(ops.POP_JUMP_IF_TRUE, pop_next_except)
+            assert handler.name is None
+            exception_in_exc_body = self.new_block() # R1 in comment above
+            self.emit_jump(ops.SETUP_EXCEPT, exception_in_exc_body)
+            self._visit_body(tr.body)
+            self.emit_op(ops.POP_BLOCK) # XXX missing in CPython comment
+            self.emit_jump(ops.JUMP_FORWARD, next_except_with_nop)
+
+            self.use_next_block(exception_in_exc_body)
+            self.emit_op_arg(ops.LIST_APPEND, 3)
+            self.emit_op(ops.POP_TOP)
+            self.emit_jump(ops.JUMP_FORWARD, next_except)
+
+            self.use_next_block(next_except_with_nop)
+            self.emit_line_tracing_nop() # XXX which line though?
+            self.emit_jump(ops.JUMP_FORWARD, next_except)
+
+            self.use_next_block(pop_next_except)
+            self.emit_op(ops.POP_TOP)
+
+            self.use_next_block(next_except)
+        self.emit_op_arg(ops.LIST_APPEND, 1)
+        self.emit_op(ops.PREP_RERAISE_STAR)
+        self.emit_op(ops.DUP_TOP)
+        self.load_const(self.space.w_None)
+        self.emit_op(ops.IS_OP)
+        reraise_block = self.new_block() # RER in comment above
+        self.emit_jump(ops.POP_JUMP_IF_FALSE, reraise_block)
+        self.emit_op(ops.POP_TOP)
+        self.emit_jump(ops.JUMP_FORWARD, otherwise)
+
+        self.use_next_block(reraise_block)
+        if handler is not None:
+            self.update_position(handler)
+        self.pop_frame_block(F_EXCEPTION_HANDLER, None)
+        # pypy difference: get rid of exception # XXX is this correct for groups?
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.RERAISE) # reraise uses the SApplicationException
+        self.use_next_block(otherwise)
+        self._visit_body(tr.orelse)
+        self.use_next_block(end)
+
     def _import_as(self, alias, imp):
         # in CPython this is roughly compile_import_as
         # The IMPORT_NAME opcode was already generated.  This function
