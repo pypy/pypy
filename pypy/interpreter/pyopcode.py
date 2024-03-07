@@ -794,38 +794,6 @@ class __extend__(pyframe.PyFrame):
                 # enough: store away the exception on the frame
                 self.getorcreatedebug().hidden_operationerr = operationerr
 
-    def end_finally(self):
-        # unlike CPython, there are two statically distinct cases: the
-        # END_FINALLY might be closing an 'except' block or a 'finally'
-        # block.  In the first case, the stack contains three items:
-        #   [exception type we are now handling]
-        #   [exception value we are now handling]
-        #   [wrapped SApplicationException]
-        # In the case of a finally: block, the stack contains only one
-        # item (unlike CPython which can have 1, 2, 3 or 5 items, and
-        # even in one case a non-fixed number of items):
-        #   [wrapped SApplicationException]
-        block = self.pop_block()
-        assert isinstance(block, SysExcInfoRestorer)
-        block.cleanupstack(self)   # restores ec.sys_exc_operror
-
-        w_top = self.popvalue()
-        if self.space.is_w(w_top, self.space.w_None):
-            # case of a finally: block with no exception
-            return self.space.w_None
-        if isinstance(w_top, SApplicationException):
-            # case of a finally: block with a suspended unroller
-            return w_top
-        if self.space.isinstance_w(w_top, self.space.w_int):
-            # we arrived here via a CALL_FINALLY
-            return w_top
-        else:
-            # case of an except: block.  We popped the exception type
-            self.popvalue()        #     Now we pop the exception value
-            w_unroller = self.popvalue()
-            assert w_unroller is not None
-            return w_unroller
-
     @jit.unroll_safe
     def _any_except_or_finally_handler(self):
         block = self.lastblock
