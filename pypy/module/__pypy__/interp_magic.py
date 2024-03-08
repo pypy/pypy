@@ -205,8 +205,7 @@ def _promote(space, w_obj):
 @unwrap_spec(w_value=WrappedDefault(None), w_tb=WrappedDefault(None))
 def normalize_exc(space, w_type, w_value=None, w_tb=None):
     operr = OperationError(w_type, w_value, w_tb)
-    operr.normalize_exception(space)
-    return operr.get_w_value(space)
+    return operr.normalize_exception(space)
 
 def stack_almost_full(space):
     """Return True if the stack is more than 15/16th full."""

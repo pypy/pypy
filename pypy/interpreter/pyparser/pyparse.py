@@ -132,8 +132,8 @@ class PythonParser(object): # leave class for mergeability of _handle_encoding
                                             filename=compile_info.filename)
                 # Transform unicode errors into SyntaxError
                 if e.match(space, space.w_UnicodeDecodeError):
-                    e.normalize_exception(space)
-                    w_message = space.str(e.get_w_value(space))
+                    w_value = e.normalize_exception(space)
+                    w_message = space.str(w_value)
                     raise error.SyntaxError(space.text_w(w_message))
                 raise
         if enc is not None:

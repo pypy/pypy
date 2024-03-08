@@ -77,16 +77,16 @@ class __extend__(pyframe.PyFrame):
             except OperationError as operr2:
                 # this should be unreachable! but we don't want to crash if it
                 # still happens
-                operr.normalize_exception(self.space)
-                operr2.normalize_exception(self.space)
+                w_value = operr.normalize_exception(self.space)
+                w_value2 = operr2.normalize_exception(self.space)
                 # NB: don't *raise* it, it's handled by the
                 # handle_operation_error call below (otherwise some higher up
                 # except block handles it)
                 operr = oefmt(
                     self.space.w_TypeError,
                     "couldn't record exception context for exception '%T', got: %R",
-                    operr.get_w_value(self.space),
-                    operr2.get_w_value(self.space))
+                    w_value,
+                    w_value2)
             next_instr = self.handle_operation_error(ec, operr)
         except RaiseWithExplicitTraceback as e:
             next_instr = self.handle_operation_error(ec, e.operr,
@@ -1651,9 +1651,9 @@ class __extend__(pyframe.PyFrame):
             new_error = oefmt(space.w_TypeError,
                         "'async for' received an invalid object "
                         "from __anext__: %T", w_next_iter)
-            e.normalize_exception(space)
+            w_cause = e.normalize_exception(space)
             new_error.normalize_exception(space)
-            new_error.set_cause(space, e.get_w_value(space))
+            new_error.set_cause(space, w_cause)
             raise new_error
         self.pushvalue(w_awaitable)
 
@@ -1833,9 +1833,8 @@ def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
         # bah, CPython calls here with the exact same arguments as
         # originally passed to throw().  In our case it is far removed.
         # Let's hope nobody will complain...
-        operr.normalize_exception(space)
+        w_val = operr.normalize_exception(space)
         w_exc = operr.w_type
-        w_val = operr.get_w_value(space)
         w_tb = operr.get_w_traceback(space)
         return space.call_function(w_meth, w_exc, w_val, w_tb)
     else:
@@ -1936,9 +1935,9 @@ class ExceptBlock(FrameBlock):
         # wrapped.
         assert isinstance(unroller, SApplicationException)
         operationerr = unroller.operr
-        operationerr.normalize_exception(frame.space)
+        w_value = operationerr.normalize_exception(frame.space)
         frame.pushvalue(unroller)
-        frame.pushvalue(operationerr.get_w_value(frame.space))
+        frame.pushvalue(w_value)
         frame.pushvalue(operationerr.w_type)
         # set the current value of sys_exc_info to operationerr,
         # saving the old value in a custom type of FrameBlock

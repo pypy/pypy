@@ -86,8 +86,9 @@ class OperationError(Exception):
     def errorstr(self, space, use_repr=False):
         "The exception class and value, as a string."
         if not use_repr:    # see write_unraisable()
-            self.normalize_exception(space)
-        w_value = self.get_w_value(space)
+            w_value = self.normalize_exception(space)
+        else:
+            w_value = self.get_w_value(space)
         if space is None:
             # this part NOT_RPYTHON
             exc_typename = str(self.w_type)
@@ -245,6 +246,7 @@ class OperationError(Exception):
 
         self.w_type = w_type
         self._w_value = w_value
+        return w_value
 
     def _exception_getclass(self, space, w_inst, what="exceptions"):
         w_type = space.exception_getclass(w_inst)
@@ -258,11 +260,10 @@ class OperationError(Exception):
                          with_traceback=False, extra_line=''):
         from pypy.module.sys.vm import app_hookargs
         try:
-            self.normalize_exception(space)
+            w_value = self.normalize_exception(space)
         except OperationError:
-            pass
+            w_value = self.get_w_value(space)
         w_type = self.w_type
-        w_value = self.get_w_value(space)
         w_tb = self.get_w_traceback(space)
         if w_object is None:
             w_object = space.w_None
@@ -417,10 +418,8 @@ class OperationError(Exception):
     def chain_exceptions(self, space, context):
         """Attach another OperationError as __context__."""
         from pypy.module.exceptions.interp_exceptions import W_BaseException
-        self.normalize_exception(space)
-        w_value = self.get_w_value(space)
-        context.normalize_exception(space)
-        w_context = context.get_w_value(space)
+        w_value = self.normalize_exception(space)
+        w_context = context.normalize_exception(space)
         if not space.is_w(w_value, w_context):
             if not isinstance(w_value, W_BaseException):
                 raise oefmt(space.w_SystemError, "not an instance of Exception: %T", w_value)
@@ -440,8 +439,7 @@ class OperationError(Exception):
     # Otherwise the same OperationError is returned.
     def try_set_from_cause(self, space, message):
         from pypy.module.exceptions.interp_exceptions import W_BaseException
-        self.normalize_exception(space)
-        w_value = self.get_w_value(space)
+        w_value = self.normalize_exception(space)
         if not isinstance(w_value, W_BaseException):
             return self
         exc = w_value
