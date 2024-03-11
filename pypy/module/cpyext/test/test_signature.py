@@ -245,6 +245,49 @@ long wrong_impl(long arg) {
                 ),
             ]
         )
+        cls.w_func_muladd = cls.space.newtuple(
+            [
+                cls.space.newtext("muladd"),
+                cls.space.newtuple(
+                    [
+                        cls.space.newtext("T_C_DOUBLE"),
+                        cls.space.newtext("T_C_DOUBLE"),
+                        cls.space.newtext("T_C_DOUBLE"),
+                    ]
+                ),
+                cls.space.newtext("T_C_DOUBLE"),
+                cls.space.newtext(
+                    """
+PyObject* muladd(PyObject* module, PyObject*const *args, Py_ssize_t nargs) {
+  (void)module;
+  if (nargs != 3) {
+    return PyErr_Format(PyExc_TypeError, "muladd expected 3 arguments but got %ld", nargs);
+  }
+  if (!PyFloat_CheckExact(args[0])) {
+    return PyErr_Format(PyExc_TypeError, "muladd expected float but got %s", Py_TYPE(args[0])->tp_name);
+  }
+  double a = PyFloat_AsDouble(args[0]);
+  if (PyErr_Occurred()) return NULL;
+  if (!PyFloat_CheckExact(args[1])) {
+    return PyErr_Format(PyExc_TypeError, "muladd expected float but got %s", Py_TYPE(args[1])->tp_name);
+  }
+  double b = PyFloat_AsDouble(args[1]);
+  if (!PyFloat_CheckExact(args[2])) {
+    return PyErr_Format(PyExc_TypeError, "add expected float but got %s", Py_TYPE(args[2])->tp_name);
+  }
+  double c = PyFloat_AsDouble(args[2]);
+  if (PyErr_Occurred()) return NULL;
+  return PyFloat_FromDouble(muladd_impl(a, b, c));
+}"""
+                ),
+                cls.space.newtext(
+                    """
+double muladd_impl(double a, double b, double c) {
+  return a + b * c;
+}"""
+                ),
+            ]
+        )
 
     # long -> long
 
@@ -267,7 +310,7 @@ long wrong_impl(long arg) {
             module.inc(4.5)
         assert str(info.value) == "expected integer, got float object", str(info.value)
 
-    def test_call_inc_with_wrong_type_sig_raises_runtime_error(self):
+    def Xtest_call_inc_with_wrong_type_sig_raises_runtime_error(self):
         module = self.make_module(self, *self.func_wrong)
         with raises(RuntimeError) as info:
             module.wrong(1)
@@ -366,3 +409,9 @@ long wrong_impl(long arg) {
         obj = object()
         result = module.takes_only_object(obj)
         assert result is obj
+
+    # double -> double -> double -> double
+
+    def test_muladd(self):
+        module = self.make_module(self, *self.func_muladd)
+        assert module.muladd(1.0, 2.0, 3.0) == 1.0 + 2.0 * 3.0

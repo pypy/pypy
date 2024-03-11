@@ -1,6 +1,9 @@
+import sys
 from rpython.rtyper.lltypesystem import llmemory, lltype, rffi
-from rpython.rlib import jit
+from rpython.rlib import jit, clibffi, rgc
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.jit_libffi import CIF_DESCRIPTION, jit_ffi_call
+from rpython.rlib.objectmodel import keepalive_until_here
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
@@ -183,16 +186,53 @@ T_PY_OBJECT = 3
 
 
 class CSig(object):
-    _immutable_fields_ = ["arg_types[*]", "ret_type", "underlying_func", "can_raise"]
+    _immutable_fields_ = ["arg_types[*]", "ret_type", "underlying_func", "can_raise", "cif_descr"]
 
-    def __init__(self, arg_types, ret_type, underlying_func, can_raise):
+    cif_descr = lltype.nullptr(CIF_DESCRIPTION)
+
+    def __init__(self, space, arg_types, ret_type, underlying_func, can_raise):
+        self.space = space
         self.arg_types = arg_types
         self.ret_type = ret_type
         self.underlying_func = underlying_func
         self.can_raise = can_raise
+        self._build_cif_descr()
+
+    def _build_cif_descr(self):
+        from pypy.module._cffi_backend.ctypefunc import CifDescrBuilder
+        fargs = [self._cffi_typ(typ) for typ in self.arg_types]
+        fresult = self._cffi_typ(self.ret_type)
+        abi = clibffi.FFI_DEFAULT_ABI
+        builder = CifDescrBuilder(fargs, fresult, abi)
+        self.cif_descr = builder.rawallocate(self.space)
+
+    def _cffi_typ(self, typ):
+        # it's a bit of a hack to use cffi types in order to be able to use
+        # CifDescrBuilder. should probably be eventually be replaced
+        from pypy.module._cffi_backend import ctypeobj
+
+        space = self.space
+        cffibackend = space.getbuiltinmodule('_cffi_backend')
+        if typ == T_C_LONG:
+            w_res = space.call_method(cffibackend, 'new_primitive_type', space.newtext('long'))
+        elif typ == T_C_DOUBLE:
+            w_res = space.call_method(cffibackend, 'new_primitive_type', space.newtext('double'))
+        elif typ == T_PY_OBJECT:
+            # void* always means PyObject* in this context
+            w_res = space.call_method(cffibackend, 'new_pointer_type',
+                                     space.call_method(cffibackend, 'new_void_type'))
+        else:
+            raise ValueError
+        assert isinstance(w_res, ctypeobj.W_CType)
+        return w_res
+
+    @rgc.must_be_light_finalizer
+    def __del__(self):
+        if self.cif_descr:
+            lltype.free(self.cif_descr, flavor='raw')
 
     @staticmethod
-    def from_ml(ml):
+    def from_ml(space, ml):
         sig = pypy_get_typed_signature(ml)
         arg_types = []
         idx = 0
@@ -209,7 +249,10 @@ class CSig(object):
         if ret_type < 0:
             ret_type = -ret_type
             can_raise = True
-        return CSig(arg_types[:], ret_type, sig.c_underlying_func, can_raise)
+        try:
+            return CSig(space, arg_types[:], ret_type, sig.c_underlying_func, can_raise)
+        except ValueError:
+            return None # TODO: right now, invalid signatures just lead to the typed path not being used
 
 
 class W_PyCFunctionObject(W_Root):
@@ -229,7 +272,7 @@ class W_PyCFunctionObject(W_Root):
         self.w_module = w_module
         flags = self.flags & ~(METH_CLASS | METH_STATIC | METH_COEXIST)
         if flags & METH_TYPED:
-            self.csig = CSig.from_ml(ml)
+            self.csig = CSig.from_ml(space, ml)
         else:
             self.csig = None
 
@@ -248,7 +291,10 @@ class W_PyCFunctionObject(W_Root):
                     return self.call_keywords_fastcall_method(space, w_self, __args__)
                 return self.call_keywords_fastcall(space, w_self, __args__)
             if self.csig is not None:
-                return self.call_varargs_fastcall_typed(space, w_self, __args__)
+                w_res = self._call_typed(space, __args__.arguments_w)
+                if w_res is not None:
+                    return w_res
+                # otherwise use slow variant
             return self.call_varargs_fastcall(space, w_self, __args__)
         elif flags & METH_KEYWORDS:
             return self.call_keywords(space, w_self, __args__)
@@ -263,7 +309,10 @@ class W_PyCFunctionObject(W_Root):
                             "%s() takes exactly one argument (%d given)",
                             self.name, length)
             if self.csig is not None:
-                return self.call_o_typed(space, w_self, __args__)
+                w_res = self._call_typed(space, __args__.arguments_w)
+                if w_res is not None:
+                    return w_res
+                # otherwise use slow variant
             return self.call_o(space, w_self, __args__)
         elif flags & METH_VARARGS:
             return self.call_varargs(space, w_self, __args__)
@@ -278,62 +327,6 @@ class W_PyCFunctionObject(W_Root):
         func = self.ml.c_ml_meth
         w_o = __args__.arguments_w[0]
         return generic_cpy_call(space, func, w_self, w_o)
-
-    def call_o_typed(self, space, w_self, __args__):
-        sig = self.csig
-        assert sig is not None
-        args = __args__.arguments_w
-        if (len(sig.arg_types) == 1 and
-                sig.arg_types[0] == T_C_LONG and
-                len(args) == 1 and
-                sig.ret_type == T_C_LONG):
-            # long -> long
-            # TODO(max): Don't raise if overflow or wrong type
-            long_arg = space.int_w(args[0])
-            underlying_func = rffi.cast(long_to_long, sig.underlying_func)
-            result_long = underlying_func(long_arg)
-            # TODO(max): Don't raise if overflow
-            # TODO(max): Handle the ret type (not everything is an int)
-            if sig.can_raise and result_long == -1:
-                state = space.fromcache(State)
-                if state.get_exception() is not None:
-                    state.check_and_raise_exception(always=True)
-            return space.newint(result_long)
-        if (len(sig.arg_types) == 1 and
-                sig.arg_types[0] == T_PY_OBJECT and
-                len(args) == 1 and
-                sig.ret_type == T_PY_OBJECT):
-            # object -> object
-            obj_arg = make_ref(space, args[0])
-            underlying_func = rffi.cast(pyobject_to_pyobject, sig.underlying_func)
-            result_obj = underlying_func(obj_arg)
-            decref(space, obj_arg)
-            if sig.can_raise:
-                if not result_obj:  # if == NULL
-                    state = space.fromcache(State)
-                    state.check_and_raise_exception(always=True)
-            else:
-                assert result_obj
-            # TODO(max): Does this need to get tail duplicated for
-            # sig.can_raise / non-NULL optimization?
-            return get_w_obj_and_decref(space, result_obj)
-        if (len(sig.arg_types) == 1 and
-            sig.arg_types[0] == T_C_DOUBLE and
-            len(args) == 1 and
-            sig.ret_type == T_C_DOUBLE):
-            # double -> double
-            arg = args[0]
-            if not space.isinstance_w(arg, space.w_float):
-                return self.call_varargs_fastcall(space, w_self, __args__)
-            arg_float = space.float_w(arg)
-            underlying_func = rffi.cast(double_to_double, sig.underlying_func)
-            result_double = underlying_func(arg_float)
-            if sig.can_raise and result_double == -0.0:
-                state = space.fromcache(State)
-                if state.get_exception() is not None:
-                    state.check_and_raise_exception(always=True)
-            return space.newfloat(result_double)
-        raise oefmt(space.w_RuntimeError, "unreachable: unexpected METH_O|METH_TYPED signature")
 
     def call_varargs(self, space, w_self, __args__):
         state = space.fromcache(State)
@@ -353,45 +346,72 @@ class W_PyCFunctionObject(W_Root):
         finally:
             decref(space, py_args)
 
-    def call_varargs_fastcall_typed(self, space, w_self, __args__):
+    @jit.unroll_safe
+    def _call_typed(self, space, args_w):
+        assert sys.maxint == 2 ** 63 - 1
         sig = self.csig
         assert sig is not None
-        args = __args__.arguments_w
-        if len(sig.arg_types) != len(args):
-            return self.call_varargs_fastcall(space, w_self, __args__)
-        if (len(sig.arg_types) == 2 and
-                sig.arg_types[0] == T_C_DOUBLE and
-                sig.arg_types[1] == T_C_DOUBLE and
-                sig.ret_type == T_C_DOUBLE):
-            # double -> double
-            if (not space.isinstance_w(args[0], space.w_float) or
-                not space.isinstance_w(args[1], space.w_float)):
-                return self.call_varargs_fastcall(space, w_self, __args__)
-            left = space.float_w(args[0])
-            right = space.float_w(args[1])
-            underlying_func = rffi.cast(double_double_to_double, sig.underlying_func)
-            result_double = underlying_func(left, right)
-            # TODO(max): Check for error
-            return space.newfloat(result_double)
-        if (len(sig.arg_types) == 2 and
-                sig.arg_types[0] == T_PY_OBJECT and
-                sig.arg_types[1] == T_C_LONG and
-                sig.ret_type == T_C_LONG):
-            # object -> long -> long
-            # TODO(max): Don't raise if overflow or wrong type
-            obj_arg = make_ref(space, args[0])
-            long_arg = space.int_w(args[1])
-            underlying_func = rffi.cast(pyobject_long_to_long, sig.underlying_func)
-            result_long = underlying_func(obj_arg, long_arg)
-            # TODO(max): Don't raise if overflow
-            # TODO(max): Handle the ret type (not everything is an int)
-            decref(space, obj_arg)
-            if sig.can_raise and result_long == -1:
-                state = space.fromcache(State)
-                if state.get_exception() is not None:
+        if len(sig.arg_types) != len(args_w):
+            return None # returns None if the generic call path must be used
+
+        cif_descr = sig.cif_descr
+        size = cif_descr.exchange_size
+        mustfree_max_plus_1 = 0
+        buffer = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw')
+        try:
+            for i in range(len(args_w)):
+                data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
+                w_obj = args_w[i]
+                typ = sig.arg_types[i]
+                if typ == T_C_LONG:
+                    value = space.int_w(w_obj)
+                    rffi.cast(rffi.LONGP, data)[0] = value
+                elif typ == T_C_DOUBLE:
+                    if not space.isinstance_w(w_obj, space.w_float):
+                        return None
+                    value = space.float_w(w_obj)
+                    rffi.cast(rffi.DOUBLEP, data)[0] = value
+                elif typ == T_PY_OBJECT:
+                    value = make_ref(space, w_obj)
+                    mustfree_max_plus_1 = i + 1
+                    rffi.cast(PyObjectP, data)[0] = value
+
+            jit_ffi_call(cif_descr,
+                         rffi.cast(rffi.VOIDP, sig.underlying_func),
+                         buffer)
+
+            resultdata = rffi.ptradd(buffer, cif_descr.exchange_result)
+            typ = sig.ret_type
+            if typ == T_C_LONG:
+                value = rffi.cast(rffi.LONGP, resultdata)[0]
+                if sig.can_raise and value == -1:
+                    state = space.fromcache(State)
                     state.check_and_raise_exception(always=True)
-            return space.newint(result_long)
-        raise oefmt(space.w_RuntimeError, "unreachable: unexpected METH_FASTCALL|METH_TYPED signature")
+                w_res = space.newint(value)
+            elif typ == T_C_DOUBLE:
+                value = rffi.cast(rffi.DOUBLEP, resultdata)[0]
+                if sig.can_raise and value == -0.0: # TODO fix comparison
+                    state = space.fromcache(State)
+                    state.check_and_raise_exception(always=True)
+                w_res = space.newfloat(value)
+            elif typ == T_PY_OBJECT:
+                ptrdata = rffi.cast(PyObjectP, resultdata)[0]
+                if sig.can_raise and not ptrdata:  # if == NULL
+                    state = space.fromcache(State)
+                    state.check_and_raise_exception(always=True)
+                w_res = get_w_obj_and_decref(space, ptrdata)
+            else:
+                assert 0, "should be unreachable"
+
+        finally:
+            for i in range(mustfree_max_plus_1):
+                typ = sig.arg_types[i]
+                if typ == T_PY_OBJECT:
+                    data = rffi.ptradd(buffer, cif_descr.exchange_args[i])
+                    decref(space, rffi.cast(PyObjectP, data)[0])
+            lltype.free(buffer, flavor='raw')
+            keepalive_until_here(args_w)
+        return w_res
 
     def call_keywords(self, space, w_self, __args__):
         func = rffi.cast(PyCFunctionKwArgs, self.ml.c_ml_meth)

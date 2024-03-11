@@ -50,7 +50,7 @@ class W_CTypeFunc(W_CTypePtrBase):
             # is computed here.
             builder = CifDescrBuilder(fargs, fresult, abi)
             try:
-                builder.rawallocate(self)
+                self.cif_descr = builder.rawallocate(self.space)
             except OperationError as e:
                 if not e.match(space, space.w_NotImplementedError):
                     raise
@@ -91,7 +91,7 @@ class W_CTypeFunc(W_CTypePtrBase):
         ctypefunc.fargs = fvarargs
         ctypefunc.ctitem = self.ctitem
         #ctypefunc.cif_descr = NULL --- already provided as the default
-        CifDescrBuilder(fvarargs, self.ctitem, self.abi).rawallocate(ctypefunc)
+        ctypefunc.cif_descr = CifDescrBuilder(fvarargs, self.ctitem, self.abi).rawallocate(space)
         return ctypefunc
 
     @rgc.must_be_light_finalizer
@@ -503,8 +503,7 @@ class CifDescrBuilder(object):
         cif_descr.atypes = self.atypes
 
     @jit.dont_look_inside
-    def rawallocate(self, ctypefunc):
-        space = ctypefunc.space
+    def rawallocate(self, space):
         self.space = space
 
         # compute the total size needed in the CIF_DESCRIPTION buffer
@@ -522,8 +521,6 @@ class CifDescrBuilder(object):
             rawmem = lltype.malloc(CIF_DESCRIPTION_P.TO, self.nb_bytes,
                                    flavor='raw')
 
-        # the buffer is automatically managed from the W_CTypeFunc instance
-        ctypefunc.cif_descr = rawmem
 
         # call again fb_build() to really build the libffi data structures
         self.bufferp = rffi.cast(rffi.CCHARP, rawmem)
@@ -542,3 +539,5 @@ class CifDescrBuilder(object):
         if res != clibffi.FFI_OK:
             raise oefmt(space.w_SystemError,
                         "libffi failed to build this function type")
+        # the buffer is automatically managed from the W_CTypeFunc instance
+        return rawmem
