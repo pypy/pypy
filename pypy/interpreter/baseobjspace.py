@@ -663,7 +663,7 @@ class ObjSpace(object):
         w_builtin_module_names = self.newtuple([self.newtext(name) for name in sorted(self.builtin_modules)])
         stdlib = [self.newtext(name) for name in sorted(list(self.builtin_modules.keys()) + get_stdlib_names())]
         w_stdlib_module_names = self.newfrozenset(stdlib)
-        
+
 
         # force these value into the dict without unlazyfying everything
         self.setitem(self.sys.w_dict, self.newtext('builtin_module_names'),
@@ -712,10 +712,10 @@ class ObjSpace(object):
         elif self.config.objspace.usemodules._cffi_backend:
             from pypy.module._cffi_backend import copy_includes
             copy_includes.main()
-        
+
         # now we can setup _frozen_importlib, after the dll is installed
         self.install_mixedmodule('_frozen_importlib')
-        
+
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('_imp')
         frozen_importlib = self.getbuiltinmodule('_frozen_importlib')

@@ -179,6 +179,8 @@ class __extend__(pyframe.PyFrame):
             opcode = ord(co_code[next_instr])
             oparg = ord(co_code[next_instr + 1])
             next_instr += 2
+            if self.pycode.co_name =='test' and next_instr == 58:
+                import pdb;pdb.set_trace()
 
             # note: the structure of the code here is such that it makes
             # (after translation) a big "if/elif" chain, which is then
@@ -1789,16 +1791,26 @@ class __extend__(pyframe.PyFrame):
         self.settopvalue(w_top, oparg - 1)
 
     def CHECK_EG_MATCH(self, oparg, next_instr):
+        space = self.space
         w_typ = self.popvalue()
-        w_eg = self.popvalue()
+        check_except_star_type_valid(self, w_typ)
+        w_eg = self.peekvalue()
         import pdb; pdb.set_trace()
-        self.pushvalue(self.space.w_None)
-        self.pushvalue(self.space.w_None)
+        w_match, w_rest = exception_group_match(space, w_eg, w_typ)
+        if space.is_w(w_match, space.w_None):
+            self.pushvalue(w_match)
+        else:
+            self.settopvalue(w_rest)
+            self.pushvalue(w_match)
 
     def PREP_RERAISE_STAR(self, oparg, next_instr):
+        # TODO: Implement
+        space = self.space
         w_res = self.popvalue()
         w_orig = self.popvalue()
         import pdb; pdb.set_trace()
+        for w_obj in space.viewlist(w_res):
+            assert space.is_w(w_obj, space.w_None)
         self.pushvalue(self.space.w_None)
 
 
@@ -2144,6 +2156,28 @@ def _match_class(space, nargs, w_names, w_type, w_subject):
             raise
 
     return space.newtuple(attrs_w[:])
+
+# exception group helpers
+
+def check_except_star_type_valid(frame, w_typ):
+    # XXX todo, implement me
+    pass
+
+def exception_group_match(space, w_eg, w_typ):
+    if space.is_w(w_eg, space.w_None):
+        return space.w_None, space.w_None
+    assert space.isinstance_w(w_eg, space.w_Exception)
+    w_BaseExceptionGroup = space.getattr(space.builtin, space.newtext('BaseExceptionGroup'))
+    w_ExceptionGroup = space.getattr(space.builtin, space.newtext('ExceptionGroup'))
+    if space.exception_match(space.type(w_eg), w_typ):
+        assert not space.isinstance_w(w_eg, w_BaseExceptionGroup)
+        w_list = space.newlist([w_eg])
+        w_wrapped = space.call_function(w_ExceptionGroup, space.newtext(''), w_list)
+        return w_wrapped, space.w_None
+    else:
+        w_tup = space.call_method(w_eg, 'split', w_typ)
+        w_match, w_rest = space.unpackiterable(w_tup, 2)
+        return w_match, w_rest
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
