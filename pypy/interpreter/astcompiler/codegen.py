@@ -1040,6 +1040,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         [exc]                                      COPY 1
         [exc, exc]                                 POP_JUMP_IF_NOT_NONE  RER: TODO: don't have POP_JUMP_IF_NOT_NONE
         [exc]                                      POP_TOP
+             TODO: missing in cpython comment: POP_EXCEPT
         []                                         JUMP                  L0
 
         [exc]                            RER:      SWAP 2
@@ -1113,6 +1114,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         reraise_block = self.new_block() # RER in comment above
         self.emit_jump(ops.POP_JUMP_IF_FALSE, reraise_block)
         self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_EXCEPT)
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
 
         self.use_next_block(reraise_block)

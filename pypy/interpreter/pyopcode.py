@@ -1809,7 +1809,7 @@ class __extend__(pyframe.PyFrame):
         w_res = self.popvalue()
         w_orig = self.popvalue()
         import pdb; pdb.set_trace()
-        for w_obj in space.viewlist(w_res):
+        for w_obj in space.listview(w_res):
             assert space.is_w(w_obj, space.w_None)
         self.pushvalue(self.space.w_None)
 
