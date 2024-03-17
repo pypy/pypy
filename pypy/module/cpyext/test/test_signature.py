@@ -1,14 +1,77 @@
+from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
 
 class AppTestSignature(AppTestCpythonExtensionBase):
+    def setup_class(cls):
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+        cls.w_make_module = cls.space.appexec(
+            [],
+            '''():
+            def make_module(self, name, arg_types, ret_type, wrapper, impl):
+                arg_types_str = ", ".join(arg_types)
+                flags = "METH_O" if len(arg_types) == 1 else "METH_FASTCALL"
+                body = """
+                {0}
+                {1}
+                int {2}_arg_types[] = {{ {3}, -1 }};
+                PyPyTypedMethodMetadata {2}_sig = {{
+                  .arg_types = {2}_arg_types,
+                  .ret_type = {4},
+                  .underlying_func = {2}_impl,
+                #define STR(x) #x
+                  .ml_name = STR({2}),
+                }};
+                static PyMethodDef signature_methods[] = {{
+                    {{ {2}_sig.ml_name, {2}, {5} | METH_TYPED, STR({2}) }},
+                    {{NULL, NULL, 0, NULL}},
+                }};
+                static struct PyModuleDef signature_definition = {{
+                    PyModuleDef_HEAD_INIT, "signature",
+                    "A C extension module with type information exposed.", -1,
+                    signature_methods,
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL,
+                }};
+                """.format(impl, wrapper, name, arg_types_str, ret_type, flags)
+                init = """
+                return PyModule_Create(&signature_definition);
+                """
+                return self.import_module(name="signature", body=body, init=init, use_imp=True)
+            return make_module
+        ''',
+        )
+
     def test_import(self):
         module = self.import_module(name="signature")
 
     # long -> long
 
     def test_call_inc(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(
+            self,
+            "inc",
+            ["T_C_LONG"],
+            "T_C_LONG",
+            """
+PyObject* inc(PyObject* module, PyObject* obj) {
+  (void)module;
+  long obj_int = PyLong_AsLong(obj);
+  if (obj_int == -1 && PyErr_Occurred()) {
+    return NULL;
+  }
+  long result = inc_impl(obj_int);
+  return PyLong_FromLong(result);
+}
+        """,
+            """
+long inc_impl(long arg) {
+  return arg+1;
+}
+""",
+        )
         result = module.inc(4)
         assert result == 5
 
