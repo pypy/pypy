@@ -1507,6 +1507,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
                 objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
                 self.prebuilt_root_objects.append(addr_struct)
+                if self.gc_state == STATE_MARKING:
+                    # a prebuilt object that is not in
+                    # self.prebuilt_root_objects counts as black.
+                    # now that we add it, we need to make sure that it is
+                    # marked, because otherwise objects that are referenced by
+                    # the prebuilt object can get lost.
+                    self.objects_to_trace.append(addr_struct)
 
         remember_young_pointer._dont_inline_ = True
         self.remember_young_pointer = remember_young_pointer
@@ -1536,6 +1543,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
                     objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
                     self.prebuilt_root_objects.append(addr_array)
+                    if self.gc_state == STATE_MARKING:
+                        # see comment above
+                        self.objects_to_trace.append(addr_array)
                 return
             #
             # 'addr_array' is a raw_malloc'ed array with card markers
@@ -1644,6 +1654,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if source_hdr.tid & GCFLAG_NO_HEAP_PTRS == 0:
                 dest_hdr.tid &= ~GCFLAG_NO_HEAP_PTRS
                 self.prebuilt_root_objects.append(dest_addr)
+                # XXX do we need to add the dest_addr to objects_to_trace too?
         return True
 
     def writebarrier_before_move(self, array_addr):

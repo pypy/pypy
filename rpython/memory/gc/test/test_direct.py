@@ -14,7 +14,6 @@ from rpython.memory.gc import minimark, incminimark
 from rpython.memory.gctypelayout import zero_gc_pointers_inside, zero_gc_pointers
 from rpython.rlib.debug import debug_print
 from rpython.rlib.test.test_debug import debuglog
-import pdb
 WORD = LONG_BIT // 8
 
 ADDR_ARRAY = lltype.Array(llmemory.Address)
@@ -873,7 +872,6 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         # run things with TEST_VISIT_SINGLE_STEP = True so we can control
         # the timing correctly
         self.gc.TEST_VISIT_SINGLE_STEP = True
-        import pdb;pdb.set_trace()
         # run two marking steps, the first one marks obj, the second one
         # prebuilt (which does nothing), but obj2 is left so we aren't done
         # with marking
