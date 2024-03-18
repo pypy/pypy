@@ -844,3 +844,64 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
             (incminimark.STATE_SWEEPING, incminimark.STATE_FINALIZING),
             (incminimark.STATE_FINALIZING, incminimark.STATE_SCANNING)
             ]
+
+    def test_gc_debug_crash_with_prebuilt_objects(self):
+        from rpython.rlib import rgc
+        def flags(obj):
+            return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
+
+        prebuilt = lltype.malloc(S, immortal=True)
+        prebuilt.x = 42
+        self.consider_constant(prebuilt)
+
+        self.gc.DEBUG = 2
+
+        old2 = self.malloc(S)
+        old2.x = 45
+        self.stackroots.append(old2)
+        old = self.malloc(S)
+        old.x = 43
+        self.write(old, 'next', prebuilt)
+        self.stackroots.append(old)
+        val = self.gc.collect_step()
+        assert rgc.old_state(val) == incminimark.STATE_SCANNING
+        assert rgc.new_state(val) == incminimark.STATE_MARKING
+        old2 = self.stackroots[0] # reload
+        old = self.stackroots[1]
+        
+        # now a major next collection starts
+        # run things with TEST_VISIT_SINGLE_STEP = True so we can control
+        # the timing correctly
+        self.gc.TEST_VISIT_SINGLE_STEP = True
+        import pdb;pdb.set_trace()
+        # run two marking steps, the first one marks obj, the second one
+        # prebuilt (which does nothing), but obj2 is left so we aren't done
+        # with marking
+        val = self.gc.collect_step()
+        val = self.gc.collect_step()
+        assert rgc.old_state(val) == incminimark.STATE_MARKING
+        assert rgc.new_state(val) == incminimark.STATE_MARKING
+        assert flags(old) & incminimark.GCFLAG_VISITED
+        assert (flags(old2) & incminimark.GCFLAG_VISITED) == 0
+        # prebuilt counts as grey but for prebuilt reasons
+        assert (flags(prebuilt) & incminimark.GCFLAG_VISITED) == 0
+        assert flags(prebuilt) & incminimark.GCFLAG_NO_HEAP_PTRS
+        # its write barrier is active
+        assert flags(prebuilt) & incminimark.GCFLAG_TRACK_YOUNG_PTRS
+
+        # now lets write a newly allocated object into prebuilt
+        new = self.malloc(S)
+        new.x = -10
+        # write barrier of prebuilt triggers
+        self.write(prebuilt, 'next', new)
+        # prebuilt got added both to old_objects_pointing_to_young and
+        # prebuilt_root_objects, so those flags get cleared
+        assert (flags(prebuilt) & incminimark.GCFLAG_NO_HEAP_PTRS) == 0
+        assert (flags(prebuilt) & incminimark.GCFLAG_TRACK_YOUNG_PTRS) == 0
+        # thus the prebuilt object now counts as white!
+        assert (flags(prebuilt) & incminimark.GCFLAG_VISITED) == 0
+
+        # this triggers the assertion black -> white pointer
+        # for the reference obj -> prebuilt
+        self.gc.collect_step()
+
