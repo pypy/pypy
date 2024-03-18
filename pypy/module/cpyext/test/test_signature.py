@@ -43,19 +43,13 @@ class AppTestSignature(AppTestCpythonExtensionBase):
             return make_module
         ''',
         )
-
-    def test_import(self):
-        module = self.import_module(name="signature")
-
-    # long -> long
-
-    def test_call_inc(self):
-        module = self.make_module(
-            self,
-            "inc",
-            ["T_C_LONG"],
-            "T_C_LONG",
-            """
+        cls.w_func_inc = cls.space.newtuple(
+            [
+                cls.space.newtext("inc"),
+                cls.space.newtuple([cls.space.newtext("T_C_LONG")]),
+                cls.space.newtext("T_C_LONG"),
+                cls.space.newtext(
+                    """
 PyObject* inc(PyObject* module, PyObject* obj) {
   (void)module;
   long obj_int = PyLong_AsLong(obj);
@@ -64,19 +58,29 @@ PyObject* inc(PyObject* module, PyObject* obj) {
   }
   long result = inc_impl(obj_int);
   return PyLong_FromLong(result);
-}
-        """,
-            """
+}"""
+                ),
+                cls.space.newtext(
+                    """
 long inc_impl(long arg) {
   return arg+1;
-}
-""",
+}"""
+                ),
+            ]
         )
+
+    def test_import(self):
+        module = self.import_module(name="signature")
+
+    # long -> long
+
+    def test_call_inc(self):
+        module = self.make_module(self, *self.func_inc)
         result = module.inc(4)
         assert result == 5
 
     def test_call_inc_with_too_many_arguments_raises_type_error(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_inc)
         with raises(TypeError) as info:
             module.inc(4, 5)
         assert str(info.value) == "inc() takes exactly one argument (2 given)", str(
@@ -84,7 +88,7 @@ long inc_impl(long arg) {
         )
 
     def test_call_inc_with_wrong_argument_type_raises_type_error(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_inc)
         with raises(TypeError) as info:
             module.inc(4.5)
         assert str(info.value) == "expected integer, got float object", str(info.value)

@@ -1,34 +1,25 @@
 #include <Python.h>
 
-long inc_impl(long arg) {
+long wrong_impl(long arg) {
   return arg+1;
 }
 
-PyObject* inc(PyObject* module, PyObject* obj) {
+PyObject* wrong(PyObject* module, PyObject* obj) {
   (void)module;
   long obj_int = PyLong_AsLong(obj);
   if (obj_int == -1 && PyErr_Occurred()) {
     return NULL;
   }
-  long result = inc_impl(obj_int);
+  long result = wrong_impl(obj_int);
   return PyLong_FromLong(result);
 }
-
-int inc_arg_types[] = {T_C_LONG, -1};
-
-PyPyTypedMethodMetadata inc_sig = {
-  .arg_types = inc_arg_types,
-  .ret_type = T_C_LONG,
-  .underlying_func = inc_impl,
-  .ml_name = "inc",
-};
 
 int wrong_arg_types[] = {100, -1};
 
 PyPyTypedMethodMetadata wrong_sig = {
   .arg_types = wrong_arg_types,
   .ret_type = T_C_LONG,
-  .underlying_func = inc_impl,
+  .underlying_func = wrong_impl,
   .ml_name = "wrong",
 };
 
@@ -173,8 +164,7 @@ PyPyTypedMethodMetadata takes_only_object_sig = {
 };
 
 static PyMethodDef signature_methods[] = {
-    {inc_sig.ml_name, inc, METH_O | METH_TYPED, "Add one to an int"},
-    {wrong_sig.ml_name, inc, METH_O | METH_TYPED, "Have a silly signature"},
+    {wrong_sig.ml_name, wrong, METH_O | METH_TYPED, "Have a silly signature"},
     {add_sig.ml_name, (PyCFunction)(void*)add, METH_FASTCALL | METH_TYPED, "Add two doubles"},
     {raise_long_sig.ml_name, raise_long, METH_O | METH_TYPED, "Raise an exception (long)"},
     {raise_double_sig.ml_name, raise_double, METH_O | METH_TYPED, "Raise an exception (double)"},
