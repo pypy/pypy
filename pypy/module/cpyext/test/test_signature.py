@@ -9,7 +9,7 @@ class AppTestSignature(AppTestCpythonExtensionBase):
             [],
             '''():
             def make_module(self, name, arg_types, ret_type, wrapper, impl):
-                arg_types_str = ", ".join([str(arg) for arg in arg_types])
+                arg_types_str = ", ".join(arg_types)
                 flags = "METH_O" if len(arg_types) == 1 else "METH_FASTCALL"
                 body = """
                 {0}
@@ -68,31 +68,6 @@ long inc_impl(long arg) {
                 ),
             ]
         )
-        cls.w_func_wrong = cls.space.newtuple(
-            [
-                cls.space.newtext("wrong"),
-                cls.space.newtuple([cls.space.newint(123)]),
-                cls.space.newtext("T_C_LONG"),
-                cls.space.newtext(
-                    """
-PyObject* wrong(PyObject* module, PyObject* obj) {
-  (void)module;
-  long obj_int = PyLong_AsLong(obj);
-  if (obj_int == -1 && PyErr_Occurred()) {
-    return NULL;
-  }
-  long result = wrong_impl(obj_int);
-  return PyLong_FromLong(result);
-}"""
-                ),
-                cls.space.newtext(
-                    """
-long wrong_impl(long arg) {
-  return arg+1;
-}"""
-                ),
-            ]
-        )
 
     def test_import(self):
         module = self.import_module(name="signature")
@@ -118,8 +93,8 @@ long wrong_impl(long arg) {
             module.inc(4.5)
         assert str(info.value) == "expected integer, got float object", str(info.value)
 
-    def test_call_with_wrong_type_sig_raises_runtime_error(self):
-        module = self.make_module(self, *self.func_wrong)
+    def test_call_inc_with_wrong_type_sig_raises_runtime_error(self):
+        module = self.import_module(name="signature")
         with raises(RuntimeError) as info:
             module.wrong(1)
         assert (
