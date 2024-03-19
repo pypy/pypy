@@ -461,6 +461,7 @@ class TranslationDriver(SimpleTaskEngine):
             dstname = self.compute_exe_name() + '.staticdata.info'
             shutil_copy(str(fname), str(dstname))
             self.log.info('Static data info written to %s' % dstname)
+        return c_source_filename
 
     def compute_exe_name(self, suffix=''):
         newexename = self.exe_name % self.get_info()

@@ -1054,6 +1054,36 @@ class ListComprehensionDetector(object):
                     newblock.operations.append(hint)
         # done!
 
+def merge_comments(graph):
+    """
+    The comment insertion within the flow object space adds a comment before
+    each operation giving the corresponding RPython source code, but this
+    leads to a large amount of duplicate comments.
+    Once the blocks have been simplified, we can merge comments, so that
+    if we have e.g.:
+        OP_COMMENT('is_perfect_number:32 :         if n % div == 0:')
+        OP_INT_MOD(l_n_2, l_div_0, l_v281);
+        OP_COMMENT('is_perfect_number:32 :         if n % div == 0:')
+        OP_INT_EQ(l_v281, 0L, l_v282);
+    we can remove the second comment, giving just:
+        OP_COMMENT('is_perfect_number:32 :         if n % div == 0:')
+        OP_INT_MOD(l_n_2, l_div_0, l_v281);
+        OP_INT_EQ(l_v281, 0L, l_v282);
+    """
+    for block in list(graph.iterblocks()):
+        if block.operations:
+            newops = []
+            lastcomment = None
+            for op in block.operations:
+                if op.opname == 'comment':
+                    if lastcomment:
+                        if op.args == lastcomment.args:
+                            # ...then we've already seen this source line
+                            continue # thus removing "op" from the list
+                    lastcomment = op
+                newops.append(op)
+            block.operations = newops
+
 
 # ____ all passes & simplify_graph
 
@@ -1066,6 +1096,7 @@ all_passes = [
     remove_trivial_links,
     SSA_to_SSI,
     coalesce_bool,
+    merge_comments,
     transform_ovfcheck,
     simplify_exceptions,
     transform_xxxitem,
