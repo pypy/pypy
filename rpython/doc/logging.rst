@@ -46,6 +46,10 @@ As a special case, the value ``PYPYLOG=+filename`` means that only
 the section markers are written (for any section).  This is mostly
 only useful for ``rpython/tool/logparser.py``.
 
+The special string ``%d`` in the name of the logfile will be replaced by the
+process id. This makes it possible to make several processes not interfere with
+each other's log files.
+
 
 PYPYSTM
 -------
