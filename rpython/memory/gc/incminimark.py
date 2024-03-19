@@ -1654,7 +1654,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if source_hdr.tid & GCFLAG_NO_HEAP_PTRS == 0:
                 dest_hdr.tid &= ~GCFLAG_NO_HEAP_PTRS
                 self.prebuilt_root_objects.append(dest_addr)
-                # XXX do we need to add the dest_addr to objects_to_trace too?
+                if self.gc_state == STATE_MARKING:
+                    # see comment above
+                    self.objects_to_trace.append(source_addr)
         return True
 
     def writebarrier_before_move(self, array_addr):
