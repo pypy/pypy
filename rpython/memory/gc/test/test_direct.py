@@ -912,17 +912,18 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
     def state_setup(self, data):
         self.setup_method(self.test_random)
         self.data = data
-        self.prebuilts = []
         # a model of the current state of the heap
         self.model = {}
+        self.arraymodel = {}
         self.gc.TEST_VISIT_SINGLE_STEP = data.draw(strategies.booleans())
         self.gc.DEBUG = data.draw(strategies.integers(0, 2))
+        self.current_array_length = 1
         self.make_prebuilts()
 
     def make_prebuilts(self):
-        prebuilts = self.prebuilts
+        prebuilts = self.prebuilts = []
         data = self.data
-        for i in range(self.data.draw(strategies.integers(0, 10))):
+        for i in range(self.data.draw(strategies.integers(1, 10))):
             prebuilt = lltype.malloc(S, immortal=True)
             prebuilt.x = ~i
             prebuilts.append(prebuilt)
@@ -939,22 +940,60 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
         for prebuilt in prebuilts:
             self.consider_constant(prebuilt)
 
+        # prebuilt arrays
+        # XXX hack, arrays are uniquely identified by their lengths :-)
+        prebuilt_arrays = self.prebuilt_arrays = []
+        for i in range(self.data.draw(strategies.integers(1, 10))):
+            array = self.create_array(immortal=True)
+            self.prebuilt_arrays.append(array)
+            self.consider_constant(array)
+
     def random_obj(self):
-        return self.data.draw(strategies.sampled_from(self.prebuilts + self.stackroots))
+        objects = [obj for obj in self.stackroots if lltype.typeOf(obj) == lltype.Ptr(S)]
+        return self.data.draw(strategies.sampled_from(self.prebuilts + objects))
+
+    def random_array(self):
+        arrays = [obj for obj in self.stackroots if lltype.typeOf(obj) == lltype.Ptr(VAR)]
+        return self.data.draw(strategies.sampled_from(self.prebuilt_arrays + arrays))
+
+    def create_array(self, immortal=False):
+        length = self.current_array_length
+        self.current_array_length += 1
+        if immortal:
+            array = lltype.malloc(VAR, length, immortal=True)
+        else:
+            array = self.malloc(VAR, length)
+        for i in range(length):
+            obj = self.random_obj()
+            if immortal:
+                array[i] = obj
+            else:
+                self.writearray(array, i, obj)
+            self.arraymodel[length, i] = obj.x
+        return array
 
     def check(self):
         # walk the reachable heap and compare against model
         seen = set()
-        todo = self.prebuilts + self.stackroots
+        seen_arrays = set()
+        todo = self.prebuilts + self.prebuilt_arrays + self.stackroots
         while todo:
             obj = todo.pop()
-            if obj.x in seen:
-                continue
-            seen.add(obj.x)
-            todo.append(obj.next)
-            todo.append(obj.prev)
-            assert self.model[obj.x, 'prev'] == obj.prev.x
-            assert self.model[obj.x, 'next'] == obj.next.x
+            if lltype.typeOf(obj) == lltype.Ptr(VAR):
+                if len(obj) in seen_arrays:
+                    continue
+                seen_arrays.add(len(obj))
+                for i in range(len(obj)):
+                    todo.append(obj[i])
+                    assert self.arraymodel[len(obj), i] == obj[i].x
+            else:
+                if obj.x in seen:
+                    continue
+                seen.add(obj.x)
+                todo.append(obj.next)
+                todo.append(obj.prev)
+                assert self.model[obj.x, 'prev'] == obj.prev.x
+                assert self.model[obj.x, 'next'] == obj.next.x
 
     @given(strategies.data())
     def test_random(self, data):
@@ -962,7 +1001,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
         # make a bunch of prebuilt data
         for i in range(data.draw(strategies.integers(2, 100))):
             # perform steps
-            action = data.draw(strategies.integers(len(self.stackroots) == 0, 4))
+            action = data.draw(strategies.integers(len(self.stackroots) == 0, 7))
             if action == 0: # drop
                 print i, "DROP",
                 index = data.draw(strategies.integers(0, len(self.stackroots)-1))
@@ -992,7 +1031,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 self.stackroots.append(res)
                 assert self.model[obj.x, field] == res.x
                 print field
-            elif action == 3: # write field
+            elif action == 3:
                 obj1 = self.random_obj()
                 obj2 = self.random_obj()
                 print i, "WRITE", obj1, obj2,
@@ -1004,9 +1043,28 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                     print 'prev'
                     self.write(obj1, 'prev', obj2)
                     self.model[obj1.x, 'prev'] = obj2.x
-            elif action == 4: # collect step
+            elif action == 4:
                 print i, "COLLECT"
                 self.gc.collect_step()
+            elif action == 5:
+                print i, "READ_ARRAY",
+                array = self.random_array()
+                index = data.draw(strategies.integers(0, len(array) - 1))
+                print array, index, array[index]
+                assert self.arraymodel[len(array), index] == array[index].x
+                self.stackroots.append(array[index])
+            elif action == 6:
+                print i, "WRITE_ARRAY",
+                array = self.random_array()
+                index = data.draw(strategies.integers(0, len(array) - 1))
+                obj = self.random_obj()
+                print array, index, obj
+                self.writearray(array, index, obj)
+                self.arraymodel[len(array), index] = obj.x
+            elif action == 7:
+                print i, "MALLOC_ARRAY"
+                array = self.create_array()
+                self.stackroots.append(array)
             else:
                 assert "unreachable"
 
