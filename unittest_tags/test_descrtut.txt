@@ -1,0 +1,1 @@
+*lib-python.3.test.test_descrtut.TestMain.test_main

@@ -1,0 +1,17 @@
+*lib-python.3.test.test_decorators.TestClassDecorators.test_double
+*lib-python.3.test.test_decorators.TestClassDecorators.test_order
+*lib-python.3.test.test_decorators.TestClassDecorators.test_simple
+*lib-python.3.test.test_decorators.TestDecorators.test_argforms
+*lib-python.3.test.test_decorators.TestDecorators.test_classmethod
+*lib-python.3.test.test_decorators.TestDecorators.test_dbcheck
+*lib-python.3.test.test_decorators.TestDecorators.test_dotted
+*lib-python.3.test.test_decorators.TestDecorators.test_double
+*lib-python.3.test.test_decorators.TestDecorators.test_errors
+*lib-python.3.test.test_decorators.TestDecorators.test_eval_order
+*lib-python.3.test.test_decorators.TestDecorators.test_expressions
+*lib-python.3.test.test_decorators.TestDecorators.test_memoize
+*lib-python.3.test.test_decorators.TestDecorators.test_order
+*lib-python.3.test.test_decorators.TestDecorators.test_single
+*lib-python.3.test.test_decorators.TestDecorators.test_staticmethod
+*lib-python.3.test.test_decorators.TestDecorators.test_wrapped_classmethod_inside_classmethod
+*lib-python.3.test.test_decorators.TestDecorators.test_wrapped_descriptor_inside_classmethod

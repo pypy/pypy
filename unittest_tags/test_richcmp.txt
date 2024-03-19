@@ -1,0 +1,11 @@
+*lib-python.3.test.test_richcmp.DictTest.test_dicts
+*lib-python.3.test.test_richcmp.ListTest.test_badentry
+*lib-python.3.test.test_richcmp.ListTest.test_coverage
+*lib-python.3.test.test_richcmp.ListTest.test_goodentry
+*lib-python.3.test.test_richcmp.MiscTest.test_exception_message
+*lib-python.3.test.test_richcmp.MiscTest.test_misbehavin
+*lib-python.3.test.test_richcmp.MiscTest.test_not
+*lib-python.3.test.test_richcmp.MiscTest.test_recursion
+*lib-python.3.test.test_richcmp.NumberTest.test_basic
+*lib-python.3.test.test_richcmp.NumberTest.test_values
+*lib-python.3.test.test_richcmp.VectorTest.test_mixed

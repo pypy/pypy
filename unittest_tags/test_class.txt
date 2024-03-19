@@ -1,0 +1,15 @@
+*lib-python.3.test.test_class.ClassTests.testBadTypeReturned
+*lib-python.3.test.test_class.ClassTests.testBinaryOps
+*lib-python.3.test.test_class.ClassTests.testConstructorErrorMessages
+*lib-python.3.test.test_class.ClassTests.testDel
+*lib-python.3.test.test_class.ClassTests.testForExceptionsRaisedInInstanceGetattr2
+*lib-python.3.test.test_class.ClassTests.testGetSetAndDel
+*lib-python.3.test.test_class.ClassTests.testHashComparisonOfMethods
+*lib-python.3.test.test_class.ClassTests.testHashStuff
+*lib-python.3.test.test_class.ClassTests.testInit
+*lib-python.3.test.test_class.ClassTests.testListAndDictOps
+*lib-python.3.test.test_class.ClassTests.testMisc
+*lib-python.3.test.test_class.ClassTests.testSFBug532646
+*lib-python.3.test.test_class.ClassTests.testSetattrNonStringName
+*lib-python.3.test.test_class.ClassTests.testSetattrWrapperNameIntern
+*lib-python.3.test.test_class.ClassTests.testUnaryOps

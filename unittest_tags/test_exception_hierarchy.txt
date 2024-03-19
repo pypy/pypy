@@ -1,0 +1,16 @@
+*lib-python.3.test.test_exception_hierarchy.AttributesTest.test_blockingioerror
+*lib-python.3.test.test_exception_hierarchy.AttributesTest.test_errno_translation
+*lib-python.3.test.test_exception_hierarchy.AttributesTest.test_posix_error
+*lib-python.3.test.test_exception_hierarchy.AttributesTest.test_windows_error
+*lib-python.3.test.test_exception_hierarchy.ExplicitSubclassingTest.test_errno_mapping
+*lib-python.3.test.test_exception_hierarchy.ExplicitSubclassingTest.test_init_kwdargs
+*lib-python.3.test.test_exception_hierarchy.ExplicitSubclassingTest.test_init_new_overridden
+*lib-python.3.test.test_exception_hierarchy.ExplicitSubclassingTest.test_init_overridden
+*lib-python.3.test.test_exception_hierarchy.ExplicitSubclassingTest.test_init_standalone
+*lib-python.3.test.test_exception_hierarchy.ExplicitSubclassingTest.test_new_kwdargs
+*lib-python.3.test.test_exception_hierarchy.ExplicitSubclassingTest.test_new_overridden
+*lib-python.3.test.test_exception_hierarchy.HierarchyTest.test_builtin_errors
+*lib-python.3.test.test_exception_hierarchy.HierarchyTest.test_errno_mapping
+*lib-python.3.test.test_exception_hierarchy.HierarchyTest.test_select_error
+*lib-python.3.test.test_exception_hierarchy.HierarchyTest.test_socket_errors
+*lib-python.3.test.test_exception_hierarchy.HierarchyTest.test_try_except

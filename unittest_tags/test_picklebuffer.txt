@@ -1,0 +1,9 @@
+*lib-python.3.test.test_picklebuffer.PickleBufferTest.test_basics
+*lib-python.3.test.test_picklebuffer.PickleBufferTest.test_constructor_failure
+*lib-python.3.test.test_picklebuffer.PickleBufferTest.test_cycle
+*lib-python.3.test.test_picklebuffer.PickleBufferTest.test_ndarray_2d
+*lib-python.3.test.test_picklebuffer.PickleBufferTest.test_raw
+*lib-python.3.test.test_picklebuffer.PickleBufferTest.test_raw_ndarray
+*lib-python.3.test.test_picklebuffer.PickleBufferTest.test_raw_non_contiguous
+*lib-python.3.test.test_picklebuffer.PickleBufferTest.test_raw_released
+*lib-python.3.test.test_picklebuffer.PickleBufferTest.test_release

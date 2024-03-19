@@ -1,0 +1,4 @@
+*lib-python.3.test.test_global.GlobalTests.test1
+*lib-python.3.test.test_global.GlobalTests.test2
+*lib-python.3.test.test_global.GlobalTests.test3
+*lib-python.3.test.test_global.GlobalTests.test4

@@ -1,0 +1,6 @@
+*lib-python.3.test.test_threadsignals.ThreadSignals.test_interrupted_timed_acquire
+*lib-python.3.test.test_threadsignals.ThreadSignals.test_lock_acquire_interruption
+*lib-python.3.test.test_threadsignals.ThreadSignals.test_lock_acquire_retries_on_intr
+*lib-python.3.test.test_threadsignals.ThreadSignals.test_rlock_acquire_interruption
+*lib-python.3.test.test_threadsignals.ThreadSignals.test_rlock_acquire_retries_on_intr
+*lib-python.3.test.test_threadsignals.ThreadSignals.test_signals

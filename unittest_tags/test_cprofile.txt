@@ -1,0 +1,16 @@
+*lib-python.3.test.test_cprofile.CProfileTest.test_bad_counter_during_dealloc
+*lib-python.3.test.test_cprofile.CProfileTest.test_calling_conventions
+*lib-python.3.test.test_cprofile.CProfileTest.test_cprofile
+*lib-python.3.test.test_cprofile.CProfileTest.test_output_file_when_changing_directory
+*lib-python.3.test.test_cprofile.CProfileTest.test_profile_as_context_manager
+*lib-python.3.test.test_cprofile.CProfileTest.test_profile_enable_disable
+*lib-python.3.test.test_cprofile.CProfileTest.test_run
+*lib-python.3.test.test_cprofile.CProfileTest.test_run_profile_as_module
+*lib-python.3.test.test_cprofile.CProfileTest.test_runctx
+*lib-python.3.test.test_cprofile.TestCommandLine.test_sort
+*test.test_profile.ProfileTest.test_calling_conventions
+*test.test_profile.ProfileTest.test_cprofile
+*test.test_profile.ProfileTest.test_output_file_when_changing_directory
+*test.test_profile.ProfileTest.test_run
+*test.test_profile.ProfileTest.test_run_profile_as_module
+*test.test_profile.ProfileTest.test_runctx

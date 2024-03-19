@@ -1,0 +1,13 @@
+*lib-python.3.test.test_ttk_textonly.InternalFunctionsTest.test_convert_stringval
+*lib-python.3.test.test_ttk_textonly.InternalFunctionsTest.test_format_elemcreate
+*lib-python.3.test.test_ttk_textonly.InternalFunctionsTest.test_format_layoutlist
+*lib-python.3.test.test_ttk_textonly.InternalFunctionsTest.test_format_mapdict
+*lib-python.3.test.test_ttk_textonly.InternalFunctionsTest.test_format_optdict
+*lib-python.3.test.test_ttk_textonly.InternalFunctionsTest.test_list_from_layouttuple
+*lib-python.3.test.test_ttk_textonly.InternalFunctionsTest.test_list_from_statespec
+*lib-python.3.test.test_ttk_textonly.InternalFunctionsTest.test_script_from_settings
+*lib-python.3.test.test_ttk_textonly.InternalFunctionsTest.test_tclobj_to_py
+*lib-python.3.test.test_ttk_textonly.InternalFunctionsTest.test_val_or_dict
+*lib-python.3.test.test_ttk_textonly.TclObjsToPyTest.test_multivalues
+*lib-python.3.test.test_ttk_textonly.TclObjsToPyTest.test_nosplit
+*lib-python.3.test.test_ttk_textonly.TclObjsToPyTest.test_unicode

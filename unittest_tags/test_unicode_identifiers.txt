@@ -1,0 +1,3 @@
+*lib-python.3.test.test_unicode_identifiers.PEP3131Test.test_invalid
+*lib-python.3.test.test_unicode_identifiers.PEP3131Test.test_non_bmp_normalized
+*lib-python.3.test.test_unicode_identifiers.PEP3131Test.test_valid

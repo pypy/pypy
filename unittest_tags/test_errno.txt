@@ -1,0 +1,3 @@
+*lib-python.3.test.test_errno.ErrnoAttributeTests.test_for_improper_attributes
+*lib-python.3.test.test_errno.ErrnoAttributeTests.test_using_errorcode
+*lib-python.3.test.test_errno.ErrorcodeTests.test_attributes_in_errorcode

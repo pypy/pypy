@@ -1,0 +1,16 @@
+*lib-python.3.test.test_audit.AuditTest.test_basic
+*lib-python.3.test.test_audit.AuditTest.test_block_add_hook
+*lib-python.3.test.test_audit.AuditTest.test_block_add_hook_baseexception
+*lib-python.3.test.test_audit.AuditTest.test_cantrace
+*lib-python.3.test.test_audit.AuditTest.test_excepthook
+*lib-python.3.test.test_audit.AuditTest.test_gc
+*lib-python.3.test.test_audit.AuditTest.test_http
+*lib-python.3.test.test_audit.AuditTest.test_marshal
+*lib-python.3.test.test_audit.AuditTest.test_mmap
+*lib-python.3.test.test_audit.AuditTest.test_monkeypatch
+*lib-python.3.test.test_audit.AuditTest.test_not_in_gc
+*lib-python.3.test.test_audit.AuditTest.test_open
+*lib-python.3.test.test_audit.AuditTest.test_pickle
+*lib-python.3.test.test_audit.AuditTest.test_socket
+*lib-python.3.test.test_audit.AuditTest.test_unraisablehook
+*lib-python.3.test.test_audit.AuditTest.test_winreg

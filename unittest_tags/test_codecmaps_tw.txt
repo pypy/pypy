@@ -1,0 +1,6 @@
+*lib-python.3.test.test_codecmaps_tw.TestBIG5Map.test_errorhandle
+*lib-python.3.test.test_codecmaps_tw.TestBIG5Map.test_mapping_file
+*lib-python.3.test.test_codecmaps_tw.TestBIG5Map.test_mapping_supplemental
+*lib-python.3.test.test_codecmaps_tw.TestCP950Map.test_errorhandle
+*lib-python.3.test.test_codecmaps_tw.TestCP950Map.test_mapping_file
+*lib-python.3.test.test_codecmaps_tw.TestCP950Map.test_mapping_supplemental

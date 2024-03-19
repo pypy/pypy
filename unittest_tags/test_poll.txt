@@ -1,0 +1,7 @@
+*lib-python.3.test.test_poll.PollTests.test_poll1
+*lib-python.3.test.test_poll.PollTests.test_poll2
+*lib-python.3.test.test_poll.PollTests.test_poll3
+*lib-python.3.test.test_poll.PollTests.test_poll_blocks_with_negative_ms
+*lib-python.3.test.test_poll.PollTests.test_poll_c_limits
+*lib-python.3.test.test_poll.PollTests.test_poll_unit_tests
+*lib-python.3.test.test_poll.PollTests.test_threaded_poll

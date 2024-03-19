@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [ "main", "py3.9", "py3.10"]
   workflow_dispatch:
+    inputs:
+      use-unittest-tags:
+        type: boolean
+        description: Run only the known-passing unittest lib-python tests
+        default: true
+      retag:
+        type: boolean
+        description: Retag the unittest lib-python tests
+        default: false
 
 permissions:
   contents: read
@@ -42,6 +51,20 @@ jobs:
       run: |
         pypy rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
         mv pypy*-c libpypy*-c.so pypy/goal/
+
+    - run: printf 'PYPY=%s' pypy/goal/pypy*-c >>$GITHUB_ENV
+
+    - name: run lib-python tests
+      env:
+        ENABLE_CPYTHON_TAGGED_UNITTESTS: ${{ github.event.inputs.use-unittest-tags }}
+      run: |
+        $PYPY test_tagged_unittests.py ${{ fromJson('["--retag", ""]')[github.events.inputs.retag] }}
+
+    - name: upload
+      uses: actions/upload-artifact@v3
+      with:
+        name: unittest-tags
+        path: unittest_tags
 
     - name: package
       run: |

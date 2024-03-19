@@ -1,0 +1,6 @@
+*lib-python.3.test.test_copyreg.CopyRegTestCase.test_bool
+*lib-python.3.test.test_copyreg.CopyRegTestCase.test_class
+*lib-python.3.test.test_copyreg.CopyRegTestCase.test_extension_registry
+*lib-python.3.test.test_copyreg.CopyRegTestCase.test_noncallable_constructor
+*lib-python.3.test.test_copyreg.CopyRegTestCase.test_noncallable_reduce
+*lib-python.3.test.test_copyreg.CopyRegTestCase.test_slotnames

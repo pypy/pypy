@@ -1,0 +1,11 @@
+*lib-python.3.test.test_sched.TestCase.test_args_kwargs
+*lib-python.3.test.test_sched.TestCase.test_cancel
+*lib-python.3.test.test_sched.TestCase.test_cancel_concurrent
+*lib-python.3.test.test_sched.TestCase.test_cancel_correct_event
+*lib-python.3.test.test_sched.TestCase.test_empty
+*lib-python.3.test.test_sched.TestCase.test_enter
+*lib-python.3.test.test_sched.TestCase.test_enter_concurrent
+*lib-python.3.test.test_sched.TestCase.test_enterabs
+*lib-python.3.test.test_sched.TestCase.test_priority
+*lib-python.3.test.test_sched.TestCase.test_queue
+*lib-python.3.test.test_sched.TestCase.test_run_non_blocking

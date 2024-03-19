@@ -1,0 +1,17 @@
+*lib-python.3.test.test_string_literals.TestLiterals.test_eval_bytes_incomplete
+*lib-python.3.test.test_string_literals.TestLiterals.test_eval_bytes_invalid_escape
+*lib-python.3.test.test_string_literals.TestLiterals.test_eval_bytes_normal
+*lib-python.3.test.test_string_literals.TestLiterals.test_eval_bytes_raw
+*lib-python.3.test.test_string_literals.TestLiterals.test_eval_str_incomplete
+*lib-python.3.test.test_string_literals.TestLiterals.test_eval_str_invalid_escape
+*lib-python.3.test.test_string_literals.TestLiterals.test_eval_str_normal
+*lib-python.3.test.test_string_literals.TestLiterals.test_eval_str_raw
+*lib-python.3.test.test_string_literals.TestLiterals.test_eval_str_u
+*lib-python.3.test.test_string_literals.TestLiterals.test_file_iso_8859_1
+*lib-python.3.test.test_string_literals.TestLiterals.test_file_latin9
+*lib-python.3.test.test_string_literals.TestLiterals.test_file_latin_1
+*lib-python.3.test.test_string_literals.TestLiterals.test_file_utf8
+*lib-python.3.test.test_string_literals.TestLiterals.test_file_utf_8
+*lib-python.3.test.test_string_literals.TestLiterals.test_file_utf_8_error
+*lib-python.3.test.test_string_literals.TestLiterals.test_template
+*lib-python.3.test.test_string_literals.TestLiterals.test_uppercase_prefixes

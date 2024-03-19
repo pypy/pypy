@@ -1,0 +1,11 @@
+*lib-python.3.test.test_baseexception.ExceptionClassTests.test_builtins_new_style
+*lib-python.3.test.test_baseexception.ExceptionClassTests.test_inheritance
+*lib-python.3.test.test_baseexception.ExceptionClassTests.test_interface_multi_arg
+*lib-python.3.test.test_baseexception.ExceptionClassTests.test_interface_no_arg
+*lib-python.3.test.test_baseexception.ExceptionClassTests.test_interface_single_arg
+*lib-python.3.test.test_baseexception.ExceptionClassTests.test_setstate_refcount_no_crash
+*lib-python.3.test.test_baseexception.UsageTests.test_catch_BaseException_instance
+*lib-python.3.test.test_baseexception.UsageTests.test_catch_non_BaseException
+*lib-python.3.test.test_baseexception.UsageTests.test_catch_string
+*lib-python.3.test.test_baseexception.UsageTests.test_raise_new_style_non_exception
+*lib-python.3.test.test_baseexception.UsageTests.test_raise_string

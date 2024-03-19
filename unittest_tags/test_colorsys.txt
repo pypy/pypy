@@ -1,0 +1,6 @@
+*lib-python.3.test.test_colorsys.ColorsysTest.test_hls_roundtrip
+*lib-python.3.test.test_colorsys.ColorsysTest.test_hls_values
+*lib-python.3.test.test_colorsys.ColorsysTest.test_hsv_roundtrip
+*lib-python.3.test.test_colorsys.ColorsysTest.test_hsv_values
+*lib-python.3.test.test_colorsys.ColorsysTest.test_yiq_roundtrip
+*lib-python.3.test.test_colorsys.ColorsysTest.test_yiq_values

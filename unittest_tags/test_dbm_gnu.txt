@@ -1,0 +1,11 @@
+*lib-python.3.test.test_dbm_gnu.TestGdbm.test_bytes
+*lib-python.3.test.test_dbm_gnu.TestGdbm.test_context_manager
+*lib-python.3.test.test_dbm_gnu.TestGdbm.test_disallow_instantiation
+*lib-python.3.test.test_dbm_gnu.TestGdbm.test_error_conditions
+*lib-python.3.test.test_dbm_gnu.TestGdbm.test_flags
+*lib-python.3.test.test_dbm_gnu.TestGdbm.test_key_methods
+*lib-python.3.test.test_dbm_gnu.TestGdbm.test_nonascii_filename
+*lib-python.3.test.test_dbm_gnu.TestGdbm.test_nonexisting_file
+*lib-python.3.test.test_dbm_gnu.TestGdbm.test_reorganize
+*lib-python.3.test.test_dbm_gnu.TestGdbm.test_unicode
+*lib-python.3.test.test_dbm_gnu.TestGdbm.test_write_readonly_file
