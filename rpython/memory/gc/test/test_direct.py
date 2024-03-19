@@ -7,6 +7,9 @@ see as the list of roots (stack and prebuilt objects).
 # XXX VERY INCOMPLETE, low coverage
 
 import py
+
+from hypothesis import strategies, given
+
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gctypelayout import TypeLayoutBuilder, FIN_HANDLER_ARRAY
 from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
@@ -899,7 +902,116 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         # thus the prebuilt object now counts as white!
         assert (flags(prebuilt) & incminimark.GCFLAG_VISITED) == 0
 
-        # this triggers the assertion black -> white pointer
+        # this used to trigger the assertion black -> white pointer
         # for the reference obj -> prebuilt
         self.gc.collect_step()
+
+class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
+    from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
+
+    def state_setup(self, data):
+        self.setup_method(self.test_random)
+        self.data = data
+        self.prebuilts = []
+        # a model of the current state of the heap
+        self.model = {}
+        self.gc.TEST_VISIT_SINGLE_STEP = data.draw(strategies.booleans())
+        self.gc.DEBUG = data.draw(strategies.integers(0, 2))
+        self.make_prebuilts()
+
+    def make_prebuilts(self):
+        prebuilts = self.prebuilts
+        data = self.data
+        for i in range(self.data.draw(strategies.integers(0, 10))):
+            prebuilt = lltype.malloc(S, immortal=True)
+            prebuilt.x = ~i
+            prebuilts.append(prebuilt)
+        # initialize next and prev fields
+        for prebuilt in prebuilts:
+            self.consider_constant(prebuilt)
+            prev = prebuilts[data.draw(strategies.integers(0, len(prebuilts)-1))]
+            prebuilt.prev = prev
+            self.model[prebuilt.x, 'prev'] = prev.x
+            next = prebuilts[data.draw(strategies.integers(0, len(prebuilts)-1))]
+            prebuilt.next = next
+            self.model[prebuilt.x, 'next'] = next.x
+        # tell the GC about them
+        for prebuilt in prebuilts:
+            self.consider_constant(prebuilt)
+
+    def random_obj(self):
+        return self.data.draw(strategies.sampled_from(self.prebuilts + self.stackroots))
+
+    def check(self):
+        # walk the reachable heap and compare against model
+        seen = set()
+        todo = self.prebuilts + self.stackroots
+        while todo:
+            obj = todo.pop()
+            if obj.x in seen:
+                continue
+            seen.add(obj.x)
+            todo.append(obj.next)
+            todo.append(obj.prev)
+            assert self.model[obj.x, 'prev'] == obj.prev.x
+            assert self.model[obj.x, 'next'] == obj.next.x
+
+    @given(strategies.data())
+    def test_random(self, data):
+        self.state_setup(data)
+        # make a bunch of prebuilt data
+        for i in range(data.draw(strategies.integers(2, 100))):
+            # perform steps
+            action = data.draw(strategies.integers(len(self.stackroots) == 0, 4))
+            if action == 0: # drop
+                print i, "DROP",
+                index = data.draw(strategies.integers(0, len(self.stackroots)-1))
+                print index
+                del self.stackroots[index]
+            elif action == 1: # alloc
+                print i, "MALLOC"
+                p = self.malloc(S)
+                p.x = i
+                next = self.random_obj()
+                prev = self.random_obj()
+                self.model[i, 'next'] = next.x
+                self.model[i, 'prev'] = prev.x
+                self.write(p, 'next', next)
+                self.write(p, 'prev', prev)
+                self.stackroots.append(p)
+            elif action == 2: # read field
+                obj = self.random_obj()
+                print i, "READ", obj,
+                if data.draw(strategies.booleans()):
+                    res = obj.prev
+                    field = 'prev'
+                else:
+                    res = obj.next
+                    field = 'next'
+                # compare against model
+                self.stackroots.append(res)
+                assert self.model[obj.x, field] == res.x
+                print field
+            elif action == 3: # write field
+                obj1 = self.random_obj()
+                obj2 = self.random_obj()
+                print i, "WRITE", obj1, obj2,
+                if data.draw(strategies.booleans()):
+                    print 'next'
+                    self.write(obj1, 'next', obj2)
+                    self.model[obj1.x, 'next'] = obj2.x
+                else:
+                    print 'prev'
+                    self.write(obj1, 'prev', obj2)
+                    self.model[obj1.x, 'prev'] = obj2.x
+            elif action == 4: # collect step
+                print i, "COLLECT"
+                self.gc.collect_step()
+            else:
+                assert "unreachable"
+
+            self.check()
+        self.gc.collect()
+        self.check()
+        print "END"
 
