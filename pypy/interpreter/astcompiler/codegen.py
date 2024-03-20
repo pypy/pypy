@@ -1094,6 +1094,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.JUMP_FORWARD, next_except_with_nop)
 
             self.use_next_block(exception_in_exc_body)
+            self.emit_op(ops.POP_TOP) # get rid of type
             self.emit_op_arg(ops.LIST_APPEND, 3)
             self.emit_op(ops.POP_TOP)
             self.emit_jump(ops.JUMP_FORWARD, next_except)

@@ -41,7 +41,7 @@ def error_in_handler():
 def test_error_in_exception_handler():
     a = 1
     try:
-        raises_one()
+        error_in_handler()
     except ExceptionGroup as e:
         assert repr(e) == "ExceptionGroup('', [ZeroDivisionError('division by zero'), ExceptionGroup('abc', [ValueError()])])"
         assert repr(e.exception[0].__context__) == "ExceptionGroup('abc', [TypeError()])"
