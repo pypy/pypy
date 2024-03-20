@@ -1,4 +1,7 @@
-from _pypy_exceptiongroups import BaseExceptionGroup, ExceptionGroup
+from _pypy_exceptiongroups import \
+    BaseExceptionGroup, ExceptionGroup, \
+    _collect_eg_leafs, _exception_group_projection
+
 import pytest
 
 
@@ -479,3 +482,66 @@ def test_derive_always_creates_exception_group():
     eg = MyEG("abc", [ValueError(), TypeError()])
     eg2 = eg.derive([ValueError()])
     assert type(eg2) is ExceptionGroup
+
+
+### helper function tests
+
+def test_eg_leafs_basic():
+    t1, v1 = TypeError(), ValueError()
+    exceptions = [t1, v1]
+    message = "42"
+    excgroup = ExceptionGroup(message, exceptions)
+    assert [t1, v1] == _collect_eg_leafs(excgroup)
+
+def test_eg_leafs_null():
+    assert _collect_eg_leafs(None) ==[]
+
+def test_eg_leafs_nogroup():
+    exc = TypeError()
+    assert _collect_eg_leafs(exc) == [exc]
+
+def test_eg_leafs_recursive():
+    val1 = ValueError(1)
+    typ1 = TypeError()
+    val2 = ValueError(2)
+    val3 = ValueError(3)
+    typ2 = TypeError()
+    key1 = KeyError()
+    div1 = ZeroDivisionError()
+    eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
+    collected = _collect_eg_leafs(eg)
+    assert len(collected) == 7
+    for e in [val1, typ1, val2, val3, typ2, key1, div1]:
+        assert e in collected
+
+def test_exception_group_projection_basic():
+    val1 = ValueError(1)
+    typ1 = TypeError()
+    val2 = ValueError(2)
+    val3 = ValueError(3)
+    typ2 = TypeError()
+    key1 = KeyError()
+    div1 = ZeroDivisionError()
+    eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
+    keep1 = ExceptionGroup("meep", [key1, typ1])
+    keep2 = ExceptionGroup("moop", [val2, ExceptionGroup("doop", [val3])])
+    result = _exception_group_projection(eg, [keep1, keep2])
+    assert repr(result) == \
+        "ExceptionGroup('', [KeyError(), TypeError(), ValueError(2), ValueError(3)])"
+
+def test_exception_group_projection_duplicated_in_keep():
+    val1 = ValueError(1)
+    typ1 = TypeError()
+    val2 = ValueError(2)
+    val3 = ValueError(3)
+    typ2 = TypeError()
+    key1 = KeyError()
+    div1 = ZeroDivisionError()
+    eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
+    keep1 = ExceptionGroup("meep", [key1, typ1, val2])
+    keep2 = ExceptionGroup("moop", [val2, ExceptionGroup("doop", [key1, val3])])
+    result = _exception_group_projection(eg, [keep1, keep2])
+    assert repr(result) == \
+        "ExceptionGroup('', [KeyError(), TypeError(), ValueError(2), ValueError(3)])"
+
+# TODO: Duplicates in eg?

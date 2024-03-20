@@ -119,6 +119,51 @@ def _derive_and_copy_attrs(self, excs):
     eg.__traceback__ = self.__traceback__
     return eg
 
+def _exception_group_projection(eg, keep_list):
+    """
+    From CPython:
+    /* This function is used by the interpreter to construct reraised
+    * exception groups. It takes an exception group eg and a list
+    * of exception groups keep and returns the sub-exception group
+    * of eg which contains all leaf exceptions that are contained
+    * in any exception group in keep.
+    */
+    """
+    # TODO: muss es nicht eigentlich anders herum sein
+    # (return rest instead of match)?
+    assert isinstance(eg, BaseExceptionGroup)
+    assert isinstance(keep_list, list)
+
+    condition = []
+    for keep in keep_list:
+        assert isinstance(keep, BaseExceptionGroup)
+        condition.extend(_collect_eg_leafs(keep))
+
+    split_match, split_rest = eg.split(condition)
+
+    assert split_rest == None
+
+    return split_match
+
+def _collect_eg_leafs(eg_or_exc):
+    if eg_or_exc == None:
+        # empty exception groups appear as a result
+        # of matches (split, subgroup) and thus are valid
+        return []
+    elif isinstance(eg_or_exc, BaseExceptionGroup):
+        # recursively collect children of eg
+        ret = []
+        for subexc in eg_or_exc._exceptions:
+            ret.extend(_collect_eg_leafs(subexc))
+        return ret
+    elif isinstance(eg_or_exc, BaseException):
+        # we have a single exception (not a group),
+        # return a singleton list containing the exc
+        return [eg_or_exc]
+    else:
+        # TODO: what to do here? This is definitely not allowed.
+        assert False
+
 class ExceptionGroup(BaseExceptionGroup, Exception):
     pass
 
