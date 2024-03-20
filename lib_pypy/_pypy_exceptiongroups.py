@@ -136,7 +136,6 @@ def _exception_group_projection(eg, keep_list):
 
     resultset = set()
     for keep in keep_list:
-        assert isinstance(keep, BaseExceptionGroup)
         _collect_eg_leafs(keep, resultset)
 
     # TODO: maybe don't construct rest eg

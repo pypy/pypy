@@ -179,7 +179,7 @@ class __extend__(pyframe.PyFrame):
             opcode = ord(co_code[next_instr])
             oparg = ord(co_code[next_instr + 1])
             next_instr += 2
-            if self.pycode.co_name =='test' and next_instr == 58:
+            if self.pycode.co_name =='raises_one' and next_instr == 76:
                 import pdb;pdb.set_trace()
 
             # note: the structure of the code here is such that it makes
@@ -1306,6 +1306,8 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_res)
 
     def RERAISE(self, reset_last_instr, next_instr):
+        if self.pycode.co_name == "raises_one":
+            import pdb;pdb.set_trace()
         unroller = self.popvalue()
         if not isinstance(unroller, SApplicationException):
             assert 0
@@ -1811,7 +1813,11 @@ class __extend__(pyframe.PyFrame):
         w_mod = space.call_method(space.builtin, '__import__', space.newtext('_pypy_exceptiongroups'))
         import pdb; pdb.set_trace()
         w_eg_or_None = space.call_method(w_mod, "_prep_reraise_star", w_orig, w_res)
-        self.pushvalue(w_eg_or_None)
+        if space.is_w(w_eg_or_None, space.w_None):
+            w_push = space.w_None
+        else:
+            w_push = SApplicationException(OperationError(space.type(w_eg_or_None), w_eg_or_None))
+        self.pushvalue(w_push)
 
 
 def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):

@@ -1122,9 +1122,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.update_position(handler)
         self.pop_frame_block(F_EXCEPTION_HANDLER, None)
         # pypy difference: get rid of exception # XXX is this correct for groups?
+        self.emit_op(ops.ROT_TWO)
         self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.RERAISE) # reraise uses the SApplicationException
+        self.emit_op(ops.RERAISE)
         self.use_next_block(otherwise)
         self._visit_body(tr.orelse)
         self.use_next_block(end)
