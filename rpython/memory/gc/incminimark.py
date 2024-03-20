@@ -1302,7 +1302,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                             self.objects_to_trace.stack2dict()
                 self._debug_objects_to_trace_dict2 = \
                                        self.more_objects_to_trace.stack2dict()
+                self._debug_objects_to_trace_dict3 = \
+                                       self.prebuilt_root_objects.stack2dict()
                 MovingGCBase.debug_check_consistency(self)
+                self._debug_objects_to_trace_dict3.delete()
                 self._debug_objects_to_trace_dict2.delete()
                 self._debug_objects_to_trace_dict1.delete()
             else:
@@ -1357,7 +1360,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.header(obj).tid & GCFLAG_VISITED != 0:
             pass    # black -> black
         elif (self._debug_objects_to_trace_dict1.contains(obj) or
-              self._debug_objects_to_trace_dict2.contains(obj)):
+              self._debug_objects_to_trace_dict2.contains(obj) or
+              self._debug_objects_to_trace_dict3.contains(obj)):
             pass    # black -> gray
         elif self.header(obj).tid & GCFLAG_NO_HEAP_PTRS != 0:
             pass    # black -> white-but-prebuilt-so-dont-care
