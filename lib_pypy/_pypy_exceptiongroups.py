@@ -160,6 +160,13 @@ def _collect_eg_leafs(eg_or_exc, resultset):
     else:
         raise TypeError(f"expected BaseException, got {type(eg_or_exc)}")
 
+def _prep_reraise_star(orig, exc_list):
+    if not isinstance(orig, BaseExceptionGroup):
+        assert len(exc_list) == 1 or (len(exc_list) == 2 and exc_list[1] is None)
+        return exc_list[0]
+    # TODO: rest of logic
+    return _exception_group_projection(orig, exc_list)
+
 class ExceptionGroup(BaseExceptionGroup, Exception):
     pass
 

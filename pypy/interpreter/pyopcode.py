@@ -1808,10 +1808,10 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         w_res = self.popvalue()
         w_orig = self.popvalue()
+        w_mod = space.call_method(space.builtin, '__import__', space.newtext('_pypy_exceptiongroups'))
         import pdb; pdb.set_trace()
-        for w_obj in space.listview(w_res):
-            assert space.is_w(w_obj, space.w_None)
-        self.pushvalue(self.space.w_None)
+        w_eg_or_None = space.call_method(w_mod, "_prep_reraise_star", w_orig, w_res)
+        self.pushvalue(w_eg_or_None)
 
 
 def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
