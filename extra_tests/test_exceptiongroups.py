@@ -491,16 +491,23 @@ def test_eg_leafs_basic():
     exceptions = [t1, v1]
     message = "42"
     excgroup = ExceptionGroup(message, exceptions)
-    assert [t1, v1] == _collect_eg_leafs(excgroup)
+    resultset = set()
+    _collect_eg_leafs(excgroup, resultset)
+    assert {t1, v1} == resultset
 
 def test_eg_leafs_null():
-    assert _collect_eg_leafs(None) ==[]
+    resultset = set()
+    _collect_eg_leafs(None, resultset)
+    assert not resultset
 
 def test_eg_leafs_nogroup():
     exc = TypeError()
-    assert _collect_eg_leafs(exc) == [exc]
+    resultset = set()
+    _collect_eg_leafs(exc, resultset)
+    assert resultset == {exc}
 
 def test_eg_leafs_recursive():
+    # TODO: fix
     val1 = ValueError(1)
     typ1 = TypeError()
     val2 = ValueError(2)
@@ -509,10 +516,11 @@ def test_eg_leafs_recursive():
     key1 = KeyError()
     div1 = ZeroDivisionError()
     eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
-    collected = _collect_eg_leafs(eg)
-    assert len(collected) == 7
+    resultset = set()
+    collected = _collect_eg_leafs(eg, resultset)
+    assert len(resultset) == 7
     for e in [val1, typ1, val2, val3, typ2, key1, div1]:
-        assert e in collected
+        assert e in resultset
 
 def test_exception_group_projection_basic():
     val1 = ValueError(1)
@@ -527,7 +535,7 @@ def test_exception_group_projection_basic():
     keep2 = ExceptionGroup("moop", [val2, ExceptionGroup("doop", [val3])])
     result = _exception_group_projection(eg, [keep1, keep2])
     assert repr(result) == \
-        "ExceptionGroup('', [KeyError(), TypeError(), ValueError(2), ValueError(3)])"
+        "ExceptionGroup('abc', [KeyError(), ExceptionGroup('def', [ValueError(2), ValueError(3)]), TypeError()])"
 
 def test_exception_group_projection_duplicated_in_keep():
     val1 = ValueError(1)
@@ -542,6 +550,6 @@ def test_exception_group_projection_duplicated_in_keep():
     keep2 = ExceptionGroup("moop", [val2, ExceptionGroup("doop", [key1, val3])])
     result = _exception_group_projection(eg, [keep1, keep2])
     assert repr(result) == \
-        "ExceptionGroup('', [KeyError(), TypeError(), ValueError(2), ValueError(3)])"
+        "ExceptionGroup('abc', [KeyError(), ExceptionGroup('def', [ValueError(2), ValueError(3)]), TypeError()])"
 
 # TODO: Duplicates in eg?

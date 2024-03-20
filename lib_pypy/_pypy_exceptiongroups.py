@@ -134,35 +134,31 @@ def _exception_group_projection(eg, keep_list):
     assert isinstance(eg, BaseExceptionGroup)
     assert isinstance(keep_list, list)
 
-    condition = []
+    resultset = set()
     for keep in keep_list:
         assert isinstance(keep, BaseExceptionGroup)
-        condition.extend(_collect_eg_leafs(keep))
+        _collect_eg_leafs(keep, resultset)
 
-    split_match, split_rest = eg.split(condition)
-
-    assert split_rest == None
+    # TODO: maybe don't construct rest eg
+    split_match, _ = eg.split(lambda element: element in resultset)
 
     return split_match
 
-def _collect_eg_leafs(eg_or_exc):
+def _collect_eg_leafs(eg_or_exc, resultset):
     if eg_or_exc == None:
         # empty exception groups appear as a result
         # of matches (split, subgroup) and thus are valid
-        return []
+        pass
     elif isinstance(eg_or_exc, BaseExceptionGroup):
         # recursively collect children of eg
-        ret = []
         for subexc in eg_or_exc._exceptions:
-            ret.extend(_collect_eg_leafs(subexc))
-        return ret
+            _collect_eg_leafs(subexc, resultset)
     elif isinstance(eg_or_exc, BaseException):
         # we have a single exception (not a group),
         # return a singleton list containing the exc
-        return [eg_or_exc]
+        resultset.add(eg_or_exc)
     else:
-        # TODO: what to do here? This is definitely not allowed.
-        assert False
+        raise TypeError(f"expected BaseException, got {type(eg_or_exc)}")
 
 class ExceptionGroup(BaseExceptionGroup, Exception):
     pass
