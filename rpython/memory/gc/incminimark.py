@@ -1634,8 +1634,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             self.manually_copy_card_bits(source_addr, dest_addr, length)
             return True
-        #
-        if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
+        # NB: if we are marking, we must not inspect the state of the
+        # GCFLAG_TRACK_YOUNG_PTRS of source_addr here, because in the marking
+        # phase we rely on the write barrier to also turn black objects back
+        # into gray ones. see also the end of collect_cardrefs_to_nursery
+        if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0 or self.gc_state == STATE_MARKING:
             # there might be in source a pointer to a young object
             self.old_objects_pointing_to_young.append(dest_addr)
             dest_hdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
