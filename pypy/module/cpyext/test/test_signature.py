@@ -215,9 +215,30 @@ PyObject* takes_only_object_impl(PyObject* arg) {
 }"""),
             ]
         )
-
-    def test_import(self):
-        module = self.import_module(name="signature")
+        cls.w_func_wrong = cls.space.newtuple(
+            [
+                cls.space.newtext("wrong"),
+                # Some invalid type identifier
+                cls.space.newtuple([cls.space.newtext("999")]),
+                cls.space.newtext("T_C_LONG"),
+                cls.space.newtext(
+                    """
+PyObject* wrong(PyObject* module, PyObject* obj) {
+  (void)module;
+  long obj_int = PyLong_AsLong(obj);
+  if (obj_int == -1 && PyErr_Occurred()) {
+    return NULL;
+  }
+  long result = wrong_impl(obj_int);
+  return PyLong_FromLong(result);
+}"""),
+                cls.space.newtext(
+                    """
+long wrong_impl(long arg) {
+  return arg+1;
+}"""),
+            ]
+        )
 
     # long -> long
 
@@ -241,7 +262,7 @@ PyObject* takes_only_object_impl(PyObject* arg) {
         assert str(info.value) == "expected integer, got float object", str(info.value)
 
     def test_call_inc_with_wrong_type_sig_raises_runtime_error(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_wrong)
         with raises(RuntimeError) as info:
             module.wrong(1)
         assert (
