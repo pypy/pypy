@@ -68,6 +68,35 @@ long inc_impl(long arg) {
                 ),
             ]
         )
+        cls.w_func_raise_long = cls.space.newtuple(
+            [
+                cls.space.newtext("raise_long"),
+                cls.space.newtuple([cls.space.newtext("T_C_LONG")]),
+                cls.space.newtext("-T_C_LONG"),
+                cls.space.newtext(
+                    """
+PyObject* raise_long(PyObject* module, PyObject* obj) {
+  (void)module;
+  long obj_int = PyLong_AsLong(obj);
+  if (obj_int == -1 && PyErr_Occurred()) {
+    return NULL;
+  }
+  long result = raise_long_impl(obj_int);
+  return PyLong_FromLong(result);
+}"""
+                ),
+                cls.space.newtext(
+                    """
+long raise_long_impl(long x) {
+  if (x == 123) {
+    PyErr_Format(PyExc_RuntimeError, "got 123. raising");
+    return -1;
+  }
+  return x;
+}"""
+                ),
+            ]
+        )
 
     def test_import(self):
         module = self.import_module(name="signature")
@@ -102,12 +131,12 @@ long inc_impl(long arg) {
         ), str(info.value)
 
     def test_call_long_does_not_raise(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_raise_long)
         result = module.raise_long(8)
         assert result == 8
 
     def test_call_long_raises(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_raise_long)
         with raises(RuntimeError) as info:
             module.raise_long(123)
         assert str(info.value) == "got 123. raising"

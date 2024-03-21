@@ -55,36 +55,6 @@ PyPyTypedMethodMetadata add_sig = {
   .ml_name = "add",
 };
 
-long raise_long_impl(long x) {
-  if (x == 123) {
-    PyErr_Format(PyExc_RuntimeError, "got 123. raising");
-    return -1;
-  }
-  return x;
-}
-
-PyObject* raise_long(PyObject* module, PyObject* obj) {
-  (void)module;
-  long obj_int = PyLong_AsLong(obj);
-  if (obj_int == -1 && PyErr_Occurred()) {
-    return NULL;
-  }
-  long result = raise_long_impl(obj_int);
-  if (result == -1 && PyErr_Occurred()) {
-    return NULL;
-  }
-  return PyLong_FromLong(result);
-}
-
-int raise_long_arg_types[] = {T_C_LONG, -1};
-
-PyPyTypedMethodMetadata raise_long_sig = {
-  .arg_types = raise_long_arg_types,
-  .ret_type = -T_C_LONG,
-  .underlying_func = raise_long_impl,
-  .ml_name = "raise_long",
-};
-
 double raise_double_impl(double x) {
   if (x == 0.0) {
     PyErr_Format(PyExc_RuntimeError, "got 0. raising");
@@ -166,7 +136,6 @@ PyPyTypedMethodMetadata takes_only_object_sig = {
 static PyMethodDef signature_methods[] = {
     {wrong_sig.ml_name, wrong, METH_O | METH_TYPED, "Have a silly signature"},
     {add_sig.ml_name, (PyCFunction)(void*)add, METH_FASTCALL | METH_TYPED, "Add two doubles"},
-    {raise_long_sig.ml_name, raise_long, METH_O | METH_TYPED, "Raise an exception (long)"},
     {raise_double_sig.ml_name, raise_double, METH_O | METH_TYPED, "Raise an exception (double)"},
     {takes_object_sig.ml_name, (PyCFunction)(void*)takes_object, METH_FASTCALL | METH_TYPED, "Inc but also takes a PyObject*"},
     {takes_only_object_sig.ml_name, takes_only_object, METH_O | METH_TYPED, "id(x)"},
