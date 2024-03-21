@@ -166,6 +166,25 @@ long takes_object_impl(PyObject* obj, long arg) {
                 ),
             ]
         )
+        cls.w_func_takes_only_object = cls.space.newtuple(
+            [
+                cls.space.newtext("takes_only_object"),
+                cls.space.newtuple([cls.space.newtext("T_PY_OBJECT")]),
+                cls.space.newtext("T_PY_OBJECT"),
+                cls.space.newtext(
+                    """
+PyObject* takes_only_object(PyObject* module, PyObject* obj) {
+  (void)module;
+  return takes_only_object_impl(obj);
+}"""),
+                cls.space.newtext(
+                    """
+PyObject* takes_only_object_impl(PyObject* arg) {
+  Py_INCREF(arg);
+  return arg;
+}"""),
+            ]
+        )
 
     def test_import(self):
         module = self.import_module(name="signature")
@@ -268,7 +287,7 @@ long takes_object_impl(PyObject* obj, long arg) {
     # PyObject -> PyObject
 
     def test_call_pyobject_with_too_few_args_raises_type_error(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_takes_only_object)
         with raises(TypeError) as info:
             module.takes_only_object()
         assert (
@@ -277,7 +296,7 @@ long takes_object_impl(PyObject* obj, long arg) {
         ), str(info.value)
 
     def test_call_pyobject_with_too_many_args_raises_type_error(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_takes_only_object)
         with raises(TypeError) as info:
             module.takes_only_object(1, 2)
         assert (
@@ -286,7 +305,7 @@ long takes_object_impl(PyObject* obj, long arg) {
         ), str(info.value)
 
     def test_call_pyobject_returns_same_object(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_takes_only_object)
         obj = object()
         result = module.takes_only_object(obj)
         assert result is obj

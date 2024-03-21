@@ -53,31 +53,9 @@ PyPyTypedMethodMetadata raise_double_sig = {
   .ml_name = "raise_double",
 };
 
-
-
-PyObject* takes_only_object_impl(PyObject* arg) {
-  Py_INCREF(arg);
-  return arg;
-}
-
-PyObject* takes_only_object(PyObject* module, PyObject* obj) {
-  (void)module;
-  return takes_only_object_impl(obj);
-}
-
-int takes_only_object_arg_types[] = {T_PY_OBJECT, -1};
-
-PyPyTypedMethodMetadata takes_only_object_sig = {
-  .arg_types = takes_only_object_arg_types,
-  .ret_type = T_PY_OBJECT,
-  .underlying_func = takes_only_object_impl,
-  .ml_name = "takes_only_object",
-};
-
 static PyMethodDef signature_methods[] = {
     {wrong_sig.ml_name, wrong, METH_O | METH_TYPED, "Have a silly signature"},
     {raise_double_sig.ml_name, raise_double, METH_O | METH_TYPED, "Raise an exception (double)"},
-    {takes_only_object_sig.ml_name, takes_only_object, METH_O | METH_TYPED, "id(x)"},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef signature_definition = {
