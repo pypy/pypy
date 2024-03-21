@@ -174,6 +174,7 @@ def extract_txtsig(raw_doc, name):
     return None
 
 
+# TODO(max): Load these from the C code in the header
 T_C_LONG = 1
 T_C_DOUBLE = 2
 T_PY_OBJECT = 3
