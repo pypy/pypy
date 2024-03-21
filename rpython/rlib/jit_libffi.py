@@ -102,7 +102,7 @@ def jit_ffi_prep_cif(cif_description):
 ## have just read it from when called *in interpreter mode* only.
 
 
-def jit_ffi_call(cif_description, func_addr, exchange_buffer):
+def jit_ffi_call(cif_description, func_addr, exchange_buffer, releasegil=True):
     """Wrapper around ffi_call().  Must receive a CIF_DESCRIPTION_P that
     describes the layout of the 'exchange_buffer'.
 
@@ -131,7 +131,8 @@ def jit_ffi_call(cif_description, func_addr, exchange_buffer):
         #
         # Since call_release_gil is not generated, there is no need to
         # jit_ffi_save_result
-        jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
+        jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer,
+                              releasegil=releasegil)
 
 
 _short_sint_types = unrolling_iterable([rffi.SIGNEDCHAR, rffi.SHORT, rffi.INT])
@@ -231,7 +232,7 @@ def jit_ffi_call_impl_void(cif_description, func_addr, exchange_buffer):
     jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer)
     return None
 
-def jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer):
+def jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer, releasegil=True):
     """
     This is the function which actually calls libffi. All the rest is just
     infrastructure to convince the JIT to pass a typed result box to
@@ -243,9 +244,15 @@ def jit_ffi_call_impl_any(cif_description, func_addr, exchange_buffer):
         buffer_array[i] = data
     resultdata = rffi.ptradd(exchange_buffer,
                              cif_description.exchange_result)
-    clibffi.c_ffi_call(cif_description.cif, func_addr,
-                       rffi.cast(rffi.VOIDP, resultdata),
-                       buffer_array)
+    if releasegil:
+        clibffi.c_ffi_call(cif_description.cif, func_addr,
+                           rffi.cast(rffi.VOIDP, resultdata),
+                           buffer_array)
+    else:
+        clibffi.c_ffi_call_no_release_gil(cif_description.cif, func_addr,
+                                          rffi.cast(rffi.VOIDP, resultdata),
+                                          buffer_array)
+
 
 
 # ____________________________________________________________

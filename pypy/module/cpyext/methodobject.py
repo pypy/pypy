@@ -373,7 +373,7 @@ class W_PyCFunctionObject(W_Root):
 
             jit_ffi_call(cif_descr,
                          rffi.cast(rffi.VOIDP, sig.underlying_func),
-                         buffer)
+                         buffer, releasegil=False)
 
             resultdata = rffi.ptradd(buffer, cif_descr.exchange_result)
             typ = sig.ret_type
