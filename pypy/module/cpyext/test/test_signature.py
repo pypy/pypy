@@ -23,7 +23,7 @@ class AppTestSignature(AppTestCpythonExtensionBase):
                   .ml_name = STR({2}),
                 }};
                 static PyMethodDef signature_methods[] = {{
-                    {{ {2}_sig.ml_name, {2}, {5} | METH_TYPED, STR({2}) }},
+                    {{ {2}_sig.ml_name, (PyCFunction)({2}), {5} | METH_TYPED, STR({2}) }},
                     {{NULL, NULL, 0, NULL}},
                 }};
                 static struct PyModuleDef signature_definition = {{
@@ -97,6 +97,40 @@ long raise_long_impl(long x) {
                 ),
             ]
         )
+        cls.w_func_add = cls.space.newtuple(
+            [
+                cls.space.newtext("add"),
+                cls.space.newtuple([cls.space.newtext("T_C_DOUBLE"), cls.space.newtext("T_C_DOUBLE")]),
+                cls.space.newtext("T_C_DOUBLE"),
+                cls.space.newtext(
+                    """
+PyObject* add(PyObject* module, PyObject*const *args, Py_ssize_t nargs) {
+  (void)module;
+  if (nargs != 2) {
+    return PyErr_Format(PyExc_TypeError, "add expected 2 arguments but got %ld", nargs);
+  }
+  if (!PyFloat_CheckExact(args[0])) {
+    return PyErr_Format(PyExc_TypeError, "add expected float but got %s", Py_TYPE(args[0])->tp_name);
+  }
+  double left = PyFloat_AsDouble(args[0]);
+  if (PyErr_Occurred()) return NULL;
+  if (!PyFloat_CheckExact(args[1])) {
+    return PyErr_Format(PyExc_TypeError, "add expected float but got %s", Py_TYPE(args[1])->tp_name);
+  }
+  double right = PyFloat_AsDouble(args[1]);
+  if (PyErr_Occurred()) return NULL;
+  double result = add_impl(left, right);
+  return PyFloat_FromDouble(result);
+}"""
+                ),
+                cls.space.newtext(
+                    """
+double add_impl(double left, double right) {
+  return left + right;
+}"""
+                ),
+            ]
+        )
 
     def test_import(self):
         module = self.import_module(name="signature")
@@ -144,18 +178,18 @@ long raise_long_impl(long x) {
     # double -> double -> double
 
     def test_call_add(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_add)
         result = module.add(1.0, 2.0)
         assert result == 3.0
 
     def test_call_add_with_too_many_arguments_raises_type_error(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_add)
         with raises(TypeError) as info:
             module.add(4.0, 5.0, 6.0)
         assert str(info.value) == "add expected 2 arguments but got 3", str(info.value)
 
     def test_call_add_with_wrong_argument_type_raises_type_error(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_add)
         with raises(TypeError) as info:
             module.add(4, 5)
         assert str(info.value) == "add expected float but got int", str(info.value)

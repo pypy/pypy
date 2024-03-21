@@ -23,38 +23,6 @@ PyPyTypedMethodMetadata wrong_sig = {
   .ml_name = "wrong",
 };
 
-double add_impl(double left, double right) {
-  return left + right;
-}
-
-PyObject* add(PyObject* module, PyObject*const *args, Py_ssize_t nargs) {
-  (void)module;
-  if (nargs != 2) {
-    return PyErr_Format(PyExc_TypeError, "add expected 2 arguments but got %ld", nargs);
-  }
-  if (!PyFloat_CheckExact(args[0])) {
-    return PyErr_Format(PyExc_TypeError, "add expected float but got %s", Py_TYPE(args[0])->tp_name);
-  }
-  double left = PyFloat_AsDouble(args[0]);
-  if (PyErr_Occurred()) return NULL;
-  if (!PyFloat_CheckExact(args[1])) {
-    return PyErr_Format(PyExc_TypeError, "add expected float but got %s", Py_TYPE(args[1])->tp_name);
-  }
-  double right = PyFloat_AsDouble(args[1]);
-  if (PyErr_Occurred()) return NULL;
-  double result = add_impl(left, right);
-  return PyFloat_FromDouble(result);
-}
-
-int add_arg_types[] = {T_C_DOUBLE, T_C_DOUBLE, -1};
-
-PyPyTypedMethodMetadata add_sig = {
-  .arg_types = add_arg_types,
-  .ret_type = T_C_DOUBLE,
-  .underlying_func = add_impl,
-  .ml_name = "add",
-};
-
 double raise_double_impl(double x) {
   if (x == 0.0) {
     PyErr_Format(PyExc_RuntimeError, "got 0. raising");
@@ -135,7 +103,6 @@ PyPyTypedMethodMetadata takes_only_object_sig = {
 
 static PyMethodDef signature_methods[] = {
     {wrong_sig.ml_name, wrong, METH_O | METH_TYPED, "Have a silly signature"},
-    {add_sig.ml_name, (PyCFunction)(void*)add, METH_FASTCALL | METH_TYPED, "Add two doubles"},
     {raise_double_sig.ml_name, raise_double, METH_O | METH_TYPED, "Raise an exception (double)"},
     {takes_object_sig.ml_name, (PyCFunction)(void*)takes_object, METH_FASTCALL | METH_TYPED, "Inc but also takes a PyObject*"},
     {takes_only_object_sig.ml_name, takes_only_object, METH_O | METH_TYPED, "id(x)"},
