@@ -848,6 +848,56 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
             (incminimark.STATE_FINALIZING, incminimark.STATE_SCANNING)
             ]
 
+    def test_incrementality_bug_arraycopy(self):
+        from rpython.rlib import rgc
+        def flags(obj):
+            return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
+        self.gc.DEBUG = 0
+
+        source = self.malloc(VAR, 5)
+        self.stackroots.append(source)
+        target = self.malloc(VAR, 5)
+        self.stackroots.append(target)
+        node = self.malloc(S)
+        node.x = 5
+        self.writearray(source, 0, node)
+        val = self.gc.collect_step()
+        assert rgc.old_state(val) == incminimark.STATE_SCANNING
+        assert rgc.new_state(val) == incminimark.STATE_MARKING
+        source = self.stackroots[0] # reload
+        target = self.stackroots[1]
+        assert (flags(source) & incminimark.GCFLAG_VISITED) == 0
+        assert flags(source) & incminimark.GCFLAG_TRACK_YOUNG_PTRS
+        assert (flags(target) & incminimark.GCFLAG_VISITED) == 0
+        assert flags(target) & incminimark.GCFLAG_TRACK_YOUNG_PTRS
+        self.gc.TEST_VISIT_SINGLE_STEP = True
+        # this traces target
+        val = self.gc.collect_step()
+        assert (flags(source) & incminimark.GCFLAG_VISITED) == 0
+        assert flags(source) & incminimark.GCFLAG_TRACK_YOUNG_PTRS
+        assert flags(target) & incminimark.GCFLAG_VISITED
+        assert flags(target) & incminimark.GCFLAG_TRACK_YOUNG_PTRS
+
+        addr_src = llmemory.cast_ptr_to_adr(source)
+        addr_dst = llmemory.cast_ptr_to_adr(target)
+        res = self.gc.writebarrier_before_copy(addr_src, addr_dst, 0, 0, 2)
+        assert res
+        # manually do the copy
+        target[0] = source[0]
+        target[1] = source[1]
+        source[0] = lltype.nullptr(S)
+        # this traces source
+        self.gc.collect_step()
+        # going through more_objects_to_trace (only the arrays are there)
+        self.gc.collect_step()
+        # sweeping 1
+        self.gc.collect_step()
+        # sweeping 2
+        self.gc.collect_step()
+        # used to crash, node got collected
+        assert target[0].x == 5
+
+
 class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
 
