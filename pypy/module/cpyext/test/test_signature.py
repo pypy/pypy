@@ -100,7 +100,9 @@ long raise_long_impl(long x) {
         cls.w_func_add = cls.space.newtuple(
             [
                 cls.space.newtext("add"),
-                cls.space.newtuple([cls.space.newtext("T_C_DOUBLE"), cls.space.newtext("T_C_DOUBLE")]),
+                cls.space.newtuple(
+                    [cls.space.newtext("T_C_DOUBLE"), cls.space.newtext("T_C_DOUBLE")]
+                ),
                 cls.space.newtext("T_C_DOUBLE"),
                 cls.space.newtext(
                     """
@@ -127,6 +129,39 @@ PyObject* add(PyObject* module, PyObject*const *args, Py_ssize_t nargs) {
                     """
 double add_impl(double left, double right) {
   return left + right;
+}"""
+                ),
+            ]
+        )
+        cls.w_func_takes_object = cls.space.newtuple(
+            [
+                cls.space.newtext("takes_object"),
+                cls.space.newtuple(
+                    [cls.space.newtext("T_PY_OBJECT"), cls.space.newtext("T_C_LONG")]
+                ),
+                cls.space.newtext("T_C_LONG"),
+                cls.space.newtext(
+                    """
+PyObject* takes_object(PyObject* module, PyObject*const *args, Py_ssize_t nargs) {
+  (void)module;
+  if (nargs != 2) {
+    return PyErr_Format(PyExc_TypeError, "takes_object expected 2 arguments but got %ld", nargs);
+  }
+  PyObject* obj = args[0];
+  assert(obj != NULL);
+  long obj_int = PyLong_AsLong(args[1]);
+  if (obj_int == -1 && PyErr_Occurred()) {
+    return NULL;
+  }
+  long result = takes_object_impl(obj, obj_int);
+  return PyLong_FromLong(result);
+}"""
+                ),
+                cls.space.newtext(
+                    """
+long takes_object_impl(PyObject* obj, long arg) {
+  (void)obj;
+  return arg + 1;
 }"""
                 ),
             ]
@@ -210,7 +245,7 @@ double add_impl(double left, double right) {
     # PyObject -> long
 
     def test_call_pyobject_long_with_too_few_args_raises_type_error(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_takes_object)
         with raises(TypeError) as info:
             module.takes_object(1)
         assert str(info.value) == "takes_object expected 2 arguments but got 1", str(
@@ -218,7 +253,7 @@ double add_impl(double left, double right) {
         )
 
     def test_call_pyobject_long_with_too_many_args_raises_type_error(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_takes_object)
         with raises(TypeError) as info:
             module.takes_object(1, 2, 3)
         assert str(info.value) == "takes_object expected 2 arguments but got 3", str(
@@ -226,7 +261,7 @@ double add_impl(double left, double right) {
         )
 
     def test_call_pyobject_long_returns_int(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_takes_object)
         result = module.takes_object(object(), 8)
         assert result == 9, "%s %s" % (type(result), result)
 
