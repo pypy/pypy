@@ -65,12 +65,6 @@ pypy_get_typed_signature = rffi.llexternal(
     # _nowrapper=True,
 )
 
-long_to_long = lltype.Ptr(lltype.FuncType([rffi.LONG], rffi.LONG))
-pyobject_long_to_long = lltype.Ptr(lltype.FuncType([PyObject, rffi.LONG], rffi.LONG))
-pyobject_to_pyobject = lltype.Ptr(lltype.FuncType([PyObject], PyObject))
-double_to_double = lltype.Ptr(lltype.FuncType([rffi.DOUBLE], rffi.DOUBLE))
-double_double_to_double = lltype.Ptr(lltype.FuncType([rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE))
-
 @bootstrap_function
 def init_functionobject(space):
     make_typedescr(W_PyCFunctionObject.typedef,
