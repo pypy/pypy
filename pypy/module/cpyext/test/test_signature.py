@@ -295,6 +295,26 @@ double muladd_impl(double a, double b, double c) {
                 ),
             ]
         )
+        cls.w_func_does_have_gil = cls.space.newtuple(
+            [
+                cls.space.newtext("does_have_gil"),
+                cls.space.newtuple([]),
+                cls.space.newtext("T_C_LONG"),
+                cls.space.newtext(
+                    """
+PyObject* does_have_gil(PyObject* module) {
+    (void)module;
+    return PyLong_FromLong(does_have_gil_impl());
+}"""
+                ),
+                cls.space.newtext(
+                    """
+long does_have_gil_impl() {
+  return PyGILState_Check();
+}"""
+                ),
+            ]
+        )
 
     # long -> long
 
@@ -422,3 +442,8 @@ double muladd_impl(double a, double b, double c) {
     def test_muladd(self):
         module = self.make_module(self, *self.func_muladd)
         assert module.muladd(1.0, 2.0, 3.0) == 1.0 + 2.0 * 3.0
+
+    def test_gil_not_released(self):
+        module = self.make_module(self, *self.func_does_have_gil)
+        had_gil = module.does_have_gil()
+        assert had_gil
