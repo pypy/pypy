@@ -23,39 +23,8 @@ PyPyTypedMethodMetadata wrong_sig = {
   .ml_name = "wrong",
 };
 
-double raise_double_impl(double x) {
-  if (x == 0.0) {
-    PyErr_Format(PyExc_RuntimeError, "got 0. raising");
-    return -0.0;
-  }
-  return x;
-}
-
-PyObject* raise_double(PyObject* module, PyObject* obj) {
-  (void)module;
-  double obj_double = PyFloat_AsDouble(obj);
-  if (obj_double == -1 && PyErr_Occurred()) {
-    return NULL;
-  }
-  double result = raise_double_impl(obj_double);
-  if (result == -1 && PyErr_Occurred()) {
-    return NULL;
-  }
-  return PyFloat_FromDouble(result);
-}
-
-int raise_double_arg_types[] = {T_C_DOUBLE, -1};
-
-PyPyTypedMethodMetadata raise_double_sig = {
-  .arg_types = raise_double_arg_types,
-  .ret_type = -T_C_DOUBLE,
-  .underlying_func = raise_double_impl,
-  .ml_name = "raise_double",
-};
-
 static PyMethodDef signature_methods[] = {
     {wrong_sig.ml_name, wrong, METH_O | METH_TYPED, "Have a silly signature"},
-    {raise_double_sig.ml_name, raise_double, METH_O | METH_TYPED, "Raise an exception (double)"},
     {NULL, NULL, 0, NULL}};
 
 static struct PyModuleDef signature_definition = {

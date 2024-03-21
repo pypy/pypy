@@ -133,6 +133,36 @@ double add_impl(double left, double right) {
                 ),
             ]
         )
+        cls.w_func_raise_double = cls.space.newtuple(
+            [
+                cls.space.newtext("raise_double"),
+                cls.space.newtuple([cls.space.newtext("T_C_DOUBLE")]),
+                cls.space.newtext("-T_C_DOUBLE"),
+                cls.space.newtext(
+                    """
+PyObject* raise_double(PyObject* module, PyObject* obj) {
+  (void)module;
+  double obj_double = PyFloat_AsDouble(obj);
+  if (obj_double == -1 && PyErr_Occurred()) {
+    return NULL;
+  }
+  double result = raise_double_impl(obj_double);
+  if (result == -1 && PyErr_Occurred()) {
+    return NULL;
+  }
+  return PyFloat_FromDouble(result);
+}"""),
+                cls.space.newtext(
+                    """
+double raise_double_impl(double x) {
+  if (x == 0.0) {
+    PyErr_Format(PyExc_RuntimeError, "got 0. raising");
+    return -0.0;
+  }
+  return x;
+}"""),
+            ]
+        )
         cls.w_func_takes_object = cls.space.newtuple(
             [
                 cls.space.newtext("takes_object"),
@@ -251,12 +281,12 @@ PyObject* takes_only_object_impl(PyObject* arg) {
     # double -> double
 
     def test_call_double_does_not_raise(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_raise_double)
         result = module.raise_double(1.0)
         assert result == 1.0
 
     def test_call_double_raises(self):
-        module = self.import_module(name="signature")
+        module = self.make_module(self, *self.func_raise_double)
         with raises(RuntimeError) as info:
             module.raise_double(0.0)
         assert str(info.value) == "got 0. raising"
