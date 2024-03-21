@@ -295,7 +295,7 @@ double muladd_impl(double a, double b, double c) {
                 ),
             ]
         )
-        cls.w_func_does_have_gil = cls.space.newtuple(
+        cls.w_func_does_have_gil_noargs = cls.space.newtuple(
             [
                 cls.space.newtext("does_have_gil"),
                 cls.space.newtuple([]),
@@ -310,6 +310,28 @@ PyObject* does_have_gil(PyObject* module) {
                 cls.space.newtext(
                     """
 long does_have_gil_impl() {
+  return PyGILState_Check();
+}"""
+                ),
+            ]
+        )
+
+        cls.w_func_does_have_gil_o = cls.space.newtuple(
+            [
+                cls.space.newtext("does_have_gil"),
+                cls.space.newtuple([cls.space.newtext("T_PY_OBJECT")]),
+                cls.space.newtext("T_C_LONG"),
+                cls.space.newtext(
+                    """
+PyObject* does_have_gil(PyObject* module, PyObject* obj) {
+    (void)module;
+    return PyLong_FromLong(does_have_gil_impl(obj));
+}"""
+                ),
+                cls.space.newtext(
+                    """
+long does_have_gil_impl(PyObject* obj) {
+  (void)obj;
   return PyGILState_Check();
 }"""
                 ),
@@ -443,7 +465,12 @@ long does_have_gil_impl() {
         module = self.make_module(self, *self.func_muladd)
         assert module.muladd(1.0, 2.0, 3.0) == 1.0 + 2.0 * 3.0
 
-    def test_gil_not_released(self):
-        module = self.make_module(self, *self.func_does_have_gil)
+    def test_gil_not_released_meth_o(self):
+        module = self.make_module(self, *self.func_does_have_gil_o)
+        had_gil = module.does_have_gil(None)
+        assert had_gil
+
+    def test_gil_not_released_meth_noargs(self):
+        module = self.make_module(self, *self.func_does_have_gil_noargs)
         had_gil = module.does_have_gil()
         assert had_gil
