@@ -161,11 +161,31 @@ def _collect_eg_leafs(eg_or_exc, resultset):
         raise TypeError(f"expected BaseException, got {type(eg_or_exc)}")
 
 def _prep_reraise_star(orig, exc_list):
+    assert isinstance(orig, BaseException)
+    assert isinstance(exc_list, list)
+
+    # TODO: test this:
+    if len(exc_list) < 1:
+        return None
+
+    for exc in exc_list: assert isinstance(exc, BaseException)
+
     if not isinstance(orig, BaseExceptionGroup):
+        # /* a naked exception was caught and wrapped. Only one except* clause
+        #  * could have executed,so there is at most one exception to raise. */
         assert len(exc_list) == 1 or (len(exc_list) == 2 and exc_list[1] is None)
         return exc_list[0]
-    # TODO: rest of logic
-    return _exception_group_projection(orig, exc_list)
+
+    raised_list = []
+    reraised_list = []
+    for exc in exc_list:
+        if exc != None:
+            if _is_same_exception_metadata(exc, orig):
+                reraised_list.append(exc)
+            else:
+                raised_list.append(exc)
+
+    return _exception_group_projection(orig, reraised_list)
 
 class ExceptionGroup(BaseExceptionGroup, Exception):
     pass

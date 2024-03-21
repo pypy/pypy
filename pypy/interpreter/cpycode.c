@@ -250,7 +250,7 @@ _PyExc_PrepReraiseStar(PyObject *orig, PyObject *excs)
         PyObject *append_list = is_reraise ? reraised_list : raised_list;
         if (PyList_Append(append_list, e) < 0)
         {
-            goto done;
+            goto done; // TODO Was ist hiermit?
         }
     }
 
