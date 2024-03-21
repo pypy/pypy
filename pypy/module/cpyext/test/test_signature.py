@@ -151,7 +151,8 @@ PyObject* raise_double(PyObject* module, PyObject* obj) {
     return NULL;
   }
   return PyFloat_FromDouble(result);
-}"""),
+}"""
+                ),
                 cls.space.newtext(
                     """
 double raise_double_impl(double x) {
@@ -160,7 +161,8 @@ double raise_double_impl(double x) {
     return -0.0;
   }
   return x;
-}"""),
+}"""
+                ),
             ]
         )
         cls.w_func_takes_object = cls.space.newtuple(
@@ -206,13 +208,15 @@ long takes_object_impl(PyObject* obj, long arg) {
 PyObject* takes_only_object(PyObject* module, PyObject* obj) {
   (void)module;
   return takes_only_object_impl(obj);
-}"""),
+}"""
+                ),
                 cls.space.newtext(
                     """
 PyObject* takes_only_object_impl(PyObject* arg) {
   Py_INCREF(arg);
   return arg;
-}"""),
+}"""
+                ),
             ]
         )
         cls.w_func_wrong = cls.space.newtuple(
@@ -231,12 +235,14 @@ PyObject* wrong(PyObject* module, PyObject* obj) {
   }
   long result = wrong_impl(obj_int);
   return PyLong_FromLong(result);
-}"""),
+}"""
+                ),
                 cls.space.newtext(
                     """
 long wrong_impl(long arg) {
   return arg+1;
-}"""),
+}"""
+                ),
             ]
         )
 
