@@ -9,12 +9,19 @@ class AppTestSignature(AppTestCpythonExtensionBase):
             [],
             '''():
             def make_module(self, name, arg_types, ret_type, wrapper, impl):
-                arg_types_str = ", ".join(arg_types)
-                flags = "METH_O" if len(arg_types) == 1 else "METH_FASTCALL"
+                if len(arg_types) == 0:
+                    arg_types_str = ""
+                    flags = "METH_NOARGS"
+                elif len(arg_types) == 1:
+                    arg_types_str = arg_types[0] + ", "
+                    flags = "METH_O"
+                else:
+                    arg_types_str = ", ".join(arg_types) + ", "
+                    flags = "METH_FASTCALL"
                 body = """
                 {0}
                 {1}
-                int {2}_arg_types[] = {{ {3}, -1 }};
+                int {2}_arg_types[] = {{ {3} -1 }};
                 PyPyTypedMethodMetadata {2}_sig = {{
                   .arg_types = {2}_arg_types,
                   .ret_type = {4},
