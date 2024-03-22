@@ -1150,6 +1150,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                     source_start = data.draw(strategies.integers(0, len(array1)-1))
                     dest_start = data.draw(strategies.integers(0, len(array2)-1))
                     length = data.draw(strategies.integers(1, min(len(array1) - source_start, len(array2) - dest_start)))
+                print array1, array2, source_start, dest_start, length
 
                 slowpath = not self.gc.writebarrier_before_copy(llmemory.cast_ptr_to_adr(array1), llmemory.cast_ptr_to_adr(array2),
                                                                 source_start, dest_start,
