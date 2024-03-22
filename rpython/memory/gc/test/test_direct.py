@@ -8,7 +8,7 @@ see as the list of roots (stack and prebuilt objects).
 
 import py
 
-from hypothesis import strategies, given
+from hypothesis import strategies, given, assume
 
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gctypelayout import TypeLayoutBuilder, FIN_HANDLER_ARRAY
@@ -959,10 +959,6 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
     def test_incrementality_bug_arraycopy2(self):
         # same test as before, but with card marking *on* for the arrays
         # in the previous one they are too small for card marking
-
-        from rpython.rlib import rgc
-        def flags(obj):
-            return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
         self.test_incrementality_bug_arraycopy()
     test_incrementality_bug_arraycopy2.GC_PARAMS = {
         "card_page_indices": 4}
@@ -972,7 +968,15 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
 
     def state_setup(self, data):
-        self.setup_method(self.test_random)
+        from rpython.memory.gc.minimarktest import SimpleArenaCollection
+        if data.draw(strategies.booleans()):
+            # enable card marking
+            GC_PARAMS = {"card_page_indices": 4}
+        else:
+            GC_PARAMS = {}
+        GC_PARAMS['ArenaCollectionClass' = SimpleArenaCollection
+        self.test_random.im_func.GC_PARAMS = GC_PARAMS
+        self.setup_method(self.test_random.im_func)
         self.data = data
         # a model of the current state of the heap
         self.model = {}
@@ -985,6 +989,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
     def make_prebuilts(self):
         prebuilts = self.prebuilts = []
         data = self.data
+        # make a bunch of prebuilt data
         for i in range(self.data.draw(strategies.integers(1, 10))):
             prebuilt = lltype.malloc(S, immortal=True)
             prebuilt.x = ~i
@@ -1059,11 +1064,11 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
 
     @given(strategies.data())
     def test_random(self, data):
+        from rpython.rlib import rgc
         self.state_setup(data)
-        # make a bunch of prebuilt data
         for i in range(data.draw(strategies.integers(2, 100))):
             # perform steps
-            action = data.draw(strategies.integers(len(self.stackroots) == 0, 7))
+            action = data.draw(strategies.integers(len(self.stackroots) == 0, 8))
             if action == 0: # drop
                 print i, "DROP",
                 index = data.draw(strategies.integers(0, len(self.stackroots)-1))
@@ -1124,6 +1129,31 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 self.writearray(array, index, obj)
                 self.arraymodel[len(array), index] = obj.x
             elif action == 7:
+                print i, "COPY_ARRAY",
+                array1 = self.random_array()
+                array2 = self.random_array()
+                assume(array1 != array2)
+                if not data.draw(strategies.booleans()):
+                    source_start = dest_start = 0
+                    length = data.draw(strategies.integers(1, min(len(array1), len(array2))))
+                else:
+                    source_start = data.draw(strategies.integers(0, len(array1)-1))
+                    dest_start = data.draw(strategies.integers(0, len(array2)-1))
+                    length = data.draw(strategies.integers(1, min(len(array1) - source_start, len(array2) - dest_start)))
+
+                slowpath = not self.gc.writebarrier_before_copy(llmemory.cast_ptr_to_adr(array1), llmemory.cast_ptr_to_adr(array2),
+                                                                source_start, dest_start,
+                                                                length)
+                for i in range(length):
+                    self.arraymodel[len(array2), dest_start] = self.arraymodel[len(array1), source_start]
+                    if slowpath:
+                        self.writearray(array2, dest_start, array1[source_start])
+                    else:
+                        # don't call the write barrier
+                        array2[dest_start] = array1[source_start]
+                    dest_start += 1
+                    source_start += 1
+            elif action == 8:
                 print i, "MALLOC_ARRAY"
                 array = self.create_array()
                 self.stackroots.append(array)
