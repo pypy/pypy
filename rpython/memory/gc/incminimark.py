@@ -1554,10 +1554,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if byte & bitmask:
                 return
             #
-            # We set the flag (even if the newly written address does not
-            # actually point to the nursery, which seems to be ok -- actually
-            # it seems more important that remember_young_pointer_from_array2()
-            # does not take 3 arguments).
+            # We set the flag even if the newly written address does not
+            # actually point to the nursery. this is for two reasons:
+            # - during the marking phase it's a correctness question. we rely
+            #   on the write barrier to find out which black objects have been
+            #   mutated and need to be rescanned at some point during the
+            #   marking phase.
+            # - it's cheaper to call remember_young_pointer_from_array2 if it
+            #   does not take 3 arguments
             addr_byte.char[0] = chr(byte | bitmask)
             #
             if objhdr.tid & GCFLAG_CARDS_SET == 0:
