@@ -906,15 +906,15 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         # for the reference obj -> prebuilt
         self.gc.collect_step()
 
-    def test_incrementality_bug_arraycopy(self):
+    def test_incrementality_bug_arraycopy(self, size1=8, size2=8):
         from rpython.rlib import rgc
         def flags(obj):
             return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
         self.gc.DEBUG = 0
 
-        source = self.malloc(VAR, 8)
+        source = self.malloc(VAR, size1)
         self.stackroots.append(source)
-        target = self.malloc(VAR, 8)
+        target = self.malloc(VAR, size2)
         self.stackroots.append(target)
         node = self.malloc(S)
         node.x = 5
@@ -939,11 +939,14 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         addr_src = llmemory.cast_ptr_to_adr(source)
         addr_dst = llmemory.cast_ptr_to_adr(target)
         res = self.gc.writebarrier_before_copy(addr_src, addr_dst, 0, 0, 2)
-        assert res
-        # manually do the copy
-        target[0] = source[0]
-        target[1] = source[1]
-        source[0] = lltype.nullptr(S)
+        if res:
+            # manually do the copy
+            target[0] = source[0]
+            target[1] = source[1]
+        else:
+            self.writearray(target, 0, source[0])
+            self.writearray(target, 1, source[1])
+        self.writearray(source, 0, lltype.nullptr(S))
         # this traces source
         self.gc.collect_step()
         # going through more_objects_to_trace (only the arrays are there)
@@ -960,6 +963,13 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         # in the previous one they are too small for card marking
         self.test_incrementality_bug_arraycopy()
     test_incrementality_bug_arraycopy2.GC_PARAMS = {
+        "card_page_indices": 4}
+
+    def test_incrementality_bug_arraycopy3(self):
+        # same test as before, but with card marking *on* for the arrays
+        # in the previous one they are too small for card marking
+        self.test_incrementality_bug_arraycopy(size2=2)
+    test_incrementality_bug_arraycopy3.GC_PARAMS = {
         "card_page_indices": 4}
 
 

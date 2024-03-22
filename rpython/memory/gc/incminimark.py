@@ -1107,7 +1107,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             return False
         if not self.is_in_nursery(obj):
             # old objects are already non-moving, therefore pinning
-            # makes no sense. If you run into this case, you may forgot
+            # makes no sense. If you run into this case, you maybe forgot
             # to check can_move(obj).
             return False
         if self._is_pinned(obj):
@@ -1628,6 +1628,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # Return False to mean "do it manually in ll_arraycopy".
                 return False
             #
+            if dest_hdr.tid & GCFLAG_HAS_CARDS == 0:
+                # The dest object doesn't have cards.  Do it manually.
+                return False
+            #
             if source_hdr.tid & GCFLAG_CARDS_SET == 0:
                 # The source object has no young pointers at all. Basically we
                 # are done.
@@ -1642,10 +1646,6 @@ class IncrementalMiniMarkGC(MovingGCBase):
                         self.old_objects_with_cards_set.append(dest_addr)
                         dest_hdr.tid |= GCFLAG_CARDS_SET
                 return True
-            #
-            if dest_hdr.tid & GCFLAG_HAS_CARDS == 0:
-                # The dest object doesn't have cards.  Do it manually.
-                return False
             #
             if source_start != 0 or dest_start != 0:
                 # Misaligned.  Do it manually.
@@ -1978,6 +1978,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             obj = oldlist.pop()
             #
             # Remove the GCFLAG_CARDS_SET flag.
+            ll_assert(self.header(obj).tid & GCFLAG_HAS_CARDS != 0,
+                "!GCFLAG_HAS_CARDS but object in 'old_objects_with_cards_set'")
             ll_assert(self.header(obj).tid & GCFLAG_CARDS_SET != 0,
                 "!GCFLAG_CARDS_SET but object in 'old_objects_with_cards_set'")
             self.header(obj).tid &= ~GCFLAG_CARDS_SET
