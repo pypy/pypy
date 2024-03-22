@@ -913,9 +913,9 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
             return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
         self.gc.DEBUG = 0
 
-        source = self.malloc(VAR, 5)
+        source = self.malloc(VAR, 8)
         self.stackroots.append(source)
-        target = self.malloc(VAR, 5)
+        target = self.malloc(VAR, 8)
         self.stackroots.append(target)
         node = self.malloc(S)
         node.x = 5
@@ -955,6 +955,17 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         self.gc.collect_step()
         # used to crash, node got collected
         assert target[0].x == 5
+
+    def test_incrementality_bug_arraycopy2(self):
+        # same test as before, but with card marking *on* for the arrays
+        # in the previous one they are too small for card marking
+
+        from rpython.rlib import rgc
+        def flags(obj):
+            return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
+        self.test_incrementality_bug_arraycopy()
+    test_incrementality_bug_arraycopy2.GC_PARAMS = {
+        "card_page_indices": 4}
 
 
 class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):

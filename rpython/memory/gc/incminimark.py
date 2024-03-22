@@ -1629,7 +1629,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 return False
             #
             if source_hdr.tid & GCFLAG_CARDS_SET == 0:
-                # The source object has no young pointers at all.  Done.
+                # The source object has no young pointers at all. Basically we
+                # are done.
+                # But, somewhat obscurely, we need to still set
+                # GCFLAG_CARDS_SET on dest_hdr if we're in the marking phase,
+                # without actually marking any cards. the reason for this is
+                # the whole array needs to be turned gray and rescanned if it's
+                # currently black, which happens at the end of
+                # collect_cardrefs_to_nursery
+                if self.gc_state == STATE_MARKING:
+                    if dest_hdr.tid & GCFLAG_CARDS_SET == 0:
+                        self.old_objects_with_cards_set.append(dest_addr)
+                        dest_hdr.tid |= GCFLAG_CARDS_SET
                 return True
             #
             if dest_hdr.tid & GCFLAG_HAS_CARDS == 0:
