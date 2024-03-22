@@ -2040,6 +2040,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 ll_assert(not self.is_in_nursery(obj),
                           "expected nursery obj in collect_cardrefs_to_nursery")
                 if self.gc_state == STATE_MARKING:
+                    # XXX do we *need* to unconditionally do that? or is it
+                    # enough to do it if GCFLAG_VISITED is not set?
                     self.header(obj).tid &= ~GCFLAG_VISITED
                     self.more_objects_to_trace.append(obj)
 
