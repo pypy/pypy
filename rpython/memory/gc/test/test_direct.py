@@ -119,7 +119,6 @@ class BaseDirectGCTest(object):
 
     def malloc(self, TYPE, n=None):
         addr = self.gc.malloc(self.get_type_id(TYPE), n)
-        debug_print(self.gc)
         obj_ptr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
         if not self.gc.malloc_zero_filled:
             zero_gc_pointers_inside(obj_ptr, TYPE)
@@ -974,7 +973,8 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
             GC_PARAMS = {"card_page_indices": 4}
         else:
             GC_PARAMS = {}
-        GC_PARAMS['ArenaCollectionClass' = SimpleArenaCollection
+        if not data.draw(strategies.booleans()):
+            GC_PARAMS['ArenaCollectionClass'] = SimpleArenaCollection
         self.test_random.im_func.GC_PARAMS = GC_PARAMS
         self.setup_method(self.test_random.im_func)
         self.data = data
