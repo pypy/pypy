@@ -73,7 +73,7 @@ from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib import rgc
+from rpython.rlib import rgc, unroll
 from rpython.memory.gc.minimarkpage import out_of_memory
 
 #
@@ -168,6 +168,9 @@ GCFLAG_DUMMY        = first_gcflag << 12
 
 _GCFLAG_FIRST_UNUSED = first_gcflag << 13    # the first unused bit
 
+flagnames_and_values = unroll.unrolling_iterable([
+    (name, value) for name, value in globals().items()
+    if name.startswith("GCFLAG_")])
 
 # States for the incremental GC
 
@@ -1203,6 +1206,12 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Else, it may be in the set 'young_rawmalloced_objects'
         return (bool(self.young_rawmalloced_objects) and
                 self.young_rawmalloced_objects.contains(addr))
+
+    def _debug_print_flags(self, addr):
+        tid = self.header(addr).tid
+        for name, value in flagnames_and_values:
+            if tid & value:
+                print name
 
     def debug_is_old_object(self, addr):
         return (self.is_valid_gc_object(addr)
