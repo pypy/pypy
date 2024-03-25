@@ -8,7 +8,7 @@ see as the list of roots (stack and prebuilt objects).
 
 import py
 
-from hypothesis import strategies, given, assume
+from hypothesis import strategies, given, assume, example
 
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gctypelayout import TypeLayoutBuilder, FIN_HANDLER_ARRAY
@@ -972,84 +972,221 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
     test_incrementality_bug_arraycopy3.GC_PARAMS = {
         "card_page_indices": 4}
 
+@strategies.composite
+def random_action_sequences(draw):
+    import itertools
+
+    result = {}
+    # make sure that drawing "False" leads to the "simpler" choice
+    result['use_card_marking'] = draw(strategies.booleans())
+    result['use_simple_arena'] = not draw(strategies.booleans())
+    result['visit_single_step'] = not draw(strategies.booleans())
+    result['debug_level'] = draw(strategies.integers(0, 2))
+
+    model = {}
+    arraymodel = {}
+    stackroots = []
+
+    def random_obj():
+        objects = [obj for typ, obj in stackroots if typ == "node"]
+        return draw(strategies.sampled_from(prebuilts + objects))
+
+    def random_array():
+        arrays = [obj for typ, obj in stackroots if typ == "array"]
+        return draw(strategies.sampled_from(prebuilt_arrays + arrays))
+
+    def create_array():
+        length = next(current_array_length)
+        content = []
+        for i in range(length):
+            obj = random_obj()
+            arraymodel[length, i] = obj
+            content.append(obj)
+        return length, content
+
+    # make some prebuilt nodes
+    prebuilts_result = []
+    num_prebuilts = draw(strategies.integers(1, 10))
+    for prebuilt in range(num_prebuilts):
+        previndex = ~draw(strategies.integers(0, num_prebuilts-1))
+        nextindex = ~draw(strategies.integers(0, num_prebuilts-1))
+        model[~prebuilt, 'prev'] = previndex
+        model[~prebuilt, 'next'] = nextindex
+        prebuilts_result.append((~prebuilt, previndex, nextindex))
+    result['prebuilts'] = prebuilts_result
+    prebuilts = [el[0] for el in prebuilts_result]
+    for identity in prebuilts:
+        assert identity < 0
+
+    # prebuilt arrays
+    # hack, arrays are uniquely identified by their lengths :-)
+    current_array_length = itertools.count(1)
+    prebuilt_arrays_result = []
+    for i in range(draw(strategies.integers(1, 10))):
+        prebuilt_arrays_result.append(create_array())
+    result['prebuilt_arrays'] = prebuilt_arrays_result
+    prebuilt_arrays = [el[0] for el in prebuilt_arrays_result]
+
+    # now create actions
+    actions = []
+    result['actions'] = actions
+    def add_action(*args):
+        args += (model.copy(), arraymodel.copy(), stackroots[:])
+        actions.append(args)
+    for i in range(draw(strategies.integers(2, 100))):
+        # perform steps
+        have_stackroot = bool(stackroots)
+        action = draw(strategies.integers(0 if have_stackroot else 1, 8))
+        if action == 0: # drop
+            index = draw(strategies.integers(0, len(stackroots)-1))
+            del stackroots[index]
+            add_action("drop", index)
+        elif action == 1: # alloc
+            nextindex = random_obj()
+            previndex = random_obj()
+            if nextindex >= 0:
+                assert nextindex in {obj for typ, obj in stackroots if typ == "node"}
+            if previndex >= 0:
+                assert previndex in {obj for typ, obj in stackroots if typ == "node"}
+            model[i, 'next'] = nextindex
+            model[i, 'prev'] = previndex
+            stackroots.append(('node', i))
+            add_action('malloc', i, previndex, nextindex)
+        elif action == 2: # read field
+            obj = random_obj()
+            if draw(strategies.booleans()):
+                field = 'prev'
+            else:
+                field = 'next'
+            res = model[obj, field]
+            stackroots.append(('node', res))
+            add_action("read", obj, field, res)
+        elif action == 3:
+            obj1 = random_obj()
+            obj2 = random_obj()
+            if draw(strategies.booleans()):
+                field = 'prev'
+            else:
+                field = 'next'
+            model[obj1, field] = obj2
+            add_action('write', obj1, field, obj2)
+        elif action == 4:
+            add_action('collect')
+        elif action == 5:
+            array = random_array()
+            index = draw(strategies.integers(0, array - 1))
+            res = arraymodel[array, index]
+            stackroots.append(('node', res))
+            add_action('readarray', array, index, res)
+        elif action == 6:
+            array = random_array()
+            index = draw(strategies.integers(0, array - 1))
+            obj = random_obj()
+            arraymodel[array, index] = obj
+            add_action('writearray', array, index, obj)
+        elif action == 7:
+            array1 = random_array()
+            array2 = random_array()
+            assume(array1 != array2)
+            if not draw(strategies.booleans()):
+                source_start = dest_start = 0
+                length = draw(strategies.integers(1, min(array1, array2)))
+            else:
+                source_start = draw(strategies.integers(0, array1-1))
+                dest_start = draw(strategies.integers(0, array2-1))
+                length = draw(strategies.integers(1, min(array1 - source_start, array2 - dest_start)))
+            for i in range(length):
+                arraymodel[array2, dest_start + i] = arraymodel[array1, source_start + i]
+            add_action('copy_array', array1, array2, source_start, dest_start, length)
+        elif action == 8:
+            array = create_array()
+            stackroots.append(('array', array[0]))
+            add_action('malloc_array', *array)
+        else:
+            assert "unreachable"
+
+    return result
 
 class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
 
-    def state_setup(self, data):
+    def state_setup(self, random_data):
         from rpython.memory.gc.minimarktest import SimpleArenaCollection
-        if data.draw(strategies.booleans()):
+        if random_data['use_card_marking']:
             # enable card marking
             GC_PARAMS = {"card_page_indices": 4}
         else:
             GC_PARAMS = {}
-        if not data.draw(strategies.booleans()):
+        if random_data['use_simple_arena']:
             GC_PARAMS['ArenaCollectionClass'] = SimpleArenaCollection
         self.test_random.im_func.GC_PARAMS = GC_PARAMS
         self.setup_method(self.test_random.im_func)
-        self.data = data
-        # a model of the current state of the heap
-        self.model = {}
-        self.arraymodel = {}
-        self.gc.TEST_VISIT_SINGLE_STEP = data.draw(strategies.booleans())
-        self.gc.DEBUG = data.draw(strategies.integers(0, 2))
-        self.current_array_length = 1
-        self.make_prebuilts()
+        self.gc.TEST_VISIT_SINGLE_STEP = random_data['visit_single_step']
+        self.gc.DEBUG = random_data['debug_level']
+        self.make_prebuilts(random_data)
 
-    def make_prebuilts(self):
+    def make_prebuilts(self, random_data):
         prebuilts = self.prebuilts = []
-        data = self.data
-        # make a bunch of prebuilt data
-        for i in range(self.data.draw(strategies.integers(1, 10))):
+        # construct the prebuilt nodes
+        for identity, _, _ in random_data['prebuilts']:
             prebuilt = lltype.malloc(S, immortal=True)
-            prebuilt.x = ~i
+            prebuilt.x = identity
             prebuilts.append(prebuilt)
         # initialize next and prev fields
-        for prebuilt in prebuilts:
+        for identity, previd, nextid in random_data['prebuilts']:
+            prebuilt = self.get_node(identity)
             self.consider_constant(prebuilt)
-            prev = prebuilts[data.draw(strategies.integers(0, len(prebuilts)-1))]
-            prebuilt.prev = prev
-            self.model[prebuilt.x, 'prev'] = prev.x
-            next = prebuilts[data.draw(strategies.integers(0, len(prebuilts)-1))]
-            prebuilt.next = next
-            self.model[prebuilt.x, 'next'] = next.x
-        # tell the GC about them
-        for prebuilt in prebuilts:
-            self.consider_constant(prebuilt)
+            prebuilt.prev = self.get_node(previd)
+            prebuilt.next = self.get_node(nextid)
 
         # prebuilt arrays
-        # XXX hack, arrays are uniquely identified by their lengths :-)
         prebuilt_arrays = self.prebuilt_arrays = []
-        for i in range(self.data.draw(strategies.integers(1, 10))):
-            array = self.create_array(immortal=True)
+        for length, content in random_data['prebuilt_arrays']:
+            array = self.create_array(length, content, immortal=True)
             self.prebuilt_arrays.append(array)
             self.consider_constant(array)
 
-    def random_obj(self):
-        objects = [obj for obj in self.stackroots if lltype.typeOf(obj) == lltype.Ptr(S)]
-        return self.data.draw(strategies.sampled_from(self.prebuilts + objects))
+    def get_node(self, identity):
+        if identity < 0:
+            return self.prebuilts[~identity]
+        for obj in self.stackroots:
+            if lltype.typeOf(obj) == lltype.Ptr(S) and obj.x == identity:
+                return obj
+        assert 0, "should be unreachable"
 
-    def random_array(self):
-        arrays = [obj for obj in self.stackroots if lltype.typeOf(obj) == lltype.Ptr(VAR)]
-        return self.data.draw(strategies.sampled_from(self.prebuilt_arrays + arrays))
+    def get_array(self, index):
+        assert index > 0
+        if index <= len(self.prebuilt_arrays):
+            return self.prebuilt_arrays[index - 1]
+        for obj in self.stackroots:
+            if lltype.typeOf(obj) == lltype.Ptr(VAR) and len(obj) == index:
+                return obj
+        assert 0, "should be unreachable"
 
-    def create_array(self, immortal=False):
-        length = self.current_array_length
-        self.current_array_length += 1
+    def create_array(self, length, content, immortal=False):
         if immortal:
             array = lltype.malloc(VAR, length, immortal=True)
         else:
             array = self.malloc(VAR, length)
-        for i in range(length):
-            obj = self.random_obj()
+        for index, objid in enumerate(content):
+            obj = self.get_node(objid)
             if immortal:
-                array[i] = obj
+                array[index] = obj
             else:
-                self.writearray(array, i, obj)
-            self.arraymodel[length, i] = obj.x
+                self.writearray(array, index, obj)
         return array
 
-    def check(self):
+    def check(self, model, arraymodel, stackroots):
+        # first check stackroots
+        for index, (typ, identity) in enumerate(stackroots):
+            obj = self.stackroots[index]
+            if typ == "node":
+                assert lltype.typeOf(obj) == lltype.Ptr(S)
+                assert identity == obj.x
+            else:
+                assert typ == "array"
+                assert lltype.typeOf(obj) == lltype.Ptr(VAR)
+                assert identity == len(obj)
         # walk the reachable heap and compare against model
         seen = set()
         seen_arrays = set()
@@ -1062,101 +1199,66 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 seen_arrays.add(len(obj))
                 for i in range(len(obj)):
                     todo.append(obj[i])
-                    assert self.arraymodel[len(obj), i] == obj[i].x
+                    assert arraymodel[len(obj), i] == obj[i].x
             else:
                 if obj.x in seen:
                     continue
                 seen.add(obj.x)
                 todo.append(obj.next)
                 todo.append(obj.prev)
-                assert self.model[obj.x, 'prev'] == obj.prev.x
-                assert self.model[obj.x, 'next'] == obj.next.x
+                assert model[obj.x, 'prev'] == obj.prev.x
+                assert model[obj.x, 'next'] == obj.next.x
 
-    @given(strategies.data())
-    def test_random(self, data):
+    @given(random_action_sequences())
+    def test_random(self, random_data):
         from rpython.rlib import rgc
-        self.state_setup(data)
-        for i in range(data.draw(strategies.integers(2, 100))):
-            # perform steps
-            action = data.draw(strategies.integers(len(self.stackroots) == 0, 8))
-            if action == 0: # drop
-                print i, "DROP",
-                index = data.draw(strategies.integers(0, len(self.stackroots)-1))
-                print index
+        self.state_setup(random_data)
+        for action in random_data['actions']:
+            kind = action[0]
+            actiondata = action[1:-3]
+            print kind, actiondata
+            if kind == "drop": # drop
+                index, = actiondata
                 del self.stackroots[index]
-            elif action == 1: # alloc
-                print i, "MALLOC"
+            elif kind == "malloc": # alloc
+                identity, previd, nextid = actiondata
                 p = self.malloc(S)
-                p.x = i
-                next = self.random_obj()
-                prev = self.random_obj()
-                self.model[i, 'next'] = next.x
-                self.model[i, 'prev'] = prev.x
-                self.write(p, 'next', next)
-                self.write(p, 'prev', prev)
+                p.x = identity
+                self.write(p, 'next', self.get_node(nextid))
+                self.write(p, 'prev', self.get_node(previd))
                 self.stackroots.append(p)
-            elif action == 2: # read field
-                obj = self.random_obj()
-                print i, "READ", obj,
-                if data.draw(strategies.booleans()):
-                    res = obj.prev
-                    field = 'prev'
-                else:
-                    res = obj.next
-                    field = 'next'
-                # compare against model
+            elif kind == "read": # read field
+                objid, field, resid = actiondata
+                obj = self.get_node(objid)
+                res = getattr(obj, field)
+                assert res.x == resid
                 self.stackroots.append(res)
-                assert self.model[obj.x, field] == res.x
-                print field
-            elif action == 3:
-                obj1 = self.random_obj()
-                obj2 = self.random_obj()
-                print i, "WRITE", obj1, obj2,
-                if data.draw(strategies.booleans()):
-                    print 'next'
-                    self.write(obj1, 'next', obj2)
-                    self.model[obj1.x, 'next'] = obj2.x
-                else:
-                    print 'prev'
-                    self.write(obj1, 'prev', obj2)
-                    self.model[obj1.x, 'prev'] = obj2.x
-            elif action == 4:
-                print i, "COLLECT"
+            elif kind == "write":
+                obj1id, field, obj2id = actiondata
+                obj1 = self.get_node(obj1id)
+                obj2 = self.get_node(obj2id)
+                self.write(obj1, field, obj2)
+            elif kind == "collect":
+                assert actiondata == ()
                 self.gc.collect_step()
-            elif action == 5:
-                print i, "READ_ARRAY",
-                array = self.random_array()
-                index = data.draw(strategies.integers(0, len(array) - 1))
-                print array, index, array[index]
-                assert self.arraymodel[len(array), index] == array[index].x
+            elif kind == "readarray":
+                arrayindex, index, resultindex = actiondata
+                array = self.get_array(arrayindex)
+                assert array[index].x == resultindex
                 self.stackroots.append(array[index])
-            elif action == 6:
-                print i, "WRITE_ARRAY",
-                array = self.random_array()
-                index = data.draw(strategies.integers(0, len(array) - 1))
-                obj = self.random_obj()
-                print array, index, obj
-                self.writearray(array, index, obj)
-                self.arraymodel[len(array), index] = obj.x
-            elif action == 7:
-                print i, "COPY_ARRAY",
-                array1 = self.random_array()
-                array2 = self.random_array()
-                assume(array1 != array2)
-                if not data.draw(strategies.booleans()):
-                    source_start = dest_start = 0
-                    length = data.draw(strategies.integers(1, min(len(array1), len(array2))))
-                else:
-                    source_start = data.draw(strategies.integers(0, len(array1)-1))
-                    dest_start = data.draw(strategies.integers(0, len(array2)-1))
-                    length = data.draw(strategies.integers(1, min(len(array1) - source_start, len(array2) - dest_start)))
-                print array1, array2, source_start, dest_start, length
-
+            elif kind == "writearray":
+                arrayindex, index, objindex = actiondata
+                array = self.get_array(arrayindex)
+                node = self.get_node(objindex)
+                self.writearray(array, index, node)
+            elif kind == "copy_array":
+                array1index, array2index, source_start, dest_start, length = actiondata
+                array1 = self.get_array(array1index)
+                array2 = self.get_array(array2index)
                 slowpath = not self.gc.writebarrier_before_copy(llmemory.cast_ptr_to_adr(array1), llmemory.cast_ptr_to_adr(array2),
                                                                 source_start, dest_start,
                                                                 length)
                 for i in range(length):
-                    self.arraymodel[len(array2), dest_start] = self.arraymodel[len(array1), source_start]
                     if slowpath:
                         self.writearray(array2, dest_start, array1[source_start])
                     else:
@@ -1164,14 +1266,14 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                         array2[dest_start] = array1[source_start]
                     dest_start += 1
                     source_start += 1
-            elif action == 8:
-                print i, "MALLOC_ARRAY"
-                array = self.create_array()
+            elif kind == "malloc_array":
+                length, content = actiondata
+                array = self.create_array(length, content)
                 self.stackroots.append(array)
             else:
                 assert "unreachable"
-
-            self.check()
+            model, arraymodel, stackroots = action[-3:]
+            self.check(model, arraymodel, stackroots)
         self.gc.collect()
-        self.check()
-        print "END"
+        self.check(model, arraymodel, stackroots)
+
