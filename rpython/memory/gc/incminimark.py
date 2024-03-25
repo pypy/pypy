@@ -72,7 +72,7 @@ from rpython.memory.support import mangle_hash
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.rlib import rgc, unroll
 from rpython.memory.gc.minimarkpage import out_of_memory
 
@@ -1399,6 +1399,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # the GCFLAG_CARDS_SET should not be set between collections
         ll_assert(self.header(obj).tid & GCFLAG_CARDS_SET == 0,
                   "unexpected GCFLAG_CARDS_SET")
+        if self.header(obj).tid & GCFLAG_NO_HEAP_PTRS:
+            ll_assert(bool(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS),
+                      "GCFLAG_NO_HEAP_PTRS is set, but GCFLAG_TRACK_YOUNG_PTRS isn't!")
         # if the GCFLAG_HAS_CARDS is set, check that all bits are zero now
         if self.header(obj).tid & GCFLAG_HAS_CARDS:
             if self.card_page_indices <= 0:
@@ -1482,6 +1485,35 @@ class IncrementalMiniMarkGC(MovingGCBase):
             else:
                 self.remember_young_pointer(addr_array)
 
+    @always_inline
+    def _remember_young_pointer_inlined(self, addr):
+        #
+        # We need to remove the flag GCFLAG_TRACK_YOUNG_PTRS and add
+        # the object to the list 'old_objects_pointing_to_young'.
+        # We know that 'addr' cannot be in the nursery,
+        # because nursery objects never have the flag
+        # GCFLAG_TRACK_YOUNG_PTRS to start with.  Note that in
+        # theory we don't need to do that if the pointer that we're
+        # writing into the object isn't pointing to a young object.
+        # However, it isn't really a win, because then sometimes
+        # we're going to call this function a lot of times for the
+        # same object; moreover we'd need to pass the 'newvalue' as
+        # an argument here.  The JIT has always called a
+        # 'newvalue'-less version, too.  Moreover, the incremental
+        # GC nowadays relies on this fact.
+        self.old_objects_pointing_to_young.append(addr)
+        objhdr = self.header(addr)
+        tid = objhdr.tid
+        tid &= ~GCFLAG_TRACK_YOUNG_PTRS
+        #
+        # Second part: if 'addr' is actually a prebuilt GC
+        # object and it's the first time we see a write to it, we
+        # add it to the list 'prebuilt_root_objects'.
+        if tid & GCFLAG_NO_HEAP_PTRS:
+            tid &= ~GCFLAG_NO_HEAP_PTRS
+            self.prebuilt_root_objects.append(addr)
+        objhdr.tid = tid
+
     def _init_writebarrier_logic(self):
         DEBUG = self.DEBUG
         # The purpose of attaching remember_young_pointer to the instance
@@ -1496,30 +1528,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 ll_assert(self.debug_is_old_object(addr_struct) or
                           self.header(addr_struct).tid & GCFLAG_HAS_CARDS != 0,
                       "young object with GCFLAG_TRACK_YOUNG_PTRS and no cards")
-            #
-            # We need to remove the flag GCFLAG_TRACK_YOUNG_PTRS and add
-            # the object to the list 'old_objects_pointing_to_young'.
-            # We know that 'addr_struct' cannot be in the nursery,
-            # because nursery objects never have the flag
-            # GCFLAG_TRACK_YOUNG_PTRS to start with.  Note that in
-            # theory we don't need to do that if the pointer that we're
-            # writing into the object isn't pointing to a young object.
-            # However, it isn't really a win, because then sometimes
-            # we're going to call this function a lot of times for the
-            # same object; moreover we'd need to pass the 'newvalue' as
-            # an argument here.  The JIT has always called a
-            # 'newvalue'-less version, too.  Moreover, the incremental
-            # GC nowadays relies on this fact.
-            self.old_objects_pointing_to_young.append(addr_struct)
-            objhdr = self.header(addr_struct)
-            objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
-            #
-            # Second part: if 'addr_struct' is actually a prebuilt GC
-            # object and it's the first time we see a write to it, we
-            # add it to the list 'prebuilt_root_objects'.
-            if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
-                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
-                self.prebuilt_root_objects.append(addr_struct)
+            self._remember_young_pointer_inlined(addr_struct)
 
         remember_young_pointer._dont_inline_ = True
         self.remember_young_pointer = remember_young_pointer
@@ -1543,12 +1552,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     ll_assert(self.debug_is_old_object(addr_array),
                         "young array with no card but GCFLAG_TRACK_YOUNG_PTRS")
                 #
-                # no cards, use default logic.  Mostly copied from above.
-                self.old_objects_pointing_to_young.append(addr_array)
-                objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
-                if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
-                    objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
-                    self.prebuilt_root_objects.append(addr_array)
+                # no cards, use default logic
+                self._remember_young_pointer_inlined(addr_array)
                 return
             #
             # 'addr_array' is a raw_malloc'ed array with card markers
@@ -1640,6 +1645,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if dest_hdr.tid & GCFLAG_HAS_CARDS == 0:
                 # The dest object doesn't have cards.  Do it manually.
                 return False
+            ll_assert(dest_hdr.tid & GCFLAG_NO_HEAP_PTRS == 0,
+                      "prebuilt object with cards is not supported")
             #
             if source_hdr.tid & GCFLAG_CARDS_SET == 0:
                 # The source object has no young pointers at all. Basically we
@@ -1668,11 +1675,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # into gray ones. see also the end of collect_cardrefs_to_nursery
         if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0 or self.gc_state == STATE_MARKING:
             # there might be in source a pointer to a young object
-            self.old_objects_pointing_to_young.append(dest_addr)
-            dest_hdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
-            if dest_hdr.tid & GCFLAG_NO_HEAP_PTRS:
-                dest_hdr.tid &= ~GCFLAG_NO_HEAP_PTRS
-                self.prebuilt_root_objects.append(dest_addr)
+            self._remember_young_pointer_inlined(dest_addr)
         #
         if dest_hdr.tid & GCFLAG_NO_HEAP_PTRS:
             if source_hdr.tid & GCFLAG_NO_HEAP_PTRS == 0:
