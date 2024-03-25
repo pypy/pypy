@@ -1031,7 +1031,35 @@ def random_action_sequences(draw):
     actions = []
     result['actions'] = actions
     def add_action(*args):
-        args += (model.copy(), arraymodel.copy(), stackroots[:])
+        # compute the reachable part of the heap, starting from prebuilt and
+        # stackroots
+        reachable_model = {}
+        reachable_arraymodel = {}
+        seen = set()
+        seen_arrays = set()
+        todo = ([("node", i) for i in prebuilts] +
+                [("array", i) for i in prebuilt_arrays] +
+                stackroots)
+        while todo:
+            typ, identity = todo.pop()
+            if typ == "node":
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                for field in ['prev', 'next']:
+                    res = model[identity, field]
+                    todo.append(('node', res))
+                    reachable_model[identity, field] = res
+            else:
+                assert typ == "array"
+                if identity in seen_arrays:
+                    continue
+                seen_arrays.add(identity)
+                for i in range(identity):
+                    res = arraymodel[identity, i]
+                    todo.append(("node", res))
+                    reachable_arraymodel[identity, i] = res
+        args += (reachable_model, reachable_arraymodel, stackroots[:])
         actions.append(args)
     for i in range(draw(strategies.integers(2, 100))):
         # perform steps
