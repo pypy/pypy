@@ -1670,6 +1670,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # there might be in source a pointer to a young object
             self.old_objects_pointing_to_young.append(dest_addr)
             dest_hdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
+            if dest_hdr.tid & GCFLAG_NO_HEAP_PTRS:
+                dest_hdr.tid &= ~GCFLAG_NO_HEAP_PTRS
+                self.prebuilt_root_objects.append(dest_addr)
         #
         if dest_hdr.tid & GCFLAG_NO_HEAP_PTRS:
             if source_hdr.tid & GCFLAG_NO_HEAP_PTRS == 0:
