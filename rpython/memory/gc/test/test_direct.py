@@ -7,6 +7,9 @@ see as the list of roots (stack and prebuilt objects).
 # XXX VERY INCOMPLETE, low coverage
 
 import py
+
+from hypothesis import strategies, given, assume, example
+
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gctypelayout import TypeLayoutBuilder, FIN_HANDLER_ARRAY
 from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
@@ -116,7 +119,6 @@ class BaseDirectGCTest(object):
 
     def malloc(self, TYPE, n=None):
         addr = self.gc.malloc(self.get_type_id(TYPE), n)
-        debug_print(self.gc)
         obj_ptr = llmemory.cast_adr_to_ptr(addr, lltype.Ptr(TYPE))
         if not self.gc.malloc_zero_filled:
             zero_gc_pointers_inside(obj_ptr, TYPE)
@@ -844,3 +846,462 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
             (incminimark.STATE_SWEEPING, incminimark.STATE_FINALIZING),
             (incminimark.STATE_FINALIZING, incminimark.STATE_SCANNING)
             ]
+
+    def test_gc_debug_crash_with_prebuilt_objects(self):
+        from rpython.rlib import rgc
+        def flags(obj):
+            return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
+
+        prebuilt = lltype.malloc(S, immortal=True)
+        prebuilt.x = 42
+        self.consider_constant(prebuilt)
+
+        self.gc.DEBUG = 2
+
+        old2 = self.malloc(S)
+        old2.x = 45
+        self.stackroots.append(old2)
+        old = self.malloc(S)
+        old.x = 43
+        self.write(old, 'next', prebuilt)
+        self.stackroots.append(old)
+        val = self.gc.collect_step()
+        assert rgc.old_state(val) == incminimark.STATE_SCANNING
+        assert rgc.new_state(val) == incminimark.STATE_MARKING
+        old2 = self.stackroots[0] # reload
+        old = self.stackroots[1]
+
+        # now a major next collection starts
+        # run things with TEST_VISIT_SINGLE_STEP = True so we can control
+        # the timing correctly
+        self.gc.TEST_VISIT_SINGLE_STEP = True
+        # run two marking steps, the first one marks obj, the second one
+        # prebuilt (which does nothing), but obj2 is left so we aren't done
+        # with marking
+        val = self.gc.collect_step()
+        val = self.gc.collect_step()
+        assert rgc.old_state(val) == incminimark.STATE_MARKING
+        assert rgc.new_state(val) == incminimark.STATE_MARKING
+        assert flags(old) & incminimark.GCFLAG_VISITED
+        assert (flags(old2) & incminimark.GCFLAG_VISITED) == 0
+        # prebuilt counts as grey but for prebuilt reasons
+        assert (flags(prebuilt) & incminimark.GCFLAG_VISITED) == 0
+        assert flags(prebuilt) & incminimark.GCFLAG_NO_HEAP_PTRS
+        # its write barrier is active
+        assert flags(prebuilt) & incminimark.GCFLAG_TRACK_YOUNG_PTRS
+
+        # now lets write a newly allocated object into prebuilt
+        new = self.malloc(S)
+        new.x = -10
+        # write barrier of prebuilt triggers
+        self.write(prebuilt, 'next', new)
+        # prebuilt got added both to old_objects_pointing_to_young and
+        # prebuilt_root_objects, so those flags get cleared
+        assert (flags(prebuilt) & incminimark.GCFLAG_NO_HEAP_PTRS) == 0
+        assert (flags(prebuilt) & incminimark.GCFLAG_TRACK_YOUNG_PTRS) == 0
+        # thus the prebuilt object now counts as white!
+        assert (flags(prebuilt) & incminimark.GCFLAG_VISITED) == 0
+
+        # this triggers the assertion black -> white pointer
+        # for the reference obj -> prebuilt
+        self.gc.collect_step()
+
+    def test_incrementality_bug_arraycopy(self, size1=8, size2=8):
+        from rpython.rlib import rgc
+        def flags(obj):
+            return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
+        self.gc.DEBUG = 0
+
+        source = self.malloc(VAR, size1)
+        self.stackroots.append(source)
+        target = self.malloc(VAR, size2)
+        self.stackroots.append(target)
+        node = self.malloc(S)
+        node.x = 5
+        self.writearray(source, 0, node)
+        val = self.gc.collect_step()
+        assert rgc.old_state(val) == incminimark.STATE_SCANNING
+        assert rgc.new_state(val) == incminimark.STATE_MARKING
+        source = self.stackroots[0] # reload
+        target = self.stackroots[1]
+        assert (flags(source) & incminimark.GCFLAG_VISITED) == 0
+        assert flags(source) & incminimark.GCFLAG_TRACK_YOUNG_PTRS
+        assert (flags(target) & incminimark.GCFLAG_VISITED) == 0
+        assert flags(target) & incminimark.GCFLAG_TRACK_YOUNG_PTRS
+        self.gc.TEST_VISIT_SINGLE_STEP = True
+        # this traces target
+        val = self.gc.collect_step()
+        assert (flags(source) & incminimark.GCFLAG_VISITED) == 0
+        assert flags(source) & incminimark.GCFLAG_TRACK_YOUNG_PTRS
+        assert flags(target) & incminimark.GCFLAG_VISITED
+        assert flags(target) & incminimark.GCFLAG_TRACK_YOUNG_PTRS
+
+        addr_src = llmemory.cast_ptr_to_adr(source)
+        addr_dst = llmemory.cast_ptr_to_adr(target)
+        res = self.gc.writebarrier_before_copy(addr_src, addr_dst, 0, 0, 2)
+        if res:
+            # manually do the copy
+            target[0] = source[0]
+            target[1] = source[1]
+        else:
+            self.writearray(target, 0, source[0])
+            self.writearray(target, 1, source[1])
+        self.writearray(source, 0, lltype.nullptr(S))
+        # this traces source
+        self.gc.collect_step()
+        # going through more_objects_to_trace (only the arrays are there)
+        self.gc.collect_step()
+        # sweeping 1
+        self.gc.collect_step()
+        # sweeping 2
+        self.gc.collect_step()
+        # used to crash, node got collected
+        assert target[0].x == 5
+
+    def test_incrementality_bug_arraycopy2(self):
+        # same test as before, but with card marking *on* for the arrays
+        # in the previous one they are too small for card marking
+        self.test_incrementality_bug_arraycopy()
+    test_incrementality_bug_arraycopy2.GC_PARAMS = {
+        "card_page_indices": 4}
+
+    def test_incrementality_bug_arraycopy3(self):
+        # same test as before, but with card marking *on* for the arrays
+        # in the previous one they are too small for card marking
+        self.test_incrementality_bug_arraycopy(size2=2)
+    test_incrementality_bug_arraycopy3.GC_PARAMS = {
+        "card_page_indices": 4}
+
+@strategies.composite
+def random_action_sequences(draw):
+    import itertools
+
+    result = {}
+    # make sure that drawing "False" leads to the "simpler" choice
+    result['use_card_marking'] = draw(strategies.booleans())
+    result['use_simple_arena'] = not draw(strategies.booleans())
+    result['visit_single_step'] = not draw(strategies.booleans())
+    result['debug_level'] = draw(strategies.integers(0, 2))
+
+    model = {}
+    arraymodel = {}
+    stackroots = []
+
+    def random_obj():
+        objects = [obj for typ, obj in stackroots if typ == "node"]
+        return draw(strategies.sampled_from(prebuilts + objects))
+
+    def random_array():
+        arrays = [obj for typ, obj in stackroots if typ == "array"]
+        return draw(strategies.sampled_from(prebuilt_arrays + arrays))
+
+    def create_array():
+        length = next(current_array_length)
+        content = []
+        for i in range(length):
+            obj = random_obj()
+            arraymodel[length, i] = obj
+            content.append(obj)
+        return length, content
+
+    # make some prebuilt nodes
+    prebuilts_result = []
+    num_prebuilts = draw(strategies.integers(1, 10))
+    for prebuilt in range(num_prebuilts):
+        previndex = ~draw(strategies.integers(0, num_prebuilts-1))
+        nextindex = ~draw(strategies.integers(0, num_prebuilts-1))
+        model[~prebuilt, 'prev'] = previndex
+        model[~prebuilt, 'next'] = nextindex
+        prebuilts_result.append((~prebuilt, previndex, nextindex))
+    result['prebuilts'] = prebuilts_result
+    prebuilts = [el[0] for el in prebuilts_result]
+    for identity in prebuilts:
+        assert identity < 0
+
+    # prebuilt arrays
+    # hack, arrays are uniquely identified by their lengths :-)
+    current_array_length = itertools.count(1)
+    prebuilt_arrays_result = []
+    for i in range(draw(strategies.integers(1, 10))):
+        prebuilt_arrays_result.append(create_array())
+    result['prebuilt_arrays'] = prebuilt_arrays_result
+    prebuilt_arrays = [el[0] for el in prebuilt_arrays_result]
+
+    # now create actions
+    actions = []
+    result['actions'] = actions
+    def add_action(*args):
+        # compute the reachable part of the heap, starting from prebuilt and
+        # stackroots
+        reachable_model = {}
+        reachable_arraymodel = {}
+        seen = set()
+        seen_arrays = set()
+        todo = ([("node", i) for i in prebuilts] +
+                [("array", i) for i in prebuilt_arrays] +
+                stackroots)
+        while todo:
+            typ, identity = todo.pop()
+            if typ == "node":
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                for field in ['prev', 'next']:
+                    res = model[identity, field]
+                    todo.append(('node', res))
+                    reachable_model[identity, field] = res
+            else:
+                assert typ == "array"
+                if identity in seen_arrays:
+                    continue
+                seen_arrays.add(identity)
+                for i in range(identity):
+                    res = arraymodel[identity, i]
+                    todo.append(("node", res))
+                    reachable_arraymodel[identity, i] = res
+        args += (reachable_model, reachable_arraymodel, stackroots[:])
+        actions.append(args)
+    for i in range(draw(strategies.integers(2, 100))):
+        # perform steps
+        have_stackroot = bool(stackroots)
+        action = draw(strategies.integers(0 if have_stackroot else 1, 8))
+        if action == 0: # drop
+            index = draw(strategies.integers(0, len(stackroots)-1))
+            del stackroots[index]
+            add_action("drop", index)
+        elif action == 1: # alloc
+            nextindex = random_obj()
+            previndex = random_obj()
+            if nextindex >= 0:
+                assert nextindex in {obj for typ, obj in stackroots if typ == "node"}
+            if previndex >= 0:
+                assert previndex in {obj for typ, obj in stackroots if typ == "node"}
+            model[i, 'next'] = nextindex
+            model[i, 'prev'] = previndex
+            stackroots.append(('node', i))
+            add_action('malloc', i, previndex, nextindex)
+        elif action == 2: # read field
+            obj = random_obj()
+            if draw(strategies.booleans()):
+                field = 'prev'
+            else:
+                field = 'next'
+            res = model[obj, field]
+            stackroots.append(('node', res))
+            add_action("read", obj, field, res)
+        elif action == 3:
+            obj1 = random_obj()
+            obj2 = random_obj()
+            if draw(strategies.booleans()):
+                field = 'prev'
+            else:
+                field = 'next'
+            model[obj1, field] = obj2
+            add_action('write', obj1, field, obj2)
+        elif action == 4:
+            add_action('collect')
+        elif action == 5:
+            array = random_array()
+            index = draw(strategies.integers(0, array - 1))
+            res = arraymodel[array, index]
+            stackroots.append(('node', res))
+            add_action('readarray', array, index, res)
+        elif action == 6:
+            array = random_array()
+            index = draw(strategies.integers(0, array - 1))
+            obj = random_obj()
+            arraymodel[array, index] = obj
+            add_action('writearray', array, index, obj)
+        elif action == 7:
+            array1 = random_array()
+            array2 = random_array()
+            assume(array1 != array2)
+            if not draw(strategies.booleans()):
+                source_start = dest_start = 0
+                length = draw(strategies.integers(1, min(array1, array2)))
+            else:
+                source_start = draw(strategies.integers(0, array1-1))
+                dest_start = draw(strategies.integers(0, array2-1))
+                length = draw(strategies.integers(1, min(array1 - source_start, array2 - dest_start)))
+            for i in range(length):
+                arraymodel[array2, dest_start + i] = arraymodel[array1, source_start + i]
+            add_action('copy_array', array1, array2, source_start, dest_start, length)
+        elif action == 8:
+            array = create_array()
+            stackroots.append(('array', array[0]))
+            add_action('malloc_array', *array)
+        else:
+            assert "unreachable"
+
+    return result
+
+class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
+    from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
+
+    def state_setup(self, random_data):
+        from rpython.memory.gc.minimarktest import SimpleArenaCollection
+        if random_data['use_card_marking']:
+            # enable card marking
+            GC_PARAMS = {"card_page_indices": 4}
+        else:
+            GC_PARAMS = {}
+        if random_data['use_simple_arena']:
+            GC_PARAMS['ArenaCollectionClass'] = SimpleArenaCollection
+        self.test_random.im_func.GC_PARAMS = GC_PARAMS
+        self.setup_method(self.test_random.im_func)
+        self.gc.TEST_VISIT_SINGLE_STEP = random_data['visit_single_step']
+        self.gc.DEBUG = random_data['debug_level']
+        self.make_prebuilts(random_data)
+
+    def make_prebuilts(self, random_data):
+        prebuilts = self.prebuilts = []
+        # construct the prebuilt nodes
+        for identity, _, _ in random_data['prebuilts']:
+            prebuilt = lltype.malloc(S, immortal=True)
+            prebuilt.x = identity
+            prebuilts.append(prebuilt)
+        # initialize next and prev fields
+        for identity, previd, nextid in random_data['prebuilts']:
+            prebuilt = self.get_node(identity)
+            self.consider_constant(prebuilt)
+            prebuilt.prev = self.get_node(previd)
+            prebuilt.next = self.get_node(nextid)
+
+        # prebuilt arrays
+        prebuilt_arrays = self.prebuilt_arrays = []
+        for length, content in random_data['prebuilt_arrays']:
+            array = self.create_array(length, content, immortal=True)
+            self.prebuilt_arrays.append(array)
+            self.consider_constant(array)
+
+    def get_node(self, identity):
+        if identity < 0:
+            return self.prebuilts[~identity]
+        for obj in self.stackroots:
+            if lltype.typeOf(obj) == lltype.Ptr(S) and obj.x == identity:
+                return obj
+        assert 0, "should be unreachable"
+
+    def get_array(self, index):
+        assert index > 0
+        if index <= len(self.prebuilt_arrays):
+            return self.prebuilt_arrays[index - 1]
+        for obj in self.stackroots:
+            if lltype.typeOf(obj) == lltype.Ptr(VAR) and len(obj) == index:
+                return obj
+        assert 0, "should be unreachable"
+
+    def create_array(self, length, content, immortal=False):
+        if immortal:
+            array = lltype.malloc(VAR, length, immortal=True)
+        else:
+            array = self.malloc(VAR, length)
+        for index, objid in enumerate(content):
+            obj = self.get_node(objid)
+            if immortal:
+                array[index] = obj
+            else:
+                self.writearray(array, index, obj)
+        return array
+
+    def check(self, model, arraymodel, stackroots):
+        # first check stackroots
+        for index, (typ, identity) in enumerate(stackroots):
+            obj = self.stackroots[index]
+            if typ == "node":
+                assert lltype.typeOf(obj) == lltype.Ptr(S)
+                assert identity == obj.x
+            else:
+                assert typ == "array"
+                assert lltype.typeOf(obj) == lltype.Ptr(VAR)
+                assert identity == len(obj)
+        # walk the reachable heap and compare against model
+        seen = set()
+        seen_arrays = set()
+        todo = self.prebuilts + self.prebuilt_arrays + self.stackroots
+        while todo:
+            obj = todo.pop()
+            if lltype.typeOf(obj) == lltype.Ptr(VAR):
+                if len(obj) in seen_arrays:
+                    continue
+                seen_arrays.add(len(obj))
+                for i in range(len(obj)):
+                    todo.append(obj[i])
+                    assert arraymodel[len(obj), i] == obj[i].x
+            else:
+                if obj.x in seen:
+                    continue
+                seen.add(obj.x)
+                todo.append(obj.next)
+                todo.append(obj.prev)
+                assert model[obj.x, 'prev'] == obj.prev.x
+                assert model[obj.x, 'next'] == obj.next.x
+
+    @given(random_action_sequences())
+    def test_random(self, random_data):
+        from rpython.rlib import rgc
+        self.state_setup(random_data)
+        for action in random_data['actions']:
+            kind = action[0]
+            actiondata = action[1:-3]
+            print kind, actiondata
+            if kind == "drop": # drop
+                index, = actiondata
+                del self.stackroots[index]
+            elif kind == "malloc": # alloc
+                identity, previd, nextid = actiondata
+                p = self.malloc(S)
+                p.x = identity
+                self.write(p, 'next', self.get_node(nextid))
+                self.write(p, 'prev', self.get_node(previd))
+                self.stackroots.append(p)
+            elif kind == "read": # read field
+                objid, field, resid = actiondata
+                obj = self.get_node(objid)
+                res = getattr(obj, field)
+                assert res.x == resid
+                self.stackroots.append(res)
+            elif kind == "write":
+                obj1id, field, obj2id = actiondata
+                obj1 = self.get_node(obj1id)
+                obj2 = self.get_node(obj2id)
+                self.write(obj1, field, obj2)
+            elif kind == "collect":
+                assert actiondata == ()
+                self.gc.collect_step()
+            elif kind == "readarray":
+                arrayindex, index, resultindex = actiondata
+                array = self.get_array(arrayindex)
+                assert array[index].x == resultindex
+                self.stackroots.append(array[index])
+            elif kind == "writearray":
+                arrayindex, index, objindex = actiondata
+                array = self.get_array(arrayindex)
+                node = self.get_node(objindex)
+                self.writearray(array, index, node)
+            elif kind == "copy_array":
+                array1index, array2index, source_start, dest_start, length = actiondata
+                array1 = self.get_array(array1index)
+                array2 = self.get_array(array2index)
+                slowpath = not self.gc.writebarrier_before_copy(llmemory.cast_ptr_to_adr(array1), llmemory.cast_ptr_to_adr(array2),
+                                                                source_start, dest_start,
+                                                                length)
+                for i in range(length):
+                    if slowpath:
+                        self.writearray(array2, dest_start, array1[source_start])
+                    else:
+                        # don't call the write barrier
+                        array2[dest_start] = array1[source_start]
+                    dest_start += 1
+                    source_start += 1
+            elif kind == "malloc_array":
+                length, content = actiondata
+                array = self.create_array(length, content)
+                self.stackroots.append(array)
+            else:
+                assert "unreachable"
+            model, arraymodel, stackroots = action[-3:]
+            self.check(model, arraymodel, stackroots)
+        self.gc.collect()
+        self.check(model, arraymodel, stackroots)
+
