@@ -165,7 +165,7 @@ def _prep_reraise_star(orig, exc_list):
     assert isinstance(exc_list, list)
 
     # TODO: test this:
-    if len(exc_list) < 1:
+    if len(exc_list) == 0:
         return None
 
     for exc in exc_list: assert isinstance(exc, BaseException)
@@ -173,7 +173,8 @@ def _prep_reraise_star(orig, exc_list):
     if not isinstance(orig, BaseExceptionGroup):
         # /* a naked exception was caught and wrapped. Only one except* clause
         #  * could have executed,so there is at most one exception to raise. */
-        assert len(exc_list) == 1 or (len(exc_list) == 2 and exc_list[1] is None)
+        assert len(exc_list) == 1 or \
+            (len(exc_list) == 2 and exc_list[1] is None)
         return exc_list[0]
 
     raised_list = []
@@ -185,7 +186,28 @@ def _prep_reraise_star(orig, exc_list):
             else:
                 raised_list.append(exc)
 
-    return _exception_group_projection(orig, reraised_list)
+    reraised_eg = _exception_group_projection(orig, reraised_list)
+
+    if reraised_eg != None:
+        assert _is_same_exception_metadata(reraised_eg, orig)
+
+    num_raised = len(raised_list)
+    if num_raised == 0:
+        return reraised_eg
+    #else:
+
+    return reraised_eg
+
+
+def _is_same_exception_metadata(exc1, exc2):
+    # TODO: Exception or BaseException?
+    assert isinstance(exc1, Exception)
+    assert isinstance(exc2, Exception)
+
+    return (exc1.__notes__     == exc2.__notes__ and
+            exc1.__traceback__ == exc2.__traceback__ and
+            exc1.__cause__     == exc2.__cause__ and
+            exc1.__context__   == exc2.__context__)
 
 class ExceptionGroup(BaseExceptionGroup, Exception):
     pass
