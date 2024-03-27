@@ -396,7 +396,9 @@ XML_FreeContentModel = expat_external(
 XML_ExternalEntityParserCreate = expat_external(
     'XML_ExternalEntityParserCreate', [XML_Parser, rffi.CCHARP, rffi.CCHARP],
     XML_Parser)
-
+if XML_COMBINED_VERSION >= 20600:
+    XML_SetReparseDeferralEnabled = expat_external(
+        'XML_SetReparseDeferralEnabled', [XML_Parser, rffi.UCHAR], rffi.INT)
 XML_ExpatVersion = expat_external(
     'XML_ExpatVersion', [], rffi.CONST_CCHARP)
 
@@ -432,6 +434,16 @@ class W_XMLParserType(W_Root):
         self.buffer = None
         self.buffer_size = 8192
         self.buffer_used = 0
+        if XML_COMBINED_VERSION >= 20600:
+            self.reparse_deferral_enabled = True
+        else:
+            self.reparse_deferral_enabled = False
+        # Whether to defer reparsing of
+        # unfinished XML tokens; a de-facto cache of
+        # what Expat has the authority on, for lack
+        # of a getter API function
+        # "XML_GetReparseDeferralEnabled" in Expat
+        # 2.6.0 */
         self.w_character_data_handler = None
 
         self._exc_info = None
@@ -771,6 +783,17 @@ information passed to the ExternalEntityRefHandler."""
         else:
             return space.w_None
 
+    @unwrap_spec(val=int)
+    def descr_SetReparseDeferralEnabled(self, space, val):
+        """Enable/Disable reparse deferral; enabled by default with Expat >=2.6.0.
+        """
+        if XML_COMBINED_VERSION >=2600:
+            enabled = bool(val)
+            XML_SetReparseDeferralEnabled(self.itself, rffi.cast(rffi.UCHAR, enabled))
+            self.reparse_deferral_enabled = enabled
+
+    def descr_GetReparseDeferralEnabled(self, space):
+        return space.newbool(self.reparse_deferral_enabled)
 
 def bool_property(name, cls, doc=None):
     def fget(space, obj):
@@ -812,6 +835,8 @@ W_XMLParserType.typedef = TypeDef(
     CurrentLineNumber = GetSetProperty(W_XMLParserType.descr_ErrorLineNumber, cls=W_XMLParserType),
     CurrentColumnNumber = GetSetProperty(W_XMLParserType.descr_ErrorColumnNumber, cls=W_XMLParserType),
     CurrentByteIndex = GetSetProperty(W_XMLParserType.descr_ErrorByteIndex, cls=W_XMLParserType),
+    SetReparseDeferralEnabled = interp2app(W_XMLParserType.descr_SetReparseDeferralEnabled),
+    GetReparseDeferralEnabled = interp2app(W_XMLParserType.descr_GetReparseDeferralEnabled),
 
     **_XMLParser_extras
     )
