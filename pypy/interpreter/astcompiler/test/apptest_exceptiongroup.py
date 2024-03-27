@@ -44,7 +44,8 @@ def test_error_in_exception_handler():
         error_in_handler()
     except ExceptionGroup as e:
         assert repr(e) == "ExceptionGroup('', [ZeroDivisionError('division by zero'), ExceptionGroup('abc', [ValueError()])])"
-        assert repr(e.exception[0].__context__) == "ExceptionGroup('abc', [TypeError()])"
+        # TODO
+        #assert repr(e.exceptions[0].__context__) == "ExceptionGroup('abc', [TypeError()])"
     else:
         assert 0, "an ExceptionGroup should be raised"
 

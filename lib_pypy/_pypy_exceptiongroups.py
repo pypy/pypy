@@ -109,6 +109,10 @@ class BaseExceptionGroup(BaseException):
     def __repr__(self):
         return f"{self.__class__.__name__}({self.message!r}, {list(self._exceptions)!r})"
 
+class ExceptionGroup(BaseExceptionGroup, Exception):
+    pass
+
+
 def _derive_and_copy_attrs(self, excs):
     eg = self.derive(excs)
     if hasattr(self, "__notes__"):
@@ -164,16 +168,15 @@ def _prep_reraise_star(orig, exc_list):
     assert isinstance(exc_list, list)
 
     # TODO: test this:
-    if len(exc_list) == 0:
+    if len(exc_list) < 1:
         return None
 
-    for exc in exc_list: assert isinstance(exc, BaseException)
+    for exc in exc_list: assert isinstance(exc, BaseException) or exc is None
 
     if not isinstance(orig, BaseExceptionGroup):
-        # /* a naked exception was caught and wrapped. Only one except* clause
-        #  * could have executed,so there is at most one exception to raise. */
-        assert len(exc_list) == 1 or \
-            (len(exc_list) == 2 and exc_list[1] is None)
+        # a naked exception was caught and wrapped. Only one except* clause
+        # could have executed,so there is at most one exception to raise.
+        assert len(exc_list) == 1 or (len(exc_list) == 2 and exc_list[1] is None)
         return exc_list[0]
 
     raised_list = []
@@ -186,30 +189,29 @@ def _prep_reraise_star(orig, exc_list):
                 raised_list.append(exc)
 
     reraised_eg = _exception_group_projection(orig, reraised_list)
-
-    if reraised_eg != None:
+    if reraised_eg is not None:
         assert _is_same_exception_metadata(reraised_eg, orig)
 
-    num_raised = len(raised_list)
-    if num_raised == 0:
+    if not raised_list:
         return reraised_eg
-    #else:
+    if reraised_eg is not None:
+        raised_list.append(reraised_eg)
+    if len(raised_list) == 1:
+        return raised_list[0]
+    return ExceptionGroup("", raised_list)
 
-    return reraised_eg
 
+_SENTINEL = object()
 
 def _is_same_exception_metadata(exc1, exc2):
     # TODO: Exception or BaseException?
     assert isinstance(exc1, Exception)
     assert isinstance(exc2, Exception)
 
-    return (exc1.__notes__     == exc2.__notes__ and
+    return (getattr(exc1, '__notes__', _SENTINEL) == getattr(exc2, '__notes__', _SENTINEL) and
             exc1.__traceback__ == exc2.__traceback__ and
             exc1.__cause__     == exc2.__cause__ and
             exc1.__context__   == exc2.__context__)
-
-class ExceptionGroup(BaseExceptionGroup, Exception):
-    pass
 
 def get_condition_filter(condition):
     if isinstance(condition, type) and issubclass(condition, BaseException):
