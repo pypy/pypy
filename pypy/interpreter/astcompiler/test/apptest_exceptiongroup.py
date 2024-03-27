@@ -1,3 +1,5 @@
+from pytest import raises
+
 def test_simple():
     try:
         raise TypeError()
@@ -44,8 +46,25 @@ def test_error_in_exception_handler():
         error_in_handler()
     except ExceptionGroup as e:
         assert repr(e) == "ExceptionGroup('', [ZeroDivisionError('division by zero'), ExceptionGroup('abc', [ValueError()])])"
-        # TODO
+        # TODO what's wrong with the context?
         #assert repr(e.exceptions[0].__context__) == "ExceptionGroup('abc', [TypeError()])"
     else:
         assert 0, "an ExceptionGroup should be raised"
 
+def test_name_except_star():
+    try:
+        raise TypeError()
+    except* TypeError as e1:
+        a = 1
+        assert e1 is exc
+    except* ValueError as e2:
+        assert 0, "unreachable"
+    assert a == 1
+    with raises(UnboundLocalError):
+        e1
+
+def test_bare_except_star():
+    try:
+        raise TypeError()
+    except*:
+        pass
