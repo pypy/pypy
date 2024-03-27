@@ -52,19 +52,34 @@ def test_error_in_exception_handler():
         assert 0, "an ExceptionGroup should be raised"
 
 def test_name_except_star():
+    l = []
+    value = ValueError()
+    typ = TypeError()
     try:
-        raise TypeError()
+        raise ExceptionGroup('abc', [value, typ])
     except* TypeError as e1:
-        a = 1
-        assert e1 is exc
+        assert e1.exceptions[0] is typ
+        l.append(1)
     except* ValueError as e2:
-        assert 0, "unreachable"
-    assert a == 1
+        assert e2.exceptions[0] is value
+        l.append(2)
+    print(l)
+    assert l == [1, 2]
     with raises(UnboundLocalError):
         e1
+    with raises(UnboundLocalError):
+        e2
 
-def test_bare_except_star():
+def test_try_star_name_raise_in_except_handler():
+    l = []
+    value = ValueError()
+    typ = TypeError()
     try:
-        raise TypeError()
-    except*:
-        pass
+        try:
+            raise ExceptionGroup('abc', [value, typ])
+        except* TypeError as e1:
+            1 / 0
+    except Exception as e:
+        assert "ZeroDivisionError" in repr(e)
+    with raises(UnboundLocalError):
+        e1

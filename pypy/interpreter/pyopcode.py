@@ -1806,7 +1806,6 @@ class __extend__(pyframe.PyFrame):
             self.pushvalue(w_match)
 
     def PREP_RERAISE_STAR(self, oparg, next_instr):
-        # TODO: Implement
         space = self.space
         w_res = self.popvalue()
         w_orig = self.popvalue()

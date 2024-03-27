@@ -1083,17 +1083,42 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.load_const(self.space.w_None)
             self.emit_op(ops.IS_OP)
             self.emit_jump(ops.POP_JUMP_IF_TRUE, pop_next_except)
-            if handler.name is None:
-                self.emit_op(ops.POP_TOP)
-            else:
-                assert 0, "implement me"
+
             exception_in_exc_body = self.new_block() # R1 in comment above
+            cleanup_body = self.new_block()
+            if handler.name is not None:
+                self.name_op(handler.name, ast.Store, handler)
+            else:
+                self.emit_op(ops.POP_TOP)
+            ## generate the equivalent of:
+            ##
+            ## try:
+            ##     < body >
+            ## except* type as name:
+            ##     try:
+            ##         < body >
+            ##         name = None
+            ##         del name
+            ##     except:
+            ##         name = None
+            ##         del name
+            ##         continue with except* handling
+            #
             self.emit_jump(ops.SETUP_EXCEPT, exception_in_exc_body)
             self._visit_body(handler.body)
             self.emit_op(ops.POP_BLOCK) # XXX missing in CPython comment
+            if handler.name:
+                self.load_const(self.space.w_None)
+                self.name_op(handler.name, ast.Store, handler)
+                self.name_op(handler.name, ast.Del, handler)
             self.emit_jump(ops.JUMP_FORWARD, next_except_with_nop)
 
             self.use_next_block(exception_in_exc_body)
+            if handler.name:
+                self.load_const(self.space.w_None)
+                self.name_op(handler.name, ast.Store, handler)
+                self.name_op(handler.name, ast.Del, handler)
+
             self.emit_op(ops.POP_TOP) # get rid of type
             self.emit_op_arg(ops.LIST_APPEND, 3)
             self.emit_op(ops.POP_TOP)
