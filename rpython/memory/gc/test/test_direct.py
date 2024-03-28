@@ -1059,31 +1059,30 @@ def random_action_sequences(draw):
     actions = []
     result['actions'] = actions
     def add_action(*args):
-        ## compute the reachable part of the heap, starting from prebuilt and
-        ## stackroots
-        #reachable_model = {}
-        #seen = set()
-        #todo = prebuilts + stackroots
-        #while todo:
-        #    identity = todo.pop()
-        #    if identity in seen:
-        #        continue
-        #    seen.add(identity)
-        #    obj = model[identity]
-        #    if isinstance(obj, Node):
-        #        for field in ['prev', 'next']:
-        #            res = getattr(obj, model[identity, field]
-        #            todo.append(('node', res))
-        #            reachable_model[identity, field] = res
-        #    else:
-        #        assert typ == "array"
-        #        if identity in seen_arrays:
-        #            continue
-        #        seen_arrays.add(identity)
-        #        for res in arraymodel[identity]:
-        #            todo.append(("node", res))
-        #        reachable_arraymodel[identity] = arraymodel[identity][:]
-        #args += (reachable_model, reachable_arraymodel, stackroots[:])
+        # compute a heap checking action
+        checking_actions = []
+        reachable_model = {}
+        seen = set()
+        todo = [(identity, ("prebuilt", i)) for i, identity in enumerate(prebuilts)]
+        todo += [(identity, ("stackroots", i)) for i, identity in enumerate(stackroots)]
+        while todo:
+            identity, path = todo.pop()
+            if identity in seen:
+                checking_actions.append(("seen", path))
+                continue
+            seen.add(identity)
+            obj = model[identity]
+            if isinstance(obj, Node):
+                checking_actions.append(("node", obj.x, path))
+
+                for field in ['prev', 'next']:
+                    res = getattr(obj, field)
+                    todo.append((res, path + (field, )))
+            else:
+                checking_actions.append(("array", len(obj), path))
+                for index, res in enumerate(model[identity]):
+                    todo.append((res, path + (index, )))
+        args += (checking_actions, )
         actions.append(args)
     for i in range(draw(strategies.integers(2, 100))):
         # perform steps
@@ -1097,7 +1096,7 @@ def random_action_sequences(draw):
             nextindex = random_object_index()
             previndex = random_object_index()
             identity = next_identity()
-            model[identity] = Node(identity, get_obj_identity(nextindex), get_obj_identity(previndex))
+            model[identity] = Node(identity, get_obj_identity(previndex), get_obj_identity(nextindex))
             stackroots.append(identity)
             add_action('malloc', identity, previndex, nextindex)
         elif action == 2: # read field
@@ -1172,6 +1171,13 @@ def random_action_sequences(draw):
 class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
 
+    NODE = lltype.GcStruct('NODE',
+                           ('x', lltype.Signed),
+                           ('prev', llmemory.GCREF),
+                           ('next', llmemory.GCREF))
+
+    VAR = lltype.GcArray(llmemory.GCREF)
+
     def state_setup(self, random_data):
         from rpython.memory.gc.minimarktest import SimpleArenaCollection
         if random_data['use_card_marking']:
@@ -1187,18 +1193,27 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
         self.gc.DEBUG = random_data['debug_level']
         self.make_prebuilts(random_data)
 
+    def erase(self, obj):
+        return lltype.cast_opaque_ptr(llmemory.GCREF, obj)
+
+    def unerase_array(self, gcref):
+        return lltype.cast_opaque_ptr(lltype.Ptr(self.VAR), gcref)
+
+    def unerase_node(self, gcref):
+        return lltype.cast_opaque_ptr(lltype.Ptr(self.NODE), gcref)
+
     def make_prebuilts(self, random_data):
         prebuilts = self.prebuilts = []
         # construct the prebuilt nodes
         for identity, _, _ in random_data['prebuilts']:
-            prebuilt = lltype.malloc(S, immortal=True)
+            prebuilt = lltype.malloc(self.NODE, immortal=True)
             prebuilt.x = identity
             prebuilts.append(prebuilt)
         # initialize next and prev fields
         for node, (_, previd, nextid) in zip(prebuilts, random_data['prebuilts']):
             self.consider_constant(node)
-            node.prev = self.get_node(previd)
-            node.next = self.get_node(nextid)
+            node.prev = self.erase(self.get_node(previd))
+            node.next = self.erase(self.get_node(nextid))
 
         # prebuilt arrays
         for content in random_data['prebuilt_arrays']:
@@ -1208,61 +1223,52 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
 
     def get_node(self, index):
         if index < 0:
-            return self.prebuilts[~index]
-        return self.stackroots[index]
+            res = self.prebuilts[~index]
+        else:
+            res = self.stackroots[index]
+        return self.unerase_node(res)
 
     def get_array(self, index):
-        obj = self.get_node(index)
-        assert lltype.typeOf(obj) == lltype.Ptr(VAR)
-        return obj
+        if index < 0:
+            res = self.prebuilts[~index]
+        else:
+            res = self.stackroots[index]
+        return self.unerase_array(res)
 
     def create_array(self, content, immortal=False):
         if immortal:
-            array = lltype.malloc(VAR, len(content), immortal=True)
+            array = lltype.malloc(self.VAR, len(content), immortal=True)
         else:
-            array = self.malloc(VAR, len(content))
+            array = self.malloc(self.VAR, len(content))
         for index, objindex in enumerate(content):
-            obj = self.get_node(objindex)
+            obj = self.erase(self.get_node(objindex))
             if immortal:
                 array[index] = obj
             else:
                 self.writearray(array, index, obj)
         return array
 
-    def check(self, model, arraymodel, stackroots):
-        return
-        # first check stackroots
-        for index, identity in enumerate(stackroots):
-            import pdb;pdb.set_trace()
-            obj = self.stackroots[index]
-            if typ == "node":
-                assert lltype.typeOf(obj) == lltype.Ptr(S)
-                assert identity == obj.x
-            else:
-                assert typ == "array"
-                assert lltype.typeOf(obj) == lltype.Ptr(VAR)
-                assert len(arraymodel[identity]) == len(obj)
+    def check(self, checking_actions):
+        todo = self.prebuilts + self.stackroots
         # walk the reachable heap and compare against model
-        seen = set()
-        seen_arrays = set()
-        todo = self.prebuilts + self.prebuilt_arrays + self.stackroots
+        iterator = iter(checking_actions)
         while todo:
             obj = todo.pop()
-            if lltype.typeOf(obj) == lltype.Ptr(VAR):
-                if obj._obj in seen_arrays:
-                    continue
-                seen_arrays.add(obj._obj)
+            action = next(iterator)
+            path = action[-1]
+            actiondata = action[:-1]
+            if actiondata[0] == "seen":
+                continue
+            if actiondata[0] == "array":
+                obj = self.unerase_array(obj)
+                assert actiondata == ("array", len(obj))
                 for i in range(len(obj)):
                     todo.append(obj[i])
-                    #assert arraymodel[len(obj)][i] == obj[i].x # XXX
             else:
-                if obj.x in seen:
-                    continue
-                seen.add(obj.x)
-                todo.append(obj.next)
+                obj = self.unerase_node(obj)
+                assert actiondata == ("node", obj.x)
                 todo.append(obj.prev)
-                assert model[obj.x, 'prev'] == obj.prev.x
-                assert model[obj.x, 'next'] == obj.next.x
+                todo.append(obj.next)
 
     @given(random_action_sequences())
     def test_random(self, random_data):
@@ -1270,17 +1276,17 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
         self.state_setup(random_data)
         for action in random_data['actions']:
             kind = action[0]
-            actiondata = action[1:]
+            actiondata = action[1:-1]
             print kind, actiondata
             if kind == "drop": # drop
                 index, = actiondata
                 del self.stackroots[index]
             elif kind == "malloc": # alloc
                 identity, previd, nextid = actiondata
-                p = self.malloc(S)
+                p = self.malloc(self.NODE)
                 p.x = identity
-                self.write(p, 'next', self.get_node(nextid))
-                self.write(p, 'prev', self.get_node(previd))
+                self.write(p, 'prev', self.erase(self.get_node(previd)))
+                self.write(p, 'next', self.erase(self.get_node(nextid)))
                 self.stackroots.append(p)
             elif kind == "read": # read field
                 objindex, field = actiondata
@@ -1291,7 +1297,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 obj1index, field, obj2index = actiondata
                 obj1 = self.get_node(obj1index)
                 obj2 = self.get_node(obj2index)
-                self.write(obj1, field, obj2)
+                self.write(obj1, field, self.erase(obj2))
             elif kind == "collect":
                 assert actiondata == ()
                 self.gc.collect_step()
@@ -1303,7 +1309,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 arrayindex, index, objindex = actiondata
                 array = self.get_array(arrayindex)
                 node = self.get_node(objindex)
-                self.writearray(array, index, node)
+                self.writearray(array, index, self.erase(node))
             elif kind == "copy_array":
                 array1index, array2index, source_start, dest_start, length = actiondata
                 array1 = self.get_array(array1index)
@@ -1325,8 +1331,8 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 self.stackroots.append(array)
             else:
                 assert "unreachable"
-            #model, arraymodel, stackroots = action[-3:]
-            #self.check(model, arraymodel, stackroots)
+            checking_actions = action[-1]
+            self.check(checking_actions)
         self.gc.collect()
-        #self.check(model, arraymodel, stackroots)
+        self.check(checking_actions)
 
