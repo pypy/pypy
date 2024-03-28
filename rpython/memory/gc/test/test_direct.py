@@ -1004,6 +1004,14 @@ def random_action_sequences(draw):
     def random_object_index():
         indexes = []
         for index, identity in enumerate(prebuilts):
+            indexes.append(~index)
+        for index, identity in enumerate(stackroots):
+            indexes.append(index)
+        return draw(strategies.sampled_from(indexes))
+
+    def random_node_index():
+        indexes = []
+        for index, identity in enumerate(prebuilts):
             if isinstance(model[identity], Node):
                 indexes.append(~index)
         for index, identity in enumerate(stackroots):
@@ -1029,9 +1037,15 @@ def random_action_sequences(draw):
     def create_array():
         length = draw(strategies.integers(1, 20))
         identity = next_identity()
-        indexes = [random_object_index() for _ in range(length)]
+        indexes = [random_node_index() for _ in range(length)]
         model[identity] = [get_obj_identity(index) for index in indexes]
         return identity, indexes
+
+    def create_string():
+        identity = next_identity()
+        data = draw(strategies.binary(1, 20))
+        model[identity] = data
+        return identity, data
 
     # make some prebuilt nodes
     prebuilts_result = []
@@ -1040,8 +1054,8 @@ def random_action_sequences(draw):
         identity = next_identity()
         prebuilts.append(identity)
         model[identity] = Node(None, None, None)
-        previndex = random_object_index()
-        nextindex = random_object_index()
+        previndex = random_node_index()
+        nextindex = random_node_index()
         model[identity] = Node(identity, get_obj_identity(previndex), get_obj_identity(nextindex))
         prebuilts_result.append((identity, previndex, nextindex))
     result['prebuilts'] = prebuilts_result
@@ -1100,7 +1114,7 @@ def random_action_sequences(draw):
             stackroots.append(identity)
             add_action('malloc', identity, previndex, nextindex)
         elif action == 2: # read field
-            index = random_object_index()
+            index = random_node_index()
             identity = get_obj_identity(index)
             if draw(strategies.booleans()):
                 field = 'prev'
@@ -1110,7 +1124,7 @@ def random_action_sequences(draw):
             stackroots.append(res)
             add_action("read", index, field)
         elif action == 3:
-            index1 = random_object_index()
+            index1 = random_node_index()
             index2 = random_object_index()
             if draw(strategies.booleans()):
                 field = 'prev'
@@ -1221,18 +1235,18 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
             self.prebuilts.append(array)
             self.consider_constant(array)
 
-    def get_node(self, index):
+    def get_obj(self, index):
         if index < 0:
-            res = self.prebuilts[~index]
+            return self.prebuilts[~index]
         else:
-            res = self.stackroots[index]
+            return self.stackroots[index]
+
+    def get_node(self, index):
+        res = self.get_obj(index)
         return self.unerase_node(res)
 
     def get_array(self, index):
-        if index < 0:
-            res = self.prebuilts[~index]
-        else:
-            res = self.stackroots[index]
+        res = self.get_obj(index)
         return self.unerase_array(res)
 
     def create_array(self, content, immortal=False):
@@ -1285,8 +1299,8 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 identity, previd, nextid = actiondata
                 p = self.malloc(self.NODE)
                 p.x = identity
-                self.write(p, 'prev', self.erase(self.get_node(previd)))
-                self.write(p, 'next', self.erase(self.get_node(nextid)))
+                self.write(p, 'prev', self.erase(self.get_obj(previd)))
+                self.write(p, 'next', self.erase(self.get_obj(nextid)))
                 self.stackroots.append(p)
             elif kind == "read": # read field
                 objindex, field = actiondata
@@ -1296,7 +1310,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
             elif kind == "write":
                 obj1index, field, obj2index = actiondata
                 obj1 = self.get_node(obj1index)
-                obj2 = self.get_node(obj2index)
+                obj2 = self.get_obj(obj2index)
                 self.write(obj1, field, self.erase(obj2))
             elif kind == "collect":
                 assert actiondata == ()
@@ -1308,7 +1322,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
             elif kind == "writearray":
                 arrayindex, index, objindex = actiondata
                 array = self.get_array(arrayindex)
-                node = self.get_node(objindex)
+                node = self.get_obj(objindex)
                 self.writearray(array, index, self.erase(node))
             elif kind == "copy_array":
                 array1index, array2index, source_start, dest_start, length = actiondata
