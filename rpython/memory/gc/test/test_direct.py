@@ -1101,14 +1101,24 @@ def random_action_sequences(draw):
                 checking_actions.append(("str", obj, path))
         args += (checking_actions, )
         actions.append(args)
+    pinned_indexes = []
     for i in range(draw(strategies.integers(2, 100))):
         # perform steps
         have_stackroot = bool(stackroots)
-        action = draw(strategies.integers(0 if have_stackroot else 1, 9))
+        action = draw(strategies.integers(
+            0 if have_stackroot else 1,
+            10 if len(pinned_indexes) == 0 else 11))
         if action == 0: # drop
             index = draw(strategies.integers(0, len(stackroots)-1))
+            if index in pinned_indexes:
+                indexindex = pinned_indexes.index(index)
+                add_action("unpin", indexindex)
+                del pinned_indexes[indexindex]
             del stackroots[index]
             add_action("drop", index)
+            # ugh, annoying
+            pinned_indexes = [(pinned_index if pinned_index < index else pinned_index - 1)
+                              for pinned_index in pinned_indexes]
         elif action == 1: # alloc
             nextindex = random_object_index()
             previndex = random_object_index()
@@ -1184,6 +1194,15 @@ def random_action_sequences(draw):
             identity, value = create_string()
             stackroots.append(identity)
             add_action('malloc_string', value)
+        elif action == 10:
+            indexes = [index for index, identity in enumerate(stackroots) if isinstance(model[identity], str) and index not in pinned_indexes]
+            index = draw(strategies.sampled_from(indexes))
+            pinned_indexes.append(index)
+            add_action('pin', index)
+        elif action == 11:
+            index = draw(strategies.integers(0, len(pinned_indexes) - 1))
+            del pinned_indexes[index]
+            add_action('unpin', index)
         else:
             assert "unreachable"
 
@@ -1217,6 +1236,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
         self.gc.TEST_VISIT_SINGLE_STEP = random_data['visit_single_step']
         self.gc.DEBUG = random_data['debug_level']
         self.make_prebuilts(random_data)
+        self.pinned_strings = []
 
     def erase(self, obj):
         return lltype.cast_opaque_ptr(llmemory.GCREF, obj)
@@ -1283,6 +1303,11 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
         return string
 
     def check(self, checking_actions):
+        # check that all the successfully pinned strings can be accessed
+        # without going via stackroots
+        for s in self.pinned_strings:
+            if s is not None:
+                len(s.chars) # would crash
         todo = self.prebuilts + self.stackroots
         # walk the reachable heap and compare against model
         iterator = iter(checking_actions)
@@ -1307,7 +1332,6 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 assert actiondata[0] == "str"
                 obj = self.unerase_str(obj)
                 assert "".join(obj.chars) == actiondata[1]
-
 
     @given(random_action_sequences())
     def test_random(self, random_data):
@@ -1372,10 +1396,29 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 content, = actiondata
                 array = self.create_string(content)
                 self.stackroots.append(array)
+            elif kind == "pin":
+                index, = actiondata
+                ptr = self.stackroots[index]
+                flag = self.gc.pin(llmemory.cast_ptr_to_adr(ptr))
+                if flag:
+                    self.pinned_strings.append(ptr)
+                else:
+                    self.pinned_strings.append(None)
+            elif kind == "unpin":
+                index, = actiondata
+                ptr = self.pinned_strings[index]
+                if ptr is None:
+                    # pinning had failed, do nothing
+                    pass
+                else:
+                    self.gc.unpin(llmemory.cast_ptr_to_adr(ptr))
+                del self.pinned_strings[index]
             else:
-                assert "unreachable"
+                assert 0, "unreachable"
             checking_actions = action[-1]
             self.check(checking_actions)
         self.gc.collect()
         self.check(checking_actions)
 
+    def test_crash(self):
+        self.test_random()
