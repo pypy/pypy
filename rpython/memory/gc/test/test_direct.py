@@ -1419,6 +1419,3 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
             self.check(checking_actions)
         self.gc.collect()
         self.check(checking_actions)
-
-    def test_crash(self):
-        self.test_random()

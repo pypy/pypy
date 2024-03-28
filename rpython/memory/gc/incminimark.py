@@ -72,7 +72,7 @@ from rpython.memory.support import mangle_hash
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
-from rpython.rlib.objectmodel import specialize, always_inline
+from rpython.rlib.objectmodel import specialize, always_inline, we_are_translated
 from rpython.rlib import rgc, unroll
 from rpython.memory.gc.minimarkpage import out_of_memory
 
@@ -675,7 +675,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # there, do a collect first.
             result = self.nursery_free
             ll_assert(result != llmemory.NULL, "uninitialized nursery")
-            self.nursery_free = new_free = result + totalsize
+            self.nursery_free = new_free = self._bump_pointer(result, totalsize)
             if new_free > self.nursery_top:
                 result = self.collect_and_reserve(totalsize)
             #
@@ -734,8 +734,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
             result = self.nursery_free
-            ll_assert(result != llmemory.NULL, "uninitialized nursery")
-            self.nursery_free = new_free = result + totalsize
+            new_free = self._bump_pointer(result, totalsize)
+            self.nursery_free = new_free
             if new_free > self.nursery_top:
                 result = self.collect_and_reserve(totalsize)
             #
@@ -749,6 +749,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
+    @always_inline
+    def _bump_pointer(self, result, totalsize):
+        ll_assert(result != llmemory.NULL, "uninitialized nursery")
+        if not we_are_translated():
+            # grumble grumble, there is a weird heuristic in
+            # fakearenaaddress.__add__ which gets confused if
+            # self.nursery_top is a pinned object. so for direct tests, do
+            # the right thing directly
+            bytes = llmemory.raw_malloc_usage(totalsize)
+            return result.arena.getaddr(result.offset + bytes)
+        else:
+            return result + totalsize
 
     def malloc_fixed_or_varsize_nonmovable(self, typeid, length):
         # length==0 for fixedsize
@@ -924,8 +936,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # nursery_top before this point. Try to reserve totalsize now.
             # If this succeeds break out of loop.
             result = self.nursery_free
-            if self.nursery_free + totalsize <= self.nursery_top:
-                self.nursery_free = result + totalsize
+            new_free = self._bump_pointer(result, totalsize)
+            if new_free <= self.nursery_top:
+                self.nursery_free = new_free
                 ll_assert(self.nursery_free <= self.nursery_top, "nursery overflow")
                 break
             #
