@@ -1092,16 +1092,19 @@ def random_action_sequences(draw):
                 for field in ['prev', 'next']:
                     res = getattr(obj, field)
                     todo.append((res, path + (field, )))
-            else:
+            elif isinstance(obj, list):
                 checking_actions.append(("array", len(obj), path))
                 for index, res in enumerate(model[identity]):
                     todo.append((res, path + (index, )))
+            else:
+                assert isinstance(obj, str)
+                checking_actions.append(("str", obj, path))
         args += (checking_actions, )
         actions.append(args)
     for i in range(draw(strategies.integers(2, 100))):
         # perform steps
         have_stackroot = bool(stackroots)
-        action = draw(strategies.integers(0 if have_stackroot else 1, 8))
+        action = draw(strategies.integers(0 if have_stackroot else 1, 9))
         if action == 0: # drop
             index = draw(strategies.integers(0, len(stackroots)-1))
             del stackroots[index]
@@ -1177,6 +1180,10 @@ def random_action_sequences(draw):
             identity, indexes = create_array()
             stackroots.append(identity)
             add_action('malloc_array', indexes)
+        elif action == 9:
+            identity, value = create_string()
+            stackroots.append(identity)
+            add_action('malloc_string', value)
         else:
             assert "unreachable"
 
@@ -1191,6 +1198,10 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                            ('next', llmemory.GCREF))
 
     VAR = lltype.GcArray(llmemory.GCREF)
+
+    STR = lltype.GcStruct('rpy_string',
+                          ('hash',  lltype.Signed),
+                          ('chars', lltype.Array(lltype.Char, hints={'immutable': True, 'extra_item_after_alloc': 1})))
 
     def state_setup(self, random_data):
         from rpython.memory.gc.minimarktest import SimpleArenaCollection
@@ -1215,6 +1226,9 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
 
     def unerase_node(self, gcref):
         return lltype.cast_opaque_ptr(lltype.Ptr(self.NODE), gcref)
+
+    def unerase_str(self, gcref):
+        return lltype.cast_opaque_ptr(lltype.Ptr(self.STR), gcref)
 
     def make_prebuilts(self, random_data):
         prebuilts = self.prebuilts = []
@@ -1262,6 +1276,12 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 self.writearray(array, index, obj)
         return array
 
+    def create_string(self, content):
+        string = self.malloc(self.STR, len(content))
+        for index, c in enumerate(content):
+            string.chars[index] = c
+        return string
+
     def check(self, checking_actions):
         todo = self.prebuilts + self.stackroots
         # walk the reachable heap and compare against model
@@ -1273,16 +1293,21 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
             actiondata = action[:-1]
             if actiondata[0] == "seen":
                 continue
-            if actiondata[0] == "array":
+            elif actiondata[0] == "array":
                 obj = self.unerase_array(obj)
                 assert actiondata == ("array", len(obj))
                 for i in range(len(obj)):
                     todo.append(obj[i])
-            else:
+            elif actiondata[0] == "node":
                 obj = self.unerase_node(obj)
                 assert actiondata == ("node", obj.x)
                 todo.append(obj.prev)
                 todo.append(obj.next)
+            else:
+                assert actiondata[0] == "str"
+                obj = self.unerase_str(obj)
+                assert "".join(obj.chars) == actiondata[1]
+
 
     @given(random_action_sequences())
     def test_random(self, random_data):
@@ -1342,6 +1367,10 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
             elif kind == "malloc_array":
                 content, = actiondata
                 array = self.create_array(content)
+                self.stackroots.append(array)
+            elif kind == "malloc_string":
+                content, = actiondata
+                array = self.create_string(content)
                 self.stackroots.append(array)
             else:
                 assert "unreachable"
