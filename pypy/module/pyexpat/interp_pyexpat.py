@@ -8,30 +8,31 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
+from rpython.translator import cdir
 
 import sys
 import weakref
 import py
 
+srcdir = py.path.local(__file__).dirpath().join('src', 'expat')
+
 if sys.platform == "win32":
-    libname = 'libexpat'
     pre_include_bits = ["#define XML_STATIC"]
 else:
-    libname = 'expat'
     pre_include_bits = []
-eci = ExternalCompilationInfo(
-    libraries=[libname],
-    library_dirs=platform.preprocess_library_dirs([]),
-    includes=['expat.h'],
-    include_dirs=platform.preprocess_include_dirs([]),
-    pre_include_bits = pre_include_bits,
-    )
 
-eci = rffi_platform.configure_external_library(
-    libname, eci,
-    [dict(prefix='expat-',
-          include_dir='lib', library_dir='win32/bin/release'),
-     ])
+eci = ExternalCompilationInfo(
+    includes=['expat.h'],
+    include_dirs=[str(srcdir), cdir],
+    pre_include_bits = pre_include_bits,
+    separate_module_files=[
+        srcdir.join('xmlparse.c'),
+        srcdir.join('xmlrole.c'),
+        srcdir.join('xmltok.c'),
+        srcdir.join('xmltok_impl.c'),
+        srcdir.join('xmltok_ns.c'),
+    ]
+)
 
 XML_Content_Ptr = lltype.Ptr(lltype.ForwardReference())
 XML_Parser = rffi.COpaquePtr(typedef='XML_Parser')
@@ -132,6 +133,7 @@ XML_Encoding_Ptr = lltype.Ptr(XML_Encoding)
 
 def expat_external(*a, **kw):
     kw['compilation_info'] = eci
+    a = ("PyExpat_" + a[0],) + a[1:]
     return rffi.llexternal(*a, **kw)
 
 INTERNED_CCHARP = "INTERNED"
