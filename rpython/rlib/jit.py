@@ -866,9 +866,8 @@ def set_user_param(driver, text):
                     try:
                         set_param(driver, name1, ivalue)
                     except ValueError:
-                        if name1 == 'trace_limit' and ivalue >= 0:
-                            # turn it into a somewhat more understandable exception
-                            raise TraceLimitTooHigh
+                        # turn it into a somewhat more understandable exception
+                        raise TraceLimitTooHigh
                     break
             else:
                 raise ValueError
