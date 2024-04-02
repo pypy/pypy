@@ -16,7 +16,7 @@
   #define HAVE_LINUX_RANDOM_H = 1
   #define HAVE_SYS_RANDOM_H 1
 #elif defined _WIN32
-
+  #define XMLIMPORT __declspec(dllimport)
 #else
   #error "unknown platform"
 #endif
