@@ -1159,11 +1159,11 @@ def random_action_sequences(draw):
             add_action('readarray', arrayindex, index)
         elif action == 6:
             arrayindex = random_array_index()
+            objindex = random_object_index()
             identity = get_obj_identity(arrayindex)
             l = model[identity]
             length = len(l)
             index = draw(strategies.integers(0, length - 1))
-            objindex = random_object_index()
             l[index] = get_obj_identity(objindex)
             add_action('writearray', arrayindex, index, objindex)
         elif action == 7:
@@ -1307,7 +1307,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
         # without going via stackroots
         for s in self.pinned_strings:
             if s is not None:
-                len(s.chars) # would crash
+                len(self.unerase_str(s).chars) # would crash
         todo = self.prebuilts + self.stackroots
         # walk the reachable heap and compare against model
         iterator = iter(checking_actions)
@@ -1417,5 +1417,6 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 assert 0, "unreachable"
             checking_actions = action[-1]
             self.check(checking_actions)
+        self.gc.TEST_VISIT_SINGLE_STEP = False # otherwise the collection might not finish
         self.gc.collect()
         self.check(checking_actions)
