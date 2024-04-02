@@ -217,7 +217,7 @@ typedef char ICHAR;
 
 #define EXPAT_MIN(a, b) (((a) < (b)) ? (a) : (b))
 
-#include "internal.h"
+#include "expat_internal.h"
 #include "xmltok.h"
 #include "xmlrole.h"
 

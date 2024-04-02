@@ -47,7 +47,7 @@
 #endif
 
 #include "expat_external.h"
-#include "internal.h"
+#include "expat_internal.h"
 #include "xmlrole.h"
 #include "ascii.h"
 

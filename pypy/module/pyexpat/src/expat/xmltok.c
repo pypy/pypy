@@ -57,7 +57,7 @@
 #endif
 
 #include "expat_external.h"
-#include "internal.h"
+#include "expat_internal.h"
 #include "xmltok.h"
 #include "nametab.h"
 
