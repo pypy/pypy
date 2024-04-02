@@ -1589,7 +1589,9 @@ class _SSLContext(object):
         x509 = 0
         x509_ca = 0
         crl = 0
-        objs = lib.X509_STORE_get0_objects(store)
+        objs = lib.X509_STORE_get1_objects(store)
+        if not objs:
+            raise MemoryError("failed to query cert store")
         count = lib.sk_X509_OBJECT_num(objs)
         for i in range(count):
             obj = lib.sk_X509_OBJECT_value(objs, i)
@@ -1602,10 +1604,9 @@ class _SSLContext(object):
             elif _type == lib.X509_LU_CRL:
                 crl += 1
             else:
-                # Ignore X509_LU_FAIL, X509_LU_RETRY, X509_LU_PKEY.
-                # As far as I can tell they are internal states and never
-                # stored in a cert store
+                # Ignore unrecognized types
                 pass
+        lib.sk_X509_OBJECT_pop_free(objs, lib.X509_OBJECT_free);
         return {'x509': x509, 'x509_ca': x509_ca, 'crl': crl}
 
 
@@ -1663,22 +1664,27 @@ class _SSLContext(object):
         binary_mode = bool(binary_form)
         _list = []
         store = lib.SSL_CTX_get_cert_store(self.ctx)
-        objs = lib.X509_STORE_get0_objects(store)
-        count = lib.sk_X509_OBJECT_num(objs)
-        for i in range(count):
-            obj = lib.sk_X509_OBJECT_value(objs, i)
-            _type = lib.X509_OBJECT_get_type(obj)
-            if _type != lib.X509_LU_X509:
-                # not a x509 cert
-                continue
-            # CA for any purpose
-            cert = lib.X509_OBJECT_get0_X509(obj)
-            if not lib.X509_check_ca(cert):
-                continue
-            if binary_mode:
-                _list.append(_certificate_to_der(cert))
-            else:
-                _list.append(_decode_certificate(cert))
+        objs = lib.X509_STORE_get1_objects(store)
+        if not objs:
+            raise MemoryError("failed to query cert store")
+        try:
+            count = lib.sk_X509_OBJECT_num(objs)
+            for i in range(count):
+                obj = lib.sk_X509_OBJECT_value(objs, i)
+                _type = lib.X509_OBJECT_get_type(obj)
+                if _type != lib.X509_LU_X509:
+                    # not a x509 cert
+                    continue
+                # CA for any purpose
+                cert = lib.X509_OBJECT_get0_X509(obj)
+                if not lib.X509_check_ca(cert):
+                    continue
+                if binary_mode:
+                    _list.append(_certificate_to_der(cert))
+                else:
+                    _list.append(_decode_certificate(cert))
+        finally:
+            lib.sk_X509_OBJECT_pop_free(objs, lib.X509_OBJECT_free);
         return _list
 
     def set_ecdh_curve(self, name):
