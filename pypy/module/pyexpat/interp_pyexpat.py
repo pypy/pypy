@@ -785,6 +785,19 @@ information passed to the ExternalEntityRefHandler."""
         else:
             return space.w_None
 
+    def descr_flush(self, space):
+        XML_SetReparseDeferralEnabled(self.itself, XML_FALSE)
+        res = XML_Parse(self.itself, "", 0, XML_FALSE)
+        if self._exc_info:
+            e = self._exc_info
+            self._exc_info = None
+            raise e
+        elif res == 0:
+            raise self.set_error(space, XML_GetErrorCode(self.itself))
+        XML_SetReparseDeferralEnabled(self.itself, XML_TRUE)
+        self.flush_character_buffer(space)
+        return space.newint(res)
+
     @unwrap_spec(val=int)
     def descr_SetReparseDeferralEnabled(self, space, val):
         """Enable/Disable reparse deferral; enabled by default with Expat >=2.6.0.
@@ -829,6 +842,7 @@ W_XMLParserType.typedef = TypeDef(
                                  cls=W_XMLParserType),
     buffer_text = GetSetProperty(W_XMLParserType.get_buffer_text,
                                  W_XMLParserType.set_buffer_text, cls=W_XMLParserType),
+    flush = interp2app(W_XMLParserType.descr_flush),
 
     ErrorCode = GetSetProperty(W_XMLParserType.descr_ErrorCode, cls=W_XMLParserType),
     ErrorLineNumber = GetSetProperty(W_XMLParserType.descr_ErrorLineNumber, cls=W_XMLParserType),
