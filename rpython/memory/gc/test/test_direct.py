@@ -1237,8 +1237,6 @@ def random_action_sequences(draw):
     def take_id():
         index = random_object_index()
         identity = get_obj_identity(index)
-        if len(ids_taken) > 3:
-            import pdb;pdb.set_trace()
         if identity in ids_taken:
             add_action('take_id', index, ids_taken[identity])
         else:
