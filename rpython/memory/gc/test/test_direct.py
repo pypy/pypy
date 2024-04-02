@@ -30,6 +30,9 @@ RAW = lltype.Struct('RAW', ('p', lltype.Ptr(S)), ('q', lltype.Ptr(S)))
 VAR = lltype.GcArray(lltype.Ptr(S))
 VARNODE = lltype.GcStruct('VARNODE', ('a', lltype.Ptr(VAR)))
 
+STR = lltype.GcStruct('rpy_string',
+                      ('hash',  lltype.Signed),
+                      ('chars', lltype.Array(lltype.Char, hints={'immutable': True, 'extra_item_after_alloc': 1})))
 
 class DirectRootWalker(object):
 
@@ -699,6 +702,10 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
 
 class TestIncrementalMiniMarkGCFull(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
+
+    def flags(self, obj):
+        return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
+
     def test_malloc_fixedsize_no_cleanup(self):
         p = self.malloc(S)
         import pytest
@@ -849,8 +856,7 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
 
     def test_gc_debug_crash_with_prebuilt_objects(self):
         from rpython.rlib import rgc
-        def flags(obj):
-            return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
+        flags = self.flags
 
         prebuilt = lltype.malloc(S, immortal=True)
         prebuilt.x = 42
@@ -908,8 +914,7 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
 
     def test_incrementality_bug_arraycopy(self, size1=8, size2=8):
         from rpython.rlib import rgc
-        def flags(obj):
-            return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
+        flags = self.flags
         self.gc.DEBUG = 0
 
         source = self.malloc(VAR, size1)
@@ -971,6 +976,27 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         self.test_incrementality_bug_arraycopy(size2=2)
     test_incrementality_bug_arraycopy3.GC_PARAMS = {
         "card_page_indices": 4}
+
+    def test_pin_id_bug(self):
+        from rpython.rlib import rgc
+
+        flags = self.flags
+
+        self.gc.DEBUG = 2
+        self.gc.TEST_VISIT_SINGLE_STEP = True
+        self.gc.gc_step_until(incminimark.STATE_MARKING)
+
+        s = self.malloc(STR, 1)
+        self.stackroots.append(s)
+        assert self.gc.gc_state == incminimark.STATE_MARKING
+        sid = self.gc.id(s)
+        assert self.gc.gc_state == incminimark.STATE_MARKING
+        pinned = self.gc.pin(llmemory.cast_ptr_to_adr(s))
+        assert pinned
+        self.gc.collect_step()
+        assert self.gc.gc_state == incminimark.STATE_SWEEPING
+        self.gc.unpin(llmemory.cast_ptr_to_adr(s))
+        self.gc.collect()
 
 class Node(object):
     def __init__(self, x, prev, next):
@@ -1262,10 +1288,6 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
 
     VAR = lltype.GcArray(llmemory.GCREF)
 
-    STR = lltype.GcStruct('rpy_string',
-                          ('hash',  lltype.Signed),
-                          ('chars', lltype.Array(lltype.Char, hints={'immutable': True, 'extra_item_after_alloc': 1})))
-
     def state_setup(self, random_data):
         from rpython.memory.gc.minimarktest import SimpleArenaCollection
         if random_data['use_card_marking']:
@@ -1293,7 +1315,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
         return lltype.cast_opaque_ptr(lltype.Ptr(self.NODE), gcref)
 
     def unerase_str(self, gcref):
-        return lltype.cast_opaque_ptr(lltype.Ptr(self.STR), gcref)
+        return lltype.cast_opaque_ptr(lltype.Ptr(STR), gcref)
 
     def make_prebuilts(self, random_data):
         prebuilts = self.prebuilts = []
@@ -1342,7 +1364,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
         return array
 
     def create_string(self, content):
-        string = self.malloc(self.STR, len(content))
+        string = self.malloc(STR, len(content))
         for index, c in enumerate(content):
             string.chars[index] = c
         return string
