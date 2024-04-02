@@ -997,6 +997,7 @@ def random_action_sequences(draw):
     stackroots = []
     prebuilts = []
     pinned_indexes = []
+    ids_taken = {} # identity -> index in ids list
 
     current_identity = itertools.count(1)
     def next_identity():
@@ -1232,6 +1233,17 @@ def random_action_sequences(draw):
         del pinned_indexes[index]
         add_action('unpin', index)
 
+    @gen_action("take_id", object)
+    def take_id():
+        index = random_object_index()
+        identity = get_obj_identity(index)
+        if len(ids_taken) > 3:
+            import pdb;pdb.set_trace()
+        if identity in ids_taken:
+            add_action('take_id', index, ids_taken[identity])
+        else:
+            ids_taken[identity] = len(ids_taken)
+            add_action('take_id', index, -1)
 
     for i in range(draw(strategies.integers(2, 100))):
         # generate steps
@@ -1271,6 +1283,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
         self.gc.DEBUG = random_data['debug_level']
         self.make_prebuilts(random_data)
         self.pinned_strings = []
+        self.computed_ids = []
 
     def erase(self, obj):
         return lltype.cast_opaque_ptr(llmemory.GCREF, obj)
@@ -1447,6 +1460,14 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 else:
                     self.gc.unpin(llmemory.cast_ptr_to_adr(ptr))
                 del self.pinned_strings[index]
+            elif kind == "take_id":
+                index, compare_with = actiondata
+                node = self.get_obj(index)
+                int_id = self.gc.id(node)
+                if compare_with == -1:
+                    self.computed_ids.append(int_id)
+                else:
+                    assert self.computed_ids[compare_with] == int_id
             else:
                 assert 0, "unreachable"
             checking_actions = action[-1]
