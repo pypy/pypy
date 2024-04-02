@@ -996,37 +996,32 @@ def random_action_sequences(draw):
     model = {}
     stackroots = []
     prebuilts = []
+    pinned_indexes = []
 
     current_identity = itertools.count(1)
     def next_identity():
         return next(current_identity)
 
-    def random_object_index():
+    def filter_objects(typ):
         indexes = []
         for index, identity in enumerate(prebuilts):
-            indexes.append(~index)
+            if isinstance(model[identity], typ):
+                indexes.append(~index)
         for index, identity in enumerate(stackroots):
-            indexes.append(index)
+            if isinstance(model[identity], typ):
+                indexes.append(index)
+        return indexes
+
+    def random_object_index():
+        indexes = filter_objects(object)
         return draw(strategies.sampled_from(indexes))
 
     def random_node_index():
-        indexes = []
-        for index, identity in enumerate(prebuilts):
-            if isinstance(model[identity], Node):
-                indexes.append(~index)
-        for index, identity in enumerate(stackroots):
-            if isinstance(model[identity], Node):
-                indexes.append(index)
+        indexes = filter_objects(Node)
         return draw(strategies.sampled_from(indexes))
 
     def random_array_index():
-        indexes = []
-        for index, identity in enumerate(prebuilts):
-            if isinstance(model[identity], list):
-                indexes.append(~index)
-        for index, identity in enumerate(stackroots):
-            if isinstance(model[identity], list):
-                indexes.append(index)
+        indexes = filter_objects(list)
         return draw(strategies.sampled_from(indexes))
 
     def get_obj_identity(index):
@@ -1101,111 +1096,150 @@ def random_action_sequences(draw):
                 checking_actions.append(("str", obj, path))
         args += (checking_actions, )
         actions.append(args)
-    pinned_indexes = []
-    for i in range(draw(strategies.integers(2, 100))):
-        # perform steps
-        have_stackroot = bool(stackroots)
-        action = draw(strategies.integers(
-            0 if have_stackroot else 1,
-            10 if len(pinned_indexes) == 0 else 11))
-        if action == 0: # drop
-            index = draw(strategies.integers(0, len(stackroots)-1))
-            if index in pinned_indexes:
-                indexindex = pinned_indexes.index(index)
-                add_action("unpin", indexindex)
-                del pinned_indexes[indexindex]
-            del stackroots[index]
-            add_action("drop", index)
-            # ugh, annoying
-            pinned_indexes = [(pinned_index if pinned_index < index else pinned_index - 1)
-                              for pinned_index in pinned_indexes]
-        elif action == 1: # alloc
-            nextindex = random_object_index()
-            previndex = random_object_index()
-            identity = next_identity()
-            model[identity] = Node(identity, get_obj_identity(previndex), get_obj_identity(nextindex))
-            stackroots.append(identity)
-            add_action('malloc', identity, previndex, nextindex)
-        elif action == 2: # read field
-            index = random_node_index()
-            identity = get_obj_identity(index)
-            if draw(strategies.booleans()):
-                field = 'prev'
-            else:
-                field = 'next'
-            res = getattr(model[identity], field)
-            stackroots.append(res)
-            add_action("read", index, field)
-        elif action == 3:
-            index1 = random_node_index()
-            index2 = random_object_index()
-            if draw(strategies.booleans()):
-                field = 'prev'
-            else:
-                field = 'next'
-            identity1 = get_obj_identity(index1)
-            identity2 = get_obj_identity(index2)
-            setattr(model[identity1], field, identity2)
-            add_action('write', index1, field, index2)
-        elif action == 4:
-            add_action('collect')
-        elif action == 5:
-            arrayindex = random_array_index()
-            identity = get_obj_identity(arrayindex)
-            l = model[identity]
-            index = draw(strategies.integers(0, len(l) - 1))
-            res = model[identity][index]
-            stackroots.append(res)
-            add_action('readarray', arrayindex, index)
-        elif action == 6:
-            arrayindex = random_array_index()
-            objindex = random_object_index()
-            identity = get_obj_identity(arrayindex)
-            l = model[identity]
-            length = len(l)
-            index = draw(strategies.integers(0, length - 1))
-            l[index] = get_obj_identity(objindex)
-            add_action('writearray', arrayindex, index, objindex)
-        elif action == 7:
-            array1index = random_array_index()
-            array2index = random_array_index()
-            array1identity = get_obj_identity(array1index)
-            array2identity = get_obj_identity(array2index)
-            assume(array1identity != array2identity)
-            array1 = model[array1identity]
-            array2 = model[array2identity]
-            array1length = len(array1)
-            array2length = len(array2)
-            if not draw(strategies.booleans()):
-                source_start = dest_start = 0
-                length = draw(strategies.integers(1, min(array1length, array2length)))
-            else:
-                source_start = draw(strategies.integers(0, array1length-1))
-                dest_start = draw(strategies.integers(0, array2length-1))
-                length = draw(strategies.integers(1, min(array1length - source_start, array2length - dest_start)))
-            for i in range(length):
-                array2[dest_start + i] = array1[source_start + i]
-            add_action('copy_array', array1index, array2index, source_start, dest_start, length)
-        elif action == 8:
-            identity, indexes = create_array()
-            stackroots.append(identity)
-            add_action('malloc_array', indexes)
-        elif action == 9:
-            identity, value = create_string()
-            stackroots.append(identity)
-            add_action('malloc_string', value)
-        elif action == 10:
-            indexes = [index for index, identity in enumerate(stackroots) if isinstance(model[identity], str) and index not in pinned_indexes]
-            index = draw(strategies.sampled_from(indexes))
-            pinned_indexes.append(index)
-            add_action('pin', index)
-        elif action == 11:
-            index = draw(strategies.integers(0, len(pinned_indexes) - 1))
-            del pinned_indexes[index]
-            add_action('unpin', index)
-        else:
-            assert "unreachable"
 
+    all_actions = []
+    def gen_action(name, precond=None):
+        def wrap(func):
+            if precond is None:
+                precond1 = lambda: True
+            elif isinstance(precond, type):
+                # passing a type means "do we have an object of that type
+                # available currently"
+                typ = precond
+                precond1 = lambda: len(filter_objects(typ)) != 0
+            else:
+                precond1 = precond
+            all_actions.append((func, precond1))
+            return func
+        return wrap
+
+    @gen_action("drop", lambda: len(stackroots) != 0)
+    def drop():
+        index = draw(strategies.integers(0, len(stackroots)-1))
+        if index in pinned_indexes:
+            indexindex = pinned_indexes.index(index)
+            add_action("unpin", indexindex)
+            del pinned_indexes[indexindex]
+        del stackroots[index]
+        # ugh, annoying
+        pinned_indexes[:] = [(pinned_index if pinned_index < index else pinned_index - 1)
+                             for pinned_index in pinned_indexes]
+        add_action("drop", index)
+
+    @gen_action("malloc", object)
+    def malloc():
+        nextindex = random_object_index()
+        previndex = random_object_index()
+        identity = next_identity()
+        model[identity] = Node(identity, get_obj_identity(previndex), get_obj_identity(nextindex))
+        stackroots.append(identity)
+        add_action('malloc', identity, previndex, nextindex)
+
+    @gen_action("read", Node)
+    def read():
+        index = random_node_index()
+        identity = get_obj_identity(index)
+        if draw(strategies.booleans()):
+            field = 'prev'
+        else:
+            field = 'next'
+        res = getattr(model[identity], field)
+        stackroots.append(res)
+        add_action("read", index, field)
+
+    @gen_action("write", Node)
+    def write():
+        index1 = random_node_index()
+        index2 = random_object_index()
+        if draw(strategies.booleans()):
+            field = 'prev'
+        else:
+            field = 'next'
+        identity1 = get_obj_identity(index1)
+        identity2 = get_obj_identity(index2)
+        setattr(model[identity1], field, identity2)
+        add_action('write', index1, field, index2)
+
+    @gen_action("collect")
+    def collect():
+        add_action('collect')
+
+    @gen_action("readarray", list)
+    def readarray():
+        arrayindex = random_array_index()
+        identity = get_obj_identity(arrayindex)
+        l = model[identity]
+        index = draw(strategies.integers(0, len(l) - 1))
+        res = model[identity][index]
+        stackroots.append(res)
+        add_action('readarray', arrayindex, index)
+
+    @gen_action("writearray", list)
+    def writearray():
+        arrayindex = random_array_index()
+        objindex = random_object_index()
+        identity = get_obj_identity(arrayindex)
+        l = model[identity]
+        length = len(l)
+        index = draw(strategies.integers(0, length - 1))
+        l[index] = get_obj_identity(objindex)
+        add_action('writearray', arrayindex, index, objindex)
+
+    @gen_action("copy_array", list)
+    def copy_array():
+        array1index = random_array_index()
+        array2index = random_array_index()
+        array1identity = get_obj_identity(array1index)
+        array2identity = get_obj_identity(array2index)
+        assume(array1identity != array2identity)
+        array1 = model[array1identity]
+        array2 = model[array2identity]
+        array1length = len(array1)
+        array2length = len(array2)
+        if not draw(strategies.booleans()):
+            source_start = dest_start = 0
+            length = draw(strategies.integers(1, min(array1length, array2length)))
+        else:
+            source_start = draw(strategies.integers(0, array1length-1))
+            dest_start = draw(strategies.integers(0, array2length-1))
+            length = draw(strategies.integers(1, min(array1length - source_start, array2length - dest_start)))
+        for i in range(length):
+            array2[dest_start + i] = array1[source_start + i]
+        add_action('copy_array', array1index, array2index, source_start, dest_start, length)
+
+    @gen_action("malloc_array")
+    def malloc_array():
+        identity, indexes = create_array()
+        stackroots.append(identity)
+        add_action('malloc_array', indexes)
+
+    @gen_action("malloc_string")
+    def malloc_string():
+        identity, value = create_string()
+        stackroots.append(identity)
+        add_action('malloc_string', value)
+
+    @gen_action("pin", str)
+    def pin():
+        indexes = [index for index, identity in enumerate(stackroots) if isinstance(model[identity], str) and index not in pinned_indexes]
+        index = draw(strategies.sampled_from(indexes))
+        pinned_indexes.append(index)
+        add_action('pin', index)
+
+    @gen_action("unpin", lambda: len(pinned_indexes) != 0)
+    def unpin():
+        index = draw(strategies.integers(0, len(pinned_indexes) - 1))
+        del pinned_indexes[index]
+        add_action('unpin', index)
+
+
+    for i in range(draw(strategies.integers(2, 100))):
+        # generate steps
+
+        # sample from the actions where preconditions are met:
+        active_actions = [action for action, precond in all_actions if precond()]
+        action = draw(strategies.sampled_from(active_actions))
+        action()
     return result
 
 class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
