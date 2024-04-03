@@ -17,6 +17,7 @@ from rpython.memory.gc import minimark, incminimark
 from rpython.memory.gctypelayout import zero_gc_pointers_inside, zero_gc_pointers
 from rpython.rlib.debug import debug_print
 from rpython.rlib.test.test_debug import debuglog
+from rpython.rlib import rgc
 import pdb
 WORD = LONG_BIT // 8
 
@@ -832,7 +833,6 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         py.test.raises(RuntimeError, 's.x')
 
     def test_collect_step(self, debuglog):
-        from rpython.rlib import rgc
         n = 0
         states = []
         while True:
@@ -997,6 +997,26 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         assert self.gc.gc_state == incminimark.STATE_SWEEPING
         self.gc.unpin(llmemory.cast_ptr_to_adr(s))
         self.gc.collect()
+
+    def test_pin_id_bug2(self):
+        flags = self.flags
+        self.gc.DEBUG = 2
+        self.gc.TEST_VISIT_SINGLE_STEP = True
+
+        s = self.malloc(STR, 1)
+        self.stackroots.append(s)
+        sid = self.gc.id(s)
+        pinned = self.gc.pin(llmemory.cast_ptr_to_adr(s))
+        assert pinned
+        self.gc.gc_step_until(incminimark.STATE_FINALIZING)
+        assert self.gc.gc_state == incminimark.STATE_FINALIZING
+        self.gc.collect_step()
+        self.gc.unpin(llmemory.cast_ptr_to_adr(s))
+        assert self.gc.gc_state == incminimark.STATE_SCANNING
+        # this used to crash, with unexpected GCFLAG_VISITED in
+        # _debug_check_object_scanning, called on the shadow
+        self.gc.collect()
+
 
 class Node(object):
     def __init__(self, x, prev, next):

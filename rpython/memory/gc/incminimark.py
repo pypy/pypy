@@ -1741,10 +1741,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         obj = obj + self.gcheaderbuilder.size_gc_header
         shadow = self.nursery_objects_shadows.get(obj)
         if shadow != llmemory.NULL:
-            # visit shadow to keep it alive
-            # XXX seems like it is save to set GCFLAG_VISITED, however
-            # should be double checked
-            self.header(shadow).tid |= GCFLAG_VISITED
+            if self.gc_state == STATE_MARKING:
+                # if  were in the marking phase, we need to make sure the shadow
+                # stays alive by marking it black.
+                self.header(shadow).tid |= GCFLAG_VISITED
+                # this is only safe because pinned objects cannot themselves hold
+                # references (otherwise we would have to mark the object gray
+                # instead and add it to more_objects_to_trace)
+                typeid = self.get_type_id(obj)
+                ll_assert(not self.has_gcptr(typeid), "pinned object with gcptrs not supported")
             new_shadow_object_dict.setitem(obj, shadow)
 
     def register_finalizer(self, fq_index, gcobj):
