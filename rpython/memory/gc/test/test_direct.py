@@ -12,6 +12,7 @@ from hypothesis import strategies, given, assume, example
 
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gctypelayout import TypeLayoutBuilder, FIN_HANDLER_ARRAY
+from rpython.memory.gctypelayout import WEAKREF, WEAKREFPTR
 from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
 from rpython.memory.gc import minimark, incminimark
 from rpython.memory.gctypelayout import zero_gc_pointers_inside, zero_gc_pointers
@@ -1027,6 +1028,13 @@ class Node(object):
     def __repr__(self):
         return "Node(%s, %s, %s)" % (self.x, self.prev, self.next)
 
+class Weakref(object):
+    def __init__(self, identity):
+        self.identity = identity
+
+    def __repr__(self):
+        return "Weakref(%s)" % self.identity
+
 @strategies.composite
 def random_action_sequences(draw):
     import itertools
@@ -1138,10 +1146,25 @@ def random_action_sequences(draw):
                 checking_actions.append(("array", len(obj), path))
                 for index, res in enumerate(model[identity]):
                     todo.append((res, path + (index, )))
+            elif isinstance(obj, Weakref):
+                if obj.identity in seen:
+                    checking_actions.append(("weakref", "seen", path))
+                else:
+                    checking_actions.append((obj, path))
             else:
                 assert isinstance(obj, str)
                 checking_actions.append(("str", obj, path))
+        # deal with the weakrefs
+        for index, tup in enumerate(checking_actions):
+            obj = tup[0]
+            if not isinstance(obj, Weakref):
+                continue
+            if obj.identity in seen:
+                checking_actions[index] = ("weakref", "alive", tup[1])
+            else:
+                checking_actions[index] = ("weakref", "dead", tup[1])
         args += (checking_actions, )
+        assert "weakref" not in checking_actions
         actions.append(args)
 
     all_actions = []
@@ -1289,6 +1312,16 @@ def random_action_sequences(draw):
             ids_taken[identity] = len(ids_taken)
             add_action('take_id', index, -1)
 
+    @gen_action("create_weakref", Node)
+    def create_weakref():
+        index = random_node_index()
+        identity = get_obj_identity(index)
+        new_identity = next_identity()
+        ref = Weakref(identity)
+        model[new_identity] = ref
+        stackroots.append(new_identity)
+        add_action("create_weakref", index)
+
     for i in range(draw(strategies.integers(2, 100))):
         # generate steps
 
@@ -1336,6 +1369,9 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
 
     def unerase_str(self, gcref):
         return lltype.cast_opaque_ptr(lltype.Ptr(STR), gcref)
+
+    def unerase_weakref(self, gcref):
+        return lltype.cast_opaque_ptr(WEAKREFPTR, gcref)
 
     def make_prebuilts(self, random_data):
         prebuilts = self.prebuilts = []
@@ -1389,7 +1425,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
             string.chars[index] = c
         return string
 
-    def check(self, checking_actions):
+    def check(self, checking_actions, must_be_dead=False):
         # check that all the successfully pinned strings can be accessed
         # without going via stackroots
         for s in self.pinned_strings:
@@ -1415,6 +1451,25 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                 assert actiondata == ("node", obj.x)
                 todo.append(obj.prev)
                 todo.append(obj.next)
+            elif actiondata[0] == "weakref":
+                obj = self.unerase_weakref(obj)
+                ptr = llmemory.cast_adr_to_ptr(obj.weakptr, llmemory.GCREF)
+                _, status = actiondata
+                if status == "seen" or status == "alive":
+                    # treat seen and alive the same for now
+                    # just check that it's a valid object, in a somewhat
+                    # annoying way
+                    assert ptr
+                    assert "DEAD" not in str(ptr._obj.container)
+                else:
+                    assert status == "dead"
+                    if must_be_dead:
+                        assert not ptr
+                    else:
+                        if ptr:
+                            # it can point to an object, but that must be a
+                            # still alive one
+                            assert "DEAD" not in str(ptr._obj.container)
             else:
                 assert actiondata[0] == "str"
                 obj = self.unerase_str(obj)
@@ -1508,10 +1563,17 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                     self.computed_ids.append(int_id)
                 else:
                     assert self.computed_ids[compare_with] == int_id
+            elif kind == "create_weakref":
+                index, = actiondata
+                ref = self.malloc(WEAKREF)
+                # must read node *after* malloc, in case malloc collects and moves
+                node = self.get_obj(index)
+                ref.weakptr = llmemory.cast_ptr_to_adr(node)
+                self.stackroots.append(ref)
             else:
                 assert 0, "unreachable"
             checking_actions = action[-1]
             self.check(checking_actions)
         self.gc.TEST_VISIT_SINGLE_STEP = False # otherwise the collection might not finish
         self.gc.collect()
-        self.check(checking_actions)
+        self.check(checking_actions, must_be_dead=True)
