@@ -2829,6 +2829,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # the next major collection, at which point we want
         # it to look valid (but ready to be freed).
         shadow = shadowhdr + size_gc_header
+        # XXX is it correct that the full tid (including the flags) is copied?
+        # what about if obj has GCFLAG_PINNED set, won't that mean that the
+        # shadow gets GCFLAG_PINNED_OBJECT_PARENT_KNOWN set (which are the same
+        # value)? maybe it doesn't matter at the moment because pinned objects
+        # cannot have gcptrs
         self.header(shadow).tid = self.header(obj).tid
         typeid = self.get_type_id(obj)
         if self.is_varsize(typeid):
