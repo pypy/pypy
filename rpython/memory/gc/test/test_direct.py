@@ -1126,7 +1126,7 @@ def random_action_sequences(draw):
         # compute a heap checking action
         checking_actions = []
         reachable_model = {}
-        seen = set()
+        seen = {} # identity: path
         todo = [(identity, ("prebuilt", i)) for i, identity in enumerate(prebuilts)]
         todo += [(identity, ("stackroots", i)) for i, identity in enumerate(stackroots)]
         while todo:
@@ -1134,7 +1134,7 @@ def random_action_sequences(draw):
             if identity in seen:
                 checking_actions.append(("seen", path))
                 continue
-            seen.add(identity)
+            seen[identity] = path
             obj = model[identity]
             if isinstance(obj, Node):
                 checking_actions.append(("node", obj.x, path))
@@ -1148,7 +1148,7 @@ def random_action_sequences(draw):
                     todo.append((res, path + (index, )))
             elif isinstance(obj, Weakref):
                 if obj.identity in seen:
-                    checking_actions.append(("weakref", "seen", path))
+                    checking_actions.append(("weakref", "seen", seen[obj.identity], path))
                 else:
                     checking_actions.append((obj, path))
             else:
@@ -1160,9 +1160,9 @@ def random_action_sequences(draw):
             if not isinstance(obj, Weakref):
                 continue
             if obj.identity in seen:
-                checking_actions[index] = ("weakref", "alive", tup[1])
+                checking_actions[index] = ("weakref", "alive", seen[obj.identity], tup[1])
             else:
-                checking_actions[index] = ("weakref", "dead", tup[1])
+                checking_actions[index] = ("weakref", "dead", None, tup[1])
         args += (checking_actions, )
         assert "weakref" not in checking_actions
         actions.append(args)
@@ -1312,9 +1312,10 @@ def random_action_sequences(draw):
             ids_taken[identity] = len(ids_taken)
             add_action('take_id', index, -1)
 
-    @gen_action("create_weakref", Node)
+    @gen_action("create_weakref", lambda: len(filter_objects((Node, list))) != 0)
     def create_weakref():
-        index = random_node_index()
+        indexes = filter_objects((Node, list))
+        index = draw(strategies.sampled_from(indexes))
         identity = get_obj_identity(index)
         new_identity = next_identity()
         ref = Weakref(identity)
@@ -1454,7 +1455,7 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
             elif actiondata[0] == "weakref":
                 obj = self.unerase_weakref(obj)
                 ptr = llmemory.cast_adr_to_ptr(obj.weakptr, llmemory.GCREF)
-                _, status = actiondata
+                _, status, objpath = actiondata
                 if status == "seen" or status == "alive":
                     # treat seen and alive the same for now
                     # just check that it's a valid object, in a somewhat
