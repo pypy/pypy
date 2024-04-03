@@ -1221,6 +1221,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.young_rawmalloced_objects.contains(addr))
 
     def _debug_print_flags(self, addr):
+        if self.is_in_nursery(addr):
+            print "in nursery"
         tid = self.header(addr).tid
         for name, value in flagnames_and_values:
             if tid & value:
