@@ -2154,6 +2154,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # copy the contents of the object? usually yes, but not for some
         # shadow objects
         copy = True
+        add_gcflag_visited = False
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
         if self.header(obj).tid & (GCFLAG_HAS_SHADOW | GCFLAG_PINNED) == 0:
@@ -2204,6 +2205,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # First visit to an object that has already a shadow.
             newobj = self.nursery_objects_shadows.get(obj)
             ll_assert(newobj != llmemory.NULL, "GCFLAG_HAS_SHADOW but no shadow found")
+            if self.header(newobj).tid & GCFLAG_VISITED:
+                # if the shadow is black, we must make sure that it remains
+                # black after we did the copy. by default, the memcopy will
+                # overwrite the flags with the ones that old obj has. if we
+                # don't do that, then the copy can be collected if we're
+                # currently in sweeping phase. see test_pin_id_bug.
+                add_gcflag_visited = True
             newhdr = newobj - size_gc_header
             #
             # The flags GCFLAG_HAS_SHADOW and GCFLAG_SHADOW_INITIALIZED
@@ -2244,6 +2252,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.has_gcptr(typeid):
             # we only have to do it if we have any gcptrs
             self.old_objects_pointing_to_young.append(newobj)
+        if add_gcflag_visited:
+            self.header(newobj).tid |= GCFLAG_VISITED
 
     _trace_drag_out._always_inline_ = True
 
