@@ -3299,7 +3299,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 surviving = False
         elif (bool(self.young_rawmalloced_objects) and
               self.young_rawmalloced_objects.contains(obj)):
-            # young weakref to a young raw-malloced object
+            # young rawrefcount to a young raw-malloced object
             if self.header(obj).tid & GCFLAG_VISITED_RMY:
                 surviving = True    # survives, but does not move
             else:
@@ -3365,6 +3365,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             intobj = self._pyobj(pyobject).ob_pypy_link
             obj = llmemory.cast_int_to_adr(intobj)
             self.objects_to_trace.append(obj)
+            # XXX ouch, isn't it enough to call visit_all_objects from
+            # rrc_major_collection_trace? and shouldn't we check what color the
+            # object has first? we only need to trace non-black objects after
+            # all
             self.visit_all_objects()
 
     def rrc_major_collection_free(self):
