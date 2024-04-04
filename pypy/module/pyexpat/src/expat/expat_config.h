@@ -11,8 +11,9 @@
 #ifdef __APPLE__
   #define HAVE_ARC4RANDOM_BUF
 #elif defined __GNUC__
-  #define HAVE_GETRANDOM 1
-  #define HAVE_GETRANDOM_SYSCALL = 1
+  // #define HAVE_GETRANDOM 1
+  #define HAVE_SYSCALL_GETRANDOM
+  //#define HAVE_GETRANDOM_SYSCALL = 1
   #define HAVE_LINUX_RANDOM_H = 1
   // #define HAVE_SYS_RANDOM_H 1
 #elif defined _WIN32
