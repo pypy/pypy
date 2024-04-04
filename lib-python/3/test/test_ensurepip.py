@@ -37,6 +37,7 @@ class TestBootstrap(EnsurepipMixin, unittest.TestCase):
 
     def test_basic_bootstrapping(self):
         ensurepip.bootstrap()
+
         self.run_pip.assert_called_once_with(
             [
                 "install", "--no-cache-dir", "--no-index", "--find-links",

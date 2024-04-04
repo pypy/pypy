@@ -413,13 +413,11 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, BaseTestCase
         for t in executor._threads:
             t.join()
 
-    @support.impl_detail("depends on gc semantics", pypy=False)
     def test_del_shutdown(self):
         executor = futures.ThreadPoolExecutor(max_workers=5)
         res = executor.map(abs, range(-5, 5))
         threads = executor._threads
         del executor
-        support.gc_collect()
 
         for t in threads:
             t.join()
@@ -444,19 +442,23 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, BaseTestCase
 
 
     def test_thread_names_assigned(self):
-        with futures.ThreadPoolExecutor(
-            max_workers=5, thread_name_prefix='SpecialPool') as executor:
-            executor.map(abs, range(-5, 5))
-            threads = executor._threads
+        executor = futures.ThreadPoolExecutor(
+            max_workers=5, thread_name_prefix='SpecialPool')
+        executor.map(abs, range(-5, 5))
+        threads = executor._threads
+        del executor
+        support.gc_collect()  # For PyPy or other GCs.
 
         for t in threads:
             self.assertRegex(t.name, r'^SpecialPool_[0-4]$')
             t.join()
 
     def test_thread_names_default(self):
-        with futures.ThreadPoolExecutor(max_workers=5) as executor:
-            executor.map(abs, range(-5, 5))
-            threads = executor._threads
+        executor = futures.ThreadPoolExecutor(max_workers=5)
+        executor.map(abs, range(-5, 5))
+        threads = executor._threads
+        del executor
+        support.gc_collect()  # For PyPy or other GCs.
 
         for t in threads:
             # Ensure that our default name is reasonably sane and unique when
@@ -683,19 +685,14 @@ class ThreadPoolWaitTests(ThreadPoolMixin, WaitTests, BaseTestCase):
         event = threading.Event()
         def future_func():
             event.wait()
-        newgil = hasattr(sys, 'getswitchinterval')
-        if newgil:
-            geti, seti = sys.getswitchinterval, sys.setswitchinterval
-        else:
-            geti, seti = sys.getcheckinterval, sys.setcheckinterval
-        oldinterval = geti()
-        seti(1e-6 if newgil else 1)
+        oldswitchinterval = sys.getswitchinterval()
+        sys.setswitchinterval(1e-6)
         try:
             fs = {self.executor.submit(future_func) for i in range(100)}
             event.set()
             futures.wait(fs, return_when=futures.ALL_COMPLETED)
         finally:
-            seti(oldinterval)
+            sys.setswitchinterval(oldswitchinterval)
 
 
 create_executor_tests(WaitTests,
@@ -913,7 +910,6 @@ class ThreadPoolExecutorTest(ThreadPoolMixin, ExecutorTest, BaseTestCase):
         executor.shutdown(wait=True)
 
     @unittest.skipUnless(hasattr(os, 'register_at_fork'), 'need os.register_at_fork')
-    @support.impl_detail("pypy hangs using forking and threads", pypy=False)
     def test_hang_global_shutdown_lock(self):
         # bpo-45021: _global_shutdown_lock should be reinitialized in the child
         # process, otherwise it will never exit

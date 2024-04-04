@@ -11,8 +11,6 @@ from textwrap import dedent
 
 from test import support
 
-skip_pypy_pre_39 = sys.implementation.name == 'pypy' and sys.version_info < (3, 9)
-
 def to_tuple(t):
     if t is None or isinstance(t, (str, int, complex)):
         return t
@@ -1590,7 +1588,6 @@ class ConstantTests(unittest.TestCase):
         self.assertEqual(c.kind, None)
 
 
-
 class EndPositionTests(unittest.TestCase):
     """Tests for end position of AST nodes.
 
@@ -1598,14 +1595,10 @@ class EndPositionTests(unittest.TestCase):
     because of how LL parsers work.
     """
     def _check_end_pos(self, ast_node, end_lineno, end_col_offset):
-        if skip_pypy_pre_39:
-            return
         self.assertEqual(ast_node.end_lineno, end_lineno)
         self.assertEqual(ast_node.end_col_offset, end_col_offset)
 
     def _check_content(self, source, ast_node, content):
-        if skip_pypy_pre_39:
-            return
         self.assertEqual(ast.get_source_segment(source, ast_node), content)
 
     def _parse_value(self, s):
@@ -1879,7 +1872,6 @@ class EndPositionTests(unittest.TestCase):
         self._check_content(s, fdef.body[0].value, 'yield x')
         self._check_content(s, fdef.body[1].value, 'await y')
 
-    @unittest.skipIf(skip_pypy_pre_39, "pypy does not implement 'end_linepos'")
     def test_source_segment_multi(self):
         s_orig = dedent('''
             x = (
@@ -1894,7 +1886,6 @@ class EndPositionTests(unittest.TestCase):
         binop = self._parse_value(s_orig)
         self.assertEqual(ast.get_source_segment(s_orig, binop.left), s_tuple)
 
-    @unittest.skipIf(skip_pypy_pre_39, "pypy does not implement 'end_linepos'")
     def test_source_segment_padded(self):
         s_orig = dedent('''
             class C:
@@ -1916,7 +1907,6 @@ class EndPositionTests(unittest.TestCase):
         self._check_content(s, y, 'y = 1')
         self._check_content(s, z, 'z = 1')
 
-    @unittest.skipIf(skip_pypy_pre_39, "pypy does not implement 'end_linepos'")
     def test_source_segment_tabs(self):
         s = dedent('''
             class C:

@@ -175,7 +175,6 @@ class _PlistParser:
         self.parser.CharacterDataHandler = self.handle_data
         self.parser.EntityDeclHandler = self.handle_entity_decl
         self.parser.ParseFile(fileobj)
-        self.parser.EntityDeclHandler = self.handle_entity_decl
         return self.root
 
     def handle_entity_decl(self, entity_name, is_parameter_entity, value, base, system_id, public_id, notation_name):

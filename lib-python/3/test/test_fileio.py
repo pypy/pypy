@@ -11,7 +11,6 @@ from functools import wraps
 
 from test.support import (TESTFN, TESTFN_UNICODE, check_warnings,
                           make_bad_fd, cpython_only, swap_attr, gc_collect)
-from test.support import gc_collect
 from collections import UserList
 
 import _io  # C implementation of io

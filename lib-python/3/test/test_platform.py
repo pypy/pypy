@@ -50,12 +50,12 @@ class PlatformTest(unittest.TestCase):
 
     def setUp(self):
         self.save_version = sys.version
-        self.save_mercurial = sys._mercurial
+        self.save_git = sys._git
         self.save_platform = sys.platform
 
     def tearDown(self):
         sys.version = self.save_version
-        sys._mercurial = self.save_mercurial
+        sys._git = self.save_git
         sys.platform = self.save_platform
 
     def test_sys_version(self):
@@ -132,10 +132,10 @@ class PlatformTest(unittest.TestCase):
                 sys_versions.items():
             sys.version = version_tag
             if scm is None:
-                if hasattr(sys, "_mercurial"):
-                    del sys._mercurial
+                if hasattr(sys, "_git"):
+                    del sys._git
             else:
-                sys._mercurial = scm
+                sys._git = scm
             if sys_platform is not None:
                 sys.platform = sys_platform
             self.assertEqual(platform.python_implementation(), info[0])
