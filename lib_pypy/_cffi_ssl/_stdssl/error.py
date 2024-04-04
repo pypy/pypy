@@ -132,6 +132,9 @@ def pyssl_error(obj, ret):
                     errtype = SSLSyscallError
                     errstr = "Some I/O error occurred"
                     errval = SSL_ERROR_SYSCALL
+            elif (lib.ERR_GET_LIB(e) == lib.ERR_LIB_SSL and 
+                    reason_str == 'CERTIFICATE_VERIFY_FAILED'):
+                errtype = SSLCertVerificationError
             else:
                 errstr = _str_from_buf(lib.ERR_lib_error_string(e))
                 errval = SSL_ERROR_SYSCALL
