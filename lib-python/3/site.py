@@ -74,7 +74,8 @@ import os
 import builtins
 import _sitebuiltins
 import io
-import stat
+
+is_pypy = sys.implementation.name == 'pypy'
 
 # Prefixes for site-packages; add additional prefixes like /usr/local here
 PREFIXES = [sys.prefix, sys.exec_prefix]
