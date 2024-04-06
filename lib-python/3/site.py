@@ -74,6 +74,7 @@ import os
 import builtins
 import _sitebuiltins
 import io
+import stat
 
 is_pypy = sys.implementation.name == 'pypy'
 
