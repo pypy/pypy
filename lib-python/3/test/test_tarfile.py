@@ -464,7 +464,6 @@ class CommonReadTest(ReadTest):
             with tarfile.open(support.findfile('recursion.tar')) as tar:
                 pass
 
-
 class MiscReadTestBase(CommonReadTest):
     def requires_name_attribute(self):
         pass
