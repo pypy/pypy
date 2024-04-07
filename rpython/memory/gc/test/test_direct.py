@@ -12,11 +12,13 @@ from hypothesis import strategies, given, assume, example
 
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.memory.gctypelayout import TypeLayoutBuilder, FIN_HANDLER_ARRAY
+from rpython.memory.gctypelayout import WEAKREF, WEAKREFPTR
 from rpython.rlib.rarithmetic import LONG_BIT, is_valid_int
 from rpython.memory.gc import minimark, incminimark
 from rpython.memory.gctypelayout import zero_gc_pointers_inside, zero_gc_pointers
 from rpython.rlib.debug import debug_print
 from rpython.rlib.test.test_debug import debuglog
+from rpython.rlib import rgc
 import pdb
 WORD = LONG_BIT // 8
 
@@ -30,6 +32,9 @@ RAW = lltype.Struct('RAW', ('p', lltype.Ptr(S)), ('q', lltype.Ptr(S)))
 VAR = lltype.GcArray(lltype.Ptr(S))
 VARNODE = lltype.GcStruct('VARNODE', ('a', lltype.Ptr(VAR)))
 
+STR = lltype.GcStruct('rpy_string',
+                      ('hash',  lltype.Signed),
+                      ('chars', lltype.Array(lltype.Char, hints={'immutable': True, 'extra_item_after_alloc': 1})))
 
 class DirectRootWalker(object):
 
@@ -126,7 +131,7 @@ class BaseDirectGCTest(object):
 
 
 class DirectGCTest(BaseDirectGCTest):
-    
+
     def test_simple(self):
         p = self.malloc(S)
         p.x = 5
@@ -699,6 +704,10 @@ class TestIncrementalMiniMarkGCSimple(TestMiniMarkGCSimple):
 
 class TestIncrementalMiniMarkGCFull(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
+
+    def flags(self, obj):
+        return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
+
     def test_malloc_fixedsize_no_cleanup(self):
         p = self.malloc(S)
         import pytest
@@ -825,7 +834,6 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         py.test.raises(RuntimeError, 's.x')
 
     def test_collect_step(self, debuglog):
-        from rpython.rlib import rgc
         n = 0
         states = []
         while True:
@@ -849,8 +857,7 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
 
     def test_gc_debug_crash_with_prebuilt_objects(self):
         from rpython.rlib import rgc
-        def flags(obj):
-            return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
+        flags = self.flags
 
         prebuilt = lltype.malloc(S, immortal=True)
         prebuilt.x = 42
@@ -908,8 +915,7 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
 
     def test_incrementality_bug_arraycopy(self, size1=8, size2=8):
         from rpython.rlib import rgc
-        def flags(obj):
-            return self.gc.header(llmemory.cast_ptr_to_adr(obj)).tid.rest
+        flags = self.flags
         self.gc.DEBUG = 0
 
         source = self.malloc(VAR, size1)
@@ -972,6 +978,63 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
     test_incrementality_bug_arraycopy3.GC_PARAMS = {
         "card_page_indices": 4}
 
+    def test_pin_id_bug(self):
+        from rpython.rlib import rgc
+
+        flags = self.flags
+
+        self.gc.DEBUG = 2
+        self.gc.TEST_VISIT_SINGLE_STEP = True
+        self.gc.gc_step_until(incminimark.STATE_MARKING)
+
+        s = self.malloc(STR, 1)
+        self.stackroots.append(s)
+        assert self.gc.gc_state == incminimark.STATE_MARKING
+        sid = self.gc.id(s)
+        assert self.gc.gc_state == incminimark.STATE_MARKING
+        pinned = self.gc.pin(llmemory.cast_ptr_to_adr(s))
+        assert pinned
+        self.gc.collect_step()
+        assert self.gc.gc_state == incminimark.STATE_SWEEPING
+        self.gc.unpin(llmemory.cast_ptr_to_adr(s))
+        self.gc.collect()
+
+    def test_pin_id_bug2(self):
+        flags = self.flags
+        self.gc.DEBUG = 2
+        self.gc.TEST_VISIT_SINGLE_STEP = True
+
+        s = self.malloc(STR, 1)
+        self.stackroots.append(s)
+        sid = self.gc.id(s)
+        pinned = self.gc.pin(llmemory.cast_ptr_to_adr(s))
+        assert pinned
+        self.gc.gc_step_until(incminimark.STATE_FINALIZING)
+        assert self.gc.gc_state == incminimark.STATE_FINALIZING
+        self.gc.collect_step()
+        self.gc.unpin(llmemory.cast_ptr_to_adr(s))
+        assert self.gc.gc_state == incminimark.STATE_SCANNING
+        # this used to crash, with unexpected GCFLAG_VISITED in
+        # _debug_check_object_scanning, called on the shadow
+        self.gc.collect()
+
+
+class Node(object):
+    def __init__(self, x, prev, next):
+        self.x = x
+        self.prev = prev # an identity
+        self.next = next # an identity
+
+    def __repr__(self):
+        return "Node(%s, %s, %s)" % (self.x, self.prev, self.next)
+
+class Weakref(object):
+    def __init__(self, identity):
+        self.identity = identity
+
+    def __repr__(self):
+        return "Weakref(%s)" % self.identity
+
 @strategies.composite
 def random_action_sequences(draw):
     import itertools
@@ -983,160 +1046,301 @@ def random_action_sequences(draw):
     result['visit_single_step'] = not draw(strategies.booleans())
     result['debug_level'] = draw(strategies.integers(0, 2))
 
+    # identity: object
     model = {}
-    arraymodel = {}
     stackroots = []
+    prebuilts = []
+    pinned_indexes = []
+    ids_taken = {} # identity -> index in ids list
 
-    def random_obj():
-        objects = [obj for typ, obj in stackroots if typ == "node"]
-        return draw(strategies.sampled_from(prebuilts + objects))
+    current_identity = itertools.count(1)
+    def next_identity():
+        return next(current_identity)
 
-    def random_array():
-        arrays = [obj for typ, obj in stackroots if typ == "array"]
-        return draw(strategies.sampled_from(prebuilt_arrays + arrays))
+    def filter_objects(typ):
+        indexes = []
+        for index, identity in enumerate(prebuilts):
+            if isinstance(model[identity], typ):
+                indexes.append(~index)
+        for index, identity in enumerate(stackroots):
+            if isinstance(model[identity], typ):
+                indexes.append(index)
+        return indexes
+
+    def random_object_index():
+        indexes = filter_objects(object)
+        return draw(strategies.sampled_from(indexes))
+
+    def random_node_index():
+        indexes = filter_objects(Node)
+        return draw(strategies.sampled_from(indexes))
+
+    def random_array_index():
+        indexes = filter_objects(list)
+        return draw(strategies.sampled_from(indexes))
+
+    def get_obj_identity(index):
+        if index < 0:
+            return prebuilts[~index]
+        return stackroots[index]
 
     def create_array():
-        length = next(current_array_length)
-        content = []
-        for i in range(length):
-            obj = random_obj()
-            arraymodel[length, i] = obj
-            content.append(obj)
-        return length, content
+        length = draw(strategies.integers(1, 20))
+        identity = next_identity()
+        indexes = [random_node_index() for _ in range(length)]
+        model[identity] = [get_obj_identity(index) for index in indexes]
+        return identity, indexes
+
+    def create_string():
+        identity = next_identity()
+        data = draw(strategies.binary(1, 20))
+        model[identity] = data
+        return identity, data
 
     # make some prebuilt nodes
     prebuilts_result = []
     num_prebuilts = draw(strategies.integers(1, 10))
     for prebuilt in range(num_prebuilts):
-        previndex = ~draw(strategies.integers(0, num_prebuilts-1))
-        nextindex = ~draw(strategies.integers(0, num_prebuilts-1))
-        model[~prebuilt, 'prev'] = previndex
-        model[~prebuilt, 'next'] = nextindex
-        prebuilts_result.append((~prebuilt, previndex, nextindex))
+        identity = next_identity()
+        prebuilts.append(identity)
+        model[identity] = Node(None, None, None)
+        previndex = random_node_index()
+        nextindex = random_node_index()
+        model[identity] = Node(identity, get_obj_identity(previndex), get_obj_identity(nextindex))
+        prebuilts_result.append((identity, previndex, nextindex))
     result['prebuilts'] = prebuilts_result
     prebuilts = [el[0] for el in prebuilts_result]
-    for identity in prebuilts:
-        assert identity < 0
 
     # prebuilt arrays
-    # hack, arrays are uniquely identified by their lengths :-)
-    current_array_length = itertools.count(1)
     prebuilt_arrays_result = []
     for i in range(draw(strategies.integers(1, 10))):
-        prebuilt_arrays_result.append(create_array())
+        identity, indexes = create_array()
+        prebuilt_arrays_result.append(indexes)
+        prebuilts.append(identity)
     result['prebuilt_arrays'] = prebuilt_arrays_result
-    prebuilt_arrays = [el[0] for el in prebuilt_arrays_result]
 
     # now create actions
     actions = []
     result['actions'] = actions
     def add_action(*args):
-        # compute the reachable part of the heap, starting from prebuilt and
-        # stackroots
+        # compute a heap checking action
+        checking_actions = []
         reachable_model = {}
-        reachable_arraymodel = {}
-        seen = set()
-        seen_arrays = set()
-        todo = ([("node", i) for i in prebuilts] +
-                [("array", i) for i in prebuilt_arrays] +
-                stackroots)
+        seen = {} # identity: path
+        todo = [(identity, ("prebuilt", i)) for i, identity in enumerate(prebuilts)]
+        todo += [(identity, ("stackroots", i)) for i, identity in enumerate(stackroots)]
         while todo:
-            typ, identity = todo.pop()
-            if typ == "node":
-                if identity in seen:
-                    continue
-                seen.add(identity)
-                for field in ['prev', 'next']:
-                    res = model[identity, field]
-                    todo.append(('node', res))
-                    reachable_model[identity, field] = res
-            else:
-                assert typ == "array"
-                if identity in seen_arrays:
-                    continue
-                seen_arrays.add(identity)
-                for i in range(identity):
-                    res = arraymodel[identity, i]
-                    todo.append(("node", res))
-                    reachable_arraymodel[identity, i] = res
-        args += (reachable_model, reachable_arraymodel, stackroots[:])
-        actions.append(args)
-    for i in range(draw(strategies.integers(2, 100))):
-        # perform steps
-        have_stackroot = bool(stackroots)
-        action = draw(strategies.integers(0 if have_stackroot else 1, 8))
-        if action == 0: # drop
-            index = draw(strategies.integers(0, len(stackroots)-1))
-            del stackroots[index]
-            add_action("drop", index)
-        elif action == 1: # alloc
-            nextindex = random_obj()
-            previndex = random_obj()
-            if nextindex >= 0:
-                assert nextindex in {obj for typ, obj in stackroots if typ == "node"}
-            if previndex >= 0:
-                assert previndex in {obj for typ, obj in stackroots if typ == "node"}
-            model[i, 'next'] = nextindex
-            model[i, 'prev'] = previndex
-            stackroots.append(('node', i))
-            add_action('malloc', i, previndex, nextindex)
-        elif action == 2: # read field
-            obj = random_obj()
-            if draw(strategies.booleans()):
-                field = 'prev'
-            else:
-                field = 'next'
-            res = model[obj, field]
-            stackroots.append(('node', res))
-            add_action("read", obj, field, res)
-        elif action == 3:
-            obj1 = random_obj()
-            obj2 = random_obj()
-            if draw(strategies.booleans()):
-                field = 'prev'
-            else:
-                field = 'next'
-            model[obj1, field] = obj2
-            add_action('write', obj1, field, obj2)
-        elif action == 4:
-            add_action('collect')
-        elif action == 5:
-            array = random_array()
-            index = draw(strategies.integers(0, array - 1))
-            res = arraymodel[array, index]
-            stackroots.append(('node', res))
-            add_action('readarray', array, index, res)
-        elif action == 6:
-            array = random_array()
-            index = draw(strategies.integers(0, array - 1))
-            obj = random_obj()
-            arraymodel[array, index] = obj
-            add_action('writearray', array, index, obj)
-        elif action == 7:
-            array1 = random_array()
-            array2 = random_array()
-            assume(array1 != array2)
-            if not draw(strategies.booleans()):
-                source_start = dest_start = 0
-                length = draw(strategies.integers(1, min(array1, array2)))
-            else:
-                source_start = draw(strategies.integers(0, array1-1))
-                dest_start = draw(strategies.integers(0, array2-1))
-                length = draw(strategies.integers(1, min(array1 - source_start, array2 - dest_start)))
-            for i in range(length):
-                arraymodel[array2, dest_start + i] = arraymodel[array1, source_start + i]
-            add_action('copy_array', array1, array2, source_start, dest_start, length)
-        elif action == 8:
-            array = create_array()
-            stackroots.append(('array', array[0]))
-            add_action('malloc_array', *array)
-        else:
-            assert "unreachable"
+            identity, path = todo.pop()
+            if identity in seen:
+                checking_actions.append(("seen", path))
+                continue
+            seen[identity] = path
+            obj = model[identity]
+            if isinstance(obj, Node):
+                checking_actions.append(("node", obj.x, path))
 
+                for field in ['prev', 'next']:
+                    res = getattr(obj, field)
+                    todo.append((res, path + (field, )))
+            elif isinstance(obj, list):
+                checking_actions.append(("array", len(obj), path))
+                for index, res in enumerate(model[identity]):
+                    todo.append((res, path + (index, )))
+            elif isinstance(obj, Weakref):
+                if obj.identity in seen:
+                    checking_actions.append(("weakref", "seen", seen[obj.identity], path))
+                else:
+                    checking_actions.append((obj, path))
+            else:
+                assert isinstance(obj, str)
+                checking_actions.append(("str", obj, path))
+        # deal with the weakrefs
+        for index, tup in enumerate(checking_actions):
+            obj = tup[0]
+            if not isinstance(obj, Weakref):
+                continue
+            if obj.identity in seen:
+                checking_actions[index] = ("weakref", "alive", seen[obj.identity], tup[1])
+            else:
+                checking_actions[index] = ("weakref", "dead", None, tup[1])
+        args += (checking_actions, )
+        assert "weakref" not in checking_actions
+        actions.append(args)
+
+    all_actions = []
+    def gen_action(name, precond=None):
+        def wrap(func):
+            if precond is None:
+                precond1 = lambda: True
+            elif isinstance(precond, type):
+                # passing a type means "do we have an object of that type
+                # available currently"
+                typ = precond
+                precond1 = lambda: len(filter_objects(typ)) != 0
+            else:
+                precond1 = precond
+            all_actions.append((func, precond1))
+            return func
+        return wrap
+
+    @gen_action("drop", lambda: len(stackroots) != 0)
+    def drop():
+        index = draw(strategies.integers(0, len(stackroots)-1))
+        if index in pinned_indexes:
+            indexindex = pinned_indexes.index(index)
+            add_action("unpin", indexindex)
+            del pinned_indexes[indexindex]
+        del stackroots[index]
+        # ugh, annoying
+        pinned_indexes[:] = [(pinned_index if pinned_index < index else pinned_index - 1)
+                             for pinned_index in pinned_indexes]
+        add_action("drop", index)
+
+    @gen_action("malloc", object)
+    def malloc():
+        nextindex = random_object_index()
+        previndex = random_object_index()
+        identity = next_identity()
+        model[identity] = Node(identity, get_obj_identity(previndex), get_obj_identity(nextindex))
+        stackroots.append(identity)
+        add_action('malloc', identity, previndex, nextindex)
+
+    @gen_action("read", Node)
+    def read():
+        index = random_node_index()
+        identity = get_obj_identity(index)
+        if draw(strategies.booleans()):
+            field = 'prev'
+        else:
+            field = 'next'
+        res = getattr(model[identity], field)
+        stackroots.append(res)
+        add_action("read", index, field)
+
+    @gen_action("write", Node)
+    def write():
+        index1 = random_node_index()
+        index2 = random_object_index()
+        if draw(strategies.booleans()):
+            field = 'prev'
+        else:
+            field = 'next'
+        identity1 = get_obj_identity(index1)
+        identity2 = get_obj_identity(index2)
+        setattr(model[identity1], field, identity2)
+        add_action('write', index1, field, index2)
+
+    @gen_action("collect")
+    def collect():
+        add_action('collect')
+
+    @gen_action("readarray", list)
+    def readarray():
+        arrayindex = random_array_index()
+        identity = get_obj_identity(arrayindex)
+        l = model[identity]
+        index = draw(strategies.integers(0, len(l) - 1))
+        res = model[identity][index]
+        stackroots.append(res)
+        add_action('readarray', arrayindex, index)
+
+    @gen_action("writearray", list)
+    def writearray():
+        arrayindex = random_array_index()
+        objindex = random_object_index()
+        identity = get_obj_identity(arrayindex)
+        l = model[identity]
+        length = len(l)
+        index = draw(strategies.integers(0, length - 1))
+        l[index] = get_obj_identity(objindex)
+        add_action('writearray', arrayindex, index, objindex)
+
+    @gen_action("copy_array", list)
+    def copy_array():
+        array1index = random_array_index()
+        array2index = random_array_index()
+        array1identity = get_obj_identity(array1index)
+        array2identity = get_obj_identity(array2index)
+        assume(array1identity != array2identity)
+        array1 = model[array1identity]
+        array2 = model[array2identity]
+        array1length = len(array1)
+        array2length = len(array2)
+        if not draw(strategies.booleans()):
+            source_start = dest_start = 0
+            length = draw(strategies.integers(1, min(array1length, array2length)))
+        else:
+            source_start = draw(strategies.integers(0, array1length-1))
+            dest_start = draw(strategies.integers(0, array2length-1))
+            length = draw(strategies.integers(1, min(array1length - source_start, array2length - dest_start)))
+        for i in range(length):
+            array2[dest_start + i] = array1[source_start + i]
+        add_action('copy_array', array1index, array2index, source_start, dest_start, length)
+
+    @gen_action("malloc_array")
+    def malloc_array():
+        identity, indexes = create_array()
+        stackroots.append(identity)
+        add_action('malloc_array', indexes)
+
+    @gen_action("malloc_string")
+    def malloc_string():
+        identity, value = create_string()
+        stackroots.append(identity)
+        add_action('malloc_string', value)
+
+    @gen_action("pin", str)
+    def pin():
+        indexes = [index for index, identity in enumerate(stackroots) if isinstance(model[identity], str) and index not in pinned_indexes]
+        index = draw(strategies.sampled_from(indexes))
+        pinned_indexes.append(index)
+        add_action('pin', index)
+
+    @gen_action("unpin", lambda: len(pinned_indexes) != 0)
+    def unpin():
+        index = draw(strategies.integers(0, len(pinned_indexes) - 1))
+        del pinned_indexes[index]
+        add_action('unpin', index)
+
+    @gen_action("take_id", object)
+    def take_id():
+        index = random_object_index()
+        identity = get_obj_identity(index)
+        if identity in ids_taken:
+            add_action('take_id', index, ids_taken[identity])
+        else:
+            ids_taken[identity] = len(ids_taken)
+            add_action('take_id', index, -1)
+
+    @gen_action("create_weakref", lambda: len(filter_objects((Node, list))) != 0)
+    def create_weakref():
+        indexes = filter_objects((Node, list))
+        index = draw(strategies.sampled_from(indexes))
+        identity = get_obj_identity(index)
+        new_identity = next_identity()
+        ref = Weakref(identity)
+        model[new_identity] = ref
+        stackroots.append(new_identity)
+        add_action("create_weakref", index)
+
+    for i in range(draw(strategies.integers(2, 100))):
+        # generate steps
+
+        # sample from the actions where preconditions are met:
+        active_actions = [action for action, precond in all_actions if precond()]
+        action = draw(strategies.sampled_from(active_actions))
+        action()
     return result
 
 class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
     from rpython.memory.gc.incminimark import IncrementalMiniMarkGC as GCClass
+
+    NODE = lltype.GcStruct('NODE',
+                           ('x', lltype.Signed),
+                           ('prev', llmemory.GCREF),
+                           ('next', llmemory.GCREF))
+
+    VAR = lltype.GcArray(llmemory.GCREF)
 
     def state_setup(self, random_data):
         from rpython.memory.gc.minimarktest import SimpleArenaCollection
@@ -1152,90 +1356,125 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
         self.gc.TEST_VISIT_SINGLE_STEP = random_data['visit_single_step']
         self.gc.DEBUG = random_data['debug_level']
         self.make_prebuilts(random_data)
+        self.pinned_strings = []
+        self.computed_ids = []
+
+    def erase(self, obj):
+        return lltype.cast_opaque_ptr(llmemory.GCREF, obj)
+
+    def unerase_array(self, gcref):
+        return lltype.cast_opaque_ptr(lltype.Ptr(self.VAR), gcref)
+
+    def unerase_node(self, gcref):
+        return lltype.cast_opaque_ptr(lltype.Ptr(self.NODE), gcref)
+
+    def unerase_str(self, gcref):
+        return lltype.cast_opaque_ptr(lltype.Ptr(STR), gcref)
+
+    def unerase_weakref(self, gcref):
+        return lltype.cast_opaque_ptr(WEAKREFPTR, gcref)
 
     def make_prebuilts(self, random_data):
         prebuilts = self.prebuilts = []
         # construct the prebuilt nodes
         for identity, _, _ in random_data['prebuilts']:
-            prebuilt = lltype.malloc(S, immortal=True)
+            prebuilt = lltype.malloc(self.NODE, immortal=True)
             prebuilt.x = identity
             prebuilts.append(prebuilt)
         # initialize next and prev fields
-        for identity, previd, nextid in random_data['prebuilts']:
-            prebuilt = self.get_node(identity)
-            self.consider_constant(prebuilt)
-            prebuilt.prev = self.get_node(previd)
-            prebuilt.next = self.get_node(nextid)
+        for node, (_, previd, nextid) in zip(prebuilts, random_data['prebuilts']):
+            self.consider_constant(node)
+            node.prev = self.erase(self.get_node(previd))
+            node.next = self.erase(self.get_node(nextid))
 
         # prebuilt arrays
-        prebuilt_arrays = self.prebuilt_arrays = []
-        for length, content in random_data['prebuilt_arrays']:
-            array = self.create_array(length, content, immortal=True)
-            self.prebuilt_arrays.append(array)
+        for content in random_data['prebuilt_arrays']:
+            array = self.create_array(content, immortal=True)
+            self.prebuilts.append(array)
             self.consider_constant(array)
 
-    def get_node(self, identity):
-        if identity < 0:
-            return self.prebuilts[~identity]
-        for obj in self.stackroots:
-            if lltype.typeOf(obj) == lltype.Ptr(S) and obj.x == identity:
-                return obj
-        assert 0, "should be unreachable"
+    def get_obj(self, index):
+        if index < 0:
+            return self.prebuilts[~index]
+        else:
+            return self.stackroots[index]
+
+    def get_node(self, index):
+        res = self.get_obj(index)
+        return self.unerase_node(res)
 
     def get_array(self, index):
-        assert index > 0
-        if index <= len(self.prebuilt_arrays):
-            return self.prebuilt_arrays[index - 1]
-        for obj in self.stackroots:
-            if lltype.typeOf(obj) == lltype.Ptr(VAR) and len(obj) == index:
-                return obj
-        assert 0, "should be unreachable"
+        res = self.get_obj(index)
+        return self.unerase_array(res)
 
-    def create_array(self, length, content, immortal=False):
+    def create_array(self, content, immortal=False):
         if immortal:
-            array = lltype.malloc(VAR, length, immortal=True)
+            array = lltype.malloc(self.VAR, len(content), immortal=True)
         else:
-            array = self.malloc(VAR, length)
-        for index, objid in enumerate(content):
-            obj = self.get_node(objid)
+            array = self.malloc(self.VAR, len(content))
+        for index, objindex in enumerate(content):
+            obj = self.erase(self.get_node(objindex))
             if immortal:
                 array[index] = obj
             else:
                 self.writearray(array, index, obj)
         return array
 
-    def check(self, model, arraymodel, stackroots):
-        # first check stackroots
-        for index, (typ, identity) in enumerate(stackroots):
-            obj = self.stackroots[index]
-            if typ == "node":
-                assert lltype.typeOf(obj) == lltype.Ptr(S)
-                assert identity == obj.x
-            else:
-                assert typ == "array"
-                assert lltype.typeOf(obj) == lltype.Ptr(VAR)
-                assert identity == len(obj)
+    def create_string(self, content):
+        string = self.malloc(STR, len(content))
+        for index, c in enumerate(content):
+            string.chars[index] = c
+        return string
+
+    def check(self, checking_actions, must_be_dead=False):
+        # check that all the successfully pinned strings can be accessed
+        # without going via stackroots
+        for s in self.pinned_strings:
+            if s is not None:
+                len(self.unerase_str(s).chars) # would crash
+        todo = self.prebuilts + self.stackroots
         # walk the reachable heap and compare against model
-        seen = set()
-        seen_arrays = set()
-        todo = self.prebuilts + self.prebuilt_arrays + self.stackroots
+        iterator = iter(checking_actions)
         while todo:
             obj = todo.pop()
-            if lltype.typeOf(obj) == lltype.Ptr(VAR):
-                if len(obj) in seen_arrays:
-                    continue
-                seen_arrays.add(len(obj))
+            action = next(iterator)
+            path = action[-1]
+            actiondata = action[:-1]
+            if actiondata[0] == "seen":
+                continue
+            elif actiondata[0] == "array":
+                obj = self.unerase_array(obj)
+                assert actiondata == ("array", len(obj))
                 for i in range(len(obj)):
                     todo.append(obj[i])
-                    assert arraymodel[len(obj), i] == obj[i].x
-            else:
-                if obj.x in seen:
-                    continue
-                seen.add(obj.x)
-                todo.append(obj.next)
+            elif actiondata[0] == "node":
+                obj = self.unerase_node(obj)
+                assert actiondata == ("node", obj.x)
                 todo.append(obj.prev)
-                assert model[obj.x, 'prev'] == obj.prev.x
-                assert model[obj.x, 'next'] == obj.next.x
+                todo.append(obj.next)
+            elif actiondata[0] == "weakref":
+                obj = self.unerase_weakref(obj)
+                ptr = llmemory.cast_adr_to_ptr(obj.weakptr, llmemory.GCREF)
+                _, status, objpath = actiondata
+                if status == "seen" or status == "alive":
+                    # treat seen and alive the same for now
+                    # just check that it's a valid object, in a somewhat
+                    # annoying way
+                    assert ptr
+                    assert "DEAD" not in str(ptr._obj.container)
+                else:
+                    assert status == "dead"
+                    if must_be_dead:
+                        assert not ptr
+                    else:
+                        if ptr:
+                            # it can point to an object, but that must be a
+                            # still alive one
+                            assert "DEAD" not in str(ptr._obj.container)
+            else:
+                assert actiondata[0] == "str"
+                obj = self.unerase_str(obj)
+                assert "".join(obj.chars) == actiondata[1]
 
     @given(random_action_sequences())
     def test_random(self, random_data):
@@ -1243,42 +1482,40 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
         self.state_setup(random_data)
         for action in random_data['actions']:
             kind = action[0]
-            actiondata = action[1:-3]
+            actiondata = action[1:-1]
             print kind, actiondata
             if kind == "drop": # drop
                 index, = actiondata
                 del self.stackroots[index]
             elif kind == "malloc": # alloc
                 identity, previd, nextid = actiondata
-                p = self.malloc(S)
+                p = self.malloc(self.NODE)
                 p.x = identity
-                self.write(p, 'next', self.get_node(nextid))
-                self.write(p, 'prev', self.get_node(previd))
+                self.write(p, 'prev', self.erase(self.get_obj(previd)))
+                self.write(p, 'next', self.erase(self.get_obj(nextid)))
                 self.stackroots.append(p)
             elif kind == "read": # read field
-                objid, field, resid = actiondata
-                obj = self.get_node(objid)
+                objindex, field = actiondata
+                obj = self.get_node(objindex)
                 res = getattr(obj, field)
-                assert res.x == resid
                 self.stackroots.append(res)
             elif kind == "write":
-                obj1id, field, obj2id = actiondata
-                obj1 = self.get_node(obj1id)
-                obj2 = self.get_node(obj2id)
-                self.write(obj1, field, obj2)
+                obj1index, field, obj2index = actiondata
+                obj1 = self.get_node(obj1index)
+                obj2 = self.get_obj(obj2index)
+                self.write(obj1, field, self.erase(obj2))
             elif kind == "collect":
                 assert actiondata == ()
                 self.gc.collect_step()
             elif kind == "readarray":
-                arrayindex, index, resultindex = actiondata
+                arrayindex, index = actiondata
                 array = self.get_array(arrayindex)
-                assert array[index].x == resultindex
                 self.stackroots.append(array[index])
             elif kind == "writearray":
                 arrayindex, index, objindex = actiondata
                 array = self.get_array(arrayindex)
-                node = self.get_node(objindex)
-                self.writearray(array, index, node)
+                node = self.get_obj(objindex)
+                self.writearray(array, index, self.erase(node))
             elif kind == "copy_array":
                 array1index, array2index, source_start, dest_start, length = actiondata
                 array1 = self.get_array(array1index)
@@ -1295,13 +1532,49 @@ class TestIncrementalMiniMarkGCFullRandom(DirectGCTest):
                     dest_start += 1
                     source_start += 1
             elif kind == "malloc_array":
-                length, content = actiondata
-                array = self.create_array(length, content)
+                content, = actiondata
+                array = self.create_array(content)
                 self.stackroots.append(array)
+            elif kind == "malloc_string":
+                content, = actiondata
+                array = self.create_string(content)
+                self.stackroots.append(array)
+            elif kind == "pin":
+                index, = actiondata
+                ptr = self.stackroots[index]
+                flag = self.gc.pin(llmemory.cast_ptr_to_adr(ptr))
+                if flag:
+                    self.pinned_strings.append(ptr)
+                else:
+                    self.pinned_strings.append(None)
+            elif kind == "unpin":
+                index, = actiondata
+                ptr = self.pinned_strings[index]
+                if ptr is None:
+                    # pinning had failed, do nothing
+                    pass
+                else:
+                    self.gc.unpin(llmemory.cast_ptr_to_adr(ptr))
+                del self.pinned_strings[index]
+            elif kind == "take_id":
+                index, compare_with = actiondata
+                node = self.get_obj(index)
+                int_id = self.gc.id(node)
+                if compare_with == -1:
+                    self.computed_ids.append(int_id)
+                else:
+                    assert self.computed_ids[compare_with] == int_id
+            elif kind == "create_weakref":
+                index, = actiondata
+                ref = self.malloc(WEAKREF)
+                # must read node *after* malloc, in case malloc collects and moves
+                node = self.get_obj(index)
+                ref.weakptr = llmemory.cast_ptr_to_adr(node)
+                self.stackroots.append(ref)
             else:
-                assert "unreachable"
-            model, arraymodel, stackroots = action[-3:]
-            self.check(model, arraymodel, stackroots)
+                assert 0, "unreachable"
+            checking_actions = action[-1]
+            self.check(checking_actions)
+        self.gc.TEST_VISIT_SINGLE_STEP = False # otherwise the collection might not finish
         self.gc.collect()
-        self.check(model, arraymodel, stackroots)
-
+        self.check(checking_actions, must_be_dead=True)

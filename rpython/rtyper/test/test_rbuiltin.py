@@ -1,5 +1,6 @@
 import math
 import os
+import sys
 
 import py
 
@@ -14,6 +15,8 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool import udir
 from rpython.translator.translator import graphof
 
+IS_PYPY = "__pypy__" in sys.builtin_module_names
+MACOS = sys.platform == "darwin"
 
 def enum_direct_calls(translator, func):
     graph = graphof(translator, func)
@@ -24,11 +27,12 @@ def enum_direct_calls(translator, func):
 
 
 def skip_if_m1():
-    """ Bugs in libffi linked against python make ll2ctypes unusable
+    return True
+    """ Bugs in libffi linked against cpython make ll2ctypes unusable
     for variadic functions on m1 platform, skip those tests
     """
-    import sys, platform
-    if sys.platform == 'darwin' and platform.machine() == 'arm64':
+    import platform
+    if MACOS and not IS_PYPY and platform.machine() == 'arm64':
         py.test.skip("Variadic functions on m1 unsupported on ll2ctypes")
 
 class TestRbuiltin(BaseRtypingTest):
