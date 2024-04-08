@@ -72,7 +72,7 @@ from rpython.memory.support import mangle_hash
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
-from rpython.rlib.objectmodel import specialize, always_inline
+from rpython.rlib.objectmodel import specialize, always_inline, we_are_translated
 from rpython.rlib import rgc, unroll
 from rpython.memory.gc.minimarkpage import out_of_memory
 
@@ -675,7 +675,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # there, do a collect first.
             result = self.nursery_free
             ll_assert(result != llmemory.NULL, "uninitialized nursery")
-            self.nursery_free = new_free = result + totalsize
+            self.nursery_free = new_free = self._bump_pointer(result, totalsize)
             if new_free > self.nursery_top:
                 result = self.collect_and_reserve(totalsize)
             #
@@ -734,8 +734,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
             result = self.nursery_free
-            ll_assert(result != llmemory.NULL, "uninitialized nursery")
-            self.nursery_free = new_free = result + totalsize
+            new_free = self._bump_pointer(result, totalsize)
+            self.nursery_free = new_free
             if new_free > self.nursery_top:
                 result = self.collect_and_reserve(totalsize)
             #
@@ -749,6 +749,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
+    @always_inline
+    def _bump_pointer(self, result, totalsize):
+        ll_assert(result != llmemory.NULL, "uninitialized nursery")
+        if not we_are_translated():
+            # grumble grumble, there is a weird heuristic in
+            # fakearenaaddress.__add__ which gets confused if
+            # self.nursery_top is a pinned object. so for direct tests, do
+            # the right thing directly
+            bytes = llmemory.raw_malloc_usage(totalsize)
+            return result.arena.getaddr(result.offset + bytes)
+        else:
+            return result + totalsize
 
     def malloc_fixed_or_varsize_nonmovable(self, typeid, length):
         # length==0 for fixedsize
@@ -924,8 +936,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # nursery_top before this point. Try to reserve totalsize now.
             # If this succeeds break out of loop.
             result = self.nursery_free
-            if self.nursery_free + totalsize <= self.nursery_top:
-                self.nursery_free = result + totalsize
+            new_free = self._bump_pointer(result, totalsize)
+            if new_free <= self.nursery_top:
+                self.nursery_free = new_free
                 ll_assert(self.nursery_free <= self.nursery_top, "nursery overflow")
                 break
             #
@@ -1208,6 +1221,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.young_rawmalloced_objects.contains(addr))
 
     def _debug_print_flags(self, addr):
+        if self.is_in_nursery(addr):
+            print "in nursery"
         tid = self.header(addr).tid
         for name, value in flagnames_and_values:
             if tid & value:
@@ -1726,10 +1741,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         obj = obj + self.gcheaderbuilder.size_gc_header
         shadow = self.nursery_objects_shadows.get(obj)
         if shadow != llmemory.NULL:
-            # visit shadow to keep it alive
-            # XXX seems like it is save to set GCFLAG_VISITED, however
-            # should be double checked
-            self.header(shadow).tid |= GCFLAG_VISITED
+            if self.gc_state == STATE_MARKING:
+                # if  were in the marking phase, we need to make sure the shadow
+                # stays alive by marking it black.
+                self.header(shadow).tid |= GCFLAG_VISITED
+                # this is only safe because pinned objects cannot themselves hold
+                # references (otherwise we would have to mark the object gray
+                # instead and add it to more_objects_to_trace)
+                typeid = self.get_type_id(obj)
+                ll_assert(not self.has_gcptr(typeid), "pinned object with gcptrs not supported")
             new_shadow_object_dict.setitem(obj, shadow)
 
     def register_finalizer(self, fq_index, gcobj):
@@ -2141,6 +2161,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # copy the contents of the object? usually yes, but not for some
         # shadow objects
         copy = True
+        add_gcflag_visited = False
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
         if self.header(obj).tid & (GCFLAG_HAS_SHADOW | GCFLAG_PINNED) == 0:
@@ -2191,6 +2212,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # First visit to an object that has already a shadow.
             newobj = self.nursery_objects_shadows.get(obj)
             ll_assert(newobj != llmemory.NULL, "GCFLAG_HAS_SHADOW but no shadow found")
+            if self.header(newobj).tid & GCFLAG_VISITED:
+                # if the shadow is black, we must make sure that it remains
+                # black after we did the copy. by default, the memcopy will
+                # overwrite the flags with the ones that old obj has. if we
+                # don't do that, then the copy can be collected if we're
+                # currently in sweeping phase. see test_pin_id_bug.
+                add_gcflag_visited = True
             newhdr = newobj - size_gc_header
             #
             # The flags GCFLAG_HAS_SHADOW and GCFLAG_SHADOW_INITIALIZED
@@ -2231,6 +2259,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.has_gcptr(typeid):
             # we only have to do it if we have any gcptrs
             self.old_objects_pointing_to_young.append(newobj)
+        if add_gcflag_visited:
+            self.header(newobj).tid |= GCFLAG_VISITED
 
     _trace_drag_out._always_inline_ = True
 
@@ -2799,6 +2829,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # the next major collection, at which point we want
         # it to look valid (but ready to be freed).
         shadow = shadowhdr + size_gc_header
+        # XXX is it correct that the full tid (including the flags) is copied?
+        # what about if obj has GCFLAG_PINNED set, won't that mean that the
+        # shadow gets GCFLAG_PINNED_OBJECT_PARENT_KNOWN set (which are the same
+        # value)? maybe it doesn't matter at the moment because pinned objects
+        # cannot have gcptrs
         self.header(shadow).tid = self.header(obj).tid
         typeid = self.get_type_id(obj)
         if self.is_varsize(typeid):
@@ -3264,7 +3299,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 surviving = False
         elif (bool(self.young_rawmalloced_objects) and
               self.young_rawmalloced_objects.contains(obj)):
-            # young weakref to a young raw-malloced object
+            # young rawrefcount to a young raw-malloced object
             if self.header(obj).tid & GCFLAG_VISITED_RMY:
                 surviving = True    # survives, but does not move
             else:
@@ -3330,6 +3365,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             intobj = self._pyobj(pyobject).ob_pypy_link
             obj = llmemory.cast_int_to_adr(intobj)
             self.objects_to_trace.append(obj)
+            # XXX ouch, isn't it enough to call visit_all_objects from
+            # rrc_major_collection_trace? and shouldn't we check what color the
+            # object has first? we only need to trace non-black objects after
+            # all
             self.visit_all_objects()
 
     def rrc_major_collection_free(self):

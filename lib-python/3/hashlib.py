@@ -177,11 +177,6 @@ except ImportError as e:
     _hashlib = None
     new = __py_new
     __get_hash = __get_builtin_constructor
-    # added by PyPy
-    import warnings
-    warnings.warn("The _hashlib module is not available, falling back "
-                  "to a much slower implementation (%s)" % str(e),
-                  RuntimeWarning)
 
 try:
     # OpenSSL's PKCS5_PBKDF2_HMAC requires OpenSSL 1.0+ with HMAC and SHA
