@@ -9,7 +9,7 @@ import test.support
 from test import support
 from test.support import socket_helper
 from test.support import (captured_stderr, TESTFN, EnvironmentVarGuard,
-                          change_cwd)
+                          change_cwd, check_impl_detail)
 import builtins
 import encodings
 import glob
