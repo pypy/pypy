@@ -35,7 +35,7 @@ def test_pickle():
     assert new == st
     assert type(new) is type(st)
 
-if hasattr(os, "fork") and not sys.name == 'darwin':
+if hasattr(os, "fork") and not sys.platform == 'darwin':
     def test_fork_hook_creates_thread_bug():
         # Test fixed in 3.10, no longer errors
         import threading

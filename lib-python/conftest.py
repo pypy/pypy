@@ -272,7 +272,6 @@ testmap = [
     RegrTest('test_long.py'),
     RegrTest('test_longexp.py'),
     RegrTest('test_lzma.py'),
-    RegrTest('test_macurl2path.py'),
     RegrTest('test_mailbox.py'),
     RegrTest('test_mailcap.py'),
     RegrTest('test_marshal.py'),

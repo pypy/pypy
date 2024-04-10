@@ -121,6 +121,16 @@ def get_repo_info(space):
     else:
         return space.w_None
 
+def get_git_info(space):
+    info = get_repo_version_info(root=pypyroot)
+    if info:
+        repo_tag, repo_version = info
+        return space.newtuple([space.newtext('PyPy'),
+                               space.newtext(repo_tag),
+                               space.newtext(repo_version)])
+    else:
+        return space.w_None
+
 def tuple2hex(ver):
     d = {'alpha':     0xA,
          'beta':      0xB,
