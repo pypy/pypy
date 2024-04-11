@@ -961,7 +961,6 @@ Module(
         self.assertEqual(elif_stmt.lineno, 3)
         self.assertEqual(elif_stmt.col_offset, 0)
 
-    @unittest.skipIf(skip_pypy_pre_39, "pypy does not implement 'end_lineno'")
     def test_starred_expr_end_position_within_call(self):
         node = ast.parse('f(*[0, 1])')
         starred_expr = node.body[0].value.args[0]
