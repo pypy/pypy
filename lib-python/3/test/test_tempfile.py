@@ -890,7 +890,7 @@ class TestMktemp(BaseTestCase):
         self.do_create(suf="b")
         self.do_create(pre="a", suf="b")
         self.do_create(pre="aa", suf=".txt")
-        support.gc_collect()  # For PyPy or other GCs.
+        support.gc_collect()
 
     def test_many(self):
         # mktemp can choose many usable file names (stochastic)
@@ -1501,7 +1501,7 @@ class TestTemporaryDirectory(BaseTestCase):
                          "were deleted")
         d2.cleanup()
 
-    @support.skip_unless_symlink
+    @os_helper.skip_unless_symlink
     def test_cleanup_with_symlink_modes(self):
         # cleanup() should not follow symlinks when fixing mode bits (#91133)
         with self.do_create(recurse=0) as d2:
@@ -1551,7 +1551,7 @@ class TestTemporaryDirectory(BaseTestCase):
                                          '%03o != %03o' % (new_mode, old_mode))
 
     @unittest.skipUnless(hasattr(os, 'chflags'), 'requires os.chflags')
-    @support.skip_unless_symlink
+    @os_helper.skip_unless_symlink
     def test_cleanup_with_symlink_flags(self):
         # cleanup() should not follow symlinks when fixing flags (#91133)
         flags = stat.UF_IMMUTABLE | stat.UF_NOUNLINK
@@ -1774,7 +1774,7 @@ class TestTemporaryDirectory(BaseTestCase):
 
     def check_flags(self, flags):
         # skip the test if these flags are not supported (ex: FreeBSD 13)
-        filename = support.TESTFN
+        filename = os_helper.TESTFN
         try:
             open(filename, "w").close()
             try:
@@ -1786,7 +1786,7 @@ class TestTemporaryDirectory(BaseTestCase):
             else:
                 os.chflags(filename, 0)
         finally:
-            support.unlink(filename)
+            os_helper.unlink(filename)
 
     @unittest.skipUnless(hasattr(os, 'chflags'), 'requires os.chflags')
     def test_flags(self):
