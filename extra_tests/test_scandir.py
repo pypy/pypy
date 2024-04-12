@@ -155,7 +155,10 @@ def test_dir2(tmpdir):
 @pytest.mark.skipif(not has_os_symlink, reason="no symlink support")
 def test_dir3(tmpdir):
     dir3 = _make_dir3(tmpdir)
-    d = next(os.scandir(dir3))
+    sd = os.scandir(dir3)
+    d = next(sd)
+    if d.name == 'some_file':
+        d = next(sd)
     assert d.name == 'sfile3'
     assert     d.is_file()
     assert not d.is_dir()
@@ -167,8 +170,9 @@ def test_dir3(tmpdir):
 @pytest.mark.skipif(not has_os_symlink, reason="no symlink support")
 def test_dir4(tmpdir):
     dir4 = _make_dir4(tmpdir)
-    d = next(os.scandir(dir4))
-    assert d.name == 'sdir4'
+    sd = os.scandir(dir4)
+    d = next(sd)
+    assert d.name == 'ünicode'
     assert not d.is_file()
     assert     d.is_dir()
     assert     d.is_symlink()
