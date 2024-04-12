@@ -727,6 +727,7 @@ class BaseManager(object):
                     )
                 conn = self._Client(token.address, authkey=self._authkey)
                 dispatch(conn, None, 'decref', (token.id,))
+                conn.close()
                 return proxy
             temp.__name__ = typeid
             setattr(cls, typeid, temp)
