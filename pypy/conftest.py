@@ -47,10 +47,16 @@ except AttributeError:
 def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
-@pytest.hookimpl(tryfirst=True)
-def pytest_cmdline_preparse(config, args):
-    if not (set(args) & {'-D', '--direct-apptest'}):
-        args.append('--assert=reinterp')
+if pytest.__version__[0] > '6':
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_load_initial_conftests(args):
+        if not (set(args) & {'-D', '--direct-apptest'}):
+            args.append('--assert=reinterp')
+else:
+    @pytest.hookimpl(tryfirst=True)
+    def pytest_cmdline_preparse(config, args):
+        if not (set(args) & {'-D', '--direct-apptest'}):
+            args.append('--assert=reinterp')
 
 def pytest_configure(config):
     if HOST_IS_PY3 and not config.getoption('direct_apptest'):
