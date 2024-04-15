@@ -1422,3 +1422,8 @@ class AppTestUnicodeString:
     def test_bad_encoding(self):
         with raises(UnicodeEncodeError):
             u"abc".encode("utf-8\udce2\udc80\udc9d")
+
+    def test_mul(self):
+        assert u'abc'.__mul__(2) == u'abcabc'
+        with raises(TypeError):
+            u'abc'.__mul__('')
