@@ -1404,3 +1404,8 @@ class AppTestUnicodeString:
         assert u'abc'.removesuffix(u'bc') == u'a'
         assert u'abc'.removesuffix(u'') == u'abc'
         assert u'spam'.removesuffix(u'am') == u'sp'
+
+    def test_mul(self):
+        assert u'abc'.__mul__(2) == u'abcabc'
+        with raises(TypeError):
+            u'abc'.__mul__('')

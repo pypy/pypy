@@ -1200,12 +1200,7 @@ class W_UnicodeObject(W_Root):
         return W_UnicodeObject(res, newlength)
 
     def descr_mul(self, space, w_times):
-        try:
-            times = space.getindex_w(w_times, space.w_OverflowError)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            raise
+        times = space.getindex_w(w_times, space.w_OverflowError)
         if times <= 0:
             return self._empty()
         if len(self._utf8) == 1:
