@@ -15,6 +15,7 @@ else:
 
     def test_compress_function():
         from bz2 import compress, decompress
+        import gc
 
         raises(TypeError, compress, 123)
         raises(ValueError, compress, b"foo", 10)
@@ -22,32 +23,42 @@ else:
 
         data = compress(TEXT)
         assert decompress(data) == TEXT
+        gc.collect()
 
     def test_compress_function_huge_data():
         if not HUGE_OK:
             skip("skipping test requiring lots of memory")
         from bz2 import compress, decompress
+        import gc
 
         HUGE_DATA = TEXT * 10000
 
         data = compress(HUGE_DATA)
         assert decompress(data) == HUGE_DATA
+        gc.collect()
 
     def test_decompress_function():
         import bz2
+        import gc
 
         raises(TypeError, bz2.decompress)
         assert bz2.decompress(b"") == b""
         decompressed_data = bz2.decompress(DATA)
         assert decompressed_data == TEXT
+        gc.collect()
 
     def test_decompress_function_incomplete_data():
         import bz2
+        import gc
 
         raises(ValueError, bz2.decompress, DATA[:-10])
+        gc.collect()
 
     def test_buffer():
         import bz2
+        import gc
         data = bz2.compress(memoryview(TEXT))
         result = bz2.decompress(memoryview(data))
         assert result == TEXT
+        gc.collect()
+
