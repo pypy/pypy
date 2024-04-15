@@ -156,3 +156,14 @@ class AppTestCodecs:
 
             out_2 = test_2.encode(codec, **ereplace).decode(codec, **ereplace)
             assert out_2.count('"') == 2
+
+    def test_cpython_gh_101180(self):
+        # in CPython codec could read out-of-bounds
+        import codecs
+        cc = codecs.lookup('iso2022_jp_2004')
+        s = u'\u304b\u309a'
+        b = cc.encode(s, 'strict')
+        print(b)
+        assert b == (b'\x1b$(Q$w\x1b(B', 2)
+         
+        
