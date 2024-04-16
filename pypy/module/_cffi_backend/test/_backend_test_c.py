@@ -2946,6 +2946,8 @@ if sys.version_info >= (3,):
 def test_FILE():
     if sys.platform == "win32":
         pytest.skip("testing FILE not implemented")
+    if sys.platform == "darwin":
+        pytest.skip("testing variadic broken on macos (issue 4937)")
     #
     BFILE = new_struct_type("struct _IO_FILE")
     BFILEP = new_pointer_type(BFILE)
