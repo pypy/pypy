@@ -10,7 +10,7 @@ ffi = FFI()
 
 MAX_READ_SIZE = 1024
 MIN_READ_SIZE = 1
-MAX_SIZE = 0xffff
+MAX_SIZE = 0xfff
 
 @st.composite
 def data_and_sizes(draw, reads=st.lists(st.integers(MIN_READ_SIZE, MAX_READ_SIZE))):
