@@ -310,7 +310,8 @@ several environment variables:
 
 ``PYPY_GC_NURSERY``
     The nursery size.
-    Defaults to 1/2 of your last-level cache, or ``4M`` if unknown.
+    Defaults to 1/2 of your last-level cache, ``4M`` if unknown, or ``4M`` if
+    the last-level cache is too small.
     Small values (like 1 or 1KB) are useful for debugging.
 
 ``PYPY_GC_NURSERY_DEBUG``
