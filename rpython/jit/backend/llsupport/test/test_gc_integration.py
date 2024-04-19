@@ -2,7 +2,7 @@
 """ Tests for register allocation for common constructs
 """
 
-import py
+import pytest
 import re, sys, struct
 from rpython.jit.metainterp.history import TargetToken, BasicFinalDescr,\
      JitCellToken, BasicFailDescr, AbstractDescr
@@ -19,6 +19,17 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 
 CPU = getcpuclass()
+IS_ARM64 = CPU.backend_name.startswith('aarch64')
+IS_MACOS = sys.platform == 'darwin'
+IS_PYPY = 'pypyjit' in sys.builtin_module_names
+IS_PYPY_MACOS_ARM64 = IS_ARM64 and IS_MACOS and IS_PYPY
+
+if IS_PYPY_MACOS_ARM64:
+    @pytest.fixture(autouse=True)
+    def disable_JIT():
+        import pypyjit
+        pypyjit.set_param("off")
+
 
 def getmap(frame):
     r = ''
@@ -821,7 +832,7 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
         assert rffi.cast(JITFRAMEPTR, cpu.gc_ll_descr.write_barrier_on_frame_called) == frame
 
     def test_call_release_gil(self):
-        py.test.skip("xxx fix this test: the code is now assuming that "
+        pytest.skip("xxx fix this test: the code is now assuming that "
                      "'before' is just rgil.release_gil(), and 'after' is "
                      "only needed if 'rpy_fastgil' was not changed.")
         # note that we can't test floats here because when untranslated
