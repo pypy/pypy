@@ -140,8 +140,8 @@ def get_L2cache_linux2():
         return get_L2cache_linux2_cpuinfo(label='L2 cache')
     #if arch == 's390x':    untested
     #    return get_L2cache_linux2_cpuinfo_s390x()
-    if arch == 'ia64':
-        return get_L2cache_linux2_ia64()
+    if arch in ('ia64', 'aarch64'):
+        return get_L2cache_linux2_system_cpu_index()
     if arch in ('parisc', 'parisc64'):
         return get_L2cache_linux2_cpuinfo(label='D-cache')
     if arch in ('sparc', 'sparc64'):
@@ -294,7 +294,7 @@ def get_L2cache_linux2_sparc():
             "/sys/devices/system/cpu/cpuX/l2_cache_size")
         return -1
 
-def get_L2cache_linux2_ia64():
+def get_L2cache_linux2_system_cpu_index():
     debug_start("gc-hardware")
     cpu = 0
     L2cache = sys.maxint
