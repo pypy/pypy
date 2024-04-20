@@ -27,7 +27,8 @@ def pytest_collect_file():
         pytest.skip("ARM64 tests skipped: cpu is %r" % (cpu,))
 
 if IS_ARM64 and IS_MACOS and IS_PYPY:
+    # This is done as well in the pypy/testrunner_cfg.py
     @pytest.fixture(autouse=True)
-    def disable_JIT():
+    def raise_if_jit():
         import pypyjit
         pypyjit.set_param("off")
