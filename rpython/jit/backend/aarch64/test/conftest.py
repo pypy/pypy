@@ -20,6 +20,12 @@ def pytest_ignore_collect(path, config):
         if os.path.commonprefix([path, THIS_DIR]) == THIS_DIR:  # workaround for bug in pytest<3.0.5
             return True
 
+def pytest_collect_file():
+    if not IS_ARM64:
+        # We end up here when calling py.test .../test_foo.py with a wrong cpu
+        # It's OK to kill the whole session with the following line
+        pytest.skip("ARM64 tests skipped: cpu is %r" % (cpu,))
+
 if IS_ARM64 and IS_MACOS and IS_PYPY:
     @pytest.fixture(autouse=True)
     def disable_JIT():

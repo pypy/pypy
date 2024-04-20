@@ -4,9 +4,10 @@ import os
 DIRS_SPLIT = [
     'translator/c', 'rlib',
     'memory/test', 'jit/metainterp',
-    'jit/backend/arm', 'jit/backend/x86',
-    'jit/backend/zarch', 'module/cpyext/test',
-    'jit/backend/aarch64',
+    'jit/backend/aarch64', 
+    'jit/backend/x86',
+    'module/cpyext/test',
+    'module/_hpy_universal/test/_vendored',
 ]
 
 def collect_one_testdir(testdirs, reldir, tests):
