@@ -1,3 +1,4 @@
+# coding=utf-8
 import pytest
 import os
 import sys
@@ -58,7 +59,7 @@ def _make_dir3(tmpdir):
 
 
 def _make_dir4(tmpdir):
-    return _make_dir(tmpdir, 'dir4', {'sdir4': 'symlink-dir'})
+    return _make_dir(tmpdir, 'dir4', {'ünicode': 'symlink-dir'})
 
 
 def _make_dir5(tmpdir):
@@ -121,7 +122,7 @@ def test_stat1(tmpdir):
 def test_stat4(tmpdir):
     dir4 = _make_dir4(tmpdir)
     d = next(os.scandir(dir4))
-    assert d.name == 'sdir4'
+    assert d.name == 'ünicode'
     assert d.stat().st_mode & 0o170000 == 0o040000    # S_IFDIR
     assert d.stat(follow_symlinks=True).st_mode &0o170000 == 0o040000
     assert d.stat(follow_symlinks=False).st_mode&0o170000 == 0o120000 #IFLNK
@@ -154,7 +155,10 @@ def test_dir2(tmpdir):
 @pytest.mark.skipif(not has_os_symlink, reason="no symlink support")
 def test_dir3(tmpdir):
     dir3 = _make_dir3(tmpdir)
-    d = next(os.scandir(dir3))
+    sd = os.scandir(dir3)
+    d = next(sd)
+    if d.name == 'some_file':
+        d = next(sd)
     assert d.name == 'sfile3'
     assert     d.is_file()
     assert not d.is_dir()
@@ -166,8 +170,9 @@ def test_dir3(tmpdir):
 @pytest.mark.skipif(not has_os_symlink, reason="no symlink support")
 def test_dir4(tmpdir):
     dir4 = _make_dir4(tmpdir)
-    d = next(os.scandir(dir4))
-    assert d.name == 'sdir4'
+    sd = os.scandir(dir4)
+    d = next(sd)
+    assert d.name == 'ünicode'
     assert not d.is_file()
     assert     d.is_dir()
     assert     d.is_symlink()

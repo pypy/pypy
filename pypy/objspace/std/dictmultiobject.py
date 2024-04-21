@@ -306,6 +306,14 @@ class W_DictMultiObject(W_Root):
         update1(space, copyself, w_other)
         return copyself
 
+    def descr_ror(self, space, w_other):
+        if not space.isinstance_w(w_other, space.w_dict):
+            return space.w_NotImplemented
+        assert isinstance(w_other, W_DictMultiObject)
+        copy = w_other.copy()
+        update1(space, copy, self)
+        return copy
+
     def descr_ior(self, space, w_other):
         update1(space, self, w_other)
         return self
@@ -446,6 +454,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __delitem__ = interp2app(W_DictMultiObject.descr_delitem),
 
     __or__ = interp2app(W_DictMultiObject.descr_or),
+    __ror__ = interp2app(W_DictMultiObject.descr_ror),
     __ior__ = interp2app(W_DictMultiObject.descr_ior),
 
     __class_getitem__ = interp2app(

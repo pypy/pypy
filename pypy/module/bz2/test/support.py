@@ -20,6 +20,4 @@ class CheckAllocation:
             gc.collect() # to make sure we disallocate buffers
             self.space.getexecutioncontext()._run_finalizers_now()
             tries -= 1
-        if ll2ctypes.ALLOCATED:
-            import pdb;pdb.set_trace()
         assert not ll2ctypes.ALLOCATED

@@ -1,3 +1,4 @@
+# coding=utf-8
 import sys, os
 import py
 from rpython.tool.udir import udir
@@ -41,9 +42,11 @@ class AppTestScandir(object):
         cls.w_dir_empty = space.wrap(_make_dir('empty', {}))
         cls.w_dir0 = space.wrap(_make_dir('dir0', {'f1': 'file',
                                                    'f2': 'file',
-                                                   'f3': 'file'}))
+                                                   'f3': 'file',
+                                                  }))
         cls.w_dir1 = space.wrap(_make_dir('dir1', {'file1': 'file'}))
         cls.w_dir2 = space.wrap(_make_dir('dir2', {'subdir2': 'dir'}))
+        cls.w_dir4860 = space.wrap(_make_dir('dir4860', {'ünicode': 'dir'}))
         if has_os_symlink:
             cls.w_dir3 = space.wrap(_make_dir('dir3', {'sfile3': 'symlink-file'}))
             cls.w_dir4 = space.wrap(_make_dir('dir4', {'sdir4': 'symlink-dir'}))
@@ -255,3 +258,9 @@ class AppTestScandir(object):
         with open(d) as fp:
             length = len(fp.read())
         assert posix.lstat(d).st_size == length
+
+    def test_unicode_dir(self):
+        # issue 4860: windows and scandir
+        posix = self.posix
+        files = list(posix.scandir(self.dir4860))
+        assert files[0].is_dir()

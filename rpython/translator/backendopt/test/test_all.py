@@ -305,3 +305,28 @@ class TestLLType(object):
         t = self.translateopt(f, [], replace_we_are_jitted=True)
         graph = graphof(t, f)
         assert graph.startblock.exits[0].args[0].value == 2
+
+    def test_getfield_vtable(self):
+        class Base(object):
+            pass
+        class A(Base):
+            def f(self):
+                return 1
+        class B(Base):
+            def f(self):
+                return 2
+        def g(i):
+            if i > 0:
+                return A()
+            return B()
+        def f(i):
+            if i > 0:
+                a = g(5)
+                return a.f()
+            else:
+                a = g(-5)
+                return a.f()
+        t = self.translateopt(f, [int])
+        graph = graphof(t, f)
+        s = summary(graph)
+        assert 'getfield' not in s

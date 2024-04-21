@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.translator.simplify import get_graph
 from hashlib import md5
 
@@ -49,7 +51,7 @@ def get_statistics(graph, translator, save_per_graph_details=None, ignore_stack_
         f = open(save_per_graph_details, "w")
         try:
             for hash, name, nblocks, nops, nmallocs in details:
-                print >>f, hash, name, nblocks, nops, nmallocs
+                print(hash, name, nblocks, nops, nmallocs, file=f)
         finally:
             f.close()
     return num_graphs, num_blocks, num_ops, num_mallocs
@@ -58,8 +60,8 @@ def print_statistics(graph, translator, save_per_graph_details=None, ignore_stac
     num_graphs, num_blocks, num_ops, num_mallocs = get_statistics(
             graph, translator, save_per_graph_details,
             ignore_stack_checks=ignore_stack_checks)
-    print ("Statistics:\nnumber of graphs %s\n"
+    print(("Statistics:\nnumber of graphs %s\n"
            "number of blocks %s\n"
            "number of operations %s\n"
            "number of mallocs %s\n"
-           ) % (num_graphs, num_blocks, num_ops, num_mallocs)
+           ) % (num_graphs, num_blocks, num_ops, num_mallocs))

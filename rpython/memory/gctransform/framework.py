@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.annotator import model as annmodel
 from rpython.rtyper.llannotation import SomeAddress, SomePtr
 from rpython.rlib import rgc
@@ -96,7 +98,7 @@ def find_initializing_stores(collect_analyzer, graph, entrymap):
         propagate_no_write_barrier_needed(result, target, mallocvars,
                                           collect_analyzer, entrymap)
     #if result:
-    #    print "found %s initializing stores in %s" % (len(result), graph.name)
+    #    print("found %s initializing stores in %s" % (len(result), graph.name))
     return result
 
 def find_clean_setarrayitems(collect_analyzer, graph):
@@ -761,7 +763,7 @@ class BaseFrameworkGCTransformer(GCTransformer):
         func = getattr(graph, 'func', None)
         if func and getattr(func, '_gc_no_collect_', False):
             if self.collect_analyzer.analyze_direct_call(graph):
-                print '!'*79
+                print('!'*79)
                 ca = CollectAnalyzer(self.translator)
                 ca.verbose = True
                 ca.analyze_direct_call(graph)

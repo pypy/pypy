@@ -8,7 +8,7 @@ Version numbers exposed by PyPy through the 'sys' module.
 import os
 
 #XXX # the release serial 42 is not in range(16)
-CPYTHON_VERSION            = (3, 9, 18, "final", 0)
+CPYTHON_VERSION            = (3, 9, 19, "final", 0)
 #XXX # sync CPYTHON_VERSION with patchlevel.h, package.py
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
@@ -111,6 +111,16 @@ def get_subversion_info(space):
     return space.wrap(('PyPy', '', ''))
 
 def get_repo_info(space):
+    info = get_repo_version_info(root=pypyroot)
+    if info:
+        repo_tag, repo_version = info
+        return space.newtuple([space.newtext('PyPy'),
+                               space.newtext(repo_tag),
+                               space.newtext(repo_version)])
+    else:
+        return space.w_None
+
+def get_git_info(space):
     info = get_repo_version_info(root=pypyroot)
     if info:
         repo_tag, repo_version = info

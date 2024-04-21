@@ -1019,58 +1019,55 @@ class TestUnicode(BaseApiTest):
                      0x2009, 0x200a,
                      #0x200b is in Other_Default_Ignorable_Code_Point in 4.1.0
                      0x2028, 0x2029, 0x202f, 0x205f, 0x3000]:
-            assert Py_UNICODE_ISSPACE(space, unichr(char))
-        assert not Py_UNICODE_ISSPACE(space, u'a')
+            assert Py_UNICODE_ISSPACE(space, char)
+        assert not Py_UNICODE_ISSPACE(space, ord('a'))
 
-        assert Py_UNICODE_ISALPHA(space, u'a')
-        assert not Py_UNICODE_ISALPHA(space, u'0')
-        assert Py_UNICODE_ISALNUM(space, u'a')
-        assert Py_UNICODE_ISALNUM(space, u'0')
-        assert not Py_UNICODE_ISALNUM(space, u'+')
+        assert Py_UNICODE_ISALPHA(space, ord('a'))
+        assert not Py_UNICODE_ISALPHA(space, ord('0'))
+        assert Py_UNICODE_ISALNUM(space, ord('a'))
+        assert Py_UNICODE_ISALNUM(space, ord('0'))
+        assert not Py_UNICODE_ISALNUM(space, ord('+'))
 
-        assert Py_UNICODE_ISDECIMAL(space, u'\u0660')
-        assert not Py_UNICODE_ISDECIMAL(space, u'a')
-        assert Py_UNICODE_ISDIGIT(space, u'9')
-        assert not Py_UNICODE_ISDIGIT(space, u'@')
-        assert Py_UNICODE_ISNUMERIC(space, u'9')
-        assert not Py_UNICODE_ISNUMERIC(space, u'@')
+        assert Py_UNICODE_ISDECIMAL(space, ord(u'\u0660'))
+        assert not Py_UNICODE_ISDECIMAL(space, ord('a'))
+        assert Py_UNICODE_ISDIGIT(space, ord('9'))
+        assert not Py_UNICODE_ISDIGIT(space, ord('@'))
+        assert Py_UNICODE_ISNUMERIC(space, ord('9'))
+        assert not Py_UNICODE_ISNUMERIC(space, ord('@'))
 
         for char in [0x0a, 0x0d, 0x1c, 0x1d, 0x1e, 0x85, 0x2028, 0x2029]:
-            assert Py_UNICODE_ISLINEBREAK(space, unichr(char))
+            assert Py_UNICODE_ISLINEBREAK(space, char)
 
-        assert Py_UNICODE_ISLOWER(space, u'\xdf') # sharp s
-        assert Py_UNICODE_ISUPPER(space, u'\xde') # capital thorn
-        assert Py_UNICODE_ISLOWER(space, u'a')
-        assert not Py_UNICODE_ISUPPER(space, u'a')
-        assert not Py_UNICODE_ISTITLE(space, u'\xce')
+        assert Py_UNICODE_ISLOWER(space, ord('\xdf')) # sharp s
+        assert Py_UNICODE_ISUPPER(space, ord('\xde')) # capital thorn
+        assert Py_UNICODE_ISLOWER(space, ord('a'))
+        assert not Py_UNICODE_ISUPPER(space, ord('a'))
+        assert not Py_UNICODE_ISTITLE(space, ord('\xce'))
         assert Py_UNICODE_ISTITLE(space,
-            u'\N{LATIN CAPITAL LETTER L WITH SMALL LETTER J}')
+            ord(u'\N{LATIN CAPITAL LETTER L WITH SMALL LETTER J}'))
 
     def test_TOLOWER(self, space):
-        assert Py_UNICODE_TOLOWER(space, u'�') == u'�'
-        assert Py_UNICODE_TOLOWER(space, u'�') == u'�'
+        assert Py_UNICODE_TOLOWER(space, ord(u'�') == ord(u'�'))
+        assert Py_UNICODE_TOLOWER(space, ord(u'�') == ord(u'�'))
 
     def test_TOUPPER(self, space):
-        assert Py_UNICODE_TOUPPER(space, u'�') == u'�'
-        assert Py_UNICODE_TOUPPER(space, u'�') == u'�'
+        assert Py_UNICODE_TOUPPER(space, ord(u'�') == ord(u'�'))
+        assert Py_UNICODE_TOUPPER(space, ord(u'�') == ord(u'�'))
 
     def test_TOTITLE(self, space):
-        assert Py_UNICODE_TOTITLE(space, u'/') == u'/'
-        assert Py_UNICODE_TOTITLE(space, u'�') == u'�'
-        assert Py_UNICODE_TOTITLE(space, u'�') == u'�'
+        assert Py_UNICODE_TOTITLE(space, ord('/') == ord('/'))
 
     def test_TODECIMAL(self, space):
-        assert Py_UNICODE_TODECIMAL(space, u'6') == 6
-        assert Py_UNICODE_TODECIMAL(space, u'A') == -1
+        assert Py_UNICODE_TODECIMAL(space, ord('6')) == 6
+        assert Py_UNICODE_TODECIMAL(space, ord('A')) == -1
 
     def test_TODIGIT(self, space):
-        assert Py_UNICODE_TODIGIT(space, u'6') == 6
-        assert Py_UNICODE_TODIGIT(space, u'A') == -1
+        assert Py_UNICODE_TODIGIT(space, ord('6')) == 6
+        assert Py_UNICODE_TODIGIT(space, ord('A')) == -1
 
     def test_TONUMERIC(self, space):
-        assert Py_UNICODE_TONUMERIC(space, u'6') == 6.0
-        assert Py_UNICODE_TONUMERIC(space, u'A') == -1.0
-        assert Py_UNICODE_TONUMERIC(space, u'\N{VULGAR FRACTION ONE HALF}') == .5
+        assert Py_UNICODE_TONUMERIC(space, ord('6')) == 6.0
+        assert Py_UNICODE_TONUMERIC(space, ord('A')) == -1.0
 
     def test_transform_decimal(self, space):
         def transform_decimal(s):

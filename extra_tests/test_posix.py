@@ -1,4 +1,5 @@
 import os
+import sys
 
 # Tests variant functions which also accept file descriptors,
 # dir_fd and follow_symlinks.
@@ -34,7 +35,7 @@ def test_pickle():
     assert new == st
     assert type(new) is type(st)
 
-if hasattr(os, "fork"):
+if hasattr(os, "fork") and not sys.platform == 'darwin':
     def test_fork_hook_creates_thread_bug():
         import threading
         def daemon():

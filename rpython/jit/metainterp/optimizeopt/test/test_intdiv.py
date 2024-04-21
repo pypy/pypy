@@ -5,7 +5,6 @@ from hypothesis import given, strategies
 from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers, LONG_BIT
 from rpython.jit.metainterp.optimizeopt.intdiv import division_operations
 from rpython.jit.metainterp.optimizeopt.intdiv import modulo_operations
-from rpython.jit.metainterp.optimizeopt.intdiv import unsigned_mul_high
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.resoperation import InputArgInt
 from rpython.jit.metainterp.executor import execute
@@ -21,13 +20,6 @@ def test_magic_numbers(n, m):
     k = int(k)    # and no longer r_uint, with wrap-around semantics
     a = (n * k) >> (LONG_BIT + i)
     assert a == n // m
-
-
-@given(strategies.integers(min_value=0, max_value=2*sys.maxint+1),
-       strategies.integers(min_value=0, max_value=2*sys.maxint+1))
-def test_unsigned_mul_high(a, b):
-    c = unsigned_mul_high(a, b)
-    assert c == ((a * b) >> LONG_BIT)
 
 
 @given(strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),

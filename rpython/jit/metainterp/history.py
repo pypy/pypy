@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -607,11 +609,11 @@ class TreeLoop(object):
 
     def dump(self):
         # RPython-friendly
-        print '%r: inputargs =' % self, self._dump_args(self.inputargs)
+        print('%r: inputargs =' % self, self._dump_args(self.inputargs))
         for op in self.operations:
             args = op.getarglist()
-            print '\t', op.getopname(), self._dump_args(args), \
-                  self._dump_box(op.result)
+            print('\t', op.getopname(), self._dump_args(args),
+                  self._dump_box(op.result))
 
     def _dump_args(self, boxes):
         return '[' + ', '.join([self._dump_box(box) for box in boxes]) + ']'
@@ -1009,17 +1011,17 @@ class Stats(object):
             insns = loop.summary(adding_insns=insns)
         if expected is not None:
             insns.pop('debug_merge_point', None)
-            print
-            print
-            print "        self.check_resops(%s)" % str(insns)
-            print
+            print()
+            print()
+            print("        self.check_resops(%s)" % str(insns))
+            print()
             import pdb; pdb.set_trace()
         else:
             chk = ['%s=%d' % (i, insns.get(i, 0)) for i in check]
-            print
-            print
-            print "        self.check_resops(%s)" % ', '.join(chk)
-            print
+            print()
+            print()
+            print("        self.check_resops(%s)" % ', '.join(chk))
+            print()
             import pdb; pdb.set_trace()
         return
 
@@ -1097,4 +1099,3 @@ class BackendDescr(AbstractDescr):
 
     def get_ei_index(self):
         return self.ei_index
-

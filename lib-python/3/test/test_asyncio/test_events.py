@@ -815,14 +815,9 @@ class EventLoopTestsMixin:
         server = self.loop.run_until_complete(f)
         self.assertEqual(len(server.sockets), 1)
         sock = server.sockets[0]
-        try:
-            self.assertFalse(
-                sock.getsockopt(
-                    socket.SOL_SOCKET, socket.SO_REUSEPORT))
-        except OSError:
-            # SO_REUSEPORT is not actually supported, bail!
-            server.close()
-            return
+        self.assertFalse(
+            sock.getsockopt(
+                socket.SOL_SOCKET, socket.SO_REUSEPORT))
         server.close()
 
         test_utils.run_briefly(self.loop)

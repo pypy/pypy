@@ -8,30 +8,31 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
+from rpython.translator import cdir
 
 import sys
 import weakref
 import py
 
+srcdir = py.path.local(__file__).dirpath().join('src', 'expat')
+
 if sys.platform == "win32":
-    libname = 'libexpat'
     pre_include_bits = ["#define XML_STATIC"]
 else:
-    libname = 'expat'
     pre_include_bits = []
-eci = ExternalCompilationInfo(
-    libraries=[libname],
-    library_dirs=platform.preprocess_library_dirs([]),
-    includes=['expat.h'],
-    include_dirs=platform.preprocess_include_dirs([]),
-    pre_include_bits = pre_include_bits,
-    )
 
-eci = rffi_platform.configure_external_library(
-    libname, eci,
-    [dict(prefix='expat-',
-          include_dir='lib', library_dir='win32/bin/release'),
-     ])
+eci = ExternalCompilationInfo(
+    includes=['expat.h'],
+    include_dirs=[str(srcdir), cdir],
+    pre_include_bits = pre_include_bits,
+    separate_module_files=[
+        srcdir.join('xmlparse.c'),
+        srcdir.join('xmlrole.c'),
+        srcdir.join('xmltok.c'),
+        srcdir.join('xmltok_impl.c'),
+        srcdir.join('xmltok_ns.c'),
+    ]
+)
 
 XML_Content_Ptr = lltype.Ptr(lltype.ForwardReference())
 XML_Parser = rffi.COpaquePtr(typedef='XML_Parser')
@@ -132,6 +133,7 @@ XML_Encoding_Ptr = lltype.Ptr(XML_Encoding)
 
 def expat_external(*a, **kw):
     kw['compilation_info'] = eci
+    a = ("PyExpat_" + a[0],) + a[1:]
     return rffi.llexternal(*a, **kw)
 
 INTERNED_CCHARP = "INTERNED"
@@ -396,7 +398,9 @@ XML_FreeContentModel = expat_external(
 XML_ExternalEntityParserCreate = expat_external(
     'XML_ExternalEntityParserCreate', [XML_Parser, rffi.CCHARP, rffi.CCHARP],
     XML_Parser)
-
+if XML_COMBINED_VERSION >= 20600:
+    XML_SetReparseDeferralEnabled = expat_external(
+        'XML_SetReparseDeferralEnabled', [XML_Parser, rffi.UCHAR], rffi.INT)
 XML_ExpatVersion = expat_external(
     'XML_ExpatVersion', [], rffi.CONST_CCHARP)
 
@@ -432,6 +436,16 @@ class W_XMLParserType(W_Root):
         self.buffer = None
         self.buffer_size = 8192
         self.buffer_used = 0
+        if XML_COMBINED_VERSION >= 20600:
+            self.reparse_deferral_enabled = True
+        else:
+            self.reparse_deferral_enabled = False
+        # Whether to defer reparsing of
+        # unfinished XML tokens; a de-facto cache of
+        # what Expat has the authority on, for lack
+        # of a getter API function
+        # "XML_GetReparseDeferralEnabled" in Expat
+        # 2.6.0 */
         self.w_character_data_handler = None
 
         self._exc_info = None
@@ -771,6 +785,30 @@ information passed to the ExternalEntityRefHandler."""
         else:
             return space.w_None
 
+    def descr_flush(self, space):
+        XML_SetReparseDeferralEnabled(self.itself, XML_FALSE)
+        res = XML_Parse(self.itself, "", 0, XML_FALSE)
+        if self._exc_info:
+            e = self._exc_info
+            self._exc_info = None
+            raise e
+        elif res == 0:
+            raise self.set_error(space, XML_GetErrorCode(self.itself))
+        XML_SetReparseDeferralEnabled(self.itself, XML_TRUE)
+        self.flush_character_buffer(space)
+        return space.newint(res)
+
+    @unwrap_spec(val=int)
+    def descr_SetReparseDeferralEnabled(self, space, val):
+        """Enable/Disable reparse deferral; enabled by default with Expat >=2.6.0.
+        """
+        if XML_COMBINED_VERSION >=2600:
+            enabled = bool(val)
+            XML_SetReparseDeferralEnabled(self.itself, rffi.cast(rffi.UCHAR, enabled))
+            self.reparse_deferral_enabled = enabled
+
+    def descr_GetReparseDeferralEnabled(self, space):
+        return space.newbool(self.reparse_deferral_enabled)
 
 def bool_property(name, cls, doc=None):
     def fget(space, obj):
@@ -804,6 +842,7 @@ W_XMLParserType.typedef = TypeDef(
                                  cls=W_XMLParserType),
     buffer_text = GetSetProperty(W_XMLParserType.get_buffer_text,
                                  W_XMLParserType.set_buffer_text, cls=W_XMLParserType),
+    flush = interp2app(W_XMLParserType.descr_flush),
 
     ErrorCode = GetSetProperty(W_XMLParserType.descr_ErrorCode, cls=W_XMLParserType),
     ErrorLineNumber = GetSetProperty(W_XMLParserType.descr_ErrorLineNumber, cls=W_XMLParserType),
@@ -812,6 +851,8 @@ W_XMLParserType.typedef = TypeDef(
     CurrentLineNumber = GetSetProperty(W_XMLParserType.descr_ErrorLineNumber, cls=W_XMLParserType),
     CurrentColumnNumber = GetSetProperty(W_XMLParserType.descr_ErrorColumnNumber, cls=W_XMLParserType),
     CurrentByteIndex = GetSetProperty(W_XMLParserType.descr_ErrorByteIndex, cls=W_XMLParserType),
+    SetReparseDeferralEnabled = interp2app(W_XMLParserType.descr_SetReparseDeferralEnabled),
+    GetReparseDeferralEnabled = interp2app(W_XMLParserType.descr_GetReparseDeferralEnabled),
 
     **_XMLParser_extras
     )

@@ -790,6 +790,20 @@ class AppTest_DictObject:
         assert d | e == {'spam': 1, 'eggs': 2, 'cheese': 'cheddar', 'aardvark': 'Ethel'}
         assert e | d == {'cheese': 3, 'aardvark': 'Ethel', 'spam': 1, 'eggs': 2}
         assert d.__or__(None) is NotImplemented
+        class mydict(dict):
+            def __or__(self, other):
+                if type(other) is not mydict:
+                    return NotImplemented
+                d = self.copy()
+                d.update(other)
+                return d
+        d = mydict({1: 2})
+        assert d | mydict({3: 4}) == {1: 2, 3: 4}
+
+        # test __ror__
+        assert d | {3: 4} == {1: 2, 3: 4}
+        assert d | {1: 4} == {1: 4}
+
 
     def test_ior(self):
         orig = d = {'spam': 1, 'eggs': 2, 'cheese': 3}

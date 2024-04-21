@@ -182,8 +182,9 @@ ENCODER(iso2022)
 
         encoded = MAP_UNMAPPABLE;
         for (dsg = CONFIG_DESIGNATIONS; dsg->mark; dsg++) {
+            ucs4_t buf[2] = {c, 0};
             Py_ssize_t length = 1;
-            encoded = dsg->encoder(&c, &length);
+            encoded = dsg->encoder(buf, &length);
             if (encoded == MAP_MULTIPLE_AVAIL) {
                 /* this implementation won't work for pair
                  * of non-bmp characters. */
@@ -192,8 +193,10 @@ ENCODER(iso2022)
                         return MBERR_TOOFEW;
                     length = -1;
                 }
-                else
+                else {
+                    buf[1] = IN2;
                     length = 2;
+                }
 #if Py_UNICODE_SIZE == 2
                 if (length == 2) {
                     ucs4_t u4in[2];
@@ -201,9 +204,9 @@ ENCODER(iso2022)
                     u4in[1] = (ucs4_t)IN2;
                     encoded = dsg->encoder(u4in, &length);
                 } else
-                    encoded = dsg->encoder(&c, &length);
+                    encoded = dsg->encoder(buf, &length);
 #else
-                encoded = dsg->encoder(&c, &length);
+                encoded = dsg->encoder(buf, &length);
 #endif
                 if (encoded != MAP_UNMAPPABLE) {
                     insize = length;

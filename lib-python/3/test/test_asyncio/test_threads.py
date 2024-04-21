@@ -6,6 +6,7 @@ import unittest
 from contextvars import ContextVar
 from unittest import mock
 from test.test_asyncio import utils as test_utils
+from test import support
 
 
 def tearDownModule():
@@ -63,6 +64,7 @@ class ToThreadTests(test_utils.TestCase):
             await asyncio.gather(*futs)
 
         self.loop.run_until_complete(main())
+        support.gc_collect()
         self.assertEqual(func.call_count, 10)
 
     def test_to_thread_args_kwargs(self):

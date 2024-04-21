@@ -1324,8 +1324,7 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         coro = self.loop.create_connection(asyncio.Protocol, 'fe80::1%1', 80)
         t, p = self.loop.run_until_complete(coro)
         try:
-            # PyPy preserves the scope ID "%lo" in the address name
-            sock.connect.assert_called_with(('fe80::1%lo', 80, 0, 1))
+            sock.connect.assert_called_with(('fe80::1', 80, 0, 1))
             _, kwargs = m_socket.socket.call_args
             self.assertEqual(kwargs['family'], m_socket.AF_INET6)
             self.assertEqual(kwargs['type'], m_socket.SOCK_STREAM)
@@ -1760,15 +1759,9 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         reuseport_supported = hasattr(socket, 'SO_REUSEPORT')
 
         if reuseport_supported:
-            try:
-                self.assertFalse(
-                    sock.getsockopt(
-                        socket.SOL_SOCKET, socket.SO_REUSEPORT))
-            except OSError:
-                # Python's socket module was compiled using modern headers
-                # thus defining SO_REUSEPORT but this process is running
-                # under an older kernel that does not support SO_REUSEPORT.
-                reuseport_supported = False
+            self.assertFalse(
+                sock.getsockopt(
+                    socket.SOL_SOCKET, socket.SO_REUSEPORT))
         self.assertFalse(
             sock.getsockopt(
                 socket.SOL_SOCKET, socket.SO_BROADCAST))

@@ -22,7 +22,9 @@ WINSERVICE = sys.executable.lower().endswith("pythonservice.exe")
 def _path_eq(p1, p2):
     return p1 == p2 or os.path.normcase(p1) == os.path.normcase(p2)
 
-WINENV = not _path_eq(sys.executable, sys._base_executable)
+# PyPy is not affected by bpo-35797
+# WINENV = not _path_eq(sys.executable, sys._base_executable)
+WINENV = False
 
 
 def _close_handles(*handles):

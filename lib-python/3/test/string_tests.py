@@ -2,7 +2,6 @@
 Common tests shared by test_unicode, test_userstring and test_bytes.
 """
 
-import operator
 import unittest, string, sys, struct
 from test import support
 from collections import UserList
@@ -1188,7 +1187,7 @@ class MixinStrUnicodeUserStringTest:
         self.checkequal('abc', 'abc', '__mul__', 1)
         self.checkequal('abcabcabc', 'abc', '__mul__', 3)
         self.checkraises(TypeError, 'abc', '__mul__')
-        self.assertRaises(TypeError, operator.mul, 'abc', '')
+        self.checkraises(TypeError, 'abc', '__mul__', '')
         # XXX: on a 64-bit system, this doesn't raise an overflow error,
         # but either raises a MemoryError, or succeeds (if you have 54TiB)
         #self.checkraises(OverflowError, 10000*'abc', '__mul__', 2000000000)

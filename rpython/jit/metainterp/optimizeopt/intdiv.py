@@ -1,4 +1,5 @@
-from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
+from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint, \
+    uint_mul_high
 
 
 from rpython.jit.metainterp.history import ConstInt
@@ -25,7 +26,7 @@ def magic_numbers(m):
         # check: is 't * m' small enough to be < 2**(64+i), or not?
         # note that we're really computing (2**(64+i)-1) // m, but the result
         # is the same, because powers of two are not multiples of m.
-        if unsigned_mul_high(t, r_uint(m)) < high_word_dividend:
+        if uint_mul_high(t, r_uint(m)) < high_word_dividend:
             quotient = t     # yes, small enough
 
     # k = 2**(64+i) // m + 1
@@ -108,26 +109,3 @@ def modulo_operations(n_box, m, known_nonneg=False):
     return operations + [mul_box, diff_box]
 
 
-def unsigned_mul_high(a, b):
-    DIGIT = LONG_BIT / 2
-    MASK = (1 << DIGIT) - 1
-
-    ah = a >> DIGIT
-    al = a & MASK
-    bh = b >> DIGIT
-    bl = b & MASK
-
-    rll = al * bl; assert rll == r_uint(rll)
-    rlh = al * bh; assert rlh == r_uint(rlh)
-    rhl = ah * bl; assert rhl == r_uint(rhl)
-    rhh = ah * bh; assert rhh == r_uint(rhh)
-
-    r1 = (rll >> DIGIT) + rhl
-    assert r1 == r_uint(r1)
-
-    r1 = r_uint(r1)
-    r2 = r_uint(r1 + rlh)
-    borrow = r_uint(r2 < r1) << DIGIT
-
-    r3 = (r2 >> DIGIT) + borrow + r_uint(rhh)
-    return r3

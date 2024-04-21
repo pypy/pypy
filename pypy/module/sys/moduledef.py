@@ -78,6 +78,7 @@ class Module(MixedModule):
         'pypy_version_info'     : 'version.get_pypy_version_info(space)',
         'subversion'            : 'version.get_subversion_info(space)',
         '_mercurial'            : 'version.get_repo_info(space)',
+        '_git'                  : 'version.get_git_info(space)',
         'hexversion'            : 'version.get_hexversion(space)',
 
         'displayhook'           : 'hook.displayhook',
