@@ -397,45 +397,6 @@ class FunctionCodeGenerator(object):
 
     # ____________________________________________________________
 
-    # the C preprocessor cannot handle operations taking a variable number
-    # of arguments, so here are Python methods that do it
-
-    def OP_NEWLIST(self, op):
-        args = [self.expr(v) for v in op.args]
-        r = self.expr(op.result)
-        if len(args) == 0:
-            return 'OP_NEWLIST0(%s);' % (r, )
-        else:
-            args.insert(0, '%d' % len(args))
-            return 'OP_NEWLIST((%s), %s);' % (', '.join(args), r)
-
-    def OP_NEWDICT(self, op):
-        args = [self.expr(v) for v in op.args]
-        r = self.expr(op.result)
-        if len(args) == 0:
-            return 'OP_NEWDICT0(%s);' % (r, )
-        else:
-            assert len(args) % 2 == 0
-            args.insert(0, '%d' % (len(args)//2))
-            return 'OP_NEWDICT((%s), %s);' % (', '.join(args), r)
-
-    def OP_NEWTUPLE(self, op):
-        args = [self.expr(v) for v in op.args]
-        r = self.expr(op.result)
-        args.insert(0, '%d' % len(args))
-        return 'OP_NEWTUPLE((%s), %s);' % (', '.join(args), r)
-
-    def OP_SIMPLE_CALL(self, op):
-        args = [self.expr(v) for v in op.args]
-        r = self.expr(op.result)
-        args.append('NULL')
-        return 'OP_SIMPLE_CALL((%s), %s);' % (', '.join(args), r)
-
-    def OP_CALL_ARGS(self, op):
-        args = [self.expr(v) for v in op.args]
-        r = self.expr(op.result)
-        return 'OP_CALL_ARGS((%s), %s);' % (', '.join(args), r)
-
     def generic_call(self, FUNC, fnexpr, args_v, v_result, targets=None):
         args = []
         assert len(args_v) == len(FUNC.TO.ARGS)

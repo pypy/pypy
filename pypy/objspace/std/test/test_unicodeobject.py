@@ -761,13 +761,15 @@ class AppTestUnicodeString:
 
     def test_expandtabs_overflows_gracefully(self):
         import sys
-        if sys.maxint > (1 << 32):
-            skip("Wrong platform")
         raises((OverflowError, MemoryError), u't\tt\t'.expandtabs, sys.maxint)
 
     def test_expandtabs_0(self):
         assert u'x\ty'.expandtabs(0) == u'xy'
         assert u'x\ty'.expandtabs(-42) == u'xy'
+
+    def test_expandtabs_bug(self):
+        assert u"a\u266f\ttest".expandtabs() == u'a\u266f      test'
+        assert u"a\u266f\ttest".expandtabs(0) == u'a\u266ftest'
 
     def test_translate(self):
         assert u'bbbc' == u'abababc'.translate({ord('a'):None})

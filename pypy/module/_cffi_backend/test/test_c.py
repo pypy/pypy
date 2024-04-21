@@ -112,6 +112,7 @@ all_names = ', '.join(Module.interpleveldefs.keys())
 backend_test_c = py.path.local(__file__).join('..', '_backend_test_c.py')
 
 lst = []
+
 with backend_test_c.open('r') as f:
     for line in f:
         if line.startswith('def test_'):
@@ -123,6 +124,7 @@ tmpdir = udir.join('test_c').ensure(dir=1)
 
 tmpname = tmpdir.join('_test_c.py')
 with tmpname.open('w') as f:
+    print >> f, "import pytest"
     for func in lst:
         print >> f, 'def %s(self):' % (func,)
         print >> f, '    import _all_test_c'

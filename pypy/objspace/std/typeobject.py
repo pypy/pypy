@@ -157,9 +157,10 @@ class W_TypeObject(W_Root):
                           'mro_w?[*]',
                           ]
 
-    # wether the class has an overridden __getattribute__
+    # whether the class has an overridden __getattribute__/__setattr__
     # (False is a conservative default, fixed during real usage)
     uses_object_getattribute = False
+    uses_object_setattr = False
 
     # for the IdentityDictStrategy
     compares_by_identity_status = UNKNOWN
@@ -226,6 +227,7 @@ class W_TypeObject(W_Root):
         assert self.is_heaptype() or self.is_cpytype()
 
         self.uses_object_getattribute = False
+        self.uses_object_setattr = False
         # ^^^ conservative default, fixed during real usage
 
         if (key is None or key == '__eq__' or
@@ -277,6 +279,31 @@ class W_TypeObject(W_Root):
 
     def has_object_getattribute(self):
         return self.getattribute_if_not_from_object() is None
+
+    def setattr_if_not_from_object(self):
+        """ this method returns the applevel __setattr__ if that is not
+        the one from object, in which case it returns None """
+        from pypy.objspace.descroperation import object_setattr
+        if not we_are_jitted():
+            if not self.uses_object_setattr:
+                # slow path: look for a custom __setattr__ on the class
+                w_descr = self.lookup('__setattr__')
+                # if it was not actually overriden in the class, we remember this
+                # fact for the next time.
+                if w_descr is object_setattr(self.space):
+                    if self.space._side_effects_ok():
+                        self.uses_object_setattr = True
+                else:
+                    return w_descr
+            return None
+        # in the JIT case, just use a lookup, because it is folded away
+        # correctly using the version_tag
+        w_descr = self.lookup('__setattr__')
+        if w_descr is not object_setattr(self.space):
+            return w_descr
+
+    def has_object_setattr(self):
+        return self.setattr_if_not_from_object() is None
 
     def compares_by_identity(self):
         from pypy.objspace.descroperation import object_hash, type_eq

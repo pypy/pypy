@@ -614,3 +614,8 @@ def test_unsigned_int_suffix_for_constant():
     for base, expected_result in (('bin', 2), ('oct', 8), ('dec', 10), ('hex', 16)):
         for index in range(7):
             assert getattr(C, '{base}_{index}'.format(base=base, index=index)) == expected_result
+
+def test_missing_newline_bug():
+    ffi = FFI(backend=FakeBackend())
+    ffi.cdef("#pragma foobar")
+    ffi.cdef("#pragma foobar")    # used to crash the second time

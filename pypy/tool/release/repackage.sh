@@ -5,7 +5,7 @@ pmaj=2  # python main version: 2 or 3
 pmin=7  # python minor version
 maj=7
 min=3
-rev=14
+rev=15
 #rc=rc2  # comment this line for actual release
 
 function maybe_exit {
@@ -26,11 +26,11 @@ branchname=release-pypy$pmaj.$pmin-v$maj.x # ==OR== release-v$maj.x  # ==OR== re
 # tagname=release-pypy$pmaj.$pmin-v$maj.$min.$rev  # ==OR== release-$maj.$min
 tagname=release-pypy$pmaj.$pmin-v$maj.$min.${rev}$rc  # ==OR== release-$maj.$min
 
-echo checking hg log -r $branchname
-hg log -r $branchname || maybe_exit
-echo checking hg log -r $tagname
-hg log -r $tagname || maybe_exit
-hgrev=`hg id -r $tagname -i`
+echo checking git rev-parse  $branchname
+git rev-parse --short=12 $branchname
+echo checking git rev-parse $tagname^{}
+githash=$(git rev-parse --short=12 $tagname^{})
+echo $githash
 
 rel=pypy$pmaj.$pmin-v$maj.$min.${rev}$rc
 
@@ -65,11 +65,11 @@ function repackage_builds {
             echo $plat no download available
             continue
         fi
-        hgcheck=`tar -tf pypy-c-jit-latest-$plat.tar.bz2 |head -n1 | cut -d- -f5`
-        if [ "$hgcheck" != "$hgrev" ]
+        gitcheck=`tar -tf pypy-c-jit-latest-$plat.tar.bz2 |head -n1 | cut -d- -f5`
+        if [ "$gitcheck" != "$githash" ]
         then
             echo xxxxxxxxxxxxxxxxxxxxxx
-            echo $plat hg tag mismatch, expected $hgrev, got $hgcheck
+            echo $plat git short hash mismatch, expected $githash, got $gitcheck
             echo xxxxxxxxxxxxxxxxxxxxxx
             rm pypy-c-jit-latest-$plat.tar.bz2
             continue
@@ -134,14 +134,21 @@ function repackage_builds {
 
 function repackage_source {
     # Requires a valid $tagname
-    hg archive -r $tagname $rel-src.tar.bz2
-    hg archive -r $tagname $rel-src.zip
+    cwd=${PWD}
+    if [ "$pmaj" == "2" ]; then
+        branch=main;
+    else
+        branch=py$pmaj.$pmin
+    fi
+    echo "node: $githash" > ../.hg_archival.txt
+    echo "branch: $branchname" >> ../.hg_archival.txt
+    echo "tag: $tagname" >> ../.hg_archival.txt
+    git config tar.tar.bz2.command "bzip2 -c"
+    $(cd ..; git archive --prefix $rel-src/ --add-file=.hg_archival.txt --output=${cwd}/$rel-src.tar.bz2 $tagname)
+    $(cd ..; git archive --prefix $rel-src/ --add-file=.hg_archival.txt --output=${cwd}/$rel-src.zip $tagname)
 }
 
 function print_sha256 {
-    # Print out the md5, sha1, sha256
-    #md5sum *.bz2 *.zip
-    #sha1sum *.bz2 *.zip
     sha256sum *.bz2 *.zip
 }
 

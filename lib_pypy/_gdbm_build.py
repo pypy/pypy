@@ -11,7 +11,7 @@ ffi.cdef('''
 #define GDBM_NOLOCK ...
 #define GDBM_REPLACE ...
 
-void* gdbm_open(char *, int, int, int, void (*)());
+void* gdbm_open(const char *, int, int, int, void (*)(const char *));
 void gdbm_close(void*);
 
 typedef struct {
