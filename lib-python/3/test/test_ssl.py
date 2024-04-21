@@ -2088,8 +2088,8 @@ class SimpleBackgroundTests(unittest.TestCase):
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
         with ctx.wrap_socket(socket.socket(socket.AF_INET)) as s:
-           s.connect(self.server_addr)
-           self.assertEqual({}, s.getpeercert())
+            s.connect(self.server_addr)
+            self.assertEqual({}, s.getpeercert())
 
     def test_connect_with_context_1(self):
         # Same as test_connect, but with a separately created context

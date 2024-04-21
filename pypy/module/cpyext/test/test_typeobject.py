@@ -2067,6 +2067,43 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         res = module.test_fastcalldict(pyfunc, (1, ), {"arg2": 2})
         assert res == [1, 2]
 
+    def test_getset_doc(self):
+        module = self.import_extension("foo", [
+            ("getset_type", "METH_NOARGS",
+            """
+            PyObject *ret = PyType_FromSpec(&test_spec);
+            return ret;
+            """)], prologue="""
+            typedef struct {
+                PyObject_HEAD
+            } Test;
+
+            static int test_init(PyObject *self, PyObject *args, PyObject *kwd) { return 0; }
+            static PyObject *test_getter(PyObject *self, void* payload) { return PyLong_FromLong(123); }
+
+            static PyGetSetDef test_getset[] = {
+                { "prop", test_getter, NULL, "A docstring", NULL },
+                {NULL, NULL, NULL, NULL, NULL }
+            };
+
+            static PyType_Slot test_slots[] = {
+                { Py_tp_init, test_init },
+                { Py_tp_getset, test_getset },
+                { 0, NULL }
+            };
+
+            static PyType_Spec test_spec = {
+                .name = "Test",
+                .flags = Py_TPFLAGS_DEFAULT,
+                .slots = test_slots,
+                .basicsize = (int) sizeof(Test),
+                .itemsize = 0
+            };
+            """)
+
+        test = module.getset_type()
+        assert test.prop.__doc__ == "A docstring"
+        
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):

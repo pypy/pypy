@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 from rpython.rlib.parsing.parsing import PackratParser, Rule
 from rpython.rlib.parsing.tree import Nonterminal
@@ -22,8 +24,8 @@ ESCAPES = {
 for i in range(256):
     # Add the ctrl-x types:
     #   Rule, according to PCRE:
-    #     if x is a lower case letter, it is converted to upper case. 
-    #     Then bit 6 of the character (hex 40) is inverted.   
+    #     if x is a lower case letter, it is converted to upper case.
+    #     Then bit 6 of the character (hex 40) is inverted.
     #     Thus, \cz => 0x1A, \c{ => 0x3B, \c; => 0x7B.
     escaped = "c%s" % chr(i)
     ESCAPES[escaped] = chr(ord(chr(i).upper()) ^ 0x40)
@@ -54,8 +56,8 @@ def unescape_muncher(string):
         return ESCAPES[string[1]], string[2:]
     # Otherwise, it's just the character it's meant to be (e.g., '\.')
     return string[1], string[2:]
-    
-        
+
+
 def unescape(s):
     """Unescape a whole string."""
     result = []
@@ -131,7 +133,7 @@ char:
 
 QUOTEDCHAR:
     `(\\x[0-9a-fA-F]{2})|(\\[0-3]?[0-7][0-7])|(\\c.)|(\\[^dswDSW])`;
-    
+
 CHAR:
     `[^\*\+\(\)\[\]\{\|\.\-\?\^\\]`;
 
@@ -2000,5 +2002,5 @@ RegexParser.init_parser = Parser.__init__.im_func
 %s
 %s\
 """ % (pre, s, code, s, after)
-    print content
+    print(content)
     f.write(content)

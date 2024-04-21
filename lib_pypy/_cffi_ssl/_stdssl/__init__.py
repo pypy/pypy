@@ -118,6 +118,20 @@ if lib.Cryptography_HAS_SSL3_METHOD:
         lib.SSL_CTX_free(ctx)
         SSLv3_method_ok = True
 
+# Python custom selection of sensible cipher suites
+# @SECLEVEL=2: security level 2 with 112 bits minimum security (e.g. 2048 bits RSA key)
+# ECDH+*: enable ephemeral elliptic curve Diffie-Hellman
+# DHE+*: fallback to ephemeral finite field Diffie-Hellman
+# encryption order: AES AEAD (GCM), ChaCha AEAD, AES CBC
+# !aNULL:!eNULL: really no NULL ciphers
+# !aDSS: no authentication with discrete logarithm DSA algorithm
+# !SHA1: no weak SHA1 MAC
+# !AESCCM: no CCM mode, it's uncommon and slow
+#
+# Based on Hynek's excellent blog post (update 2021-02-11)
+# https://hynek.me/articles/hardening-your-web-servers-ssl-ciphers/
+PY_SSL_DEFAULT_CIPHER_STRING = b"@SECLEVEL=2:ECDH+AESGCM:ECDH+CHACHA20:ECDH+AES:DHE+AES:!aNULL:!eNULL:!aDSS:!SHA1:!AESCCM"
+ 
 PROTOCOL_SSLv23 = 2
 PROTOCOL_TLS    = PROTOCOL_SSLv23
 PROTOCOL_TLSv1    = 3
@@ -413,10 +427,8 @@ class _SSLSocket(object):
 
     def __init__(self, sslctx):
         self.ctx = sslctx
-        self.peer_cert = ffi.NULL
         self.ssl = ffi.NULL
         self.shutdown_seen_zero = 0
-        self.handshake_done = 0
         self._owner = None
         self.server_hostname = None
         self.socket = None
@@ -534,11 +546,10 @@ class _SSLSocket(object):
         if ret < 1:
             raise pyssl_error(self, ret)
 
-        self.handshake_done = 1
         return None
 
     def getpeercert(self, binary_mode):
-        if not self.handshake_done:
+        if not lib.SSL_is_init_finished(self.ssl):
             raise ValueError("handshake not done yet")
         peer_cert = lib.SSL_get_peer_certificate(self.ssl);
         if peer_cert == ffi.NULL:
@@ -652,6 +663,7 @@ class _SSLSocket(object):
 
         if length == 0:
             return b""
+        count = ffi.new("size_t[1]", [0])
         with StackNew("char[]", length) as dest:
             mem = dest
 
@@ -670,8 +682,8 @@ class _SSLSocket(object):
 
             shutdown = False
             while True:
-                count = lib.SSL_read(self.ssl, mem, length)
-                err = _PySSL_errno(count<=0, self.ssl, count)
+                retval = lib.SSL_read_ex(self.ssl, mem, length, count)
+                err = _PySSL_errno(retval==0, self.ssl, count[0])
                 self.err = err
 
                 check_signals()
@@ -685,7 +697,8 @@ class _SSLSocket(object):
                     sockstate = _ssl_select(sock, 1, timeout)
                 elif err.ssl == SSL_ERROR_ZERO_RETURN and \
                      lib.SSL_get_shutdown(self.ssl) == lib.SSL_RECEIVED_SHUTDOWN:
-                    shutdown = True
+                    count[0] = 0
+                    retval = 1  # in _ssl.c this is 'goto done' to avoid raising an error
                     break;
                 else:
                     sockstate = SOCKET_OPERATION_OK
@@ -697,10 +710,10 @@ class _SSLSocket(object):
                 if not (err.ssl == SSL_ERROR_WANT_READ or err.ssl == SSL_ERROR_WANT_WRITE):
                     break
 
-            if count <= 0 and not shutdown:
-                raise pyssl_error(self, count)
+            if retval == 0:
+                raise pyssl_error(self, retval)
 
-            return _bytes_with_len(dest, count)
+            return _bytes_with_len(dest, count[0])
 
     def _read_buf(self, length, buffer_into):
         ssl = self.ssl
@@ -727,9 +740,10 @@ class _SSLSocket(object):
             deadline = _monotonic_clock() + timeout
 
         shutdown = False
+        count = ffi.new("size_t[1]", [0])
         while True:
-            count = lib.SSL_read(self.ssl, mem, length);
-            err = _PySSL_errno(count<=0, self.ssl, count)
+            retval = lib.SSL_read_ex(self.ssl, mem, length, count);
+            err = _PySSL_errno(retval==0, self.ssl, count[0])
             self.err = err
 
             check_signals()
@@ -743,7 +757,7 @@ class _SSLSocket(object):
                 sockstate = _ssl_select(sock, 1, timeout)
             elif err.ssl == SSL_ERROR_ZERO_RETURN and \
                  lib.SSL_get_shutdown(self.ssl) == lib.SSL_RECEIVED_SHUTDOWN:
-                shutdown = True
+                count[0] = 0
                 break;
             else:
                 sockstate = SOCKET_OPERATION_OK
@@ -755,10 +769,10 @@ class _SSLSocket(object):
             if not (err.ssl == SSL_ERROR_WANT_READ or err.ssl == SSL_ERROR_WANT_WRITE):
                 break
 
-        if count <= 0 and not shutdown:
-            raise pyssl_error(self, count)
+        if retval == 0:
+            raise pyssl_error(self, retval)
 
-        return count
+        return count[0]
 
     if HAS_ALPN:
         def selected_alpn_protocol(self):
@@ -858,9 +872,8 @@ class _SSLSocket(object):
 
             timeout = _socket_timeout(sock)
             nonblocking = timeout >= 0
-            if sock and timeout >= 0:
-                lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), nonblocking)
-                lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
+            lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), nonblocking)
+            lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
         else:
             timeout = 0
 
@@ -889,8 +902,8 @@ class _SSLSocket(object):
                 break
             if ret == 0:
                 # Don't loop endlessly; instead preserve legacy
-                #   behaviour of trying SSL_shutdown() only twice.
-                #   This looks necessary for OpenSSL < 0.9.8m
+                # behaviour of trying SSL_shutdown() only twice.
+                # This looks necessary for OpenSSL < 0.9.8m
                 zeros += 1
                 if zeros > 1:
                     break
@@ -994,7 +1007,7 @@ class _SSLSocket(object):
             raise ValueError("Session refers to a different SSLContext.")
         if self.socket_type != SSL_CLIENT:
             raise ValueError("Cannot set session for server-side SSLSocket.")
-        if self.handshake_done:
+        if lib.SSL_is_init_finished(self.ssl):
             raise ValueError("Cannot set session after handshake.")
         if not lib.SSL_set_session(self.ssl, value._session):
             raise pyssl_error(self, 0)
@@ -1193,12 +1206,7 @@ class _SSLContext(object):
 
         # A bare minimum cipher list without completely broken cipher suites.
         # It's far from perfect but gives users a better head start.
-        if lib.Cryptography_HAS_SSL2 and protocol == PROTOCOL_SSLv2:
-            # SSLv2 needs MD5
-            default_ciphers = b"HIGH:!aNULL:!eNULL"
-        else:
-            default_ciphers = b"DEFAULT:!aNULL:!eNULL:!MD5:!3DES:!DES:!RC4:!IDEA:!SEED:!aDSS:!SRP:!PSK"
-        if not lib.SSL_CTX_set_cipher_list(self.ctx, default_ciphers):
+        if not lib.SSL_CTX_set_cipher_list(self.ctx, PY_SSL_DEFAULT_CIPHER_STRING):
             lib.ERR_clear_error()
             raise SSLError("No cipher can be selected.")
 
@@ -1667,7 +1675,9 @@ class _SSLContext(object):
         x509 = 0
         x509_ca = 0
         crl = 0
-        objs = lib.X509_STORE_get0_objects(store)
+        objs = lib.X509_STORE_get1_objects(store)
+        if not objs:
+            raise MemoryError("failed to query cert store")
         count = lib.sk_X509_OBJECT_num(objs)
         for i in range(count):
             obj = lib.sk_X509_OBJECT_value(objs, i)
@@ -1680,10 +1690,9 @@ class _SSLContext(object):
             elif _type == lib.X509_LU_CRL:
                 crl += 1
             else:
-                # Ignore X509_LU_FAIL, X509_LU_RETRY, X509_LU_PKEY.
-                # As far as I can tell they are internal states and never
-                # stored in a cert store
+                # Ignore unrecognized types
                 pass
+        lib.sk_X509_OBJECT_pop_free(objs, lib.X509_OBJECT_free);
         return {'x509': x509, 'x509_ca': x509_ca, 'crl': crl}
 
 
@@ -1741,22 +1750,27 @@ class _SSLContext(object):
         binary_mode = bool(binary_form)
         _list = []
         store = lib.SSL_CTX_get_cert_store(self.ctx)
-        objs = lib.X509_STORE_get0_objects(store)
-        count = lib.sk_X509_OBJECT_num(objs)
-        for i in range(count):
-            obj = lib.sk_X509_OBJECT_value(objs, i)
-            _type = lib.X509_OBJECT_get_type(obj)
-            if _type != lib.X509_LU_X509:
-                # not a x509 cert
-                continue
-            # CA for any purpose
-            cert = lib.X509_OBJECT_get0_X509(obj)
-            if not lib.X509_check_ca(cert):
-                continue
-            if binary_mode:
-                _list.append(_certificate_to_der(cert))
-            else:
-                _list.append(_decode_certificate(cert))
+        objs = lib.X509_STORE_get1_objects(store)
+        if not objs:
+            raise MemoryError("failed to query cert store")
+        try:
+            count = lib.sk_X509_OBJECT_num(objs)
+            for i in range(count):
+                obj = lib.sk_X509_OBJECT_value(objs, i)
+                _type = lib.X509_OBJECT_get_type(obj)
+                if _type != lib.X509_LU_X509:
+                    # not a x509 cert
+                    continue
+                # CA for any purpose
+                cert = lib.X509_OBJECT_get0_X509(obj)
+                if not lib.X509_check_ca(cert):
+                    continue
+                if binary_mode:
+                    _list.append(_certificate_to_der(cert))
+                else:
+                    _list.append(_decode_certificate(cert))
+        finally:
+            lib.sk_X509_OBJECT_pop_free(objs, lib.X509_OBJECT_free);
         return _list
 
     def set_ecdh_curve(self, name):

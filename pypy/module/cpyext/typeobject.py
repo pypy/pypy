@@ -57,8 +57,7 @@ class W_GetSetPropertyEx(GetSetProperty):
         self.getset = getset
         self.w_type = w_type
         doc = fset = fget = fdel = None
-        if doc:
-            # XXX dead code?
+        if getset.c_doc:
             doc = rffi.constcharp2str(getset.c_doc)
         if getset.c_get:
             fget = GettersAndSetters.getter.im_func

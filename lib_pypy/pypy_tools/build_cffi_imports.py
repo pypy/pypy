@@ -66,10 +66,10 @@ cffi_dependencies = {
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
-    'lzma': ('https://github.com/tukaani-project/xz/releases/download/v5.2.12/xz-5.2.12.tar.gz',
-             '61bda930767dcb170a5328a895ec74cab0f5aac4558cdda561c83559db582a13',
-             [configure_args,
-              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+    'lzma': ('https://sourceforge.net/projects/lzmautils/files/xz-5.4.6.tar.bz2/download',
+            '913851b274e8e1d31781ec949f1c23e8dbcf0ecf6e73a2436dc21769dd3e6f49',
+            [configure_args,
+             ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
     '_gdbm': ('http://distfiles.macports.org/gdbm/gdbm-1.23.tar.gz',
@@ -147,7 +147,7 @@ def _build_dependency(name, patches=[]):
 
     sources = os.path.join(
         deps_destdir,
-        os.path.basename(archive).rsplit('.', 2)[0],
+        os.listdir(deps_destdir)[0],
     )
 
     # apply any patches

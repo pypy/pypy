@@ -376,7 +376,7 @@ class W_BytearrayObject(W_Root):
         # pop off the null byte
         data = self.getdata()
         data.pop()
-        data += other_data
+        data.extend(other_data)
         data.append("\0")
         return self
 

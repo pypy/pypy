@@ -3,6 +3,7 @@ A Python library to execute and communicate with a subprocess that
 was translated from RPython code with --sandbox.  This library is
 for the outer process, which can run CPython or PyPy.
 """
+from __future__ import print_function
 
 import sys, os, posixpath, errno, stat, time
 import subprocess
@@ -229,7 +230,7 @@ class SandboxedProc(object):
             import select
             select.select([child_stdout], [], [])
             f = open('/proc/%d/seccomp' % self.popen.pid, 'w')
-            print >> f, 1
+            print(1, file=f)
             f.close()
         while True:
             try:
@@ -320,11 +321,11 @@ class SimpleIOSandboxedProc(SandboxedProc):
         returncode = self.handle_until_return()
         if returncode != 0:
             if os.name == 'posix' and returncode < 0:
-                print >> self._error, "[Subprocess killed by %s]" % (
-                    signal_name(-returncode),)
+                print("[Subprocess killed by %s]" %
+                      (signal_name(-returncode),), file=self._error)
             else:
-                print >> self._error, "[Subprocess exit code: %d]" % (
-                    returncode,)
+                print("[Subprocess exit code: %d]" % (returncode,),
+                      file=self._error)
         self._input = None
         self._output = None
         self._error = None
@@ -573,4 +574,3 @@ class VirtualizedSocketProc(VirtualizedSandboxedProc):
             return self.get_file(fd).send(data)
         return super(VirtualizedSocketProc, self).do_ll_os__ll_os_write(
             fd, data)
-

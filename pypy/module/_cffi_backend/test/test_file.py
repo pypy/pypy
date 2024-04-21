@@ -4,9 +4,8 @@ import urllib2, py
 def test_same_file():
     from pypy.module._cffi_backend import VERSION
     # '_backend_test_c.py' is a copy of 'c/test_c.py' from the CFFI repo,
-    # with the header lines (up to '# _____') stripped. Get the file at
-    # the tag of our VERSION
-    url = 'https://raw.githubusercontent.com/python-cffi/cffi/v%s/src/c/test_c.py' % VERSION
+    # with the header lines (up to '# _____') stripped.
+    url = 'https://raw.githubusercontent.com/python-cffi/cffi/main/src/c/test_c.py'
     source = urllib2.urlopen(url).read()
     #
     dest = py.path.local(__file__).join('..', '_backend_test_c.py').read()

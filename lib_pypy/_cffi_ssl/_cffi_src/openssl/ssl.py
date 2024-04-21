@@ -232,6 +232,7 @@ int SSL_do_handshake(SSL *);
 int SSL_shutdown(SSL *);
 int SSL_renegotiate(SSL *);
 int SSL_renegotiate_pending(SSL *);
+int SSL_is_init_finished(SSL *s);
 const char *SSL_get_cipher_list(const SSL *, int);
 Cryptography_STACK_OF_SSL_CIPHER *SSL_get_ciphers(const SSL *);
 Cryptography_STACK_OF_SSL_CIPHER *SSL_get_client_ciphers(const SSL *);

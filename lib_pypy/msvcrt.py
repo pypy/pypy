@@ -109,7 +109,7 @@ def putch(ch):
 
 @builtinify
 def putwch(ch):
-    _lib._putwch(ord(ch))
+    _lib._putwch(ch)
 
 @builtinify
 def ungetch(ch):

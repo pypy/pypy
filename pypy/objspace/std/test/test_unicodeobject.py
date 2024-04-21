@@ -710,13 +710,15 @@ class AppTestUnicodeString:
 
     def test_expandtabs_overflows_gracefully(self):
         import sys
-        if sys.maxsize > (1 << 32):
-            skip("Wrong platform")
         raises((OverflowError, MemoryError), 't\tt\t'.expandtabs, sys.maxsize)
 
     def test_expandtabs_0(self):
         assert u'x\ty'.expandtabs(0) == u'xy'
         assert u'x\ty'.expandtabs(-42) == u'xy'
+
+    def test_expandtabs_bug(self):
+        assert u"a\u266f\ttest".expandtabs() == u'a\u266f      test'
+        assert u"a\u266f\ttest".expandtabs(0) == u'a\u266ftest'
 
     def test_translate(self):
         import sys
@@ -1420,3 +1422,8 @@ class AppTestUnicodeString:
     def test_bad_encoding(self):
         with raises(UnicodeEncodeError):
             u"abc".encode("utf-8\udce2\udc80\udc9d")
+
+    def test_mul(self):
+        assert u'abc'.__mul__(2) == u'abcabc'
+        with raises(TypeError):
+            u'abc'.__mul__('')

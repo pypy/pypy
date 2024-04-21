@@ -74,6 +74,7 @@ import os
 import builtins
 import _sitebuiltins
 import io
+import stat
 
 is_pypy = sys.implementation.name == 'pypy'
 
@@ -172,6 +173,13 @@ def addpackage(sitedir, name, known_paths):
     fullname = os.path.join(sitedir, name)
     _trace(f"Processing .pth file: {fullname!r}")
     try:
+        st = os.lstat(fullname)
+    except OSError:
+        return
+    if ((getattr(st, 'st_flags', 0) & stat.UF_HIDDEN) or
+        (getattr(st, 'st_file_attributes', 0) & stat.FILE_ATTRIBUTE_HIDDEN)):
+        return
+    try:
         # locale encoding is not ideal especially on Windows. But we have used
         # it for a long time. setuptools uses the locale encoding too.
         f = io.TextIOWrapper(io.open_code(fullname), encoding="locale")
@@ -223,7 +231,8 @@ def addsitedir(sitedir, known_paths=None):
         names = os.listdir(sitedir)
     except OSError:
         return
-    names = [name for name in names if name.endswith(".pth")]
+    names = [name for name in names
+             if name.endswith(".pth") and not name.startswith(".")]
     for name in sorted(names):
         addpackage(sitedir, name, known_paths)
     if reset:
