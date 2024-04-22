@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rtyper.lltypesystem.lltype import DelayedPointer
 from rpython.tool.algo.unionfind import UnionFind
 
@@ -132,7 +134,7 @@ class GraphAnalyzer(object):
         if self.explanation is not None:
             self.explanation.append(st)
         else:
-            print st
+            print(st)
 
     def analyze_direct_call(self, graph, seen=None):
         if seen is None:

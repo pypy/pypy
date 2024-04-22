@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 
 import py
@@ -279,6 +281,7 @@ class MIFrame(object):
                     'int_and', 'int_or', 'int_xor', 'int_signext',
                     'int_rshift', 'int_lshift', 'uint_rshift',
                     'uint_lt', 'uint_le', 'uint_gt', 'uint_ge',
+                    'uint_mul_high',
                     'float_add', 'float_sub', 'float_mul', 'float_truediv',
                     'float_lt', 'float_le', 'float_eq',
                     'float_ne', 'float_gt', 'float_ge',
@@ -642,19 +645,19 @@ class MIFrame(object):
                 if resvalue != tobox.getint():
                     self.metainterp._record_helper(rop.GETARRAYITEM_GC_I, resvalue, arraydescr, arraybox, indexbox)
                     self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
-                    print "assertion in GETARRAYITEM_GC_I failed", resvalue, tobox.getint()
+                    print("assertion in GETARRAYITEM_GC_I failed", resvalue, tobox.getint())
                     assert 0
             elif typ == 'r':
                 if resvalue != tobox.getref_base():
                     self.metainterp._record_helper(rop.GETARRAYITEM_GC_R, resvalue, arraydescr, arraybox, indexbox)
                     self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
-                    print "assertion in GETARRAYITEM_GC_R failed", resvalue, tobox.getref_base()
+                    print("assertion in GETARRAYITEM_GC_R failed", resvalue, tobox.getref_base())
                     assert 0
             elif typ == 'f':
                 if not ConstFloat(resvalue).same_constant(tobox.constbox()):
                     self.metainterp._record_helper(rop.GETARRAYITEM_GC_F, resvalue, arraydescr, arraybox, indexbox)
                     self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
-                    print "assertion in GETARRAYITEM_GC_F failed", resvalue, tobox.getfloat()
+                    print("assertion in GETARRAYITEM_GC_F failed", resvalue, tobox.getfloat())
                     assert 0
             else:
                 assert 0, "unreachable"
@@ -1256,13 +1259,47 @@ class MIFrame(object):
 
     @arguments("newframe")
     def _opimpl_inline_call1(self, _):
+        self._try_tco()
         raise ChangeFrame
     @arguments("newframe2")
     def _opimpl_inline_call2(self, _):
+        self._try_tco()
         raise ChangeFrame
     @arguments("newframe3")
     def _opimpl_inline_call3(self, _):
+        self._try_tco()
         raise ChangeFrame
+
+    def _try_tco(self):
+        if self.jitcode.jitdriver_sd:
+            return
+        argcode = self._result_argcode
+        pc = self.pc
+        if argcode == 'v':
+            target_index = -1
+        else:
+            target_index = ord(self.bytecode[pc - 1])
+        op = ord(self.bytecode[pc])
+        if op != self.metainterp.staticdata.op_live:
+            # XXX should really not happen
+            return
+        next_pc = pc + SIZE_LIVE_OP
+        if next_pc >= len(self.bytecode):
+            return
+        next_op = ord(self.bytecode[next_pc])
+        if ((argcode == 'i' and next_op == self.metainterp.staticdata.op_int_return) or
+            (argcode == 'r' and next_op == self.metainterp.staticdata.op_ref_return) or
+            (argcode == 'f' and next_op == self.metainterp.staticdata.op_float_return) or
+            (argcode == 'v' and next_op == self.metainterp.staticdata.op_void_return)
+        ):
+            # we have a return of the same type. check whether it's the result register
+            if (target_index < 0 or
+                    ord(self.bytecode[next_pc + 1]) == target_index):
+                debug_start("jit-tco")
+                debug_print("removed frame", self.jitcode.name)
+                debug_stop("jit-tco")
+                assert self.metainterp.framestack[-2] is self
+                del self.metainterp.framestack[-2]
 
     opimpl_inline_call_r_i = _opimpl_inline_call1
     opimpl_inline_call_r_r = _opimpl_inline_call1
@@ -2182,6 +2219,10 @@ class MetaInterpStaticData(object):
         self.op_goto = insns.get('goto/L', -1)
         self.op_catch_exception = insns.get('catch_exception/L', -1)
         self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
+        self.op_int_return = insns.get('int_return/i', -1)
+        self.op_ref_return = insns.get('ref_return/r', -1)
+        self.op_float_return = insns.get('float_return/f', -1)
+        self.op_void_return = insns.get('void_return/', -1)
 
     def setup_descrs(self, descrs):
         self.opcode_descrs = descrs
@@ -2484,15 +2525,15 @@ class MetaInterp(object):
             if jitcode.jitdriver_sd:
                 portal_call_depth += 1
         if portal_call_depth != self.portal_call_depth:
-            print "portal_call_depth problem!!!"
-            print portal_call_depth, self.portal_call_depth
+            print("portal_call_depth problem!!!")
+            print(portal_call_depth, self.portal_call_depth)
             for frame in self.framestack:
                 jitcode = frame.jitcode
                 if jitcode.jitdriver_sd:
-                    print "P",
+                    print("P", end=" ")
                 else:
-                    print " ",
-                print jitcode.name
+                    print(" ", end=" ")
+                print(jitcode.name)
             raise AssertionError
 
     def generate_guard(self, opnum, box=None, extraarg=None, resumepc=-1):
@@ -3779,20 +3820,20 @@ def _get_opimpl_method(name, argcodes):
         #
         if not we_are_translated():
             if self.debug:
-                print '\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))),
+                print('\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))), end=" ")
             try:
                 resultbox = unboundmethod(self, *args)
             except Exception as e:
                 if self.debug:
-                    print '-> %s!' % e.__class__.__name__
+                    print('-> %s!' % e.__class__.__name__)
                 raise
             if num_return_args == 0:
                 if self.debug:
-                    print
+                    print()
                 assert resultbox is None
             else:
                 if self.debug:
-                    print '-> %r' % (resultbox,)
+                    print('-> %r' % (resultbox,))
                 assert argcodes[next_argcode] == '>'
                 result_argcode = argcodes[next_argcode + 1]
                 if 'ovf' not in name:

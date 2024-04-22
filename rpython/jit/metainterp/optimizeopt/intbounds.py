@@ -366,60 +366,53 @@ class OptIntBounds(Optimization):
         else:
             return self.emit(op)
 
-    # The optimize_UINT_xx functions are disabled.  They work, but the
-    # resulting PyPy is subtly broken.  This is probably because we only
-    # have INT_ADD/INT_SUB, not the unsigned version, and the logic here
-    # assumes that they are non-overflowing signed arithmetic.  That's
-    # wrong, and they get too small intervals.  That's usually not a
-    # problem, but it can definitely be a problem if it's followed by
-    # one of the UINT_* comparisons.
-    def DISABLED_optimize_UINT_LT(self, op):
+    def optimize_UINT_LT(self, op):
         arg1 = get_box_replacement(op.getarg(0))
         arg2 = get_box_replacement(op.getarg(1))
         b1 = self.getintbound(arg1)
         b2 = self.getintbound(arg2)
-        if b1.known_nonnegative() and b1.known_lt(b2):
-            self.make_constant_int(op, 1)
-        elif b2.known_nonnegative() and b1.known_ge(b2):
-            self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
+        if b2.is_constant():
+            if b2.get_constant_int() == 0:
+                # x < 0 is False for unsigned comparisons
+                self.make_constant_int(op, 0)
+                return
+        return self.emit(op)
 
-    def DISABLED_optimize_UINT_LE(self, op):
+    def optimize_UINT_GT(self, op):
         arg1 = get_box_replacement(op.getarg(0))
         arg2 = get_box_replacement(op.getarg(1))
         b1 = self.getintbound(arg1)
         b2 = self.getintbound(arg2)
-        if b1.known_nonnegative() and b1.known_le(b2):
-            self.make_constant_int(op, 1)
-        elif b2.known_nonnegative() and b1.known_gt(b2):
-            self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
+        if b1.is_constant():
+            if b1.get_constant_int() == 0:
+                # 0 > x is False for unsigned comparisons
+                self.make_constant_int(op, 0)
+                return
+        return self.emit(op)
 
-    def DISABLED_optimize_UINT_GT(self, op):
+    def optimize_UINT_LE(self, op):
         arg1 = get_box_replacement(op.getarg(0))
         arg2 = get_box_replacement(op.getarg(1))
         b1 = self.getintbound(arg1)
         b2 = self.getintbound(arg2)
-        if b2.known_nonnegative() and b1.known_gt(b2):
-            self.make_constant_int(op, 1)
-        elif b1.known_nonnegative() and b1.known_le(b2):
-            self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
+        if b1.is_constant():
+            if b1.get_constant_int() == 0:
+                # 0 <= x is True for unsigned comparisons
+                self.make_constant_int(op, 1)
+                return
+        return self.emit(op)
 
-    def DISABLED_optimize_UINT_GE(self, op):
+    def optimize_UINT_GE(self, op):
         arg1 = get_box_replacement(op.getarg(0))
         arg2 = get_box_replacement(op.getarg(1))
         b1 = self.getintbound(arg1)
         b2 = self.getintbound(arg2)
-        if b2.known_nonnegative() and b1.known_ge(b2):
-            self.make_constant_int(op, 1)
-        elif b1.known_nonnegative() and b1.known_lt(b2):
-            self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
+        if b2.is_constant():
+            if b2.get_constant_int() == 0:
+                # x >= 0 is True for unsigned comparisons
+                self.make_constant_int(op, 1)
+                return
+        return self.emit(op)
 
     def optimize_INT_EQ(self, op):
         arg0 = get_box_replacement(op.getarg(0))

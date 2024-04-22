@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.jit.codewriter import support, heaptracker
 from rpython.jit.codewriter.regalloc import perform_register_allocation
 from rpython.jit.codewriter.flatten import flatten_graph, KINDS
@@ -101,8 +103,8 @@ class CodeWriter(object):
 
     def print_ssa_repr(self, ssarepr, portal_jitdriver, verbose):
         if verbose:
-            print '%s:' % (ssarepr.name,)
-            print format_assembler(ssarepr)
+            print('%s:' % (ssarepr.name,))
+            print(format_assembler(ssarepr))
         else:
             log.dot()
         dir = udir.ensure("jitcodes", dir=1)

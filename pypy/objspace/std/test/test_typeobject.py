@@ -58,6 +58,33 @@ class TestTypeObject:
             space.warn = prev_warn
         assert len(warnings) == 2
 
+    def test_setattr_if_not_from_object(self):
+        space = self.space
+        w_A, w_B = space.unpackiterable(space.appexec([], """():
+            class A(object):
+                pass
+            class B(object):
+                def __setattr__(self, obj, name, value):
+                    pass
+            return A, B
+        """))
+        assert w_A.uses_object_setattr is False
+        w_res = w_A.setattr_if_not_from_object()
+        assert w_res is None
+        assert w_A.uses_object_setattr is True
+
+        assert w_B.uses_object_setattr is False
+        w_res = w_B.setattr_if_not_from_object()
+        assert w_res is not None
+        assert w_B.uses_object_setattr is False
+
+        # check invalidation
+        space.setattr(w_A, space.newtext("__setattr__"), space.newint(1))
+        assert w_A.uses_object_setattr is False
+        w_res = w_A.setattr_if_not_from_object()
+        assert w_res is not None
+        assert w_A.uses_object_setattr is False
+
 
 class AppTestTypeObject:
     def test_abstract_methods(self):

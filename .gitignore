@@ -32,6 +32,7 @@ release/
 !pypy/tool/release/
 rpython/_cache/
 .cache/
+.hypothesis
 lib_pypy/_audioop_cffi*
 lib_pypy/_curses_cffi*
 lib_pypy/_gdbm_cffi*
@@ -50,4 +51,3 @@ lib/pypy*
 pypy/doc/config/*.rst
 pypy/doc/config/*.txt
 pypy/doc/_build
-

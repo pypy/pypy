@@ -22,6 +22,8 @@ from pypy.module._cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
    C_METHOD, C_INDEX, C_INDEX_ARRAY, C_FUNC_PTR
 
 backend_ext = '.so'
+if sys.platform == 'darwin':
+    backend_ext = '.dylib'
 if sys.platform == 'win32':
     backend_ext = '.dll'
     dldflags = 0

@@ -99,33 +99,33 @@ For all versions
   the correct pointer-to-function type. You can also use ``ffi.cast()`` or
   `ffi.typeof()`` on it.
 - Convert all usages of ``stat64`` to ``stat``, which fixes compilation on
-  ``>=musl-1.2.4 libc`` (:issue:`4048`)
+  ``>=musl-1.2.4 libc`` (:issue:`4047`)
 
 Bugfixes
 ~~~~~~~~
 - Fix constfolding of ``str()`` without arguments (used to crash)
-  (:issue:`4018`)
+  (:issue:`4017`)
 - Windows: remove wrong c-level define, use standard ``include`` instead
-  (:issue:`4024`)
+  (:issue:`4023`)
 - Fix universal newline but non-translating ``text-io``: in this mode, two
   ``\r`` at the end of the file were combined into a single line by
-  ``.readline()`` (:issue:`4038`)
-- Fix segfault when JITting code which skips short preamble setup (:issue:`4031`)
-- Align memoryview use of ``PyBUF_MAX_NDIM`` with python3 (:issue:`4041`)
+  ``.readline()`` (:issue:`4037`)
+- Fix segfault when JITting code which skips short preamble setup (:issue:`4030`)
+- Align memoryview use of ``PyBUF_MAX_NDIM`` with python3 (:issue:`4040`)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Fixes for compilation with gcc 14 and clang which enforce more strict C
-  behaviour (:issue:`4042`)
+  behaviour (:issue:`4041`)
 - Avoid calling ``codepoints_in_utf8`` on the original input string again and
-  again (:issue:`4028`)
+  again (:issue:`4027`)
 
 Python 3.9+
 -----------
 
 - Improve ``os.scandir()`` handling of symlinks on Windows
-- Remove extraneous debug print from ``_ssl`` (:issue:`4010`)
+- Remove extraneous debug print from ``_ssl`` (:issue:`4009`)
 - Update cffi backend to 1.16.0, add HPy backend to 0.9
 - When creating a venv from a symlinked venv, force symlinks. Portable builds
   need too many shared objects to allow copying only the executables
@@ -134,38 +134,38 @@ Python 3.9+
 Bugfixes
 ~~~~~~~~
 - If object does not have ``__len__``, default to ``pyobj.itemcount=0``
-  (:issue:`4013`)
-- Fix ``small_int.__rpow__(large_int)`` (:issue:`4016`)
-- Make ``mmap.mmap.__setitem__`` accept a buffer (:issue:`4007`)
+  (:issue:`4012`)
+- Fix ``small_int.__rpow__(large_int)`` (:issue:`4015`)
+- Make ``mmap.mmap.__setitem__`` accept a buffer (:issue:`4006`)
 - In cpyext, when re-assigning to ``type.__bases__``, rebuild the type
-  struct (:issue:`3976`)
-- Remove newline in line read from ``PYPY_PORTABLE_DEPS.txt`` (:issue:`4019`)
+  struct (:issue:`3975`)
+- Remove newline in line read from ``PYPY_PORTABLE_DEPS.txt`` (:issue:`4018`)
 - Fix astcompiler bug where sometimes a return with a value wasn't being
-  caught inside an async generator (:issue:`4023`)
+  caught inside an async generator (:issue:`4022`)
 - Start implementing the ``ag_running`` logic of asynchronous generators
-  (:issue:`3996`)
+  (:issue:`3995`)
 - Handle ``pathlib.path`` in ``PyUnicode_FSDecoder``, ``PyUnicode_FSDecoder``
   (:issue:`3168`)
 - Raise ``OSError`` in ``gmtime`` like in ``localtime``
 - Make the construction arguments of builtin types more introspectable
-  (:issue:`4034`)
+  (:issue:`4033`)
 - Make sure an encoding in ``str.decode(encoding=xxx)`` does not have invalid
   surrogates
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Follow upstream performance patch for datetime.py (:issue:`4008`)
-- Add ``os.getppid``, ``os.getlogin`` on windows (:issue:`4025`)
+- Follow upstream performance patch for datetime.py (:issue:`4007`)
+- Add ``os.getppid``, ``os.getlogin`` on windows (:issue:`4024`)
 - Proactively call ``bufferview.releasebuffer`` when exiting a context manager
   and don't wait for ``gc`` to release it.
 - Always initialize threads at startup, like in ``Py_Initialize`` for Cpython3.9
-- Add a ``NULL`` byte to ``bytearray`` data, like CPython. (:issue:`4030`)
+- Add a ``NULL`` byte to ``bytearray`` data, like CPython. (:issue:`4029`)
 - Add ``hidden_applevel`` to ``_contextvars.Context.run``. Discovered in django
   PR 17500 to revive PyPy support in django
 - Add window API functions ``PyErr_SetFromWindowsErrWithFilename``,
   ``PyErr_SetExcFromWindowsErrWithFilenameObject``,
-  ``PyErr_SetExcFromWindowsErrWithFilenameObjects`` (:issue:`4035`)
+  ``PyErr_SetExcFromWindowsErrWithFilenameObjects`` (:issue:`4034`)
 
 Python 3.10
 -----------
@@ -173,9 +173,9 @@ Python 3.10
 Bugfixes
 ~~~~~~~~
 - ``LIST_EXTEND`` bytecode should just let all exceptions through if the second
-  argument is iterable (:issue:`4032`)
+  argument is iterable (:issue:`4031`)
 - Pattern matching classes now use the full ``isinstance`` machinery, calling
-  ``__instancecheck__`` too. (:issue:`4036`)
+  ``__instancecheck__`` too. (:issue:`4035`)
 
 .. _bpo-41832: https://bugs.python.org/issue41832
 

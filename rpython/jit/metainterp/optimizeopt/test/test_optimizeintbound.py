@@ -2279,6 +2279,25 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_unsigned_comparisons_zero(self):
+        ops = """
+        [i0]
+        i1 = uint_lt(i0, 0)
+        guard_false(i1) []
+        i2 = uint_gt(0, i0)
+        guard_false(i2) []
+        i3 = uint_le(0, i0)
+        guard_true(i3) []
+        i4 = uint_ge(i0, 0)
+        guard_true(i4) []
+        finish()
+        """
+        expected = """
+        [i0]
+        finish()
+        """
+        self.optimize_loop(ops, expected)
+
     def test_int_and_knownbits_bounds_agreement_bug(self):
         ops = """
         [i1]

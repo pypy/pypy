@@ -119,7 +119,7 @@ class C(B):
 
 
 class W_Property(W_Root):
-    _immutable_fields_ = ["w_fget", "w_fset", "w_fdel"]
+    _immutable_fields_ = ["w_fget?", "w_fset?", "w_fdel?"]
 
     def __init__(self, space):
         self.w_fget = space.w_None

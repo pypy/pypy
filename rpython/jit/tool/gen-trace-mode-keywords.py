@@ -1,7 +1,8 @@
+from __future__ import print_function
+
 from rpython.jit.metainterp.resoperation import opname
 
 for name in opname.values():
     name = name.lower()
     if not name.startswith('guard') and name != 'debug_merge_point':
-        print '"%s"' % name,
-
+        print('"%s"' % name, end=" ")

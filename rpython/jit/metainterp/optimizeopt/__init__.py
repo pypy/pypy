@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.jit.metainterp.optimizeopt.rewrite import OptRewrite
 from rpython.jit.metainterp.optimizeopt.intbounds import OptIntBounds
 from rpython.jit.metainterp.optimizeopt.virtualize import OptVirtualize
@@ -41,4 +43,4 @@ def build_opt_chain(enable_opts):
     return optimizations
 
 if __name__ == '__main__':
-    print ALL_OPTS_NAMES
+    print(ALL_OPTS_NAMES)

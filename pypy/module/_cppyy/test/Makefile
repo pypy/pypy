@@ -30,7 +30,7 @@ endif
 
 PLATFORM := $(shell uname -s)
 ifeq ($(PLATFORM),Darwin)
-  cppflags+=-dynamiclib -single_module -arch x86_64 -undefined dynamic_lookup -Wno-delete-non-virtual-dtor
+  cppflags+=-dynamiclib -single_module -undefined dynamic_lookup -Wno-delete-non-virtual-dtor -Wno-c++11-extensions -std=c++11
 endif
 
 

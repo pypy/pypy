@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.flowspace.model import (
     SpaceOperation, Variable, Constant, checkgraph)
@@ -132,8 +134,8 @@ class BaseGCTransformer(object):
                                        cleanup=False)
                 any_inlining = True
             except inline.CannotInline as e:
-                print 'CANNOT INLINE:', e
-                print '\t%s into %s' % (inline_graph, graph)
+                print('CANNOT INLINE:', e)
+                print('\t%s into %s' % (inline_graph, graph))
                 raise      # for now, make it a fatal error
         cleanup_graph(graph)
         if any_inlining:

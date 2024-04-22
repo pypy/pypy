@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import print_function
+
 import sys, os
 import itertools
 from collections import defaultdict
@@ -374,8 +376,8 @@ class Database(object):
         return index
 
     def output(self):
-        print "====", self.name, "===="
-        print "number of records", len(self.records)
+        print("====", self.name, "====")
+        print("number of records", len(self.records))
         self._output_columns()
         if self.need_index:
             self._output_index()
@@ -604,7 +606,7 @@ def write_composition_data(outfile, table, char_list_index, base_mod):
     for left, right, code in compositions:
         composition_values[left_index[left] * len(right_index) + right_index[right]] = code
 
-    print "composition_values"
+    print("composition_values")
     write_pages(outfile, "_comp_pairs_", "_composition", composition_values)
 
     # now the decompositions
@@ -1062,8 +1064,8 @@ def main():
     table = read_unicodedata(files)
     table.upper_lower_from_properties = (version_tuple[0] >= 6)
 
-    print "_" * 60
-    print "starting", options.unidata_version
+    print("_" * 60)
+    print("starting", options.unidata_version)
 
     outfile = CodeWriter(outfile)
     outfile.print_comment('UNICODE CHARACTER DATABASE')
@@ -1098,9 +1100,9 @@ def splitbins(t, trace=1):
 
     if trace:
         def dump(t1, t2, shift, bytes):
-            print "%d+%d bins at shift %d; %d bytes" % (
-                len(t1), len(t2), shift, bytes)
-        print "Size of original table:", len(t)*getsize_unsigned(t), "bytes"
+            print("%d+%d bins at shift %d; %d bytes" % (
+                  len(t1), len(t2), shift, bytes))
+        print("Size of original table:", len(t)*getsize_unsigned(t), "bytes")
     n = len(t)-1    # last valid index
     maxshift = 0    # the most we can shift n and still have something left
     if n > 0:
@@ -1119,7 +1121,7 @@ def splitbins(t, trace=1):
             bytes = b
     t1, t2, shift = best
     if trace:
-        print "Best:",
+        print("Best:", end=" ")
         dump(t1, t2, shift, bytes)
     if 1:
         # exhaustively verify that the decomposition is correct

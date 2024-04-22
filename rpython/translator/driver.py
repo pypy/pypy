@@ -5,7 +5,7 @@ import shutil
 from rpython.translator.translator import TranslationContext
 from rpython.translator.tool.taskengine import SimpleTaskEngine
 from rpython.translator.goal import query
-from rpython.translator.goal.timing import Timer
+from rpython.translator.timing import Timer
 from rpython.annotator.listdef import s_list_of_strings
 from rpython.annotator import policy as annpolicy
 from rpython.tool.udir import udir
@@ -580,7 +580,9 @@ class TranslationDriver(SimpleTaskEngine):
         driver = cls(config=config, default_goal=default_goal,
                      disable=disable)
         target = targetspec_dic['target']
+        driver.timer.start_event("loading target")
         spec = target(driver, args)
+        driver.timer.end_event("loading target")
 
         try:
             entry_point, inputtypes, policy = spec

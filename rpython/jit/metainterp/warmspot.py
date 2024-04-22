@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys, py
 
 from rpython.tool.sourcetools import func_with_new_name
@@ -127,9 +129,9 @@ def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
         warmrunnerdesc.metainterp_sd.jitlog.finish()
         warmrunnerdesc.metainterp_sd.profiler.finish()
         warmrunnerdesc.metainterp_sd.cpu.finish_once()
-    print '~~~ return value:', repr(res)
+    print('~~~ return value:', repr(res))
     while repeat > 1:
-        print '~' * 79
+        print('~' * 79)
         res1 = interp.eval_graph(graph, args)
         if isinstance(res, int):
             assert res1 == res
@@ -570,8 +572,8 @@ class WarmRunnerDesc(object):
                 raise     # go through
             except Exception as e:
                 if not we_are_translated():
-                    print "~~~ Crash in JIT!"
-                    print '~~~ %s: %s' % (e.__class__, e)
+                    print("~~~ Crash in JIT!")
+                    print('~~~ %s: %s' % (e.__class__, e))
                     if sys.stdout == sys.__stdout__:
                         import pdb; pdb.post_mortem(tb)
                     raise e.__class__, e, tb

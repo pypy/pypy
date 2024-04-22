@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -56,8 +58,8 @@ def invoke_after_thread_switch(callback):
     statically.  The exact point at which invoke_after_thread_switch()
     is called has no importance: the callback() will be called anyway.
     """
-    print "NOTE: invoke_after_thread_switch() is meant to be translated "
-    print "and not called directly.  Using some emulation."
+    print("NOTE: invoke_after_thread_switch() is meant to be translated ")
+    print("and not called directly.  Using some emulation.")
     global _emulated_after_thread_switch
     _emulated_after_thread_switch = callback
 

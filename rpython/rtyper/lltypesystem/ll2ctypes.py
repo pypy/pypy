@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 
 try:
@@ -568,7 +570,7 @@ class _parentable_mixin(object):
                             "double conversion from lltype to ctypes?")
         # XXX don't store here immortal structures
         if DEBUG_ALLOCATED:
-            print >> sys.stderr, "LL2CTYPES:", hex(addr)
+            print("LL2CTYPES:", hex(addr), file=sys.stderr)
         ALLOCATED[addr] = self
 
     def _addressof_storage(self):
@@ -582,7 +584,7 @@ class _parentable_mixin(object):
         # allow the ctypes object to go away now
         addr = ctypes.cast(self._storage, ctypes.c_void_p).value
         if DEBUG_ALLOCATED:
-            print >> sys.stderr, "LL2C FREE:", hex(addr)
+            print("LL2C FREE:", hex(addr), file=sys.stderr)
         try:
             del ALLOCATED[addr]
         except KeyError:
@@ -675,7 +677,7 @@ class _fixedsizedarray_mixin(_parentable_mixin):
 
     def getitem(self, index, uninitialized_ok=False):
         if hasattr(self, '_items'):
-            obj = lltype._fixedsizearray.getitem.im_func(self, 
+            obj = lltype._fixedsizearray.getitem.im_func(self,
                                      index, uninitialized_ok=uninitialized_ok)
             return obj
         else:
@@ -1089,6 +1091,8 @@ def ctypes2lltype(T, cobj, force_real_ctypes_function=False):
                     if array(tc).itemsize == array('u').itemsize:
                         import struct
                         cobj &= 256 ** struct.calcsize(tc) - 1
+                        # CPython2 allows this
+                        # PyPy2 will create the array but not allow indexing it
                         llobj = array('u', array(tc, (cobj,)).tostring())[0]
                         break
                 else:

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.codewriter.liveness import OFFSET_SIZE
@@ -11,7 +13,8 @@ from rpython.rlib import longlong2float
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
 from rpython.rlib.debug import check_annotation
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
+from rpython.rlib.rarithmetic import (intmask, LONG_BIT, r_uint, ovfcheck,
+    uint_mul_high)
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper import rclass
@@ -160,14 +163,14 @@ class BlackholeInterpBuilder(object):
                 args = args + (value,)
 
             if verbose and not we_are_translated():
-                print '\tbh:', name, list(args),
+                print('\tbh:', name, list(args), end=" ")
 
             # call the method bhimpl_xxx()
             try:
                 result = unboundmethod(*args)
             except Exception as e:
                 if verbose and not we_are_translated():
-                    print '-> %s!' % (e.__class__.__name__,)
+                    print('-> %s!' % (e.__class__.__name__,))
                 if resulttype == 'i' or resulttype == 'r' or resulttype == 'f':
                     position += 1
                 self.position = position
@@ -175,9 +178,9 @@ class BlackholeInterpBuilder(object):
 
             if verbose and not we_are_translated():
                 if result is None:
-                    print
+                    print()
                 else:
-                    print '->', result
+                    print('->', result)
 
             if resulttype == 'i':
                 # argcode should be 'i' too
@@ -469,7 +472,7 @@ class BlackholeInterpreter(object):
         from rpython.jit.metainterp.optimizeopt import intdiv
         a = r_uint(a)
         b = r_uint(b)
-        c = intdiv.unsigned_mul_high(a, b)
+        c = uint_mul_high(a, b)
         return intmask(c)
 
     @arguments("L", "i", "i", returns="iL")
