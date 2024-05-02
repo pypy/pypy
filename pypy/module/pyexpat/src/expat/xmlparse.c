@@ -63,6 +63,10 @@
 
 #define XML_BUILDING_EXPAT 1
 
+#if defined _WIN32 || defined __APPLE__
+#else
+#include <unistd.h>  // for possible __GLIBC__ macro (if glibc is used)
+#endif
 #include "expat_config.h"
 
 #if ! defined(XML_GE) || (1 - XML_GE - 1 == 2) || (XML_GE < 0) || (XML_GE > 1)
@@ -115,6 +119,7 @@
 #  include "winconfig.h"
 #endif
 
+#include "expat_external.h"
 #include "ascii.h"
 #include "expat.h"
 #include "siphash.h"
