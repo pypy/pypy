@@ -12,7 +12,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 
 try:
     import z3
-    from hypothesis import given, strategies
+    from hypothesis import given, strategies, assume
 except ImportError:
     pytest.skip("please install z3 (z3-solver on pypi) and hypothesis")
 
@@ -29,6 +29,8 @@ some_bits_known = strategies.builds(
     uints, uints
 )
 
+bounds = some_bits_known
+
 varname_counter = 0
 
 def to_z3(bound, variable=None):
@@ -40,34 +42,110 @@ def to_z3(bound, variable=None):
                variable >= z3.BitVecVal(bound.lower, LONG_BIT),
                variable & z3.BitVecVal(~bound.tmask, LONG_BIT) == z3.BitVecVal(bound.tvalue, LONG_BIT))
 
+class CheckError(Exception):
+    pass
 
-solver = z3.Solver()
+
+def prove_implies(*args):
+    last = args[-1]
+    prev = args[:-1]
+    return prove(z3.Implies(z3.And(*prev), last))
 
 def prove(cond):
+    solver = z3.Solver()
+    if pytest.config.option.z3timeout:
+        solver.set("timeout", pytest.config.option.z3timeout)
     z3res = solver.check(z3.Not(cond))
     if z3res == z3.unsat:
         pass
     elif z3res == z3.unknown:
-        pass
+        print "timeout", cond
     elif z3res == z3.sat:
         # not possible to prove!
         # print some nice stuff
         model = solver.model()
-        import pdb;pdb.set_trace()
+        raise CheckError("%s\n%s" % (cond, model))
 
-@given(some_bits_known, some_bits_known)
+@given(bounds, bounds)
 def test_add(b1, b2):
-    print "_" * 60
     b3 = b1.add_bound(b2)
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 + var2)
-    print b1
-    print b2
-    print b3
-    print formula1
-    print formula2
-    print formula3
-    cond = z3.Implies(z3.And(formula1, formula2), formula3)
-    print cond
-    prove(cond)
+    prove_implies(formula1, formula2, formula3)
+
+@given(bounds, bounds)
+def test_add_bound_cannot_overflow(b1, b2):
+    bound = b1.add_bound_cannot_overflow(b2)
+    assume(bound)
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    m = z3.SignExt(LONG_BIT, var1) + z3.SignExt(LONG_BIT, var2)
+    no_ovf = m == z3.SignExt(LONG_BIT, var1 + var2)
+    prove_implies(formula1, formula2, no_ovf)
+
+@given(bounds, bounds)
+def test_add_bound_no_overflow(b1, b2):
+    b3 = b1.add_bound_no_overflow(b2)
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    var3, formula3 = to_z3(b3, var1 + var2)
+    m = z3.SignExt(LONG_BIT, var1) + z3.SignExt(LONG_BIT, var2)
+    no_ovf = m == z3.SignExt(LONG_BIT, var1 + var2)
+    prove_implies(formula1, formula2, no_ovf, formula3)
+
+@given(bounds, bounds)
+def test_sub(b1, b2):
+    b3 = b1.sub_bound(b2)
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    var3, formula3 = to_z3(b3, var1 - var2)
+    prove_implies(formula1, formula2, formula3)
+
+@given(bounds, bounds)
+def test_sub_bound_cannot_overflow(b1, b2):
+    bound = b1.sub_bound_cannot_overflow(b2)
+    assume(bound)
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    m = z3.SignExt(LONG_BIT, var1) - z3.SignExt(LONG_BIT, var2)
+    no_ovf = m == z3.SignExt(LONG_BIT, var1 - var2)
+    prove_implies(formula1, formula2, no_ovf)
+
+@given(bounds, bounds)
+def test_sub_bound_no_overflow(b1, b2):
+    b3 = b1.sub_bound_no_overflow(b2)
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    var3, formula3 = to_z3(b3, var1 - var2)
+    m = z3.SignExt(LONG_BIT, var1) - z3.SignExt(LONG_BIT, var2)
+    no_ovf = m == z3.SignExt(LONG_BIT, var1 - var2)
+    prove_implies(formula1, formula2, no_ovf, formula3)
+
+@given(bounds, bounds)
+def test_mul(b1, b2):
+    b3 = b1.mul_bound(b2)
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    var3, formula3 = to_z3(b3, var1 * var2)
+    prove_implies(formula1, formula2, formula3)
+
+@given(bounds, bounds)
+def test_mul_bound_cannot_overflow(b1, b2):
+    bound = b1.mul_bound_cannot_overflow(b2)
+    assume(bound)
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    m = z3.SignExt(LONG_BIT, var1) * z3.SignExt(LONG_BIT, var2)
+    no_ovf = m == z3.SignExt(LONG_BIT, var1 * var2)
+    prove_implies(formula1, formula2, no_ovf)
+
+@given(bounds, bounds)
+def test_mul_bound_no_overflow(b1, b2):
+    b3 = b1.mul_bound_no_overflow(b2)
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    var3, formula3 = to_z3(b3, var1 * var2)
+    m = z3.SignExt(LONG_BIT, var1) * z3.SignExt(LONG_BIT, var2)
+    no_ovf = m == z3.SignExt(LONG_BIT, var1 * var2)
+    prove_implies(formula1, formula2, no_ovf, formula3)
