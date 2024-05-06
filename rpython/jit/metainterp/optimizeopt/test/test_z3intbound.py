@@ -149,3 +149,46 @@ def test_mul_bound_no_overflow(b1, b2):
     m = z3.SignExt(LONG_BIT, var1) * z3.SignExt(LONG_BIT, var2)
     no_ovf = m == z3.SignExt(LONG_BIT, var1 * var2)
     prove_implies(formula1, formula2, no_ovf, formula3)
+
+@given(bounds)
+def test_neg(b1):
+    b2 = b1.neg_bound()
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2, -var1)
+    prove_implies(formula1, formula2)
+
+# ____________________________________________________________
+# boolean operations
+
+@given(bounds, bounds)
+def test_and(b1, b2):
+    b3 = b1.and_bound(b2)
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    var3, formula3 = to_z3(b3, var1 & var2)
+    prove_implies(formula1, formula2, formula3)
+
+@given(bounds, bounds)
+def test_or(b1, b2):
+    b3 = b1.or_bound(b2)
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    var3, formula3 = to_z3(b3, var1 | var2)
+    prove_implies(formula1, formula2, formula3)
+
+@given(bounds, bounds)
+def test_xor(b1, b2):
+    b3 = b1.xor_bound(b2)
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    var3, formula3 = to_z3(b3, var1 ^ var2)
+    prove_implies(formula1, formula2, formula3)
+
+@given(bounds)
+def test_invert(b1):
+    b2 = b1.invert_bound()
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2, ~var1)
+    prove_implies(formula1, formula2)
+
+
