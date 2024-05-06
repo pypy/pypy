@@ -6,6 +6,7 @@ ask Z3 whether the resulting bound is a sound approximation of the result.
 """
 
 import pytest
+import sys
 
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
@@ -16,8 +17,16 @@ try:
 except ImportError:
     pytest.skip("please install z3 (z3-solver on pypi) and hypothesis")
 
+MAXINT = sys.maxint
+MININT = -sys.maxint - 1
+
 uints = strategies.builds(
     r_uint,
+    strategies.integers(min_value=0, max_value=2**LONG_BIT - 1)
+)
+
+ints = strategies.builds(
+    lambda x: intmask(r_uint(x)),
     strategies.integers(min_value=0, max_value=2**LONG_BIT - 1)
 )
 
@@ -38,9 +47,18 @@ def to_z3(bound, variable=None):
     if variable is None:
         variable = z3.BitVec("bv%s" % (varname_counter, ), LONG_BIT)
         varname_counter += 1
-    return variable, z3.And(variable <= z3.BitVecVal(bound.upper, LONG_BIT),
-               variable >= z3.BitVecVal(bound.lower, LONG_BIT),
-               variable & z3.BitVecVal(~bound.tmask, LONG_BIT) == z3.BitVecVal(bound.tvalue, LONG_BIT))
+    components = []
+    if bound.upper < MAXINT:
+        components.append(variable <= z3.BitVecVal(bound.upper, LONG_BIT))
+    if bound.lower > MININT:
+        components.append(variable >= z3.BitVecVal(bound.lower, LONG_BIT))
+    if bound.tmask != r_uint(-1): # all unknown:
+        components.append(variable & z3.BitVecVal(~bound.tmask, LONG_BIT) == z3.BitVecVal(bound.tvalue, LONG_BIT))
+    if len(components) == 1:
+        return variable, components[0]
+    if len(components) == 0:
+        return variable, z3.BoolVal(True)
+    return variable, z3.And(*components)
 
 class CheckError(Exception):
     pass
@@ -192,3 +210,23 @@ def test_invert(b1):
     prove_implies(formula1, formula2)
 
 
+# ____________________________________________________________
+# shrinking
+
+@given(ints, ints)
+def test_shrink_bounds_to_knownbits(x, y):
+    x, y = min(x, y), max(x, y)
+    b = IntBound(x, y, do_shrinking=False)
+    var1, formula1 = to_z3(b)
+    b.shrink()
+    var1, formula2 = to_z3(b, var1)
+    prove_implies(formula1, formula2)
+
+
+@given(uints, uints)
+def test_shrink_knownbits_to_bounds(x, y):
+    b = IntBound(tvalue=x & ~y, tmask=y, do_shrinking=False)
+    var1, formula1 = to_z3(b)
+    b.shrink()
+    var1, formula2 = to_z3(b, var1)
+    prove_implies(formula1, formula2)
