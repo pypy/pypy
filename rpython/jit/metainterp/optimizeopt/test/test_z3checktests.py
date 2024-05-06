@@ -1,7 +1,10 @@
 """ The purpose of this test file is to check that the optimizeopt *test* cases
 are correct. It uses the z3 SMT solver to check the before/after optimization
 traces for equivalence. Only supports very few operations for now, but would
-have found the buggy tests in d9616aacbd02/issue #3832."""
+have found the buggy tests in d9616aacbd02/issue #3832.
+
+It can also be used to do bounded model checking on the optimizer, by
+generating random traces."""
 import sys
 import pytest
 
