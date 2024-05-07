@@ -17,6 +17,12 @@ try:
 except ImportError:
     pytest.skip("please install z3 (z3-solver on pypi) and hypothesis")
 
+def BitVecVal(value):
+    return z3.BitVecVal(value, LONG_BIT)
+
+def BitVec(name):
+    return z3.BitVec(name, LONG_BIT)
+
 MAXINT = sys.maxint
 MININT = -sys.maxint - 1
 
@@ -230,3 +236,36 @@ def test_shrink_knownbits_to_bounds(x, y):
     b.shrink()
     var1, formula2 = to_z3(b, var1)
     prove_implies(formula1, formula2)
+
+
+# ____________________________________________________________
+# backwards tests
+
+@given(uints, uints, ints, strategies.data())
+def test_and_backwards(x, tmask, other_const, data):
+    tvalue = x & ~tmask
+    b = IntBound(tvalue=x & ~tmask, tmask=tmask)
+    x = intmask(x)
+    assert b.contains(x)
+    space_at_bottom = x - b.lower
+    shrink_by = data.draw(strategies.integers(0, space_at_bottom - 1))
+    b.make_ge_const(b.lower + shrink_by)
+    assert b.contains(x)
+    space_at_top = b.upper - x
+    if space_at_top:
+        shrink_by = data.draw(strategies.integers(0, space_at_top - 1))
+        b.make_le_const(b.upper - shrink_by)
+        assert b.contains(x)
+    # now we have a bound b, and a value x in that bound
+    # we now model this situation:
+    # i1 = int_and(i0, <other_const>)
+    # guard_value(i1, <res>)
+    # with that info we can improve the bound of i0
+    res = x & other_const
+    other_bound = IntBound(other_const, other_const)
+    better_b_bound = b.and_bound_backwards(other_bound, res)
+
+    var1, formula1 = to_z3(b)
+    var2, formula2 = to_z3(better_b_bound, var1)
+    prove_implies(formula1, BitVecVal(res) == BitVecVal(other_const) & var1, formula2)
+    b.intersect(better_b_bound)
