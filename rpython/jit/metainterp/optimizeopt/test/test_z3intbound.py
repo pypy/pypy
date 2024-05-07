@@ -7,6 +7,7 @@ ask Z3 whether the resulting bound is a sound approximation of the result.
 
 import pytest
 import sys
+import gc
 
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
 from rpython.jit.metainterp.optimizeopt.intutils import (
@@ -85,6 +86,11 @@ def prove_implies(*args, **kwargs):
     last = args[-1]
     prev = args[:-1]
     return prove(z3.Implies(z3.And(*prev), last), **kwargs)
+
+def teardown_function(function):
+    # z3 doesn't add enough memory pressure, just collect after every function
+    # to counteract
+    gc.collect()
 
 def prove(cond, use_timeout=True):
     solver = z3.Solver()
