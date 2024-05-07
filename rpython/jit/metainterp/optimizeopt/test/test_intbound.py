@@ -755,15 +755,15 @@ def test_knownbits_intconst_examples():
     b1 = ConstIntBound(0b010010)
     assert b1.is_constant()
     assert b1.get_constant_int() == 0b010010
-    assert b1.equals(0b010010)
+    assert b1.known_eq_const(0b010010)
     b2 = ConstIntBound(0b1)
     assert b2.is_constant()
     assert b2.get_constant_int() == 0b1
-    assert b2.equals(0b1)
+    assert b2.known_eq_const(0b1)
     b3 = ConstIntBound(0b0)
     assert b3.is_constant()
     assert b3.get_constant_int() == 0b0
-    assert b3.equals(0b0)
+    assert b3.known_eq_const(0b0)
 
 
 #@pytest.mark.xfail(reason="not finished. i gave up.")
@@ -827,7 +827,7 @@ def test_knownbits_or_and_known_example():
     b3 = b2.and_bound(ConstIntBound(1))
     assert b3.is_constant()
     assert b3.get_constant_int() == 1
-    assert b3.equals(1)
+    assert b3.known_eq_const(1)
 
 def test_knownbits_or_and_unknown_example():
     b1 = IntUnbounded()
@@ -948,13 +948,13 @@ def test_shrink_knownbits_by_bounds():
                   tvalue=r_uint(0),
                   tmask=r_uint(-1))
     assert b1.is_constant()
-    assert b1.equals(27)
+    assert b1.known_eq_const(27)
     # constant negative case
     b2 = IntBound(lower=-27, upper=-27,
                   tvalue=r_uint(0),
                   tmask=r_uint(-1))
     assert b2.is_constant()
-    assert b2.equals(-27)
+    assert b2.known_eq_const(-27)
     # positive case
     b3 = IntBound(lower=49, upper=52,
                   tvalue=r_uint(0),
@@ -1223,7 +1223,7 @@ def test_knownbits_rshift_unsigned_completeshiftout_examples():
     a3c = knownbits(tv3c, tm3c)
     r3c = a3c.urshift_bound(b3) # 0
     assert r3c.is_constant()
-    assert r3c.equals(0)
+    assert r3c.known_eq_const(0)
 
 def test_knownbits_add_concrete_example():
     #import pdb; pdb.set_trace()
@@ -1353,7 +1353,7 @@ def test_const_stays_const_or(t1, t2):
     b2, n2 = t2
     r = b1.or_bound(b2)
     assert r.is_constant()
-    assert r.equals(n1 | n2)
+    assert r.known_eq_const(n1 | n2)
     assert r.get_constant_int() == n1 | n2
 
 @given(constant, constant)
@@ -1362,7 +1362,7 @@ def test_const_stays_const_and(t1, t2):
     b2, n2 = t2
     r = b1.and_bound(b2)
     assert r.is_constant()
-    assert r.equals(n1 & n2)
+    assert r.known_eq_const(n1 & n2)
     assert r.get_constant_int() == n1 & n2
 
 @given(constant, constant)
@@ -1371,7 +1371,7 @@ def test_const_stays_const_xor(t1, t2):
     b2, n2 = t2
     r = b1.xor_bound(b2)
     assert r.is_constant()
-    assert r.equals(n1 ^ n2)
+    assert r.known_eq_const(n1 ^ n2)
     assert r.get_constant_int() == n1 ^ n2
 
 @given(constant)
@@ -1379,7 +1379,7 @@ def test_const_stays_const_invert(t1):
     b1, n1 = t1
     r = b1.invert_bound()
     assert r.is_constant()
-    assert r.equals(~n1)
+    assert r.known_eq_const(~n1)
     assert r.get_constant_int() == ~n1
 
 @given(constant, constant)
@@ -1389,10 +1389,10 @@ def test_const_stays_const_lshift(t1, t2):
     r = b1.lshift_bound(b2)
     if n2 >= LONG_BIT:
         assert r.is_constant()
-        assert r.equals(0)
+        assert r.known_eq_const(0)
     elif n2 >= 0:
         assert r.is_constant()
-        assert r.equals(intmask(n1 << n2))
+        assert r.known_eq_const(intmask(n1 << n2))
 
 @given(constant, constant)
 def test_const_stays_const_urshift(t1, t2):
@@ -1401,10 +1401,10 @@ def test_const_stays_const_urshift(t1, t2):
     r = b1.urshift_bound(b2)
     if n2 >= LONG_BIT:
         assert r.is_constant()
-        assert r.equals(0)
+        assert r.known_eq_const(0)
     elif n2 >= 0:
         assert r.is_constant()
-        assert r.equals(intmask(r_uint(n1) >> r_uint(n2)))
+        assert r.known_eq_const(intmask(r_uint(n1) >> r_uint(n2)))
 
 @given(constant, constant)
 def test_const_stays_const_rshift(t1, t2):
@@ -1414,12 +1414,12 @@ def test_const_stays_const_rshift(t1, t2):
     if n2 >= LONG_BIT:
         assert r.is_constant()
         if n1 < 0:
-            assert r.equals(-1)
+            assert r.known_eq_const(-1)
         else:
-            assert r.equals(0)
+            assert r.known_eq_const(0)
     elif n2 >= 0:
         assert r.is_constant()
-        assert r.equals(intmask(n1) >> intmask(n2))
+        assert r.known_eq_const(intmask(n1) >> intmask(n2))
 
 @given(maybe_valid_value_mask_pair)
 def test_validtnum_assertion_random(t1):
@@ -1527,7 +1527,7 @@ def test_knownbits_neg_const_random(t1):
     r = b1.neg_bound()
     if t1 != -sys.maxint-1:
         assert r.is_constant()
-        assert r.equals(-t1)
+        assert r.known_eq_const(-t1)
 
 @given(knownbits_with_contained_number, constant)
 def test_knownbits_and_backwards_random(t1, t2):

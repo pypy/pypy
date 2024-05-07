@@ -673,16 +673,16 @@ class OptIntBounds(Optimization):
 
     def propagate_bounds_INT_EQ(self, op):
         r = self.getintbound(op)
-        if r.equals(1):
+        if r.known_eq_const(1):
             self.make_eq(op.getarg(0), op.getarg(1))
-        elif r.equals(0):
+        elif r.known_eq_const(0):
             self.make_ne(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_NE(self, op):
         r = self.getintbound(op)
-        if r.equals(0):
+        if r.known_eq_const(0):
             self.make_eq(op.getarg(0), op.getarg(1))
-        elif r.equals(1):
+        elif r.known_eq_const(1):
             self.make_ne(op.getarg(0), op.getarg(1))
 
     def make_eq(self, arg0, arg1):

@@ -230,7 +230,7 @@ class IntBound(AbstractInfo):
         else:  # is_constant_by_knownbits
             return intmask(self.tvalue)
 
-    def equals(self, value):
+    def known_eq_const(self, value):
         """
         Returns `True` iff this abstract integer
         contains only one (1) integer that does
