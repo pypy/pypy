@@ -777,10 +777,8 @@ class IntBound(AbstractInfo):
         if pos2:
             r.make_le(other)
 
-        self_pmask = self.tvalue | self.tmask
-        other_pmask = other.tvalue | other.tmask
-        and_vals = self.tvalue & other.tvalue
-        r.set_tvalue_tmask(and_vals, self_pmask & other_pmask & ~and_vals)
+        res_tvalue, res_tmask = _and_tnum(self.tvalue, self.tmask, other.tvalue, other.tmask)
+        r.set_tvalue_tmask(res_tvalue, res_tmask)
         return r
 
     def or_bound(self, other):
@@ -1401,6 +1399,12 @@ def unmask_zero(value, mask):
     """
     return value & ~mask
 
+
+def _and_tnum(self_tvalue, self_tmask, other_tvalue, other_tmask):
+    self_pmask = self_tvalue | self_tmask
+    other_pmask = other_tvalue | other_tmask
+    and_vals = self_tvalue & other_tvalue
+    return and_vals, self_pmask & other_pmask & ~and_vals
 
 def _and_tnum_backwards(self_tvalue, self_tmask, other_tvalue, other_tmask, result_uint):
     tvalue = self_tvalue

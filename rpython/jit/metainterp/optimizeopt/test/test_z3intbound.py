@@ -9,7 +9,11 @@ import pytest
 import sys
 
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound, _and_tnum_backwards
+from rpython.jit.metainterp.optimizeopt.intutils import (
+    IntBound,
+    _and_tnum_backwards,
+    _and_tnum,
+)
 
 try:
     import z3
@@ -49,6 +53,10 @@ bounds = some_bits_known
 varname_counter = 0
 
 def z3_tnum_condition(variable, tvalue, tmask):
+    if isinstance(tvalue, r_uint):
+        tvalue = BitVecVal(tvalue)
+    if isinstance(tmask, r_uint):
+        tmask = BitVecVal(tmask)
     return variable & ~tmask == tvalue
 
 def to_z3(bound, variable=None):
@@ -62,7 +70,7 @@ def to_z3(bound, variable=None):
     if bound.lower > MININT:
         components.append(variable >= BitVecVal(bound.lower))
     if bound.tmask != r_uint(-1): # all unknown:
-        components.append(z3_tnum_condition(variable, z3.BitVecVal(~bound.tmask), BitVecVal(bound.tvalue)))
+        components.append(z3_tnum_condition(variable, bound.tvalue, bound.tmask))
     if len(components) == 1:
         return variable, components[0]
     if len(components) == 0:
@@ -285,6 +293,18 @@ def make_z3_tnum(name):
     tmask = BitVec(name + "_tmask")
     formula = z3_tnum_condition(variable, tvalue, tmask)
     return variable, tvalue, tmask, formula
+
+def test_prove_and():
+    self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
+    other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
+    result = BitVec('result')
+    res_tvalue, res_tmask = _and_tnum(self_tvalue, self_tmask, other_tvalue, other_tmask)
+    prove_implies(
+        self_formula,
+        other_formula,
+        result == self_variable & other_variable,
+        z3_tnum_condition(result, res_tvalue, res_tmask),
+    )
 
 def test_prove_and_backwards():
     self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
