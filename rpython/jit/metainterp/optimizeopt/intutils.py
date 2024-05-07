@@ -112,39 +112,60 @@ class IntBound(AbstractInfo):
         return IntBound(tvalue=tvalue,
                         tmask=tmask)
 
+    @staticmethod
+    def _to_dec_or_hex_str_heuristics(num):
+        # a few formatting heuristics
+        if -1000 <= num <= 1000:
+            return str(num)
+        uintnum = r_uint(num)
+        if uintnum & (uintnum - 1) == 0:
+            # power of two, use hex
+            return hex(num)
+        # format number as decimal if fewer than 6 significant
+        # digits, otherwise use hex
+        curr = num
+        exp10 = 0
+        while curr % 10 == 0:
+            curr //= 10
+            exp10 += 1
+        s = str(num)
+        if len(s) - exp10 >= 6:
+            return hex(num)
+        return s
+
     def __repr__(self):
-        return "IntBound(%r, %r, %r, %r)" % (self.lower, self.upper, self.tvalue, self.tmask)
+        if self.lower == MININT and self.upper == MAXINT and self.tmask == TNUM_ONLY_MASK_UNKNOWN:
+            return "IntBound.unbounded()"
+        if self.lower == 0 and self.upper == MAXINT and self.tmask == TNUM_ONLY_MASK_UNKNOWN:
+            return "IntBound.nonnegative()"
+        if self.is_constant():
+            return "IntBound.from_constant(%s)" % self._to_dec_or_hex_str_heuristics(self.get_constant_int())
+        # check whether the bounds imply the knownbits
+        b = IntBound(self.lower, self.upper)
+        s_bounds = "%s, %s" % (self._to_dec_or_hex_str_heuristics(self.lower),
+                               self._to_dec_or_hex_str_heuristics(self.upper))
+
+        if self.tmask == b.tmask and self.tvalue == b.tvalue:
+            return "IntBound(%s)" % s_bounds
+
+        # check whether the knownbits imply the bounds
+        b = IntBound.from_knownbits(self.tvalue, self.tmask)
+        s_tnum = "r_uint(%s), r_uint(%s)" % (bin(intmask(self.tvalue)), bin(intmask(self.tmask)))
+        if self.lower == b.lower and self.upper == b.upper:
+            return "IntBound.from_knownbits(%s)" % s_tnum
+        return "IntBound(%s, %s)" % (s_bounds, s_tnum)
 
     def __str__(self):
-        def to_dec_or_hex_str(num):
-            # a few formatting heuristics
-            if not num:
-                return '0'
-            uintnum = r_uint(num)
-            if uintnum & (uintnum - 1) == 0:
-                # power of two, use hex
-                return hex(num)
-            # heuristic: format number as decimal if fewer than 6 significant
-            # digits, otherwise use hex
-            curr = num
-            exp10 = 0
-            while curr % 10 == 0:
-                curr //= 10
-                exp10 += 1
-            s = str(num)
-            if len(s) - exp10 >= 6:
-                return hex(num)
-            return s
         if self.is_constant():
-            return '(%s)' % to_dec_or_hex_str(self.get_constant_int())
+            return '(%s)' % self._to_dec_or_hex_str_heuristics(self.get_constant_int())
         if self.lower == MININT:
             lower = ''
         else:
-            lower = '%s <= ' % to_dec_or_hex_str(self.lower)
+            lower = '%s <= ' % self._to_dec_or_hex_str_heuristics(self.lower)
         if self.upper == MAXINT:
             upper = ''
         else:
-            upper = ' <= %s' % to_dec_or_hex_str(self.upper)
+            upper = ' <= %s' % self._to_dec_or_hex_str_heuristics(self.upper)
         s = self.knownbits_string()
         chars = set(s)
         if chars == {'?'}:

@@ -971,9 +971,34 @@ def test_tnum_contains_bound_bug():
     b2 = IntUpperLowerBound(3, 7)
     assert b1.contains_bound(b2)
 
-def test_intbound_str():
+def test_intbound_repr():
     b = IntBound()
-    assert str(b) == '(?)'
+    assert repr(b) == 'IntBound.unbounded()'
+    b = IntBound.nonnegative()
+    assert repr(b) == 'IntBound.nonnegative()'
+    b = IntBound(lower=0, upper=100)
+    assert repr(b) == 'IntBound(0, 100)'
+    b = IntBound().urshift_bound(IntBound.from_constant(10))
+    assert repr(b) == 'IntBound(0, 0x3fffffffffffff)'
+    b = IntBound.from_constant(MININT)
+    assert repr(b) == 'IntBound.from_constant(-0x8000000000000000)'
+    b = IntBound.from_constant(-56)
+    assert repr(b) == 'IntBound.from_constant(-56)'
+    b = IntBound.from_knownbits(r_uint(0b0110), r_uint(0b1011), do_unmask=True)
+    assert repr(b) == 'IntBound.from_knownbits(r_uint(0b100), r_uint(0b1011))'
+    import pdb;pdb.set_trace()
+    # generic case
+    b = IntBound(5, 16, r_uint(0b0100), r_uint(0b1011))
+    assert repr(b) == 'IntBound(5, 16, r_uint(0b0100), r_uint(0b1011))'
+
+@given(knownbits_and_bound_with_contained_number)
+def test_hypothesis_repr(t):
+    b, _ = t
+    s = repr(b)
+    b2 = eval(s, {"IntBound": IntBound, "r_uint": r_uint})
+    assert bound_eq(b, b2)
+
+def test_intbound_str():
     b = IntBound()
     assert str(b) == '(?)'
     b = IntBound.nonnegative()
