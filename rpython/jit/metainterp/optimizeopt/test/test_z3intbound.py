@@ -241,7 +241,7 @@ def test_invert(b1):
 
 @given(ints, ints)
 def test_shrink_bounds_to_knownbits(x, y):
-    x, y = min(x, y), max(x, y)
+    x, y = sorted([x, y])
     b = IntBound(x, y, do_shrinking=False)
     var1, formula1 = to_z3(b)
     b.shrink()
@@ -256,6 +256,17 @@ def test_shrink_knownbits_to_bounds(x, y):
     var1, formula2 = to_z3(b, var1)
     prove_implies(formula1, formula2)
 
+@given(ints, ints, uints, uints)
+def test_shrink_mixed(x, y, value, tmask):
+    x, y = sorted([x, y])
+    b = IntBound(x, y, value & ~tmask, tmask, do_shrinking=False)
+    var1, formula1 = to_z3(b)
+    # check that b contains values before we shrink
+    solver = z3.Solver()
+    assume(solver.check(formula1) == z3.sat)
+    b.shrink()
+    var1, formula2 = to_z3(b, var1)
+    prove_implies(formula1, formula2)
 
 # ____________________________________________________________
 # backwards tests

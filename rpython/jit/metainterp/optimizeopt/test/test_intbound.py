@@ -1044,7 +1044,6 @@ def test_minmax_shrinking_random(t1):
     assert minimum <= maximum
 
 @given(knownbits_and_bound_with_contained_number)
-#@pytest.mark.xfail(reason="not finished. i gave up.")
 def test_minmax_noshrink_random(t1):
     b1, n1 = t1
     assert b1.lower <= n1

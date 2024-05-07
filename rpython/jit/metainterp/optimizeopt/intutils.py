@@ -59,8 +59,7 @@ class IntBound(AbstractInfo):
 
         if do_shrinking:
             self.shrink()
-
-        assert self._debug_check()
+            assert self._debug_check()
 
     @staticmethod
     def from_constant(value):
@@ -446,12 +445,11 @@ class IntBound(AbstractInfo):
             # see "Sharpening Constraint Programming
             #      approaches for Bit-Vector Theory"
             u_min_threshold = r_uint(threshold)
-            #import pdb; pdb.set_trace()
             # now create our working value, the to-be minimum
             working_min = u_min_threshold # start at given minimum threshold
             working_min &= unmask_one(self.tvalue, self.tmask) # clear known 0s
             working_min |= self.tvalue # set known 1s
-            # incpect changed bits
+            # inspect changed bits
             cl2set = ~u_min_threshold & working_min
             set2cl = u_min_threshold & ~working_min
             if working_min == u_min_threshold:
@@ -486,12 +484,11 @@ class IntBound(AbstractInfo):
             # see "Sharpening Constraint Programming
             #      approaches for Bit-Vector Theory"
             u_max_threshold = r_uint(threshold)
-            #import pdb; pdb.set_trace()
             # now create our working value, the to-be maximum
             working_max = u_max_threshold # start at given maximum threshold
             working_max &= unmask_one(self.tvalue, self.tmask) # clear known 0s
             working_max |= self.tvalue # set known 1s
-            # incpect changed bits
+            # inspect changed bits
             cl2set = ~u_max_threshold & working_max
             set2cl = u_max_threshold & ~working_max
             if working_max == u_max_threshold:
