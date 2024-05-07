@@ -1050,7 +1050,7 @@ class IntBound(AbstractInfo):
 
     def urshift_bound_backwards(self, other, result):
         """
-        Performs a `urshift` backwards on
+        Performs a `urshift`/`rshift` backwards on
         `result`. Basically left-shifts
         `result` by `other` binary digits,
         filling the lower part with ?, and
@@ -1072,18 +1072,7 @@ class IntBound(AbstractInfo):
             tmask |= s_tmask
         # ignore bounds # TODO: bounds
         return IntBoundKnownbits(tvalue, tmask)
-
-    def rshift_bound_backwards(self, other, result):
-        """
-        Performs a `rshift` backwards on
-        `result`. Basically left-shifts
-        `result` by `other` binary digits,
-        filling the lower part with ?, and
-        returns the result.
-        """
-        # left shift is the reverse function of
-        # both urshift and rshift.
-        return self.urshift_bound_backwards(other, result)
+    rshift_bound_backwards = urshift_bound_backwards
 
     def lshift_bound_backwards(self, other, result):
         if not other.is_constant():
