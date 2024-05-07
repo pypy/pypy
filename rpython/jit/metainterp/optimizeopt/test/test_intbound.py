@@ -809,13 +809,13 @@ def test_knownbits_minmax_nobounds_examples():
 def test_knownbits_minmax_bounds_examples():
     # case (-Inf, 0]
     b1 = IntBound(lower=0,
-                  tvalue=u(5), tmask=u(-8))   # ?...?101
+                  tvalue=r_uint(5), tmask=r_uint(-8))   # ?...?101
     assert b1.get_minimum_signed() == 5
-    assert b1.get_maximum_signed() == intmask((u(5) | u(-8)) & ~MININT)
+    assert b1.get_maximum_signed() == intmask((r_uint(5) | r_uint(-8)) & ~MININT)
     # case [0, Inf)
     b2 = IntBound(upper=0,
-                  tvalue=u(5), tmask=u(-8))   # ?...?101
-    assert b2.get_minimum_signed() == intmask(u(5) | MININT)
+                  tvalue=r_uint(5), tmask=r_uint(-8))   # ?...?101
+    assert b2.get_minimum_signed() == intmask(r_uint(5) | MININT)
     assert b2.get_maximum_signed() == -3
 
 def test_knownbits_const_strings_examples():
@@ -859,8 +859,8 @@ def test_knownbits_intersect_example():
     b2 = knownbits(0b11000010,
                    0b00011100)  # 110???10
     b1.intersect(b2)
-    assert b1.tvalue == u(0b11001010)
-    assert b1.tmask  == u(0b00010000)   # 110?1010
+    assert b1.tvalue == r_uint(0b11001010)
+    assert b1.tmask  == r_uint(0b00010000)   # 110?1010
 
 def test_knownbits_intersect_disagree_examples():
     # b0 == b1
@@ -922,21 +922,21 @@ def test_validtnum_assertion_examples():
     # for each bit i: mask[i]==1 implies value[i]==0
     # the following tnum is invalid:
     with pytest.raises(AssertionError):
-        b0 = knownbits(u(0b111),
-                       u(0b010))
+        b0 = knownbits(r_uint(0b111),
+                       r_uint(0b010))
     # mask and value have to be r_uints
     with pytest.raises(AssertionError):
         b2 = IntBound.from_knownbits(0b101,
                                0b010)
     with pytest.raises(AssertionError):
-        b3 = IntBound.from_knownbits(u(0b101),
+        b3 = IntBound.from_knownbits(r_uint(0b101),
                                0b010)
     with pytest.raises(AssertionError):
         b4 = IntBound.from_knownbits(0b101,
-                               u(0b010))
+                               r_uint(0b010))
     # this is valid:
-    IntBound.from_knownbits(u(0b101),
-                            u(0b010))
+    IntBound.from_knownbits(r_uint(0b101),
+                            r_uint(0b010))
 
 def test_widen_tnum():
     b = knownbits(0b10001010,
@@ -1229,12 +1229,12 @@ def test_knownbits_rshift_unsigned_consts_examples():
     b1 = IntBound.from_constant(3)
     r1a = a1a.urshift_bound(b1)
     assert r1a.is_constant()
-    assert intmask(u(21) >> u(3)) == r1a.get_constant_int()
+    assert intmask(r_uint(21) >> r_uint(3)) == r1a.get_constant_int()
     # case 1b - both numbes constant negative case
     a1b = IntBound.from_constant(-21)
     r1b = a1b.urshift_bound(b1)
     assert r1b.is_constant()
-    assert intmask(u(-21) >> u(3)) == r1b.get_constant_int()
+    assert intmask(r_uint(-21) >> r_uint(3)) == r1b.get_constant_int()
 
 def test_knownbits_rshift_unsigned_partialunknowns_examples():
     # case 2a - knownbits case
@@ -1252,15 +1252,15 @@ def test_knownbits_rshift_unsigned_partialunknowns_examples():
     a2b = knownbits(tv2b, tm2b)
     r2b = a2b.urshift_bound(b2) # 0001...1?10
     assert not r2b.is_constant()
-    assert r2b.contains(intmask(u(~0b0001010) >> u(3)))
-    assert r2b.contains(intmask(u(~0b0101010) >> u(3)))
+    assert r2b.contains(intmask(r_uint(~0b0001010) >> r_uint(3)))
+    assert r2b.contains(intmask(r_uint(~0b0101010) >> r_uint(3)))
     # case 2c - knownbits case mask sign extend
     tv2c = 0b0101010    # ?0...0101010
     tm2c = intmask(1<<(LONG_BIT-1)) # 10...0
     a2c = knownbits(tv2c, tm2c)
     r2c = a2c.urshift_bound(b2)  # 0...0101
     assert not r2c.is_constant()
-    assert r2c.contains(0b0101 | intmask(u(tm2c)>>u(3)))
+    assert r2c.contains(0b0101 | intmask(r_uint(tm2c)>>r_uint(3)))
     assert r2c.contains(0b0101)
 
 def test_knownbits_rshift_unsigned_completeshiftout_examples():
@@ -1502,7 +1502,7 @@ def test_rshift_unsigned_const_random(t1, t2):
     b1, n1 = t1
     b2 = IntBound.from_constant(t2)
     r = b1.urshift_bound(b2)
-    assert r.contains(intmask(u(n1) >> u(t2)))
+    assert r.contains(intmask(r_uint(n1) >> r_uint(t2)))
     if n1 < 0 and t2 > 0 and r.is_constant():
         assert r.get_constant_int() >= 0
 
@@ -1547,13 +1547,10 @@ def test_knownbits_div_bug():
 
 def knownbits(tvalue, tmask=0, do_unmask=False):
     if not isinstance(tvalue, r_uint):
-        tvalue = u(tvalue)
+        tvalue = r_uint(tvalue)
     if not isinstance(tmask, r_uint):
-        tmask = u(tmask)
+        tmask = r_uint(tmask)
     return IntBound.from_knownbits(tvalue, tmask, do_unmask)
-
-def u(signed_int):
-    return r_uint(signed_int)
 
 def check_knownbits_string(r, lower_bits, upper_fill='?'):
     return r.knownbits_string() == upper_fill*(LONG_BIT-len(lower_bits)) + lower_bits
