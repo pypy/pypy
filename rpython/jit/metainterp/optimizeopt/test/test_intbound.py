@@ -986,10 +986,10 @@ def test_intbound_repr():
     assert repr(b) == 'IntBound.from_constant(-56)'
     b = IntBound.from_knownbits(r_uint(0b0110), r_uint(0b1011), do_unmask=True)
     assert repr(b) == 'IntBound.from_knownbits(r_uint(0b100), r_uint(0b1011))'
-    import pdb;pdb.set_trace()
     # generic case
     b = IntBound(5, 16, r_uint(0b0100), r_uint(0b1011))
-    assert repr(b) == 'IntBound(5, 16, r_uint(0b0100), r_uint(0b1011))'
+    # XXX could be improved, the upper bound is not necessary
+    assert repr(b) == 'IntBound(5, 15, r_uint(0b100), r_uint(0b1011))'
 
 @given(knownbits_and_bound_with_contained_number)
 def test_hypothesis_repr(t):
@@ -997,6 +997,11 @@ def test_hypothesis_repr(t):
     s = repr(b)
     b2 = eval(s, {"IntBound": IntBound, "r_uint": r_uint})
     assert bound_eq(b, b2)
+
+@given(knownbits_and_bound_with_contained_number)
+def test_hypothesis_is_constant_consistent(t):
+    b, num = t
+    b.is_constant() # run this for the asserts in is_constant
 
 def test_intbound_str():
     b = IntBound()

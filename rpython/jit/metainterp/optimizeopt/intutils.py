@@ -322,21 +322,17 @@ class IntBound(AbstractInfo):
             return True
         return False
 
-    def is_constant_by_bounds(self):
-        """ for internal use only! """
-        return self.lower == self.upper
-
-    def is_constant_by_knownbits(self):
-        """ for internal use only! """
-        return self.tmask == 0
-
     def is_constant(self):
         """
         Returns `True` iff this abstract integer
-        does contain only one (1) concrete integer.
+        does contain only one concrete integer.
         """
-        return self.is_constant_by_bounds() or \
-               self.is_constant_by_knownbits()
+        # both the bounds and the tnum encode the concrete integer
+        res = self.lower == self.upper
+        assert res == (self.tmask == r_uint(0))
+        if res:
+            assert self.lower == intmask(self.tvalue)
+        return res
 
     def get_constant_int(self):
         """
@@ -345,87 +341,71 @@ class IntBound(AbstractInfo):
         `is_constant()`.
         """
         assert self.is_constant()
-        if self.is_constant_by_bounds():
-            return self.lower
-        else:  # is_constant_by_knownbits
-            return intmask(self.tvalue)
+        return self.lower
 
     def known_eq_const(self, value):
         """
-        Returns `True` iff this abstract integer
-        contains only one (1) integer that does
-        equal `value`.
+        Returns `True` iff this abstract integer contains only one (1) integer
+        that does equal `value`.
         """
         if not self.is_constant():
             return False
-        if self.is_constant_by_bounds():
-            return self.lower == value
         else:
-            return r_uint(value) == self.tvalue
+            return self.lower == value
 
     def known_lt_const(self, value):
         """
-        Returns `True` iff each number contained
-        in this abstract integer is lower than
-        `value`.
+        Returns `True` iff each number contained in this abstract integer is
+        lower than `value`.
         """
         return self.upper < value
 
     def known_le_const(self, value):
         """
-        Returns `True` iff each number contained
-        in this abstract integer is lower than
-        or equal to `value`.
+        Returns `True` iff each number contained in this abstract integer is
+        lower than or equal to `value`.
         """
         return self.upper <= value
 
     def known_gt_const(self, value):
         """
-        Returns `True` iff each number contained
-        in this abstract integer is greater than
-        `value`.
+        Returns `True` iff each number contained in this abstract integer is
+        greater than `value`.
         """
         return self.lower > value
 
     def known_ge_const(self, value):
         """
-        Returns `True` iff each number contained
-        in this abstract integer is greater than
-        equal to `value`.
+        Returns `True` iff each number contained in this abstract integer is
+        greater than equal to `value`.
         """
         return self.lower >= value
 
     def known_lt(self, other):
         """
-        Returns `True` iff each number contained
-        in this abstract integer is lower than
-        each integer contained in `other`.
+        Returns `True` iff each number contained in this abstract integer is
+        lower than each integer contained in `other`.
         """
         return self.known_lt_const(other.lower)
 
     def known_le(self, other):
         """
-        Returns `True` iff each number contained
-        in this abstract integer is lower than
-        or equal to each integer contained in
-        `other`.
+        Returns `True` iff each number contained in this abstract integer is
+        lower than or equal to each integer contained in `other`.
         """
         return self.known_le_const(other.lower)
 
     def known_gt(self, other):
         """
-        Returns `True` iff each number contained
-        in this abstract integer is greater than
-        each integer contained in `other`.
+        Returns `True` iff each number contained in this abstract integer is
+        greater than each integer contained in `other`.
         """
         return other.known_lt(self)
 
     def known_ge(self, other):
         """
-        Returns `True` iff each number contained
-        in this abstract integer is greater than
-        or equal to each integer contained in
-        `other`.
+        Returns `True` iff each number contained in this abstract integer is
+        greater than or equal to each integer contained in `other`.
         """
         return other.known_le(self)
 
@@ -455,11 +435,11 @@ class IntBound(AbstractInfo):
         minest = self.get_minimum_signed()
         return 0 <= minest
 
-    def get_minimum_signed_by_knownbits(self):
+    def _get_minimum_signed_by_knownbits(self):
         """ for internal use only! """
         return intmask(self.tvalue | msbonly(self.tmask))
 
-    def get_maximum_signed_by_knownbits(self):
+    def _get_maximum_signed_by_knownbits(self):
         """ for internal use only! """
         unsigned_mask = self.tmask & ~msbonly(self.tmask)
         return intmask(self.tvalue | unsigned_mask)
@@ -467,7 +447,7 @@ class IntBound(AbstractInfo):
     def get_minimum_signed_by_knownbits_above(self, threshold=MININT):
         """ for internal use only! """
         assert threshold <= self.upper
-        min_by_knownbits = self.get_minimum_signed_by_knownbits()
+        min_by_knownbits = self._get_minimum_signed_by_knownbits()
         if min_by_knownbits >= threshold:
             return min_by_knownbits
         else:
@@ -507,7 +487,7 @@ class IntBound(AbstractInfo):
 
     def get_maximum_signed_by_knownbits_below(self, threshold=MAXINT):
         """ for internal use only! """
-        max_by_knownbits = self.get_maximum_signed_by_knownbits()
+        max_by_knownbits = self._get_maximum_signed_by_knownbits()
         if max_by_knownbits <= self.upper:
             return max_by_knownbits
         else:
@@ -1273,8 +1253,8 @@ class IntBound(AbstractInfo):
         actual concrete value set to contain
         any values!
         """
-        min_knownbits = self.get_minimum_signed_by_knownbits()
-        max_knownbits = self.get_maximum_signed_by_knownbits()
+        min_knownbits = self._get_minimum_signed_by_knownbits()
+        max_knownbits = self._get_maximum_signed_by_knownbits()
         if not min_knownbits <= self.upper:
             return False
         if not max_knownbits >= self.lower:
