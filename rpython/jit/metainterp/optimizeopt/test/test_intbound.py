@@ -149,14 +149,17 @@ maybe_valid_value_mask_pair = strategies.one_of(
     random_ints_tuple, random_valid_mask_value_pair
 )
 
-bound_with_contained_number = strategies.one_of(
-    unbounded, lower_bounded, upper_bounded, constant, bounded)
-
-knownbits_with_contained_number = strategies.one_of(
-    constant, some_bits_known, unbounded)
-
+# most generic strategy producing all kinds of IntBound instances
 knownbits_and_bound_with_contained_number = strategies.one_of(
-    constant, lower_bounded, upper_bounded, some_bits_known_bounded, unbounded)
+    # roughly ordered from more specific to more general
+    constant,                # fully constant
+    lower_bounded,           # just a lower bound
+    upper_bounded,           # just an upper bound
+    bounded,                 # both upper and lower bound
+    some_bits_known,         # just a tnum (with only implied bounds)
+    some_bits_known_bounded, # a tnum with tighter bounds, not necessarily implied
+    unbounded                # nothing known at all
+)
 
 nbr = range(-5, 6)
 nnbr = list(set(range(-9, 10)) - set(nbr))
@@ -525,7 +528,7 @@ def test_widen():
     assert bound_eq(b, b1)
 
 
-@given(bound_with_contained_number, bound_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_make_random(t1, t2):
     def d(b):
         return b.lower, b.upper, b.tvalue, b.tmask
@@ -1478,7 +1481,7 @@ def test_validtnum_assertion_random(t1):
         with pytest.raises(AssertionError):
             b = knownbits(val, msk)
 
-@given(knownbits_with_contained_number, knownbits_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_knownbits_or_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -1486,7 +1489,7 @@ def test_knownbits_or_random(t1, t2):
     r = n1 | n2
     assert b3.contains(r)
 
-@given(knownbits_with_contained_number, knownbits_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_knownbits_and_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -1494,7 +1497,7 @@ def test_knownbits_and_random(t1, t2):
     r = n1 & n2
     assert b3.contains(r)
 
-@given(knownbits_with_contained_number, knownbits_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_knownbits_xor_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -1502,14 +1505,14 @@ def test_knownbits_xor_random(t1, t2):
     r = n1 ^ n2
     assert b3.contains(r)
 
-@given(knownbits_with_contained_number)
+@given(knownbits_and_bound_with_contained_number)
 def test_knownbits_invert_random(t1):
     b1, n1 = t1
     b2 = b1.invert_bound()
     r = ~n1
     assert b2.contains(r)
 
-@given(knownbits_with_contained_number, pos_relatively_small_values)
+@given(knownbits_and_bound_with_contained_number, pos_relatively_small_values)
 def test_knownbits_lshift_random(t1, t2):
     b1, n1 = t1
     b2 = IntBound.from_constant(t2)
@@ -1518,7 +1521,7 @@ def test_knownbits_lshift_random(t1, t2):
     # this works for left-shift, not for right-shift!
     assert r.contains(intmask(u(n1) << u(t2)))
 
-@given(knownbits_with_contained_number, pos_relatively_small_values)
+@given(knownbits_and_bound_with_contained_number, pos_relatively_small_values)
 def test_knownbits_rshift_signed_random(t1, t2):
     b1, n1 = t1
     b2 = IntBound.from_constant(t2)
@@ -1526,7 +1529,7 @@ def test_knownbits_rshift_signed_random(t1, t2):
     r = b1.rshift_bound(b2)
     assert r.contains(n1 >> t2)
 
-@given(knownbits_with_contained_number, pos_relatively_small_values)
+@given(knownbits_and_bound_with_contained_number, pos_relatively_small_values)
 def test_knownbits_rshift_unsigned_random(t1, t2):
     b1, n1 = t1
     b2 = IntBound.from_constant(t2)
@@ -1536,7 +1539,7 @@ def test_knownbits_rshift_unsigned_random(t1, t2):
     if n1 < 0 and t2 > 0 and r.is_constant():
         assert r.get_constant_int() >= 0
 
-@given(knownbits_with_contained_number, knownbits_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_knownbits_add_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -1544,7 +1547,7 @@ def test_knownbits_add_random(t1, t2):
     r = b1.add_bound(b2)
     assert r.contains(intmask(n1 + n2))
 
-@given(knownbits_with_contained_number, knownbits_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_knownbits_sub_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -1552,14 +1555,14 @@ def test_knownbits_sub_random(t1, t2):
     r = b1.sub_bound(b2)
     assert r.contains(intmask(n1 - n2))
 
-@given(knownbits_with_contained_number, ints)
+@given(knownbits_and_bound_with_contained_number, ints)
 def test_knownbits_add_concrete_random(t1, t2):
     b1, n1 = t1
     print t1, " + ", t2
     r = b1.add(t2)
     assert r.contains(intmask(n1 + t2))
 
-@given(knownbits_with_contained_number)
+@given(knownbits_and_bound_with_contained_number)
 def test_knownbits_neg_random(t1):
     b1, n1 = t1
     print "neg(", t1, ")"
@@ -1575,7 +1578,7 @@ def test_knownbits_neg_const_random(t1):
         assert r.is_constant()
         assert r.known_eq_const(-t1)
 
-@given(knownbits_with_contained_number, constant)
+@given(knownbits_and_bound_with_contained_number, constant)
 def test_knownbits_and_backwards_random(t1, t2):
     b1, n1 = t1     # self
     b2, n2 = t2     # other
@@ -1588,7 +1591,7 @@ def test_knownbits_and_backwards_random(t1, t2):
     # this should not fail
     b1.intersect(newb1)
 
-@given(knownbits_with_contained_number, constant)
+@given(knownbits_and_bound_with_contained_number, constant)
 def test_knownbits_urshift_backwards_random(t1, t2):
     b1, n1 = t1     # self
     b2, n2 = t2     # other
@@ -1598,7 +1601,7 @@ def test_knownbits_urshift_backwards_random(t1, t2):
     # this should not fail
     b1.intersect(newb1)
 
-@given(knownbits_with_contained_number, constant)
+@given(knownbits_and_bound_with_contained_number, constant)
 def test_knownbits_rshift_backwards_random(t1, t2):
     b1, n1 = t1     # self
     b2, n2 = t2     # other
@@ -1614,7 +1617,7 @@ def test_knownbits_div_bug():
     r = b1.py_div_bound(b2)
     assert r.lower == MININT and r.upper == MAXINT
 
-@given(knownbits_with_contained_number, knownbits_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_knownbits_div_bound_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
@@ -1624,7 +1627,7 @@ def test_knownbits_div_bound_random(t1, t2):
     if n2 != 0:
         assert b3.contains(n1 / n2)   # Python-style div
 
-@given(knownbits_with_contained_number, knownbits_with_contained_number)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_knownbits_mod_bound_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
