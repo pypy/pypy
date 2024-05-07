@@ -261,9 +261,10 @@ def test_and_backwards(x, tmask, other_const, data):
     x = intmask(x)
     assert b.contains(x)
     space_at_bottom = x - b.lower
-    shrink_by = data.draw(strategies.integers(0, space_at_bottom - 1))
-    b.make_ge_const(b.lower + shrink_by)
-    assert b.contains(x)
+    if space_at_bottom:
+        shrink_by = data.draw(strategies.integers(0, space_at_bottom - 1))
+        b.make_ge_const(b.lower + shrink_by)
+        assert b.contains(x)
     space_at_top = b.upper - x
     if space_at_top:
         shrink_by = data.draw(strategies.integers(0, space_at_top - 1))
