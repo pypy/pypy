@@ -74,17 +74,25 @@ def build_bound_with_contained_number(a, b, c):
 def build_some_bits_known(a, b):
     return knownbits(a&~b, b), a
 
-def build_some_bits_known_bounded(a, b, c, d):
-    a, b, d = sorted([a, b, d])
-    u_c = u(c)
-    while (u_c != 0) and (next_pow2_m1(r_uint(a) ^ r_uint(d)) & u_c == 0):
-        u_c = u_c >> 1
-    c = intmask(u_c)
-    res_bound = IntBound(lower=a, upper=d,
-                    tvalue=u(b&~c), tmask=u(c))
-
-    res_val = intmask((res_bound.tvalue&~res_bound.tmask) | (b&res_bound.tmask))
-    return (res_bound, res_val)
+def build_some_bits_known_bounded(res_value, tmask, data):
+    # generate a fully random value and a tmask of known bits
+    tmask = r_uint(tmask)
+    b = IntBound.from_knownbits(tvalue=r_uint(res_value), tmask=tmask, do_unmask=True)
+    assert b.contains(res_value)
+    # now after construction b has the bounds that are implied by the known
+    # bits. to make the bounds be tighter than what is implied by the
+    # knownbits, shrink them a bit, but make sure that res_value stays inside the bounds
+    space_at_bottom = res_value - b.lower
+    if space_at_bottom:
+        shrink_by = data.draw(strategies.integers(0, space_at_bottom - 1))
+        b.make_ge_const(b.lower + shrink_by)
+        assert b.contains(res_value)
+    space_at_top = b.upper - res_value
+    if space_at_top:
+        shrink_by = data.draw(strategies.integers(0, space_at_top - 1))
+        b.make_le_const(b.upper - shrink_by)
+        assert b.contains(res_value)
+    return b, res_value
 
 def build_two_ints_tuple(a, b):
     return (a, b)
@@ -124,7 +132,7 @@ some_bits_known = strategies.builds(
 
 some_bits_known_bounded = strategies.builds(
     build_some_bits_known_bounded,
-    ints, ints, ints, ints
+    ints, ints, strategies.data(),
 )
 
 random_ints_tuple = strategies.builds(

@@ -263,7 +263,7 @@ def test_shrink_knownbits_to_bounds(x, y):
 @given(uints, uints, ints, strategies.data())
 def test_and_backwards(x, tmask, other_const, data):
     tvalue = x & ~tmask
-    b = IntBound(tvalue=x & ~tmask, tmask=tmask)
+    b = IntBound(tvalue=tvalue, tmask=tmask)
     x = intmask(x)
     assert b.contains(x)
     space_at_bottom = x - b.lower
