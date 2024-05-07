@@ -36,11 +36,12 @@ class IntBound(AbstractInfo):
                  tmask=TNUM_ONLY_MASK_DEFAULT,
                  do_shrinking=True):
         """
-        It is recommended to use the indirect constructors
-        below instead of this one.
         Instantiates an abstract representation of integer.
         The default parameters set this abstract int to
         contain all integers.
+
+        It is recommended to use the indirect constructors
+        below instead of this one.
         """
 
         self.lower = lower
@@ -51,28 +52,20 @@ class IntBound(AbstractInfo):
         self.tvalue = tvalue
         self.tmask = tmask         # bit=1 means unknown
 
-        # for debugging purposes
-        #print(self)
-        #import pdb; pdb.set_trace()
-
-        if do_shrinking:
-            self.shrink()
-
         # check for unexpected overflows:
         if not we_are_translated():
             assert type(upper) is not long or is_valid_int(upper)
             assert type(lower) is not long or is_valid_int(lower)
 
-        #if not self.knownbits_and_bounds_agree():
-        #    import pdb; pdb.set_trace()
+        if do_shrinking:
+            self.shrink()
 
-        assert self.knownbits_and_bounds_agree()
+        assert self._debug_check()
 
     @staticmethod
     def from_constant(value):
         """
-        Constructs an abstract integer that
-        represents a constant (a completely
+        Constructs an abstract integer that represents a constant (a completely
         known integer).
         """
         # this one does NOT require a r_uint for `value`.
@@ -95,9 +88,8 @@ class IntBound(AbstractInfo):
     @staticmethod
     def unbounded():
         """
-        Constructs an abstract integer that is
-        completely unknown (e.g. it contains
-        every integer).
+        Constructs an abstract integer that is completely unknown (e.g. it
+        contains every integer).
         """
         return IntBound()
 
@@ -111,10 +103,8 @@ class IntBound(AbstractInfo):
     @staticmethod
     def from_knownbits(tvalue, tmask, do_unmask=False):
         """
-        Constructs an abstract integer where the
-        bits determined by `tvalue` and `tmask` are
-        (un-)known.
-        tvalue and tmask must be r_uints
+        Constructs an abstract integer where the bits determined by `tvalue`
+        and `tmask` are (un-)known. tvalue and tmask must be r_uints.
         """
         assert isinstance(tvalue, r_uint) and isinstance(tmask, r_uint)
         if do_unmask:
@@ -123,9 +113,63 @@ class IntBound(AbstractInfo):
                         tmask=tmask)
 
     def __repr__(self):
-        l = self.lower
-        u = self.upper
-        return '(%s <= 0b%s <= %s)' % (l, self.knownbits_string(), u)
+        return "IntBound(%r, %r, %r, %r)" % (self.lower, self.upper, self.tvalue, self.tmask)
+
+    def __str__(self):
+        def to_dec_or_hex_str(num):
+            # a few formatting heuristics
+            if not num:
+                return '0'
+            assert num != MININT
+            absnum = abs(num) # safe, because MININT is impossible
+            if absnum & (absnum - 1) == 0:
+                # power of two, use hex
+                return hex(num)
+            # heuristic: format number as decimal if fewer than 6 significant
+            # digits, otherwise use hex
+            curr = num
+            exp10 = 0
+            while curr % 10 == 0:
+                curr //= 10
+                exp10 += 1
+            s = str(num)
+            if len(s) - exp10 >= 6:
+                return hex(num)
+            return s
+        if self.lower == MININT:
+            lower = ''
+        else:
+            lower = '%s <= ' % to_dec_or_hex_str(self.lower)
+        if self.upper == MAXINT:
+            upper = ''
+        else:
+            upper = ' <= %s' % to_dec_or_hex_str(self.upper)
+        s = self.knownbits_string()
+        chars = set(s)
+        if chars == {'?'}:
+            s = '?'
+        else:
+            # replace the longest sequence of same characters by ...
+            prev_char = s[0]
+            count = 0
+            max_length = 0
+            max_char = None
+            for char in s:
+                if char == prev_char:
+                    count += 1
+                else:
+                    if count > max_length:
+                        max_length = count
+                        max_char = prev_char
+                    prev_char = char
+                    count = 1
+            if count > max_length:
+                max_length = count
+                max_char = prev_char
+            if max_length > 5:
+                s = s.replace(max_char * max_length, max_char + '...' + max_char, 1)
+            s = '0b' + s
+        return '(%s%s%s)' % (lower, s, upper)
 
     def set_tvalue_tmask(self, tvalue, tmask):
         changed = self.tvalue != tvalue or self.tmask != tmask
@@ -520,8 +564,7 @@ class IntBound(AbstractInfo):
                                       intersect_masks)
             assert r
 
-        # we also assert agreement between knownbits and bounds
-        assert self.knownbits_and_bounds_agree()
+        assert self._debug_check()
         return r
 
     def intersect_const(self, lower, upper):
@@ -1174,7 +1217,7 @@ class IntBound(AbstractInfo):
         from lower and upper bound into
         the knownbits.
         """
-        #import pdb; pdb.set_trace()
+
         # are we working on negative or positive values?
         # get the working values
         if (self.lower >= 0) != (self.upper >= 0):
@@ -1198,8 +1241,9 @@ class IntBound(AbstractInfo):
         self.tvalue = tvalue
         return changed
 
-    def knownbits_and_bounds_agree(self):
+    def _debug_check(self):
         """
+        Very simple debug check.
         Returns `True` iff the span of
         knownbits and the span of the bounds
         have a non-empty intersection.
@@ -1240,15 +1284,11 @@ class IntBound(AbstractInfo):
                 return False
         return True
 
-    def knownbits_string(self, unk_sym = '?'):
+    def knownbits_string(self, unk_sym='?'):
         """
-        Returns a beautiful string
-        representation about the knownbits
-        part of this abstract integer.
-        You can give any symbol or string
-        for the "unknown bits"
-        (default: '?'), the other digits are
-        written as '1' and '0'.
+        Returns a string representation about the knownbits part of this
+        abstract integer. You can give any symbol or string for the "unknown
+        bits" (default: '?'), the other digits are written as '1' and '0'.
         """
         results = []
         for bit in range(LONG_BIT):

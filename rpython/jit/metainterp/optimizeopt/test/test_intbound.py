@@ -963,6 +963,20 @@ def test_tnum_contains_bound_bug():
     b2 = IntUpperLowerBound(3, 7)
     assert b1.contains_bound(b2)
 
+def test_intbound_str():
+    b = IntBound()
+    assert str(b) == '(?)'
+    b = IntBound.nonnegative()
+    assert str(b) == '(0 <= ?)'
+    b = IntBound(lower=0, upper=100)
+    assert str(b) == '(0 <= 0b0...0??????? <= 100)'
+    b = IntBound().urshift_bound(IntBound.from_constant(10))
+    assert str(b) == '(0 <= 0b0000000000?...? <= 0x3fffffffffffff)'
+    b = IntBound(lower=0, upper=1230000000)
+    assert str(b) == '(0 <= 0b0...0??????????????????????????????? <= 1230000000)'
+    b = IntBound(lower=0, upper=1230505081)
+    assert str(b) == '(0 <= 0b0...0??????????????????????????????? <= 0x49580479)'
+
 @given(knownbits_and_bound_with_contained_number)
 @example((IntBound(lower=-524289, upper=4398046511103, tvalue=r_uint(0), tmask=~(r_uint(MININT)>>7), do_shrinking=False), 0))
 @example((IntBound(lower=-2097153, upper=-2, tvalue=r_uint(0b1111111111111111111111110111111111111111111100000000000000000001), tmask=r_uint(MININT)>>24, do_shrinking=False), intmask(0b1111111111111111111111111111111111111111111100000000000000000001)))
