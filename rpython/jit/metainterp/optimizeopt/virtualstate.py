@@ -3,7 +3,7 @@ from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.info import ArrayPtrInfo,\
      ArrayStructInfo, AbstractStructPtrInfo
 from rpython.jit.metainterp.optimizeopt.intutils import \
-     MININT, MAXINT, IntBound, IntLowerBound
+     IntBound
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
      InputArgInt, InputArgRef, InputArgFloat
 from .info import getptrinfo
@@ -529,7 +529,7 @@ class NotVirtualStateInfoPtr(NotVirtualStateInfo):
         extra_guards = state.extra_guards
         if self.lenbound:
             if other.lenbound is None:
-                other_bound = IntLowerBound(0)
+                other_bound = IntBound.nonnegative()
             else:
                 other_bound = other.lenbound
             if not self.lenbound.contains_bound(other_bound):

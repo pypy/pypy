@@ -60,13 +60,13 @@ class StrPtrInfo(AbstractVirtualPtrInfo):
         self.mode = mode
 
     def getlenbound(self, mode):
-        from rpython.jit.metainterp.optimizeopt import intutils
+        from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 
         if self.lenbound is None:
             if self.length == -1:
-                self.lenbound = intutils.IntLowerUpperBound(0, intutils.MAXINT)
+                self.lenbound = IntBound(lower=0)
             else:
-                self.lenbound = intutils.ConstIntBound(self.length)
+                self.lenbound = IntBound.from_constant(self.length)
         return self.lenbound
 
     @specialize.arg(2)

@@ -68,6 +68,60 @@ class IntBound(AbstractInfo):
 
         assert self.knownbits_and_bounds_agree()
 
+    @staticmethod
+    def from_constant(value):
+        """
+        Constructs an abstract integer that
+        represents a constant (a completely
+        known integer).
+        """
+        # this one does NOT require a r_uint for `value`.
+        assert not isinstance(value, r_uint)
+        tvalue = value
+        tmask = 0
+        bvalue = value
+        if not isinstance(value, int):
+            # workaround for AddressAsInt / symbolic ints
+            # by CF
+            tvalue = 0
+            tmask = -1
+            bvalue = 0
+        b = IntBound(lower=bvalue,
+                     upper=bvalue,
+                     tvalue=r_uint(tvalue),
+                     tmask=r_uint(tmask))
+        return b
+
+    @staticmethod
+    def unbounded():
+        """
+        Constructs an abstract integer that is
+        completely unknown (e.g. it contains
+        every integer).
+        """
+        return IntBound()
+
+    @staticmethod
+    def nonnegative():
+        """
+        Construct a non-negative abstract integer.
+        """
+        return IntBound(lower=0)
+
+    @staticmethod
+    def from_knownbits(tvalue, tmask, do_unmask=False):
+        """
+        Constructs an abstract integer where the
+        bits determined by `tvalue` and `tmask` are
+        (un-)known.
+        tvalue and tmask must be r_uints
+        """
+        assert isinstance(tvalue, r_uint) and isinstance(tmask, r_uint)
+        if do_unmask:
+            tvalue = unmask_zero(tvalue, tmask)
+        return IntBound(tvalue=tvalue,
+                        tmask=tmask)
+
     def __repr__(self):
         l = self.lower
         u = self.upper
@@ -488,7 +542,7 @@ class IntBound(AbstractInfo):
         return r
 
     def add(self, value):
-        return self.add_bound(ConstIntBound(value))
+        return self.add_bound(IntBound.from_constant(value))
 
     def add_bound(self, other):
         """
@@ -595,7 +649,7 @@ class IntBound(AbstractInfo):
                     ovfcheck(self.lower * other.lower))
             return IntBound(min4(vals), max4(vals))
         except OverflowError:
-            return IntUnbounded()
+            return IntBound.unbounded()
     mul_bound_no_overflow = mul_bound # can be improved
 
     def mul_bound_cannot_overflow(self, other):
@@ -628,10 +682,10 @@ class IntBound(AbstractInfo):
                         ovfcheck(self.upper / other.lower),
                         ovfcheck(self.lower / other.upper),
                         ovfcheck(self.lower / other.lower))
-                return IntLowerUpperBound(min4(vals), max4(vals))
+                return IntBound(min4(vals), max4(vals))
             except OverflowError:
                 pass
-        return IntUnbounded()
+        return IntBound.unbounded()
 
     def mod_bound(self, other):
         """
@@ -640,7 +694,7 @@ class IntBound(AbstractInfo):
         integer and returns the result.
         (Does not mutate `self`.)
         """
-        r = IntUnbounded()
+        r = IntBound.unbounded()
         if other.is_constant():
             val = other.get_constant_int()
             if val == 0:
@@ -681,7 +735,7 @@ class IntBound(AbstractInfo):
             except (OverflowError, ValueError):
                 pass
 
-        return IntBoundKnownbits(tvalue, tmask)
+        return IntBound.from_knownbits(tvalue, tmask)
 
     def rshift_bound(self, other):
         """
@@ -757,7 +811,7 @@ class IntBound(AbstractInfo):
             # else: bits are unknown because arguments invalid
 
         # we don't do bounds on unsigned
-        return IntBoundKnownbits(tvalue, tmask)
+        return IntBound.from_knownbits(tvalue, tmask)
 
     def and_bound(self, other):
         """
@@ -769,7 +823,7 @@ class IntBound(AbstractInfo):
 
         pos1 = self.known_nonnegative_by_bounds()
         pos2 = other.known_nonnegative_by_bounds()
-        r = IntUnbounded()
+        r = IntBound.unbounded()
         if pos1 or pos2:
             r.make_ge_const(0)
         if pos1:
@@ -834,7 +888,7 @@ class IntBound(AbstractInfo):
         (Does not mutate `self`.)
         """
         res = self.invert_bound()
-        res = res.add_bound(ConstIntBound(1))
+        res = res.add(1)
         return res
 
     def invert_bound(self):
@@ -945,7 +999,7 @@ class IntBound(AbstractInfo):
         boolean value.
         (Mutates `self`.)
         """
-        self.intersect(IntLowerUpperBound(0, 1))
+        self.intersect(IntBound(0, 1))
 
     def getconst(self):
         """
@@ -1017,7 +1071,7 @@ class IntBound(AbstractInfo):
             self.tvalue, self.tmask, other.tvalue, other.tmask,
             r_uint(result_int)
         )
-        return IntBoundKnownbits(tvalue, tmask)
+        return IntBound.from_knownbits(tvalue, tmask)
 
     def or_bound_backwards(self, other, result_int):
         """
@@ -1057,7 +1111,7 @@ class IntBound(AbstractInfo):
         returns the result.
         """
         if not other.is_constant():
-            return IntUnbounded()
+            return IntBound.unbounded()
         c_other = other.get_constant_int()
         tvalue, tmask = TNUM_UNKNOWN
         if 0 <= c_other < LONG_BIT:
@@ -1071,12 +1125,12 @@ class IntBound(AbstractInfo):
             tvalue |= s_tvalue
             tmask |= s_tmask
         # ignore bounds # TODO: bounds
-        return IntBoundKnownbits(tvalue, tmask)
+        return IntBound.from_knownbits(tvalue, tmask)
     rshift_bound_backwards = urshift_bound_backwards
 
     def lshift_bound_backwards(self, other, result):
         if not other.is_constant():
-            return IntUnbounded()
+            return IntBound.unbounded()
         c_other = other.get_constant_int()
         tvalue, tmask = TNUM_UNKNOWN
         if 0 <= c_other < LONG_BIT:
@@ -1090,7 +1144,7 @@ class IntBound(AbstractInfo):
             tvalue |= s_tvalue
             tmask |= s_tmask
         # ignore bounds # TODO: bounds
-        return IntBoundKnownbits(tvalue, tmask)
+        return IntBound.from_knownbits(tvalue, tmask)
 
     def shrink(self):
         # some passes of bounds-knownbits synchronization
@@ -1204,99 +1258,6 @@ class IntBound(AbstractInfo):
                 results.append(str((self.tvalue >> bit) & 1))
         results.reverse()
         return "".join(results)
-
-
-def IntLowerUpperBound(lower, upper):
-    """
-    Constructs an abstract integer that is
-    greater than or equal to `lower` and
-    lower than or equal to `upper`, e.g.
-    it is bound by `lower` and `upper`.
-    """
-    return IntBound(lower=lower,
-                    upper=upper)
-
-def IntUpperBound(upper):
-    """
-    Constructs an abstract integer that is
-    lower than or equal to `upper`, e.g.
-    it is bound by `upper`.
-    """
-    return IntBound(upper=upper)
-
-def IntLowerBound(lower):
-    """
-    Constructs an abstract integer that is
-    greater than or equal to `lower`, e.g.
-    it is bound by `lower`.
-    """
-    return IntBound(lower=lower)
-
-def IntUnbounded():
-    """
-    Constructs an abstract integer that is
-    completely unknown (e.g. it contains
-    every integer).
-    """
-    return IntBound()
-
-def ConstIntBound(value):
-    """
-    Constructs an abstract integer that
-    represents a constant (a completely
-    known integer).
-    """
-    # this one does NOT require a r_uint for `value`.
-    assert not isinstance(value, r_uint)
-    tvalue = value
-    tmask = 0
-    bvalue = value
-    if not isinstance(value, int):
-        # workaround for AddressAsInt / symbolic ints
-        # by CF
-        tvalue = 0
-        tmask = -1
-        bvalue = 0
-    b = IntBound(lower=bvalue,
-                 upper=bvalue,
-                 tvalue=r_uint(tvalue),
-                 tmask=r_uint(tmask))
-    return b
-
-def IntBoundKnownbits(value, mask, do_unmask=False):
-    """
-    Constructs an abstract integer where the
-    bits determined by `value` and `mask` are
-    (un-)known.
-    Requires an `r_uint` for `value` and
-    `mask`!
-    """
-    # this one does require a r_uint for `value` and `mask`.
-    assert isinstance(value, r_uint) and isinstance(mask, r_uint)
-    if do_unmask:
-        value = unmask_zero(value, mask)
-    b = IntBound(tvalue=value,
-                 tmask=mask)
-    return b
-
-def IntLowerUpperBoundKnownbits(lower, upper, value, mask, do_unmask=False):
-    """
-    Constructs an abstract integer that
-    is bound by `lower` and `upper`, where
-    the bits determined by `value` and `mask`
-    are (un-)known.
-    Requires an `r_uint` for `value` and
-    `mask`!
-    """
-    # this one does require a r_uint for `value` and `mask`.
-    assert isinstance(value, r_uint) and isinstance(mask, r_uint)
-    if do_unmask:
-        value = unmask_zero(value, mask)
-    b = IntBound(lower=lower,
-                 upper=upper,
-                 tvalue=value,
-                 tmask=mask)
-    return b
 
 
 def flip_msb(val_uint):

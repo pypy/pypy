@@ -6,7 +6,7 @@ from rpython.jit.metainterp.history import new_ref_dict
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, have_dispatcher_method, get_box_replacement)
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound, ConstIntBound
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resoperation import rop
@@ -407,7 +407,7 @@ class OptHeap(Optimization):
             return False
         else:
             if flag != FLAG_LOOKUP:
-                if not self.getintbound(res_v).known_ge(ConstIntBound(0)):
+                if not self.getintbound(res_v).known_ge_const(0):
                     return False
             self.make_equal_to(op, res_v)
             self.last_emitted_operation = REMOVED

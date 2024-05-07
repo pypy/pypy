@@ -4,9 +4,10 @@ from rpython.jit.metainterp.history import Const, TargetToken, JitCellToken
 from rpython.jit.metainterp.optimizeopt.shortpreamble import ShortBoxes,\
      ShortPreambleBuilder, ExtendedShortPreambleBuilder, PreambleOp
 from rpython.jit.metainterp.optimizeopt import info, intutils
+from rpython.jit.metainterp.optimizeopt.intutils import MININT, MAXINT
 from rpython.jit.metainterp.optimize import InvalidLoop, SpeculativeError
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer,\
-     Optimization, LoopInfo, MININT, MAXINT, BasicLoopInfo
+     Optimization, LoopInfo, BasicLoopInfo
 from rpython.jit.metainterp.optimizeopt.vstring import StrPtrInfo
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
     VirtualStateConstructor, VirtualStatesCantMatch)

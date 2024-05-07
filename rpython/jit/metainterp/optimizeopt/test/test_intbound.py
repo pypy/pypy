@@ -1,7 +1,6 @@
 import pytest
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
-     IntLowerBound, IntUnbounded, ConstIntBound, IntBoundKnownbits, next_pow2_m1, \
-     IntLowerUpperBound, msbonly, MININT, MAXINT, lowest_set_bit_only
+from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
+     next_pow2_m1, msbonly, MININT, MAXINT, lowest_set_bit_only)
 from copy import copy
 import sys
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck, r_uint, intmask
@@ -54,16 +53,16 @@ def bound_eq(a, b):
 
 def bound(a, b):
     if a is None and b is None:
-        return IntUnbounded()
+        return IntBound.unbounded()
     elif a is None:
-        return IntUpperBound(b)
+        return IntBound(upper=b)
     elif b is None:
-        return IntLowerBound(a)
+        return IntBound(lower=a)
     else:
-        return IntLowerUpperBound(a, b)
+        return IntBound(a, b)
 
 def const(a):
-    return ConstIntBound(a)
+    return IntBound.from_constant(a)
 
 
 def build_bound_with_contained_number(a, b, c):
@@ -213,7 +212,7 @@ def test_known():
 def test_make():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
-            lt = IntUnbounded()
+            lt = IntBound.unbounded()
             lt.make_lt(b1)
             lt.make_lt(b2)
             for n in nbr:
@@ -225,7 +224,7 @@ def test_make():
                 assert not lt.known_gt(c)
                 assert not lt.known_ge(c)
 
-            gt = IntUnbounded()
+            gt = IntBound.unbounded()
             gt.make_gt(b1)
             try:
                 gt.make_gt(b2)
@@ -241,7 +240,7 @@ def test_make():
                 assert not gt.known_lt(c)
                 assert not gt.known_le(c)
 
-            le = IntUnbounded()
+            le = IntBound.unbounded()
             le.make_le(b1)
             try:
                 le.make_le(b2)
@@ -258,7 +257,7 @@ def test_make():
                     assert not le.known_ge(c)
 
 
-            ge = IntUnbounded()
+            ge = IntBound.unbounded()
             ge.make_ge(b1)
             try:
                 ge.make_ge(b2)
@@ -274,7 +273,7 @@ def test_make():
                     assert not ge.known_lt(c)
                     assert not ge.known_le(c)
 
-            gl = IntUnbounded()
+            gl = IntBound.unbounded()
             gl.make_ge(b1)
             try:
                 gl.make_le(b2)
@@ -295,7 +294,7 @@ def test_make():
                         assert not gl.known_lt(c)
 
 def test_make_ne():
-    ge = IntUnbounded()
+    ge = IntBound.unbounded()
     res = ge.make_ne_const(MININT)
     assert res
     res = ge.make_ne_const(MININT)
@@ -342,7 +341,7 @@ def test_add_bound_bug():
     b = bound(MININT, MAXINT)
     bval = MAXINT
     assert b.contains(bval)
-    r = b.add_bound(ConstIntBound(1))
+    r = b.add_bound(IntBound.from_constant(1))
     rval = intmask(r_uint(bval)+r_uint(1))
     assert r.contains(rval)
 
@@ -383,14 +382,14 @@ def test_shift_bound():
                         assert bright.contains(n1 >> n2)
 
 def test_shift_overflow():
-    b10 = IntLowerUpperBound(0, 10)
-    b100 = IntLowerUpperBound(0, 100)
-    bmax = IntLowerUpperBound(0, sys.maxint/2)
+    b10 = IntBound(0, 10)
+    b100 = IntBound(0, 100)
+    bmax = IntBound(0, sys.maxint/2)
     assert b10.lshift_bound(b100).upper == MAXINT
     assert bmax.lshift_bound(b10).upper == MAXINT
     assert b10.lshift_bound(b10).upper == 10 << 10
-    for b in (b10, b100, bmax, ConstIntBound(0)):
-        for shift_count_bound in (IntLowerUpperBound(7, LONG_BIT), IntLowerUpperBound(-7, 7)):
+    for b in (b10, b100, bmax, IntBound.from_constant(0)):
+        for shift_count_bound in (IntBound(7, LONG_BIT), IntBound(-7, 7)):
             assert b.rshift_bound(shift_count_bound).upper == MAXINT
 
 def test_div_bound():
@@ -436,11 +435,11 @@ def test_sub_bound():
     assert not a.contains(-1)
     assert not a.contains(4)
 
-    a = ConstIntBound(0).sub_bound(bound(0, None))
+    a = IntBound.from_constant(0).sub_bound(bound(0, None))
     assert a.lower == -MAXINT
     assert a.upper == 0
 
-    a = ConstIntBound(0).sub_bound(bound(None, 0))
+    a = IntBound.from_constant(0).sub_bound(bound(None, 0))
     assert a.lower == MININT
     assert a.upper == MAXINT
 
@@ -449,7 +448,7 @@ def test_sub_bound_bug():
     b = bound(MININT, MAXINT)
     bval = MININT
     assert b.contains(bval)
-    r = b.sub_bound(ConstIntBound(1))
+    r = b.sub_bound(IntBound.from_constant(1))
     rval = intmask(r_uint(bval)-r_uint(1))
     assert r.contains(rval)
 
@@ -541,7 +540,7 @@ def test_make_random(t1, t2):
 def test_add_bound_random(t1, t2):
     b1, n1 = t1
     # first check that 0 + b1 is b1
-    b1viaadd0 = b1.add_bound(ConstIntBound(0))
+    b1viaadd0 = b1.add_bound(IntBound.from_constant(0))
     assert bound_eq(b1, b1viaadd0)
 
     b2, n2 = t2
@@ -679,11 +678,10 @@ def test_invert_bound_random(t1):
     assert b2.contains(~n1)
 
 @given(knownbits_and_bound_with_contained_number)
-@example((ConstIntBound(MININT), MININT))
-@example((IntUpperBound(-100), MININT))
-@example((IntLowerUpperBound(MININT, MININT+9), MININT))
+@example((IntBound.from_constant(MININT), MININT))
+@example((IntBound(upper=-100), MININT))
+@example((IntBound(MININT, MININT+9), MININT))
 def test_neg_bound_random(t1):
-    #import pdb; pdb.set_trace()
     b1, n1 = t1
     b2 = b1.neg_bound()
     if (n1 != MININT):
@@ -697,7 +695,7 @@ def test_neg_bound_random(t1):
         assert b2.contains(MININT)
 
     # check consistency with sub_bound
-    b2viasub = ConstIntBound(0).sub_bound(b1)
+    b2viasub = IntBound.from_constant(0).sub_bound(b1)
     assert bound_eq(b2, b2viasub)
 
 
@@ -752,15 +750,15 @@ def test_lowest_set_bit_only():
     assert r4 == r_uint(0)
 
 def test_knownbits_intconst_examples():
-    b1 = ConstIntBound(0b010010)
+    b1 = IntBound.from_constant(0b010010)
     assert b1.is_constant()
     assert b1.get_constant_int() == 0b010010
     assert b1.known_eq_const(0b010010)
-    b2 = ConstIntBound(0b1)
+    b2 = IntBound.from_constant(0b1)
     assert b2.is_constant()
     assert b2.get_constant_int() == 0b1
     assert b2.known_eq_const(0b1)
-    b3 = ConstIntBound(0b0)
+    b3 = IntBound.from_constant(0b0)
     assert b3.is_constant()
     assert b3.get_constant_int() == 0b0
     assert b3.known_eq_const(0b0)
@@ -768,9 +766,8 @@ def test_knownbits_intconst_examples():
 
 #@pytest.mark.xfail(reason="not finished. i gave up.")
 def test_knownbits_minmax_nobounds_examples():
-    #import pdb; pdb.set_trace()
     # constant case
-    b1 = ConstIntBound(42)
+    b1 = IntBound.from_constant(42)
     assert b1.get_minimum_signed() == 42
     assert b1.get_maximum_signed() == 42
     # positive knownbits case
@@ -790,7 +787,6 @@ def test_knownbits_minmax_nobounds_examples():
 
 #@pytest.mark.xfail(reason="not finished. i gave up.")
 def test_knownbits_minmax_bounds_examples():
-    #import pdb; pdb.set_trace()
     # case (-Inf, 0]
     b1 = IntBound(lower=0,
                   tvalue=u(5), tmask=u(-8))   # ?...?101
@@ -803,13 +799,13 @@ def test_knownbits_minmax_bounds_examples():
     assert b2.get_maximum_signed() == -3
 
 def test_knownbits_const_strings_examples():
-    b1 = ConstIntBound(0b010010)
+    b1 = IntBound.from_constant(0b010010)
     assert check_knownbits_string(b1, "00010010", '0')
-    b2 = ConstIntBound(0b1)
+    b2 = IntBound.from_constant(0b1)
     assert check_knownbits_string(b2, "001", '0')
-    b3 = ConstIntBound(0b0)
+    b3 = IntBound.from_constant(0b0)
     assert check_knownbits_string(b3, "0", '0')
-    b4 = ConstIntBound(-1)
+    b4 = IntBound.from_constant(-1)
     assert check_knownbits_string(b4, "1", '1')
 
 def test_knownbits_unknowns_strings_examples():
@@ -821,20 +817,20 @@ def test_knownbits_unknowns_strings_examples():
     assert check_knownbits_string(b2, "1?10")
 
 def test_knownbits_or_and_known_example():
-    b1 = IntUnbounded()
-    b2 = b1.or_bound(ConstIntBound(1))
+    b1 = IntBound.unbounded()
+    b2 = b1.or_bound(IntBound.from_constant(1))
     assert check_knownbits_string(b2, "1")
-    b3 = b2.and_bound(ConstIntBound(1))
+    b3 = b2.and_bound(IntBound.from_constant(1))
     assert b3.is_constant()
     assert b3.get_constant_int() == 1
     assert b3.known_eq_const(1)
 
 def test_knownbits_or_and_unknown_example():
-    b1 = IntUnbounded()
+    b1 = IntBound.unbounded()
     assert not b1.is_constant()
-    b2 = b1.or_bound(ConstIntBound(42))
+    b2 = b1.or_bound(IntBound.from_constant(42))
     assert not b2.is_constant()
-    b3 = b2.and_bound(ConstIntBound(-1))
+    b3 = b2.and_bound(IntBound.from_constant(-1))
     assert not b3.is_constant()
 
 def test_knownbits_intersect_example():
@@ -905,22 +901,22 @@ def test_knownbits_contains_examples():
 def test_validtnum_assertion_examples():
     # for each bit i: mask[i]==1 implies value[i]==0
     # the following tnum is invalid:
-    with pytest.raises(Exception):
-        b0 = IntBoundKnownbits(u(0b111),
-                               u(0b010))
+    with pytest.raises(AssertionError):
+        b0 = knownbits(u(0b111),
+                       u(0b010))
     # mask and value have to be r_uints
-    with pytest.raises(Exception):
-        b2 = IntBoundKnownbits(0b101,
+    with pytest.raises(AssertionError):
+        b2 = IntBound.from_knownbits(0b101,
                                0b010)
-    with pytest.raises(Exception):
-        b3 = IntBoundKnownbits(u(0b101),
+    with pytest.raises(AssertionError):
+        b3 = IntBound.from_knownbits(u(0b101),
                                0b010)
-    with pytest.raises(Exception):
-        b4 = IntBoundKnownbits(0b101,
+    with pytest.raises(AssertionError):
+        b4 = IntBound.from_knownbits(0b101,
                                u(0b010))
     # this is valid:
-    b1 = IntBoundKnownbits(u(0b101),
-                           u(0b010))
+    IntBound.from_knownbits(u(0b101),
+                            u(0b010))
 
 def test_widen_tnum():
     b = knownbits(0b10001010,
@@ -930,7 +926,6 @@ def test_widen_tnum():
 
 def test_shrink_bounds_by_knownbits():
     # positive case
-    #import pdb; pdb.set_trace()
     b1 = knownbits(0b101000,
                    0b000101)  # 101???
     assert b1.lower == 0b101000
@@ -942,7 +937,6 @@ def test_shrink_bounds_by_knownbits():
     assert b2.upper == ~0b010010
 
 def test_shrink_knownbits_by_bounds():
-    #import pdb; pdb.set_trace()
     # constant positive case
     b1 = IntBound(lower=27, upper=27,
                   tvalue=r_uint(0),
@@ -995,7 +989,6 @@ def test_minmax_shrinking_random(t1):
 #@pytest.mark.xfail(reason="not finished. i gave up.")
 def test_minmax_noshrink_random(t1):
     b1, n1 = t1
-    #import pdb; pdb.set_trace()
     assert b1.lower <= n1
     assert n1 <= b1.upper
     minimum = b1.get_minimum_signed()
@@ -1072,8 +1065,8 @@ def test_knownbits_sub():
 
 def test_knownbits_lshift_examples():
     # both numbers constant case
-    a1 = ConstIntBound(21)
-    b1 = ConstIntBound(3)
+    a1 = IntBound.from_constant(21)
+    b1 = IntBound.from_constant(3)
     r1 = a1.lshift_bound(b1)
     assert a1.is_constant()
     assert (21 << 3) == r1.get_constant_int()
@@ -1082,7 +1075,7 @@ def test_knownbits_lshift_examples():
     tv2 = 0b0100010     # 010??10
     tm2 = 0b0001100
     a2 = knownbits(tv2, tm2)
-    b2 = ConstIntBound(3)
+    b2 = IntBound.from_constant(3)
     r2 = a2.lshift_bound(b2)
     assert not r2.is_constant()
     assert r2.contains(tv2 << 3)
@@ -1092,20 +1085,20 @@ def test_knownbits_lshift_examples():
     tv3 = 0b1001        # 1??1
     tm3 = 0b0110
     a3 = knownbits(tv3, tm3)
-    b3 = ConstIntBound(LONG_BIT+1)
+    b3 = IntBound.from_constant(LONG_BIT+1)
     r3 = a3.lshift_bound(b3)
     assert r3.is_constant()
     assert r3.get_constant_int() == 0
 
 def test_knownbits_rshift_signed_consts_examples():
     # case 1a - both numbers constant positive case
-    a1a = ConstIntBound(21)
-    b1 = ConstIntBound(3)
+    a1a = IntBound.from_constant(21)
+    b1 = IntBound.from_constant(3)
     r1a = a1a.rshift_bound(b1)
     assert r1a.is_constant()
     assert (21 >> 3) == r1a.get_constant_int()
     # case 1b - both numbes constant negative case
-    a1b = ConstIntBound(-21)
+    a1b = IntBound.from_constant(-21)
     r1b = a1b.rshift_bound(b1)
     assert r1b.is_constant()
     assert (-21 >> 3) == r1b.get_constant_int()
@@ -1115,7 +1108,7 @@ def test_knownbits_rshift_signed_partialunknowns_examples():
     tv2a = 0b0100010     # 010??10
     tm2a = 0b0001100
     a2a = knownbits(tv2a, tm2a)
-    b2 = ConstIntBound(3)
+    b2 = IntBound.from_constant(3)
     r2a = a2a.rshift_bound(b2) # 010?
     assert not r2a.is_constant()
     assert r2a.contains(0b0100)
@@ -1142,7 +1135,7 @@ def test_knownbits_rshift_signed_completeshiftout_examples():
     tv3a = 0b1001        # 1??1
     tm3a = 0b0110
     a3a = knownbits(tv3a, tm3a)
-    b3 = ConstIntBound(LONG_BIT+1)
+    b3 = IntBound.from_constant(LONG_BIT+1)
     r3a = a3a.rshift_bound(b3)
     assert r3a.is_constant()
     assert r3a.get_constant_int() == 0
@@ -1163,13 +1156,13 @@ def test_knownbits_rshift_signed_completeshiftout_examples():
 
 def test_knownbits_rshift_unsigned_consts_examples():
     # case 1a - both numbers constant positive case
-    a1a = ConstIntBound(21)
-    b1 = ConstIntBound(3)
+    a1a = IntBound.from_constant(21)
+    b1 = IntBound.from_constant(3)
     r1a = a1a.urshift_bound(b1)
     assert r1a.is_constant()
     assert intmask(u(21) >> u(3)) == r1a.get_constant_int()
     # case 1b - both numbes constant negative case
-    a1b = ConstIntBound(-21)
+    a1b = IntBound.from_constant(-21)
     r1b = a1b.urshift_bound(b1)
     assert r1b.is_constant()
     assert intmask(u(-21) >> u(3)) == r1b.get_constant_int()
@@ -1179,7 +1172,7 @@ def test_knownbits_rshift_unsigned_partialunknowns_examples():
     tv2a = 0b0100010     # 010??10
     tm2a = 0b0001100
     a2a = knownbits(tv2a, tm2a)
-    b2 = ConstIntBound(3)
+    b2 = IntBound.from_constant(3)
     r2a = a2a.urshift_bound(b2) # 010?
     assert not r2a.is_constant()
     assert r2a.contains(0b0100)
@@ -1206,7 +1199,7 @@ def test_knownbits_rshift_unsigned_completeshiftout_examples():
     tv3a = 0b1001        # 1??1
     tm3a = 0b0110
     a3a = knownbits(tv3a, tm3a)
-    b3 = ConstIntBound(LONG_BIT+1)
+    b3 = IntBound.from_constant(LONG_BIT+1)
     r3a = a3a.urshift_bound(b3) # 0
     assert r3a.is_constant()
     assert r3a.get_constant_int() == 0
@@ -1226,7 +1219,6 @@ def test_knownbits_rshift_unsigned_completeshiftout_examples():
     assert r3c.known_eq_const(0)
 
 def test_knownbits_add_concrete_example():
-    #import pdb; pdb.set_trace()
     a1 = knownbits(             # 10??10 = {34,38,42,46}
             0b100010,           # +   11
             0b001100)           #  ??1
@@ -1259,88 +1251,85 @@ def test_knownbits_sub_concrete_example():
     assert r1.contains(0b101010)
 
 def test_knownbits_and_backwards_otherconst_examples():
-    x = IntUnbounded()          # ?...?
-    r = x.and_bound_backwards(ConstIntBound(0b11), 0)
+    x = IntBound.unbounded()          # ?...?
+    r = x.and_bound_backwards(IntBound.from_constant(0b11), 0)
     assert check_knownbits_string(r, "??00")
-    r = x.and_bound_backwards(ConstIntBound(0b11), -1)
+    r = x.and_bound_backwards(IntBound.from_constant(0b11), -1)
     assert check_knownbits_string(r, "??11")
     x = knownbits( 0b10000,     # ?...?10???
                   ~0b11000)
-    r = x.and_bound_backwards(ConstIntBound(0b11), 0)
+    r = x.and_bound_backwards(IntBound.from_constant(0b11), 0)
     assert check_knownbits_string(r, "??10?00")
     x = knownbits( 0b1010,      # ?...?1010
                   ~0b1111)
-    r = x.and_bound_backwards(ConstIntBound(0b11), 0)
+    r = x.and_bound_backwards(IntBound.from_constant(0b11), 0)
     assert check_knownbits_string(r, "??1000") # inconsistent: result wins
-    x = IntUnbounded()
-    r = x.and_bound_backwards(ConstIntBound(0b11), 0b10)
+    x = IntBound.unbounded()
+    r = x.and_bound_backwards(IntBound.from_constant(0b11), 0b10)
     assert check_knownbits_string(r, "??10")
 
 def test_knownbits_and_backwards_example():
-    x = IntUnbounded()
+    x = IntBound.unbounded()
     o = knownbits(0b101010,
                   0b010100) # 1?1?10
     r = x.and_bound_backwards(o, 0b111)
     assert check_knownbits_string(r, "??0?0?1?")
 
 def test_knownbits_urshift_backwards_example():
-    o = ConstIntBound(3)
-    x1 = IntUnbounded()
+    o = IntBound.from_constant(3)
+    x1 = IntBound.unbounded()
     r1 = knownbits(0b101010,
                    0b010100) # 1?1?10
-    #import pdb; pdb.set_trace()
     res1 = x1.urshift_bound_backwards(o, r1)
     assert not res1.is_constant()
     assert check_knownbits_string(res1, "1?1?10???", '0')
-    x2 = ConstIntBound(0b101)
+    x2 = IntBound.from_constant(0b101)
     r2 = knownbits(0b101010,
                    0b010100) # 1?1?10
     res2 = x2.urshift_bound_backwards(o, r2)
     assert not res2.is_constant()
     assert res2.knownbits_string().endswith("101")
-    x3 = IntUnbounded()
+    x3 = IntBound.unbounded()
     r3 = knownbits(0b1, 0) # 1
     res3 = x3.urshift_bound_backwards(o, r3)
     assert not res3.is_constant()
     assert check_knownbits_string(res3, "1???", '0')
 
 def test_knownbits_lshift_backwards_example():
-    o = ConstIntBound(3)
-    x1 = IntUnbounded()
+    o = IntBound.from_constant(3)
+    x1 = IntBound.unbounded()
     r1 = knownbits(0b101010,
                    0b010100) # 1?1?10
     res1 = x1.lshift_bound_backwards(o, r1)
     assert not res1.is_constant()
     assert res1.knownbits_string().startswith("???") \
         and res1.knownbits_string().endswith("1?1")
-    x2 = ConstIntBound(0b101)
+    x2 = IntBound.from_constant(0b101)
     r2 = knownbits(0b101010,
                    0b010100) # 1?1?10
-    #import pdb; pdb.set_trace()
     res2 = x2.lshift_bound_backwards(o, r2)
     assert res2.knownbits_string().endswith("1?1")
-    x3 = IntUnbounded()
+    x3 = IntBound.unbounded()
     r3 = knownbits(MININT, 0) # 1
     res3 = x3.lshift_bound_backwards(o, r3)
     assert not res3.is_constant()
     assert res3.knownbits_string().startswith("???1")
 
 def test_knownbits_rshift_backwards_example():
-    o = ConstIntBound(3)
-    x1 = IntUnbounded()
+    o = IntBound.from_constant(3)
+    x1 = IntBound.unbounded()
     r1 = knownbits(0b101010,
                    0b010100) # 1?1?10
-    #import pdb; pdb.set_trace()
     res1 = x1.rshift_bound_backwards(o, r1)
     assert not res1.is_constant()
     assert check_knownbits_string(res1, "1?1?10???", '0')
-    x2 = ConstIntBound(0b101)
+    x2 = IntBound.from_constant(0b101)
     r2 = knownbits(0b101010,
                    0b010100) # 1?1?10
     res2 = x2.rshift_bound_backwards(o, r2)
     assert not res2.is_constant()
     assert res2.knownbits_string().endswith("101")
-    x3 = IntUnbounded()
+    x3 = IntBound.unbounded()
     r3 = knownbits(0b1, 0) # 1
     res3 = x3.rshift_bound_backwards(o, r3)
     assert not res3.is_constant()
@@ -1429,7 +1418,7 @@ def test_validtnum_assertion_random(t1):
     if is_valid:
         b = knownbits(val, msk)
     else:
-        with pytest.raises(Exception):
+        with pytest.raises(AssertionError):
             b = knownbits(val, msk)
 
 @given(knownbits_with_contained_number, knownbits_with_contained_number)
@@ -1466,7 +1455,7 @@ def test_knownbits_invert_random(t1):
 @given(knownbits_with_contained_number, pos_relatively_small_values)
 def test_knownbits_lshift_random(t1, t2):
     b1, n1 = t1
-    b2 = ConstIntBound(t2)
+    b2 = IntBound.from_constant(t2)
     print b1, " << ", t2
     r = b1.lshift_bound(b2)
     # this works for left-shift, not for right-shift!
@@ -1475,7 +1464,7 @@ def test_knownbits_lshift_random(t1, t2):
 @given(knownbits_with_contained_number, pos_relatively_small_values)
 def test_knownbits_rshift_signed_random(t1, t2):
     b1, n1 = t1
-    b2 = ConstIntBound(t2)
+    b2 = IntBound.from_constant(t2)
     print b1, " >> ", t2
     r = b1.rshift_bound(b2)
     assert r.contains(n1 >> t2)
@@ -1483,7 +1472,7 @@ def test_knownbits_rshift_signed_random(t1, t2):
 @given(knownbits_with_contained_number, pos_relatively_small_values)
 def test_knownbits_rshift_unsigned_random(t1, t2):
     b1, n1 = t1
-    b2 = ConstIntBound(t2)
+    b2 = IntBound.from_constant(t2)
     print b1, " >> ", t2
     r = b1.urshift_bound(b2)
     assert r.contains(intmask(u(n1) >> u(t2)))
@@ -1523,7 +1512,7 @@ def test_knownbits_neg_random(t1):
 
 @given(ints)
 def test_knownbits_neg_const_random(t1):
-    b1 = ConstIntBound(t1)
+    b1 = IntBound.from_constant(t1)
     r = b1.neg_bound()
     if t1 != -sys.maxint-1:
         assert r.is_constant()
@@ -1563,7 +1552,7 @@ def test_knownbits_rshift_backwards_random(t1, t2):
     b1.intersect(newb1)
 
 def test_knownbits_div_bug():
-    b1 = IntUnbounded()
+    b1 = IntBound.unbounded()
     b2 = knownbits(0b1, r_uint(-2))  # ?????1
     r = b1.py_div_bound(b2)
     assert r.lower == MININT and r.upper == MAXINT
@@ -1593,7 +1582,7 @@ def knownbits(tvalue, tmask=0, do_unmask=False):
         tvalue = u(tvalue)
     if not isinstance(tmask, r_uint):
         tmask = u(tmask)
-    return IntBoundKnownbits(tvalue, tmask, do_unmask)
+    return IntBound.from_knownbits(tvalue, tmask, do_unmask)
 
 def u(signed_int):
     return r_uint(signed_int)
