@@ -120,9 +120,8 @@ class IntBound(AbstractInfo):
             # a few formatting heuristics
             if not num:
                 return '0'
-            assert num != MININT
-            absnum = abs(num) # safe, because MININT is impossible
-            if absnum & (absnum - 1) == 0:
+            uintnum = r_uint(num)
+            if uintnum & (uintnum - 1) == 0:
                 # power of two, use hex
                 return hex(num)
             # heuristic: format number as decimal if fewer than 6 significant
@@ -136,6 +135,8 @@ class IntBound(AbstractInfo):
             if len(s) - exp10 >= 6:
                 return hex(num)
             return s
+        if self.is_constant():
+            return '(%s)' % to_dec_or_hex_str(self.get_constant_int())
         if self.lower == MININT:
             lower = ''
         else:

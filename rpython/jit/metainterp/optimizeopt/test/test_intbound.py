@@ -966,6 +966,8 @@ def test_tnum_contains_bound_bug():
 def test_intbound_str():
     b = IntBound()
     assert str(b) == '(?)'
+    b = IntBound()
+    assert str(b) == '(?)'
     b = IntBound.nonnegative()
     assert str(b) == '(0 <= ?)'
     b = IntBound(lower=0, upper=100)
@@ -976,6 +978,10 @@ def test_intbound_str():
     assert str(b) == '(0 <= 0b0...0??????????????????????????????? <= 1230000000)'
     b = IntBound(lower=0, upper=1230505081)
     assert str(b) == '(0 <= 0b0...0??????????????????????????????? <= 0x49580479)'
+    b = IntBound.from_constant(MININT)
+    assert str(b) == '(-0x8000000000000000)'
+    b = IntBound.from_constant(-56)
+    assert str(b) == '(-56)'
 
 @given(knownbits_and_bound_with_contained_number)
 @example((IntBound(lower=-524289, upper=4398046511103, tvalue=r_uint(0), tmask=~(r_uint(MININT)>>7), do_shrinking=False), 0))
