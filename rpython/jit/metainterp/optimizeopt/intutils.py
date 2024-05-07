@@ -1015,11 +1015,10 @@ class IntBound(AbstractInfo):
         in practice and will be caught by an assert in intersect())
         """
 
-        tvalue = self.tvalue
-        tmask = self.tmask
-        tvalue &= ~other.tvalue | other.tmask
-        tvalue |= r_uint(result_int) & other.tvalue
-        tmask &= ~other.tvalue | other.tmask
+        tvalue, tmask = _and_tnum_backwards(
+            self.tvalue, self.tmask, other.tvalue, other.tmask,
+            r_uint(result_int)
+        )
         return IntBoundKnownbits(tvalue, tmask)
 
     def or_bound_backwards(self, other, result_int):
@@ -1401,3 +1400,12 @@ def unmask_zero(value, mask):
     and returns the result.
     """
     return value & ~mask
+
+
+def _and_tnum_backwards(self_tvalue, self_tmask, other_tvalue, other_tmask, result_uint):
+    tvalue = self_tvalue
+    tmask = self_tmask
+    tvalue &= ~other_tvalue | other_tmask
+    tvalue |= result_uint & other_tvalue
+    tmask &= ~other_tvalue | other_tmask
+    return tvalue, tmask

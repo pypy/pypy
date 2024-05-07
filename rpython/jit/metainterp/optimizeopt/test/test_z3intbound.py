@@ -9,7 +9,7 @@ import pytest
 import sys
 
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound, _and_tnum_backwards
 
 try:
     import z3
@@ -48,6 +48,9 @@ bounds = some_bits_known
 
 varname_counter = 0
 
+def z3_tnum_condition(variable, tvalue, tmask):
+    return variable & ~tmask == tvalue
+
 def to_z3(bound, variable=None):
     global varname_counter
     if variable is None:
@@ -55,11 +58,11 @@ def to_z3(bound, variable=None):
         varname_counter += 1
     components = []
     if bound.upper < MAXINT:
-        components.append(variable <= z3.BitVecVal(bound.upper, LONG_BIT))
+        components.append(variable <= BitVecVal(bound.upper))
     if bound.lower > MININT:
-        components.append(variable >= z3.BitVecVal(bound.lower, LONG_BIT))
+        components.append(variable >= BitVecVal(bound.lower))
     if bound.tmask != r_uint(-1): # all unknown:
-        components.append(variable & z3.BitVecVal(~bound.tmask, LONG_BIT) == z3.BitVecVal(bound.tvalue, LONG_BIT))
+        components.append(z3_tnum_condition(variable, z3.BitVecVal(~bound.tmask), BitVecVal(bound.tvalue)))
     if len(components) == 1:
         return variable, components[0]
     if len(components) == 0:
@@ -70,25 +73,26 @@ class CheckError(Exception):
     pass
 
 
-def prove_implies(*args):
+def prove_implies(*args, **kwargs):
     last = args[-1]
     prev = args[:-1]
-    return prove(z3.Implies(z3.And(*prev), last))
+    return prove(z3.Implies(z3.And(*prev), last), **kwargs)
 
-def prove(cond):
+def prove(cond, use_timeout=True):
     solver = z3.Solver()
-    if pytest.config.option.z3timeout:
+    if use_timeout and pytest.config.option.z3timeout:
         solver.set("timeout", pytest.config.option.z3timeout)
     z3res = solver.check(z3.Not(cond))
     if z3res == z3.unsat:
         pass
     elif z3res == z3.unknown:
         print "timeout", cond
+        assert use_timeout
     elif z3res == z3.sat:
         # not possible to prove!
         # print some nice stuff
         model = solver.model()
-        raise CheckError("%s\n%s" % (cond, model))
+        raise CheckError(cond, model)
 
 @given(bounds, bounds)
 def test_add(b1, b2):
@@ -206,6 +210,8 @@ def test_xor(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 ^ var2)
+    print b1, b2, b3
+    print formula1, formula2, formula3
     prove_implies(formula1, formula2, formula3)
 
 @given(bounds)
@@ -227,7 +233,6 @@ def test_shrink_bounds_to_knownbits(x, y):
     b.shrink()
     var1, formula2 = to_z3(b, var1)
     prove_implies(formula1, formula2)
-
 
 @given(uints, uints)
 def test_shrink_knownbits_to_bounds(x, y):
@@ -269,3 +274,27 @@ def test_and_backwards(x, tmask, other_const, data):
     var2, formula2 = to_z3(better_b_bound, var1)
     prove_implies(formula1, BitVecVal(res) == BitVecVal(other_const) & var1, formula2)
     b.intersect(better_b_bound)
+
+
+# ____________________________________________________________
+# explicit proofs
+
+def make_z3_tnum(name):
+    variable = BitVec(name)
+    tvalue = BitVec(name + "_tvalue")
+    tmask = BitVec(name + "_tmask")
+    formula = z3_tnum_condition(variable, tvalue, tmask)
+    return variable, tvalue, tmask, formula
+
+def test_prove_and_backwards():
+    self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
+    other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
+    res = self_variable & other_variable
+    better_tvalue, better_tmask = _and_tnum_backwards(self_tvalue, self_tmask, other_tvalue, other_tmask, res)
+    prove_implies(
+        self_formula,
+        other_formula,
+        self_variable & other_variable == res,
+        z3_tnum_condition(self_variable, better_tvalue, better_tmask),
+        use_timeout=False
+    )
