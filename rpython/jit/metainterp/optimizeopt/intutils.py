@@ -427,14 +427,6 @@ class IntBound(AbstractInfo):
         """
         return 0 <= self.lower
 
-    def known_nonnegative_by_bounds(self):
-        """ for internal use only! """
-        # Returns `True` if this abstract integer
-        # only contains numbers greater than or
-        # equal to `0` (zero).
-        minest = self.get_minimum_signed()
-        return 0 <= minest
-
     def _get_minimum_signed_by_knownbits(self):
         """ for internal use only! """
         return intmask(self.tvalue | msbonly(self.tmask))
@@ -866,8 +858,8 @@ class IntBound(AbstractInfo):
         (Does not mutate `self`.)
         """
 
-        pos1 = self.known_nonnegative_by_bounds()
-        pos2 = other.known_nonnegative_by_bounds()
+        pos1 = self.known_nonnegative()
+        pos2 = other.known_nonnegative()
         r = IntBound.unbounded()
         if pos1 or pos2:
             r.make_ge_const(0)
@@ -890,8 +882,8 @@ class IntBound(AbstractInfo):
 
         lower = MININT
         upper = MAXINT
-        if self.known_nonnegative_by_bounds() and \
-                other.known_nonnegative_by_bounds():
+        if self.known_nonnegative() and \
+                other.known_nonnegative():
             mostsignificant = r_uint(self.upper | other.upper)
             lower = 0
             upper = intmask(next_pow2_m1(mostsignificant))
@@ -913,8 +905,8 @@ class IntBound(AbstractInfo):
 
         lower = MININT
         upper = MAXINT
-        if self.known_nonnegative_by_bounds() and \
-                other.known_nonnegative_by_bounds():
+        if self.known_nonnegative() and \
+                other.known_nonnegative():
             mostsignificant = r_uint(self.upper | other.upper)
             lower = 0
             upper = intmask(next_pow2_m1(mostsignificant))
