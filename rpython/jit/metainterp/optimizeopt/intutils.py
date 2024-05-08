@@ -1270,7 +1270,8 @@ class IntBound(AbstractInfo):
 
     def shrink(self):
         # some passes of bounds-knownbits synchronization
-        for i in range(4):
+        # (4 chosen by a fair dice roll)
+        for i in range(4): # TODO: try to reason about the correct number of iterations
             changed = self._shrink_bounds_by_knownbits()
             changed |= self._shrink_knownbits_by_bounds()
             if not changed:
