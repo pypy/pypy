@@ -1,6 +1,7 @@
 import pytest
 from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
-     next_pow2_m1, msbonly, MININT, MAXINT, lowest_set_bit_only)
+     next_pow2_m1, msbonly, MININT, MAXINT, lowest_set_bit_only,
+     leading_zeros_mask)
 from copy import copy
 import sys
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck, r_uint, intmask
@@ -527,6 +528,22 @@ def test_next_pow2_m1():
     assert next_pow2_m1(r_uint(80)) == r_uint(127)
     assert next_pow2_m1(r_uint((1 << 32) - 5)) == r_uint((1 << 32) - 1)
     assert next_pow2_m1(r_uint((1 << 64) - 1)) == r_uint((1 << 64) - 1)
+
+def test_leading_zeros_mask():
+    assert leading_zeros_mask(r_uint(0)) == r_uint(-1)
+    assert leading_zeros_mask(r_uint(-1)) == r_uint(0)
+    assert leading_zeros_mask(r_uint(0b100)) == ~r_uint(0b111)
+    assert leading_zeros_mask(r_uint(MAXINT)) == ~r_uint(MAXINT)
+
+def test_shrink_bug():
+    lower = 1
+    upper = MAXINT - 1
+    assert r_uint(lower) ^ r_uint(upper) == r_uint(MAXINT)
+    b = IntBound(lower, upper, do_shrinking=False)
+    b._shrink_knownbits_by_bounds()
+    # the sign bit (highest bit) must be 0, because all values 1 <= x <= MAXINT - 1 are positive
+    assert b.tmask == r_uint(MAXINT) # 0?.....?
+    assert b.tvalue == r_uint(0)
 
 def test_invert_bound():
     for _, _, b1 in some_bounds():

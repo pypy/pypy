@@ -1406,12 +1406,7 @@ def leading_zeros_mask(n):
     of `n` are set (1).
     """
     assert isinstance(n, r_uint)
-    if n == MAXINT:
-        return r_uint(0)
-    elif n == 0:
-        return r_uint(-1)
-    else:
-        return ~next_pow2_m1(n)
+    return ~next_pow2_m1(n)
 
 def lowest_set_bit_only(val_uint):
     """
