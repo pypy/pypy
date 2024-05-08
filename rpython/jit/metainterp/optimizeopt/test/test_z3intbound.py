@@ -12,13 +12,16 @@ import gc
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
 from rpython.jit.metainterp.optimizeopt.intutils import (
     IntBound,
-    _and_tnum_backwards,
-    _and_tnum,
+    _tnum_and_backwards,
+    _tnum_and,
 )
+from rpython.jit.metainterp.optimize import InvalidLoop
+
+from rpython.jit.metainterp.optimizeopt.test.test_intbound import knownbits_and_bound_with_contained_number
 
 try:
     import z3
-    from hypothesis import given, strategies, assume
+    from hypothesis import given, strategies, assume, example
 except ImportError:
     pytest.skip("please install z3 (z3-solver on pypi) and hypothesis")
 
@@ -41,15 +44,10 @@ ints = strategies.builds(
     strategies.integers(min_value=0, max_value=2**LONG_BIT - 1)
 )
 
-def build_some_bits_known(a, b):
-    return IntBound(tvalue=a & ~b, tmask=b)
-
-some_bits_known = strategies.builds(
-    build_some_bits_known,
-    uints, uints
+bounds = strategies.builds(
+    lambda tup: tup[0],
+    knownbits_and_bound_with_contained_number
 )
-
-bounds = some_bits_known
 
 varname_counter = 0
 
@@ -63,7 +61,7 @@ def z3_tnum_condition(variable, tvalue, tmask):
 def to_z3(bound, variable=None):
     global varname_counter
     if variable is None:
-        variable = z3.BitVec("bv%s" % (varname_counter, ), LONG_BIT)
+        variable = BitVec("bv%s" % (varname_counter, ))
         varname_counter += 1
     components = []
     if bound.upper < MAXINT:
@@ -235,6 +233,21 @@ def test_invert(b1):
     var2, formula2 = to_z3(b2, ~var1)
     prove_implies(formula1, formula2)
 
+@example(b1=IntBound.from_constant(-100), b2=IntBound.from_constant(-100))
+@given(bounds, bounds)
+def test_intersect(b1, b2):
+    var1, formula1 = to_z3(b1)
+    _, formula2 = to_z3(b2, var1)
+    both_conditions = z3.And(formula1, formula2)
+    solver = z3.Solver()
+    intersection_nonempty = solver.check(both_conditions) == z3.sat
+    try:
+        b1.intersect(b2)
+    except InvalidLoop:
+        assert intersection_nonempty == False
+    else:
+        _, formula3 = to_z3(b1, var1)
+        prove_implies(both_conditions, formula3)
 
 # ____________________________________________________________
 # shrinking
@@ -316,7 +329,7 @@ def test_prove_and():
     self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
     other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
     result = BitVec('result')
-    res_tvalue, res_tmask = _and_tnum(self_tvalue, self_tmask, other_tvalue, other_tmask)
+    res_tvalue, res_tmask = _tnum_and(self_tvalue, self_tmask, other_tvalue, other_tmask)
     prove_implies(
         self_formula,
         other_formula,
@@ -328,7 +341,7 @@ def test_prove_and_backwards():
     self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
     other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
     res = self_variable & other_variable
-    better_tvalue, better_tmask = _and_tnum_backwards(self_tvalue, self_tmask, other_tvalue, other_tmask, res)
+    better_tvalue, better_tmask = _tnum_and_backwards(self_tvalue, self_tmask, other_tvalue, other_tmask, res)
     prove_implies(
         self_formula,
         other_formula,

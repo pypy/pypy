@@ -411,18 +411,28 @@ class IntBound(AbstractInfo):
     def known_ne(self, other):
         """ return True if the sets of numbers self and other must be disjoint.
         """
+        # easy cases part 1: ranges don't overlap
         if self.known_lt(other):
             return True
         if self.known_gt(other):
             return True
+        # easy case part 2: check whether the knownbits contradict
         both_known = self.tmask | other.tmask
-        return unmask_zero(self.tvalue, both_known) != unmask_zero(other.tvalue, both_known)
+        if unmask_zero(self.tvalue, both_known) != unmask_zero(other.tvalue, both_known):
+            return True
+        # for more complicated interactions between ranges and knownbits use
+        # the logic in intersect
+        newself = self.clone()
+        try:
+            newself.intersect(other)
+        except InvalidLoop:
+            return True
+        return False
 
     def known_nonnegative(self):
         """
-        Returns `True` if this abstract integer
-        only contains numbers greater than or
-        equal to `0` (zero).
+        Returns `True` if this abstract integer only contains numbers greater
+        than or equal to `0` (zero).
         """
         return 0 <= self.lower
 
@@ -523,13 +533,10 @@ class IntBound(AbstractInfo):
 
     def intersect(self, other):
         """
-        Mutates `self` so that it contains
-        integers that are contained in `self`
-        and `other`, and only those.
-        Basically intersection of sets.
-        Throws errors if `self` and `other`
-        "disagree", meaning the result would
-        contain 0 (zero) any integers.
+        Mutates `self` so that it contains integers that are contained in
+        `self` and `other`, and only those. Basically intersection of sets.
+        Throws errors if `self` and `other` "disagree", meaning the result
+        would contain 0 (zero) any integers.
         """
         from rpython.jit.metainterp.optimize import InvalidLoop
         if self.known_gt(other) or self.known_lt(other):
@@ -543,16 +550,19 @@ class IntBound(AbstractInfo):
 
         # tnum stuff.
         union_val = self.tvalue | other.tvalue
-        intersect_masks = self.tmask & other.tmask
-        union_masks = self.tmask | other.tmask
+        either_known = self.tmask & other.tmask
+        both_known = self.tmask | other.tmask
         # we assert agreement, e.g. that self and other don't contradict
-        unmasked_self = unmask_zero(self.tvalue, union_masks)
-        unmasked_other = unmask_zero(other.tvalue, union_masks)
-        assert unmasked_self == unmasked_other
+        unmasked_self = unmask_zero(self.tvalue, both_known)
+        unmasked_other = unmask_zero(other.tvalue, both_known)
+        if unmasked_self != unmasked_other:
+            raise InvalidLoop("knownbits contradict each other")
         # calculate intersect value and mask
-        if self.tmask != intersect_masks:
-            r = self.set_tvalue_tmask(unmask_zero(union_val, intersect_masks),
-                                      intersect_masks)
+        if self.tmask != either_known:
+            # this can also raise InvalidLoop, if the ranges and knownbits
+            # contradict in more complicated ways
+            r = self.set_tvalue_tmask(unmask_zero(union_val, either_known),
+                                      either_known)
             assert r
 
         assert self._debug_check()
@@ -865,7 +875,7 @@ class IntBound(AbstractInfo):
         if pos2:
             r.make_le(other)
 
-        res_tvalue, res_tmask = _and_tnum(self.tvalue, self.tmask, other.tvalue, other.tmask)
+        res_tvalue, res_tmask = _tnum_and(self.tvalue, self.tmask, other.tvalue, other.tmask)
         r.set_tvalue_tmask(res_tvalue, res_tmask)
         return r
 
@@ -1107,7 +1117,7 @@ class IntBound(AbstractInfo):
         in practice and will be caught by an assert in intersect())
         """
 
-        tvalue, tmask = _and_tnum_backwards(
+        tvalue, tmask = _tnum_and_backwards(
             self.tvalue, self.tmask, other.tvalue, other.tmask,
             r_uint(result_int)
         )
@@ -1202,6 +1212,9 @@ class IntBound(AbstractInfo):
         min_by_knownbits = self.get_minimum_signed_by_knownbits_above(self.lower)
         max_by_knownbits = self.get_maximum_signed_by_knownbits_below(self.upper)
         changed = self.lower != min_by_knownbits or self.upper != max_by_knownbits
+        if min_by_knownbits > max_by_knownbits:
+            # TODO: check that all callers can deal with an InvalidLoop
+            raise InvalidLoop("range and knownbits contradict each other")
         self.lower = min_by_knownbits
         # and same for upper bound
         self.upper = max_by_knownbits
@@ -1248,6 +1261,7 @@ class IntBound(AbstractInfo):
         actual concrete value set to contain
         any values!
         """
+        assert self.lower <= self.upper
         min_knownbits = self._get_minimum_signed_by_knownbits()
         max_knownbits = self._get_maximum_signed_by_knownbits()
         if not min_knownbits <= self.upper:
@@ -1387,13 +1401,13 @@ def unmask_zero(value, mask):
     return value & ~mask
 
 
-def _and_tnum(self_tvalue, self_tmask, other_tvalue, other_tmask):
+def _tnum_and(self_tvalue, self_tmask, other_tvalue, other_tmask):
     self_pmask = self_tvalue | self_tmask
     other_pmask = other_tvalue | other_tmask
     and_vals = self_tvalue & other_tvalue
     return and_vals, self_pmask & other_pmask & ~and_vals
 
-def _and_tnum_backwards(self_tvalue, self_tmask, other_tvalue, other_tmask, result_uint):
+def _tnum_and_backwards(self_tvalue, self_tmask, other_tvalue, other_tmask, result_uint):
     tvalue = self_tvalue
     tmask = self_tmask
     tvalue &= ~other_tvalue | other_tmask

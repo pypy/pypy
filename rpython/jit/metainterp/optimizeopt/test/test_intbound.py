@@ -92,6 +92,7 @@ def build_some_bits_known_bounded(res_value, tmask, data):
         shrink_by = data.draw(strategies.integers(0, space_at_top - 1))
         b.make_le_const(b.upper - shrink_by)
         assert b.contains(res_value)
+    repr(b) # must not fail
     return b, res_value
 
 def build_two_ints_tuple(a, b):
@@ -329,9 +330,14 @@ def test_intersect():
                     assert not b.contains(n)
 
 def test_intersect_bug():
-    from rpython.jit.metainterp.optimize import InvalidLoop
     b1 = bound(17, 17)
     b2 = bound(1, 1)
+    with pytest.raises(InvalidLoop):
+        b1.intersect(b2)
+
+def test_intersect_contradiction_range_knownbits():
+    b1 = IntBound(-1, 0)
+    b2 = IntBound.from_knownbits(r_uint(0b11100), r_uint(-0b1100000))
     with pytest.raises(InvalidLoop):
         b1.intersect(b2)
 
@@ -745,10 +751,17 @@ def test_known_ne_hypothesis(t1, t2):
         assert not b1.contains(n2)
         assert not b2.contains(n1)
 
+@example((IntBound(-1, 0), 0),
+         (IntBound.from_knownbits(r_uint(0b11100), r_uint(-0b1100000)), -100))
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
+def test_known_ne_compatible_intersect_random(t1, t2):
     # check that intersect and known_ne are compatible
+    b1, _ = t1
+    b2, _ = t2
+    known_ne = b1.known_ne(b2)
     try:
         b1.intersect(b2)
-    except Exception as e:
+    except InvalidLoop:
         assert known_ne
     else:
         assert not known_ne
