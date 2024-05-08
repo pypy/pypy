@@ -92,8 +92,6 @@ class UnrollOptimizer(Optimizer):
                 self.make_nonnull(op)
         elif isinstance(preamble_info, intutils.IntBound):
             loop_info = preamble_info.widen()
-            fix_lo = preamble_info.lower >= MININT/2
-            fix_up = preamble_info.upper <= MAXINT/2
             intbound = self.getintbound(op)
             intbound.intersect(loop_info)
         elif isinstance(preamble_info, info.FloatConstInfo):
