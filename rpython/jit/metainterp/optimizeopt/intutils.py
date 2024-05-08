@@ -335,9 +335,8 @@ class IntBound(AbstractInfo):
 
     def get_constant_int(self):
         """
-        Returns the only integer contained in this
-        abstract integer, asserting that it
-        `is_constant()`.
+        Returns the only integer contained in this abstract integer. Caller
+        needs to check that `.is_constant()` returns True, before calling.
         """
         assert self.is_constant()
         return self.lower
@@ -1051,19 +1050,15 @@ class IntBound(AbstractInfo):
 
     def getconst(self):
         """
-        Returns an abstract integer that
-        equals the value of this abstract
-        integer if it is constant, otherwise
-        throws an Exception.
+        Returns ConstInt with the only integer contained in this abstract
+        integer. Caller needs to check that `.is_constant()` returns True,
+        before calling.
         """
-        if not self.is_constant():
-            raise Exception("not a constant")
         return ConstInt(self.get_constant_int())
 
     def getnullness(self):
         """
-        Returns information about whether
-        this this abstract integer is known
+        Returns information about whether this this abstract integer is known
         to be zero or not to be zero.
         """
         if self.known_gt_const(0) or \

@@ -102,7 +102,6 @@ def prove(cond, use_timeout=True):
         assert use_timeout
     elif z3res == z3.sat:
         # not possible to prove!
-        # print some nice stuff
         model = solver.model()
         raise CheckError(cond, model)
 
@@ -197,6 +196,21 @@ def test_neg(b1):
     var2, formula2 = to_z3(b2, -var1)
     prove_implies(formula1, formula2)
 
+@given(bounds, bounds)
+def test_known(b1, b2):
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    if b1.known_lt(b2):
+        prove_implies(formula1, formula2, var1 < var2)
+    if b1.known_gt(b2):
+        prove_implies(formula1, formula2, var1 > var2)
+    if b1.known_le(b2):
+        prove_implies(formula1, formula2, var1 <= var2)
+    if b1.known_ge(b2):
+        prove_implies(formula1, formula2, var1 >= var2)
+    if b1.known_ne(b2):
+        prove_implies(formula1, formula2, var1 != var2)
+
 # ____________________________________________________________
 # boolean operations
 
@@ -222,8 +236,6 @@ def test_xor(b1, b2):
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 ^ var2)
-    print b1, b2, b3
-    print formula1, formula2, formula3
     prove_implies(formula1, formula2, formula3)
 
 @given(bounds)

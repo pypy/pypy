@@ -731,6 +731,31 @@ def test_widen_random(t):
     b1 = b.widen()
     assert b1.contains_bound(b)
 
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
+def test_known_lt_gt_le_ge_random(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    if b1.known_lt(b2):
+        assert n1 < n2
+        assert b1.known_lt_const(n2)
+        assert b2.known_gt(b1)
+        assert b2.known_gt_const(n1)
+    if b1.known_gt(b2):
+        assert n1 > n2
+        assert b1.known_gt_const(n2)
+        assert b2.known_lt(b1)
+        assert b2.known_lt_const(n1)
+    if b1.known_le(b2):
+        assert n1 <= n2
+        assert b1.known_le_const(n2)
+        assert b2.known_ge(b1)
+        assert b2.known_ge_const(n1)
+    if b1.known_ge(b2):
+        assert n1 >= n2
+        assert b1.known_ge_const(n2)
+        assert b2.known_le(b1)
+        assert b2.known_le_const(n1)
+
 def test_known_ne_example():
     b1 = knownbits(0b000010,
                    0b111100)    # ????10
@@ -743,7 +768,7 @@ def test_known_ne_example():
     assert not b1.known_ne(b2)
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
-def test_known_ne_hypothesis(t1, t2):
+def test_known_ne_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
     known_ne = b1.known_ne(b2)
