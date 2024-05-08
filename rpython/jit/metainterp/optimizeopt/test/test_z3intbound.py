@@ -484,6 +484,17 @@ def test_prove_known_unsigned_lt_from_signed_lt():
         use_timeout=False
     )
 
+def popcount64(w):
+    w -= (w >> 1) & 0x5555555555555555
+    w = (w & 0x3333333333333333) + ((w >> 2) & 0x3333333333333333)
+    w = (w + (w >> 4)) & 0x0f0f0f0f0f0f0f0f
+    return ((w * 0x0101010101010101) >> 56) & 0xff
+
+def test_popcount64():
+    assert popcount64(1 << 60) == 1
+    assert popcount64((1 << 60) + 5) == 3
+    assert popcount64((1 << 63) + 0b11010110111) == 9
+
 def test_prove_shrink_knownbits_by_bounds():
     self_variable, self_lower, self_upper, self_tvalue, self_tmask, self_formula = make_z3_bound_and_tnum('self')
     new_tvalue, new_tmask, _, _ = _tnum_improve_knownbits_by_bounds(self_tvalue, self_tmask, self_lower, self_upper)
@@ -498,4 +509,15 @@ def test_prove_shrink_knownbits_by_bounds():
             z3_tnum_condition(self_variable, new_tvalue, new_tmask),
         use_timeout=False
     )
-    # TODO: prove new bitset doesn't lose information compared to previous bitset
+    s = z3.Solver()
+    res = s.check(z3.And(
+        #prove_implies(
+        # if tvalue and tmask are a valid encoding
+        self_tvalue & ~self_tmask == self_tvalue,
+        # and the ranges hold
+        self_variable <= self_upper,
+        self_lower <= self_variable,
+        # we can only have *more* information afterwards
+        popcount64(~new_tmask) < popcount64(~self_tmask),
+    ))
+    assert res == z3.unsat
