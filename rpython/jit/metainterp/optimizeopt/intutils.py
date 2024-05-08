@@ -1300,28 +1300,15 @@ class IntBound(AbstractInfo):
         from lower and upper bound into
         the knownbits.
         """
-
-        # are we working on negative or positive values?
-        # get the working values
-        if (self.lower >= 0) != (self.upper >= 0):
-            # nothing to do if signs are different
-            # this should actually not be necessary,
-            # but remains as a safe guard
-            return False
-        # calculate higher bit mask by bounds
-        work_lower = r_uint(self.lower)
-        work_upper = r_uint(self.upper)
-        hbm_bounds = leading_zeros_mask(work_lower ^ work_upper)
-        bounds_common = work_lower & hbm_bounds
+        tvalue, tmask, bounds_common, hbm_bounds = _tnum_improve_knownbits_by_bounds(
+                self.tvalue, self.tmask, r_uint(self.lower), r_uint(self.upper))
+        # TODO: prove the assert and remove it
         # we should assert agreement between bounds and knownbits here!
         assert unmask_zero(bounds_common, self.tmask) == (self.tvalue & hbm_bounds)
-        hbm = hbm_bounds & self.tmask
-        # apply the higher bit mask to the knownbits
-        tmask = self.tmask & ~hbm
-        tvalue = (bounds_common & hbm) | (self.tvalue & ~hbm)
         changed = self.tvalue != tvalue or self.tmask != tmask
-        self.tmask = tmask
-        self.tvalue = tvalue
+        if changed:
+            self.tmask = tmask
+            self.tvalue = tvalue
         return changed
 
     def _debug_check(self):
@@ -1405,7 +1392,6 @@ def leading_zeros_mask(n):
     calculates a bitmask in which only the leading zeros
     of `n` are set (1).
     """
-    assert isinstance(n, r_uint)
     return ~next_pow2_m1(n)
 
 def lowest_set_bit_only(val_uint):
@@ -1442,7 +1428,6 @@ def msbonly(v):
 
 def next_pow2_m1(n):
     """Calculate next power of 2 minus one, greater than n"""
-    assert isinstance(n, r_uint)
     n |= n >> 1
     n |= n >> 2
     n |= n >> 4
@@ -1491,3 +1476,13 @@ def _tnum_add(self_tvalue, self_tmask, other_tvalue, other_tmask):
     tmask = self_tmask | other_tmask | val_carries
     tvalue = unmask_zero(sum_values, tmask)
     return tvalue, tmask
+
+def _tnum_improve_knownbits_by_bounds(self_tvalue, self_tmask, lower, upper):
+    # calculate higher bit mask by bounds
+    hbm_bounds = leading_zeros_mask(lower ^ upper)
+    bounds_common = lower & hbm_bounds
+    hbm = hbm_bounds & self_tmask
+    # apply the higher bit mask to the knownbits
+    tmask = self_tmask & ~hbm
+    tvalue = (bounds_common & hbm) | (self_tvalue & ~hbm)
+    return tvalue, tmask, bounds_common, hbm_bounds

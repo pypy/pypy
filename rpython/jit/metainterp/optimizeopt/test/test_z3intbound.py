@@ -17,6 +17,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import (
     _tnum_and_backwards,
     unmask_one,
     unmask_zero,
+    _tnum_improve_knownbits_by_bounds,
 )
 from rpython.jit.metainterp.optimize import InvalidLoop
 
@@ -60,6 +61,9 @@ def z3_tnum_condition(variable, tvalue, tmask):
     if isinstance(tmask, r_uint):
         tmask = BitVecVal(tmask)
     return variable & ~tmask == tvalue
+
+def z3_tvalue_tmask_are_valid(tvalue, tmask):
+    return tvalue & ~tmask == tvalue
 
 def to_z3(bound, variable=None):
     global varname_counter
@@ -479,3 +483,19 @@ def test_prove_known_unsigned_lt_from_signed_lt():
         z3.ULT(self_variable, other_variable),
         use_timeout=False
     )
+
+def test_prove_shrink_knownbits_by_bounds():
+    self_variable, self_lower, self_upper, self_tvalue, self_tmask, self_formula = make_z3_bound_and_tnum('self')
+    new_tvalue, new_tmask, _, _ = _tnum_improve_knownbits_by_bounds(self_tvalue, self_tmask, self_lower, self_upper)
+    prove_implies(
+        # if tvalue and tmask are a valid encoding
+        self_tvalue & ~self_tmask == self_tvalue,
+        # and the ranges hold
+        self_variable <= self_upper,
+        self_lower <= self_variable,
+        # then the two sets defined by old and new knownbits are equivalent
+        z3_tnum_condition(self_variable, self_tvalue, self_tmask) ==
+            z3_tnum_condition(self_variable, new_tvalue, new_tmask),
+        use_timeout=False
+    )
+    # TODO: prove new bitset doesn't lose information compared to previous bitset
