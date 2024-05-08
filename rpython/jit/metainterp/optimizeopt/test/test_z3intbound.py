@@ -509,15 +509,13 @@ def test_prove_shrink_knownbits_by_bounds():
             z3_tnum_condition(self_variable, new_tvalue, new_tmask),
         use_timeout=False
     )
-    s = z3.Solver()
-    res = s.check(z3.And(
-        #prove_implies(
+    prove_implies(
         # if tvalue and tmask are a valid encoding
         self_tvalue & ~self_tmask == self_tvalue,
         # and the ranges hold
         self_variable <= self_upper,
         self_lower <= self_variable,
         # we can only have *more* information afterwards
-        popcount64(~new_tmask) < popcount64(~self_tmask),
-    ))
-    assert res == z3.unsat
+        popcount64(~new_tmask) >= popcount64(~self_tmask),
+        use_timeout=False,
+    )
