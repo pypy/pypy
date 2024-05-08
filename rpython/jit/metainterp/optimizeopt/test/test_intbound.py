@@ -601,7 +601,7 @@ def test_sub_random(t1, t2):
 
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
-def test_mul_bound_random(t1, t2):
+def test_mul_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
     b3 = b1.mul_bound(b2)
@@ -613,7 +613,7 @@ def test_mul_bound_random(t1, t2):
         assert b3.contains(r)
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
-def test_div_bound_random(t1, t2):
+def test_div_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
     b3 = b1.py_div_bound(b2)
@@ -661,7 +661,7 @@ def test_lshift_const_random(t1, t2):
     assert r.contains(intmask(r_uint(n1) << r_uint(t2)))
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
-def test_and_bound_random(t1, t2):
+def test_and_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
     b3 = b1.and_bound(b2)
@@ -669,7 +669,7 @@ def test_and_bound_random(t1, t2):
     assert b3.contains(r)
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
-def test_or_bound_random(t1, t2):
+def test_or_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
     b3 = b1.or_bound(b2)
@@ -677,7 +677,7 @@ def test_or_bound_random(t1, t2):
     assert b3.contains(r)
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
-def test_xor_bound_random(t1, t2):
+def test_xor_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
     b3 = b1.xor_bound(b2)
@@ -685,7 +685,7 @@ def test_xor_bound_random(t1, t2):
     assert b3.contains(r)
 
 @given(knownbits_and_bound_with_contained_number)
-def test_invert_bound_random(t1):
+def test_invert_random(t1):
     b1, n1 = t1
     b2 = b1.invert_bound()
     assert b2.contains(~n1)

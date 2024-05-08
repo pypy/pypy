@@ -999,11 +999,15 @@ class IntBound(AbstractInfo):
         we have about the numbers this
         abstract integer contains.
         """
-        # TODO
+        # TODO: right now we ignore the tvalue and tmask! that would be wrong
+        # in theory but it's fine because we always call widen_update first
+        # (which throws that information away). can we assert that this happens
+        # somehow?
         if self.is_constant():
             guards.append(ResOperation(rop.GUARD_VALUE,
                                        [box, ConstInt(self.upper)]))
             return
+        # 
         if self.lower > MININT:
             bound = self.lower
             op = ResOperation(rop.INT_GE, [box, ConstInt(bound)])
@@ -1071,6 +1075,8 @@ class IntBound(AbstractInfo):
             self.lower = MININT
         if self.upper > MAXINT / 2:
             self.upper = MAXINT
+        # TODO: we might have to shrink here! but there are a few messes
+        # involved, see TODO in generate_guards
         self.tvalue, self.tmask = TNUM_UNKNOWN
 
 
