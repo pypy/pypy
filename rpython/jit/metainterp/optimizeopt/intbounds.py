@@ -623,43 +623,6 @@ class OptIntBounds(Optimization):
     def make_uint_ge(self, box1, box2):
         self.make_uint_le(box2, box1)
 
-    # see DISABLED_optimize_UINT_xx above.
-    def DISABLED_propagate_bounds_UINT_LT(self, op):
-        r = self.getintbound(op)
-        if r.is_constant():
-            if r.get_constant_int() == 1:
-                self.make_uint_lt(op.getarg(0), op.getarg(1))
-            else:
-                assert r.get_constant_int() == 0
-                self.make_uint_ge(op.getarg(0), op.getarg(1))
-
-    def DISABLED_propagate_bounds_UINT_GT(self, op):
-        r = self.getintbound(op)
-        if r.is_constant():
-            if r.get_constant_int() == 1:
-                self.make_uint_gt(op.getarg(0), op.getarg(1))
-            else:
-                assert r.get_constant_int() == 0
-                self.make_uint_le(op.getarg(0), op.getarg(1))
-
-    def DISABLED_propagate_bounds_UINT_LE(self, op):
-        r = self.getintbound(op)
-        if r.is_constant():
-            if r.get_constant_int() == 1:
-                self.make_uint_le(op.getarg(0), op.getarg(1))
-            else:
-                assert r.get_constant_int() == 0
-                self.make_uint_gt(op.getarg(0), op.getarg(1))
-
-    def DISABLED_propagate_bounds_UINT_GE(self, op):
-        r = self.getintbound(op)
-        if r.is_constant():
-            if r.get_constant_int() == 1:
-                self.make_uint_ge(op.getarg(0), op.getarg(1))
-            else:
-                assert r.get_constant_int() == 0
-                self.make_uint_lt(op.getarg(0), op.getarg(1))
-
     def propagate_bounds_INT_EQ(self, op):
         r = self.getintbound(op)
         if r.known_eq_const(1):
