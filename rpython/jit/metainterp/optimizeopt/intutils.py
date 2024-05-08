@@ -444,9 +444,13 @@ class IntBound(AbstractInfo):
         unsigned_mask = self.tmask & ~msbonly(self.tmask)
         return intmask(self.tvalue | unsigned_mask)
 
-    def get_minimum_signed_by_knownbits_above(self, threshold=MININT):
-        """ for internal use only! """
-        assert threshold <= self.upper
+    def _get_minimum_signed_by_knownbits_atleast(self, threshold=MININT):
+        """ for internal use only!
+        return the smallest number permitted by the known bits that is above
+        (or equal) threshold. will raise InvalidLoop if no such number exists.
+        """
+        if self._get_maximum_signed_by_knownbits() < threshold:
+            raise InvalidLoop("threshold and knownbits don't overlap")
         min_by_knownbits = self._get_minimum_signed_by_knownbits()
         if min_by_knownbits > self.upper:
             raise InvalidLoop("range and knownbits don't overlap")
@@ -486,12 +490,17 @@ class IntBound(AbstractInfo):
                 working_min &= clear_mask
                 return intmask(flip_msb(working_min))
 
-    def get_maximum_signed_by_knownbits_below(self, threshold=MAXINT):
-        """ for internal use only! """
+    def _get_maximum_signed_by_knownbits_atmost(self, threshold=MAXINT):
+        """ for internal use only!
+        return the largest number permitted by the known bits that is below or
+        equal to threshold. will raise InvalidLoop if no such number exists.
+        """
+        if self._get_minimum_signed_by_knownbits() > threshold:
+            raise InvalidLoop("threshold and knownbits don't overlap")
         max_by_knownbits = self._get_maximum_signed_by_knownbits()
         if max_by_knownbits < self.lower:
             raise InvalidLoop("range and knownbits don't overlap")
-        if max_by_knownbits <= self.upper:
+        if max_by_knownbits <= threshold:
             return max_by_knownbits
         else:
             # see "Sharpening Constraint Programming
@@ -510,7 +519,8 @@ class IntBound(AbstractInfo):
                 # we have cleared the right bit already
                 set_mask = next_pow2_m1(set2cl >> 1) & self.tmask
                 working_max |= set_mask
-                return intmask(working_max)
+                result = intmask(working_max)
+                assert result <= threshold
             else:
                 # flip the sign bit to handle 1 -> 0 overflow
                 u_max_threshold = flip_msb(u_max_threshold)
@@ -524,15 +534,19 @@ class IntBound(AbstractInfo):
                 # and set all lower than that
                 set_mask = next_pow2_m1(bit_to_clear >> 1) & self.tmask
                 working_max |= set_mask
-                return intmask(flip_msb(working_max))
+                result = intmask(flip_msb(working_max))
+            assert result <= threshold
+            return result
+
+
 
     def get_minimum_signed(self):
         ret_b = self.lower
-        return self.get_minimum_signed_by_knownbits_above(ret_b)
+        return self._get_minimum_signed_by_knownbits_atleast(ret_b)
 
     def get_maximum_signed(self):
         ret_b = self.upper
-        return self.get_maximum_signed_by_knownbits_below(ret_b)
+        return self._get_maximum_signed_by_knownbits_atmost(ret_b)
 
     def intersect(self, other):
         """
@@ -1207,8 +1221,8 @@ class IntBound(AbstractInfo):
         Shrinks the bounds by the known bits.
         """
         # lower bound
-        min_by_knownbits = self.get_minimum_signed_by_knownbits_above(self.lower)
-        max_by_knownbits = self.get_maximum_signed_by_knownbits_below(self.upper)
+        min_by_knownbits = self._get_minimum_signed_by_knownbits_atleast(self.lower)
+        max_by_knownbits = self._get_maximum_signed_by_knownbits_atmost(self.upper)
         if min_by_knownbits > max_by_knownbits:
             # TODO: check that all callers can deal with an InvalidLoop
             raise InvalidLoop("range and knownbits contradict each other")
@@ -1288,8 +1302,8 @@ class IntBound(AbstractInfo):
             # for the rest of the bunch, check by minima/maxima with threshold.
             #   (side note: the whole check can be reduced to this, but for the
             #    sake of robustness we want to keep the other checks above.)
-            if self.get_minimum_signed_by_knownbits_above(self.lower) > self.upper \
-               or self.get_maximum_signed_by_knownbits_below(self.upper) < self.lower:
+            if self._get_minimum_signed_by_knownbits_atleast(self.lower) > self.upper \
+               or self._get_maximum_signed_by_knownbits_atmost(self.upper) < self.lower:
                 return False
         return True
 

@@ -957,6 +957,49 @@ def test_knownbits_intersect_random(t1, t2):
         if b2.contains(n1):
             assert b.contains(n1)
 
+def test_get_minimum_signed_by_knownbits_above_full_range_bug():
+    b1 = IntBound.from_constant(0)
+    with pytest.raises(InvalidLoop):
+        b1._get_maximum_signed_by_knownbits_atmost(-1)
+    with pytest.raises(InvalidLoop):
+        b1._get_minimum_signed_by_knownbits_atleast(1)
+
+@given(knownbits_and_bound_with_contained_number, strategies.data())
+def test_get_maximum_signed_by_knownbits_atmost_random(t1, data):
+    b1, n1 = t1
+    minimum = b1._get_minimum_signed_by_knownbits()
+    threshold = data.draw(strategies.integers(minimum, MAXINT))
+    new = b1._get_maximum_signed_by_knownbits_atmost(threshold)
+    assert new <= threshold
+
+@given(knownbits_and_bound_with_contained_number, strategies.data())
+def test_get_minimum_signed_by_knownbits_atleast_random(t1, data):
+    b1, n1 = t1
+    maximum = b1._get_maximum_signed_by_knownbits_atmost()
+    threshold = data.draw(strategies.integers(MININT, maximum))
+    new = b1._get_minimum_signed_by_knownbits_atleast(threshold)
+    assert new >= threshold
+
+@given(knownbits_and_bound_with_contained_number, ints)
+def test_get_maximum_signed_by_knownbits_atmost_full_range_random(t1, threshold):
+    b1, n1 = t1
+    try:
+        new = b1._get_maximum_signed_by_knownbits_atmost(threshold)
+    except InvalidLoop:
+        assert threshold < n1
+    else:
+        assert new <= threshold
+
+@given(knownbits_and_bound_with_contained_number, ints)
+def test_get_minimum_signed_by_knownbits_atleast_full_range_random(t1, threshold):
+    b1, n1 = t1
+    try:
+        new = b1._get_minimum_signed_by_knownbits_atleast(threshold)
+    except InvalidLoop:
+        assert threshold > n1
+    else:
+        assert new >= threshold
+
 @pytest.mark.xfail(reason="semantics unclear")
 def test_knownbits_contains_examples():
     bA = knownbits(0b001000,
