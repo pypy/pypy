@@ -558,8 +558,8 @@ class IntBound(AbstractInfo):
         """
         Mutates `self` so that it contains integers that are contained in
         `self` and `other`, and only those. Basically intersection of sets.
-        Throws errors if `self` and `other` "disagree", meaning the result
-        would contain 0 (zero) any integers.
+        Throws InvalidLoop if `self` and `other` "disagree", meaning the result
+        would not contain any integers.
         """
         if self.known_gt(other) or self.known_lt(other):
             # they don't overlap, which makes the loop invalid

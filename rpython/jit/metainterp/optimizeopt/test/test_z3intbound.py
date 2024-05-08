@@ -260,6 +260,7 @@ def test_intersect(b1, b2):
     else:
         _, formula3 = to_z3(b1, var1)
         prove_implies(both_conditions, formula3)
+        assert intersection_nonempty
 
 # ____________________________________________________________
 # shrinking
