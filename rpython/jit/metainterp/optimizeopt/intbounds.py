@@ -463,10 +463,12 @@ class OptIntBounds(Optimization):
             self.propagate_bounds_backward(arg0)
 
     def propagate_bounds_INT_NEG(self, op):
-        b = self.getintbound(op.getarg(0))
+        arg0 = get_box_replacement(op.getarg(0))
+        b = self.getintbound(arg0)
         bres = self.getintbound(op)
         bounds = bres.neg_bound()
-        b.intersect(bounds)
+        if b.intersect(bounds):
+            self.propagate_bounds_backward(arg0)
 
     def postprocess_INT_NEG(self, op):
         b = self.getintbound(op.getarg(0))

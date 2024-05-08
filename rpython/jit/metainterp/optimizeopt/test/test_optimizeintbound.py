@@ -2438,7 +2438,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_int_invert_backwards(self):
+    def test_int_invert_postprocess_further(self):
         ops = """
         [i0]
         i1 = int_add(i0, 1)
@@ -2454,6 +2454,27 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i1 = int_add(i0, 1)
         i2 = int_invert(i1)
         i3 = int_lt(i2, 100)
+        guard_true(i3) []
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_neg_postprocess_further(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_neg(i1)
+        i3 = int_gt(i2, 100)
+        guard_true(i3) []
+        i4 = int_lt(i0, 0)
+        guard_true(i4) []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_neg(i1)
+        i3 = int_gt(i2, 100)
         guard_true(i3) []
         jump(i1)
         """
