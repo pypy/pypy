@@ -12,8 +12,9 @@ import gc
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
 from rpython.jit.metainterp.optimizeopt.intutils import (
     IntBound,
-    _tnum_and_backwards,
+    _tnum_add,
     _tnum_and,
+    _tnum_and_backwards,
     unmask_one,
     unmask_zero,
 )
@@ -390,6 +391,18 @@ def test_prove_and_backwards():
         self_variable & other_variable == res,
         z3_tnum_condition(self_variable, better_tvalue, better_tmask),
         use_timeout=False
+    )
+
+def test_prove_add():
+    self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
+    other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
+    result = BitVec('result')
+    res_tvalue, res_tmask = _tnum_add(self_tvalue, self_tmask, other_tvalue, other_tmask)
+    prove_implies(
+        self_formula,
+        other_formula,
+        result == self_variable + other_variable,
+        z3_tnum_condition(result, res_tvalue, res_tmask),
     )
 
 def test_prove_unmask_one_gives_unsigned_max():

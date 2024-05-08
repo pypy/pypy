@@ -689,12 +689,7 @@ class IntBound(AbstractInfo):
         (Does not mutate `self`.)
         """
 
-        sum_values = self.tvalue + other.tvalue
-        sum_masks = self.tmask + other.tmask
-        all_carries = sum_values + sum_masks
-        val_carries = all_carries ^ sum_values
-        tmask = self.tmask | other.tmask | val_carries
-        tvalue = unmask_zero(sum_values, tmask)
+        tvalue, tmask = _tnum_add(self.tvalue, self.tmask, other.tvalue, other.tmask)
 
         try:
             lower = ovfcheck(self.lower + other.lower)
@@ -1489,4 +1484,13 @@ def _tnum_and_backwards(self_tvalue, self_tmask, other_tvalue, other_tmask, resu
     tvalue &= ~other_tvalue | other_tmask
     tvalue |= result_uint & other_tvalue
     tmask &= ~other_tvalue | other_tmask
+    return tvalue, tmask
+
+def _tnum_add(self_tvalue, self_tmask, other_tvalue, other_tmask):
+    sum_values = self_tvalue + other_tvalue
+    sum_masks = self_tmask + other_tmask
+    all_carries = sum_values + sum_masks
+    val_carries = all_carries ^ sum_values
+    tmask = self_tmask | other_tmask | val_carries
+    tvalue = unmask_zero(sum_values, tmask)
     return tvalue, tmask
