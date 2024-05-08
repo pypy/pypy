@@ -448,6 +448,8 @@ class IntBound(AbstractInfo):
         """ for internal use only! """
         assert threshold <= self.upper
         min_by_knownbits = self._get_minimum_signed_by_knownbits()
+        if min_by_knownbits > self.upper:
+            raise InvalidLoop("range and knownbits don't overlap")
         if min_by_knownbits >= threshold:
             return min_by_knownbits
         else:
@@ -487,6 +489,8 @@ class IntBound(AbstractInfo):
     def get_maximum_signed_by_knownbits_below(self, threshold=MAXINT):
         """ for internal use only! """
         max_by_knownbits = self._get_maximum_signed_by_knownbits()
+        if max_by_knownbits < self.lower:
+            raise InvalidLoop("range and knownbits don't overlap")
         if max_by_knownbits <= self.upper:
             return max_by_knownbits
         else:
@@ -537,7 +541,6 @@ class IntBound(AbstractInfo):
         Throws errors if `self` and `other` "disagree", meaning the result
         would contain 0 (zero) any integers.
         """
-        from rpython.jit.metainterp.optimize import InvalidLoop
         if self.known_gt(other) or self.known_lt(other):
             # they don't overlap, which makes the loop invalid
             # this never happens in regular linear traces, but it can happen in
@@ -1206,13 +1209,13 @@ class IntBound(AbstractInfo):
         # lower bound
         min_by_knownbits = self.get_minimum_signed_by_knownbits_above(self.lower)
         max_by_knownbits = self.get_maximum_signed_by_knownbits_below(self.upper)
-        changed = self.lower != min_by_knownbits or self.upper != max_by_knownbits
         if min_by_knownbits > max_by_knownbits:
             # TODO: check that all callers can deal with an InvalidLoop
             raise InvalidLoop("range and knownbits contradict each other")
-        self.lower = min_by_knownbits
-        # and same for upper bound
-        self.upper = max_by_knownbits
+        changed = self.lower < min_by_knownbits or self.upper > max_by_knownbits
+        if changed:
+            self.lower = min_by_knownbits
+            self.upper = max_by_knownbits
         return changed
 
     def _shrink_knownbits_by_bounds(self):

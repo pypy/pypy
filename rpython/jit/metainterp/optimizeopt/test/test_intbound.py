@@ -6,19 +6,20 @@ import sys
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck, r_uint, intmask
 from rpython.jit.metainterp.optimize import InvalidLoop
 
-from hypothesis import given, strategies, example, seed
+from hypothesis import given, strategies, example, seed, assume
 
 import pytest
 
 special_values_set = (
-    range(-100, 100) +
+    range(100) + range(-1, -100, -1) +
     [2 ** i for i in range(1, LONG_BIT)] +
     [-2 ** i for i in range(1, LONG_BIT)] +
     [2 ** i - 1 for i in range(1, LONG_BIT)] +
     [-2 ** i - 1 for i in range(1, LONG_BIT)] +
     [2 ** i + 1 for i in range(1, LONG_BIT)] +
     [-2 ** i + 1 for i in range(1, LONG_BIT)] +
-    [sys.maxint, -sys.maxint-1])
+    [sys.maxint, -sys.maxint-1]
+)
 
 special_values = strategies.sampled_from(
     [int(v) for v in special_values_set if type(int(v)) is int])
@@ -340,6 +341,20 @@ def test_intersect_contradiction_range_knownbits():
     b2 = IntBound.from_knownbits(r_uint(0b11100), r_uint(-0b1100000))
     with pytest.raises(InvalidLoop):
         b1.intersect(b2)
+
+def test_intersect_contradiction_range_knownbits2():
+    # more cases
+    b1 = IntBound(0, 256)
+    b2 = IntBound.from_knownbits(r_uint(0b100000001), r_uint(-0b100000010))
+    b = b1.clone()
+    with pytest.raises(InvalidLoop):
+        b.intersect(b2)
+
+    b1 = IntBound(1, 3)
+    b2 = IntBound.from_knownbits(r_uint(0b0), r_uint(-0b101100)) # 0b?...?0?0?00
+    b = b1.clone()
+    with pytest.raises(InvalidLoop):
+        b.intersect(b2)
 
 def test_add_bound():
     for _, _, b1 in some_bounds():
@@ -917,6 +932,7 @@ def test_knownbits_intersect_disagree_examples():
     # not expecting an exception
     b1.intersect(b3)
 
+@example(t1=(IntBound.nonnegative(), 1), t2=(IntBound.unbounded(), 0))
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_knownbits_intersect_random(t1, t2):
     b1, n1 = t1
