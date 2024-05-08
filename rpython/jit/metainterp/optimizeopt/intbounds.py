@@ -356,6 +356,9 @@ class OptIntBounds(Optimization):
         arg2 = get_box_replacement(op.getarg(1))
         b1 = self.getintbound(arg1)
         b2 = self.getintbound(arg2)
+        if b1.known_unsigned_lt(b2):
+            self.make_constant_int(op, 1)
+            return
         if b2.is_constant():
             if b2.get_constant_int() == 0:
                 # x < 0 is False for unsigned comparisons

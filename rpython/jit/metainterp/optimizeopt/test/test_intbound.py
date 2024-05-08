@@ -86,12 +86,12 @@ def build_some_bits_known_bounded(res_value, tmask, data):
     space_at_bottom = res_value - b.lower
     if space_at_bottom:
         shrink_by = data.draw(strategies.integers(0, space_at_bottom - 1))
-        b.make_ge_const(b.lower + shrink_by)
+        b.make_ge_const(int(b.lower + shrink_by))
         assert b.contains(res_value)
     space_at_top = b.upper - res_value
     if space_at_top:
         shrink_by = data.draw(strategies.integers(0, space_at_top - 1))
-        b.make_le_const(b.upper - shrink_by)
+        b.make_le_const(int(b.upper - shrink_by))
         assert b.contains(res_value)
     repr(b) # must not fail
     return b, res_value
@@ -770,6 +770,38 @@ def test_known_lt_gt_le_ge_random(t1, t2):
         assert b1.known_ge_const(n2)
         assert b2.known_le(b1)
         assert b2.known_le_const(n1)
+
+def test_known_lt_gt_le_ge_unsigned_example():
+    b1 = IntBound.from_constant(10)
+    b2 = IntBound.from_constant(100)
+    assert b1.known_unsigned_lt(b2)
+
+    b1 = IntBound.from_constant(10)
+    b2 = IntBound.from_constant(10)
+    assert b1.known_unsigned_le(b2)
+
+    b1 = IntBound(0, 10)
+    b2 = IntBound(128, 255)
+    assert b1.known_unsigned_le(b2)
+
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
+def test_known_lt_gt_le_ge_unsigned_random(t1, t2):
+    b1, n1 = t1
+    n1 = r_uint(n1)
+    b2, n2 = t2
+    n2 = r_uint(n2)
+    if b1.known_unsigned_lt(b2):
+        assert n1 < n2
+        assert b2.known_unsigned_gt(b1)
+    if b1.known_unsigned_gt(b2):
+        assert n1 > n2
+        assert b2.known_unsigned_lt(b1)
+    if b1.known_unsigned_le(b2):
+        assert n1 <= n2
+        assert b2.known_unsigned_ge(b1)
+    if b1.known_unsigned_ge(b2):
+        assert n1 >= n2
+        assert b2.known_unsigned_le(b1)
 
 def test_known_ne_example():
     b1 = knownbits(0b000010,

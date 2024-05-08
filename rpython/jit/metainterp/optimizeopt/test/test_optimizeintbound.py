@@ -2592,6 +2592,27 @@ class TestComplexIntOpts(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_bound_unsigned_lt(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_lt(i0, 16)
+        guard_true(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
     def test_lshift_backwards_bug(self):
         ops = """
         [i1]

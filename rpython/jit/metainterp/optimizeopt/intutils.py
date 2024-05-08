@@ -435,12 +435,73 @@ class IntBound(AbstractInfo):
         """
         return 0 <= self.lower
 
+    def known_unsigned_lt(self, other):
+        """
+        Returns `True` iff each unsigned integer contained in this abstract
+        integer is lower than each unsigned integer contained in `other`.
+        """
+        other_min_unsigned_by_knownbits = other.get_minimum_unsigned_by_knownbits()
+        self_max_unsigned_by_knownbits = self.get_maximum_unsigned_by_knownbits()
+        if self_max_unsigned_by_knownbits < other_min_unsigned_by_knownbits:
+            return True
+        if 0 <= self.lower <= self.upper < other.lower:
+            return True
+        return False
+
+    def known_unsigned_le(self, other):
+        """
+        Returns `True` iff each unsigned integer contained in this abstract
+        integer is lower or equal than each unsigned integer contained in
+        `other`. """
+        other_min_unsigned_by_knownbits = other.get_minimum_unsigned_by_knownbits()
+        self_max_unsigned_by_knownbits = self.get_maximum_unsigned_by_knownbits()
+        return self_max_unsigned_by_knownbits <= other_min_unsigned_by_knownbits
+
+    def known_unsigned_gt(self, other):
+        """
+        Returns `True` iff each unsigned integer contained in this abstract
+        integer is greater than each unsigned integer contained in `other`.
+        """
+        return other.known_unsigned_lt(self)
+
+    def known_unsigned_ge(self, other):
+        """
+        Returns `True` iff each unsigned integer contained in this abstract
+        integer is greater or equal than each unsigned integer contained in
+        `other`.
+        """
+        return other.known_unsigned_le(self)
+
+    def get_minimum_unsigned_by_knownbits(self):
+        """
+        Returns the minimum unsigned number, but only using the knownbits as
+        information."""
+        return unmask_zero(self.tvalue, self.tmask)
+
+    def get_maximum_unsigned_by_knownbits(self):
+        """
+        returns the maximum unsigned number, but only using the knownbits as
+        information."""
+        return unmask_one(self.tvalue, self.tmask)
+
+    def _get_maximum_signed_by_knownbits(self):
+        """ for internal use only!
+        returns the maximum signed number, but only using the knownbits as
+        information."""
+        unsigned_mask = self.tmask & ~msbonly(self.tmask)
+        return intmask(self.tvalue | unsigned_mask)
+
+
     def _get_minimum_signed_by_knownbits(self):
-        """ for internal use only! """
+        """ for internal use only! 
+        returns the minimum signed number, but only using the knownbits as
+        information."""
         return intmask(self.tvalue | msbonly(self.tmask))
 
     def _get_maximum_signed_by_knownbits(self):
-        """ for internal use only! """
+        """ for internal use only!
+        returns the maximum signed number, but only using the knownbits as
+        information."""
         unsigned_mask = self.tmask & ~msbonly(self.tmask)
         return intmask(self.tvalue | unsigned_mask)
 
@@ -468,6 +529,8 @@ class IntBound(AbstractInfo):
             cl2set = ~u_min_threshold & working_min
             set2cl = u_min_threshold & ~working_min
             if working_min == u_min_threshold:
+                if type(threshold) is long:
+                    import pdb;pdb.set_trace()
                 return threshold
             elif cl2set > set2cl:
                 # we have set the correct bit already

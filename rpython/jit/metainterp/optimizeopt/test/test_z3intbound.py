@@ -14,6 +14,8 @@ from rpython.jit.metainterp.optimizeopt.intutils import (
     IntBound,
     _tnum_and_backwards,
     _tnum_and,
+    unmask_one,
+    unmask_zero,
 )
 from rpython.jit.metainterp.optimize import InvalidLoop
 
@@ -211,6 +213,20 @@ def test_known(b1, b2):
     if b1.known_ne(b2):
         prove_implies(formula1, formula2, var1 != var2)
 
+@given(bounds, bounds)
+def test_known_unsigned(b1, b2):
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    if b1.known_unsigned_lt(b2):
+        prove_implies(formula1, formula2, z3.ULT(var1, var2))
+    if b1.known_unsigned_gt(b2):
+        prove_implies(formula1, formula2, z3.UGT(var1, var2))
+    if b1.known_unsigned_le(b2):
+        prove_implies(formula1, formula2, z3.ULE(var1, var2))
+    if b1.known_unsigned_ge(b2):
+        prove_implies(formula1, formula2, z3.UGE(var1, var2))
+
+
 # ____________________________________________________________
 # boolean operations
 
@@ -306,12 +322,12 @@ def test_and_backwards(x, tmask, other_const, data):
     space_at_bottom = x - b.lower
     if space_at_bottom:
         shrink_by = data.draw(strategies.integers(0, space_at_bottom - 1))
-        b.make_ge_const(b.lower + shrink_by)
+        b.make_ge_const(int(b.lower + shrink_by))
         assert b.contains(x)
     space_at_top = b.upper - x
     if space_at_top:
         shrink_by = data.draw(strategies.integers(0, space_at_top - 1))
-        b.make_le_const(b.upper - shrink_by)
+        b.make_le_const(int(b.upper - shrink_by))
         assert b.contains(x)
     # now we have a bound b, and a value x in that bound
     # we now model this situation:
@@ -338,6 +354,19 @@ def make_z3_tnum(name):
     formula = z3_tnum_condition(variable, tvalue, tmask)
     return variable, tvalue, tmask, formula
 
+def make_z3_bound_and_tnum(name):
+    variable = BitVec(name)
+    tvalue = BitVec(name + "_tvalue")
+    tmask = BitVec(name + "_tmask")
+    upper = BitVec(name + "_upper")
+    lower = BitVec(name + "_lower")
+    formula = z3.And(
+        z3_tnum_condition(variable, tvalue, tmask),
+        lower <= variable,
+        variable <= upper
+    )
+    return variable, lower, upper, tvalue, tmask, formula
+
 def test_prove_and():
     self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
     other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
@@ -360,5 +389,48 @@ def test_prove_and_backwards():
         other_formula,
         self_variable & other_variable == res,
         z3_tnum_condition(self_variable, better_tvalue, better_tmask),
+        use_timeout=False
+    )
+
+def test_prove_unmask_one_gives_unsigned_max():
+    self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
+    max_self = unmask_one(self_tvalue, self_tmask)
+    prove_implies(
+        self_formula,
+        z3.ULE(self_variable, max_self)
+    )
+
+def test_prove_unmask_zero_gives_unsigned_min():
+    self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
+    min_self = unmask_zero(self_tvalue, self_tmask)
+    prove_implies(
+        self_formula,
+        z3.ULE(min_self, self_variable)
+    )
+
+def test_prove_known_unsigned_lt():
+    self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
+    other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
+    max_self = unmask_one(self_tvalue, self_tmask)
+    min_other = unmask_zero(other_tvalue, other_tmask)
+    prove_implies(
+        self_formula,
+        other_formula,
+        z3.ULT(max_self, min_other),
+        z3.ULT(self_variable, other_variable),
+        use_timeout=False
+    )
+
+def test_prove_known_unsigned_lt_from_signed_lt():
+    self_variable, self_lower, self_upper, self_tvalue, self_tmask, self_formula = make_z3_bound_and_tnum('self')
+    other_variable, other_lower, other_upper, other_tvalue, other_tmask, other_formula = make_z3_bound_and_tnum('other')
+    max_self = unmask_one(self_tvalue, self_tmask)
+    min_other = unmask_zero(other_tvalue, other_tmask)
+    prove_implies(
+        self_formula,
+        other_formula,
+        self_lower >= 0,
+        self_upper < other_lower,
+        z3.ULT(self_variable, other_variable),
         use_timeout=False
     )
