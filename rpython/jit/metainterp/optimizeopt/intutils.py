@@ -1086,17 +1086,13 @@ class IntBound(AbstractInfo):
 
     def make_guards(self, box, guards, optimizer):
         """
-        Generates guards from the information
-        we have about the numbers this
+        Generates guards from the information we have about the numbers this
         abstract integer contains.
-        This must only be called on a widened IntBound.
         """
         if self.is_constant():
             guards.append(ResOperation(rop.GUARD_VALUE,
                                        [box, ConstInt(self.upper)]))
             return
-        assert self._are_knownbits_implied() # check that the knownbits carry no info
-        # 
         if self.lower > MININT:
             bound = self.lower
             op = ResOperation(rop.INT_GE, [box, ConstInt(bound)])
@@ -1106,6 +1102,14 @@ class IntBound(AbstractInfo):
         if self.upper < MAXINT:
             bound = self.upper
             op = ResOperation(rop.INT_LE, [box, ConstInt(bound)])
+            guards.append(op)
+            op = ResOperation(rop.GUARD_TRUE, [op])
+            guards.append(op)
+        if not self._are_knownbits_implied():
+            # TODO: write a unit test for this part
+            op = ResOperation(rop.INT_AND, [box, ConstInt(intmask(~self.tmask))])
+            guards.append(op)
+            op = ResOperation(rop.INT_EQ, [op, ConstInt(intmask(self.tvalue))])
             guards.append(op)
             op = ResOperation(rop.GUARD_TRUE, [op])
             guards.append(op)
