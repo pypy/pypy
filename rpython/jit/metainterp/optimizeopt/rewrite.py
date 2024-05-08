@@ -94,10 +94,11 @@ class OptRewrite(Optimization):
     def optimize_INT_AND(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        if b1.known_eq_const(0) or b2.known_eq_const(0):
-            self.make_constant_int(op, 0)
+        b = b1.and_bound(b2)
+        if b.is_constant():
+            self.make_constant_int(op, b.get_constant_int())
             return
-        elif b2.is_constant():
+        if b2.is_constant():
             val = b2.get_constant_int()
             if val == -1 or (b1.lower >= 0 and b1.upper <= val & ~(val + 1)):
                 self.make_equal_to(op, op.getarg(0))

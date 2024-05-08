@@ -1776,7 +1776,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         expected = """
         [i1]
         i2 = int_or(i1, 1)
-        i3 = int_and(i2, 1)     # will be removed by dead code elimination
         escape_i(1)
         jump(i1)
         """
@@ -1794,7 +1793,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         expected = """
         [i1]
         i2 = uint_rshift(i1, 63)
-        i3 = int_and(i2, 14)
         jump(i1)
         """
         self.optimize_loop(ops, expected)
@@ -1850,7 +1848,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i268 = uint_rshift(i262, 2)
         i270 = int_and(i268, 1)
         guard_false(i270) []
-        i4 = int_and(i262, 4)
         jump(i262)
         """
         self.optimize_loop(ops, expected)
@@ -1870,7 +1867,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i268 = int_rshift(i262, 2)
         i270 = int_and(i268, 1)
         guard_false(i270) []
-        i4 = int_and(i262, 4)
         jump(i262)
         """
         self.optimize_loop(ops, expected)
@@ -1892,9 +1888,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         expected = """
         [i0]
         i1 = int_and(i0, -4)
-        i4 = int_and(i1, 1)
         i6 = int_sub(i1, 8)
-        i7 = int_and(i6, 3)
         jump(i0)
         """
         self.optimize_loop(ops, expected)
@@ -1916,9 +1910,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         expected = """
         [i0]
         i1 = int_and(i0, -4)
-        i4 = int_and(i1, 1)
         i6 = int_add(i1, 8)
-        i7 = int_and(i6, 3)
         jump(i0)
         """
         self.optimize_loop(ops, expected)
@@ -1936,17 +1928,15 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i7 = int_and(i6, 3)
         i8 = int_is_zero(i7)
         guard_true(i8) []
-        jump(i1)
+        jump(i6)
         """
         expected = """
         [i1]
         i2 = int_and(i1, 3)
         i3 = int_is_zero(i2)
         guard_true(i3) []
-        i4 = int_and(i1, 1)
         i6 = int_add(i1, 8)
-        i7 = int_and(i6, 3)
-        jump(i1)
+        jump(i6)
         """
         self.optimize_loop(ops, expected)
 
@@ -1968,7 +1958,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_true(i42) []
         i44 = int_lt(i40, 2214592511)
         guard_true(i44) []
-        i46 = int_and(i40, -9223372036854775808) # uppermost bit cannot be set
         jump(i40)
         """
         self.optimize_loop(ops, expected)
@@ -2317,7 +2306,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_value(i3, 5) []
         i5 = int_le(i1, 9)
         guard_true(i5) []
-        i6 = int_and(i1, -44)
         jump()
         """
         self.optimize_loop(ops, expected) # used to crash
