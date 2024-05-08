@@ -6,7 +6,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
     CONST_0)
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, have_dispatcher_method, get_box_replacement)
-from .info import getptrinfo
+from rpython.jit.metainterp.optimizeopt.info import getptrinfo
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import vstring
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -455,10 +455,12 @@ class OptIntBounds(Optimization):
         bres.intersect(bounds)
 
     def propagate_bounds_INT_INVERT(self, op):
-        b = self.getintbound(op.getarg(0))
+        arg0 = get_box_replacement(op.getarg(0))
+        b = self.getintbound(arg0)
         bres = self.getintbound(op)
         bounds = bres.invert_bound()
-        b.intersect(bounds)
+        if b.intersect(bounds):
+            self.propagate_bounds_backward(arg0)
 
     def propagate_bounds_INT_NEG(self, op):
         b = self.getintbound(op.getarg(0))

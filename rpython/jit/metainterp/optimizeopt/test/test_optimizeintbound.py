@@ -2424,6 +2424,40 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_or_has_const_result(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 255)
+        i3 = int_or(i2, 255)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 255)
+        jump(255)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_invert_backwards(self):
+        ops = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_invert(i1)
+        i3 = int_lt(i2, 100)
+        guard_true(i3) []
+        i4 = int_gt(i0, -1000)
+        guard_true(i4) []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_invert(i1)
+        i3 = int_lt(i2, 100)
+        guard_true(i3) []
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestComplexIntOpts(BaseTestBasic):
 
@@ -2899,17 +2933,3 @@ class TestComplexIntOpts(BaseTestBasic):
         jump()
         """
         self.optimize_loop(ops, ops) # used to crash
-
-    def test_or_has_const_result(self):
-        ops = """
-        [i1]
-        i2 = int_and(i1, 255)
-        i3 = int_or(i2, 255)
-        jump(i3)
-        """
-        expected = """
-        [i1]
-        i2 = int_and(i1, 255)
-        jump(255)
-        """
-        self.optimize_loop(ops, expected)
