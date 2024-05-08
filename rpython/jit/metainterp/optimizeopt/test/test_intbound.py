@@ -899,7 +899,7 @@ def test_knownbits_intersect_random(t1, t2):
     b2, n2 = t2
     try:
         b.intersect(b2)
-    except Exception:
+    except InvalidLoop:
         # the bounds were incompatible, so the examples can't be contained in
         # the other bound
         assert not b1.contains(n2)

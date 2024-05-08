@@ -173,12 +173,12 @@ def test_mul(b1, b2):
 @given(bounds, bounds)
 def test_mul_bound_cannot_overflow(b1, b2):
     bound = b1.mul_bound_cannot_overflow(b2)
-    assume(bound)
-    var1, formula1 = to_z3(b1)
-    var2, formula2 = to_z3(b2)
-    m = z3.SignExt(LONG_BIT, var1) * z3.SignExt(LONG_BIT, var2)
-    no_ovf = m == z3.SignExt(LONG_BIT, var1 * var2)
-    prove_implies(formula1, formula2, no_ovf)
+    if bound:
+        var1, formula1 = to_z3(b1)
+        var2, formula2 = to_z3(b2)
+        m = z3.SignExt(LONG_BIT, var1) * z3.SignExt(LONG_BIT, var2)
+        no_ovf = m == z3.SignExt(LONG_BIT, var1 * var2)
+        prove_implies(formula1, formula2, no_ovf)
 
 @given(bounds, bounds)
 def test_mul_bound_no_overflow(b1, b2):
