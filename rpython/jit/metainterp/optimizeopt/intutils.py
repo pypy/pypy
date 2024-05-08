@@ -540,13 +540,19 @@ class IntBound(AbstractInfo):
 
 
 
-    def get_minimum_signed(self):
+    def _get_minimum_signed(self):
+        """ for tests only """
         ret_b = self.lower
-        return self._get_minimum_signed_by_knownbits_atleast(ret_b)
+        result = self._get_minimum_signed_by_knownbits_atleast(ret_b)
+        assert isinstance(result, int)
+        return result
 
-    def get_maximum_signed(self):
+    def _get_maximum_signed(self):
+        """ for tests only """
         ret_b = self.upper
-        return self._get_maximum_signed_by_knownbits_atmost(ret_b)
+        result = self._get_maximum_signed_by_knownbits_atmost(ret_b)
+        assert isinstance(result, int)
+        return result
 
     def intersect(self, other):
         """

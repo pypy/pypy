@@ -837,39 +837,37 @@ def test_knownbits_intconst_examples():
     assert b3.known_eq_const(0b0)
 
 
-#@pytest.mark.xfail(reason="not finished. i gave up.")
 def test_knownbits_minmax_nobounds_examples():
     # constant case
     b1 = IntBound.from_constant(42)
-    assert b1.get_minimum_signed() == 42
-    assert b1.get_maximum_signed() == 42
+    assert b1._get_minimum_signed() == 42
+    assert b1._get_maximum_signed() == 42
     # positive knownbits case
     b2 = knownbits(0b0110010,   # 11?01?
                    0b0001001)
-    assert b2.get_minimum_signed() == 0b0110010
-    assert not b2.contains(b2.get_minimum_signed() - 1)
-    assert b2.get_maximum_signed() == 0b0111011
-    assert not b2.contains(b2.get_maximum_signed() + 1)
+    assert b2._get_minimum_signed() == 0b0110010
+    assert not b2.contains(b2._get_minimum_signed() - 1)
+    assert b2._get_maximum_signed() == 0b0111011
+    assert not b2.contains(b2._get_maximum_signed() + 1)
     #negative knownbits_case
     b3 = knownbits(~0b0110010,  # 1...10?1101
                     0b0010000)
-    assert b3.get_minimum_signed() == ~0b0110010
-    assert not b3.contains(b3.get_minimum_signed() - 1)
-    assert b3.get_maximum_signed() == ~0b0100010
-    assert not b3.contains(b3.get_maximum_signed() + 1)
+    assert b3._get_minimum_signed() == ~0b0110010
+    assert not b3.contains(b3._get_minimum_signed() - 1)
+    assert b3._get_maximum_signed() == ~0b0100010
+    assert not b3.contains(b3._get_maximum_signed() + 1)
 
-#@pytest.mark.xfail(reason="not finished. i gave up.")
 def test_knownbits_minmax_bounds_examples():
     # case (-Inf, 0]
     b1 = IntBound(lower=0,
                   tvalue=r_uint(5), tmask=r_uint(-8))   # ?...?101
-    assert b1.get_minimum_signed() == 5
-    assert b1.get_maximum_signed() == intmask((r_uint(5) | r_uint(-8)) & ~MININT)
+    assert b1._get_minimum_signed() == 5
+    assert b1._get_maximum_signed() == intmask((r_uint(5) | r_uint(-8)) & ~MININT)
     # case [0, Inf)
     b2 = IntBound(upper=0,
                   tvalue=r_uint(5), tmask=r_uint(-8))   # ?...?101
-    assert b2.get_minimum_signed() == intmask(r_uint(5) | MININT)
-    assert b2.get_maximum_signed() == -3
+    assert b2._get_minimum_signed() == intmask(r_uint(5) | MININT)
+    assert b2._get_maximum_signed() == -3
 
 def test_knownbits_const_strings_examples():
     b1 = IntBound.from_constant(0b010010)
@@ -948,10 +946,10 @@ def test_knownbits_intersect_random(t1, t2):
     else:
         # the intersection worked. check that at least the lower and upper
         # bounds are in b1 and b2
-        assert b1.contains(b.get_minimum_signed())
-        assert b1.contains(b.get_maximum_signed())
-        assert b2.contains(b.get_minimum_signed())
-        assert b2.contains(b.get_maximum_signed())
+        assert b1.contains(b._get_minimum_signed())
+        assert b1.contains(b._get_maximum_signed())
+        assert b2.contains(b._get_minimum_signed())
+        assert b2.contains(b._get_maximum_signed())
         if b1.contains(n2):
             assert b.contains(n2)
         if b2.contains(n1):
@@ -1142,11 +1140,11 @@ def test_minmax_shrinking_random(t1):
                  do_shrinking=True)
     assert b1.lower <= n0
     assert n0 <= b1.upper
-    minimum = b1.get_minimum_signed()
+    minimum = b1._get_minimum_signed()
     assert minimum >= b1.lower
     assert minimum <= n0
     assert b1.contains(minimum)
-    maximum = b1.get_maximum_signed()
+    maximum = b1._get_maximum_signed()
     assert maximum <= b1.upper
     assert maximum >= n0
     assert b1.contains(maximum)
@@ -1157,11 +1155,11 @@ def test_minmax_noshrink_random(t1):
     b1, n1 = t1
     assert b1.lower <= n1
     assert n1 <= b1.upper
-    minimum = b1.get_minimum_signed()
+    minimum = b1._get_minimum_signed()
     assert minimum >= b1.lower
     assert minimum <= n1
     assert b1.contains(minimum)
-    maximum = b1.get_maximum_signed()
+    maximum = b1._get_maximum_signed()
     assert maximum <= b1.upper
     assert maximum >= n1
     assert b1.contains(maximum)
