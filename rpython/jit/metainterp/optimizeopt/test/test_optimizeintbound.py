@@ -1381,6 +1381,32 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_xor_same_arg(self):
+        ops = """
+        [i0]
+        i1 = int_xor(i0, i0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_fold_partially_constant_xor(self):
+        ops = """
+        [i0, i1]
+        i2 = int_xor(i0, 23)
+        i3 = int_xor(i1, 0)
+        jump(i2, i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_xor(i0, 23)
+        jump(i2, i1)
+        """
+        self.optimize_loop(ops, expected)
+
     # ______________________________________________________
 
     def test_intand_1mask_covering_bitrange(self):
@@ -2873,3 +2899,17 @@ class TestComplexIntOpts(BaseTestBasic):
         jump()
         """
         self.optimize_loop(ops, ops) # used to crash
+
+    def test_or_has_const_result(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 255)
+        i3 = int_or(i2, 255)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 255)
+        jump(255)
+        """
+        self.optimize_loop(ops, expected)

@@ -54,24 +54,9 @@ class OptIntBounds(Optimization):
     postprocess_GUARD_FALSE = _postprocess_guard_true_false_value
     postprocess_GUARD_VALUE = _postprocess_guard_true_false_value
 
-    def optimize_INT_OR_or_XOR(self, op):
-        v1 = get_box_replacement(op.getarg(0))
-        v2 = get_box_replacement(op.getarg(1))
-        if v1 is v2:
-            if op.getopnum() == rop.INT_OR:
-                self.make_equal_to(op, v1)
-            else:
-                self.make_constant_int(op, 0)
-            return None
-        return self.emit(op)
-
-    optimize_INT_OR = optimize_INT_OR_or_XOR
-    optimize_INT_XOR = optimize_INT_OR_or_XOR
-
     def postprocess_INT_OR(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
-        # import pdb;pdb.set_trace()
         b = b1.or_bound(b2)
         self.getintbound(op).intersect(b)
 

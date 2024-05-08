@@ -112,12 +112,21 @@ class OptRewrite(Optimization):
         return self.emit(op)
 
     def optimize_INT_OR(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
+        v1 = get_box_replacement(op.getarg(0))
+        v2 = get_box_replacement(op.getarg(1))
+        if v1 is v2:
+            self.make_equal_to(op, v1)
+            return
+        b1 = self.getintbound(v1)
+        b2 = self.getintbound(v2)
+        b = b1.or_bound(b2)
+        if b.is_constant():
+            self.make_constant_int(op, b.get_constant_int())
+            return
         if b1.known_eq_const(0):
-            self.make_equal_to(op, op.getarg(1))
+            self.make_equal_to(op, v2)
         elif b2.known_eq_const(0):
-            self.make_equal_to(op, op.getarg(0))
+            self.make_equal_to(op, v1)
         else:
             return self.emit(op)
 
@@ -264,13 +273,18 @@ class OptRewrite(Optimization):
             return self.emit(op)
 
     def optimize_INT_XOR(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
+        v1 = get_box_replacement(op.getarg(0))
+        v2 = get_box_replacement(op.getarg(1))
+        if v1 is v2:
+            self.make_constant_int(op, 0)
+            return
+        b1 = self.getintbound(v1)
+        b2 = self.getintbound(v2)
 
         if b1.known_eq_const(0):
-            self.make_equal_to(op, op.getarg(1))
+            self.make_equal_to(op, v2)
         elif b2.known_eq_const(0):
-            self.make_equal_to(op, op.getarg(0))
+            self.make_equal_to(op, v1)
         else:
             return self.emit(op)
 
