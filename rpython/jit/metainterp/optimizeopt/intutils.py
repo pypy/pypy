@@ -955,6 +955,7 @@ class IntBound(AbstractInfo):
 
         pos1 = self.known_nonnegative()
         pos2 = other.known_nonnegative()
+        # the next three if-conditions are proven by test_prove_and_bounds_logic
         r = IntBound.unbounded()
         if pos1 or pos2:
             r.make_ge_const(0)

@@ -380,6 +380,35 @@ def test_prove_and():
         z3_tnum_condition(result, res_tvalue, res_tmask),
     )
 
+def test_prove_and_bounds_logic():
+    self_variable = BitVec('self')
+    other_variable = BitVec('other')
+    result = BitVec('result')
+    prove_implies(
+        result == self_variable & other_variable,
+        self_variable >= 0,
+        result >= 0,
+        use_timeout=False
+    )
+    prove_implies(
+        result == self_variable & other_variable,
+        other_variable >= 0,
+        result >= 0,
+        use_timeout=False
+    )
+    prove_implies(
+        result == self_variable & other_variable,
+        self_variable >= 0,
+        result <= self_variable,
+        use_timeout=False
+    )
+    prove_implies(
+        result == self_variable & other_variable,
+        other_variable >= 0,
+        result <= other_variable,
+        use_timeout=False
+    )
+
 def test_prove_and_backwards():
     self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
     other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
@@ -403,6 +432,7 @@ def test_prove_add():
         other_formula,
         result == self_variable + other_variable,
         z3_tnum_condition(result, res_tvalue, res_tmask),
+        use_timeout=False
     )
 
 def test_prove_unmask_one_gives_unsigned_max():
@@ -410,7 +440,8 @@ def test_prove_unmask_one_gives_unsigned_max():
     max_self = unmask_one(self_tvalue, self_tmask)
     prove_implies(
         self_formula,
-        z3.ULE(self_variable, max_self)
+        z3.ULE(self_variable, max_self),
+        use_timeout=False
     )
 
 def test_prove_unmask_zero_gives_unsigned_min():
@@ -418,7 +449,8 @@ def test_prove_unmask_zero_gives_unsigned_min():
     min_self = unmask_zero(self_tvalue, self_tmask)
     prove_implies(
         self_formula,
-        z3.ULE(min_self, self_variable)
+        z3.ULE(min_self, self_variable),
+        use_timeout=False
     )
 
 def test_prove_known_unsigned_lt():

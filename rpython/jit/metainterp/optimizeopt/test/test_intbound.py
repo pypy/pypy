@@ -493,6 +493,12 @@ def test_and_bound():
                     if b1.contains(n1) and b2.contains(n2):
                         assert b3.contains(n1 & n2)
 
+def test_and_bound_example():
+    b1 = IntBound(0, 16)
+    b2 = IntBound.unbounded()
+    b3 = b1.and_bound(b2)
+    assert bound_eq(b3, b1)
+
 def test_or_bound():
     for _, _, b1 in some_bounds():
         for _, _, b2 in some_bounds():
