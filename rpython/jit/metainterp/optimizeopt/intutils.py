@@ -132,6 +132,20 @@ class IntBound(AbstractInfo):
             return hex(num)
         return s
 
+    def _are_knownbits_implied(self):
+        """ return True if the knownbits of self are a direct consequence of
+        the range of self (and thus carry no extra information) """
+        b = IntBound(self.lower, self.upper)
+        if self.tmask == TNUM_ONLY_MASK_UNKNOWN:
+            return True
+        return self.tmask == b.tmask and self.tvalue == b.tvalue
+
+    def _are_bounds_implied(self):
+        """ return True if the bounds of self are a direct consequence of the
+        knownbits of self (and thus carry no extra information) """
+        b = IntBound.from_knownbits(self.tvalue, self.tmask)
+        return self.lower == b.lower and self.upper == b.upper
+
     def __repr__(self):
         if self.lower == MININT and self.upper == MAXINT and self.tmask == TNUM_ONLY_MASK_UNKNOWN:
             return "IntBound.unbounded()"
@@ -139,18 +153,14 @@ class IntBound(AbstractInfo):
             return "IntBound.nonnegative()"
         if self.is_constant():
             return "IntBound.from_constant(%s)" % self._to_dec_or_hex_str_heuristics(self.get_constant_int())
-        # check whether the bounds imply the knownbits
-        b = IntBound(self.lower, self.upper)
         s_bounds = "%s, %s" % (self._to_dec_or_hex_str_heuristics(self.lower),
                                self._to_dec_or_hex_str_heuristics(self.upper))
 
-        if self.tmask == b.tmask and self.tvalue == b.tvalue:
+        if self._are_knownbits_implied():
             return "IntBound(%s)" % s_bounds
 
-        # check whether the knownbits imply the bounds
-        b = IntBound.from_knownbits(self.tvalue, self.tmask)
         s_tnum = "r_uint(%s), r_uint(%s)" % (bin(intmask(self.tvalue)), bin(intmask(self.tmask)))
-        if self.lower == b.lower and self.upper == b.upper:
+        if self._are_bounds_implied():
             return "IntBound.from_knownbits(%s)" % s_tnum
         return "IntBound(%s, %s)" % (s_bounds, s_tnum)
 
@@ -1058,26 +1068,12 @@ class IntBound(AbstractInfo):
 
         return True
 
-    def contains_bound(self, other):
+    def is_within_range(self, lower, upper):
         """
-        ???
+        Check if all the numbers contained in this instance have are between
+        lower and upper.
         """
-        assert isinstance(other, IntBound)
-
-        # TODO: think about every caller
-        assert (self.tvalue, self.tmask) == TNUM_UNKNOWN
-
-        if not self.contains(other.lower):
-            return False
-        if not self.contains(other.upper):
-            return False
-
-        # not relevant at the moment
-        """union_masks = self.tmask | other.tmask
-        if unmask_zero(self.tvalue, self.tmask) != unmask_zero(other.tvalue, union_masks):
-            return False"""
-
-        return True
+        return lower <= self.lower and self.upper <= upper
 
     def clone(self):
         """
@@ -1093,15 +1089,13 @@ class IntBound(AbstractInfo):
         Generates guards from the information
         we have about the numbers this
         abstract integer contains.
+        This must only be called on a widened IntBound.
         """
-        # TODO: right now we ignore the tvalue and tmask! that would be wrong
-        # in theory but it's fine because we always call widen_update first
-        # (which throws that information away). can we assert that this happens
-        # somehow?
         if self.is_constant():
             guards.append(ResOperation(rop.GUARD_VALUE,
                                        [box, ConstInt(self.upper)]))
             return
+        assert self._are_knownbits_implied() # check that the knownbits carry no info
         # 
         if self.lower > MININT:
             bound = self.lower
@@ -1166,9 +1160,8 @@ class IntBound(AbstractInfo):
             self.lower = MININT
         if self.upper > MAXINT / 2:
             self.upper = MAXINT
-        # TODO: we might have to shrink here! but there are a few messes
-        # involved, see TODO in generate_guards
         self.tvalue, self.tmask = TNUM_UNKNOWN
+        self.shrink()
 
 
     def and_bound_backwards(self, other, result_int):

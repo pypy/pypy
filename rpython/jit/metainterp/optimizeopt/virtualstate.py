@@ -487,7 +487,8 @@ class NotVirtualStateInfoInt(NotVirtualStateInfo):
             other_intbound = other.intbound
         if self.intbound is None:
             return
-        if self.intbound.contains_bound(other_intbound):
+        assert self.intbound._are_knownbits_implied()
+        if other_intbound.is_within_range(self.intbound.lower, self.intbound.upper):
             return
         if (runtime_box is not None and
             self.intbound.contains(runtime_box.getint())):
@@ -532,7 +533,8 @@ class NotVirtualStateInfoPtr(NotVirtualStateInfo):
                 other_bound = IntBound.nonnegative()
             else:
                 other_bound = other.lenbound
-            if not self.lenbound.contains_bound(other_bound):
+            assert self.lenbound._are_knownbits_implied()
+            if not other_bound.is_within_range(self.lenbound.lower, self.lenbound.upper):
                 raise VirtualStatesCantMatch("length bound does not match")
         if self.level == LEVEL_NONNULL:
             return self._generate_guards_nonnull(other, box, runtime_box,

@@ -438,8 +438,7 @@ class OptIntBounds(Optimization):
         numbits = op.getarg(1).getint() * 8
         start = -(1 << (numbits - 1))
         stop = 1 << (numbits - 1)
-        bounds = IntBound(start, stop - 1)
-        if bounds.contains_bound(b):
+        if b.is_within_range(start, stop - 1):
             self.make_equal_to(op, op.getarg(0))
         else:
             return self.emit(op)

@@ -539,11 +539,13 @@ def test_neg_bound():
 def test_widen():
     for _, _, b1 in some_bounds():
         b2 = b1.widen()
-        assert b2.contains_bound(b1)
+        b3 = b2.clone()
+        b3.intersect(b1)
+        bound_eq(b3, b1)
     b = bound(MININT + 1, MAXINT).widen()
-    assert b.contains_bound(bound(None, None))
+    assert bound_eq(b, bound(None, None))
     b = bound(MININT, MAXINT - 1).widen()
-    assert b.contains_bound(bound(None, None))
+    assert bound_eq(b, bound(None, None))
     b = bound(-10, 10)
     b1 = b.widen()
     assert bound_eq(b, b1)
@@ -740,11 +742,31 @@ def test_neg_const_random(t1):
         assert r.is_constant()
         assert r.known_eq_const(-t1)
 
+
+@given(knownbits_and_bound_with_contained_number, strategies.data())
+def test_are_knownbits_implied(t, data):
+    b, _ = t
+    if b._are_knownbits_implied():
+        n2 = data.draw(strategies.integers(b.lower, b.upper))
+        assert b.contains(n2)
+
+
 @given(knownbits_and_bound_with_contained_number)
-def test_widen_random(t):
+def test_widen_then_intersect_random(t):
     b, n = t
     b1 = b.widen()
-    assert b1.contains_bound(b)
+    assert b1._are_knownbits_implied()
+    assert b1.contains(n)
+    b2 = b1.clone()
+    b2.intersect(b)
+    assert bound_eq(b2, b)
+
+@given(knownbits_and_bound_with_contained_number, ints, ints)
+def test_is_within_range_random(t, x, y):
+    b, n = t
+    x, y = sorted([x, y])
+    if b.is_within_range(x, y):
+        assert x <= n <= y
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_known_lt_gt_le_ge_random(t1, t2):
@@ -1030,21 +1052,6 @@ def test_get_minimum_signed_by_knownbits_atleast_full_range_random(t1, threshold
     else:
         assert new >= threshold
 
-@pytest.mark.xfail(reason="semantics unclear")
-def test_knownbits_contains_examples():
-    bA = knownbits(0b001000,
-                   0b110111)    # ??1???
-    b1 = knownbits(0b000000,
-                   0b111111)    # ??????
-    assert b1.contains_bound(bA)
-    assert not bA.contains_bound(b1)
-    bB = knownbits(0b101000,
-                   0b000010)    # 1010?0
-    b2 = knownbits(0b101010,    #     !! <- no subset
-                   0b000001)    # 10101?
-    assert not bB.contains_bound(b2)
-    assert not b2.contains_bound(bB)
-
 def test_validtnum_assertion_examples():
     # for each bit i: mask[i]==1 implies value[i]==0
     # the following tnum is invalid:
@@ -1069,7 +1076,7 @@ def test_widen_tnum():
     b = knownbits(0b10001010,
                   0b00110100)   # 10??1?10
     b.widen_update()
-    assert check_knownbits_string(b, "", '?')
+    assert b._are_knownbits_implied()
 
 def test_shrink_bounds_by_knownbits():
     # positive case
@@ -1103,12 +1110,6 @@ def test_shrink_knownbits_by_bounds():
     assert not b3.is_constant()
     assert check_knownbits_string(b3, "110???", '0')
 
-@pytest.mark.xfail(reason="unclear semantics")
-def test_tnum_contains_bound_bug():
-    b1 = knownbits( 0b0,
-                   ~0b1)  # ?...?0
-    b2 = IntUpperLowerBound(3, 7)
-    assert b1.contains_bound(b2)
 
 def test_intbound_repr():
     b = IntBound()
