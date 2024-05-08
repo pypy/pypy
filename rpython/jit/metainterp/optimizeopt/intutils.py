@@ -539,8 +539,6 @@ class IntBound(AbstractInfo):
             cl2set = ~u_min_threshold & working_min
             set2cl = u_min_threshold & ~working_min
             if working_min == u_min_threshold:
-                if type(threshold) is long:
-                    import pdb;pdb.set_trace()
                 return threshold
             elif cl2set > set2cl:
                 # we have set the correct bit already
