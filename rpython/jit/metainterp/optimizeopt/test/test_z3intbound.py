@@ -561,6 +561,11 @@ class Z3IntBound(IntBound):
     def new(lower, upper, tvalue, tmask):
         return Z3IntBound(lower, upper, tvalue, tmask)
 
+    @staticmethod
+    def intmask(x):
+        # casts from unsigned to signed don't actually matter
+        return x
+
     def __repr__(self):
         more = ''
         if self.concrete_variable is not None:
@@ -634,4 +639,15 @@ def test_prove_min_max_unsigned_by_knownbits():
     maximum = bound.get_maximum_unsigned_by_knownbits()
     bound.prove_implies(
         z3.ULE(bound.concrete_variable, maximum),
+    )
+
+def test_prove_min_max_signed_by_knownbits():
+    bound = make_z3_intbounds_instance('self')
+    minimum = bound._get_minimum_signed_by_knownbits()
+    bound.prove_implies(
+        minimum <= bound.concrete_variable
+    )
+    maximum = bound._get_maximum_signed_by_knownbits()
+    bound.prove_implies(
+        bound.concrete_variable <= maximum,
     )

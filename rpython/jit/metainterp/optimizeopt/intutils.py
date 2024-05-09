@@ -111,11 +111,19 @@ class IntBound(AbstractInfo):
         return IntBound(tvalue=tvalue,
                         tmask=tmask)
 
+    # ____________________________________________________________
+    # a bunch of slightly artificial methods that are needed to make the proofs
+    # possible
+
     @staticmethod
     def new(lower, upper, tvalue, tmask):
         """ helper factory to construct a new IntBound. overridden in
         test_z3intbound """
         return IntBound(lower, upper, tvalue, tmask)
+
+    intmask = staticmethod(intmask)
+
+    # ____________________________________________________________
 
     @staticmethod
     def _to_dec_or_hex_str_heuristics(num):
@@ -500,25 +508,18 @@ class IntBound(AbstractInfo):
         information."""
         return unmask_one(self.tvalue, self.tmask)
 
-    def _get_maximum_signed_by_knownbits(self):
-        """ for internal use only!
-        returns the maximum signed number, but only using the knownbits as
-        information."""
-        unsigned_mask = self.tmask & ~msbonly(self.tmask)
-        return intmask(self.tvalue | unsigned_mask)
-
     def _get_minimum_signed_by_knownbits(self):
         """ for internal use only! 
         returns the minimum signed number, but only using the knownbits as
         information."""
-        return intmask(self.tvalue | msbonly(self.tmask))
+        return self.intmask(self.tvalue | msbonly(self.tmask))
 
     def _get_maximum_signed_by_knownbits(self):
         """ for internal use only!
         returns the maximum signed number, but only using the knownbits as
         information."""
         unsigned_mask = self.tmask & ~msbonly(self.tmask)
-        return intmask(self.tvalue | unsigned_mask)
+        return self.intmask(self.tvalue | unsigned_mask)
 
     def _get_minimum_signed_by_knownbits_atleast(self, threshold=MININT):
         """ for internal use only!
@@ -613,8 +614,6 @@ class IntBound(AbstractInfo):
                 result = intmask(flip_msb(working_max))
             assert result <= threshold
             return result
-
-
 
     def _get_minimum_signed(self):
         """ for tests only """
