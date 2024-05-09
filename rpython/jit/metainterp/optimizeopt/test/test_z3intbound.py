@@ -17,7 +17,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import (
     _tnum_and_backwards,
     unmask_one,
     unmask_zero,
-    _tnum_improve_knownbits_by_bounds,
+    _tnum_improve_knownbits_by_bounds_helper,
 )
 from rpython.jit.metainterp.optimize import InvalidLoop
 
@@ -353,13 +353,34 @@ def test_and_backwards(x, tmask, other_const, data):
 # explicit proofs
 
 def make_z3_tnum(name):
+    """ make a z3 knownbits number. returns a tuple of:
+    - variable, corresponding to the concrete value
+    - tvalue and tmask, corresponding to the abstract value
+    - formula, which is the precondition that tvalue and tmask are well-formed,
+      and that they are a valid abstraction of the concrete value
+    """
     variable = BitVec(name)
     tvalue = BitVec(name + "_tvalue")
     tmask = BitVec(name + "_tmask")
-    formula = z3_tnum_condition(variable, tvalue, tmask)
+    formula = z3.And(
+        # is the tnum well-formed? ie are the unknown bits in tvalue set to 0?
+        tvalue & ~tmask == tvalue,
+        # does variable fulfill the conditions imposed by tvalue and tmask?
+        z3_tnum_condition(variable, tvalue, tmask)
+    )
     return variable, tvalue, tmask, formula
 
 def make_z3_bound_and_tnum(name):
+    """ same as make_z3_tnum, but also give the abstract number a bound. the
+    return values are:
+    - variable, corresponding to the concrete value
+    - lower, a variable corresponding to the lower bound
+    - upper, a variable corresponding to the upper bound
+    - tvalue and tmask, corresponding to the abstract value
+    - formula, which is the precondition that tvalue and tmask are well-formed,
+      that lower <= upper, and that the four variables are a valid abstraction
+      of the concrete value
+    """
     variable = BitVec(name)
     tvalue = BitVec(name + "_tvalue")
     tmask = BitVec(name + "_tmask")
@@ -497,7 +518,7 @@ def test_popcount64():
 
 def test_prove_shrink_knownbits_by_bounds():
     self_variable, self_lower, self_upper, self_tvalue, self_tmask, self_formula = make_z3_bound_and_tnum('self')
-    new_tvalue, new_tmask, _, _ = _tnum_improve_knownbits_by_bounds(self_tvalue, self_tmask, self_lower, self_upper)
+    new_tvalue, new_tmask, bounds_common, hbm_bounds = _tnum_improve_knownbits_by_bounds_helper(self_tvalue, self_tmask, self_lower, self_upper)
     prove_implies(
         # if tvalue and tmask are a valid encoding
         self_tvalue & ~self_tmask == self_tvalue,
@@ -515,7 +536,14 @@ def test_prove_shrink_knownbits_by_bounds():
         # and the ranges hold
         self_variable <= self_upper,
         self_lower <= self_variable,
-        # we can only have *more* information afterwards
+        # then we cannot have *fewer* known bits afterwards,
         popcount64(~new_tmask) >= popcount64(~self_tmask),
         use_timeout=False,
+    )
+    prove_implies(
+        self_formula,
+        # this used to be an assert in the code. now we prove it (and remove it
+        # from the code). the assert checks agreement between bounds and
+        # knownbits
+        unmask_zero(bounds_common, self_tmask) == self_tvalue & hbm_bounds
     )
