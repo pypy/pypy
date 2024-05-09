@@ -769,7 +769,7 @@ def test_prove_intersect():
 # prove things about _shrink_bounds_by_knownbits
 # we follow the logic in _get_minimum_signed_by_knownbits_atleast here
 
-def test_prove_shrink_bounds_by_knownbits_correctness_case1():
+def test_prove_shrink_bounds_by_knownbits_case1():
     # case 1, cl2set > set2cl
     b1 = make_z3_intbounds_instance('self')
 
@@ -789,13 +789,23 @@ def test_prove_shrink_bounds_by_knownbits_correctness_case1():
         cl2set > set2cl,
         new_threshold > threshold,
     )
-    # show that there are no elements x in b1 with threshold <= x < new_threshold
+    # correctness: show that there are no elements x in b1 with
+    # threshold <= x < new_threshold
     b1.prove_implies(
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min != threshold,
         cl2set > set2cl,
         z3.Not(b1.concrete_variable < new_threshold),
     )
+    # precision: new_threshold is an element in the set, ie we
+    # couldn't have increased the bound further
+    b1.prove_implies(
+        b1._get_minimum_signed_by_knownbits() < threshold,
+        working_min != threshold,
+        cl2set > set2cl,
+        z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
+    )
+
 
 def test_prove_shrink_bounds_by_knownbits_correctness_case2():
     # case 2) cl2set <= set2cl
@@ -834,10 +844,20 @@ def test_prove_shrink_bounds_by_knownbits_correctness_case2():
         new_threshold > threshold
     )
 
-    # show that there are no elements x in b1 with threshold <= x < new_threshold
+    # correctness: show that there are no elements x in b1 with
+    # threshold <= x < new_threshold
     b1.prove_implies(
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min_ne_threshold,
         cl2set <= set2cl,
         z3.Not(b1.concrete_variable < new_threshold),
+    )
+
+    # precision: new_threshold is an element in the set, ie we
+    # couldn't have increased the bound further
+    b1.prove_implies(
+        b1._get_minimum_signed_by_knownbits() < threshold,
+        working_min_ne_threshold,
+        cl2set <= set2cl,
+        z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
     )

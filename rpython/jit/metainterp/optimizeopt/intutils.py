@@ -609,7 +609,6 @@ class IntBound(AbstractInfo):
                 assert result <= threshold
             else:
                 # flip the sign bit to handle 1 -> 0 overflow
-                u_max_threshold = flip_msb(u_max_threshold)
                 working_max = flip_msb(working_max)
                 # find the right bit to clear
                 possible_bits = working_max \
@@ -1307,6 +1306,7 @@ class IntBound(AbstractInfo):
             changed |= self._shrink_knownbits_by_bounds()
             if not changed:
                 return
+        assert 0, "should be unreachable"
 
     def _shrink_bounds_by_knownbits(self):
         """
