@@ -645,25 +645,29 @@ class IntBound(AbstractInfo):
         r = self.make_ge_const(other.lower)
         r |= self.make_le_const(other.upper)
 
-        # tnum stuff.
+        tvalue, tmask, valid = self._tnum_intersect(other)
+        if not valid:
+            raise InvalidLoop("knownbits contradict each other")
+        # calculate intersect value and mask
+        if self.tmask != either_known:
+            # this can also raise InvalidLoop, if the ranges and knownbits
+            # contradict in more complicated ways
+            r = self.set_tvalue_tmask(tvalue, either_known)
+            assert r
+
+        assert self._debug_check()
+        return r
+
+    def _tnum_intersect(self, other):
         union_val = self.tvalue | other.tvalue
         either_known = self.tmask & other.tmask
         both_known = self.tmask | other.tmask
         # we assert agreement, e.g. that self and other don't contradict
         unmasked_self = unmask_zero(self.tvalue, both_known)
         unmasked_other = unmask_zero(other.tvalue, both_known)
-        if unmasked_self != unmasked_other:
-            raise InvalidLoop("knownbits contradict each other")
-        # calculate intersect value and mask
-        if self.tmask != either_known:
-            # this can also raise InvalidLoop, if the ranges and knownbits
-            # contradict in more complicated ways
-            r = self.set_tvalue_tmask(unmask_zero(union_val, either_known),
-                                      either_known)
-            assert r
-
-        assert self._debug_check()
-        return r
+        tvalue = unmask_zero(union_val, either_known)
+        valid = unmasked_self == unmasked_other
+        return tvalue, either_known, valid
 
     def intersect_const(self, lower, upper):
         """
