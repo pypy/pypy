@@ -815,6 +815,8 @@ def test_prove_shrink_bounds_by_knownbits_correctness_case2():
         print "r_uint(%s)" % bin(model.evaluate(p).as_long())
     b1 = make_z3_intbounds_instance('self')
 
+    # TODO: right now this just copy-pasted the code, we should use helpers
+    # instead
     threshold = b1.lower
     working_min = threshold
     working_min &= unmask_one(b1.tvalue, b1.tmask)

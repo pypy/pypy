@@ -1300,13 +1300,16 @@ class IntBound(AbstractInfo):
 
     def shrink(self):
         # some passes of bounds-knownbits synchronization
-        # (4 chosen by a fair dice roll)
-        for i in range(4): # TODO: try to reason about the correct number of iterations
-            changed = self._shrink_bounds_by_knownbits()
-            changed |= self._shrink_knownbits_by_bounds()
-            if not changed:
-                return
-        assert 0, "should be unreachable"
+        # TODO: prove that _shrink_knownbits_by_bounds only needs one pass
+        # (for _shrink_bounds_by_knownbits that is proven already)
+        changed = self._shrink_bounds_by_knownbits()
+        changed |= self._shrink_knownbits_by_bounds()
+        if not changed:
+            return changed
+        changed_again = self._shrink_bounds_by_knownbits()
+        changed_again |= self._shrink_knownbits_by_bounds()
+        assert not changed_again
+        return changed
 
     def _shrink_bounds_by_knownbits(self):
         """
