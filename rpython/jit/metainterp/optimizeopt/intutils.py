@@ -507,7 +507,6 @@ class IntBound(AbstractInfo):
         unsigned_mask = self.tmask & ~msbonly(self.tmask)
         return intmask(self.tvalue | unsigned_mask)
 
-
     def _get_minimum_signed_by_knownbits(self):
         """ for internal use only! 
         returns the minimum signed number, but only using the knownbits as

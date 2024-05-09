@@ -393,18 +393,6 @@ def make_z3_bound_and_tnum(name):
     )
     return variable, lower, upper, tvalue, tmask, formula
 
-def model_to_intbound_instance(model, tvalue, tmask, lower=None, upper=None):
-    """ A helper function that can be used to turn a Z3 counterexample into an
-    IntBound instance to understand it better. """
-    assert (upper is None) == (lower is None)
-    v = r_uint(model.evaluate(tvalue).as_long())
-    m = r_uint(model.evaluate(tmask).as_long())
-    if upper is lower is None:
-        return IntBound.from_knownbits(v, m)
-    l = model.evaluate(lower).as_signed_long()
-    u = model.evaluate(upper).as_signed_long()
-    return IntBound(l, u, v, m)
-
 def test_prove_and():
     self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
     other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
@@ -599,6 +587,29 @@ class Z3IntBound(IntBound):
             variable <= self.upper,
         )
 
+    def convert_to_concrete(self, model):
+        """ A helper function that can be used to turn a Z3 counterexample into an
+        IntBound instance to understand it better. """
+        v = r_uint(model.evaluate(self.tvalue).as_long())
+        m = r_uint(model.evaluate(self.tmask).as_long())
+        l = model.evaluate(self.lower).as_signed_long()
+        u = model.evaluate(self.upper).as_signed_long()
+        return IntBound(l, u, v, m)
+
+    def prove_implies(self, *args):
+        try:
+            prove_implies(
+                self.z3_formula(),
+                *args,
+                use_timeout=False
+            )
+        except CheckError as e:
+            model = e.args[1]
+            example_self = self.convert_to_concrete(model)
+            print "ERROR", args
+            print "COUNTEREXAMPLE", example_self
+            assert 0
+
 def make_z3_intbounds_instance(name):
     variable = BitVec(name + "_concrete")
     tvalue = BitVec(name + "_tvalue")
@@ -610,7 +621,17 @@ def make_z3_intbounds_instance(name):
 def test_prove_invert():
     bound = make_z3_intbounds_instance('self')
     b2 = bound.invert_bound()
-    prove_implies(
-        bound.z3_formula(),
+    bound.prove_implies(
         b2.z3_formula(~bound.concrete_variable),
+    )
+
+def test_prove_min_max_unsigned_by_knownbits():
+    bound = make_z3_intbounds_instance('self')
+    minimum = bound.get_minimum_unsigned_by_knownbits()
+    bound.prove_implies(
+        z3.ULE(minimum, bound.concrete_variable),
+    )
+    maximum = bound.get_maximum_unsigned_by_knownbits()
+    bound.prove_implies(
+        z3.ULE(bound.concrete_variable, maximum),
     )
