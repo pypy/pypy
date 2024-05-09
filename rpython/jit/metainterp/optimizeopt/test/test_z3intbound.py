@@ -559,3 +559,58 @@ def test_prove_shrink_knownbits_by_bounds():
         # knownbits
         unmask_zero(bounds_common, self_tmask) == self_tvalue & hbm_bounds
     )
+
+class Z3IntBound(IntBound):
+    def __init__(self, lower, upper, tvalue, tmask, concrete_variable=None):
+        self.lower = lower
+        self.upper = upper
+        self.tvalue = tvalue
+        self.tmask = tmask
+
+        self.concrete_variable = concrete_variable
+
+    @staticmethod
+    def new(lower, upper, tvalue, tmask):
+        return Z3IntBound(lower, upper, tvalue, tmask)
+
+    def __repr__(self):
+        more = ''
+        if self.concrete_variable is not None:
+            more = ', concrete_variable=%s' % (self.concrete_variable, )
+        return "<Z3IntBound lower=%s, upper=%s, tvalue=%s, tmask=%s%s>" % (
+            self.lower, self.upper, self.tvalue, self.tmask, more)
+
+    def z3_formula(self, variable=None):
+        """ return the Z3 condition that:
+        - self is well-formed
+        - variable (or self.concrete_variable) is an element of the set
+          described by self
+        """
+        if variable is None:
+            variable = self.concrete_variable
+            assert variable is not None
+        return z3.And(
+            # is the tnum well-formed? ie are the unknown bits in tvalue set to 0?
+            self.tvalue & ~self.tmask == self.tvalue,
+            # does variable fulfill the conditions imposed by tvalue and tmask?
+            z3_tnum_condition(variable, self.tvalue, self.tmask),
+            # does variable fulfill the conditions of the bounds?
+            self.lower <= variable,
+            variable <= self.upper,
+        )
+
+def make_z3_intbounds_instance(name):
+    variable = BitVec(name + "_concrete")
+    tvalue = BitVec(name + "_tvalue")
+    tmask = BitVec(name + "_tmask")
+    upper = BitVec(name + "_upper")
+    lower = BitVec(name + "_lower")
+    return Z3IntBound(lower, upper, tvalue, tmask, variable)
+
+def test_prove_invert():
+    bound = make_z3_intbounds_instance('self')
+    b2 = bound.invert_bound()
+    prove_implies(
+        bound.z3_formula(),
+        b2.z3_formula(~bound.concrete_variable),
+    )

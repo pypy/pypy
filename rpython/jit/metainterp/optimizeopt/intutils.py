@@ -112,6 +112,12 @@ class IntBound(AbstractInfo):
                         tmask=tmask)
 
     @staticmethod
+    def new(lower, upper, tvalue, tmask):
+        """ helper factory to construct a new IntBound. overridden in
+        test_z3intbound """
+        return IntBound(lower, upper, tvalue, tmask)
+
+    @staticmethod
     def _to_dec_or_hex_str_heuristics(num):
         # a few formatting heuristics
         if -1000 <= num <= 1000:
@@ -1034,7 +1040,7 @@ class IntBound(AbstractInfo):
         lower = ~self.upper
         tvalue = unmask_zero(~self.tvalue, self.tmask)
         tmask = self.tmask
-        return IntBound(lower, upper, tvalue, tmask)
+        return self.new(lower, upper, tvalue, tmask)
 
     def contains(self, val):
         """
