@@ -1299,9 +1299,8 @@ class IntBound(AbstractInfo):
         return IntBound.from_knownbits(tvalue, tmask)
 
     def shrink(self):
-        # some passes of bounds-knownbits synchronization
-        # TODO: prove that _shrink_knownbits_by_bounds only needs one pass
-        # (for _shrink_bounds_by_knownbits that is proven already)
+        # one pass of shrinking (the proofs show that that is enough, let's
+        # still assert it though)
         changed = self._shrink_bounds_by_knownbits()
         changed |= self._shrink_knownbits_by_bounds()
         if not changed:
@@ -1334,13 +1333,20 @@ class IntBound(AbstractInfo):
         from lower and upper bound into
         the knownbits.
         """
-        tvalue, tmask = _tnum_improve_knownbits_by_bounds(
-                self.tvalue, self.tmask, r_uint(self.lower), r_uint(self.upper))
+        tvalue, tmask = self._tnum_improve_knownbits_by_bounds(
+                )
         changed = self.tvalue != tvalue or self.tmask != tmask
         if changed:
             self.tmask = tmask
             self.tvalue = tvalue
         return changed
+
+    @always_inline
+    def _tnum_improve_knownbits_by_bounds(self):
+        tvalue, tmask, bounds_common, hbm_bounds = \
+            _tnum_improve_knownbits_by_bounds_helper(
+                    self.tvalue, self.tmask, r_uint(self.lower), r_uint(self.upper))
+        return tvalue, tmask
 
     def _debug_check(self):
         """
@@ -1484,11 +1490,6 @@ def unmask_zero(value, mask):
     """
     return value & ~mask
 
-@always_inline
-def _tnum_improve_knownbits_by_bounds(self_tvalue, self_tmask, lower, upper):
-    tvalue, tmask, bounds_common, hbm_bounds = _tnum_improve_knownbits_by_bounds_helper(
-        self_tvalue, self_tmask, lower, upper)
-    return tvalue, tmask
 
 @always_inline
 def _tnum_improve_knownbits_by_bounds_helper(self_tvalue, self_tmask, lower, upper):

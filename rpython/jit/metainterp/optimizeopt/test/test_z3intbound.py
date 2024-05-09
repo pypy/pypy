@@ -863,3 +863,27 @@ def test_prove_shrink_bounds_by_knownbits_correctness_case2():
         cl2set <= set2cl,
         z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
     )
+
+def test_prove_shrink_knownbits_by_bounds_precision():
+    # prove that shrinking a second time doesn't change anything, ie
+    # _shrink_knownbits_by_bounds is idempotent
+    b1 = make_z3_intbounds_instance('self')
+    tvalue1, tmask1, _, _ = _tnum_improve_knownbits_by_bounds_helper(
+        b1.tvalue, b1.tmask, b1.lower, b1.upper,
+    )
+    tvalue2, tmask2, _, _ = _tnum_improve_knownbits_by_bounds_helper(
+        tvalue1, tmask1, b1.lower, b1.upper,
+    )
+    # idempotence
+    b1.prove_implies(
+        tvalue1 == tvalue2,
+        tmask1 == tmask2,
+    )
+    # also prove that if the lower bound already matches the knownbits, it must
+    # match the new knownbits too. this implies that this is enough:
+    # self._shrink_bounds_by_knownbits(); self._shrink_knownbits_by_bounds()
+    # because _shrink_bounds_by_knownbits makes lower conform to the knownbits
+    b1.prove_implies(
+        z3_tnum_condition(b1.lower, b1.tvalue, b1.tmask),
+        z3_tnum_condition(b1.lower, tvalue1, tmask1),
+    )
