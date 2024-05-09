@@ -9,7 +9,7 @@ import pytest
 import sys
 import gc
 
-from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
+from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask, ovfcheck
 from rpython.jit.metainterp.optimizeopt.intutils import (
     IntBound,
     unmask_one,
@@ -432,6 +432,13 @@ def test_prove_shrink_knownbits_by_bounds():
         unmask_zero(bounds_common, self_tmask) == self_tvalue & hbm_bounds
     )
 
+def z3_add_overflow(a, b):
+    result = a + b
+    result_as_int = z3.SignExt(LONG_BIT, a) + z3.SignExt(LONG_BIT, b)
+    no_ovf = result_as_int == z3.SignExt(LONG_BIT, result)
+    return a + b, no_ovf
+
+
 class Z3IntBound(IntBound):
     def __init__(self, lower, upper, tvalue, tmask, concrete_variable=None):
         self.lower = lower
@@ -447,8 +454,13 @@ class Z3IntBound(IntBound):
 
     @staticmethod
     def intmask(x):
-        # casts from unsigned to signed don't actually matter
+        # casts from unsigned to signed don't actually matter to Z3
         return x
+
+    @staticmethod
+    def _add_check_overflow(a, b, default):
+        result, no_ovf = z3_add_overflow(a, b)
+        return z3.If(no_ovf, result, default)
 
     def __repr__(self):
         more = ''
@@ -601,6 +613,35 @@ def test_prove_add():
     b1.prove_implies(
         b2,
         z3_tnum_condition(result, res_tvalue, res_tmask),
+    )
+
+
+def test_prove_add_bounds_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result = b1.concrete_variable + b2.concrete_variable
+    lower, no_ovf_lower = z3_add_overflow(b1.lower, b2.lower)
+    upper, no_ovf_upper = z3_add_overflow(b1.upper, b2.upper)
+    result_lower = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                         lower, MININT)
+    result_upper = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                         upper, MAXINT)
+    tvalue, tmask = b1._tnum_add(b2)
+    b3 = Z3IntBound(result_lower, result_upper, tvalue, tmask, result)
+    b1.prove_implies(
+        b2,
+        b3
+    )
+
+def test_prove_add_bound_no_overflow():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result, no_ovf = z3_add_overflow(b1.concrete_variable, b2.concrete_variable)
+    b3 = b1.add_bound_no_overflow(b2)
+    b1.prove_implies(
+        b2,
+        no_ovf,
+        b3.z3_formula(result)
     )
 
 def test_prove_and_backwards():

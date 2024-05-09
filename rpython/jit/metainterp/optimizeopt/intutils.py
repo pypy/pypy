@@ -123,6 +123,16 @@ class IntBound(AbstractInfo):
 
     intmask = staticmethod(intmask)
 
+    @staticmethod
+    @always_inline
+    def _add_check_overflow(a, b, value_if_overflow):
+        """ returns a + b, or value_if_overflow if that (signed) addition would
+        overflow """
+        try:
+            return ovfcheck(a + b)
+        except OverflowError:
+            return value_if_overflow
+
     # ____________________________________________________________
 
     @staticmethod
@@ -649,10 +659,10 @@ class IntBound(AbstractInfo):
         if not valid:
             raise InvalidLoop("knownbits contradict each other")
         # calculate intersect value and mask
-        if self.tmask != either_known:
+        if self.tmask != tmask:
             # this can also raise InvalidLoop, if the ranges and knownbits
             # contradict in more complicated ways
-            r = self.set_tvalue_tmask(tvalue, either_known)
+            r = self.set_tvalue_tmask(tvalue, tmask)
             assert r
 
         assert self._debug_check()
@@ -698,6 +708,7 @@ class IntBound(AbstractInfo):
 
         tvalue, tmask = self._tnum_add(other)
 
+        # the lower and upper logic is proven in test_prove_and_bounds_logic
         try:
             lower = ovfcheck(self.lower + other.lower)
         except OverflowError:
@@ -730,23 +741,12 @@ class IntBound(AbstractInfo):
     def add_bound_no_overflow(self, other):
         """ return the bound that self + other must have, if no overflow occured,
         eg after an int_add_ovf(...), guard_no_overflow() """
-        res = self.add_bound(other)
+        tvalue, tmask = self._tnum_add(other)
 
         # returning add_bound is always correct, but let's improve the range
-        lower = MININT
-        try:
-            lower = ovfcheck(self.lower + other.lower)
-        except OverflowError:
-            pass
-        upper = MAXINT
-        try:
-            upper = ovfcheck(self.upper + other.upper)
-        except OverflowError:
-            pass
-        res.lower = lower
-        res.upper = upper
-        res.shrink()
-        return res
+        lower = self._add_check_overflow(self.lower, other.lower, MININT)
+        upper = self._add_check_overflow(self.upper, other.upper, MAXINT)
+        return self.new(lower, upper, tvalue, tmask)
 
     def sub_bound(self, other):
         """
