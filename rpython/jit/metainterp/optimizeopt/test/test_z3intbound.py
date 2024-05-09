@@ -16,6 +16,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import (
     unmask_zero,
     _tnum_improve_knownbits_by_bounds_helper,
     next_pow2_m1,
+    lowest_set_bit_only,
 )
 from rpython.jit.metainterp.optimize import InvalidLoop
 
@@ -335,7 +336,43 @@ def test_and_backwards(x, tmask, other_const, data):
 
 
 # ____________________________________________________________
-# explicit proofs
+# explicit proofs of some of the helpers
+
+def test_prove_next_pow2_m1():
+    x = BitVec('x')
+    res = next_pow2_m1(x)
+    # it's a power of 2 - 1
+    prove(res & (res + 1) == 0)
+    # it's bigger than x
+    prove(
+        z3.BV2Int(res) + 1 >= z3.BV2Int(x)
+    )
+
+def test_prove_lowest_set_bit_only():
+    x = BitVec('x')
+    res = lowest_set_bit_only(x)
+    prove_implies(
+        x != 0,
+        popcount64(res) == 1
+    )
+    prove_implies(
+        x == 0,
+        res == 0,
+    )
+    # do it the pedestrian way: if a bit is set, then the bits with lower
+    # indexes must be 0
+    conditions = []
+    for i in range(LONG_BIT):
+        for j in range(i):
+            cond = z3.Implies(z3.Extract(i, i, res) == 1, z3.Extract(j, j, res) == 0)
+            conditions.append(cond)
+
+    prove(
+        z3.And(*conditions)
+    )
+
+# ____________________________________________________________
+# explicit proofs of IntBound logic/code
 
 def make_z3_bound_and_tnum(name):
     """ make a z3 knownbits number and bounds.

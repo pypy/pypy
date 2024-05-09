@@ -1431,7 +1431,7 @@ def lowest_set_bit_only(val_uint):
     #assert isinstance(val_uint, r_uint)
     working_val = ~val_uint
     increased_val = working_val + 1
-    result = (working_val^increased_val) & ~working_val
+    result = (working_val^increased_val) & val_uint
     return result
 
 def min4(t):
