@@ -17,6 +17,8 @@ from rpython.jit.metainterp.optimizeopt.intutils import (
     _tnum_improve_knownbits_by_bounds_helper,
     next_pow2_m1,
     lowest_set_bit_only,
+    leading_zeros_mask,
+    flip_msb,
 )
 from rpython.jit.metainterp.optimize import InvalidLoop
 
@@ -108,6 +110,7 @@ def prove(cond, use_timeout=True):
         assert use_timeout
     elif z3res == z3.sat:
         # not possible to prove!
+        global model
         model = solver.model()
         raise CheckError(cond, model)
 
@@ -533,7 +536,7 @@ class Z3IntBound(IntBound):
         m = r_uint(model.evaluate(self.tmask).as_long())
         l = model.evaluate(self.lower).as_signed_long()
         u = model.evaluate(self.upper).as_signed_long()
-        return IntBound(l, u, v, m)
+        return IntBound(l, u, v, m, do_shrinking=False)
 
     def prove_implies(self, *args):
         formula_args = [(arg.z3_formula() if isinstance(arg, Z3IntBound) else arg)
@@ -760,4 +763,81 @@ def test_prove_intersect():
         b2.z3_formula(b1.concrete_variable),
         valid,
         popcount64(~tmask) >= popcount64(~b1.tmask),
+    )
+
+# ____________________________________________________________
+# prove things about _shrink_bounds_by_knownbits
+# we follow the logic in _get_minimum_signed_by_knownbits_atleast here
+
+def test_prove_shrink_bounds_by_knownbits_correctness_case1():
+    # case 1, cl2set > set2cl
+    b1 = make_z3_intbounds_instance('self')
+
+    threshold = b1.lower
+    working_min = threshold
+    working_min &= unmask_one(b1.tvalue, b1.tmask)
+    working_min |= b1.tvalue
+    cl2set = ~threshold & working_min
+    set2cl = threshold & ~working_min
+    clear_mask = leading_zeros_mask(cl2set >> 1)
+    new_threshold = working_min & (clear_mask | ~b1.tmask)
+
+    # show that the new_threshold is larger than threshold
+    b1.prove_implies(
+        b1._get_minimum_signed_by_knownbits() < threshold,
+        working_min != threshold,
+        cl2set > set2cl,
+        new_threshold > threshold,
+    )
+    # show that there are no elements x in b1 with threshold <= x < new_threshold
+    b1.prove_implies(
+        b1._get_minimum_signed_by_knownbits() < threshold,
+        working_min != threshold,
+        cl2set > set2cl,
+        z3.Not(b1.concrete_variable < new_threshold),
+    )
+
+def test_prove_shrink_bounds_by_knownbits_correctness_case2():
+    # case 2) cl2set <= set2cl
+    def s(p):
+        print hex(model.evaluate(p).as_signed_long())
+    def u(p):
+        print "r_uint(%s)" % bin(model.evaluate(p).as_long())
+    b1 = make_z3_intbounds_instance('self')
+
+    threshold = b1.lower
+    working_min = threshold
+    working_min &= unmask_one(b1.tvalue, b1.tmask)
+    working_min |= b1.tvalue
+    working_min_ne_threshold = working_min != threshold
+    cl2set = ~threshold & working_min
+    set2cl = threshold & ~working_min
+
+    working_min = flip_msb(working_min)
+    # we have to find the proper bit to set...
+    possible_bits = ~working_min \
+                    & b1.tmask \
+                    & leading_zeros_mask(set2cl)
+    bit_to_set = lowest_set_bit_only(possible_bits)
+    working_min |= bit_to_set
+    # and clear all lower than that
+    clear_mask = leading_zeros_mask(bit_to_set) \
+                 | bit_to_set | ~b1.tmask
+    working_min &= clear_mask
+    new_threshold = flip_msb(working_min)
+
+    # check that the bound is not getting worse
+    b1.prove_implies(
+        b1._get_minimum_signed_by_knownbits() < threshold,
+        working_min_ne_threshold,
+        cl2set <= set2cl,
+        new_threshold > threshold
+    )
+
+    # show that there are no elements x in b1 with threshold <= x < new_threshold
+    b1.prove_implies(
+        b1._get_minimum_signed_by_knownbits() < threshold,
+        working_min_ne_threshold,
+        cl2set <= set2cl,
+        z3.Not(b1.concrete_variable < new_threshold),
     )

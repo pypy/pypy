@@ -563,7 +563,6 @@ class IntBound(AbstractInfo):
                 return intmask(working_min)
             else:
                 # flip the sign bit to handle -1 -> 0 overflow
-                u_min_threshold = flip_msb(u_min_threshold)
                 working_min = flip_msb(working_min)
                 # we have to find the proper bit to set...
                 possible_bits = ~working_min \
