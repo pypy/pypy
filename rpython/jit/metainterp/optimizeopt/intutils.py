@@ -987,12 +987,14 @@ class IntBound(AbstractInfo):
             lower = 0
             upper = intmask(next_pow2_m1(mostsignificant))
 
+        tvalue, tmask = self._tnum_or(other)
+        return IntBound(lower, upper, tvalue, tmask)
+
+    @always_inline
+    def _tnum_or(self, other):
         union_vals = self.tvalue | other.tvalue
         union_masks = self.tmask | other.tmask
-        tvalue = union_vals
-        tmask = union_masks & ~union_vals
-
-        return IntBound(lower, upper, tvalue, tmask)
+        return union_vals, union_masks & ~union_vals
 
     def xor_bound(self, other):
         """

@@ -18,6 +18,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import (
     unmask_one,
     unmask_zero,
     _tnum_improve_knownbits_by_bounds_helper,
+    next_pow2_m1,
 )
 from rpython.jit.metainterp.optimize import InvalidLoop
 
@@ -572,6 +573,7 @@ class Z3IntBound(IntBound):
             more = ', concrete_variable=%s' % (self.concrete_variable, )
         return "<Z3IntBound lower=%s, upper=%s, tvalue=%s, tmask=%s%s>" % (
             self.lower, self.upper, self.tvalue, self.tmask, more)
+    __str__ = __repr__
 
     def z3_formula(self, variable=None):
         """ return the Z3 condition that:
@@ -602,10 +604,11 @@ class Z3IntBound(IntBound):
         return IntBound(l, u, v, m)
 
     def prove_implies(self, *args):
+        formula_args = [(arg.z3_formula() if isinstance(arg, Z3IntBound) else arg)
+                        for arg in (self, ) + args]
         try:
             prove_implies(
-                self.z3_formula(),
-                *args,
+                *formula_args,
                 use_timeout=False
             )
         except CheckError as e:
@@ -650,4 +653,27 @@ def test_prove_min_max_signed_by_knownbits():
     maximum = bound._get_maximum_signed_by_knownbits()
     bound.prove_implies(
         bound.concrete_variable <= maximum,
+    )
+
+def test_prove_or():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    tvalue, tmask = b1._tnum_or(b2)
+    b1.prove_implies(
+        b2,
+        z3_tnum_condition(b1.concrete_variable | b2.concrete_variable, tvalue, tmask),
+    )
+
+def test_prove_or_bounds_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    mostsignificant = b1.upper | b2.upper
+    upper = next_pow2_m1(mostsignificant)
+    result = b1.concrete_variable | b2.concrete_variable
+    b1.prove_implies(
+        b2,
+        b1.lower >= 0,
+        b2.lower >= 0,
+        result <= upper,
+        result >= 0,
     )
