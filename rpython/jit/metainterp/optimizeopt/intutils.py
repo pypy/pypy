@@ -683,8 +683,7 @@ class IntBound(AbstractInfo):
 
     def add_bound(self, other):
         """
-        Adds the `other` abstract integer to
-        `self` and returns the result.
+        Adds the `other` abstract integer to `self` and returns the result.
         Must be correct in the presence of possible overflows.
         (Does not mutate `self`.)
         """
@@ -694,11 +693,11 @@ class IntBound(AbstractInfo):
         try:
             lower = ovfcheck(self.lower + other.lower)
         except OverflowError:
-            return IntBound(tvalue=tvalue, tmask=tmask)
+            return IntBound.from_knownbits(tvalue, tmask)
         try:
             upper = ovfcheck(self.upper + other.upper)
         except OverflowError:
-            return IntBound(tvalue=tvalue, tmask=tmask)
+            return IntBound.from_knownbits(tvalue, tmask)
         return IntBound(lower, upper, tvalue, tmask)
 
     def add_bound_cannot_overflow(self, other):
