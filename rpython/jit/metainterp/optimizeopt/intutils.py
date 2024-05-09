@@ -998,8 +998,7 @@ class IntBound(AbstractInfo):
 
     def xor_bound(self, other):
         """
-        Performs bit-wise XOR of this
-        abstract integer and the `other`,
+        Performs bit-wise XOR of this abstract integer and the `other`,
         returning its result.
         (Does not mutate `self`.)
         """
@@ -1012,12 +1011,14 @@ class IntBound(AbstractInfo):
             lower = 0
             upper = intmask(next_pow2_m1(mostsignificant))
 
+        tvalue, tmask = self._tnum_xor(other)
+        return IntBound(lower, upper, tvalue, tmask)
+
+    @always_inline
+    def _tnum_xor(self, other):
         xor_vals = self.tvalue ^ other.tvalue
         union_masks = self.tmask | other.tmask
-        tvalue = unmask_zero(xor_vals, union_masks)
-        tmask = union_masks
-
-        return IntBound(lower, upper, tvalue, tmask)
+        return unmask_zero(xor_vals, union_masks), union_masks
 
     def neg_bound(self):
         """

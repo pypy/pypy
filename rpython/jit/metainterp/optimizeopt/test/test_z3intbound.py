@@ -677,3 +677,26 @@ def test_prove_or_bounds_logic():
         result <= upper,
         result >= 0,
     )
+
+def test_prove_xor():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    tvalue, tmask = b1._tnum_xor(b2)
+    b1.prove_implies(
+        b2,
+        z3_tnum_condition(b1.concrete_variable ^ b2.concrete_variable, tvalue, tmask),
+    )
+
+def test_prove_xor_bounds_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    mostsignificant = b1.upper | b2.upper
+    upper = next_pow2_m1(mostsignificant)
+    result = b1.concrete_variable ^ b2.concrete_variable
+    b1.prove_implies(
+        b2,
+        b1.lower >= 0,
+        b2.lower >= 0,
+        result <= upper,
+        result >= 0,
+    )
