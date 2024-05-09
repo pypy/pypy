@@ -1170,7 +1170,7 @@ def test_intbound_str():
     b = IntBound()
     assert str(b) == '(?)'
     b = IntBound.nonnegative()
-    assert str(b) == '(0 <= ?)'
+    assert str(b) == '(0 <= 0b0?...?)'
     b = IntBound(lower=0, upper=100)
     assert str(b) == '(0 <= 0b0...0??????? <= 100)'
     b = IntBound().urshift_bound(IntBound.from_constant(10))

@@ -149,7 +149,7 @@ class IntBound(AbstractInfo):
     def __repr__(self):
         if self.lower == MININT and self.upper == MAXINT and self.tmask == TNUM_ONLY_MASK_UNKNOWN:
             return "IntBound.unbounded()"
-        if self.lower == 0 and self.upper == MAXINT and self.tmask == TNUM_ONLY_MASK_UNKNOWN:
+        if self.lower == 0 and self.upper == MAXINT and self._are_bounds_implied():
             return "IntBound.nonnegative()"
         if self.is_constant():
             return "IntBound.from_constant(%s)" % self._to_dec_or_hex_str_heuristics(self.get_constant_int())
