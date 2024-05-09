@@ -393,6 +393,18 @@ def make_z3_bound_and_tnum(name):
     )
     return variable, lower, upper, tvalue, tmask, formula
 
+def model_to_intbound_instance(model, tvalue, tmask, lower=None, upper=None):
+    """ A helper function that can be used to turn a Z3 counterexample into an
+    IntBound instance to understand it better. """
+    assert (upper is None) == (lower is None)
+    v = r_uint(model.evaluate(tvalue).as_long())
+    m = r_uint(model.evaluate(tmask).as_long())
+    if upper is lower is None:
+        return IntBound.from_knownbits(v, m)
+    l = model.evaluate(lower).as_signed_long()
+    u = model.evaluate(upper).as_signed_long()
+    return IntBound(l, u, v, m)
+
 def test_prove_and():
     self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
     other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
