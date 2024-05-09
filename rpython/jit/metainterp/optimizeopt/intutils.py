@@ -1299,8 +1299,49 @@ class IntBound(AbstractInfo):
         return IntBound.from_knownbits(tvalue, tmask)
 
     def shrink(self):
-        # one pass of shrinking (the proofs show that that is enough, let's
-        # still assert it though)
+        """ Shrink the bounds and the knownbits to be more precise, but without
+        changing the set of integers that is represented by self.
+
+        Here's a diagram to show what is happening. This is the number line:
+        MININT <---------0-----------------------------------------------> MAXINT
+
+        We have a range in the number line
+                           [lower     ...       upper]
+
+        We also known bits, they represent a set of ints maybe looking like this:
+                X X X X         X X X X         X X X X         X X X X
+        (an X means the number matches the known bits, ' ' means it doesn't)
+
+        Note that the lower and upper bounds could be more precise (ie bigger
+        and smaller, respectively), because they don't match the known bits.
+        Also, there are numbers that match the known bits to the left of lower
+        and the right of upper, that are excluded by the range and thus
+        unnecessary. We want to fix both of that.
+
+        First we shrink the bounds so that they both match the known bits,
+        then things look like this:
+                                [lower   ...   upper]
+                X X X X         X X X X         X X X X         X X X X
+        This is achieved by moving lower to the right to the first number >=
+        lower that matches the known bits (and mutatis mutandis for upper).
+
+        Afterwards we use the information from the bounds to add more known
+        bits. Having done that, things look maybe something like this:
+                                [lower   ...   upper]
+                                X X X X         X X X X
+        Then we're done with shrinking.
+
+        The set that is described by these two pieces of information together
+        is neither expressible as purely a range, nor purely by known bits.
+        It looks like this:
+                                X X X X         X X X
+        The set did not change through this process, but the bounds and the
+        known bits becoming more precise makes it possible to compute more
+        precise results when doing further operations with self.
+        """
+        # there's a proof in test_z3intbound that one pass of shrinking is
+        # always enough. let's still assert that a second pass doesn't change
+        # anything.
         changed = self._shrink_bounds_by_knownbits()
         changed |= self._shrink_knownbits_by_bounds()
         if not changed:
