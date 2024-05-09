@@ -639,3 +639,26 @@ def test_prove_known_unsigned_lt_from_signed_lt():
         z3.ULT(b1.concrete_variable, b2.concrete_variable),
     )
 
+def test_prove_known_cmp():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    b1.prove_implies(
+        b2,
+        b1.known_lt(b2),
+        b1.concrete_variable < b2.concrete_variable,
+    )
+    b1.prove_implies(
+        b2,
+        b1.known_le(b2),
+        b1.concrete_variable <= b2.concrete_variable,
+    )
+    b1.prove_implies(
+        b2,
+        b1.known_gt(b2),
+        b1.concrete_variable > b2.concrete_variable,
+    )
+    b1.prove_implies(
+        b2,
+        b1.known_ge(b2),
+        b1.concrete_variable >= b2.concrete_variable,
+    )

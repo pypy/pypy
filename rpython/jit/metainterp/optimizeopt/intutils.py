@@ -1166,8 +1166,7 @@ class IntBound(AbstractInfo):
            self.known_lt_const(0) or \
            self.tvalue != 0:
             return INFO_NONNULL
-        if self.known_nonnegative() and \
-           self.known_le_const(0):
+        if self.is_constant() and self.get_constant_int() == 0:
             return INFO_NULL
         return INFO_UNKNOWN
 
