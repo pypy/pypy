@@ -509,7 +509,7 @@ class IntBound(AbstractInfo):
         return unmask_one(self.tvalue, self.tmask)
 
     def _get_minimum_signed_by_knownbits(self):
-        """ for internal use only! 
+        """ for internal use only!
         returns the minimum signed number, but only using the knownbits as
         information."""
         return self.intmask(self.tvalue | msbonly(self.tmask))
@@ -692,7 +692,7 @@ class IntBound(AbstractInfo):
         (Does not mutate `self`.)
         """
 
-        tvalue, tmask = _tnum_add(self.tvalue, self.tmask, other.tvalue, other.tmask)
+        tvalue, tmask = self._tnum_add(other)
 
         try:
             lower = ovfcheck(self.lower + other.lower)
@@ -703,6 +703,16 @@ class IntBound(AbstractInfo):
         except OverflowError:
             return IntBound.from_knownbits(tvalue, tmask)
         return IntBound(lower, upper, tvalue, tmask)
+
+    @always_inline
+    def _tnum_add(self, other):
+        sum_values = self.tvalue + other.tvalue
+        sum_masks = self.tmask + other.tmask
+        all_carries = sum_values + sum_masks
+        val_carries = all_carries ^ sum_values
+        tmask = self.tmask | other.tmask | val_carries
+        tvalue = unmask_zero(sum_values, tmask)
+        return tvalue, tmask
 
     def add_bound_cannot_overflow(self, other):
         """ returns True if self + other can never overflow """
@@ -967,9 +977,16 @@ class IntBound(AbstractInfo):
         if pos2:
             r.make_le(other)
 
-        res_tvalue, res_tmask = _tnum_and(self.tvalue, self.tmask, other.tvalue, other.tmask)
+        res_tvalue, res_tmask = self._tnum_and(other)
         r.set_tvalue_tmask(res_tvalue, res_tmask)
         return r
+
+    @always_inline
+    def _tnum_and(self, other):
+        self_pmask = self.tvalue | self.tmask
+        other_pmask = other.tvalue | other.tmask
+        and_vals = self.tvalue & other.tvalue
+        return and_vals, self_pmask & other_pmask & ~and_vals
 
     def or_bound(self, other):
         """
@@ -1195,11 +1212,17 @@ class IntBound(AbstractInfo):
         in practice and will be caught by an assert in intersect())
         """
 
-        tvalue, tmask = _tnum_and_backwards(
-            self.tvalue, self.tmask, other.tvalue, other.tmask,
-            r_uint(result_int)
-        )
+        tvalue, tmask = self._tnum_and_backwards(other, r_uint(result_int))
         return IntBound.from_knownbits(tvalue, tmask)
+
+    @always_inline
+    def _tnum_and_backwards(self, other, result_uint):
+        tvalue = self.tvalue
+        tmask = self.tmask
+        tvalue &= ~other.tvalue | other.tmask
+        tvalue |= result_uint & other.tvalue
+        tmask &= ~other.tvalue | other.tmask
+        return tvalue, tmask
 
     def or_bound_backwards(self, other, result_int):
         """
@@ -1345,7 +1368,7 @@ class IntBound(AbstractInfo):
             # we have no constant, so keep checking
             u_lower = r_uint(self.lower)
             u_upper = r_uint(self.upper)
-            # check if bounds common prefix agrees with known-bits  
+            # check if bounds common prefix agrees with known-bits
             hbm_bounds = leading_zeros_mask(u_lower ^ u_upper)
             bounds_common_prefix = u_lower & hbm_bounds
             if unmask_zero(bounds_common_prefix, self.tmask) != self.tvalue & hbm_bounds:
@@ -1455,33 +1478,6 @@ def unmask_zero(value, mask):
     and returns the result.
     """
     return value & ~mask
-
-
-@always_inline
-def _tnum_and(self_tvalue, self_tmask, other_tvalue, other_tmask):
-    self_pmask = self_tvalue | self_tmask
-    other_pmask = other_tvalue | other_tmask
-    and_vals = self_tvalue & other_tvalue
-    return and_vals, self_pmask & other_pmask & ~and_vals
-
-@always_inline
-def _tnum_and_backwards(self_tvalue, self_tmask, other_tvalue, other_tmask, result_uint):
-    tvalue = self_tvalue
-    tmask = self_tmask
-    tvalue &= ~other_tvalue | other_tmask
-    tvalue |= result_uint & other_tvalue
-    tmask &= ~other_tvalue | other_tmask
-    return tvalue, tmask
-
-@always_inline
-def _tnum_add(self_tvalue, self_tmask, other_tvalue, other_tmask):
-    sum_values = self_tvalue + other_tvalue
-    sum_masks = self_tmask + other_tmask
-    all_carries = sum_values + sum_masks
-    val_carries = all_carries ^ sum_values
-    tmask = self_tmask | other_tmask | val_carries
-    tvalue = unmask_zero(sum_values, tmask)
-    return tvalue, tmask
 
 @always_inline
 def _tnum_improve_knownbits_by_bounds(self_tvalue, self_tmask, lower, upper):

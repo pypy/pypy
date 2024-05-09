@@ -12,9 +12,6 @@ import gc
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
 from rpython.jit.metainterp.optimizeopt.intutils import (
     IntBound,
-    _tnum_add,
-    _tnum_and,
-    _tnum_and_backwards,
     unmask_one,
     unmask_zero,
     _tnum_improve_knownbits_by_bounds_helper,
@@ -394,18 +391,6 @@ def make_z3_bound_and_tnum(name):
     )
     return variable, lower, upper, tvalue, tmask, formula
 
-def test_prove_and():
-    self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
-    other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
-    result = BitVec('result')
-    res_tvalue, res_tmask = _tnum_and(self_tvalue, self_tmask, other_tvalue, other_tmask)
-    prove_implies(
-        self_formula,
-        other_formula,
-        result == self_variable & other_variable,
-        z3_tnum_condition(result, res_tvalue, res_tmask),
-    )
-
 def test_prove_and_bounds_logic():
     self_variable = BitVec('self')
     other_variable = BitVec('other')
@@ -432,32 +417,6 @@ def test_prove_and_bounds_logic():
         result == self_variable & other_variable,
         other_variable >= 0,
         result <= other_variable,
-        use_timeout=False
-    )
-
-def test_prove_and_backwards():
-    self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
-    other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
-    res = self_variable & other_variable
-    better_tvalue, better_tmask = _tnum_and_backwards(self_tvalue, self_tmask, other_tvalue, other_tmask, res)
-    prove_implies(
-        self_formula,
-        other_formula,
-        self_variable & other_variable == res,
-        z3_tnum_condition(self_variable, better_tvalue, better_tmask),
-        use_timeout=False
-    )
-
-def test_prove_add():
-    self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
-    other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
-    result = BitVec('result')
-    res_tvalue, res_tmask = _tnum_add(self_tvalue, self_tmask, other_tvalue, other_tmask)
-    prove_implies(
-        self_formula,
-        other_formula,
-        result == self_variable + other_variable,
-        z3_tnum_condition(result, res_tvalue, res_tmask),
         use_timeout=False
     )
 
@@ -699,4 +658,38 @@ def test_prove_xor_bounds_logic():
         b2.lower >= 0,
         result <= upper,
         result >= 0,
+    )
+
+def test_prove_and():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    tvalue, tmask = b1._tnum_and(b2)
+    b1.prove_implies(
+        b2,
+        z3_tnum_condition(b1.concrete_variable & b2.concrete_variable, tvalue, tmask),
+    )
+
+def test_prove_add():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result = b1.concrete_variable + b2.concrete_variable
+    res_tvalue, res_tmask = b1._tnum_add(b2)
+    b1.prove_implies(
+        b2,
+        z3_tnum_condition(result, res_tvalue, res_tmask),
+    )
+
+def test_prove_and_backwards():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    res = b1.concrete_variable & b2.concrete_variable
+    better_tvalue, better_tmask = b1._tnum_and_backwards(b2, res)
+    b1.prove_implies(
+        b2,
+        z3_tnum_condition(b1.concrete_variable, better_tvalue, better_tmask),
+    )
+    # make sure that the new tvalue and tmask are more precise
+    b1.prove_implies(
+        # then we cannot have *fewer* known bits afterwards,
+        popcount64(~better_tmask) >= popcount64(~b1.tmask),
     )
