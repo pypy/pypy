@@ -216,19 +216,6 @@ def test_known(b1, b2):
     if b1.known_ne(b2):
         prove_implies(formula1, formula2, var1 != var2)
 
-@given(bounds, bounds)
-def test_known_unsigned(b1, b2):
-    var1, formula1 = to_z3(b1)
-    var2, formula2 = to_z3(b2)
-    if b1.known_unsigned_lt(b2):
-        prove_implies(formula1, formula2, z3.ULT(var1, var2))
-    if b1.known_unsigned_gt(b2):
-        prove_implies(formula1, formula2, z3.UGT(var1, var2))
-    if b1.known_unsigned_le(b2):
-        prove_implies(formula1, formula2, z3.ULE(var1, var2))
-    if b1.known_unsigned_ge(b2):
-        prove_implies(formula1, formula2, z3.UGE(var1, var2))
-
 
 # ____________________________________________________________
 # boolean operations
@@ -350,26 +337,8 @@ def test_and_backwards(x, tmask, other_const, data):
 # ____________________________________________________________
 # explicit proofs
 
-def make_z3_tnum(name):
-    """ make a z3 knownbits number. returns a tuple of:
-    - variable, corresponding to the concrete value
-    - tvalue and tmask, corresponding to the abstract value
-    - formula, which is the precondition that tvalue and tmask are well-formed,
-      and that they are a valid abstraction of the concrete value
-    """
-    variable = BitVec(name)
-    tvalue = BitVec(name + "_tvalue")
-    tmask = BitVec(name + "_tmask")
-    formula = z3.And(
-        # is the tnum well-formed? ie are the unknown bits in tvalue set to 0?
-        tvalue & ~tmask == tvalue,
-        # does variable fulfill the conditions imposed by tvalue and tmask?
-        z3_tnum_condition(variable, tvalue, tmask)
-    )
-    return variable, tvalue, tmask, formula
-
 def make_z3_bound_and_tnum(name):
-    """ same as make_z3_tnum, but also give the abstract number a bound. the
+    """ make a z3 knownbits number and bounds.
     return values are:
     - variable, corresponding to the concrete value
     - lower, a variable corresponding to the lower bound
@@ -417,51 +386,6 @@ def test_prove_and_bounds_logic():
         result == self_variable & other_variable,
         other_variable >= 0,
         result <= other_variable,
-        use_timeout=False
-    )
-
-def test_prove_unmask_one_gives_unsigned_max():
-    self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
-    max_self = unmask_one(self_tvalue, self_tmask)
-    prove_implies(
-        self_formula,
-        z3.ULE(self_variable, max_self),
-        use_timeout=False
-    )
-
-def test_prove_unmask_zero_gives_unsigned_min():
-    self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
-    min_self = unmask_zero(self_tvalue, self_tmask)
-    prove_implies(
-        self_formula,
-        z3.ULE(min_self, self_variable),
-        use_timeout=False
-    )
-
-def test_prove_known_unsigned_lt():
-    self_variable, self_tvalue, self_tmask, self_formula = make_z3_tnum('self')
-    other_variable, other_tvalue, other_tmask, other_formula = make_z3_tnum('other')
-    max_self = unmask_one(self_tvalue, self_tmask)
-    min_other = unmask_zero(other_tvalue, other_tmask)
-    prove_implies(
-        self_formula,
-        other_formula,
-        z3.ULT(max_self, min_other),
-        z3.ULT(self_variable, other_variable),
-        use_timeout=False
-    )
-
-def test_prove_known_unsigned_lt_from_signed_lt():
-    self_variable, self_lower, self_upper, self_tvalue, self_tmask, self_formula = make_z3_bound_and_tnum('self')
-    other_variable, other_lower, other_upper, other_tvalue, other_tmask, other_formula = make_z3_bound_and_tnum('other')
-    max_self = unmask_one(self_tvalue, self_tmask)
-    min_other = unmask_zero(other_tvalue, other_tmask)
-    prove_implies(
-        self_formula,
-        other_formula,
-        self_lower >= 0,
-        self_upper < other_lower,
-        z3.ULT(self_variable, other_variable),
         use_timeout=False
     )
 
@@ -693,3 +617,25 @@ def test_prove_and_backwards():
         # then we cannot have *fewer* known bits afterwards,
         popcount64(~better_tmask) >= popcount64(~b1.tmask),
     )
+
+def test_prove_known_unsigned_lt():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    max_self = b1.get_maximum_unsigned_by_knownbits()
+    min_other = b2.get_minimum_unsigned_by_knownbits()
+    b1.prove_implies(
+        b2,
+        z3.ULT(max_self, min_other),
+        z3.ULT(b1.concrete_variable, b2.concrete_variable),
+    )
+
+def test_prove_known_unsigned_lt_from_signed_lt():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    b1.prove_implies(
+        b2,
+        b1.lower >= 0,
+        b2.lower < b2.lower,
+        z3.ULT(b1.concrete_variable, b2.concrete_variable),
+    )
+
