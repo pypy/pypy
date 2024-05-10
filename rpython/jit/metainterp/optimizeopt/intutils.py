@@ -695,7 +695,7 @@ class IntBound(AbstractInfo):
 
         tvalue, tmask = self._tnum_add(other)
 
-        # the lower and upper logic is proven in test_prove_and_bounds_logic
+        # the lower and upper logic is proven in test_prove_add_bounds_logic
         try:
             lower = ovfcheck(self.lower + other.lower)
         except OverflowError:
@@ -741,7 +741,7 @@ class IntBound(AbstractInfo):
         result. (Does not mutate `self`.)
         """
         tvalue, tmask = self._tnum_sub(other)
-        # the lower and upper logic is proven in test_prove_and_bounds_logic
+        # the lower and upper logic is proven in test_prove_sub_bounds_logic
         try:
             lower = ovfcheck(self.lower - other.upper)
         except OverflowError:

@@ -747,7 +747,6 @@ def test_prove_sub_bounds_logic():
         b3
     )
 
-
 def test_prove_sub_bounds_cannot_overflow_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
