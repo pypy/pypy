@@ -24,6 +24,8 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 
 from rpython.jit.metainterp.optimizeopt.test.test_intbound import knownbits_and_bound_with_contained_number
 
+from rpython.jit.metainterp.optimizeopt.test.test_z3checktests import z3_pymod, z3_pydiv
+
 try:
     import z3
     from hypothesis import given, strategies, assume, example
@@ -955,3 +957,17 @@ def test_prove_lshift_bound_cannot_overflow_logic():
         z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4),
         no_ovf
     )
+
+def dont_test_prove_mod_bound_idea():
+    # we can improve the mod_bound logic with this. disabled because it takes a
+    # few min in Z3
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result = z3_pymod(b1.concrete_variable, b2.concrete_variable)
+    b1.prove_implies(
+        b2.concrete_variable != 0,
+        b2,
+        result <= z3_max(b2.upper, 0),
+        z3_min(b2.lower, 0) <= result,
+    )
+
