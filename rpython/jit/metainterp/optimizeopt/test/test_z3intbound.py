@@ -746,12 +746,13 @@ def test_prove_sub_bound_no_overflow():
 def test_prove_and_backwards():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
-    #b3 = make_z3_intbounds_instance('result')
+    b3 = make_z3_intbounds_instance('result')
     res = b1.concrete_variable & b2.concrete_variable
-    #b3.concrete_variable = res
-    better_tvalue, better_tmask = b2._tnum_and_backwards(res)
+    b3.concrete_variable = res
+    better_tvalue, better_tmask = b2._tnum_and_backwards(b3)
     b1.prove_implies(
         b2,
+        b3,
         z3_tnum_condition(b1.concrete_variable, better_tvalue, better_tmask),
     )
 

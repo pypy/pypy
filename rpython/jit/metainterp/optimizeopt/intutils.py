@@ -1194,9 +1194,9 @@ class IntBound(AbstractInfo):
         self.shrink()
 
 
-    def and_bound_backwards(self, result_int):
+    def and_bound_backwards(self, result):
         """
-        result_int == int_and(self, other)
+        result == int_and(self, other)
         We want to learn some bits about other, using the information from self
         and result_int.
 
@@ -1223,15 +1223,16 @@ class IntBound(AbstractInfo):
         other has to be the corresponding bit in result.
         """
 
-        tvalue, tmask = self._tnum_and_backwards(r_uint(result_int))
+        tvalue, tmask = self._tnum_and_backwards(result)
         return IntBound.from_knownbits(tvalue, tmask)
 
     @always_inline
-    def _tnum_and_backwards(self, result_uint):
-        # we learn something about other only in the places where self.tvalue is 1
-        tmask = ~self.tvalue
+    def _tnum_and_backwards(self, result):
+        # we learn something about other only in the places where self.tvalue
+        # is 1 and where result is known
+        tmask = (~self.tvalue) | result.tmask
         # in those places, copy the value from result_uint
-        tvalue = result_uint & self.tvalue
+        tvalue = self.tvalue & result.tvalue
         return tvalue, tmask
 
     def or_bound_backwards(self, other, result_int):

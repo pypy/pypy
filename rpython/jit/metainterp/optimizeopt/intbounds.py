@@ -761,14 +761,12 @@ class OptIntBounds(Optimization):
 
     def propagate_bounds_INT_AND(self, op):
         r = self.getintbound(op)
-        if not r.is_constant():
-            return
         b0 = self.getintbound(op.getarg(0))
         b1 = self.getintbound(op.getarg(1))
-        b = b0.and_bound_backwards(r.get_constant_int())
+        b = b0.and_bound_backwards(r)
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(1))
-        b = b1.and_bound_backwards(r.get_constant_int())
+        b = b1.and_bound_backwards(r)
         if b0.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
 

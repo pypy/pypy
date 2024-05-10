@@ -1916,6 +1916,28 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_knownbits_and_backwards_result_nonconst(self):
+        ops = """
+        [i1, i2]
+        i3 = int_or(i1, 255)
+        i4 = int_and(i2, 1023)
+        i5 = int_and(i3, i4)
+        i6 = int_lt(i5, 128)
+        guard_true(i6) []
+        i7 = int_lt(i4, 900)
+        guard_true(i7) []
+        jump(i4)
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_or(i1, 255)
+        i4 = int_and(i2, 1023)
+        i5 = int_and(i3, i4)
+        i6 = int_lt(i5, 128)
+        guard_true(i6) []
+        jump(i4)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_knownbits_goal_alignment_simple_sub(self):
         ops = """

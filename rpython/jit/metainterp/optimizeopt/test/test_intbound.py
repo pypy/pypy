@@ -1488,26 +1488,28 @@ def test_knownbits_sub_concrete_example():
     assert r1.contains(0b101010)
 
 def test_knownbits_and_backwards_otherconst_examples():
-    r = IntBound.from_constant(0b11).and_bound_backwards(0)
+    r = IntBound.from_constant(0b11).and_bound_backwards(IntBound.from_constant(0b00))
     assert check_knownbits_string(r, "??00")
-    r = IntBound.from_constant(0b11).and_bound_backwards(-1)
+    r = IntBound.from_constant(0b11).and_bound_backwards(IntBound.from_constant(-1))
     assert check_knownbits_string(r, "??11")
     x = knownbits( 0b10000,     # ?...?10???
                   ~0b11000)
-    r = x.and_bound_backwards(0)
+    r = x.and_bound_backwards(IntBound.from_constant(0))
     assert check_knownbits_string(r, "??0????")
     x = knownbits( 0b1010,      # ?...?1010
                   ~0b1111)
-    r = x.and_bound_backwards(0)
+    r = x.and_bound_backwards(IntBound.from_constant(0))
     assert check_knownbits_string(r, "??0?0?")
-    r = IntBound.from_constant(0b11).and_bound_backwards(0b10)
+    r = IntBound.from_constant(0b11).and_bound_backwards(IntBound.from_constant(0b10))
     assert check_knownbits_string(r, "??10")
+    r = IntBound.from_constant(0b111).and_bound_backwards(IntBound.from_knownbits(r_uint(0b100), ~r_uint(0b110)))
+    assert check_knownbits_string(r, "?10?")
 
 def test_knownbits_and_backwards_example():
     x = IntBound.unbounded()
     o = knownbits(0b101010,
                   0b010100) # 1?1?10
-    r = o.and_bound_backwards(0b111)
+    r = o.and_bound_backwards(IntBound.from_constant(0b111))
     assert check_knownbits_string(r, "0?0?1?")
 
 def test_knownbits_urshift_backwards_example():
@@ -1683,15 +1685,13 @@ def test_rshift_unsigned_const_random(t1, t2):
     if n1 < 0 and t2 > 0 and r.is_constant():
         assert r.get_constant_int() >= 0
 
-@given(knownbits_and_bound_with_contained_number, constant)
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_knownbits_and_backwards_random(t1, t2):
     b1, n1 = t1     # self
     b2, n2 = t2     # other
     rb = b1.and_bound(b2)
     rn = n1 & n2
-    newb1 = b2.and_bound_backwards(rn)
-    if b1.is_constant() and b2.is_constant():
-        assert rb.is_constant()
+    newb1 = b2.and_bound_backwards(rb)
     assert newb1.contains(n1)
     # this should not fail
     b1.intersect(newb1)
