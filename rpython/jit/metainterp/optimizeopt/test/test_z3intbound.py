@@ -720,6 +720,34 @@ def test_prove_neg():
         z3_tnum_condition(result, tvalue, tmask)
     )
 
+def test_prove_sub_knownbits():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result = b1.concrete_variable - b2.concrete_variable
+    res_tvalue, res_tmask = b1._tnum_sub(b2)
+    b1.prove_implies(
+        b2,
+        z3_tnum_condition(result, res_tvalue, res_tmask),
+    )
+
+def test_prove_sub_bounds_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result = b1.concrete_variable - b2.concrete_variable
+    lower, no_ovf_lower = z3_sub_overflow(b1.lower, b2.upper)
+    upper, no_ovf_upper = z3_sub_overflow(b1.upper, b2.lower)
+    result_lower = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                         lower, MININT)
+    result_upper = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                         upper, MAXINT)
+    tvalue, tmask = b1._tnum_sub(b2)
+    b3 = Z3IntBound(result_lower, result_upper, tvalue, tmask, result)
+    b1.prove_implies(
+        b2,
+        b3
+    )
+
+
 def test_prove_sub_bounds_cannot_overflow_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')

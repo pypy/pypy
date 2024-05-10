@@ -737,13 +737,27 @@ class IntBound(AbstractInfo):
 
     def sub_bound(self, other):
         """
-        Subtracts the `other` abstract
-        integer from `self` and returns the
-        result.
-        (Does not mutate `self`.)
+        Subtracts the `other` abstract integer from `self` and returns the
+        result. (Does not mutate `self`.)
         """
-        res = self.add_bound(other.neg_bound())
-        return res
+        tvalue, tmask = self._tnum_sub(other)
+        # the lower and upper logic is proven in test_prove_and_bounds_logic
+        try:
+            lower = ovfcheck(self.lower - other.upper)
+        except OverflowError:
+            return IntBound.from_knownbits(tvalue, tmask)
+        try:
+            upper = ovfcheck(self.upper - other.lower)
+        except OverflowError:
+            return IntBound.from_knownbits(tvalue, tmask)
+        return IntBound(lower, upper, tvalue, tmask)
+
+    def _tnum_sub(self, other):
+        diff_values = self.tvalue - other.tvalue
+        val_borrows = (diff_values + self.tmask) ^ (diff_values - other.tmask)
+        tmask = self.tmask | other.tmask | val_borrows
+        tvalue = unmask_zero(diff_values, tmask)
+        return tvalue, tmask
 
     def sub_bound_cannot_overflow(self, other):
         try:
