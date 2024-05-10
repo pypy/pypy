@@ -1228,6 +1228,7 @@ class IntBound(AbstractInfo):
 
     @always_inline
     def _tnum_and_backwards(self, result):
+        # TODO: raise InvalidLoop for inconsistent results
         # we learn something about other only in the places where self.tvalue
         # is 1 and where result is known
         tmask = (~self.tvalue) | result.tmask
