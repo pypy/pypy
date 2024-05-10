@@ -1043,6 +1043,24 @@ def test_prove_rshift_knownbits_logic():
         z3_tnum_condition(result, tvalue, tmask),
     )
 
+def test_prove_rshift_bound_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    # bounds logic
+    result = b1.concrete_variable >> b2.concrete_variable
+    result1 = b1.lower >> b2.lower
+    result2 = b1.lower >> b2.upper
+    result3 = b1.upper >> b2.lower
+    result4 = b1.upper >> b2.upper
+    min1 = z3_min(result1, result2, result3, result4)
+    max1 = z3_max(result1, result2, result3, result4)
+    b1.prove_implies(
+        b2,
+        b2.lower >= 0,
+        min1 <= result,
+        result <= max1,
+    )
+
 def dont_test_prove_mod_bound_idea():
     # we can improve the mod_bound logic with this. disabled because it takes a
     # few min in Z3
