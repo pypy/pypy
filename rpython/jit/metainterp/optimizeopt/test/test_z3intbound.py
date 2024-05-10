@@ -478,13 +478,13 @@ def z3_add_overflow(a, b):
     result = a + b
     result_wide = z3.SignExt(LONG_BIT, a) + z3.SignExt(LONG_BIT, b)
     no_ovf = result_wide == z3.SignExt(LONG_BIT, result)
-    return a + b, no_ovf
+    return result, no_ovf
 
 def z3_sub_overflow(a, b):
     result = a - b
     result_wide = z3.SignExt(LONG_BIT, a) - z3.SignExt(LONG_BIT, b)
     no_ovf = result_wide == z3.SignExt(LONG_BIT, result)
-    return a + b, no_ovf
+    return result, no_ovf
 
 # two debugging functions to understand the counterexamples
 
@@ -730,6 +730,20 @@ def test_prove_sub_bounds_cannot_overflow_logic():
         b2,
         z3.And(no_ovf_lower, no_ovf_upper),
         no_ovf_result,
+    )
+
+def test_prove_sub_bound_no_overflow():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result, no_ovf = z3_sub_overflow(b1.concrete_variable, b2.concrete_variable)
+    lower, no_ovf_lower = z3_sub_overflow(b1.lower, b2.upper)
+    upper, no_ovf_upper = z3_sub_overflow(b1.upper, b2.lower)
+    result_lower = z3.If(no_ovf_lower, lower, MININT)
+    result_upper = z3.If(no_ovf_upper, upper, MAXINT)
+    b1.prove_implies(
+        b2,
+        no_ovf,
+        z3.And(result_lower <= result, result <= result_upper)
     )
 
 def test_prove_and_backwards():
