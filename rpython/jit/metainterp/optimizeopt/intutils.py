@@ -1233,41 +1233,52 @@ class IntBound(AbstractInfo):
         # we learn something about other only in the places where self.tvalue
         # is 1 and where result is known
         tmask = (~self.tvalue) | result.tmask
-        # in those places, copy the value from result_uint
+        # in those places, copy the value from result.tvalue
         tvalue = self.tvalue & result.tvalue
         # if we have a place where result is 1 but self is 0, then we are
         # inconsistent
         inconsistent = result.tvalue & ~self.tmask & ~self.tvalue
         return tvalue, tmask, inconsistent == 0
 
-    def or_bound_backwards(self, other, result_int):
+    def or_bound_backwards(self, result):
         """
         result_int == int_or(self, other)
-        We want to refine our knowledge about self
+        We want to refine our knowledge about other
         using this information
 
         regular |:
                   other
          &  0   1   ?
          0  0   1   ?
-         1  1   1   ?
-         ?  ?   ?   ?   <- result
+         1  1   1   1
+         ?  ?   1   ?   <- result
         self
 
         backwards | (this one):
-                  other
+                  self
             0   1   ?
-         0  0   X?  X0
+         0  0   X   ?
          1  1   ?   ?
-         ?  ?   ?   ?   <- self (where X=invalid)
+         ?  ?   ?   ?   <- other (where X=invalid)
         result
 
-        For every X just go ?.
-        If the knownbits of self and result are inconsistent,
-        the values of result are used (this must not happen
-        in practice and will be caught by an assert in intersect())
         """
-        pass
+        tvalue, tmask, valid = self._tnum_or_backwards(result)
+        if not valid:
+            raise InvalidLoop("inconsistency in or_bound_backwards")
+        return IntBound.from_knownbits(tvalue, tmask)
+
+    @always_inline
+    def _tnum_or_backwards(self, result):
+        # we learn something about other only in the places where self
+        # is 0 and where result is known
+        tmask = self.tvalue | self.tmask | result.tmask
+        # in those places, copy the value from result
+        tvalue = result.tvalue & ~tmask
+        # if we have a place where result is 0 but self is 1, then we are
+        # inconsistent
+        inconsistent = self.tvalue & ~result.tmask & ~result.tvalue
+        return tvalue, tmask, inconsistent == 0
 
     def urshift_bound_backwards(self, other, result):
         """

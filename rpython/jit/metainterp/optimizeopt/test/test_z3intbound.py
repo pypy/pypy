@@ -776,6 +776,22 @@ def test_prove_and_backwards_inconsistent():
         b3.concrete_variable != res
     )
 
+def test_prove_or_backwards():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    b3 = make_z3_intbounds_instance('result')
+    res = b1.concrete_variable | b2.concrete_variable
+    b3.concrete_variable = res
+    better_tvalue, better_tmask, valid = b2._tnum_or_backwards(b3)
+    b1.prove_implies(
+        b2,
+        b3,
+        z3.And(
+            valid,
+            z3_tnum_condition(b1.concrete_variable, better_tvalue, better_tmask)
+        ),
+    )
+
 def test_prove_known_unsigned_lt():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
