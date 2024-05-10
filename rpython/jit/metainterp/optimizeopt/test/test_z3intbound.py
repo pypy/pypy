@@ -673,6 +673,19 @@ def test_prove_add_bounds_logic():
         b3
     )
 
+def test_prove_add_bounds_cannot_overflow_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result, no_ovf_result = z3_add_overflow(b1.concrete_variable, b2.concrete_variable)
+    lower, no_ovf_lower = z3_add_overflow(b1.lower, b2.lower)
+    upper, no_ovf_upper = z3_add_overflow(b1.upper, b2.upper)
+    b3 = Z3IntBound(result_lower, result_upper, tvalue, tmask, result)
+    b1.prove_implies(
+        b2,
+        z3.And(no_ovf_lower, no_ovf_upper),
+        no_ovf_result,
+    )
+
 def test_prove_add_bound_no_overflow():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
