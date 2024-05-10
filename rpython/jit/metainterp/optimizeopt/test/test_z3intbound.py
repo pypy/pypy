@@ -476,10 +476,22 @@ def test_prove_shrink_knownbits_by_bounds():
 
 def z3_add_overflow(a, b):
     result = a + b
-    result_as_int = z3.SignExt(LONG_BIT, a) + z3.SignExt(LONG_BIT, b)
-    no_ovf = result_as_int == z3.SignExt(LONG_BIT, result)
+    result_wide = z3.SignExt(LONG_BIT, a) + z3.SignExt(LONG_BIT, b)
+    no_ovf = result_wide == z3.SignExt(LONG_BIT, result)
     return a + b, no_ovf
 
+def z3_sub_overflow(a, b):
+    result = a - b
+    result_wide = z3.SignExt(LONG_BIT, a) - z3.SignExt(LONG_BIT, b)
+    no_ovf = result_wide == z3.SignExt(LONG_BIT, result)
+    return a + b, no_ovf
+
+# two debugging functions to understand the counterexamples
+
+def s(p):
+    print hex(model.evaluate(p).as_signed_long())
+def u(p):
+    print "r_uint(%s)" % bin(model.evaluate(p).as_long())
 
 class Z3IntBound(IntBound):
     def __init__(self, lower, upper, tvalue, tmask, concrete_variable=None):
@@ -647,7 +659,7 @@ def test_prove_and():
         z3_tnum_condition(b1.concrete_variable & b2.concrete_variable, tvalue, tmask),
     )
 
-def test_prove_add():
+def test_prove_add_knownbits():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result = b1.concrete_variable + b2.concrete_variable
@@ -681,7 +693,6 @@ def test_prove_add_bounds_cannot_overflow_logic():
     result, no_ovf_result = z3_add_overflow(b1.concrete_variable, b2.concrete_variable)
     lower, no_ovf_lower = z3_add_overflow(b1.lower, b2.lower)
     upper, no_ovf_upper = z3_add_overflow(b1.upper, b2.upper)
-    b3 = Z3IntBound(result_lower, result_upper, tvalue, tmask, result)
     b1.prove_implies(
         b2,
         z3.And(no_ovf_lower, no_ovf_upper),
@@ -697,6 +708,28 @@ def test_prove_add_bound_no_overflow():
         b2,
         no_ovf,
         b3.z3_formula(result)
+    )
+
+def test_prove_neg():
+    b1 = make_z3_intbounds_instance('self')
+    one = Z3IntBound(BitVecVal(1), BitVecVal(1), BitVecVal(1), BitVecVal(0))
+    b2 = b1.invert_bound()
+    tvalue, tmask = b2._tnum_add(one) # constant 1
+    result = -b1.concrete_variable
+    b1.prove_implies(
+        z3_tnum_condition(result, tvalue, tmask)
+    )
+
+def test_prove_sub_bounds_cannot_overflow_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result, no_ovf_result = z3_sub_overflow(b1.concrete_variable, b2.concrete_variable)
+    lower, no_ovf_lower = z3_sub_overflow(b1.lower, b2.upper)
+    upper, no_ovf_upper = z3_sub_overflow(b1.upper, b2.lower)
+    b1.prove_implies(
+        b2,
+        z3.And(no_ovf_lower, no_ovf_upper),
+        no_ovf_result,
     )
 
 def test_prove_and_backwards():
@@ -824,10 +857,6 @@ def test_prove_shrink_bounds_by_knownbits_case1():
 
 def test_prove_shrink_bounds_by_knownbits_correctness_case2():
     # case 2) cl2set <= set2cl
-    def s(p):
-        print hex(model.evaluate(p).as_signed_long())
-    def u(p):
-        print "r_uint(%s)" % bin(model.evaluate(p).as_long())
     b1 = make_z3_intbounds_instance('self')
 
     # TODO: right now this just copy-pasted the code, we should use helpers
