@@ -900,3 +900,58 @@ def test_prove_shrink_knownbits_by_bounds_precision():
         z3_tnum_condition(b1.lower, b1.tvalue, b1.tmask),
         z3_tnum_condition(b1.lower, tvalue1, tmask1),
     )
+
+def z3_lshift_overflow(a, b):
+    res = a << b
+    return res, (res >> b) == a
+
+def z3_min(*args):
+    res = args[0]
+    for x in args[1:]:
+        res = z3.If(res < x, res, x)
+    return res
+
+def z3_max(*args):
+    res = args[0]
+    for x in args[1:]:
+        res = z3.If(res > x, res, x)
+    return res
+
+def test_prove_lshift_bound_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    # bounds logic
+    result, no_ovf = z3_lshift_overflow(b1.concrete_variable, b2.concrete_variable)
+    result1, no_ovf1 = z3_lshift_overflow(b1.lower, b2.lower)
+    result2, no_ovf2 = z3_lshift_overflow(b1.lower, b2.upper)
+    result3, no_ovf3 = z3_lshift_overflow(b1.upper, b2.lower)
+    result4, no_ovf4 = z3_lshift_overflow(b1.upper, b2.upper)
+    min1 = z3_min(result1, result2, result3, result4)
+    max1 = z3_max(result1, result2, result3, result4)
+    b1.prove_implies(
+        b2,
+        z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4),
+        min1 <= result,
+        result <= max1,
+    )
+
+    # knownbits logic
+    tvalue = b1.tvalue << b2.concrete_variable
+    tmask = b1.tmask << b2.concrete_variable
+    b1.prove_implies(
+        z3_tnum_condition(result, tvalue, tmask),
+    )
+
+def test_prove_lshift_bound_cannot_overflow_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result, no_ovf = z3_lshift_overflow(b1.concrete_variable, b2.concrete_variable)
+    _, no_ovf1 = z3_lshift_overflow(b1.lower, b2.lower)
+    _, no_ovf2 = z3_lshift_overflow(b1.lower, b2.upper)
+    _, no_ovf3 = z3_lshift_overflow(b1.upper, b2.lower)
+    _, no_ovf4 = z3_lshift_overflow(b1.upper, b2.upper)
+    b1.prove_implies(
+        b2,
+        z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4),
+        no_ovf
+    )
