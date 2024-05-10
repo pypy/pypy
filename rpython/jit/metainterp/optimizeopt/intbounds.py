@@ -164,7 +164,12 @@ class OptIntBounds(Optimization):
         b = b1.lshift_bound(b2)
         r.intersect(b)
         if b1.lshift_bound_cannot_overflow(b2):
-            # Synthesize the reverse op for optimize_default to reuse
+            # Synthesize the reverse op for optimize_default to reuse.
+            # This is important because overflow checking for lshift is done
+            # like this (in ll_int_lshift_ovf in rint.py):
+            #  result = x << y
+            #  if (result >> y) != x:
+            #      raise OverflowError("x<<y loosing bits or changing sign")
             self.pure_from_args(rop.INT_RSHIFT,
                                 [op, arg1], arg0)
 
