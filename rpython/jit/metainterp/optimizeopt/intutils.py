@@ -1194,11 +1194,11 @@ class IntBound(AbstractInfo):
         self.shrink()
 
 
-    def and_bound_backwards(self, other, result_int):
+    def and_bound_backwards(self, result_int):
         """
         result_int == int_and(self, other)
-        We want to refine our knowledge about self
-        using this information
+        We want to learn some bits about other, using the information from self
+        and result_int.
 
         regular &:
                   other
@@ -1209,28 +1209,29 @@ class IntBound(AbstractInfo):
         self
 
         backwards & (this one):
-                  other
+                  self
             0   1   ?
          0  ?   0   ?
-         1  X?  1   ?
-         ?  ?   ?   ?   <- self
+         1  X   1   ?
+         ?  ?   ?   ?   <- other
         result
 
-        If the knownbits of self and result are inconsistent,
-        the values of result are used (this must not happen
-        in practice and will be caught by an assert in intersect())
+        (X marks an inconsistent result).
+
+        We can see that we only learn something about other at the places
+        where a bit from self is 1. At those places, the corresponding bit in
+        other has to be the corresponding bit in result.
         """
 
-        tvalue, tmask = self._tnum_and_backwards(other, r_uint(result_int))
+        tvalue, tmask = self._tnum_and_backwards(r_uint(result_int))
         return IntBound.from_knownbits(tvalue, tmask)
 
     @always_inline
-    def _tnum_and_backwards(self, other, result_uint):
-        tvalue = self.tvalue
-        tmask = self.tmask
-        tvalue &= ~other.tvalue | other.tmask
-        tvalue |= result_uint & other.tvalue
-        tmask &= ~other.tvalue | other.tmask
+    def _tnum_and_backwards(self, result_uint):
+        # we learn something about other only in the places where self.tvalue is 1
+        tmask = ~self.tvalue
+        # in those places, copy the value from result_uint
+        tvalue = result_uint & self.tvalue
         return tvalue, tmask
 
     def or_bound_backwards(self, other, result_int):

@@ -307,40 +307,6 @@ def test_shrink_mixed(x, y, value, tmask):
     prove_implies(formula1, formula2)
 
 # ____________________________________________________________
-# backwards tests
-
-@given(uints, uints, ints, strategies.data())
-def test_and_backwards(x, tmask, other_const, data):
-    tvalue = x & ~tmask
-    b = IntBound(tvalue=tvalue, tmask=tmask)
-    x = intmask(x)
-    assert b.contains(x)
-    space_at_bottom = x - b.lower
-    if space_at_bottom:
-        shrink_by = data.draw(strategies.integers(0, space_at_bottom - 1))
-        b.make_ge_const(int(b.lower + shrink_by))
-        assert b.contains(x)
-    space_at_top = b.upper - x
-    if space_at_top:
-        shrink_by = data.draw(strategies.integers(0, space_at_top - 1))
-        b.make_le_const(int(b.upper - shrink_by))
-        assert b.contains(x)
-    # now we have a bound b, and a value x in that bound
-    # we now model this situation:
-    # i1 = int_and(i0, <other_const>)
-    # guard_value(i1, <res>)
-    # with that info we can improve the bound of i0
-    res = x & other_const
-    other_bound = IntBound(other_const, other_const)
-    better_b_bound = b.and_bound_backwards(other_bound, res)
-
-    var1, formula1 = to_z3(b)
-    var2, formula2 = to_z3(better_b_bound, var1)
-    prove_implies(formula1, BitVecVal(res) == BitVecVal(other_const) & var1, formula2)
-    b.intersect(better_b_bound)
-
-
-# ____________________________________________________________
 # explicit proofs of some of the helpers
 
 def test_prove_next_pow2_m1():
@@ -780,16 +746,13 @@ def test_prove_sub_bound_no_overflow():
 def test_prove_and_backwards():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
+    #b3 = make_z3_intbounds_instance('result')
     res = b1.concrete_variable & b2.concrete_variable
-    better_tvalue, better_tmask = b1._tnum_and_backwards(b2, res)
+    #b3.concrete_variable = res
+    better_tvalue, better_tmask = b2._tnum_and_backwards(res)
     b1.prove_implies(
         b2,
         z3_tnum_condition(b1.concrete_variable, better_tvalue, better_tmask),
-    )
-    # make sure that the new tvalue and tmask are more precise
-    b1.prove_implies(
-        # then we cannot have *fewer* known bits afterwards,
-        popcount64(~better_tmask) >= popcount64(~b1.tmask),
     )
 
 def test_prove_known_unsigned_lt():

@@ -765,27 +765,12 @@ class OptIntBounds(Optimization):
             return
         b0 = self.getintbound(op.getarg(0))
         b1 = self.getintbound(op.getarg(1))
-        if b0.is_constant():
-            b = b1.and_bound_backwards(b0, r.get_constant_int())
-            if b1.intersect(b):
-                self.propagate_bounds_backward(op.getarg(1))
-        elif b1.is_constant():
-            b = b0.and_bound_backwards(b1, r.get_constant_int())
-            if b0.intersect(b):
-                self.propagate_bounds_backward(op.getarg(0))
-        else:
-            b = b1.and_bound_backwards(b0, r.get_constant_int())
-            if b1.intersect(b):
-                import pdb;pdb.set_trace()
-                self.propagate_bounds_backward(op.getarg(1))
-            b = b0.and_bound_backwards(b1, r.get_constant_int())
-            if b0.intersect(b):
-                import pdb;pdb.set_trace()
-                self.propagate_bounds_backward(op.getarg(0))
-            # TODO: strategy for non-constant 'other'
-            # the and_bound_backwards already supports that,
-            # but we don't have a good strategy yet
-            # for what to do here.
+        b = b0.and_bound_backwards(r.get_constant_int())
+        if b1.intersect(b):
+            self.propagate_bounds_backward(op.getarg(1))
+        b = b1.and_bound_backwards(r.get_constant_int())
+        if b0.intersect(b):
+            self.propagate_bounds_backward(op.getarg(0))
 
 dispatch_opt = make_dispatcher_method(OptIntBounds, 'optimize_',
                                       default=OptIntBounds.emit)
