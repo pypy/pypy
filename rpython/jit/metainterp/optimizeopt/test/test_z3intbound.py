@@ -1061,6 +1061,17 @@ def test_prove_rshift_bound_logic():
         result <= max1,
     )
 
+def test_prove_urshift_knownbits_logic():
+    b1 = make_z3_intbounds_instance('self')
+    c = BitVec('const')
+    result = z3.LShR(b1.concrete_variable, c)
+    tvalue = z3.LShR(b1.tvalue, c)
+    tmask = z3.LShR(b1.tmask, c)
+    b1.prove_implies(
+        c >= 0,
+        z3_tnum_condition(result, tvalue, tmask),
+    )
+
 def dont_test_prove_mod_bound_idea():
     # we can improve the mod_bound logic with this. disabled because it takes a
     # few min in Z3
