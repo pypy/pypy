@@ -512,6 +512,11 @@ class Z3IntBound(IntBound):
         return x
 
     @staticmethod
+    def r_uint(x):
+        # casts from unsigned to signed don't actually matter to Z3
+        return x
+
+    @staticmethod
     def _add_check_overflow(a, b, default):
         result, no_ovf = z3_add_overflow(a, b)
         return z3.If(no_ovf, result, default)
@@ -1026,6 +1031,16 @@ def test_prove_lshift_bound_cannot_overflow_logic():
         b2,
         z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4),
         no_ovf
+    )
+
+def test_prove_rshift_knownbits_logic():
+    b1 = make_z3_intbounds_instance('self')
+    c = BitVec('const')
+    result = b1.concrete_variable >> c
+    tvalue, tmask = b1._tnum_rshift(c)
+    b1.prove_implies(
+        c >= 0,
+        z3_tnum_condition(result, tvalue, tmask),
     )
 
 def dont_test_prove_mod_bound_idea():

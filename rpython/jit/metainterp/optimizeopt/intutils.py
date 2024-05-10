@@ -122,6 +122,7 @@ class IntBound(AbstractInfo):
         return IntBound(lower, upper, tvalue, tmask)
 
     intmask = staticmethod(intmask)
+    r_uint = staticmethod(r_uint)
 
     @staticmethod
     @always_inline
@@ -889,10 +890,10 @@ class IntBound(AbstractInfo):
 
     def rshift_bound(self, other):
         """
-        Shifts this abstract integer `other`
-        bits to the right, where `other` is
-        another abstract integer, and extends
-        its sign.
+        Shifts this abstract integer `other` bits to the right, where `other`
+        is another abstract integer, and extends its sign. This is the
+        arithmetic shift on signed integers, ie the shifted in values are 0/1,
+        depending on the sign.
         (Does not mutate `self`.)
         """
 
@@ -909,9 +910,7 @@ class IntBound(AbstractInfo):
                 else: # sign is 0 on both
                     tvalue, tmask = TNUM_KNOWN_ZERO
             elif c_other >= 0:
-                # we leverage native sign extension logic
-                tvalue = r_uint(intmask(self.tvalue) >> c_other)
-                tmask = r_uint(intmask(self.tmask) >> c_other)
+                tvalue, tmask = self._tnum_rshift(c_other)
             # else: bits are unknown because arguments invalid
 
         lower = MININT
@@ -924,6 +923,12 @@ class IntBound(AbstractInfo):
             lower = min4(vals)
             upper = max4(vals)
         return IntBound(lower, upper, tvalue, tmask)
+
+    def _tnum_rshift(self, c_other):
+        # use signed integer sign extension logic
+        tvalue = self.r_uint(self.intmask(self.tvalue) >> c_other)
+        tmask = self.r_uint(self.intmask(self.tmask) >> c_other)
+        return tvalue, tmask
 
     def lshift_bound_cannot_overflow(self, other):
         if other.known_nonnegative() and \
