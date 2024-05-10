@@ -1288,22 +1288,19 @@ class IntBound(AbstractInfo):
         return IntBound.from_knownbits(tvalue, tmask)
     rshift_bound_backwards = urshift_bound_backwards
 
-    def lshift_bound_backwards(self, other, result):
+    def lshift_bound_backwards(self, other):
         if not other.is_constant():
             return IntBound.unbounded()
         c_other = other.get_constant_int()
         tvalue, tmask = TNUM_UNKNOWN
+        # TODO: we should raise InvalidLoop if the lowest c_other bits aren't
+        # known 0
         if 0 <= c_other < LONG_BIT:
-            tvalue = result.tvalue >> r_uint(c_other)
-            tmask = result.tmask >> r_uint(c_other)
+            tvalue = self.tvalue >> r_uint(c_other)
+            tmask = self.tmask >> r_uint(c_other)
             # shift ? in from the left,
-            # but we know some bits from `self`
-            s_tmask = leading_zeros_mask(r_uint(MININT) >> r_uint(c_other))
-            s_tvalue = s_tmask & self.tvalue
-            s_tmask &= self.tmask
-            tvalue |= s_tvalue
+            s_tmask = ~(r_uint(-1) >> r_uint(c_other))
             tmask |= s_tmask
-        # ignore bounds # TODO: bounds
         return IntBound.from_knownbits(tvalue, tmask)
 
     def shrink(self):

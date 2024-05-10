@@ -164,6 +164,15 @@ knownbits_and_bound_with_contained_number = strategies.one_of(
     unbounded                # nothing known at all
 )
 
+shift_amount = strategies.builds(
+    lambda x: (const(x), x),
+    strategies.integers(min_value=0, max_value=LONG_BIT)
+) | strategies.builds(
+    build_bound_with_contained_number,
+    *(strategies.integers(min_value=0, max_value=LONG_BIT), ) * 3
+)
+
+
 nbr = range(-5, 6)
 nnbr = list(set(range(-9, 10)) - set(nbr))
 
@@ -692,13 +701,6 @@ def test_mod_bound_random(t1, t2):
         return # overflow
     if n2 != 0:
         assert b3.contains(n1 % n2)   # Python-style mod
-
-
-shift_amount = strategies.builds(
-    build_bound_with_contained_number,
-    *(strategies.integers(min_value=0, max_value=LONG_BIT), ) * 3
-)
-
 
 @given(knownbits_and_bound_with_contained_number, shift_amount)
 def test_lshift_random(t1, t2):
@@ -1532,23 +1534,34 @@ def test_knownbits_urshift_backwards_example():
 
 def test_knownbits_lshift_backwards_example():
     o = IntBound.from_constant(3)
-    x1 = IntBound.unbounded()
-    r1 = knownbits(0b101010,
-                   0b010100) # 1?1?10
-    res1 = x1.lshift_bound_backwards(o, r1)
+    r1 = knownbits(0b101000,
+                   0b010000) # 1?1000
+    res1 = r1.lshift_bound_backwards(o)
     assert not res1.is_constant()
     assert res1.knownbits_string().startswith("???") \
-        and res1.knownbits_string().endswith("1?1")
-    x2 = IntBound.from_constant(0b101)
-    r2 = knownbits(0b101010,
-                   0b010100) # 1?1?10
-    res2 = x2.lshift_bound_backwards(o, r2)
-    assert res2.knownbits_string().endswith("1?1")
-    x3 = IntBound.unbounded()
+        and res1.knownbits_string().endswith("001?1")
+    r2 = knownbits(0b100000,
+                   0b011000) # 1??000
+    res2 = r2.lshift_bound_backwards(o)
+    assert res2.knownbits_string().endswith("1??")
+    assert res2.knownbits_string().startswith("???0")
     r3 = knownbits(MININT, 0) # 1
-    res3 = x3.lshift_bound_backwards(o, r3)
+    res3 = r3.lshift_bound_backwards(o)
     assert not res3.is_constant()
     assert res3.knownbits_string().startswith("???1")
+
+@given(knownbits_and_bound_with_contained_number, shift_amount)
+def test_knownbits_lshift_backwards_random(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    result = b1.lshift_bound(b2)
+    try:
+        r = ovfcheck(n1 << n2)
+    except OverflowError:
+        assume(False)
+    orig = result.lshift_bound_backwards(b2)
+    assert orig.contains(n1)
+    b1.intersect(orig) # this must not fail
 
 def test_knownbits_rshift_backwards_example():
     o = IntBound.from_constant(3)

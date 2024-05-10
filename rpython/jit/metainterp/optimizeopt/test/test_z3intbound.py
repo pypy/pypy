@@ -651,8 +651,7 @@ def test_prove_xor_bounds_logic():
         b2,
         b1.lower >= 0,
         b2.lower >= 0,
-        result <= upper,
-        result >= 0,
+        z3.And(result <= upper, result >= 0)
     )
 
 def test_prove_and():
@@ -1070,6 +1069,23 @@ def test_prove_urshift_knownbits_logic():
     b1.prove_implies(
         c >= 0,
         z3_tnum_condition(result, tvalue, tmask),
+    )
+
+def test_prove_lshift_bound_backwards_logic():
+    b1 = make_z3_intbounds_instance('self')
+    c_other = BitVec('const')
+    res = b1.concrete_variable << c_other
+    bresult = make_z3_intbounds_instance('result')
+    bresult.concrete_variable = res
+    tvalue = z3.LShR(bresult.tvalue, c_other)
+    tmask = z3.LShR(bresult.tmask, c_other)
+    s_tmask = ~z3.LShR(-1, c_other)
+    tmask |= s_tmask
+    b1.prove_implies(
+        bresult,
+        0 <= c_other,
+        c_other <= LONG_BIT,
+        z3_tnum_condition(b1.concrete_variable, tvalue, tmask),
     )
 
 def dont_test_prove_mod_bound_idea():
