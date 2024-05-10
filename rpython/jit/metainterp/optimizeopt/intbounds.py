@@ -426,7 +426,7 @@ class OptIntBounds(Optimization):
         b2 = self.getintbound(arg1)
         if b1.known_ne(b2):
             self.make_constant_int(op, 1)
-        if arg0 is arg1:
+        elif arg0 is arg1:
             self.make_constant_int(op, 0)
         else:
             return self.emit(op)

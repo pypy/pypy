@@ -4305,3 +4305,50 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_bool_rewriting_crash(self):
+        ops = """
+        [i34, i35, i36]
+        i37 = int_is_zero(i34)
+        i38 = int_lt(i36, i37)
+        i39 = int_neg(i35)
+        i40 = int_le(i34, 17)
+        guard_true(i40)[]
+        i41 = int_sub_ovf(i37, i37)
+        guard_no_overflow() []
+        i42 = int_ge(i34, -7)
+        guard_true(i42) []
+        i43 = int_and(i35, 0)
+        guard_value(i43, 0) []
+        i44 = int_le(i41, 17)
+        guard_true(i44) []
+        i45 = int_le(i35, i37)
+        i46 = int_ne(i39, i41)
+        i47 = int_or(i39, i46)
+        i48 = int_is_true(i34)
+        guard_false(i48) []
+        guard_true(i46) []
+        i49 = int_and(i39, -24)
+        guard_value(i49, 4611686018427387904) []
+        i50 = int_ne(i41, i39)
+        finish()
+        """
+        expected = """
+        [i34, i35, i36]
+        i37 = int_is_zero(i34)
+        i38 = int_lt(i36, i37)
+        i39 = int_neg(i35)
+        i40 = int_le(i34, 17)
+        guard_true(i40)[]
+        i42 = int_ge(i34, -7)
+        guard_true(i42) []
+        i45 = int_le(i35, i37)
+        i46 = int_ne(i39, 0)
+        i47 = int_or(i39, i46)
+        i48 = int_is_true(i34)
+        guard_false(i48) []
+        guard_true(i46) []
+        i49 = int_and(i39, -24)
+        guard_value(i49, 4611686018427387904) []
+        finish()
+        """
+        self.optimize_loop(ops, expected)
