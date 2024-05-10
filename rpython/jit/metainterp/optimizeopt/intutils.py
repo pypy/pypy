@@ -236,21 +236,19 @@ class IntBound(AbstractInfo):
 
     def make_le(self, other):
         """
-        Sets the bounds of `self` so that it only
-        contains values lower than or equal to the
-        values contained in `other`.
-        Returns `True` iff the bound was updated.
-        (Mutates `self`.)
+        Sets the bounds of `self` so that it only contains values lower than or
+        equal to the values contained in `other`. Returns `True` iff the bound
+        was updated. Will raise InvalidLoop if the resulting interval is empty.
+        Mutates `self`.
         """
         return self.make_le_const(other.upper)
 
     def make_le_const(self, value):
         """
-        Sets the bounds of `self` so that it
-        only contains values lower than or equal
-        to `value`.
-        Returns `True` iff the bound was updated.
-        (Mutates `self`.)
+        Sets the bounds of `self` so that it only contains values lower than or
+        equal to `value`. Returns `True` iff the bound was updated. Will raise
+        InvalidLoop if the resulting interval is empty.
+        Mutates `self`.
         """
         if value < self.upper:
             if value < self.lower:
@@ -262,45 +260,37 @@ class IntBound(AbstractInfo):
 
     def make_lt(self, other):
         """
-        Sets the bounds of `self` so that it
-        only contains values lower than the values
-        contained in `other`.
-        Returns `True` iff the bound was updated.
+        Sets the bounds of `self` so that it only contains values lower than
+        the values contained in `other`. Returns `True` iff the bound was
+        updated. Will raise InvalidLoop if the resulting interval is empty.
         (Mutates `self`.)
         """
         return self.make_lt_const(other.upper)
 
     def make_lt_const(self, value):
         """
-        Sets the bounds of `self` so that it
-        only contains values lower than `value`.
-        Returns `True` iff the bound was updated.
-        (Mutates `self`.)
+        Sets the bounds of `self` so that it only contains values lower than
+        `value`. Returns `True` iff the bound was updated. Will raise
+        InvalidLoop if the resulting interval is empty. (Mutates `self`.)
         """
-        try:
-            value = ovfcheck(value - 1)
-        except OverflowError:
-            return False
-        self.shrink()
-        return self.make_le_const(value)
+        if value == MININT:
+            raise InvalidLoop("intbound can't be made smaller than MININT")
+        return self.make_le_const(value - 1)
 
     def make_ge(self, other):
         """
-        Sets the bounds of `self` so that it only
-        contains values greater than or equal to the
-        values contained in `other`.
-        Returns `True` iff the bound was updated.
-        (Mutates `self`.)
+        Sets the bounds of `self` so that it only contains values greater than
+        or equal to the values contained in `other`. Returns `True` iff the
+        bound was updated. Will raise InvalidLoop if the resulting interval is
+        empty. (Mutates `self`.)
         """
         return self.make_ge_const(other.lower)
 
     def make_ge_const(self, value):
         """
-        Sets the bounds of `self` so that it
-        only contains values greater than or equal
-        to `value`.
-        Returns `True` iff the bound was updated.
-        (Mutates `self`.)
+        Sets the bounds of `self` so that it only contains values greater than
+        or equal to `value`. Returns `True` iff the bound was updated. Will
+        raise InvalidLoop if the resulting interval is empty. (Mutates `self`.)
         """
         if value > self.lower:
             if value > self.upper:
@@ -312,26 +302,22 @@ class IntBound(AbstractInfo):
 
     def make_gt(self, other):
         """
-        Sets the bounds of `self` so that it
-        only contains values greater than the values
-        contained in `other`.
-        Returns `True` iff the bound was updated.
+        Sets the bounds of `self` so that it only contains values greater than
+        the values contained in `other`. Returns `True` iff the bound was
+        updated. Will raise InvalidLoop if the resulting interval is empty.
         (Mutates `self`.)
         """
         return self.make_gt_const(other.lower)
 
     def make_gt_const(self, value):
         """
-        Sets the bounds of `self` so that it
-        only contains values greater than `value`.
-        Returns `True` iff the bound was updated.
-        (Mutates `self`.)
+        Sets the bounds of `self` so that it only contains values greater than
+        `value`. Returns `True` iff the bound was updated. Will raise
+        InvalidLoop if the resulting interval is empty. (Mutates `self`.)
         """
-        try:
-            value = ovfcheck(value + 1)
-        except OverflowError:
-            return False
-        return self.make_ge_const(value)
+        if value == MAXINT:
+            raise InvalidLoop
+        return self.make_ge_const(value + 1)
 
     def make_eq_const(self, intval):
         """
@@ -339,6 +325,7 @@ class IntBound(AbstractInfo):
         so that it is constant and equals `intval`.
         (Mutates `self`.)
         """
+        # TODO: check if intval is in the interval!
         self.upper = intval
         self.lower = intval
         self.tvalue = r_uint(intval)

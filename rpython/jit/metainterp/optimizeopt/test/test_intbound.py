@@ -307,6 +307,17 @@ def test_make():
                         assert not gl.known_le(c)
                         assert not gl.known_lt(c)
 
+def test_make_lt_minint_gt_maxint():
+    b1 = IntBound.unbounded()
+    b2 = IntBound.from_constant(MININT)
+    with pytest.raises(InvalidLoop):
+        b1.make_lt(b2)
+
+    b1 = IntBound.unbounded()
+    b2 = IntBound.from_constant(MAXINT)
+    with pytest.raises(InvalidLoop):
+        b1.make_gt(b2)
+
 def test_make_ne():
     ge = IntBound.unbounded()
     res = ge.make_ne_const(MININT)
