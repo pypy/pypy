@@ -326,6 +326,8 @@ class IntBound(AbstractInfo):
         (Mutates `self`.)
         """
         # TODO: check if intval is in the interval!
+        if not self.contains(intval):
+            raise InvalidLoop("constant int is outside of interval")
         self.upper = intval
         self.lower = intval
         self.tvalue = r_uint(intval)
