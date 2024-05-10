@@ -1223,18 +1223,22 @@ class IntBound(AbstractInfo):
         other has to be the corresponding bit in result.
         """
 
-        tvalue, tmask = self._tnum_and_backwards(result)
+        tvalue, tmask, valid = self._tnum_and_backwards(result)
+        if not valid:
+            raise InvalidLoop("inconsistency in and_bound_backwards")
         return IntBound.from_knownbits(tvalue, tmask)
 
     @always_inline
     def _tnum_and_backwards(self, result):
-        # TODO: raise InvalidLoop for inconsistent results
         # we learn something about other only in the places where self.tvalue
         # is 1 and where result is known
         tmask = (~self.tvalue) | result.tmask
         # in those places, copy the value from result_uint
         tvalue = self.tvalue & result.tvalue
-        return tvalue, tmask
+        # if we have a place where result is 1 but self is 0, then we are
+        # inconsistent
+        inconsistent = result.tvalue & ~self.tmask & ~self.tvalue
+        return tvalue, tmask, inconsistent == 0
 
     def or_bound_backwards(self, other, result_int):
         """

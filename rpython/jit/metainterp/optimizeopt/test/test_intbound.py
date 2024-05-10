@@ -1504,13 +1504,17 @@ def test_knownbits_and_backwards_otherconst_examples():
     assert check_knownbits_string(r, "??10")
     r = IntBound.from_constant(0b111).and_bound_backwards(IntBound.from_knownbits(r_uint(0b100), ~r_uint(0b110)))
     assert check_knownbits_string(r, "?10?")
-
-def test_knownbits_and_backwards_example():
     x = IntBound.unbounded()
     o = knownbits(0b101010,
                   0b010100) # 1?1?10
     r = o.and_bound_backwards(IntBound.from_constant(0b111))
     assert check_knownbits_string(r, "0?0?1?")
+
+def test_knownbits_and_backwards_example_inconsistent():
+    o = knownbits(0b111000000, 0b000000111) # 111000???
+    r = knownbits(0b100100100, 0b001001001) # 10?10?10?
+    with pytest.raises(InvalidLoop):
+        o.and_bound_backwards(r)
 
 def test_knownbits_urshift_backwards_example():
     o = IntBound.from_constant(3)
