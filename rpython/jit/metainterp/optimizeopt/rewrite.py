@@ -925,10 +925,10 @@ class OptRewrite(Optimization):
                     shiftop.getarg(0).is_constant() and
                     shiftop.getarg(0).getint() == 1):
                 # x // (1 << y) == 1 >> y
-                # but only if 0 <= y < LONG_BIT
+                # but only if 0 <= y < LONG_BIT - 1
                 shiftvar = get_box_replacement(shiftop.getarg(1))
                 shiftbound = self.getintbound(shiftvar)
-                if shiftbound.known_nonnegative() and shiftbound.known_lt_const(LONG_BIT):
+                if shiftbound.known_nonnegative() and shiftbound.known_lt_const(LONG_BIT - 1):
                     return _replace_with_shift(self, op, arg1, shiftvar)
             return False
         val = b2.get_constant_int()

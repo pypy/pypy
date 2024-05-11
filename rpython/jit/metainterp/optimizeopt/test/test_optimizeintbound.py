@@ -2417,21 +2417,35 @@ class TestOptimizeIntBounds(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_intdiv_pow2(self):
-        ops = """
+        ops1 = """
         [i0, i1]
-        i2 = int_and(i0, 31)
-        i3 = int_lshift(1, i2)
+        i6 = int_ge(i0, 0)
+        guard_true(i6) []
+        i7 = int_lt(i0, 63)
+        guard_true(i7) []
+        i3 = int_lshift(1, i0)
         i4 = call_pure_i(321, i1, i3, descr=int_py_div_descr)
         jump(i4)
         """
-        expected = """
+        expected1 = """
         [i0, i1]
-        i2 = int_and(i0, 31)
-        i3 = int_lshift(1, i2)
-        i4 = int_rshift(i1, i2)
+        i6 = int_ge(i0, 0)
+        guard_true(i6) []
+        i7 = int_lt(i0, 63)
+        guard_true(i7) []
+        i3 = int_lshift(1, i0)
+        i4 = int_rshift(i1, i0)
         jump(i4)
         """
-        self.optimize_loop(ops, expected)
+        ops2 = """
+        [i0, i1]
+        i2 = int_and(i0, 63)
+        i3 = int_lshift(1, i2)
+        i4 = call_i(321, i1, i3, descr=int_py_div_descr)
+        jump(i4)
+        """
+        self.optimize_loop(ops1, expected1)
+        self.optimize_loop(ops2, ops2)
 
     def test_knownbits_equality(self):
         ops = """
@@ -2817,6 +2831,8 @@ class TestOptimizeIntBounds(BaseTestBasic):
             """ % divisor
             expected = """
             [i1]
+            i3 = int_ge(i1, 0)
+            guard_true(i3) []
             i4 = uint_mul_high(i1, %d)
             i2 = uint_rshift(i4, %d)
             jump(i2)
@@ -2931,7 +2947,16 @@ class TestOptimizeIntBounds(BaseTestBasic):
         jump(i5)
         """
         expected = """
-        [i4, i5]
+        [i4]
+        i1 = int_ge(i4, -50)
+        guard_true(i1) []
+        i2 = int_le(i4, -40)
+        guard_true(i2) []
+        # here, -50 <= i4 <= -40
+        i3 = int_xor(i4, -1),
+        i5 = uint_mul_high(i3, -8608480567731124087),
+        i6 = uint_rshift(i5, 4),
+        i7 = int_xor(i6, -1),
         jump(-2)
         """
         self.optimize_loop(ops, expected)
@@ -3153,6 +3178,26 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_div_bug(self):
+        ops = """
+[i0, i1, i2, i3]
+i53 = int_and(i2, 63)
+i54 = int_lshift(1, i53)
+i83 = int_ne(i3, i1)
+i123 = int_add(42, i83)
+i130 = call_pure_i(12, -87905, i54, descr=int_py_div_descr) []
+i181 = int_sub(i123, i130)
+i316 = int_and(i181, -17)
+guard_value(i316, 42) []
+finish()
+        """
+        # run without timeout
+        oldtimeout = pytest.config.option.z3timeout
+        pytest.config.option.z3timeout = None
+        try:
+            self.optimize_loop(ops, ops.replace("call_pure_i", "call_i"))
+        finally:
+            pytest.config.option.z3timeout = oldtimeout
 
 class TestComplexIntOpts(BaseTestBasic):
 
