@@ -1,3 +1,4 @@
+#!/usr/bin/env pypy
 """ The purpose of this test file is to check that the optimizeopt *test* cases
 are correct. It uses the z3 SMT solver to check the before/after optimization
 traces for equivalence. Only supports very few operations for now, but would
@@ -377,7 +378,8 @@ class BaseCheckZ3(BaseTest):
         info, ops = compile_data.optimize_trace(self.metainterp_sd, jitdriver_sd, {})
         beforeinputargs, beforeops = trace.unpack()
         # check that the generated trace is correct
-        check_z3(beforeinputargs, beforeops, info.inputargs, ops)
+        correct, timeout = check_z3(beforeinputargs, beforeops, info.inputargs, ops)
+        print 'correct conditions:', correct, 'timed out conditions:', timeout
 
 
 class TestBuggyTestsFail(BaseCheckZ3):
@@ -587,4 +589,33 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
             print "got exception", e
             print "seed was", seed
             raise
+
+if __name__ == '__main__':
+    # this code is there so we can use the file to automatically reduce crashes
+    # with shrinkray.
+    # 1) install shrinkray
+    # 2) put the buggy (big) trace into crash.txt
+    # 3) run shrinkray like this:
+    #    shrinkray test/test_z3checktests.py crash.txt --timeout=100
+    # this takes a while (can be hours) but it will happily turn the huge trace
+    # into a tiny one
+
+    with open(sys.argv[1], "r") as f:
+        ops = f.read()
+    import pytest, os
+    class config:
+        class option:
+            z3timeout = 10000
+    pytest.config = config
+    b = TestBuggyTestsFail()
+    try:
+        b.cls_attributes()
+        b.optimize_loop(ops, ops)
+    except CheckError as e:
+        print e
+        os._exit(0)
+    except Exception:
+        os._exit(-1)
+    os._exit(-1)
+
 
