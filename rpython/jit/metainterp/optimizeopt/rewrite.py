@@ -111,6 +111,11 @@ class OptRewrite(Optimization):
 
         return self.emit(op)
 
+    def postprocess_INT_AND(self, op):
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        self.optimizer.pure_from_args(rop.INT_AND, [arg1, arg0], op)
+
     def optimize_INT_OR(self, op):
         v1 = get_box_replacement(op.getarg(0))
         v2 = get_box_replacement(op.getarg(1))
@@ -129,6 +134,11 @@ class OptRewrite(Optimization):
             self.make_equal_to(op, v1)
         else:
             return self.emit(op)
+
+    def postprocess_INT_OR(self, op):
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        self.optimizer.pure_from_args(rop.INT_OR, [arg1, arg0], op)
 
     def optimize_INT_SUB(self, op):
         arg1 = get_box_replacement(op.getarg(0))
@@ -231,6 +241,11 @@ class OptRewrite(Optimization):
                         break
             return self.emit(op)
 
+    def postprocess_INT_MUL(self, op):
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        self.optimizer.pure_from_args(rop.INT_MUL, [arg1, arg0], op)
+
     def _optimize_CALL_INT_UDIV(self, op):
         b2 = self.getintbound(op.getarg(2))
         if b2.is_constant() and b2.get_constant_int() == 1:
@@ -287,6 +302,11 @@ class OptRewrite(Optimization):
             self.make_equal_to(op, v1)
         else:
             return self.emit(op)
+
+    def postprocess_INT_XOR(self, op):
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        self.optimizer.pure_from_args(rop.INT_XOR, [arg1, arg0], op)
 
     def optimize_INT_INVERT(self, op):
         v = get_box_replacement(op.getarg(0))

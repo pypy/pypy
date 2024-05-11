@@ -3199,6 +3199,36 @@ finish()
         finally:
             pytest.config.option.z3timeout = oldtimeout
 
+    def test_int_mul_commutative(self):
+        ops = """
+        [i0, i1]
+        i2 = int_mul(i0, i1)
+        i3 = int_mul(i1, i0)
+        jump(i2, i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_mul(i0, i1)
+        jump(i2, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_bitwise_commutative(self):
+        for op in "int_and int_or int_xor".split():
+            ops = """
+            [i0, i1]
+            i2 = intop(i0, i1)
+            i3 = intop(i1, i0)
+            jump(i2, i3)
+            """
+            expected = """
+            [i0, i1]
+            i2 = intop(i0, i1)
+            jump(i2, i2)
+            """
+            self.optimize_loop(ops.replace("intop", op), expected.replace("intop", op))
+
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_intmod_bounds(self):
