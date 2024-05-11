@@ -1302,16 +1302,17 @@ class IntBound(AbstractInfo):
     def lshift_bound_backwards(self, other):
         if not other.is_constant():
             return IntBound.unbounded()
-        c_other = other.get_constant_int()
+        c_other = r_uint(other.get_constant_int())
         tvalue, tmask = TNUM_UNKNOWN
-        # TODO: we should raise InvalidLoop if the lowest c_other bits aren't
-        # known 0
         if 0 <= c_other < LONG_BIT:
-            tvalue = self.tvalue >> r_uint(c_other)
-            tmask = self.tmask >> r_uint(c_other)
+            tvalue = self.tvalue >> c_other
+            tmask = self.tmask >> c_other
             # shift ? in from the left,
-            s_tmask = ~(r_uint(-1) >> r_uint(c_other))
+            s_tmask = ~(r_uint(-1) >> c_other)
             tmask |= s_tmask
+            inconsistent = self.tvalue & ((1 << c_other) - 1)
+            if inconsistent:
+                raise InvalidLoop("lshift_bound_backwards inconsistent known bits")
         return IntBound.from_knownbits(tvalue, tmask)
 
     def shrink(self):

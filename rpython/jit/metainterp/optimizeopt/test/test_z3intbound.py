@@ -1082,12 +1082,16 @@ def test_prove_lshift_bound_backwards_logic():
     tvalue = z3.LShR(bresult.tvalue, c_other)
     tmask = z3.LShR(bresult.tmask, c_other)
     s_tmask = ~z3.LShR(-1, c_other)
+    valid = (bresult.tvalue & ((1 << c_other) - 1)) == 0
     tmask |= s_tmask
     b1.prove_implies(
         bresult,
         0 <= c_other,
         c_other <= LONG_BIT,
-        z3_tnum_condition(b1.concrete_variable, tvalue, tmask),
+        z3.And(
+            valid,
+            z3_tnum_condition(b1.concrete_variable, tvalue, tmask)
+        ),
     )
 
 def test_prove_rshift_bound_backwards_logic():

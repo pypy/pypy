@@ -1562,6 +1562,13 @@ def test_knownbits_lshift_backwards_example():
     assert not res3.is_constant()
     assert res3.knownbits_string().startswith("???1")
 
+def test_knownbits_lshift_backwards_example_inconsistent():
+    o = IntBound.from_constant(3)
+    r1 = knownbits(0b101001,
+                   0b010000) # 1?1000
+    with pytest.raises(InvalidLoop):
+        r1.lshift_bound_backwards(o)
+
 @given(knownbits_and_bound_with_contained_number, shift_amount)
 def test_knownbits_lshift_backwards_random(t1, t2):
     b1, n1 = t1
