@@ -1280,11 +1280,11 @@ class IntBound(AbstractInfo):
         inconsistent = self.tvalue & ~result.tmask & ~result.tvalue
         return tvalue, tmask, inconsistent == 0
 
-    def urshift_bound_backwards(self, other, result):
+    def rshift_bound_backwards(self, other):
         """
         Performs a `urshift`/`rshift` backwards on
-        `result`. Basically left-shifts
-        `result` by `other` binary digits,
+        `self`. Basically left-shifts
+        `self` by `other` binary digits,
         filling the lower part with ?, and
         returns the result.
         """
@@ -1293,18 +1293,12 @@ class IntBound(AbstractInfo):
         c_other = other.get_constant_int()
         tvalue, tmask = TNUM_UNKNOWN
         if 0 <= c_other < LONG_BIT:
-            tvalue = result.tvalue << r_uint(c_other)
-            tmask = result.tmask << r_uint(c_other)
+            tvalue = self.tvalue << r_uint(c_other)
+            tmask = self.tmask << r_uint(c_other)
             # shift ? in from the right,
-            # but we know some bits from `self`
-            s_tmask = (r_uint(1) << r_uint(c_other)) - 1
-            s_tvalue = s_tmask & self.tvalue
-            s_tmask &= self.tmask
-            tvalue |= s_tvalue
-            tmask |= s_tmask
-        # ignore bounds # TODO: bounds
+            tmask |= (r_uint(1) << r_uint(c_other)) - 1
         return IntBound.from_knownbits(tvalue, tmask)
-    rshift_bound_backwards = urshift_bound_backwards
+    urshift_bound_backwards = rshift_bound_backwards
 
     def lshift_bound_backwards(self, other):
         if not other.is_constant():

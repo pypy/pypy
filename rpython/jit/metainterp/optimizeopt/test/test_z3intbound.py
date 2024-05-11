@@ -538,8 +538,11 @@ class Z3IntBound(IntBound):
             print "COUNTEREXAMPLE", example_self
             assert 0
 
-def make_z3_intbounds_instance(name):
-    variable = BitVec(name + "_concrete")
+def make_z3_intbounds_instance(name, concrete_variable=None):
+    if concrete_variable is None:
+        variable = BitVec(name + "_concrete")
+    else:
+        variable = concrete_variable
     tvalue = BitVec(name + "_tvalue")
     tmask = BitVec(name + "_tmask")
     upper = BitVec(name + "_upper")
@@ -1075,8 +1078,7 @@ def test_prove_lshift_bound_backwards_logic():
     b1 = make_z3_intbounds_instance('self')
     c_other = BitVec('const')
     res = b1.concrete_variable << c_other
-    bresult = make_z3_intbounds_instance('result')
-    bresult.concrete_variable = res
+    bresult = make_z3_intbounds_instance('result', res)
     tvalue = z3.LShR(bresult.tvalue, c_other)
     tmask = z3.LShR(bresult.tmask, c_other)
     s_tmask = ~z3.LShR(-1, c_other)
@@ -1086,6 +1088,21 @@ def test_prove_lshift_bound_backwards_logic():
         0 <= c_other,
         c_other <= LONG_BIT,
         z3_tnum_condition(b1.concrete_variable, tvalue, tmask),
+    )
+
+def test_prove_rshift_bound_backwards_logic():
+    b1 = make_z3_intbounds_instance('self')
+    c_other = BitVec('const')
+    res = b1.concrete_variable >> c_other
+    bresult = make_z3_intbounds_instance('result', res)
+    tvalue = bresult.tvalue << c_other
+    tmask = bresult.tmask << c_other
+    tmask |= (1 << c_other) - 1
+    b1.prove_implies(
+        bresult,
+        0 <= c_other,
+        c_other <= LONG_BIT,
+        z3_tnum_condition(b1.concrete_variable, tvalue, tmask)
     )
 
 def dont_test_prove_mod_bound_idea():

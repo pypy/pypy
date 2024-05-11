@@ -741,7 +741,7 @@ class OptIntBounds(Optimization):
         if not b2.is_constant():
             return
         r = self.getintbound(op)
-        b = b1.urshift_bound_backwards(b2, r)
+        b = r.urshift_bound_backwards(b2)
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
 
@@ -751,7 +751,7 @@ class OptIntBounds(Optimization):
         if not b2.is_constant():
             return
         r = self.getintbound(op)
-        b = b1.rshift_bound_backwards(b2, r)
+        b = r.rshift_bound_backwards(b2)
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
 

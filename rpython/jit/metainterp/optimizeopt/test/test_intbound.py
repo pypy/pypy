@@ -1529,23 +1529,18 @@ def test_knownbits_or_backwards_example():
     with pytest.raises(InvalidLoop):
         s = o.or_bound_backwards(r)
 
-def test_knownbits_urshift_backwards_example():
+def test_knownbits_rshift_backwards_example():
     o = IntBound.from_constant(3)
     x1 = IntBound.unbounded()
     r1 = knownbits(0b101010,
                    0b010100) # 1?1?10
-    res1 = x1.urshift_bound_backwards(o, r1)
-    assert not res1.is_constant()
+    res1 = r1.rshift_bound_backwards(o)
     assert check_knownbits_string(res1, "1?1?10???", '0')
-    x2 = IntBound.from_constant(0b101)
     r2 = knownbits(0b101010,
                    0b010100) # 1?1?10
-    res2 = x2.urshift_bound_backwards(o, r2)
-    assert not res2.is_constant()
-    assert res2.knownbits_string().endswith("101")
     x3 = IntBound.unbounded()
-    r3 = knownbits(0b1, 0) # 1
-    res3 = x3.urshift_bound_backwards(o, r3)
+    r3 = IntBound.from_constant(1)
+    res3 = r3.rshift_bound_backwards(o)
     assert not res3.is_constant()
     assert check_knownbits_string(res3, "1???", '0')
 
@@ -1579,26 +1574,6 @@ def test_knownbits_lshift_backwards_random(t1, t2):
     orig = result.lshift_bound_backwards(b2)
     assert orig.contains(n1)
     b1.intersect(orig) # this must not fail
-
-def test_knownbits_rshift_backwards_example():
-    o = IntBound.from_constant(3)
-    x1 = IntBound.unbounded()
-    r1 = knownbits(0b101010,
-                   0b010100) # 1?1?10
-    res1 = x1.rshift_bound_backwards(o, r1)
-    assert not res1.is_constant()
-    assert check_knownbits_string(res1, "1?1?10???", '0')
-    x2 = IntBound.from_constant(0b101)
-    r2 = knownbits(0b101010,
-                   0b010100) # 1?1?10
-    res2 = x2.rshift_bound_backwards(o, r2)
-    assert not res2.is_constant()
-    assert res2.knownbits_string().endswith("101")
-    x3 = IntBound.unbounded()
-    r3 = knownbits(0b1, 0) # 1
-    res3 = x3.rshift_bound_backwards(o, r3)
-    assert not res3.is_constant()
-    assert check_knownbits_string(res3, "1???", '0')
 
 
 @given(constant, constant)
@@ -1718,7 +1693,7 @@ def test_knownbits_urshift_backwards_random(t1, t2):
     b1, n1 = t1     # self
     b2, n2 = t2     # other
     rb = b1.urshift_bound(b2)
-    newb1 = b1.urshift_bound_backwards(b2, rb)
+    newb1 = rb.urshift_bound_backwards(b2)
     assert newb1.contains(n1)
     # this should not fail
     b1.intersect(newb1)
@@ -1727,8 +1702,8 @@ def test_knownbits_urshift_backwards_random(t1, t2):
 def test_knownbits_rshift_backwards_random(t1, t2):
     b1, n1 = t1     # self
     b2, n2 = t2     # other
-    rb = b1.urshift_bound(b2)
-    newb1 = b1.rshift_bound_backwards(b2, rb)
+    rb = b1.rshift_bound(b2)
+    newb1 = rb.rshift_bound_backwards(b2)
     assert newb1.contains(n1)
     # this should not fail
     b1.intersect(newb1)
