@@ -1122,3 +1122,11 @@ def dont_test_prove_mod_bound_idea():
         z3_min(b2.lower, 0) <= result,
     )
 
+
+# ____________________________________________________________
+# proofs for rewrite rules
+
+def test_int_xor_neg_one_is_invert():
+    x = BitVec('x')
+    prove(x ^ -1 == ~x)
+

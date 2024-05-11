@@ -3228,6 +3228,20 @@ finish()
             """
             self.optimize_loop(ops.replace("intop", op), expected.replace("intop", op))
 
+    def test_int_xor_neg_one_is_invert(self):
+        ops = """
+        [i0]
+        i2 = int_xor(i0, -1)
+        i3 = int_xor(-1, i2)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_invert(i0)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 
