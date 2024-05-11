@@ -770,6 +770,28 @@ class OptIntBounds(Optimization):
         if b0.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
 
+    def propagate_bounds_INT_OR(self, op):
+        r = self.getintbound(op)
+        b0 = self.getintbound(op.getarg(0))
+        b1 = self.getintbound(op.getarg(1))
+        b = b0.or_bound_backwards(r)
+        if b1.intersect(b):
+            self.propagate_bounds_backward(op.getarg(1))
+        b = b1.or_bound_backwards(r)
+        if b0.intersect(b):
+            self.propagate_bounds_backward(op.getarg(0))
+
+    def propagate_bounds_INT_XOR(self, op):
+        r = self.getintbound(op)
+        b0 = self.getintbound(op.getarg(0))
+        b1 = self.getintbound(op.getarg(1))
+        b = b0.xor_bound(r) # xor is its own inverse
+        if b1.intersect(b):
+            self.propagate_bounds_backward(op.getarg(1))
+        b = b1.xor_bound(r)
+        if b0.intersect(b):
+            self.propagate_bounds_backward(op.getarg(0))
+
 dispatch_opt = make_dispatcher_method(OptIntBounds, 'optimize_',
                                       default=OptIntBounds.emit)
 dispatch_bounds_ops = make_dispatcher_method(OptIntBounds, 'propagate_bounds_')

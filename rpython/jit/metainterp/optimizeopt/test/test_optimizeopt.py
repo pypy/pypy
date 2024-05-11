@@ -5192,47 +5192,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_bound_xor(self):
-        ops = """
-        [i0, i1, i2]
-        it1 = int_ge(i1, 0)
-        guard_true(it1) []
-        it2 = int_gt(i2, 0)
-        guard_true(it2) []
-        ix1 = int_xor(i0, i0)
-        ix1t = int_ge(ix1, 0)
-        guard_true(ix1t) []
-        ix2 = int_xor(i0, i1)
-        ix2t = int_ge(ix2, 0)
-        guard_true(ix2t) []
-        ix3 = int_xor(i1, i0)
-        ix3t = int_ge(ix3, 0)
-        guard_true(ix3t) []
-        ix4 = int_xor(i1, i2)
-        ix4t = int_ge(ix4, 0)
-        guard_true(ix4t) []
-        jump(i0, i1, i2)
-        """
-        preamble = """
-        [i0, i1, i2]
-        it1 = int_ge(i1, 0)
-        guard_true(it1) []
-        it2 = int_gt(i2, 0)
-        guard_true(it2) []
-        ix2 = int_xor(i0, i1)
-        ix2t = int_ge(ix2, 0)
-        guard_true(ix2t) []
-        ix3 = int_xor(i1, i0)
-        ix3t = int_ge(ix3, 0)
-        guard_true(ix3t) []
-        ix4 = int_xor(i1, i2)
-        jump(i0, i1, i2)
-        """
-        expected = """
-        [i0, i1, i2]
-        jump(i0, i1, i2)
-        """
-        self.optimize_loop(ops, expected, preamble)
 
     def test_bound_floordiv(self):
         ops = """

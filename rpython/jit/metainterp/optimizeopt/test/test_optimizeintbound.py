@@ -2522,6 +2522,62 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_bound_xor(self):
+        # this also checks backwads propagation or xor
+        ops = """
+        [i0, i1, i2]
+        it1 = int_ge(i1, 0)
+        guard_true(it1) []
+        it2 = int_gt(i2, 0)
+        guard_true(it2) []
+        ix1 = int_xor(i0, i0)
+        ix1t = int_ge(ix1, 0)
+        guard_true(ix1t) []
+        ix2 = int_xor(i0, i1)
+        ix2t = int_ge(ix2, 0)
+        guard_true(ix2t) []
+        ix3 = int_xor(i1, i0)
+        ix3t = int_ge(ix3, 0)
+        guard_true(ix3t) []
+        ix4 = int_xor(i1, i2)
+        ix4t = int_ge(ix4, 0)
+        guard_true(ix4t) []
+        jump(i0, i1, i2)
+        """
+        expected = """
+        [i0, i1, i2]
+        it1 = int_ge(i1, 0)
+        guard_true(it1) []
+        it2 = int_gt(i2, 0)
+        guard_true(it2) []
+        ix2 = int_xor(i0, i1)
+        ix2t = int_ge(ix2, 0)
+        guard_true(ix2t) []
+        ix3 = int_xor(i1, i0)
+        ix4 = int_xor(i1, i2)
+        jump(i0, i1, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_knownbits_or_backwards(self):
+        ops = """
+        [i1]
+        i3 = int_or(i1, 7)
+        guard_value(i3, 15) []
+        i4 = int_and(i1, 8)
+        i5 = int_is_true(i4)
+        guard_true(i5) []
+        jump(i1)
+        """
+        expected = """
+        [i1]
+        i3 = int_or(i1, 7)
+        guard_value(i3, 15) []
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_intmod_bounds(self):
