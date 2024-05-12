@@ -47,7 +47,13 @@ class IntBound(AbstractInfo):
         self.lower = lower
         self.upper = upper
 
-        # known-bit analysis using tristate numbers
+        # known-bit analysis using tristate/knownbits numbers:
+        # every bit can be either 0, 1, or unknown (?).
+        # the encoding of these three states is:
+        # value       0 1 ?
+        # tvalue bit  0 1 0
+        # tmask bit   0 0 1
+        # the combination tvalue=tmask=1 is forbidden
         assert is_valid_tnum(tvalue, tmask)
         self.tvalue = tvalue
         self.tmask = tmask         # bit=1 means unknown
@@ -112,10 +118,11 @@ class IntBound(AbstractInfo):
                         tmask=tmask)
 
     # ____________________________________________________________
-    # a bunch of slightly artificial methods that are needed to make the proofs
-    # possible
+    # a bunch of slightly artificial methods that are needed to make some of
+    # the Z3 proofs in test_z3intbound possible, they are overridden there
 
     @staticmethod
+    @always_inline
     def new(lower, upper, tvalue, tmask):
         """ helper factory to construct a new IntBound. overridden in
         test_z3intbound """
