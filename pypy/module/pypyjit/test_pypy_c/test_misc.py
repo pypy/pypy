@@ -495,3 +495,30 @@ class TestMisc(BaseTestPyPyC):
         ops = loop.ops_by_id("flags")
         assert ops == [] # used to be a getfield_gc_r on an ObjectMutableCell
 
+    def test_tuple_slice(self):
+        def main(n):
+            t = (1, 2, 3, 4, 5, n)
+            res = 0
+            for i in range(n):
+                res += len(t[0:5:2]) # ID: getslice
+        log = self.run(main, [3000])
+        loop, = log.loops_by_id("getslice")
+        ops = loop.ops_by_id("getslice")
+        opnames = log.opnames(ops)
+        assert "new_with_vtables" not in opnames
+        assert "call_may_force_r" not in opnames
+        assert "call_r" in opnames
+
+    def test_tuple_slice_virtual(self):
+        def main(n):
+            t = (1, 2, 3, 4, 5, n)
+            res = 0
+            for i in range(n):
+                t = (1, 2, 3, 4, 5, n)
+                res += len(t[0:5:2]) # ID: getslice
+        log = self.run(main, [3000])
+        loop, = log.loops_by_id("getslice")
+        ops = loop.ops_by_id("getslice")
+        opnames = log.opnames(ops)
+        assert "new_with_vtables" not in opnames
+        assert "call_may_force_r" not in opnames
