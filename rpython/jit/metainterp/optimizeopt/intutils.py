@@ -96,7 +96,7 @@ class IntBound(AbstractInfo):
         Constructs an abstract integer that is completely unknown (e.g. it
         contains every integer).
         """
-        return IntBound(shrink=False)
+        return IntBound(do_shrinking=False)
 
     @staticmethod
     def nonnegative():
@@ -148,6 +148,18 @@ class IntBound(AbstractInfo):
         # a few formatting heuristics
         if -1000 <= num <= 1000:
             return str(num)
+        if num == MININT:
+            return "MININT"
+        if num == MAXINT:
+            return "MAXINT"
+        if num >= 0:
+            diff = MAXINT - num
+            if diff < 1000:
+                return "MAXINT - %s" % diff
+        else:
+            diff = -(MININT - num) # can't overflow because num < 0
+            if diff < 1000:
+                return "MININT + %s" % diff
         uintnum = r_uint(num)
         if uintnum & (uintnum - 1) == 0:
             # power of two, use hex
@@ -167,9 +179,9 @@ class IntBound(AbstractInfo):
     def _are_knownbits_implied(self):
         """ return True if the knownbits of self are a direct consequence of
         the range of self (and thus carry no extra information) """
-        b = IntBound(self.lower, self.upper)
         if self.tmask == TNUM_ONLY_MASK_UNKNOWN:
             return True
+        b = IntBound(self.lower, self.upper)
         return self.tmask == b.tmask and self.tvalue == b.tvalue
 
     def _are_bounds_implied(self):

@@ -1161,7 +1161,7 @@ def test_intbound_repr():
     b = IntBound().urshift_bound(IntBound.from_constant(10))
     assert repr(b) == 'IntBound(0, 0x3fffffffffffff)'
     b = IntBound.from_constant(MININT)
-    assert repr(b) == 'IntBound.from_constant(-0x8000000000000000)'
+    assert repr(b) == 'IntBound.from_constant(MININT)'
     b = IntBound.from_constant(-56)
     assert repr(b) == 'IntBound.from_constant(-56)'
     b = IntBound.from_knownbits(r_uint(0b0110), r_uint(0b1011), do_unmask=True)
@@ -1175,7 +1175,8 @@ def test_intbound_repr():
 def test_hypothesis_repr(t):
     b, _ = t
     s = repr(b)
-    b2 = eval(s, {"IntBound": IntBound, "r_uint": r_uint})
+    b2 = eval(s, {"IntBound": IntBound, "r_uint": r_uint,
+                  "MININT": MININT, "MAXINT": MAXINT})
     assert bound_eq(b, b2)
 
 @given(knownbits_and_bound_with_contained_number)
@@ -1197,11 +1198,15 @@ def test_intbound_str():
     b = IntBound(lower=0, upper=1230505081)
     assert str(b) == '(0 <= 0b0...0??????????????????????????????? <= 0x49580479)'
     b = IntBound.from_constant(MININT)
-    assert str(b) == '(-0x8000000000000000)'
+    assert str(b) == '(MININT)'
     b = IntBound.from_constant(-56)
     assert str(b) == '(-56)'
     b = IntBound(0, 1)
     assert str(b) == '(bool)'
+    b = IntBound(upper=MAXINT-16)
+    assert str(b) == "(? <= MAXINT - 16)"
+    b = IntBound(lower=MININT+16)
+    assert str(b) == "(MININT + 16 <= ?)"
 
 @given(knownbits_and_bound_with_contained_number)
 @example((IntBound(lower=-524289, upper=4398046511103, tvalue=r_uint(0), tmask=~(r_uint(MININT)>>7), do_shrinking=False), 0))
