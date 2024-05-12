@@ -751,6 +751,32 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_array_non_optimized_length(self):
+        ops = """
+        [i1]
+        p1 = new_array(i1, descr=arraydescr)
+        i2 = arraylen_gc(p1, descr=arraydescr)
+        jump(i2)
+        """
+        expected = """
+        [i1]
+        p1 = new_array(i1, descr=arraydescr)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+        ops = """
+        [i1]
+        p1 = new_array_clear(i1, descr=arraydescr)
+        i2 = arraylen_gc(p1, descr=arraydescr)
+        jump(i2)
+        """
+        expected = """
+        [i1]
+        p1 = new_array_clear(i1, descr=arraydescr)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_nonvirtual_array_write_null_fields_on_force(self):
         ops = """
         [i1]
