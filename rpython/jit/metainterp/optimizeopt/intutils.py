@@ -96,7 +96,7 @@ class IntBound(AbstractInfo):
         Constructs an abstract integer that is completely unknown (e.g. it
         contains every integer).
         """
-        return IntBound()
+        return IntBound(shrink=False)
 
     @staticmethod
     def nonnegative():

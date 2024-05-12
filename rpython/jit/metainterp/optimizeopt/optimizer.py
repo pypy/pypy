@@ -507,6 +507,8 @@ class Optimizer(Optimization):
 
     def _propagate_all_forward(self, trace, call_pure_results, flush):
         self.trace = trace
+        if self.log_operations_intbounds:
+            self.log_operations_intbounds.log_inputargs(trace.inputargs)
         deadranges = trace.get_dead_ranges()
         self.call_pure_results = call_pure_results
         last_op = None
