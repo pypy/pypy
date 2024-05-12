@@ -842,3 +842,7 @@ class IntegerAnalysisLogger(object):
             debug_print("# %s -> %s   %s" % (
                 self.log_operations.repr_of_arg(op), b.__str__(), r))
             self.last_printed_repr_memo[op] = r
+
+    def log_inputargs(self, inputargs):
+        args = ", ".join([self.log_operations.repr_of_arg(arg) for arg in inputargs])
+        debug_print('[' + args + ']')
