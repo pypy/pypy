@@ -13,6 +13,7 @@ from .info import getrawptrinfo, getptrinfo
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.debug import have_debug_prints_for
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.jit.metainterp.optimize import SpeculativeError
@@ -246,6 +247,13 @@ class Optimizer(Optimization):
 
         self.set_optimizations(optimizations)
         self.setup()
+        if have_debug_prints_for("jit-log-intbounds"):
+            from rpython.jit.metainterp.optimizeopt.intbounds import IntegerAnalysisLogger
+
+            self.log_operations_intbounds = IntegerAnalysisLogger(self)
+        else:
+            self.log_operations_intbounds = None
+
 
     def set_optimizations(self, optimizations):
         if optimizations:
@@ -490,6 +498,14 @@ class Optimizer(Optimization):
             return CONST_0
 
     def propagate_all_forward(self, trace, call_pure_results=None, flush=True):
+        from rpython.rlib.debug import debug_start, debug_stop
+        debug_start("jit-log-intbounds")
+        try:
+            return self._propagate_all_forward(trace, call_pure_results, flush)
+        finally:
+            debug_stop("jit-log-intbounds")
+
+    def _propagate_all_forward(self, trace, call_pure_results, flush):
         self.trace = trace
         deadranges = trace.get_dead_ranges()
         self.call_pure_results = call_pure_results
@@ -505,6 +521,12 @@ class Optimizer(Optimization):
             trace.kill_cache_at(deadranges[i + trace.start_index])
             if op.type != 'v':
                 i += 1
+            if self.log_operations_intbounds and self._really_emitted_operation is op:
+                # logging the result cannot be done in _emit_operation, because
+                # at that point the postprocess functions have not been called,
+                # so the bounds aren't known yet
+                self.log_operations_intbounds.log_result(op)
+
         # accumulate counters
         if flush:
             self.flush()
@@ -601,6 +623,9 @@ class Optimizer(Optimization):
         self._really_emitted_operation = op
         self._newoperations.append(op)
         self._emittedoperations[op] = None
+        if self.log_operations_intbounds:
+            self.log_operations_intbounds.log_op(op)
+
 
     def emit_guard_operation(self, op, pendingfields):
         guard_op = op # self.replace_op_with(op, op.getopnum())

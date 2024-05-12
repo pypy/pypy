@@ -1200,6 +1200,8 @@ def test_intbound_str():
     assert str(b) == '(-0x8000000000000000)'
     b = IntBound.from_constant(-56)
     assert str(b) == '(-56)'
+    b = IntBound(0, 1)
+    assert str(b) == '(bool)'
 
 @given(knownbits_and_bound_with_contained_number)
 @example((IntBound(lower=-524289, upper=4398046511103, tvalue=r_uint(0), tmask=~(r_uint(MININT)>>7), do_shrinking=False), 0))

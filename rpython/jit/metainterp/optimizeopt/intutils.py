@@ -179,7 +179,7 @@ class IntBound(AbstractInfo):
         return self.lower == b.lower and self.upper == b.upper
 
     def __repr__(self):
-        if self.lower == MININT and self.upper == MAXINT and self.tmask == TNUM_ONLY_MASK_UNKNOWN:
+        if self.is_unbounded():
             return "IntBound.unbounded()"
         if self.lower == 0 and self.upper == MAXINT and self._are_bounds_implied():
             return "IntBound.nonnegative()"
@@ -199,6 +199,8 @@ class IntBound(AbstractInfo):
     def __str__(self):
         if self.is_constant():
             return '(%s)' % self._to_dec_or_hex_str_heuristics(self.get_constant_int())
+        if self.lower == 0 and self.upper == 1:
+            return '(bool)'
         if self.lower == MININT:
             lower = ''
         else:
@@ -208,29 +210,34 @@ class IntBound(AbstractInfo):
         else:
             upper = ' <= %s' % self._to_dec_or_hex_str_heuristics(self.upper)
         s = self.knownbits_string()
-        chars = set(s)
-        if chars == {'?'}:
+        if "0" not in s and "1" not in s:
             s = '?'
         else:
             # replace the longest sequence of same characters by ...
             prev_char = s[0]
             count = 0
             max_length = 0
-            max_char = None
-            for char in s:
+            max_char = '\x00'
+            start_pos = 0
+            max_pos = -1
+            for pos, char in enumerate(s):
                 if char == prev_char:
                     count += 1
                 else:
                     if count > max_length:
                         max_length = count
                         max_char = prev_char
+                        max_pos = start_pos
                     prev_char = char
                     count = 1
+                    start_pos = pos
             if count > max_length:
                 max_length = count
                 max_char = prev_char
+                max_pos = start_pos
             if max_length > 5:
-                s = s.replace(max_char * max_length, max_char + '...' + max_char, 1)
+                assert max_pos >= 0
+                s = s[:max_pos] + max_char + "..." + max_char + s[max_pos + max_length:]
             s = '0b' + s
         return '(%s%s%s)' % (lower, s, upper)
 
@@ -1156,6 +1163,11 @@ class IntBound(AbstractInfo):
         """
         return (self.known_nonnegative() and self.known_le_const(1))
 
+    def is_unbounded(self):
+        return (self.lower == MININT and self.upper == MAXINT and
+                self.tvalue == r_uint(0) and self.tmask == r_uint(-1))
+
+
     def make_bool(self):
         """
         Mutates this abstract integer so that
@@ -1566,3 +1578,4 @@ def _tnum_improve_knownbits_by_bounds_helper(self_tvalue, self_tmask, lower, upp
     tmask = self_tmask & ~hbm
     tvalue = (bounds_common & hbm) | (self_tvalue & ~hbm)
     return tvalue, tmask, bounds_common, hbm_bounds
+

@@ -11,6 +11,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.optimizeopt import vstring
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.debug import debug_print
 
 def get_integer_min(is_unsigned, byte_size):
     if is_unsigned:
@@ -797,3 +798,47 @@ dispatch_opt = make_dispatcher_method(OptIntBounds, 'optimize_',
 dispatch_bounds_ops = make_dispatcher_method(OptIntBounds, 'propagate_bounds_')
 OptIntBounds.propagate_postprocess = make_dispatcher_method(OptIntBounds, 'postprocess_')
 OptIntBounds.have_postprocess_op = have_dispatcher_method(OptIntBounds, 'postprocess_')
+
+
+class IntegerAnalysisLogger(object):
+    def __init__(self, optimizer):
+        from rpython.jit.metainterp.logger import LogOperations
+
+        self.optimizer = optimizer
+        self.log_operations = LogOperations(
+                    optimizer.metainterp_sd, False, None)
+        self.last_printed_repr_memo = {}
+
+    def log_op(self, op):
+        # print the intbound of all arguments (they might have changed since
+        # they were produced)
+        for i in range(op.numargs()):
+            arg = get_box_replacement(op.getarg(i))
+            if arg.type != 'i' or arg.is_constant():
+                continue
+            b = arg.get_forwarded()
+            if not isinstance(b, IntBound) or b.is_unbounded():
+                continue
+            argop = self.optimizer.as_operation(arg)
+            if argop is not None and rop.returns_bool_result(arg.opnum) and b.is_bool():
+                continue
+            r = b.__repr__()
+            if self.last_printed_repr_memo.get(arg, '') == r:
+                continue
+            self.last_printed_repr_memo[arg] = r
+            debug_print("# %s: %s   %s" % (
+                self.log_operations.repr_of_arg(arg), b.__str__(), r))
+        debug_print(self.log_operations.repr_of_resop(op))
+
+    def log_result(self, op):
+        if op.type == 'i':
+            b = op.get_forwarded()
+            if not isinstance(b, IntBound):
+                return
+            if rop.returns_bool_result(op.opnum):
+                return
+            # print the result bound too
+            r = b.__repr__()
+            debug_print("# %s -> %s   %s" % (
+                self.log_operations.repr_of_arg(op), b.__str__(), r))
+            self.last_printed_repr_memo[op] = r
