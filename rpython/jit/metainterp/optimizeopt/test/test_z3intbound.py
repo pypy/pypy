@@ -409,38 +409,6 @@ def test_popcount64():
     assert popcount64((1 << 60) + 5) == 3
     assert popcount64((1 << 63) + 0b11010110111) == 9
 
-def test_prove_shrink_knownbits_by_bounds():
-    self_variable, self_lower, self_upper, self_tvalue, self_tmask, self_formula = make_z3_bound_and_tnum('self')
-    new_tvalue, new_tmask, bounds_common, hbm_bounds = _tnum_improve_knownbits_by_bounds_helper(self_tvalue, self_tmask, self_lower, self_upper)
-    prove_implies(
-        # if tvalue and tmask are a valid encoding
-        self_tvalue & ~self_tmask == self_tvalue,
-        # and the ranges hold
-        self_variable <= self_upper,
-        self_lower <= self_variable,
-        # then the two sets defined by old and new knownbits are equivalent
-        z3_tnum_condition(self_variable, self_tvalue, self_tmask) ==
-            z3_tnum_condition(self_variable, new_tvalue, new_tmask),
-        use_timeout=False
-    )
-    prove_implies(
-        # if tvalue and tmask are a valid encoding
-        self_tvalue & ~self_tmask == self_tvalue,
-        # and the ranges hold
-        self_variable <= self_upper,
-        self_lower <= self_variable,
-        # then we cannot have *fewer* known bits afterwards,
-        popcount64(~new_tmask) >= popcount64(~self_tmask),
-        use_timeout=False,
-    )
-    prove_implies(
-        self_formula,
-        # this used to be an assert in the code. now we prove it (and remove it
-        # from the code). the assert checks agreement between bounds and
-        # knownbits
-        unmask_zero(bounds_common, self_tmask) == self_tvalue & hbm_bounds
-    )
-
 def z3_add_overflow(a, b):
     result = a + b
     result_wide = z3.SignExt(LONG_BIT, a) + z3.SignExt(LONG_BIT, b)
@@ -895,6 +863,28 @@ def test_prove_intersect():
         b2.z3_formula(b1.concrete_variable),
         valid,
         popcount64(~tmask) >= popcount64(~b1.tmask),
+    )
+
+# ____________________________________________________________
+# prove things about _shrink_knownbits_by_bounds
+
+def test_prove_shrink_knownbits_by_bounds():
+    self = make_z3_intbounds_instance('self')
+    new_tvalue, new_tmask, bounds_common, hbm_bounds = _tnum_improve_knownbits_by_bounds_helper(self.tvalue, self.tmask, self.lower, self.upper)
+    self.prove_implies(
+        # the two sets defined by old and new knownbits are equivalent
+        z3_tnum_condition(self.concrete_variable, self.tvalue, self.tmask) ==
+            z3_tnum_condition(self.concrete_variable, new_tvalue, new_tmask),
+    )
+    self.prove_implies(
+        # we cannot have *fewer* known bits afterwards,
+        popcount64(~new_tmask) >= popcount64(~self.tmask),
+    )
+    self.prove_implies(
+        # this used to be an assert in the code. now we prove it (and remove it
+        # from the code). the assert checks agreement between bounds and
+        # knownbits
+        unmask_zero(bounds_common, self.tmask) == self.tvalue & hbm_bounds
     )
 
 # ____________________________________________________________
