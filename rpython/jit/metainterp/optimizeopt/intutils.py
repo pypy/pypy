@@ -1025,22 +1025,12 @@ class IntBound(AbstractInfo):
 
     def or_bound(self, other):
         """
-        Performs bit-wise OR of this
-        abstract integer and the `other`,
-        returning its result.
-        (Does not mutate `self`.)
+        Performs bit-wise OR of this abstract integer and the `other`,
+        returning its result. (Does not mutate `self`.)
         """
 
-        lower = MININT
-        upper = MAXINT
-        if self.known_nonnegative() and \
-                other.known_nonnegative():
-            mostsignificant = r_uint(self.upper | other.upper)
-            lower = 0
-            upper = intmask(next_pow2_m1(mostsignificant))
-
         tvalue, tmask = self._tnum_or(other)
-        return IntBound(lower, upper, tvalue, tmask)
+        return self.from_knownbits(tvalue, tmask)
 
     @always_inline
     def _tnum_or(self, other):

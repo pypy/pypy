@@ -594,24 +594,28 @@ def test_prove_min_max_signed_by_knownbits():
 def test_prove_or():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
-    tvalue, tmask = b1._tnum_or(b2)
+    b3 = b1.or_bound(b2)
+    b3.concrete_variable = b1.concrete_variable | b2.concrete_variable
     b1.prove_implies(
         b2,
-        z3_tnum_condition(b1.concrete_variable | b2.concrete_variable, tvalue, tmask),
+        b3
     )
 
-def test_prove_or_bounds_logic():
+def test_prove_or_bounds_implied_by_knownbits():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
+    b3 = b1.or_bound(b2)
+    # similar to test_prove_xor_bounds_implied_by_knownbits, the following
+    # logic was used to give explicit bounds for or of two nonnegative numbers.
     mostsignificant = b1.upper | b2.upper
     upper = next_pow2_m1(mostsignificant)
     result = b1.concrete_variable | b2.concrete_variable
     b1.prove_implies(
-        b2,
+        b1.z3_formula(must_be_minimal=True),
+        b2.z3_formula(must_be_minimal=True),
         b1.lower >= 0,
         b2.lower >= 0,
-        result <= upper,
-        result >= 0,
+        z3.And(b3.upper <= upper, b3.lower >= 0),
     )
 
 def test_prove_xor():
