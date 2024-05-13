@@ -2537,7 +2537,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_bound_xor(self):
-        # this also checks backwads propagation or xor
+        # this also checks backwards propagation or xor
         ops = """
         [i0, i1, i2]
         it1 = int_ge(i1, 0)
@@ -2567,7 +2567,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         ix2 = int_xor(i0, i1)
         ix2t = int_ge(ix2, 0)
         guard_true(ix2t) []
-        ix3 = int_xor(i1, i0)
         ix4 = int_xor(i1, i2)
         jump(i0, i1, i2)
         """
@@ -2953,10 +2952,10 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i2 = int_le(i4, -40)
         guard_true(i2) []
         # here, -50 <= i4 <= -40
-        i3 = int_xor(i4, -1),
+        i3 = int_invert(i4),
         i5 = uint_mul_high(i3, -8608480567731124087),
         i6 = uint_rshift(i5, 4),
-        i7 = int_xor(i6, -1),
+        i7 = int_invert(i6),
         jump(-2)
         """
         self.optimize_loop(ops, expected)

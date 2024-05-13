@@ -2092,7 +2092,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         ops = """
         [p1]
         i1 = getfield_gc_i(p1, descr=valuedescr)
-        debug_merge_point(15, 0)
+        debug_merge_point(15, 0, 1)
         i2 = getfield_gc_i(p1, descr=valuedescr)
         escape_n(i1)
         escape_n(i2)
@@ -2101,7 +2101,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         expected = """
         [p1]
         i1 = getfield_gc_i(p1, descr=valuedescr)
-        debug_merge_point(15, 0)
+        debug_merge_point(15, 0, 1)
         escape_n(i1)
         escape_n(i1)
         jump(p1)
