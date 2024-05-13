@@ -2164,13 +2164,26 @@ class TestComplexIntOpts(BaseTestBasic):
         setarrayitem_gc(p0, 0, p1, descr=arraydescr)
         jump(i0, p0)
         """
-        # The dead arraylen_gc will be eliminated by the backend.
         expected = """
         [i0, p0]
         p1 = new_array(i0, descr=arraydescr)
-        i1 = arraylen_gc(p1, descr=arraydescr)
         setarrayitem_gc(p0, 0, p1, descr=arraydescr)
         jump(i0, p0)
+        """
+        self.optimize_loop(ops, expected)
+        ops = """
+        [p0, p1]
+        i1 = arraylen_gc(p1, descr=arraydescr)
+        i2 = int_gt(i1, -1)
+        guard_true(i2) []
+        setarrayitem_gc(p1, 0, p0, descr=arraydescr)
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        i1 = arraylen_gc(p1, descr=arraydescr)
+        setarrayitem_gc(p1, 0, p0, descr=arraydescr)
+        jump(p0, p1)
         """
         self.optimize_loop(ops, expected)
 
