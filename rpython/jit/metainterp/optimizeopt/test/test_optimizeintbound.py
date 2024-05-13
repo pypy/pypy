@@ -2410,8 +2410,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i77 = int_and(i75, -9223372036854775808)
         i78 = int_is_true(i77)
         guard_true(i78) []
-        i80 = uint_gt(i75, 0) # XXX this should go away too
-        guard_true(i80) []
         jump()
         """
         self.optimize_loop(ops, expected)
@@ -3240,6 +3238,31 @@ finish()
         jump(i0)
         """
         self.optimize_loop(ops, expected)
+
+    def test_uint_ge_implies_int_lt(self):
+        # this is a common pattern when reading at a fixed index 0 from a
+        # resizable list. the uint_ge is checking that 0 is a valid index
+        # (neither negative nor >= i0, the length)
+        ops = """
+        [i0]
+        i1 = int_lt(i0, 0)
+        guard_false(i1) []
+        i2 = uint_ge(0, i0)
+        guard_false(i2) []
+        i3 = int_ge(i0, 1)
+        guard_true(i3) []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        i1 = int_lt(i0, 0)
+        guard_false(i1) []
+        i2 = uint_ge(0, i0)
+        guard_false(i2) []
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
 
 
 class TestComplexIntOpts(BaseTestBasic):

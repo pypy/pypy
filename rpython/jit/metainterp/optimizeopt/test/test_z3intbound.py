@@ -1183,3 +1183,11 @@ def test_int_xor_neg_one_is_invert():
     x = BitVec('x')
     prove(x ^ -1 == ~x)
 
+def test_uint_lt_equivalent_int_lt_for_nonnegative():
+    x = BitVec('x')
+    y = BitVec('y')
+    prove_implies(
+        x >= 0,
+        y >= 0,
+        z3.ULT(x, y) == (x < y),
+    )
