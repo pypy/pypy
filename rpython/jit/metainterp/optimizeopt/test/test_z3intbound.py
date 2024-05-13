@@ -14,7 +14,6 @@ from rpython.jit.metainterp.optimizeopt.intutils import (
     IntBound,
     unmask_one,
     unmask_zero,
-    _tnum_improve_knownbits_by_bounds_helper,
     next_pow2_m1,
     lowest_set_bit_only,
     leading_zeros_mask,
@@ -258,22 +257,6 @@ def test_invert(b1):
     var2, formula2 = to_z3(b2, ~var1)
     prove_implies(formula1, formula2)
 
-@example(b1=IntBound.from_constant(-100), b2=IntBound.from_constant(-100))
-@given(bounds, bounds)
-def test_intersect(b1, b2):
-    var1, formula1 = to_z3(b1)
-    _, formula2 = to_z3(b2, var1)
-    both_conditions = z3.And(formula1, formula2)
-    solver = z3.Solver()
-    intersection_nonempty = solver.check(both_conditions) == z3.sat
-    try:
-        b1.intersect(b2)
-    except InvalidLoop:
-        assert intersection_nonempty == False
-    else:
-        _, formula3 = to_z3(b1, var1)
-        prove_implies(both_conditions, formula3)
-        assert intersection_nonempty
 
 # ____________________________________________________________
 # shrinking
@@ -497,8 +480,13 @@ class Z3IntBound(IntBound):
             variable <= self.upper,
         )
         if must_be_minimal:
-            tvalue, tmask = self._tnum_improve_knownbits_by_bounds()
-            result = z3.And(self.tvalue == tvalue, self.tmask == tmask, result)
+            tvalue, tmask, valid = self._tnum_improve_knownbits_by_bounds()
+            result = z3.And(
+                valid,
+                self.tvalue == tvalue,
+                self.tmask == tmask,
+                result
+            )
         return result
 
     def convert_to_concrete(self, model):
@@ -847,11 +835,13 @@ def test_prove_known_cmp():
 def test_prove_intersect():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
-    tvalue, tmask, valid = b1._tnum_intersect(b2)
+    tvalue, tmask, valid = b1._tnum_intersect(b2.tvalue, b2.tmask)
     b1.prove_implies(
         b2.z3_formula(b1.concrete_variable),
-        valid,
-        z3_tnum_condition(b1.concrete_variable, tvalue, tmask)
+        z3.And(
+            valid,
+            z3_tnum_condition(b1.concrete_variable, tvalue, tmask)
+        )
     )
     # check that if valid if false, there are no values in the intersection
     b1.prove_implies(
@@ -865,26 +855,41 @@ def test_prove_intersect():
         popcount64(~tmask) >= popcount64(~b1.tmask),
     )
 
+def test_prove_intersect_idempotent():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    b2.concrete_variable = b1.concrete_variable
+    tvalue1, tmask1, valid1 = b1._tnum_intersect(b2.tvalue, b2.tmask)
+    tvalue2, tmask2, valid2 = b1._tnum_intersect(tvalue1, tmask1)
+    b1.prove_implies(
+        b2,
+        z3.And(
+            tvalue1 == tvalue2,
+            tmask1 == tmask2,
+            valid1,
+            valid2,
+        )
+    )
+
+
 # ____________________________________________________________
 # prove things about _shrink_knownbits_by_bounds
 
+def test_prove_tnum_implied_by_bounds():
+    self = make_z3_intbounds_instance('self')
+    bounds_tvalue, bounds_tmask = self._tnum_implied_by_bounds()
+    prove_implies(
+        self.concrete_variable >= self.lower,
+        self.concrete_variable <= self.upper,
+        z3_tnum_condition(self.concrete_variable, bounds_tvalue, bounds_tmask)
+    )
+
 def test_prove_shrink_knownbits_by_bounds():
     self = make_z3_intbounds_instance('self')
-    new_tvalue, new_tmask, bounds_common, hbm_bounds = _tnum_improve_knownbits_by_bounds_helper(self.tvalue, self.tmask, self.lower, self.upper)
+    tvalue, tmask, valid = self._tnum_improve_knownbits_by_bounds()
     self.prove_implies(
-        # the two sets defined by old and new knownbits are equivalent
-        z3_tnum_condition(self.concrete_variable, self.tvalue, self.tmask) ==
-            z3_tnum_condition(self.concrete_variable, new_tvalue, new_tmask),
-    )
-    self.prove_implies(
-        # we cannot have *fewer* known bits afterwards,
-        popcount64(~new_tmask) >= popcount64(~self.tmask),
-    )
-    self.prove_implies(
-        # this used to be an assert in the code. now we prove it (and remove it
-        # from the code). the assert checks agreement between bounds and
-        # knownbits
-        unmask_zero(bounds_common, self.tmask) == self.tvalue & hbm_bounds
+        z3_tnum_condition(self.concrete_variable, self.tvalue, self.tmask),
+        z3.And(valid, z3_tnum_condition(self.concrete_variable, tvalue, tmask)),
     )
 
 # ____________________________________________________________
@@ -980,30 +985,6 @@ def test_prove_shrink_bounds_by_knownbits_correctness_case2():
         working_min_ne_threshold,
         cl2set <= set2cl,
         z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
-    )
-
-def test_prove_shrink_knownbits_by_bounds_precision():
-    # prove that shrinking a second time doesn't change anything, ie
-    # _shrink_knownbits_by_bounds is idempotent
-    b1 = make_z3_intbounds_instance('self')
-    tvalue1, tmask1, _, _ = _tnum_improve_knownbits_by_bounds_helper(
-        b1.tvalue, b1.tmask, b1.lower, b1.upper,
-    )
-    tvalue2, tmask2, _, _ = _tnum_improve_knownbits_by_bounds_helper(
-        tvalue1, tmask1, b1.lower, b1.upper,
-    )
-    # idempotence
-    b1.prove_implies(
-        tvalue1 == tvalue2,
-        tmask1 == tmask2,
-    )
-    # also prove that if the lower bound already matches the knownbits, it must
-    # match the new knownbits too. this implies that this is enough:
-    # self._shrink_bounds_by_knownbits(); self._shrink_knownbits_by_bounds()
-    # because _shrink_bounds_by_knownbits makes lower conform to the knownbits
-    b1.prove_implies(
-        z3_tnum_condition(b1.lower, b1.tvalue, b1.tmask),
-        z3_tnum_condition(b1.lower, tvalue1, tmask1),
     )
 
 def z3_lshift_overflow(a, b):

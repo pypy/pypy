@@ -1150,6 +1150,13 @@ def test_shrink_knownbits_by_bounds():
     assert not b3.is_constant()
     assert check_knownbits_string(b3, "110???", '0')
 
+def test_shrink_knownbits_by_bounds_invalid():
+    b1 = IntBound(lower=0, upper=1,
+                  tvalue=r_uint(0b10),
+                  tmask=r_uint(~0b10), do_shrinking=False)
+    with pytest.raises(InvalidLoop):
+        b1._shrink_knownbits_by_bounds()
+    
 
 def test_intbound_repr():
     b = IntBound()

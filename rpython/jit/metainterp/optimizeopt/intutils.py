@@ -668,7 +668,7 @@ class IntBound(AbstractInfo):
         r = self.make_ge_const(other.lower)
         r |= self.make_le_const(other.upper)
 
-        tvalue, tmask, valid = self._tnum_intersect(other)
+        tvalue, tmask, valid = self._tnum_intersect(other.tvalue, other.tmask)
         if not valid:
             raise InvalidLoop("knownbits contradict each other")
         # calculate intersect value and mask
@@ -681,13 +681,14 @@ class IntBound(AbstractInfo):
         assert self._debug_check()
         return r
 
-    def _tnum_intersect(self, other):
-        union_val = self.tvalue | other.tvalue
-        either_known = self.tmask & other.tmask
-        both_known = self.tmask | other.tmask
+    @always_inline
+    def _tnum_intersect(self, other_tvalue, other_tmask):
+        union_val = self.tvalue | other_tvalue
+        either_known = self.tmask & other_tmask
+        both_known = self.tmask | other_tmask
         # we assert agreement, e.g. that self and other don't contradict
         unmasked_self = unmask_zero(self.tvalue, both_known)
-        unmasked_other = unmask_zero(other.tvalue, both_known)
+        unmasked_other = unmask_zero(other_tvalue, both_known)
         tvalue = unmask_zero(union_val, either_known)
         valid = unmasked_self == unmasked_other
         return tvalue, either_known, valid
@@ -1403,8 +1404,9 @@ class IntBound(AbstractInfo):
         from lower and upper bound into
         the knownbits.
         """
-        tvalue, tmask = self._tnum_improve_knownbits_by_bounds(
-                )
+        tvalue, tmask, valid = self._tnum_improve_knownbits_by_bounds()
+        if not valid:
+            raise InvalidLoop("knownbits and bounds don't agree")
         changed = self.tvalue != tvalue or self.tmask != tmask
         if changed:
             self.tmask = tmask
@@ -1412,12 +1414,19 @@ class IntBound(AbstractInfo):
         return changed
 
     @always_inline
+    def _tnum_implied_by_bounds(self):
+        # calculate higher bit mask by bounds
+        hbm_bounds = leading_zeros_mask(self.lower ^ self.upper)
+        bounds_common = self.lower & hbm_bounds
+        tmask = ~hbm_bounds
+        return unmask_zero(bounds_common, tmask), tmask
+
+    @always_inline
     def _tnum_improve_knownbits_by_bounds(self):
-        tvalue, tmask, bounds_common, hbm_bounds = \
-            _tnum_improve_knownbits_by_bounds_helper(
-                    self.tvalue, self.tmask,
-                    self.r_uint(self.lower), self.r_uint(self.upper))
-        return tvalue, tmask
+        # knownbits that are implied by the bounds
+        tvalue, tmask = self._tnum_implied_by_bounds()
+        # intersect them with the current knownbits
+        return self._tnum_intersect(tvalue, tmask)
 
     def _debug_check(self):
         """
@@ -1560,16 +1569,3 @@ def unmask_zero(value, mask):
     and returns the result.
     """
     return value & ~mask
-
-
-@always_inline
-def _tnum_improve_knownbits_by_bounds_helper(self_tvalue, self_tmask, lower, upper):
-    # calculate higher bit mask by bounds
-    hbm_bounds = leading_zeros_mask(lower ^ upper)
-    bounds_common = lower & hbm_bounds
-    hbm = hbm_bounds & self_tmask
-    # apply the higher bit mask to the knownbits
-    tmask = self_tmask & ~hbm
-    tvalue = (bounds_common & hbm) | (self_tvalue & ~hbm)
-    return tvalue, tmask, bounds_common, hbm_bounds
-
