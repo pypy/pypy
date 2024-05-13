@@ -179,10 +179,8 @@ class IntBound(AbstractInfo):
     def _are_knownbits_implied(self):
         """ return True if the knownbits of self are a direct consequence of
         the range of self (and thus carry no extra information) """
-        if self.tmask == TNUM_ONLY_MASK_UNKNOWN:
-            return True
-        b = IntBound(self.lower, self.upper)
-        return self.tmask == b.tmask and self.tvalue == b.tvalue
+        tvalue, tmask = self._tnum_implied_by_bounds()
+        return self.tmask == tmask and self.tvalue == tvalue
 
     def _are_bounds_implied(self):
         """ return True if the bounds of self are a direct consequence of the

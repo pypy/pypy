@@ -878,10 +878,11 @@ def test_prove_intersect_idempotent():
 def test_prove_tnum_implied_by_bounds():
     self = make_z3_intbounds_instance('self')
     bounds_tvalue, bounds_tmask = self._tnum_implied_by_bounds()
-    prove_implies(
-        self.concrete_variable >= self.lower,
-        self.concrete_variable <= self.upper,
-        z3_tnum_condition(self.concrete_variable, bounds_tvalue, bounds_tmask)
+    val = BitVec('val')
+    self.prove_implies(
+        val >= self.lower,
+        val <= self.upper,
+        z3_tnum_condition(val, bounds_tvalue, bounds_tmask)
     )
 
 def test_prove_shrink_knownbits_by_bounds():
