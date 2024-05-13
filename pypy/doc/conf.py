@@ -254,4 +254,4 @@ man_pages = [
    u'The PyPy Project', 1)
 ]
 
-extlinks = {'source': ('https://foss.heptapod.net/pypy/pypy/-/tree/branch/default/%s', '')}
+extlinks = {'source': ('https://github.com/pypy/pypy/blob/main/%s', '')}

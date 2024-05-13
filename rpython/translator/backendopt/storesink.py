@@ -93,6 +93,7 @@ def _storesink_block(block, cache, inputlink):
             if (
                     isinstance(arg0, Constant) and
                     arg0.concretetype.TO._immutable_field(field) and
+                    arg0.value and # exclude null ptrs
                     not isinstance(arg0.value._obj, int) # tagged int
             ):
                 # reading an immutable field from a constant

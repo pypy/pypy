@@ -32,7 +32,7 @@ datum gdbm_firstkey(void*);
 datum gdbm_nextkey(void*, datum);
 void gdbm_sync(void*);
 
-char* gdbm_strerror(int);
+const char *gdbm_strerror(int);
 int gdbm_errno;
 
 void free(void*);
