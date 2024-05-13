@@ -1054,17 +1054,8 @@ class IntBound(AbstractInfo):
         returning its result.
         (Does not mutate `self`.)
         """
-
-        lower = MININT
-        upper = MAXINT
-        if self.known_nonnegative() and \
-                other.known_nonnegative():
-            mostsignificant = r_uint(self.upper | other.upper)
-            lower = 0
-            upper = intmask(next_pow2_m1(mostsignificant))
-
         tvalue, tmask = self._tnum_xor(other)
-        return IntBound(lower, upper, tvalue, tmask)
+        return self.from_knownbits(tvalue, tmask)
 
     @always_inline
     def _tnum_xor(self, other):
@@ -1434,7 +1425,8 @@ class IntBound(AbstractInfo):
     def _tnum_improve_knownbits_by_bounds(self):
         tvalue, tmask, bounds_common, hbm_bounds = \
             _tnum_improve_knownbits_by_bounds_helper(
-                    self.tvalue, self.tmask, r_uint(self.lower), r_uint(self.upper))
+                    self.tvalue, self.tmask,
+                    self.r_uint(self.lower), self.r_uint(self.upper))
         return tvalue, tmask
 
     def _debug_check(self):

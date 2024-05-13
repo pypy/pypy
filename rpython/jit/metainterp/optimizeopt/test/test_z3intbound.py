@@ -19,6 +19,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import (
     lowest_set_bit_only,
     leading_zeros_mask,
     flip_msb,
+    msbonly,
 )
 from rpython.jit.metainterp.optimize import InvalidLoop
 
@@ -473,6 +474,14 @@ class Z3IntBound(IntBound):
         return Z3IntBound(lower, upper, tvalue, tmask)
 
     @staticmethod
+    def from_knownbits(tvalue, tmask):
+        # compute lower and upper bound like shrinking does it
+        res = Z3IntBound(None, None, tvalue, tmask)
+        res.lower = res._get_minimum_signed_by_knownbits()
+        res.upper = res._get_maximum_signed_by_knownbits()
+        return res
+
+    @staticmethod
     def intmask(x):
         # casts from unsigned to signed don't actually matter to Z3
         return x
@@ -495,7 +504,7 @@ class Z3IntBound(IntBound):
             self.lower, self.upper, self.tvalue, self.tmask, more)
     __str__ = __repr__
 
-    def z3_formula(self, variable=None):
+    def z3_formula(self, variable=None, must_be_minimal=False):
         """ return the Z3 condition that:
         - self is well-formed
         - variable (or self.concrete_variable) is an element of the set
@@ -504,7 +513,7 @@ class Z3IntBound(IntBound):
         if variable is None:
             variable = self.concrete_variable
             assert variable is not None
-        return z3.And(
+        result = z3.And(
             # is the tnum well-formed? ie are the unknown bits in tvalue set to 0?
             self.tvalue & ~self.tmask == self.tvalue,
             # does variable fulfill the conditions imposed by tvalue and tmask?
@@ -513,6 +522,10 @@ class Z3IntBound(IntBound):
             self.lower <= variable,
             variable <= self.upper,
         )
+        if must_be_minimal:
+            tvalue, tmask = self._tnum_improve_knownbits_by_bounds()
+            result = z3.And(self.tvalue == tvalue, self.tmask == tmask, result)
+        return result
 
     def convert_to_concrete(self, model):
         """ A helper function that can be used to turn a Z3 counterexample into an
@@ -604,23 +617,36 @@ def test_prove_or_bounds_logic():
 def test_prove_xor():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
-    tvalue, tmask = b1._tnum_xor(b2)
+    b3 = b1.xor_bound(b2)
+    b3.concrete_variable = b1.concrete_variable ^ b2.concrete_variable
     b1.prove_implies(
         b2,
-        z3_tnum_condition(b1.concrete_variable ^ b2.concrete_variable, tvalue, tmask),
+        b3,
     )
 
-def test_prove_xor_bounds_logic():
+def test_prove_xor_bounds_implied_by_knownbits():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
+
+    # for non-negative b1 and b2, xor_bound used to contain code that set the
+    # lower bound to 0, and an upper bound to:
     mostsignificant = b1.upper | b2.upper
     upper = next_pow2_m1(mostsignificant)
+    # this is unnecessary, because the information is implied by the knownbits,
+    # which we prove here
+
     result = b1.concrete_variable ^ b2.concrete_variable
+
+    b3 = b1.xor_bound(b2)
+    b3.concrete_variable = result
     b1.prove_implies(
-        b2,
+        b1.z3_formula(must_be_minimal=True),
+        b2.z3_formula(must_be_minimal=True),
         b1.lower >= 0,
         b2.lower >= 0,
-        z3.And(result <= upper, result >= 0)
+        # check that the maximum implied by the known bits is not worse than
+        # the maximum computed by the expression above
+        z3.And(b3.upper <= upper, b3.lower >= 0),
     )
 
 def test_prove_and():
