@@ -2255,10 +2255,9 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
-    @pytest.mark.xfail() # this test is wrong! it fails in Z3
     def test_pure_ovf_bug_with_replacement(self):
         ops = """
-        [i0, i1, i10, i11]
+        [i0, i1, i11]
         i2 = int_sub_ovf(i0, i1)
         guard_no_overflow() []
         i3 = int_add(i2, i11)
@@ -2267,13 +2266,13 @@ class TestOptimizeIntBounds(BaseTestBasic):
         jump(i4)
         """
         result = """
-        [i0, i1, i10, i11]
+        [i0, i1, i11]
         i2 = int_sub_ovf(i0, i1)
         guard_no_overflow() []
         i3 = int_add(i2, i11)
         jump(i2)
         """
-        self.optimize_loop(ops, result)
+        self.optimize_loop(ops, ops)
 
     def test_intdiv_bounds(self):
         ops = """
