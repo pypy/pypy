@@ -1414,8 +1414,9 @@ class IntBound(AbstractInfo):
     @always_inline
     def _tnum_implied_by_bounds(self):
         # calculate higher bit mask by bounds
-        hbm_bounds = leading_zeros_mask(self.lower ^ self.upper)
-        bounds_common = self.lower & hbm_bounds
+        hbm_bounds = leading_zeros_mask(
+                self.r_uint(self.lower) ^ self.r_uint(self.upper))
+        bounds_common = self.r_uint(self.lower) & hbm_bounds
         tmask = ~hbm_bounds
         return unmask_zero(bounds_common, tmask), tmask
 
