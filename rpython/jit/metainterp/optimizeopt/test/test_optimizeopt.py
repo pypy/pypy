@@ -715,7 +715,6 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    @pytest.mark.xfail
     def test_compare_with_itself_uint(self):
         ops = """
         []
@@ -8943,3 +8942,50 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         jump(i183)
         """
         self.optimize_loop(ops, ops)
+
+    def test_preamble_guards_for_knownbits(self):
+        from rpython.rlib.rarithmetic import LONG_BIT
+        if LONG_BIT != 64:
+            pytest.skip("64-bit test")
+        ops = """
+        [i9]
+        i10 = int_gt(i9, 0)
+        guard_true(i10) []
+        i29 = int_lshift(i9, 1)
+        i30 = int_rshift(i29, 1)
+        i40 = int_ne(i30, i9)
+        guard_false(i40) []
+        jump(i9)
+        """
+        expected = """
+        [i9]
+        jump(i9)
+        """
+        short = """
+        [i5]
+        i6 = int_ge(i5, 1)
+        guard_true(i6) []
+        i7 = int_le(i5, 4611686018427387903)
+        guard_true(i7) []
+        i8 = int_lshift(i5, 1)
+        i9 = int_ge(i8, 0)
+        guard_true(i9) []
+        i10 = int_le(i8, 9223372036854775806)
+        guard_true(i10) []
+        i11 = int_and(i8, -9223372036854775807)
+        guard_value(i11, 0) []
+        i13 = int_rshift(i8, 1)
+        i14 = int_ge(i13, 1)
+        guard_true(i14) []
+        i15 = int_le(i13, 4611686018427387903)
+        guard_true(i15) []
+        i16 = int_ge(i5, 1)
+        guard_true(i16) []
+        i17 = int_le(i5, 4611686018427387903)
+        guard_true(i17) []
+        i18 = int_ne(i13, i5)
+        guard_value(i18, 0) []
+        jump()
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
+

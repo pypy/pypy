@@ -1138,12 +1138,9 @@ class IntBound(AbstractInfo):
             op = ResOperation(rop.GUARD_TRUE, [op])
             guards.append(op)
         if not self._are_knownbits_implied():
-            # TODO: write a unit test for this part
             op = ResOperation(rop.INT_AND, [box, ConstInt(intmask(~self.tmask))])
             guards.append(op)
-            op = ResOperation(rop.INT_EQ, [op, ConstInt(intmask(self.tvalue))])
-            guards.append(op)
-            op = ResOperation(rop.GUARD_TRUE, [op])
+            op = ResOperation(rop.GUARD_VALUE, [op, ConstInt(intmask(self.tvalue))])
             guards.append(op)
 
     def is_bool(self):

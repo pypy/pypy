@@ -1,5 +1,6 @@
 from __future__ import with_statement
 import py
+from rpython.rlib.rarithmetic import r_uint
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
     VirtualStateInfo, VStructStateInfo, LEVEL_CONSTANT, VArrayStateInfo,
     not_virtual, VirtualState, GenerateGuardState, VirtualStatesCantMatch,
