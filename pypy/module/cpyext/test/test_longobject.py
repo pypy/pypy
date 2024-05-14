@@ -381,9 +381,10 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
              """
             ),
             ])
-        assert module.as_long(123) == 123
+        module.as_long(123) == 123
         assert module.as_long(-1) == -1
-        assert module.as_long(1.23) == 1
+        with raises(TypeError):
+            module.as_long(1.23) == 1
         LONG_MAX = module.long_max()
         LONG_MIN = module.long_min()
         assert module.as_long(LONG_MAX) == LONG_MAX
@@ -404,7 +405,8 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
 
         assert module.as_int(123) == 123
         assert module.as_int(-1) == -1
-        assert module.as_int(1.23) == 1
+        with raises(TypeError):
+            module.as_int(1.23) == 1
         INT_MAX = module.int_max()
         INT_MIN = module.int_min()
         assert module.as_int(INT_MAX) == INT_MAX
