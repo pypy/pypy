@@ -2,13 +2,6 @@
 PyPy v7.3.16: release of python 2.7, 3.9, and 3.10
 ==================================================
 
-..
-   updated to 39b141959bab5c3e305161d457222ae19c635f77
-
-.. note::
-    This is a pre-release announcement. When the release actually happens, it
-    will be announced on the PyPy blog_
-
 The PyPy team is proud to release version 7.3.16 of PyPy.
 
 This release includes security fixes from upstream CPython, and bugfixes to the

@@ -35,8 +35,8 @@ datum gdbm_firstkey(GDBM_FILE);
 datum gdbm_nextkey(GDBM_FILE, datum);
 void gdbm_sync(GDBM_FILE);
 
-const char* gdbm_strerror(int);
-extern int gdbm_errno;
+const char *gdbm_strerror(int);
+int gdbm_errno;
 
 /* Needed to release returned values */
 void free(void*);

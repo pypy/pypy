@@ -4743,11 +4743,9 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         setarrayitem_gc(p0, 0, p1, descr=gcarraydescr)
         jump(i0, p0)
         """
-        # The dead arraylen_gc will be eliminated by the backend.
         expected = """
         [i0, p0]
         p1 = new_array(i0, descr=gcarraydescr)
-        i1 = arraylen_gc(p1, descr=gcarraydescr)
         setarrayitem_gc(p0, 0, p1, descr=gcarraydescr)
         jump(i0, p0)
         """
@@ -4758,17 +4756,15 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         [i0, p0]
         p1 = new_array(i0, descr=gcarraydescr)
         setarrayitem_gc(p1, 3, p1, descr=gcarraydescr)
-        i1 = arraylen_gc(p1)
+        i1 = arraylen_gc(p1, descr=gcarraydescr)
         i2 = int_gt(i1, 2)
         guard_true(i2) []
         setarrayitem_gc(p1, 0, p0, descr=gcarraydescr)
         jump(i0, p0)
         """
-        # The dead arraylen_gc will be eliminated by the backend.
         expected = """
         [i0, p0]
         p1 = new_array(i0, descr=gcarraydescr)
-        i1 = arraylen_gc(p1)
         setarrayitem_gc(p1, 0, p0, descr=gcarraydescr)
         setarrayitem_gc(p1, 3, p1, descr=gcarraydescr)
         jump(i0, p0)

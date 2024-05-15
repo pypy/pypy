@@ -98,14 +98,15 @@ Just Work.
 Installing external packages
 ----------------------------
 
-We uses a subrepository_ inside pypy to hold binary compiled versions of the
-build dependencies for windows. As part of the `rpython` setup stage, environment
-variables will be set to use these dependencies. The repository has a README
+We uses a mercurial repository_ inside pypy to hold binary compiled versions of
+the build dependencies for windows. As part of the `rpython` setup stage,
+environment variables will be set to use these dependencies. The repository has a README
 file on how to replicate, and a branch for each supported platform. You may run
 the `get_externals.py` utility to checkout the proper branch for your platform
-and PyPy version.
+and PyPy version. If you miss this step, you will get errors like ``cannot open
+include file: 'ffi.h'``.
 
-.. _subrepository: https://foss.heptapod.net/pypy/externals
+.. _repository: https://foss.heptapod.net/pypy/externals
 
 Using the mingw compiler
 ------------------------
