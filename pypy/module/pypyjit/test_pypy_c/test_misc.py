@@ -507,7 +507,7 @@ class TestMisc(BaseTestPyPyC):
         opnames = log.opnames(ops)
         assert "new_with_vtables" not in opnames
         assert "call_may_force_r" not in opnames
-        assert "call_r" in opnames
+        assert "call_r" in opnames # _getslice_advanced
 
     def test_tuple_slice_virtual(self):
         def main(n):
@@ -515,10 +515,12 @@ class TestMisc(BaseTestPyPyC):
             res = 0
             for i in range(n):
                 t = (1, 2, 3, 4, 5, n)
-                res += len(t[0:5:2]) # ID: getslice
+                res += len(t[slice(0, 5)]) # ID: getslice
         log = self.run(main, [3000])
+        import pdb;pdb.set_trace()
         loop, = log.loops_by_id("getslice")
         ops = loop.ops_by_id("getslice")
         opnames = log.opnames(ops)
         assert "new_with_vtables" not in opnames
         assert "call_may_force_r" not in opnames
+        assert "new_array_clear" not in opnames

@@ -194,22 +194,31 @@ class W_AbstractTupleObject(W_Root):
 
     def descr_getitem(self, space, w_index):
         if isinstance(w_index, W_SliceObject):
-            start, stop, step, slicelength = w_index.indices4(space, self.length())
-            return self._getslice(space, start, stop, step, slicelength)
-        index = space.getindex_w(w_index, space.w_IndexError, "tuple index")
+            return self._getslice(space, w_index)
+        index = space.getindex_w(w_index, space.w_IndexError, "tuple")
         return self.getitem(space, index)
 
-    @jit.look_inside_iff(lambda self, space, start, stop, step, slicelength:
-                         self._unroll_condition() and
-                             jit.isconstant(slicelength))
-    def _getslice(self, space, start, stop, step, slicelength):
+    def _getslice(self, space, w_index):
         items = self.tolist()
+        length = len(items)
+        start, stop, step, slicelength = w_index.indices4(space, length)
+        if slicelength == 0:
+            subitems = []
+        elif step == 1:
+            assert 0 <= start <= stop
+            subitems = items[start:stop]
+        else:
+            subitems = self._getslice_advanced(items, start, step, slicelength)
+        return space.newtuple(subitems)
+
+    @staticmethod
+    def _getslice_advanced(items, start, step, slicelength):
         assert slicelength >= 0
         subitems = [None] * slicelength
         for i in range(slicelength):
             subitems[i] = items[start]
             start += step
-        return space.newtuple(subitems)
+        return subitems
 
     def descr_getslice(self, space, w_start, w_stop):
         length = self.length()
