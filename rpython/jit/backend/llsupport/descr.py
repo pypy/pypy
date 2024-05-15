@@ -150,16 +150,20 @@ class FieldDescr(ArrayOrFieldDescr):
     flag = '\x00'
 
     def __init__(self, name, offset, field_size, flag, index_in_parent=0,
-                 is_pure=False):
+                 is_pure=False, is_nonneg_int=False):
         self.name = name
         self.offset = offset
         self.field_size = field_size
         self.flag = flag
         self.index = index_in_parent
         self._is_pure = is_pure
+        self._is_nonneg_int = is_nonneg_int
 
     def is_always_pure(self):
         return self._is_pure
+
+    def is_nonneg_signed_int(self):
+        return self._is_nonneg_int
 
     def __repr__(self):
         return 'FieldDescr<%s>' % (self.name,)
@@ -182,10 +186,12 @@ class FieldDescr(ArrayOrFieldDescr):
         return self.flag == FLAG_SIGNED
 
     def is_integer_bounded(self):
-        return self.flag in (FLAG_SIGNED, FLAG_UNSIGNED) \
-            and self.field_size < symbolic.WORD
+        return ((self.flag in (FLAG_SIGNED, FLAG_UNSIGNED)
+            and self.field_size < symbolic.WORD) or self.is_nonneg_signed_int())
 
     def get_integer_min(self):
+        if self.is_nonneg_signed_int():
+            return 0
         if self.flag == FLAG_UNSIGNED:
             return intbounds.get_integer_min(True, self.field_size)
         elif self.flag == FLAG_SIGNED:
@@ -227,8 +233,11 @@ def get_field_descr(gccache, STRUCT, fieldname):
         name = '%s.%s' % (STRUCT._name, fieldname)
         index_in_parent = heaptracker.get_fielddescr_index_in(STRUCT, fieldname)
         is_pure = STRUCT._immutable_field(fieldname) != False
+        is_nonneg_int = False
+        if flag == FLAG_SIGNED:
+            is_nonneg_int = fieldname in STRUCT._hints.get("nonneg_int_fields", set())
         fielddescr = FieldDescr(name, offset, size, flag, index_in_parent,
-                                is_pure)
+                                is_pure, is_nonneg_int)
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
         if STRUCT is rclass.OBJECT:

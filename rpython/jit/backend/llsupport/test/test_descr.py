@@ -116,6 +116,23 @@ def test_get_field_descr_sign():
             assert descr_x.flag == {False: FLAG_UNSIGNED,
                                     True:  FLAG_SIGNED  }[signed]
 
+def test_get_field_descr_nonneg():
+    for RESTYPE in [rffi.SHORT, rffi.INT, rffi.LONG]:
+        S = lltype.GcStruct(
+            'S', ('x', RESTYPE),
+            ('y', RESTYPE),
+            hints={"nonneg_int_fields": frozenset({'x'})}
+        )
+        c2 = GcCache(False)
+        descr_x = get_field_descr(c2, S, 'x')
+        assert descr_x.is_nonneg_signed_int()
+        assert descr_x.is_integer_bounded()
+        assert descr_x.get_integer_min() == 0
+        descr_y = get_field_descr(c2, S, 'y')
+        assert not descr_y.is_nonneg_signed_int()
+        assert descr_y.is_integer_bounded() == (RESTYPE != rffi.LONG)
+        assert descr_y.get_integer_min() < 0
+
 def test_get_field_descr_longlong():
     if sys.maxint > 2147483647:
         py.test.skip("long long: for 32-bit only")
