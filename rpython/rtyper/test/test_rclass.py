@@ -1366,3 +1366,22 @@ class TestRclass(BaseRtypingTest):
             return str(a.__class__)
         assert "A" in hlstr(self.interpret(g, [1]))
         assert "B" in hlstr(self.interpret(g, [0]))
+
+    def test_hint_nonneg(self):
+        class A(object):
+            pass
+
+        def f(i):
+            a = A()
+            if i:
+                a.x = 1
+            else:
+                a.x = abs(i)
+            a.y = i
+            return a
+        t, typer, graph = self.gengraph(f, [int])
+        A_TYPE = graph.getreturnvar().concretetype.TO
+        import pdb;pdb.set_trace()
+        fields = A_TYPE._hints['nonneg_int_fields']
+        assert 'inst_x' in fields
+        assert 'inst_y' not in fields
