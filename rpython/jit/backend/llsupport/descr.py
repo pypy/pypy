@@ -190,7 +190,6 @@ class FieldDescr(ArrayOrFieldDescr):
             and self.field_size < symbolic.WORD) or self.is_nonneg_signed_int())
 
     def get_integer_min(self):
-        import pdb;pdb.set_trace()
         if self.is_nonneg_signed_int():
             return 0
         if self.flag == FLAG_UNSIGNED:

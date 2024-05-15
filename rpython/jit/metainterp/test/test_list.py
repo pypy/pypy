@@ -376,6 +376,25 @@ class ListTests:
         assert res == 0
         self.check_resops(call=0, cond_call=2)
 
+    def test_resizable_list_len_known_ge_zero(self):
+        jitdriver = JitDriver(greens = [], reds = 'auto')
+
+        def f(n):
+            l = [1, 32, 4, 2] * n
+            l.append(n)
+            while n > 0:
+                jitdriver.jit_merge_point()
+                # can be removed because we now know that the length field of
+                # the resizable list gcstruct is non-negative
+                if -1 > len(l) - 1:
+                    raise ValueError
+                l.pop()
+                n -= 1
+            return len(l)
+        res = self.meta_interp(f, [10])
+        self.check_resops(int_lt=2)
+
+
 class TestLLtype(ListTests, LLJitMixin):
     def test_listops_dont_invalidate_caches(self):
         class A(object):
