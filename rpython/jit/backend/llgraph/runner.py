@@ -185,10 +185,13 @@ class FieldDescr(BackendDescr):
         return _is_signed_kind(self.FIELD)
 
     def is_integer_bounded(self):
-        return getkind(self.FIELD) == 'int' \
-            and rffi.sizeof(self.FIELD) < symbolic.WORD
+        return ((getkind(self.FIELD) == 'int'
+            and rffi.sizeof(self.FIELD) < symbolic.WORD) or
+                self.fieldname in self.S._hints.get("nonneg_int_fields", set()))
 
     def get_integer_min(self):
+        if self.fieldname in self.S._hints.get("nonneg_int_fields", set()):
+            return 0
         if getkind(self.FIELD) != 'int':
             assert False
 

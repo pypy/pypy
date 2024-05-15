@@ -3354,6 +3354,27 @@ class BasicTests:
         assert res == 0
         self.check_operations_history(uint_mul_high=1)
 
+    def test_bounds_instance_fields(self):
+        myjitdriver = JitDriver(greens=[], reds='auto')
+        class A:
+            pass
+        a = A()
+        a.x = 12
+        def g(i):
+            assert i >= 0
+            a.x = i
+            while a.x <= 100:
+                myjitdriver.jit_merge_point()
+                if a.x - 1 < -1: # can be removed by the jit because it knows that a.x is >= 0 from the annotator
+                    raise ValueError
+                try:
+                    a.x = ovfcheck(a.x + 1)
+                except OverflowError:
+                    return 12
+            return a.x
+        res = self.meta_interp(g, [4])
+        self.check_resops(int_lt=0)
+
 
 class BaseLLtypeTests(BasicTests):
 
