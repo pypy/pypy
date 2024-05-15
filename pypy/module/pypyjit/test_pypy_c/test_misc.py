@@ -517,7 +517,6 @@ class TestMisc(BaseTestPyPyC):
                 t = (1, 2, 3, 4, 5, n)
                 res += len(t[slice(0, 5)]) # ID: getslice
         log = self.run(main, [3000])
-        import pdb;pdb.set_trace()
         loop, = log.loops_by_id("getslice")
         ops = loop.ops_by_id("getslice")
         opnames = log.opnames(ops)
