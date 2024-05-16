@@ -211,19 +211,17 @@ class OptVirtualize(optimizer.Optimization):
     def optimize_NEW(self, op):
         self.make_vstruct(op.getdescr(), op)
 
-    def optimize_NEW_ARRAY(self, op):
-        sizebox = self.get_constant_box(op.getarg(0))
+    def optimize_NEW_ARRAY(self, op, clear=False):
+        arg = op.getarg(0)
+        sizebox = self.get_constant_box(arg)
         if (sizebox is not None and
-            self.make_varray(op.getdescr(), sizebox.getint(), op)):
+            self.make_varray(op.getdescr(), sizebox.getint(), op, clear=clear)):
             return
+        self.pure_from_args(rop.ARRAYLEN_GC, [op], arg, descr=op.getdescr())
         return self.emit(op)
 
     def optimize_NEW_ARRAY_CLEAR(self, op):
-        sizebox = self.get_constant_box(op.getarg(0))
-        if (sizebox is not None and
-            self.make_varray(op.getdescr(), sizebox.getint(), op, clear=True)):
-            return
-        return self.emit(op)
+        return self.optimize_NEW_ARRAY(op, clear=True)
 
     def optimize_CALL_N(self, op):
         effectinfo = op.getdescr().get_extra_info()

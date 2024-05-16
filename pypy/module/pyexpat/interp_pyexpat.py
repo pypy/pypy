@@ -22,7 +22,7 @@ else:
     pre_include_bits = []
 
 eci = ExternalCompilationInfo(
-    includes=['expat.h'],
+    includes=['expat.h', 'pyexpatns.h'],
     include_dirs=[str(srcdir), cdir],
     pre_include_bits = pre_include_bits,
     separate_module_files=[

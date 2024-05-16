@@ -129,6 +129,9 @@ SF_NOUNLINK  = 0x00100000  # file may not be renamed or deleted
 SF_SNAPSHOT  = 0x00200000  # file is a snapshot file
 SF_FIRMLINK  = 0x00800000  # macOS: file is a firmlink
 SF_DATALESS  = 0x40000000  # macOS: file is a dataless object
+IO_REPARSE_TAG_APPEXECLINK = 0x8000001b  # windows
+IO_REPARSE_TAG_MOUNT_POINT = 0xa0000003  # windows
+IO_REPARSE_TAG_SYMLINK = 0xa000000c      # windows
 
 
 _filemode_table = (
