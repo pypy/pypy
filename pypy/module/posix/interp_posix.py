@@ -2835,7 +2835,7 @@ for name in """FACCESSAT FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE
     if getattr(rposix, "HAVE_%s" % name):
         have_functions.append("HAVE_%s" % name)
 if _WIN32:
-    have_functions.append("HAVE_MS_WINDOWS")
+    have_functions.append("MS_WINDOWS")
 
 def _get_terminal_size(space, w_fd=None):
     if w_fd is None:
