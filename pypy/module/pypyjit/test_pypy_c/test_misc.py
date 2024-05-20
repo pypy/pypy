@@ -433,8 +433,6 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             ...
-            i80 = int_ge(i76, i33)
-            guard_false(i80, descr=...)
             i82 = int_add(i76, 1)
             setfield_gc(p16, i82, descr=...)
             guard_not_invalidated(descr=...)
