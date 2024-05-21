@@ -428,6 +428,10 @@ class Z3IntBound(IntBound):
         result, no_ovf = z3_add_overflow(a, b)
         return z3.If(no_ovf, result, default)
 
+    @staticmethod
+    def _urshift(a, b):
+        return z3.LShR(a, b)
+
     def __repr__(self):
         more = ''
         if self.concrete_variable is not None:
@@ -523,9 +527,16 @@ def test_prove_min_max_signed_by_knownbits():
     bound.prove_implies(
         minimum <= bound.concrete_variable
     )
+    bound.prove_implies(
+        z3_tnum_condition(minimum, bound.tvalue, bound.tmask),
+    )
+
     maximum = bound._get_maximum_signed_by_knownbits()
     bound.prove_implies(
         bound.concrete_variable <= maximum,
+    )
+    bound.prove_implies(
+        z3_tnum_condition(maximum, bound.tvalue, bound.tmask),
     )
 
 def test_prove_or():
@@ -889,14 +900,13 @@ def test_prove_shrink_knownbits_by_bounds():
 
 # ____________________________________________________________
 # prove things about _shrink_bounds_by_knownbits
-# we follow the logic in _get_minimum_signed_by_knownbits_atleast here
 
-def test_prove_shrink_bounds_by_knownbits_case1():
+def test_prove_shrink_bounds_by_knownbits_min_case1():
     # case 1, cl2set > set2cl
     b1 = make_z3_intbounds_instance('self')
 
     threshold = b1.lower
-    working_min, cl2set, set2cl = b1._helper_min_prepare(threshold)
+    working_min, cl2set, set2cl = b1._helper_min_max_prepare(threshold)
     new_threshold = b1._helper_min_case1(working_min, cl2set)
 
     # show that the new_threshold is larger than threshold
@@ -924,12 +934,12 @@ def test_prove_shrink_bounds_by_knownbits_case1():
     )
 
 
-def test_prove_shrink_bounds_by_knownbits_correctness_case2():
+def test_prove_shrink_bounds_by_knownbits_correctness_min_case2():
     # case 2) cl2set <= set2cl
     b1 = make_z3_intbounds_instance('self')
 
     threshold = b1.lower
-    working_min, cl2set, set2cl = b1._helper_min_prepare(threshold)
+    working_min, cl2set, set2cl = b1._helper_min_max_prepare(threshold)
     working_min_ne_threshold = working_min != threshold
 
     new_threshold = b1._helper_min_case2(working_min, set2cl)
@@ -959,6 +969,77 @@ def test_prove_shrink_bounds_by_knownbits_correctness_case2():
         z3.ULE(cl2set, set2cl),
         z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
     )
+
+def test_prove_shrink_bounds_by_knownbits_max_case1():
+    # case 1, cl2set < set2cl
+    b1 = make_z3_intbounds_instance('self')
+
+    threshold = b1.upper
+    working_min, cl2set, set2cl = b1._helper_min_max_prepare(threshold)
+    new_threshold = b1._helper_max_case1(working_min, set2cl)
+
+    # show that the new_threshold is smaller than threshold
+    b1.prove_implies(
+        b1._get_maximum_signed_by_knownbits() > threshold,
+        working_min != threshold,
+        z3.ULT(cl2set, set2cl),
+        new_threshold < threshold,
+    )
+    # correctness: show that there are no elements x in b1 with
+    # new_threshold <= x < threshold
+    b1.prove_implies(
+        b1._get_maximum_signed_by_knownbits() > threshold,
+        working_min != threshold,
+        z3.ULT(cl2set, set2cl),
+        z3.Not(b1.concrete_variable > new_threshold),
+    )
+    # precision: new_threshold is an element in the set, ie we
+    # couldn't have increased the bound further
+    b1.prove_implies(
+        b1._get_maximum_signed_by_knownbits() > threshold,
+        working_min != threshold,
+        z3.ULT(cl2set, set2cl),
+        z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
+    )
+
+
+def test_prove_shrink_bounds_by_knownbits_correctness_max_case2():
+    # case 2) cl2set >= set2cl
+    b1 = make_z3_intbounds_instance('self')
+
+    threshold = b1.upper
+    working_max, cl2set, set2cl = b1._helper_min_max_prepare(threshold)
+    working_max_ne_threshold = working_max != threshold
+
+    new_threshold = b1._helper_max_case2(working_max, cl2set)
+
+    # check that the bound is not getting worse
+    b1.prove_implies(
+        b1._get_maximum_signed_by_knownbits() > threshold,
+        working_max_ne_threshold,
+        z3.UGE(cl2set, set2cl),
+        new_threshold < threshold
+    )
+
+    # correctness: show that there are no elements x in b1 with
+    # threshold <= x < new_threshold
+    b1.prove_implies(
+        b1._get_maximum_signed_by_knownbits() > threshold,
+        working_max_ne_threshold,
+        z3.UGE(cl2set, set2cl),
+        z3.Not(b1.concrete_variable > new_threshold),
+    )
+
+    # precision: new_threshold is an element in the set, ie we
+    # couldn't have increased the bound further
+    b1.prove_implies(
+        b1._get_maximum_signed_by_knownbits() > threshold,
+        working_max_ne_threshold,
+        z3.UGE(cl2set, set2cl),
+        z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
+    )
+
+# ____________________________________________________________
 
 def z3_lshift_overflow(a, b):
     res = a << b

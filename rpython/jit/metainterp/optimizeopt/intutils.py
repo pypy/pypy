@@ -141,6 +141,11 @@ class IntBound(AbstractInfo):
         except OverflowError:
             return value_if_overflow
 
+    @staticmethod
+    @always_inline
+    def _urshift(a, b):
+        return r_uint(a) >> r_uint(b)
+
     # ____________________________________________________________
 
     @staticmethod
@@ -559,7 +564,8 @@ class IntBound(AbstractInfo):
         # see "Sharpening Constraint Programming
         #      approaches for Bit-Vector Theory"
         u_min_threshold = r_uint(threshold)
-        working_min, cl2set, set2cl = self._helper_min_prepare(u_min_threshold)
+        # create our working value, the to-be minimum
+        working_min, cl2set, set2cl = self._helper_min_max_prepare(u_min_threshold)
         if working_min == u_min_threshold:
             return threshold
         elif cl2set > set2cl:
@@ -568,21 +574,19 @@ class IntBound(AbstractInfo):
             return self._helper_min_case2(working_min, set2cl)
 
     @always_inline
-    def _helper_min_prepare(self, u_min_threshold):
-        # now create our working value, the to-be minimum
-        working_min = u_min_threshold # start at given minimum threshold
-        working_min &= unmask_one(self.tvalue, self.tmask) # clear known 0s
-        working_min |= self.tvalue # set known 1s
+    def _helper_min_max_prepare(self, u_threshold):
+        working_value = u_threshold # start at given threshold
+        working_value &= unmask_one(self.tvalue, self.tmask) # clear known 0s
+        working_value |= self.tvalue # set known 1s
         # inspect changed bits
-        cl2set = ~u_min_threshold & working_min
-        set2cl = u_min_threshold & ~working_min
-        return working_min, cl2set, set2cl
-
+        cl2set = ~u_threshold & working_value
+        set2cl = u_threshold & ~working_value
+        return working_value, cl2set, set2cl
 
     @always_inline
     def _helper_min_case1(self, working_min, cl2set):
         # we have set the correct bit already
-        clear_mask = leading_zeros_mask(cl2set >> 1)
+        clear_mask = leading_zeros_mask(self._urshift(cl2set, 1))
         working_min &= clear_mask | ~self.tmask
         return self.intmask(working_min)
 
@@ -614,40 +618,41 @@ class IntBound(AbstractInfo):
             raise InvalidLoop("range and knownbits don't overlap")
         if max_by_knownbits <= threshold:
             return max_by_knownbits
+        # see "Sharpening Constraint Programming
+        #      approaches for Bit-Vector Theory"
+        u_max_threshold = r_uint(threshold)
+        # now create our working value, the to-be maximum
+        working_max, cl2set, set2cl = self._helper_min_max_prepare(u_max_threshold)
+        if working_max == u_max_threshold:
+            return threshold
+        elif cl2set < set2cl:
+            # we have cleared the right bit already
+            result = self._helper_max_case1(working_max, set2cl)
         else:
-            # see "Sharpening Constraint Programming
-            #      approaches for Bit-Vector Theory"
-            u_max_threshold = r_uint(threshold)
-            # now create our working value, the to-be maximum
-            working_max = u_max_threshold # start at given maximum threshold
-            working_max &= unmask_one(self.tvalue, self.tmask) # clear known 0s
-            working_max |= self.tvalue # set known 1s
-            # inspect changed bits
-            cl2set = ~u_max_threshold & working_max
-            set2cl = u_max_threshold & ~working_max
-            if working_max == u_max_threshold:
-                return threshold
-            elif cl2set < set2cl:
-                # we have cleared the right bit already
-                set_mask = next_pow2_m1(set2cl >> 1) & self.tmask
-                working_max |= set_mask
-                result = intmask(working_max)
-                assert result <= threshold
-            else:
-                # flip the sign bit to handle 1 -> 0 overflow
-                working_max = flip_msb(working_max)
-                # find the right bit to clear
-                possible_bits = working_max \
-                                & self.tmask \
-                                & leading_zeros_mask(cl2set)
-                bit_to_clear = lowest_set_bit_only(possible_bits)
-                working_max &= ~bit_to_clear
-                # and set all lower than that
-                set_mask = next_pow2_m1(bit_to_clear >> 1) & self.tmask
-                working_max |= set_mask
-                result = intmask(flip_msb(working_max))
-            assert result <= threshold
-            return result
+            result = self._helper_max_case2(working_max, cl2set)
+        assert result <= threshold
+        return result
+
+    def _helper_max_case1(self, working_max, set2cl):
+        # we have cleared the right bit already
+        set_mask = next_pow2_m1(self._urshift(set2cl, 1)) & self.tmask
+        working_max |= set_mask
+        return self.intmask(working_max)
+
+    def _helper_max_case2(self, working_max, cl2set):
+        # flip the sign bit to handle 1 -> 0 overflow
+        working_max = flip_msb(working_max)
+        # find the right bit to clear
+        possible_bits = working_max \
+                        & self.tmask \
+                        & leading_zeros_mask(cl2set)
+        bit_to_clear = lowest_set_bit_only(possible_bits)
+        working_max &= ~bit_to_clear
+        # and set all lower than that
+        set_mask = next_pow2_m1(self._urshift(bit_to_clear, 1)) & self.tmask
+        working_max |= set_mask
+        return self.intmask(flip_msb(working_max))
+
 
     def _get_minimum_signed(self):
         """ for tests only """
