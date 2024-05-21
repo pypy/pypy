@@ -190,8 +190,9 @@ class IntBound(AbstractInfo):
     def _are_bounds_implied(self):
         """ return True if the bounds of self are a direct consequence of the
         knownbits of self (and thus carry no extra information) """
-        b = IntBound.from_knownbits(self.tvalue, self.tmask)
-        return self.lower == b.lower and self.upper == b.upper
+        lower = self._get_minimum_signed_by_knownbits()
+        upper = self._get_maximum_signed_by_knownbits()
+        return self.lower == lower and self.upper == upper
 
     def __repr__(self):
         if self.is_unbounded():
