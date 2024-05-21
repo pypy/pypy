@@ -819,6 +819,10 @@ def utf_8_encode(space, w_obj, errors="strict"):
     if errors is None:
         errors = 'strict'
     result = utf8_encode_wrapper(space, utf8, errors)
+    if errors == 'strict':
+        # since we did strict checking and surrogates are forbidden, we know
+        # the result of the _check_utf8 call with allow_surrogates=False
+        jit.record_known_result(lgt, rutf8._check_utf8, utf8, False, 0, -1)
     return space.newtuple2(space.newbytes(result), space.newint(lgt))
 
 @unwrap_spec(string='bufferstr', errors='text_or_none',
