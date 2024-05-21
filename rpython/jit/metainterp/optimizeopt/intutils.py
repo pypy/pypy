@@ -955,6 +955,7 @@ class IntBound(AbstractInfo):
         return tvalue, tmask
 
     def lshift_bound_cannot_overflow(self, other):
+        """ returns True if self << other can never overflow """
         if other.known_nonnegative() and \
            other.known_lt_const(LONG_BIT):
             try:
@@ -970,11 +971,9 @@ class IntBound(AbstractInfo):
 
     def urshift_bound(self, other):
         """
-        Shifts this abstract integer `other`
-        bits to the right, where `other` is
-        another abstract integer, *without*
-        extending its sign.
-        (Does not mutate `self`.)
+        Shifts this abstract integer `other` bits to the right, where `other`
+        is another abstract integer, *without* extending its sign. (Does not
+        mutate `self`.)
         """
 
         # this seems to always be the signed variant..?
@@ -994,10 +993,8 @@ class IntBound(AbstractInfo):
 
     def and_bound(self, other):
         """
-        Performs bit-wise AND of this
-        abstract integer and the `other`,
-        returning its result.
-        (Does not mutate `self`.)
+        Performs bit-wise AND of this abstract integer and the `other`,
+        returning its result. (Does not mutate `self`.)
         """
 
         pos1 = self.known_nonnegative()
@@ -1054,8 +1051,7 @@ class IntBound(AbstractInfo):
 
     def neg_bound(self):
         """
-        Arithmetically negates this abstract
-        integer and returns the result.
+        Arithmetically negates this abstract integer and returns the result.
         (Does not mutate `self`.)
         """
         res = self.invert_bound()
@@ -1064,9 +1060,7 @@ class IntBound(AbstractInfo):
 
     def invert_bound(self):
         """
-        Performs bit-wise NOT on this
-        abstract integer returning its
-        result.
+        Performs bit-wise NOT on this abstract integer returning its result.
         (Does not mutate `self`.)
         """
         upper = ~self.lower
@@ -1075,26 +1069,25 @@ class IntBound(AbstractInfo):
         tmask = self.tmask
         return self.new(lower, upper, tvalue, tmask)
 
-    def contains(self, val):
+    def contains(self, value):
         """
-        Returns `True` iff this abstract
-        integer contains the given `val`ue.
+        Returns `True` iff this abstract integer contains the given `value`.
         """
 
-        assert not isinstance(val, IntBound)
+        assert not isinstance(value, IntBound)
 
         if not we_are_translated():
-            assert not isinstance(val, long)
-        if not isinstance(val, int):
+            assert not isinstance(value, long)
+        if not isinstance(value, int):
             if (self.lower == MININT and self.upper == MAXINT):
                 return True # workaround for address as int
-        if val < self.lower:
+        if value < self.lower:
             return False
-        if val > self.upper:
+        if value > self.upper:
             return False
 
         u_vself = unmask_zero(self.tvalue, self.tmask)
-        u_value = unmask_zero(r_uint(val), self.tmask)
+        u_value = unmask_zero(r_uint(value), self.tmask)
         if u_vself != u_value:
             return False
 
@@ -1109,8 +1102,7 @@ class IntBound(AbstractInfo):
 
     def clone(self):
         """
-        Returns an exact copy of this
-        abstract integer.
+        Returns a copy of this abstract integer.
         """
         res = IntBound(self.lower, self.upper,
                        self.tvalue, self.tmask)
@@ -1145,10 +1137,8 @@ class IntBound(AbstractInfo):
 
     def is_bool(self):
         """
-        Returns `True` iff the properties
-        of this abstract integer allow it to
-        represent a conventional boolean
-        value.
+        Returns `True` iff the properties of this abstract integer allow it to
+        represent a conventional boolean value.
         """
         return (self.known_nonnegative() and self.known_le_const(1))
 
@@ -1159,8 +1149,7 @@ class IntBound(AbstractInfo):
 
     def make_bool(self):
         """
-        Mutates this abstract integer so that
-        it does represent a conventional
+        Mutates this abstract integer so that it does represent a conventional
         boolean value.
         (Mutates `self`.)
         """
@@ -1289,11 +1278,9 @@ class IntBound(AbstractInfo):
 
     def rshift_bound_backwards(self, other):
         """
-        Performs a `urshift`/`rshift` backwards on
-        `self`. Basically left-shifts
-        `self` by `other` binary digits,
-        filling the lower part with ?, and
-        returns the result.
+        Performs a `urshift`/`rshift` backwards on `self`. Basically
+        left-shifts `self` by `other` binary digits, filling the lower part
+        with ?, and returns the result.
         """
         if not other.is_constant():
             return IntBound.unbounded()
@@ -1308,6 +1295,11 @@ class IntBound(AbstractInfo):
     urshift_bound_backwards = rshift_bound_backwards
 
     def lshift_bound_backwards(self, other):
+        """
+        Performs a `lshift` backwards on `self`. Basically right-shifts `self`
+        by `other` binary digits, filling the upper part with ?, and returns
+        the result.
+        """
         if not other.is_constant():
             return IntBound.unbounded()
         c_other = r_uint(other.get_constant_int())
@@ -1394,10 +1386,8 @@ class IntBound(AbstractInfo):
 
     def _shrink_knownbits_by_bounds(self):
         """
-        Infers known bits from the bounds.
-        Basically fills a common prefix
-        from lower and upper bound into
-        the knownbits.
+        Infers known bits from the bounds. Basically fills a common prefix from
+        lower and upper bound into the knownbits.
         """
         tvalue, tmask, valid = self._tnum_improve_knownbits_by_bounds()
         if not valid:
@@ -1426,13 +1416,9 @@ class IntBound(AbstractInfo):
 
     def _debug_check(self):
         """
-        Very simple debug check.
-        Returns `True` iff the span of
-        knownbits and the span of the bounds
-        have a non-empty intersection.
-        That does not guarantee for the
-        actual concrete value set to contain
-        any values!
+        Very simple debug check. Returns `True` iff the span of knownbits and
+        the span of the bounds have a non-empty intersection. That does not
+        guarantee for the actual concrete value set to contain any values!
         """
         assert self.lower <= self.upper
         min_knownbits = self._get_minimum_signed_by_knownbits()
@@ -1489,10 +1475,8 @@ def flip_msb(val_uint):
 
 def is_valid_tnum(tvalue, tmask):
     """
-    Returns `True` iff `tvalue` and `tmask`
-    would be valid tri-state number fields
-    of an abstract integer, meeting all
-    conventions and requirements.
+    Returns `True` iff `tvalue` and `tmask` would be valid tri-state number
+    fields of an abstract integer, meeting all conventions and requirements.
     """
     if not isinstance(tvalue, r_uint):
         return False
@@ -1502,15 +1486,14 @@ def is_valid_tnum(tvalue, tmask):
 
 def leading_zeros_mask(n):
     """
-    calculates a bitmask in which only the leading zeros
-    of `n` are set (1).
+    calculates a bitmask in which only the leading zeros of `n` are set (1).
     """
     return ~next_pow2_m1(n)
 
 def lowest_set_bit_only(val_uint):
     """
-    Returns an val_int, but with all bits
-    deleted but the lowest one that was set.
+    Returns an val_int, but with all bits deleted but the lowest one that was
+    set.
     """
     #assert isinstance(val_uint, r_uint)
     working_val = ~val_uint
@@ -1520,22 +1503,19 @@ def lowest_set_bit_only(val_uint):
 
 def min4(t):
     """
-    Returns the minimum of the values in
-    the quadruplet t.
+    Returns the minimum of the values in the quadruplet t.
     """
     return min(min(t[0], t[1]), min(t[2], t[3]))
 
 def max4(t):
     """
-    Returns the maximum of the values in
-    the quadruplet t.
+    Returns the maximum of the values in the quadruplet t.
     """
     return max(max(t[0], t[1]), max(t[2], t[3]))
 
 def msbonly(v):
     """
-    Returns `v` with all bits except the
-    most significant bit set to 0 (zero).
+    Returns `v` with all bits except the most significant bit set to 0 (zero).
     """
     return v & (1 << (LONG_BIT-1))
 
@@ -1552,16 +1532,14 @@ def next_pow2_m1(n):
 
 def unmask_one(value, mask):
     """
-    Sets all unknowns determined by
-    `mask` in `value` bit-wise to 1 (one)
-    and returns the result.
+    Sets all unknowns determined by `mask` in `value` bit-wise to 1 (one) and
+    returns the result.
     """
     return value | mask
 
 def unmask_zero(value, mask):
     """
-    Sets all unknowns determined by
-    `mask` in `value` bit-wise to 0 (zero)
-    and returns the result.
+    Sets all unknowns determined by `mask` in `value` bit-wise to 0 (zero) and
+    returns the result.
     """
     return value & ~mask
