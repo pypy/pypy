@@ -517,7 +517,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         assert mode is None
         if self.lenbound is None:
             assert self.length == -1
-            self.lenbound = IntBound(lower=0)
+            self.lenbound = IntBound.nonnegative()
         return self.lenbound
 
     def _init_items(self, const, size, clear):
@@ -798,7 +798,7 @@ class ConstPtrInfo(PtrInfo):
         length = self.getstrlen1(mode)
         if length < 0:
             # XXX we can do better if we know it's an array
-            return IntBound(lower=0)
+            return IntBound.nonnegative()
         return IntBound.from_constant(length)
 
     def getstrlen(self, op, string_optimizer, mode):

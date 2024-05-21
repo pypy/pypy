@@ -64,7 +64,7 @@ class StrPtrInfo(AbstractVirtualPtrInfo):
 
         if self.lenbound is None:
             if self.length == -1:
-                self.lenbound = IntBound(lower=0)
+                self.lenbound = IntBound.nonnegative()
             else:
                 self.lenbound = IntBound.from_constant(self.length)
         return self.lenbound
