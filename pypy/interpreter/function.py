@@ -757,6 +757,8 @@ class BuiltinFunction(Function):
         self.w_doc = func.w_doc
         self.w_func_dict = func.w_func_dict
         self.w_module = func.w_module
+        # set in mixedmodule.py and in descr_builtinfunction__self__ below
+        self.w_moduleobj = None
         self.w_kw_defs = func.w_kw_defs
 
     def descr_builtinfunction__new__(space, w_subtype):
@@ -768,6 +770,22 @@ class BuiltinFunction(Function):
 
     def descr__reduce__(self, space):
         return space.newtext(self.qualname)
+
+    def descr_builtinfunction__self__(self, space):
+        if self.w_moduleobj is not None:
+            return self.w_moduleobj
+        # we are in the case of a BuiltinFunction constructed via
+        # @__pypy__.builtinify
+        # we get self.__module__, then try to find it in sys.modules
+        w_modules = space.getattr(space.getbuiltinmodule('sys'), space.newtext('modules'))
+        w_modstring = self.fget___module__(space)
+        if not space.is_w(w_modstring, space.w_None):
+            w_moduleobj = space.call_method(w_modules, 'get', w_modstring)
+        else:
+            w_moduleobj = space.w_None
+        self.w_moduleobj = w_moduleobj
+        return w_moduleobj
+
 
 def is_builtin_code(w_func):
     from pypy.interpreter.gateway import BuiltinCode
