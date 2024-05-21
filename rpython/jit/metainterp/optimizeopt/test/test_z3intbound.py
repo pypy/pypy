@@ -669,7 +669,7 @@ def test_prove_add_bound_no_overflow():
         b3.z3_formula(result)
     )
 
-def test_prove_neg():
+def test_prove_neg_logic():
     b1 = make_z3_intbounds_instance('self')
     one = Z3IntBound(BitVecVal(1), BitVecVal(1), BitVecVal(1), BitVecVal(0))
     b2 = b1.invert_bound()
@@ -781,7 +781,7 @@ def test_prove_or_backwards():
         ),
     )
 
-def test_prove_known_unsigned_lt():
+def test_prove_known_unsigned_lt_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     max_self = b1.get_maximum_unsigned_by_knownbits()
@@ -792,7 +792,7 @@ def test_prove_known_unsigned_lt():
         z3.ULT(b1.concrete_variable, b2.concrete_variable),
     )
 
-def test_prove_known_unsigned_lt_from_signed_lt():
+def test_prove_known_unsigned_lt_from_signed_lt_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     b1.prove_implies(
@@ -826,7 +826,7 @@ def test_prove_known_cmp():
         b1.concrete_variable >= b2.concrete_variable,
     )
 
-def test_prove_intersect():
+def test_prove_tnum_intersect():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     tvalue, tmask, valid = b1._tnum_intersect(b2.tvalue, b2.tmask)
@@ -849,7 +849,7 @@ def test_prove_intersect():
         popcount64(~tmask) >= popcount64(~b1.tmask),
     )
 
-def test_prove_intersect_idempotent():
+def test_prove_tnum_intersect_idempotent():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     b2.concrete_variable = b1.concrete_variable
@@ -896,19 +896,14 @@ def test_prove_shrink_bounds_by_knownbits_case1():
     b1 = make_z3_intbounds_instance('self')
 
     threshold = b1.lower
-    working_min = threshold
-    working_min &= unmask_one(b1.tvalue, b1.tmask)
-    working_min |= b1.tvalue
-    cl2set = ~threshold & working_min
-    set2cl = threshold & ~working_min
-    clear_mask = leading_zeros_mask(cl2set >> 1)
-    new_threshold = working_min & (clear_mask | ~b1.tmask)
+    working_min, cl2set, set2cl = b1._helper_min_prepare(threshold)
+    new_threshold = b1._helper_min_case1(working_min, cl2set)
 
     # show that the new_threshold is larger than threshold
     b1.prove_implies(
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min != threshold,
-        cl2set > set2cl,
+        z3.UGT(cl2set, set2cl),
         new_threshold > threshold,
     )
     # correctness: show that there are no elements x in b1 with
@@ -916,7 +911,7 @@ def test_prove_shrink_bounds_by_knownbits_case1():
     b1.prove_implies(
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min != threshold,
-        cl2set > set2cl,
+        z3.UGT(cl2set, set2cl),
         z3.Not(b1.concrete_variable < new_threshold),
     )
     # precision: new_threshold is an element in the set, ie we
@@ -924,7 +919,7 @@ def test_prove_shrink_bounds_by_knownbits_case1():
     b1.prove_implies(
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min != threshold,
-        cl2set > set2cl,
+        z3.UGT(cl2set, set2cl),
         z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
     )
 
@@ -933,34 +928,17 @@ def test_prove_shrink_bounds_by_knownbits_correctness_case2():
     # case 2) cl2set <= set2cl
     b1 = make_z3_intbounds_instance('self')
 
-    # TODO: right now this just copy-pasted the code, we should use helpers
-    # instead
     threshold = b1.lower
-    working_min = threshold
-    working_min &= unmask_one(b1.tvalue, b1.tmask)
-    working_min |= b1.tvalue
+    working_min, cl2set, set2cl = b1._helper_min_prepare(threshold)
     working_min_ne_threshold = working_min != threshold
-    cl2set = ~threshold & working_min
-    set2cl = threshold & ~working_min
 
-    working_min = flip_msb(working_min)
-    # we have to find the proper bit to set...
-    possible_bits = ~working_min \
-                    & b1.tmask \
-                    & leading_zeros_mask(set2cl)
-    bit_to_set = lowest_set_bit_only(possible_bits)
-    working_min |= bit_to_set
-    # and clear all lower than that
-    clear_mask = leading_zeros_mask(bit_to_set) \
-                 | bit_to_set | ~b1.tmask
-    working_min &= clear_mask
-    new_threshold = flip_msb(working_min)
+    new_threshold = b1._helper_min_case2(working_min, set2cl)
 
     # check that the bound is not getting worse
     b1.prove_implies(
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min_ne_threshold,
-        cl2set <= set2cl,
+        z3.ULE(cl2set, set2cl),
         new_threshold > threshold
     )
 
@@ -969,7 +947,7 @@ def test_prove_shrink_bounds_by_knownbits_correctness_case2():
     b1.prove_implies(
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min_ne_threshold,
-        cl2set <= set2cl,
+        z3.ULE(cl2set, set2cl),
         z3.Not(b1.concrete_variable < new_threshold),
     )
 
@@ -978,7 +956,7 @@ def test_prove_shrink_bounds_by_knownbits_correctness_case2():
     b1.prove_implies(
         b1._get_minimum_signed_by_knownbits() < threshold,
         working_min_ne_threshold,
-        cl2set <= set2cl,
+        z3.ULE(cl2set, set2cl),
         z3_tnum_condition(new_threshold, b1.tvalue, b1.tmask),
     )
 
