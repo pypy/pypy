@@ -1,15 +1,17 @@
 import pytest
+
+from copy import copy
+import sys
+
 from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
      next_pow2_m1, msbonly, MININT, MAXINT, lowest_set_bit_only,
      leading_zeros_mask)
-from copy import copy
-import sys
+from rpython.jit.metainterp.optimizeopt.info import (INFO_NONNULL,
+     INFO_UNKNOWN, INFO_NULL)
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck, r_uint, intmask
 from rpython.jit.metainterp.optimize import InvalidLoop
 
 from hypothesis import given, strategies, example, seed, assume
-
-import pytest
 
 special_values_set = (
     range(100) + range(-1, -100, -1) +
@@ -1764,3 +1766,25 @@ def knownbits(tvalue, tmask=0, do_unmask=False):
 
 def check_knownbits_string(r, lower_bits, upper_fill='?'):
     return r.knownbits_string() == upper_fill*(LONG_BIT-len(lower_bits)) + lower_bits
+
+def test_getnullness_examples():
+    b = IntBound(10, 1000)
+    assert b.getnullness() == INFO_NONNULL
+    b = IntBound.from_constant(0)
+    assert b.getnullness() == INFO_NULL
+    b = IntBound(-10000, -10)
+    assert b.getnullness() == INFO_NONNULL
+    b = IntBound.from_knownbits(r_uint(0b1), ~r_uint(0b1))
+    assert b.getnullness() == INFO_NONNULL
+
+@given(knownbits_and_bound_with_contained_number)
+def test_getnullness_random(t1):
+    b1, n1 = t1
+    res = b1.getnullness()
+    if res == INFO_NONNULL:
+        assert n1 != 0
+    elif res == INFO_NULL:
+        assert n1 == 0
+    else:
+        assert res == INFO_UNKNOWN
+
