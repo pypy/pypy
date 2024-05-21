@@ -1682,20 +1682,40 @@ def test_validtnum_assertion_random(t1):
         with pytest.raises(AssertionError):
             b = knownbits(val, msk)
 
-@given(knownbits_and_bound_with_contained_number, pos_relatively_small_values)
-def test_rshift_signed_const_random(t1, t2):
+@given(knownbits_and_bound_with_contained_number, strategies.integers(-5, LONG_BIT + 10), strategies.integers(0, LONG_BIT + 10), strategies.integers(0, LONG_BIT + 10))
+def test_rshift_signed_random(t1, a, b, c):
     b1, n1 = t1
-    b2 = IntBound.from_constant(t2)
+    a, n2, c = sorted([a, b, c])
+    b2 = IntBound(a, c)
     r = b1.rshift_bound(b2)
-    assert r.contains(n1 >> t2)
+    print b1, b2, r, n1, n2, n1 >> n2
+    assert r.contains(n1 >> n2)
+
+@given(knownbits_and_bound_with_contained_number, strategies.integers(-5, LONG_BIT + 10), strategies.integers(0, LONG_BIT + 10), strategies.integers(0, LONG_BIT + 10))
+def test_rshift_unsigned_random(t1, a, b, c):
+    b1, n1 = t1
+    a, n2, c = sorted([a, b, c])
+    b2 = IntBound(a, c)
+    r = b1.urshift_bound(b2)
+    assert r.contains(intmask(r_uint(n1) >> r_uint(n2)))
+    if n1 < 0 and n2 > 0 and r.is_constant():
+        assert r.get_constant_int() >= 0
+
 
 @given(knownbits_and_bound_with_contained_number, pos_relatively_small_values)
-def test_rshift_unsigned_const_random(t1, t2):
+def test_rshift_signed_const_random(t1, n2):
     b1, n1 = t1
-    b2 = IntBound.from_constant(t2)
+    b2 = IntBound.from_constant(n2)
+    r = b1.rshift_bound(b2)
+    assert r.contains(n1 >> n2)
+
+@given(knownbits_and_bound_with_contained_number, pos_relatively_small_values)
+def test_rshift_unsigned_const_random(t1, n2):
+    b1, n1 = t1
+    b2 = IntBound.from_constant(n2)
     r = b1.urshift_bound(b2)
-    assert r.contains(intmask(r_uint(n1) >> r_uint(t2)))
-    if n1 < 0 and t2 > 0 and r.is_constant():
+    assert r.contains(intmask(r_uint(n1) >> r_uint(n2)))
+    if n1 < 0 and n2 > 0 and r.is_constant():
         assert r.get_constant_int() >= 0
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
