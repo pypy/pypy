@@ -352,35 +352,6 @@ def make_z3_bound_and_tnum(name):
     )
     return variable, lower, upper, tvalue, tmask, formula
 
-def test_prove_and_bounds_logic():
-    self_variable = BitVec('self')
-    other_variable = BitVec('other')
-    result = BitVec('result')
-    prove_implies(
-        result == self_variable & other_variable,
-        self_variable >= 0,
-        result >= 0,
-        use_timeout=False
-    )
-    prove_implies(
-        result == self_variable & other_variable,
-        other_variable >= 0,
-        result >= 0,
-        use_timeout=False
-    )
-    prove_implies(
-        result == self_variable & other_variable,
-        self_variable >= 0,
-        result <= self_variable,
-        use_timeout=False
-    )
-    prove_implies(
-        result == self_variable & other_variable,
-        other_variable >= 0,
-        result <= other_variable,
-        use_timeout=False
-    )
-
 def popcount64(w):
     w -= (w >> 1) & 0x5555555555555555
     w = (w & 0x3333333333333333) + ((w >> 2) & 0x3333333333333333)
@@ -410,10 +381,14 @@ def z3_mul_overflow(a, b):
     no_ovf = result_wide == z3.SignExt(LONG_BIT, result)
     return result, no_ovf
 
-# two debugging functions to understand the counterexamples
+# debugging functions to understand the counterexamples
 
 def s(p):
-    print hex(model.evaluate(p).as_signed_long())
+    if p.sort() == z3.BoolSort():
+        print model.evaluate(p)
+    else:
+        print hex(model.evaluate(p).as_signed_long())
+
 def u(p):
     print "r_uint(%s)" % bin(model.evaluate(p).as_long())
 
@@ -624,6 +599,26 @@ def test_prove_and():
         z3_tnum_condition(b1.concrete_variable & b2.concrete_variable, tvalue, tmask),
     )
 
+def test_prove_and_bounds_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    res = b1.concrete_variable & b2.concrete_variable
+    b1.prove_implies(
+        b2,
+        z3.Or(b1.known_nonnegative(), b2.known_nonnegative()),
+        res >= 0
+    )
+    b1.prove_implies(
+        b2,
+        b1.known_nonnegative(),
+        res <= b1.upper,
+    )
+    b1.prove_implies(
+        b2,
+        b2.known_nonnegative(),
+        res <= b2.upper,
+    )
+
 def test_prove_add_knownbits():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
@@ -633,7 +628,6 @@ def test_prove_add_knownbits():
         b2,
         z3_tnum_condition(result, res_tvalue, res_tmask),
     )
-
 
 def test_prove_add_bounds_logic():
     b1 = make_z3_intbounds_instance('self')
