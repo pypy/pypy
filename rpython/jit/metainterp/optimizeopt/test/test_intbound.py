@@ -1033,7 +1033,7 @@ def test_knownbits_intersect_random(t1, t2):
     b = b1.clone()
     b2, n2 = t2
     try:
-        b.intersect(b2)
+        changed = b.intersect(b2)
     except InvalidLoop:
         # the bounds were incompatible, so the examples can't be contained in
         # the other bound
@@ -1050,6 +1050,10 @@ def test_knownbits_intersect_random(t1, t2):
             assert b.contains(n2)
         if b2.contains(n1):
             assert b.contains(n1)
+        if changed:
+            assert not bound_eq(b, b1)
+        else:
+            assert bound_eq(b, b1)
 
 def test_get_minimum_signed_by_knownbits_above_full_range_bug():
     b1 = IntBound.from_constant(0)

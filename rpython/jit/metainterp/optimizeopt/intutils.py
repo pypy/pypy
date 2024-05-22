@@ -684,8 +684,7 @@ class IntBound(AbstractInfo):
             # combination with unrolling/loop peeling
             raise InvalidLoop("two integer ranges don't overlap")
 
-        r = self.make_ge_const(other.lower)
-        r |= self.make_le_const(other.upper)
+        r = self.intersect_const(other.lower, other.upper, do_shrinking=False)
 
         tvalue, tmask, valid = self._tnum_intersect(other.tvalue, other.tmask)
         if not valid:
@@ -694,10 +693,12 @@ class IntBound(AbstractInfo):
         if self.tmask != tmask:
             # this can also raise InvalidLoop, if the ranges and knownbits
             # contradict in more complicated ways
-            r = self.set_tvalue_tmask(tvalue, tmask)
+            r = self.set_tvalue_tmask(tvalue, tmask) # this shrinks
             assert r
-
-        assert self._debug_check()
+        elif r:
+            # we didn't shrink yet
+            self.shrink()
+            assert self._debug_check()
         return r
 
     @always_inline
@@ -712,22 +713,27 @@ class IntBound(AbstractInfo):
         valid = unmasked_self == unmasked_other
         return tvalue, either_known, valid
 
-    def intersect_const(self, lower, upper):
+    def intersect_const(self, lower, upper, do_shrinking=True):
         """
-        Mutates `self` so that it contains
-        integers that are contained in `self`
-        and the range [`lower`, `upper`],
-        and only those.
-        Basically intersection of sets.
-        Does only affect the bounds, so if
-        possible the use of the `intersect`
-        function is recommended instead.
+        Mutates `self` so that it contains integers that are contained in
+        `self` and the range [`lower`, `upper`], and only those. Basically
+        intersection of sets. Does only affect the bounds, so if possible the
+        use of the `intersect` function is recommended instead.
         """
-        r = self.make_ge_const(lower)
-        if self.make_le_const(upper):
-            r = True
-
-        return r
+        changed = False
+        if lower > self.lower:
+            if lower > self.upper:
+                raise InvalidLoop
+            self.lower = lower
+            changed = True
+        if upper < self.upper:
+            if upper < self.lower:
+                raise InvalidLoop
+            self.upper = upper
+            changed = True
+        if changed and do_shrinking:
+            self.shrink()
+        return changed
 
     def add(self, value):
         return self.add_bound(IntBound.from_constant(value))
@@ -942,7 +948,6 @@ class IntBound(AbstractInfo):
         (Does not mutate `self`.)
         """
 
-        # this seems to always be the signed variant..?
         tvalue, tmask = TNUM_UNKNOWN
         if other.is_constant():
             c_other = other.get_constant_int()
