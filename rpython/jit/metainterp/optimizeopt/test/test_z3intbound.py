@@ -1074,11 +1074,15 @@ def test_prove_lshift_bound_logic():
         z3.And(min1 <= result, result <= max1, no_ovf),
     )
 
-    # knownbits logic
-    tvalue = b1.tvalue << b2.concrete_variable
-    tmask = b1.tmask << b2.concrete_variable
+def test_prove_lshift_knownbits():
+    b1 = make_z3_intbounds_instance('self')
+    c = BitVec('const')
+    result = b1.concrete_variable << c
+    tvalue, tmask = b1._tnum_lshift(c)
     b1.prove_implies(
-        z3_tnum_condition(result, tvalue, tmask),
+        c >= 0,
+        c < LONG_BIT,
+        z3_tnum_condition(result, tvalue, tmask)
     )
 
 def test_prove_lshift_bound_cannot_overflow_logic():
