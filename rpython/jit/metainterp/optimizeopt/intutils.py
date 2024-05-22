@@ -78,16 +78,18 @@ class IntBound(AbstractInfo):
         tvalue = value
         tmask = 0
         bvalue = value
+        do_shrinking = False
         if not isinstance(value, int):
             # workaround for AddressAsInt / symbolic ints
             # by CF
             tvalue = 0
             tmask = -1
             bvalue = 0
+            do_shrinking = True
         b = IntBound(lower=bvalue,
                      upper=bvalue,
                      tvalue=r_uint(tvalue),
-                     tmask=r_uint(tmask))
+                     tmask=r_uint(tmask), do_shrinking=do_shrinking)
         return b
 
     @staticmethod
@@ -1395,7 +1397,6 @@ class IntBound(AbstractInfo):
         min_by_knownbits = self._get_minimum_signed_by_knownbits_atleast(self.lower)
         max_by_knownbits = self._get_maximum_signed_by_knownbits_atmost(self.upper)
         if min_by_knownbits > max_by_knownbits:
-            # TODO: check that all callers can deal with an InvalidLoop
             raise InvalidLoop("range and knownbits contradict each other")
         changed = self.lower < min_by_knownbits or self.upper > max_by_knownbits
         if changed:
