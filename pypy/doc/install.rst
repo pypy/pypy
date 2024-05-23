@@ -6,7 +6,7 @@ extra packages. The choices for installing the base interpreter are:
 
 - Use conda (x86_64 windows, macOS, linux, arm64 linux)
 - Use your distribution package manager (linux)
-- Use homebew (macOS, but see issue 3697_)
+- Use homebrew (macOS, but see issue 3696_)
 - Use the prebuilt tarballs
 - Build from source
 
