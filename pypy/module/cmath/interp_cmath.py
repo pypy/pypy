@@ -7,6 +7,7 @@ from pypy.module.cmath.moduledef import names_and_docstrings
 from rpython.rlib import rcomplex, rfloat
 
 pi   = math.pi
+tau  = math.tau
 e    = math.e
 inf  = float('inf')
 nan  = float('nan')
