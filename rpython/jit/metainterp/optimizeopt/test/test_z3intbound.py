@@ -826,6 +826,14 @@ def test_prove_known_unsigned_lt_from_signed_lt_logic():
         b2.lower < b2.lower,
         z3.ULT(b1.concrete_variable, b2.concrete_variable),
     )
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    b1.prove_implies(
+        b2,
+        b1.lower < 0,
+        b2.lower < b2.lower,
+        z3.ULT(b1.concrete_variable, b2.concrete_variable),
+    )
 
 def test_prove_uint_less_nonnegative_implies_nonnegative():
     index = BitVec('index')
@@ -1268,10 +1276,22 @@ def test_int_xor_neg_one_is_invert():
     x = BitVec('x')
     prove(x ^ -1 == ~x)
 
-def test_uint_lt_equivalent_int_lt_if_same_sign():
+def test_uint_cmp_equivalent_int_cmp_if_same_sign():
     x = BitVec('x')
     y = BitVec('y')
     prove_implies(
         (x >= 0) == (y >= 0),
         z3.ULT(x, y) == (x < y),
+    )
+    prove_implies(
+        (x >= 0) == (y >= 0),
+        z3.ULE(x, y) == (x <= y),
+    )
+    prove_implies(
+        (x >= 0) == (y >= 0),
+        z3.UGT(x, y) == (x > y),
+    )
+    prove_implies(
+        (x >= 0) == (y >= 0),
+        z3.UGE(x, y) == (x >= y),
     )

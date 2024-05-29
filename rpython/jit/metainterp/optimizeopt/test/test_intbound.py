@@ -934,6 +934,14 @@ def test_known_lt_gt_le_ge_unsigned_example():
     b2 = IntBound(128, 255)
     assert b1.known_unsigned_le(b2)
 
+    b1 = IntBound(-510, -101)
+    b2 = IntBound(-100, -10)
+    assert b1.known_unsigned_le(b2)
+
+    zero = IntBound.from_constant(0)
+    unknown = IntBound.unbounded()
+    assert zero.known_unsigned_le(unknown)
+
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_known_lt_gt_le_ge_unsigned_random(t1, t2):
     b1, n1 = t1

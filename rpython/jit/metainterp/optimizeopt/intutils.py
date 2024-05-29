@@ -519,27 +519,36 @@ class IntBound(AbstractInfo):
             return self.make_gt(other)
         return False
 
+    def _known_same_sign(self, other):
+        # return True if self and other are both either known non-negative or
+        # both known negative
+        if self.known_nonnegative() and other.known_nonnegative():
+            return True
+        return self.known_lt_const(0) and other.known_lt_const(0)
+
     def known_unsigned_lt(self, other):
         """
         Returns `True` iff each unsigned integer contained in this abstract
         integer is lower than each unsigned integer contained in `other`.
         """
+        # if they have the same sign, we can reason with signed comparison
+        # see test_uint_cmp_equivalent_int_cmp_if_same_sign
+        if self._known_same_sign(other) and self.known_lt(other):
+            return True
         other_min_unsigned_by_knownbits = other.get_minimum_unsigned_by_knownbits()
         self_max_unsigned_by_knownbits = self.get_maximum_unsigned_by_knownbits()
-        if self_max_unsigned_by_knownbits < other_min_unsigned_by_knownbits:
-            return True
-        if 0 <= self.lower <= self.upper < other.lower:
-            return True
-        return False
+        return self_max_unsigned_by_knownbits < other_min_unsigned_by_knownbits
 
     def known_unsigned_le(self, other):
         """
         Returns `True` iff each unsigned integer contained in this abstract
         integer is lower or equal than each unsigned integer contained in
         `other`. """
+        # if they have the same sign, we can reason with signed comparison
+        if self._known_same_sign(other) and self.known_le(other):
+            return True
         other_min_unsigned_by_knownbits = other.get_minimum_unsigned_by_knownbits()
         self_max_unsigned_by_knownbits = self.get_maximum_unsigned_by_knownbits()
-        # TODO: add the non-negative case too
         return self_max_unsigned_by_knownbits <= other_min_unsigned_by_knownbits
 
     def known_unsigned_gt(self, other):
