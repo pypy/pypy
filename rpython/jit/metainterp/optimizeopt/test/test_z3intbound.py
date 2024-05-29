@@ -38,6 +38,20 @@ def BitVecVal(value):
 def BitVec(name):
     return z3.BitVec(name, LONG_BIT)
 
+def z3_with_reduced_bitwidth(width):
+    def dec(test):
+        assert test.func_name.endswith("logic") # doesn't work for code in intutils.py
+        def newtest(*args, **kwargs):
+            global LONG_BIT
+            old_value = LONG_BIT
+            LONG_BIT = width
+            try:
+                return test(*args, **kwargs)
+            finally:
+                LONG_BIT = old_value
+        return newtest
+    return dec
+
 MAXINT = sys.maxint
 MININT = -sys.maxint - 1
 
@@ -1057,6 +1071,7 @@ def z3_max(*args):
         res = z3.If(res > x, res, x)
     return res
 
+@z3_with_reduced_bitwidth(16)
 def test_prove_lshift_bound_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
@@ -1173,8 +1188,8 @@ def test_prove_rshift_bound_backwards_logic():
         z3_tnum_condition(b1.concrete_variable, tvalue, tmask)
     )
 
-def dont_test_prove_mul_bound_logic():
-    # takes ages on Z3
+@z3_with_reduced_bitwidth(8)
+def test_prove_mul_bound_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result, no_ovf = z3_mul_overflow(b1.concrete_variable, b2.concrete_variable)
