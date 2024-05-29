@@ -3262,6 +3262,31 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_uint_ge_implies_something_about_index(self):
+        # this is a common pattern when reading at an index i0 from a list. the
+        # uint_ge is checking that i0 is a valid index (neither negative nor >=
+        # i1, the length)
+        ops = """
+        [i0, i1]
+        # check that the length is non-negative
+        i2 = int_ge(i1, 0)
+        guard_true(i2) []
+        i3 = uint_ge(i0, i1)
+        guard_false(i3) []
+        i4 = int_ge(i0, 0) # this is implied by the uint_ge
+        guard_true(i4) []
+        jump(i0)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_ge(i1, 0)
+        guard_true(i2) []
+        i3 = uint_ge(i0, i1)
+        guard_false(i3) []
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
 
 
 class TestComplexIntOpts(BaseTestBasic):

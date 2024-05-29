@@ -490,6 +490,35 @@ class IntBound(AbstractInfo):
         """
         return 0 <= self.lower
 
+    def make_unsigned_le(self, other):
+        if other.known_nonnegative():
+            return self.intersect_const(0, other.upper)
+        return False
+
+    def make_unsigned_lt(self, other):
+        if other.known_nonnegative():
+            assert other.upper >= 0
+            if other.upper == 0:
+                raise InvalidLoop
+            return self.intersect_const(0, other.upper - 1)
+        return False
+
+    def make_unsigned_ge(self, other):
+        if other.upper < 0:
+            changed = self.make_lt_const(0)
+            return self.make_ge(other) or changed
+        if self.known_nonnegative() and other.known_nonnegative():
+            return self.make_ge(other)
+        return False
+
+    def make_unsigned_gt(self, other):
+        if other.upper < 0:
+            changed = self.make_lt_const(0)
+            return self.make_gt(other) or changed
+        if self.known_nonnegative() and other.known_nonnegative():
+            return self.make_gt(other)
+        return False
+
     def known_unsigned_lt(self, other):
         """
         Returns `True` iff each unsigned integer contained in this abstract
@@ -510,6 +539,7 @@ class IntBound(AbstractInfo):
         `other`. """
         other_min_unsigned_by_knownbits = other.get_minimum_unsigned_by_knownbits()
         self_max_unsigned_by_knownbits = self.get_maximum_unsigned_by_knownbits()
+        # TODO: add the non-negative case too
         return self_max_unsigned_by_knownbits <= other_min_unsigned_by_knownbits
 
     def known_unsigned_gt(self, other):
@@ -902,9 +932,11 @@ class IntBound(AbstractInfo):
             if val == 0:
                 pass # div by 0
             elif val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
+                # XXX use intersect_const
                 r.make_ge_const(0)
                 r.make_lt_const(val)
             else:               # with Python's modulo:  neg < (x % neg) <= 0
+                # XXX use intersect_const
                 r.make_gt_const(val)
                 r.make_le_const(0)
         return r

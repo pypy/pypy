@@ -2,6 +2,7 @@ import pytest
 
 from copy import copy
 import sys
+import operator
 
 from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
      next_pow2_m1, msbonly, MININT, MAXINT, lowest_set_bit_only,
@@ -600,23 +601,108 @@ def test_widen():
     assert bound_eq(b, b1)
 
 
-@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
-def test_make_random(t1, t2):
+@given(knownbits_and_bound_with_contained_number,
+       knownbits_and_bound_with_contained_number,
+       strategies.sampled_from(("lt", "le", "gt", "ge")))
+def test_make_random(t1, t2, name):
     def d(b):
         return b.lower, b.upper, b.tvalue, b.tmask
     b1, n1 = t1
     b2, n2 = t2
 
-    for meth in [IntBound.make_le, IntBound.make_lt, IntBound.make_ge, IntBound.make_gt]:
-        b = b1.clone()
-        try:
-            changed = meth(b, b2)
-        except InvalidLoop:
-            continue
-        data = d(b)
-        assert not meth(b, b2)
-        assert data == d(b) # idempotent
-        assert changed == (d(b1) != d(b))
+    meth = getattr(IntBound, "make_" + name)
+    b = b1.clone()
+    try:
+        changed = meth(b, b2)
+    except InvalidLoop:
+        assert not getattr(operator, name)(n1, n2)
+        return
+    data = d(b)
+    assert not meth(b, b2)
+    assert data == d(b) # idempotent
+    assert changed == (d(b1) != d(b))
+    if not b.contains(n1):
+        assert not getattr(operator, name)(n1, n2)
+
+def test_make_unsigned_less_example():
+    b1 = IntBound(0, 10)
+    b2 = IntBound.unbounded()
+    res = b2.make_unsigned_le(b1)
+    assert res is True
+    assert b2.known_nonnegative()
+    assert b2.known_le_const(10)
+
+    b1 = IntBound(0, 10)
+    b2 = IntBound.unbounded()
+    res = b2.make_unsigned_lt(b1)
+    assert res is True
+    assert b2.known_nonnegative()
+    assert b2.known_lt_const(10)
+
+    b1 = IntBound(0, 0)
+    b2 = IntBound.unbounded()
+    with pytest.raises(InvalidLoop):
+        b2.make_unsigned_lt(b1)
+
+def test_make_unsigned_greater_example():
+    # we can learn something if b2 is negative
+    b1 = IntBound.unbounded()
+    b2 = IntBound(lower=-100, upper=-2)
+    res = b1.make_unsigned_ge(b2)
+    assert res is True
+    assert b1.known_lt_const(0)
+    assert b1.known_ge_const(-100)
+
+    b1 = IntBound.unbounded()
+    b2 = IntBound(lower=-100, upper=-2)
+    res = b1.make_unsigned_gt(b2)
+    assert res is True
+    assert b1.known_lt_const(0)
+    assert b1.known_gt_const(-100)
+
+    # we can also learn something if they are both nonnegative (then the logic
+    # just falls back to signed comparisons)
+    b1 = IntBound.nonnegative()
+    b2 = IntBound(2, 100)
+    res = b1.make_unsigned_ge(b2)
+    assert res is True
+    assert b1.known_ge_const(2)
+
+    b1 = IntBound.nonnegative()
+    b2 = IntBound(lower=5)
+    res = b1.make_unsigned_gt(b2)
+    assert res is True
+    assert b1.known_gt_const(5)
+
+@example(t1=(IntBound(MININT, 0), 0), t2=(IntBound(-4, -3), -3), name='gt')
+@given(knownbits_and_bound_with_contained_number,
+       knownbits_and_bound_with_contained_number,
+       strategies.sampled_from(("lt", "le", "gt", "ge")))
+def test_make_unsigned_random(t1, t2, name):
+    def d(b):
+        return b.lower, b.upper, b.tvalue, b.tmask
+    b1, n1 = t1
+    b2, n2 = t2
+
+    meth = getattr(IntBound, "make_unsigned_" + name)
+    b = b1.clone()
+    try:
+        changed = meth(b, b2)
+    except InvalidLoop:
+        # it wasn't possible to make b1 < b2. therefore the concrete number n1
+        # must also not be < n2
+        assert not getattr(operator, name)(r_uint(n1), r_uint(n2))
+        return
+    data = d(b)
+    assert not meth(b, b2)
+    assert data == d(b) # idempotent
+    assert changed == (d(b1) != d(b))
+    if not b.contains(n1):
+        assert changed
+        # if n1 was removed by the make_unsigned_lt call, then it must not be
+        # smaller than n2
+        assert not getattr(operator, name)(r_uint(n1), r_uint(n2))
+
 
 @given(knownbits_and_bound_with_contained_number)
 def test_add_zero_is_zero_random(t1):
@@ -1791,4 +1877,3 @@ def test_getnullness_random(t1):
         assert n1 == 0
     else:
         assert res == INFO_UNKNOWN
-

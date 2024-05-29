@@ -371,20 +371,12 @@ class OptIntBounds(Optimization):
 
     def propagate_bounds_UINT_LT(self, op):
         r = self.getintbound(op)
-        if not r.is_constant():
-            return
-        arg1 = get_box_replacement(op.getarg(0))
-        b1 = self.getintbound(arg1)
-        if not b1.known_nonnegative():
-            return
-        arg2 = get_box_replacement(op.getarg(1))
-        b2 = self.getintbound(arg2)
-        if not b2.known_nonnegative():
-            return
-        if r.get_constant_int() == 1:
-            self.make_int_lt(arg1, arg2)
-        else:
-            self.make_int_ge(arg1, arg2)
+        if r.is_constant():
+            if r.get_constant_int() == 1:
+                self.make_unsigned_lt(op.getarg(0), op.getarg(1))
+            else:
+                assert r.get_constant_int() == 0
+                self.make_unsigned_ge(op.getarg(0), op.getarg(1))
 
     def optimize_UINT_GT(self, op):
         arg1 = get_box_replacement(op.getarg(0))
@@ -400,20 +392,12 @@ class OptIntBounds(Optimization):
 
     def propagate_bounds_UINT_GT(self, op):
         r = self.getintbound(op)
-        if not r.is_constant():
-            return
-        arg1 = get_box_replacement(op.getarg(0))
-        b1 = self.getintbound(arg1)
-        if not b1.known_nonnegative():
-            return
-        arg2 = get_box_replacement(op.getarg(1))
-        b2 = self.getintbound(arg2)
-        if not b2.known_nonnegative():
-            return
-        if r.get_constant_int() == 1:
-            self.make_int_gt(arg1, arg2)
-        else:
-            self.make_int_le(arg1, arg2)
+        if r.is_constant():
+            if r.get_constant_int() == 1:
+                self.make_unsigned_gt(op.getarg(0), op.getarg(1))
+            else:
+                assert r.get_constant_int() == 0
+                self.make_unsigned_le(op.getarg(0), op.getarg(1))
 
     def optimize_UINT_LE(self, op):
         arg1 = get_box_replacement(op.getarg(0))
@@ -429,20 +413,12 @@ class OptIntBounds(Optimization):
 
     def propagate_bounds_UINT_LE(self, op):
         r = self.getintbound(op)
-        if not r.is_constant():
-            return
-        arg1 = get_box_replacement(op.getarg(0))
-        b1 = self.getintbound(arg1)
-        if not b1.known_nonnegative():
-            return
-        arg2 = get_box_replacement(op.getarg(1))
-        b2 = self.getintbound(arg2)
-        if not b2.known_nonnegative():
-            return
-        if r.get_constant_int() == 1:
-            self.make_int_le(arg1, arg2)
-        else:
-            self.make_int_gt(arg1, arg2)
+        if r.is_constant():
+            if r.get_constant_int() == 1:
+                self.make_unsigned_le(op.getarg(0), op.getarg(1))
+            else:
+                assert r.get_constant_int() == 0
+                self.make_unsigned_gt(op.getarg(0), op.getarg(1))
 
     def optimize_UINT_GE(self, op):
         arg1 = get_box_replacement(op.getarg(0))
@@ -458,20 +434,12 @@ class OptIntBounds(Optimization):
 
     def propagate_bounds_UINT_GE(self, op):
         r = self.getintbound(op)
-        if not r.is_constant():
-            return
-        arg1 = get_box_replacement(op.getarg(0))
-        b1 = self.getintbound(arg1)
-        if not b1.known_nonnegative():
-            return
-        arg2 = get_box_replacement(op.getarg(1))
-        b2 = self.getintbound(arg2)
-        if not b2.known_nonnegative():
-            return
-        if r.get_constant_int() == 1:
-            self.make_int_ge(arg1, arg2)
-        else:
-            self.make_int_lt(arg1, arg2)
+        if r.is_constant():
+            if r.get_constant_int() == 1:
+                self.make_unsigned_ge(op.getarg(0), op.getarg(1))
+            else:
+                assert r.get_constant_int() == 0
+                self.make_unsigned_lt(op.getarg(0), op.getarg(1))
 
     def optimize_INT_EQ(self, op):
         arg0 = get_box_replacement(op.getarg(0))
@@ -631,6 +599,28 @@ class OptIntBounds(Optimization):
 
     def make_int_ge(self, box1, box2):
         self.make_int_le(box2, box1)
+
+    def make_unsigned_lt(self, box1, box2):
+        b1 = self.getintbound(box1)
+        b2 = self.getintbound(box2)
+        if b1.make_unsigned_lt(b2):
+            self.propagate_bounds_backward(box1)
+        if b2.make_unsigned_gt(b1):
+            self.propagate_bounds_backward(box2)
+
+    def make_unsigned_le(self, box1, box2):
+        b1 = self.getintbound(box1)
+        b2 = self.getintbound(box2)
+        if b1.make_unsigned_le(b2):
+            self.propagate_bounds_backward(box1)
+        if b2.make_unsigned_ge(b1):
+            self.propagate_bounds_backward(box2)
+
+    def make_unsigned_gt(self, box1, box2):
+        self.make_unsigned_lt(box2, box1)
+
+    def make_unsigned_ge(self, box1, box2):
+        self.make_unsigned_le(box2, box1)
 
     def propagate_bounds_INT_LT(self, op):
         r = self.getintbound(op)
