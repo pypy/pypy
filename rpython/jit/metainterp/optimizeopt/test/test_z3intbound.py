@@ -236,6 +236,16 @@ def test_known(b1, b2):
     if b1.known_ne(b2):
         prove_implies(formula1, formula2, var1 != var2)
 
+@given(bounds, bounds)
+def test_mod(b1, b2):
+    b3 = b1.mod_bound(b2)
+    print b1, b2, b3
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    var3, nonzero = z3_pymod_nonzero(var1, var2)
+    _, formula3 = to_z3(b3, var3)
+    prove_implies(formula1, formula2, nonzero, formula3)
+
 
 # ____________________________________________________________
 # boolean operations
@@ -1254,18 +1264,20 @@ def test_prove_mul_bound_logic():
         z3.And(min1 <= result, result <= max1, no_ovf),
     )
 
+def z3_pymod_nonzero(x, y):
+    r = x % y
+    res = r + (y & z3.If(y < 0, -r, r) >> (LONG_BIT - 1))
+    return res, y != 0
 
-def dont_test_prove_mod_bound_idea():
-    # we can improve the mod_bound logic with this. disabled because it takes a
-    # few min in Z3
+@z3_with_reduced_bitwidth(16)
+def test_prove_mod_bound_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
-    result = z3_pymod(b1.concrete_variable, b2.concrete_variable)
+    result, nonzero = z3_pymod_nonzero(b1.concrete_variable, b2.concrete_variable)
     b1.prove_implies(
-        b2.concrete_variable != 0,
         b2,
-        result <= z3_max(b2.upper, 0),
-        z3_min(b2.lower, 0) <= result,
+        nonzero,
+        z3.And(result <= z3_max(b2.upper - 1, 0), z3_min(b2.lower + 1, 0) <= result)
     )
 
 

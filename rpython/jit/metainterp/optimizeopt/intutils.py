@@ -936,19 +936,20 @@ class IntBound(AbstractInfo):
         (Does not mutate `self`.)
         """
         r = IntBound.unbounded()
-        if other.is_constant():
-            val = other.get_constant_int()
-            if val == 0:
-                pass # div by 0
-            elif val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
-                # XXX use intersect_const
-                r.make_ge_const(0)
-                r.make_lt_const(val)
-            else:               # with Python's modulo:  neg < (x % neg) <= 0
-                # XXX use intersect_const
-                r.make_gt_const(val)
-                r.make_le_const(0)
-        return r
+        if other.is_constant() and other.get_constant_int() == 0:
+            return IntBound.unbounded()
+        # with Python's modulo:  0 <= (x % pos) < pos
+        #                        neg < (x % neg) <= 0
+        # see test_prove_mod_bound_logic
+        if other.upper > 0:
+            upper = other.upper - 1
+        else:
+            upper = 0
+        if other.lower < 0:
+            lower = other.lower + 1
+        else:
+            lower = 0
+        return IntBound(lower, upper)
 
     def lshift_bound(self, other):
         """

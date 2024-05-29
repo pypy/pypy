@@ -780,6 +780,37 @@ def test_div_random(t1, t2):
     if n2 != 0:
         assert b3.contains(n1 / n2)   # Python-style div
 
+def test_mod_bound_example():
+    b1 = IntBound()
+    b2 = IntBound(-20, 10)
+    r = b1.mod_bound(b2)
+    assert r.known_gt_const(-20)
+    assert r.known_lt_const(10)
+
+    b1 = IntBound()
+    b2 = IntBound(upper=10)
+    r = b1.mod_bound(b2)
+    assert r.known_gt_const(MININT)
+    assert r.known_lt_const(10)
+
+    b1 = IntBound()
+    b2 = IntBound(lower=10)
+    r = b1.mod_bound(b2)
+    assert r.known_ge_const(0)
+    assert r.known_lt_const(MAXINT)
+
+    b1 = IntBound()
+    b2 = IntBound(upper=-10)
+    r = b1.mod_bound(b2)
+    assert r.known_le_const(0)
+    assert r.known_gt_const(MININT)
+
+    b1 = IntBound()
+    b2 = IntBound(lower=-10)
+    r = b1.mod_bound(b2)
+    assert r.known_gt_const(-10)
+    assert r.known_lt_const(MAXINT)
+
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_mod_bound_random(t1, t2):
     b1, n1 = t1
