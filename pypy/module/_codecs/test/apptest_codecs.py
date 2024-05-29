@@ -11,3 +11,13 @@ def test_lone_low_surrogate_utf16le():
     decode = _codecs.utf_16_le_decode
     (result, consumed) = decode(data, 'surrogatepass', False)
     assert result == '\uDC02'
+
+def test_utf8_many_surrogates_in_a_row():
+    import _codecs
+    def h(exc):
+        assert exc.start == 0
+        assert exc.end == 10
+        return '', exc.end
+    _codecs.register_error("test.test_utf8_many_surrogates_in_a_row", h)
+    res = ('\udcdb'*10 + 'abc').encode("utf8", "test.test_utf8_many_surrogates_in_a_row")
+    assert res == b'abc'

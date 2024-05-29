@@ -231,17 +231,17 @@ def _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler):
             result.append_slice(s, pos, end)
             index += rutf8.codepoints_in_utf8(s, start=pos, end=end)
             pos = end
-            # Try to collect surrogates in one pass
-            # XXX do we care about performance in this case?
-            # XXX should this loop for more than one pair?
-            delta = 1
-            uchr = rutf8.codepoint_at_pos(s, pos)
-            if 0xD800 <= uchr <= 0xDBFF:
+            # collect all consecutive surrogates
+            delta = 0
+            while 1:
+                uchr = rutf8.codepoint_at_pos(s, pos)
                 pos = rutf8.next_codepoint_pos(s, pos)
-                if pos < len(s):
-                    uchr = rutf8.codepoint_at_pos(s, pos)
-                    if 0xDC00 <= uchr <= 0xDFFF:
-                        delta += 1
+                if not (0xD800 <= uchr <= 0xDFFF):
+                    break
+                delta += 1
+                if pos >= len(s):
+                    break
+            # XXX do we care about performance in this case?
             res, newindex, rettype, obj = errorhandler(errors, 'utf-8',
                         'surrogates not allowed', s, index, index + delta)
             if rettype == 'u':
