@@ -31,7 +31,7 @@ class CodecState(object):
 
     def _make_errorhandler(self, space, decode):
         def call_errorhandler(errors, encoding, reason, input, startpos,
-                              endpos):
+                              endpos, w_input=None):
             """Generic wrapper for calling into error handlers.
 
             Note that error handler receives and returns position into
@@ -44,14 +44,18 @@ class CodecState(object):
             w_errorhandler = lookup_error(space, errors)
             if decode:
                 w_cls = space.w_UnicodeDecodeError
-                assert isinstance(input, str)
-                w_input = space.newbytes(input)
+                if w_input is None:
+                    assert isinstance(input, str)
+                    w_input = space.newbytes(input)
                 length = len(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
                 assert isinstance(input, str)
-                length = rutf8.codepoints_in_utf8(input)
-                w_input = space.newtext(input, length)
+                if w_input is None:
+                    length = rutf8.codepoints_in_utf8(input)
+                    w_input = space.newtext(input, length)
+                else:
+                    length = space.len_w(w_input)
             w_exc =  space.call_function(
                 w_cls,
                 space.newtext(encoding),
@@ -775,7 +779,8 @@ def utf_8_encode(space, w_obj, errors="strict"):
         errors = 'strict'
     state = space.fromcache(CodecState)
     result = unicodehelper.utf8_encode_utf_8(utf8, errors,
-                 state.encode_error_handler, allow_surrogates=False)
+                 state.encode_error_handler, allow_surrogates=False,
+                 w_input=w_obj)
     if errors == 'strict':
         # since we did strict checking and surrogates are forbidden, we know
         # the result of the _check_utf8 call with allow_surrogates=False

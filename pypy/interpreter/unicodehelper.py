@@ -13,7 +13,7 @@ from rpython.rlib import runicode
 def decode_error_handler(space):
     # Fast version of the "strict" errors handler.
     def raise_unicode_exception_decode(errors, encoding, msg, s,
-                                       startingpos, endingpos):
+                                       startingpos, endingpos, w_input=None):
         raise OperationError(space.w_UnicodeDecodeError,
                              space.newtuple([space.newtext(encoding),
                                              space.newbytes(s),
@@ -32,18 +32,20 @@ def decode_never_raise(errors, encoding, msg, s, startingpos, endingpos):
 def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
     def raise_unicode_exception_encode(errors, encoding, msg, utf8,
-                                       startingpos, endingpos):
-        u_len = rutf8.codepoints_in_utf8(utf8)
+                                       startingpos, endingpos, w_input=None):
+        if w_input is None:
+            u_len = rutf8.codepoints_in_utf8(utf8)
+            w_input = space.newutf8(utf8, u_len)
         raise OperationError(space.w_UnicodeEncodeError,
                              space.newtuple([space.newtext(encoding),
-                                             space.newutf8(utf8, u_len),
+                                             w_input,
                                              space.newint(startingpos),
                                              space.newint(endingpos),
                                              space.newtext(msg)]))
     return raise_unicode_exception_encode
 
 def default_error_encode(
-        errors, encoding, msg, u, startingpos, endingpos):
+        errors, encoding, msg, u, startingpos, endingpos, w_input=None):
     """A default handler, for tests"""
     assert endingpos >= 0
     if errors == 'replace':
@@ -198,7 +200,7 @@ def _str_decode_latin_1_slowpath(s, errors, final, errorhandler):
             i = end
     return res.build(), len(s), len(s)
 
-def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
+def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False, w_input=None):
     if len(s) == 0:
         return ''
 
@@ -212,9 +214,12 @@ def utf8_encode_utf_8(s, errors, errorhandler, allow_surrogates=False):
         # to do anything
         return s
     # annoying slow path
-    return _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler)
+    return _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler, w_input)
 
-def _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler):
+def _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler, w_input):
+    from pypy.objspace.std.unicodeobject import W_UnicodeObject
+    if not isinstance(w_input, W_UnicodeObject):
+        w_input = None
     pos = 0
     index = 0
     result = StringBuilder(len(s))
@@ -241,9 +246,13 @@ def _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler):
                 delta += 1
                 if pos >= len(s):
                     break
+            if w_input is None:
+                length = rutf8.codepoints_in_utf8(s)
+                w_input = space.newtext(s, length)
             # XXX do we care about performance in this case?
             res, newindex, rettype, obj = errorhandler(errors, 'utf-8',
-                        'surrogates not allowed', s, index, index + delta)
+                        'surrogates not allowed', s, index, index + delta,
+                        w_input=w_input)
             if rettype == 'u':
                 try:
                     rutf8.check_ascii(res)
@@ -251,11 +260,16 @@ def _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler):
                     # this is a weird behaviour of CPython, but it's what happens
                     errorhandler("strict", 'utf-8', 'surrogates not allowed', s, index, index + delta)
                     assert 0, "unreachable"
-            s = obj
+            if obj is not s:
+                s = obj
+                w_input = None
             result.append(res)
             if index != newindex:  # Should be uncommon
                 index = newindex
-                pos = rutf8._pos_at_index(s, newindex)
+                if w_input is not None:
+                    pos = w_input._index_to_byte(newindex)
+                else:
+                    pos = rutf8._pos_at_index(s, newindex)
     return result.build()
 
 def utf8_encode_latin_1(s, errors, errorhandler, allow_surrogates=False):

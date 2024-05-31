@@ -2,6 +2,22 @@
 import sys
 import pytest
 
+class TestCodecs:
+    def test_dont_rewrap_input(self, monkeypatch):
+        from rpython.rlib import rutf8
+        f = rutf8.codepoints_in_utf8
+        def codepoints_in_utf8(s, start=0, end=sys.maxint):
+            assert s != input or not (start == 0 and end == sys.maxint)
+            return f(s, start, end)
+        space = self.space
+        input = (u'a\udcdb'*500).encode('utf-8')
+        w_s = space.newtext(input)
+        w_enc = space.newtext('utf-8')
+        w_err = space.newtext('surrogateescape')
+        monkeypatch.setattr(rutf8, 'codepoints_in_utf8', codepoints_in_utf8)
+        space.call_method(w_s, 'encode', w_enc, w_err)
+
+
 class AppTestCodecs:
     spaceconfig = {
         "usemodules": ['unicodedata', 'struct', 'binascii', '_warnings'],

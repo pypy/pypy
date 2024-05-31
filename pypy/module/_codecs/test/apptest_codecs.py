@@ -12,6 +12,11 @@ def test_lone_low_surrogate_utf16le():
     (result, consumed) = decode(data, 'surrogatepass', False)
     assert result == '\uDC02'
 
+def test_surrogateescape_slowness():
+    # should not take ages, basically
+    l = len(('a\udcdb'*500).encode('utf8', 'surrogateescape'))
+    assert l == 1000
+
 def test_utf8_many_surrogates_in_a_row():
     import _codecs
     def h(exc):

@@ -36,7 +36,7 @@ def test_encode_utf_8_combine_surrogates():
 
     calls = []
 
-    def errorhandler(errors, encoding, msg, s, start, end):
+    def errorhandler(errors, encoding, msg, s, start, end, w_input=None):
         """
         This handler will be called twice, so asserting both times:
 
@@ -121,7 +121,7 @@ def test_raw_unicode_escape_bug_escape_backslash():
     assert res[0].decode("utf-8") == u'\\\xef'
 
 def test_utf16_encode_bytes_replacement_is_simply_copied():
-    def errorhandler(errors, encoding, msg, s, start, end):
+    def errorhandler(errors, encoding, msg, s, start, end, w_input=None):
         return 'abcd', end, 'b', s
 
     res = utf8_encode_utf_16_le(
@@ -133,7 +133,7 @@ def test_utf16_encode_bytes_replacement_is_simply_copied():
 
 
 def test_utf32_encode_bytes_replacement_is_simply_copied():
-    def errorhandler(errors, encoding, msg, s, start, end):
+    def errorhandler(errors, encoding, msg, s, start, end, w_input=None):
         return 'abcd', end, 'b', s
 
     res = utf8_encode_utf_32_le(
