@@ -218,3 +218,21 @@ from  __future__ import division
     '''
     f = run(s, (4, 24))
     assert f == fut.CO_FUTURE_DIVISION | fut.CO_GENERATOR_ALLOWED
+
+def test_docstring_implicit_concatenation():
+    # found by a fuzzer, likely nobody does this
+    s = '''"""abc""" 'def'
+from  __future__ import generators
+from  __future__ import division
+    '''
+    f = run(s, (3, 24))
+    assert f == fut.CO_FUTURE_DIVISION | fut.CO_GENERATOR_ALLOWED
+
+    # variant
+    s = '''
+from  __future__ import generators
+"""abc""" 'def'
+from  __future__ import division
+    '''
+    f = run(s, (4, 24))
+    assert f == fut.CO_FUTURE_DIVISION | fut.CO_GENERATOR_ALLOWED
