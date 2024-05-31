@@ -948,8 +948,11 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                 erased = getattr(self, "_value%s" % nmin1)
                 new_storage = [erased, value]
             else:
-                new_storage = [erase_item(None)] * (storage_needed - self._mapdict_storage_length())
-                new_storage = self._mapdict_get_storage_list() + new_storage
+                prev_storage_size = self._get_mapdict_map().storage_needed()
+                new_storage = [erase_item(None)] * (storage_needed - prev_storage_size)
+                curr_storage = self._mapdict_get_storage_list()
+                jit.record_exact_value(len(curr_storage), prev_storage_size - nmin1)
+                new_storage = curr_storage + new_storage
                 new_storage[storage_needed - n] = value
             self._set_mapdict_map(map)
             erased = erase_list(new_storage)
