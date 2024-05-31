@@ -580,6 +580,7 @@ class UnboxedPlainAttribute(PlainAttribute):
             obj._set_mapdict_map(self)
             if len(unboxed) <= self.listindex:
                 # size can only increase by 1
+                jit.record_exact_value(len(unboxed), self.listindex)
                 assert len(unboxed) == self.listindex
                 unboxed = unboxed + [val]
                 obj._mapdict_write_storage(self.storageindex, erase_unboxed(unboxed))
