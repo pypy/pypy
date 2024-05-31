@@ -480,7 +480,7 @@ def surrogateescape_errors(space, w_exc):
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
         w_end = space.getattr(w_exc, space.newtext('end'))
         end = space.int_w(w_end)
-        res = ''
+        res = []
         start = w_obj._index_to_byte(start)
         end = w_obj._index_to_byte(end)
         obj = w_obj._utf8
@@ -490,9 +490,9 @@ def surrogateescape_errors(space, w_exc):
             if code < 0xdc80 or code > 0xdcff:
                 # Not a UTF-8b surrogate, fail with original exception
                 raise OperationError(space.type(w_exc), w_exc)
-            res += chr(code - 0xdc00)
+            res.append(chr(code - 0xdc00))
             pos = rutf8.next_codepoint_pos(obj, pos)
-        return space.newtuple([space.newbytes(res), w_end])
+        return space.newtuple([space.newbytes(''.join(res)), w_end])
     elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
         consumed = 0
         start = space.int_w(space.getattr(w_exc, space.newtext('start')))
