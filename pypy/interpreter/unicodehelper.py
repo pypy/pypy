@@ -314,7 +314,7 @@ def _utf8_encode_latin_1_slowpath(s, first_non_ascii_char, errors, errorhandler)
                 pos = rutf8._pos_at_index(s, newindex)
     return result.build()
 
-def utf8_encode_ascii(s, errors, errorhandler, allow_surrogates=False):
+def utf8_encode_ascii(s, errors, errorhandler, allow_surrogates=False, w_input=None):
     """ Don't be confused - this is a slowpath for errors e.g. "ignore"
     or an obscure errorhandler
     """
@@ -334,11 +334,13 @@ def utf8_encode_ascii(s, errors, errorhandler, allow_surrogates=False):
                 index += 1
             msg = "ordinal not in range(128)"
             res, newindex, rettype, obj = errorhandler(
-                errors, 'ascii', msg, s, startindex, index)
+                errors, 'ascii', msg, s, startindex, index,
+                w_input=w_input)
             if rettype == 'u':
                 for cp in rutf8.Utf8StringIterator(res):
                     if cp > 0x80:
-                        errorhandler("strict", 'ascii', msg, s, startindex, index)
+                        errorhandler("strict", 'ascii', msg, s, startindex, index,
+                                     w_input=w_input)
                         raise RuntimeError('error handler should not have returned')
                     result.append(chr(cp))
             else:
@@ -813,7 +815,7 @@ def raw_unicode_escape_helper(result, char):
     for i in range(zeros-1, -1, -1):
         result.append(TABLE[(char >> (4 * i)) & 0x0f])
 
-def utf8_encode_raw_unicode_escape(s, errors, errorhandler, allow_surrogates=False):
+def utf8_encode_raw_unicode_escape(s, errors, errorhandler, allow_surrogates=False, w_input=None):
     # errorhandler is not used: this function cannot cause Unicode errors
     size = len(s)
     if size == 0:
@@ -832,7 +834,7 @@ def utf8_encode_raw_unicode_escape(s, errors, errorhandler, allow_surrogates=Fal
     return result.build()
 
 
-def utf8_encode_unicode_escape(s, errors, errorhandler, allow_surrogates=False):
+def utf8_encode_unicode_escape(s, errors, errorhandler, allow_surrogates=False, w_input=None):
     return _utf8_encode_unicode_escape(s)
 
 # ____________________________________________________________
@@ -1268,7 +1270,8 @@ def utf8_encode_utf_16_helper(s, errors,
                                  errorhandler=None,
                                  allow_surrogates=True,
                                  byteorder='little',
-                                 public_encoding_name='utf16'):
+                                 public_encoding_name='utf16',
+                              w_input=None):
     if len(s) == 0:
         if byteorder == 'native':
             result = StringBuilder(2)
@@ -1293,9 +1296,10 @@ def utf8_encode_utf_16_helper(s, errors,
         elif cp >= 0xE000 or allow_surrogates:
             _STORECHAR(result, cp, byteorder)
         else:
-            r, newindex, rettype, s = errorhandler(
+            import pdb;pdb.set_trace()
+            r, newindex, rettype, new_s = errorhandler(
                 errors, public_encoding_name, 'surrogates not allowed',
-                s, index, index+1)
+                s, index, index+1, w_input=w_input)
             if rettype == 'u':
                 for cp in rutf8.Utf8StringIterator(r):
                     if cp < 0xD800 or allow_surrogates:
@@ -1312,6 +1316,9 @@ def utf8_encode_utf_16_helper(s, errors,
                                  'surrogates not allowed',
                              s, index, index+1)
                 result.append(r)
+            if new_s is not s:
+                s = new_s
+                w_input = None
             if index != newindex:  # Should be uncommon
                 index = newindex
                 pos = rutf8._pos_at_index(s, newindex)
@@ -1323,24 +1330,27 @@ def utf8_encode_utf_16_helper(s, errors,
 
 def utf8_encode_utf_16(s, errors,
                           errorhandler=None,
-                          allow_surrogates=False):
+                          allow_surrogates=False,
+                       w_input=None):
     return utf8_encode_utf_16_helper(s, errors, errorhandler,
                                         allow_surrogates, "native",
-                                        'utf-16-' + BYTEORDER2)
+                                        'utf-16-' + BYTEORDER2, w_input=w_input)
 
 def utf8_encode_utf_16_be(s, errors,
                              errorhandler=None,
-                             allow_surrogates=False):
+                             allow_surrogates=False,
+                          w_input=None):
     return utf8_encode_utf_16_helper(s, errors, errorhandler,
                                         allow_surrogates, "big",
-                                        'utf-16-be')
+                                        'utf-16-be', w_input=w_input)
 
 def utf8_encode_utf_16_le(s, errors,
                              errorhandler=None,
-                             allow_surrogates=False):
+                             allow_surrogates=False,
+                          w_input=None):
     return utf8_encode_utf_16_helper(s, errors, errorhandler,
                                         allow_surrogates, "little",
-                                        'utf-16-le')
+                                        'utf-16-le', w_input=w_input)
 
 # ____________________________________________________________
 # utf-32
@@ -1472,7 +1482,8 @@ def utf8_encode_utf_32_helper(s, errors,
                                  errorhandler=None,
                                  allow_surrogates=True,
                                  byteorder='little',
-                                 public_encoding_name='utf32'):
+                                 public_encoding_name='utf32',
+                              w_input=None):
     # s is utf8
     if len(s) == 0:
         if byteorder == 'native':
@@ -1509,7 +1520,9 @@ def utf8_encode_utf_32_helper(s, errors,
                         'strict', public_encoding_name, 'surrogates not allowed',
                         s, index, index+1)
                 result.append(r)
-            s = obj
+            if obj is not s:
+                s = obj
+                w_input = None
             if index != newindex:  # Should be uncommon
                 index = newindex
                 pos = rutf8._pos_at_index(s, newindex)
@@ -1521,22 +1534,28 @@ def utf8_encode_utf_32_helper(s, errors,
     return result.build()
 
 def utf8_encode_utf_32(s, errors,
-                       errorhandler=None, allow_surrogates=True):
+                       errorhandler=None, allow_surrogates=True,
+                       w_input=None):
     return utf8_encode_utf_32_helper(s, errors, errorhandler,
                                         allow_surrogates, "native",
-                                        'utf-32-' + BYTEORDER2)
+                                        'utf-32-' + BYTEORDER2,
+                                     w_input=w_input)
 
 def utf8_encode_utf_32_be(s, errors,
-                          errorhandler=None, allow_surrogates=True):
+                          errorhandler=None, allow_surrogates=True,
+                          w_input=None):
     return utf8_encode_utf_32_helper(s, errors, errorhandler,
                                         allow_surrogates, "big",
-                                        'utf-32-be')
+                                        'utf-32-be',
+                                     w_input=w_input)
 
 def utf8_encode_utf_32_le(s, errors,
-                          errorhandler=None, allow_surrogates=True):
+                          errorhandler=None, allow_surrogates=True,
+                          w_input=None):
     return utf8_encode_utf_32_helper(s, errors, errorhandler,
                                         allow_surrogates, "little",
-                                        'utf-32-le')
+                                        'utf-32-le',
+                                     w_input=w_input)
 # ____________________________________________________________
 # Charmap
 

@@ -545,6 +545,7 @@ def _call_codec(space, w_coder, w_obj, action, encoding, errors):
         else:
             w_res = space.call_function(w_coder, w_obj)
     except OperationError as operr:
+        import pdb;pdb.xpm()
         raise _wrap_codec_error(space, operr, action, encoding)
     if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
         if action[:2] == 'en':
@@ -668,7 +669,8 @@ def make_encoder_wrapper(name):
         state = space.fromcache(CodecState)
         ulen = w_arg._length
         result = func(w_arg._utf8, errors, state.encode_error_handler,
-                      allow_surrogates=allow_surrogates)
+                      allow_surrogates=allow_surrogates,
+                      w_input=w_arg)
         return space.newtuple2(space.newbytes(result), space.newint(ulen))
     wrap_encoder.__name__ = func.__name__
     globals()[name] = wrap_encoder
