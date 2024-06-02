@@ -658,34 +658,6 @@ class OptIntBounds(Optimization):
                 assert r.get_constant_int() == 0
                 self.make_int_lt(op.getarg(0), op.getarg(1))
 
-    def make_uint_lt(self, box1, box2):
-        b2 = self.getintbound(box2)
-        if b2.known_nonnegative:
-            b1 = self.getintbound(box1)
-            if b1.make_lt(b2) | b1.make_ge_const(0):
-                self.propagate_bounds_backward(box1)
-            #if b2.make_gt(b1):
-            # ^^ probably correct but I fail to see a case where it is helpful
-            #    self.propagate_bounds_backward(box2)
-        # elif box1 is known to be < 0... let's ignore that case
-
-    def make_uint_le(self, box1, box2):
-        b2 = self.getintbound(box2)
-        if b2.known_nonnegative:
-            b1 = self.getintbound(box1)
-            if b1.make_le(b2) | b1.make_ge_const(0):
-                self.propagate_bounds_backward(box1)
-            #if b2.make_ge(b1):
-            # ^^ probably correct but I fail to see a case where it is helpful
-            #    self.propagate_bounds_backward(box2)
-        # elif box1 is known to be < 0... let's ignore that case
-
-    def make_uint_gt(self, box1, box2):
-        self.make_uint_lt(box2, box1)
-
-    def make_uint_ge(self, box1, box2):
-        self.make_uint_le(box2, box1)
-
     def propagate_bounds_INT_EQ(self, op):
         r = self.getintbound(op)
         if r.known_eq_const(1):
