@@ -230,6 +230,8 @@ class Checker(object):
             elif opname == "int_signext":
                 numbits = op.getarg(1).getint() * 8
                 expr = z3.SignExt(64 - numbits, z3.Extract(numbits - 1, 0, arg0))
+            elif opname == "int_force_ge_zero":
+                expr = z3.If(arg0 < 0, 0, arg0)
             elif opname == "uint_mul_high":
                 # zero-extend args to 2*LONG_BIT bit, then multiply and extract
                 # highest LONG_BIT bits
@@ -605,7 +607,7 @@ if __name__ == '__main__':
     import pytest, os
     class config:
         class option:
-            z3timeout = 10000
+            z3timeout = 100000
     pytest.config = config
     b = TestBuggyTestsFail()
     try:
@@ -614,7 +616,8 @@ if __name__ == '__main__':
     except CheckError as e:
         print e
         os._exit(0)
-    except Exception:
+    except Exception as e:
+        print e
         os._exit(-1)
     os._exit(-1)
 

@@ -375,6 +375,11 @@ class SignExtOperation(AbstractOperation):
         self.put(builder, [r.choice(builder.intvars),
                            ConstInt(r.choice(sizes))])
 
+class IntForceGeZeroOperation(AbstractOperation):
+    def produce_into(self, builder, r):
+        self.put(builder, [r.choice(builder.intvars),
+                           ConstInt(r.choice(sizes))])
+
 class BinaryOperation(AbstractOperation):
     def __init__(self, opnum, and_mask=-1, or_mask=0, boolres=False):
         AbstractOperation.__init__(self, opnum, boolres=boolres)
@@ -577,6 +582,7 @@ OPERATIONS.append(GuardValueOperation(rop.GUARD_VALUE))
 
 for _op in [rop.INT_NEG,
             rop.INT_INVERT,
+            rop.INT_FORCE_GE_ZERO,
             ]:
     OPERATIONS.append(UnaryOperation(_op))
 

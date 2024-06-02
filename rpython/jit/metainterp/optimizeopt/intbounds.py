@@ -469,6 +469,8 @@ class OptIntBounds(Optimization):
         b = self.getintbound(op.getarg(0))
         if b.known_nonnegative():
             self.make_equal_to(op, op.getarg(0))
+        elif b.known_lt_const(0):
+            self.make_constant_int(op, 0)
         else:
             return self.emit(op)
 
@@ -488,6 +490,12 @@ class OptIntBounds(Optimization):
         stop = 1 << (numbits - 1)
         bres = self.getintbound(op)
         bres.intersect_const(start, stop - 1)
+
+    def postprocess_INT_FORCE_GE_ZERO(self, op):
+        b = self.getintbound(op)
+        b.make_ge_const(0)
+        b1 = self.getintbound(op.getarg(0))
+        b.make_le(b1)
 
     def postprocess_INT_INVERT(self, op):
         b = self.getintbound(op.getarg(0))

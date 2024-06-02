@@ -3287,6 +3287,53 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_force_ge_zero(self):
+        ops = """
+        [i0]
+        i1 = int_le(i0, 100)
+        guard_true(i1) []
+        i2 = int_force_ge_zero(i0)
+        i3 = int_le(i2, 100)
+        guard_true(i3) []
+        i4 = int_force_ge_zero(i2)
+        finish(i4)
+        """
+        expected = """
+        [i0]
+        i1 = int_le(i0, 100)
+        guard_true(i1) []
+        i2 = int_force_ge_zero(i0)
+        finish(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_force_ge_zero_known_negative(self):
+        ops = """
+        [i0]
+        i1 = int_le(i0, -100)
+        guard_true(i1) []
+        i2 = int_force_ge_zero(i0)
+        finish(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_le(i0, -100)
+        guard_true(i1) []
+        finish(0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_force_ge_zero_bug(self):
+        ops = """
+        [i0]
+        i1 = int_and(i0, 1)
+        guard_true(i1) []
+        i2 = int_force_ge_zero(i0)
+        i3 = int_gt(i2, 0) # not true!
+        guard_true(i3) []
+        finish(i2)
+        """
+        self.optimize_loop(ops, ops)
 
 
 class TestComplexIntOpts(BaseTestBasic):
