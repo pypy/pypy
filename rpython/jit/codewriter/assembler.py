@@ -36,7 +36,8 @@ class Assembler(object):
         it inside the 'jitcode'.  If jitcode is None, make a new one.
         """
         self.setup(ssarepr.name)
-        self.count_regs.update(num_regs)
+        if num_regs is not None:
+            self.count_regs.update(num_regs)
         ssarepr._insns_pos = []
         for insn in ssarepr.insns:
             ssarepr._insns_pos.append(len(self.code))
