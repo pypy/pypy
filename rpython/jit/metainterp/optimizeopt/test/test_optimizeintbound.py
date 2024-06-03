@@ -2401,10 +2401,10 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_true(i78) []
         i80 = uint_gt(i75, 0)
         guard_true(i80) []
-        i84 = uint_rshift(i75, 63)
+        i84 = uint_rshift(i75, %s)
         guard_true(i84) []
         jump()
-        """ % MININT
+        """ % (MININT, LONG_BIT - 1)
         expected = """
         [i75]
         i77 = int_and(i75, %s)
