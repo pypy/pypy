@@ -3335,6 +3335,20 @@ finish()
         """
         self.optimize_loop(ops, ops)
 
+    def test_int_eq_1_bool(self):
+        ops = """
+        [i0]
+        i1 = int_and(i0, 1)
+        i2 = int_eq(i1, 1)
+        finish(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_and(i0, 1)
+        finish(i1)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 
