@@ -755,7 +755,6 @@ class IntBound(AbstractInfo):
         union_val = self.tvalue | other_tvalue
         either_known = self.tmask & other_tmask
         both_known = self.tmask | other_tmask
-        # we assert agreement, e.g. that self and other don't contradict
         unmasked_self = unmask_zero(self.tvalue, both_known)
         unmasked_other = unmask_zero(other_tvalue, both_known)
         tvalue = unmask_zero(union_val, either_known)
