@@ -239,6 +239,18 @@ class OptRewrite(Optimization):
                         new_rhs = ConstInt(highest_bit(lh_info.get_constant_int()))
                         op = self.replace_op_with(op, rop.INT_LSHIFT, args=[rhs, new_rhs])
                         break
+                else:
+                    shiftop = self.optimizer.as_operation(get_box_replacement(lhs))
+                    if shiftop is None or shiftop.opnum != rop.INT_LSHIFT:
+                        continue
+                    if not shiftop.getarg(0).is_constant() or shiftop.getarg(0).getint() != 1:
+                        continue
+                    shiftvar = get_box_replacement(shiftop.getarg(1))
+                    shiftbound = self.getintbound(shiftvar)
+                    if shiftbound.known_nonnegative() and shiftbound.known_lt_const(LONG_BIT):
+                        op = self.replace_op_with(
+                                op, rop.INT_LSHIFT, args=[rhs, shiftvar])
+                        break
             return self.emit(op)
 
     def postprocess_INT_MUL(self, op):

@@ -3349,6 +3349,29 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_mul_with_lshift_1(self):
+        ops = """
+        [i0, i1]
+        i2 = int_ge(i1, 0)
+        guard_true(i2) []
+        i3 = int_le(i1, %s)
+        guard_true(i3) []
+        i4 = int_lshift(1, i1)
+        i5 = int_mul(i0, i4)
+        finish(i5)
+        """ % (LONG_BIT - 1, )
+        expected = """
+        [i0, i1]
+        i2 = int_ge(i1, 0)
+        guard_true(i2) []
+        i3 = int_le(i1, %s)
+        guard_true(i3) []
+        i4 = int_lshift(1, i1) # dead
+        i5 = int_lshift(i0, i1)
+        finish(i5)
+        """ % (LONG_BIT - 1, )
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

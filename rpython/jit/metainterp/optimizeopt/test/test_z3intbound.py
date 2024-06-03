@@ -1307,3 +1307,12 @@ def test_uint_cmp_equivalent_int_cmp_if_same_sign():
         (x >= 0) == (y >= 0),
         z3.UGE(x, y) == (x >= y),
     )
+
+def test_prove_int_mul_1_lshift_rewrite():
+    x = BitVec('x')
+    y = BitVec('y')
+    prove_implies(
+        0 <= y,
+        y < LONG_BIT,
+        x * (1 << y) == x << y
+    )
