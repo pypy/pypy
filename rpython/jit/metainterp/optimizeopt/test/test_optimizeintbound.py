@@ -1810,17 +1810,17 @@ class TestOptimizeIntBounds(BaseTestBasic):
     def test_knownbits_uint_rshift(self):
         ops = """
         [i1]
-        i2 = uint_rshift(i1, 63)
+        i2 = uint_rshift(i1, %s)
         i3 = int_and(i2, 14)
         i4 = int_is_zero(i3)
         guard_true(i4) []
         jump(i1)
-        """
+        """ % (LONG_BIT - 1, )
         expected = """
         [i1]
-        i2 = uint_rshift(i1, 63)
+        i2 = uint_rshift(i1, %s)
         jump(i1)
-        """
+        """ % (LONG_BIT - 1, )
         self.optimize_loop(ops, expected)
 
     def test_knownbits_int_rshift_not_optimizable(self):
@@ -2008,6 +2008,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.skipif("LONG_BIT != 64")
     def test_higher_bits_known(self):
         ops = """
         [i40]
@@ -2395,7 +2396,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
     def test_int_is_true_nonpositive(self):
         ops = """
         [i75]
-        i77 = int_and(i75, -9223372036854775808)
+        i77 = int_and(i75, %s)
         i78 = int_is_true(i77)
         guard_true(i78) []
         i80 = uint_gt(i75, 0)
@@ -2403,14 +2404,14 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i84 = uint_rshift(i75, 63)
         guard_true(i84) []
         jump()
-        """
+        """ % MININT
         expected = """
         [i75]
-        i77 = int_and(i75, -9223372036854775808)
+        i77 = int_and(i75, %s)
         i78 = int_is_true(i77)
         guard_true(i78) []
         jump()
-        """
+        """ % MININT
         self.optimize_loop(ops, expected)
 
     def test_intdiv_pow2(self):
@@ -2418,29 +2419,29 @@ class TestOptimizeIntBounds(BaseTestBasic):
         [i0, i1]
         i6 = int_ge(i0, 0)
         guard_true(i6) []
-        i7 = int_lt(i0, 63)
+        i7 = int_lt(i0, %s)
         guard_true(i7) []
         i3 = int_lshift(1, i0)
         i4 = call_pure_i(321, i1, i3, descr=int_py_div_descr)
         jump(i4)
-        """
+        """ % (LONG_BIT - 1, )
         expected1 = """
         [i0, i1]
         i6 = int_ge(i0, 0)
         guard_true(i6) []
-        i7 = int_lt(i0, 63)
+        i7 = int_lt(i0, %s)
         guard_true(i7) []
         i3 = int_lshift(1, i0)
         i4 = int_rshift(i1, i0)
         jump(i4)
-        """
+        """ % (LONG_BIT - 1, )
         ops2 = """
         [i0, i1]
-        i2 = int_and(i0, 63)
+        i2 = int_and(i0, %s)
         i3 = int_lshift(1, i2)
         i4 = call_i(321, i1, i3, descr=int_py_div_descr)
         jump(i4)
-        """
+        """ % (LONG_BIT - 1, )
         self.optimize_loop(ops1, expected1)
         self.optimize_loop(ops2, ops2)
 
@@ -2587,6 +2588,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.skipif("LONG_BIT != 64")
     def test_bool_rewriting_crash(self):
         ops = """
         [i34, i35, i36]
@@ -2929,6 +2931,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.skipif("LONG_BIT != 64")
     def test_division_bound_bug(self):
         ops = """
         [i4]
@@ -3519,6 +3522,7 @@ class TestComplexIntOpts(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.skipif("LONG_BIT != 64")
     def test_lshift_backwards_bug(self):
         ops = """
         [i1]
