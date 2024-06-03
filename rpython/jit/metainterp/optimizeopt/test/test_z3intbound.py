@@ -453,6 +453,11 @@ class Z3IntBound(IntBound):
         return z3.If(no_ovf, result, default)
 
     @staticmethod
+    def _sub_check_overflow(a, b, default):
+        result, no_ovf = z3_sub_overflow(a, b)
+        return z3.If(no_ovf, result, default)
+
+    @staticmethod
     def _urshift(a, b):
         return z3.LShR(a, b)
 
@@ -724,7 +729,7 @@ def test_prove_sub_knownbits():
         z3_tnum_condition(result, res_tvalue, res_tmask),
     )
 
-def test_prove_sub_bounds_logic():
+def test_prove_sub_bound_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result = b1.concrete_variable - b2.concrete_variable
@@ -741,7 +746,7 @@ def test_prove_sub_bounds_logic():
         b3
     )
 
-def test_prove_sub_bounds_cannot_overflow_logic():
+def test_prove_sub_bound_cannot_overflow_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result, no_ovf_result = z3_sub_overflow(b1.concrete_variable, b2.concrete_variable)
@@ -757,14 +762,11 @@ def test_prove_sub_bound_no_overflow():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result, no_ovf = z3_sub_overflow(b1.concrete_variable, b2.concrete_variable)
-    lower, no_ovf_lower = z3_sub_overflow(b1.lower, b2.upper)
-    upper, no_ovf_upper = z3_sub_overflow(b1.upper, b2.lower)
-    result_lower = z3.If(no_ovf_lower, lower, MININT)
-    result_upper = z3.If(no_ovf_upper, upper, MAXINT)
+    b3 = b1.sub_bound_no_overflow(b2)
     b1.prove_implies(
         b2,
         no_ovf,
-        z3.And(result_lower <= result, result <= result_upper)
+        b3.z3_formula(result)
     )
 
 def test_prove_and_backwards():

@@ -145,6 +145,16 @@ class IntBound(AbstractInfo):
 
     @staticmethod
     @always_inline
+    def _sub_check_overflow(a, b, value_if_overflow):
+        """ returns a - b, or value_if_overflow if that (signed) subtraction would
+        overflow """
+        try:
+            return ovfcheck(a - b)
+        except OverflowError:
+            return value_if_overflow
+
+    @staticmethod
+    @always_inline
     def _urshift(a, b):
         return r_uint(a) >> r_uint(b)
 
@@ -832,7 +842,7 @@ class IntBound(AbstractInfo):
         result. (Does not mutate `self`.)
         """
         tvalue, tmask = self._tnum_sub(other)
-        # the lower and upper logic is proven in test_prove_sub_bounds_logic
+        # the lower and upper logic is proven in test_prove_sub_bound_logic
         try:
             lower = ovfcheck(self.lower - other.upper)
         except OverflowError:
@@ -859,22 +869,13 @@ class IntBound(AbstractInfo):
         return True
 
     def sub_bound_no_overflow(self, other):
-        res = self.sub_bound(other)
+        """ return the bound that self - other must have, if no overflow occured,
+        eg after an int_sub_ovf(...), guard_no_overflow() """
+        tvalue, tmask = self._tnum_sub(other)
         # returning sub_bound is always correct, but let's improve the range
-        lower = MININT
-        try:
-            lower = ovfcheck(self.lower - other.upper)
-        except OverflowError:
-            pass
-        upper = MAXINT
-        try:
-            upper = ovfcheck(self.upper - other.lower)
-        except OverflowError:
-            pass
-        res.lower = lower
-        res.upper = upper
-        res.shrink()
-        return res
+        lower = self._sub_check_overflow(self.lower, other.upper, MININT)
+        upper = self._sub_check_overflow(self.upper, other.lower, MAXINT)
+        return self.new(lower, upper, tvalue, tmask)
 
     def mul_bound(self, other):
         """
