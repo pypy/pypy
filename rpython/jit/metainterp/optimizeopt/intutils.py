@@ -1078,17 +1078,17 @@ class IntBound(AbstractInfo):
         pos1 = self.known_nonnegative()
         pos2 = other.known_nonnegative()
         # the next three if-conditions are proven by test_prove_and_bounds_logic
-        r = IntBound.unbounded()
+        lower = MININT
+        upper = MAXINT
         if pos1 or pos2:
-            r.make_ge_const(0)
+            lower = 0
         if pos1:
-            r.make_le(self)
+            upper = self.upper
         if pos2:
-            r.make_le(other)
+            upper = min(upper, other.upper)
 
         res_tvalue, res_tmask = self._tnum_and(other)
-        r.set_tvalue_tmask(res_tvalue, res_tmask)
-        return r
+        return IntBound(lower, upper, res_tvalue, res_tmask)
 
     @always_inline
     def _tnum_and(self, other):
