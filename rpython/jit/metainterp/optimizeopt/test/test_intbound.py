@@ -1913,3 +1913,10 @@ def test_getnullness_random(t1):
         assert n1 == 0
     else:
         assert res == INFO_UNKNOWN
+
+@given(knownbits_and_bound_with_contained_number)
+def test_make_bool(t1):
+    b1, n1 = t1
+    if b1.contains(0) or b1.contains(1):
+        b1.make_bool()
+        assert b1.is_bool()
