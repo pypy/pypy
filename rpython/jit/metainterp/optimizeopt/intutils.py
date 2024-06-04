@@ -1,3 +1,50 @@
+"""
+This file contains an abstract domain IntBound for word-sized integers. This is
+used to perform abstract interpretation on traces, specifically the integer
+operations on them.
+
+The abstract domain tracks a (signed) upper and lower bound (both ends
+inclusive) for every integer variable in the trace. It also tracks which bits
+of a range are known 0 or known 1 (the remaining bits are unknown. The ranges
+and the known bits feed back into each other, ie we can improve the range if
+some upper bits have known values, and we can learn some known bits from the
+range too. Every instance of IntBound represents a set of concrete integers.
+
+We do the analysis at the same time as optimization. We initialize all integer
+variables to have an unknown range, with no known bits. Then we proceed along
+the trace and improve the ranges. We can shrink ranges if we see integer
+comparisons followed by guards. We can learn some bits of an integer if there
+are bit-operations such as `and` (masking out some bits), followed by a guard.
+
+For every operation in the trace we use a "transfer function" that computes an
+IntBound instance for the result of that operation, given the IntBounds of the
+arguments. Those functions are called `..._bound`, eg `add_bound`, `and_bound`,
+`neg_bound`, etc. Applying the transfer functions while we encounter them along
+the trace is forwards reasoning.
+
+We can also reason backwards (but we only do that in a limited way). Here's an
+example:
+
+i1 = int_add(i0, 1)
+i2 = int_lt(i1, 100)
+guard_true(i2)
+
+At the last guard we learn that i1 < 100 must be true, and from that we can
+conclude that i0 < 99 in the rest of the trace (this is not quite true due to
+possible overflow of the int_add).
+
+More generally, when we shrink (ie make more precise) an IntBound instance due
+to a guard, we can often conclude something about earlier variables in the
+trace. To reason backwards we look at the operation that created a variable and
+then compute the implications.
+
+The reason for having both a range and known bits are that each of them is good
+for different situations. Range knownledge is useful for comparisons and
+"linear" operations like additions, subtractions, multiplications, etc.
+Knowledge about certain bits is good for bit twiddling code, bitfields, stuff
+like that.
+"""
+
 import sys
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int, r_uint, intmask
 from rpython.rlib.objectmodel import we_are_translated, always_inline
@@ -765,8 +812,7 @@ class IntBound(AbstractInfo):
         """
         Mutates `self` so that it contains integers that are contained in
         `self` and the range [`lower`, `upper`], and only those. Basically
-        intersection of sets. Does only affect the bounds, so if possible the
-        use of the `intersect` function is recommended instead.
+        intersection of sets.
         """
         changed = False
         if lower > self.lower:
@@ -1214,8 +1260,7 @@ class IntBound(AbstractInfo):
 
     def is_bool(self):
         """
-        Returns `True` iff the properties of this abstract integer allow it to
-        represent a conventional boolean value.
+        Returns `True` iff self is exactly the set {0, 1}
         """
         return (self.known_nonnegative() and self.known_le_const(1))
 
