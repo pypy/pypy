@@ -1297,7 +1297,7 @@ def test_intbound_repr():
     b = IntBound(lower=0, upper=100)
     assert repr(b) == 'IntBound(0, 100)'
     b = IntBound().urshift_bound(IntBound.from_constant(10))
-    assert repr(b) == 'IntBound(0, 0x3fffffffffffff)'
+    assert repr(b) == 'IntBound(0, 0x3fffff%s)' % ('ffffffff' * (LONG_BIT == 64),)
     b = IntBound.from_constant(MININT)
     assert repr(b) == 'IntBound.from_constant(MININT)'
     b = IntBound.from_constant(-56)
@@ -1330,7 +1330,7 @@ def test_intbound_str():
     b = IntBound(lower=0, upper=100)
     assert str(b) == '(0 <= 0b0...0??????? <= 100)'
     b = IntBound().urshift_bound(IntBound.from_constant(10))
-    assert str(b) == '(0 <= 0b0000000000?...? <= 0x3fffffffffffff)'
+    assert str(b) == '(0 <= 0b0000000000?...? <= 0x3fffff%s)' % ('ffffffff' * (LONG_BIT == 64),)
     b = IntBound(lower=0, upper=1230000000)
     assert str(b) == '(0 <= 0b0...0??????????????????????????????? <= 1230000000)'
     b = IntBound(lower=0, upper=1230505081)
