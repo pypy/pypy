@@ -1,3 +1,5 @@
+
+
 .hg
 .svn
 
@@ -9,7 +11,7 @@
 *.pyo
 *~
 __pycache__/
-
+*.hypothesis/
 bin/pypy-c
 include/*.h
 include/numpy/
