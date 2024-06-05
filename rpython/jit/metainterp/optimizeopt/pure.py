@@ -61,7 +61,7 @@ class RecentPureOps(object):
                 break
             if box0.same_box(get_box_replacement(op.getarg(0))) and op.getdescr() is descr:
                 op = self.force_preamble_op(opt, op, i)
-                return get_box_replacement(op)
+                return op
         return None
 
     def lookup2(self, opt, box0, box1, descr):
@@ -73,10 +73,11 @@ class RecentPureOps(object):
                 box1.same_box(get_box_replacement(op.getarg(1))) and
                 op.getdescr() is descr):
                 op = self.force_preamble_op(opt, op, i)
-                return get_box_replacement(op)
+                return op
         return None
 
     def lookup(self, optimizer, op):
+        # must not do get_box_replacement, for the benefit of _can_reuse_oldop
         numargs = op.numargs()
         if numargs == 1:
             return self.lookup1(optimizer,
@@ -138,7 +139,7 @@ class OptPure(Optimization):
                 oldop = recentops.lookup(self.optimizer, op)
                 if oldop is not None and self._can_reuse_oldop(
                             recentops, oldop, op, ovf):
-                    self.optimizer.make_equal_to(op, oldop)
+                    self.optimizer.make_equal_to(op, get_box_replacement(oldop))
                     return
 
         # otherwise, the operation remains
@@ -151,7 +152,7 @@ class OptPure(Optimization):
         if ovf:
             # careful! this is an ovf operation. so we can only
             # re-use the result of a prior ovf operation, but not a
-            # regular int_... up, because that might have
+            # regular int_... op, because that might have
             # overflowed (the other direction is fine). therefore
             # we need to check that the previous op and the current
             # op have the same opnum.
@@ -284,7 +285,7 @@ class OptPure(Optimization):
         recentops = self.getrecentops(op.getopnum(), create=False)
         if not recentops:
             return None
-        return recentops.lookup(self.optimizer, op)
+        return get_box_replacement(recentops.lookup(self.optimizer, op))
 
     def produce_potential_short_preamble_ops(self, sb):
         ops = self.optimizer._newoperations

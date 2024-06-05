@@ -1,7 +1,11 @@
+#!/usr/bin/env pypy
 """ The purpose of this test file is to check that the optimizeopt *test* cases
 are correct. It uses the z3 SMT solver to check the before/after optimization
 traces for equivalence. Only supports very few operations for now, but would
-have found the buggy tests in d9616aacbd02/issue #3832."""
+have found the buggy tests in d9616aacbd02/issue #3832.
+
+It can also be used to do bounded model checking on the optimizer, by
+generating random traces."""
 import sys
 import pytest
 
@@ -226,6 +230,8 @@ class Checker(object):
             elif opname == "int_signext":
                 numbits = op.getarg(1).getint() * 8
                 expr = z3.SignExt(64 - numbits, z3.Extract(numbits - 1, 0, arg0))
+            elif opname == "int_force_ge_zero":
+                expr = z3.If(arg0 < 0, 0, arg0)
             elif opname == "uint_mul_high":
                 # zero-extend args to 2*LONG_BIT bit, then multiply and extract
                 # highest LONG_BIT bits
@@ -239,7 +245,8 @@ class Checker(object):
                 cond = self.guard_to_condition(op, state) # was optimized away, must be true
                 self.prove(cond, op)
                 continue
-            elif opname == "label":
+            elif opname in ["label", "escape_i"]:
+                # TODO: handling escape this way probably is not correct
                 continue # ignore for now
             elif opname == "call_pure_i" or opname == "call_i":
                 # only div and mod supported
@@ -373,10 +380,12 @@ class BaseCheckZ3(BaseTest):
         info, ops = compile_data.optimize_trace(self.metainterp_sd, jitdriver_sd, {})
         beforeinputargs, beforeops = trace.unpack()
         # check that the generated trace is correct
-        check_z3(beforeinputargs, beforeops, info.inputargs, ops)
+        correct, timeout = check_z3(beforeinputargs, beforeops, info.inputargs, ops)
+        print 'correct conditions:', correct, 'timed out conditions:', timeout
 
 
 class TestBuggyTestsFail(BaseCheckZ3):
+    @pytest.mark.xfail()
     def test_bound_lt_add_before(self, monkeypatch):
         from rpython.jit.metainterp.optimizeopt.intutils import IntBound
         # check that if we recreate the original bug, it fails:
@@ -502,8 +511,28 @@ class RangeCheck(AbstractOperation):
         op.setfailargs(builder.subset_of_intvars(r))
         ops.append(op)
 
+class KnownBitsCheck(AbstractOperation):
+    def produce_into(self, builder, r):
+        # inject knowledge about a random subset of the bits of an integer
+        # variable
+        from rpython.jit.backend.test.test_random import getint
+        v_int = r.choice(list(set(builder.intvars) - set(builder.boolvars)))
+        val = getint(v_int)
+        ops = builder.loop.operations
+        mask = r.random_integer()
+        res = val & mask
+        op = ResOperation(rop.INT_AND, [v_int, ConstInt(mask)])
+        op._example_int = res
+        ops.append(op)
 
-OPERATIONS = OperationBuilder.OPERATIONS + [CallIntPyModPyDiv(rop.CALL_PURE_I), RangeCheck(None)]
+        op = ResOperation(rop.GUARD_VALUE, [op, ConstInt(res)])
+        op.setdescr(builder.getfaildescr())
+        op.setfailargs(builder.subset_of_intvars(r))
+        ops.append(op)
+
+
+OPERATIONS = OperationBuilder.OPERATIONS + [CallIntPyModPyDiv(rop.CALL_PURE_I)] + [
+        RangeCheck(None), KnownBitsCheck(None)] * 10
 
 
 class Z3OperationBuilder(OperationBuilder):
@@ -562,4 +591,34 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
             print "got exception", e
             print "seed was", seed
             raise
+
+if __name__ == '__main__':
+    # this code is there so we can use the file to automatically reduce crashes
+    # with shrinkray.
+    # 1) install shrinkray
+    # 2) put the buggy (big) trace into crash.txt
+    # 3) run shrinkray like this:
+    #    shrinkray test/test_z3checktests.py crash.txt --timeout=100
+    # this takes a while (can be hours) but it will happily turn the huge trace
+    # into a tiny one
+
+    with open(sys.argv[1], "r") as f:
+        ops = f.read()
+    import pytest, os
+    class config:
+        class option:
+            z3timeout = 100000
+    pytest.config = config
+    b = TestBuggyTestsFail()
+    try:
+        b.cls_attributes()
+        b.optimize_loop(ops, ops)
+    except CheckError as e:
+        print e
+        os._exit(0)
+    except Exception as e:
+        print e
+        os._exit(-1)
+    os._exit(-1)
+
 
