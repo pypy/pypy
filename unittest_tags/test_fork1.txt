@@ -1,0 +1,4 @@
+*lib-python.3.test.test_fork1.ForkTest.test_nested_import_lock_fork
+*lib-python.3.test.test_fork1.ForkTest.test_threaded_import_lock_fork
+*lib-python.3.test.test_fork1.ForkTest.test_wait
+*test.fork_wait.ForkWait.test_wait

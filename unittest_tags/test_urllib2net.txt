@@ -1,0 +1,15 @@
+*lib-python.3.test.test_urllib2net.CloseSocketTest.test_close
+*lib-python.3.test.test_urllib2net.OtherNetworkTests.test_custom_headers
+*lib-python.3.test.test_urllib2net.OtherNetworkTests.test_file
+*lib-python.3.test.test_urllib2net.OtherNetworkTests.test_ftp
+*lib-python.3.test.test_urllib2net.OtherNetworkTests.test_redirect_url_withfrag
+*lib-python.3.test.test_urllib2net.OtherNetworkTests.test_sites_no_connection_close
+*lib-python.3.test.test_urllib2net.OtherNetworkTests.test_urlwithfrag
+*lib-python.3.test.test_urllib2net.TimeoutTest.test_ftp_basic
+*lib-python.3.test.test_urllib2net.TimeoutTest.test_ftp_default_timeout
+*lib-python.3.test.test_urllib2net.TimeoutTest.test_ftp_no_timeout
+*lib-python.3.test.test_urllib2net.TimeoutTest.test_ftp_timeout
+*lib-python.3.test.test_urllib2net.TimeoutTest.test_http_basic
+*lib-python.3.test.test_urllib2net.TimeoutTest.test_http_default_timeout
+*lib-python.3.test.test_urllib2net.TimeoutTest.test_http_no_timeout
+*lib-python.3.test.test_urllib2net.TimeoutTest.test_http_timeout

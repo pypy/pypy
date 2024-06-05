@@ -1,0 +1,10 @@
+*lib-python.3.test.test_epoll.TestEPoll.test_add
+*lib-python.3.test.test_epoll.TestEPoll.test_badcreate
+*lib-python.3.test.test_epoll.TestEPoll.test_close
+*lib-python.3.test.test_epoll.TestEPoll.test_context_manager
+*lib-python.3.test.test_epoll.TestEPoll.test_control_and_wait
+*lib-python.3.test.test_epoll.TestEPoll.test_create
+*lib-python.3.test.test_epoll.TestEPoll.test_errors
+*lib-python.3.test.test_epoll.TestEPoll.test_fd_non_inheritable
+*lib-python.3.test.test_epoll.TestEPoll.test_fromfd
+*lib-python.3.test.test_epoll.TestEPoll.test_unregister_closed

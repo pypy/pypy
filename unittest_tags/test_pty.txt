@@ -1,0 +1,7 @@
+*lib-python.3.test.test_pty.PtyTest.test_fork
+*lib-python.3.test.test_pty.PtyTest.test_master_read
+*lib-python.3.test.test_pty.PtyTest.test_openpty
+*lib-python.3.test.test_pty.PtyTest.test_spawn_doesnt_hang
+*lib-python.3.test.test_pty.SmallPtyTests.test__copy_eof_on_all
+*lib-python.3.test.test_pty.SmallPtyTests.test__copy_to_each
+*lib-python.3.test.test_pty.SmallPtyTests.test__restore_tty_mode_normal_return

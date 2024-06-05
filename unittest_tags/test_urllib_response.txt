@@ -1,0 +1,4 @@
+*lib-python.3.test.test_urllib_response.TestResponse.test_addclosehook
+*lib-python.3.test.test_urllib_response.TestResponse.test_addinfo
+*lib-python.3.test.test_urllib_response.TestResponse.test_addinfourl
+*lib-python.3.test.test_urllib_response.TestResponse.test_with

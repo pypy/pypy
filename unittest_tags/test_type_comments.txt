@@ -1,0 +1,16 @@
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_asynccomp
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_asyncdef
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_asyncvar
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_forstmt
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_fstring
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_func_type_input
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_funcdef
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_ignores
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_inappropriate_type_comments
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_longargs
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_matmul
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_nonasciidef
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_redundantdef
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_underscorednumber
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_vardecl
+*lib-python.3.test.test_type_comments.TypeCommentTests.test_withstmt

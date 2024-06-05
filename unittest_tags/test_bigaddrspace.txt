@@ -1,0 +1,6 @@
+*lib-python.3.test.test_bigaddrspace.BytesTest.test_concat
+*lib-python.3.test.test_bigaddrspace.BytesTest.test_optimized_concat
+*lib-python.3.test.test_bigaddrspace.BytesTest.test_repeat
+*lib-python.3.test.test_bigaddrspace.StrTest.test_concat
+*lib-python.3.test.test_bigaddrspace.StrTest.test_optimized_concat
+*lib-python.3.test.test_bigaddrspace.StrTest.test_repeat

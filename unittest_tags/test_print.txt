@@ -1,0 +1,3 @@
+*lib-python.3.test.test_print.TestPrint.test_print
+*lib-python.3.test.test_print.TestPrint.test_print_flush
+*lib-python.3.test.test_print.TestPy2MigrationHint.test_stream_redirection_hint_for_py2_migration

@@ -1,0 +1,11 @@
+*lib-python.3.test.test_keywordonlyarg.KeywordOnlyArgTestCase.testFunctionCall
+*lib-python.3.test.test_keywordonlyarg.KeywordOnlyArgTestCase.testKwDefaults
+*lib-python.3.test.test_keywordonlyarg.KeywordOnlyArgTestCase.testRaiseErrorFuncallWithUnexpectedKeywordArgument
+*lib-python.3.test.test_keywordonlyarg.KeywordOnlyArgTestCase.testSyntaxErrorForFunctionCall
+*lib-python.3.test.test_keywordonlyarg.KeywordOnlyArgTestCase.testSyntaxErrorForFunctionDefinition
+*lib-python.3.test.test_keywordonlyarg.KeywordOnlyArgTestCase.testSyntaxForManyArguments
+*lib-python.3.test.test_keywordonlyarg.KeywordOnlyArgTestCase.testTooManyPositionalErrorMessage
+*lib-python.3.test.test_keywordonlyarg.KeywordOnlyArgTestCase.test_default_evaluation_order
+*lib-python.3.test.test_keywordonlyarg.KeywordOnlyArgTestCase.test_issue13343
+*lib-python.3.test.test_keywordonlyarg.KeywordOnlyArgTestCase.test_kwonly_methods
+*lib-python.3.test.test_keywordonlyarg.KeywordOnlyArgTestCase.test_mangling

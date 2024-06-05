@@ -1,0 +1,9 @@
+*lib-python.3.test.test_dictcomps.DictComprehensionTest.test_assignment_idiom_in_comprehensions
+*lib-python.3.test.test_dictcomps.DictComprehensionTest.test_basics
+*lib-python.3.test.test_dictcomps.DictComprehensionTest.test_evaluation_order
+*lib-python.3.test.test_dictcomps.DictComprehensionTest.test_global_visibility
+*lib-python.3.test.test_dictcomps.DictComprehensionTest.test_illegal_assignment
+*lib-python.3.test.test_dictcomps.DictComprehensionTest.test_local_visibility
+*lib-python.3.test.test_dictcomps.DictComprehensionTest.test_scope_isolation
+*lib-python.3.test.test_dictcomps.DictComprehensionTest.test_scope_isolation_from_global
+*lib-python.3.test.test_dictcomps.DictComprehensionTest.test_star_expression

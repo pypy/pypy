@@ -1,0 +1,17 @@
+*lib-python.3.test.test_fnmatch.FilterTestCase.test_case
+*lib-python.3.test.test_fnmatch.FilterTestCase.test_filter
+*lib-python.3.test.test_fnmatch.FilterTestCase.test_mix_bytes_str
+*lib-python.3.test.test_fnmatch.FilterTestCase.test_sep
+*lib-python.3.test.test_fnmatch.FnmatchTestCase.test_bytes
+*lib-python.3.test.test_fnmatch.FnmatchTestCase.test_case
+*lib-python.3.test.test_fnmatch.FnmatchTestCase.test_char_set
+*lib-python.3.test.test_fnmatch.FnmatchTestCase.test_fnmatch
+*lib-python.3.test.test_fnmatch.FnmatchTestCase.test_fnmatchcase
+*lib-python.3.test.test_fnmatch.FnmatchTestCase.test_mix_bytes_str
+*lib-python.3.test.test_fnmatch.FnmatchTestCase.test_range
+*lib-python.3.test.test_fnmatch.FnmatchTestCase.test_sep
+*lib-python.3.test.test_fnmatch.FnmatchTestCase.test_sep_in_char_set
+*lib-python.3.test.test_fnmatch.FnmatchTestCase.test_sep_in_range
+*lib-python.3.test.test_fnmatch.FnmatchTestCase.test_slow_fnmatch
+*lib-python.3.test.test_fnmatch.FnmatchTestCase.test_warnings
+*lib-python.3.test.test_fnmatch.TranslateTestCase.test_translate

@@ -1,0 +1,11 @@
+*lib-python.3.test.test_keyword.Test_iskeyword.test_all_keywords_fail_to_be_used_as_names
+*lib-python.3.test.test_keyword.Test_iskeyword.test_all_soft_keywords_can_be_used_as_names
+*lib-python.3.test.test_keyword.Test_iskeyword.test_async_and_await_are_keywords
+*lib-python.3.test.test_keyword.Test_iskeyword.test_changing_the_kwlist_does_not_affect_iskeyword
+*lib-python.3.test.test_keyword.Test_iskeyword.test_changing_the_softkwlist_does_not_affect_issoftkeyword
+*lib-python.3.test.test_keyword.Test_iskeyword.test_keywords_are_sorted
+*lib-python.3.test.test_keyword.Test_iskeyword.test_match_and_case_are_soft_keywords
+*lib-python.3.test.test_keyword.Test_iskeyword.test_none_value_is_not_a_keyword
+*lib-python.3.test.test_keyword.Test_iskeyword.test_softkeywords_are_sorted
+*lib-python.3.test.test_keyword.Test_iskeyword.test_true_is_a_keyword
+*lib-python.3.test.test_keyword.Test_iskeyword.test_uppercase_true_is_not_a_keyword

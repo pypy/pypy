@@ -1,0 +1,11 @@
+*lib-python.3.test.test_quopri.QuopriTestCase.test_decode
+*lib-python.3.test.test_quopri.QuopriTestCase.test_decode_header
+*lib-python.3.test.test_quopri.QuopriTestCase.test_decodestring
+*lib-python.3.test.test_quopri.QuopriTestCase.test_decodestring_double_equals
+*lib-python.3.test.test_quopri.QuopriTestCase.test_embedded_ws
+*lib-python.3.test.test_quopri.QuopriTestCase.test_encode
+*lib-python.3.test.test_quopri.QuopriTestCase.test_encode_header
+*lib-python.3.test.test_quopri.QuopriTestCase.test_encodestring
+*lib-python.3.test.test_quopri.QuopriTestCase.test_idempotent_string
+*lib-python.3.test.test_quopri.QuopriTestCase.test_scriptdecode
+*lib-python.3.test.test_quopri.QuopriTestCase.test_scriptencode

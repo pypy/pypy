@@ -1,0 +1,14 @@
+*lib-python.3.test.test_timeout.CreationTestCase.testBlockingThenTimeout
+*lib-python.3.test.test_timeout.CreationTestCase.testFloatReturnValue
+*lib-python.3.test.test_timeout.CreationTestCase.testObjectCreation
+*lib-python.3.test.test_timeout.CreationTestCase.testRangeCheck
+*lib-python.3.test.test_timeout.CreationTestCase.testReturnType
+*lib-python.3.test.test_timeout.CreationTestCase.testTimeoutThenBlocking
+*lib-python.3.test.test_timeout.CreationTestCase.testTypeCheck
+*lib-python.3.test.test_timeout.TCPTimeoutTestCase.testAcceptTimeout
+*lib-python.3.test.test_timeout.TCPTimeoutTestCase.testConnectTimeout
+*lib-python.3.test.test_timeout.TCPTimeoutTestCase.testRecvTimeout
+*lib-python.3.test.test_timeout.TCPTimeoutTestCase.testSend
+*lib-python.3.test.test_timeout.TCPTimeoutTestCase.testSendall
+*lib-python.3.test.test_timeout.TCPTimeoutTestCase.testSendto
+*lib-python.3.test.test_timeout.UDPTimeoutTestCase.testRecvfromTimeout

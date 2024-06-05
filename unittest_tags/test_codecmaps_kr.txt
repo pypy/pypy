@@ -1,0 +1,9 @@
+*lib-python.3.test.test_codecmaps_kr.TestCP949Map.test_errorhandle
+*lib-python.3.test.test_codecmaps_kr.TestCP949Map.test_mapping_file
+*lib-python.3.test.test_codecmaps_kr.TestCP949Map.test_mapping_supplemental
+*lib-python.3.test.test_codecmaps_kr.TestEUCKRMap.test_errorhandle
+*lib-python.3.test.test_codecmaps_kr.TestEUCKRMap.test_mapping_file
+*lib-python.3.test.test_codecmaps_kr.TestEUCKRMap.test_mapping_supplemental
+*lib-python.3.test.test_codecmaps_kr.TestJOHABMap.test_errorhandle
+*lib-python.3.test.test_codecmaps_kr.TestJOHABMap.test_mapping_file
+*lib-python.3.test.test_codecmaps_kr.TestJOHABMap.test_mapping_supplemental
