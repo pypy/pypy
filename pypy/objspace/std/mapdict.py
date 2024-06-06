@@ -1100,6 +1100,19 @@ class MapDictStrategy(DictStrategy):
             str_dict[map.name] = map._prim_direct_read(w_obj)
         return W_DictObject(strategy.space, strategy, strategy.erase(str_dict))
 
+    def eq(self, w_dict, space, w_other):
+        other_strategy = w_other.get_strategy()
+        if other_strategy is self:
+            w_self_obj = self.unerase(w_dict.dstorage)
+            w_other_obj = self.unerase(w_other.dstorage)
+            selfmap = w_self_obj._get_mapdict_map()
+            othermap = w_other_obj._get_mapdict_map()
+            if selfmap is othermap:
+                w_res = _dict_eq_same_map(selfmap, w_self_obj, w_other_obj)
+                if w_res is not None:
+                    return w_res
+        return DictStrategy.eq(self, w_dict, space, w_other)
+
 
     # XXX could implement a more efficient w_keys based on space.newlist_bytes
 
@@ -1109,6 +1122,23 @@ class MapDictStrategy(DictStrategy):
         return MapDictIteratorValues(self.space, self, w_dict)
     def iteritems(self, w_dict):
         return MapDictIteratorItems(self.space, self, w_dict)
+
+def _dict_eq_same_map(map, w_self_obj, w_other_obj):
+    # can return None to mean "the equality mutated one of the objects"
+    space = map.space
+    orig_map = map
+    curr_map = map
+    while isinstance(curr_map, PlainAttribute):
+        if curr_map.attrkind == DICT:
+            w_attr1 = curr_map._direct_read(w_self_obj)
+            w_attr2 = curr_map._direct_read(w_other_obj)
+            if not space.eq_w(w_attr1, w_attr2):
+                return space.w_False
+            if (w_self_obj._get_mapdict_map() is not orig_map or
+                    w_other_obj._get_mapdict_map() is not orig_map):
+                return None
+        curr_map = curr_map.back
+    return space.w_True
 
 def make_instance_dict(space):
     w_fake_object = Object()
