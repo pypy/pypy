@@ -648,3 +648,31 @@ class TestCall(BaseTestPyPyC):
                 i += 1
             return 13
         """, [1000])
+
+    def test_starargs_list_copying(self):
+        log = self.run("""
+        class A(object):
+            def __init__(self, *args):
+                self.args = args
+
+        def main(stop):
+            i = 0
+            l = [1, 2, "abc", None]
+            while i < stop:
+                A(1, *l) # ID: call
+                i += 1
+            return 13
+        """, [1000])
+        loop, = log.loops_by_id('call')
+        assert loop.match_by_id('call', '''
+        ...
+        guard_not_invalidated(descr=...)
+        p79 = new_array_clear(i34, descr=...)
+        call_n(ConstClass(ll_arraycopy__arrayPtr_arrayPtr_Signed_Signed_Signed), p36, p79, 0, 0, i34, descr=...)
+        p83 = new_array_clear(i41, descr=...)
+        setarrayitem_gc(p83, 0, ConstPtr(ptr85), descr=...)
+        call_n(ConstClass(ll_arraycopy__arrayPtr_arrayPtr_Signed_Signed_Signed), p79, p83, 0, 1, i34, descr=...)
+        p85 = force_token()
+        ...
+        ''')
+

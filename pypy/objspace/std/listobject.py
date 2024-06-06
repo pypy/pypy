@@ -1508,11 +1508,14 @@ class AbstractUnwrappedStrategy(object):
     def list_is_correct_type(self, w_list):
         raise NotImplementedError("abstract base class")
 
-    @jit.look_inside_iff(lambda space, w_list, list_w:
-            jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
     def init_from_list_w(self, w_list, list_w):
-        l = [self.unwrap(w_item) for w_item in list_w]
+        l = self._init_from_list_w_helper(list_w)
         w_list.lstorage = self.erase(l)
+
+    @jit.look_inside_iff(lambda space, list_w:
+            jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
+    def _init_from_list_w_helper(self, list_w):
+        return [self.unwrap(w_item) for w_item in list_w]
 
     def get_empty_storage(self, sizehint):
         if sizehint == -1:
@@ -1537,12 +1540,11 @@ class AbstractUnwrappedStrategy(object):
     def find_or_count(self, w_list, w_obj, start, stop, count):
         if self.is_correct_type(w_obj):
             return self._safe_find_or_count(
-                w_list, self.unwrap(w_obj), start, stop, count)
+                self.unerase(w_list.lstorage), self.unwrap(w_obj), start, stop, count)
         return ListStrategy.find_or_count(
             self, w_list, w_obj, start, stop, count)
 
-    def _safe_find_or_count(self, w_list, obj, start, stop, count):
-        l = self.unerase(w_list.lstorage)
+    def _safe_find_or_count(self, l, obj, start, stop, count):
         result = 0
         for i in range(start, min(stop, len(l))):
             val = l[i]
@@ -1826,14 +1828,15 @@ class ObjectListStrategy(ListStrategy):
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
-    @jit.look_inside_iff(lambda self, w_list:
-            w_list._unrolling_heuristic())
     def getitems_copy(self, w_list):
         storage = self.unerase(w_list.lstorage)
         return storage[:]
 
-    @jit.unroll_safe
     def getitems_unroll(self, w_list):
+        storage = self.unerase(w_list.lstorage)
+        return storage[:]
+
+    def getitems_fixedsize(self, w_list):
         storage = self.unerase(w_list.lstorage)
         return storage[:]
 
@@ -2024,8 +2027,7 @@ class FloatListStrategy(ListStrategy):
         return self._base_setslice(w_list, start, step, slicelength, w_other)
 
 
-    def _safe_find_or_count(self, w_list, obj, start, stop, count):
-        l = self.unerase(w_list.lstorage)
+    def _safe_find_or_count(self, l, obj, start, stop, count):
         stop = min(stop, len(l))
         result = 0
         if not math.isnan(obj):
@@ -2195,8 +2197,7 @@ class IntOrFloatListStrategy(ListStrategy):
                 w_other = self._temporary_longlong_list(longlong_list)
         return self._base_setslice(w_list, start, step, slicelength, w_other)
 
-    def _safe_find_or_count(self, w_list, obj, start, stop, count):
-        l = self.unerase(w_list.lstorage)
+    def _safe_find_or_count(self, l, obj, start, stop, count):
         # careful: we must consider that 0.0 == -0.0 == 0, but also
         # NaN == NaN if they have the same bit pattern.
         fobj = longlong2float.maybe_decode_longlong_as_float(obj)
