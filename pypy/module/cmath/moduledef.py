@@ -39,6 +39,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'pi': 'space.newfloat(interp_cmath.pi)',
+        'tau': 'space.newfloat(interp_cmath.tau)',
         'e':  'space.newfloat(interp_cmath.e)',
         'inf':  'space.newfloat(interp_cmath.inf)',
         'nan':  'space.newfloat(interp_cmath.nan)',

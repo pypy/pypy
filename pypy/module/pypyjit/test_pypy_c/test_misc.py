@@ -1,4 +1,4 @@
-import py, sys
+import pytest, sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 
@@ -422,6 +422,7 @@ class TestMisc(BaseTestPyPyC):
         assert opnames.count('new') == 0
         assert opnames.count('new_array_clear') == 0
 
+    @pytest.mark.skipif("sys.maxint == 2 ** 31 - 1")
     def test_locals(self):
         def main(n):
             res = 0

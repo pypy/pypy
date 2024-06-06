@@ -1,6 +1,6 @@
 import math
 from rpython.translator.c.test.test_genc import compile
-from rpython.rlib.longlong2float import longlong2float, float2longlong
+from rpython.rlib.longlong2float import longlong2float, float2longlong, r_rettype
 from rpython.rlib.longlong2float import uint2singlefloat, singlefloat2uint
 from rpython.rlib.rarithmetic import r_singlefloat, r_longlong
 from rpython.rtyper.test.test_llinterp import interpret
@@ -50,7 +50,7 @@ def test_consistency_longlong2float_ll2ctypes(llval):
     #return struct.unpack('@d', struct.pack('@q', llval))[0]
     with lltype.scoped_alloc(DOUBLE_ARRAY_PTR.TO, 1) as d_array:
         ll_array = rffi.cast(LONGLONG_ARRAY_PTR, d_array)
-        ll_array[0] = llval
+        ll_array[0] = r_rettype(llval)
         floatval = d_array[0]
     assert repr(floatval) == repr(longlong2float(llval))
 
