@@ -259,8 +259,9 @@ class Test__ffi(BaseTestPyPyC):
             i97 = call_release_gil_i(91, i59, i10, i12, 1, descr=<Calli . iii EF=7 OS=62>)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
-            p98 = call_r(ConstClass(fromrarith_int__r_uint), i97, descr=<Callr . i EF=4>)
-            guard_no_exception(descr=...)
+            guard_not_invalidated?
+            i100 = uint_le(i97, ...)
+            guard_true(i100, descr=...)
         """, ignore_ops=['guard_not_invalidated'])
 
     def test_cffi_call_guard_not_forced_fails(self):
