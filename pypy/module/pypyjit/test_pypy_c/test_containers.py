@@ -299,3 +299,18 @@ class TestOtherContainers(BaseTestPyPyC):
         ops = loop.ops_by_id("count")
         opnames = log.opnames(ops)
         assert "new_with_vtable" not in opnames
+
+    def test_dict_values_single_copy(self):
+        def main():
+            res = 0
+            d = {"a": None, "b": object, "c": type, "d": True}
+            for i in range(100000):
+                l = d.values() # ID: list
+                res += len(l)
+
+        log = self.run(main, [])
+        loop, = log.loops_by_id("list")
+        ops = loop.ops_by_id("list")
+        opnames = log.opnames(ops)
+        # only a call to ll_kvi, not to get_strategy_from_list_objects
+        assert opnames.count("call_r") == 1

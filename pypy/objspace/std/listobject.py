@@ -69,67 +69,84 @@ def make_empty_list_with_size(space, hint):
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
 
-@jit.look_inside_iff(lambda space, list_w, sizehint:
-        jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
-def get_strategy_from_list_objects(space, list_w, sizehint):
+def get_strategy_from_list_object(space, list_w, sizehint):
     if not list_w:
         if sizehint != -1:
             return SizeListStrategy(space, sizehint)
         return space.fromcache(EmptyListStrategy)
 
     w_firstobj = list_w[0]
-    check_int_or_float = False
 
     if type(w_firstobj) is W_IntObject:
-        # check for all-ints
-        for i in range(1, len(list_w)):
-            w_obj = list_w[i]
-            if type(w_obj) is not W_IntObject:
-                check_int_or_float = (type(w_obj) is W_FloatObject)
-                break
-        else:
-            return space.fromcache(IntegerListStrategy)
-
-    elif type(w_firstobj) is W_BytesObject:
-        # check for all-strings
-        for i in range(1, len(list_w)):
-            if type(list_w[i]) is not W_BytesObject:
-                break
-        else:
-            return space.fromcache(BytesListStrategy)
-
-    elif type(w_firstobj) is W_UnicodeObject and w_firstobj.is_ascii():
-        # check for all-unicodes containing only ascii
-        for i in range(1, len(list_w)):
-            item = list_w[i]
-            if type(item) is not W_UnicodeObject or not item.is_ascii():
-                break
-        else:
-            return space.fromcache(AsciiListStrategy)
-
+        if len(list_w) > 1:
+            return _get_strategy_from_list_object_int(space, list_w)
+        return space.fromcache(IntegerListStrategy)
     elif type(w_firstobj) is W_FloatObject:
-        # check for all-floats
-        for i in range(1, len(list_w)):
-            w_obj = list_w[i]
-            if type(w_obj) is not W_FloatObject:
-                check_int_or_float = (type(w_obj) is W_IntObject)
-                break
-        else:
-            return space.fromcache(FloatListStrategy)
-
-    if check_int_or_float:
-        for w_obj in list_w:
-            if type(w_obj) is W_IntObject:
-                if longlong2float.can_encode_int32(w_obj.int_w(space)):
-                    continue    # ok
-            elif type(w_obj) is W_FloatObject:
-                if longlong2float.can_encode_float(w_obj.float_w(space)):
-                    continue    # ok
-            break
-        else:
-            return space.fromcache(IntOrFloatListStrategy)
+        if len(list_w) > 1:
+            return _get_strategy_from_list_object_float(space, list_w)
+        return space.fromcache(FloatListStrategy)
+    elif type(w_firstobj) is W_BytesObject:
+        if len(list_w) > 1:
+            return _get_strategy_from_list_object_bytes(space, list_w)
+        return space.fromcache(BytesListStrategy)
+    elif type(w_firstobj) is W_UnicodeObject and w_firstobj.is_ascii():
+        if len(list_w) > 1:
+            return _get_strategy_from_list_object_unicode(space, list_w)
+        return space.fromcache(AsciiListStrategy)
 
     return space.fromcache(ObjectListStrategy)
+
+@jit.look_inside_iff(lambda space, list_w:
+        jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
+def _get_strategy_from_list_object_int(space, list_w):
+    for i in range(1, len(list_w)):
+        w_obj = list_w[i]
+        if type(w_obj) is not W_IntObject:
+            if type(w_obj) is W_FloatObject:
+                return _get_strategy_from_list_object_int_or_float(space, list_w)
+            return space.fromcache(ObjectListStrategy)
+    return space.fromcache(IntegerListStrategy)
+
+@jit.look_inside_iff(lambda space, list_w:
+        jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
+def _get_strategy_from_list_object_float(space, list_w):
+    for i in range(1, len(list_w)):
+        w_obj = list_w[i]
+        if type(w_obj) is not W_FloatObject:
+            if type(w_obj) is W_IntObject:
+                return _get_strategy_from_list_object_int_or_float(space, list_w)
+            return space.fromcache(ObjectListStrategy)
+    return space.fromcache(FloatListStrategy)
+
+@jit.look_inside_iff(lambda space, list_w:
+        jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
+def _get_strategy_from_list_object_bytes(space, list_w):
+    for i in range(1, len(list_w)):
+        if type(list_w[i]) is not W_BytesObject:
+            return space.fromcache(ObjectListStrategy)
+    return space.fromcache(BytesListStrategy)
+
+@jit.look_inside_iff(lambda space, list_w:
+        jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
+def _get_strategy_from_list_object_unicode(space, list_w):
+    for i in range(1, len(list_w)):
+        item = list_w[i]
+        if type(item) is not W_UnicodeObject or not item.is_ascii():
+            return space.fromcache(ObjectListStrategy)
+    return space.fromcache(AsciiListStrategy)
+
+@jit.look_inside_iff(lambda space, list_w:
+        jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
+def _get_strategy_from_list_object_int_or_float(space, list_w):
+    for w_obj in list_w:
+        if type(w_obj) is W_IntObject:
+            if longlong2float.can_encode_int32(w_obj.int_w(space)):
+                continue    # ok
+        elif type(w_obj) is W_FloatObject:
+            if longlong2float.can_encode_float(w_obj.float_w(space)):
+                continue    # ok
+        return space.fromcache(ObjectListStrategy)
+    return space.fromcache(IntOrFloatListStrategy)
 
 
 def _get_printable_location(strategy_type, greenkey):
@@ -212,8 +229,8 @@ class W_ListObject(W_Root):
         assert isinstance(wrappeditems, list)
         self.space = space
         if space.config.objspace.std.withliststrategies:
-            self.strategy = get_strategy_from_list_objects(space, wrappeditems,
-                                                           sizehint)
+            self.strategy = get_strategy_from_list_object(space, wrappeditems,
+                                                          sizehint)
         else:
             self.strategy = space.fromcache(ObjectListStrategy)
         self.init_from_list_w(wrappeditems)
