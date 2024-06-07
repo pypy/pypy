@@ -279,6 +279,8 @@ class TestString(BaseTestPyPyC):
         setfield_gc(p15, i50, descr=<FieldS pypy.module.__builtin__.functional.W_IntRangeIterator.inst_current 8>)
         i55 = int_le(i53, 0)
         guard_false(i55, descr=...)
+        i56 = int_eq(i53, 1)
+        guard_false(i56, descr=...)
         p80 = call_r(ConstClass(ll_char_mul__Char_Signed), 120, i53, descr=<Callr . ii EF=3>)
         guard_no_exception(descr=...)
         guard_not_invalidated(descr=...)
