@@ -307,9 +307,15 @@ class TestArray(BaseTestPyPyC):
                 n -= 1
             return len(l)
         log = self.run(main, [1000])
-        loop, = log.loops_by_filename(self.filepath)
-        ops = loop.ops_by_id("lencheck")
+        loop, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
+        ops = loop.match_by_id("lencheck", """
+            guard_not_invalidated?
+            guard_nonnull_class(p12, ConstClass(W_ListObject), descr=...)
+            p28 = getfield_gc_r(p12, descr=...)
+            guard_class(p28, ..., descr=...)
+            p30 = getfield_gc_r(p12, descr=...)
+            i31 = getfield_gc_i(p30, descr=...) # list length
+            # there is no comparison for the length here at all
+            i33 = int_sub(i31, 1)
+        """)
         import pdb;pdb.set_trace()
-        assert len(ops) == 2
-        assert ops[0].name == "guard_not_invalidated"
-        assert ops[1].name == "int_sub"
