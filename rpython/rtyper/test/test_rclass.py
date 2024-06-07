@@ -1381,7 +1381,6 @@ class TestRclass(BaseRtypingTest):
             return a
         t, typer, graph = self.gengraph(f, [int])
         A_TYPE = graph.getreturnvar().concretetype.TO
-        import pdb;pdb.set_trace()
         fields = A_TYPE._hints['nonneg_int_fields']
         assert 'inst_x' in fields
         assert 'inst_y' not in fields
