@@ -329,10 +329,11 @@ class W_ListObject(W_Root):
         self.strategy = strategy
         strategy.clear(self)
 
-    def clone(self):
+    def clone(self, sizehint=0):
         """Returns a clone by creating a new listobject
-        with the same strategy and a copy of the storage"""
-        return self.strategy.clone(self)
+        with the same strategy and a copy of the storage.
+        if a sizehint is given, the clone is overallocated to be that size."""
+        return self.strategy.clone(self, sizehint)
 
     def _resize_hint(self, hint):
         """Ensure the underlying list has room for at least hint
@@ -471,6 +472,10 @@ class W_ListObject(W_Root):
         # exposed in __pypy__
         return self.strategy.physical_size(self)
 
+    def add(self, w_other):
+        """ add self to w_other """
+        return self.strategy.add(self, w_other)
+
     # exposed to app-level
 
     @staticmethod
@@ -566,7 +571,19 @@ class W_ListObject(W_Root):
     def descr_add(self, space, w_list2):
         if not isinstance(w_list2, W_ListObject):
             return space.w_NotImplemented
-        w_clone = self.clone()
+        length1 = self.length()
+        if not length1:
+            # treat empty + list special, because the EmptyListStrategy.clone
+            # ignores the sizehint for now
+            return w_list2.clone()
+        sizehint = 0
+        if self.strategy is w_list2.strategy:
+            length2 = w_list2.length()
+            try:
+                sizehint = ovfcheck(length1 + length2)
+            except OverflowError:
+                raise MemoryError
+        w_clone = self.clone(sizehint=sizehint)
         w_clone.extend(w_list2)
         return w_clone
 
@@ -879,7 +896,7 @@ class ListStrategy(object):
     def init_from_list_w(self, w_list, list_w):
         raise NotImplementedError
 
-    def clone(self, w_list):
+    def clone(self, w_list, sizehint=0):
         raise NotImplementedError
 
     def copy_into(self, w_list, w_other):
@@ -1061,7 +1078,7 @@ class EmptyListStrategy(ListStrategy):
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
-    def clone(self, w_list):
+    def clone(self, w_list, sizehint=0):
         return W_ListObject.from_storage_and_strategy(
                 self.space, w_list.lstorage, self)
 
@@ -1240,7 +1257,7 @@ class BaseRangeListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         raise NotImplementedError
 
-    def clone(self, w_list):
+    def clone(self, w_list, sizehint=0):
         storage = w_list.lstorage  # lstorage is tuple, no need to clone
         w_clone = W_ListObject.from_storage_and_strategy(self.space, storage,
                                                          self)
@@ -1539,9 +1556,15 @@ class AbstractUnwrappedStrategy(object):
             return self.erase([])
         return self.erase(newlist_hint(sizehint))
 
-    def clone(self, w_list):
+    def clone(self, w_list, sizehint=0):
         l = self.unerase(w_list.lstorage)
-        storage = self.erase(l[:])
+        if sizehint:
+            assert sizehint >= len(l)
+            l2 = newlist_hint(sizehint)
+            l2.extend(l)
+        else:
+            l2 = l[:]
+        storage = self.erase(l2)
         w_clone = W_ListObject.from_storage_and_strategy(
                 self.space, storage, self)
         return w_clone
