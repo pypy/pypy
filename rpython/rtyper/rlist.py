@@ -1057,15 +1057,30 @@ def ll_mul(RESLIST, l, factor):
         resultlen = ovfcheck(length * factor)
     except OverflowError:
         raise MemoryError
-    return ll_mul_loop(RESLIST, l, resultlen, length, factor)
-
-@jit.look_inside_iff(lambda _, l, resultlen, length, factor: jit.isvirtual(l) and
-                     jit.isconstant(factor) and factor < 10)
-def ll_mul_loop(RESLIST, l, resultlen, length, factor):
     res = RESLIST.ll_newlist(resultlen)
-    j = 0
-    while j < resultlen:
-        ll_arraycopy(l, res, 0, j, length)
-        j += length
+    if not resultlen:
+        return res
+    ll_mul_loop(RESLIST, l, res, resultlen, length, factor)
     return res
-# not inlined by the JIT -- contains a loop
+
+@jit.look_inside_iff(lambda _, l, res, resultlen, length, factor: jit.isvirtual(l) and
+                     jit.isconstant(factor) and factor < 10)
+def ll_mul_loop(RESLIST, l, res, resultlen, length, factor):
+    # grumble, card marking mess. we would really like to use the second
+    # loop in all cases. but due to the way the fast paths in
+    # writebarrier_before_copy in incminimark work, this is actually much
+    # slower
+    if rgc._contains_gcptr(RESLIST.ITEM):
+        j = 0
+        while j < resultlen:
+            ll_arraycopy(l, res, 0, j, length)
+            j += length
+        return
+    else:
+        ll_arraycopy(l, res, 0, 0, length)
+        j = length
+        while j < resultlen:
+            copy_length = min(resultlen - j, j)
+            ll_arraycopy(res, res, 0, j, copy_length)
+            j += copy_length
+        ll_assert(j == resultlen, "list multiplication copied too much or too little")

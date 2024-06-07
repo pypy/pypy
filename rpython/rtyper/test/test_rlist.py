@@ -1780,7 +1780,7 @@ class TestRlist(BaseRtypingTest):
             seen += 1
         assert seen == 1
 
-    def test_mul_uses_alloc_and_set(self, monkeypatch):
+    def test_mul_check_amount_of_arraycopy(self, monkeypatch):
         from rpython.rlib import rgc
         from rpython.rtyper.lltypesystem import lltype
         old_arraycopy = rgc.ll_arraycopy
@@ -1791,13 +1791,13 @@ class TestRlist(BaseRtypingTest):
             glob.seen += 1
             return old_arraycopy(*args)
         monkeypatch.setattr(rgc, 'll_arraycopy', my_arraycopy)
-        def dummyfn():
-            lst = [[0], [1]]
-            i = 0
-            res = 0
-            while i < 30:
-                res += len(lst[0] * i)
-                i += 1
-            return glob.seen
-        res = self.interpret(dummyfn, [])
+        def dummyfn(i):
+            lst = [[0], [1, 2, 3, 4]]
+            res = lst[i] * 100
+            return glob.seen + len(res) - len(lst[i]) * 100
+        res = self.interpret(dummyfn, [0])
         assert res == 0
+        res = self.interpret(dummyfn, [1])
+        # the sizes grow like this
+        # 4, 8, 16, 32, 64, 128, 256, 144
+        assert res == 8
