@@ -1047,16 +1047,21 @@ def ll_inplace_mul(l, factor):
     return res
 ll_inplace_mul.oopspec = 'list.inplace_mul(l, factor)'
 
-@jit.look_inside_iff(lambda _, l, factor: jit.isvirtual(l) and
-                     jit.isconstant(factor) and factor < 10)
 def ll_mul(RESLIST, l, factor):
     length = l.ll_length()
-    if factor < 0:
-        factor = 0
+    factor = int_force_ge_zero(factor)
+    if length == 1:
+        item = l.ll_getitem_fast(0)
+        return ll_alloc_and_set(RESLIST, factor, item)
     try:
         resultlen = ovfcheck(length * factor)
     except OverflowError:
         raise MemoryError
+    return ll_mul_loop(RESLIST, l, resultlen, length, factor)
+
+@jit.look_inside_iff(lambda _, l, resultlen, length, factor: jit.isvirtual(l) and
+                     jit.isconstant(factor) and factor < 10)
+def ll_mul_loop(RESLIST, l, resultlen, length, factor):
     res = RESLIST.ll_newlist(resultlen)
     j = 0
     while j < resultlen:

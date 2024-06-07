@@ -1779,3 +1779,25 @@ class TestRlist(BaseRtypingTest):
             assert op.opname == 'direct_call'
             seen += 1
         assert seen == 1
+
+    def test_mul_uses_alloc_and_set(self, monkeypatch):
+        from rpython.rlib import rgc
+        from rpython.rtyper.lltypesystem import lltype
+        old_arraycopy = rgc.ll_arraycopy
+        GLOB = lltype.GcStruct('GLOB', ('seen', lltype.Signed))
+        glob = lltype.malloc(GLOB, immortal=True)
+        glob.seen = 0
+        def my_arraycopy(*args):
+            glob.seen += 1
+            return old_arraycopy(*args)
+        monkeypatch.setattr(rgc, 'll_arraycopy', my_arraycopy)
+        def dummyfn():
+            lst = [[0], [1]]
+            i = 0
+            res = 0
+            while i < 30:
+                res += len(lst[0] * i)
+                i += 1
+            return glob.seen
+        res = self.interpret(dummyfn, [])
+        assert res == 0

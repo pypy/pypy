@@ -414,3 +414,10 @@ class TestLLtype(ListTests, LLJitMixin):
         res = self.interp_operations(f, [10], listops=True, inline=True)
         assert res == 11
         self.check_operations_history(new_array_clear=1)
+
+    def test_mul_uses_alloc_and_set(self):
+        def f(n):
+            l = [[5], [1, 2, 3]]
+            return len(l[n] * 100)
+        res = self.interp_operations(f, [0], listops=True, inline=True)
+        self.check_operations_history(setarrayitem_gc=106)
