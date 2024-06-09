@@ -676,3 +676,16 @@ class TestCall(BaseTestPyPyC):
         ...
         ''')
 
+    def test_function_escape_without_defaults(self):
+        def main():
+            global f
+            res = 0
+            for i in range(10000):
+                def f():
+                    return i + 1
+                res += f() # ID: call
+
+        log = self.run(main, [])
+        loop, = log.loops_by_id('call')
+        opnames = log.opnames(loop._allops())
+        assert opnames.count("new_array_clear") == 2 # for the closure, but not for defaults

@@ -37,6 +37,8 @@ class Function(W_Root):
                           'defs_w?[*]',
                           'name?']
 
+    _empty_defs = []
+
     def __init__(self, space, code, w_globals=None, defs_w=[], closure=None,
                  forcename=None):
         self.space = space
@@ -45,6 +47,10 @@ class Function(W_Root):
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
         self.closure = closure    # normally, list of Cell instances or None
+        if not defs_w:
+            # in theory it would be cool to share *all* the empty lists in
+            # rpython where the identity doesn't matter
+            defs_w = Function._empty_defs
         self.defs_w = defs_w
         self.w_func_dict = None # filled out below if needed
         self.w_module = None

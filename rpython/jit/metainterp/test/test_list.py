@@ -1,6 +1,6 @@
 import py
 from rpython.rlib.objectmodel import newlist_hint
-from rpython.rlib.jit import JitDriver, promote
+from rpython.rlib.jit import JitDriver, promote, dont_look_inside
 from rpython.jit.metainterp.test.support import LLJitMixin
 
 
@@ -419,5 +419,16 @@ class TestLLtype(ListTests, LLJitMixin):
         def f(n):
             l = [[5], [1, 2, 3]]
             return len(l[n] * 100)
+        res = self.interp_operations(f, [0], listops=True, inline=True)
+        self.check_operations_history(setarrayitem_gc=106)
+
+    def test_empty_list_doesnt_allocate_array(self):
+        @dont_look_inside
+        def g(l):
+            return len(l)
+        def f(n):
+            l = []
+            l.append(g(l))
+            return len(l)
         res = self.interp_operations(f, [0], listops=True, inline=True)
         self.check_operations_history(setarrayitem_gc=106)
