@@ -1417,11 +1417,13 @@ def update1(space, w_dict, w_data):
     if w_method is None:
         # no 'keys' method, so we assume it is a sequence of pairs
         data_w = space.listview(w_data)
-        update1_pairs(space, w_dict, data_w)
+        if data_w:
+            update1_pairs(space, w_dict, data_w)
     else:
         # general case -- "for k in o.keys(): dict.__setitem__(d, k, o[k])"
         data_w = space.listview(space.call_function(w_method))
-        update1_keys(space, w_dict, w_data, data_w)
+        if data_w:
+            update1_keys(space, w_dict, w_data, data_w)
 
 
 def update1_dict_dict(space, w_dict, w_data):
