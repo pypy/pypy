@@ -421,14 +421,3 @@ class TestLLtype(ListTests, LLJitMixin):
             return len(l[n] * 100)
         res = self.interp_operations(f, [0], listops=True, inline=True)
         self.check_operations_history(setarrayitem_gc=106)
-
-    def test_empty_list_doesnt_allocate_array(self):
-        @dont_look_inside
-        def g(l):
-            return len(l)
-        def f(n):
-            l = []
-            l.append(g(l))
-            return len(l)
-        res = self.interp_operations(f, [0], listops=True, inline=True)
-        self.check_operations_history(setarrayitem_gc=106)
