@@ -253,6 +253,14 @@ class ArrayDescr(BackendDescr):
     def get_item_size_in_bytes(self):
         return rffi.sizeof(self.A.OF)
 
+    def get_max_length(self):
+        from rpython.rlib.rarithmetic import LONG_BIT, maxint
+        # compute the maximum length of arrays of this itemsize
+        if LONG_BIT == 32:
+            return maxint
+        # see comment in llsupport/descr.py
+        return 2 ** 57 // self.get_item_size_in_bytes()
+
     def get_item_integer_min(self):
         if getkind(self.A.OF) != 'int':
             assert False

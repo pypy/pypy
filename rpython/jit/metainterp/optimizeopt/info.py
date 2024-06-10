@@ -517,7 +517,7 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
         assert mode is None
         if self.lenbound is None:
             assert self.length == -1
-            self.lenbound = IntBound.nonnegative()
+            self.lenbound = IntBound(0, self.descr.get_max_length())
         return self.lenbound
 
     def _init_items(self, const, size, clear):

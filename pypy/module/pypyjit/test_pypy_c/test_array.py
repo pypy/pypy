@@ -318,4 +318,3 @@ class TestArray(BaseTestPyPyC):
             # there is no comparison for the length here at all
             i33 = int_sub(i31, 1)
         """)
-        import pdb;pdb.set_trace()
