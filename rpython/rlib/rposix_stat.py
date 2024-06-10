@@ -853,9 +853,7 @@ if _WIN32:
     def win32_attributes_to_mode(win32traits, attributes):
         m = 0
         attributes = widen(attributes)
-        if attributes & win32traits.FILE_ATTRIBUTE_REPARSE_POINT:
-            m |= win32traits._S_IFLNK
-        elif attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
+        if attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
             m |= win32traits._S_IFDIR | 0111 # IFEXEC for user,group,other
         else:
             m |= win32traits._S_IFREG
@@ -866,31 +864,7 @@ if _WIN32:
         return m
 
     @specialize.arg(0)
-    def win32_attribute_data_to_stat(win32traits, info):
-        st_mode = win32_attributes_to_mode(win32traits, info.c_dwFileAttributes)
-        st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
-        ctime, extra_ctime = FILE_TIME_to_time_t_nsec(info.c_ftCreationTime)
-        mtime, extra_mtime = FILE_TIME_to_time_t_nsec(info.c_ftLastWriteTime)
-        atime, extra_atime = FILE_TIME_to_time_t_nsec(info.c_ftLastAccessTime)
-
-        st_ino = 0
-        st_dev = 0
-        st_nlink = 0
-        st_file_attributes = info.c_dwFileAttributes
-        st_reparse_tag = 0
-
-        result = (st_mode,
-                  st_ino, st_dev, st_nlink, 0, 0,
-                  st_size,
-                  atime, mtime, ctime,
-                  extra_atime, extra_mtime, extra_ctime,
-                  st_file_attributes, st_reparse_tag)
-
-        return make_stat_result(result)
-
-    @specialize.arg(0)
     def win32_by_handle_info_to_stat(win32traits, info, reparse_tag):
-        # similar to the one above
         st_mode = win32_attributes_to_mode(win32traits, info.c_dwFileAttributes)
         st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
         ctime, extra_ctime = FILE_TIME_to_time_t_nsec(info.c_ftCreationTime)
@@ -903,6 +877,12 @@ if _WIN32:
         st_nlink = info.c_nNumberOfLinks
         st_file_attributes = info.c_dwFileAttributes
         st_reparse_tag = reparse_tag
+        if (st_file_attributes & win32traits.FILE_ATTRIBUTE_REPARSE_POINT
+                and reparse_tag ==  0xa000000c):  # IO_REPARSE_TAG_SYMLINK
+            # first clear the S_IMFT bits
+            st_mode ^= (st_mode & 0170000)  # S_IFMT
+            # now set the bits that make this a symlink
+            st_mode |= win32traits._S_IFLNK
 
         result = (st_mode,
                   st_ino, st_dev, st_nlink, 0, 0,
