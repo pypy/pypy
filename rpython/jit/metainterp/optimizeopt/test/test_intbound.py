@@ -757,23 +757,28 @@ def test_sub_random(t1, t2):
         assert b3.contains(r)
         assert b3noovf.contains(r)
 
-
+@example(t1=(IntBound.from_constant(16), 16), t2=(IntBound.from_constant(0x800000000000000), 576460752303423488))
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_mul_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
     b3 = b1.mul_bound(b2)
-    b3ovf = b1.mul_bound_no_overflow(b2)
+    assert b3.contains(intmask(r_uint(n1) * r_uint(n2)))
+    try:
+        b3ovf = b1.mul_bound_no_overflow(b2)
+    except InvalidLoop:
+        b3ovf = None
     try:
         r = ovfcheck(n1 * n2)
     except OverflowError:
         assert not b1.mul_bound_cannot_overflow(b2)
     else:
         assert b3.contains(r)
-        assert b3ovf.contains(r)
-        res = b3ovf.intersect(b3)
-        # b3ovf is never larger than b3
-        assert not res
+        if b3ovf is not None:
+            assert b3ovf.contains(r)
+            res = b3ovf.intersect(b3)
+            # b3ovf is never larger than b3
+            assert not res
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_div_random(t1, t2):
@@ -1990,6 +1995,19 @@ def test_tnum_mul_example():
             assert q.contains(b)
             res = a * b
             assert bres.contains(res)
+
+    b1 = IntBound(4, 20, r_uint(0b10), ~r_uint(0b11)) # === 2 mod 4
+    b2 = IntBound(40, 2000, r_uint(0b10), ~r_uint(0b11)) # === 2 mod 4
+    b3 = b1.mul_bound(b2)
+    assert str(b3) == "(252 <= 0b0...0?????????????100 <= 35964)"
+    for n1 in range(b1.lower, b1.upper + 1):
+        if not b1.contains(n1):
+            continue
+        for n2 in range(b2.lower, b2.upper + 1):
+            if not b2.contains(n2):
+                continue
+            res = n1 * n2
+            assert b3.contains(res)
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_tnum_mul_random(t1, t2):

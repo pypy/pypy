@@ -929,21 +929,24 @@ class IntBound(AbstractInfo):
         result.
         (Does not mutate `self`.)
         """
+        tvalue, tmask = self._tnum_mul(other)
         try:
             vals = (ovfcheck(self.upper * other.upper),
                     ovfcheck(self.upper * other.lower),
                     ovfcheck(self.lower * other.upper),
                     ovfcheck(self.lower * other.lower))
-            return IntBound(min4(vals), max4(vals))
         except OverflowError:
-            return IntBound.unbounded()
+            return IntBound.from_knownbits(tvalue, tmask)
+        else:
+            return IntBound(min4(vals), max4(vals), tvalue, tmask)
 
     def mul_bound_no_overflow(self, other):
+        tvalue, tmask = self._tnum_mul(other)
         vals = (saturating_mul(self.upper, other.upper),
                 saturating_mul(self.upper, other.lower),
                 saturating_mul(self.lower, other.upper),
                 saturating_mul(self.lower, other.lower))
-        return IntBound(min4(vals), max4(vals))
+        return IntBound(min4(vals), max4(vals), tvalue, tmask)
 
     def mul_bound_cannot_overflow(self, other):
         try:
