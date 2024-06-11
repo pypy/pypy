@@ -1113,12 +1113,17 @@ class IntBound(AbstractInfo):
                 # no sign to extend, we get constant 0
                 tvalue, tmask = TNUM_KNOWN_ZERO
             elif c_other >= 0:
-                tvalue = self.tvalue >> r_uint(c_other)
-                tmask = self.tmask >> r_uint(c_other)
+                tvalue, tmask = self._tnum_urshift(c_other)
             # else: bits are unknown because arguments invalid
 
         # we don't do bounds on unsigned
         return IntBound.from_knownbits(tvalue, tmask)
+
+    @always_inline
+    def _tnum_urshift(self, c_other):
+        tvalue = self._urshift(self.tvalue, c_other)
+        tmask = self._urshift(self.tmask, c_other)
+        return tvalue, tmask
 
     def and_bound(self, other):
         """
