@@ -6,7 +6,7 @@ import operator
 
 from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
      next_pow2_m1, msbonly, MININT, MAXINT, lowest_set_bit_only,
-     leading_zeros_mask)
+     leading_zeros_mask, saturating_mul)
 from rpython.jit.metainterp.optimizeopt.info import (INFO_NONNULL,
      INFO_UNKNOWN, INFO_NULL)
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck, r_uint, intmask
@@ -763,12 +763,17 @@ def test_mul_random(t1, t2):
     b1, n1 = t1
     b2, n2 = t2
     b3 = b1.mul_bound(b2)
+    b3ovf = b1.mul_bound_no_overflow(b2)
     try:
         r = ovfcheck(n1 * n2)
     except OverflowError:
         assert not b1.mul_bound_cannot_overflow(b2)
     else:
         assert b3.contains(r)
+        assert b3ovf.contains(r)
+        res = b3ovf.intersect(b3)
+        # b3ovf is never larger than b3
+        assert not res
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_div_random(t1, t2):
@@ -1920,3 +1925,42 @@ def test_make_bool(t1):
     if b1.contains(0) or b1.contains(1):
         b1.make_bool()
         assert b1.is_bool()
+
+
+def test_mul_bound_no_overflow_examples():
+    b1 = IntBound(2, 3)
+    b2 = IntBound(4, 6)
+    b3 = b1.mul_bound_no_overflow(b2)
+    assert bound_eq(b3, IntBound(2 * 4, 3 * 6))
+
+    b1 = IntBound(2)
+    b2 = IntBound(4)
+    b3 = b1.mul_bound_no_overflow(b2)
+    assert bound_eq(b3, IntBound(2 * 4))
+
+    b1 = IntBound(upper=-2)
+    b2 = IntBound(upper=-10)
+    b3 = b1.mul_bound_no_overflow(b2)
+    assert bound_eq(b3, IntBound(lower=20))
+
+    b1 = IntBound(lower=-2)
+    b2 = IntBound(lower=10, upper=100)
+    b3 = b1.mul_bound_no_overflow(b2)
+    assert bound_eq(b3, IntBound(lower=-200))
+
+    b1 = IntBound(lower=-2)
+    b2 = IntBound(lower=-10, upper=100)
+    b3 = b1.mul_bound_no_overflow(b2)
+    assert b3.is_unbounded()
+
+@given(ints, ints)
+def test_saturating_mul(a, b):
+    res = a * b
+    satres = saturating_mul(a, b)
+    if res < MININT:
+        assert satres == MININT
+    elif res > MAXINT:
+        assert satres == MAXINT
+    else:
+        assert satres == res
+

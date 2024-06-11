@@ -937,7 +937,13 @@ class IntBound(AbstractInfo):
             return IntBound(min4(vals), max4(vals))
         except OverflowError:
             return IntBound.unbounded()
-    mul_bound_no_overflow = mul_bound # can be improved
+
+    def mul_bound_no_overflow(self, other):
+        vals = (saturating_mul(self.upper, other.upper),
+                saturating_mul(self.upper, other.lower),
+                saturating_mul(self.lower, other.upper),
+                saturating_mul(self.lower, other.lower))
+        return IntBound(min4(vals), max4(vals))
 
     def mul_bound_cannot_overflow(self, other):
         try:
@@ -1664,3 +1670,16 @@ def unmask_zero(value, mask):
     returns the result.
     """
     return value & ~mask
+
+def saturating_mul(a, b):
+    """
+    Returns a * b. If the multiplication overflows it returns either MININT or
+    MAXINT, whichever is closer to the "correct" value.
+    """
+    try:
+        return ovfcheck(a * b)
+    except OverflowError:
+        same_sign = ((a ^ b) >> (LONG_BIT - 1)) == 0
+        if same_sign:
+            return MAXINT
+        return MININT

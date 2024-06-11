@@ -42,13 +42,17 @@ def z3_with_reduced_bitwidth(width):
     def dec(test):
         assert test.func_name.endswith("logic") # doesn't work for code in intutils.py
         def newtest(*args, **kwargs):
-            global LONG_BIT
+            global LONG_BIT, MAXINT, MININT
             old_value = LONG_BIT
             LONG_BIT = width
+            MAXINT = 2 ** (LONG_BIT - 1) - 1
+            MININT = -2 ** (LONG_BIT - 1)
             try:
                 return test(*args, **kwargs)
             finally:
                 LONG_BIT = old_value
+                MAXINT = sys.maxint
+                MININT = -sys.maxint - 1
         return newtest
     return dec
 
@@ -1325,6 +1329,27 @@ def test_prove_mul_bound_cannot_overflow_logic():
         no_ovf_result,
     )
 
+@z3_with_reduced_bitwidth(8)
+def test_prove_mul_bound_no_overflow_logic():
+    def saturating_mul(a, b):
+        result, no_ovf = z3_mul_overflow(a, b)
+        same_sign = ((a ^ b) >> (LONG_BIT - 1)) == 0
+        default = z3.If(same_sign, a - a + MAXINT, a - a + MININT)
+        return z3.If(no_ovf, result, default)
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result, no_ovf = z3_mul_overflow(b1.concrete_variable, b2.concrete_variable)
+    result1 = saturating_mul(b1.lower, b2.lower)
+    result2 = saturating_mul(b1.lower, b2.upper)
+    result3 = saturating_mul(b1.upper, b2.lower)
+    result4 = saturating_mul(b1.upper, b2.upper)
+    min1 = z3_min(result1, result2, result3, result4)
+    max1 = z3_max(result1, result2, result3, result4)
+    b1.prove_implies(
+        b2,
+        no_ovf,
+        z3.And(min1 <= result, result <= max1),
+    )
 
 def z3_pymod_nonzero(x, y):
     r = x % y
