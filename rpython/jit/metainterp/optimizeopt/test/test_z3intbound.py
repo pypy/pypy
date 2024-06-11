@@ -1206,7 +1206,7 @@ def test_prove_lshift_bound_cannot_overflow_logic():
         no_ovf
     )
 
-def test_prove_rshift_knownbits_logic():
+def test_prove_rshift_knownbits():
     b1 = make_z3_intbounds_instance('self')
     c = BitVec('const')
     result = b1.concrete_variable >> c
@@ -1234,12 +1234,11 @@ def test_prove_rshift_bound_logic():
         result <= max1,
     )
 
-def test_prove_urshift_knownbits_logic():
+def test_prove_urshift_knownbits():
     b1 = make_z3_intbounds_instance('self')
     c = BitVec('const')
     result = z3.LShR(b1.concrete_variable, c)
-    tvalue = z3.LShR(b1.tvalue, c)
-    tmask = z3.LShR(b1.tmask, c)
+    tvalue, tmask = b1._tnum_urshift(c)
     b1.prove_implies(
         c >= 0,
         z3_tnum_condition(result, tvalue, tmask),
