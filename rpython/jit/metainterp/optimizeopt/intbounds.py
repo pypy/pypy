@@ -223,13 +223,35 @@ class OptIntBounds(Optimization):
             # Else, synthesize the non overflowing op for optimize_default to
             # reuse, as well as the reverse op
             elif opnum == rop.INT_ADD_OVF:
+                arg0, arg1 = args
                 #self.pure(rop.INT_ADD, args[:], result)
-                self.pure_from_args(rop.INT_SUB, [result, args[1]], args[0])
-                self.pure_from_args(rop.INT_SUB, [result, args[0]], args[1])
+                self.pure_from_args(rop.INT_SUB, [result, arg1], arg0)
+                self.pure_from_args(rop.INT_SUB, [result, arg0], arg1)
+                # infer something about the arguments from the fact that the
+                # addition didn't overflow
+                b0 = self.getintbound(arg0)
+                b1 = self.getintbound(arg1)
+                bres = self.getintbound(result)
+                b0better = bres.sub_bound_no_overflow(b1)
+                if b0.intersect(b0better):
+                    self.propagate_bounds_backward(arg0)
+                b1better = bres.sub_bound_no_overflow(b0)
+                if b1.intersect(b1better):
+                    self.propagate_bounds_backward(arg1)
             elif opnum == rop.INT_SUB_OVF:
+                arg0, arg1 = args
                 #self.pure(rop.INT_SUB, args[:], result)
-                self.pure_from_args(rop.INT_ADD, [result, args[1]], args[0])
-                self.pure_from_args(rop.INT_SUB, [args[0], result], args[1])
+                self.pure_from_args(rop.INT_ADD, [result, arg1], arg0)
+                self.pure_from_args(rop.INT_SUB, [arg0, result], arg1)
+                b0 = self.getintbound(arg0)
+                b1 = self.getintbound(arg1)
+                bres = self.getintbound(result)
+                b0better = bres.add_bound_no_overflow(b1)
+                if b0.intersect(b0better):
+                    self.propagate_bounds_backward(arg0)
+                b1better = b0.sub_bound_no_overflow(bres)
+                if b1.intersect(b1better):
+                    self.propagate_bounds_backward(arg1)
             #elif opnum == rop.INT_MUL_OVF:
             #    self.pure(rop.INT_MUL, args[:], result)
             return self.emit(op)

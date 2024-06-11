@@ -110,6 +110,8 @@ class OptRewrite(Optimization):
                 self.make_equal_to(op, op.getarg(1))
                 return
 
+        bres = self.getintbound(op)
+        bres.intersect(b)
         return self.emit(op)
 
     def postprocess_INT_AND(self, op):

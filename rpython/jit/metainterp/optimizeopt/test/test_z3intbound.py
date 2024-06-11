@@ -709,6 +709,50 @@ def test_prove_add_bound_no_overflow():
         b3.z3_formula(result)
     )
 
+def test_prove_add_bound_no_overflow_backwards_is_sub_bound_no_overflow():
+    # situation:
+    # i3 = int_add_ovf(i1, i2)
+    # guard_no_overflow()
+    # the fact that the addition didn't overflow can be used to infer something
+    # about i1 and i2 as well, namely:
+    # i1 = int_sub_ovf(i3, i2)
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result, no_ovf = z3_add_overflow(b1.concrete_variable, b2.concrete_variable)
+    b3 = b1.add_bound_no_overflow(b2)
+    b1better = b3.sub_bound_no_overflow(b2)
+    b1.prove_implies(
+        b2,
+        no_ovf,
+        b1better.z3_formula(b1.concrete_variable)
+    )
+
+def test_prove_sub_bound_no_overflow_backwards():
+    # situation:
+    # i3 = int_sub_ovf(i1, i2)
+    # guard_no_overflow()
+    # the fact that the subtraction didn't overflow can be used to infer something
+    # about i1 and i2 as well, namely:
+    # i1 = int_add_ovf(i2, i3)
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result, no_ovf = z3_sub_overflow(b1.concrete_variable, b2.concrete_variable)
+    b3 = b1.sub_bound_no_overflow(b2)
+    b1better = b2.add_bound_no_overflow(b3)
+    b1.prove_implies(
+        b2,
+        no_ovf,
+        b1better.z3_formula(b1.concrete_variable)
+    )
+    # for i2, we can use sub_bound_no_overflow:
+    # i2 = int_sub_ovf(i1, i3)
+    b2better = b1.sub_bound_no_overflow(b3)
+    b1.prove_implies(
+        b2,
+        no_ovf,
+        b2better.z3_formula(b2.concrete_variable)
+    )
+
 def test_prove_neg_logic():
     b1 = make_z3_intbounds_instance('self')
     one = Z3IntBound(BitVecVal(1), BitVecVal(1), BitVecVal(1), BitVecVal(0))

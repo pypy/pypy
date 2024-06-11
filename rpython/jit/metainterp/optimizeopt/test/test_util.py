@@ -1,3 +1,4 @@
+import sys
 import pytest
 import random
 import string
@@ -439,6 +440,9 @@ class LLtypeMixin(object):
     FUNC = lltype.FuncType([], llmemory.GCREF)
     ei = EffectInfo([], [], [], [], [], [], EffectInfo.EF_ELIDABLE_CAN_RAISE)
     plain_r_calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
+
+    MAXINT = sys.maxint
+    MININT = -MAXINT-1
 
     namespace = locals()
 

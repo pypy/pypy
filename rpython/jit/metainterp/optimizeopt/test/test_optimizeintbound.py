@@ -3416,6 +3416,77 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_add_ovf_backwards(self):
+        ops = """
+        [i0]
+        i1 = int_add_ovf(i0, 1)
+        guard_no_overflow() []
+        i2 = int_lt(i0, ConstInt(MAXINT))
+        guard_true(i2) []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        i1 = int_add_ovf(i0, 1)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_add_ovf_backwards2(self):
+        ops = """
+        [i0]
+        i1 = int_invert(i0)
+        i2 = int_add_ovf(i1, 100)
+        guard_no_overflow() []
+        i3 = int_ge(i0, ConstInt(MININT))
+        guard_true(i3) []
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_invert(i0)
+        i2 = int_add_ovf(i1, 100)
+        guard_no_overflow() []
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_sub_ovf_backwards(self):
+        ops = """
+        [i0]
+        i1 = int_sub_ovf(i0, 1)
+        guard_no_overflow() []
+        i2 = int_gt(i0, ConstInt(MININT))
+        guard_true(i2) []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        i1 = int_sub_ovf(i0, 1)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_sub_ovf_backwards2(self):
+        ops = """
+        [i0]
+        i1 = int_sub_ovf(1, i0)
+        guard_no_overflow() []
+        i2 = int_add(ConstInt(MININT), 1)
+        i3 = int_gt(i0, i2)
+        guard_true(i3) []
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        i1 = int_sub_ovf(1, i0)
+        guard_no_overflow() []
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 
