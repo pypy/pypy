@@ -2,7 +2,8 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.history import (
-    Const, ConstInt, make_hashable_int, ConstFloat, CONST_NULL)
+    Const, ConstInt, make_hashable_int, ConstFloat, CONST_NULL,
+    DONT_CHANGE)
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.optimizer import (
     Optimization, OptimizationResult, REMOVED, CONST_0, CONST_1)
@@ -238,6 +239,9 @@ class OptRewrite(Optimization):
                     if x & (x - 1) == 0:
                         new_rhs = ConstInt(highest_bit(lh_info.get_constant_int()))
                         op = self.replace_op_with(op, rop.INT_LSHIFT, args=[rhs, new_rhs])
+                        break
+                    elif x == -1:
+                        op = self.replace_op_with(op, rop.INT_NEG, args=[rhs])
                         break
                 else:
                     shiftop = self.optimizer.as_operation(get_box_replacement(lhs))
@@ -946,8 +950,8 @@ class OptRewrite(Optimization):
         self.optimizer.notice_guard_future_condition(op)
 
     def _optimize_CALL_INT_PY_DIV(self, op):
+        from rpython.jit.metainterp.optimizeopt.intutils import MININT
         def _replace_with_shift(self, op, arg1, shiftvar):
-            from rpython.jit.metainterp.history import DONT_CHANGE
             op = self.replace_op_with(op, rop.INT_RSHIFT,
                         args=[arg1, shiftvar],
                         descr=DONT_CHANGE)  # <- xxx rename? means "kill"
@@ -975,6 +979,13 @@ class OptRewrite(Optimization):
                     return _replace_with_shift(self, op, arg1, shiftvar)
             return False
         val = b2.get_constant_int()
+        if val == -1:
+            if b1.known_gt_const(MININT):
+                op = self.replace_op_with(op, rop.INT_NEG,
+                            args=[arg1],
+                            descr=DONT_CHANGE)  # <- xxx rename? means "kill"
+                self.optimizer.send_extra_operation(op)
+                return True
         if val <= 0:
             return False
         if val == 1:
@@ -1015,7 +1026,6 @@ class OptRewrite(Optimization):
             self.last_emitted_operation = REMOVED
             return True
         elif val & (val - 1) == 0:   # val == 2**shift
-            from rpython.jit.metainterp.history import DONT_CHANGE
             # x % power-of-two ==> x & (power-of-two - 1)
             # with Python's modulo, this is valid even if 'x' is negative.
             op = self.replace_op_with(op, rop.INT_AND,
