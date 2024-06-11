@@ -1,4 +1,4 @@
-import py
+import pytest
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 from pypy.module.pypyjit.test_pypy_c.model import OpMatcher
 
@@ -687,7 +687,7 @@ class TestCall(BaseTestPyPyC):
             p69 = force_token()
         """)
 
-    @pytest.skip("this kind of call works really different on python3")
+    @pytest.mark.skip("this kind of call works really different on python3")
     def test_starargs_list_copying(self):
         log = self.run("""
         def f(a, *args):
