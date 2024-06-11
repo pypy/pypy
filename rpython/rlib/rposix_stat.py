@@ -875,10 +875,10 @@ if _WIN32:
         st_ino = make_longlong(info.c_nFileIndexHigh, info.c_nFileIndexLow)
         st_dev = info.c_dwVolumeSerialNumber
         st_nlink = info.c_nNumberOfLinks
-        st_file_attributes = info.c_dwFileAttributes
-        st_reparse_tag = reparse_tag
+        st_file_attributes = widen(info.c_dwFileAttributes)
+        st_reparse_tag = widen(reparse_tag)
         if (st_file_attributes & win32traits.FILE_ATTRIBUTE_REPARSE_POINT
-                and reparse_tag ==  0xa000000c):  # IO_REPARSE_TAG_SYMLINK
+                and st_reparse_tag ==  0xa000000c):  # IO_REPARSE_TAG_SYMLINK
             # first clear the S_IMFT bits
             st_mode ^= (st_mode & 0170000)  # S_IFMT
             # now set the bits that make this a symlink
