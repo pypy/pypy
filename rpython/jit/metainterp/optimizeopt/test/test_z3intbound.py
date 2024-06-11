@@ -669,7 +669,7 @@ def test_prove_add_knownbits():
         z3_tnum_condition(result, res_tvalue, res_tmask),
     )
 
-def test_prove_add_bounds_logic():
+def test_prove_add_bound_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result = b1.concrete_variable + b2.concrete_variable
@@ -686,7 +686,7 @@ def test_prove_add_bounds_logic():
         b3
     )
 
-def test_prove_add_bounds_cannot_overflow_logic():
+def test_prove_add_bound_cannot_overflow_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result, no_ovf_result = z3_add_overflow(b1.concrete_variable, b2.concrete_variable)
@@ -1309,6 +1309,22 @@ def test_prove_mul_bound_logic():
         z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4),
         z3.And(min1 <= result, result <= max1, no_ovf),
     )
+
+@z3_with_reduced_bitwidth(8)
+def test_prove_mul_bound_cannot_overflow_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result, no_ovf_result = z3_mul_overflow(b1.concrete_variable, b2.concrete_variable)
+    result1, no_ovf1 = z3_mul_overflow(b1.lower, b2.lower)
+    result2, no_ovf2 = z3_mul_overflow(b1.lower, b2.upper)
+    result3, no_ovf3 = z3_mul_overflow(b1.upper, b2.lower)
+    result4, no_ovf4 = z3_mul_overflow(b1.upper, b2.upper)
+    b1.prove_implies(
+        b2,
+        z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4),
+        no_ovf_result,
+    )
+
 
 def z3_pymod_nonzero(x, y):
     r = x % y
