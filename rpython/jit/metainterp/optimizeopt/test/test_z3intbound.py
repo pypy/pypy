@@ -1367,6 +1367,35 @@ def test_prove_mod_bound_logic():
         z3.And(result <= z3_max(b2.upper - 1, 0), z3_min(b2.lower + 1, 0) <= result)
     )
 
+def z3_pydiv_nonzero_ovf(x, y):
+    r = x / y
+    psubx = r * y - x
+    res = r + (z3.If(y < 0, psubx, -psubx) >> (LONG_BIT - 1))
+    no_ovf = z3.Not(z3.And(x == MININT, y == -1))
+    return res, y != 0, no_ovf
+
+
+@z3_with_reduced_bitwidth(8)
+def test_prove_div_bound_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result, nonzero, no_ovf = z3_pydiv_nonzero_ovf(b1.concrete_variable, b2.concrete_variable)
+    result1, _, no_ovf1 = z3_pydiv_nonzero_ovf(b1.lower, b2.lower)
+    result2, _, no_ovf2 = z3_pydiv_nonzero_ovf(b1.lower, b2.upper)
+    result3, _, no_ovf3 = z3_pydiv_nonzero_ovf(b1.upper, b2.lower)
+    result4, _, no_ovf4 = z3_pydiv_nonzero_ovf(b1.upper, b2.upper)
+    min1 = z3_min(result1, result2, result3, result4)
+    max1 = z3_max(result1, result2, result3, result4)
+    b1.prove_implies(
+        b2,
+        nonzero,
+        no_ovf1,
+        no_ovf2,
+        no_ovf3,
+        no_ovf4,
+        z3.Not(z3.And(b2.lower <= 0, 0 <= b2.upper)),
+        z3.And(min1 <= result, result <= max1)
+    )
 
 # ____________________________________________________________
 # proofs for rewrite rules
