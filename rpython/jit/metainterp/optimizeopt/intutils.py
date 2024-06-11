@@ -956,8 +956,9 @@ class IntBound(AbstractInfo):
         return True
 
     def _tnum_mul(self, other):
+        # follows the algorithm from Sound, Precise, and Fast Abstract
+        # Interpretation with Tristate Numbers
         p, q = self, other
-
         acc_v = p.tvalue * q.tvalue
         acc_m = self.from_constant(0)
         while p.tvalue or p.tmask:

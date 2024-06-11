@@ -1407,6 +1407,33 @@ def test_prove_div_bound_logic():
         z3.And(min1 <= result, result <= max1)
     )
 
+def z3_tnum_mul(self, other):
+    p, q = self, other
+    acc_v = p.tvalue * q.tvalue
+    acc_m = self.from_constant(0)
+    for i in range(LONG_BIT):
+        add_tmask = z3.If(
+            z3.And(p.tvalue & 1 == 1, p.tmask & 1 == 0),
+            q.tmask,
+            z3.If(p.tmask & 1 == 1,
+                  q.tvalue | q.tmask,
+                  self.r_uint(0)))
+        acc_m = self.from_knownbits(*acc_m._tnum_add(self.from_knownbits(self.r_uint(0), add_tmask)))
+        p = self.from_knownbits(*p._tnum_urshift(1))
+        q = self.from_knownbits(*q._tnum_lshift(1))
+    return self.from_knownbits(acc_v, r_uint(0))._tnum_add(acc_m)
+
+@z3_with_reduced_bitwidth(8)
+def test_prove_mul_tnum_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result = b1.concrete_variable * b2.concrete_variable
+    tvalue, tmask = z3_tnum_mul(b1, b2)
+    b1.prove_implies(
+        b2,
+        z3.And(z3_tnum_condition(result, tvalue, tmask))
+    )
+
 # ____________________________________________________________
 # proofs for rewrite rules
 
