@@ -3375,6 +3375,47 @@ finish()
         """ % (LONG_BIT - 1, )
         self.optimize_loop(ops, expected)
 
+    def test_int_mul_neg_1(self):
+        ops = """
+        [i0]
+        i4 = int_ge(i0, -100000)
+        guard_true(i4) []
+        i2 = int_mul_ovf(i0, -1)
+        guard_no_overflow() []
+        i3 = int_add_ovf(i2, 50)
+        guard_no_overflow() []
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i4 = int_ge(i0, -100000)
+        guard_true(i4) []
+        i2 = int_neg(i0)
+        i3 = int_add(i2, 50)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_div_neg_1(self):
+        ops = """
+        [i0]
+        i4 = int_ge(i0, -100000)
+        guard_true(i4) []
+        i2 = call_pure_i(321, i0, -1, descr=int_py_div_descr)
+        i3 = int_add_ovf(i2, 50)
+        guard_no_overflow() []
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i4 = int_ge(i0, -100000)
+        guard_true(i4) []
+        i2 = int_neg(i0)
+        i3 = int_add(i2, 50)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

@@ -842,7 +842,13 @@ class ObjSpace(object):
         w_result = w_obj.immutable_unique_id(self)
         if w_result is None:
             # in the common case, returns an unsigned value
-            w_result = self.newint(r_uint(compute_unique_id(w_obj)))
+            id = compute_unique_id(w_obj)
+            if id >= 0:
+                w_result = self.newint(id)
+            else:
+                # the following path returns W_LongObject, but it should happen
+                # only on 32-bit platforms
+                w_result = self.newint(r_uint(id))
         return w_result
 
     def contains_w(self, w_container, w_item):

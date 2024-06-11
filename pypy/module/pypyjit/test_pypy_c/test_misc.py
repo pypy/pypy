@@ -505,3 +505,17 @@ class TestMisc(BaseTestPyPyC):
         assert "new_with_vtables" not in opnames
         assert "call_may_force_r" not in opnames
         assert "new_array_clear" not in opnames
+
+    def test_id_no_rbigint(self):
+        def main(n):
+            l = [object() for i in range(n)]
+            res = 0
+            for obj in l:
+                res ^= id(obj) # ID: id
+        log = self.run(main, [3000])
+        loop, = log.loops_by_id("id")
+        ops = loop.ops_by_id("id")
+        opnames = log.opnames(ops)
+        # used to be calls to fromrarith_int__r_uint and rbigint.xor
+        assert "call_r" not in opnames
+        assert opnames.count('call_i') == 1 # _ll_1_gc_id__pypy_interpreter_baseobjspace_W_RootPtr
