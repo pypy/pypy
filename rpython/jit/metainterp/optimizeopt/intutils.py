@@ -955,6 +955,25 @@ class IntBound(AbstractInfo):
             return False
         return True
 
+    def _tnum_mul(self, other):
+        p, q = self, other
+
+        acc_v = p.tvalue * q.tvalue
+        acc_m = self.from_constant(0)
+        while p.tvalue or p.tmask:
+            if p.tvalue & 1 == 1 and p.tmask & 1 == 0:
+                # LSB of p is a certain 1
+                acc_m = self.from_knownbits(*acc_m._tnum_add(self.from_knownbits(self.r_uint(0), q.tmask)))
+            elif p.tmask & 1 == 1:
+                # LSB of p is uncertain
+                acc_m = self.from_knownbits(*acc_m._tnum_add(self.from_knownbits(self.r_uint(0), q.tvalue | q.tmask)))
+            else:
+                # LSB of p is certain 0
+                pass # do nothing
+            p = self.from_knownbits(*p._tnum_urshift(1))
+            q = self.from_knownbits(*q._tnum_lshift(1))
+        return IntBound.from_knownbits(acc_v, r_uint(0))._tnum_add(acc_m)
+
     def py_div_bound(self, other):
         """
         Divides this abstract integer by the
@@ -1600,6 +1619,21 @@ class IntBound(AbstractInfo):
                 results.append(str((self.tvalue >> bit) & 1))
         results.reverse()
         return "".join(results)
+
+    def _iterate_knownbits(self):
+        # for testing: iterate through all values
+        if self.is_constant():
+            yield self.get_constant_int()
+            return
+        assert self.tmask # otherwise it would be a constant
+        lowest_bit = lowest_set_bit_only(self.tmask)
+        tvalue1 = self.tvalue | lowest_bit
+        tmask = self.tmask & ~lowest_bit
+        b0 = IntBound.from_knownbits(self.tvalue, tmask)
+        b1 = IntBound.from_knownbits(tvalue1, tmask)
+        for b in b0, b1:
+            for subvalue in b._iterate_knownbits():
+                yield subvalue
 
 
 def flip_msb(val_uint):

@@ -1964,3 +1964,43 @@ def test_saturating_mul(a, b):
     else:
         assert satres == res
 
+@given(knownbits_and_bound_with_contained_number)
+def test_iterate_values_random(t1):
+    b1, c1 = t1
+    print b1, c1
+    l = zip(b1._iterate_knownbits(), range(100)) # only generate up to 100
+    print l
+    seen = False
+    for elt, _ in l:
+        if not b1.contains(elt):
+            assert elt < b1.lower or elt > b1.upper
+        if elt == c1:
+            seen = True
+    if not seen:
+        assert len(l) == 100
+
+def test_tnum_mul_example():
+    p = IntBound.from_knownbits(r_uint(0b010), r_uint(0b100))
+    q = IntBound.from_knownbits(r_uint(0b001), r_uint(0b100))
+    tvalue, tmask = p._tnum_mul(q)
+    bres = IntBound.from_knownbits(tvalue, tmask)
+    for a in (2, 6):
+        assert p.contains(a)
+        for b in (1, 5):
+            assert q.contains(b)
+            res = a * b
+            assert bres.contains(res)
+
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
+def test_tnum_mul_random(t1, t2):
+    b1, c1 = t1
+    b2, c2 = t2
+
+    tvalue, tmask = b1._tnum_mul(b2)
+    bres = IntBound.from_knownbits(tvalue, tmask)
+    bres.intersect(b1.mul_bound(b2))
+    if not b1.is_constant() and not b2.is_constant() and not bres.is_unbounded():
+        print b1, c1, b2, c2, bres
+    res = intmask(r_uint(c1) * r_uint(c2))
+    assert bres.contains(res)
+
