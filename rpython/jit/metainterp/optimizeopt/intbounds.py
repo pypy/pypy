@@ -3,7 +3,7 @@ from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
-    CONST_0)
+    CONST_0, REMOVED)
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.info import getptrinfo
@@ -224,14 +224,18 @@ class OptIntBounds(Optimization):
             # reuse, as well as the reverse op
             elif opnum == rop.INT_ADD_OVF:
                 arg0, arg1 = args
-                #self.pure(rop.INT_ADD, args[:], result)
-                self.pure_from_args(rop.INT_SUB, [result, arg1], arg0)
-                self.pure_from_args(rop.INT_SUB, [result, arg0], arg1)
                 # infer something about the arguments from the fact that the
                 # addition didn't overflow
                 b0 = self.getintbound(arg0)
                 b1 = self.getintbound(arg1)
+                if b0.add_bound_must_overflow(b1):
+                    raise InvalidLoop("an INT_ADD_OVF followed by a guard_no_overflow was proven to overflow")
+                #self.pure(rop.INT_ADD, args[:], result)
+                self.pure_from_args(rop.INT_SUB, [result, arg1], arg0)
+                self.pure_from_args(rop.INT_SUB, [result, arg0], arg1)
+                resbound = b0.add_bound_no_overflow(b1)
                 bres = self.getintbound(result)
+                bres.intersect(resbound)
                 b0better = bres.sub_bound_no_overflow(b1)
                 if b0.intersect(b0better):
                     self.propagate_bounds_backward(arg0)
@@ -260,13 +264,14 @@ class OptIntBounds(Optimization):
         # If INT_xxx_OVF was replaced by INT_xxx, *but* we still see
         # GUARD_OVERFLOW, then the loop is invalid.
         lastop = self.last_emitted_operation
-        if lastop is None:
-            return # e.g. beginning of the loop
+        if lastop is REMOVED or lastop is None:
+            # REMOVED means "was proven to always raise"
+            # it's None e.g. beginning of the loop
+            return
         opnum = lastop.getopnum()
         if opnum not in (rop.INT_ADD_OVF, rop.INT_SUB_OVF, rop.INT_MUL_OVF):
             raise InvalidLoop('An INT_xxx_OVF was proven not to overflow but' +
                               'guarded with GUARD_OVERFLOW')
-
         return self.emit(op)
 
     def optimize_INT_ADD_OVF(self, op):
@@ -280,19 +285,12 @@ class OptIntBounds(Optimization):
             # NB: this case also takes care of int_add_ovf with 0 as one of the
             # arguments
             op = self.replace_op_with(op, rop.INT_ADD)
+        if b1.add_bound_must_overflow(b2):
+            self.make_constant_int
+            self.make_equal_to(op, ConstInt(0xdeadadd)) # the result is not used in the rest of the trace
+            self.last_emitted_operation = REMOVED
+            return
         return self.emit(op)
-
-    def postprocess_INT_ADD_OVF(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        # we can always give the result a bound. if the int_add_ovf is followed
-        # by a guard_no_overflow, then we know no overflow occurred, and the
-        # bound is correct. Otherwise, it must be followed by a guard_overflow
-        # and it is also fine to give the result a bound, because the result
-        # box must never be used in the rest of the trace
-        resbound = b1.add_bound_no_overflow(b2)
-        r = self.getintbound(op)
-        r.intersect(resbound)
 
     def optimize_INT_SUB_OVF(self, op):
         arg0 = get_box_replacement(op.getarg(0))

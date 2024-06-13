@@ -3487,6 +3487,22 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_remove_int_add_ovf_that_always_raises(self):
+        ops = """
+        [i0]
+        i1 = int_ge(i0, ConstInt(MAXINT))
+        guard_true(i1) []
+        i2 = int_add_ovf(i0, 1)
+        guard_overflow() []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        i1 = int_ge(i0, ConstInt(MAXINT))
+        guard_true(i1) []
+        jump(ConstInt(MAXINT))
+        """
+        self.optimize_loop(ops, expected)
 
 class TestComplexIntOpts(BaseTestBasic):
 

@@ -729,6 +729,21 @@ def test_add_random(t1, t2):
         assert b3.contains(r)
         assert b3noovf.contains(r)
 
+def test_add_bound_must_overflow_example():
+    b1 = IntBound(MAXINT)
+    b2 = IntBound(MAXINT)
+    assert b1.add_bound_must_overflow(b2)
+
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
+def test_add_bound_must_overflow(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    b3 = b1.add_bound(b2)
+    # the result bound works for unsigned addition, regardless of overflow
+    assert b3.contains(intmask(r_uint(n1) + r_uint(n2)))
+    if b1.add_bound_must_overflow(b2):
+        with pytest.raises(OverflowError):
+            ovfcheck(n1 + n2)
 
 @given(knownbits_and_bound_with_contained_number)
 def test_sub_zero_is_zero_random(t1):

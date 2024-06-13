@@ -871,6 +871,17 @@ class IntBound(AbstractInfo):
             return False
         return True
 
+    def add_bound_must_overflow(self, other):
+        if same_sign(self.lower, self.upper) or same_sign(other.lower, other.upper):
+            try:
+                ovfcheck(self.lower + other.lower)
+            except OverflowError:
+                try:
+                    ovfcheck(self.upper + other.upper)
+                except OverflowError:
+                    return True
+        return False
+
     def add_bound_no_overflow(self, other):
         """ return the bound that self + other must have, if no overflow occured,
         eg after an int_add_ovf(...), guard_no_overflow() """
@@ -1722,7 +1733,10 @@ def saturating_mul(a, b):
     try:
         return ovfcheck(a * b)
     except OverflowError:
-        same_sign = ((a ^ b) >> (LONG_BIT - 1)) == 0
-        if same_sign:
+        if same_sign(a, b):
             return MAXINT
         return MININT
+
+def same_sign(a, b):
+    return ((a ^ b) >> (LONG_BIT - 1)) == 0
+
