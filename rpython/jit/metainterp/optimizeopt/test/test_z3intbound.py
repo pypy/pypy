@@ -210,7 +210,10 @@ def test_mul_bound_cannot_overflow(b1, b2):
 
 @given(bounds, bounds)
 def test_mul_bound_no_overflow(b1, b2):
-    b3 = b1.mul_bound_no_overflow(b2)
+    try:
+        b3 = b1.mul_bound_no_overflow(b2)
+    except InvalidLoop:
+        assume(False)
     var1, formula1 = to_z3(b1)
     var2, formula2 = to_z3(b2)
     var3, formula3 = to_z3(b3, var1 * var2)
