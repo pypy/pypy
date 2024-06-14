@@ -644,6 +644,20 @@ class IntBound(AbstractInfo):
         information."""
         return unmask_one(self.tvalue, self.tmask)
 
+    def get_minimum_unsigned(self):
+        """
+        Returns the minimum unsigned number."""
+        if same_sign(self.lower, self.upper):
+            return self.r_uint(self.lower)
+        return self.get_minimum_unsigned_by_knownbits()
+
+    def get_maximum_unsigned(self):
+        """
+        returns the maximum unsigned number."""
+        if same_sign(self.lower, self.upper):
+            return self.r_uint(self.upper)
+        return self.get_maximum_unsigned_by_knownbits()
+
     def _get_minimum_signed_by_knownbits(self):
         """ for internal use only!
         returns the minimum signed number, but only using the knownbits as
@@ -979,16 +993,14 @@ class IntBound(AbstractInfo):
         return True
 
     def uint_mul_high_bound(self, other):
-        # XXX get_min/maximum_unsigned_by_knownbits gives a rather coarse
-        # unsigned bound
-        vals = (uint_mul_high(self.get_minimum_unsigned_by_knownbits(),
-                              other.get_minimum_unsigned_by_knownbits()),
-                uint_mul_high(self.get_minimum_unsigned_by_knownbits(),
-                              other.get_maximum_unsigned_by_knownbits()),
-                uint_mul_high(self.get_minimum_unsigned_by_knownbits(),
-                              other.get_maximum_unsigned_by_knownbits()),
-                uint_mul_high(self.get_maximum_unsigned_by_knownbits(),
-                              other.get_maximum_unsigned_by_knownbits()))
+        vals = (uint_mul_high(self.get_minimum_unsigned(),
+                              other.get_minimum_unsigned()),
+                uint_mul_high(self.get_minimum_unsigned(),
+                              other.get_maximum_unsigned()),
+                uint_mul_high(self.get_minimum_unsigned(),
+                              other.get_maximum_unsigned()),
+                uint_mul_high(self.get_maximum_unsigned(),
+                              other.get_maximum_unsigned()))
         res = IntBound()
         umin = uint_min4(vals)
         umax = uint_max4(vals)

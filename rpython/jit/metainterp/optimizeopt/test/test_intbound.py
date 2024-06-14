@@ -2056,3 +2056,11 @@ def test_uint_mul_high_bound_random(t1, t2):
     if not b3.is_unbounded() and not b3.is_constant():
         print b1, b2, b3, c1, c2, c3
     assert b3.contains(intmask(c3))
+
+@given(knownbits_and_bound_with_contained_number)
+def test_get_minimum_maximum_unsigned(t1):
+    b1, c1 = t1
+    print b1, r_uint(c1), b1.get_minimum_unsigned(), b1.get_maximum_unsigned()
+    assert b1.get_minimum_unsigned() <= r_uint(c1)
+    assert b1.get_maximum_unsigned() >= r_uint(c1)
+
