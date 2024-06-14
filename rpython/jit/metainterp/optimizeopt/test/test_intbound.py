@@ -9,7 +9,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
      leading_zeros_mask, saturating_mul)
 from rpython.jit.metainterp.optimizeopt.info import (INFO_NONNULL,
      INFO_UNKNOWN, INFO_NULL)
-from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck, r_uint, intmask
+from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck, r_uint, intmask, uint_mul_high
 from rpython.jit.metainterp.optimize import InvalidLoop
 
 from hypothesis import given, strategies, example, seed, assume
@@ -2037,3 +2037,22 @@ def test_tnum_mul_random(t1, t2):
     res = intmask(r_uint(c1) * r_uint(c2))
     assert bres.contains(res)
 
+@given(ints, ints, ints)
+def test_from_unsigned_bounds(a, b, c):
+    a = r_uint(a)
+    b = r_uint(b)
+    c = r_uint(c)
+    a, b, c = sorted([a, b, c])
+    bound = IntBound.from_unsigned_bounds(a, c)
+    print a, b, c, bound
+    assert bound.contains(intmask(b))
+
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
+def test_uint_mul_high_bound_random(t1, t2):
+    b1, c1 = t1
+    b2, c2 = t2
+    b3 = b1.uint_mul_high_bound(b2)
+    c3 = uint_mul_high(r_uint(c1), r_uint(c2))
+    if not b3.is_unbounded() and not b3.is_constant():
+        print b1, b2, b3, c1, c2, c3
+    assert b3.contains(intmask(c3))

@@ -46,7 +46,8 @@ like that.
 """
 
 import sys
-from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int, r_uint, intmask
+from rpython.rlib.rarithmetic import (ovfcheck, LONG_BIT, maxint, is_valid_int,
+                                      r_uint, intmask, uint_mul_high)
 from rpython.rlib.objectmodel import we_are_translated, always_inline
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -165,6 +166,14 @@ class IntBound(AbstractInfo):
             tvalue = unmask_zero(tvalue, tmask)
         return IntBound(tvalue=tvalue,
                         tmask=tmask)
+
+    @staticmethod
+    def from_unsigned_bounds(umin, umax):
+        # XXX can be improved
+        hbm_bounds = leading_zeros_mask(umin ^ umax)
+        bounds_common = umin & hbm_bounds
+        tmask = ~hbm_bounds
+        return IntBound.from_knownbits(unmask_zero(bounds_common, tmask), tmask)
 
     # ____________________________________________________________
     # a bunch of slightly artificial methods that are needed to make some of
@@ -969,6 +978,22 @@ class IntBound(AbstractInfo):
             return False
         return True
 
+    def uint_mul_high_bound(self, other):
+        # XXX get_min/maximum_unsigned_by_knownbits gives a rather coarse
+        # unsigned bound
+        vals = (uint_mul_high(self.get_minimum_unsigned_by_knownbits(),
+                              other.get_minimum_unsigned_by_knownbits()),
+                uint_mul_high(self.get_minimum_unsigned_by_knownbits(),
+                              other.get_maximum_unsigned_by_knownbits()),
+                uint_mul_high(self.get_minimum_unsigned_by_knownbits(),
+                              other.get_maximum_unsigned_by_knownbits()),
+                uint_mul_high(self.get_maximum_unsigned_by_knownbits(),
+                              other.get_maximum_unsigned_by_knownbits()))
+        res = IntBound()
+        umin = uint_min4(vals)
+        umax = uint_max4(vals)
+        return IntBound.from_unsigned_bounds(umin, umax)
+
     def _tnum_mul(self, other):
         # follows the algorithm from Sound, Precise, and Fast Abstract
         # Interpretation with Tristate Numbers
@@ -1693,6 +1718,19 @@ def max4(t):
     Returns the maximum of the values in the quadruplet t.
     """
     return max(max(t[0], t[1]), max(t[2], t[3]))
+
+def uint_min4(t):
+    """
+    Returns the unsigned minimum of the values in the quadruplet t.
+    """
+    return min(min(r_uint(t[0]), r_uint(t[1])), min(r_uint(t[2]), r_uint(t[3])))
+
+def uint_max4(t):
+    """
+    Returns the unsigned maximum of the values in the quadruplet t.
+    """
+    return max(max(r_uint(t[0]), r_uint(t[1])), max(r_uint(t[2]), r_uint(t[3])))
+
 
 def msbonly(v):
     """
