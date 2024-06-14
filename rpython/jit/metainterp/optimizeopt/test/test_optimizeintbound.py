@@ -1055,7 +1055,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i1 = int_ge(i51, 0)
         guard_true(i1) []
         i57 = int_and(i51, 1)
-        i62 = int_eq(i57, 0)
+        i62 = int_is_zero(i57)
         guard_false(i62) []
         """
         self.optimize_loop(ops, ops)
@@ -1066,7 +1066,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i1 = int_ge(i51, 0)
         guard_true(i1) []
         i57 = int_and(4, i51)
-        i62 = int_eq(i57, 0)
+        i62 = int_is_zero(i57)
         guard_false(i62) []
         """
         self.optimize_loop(ops, ops)
@@ -1079,7 +1079,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i2 = int_ge(i52, 0)
         guard_true(i2) []
         i57 = int_or(i51, i52)
-        i62 = int_eq(i57, 0)
+        i62 = int_is_zero(i57)
         guard_false(i62) []
         """
         self.optimize_loop(ops, ops)
@@ -2333,7 +2333,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         ops = """
         [i0]
         i1 = call_pure_i(321, i0, %d, descr=int_py_mod_descr)
-        i2 = int_eq(i1, 0)
+        i2 = int_is_zero(i1)
         guard_false(i2) []
         finish()
         """ % (-(1<<(LONG_BIT-1)),)
@@ -2646,7 +2646,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i42 = int_ge(i34, -7)
         guard_true(i42) []
         i45 = int_le(i35, i37)
-        i46 = int_ne(i39, 0)
+        i46 = int_is_true(i39)
         i47 = int_or(i39, i46)
         i48 = int_is_true(i34)
         guard_false(i48) []
@@ -2945,7 +2945,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i2 = int_eq(i0, 0)
+        i2 = int_is_zero(i0)
         guard_false(i2) []
         jump(0)
         """
@@ -3433,6 +3433,45 @@ finish()
         i2 = int_neg(i0)
         i3 = int_add(i2, 50)
         jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+
+    def test_int_eq_zero_to_int_is_zero(self):
+        ops = """
+        [i0, i1]
+        i2 = int_eq(i0, 0)
+        guard_true(i2) []
+        i3 = int_eq(0, i1)
+        guard_true(i3) []
+        jump(i0)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_is_zero(i0)
+        guard_true(i2) []
+        i3 = int_is_zero(i1)
+        guard_true(i3) []
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_ne_zero_to_int_is_true(self):
+        ops = """
+        [i0, i1]
+        i2 = int_ne(i0, 0)
+        guard_true(i2) []
+        i3 = int_ne(0, i1)
+        guard_true(i3) []
+        jump(i0)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_is_true(i0)
+        guard_true(i2) []
+        i3 = int_is_true(i1)
+        guard_true(i3) []
+        jump(i0)
         """
         self.optimize_loop(ops, expected)
 
