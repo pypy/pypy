@@ -9,7 +9,7 @@ import pytest
 import sys
 import gc
 
-from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask, ovfcheck
+from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask, ovfcheck, uint_mul_high
 from rpython.jit.metainterp.optimizeopt.intutils import (
     IntBound,
     unmask_one,
@@ -422,6 +422,12 @@ def z3_mul_overflow(a, b):
     result_wide = z3.SignExt(LONG_BIT, a) * z3.SignExt(LONG_BIT, b)
     no_ovf = result_wide == z3.SignExt(LONG_BIT, result)
     return result, no_ovf
+
+def z3_uint_mul_high(a, b):
+    za = z3.ZeroExt(LONG_BIT, a)
+    zb = z3.ZeroExt(LONG_BIT, b)
+    return z3.Extract(LONG_BIT * 2 - 1, LONG_BIT, za * zb)
+
 
 # debugging functions to understand the counterexamples
 
@@ -1485,4 +1491,14 @@ def test_prove_int_mul_1_lshift_rewrite():
         0 <= y,
         y < LONG_BIT,
         x * (1 << y) == x << y
+    )
+
+def test_prove_uint_mul_high_pow_2():
+    # idea for a uint_mul_high optimization that would help pydrofoil
+    x = BitVec('x')
+    y = BitVec('y')
+    prove_implies(
+        0 <= y,
+        y < LONG_BIT - 2,
+        z3_uint_mul_high(x, 1 << y) == z3.LShR(x, LONG_BIT - y)
     )
