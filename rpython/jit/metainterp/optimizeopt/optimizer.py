@@ -375,13 +375,20 @@ class Optimizer(Optimization):
 
     def make_equal_to(self, op, newop):
         op = get_box_replacement(op)
+        newop = get_box_replacement(newop)
         if op is newop:
             return
         opinfo = op.get_forwarded()
+        op.set_forwarded(newop)
         if opinfo is not None:
             assert isinstance(opinfo, info.AbstractInfo)
-            op.set_forwarded(newop)
             if not isinstance(newop, Const):
+                # both op and newop can have bounds under weird circumstances
+                if isinstance(opinfo, IntBound) and not opinfo.is_unbounded():
+                    opinfo2 = newop.get_forwarded()
+                    if isinstance(opinfo2, IntBound):
+                        opinfo2.intersect(opinfo)
+                        return
                 newop.set_forwarded(opinfo)
         else:
             op.set_forwarded(newop)

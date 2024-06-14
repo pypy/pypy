@@ -2295,6 +2295,36 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_intmod_bounds(self):
+        ops = """
+        [i0, i1]
+        i2 = call_pure_i(321, i0, 12, descr=int_py_mod_descr)
+        i3 = int_ge(i2, 12)
+        guard_false(i3) []
+        i4 = int_lt(i2, 0)
+        guard_false(i4) []
+        i5 = call_pure_i(321, i1, -12, descr=int_py_mod_descr)
+        i6 = int_le(i5, -12)
+        guard_false(i6) []
+        i7 = int_gt(i5, 0)
+        guard_false(i7) []
+        jump(i2, i5)
+        """
+        kk, ii = magic_numbers(12)
+        expected = """
+        [i0, i1]
+        i4 = int_rshift(i0, %d)
+        i6 = int_xor(i0, i4)
+        i8 = uint_mul_high(i6, %d)
+        i9 = uint_rshift(i8, %d)
+        i10 = int_xor(i9, i4)
+        i11 = int_mul(i10, 12)
+        i2 = int_sub(i0, i11)
+        i5 = call_i(321, i1, -12, descr=int_py_mod_descr)
+        jump(i2, i5)
+        """ % (63 if MAXINT > 2**32 else 31, intmask(kk), ii)
+        self.optimize_loop(ops, expected)
+
     def test_intmod_bounds2(self):
         # same as above (2nd case), but all guards are shifted by one so
         # that they must stay
@@ -3542,38 +3572,60 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
-
-class TestComplexIntOpts(BaseTestBasic):
-
-    def test_intmod_bounds(self):
+    def test_py_div_bounds_const(self):
         ops = """
         [i0, i1]
-        i2 = call_pure_i(321, i0, 12, descr=int_py_mod_descr)
-        i3 = int_ge(i2, 12)
-        guard_false(i3) []
-        i4 = int_lt(i2, 0)
-        guard_false(i4) []
-        i5 = call_pure_i(321, i1, -12, descr=int_py_mod_descr)
-        i6 = int_le(i5, -12)
-        guard_false(i6) []
-        i7 = int_gt(i5, 0)
-        guard_false(i7) []
-        jump(i2, i5)
+        i4 = int_ge(i0, 3)
+        guard_true(i4) []
+        i5 = int_ge(35, i0)
+        guard_true(i5) []
+        i2 = call_pure_i(321, i0, 9, descr=int_py_div_descr)
+        i3 = int_mul(i2, 9)
+        i6 = int_ge(i3, 0)
+        guard_true(i6) []
+        i7 = int_le(i3, 27)
+        guard_true(i7) []
+        jump(i3)
         """
-        kk, ii = magic_numbers(12)
         expected = """
         [i0, i1]
-        i4 = int_rshift(i0, %d)
-        i6 = int_xor(i0, i4)
-        i8 = uint_mul_high(i6, %d)
-        i9 = uint_rshift(i8, %d)
-        i10 = int_xor(i9, i4)
-        i11 = int_mul(i10, 12)
-        i2 = int_sub(i0, i11)
-        i5 = call_i(321, i1, -12, descr=int_py_mod_descr)
-        jump(i2, i5)
-        """ % (63 if MAXINT > 2**32 else 31, intmask(kk), ii)
+        i4 = int_ge(i0, 3)
+        guard_true(i4) []
+        i5 = int_ge(35, i0)
+        guard_true(i5) []
+        i6 = uint_mul_high(i0, -2049638230412172401)
+        i7 = uint_rshift(i6, 3)
+        i3 = int_mul(i7, 9)
+        jump(i3)
+        """
         self.optimize_loop(ops, expected)
+
+    def test_intmod_bounds_const(self):
+        ops = """
+        [i0, i1]
+        i4 = int_ge(i0, 3)
+        guard_true(i4) []
+        i2 = call_pure_i(321, i0, 9, descr=int_py_mod_descr)
+        i6 = int_ge(i2, 0)
+        guard_true(i6) []
+        i7 = int_le(i2, 8)
+        guard_true(i7) []
+        jump(i2)
+        """
+        expected = """
+        [i0, i1]
+        i4 = int_ge(i0, 3)
+        guard_true(i4) []
+        i6 = uint_mul_high(i0, -2049638230412172401)
+        i7 = uint_rshift(i6, 3)
+        i3 = int_mul(i7, 9)
+        i8 = int_sub(i0, i3)
+        jump(i8)
+        """
+        self.optimize_loop(ops, expected)
+
+
+class TestComplexIntOpts(BaseTestBasic):
 
     def test_mul_ovf_before(self):
         ops = """
