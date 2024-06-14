@@ -470,7 +470,7 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op, 0)
         elif arg0.same_box(arg1):
             self.make_constant_int(op, 1)
-        elif b1.is_constant() and b1.get_constant_int() and b0.is_bool():
+        elif b1.is_constant() and b1.get_constant_int() == 1 and b0.is_bool():
             self.make_equal_to(op, op.getarg(0))
         else:
             return self.emit(op)
