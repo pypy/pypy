@@ -2046,6 +2046,30 @@ def test_from_unsigned_bounds(a, b, c):
     bound = IntBound.from_unsigned_bounds(a, c)
     assert bound.contains(intmask(b))
 
+def test_uint_mul_high_bound_examples():
+    from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
+    for i in range(1, LONG_BIT):
+        # 2 ** i * 2 ** (LONG_BIT - i) == 2 ** LONG_BIT
+        b1 = IntBound(0, int(2**i - 1))
+        b2 = IntBound(0, int(2**(LONG_BIT - i) - 1))
+        b3 = b1.uint_mul_high_bound(b2)
+        assert b3.get_constant_int() == 0
+
+    for i in range(3, 12000):
+        if i & (i - 1) == 0:
+            continue
+        kk, ii = magic_numbers(i)
+        b1 = IntBound(120, 12000)
+        b2 = b1.uint_mul_high_bound(IntBound.from_constant(intmask(kk)))
+        b3 = b2.rshift_bound(IntBound.from_constant(ii))
+        assert bound_eq(b3, b1.py_div_bound(IntBound.from_constant(i)))
+
+    b1 = IntBound(1, MAXINT)
+    b2 = IntBound(1, MAXINT)
+    b3 = b1.uint_mul_high_bound(b2)
+    assert bound_eq(b3, IntBound(0, MAXINT >> 1))
+
+
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_uint_mul_high_bound_random(t1, t2):
     b1, c1 = t1
