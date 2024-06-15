@@ -249,6 +249,11 @@ class OptIntBounds(Optimization):
                 self.pure_from_args(rop.INT_SUB, [arg0, result], arg1)
                 b0 = self.getintbound(arg0)
                 b1 = self.getintbound(arg1)
+                resbound = b0.sub_bound_no_overflow(b1)
+                bres = self.getintbound(result)
+                bres.intersect(resbound)
+                b0 = self.getintbound(arg0)
+                b1 = self.getintbound(arg1)
                 bres = self.getintbound(result)
                 b0better = bres.add_bound_no_overflow(b1)
                 if b0.intersect(b0better):
@@ -256,8 +261,13 @@ class OptIntBounds(Optimization):
                 b1better = b0.sub_bound_no_overflow(bres)
                 if b1.intersect(b1better):
                     self.propagate_bounds_backward(arg1)
-            #elif opnum == rop.INT_MUL_OVF:
-            #    self.pure(rop.INT_MUL, args[:], result)
+            elif opnum == rop.INT_MUL_OVF:
+                arg0, arg1 = args
+                b0 = self.getintbound(arg0)
+                b1 = self.getintbound(arg1)
+                resbound = b0.mul_bound_no_overflow(b1)
+                bres = self.getintbound(result)
+                bres.intersect(resbound)
             return self.emit(op)
 
     def optimize_GUARD_OVERFLOW(self, op):
@@ -305,15 +315,6 @@ class OptIntBounds(Optimization):
             op = self.replace_op_with(op, rop.INT_SUB)
         return self.emit(op)
 
-    def postprocess_INT_SUB_OVF(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        arg1 = get_box_replacement(op.getarg(1))
-        b0 = self.getintbound(arg0)
-        b1 = self.getintbound(arg1)
-        resbound = b0.sub_bound_no_overflow(b1)
-        r = self.getintbound(op)
-        r.intersect(resbound)
-
     def optimize_INT_MUL_OVF(self, op):
         b0 = self.getintbound(op.getarg(0))
         b1 = self.getintbound(op.getarg(1))
@@ -321,13 +322,6 @@ class OptIntBounds(Optimization):
             # this case also takes care of multiplication with 0 and 1
             op = self.replace_op_with(op, rop.INT_MUL)
         return self.emit(op)
-
-    def postprocess_INT_MUL_OVF(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        resbound = b1.mul_bound_no_overflow(b2)
-        r = self.getintbound(op)
-        r.intersect(resbound)
 
     def optimize_INT_LT(self, op):
         arg1 = get_box_replacement(op.getarg(0))

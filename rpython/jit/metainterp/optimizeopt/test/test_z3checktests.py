@@ -590,6 +590,7 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
             print "_" * 60
             print "got exception", e
             print "seed was", seed
+            import pdb; pdb.xpm()
             raise
 
 if __name__ == '__main__':

@@ -2044,7 +2044,6 @@ def test_from_unsigned_bounds(a, b, c):
     c = r_uint(c)
     a, b, c = sorted([a, b, c])
     bound = IntBound.from_unsigned_bounds(a, c)
-    print a, b, c, bound
     assert bound.contains(intmask(b))
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
@@ -2053,14 +2052,11 @@ def test_uint_mul_high_bound_random(t1, t2):
     b2, c2 = t2
     b3 = b1.uint_mul_high_bound(b2)
     c3 = uint_mul_high(r_uint(c1), r_uint(c2))
-    if not b3.is_unbounded() and not b3.is_constant():
-        print b1, b2, b3, c1, c2, c3
     assert b3.contains(intmask(c3))
 
 @given(knownbits_and_bound_with_contained_number)
 def test_get_minimum_maximum_unsigned(t1):
     b1, c1 = t1
-    print b1, r_uint(c1), b1.get_minimum_unsigned(), b1.get_maximum_unsigned()
     assert b1.get_minimum_unsigned() <= r_uint(c1)
     assert b1.get_maximum_unsigned() >= r_uint(c1)
 

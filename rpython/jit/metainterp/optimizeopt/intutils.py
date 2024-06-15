@@ -601,8 +601,8 @@ class IntBound(AbstractInfo):
         # see test_uint_cmp_equivalent_int_cmp_if_same_sign
         if self._known_same_sign(other) and self.known_lt(other):
             return True
-        other_min_unsigned_by_knownbits = other.get_minimum_unsigned_by_knownbits()
-        self_max_unsigned_by_knownbits = self.get_maximum_unsigned_by_knownbits()
+        other_min_unsigned_by_knownbits = other.get_minimum_unsigned()
+        self_max_unsigned_by_knownbits = self.get_maximum_unsigned()
         return self_max_unsigned_by_knownbits < other_min_unsigned_by_knownbits
 
     def known_unsigned_le(self, other):
@@ -613,8 +613,8 @@ class IntBound(AbstractInfo):
         # if they have the same sign, we can reason with signed comparison
         if self._known_same_sign(other) and self.known_le(other):
             return True
-        other_min_unsigned_by_knownbits = other.get_minimum_unsigned_by_knownbits()
-        self_max_unsigned_by_knownbits = self.get_maximum_unsigned_by_knownbits()
+        other_min_unsigned_by_knownbits = other.get_minimum_unsigned()
+        self_max_unsigned_by_knownbits = self.get_maximum_unsigned()
         return self_max_unsigned_by_knownbits <= other_min_unsigned_by_knownbits
 
     def known_unsigned_gt(self, other):
