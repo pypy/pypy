@@ -577,13 +577,14 @@ def test_prove_min_max_unsigned_by_knownbits():
 def test_prove_min_max_unsigned_logic():
     bound = make_z3_intbounds_instance('self')
     same_sign = ((bound.lower ^ bound.upper) >> (LONG_BIT - 1)) == 0
+    lower = z3.If(same_sign, bound.lower, bound.get_minimum_unsigned_by_knownbits())
+    upper = z3.If(same_sign, bound.upper, bound.get_maximum_unsigned_by_knownbits())
     bound.prove_implies(
-        same_sign,
-        z3.ULE(bound.lower, bound.concrete_variable)
+        z3.ULE(lower, bound.concrete_variable)
     )
     bound.prove_implies(
         same_sign,
-        z3.ULE(bound.concrete_variable, bound.upper)
+        z3.ULE(bound.concrete_variable, upper)
     )
 
 def test_prove_min_max_signed_by_knownbits():
