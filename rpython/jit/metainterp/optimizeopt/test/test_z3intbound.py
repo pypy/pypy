@@ -1482,15 +1482,21 @@ def z3_uint_max(*args):
         res = z3.If(z3.UGT(res, x), res, x)
     return res
 
-@z3_with_reduced_bitwidth(8)
+@z3_with_reduced_bitwidth(6)
 def test_prove_uint_mul_high_bounds_logic():
+    def umin(bound):
+        same_sign = ((bound.lower ^ bound.upper) >> (LONG_BIT - 1)) == 0
+        return z3.If(same_sign, bound.lower, bound.get_minimum_unsigned_by_knownbits())
+    def umax(bound):
+        same_sign = ((bound.lower ^ bound.upper) >> (LONG_BIT - 1)) == 0
+        return z3.If(same_sign, bound.upper, bound.get_maximum_unsigned_by_knownbits())
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result = z3_uint_mul_high(b1.concrete_variable, b2.concrete_variable)
-    r1 = z3_uint_mul_high(b1.get_minimum_unsigned_by_knownbits(), b2.get_minimum_unsigned_by_knownbits())
-    r2 = z3_uint_mul_high(b1.get_minimum_unsigned_by_knownbits(), b2.get_maximum_unsigned_by_knownbits())
-    r3 = z3_uint_mul_high(b1.get_maximum_unsigned_by_knownbits(), b2.get_minimum_unsigned_by_knownbits())
-    r4 = z3_uint_mul_high(b1.get_maximum_unsigned_by_knownbits(), b2.get_maximum_unsigned_by_knownbits())
+    r1 = z3_uint_mul_high(umin(b1), umin(b2))
+    r2 = z3_uint_mul_high(umin(b1), umax(b2))
+    r3 = z3_uint_mul_high(umax(b1), umin(b2))
+    r4 = z3_uint_mul_high(umax(b1), umax(b2))
     b1.prove_implies(
         b2,
         z3.And(z3.UGE(result, z3_uint_min(r1, r2, r3, r4)), z3.ULE(result, z3_uint_max(r1, r2, r3, r4)))
