@@ -520,6 +520,17 @@ class OptIntBounds(Optimization):
         else:
             return self.emit(op)
 
+    def optimize_RECORD_EXACT_VALUE_I(self, op):
+        from rpython.jit.metainterp.resoperation import AbstractResOp
+        box = op.getarg(0)
+        expectedconstbox = op.getarg(1)
+        assert isinstance(expectedconstbox, ConstInt)
+        b1 = self.getintbound(box)
+        if not b1.is_constant():
+            b1.make_eq_const(expectedconstbox.getint())
+            if isinstance(box, AbstractResOp):
+                dispatch_bounds_ops(self, box)
+
     def postprocess_INT_SIGNEXT(self, op):
         numbits = op.getarg(1).getint() * 8
         start = -(1 << (numbits - 1))
