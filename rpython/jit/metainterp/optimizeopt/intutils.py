@@ -169,11 +169,9 @@ class IntBound(AbstractInfo):
 
     @staticmethod
     def from_unsigned_bounds(umin, umax):
-        # XXX can be improved
-        hbm_bounds = leading_zeros_mask(umin ^ umax)
-        bounds_common = umin & hbm_bounds
-        tmask = ~hbm_bounds
-        return IntBound.from_knownbits(unmask_zero(bounds_common, tmask), tmask)
+        if same_sign(intmask(umin), intmask(umax)):
+            return IntBound(intmask(umin), intmask(umax))
+        return IntBound()
 
     # ____________________________________________________________
     # a bunch of slightly artificial methods that are needed to make some of
@@ -601,9 +599,9 @@ class IntBound(AbstractInfo):
         # see test_uint_cmp_equivalent_int_cmp_if_same_sign
         if self._known_same_sign(other) and self.known_lt(other):
             return True
-        other_min_unsigned_by_knownbits = other.get_minimum_unsigned()
-        self_max_unsigned_by_knownbits = self.get_maximum_unsigned()
-        return self_max_unsigned_by_knownbits < other_min_unsigned_by_knownbits
+        other_min_unsigned = other.get_minimum_unsigned()
+        self_max_unsigned = self.get_maximum_unsigned()
+        return self_max_unsigned < other_min_unsigned
 
     def known_unsigned_le(self, other):
         """
@@ -613,9 +611,9 @@ class IntBound(AbstractInfo):
         # if they have the same sign, we can reason with signed comparison
         if self._known_same_sign(other) and self.known_le(other):
             return True
-        other_min_unsigned_by_knownbits = other.get_minimum_unsigned()
-        self_max_unsigned_by_knownbits = self.get_maximum_unsigned()
-        return self_max_unsigned_by_knownbits <= other_min_unsigned_by_knownbits
+        other_min_unsigned = other.get_minimum_unsigned()
+        self_max_unsigned = self.get_maximum_unsigned()
+        return self_max_unsigned <= other_min_unsigned
 
     def known_unsigned_gt(self, other):
         """

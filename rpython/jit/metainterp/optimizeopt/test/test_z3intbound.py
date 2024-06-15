@@ -1502,6 +1502,18 @@ def test_prove_uint_mul_high_bounds_logic():
         z3.And(z3.UGE(result, z3_uint_min(r1, r2, r3, r4)), z3.ULE(result, z3_uint_max(r1, r2, r3, r4)))
     )
 
+def test_prove_from_unsigned_bounds_logic():
+    concrete = BitVec('concrete')
+    ulower = BitVec('ulower')
+    uupper = BitVec('uupper')
+    same_sign = ((ulower ^ uupper) >> (LONG_BIT - 1)) == 0
+    prove_implies(
+        z3.ULE(ulower, concrete),
+        z3.ULE(concrete, uupper),
+        same_sign,
+        ulower <= concrete,
+        concrete <= uupper,
+    )
 
 # ____________________________________________________________
 # proofs for rewrite rules
