@@ -3623,6 +3623,30 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_uint_mul_high_bounds(self):
+        ops = """
+        [i0, i1, i10]
+        i2 = int_ge(i0, 0)
+        guard_true(i2) []
+        i3 = int_ge(i1, 0)
+        guard_true(i3) []
+        i5 = uint_mul_high(i0, i1)
+        i6 = int_ge(i5, 0)
+        guard_true(i6) []
+        i7 = uint_mul_high(i10, 1)
+        jump(i5, i1, i7)
+        """
+        expected = """
+        [i0, i1, i10]
+        i2 = int_ge(i0, 0)
+        guard_true(i2) []
+        i3 = int_ge(i1, 0)
+        guard_true(i3) []
+        i5 = uint_mul_high(i0, i1)
+        i7 = uint_mul_high(i10, 1)
+        jump(i5, i1, 0)
+        """
+        self.optimize_loop(ops, expected)
 
 
 class TestComplexIntOpts(BaseTestBasic):

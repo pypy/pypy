@@ -2069,6 +2069,11 @@ def test_uint_mul_high_bound_examples():
     b3 = b1.uint_mul_high_bound(b2)
     assert bound_eq(b3, IntBound(0, MAXINT >> 1))
 
+    b1 = IntBound().uint_mul_high_bound(IntBound.from_constant(0))
+    assert b1.get_constant_int() == 0
+    b1 = IntBound().uint_mul_high_bound(IntBound.from_constant(1))
+    assert b1.get_constant_int() == 0
+
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_uint_mul_high_bound_random(t1, t2):

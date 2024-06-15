@@ -134,6 +134,13 @@ class OptIntBounds(Optimization):
         b = b1.mul_bound(b2)
         r.intersect(b)
 
+    def postprocess_UINT_MUL_HIGH(self, op):
+        b1 = self.getintbound(op.getarg(0))
+        b2 = self.getintbound(op.getarg(1))
+        r = self.getintbound(op)
+        b = b1.uint_mul_high_bound(b2)
+        r.intersect(b)
+
     def postprocess_CALL_PURE_I(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
         # specifically the given oopspec call.
