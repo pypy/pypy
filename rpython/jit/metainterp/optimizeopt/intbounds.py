@@ -233,22 +233,9 @@ class OptIntBounds(Optimization):
                 arg0, arg1 = args
                 # infer something about the arguments from the fact that the
                 # addition didn't overflow
-                b0 = self.getintbound(arg0)
-                b1 = self.getintbound(arg1)
-                if b0.add_bound_must_overflow(b1):
-                    raise InvalidLoop("an INT_ADD_OVF followed by a guard_no_overflow was proven to overflow")
                 #self.pure(rop.INT_ADD, args[:], result)
                 self.pure_from_args(rop.INT_SUB, [result, arg1], arg0)
                 self.pure_from_args(rop.INT_SUB, [result, arg0], arg1)
-                resbound = b0.add_bound_no_overflow(b1)
-                bres = self.getintbound(result)
-                bres.intersect(resbound)
-                b0better = bres.sub_bound_no_overflow(b1)
-                if b0.intersect(b0better):
-                    self.propagate_bounds_backward(arg0)
-                b1better = bres.sub_bound_no_overflow(b0)
-                if b1.intersect(b1better):
-                    self.propagate_bounds_backward(arg1)
             elif opnum == rop.INT_SUB_OVF:
                 arg0, arg1 = args
                 #self.pure(rop.INT_SUB, args[:], result)
@@ -256,26 +243,62 @@ class OptIntBounds(Optimization):
                 self.pure_from_args(rop.INT_SUB, [arg0, result], arg1)
                 b0 = self.getintbound(arg0)
                 b1 = self.getintbound(arg1)
-                resbound = b0.sub_bound_no_overflow(b1)
-                bres = self.getintbound(result)
-                bres.intersect(resbound)
-                b0 = self.getintbound(arg0)
-                b1 = self.getintbound(arg1)
-                bres = self.getintbound(result)
-                b0better = bres.add_bound_no_overflow(b1)
-                if b0.intersect(b0better):
-                    self.propagate_bounds_backward(arg0)
-                b1better = b0.sub_bound_no_overflow(bres)
-                if b1.intersect(b1better):
-                    self.propagate_bounds_backward(arg1)
-            elif opnum == rop.INT_MUL_OVF:
-                arg0, arg1 = args
-                b0 = self.getintbound(arg0)
-                b1 = self.getintbound(arg1)
-                resbound = b0.mul_bound_no_overflow(b1)
-                bres = self.getintbound(result)
-                bres.intersect(resbound)
             return self.emit(op)
+
+    def postprocess_GUARD_NO_OVERFLOW(self, op):
+        if len(self.optimizer._newoperations) < 2:
+            return
+        lastop = self.optimizer._newoperations[-2]
+        opnum = lastop.getopnum()
+        result = lastop
+        # If the INT_xxx_OVF was replaced with INT_xxx or removed
+        # completely, then we can kill the GUARD_NO_OVERFLOW.
+        if (opnum != rop.INT_ADD_OVF and
+            opnum != rop.INT_SUB_OVF and
+            opnum != rop.INT_MUL_OVF):
+            return
+        arg0 = lastop.getarg(0)
+        arg1 = lastop.getarg(1)
+        # Else, synthesize the non overflowing op for optimize_default to
+        # reuse, as well as the reverse op
+        if opnum == rop.INT_ADD_OVF:
+            # infer something about the arguments from the fact that the
+            # addition didn't overflow
+            b0 = self.getintbound(arg0)
+            b1 = self.getintbound(arg1)
+            if b0.add_bound_must_overflow(b1):
+                raise InvalidLoop("an INT_ADD_OVF followed by a guard_no_overflow was proven to overflow")
+            resbound = b0.add_bound_no_overflow(b1)
+            bres = self.getintbound(result)
+            bres.intersect(resbound)
+            b0better = bres.sub_bound_no_overflow(b1)
+            if b0.intersect(b0better):
+                self.propagate_bounds_backward(arg0)
+            b1better = bres.sub_bound_no_overflow(b0)
+            if b1.intersect(b1better):
+                self.propagate_bounds_backward(arg1)
+        elif opnum == rop.INT_SUB_OVF:
+            b0 = self.getintbound(arg0)
+            b1 = self.getintbound(arg1)
+            resbound = b0.sub_bound_no_overflow(b1)
+            bres = self.getintbound(result)
+            bres.intersect(resbound)
+            b0 = self.getintbound(arg0)
+            b1 = self.getintbound(arg1)
+            b0better = bres.add_bound_no_overflow(b1)
+            if b0.intersect(b0better):
+                self.propagate_bounds_backward(arg0)
+            b1better = b0.sub_bound_no_overflow(bres)
+            if b1.intersect(b1better):
+                self.propagate_bounds_backward(arg1)
+        elif opnum == rop.INT_MUL_OVF:
+            b0 = self.getintbound(arg0)
+            b1 = self.getintbound(arg1)
+            resbound = b0.mul_bound_no_overflow(b1)
+            bres = self.getintbound(result)
+            bres.intersect(resbound)
+        return self.emit(op)
+
 
     def optimize_GUARD_OVERFLOW(self, op):
         # If INT_xxx_OVF was replaced by INT_xxx, *but* we still see
@@ -320,6 +343,10 @@ class OptIntBounds(Optimization):
         if b0.sub_bound_cannot_overflow(b1):
             # this case takes care of int_sub_ovf(x, 0) as well
             op = self.replace_op_with(op, rop.INT_SUB)
+        if b0.sub_bound_must_overflow(b1):
+            self.make_equal_to(op, ConstInt(0xdeadadd)) # the result is not used in the rest of the trace
+            self.last_emitted_operation = REMOVED
+            return
         return self.emit(op)
 
     def optimize_INT_MUL_OVF(self, op):
@@ -797,7 +824,7 @@ class OptIntBounds(Optimization):
         b = r.add_bound(b2)
         if b1.intersect(b):
             self.propagate_bounds_backward(op.getarg(0))
-        b = r.sub_bound(b1).neg_bound()
+        b = b1.sub_bound(r)
         if b2.intersect(b):
             self.propagate_bounds_backward(op.getarg(1))
 

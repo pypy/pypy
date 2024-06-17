@@ -2983,8 +2983,6 @@ class TestOptimizeIntBounds(BaseTestBasic):
         # here, -50 <= i4 <= -40
         i3 = int_invert(i4),
         i5 = uint_mul_high(i3, -8608480567731124087),
-        i6 = uint_rshift(i5, 4),
-        i7 = int_invert(i6),
         jump(-2)
         """
         self.optimize_loop(ops, expected)
@@ -3645,6 +3643,27 @@ finish()
         i5 = uint_mul_high(i0, i1)
         i7 = uint_mul_high(i10, 1)
         jump(i5, i1, 0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_sub_ovf_not_removed_but_result_and_args_are_known(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, -7)
+        guard_value(i2, -7) []
+        i10 = int_sub_ovf(i1, ConstInt(MAXINT)) # result must be MININT
+        guard_no_overflow()[]
+        i11 = int_neg(i1) # i1 must be -1 here, and i11 is 1
+        i12 = int_mul(i11, i10) # const-folded to MININT
+        finish(i12)
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, -7)
+        guard_value(i2, -7) []
+        i10 = int_sub_ovf(i1, ConstInt(MAXINT)) # result must be MININT
+        guard_no_overflow()[]
+        finish(ConstInt(MININT))
         """
         self.optimize_loop(ops, expected)
 

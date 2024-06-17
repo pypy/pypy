@@ -954,6 +954,17 @@ class IntBound(AbstractInfo):
         upper = self._sub_check_overflow(self.upper, other.lower, MAXINT)
         return self.new(lower, upper, tvalue, tmask)
 
+    def sub_bound_must_overflow(self, other):
+        if same_sign(self.lower, self.upper) or same_sign(other.lower, other.upper):
+            try:
+                ovfcheck(self.lower - other.upper)
+            except OverflowError:
+                try:
+                    ovfcheck(self.upper - other.lower)
+                except OverflowError:
+                    return True
+        return False
+
     def mul_bound(self, other):
         """
         Multiplies the `other` abstract

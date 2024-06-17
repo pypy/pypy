@@ -253,6 +253,7 @@ class LogOperations(object):
             debug_print("+%d: --end of the loop--" % offset)
 
     def log_loop(self, loop, memo=None):
+        import pdb;pdb.set_trace()
         self._log_operations(loop.inputargs, loop.operations, memo=memo)
 
 def int_could_be_an_address(x):

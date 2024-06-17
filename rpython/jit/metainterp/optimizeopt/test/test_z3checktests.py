@@ -542,6 +542,7 @@ class Z3OperationBuilder(OperationBuilder):
 class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
     def check_random_function_z3(self, cpu, r, num=None, max=None):
         import time
+        from rpython.jit.metainterp.logger import LogOperations
         t1 = time.time()
         loop = RandomLoop(cpu, Z3OperationBuilder, r)
         trace = convert_loop_to_trace(loop.loop, self.metainterp_sd)
@@ -549,7 +550,14 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
             trace, call_pure_results=self._convert_call_pure_results(getattr(loop.builder, 'call_pure_results', None)),
             enable_opts=self.enable_opts)
         jitdriver_sd = FakeJitDriverStaticData()
+        print "BEFORE OPTIMIZATION"
+        log_operations = LogOperations(
+                    self.metainterp_sd, False, None)
+
+        inputargs, ops = trace.unpack()
+        log_operations._log_operations(inputargs, ops)
         info, ops = compile_data.optimize_trace(self.metainterp_sd, jitdriver_sd, {})
+        print "AFTER OPTIMIZATION"
         print info.inputargs
         for op in ops:
             print op

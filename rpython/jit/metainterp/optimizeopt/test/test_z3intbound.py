@@ -864,6 +864,21 @@ def test_prove_sub_bound_no_overflow():
         b3.z3_formula(result)
     )
 
+def test_prove_sub_bound_must_overflow_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result, no_ovf_result = z3_sub_overflow(b1.concrete_variable, b2.concrete_variable)
+    lower, no_ovf_lower = z3_sub_overflow(b1.lower, b2.upper)
+    upper, no_ovf_upper = z3_sub_overflow(b1.upper, b2.lower)
+    same_sign_b1 = ((b1.lower ^ b1.upper) >> (LONG_BIT - 1)) == 0
+    same_sign_b2 = ((b2.lower ^ b2.upper) >> (LONG_BIT - 1)) == 0
+    b1.prove_implies(
+        b2,
+        z3.And(z3.Or(same_sign_b1, same_sign_b2), z3.Not(no_ovf_lower), z3.Not(no_ovf_upper)),
+        z3.Not(no_ovf_result),
+    )
+
+
 def test_prove_and_backwards():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
