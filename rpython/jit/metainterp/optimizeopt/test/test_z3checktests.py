@@ -262,6 +262,9 @@ class Checker(object):
                     expr = z3_pymod(arg0, arg1)
                 else:
                     assert 0, "unsupported"
+            elif opname == "record_exact_value_i":
+                self.solver.add(op.getarg(0) == op.getarg(1))
+                continue
             else:
                 assert 0, "unsupported"
             self.solver.add(res == expr)
@@ -530,8 +533,16 @@ class KnownBitsCheck(AbstractOperation):
         op.setfailargs(builder.subset_of_intvars(r))
         ops.append(op)
 
+class RecordExactValueI(AbstractOperation):
+    def produce_into(self, builder, r):
+        from rpython.jit.backend.test.test_random import getint
+        v_int = r.choice(builder.intvars)
+        val = getint(v_int)
+        op = ResOperation(rop.RECORD_EXACT_VALUE_I, [v_int, ConstInt(val)])
+        builder.loop.operations.append(op)
 
-OPERATIONS = OperationBuilder.OPERATIONS + [CallIntPyModPyDiv(rop.CALL_PURE_I)] + [
+OPERATIONS = OperationBuilder.OPERATIONS + [CallIntPyModPyDiv(rop.CALL_PURE_I),
+        RecordExactValueI(None)] + [
         RangeCheck(None), KnownBitsCheck(None)] * 10
 
 

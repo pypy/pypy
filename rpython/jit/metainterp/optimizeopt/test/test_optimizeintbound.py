@@ -3667,6 +3667,22 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_record_exact_value(self):
+        ops = """
+        [i0]
+        i1 = int_lt(i0, 4)
+        record_exact_value_i(i1, 1) []
+        i2 = int_lt(i0, 5)
+        guard_true(i2) []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        i1 = int_lt(i0, 4)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 
@@ -3807,20 +3823,4 @@ class TestComplexIntOpts(BaseTestBasic):
         jump()
         """
         self.optimize_loop(ops, ops) # used to crash
-
-    def test_record_exact_value(self):
-        ops = """
-        [i0]
-        i1 = int_lt(i0, 4)
-        record_exact_value_i(i1, 1) []
-        i2 = int_lt(i0, 5)
-        guard_true(i2) []
-        jump(i0)
-        """
-        expected = """
-        [i0]
-        i1 = int_lt(i0, 4)
-        jump(i0)
-        """
-        self.optimize_loop(ops, expected)
 
