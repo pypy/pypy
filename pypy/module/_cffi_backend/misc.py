@@ -13,7 +13,8 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 if sys.platform == 'win32':
-    from rpython.rlib.rdynload import dlopenU
+    from rpython.rlib import rwin32
+    from rpython.rlib.rdynload import dlopenex, dlopenUex
     WIN32 = True
 else:
     WIN32 = False
@@ -397,6 +398,12 @@ def unpack_cfloat_list_from_raw_array(float_list, source):
 
 # ____________________________________________________________
 
+def win32_fix_dlopen_flags(fn, flags):
+    if WIN32 and flags == 0 and ('/' in fn or '\\' in fn):
+        flags = (rwin32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+                 rwin32.LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR)
+    return flags
+
 def dlopen_w(space, w_filename, flags):
     from pypy.module._cffi_backend.cdataobj import W_CData
     from pypy.module._cffi_backend import ctypeptr
@@ -420,10 +427,11 @@ def dlopen_w(space, w_filename, flags):
     elif WIN32 and space.isinstance_w(w_filename, space.w_unicode):
         fname = space.text_w(space.repr(w_filename))
         utf8_name = space.utf8_w(w_filename)
+        flags = win32_fix_dlopen_flags(utf8_name, flags)
         uni_len = space.len_w(w_filename)
         with rffi.scoped_utf82wcharp(utf8_name, uni_len) as ll_libname:
             try:
-                handle = dlopenU(ll_libname, flags)
+                handle = dlopenUex(ll_libname, flags)
             except DLOpenError as e:
                 raise wrap_dlopenerror(space, e, fname)
     else:
@@ -431,11 +439,15 @@ def dlopen_w(space, w_filename, flags):
             fname = None
         else:
             fname = space.fsencode_w(w_filename)
+            flags = win32_fix_dlopen_flags(fname, flags)
         with rffi.scoped_str2charp(fname) as ll_libname:
             if fname is None:
                 fname = "<None>"
             try:
-                handle = dlopen(ll_libname, flags)
+                if WIN32:
+                    handle = dlopenex(ll_libname, flags)
+                else:
+                    handle = dlopen(ll_libname, flags)
             except DLOpenError as e:
                 raise wrap_dlopenerror(space, e, fname)
     return fname, handle, autoclose
