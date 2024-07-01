@@ -601,8 +601,12 @@ def codepoint_index_at_byte_position(utf8, storage, bytepos, num_codepoints):
     if bytepos < 0:
         return bytepos
     # binary search on elements of storage
-    index_min = 0
-    index_max = len(storage) - 1
+    bytes_remaining = len(utf8) - bytepos
+    # the fact that one codepoint is encoded in 1-4 bytes constrains the result.
+    # pick good min and max indexes based on this observation. saves a few
+    # bisection steps.
+    index_min = max(bytepos // 4, num_codepoints - bytes_remaining - 1) >> 6
+    index_max = min(bytepos, num_codepoints - bytes_remaining // 4) >> 6
     while index_min < index_max:
         # this addition can't overflow because storage has a length that is
         # 1/64 of the length of a string

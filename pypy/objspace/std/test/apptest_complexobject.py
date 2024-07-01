@@ -659,3 +659,6 @@ def test_complex_constructor_calls_index():
             return self.val
     assert complex(A(1), A(2)) == (1.0+2.0j)
 
+def test_parse_complex_whitespace_bug():
+    c = complex('\t( -1.23+4.5J )\n\r\v ')
+    assert c == -1.23+4.5j
