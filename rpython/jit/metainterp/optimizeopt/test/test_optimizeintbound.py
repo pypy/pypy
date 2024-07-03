@@ -3683,6 +3683,22 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_and_1(self):
+        ops = """
+        [i0]
+        i1 = int_and(i0, 1)
+        i2 = int_eq(i1, 1)
+        guard_true(i2) []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        i1 = int_and(i0, 1)
+        guard_true(i1) []
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 
