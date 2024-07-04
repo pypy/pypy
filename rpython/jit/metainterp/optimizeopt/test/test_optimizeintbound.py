@@ -3699,6 +3699,42 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_and_1_of_bool(self):
+        ops = """
+        [i0]
+        i1 = int_eq(i0, 1)
+        i2 = int_and(i1, 1)
+        guard_true(i2) []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        i1 = int_eq(i0, 1)
+        guard_true(i1) []
+        jump(1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_xor_weird(self):
+        ops = """
+        [i181, i217]
+        i230 = int_and(i181, 248)
+        i236 = int_xor(i230, 2048)
+        i238 = int_sub(i236, 2048)
+        jump(i238, i230) # equal
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_int_rshift_then_lshift(self):
+        ops = """
+        [i1]
+        i59 = int_and(i1, 4294967295)
+        i65 = uint_rshift(i1, 32)
+        i67 = int_lshift(i65, 32)
+        i68 = int_or(i67, i59)
+        jump(i68, i1) # equal
+        """
+        self.optimize_loop(ops, ops)
 
 class TestComplexIntOpts(BaseTestBasic):
 
