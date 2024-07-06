@@ -3753,6 +3753,40 @@ finish()
         """
         self.optimize_loop(ops, ops)
 
+    def test_uint_gt_zero_to_int_is_true(self):
+        ops = """
+        [i1, i4]
+        i2 = uint_gt(i1, 0)
+        guard_true(i2) []
+        i5 = uint_lt(0, i4)
+        guard_true(i5) []
+        jump(i1)
+        """
+        expected = """
+        [i1, i4]
+        i2 = int_is_true(i1)
+        guard_true(i2) []
+        i5 = int_is_true(i4)
+        guard_true(i5) []
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_uint_ge_one_to_int_is_true(self):
+        ops = """
+        [i1]
+        i2 = uint_ge(i1, 1)
+        guard_true(i2) []
+        jump(i1)
+        """
+        expected = """
+        [i1]
+        i2 = int_is_true(i1)
+        guard_true(i2) []
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_mul_ovf_before(self):

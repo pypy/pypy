@@ -1575,3 +1575,17 @@ def test_prove_uint_mul_high_pow_2():
         y < LONG_BIT - 2,
         z3_uint_mul_high(x, 1 << y) == z3.LShR(x, LONG_BIT - y)
     )
+
+def test_prove_uint_gt_zero_is_int_is_true():
+    x = BitVec('x')
+    prove_implies(
+        z3.UGT(x, 0),
+        x != 0,
+    )
+
+def test_prove_uint_ge_one_is_int_is_true():
+    x = BitVec('x')
+    prove_implies(
+        z3.UGE(x, 1),
+        x != 0,
+    )
