@@ -867,6 +867,23 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_add_ovf_commutative(self):
+        ops = """
+        [i0, i1]
+        i2 = int_add_ovf(i0, i1)
+        guard_no_overflow() []
+        i3 = int_add(i1, i0)
+        guard_no_overflow() []
+        jump(i2, i3)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_add_ovf(i0, i1)
+        guard_no_overflow() []
+        jump(i2, i2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_addsub_const(self):
         ops = """
         [i0]

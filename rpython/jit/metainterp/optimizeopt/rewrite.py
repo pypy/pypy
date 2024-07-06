@@ -92,16 +92,6 @@ class OptRewrite(Optimization):
 
         return False
 
-    def postprocess_INT_AND(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        arg1 = get_box_replacement(op.getarg(1))
-        self.optimizer.pure_from_args(rop.INT_AND, [arg1, arg0], op)
-
-    def postprocess_INT_OR(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        arg1 = get_box_replacement(op.getarg(1))
-        self.optimizer.pure_from_args(rop.INT_OR, [arg1, arg0], op)
-
     def postprocess_INT_SUB(self, op):
         import sys
         arg0 = op.getarg(0)
@@ -123,7 +113,6 @@ class OptRewrite(Optimization):
         import sys
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
-        self.optimizer.pure_from_args(rop.INT_ADD, [arg1, arg0], op)
         # Synthesize the reverse op for optimize_default to reuse
         self.optimizer.pure_from_args(rop.INT_SUB, [op, arg1], arg0)
         self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], arg1)
@@ -150,7 +139,6 @@ class OptRewrite(Optimization):
     def postprocess_INT_MUL(self, op):
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))
-        self.optimizer.pure_from_args(rop.INT_MUL, [arg1, arg0], op)
 
     def _optimize_CALL_INT_UDIV(self, op):
         b2 = self.getintbound(op.getarg(2))
