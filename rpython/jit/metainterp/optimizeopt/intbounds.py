@@ -65,7 +65,6 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
         b = b1.xor_bound(b2)
-        import pdb;pdb.set_trace()
         self.getintbound(op).intersect(b)
 
     def postprocess_INT_AND(self, op):
