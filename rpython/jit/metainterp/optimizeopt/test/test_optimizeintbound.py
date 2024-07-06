@@ -3742,16 +3742,49 @@ finish()
         """
         self.optimize_loop(ops, ops)
 
-    def test_int_rshift_then_lshift(self):
+    def test_shift_back_and_forth(self):
         ops = """
         [i1]
-        i59 = int_and(i1, 4294967295)
-        i65 = uint_rshift(i1, 32)
-        i67 = int_lshift(i65, 32)
-        i68 = int_or(i67, i59)
-        jump(i68, i1) # equal
+        i2 = int_rshift(i1, 15)
+        i3 = int_lshift(i2, 15)
+        jump(i3) # equal
         """
-        self.optimize_loop(ops, ops)
+        expected = """
+        [i1]
+        i2 = int_rshift(i1, 15) # dead, removed by backend
+        i3 = int_and(i1, -32768)
+        jump(i3) # equal
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i2 = uint_rshift(i1, 15)
+        i3 = int_lshift(i2, 15)
+        jump(i3) # equal
+        """
+        expected = """
+        [i1]
+        i2 = uint_rshift(i1, 15) # dead, removed by backend
+        i3 = int_and(i1, -32768)
+        jump(i3) # equal
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i2 = int_lshift(i1, 30)
+        i3 = uint_rshift(i2, 30)
+        jump(i3) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_lshift(i1, 30) # dead, removed by backend
+        i3 = int_and(i1, 17179869183)
+        jump(i3) # equal
+        """
+        self.optimize_loop(ops, expected)
+
 
     def test_uint_gt_zero_to_int_is_true(self):
         ops = """

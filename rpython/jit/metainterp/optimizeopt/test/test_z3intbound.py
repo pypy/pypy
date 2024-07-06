@@ -1589,3 +1589,22 @@ def test_prove_uint_ge_one_is_int_is_true():
         z3.UGE(x, 1),
         x != 0,
     )
+
+def test_prove_shift_back_and_forth_is_mask():
+    x = BitVec('x')
+    y = BitVec('y')
+    prove_implies(
+        y >= 0,
+        y < LONG_BIT,
+        (x >> y) << y == x & (-1 << y)
+    )
+    prove_implies(
+        y >= 0,
+        y < LONG_BIT,
+        z3.LShR(x, y) << y == x & (-1 << y)
+    )
+    prove_implies(
+        y >= 0,
+        y < LONG_BIT,
+        z3.LShR(x << y, y) == x & z3.LShR(-1, y)
+    )
