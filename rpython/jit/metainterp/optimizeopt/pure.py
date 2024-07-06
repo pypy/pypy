@@ -141,7 +141,9 @@ class OptPure(Optimization):
             if recentops is not None:
                 opnum = op.opnum
                 commutative = (opnum == rop.INT_ADD or
+                               opnum == rop.INT_ADD_OVF or
                                opnum == rop.INT_MUL or
+                               opnum == rop.INT_MUL_OVF or
                                opnum == rop.INT_AND or
                                opnum == rop.INT_OR or
                                opnum == rop.INT_XOR)
