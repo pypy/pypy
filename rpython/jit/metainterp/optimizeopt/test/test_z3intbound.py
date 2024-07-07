@@ -1640,3 +1640,17 @@ def test_prove_condition_and_mask_useless():
         ~b1.tvalue & (b0.tmask | b0.tvalue) == 0,
         x & y == x
     )
+
+def test_prove_condition_xor_is_add():
+    b0 = make_z3_intbounds_instance('self')
+    b1 = make_z3_intbounds_instance('other')
+    x = b0.concrete_variable
+    y = b1.concrete_variable
+    tvalue, tmask = b0._tnum_and(b1)
+    # x + y = x ^ y + (x & y) * 2
+    # therefore if x & y is known 0, then x + y == x ^ y
+    b0.prove_implies(
+        b1,
+        tvalue | tmask == 0,
+        x ^ y == x + y
+    )

@@ -112,19 +112,41 @@ class OptRewrite(Optimization):
             return self.emit(op)
 
     def optimize_INT_SUB(self, op):
-        arg1 = get_box_replacement(op.getarg(0))
-        arg2 = get_box_replacement(op.getarg(1))
+        def is_eq(box0, b0, box1, b1):
+            if box0 is box1:
+                return True
+            if b0.is_constant() and b1.known_eq_const(b0.get_constant_int()):
+                return True
+            return False
+        # XXX this should really go to intbound, mess
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        b0 = self.getintbound(arg0)
         b1 = self.getintbound(arg1)
-        b2 = self.getintbound(arg2)
-        if b2.known_eq_const(0):
-            self.make_equal_to(op, arg1)
-        elif b1.known_eq_const(0):
-            op = self.replace_op_with(op, rop.INT_NEG, args=[arg2])
+        if b1.known_eq_const(0):
+            self.make_equal_to(op, arg0)
+            return
+        elif b0.known_eq_const(0):
+            op = self.replace_op_with(op, rop.INT_NEG, args=[arg1])
             return self.emit(op)
-        elif arg1 == arg2:
+        elif arg0 is arg1:
             self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
+            return
+        arg0op = self.optimizer.as_operation(arg0)
+        if arg0op is not None and arg0op.opnum == rop.INT_XOR:
+            sub_arg0 = get_box_replacement(arg0op.getarg(0))
+            sub_arg1 = get_box_replacement(arg0op.getarg(1))
+            sub_b0 = self.getintbound(sub_arg0)
+            sub_b1 = self.getintbound(sub_arg1)
+            if sub_b0.and_bound(sub_b1).known_eq_const(0):
+                # (x ^ y) - y == x if x & y == 0
+                if is_eq(arg1, b1, sub_arg1, sub_b1):
+                    self.make_equal_to(op, sub_arg0)
+                    return
+                if is_eq(arg1, b1, sub_arg0, sub_b0):
+                    self.make_equal_to(op, sub_arg1)
+                    return
+        return self.emit(op)
 
     def postprocess_INT_SUB(self, op):
         import sys

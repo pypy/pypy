@@ -3747,16 +3747,6 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
-    def test_int_xor_weird(self):
-        ops = """
-        [i181, i217]
-        i230 = int_and(i181, 248)
-        i236 = int_xor(i230, 2048)
-        i238 = int_sub(i236, 2048)
-        jump(i238, i230) # equal
-        """
-        self.optimize_loop(ops, ops)
-
     def test_int_xor_with_itself_indirect(self):
         ops = """
         [i1, i2, i11, i12]
@@ -4002,6 +3992,55 @@ finish()
         [i120]
         i122 = int_lshift(i120, 24)
         jump(i122, i122) # equal
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_xor_is_addition(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 31)
+        i3 = int_xor(i2, 2048)
+        i4 = int_sub(i3, 2048)
+        jump(i4, i2) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 31)
+        i3 = int_xor(i2, 2048) # dead
+        jump(i2, i2) # equal
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1, i2]
+        i3 = int_and(i1, 31)
+        i4 = int_and(i2, 1984) # 0b11111000000
+        i7 = int_xor(i4, i3)
+        i8 = int_sub(i7, i4)
+        jump(i8, i3) # equal
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_and(i1, 31)
+        i4 = int_and(i2, 1984)
+        i7 = int_xor(i4, i3) # dead
+        jump(i3, i3) # equal
+        """
+        self.optimize_loop(ops, expected)
+
+        # check that it gets added to the pure results
+        ops = """
+        [i1]
+        i2 = int_and(i1, 31)
+        i3 = int_xor(i2, 2048)
+        i4 = int_add(i2, 2048)
+        jump(i4, i3) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 31)
+        i3 = int_xor(i2, 2048)
+        jump(i3, i3) # equal
         """
         self.optimize_loop(ops, expected)
 
