@@ -120,6 +120,9 @@ class OptIntBounds(Optimization):
         if b.is_constant():
             self.make_constant_int(op, b.get_constant_int())
             return
+        if arg0 is arg1:
+            self.make_equal_to(op, arg0)
+            return
         if b0.is_constant(): # swap the arguments
             b0, b1 = b1, b0
             arg0, arg1 = arg1, arg0

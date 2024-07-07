@@ -3924,6 +3924,19 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_and_with_itself(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, i1)
+        jump(i2)
+        """
+        expected = """
+        [i1]
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_mul_ovf_before(self):

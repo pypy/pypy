@@ -1623,3 +1623,9 @@ def test_prove_int_and_is_associative():
     prove(
         (x & c1) & c2 == x & (c1 & c2)
     )
+
+def test_prove_int_and_with_itself():
+    x = BitVec('x')
+    prove(
+        x & x == x
+    )
