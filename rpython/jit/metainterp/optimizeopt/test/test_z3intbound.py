@@ -1629,3 +1629,13 @@ def test_prove_int_and_with_itself():
     prove(
         x & x == x
     )
+
+def test_prove_condition_and_mask_useless():
+    b = make_z3_intbounds_instance('self')
+    x = b.concrete_variable
+    c = BitVec('c')
+    b.prove_implies(
+        # if the following condition holds for c, we can leave out the int_and
+        ~c & (b.tmask | b.tvalue) == 0,
+        x & c == x
+    )

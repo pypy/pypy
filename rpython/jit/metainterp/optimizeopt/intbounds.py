@@ -131,9 +131,13 @@ class OptIntBounds(Optimization):
             if const == -1 or (b0.lower >= 0 and b0.upper <= const & ~(const + 1)):
                 self.make_equal_to(op, arg0)
                 return
+            # we can leave off an int_and with a constant if the 1s in the
+            # constant cover all 1s and all ?s in the other argument
+            if ~const & (b0.tmask | b0.tvalue) == 0:
+                self.make_equal_to(op, arg0)
+                return
             argop = self.optimizer.as_operation(arg0, rop.INT_AND)
             if argop is not None:
-                # (x & c1) & c2 -> x & (c1 & c1)
                 sub_arg0 = get_box_replacement(argop.getarg(0))
                 sub_arg1 = get_box_replacement(argop.getarg(1))
                 sub_b0 = self.getintbound(sub_arg0)
@@ -142,6 +146,7 @@ class OptIntBounds(Optimization):
                     sub_arg0, sub_arg1 = sub_arg1, sub_arg0
                     sub_b0, sub_b1 = sub_b1, sub_b0
                 if sub_b1.is_constant():
+                    # (x & c1) & c2 -> x & (c1 & c1)
                     const2 = sub_b1.get_constant_int()
                     op = self.replace_op_with(
                             op, rop.INT_AND,

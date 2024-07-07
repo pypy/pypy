@@ -226,10 +226,6 @@ class OptRewrite(Optimization):
                         break
             return self.emit(op)
 
-    def postprocess_INT_MUL(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        arg1 = get_box_replacement(op.getarg(1))
-
     def _optimize_CALL_INT_UDIV(self, op):
         b2 = self.getintbound(op.getarg(2))
         if b2.is_constant() and b2.get_constant_int() == 1:
