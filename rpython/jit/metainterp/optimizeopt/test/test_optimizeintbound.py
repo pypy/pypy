@@ -3937,6 +3937,7 @@ finish()
         self.optimize_loop(ops, expected)
 
     def test_useless_and(self):
+        # constant version
         ops = """
         [i1]
         i2 = int_and(i1, 927) # i2: 0b0...0???00?????
@@ -3951,6 +3952,26 @@ finish()
         i2 = int_and(i1, 927)
         i3 = int_rshift(i2, 5)
         i4 = int_or(i3, 96)
+        jump(i4)
+        """
+        self.optimize_loop(ops, expected)
+
+        # non-constant version
+        ops = """
+        [i1, i10]
+        i2 = int_and(i1, 927) # i2: 0b0...0???00?????
+        i3 = int_rshift(i2, 5) # 0b0...0???00
+        i4 = int_or(i3, 96) # 96 == 0b1100000, thus i4 looks like this: 0b0...011???00
+        i5 = int_or(i10, 253)
+        i6 = int_and(i4, i5) # this and is just i4
+        jump(i6)
+        """
+        expected = """
+        [i1, i10]
+        i2 = int_and(i1, 927) # i2: 0b0...0???00?????
+        i3 = int_rshift(i2, 5) # 0b0...0???00
+        i4 = int_or(i3, 96) # 96 == 0b1100000, thus i4 looks like this: 0b0...011???00
+        i5 = int_or(i10, 253)
         jump(i4)
         """
         self.optimize_loop(ops, expected)

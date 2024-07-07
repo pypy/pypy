@@ -123,17 +123,19 @@ class OptIntBounds(Optimization):
         if arg0 is arg1:
             self.make_equal_to(op, arg0)
             return
+        # int_and(x, y) == x if the 1s in y cover all 1s and all ?s in x
+        if ~b1.tvalue & (b0.tmask | b0.tvalue) == 0:
+            self.make_equal_to(op, arg0)
+            return
+        if ~b0.tvalue & (b1.tmask | b1.tvalue) == 0:
+            self.make_equal_to(op, arg1)
+            return
         if b0.is_constant(): # swap the arguments
             b0, b1 = b1, b0
             arg0, arg1 = arg1, arg0
         if b1.is_constant():
             const = b1.get_constant_int()
             if const == -1 or (b0.lower >= 0 and b0.upper <= const & ~(const + 1)):
-                self.make_equal_to(op, arg0)
-                return
-            # we can leave off an int_and with a constant if the 1s in the
-            # constant cover all 1s and all ?s in the other argument
-            if ~const & (b0.tmask | b0.tvalue) == 0:
                 self.make_equal_to(op, arg0)
                 return
             argop = self.optimizer.as_operation(arg0, rop.INT_AND)
