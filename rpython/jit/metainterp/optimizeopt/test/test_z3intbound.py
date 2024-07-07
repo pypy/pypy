@@ -1641,7 +1641,7 @@ def test_prove_condition_and_mask_useless():
         x & y == x
     )
 
-def test_prove_condition_xor_is_add():
+def test_prove_condition_xor_is_or_is_add():
     b0 = make_z3_intbounds_instance('self')
     b1 = make_z3_intbounds_instance('other')
     x = b0.concrete_variable
@@ -1652,5 +1652,5 @@ def test_prove_condition_xor_is_add():
     b0.prove_implies(
         b1,
         tvalue | tmask == 0,
-        x ^ y == x + y
+        z3.And(x ^ y == x + y, x | y == x + y)
     )
