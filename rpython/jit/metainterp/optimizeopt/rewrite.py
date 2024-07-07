@@ -235,8 +235,8 @@ class OptRewrite(Optimization):
                         op = self.replace_op_with(op, rop.INT_NEG, args=[rhs])
                         break
                 else:
-                    shiftop = self.optimizer.as_operation(get_box_replacement(lhs))
-                    if shiftop is None or shiftop.opnum != rop.INT_LSHIFT:
+                    shiftop = self.optimizer.as_operation(get_box_replacement(lhs), rop.INT_LSHIFT)
+                    if shiftop is None:
                         continue
                     if not shiftop.getarg(0).is_constant() or shiftop.getarg(0).getint() != 1:
                         continue
@@ -273,8 +273,8 @@ class OptRewrite(Optimization):
 
     def optimize_INT_INVERT(self, op):
         v = get_box_replacement(op.getarg(0))
-        arg_op = self.optimizer.as_operation(v)
-        if arg_op is not None and arg_op.opnum == rop.INT_INVERT:
+        arg_op = self.optimizer.as_operation(v, rop.INT_INVERT)
+        if arg_op is not None:
             self.make_equal_to(op, arg_op.getarg(0))
         else:
             return self.emit(op)
@@ -325,16 +325,16 @@ class OptRewrite(Optimization):
 
     def optimize_FLOAT_NEG(self, op):
         v = get_box_replacement(op.getarg(0))
-        arg_op = self.optimizer.as_operation(v)
-        if arg_op is not None and arg_op.opnum == rop.FLOAT_NEG:
+        arg_op = self.optimizer.as_operation(v, rop.FLOAT_NEG)
+        if arg_op is not None:
             self.make_equal_to(op, arg_op.getarg(0))
         else:
             return self.emit(op)
 
     def optimize_FLOAT_ABS(self, op):
         v = get_box_replacement(op.getarg(0))
-        arg_op = self.optimizer.as_operation(v)
-        if arg_op is not None and arg_op.getopnum() == rop.FLOAT_ABS:
+        arg_op = self.optimizer.as_operation(v, rop.FLOAT_ABS)
+        if arg_op is not None:
             self.make_equal_to(op, v)
         else:
             return self.emit(op)
@@ -530,8 +530,8 @@ class OptRewrite(Optimization):
 
     def postprocess_GUARD_TRUE(self, op):
         box = get_box_replacement(op.getarg(0))
-        box1 = self.optimizer.as_operation(box)
-        if box1 is not None and box1.getopnum() == rop.INT_IS_TRUE:
+        box1 = self.optimizer.as_operation(box, rop.INT_IS_TRUE)
+        if box1 is not None:
             # we can't use the (current) range analysis for this because
             # "anything but 0" is not a valid range
             self.pure_from_args(rop.INT_IS_ZERO, [box1.getarg(0)], CONST_0)
@@ -542,8 +542,8 @@ class OptRewrite(Optimization):
 
     def postprocess_GUARD_FALSE(self, op):
         box = get_box_replacement(op.getarg(0))
-        box1 = self.optimizer.as_operation(box)
-        if box1 is not None and box1.getopnum() == rop.INT_IS_ZERO:
+        box1 = self.optimizer.as_operation(box, rop.INT_IS_ZERO)
+        if box1 is not None:
             # we can't use the (current) range analysis for this because
             # "anything but 0" is not a valid range
             self.pure_from_args(rop.INT_IS_TRUE, [box1.getarg(0)], CONST_1)
@@ -902,8 +902,8 @@ class OptRewrite(Optimization):
             self.last_emitted_operation = REMOVED
             return True
         if not b2.is_constant():
-            shiftop = self.optimizer.as_operation(get_box_replacement(arg2))
-            if (shiftop and shiftop.opnum == rop.INT_LSHIFT and
+            shiftop = self.optimizer.as_operation(get_box_replacement(arg2), rop.INT_LSHIFT)
+            if (shiftop and
                     shiftop.getarg(0).is_constant() and
                     shiftop.getarg(0).getint() == 1):
                 # x // (1 << y) == 1 >> y

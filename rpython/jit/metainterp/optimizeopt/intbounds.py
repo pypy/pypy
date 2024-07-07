@@ -143,24 +143,23 @@ class OptIntBounds(Optimization):
             v1, v2 = v2, v1
         # if both are constant, the pure optimization will deal with it
         if v2.is_constant() and not v1.is_constant():
-            arg1 = self.optimizer.as_operation(arg1)
+            arg1 = self.optimizer.as_operation(arg1, rop.INT_ADD)
             if arg1 is not None:
-                if arg1.getopnum() == rop.INT_ADD:
-                    prod_arg1 = get_box_replacement(arg1.getarg(0))
-                    prod_arg2 = get_box_replacement(arg1.getarg(1))
-                    prod_v1 = self.getintbound(prod_arg1)
-                    prod_v2 = self.getintbound(prod_arg2)
+                prod_arg1 = get_box_replacement(arg1.getarg(0))
+                prod_arg2 = get_box_replacement(arg1.getarg(1))
+                prod_v1 = self.getintbound(prod_arg1)
+                prod_v2 = self.getintbound(prod_arg2)
 
-                    # same thing here: prod_v1 or prod_v2 can be a
-                    # constant
-                    if prod_v1.is_constant():
-                        prod_arg1, prod_arg2 = prod_arg2, prod_arg1
-                        prod_v1, prod_v2 = prod_v2, prod_v1
-                    if prod_v2.is_constant():
-                        sum = intmask(v2.get_constant_int() + prod_v2.get_constant_int())
-                        arg1 = prod_arg1
-                        arg2 = ConstInt(sum)
-                        op = self.replace_op_with(op, rop.INT_ADD, args=[arg1, arg2])
+                # same thing here: prod_v1 or prod_v2 can be a
+                # constant
+                if prod_v1.is_constant():
+                    prod_arg1, prod_arg2 = prod_arg2, prod_arg1
+                    prod_v1, prod_v2 = prod_v2, prod_v1
+                if prod_v2.is_constant():
+                    sum = intmask(v2.get_constant_int() + prod_v2.get_constant_int())
+                    arg1 = prod_arg1
+                    arg2 = ConstInt(sum)
+                    op = self.replace_op_with(op, rop.INT_ADD, args=[arg1, arg2])
 
         return self.emit(op)
 
@@ -284,8 +283,8 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op, 0)
             return
         if b1.is_constant():
-            argop = self.optimizer.as_operation(arg0)
-            if argop is not None and argop.opnum == rop.INT_LSHIFT:
+            argop = self.optimizer.as_operation(arg0, rop.INT_LSHIFT)
+            if argop is not None:
                 sub_arg0 = get_box_replacement(argop.getarg(0))
                 sub_arg1 = get_box_replacement(argop.getarg(1))
                 sub_b0 = self.getintbound(sub_arg0)
