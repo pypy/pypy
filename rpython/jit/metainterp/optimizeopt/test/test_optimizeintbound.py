@@ -3976,6 +3976,35 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_useless_and_real_examples(self):
+        ops = """
+        [i34]
+        i47 = int_and(i34, 281474974613504)
+        i49 = uint_rshift(i47, 21) # lshift and rshift turn into a useless and
+        i50 = int_lshift(i49, 21)
+        jump(i50, i47) # equal
+        """
+        expected = """
+        [i34]
+        i47 = int_and(i34, 281474974613504)
+        i49 = uint_rshift(i47, 21) # dead
+        jump(i47, i47)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i120]
+        i122 = int_lshift(i120, 24)
+        i128 = int_and(i122, -16711681)
+        jump(i128, i122) # equal
+        """
+        expected = """
+        [i120]
+        i122 = int_lshift(i120, 24)
+        jump(i122, i122) # equal
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

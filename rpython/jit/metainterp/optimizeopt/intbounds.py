@@ -277,6 +277,8 @@ class OptIntBounds(Optimization):
                 if sub_b1.is_constant() and const == sub_b1.get_constant_int():
                     op = self.replace_op_with(op, rop.INT_AND,
                                 args=[sub_arg0, ConstInt(intmask(r_uint(-1) << const))])
+                    self.optimizer.send_extra_operation(op)
+                    return
         return self.emit(op)
 
     def postprocess_INT_LSHIFT(self, op):
@@ -341,6 +343,8 @@ class OptIntBounds(Optimization):
                 if sub_b1.is_constant() and const == sub_b1.get_constant_int():
                     op = self.replace_op_with(op, rop.INT_AND,
                                 args=[sub_arg0, ConstInt(intmask(r_uint(-1) >> const))])
+                    self.optimizer.send_extra_operation(op)
+                    return
         return self.emit(op)
 
     def postprocess_UINT_RSHIFT(self, op):
