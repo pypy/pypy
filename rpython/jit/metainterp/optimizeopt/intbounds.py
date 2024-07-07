@@ -7,7 +7,7 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.info import getptrinfo
-from rpython.jit.metainterp.resoperation import rop
+from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt import vstring
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -60,6 +60,50 @@ class OptIntBounds(Optimization):
         b2 = self.getintbound(op.getarg(1))
         b = b1.or_bound(b2)
         self.getintbound(op).intersect(b)
+
+    def optimize_INT_XOR(self, op):
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        if arg0 is arg1:
+            self.make_constant_int(op, 0)
+            return
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+
+        if b0.known_eq_const(0):
+            self.make_equal_to(op, arg1)
+            return
+        elif b1.known_eq_const(0):
+            self.make_equal_to(op, arg0)
+            return
+        if b0.known_eq_const(-1):
+            newop = ResOperation(rop.INT_INVERT, [arg1])
+            self.optimizer.send_extra_operation(newop)
+            self.make_equal_to(op, newop)
+            return
+        elif b1.known_eq_const(-1):
+            newop = ResOperation(rop.INT_INVERT, [arg0])
+            self.optimizer.send_extra_operation(newop)
+            self.make_equal_to(op, newop)
+            return
+        argop0 = self.optimizer.as_operation(arg0)
+        # mess. this encodes (a ^ b) ^ b == a in all four variants
+        if argop0 and argop0.opnum == rop.INT_XOR:
+            if get_box_replacement(argop0.getarg(0)) is arg1:
+                self.make_equal_to(op, get_box_replacement(argop0.getarg(1)))
+                return
+            if get_box_replacement(argop0.getarg(1)) is arg1:
+                self.make_equal_to(op, get_box_replacement(argop0.getarg(0)))
+                return
+        argop1 = self.optimizer.as_operation(arg1)
+        if argop1 and argop1.opnum == rop.INT_XOR:
+            if get_box_replacement(argop1.getarg(0)) is arg0:
+                self.make_equal_to(op, get_box_replacement(argop1.getarg(1)))
+                return
+            if get_box_replacement(argop1.getarg(1)) is arg0:
+                self.make_equal_to(op, get_box_replacement(argop1.getarg(0)))
+                return
+        return self.emit(op)
 
     def postprocess_INT_XOR(self, op):
         b1 = self.getintbound(op.getarg(0))

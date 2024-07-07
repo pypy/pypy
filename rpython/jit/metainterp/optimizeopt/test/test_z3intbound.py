@@ -1608,3 +1608,11 @@ def test_prove_shift_back_and_forth_is_mask():
         y < LONG_BIT,
         z3.LShR(x << y, y) == x & z3.LShR(-1, y)
     )
+
+def test_prove_int_xor_int_xor_const():
+    x = BitVec('x')
+    c = BitVec('c')
+    prove(
+        x ^ (x ^ c) == c
+    )
+

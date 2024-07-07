@@ -271,38 +271,6 @@ class OptRewrite(Optimization):
         else:
             return self.emit(op)
 
-    def optimize_INT_XOR(self, op):
-        v1 = get_box_replacement(op.getarg(0))
-        v2 = get_box_replacement(op.getarg(1))
-        if v1 is v2:
-            self.make_constant_int(op, 0)
-            return
-        b1 = self.getintbound(v1)
-        b2 = self.getintbound(v2)
-
-        if b1.known_eq_const(0):
-            self.make_equal_to(op, v2)
-            return
-        elif b2.known_eq_const(0):
-            self.make_equal_to(op, v1)
-            return
-        if b1.known_eq_const(-1):
-            newop = ResOperation(rop.INT_INVERT, [v2])
-            self.optimizer.send_extra_operation(newop)
-            self.make_equal_to(op, newop)
-            return
-        elif b2.known_eq_const(-1):
-            newop = ResOperation(rop.INT_INVERT, [v1])
-            self.optimizer.send_extra_operation(newop)
-            self.make_equal_to(op, newop)
-            return
-        return self.emit(op)
-
-    def postprocess_INT_XOR(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        arg1 = get_box_replacement(op.getarg(1))
-        self.optimizer.pure_from_args(rop.INT_XOR, [arg1, arg0], op)
-
     def optimize_INT_INVERT(self, op):
         v = get_box_replacement(op.getarg(0))
         arg_op = self.optimizer.as_operation(v)
