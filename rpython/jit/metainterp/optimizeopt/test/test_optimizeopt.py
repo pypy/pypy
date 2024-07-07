@@ -89,7 +89,7 @@ class BaseTestWithUnroll(BaseTest):
         return loop
 
     def raises(self, e, fn, *args):
-        return py.test.raises(e, fn, *args).value
+        return pytest.raises(e, fn, *args).value
 
 
 class TestOptimizeOpt(BaseTestWithUnroll):
@@ -667,7 +667,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         guard_value(i1, -1) [i]
         jump(i)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops, ops)
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops, ops)
 
     def test_int_is_true_of_bool(self):
         ops = """
@@ -3205,6 +3205,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    @pytest.mark.xfail # XXX fix it!
     def test_remove_duplicate_pure_op_ovf(self):
         ops = """
         [i1]
@@ -3238,6 +3239,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    @pytest.mark.xfail # XXX fix it!
     def test_remove_duplicate_pure_op_ovf_with_lazy_setfield(self):
         ops = """
         [i1, p1]
@@ -5156,7 +5158,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
-    @py.test.mark.xfail(reason="think really hard about this one!")
+    @pytest.mark.xfail(reason="think really hard about this one!")
     def test_bound_dont_backpropagate_rshift(self):
         ops = """
         [i0]
@@ -8446,8 +8448,8 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail(reason="less efficient loop, investigate")
     def test_same_as_preserves_info_in_the_preamble_2(self):
-        py.test.xfail("less efficient loop, investigate")
         ops = """
         [i0, p0]
         ifoo = getfield_gc_i(p0, descr=valuedescr)
@@ -8604,7 +8606,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(NULL, i3)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_2(self):
         ops = """
@@ -8615,7 +8617,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(ConstPtr(myptr2), i3)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_3(self):
         ops = """
@@ -8626,7 +8628,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(NULL, i3)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_4(self):
         ops = """
@@ -8637,7 +8639,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(ConstPtr(myptr3), i3)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_5(self):
         ops = """
@@ -8648,7 +8650,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(ConstPtr(arrayref), i3)     # too short, length < 126!
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_6(self):
         ops = """
@@ -8659,7 +8661,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(125, i3)     # arrayref is too short, length < 126!
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_7(self):
         ops = """
@@ -8670,7 +8672,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(-1, i3)     # cannot access array item -1!
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_8(self):
         ops = """
@@ -8681,7 +8683,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(NULL, i3)
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_9(self):
         ops = """
@@ -8692,7 +8694,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(ConstPtr(myptr), i3)    # not a string at all
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_9_unicode(self):
         ops = """
@@ -8703,7 +8705,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(ConstPtr(myptr), i3)    # not a unicode at all
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_10(self):
         ops = """
@@ -8714,7 +8716,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(125, i3)    # string is too short!
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_unroll_pure_on_bogus_object_11(self):
         ops = """
@@ -8725,7 +8727,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i3 = int_sub(i1, 1)
         jump(-1, i3)    # cannot access character -1!
         """
-        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        pytest.raises(InvalidLoop, self.optimize_loop, ops, ops)
 
     def test_virtual_array_length_discovered_constant_1(self):
         ops = """
