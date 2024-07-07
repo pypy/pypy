@@ -86,17 +86,17 @@ class OptIntBounds(Optimization):
             self.optimizer.send_extra_operation(newop)
             self.make_equal_to(op, newop)
             return
-        argop0 = self.optimizer.as_operation(arg0)
+        argop0 = self.optimizer.as_operation(arg0, rop.INT_XOR)
         # mess. this encodes (a ^ b) ^ b == a in all four variants
-        if argop0 and argop0.opnum == rop.INT_XOR:
+        if argop0:
             if get_box_replacement(argop0.getarg(0)) is arg1:
                 self.make_equal_to(op, get_box_replacement(argop0.getarg(1)))
                 return
             if get_box_replacement(argop0.getarg(1)) is arg1:
                 self.make_equal_to(op, get_box_replacement(argop0.getarg(0)))
                 return
-        argop1 = self.optimizer.as_operation(arg1)
-        if argop1 and argop1.opnum == rop.INT_XOR:
+        argop1 = self.optimizer.as_operation(arg1, rop.INT_XOR)
+        if argop1:
             if get_box_replacement(argop1.getarg(0)) is arg0:
                 self.make_equal_to(op, get_box_replacement(argop1.getarg(1)))
                 return
