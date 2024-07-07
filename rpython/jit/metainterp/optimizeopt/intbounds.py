@@ -111,6 +111,44 @@ class OptIntBounds(Optimization):
         b = b1.xor_bound(b2)
         self.getintbound(op).intersect(b)
 
+    def optimize_INT_AND(self, op):
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+        b = b0.and_bound(b1)
+        if b.is_constant():
+            self.make_constant_int(op, b.get_constant_int())
+            return
+        if b0.is_constant(): # swap the arguments
+            b0, b1 = b1, b0
+            arg0, arg1 = arg1, arg0
+        if b1.is_constant():
+            const = b1.get_constant_int()
+            if const == -1 or (b0.lower >= 0 and b0.upper <= const & ~(const + 1)):
+                self.make_equal_to(op, arg0)
+                return
+            argop = self.optimizer.as_operation(arg0, rop.INT_AND)
+            if argop is not None:
+                # (x & c1) & c2 -> x & (c1 & c1)
+                sub_arg0 = get_box_replacement(argop.getarg(0))
+                sub_arg1 = get_box_replacement(argop.getarg(1))
+                sub_b0 = self.getintbound(sub_arg0)
+                sub_b1 = self.getintbound(sub_arg1)
+                if sub_b0.is_constant():
+                    sub_arg0, sub_arg1 = sub_arg1, sub_arg0
+                    sub_b0, sub_b1 = sub_b1, sub_b0
+                if sub_b1.is_constant():
+                    const2 = sub_b1.get_constant_int()
+                    op = self.replace_op_with(
+                            op, rop.INT_AND,
+                            args=[sub_arg0, ConstInt(const & const2)])
+                    self.optimizer.send_extra_operation(op)
+                    return
+        bres = self.getintbound(op)
+        bres.intersect(b)
+        return self.emit(op)
+
     def postprocess_INT_AND(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))

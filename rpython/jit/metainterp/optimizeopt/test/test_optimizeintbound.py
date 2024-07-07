@@ -2,7 +2,7 @@ import pytest
 from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import BaseTestBasic
 from rpython.jit.metainterp.optimizeopt.intutils import MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
-from rpython.rlib.rarithmetic import intmask, LONG_BIT
+from rpython.rlib.rarithmetic import intmask, r_uint, LONG_BIT
 
 
 class TestOptimizeIntBounds(BaseTestBasic):
@@ -3833,7 +3833,6 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
-
     def test_uint_gt_zero_to_int_is_true(self):
         ops = """
         [i1, i4]
@@ -3865,6 +3864,63 @@ finish()
         i2 = int_is_true(i1)
         guard_true(i2) []
         jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_two_ands_with_constants(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 57)
+        i3 = int_and(i2, 504)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 57) # dead
+        i3 = int_and(i1, 56)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i2 = int_and(57, i1)
+        i3 = int_and(i2, 504)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_and(57, i1) # dead
+        i3 = int_and(i1, 56)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i2 = int_and(i1, 57)
+        i3 = int_and(504, i2)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 57)
+        i3 = int_and(i1, 56)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i2 = int_and(57, i1)
+        i3 = int_and(504, i2)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_and(57, i1) # dead
+        i3 = int_and(i1, 56)
+        jump(i3)
         """
         self.optimize_loop(ops, expected)
 

@@ -1616,3 +1616,10 @@ def test_prove_int_xor_int_xor_const():
         x ^ (x ^ c) == c
     )
 
+def test_prove_int_and_is_associative():
+    x = BitVec('x')
+    c1 = BitVec('c1')
+    c2 = BitVec('c2')
+    prove(
+        (x & c1) & c2 == x & (c1 & c2)
+    )
