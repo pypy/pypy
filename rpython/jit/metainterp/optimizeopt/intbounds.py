@@ -160,6 +160,26 @@ class OptIntBounds(Optimization):
             # constant result (likely 0, for rshifts that kill all bits)
             self.make_constant_int(op, b.get_constant_int())
             return None
+<<<<<<< HEAD
+=======
+        if b1.known_eq_const(0):
+            self.make_equal_to(op, op.getarg(0))
+            return
+        if b0.known_eq_const(0):
+            self.make_constant_int(op, 0)
+            return
+        if b1.is_constant():
+            argop = self.optimizer.as_operation(arg0, rop.INT_LSHIFT)
+            if argop is not None:
+                sub_arg0 = get_box_replacement(argop.getarg(0))
+                sub_arg1 = get_box_replacement(argop.getarg(1))
+                sub_b0 = self.getintbound(sub_arg0)
+                sub_b1 = self.getintbound(sub_arg1)
+                const = b1.get_constant_int()
+                if sub_b1.is_constant() and const == sub_b1.get_constant_int():
+                    op = self.replace_op_with(op, rop.INT_AND,
+                                args=[sub_arg0, ConstInt(intmask(r_uint(-1) >> const))])
+>>>>>>> 4ad3182326a (use the new way of calling as_operation in more places)
         return self.emit(op)
 
     def postprocess_UINT_RSHIFT(self, op):
