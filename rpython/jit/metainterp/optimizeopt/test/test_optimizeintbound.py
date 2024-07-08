@@ -4187,6 +4187,29 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_mul_ovf_crash(self):
+
+        ops = """
+        [i0, i1, i2, i4]
+        i12 = int_mul_ovf(i1, i2)
+        guard_no_overflow() []
+        record_exact_value_i(i0, ConstInt(MAXINT))
+        i23 = int_mul_ovf(i0, 21)
+        guard_overflow() []
+        i24 = int_mul_ovf(i1, i2)
+        guard_no_overflow() []
+        jump(i12, i24)
+        """
+        expected = """
+        [i0, i1, i2, i4]
+        i12 = int_mul_ovf(i1, i2)
+        guard_no_overflow() []
+        i23 = int_mul_ovf(ConstInt(MAXINT), 21)
+        guard_overflow() []
+        jump(i12, i12)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

@@ -624,6 +624,15 @@ if __name__ == '__main__':
 
     with open(sys.argv[1], "r") as f:
         ops = f.read()
+    # make sure that guard_no_overflow and guard_overflow always have an _ovf
+    # operation before them, otherwise reduction might do weird stuff with
+    # these pairs, leading to uninteresting crashes
+    lines = ops.splitlines()
+    for index, line in enumerate(lines):
+        if "guard_overflow" in line or "guard_no_overflow" in line:
+            prevline = lines[index - 1]
+            if "int_add_ovf" not in prevline and "int_sub_ovf" not in prevline and "int_mul_ovf" not in prevline:
+                os._exit(-1)
     import pytest, os
     class config:
         class option:

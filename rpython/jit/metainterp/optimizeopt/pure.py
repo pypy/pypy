@@ -111,6 +111,7 @@ class OptPure(Optimization):
         canfold = rop.is_always_pure(op.opnum)
         ovf = False
         if rop.is_ovf(op.opnum):
+            assert self.postponed_op is None
             self.postponed_op = op
             return
         if self.postponed_op:

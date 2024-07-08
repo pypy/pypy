@@ -416,6 +416,9 @@ class OptIntBounds(Optimization):
     def postprocess_GUARD_NO_OVERFLOW(self, op):
         if len(self.optimizer._newoperations) < 2:
             return
+        guardop = self.optimizer._newoperations[-1]
+        if guardop is not op:
+            return
         lastop = self.optimizer._newoperations[-2]
         opnum = lastop.getopnum()
         result = lastop
@@ -494,7 +497,6 @@ class OptIntBounds(Optimization):
             # arguments
             op = self.replace_op_with(op, rop.INT_ADD)
         if b1.add_bound_must_overflow(b2):
-            self.make_constant_int
             self.make_equal_to(op, ConstInt(0xdeadadd)) # the result is not used in the rest of the trace
             self.last_emitted_operation = REMOVED
             return
