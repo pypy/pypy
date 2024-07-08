@@ -134,34 +134,49 @@ class OptRewrite(Optimization):
             self.make_constant_int(op, 0)
             return
         arg0op = self.optimizer.as_operation(arg0)
-        if arg0op is not None and arg0op.opnum == rop.INT_XOR:
+        if arg0op is not None and arg0op.numargs() == 2:
             sub_arg0 = get_box_replacement(arg0op.getarg(0))
             sub_arg1 = get_box_replacement(arg0op.getarg(1))
             sub_b0 = self.getintbound(sub_arg0)
             sub_b1 = self.getintbound(sub_arg1)
-            if sub_b0.and_bound(sub_b1).known_eq_const(0):
-                # (x ^ y) - y == x if x & y == 0
-                if is_eq(arg1, b1, sub_arg1, sub_b1):
-                    self.make_equal_to(op, sub_arg0)
-                    return
-                if is_eq(arg1, b1, sub_arg0, sub_b0):
-                    self.make_equal_to(op, sub_arg1)
-                    return
-        elif arg0op is not None and arg0op.opnum == rop.INT_ADD:
-            sub_arg0 = get_box_replacement(arg0op.getarg(0))
-            sub_arg1 = get_box_replacement(arg0op.getarg(1))
-            sub_b0 = self.getintbound(sub_arg0)
-            sub_b1 = self.getintbound(sub_arg1)
-            if b1.is_constant():
-                if sub_b0.is_constant():
-                    sub_arg0, sub_arg1 = sub_arg1, sub_arg0
-                    sub_b0, sub_b1 = sub_b1, sub_b0
-                if sub_b1.is_constant():
-                    const = intmask(sub_b1.get_constant_int() - b1.get_constant_int())
-                    op = self.replace_op_with(op, rop.INT_ADD,
-                                args=[sub_arg0, ConstInt(const)])
-                    self.optimizer.send_extra_operation(op)
-                    return
+            opnum = arg0op.opnum
+            if opnum == rop.INT_XOR:
+                if sub_b0.and_bound(sub_b1).known_eq_const(0):
+                    # (x ^ y) - y == x if x & y == 0
+                    if is_eq(arg1, b1, sub_arg1, sub_b1):
+                        self.make_equal_to(op, sub_arg0)
+                        return
+                    if is_eq(arg1, b1, sub_arg0, sub_b0):
+                        self.make_equal_to(op, sub_arg1)
+                        return
+            elif opnum == rop.INT_ADD:
+                if b1.is_constant():
+                    if sub_b0.is_constant():
+                        sub_arg0, sub_arg1 = sub_arg1, sub_arg0
+                        sub_b0, sub_b1 = sub_b1, sub_b0
+                    if sub_b1.is_constant():
+                        # (x + c1) - c2 -> x + (c1 - c2)
+                        const = intmask(sub_b1.get_constant_int() - b1.get_constant_int())
+                        op = self.replace_op_with(op, rop.INT_ADD,
+                                    args=[sub_arg0, ConstInt(const)])
+                        self.optimizer.send_extra_operation(op)
+                        return
+            elif opnum == rop.INT_SUB:
+                if b1.is_constant():
+                    if sub_b1.is_constant():
+                        # (x - c1) - c2 -> x - (c1 + c2)
+                        const = intmask(sub_b1.get_constant_int() + b1.get_constant_int())
+                        op = self.replace_op_with(op, rop.INT_SUB,
+                                    args=[sub_arg0, ConstInt(const)])
+                        self.optimizer.send_extra_operation(op)
+                        return
+                    elif sub_b0.is_constant():
+                        # (c1 - x) - c2 -> (c1 - c2) - x
+                        const = intmask(sub_b0.get_constant_int() - b1.get_constant_int())
+                        op = self.replace_op_with(op, rop.INT_SUB,
+                                    args=[ConstInt(const), sub_arg1])
+                        self.optimizer.send_extra_operation(op)
+                        return
         return self.emit(op)
 
     def postprocess_INT_SUB(self, op):
