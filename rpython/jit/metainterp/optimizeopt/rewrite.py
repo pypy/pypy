@@ -134,12 +134,15 @@ class OptRewrite(Optimization):
             self.make_constant_int(op, 0)
             return
         arg0op = self.optimizer.as_operation(arg0)
-        if arg0op is not None and arg0op.numargs() == 2:
+        if arg0op:
+            opnum = arg0op.opnum
+        else:
+            opnum = -1
+        if opnum == rop.INT_XOR or opnum == rop.INT_ADD or opnum == rop.INT_SUB:
             sub_arg0 = get_box_replacement(arg0op.getarg(0))
             sub_arg1 = get_box_replacement(arg0op.getarg(1))
             sub_b0 = self.getintbound(sub_arg0)
             sub_b1 = self.getintbound(sub_arg1)
-            opnum = arg0op.opnum
             if opnum == rop.INT_XOR:
                 if sub_b0.and_bound(sub_b1).known_eq_const(0):
                     # (x ^ y) - y == x if x & y == 0
