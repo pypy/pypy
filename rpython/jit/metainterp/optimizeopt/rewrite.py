@@ -13,7 +13,8 @@ from rpython.jit.metainterp.optimizeopt.util import (
     _findall, make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, opclasses, OpHelpers)
-from rpython.rlib.rarithmetic import highest_bit, LONG_BIT
+from rpython.rlib.rarithmetic import highest_bit, LONG_BIT, intmask, r_uint
+
 import math
 
 
@@ -145,6 +146,21 @@ class OptRewrite(Optimization):
                     return
                 if is_eq(arg1, b1, sub_arg0, sub_b0):
                     self.make_equal_to(op, sub_arg1)
+                    return
+        elif arg0op is not None and arg0op.opnum == rop.INT_ADD:
+            sub_arg0 = get_box_replacement(arg0op.getarg(0))
+            sub_arg1 = get_box_replacement(arg0op.getarg(1))
+            sub_b0 = self.getintbound(sub_arg0)
+            sub_b1 = self.getintbound(sub_arg1)
+            if b1.is_constant():
+                if sub_b0.is_constant():
+                    sub_arg0, sub_arg1 = sub_arg1, sub_arg0
+                    sub_b0, sub_b1 = sub_b1, sub_b0
+                if sub_b1.is_constant():
+                    const = intmask(sub_b1.get_constant_int() - b1.get_constant_int())
+                    op = self.replace_op_with(op, rop.INT_ADD,
+                                args=[sub_arg0, ConstInt(const)])
+                    self.optimizer.send_extra_operation(op)
                     return
         return self.emit(op)
 

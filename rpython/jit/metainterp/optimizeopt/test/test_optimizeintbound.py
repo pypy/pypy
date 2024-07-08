@@ -4142,6 +4142,22 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_sub_int_add_consts(self):
+
+        ops = """
+        [i1]
+        i2 = int_add(i1, 1)
+        i3 = int_add(i1, 2)
+        i4 = int_sub(i3, 1)
+        jump(i4, i2) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_add(i1, 1)
+        i3 = int_add(i1, 2) # dead
+        jump(i2, i2)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestComplexIntOpts(BaseTestBasic):
 
