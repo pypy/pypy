@@ -1479,14 +1479,15 @@ class IntBound(AbstractInfo):
 
     @always_inline
     def _tnum_or_backwards(self, result):
-        # we learn something about other only in the places where self
-        # is 0 and where result is known
-        tmask = self.tvalue | self.tmask | result.tmask
-        # in those places, copy the value from result
-        tvalue = result.tvalue & ~tmask
+        # in all the places where the result is 0 both arguments have to be 0.
+        zeros = (~result.tmask & ~result.tvalue)
+        # apart from that, in the places where self is 0 and where result is 1
+        # other must be 1
+        tvalue = (result.tvalue & ~self.tvalue & ~self.tmask)
+        tmask = ~(zeros | tvalue)
         # if we have a place where result is 0 but self is 1, then we are
         # inconsistent
-        inconsistent = self.tvalue & ~result.tmask & ~result.tvalue
+        inconsistent = self.tvalue & zeros
         return tvalue, tmask, inconsistent == 0
 
     def rshift_bound_backwards(self, other):

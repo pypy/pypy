@@ -4062,6 +4062,23 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_or_int_is_false(self):
+        ops = """
+        [i1, i2]
+        i3 = int_or(i1, i2)
+        i4 = int_is_true(i3)
+        guard_false(i4) []
+        jump(i1, i2)
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_or(i1, i2)
+        i4 = int_is_true(i3)
+        guard_false(i4) []
+        jump(0, 0)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

@@ -1689,7 +1689,7 @@ def test_knownbits_or_backwards_example():
     r = knownbits(0b10100100,
                   0b01001001) # 1?10?10?
     s = o.or_bound_backwards(r)
-    assert check_knownbits_string(s, '00??10????', '0')
+    assert check_knownbits_string(s, '00??10??0?', '0')
 
     o = knownbits(0b111000000, 0b000000111) # 111000???
     r = knownbits(0b100100100, 0b001001001) # 10?10?10?
@@ -1878,6 +1878,17 @@ def test_knownbits_and_backwards_random(t1, t2):
     rb = b1.and_bound(b2)
     rn = n1 & n2
     newb1 = b2.and_bound_backwards(rb)
+    assert newb1.contains(n1)
+    # this should not fail
+    b1.intersect(newb1)
+
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
+def test_knownbits_or_backwards_random(t1, t2):
+    b1, n1 = t1     # self
+    b2, n2 = t2     # other
+    rb = b1.or_bound(b2)
+    rn = n1 & n2
+    newb1 = b2.or_bound_backwards(rb)
     assert newb1.contains(n1)
     # this should not fail
     b1.intersect(newb1)
