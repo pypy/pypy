@@ -4125,6 +4125,24 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_sub_int_eq_min_1(self):
+        ops = """
+        [i1, i2]
+        i3 = int_eq(i1, -1)
+        i4 = int_sub(i1, i3)
+        i5 = int_eq(i4, -1)
+        guard_false(i5) []
+        jump(i4)
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_eq(i1, -1)
+        i4 = int_sub(i1, i3)
+        jump(i4)
+        """
+        self.optimize_loop(ops, expected)
+
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_mul_ovf_before(self):

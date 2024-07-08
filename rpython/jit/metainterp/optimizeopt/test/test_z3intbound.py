@@ -1702,3 +1702,12 @@ def test_prove_uint_ge_zero_is_int_is_true():
     prove(
         z3.ULE(x, 0) == (x == 0)
     )
+
+def test_prove_int_sub_int_eq_const():
+    x = BitVec('x')
+    c = BitVec('c')
+    TRUEBV = z3.BitVecVal(1, LONG_BIT)
+    FALSEBV = z3.BitVecVal(0, LONG_BIT)
+    prove(
+        (x - z3.If(x == c, TRUEBV, FALSEBV)) != c
+    )

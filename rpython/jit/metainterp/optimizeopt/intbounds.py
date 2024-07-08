@@ -180,10 +180,25 @@ class OptIntBounds(Optimization):
         self.getintbound(op).intersect(b)
 
     def postprocess_INT_SUB(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        b = b1.sub_bound(b2)
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+        b = b0.sub_bound(b1)
         self.getintbound(op).intersect(b)
+        # make sure the optimizer knows
+        # x - (x == c) != c
+        # this is quite specific, but it's common in the PyPy hash
+        # computations
+        argop = self.optimizer.as_operation(arg1, rop.INT_EQ)
+        if argop:
+            sub_arg0 = get_box_replacement(argop.getarg(0))
+            sub_arg1 = get_box_replacement(argop.getarg(1))
+            if sub_arg0 is arg0:
+                self.pure_from_args(rop.INT_EQ, [op, sub_arg1], ConstInt(0))
+            if sub_arg1 is arg0:
+                self.pure_from_args(rop.INT_EQ, [op, sub_arg0], ConstInt(0))
+
 
     def optimize_INT_ADD(self, op):
         arg1 = get_box_replacement(op.getarg(0))
