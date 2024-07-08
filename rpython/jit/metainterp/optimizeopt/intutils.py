@@ -1421,7 +1421,7 @@ class IntBound(AbstractInfo):
                   self
             0   1   ?
          0  ?   0   ?
-         1  X   1   ?
+         1  X   1   1
          ?  ?   ?   ?   <- other
         result
 
@@ -1439,11 +1439,10 @@ class IntBound(AbstractInfo):
 
     @always_inline
     def _tnum_and_backwards(self, result):
-        # we learn something about other only in the places where self.tvalue
-        # is 1 and where result is known
-        tmask = (~self.tvalue) | result.tmask
-        # in those places, copy the value from result.tvalue
-        tvalue = self.tvalue & result.tvalue
+        # in all the places where the result is 1 both arguments have to 1. in
+        # the places where result is 0, other has to be 0 iff self is known 1.
+        tvalue = result.tvalue
+        tmask = ((~self.tvalue) | result.tmask) & ~tvalue
         # if we have a place where result is 1 but self is 0, then we are
         # inconsistent
         inconsistent = result.tvalue & ~self.tmask & ~self.tvalue
@@ -1466,7 +1465,7 @@ class IntBound(AbstractInfo):
         backwards | (this one):
                   self
             0   1   ?
-         0  0   X   ?
+         0  0   X   0
          1  1   ?   ?
          ?  ?   ?   ?   <- other (where X=invalid)
         result

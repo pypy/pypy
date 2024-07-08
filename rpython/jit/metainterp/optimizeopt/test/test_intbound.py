@@ -1675,7 +1675,15 @@ def test_knownbits_and_backwards_otherconst_examples():
     o = knownbits(0b101010,
                   0b010100) # 1?1?10
     r = o.and_bound_backwards(IntBound.from_constant(0b110))
-    assert check_knownbits_string(r, "0?0?1?")
+    assert check_knownbits_string(r, "0?011?")
+
+def test_knownbits_and_backwards_example():
+    o = knownbits(0b11100000,
+                  0b00000111) # 11100???
+    r = knownbits(0b10000100,
+                  0b00101001) # 10?0?10?
+    s = o.and_bound_backwards(r)
+    assert check_knownbits_string(s, '?10???1??', '?')
 
 def test_knownbits_and_backwards_example_inconsistent():
     o = knownbits(0b111000000, 0b000000111) # 111000???

@@ -4079,6 +4079,22 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_and_int_eq_min_1(self):
+        ops = """
+        [i1, i2]
+        i3 = int_and(i1, i2)
+        i4 = int_eq(i3, -1)
+        guard_true(i4) []
+        jump(i1, i2)
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_and(i1, i2)
+        i4 = int_eq(i3, -1)
+        guard_true(i4) []
+        jump(-1, -1)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestComplexIntOpts(BaseTestBasic):
 
