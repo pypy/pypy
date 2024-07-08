@@ -2108,3 +2108,13 @@ def test_get_minimum_maximum_unsigned(t1):
     assert b1.get_minimum_unsigned() <= r_uint(c1)
     assert b1.get_maximum_unsigned() >= r_uint(c1)
 
+# ______________________________________________________
+# known precision bugs
+
+@pytest.mark.xfail
+def test_add_bound_precision_example_bug():
+    b1 = IntBound(-1, 0) # -1 or 0
+    b2 = IntBound.from_knownbits(r_uint(0b1), r_uint(0b100)) # 1 or 5
+    b3 = b1.add_bound(b2)
+    assert not b3.contains(2)
+

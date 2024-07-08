@@ -299,6 +299,45 @@ def test_invert(b1):
     var2, formula2 = to_z3(b2, ~var1)
     prove_implies(formula1, formula2)
 
+# ____________________________________________________________
+# precision
+
+@given(bounds, bounds)
+def dont_test_transfer_precision(b1, b2):
+    # disabled, because it simply finds *a ton of* imprecision
+    assume(not b1.is_constant())
+    assume(not b2.is_constant())
+    var1, formula1 = to_z3(b1)
+    var2, formula2 = to_z3(b2)
+    b3 = b1.add_bound(b2)
+    ones = BitVec('ones')
+    unknowns = BitVec('unknowns')
+    lower = BitVec('lower')
+    upper = BitVec('upper')
+    solver = z3.Solver()
+    solver.set("timeout", 5000)
+    import gc
+    gc.collect()
+    print b1, b2, b3
+
+    #res = solver.check(z3.And(
+    #    ones & ~unknowns == ones,
+    #    b3.tmask & ~unknowns != 0,
+    #    z3.ForAll(
+    #    [var1, var2],
+    #    z3.Implies(
+    #        z3.And(formula1, formula2),
+    #        z3.And((var1 & var2) & ~unknowns == ones)))))
+    #assert res == z3.unsat
+
+    res = solver.check(z3.And(
+        lower > b3.lower,
+        z3.ForAll(
+        [var1, var2],
+        z3.Implies(
+            z3.And(formula1, formula2),
+            z3.And((var1 + var2) >= lower)))))
+    assert res == z3.unsat
 
 # ____________________________________________________________
 # shrinking
