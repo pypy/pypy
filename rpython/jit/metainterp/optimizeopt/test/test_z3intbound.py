@@ -1693,3 +1693,12 @@ def test_prove_condition_xor_is_or_is_add():
         tvalue | tmask == 0,
         z3.And(x ^ y == x + y, x | y == x + y)
     )
+
+def test_prove_uint_ge_zero_is_int_is_true():
+    x = BitVec('x')
+    prove(
+        z3.UGE(0, x) == (x == 0)
+    )
+    prove(
+        z3.ULE(x, 0) == (x == 0)
+    )

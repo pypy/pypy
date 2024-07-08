@@ -621,6 +621,10 @@ class OptIntBounds(Optimization):
             op = self.replace_op_with(op, rop.INT_IS_TRUE,
                         args=[arg2])
             return self.emit(op)
+        elif b2.is_constant() and b2.get_constant_int() == 0:
+            op = self.replace_op_with(op, rop.INT_IS_ZERO,
+                        args=[arg1])
+            return self.emit(op)
         else:
             return self.emit(op)
 
@@ -645,6 +649,10 @@ class OptIntBounds(Optimization):
         elif b2.is_constant() and b2.get_constant_int() == 1:
             op = self.replace_op_with(op, rop.INT_IS_TRUE,
                         args=[arg1])
+            return self.emit(op)
+        elif b1.is_constant() and b1.get_constant_int() == 0:
+            op = self.replace_op_with(op, rop.INT_IS_ZERO,
+                        args=[arg2])
             return self.emit(op)
         else:
             return self.emit(op)

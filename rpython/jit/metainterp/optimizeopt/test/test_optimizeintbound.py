@@ -3318,7 +3318,7 @@ finish()
         [i0]
         i1 = int_lt(i0, 0)
         guard_false(i1) []
-        i2 = uint_ge(0, i0)
+        i2 = int_is_zero(i0)
         guard_false(i2) []
         jump(i0)
         """
@@ -3854,6 +3854,35 @@ finish()
         i2 = int_is_true(i1)
         guard_true(i2) []
         jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_uint_ge_zero_to_int_is_zero(self):
+        ops = """
+        [i1]
+        i2 = uint_ge(0, i1)
+        guard_true(i2) []
+        jump(i1)
+        """
+        expected = """
+        [i1]
+        i2 = int_is_zero(i1)
+        guard_true(i2) []
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i2 = uint_le(i1, 0)
+        guard_true(i2) []
+        jump(i1)
+        """
+        expected = """
+        [i1]
+        i2 = int_is_zero(i1)
+        guard_true(i2) []
+        jump(0)
         """
         self.optimize_loop(ops, expected)
 
