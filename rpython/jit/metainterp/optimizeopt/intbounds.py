@@ -525,6 +525,10 @@ class OptIntBounds(Optimization):
         if b0.mul_bound_cannot_overflow(b1):
             # this case also takes care of multiplication with 0 and 1
             op = self.replace_op_with(op, rop.INT_MUL)
+        if b0.mul_bound_must_overflow(b1):
+            self.make_equal_to(op, ConstInt(0xdeadadd)) # the result is not used in the rest of the trace
+            self.last_emitted_operation = REMOVED
+            return
         return self.emit(op)
 
     def optimize_INT_LT(self, op):

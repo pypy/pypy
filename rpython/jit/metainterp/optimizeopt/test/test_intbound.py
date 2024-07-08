@@ -794,6 +794,15 @@ def test_mul_random(t1, t2):
             res = b3ovf.intersect(b3)
             # b3ovf is never larger than b3
             assert not res
+    if b1.mul_bound_must_overflow(b2):
+        with pytest.raises(OverflowError):
+            ovfcheck(n1 * n2)
+
+
+def test_mul_bound_must_overflow_example():
+    b1 = IntBound(MAXINT)
+    b2 = IntBound(MAXINT)
+    assert b1.mul_bound_must_overflow(b2)
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_div_random(t1, t2):

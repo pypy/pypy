@@ -4187,14 +4187,30 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_mul_ovf_fold_overflow_case(self):
+
+        ops = """
+        [i0]
+        record_exact_value_i(i0, ConstInt(MAXINT))
+        i23 = int_mul_ovf(i0, 21)
+        guard_overflow() []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        jump(ConstInt(MAXINT))
+        """
+        self.optimize_loop(ops, expected)
+
     def test_int_mul_ovf_crash(self):
 
         ops = """
         [i0, i1, i2, i4]
         i12 = int_mul_ovf(i1, i2)
         guard_no_overflow() []
-        record_exact_value_i(i0, ConstInt(MAXINT))
-        i23 = int_mul_ovf(i0, 21)
+        i5 = int_gt(i0, 2)
+        guard_true(i5) []
+        i23 = int_mul_ovf(i0, ConstInt(MAXINT))
         guard_overflow() []
         i24 = int_mul_ovf(i1, i2)
         guard_no_overflow() []
@@ -4204,7 +4220,9 @@ finish()
         [i0, i1, i2, i4]
         i12 = int_mul_ovf(i1, i2)
         guard_no_overflow() []
-        i23 = int_mul_ovf(ConstInt(MAXINT), 21)
+        i5 = int_gt(i0, 2)
+        guard_true(i5) []
+        i23 = int_mul_ovf(i0, ConstInt(MAXINT))
         guard_overflow() []
         jump(i12, i12)
         """
