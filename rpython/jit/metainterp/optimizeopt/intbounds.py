@@ -540,6 +540,8 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op, 1)
         elif b1.known_ge(b2) or arg1 is arg2:
             self.make_constant_int(op, 0)
+        elif self._must_be_eq_by_previous_compares(arg1, arg2):
+            self.make_constant_int(op, 0)
         else:
             return self.emit(op)
 
@@ -551,6 +553,8 @@ class OptIntBounds(Optimization):
         if b1.known_gt(b2):
             self.make_constant_int(op, 1)
         elif b1.known_le(b2) or arg1 is arg2:
+            self.make_constant_int(op, 0)
+        elif self._must_be_eq_by_previous_compares(arg1, arg2):
             self.make_constant_int(op, 0)
         else:
             return self.emit(op)
@@ -564,6 +568,8 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op, 1)
         elif b1.known_gt(b2):
             self.make_constant_int(op, 0)
+        elif self._must_be_eq_by_previous_compares(arg1, arg2):
+            self.make_constant_int(op, 1)
         else:
             return self.emit(op)
 
@@ -576,6 +582,8 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op, 1)
         elif b1.known_lt(b2):
             self.make_constant_int(op, 0)
+        elif self._must_be_eq_by_previous_compares(arg1, arg2):
+            self.make_constant_int(op, 1)
         else:
             return self.emit(op)
 
@@ -587,6 +595,8 @@ class OptIntBounds(Optimization):
         if b1.known_unsigned_lt(b2):
             self.make_constant_int(op, 1)
         elif b1.known_unsigned_ge(b2) or arg1 is arg2:
+            self.make_constant_int(op, 0)
+        elif self._must_be_eq_by_previous_compares(arg1, arg2):
             self.make_constant_int(op, 0)
         elif b1.is_constant() and b1.get_constant_int() == 0:
             op = self.replace_op_with(op, rop.INT_IS_TRUE,
@@ -617,6 +627,10 @@ class OptIntBounds(Optimization):
             op = self.replace_op_with(op, rop.INT_IS_TRUE,
                         args=[arg1])
             return self.emit(op)
+        elif self._must_be_eq_by_previous_compares(arg1, arg2):
+            self.make_constant_int(op, 0)
+        elif self._must_be_eq_by_previous_compares(arg1, arg2):
+            self.make_constant_int(op, 1)
         else:
             return self.emit(op)
 
@@ -638,6 +652,8 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op, 1)
         elif b1.known_unsigned_gt(b2):
             self.make_constant_int(op, 0)
+        elif self._must_be_eq_by_previous_compares(arg1, arg2):
+            self.make_constant_int(op, 1)
         elif b1.is_constant() and b1.get_constant_int() == 1:
             op = self.replace_op_with(op, rop.INT_IS_TRUE,
                         args=[arg2])
@@ -667,6 +683,8 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op, 1)
         elif b1.known_unsigned_lt(b2):
             self.make_constant_int(op, 0)
+        elif self._must_be_eq_by_previous_compares(arg1, arg2):
+            self.make_constant_int(op, 1)
         elif b2.is_constant() and b2.get_constant_int() == 1:
             op = self.replace_op_with(op, rop.INT_IS_TRUE,
                         args=[arg1])
@@ -694,11 +712,18 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(arg1)
         if b0.known_ne(b1):
             self.make_constant_int(op, 0)
+            return
         elif arg0.same_box(arg1):
             self.make_constant_int(op, 1)
+            return
         elif b1.is_constant() and b1.get_constant_int() == 1 and b0.is_bool():
             self.make_equal_to(op, op.getarg(0))
-        elif b0.is_constant() and b0.get_constant_int() == 0:
+            return
+        if self._must_be_ne_by_previous_compares(arg0, arg1):
+            self.make_constant_int(op, 0)
+            return
+        # some strength reductions
+        if b0.is_constant() and b0.get_constant_int() == 0:
             op = self.replace_op_with(op, rop.INT_IS_ZERO,
                         args=[arg1])
             self.optimizer.send_extra_operation(op)
@@ -711,6 +736,47 @@ class OptIntBounds(Optimization):
         else:
             return self.emit(op)
 
+    def _must_be_ne_by_previous_compares(self, arg0, arg1):
+        # check to see whether (u)int_lt/gt(arg0, arg1) is True, because that
+        # implies int_eq(arg0, arg1) is false. We reach into the internals of
+        # optpure, because otherwise this would be very inefficient and involve
+        # tons of allocations.
+        optpure = self.optimizer.optpure
+        if optpure is None:
+            return False
+        for opnum in (rop.INT_LT, rop.INT_GT, rop.UINT_LT, rop.UINT_GT):
+            recentops = optpure.getrecentops(opnum, create=False)
+            if recentops:
+                # the operations aren't really commutative, but we don't care
+                # in what order we find them in, if the result is True we can
+                # conclude inequality
+                oldop = recentops.lookup2(self.optimizer, arg0, arg1, None, commutative=True)
+                if oldop:
+                    b = self.getintbound(oldop)
+                    if b.known_eq_const(1):
+                        return True
+        return False
+
+    def _must_be_eq_by_previous_compares(self, arg0, arg1):
+        optpure = self.optimizer.optpure
+        if optpure is None:
+            return False
+        truthvalue = 1
+        for opnum in (rop.INT_EQ, rop.INT_NE):
+            recentops = optpure.getrecentops(opnum, create=False)
+            if recentops:
+                # the operations aren't really commutative, but we don't care
+                # in what order we find them in, if the result is True we can
+                # conclude inequality
+                oldop = recentops.lookup2(self.optimizer, arg0, arg1, None, commutative=True)
+                if oldop:
+                    b = self.getintbound(oldop)
+                    if b.known_eq_const(truthvalue):
+                        return True
+            truthvalue = 0
+        return False
+
+
     def optimize_INT_NE(self, op):
         arg0 = get_box_replacement(op.getarg(0))
         b0 = self.getintbound(arg0)
@@ -718,8 +784,14 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(arg1)
         if b0.known_ne(b1):
             self.make_constant_int(op, 1)
+            return
         elif arg0 is arg1:
             self.make_constant_int(op, 0)
+            return
+
+        if self._must_be_ne_by_previous_compares(arg0, arg1):
+            self.make_constant_int(op, 1)
+            return
         elif b0.is_constant() and b0.get_constant_int() == 0:
             op = self.replace_op_with(op, rop.INT_IS_TRUE,
                         args=[arg1])

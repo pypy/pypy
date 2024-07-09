@@ -4239,6 +4239,66 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_lt_implies_not_int_eq(self):
+        for op in ['int_lt', 'int_gt', 'uint_lt', 'uint_gt']:
+            for order in ['i1, i2', 'i2, i1']:
+                for eqcmp, guard in [('int_eq', 'guard_false'), ('int_ne', 'guard_true')]:
+                    ops = """
+                    [i1, i2]
+                    i3 = %s(%s)
+                    guard_true(i3) []
+                    i4 = %s(i1, i2)
+                    %s(i4) []
+                    jump(i1, i2)
+                    """ % (op, order, eqcmp, guard)
+                    expected = """
+                    [i1, i2]
+                    i3 = %s(%s)
+                    guard_true(i3) []
+                    jump(i1, i2)
+                    """ % (op, order)
+                    self.optimize_loop(ops, expected)
+
+    def test_int_eq_implies_not_int_lt(self):
+        for op in ['int_lt', 'int_gt', 'uint_lt', 'uint_gt']:
+            for order in ['i1, i2', 'i2, i1']:
+                for eqcmp, guard in [('int_eq', 'guard_true'), ('int_ne', 'guard_false')]:
+                    ops = """
+                    [i1, i2]
+                    i3 = %s(%s)
+                    %s(i3) []
+                    i4 = %s(i1, i2)
+                    guard_false(i4) []
+                    jump(i1, i2)
+                    """ % (eqcmp, order, guard, op)
+                    expected = """
+                    [i1, i2]
+                    i3 = %s(%s)
+                    %s(i3) []
+                    jump(i1, i2)
+                    """ % (eqcmp, order, guard)
+                    self.optimize_loop(ops, expected)
+
+    def test_int_eq_implies_int_ge(self):
+        for op in ['int_le', 'int_ge', 'uint_le', 'uint_ge']:
+            for order in ['i1, i2', 'i2, i1']:
+                for eqcmp, guard in [('int_eq', 'guard_true'), ('int_ne', 'guard_false')]:
+                    ops = """
+                    [i1, i2]
+                    i3 = %s(%s)
+                    %s(i3) []
+                    i4 = %s(i1, i2)
+                    guard_true(i4) []
+                    jump(i1, i2)
+                    """ % (eqcmp, order, guard, op)
+                    expected = """
+                    [i1, i2]
+                    i3 = %s(%s)
+                    %s(i3) []
+                    jump(i1, i2)
+                    """ % (eqcmp, order, guard)
+                    self.optimize_loop(ops, expected)
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_mul_ovf_before(self):
