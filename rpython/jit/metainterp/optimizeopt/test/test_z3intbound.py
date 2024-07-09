@@ -1303,7 +1303,7 @@ def test_prove_lshift_knownbits():
     b1 = make_z3_intbounds_instance('self')
     c = BitVec('const')
     result = b1.concrete_variable << c
-    tvalue, tmask = b1._tnum_lshift(c)
+    tvalue, tmask = b1._tnum_lshift_const(c)
     b1.prove_implies(
         c >= 0,
         c < LONG_BIT,
@@ -1356,10 +1356,25 @@ def test_prove_urshift_knownbits():
     b1 = make_z3_intbounds_instance('self')
     c = BitVec('const')
     result = z3.LShR(b1.concrete_variable, c)
-    tvalue, tmask = b1._tnum_urshift(c)
+    tvalue, tmask = b1._tnum_urshift_const(c)
     b1.prove_implies(
         c >= 0,
         z3_tnum_condition(result, tvalue, tmask),
+    )
+
+def test_prove_urshift_with_unknown():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result = z3.LShR(b1.concrete_variable, b2.concrete_variable)
+    tvalue, tmask = b1._tnum_urshift(b2.lower)
+    b1.prove_implies(
+        b1.z3_formula(must_be_minimal=True),
+        b2.z3_formula(must_be_minimal=True),
+        b2,
+        b2.concrete_variable >= 0,
+        b2.lower >= 0,
+        b2.upper < LONG_BIT,
+        z3_tnum_condition(result, tvalue, tmask)
     )
 
 def test_prove_lshift_bound_backwards_logic():
@@ -1540,8 +1555,8 @@ def z3_tnum_mul(self, other):
                   q.tvalue | q.tmask,
                   self.r_uint(0)))
         acc_m = self.from_knownbits(*acc_m._tnum_add(self.from_knownbits(self.r_uint(0), add_tmask)))
-        p = self.from_knownbits(*p._tnum_urshift(1))
-        q = self.from_knownbits(*q._tnum_lshift(1))
+        p = self.from_knownbits(*p._tnum_urshift_const(1))
+        q = self.from_knownbits(*q._tnum_lshift_const(1))
     return self.from_knownbits(acc_v, r_uint(0))._tnum_add(acc_m)
 
 @z3_with_reduced_bitwidth(8)

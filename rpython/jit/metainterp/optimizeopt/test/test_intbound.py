@@ -1643,6 +1643,22 @@ def test_knownbits_rshift_unsigned_completeshiftout_examples():
     assert r3c.is_constant()
     assert r3c.known_eq_const(0)
 
+def test_knownbits_urshift_example():
+    b1 = knownbits(0b1001, 0b0110) # 1??1
+    b2 = IntBound.unbounded()
+    b3 =  b1.urshift_bound(b2)
+    assert'IntBound(0, 15)' == repr(b3)
+
+    b1 = knownbits(0b0001, 0b10000) # ...0?00001
+    b2 = IntBound(2)
+    b3 =  b1.urshift_bound(b2)
+    assert'IntBound(0, 7)' == repr(b3)
+
+    b1 = IntBound.from_constant(15)
+    b2 = IntBound(4, 5, r_uint(4), r_uint(1))
+    b3 = b1.urshift_bound(b2)
+    assert repr(b3) == 'IntBound.from_constant(0)'
+
 def test_knownbits_add_concrete_example():
     a1 = knownbits(             # 10??10 = {34,38,42,46}
             0b100010,           # +   11

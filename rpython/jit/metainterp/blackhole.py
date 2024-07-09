@@ -259,6 +259,7 @@ def check_shift_count(b):
     if not we_are_translated():
         if b < 0 or b >= LONG_BIT:
             raise ValueError("Shift count, %d,  not in valid range, 0 .. %d." % (b, LONG_BIT-1))
+    assert 0 <= b < LONG_BIT # we optimize and generate code based on this assumption, so check it when tracing
 
 def check_list_of_plain_integers(s_arg, bookkeeper):
     """Check that 'BlackhopeInterpreter.registers_i' is annotated as a

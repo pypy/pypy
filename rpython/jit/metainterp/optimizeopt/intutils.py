@@ -1057,8 +1057,8 @@ class IntBound(AbstractInfo):
             else:
                 # LSB of p is certain 0
                 pass # do nothing
-            p = self.from_knownbits(*p._tnum_urshift(1))
-            q = self.from_knownbits(*q._tnum_lshift(1))
+            p = self.from_knownbits(*p._tnum_urshift_const(1))
+            q = self.from_knownbits(*q._tnum_lshift_const(1))
         return IntBound.from_knownbits(acc_v, r_uint(0))._tnum_add(acc_m)
 
     def py_div_bound(self, other):
@@ -1123,7 +1123,7 @@ class IntBound(AbstractInfo):
             if c_other >= LONG_BIT:
                  tvalue, tmask = TNUM_KNOWN_ZERO
             elif 0 <= c_other < LONG_BIT:
-                tvalue, tmask = self._tnum_lshift(c_other)
+                tvalue, tmask = self._tnum_lshift_const(c_other)
                 tvalue = self.tvalue << r_uint(c_other)
                 tmask = self.tmask << r_uint(c_other)
             # else: bits are unknown because arguments invalid
@@ -1141,7 +1141,7 @@ class IntBound(AbstractInfo):
         return IntBound.from_knownbits(tvalue, tmask)
 
     @always_inline
-    def _tnum_lshift(self, c_other):
+    def _tnum_lshift_const(self, c_other):
         # use signed integer sign extension logic
         tvalue = self.tvalue << c_other
         tmask = self.tmask << c_other
@@ -1219,16 +1219,27 @@ class IntBound(AbstractInfo):
                 # no sign to extend, we get constant 0
                 tvalue, tmask = TNUM_KNOWN_ZERO
             elif c_other >= 0:
-                tvalue, tmask = self._tnum_urshift(c_other)
+                tvalue, tmask = self._tnum_urshift_const(c_other)
             # else: bits are unknown because arguments invalid
-
+        else:
+            tvalue, tmask = self._tnum_urshift(max(other.lower, 0))
         # we don't do bounds on unsigned
         return IntBound.from_knownbits(tvalue, tmask)
 
     @always_inline
-    def _tnum_urshift(self, c_other):
+    def _tnum_urshift_const(self, c_other):
         tvalue = self._urshift(self.tvalue, c_other)
         tmask = self._urshift(self.tmask, c_other)
+        return tvalue, tmask
+
+    @always_inline
+    def _tnum_urshift(self, other_lower):
+        # we don't know the shift, but the result will always have at least
+        # the same number of zeros as self, shifted by the lower bound of
+        # other. or, equivalently, the unknowns of the result start to the
+        # right of the leftmost unknown-or-one
+        tmask = self._urshift(next_pow2_m1(self.tvalue | self.tmask), other_lower)
+        tvalue = self._urshift(self.tvalue, other_lower) & ~tmask
         return tvalue, tmask
 
     def and_bound(self, other):

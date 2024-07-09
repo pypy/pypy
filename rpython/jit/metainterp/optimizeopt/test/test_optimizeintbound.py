@@ -4221,12 +4221,23 @@ finish()
         guard_no_overflow() []
         i5 = int_gt(i0, 2)
         guard_true(i5) []
-        i23 = int_mul_ovf(i0, ConstInt(MAXINT))
-        guard_overflow() []
         jump(i12, i12)
         """
         self.optimize_loop(ops, expected)
 
+    def test_uint_rshift_adds_unknowns(self):
+        ops = """
+        [i1]
+        i3 = uint_rshift(63, i1)
+        i4 = int_and(i3, 63)
+        jump(i4, i3)
+        """
+        expected = """
+        [i1]
+        i3 = uint_rshift(63, i1)
+        jump(i3, i3)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestComplexIntOpts(BaseTestBasic):
 
