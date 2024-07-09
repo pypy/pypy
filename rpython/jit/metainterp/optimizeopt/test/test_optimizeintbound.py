@@ -4299,6 +4299,40 @@ finish()
                     """ % (eqcmp, order, guard)
                     self.optimize_loop(ops, expected)
 
+    def test_int_eq_x_int_add_x_const(self):
+        ops = """
+        [i1]
+        i3 = int_add(63, i1)
+        i4 = int_eq(i3, i1)
+        guard_false(i4) []
+        jump(i1)
+        """
+        expected = """
+        [i1]
+        i3 = int_add(63, i1)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1, i2]
+        i9 = int_gt(i2, 0)
+        guard_true(i9) []
+        i3 = int_sub(i1, i2)
+        i4 = int_eq(i3, i1)
+        guard_false(i4) []
+        jump(i1)
+        """
+        expected = """
+        [i1, i2]
+        i9 = int_gt(i2, 0)
+        guard_true(i9) []
+        i3 = int_sub(i1, i2)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_mul_ovf_before(self):

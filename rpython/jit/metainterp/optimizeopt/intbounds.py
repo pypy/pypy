@@ -716,14 +716,14 @@ class OptIntBounds(Optimization):
         elif arg0.same_box(arg1):
             self.make_constant_int(op, 1)
             return
-        elif b1.is_constant() and b1.get_constant_int() == 1 and b0.is_bool():
-            self.make_equal_to(op, op.getarg(0))
-            return
-        if self._must_be_ne_by_previous_compares(arg0, arg1):
+        if self._must_be_ne_by_previous_ops(arg0, arg1):
             self.make_constant_int(op, 0)
             return
         # some strength reductions
-        if b0.is_constant() and b0.get_constant_int() == 0:
+        if b1.is_constant() and b1.get_constant_int() == 1 and b0.is_bool():
+            self.make_equal_to(op, op.getarg(0))
+            return
+        elif b0.is_constant() and b0.get_constant_int() == 0:
             op = self.replace_op_with(op, rop.INT_IS_ZERO,
                         args=[arg1])
             self.optimizer.send_extra_operation(op)
@@ -736,7 +736,7 @@ class OptIntBounds(Optimization):
         else:
             return self.emit(op)
 
-    def _must_be_ne_by_previous_compares(self, arg0, arg1):
+    def _must_be_ne_by_previous_ops(self, arg0, arg1):
         # check to see whether (u)int_lt/gt(arg0, arg1) is True, because that
         # implies int_eq(arg0, arg1) is false. We reach into the internals of
         # optpure, because otherwise this would be very inefficient and involve
@@ -754,6 +754,20 @@ class OptIntBounds(Optimization):
                 if oldop:
                     b = self.getintbound(oldop)
                     if b.known_eq_const(1):
+                        return True
+        # x == x +/- c is false, if c is not 0
+        for opnum in [rop.INT_ADD, rop.INT_SUB]:
+            argop = self.optimizer.as_operation(arg0, opnum)
+            if argop:
+                sub_arg0 = get_box_replacement(argop.getarg(0))
+                sub_arg1 = get_box_replacement(argop.getarg(1))
+                sub_b0 = self.getintbound(sub_arg0)
+                sub_b1 = self.getintbound(sub_arg1)
+                if sub_arg0 is arg1:
+                    if not sub_b1.contains(0):
+                        return True
+                if opnum == rop.INT_ADD and sub_arg1 is arg1:
+                    if not sub_b0.contains(0):
                         return True
         return False
 
@@ -789,7 +803,7 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op, 0)
             return
 
-        if self._must_be_ne_by_previous_compares(arg0, arg1):
+        if self._must_be_ne_by_previous_ops(arg0, arg1):
             self.make_constant_int(op, 1)
             return
         elif b0.is_constant() and b0.get_constant_int() == 0:
