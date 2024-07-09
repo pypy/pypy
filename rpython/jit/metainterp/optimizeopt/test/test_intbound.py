@@ -804,6 +804,18 @@ def test_mul_bound_must_overflow_example():
     b2 = IntBound(MAXINT)
     assert b1.mul_bound_must_overflow(b2)
 
+    b1 = IntBound(2 ** (LONG_BIT // 2 + 5))
+    b2 = IntBound(2 ** (LONG_BIT // 2 + 5))
+    assert b1.mul_bound_must_overflow(b2)
+
+    b1 = IntBound(MININT, -2 ** (LONG_BIT // 2 + 5))
+    b2 = IntBound(MININT, -2 ** (LONG_BIT // 2 + 5))
+    assert b1.mul_bound_must_overflow(b2)
+
+    b1 = IntBound(2 ** (LONG_BIT // 2 + 5))
+    b2 = IntBound(MININT, -2 ** (LONG_BIT // 2 + 5))
+    assert b1.mul_bound_must_overflow(b2)
+
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_div_random(t1, t2):
     b1, n1 = t1

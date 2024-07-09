@@ -986,9 +986,25 @@ class IntBound(AbstractInfo):
     def mul_bound_must_overflow(self, other):
         # extremely minimal logic: if both are constant we can check whether we
         # overflow
-        if self.is_constant() and other.is_constant():
+        if (self.is_constant() and other.is_constant()) or (
+                self.lower > 0 and other.lower > 0):
             try:
                 ovfcheck(self.lower * other.lower)
+            except OverflowError:
+                return True
+        if self.upper < 0 and other.upper < 0:
+            try:
+                ovfcheck(self.upper * other.upper)
+            except OverflowError:
+                return True
+        if self.lower > 0 and other.upper < 0:
+            try:
+                ovfcheck(self.lower * other.upper)
+            except OverflowError:
+                return True
+        if self.upper > 0 and other.lower < 0:
+            try:
+                ovfcheck(self.upper * other.lower)
             except OverflowError:
                 return True
         return False

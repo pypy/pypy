@@ -4203,7 +4203,6 @@ finish()
         self.optimize_loop(ops, expected)
 
     def test_int_mul_ovf_crash(self):
-
         ops = """
         [i0, i1, i2, i4]
         i12 = int_mul_ovf(i1, i2)

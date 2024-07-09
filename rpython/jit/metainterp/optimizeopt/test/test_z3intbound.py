@@ -1451,6 +1451,37 @@ def test_prove_mul_bound_no_overflow_logic():
         z3.And(min1 <= result, result <= max1),
     )
 
+@z3_with_reduced_bitwidth(8)
+def test_prove_mul_bound_must_overflow_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result, no_ovf_result = z3_mul_overflow(b1.concrete_variable, b2.concrete_variable)
+    lower, no_ovf_lower = z3_mul_overflow(b1.lower, b2.lower)
+    upper, no_ovf_upper = z3_mul_overflow(b1.upper, b2.upper)
+    b1.prove_implies(
+        b2,
+        b1.lower > 0,
+        b2.lower > 0,
+        z3.Not(no_ovf_lower),
+        z3.Not(no_ovf_result),
+    )
+    b1.prove_implies(
+        b2,
+        b1.upper < 0,
+        b2.upper < 0,
+        z3.Not(no_ovf_upper),
+        z3.Not(no_ovf_result),
+    )
+
+    _, no_ovf_upper_lower = z3_mul_overflow(b1.upper, b2.lower)
+    b1.prove_implies(
+        b2,
+        b1.upper < 0,
+        b2.lower > 0,
+        z3.Not(no_ovf_upper_lower),
+        z3.Not(no_ovf_result),
+    )
+
 def z3_pymod_nonzero(x, y):
     r = x % y
     res = r + (y & z3.If(y < 0, -r, r) >> (LONG_BIT - 1))
