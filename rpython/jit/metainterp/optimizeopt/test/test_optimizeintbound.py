@@ -4145,16 +4145,31 @@ finish()
     def test_int_sub_int_add_consts(self):
         ops = """
         [i1]
-        i2 = int_add(i1, 1)
-        i3 = int_add(i1, 2)
-        i4 = int_sub(i3, 1)
-        jump(i4, i2) # equal
+        i2 = int_sub(i1, 3)
+        i3 = int_add(i2, 6)
+        i4 = int_add(i1, 3)
+        jump(i3, i4) # equal
         """
         expected = """
         [i1]
-        i2 = int_add(i1, 1)
-        i3 = int_add(i1, 2) # dead
-        jump(i2, i2)
+        i2 = int_sub(i1, 3) # dead
+        i4 = int_add(i1, 3)
+        jump(i4, i4)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i2 = int_sub(3, i1)
+        i3 = int_add(i2, 6)
+        i4 = int_sub(9, i1)
+        jump(i3, i4) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_sub(3, i1) # dead
+        i4 = int_sub(9, i1)
+        jump(i4, i4)
         """
         self.optimize_loop(ops, expected)
 
@@ -4186,6 +4201,23 @@ finish()
         jump(i4)
         """
         self.optimize_loop(ops, expected)
+
+    def test_int_add_int_sub_consts(self):
+        ops = """
+        [i1]
+        i2 = int_add(i1, 1)
+        i3 = int_add(i1, 2)
+        i4 = int_sub(i3, 1)
+        jump(i4, i2) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_add(i1, 1)
+        i3 = int_add(i1, 2) # dead
+        jump(i2, i2)
+        """
+        self.optimize_loop(ops, expected)
+
 
     def test_int_mul_ovf_fold_overflow_case(self):
 

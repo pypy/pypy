@@ -201,42 +201,61 @@ class OptIntBounds(Optimization):
 
 
     def optimize_INT_ADD(self, op):
-        arg1 = get_box_replacement(op.getarg(0))
-        arg2 = get_box_replacement(op.getarg(1))
-        if self.is_raw_ptr(arg1) or self.is_raw_ptr(arg2):
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+        if self.is_raw_ptr(arg0) or self.is_raw_ptr(arg1):
             return self.emit(op)
-        v1 = self.getintbound(arg1)
-        v2 = self.getintbound(arg2)
+        b1 = self.getintbound(arg1)
 
         # Optimize for addition chains in code "b = a + 1; c = b + 1" by
         # detecting the int_add chain, and swapping with "b = a + 1;
         # c = a + 2". If b is not used elsewhere, the backend eliminates
         # it.
 
-        # either v1 or v2 can be a constant, swap the arguments around if
-        # v1 is the constant
-        if v1.is_constant():
-            arg1, arg2 = arg2, arg1
-            v1, v2 = v2, v1
+        # either b0 or b1 can be a constant, swap the arguments around if
+        # b0 is the constant
+        if b0.is_constant():
+            arg0, arg1 = arg1, arg0
+            b0, b1 = b1, b0
         # if both are constant, the pure optimization will deal with it
-        if v2.is_constant() and not v1.is_constant():
-            arg1 = self.optimizer.as_operation(arg1, rop.INT_ADD)
-            if arg1 is not None:
-                prod_arg1 = get_box_replacement(arg1.getarg(0))
-                prod_arg2 = get_box_replacement(arg1.getarg(1))
-                prod_v1 = self.getintbound(prod_arg1)
-                prod_v2 = self.getintbound(prod_arg2)
+        if b1.is_constant() and not b0.is_constant():
+            oparg0 = self.optimizer.as_operation(arg0, rop.INT_ADD)
+            if oparg0 is not None:
+                sub_arg0 = get_box_replacement(oparg0.getarg(0))
+                sub_arg1 = get_box_replacement(oparg0.getarg(1))
+                sub_b0 = self.getintbound(sub_arg0)
+                sub_b1 = self.getintbound(sub_arg1)
 
-                # same thing here: prod_v1 or prod_v2 can be a
+                # same thing here: sub_b0 or sub_b1 can be a
                 # constant
-                if prod_v1.is_constant():
-                    prod_arg1, prod_arg2 = prod_arg2, prod_arg1
-                    prod_v1, prod_v2 = prod_v2, prod_v1
-                if prod_v2.is_constant():
-                    sum = intmask(v2.get_constant_int() + prod_v2.get_constant_int())
-                    arg1 = prod_arg1
-                    arg2 = ConstInt(sum)
-                    op = self.replace_op_with(op, rop.INT_ADD, args=[arg1, arg2])
+                if sub_b0.is_constant():
+                    sub_arg0, sub_arg1 = sub_arg1, sub_arg0
+                    sub_b0, sub_b1 = sub_b1, sub_b0
+                if sub_b1.is_constant():
+                    sum = intmask(b1.get_constant_int() + sub_b1.get_constant_int())
+                    op = self.replace_op_with(op, rop.INT_ADD, args=[sub_arg0, ConstInt(sum)])
+                    self.optimizer.send_extra_operation(op)
+                    return
+            oparg0 = self.optimizer.as_operation(arg0, rop.INT_SUB)
+            if oparg0 is not None:
+                sub_arg0 = get_box_replacement(oparg0.getarg(0))
+                sub_arg1 = get_box_replacement(oparg0.getarg(1))
+                sub_b0 = self.getintbound(sub_arg0)
+                sub_b1 = self.getintbound(sub_arg1)
+                if sub_b0.is_constant():
+                    # (c1 - x) + c2 -> (c1 + c2) - x
+                    sum = intmask(b1.get_constant_int() + sub_b0.get_constant_int())
+                    op = self.replace_op_with(op, rop.INT_SUB, args=[ConstInt(sum), sub_arg1])
+                    self.optimizer.send_extra_operation(op)
+                    return
+                if sub_b1.is_constant():
+                    # (x - c1) + c2 -> x + (c2 - c1)
+                    sum = intmask(b1.get_constant_int() - sub_b1.get_constant_int())
+                    op = self.replace_op_with(op, rop.INT_ADD, args=[sub_arg0, ConstInt(sum)])
+                    self.optimizer.send_extra_operation(op)
+                    return
 
         return self.emit(op)
 
