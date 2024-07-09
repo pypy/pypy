@@ -385,7 +385,7 @@ class OptIntBounds(Optimization):
 
     def optimize_GUARD_NO_OVERFLOW(self, op):
         lastop = self.last_emitted_operation
-        if lastop is not None:
+        if lastop is not None and lastop is not REMOVED:
             opnum = lastop.getopnum()
             args = lastop.getarglist()
             result = lastop

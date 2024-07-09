@@ -1002,7 +1002,7 @@ class IntBound(AbstractInfo):
                 ovfcheck(self.lower * other.upper)
             except OverflowError:
                 return True
-        if self.upper > 0 and other.lower < 0:
+        if self.upper < 0 and other.lower > 0:
             try:
                 ovfcheck(self.upper * other.lower)
             except OverflowError:
