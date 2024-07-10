@@ -4364,6 +4364,22 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_is_zero_int_sub(self):
+        ops = """
+        [i1, i2]
+        i3 = int_eq(i1, i2)
+        i4 = int_sub(i2, i1)
+        i5 = int_is_zero(i4)
+        jump(i5, i3) # equal
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_eq(i1, i2)
+        i4 = int_sub(i2, i1) # dead
+        jump(i3, i3) # equal
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

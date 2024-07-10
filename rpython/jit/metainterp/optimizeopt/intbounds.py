@@ -755,6 +755,17 @@ class OptIntBounds(Optimization):
         else:
             return self.emit(op)
 
+    def optimize_INT_IS_ZERO(self, op):
+        arg0 = get_box_replacement(op.getarg(0))
+        argop = self.optimizer.as_operation(arg0, rop.INT_SUB)
+        if argop:
+            op = self.replace_op_with(op, rop.INT_EQ,
+                        args=[argop.getarg(0), argop.getarg(1)])
+            self.optimizer.send_extra_operation(op)
+            return
+        return self.emit(op)
+
+
     def _must_be_ne_by_previous_ops(self, arg0, arg1):
         # check to see whether (u)int_lt/gt(arg0, arg1) is True, because that
         # implies int_eq(arg0, arg1) is false. We reach into the internals of
@@ -763,7 +774,7 @@ class OptIntBounds(Optimization):
         optpure = self.optimizer.optpure
         if optpure is None:
             return False
-        for opnum in (rop.INT_LT, rop.INT_GT, rop.UINT_LT, rop.UINT_GT):
+        for opnum in [rop.INT_LT, rop.INT_GT, rop.UINT_LT, rop.UINT_GT]:
             recentops = optpure.getrecentops(opnum, create=False)
             if recentops:
                 # the operations aren't really commutative, but we don't care
@@ -795,12 +806,9 @@ class OptIntBounds(Optimization):
         if optpure is None:
             return False
         truthvalue = 1
-        for opnum in (rop.INT_EQ, rop.INT_NE):
+        for opnum in [rop.INT_EQ, rop.INT_NE]:
             recentops = optpure.getrecentops(opnum, create=False)
             if recentops:
-                # the operations aren't really commutative, but we don't care
-                # in what order we find them in, if the result is True we can
-                # conclude inequality
                 oldop = recentops.lookup2(self.optimizer, arg0, arg1, None, commutative=True)
                 if oldop:
                     b = self.getintbound(oldop)

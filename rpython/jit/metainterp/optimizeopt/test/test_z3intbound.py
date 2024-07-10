@@ -1757,3 +1757,10 @@ def test_prove_int_sub_int_eq_const():
     prove(
         (x - z3.If(x == c, TRUEBV, FALSEBV)) != c
     )
+
+def test_prove_int_is_zero_int_xor():
+    x = BitVec('x')
+    y = BitVec('y')
+    prove(
+        (x ^ y == 0) == (x == y)
+    )
