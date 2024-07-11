@@ -775,16 +775,14 @@ class OptIntBounds(Optimization):
         if optpure is None:
             return False
         for opnum in [rop.INT_LT, rop.INT_GT, rop.UINT_LT, rop.UINT_GT]:
-            recentops = optpure.getrecentops(opnum, create=False)
-            if recentops:
-                # the operations aren't really commutative, but we don't care
-                # in what order we find them in, if the result is True we can
-                # conclude inequality
-                oldop = recentops.lookup2(self.optimizer, arg0, arg1, None, commutative=True)
-                if oldop:
-                    b = self.getintbound(oldop)
-                    if b.known_eq_const(1):
-                        return True
+            # the operations aren't really commutative, but we don't care in
+            # what order we find them in, if the result is True we can conclude
+            # inequality
+            oldop = self.get_pure_result2(opnum, arg0, arg1, commutative=True)
+            if oldop:
+                b = self.getintbound(oldop)
+                if b.known_eq_const(1):
+                    return True
         # x == x +/- c is false, if c is not 0
         for opnum in [rop.INT_ADD, rop.INT_SUB]:
             argop = self.optimizer.as_operation(arg0, opnum)
@@ -807,13 +805,11 @@ class OptIntBounds(Optimization):
             return False
         truthvalue = 1
         for opnum in [rop.INT_EQ, rop.INT_NE]:
-            recentops = optpure.getrecentops(opnum, create=False)
-            if recentops:
-                oldop = recentops.lookup2(self.optimizer, arg0, arg1, None, commutative=True)
-                if oldop:
-                    b = self.getintbound(oldop)
-                    if b.known_eq_const(truthvalue):
-                        return True
+            oldop = self.get_pure_result2(opnum, arg0, arg1, commutative=True)
+            if oldop:
+                b = self.getintbound(oldop)
+                if b.known_eq_const(truthvalue):
+                    return True
             truthvalue = 0
         return False
 

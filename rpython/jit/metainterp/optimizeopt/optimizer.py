@@ -194,6 +194,11 @@ class Optimization(object):
             return self.optimizer.optpure.get_pure_result(key)
         return None
 
+    def get_pure_result2(self, opnum, arg0, arg1, commutative=False):
+        if self.optimizer.optpure:
+            return self.optimizer.optpure.get_pure_result2(opnum, arg0, arg1, commutative=commutative)
+        return None
+
     def setup(self):
         pass
 

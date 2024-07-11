@@ -48,14 +48,15 @@ class OptRewrite(Optimization):
             sb.add_loopinvariant_op(op)
 
     def propagate_forward(self, op):
-        if opclasses[op.opnum].boolinverse != -1 or opclasses[op.opnum].boolreflex != -1:
+        cls = opclasses[op.opnum]
+        if cls.boolinverse != -1 or cls.boolreflex != -1:
             if self.find_rewritable_bool(op):
                 return
 
         return dispatch_opt(self, op)
 
-    def try_boolinvers(self, op, targs):
-        oldop = self.get_pure_result(targs)
+    def try_boolinvers(self, op, opnum, arg0, arg1, commutative):
+        oldop = self.get_pure_result2(opnum, arg0, arg1, commutative)
         if oldop is not None:
             b = self.getintbound(oldop)
             if b.known_eq_const(1):
@@ -67,18 +68,17 @@ class OptRewrite(Optimization):
         return False
 
     def find_rewritable_bool(self, op):
+        commutative = (op.boolreflex == op.opnum)
         oldopnum = op.boolinverse
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
         if oldopnum != -1:
-            top = ResOperation(oldopnum, [arg0, arg1])
-            if self.try_boolinvers(op, top):
+            if self.try_boolinvers(op, oldopnum, arg0, arg1, commutative):
                 return True
 
         oldopnum = op.boolreflex  # FIXME: add INT_ADD, INT_MUL
         if oldopnum != -1:
-            top = ResOperation(oldopnum, [arg1, arg0])
-            oldop = self.get_pure_result(top)
+            oldop = self.get_pure_result2(oldopnum, arg1, arg0, commutative)
             if oldop is not None:
                 self.optimizer.make_equal_to(op, oldop)
                 return True
@@ -87,8 +87,7 @@ class OptRewrite(Optimization):
             return False
         oldopnum = opclasses[op.boolreflex].boolinverse
         if oldopnum != -1:
-            top = ResOperation(oldopnum, [arg1, arg0])
-            if self.try_boolinvers(op, top):
+            if self.try_boolinvers(op, oldopnum, arg1, arg0, commutative):
                 return True
 
         return False
