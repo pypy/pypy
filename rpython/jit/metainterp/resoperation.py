@@ -1718,6 +1718,8 @@ _opboolinverse = {
 
     rop.PTR_EQ: rop.PTR_NE,
     rop.PTR_NE: rop.PTR_EQ,
+    rop.INSTANCE_PTR_EQ: rop.INSTANCE_PTR_NE,
+    rop.INSTANCE_PTR_NE: rop.INSTANCE_PTR_EQ,
 }
 
 _opboolreflex = {
@@ -1742,6 +1744,8 @@ _opboolreflex = {
 
     rop.PTR_EQ: rop.PTR_EQ,
     rop.PTR_NE: rop.PTR_NE,
+    rop.INSTANCE_PTR_EQ: rop.INSTANCE_PTR_EQ,
+    rop.INSTANCE_PTR_NE: rop.INSTANCE_PTR_NE,
 }
 _opvector = {
     rop.RAW_LOAD_I:         rop.VEC_LOAD_I,
