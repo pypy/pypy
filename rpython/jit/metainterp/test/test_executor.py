@@ -309,7 +309,7 @@ def make_args_for_op(op, a, b):
     elif n[0:5] == 'FLOAT':
         arg1 = constfloat(float(a))
         arg2 = constfloat(float(b))
-    elif n[0:3] == 'PTR':
+    elif 'PTR' in n:
         arg1 = ConstPtr(rffi.cast(llmemory.GCREF, a))
         arg2 = ConstPtr(rffi.cast(llmemory.GCREF, b))
     else:

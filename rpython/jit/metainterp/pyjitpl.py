@@ -62,6 +62,12 @@ FASTPATHS_SAME_BOXES = {
     "ge": "history.CONST_TRUE",
 }
 
+@always_inline
+def _check_constint(b):
+    if we_are_translated():
+        return type(b) is ConstInt
+    return type(b) is ConstInt and type(b.getint()) is int
+
 class MIFrame(object):
     debug = False
 
@@ -277,10 +283,7 @@ class MIFrame(object):
 
     # ------------------------------
 
-    for _opimpl in ['int_add', 'int_sub', 'int_mul',
-                    'int_and', 'int_or', 'int_xor', 'int_signext',
-                    'int_rshift', 'int_lshift', 'uint_rshift',
-                    'uint_lt', 'uint_le', 'uint_gt', 'uint_ge',
+    for _opimpl in ['int_and', 'int_or', 'int_xor', 'int_signext',
                     'uint_mul_high',
                     'float_add', 'float_sub', 'float_mul', 'float_truediv',
                     'float_lt', 'float_le', 'float_eq',
@@ -291,6 +294,94 @@ class MIFrame(object):
             def opimpl_%s(self, b1, b2):
                 return self.execute(rop.%s, b1, b2)
         ''' % (_opimpl, _opimpl.upper())).compile())
+
+    @arguments("box", "box")
+    def opimpl_int_add(self, b1, b2):
+        if _check_constint(b1) and b1.getint() == 0:
+            return b2
+        if _check_constint(b2) and b2.getint() == 0:
+            return b1
+        return self.execute(rop.INT_ADD, b1, b2)
+
+    @arguments("box", "box")
+    def opimpl_int_sub(self, b1, b2):
+        if b1 is b2:
+            return ConstInt(0)
+        if _check_constint(b2) and b2.getint() == 0:
+            return b1
+        if _check_constint(b1) and b1.getint() == 0:
+            return self.execute(rop.INT_NEG, b2)
+        return self.execute(rop.INT_SUB, b1, b2)
+
+    @arguments("box", "box")
+    def opimpl_int_mul(self, b1, b2):
+        if _check_constint(b1):
+            x = b1.getint()
+            if x == 1:
+                return b2
+            elif x == 0:
+                return b1 # 0, but no allocation
+        if _check_constint(b2):
+            x = b2.getint()
+            if x == 1:
+                return b1
+            elif x == 0:
+                return b2 # 0, but no allocation
+        return self.execute(rop.INT_MUL, b1, b2)
+
+    @arguments("box", "box")
+    def opimpl_uint_rshift(self, b1, b2):
+        if _check_constint(b1) and b1.getint() == 0:
+            return b1 # 0 >> x == 0
+        if _check_constint(b2) and b2.getint() == 0:
+            return b1 # x >> 0 == x
+        return self.execute(rop.UINT_RSHIFT, b1, b2)
+
+    @arguments("box", "box")
+    def opimpl_int_rshift(self, b1, b2):
+        if _check_constint(b1) and b1.getint() == 0:
+            return b1 # 0 >> x == 0
+        if _check_constint(b2) and b2.getint() == 0:
+            return b1 # x >> 0 == x
+        return self.execute(rop.INT_RSHIFT, b1, b2)
+
+    @arguments("box", "box")
+    def opimpl_int_lshift(self, b1, b2):
+        if _check_constint(b1) and b1.getint() == 0:
+            return b1 # 0 >> x == 0
+        if _check_constint(b2) and b2.getint() == 0:
+            return b1 # x >> 0 == x
+        return self.execute(rop.INT_LSHIFT, b1, b2)
+
+    @arguments("box", "box")
+    def opimpl_int_and(self, b1, b2):
+        if b1 is b2:
+            return b1
+        if _check_constint(b1) and b1.getint() == 0:
+            return b1
+        if _check_constint(b2) and b2.getint() == 0:
+            return b2
+        return self.execute(rop.INT_AND, b1, b2)
+
+    @arguments("box", "box")
+    def opimpl_int_or(self, b1, b2):
+        if b1 is b2:
+            return b1
+        if _check_constint(b1) and b1.getint() == 0:
+            return b2
+        if _check_constint(b2) and b2.getint() == 0:
+            return b1
+        return self.execute(rop.INT_OR, b1, b2)
+
+    @arguments("box", "box")
+    def opimpl_int_or(self, b1, b2):
+        if b1 is b2:
+            return ConstInt(0)
+        if _check_constint(b1) and b1.getint() == 0:
+            return b2
+        if _check_constint(b2) and b2.getint() == 0:
+            return b1
+        return self.execute(rop.INT_XOR, b1, b2)
 
     @special_handler("ic>i")
     def special_int_add(self, position):
@@ -325,6 +416,7 @@ class MIFrame(object):
         self.pc = position + 1
 
     for _opimpl in ['int_eq', 'int_ne', 'int_lt', 'int_le', 'int_gt', 'int_ge',
+                    'uint_lt', 'uint_le', 'uint_gt', 'uint_ge',
                     'ptr_eq', 'ptr_ne',
                     'instance_ptr_eq', 'instance_ptr_ne']:
         exec(py.code.Source('''
@@ -341,8 +433,7 @@ class MIFrame(object):
             ('int_sub_jump_if_ovf', 'INT_SUB_OVF'),
             ('int_mul_jump_if_ovf', 'INT_MUL_OVF')]:
         exec(py.code.Source('''
-            @arguments("label", "box", "box", "orgpc")
-            def opimpl_%s(self, lbl, b1, b2, orgpc):
+            def _opimpl_%s(self, lbl, b1, b2, orgpc):
                 self.metainterp.ovf_flag = False
                 resbox = self.execute(rop.%s, b1, b2)
                 if not isinstance(resbox, Const):
@@ -353,6 +444,36 @@ class MIFrame(object):
                     return None # but don't emit GUARD_OVERFLOW
                 return resbox
         ''' % (_opimpl, resop)).compile())
+
+    @arguments("label", "box", "box", "orgpc")
+    def opimpl_int_add_jump_if_ovf(self, lbl, b1, b2, orgpc):
+        if isinstance(b1, ConstInt) and b1.getint() == 0:
+            return b2
+        if isinstance(b2, ConstInt) and b2.getint() == 0:
+            return b1
+        return self._opimpl_int_add_jump_if_ovf(lbl, b1, b2, orgpc)
+
+    @arguments("label", "box", "box", "orgpc")
+    def opimpl_int_sub_jump_if_ovf(self, lbl, b1, b2, orgpc):
+        if isinstance(b2, ConstInt) and b2.getint() == 0:
+            return b1
+        return self._opimpl_int_sub_jump_if_ovf(lbl, b1, b2, orgpc)
+
+    @arguments("label", "box", "box", "orgpc")
+    def opimpl_int_mul_jump_if_ovf(self, lbl, b1, b2, orgpc):
+        if isinstance(b1, ConstInt):
+            x = b1.getint()
+            if x == 1:
+                return b2
+            elif x == 0:
+                return b1 # 0, but no allocation
+        if isinstance(b2, ConstInt):
+            x = b2.getint()
+            if x == 1:
+                return b1
+            elif x == 0:
+                return b2 # 0, but no allocation
+        return self._opimpl_int_mul_jump_if_ovf(lbl, b1, b2, orgpc)
 
     for _opimpl in ['int_is_true', 'int_is_zero', 'int_neg', 'int_invert',
                     'cast_float_to_int', 'cast_int_to_float',
