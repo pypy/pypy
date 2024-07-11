@@ -861,6 +861,14 @@ class OptIntBounds(Optimization):
         else:
             return self.emit(op)
 
+    def optimize_INT_NEG(self, op):
+        v = get_box_replacement(op.getarg(0))
+        arg_op = self.optimizer.as_operation(v, rop.INT_NEG)
+        if arg_op is not None:
+            self.make_equal_to(op, arg_op.getarg(0))
+        else:
+            return self.emit(op)
+
     def optimize_RECORD_EXACT_VALUE_I(self, op):
         from rpython.jit.metainterp.resoperation import AbstractResOp
         box = op.getarg(0)

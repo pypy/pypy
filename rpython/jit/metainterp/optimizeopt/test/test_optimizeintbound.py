@@ -4380,6 +4380,20 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_neg_int_neg(self):
+        ops = """
+        [i1]
+        i2 = int_neg(i1)
+        i3 = int_neg(i2)
+        jump(i1, i2, i3) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_neg(i1)
+        jump(i1, i2, i1)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 
