@@ -10,7 +10,7 @@ from rpython.jit.metainterp.optimizeopt.info import getptrinfo
 from rpython.jit.metainterp.resoperation import rop, ResOperation
 from rpython.jit.metainterp.optimizeopt import vstring
 from rpython.jit.codewriter.effectinfo import EffectInfo
-from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rarithmetic import intmask, r_uint, highest_bit, LONG_BIT
 from rpython.rlib.debug import debug_print
 
 def get_integer_min(is_unsigned, byte_size):
@@ -393,6 +393,49 @@ class OptIntBounds(Optimization):
         r = self.getintbound(op)
         b = b0.add_bound(b1)
         r.intersect(b)
+
+    def optimize_INT_MUL(self, op):
+        arg0 = get_box_replacement(op.getarg(0))
+        b0 = self.getintbound(arg0)
+        arg1 = get_box_replacement(op.getarg(1))
+        b1 = self.getintbound(arg1)
+
+        # If one side of the op is 1 the result is the other side.
+        if b0.known_eq_const(1):
+            self.make_equal_to(op, arg1)
+        elif b1.known_eq_const(1):
+            self.make_equal_to(op, arg0)
+        elif b0.known_eq_const(0) or b1.known_eq_const(0):
+            self.make_constant_int(op, 0)
+        else:
+            for lhs, rhs in [(arg0, arg1), (arg1, arg0)]:
+                lh_info = self.getintbound(lhs)
+                if lh_info.is_constant():
+                    x = lh_info.get_constant_int()
+                    # x & (x - 1) == 0 is a quick test for power of 2
+                    if x & (x - 1) == 0:
+                        new_rhs = ConstInt(highest_bit(lh_info.get_constant_int()))
+                        op = self.replace_op_with(op, rop.INT_LSHIFT, args=[rhs, new_rhs])
+                        self.optimizer.send_extra_operation(op)
+                        return
+                    elif x == -1:
+                        op = self.replace_op_with(op, rop.INT_NEG, args=[rhs])
+                        self.optimizer.send_extra_operation(op)
+                        return
+                else:
+                    shiftop = self.optimizer.as_operation(get_box_replacement(lhs), rop.INT_LSHIFT)
+                    if shiftop is None:
+                        continue
+                    if not shiftop.getarg(0).is_constant() or shiftop.getarg(0).getint() != 1:
+                        continue
+                    shiftvar = get_box_replacement(shiftop.getarg(1))
+                    shiftbound = self.getintbound(shiftvar)
+                    if shiftbound.known_nonnegative() and shiftbound.known_lt_const(LONG_BIT):
+                        op = self.replace_op_with(
+                                op, rop.INT_LSHIFT, args=[rhs, shiftvar])
+                        self.optimizer.send_extra_operation(op)
+                        return
+            return self.emit(op)
 
     def postprocess_INT_MUL(self, op):
         b1 = self.getintbound(op.getarg(0))
