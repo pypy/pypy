@@ -1764,3 +1764,24 @@ def test_prove_int_is_zero_int_xor():
     prove(
         (x ^ y == 0) == (x == y)
     )
+
+def test_prove_mod_lower_is_argument():
+    # simplification idea, unclear whether it's useful for real programs
+    x = BitVec('x')
+    y = BitVec('y')
+    res, nonzero = z3_pymod_nonzero(x, y)
+    prove_implies(
+        nonzero,
+        x >= 0,
+        y >= 0,
+        x < y,
+        res == x
+    )
+    prove_implies(
+        nonzero,
+        x >= 0,
+        y >= 0,
+        y <= x,
+        x < 2 * y,
+        res == (x - y)
+    )
