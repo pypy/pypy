@@ -1,7 +1,7 @@
 import sys
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound, MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
     CONST_0, REMOVED)
 from rpython.jit.metainterp.optimizeopt.util import (
@@ -54,6 +54,25 @@ class OptIntBounds(Optimization):
     postprocess_GUARD_TRUE = _postprocess_guard_true_false_value
     postprocess_GUARD_FALSE = _postprocess_guard_true_false_value
     postprocess_GUARD_VALUE = _postprocess_guard_true_false_value
+
+    def optimize_INT_OR(self, op):
+        v1 = get_box_replacement(op.getarg(0))
+        v2 = get_box_replacement(op.getarg(1))
+        if v1 is v2:
+            self.make_equal_to(op, v1)
+            return
+        b1 = self.getintbound(v1)
+        b2 = self.getintbound(v2)
+        b = b1.or_bound(b2)
+        if b.is_constant():
+            self.make_constant_int(op, b.get_constant_int())
+            return
+        if b1.known_eq_const(0):
+            self.make_equal_to(op, v2)
+        elif b2.known_eq_const(0):
+            self.make_equal_to(op, v1)
+        else:
+            return self.emit(op)
 
     def postprocess_INT_OR(self, op):
         arg0 = get_box_replacement(op.getarg(0))
@@ -179,6 +198,76 @@ class OptIntBounds(Optimization):
         b = b1.and_bound(b2)
         self.getintbound(op).intersect(b)
 
+    def optimize_INT_SUB(self, op):
+        def is_eq(box0, b0, box1, b1):
+            if box0 is box1:
+                return True
+            if b0.is_constant() and b1.known_eq_const(b0.get_constant_int()):
+                return True
+            return False
+        # XXX this should really go to intbound, mess
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+        if b1.known_eq_const(0):
+            self.make_equal_to(op, arg0)
+            return
+        elif b0.known_eq_const(0):
+            op = self.replace_op_with(op, rop.INT_NEG, args=[arg1])
+            return self.emit(op)
+        elif arg0 is arg1:
+            self.make_constant_int(op, 0)
+            return
+        arg0op = self.optimizer.as_operation(arg0)
+        if arg0op:
+            opnum = arg0op.opnum
+        else:
+            opnum = -1
+        if opnum == rop.INT_XOR or opnum == rop.INT_ADD or opnum == rop.INT_SUB:
+            sub_arg0 = get_box_replacement(arg0op.getarg(0))
+            sub_arg1 = get_box_replacement(arg0op.getarg(1))
+            sub_b0 = self.getintbound(sub_arg0)
+            sub_b1 = self.getintbound(sub_arg1)
+            if opnum == rop.INT_XOR:
+                if sub_b0.and_bound(sub_b1).known_eq_const(0):
+                    # (x ^ y) - y == x if x & y == 0
+                    if is_eq(arg1, b1, sub_arg1, sub_b1):
+                        self.make_equal_to(op, sub_arg0)
+                        return
+                    if is_eq(arg1, b1, sub_arg0, sub_b0):
+                        self.make_equal_to(op, sub_arg1)
+                        return
+            elif opnum == rop.INT_ADD:
+                if b1.is_constant():
+                    if sub_b0.is_constant():
+                        sub_arg0, sub_arg1 = sub_arg1, sub_arg0
+                        sub_b0, sub_b1 = sub_b1, sub_b0
+                    if sub_b1.is_constant():
+                        # (x + c1) - c2 -> x + (c1 - c2)
+                        const = intmask(sub_b1.get_constant_int() - b1.get_constant_int())
+                        op = self.replace_op_with(op, rop.INT_ADD,
+                                    args=[sub_arg0, ConstInt(const)])
+                        self.optimizer.send_extra_operation(op)
+                        return
+            elif opnum == rop.INT_SUB:
+                if b1.is_constant():
+                    if sub_b1.is_constant():
+                        # (x - c1) - c2 -> x - (c1 + c2)
+                        const = intmask(sub_b1.get_constant_int() + b1.get_constant_int())
+                        op = self.replace_op_with(op, rop.INT_SUB,
+                                    args=[sub_arg0, ConstInt(const)])
+                        self.optimizer.send_extra_operation(op)
+                        return
+                    elif sub_b0.is_constant():
+                        # (c1 - x) - c2 -> (c1 - c2) - x
+                        const = intmask(sub_b0.get_constant_int() - b1.get_constant_int())
+                        op = self.replace_op_with(op, rop.INT_SUB,
+                                    args=[ConstInt(const), sub_arg1])
+                        self.optimizer.send_extra_operation(op)
+                        return
+        return self.emit(op)
+
     def postprocess_INT_SUB(self, op):
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))
@@ -186,6 +275,18 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(arg1)
         b = b0.sub_bound(b1)
         self.getintbound(op).intersect(b)
+        self.optimizer.pure_from_args(rop.INT_ADD, [op, arg1], arg0)
+        self.optimizer.pure_from_args(rop.INT_SUB, [arg0, op], arg1)
+        if isinstance(arg1, ConstInt):
+            # invert the constant
+            i1 = arg1.getint()
+            if i1 != MININT:
+                inv_arg1 = ConstInt(-i1)
+                self.optimizer.pure_from_args(rop.INT_ADD, [arg0, inv_arg1], op)
+                self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg1, arg0], op)
+                self.optimizer.pure_from_args(rop.INT_SUB, [op, inv_arg1], arg0)
+                self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], inv_arg1)
+
         # make sure the optimizer knows
         # x - (x == c) != c
         # this is quite specific, but it's common in the PyPy hash
@@ -347,10 +448,26 @@ class OptIntBounds(Optimization):
             self.pure_from_args(rop.INT_RSHIFT,
                                 [op, arg1], arg0)
 
+    def optimize_INT_INVERT(self, op):
+        v = get_box_replacement(op.getarg(0))
+        arg_op = self.optimizer.as_operation(v, rop.INT_INVERT)
+        if arg_op is not None:
+            self.make_equal_to(op, arg_op.getarg(0))
+        else:
+            return self.emit(op)
+
     def optimize_INT_RSHIFT(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        b = b1.rshift_bound(b2)
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        b0 = self.getintbound(op.getarg(0))
+        b1 = self.getintbound(op.getarg(1))
+        if b1.known_eq_const(0):
+            self.make_equal_to(op, op.getarg(0))
+            return
+        elif b0.known_eq_const(0):
+            self.make_constant_int(op, 0)
+            return
+        b = b0.rshift_bound(b1)
         if b.is_constant():
             # constant result (likely 0, for rshifts that kill all bits)
             self.make_constant_int(op, b.get_constant_int())
@@ -515,6 +632,8 @@ class OptIntBounds(Optimization):
             # NB: this case also takes care of int_add_ovf with 0 as one of the
             # arguments
             op = self.replace_op_with(op, rop.INT_ADD)
+            self.optimizer.send_extra_operation(op)
+            return
         if b1.add_bound_must_overflow(b2):
             self.make_equal_to(op, ConstInt(0xdeadadd)) # the result is not used in the rest of the trace
             self.last_emitted_operation = REMOVED
@@ -532,6 +651,8 @@ class OptIntBounds(Optimization):
         if b0.sub_bound_cannot_overflow(b1):
             # this case takes care of int_sub_ovf(x, 0) as well
             op = self.replace_op_with(op, rop.INT_SUB)
+            self.optimizer.send_extra_operation(op)
+            return
         if b0.sub_bound_must_overflow(b1):
             self.make_equal_to(op, ConstInt(0xdeadadd)) # the result is not used in the rest of the trace
             self.last_emitted_operation = REMOVED
@@ -544,6 +665,8 @@ class OptIntBounds(Optimization):
         if b0.mul_bound_cannot_overflow(b1):
             # this case also takes care of multiplication with 0 and 1
             op = self.replace_op_with(op, rop.INT_MUL)
+            self.optimizer.send_extra_operation(op)
+            return
         if b0.mul_bound_must_overflow(b1):
             self.make_equal_to(op, ConstInt(0xdeadadd)) # the result is not used in the rest of the trace
             self.last_emitted_operation = REMOVED
@@ -858,6 +981,14 @@ class OptIntBounds(Optimization):
         stop = 1 << (numbits - 1)
         if b.is_within_range(start, stop - 1):
             self.make_equal_to(op, op.getarg(0))
+        else:
+            return self.emit(op)
+
+    def optimize_INT_INVERT(self, op):
+        v = get_box_replacement(op.getarg(0))
+        arg_op = self.optimizer.as_operation(v, rop.INT_INVERT)
+        if arg_op is not None:
+            self.make_equal_to(op, arg_op.getarg(0))
         else:
             return self.emit(op)
 

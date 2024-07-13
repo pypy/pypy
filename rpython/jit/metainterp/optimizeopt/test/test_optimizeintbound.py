@@ -4394,6 +4394,23 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_shift_0(self):
+        ops = """
+        [i1]
+        i2 = int_lshift(i1, 0)
+        i3 = int_lshift(0, i1)
+        i4 = int_rshift(i1, 0)
+        i5 = int_rshift(0, i1)
+        i6 = uint_rshift(i1, 0)
+        i7 = uint_rshift(0, i1)
+        jump(i2, i3, i4, i5, i6, i7) # equal
+        """
+        expected = """
+        [i1]
+        jump(i1, 0, i1, 0, i1, 0) # equal
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 
