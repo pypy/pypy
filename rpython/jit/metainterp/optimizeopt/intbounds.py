@@ -300,7 +300,6 @@ class OptIntBounds(Optimization):
             if sub_arg1 is arg0:
                 self.pure_from_args(rop.INT_EQ, [op, sub_arg0], ConstInt(0))
 
-
     def optimize_INT_ADD(self, op):
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))
@@ -308,6 +307,14 @@ class OptIntBounds(Optimization):
         b1 = self.getintbound(arg1)
         if self.is_raw_ptr(arg0) or self.is_raw_ptr(arg1):
             return self.emit(op)
+
+        if b0.known_eq_const(0):
+            self.make_equal_to(op, arg1)
+            return
+        elif b1.known_eq_const(0):
+            self.make_equal_to(op, arg0)
+            return
+
         b1 = self.getintbound(arg1)
 
         # Optimize for addition chains in code "b = a + 1; c = b + 1" by
@@ -361,10 +368,30 @@ class OptIntBounds(Optimization):
         return self.emit(op)
 
     def postprocess_INT_ADD(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
+        import sys
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+        # Synthesize the reverse op for optimize_default to reuse
+        self.optimizer.pure_from_args(rop.INT_SUB, [op, arg1], arg0)
+        self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], arg1)
+
+        if b0.is_constant():
+            arg0, arg1 = arg1, arg0
+            b0, b1 = b1, b0
+        if b1.is_constant():
+            # commutative
+            i1 = b1.get_constant_int()
+            if i1 != -sys.maxint - 1:
+                inv_arg1 = ConstInt(-i1)
+                self.optimizer.pure_from_args(rop.INT_SUB, [arg0, inv_arg1], op)
+                self.optimizer.pure_from_args(rop.INT_SUB, [arg0, op], inv_arg1)
+                self.optimizer.pure_from_args(rop.INT_ADD, [op, inv_arg1], arg0)
+                self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg1, op], arg0)
+
         r = self.getintbound(op)
-        b = b1.add_bound(b2)
+        b = b0.add_bound(b1)
         r.intersect(b)
 
     def postprocess_INT_MUL(self, op):
