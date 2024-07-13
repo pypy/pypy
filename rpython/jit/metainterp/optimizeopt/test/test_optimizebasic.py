@@ -3609,6 +3609,20 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_float_add_reversed(self):
+        ops = """
+        [f0, f1]
+        f2 = float_add(f0, f1)
+        f3 = float_add(f1, f0)
+        jump(f2, f3)
+        """
+        expected = """
+        [f0, f1]
+        f2 = float_add(f0, f1)
+        jump(f2, f2)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_null_char_str(self):
         ops = """
         [p0]

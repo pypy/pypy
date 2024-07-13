@@ -119,10 +119,6 @@ class OptRewrite(Optimization):
                     return self.emit(newop)
         return self.emit(op)
 
-    def postprocess_FLOAT_MUL(self, op):
-        self.optimizer.pure_from_args(rop.FLOAT_MUL,
-                                      [op.getarg(1), op.getarg(0)], op)
-
     def optimize_FLOAT_TRUEDIV(self, op):
         arg1 = op.getarg(0)
         arg2 = op.getarg(1)

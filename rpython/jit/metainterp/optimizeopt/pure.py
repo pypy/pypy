@@ -147,7 +147,9 @@ class OptPure(Optimization):
                                opnum == rop.INT_MUL_OVF or
                                opnum == rop.INT_AND or
                                opnum == rop.INT_OR or
-                               opnum == rop.INT_XOR)
+                               opnum == rop.INT_XOR or
+                               opnum == rop.FLOAT_ADD or
+                               opnum == rop.FLOAT_MUL)
                 oldop = recentops.lookup(self.optimizer, op, commutative=commutative)
                 if oldop is not None and self._can_reuse_oldop(
                             recentops, oldop, op, ovf):
