@@ -984,8 +984,6 @@ class IntBound(AbstractInfo):
             return IntBound(min4(vals), max4(vals), tvalue, tmask)
 
     def mul_bound_must_overflow(self, other):
-        # extremely minimal logic: if both are constant we can check whether we
-        # overflow
         if (self.is_constant() and other.is_constant()) or (
                 self.lower > 0 and other.lower > 0):
             try:
