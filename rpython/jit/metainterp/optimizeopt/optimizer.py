@@ -368,6 +368,8 @@ class Optimizer(Optimization):
                 return None # fast return if the opnum is wrong
             if op in self._emittedoperations:
                 return op
+            if op is self.optheap.postponed_op:
+                return op
         return None
 
     def get_constant_box(self, box):

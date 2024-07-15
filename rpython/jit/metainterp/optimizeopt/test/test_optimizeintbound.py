@@ -1069,7 +1069,15 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i62 = int_is_zero(i57)
         guard_false(i62) []
         """
-        self.optimize_loop(ops, ops)
+        expected = """
+        [i51]
+        i1 = int_ge(i51, 0)
+        guard_true(i1) []
+        i57 = int_and(i51, 1)
+        i62 = int_is_zero(i57)
+        guard_true(i57) []
+        """
+        self.optimize_loop(ops, expected)
 
     def test_bug_int_and_2(self):
         ops = """
@@ -4408,6 +4416,23 @@ finish()
         expected = """
         [i1]
         jump(i1, 0, i1, 0, i1, 0) # equal
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_guard_int_is_zero(self):
+        ops = """
+        [i1]
+        i2 = int_eq(i1, 35)
+        i4 = int_is_zero(i2)
+        guard_true(i4) []
+        jump(i1) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_eq(i1, 35)
+        i4 = int_is_zero(i2) # dead
+        guard_false(i2) []
+        jump(i1) # equal
         """
         self.optimize_loop(ops, expected)
 

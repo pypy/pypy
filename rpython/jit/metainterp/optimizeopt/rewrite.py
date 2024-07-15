@@ -343,7 +343,16 @@ class OptRewrite(Optimization):
         return op
 
     def optimize_GUARD_TRUE(self, op):
-        return self.optimize_guard(op, CONST_1)
+        arg0 = get_box_replacement(op.getarg(0))
+        argop = self.optimizer.as_operation(arg0, rop.INT_IS_ZERO)
+        const = CONST_1
+        if argop is not None:
+            argarg0 = get_box_replacement(argop.getarg(0))
+            b = self.getintbound(argarg0)
+            if b.is_bool():
+                op = op.copy_and_change(rop.GUARD_FALSE, [argarg0])
+                const = CONST_0
+        return self.optimize_guard(op, const)
 
     def postprocess_GUARD_TRUE(self, op):
         box = get_box_replacement(op.getarg(0))
@@ -355,7 +364,16 @@ class OptRewrite(Optimization):
         self.make_constant(box, CONST_1)
 
     def optimize_GUARD_FALSE(self, op):
-        return self.optimize_guard(op, CONST_0)
+        arg0 = get_box_replacement(op.getarg(0))
+        argop = self.optimizer.as_operation(arg0, rop.INT_IS_ZERO)
+        const = CONST_0
+        if argop is not None:
+            argarg0 = get_box_replacement(argop.getarg(0))
+            b = self.getintbound(argarg0)
+            if b.is_bool():
+                op = op.copy_and_change(rop.GUARD_TRUE, [argarg0])
+                const = CONST_1
+        return self.optimize_guard(op, const)
 
     def postprocess_GUARD_FALSE(self, op):
         box = get_box_replacement(op.getarg(0))
