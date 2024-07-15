@@ -4436,6 +4436,24 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail()
+    def test_int_ge_int_add_no_ovf(self):
+        ops = """
+        [i0, i5]
+        i7 = int_ge(i0, i5)
+        guard_false(i7) []
+        i9 = int_add(i0, 1)
+        i17 = int_ge(i9, i0)
+        jump(i17, 1) # constant
+        """
+        expected = """
+        [i0, i5]
+        i7 = int_ge(i0, i5)
+        guard_false(i7) []
+        i9 = int_add(i0, 1)
+        jump(1, 1) # constant
+        """
+        self.optimize_loop(ops, expected)
 
 class TestComplexIntOpts(BaseTestBasic):
 
