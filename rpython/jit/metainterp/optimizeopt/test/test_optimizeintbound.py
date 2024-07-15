@@ -4455,6 +4455,68 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_lt_implies_int_le(self):
+        ops = """
+        [i1, i2]
+        i3 = int_lt(i1, i2) # i1 < i2 is true => i1 <= i2 is true
+        guard_true(i3) []
+        i4 = int_le(i1, i2)
+        jump(i4, 1) # constant
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_lt(i1, i2)
+        guard_true(i3) []
+        jump(1, 1) # constant
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1, i2]
+        i3 = int_ge(i1, i2) # i1 >= i2 is False => i1 < i2 is true => i1 <= i2 is true
+        guard_false(i3) []
+        i4 = int_le(i1, i2)
+        jump(i4, 1) # constant
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_ge(i1, i2)
+        guard_false(i3) []
+        jump(1, 1) # constant
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1, i2]
+        i3 = int_gt(i1, i2) # i1 > i2 is true => i1 >= i2 is true
+        guard_true(i3) []
+        i4 = int_ge(i1, i2)
+        jump(i4, 1) # constant
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_gt(i1, i2)
+        guard_true(i3) []
+        jump(1, 1) # constant
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1, i2]
+        i3 = int_le(i1, i2) # i1 <= i2 is False => i1 > i2 is true => i1 >= i2 is true
+        guard_false(i3) []
+        i4 = int_ge(i1, i2)
+        jump(i4, 1) # constant
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_le(i1, i2)
+        guard_false(i3) []
+        jump(1, 1) # constant
+        """
+        self.optimize_loop(ops, expected)
+
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_mul_ovf_before(self):

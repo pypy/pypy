@@ -1,7 +1,7 @@
 from rpython.jit.metainterp.optimizeopt.optimizer import (
     Optimization, OptimizationResult, REMOVED)
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
-     ResOperation
+     ResOperation, opclasses
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
@@ -21,7 +21,13 @@ class DefaultOptimizationResult(OptimizationResult):
         if rop.returns_bool_result(op.opnum):
             self.opt.getintbound(op).make_bool()
         if save:
-            recentops = self.opt.getrecentops(op.getopnum())
+            opnum = op.getopnum()
+            if op.is_non_canonical_order_boolop():
+                opnum = op.boolreflex
+                newop = ResOperation(opnum, [get_box_replacement(op.getarg(1)), get_box_replacement(op.getarg(0))])
+                newop.set_forwarded(op)
+                op = newop
+            recentops = self.opt.getrecentops(opnum)
             recentops.add(op)
         if nextop:
             self.opt.emit_extra(nextop)
@@ -174,6 +180,11 @@ class OptPure(Optimization):
         return True
 
     def getrecentops(self, opnum, create=True):
+        cls = opclasses[opnum]
+        if cls.boolreflex != -1 and create:
+            # make sure that we don't try to add (u)int_gt/e to recentops, and
+            # normalize to the other ones instead
+            assert opnum <= cls.boolreflex
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
             opnum = opnum - rop._OVF_FIRST
         else:

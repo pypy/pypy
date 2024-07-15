@@ -447,6 +447,10 @@ class AbstractResOp(AbstractResOpOrInputArg):
         # includes the cast as noop
         return self.cast_to_bytesize() <= self.cast_from_bytesize()
 
+    def is_non_canonical_order_boolop(self):
+        # this return true for (u)int_gt/e
+        return self.boolreflex != -1 and self.boolreflex < self.getopnum()
+
 # ===================
 # Top of the hierachy
 # ===================
