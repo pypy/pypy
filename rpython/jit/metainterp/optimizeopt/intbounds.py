@@ -1,3 +1,4 @@
+#encoding: utf-8
 import sys
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.optimize import InvalidLoop
@@ -744,30 +745,56 @@ class OptIntBounds(Optimization):
         return self.emit(op)
 
     def _optimize_int_lt(self, arg0, arg1, op):
-        arg0 = get_box_replacement(arg0)
-        arg1 = get_box_replacement(arg1)
         b0 = self.getintbound(arg0)
         b1 = self.getintbound(arg1)
         if b0.known_lt(b1):
             self.make_constant_int(op, 1)
-        elif b0.known_ge(b1) or arg0 is arg1:
+            return
+        if b0.known_ge(b1) or arg0 is arg1:
             self.make_constant_int(op, 0)
-        elif self._must_be_eq_by_previous_compares(arg0, arg1):
+            return
+        # x == y ⇒ not x < y
+        if self._must_be_eq_by_previous_compares(arg0, arg1):
             self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
+            return
+        # not x <= y ⇒ not x < y
+        oldop = self.get_pure_result2(rop.INT_LE, arg0, arg1)
+        if oldop and self.getintbound(oldop).known_eq_const(0):
+            self.make_constant_int(op, 0)
+            return
+        # y < x ⇒ not x < y
+        oldop = self.get_pure_result2(rop.INT_LT, arg1, arg0)
+        if oldop and self.getintbound(oldop).known_eq_const(1):
+            self.make_constant_int(op, 0)
+            return
+        # x < y ⇔ Not(y <= x)
+        oldop = self.get_pure_result2(rop.INT_LE, arg1, arg0)
+        return self._negate_op_or_return(op, oldop)
 
     def optimize_INT_LT(self, op):
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
         return self._optimize_int_lt(arg0, arg1, op)
 
     def optimize_INT_GT(self, op):
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
         op = self.replace_op_with(op, rop.INT_LT,
                     args=[arg1, arg0])
         return self._optimize_int_lt(arg1, arg0, op)
+
+    def _negate_op_or_return(self, op, oldop):
+        # oldop can be None
+        if oldop is not None:
+            b = self.getintbound(oldop)
+            if b.is_constant():
+                res = int(not bool(b.get_constant_int()))
+                self.make_constant_int(op, res)
+                return
+            op = self.replace_op_with(op, rop.INT_IS_ZERO,
+                                      args=[oldop])
+            return self.optimizer.send_extra_operation()
+        return self.emit(op)
 
     def _optimize_int_le(self, arg0, arg1, op):
         b0 = self.getintbound(arg0)
@@ -775,21 +802,26 @@ class OptIntBounds(Optimization):
         if b0.known_le(b1) or arg0 is arg1:
             self.make_constant_int(op, 1)
             return
-        elif b0.known_gt(b1):
+        if b0.known_gt(b1):
             self.make_constant_int(op, 0)
             return
-        elif self._must_be_eq_by_previous_compares(arg0, arg1):
+        # x == y ⇒ x <= y
+        if self._must_be_eq_by_previous_compares(arg0, arg1):
             self.make_constant_int(op, 1)
             return
+        # x < y ⇒ x <= y
         oldop = self.get_pure_result2(rop.INT_LT, arg0, arg1)
         if oldop and self.getintbound(oldop).known_eq_const(1):
             self.make_constant_int(op, 1)
             return
+        # not y <= x ⇒ x <= y
         oldop = self.get_pure_result2(rop.INT_LE, arg1, arg0)
         if oldop and self.getintbound(oldop).known_eq_const(0):
             self.make_constant_int(op, 1)
             return
-        return self.emit(op)
+        # x <= y ⇔ not y < x
+        oldop = self.get_pure_result2(rop.INT_LT, arg1, arg0)
+        return self._negate_op_or_return(op, oldop)
 
     def optimize_INT_LE(self, op):
         arg0 = get_box_replacement(op.getarg(0))
@@ -961,6 +993,12 @@ class OptIntBounds(Optimization):
             if oldop:
                 b = self.getintbound(oldop)
                 if b.known_eq_const(1):
+                    return True
+        for opnum in [rop.INT_LE, rop.UINT_LE]:
+            oldop = self.get_pure_result2(opnum, arg0, arg1, commutative=True)
+            if oldop:
+                b = self.getintbound(oldop)
+                if b.known_eq_const(0):
                     return True
         # x == x +/- c is false, if c is not 0
         for opnum in [rop.INT_ADD, rop.INT_SUB]:

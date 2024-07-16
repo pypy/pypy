@@ -1,7 +1,13 @@
+from __future__ import print_function
+
 import pytest
+
+import operator
+
 from rpython.jit.metainterp.optimizeopt.test.test_optimizebasic import BaseTestBasic
 from rpython.jit.metainterp.optimizeopt.intutils import MININT, MAXINT
 from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.rlib.rarithmetic import intmask, r_uint, LONG_BIT
 
 
@@ -4521,14 +4527,14 @@ finish()
 
         ops = """
         [i1, i2]
-        i3 = int_gt(i1, i2) # i1 > i2 is true => i1 >= i2 is true
+        i3 = int_gt(i2, i1) # i1 > i2 is true => i1 <= i2 is true
         guard_true(i3) []
-        i4 = int_ge(i1, i2)
+        i4 = int_ge(i2, i1)
         jump(i4, 1) # constant
         """
         expected = """
         [i1, i2]
-        i3 = int_lt(i2, i1)
+        i3 = int_lt(i1, i2)
         guard_true(i3) []
         jump(1, 1) # constant
         """
@@ -4536,18 +4542,129 @@ finish()
 
         ops = """
         [i1, i2]
-        i3 = int_le(i1, i2) # i1 <= i2 is False => i1 > i2 is true => i1 >= i2 is true
+        i3 = int_le(i2, i1) # i1 <= i2 is False => i1 > i2 is true => i1 <= i2 is true
         guard_false(i3) []
-        i4 = int_ge(i1, i2)
+        i4 = int_ge(i2, i1)
         jump(i4, 1) # constant
         """
         expected = """
         [i1, i2]
-        i3 = int_le(i1, i2)
+        i3 = int_le(i2, i1)
         guard_false(i3) []
         jump(1, 1) # constant
         """
         self.optimize_loop(ops, expected)
+
+
+    @staticmethod
+    def _make_test_cmp_function(opfunc, flip, negate, name):
+        def cmp(a, b):
+            if flip:
+                a, b = b, a
+            res = opfunc(a, b)
+            if negate:
+                res = not res
+            return res
+        if negate:
+            name = "not_" + name
+        if flip:
+            name += "_b_a"
+        else:
+            name += "_a_b"
+        cmp.func_name = name
+        return cmp
+
+    @staticmethod
+    def _check_cmp_implies(cmp1, cmp2, unsigned):
+        assert not unsigned
+        for a in range(-4, 3):
+            for b in range(-4, 3):
+                if cmp1(a, b) and not cmp2(a, b):
+                    return False
+        return True
+
+    @staticmethod
+    def _check_cmp_invalid(cmp1, cmp2, unsigned):
+        assert not unsigned
+        for a in range(-4, 3):
+            for b in range(-4, 3):
+                if cmp1(a, b) and cmp2(a, b):
+                    return False
+        return True
+
+
+    ORDERING_OPS = [
+        ('int_lt', operator.lt),
+        ('int_gt', operator.gt),
+        ( 'int_le', operator.le),
+        ( 'int_ge', operator.ge),
+        ( 'int_eq', operator.eq),
+        ( 'int_ne', operator.ne),
+    ]
+
+    @pytest.mark.parametrize('op1,opfunc1', ORDERING_OPS)
+    @pytest.mark.parametrize('op2,opfunc2', ORDERING_OPS)
+    @pytest.mark.parametrize('flip2', [False, True])
+    @pytest.mark.parametrize('negate1', [False, True])
+    @pytest.mark.parametrize('negate2', [False, True])
+    @pytest.mark.parametrize('unsigned', [False])
+    def test_order_implications_all_compinations(self, op1, opfunc1, op2, opfunc2, flip2, negate1, negate2, unsigned):
+        def negate_to_guardkind(negate):
+            return 'false' if negate else 'true'
+        def flip_args(flip):
+            return 'i0, i1' if not flip else 'i1, i0'
+        def normalize_op(op, flip=False):
+            if "int_gt" in op:
+                flip = not flip
+                op = "u" * unsigned + "int_lt"
+            if "int_ge" in op:
+                flip = not flip
+                op = "u" * unsigned + "int_le"
+            return "%s(%s)" % (op, flip_args(flip))
+
+        cmp1 = self._make_test_cmp_function(opfunc1, False, negate1, op1)
+        cmp2 = self._make_test_cmp_function(opfunc2, flip2, negate2, op2)
+        ops = """
+        [i0, i1]
+        i2 = %s(i0, i1)
+        guard_%s(i2) []
+        i3 = %s(%s)
+        guard_%s(i3) []
+        jump(i0, i1)
+        """ % (op1, negate_to_guardkind(negate1),
+               op2, flip_args(flip2),
+               negate_to_guardkind(negate2))
+        print("_" * 60)
+        print(op1, op2, flip2, negate1, negate2, unsigned)
+        print(ops)
+        # if the sequence of guards is not logically consistent we might or
+        # might not recognize this, either is fine. but we shouldn't opimize
+        # anything
+        invalid_is_fine = self._check_cmp_invalid(cmp1, cmp2, unsigned)
+        if self._check_cmp_implies(cmp1, cmp2, unsigned):
+            expected = """
+            [i0, i1]
+            i2 = %s
+            guard_%s(i2) []
+            jump(i0, i1)
+            """ % (normalize_op(op1), negate_to_guardkind(negate1))
+        else:
+            expected = """
+            [i0, i1]
+            i2 = %s
+            guard_%s(i2) []
+            i3 = %s
+            guard_%s(i3) []
+            jump(i0, i1)
+            """ % (normalize_op(op1), negate_to_guardkind(negate1),
+                   normalize_op(op2, flip2), negate_to_guardkind(negate2))
+
+        print(expected)
+        try:
+            self.optimize_loop(ops, expected)
+        except InvalidLoop:
+            if not invalid_is_fine:
+                raise
 
 
 class TestComplexIntOpts(BaseTestBasic):
