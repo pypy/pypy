@@ -4576,18 +4576,24 @@ finish()
 
     @staticmethod
     def _check_cmp_implies(cmp1, cmp2, unsigned):
-        assert not unsigned
-        for a in range(-4, 3):
-            for b in range(-4, 3):
+        if unsigned:
+            r = range(0, 8)
+        else:
+            r = range(-4, 4)
+        for a in r:
+            for b in r:
                 if cmp1(a, b) and not cmp2(a, b):
                     return False
         return True
 
     @staticmethod
     def _check_cmp_invalid(cmp1, cmp2, unsigned):
-        assert not unsigned
-        for a in range(-4, 3):
-            for b in range(-4, 3):
+        if unsigned:
+            r = range(0, 8)
+        else:
+            r = range(-4, 4)
+        for a in r:
+            for b in r:
                 if cmp1(a, b) and cmp2(a, b):
                     return False
         return True
@@ -4596,10 +4602,10 @@ finish()
     ORDERING_OPS = [
         ('int_lt', operator.lt),
         ('int_gt', operator.gt),
-        ( 'int_le', operator.le),
-        ( 'int_ge', operator.ge),
-        ( 'int_eq', operator.eq),
-        ( 'int_ne', operator.ne),
+        ('int_le', operator.le),
+        ('int_ge', operator.ge),
+        ('int_eq', operator.eq),
+        ('int_ne', operator.ne),
     ]
 
     @pytest.mark.parametrize('op1,opfunc1', ORDERING_OPS)
@@ -4607,7 +4613,7 @@ finish()
     @pytest.mark.parametrize('flip2', [False, True])
     @pytest.mark.parametrize('negate1', [False, True])
     @pytest.mark.parametrize('negate2', [False, True])
-    @pytest.mark.parametrize('unsigned', [False])
+    @pytest.mark.parametrize('unsigned', [False, True])
     def test_order_implications_all_compinations(self, op1, opfunc1, op2, opfunc2, flip2, negate1, negate2, unsigned):
         def negate_to_guardkind(negate):
             return 'false' if negate else 'true'
@@ -4621,6 +4627,11 @@ finish()
                 flip = not flip
                 op = "u" * unsigned + "int_le"
             return "%s(%s)" % (op, flip_args(flip))
+
+        if unsigned and op1 in ("int_lt", "int_gt", "int_le", "int_ge"):
+            op1 = "u" + op1
+        if unsigned and op2 in ("int_lt", "int_gt", "int_le", "int_ge"):
+            op2 = "u" + op2
 
         cmp1 = self._make_test_cmp_function(opfunc1, False, negate1, op1)
         cmp2 = self._make_test_cmp_function(opfunc2, flip2, negate2, op2)
@@ -4641,7 +4652,8 @@ finish()
         # might not recognize this, either is fine. but we shouldn't opimize
         # anything
         invalid_is_fine = self._check_cmp_invalid(cmp1, cmp2, unsigned)
-        if self._check_cmp_implies(cmp1, cmp2, unsigned):
+        implies = self._check_cmp_implies(cmp1, cmp2, unsigned)
+        if implies:
             expected = """
             [i0, i1]
             i2 = %s
@@ -4665,6 +4677,34 @@ finish()
         except InvalidLoop:
             if not invalid_is_fine:
                 raise
+
+        if not implies or not self._check_cmp_implies(cmp2, cmp1, unsigned):
+            return
+        # they are equivalent!
+        print("_" * 60)
+        print("equivalent!")
+        ops = """
+        [i0, i1]
+        i2 = %s(i0, i1)
+        i3 = %s(%s)
+        jump(i2, i3)
+        """ % (op1, op2, flip_args(flip2))
+        if negate1 == negate2:
+            expected = """
+            [i0, i1]
+            i2 = %s
+            jump(i2, i2)
+            """ % (normalize_op(op1), )
+        else:
+            expected = """
+            [i0, i1]
+            i2 = %s
+            i3 = int_is_zero(i2)
+            jump(i2, i3)
+            """ % (normalize_op(op1), )
+        print(ops)
+        print(expected)
+        self.optimize_loop(ops, expected)
 
 
 class TestComplexIntOpts(BaseTestBasic):

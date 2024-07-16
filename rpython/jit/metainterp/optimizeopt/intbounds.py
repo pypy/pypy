@@ -769,7 +769,7 @@ class OptIntBounds(Optimization):
             return
         # x < y ⇔ Not(y <= x)
         oldop = self.get_pure_result2(rop.INT_LE, arg1, arg0)
-        return self._negate_op_or_return(op, oldop)
+        return self._negate_oldop_or_return_op(op, oldop)
 
     def optimize_INT_LT(self, op):
         arg0 = get_box_replacement(op.getarg(0))
@@ -783,7 +783,7 @@ class OptIntBounds(Optimization):
                     args=[arg1, arg0])
         return self._optimize_int_lt(arg1, arg0, op)
 
-    def _negate_op_or_return(self, op, oldop):
+    def _negate_oldop_or_return_op(self, op, oldop):
         # oldop can be None
         if oldop is not None:
             b = self.getintbound(oldop)
@@ -793,7 +793,7 @@ class OptIntBounds(Optimization):
                 return
             op = self.replace_op_with(op, rop.INT_IS_ZERO,
                                       args=[oldop])
-            return self.optimizer.send_extra_operation()
+            return self.optimizer.send_extra_operation(op)
         return self.emit(op)
 
     def _optimize_int_le(self, arg0, arg1, op):
@@ -821,7 +821,7 @@ class OptIntBounds(Optimization):
             return
         # x <= y ⇔ not y < x
         oldop = self.get_pure_result2(rop.INT_LT, arg1, arg0)
-        return self._negate_op_or_return(op, oldop)
+        return self._negate_oldop_or_return_op(op, oldop)
 
     def optimize_INT_LE(self, op):
         arg0 = get_box_replacement(op.getarg(0))
@@ -841,22 +841,38 @@ class OptIntBounds(Optimization):
         return self._optimize_uint_lt(arg0, arg1, op)
 
     def _optimize_uint_lt(self, arg0, arg1, op):
-        arg0 = get_box_replacement(arg0)
-        arg1 = get_box_replacement(arg1)
         b0 = self.getintbound(arg0)
         b1 = self.getintbound(arg1)
         if b0.known_unsigned_lt(b1):
             self.make_constant_int(op, 1)
-        elif b0.known_unsigned_ge(b1) or arg0 is arg1:
+            return
+        if b0.known_unsigned_ge(b1) or arg0 is arg1:
             self.make_constant_int(op, 0)
-        elif self._must_be_eq_by_previous_compares(arg0, arg1):
+            return
+        if self._must_be_eq_by_previous_compares(arg0, arg1):
             self.make_constant_int(op, 0)
-        elif b0.is_constant() and b0.get_constant_int() == 0:
-            op = self.replace_op_with(op, rop.INT_IS_TRUE,
-                        args=[arg1])
-            return self.emit(op)
-        else:
-            return self.emit(op)
+            return
+        if self._must_be_eq_by_previous_compares(arg0, arg1):
+            self.make_constant_int(op, 0)
+            return
+        # not x <= y ⇒ not x < y
+        oldop = self.get_pure_result2(rop.UINT_LE, arg0, arg1)
+        if oldop and self.getintbound(oldop).known_eq_const(0):
+            self.make_constant_int(op, 0)
+            return
+        # y < x ⇒ not x < y
+        oldop = self.get_pure_result2(rop.UINT_LT, arg1, arg0)
+        if oldop and self.getintbound(oldop).known_eq_const(1):
+            self.make_constant_int(op, 0)
+            return
+        # x < y ⇔ Not(y <= x)
+        oldop = self.get_pure_result2(rop.UINT_LE, arg1, arg0)
+        if oldop is None:
+            if b0.is_constant() and b0.get_constant_int() == 0:
+                op = self.replace_op_with(op, rop.INT_IS_TRUE,
+                            args=[arg1])
+                return self.optimizer.send_extra_operation(op)
+        return self._negate_oldop_or_return_op(op, oldop)
 
     def propagate_bounds_UINT_LT(self, op):
         r = self.getintbound(op)
@@ -868,8 +884,8 @@ class OptIntBounds(Optimization):
                 self.make_unsigned_ge(op.getarg(0), op.getarg(1))
 
     def optimize_UINT_GT(self, op):
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
         op = self.replace_op_with(op, rop.UINT_LT,
                     args=[arg1, arg0])
         return self._optimize_uint_lt(arg1, arg0, op)
@@ -885,31 +901,45 @@ class OptIntBounds(Optimization):
                 self.make_unsigned_le(op.getarg(0), op.getarg(1))
 
     def optimize_UINT_LE(self, op):
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
         return self._optimize_uint_le(arg0, arg1, op)
 
     def _optimize_uint_le(self, arg0, arg1, op):
-        arg0 = get_box_replacement(arg0)
-        arg1 = get_box_replacement(arg1)
         b0 = self.getintbound(arg0)
         b1 = self.getintbound(arg1)
         if b0.known_unsigned_le(b1) or arg0 is arg1:
             self.make_constant_int(op, 1)
-        elif b0.known_unsigned_gt(b1):
+            return
+        if b0.known_unsigned_gt(b1):
             self.make_constant_int(op, 0)
-        elif self._must_be_eq_by_previous_compares(arg0, arg1):
+            return
+        # x == y ⇒ x <= y
+        if self._must_be_eq_by_previous_compares(arg0, arg1):
             self.make_constant_int(op, 1)
-        elif b0.is_constant() and b0.get_constant_int() == 1:
-            op = self.replace_op_with(op, rop.INT_IS_TRUE,
-                        args=[arg1])
-            return self.optimizer.send_extra_operation(op)
-        elif b1.is_constant() and b1.get_constant_int() == 0:
-            op = self.replace_op_with(op, rop.INT_IS_ZERO,
-                        args=[arg0])
-            return self.optimizer.send_extra_operation(op)
-        else:
-            return self.emit(op)
+            return
+        # x < y ⇒ x <= y
+        oldop = self.get_pure_result2(rop.UINT_LT, arg0, arg1)
+        if oldop and self.getintbound(oldop).known_eq_const(1):
+            self.make_constant_int(op, 1)
+            return
+        # not y <= x ⇒ x <= y
+        oldop = self.get_pure_result2(rop.UINT_LE, arg1, arg0)
+        if oldop and self.getintbound(oldop).known_eq_const(0):
+            self.make_constant_int(op, 1)
+            return
+        # x <= y ⇔ not y < x
+        oldop = self.get_pure_result2(rop.UINT_LT, arg1, arg0)
+        if oldop is None:
+            if b0.is_constant() and b0.get_constant_int() == 1:
+                op = self.replace_op_with(op, rop.INT_IS_TRUE,
+                            args=[arg1])
+                return self.optimizer.send_extra_operation(op)
+            if b1.is_constant() and b1.get_constant_int() == 0:
+                op = self.replace_op_with(op, rop.INT_IS_ZERO,
+                            args=[arg0])
+                return self.optimizer.send_extra_operation(op)
+        return self._negate_oldop_or_return_op(op, oldop)
 
     def propagate_bounds_UINT_LE(self, op):
         r = self.getintbound(op)
@@ -921,14 +951,13 @@ class OptIntBounds(Optimization):
                 self.make_unsigned_gt(op.getarg(0), op.getarg(1))
 
     def optimize_UINT_GE(self, op):
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
         op = self.replace_op_with(op, rop.UINT_LE,
                     args=[arg1, arg0])
         return self._optimize_uint_le(arg1, arg0, op)
 
     def propagate_bounds_UINT_GE(self, op):
-        import pdb;pdb.set_trace()
         r = self.getintbound(op)
         if r.is_constant():
             if r.get_constant_int() == 1:
@@ -945,7 +974,7 @@ class OptIntBounds(Optimization):
         if b0.known_ne(b1):
             self.make_constant_int(op, 0)
             return
-        elif arg0.same_box(arg1):
+        if arg0.same_box(arg1):
             self.make_constant_int(op, 1)
             return
         if self._must_be_ne_by_previous_ops(arg0, arg1):
@@ -955,18 +984,18 @@ class OptIntBounds(Optimization):
         if b1.is_constant() and b1.get_constant_int() == 1 and b0.is_bool():
             self.make_equal_to(op, op.getarg(0))
             return
-        elif b0.is_constant() and b0.get_constant_int() == 0:
+        if b0.is_constant() and b0.get_constant_int() == 0:
             op = self.replace_op_with(op, rop.INT_IS_ZERO,
                         args=[arg1])
             self.optimizer.send_extra_operation(op)
             return
-        elif b1.is_constant() and b1.get_constant_int() == 0:
+        if b1.is_constant() and b1.get_constant_int() == 0:
             op = self.replace_op_with(op, rop.INT_IS_ZERO,
                         args=[arg0])
             self.optimizer.send_extra_operation(op)
             return
-        else:
-            return self.emit(op)
+        oldop = self.get_pure_result2(rop.INT_NE, arg0, arg1, commutative=True)
+        return self._negate_oldop_or_return_op(op, oldop)
 
     def optimize_INT_IS_ZERO(self, op):
         arg0 = get_box_replacement(op.getarg(0))
@@ -1039,25 +1068,24 @@ class OptIntBounds(Optimization):
         if b0.known_ne(b1):
             self.make_constant_int(op, 1)
             return
-        elif arg0 is arg1:
+        if arg0 is arg1:
             self.make_constant_int(op, 0)
             return
-
         if self._must_be_ne_by_previous_ops(arg0, arg1):
             self.make_constant_int(op, 1)
             return
-        elif b0.is_constant() and b0.get_constant_int() == 0:
+        if b0.is_constant() and b0.get_constant_int() == 0:
             op = self.replace_op_with(op, rop.INT_IS_TRUE,
                         args=[arg1])
             self.optimizer.send_extra_operation(op)
             return
-        elif b1.is_constant() and b1.get_constant_int() == 0:
+        if b1.is_constant() and b1.get_constant_int() == 0:
             op = self.replace_op_with(op, rop.INT_IS_TRUE,
                         args=[arg0])
             self.optimizer.send_extra_operation(op)
             return
-        else:
-            return self.emit(op)
+        oldop = self.get_pure_result2(rop.INT_EQ, arg0, arg1, commutative=True)
+        return self._negate_oldop_or_return_op(op, oldop)
 
     def optimize_INT_FORCE_GE_ZERO(self, op):
         b = self.getintbound(op.getarg(0))
