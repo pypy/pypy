@@ -3369,7 +3369,7 @@ finish()
         [i0, i1]
         i2 = int_le(0, i1)
         guard_true(i2) []
-        i3 = uint_ge(i0, i1)
+        i3 = uint_le(i1, i0)
         guard_false(i3) []
         jump(i0)
         """
@@ -4320,6 +4320,9 @@ finish()
                     """ % (op, order, eqcmp, guard)
                     if op == "int_gt":
                         op = "int_lt"
+                        order = ", ".join(order.split(", ")[::-1])
+                    if op == "uint_gt":
+                        op = "uint_lt"
                         order = ", ".join(order.split(", ")[::-1])
                     expected = """
                     [i1, i2]

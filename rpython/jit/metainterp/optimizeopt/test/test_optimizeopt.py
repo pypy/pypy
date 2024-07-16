@@ -3321,7 +3321,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         expected = """
         [p0, p1, i9, p3, i10, i7, i11]
         i13 = getfield_gc_i(p3, descr=valuedescr)
-        i14 = int_ge(i10, i13)
+        i14 = int_le(i13, i10)
         guard_false(i14) []
         i15 = int_mul(i10, i13)
         i16 = int_add(i7, i15)
@@ -4666,7 +4666,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         preamble = """
         [i0]
-        i1 = int_ge(i0, 0)
+        i1 = int_le(0, i0)
         guard_true(i1) []
         i2 = int_lt(i0, 10)
         guard_true(i2) []
@@ -6898,7 +6898,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         [p0, p1, p3, ii, ii2, i1, i2]
         setfield_gc(p3, i1, descr=abisdescr)
         setfield_gc(p3, i2, descr=adescr)
-        i5 = int_gt(ii, 42)
+        i5 = int_lt(42, ii)
         guard_true(i5) []
         jump(p0, p1, p3, ii2, ii, i1, i2)
         """
@@ -8263,7 +8263,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i12 = int_mul(i11, i11)
         i13 = int_add(i10, i12)
         i14 = int_sub(i8, 1)
-        i15 = int_gt(i14, 0)
+        i15 = int_lt(0, i14)
         guard_true(i15) []
         jump(i14, i13, i11, i12)
         """
@@ -8568,7 +8568,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         expected = """
         [i1]
-        i2 = int_gt(i1, 0)
+        i2 = int_lt(0, i1)
         guard_true(i2) []
         i4 = getarrayitem_gc_i(NULL, i1, descr=arraydescr)
         i3 = int_sub(i1, 1)
@@ -8588,7 +8588,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         expected = """
         [i1]
-        i2 = int_gt(i1, 0)
+        i2 = int_lt(0, i1)
         guard_true(i2) []
         setarrayitem_gc(NULL, i1, i1, descr=arraydescr)
         i3 = int_sub(i1, 1)
