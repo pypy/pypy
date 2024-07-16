@@ -1760,7 +1760,7 @@ class TestOptimizeBasic(BaseTestBasic):
         expected = """
         [p1]
         i0 = arraylen_gc(p1, descr=arraydescr)
-        i1 = int_gt(i0, 0)
+        i1 = int_lt(0, i0)
         guard_true(i1) []
         jump(p1)
         """
@@ -2808,7 +2808,7 @@ class TestOptimizeBasic(BaseTestBasic):
         expected = """
         [p0, i22]
         i1 = getfield_gc_i(p0, descr=valuedescr)
-        i2 = int_gt(i1, i22)
+        i2 = int_lt(i22, i1)
         guard_false(i2) []
         i3 = int_add(i1, 1)
         p331 = force_token()
@@ -3677,7 +3677,7 @@ class TestOptimizeBasic(BaseTestBasic):
         # p0[2]
         expected = """
         [p0, i0]
-        i1 = int_gt(i0, 2)
+        i1 = int_lt(2, i0)
         guard_true(i1) []
         setarrayitem_gc(p0, i0, 15, descr=arraydescr)
         setarrayitem_gc(p0, 0, 3, descr=arraydescr)
@@ -4015,7 +4015,15 @@ class TestOptimizeBasic(BaseTestBasic):
         i2 = int_lt(i0, 255)
         guard_true(i2) []
         """
-        self.optimize_loop(ops, ops)
+        expected = """
+        [p0]
+        i0 = getfield_gc_i(p0, descr=chardescr)
+        i1 = int_lt(0, i0)
+        guard_true(i1) []
+        i2 = int_lt(i0, 255)
+        guard_true(i2) []
+        """
+        self.optimize_loop(ops, expected)
 
     def test_getfieldraw_cmp_outside_bounds(self):
         ops = """

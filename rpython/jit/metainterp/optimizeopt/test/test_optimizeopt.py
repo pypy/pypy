@@ -286,7 +286,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         preamble = """
         [i0]
-        i1 = int_gt(i0, 0)
+        i1 = int_lt(0, i0)
         guard_true(i1) []
         jump(i0)
         """
@@ -307,7 +307,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         preamble = """
         [i0]
-        i1 = int_gt(i0, 0)
+        i1 = int_lt(0, i0)
         guard_true(i1) []
         jump(i0)
         """
@@ -328,7 +328,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         preamble = """
         [i0]
-        i1 = int_gt(i0, 0)
+        i1 = int_lt(0, i0)
         guard_true(i1) []
         jump(i0)
         """
@@ -680,7 +680,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         preamble = """
         [i0, i1]
-        i2 = int_gt(i0, i1)
+        i2 = int_lt(i1, i0)
         guard_false(i2) [i0, i1]
         jump(i0, i1)
         """
@@ -3195,7 +3195,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         preamble = """
         [p1]
         i0 = arraylen_gc(p1, descr=arraydescr)
-        i1 = int_gt(i0, 0)
+        i1 = int_lt(0, i0)
         guard_true(i1) []
         jump(p1)
         """
@@ -4514,7 +4514,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
-        i1p = int_gt(i0, -4)
+        i1p = int_lt(-4, i0)
         guard_true(i1p) []
         i2 = int_sub(i0, 10)
         jump(i0)
@@ -4601,7 +4601,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         preamble = """
         [i0]
-        i1 = int_gt(i0, 5)
+        i1 = int_lt(5, i0)
         guard_true(i1) []
         jump(i0)
         """
@@ -4622,7 +4622,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         preamble = """
         [i0]
-        i1 = int_gt(i0, 5)
+        i1 = int_lt(5, i0)
         guard_true(i1) []
         jump(i0)
         """
@@ -4643,7 +4643,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         preamble = """
         [i0]
-        i1 = int_ge(i0, 5)
+        i1 = int_le(5, i0)
         guard_true(i1) []
         jump(i0)
         """
@@ -5105,7 +5105,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         [i0]
         i1 = int_sub_ovf(1, i0)
         guard_no_overflow() []
-        i2 = int_gt(i1, 1)
+        i2 = int_lt(1, i1)
         guard_true(i2) []
         jump(i0)
         """
@@ -5193,10 +5193,10 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         i2 = int_and(i0, 255)
         i3 = int_lt(i1, 5)
         guard_true(i3) []
-        i4 = int_gt(i1, -10)
+        i4 = int_lt(-10, i1)
         guard_true(i4) []
         i5 = int_mul(i2, i1)
-        i8 = int_gt(i5, 126)
+        i8 = int_lt(126, i5)
         guard_true(i8) []
         jump(i0, i1)
         """
@@ -5229,7 +5229,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         guard_no_overflow() []
         i4 = int_lt(i3, 10)
         guard_true(i4) []
-        i5 = int_gt(i3, 2)
+        i5 = int_lt(2, i3)
         guard_true(i5) []
         jump(i0, i1)
         """
@@ -5262,7 +5262,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         guard_no_overflow() []
         i4 = int_le(i3, 10)
         guard_true(i4) []
-        i5 = int_ge(i3, 2)
+        i5 = int_le(2, i3)
         guard_true(i5) []
         jump(i0, i1)
         """
@@ -5354,7 +5354,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         expected = """
         [p0, p1, p3, p5, p7, p8, p14, i82]
-        i115 = int_ge(1, i82)
+        i115 = int_le(i82, 1)
         guard_true(i115) []
         jump(p0, p1, p3, p5, p7, p8, p14, 1)
         """

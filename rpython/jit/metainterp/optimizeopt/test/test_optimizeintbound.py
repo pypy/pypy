@@ -387,7 +387,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0, i1]
-        i2 = int_gt(i0, i1)
+        i2 = int_lt(i1, i0)
         guard_false(i2) [i0, i1]
         jump(i0, i1)
         """
@@ -421,7 +421,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i1 = int_gt(i0, 0)
+        i1 = int_lt(0, i0)
         guard_true(i1) []
         jump(i0)
         """
@@ -438,7 +438,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i1 = int_gt(i0, 0)
+        i1 = int_lt(0, i0)
         guard_true(i1) []
         jump(i0)
         """
@@ -455,7 +455,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i1 = int_gt(i0, 0)
+        i1 = int_lt(0, i0)
         guard_true(i1) []
         jump(i0)
         """
@@ -665,7 +665,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         [i0]
         i1 = int_lt(i0, 4)
         guard_true(i1) []
-        i1p = int_gt(i0, -4)
+        i1p = int_lt(-4, i0)
         guard_true(i1p) []
         i2 = int_sub(i0, 10)
         jump(i0)
@@ -736,7 +736,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i1 = int_gt(i0, 5)
+        i1 = int_lt(5, i0)
         guard_true(i1) []
         jump(i0)
         """
@@ -753,7 +753,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i1 = int_gt(i0, 5)
+        i1 = int_lt(5, i0)
         guard_true(i1) []
         jump(i0)
         """
@@ -770,7 +770,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i1 = int_ge(i0, 5)
+        i1 = int_le(5, i0)
         guard_true(i1) []
         jump(i0)
         """
@@ -789,7 +789,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i1 = int_ge(i0, 0)
+        i1 = int_le(0, i0)
         guard_true(i1) []
         i2 = int_lt(i0, 10)
         guard_true(i2) []
@@ -1071,7 +1071,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i51]
-        i1 = int_ge(i51, 0)
+        i1 = int_le(0, i51)
         guard_true(i1) []
         i57 = int_and(i51, 1)
         i62 = int_is_zero(i57)
@@ -1088,7 +1088,15 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i62 = int_is_zero(i57)
         guard_false(i62) []
         """
-        self.optimize_loop(ops, ops)
+        expected = """
+        [i51]
+        i1 = int_le(0, i51)
+        guard_true(i1) []
+        i57 = int_and(4, i51)
+        i62 = int_is_zero(i57)
+        guard_false(i62) []
+        """
+        self.optimize_loop(ops, expected)
 
     def test_bug_int_or(self):
         ops = """
@@ -1101,7 +1109,17 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i62 = int_is_zero(i57)
         guard_false(i62) []
         """
-        self.optimize_loop(ops, ops)
+        expected = """
+        [i51, i52]
+        i1 = int_le(0, i51)
+        guard_true(i1) []
+        i2 = int_le(0, i52)
+        guard_true(i2) []
+        i57 = int_or(i51, i52)
+        i62 = int_is_zero(i57)
+        guard_false(i62) []
+        """
+        self.optimize_loop(ops, expected)
 
     def test_int_and_positive(self):
         ops = """
@@ -1118,9 +1136,9 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i51, i52]
-        i1 = int_ge(i51, 0)
+        i1 = int_le(0, i51)
         guard_true(i1) []
-        i2 = int_ge(i52, 0)
+        i2 = int_le(0, i52)
         guard_true(i2) []
 
         i57 = int_and(i51, i52)
@@ -1143,9 +1161,9 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i51, i52]
-        i1 = int_ge(i51, 0)
+        i1 = int_le(0, i51)
         guard_true(i1) []
-        i2 = int_ge(i52, 0)
+        i2 = int_le(0, i52)
         guard_true(i2) []
 
         i57 = int_or(i51, i52)
@@ -1170,7 +1188,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         [i0]
         i1 = int_sub_ovf(1, i0)
         guard_no_overflow() []
-        i2 = int_gt(i1, 1)
+        i2 = int_lt(1, i1) 
         guard_true(i2) []
         jump(i0)
         """
@@ -1295,7 +1313,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i1 = int_ge(i0, 7)
+        i1 = int_le(7, i0)
         guard_true(i1) []
         i2 = int_le(i0, 7)
         guard_true(i2) []
@@ -1379,7 +1397,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i12 = int_ge(i0, 0)
+        i12 = int_le(0, i0)
         guard_true(i12) []
         i1 = int_is_true(i0)
         guard_true(i1) []
@@ -1400,7 +1418,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0]
-        i12 = int_ge(i0, 0)
+        i12 = int_le(0, i0)
         guard_true(i12) []
         i1 = int_is_zero(i0)
         guard_false(i1) []
@@ -1463,7 +1481,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
 
         expected = """
         [i0]
-        i0pos = int_ge(i0, 0)
+        i0pos = int_le(0, i0)
         guard_true(i0pos) []
         i0small = int_lt(i0, 256)
         guard_true(i0small) []
@@ -1474,14 +1492,14 @@ class TestOptimizeIntBounds(BaseTestBasic):
     def test_intand_maskwith0_in_bitrange(self):
         ops = """
         [i0, i2]
-        i0pos = int_ge(i0, 0)
+        i0pos = int_le(0, i0)
         guard_true(i0pos) []
         i0small = int_lt(i0, 256)
         guard_true(i0small) []
 
         i1 = int_and(i0, 257)
 
-        i2pos = int_ge(i2, 0)
+        i2pos = int_le(0, i2)
         guard_true(i2pos) []
         i2small = int_lt(i2, 256)
         guard_true(i2small) []
@@ -1493,12 +1511,12 @@ class TestOptimizeIntBounds(BaseTestBasic):
 
     i0_range_256_i1_range_65536_prefix = """
         [i0, i1]
-        i0pos = int_ge(i0, 0)
+        i0pos = int_le(0, i0)
         guard_true(i0pos) []
         i0small = int_lt(i0, 256)
         guard_true(i0small) []
 
-        i1pos = int_ge(i1, 0)
+        i1pos = int_le(0, i1)
         guard_true(i1pos) []
         i1small = int_lt(i1, 65536)
         guard_true(i1small) []
@@ -1540,7 +1558,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0, i1]
-        i2 = int_ge(i1, 0)
+        i2 = int_le(0, i1)
         guard_true(i2) []
         i3 = int_and(i0, i1)
         jump(i3)
@@ -1716,7 +1734,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         expected = """
         [i1]
         i2 = int_neg(i1)
-        i3 = int_ge(i2, 0)
+        i3 = int_le(0, i2)
         guard_true(i3) []
         jump(i1)
         """
@@ -1786,7 +1804,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_true(i2) []
         i3 = int_le(i0, 126)    # false for i1 == 127
         guard_true(i3) []
-        i5 = int_gt(i0, -128)   # false for i1 == -128
+        i5 = int_lt(-128, i0)   # false for i1 == -128
         guard_true(i5) []
         jump(i1)
         """
@@ -1822,7 +1840,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
 
         i1 = int_lt(i0, 16)
         guard_true(i1) []
-        i2 = int_ge(i0, 0)
+        i2 = int_le(0, i0)
         guard_true(i2) []
 
         guard_value(i3, 0) []
@@ -2100,7 +2118,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
 
         i5 = int_lt(i3, 2) # i3 == 0 or i3 == 1
         guard_true(i5) []
-        i6 = int_ge(i3, 0)
+        i6 = int_le(0, i3)
         guard_true(i6) []
 
         i7 = int_lshift(i1, i3)
@@ -2118,7 +2136,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         [i1b, i2]
         i4b = int_lt(i1b, 7) # 0 <= i1b < 7
         guard_true(i4b) []
-        i4c = int_ge(i1b, 0)
+        i4c = int_le(0, i1b)
         guard_true(i4c) []
 
         i15 = int_lshift(i1b, i2)
@@ -2150,12 +2168,12 @@ class TestOptimizeIntBounds(BaseTestBasic):
         [i1b, i3]
         i4b = int_lt(i1b, 7)
         guard_true(i4b) []
-        i4c = int_ge(i1b, 0)
+        i4c = int_le(0, i1b)
         guard_true(i4c) []
 
         i5 = int_lt(i3, 2)
         guard_true(i5) []
-        i6 = int_ge(i3, 0)
+        i6 = int_le(0, i3)
         guard_true(i6) []
 
         i13 = int_lshift(i1b, i3)
@@ -2184,7 +2202,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
 
         i5 = int_lt(i3, 2)
         guard_true(i5) []
-        i6 = int_ge(i3, 0)
+        i6 = int_le(0, i3)
         guard_true(i6) []
 
         i10 = int_lshift(i0, i3)
@@ -2203,7 +2221,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         [i0, i3]
         i5 = int_lt(i3, 2) # i3 == 0 or i3 == 1
         guard_true(i5) []
-        i6 = int_ge(i3, 0)
+        i6 = int_le(0, i3)
         guard_true(i6) []
 
         i10 = int_rshift(i0, i3)
@@ -2253,12 +2271,12 @@ class TestOptimizeIntBounds(BaseTestBasic):
 
         i4b = int_lt(i1b, 7)
         guard_true(i4b) []
-        i4c = int_ge(i1b, 0)
+        i4c = int_le(0, i1b)
         guard_true(i4c) []
 
         i5 = int_lt(i3, 2)
         guard_true(i5) []
-        i6 = int_ge(i3, 0)
+        i6 = int_le(0, i3)
         guard_true(i6) []
 
         i7 = int_rshift(i1, i3)
@@ -2326,7 +2344,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0, i1]
-        i4 = int_ge(i1, 3)
+        i4 = int_le(3, i1)
         guard_true(i4) []
         i2 = call_i(321, i0, i1, descr=int_py_div_descr)
         i3 = int_add(i2, 50)
@@ -2372,7 +2390,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i5 = call_pure_i(321, i1, -12, descr=int_py_mod_descr)
         i6 = int_le(i5, -11)
         guard_false(i6) []
-        i7 = int_gt(i5, -1)
+        i7 = int_lt(-1, i5)
         guard_false(i7) []
         jump(i5)
         """
@@ -2496,7 +2514,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """ % (LONG_BIT - 1, )
         expected1 = """
         [i0, i1]
-        i6 = int_ge(i0, 0)
+        i6 = int_le(0, i0)
         guard_true(i6) []
         i7 = int_lt(i0, %s)
         guard_true(i7) []
@@ -2597,7 +2615,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         [i0]
         i1 = int_add(i0, 1)
         i2 = int_neg(i1)
-        i3 = int_gt(i2, 100)
+        i3 = int_lt(100, i2)
         guard_true(i3) []
         jump(i1)
         """
@@ -2627,12 +2645,12 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0, i1, i2]
-        it1 = int_ge(i1, 0)
+        it1 = int_le(0, i1)
         guard_true(it1) []
-        it2 = int_gt(i2, 0)
+        it2 = int_lt(0, i2)
         guard_true(it2) []
         ix2 = int_xor(i0, i1)
-        ix2t = int_ge(ix2, 0)
+        ix2t = int_le(0, ix2)
         guard_true(ix2t) []
         ix4 = int_xor(i1, i2)
         jump(i0, i1, i2)
@@ -2692,7 +2710,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i39 = int_neg(i35)
         i40 = int_le(i34, 17)
         guard_true(i40)[]
-        i42 = int_ge(i34, -7)
+        i42 = int_le(-7, i34)
         guard_true(i42) []
         i45 = int_le(i35, i37)
         i46 = int_is_true(i39)
@@ -2779,9 +2797,9 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_true(i12) []
         i13 = int_le(i1, 90)
         guard_true(i13) []
-        i14 = int_gt(i1, 10)
+        i14 = int_lt(10, i1)
         guard_true(i14) []
-        i15 = int_ge(i1, 20)
+        i15 = int_le(20, i1)
         guard_true(i15) []
         jump()
         """
@@ -2807,15 +2825,15 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i0, i1, i2]
-        it1 = int_ge(i1, 0)
+        it1 = int_le(0, i1)
         guard_true(it1) []
-        it2 = int_gt(i2, 0)
+        it2 = int_lt(0, i2)
         guard_true(it2) []
         ix2 = call_i(321, i0, i1, descr=int_py_div_descr)
-        ix2t = int_ge(ix2, 0)
+        ix2t = int_le(0, ix2)
         guard_true(ix2t) []
         ix3 = call_i(321, i1, i0, descr=int_py_div_descr)
-        ix3t = int_ge(ix3, 0)
+        ix3t = int_le(0, ix3)
         guard_true(ix3t) []
         ix4 = call_i(321, i1, i2, descr=int_py_div_descr)
         # <== the check that ix4 is nonnegative was removed
@@ -2843,11 +2861,11 @@ class TestOptimizeIntBounds(BaseTestBasic):
         expected = """
         [i1, i2a, i2b, i2c]
         i3 = int_is_zero(i1)
-        i4 = int_gt(i2a, 7)
+        i4 = int_lt(7, i2a)
         guard_true(i4) []
         i6 = int_le(i2b, -7)
         guard_true(i6) []
-        i8 = int_gt(i2c, -7)
+        i8 = int_lt(-7, i2c)
         guard_true(i8) []
         i9 = int_is_zero(i2c)
         jump(i1, i2a, i2b, i2c)
@@ -2898,7 +2916,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
             """ % divisor
             expected = """
             [i1]
-            i3 = int_ge(i1, 0)
+            i3 = int_le(0, i1)
             guard_true(i3) []
             i4 = uint_mul_high(i1, %d)
             i2 = uint_rshift(i4, %d)
@@ -2963,7 +2981,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i7 = int_lshift(i1, 100)
         i9 = int_lt(i1b, 100)
         guard_true(i9) []
-        i10 = int_gt(i1b, -100)
+        i10 = int_lt(-100, i1b)
         guard_true(i10) []
         i13 = int_lshift(i1b, i2)
         i14 = int_rshift(i13, i2)
@@ -3016,7 +3034,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         expected = """
         [i4]
-        i1 = int_ge(i4, -50)
+        i1 = int_le(-50, i4)
         guard_true(i1) []
         i2 = int_le(i4, -40)
         guard_true(i2) []
@@ -3139,10 +3157,10 @@ class TestOptimizeIntBounds(BaseTestBasic):
         i2 = int_and(i0, 255)
         i3 = int_lt(i1, 5)
         guard_true(i3) []
-        i4 = int_gt(i1, -10)
+        i4 = int_lt(-10, i1)
         guard_true(i4) []
         i5 = int_mul(i2, i1)
-        i8 = int_gt(i5, 126)
+        i8 = int_lt(126, i5)
         guard_true(i8) []
         jump(i0, i1)
         """
@@ -3171,7 +3189,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_no_overflow() []
         i4 = int_lt(i3, 10)
         guard_true(i4) []
-        i5 = int_gt(i3, 2)
+        i5 = int_lt(2, i3)
         guard_true(i5) []
         jump(i0, i1)
         """
@@ -3200,7 +3218,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         guard_no_overflow() []
         i4 = int_le(i3, 10)
         guard_true(i4) []
-        i5 = int_ge(i3, 2)
+        i5 = int_le(2, i3)
         guard_true(i5) []
         jump(i0, i1)
         """
@@ -3219,7 +3237,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         expected = """
         [i0]
         i1 = int_add(i0, 1)
-        i2 = int_gt(i1, 0)
+        i2 = int_lt(0, i1)
         guard_true(i2) []
         jump(i1)
         """
@@ -3349,7 +3367,7 @@ finish()
         """
         expected = """
         [i0, i1]
-        i2 = int_ge(i1, 0)
+        i2 = int_le(0, i1)
         guard_true(i2) []
         i3 = uint_ge(i0, i1)
         guard_false(i3) []
@@ -3403,7 +3421,16 @@ finish()
         guard_true(i3) []
         finish(i2)
         """
-        self.optimize_loop(ops, ops)
+        expected = """
+        [i0]
+        i1 = int_and(i0, 1)
+        guard_true(i1) []
+        i2 = int_force_ge_zero(i0)
+        i3 = int_lt(0, i2) # not true!
+        guard_true(i3) []
+        finish(i2)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_int_eq_1_bool(self):
         ops = """
@@ -3432,7 +3459,7 @@ finish()
         """ % (LONG_BIT - 1, )
         expected = """
         [i0, i1]
-        i2 = int_ge(i1, 0)
+        i2 = int_le(0, i1)
         guard_true(i2) []
         i3 = int_le(i1, %s)
         guard_true(i3) []
@@ -3455,7 +3482,7 @@ finish()
         """
         expected = """
         [i0]
-        i4 = int_ge(i0, -100000)
+        i4 = int_le(-100000, i0)
         guard_true(i4) []
         i2 = int_neg(i0)
         i3 = int_add(i2, 50)
@@ -3475,7 +3502,7 @@ finish()
         """
         expected = """
         [i0]
-        i4 = int_ge(i0, -100000)
+        i4 = int_le(-100000, i0)
         guard_true(i4) []
         i2 = int_neg(i0)
         i3 = int_add(i2, 50)
@@ -3565,7 +3592,7 @@ finish()
         """
         expected = """
         [i0]
-        i1 = int_ge(i0, ConstInt(MAXINT))
+        i1 = int_le(ConstInt(MAXINT), i0)
         guard_true(i1) []
         jump(ConstInt(MAXINT))
         """
@@ -3626,9 +3653,9 @@ finish()
         """
         expected = """
         [i0, i1]
-        i4 = int_ge(i0, 3)
+        i4 = int_le(3, i0)
         guard_true(i4) []
-        i5 = int_ge(35, i0)
+        i5 = int_le(i0, 35)
         guard_true(i5) []
         i6 = uint_mul_high(i0, -2049638230412172401)
         i7 = uint_rshift(i6, 3)
@@ -3651,7 +3678,7 @@ finish()
         """
         expected = """
         [i0, i1]
-        i4 = int_ge(i0, 3)
+        i4 = int_le(3, i0)
         guard_true(i4) []
         i6 = uint_mul_high(i0, -2049638230412172401)
         i7 = uint_rshift(i6, 3)
@@ -3676,9 +3703,9 @@ finish()
         """
         expected = """
         [i0, i1, i10]
-        i2 = int_ge(i0, 0)
+        i2 = int_le(0, i0)
         guard_true(i2) []
-        i3 = int_ge(i1, 0)
+        i3 = int_le(0, i1)
         guard_true(i3) []
         i5 = uint_mul_high(i0, i1)
         i7 = uint_mul_high(i10, 1)
@@ -4259,7 +4286,7 @@ finish()
         [i0, i1, i2, i4]
         i12 = int_mul_ovf(i1, i2)
         guard_no_overflow() []
-        i5 = int_gt(i0, 2)
+        i5 = int_lt(2, i0)
         guard_true(i5) []
         jump(i12, i12)
         """
@@ -4291,6 +4318,9 @@ finish()
                     %s(i4) []
                     jump(i1, i2)
                     """ % (op, order, eqcmp, guard)
+                    if op == "int_gt":
+                        op = "int_lt"
+                        order = ", ".join(order.split(", ")[::-1])
                     expected = """
                     [i1, i2]
                     i3 = %s(%s)
@@ -4365,7 +4395,7 @@ finish()
         """
         expected = """
         [i1, i2]
-        i9 = int_gt(i2, 0)
+        i9 = int_lt(0, i2)
         guard_true(i9) []
         i3 = int_sub(i1, i2)
         jump(i1)
@@ -4480,7 +4510,7 @@ finish()
         """
         expected = """
         [i1, i2]
-        i3 = int_ge(i1, i2)
+        i3 = int_le(i2, i1)
         guard_false(i3) []
         jump(1, 1) # constant
         """
@@ -4495,7 +4525,7 @@ finish()
         """
         expected = """
         [i1, i2]
-        i3 = int_gt(i1, i2)
+        i3 = int_lt(i2, i1)
         guard_true(i3) []
         jump(1, 1) # constant
         """
@@ -4542,7 +4572,7 @@ class TestComplexIntOpts(BaseTestBasic):
         guard_no_overflow() []
         i4 = int_lt(i3, 10)
         guard_true(i4) []
-        i5 = int_gt(i3, 2)
+        i5 = int_lt(2, i3)
         guard_true(i5) []
         jump(i0, i1)
         """
@@ -4627,7 +4657,7 @@ class TestComplexIntOpts(BaseTestBasic):
         [i0]
         i2 = int_lt(i0, 10)
         guard_true(i2) []
-        i3 = int_ge(i0, 0)
+        i3 = int_le(0, i0)
         guard_true(i3) []
         jump()
         """

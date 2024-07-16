@@ -743,33 +743,31 @@ class OptIntBounds(Optimization):
             return
         return self.emit(op)
 
-    def optimize_INT_LT(self, op):
-        arg1 = get_box_replacement(op.getarg(0))
-        arg2 = get_box_replacement(op.getarg(1))
+    def _optimize_int_lt(self, arg0, arg1, op):
+        arg0 = get_box_replacement(arg0)
+        arg1 = get_box_replacement(arg1)
+        b0 = self.getintbound(arg0)
         b1 = self.getintbound(arg1)
-        b2 = self.getintbound(arg2)
-        if b1.known_lt(b2):
+        if b0.known_lt(b1):
             self.make_constant_int(op, 1)
-        elif b1.known_ge(b2) or arg1 is arg2:
+        elif b0.known_ge(b1) or arg0 is arg1:
             self.make_constant_int(op, 0)
-        elif self._must_be_eq_by_previous_compares(arg1, arg2):
+        elif self._must_be_eq_by_previous_compares(arg0, arg1):
             self.make_constant_int(op, 0)
         else:
             return self.emit(op)
 
+    def optimize_INT_LT(self, op):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        return self._optimize_int_lt(arg0, arg1, op)
+
     def optimize_INT_GT(self, op):
-        arg1 = get_box_replacement(op.getarg(0))
-        arg2 = get_box_replacement(op.getarg(1))
-        b1 = self.getintbound(arg1)
-        b2 = self.getintbound(arg2)
-        if b1.known_gt(b2):
-            self.make_constant_int(op, 1)
-        elif b1.known_le(b2) or arg1 is arg2:
-            self.make_constant_int(op, 0)
-        elif self._must_be_eq_by_previous_compares(arg1, arg2):
-            self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        op = self.replace_op_with(op, rop.INT_LT,
+                    args=[arg1, arg0])
+        return self._optimize_int_lt(arg1, arg0, op)
 
     def _optimize_int_le(self, arg0, arg1, op):
         b0 = self.getintbound(arg0)
@@ -801,6 +799,8 @@ class OptIntBounds(Optimization):
     def optimize_INT_GE(self, op):
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))
+        op = self.replace_op_with(op, rop.INT_LE,
+                    args=[arg1, arg0])
         return self._optimize_int_le(arg1, arg0, op)
 
     def optimize_UINT_LT(self, op):
