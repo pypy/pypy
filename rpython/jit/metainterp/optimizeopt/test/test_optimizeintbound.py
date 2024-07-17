@@ -1321,7 +1321,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         [i0]
         i1 = int_le(7, i0)
         guard_true(i1) []
-        i2 = int_le(i0, 7)
+        i2 = int_eq(i0, 7)
         guard_true(i2) []
         jump(10)
 
@@ -4620,6 +4620,19 @@ finish()
             guard_%s(i2) []
             jump(i0, i1)
             """ % (normalize_op(op1), negate_to_guardkind(negate1))
+        elif self._check_cmp_implies(cmp1, lambda a, b: cmp2(a, b) == (a == b), unsigned):
+            # there's not implication, but we can rewrite the second guard to a
+            # cmp, which is more precise
+            flip2adjust = "_g" in op2
+            expected = """
+            [i0, i1]
+            i2 = %s
+            guard_%s(i2) []
+            i3 = int_eq(%s)
+            guard_%s(i3) []
+            jump(i0, i1)
+            """ % (normalize_op(op1), negate_to_guardkind(negate1),
+                   flip_args(flip2 ^ flip2adjust), negate_to_guardkind(negate2))
         else:
             expected = """
             [i0, i1]

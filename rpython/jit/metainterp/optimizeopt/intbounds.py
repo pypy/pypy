@@ -810,25 +810,31 @@ class OptIntBounds(Optimization):
             self.make_constant_int(op, 1)
             return
         # x < y ⇒ x <= y
-        oldop = self.get_pure_result2(rop.INT_LT, arg0, arg1)
-        if oldop and self.getintbound(oldop).known_eq_const(1):
+        oldop_lt = self.get_pure_result2(rop.INT_LT, arg0, arg1)
+        if oldop_lt and self.getintbound(oldop_lt).known_eq_const(1):
             self.make_constant_int(op, 1)
             return
-        oldop = self.get_pure_result2(rop.INT_LE, arg1, arg0)
-        if oldop:
+        oldop_le = self.get_pure_result2(rop.INT_LE, arg1, arg0)
+        if oldop_le:
             # not y <= x ⇒ x <= y
-            b = self.getintbound(oldop)
+            b = self.getintbound(oldop_le)
             if b.known_eq_const(0):
                 self.make_constant_int(op, 1)
                 return
             if b.known_eq_const(1):
                 # y <= x ⇒ (x <= y ⇔ x == y)
                 op = self.replace_op_with(op, rop.INT_EQ,
-                        args=[arg1, arg0])
+                        args=[arg0, arg1])
+                return self.optimizer.send_extra_operation(op)
+        if oldop_lt:
+            if self.getintbound(oldop_lt).known_eq_const(0):
+                # not x < y ⇒ (x <= y ⇔ x == y)
+                op = self.replace_op_with(op, rop.INT_EQ,
+                        args=[arg0, arg1])
                 return self.optimizer.send_extra_operation(op)
         # x <= y ⇔ not y < x
-        oldop = self.get_pure_result2(rop.INT_LT, arg1, arg0)
-        return self._negate_oldop_or_return_op(op, oldop)
+        oldop_ltflip = self.get_pure_result2(rop.INT_LT, arg1, arg0)
+        return self._negate_oldop_or_return_op(op, oldop_ltflip)
 
     def optimize_INT_LE(self, op):
         arg0 = get_box_replacement(op.getarg(0))
