@@ -814,11 +814,18 @@ class OptIntBounds(Optimization):
         if oldop and self.getintbound(oldop).known_eq_const(1):
             self.make_constant_int(op, 1)
             return
-        # not y <= x ⇒ x <= y
         oldop = self.get_pure_result2(rop.INT_LE, arg1, arg0)
-        if oldop and self.getintbound(oldop).known_eq_const(0):
-            self.make_constant_int(op, 1)
-            return
+        if oldop:
+            # not y <= x ⇒ x <= y
+            b = self.getintbound(oldop)
+            if b.known_eq_const(0):
+                self.make_constant_int(op, 1)
+                return
+            if b.known_eq_const(1):
+                # y <= x ⇒ (x <= y ⇔ x == y)
+                op = self.replace_op_with(op, rop.INT_EQ,
+                        args=[arg1, arg0])
+                return self.optimizer.send_extra_operation(op)
         # x <= y ⇔ not y < x
         oldop = self.get_pure_result2(rop.INT_LT, arg1, arg0)
         return self._negate_oldop_or_return_op(op, oldop)

@@ -1785,3 +1785,11 @@ def test_prove_mod_lower_is_argument():
         x < 2 * y,
         res == (x - y)
     )
+
+def test_prove_int_le_rewritten_to_int_eq():
+    x = BitVec('x')
+    y = BitVec('y')
+    prove_implies(
+        y <= x,
+        (x <= y) == (x == y)
+    )
