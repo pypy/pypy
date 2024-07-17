@@ -904,7 +904,6 @@ class OptIntBounds(Optimization):
         return self._optimize_uint_lt(arg1, arg0, op)
 
     def propagate_bounds_UINT_GT(self, op):
-        import pdb;pdb.set_trace()
         r = self.getintbound(op)
         if r.is_constant():
             if r.get_constant_int() == 1:
