@@ -4620,7 +4620,7 @@ finish()
             guard_%s(i2) []
             jump(i0, i1)
             """ % (normalize_op(op1), negate_to_guardkind(negate1))
-        elif self._check_cmp_implies(cmp1, lambda a, b: cmp2(a, b) == (a == b), unsigned):
+        elif self._check_cmp_implies(cmp1, lambda a, b: cmp2(a, b) == ((a == b) ^ negate2), unsigned):
             # there's not implication, but we can rewrite the second guard to a
             # cmp, which is more precise
             flip2adjust = "_g" in op2
