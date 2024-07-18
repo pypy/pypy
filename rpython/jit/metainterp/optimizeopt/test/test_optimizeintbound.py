@@ -4512,6 +4512,24 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_constant_after_int_is_zero_and_uint_ge(self):
+        ops = """
+        [i34]
+        i35 = int_is_zero(i34)
+        guard_false(i35) []
+        i41 = uint_ge(1, i34)
+        guard_true(i41) []
+        jump(i34, 1) # constant
+        """
+        expected = """
+        [i34]
+        i35 = int_is_zero(i34)
+        guard_false(i35) []
+        i41 = uint_le(i34, 1)
+        guard_true(i41) []
+        jump(1, 1)
+        """
+        self.optimize_loop(ops, expected)
 
     # ____________________________________________________________
     # exhaustive ordering tests

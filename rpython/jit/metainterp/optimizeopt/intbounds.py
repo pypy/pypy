@@ -43,7 +43,13 @@ class OptIntBounds(Optimization):
         b = self.getintbound(box)
         if b.is_constant():
             self.make_constant_int(box, b.get_constant_int())
-
+        if b.lower == 0 or b.upper == 0:
+            oldop = self.get_pure_result(ResOperation(rop.INT_IS_TRUE, [box]))
+            if oldop and self.getintbound(oldop).known_eq_const(1):
+                b.make_ne_const(0)
+            oldop = self.get_pure_result(ResOperation(rop.INT_IS_ZERO, [box]))
+            if oldop and self.getintbound(oldop).known_eq_const(0):
+                b.make_ne_const(0)
         box1 = self.optimizer.as_operation(box)
         if box1 is not None:
             dispatch_bounds_ops(self, box1)
@@ -862,9 +868,7 @@ class OptIntBounds(Optimization):
         if b0.known_unsigned_ge(b1) or arg0 is arg1:
             self.make_constant_int(op, 0)
             return
-        if self._must_be_eq_by_previous_compares(arg0, arg1):
-            self.make_constant_int(op, 0)
-            return
+        # x == y ⇒ not x < y
         if self._must_be_eq_by_previous_compares(arg0, arg1):
             self.make_constant_int(op, 0)
             return
