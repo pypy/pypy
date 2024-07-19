@@ -212,7 +212,6 @@ class OptIntBounds(Optimization):
             if b0.is_constant() and b1.known_eq_const(b0.get_constant_int()):
                 return True
             return False
-        # XXX this should really go to intbound, mess
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))
         b0 = self.getintbound(arg0)
