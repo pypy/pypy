@@ -80,7 +80,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 42
         self.check_trace_count(1)
-        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
+        self.check_resops({'jump': 1, 'int_lt': 2, 'int_add': 2,
                            'guard_true': 2, 'int_sub': 2})
 
         if self.basic:
@@ -174,7 +174,7 @@ class BasicTests:
         assert res == 252
         self.check_trace_count(1)
         self.check_simple_loop(int_mul=0)
-        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
+        self.check_resops({'jump': 1, 'int_lt': 2, 'int_add': 2,
                            'int_mul': 1, 'guard_true': 2, 'int_sub': 2})
 
 
@@ -196,7 +196,7 @@ class BasicTests:
         assert res == 308
         self.check_trace_count(1)
         self.check_simple_loop(int_mul_ovf=0)
-        self.check_resops({'jump': 1, 'int_lshift': 2, 'int_gt': 2,
+        self.check_resops({'jump': 1, 'int_lshift': 2, 'int_lt': 2,
                            'int_mul_ovf': 1, 'int_add': 4,
                            'guard_true': 2, 'guard_no_overflow': 1,
                            'int_sub': 2})
@@ -268,7 +268,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 32, 16])
         assert res == 1692
         self.check_trace_count(3)
-        self.check_resops({'int_lt': 4, 'int_gt': 4, 'guard_false': 2,
+        self.check_resops({'int_lt': 8, 'guard_false': 2,
                            'guard_true': 6, 'int_sub': 4, 'jump': 3,
                            'int_mul': 3, 'int_add': 4})
 
@@ -351,7 +351,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 252
         self.check_trace_count(1)
-        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
+        self.check_resops({'jump': 1, 'int_lt': 2, 'int_add': 2,
                            'getfield_gc_i': 1, 'int_mul': 1,
                            'guard_true': 2, 'int_sub': 2})
 
@@ -1978,7 +1978,7 @@ class BasicTests:
         res = self.meta_interp(g, [6, 7])
         assert res == 6*8 + 6**8
         self.check_trace_count(4)
-        self.check_resops({'guard_class': 2, 'int_gt': 4,
+        self.check_resops({'guard_class': 2, 'int_lt': 4,
                            'getfield_gc_i': 4, 'guard_true': 4,
                            'int_sub': 4, 'jump': 2, 'int_mul': 2,
                            'int_add': 2})
@@ -2807,7 +2807,7 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20]) == f(20)
-        self.check_resops(int_lt=4, int_le=0, int_ge=0, int_gt=4)
+        self.check_resops(int_le=0, int_lt=8)
 
     def test_intbounds_not_generalized1(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa'])
@@ -2824,7 +2824,7 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20]) == f(20)
-        self.check_resops(int_lt=6, int_le=2, int_ge=4, int_gt=5)
+        self.check_resops(int_lt=11, int_le=6)
 
 
     def test_intbounds_not_generalized2(self):
@@ -2845,7 +2845,7 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20]) == f(20)
-        self.check_resops(int_lt=4, int_le=3, int_ge=3, int_gt=4)
+        self.check_resops(int_lt=8, int_le=6)
 
     def test_retrace_limit1(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
@@ -3732,7 +3732,7 @@ class BaseLLtypeTests(BasicTests):
             return s
         res = self.meta_interp(main, [10])
         assert res == main(10)
-        self.check_resops({'int_gt': 2, 'strlen': 2, 'guard_true': 2,
+        self.check_resops({'int_lt': 2, 'strlen': 2, 'guard_true': 2,
                            'int_sub': 2, 'jump': 1, 'call_r': 2,
                            'guard_no_exception': 2, 'int_add': 4})
 
@@ -3890,7 +3890,7 @@ class BaseLLtypeTests(BasicTests):
 
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_resops({'jump': 1, 'guard_true': 2, 'int_gt': 2,
+        self.check_resops({'jump': 1, 'guard_true': 2, 'int_lt': 2,
                            'int_sub': 2})
 
     def test_virtual_opaque_ptr(self):
@@ -3910,7 +3910,7 @@ class BaseLLtypeTests(BasicTests):
             return n
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_resops({'jump': 1, 'guard_true': 2, 'int_gt': 2,
+        self.check_resops({'jump': 1, 'guard_true': 2, 'int_lt': 2,
                            'int_sub': 2})
 
 
@@ -3932,7 +3932,7 @@ class BaseLLtypeTests(BasicTests):
             return n
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+        self.check_resops({'int_sub': 2, 'int_lt': 2, 'guard_true': 2,
                            'jump': 1})
 
     def test_virtual_after_bridge(self):

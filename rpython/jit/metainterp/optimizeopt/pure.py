@@ -181,10 +181,6 @@ class OptPure(Optimization):
 
     def getrecentops(self, opnum, create=True):
         cls = opclasses[opnum]
-        if cls.boolreflex != -1 and create:
-            # make sure that we don't try to add (u)int_gt/e to recentops, and
-            # normalize to the other ones instead
-            assert opnum <= cls.boolreflex
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
             opnum = opnum - rop._OVF_FIRST
         else:
