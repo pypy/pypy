@@ -214,7 +214,7 @@ The ``time`` submodule exposes the platform-dependent clock types such as
 
 Extended Signal Handling
 ------------------------
-``thread.signals_enbaled`` is a context manager to use in non-main threads.
+``thread.signals_enabled`` is a context manager to use in non-main threads.
     enables receiving signals in a "with" statement.  More precisely, if a
     signal is received by the process, then the signal handler might be
     called either in the main thread (as usual) or within another thread
