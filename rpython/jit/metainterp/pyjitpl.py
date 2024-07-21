@@ -283,7 +283,7 @@ class MIFrame(object):
 
     # ------------------------------
 
-    for _opimpl in ['int_and', 'int_or', 'int_xor', 'int_signext',
+    for _opimpl in ['int_signext',
                     'uint_mul_high',
                     'float_add', 'float_sub', 'float_mul', 'float_truediv',
                     'float_lt', 'float_le', 'float_eq',
@@ -374,7 +374,7 @@ class MIFrame(object):
         return self.execute(rop.INT_OR, b1, b2)
 
     @arguments("box", "box")
-    def opimpl_int_or(self, b1, b2):
+    def opimpl_int_xor(self, b1, b2):
         if b1 is b2:
             return ConstInt(0)
         if _check_constint(b1) and b1.getint() == 0:

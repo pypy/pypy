@@ -2,7 +2,7 @@ import sys, py
 
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib import jit
-from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask, LONG_BIT
 from rpython.rlib.rstring import StringBuilder
 
 
@@ -958,4 +958,80 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [0])
         assert res == 26
         self.check_operations_history(guard_true=1, guard_false=2) # should not be 2 and 3
+
+    def test_simple_arithmetic_foldings(self):
+        def fn(a, zero, one):
+            shift = a & (LONG_BIT - 1)
+            jit.promote(zero)
+            jit.promote(one)
+            res = a + zero
+            res -= zero + a
+            try:
+                res += ovfcheck(zero + a)
+            except OverflowError:
+                return -1
+            try:
+                res -= ovfcheck(a + zero)
+            except OverflowError:
+                return -1
+            res += a - zero
+            try:
+                res -= ovfcheck(a - zero)
+            except OverflowError:
+                return -1
+            really_also_a = one
+            if one:
+                really_also_a = a
+            res += a - really_also_a
+            res += a * one
+            res -= one * a
+            res += a * zero
+            res += zero * a
+            try:
+                res += ovfcheck(zero * a)
+            except OverflowError:
+                return -1
+            try:
+                res += ovfcheck(a * zero)
+            except OverflowError:
+                return -1
+            try:
+                res += ovfcheck(one * a)
+            except OverflowError:
+                return -1
+            try:
+                res -= ovfcheck(a * one)
+            except OverflowError:
+                return -1
+
+            res += zero & a
+            res += a & zero
+            res += a & a
+            res -= a | zero
+            res += zero | a
+            res -= a | a
+            res += a ^ zero
+            res -= zero ^ a
+            res += a ^ a
+
+            res += zero << shift
+            res += a << zero
+            res += zero >> shift
+            res -= a >> zero
+            res += intmask(r_uint(zero) >> r_uint(shift))
+            res += intmask(r_uint(a) >> r_uint(zero)) # this makes res = a
+
+            res += a < really_also_a
+            res *= a <= really_also_a
+            res += a > really_also_a
+            res *= a >= really_also_a
+            res *= a == really_also_a
+            res += a != really_also_a
+            res += -a # this is the only operation left
+
+            return res
+        res = self.interp_operations(fn, [124, 0, 1])
+        assert res == fn(124, 0, 1)
+        self.check_operations_history(guard_value=2, int_neg=1, int_add=1, int_and=1)
+
 
