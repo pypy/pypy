@@ -18,104 +18,135 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-# Bah, this would be easier to test if curses/terminfo didn't have so
-# much non-introspectable global state.
+from collections import deque
 
-from pyrepl import keymap
-from pyrepl.console import Event
-from pyrepl import curses
+from . import keymap
+from .console import Event
+from . import curses
 from .trace import trace
 from termios import tcgetattr, VERASE
 import os
-try:
-    unicode
-except NameError:
-    unicode = str
 
 
-_keynames = {
-    "delete" : "kdch1",
-    "down" : "kcud1",
-    "end" : "kend",
-    "enter" : "kent",
-    "f1"  : "kf1",    "f2"  : "kf2",    "f3"  : "kf3",    "f4"  : "kf4",
-    "f5"  : "kf5",    "f6"  : "kf6",    "f7"  : "kf7",    "f8"  : "kf8",
-    "f9"  : "kf9",    "f10" : "kf10",   "f11" : "kf11",   "f12" : "kf12",
-    "f13" : "kf13",   "f14" : "kf14",   "f15" : "kf15",   "f16" : "kf16",
-    "f17" : "kf17",   "f18" : "kf18",   "f19" : "kf19",   "f20" : "kf20",
-    "home" : "khome",
-    "insert" : "kich1",
-    "left" : "kcub1",
-    "page down" : "knp",
-    "page up"   : "kpp",
-    "right" : "kcuf1",
-    "up" : "kcuu1",
-    }
+# Mapping of human-readable key names to their terminal-specific codes
+TERMINAL_KEYNAMES = {
+    "delete": "kdch1",
+    "down": "kcud1",
+    "end": "kend",
+    "enter": "kent",
+    "home": "khome",
+    "insert": "kich1",
+    "left": "kcub1",
+    "page down": "knp",
+    "page up": "kpp",
+    "right": "kcuf1",
+    "up": "kcuu1",
+}
 
-def general_keycodes():
+
+# Function keys F1-F20 mapping
+TERMINAL_KEYNAMES.update(("f%d" % i, "kf%d" % i) for i in range(1, 21))
+
+# Known CTRL-arrow keycodes
+CTRL_ARROW_KEYCODES= {
+    # for xterm, gnome-terminal, xfce terminal, etc.
+    b'\033[1;5D': 'ctrl left',
+    b'\033[1;5C': 'ctrl right',
+    # for rxvt
+    b'\033Od': 'ctrl left',
+    b'\033Oc': 'ctrl right',
+}
+
+def get_terminal_keycodes() -> dict[bytes, str]:
+    """
+    Generates a dictionary mapping terminal keycodes to human-readable names.
+    """
     keycodes = {}
-    for key, tiname in _keynames.items():
-        keycode = curses.tigetstr(tiname)
-        trace('key {key} tiname {tiname} keycode {keycode!r}', **locals())
+    for key, terminal_code in TERMINAL_KEYNAMES.items():
+        keycode = curses.tigetstr(terminal_code)
+        trace('key {key} tiname {terminal_code} keycode {keycode!r}', **locals())
         if keycode:
             keycodes[keycode] = key
+    keycodes.update(CTRL_ARROW_KEYCODES)
     return keycodes
 
-
-
-def EventQueue(fd, encoding):
-    keycodes = general_keycodes()
-    if os.isatty(fd):
-        backspace = tcgetattr(fd)[6][VERASE]
-        keycodes[backspace] = unicode('backspace')
-    k = keymap.compile_keymap(keycodes)
-    trace('keymap {k!r}', k=k)
-    return EncodedQueue(k, encoding)
-
-class EncodedQueue(object):
-    def __init__(self, keymap, encoding):
-        self.k = self.ck = keymap
-        self.events = []
+class EventQueue:
+    def __init__(self, fd: int, encoding: str) -> None:
+        self.keycodes = get_terminal_keycodes()
+        if os.isatty(fd):
+            backspace = tcgetattr(fd)[6][VERASE]
+            self.keycodes[backspace] = "backspace"
+        self.compiled_keymap = keymap.compile_keymap(self.keycodes)
+        self.keymap = self.compiled_keymap
+        trace("keymap {k!r}", k=self.keymap)
+        self.encoding = encoding
+        self.events: deque[Event] = deque()
         self.buf = bytearray()
-        self.encoding=encoding
 
-    def get(self):
+    def get(self) -> Event | None:
+        """
+        Retrieves the next event from the queue.
+        """
         if self.events:
-            return self.events.pop(0)
+            return self.events.popleft()
         else:
             return None
 
-    def empty(self):
+    def empty(self) -> bool:
+        """
+        Checks if the queue is empty.
+        """
         return not self.events
 
-    def flush_buf(self):
+    def flush_buf(self) -> bytearray:
+        """
+        Flushes the buffer and returns its contents.
+        """
         old = self.buf
         self.buf = bytearray()
-        return bytes(old)
+        return old
 
-    def insert(self, event):
+    def insert(self, event: Event) -> None:
+        """
+        Inserts an event into the queue.
+        """
         trace('added event {event}', event=event)
         self.events.append(event)
 
-    def push(self, char):
-        self.buf.append(ord(char))
-        if char in self.k:
-            if self.k is self.ck:
+    def push(self, char: int | bytes) -> None:
+        """
+        Processes a character by updating the buffer and handling special key mappings.
+        """
+        ord_char = char if isinstance(char, int) else ord(char)
+        char = bytes(bytearray((ord_char,)))
+        self.buf.append(ord_char)
+        if char in self.keymap:
+            if self.keymap is self.compiled_keymap:
                 #sanity check, buffer is empty when a special key comes
                 assert len(self.buf) == 1
-            k = self.k[char]
+            k = self.keymap[char]
             trace('found map {k!r}', k=k)
             if isinstance(k, dict):
-                self.k = k
+                self.keymap = k
             else:
                 self.insert(Event('key', k, self.flush_buf()))
-                self.k = self.ck
+                self.keymap = self.compiled_keymap
+
+        elif self.buf and self.buf[0] == 27:  # escape
+            # escape sequence not recognized by our keymap: propagate it
+            # outside so that i can be recognized as an M-... key (see also
+            # the docstring in keymap.py
+            trace('unrecognized escape sequence, propagating...')
+            self.keymap = self.compiled_keymap
+            self.insert(Event('key', '\033', bytearray(b'\033')))
+            for _c in self.flush_buf()[1:]:
+                self.push(_c)
 
         else:
             try:
                 decoded = bytes(self.buf).decode(self.encoding)
-            except:
+            except UnicodeError:
                 return
-
-            self.insert(Event('key', decoded, self.flush_buf()))
-            self.k = self.ck
+            else:
+                self.insert(Event('key', decoded, self.flush_buf()))
+            self.keymap = self.compiled_keymap
