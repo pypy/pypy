@@ -897,5 +897,7 @@ def test_classmethod_not_callable():
         classmethod(lambda x: x)(1)
 
 def test_builtin_functions___self__():
-    import builtins
+    import builtins, math
     assert abs.__self__ is builtins
+
+    assert math.isinf.__self__ is math
