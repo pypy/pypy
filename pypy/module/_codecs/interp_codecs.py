@@ -545,7 +545,7 @@ def _call_codec(space, w_coder, w_obj, action, encoding, errors):
         else:
             w_res = space.call_function(w_coder, w_obj)
     except OperationError as operr:
-        import pdb;pdb.xpm()
+        #import pdb;pdb.xpm()
         raise _wrap_codec_error(space, operr, action, encoding)
     if (not space.isinstance_w(w_res, space.w_tuple) or space.len_w(w_res) != 2):
         if action[:2] == 'en':

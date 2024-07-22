@@ -10,7 +10,7 @@ def codepoints_in_utf8(s, start=0, end=sys.maxint):
     return codepoints_in_utf8_orig(s, start, end)
 
 class TestCodecs:
-    def test_dont_rewrap_input_utf8_16(self, monkeypatch):
+    def test_dont_rewrap_input_utf8_7(self, monkeypatch):
         space = self.space
         input = (u'a\udcdb'*500).encode('utf-8')
         w_s = space.newtext(input)
@@ -18,7 +18,7 @@ class TestCodecs:
         w_err = space.newtext('surrogateescape')
         monkeypatch.setattr(rutf8, 'codepoints_in_utf8', codepoints_in_utf8)
         space.call_method(w_s, 'encode', space.newtext('utf-8'), w_err)
-        space.call_method(w_s, 'encode', space.newtext('utf-16'), w_err)
+        space.call_method(w_s, 'encode', space.newtext('utf-7'), w_err)
 
     def test_dont_rewrap_input_ascii(self, monkeypatch):
         space = self.space

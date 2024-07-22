@@ -246,9 +246,6 @@ def _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler, w_input):
                 delta += 1
                 if pos >= len(s):
                     break
-            if w_input is None:
-                length = rutf8.codepoints_in_utf8(s)
-                w_input = space.newtext(s, length)
             # XXX do we care about performance in this case?
             res, newindex, rettype, obj = errorhandler(errors, 'utf-8',
                         'surrogates not allowed', s, index, index + delta,
@@ -272,14 +269,14 @@ def _utf8_encode_utf_8_deal_with_surrogates(s, errors, errorhandler, w_input):
                     pos = rutf8._pos_at_index(s, newindex)
     return result.build()
 
-def utf8_encode_latin_1(s, errors, errorhandler, allow_surrogates=False):
+def utf8_encode_latin_1(s, errors, errorhandler, allow_surrogates=False, w_input=None):
     try:
         rutf8.check_ascii(s)
         return s
     except rutf8.CheckError, e:
-        return _utf8_encode_latin_1_slowpath(s, e.pos, errors, errorhandler)
+        return _utf8_encode_latin_1_slowpath(s, e.pos, errors, errorhandler, w_input=w_input)
 
-def _utf8_encode_latin_1_slowpath(s, first_non_ascii_char, errors, errorhandler):
+def _utf8_encode_latin_1_slowpath(s, first_non_ascii_char, errors, errorhandler, w_input=None):
     result = StringBuilder(len(s))
     result.append_slice(s, 0, first_non_ascii_char)
     pos = index = first_non_ascii_char
@@ -308,10 +305,15 @@ def _utf8_encode_latin_1_slowpath(s, first_non_ascii_char, errors, errorhandler)
             else:
                 for ch in res:
                     result.append(ch)
-            s = obj
+            if obj is not s:
+                s = obj
+                w_input = None
             if index != newindex:  # Should be uncommon
                 index = newindex
-                pos = rutf8._pos_at_index(s, newindex)
+                if w_input is not None:
+                    pos = w_input._index_to_byte(newindex)
+                else:
+                    pos = rutf8._pos_at_index(s, newindex)
     return result.build()
 
 def utf8_encode_ascii(s, errors, errorhandler, allow_surrogates=False, w_input=None):
@@ -1073,7 +1075,7 @@ def str_decode_utf_7(s, errors, final=False,
     assert final_length >= 0
     return result.build()[:final_length], outsize, final_size
 
-def utf8_encode_utf_7(s, errors, errorhandler, allow_surrogates=False):
+def utf8_encode_utf_7(s, errors, errorhandler, allow_surrogates=False, w_input=None):
     # only uses s, other arguments are ignored
     size = len(s)
     if size == 0:
@@ -1296,7 +1298,6 @@ def utf8_encode_utf_16_helper(s, errors,
         elif cp >= 0xE000 or allow_surrogates:
             _STORECHAR(result, cp, byteorder)
         else:
-            import pdb;pdb.set_trace()
             r, newindex, rettype, new_s = errorhandler(
                 errors, public_encoding_name, 'surrogates not allowed',
                 s, index, index+1, w_input=w_input)
