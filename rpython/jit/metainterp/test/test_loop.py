@@ -12,7 +12,7 @@ class LoopTest(object):
     enable_opts = ''
 
     automatic_promotion_result = {
-        'int_add' : 6, 'int_gt' : 1, 'guard_false' : 1, 'jump' : 1,
+        'int_add' : 6, 'int_lt' : 1, 'guard_false' : 1, 'jump' : 1,
         'guard_value' : 3
     }
 
@@ -704,10 +704,10 @@ class LoopTest(object):
         assert res == 102
         self.check_trace_count(1)
         if 'unroll' in self.enable_opts:
-            self.check_resops({'int_add' : 6, 'int_gt' : 2,
+            self.check_resops({'int_add' : 6, 'int_lt' : 2,
                                'guard_false' : 2, 'jump' : 1})
         else:
-            self.check_resops({'int_add' : 3, 'int_gt' : 1,
+            self.check_resops({'int_add' : 3, 'int_lt' : 1,
                                'guard_false' : 1, 'jump' : 1})
 
     def test_automatic_promotion(self):

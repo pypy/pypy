@@ -112,7 +112,7 @@ class CallTest(object):
         res = self.meta_interp(f, [21, 5, 0])
         assert res == -1
         # the COND_CALL_VALUE is constant-folded away by optimizeopt.py
-        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+        self.check_resops({'int_sub': 2, 'int_lt': 2, 'guard_true': 2,
                            'jump': 1})
 
     def test_cond_call_constant_in_optimizer_1(self):
@@ -135,7 +135,7 @@ class CallTest(object):
         res = self.meta_interp(f, [21, 5, 0])
         assert res == -1
         # the COND_CALL_VALUE is constant-folded away by optimizeopt.py
-        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+        self.check_resops({'int_sub': 2, 'int_lt': 2, 'guard_true': 2,
                            'jump': 1})
 
     def test_cond_call_constant_in_optimizer_2(self):

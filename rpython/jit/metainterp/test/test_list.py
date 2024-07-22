@@ -228,7 +228,7 @@ class ListTests:
             return s
         res = self.meta_interp(f, [15], listops=True)
         assert res == f(15)
-        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
+        self.check_resops({'jump': 1, 'int_lt': 2, 'int_add': 2,
                            'guard_true': 2, 'int_sub': 2})
 
     def test_newlist_hint(self):
@@ -294,7 +294,7 @@ class ListTests:
 
         self.meta_interp(f, [5])
         self.check_resops({'int_sub': 2,
-                           'int_gt': 2,
+                           'int_lt': 2,
                            'guard_true': 2,
                            'jump': 1})
 
@@ -320,7 +320,7 @@ class ListTests:
 
         self.meta_interp(f, [5])
         self.check_resops({'int_sub': 2,
-                           'int_gt': 2,
+                           'int_lt': 2,
                            'guard_true': 2,
                            'jump': 1})
 
@@ -342,7 +342,7 @@ class ListTests:
 
         self.meta_interp(f, [5])
         self.check_resops({'int_sub': 2,
-                           'int_gt': 2,
+                           'int_lt': 2,
                            'guard_true': 2,
                            'jump': 1})
 

@@ -612,7 +612,7 @@ class StringTests:
             return n
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == 0
-        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+        self.check_resops({'int_sub': 2, 'int_lt': 2, 'guard_true': 2,
                            'jump': 1})
 
     def test_stringbuilder_append_char(self):
@@ -631,7 +631,7 @@ class StringTests:
             return n
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == 0
-        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+        self.check_resops({'int_sub': 2, 'int_lt': 2, 'guard_true': 2,
                            'jump': 1})
 
     def test_stringbuilder_append_1(self):
@@ -649,7 +649,7 @@ class StringTests:
             return n
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == 0
-        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+        self.check_resops({'int_sub': 2, 'int_lt': 2, 'guard_true': 2,
                            'jump': 1})
 
     def test_stringbuilder_append_2(self):
@@ -668,7 +668,7 @@ class StringTests:
             return n
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == 0
-        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+        self.check_resops({'int_sub': 2, 'int_lt': 2, 'guard_true': 2,
                            'jump': 1})
 
     def test_stringbuilder_append_empty(self):
@@ -684,7 +684,7 @@ class StringTests:
             return n
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == 0
-        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+        self.check_resops({'int_sub': 2, 'int_lt': 2, 'guard_true': 2,
                            'jump': 1})
 
     def test_stringbuilder_append_len2_1(self):
@@ -765,7 +765,7 @@ class StringTests:
             return n
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == 0
-        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+        self.check_resops({'int_sub': 2, 'int_lt': 2, 'guard_true': 2,
                            'jump': 1})
 
     def test_stringbuilder_append_multiple_char_1(self):
@@ -786,7 +786,7 @@ class StringTests:
             return n
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == 0
-        self.check_resops({'int_sub': 2, 'int_gt': 2, 'guard_true': 2,
+        self.check_resops({'int_sub': 2, 'int_lt': 2, 'guard_true': 2,
                            'jump': 1})
 
     def test_stringbuilder_append_multiple_char_2(self):
@@ -864,7 +864,7 @@ class StringTests:
         res = self.meta_interp(f, [9], backendopt=True)
         assert res == f(9)
         self.check_resops({
-            'jump': 1, 'guard_true': 2, 'int_ge': 2, 'int_add': 2, 'int_sub': 2
+            'jump': 1, 'guard_true': 2, 'int_le': 2, 'int_add': 2, 'int_sub': 2
         })
 
     def test_compare_single_char_for_ordering(self):
@@ -1031,7 +1031,7 @@ class TestLLtypeUnicode(TestLLtype):
         # guard_false(len(search_string) == 0)
         # guard_false(res >= 0)
         # guard_true(z < 10)
-        self.check_simple_loop(guard_true=2, guard_false=2)
+        self.check_simple_loop(guard_true=3, guard_false=1)
 
         res = self.meta_interp(f, [10], backendopt=True)
         assert res == f(10)

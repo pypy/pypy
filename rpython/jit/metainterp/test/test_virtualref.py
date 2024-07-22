@@ -692,7 +692,7 @@ class VRefTests(object):
         res = self.meta_interp(f, [10])
         assert res == 0
         self.check_resops({
-            'int_sub': 2, 'int_gt': 2, 'jump': 1, 'guard_true': 2,
+            'int_sub': 2, 'int_lt': 2, 'jump': 1, 'guard_true': 2,
             'force_token': 2, 'setfield_gc': 1
         })
 

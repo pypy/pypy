@@ -368,7 +368,7 @@ class Optimizer(Optimization):
                 return None # fast return if the opnum is wrong
             if op in self._emittedoperations:
                 return op
-            if op is self.optheap.postponed_op:
+            if self.optheap is not None and op is self.optheap.postponed_op:
                 return op
         return None
 

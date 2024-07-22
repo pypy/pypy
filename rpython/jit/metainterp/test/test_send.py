@@ -20,7 +20,7 @@ class SendTests(object):
             return c
         res = self.meta_interp(f, [1])
         assert res == 2
-        self.check_resops({'jump': 1, 'guard_true': 2, 'int_gt': 2,
+        self.check_resops({'jump': 1, 'guard_true': 2, 'int_lt': 2,
                            'int_sub': 2}) # all folded away
 
     def test_red_builtin_send(self):
@@ -66,7 +66,7 @@ class SendTests(object):
         res = self.meta_interp(f, [1], policy=StopAtXPolicy(externfn),
                                backendopt=True)
         assert res == 43
-        self.check_resops({'int_gt': 2, 'getfield_gc_i': 2,
+        self.check_resops({'int_lt': 2, 'getfield_gc_i': 2,
                            'guard_true': 2, 'int_sub': 2, 'jump': 1,
                            'call_r': 2, 'guard_no_exception': 2,
                            'int_add': 2})

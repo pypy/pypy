@@ -248,7 +248,7 @@ class TestLLWarmspot(LLJitMixin):
                 m = m - 1
         self.meta_interp(f1, [8])
         self.check_trace_count(1)
-        self.check_resops({'jump': 1, 'guard_true': 2, 'int_gt': 2,
+        self.check_resops({'jump': 1, 'guard_true': 2, 'int_lt': 2,
                            'int_sub': 2})
 
     def test_void_red_variable(self):

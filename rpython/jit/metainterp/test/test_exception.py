@@ -38,7 +38,7 @@ class ExceptionTests:
         res = self.meta_interp(f, [10])
         assert res == 0
         self.check_resops({'jump': 1, 'guard_true': 2,
-                           'int_gt': 2, 'int_sub': 2})
+                           'int_lt': 2, 'int_sub': 2})
 
     def test_bridge_from_guard_exception(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])

@@ -192,7 +192,7 @@ class TestLLtype(LLJitMixin):
                 a = a2
             a[0] = n
             x1 = a[0]
-            a[n - n] = n + 1
+            a[n + 1 - n - 1] = n + 1
             return a[0] + x1
         res = self.interp_operations(fn, [7])
         assert res == 7 + 7 + 1
@@ -228,7 +228,7 @@ class TestLLtype(LLJitMixin):
                 a = a2
             a[0] = n + 0.01
             x1 = a[0]
-            a[n - n] = n + 0.1
+            a[n + 1 - n - 1] = n + 0.1
             return a[0] + x1
         res = self.interp_operations(fn, [7])
         assert res == 7 + 7 + 0.01 + 0.1
@@ -362,7 +362,7 @@ class TestLLtype(LLJitMixin):
                     a.append(5)
             a[0] = n
             x1 = a[0]
-            a[n - n] = n + 1
+            a[n + 1 - n - 1] = n + 1
             return a[0] + x1
         res = self.interp_operations(fn, [7])
         assert res == 7 + 7 + 1
