@@ -218,7 +218,7 @@ class InteractiveColoredConsole(code.InteractiveConsole):
                 tb_exc = traceback.TracebackException(
                     ei[0],
                     ei[1],
-                    last_tb,
+                    last_tb.tb_next,
                     _frame_constructor=traceback._construct_positionful_frame
                 )
                 lines = tb_exc.format(colorize=self.can_colorize)
