@@ -173,6 +173,7 @@ class InteractiveColoredConsole(code.InteractiveConsole):
         The output is written by self.write(), below.
 
         """
+        import traceback
         # pypy modification: rewrite this function to a) support positions and
         # b) pass self.can_colorize
         type, value, tb = sys.exc_info()

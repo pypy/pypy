@@ -136,7 +136,7 @@ def format_exception(exc, /, value=_sentinel, tb=_sentinel, limit=None, \
     return list(te.format(chain=chain, colorize=colorize))
 
 
-def format_exception_only(exc, /, value=_sentinel):
+def format_exception_only(exc, /, value=_sentinel, colorize=False):
     """Format the exception part of a traceback.
 
     The return value is a list of strings, each ending in a newline.
@@ -153,7 +153,7 @@ def format_exception_only(exc, /, value=_sentinel):
     if value is _sentinel:
         value = exc
     te = TracebackException(type(value), value, None, compact=True)
-    return list(te.format_exception_only())
+    return list(te.format_exception_only(colorize=colorize))
 
 
 # -- not official API but folk probably use these two functions.
@@ -758,8 +758,13 @@ class TracebackException:
         # Show exactly where the problem was found.
         filename_suffix = ''
         if self.lineno is not None:
-            yield '  File "{}", line {}\n'.format(
-                self.filename or "<string>", self.lineno)
+            fn = self.filename or "<string>"
+            if colorize:
+                from _colorize import ANSIColors
+                yield f'  File {ANSIColors.MAGENTA}"{fn}"{ANSIColors.RESET}, line {ANSIColors.MAGENTA}{self.lineno}{ANSIColors.RESET}\n'
+            else:
+                yield '  File "{}", line {}\n'.format(
+                    self.filename or "<string>", self.lineno)
         elif self.filename is not None:
             filename_suffix = ' ({})'.format(self.filename)
 
@@ -771,9 +776,9 @@ class TracebackException:
             rtext = text.rstrip('\n')
             ltext = rtext.lstrip(' \n\f')
             spaces = len(rtext) - len(ltext)
-            yield '    {}\n'.format(ltext)
-
-            if self.offset is not None:
+            if self.offset is None:
+                yield '    {}\n'.format(ltext)
+            else:
                 offset = self.offset
                 end_offset = self.end_offset if self.end_offset not in {None, 0} else offset
                 if offset == end_offset or end_offset == -1:
@@ -783,9 +788,26 @@ class TracebackException:
                 colno = offset - 1 - spaces
                 end_colno = end_offset - 1 - spaces
                 if colno >= 0:
-                    # non-space whitespace (likes tabs) must be kept for alignment
                     caretspace = ((c if c.isspace() else ' ') for c in ltext[:colno])
-                    yield '    {}{}'.format("".join(caretspace), ('^' * (end_colno - colno) + "\n"))
+                    start_color = end_color = ""
+                    if colorize:
+                        start_color = ANSIColors.BOLD_RED
+                        end_color = ANSIColors.RESET
+                        ltext = (
+                            ltext[:colno] +
+                            start_color + ltext[colno:end_colno] + end_color +
+                            ltext[end_colno:]
+                        )
+                    yield '    {}\n'.format(ltext)
+                    # non-space whitespace (likes tabs) must be kept for alignment
+                    yield '    {}{}{}{}\n'.format(
+                        "".join(caretspace),
+                        start_color,
+                        ('^' * (end_colno - colno)),
+                        end_color,
+                    )
+                else:
+                    yield '    {}\n'.format(ltext)
         msg = self.msg or "<no detail available>"
         yield "{}: {}{}\n".format(stype, msg, filename_suffix)
 
