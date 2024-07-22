@@ -161,11 +161,11 @@ class InteractiveColoredConsole(code.InteractiveConsole):
         super().__init__(locals=locals, filename=filename)  # type: ignore[call-arg]
         self.can_colorize = _colorize.can_colorize()
 
-    #def showsyntaxerror(self, filename=None):
-    #    super().showsyntaxerror(colorize=self.can_colorize)
+    def showsyntaxerror(self, filename=None):
+        super().showsyntaxerror(colorize=self.can_colorize)
 
-    #def showtraceback(self):
-    #    super().showtraceback(colorize=self.can_colorize)
+    def showtraceback(self):
+        super().showtraceback(colorize=self.can_colorize)
 
     def push(self, line, filename=None, _symbol="single"):
         """Push a line to the interpreter.

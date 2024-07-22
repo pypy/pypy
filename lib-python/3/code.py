@@ -128,7 +128,7 @@ class InteractiveInterpreter:
             # over self.write
             sys.excepthook(type, value, tb)
 
-    def showtraceback(self):
+    def showtraceback(self, *, colorize=False):
         """Display the exception that just occurred.
 
         We remove the first stack item because it is our own code.
@@ -139,7 +139,7 @@ class InteractiveInterpreter:
         sys.last_type, sys.last_value, last_tb = ei = sys.exc_info()
         sys.last_traceback = last_tb
         try:
-            lines = traceback.format_exception(ei[0], ei[1], last_tb.tb_next)
+            lines = traceback.format_exception(ei[0], ei[1], last_tb.tb_next, colorize=colorize)
             if sys.excepthook is sys.__excepthook__:
                 self.write(''.join(lines))
             else:
