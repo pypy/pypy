@@ -158,8 +158,15 @@ def format_exception_only(exc, /, value=_sentinel):
 
 # -- not official API but folk probably use these two functions.
 
-def _format_final_exc_line(etype, value):
+def _format_final_exc_line(etype, value, colorize=False):
     valuestr = _some_str(value)
+    if colorize:
+        from _colorize import ANSIColors
+        if value is None or not valuestr:
+            line = f"{ANSIColors.BOLD_MAGENTA}{etype}{ANSIColors.RESET}\n"
+        else:
+            line = f"{ANSIColors.BOLD_MAGENTA}{etype}{ANSIColors.RESET}: {ANSIColors.MAGENTA}{valuestr}{ANSIColors.RESET}\n"
+        return line
     if value is None or not valuestr:
         line = "%s\n" % etype
     else:
@@ -319,6 +326,24 @@ def _walk_stack(f):
     while f is not None:
         yield f, f.f_lineno
         f = f.f_back
+
+def _construct_positionful_frame(f, last_i, *args, **kwargs):
+    # used from module/sys/app.py and from pyrepl
+    f_summary = FrameSummary(*args, **kwargs)
+
+    # If we can't retrieve the traceback's last instruction
+    # we will give up here. It normally shouldn't happen but
+    # just handling the error path.
+    if last_i is not None:
+        # last_i represents the offset in terms of bytes, so for normalizing it
+        # for a list of instructions we need to divide it by 2.
+        instr_index = last_i // 2
+        positions = f.f_code._positions()
+        if len(positions) > instr_index:
+            _, f_summary.end_lineno, f_summary.colno, f_summary.end_colno = positions[instr_index]
+
+    return f_summary
+
 # end PyPy modification
 
 
@@ -444,7 +469,6 @@ class StackSummary(list):
         """
         # pypy modification: mainly taken from cpy 3.13 to support colors
         colorize = kwargs.get("colorize", False)
-        print(f"_format_frame_summary {colorize=}")
         row = []
         filename = frame_summary.filename
         if colorize:
@@ -468,7 +492,6 @@ class StackSummary(list):
         if frame_summary.line:
             row.append('    {}\n'.format(frame_summary.line.strip()))
             # PyPy 3 change: precise traceback ranges
-            print(frame_summary.__dict__)
             if hasattr(frame_summary, 'end_lineno'):
                 assert hasattr(frame_summary, 'colno')
                 assert hasattr(frame_summary, 'end_colno')
@@ -482,7 +505,6 @@ class StackSummary(list):
                         length_first_part = colno - stripped_characters
                         length_carets = end_colno - colno
                         if colorize:
-                            row.pop()
                             colorized_line = "".join([
                                 frame_summary.line[:length_first_part],
                                 ANSIColors.BOLD_RED,
@@ -491,6 +513,7 @@ class StackSummary(list):
                                 frame_summary.line[length_first_part + length_carets:],
                                 "\n",
                             ])
+                            row[-1] = '    ' + colorized_line
                         row.append('    ')
                         row.append(' ' * length_first_part)
                         if colorize:
@@ -701,7 +724,7 @@ class TracebackException:
     def __str__(self):
         return self._str
 
-    def format_exception_only(self):
+    def format_exception_only(self, colorize=False):
         """Format the exception part of the traceback.
 
         The return value is a generator of strings, each ending in a newline.
@@ -715,7 +738,7 @@ class TracebackException:
         string in the output.
         """
         if self.exc_type is None:
-            yield _format_final_exc_line(None, self._str)
+            yield _format_final_exc_line(None, self._str, colorize=colorize)
             return
 
         stype = self.exc_type.__qualname__
@@ -726,11 +749,11 @@ class TracebackException:
             stype = smod + '.' + stype
 
         if not issubclass(self.exc_type, SyntaxError):
-            yield _format_final_exc_line(stype, self._str)
+            yield _format_final_exc_line(stype, self._str, colorize=colorize)
         else:
-            yield from self._format_syntax_error(stype)
+            yield from self._format_syntax_error(stype, colorize=colorize)
 
-    def _format_syntax_error(self, stype):
+    def _format_syntax_error(self, stype, colorize=False):
         """Format SyntaxError exceptions (internal helper)."""
         # Show exactly where the problem was found.
         filename_suffix = ''
@@ -806,7 +829,7 @@ class TracebackException:
             if exc.stack:
                 yield 'Traceback (most recent call last):\n'
                 yield from exc.stack.format(colorize=colorize)
-            yield from exc.format_exception_only()
+            yield from exc.format_exception_only(colorize=colorize)
 
 
 # PyPy change: backport of the 3.12 pure python suggestion implementation

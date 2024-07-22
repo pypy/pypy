@@ -162,10 +162,73 @@ class InteractiveColoredConsole(code.InteractiveConsole):
         self.can_colorize = _colorize.can_colorize()
 
     def showsyntaxerror(self, filename=None):
-        super().showsyntaxerror(colorize=self.can_colorize)
+        """Display the syntax error that just occurred.
+
+        This doesn't display a stack trace because there isn't one.
+
+        If a filename is given, it is stuffed in the exception instead
+        of what was there before (because Python's parser always uses
+        "<string>" when reading from a string).
+
+        The output is written by self.write(), below.
+
+        """
+        # pypy modification: rewrite this function to a) support positions and
+        # b) pass self.can_colorize
+        type, value, tb = sys.exc_info()
+        sys.last_exc = value
+        sys.last_type = type
+        sys.last_value = value
+        sys.last_traceback = tb
+        if filename and type is SyntaxError:
+            # Work hard to stuff the correct filename in the exception
+            try:
+                msg, (dummy_filename, lineno, offset, line) = value.args
+            except ValueError:
+                # Not the format we expect; leave it alone
+                pass
+            else:
+                # Stuff in the right filename
+                value = SyntaxError(msg, (filename, lineno, offset, line))
+                sys.last_exc = sys.last_value = value
+        if sys.excepthook is sys.__excepthook__:
+            lines = traceback.format_exception_only(type, value, colorize=self.can_colorize)
+            self.write(''.join(lines))
+        else:
+            # If someone has set sys.excepthook, we let that take precedence
+            # over self.write
+            sys.excepthook(type, value, tb)
 
     def showtraceback(self):
-        super().showtraceback(colorize=self.can_colorize)
+        """Display the exception that just occurred.
+
+        We remove the first stack item because it is our own code.
+
+        The output is written by self.write(), below.
+
+        """
+        # pypy modification: rewrite this function to a) support positions and
+        # b) pass self.can_colorize
+        import traceback
+        sys.last_type, sys.last_value, last_tb = ei = sys.exc_info()
+        sys.last_traceback = last_tb
+        try:
+            if sys.excepthook is sys.__excepthook__:
+                tb_exc = traceback.TracebackException(
+                    ei[0],
+                    ei[1],
+                    last_tb,
+                    _frame_constructor=traceback._construct_positionful_frame
+                )
+                lines = tb_exc.format(colorize=self.can_colorize)
+                self.write(''.join(lines))
+            else:
+                # If someone has set sys.excepthook, we let that take precedence
+                # over self.write
+                sys.excepthook(ei[0], ei[1], last_tb)
+        finally:
+            last_tb = ei = None
+
 
     def push(self, line, filename=None, _symbol="single"):
         """Push a line to the interpreter.
