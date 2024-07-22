@@ -47,7 +47,7 @@ class Module(MixedModule):
         self._compile_bootstrap_module(
             space, '_bootstrap', self.w_name, self.w_dict)
 
-        self.w_import = space.wrap(interp_import.import_with_frames_removed)
+        self.w_import = space.wrap(interp_import.interp___import__)
 
     @staticmethod
     def _cached_compile(space, name, source, *args):

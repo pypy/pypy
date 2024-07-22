@@ -842,7 +842,13 @@ class ObjSpace(object):
         w_result = w_obj.immutable_unique_id(self)
         if w_result is None:
             # in the common case, returns an unsigned value
-            w_result = self.newint(r_uint(compute_unique_id(w_obj)))
+            id = compute_unique_id(w_obj)
+            if id >= 0:
+                w_result = self.newint(id)
+            else:
+                # the following path returns W_LongObject, but it should happen
+                # only on 32-bit platforms
+                w_result = self.newint(r_uint(id))
         return w_result
 
     def contains_w(self, w_container, w_item):
@@ -1892,7 +1898,7 @@ class ObjSpace(object):
 
     def utf8_len_w(self, w_obj):
         w_obj = self.convert_arg_to_w_unicode(w_obj)
-        return w_obj._utf8, w_obj._len()
+        return w_obj.utf8_w(self), w_obj._len()
 
     def realutf8_w(self, w_obj):
         # Like utf8_w(), but only works if w_obj is really of type

@@ -972,6 +972,16 @@ class TestAstBuilding:
                 assert excinfo.value.offset == pos[0]
                 assert excinfo.value.end_offset == pos[1]
 
+    def test_cannot_assign_bug(self):
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast("for [ ] b 1.0")
+        assert excinfo.value.msg == 'invalid syntax'
+        assert excinfo.value.offset == 9
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast("for ( ) b 1.0")
+        assert excinfo.value.msg == 'invalid syntax'
+        assert excinfo.value.offset == 9
+
     def test_assign_bug(self):
         self.get_ast("direct = (__debug__ and optimize == 0)") # used to crash
 

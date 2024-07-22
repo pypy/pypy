@@ -399,3 +399,47 @@ class TestInstance(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
+    def test_add_instance_attr_big(self):
+        def main():
+            class A(object):
+                pass
+            l = []
+            for i in range(10000):
+                a = A()
+                a.attr1 = 'a'
+                a.attr2 = 'a'
+                a.attr3 = 'a'
+                a.attr4 = 'a'
+                a.attr5 = 'a'
+                a.attr6 = 'a'
+                l.append(a)
+
+            for a in l:
+                a.attr7 = 'b' # ID: grow
+
+        log = self.run(main, [])
+        loop = log.loops_by_filename(self.filepath, is_entry_bridge=True)[1]
+        ops = loop.ops_by_id('grow')
+        assert "call_n" not in log.opnames(ops) # there used to be two ll_arraycopy calls in the trace
+
+    def test_add_instance_attr_unboxed(self):
+        def main():
+            class A(object):
+                pass
+            l = []
+            for i in range(10000):
+                a = A()
+                a.attr1 = 'a'
+                a.attr2 = 'a'
+                a.attr3 = 'a'
+                a.attr4 = 'a'
+                a.attr5 = 14
+                l.append(a)
+
+            for a in l:
+                a.attr7 = 12 # ID: grow
+
+        log = self.run(main, [])
+        loop = log.loops_by_filename(self.filepath, is_entry_bridge=True)[1]
+        ops = loop.ops_by_id('grow')
+        assert "call_n" not in log.opnames(ops) # there used to be two ll_arraycopy calls in the trace

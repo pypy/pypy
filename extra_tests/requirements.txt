@@ -1,5 +1,6 @@
-pytest<=6.0 ; python_version < "3.10"
-pytest ; python_version >= "3.10"
+pytest<=6.0
+pytest
+setuptools<70.1
 hypothesis
 vmprof ; python_implementation == "pypy"
 filelock

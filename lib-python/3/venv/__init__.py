@@ -341,23 +341,23 @@ class EnvBuilder:
                 if os.path.lexists(src):
                     copier(src, os.path.join(binpath, suffix))
 
-            exe = os.path.split(sys.executable)[1]
+            exe = os.path.split(sys.executable)[1].lower()
             if exe not in suffixes:
-                if "pypy3.9-c.exe" in suffixes:
+                if "pypy3.10-c.exe" in suffixes:
                     # dirname is a source build, with only the
                     # pypy*-c.exe? Make sure to create
                     # sys.executable as well
-                    src = os.path.join(dirname, "pypy3.9-c.exe")
+                    src = os.path.join(dirname, "pypy3.10-c.exe")
                     dst = os.path.join(binpath, exe)
                     copier(src, dst)
                 elif not suffixes:
                     # dirname is a source build from dirname\pypy\goal
                     # so add that to dirname and try again
-                    src = os.path.join(dirname, "pypy", "goal", "pypy3.9-c.exe")
+                    src = os.path.join(dirname, "pypy", "goal", "pypy3.10-c.exe")
                     dst = os.path.join(binpath, exe)
                     copier(src, dst)
                 else:
-                    raise RuntimeError(f"problem finding exes in {suffixes}")
+                    raise RuntimeError(f"problem finding exe {exe} in {suffixes}")
 
             if sysconfig.is_python_build(True):
                 # copy init.tcl

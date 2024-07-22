@@ -513,6 +513,16 @@ class FakeMetaInterpStaticData(object):
         except AttributeError:
             return ""
 
+    class jitdrivers_sd(object):
+        def __getitem__(self, index):
+            return self
+
+        class warmstate(object):
+            @staticmethod
+            def get_location_str(*args):
+                return "fake location str!"
+    jitdrivers_sd = jitdrivers_sd()
+
 class Info(object):
     def __init__(self, preamble, short_preamble=None, virtual_state=None):
         self.preamble = preamble

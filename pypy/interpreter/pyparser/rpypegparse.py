@@ -4545,7 +4545,7 @@ class PythonParser(Parser):
         if a:
             literal = self.expect_type(22)
             if literal:
-                return self . raise_syntax_error_known_location ( * self . get_invalid_target ( a , "assign" ) )
+                return self . raise_syntax_error_if_invalid_target ( a , "assign" )
         self._index = mark
         _loop0_151 = self._loop0_151()
         a = self.yield_expr()
@@ -4594,7 +4594,7 @@ class PythonParser(Parser):
         if literal:
             a = self.star_expressions()
             if a:
-                return self . raise_syntax_error_known_location ( * self . get_invalid_target ( a , "delete" ) ) ,
+                return self . raise_syntax_error_if_invalid_target ( a , "delete" )
         self._index = mark
         return None
 
@@ -4778,7 +4778,7 @@ class PythonParser(Parser):
                 a = self.expression()
                 if a:
                     if self.positive_lookahead(PythonParser._tmp_162, ):
-                        return self . raise_syntax_error_known_location ( * self . get_invalid_target ( a , "assign" ) )
+                        return self . raise_syntax_error_if_invalid_target ( a , "assign" )
         self._index = mark
         return None
 
@@ -4791,7 +4791,7 @@ class PythonParser(Parser):
         if literal:
             a = self.star_expressions()
             if a:
-                return self . raise_syntax_error_known_location ( * self . get_invalid_target ( a , "for" ) )
+                return self . raise_syntax_error_if_invalid_target ( a , "for" )
         self._index = mark
         return None
 

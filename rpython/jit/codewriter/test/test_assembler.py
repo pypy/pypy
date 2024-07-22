@@ -81,8 +81,8 @@ def test_assemble_llong_consts():
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
-    assert jitcode.code == ("\x00\xFF"
-                            "\x00\xFE")
+    assert jitcode.code == ("\x00\x00"
+                            "\x00\x01")
     assert assembler.insns == {'float_return/f': 0}
     assert jitcode.constants_f == [r_longlong(-18000000000000000),
                                    r_longlong(-8546744073709551616)]
