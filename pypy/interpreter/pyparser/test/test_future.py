@@ -188,3 +188,12 @@ def test_dummy_semicolons():
          'from __future__ import with_statement;')
     f = run(s, (2, 23))
     assert f == 0
+
+def test_docstring_implicit_concatenation():
+    # found by a fuzzer, likely nobody does this
+    s = '''"""abc""" 'def'
+from  __future__ import generators
+from  __future__ import division
+    '''
+    f = run(s, (3, 24))
+    assert f == 0

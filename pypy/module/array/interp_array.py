@@ -887,6 +887,9 @@ for k, v in types.items():
     v.typecode = k
 unroll_typecodes = unrolling_iterable(types.keys())
 
+typecodes = 'bBuhHiIlLqQfd'
+assert set(typecodes) == set(types.keys())
+
 class ArrayBuffer(RawBuffer):
     _immutable_ = True
     readonly = False

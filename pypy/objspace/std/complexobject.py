@@ -21,6 +21,9 @@ HASH_IMAG = 1000003
 
 
 def _split_complex(s):
+    def iswhitespace(ch):
+        return (ch == ' ' or ch == '\f' or ch == '\n' or ch == '\r' or
+            ch == '\t' or ch == '\v')
     slen = len(s)
     if slen == 0:
         raise ValueError
@@ -31,9 +34,9 @@ def _split_complex(s):
     imagsign = ' '
     i = 0
     # ignore whitespace at beginning and end
-    while i < slen and s[i] == ' ':
+    while i < slen and iswhitespace(s[i]):
         i += 1
-    while slen > 0 and s[slen-1] == ' ':
+    while slen > 0 and iswhitespace(s[slen-1]):
         slen -= 1
 
     if s[i] == '(' and s[slen-1] == ')':

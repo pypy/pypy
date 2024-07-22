@@ -2,6 +2,7 @@ import py
 import pytest
 import sys
 import re
+import pytest
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper import rclass
@@ -1073,7 +1074,7 @@ class TestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1]
         i1 = getfield_gc_i(p1, descr=valuedescr)
-        debug_merge_point(15, 0)
+        debug_merge_point(15, 0, 1)
         i2 = getfield_gc_i(p1, descr=valuedescr)
         escape_n(i1)
         escape_n(i2)
@@ -1082,7 +1083,7 @@ class TestOptimizeBasic(BaseTestBasic):
         expected = """
         [p1]
         i1 = getfield_gc_i(p1, descr=valuedescr)
-        debug_merge_point(15, 0)
+        debug_merge_point(15, 0, 1)
         escape_n(i1)
         escape_n(i1)
         jump(p1)
@@ -4329,3 +4330,4 @@ class TestOptimizeBasic(BaseTestBasic):
         escape_f(f2)
         """
         self.optimize_loop(ops, expected)
+
