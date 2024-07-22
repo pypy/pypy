@@ -158,14 +158,39 @@ class InteractiveColoredConsole(code.InteractiveConsole):
         *,
         local_exit: bool = False,
     ) -> None:
-        super().__init__(locals=locals, filename=filename, local_exit=local_exit)  # type: ignore[call-arg]
+        super().__init__(locals=locals, filename=filename)  # type: ignore[call-arg]
         self.can_colorize = _colorize.can_colorize()
 
-    def showsyntaxerror(self, filename=None):
-        super().showsyntaxerror(colorize=self.can_colorize)
+    #def showsyntaxerror(self, filename=None):
+    #    super().showsyntaxerror(colorize=self.can_colorize)
 
-    def showtraceback(self):
-        super().showtraceback(colorize=self.can_colorize)
+    #def showtraceback(self):
+    #    super().showtraceback(colorize=self.can_colorize)
+
+    def push(self, line, filename=None, _symbol="single"):
+        """Push a line to the interpreter.
+
+        The line should not have a trailing newline; it may have
+        internal newlines.  The line is appended to a buffer and the
+        interpreter's runsource() method is called with the
+        concatenated contents of the buffer as source.  If this
+        indicates that the command was executed or invalid, the buffer
+        is reset; otherwise, the command is incomplete, and the buffer
+        is left as it was after the line was appended.  The return
+        value is 1 if more input is required, 0 if the line was dealt
+        with in some way (this is the same as runsource()).
+
+        """
+        # pypy modification: copied over from CPy 3.13's code.py, to allow
+        # passing filename
+        self.buffer.append(line)
+        source = "\n".join(self.buffer)
+        if filename is None:
+            filename = self.filename
+        more = self.runsource(source, filename, symbol=_symbol)
+        if not more:
+            self.resetbuffer()
+        return more
 
     def runsource(self, source, filename="<input>", symbol="single"):
         try:

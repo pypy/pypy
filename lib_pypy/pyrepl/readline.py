@@ -34,7 +34,6 @@ from dataclasses import dataclass, field
 import os
 from site import gethistoryfile   # type: ignore[attr-defined]
 import sys
-from rlcompleter import Completer as RLCompleter
 
 from . import commands, historical_reader
 from .completing_reader import CompletingReader
@@ -381,7 +380,7 @@ class _ReadlineWrapper:
             reader.ps2 = ps1
             reader.ps3 = ps2
             reader.ps4 = ""
-            with warnings.catch_warnings(action="ignore"):
+            if 1: #with warnings.catch_warnings(action="ignore"):
                 return reader.readline()
         finally:
             reader.more_lines = saved
@@ -560,6 +559,7 @@ for _name, _ret in [
 
 
 def _setup(namespace: Mapping[str, Any]) -> None:
+    from rlcompleter import Completer as RLCompleter
     global raw_input
     if raw_input is not None:
         return  # don't run _setup twice

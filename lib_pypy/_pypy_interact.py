@@ -34,10 +34,10 @@ def interactive_console(mainmodule=None, quiet=False):
             # subprocess.Popen(['pypy', '-i'], stdin=subprocess.PIPE)
             raise ImportError
         from pyrepl.simple_interact import check
-        if not check():
+        if check() or os.getenv('PYTHON_BASIC_REPL'):
             raise ImportError
-        from pyrepl.simple_interact import run_multiline_interactive_console
-        run_interactive = run_multiline_interactive_console
+        from pyrepl.main import interactive_console
+        run_interactive = interactive_console
     except ImportError:
         pass
     except SyntaxError:

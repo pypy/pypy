@@ -545,6 +545,7 @@ class UnixConsole(Console):
 
     @property
     def input_hook(self):
+        return None # not supported on pypy
         try:
             import posix
         except ImportError:

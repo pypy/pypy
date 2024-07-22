@@ -114,7 +114,7 @@ class Compile:
     def __init__(self):
         self.flags = PyCF_DONT_IMPLY_DEDENT | PyCF_ALLOW_INCOMPLETE_INPUT
 
-    def __call__(self, source, filename, symbol):
+    def __call__(self, source, filename, symbol, **kwargs):
         codeob = compile(source, filename, symbol, self.flags, True)
         for feature in _features:
             if codeob.co_flags & feature.compiler_flag:
