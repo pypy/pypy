@@ -90,7 +90,7 @@ def dummy_ssl_context():
     if ssl is None:
         return None
     else:
-        return ssl.SSLContext(ssl.PROTOCOL_TLS)
+        return simple_client_sslcontext(disable_verify=True)
 
 
 def run_briefly(loop):
