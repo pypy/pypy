@@ -4,6 +4,10 @@ text file.
 
 import py
 import os
+import sys
+
+if sys.version_info >= (3, 0, 0):
+    unicode = str
 
 def pytest_addoption(parser):
     group = parser.getgroup("terminal reporting", "resultlog plugin options")
