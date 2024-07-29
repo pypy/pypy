@@ -1,0 +1,6 @@
+*lib-python.3.test.test_select.SelectTestCase.test_disallow_instantiation
+*lib-python.3.test.test_select.SelectTestCase.test_errno
+*lib-python.3.test.test_select.SelectTestCase.test_error_conditions
+*lib-python.3.test.test_select.SelectTestCase.test_returned_list_identity
+*lib-python.3.test.test_select.SelectTestCase.test_select
+*lib-python.3.test.test_select.SelectTestCase.test_select_mutated

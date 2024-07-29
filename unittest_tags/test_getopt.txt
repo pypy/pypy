@@ -1,0 +1,8 @@
+*lib-python.3.test.test_getopt.GetoptTests.test_do_longs
+*lib-python.3.test.test_getopt.GetoptTests.test_do_shorts
+*lib-python.3.test.test_getopt.GetoptTests.test_getopt
+*lib-python.3.test.test_getopt.GetoptTests.test_gnu_getopt
+*lib-python.3.test.test_getopt.GetoptTests.test_issue4629
+*lib-python.3.test.test_getopt.GetoptTests.test_libref_examples
+*lib-python.3.test.test_getopt.GetoptTests.test_long_has_args
+*lib-python.3.test.test_getopt.GetoptTests.test_short_has_arg

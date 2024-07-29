@@ -1,0 +1,9 @@
+*lib-python.3.test.test_strtod.StrtodTests.test_bigcomp
+*lib-python.3.test.test_strtod.StrtodTests.test_boundaries
+*lib-python.3.test.test_strtod.StrtodTests.test_halfway_cases
+*lib-python.3.test.test_strtod.StrtodTests.test_large_exponents
+*lib-python.3.test.test_strtod.StrtodTests.test_oversized_digit_strings
+*lib-python.3.test.test_strtod.StrtodTests.test_parsing
+*lib-python.3.test.test_strtod.StrtodTests.test_particular
+*lib-python.3.test.test_strtod.StrtodTests.test_short_halfway_cases
+*lib-python.3.test.test_strtod.StrtodTests.test_underflow_boundary

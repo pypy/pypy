@@ -1,0 +1,10 @@
+*lib-python.3.test.test_frame.ClearTest.test_clear_executing
+*lib-python.3.test.test_frame.ClearTest.test_clear_executing_generator
+*lib-python.3.test.test_frame.ClearTest.test_clear_generator
+*lib-python.3.test.test_frame.ClearTest.test_clear_locals
+*lib-python.3.test.test_frame.ClearTest.test_clear_refcycles
+*lib-python.3.test.test_frame.FrameAttrsTest.test_clear_locals
+*lib-python.3.test.test_frame.FrameAttrsTest.test_f_lineno_del_segfault
+*lib-python.3.test.test_frame.FrameAttrsTest.test_locals
+*lib-python.3.test.test_frame.FrameAttrsTest.test_locals_clear_locals
+*lib-python.3.test.test_frame.ReprTest.test_repr

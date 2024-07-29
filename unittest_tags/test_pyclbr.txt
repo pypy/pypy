@@ -1,0 +1,6 @@
+*lib-python.3.test.test_pyclbr.PyclbrTest.test_decorators
+*lib-python.3.test.test_pyclbr.PyclbrTest.test_easy
+*lib-python.3.test.test_pyclbr.PyclbrTest.test_nested
+*lib-python.3.test.test_pyclbr.PyclbrTest.test_others
+*lib-python.3.test.test_pyclbr.ReadmoduleTests.test_dotted_name_not_a_package
+*lib-python.3.test.test_pyclbr.ReadmoduleTests.test_module_has_no_spec

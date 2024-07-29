@@ -1,0 +1,4 @@
+*lib-python.3.test.test__locale._LocaleTests.test_float_parsing
+*lib-python.3.test.test__locale._LocaleTests.test_lc_numeric_basic
+*lib-python.3.test.test__locale._LocaleTests.test_lc_numeric_localeconv
+*lib-python.3.test.test__locale._LocaleTests.test_lc_numeric_nl_langinfo

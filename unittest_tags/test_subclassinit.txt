@@ -1,0 +1,17 @@
+*lib-python.3.test.test_subclassinit.Test.test_errors
+*lib-python.3.test.test_subclassinit.Test.test_errors_changed_pep487
+*lib-python.3.test.test_subclassinit.Test.test_init_subclass
+*lib-python.3.test.test_subclassinit.Test.test_init_subclass_diamond
+*lib-python.3.test.test_subclassinit.Test.test_init_subclass_dict
+*lib-python.3.test.test_subclassinit.Test.test_init_subclass_error
+*lib-python.3.test.test_subclassinit.Test.test_init_subclass_kwargs
+*lib-python.3.test.test_subclassinit.Test.test_init_subclass_skipped
+*lib-python.3.test.test_subclassinit.Test.test_init_subclass_wrong
+*lib-python.3.test.test_subclassinit.Test.test_set_name
+*lib-python.3.test.test_subclassinit.Test.test_set_name_error
+*lib-python.3.test.test_subclassinit.Test.test_set_name_init_subclass
+*lib-python.3.test.test_subclassinit.Test.test_set_name_lookup
+*lib-python.3.test.test_subclassinit.Test.test_set_name_metaclass
+*lib-python.3.test.test_subclassinit.Test.test_set_name_modifying_dict
+*lib-python.3.test.test_subclassinit.Test.test_set_name_wrong
+*lib-python.3.test.test_subclassinit.Test.test_type

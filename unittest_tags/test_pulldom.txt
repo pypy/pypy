@@ -1,0 +1,9 @@
+*lib-python.3.test.test_pulldom.PullDOMTestCase.test_expandItem
+*lib-python.3.test.test_pulldom.PullDOMTestCase.test_external_ges_default
+*lib-python.3.test.test_pulldom.PullDOMTestCase.test_getitem_deprecation
+*lib-python.3.test.test_pulldom.PullDOMTestCase.test_parse
+*lib-python.3.test.test_pulldom.PullDOMTestCase.test_parse_semantics
+*lib-python.3.test.test_pulldom.SAX2DOMTestCase.testSAX2DOM
+*lib-python.3.test.test_pulldom.SAX2DOMTestCase.test_basic
+*lib-python.3.test.test_pulldom.ThoroughTestCase.test_thorough_parse
+*lib-python.3.test.test_pulldom.ThoroughTestCase.test_thorough_sax2dom

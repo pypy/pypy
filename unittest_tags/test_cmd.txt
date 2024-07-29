@@ -1,0 +1,3 @@
+*lib-python.3.test.test_cmd.TestAlternateInput.test_file_with_missing_final_nl
+*lib-python.3.test.test_cmd.TestAlternateInput.test_input_reset_at_EOF
+*lib-python.3.test.test_cmd.TestMain.test_main

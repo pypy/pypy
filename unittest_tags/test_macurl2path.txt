@@ -1,0 +1,2 @@
+*lib-python.3.test.test_macurl2path.MacUrl2PathTestCase.test_pathname2url
+*lib-python.3.test.test_macurl2path.MacUrl2PathTestCase.test_url2pathname

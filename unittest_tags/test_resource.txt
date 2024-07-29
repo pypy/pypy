@@ -1,0 +1,11 @@
+*lib-python.3.test.test_resource.ResourceTest.test_args
+*lib-python.3.test.test_resource.ResourceTest.test_freebsd_contants
+*lib-python.3.test.test_resource.ResourceTest.test_fsize_enforced
+*lib-python.3.test.test_resource.ResourceTest.test_fsize_ismax
+*lib-python.3.test.test_resource.ResourceTest.test_fsize_toobig
+*lib-python.3.test.test_resource.ResourceTest.test_getrusage
+*lib-python.3.test.test_resource.ResourceTest.test_linux_constants
+*lib-python.3.test.test_resource.ResourceTest.test_pagesize
+*lib-python.3.test.test_resource.ResourceTest.test_prlimit
+*lib-python.3.test.test_resource.ResourceTest.test_prlimit_refcount
+*lib-python.3.test.test_resource.ResourceTest.test_setrusage_refcount

@@ -1,0 +1,4 @@
+*lib-python.3.test.test_readline.TestHistoryManipulation.test_write_read_append
+*lib-python.3.test.test_readline.TestReadline.test_history_size
+*lib-python.3.test.test_readline.TestReadline.test_init
+*lib-python.3.test.test_readline.TestReadline.test_nonascii

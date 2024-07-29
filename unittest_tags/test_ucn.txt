@@ -1,0 +1,14 @@
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_aliases
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_aliases_names_in_pua_range
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_ascii_letters
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_bmp_characters
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_cjk_unified_ideographs
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_errors
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_general
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_hangul_syllables
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_issue16335
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_misc_symbols
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_named_sequences_full
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_named_sequences_names_in_pua_range
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_named_sequences_sample
+*lib-python.3.test.test_ucn.UnicodeNamesTest.test_strict_error_handling

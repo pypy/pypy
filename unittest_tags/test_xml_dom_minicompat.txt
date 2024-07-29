@@ -1,0 +1,11 @@
+*lib-python.3.test.test_xml_dom_minicompat.EmptyNodeListTestCase.test_emptynodelist___add__
+*lib-python.3.test.test_xml_dom_minicompat.EmptyNodeListTestCase.test_emptynodelist___radd__
+*lib-python.3.test.test_xml_dom_minicompat.EmptyNodeListTestCase.test_emptynodelist_item
+*lib-python.3.test.test_xml_dom_minicompat.EmptyNodeListTestCase.test_emptynodelist_length
+*lib-python.3.test.test_xml_dom_minicompat.NodeListTestCase.test_nodelist___add__
+*lib-python.3.test.test_xml_dom_minicompat.NodeListTestCase.test_nodelist___radd__
+*lib-python.3.test.test_xml_dom_minicompat.NodeListTestCase.test_nodelist_copy
+*lib-python.3.test.test_xml_dom_minicompat.NodeListTestCase.test_nodelist_deepcopy
+*lib-python.3.test.test_xml_dom_minicompat.NodeListTestCase.test_nodelist_item
+*lib-python.3.test.test_xml_dom_minicompat.NodeListTestCase.test_nodelist_length
+*lib-python.3.test.test_xml_dom_minicompat.NodeListTestCase.test_nodelist_pickle_roundtrip

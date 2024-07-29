@@ -1,0 +1,8 @@
+*lib-python.3.test.test_pstats.AddCallersTestCase.test_combine_results
+*lib-python.3.test.test_pstats.StatsTestCase.test_SortKey_enum
+*lib-python.3.test.test_pstats.StatsTestCase.test_add
+*lib-python.3.test.test_pstats.StatsTestCase.test_get_stats_profile
+*lib-python.3.test.test_pstats.StatsTestCase.test_sort_starts_mix
+*lib-python.3.test.test_pstats.StatsTestCase.test_sort_stats_int
+*lib-python.3.test.test_pstats.StatsTestCase.test_sort_stats_partial
+*lib-python.3.test.test_pstats.StatsTestCase.test_sort_stats_string
