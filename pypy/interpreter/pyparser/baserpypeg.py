@@ -530,11 +530,10 @@ class Parser:
         return node._get_descr(self.space)
 
     def raise_syntax_error_if_invalid_target(self, node, assignment_type):
-        """ returns a tuple msg, node """
         what = self._get_invalid_target(node, assignment_type)
         if what is None:
             return None
-        if assignment_type == "delete":
+        elif assignment_type == "delete":
             msg = "cannot delete " + self.get_expr_name(what)
         else:
             assert assignment_type in ("assign", "for")
@@ -549,13 +548,13 @@ class Parser:
                     return elt
             return None
         if isinstance(node, ast.List):
-            if node.elts:
-                return loop(self, node.elts, assignment_type)
-            return None
+            if node.elts is None:
+                return None
+            return loop(self, node.elts, assignment_type)
         elif isinstance(node, ast.Tuple):
-            if node.elts:
-                return loop(self, node.elts, assignment_type)
-            return None
+            if node.elts is None:
+                return None
+            return loop(self, node.elts, assignment_type)
         elif isinstance(node, ast.Starred):
             if assignment_type == "delete":
                 return node

@@ -5,7 +5,7 @@ from test.support import threading_helper
 # Skip tests if _multiprocessing wasn't built.
 import_helper.import_module('_multiprocessing')
 
-from test.support import hashlib_helper
+from test.support import hashlib_helper, impl_detail
 from test.support.script_helper import assert_python_ok
 
 import contextlib
@@ -461,6 +461,7 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, BaseTestCase
         res = executor.map(abs, range(-5, 5))
         threads = executor._threads
         del executor
+        support.gc_collect()
 
         for t in threads:
             t.join()
@@ -1058,6 +1059,7 @@ class ProcessPoolExecutorTest(ExecutorTest):
                       f1.getvalue())
 
     @hashlib_helper.requires_hashdigest('md5')
+    @impl_detail("pypy differrence in gc", pypy=False)
     def test_ressources_gced_in_workers(self):
         # Ensure that argument for a job are correctly gc-ed after the job
         # is finished
