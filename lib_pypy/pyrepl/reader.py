@@ -150,7 +150,10 @@ default_keymap = tuple(
      (r'\M-8', 'digit-arg'),
      (r'\M-9', 'digit-arg'),
      #(r'\M-\n', 'insert-nl'),
-     ('\\\\', 'self-insert')] + \
+     ('\\\\', 'self-insert'),
+     (r'\x1b[200~', 'enable_bracketed_paste'),
+     (r'\x1b[201~', 'disable_bracketed_paste'),
+     ] + \
     [(c, 'self-insert')
      for c in map(chr, range(32, 127)) if c != '\\'] + \
     [(c, 'self-insert')
@@ -158,7 +161,9 @@ default_keymap = tuple(
     [(r'\<up>', 'up'),
      (r'\<down>', 'down'),
      (r'\<left>', 'left'),
+     (r'\C-\<left>', 'backward-word'),
      (r'\<right>', 'right'),
+     (r'\C-\<right>', 'forward-word'),
      (r'\<insert>', 'quoted-insert'),
      (r'\<delete>', 'delete'),
      (r'\<backspace>', 'backspace'),
@@ -251,6 +256,7 @@ feeling more loquacious than I am now."""
         self.kill_ring = []
         self.arg = None
         self.finished = 0
+        self.in_bracketed_paste = False
         self.console = console
         self.commands = {}
         self.msg = ''

@@ -62,12 +62,22 @@ def general_keycodes():
     return keycodes
 
 
+# Known CTRL-arrow keycodes
+CTRL_ARROW_KEYCODES = {
+    # for xterm, gnome-terminal, xfce terminal, etc.
+    b'\033[1;5D': 'ctrl left',
+    b'\033[1;5C': 'ctrl right',
+    # for rxvt
+    b'\033Od': 'ctrl left',
+    b'\033Oc': 'ctrl right',
+}
 
 def EventQueue(fd, encoding):
     keycodes = general_keycodes()
     if os.isatty(fd):
         backspace = tcgetattr(fd)[6][VERASE]
         keycodes[backspace] = unicode('backspace')
+    keycodes.update(CTRL_ARROW_KEYCODES)
     k = keymap.compile_keymap(keycodes)
     trace('keymap {k!r}', k=k)
     return EncodedQueue(k, encoding)
@@ -111,10 +121,21 @@ class EncodedQueue(object):
                 self.insert(Event('key', k, self.flush_buf()))
                 self.k = self.ck
 
+        elif self.buf and self.buf[0] == 27:  # escape
+            # escape sequence not recognized by our keymap: propagate it
+            # outside so that i can be recognized as an M-... key (see also
+            # the docstring in keymap.py
+            trace('unrecognized escape sequence, propagating...')
+            self.k = self.ck
+            self.insert(Event('key', '\033', bytearray(b'\033')))
+            for _c in self.flush_buf()[1:]:
+                self.push(bytes(bytearray((_c,))))
+
         else:
             try:
                 decoded = bytes(self.buf).decode(self.encoding)
-            except:
+            except UnicodeError as e:
+                trace(f"got exception when decoding character event {e=}")
                 return
 
             self.insert(Event('key', decoded, self.flush_buf()))
