@@ -196,9 +196,7 @@ class InteractiveColoredConsole(code.InteractiveConsole):
             lines = traceback.format_exception_only(type, value, colorize=self.can_colorize)
             self.write(''.join(lines))
         else:
-            # If someone has set sys.excepthook, we let that take precedence
-            # over self.write
-            sys.excepthook(type, value, tb)
+            self._call_excepthook(type, value, tb)
 
     def showtraceback(self):
         """Display the exception that just occurred.
@@ -226,10 +224,20 @@ class InteractiveColoredConsole(code.InteractiveConsole):
             else:
                 # If someone has set sys.excepthook, we let that take precedence
                 # over self.write
-                sys.excepthook(ei[0], ei[1], last_tb)
+                self._call_excepthook(ei[0], ei[1], last_tb)
         finally:
             last_tb = ei = None
 
+    def _call_excepthook(self, typ, value, tb):
+        try:
+            sys.excepthook(typ, value, tb)
+        except Exception as e:
+            e.__context__ = None
+            print('Error calling sys.excepthook:', file=sys.stderr)
+            sys.__excepthook__(type(e), e, e.__traceback__.tb_next)
+            print(file=sys.stderr)
+            print('Original exception was:', file=sys.stderr)
+            sys.__excepthook__(typ, value, tb)
 
     def push(self, line, filename=None, _symbol="single"):
         """Push a line to the interpreter.
