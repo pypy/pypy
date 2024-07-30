@@ -45,3 +45,18 @@ def test_ctrl_left_ctrl_right():
         child.sendline('88888')
         child.sendline('abc')
         child.expect('12345678988888')
+
+def test_sys_tracebacklimit_is_correct():
+    with start_repl() as child:
+        child.sendline("def x1(): 1/0")
+        child.sendline("def x2(): x1()")
+        child.sendline("def x3(): x2()")
+        child.sendline("x3()")
+        child.expect('Traceback.*File.*in x3.*File.*in x2.*File.*in x1.*1/0.*ZeroDivisionError: division by zero')
+        child.sendline("import sys")
+        child.sendline("sys.tracebacklimit=1")
+        child.sendline("x3()")
+        child.expect('Traceback(.*)ZeroDivisionError: division by zero')
+        assert "x3" not in child.match.group(1)
+
+

@@ -206,8 +206,11 @@ class InteractiveColoredConsole(code.InteractiveConsole):
         The output is written by self.write(), below.
 
         """
-        # pypy modification: rewrite this function to a) support positions and
-        # b) pass self.can_colorize
+        # pypy modification: rewrite this function to:
+        # - support positions
+        # - pass self.can_colorize
+        # - don't crash with wrong sys.excepthook
+        # - use the correct tracebacklimit
         import traceback
         sys.last_type, sys.last_value, last_tb = ei = sys.exc_info()
         sys.last_traceback = last_tb
@@ -217,6 +220,7 @@ class InteractiveColoredConsole(code.InteractiveConsole):
                     ei[0],
                     ei[1],
                     last_tb.tb_next,
+                    limit=traceback.BUILTIN_EXCEPTION_LIMIT,
                     _frame_constructor=traceback._construct_positionful_frame
                 )
                 lines = tb_exc.format(colorize=self.can_colorize)

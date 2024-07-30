@@ -120,6 +120,17 @@ def print_exception(exc, /, value=_sentinel, tb=_sentinel, limit=None, \
     for line in te.format(chain=chain):
         print(line, file=file, end="")
 
+# PyPy change: copy _print_exception_bltin from cpy 3.13
+
+BUILTIN_EXCEPTION_LIMIT = object()
+
+def _print_exception_bltin(exc, /):
+    file = sys.stderr if sys.stderr is not None else sys.__stderr__
+    colorize = _colorize.can_colorize()
+    return print_exception(exc, limit=BUILTIN_EXCEPTION_LIMIT, file=file, colorize=colorize)
+
+# end PyPy change
+
 
 def format_exception(exc, /, value=_sentinel, tb=_sentinel, limit=None, \
                      chain=True, colorize=False):
@@ -407,13 +418,18 @@ class StackSummary(list):
     @classmethod
     def _extract_from_extended_frame_gen(klass, frame_gen, frame_constructor, *, limit=None,
             lookup_lines=True, capture_locals=False):
-        # End PyPy 3 change
-        if limit is None:
+        # PyPy 3 change: support for BUILTIN_EXCEPTION_LIMIT from cpy 3.13
+        builtin_limit = limit is BUILTIN_EXCEPTION_LIMIT
+        if limit is None or builtin_limit:
             limit = getattr(sys, 'tracebacklimit', None)
             if limit is not None and limit < 0:
                 limit = 0
         if limit is not None:
-            if limit >= 0:
+            if builtin_limit:
+                frame_gen = tuple(frame_gen)
+                frame_gen = frame_gen[len(frame_gen) - limit:]
+            # End PyPy 3 change
+            elif limit >= 0:
                 frame_gen = itertools.islice(frame_gen, limit)
             else:
                 frame_gen = collections.deque(frame_gen, maxlen=-limit)
