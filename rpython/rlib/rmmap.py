@@ -60,7 +60,7 @@ if _POSIX:
     # depending on the OS
     constant_names = ['MAP_SHARED', 'MAP_PRIVATE', 'MAP_FIXED',
                       'PROT_READ', 'PROT_WRITE',
-                      'MS_SYNC']
+                      'MS_SYNC', 'MAP_POPULATE']
     if _DARWIN and _ARM64:
         constant_names.append('MAP_JIT')
     opt_constant_names = ['MAP_ANON', 'MAP_ANONYMOUS', 'MAP_NORESERVE',
