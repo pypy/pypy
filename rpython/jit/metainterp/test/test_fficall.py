@@ -1,4 +1,4 @@
-import py
+import py, pytest
 from _pytest.monkeypatch import monkeypatch
 import sys
 import ctypes, math
@@ -49,10 +49,13 @@ class FfiCallTests(object):
              expected_call_release_gil_i=1,
              expected_call_release_gil_f=0,
              expected_call_release_gil_n=0,
+             expected_call_may_force_i=0,
              expected_call_may_force_f=0,
+             expected_call_may_force_n=0,
              supports_floats=True,
              supports_longlong=False,
-             supports_singlefloats=False):
+             supports_singlefloats=False,
+             releasegil=True):
 
         cif_description = get_description(atypes, rtype)
 
@@ -75,7 +78,7 @@ class FfiCallTests(object):
         unroll_avalues = unrolling_iterable(avalues)
         BIG_ENDIAN = (sys.byteorder == 'big')
 
-        def fake_call_impl_any(cif_description, func_addr, exchange_buffer):
+        def fake_call_impl_any(cif_description, func_addr, exchange_buffer, releasegil=True):
             ofs = 16
             for avalue in unroll_avalues:
                 TYPE = rffi.CArray(lltype.typeOf(avalue))
@@ -117,7 +120,7 @@ class FfiCallTests(object):
                 rffi.cast(lltype.Ptr(TYPE), targetptr)[0] = avalue
                 targetptr = rffi.ptradd(targetptr, 16)
 
-            jit_ffi_call(cif_description, func_addr, exbuf)
+            jit_ffi_call(cif_description, func_addr, exbuf, releasegil=releasegil)
 
             if rvalue is None:
                 res = 654321
@@ -152,9 +155,9 @@ class FfiCallTests(object):
                 # longlong and floats are passed around as longlongs.
                 res = float2longlong(res)
             assert matching_result(res, rvalue)
-            self.check_operations_history(call_may_force_i=0,
+            self.check_operations_history(call_may_force_i=expected_call_may_force_i,
                             call_may_force_f=expected_call_may_force_f,
-                                          call_may_force_n=0,
+                            call_may_force_n=expected_call_may_force_n,
                             call_release_gil_i=expected_call_release_gil_i,
                             call_release_gil_f=expected_call_release_gil_f,
                             call_release_gil_n=expected_call_release_gil_n)
@@ -386,3 +389,9 @@ class TestFfiCall(FfiCallTests, LLJitMixin):
                                         expected_call_may_force_f=1)
         finally:
             LLGraphCPU.calldescrof_dynamic = old
+
+    @pytest.mark.xfail
+    def test_simple_call_int_dont_release_gil(self):
+        self._run([types.signed] * 2, types.signed, [456, 789], -42, releasegil=False,
+                  expected_call_release_gil_i=0, expected_call_may_force_i=1)
+
