@@ -46,6 +46,16 @@ def test_ctrl_left_ctrl_right():
         child.sendline('abc')
         child.expect('12345678988888')
 
+def test_sys_excepthook_is_broken():
+    with start_repl() as child:
+        child.sendline("import sys")
+        child.sendline("sys.excepthook = 1")
+        child.sendline("1/0")
+        child.expect('Error calling sys.excepthook.*object is not callable.*Traceback(.*)ZeroDivisionError: division by zero')
+        child.sendline('a = 10000000000')
+        child.sendline('a * 5')
+        child.expect('50000000000')
+
 def test_sys_tracebacklimit_is_correct():
     with start_repl() as child:
         child.sendline("def x1(): 1/0")
@@ -58,5 +68,3 @@ def test_sys_tracebacklimit_is_correct():
         child.sendline("x3()")
         child.expect('Traceback(.*)ZeroDivisionError: division by zero')
         assert "x3" not in child.match.group(1)
-
-
