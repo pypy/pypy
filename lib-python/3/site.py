@@ -488,7 +488,10 @@ def enablerlcompleter():
         try:
             import readline
             import rlcompleter
+            from _pyrepl.main import CAN_USE_PYREPL
         except ImportError:
+            return
+        if not CAN_USE_PYREPL:
             return
 
         # Reading the initialization (config) file may not be enough to set a

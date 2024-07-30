@@ -8,17 +8,19 @@ import sys, os
 
 
 @contextmanager
-def start_repl():
+def start_repl(extra_env=dict(), explicit_pyrepl=True):
     try:
         import pexpect
     except ImportError:
         pytest.skip("no pexpect module")
     except SyntaxError:
         pytest.skip('pexpect wont work on py3k')
+    args = []
+    if explicit_pyrepl:
+        args = ['-S', '-c', "from pyrepl.main import interactive_console as __pyrepl_interactive_console; __pyrepl_interactive_console()"],
     child = pexpect.spawn(
         sys.executable,
-        ['-S', '-c', "from pyrepl.main import interactive_console as __pyrepl_interactive_console; __pyrepl_interactive_console()"],
-        env=os.environ | {"PYTHON_COLORS": "0"},
+        env=os.environ | {"PYTHON_COLORS": "0"} | extra_env,
         timeout=10, encoding="utf-8")
     child.logfile = sys.stdout
     yield child
@@ -68,3 +70,10 @@ def test_sys_tracebacklimit_is_correct():
         child.sendline("x3()")
         child.expect('Traceback(.*)ZeroDivisionError: division by zero')
         assert "x3" not in child.match.group(1)
+
+def test_dumb_terminal():
+    with start_repl(extra_env=dict(TERM="dumb"), explicit_pyrepl=False) as child:
+        child.sendline('a = 10000000000')
+        child.sendline('a * 5')
+        child.expect('50000000000')
+        assert "InvalidTerminal" not in child.match.string
