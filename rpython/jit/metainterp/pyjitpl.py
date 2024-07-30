@@ -3550,7 +3550,6 @@ class MetaInterp(object):
     def direct_libffi_call(self, argboxes, valueconst, orig_calldescr):
         """Generate a direct call to C code using jit_ffi_call()
         """
-        import pdb;pdb.set_trace()
         # an 'assert' that constant-folds away the rest of this function
         # if the codewriter didn't produce any OS_LIBFFI_CALL at all.
         assert self.staticdata.has_libffi_call
