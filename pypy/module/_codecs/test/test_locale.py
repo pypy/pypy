@@ -50,7 +50,7 @@ class TestLocaleCodec(object):
         utf8_encoder = self.getencoder('utf-8')
         encode_error_handler = self.getstate().encode_error_handler
         for val in u'foo\udc80bar', u'\udcff\U0001320C':
-            expected = utf8_encoder(val.encode('utf8'), 'surrogateescape',
+            expected = utf8_encoder(self.space, val.encode('utf8'), 'surrogateescape',
                                     encode_error_handler)
             utf8 = val.encode('utf-8')
             assert locale_encoder(utf8, len(val)) == expected
@@ -62,7 +62,7 @@ class TestLocaleCodec(object):
                                str_decode_locale_strict):
             for val in 'foo', ' \xe6\x97\xa5\xe6\x9c\xac', '\xf0\x93\x88\x8c':
                 assert (locale_decoder(val) ==
-                                utf8_decoder(val, 'strict', True, None)[:2])
+                                utf8_decoder(self.space, val, 'strict', True, None)[:2])
 
     @pytest.mark.parametrize('locale_decoder',
                  (str_decode_locale_surrogateescape, str_decode_locale_strict))
@@ -78,6 +78,6 @@ class TestLocaleCodec(object):
         utf8_decoder = self.getdecoder('utf-8')
         decode_error_handler = self.getstate().decode_error_handler
         val = 'foo\xe3bar'
-        expected = utf8_decoder(val, 'surrogateescape', True,
+        expected = utf8_decoder(self.space, val, 'surrogateescape', True,
                                 decode_error_handler)
         assert locale_decoder(val) == expected[:2]

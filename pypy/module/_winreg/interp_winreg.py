@@ -318,9 +318,9 @@ KEY_SET_VALUE access."""
     space.audit("winreg.SetValue",  [
             space.newint(rffi.cast(rffi.SIZE_T, hkey)),
             w_subkey, space.newint(typ), w_value])
-    subkeyW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=True)
+    subkeyW = utf8_encode_utf_16(space, utf8 + '\x00', 'strict', errh, allow_surrogates=True)
     utf8 = space.utf8_w(w_value)
-    valueW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=True)
+    valueW = utf8_encode_utf_16(space, utf8 + '\x00', 'strict', errh, allow_surrogates=True)
     valueL = space.len_w(w_value)
 
     # Add an offset to remove the BOM from the native utf16 wstr
@@ -481,7 +481,7 @@ def convert_to_regdata(space, w_value, typ):
 def wbuf_to_utf8(space, wbuf):
     state = space.fromcache(CodecState)
     errh = state.decode_error_handler
-    utf8, lgt, pos = str_decode_utf_16(wbuf, 'surrogatepass', final=True,
+    utf8, lgt, pos = str_decode_utf_16(space, wbuf, 'surrogatepass', final=True,
                                        errorhandler=errh)
     if len(utf8) > 1 and utf8[len(utf8) - 1] == '\x00':
         # trim off one trailing '\x00'
@@ -775,7 +775,7 @@ If the function fails, an EnvironmentError exception is raised."""
             w_sub_key, space.newint(access)])
     
     subkeyW = utf8_encode_utf_16(
-        utf8 + '\x00', 'strict', errh, allow_surrogates=True)
+        space, utf8 + '\x00', 'strict', errh, allow_surrogates=True)
     with rffi.scoped_nonmovingbuffer(subkeyW) as subkeyP0:
         subkeyP = rffi.cast(rffi.CWCHARP, rffi.ptradd(subkeyP0, 2))
         with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
@@ -952,7 +952,7 @@ If the function fails, an EnvironmentError exception is raised."""
         utf8 = space.utf8_w(w_machine)
         state = space.fromcache(CodecState)
         errh = state.encode_error_handler
-        machineW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=True)
+        machineW = utf8_encode_utf_16(space, utf8 + '\x00', 'strict', errh, allow_surrogates=True)
         with rffi.scoped_nonmovingbuffer(machineW) as machineP0:
             machineP = rffi.cast(rwin32.LPWSTR, rffi.ptradd(machineP0, 2))
             with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:

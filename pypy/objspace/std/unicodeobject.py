@@ -1551,7 +1551,7 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
     elif isinstance(w_encoding, W_UnicodeObject):
         eh = unicodehelper.encode_error_handler(space)
         utf8 = w_encoding.utf8_w(space)
-        encoding = unicodehelper.utf8_encode_utf_8(utf8, "strict", eh)
+        encoding = unicodehelper.utf8_encode_utf_8(space, utf8, "strict", eh)
     else:
         encoding = space.text_w(w_encoding)
         

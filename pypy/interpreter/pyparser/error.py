@@ -55,7 +55,7 @@ class SyntaxError(Exception):
                 return b'\xef\xbf\xbd', endpos, 'b', s
 
             replacedtext, unilength, _ = _str_decode_utf8_slowpath(
-                    text, 'replace', False, replace_error_handler, True)
+                    space, text, 'replace', False, replace_error_handler, True)
             if offset > len(text):
                 offset = unilength
             elif offset >= 1:
@@ -63,7 +63,7 @@ class SyntaxError(Exception):
                 assert offset >= 0
                 # slightly inefficient, call the decoder for text[:offset] too
                 _, offset, _ = _str_decode_utf8_slowpath(
-                        text[:offset], 'replace', False, replace_error_handler,
+                        space, text[:offset], 'replace', False, replace_error_handler,
                         True)
                 offset += 1 # convert to 1-based
             else:

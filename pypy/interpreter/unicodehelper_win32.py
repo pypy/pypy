@@ -42,13 +42,13 @@ def _encode_code_page_flags(code_page, errors):
         return 0
     return rwin32.WC_NO_BEST_FIT_CHARS
 
-def _decode_cp_error(s, errorhandler, encoding, errors, final, start, end):
+def _decode_cp_error(space, s, errorhandler, encoding, errors, final, start, end):
     # late import to avoid circular import
     from pypy.interpreter.unicodehelper import _str_decode_utf8_slowpath
     if rwin32.GetLastError_saved() == rwin32.ERROR_NO_UNICODE_TRANSLATION:
         msg = ("No mapping for the Unicode character exists in the target "
                "multi-byte code page.")
-        r, ignore1, ignore2 = _str_decode_utf8_slowpath(s[start:end], errors, final, errorhandler, False)
+        r, ignore1, ignore2 = _str_decode_utf8_slowpath(space, s[start:end], errors, final, errorhandler, False)
         return r, end
     else:
         raise rwin32.lastSavedWindowsError()
@@ -78,7 +78,7 @@ def _unibuf_to_utf8(dataptr, insize):
         assert result is not None
         return result
 
-def _decode_helper(cp, s, flags, encoding, errors, errorhandler, 
+def _decode_helper(space, cp, s, flags, encoding, errors, errorhandler, 
                    final, start, end, res):
     if end > len(s):
         end = len(s)
@@ -88,7 +88,7 @@ def _decode_helper(cp, s, flags, encoding, errors, errorhandler,
         outsize = MultiByteToWideChar(cp, flags, dataptr, len(piece),
                                     lltype.nullptr(rffi.CWCHARP.TO), 0)
         if outsize == 0:
-            r, pos = _decode_cp_error(s, errorhandler,
+            r, pos = _decode_cp_error(space, s, errorhandler,
                                            encoding, errors, final, start, end)
             res.append(r)
             return pos, check_utf8(r, True)
@@ -97,7 +97,7 @@ def _decode_helper(cp, s, flags, encoding, errors, errorhandler,
             # do the conversion
             if MultiByteToWideChar(cp, flags, dataptr, len(piece),
                                    buf.raw, outsize) == 0:
-                r, pos = _decode_cp_error(s, errorhandler,
+                r, pos = _decode_cp_error(space, s, errorhandler,
                                            encoding, errors, final, start, end)
                 res.append(r)
                 return pos, check_utf8(r, True)
@@ -108,7 +108,7 @@ def _decode_helper(cp, s, flags, encoding, errors, errorhandler,
             res.append(conv)
             return end, codepoints_in_utf8(conv)
 
-def str_decode_code_page(cp, s, errors, errorhandler, final=False):
+def str_decode_code_page(space, cp, s, errors, errorhandler, final=False):
     """Decodes a byte string s from a code page cp with an error handler.
     Returns utf8 result, codepoints in s
     """
@@ -120,30 +120,30 @@ def str_decode_code_page(cp, s, errors, errorhandler, final=False):
     assert errorhandler is not None
     res = StringBuilder(insize)
     if errors == 'strict':
-        pos, outsize = _decode_helper(cp, s, flags, encoding, errors, errorhandler,
-                       final, 0, len(s), res)
+        pos, outsize = _decode_helper(space, cp, s, flags, encoding, errors,
+                        errorhandler, final, 0, len(s), res)
     else:
         prev_pos = 0
         pos = 0
         outsize = 0
         while pos < len(s):
             pos = next_codepoint_pos(s, prev_pos)
-            pos, _outsize = _decode_helper(cp, s, flags, encoding, errors,
+            pos, _outsize = _decode_helper(space, cp, s, flags, encoding, errors,
                                  errorhandler, final, prev_pos, pos, res)
             prev_pos = pos
             outsize += _outsize
     return res.build(), outsize
 
-def str_decode_mbcs(s, errors, errorhandler, final=False):
-    return str_decode_code_page(rwin32.CP_ACP, s, errors, errorhandler, final)
+def str_decode_mbcs(space, s, errors, errorhandler, final=False):
+    return str_decode_code_page(space, rwin32.CP_ACP, s, errors, errorhandler, final)
 
-def str_decode_utf8(s, errors, errorhandler, final=False):
-    return str_decode_code_page(rwin32.CP_UTF8, s, errors, errorhandler, final)
+def str_decode_utf8(space, s, errors, errorhandler, final=False):
+    return str_decode_code_page(space, rwin32.CP_UTF8, s, errors, errorhandler, final)
 
-def str_decode_oem(s, errors, errorhandler, final=False):
-    return str_decode_code_page(rwin32.CP_OEMCP, s, errors, errorhandler, final)
+def str_decode_oem(space, s, errors, errorhandler, final=False):
+    return str_decode_code_page(space, rwin32.CP_OEMCP, s, errors, errorhandler, final)
 
-def utf8_encode_code_page(cp, s, errors, errorhandler):
+def utf8_encode_code_page(space, cp, s, errors, errorhandler):
     """Encode a utf8 string s using code page cp and the given
     errors/errorhandler.
     Returns a encoded byte string
@@ -202,12 +202,12 @@ def utf8_encode_code_page(cp, s, errors, errorhandler):
     return res.build()
 
 
-def utf8_encode_mbcs(s, errors, errorhandler):
-        return utf8_encode_code_page(rwin32.CP_ACP, s, errors, errorhandler)
+def utf8_encode_mbcs(space, s, errors, errorhandler):
+        return utf8_encode_code_page(space, rwin32.CP_ACP, s, errors, errorhandler)
             
-def utf8_encode_utf8(s, errors, errorhandler):
-        return utf8_encode_code_page(rwin32.CP_UTF8, s, errors, errorhandler)
+def utf8_encode_utf8(space, s, errors, errorhandler):
+        return utf8_encode_code_page(space, rwin32.CP_UTF8, s, errors, errorhandler)
             
 
-def utf8_encode_oem(s, errors, errorhandler):
-        return utf8_encode_code_page(rwin32.CP_OEMCP, s, errors, errorhandler)
+def utf8_encode_oem(space, s, errors, errorhandler):
+        return utf8_encode_code_page(space, rwin32.CP_OEMCP, s, errors, errorhandler)

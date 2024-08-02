@@ -128,13 +128,13 @@ def unicode_realize(space, py_obj):
         state = space.fromcache(CodecState)
         eh = state.decode_error_handler
         if kind == _1BYTE_KIND:
-            s_utf8, lgt, _ = str_decode_latin_1(value, 'strict', True, eh)
+            s_utf8, lgt, _ = str_decode_latin_1(space, value, 'strict', True, eh)
         elif kind == _2BYTE_KIND:
-            decoded = str_decode_utf_16_helper(value, 'strict', True, eh,
+            decoded = str_decode_utf_16_helper(space, value, 'strict', True, eh,
                                                byteorder=BYTEORDER)
             s_utf8, lgt = decoded[:2]
         elif kind == _4BYTE_KIND:
-            decoded = str_decode_utf_32_helper(value, 'strict', True, eh,
+            decoded = str_decode_utf_32_helper(space, value, 'strict', True, eh,
                                                byteorder=BYTEORDER)
             s_utf8, lgt = decoded[:2]
         else:
@@ -482,7 +482,7 @@ def _readify(space, py_obj, value):
         else:
             set_ascii(py_obj, 0)
             # re-encode as latin-1
-            value = utf8_encode_latin_1(value, 'strict', None)
+            value = utf8_encode_latin_1(space, value, 'strict', None)
             if use_compact:
                 set_data_compact(py_obj, value, len(value))
             else:
@@ -494,7 +494,7 @@ def _readify(space, py_obj, value):
             ucs2_data = cts.cast('void *', get_wbuffer(py_obj))
         if not ucs2_data:
             ucs2_str = utf8_encode_utf_16_helper(
-                value, 'strict',
+                space, value, 'strict',
                 byteorder=BYTEORDER)
             ucs2_data = cts.cast('void *', rffi.str2charp(ucs2_str))
             if rffi.sizeof(lltype.UniChar) == 2:
@@ -510,7 +510,7 @@ def _readify(space, py_obj, value):
             ucs4_data = cts.cast('void *', get_wbuffer(py_obj))
         if not ucs4_data:
             ucs4_str = utf8_encode_utf_32_helper(
-                value, 'strict',
+                space, value, 'strict',
                 byteorder=BYTEORDER)
             ucs4_data = cts.cast('void *', rffi.str2charp(ucs4_str))
             if rffi.sizeof(lltype.UniChar) == 4:
@@ -541,7 +541,7 @@ def PyUnicode_FromKindAndData(space, kind, data, size):
         value = rffi.charpsize2str(data, 4 * size)
         state = space.fromcache(CodecState)
         eh = state.decode_error_handler
-        result, length, pos, _ = str_decode_utf_32_helper(value,
+        result, length, pos, _ = str_decode_utf_32_helper(space, value,
                                              'surrogatpass', True, eh,
                                              byteorder=BYTEORDER,
                                              allow_surrogates=True)
@@ -1126,7 +1126,7 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
 
     state = space.fromcache(CodecState)
     result, length, pos, bo = str_decode_utf_16_helper(
-        string, errors, True, state.decode_error_handler,
+        space, string, errors, True, state.decode_error_handler,
         byteorder=byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT_real, bo)
@@ -1180,7 +1180,7 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
 
     state = space.fromcache(CodecState)
     result, length, pos, bo = str_decode_utf_32_helper(
-        string, errors, True, state.decode_error_handler,
+        space, string, errors, True, state.decode_error_handler,
         byteorder=byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT_real, bo)
@@ -1208,7 +1208,7 @@ def PyUnicode_EncodeDecimal(space, s, length, output, llerrors):
     else:
         errors = None
     state = space.fromcache(CodecState)
-    result = unicode_encode_decimal(u, errors, state.encode_error_handler)
+    result = unicode_encode_decimal(space, u, errors, state.encode_error_handler)
     i = len(result)
     output[i] = '\0'
     i -= 1

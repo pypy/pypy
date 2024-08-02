@@ -277,7 +277,7 @@ def decode_unicode_escape(space, string, astbuilder, token):
     state = space.fromcache(interp_codecs.CodecState)
     unicodedata_handler = state.get_unicodedata_handler(space)
     s, ulen, blen, first_escape_error_char = str_decode_unicode_escape(
-        string, "strict",
+        space, string, "strict",
         final=True,
         errorhandler=state.decode_error_handler,
         ud_handler=unicodedata_handler)

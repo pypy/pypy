@@ -7,7 +7,6 @@ from rpython.rlib.rweakref import dead_ref
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import _share_methods
-from pypy.interpreter.unicodehelper import str_decode_utf8
 from pypy.objspace.std.dictmultiobject import (
     W_DictMultiObject, DictStrategy, ObjectDictStrategy, BaseKeyIterator,
     BaseValueIterator, BaseItemIterator, _never_equal_to_string,
