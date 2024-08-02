@@ -92,11 +92,11 @@ def fsencode(space, w_uni):
     if _WIN32:
         errorhandler=state.encode_error_handler
         utf8 = space.utf8_w(w_uni)
-        bytes = utf8_encode_utf_8(utf8, 'surrogateescape', errorhandler)
+        bytes = utf8_encode_utf_8(space, utf8, 'surrogateescape', errorhandler)
     elif 0 and _MACOSX:
         utf8 = space.utf8_w(w_uni)
         errorhandler=state.encode_error_handler,
-        bytes = utf8_encode_utf_8(utf8, 'surrogateescape', errorhandler,
+        bytes = utf8_encode_utf_8(space, utf8, 'surrogateescape', errorhandler,
                                   allow_surrogates=False)
     elif space.sys.filesystemencoding is None or state.codec_need_encodings:
         # bootstrap check: if the filesystemencoding isn't initialized
