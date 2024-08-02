@@ -67,9 +67,9 @@ def fsdecode(space, w_string):
     if _WIN32:
         import pypy.interpreter.unicodehelper_win32 as win32
         slen = len(utf8)
-        utf8, _, lgt = str_decode_utf8(utf8, 'surrogateescape', True, errorhandler)
+        utf8, _, lgt = str_decode_utf8(space, utf8, 'surrogateescape', True, errorhandler)
     elif 0 and  _MACOSX:
-        utf8, lgt, pos  = str_decode_utf8(utf8, 'surrogateescape', True,
+        utf8, lgt, pos  = str_decode_utf8(space, utf8, 'surrogateescape', True,
                                     errorhandler, allow_surrogates=False)
     elif space.sys.filesystemencoding is None or state.codec_need_encodings:
         # bootstrap check: if the filesystemencoding isn't initialized
