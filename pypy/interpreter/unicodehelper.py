@@ -202,7 +202,7 @@ def _str_decode_latin_1_slowpath(space, s, errors, final, errorhandler):
             i = end
     return res.build(), len(s), len(s)
 
-def utf8_encode_utf_8(space, s, errors, errorhandler, allow_surrogates=False):
+def utf8_encode_utf_8(space, s, w_s, errors, errorhandler, allow_surrogates=False):
     if len(s) == 0:
         return ''
 
@@ -216,7 +216,7 @@ def utf8_encode_utf_8(space, s, errors, errorhandler, allow_surrogates=False):
         # to do anything
         return s
     # annoying slow path
-    return _utf8_encode_utf_8_deal_with_surrogates(space, s, errors, errorhandler)
+    return _utf8_encode_utf_8_deal_with_surrogates(space, s, w_s, errors, errorhandler)
 
 def _utf8_encode_utf_8_deal_with_surrogates(space, s, w_s, errors, errorhandler):
     pos = 0
@@ -247,7 +247,7 @@ def _utf8_encode_utf_8_deal_with_surrogates(space, s, w_s, errors, errorhandler)
                     if 0xDC00 <= uchr <= 0xDFFF:
                         delta += 1
             res, newindex, rettype, obj, w_obj = errorhandler(errors, 'utf-8',
-                        'surrogates not allowed', s, w_s, index, index + delta)
+                        'surrogates not allowed', w_s, index, index + delta)
             if rettype == 'u':
                 try:
                     rutf8.check_ascii(res)
@@ -267,7 +267,7 @@ def utf8_encode_latin_1(space, s, errors, errorhandler, allow_surrogates=False):
         rutf8.check_ascii(s)
         return s
     except rutf8.CheckError, e:
-        return _utf8_encode_latin_1_slowpath(space, s, e.pos, errors, errorhandler)
+        return _utf8_encode_latin_1_slowpath(space, s, w_s, e.pos, errors, errorhandler)
 
 def _utf8_encode_latin_1_slowpath(space, s, w_s, first_non_ascii_char, errors, errorhandler):
     result = StringBuilder(len(s))
@@ -1484,7 +1484,7 @@ def utf8_encode_utf_32_helper(space, s, w_s, errors,
     while pos < len(s):
         ch = rutf8.codepoint_at_pos(s, pos)
         if not allow_surrogates and 0xD800 <= ch < 0xE000:
-            r, newindex, rettype, obj w_obj = errorhandler(
+            r, newindex, rettype, obj, w_obj = errorhandler(
                 errors, public_encoding_name, 'surrogates not allowed',
                 w_s, index, index+1)
             if rettype == 'u':
@@ -1569,7 +1569,7 @@ def str_decode_charmap(space, s, w_s, errors, final=False,
 
 def utf8_encode_charmap(space, s, w_s, errors, errorhandler=None, mapping=None, allow_surrogates=False):
     if mapping is None:
-        return utf8_encode_latin_1(space, s, w_s errors, errorhandler=errorhandler)
+        return utf8_encode_latin_1(space, s, w_s, errors, errorhandler=errorhandler)
     if len(s) == 0:
         return ''
     result = StringBuilder(len(s))

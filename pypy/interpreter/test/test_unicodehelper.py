@@ -22,7 +22,8 @@ class FakeSpace:
         if name in ('w_UnicodeEncodeError', 'w_UnicodeDecodeError'):
             raise Hit
         raise AttributeError(name)
-
+    def newbytes(self, s):
+        return s
 
 def test_encode_utf_8_combine_surrogates():
     """
@@ -47,10 +48,10 @@ def test_encode_utf_8_combine_surrogates():
            that is a valid surrogate pair.
         """
         calls.append(s.decode("utf-8")[start:end])
-        return 'abc', end, 'b', s
+        return 'abc', end, 'b', s, s
 
     res = utf8_encode_utf_8(
-        space, b, 'strict',
+        space, b, b, 'strict',
         errorhandler=errorhandler,
         allow_surrogates=False
     )

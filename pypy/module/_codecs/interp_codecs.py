@@ -658,7 +658,7 @@ def make_encoder_wrapper(name):
             allow_surrogates = True
         state = space.fromcache(CodecState)
         ulen = w_arg._length
-        result = func(space, w_arg._utf8, errors, state.encode_error_handler,
+        result = func(space, w_arg._utf8, w_arg, errors, state.encode_error_handler,
                       allow_surrogates=allow_surrogates)
         return space.newtuple2(space.newbytes(result), space.newint(ulen))
     wrap_encoder.__name__ = func.__name__
@@ -674,7 +674,8 @@ def make_decoder_wrapper(name):
             errors = 'strict'
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
-        result, length, pos = func(space, string, errors, final, state.decode_error_handler)
+        w_str = space.newbytes(string)
+        result, length, pos = func(space, string, w_str, errors, final, state.decode_error_handler)
         # must return bytes, pos
         return space.newtuple2(space.newutf8(result, length), space.newint(pos))
     wrap_decoder.__name__ = func.__name__
