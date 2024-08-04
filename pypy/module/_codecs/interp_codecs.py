@@ -771,7 +771,7 @@ def utf_8_encode(space, w_obj, errors="strict"):
     if errors is None:
         errors = 'strict'
     state = space.fromcache(CodecState)
-    result = unicodehelper.utf8_encode_utf_8(space, utf8, errors,
+    result = unicodehelper.utf8_encode_utf_8(space, utf8, w_obj, errors,
                  state.encode_error_handler, allow_surrogates=False)
     if errors == 'strict':
         # since we did strict checking and surrogates are forbidden, we know
@@ -790,7 +790,8 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
         allow_surrogates = True
     else:
         allow_surrogates = False
-    res, lgt, pos = unicodehelper.str_decode_utf8(space, string,
+    w_string = space.newbytes(string)
+    res, lgt, pos = unicodehelper.str_decode_utf8(space, string, w_string,
         errors, final, state.decode_error_handler, allow_surrogates=allow_surrogates)
     return space.newtuple2(space.newutf8(res, lgt),
                            space.newint(pos))
@@ -808,8 +809,9 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
         _byteorder = 'little'
     else:
         _byteorder = 'big'
+    w_data = space.newbytes(data)
     res, lgt, pos, bo = unicodehelper.str_decode_utf_16_helper(
-        space, data, errors, final,
+        space, data, w_data, errors, final,
         state.decode_error_handler, _byteorder)
     # return result, consumed, byteorder for buffered incremental encoders
     return space.newtuple([space.newutf8(res, lgt),
@@ -826,8 +828,9 @@ def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
         _byteorder = 'little'
     else:
         _byteorder = 'big'
+    w_data = space.newbytes(data)
     res, lgt, pos, bo = unicodehelper.str_decode_utf_32_helper(
-        space, data, errors, final,
+        space, data, w_data, errors, final,
         state.decode_error_handler, _byteorder)
     # return result, consumed, byteorder for buffered incremental encoders
     return space.newtuple([space.newutf8(res, lgt),
@@ -927,8 +930,10 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
 
     final = True
     state = space.fromcache(CodecState)
+    w_string = space.newbytes(string)
     result, lgt, pos = unicodehelper.str_decode_charmap(
-        space, string, errors, final, state.decode_error_handler, mapping)
+        space, string, w_string, errors, final,
+        state.decode_error_handler, mapping)
     return space.newtuple2(space.newutf8(result, lgt),
                            space.newint(len(string)))
 
@@ -944,7 +949,8 @@ def charmap_encode(space, w_unicode, errors="strict", w_mapping=None):
     state = space.fromcache(CodecState)
     w_uni = space.convert_arg_to_w_unicode(w_unicode)
     result = unicodehelper.utf8_encode_charmap(
-        space, space.utf8_w(w_uni), errors, state.encode_error_handler, mapping)
+        space, space.utf8_w(w_uni), w_uni, errors,
+        state.encode_error_handler, mapping)
     return space.newtuple2(space.newbytes(result), space.newint(w_uni._len()))
 
 
@@ -991,8 +997,9 @@ def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
     unicode_name_handler = state.get_unicodedata_handler(space)
 
+    w_s = space.newbytes(string)
     result, u_len, lgt, first_escape_error_char = unicodehelper.str_decode_unicode_escape(
-        space, string, errors,
+        space, string, w_s, errors,
         final, state.decode_error_handler,
         unicode_name_handler)
 

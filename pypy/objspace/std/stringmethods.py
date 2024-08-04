@@ -201,7 +201,8 @@ class StringMethods(object):
             state = space.fromcache(CodecState)
             eh = state.decode_error_handler
             s = space.charbuf_w(self)
-            ret, lgt, pos = str_decode_utf8(space, s, errors, True, eh)
+            w_s = space.newbytes(s)
+            ret, lgt, pos = str_decode_utf8(space, s, w_s, errors, True, eh)
             return space.newtext(ret, lgt)
         return decode_object(space, self, encoding, errors)
 

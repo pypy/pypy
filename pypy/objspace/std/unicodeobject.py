@@ -1551,7 +1551,7 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
     elif isinstance(w_encoding, W_UnicodeObject):
         eh = unicodehelper.encode_error_handler(space)
         utf8 = w_encoding.utf8_w(space)
-        encoding = unicodehelper.utf8_encode_utf_8(space, utf8, "strict", eh)
+        encoding = unicodehelper.utf8_encode_utf_8(space, utf8, w_encoding, "strict", eh)
     else:
         encoding = space.text_w(w_encoding)
         
@@ -1604,7 +1604,7 @@ def decode_object(space, w_obj, encoding, errors=None):
     if errors == 'strict' or errors is None:
         # fast paths
         if encoding == 'ascii':
-            unicodehelper.check_ascii_or_raise(space, s)
+            unicodehelper.check_ascii_or_raise(space, s, w_obj)
             return space.newtext(s, len(s))
         if encoding == 'utf-8' or encoding == 'utf8':
             lgt = unicodehelper.check_utf8_or_raise(space, s)
@@ -1644,7 +1644,7 @@ def unicode_from_string(space, w_bytes):
     if encoding != 'ascii':
         return decode_object(space, w_bytes, encoding, "strict")
     s = space.bytes_w(w_bytes)
-    unicodehelper.check_ascii_or_raise(space, s)
+    unicodehelper.check_ascii_or_raise(space, s, w_bytes)
     return W_UnicodeObject(s, len(s))
 
 

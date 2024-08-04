@@ -276,8 +276,9 @@ def decode_unicode_escape(space, string, astbuilder, token):
     from pypy.module._codecs import interp_codecs
     state = space.fromcache(interp_codecs.CodecState)
     unicodedata_handler = state.get_unicodedata_handler(space)
+    w_s = space.newtext(string)
     s, ulen, blen, first_escape_error_char = str_decode_unicode_escape(
-        space, string, "strict",
+        space, string, w_s, "strict",
         final=True,
         errorhandler=state.decode_error_handler,
         ud_handler=unicodedata_handler)

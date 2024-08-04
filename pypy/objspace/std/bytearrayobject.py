@@ -194,9 +194,11 @@ class W_BytearrayObject(W_Root):
 
         assert isinstance(self, W_BytearrayObject)
         w_dict = self.getdict(space)
+        s_ = ''.join(self.getdata()[:-1])
+        w_s = space.newbytes(s_)
         if w_dict is None:
             w_dict = space.w_None
-        s, _, lgt = str_decode_latin_1(space, ''.join(self.getdata()[:-1]), 'strict',
+        s, _, lgt = str_decode_latin_1(space, s_, w_s, 'strict',
             True, None)
         return space.newtuple([
             space.type(self), space.newtuple2(

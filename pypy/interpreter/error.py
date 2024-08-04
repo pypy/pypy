@@ -594,10 +594,12 @@ def get_operrcls2(valuefmt):
                         lgt += len(result)
                     elif fmt == '8':
                         # u'str\uxxxx' -> 'str\xXX\xXX' -> u"'str\xXX\xXX'"
-                        from pypy.interpreter import unicodehelper
-                        result, _lgt, pos  = unicodehelper.str_decode_utf8(
-                            space, value, 'replace', True,
-                            unicodehelper.decode_never_raise, True)
+                        from pypy.interpreter import unicodehelper as uh
+                        decode_never_raise = uh.make_decode_never_raise(space)
+                        w_value = space.newtext(value)
+                        result, _lgt, pos  = uh.str_decode_utf8(
+                            space, value, w_value, 'replace', True,
+                            decode_never_raise, True)
                         lgt += _lgt
                     elif isinstance(value, unicode):
                         # 's'

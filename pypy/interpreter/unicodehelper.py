@@ -35,12 +35,11 @@ def make_decode_never_raise(space):
 @specialize.memo()
 def encode_error_handler(space):
     # Fast version of the "strict" errors handler.
-    def raise_unicode_exception_encode(errors, encoding, msg, utf8,
+    def raise_unicode_exception_encode(errors, encoding, msg, w_s,
                                        startingpos, endingpos):
-        u_len = rutf8.codepoints_in_utf8(utf8)
         raise OperationError(space.w_UnicodeEncodeError,
                              space.newtuple([space.newtext(encoding),
-                                             space.newutf8(utf8, u_len),
+                                             w_s,
                                              space.newint(startingpos),
                                              space.newint(endingpos),
                                              space.newtext(msg)]))
@@ -71,9 +70,9 @@ def fsdecode(space, w_string):
     if _WIN32:
         import pypy.interpreter.unicodehelper_win32 as win32
         slen = len(utf8)
-        utf8, _, lgt = str_decode_utf8(space, utf8, 'surrogateescape', True, errorhandler)
+        utf8, _, lgt = str_decode_utf8(space, utf8, w_string, 'surrogateescape', True, errorhandler)
     elif 0 and  _MACOSX:
-        utf8, lgt, pos  = str_decode_utf8(space, utf8, 'surrogateescape', True,
+        utf8, lgt, pos  = str_decode_utf8(space, utf8, w_string, 'surrogateescape', True,
                                     errorhandler, allow_surrogates=False)
     elif space.sys.filesystemencoding is None or state.codec_need_encodings:
         # bootstrap check: if the filesystemencoding isn't initialized
@@ -128,17 +127,12 @@ def encode(space, w_data, encoding=None, errors='strict'):
 
 # These functions take and return unwrapped rpython strings
 
-def decode_raw_unicode_escape(space, string):
-    return str_decode_raw_unicode_escape(
-        string, "strict",
-        final=True, errorhandler=decode_error_handler(space))
-
-def check_ascii_or_raise(space, string):
+def check_ascii_or_raise(space, string, w_s):
     try:
         rutf8.check_ascii(string)
     except rutf8.CheckError as e:
         decode_error_handler(space)('strict', 'ascii',
-                                    'ordinal not in range(128)', string,
+                                    'ordinal not in range(128)', w_s,
                                     e.pos, e.pos + 1)
         assert False, "unreachable"
 
@@ -151,8 +145,9 @@ def check_utf8_or_raise(space, string, start=0, end=-1):
     try:
         return rutf8.check_utf8(string, True, start, end)
     except rutf8.CheckError as e:
+        w_s = space.newtext(string)
         decode_error_handler(space)('strict', 'utf-8',
-                                    'unexpected end of data', string,
+                                    'unexpected end of data', w_s,
                                     e.pos, e.pos + 1)
 
 def str_decode_ascii(space, s, w_s, errors, final, errorhandler):
@@ -160,7 +155,7 @@ def str_decode_ascii(space, s, w_s, errors, final, errorhandler):
         rutf8.check_ascii(s)
         return s, len(s), len(s)
     except rutf8.CheckError:
-        return _str_decode_ascii_slowpath(space, s, errors, final, errorhandler)
+        return _str_decode_ascii_slowpath(space, s, w_s, errors, final, errorhandler)
 
 def _str_decode_ascii_slowpath(space, s, w_s, errors, final, errorhandler):
     i = 0
@@ -178,14 +173,14 @@ def _str_decode_ascii_slowpath(space, s, w_s, errors, final, errorhandler):
     lgt = rutf8.check_utf8(ress, True)
     return ress, lgt, lgt
 
-def str_decode_latin_1(space, s, errors, final, errorhandler):
+def str_decode_latin_1(space, s, w_s, errors, final, errorhandler):
     try:
-        rutf8.check_ascii(s)
-        return s, len(s), len(s)
+        s_out = rutf8.check_ascii(s)
     except rutf8.CheckError:
-        return _str_decode_latin_1_slowpath(space, s, w_s, errors, final, errorhandler)
+        s_out = _str_decode_latin_1_slowpath(space, s)
+    return s, len(s_out), len(s_out)
 
-def _str_decode_latin_1_slowpath(space, s, errors, final, errorhandler):
+def _str_decode_latin_1_slowpath(space, s):
     res = StringBuilder(len(s))
     i = 0
     while i < len(s):
@@ -200,7 +195,7 @@ def _str_decode_latin_1_slowpath(space, s, errors, final, errorhandler):
                 end += 1
             res.append_slice(s, start, end)
             i = end
-    return res.build(), len(s), len(s)
+    return res.build()
 
 def utf8_encode_utf_8(space, s, w_s, errors, errorhandler, allow_surrogates=False):
     if len(s) == 0:
@@ -262,7 +257,7 @@ def _utf8_encode_utf_8_deal_with_surrogates(space, s, w_s, errors, errorhandler)
                 pos = rutf8._pos_at_index(s, newindex)
     return result.build()
 
-def utf8_encode_latin_1(space, s, errors, errorhandler, allow_surrogates=False):
+def utf8_encode_latin_1(space, s, w_s, errors, errorhandler, allow_surrogates=False):
     try:
         rutf8.check_ascii(s)
         return s
@@ -413,7 +408,7 @@ def _str_decode_utf8_slowpath(space, s, w_s, errors, final, errorhandler, allow_
                     break
                 r, pos, rettype, s = errorhandler(errors, 'utf-8',
                                       'unexpected end of data',
-                                      s, pos, pos+1)
+                                      w_s, pos, pos+1)
                 result.append(r)
                 continue
             ordch2 = ord(s[pos+1])
@@ -541,7 +536,7 @@ def _str_decode_utf8_slowpath(space, s, w_s, errors, final, errorhandler, allow_
 
 hexdigits = "0123456789ABCDEFabcdef"
 
-def hexescape(space, builder, s, pos, digits,
+def hexescape(space, builder, s, w_s, pos, digits,
               encoding, errorhandler, message, errors):
     chr = 0
     if pos + digits > len(s):
@@ -652,7 +647,7 @@ def str_decode_unicode_escape(space, s, w_s, errors, final, errorhandler, ud_han
                 pos -= 2
                 break
             message = "truncated \\xXX escape"
-            pos, s, w_s = hexescape(space, builder, s, pos, digits,
+            pos, s, w_s = hexescape(space, builder, s, w_s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
         # \uXXXX
         elif ch == 'u':
@@ -661,7 +656,7 @@ def str_decode_unicode_escape(space, s, w_s, errors, final, errorhandler, ud_han
                 pos -= 2
                 break
             message = "truncated \\uXXXX escape"
-            pos, s, w_s = hexescape(space, builder, s, pos, digits,
+            pos, s, w_s = hexescape(space, builder, s, w_s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
         #  \UXXXXXXXX
         elif ch == 'U':
@@ -670,7 +665,7 @@ def str_decode_unicode_escape(space, s, w_s, errors, final, errorhandler, ud_han
                 pos -= 2
                 break
             message = "truncated \\UXXXXXXXX escape"
-            pos, s, w_s = hexescape(space, builder, s, pos, digits,
+            pos, s, w_s = hexescape(space, builder, s, w_s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
         # \N{name}
         elif ch == 'N' and ud_handler is not None:
@@ -742,7 +737,7 @@ def wrap_unicode_out_of_range_error(space, e):
 # ____________________________________________________________
 # Raw unicode escape
 
-def str_decode_raw_unicode_escape(space, s, errors, final=False,
+def str_decode_raw_unicode_escape(space, s, w_s, errors, final=False,
                                   errorhandler=None):
     if len(s) == 0:
         return '', 0, 0
@@ -915,7 +910,7 @@ def _utf7_ENCODE_CHAR(result, oc, base64bits, base64buffer):
         base64bits -= 6
     return base64bits, base64buffer
 
-def str_decode_utf_7(space, s, errors, final=False,
+def str_decode_utf_7(space, s, w_s, errors, final=False,
                      errorhandler=None):
     if len(s) == 0:
         return '', 0, 0
