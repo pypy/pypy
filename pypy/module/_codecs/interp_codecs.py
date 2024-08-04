@@ -30,7 +30,7 @@ class CodecState(object):
         self.modified()
 
     def _make_errorhandler(self, space, decode):
-        def call_errorhandler(errors, encoding, reason, input, startpos,
+        def call_errorhandler(errors, encoding, reason, w_input, startpos,
                               endpos):
             """Generic wrapper for calling into error handlers.
 
@@ -42,16 +42,11 @@ class CodecState(object):
             handlers return utf8 so we add whether they used unicode or bytes
             """
             w_errorhandler = lookup_error(space, errors)
+            length = space.len_w(w_input)
             if decode:
                 w_cls = space.w_UnicodeDecodeError
-                assert isinstance(input, str)
-                w_input = space.newbytes(input)
-                length = len(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
-                assert isinstance(input, str)
-                length = rutf8.codepoints_in_utf8(input)
-                w_input = space.newtext(input, length)
             w_exc =  space.call_function(
                 w_cls,
                 space.newtext(encoding),
@@ -106,7 +101,7 @@ class CodecState(object):
                     raise oefmt(space.w_ValueError,
                             "error handler modified exc.object must be str")
             obj = space.utf8_w(w_obj) 
-            return space.utf8_w(w_replace), newpos, rettype, obj
+            return space.utf8_w(w_replace), newpos, rettype, obj, w_obj
         return call_errorhandler
 
     def make_decode_errorhandler(self, space):
