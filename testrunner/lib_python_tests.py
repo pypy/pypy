@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 """
 This is what the buildbot runs to execute the lib-python tests
 on top of pypy-c.
@@ -30,7 +31,7 @@ try:
     ret = popen.wait()
 except KeyboardInterrupt:
     popen.kill()
-    print "\ninterrupted"
+    print("\ninterrupted")
     ret = 1
 
 sys.exit(ret)

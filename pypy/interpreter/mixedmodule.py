@@ -131,6 +131,7 @@ class MixedModule(Module):
                 except AttributeError:
                     bltin = BuiltinFunction(func)
                     bltin.w_module = self.w_name
+                    bltin.w_moduleobj = self
                     func._builtinversion_ = bltin
                     bltin.name = name
                     bltin.qualname = bltin.name
