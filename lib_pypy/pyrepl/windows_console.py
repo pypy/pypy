@@ -203,6 +203,7 @@ class WindowsConsole(Console):
 
     @property
     def input_hook(self):
+        return None # not supported on windows
         try:
             import nt
         except ImportError:
