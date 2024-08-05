@@ -145,7 +145,7 @@ def check_utf8_or_raise(space, string, start=0, end=-1):
     try:
         return rutf8.check_utf8(string, True, start, end)
     except rutf8.CheckError as e:
-        w_s = space.newtext(string)
+        w_s = space.newbytes(string)
         decode_error_handler(space)('strict', 'utf-8',
                                     'unexpected end of data', w_s,
                                     e.pos, e.pos + 1)
