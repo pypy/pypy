@@ -108,14 +108,16 @@ def test_unicode_escape_incremental_bug(space):
         assert lgt1 + lgt2 == len(data)
         assert input == (result1 + result2).decode("utf-8")
 
-def test_raw_unicode_escape_incremental_bug():
+def test_raw_unicode_escape_incremental_bug(space):
     input = u"xҰa𐀂"
     data = b'x\\u04b0a\\U00010002'
-    space = FakeSpace(None)
     for i in range(1, len(data)):
-        result1, _, lgt1 = str_decode_raw_unicode_escape(space, data[:i], data[:i], 'strict', False, None)
+        s = data[:i]
+        w_s = space.newtext(s)
+        result1, _, lgt1 = str_decode_raw_unicode_escape(space, s, w_s, 'strict', False, None)
         s = data[lgt1:i] + data[i:]
-        result2, _, lgt2 = str_decode_raw_unicode_escape(space, s, s, 'strict', True, None)
+        w_s = space.newtext(s)
+        result2, _, lgt2 = str_decode_raw_unicode_escape(space, s, w_s, 'strict', True, None)
         assert lgt1 + lgt2 == len(data)
         assert input == (result1 + result2).decode("utf-8")
 

@@ -57,7 +57,7 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
         if len(self.pending) > 0:
             object = self.pending + object
         try:
-            output = c_codecs.decodeex(self.decodebuf, object, self.errors,
+            output = c_codecs.decodeex(space, self.decodebuf, object, self.errors,
                                        state.decode_error_handler, self.name,
                                        get_ignore_error(final))
         except c_codecs.EncodeDecodeError as e:
@@ -109,7 +109,7 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
             utf8data = self.pending + utf8data
             length += self.pending_len
         try:
-            output = c_codecs.encodeex(self.encodebuf, utf8data, length,
+            output = c_codecs.encodeex(space, self.encodebuf, utf8data, length,
                                        self.errors,
                                        state.encode_error_handler, self.name,
                                        get_ignore_error(final))

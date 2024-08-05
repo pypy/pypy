@@ -203,7 +203,8 @@ class Char16TypeMixin(object):
             raise oefmt(space.w_ValueError,
                         "char16_t expected, got string of size %d", length)
 
-        utf16 = utf8_encode_utf_16(space, utf8, 'strict')
+        w_s = space.newtext(utf8)
+        utf16 = utf8_encode_utf_16(space, utf8, w_s, 'strict')
         rawstr = rffi.str2charp(utf16)
         value = rffi.cast(self.c_ptrtype, lltype.direct_ptradd(rawstr, 2))[0]   # adjust BOM
         lltype.free(rawstr, flavor='raw')
@@ -231,7 +232,8 @@ class Char32TypeMixin(object):
             raise oefmt(space.w_ValueError,
                         "char32_t expected, got string of size %d", length)
 
-        utf32 = utf8_encode_utf_32(space, utf8, 'strict')
+        w_s = space.newtext(utf8)
+        utf32 = utf8_encode_utf_32(space, utf8, w_s, 'strict')
         rawstr = rffi.str2charp(utf32)
         value = rffi.cast(self.c_ptrtype, lltype.direct_ptradd(rawstr, 4))[0]   # adjust BOM
         lltype.free(rawstr, flavor='raw')

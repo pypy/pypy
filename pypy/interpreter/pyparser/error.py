@@ -1,3 +1,11 @@
+from rpython.rlib.objectmodel import specialize
+
+@specialize.memo()
+def make_replace_error_handler(space):
+    def replace_error_handler(errors, encoding, msg, w_s, startpos, endpos):
+        return b'\xef\xbf\xbd', endpos, 'b', space.utf8_w(w_s), w_s
+    return replace_error_handler
+
 
 class SyntaxError(Exception):
     """Base class for exceptions raised by the parser."""
@@ -51,19 +59,21 @@ class SyntaxError(Exception):
             # codepoint-based index into the decoded unicode-version of
             # self.text
 
-            def replace_error_handler(errors, encoding, msg, s, startpos, endpos):
-                return b'\xef\xbf\xbd', endpos, 'b', s
+            replace_error_handler = make_replace_error_handler(space)
 
             replacedtext, unilength, _ = _str_decode_utf8_slowpath(
-                    space, text, 'replace', False, replace_error_handler, True)
+                    space, text, space.newbytes(text), 'replace', False,
+                    replace_error_handler, True)
             if offset > len(text):
                 offset = unilength
             elif offset >= 1:
                 offset = offset - 1 # 1-based to 0-based
                 assert offset >= 0
                 # slightly inefficient, call the decoder for text[:offset] too
+                s = text[:offset]
+                w_s = space.newbytes(s)
                 _, offset, _ = _str_decode_utf8_slowpath(
-                        space, text[:offset], 'replace', False, replace_error_handler,
+                        space, s, w_s, 'replace', False, replace_error_handler,
                         True)
                 offset += 1 # convert to 1-based
             else:

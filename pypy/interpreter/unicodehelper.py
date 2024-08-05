@@ -29,7 +29,7 @@ def make_decode_never_raise(space):
         assert endingpos >= 0
         s= space.bytes_w(w_s)
         ux = ['\ux' + hex(ord(x))[2:].upper() for x in s[startingpos:endingpos]]
-        return ''.join(ux), endingpos, 'b', ''
+        return ''.join(ux), endingpos, 'b', '', w_s
     return decode_never_raise
 
 @specialize.memo()
@@ -175,7 +175,8 @@ def _str_decode_ascii_slowpath(space, s, w_s, errors, final, errorhandler):
 
 def str_decode_latin_1(space, s, w_s, errors, final, errorhandler):
     try:
-        s_out = rutf8.check_ascii(s)
+        rutf8.check_ascii(s)
+        s_out = s
     except rutf8.CheckError:
         s_out = _str_decode_latin_1_slowpath(space, s)
     return s, len(s_out), len(s_out)
@@ -248,13 +249,15 @@ def _utf8_encode_utf_8_deal_with_surrogates(space, s, w_s, errors, errorhandler)
                     rutf8.check_ascii(res)
                 except rutf8.CheckError:
                     # this is a weird behaviour of CPython, but it's what happens
-                    errorhandler("strict", 'utf-8', 'surrogates not allowed', s, index, index + delta)
+                    errorhandler("strict", 'utf-8', 'surrogates not allowed', w_s, index, index + delta)
                     assert 0, "unreachable"
             s = obj
+            # It should be rare that w_s != w_obj
+            w_s = w_obj
             result.append(res)
-            if index != newindex:  # Should be uncommon
+            if index != newindex:
                 index = newindex
-                pos = rutf8._pos_at_index(s, newindex)
+                pos = w_obj._index_to_byte(index) # This should also be rare
     return result.build()
 
 def utf8_encode_latin_1(space, s, w_s, errors, errorhandler, allow_surrogates=False):
@@ -287,7 +290,7 @@ def _utf8_encode_latin_1_slowpath(space, s, w_s, first_non_ascii_char, errors, e
             if rettype == 'u':
                 for cp in rutf8.Utf8StringIterator(res):
                     if cp > 0xFF:
-                        errorhandler("strict", 'latin1', msg, s, w_s, startindex, index)
+                        errorhandler("strict", 'latin1', msg, w_s, startindex, index)
                         raise RuntimeError('error handler should not have returned')
                     result.append(chr(cp))
             else:
@@ -325,7 +328,7 @@ def utf8_encode_ascii(space, s, w_s, errors, errorhandler, allow_surrogates=Fals
             if rettype == 'u':
                 for cp in rutf8.Utf8StringIterator(res):
                     if cp > 0x80:
-                        errorhandler("strict", 'ascii', msg, s, startindex, index)
+                        errorhandler("strict", 'ascii', msg, w_s, startindex, index)
                         raise RuntimeError('error handler should not have returned')
                     result.append(chr(cp))
             else:
@@ -406,7 +409,7 @@ def _str_decode_utf8_slowpath(space, s, w_s, errors, final, errorhandler, allow_
                 # there's only the start byte and nothing else
                 if not final:
                     break
-                r, pos, rettype, s = errorhandler(errors, 'utf-8',
+                r, pos, rettype, s, w_s = errorhandler(errors, 'utf-8',
                                       'unexpected end of data',
                                       w_s, pos, pos+1)
                 result.append(r)
@@ -1591,7 +1594,7 @@ def utf8_encode_charmap(space, s, w_s, errors, errorhandler=None, mapping=None, 
                     if not ch2:
                         errorhandler(
                             "strict", "charmap", "character maps to <undefined>",
-                            s,  startindex, index)
+                            w_s,  startindex, index)
                     result.append(ch2)
             else:
                 for ch in r:
@@ -1673,5 +1676,5 @@ def unicode_encode_decimal(space, s, w_s, errors, errorhandler=None, allow_surro
             if 0 < ch < 256:
                 result.append(chr(ch))
                 continue
-            errorhandler('strict', 'decimal', msg, s, start_index, end_index)
+            errorhandler('strict', 'decimal', msg, w_s, start_index, end_index)
     return result.build()

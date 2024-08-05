@@ -1029,8 +1029,9 @@ def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
         errors = 'strict'
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
+    w_s = space.newbytes(string)
     result, u_len, lgt = unicodehelper.str_decode_raw_unicode_escape(
-        space, string, errors, final, state.decode_error_handler)
+        space, string, w_s, errors, final, state.decode_error_handler)
     return space.newtuple2(space.newtext(result), space.newint(lgt))
 
 # ____________________________________________________________
