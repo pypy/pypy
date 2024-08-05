@@ -1201,7 +1201,7 @@ expression_without_invalid[ast.AST]:
 invalid_legacy_expression:
     | a=NAME !'(' b=expression_without_invalid {
         self.raise_syntax_error_known_range(
-            "Missing parentheses in call to '%s'. Did you mean '%s'(...)?" % (a.id, a.id), a, b,
+            "Missing parentheses in call to '%s'. Did you mean %s(...)?" % (a.id, a.id), a, b,
         ) if a.id in ("exec", "print") else
         None
      }
