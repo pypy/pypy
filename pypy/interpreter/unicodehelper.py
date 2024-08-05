@@ -179,7 +179,7 @@ def str_decode_latin_1(space, s, w_s, errors, final, errorhandler):
         s_out = s
     except rutf8.CheckError:
         s_out = _str_decode_latin_1_slowpath(space, s)
-    return s, len(s_out), len(s_out)
+    return s_out, len(s), len(s)
 
 def _str_decode_latin_1_slowpath(space, s):
     res = StringBuilder(len(s))
