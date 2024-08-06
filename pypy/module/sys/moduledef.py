@@ -112,6 +112,8 @@ class Module(MixedModule):
 
         'unraisablehook'        : 'vm.unraisablehook',
         '__unraisablehook__'    : 'vm.unraisablehook',
+
+        '_pypy_prepare_shutdown' : 'vm._pypy_prepare_shutdown',
         }
 
     if sys.platform == 'win32':

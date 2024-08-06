@@ -500,4 +500,11 @@ def unraisablehook(space, w_hookargs):
     OperationError.write_unraisable_default(space, w_type, w_value, w_tb, err_msg, w_object, extra_line)
 
 
+def _pypy_prepare_shutdown(space):
+    """ prepare for interpreter shutdown by calling atexit hooks and flushing
+    file descriptors. should only be called by pypy code. """
+    try:
+        return space.newint(space.finish())
+    except OperationError as e:
+        e.write_unraisable(space, 'interpreter shutdown')
 
