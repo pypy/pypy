@@ -322,6 +322,8 @@ KEY_SET_VALUE access."""
     w_s = space.newtext(s)
     subkeyW = utf8_encode_utf_16(space, s, w_s, 'strict', errh, allow_surrogates=True)
     utf8 = space.utf8_w(w_value)
+    s = utf8 + '\x00'
+    w_s = space.newtext(s)
     valueW = utf8_encode_utf_16(space, s, w_s, 'strict', errh, allow_surrogates=True)
     valueL = space.len_w(w_value)
 
