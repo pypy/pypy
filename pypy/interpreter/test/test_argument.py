@@ -106,6 +106,9 @@ class W_Uni(object):
     def __repr__(self):
         return "W_Uni(%r)" % (self._utf8, )
 
+class W_Bytes(object):
+    def __init__(self, s):
+        self._utf8 = s
 
 class DummySpace(object):
     class sys:
@@ -158,6 +161,9 @@ class DummySpace(object):
 
     def newtext(self, s, _=-1):
         return W_Uni(s)
+
+    def newbytes(self, s):
+        return W_Bytes(s)
 
     def text_w(self, s):
         if not isinstance(s, W_Uni):
