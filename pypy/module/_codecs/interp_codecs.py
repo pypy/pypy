@@ -734,7 +734,7 @@ if getattr(unicodehelper, '_WIN32', False):
         ulen = w_arg._length
         try:
             result = unicodehelper.utf8_encode_code_page(space, code_page,
-                      w_arg._utf8,
+                      w_arg._utf8, w_arg,
                       errors, state.encode_error_handler,
                       allow_surrogates=allow_surrogates)
         except OSError as e:
@@ -752,8 +752,9 @@ if getattr(unicodehelper, '_WIN32', False):
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
         try:
+            w_s = space.newbytes(string)
             result, pos, length = unicodehelper.str_decode_code_page(space, code_page,
-                                   string, errors, final,
+                                   string, w_s, errors, final,
                                    state.decode_error_handler)
         except OSError as e:
             raise wrap_oserror(space, e)

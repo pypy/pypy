@@ -414,12 +414,13 @@ class W_WinConsoleIO(W_RawIOBase):
         # first copy any remaining buffered utf16 data
         builder = StringBuilder(length)
         wbuf = self._getbuffer(length * 2)
+        w_wbuf = space.newbytes(wbuf)
 
         state = space.fromcache(CodecState)
         errh = state.decode_error_handler
         outlen = 0
         if len(wbuf) > 0:
-            utf8, lgt, pos = str_decode_utf_16(space, wbuf, 'strict', final=True, errorhandler=errh)
+            utf8, lgt, pos = str_decode_utf_16(space, wbuf, w_wbuf, 'strict', final=True, errorhandler=errh)
             if self.mode == 'u':
                 length -= lgt
                 outlen += lgt
@@ -430,7 +431,7 @@ class W_WinConsoleIO(W_RawIOBase):
         
         if length > 0:
             wbuf = read_console_wide(space, self.handle, length)
-            utf8, lgt, pos = str_decode_utf_16(space, wbuf, 'strict', final=True, errorhandler=errh)
+            utf8, lgt, pos = str_decode_utf_16(space, wbuf, w_wbuf, 'strict', final=True, errorhandler=errh)
             if 1 or self.mode == 'u':
                 length -= lgt
                 outlen += lgt
@@ -479,7 +480,8 @@ class W_WinConsoleIO(W_RawIOBase):
         wbuf = result.build()
         state = space.fromcache(CodecState)
         errh = state.decode_error_handler
-        utf8, lgt, pos = str_decode_utf_16(space, wbuf, 'strict', final=True, errorhandler=errh)
+        w_wbuf = space.newbytes(wbuf)
+        utf8, lgt, pos = str_decode_utf_16(space, wbuf, w_wbuf, 'strict', final=True, errorhandler=errh)
 
         return space.newtext(utf8, lgt)
 
@@ -497,7 +499,7 @@ class W_WinConsoleIO(W_RawIOBase):
         # TODO: break up the encoding into chunks to save memory
         state = space.fromcache(CodecState)
         errh = state.encode_error_handler
-        utf16 = utf8_encode_utf_16(space, utf8, 'strict', errh, allow_surrogates=False)
+        utf16 = utf8_encode_utf_16(space, utf8, w_data, 'strict', errh, allow_surrogates=False)
         wlen = len(utf16) // 2
     
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as n:
