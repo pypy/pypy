@@ -596,7 +596,7 @@ def get_operrcls2(valuefmt):
                         # u'str\uxxxx' -> 'str\xXX\xXX' -> u"'str\xXX\xXX'"
                         from pypy.interpreter import unicodehelper as uh
                         decode_never_raise = uh.make_decode_never_raise(space)
-                        w_value = space.newtext(value)
+                        w_value = space.newbytes(value)
                         result, _lgt, pos  = uh.str_decode_utf8(
                             space, value, w_value, 'replace', True,
                             decode_never_raise, True)

@@ -29,7 +29,7 @@ class FakeSpace:
     def newtext(self, s):
         return self.space.newtext(s)
 
-def test_encode_utf_8_combine_surrogates():
+def test_encode_utf_8_combine_surrogates(space):
     """
     In the case of a surrogate pair, the error handler should
     called with a start and stop position of the full surrogate
@@ -38,11 +38,11 @@ def test_encode_utf_8_combine_surrogates():
     #               /--surrogate pair--\
     #    \udc80      \ud800      \udfff
     b = "\xed\xb2\x80\xed\xa0\x80\xed\xbf\xbf"
-    space = FakeSpace(None)
+    _space = FakeSpace(space)
 
     calls = []
 
-    def errorhandler(errors, encoding, msg, s, start, end):
+    def errorhandler(errors, encoding, msg, w_s, start, end):
         """
         This handler will be called twice, so asserting both times:
 
@@ -51,11 +51,12 @@ def test_encode_utf_8_combine_surrogates():
         2. the second time, the characters will be 0xD800 and 0xDFFF, since
            that is a valid surrogate pair.
         """
+        s = w_s._utf8
         calls.append(s.decode("utf-8")[start:end])
-        return 'abc', end, 'b', s, s
-
+        return 'abc', end, 'b', s, w_s
+    w_b = space.newtext(b)
     res = utf8_encode_utf_8(
-        space, b, b, 'strict',
+        space, b, w_b, 'strict',
         errorhandler=errorhandler,
         allow_surrogates=False
     )
