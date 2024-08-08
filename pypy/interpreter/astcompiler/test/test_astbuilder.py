@@ -972,6 +972,12 @@ class TestAstBuilding:
                 assert excinfo.value.offset == pos[0]
                 assert excinfo.value.end_offset == pos[1]
 
+    def test_cannot_assign_augmented(self):
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast("a, b += 1, 2")
+        assert "'tuple' is an illegal expression for augmented assignment" in excinfo.value.msg
+
+
     def test_cannot_assign_bug(self):
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast("for [ ]")

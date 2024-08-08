@@ -499,7 +499,8 @@ getting the advantage of providing document type information to the parser.
         except rutf8.CheckError:
             from pypy.interpreter import unicodehelper
             # get the correct error msg
-            unicodehelper.str_decode_utf8(s, 'string', True,
+            w_s = space.newbytes(s)
+            unicodehelper.str_decode_utf8(space, s, w_s, 'string', True,
                 unicodehelper.decode_error_handler(space))
             assert False, "always raises"
         return space.newtext(s)

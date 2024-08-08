@@ -1,3 +1,4 @@
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.unicodehelper import _str_decode_utf8_slowpath
 
 def wrap_pos(space, num):
@@ -5,18 +6,23 @@ def wrap_pos(space, num):
         return space.w_None
     return space.newint(num)
 
-def replace_error_handler(errors, encoding, msg, s, startpos, endpos):
-    return b'\xef\xbf\xbd', endpos, 'b', s
+@specialize.memo()
+def make_replace_error_handler(space):
+    def replace_error_handler(errors, encoding, msg, w_s, startpos, endpos):
+        return b'\xef\xbf\xbd', endpos, 'b', space.utf8_w(w_s), w_s
+    return replace_error_handler
 
-def _adjust_offset(offset, text, unilength):
+def _adjust_offset(space, offset, text, unilength):
     if offset > len(text):
         offset = unilength
     elif offset >= 1:
         offset = offset - 1 # 1-based to 0-based
         assert offset >= 0
         # slightly inefficient, call the decoder for text[:offset] too
-        _, offset, _ = _str_decode_utf8_slowpath(
-                text[:offset], 'replace', False, replace_error_handler,
+        s = text[:offset]
+        w_s = space.newbytes(s)
+        _, offset, _ = _str_decode_utf8_slowpath(space, 
+                s, w_w, 'replace', False, make_replace_error_handler(space),
                 True)
         offset += 1 # convert to 1-based
     else:
@@ -83,11 +89,11 @@ class SyntaxError(Exception):
             # codepoint-based index into the decoded unicode-version of
             # self.text
 
-            replacedtext, unilength, _ = _str_decode_utf8_slowpath(
-                    text, 'replace', False, replace_error_handler, True)
-            offset = _adjust_offset(offset, text, unilength)
+            replacedtext, unilength, _ = _str_decode_utf8_slowpath(space,
+                    text, space.newbytes(text), 'replace', False, make_replace_error_handler(space), True)
+            offset = _adjust_offset(space, offset, text, unilength)
             # XXX this is wrong if end_lineno != lineno
-            end_offset = _adjust_offset(end_offset, text, unilength)
+            end_offset = _adjust_offset(space, end_offset, text, unilength)
             w_text = space.newutf8(replacedtext, unilength)
         return space.newtuple([
             space.newtext(self.msg),

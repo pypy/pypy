@@ -483,7 +483,11 @@ class ObjSpace(object):
         w_atexit = self.getbuiltinmodule('atexit')
         try:
             self.call_method(w_atexit, '_run_exitfuncs')
-        except OperationError:
+        except OperationError as e:
+            try:
+                e.write_unraisable(self, '_run_exitfuncs')
+            except Exception:
+                pass
             # discard exceptions, see call_py_exitfuncs in pylifecycle.c in
             # CPython
             pass

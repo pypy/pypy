@@ -30,7 +30,7 @@ class CodecState(object):
         self.modified()
 
     def _make_errorhandler(self, space, decode):
-        def call_errorhandler(errors, encoding, reason, input, startpos,
+        def call_errorhandler(errors, encoding, reason, w_input, startpos,
                               endpos):
             """Generic wrapper for calling into error handlers.
 
@@ -42,16 +42,11 @@ class CodecState(object):
             handlers return utf8 so we add whether they used unicode or bytes
             """
             w_errorhandler = lookup_error(space, errors)
+            length = space.len_w(w_input)
             if decode:
                 w_cls = space.w_UnicodeDecodeError
-                assert isinstance(input, str)
-                w_input = space.newbytes(input)
-                length = len(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
-                assert isinstance(input, str)
-                length = rutf8.codepoints_in_utf8(input)
-                w_input = space.newtext(input, length)
             w_exc =  space.call_function(
                 w_cls,
                 space.newtext(encoding),
@@ -106,7 +101,7 @@ class CodecState(object):
                     raise oefmt(space.w_ValueError,
                             "error handler modified exc.object must be str")
             obj = space.utf8_w(w_obj)
-            return space.utf8_w(w_replace), newpos, rettype, obj
+            return space.utf8_w(w_replace), newpos, rettype, obj, w_obj
         return call_errorhandler
 
     def make_decode_errorhandler(self, space):
@@ -704,7 +699,7 @@ def make_encoder_wrapper(name):
             allow_surrogates = True
         state = space.fromcache(CodecState)
         ulen = w_arg._length
-        result = func(w_arg._utf8, errors, state.encode_error_handler,
+        result = func(space, w_arg._utf8, w_arg, errors, state.encode_error_handler,
                       allow_surrogates=allow_surrogates)
         return space.newtuple2(space.newbytes(result), space.newint(ulen))
     wrap_encoder.__name__ = func.__name__
@@ -720,7 +715,8 @@ def make_decoder_wrapper(name):
             errors = 'strict'
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
-        result, length, pos = func(string, errors, final, state.decode_error_handler)
+        w_str = space.newbytes(string)
+        result, length, pos = func(space, string, w_str, errors, final, state.decode_error_handler)
         # must return bytes, pos
         return space.newtuple2(space.newutf8(result, length), space.newint(pos))
     wrap_decoder.__name__ = func.__name__
@@ -778,7 +774,8 @@ if getattr(unicodehelper, '_WIN32', False):
         state = space.fromcache(CodecState)
         ulen = w_arg._length
         try:
-            result = unicodehelper.utf8_encode_code_page(code_page, w_arg._utf8,
+            result = unicodehelper.utf8_encode_code_page(space, code_page,
+                      w_arg._utf8, w_arg,
                       errors, state.encode_error_handler,
                       allow_surrogates=allow_surrogates)
         except OSError as e:
@@ -796,17 +793,18 @@ if getattr(unicodehelper, '_WIN32', False):
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
         try:
-            result, pos, length = unicodehelper.str_decode_code_page(code_page,
-                                   string, errors, final,
+            w_s = space.newbytes(string)
+            result, pos, length = unicodehelper.str_decode_code_page(space, code_page,
+                                   string, w_s, errors, final,
                                    state.decode_error_handler)
         except OSError as e:
             raise wrap_oserror(space, e)
         # must return bytes, pos
         return space.newtuple([space.newutf8(result, length), space.newint(len(string))])
 
-def utf8_encode_wrapper(space, utf8, errors):
+def utf8_encode_wrapper(space, utf8, w_obj, errors):
     state = space.fromcache(CodecState)
-    return unicodehelper.utf8_encode_utf_8(utf8, errors,
+    return unicodehelper.utf8_encode_utf_8(space, utf8, w_obj, errors,
                  state.encode_error_handler, allow_surrogates=False)
 
 # utf-8 functions are not regular, because we have to pass
@@ -818,7 +816,7 @@ def utf_8_encode(space, w_obj, errors="strict"):
         return space.newtuple2(space.newbytes(utf8), space.newint(lgt))
     if errors is None:
         errors = 'strict'
-    result = utf8_encode_wrapper(space, utf8, errors)
+    result = utf8_encode_wrapper(space, utf8, w_obj, errors)
     if errors == 'strict':
         # since we did strict checking and surrogates are forbidden, we know
         # the result of the _check_utf8 call with allow_surrogates=False
@@ -836,7 +834,8 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
         allow_surrogates = True
     else:
         allow_surrogates = False
-    res, lgt, pos = unicodehelper.str_decode_utf8(string,
+    w_string = space.newbytes(string)
+    res, lgt, pos = unicodehelper.str_decode_utf8(space, string, w_string,
         errors, final, state.decode_error_handler, allow_surrogates=allow_surrogates)
     return space.newtuple2(space.newutf8(res, lgt),
                            space.newint(pos))
@@ -844,8 +843,6 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
 @unwrap_spec(data='bufferstr', errors='text_or_none', byteorder=int,
              w_final=WrappedDefault(False))
 def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
-    from pypy.interpreter.unicodehelper import str_decode_utf_16_helper
-
     if errors is None:
         errors = 'strict'
     final = space.is_true(w_final)
@@ -856,8 +853,9 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
         _byteorder = 'little'
     else:
         _byteorder = 'big'
-    res, lgt, pos, bo = str_decode_utf_16_helper(
-        data, errors, final,
+    w_data = space.newbytes(data)
+    res, lgt, pos, bo = unicodehelper.str_decode_utf_16_helper(
+        space, data, w_data, errors, final,
         state.decode_error_handler, _byteorder)
     # return result, consumed, byteorder for buffered incremental encoders
     return space.newtuple([space.newutf8(res, lgt),
@@ -866,8 +864,6 @@ def utf_16_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
 @unwrap_spec(data='bufferstr', errors='text_or_none', byteorder=int,
              w_final=WrappedDefault(False))
 def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
-    from pypy.interpreter.unicodehelper import str_decode_utf_32_helper
-
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
     if byteorder == 0:
@@ -876,8 +872,9 @@ def utf_32_ex_decode(space, data, errors='strict', byteorder=0, w_final=None):
         _byteorder = 'little'
     else:
         _byteorder = 'big'
-    res, lgt, pos, bo = str_decode_utf_32_helper(
-        data, errors, final,
+    w_data = space.newbytes(data)
+    res, lgt, pos, bo = unicodehelper.str_decode_utf_32_helper(
+        space, data, w_data, errors, final,
         state.decode_error_handler, _byteorder)
     # return result, consumed, byteorder for buffered incremental encoders
     return space.newtuple([space.newutf8(res, lgt),
@@ -977,8 +974,10 @@ def charmap_decode(space, string, errors="strict", w_mapping=None):
 
     final = True
     state = space.fromcache(CodecState)
+    w_string = space.newbytes(string)
     result, lgt, pos = unicodehelper.str_decode_charmap(
-        string, errors, final, state.decode_error_handler, mapping)
+        space, string, w_string, errors, final,
+        state.decode_error_handler, mapping)
     return space.newtuple2(space.newutf8(result, lgt),
                            space.newint(len(string)))
 
@@ -994,7 +993,8 @@ def charmap_encode(space, w_unicode, errors="strict", w_mapping=None):
     state = space.fromcache(CodecState)
     w_uni = space.convert_arg_to_w_unicode(w_unicode)
     result = unicodehelper.utf8_encode_charmap(
-        space.utf8_w(w_uni), errors, state.encode_error_handler, mapping)
+        space, space.utf8_w(w_uni), w_uni, errors,
+        state.encode_error_handler, mapping)
     return space.newtuple2(space.newbytes(result), space.newint(w_uni._len()))
 
 
@@ -1041,8 +1041,9 @@ def unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
     unicode_name_handler = state.get_unicodedata_handler(space)
 
+    w_s = space.newbytes(string)
     result, u_len, lgt, first_escape_error_char = unicodehelper.str_decode_unicode_escape(
-        string, errors,
+        space, string, w_s, errors,
         final, state.decode_error_handler,
         unicode_name_handler)
 
@@ -1072,8 +1073,9 @@ def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
         errors = 'strict'
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
+    w_s = space.newbytes(string)
     result, u_len, lgt = unicodehelper.str_decode_raw_unicode_escape(
-        string, errors, final, state.decode_error_handler)
+        space, string, w_s, errors, final, state.decode_error_handler)
     return space.newtuple2(space.newtext(result), space.newint(lgt))
 
 # ____________________________________________________________

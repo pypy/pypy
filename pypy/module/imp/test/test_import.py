@@ -183,7 +183,8 @@ def _setup_path(space, path):
 def _teardown(space, w_saved_modules):
     p = udir.join('impsubdir')
     if p.check():
-        p.remove()
+        # On windows when running multi-threaded, tests will hold the resource open
+        p.remove(ignore_errors=True)
     space.appexec([w_saved_modules], """
         (path_and_modules):
             saved_path, saved_modules = path_and_modules

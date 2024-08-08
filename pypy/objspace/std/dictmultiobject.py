@@ -12,7 +12,6 @@ from pypy.interpreter.gateway import (
 from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w, GetSetProperty
-from pypy.interpreter.unicodehelper import decode_utf8sp
 from pypy.objspace.std.util import negate, generic_alias_class_getitem
 
 

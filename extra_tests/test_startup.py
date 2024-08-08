@@ -1,7 +1,11 @@
+import signal
+import time
+import os
+import subprocess
+import sys
 
 def test_platform_not_imported():
     import subprocess
-    import sys
     out = subprocess.check_output([sys.executable, '-c',
          'import sys; print(list(sys.modules.keys()))'], universal_newlines=True)
     modules = [x.strip(' "\'') for x in out.strip().strip('[]').split(',')]
@@ -12,7 +16,6 @@ def test_platform_not_imported():
 def test_executable_win32():
     # issue #4003
     import os
-    import subprocess
     import sys
 
     out = subprocess.check_output([r'*', '-c',
@@ -27,3 +30,18 @@ def test_executable_win32():
         assert out.strip() == repr(sys.executable)
     else:
         assert out.strip() == repr('')
+
+
+def test_ctrl_c_causes_atexit():
+    process = subprocess.Popen(
+            [sys.executable,
+             '-c',
+             "import atexit, time, sys; atexit.register(lambda : print('called atexit')); print('sleeping'); sys.stdout.flush(); time.sleep(100)"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    line = process.stdout.readline()
+    assert line == b'sleeping\n'
+    os.kill(process.pid, signal.SIGINT)
+    process.wait()
+    assert process.returncode == -signal.SIGINT
+    line = process.stdout.read()
+    assert line == b'called atexit\n'
