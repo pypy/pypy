@@ -106,8 +106,13 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(TypeError, "obj.char_member = 'spam'")
         raises(TypeError, "obj.char_member = 42")
         #
+
+    def test_typeobject_int_member(self):
         import sys, struct
-        bignum = struct.unpack_from("@L", b"\xFF" * 8)[0]//2 - 42
+        module = self.import_module(name='foo')
+        obj = module.new()
+        max_uint = struct.unpack_from("@L", b"\xFF" * 8)[0]
+        bignum = max_uint//2 - 42
         obj.short_member = -12345;     assert obj.short_member == -12345
         obj.long_member = -bignum;     assert obj.long_member == -bignum
         obj.ushort_member = 45678;     assert obj.ushort_member == 45678
@@ -122,6 +127,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj.ulonglong_member = 2**63;  assert obj.ulonglong_member == 2**63
         obj.ssizet_member = sys.maxsize;assert obj.ssizet_member == sys.maxsize
         #
+        obj.ulong_member = -3; assert obj.ulong_member == max_uint + 1 - 3, obj.ulong_member
 
     def test_staticmethod(self):
         module = self.import_module(name="foo")
@@ -2100,7 +2106,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
         test = module.getset_type()
         assert test.prop.__doc__ == "A docstring"
-        
+
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
@@ -2270,7 +2276,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         module = self.import_module(name='nanobind1', filename="nanobind1")
         c = module.callable()
         assert c() == 1234
-        
+
         def f(value):
             assert value == 1234
 
