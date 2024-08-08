@@ -525,6 +525,30 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert a.y == 43
         assert a.__dict__ is nd
 
+    def test_SetAttrNull(self):
+        module = self.import_extension('foo', [
+            ('set_attr_null', 'METH_VARARGS',
+             """
+                PyObject *obj = PyTuple_GET_ITEM(args, 0);
+                PyObject *name = PyTuple_GET_ITEM(args, 1);
+                PyObject_SetAttr(obj, name, NULL);
+                Py_RETURN_TRUE;
+             """),
+            ('set_test_null', 'METH_O',
+             """
+                PyObject_SetAttrString(args, "test", NULL);
+                Py_RETURN_TRUE;
+             """),
+            ])
+        class A(object):
+            pass
+        a = A()
+        a.test = 20
+        module.set_attr_null(a, "test")
+        assert not hasattr(a, "test")
+        a.test = 20
+        module.set_test_null(a)
+        assert not hasattr(a, "test")
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     """
