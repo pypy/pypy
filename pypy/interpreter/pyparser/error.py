@@ -22,7 +22,7 @@ def _adjust_offset(space, offset, text, unilength):
         s = text[:offset]
         w_s = space.newbytes(s)
         _, offset, _ = _str_decode_utf8_slowpath(space, 
-                s, w_w, 'replace', False, make_replace_error_handler(space),
+                s, w_s, 'replace', False, make_replace_error_handler(space),
                 True)
         offset += 1 # convert to 1-based
     else:
