@@ -83,9 +83,6 @@ class TestLongObject(BaseApiTest):
         assert PyLong_AsUnsignedLongLongMask(space, space.wrap(1 << 64)) == 0
 
         with pytest.raises(OperationError) as excinfo:
-            PyLong_AsUnsignedLongLong(space, space.newint(-1))
-        assert excinfo.value.w_type is space.w_OverflowError
-        with pytest.raises(OperationError) as excinfo:
             PyLong_AsUnsignedLongLongMask(space, None)
         assert excinfo.value.w_type is space.w_SystemError
 
@@ -238,9 +235,19 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                     return NULL;
                 }
                 return PyLong_FromUnsignedLong(n);
+             """),
+            ("asunsignedlonglong", "METH_O",
+             """
+                unsigned long n = PyLong_AsUnsignedLongLong(args);
+                if ((long)n == -1 && PyErr_Occurred()) {
+                    return NULL;
+                }
+                return PyLong_FromUnsignedLongLong(n);
              """)])
         with raises(OverflowError):
             module.asunsignedlong(-1)
+        with raises(OverflowError):
+            module.asunsignedlonglong(-1)
 
     def test_fromstring(self):
         module = self.import_extension('foo', [

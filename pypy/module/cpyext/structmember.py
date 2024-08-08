@@ -14,6 +14,7 @@ from pypy.module.cpyext.longobject import (
 from pypy.module.cpyext.typeobjectdefs import PyMemberDef
 from rpython.rlib.unroll import unrolling_iterable
 from pypy.objspace.std.longobject import W_LongObject
+from rpython.rlib.objectmodel import specialize
 
 def convert_bool(space, w_obj):
     if space.is_w(w_obj, space.w_False):
@@ -28,13 +29,16 @@ def convert_long(space, w_obj):
 
 ULONG_MAX = (2 ** (8 * rffi.sizeof(rffi.ULONG)) -1)
 
+@specialize.memo()
+def get_ulong_max(space):
+    return W_LongObject.fromlong(ULONG_MAX)
+
 def convert_ulong(space, w_obj):
     # w_obj could be a bigint, so do the following in rpython
     # if obj < 0:
     #      obj = cast(unsigned long, obj)
     if space.is_true(space.lt(w_obj, space.newint(0))):
-        val = space.int_w(w_obj)
-        w_obj = space.add(W_LongObject.fromlong(ULONG_MAX), w_obj)
+        w_obj = space.add(get_ulong_max(space), w_obj)
         w_obj = space.add(space.newint(1), w_obj)
     val = PyLong_AsUnsignedLong(space, w_obj)
     return widen(val)
