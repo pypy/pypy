@@ -120,7 +120,7 @@ so you should be able to run pypy simply by typing::
 
 You should still upgrade pip and wheel to the latest versions via::
 
-    $ my-pypy-env/bin/pypy -mpip install -U pip wheel
+    $ my-pypy-env/bin/pypy -m pip install -U pip wheel
 
 .. _pip: https://pypi.python.org/pypi/pip
 .. _ensurepip: https://docs.python.org/3/library/ensurepip.html
