@@ -228,13 +228,15 @@ class ctrl_c(Command):
 
 
 class suspend(Command):
+    import signal
+    # On windows, this will kill the REPL process
+    SIGSTOP = getattr(signal, "SIGSTOP", 9)
     def do(self) -> None:
-        import signal
 
         r = self.reader
         p = r.pos
         r.console.finish()
-        os.kill(os.getpid(), signal.SIGSTOP)
+        os.kill(os.getpid(), self.SIGSTOP)
         ## this should probably be done
         ## in a handler for SIGCONT?
         r.console.prepare()
