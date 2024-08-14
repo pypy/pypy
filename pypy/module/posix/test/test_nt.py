@@ -1,10 +1,10 @@
 import os
 import sys
 
-import py
+import pytest
 
 if not sys.platform.startswith('win'):
-    py.test.skip("requires Windows")
+    pytest.skip("requires Windows")
 
 from pypy.module.posix import interp_nt as nt
 
@@ -23,5 +23,5 @@ def test__getfinalpathname():
     try:
         result, lgt = nt._getfinalpathname(path)
     except nt.LLNotImplemented:
-        py.test.skip("_getfinalpathname not supported on this platform")
+        pytest.skip("_getfinalpathname not supported on this platform")
     assert os.path.exists(result)

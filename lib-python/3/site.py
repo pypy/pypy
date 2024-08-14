@@ -460,6 +460,20 @@ def setcopyright():
 def sethelper():
     builtins.help = _sitebuiltins._Helper()
 
+def gethistoryfile():
+    """Check if the PYTHON_HISTORY environment variable is set and define
+    it as the .python_history file.  If PYTHON_HISTORY is not set, use the
+    default .python_history file.
+    """
+    # pypy modification: ported from cpython 3.13 to support pyrepl
+    if not sys.flags.ignore_environment:
+        history = os.environ.get("PYTHON_HISTORY")
+        if history:
+            return history
+    return os.path.join(os.path.expanduser('~'),
+        '.python_history')
+
+
 def enablerlcompleter():
     """Enable default readline configuration on interactive prompts, by
     registering a sys.__interactivehook__.
@@ -474,7 +488,10 @@ def enablerlcompleter():
         try:
             import readline
             import rlcompleter
+            from _pyrepl.main import CAN_USE_PYREPL
         except ImportError:
+            return
+        if not CAN_USE_PYREPL:
             return
 
         # Reading the initialization (config) file may not be enough to set a
