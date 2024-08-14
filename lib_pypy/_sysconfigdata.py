@@ -26,6 +26,7 @@ build_time_vars = {
     'CCSHARED': "-fPIC",
     'LDFLAGS': "-Wl,-Bsymbolic-functions",
     'LDSHARED': "cc -pthread -shared -Wl,-Bsymbolic-functions",
+    'LDCXXSHARED': "c++ -shared -Wl,-O1 -Wl,-Bsymbolic-functions",
     'EXT_SUFFIX': so_ext,
     'SHLIB_SUFFIX': ".so",
     'AR': "ar",
