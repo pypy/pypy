@@ -60,11 +60,11 @@ if _POSIX:
     # depending on the OS
     constant_names = ['MAP_SHARED', 'MAP_PRIVATE', 'MAP_FIXED',
                       'PROT_READ', 'PROT_WRITE',
-                      'MS_SYNC', 'MAP_POPULATE']
+                      'MS_SYNC']
     if _DARWIN and _ARM64:
         constant_names.append('MAP_JIT')
     opt_constant_names = ['MAP_ANON', 'MAP_ANONYMOUS', 'MAP_NORESERVE',
-                          'PROT_EXEC',
+                          'PROT_EXEC', 'MAP_POPULATE',
                           'MAP_DENYWRITE', 'MAP_EXECUTABLE']
     for name in constant_names:
         setattr(CConfig, name, rffi_platform.ConstantInteger(name))
