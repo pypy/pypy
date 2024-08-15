@@ -819,7 +819,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert all([math.copysign(1, f(abs(float("nan")))) == 1 for f in floor, ceil, trunc])
 
     def test_floorceiltrunc_nan_negative(self):
-        if platform.machine().startswith('riscv'):
+        # self.machine comes from test_base.py
+        if self.machine.startswith('riscv'):
             py.test.skip('riscv floor/ceil/trunc canonicalizes nan to '
                          'positive nan')
         from numpy import floor, ceil, trunc

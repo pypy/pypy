@@ -1888,7 +1888,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert e.argmax() == 3
 
     def test_half_conversions_preserve_nan_payload_float32(self):
-        if platform.machine().startswith('riscv'):
+        # self.machine comes from test_base.py
+        if self.machine.startswith('riscv'):
             py.test.skip('riscv does not preserve nan payload in '
                          'float64->float32 conversion')
         from numpy import array, arange
