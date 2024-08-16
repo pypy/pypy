@@ -127,7 +127,7 @@ Bugfixes
 ~~~~~~~~
 
 - ``_putwch`` on windows accepts a chr not an int (:issue:`4881`)
-- Properly create ppc64 import suffixes for c-extensions (:issue:`
+- Properly create ppc64 import suffixes for c-extensions (:issue:`4878`)
 - Backport cpython fix to prevent subclassing datetime.timezone (:issue:`python/cpython#112453`)
 - Remove top level ``__init__.py`` from stdlib (:issue:`4885`)
 - Replace ``handshake_done`` with ``SSL_is_init_finished`` (bpo-29334_ from CPython3.5)

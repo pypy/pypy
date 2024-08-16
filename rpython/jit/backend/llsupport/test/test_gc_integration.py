@@ -106,6 +106,8 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
             assert nos == [0, 1, 29]
         elif self.cpu.backend_name.startswith('aarch64'):
             assert nos == [0, 1, 27]
+        elif self.cpu.backend_name.startswith('riscv'):
+            assert nos == [5, 6, 67]
         else:
             raise Exception("write the data here")
         assert frame.jf_frame[nos[0]]
@@ -337,7 +339,8 @@ class TestMallocFastpath(BaseTestRegalloc):
         def check(frame):
             expected_size = 1
             fixed_size = self.cpu.JITFRAME_FIXED_SIZE
-            if self.cpu.backend_name.startswith('arm'):
+            if self.cpu.backend_name.startswith('arm') or \
+               self.cpu.backend_name.startswith('riscv'):
                 # jitframe fixed part is larger here
                 expected_size = 2
             if self.cpu.backend_name.startswith('zarch') or \
@@ -382,15 +385,9 @@ class TestMallocFastpath(BaseTestRegalloc):
 
     def test_save_regs_around_malloc(self):
         def check(frame):
-            x = frame.jf_gcmap
-            if self.cpu.IS_64_BIT:
-                assert len(x) == 1
-                assert (bin(x[0]).count('1') ==
-                        '0b1111100000000000000001111111011110'.count('1'))
-            else:
-                assert len(x) == 2
-                s = bin(x[0]).count('1') + bin(x[1]).count('1')
-                assert s == 16
+            gcmap = frame.jf_gcmap
+            s = sum(bin(word).count('1') for word in gcmap)
+            assert s == 16
             # all but two registers + some stuff on stack
 
         self.cpu = self.getcpu(check)
@@ -686,6 +683,8 @@ class TestGcShadowstackDirect(BaseTestRegalloc):
                 assert gcmap == [26, 27, 28]
             elif self.cpu.backend_name.startswith('aarch64'):
                 assert gcmap == [24, 25, 26]
+            elif self.cpu.backend_name.startswith('riscv'):
+                assert gcmap == [64, 65, 66]
             elif self.cpu.IS_64_BIT:
                 assert gcmap == [28, 29, 30]
             elif self.cpu.backend_name.startswith('arm'):

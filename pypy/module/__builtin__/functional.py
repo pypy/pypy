@@ -140,7 +140,7 @@ min_jitdriver = jit.JitDriver(name='min',
         get_printable_location=get_printable_location)
 
 def get_printable_location(has_key, has_item, greenkey):
-    return "min [has_key=%s, has_item=%s, %s]" % (
+    return "max [has_key=%s, has_item=%s, %s]" % (
             has_key, has_item, greenkey.iterator_greenkey_printable())
 
 max_jitdriver = jit.JitDriver(name='max',

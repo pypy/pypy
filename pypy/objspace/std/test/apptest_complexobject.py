@@ -559,3 +559,7 @@ def test_int_override():
 
     c = MyComplex(0.j)
     assert int(c) == 42
+
+def test_parse_complex_whitespace_bug():
+    c = complex('\t( -1.23+4.5J )\n\r\v ')
+    assert c == -1.23+4.5j
