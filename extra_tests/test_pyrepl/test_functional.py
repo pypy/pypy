@@ -8,7 +8,7 @@ import sys, os
 
 
 @contextmanager
-def start_repl(extra_env=dict(), explicit_pyrepl=True):
+def start_repl(extra_env=dict(), explicit_pyrepl=True, colors=False):
     try:
         import pexpect
     except ImportError:
@@ -20,7 +20,7 @@ def start_repl(extra_env=dict(), explicit_pyrepl=True):
         args = ['-S', '-c', "from pyrepl.main import interactive_console as __pyrepl_interactive_console; __pyrepl_interactive_console()"],
     child = pexpect.spawn(
         sys.executable,
-        env=os.environ | {"PYTHON_COLORS": "0"} | extra_env,
+        env=os.environ | {"PYTHON_COLORS": "1" if colors else "0"} | extra_env,
         timeout=10, encoding="utf-8")
     child.logfile = sys.stdout
     yield child
@@ -70,6 +70,13 @@ def test_sys_tracebacklimit_is_correct():
         child.sendline("x3()")
         child.expect('Traceback(.*)ZeroDivisionError: division by zero')
         assert "x3" not in child.match.group(1)
+
+def test_hyperlinks_error():
+    with start_repl(colors=True) as child:
+        child.sendline("import traceback; list(traceback.walk_tb(1))")
+        import socket
+        import traceback
+        child.expect(f"\x1b]8;;file://{socket.gethostname()}{traceback.__file__}\x1b.{traceback.__file__}\x1b]8;;\x1b.")
 
 def test_dumb_terminal():
     with start_repl(extra_env=dict(TERM="dumb"), explicit_pyrepl=False) as child:

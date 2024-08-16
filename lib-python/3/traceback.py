@@ -355,6 +355,14 @@ def _construct_positionful_frame(f, last_i, *args, **kwargs):
 
     return f_summary
 
+def _filelink(filename):
+    import socket
+    if filename.startswith("<") and filename.endswith(">"):
+        return filename
+    url = f"file://{socket.gethostname()}{filename}"
+    # OSC 8 ; params ; URI ST <name> OSC 8 ;; ST
+    return f'\x1b]8;;{url}\x1b\\{filename}\x1b]8;;\x1b\\'
+
 # end PyPy modification
 
 
@@ -492,7 +500,7 @@ class StackSummary(list):
             from _colorize import ANSIColors
             row.append('  File {}"{}"{}, line {}{}{}, in {}{}{}\n'.format(
                     ANSIColors.MAGENTA,
-                    filename,
+                    _filelink(filename),
                     ANSIColors.RESET,
                     ANSIColors.MAGENTA,
                     frame_summary.lineno,
