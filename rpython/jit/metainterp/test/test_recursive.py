@@ -1309,14 +1309,25 @@ class RecursiveTests:
 
     def test_get_unique_id(self):
         lst = []
-        
+
         def reg_codemap(self, (start, size, l)):
             lst.append((start, size))
             old_reg_codemap(self, (start, size, l))
-        
+
+        # Mock `CodemapStorage.free()` because `check_get_unique_id` uses
+        # `codemap.unpack_traceback()`. We mock `CodemapStorage.free()` to
+        # extend the lifetime of the codemap; otherwise, the codemap will be
+        # freed before `meta_interp` returns (p.s. `meta_interp` calls
+        # `cpu.finish_once()`, which calls `cpu.codemap.finish_once()`).
+        saved_codemap_storages = []
+        def free_codemap(self):
+            saved_codemap_storages.append(self)
+
         old_reg_codemap = codemap.CodemapStorage.register_codemap
+        old_free = codemap.CodemapStorage.free
         try:
             codemap.CodemapStorage.register_codemap = reg_codemap
+            codemap.CodemapStorage.free = free_codemap
             def get_unique_id(pc, code):
                 return (code + 1) * 2
 
@@ -1338,6 +1349,10 @@ class RecursiveTests:
             self.check_get_unique_id(lst) # overloaded on assembler backends
         finally:
             codemap.CodemapStorage.register_codemap = old_reg_codemap
+            codemap.CodemapStorage.free = old_free
+            for codemap_storage in saved_codemap_storages:
+                old_free(codemap_storage)
+            saved_codemap_storages = []
 
     def check_get_unique_id(self, lst):
         pass
