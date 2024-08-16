@@ -30,7 +30,7 @@ tp = x4  # Thread pointer (neither caller-saved nor callee-saved)
 fp = x8  # Frame pointer (callee-saved)
 jfp = x9  # Pointer to RPython JITFrame (callee-saved)
 
-# Note: We keep the fp reigster according to the RISC-V calling convention with
+# Note: We keep the fp register according to the RISC-V calling convention with
 # `-fno-omit-frame-pointer` and reserve another callee-saved register (x9) as
 # the jfp register for JITFrame, so that stack unwinder or profilers can walk
 # through RPython loop/bridge.
