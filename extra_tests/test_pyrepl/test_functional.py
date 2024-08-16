@@ -53,7 +53,7 @@ def test_sys_excepthook_is_broken():
         child.sendline("import sys")
         child.sendline("sys.excepthook = 1")
         child.sendline("1/0")
-        child.expect('Error calling sys.excepthook.*object is not callable.*Traceback(.*)ZeroDivisionError: division by zero')
+        child.expect('Error in sys.excepthook.*object is not callable.*Traceback(.*)ZeroDivisionError: division by zero')
         child.sendline('a = 10000000000')
         child.sendline('a * 5')
         child.expect('50000000000')
