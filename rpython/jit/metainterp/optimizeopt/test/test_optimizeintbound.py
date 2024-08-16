@@ -4487,7 +4487,7 @@ finish()
         """
         expected = """
         [i0, i5]
-        i7 = int_ge(i0, i5)
+        i7 = int_le(i5, i0)
         guard_false(i7) []
         i9 = int_add(i0, 1)
         jump(1, 1) # constant

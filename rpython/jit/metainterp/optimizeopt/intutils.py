@@ -5,7 +5,7 @@ operations on them.
 
 The abstract domain tracks a (signed) upper and lower bound (both ends
 inclusive) for every integer variable in the trace. It also tracks which bits
-of a range are known 0 or known 1 (the remaining bits are unknown. The ranges
+of a range are known 0 or known 1 (the remaining bits are unknown). The ranges
 and the known bits feed back into each other, ie we can improve the range if
 some upper bits have known values, and we can learn some known bits from the
 range too. Every instance of IntBound represents a set of concrete integers.
