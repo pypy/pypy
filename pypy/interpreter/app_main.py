@@ -904,6 +904,11 @@ def run_command_line(interactive,
                                                 "<string>", 
                                                 'exec',
                                                 PyCF_IGNORE_COOKIE)
+                    try:
+                        import linecache
+                        linecache._register_code("<string>", run_command, "<stdin>")
+                    except Exception:
+                        pass
                     exec(co_python_startup, mainmodule.__dict__)
                 success = run_toplevel(run_it)
         elif run_module != 0:
