@@ -607,18 +607,14 @@ class OptIntBounds(Optimization):
                 opnum != rop.INT_SUB_OVF and
                 opnum != rop.INT_MUL_OVF):
                 return
-            # Else, synthesize the non overflowing op for optimize_default to
-            # reuse, as well as the reverse op
+            # Else, synthesize the non overflowing reverse ops
             elif opnum == rop.INT_ADD_OVF:
                 arg0, arg1 = args
-                # infer something about the arguments from the fact that the
                 # addition didn't overflow
-                #self.pure(rop.INT_ADD, args[:], result)
                 self.pure_from_args(rop.INT_SUB, [result, arg1], arg0)
                 self.pure_from_args(rop.INT_SUB, [result, arg0], arg1)
             elif opnum == rop.INT_SUB_OVF:
                 arg0, arg1 = args
-                #self.pure(rop.INT_SUB, args[:], result)
                 self.pure_from_args(rop.INT_ADD, [result, arg1], arg0)
                 self.pure_from_args(rop.INT_SUB, [arg0, result], arg1)
                 b0 = self.getintbound(arg0)
@@ -642,8 +638,6 @@ class OptIntBounds(Optimization):
             return
         arg0 = lastop.getarg(0)
         arg1 = lastop.getarg(1)
-        # Else, synthesize the non overflowing op for optimize_default to
-        # reuse, as well as the reverse op
         if opnum == rop.INT_ADD_OVF:
             # infer something about the arguments from the fact that the
             # addition didn't overflow
@@ -730,7 +724,7 @@ class OptIntBounds(Optimization):
             self.optimizer.send_extra_operation(op)
             return
         if b0.sub_bound_must_overflow(b1):
-            self.make_equal_to(op, ConstInt(0xdeadadd)) # the result is not used in the rest of the trace
+            self.make_equal_to(op, ConstInt(0xdead555)) # the result is not used in the rest of the trace
             self.last_emitted_operation = REMOVED
             return
         return self.emit(op)
@@ -744,7 +738,7 @@ class OptIntBounds(Optimization):
             self.optimizer.send_extra_operation(op)
             return
         if b0.mul_bound_must_overflow(b1):
-            self.make_equal_to(op, ConstInt(0xdeadadd)) # the result is not used in the rest of the trace
+            self.make_equal_to(op, ConstInt(0xdead111)) # the result is not used in the rest of the trace
             self.last_emitted_operation = REMOVED
             return
         return self.emit(op)
@@ -772,7 +766,7 @@ class OptIntBounds(Optimization):
         if oldop and self.getintbound(oldop).known_eq_const(1):
             self.make_constant_int(op, 0)
             return
-        # x < y ⇔ Not(y <= x)
+        # x < y ⇔ not y <= x
         oldop = self.get_pure_result2(rop.INT_LE, arg1, arg0)
         return self._negate_oldop_or_return_op(op, oldop)
 
@@ -881,7 +875,7 @@ class OptIntBounds(Optimization):
         if oldop and self.getintbound(oldop).known_eq_const(1):
             self.make_constant_int(op, 0)
             return
-        # x < y ⇔ Not(y <= x)
+        # x < y ⇔ not y <= x
         oldop = self.get_pure_result2(rop.UINT_LE, arg1, arg0)
         if oldop is None:
             if b0.is_constant() and b0.get_constant_int() == 0:
