@@ -1238,7 +1238,7 @@ class BaseTestBridges(BaseTest):
         p1 = getfield_gc_r(p0, descr=nextdescr)
         i2 = getarrayitem_gc_i(p1, 5, descr=arraydescr)
         i3 = arraylen_gc(p1, descr=arraydescr) # Should be killed by backend
-        i4 = int_ge(i3, 11)
+        i4 = int_le(11, i3)
         guard_true(i4) []
         i5 = getarrayitem_gc_i(p1, 10, descr=arraydescr)
         jump(p0, p1, i5)
@@ -1257,7 +1257,7 @@ class BaseTestBridges(BaseTest):
         guard_nonnull(p1) []
         guard_gc_type(p1, ConstInt(arraydescr_tid)) []
         i3 = arraylen_gc(p1, descr=arraydescr) # Should be killed by backend
-        i4 = int_ge(i3, 11)
+        i4 = int_le(11, i3)
         guard_true(i4) []
         i5 = getarrayitem_gc_i(p1, 10, descr=arraydescr)
         jump(p0, p1, i5)
@@ -1287,7 +1287,7 @@ class BaseTestBridges(BaseTest):
         guard_nonnull(p2) []
         guard_gc_type(p2, ConstInt(gcarraydescr_tid)) []
         i5 = arraylen_gc(p2, descr=gcarraydescr)
-        i6 = int_ge(i5, 1)
+        i6 = int_le(1, i5)
         guard_true(i6) []
         p3 = getarrayitem_gc_r(p2, 0, descr=gcarraydescr)
         jump(p0, p1, p2, p3)
