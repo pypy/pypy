@@ -18,6 +18,7 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+import sys
 
 if '__pypy__' in sys.builtin_module_names:
     # pypy case
