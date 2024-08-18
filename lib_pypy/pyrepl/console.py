@@ -203,6 +203,18 @@ class InteractiveColoredConsole(code.InteractiveConsole):
             self.resetbuffer()
         return more
 
+    def _excepthook(self, typ, value, tb):
+        import traceback
+        tb_exc = traceback.TracebackException(
+            typ,
+            value,
+            tb,
+            limit=traceback.BUILTIN_EXCEPTION_LIMIT,
+            _frame_constructor=traceback._construct_positionful_frame,
+        )
+        lines = tb_exc.format(colorize=self.can_colorize)
+        self.write(''.join(lines))
+
     def runsource(self, source, filename="<input>", symbol="single"):
         try:
             tree = ast.parse(source)

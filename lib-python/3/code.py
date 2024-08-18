@@ -143,10 +143,7 @@ class InteractiveInterpreter:
         sys.last_traceback = tb
         sys.last_exc = sys.last_value = value = value.with_traceback(tb)
         if sys.excepthook is sys.__excepthook__:
-            lines = traceback.format_exception(typ, value, tb,
-                                                colorize=colorize,
-                                                limit=limit)
-            self.write(''.join(lines))
+            self._excepthook(typ, value, tb)
         else:
             # If someone has set sys.excepthook, we let that take precedence
             # over self.write
@@ -162,6 +159,12 @@ class InteractiveInterpreter:
                 print(file=sys.stderr)
                 print('Original exception was:', file=sys.stderr)
                 sys.__excepthook__(typ, value, tb)
+
+    def _excepthook(self, typ, value, tb):
+        # This method is being overwritten in
+        # _pyrepl.console.InteractiveColoredConsole
+        lines = traceback.format_exception(typ, value, tb)
+        self.write(''.join(lines))
 
     def write(self, data):
         """Write a string.
