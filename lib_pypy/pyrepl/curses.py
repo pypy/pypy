@@ -19,13 +19,17 @@
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 
-try:
-    import _curses
-except ImportError:
+if '__pypy__' in sys.builtin_module_names:
+    # pypy case
+    import _minimal_curses as _curses
+else:
     try:
-        import curses as _curses  # type: ignore[no-redef]
+        import _curses
     except ImportError:
-        from . import _minimal_curses as _curses  # type: ignore[no-redef]
+        try:
+            import curses as _curses  # type: ignore[no-redef]
+        except ImportError:
+            from . import _minimal_curses as _curses  # type: ignore[no-redef]
 
 setupterm = _curses.setupterm
 tigetstr = _curses.tigetstr
