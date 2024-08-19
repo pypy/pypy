@@ -153,7 +153,7 @@ We will keep the buildbots building PyPY3.9 until the end of August, these
 builds will still be available on the `nightly builds`_ tab of the buildbot.
 
 .. _`sunsetting its PyPy support`: https://pypy.org/posts/2024/08/conda-forge-proposes-dropping-support-for-pypy.html
-.. _`nightly downloads: https://buildbot.pypy.org/nightly/
+.. _`nightly builds: https://buildbot.pypy.org/nightly/
 
 What is PyPy?
 =============
