@@ -28,8 +28,7 @@ The release includes two different interpreters:
 
 The interpreters are based on much the same codebase, thus the dual
 release. This is a micro release, all APIs are compatible with the other 7.3
-releases. It follows after 7.3.16 release on April 23, 2024. We have dropped
-PyPy3.9.
+releases. It follows after 7.3.16 release on April 23, 2024. 
 
 We recommend updating. You can find links to download the releases here:
 
@@ -138,6 +137,19 @@ ISAs, and that use the RPython JIT to improve performance).
 .. _`Pydrofoil`: https://docs.pydrofoil.org/en/latest/
 .. _Sail: https://github.com/rems-project/sail/
 
+PyPy versions and speed.pypy.org
+================================
+
+The keen-eyed will have noticed no mention of Python version 3.9 in the
+releases above. Typically we will maintain only one version of Python3, but due
+to PyPy3.9 support on conda-forge we maintained multiple versions from the
+first release of PyPy3.10 in PyPy v7.3.12 (Dec 2022). Conda-forge is
+`sunsetting its PyPy support`_, which means we can drop PyPy3.9. Since that was
+the major driver of benchmarks at https://speed.pypy.org, we revamped the site
+to showcase PyPy3.9, PyPy3.10, cpython 3.7.19, and cpython 3.11.9 on the home
+page.
+
+.. _`sunsetting its PyPy support`: https://pypy.org/posts/2024/08/conda-forge-proposes-dropping-support-for-pypy.html
 
 What is PyPy?
 =============
