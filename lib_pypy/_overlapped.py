@@ -121,6 +121,8 @@ class OverlappedType(Enum):
     TYPE_CONNECT_NAMED_PIPE = 8
     TYPE_WAIT_NAMED_PIPE_AND_CONNECT = 9
     TYPE_TRANSMIT_FILE = 10
+    TYPE_READ_FROM = 11
+    TYPE_WRITE_TO = 12
 
 
 def initiailize_function_ptrs():
@@ -266,28 +268,64 @@ class Overlapped(object):
             RaiseFromWindowsErr(0)
 
     def WSARecv(self, handle, size, flags):
-        handle = _int2handle(handle)
+        """Start overlapped receive."""
         flags = _int2dword(flags)
         if self.type != OverlappedType.TYPE_NONE:
-            _winapi.raise_WinError()
+            raise ValueError("operation already attempted")
 
         self.type = OverlappedType.TYPE_READ
         self.handle = _int2handle(handle)
         self.read_buffer = _ffi.new("CHAR[]", max(1, size))
-        return self.do_WSARecv(handle, self.read_buffer, size, flags)
+        return self.do_WSARecv(self.handle, self.read_buffer, size, flags)
 
     def WSARecvInto(self, handle, bufobj, flags):
-        handle = _int2handle(handle)
+        """Start overlapped receive."""
         flags = _int2dword(flags)
         if self.type != OverlappedType.TYPE_NONE:
-            _winapi.raise_WinError()
-        if not isinstance(bufobj, bytearray):
-            raise TypeError("bytearray expected in WSARecvInto")
+            raise ValueError("operation already attempted")
         size = len(bufobj)
         self.type = OverlappedType.TYPE_READINTO
-        self.handle = handle
-        self.read_buffer = _ffi.from_buffer(bufobj)
-        return self.do_WSARecv(handle, self.read_buffer, size, flags)
+        self.handle = _int2handle(handle)
+        try:
+            self.read_buffer = _ffi.from_buffer(bufobj)
+        except Exception as e:
+            raise TypeError("bytearray expected in WSARecvInto") from e
+        return self.do_WSARecv(self.handle, self.read_buffer, size, flags)
+
+    def WSARecvFrom(self, handle, size, flags=0, /):
+        """Start overlapped receive."""
+        if self.type != OverlappedType.TYPE_NONE:
+            raise ValueError("operation already attempted")
+        self.type = OverlappedType.TYPE_READ_FROM
+        self.read_buffer = _ffi.new("CHAR[]", max(1, size))
+        self.handle = _int2handle(handle)
+        address = _ffi.new("struct sockaddr_in6*")
+        length = _ffi.sizeof("struct sockaddr_in6")
+        wsabuff = _ffi.new("WSABUF[1]")
+        wsabuff[0].len = size
+        wsabuff[0].buf = self.read_buffer
+        nread = _ffi.new("LPDWORD")
+        pflags = _ffi.new("LPDWORD")
+        pflags[0] = flags
+        lpFromLen = _ffi.new("LPINT")
+        lpFromLen[0] = 0
+        result = _winsock2.WSARecvFrom(self.handle, wsabuff, _int2dword(1),
+                                    nread, pflags, _ffi.NULL, lpFromLen,
+                                    self.overlapped, _ffi.NULL)
+        if result == SOCKET_ERROR:
+            self.error = _winsock2.WSAGetLastError()
+        else:
+            self.error = _winapi.ERROR_SUCCESS
+
+        if self.error == _winapi.ERROR_BROKEN_PIPE:
+            mark_as_completed(self.overlapped)
+            RaiseFromWindowsErr(self.error)
+        elif self.error in [_winapi.ERROR_SUCCESS, _winapi.ERROR_MORE_DATA,
+                            _winapi.ERROR_IO_PENDING]:
+            return None
+        else:
+            self.type = OverlappedType.TYPE_NOT_STARTED
+            RaiseFromWindowsErr(self.error)
 
     def do_WSARecv(self, handle, allocatedbuffer, size, flags):
         nread = _ffi.new("LPDWORD")
@@ -301,7 +339,7 @@ class Overlapped(object):
         result = _winsock2.WSARecv(handle, wsabuff, _int2dword(1), nread,
                                    pflags, self.overlapped, _ffi.NULL)
         if result == SOCKET_ERROR:
-            self.error = _kernel32.GetLastError()
+            self.error = _winsock2.WSAGetLastError()
         else:
             self.error = _winapi.ERROR_SUCCESS
 
@@ -321,7 +359,7 @@ class Overlapped(object):
         handle = _int2handle(handle)
 
         if self.type != OverlappedType.TYPE_NONE:
-            _winapi.raise_WinError()
+            raise ValueError("operation already attempted")
         self.write_buffer = bytes(bufobj)
         self.type = OverlappedType.TYPE_WRITE
         self.handle = handle
@@ -351,7 +389,7 @@ class Overlapped(object):
 
     def ConnectNamedPipe(self, handle):
         if self.type != OverlappedType.TYPE_NONE:
-            _winapi.raise_WinError()
+            raise ValueError("operation already attempted")
         self.type = OverlappedType.TYPE_CONNECT_NAMED_PIPE
         self.handle = _int2handle(handle)
         success = _kernel32.ConnectNamedPipe(self.handle, self.overlapped)
@@ -379,7 +417,7 @@ class Overlapped(object):
     def ReadFileInto(self, handle, bufobj):
         handle = _int2handle(handle)
         if self.type != OverlappedType.TYPE_NONE:
-            _winapi.raise_WinError()
+            raise ValueError("operation already attempted")
         if not isinstance(bufobj, bytearray):
             raise TypeError("bytearray expected in ReadFileInto")
         size = len(bufobj)
@@ -415,7 +453,7 @@ class Overlapped(object):
 
         # Check if we have already performed some IO
         if self.type != OverlappedType.TYPE_NONE:
-            _winapi.raise_WinError()
+            raise ValueError("operation already attempted")
 
         self.type = OverlappedType.TYPE_WRITE
 
@@ -440,7 +478,7 @@ class Overlapped(object):
         bytesreceived = _ffi.new("DWORD[1]")
 
         if self.type != OverlappedType.TYPE_NONE:
-            _winapi.raise_WinError()
+            raise ValueError("operation already attempted")
 
         size = _ffi.sizeof("struct sockaddr_in6") + 16
         buf = _ffi.new("CHAR[]", size*2)
@@ -469,11 +507,28 @@ class Overlapped(object):
         raise NotImplementedError('not implemented')
         return None
 
+    def TransmitFile(self, Socket, file, offset, ofsset_high, count_to_write,
+                     count_per_send, flags):
+        """Transmit file data over a connected socket."""
+        if self.type != OverlappedType.TYPE_NONE:
+            raise ValueError("operation already attempted")
+        self.type = OverlappedType.TYPE_TRANSMIT_FILE
+        self.handle = Socket
+        self.overlapped[0].Offset = offset
+        self.overlapped[0].OffsetHigh = offset_high
+        if ret == _winapi.ERROR_SUCCESS:
+           self.error = ret
+        else:
+            self.error = _winsock2.WSAGetLastError()
+        if self.error in (_winapi.ERROR_SUCCESS, _winapi.ERROR_IO_PENDING):
+            return None
+        RaiseFromWindowsErr(self.err)
+
     def ConnectEx(self, socket, addressobj):
         socket = _int2handle(socket)
 
         if self.type != OverlappedType.TYPE_NONE:
-            _winapi.raise_WinError()
+            raise ValueError("operation already attempted")
 
         address = _ffi.new("struct sockaddr_in6*")
         length = _ffi.sizeof("struct sockaddr_in6")
@@ -630,6 +685,19 @@ def ConnectPipe(address):
 
     return _handle2int(handle)
 
+def WSAConnect(ConnectSocket, AddressObj):
+    """Bind a remote address to a connectionless (UDP) socket"""
+
+    Length = _ffi.sizeof("struct sockaddr_in6")
+    AddressBuf = _ffi.new("CHAR[]", Length)
+    Address = _ffi.cast("SOCKADDR *", AddressBuf)
+    Address, Length = parse_address(AddressObj, Address, Length)
+    if Length < 0:
+        return
+    err = _winsock2.WSAConnect(_int2handle(ConnectSocket), Address, Length,
+                               _ffi.NULL, _ffi.NULL, _ffi.NULL, _ffi.NULL)
+    if err != 0:
+        RaiseFromWindowsErr(_winsock2.WSAGetLastError())
 
 def UnregisterWaitEx(handle, event):
     waithandle = _int2handle(handle)
@@ -692,12 +760,15 @@ def parse_address(addressobj, address, length):
         return address, lengthptr[0]
     elif len(addressobj) == 4:
         host, port, flowinfo, scopeid = addressobj
-        address.sa_family = AF_INET6
+        address[0].sa_family = AF_INET6
         result = _winsock2.WSAStringToAddressW(host, AF_INET6, _ffi.NULL,
                                                address, lengthptr)
-        address.sin6_port = _winsock2.htons(port)
-        address.sin6_flowinfo = flowinfo
-        address.sin6_scopeid = scopeid
+        if result < 0:
+            RaiseFromWindowsErr(_winsock2.WSAGetLastError())
+        add6 = _ffi.cast("struct sockaddr_in6 *", address)
+        add6[0].sin6_port = _winsock2.htons(port)
+        add6[0].sin6_flowinfo = flowinfo
+        add6[0].sin6_scope_id = scopeid
         return address, lengthptr[0]
     else:
         return -1
