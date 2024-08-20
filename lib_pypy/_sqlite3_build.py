@@ -243,6 +243,7 @@ int sqlite3_value_numeric_type(sqlite3_value*);
 
 int sqlite3_sleep(int);
 const char *sqlite3_errstr(int);
+int sqlite3_complete(const char *sql);
 """)
 
 def _has_load_extension():
