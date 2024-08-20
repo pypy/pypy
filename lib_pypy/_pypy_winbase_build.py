@@ -239,6 +239,26 @@ typedef struct _WSABUF {
   CHAR  *buf;
 } WSABUF, *LPWSABUF;
 
+typedef ULONG SERVICETYPE;
+
+typedef struct _flowspec {
+  ULONG       TokenRate;
+  ULONG       TokenBucketSize;
+  ULONG       PeakBandwidth;
+  ULONG       Latency;
+  ULONG       DelayVariation;
+  SERVICETYPE ServiceType;
+  ULONG       MaxSduSize;
+  ULONG       MinimumPolicedSize;
+} FLOWSPEC, *PFLOWSPEC, *LPFLOWSPEC;
+
+typedef struct _QualityOfService {
+  FLOWSPEC SendingFlowspec;
+  FLOWSPEC ReceivingFlowspec;
+  WSABUF   ProviderSpecific;
+} QOS, *LPQOS;
+
+typedef int *LPINT;
 typedef HANDLE SOCKET;
 SOCKET __stdcall socket(int, int, int);
 int closesocket(SOCKET);
@@ -246,8 +266,14 @@ int closesocket(SOCKET);
 
 typedef BOOL (__stdcall * LPFN_DISCONNECTEX) (SOCKET, LPOVERLAPPED, DWORD, DWORD);
 typedef VOID (*LPOVERLAPPED_COMPLETION_ROUTINE) (DWORD, DWORD, LPVOID);
+typedef VOID (*LPWSAOVERLAPPED_COMPLETION_ROUTINE)(DWORD, DWORD, LPOVERLAPPED, DWORD);
 
-int __stdcall WSARecv(SOCKET, LPWSABUF, DWORD, LPDWORD, LPDWORD, LPOVERLAPPED, LPOVERLAPPED_COMPLETION_ROUTINE);
+
+int __stdcall WSAGetLastError(void);
+int __stdcall WSAConnect(SOCKET, struct sockaddr *, int, LPWSABUF, LPWSABUF,
+                         LPQOS, LPQOS);
+int __stdcall WSARecv(SOCKET, LPWSABUF, DWORD, LPDWORD, LPDWORD, LPOVERLAPPED, LPWSAOVERLAPPED_COMPLETION_ROUTINE);
+int __stdcall WSARecvFrom(SOCKET, LPWSABUF, DWORD, LPDWORD, LPDWORD, struct sockaddr *, LPINT, LPOVERLAPPED, LPWSAOVERLAPPED_COMPLETION_ROUTINE);
 int __stdcall WSASend(SOCKET, LPWSABUF, DWORD, LPDWORD, DWORD, LPOVERLAPPED,  LPOVERLAPPED_COMPLETION_ROUTINE);
 int __stdcall WSAIoctl(SOCKET, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPOVERLAPPED, LPOVERLAPPED_COMPLETION_ROUTINE);
 

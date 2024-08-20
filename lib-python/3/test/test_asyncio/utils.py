@@ -30,6 +30,7 @@ except ImportError:  # pragma: no cover
 from asyncio import base_events
 from asyncio import events
 from asyncio import format_helpers
+from asyncio import exceptions
 from asyncio import futures
 from asyncio import tasks
 from asyncio.log import logger
@@ -114,7 +115,7 @@ def run_until(loop, pred, timeout=support.SHORT_TIMEOUT):
         if timeout is not None:
             timeout = deadline - time.monotonic()
             if timeout <= 0:
-                raise futures.TimeoutError()
+                raise exceptions.TimeoutError()
         loop.run_until_complete(tasks.sleep(0.001))
 
 
