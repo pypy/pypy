@@ -146,8 +146,9 @@ to PyPy3.9 support on conda-forge we maintained multiple versions from the
 first release of PyPy3.10 in PyPy v7.3.12 (Dec 2022). Conda-forge is
 `sunsetting its PyPy support`_, which means we can drop PyPy3.9. Since that was
 the major driver of benchmarks at https://speed.pypy.org, we revamped the site
-to showcase PyPy3.9, PyPy3.10, cpython 3.7.19, and cpython 3.11.9 on the home
-page.
+to showcase PyPy3.9, PyPy3.10, and various versions of cpython on the home
+page. For historical reasons, the "baseline" for comparison is still cpython
+3.7.19.
 
 We will keep the buildbots building PyPY3.9 until the end of August, these
 builds will still be available on the `nightly builds`_ tab of the buildbot.
@@ -159,7 +160,7 @@ What is PyPy?
 =============
 
 PyPy is a Python interpreter, a drop-in replacement for CPython
-It's fast (`PyPy and CPython 3.7.4`_ performance
+It's fast (`PyPy and CPython`_ performance
 comparison) due to its integrated tracing JIT compiler.
 
 We also welcome developers of other `dynamic languages`_ to see what RPython
@@ -178,7 +179,7 @@ Please reach out to us if you wish to sponsor binary releases for those
 platforms. Downstream packagers provide binary builds for debian, Fedora,
 conda, OpenBSD, FreeBSD, Gentoo, and more.
 
-.. _`PyPy and CPython 3.7.4`: https://speed.pypy.org
+.. _`PyPy and CPython`: https://speed.pypy.org
 .. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 Changelog
