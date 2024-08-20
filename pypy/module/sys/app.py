@@ -52,15 +52,16 @@ def excepthook(exctype, value, traceback):
             value,
             traceback,
             limit=limit,
-            _frame_constructor=_construct_positionful_frame
+            _frame_constructor=_construct_positionful_frame,
         )
+        tb_exc._colorize = can_colorize()
         if format_exc_only:
-            line_generator = tb_exc.format_exception_only(colorize=can_colorize())
+            line_generator = tb_exc.format_exception_only()
         else:
-            line_generator = tb_exc.format(colorize=can_colorize())
+            line_generator = tb_exc.format()
         for line in line_generator:
             print(line, file=sys.stderr, end="")
-    except:
+    except BaseException as e:
         if not excepthook_failsafe(exctype, value):
             raise
 

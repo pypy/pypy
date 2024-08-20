@@ -144,7 +144,8 @@ def format_exception(exc, /, value=_sentinel, tb=_sentinel, limit=None, \
     """
     value, tb = _parse_value_tb(exc, value, tb)
     te = TracebackException(type(value), value, tb, limit=limit, compact=True)
-    return list(te.format(chain=chain, colorize=colorize))
+    te._colorize = colorize
+    return list(te.format(chain=chain))
 
 
 def format_exception_only(exc, /, value=_sentinel, colorize=False):
@@ -164,7 +165,9 @@ def format_exception_only(exc, /, value=_sentinel, colorize=False):
     if value is _sentinel:
         value = exc
     te = TracebackException(type(value), value, None, compact=True)
-    return list(te.format_exception_only(colorize=colorize))
+    if colorize:
+        te._colorize = True
+    return list(te.format_exception_only())
 
 
 # -- not official API but folk probably use these two functions.
@@ -356,10 +359,9 @@ def _construct_positionful_frame(f, last_i, *args, **kwargs):
     return f_summary
 
 def _filelink(filename):
-    import socket
     if filename.startswith("<") and filename.endswith(">"):
         return filename
-    url = f"file://{socket.gethostname()}{filename}"
+    url = f"file://{filename}"
     # OSC 8 ; params ; URI ST <name> OSC 8 ;; ST
     return f'\x1b]8;;{url}\x1b\\{filename}\x1b]8;;\x1b\\'
 
@@ -633,7 +635,7 @@ class TracebackException:
     def __init__(self, exc_type, exc_value, exc_traceback, *, limit=None,
             lookup_lines=True, capture_locals=False, compact=False,
             _seen=None,
-            _frame_constructor=_default_frame_constructor
+            _frame_constructor=_default_frame_constructor,
             # End PyPy 3 change
         ):
         # NB: we need to accept exc_traceback, exc_value, exc_traceback to
@@ -748,7 +750,7 @@ class TracebackException:
     def __str__(self):
         return self._str
 
-    def format_exception_only(self, colorize=False):
+    def format_exception_only(self):
         """Format the exception part of the traceback.
 
         The return value is a generator of strings, each ending in a newline.
@@ -762,7 +764,7 @@ class TracebackException:
         string in the output.
         """
         if self.exc_type is None:
-            yield _format_final_exc_line(None, self._str, colorize=colorize)
+            yield _format_final_exc_line(None, self._str, colorize=getattr(self, "_colorize", False))
             return
 
         stype = self.exc_type.__qualname__
@@ -773,17 +775,17 @@ class TracebackException:
             stype = smod + '.' + stype
 
         if not issubclass(self.exc_type, SyntaxError):
-            yield _format_final_exc_line(stype, self._str, colorize=colorize)
+            yield _format_final_exc_line(stype, self._str, colorize=getattr(self, "_colorize", False))
         else:
-            yield from self._format_syntax_error(stype, colorize=colorize)
+            yield from self._format_syntax_error(stype)
 
-    def _format_syntax_error(self, stype, colorize=False):
+    def _format_syntax_error(self, stype):
         """Format SyntaxError exceptions (internal helper)."""
         # Show exactly where the problem was found.
         filename_suffix = ''
         if self.lineno is not None:
             fn = self.filename or "<string>"
-            if colorize:
+            if getattr(self, "_colorize", False):
                 from _colorize import ANSIColors
                 yield f'  File {ANSIColors.MAGENTA}"{fn}"{ANSIColors.RESET}, line {ANSIColors.MAGENTA}{self.lineno}{ANSIColors.RESET}\n'
             else:
@@ -814,7 +816,7 @@ class TracebackException:
                 if colno >= 0:
                     caretspace = ((c if c.isspace() else ' ') for c in ltext[:colno])
                     start_color = end_color = ""
-                    if colorize:
+                    if getattr(self, "_colorize", False):
                         start_color = ANSIColors.BOLD_RED
                         end_color = ANSIColors.RESET
                         ltext = (
@@ -835,7 +837,7 @@ class TracebackException:
         msg = self.msg or "<no detail available>"
         yield "{}: {}{}\n".format(stype, msg, filename_suffix)
 
-    def format(self, *, chain=True, colorize=False):
+    def format(self, *, chain=True):
         """Format the exception.
 
         If chain is not *True*, *__cause__* and *__context__* will not be formatted.
@@ -874,8 +876,8 @@ class TracebackException:
                 yield msg
             if exc.stack:
                 yield 'Traceback (most recent call last):\n'
-                yield from exc.stack.format(colorize=colorize)
-            yield from exc.format_exception_only(colorize=colorize)
+                yield from exc.stack.format(colorize=getattr(self, "_colorize", False))
+            yield from exc.format_exception_only()
 
 
 # PyPy change: backport of the 3.12 pure python suggestion implementation

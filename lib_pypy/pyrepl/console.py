@@ -161,23 +161,6 @@ class InteractiveColoredConsole(code.InteractiveConsole):
         super().__init__(locals=locals, filename=filename)  # type: ignore[call-arg]
         self.can_colorize = _colorize.can_colorize()
 
-    def _showtraceback(self, typ, value, tb, colorize=False, limit=None):
-        import traceback
-        return super()._showtraceback(
-            typ, value, tb, colorize=self.can_colorize,
-            limit=traceback.BUILTIN_EXCEPTION_LIMIT)
-
-    def _call_excepthook(self, typ, value, tb):
-        try:
-            sys.excepthook(typ, value, tb)
-        except Exception as e:
-            e.__context__ = None
-            print('Error calling sys.excepthook:', file=sys.stderr)
-            sys.__excepthook__(type(e), e, e.__traceback__.tb_next)
-            print(file=sys.stderr)
-            print('Original exception was:', file=sys.stderr)
-            sys.__excepthook__(typ, value, tb)
-
     def push(self, line, filename=None, _symbol="single"):
         """Push a line to the interpreter.
 
@@ -212,7 +195,8 @@ class InteractiveColoredConsole(code.InteractiveConsole):
             limit=traceback.BUILTIN_EXCEPTION_LIMIT,
             _frame_constructor=traceback._construct_positionful_frame,
         )
-        lines = tb_exc.format(colorize=self.can_colorize)
+        tb_exc._colorize = self.can_colorize
+        lines = tb_exc.format()
         self.write(''.join(lines))
 
     def runsource(self, source, filename="<input>", symbol="single"):

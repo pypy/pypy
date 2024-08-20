@@ -189,21 +189,22 @@ def test_old_format_works():
     
     class MyTracebackException(traceback.TracebackException):
 
-        def format(self, chain=None):
+        def format(self, *, chain=None):
             return "done"
 
     traceback_exception_original_format = traceback.TracebackException.format
     traceback.TracebackException.format = MyTracebackException.format
+    original_std_err = sys.stderr
+    sys.stderr = buffer = Buffer()
     try:
         with raises(ZeroDivisionError) as exc_info:
             division_by_zero(1, 2)
 
-        original_std_err = sys.stderr
-        sys.stderr = buffer = Buffer()
         lines = traceback.format_exception(exc_info.type, exc_info.value, exc_info.value.__traceback__)
-        sys.stderr = original_std_err
+        print("".join(lines), file=sys.stderr)
         expected_exc_format = ["done"]
-        assert buffer.get_lines()[-1:] == expected_exc_format
+        assert buffer.get_lines() == expected_exc_format
     finally:
+        sys.stderr = original_std_err
         traceback.TracebackException.format = traceback_exception_original_format
 
