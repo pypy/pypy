@@ -12,6 +12,11 @@ def test_same_file():
     #
     source = source[source.index('# _____________'):]
     dest = dest[dest.index('# _____________'):]
+
+    # remove patch for issue 4937
+    pstart = dest.index("# XXX patch start") - 4
+    pend = dest.index("XXX patch end") + len("XXX patch end") + 1
+    dest = dest[:pstart] + dest[pend:]
     if source.strip() != dest.strip():
         raise AssertionError(
             "Update test/_backend_test_c.py by copying it from " +

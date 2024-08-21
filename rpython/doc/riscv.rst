@@ -6,7 +6,7 @@ Cross-Translating for RISC-V
 This document describes how to translate RPython to RISC-V 64-bit backend.
 
 
-Creating a Debian RISC-V 64-bit Chroot
+Creating a Ubuntu RISC-V 64-bit Chroot
 --------------------------------------
 
 This section describes how to set up RISC-V 64-bit chroot on a x86 host.  You
@@ -15,8 +15,8 @@ directly.
 
 First, we must install dependencies below on the host:
 
-* ``debootstrap`` -- Debian tool to create a Debian root file system in a
-  directory.
+* ``debootstrap`` -- Debian tool to create a Debian/Ubuntu root file system in
+  a directory.
 * ``schroot`` -- A chroot management daemon that helps us switch between
   chroots.
 * ``qemu-user-static`` -- The binary translator that allow us to run RISC-V
@@ -124,8 +124,7 @@ skip this section if you already have ``python2.7``.
 .. note::
 
    CPython 2.7 is no longer supported nor maintained.  The instructions below
-   is based on my experiment around early 2024.  These are provided as-is and
-   without warranty.  Please adjust them if needed.
+   is based on my experiment around early 2024.  Please adjust them if needed.
 
 
 First, install the build dependencies for CPython:
@@ -144,7 +143,8 @@ Secoond, create the final installation directory for CPython:
 
     schroot -c rv64_ubuntu_24_04 -u root -- mkdir /opt/python2
 
-    schroot -c rv64_ubuntu_24_04 -u root -- chown $(whoami):$(whoami) /opt/python2
+    schroot -c rv64_ubuntu_24_04 -u root -- \
+        chown $(whoami):$(whoami) /opt/python2
 
 Third, clone the patched CPython 2.7 repository:
 
