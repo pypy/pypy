@@ -27,7 +27,7 @@ class AppTestMMap:
 
     def test_attributes(self):
         import mmap
-        import os
+        import os, sys
         assert isinstance(mmap.ACCESS_READ, int)
         assert isinstance(mmap.ACCESS_WRITE, int)
         assert isinstance(mmap.ACCESS_COPY, int)
@@ -40,6 +40,8 @@ class AppTestMMap:
             assert isinstance(mmap.PROT_EXEC, int)
             assert isinstance(mmap.PROT_READ, int)
             assert isinstance(mmap.PROT_WRITE, int)
+            if sys.platform.startswith('linux'):
+                assert isinstance(mmap.MAP_POPULATE, int)
 
         assert mmap.error is OSError
 

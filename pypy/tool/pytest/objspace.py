@@ -139,6 +139,10 @@ class TinyObjSpace(object):
     def newutf8(self, obj, lgth):
         return obj
 
+    def newtext(self, obj):
+        assert isinstance(obj, str)
+        return obj.decode('utf-8')
+
     def call_function(self, func, *args, **kwds):
         return func(*args, **kwds)
 
