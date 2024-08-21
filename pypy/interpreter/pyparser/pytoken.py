@@ -81,4 +81,6 @@ _add_tok("ENCODING")
 _add_tok("WARNING")
 _add_tok("REVDBMETAVAR", "$NUM")
 
+#_add_tok('SOFT_KEYWORD') # unused, but this exposes it in the token module
+
 del _add_tok
