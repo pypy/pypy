@@ -488,7 +488,7 @@ def enablerlcompleter():
         try:
             import readline
             import rlcompleter
-            from _pyrepl.main import CAN_USE_PYREPL
+            from pyrepl.main import CAN_USE_PYREPL
         except ImportError:
             return
         if not CAN_USE_PYREPL:
