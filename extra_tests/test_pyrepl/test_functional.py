@@ -76,7 +76,7 @@ def test_hyperlinks_error():
         child.sendline("import traceback; list(traceback.walk_tb(1))")
         import socket
         import traceback
-        child.expect(f"\x1b]8;;file://{socket.gethostname()}{traceback.__file__}\x1b.{traceback.__file__}\x1b]8;;\x1b.")
+        child.expect(f"\x1b]8;;file://{traceback.__file__}\x1b.{traceback.__file__}\x1b]8;;\x1b.")
 
 def test_dumb_terminal():
     with start_repl(extra_env=dict(TERM="dumb"), explicit_pyrepl=False) as child:
