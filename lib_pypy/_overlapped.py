@@ -60,6 +60,7 @@ IOC_WS2 = 0x08000000
 def _WSAIORW(x, y):
     return IOC_INOUT | x | y
 
+# from MSWSock.h
 
 WSAID_ACCEPTEX = _ffi.new("GUID[1]")
 WSAID_ACCEPTEX[0].Data1 = 0xb5367df1
@@ -79,6 +80,12 @@ WSAID_DISCONNECTEX[0].Data2 = 0x8630
 WSAID_DISCONNECTEX[0].Data3 = 0x436f
 WSAID_DISCONNECTEX[0].Data4 = [0xa0, 0x31, 0xf5, 0x36, 0xa6, 0xee, 0xc1, 0x57]
 
+WSAID_TRANSMITFILE = _ffi.new("GUID[1]")
+WSAID_TRANSMITFILE[0].Data1 = 0xb5367df0
+WSAID_TRANSMITFILE[0].Data2 = 0xcbac
+WSAID_TRANSMITFILE[0].Data3 = 0x11cf
+WSAID_TRANSMITFILE[0].Data4 = [0x95, 0xca, 0x00, 0x80, 0x5f, 0x48, 0xa1, 0x92]
+
 SIO_GET_EXTENSION_FUNCTION_POINTER = _WSAIORW(IOC_WS2, 6)
 INADDR_ANY = 0x00000000
 STATUS_PENDING = 0x00000103
@@ -87,6 +94,7 @@ in6addr_any = _ffi.new("struct in6_addr[1]")
 _accept_ex = _ffi.new("AcceptExPtr*")
 _connect_ex = _ffi.new("ConnectExPtr*")
 _disconnect_ex = _ffi.new("DisconnectExPtr*")
+_transmitfile = _ffi.new("TransmitFilePtr*")
 
 
 def _int2intptr(int2cast):
@@ -154,6 +162,20 @@ def initiailize_function_ptrs():
                 _ffi.sizeof(WSAID_CONNECTEX[0]),
                 _connect_ex,
                 _ffi.sizeof(_connect_ex[0]),
+                dwBytes,
+                _ffi.NULL,
+                _ffi.NULL)
+    if result == INVALID_SOCKET:
+        _winsock2.closesocket(s)
+        _winapi.raise_WinError()
+
+    result = _winsock2.WSAIoctl(
+                s,
+                SIO_GET_EXTENSION_FUNCTION_POINTER,
+                WSAID_TRANSMITFILE,
+                _ffi.sizeof(WSAID_TRANSMITFILE[0]),
+                _transmitfile,
+                _ffi.sizeof(_transmitfile[0]),
                 dwBytes,
                 _ffi.NULL,
                 _ffi.NULL)
@@ -376,7 +398,44 @@ class Overlapped(object):
                                    flags, self.overlapped, _ffi.NULL)
 
         if result == SOCKET_ERROR:
-            self.error = _kernel32.GetLastError()
+            self.error = _winsock2.WSAGetLastError()
+        else:
+            self.error = _winapi.ERROR_SUCCESS
+
+        if self.error not in [_winapi.ERROR_SUCCESS, _winapi.ERROR_IO_PENDING]:
+            self.type = OverlappedType.TYPE_NOT_STARTED
+            RaiseFromWindowsErr(self.error)
+
+    def WSASendTo(self, handle, bufobj, flags, AddressObj):
+        """ Start overlapped sendto over a connectionless (UDP) socket.
+        """
+        handle = _int2handle(handle)
+
+        if self.type != OverlappedType.TYPE_NONE:
+            raise ValueError("operation already attempted")
+        Length = _ffi.sizeof("struct sockaddr_in6")
+        AddressBuf = _ffi.new("CHAR[]", Length)
+        Address = _ffi.cast("SOCKADDR *", AddressBuf)
+        Address, Length = parse_address(AddressObj, Address, Length)
+        if Length < 0:
+            return
+        self.write_buffer = bytes(bufobj)
+        self.type = OverlappedType.TYPE_WRITE_TO
+        self.handle = handle
+
+        wsabuff = _ffi.new("WSABUF[1]")
+        lgt = len(self.write_buffer)
+        wsabuff[0].len = lgt
+        # Keep contents alive until WSASend is complete
+        contents = _ffi.new('CHAR[]', self.write_buffer)
+        wsabuff[0].buf = contents
+        nwritten = _ffi.new("LPDWORD")
+
+        result = _winsock2.WSASendTo(handle, wsabuff, _int2dword(1), nwritten,
+                                   flags, Address, AddressLength, self.overlapped, _ffi.NULL)
+
+        if result == SOCKET_ERROR:
+            self.error = _winsock2.WSAGetLastError()
         else:
             self.error = _winapi.ERROR_SUCCESS
 
@@ -507,15 +566,19 @@ class Overlapped(object):
         raise NotImplementedError('not implemented')
         return None
 
-    def TransmitFile(self, Socket, file, offset, ofsset_high, count_to_write,
+    def TransmitFile(self, Socket, File, offset, offset_high, count_to_write,
                      count_per_send, flags):
         """Transmit file data over a connected socket."""
         if self.type != OverlappedType.TYPE_NONE:
             raise ValueError("operation already attempted")
         self.type = OverlappedType.TYPE_TRANSMIT_FILE
-        self.handle = Socket
-        self.overlapped[0].Offset = offset
-        self.overlapped[0].OffsetHigh = offset_high
+        self.handle = s = _int2handle(Socket)
+        # hmm, there must be a better way to declare these fields
+        self.overlapped[0].DUMMYUNIONNAME.DUMMYSTRUCTNAME.Offset = offset
+        self.overlapped[0].DUMMYUNIONNAME.DUMMYSTRUCTNAME.OffsetHigh = offset_high
+        f = _int2handle(File)
+        ret = _transmitfile[0](s, f, count_to_write, count_per_send,
+                               self.overlapped, _ffi.NULL, flags);
         if ret == _winapi.ERROR_SUCCESS:
            self.error = ret
         else:
