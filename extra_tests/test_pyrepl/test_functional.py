@@ -6,15 +6,15 @@
 from contextlib import contextmanager
 import sys, os
 
+try:
+    import pexpect
+except ImportError:
+    pytest.skip("no pexpect module")
+except SyntaxError:
+    pytest.skip('pexpect wont work on py3k')
 
 @contextmanager
 def start_repl(extra_env=dict(), explicit_pyrepl=True, colors=False):
-    try:
-        import pexpect
-    except ImportError:
-        pytest.skip("no pexpect module")
-    except SyntaxError:
-        pytest.skip('pexpect wont work on py3k')
     args = []
     if explicit_pyrepl:
         args = ['-S', '-c', "from pyrepl.main import interactive_console as __pyrepl_interactive_console; __pyrepl_interactive_console()"],
@@ -84,3 +84,30 @@ def test_dumb_terminal():
         child.sendline('a * 5')
         child.expect('50000000000')
         assert "InvalidTerminal" not in child.match.string
+
+def test_cmd_module_tab_completion_with_pyrepl_readline(tmpdir):
+    fn = tmpdir / "cmdbug.py"
+    fn.write("""
+import cmd
+
+class Console(cmd.Cmd):
+
+    def do_abc(self, arg):
+        print("ABC!!!!", arg)
+
+    def do_exit(self, arg):
+        raise SystemExit(0)
+
+if __name__ == "__main__":
+    Console().cmdloop()
+""")
+    child = pexpect.spawn(
+        sys.executable,
+        [str(fn)],
+        env=os.environ,
+        timeout=2, encoding="utf-8")
+    try:
+        child.sendline("a\t def")
+        child.expect("ABC!!!! def")
+    finally:
+        child.close()
