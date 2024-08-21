@@ -21,3 +21,8 @@ def test_encoding_exists():
 
 def test_exact_token_types():
     assert token.EXACT_TOKEN_TYPES[":="] == token.COLONEQUAL
+
+def test_old_not_equal_is_gone():
+    assert "<>" not in token.EXACT_TOKEN_TYPES
+    assert "!=" in token.EXACT_TOKEN_TYPES
+    assert token.EXACT_TOKEN_TYPES["!="] == token.NOTEQUAL
