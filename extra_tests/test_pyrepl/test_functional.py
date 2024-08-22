@@ -85,6 +85,20 @@ def test_dumb_terminal():
         child.expect('50000000000')
         assert "InvalidTerminal" not in child.match.string
 
+def test_syntaxerror_correct_filename_and_positions():
+    with start_repl(colors=False) as child:
+        child.sendline('a bbbb c')
+        child.expect('  File "<python-input-0>", line 1')
+        child.expect('    a bbbb c')
+        child.expect('^^^^')
+        child.expect('SyntaxError')
+    with start_repl(colors=False) as child:
+        child.sendline('   124')
+        child.expect('  File "<python-input-0>", line 1')
+        child.expect('    124')
+        child.expect('^^^^')
+        child.expect('IndentationError')
+
 def test_cmd_module_tab_completion_with_pyrepl_readline(tmpdir):
     fn = tmpdir / "cmdbug.py"
     fn.write("""
