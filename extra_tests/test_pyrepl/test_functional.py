@@ -98,6 +98,9 @@ class Console(cmd.Cmd):
     def do_exit(self, arg):
         raise SystemExit(0)
 
+    def completedefault(self, text: str, line: str, begidx: int, endidx: int):
+        return ["foo", "bar"]
+
 if __name__ == "__main__":
     Console().cmdloop()
 """)
@@ -109,5 +112,7 @@ if __name__ == "__main__":
     try:
         child.sendline("a\t def")
         child.expect("ABC!!!! def")
+        child.sendline("a\t f\t\t")
+        child.expect("bar  foo")
     finally:
         child.close()
