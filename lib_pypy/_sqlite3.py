@@ -23,11 +23,13 @@
 #
 # Note: This software has been modified for use in PyPy.
 
+import dataclasses
 import datetime
 import os
 import string
 import sys
 import threading
+import traceback
 import types
 import weakref
 from collections import OrderedDict
@@ -67,6 +69,7 @@ exported_sqlite_symbols = [
     'SQLITE_CREATE_TEMP_VIEW',
     'SQLITE_CREATE_TRIGGER',
     'SQLITE_CREATE_VIEW',
+    'SQLITE_CREATE_VTABLE',
     'SQLITE_DELETE',
     'SQLITE_DENY',
     'SQLITE_DETACH',
@@ -79,16 +82,28 @@ exported_sqlite_symbols = [
     'SQLITE_DROP_TEMP_VIEW',
     'SQLITE_DROP_TRIGGER',
     'SQLITE_DROP_VIEW',
+    'SQLITE_DROP_VTABLE',
+    'SQLITE_FUNCTION',
     'SQLITE_IGNORE',
     'SQLITE_INSERT',
     'SQLITE_OK',
     'SQLITE_PRAGMA',
     'SQLITE_READ',
+    'SQLITE_RECURSIVE',
     'SQLITE_REINDEX',
+    'SQLITE_SAVEPOINT',
     'SQLITE_SELECT',
     'SQLITE_TRANSACTION',
     'SQLITE_UPDATE',
 ]
+
+@dataclasses.dataclass
+class _UnraisableHookArgs:
+    exc_type: type[BaseException]
+    exc_value: BaseException | None
+    exc_traceback: types.TracebackType | None
+    err_msg: str | None
+    object: object
 
 for symbol in exported_sqlite_symbols:
     globals()[symbol] = getattr(_lib, symbol)
@@ -539,10 +554,10 @@ class Connection(object):
                 if not aggregate_ptr[0]:
                     try:
                         aggregate = cls()
-                    except Exception:
+                    except Exception as e:
                         msg = (b"user-defined aggregate's '__init__' "
                                b"method raised error")
-                        _lib.sqlite3_result_error(context, msg, len(msg))
+                        set_sqlite_error(context, msg, e)
                         return
                     aggregate_id = id(aggregate)
                     self.__aggregate_instances[aggregate_id] = aggregate
@@ -553,10 +568,10 @@ class Connection(object):
                 params = _convert_params(context, argc, c_params)
                 try:
                     aggregate.step(*params)
-                except Exception:
+                except Exception as e:
                     msg = (b"user-defined aggregate's 'step' "
                            b"method raised error")
-                    _lib.sqlite3_result_error(context, msg, len(msg))
+                    set_sqlite_error(context, msg, e)
 
             @_ffi.callback("void(sqlite3_context*)")
             def final_callback(context):
@@ -568,10 +583,10 @@ class Connection(object):
                     aggregate = self.__aggregate_instances[aggregate_ptr[0]]
                     try:
                         val = aggregate.finalize()
-                    except Exception:
+                    except Exception as e:
                         msg = (b"user-defined aggregate's 'finalize' "
                                b"method raised error")
-                        _lib.sqlite3_result_error(context, msg, len(msg))
+                        set_sqlite_error(context, msg, e)
                     else:
                         _convert_result(context, val)
                     finally:
@@ -612,6 +627,8 @@ class Connection(object):
                     assert isinstance(ret, (int, long))
                     return cmp(ret, 0)
                 except Exception:
+                    if _enable_callback_tracebacks[0]:
+                        print(traceback.format_exc())
                     return 0
 
             self.__collations[name] = collation_callback
@@ -642,6 +659,8 @@ class Connection(object):
                     assert int(_ffi.cast('int', ret)) == ret
                     return ret
                 except Exception:
+                    if _enable_callback_tracebacks[0]:
+                        print(traceback.format_exc())
                     return _lib.SQLITE_DENY
             self.__func_cache[callback] = authorizer
 
@@ -662,8 +681,9 @@ class Connection(object):
                 def progress_handler(userdata):
                     try:
                         return bool(callable())
-                    except Exception:
+                    except Exception as exc:
                         # abort query if error occurred
+                        print_or_clear_traceback(self, exc)
                         return 1
                 self.__func_cache[callable] = progress_handler
         _lib.sqlite3_progress_handler(self._db, n, progress_handler,
@@ -680,8 +700,13 @@ class Connection(object):
             except KeyError:
                 @_ffi.callback("void(void*, const char*)")
                 def trace_callback(userdata, statement):
+                    # CPython tries harder here to work with really long
+                    # statements and uses sqlite3_expanded_sql
                     stmt = _ffi.string(statement).decode('utf-8')
-                    callable(stmt)
+                    try:
+                        callable(stmt)
+                    except Exception as exc:
+                        print_or_clear_traceback(self, exc)
                 self.__func_cache[callable] = trace_callback
         _lib.sqlite3_trace(self._db, trace_callback, _ffi.NULL)
 
@@ -1419,23 +1444,43 @@ def _convert_result(con, val):
     else:
         raise NotImplementedError
 
+def set_sqlite_error(context, msg, exc):
+    """internal function to set sqlite3 error and maybe raise an exception
+       msg is bytes
+    """
+    _lib.sqlite3_result_error(context, msg, len(msg))
+    print_or_clear_traceback(context, exc)
+    
+def print_or_clear_traceback(ctx, exc):
+    """the function name matches CPython, but the functionality is a bit
+    different: there is no need to clear the excption
+    """
+    if _enable_callback_tracebacks[0]:
+        try:
+            sys.unraisablehook(
+                _UnraisableHookArgs(type(exc), exc, None, None, ctx)
+            )
+        except Exception as e:
+            # Should never happen
+            print(e, file=sys.stderr)
 
 def _function_callback(real_cb, context, nargs, c_params):
     params = _convert_params(context, nargs, c_params)
     try:
         val = real_cb(*params)
-    except Exception:
+    except Exception as e:
         msg = b"user-defined function raised exception"
-        _lib.sqlite3_result_error(context, msg, len(msg))
+        set_sqlite_error(context, msg, e)
     else:
         try:
             _convert_result(context, val)
-        except Exception:
+        except Exception as e:
             msg = b"user-defined function raised exception"
-            _lib.sqlite3_result_error(context, msg, len(msg))
+            set_sqlite_error(context, msg, e)
 
 converters = {}
 adapters = {}
+_enable_callback_tracebacks = [0]
 
 
 class PrepareProtocol(object):
@@ -1513,5 +1558,21 @@ def adapt(val, proto=PrepareProtocol):
 
 def enable_shared_cache(enable):
     raise OperationalError("enable_shared_cache not supported on PyPy (and it's deprecated anyway)")
+
+def complete_statement(statement=None):
+    """Checks if a string contains a complete SQL statement.
+    """
+    if not statement:
+        raise TypeError("complete_statement missing required argument 'statement' (pos 1)")
+    if not isinstance(statement, str):
+        raise TypeError(f"complete_statement() argument 'statement' must be str, not {type(statement)}")
+    ret = _lib.sqlite3_complete(statement.encode('utf-8'))
+    return bool(ret)
+
+def enable_callback_tracebacks(enable, /):
+    """Enable or disable callback functions throwing errors to stderr.
+    """
+    _enable_callback_tracebacks[0] = int(enable)
+    
 
 register_adapters_and_converters()

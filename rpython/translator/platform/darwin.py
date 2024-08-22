@@ -12,6 +12,9 @@ import os
 # Bumped to 10.9 2021-11-22 to match CPython,
 # see https://github.com/python/cpython/blob/42205ee51
 #
+# Bumped to 10.15 on py3.9+ for variadic arg handling in HPy
+# Note this is not used on arm64 builds.
+# 
 # Keep in sync with MACOSX_DEPLOYMENT_TARGET, for pypy see
 # lib_pypy/_sysconfigdata.py
 #

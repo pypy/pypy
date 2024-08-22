@@ -5,6 +5,7 @@ class Module(MixedModule):
         'array': 'interp_array.W_ArrayBase',
         'ArrayType': 'interp_array.W_ArrayBase',
         '_array_reconstructor': 'reconstructor.array_reconstructor',
+        'typecodes': 'space.newtext(interp_array.typecodes)',
     }
 
     appleveldefs = {

@@ -181,6 +181,9 @@ class __extend__(SomeObject):
     def hex(self):
         return SomeString()
 
+    def bin(self):
+        return SomeString()
+
     def oct(self):
         return SomeString()
 

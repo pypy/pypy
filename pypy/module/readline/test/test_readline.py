@@ -14,7 +14,7 @@ class AppTestReadline:
     spaceconfig = dict(usemodules=[
         'unicodedata', 'select', 'signal', 
         '_minimal_curses', 'faulthandler', '_socket', 'binascii',
-        '_posixsubprocess',
+        '_posixsubprocess', '_rawffi',
     ])
     if sys.platform == 'win32':
         pass
@@ -22,6 +22,10 @@ class AppTestReadline:
         spaceconfig['usemodules'] += ['fcntl', 'termios']
 
     def test_nonascii_history(self):
+        import sys
+        if not getattr(sys, "executable", None):
+            # importing readline imports site.py, which checks sys.executable
+            sys.executable = "dummy"
         import os, readline
         TESTFN = "{}_{}_tmp".format("@test", os.getpid())
 
@@ -51,6 +55,10 @@ class AppTestReadline:
 
         See <https://bugs.python.org/issue25660>
         """
+        import sys
+        if not getattr(sys, "executable", None):
+            # importing readline imports site.py, which checks sys.executable
+            sys.executable = "dummy"
         import readline
         readline.insert_text("\t")
         assert readline.get_line_buffer() == b"\t"

@@ -32,7 +32,6 @@ def test_weird_exec_bug():
         compile('exec {1:(foo.)}', 'fn', 'exec')
     assert excinfo.value.offset == 6
 
-
 def test_warning_decimal():
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
@@ -82,3 +81,8 @@ def test_crash_debug():
     compile(tree, '<string>', 'exec')
 
 
+def test_compile_nonascii_char_in_bytes_error():
+    with pytest.raises(SyntaxError) as excinfo:
+        compile("b = b'café'", "long-filename.py", "exec")
+    assert excinfo.value.filename == "long-filename.py"
+    assert excinfo.value.msg == "bytes can only contain ASCII literal characters."

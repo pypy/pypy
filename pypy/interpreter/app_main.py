@@ -94,6 +94,12 @@ except ImportError:
 import errno
 import sys
 
+try:
+    prepare_shutdown = sys._pypy_prepare_shutdown
+    del sys._pypy_prepare_shutdown
+except AttributeError:
+    prepare_shutdown = lambda: 0
+
 _MACOSX = sys.platform == 'darwin'
 
 DEBUG = False       # dump exceptions before calling the except hook
@@ -898,6 +904,13 @@ def run_command_line(interactive,
                                                 "<string>", 
                                                 'exec',
                                                 PyCF_IGNORE_COOKIE)
+
+                    if inspect_requested():
+                        try:
+                            import linecache
+                            linecache._register_code("<string>", run_command, "<stdin>")
+                        except Exception:
+                            pass
                     exec(co_python_startup, mainmodule.__dict__)
                 success = run_toplevel(run_it)
         elif run_module != 0:
@@ -1064,14 +1077,9 @@ def run_command_line(interactive,
             except ImportError:
                 pass
             else:
-                try:
-                    sys.stdout.flush()
-                except Exception:
-                    pass
-                try:
-                    sys.stderr.flush()
-                except Exception:
-                    pass
+                prepare_shutdown()
+                # make sure we quit with the right process exit code on
+                # receiving a SIGINT
                 _signal.signal(_signal.SIGINT, _signal.SIG_DFL)
                 os.kill(os.getpid(), _signal.SIGINT);
                 assert 0, "should be unreachable"

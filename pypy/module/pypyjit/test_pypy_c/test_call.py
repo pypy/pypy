@@ -1,4 +1,4 @@
-import py
+import pytest
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 from pypy.module.pypyjit.test_pypy_c.model import OpMatcher
 
@@ -650,7 +650,6 @@ class TestCall(BaseTestPyPyC):
             return 13
         """, [1000])
 
-
     def test_nonstd_jitdriver_distinguishes_map(self):
         log = self.run("""
         def f(a):
@@ -688,3 +687,42 @@ class TestCall(BaseTestPyPyC):
             p69 = force_token()
         """)
 
+    @pytest.mark.skip("this kind of call works really different on python3")
+    def test_starargs_list_copying(self):
+        log = self.run("""
+        def f(a, *args):
+            return 1 + len(args)
+        def main(stop):
+            i = 0
+            l = [1, 2, "abc", None]
+            while i < stop:
+                f(1, *l) # ID: call
+                i += 1
+            return 13
+        """, [1000])
+        loop, = log.loops_by_id('call')
+        assert loop.match_by_id('call', '''
+        ...
+        guard_not_invalidated(descr=...)
+        p79 = new_array_clear(i34, descr=...)
+        call_n(ConstClass(ll_arraycopy__arrayPtr_arrayPtr_Signed_Signed_Signed), p36, p79, 0, 0, i34, descr=...)
+        p83 = new_array_clear(i41, descr=...)
+        setarrayitem_gc(p83, 0, ConstPtr(ptr85), descr=...)
+        call_n(ConstClass(ll_arraycopy__arrayPtr_arrayPtr_Signed_Signed_Signed), p79, p83, 0, 1, i34, descr=...)
+        p85 = force_token()
+        ...
+        ''')
+
+    def test_function_escape_without_defaults(self):
+        def main():
+            global f
+            res = 0
+            for i in range(10000):
+                def f():
+                    return i + 1
+                res += f() # ID: call
+
+        log = self.run(main, [])
+        loop, = log.loops_by_id('call')
+        opnames = log.opnames(loop._allops())
+        assert opnames.count("new_array_clear") == 2 # for the closure, but not for defaults

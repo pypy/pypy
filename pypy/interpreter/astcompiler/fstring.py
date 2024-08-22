@@ -1,7 +1,6 @@
 from pypy.interpreter.astcompiler import ast, consts
 from pypy.interpreter.pyparser import parsestring, error as parseerror
 from pypy.interpreter import error
-from pypy.interpreter import unicodehelper
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rutf8 import codepoints_in_utf8
 

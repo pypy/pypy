@@ -2,13 +2,6 @@
 PyPy v7.3.16: release of python 2.7, 3.9, and 3.10
 ==================================================
 
-..
-   updated to 39b141959bab5c3e305161d457222ae19c635f77
-
-.. note::
-    This is a pre-release announcement. When the release actually happens, it
-    will be announced on the PyPy blog_
-
 The PyPy team is proud to release version 7.3.16 of PyPy.
 
 This release includes security fixes from upstream CPython, and bugfixes to the
@@ -134,7 +127,7 @@ Bugfixes
 ~~~~~~~~
 
 - ``_putwch`` on windows accepts a chr not an int (:issue:`4881`)
-- Properly create ppc64 import suffixes for c-extensions (:issue:`
+- Properly create ppc64 import suffixes for c-extensions (:issue:`4878`)
 - Backport cpython fix to prevent subclassing datetime.timezone (:issue:`python/cpython#112453`)
 - Remove top level ``__init__.py`` from stdlib (:issue:`4885`)
 - Replace ``handshake_done`` with ``SSL_is_init_finished`` (bpo-29334_ from CPython3.5)

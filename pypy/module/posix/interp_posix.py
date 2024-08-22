@@ -11,7 +11,7 @@ except ImportError:
 from rpython.rlib import rposix, rposix_stat, rfile
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize, not_rpython
-from rpython.rlib.rarithmetic import (
+from rpython.rlib.rarithmetic import (widen,
     r_longlong, intmask, r_uint, r_int, INT_MIN, INT_MAX)
 
 from rpython.rlib.unroll import unrolling_iterable
@@ -2838,7 +2838,7 @@ for name in """FACCESSAT FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE
     if getattr(rposix, "HAVE_%s" % name):
         have_functions.append("HAVE_%s" % name)
 if _WIN32:
-    have_functions.append("HAVE_MS_WINDOWS")
+    have_functions.append("MS_WINDOWS")
 
 def _get_terminal_size(space, w_fd=None):
     if w_fd is None:
@@ -3209,3 +3209,22 @@ def _remove_dll_directory(space, w_cookie):
     # CPython does not emit an audit event here
     return space.newbool(bool(rwin32.RemoveDllDirectory(cookie)))
 
+def _supports_virtual_terminal(space):
+    """Checks if virtual terminal is supported in windows
+    Currently implemented as a check on the stderr handle's mode for
+    ENABLE_VIRTUAL_TERMINAL_PROCESSING
+    """
+    from rpython.rlib.rwin32 import (_GetStdHandle, GetConsoleMode, 
+            STD_ERROR_HANDLE, ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+    handle = _GetStdHandle(STD_ERROR_HANDLE)
+    if handle == rwin32.INVALID_HANDLE_VALUE:
+        return space.newbool(False)
+    mode = lltype.malloc(rwin32.LPDWORD.TO, 1, flavor='raw')
+    try:
+        if not rwin32.GetConsoleMode(handle, mode):
+            return space.newbool(False)
+        res = bool(widen(mode[0]) & ENABLE_VIRTUAL_TERMINAL_PROCESSING)
+        return space.newbool(res)
+    finally: 
+        lltype.free(mode, flavor='raw')
+    

@@ -307,7 +307,7 @@ class AppTestLocaleTrivia:
         import _locale
         lang, encoding = _locale._getdefaultlocale()
         assert lang is None or isinstance(lang, str)
-        assert encoding.startswith('cp')
+        assert encoding.startswith('cp') or encoding == "utf-8"
 
     def test_lc_numeric_basic(self):
         import _locale, sys

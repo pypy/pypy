@@ -4024,6 +4024,19 @@ class LLtypeBackendTest(BaseBackendTest):
         f17 = float_sub(f0, f1)
         f18 = float_sub(f0, f1)
         f19 = float_sub(f0, f1)
+        f20 = float_sub(f0, f1)
+        f21 = float_sub(f0, f1)
+        f22 = float_sub(f0, f1)
+        f23 = float_sub(f0, f1)
+        f24 = float_sub(f0, f1)
+        f25 = float_sub(f0, f1)
+        f26 = float_sub(f0, f1)
+        f27 = float_sub(f0, f1)
+        f28 = float_sub(f0, f1)
+        f29 = float_sub(f0, f1)
+        f30 = float_sub(f0, f1)
+        f31 = float_sub(f0, f1)
+        f32 = float_sub(f0, f1)
         i3 = float_eq(f2, f3)
         i4 = float_eq(f2, f4)
         i5 = float_eq(f2, f5)
@@ -4041,6 +4054,19 @@ class LLtypeBackendTest(BaseBackendTest):
         i17 = float_eq(f2, f17)
         i18 = float_eq(f2, f18)
         i19 = float_eq(f2, f19)
+        i20 = float_eq(f2, f20)
+        i21 = float_eq(f2, f21)
+        i22 = float_eq(f2, f22)
+        i23 = float_eq(f2, f23)
+        i24 = float_eq(f2, f24)
+        i25 = float_eq(f2, f25)
+        i26 = float_eq(f2, f26)
+        i27 = float_eq(f2, f27)
+        i28 = float_eq(f2, f28)
+        i29 = float_eq(f2, f29)
+        i30 = float_eq(f2, f30)
+        i31 = float_eq(f2, f31)
+        i32 = float_eq(f2, f32)
         guard_true(i3) []
         guard_true(i4) []
         guard_true(i5) []
@@ -4058,6 +4084,19 @@ class LLtypeBackendTest(BaseBackendTest):
         guard_true(i17) []
         guard_true(i18) []
         guard_true(i19) []
+        guard_true(i20) []
+        guard_true(i21) []
+        guard_true(i22) []
+        guard_true(i23) []
+        guard_true(i24) []
+        guard_true(i25) []
+        guard_true(i26) []
+        guard_true(i27) []
+        guard_true(i28) []
+        guard_true(i29) []
+        guard_true(i30) []
+        guard_true(i31) []
+        guard_true(i32) []
         finish(f2)'''
         loop2 = parse(ops)
         looptoken2 = JitCellToken()

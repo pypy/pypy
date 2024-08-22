@@ -191,6 +191,7 @@ corresponding Unix manual entries for more information on calls."""
                 '_path_splitroot': 'interp_posix._path_splitroot',
                 '_add_dll_directory': 'interp_posix._add_dll_directory',
                 '_remove_dll_directory': 'interp_posix._remove_dll_directory',
+                '_supports_virtual_terminal': 'interp_posix._supports_virtual_terminal',
         })
     if hasattr(os, 'chroot'):
         interpleveldefs['chroot'] = 'interp_posix.chroot'

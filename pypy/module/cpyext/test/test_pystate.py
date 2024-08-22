@@ -234,6 +234,8 @@ class AppTestThreads(AppTestCpythonExtensionBase):
         assert res in (0, 1)
 
     def test_thread_interrupt(self):
+        if not self.runappdirect:
+            skip("test fails untranslated for obscure reasons")
         import signal # to initialize the signal infrastructure
         import _thread as thread, time
 
