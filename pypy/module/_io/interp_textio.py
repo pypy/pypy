@@ -842,7 +842,7 @@ class W_TextIOWrapper(W_TextIOBase):
     # _____________________________________________________________
     # read methods
 
-    def _read_chunk(self, space):
+    def _read_chunk(self, space, size_hint):
         """Read and decode the next chunk of data from the BufferedReader.
         The return value is True unless EOF was reached.  The decoded string
         is placed in self.decoded (replacing its previous value).
@@ -879,9 +879,12 @@ class W_TextIOWrapper(W_TextIOBase):
             dec_flags = 0
 
         # Read a chunk, decode it, and put the result in self.decoded
+        if size_hint > 0:
+            size_hint = int(max(self.b2cratio, 1.0) * float(size_hint))
+        chunk_size = max(self.chunk_size, size_hint)
         func_name = "read1" if self.has_read1 else "read"
         w_input = space.call_method(self.w_buffer, func_name,
-                                    space.newint(self.chunk_size))
+                                    space.newint(chunk_size))
 
         try:
             input_buf = w_input.buffer_w(space, space.BUF_SIMPLE)
@@ -914,10 +917,10 @@ class W_TextIOWrapper(W_TextIOBase):
 
         return not eof
 
-    def _ensure_data(self, space):
+    def _ensure_data(self, space, size_hint):
         while not self.decoded.has_data():
             try:
-                if not self._read_chunk(space):
+                if not self._read_chunk(space, size_hint):
                     self.decoded.reset()
                     self.snapshot = None
                     return False
@@ -967,7 +970,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         # Keep reading chunks until we have n characters to return
         while remaining > 0:
-            if not self._ensure_data(space):
+            if not self._ensure_data(space, remaining):
                 break
             data, size = self.decoded.get_chars(remaining)
             builder.append_utf8(data, size)
@@ -1004,7 +1007,7 @@ class W_TextIOWrapper(W_TextIOBase):
         builder = Utf8StringBuilder()
         while True:
             # First, get some data if necessary
-            has_data = self._ensure_data(space)
+            has_data = self._ensure_data(space, 0)
             if not has_data:
                 # end of file
                 if remnant:
