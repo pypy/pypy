@@ -127,7 +127,7 @@ class CConfig:
                        LOAD_WITH_ALTERED_SEARCH_PATH CT_CTYPE3 C3_HIGHSURROGATE
                        CP_ACP CP_UTF8 CP_UTF7 CP_OEMCP MB_ERR_INVALID_CHARS
                        LOAD_LIBRARY_SEARCH_DEFAULT_DIRS SEM_FAILCRITICALERRORS
-                       LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR
+                       LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR ENABLE_VIRTUAL_TERMINAL_PROCESSING
                        _Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE
                     """
         from rpython.translator.platform import host_factory
