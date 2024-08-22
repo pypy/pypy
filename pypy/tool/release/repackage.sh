@@ -1,11 +1,13 @@
 #! /bin/bash
 
+set -e
+
 # Edit these appropriately before running this script
 pmaj=2  # python main version: 2 or 3
 pmin=7  # python minor version
 maj=7
 min=3
-rev=15
+rev=17
 #rc=rc2  # comment this line for actual release
 
 function maybe_exit {
@@ -38,14 +40,14 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     # script is being run, not "sourced" (as in "source repackage.sh")
 
     # The script should be run in an empty in the pypy tree, i.e. pypy/tmp
-    if [ "`ls . | wc -l`" != "0" ]
+    if [  -n "$(ls .)"  ]
     then
         echo this script must be run in an empty directory
         exit 1
     fi
 fi
 
-if [ -v rc ]
+if [ "$rc" == "" ]
 then
     wanted="\"$maj.$min.$rev${rc/rc/-candidate}\""
 else
@@ -55,7 +57,7 @@ fi
 function repackage_builds {
     # Download latest builds from the buildmaster, rename the top
     # level directory, and repackage ready to be uploaded 
-    for plat in linux linux64 macos_x86_64 macos_arm64 s390x aarch64
+    for plat in linux linux64 macos_x86_64 macos_arm64 aarch64
       do
         echo downloading package for $plat
         if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.bz2
@@ -101,7 +103,12 @@ function repackage_builds {
         fi
         mv pypy-c-jit-*-$plat $rel-$plat_final
         echo packaging $plat_final
-        tar --owner=root --group=root --numeric-owner -cjf $rel-$plat_final.tar.bz2 $rel-$plat_final
+        if [[ "$OSTYPE" == darwin* ]]; then
+            # install gtar with brew install gnu-tar
+            gtar --owner=root --group=root --numeric-owner -cjf $rel-$plat_final.tar.bz2 $rel-$plat_final
+        else
+            tar --owner=root --group=root --numeric-owner -cjf $rel-$plat_final.tar.bz2 $rel-$plat_final
+        fi
         rm -rf $rel-$plat_final
       done
     # end of "for" loop

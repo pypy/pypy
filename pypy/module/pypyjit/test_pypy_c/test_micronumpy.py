@@ -6,6 +6,7 @@ from rpython.rlib.rawstorage import misaligned_is_fine
 
 IS_X86 = platform.machine().startswith('x86') or platform.machine() == 'i686'
 IS_S390X = platform.machine() == "s390x"
+IS_RISCV = platform.machine() == 'riscv64'
 
 def no_vector_backend():
     if IS_X86:
@@ -206,18 +207,34 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert log.result is True
         assert len(log.loops) == 1
         loop = log._filter(log.loops[0])
-        loop.match("""
-            %(align_check)s
-            guard_not_invalidated(descr=...)
-            f31 = raw_load_f(i9, i29, descr=<ArrayF 8>)
-            i32 = float_ne(f31, 0.000000)
-            guard_true(i32, descr=...)
-            i36 = int_add(i24, 1)
-            i37 = int_add(i29, 8)
-            i38 = int_ge(i36, i30)
-            guard_false(i38, descr=...)
-            jump(..., descr=...)
-            """ % {'align_check': align_check('i29')})
+        if IS_RISCV:
+            # The order of %(align_check)s and guard_not_invalidated(descr=...)
+            # in the RISCV backend is different from other backends.
+            loop.match("""
+                guard_not_invalidated(descr=...)
+                %(align_check)s
+                f31 = raw_load_f(i9, i29, descr=<ArrayF 8>)
+                i32 = float_ne(f31, 0.000000)
+                guard_true(i32, descr=...)
+                i36 = int_add(i24, 1)
+                i37 = int_add(i29, 8)
+                i38 = int_ge(i36, i30)
+                guard_false(i38, descr=...)
+                jump(..., descr=...)
+                """ % {'align_check': align_check('i29')})
+        else:
+            loop.match("""
+                %(align_check)s
+                guard_not_invalidated(descr=...)
+                f31 = raw_load_f(i9, i29, descr=<ArrayF 8>)
+                i32 = float_ne(f31, 0.000000)
+                guard_true(i32, descr=...)
+                i36 = int_add(i24, 1)
+                i37 = int_add(i29, 8)
+                i38 = int_ge(i36, i30)
+                guard_false(i38, descr=...)
+                jump(..., descr=...)
+                """ % {'align_check': align_check('i29')})
         # vector version
         #assert loop.match("""
         #    guard_not_invalidated(descr=...)

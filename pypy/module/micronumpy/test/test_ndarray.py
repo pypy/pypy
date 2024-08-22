@@ -1,4 +1,5 @@
 # -*- encoding: utf-8 -*-
+import platform
 import py
 import sys
 
@@ -1879,12 +1880,19 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert a.view('S16')[0] == '\x01' + '\x00' * 7 + '\x02'
 
     def test_half_conversions(self):
-        from numpy import array, arange
+        from numpy import array
         from math import isnan, isinf
         e = array([0, -1, -float('inf'), float('nan'), 6], dtype='float16')
         assert map(isnan, e) == [False, False, False, True, False]
         assert map(isinf, e) == [False, False, True, False, False]
         assert e.argmax() == 3
+
+    def test_half_conversions_preserve_nan_payload_float32(self):
+        # self.machine comes from test_base.py
+        if self.machine.startswith('riscv'):
+            py.test.skip('riscv does not preserve nan payload in '
+                         'float64->float32 conversion')
+        from numpy import array, arange
         # numpy preserves value for uint16 -> cast_as_float16 ->
         #     convert_to_float64 -> convert_to_float16 -> uint16
         #  even for float16 various float16 nans
@@ -1892,6 +1900,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         all_f16.dtype = 'float16'
         all_f32 = array(all_f16, dtype='float32')
         b = array(all_f32, dtype='float16')
+        c = b.view(dtype='uint16')
+        d = all_f16.view(dtype='uint16')
+        assert (c == d).all()
+
+    def test_half_conversions_preserve_nan_payload_float64(self):
+        from numpy import array, arange
+        # numpy preserves value for uint16 -> cast_as_float16 ->
+        #     convert_to_float64 -> convert_to_float16 -> uint16
+        #  even for float16 various float16 nans
+        all_f16 = arange(0xfe00, 0xffff, dtype='uint16')
+        all_f16.dtype = 'float16'
+        all_f64 = array(all_f16, dtype='float64')
+        b = array(all_f64, dtype='float16')
         c = b.view(dtype='uint16')
         d = all_f16.view(dtype='uint16')
         assert (c == d).all()

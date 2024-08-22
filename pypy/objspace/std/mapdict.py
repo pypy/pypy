@@ -580,6 +580,7 @@ class UnboxedPlainAttribute(PlainAttribute):
             obj._set_mapdict_map(self)
             if len(unboxed) <= self.listindex:
                 # size can only increase by 1
+                jit.record_exact_value(len(unboxed), self.listindex)
                 assert len(unboxed) == self.listindex
                 unboxed = unboxed + [val]
                 obj._mapdict_write_storage(self.storageindex, erase_unboxed(unboxed))
@@ -806,7 +807,7 @@ class MapdictStorageMixin(object):
     def _mapdict_init_empty(self, map):
         from rpython.rlib.debug import make_sure_not_resized
         self._set_mapdict_map(map)
-        self.storage = make_sure_not_resized([])
+        self.storage = None
 
     def _mapdict_read_storage(self, storageindex):
         assert storageindex >= 0
@@ -816,15 +817,19 @@ class MapdictStorageMixin(object):
         self.storage[storageindex] = value
 
     def _mapdict_storage_length(self):
-        """ return the size of the storage (which should be longer or equal in
-        size to self.map.storage_needed() due to overallocation). """
-        return len(self.storage)
+        """ return the size of the storage. """
+        # we don't overallocate since a while any more
+        return self.map.storage_needed()
 
     def _set_mapdict_increase_storage(self, map, value):
         """ increase storage size, adding value """
-        len_storage = len(self.storage)
-        new_storage = self.storage + [erase_item(None)] * (map.storage_needed() - len_storage)
-        new_storage[len_storage] = value
+        len_storage = self._get_mapdict_map().storage_needed()
+        if not len_storage:
+            assert map.storage_needed() == 1
+            new_storage = [value]
+        else:
+            new_storage = self.storage + [erase_item(None)] * (map.storage_needed() - len_storage)
+            new_storage[len_storage] = value
         self._set_mapdict_map(map)
         self.storage = new_storage
 
@@ -911,12 +916,12 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
 
         def _mapdict_storage_length(self):
             if self._has_storage_list():
-                return len(self._mapdict_get_storage_list()) + (n - 1)
+                return self.map.storage_needed()
             return n
 
         def _set_mapdict_storage_and_map(self, storage, map):
             self._set_mapdict_map(map)
-            len_storage = len(storage)
+            len_storage = len(storage) if storage is not None else 0
             for i in rangenmin1:
                 if i < len_storage:
                     erased = storage[i]
@@ -948,8 +953,11 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                 erased = getattr(self, "_value%s" % nmin1)
                 new_storage = [erased, value]
             else:
-                new_storage = [erase_item(None)] * (storage_needed - self._mapdict_storage_length())
-                new_storage = self._mapdict_get_storage_list() + new_storage
+                prev_storage_size = self._get_mapdict_map().storage_needed()
+                new_storage = [erase_item(None)] * (storage_needed - prev_storage_size)
+                curr_storage = self._mapdict_get_storage_list()
+                jit.record_exact_value(len(curr_storage), prev_storage_size - nmin1)
+                new_storage = curr_storage + new_storage
                 new_storage[storage_needed - n] = value
             self._set_mapdict_map(map)
             erased = erase_list(new_storage)
@@ -1096,6 +1104,19 @@ class MapDictStrategy(DictStrategy):
             str_dict[map.name] = map._prim_direct_read(w_obj)
         return W_DictObject(strategy.space, strategy, strategy.erase(str_dict))
 
+    def eq(self, w_dict, space, w_other):
+        other_strategy = w_other.get_strategy()
+        if other_strategy is self:
+            w_self_obj = self.unerase(w_dict.dstorage)
+            w_other_obj = self.unerase(w_other.dstorage)
+            selfmap = w_self_obj._get_mapdict_map()
+            othermap = w_other_obj._get_mapdict_map()
+            if selfmap is othermap:
+                w_res = _dict_eq_same_map(selfmap, w_self_obj, w_other_obj)
+                if w_res is not None:
+                    return w_res
+        return DictStrategy.eq(self, w_dict, space, w_other)
+
 
     # XXX could implement a more efficient w_keys based on space.newlist_bytes
 
@@ -1105,6 +1126,23 @@ class MapDictStrategy(DictStrategy):
         return MapDictIteratorValues(self.space, self, w_dict)
     def iteritems(self, w_dict):
         return MapDictIteratorItems(self.space, self, w_dict)
+
+def _dict_eq_same_map(map, w_self_obj, w_other_obj):
+    # can return None to mean "the equality mutated one of the objects"
+    space = map.space
+    orig_map = map
+    curr_map = map
+    while isinstance(curr_map, PlainAttribute):
+        if curr_map.attrkind == DICT:
+            w_attr1 = curr_map._direct_read(w_self_obj)
+            w_attr2 = curr_map._direct_read(w_other_obj)
+            if not space.eq_w(w_attr1, w_attr2):
+                return space.w_False
+            if (w_self_obj._get_mapdict_map() is not orig_map or
+                    w_other_obj._get_mapdict_map() is not orig_map):
+                return None
+        curr_map = curr_map.back
+    return space.w_True
 
 def make_instance_dict(space):
     w_fake_object = Object()

@@ -148,20 +148,7 @@ class W_DictMultiObject(W_Root):
             return space.w_True
         if not isinstance(w_other, W_DictMultiObject):
             return space.w_NotImplemented
-
-        if self.length() != w_other.length():
-            return space.w_False
-        iteratorimplementation = self.iteritems()
-        while True:
-            w_key, w_val = iteratorimplementation.next_item()
-            if w_key is None:
-                break
-            w_rightval = w_other.getitem(w_key)
-            if w_rightval is None:
-                return space.w_False
-            if not space.eq_w(w_val, w_rightval):
-                return space.w_False
-        return space.w_True
+        return self.get_strategy().eq(self, space, w_other)
 
     def descr_lt(self, space, w_other):
         if not isinstance(w_other, W_DictMultiObject):
@@ -699,6 +686,37 @@ class DictStrategy(object):
         # is virtual
         size = self.length(w_list)
         return size == 0 or (jit.isconstant(size) and size <= UNROLL_CUTOFF)
+
+    def eq(self, w_dict, space, w_other):
+        if self.length(w_dict) != w_other.length():
+            return space.w_False
+        return self._eq(w_dict, space, w_other)
+
+    def _eq(self, w_dict, space, w_other):
+        iteratorimplementation = self.iteritems(w_dict)
+        while True:
+            eq_jitdriver.jit_merge_point(strategy_type=type(self))
+            w_key, w_val = iteratorimplementation.next_item()
+            if w_key is None:
+                break
+            w_rightval = w_other.getitem(w_key)
+            if w_rightval is None:
+                return space.w_False
+            if not space.eq_w(w_val, w_rightval):
+                return space.w_False
+        return space.w_True
+
+def _get_printable_location(strategy_type):
+    return 'dict.eq [%s]' % (
+        strategy_type,
+    )
+
+eq_jitdriver = jit.JitDriver(
+    name='dict.eq',
+    greens=['strategy_type'],
+    reds='auto',
+    get_printable_location=_get_printable_location)
+
 
 _add_indirections()
 
@@ -1399,11 +1417,13 @@ def update1(space, w_dict, w_data):
     if w_method is None:
         # no 'keys' method, so we assume it is a sequence of pairs
         data_w = space.listview(w_data)
-        update1_pairs(space, w_dict, data_w)
+        if data_w:
+            update1_pairs(space, w_dict, data_w)
     else:
         # general case -- "for k in o.keys(): dict.__setitem__(d, k, o[k])"
         data_w = space.listview(space.call_function(w_method))
-        update1_keys(space, w_dict, w_data, data_w)
+        if data_w:
+            update1_keys(space, w_dict, w_data, data_w)
 
 
 def update1_dict_dict(space, w_dict, w_data):

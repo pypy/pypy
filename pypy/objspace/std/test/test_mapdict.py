@@ -1272,6 +1272,49 @@ class AppTestWithMapDict(object):
         a.z = "b"
         assert a.__dict__.copy() == {"x": "a", "y": 1, "z": "b"}
 
+    def test_dict_equality(self):
+        class A(object):
+            pass
+
+        a1 = A()
+        a1.x = "a"
+        a1.y = 1
+        a1.z = "b"
+        a2 = A()
+        a2.x = "a"
+        a2.y = 1
+        a2.z = "b"
+        assert a1.__dict__ == a2.__dict__
+
+        class WeirdCompare(object):
+            def __eq__(self, other):
+                a1.a = None
+                a2.a = None
+                return True
+
+        a1 = A()
+        a1.x = WeirdCompare()
+        a1.a = 'f'
+        a2 = A()
+        a2.x = WeirdCompare()
+        a2.a = 'f'
+        assert a1.__dict__ == a2.__dict__
+
+        class WeirdCompare(object):
+            def __eq__(self, other):
+                import weakref
+                weakref.ref(a1) # changes the map
+                return True
+
+        a1 = A()
+        a1.x = WeirdCompare()
+        a1.a = 'f'
+        a2 = A()
+        a2.x = WeirdCompare()
+        a2.a = 'f'
+        assert a1.__dict__ == a2.__dict__
+
+
 
 class AppTestWithMapDictAndCounters(object):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

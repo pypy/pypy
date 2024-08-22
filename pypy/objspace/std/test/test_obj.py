@@ -253,6 +253,12 @@ class AppTestObject:
         y = 2j
         assert id(x) != id(y)
 
+    def test_id_must_be_int(self):
+        identity = id([])
+        identity2 = int(identity)
+        if isinstance(identity2, int):
+            assert isinstance(identity, int)
+
     def test_object_hash_immutable(self):
         x = 42
         y = 40

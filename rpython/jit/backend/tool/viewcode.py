@@ -52,6 +52,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
         'aarch64': 'aarch64',
         'ppc' : 'powerpc:common64',
         'ppc-64' : 'powerpc:common64',
+        'riscv64': 'riscv:rv64',
         's390x': 's390:64-bit',
     }
     machine_endianness = {

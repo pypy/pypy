@@ -46,6 +46,16 @@ _keynames = {
     "up" : "kcuu1",
     }
 
+# Known CTRL-arrow keycodes
+CTRL_ARROW_KEYCODES = {
+    # for xterm, gnome-terminal, xfce terminal, etc.
+    b'\033[1;5D': 'ctrl left',
+    b'\033[1;5C': 'ctrl right',
+    # for rxvt
+    b'\033Od': 'ctrl left',
+    b'\033Oc': 'ctrl right',
+}
+
 class EventQueue(object):
     def __init__(self, fd):
         our_keycodes = {}
@@ -55,6 +65,7 @@ class EventQueue(object):
                 our_keycodes[keycode] = unicode(key)
         if os.isatty(fd):
             our_keycodes[tcgetattr(fd)[6][VERASE]] = u'backspace'
+        our_keycodes.update(CTRL_ARROW_KEYCODES)
         self.k = self.ck = keymap.compile_keymap(our_keycodes)
         self.events = []
         self.buf = []

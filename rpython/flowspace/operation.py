@@ -469,6 +469,7 @@ op.is_true = op.nonzero = op.bool  # for llinterp
 add_operator('abs', 1, dispatch=1, pyfunc=abs, pure=True, ovf=True)
 add_operator('hex', 1, dispatch=1, pyfunc=hex, pure=True)
 add_operator('oct', 1, dispatch=1, pyfunc=oct, pure=True)
+add_operator('bin', 1, dispatch=1, pyfunc=bin, pure=True)
 add_operator('ord', 1, dispatch=1, pyfunc=ord, pure=True)
 add_operator('invert', 1, dispatch=1, pure=True)
 add_operator('add', 2, dispatch=2, pure=True, ovf=True)

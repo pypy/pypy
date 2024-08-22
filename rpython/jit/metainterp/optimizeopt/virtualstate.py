@@ -3,7 +3,7 @@ from rpython.jit.metainterp.history import ConstInt, ConstPtr, ConstFloat
 from rpython.jit.metainterp.optimizeopt.info import ArrayPtrInfo,\
      ArrayStructInfo, AbstractStructPtrInfo
 from rpython.jit.metainterp.optimizeopt.intutils import \
-     MININT, MAXINT, IntBound, IntLowerBound
+     IntBound
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
      InputArgInt, InputArgRef, InputArgFloat
 from .info import getptrinfo
@@ -487,7 +487,8 @@ class NotVirtualStateInfoInt(NotVirtualStateInfo):
             other_intbound = other.intbound
         if self.intbound is None:
             return
-        if self.intbound.contains_bound(other_intbound):
+        assert self.intbound._are_knownbits_implied()
+        if other_intbound.is_within_range(self.intbound.lower, self.intbound.upper):
             return
         if (runtime_box is not None and
             self.intbound.contains(runtime_box.getint())):
@@ -513,6 +514,8 @@ class NotVirtualStateInfoPtr(NotVirtualStateInfo):
             elif info.is_nonnull():
                 self.level = LEVEL_NONNULL
             self.lenbound = info.getlenbound(None)
+            if self.lenbound is not None:
+                self.lenbound = self.lenbound.widen()
         # might set it to LEVEL_CONSTANT
         NotVirtualStateInfo.__init__(self, cpu, type, info)
 
@@ -527,10 +530,11 @@ class NotVirtualStateInfoPtr(NotVirtualStateInfo):
         extra_guards = state.extra_guards
         if self.lenbound:
             if other.lenbound is None:
-                other_bound = IntLowerBound(0)
+                other_bound = IntBound.nonnegative()
             else:
                 other_bound = other.lenbound
-            if not self.lenbound.contains_bound(other_bound):
+            assert self.lenbound._are_knownbits_implied()
+            if not other_bound.is_within_range(self.lenbound.lower, self.lenbound.upper):
                 raise VirtualStatesCantMatch("length bound does not match")
         if self.level == LEVEL_NONNULL:
             return self._generate_guards_nonnull(other, box, runtime_box,
