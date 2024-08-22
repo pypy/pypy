@@ -41,7 +41,7 @@ _add_tok('BACKQUOTE', "`" )
 _add_tok('LBRACE', "{" )
 _add_tok('RBRACE', "}" )
 _add_tok('EQEQUAL', "==" )
-_add_tok('NOTEQUAL', "!=")
+_add_tok('NOTEQUAL', "!=", "<>")
 _add_tok('LESSEQUAL', "<=" )
 _add_tok('GREATEREQUAL', ">=" )
 _add_tok('TILDE', "~" )
@@ -81,6 +81,6 @@ _add_tok("ENCODING")
 _add_tok("WARNING")
 _add_tok("REVDBMETAVAR", "$NUM")
 
-#_add_tok('SOFT_KEYWORD') # unused, but this exposes it in the token module
+_add_tok('SOFT_KEYWORD') # unused, but this exposes it in the token module
 
 del _add_tok
