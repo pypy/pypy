@@ -130,3 +130,17 @@ if __name__ == "__main__":
         child.expect("bar  foo")
     finally:
         child.close()
+
+def test_sys_audit_called_in_pyrepl(tmpdir):
+    with start_repl(colors=False) as child:
+        child.sendline("import sys")
+        child.sendline("sys.addaudithook(lambda name, *args: print(name, *args) if 'input' in name else None)")
+        child.sendline("x = input('xyz')")
+        child.sendline("abc")
+        child.expect("input.*xyz")
+        child.expect("input/result.*abc")
+
+def test_input_is_not_monkeypatched(tmpdir):
+    with start_repl(colors=False) as child:
+        child.sendline("print(input)")
+        child.expect("<built-in function input>")

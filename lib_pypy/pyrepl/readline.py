@@ -583,9 +583,23 @@ def _setup(namespace: Mapping[str, Any] | None = None) -> None:
         namespace = dict(namespace)
     _wrapper.config.readline_completer = RLCompleter(namespace).complete
 
-    # this is not really what readline.c does.  Better than nothing I guess
-    raw_input = builtins.input
-    builtins.input = _wrapper.input
+    if '__pypy__' in sys.builtin_module_names:    # PyPy
+
+        def raw_input(prompt=''):
+            # sys.__raw_input__() is only called when stdin and stdout are
+            # as expected and are ttys.  If it is the case, then get_reader()
+            # should not really fail in _wrapper.raw_input().  If it still
+            # does, then we will just cancel the redirection and call again
+            # the built-in raw_input().
+            try:
+                del sys.__raw_input__
+            except AttributeError:
+                pass
+            return input(prompt)
+        sys.__raw_input__ = _wrapper.input
+    else:
+        raw_input = builtins.input
+        builtins.input = _wrapper.input
 
 
 raw_input: Callable[[object], str] | None = None
