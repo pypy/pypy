@@ -172,7 +172,6 @@ class W_IncrementalNewlineDecoder(W_Root):
                     continue
                 builder.append(c)
             output = builder.build()
-
         self.seennl |= seennl
         return space.newutf8(output, output_len)
 
@@ -901,8 +900,8 @@ class W_TextIOWrapper(W_TextIOBase):
         else:
             w_decoded = space.call_method(w_decoder, "decode",
                                           w_input, space.newbool(eof))
-        nchars = space.len_w(w_decoded)
         self.decoded.set(space, w_decoded)
+        nchars = space.len_w(w_decoded)
         if nchars > 0:
             eof = False
             self.b2cratio = float(nbytes) / float(nchars)
@@ -1301,11 +1300,11 @@ class W_TextIOWrapper(W_TextIOBase):
 
         # Skip backward to the snapshot point (see _read_chunk)
         cookie.dec_flags = self.snapshot.flags
-        next_input = self.snapshot.input
-        cookie.start_pos -= len(next_input)
+        input = self.snapshot.input
+        cookie.start_pos -= len(input)
 
         # How many decoded characters have been used up since the snapshot?
-        if not self.decoded.pos:
+        if not self.decoded.pos or len(input) == 0:
             # We haven't moved from the snapshot point.
             return space.newlong_from_rbigint(cookie.pack())
 
@@ -1316,19 +1315,19 @@ class W_TextIOWrapper(W_TextIOBase):
         # forward until it gives us enough decoded characters.
         w_saved_state = space.call_method(self.w_decoder, "getstate")
 
+        skip_bytes = 0
         # Fast search for an acceptable start point, close to our
         # current pos
         skip_bytes = int(self.b2cratio * chars_to_skip)
         skip_back = 1;
-        assert skip_back <= len(next_input)
-        input = next_input
+        assert skip_back <= len(input)
         while skip_bytes > 0:
             # Decode up to temptative start point
             self._decoder_setstate(space, cookie)
 
             w_decoded = space.call_method(self.w_decoder, "decode",
-                                          space.newbytes(input[0:skip_bytes]),
-                                          space.newint(skip_bytes))
+                                          space.newbytes(input[0:skip_bytes])
+                                          )
             check_decoded(space, w_decoded)
             chars_decoded = space.len_w(w_decoded)
             if chars_decoded <= chars_to_skip:
@@ -1355,7 +1354,6 @@ class W_TextIOWrapper(W_TextIOBase):
         if chars_to_skip == 0:
             space.call_method(self.w_decoder, "setstate", w_saved_state)
             return space.newlong_from_rbigint(cookie.pack())
-
         try:
             # Note our initial start point
             self._decoder_setstate(space, cookie)
@@ -1366,11 +1364,10 @@ class W_TextIOWrapper(W_TextIOBase):
             # from there and advance to this location).
 
             chars_decoded = 0
-            i = 0
+            i = skip_bytes
             while i < len(input):
                 w_decoded = space.call_method(self.w_decoder, "decode",
-                                              space.newbytes(input[i]),
-                                              space.newint(1))
+                                              space.newbytes(input[i]))
                 check_decoded(space, w_decoded)
                 chars_decoded += space.len_w(w_decoded)
 

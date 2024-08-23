@@ -514,3 +514,45 @@ def test_bug_newlines_rr_at_end():
     assert lines == [u'a\r', u'\r', u'b\r', u'\r', u'c']
     lines = io.TextIOWrapper(io.BytesIO(b"a\r\rb\r\n"), newline="").readlines()
     assert lines == [u'a\r', u'\r', u'b\r\n']
+
+# taken from test_univnewlines.py
+
+FATX = 'x' * (2**14)
+
+DATA_TEMPLATE = [
+    "line1=1",
+    "line2='this is a very long line designed to go past any default " +
+        "buffer limits that exist in io.py but we also want to test " +
+        "the uncommon case, naturally.'",
+    "def line3():pass",
+    "line4 = '%s'" % FATX,
+    ]
+
+DATA_CRLF = "\r\n".join(DATA_TEMPLATE) + "\r\n"
+
+
+def test_tell_univnewlines():
+    import io
+    NEWLINE = '\r\n'
+
+    with io.open("tempfile", "w") as fp:
+        fp.write(DATA_CRLF)
+
+    with io.open("tempfile", "r") as fp:
+        assert repr(fp.newlines) == repr(None)
+        data = fp.readline()
+        pos = fp.tell()
+    assert repr(fp.newlines)  == repr(NEWLINE)
+
+def test_tell_slashr():
+    # at some point, a failing case from the test_interp_textio hypothesis test
+    import io
+    b = io.BytesIO(b'\r')
+    w = io.TextIOWrapper(b, encoding='utf-8')
+    res1 = w.read(1)
+    tell = w.tell()
+    w.seek(0)
+    w.seek(tell)
+    res2 = w.read()
+    print("tell=", tell, "res1=", [ord(r) for r in res1], "res2=", [ord(r) for r in res2])
+    assert res1 + res2 == '\n'

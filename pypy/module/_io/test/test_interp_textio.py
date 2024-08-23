@@ -96,6 +96,7 @@ def test_readline_none(space, data):
     output = txt.replace("\r\n", "\n").replace("\r", "\n")
 
     assert output.startswith(u''.join(lines))
+
 @given(data=st_readline())
 @settings(deadline=None, database=None)
 @example(data=(u'\n\r\n', [0, -1, 2, -1, 0, -1]))
