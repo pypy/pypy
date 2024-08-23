@@ -551,8 +551,9 @@ def test_tell_slashr():
     w = io.TextIOWrapper(b, encoding='utf-8')
     res1 = w.read(1)
     tell = w.tell()
+    # the cookie is an opaque bigint with encoded bits
     w.seek(0)
     w.seek(tell)
     res2 = w.read()
-    print("tell=", tell, "res1=", [ord(r) for r in res1], "res2=", [ord(r) for r in res2])
-    assert res1 + res2 == '\n'
+    assert len(res2) == 0
+    assert res1 == '\n'
