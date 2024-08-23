@@ -61,4 +61,4 @@ class AppTestReadline:
             sys.executable = "dummy"
         import readline
         readline.insert_text("\t")
-        assert readline.get_line_buffer() == b"\t"
+        assert readline.get_line_buffer() == "\t"
