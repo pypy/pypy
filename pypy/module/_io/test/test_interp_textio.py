@@ -4,9 +4,10 @@ try:
 except ImportError:
     pytest.skip("hypothesis required")
 import os
+from rpython.rlib.rbigint import rbigint
 from pypy.module._io.interp_bytesio import W_BytesIO
 from pypy.module._io.interp_textio import (W_TextIOWrapper, DecodeBuffer,
-        W_IncrementalNewlineDecoder,
+        W_IncrementalNewlineDecoder, PositionCookie,
         SEEN_CR, SEEN_LF)
 
 # workaround suggestion for slowness by David McIver:
@@ -139,27 +140,13 @@ def test_readn_buffer(text, sizes):
         strings.append(s)
     assert ''.join(strings) == text[:sum(sizes)]
 
-@given(st.text())
-@example(u'\x800')
-def test_next_char(text):
-    buf = DecodeBuffer(text.encode('utf8'), len(text))
-    chars = []
-    try:
-        while True:
-            ch = buf.next_char().decode('utf8')
-            chars.append(ch)
-    except StopIteration:
-        pass
-    assert buf.exhausted()
-    assert u''.join(chars) == text
-
-
 @given(content=st_readline(), data=st.data())
 def test_tell(space, content, data):
     txt, limits = content
 
     restxt = translate_newlines(txt)
-    read_chars_before_seeking = data.draw(st.integers(min_value=0, max_value=len(restxt)))
+    resstr = restxt.encode('utf-8')
+    read_chars_before_seeking = data.draw(st.integers(min_value=0, max_value=len(resstr)))
     w_stream = W_BytesIO(space)
     w_stream.descr_init(space, space.newbytes(txt.encode('utf-8')))
 
@@ -177,7 +164,7 @@ def test_tell(space, content, data):
     w_res2 = w_textio.read_w(space)
     w_res = space.add(w_res1, w_res2)
     res = space.text_w(w_res)
-    assert res == restxt
+    assert res == resstr
 
 @given(content=st_readline(), data=st.data())
 def test_getstate_setstate(space, content, data):
@@ -202,3 +189,19 @@ def test_getstate_setstate(space, content, data):
     w_res = space.add(w_res1, w_res2)
     res = space.text_w(w_res).decode("utf-8")
     assert res == restxt
+
+def test_cookie(space):
+    val1 = eval("0x" + "1" * 128)
+    cookie1 = PositionCookie(rbigint.fromlong(val1))
+    val2 = cookie1.pack()
+    cookie = PositionCookie(val2)
+    assert cookie.start_pos > 0
+    assert cookie.dec_flags > 0
+    assert cookie.bytes_to_feed > 0
+    assert cookie.chars_to_skip > 0
+    assert cookie.need_eof > 0
+    assert cookie.start_pos == cookie.start_pos
+    assert cookie.dec_flags == cookie.dec_flags
+    assert cookie.bytes_to_feed == cookie.bytes_to_feed
+    assert cookie.chars_to_skip == cookie.chars_to_skip
+    assert cookie.need_eof == cookie.need_eof

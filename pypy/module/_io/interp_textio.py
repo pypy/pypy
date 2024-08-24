@@ -368,7 +368,11 @@ class PositionCookie(object):
         bits += r_uint.BITS
         return res.or_(rb(r_uint(self.need_eof)).lshift(bits))
 
+    def __repr__(self):
+        return "coookie w/start_pos %d dec_flags %d bytes_to_feed %d chars_to_skip %d need_eof %d" %(self.start_pos, self.dec_flags, self.bytes_to_feed, self.chars_to_skip, self.need_eof)
+
 class PositionSnapshot:
+    _immutable_fields_ = ["flags", "input"]
     def __init__(self, flags, input):
         self.flags = flags
         self.input = input
@@ -380,11 +384,12 @@ class DecodeBuffer(object):
         if text is not None:
             assert ulen >= 0
         self.text = text
-        self.pos = 0
-        self.upos = 0
+        self.pos = 0   # in utf8
+        self.upos = 0  # decoded_chars_used in CPython, in codepoints
         self.ulen = ulen
 
     def set(self, space, w_decoded):
+        # set_chars_decoded in CPython
         check_decoded(space, w_decoded)
         self.text, self.ulen = space.utf8_len_w(w_decoded)
         self.pos = 0
@@ -398,6 +403,7 @@ class DecodeBuffer(object):
 
     def get_chars(self, size):
         """ returns a tuple (utf8, lgt) """
+        # get_decoded_chars in CPython
         if self.text is None or size == 0:
             return "", 0
 
@@ -430,28 +436,6 @@ class DecodeBuffer(object):
 
     def exhausted(self):
         return self.pos >= len(self.text)
-
-    def next_char(self):
-        if self.exhausted():
-            raise StopIteration
-        newpos = next_codepoint_pos(self.text, self.pos)
-        pos = self.pos
-        assert pos >= 0
-        assert newpos >= 0
-        ch = self.text[pos:newpos]
-        self.pos = newpos
-        self.upos += 1
-        return ch
-
-    def peek_char(self):
-        # like next_char, but doesn't advance pos
-        if self.exhausted():
-            raise StopIteration
-        newpos = next_codepoint_pos(self.text, self.pos)
-        pos = self.pos
-        assert pos >= 0
-        assert newpos >= 0
-        return self.text[pos:newpos]
 
     def find_newline_universal(self, limit):
         # Universal newline search. Find any of \r, \r\n, \n
@@ -1269,6 +1253,7 @@ class W_TextIOWrapper(W_TextIOBase):
                             "can't restore logical file position")
             self.decoded.set(space, w_decoded)
             self.decoded.pos = w_decoded._index_to_byte(cookie.chars_to_skip)
+            self.decoded.upos = cookie.chars_to_skip
         else:
             self.snapshot = PositionSnapshot(cookie.dec_flags, "")
 
@@ -1304,12 +1289,13 @@ class W_TextIOWrapper(W_TextIOBase):
         cookie.start_pos -= len(input)
 
         # How many decoded characters have been used up since the snapshot?
-        if not self.decoded.pos or len(input) == 0:
+        if self.decoded.pos == 0:
             # We haven't moved from the snapshot point.
             return space.newlong_from_rbigint(cookie.pack())
 
-        chars_to_skip = codepoints_in_utf8(
-            self.decoded.text, end=self.decoded.pos)
+        # chars_to_skip = codepoints_in_utf8(
+        #   self.decoded.text, end=self.decoded.pos)
+        chars_to_skip = self.decoded.upos
 
         # Starting from the snapshot position, we will walk the decoder
         # forward until it gives us enough decoded characters.
@@ -1320,7 +1306,8 @@ class W_TextIOWrapper(W_TextIOBase):
         # current pos
         skip_bytes = int(self.b2cratio * chars_to_skip)
         skip_back = 1;
-        assert skip_back <= len(input)
+        # ??? this assert is in CPython but is not triggered??
+        # assert skip_back <= len(input)
         while skip_bytes > 0:
             # Decode up to temptative start point
             self._decoder_setstate(space, cookie)

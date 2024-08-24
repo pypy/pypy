@@ -278,6 +278,9 @@ def test_telling(tempfile):
         f.write("\xff\n")
         p2 = f.tell()
         f.seek(0)
+        assert p0 == 0
+        assert p1 == 3
+        assert p2 == 6
 
         assert f.tell() == p0
         res = f.readline()
@@ -544,16 +547,18 @@ def test_tell_univnewlines():
         pos = fp.tell()
     assert repr(fp.newlines)  == repr(NEWLINE)
 
-def test_tell_slashr():
-    # at some point, a failing case from the test_interp_textio hypothesis test
+def test_tell_various():
+    # at some point, a failing cases the test_interp_textio hypothesis test
     import io
-    b = io.BytesIO(b'\r')
-    w = io.TextIOWrapper(b, encoding='utf-8')
-    res1 = w.read(1)
-    tell = w.tell()
-    # the cookie is an opaque bigint with encoded bits
-    w.seek(0)
-    w.seek(tell)
-    res2 = w.read()
-    assert len(res2) == 0
-    assert res1 == '\n'
+    for t  in (b'\r', u'\x80\n'.encode('utf-8')):
+        b = io.BytesIO(t)
+        w = io.TextIOWrapper(b, encoding='utf-8')
+        res1 = w.read()
+        tell = w.tell()
+        # the cookie is an opaque bigint with encoded bits. It may differ between
+        # CPython and PyPy
+        w.seek(0)
+        w.seek(tell)
+        res2 = w.read()
+        assert len(res2) == 0
+        assert res1.encode('utf8') == t.replace(b'\r', b'\n')
