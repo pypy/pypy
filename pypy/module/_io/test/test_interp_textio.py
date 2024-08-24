@@ -96,7 +96,6 @@ def test_readline_none(space, data):
     output = txt.replace("\r\n", "\n").replace("\r", "\n")
 
     assert output.startswith(u''.join(lines))
-
 @given(data=st_readline())
 @settings(deadline=None, database=None)
 @example(data=(u'\n\r\n', [0, -1, 2, -1, 0, -1]))
@@ -178,4 +177,28 @@ def test_tell(space, content, data):
     w_res2 = w_textio.read_w(space)
     w_res = space.add(w_res1, w_res2)
     res = space.text_w(w_res)
+    assert res == restxt
+
+@given(content=st_readline(), data=st.data())
+def test_getstate_setstate(space, content, data):
+    txt, limits = content
+
+    restxt = translate_newlines(txt)
+    read_chars_before_getstate = data.draw(st.integers(min_value=0, max_value=len(restxt)))
+    w_stream = W_BytesIO(space)
+    w_stream.descr_init(space, space.newbytes(txt.encode('utf-8')))
+
+    w_textio = W_TextIOWrapper(space)
+    w_textio.descr_init(
+        space, w_stream,
+        encoding='utf-8'
+    )
+    w_state_start = w_textio.w_decoder.getstate_w(space)
+    w_res1 = w_textio.read_w(space, space.newint(read_chars_before_getstate))
+    w_current_state = w_textio.w_decoder.getstate_w(space)
+    w_textio.w_decoder.setstate_w(space, w_state_start)
+    w_textio.w_decoder.setstate_w(space, w_current_state)
+    w_res2 = w_textio.read_w(space)
+    w_res = space.add(w_res1, w_res2)
+    res = space.text_w(w_res).decode("utf-8")
     assert res == restxt

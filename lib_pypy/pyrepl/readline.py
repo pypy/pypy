@@ -575,11 +575,15 @@ def _setup(namespace: Mapping[str, Any] | None = None) -> None:
     _wrapper.f_in = f_in
     _wrapper.f_out = f_out
 
-    # set up namespace in rlcompleter, which requires it to be a bona fide dict
     if namespace is None:
         import builtins
         namespace = builtins.__dict__
     if not isinstance(namespace, dict):
+        namespace = dict(namespace)
+    if namespace is None:
+        pass
+    elif not isinstance(namespace, dict):
+        # rlcompleter requires either None, or a bona fide dict
         namespace = dict(namespace)
     _wrapper.config.readline_completer = RLCompleter(namespace).complete
 

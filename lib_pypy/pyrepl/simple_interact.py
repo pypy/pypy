@@ -103,8 +103,12 @@ def run_multiline_interactive_console(
     *,
     future_flags: int = 0,
 ) -> None:
-    from .readline import _setup
+    from .readline import set_completer, _setup
+    from rlcompleter import Completer as RLCompleter
     _setup(console.locals)
+    # pypy change: setup has likely run already, set the correct completer
+    # explicitly
+    set_completer(RLCompleter(console.locals).complete)
     if future_flags:
         console.compile.compiler.flags |= future_flags
 

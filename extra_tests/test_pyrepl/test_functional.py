@@ -144,3 +144,9 @@ def test_input_is_not_monkeypatched(tmpdir):
     with start_repl(colors=False) as child:
         child.sendline("print(input)")
         child.expect("<built-in function input>")
+
+def test_tab_completion_works():
+    with start_repl(colors=False, explicit_pyrepl=False) as child:
+        child.sendline("import io")
+        child.sendline("io.Bloc\t)")
+        child.expect("BlockingIOError()")
