@@ -21,12 +21,15 @@ def translate_newlines(text):
     return text.replace(u'\n', os.linesep)
 
 @st.composite
-def st_readline(draw, st_nlines=st.integers(min_value=0, max_value=10)):
+def st_readline(
+        draw,
+        st_nlines=st.integers(min_value=0, max_value=10),
+        characters=st.characters(blacklist_characters=u'\r\n')):
     n_lines = draw(st_nlines)
     fragments = []
     limits = []
     for _ in range(n_lines):
-        line = draw(st.text(st.characters(blacklist_characters=u'\r\n')))
+        line = draw(st.text(characters))
         fragments.append(line)
         ending = draw(st.sampled_from([u'\n', u'\r', u'\r\n']))
         fragments.append(ending)
@@ -140,7 +143,7 @@ def test_readn_buffer(text, sizes):
         strings.append(s)
     assert ''.join(strings) == text[:sum(sizes)]
 
-@given(content=st_readline(), data=st.data())
+@given(content=st_readline(characters=st.characters(blacklist_categories='C')), data=st.data())
 def test_tell(space, content, data):
     txt, limits = content
 
@@ -166,7 +169,7 @@ def test_tell(space, content, data):
     res = space.text_w(w_res)
     assert res == resstr
 
-@given(content=st_readline(), data=st.data())
+@given(content=st_readline(characters=st.characters(blacklist_categories='C')), data=st.data())
 def test_getstate_setstate(space, content, data):
     txt, limits = content
 
