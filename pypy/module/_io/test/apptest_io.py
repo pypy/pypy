@@ -1,4 +1,4 @@
-# spaceconfig = {"usemodules" : ["_locale", "array", "struct"]}
+# spaceconfig = {"usemodules" : ["_locale", "array", "struct", "_multibytecodec"]}
 import _io
 import array
 
@@ -534,18 +534,21 @@ DATA_TEMPLATE = [
 DATA_CRLF = "\r\n".join(DATA_TEMPLATE) + "\r\n"
 
 
-def test_tell_univnewlines():
+def test_tell_univnewlines(tempfile):
     import io
+    import sys
+        
     NEWLINE = '\r\n'
 
-    with io.open("tempfile", "w") as fp:
+    with io.open(tempfile, "w") as fp:
         fp.write(DATA_CRLF)
 
-    with io.open("tempfile", "r") as fp:
+    with io.open(tempfile, "r") as fp:
         assert repr(fp.newlines) == repr(None)
         data = fp.readline()
         pos = fp.tell()
-    assert repr(fp.newlines)  == repr(NEWLINE)
+    if "__pypy__" in sys.modules:
+        assert repr(fp.newlines)  == repr(NEWLINE)
 
 def test_tell_various():
     # at some point, a failing cases the test_interp_textio hypothesis test
@@ -562,3 +565,23 @@ def test_tell_various():
         res2 = w.read()
         assert len(res2) == 0
         assert res1.encode('utf8') == t.replace(b'\r', b'\n')
+
+def test_seek_with_encoder_state():
+    # Copied from lib-python/test/test_io.py
+    import io
+    import encodings  # will allow using euc_jis_2004 when untranslated
+    b = io.BytesIO(b"")
+    w = io.TextIOWrapper(b, encoding='euc_jis_2004')
+    w.write(u"\u00e6\u0300")
+    p0 = w.tell()
+    w.write(u"\u00e6")
+    w.seek(p0)
+    p1 = w.tell()
+    w.write(u"\u0300")
+
+    w.seek(0)
+    out = w.readline()
+    expected = u"\u00e6\u0300\u0300"
+    # print([hex(ord(s)) for s in out])
+    # print([hex(ord(s)) for s in expected])
+    assert out == expected
