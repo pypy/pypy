@@ -143,55 +143,55 @@ def test_readn_buffer(text, sizes):
         strings.append(s)
     assert ''.join(strings) == text[:sum(sizes)]
 
-@given(content=st_readline(characters=st.characters(blacklist_categories='C')), data=st.data())
-def test_tell(space, content, data):
+@given(content=st_readline(characters=st.characters(blacklist_categories='C')))
+def test_tell(space, content):
     txt, limits = content
 
     restxt = translate_newlines(txt)
     resstr = restxt.encode('utf-8')
-    read_chars_before_seeking = data.draw(st.integers(min_value=0, max_value=len(resstr)))
-    w_stream = W_BytesIO(space)
-    w_stream.descr_init(space, space.newbytes(txt.encode('utf-8')))
+    for read_chars_before_seeking in range(len(restxt)):
+        w_stream = W_BytesIO(space)
+        w_stream.descr_init(space, space.newbytes(txt.encode('utf-8')))
 
-    w_textio = W_TextIOWrapper(space)
-    w_textio.descr_init(
-        space, w_stream,
-        encoding='utf-8'
-    )
+        w_textio = W_TextIOWrapper(space)
+        w_textio.descr_init(
+            space, w_stream,
+            encoding='utf-8'
+        )
 
-    w_res1 = w_textio.read_w(space, space.newint(read_chars_before_seeking))
-    assert space.len_w(w_res1) <= read_chars_before_seeking
-    w_tell = w_textio.tell_w(space)
-    w_textio.seek_w(space, space.newint(0)) # seek to beginning
-    w_textio.seek_w(space, w_tell) # then back to position
-    w_res2 = w_textio.read_w(space)
-    w_res = space.add(w_res1, w_res2)
-    res = space.text_w(w_res)
-    assert res == resstr
+        w_res1 = w_textio.read_w(space, space.newint(read_chars_before_seeking))
+        assert space.len_w(w_res1) <= read_chars_before_seeking
+        w_tell = w_textio.tell_w(space)
+        w_textio.seek_w(space, space.newint(0)) # seek to beginning
+        w_textio.seek_w(space, w_tell) # then back to position
+        w_res2 = w_textio.read_w(space)
+        w_res = space.add(w_res1, w_res2)
+        res = space.text_w(w_res)
+        assert res == resstr
 
-@given(content=st_readline(characters=st.characters(blacklist_categories='C')), data=st.data())
-def test_getstate_setstate(space, content, data):
+@given(content=st_readline(characters=st.characters(blacklist_categories='C')))
+def test_getstate_setstate(space, content):
     txt, limits = content
 
     restxt = translate_newlines(txt)
-    read_chars_before_getstate = data.draw(st.integers(min_value=0, max_value=len(restxt)))
-    w_stream = W_BytesIO(space)
-    w_stream.descr_init(space, space.newbytes(txt.encode('utf-8')))
+    for read_chars_before_getstate in range(len(restxt)):
+        w_stream = W_BytesIO(space)
+        w_stream.descr_init(space, space.newbytes(txt.encode('utf-8')))
 
-    w_textio = W_TextIOWrapper(space)
-    w_textio.descr_init(
-        space, w_stream,
-        encoding='utf-8'
-    )
-    w_state_start = w_textio.w_decoder.getstate_w(space)
-    w_res1 = w_textio.read_w(space, space.newint(read_chars_before_getstate))
-    w_current_state = w_textio.w_decoder.getstate_w(space)
-    w_textio.w_decoder.setstate_w(space, w_state_start)
-    w_textio.w_decoder.setstate_w(space, w_current_state)
-    w_res2 = w_textio.read_w(space)
-    w_res = space.add(w_res1, w_res2)
-    res = space.text_w(w_res).decode("utf-8")
-    assert res == restxt
+        w_textio = W_TextIOWrapper(space)
+        w_textio.descr_init(
+            space, w_stream,
+            encoding='utf-8'
+        )
+        w_state_start = w_textio.w_decoder.getstate_w(space)
+        w_res1 = w_textio.read_w(space, space.newint(read_chars_before_getstate))
+        w_current_state = w_textio.w_decoder.getstate_w(space)
+        w_textio.w_decoder.setstate_w(space, w_state_start)
+        w_textio.w_decoder.setstate_w(space, w_current_state)
+        w_res2 = w_textio.read_w(space)
+        w_res = space.add(w_res1, w_res2)
+        res = space.text_w(w_res).decode("utf-8")
+        assert res == restxt
 
 def test_cookie(space):
     val1 = eval("0x" + "1" * 128)
