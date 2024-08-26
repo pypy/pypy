@@ -149,7 +149,11 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
     def getstate_w(self, space):
         # Full getstate/setstate not implemented
         # if needed, see https://github.com/python/cpython/pull/6984
-        raise oefmt(self.space.w_NotImplementedError, "getstate not implemented")
+        if self.pending_len == 0:
+            return space.newint(0)
+        raise oefmt(self.space.w_RuntimeError,
+            "getstate with len(pending)>0 (%d) not implemented, please"
+            "report with a minimal reproducer", self.pending_len)
 
     @unwrap_spec(statelong=int)
     def setstate_w(self, space, statelong):
