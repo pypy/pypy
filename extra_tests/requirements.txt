@@ -1,6 +1,7 @@
 pytest<=6.2.5
 setuptools<70.1
-hypothesis
+# use hypothesis before exceptiongroup, since it messes up exception formatting
+hypothesis<6.37.0
 vmprof ; python_implementation == "pypy"
 filelock
 pexpect
