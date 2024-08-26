@@ -19,3 +19,7 @@ def test_raw_input():
     assert result == 'input'
     # A bytes string on python2, a unicode string on python3.
     assert isinstance(result, str)
+
+def test_get_line_buffer_is_str():
+    from pyrepl import readline
+    assert isinstance(readline.get_line_buffer(), str)

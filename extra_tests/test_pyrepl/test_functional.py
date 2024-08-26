@@ -85,6 +85,20 @@ def test_dumb_terminal():
         child.expect('50000000000')
         assert "InvalidTerminal" not in child.match.string
 
+def test_syntaxerror_correct_filename_and_positions():
+    with start_repl(colors=False) as child:
+        child.sendline('a bbbb c')
+        child.expect('  File "<python-input-0>", line 1')
+        child.expect('    a bbbb c')
+        child.expect('^^^^')
+        child.expect('SyntaxError')
+    with start_repl(colors=False) as child:
+        child.sendline('   124')
+        child.expect('  File "<python-input-0>", line 1')
+        child.expect('    124')
+        child.expect('^^^^')
+        child.expect('IndentationError')
+
 def test_cmd_module_tab_completion_with_pyrepl_readline(tmpdir):
     fn = tmpdir / "cmdbug.py"
     fn.write("""
@@ -98,6 +112,9 @@ class Console(cmd.Cmd):
     def do_exit(self, arg):
         raise SystemExit(0)
 
+    def completedefault(self, text: str, line: str, begidx: int, endidx: int):
+        return ["foo", "bar"]
+
 if __name__ == "__main__":
     Console().cmdloop()
 """)
@@ -109,5 +126,27 @@ if __name__ == "__main__":
     try:
         child.sendline("a\t def")
         child.expect("ABC!!!! def")
+        child.sendline("a\t f\t\t")
+        child.expect("bar  foo")
     finally:
         child.close()
+
+def test_sys_audit_called_in_pyrepl(tmpdir):
+    with start_repl(colors=False) as child:
+        child.sendline("import sys")
+        child.sendline("sys.addaudithook(lambda name, *args: print(name, *args) if 'input' in name else None)")
+        child.sendline("x = input('xyz')")
+        child.sendline("abc")
+        child.expect("input.*xyz")
+        child.expect("input/result.*abc")
+
+def test_input_is_not_monkeypatched(tmpdir):
+    with start_repl(colors=False) as child:
+        child.sendline("print(input)")
+        child.expect("<built-in function input>")
+
+def test_tab_completion_works():
+    with start_repl(colors=False, explicit_pyrepl=False) as child:
+        child.sendline("import io")
+        child.sendline("io.Bloc\t)")
+        child.expect("BlockingIOError()")

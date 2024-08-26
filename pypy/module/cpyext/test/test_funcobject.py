@@ -145,11 +145,13 @@ class AppTestCall(AppTestCpythonExtensionBase):
             return args
         # check that calling a code object constructed by PyCode_NewEmpty
         # doesn't crash, and produce the right file, lineno, etc
-        f.__code__ = module.code_newempty("abc", "def", 23)
-        with raises(AssertionError) as info:
-            f()
+        if not self.runappdirect:
+            # The exception mocking for appdirect doesn't work well enough
+            f.__code__ = module.code_newempty("abc", "def", 23)
+            with raises(AssertionError) as info:
+                f()
 
-        lines = list(f.__code__.co_lines())
-        assert lines == [(0, 4, 23)]
-        assert info.tb.tb_next.tb_lineno == 23
+            lines = list(f.__code__.co_lines())
+            assert lines == [(0, 4, 23)]
+            assert info.tb.tb_next.tb_lineno == 23
 

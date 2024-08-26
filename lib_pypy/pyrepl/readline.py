@@ -78,7 +78,7 @@ __all__ = [
     "parse_and_bind",
     "read_history_file",
     # "read_init_file",
-    # "redisplay",
+    "redisplay",
     "remove_history_item",
     "replace_history_item",
     "set_auto_history",
@@ -478,9 +478,8 @@ class _ReadlineWrapper:
     def set_startup_hook(self, function: Callback | None = None) -> None:
         self.startup_hook = function
 
-    def get_line_buffer(self) -> bytes:
-        buf_str = self.get_reader().get_unicode()
-        return buf_str.encode(ENCODING)
+    def get_line_buffer(self) -> str:
+        return self.get_reader().get_unicode()
 
     def _get_idxs(self) -> tuple[int, int]:
         start = cursor = self.get_reader().pos
@@ -576,17 +575,35 @@ def _setup(namespace: Mapping[str, Any] | None = None) -> None:
     _wrapper.f_in = f_in
     _wrapper.f_out = f_out
 
-    # set up namespace in rlcompleter, which requires it to be a bona fide dict
     if namespace is None:
         import builtins
         namespace = builtins.__dict__
     if not isinstance(namespace, dict):
         namespace = dict(namespace)
+    if namespace is None:
+        pass
+    elif not isinstance(namespace, dict):
+        # rlcompleter requires either None, or a bona fide dict
+        namespace = dict(namespace)
     _wrapper.config.readline_completer = RLCompleter(namespace).complete
 
-    # this is not really what readline.c does.  Better than nothing I guess
-    raw_input = builtins.input
-    builtins.input = _wrapper.input
+    if '__pypy__' in sys.builtin_module_names:    # PyPy
+
+        def raw_input(prompt=''):
+            # sys.__raw_input__() is only called when stdin and stdout are
+            # as expected and are ttys.  If it is the case, then get_reader()
+            # should not really fail in _wrapper.raw_input().  If it still
+            # does, then we will just cancel the redirection and call again
+            # the built-in raw_input().
+            try:
+                del sys.__raw_input__
+            except AttributeError:
+                pass
+            return input(prompt)
+        sys.__raw_input__ = _wrapper.input
+    else:
+        raw_input = builtins.input
+        builtins.input = _wrapper.input
 
 
 raw_input: Callable[[object], str] | None = None

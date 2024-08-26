@@ -26,6 +26,8 @@ class AppTestReadline:
         if not getattr(sys, "executable", None):
             # importing readline imports site.py, which checks sys.executable
             sys.executable = "dummy"
+            # it also needs a __main__ (via rlcompleter)
+            sys.modules['__main__'] = type(sys)('dummymain')
         import os, readline
         TESTFN = "{}_{}_tmp".format("@test", os.getpid())
 
@@ -59,6 +61,8 @@ class AppTestReadline:
         if not getattr(sys, "executable", None):
             # importing readline imports site.py, which checks sys.executable
             sys.executable = "dummy"
+            # it also needs a __main__ (via rlcompleter)
+            sys.modules['__main__'] = type(sys)('dummymain')
         import readline
         readline.insert_text("\t")
-        assert readline.get_line_buffer() == b"\t"
+        assert readline.get_line_buffer() == "\t"
