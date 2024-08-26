@@ -26,7 +26,7 @@ from _cffi_backend import __version__
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.17.0.dev0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.17.0", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -1322,6 +1322,7 @@ def test_write_variable():
     ll.close_lib()
     pytest.raises(ValueError, ll.write_variable, BVoidP, "stderr", stderr)
 
+
 def test_callback():
     BInt = new_primitive_type("int")
     def make_callback():
@@ -1337,8 +1338,10 @@ def test_callback():
     e = pytest.raises(TypeError, f)
     assert str(e.value) == "'int(*)(int)' expects 1 arguments, got 0"
 
+
 def test_callback_exception():
-    pytest.skip("XXX not written for Python 2")
+    if sys.version_info < (3, 0):
+        pytest.skip("XXX not written for Python 2")
     def check_value(x):
         if x == 10000:
             raise ValueError(42)
@@ -2958,8 +2961,6 @@ if sys.version_info >= (3,):
 def test_FILE():
     if sys.platform == "win32":
         pytest.skip("testing FILE not implemented")
-    if sys.platform == "darwin":
-        pytest.skip("testing variadic broken on macos (issue 4937)")
     #
     BFILE = new_struct_type("struct _IO_FILE")
     BFILEP = new_pointer_type(BFILE)

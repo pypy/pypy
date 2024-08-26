@@ -4,6 +4,7 @@ whatever version you provide. Usage:
 
 import_cffi.py <path-to-cffi>
 """
+from __future__ import print_function
 
 import sys, py, os
 
@@ -47,7 +48,15 @@ def main(cffi_dir):
     os.system("cd '%s' && patch -p0 < pypy/tool/import_cffi.patch" % str(rootdir))
 
 if __name__ == '__main__':
+    if sys.version_info > (3, 0):
+        print(__doc__)
+        print("must use python2") 
+        sys.exit(2)
     if len(sys.argv) != 2:
-        print __doc__
+        print(__doc__)
+        sys.exit(2)
+    if not os.path.exists(sys.argv[1]):
+        print(__doc__)
+        print("'%s' is not a valid path" % sys.argv[1])
         sys.exit(2)
     main(sys.argv[1])
