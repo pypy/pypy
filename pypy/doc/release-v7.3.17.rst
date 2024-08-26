@@ -3,7 +3,7 @@ PyPy v7.3.17: release of python 2.7 and 3.10
 ============================================
 
 ..
-     updated to 9dcfbc87e2bc23a24df3be4e9548c45581e8db21
+     updated to 99f9477d38ac9b3758014a7
 
 .. note::
     This is a pre-release announcement. When the release actually happens, it
@@ -276,6 +276,13 @@ Bugfixes
 - Fix converting python object to ``unsigned long`` (in C) object attribute
   (:issue:`4996`)
 - Add missing sysconfig value ``LDCXXSHARED`` (:issue:`5004`)
+- Add missing ``token.SOFT_KEYWORD`` (:issue:`4962`)
+- Update vendored CFFI version to 1.17.0 from 1.17.0dev1. No real changes, this
+  will ensure ``pip install cffi`` does nothing.
+- Implement more of ``asyncio``'s ``_overlap`` module on windows (:issue:`4008`)
+- Disallow ``HAVE_LCHMOD`` like CPython on linux, since glibc has a dummy
+  implementation that always errors out.
+
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -286,5 +293,7 @@ Speedups and enhancements
 - Speed up unicode encode/decode errormessage handling (:issue:`4972`). Before
   this fix, the ``surrogateescape`` codec was quadratic in some corner cases.
 - Backport ``pyrepl`` and ``_colorize`` from CPython3.13
+- Make ``TextIOWrapper.tell()`` about 100x faster (:issue:`5009`). Also fix
+  some problems with ``seek`` and ``_multibytecodecs``.
 
 .. _bpo-29334: https://github.com/python/cpython/issues/73520
