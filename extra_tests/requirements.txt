@@ -3,3 +3,4 @@ setuptools<70.1
 hypothesis
 vmprof ; python_implementation == "pypy"
 filelock
+pyexpect
