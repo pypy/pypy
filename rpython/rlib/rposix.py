@@ -8,7 +8,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rlib import debug, jit, rstring, rthread, types
 from rpython.rlib._os_support import (
     _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
-    POSIX_SIZE_T, POSIX_SSIZE_T, unicode_traits,
+    POSIX_SIZE_T, POSIX_SSIZE_T, unicode_traits, _LINUX,
     _prefer_unicode, _preferred_traits, _preferred_traits2)
 from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rlib.objectmodel import (
@@ -2168,6 +2168,12 @@ class CConfig:
             symlinkat unlinkat utimensat sched_getparam""".split():
         locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
 cConfig = rffi_platform.configure(CConfig)
+if _LINUX:
+    # From CPython's configure script:
+    # Force lchmod off for Linux. Linux disallows changing the mode of symbolic
+    # links. Some libc implementations have a stub lchmod implementation that
+    # always returns an error.
+    cConfig["HAVE_LCHMOD"] = False
 globals().update(cConfig)
 
 if not _WIN32:
