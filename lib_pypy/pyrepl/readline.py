@@ -78,7 +78,7 @@ __all__ = [
     "parse_and_bind",
     "read_history_file",
     # "read_init_file",
-    # "redisplay",
+    "redisplay",
     "remove_history_item",
     "replace_history_item",
     "set_auto_history",
