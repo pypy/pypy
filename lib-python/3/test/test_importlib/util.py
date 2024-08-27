@@ -40,12 +40,7 @@ EXTENSIONS.name = '_testcapi'
 
 def _extension_details():
     global EXTENSIONS
-    # we need this hack on PyPy because _testcapi is built lazily
-    import _testcapi
-    import _pypy_testcapi
-    lib_pypy_dir = os.path.dirname(_pypy_testcapi.__file__)
-    c_file = os.path.join(lib_pypy_dir, '_testcapimodule.c')
-    for path in [_pypy_testcapi.get_hashed_dir(c_file)]:
+    for path in sys.path:
         for ext in machinery.EXTENSION_SUFFIXES:
             filename = EXTENSIONS.name + ext
             file_path = os.path.join(path, filename)
