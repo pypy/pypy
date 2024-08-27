@@ -68,7 +68,6 @@ class TestConsole(Console):
     beep = forgetinput = finish = restore = prepare
 
     def _crash(self, *args, **kwargs):
-        import pdb;pdb.set_trace()
         assert 0
 
     move_cursor = set_cursor_vis = getheightwidth = push_char = clear = _crash
