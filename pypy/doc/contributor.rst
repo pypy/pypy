@@ -86,13 +86,13 @@ Contributors
   Nicolas Truessel
   Simon Burton
   Maxwell Bernstein
+  Bartosz Skowron
   Michael Foord
   Jean-Paul Calderone
   Timo Paulssen
   Alexandre Fayolle
   Martin Matusiak
   Konstantin Lopuhin
-  Bartosz Skowron
   Simon Cross
   Laurence Tratt
   Greg Price
@@ -106,6 +106,7 @@ Contributors
   Guido van Rossum
   Michał Górny
   Stian Andreassen
+  Mikael Schönenberg
   Tobias Pape
   Tyler Wade
   Paul deGrandis
@@ -115,12 +116,12 @@ Contributors
   tav
   Paweł Piotr Przeradowski
   Mike Blume
+  Oscar Nierstrasz
   Wanja Saatkamp
   Gerald Klix
   Taavi Burns
   Tobias Oberstein
   Stefan H. Muller
-  Oscar Nierstrasz
   Jan de Mooij
   Dodan Mihai
   Rami Chowdhury
@@ -159,6 +160,7 @@ Contributors
   Alecsandru Patrascu
   Anton Gulenko
   Wouter van Heyst
+  Beatrice During
   Jared Grubb
   Olivier Dormond
   Nils Müller
@@ -179,15 +181,13 @@ Contributors
   Stanislaw Halik
   Michael Cheng
   Lucian Branescu Mihaila
-  Mikael Schönenberg
   Justas Sadzevicius
-  oliver
+  Oliver Margetts
   Ricky Zhou
   Mihnea Saracin
   Chirag Jadwani
   Elmo Mäntynen
   Anders Qvist
-  Beatrice During
   Jonathan David Riehl
   Rodrigo Tobar
   Felix C. Stegerman
@@ -216,7 +216,6 @@ Contributors
   Andreas Stührk
   Gasper Zejn
   Jens-Uwe Mager
-  Nico
   Petr Vaněk
   Wenzel Jakob
   Pauli Virtanen
