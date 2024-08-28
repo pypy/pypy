@@ -60,6 +60,7 @@ Contributors
   Adrien Di Mascio
   Anders Hammarquist
   Ondrej Baranovič
+  Logan Chien
   Mark Young
   Dan Villiom Podlaski Christiansen
   muke101
@@ -84,6 +85,7 @@ Contributors
   Camillo Bruni
   Nicolas Truessel
   Simon Burton
+  Maxwell Bernstein
   Michael Foord
   Jean-Paul Calderone
   Timo Paulssen
@@ -116,7 +118,6 @@ Contributors
   Wanja Saatkamp
   Gerald Klix
   Taavi Burns
-  Max Bernstein
   Tobias Oberstein
   Stefan H. Muller
   Oscar Nierstrasz
@@ -172,6 +173,7 @@ Contributors
   Jason Creighton
   Stuart Williams
   Gintautas Miliauskas
+  devdanzin
   Matt Jackson
   Berkin Ilbeyi
   Stanislaw Halik
@@ -179,6 +181,7 @@ Contributors
   Lucian Branescu Mihaila
   Mikael Schönenberg
   Justas Sadzevicius
+  oliver
   Ricky Zhou
   Mihnea Saracin
   Chirag Jadwani
@@ -213,7 +216,7 @@ Contributors
   Andreas Stührk
   Gasper Zejn
   Jens-Uwe Mager
-  devdanzin
+  Nico
   Petr Vaněk
   Wenzel Jakob
   Pauli Virtanen
@@ -232,12 +235,12 @@ Contributors
   Gabriel
   Aaron Iles
   Jacek Generowicz
+  Paul Gey
   Alessandro Ogier
   Chris Burr
   nimaje
   Bernd Schoeller
   Miro Hrončok
-  Logan Chien
   Catalin Fierut
   Catalin Gabriel Manciu
   Philipp Rustemeuer
@@ -256,6 +259,7 @@ Contributors
   Jacob Oscarson
   Ignas Mikalajunas
   Lutz Paelike
+  Benjamin Moody
   Renaud Blanch
   h-vertini
   Alex Orange
@@ -305,7 +309,9 @@ Contributors
   Yusei Tahara
   Joshua Gilbert
   Andrew Thompson
-  Paul Gey
+  diath
+  robinverduijn
+  Oskar Haarklou Veileborg
   Karl Otness
   Blackasthesky
   Isuru Fernando
