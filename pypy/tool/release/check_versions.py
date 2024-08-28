@@ -34,6 +34,9 @@ def assert_in(a, b):
 
 
 pypy_versions = {
+                 '7.3.17': {'python_version': ['3.10.14', '2.7.18'],
+                           'date': '2024-08-28',
+                          },
                  '7.3.16': {'python_version': ['3.10.14', '3.9.19', '2.7.18'],
                            'date': '2024-04-24',
                           },
@@ -144,7 +147,8 @@ def create_latest_versions(v):
 
 latest_pypys = create_latest_versions(pypy_versions)
 
-arches = ['aarch64', 'i686', 'x64', 'x86', 'darwin', 's390x', 'arm64']
+# arches = ['aarch64', 'i686', 'x64', 'x86', 'darwin', 's390x', 'arm64']
+arches = ['aarch64', 'i686', 'x64', 'x86', 'darwin', 'arm64']
 platforms = ['linux', 'win32', 'win64', 'darwin']
 arch_map={('aarch64', 'linux'): 'aarch64',
           ('i686', 'linux'): 'linux32',
@@ -187,29 +191,31 @@ def check_versions(data, url, verbose=0, check_times=True, nightly_only=False):
             if 'rc' not in d['pypy_version']:
                 assert_in(f['filename'], download_url)
                 assert_in(d['pypy_version'], download_url)
-            assert_in(f['arch'], arches)
-            assert_in(f['platform'], platforms)
-            arch_plat = arch_map[(f['arch'], f['platform'])]
-            py_ver = '.'.join(d['python_version'].split('.')[:2])
-            if d['pypy_version'] == 'nightly':
-                if f['platform'] == "darwin":
+            if f['arch'] not in ('s390x',):
+                # We dropped s390x uploads, don't bother checking historically
+                assert_in(f['arch'], arches)
+                assert_in(f['platform'], platforms)
+                arch_plat = arch_map[(f['arch'], f['platform'])]
+                py_ver = '.'.join(d['python_version'].split('.')[:2])
+                if d['pypy_version'] == 'nightly':
+                    if f['platform'] == "darwin":
+                        if arch_plat[0] not in download_url and arch_plat[1] not in download_url:
+                            raise ValueError(f"{arch_plat} not in {download_url}")
+                    elif arch_plat == 'linux32':
+                        # the nightly builds have a quirk in the linux32 file name
+                        arch_plat = 'linux'
+                        assert_in(arch_plat, download_url)
+                    else:
+                        assert_in(arch_plat, download_url)
+                    py_ver_tuple = [int(s) for s in py_ver.split('.')]
+                    if py_ver == "2.7":
+                        py_ver = "trunk"
+                elif f['platform'] == "darwin":
                     if arch_plat[0] not in download_url and arch_plat[1] not in download_url:
                         raise ValueError(f"{arch_plat} not in {download_url}")
-                elif arch_plat == 'linux32':
-                    # the nightly builds have a quirk in the linux32 file name
-                    arch_plat = 'linux'
-                    assert_in(arch_plat, download_url)
                 else:
                     assert_in(arch_plat, download_url)
-                py_ver_tuple = [int(s) for s in py_ver.split('.')]
-                if py_ver == "2.7":
-                    py_ver = "trunk"
-            elif f['platform'] == "darwin":
-                if arch_plat[0] not in download_url and arch_plat[1] not in download_url:
-                    raise ValueError(f"{arch_plat} not in {download_url}")
-            else:
-                assert_in(arch_plat, download_url)
-            assert_in(py_ver, download_url)
+                assert_in(py_ver, download_url)
             if d['pypy_version'] != 'nightly' and nightly_only:
                 if verbose > 0:
                     print(f' ok')
