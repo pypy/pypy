@@ -1,0 +1,5 @@
+*lib-python.3.test.test_xml_etree.BugsTest.test_bug_xmltoolkit63
+*lib-python.3.test.test_xml_etree.ElementTreeTest.test_xpath_tokenizer
+*lib-python.3.test.test_xml_etree.ModuleTest.test_sanity
+*lib-python.3.test.test_xml_etree.NoAcceleratorTest.test_correct_import_pyET
+*lib-python.3.test.test_xml_etree.TestMain.test_main

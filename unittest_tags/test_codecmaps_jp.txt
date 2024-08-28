@@ -1,0 +1,15 @@
+*lib-python.3.test.test_codecmaps_jp.TestCP932Map.test_errorhandle
+*lib-python.3.test.test_codecmaps_jp.TestCP932Map.test_mapping_file
+*lib-python.3.test.test_codecmaps_jp.TestCP932Map.test_mapping_supplemental
+*lib-python.3.test.test_codecmaps_jp.TestEUCJISX0213Map.test_errorhandle
+*lib-python.3.test.test_codecmaps_jp.TestEUCJISX0213Map.test_mapping_file
+*lib-python.3.test.test_codecmaps_jp.TestEUCJISX0213Map.test_mapping_supplemental
+*lib-python.3.test.test_codecmaps_jp.TestEUCJPCOMPATMap.test_errorhandle
+*lib-python.3.test.test_codecmaps_jp.TestEUCJPCOMPATMap.test_mapping_file
+*lib-python.3.test.test_codecmaps_jp.TestEUCJPCOMPATMap.test_mapping_supplemental
+*lib-python.3.test.test_codecmaps_jp.TestSJISCOMPATMap.test_errorhandle
+*lib-python.3.test.test_codecmaps_jp.TestSJISCOMPATMap.test_mapping_file
+*lib-python.3.test.test_codecmaps_jp.TestSJISCOMPATMap.test_mapping_supplemental
+*lib-python.3.test.test_codecmaps_jp.TestSJISX0213Map.test_errorhandle
+*lib-python.3.test.test_codecmaps_jp.TestSJISX0213Map.test_mapping_file
+*lib-python.3.test.test_codecmaps_jp.TestSJISX0213Map.test_mapping_supplemental

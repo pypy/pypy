@@ -1,0 +1,4 @@
+*lib-python.3.test.test_contains.TestContains.test_block_fallback
+*lib-python.3.test.test_contains.TestContains.test_builtin_sequence_types
+*lib-python.3.test.test_contains.TestContains.test_common_tests
+*lib-python.3.test.test_contains.TestContains.test_nonreflexive

@@ -1,0 +1,11 @@
+*lib-python.3.test.test_defaultdict.TestDefaultDict.test_basic
+*lib-python.3.test.test_defaultdict.TestDefaultDict.test_callable_arg
+*lib-python.3.test.test_defaultdict.TestDefaultDict.test_copy
+*lib-python.3.test.test_defaultdict.TestDefaultDict.test_deep_copy
+*lib-python.3.test.test_defaultdict.TestDefaultDict.test_keyerror_without_factory
+*lib-python.3.test.test_defaultdict.TestDefaultDict.test_missing
+*lib-python.3.test.test_defaultdict.TestDefaultDict.test_pickling
+*lib-python.3.test.test_defaultdict.TestDefaultDict.test_recursive_repr
+*lib-python.3.test.test_defaultdict.TestDefaultDict.test_repr
+*lib-python.3.test.test_defaultdict.TestDefaultDict.test_shallow_copy
+*lib-python.3.test.test_defaultdict.TestDefaultDict.test_union

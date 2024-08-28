@@ -1,0 +1,4 @@
+*lib-python.3.test.test_bufio.CBufferSizeTest.test_nullpat
+*lib-python.3.test.test_bufio.CBufferSizeTest.test_primepat
+*lib-python.3.test.test_bufio.PyBufferSizeTest.test_nullpat
+*lib-python.3.test.test_bufio.PyBufferSizeTest.test_primepat

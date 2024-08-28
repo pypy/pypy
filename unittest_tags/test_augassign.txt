@@ -1,0 +1,7 @@
+*lib-python.3.test.test_augassign.AugAssignTest.testBasic
+*lib-python.3.test.test_augassign.AugAssignTest.testCustomMethods1
+*lib-python.3.test.test_augassign.AugAssignTest.testCustomMethods2
+*lib-python.3.test.test_augassign.AugAssignTest.testInDict
+*lib-python.3.test.test_augassign.AugAssignTest.testInList
+*lib-python.3.test.test_augassign.AugAssignTest.testSequences
+*lib-python.3.test.test_augassign.AugAssignTest.test_with_unpacking

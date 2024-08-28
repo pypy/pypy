@@ -1,0 +1,6 @@
+*lib-python.3.test.test_cgitb.TestCgitb.test_blanks
+*lib-python.3.test.test_cgitb.TestCgitb.test_fonts
+*lib-python.3.test.test_cgitb.TestCgitb.test_html
+*lib-python.3.test.test_cgitb.TestCgitb.test_syshook_no_logdir_default_format
+*lib-python.3.test.test_cgitb.TestCgitb.test_syshook_no_logdir_text_format
+*lib-python.3.test.test_cgitb.TestCgitb.test_text

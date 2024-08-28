@@ -1,0 +1,11 @@
+*lib-python.3.test.test_imghdr.TestImghdr.test_bad_args
+*lib-python.3.test.test_imghdr.TestImghdr.test_closed_file
+*lib-python.3.test.test_imghdr.TestImghdr.test_data
+*lib-python.3.test.test_imghdr.TestImghdr.test_file_pos
+*lib-python.3.test.test_imghdr.TestImghdr.test_invalid_headers
+*lib-python.3.test.test_imghdr.TestImghdr.test_missing_file
+*lib-python.3.test.test_imghdr.TestImghdr.test_output_stream
+*lib-python.3.test.test_imghdr.TestImghdr.test_pathlike_filename
+*lib-python.3.test.test_imghdr.TestImghdr.test_register_test
+*lib-python.3.test.test_imghdr.TestImghdr.test_string_data
+*lib-python.3.test.test_imghdr.TestImghdr.test_unseekable

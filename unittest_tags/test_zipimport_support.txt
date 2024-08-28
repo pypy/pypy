@@ -1,0 +1,4 @@
+*lib-python.3.test.test_zipimport_support.ZipSupportTests.test_doctest_issue4197
+*lib-python.3.test.test_zipimport_support.ZipSupportTests.test_doctest_main_issue4197
+*lib-python.3.test.test_zipimport_support.ZipSupportTests.test_inspect_getsource_issue4223
+*lib-python.3.test.test_zipimport_support.ZipSupportTests.test_pdb_issue4201

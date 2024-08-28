@@ -1,0 +1,9 @@
+*lib-python.3.test.test_filecmp.DirCompareTestCase.test_cmpfiles
+*lib-python.3.test.test_filecmp.DirCompareTestCase.test_default_ignores
+*lib-python.3.test.test_filecmp.DirCompareTestCase.test_dircmp
+*lib-python.3.test.test_filecmp.DirCompareTestCase.test_dircmp_subdirs_type
+*lib-python.3.test.test_filecmp.DirCompareTestCase.test_report_full_closure
+*lib-python.3.test.test_filecmp.DirCompareTestCase.test_report_partial_closure
+*lib-python.3.test.test_filecmp.FileCompareTestCase.test_cache_clear
+*lib-python.3.test.test_filecmp.FileCompareTestCase.test_different
+*lib-python.3.test.test_filecmp.FileCompareTestCase.test_matching

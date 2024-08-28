@@ -1,0 +1,4 @@
+*lib-python.3.test.test_binhex.BinHexTestCase.test_binhex
+*lib-python.3.test.test_binhex.BinHexTestCase.test_binhex_error_on_long_filename
+*lib-python.3.test.test_binhex.BinHexTestCase.test_binhex_line_endings
+*lib-python.3.test.test_binhex.TestMain.test_main

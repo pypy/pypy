@@ -1,0 +1,3 @@
+*lib-python.3.test.test_wait3.Wait3Test.test_wait
+*lib-python.3.test.test_wait3.Wait3Test.test_wait3_rusage_initialized
+*test.fork_wait.ForkWait.test_wait

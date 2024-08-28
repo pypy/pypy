@@ -1,0 +1,16 @@
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__check_for_unavailable_sdk
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__check_for_unavailable_sdk_alternate
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__find_appropriate_compiler
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__find_build_tool
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__find_executable
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__get_system_version
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__override_all_archs
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__read_output
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__remove_original_values
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__remove_universal_flags
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__remove_universal_flags_alternate
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__remove_unsupported_archs
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__save_modified_value
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__save_modified_value_unchanged
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test__supports_universal_builds
+*lib-python.3.test.test__osx_support.Test_OSXSupport.test_get_platform_osx

@@ -1,0 +1,14 @@
+*lib-python.3.test.test_uu.UUFileTest.test_decode
+*lib-python.3.test.test_uu.UUFileTest.test_decode_filename
+*lib-python.3.test.test_uu.UUFileTest.test_decode_mode
+*lib-python.3.test.test_uu.UUFileTest.test_decodetwice
+*lib-python.3.test.test_uu.UUFileTest.test_encode
+*lib-python.3.test.test_uu.UUStdIOTest.test_decode
+*lib-python.3.test.test_uu.UUStdIOTest.test_encode
+*lib-python.3.test.test_uu.UUTest.test_decode
+*lib-python.3.test.test_uu.UUTest.test_encode
+*lib-python.3.test.test_uu.UUTest.test_garbage_padding
+*lib-python.3.test.test_uu.UUTest.test_missingbegin
+*lib-python.3.test.test_uu.UUTest.test_newlines_escaped
+*lib-python.3.test.test_uu.UUTest.test_no_directory_traversal
+*lib-python.3.test.test_uu.UUTest.test_truncatedinput

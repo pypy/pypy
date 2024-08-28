@@ -1,0 +1,11 @@
+*lib-python.3.test.test_slice.SliceTest.test_cmp
+*lib-python.3.test.test_slice.SliceTest.test_constructor
+*lib-python.3.test.test_slice.SliceTest.test_copy
+*lib-python.3.test.test_slice.SliceTest.test_cycle
+*lib-python.3.test.test_slice.SliceTest.test_deepcopy
+*lib-python.3.test.test_slice.SliceTest.test_hash
+*lib-python.3.test.test_slice.SliceTest.test_indices
+*lib-python.3.test.test_slice.SliceTest.test_members
+*lib-python.3.test.test_slice.SliceTest.test_pickle
+*lib-python.3.test.test_slice.SliceTest.test_repr
+*lib-python.3.test.test_slice.SliceTest.test_setslice_without_getslice

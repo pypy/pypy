@@ -1,0 +1,8 @@
+*lib-python.3.test.test_syslog.Test.test_closelog
+*lib-python.3.test.test_syslog.Test.test_log_mask
+*lib-python.3.test.test_syslog.Test.test_openlog
+*lib-python.3.test.test_syslog.Test.test_openlog_noargs
+*lib-python.3.test.test_syslog.Test.test_setlogmask
+*lib-python.3.test.test_syslog.Test.test_syslog
+*lib-python.3.test.test_syslog.Test.test_syslog_implicit_open
+*lib-python.3.test.test_syslog.Test.test_syslog_threaded

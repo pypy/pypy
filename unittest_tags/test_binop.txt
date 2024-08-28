@@ -1,0 +1,12 @@
+*lib-python.3.test.test_binop.FallbackBlockingTests.test_fallback_ne_blocking
+*lib-python.3.test.test_binop.FallbackBlockingTests.test_fallback_rmethod_blocking
+*lib-python.3.test.test_binop.OperationOrderTests.test_comparison_orders
+*lib-python.3.test.test_binop.RatTestCase.test_add
+*lib-python.3.test.test_binop.RatTestCase.test_constructor
+*lib-python.3.test.test_binop.RatTestCase.test_div
+*lib-python.3.test.test_binop.RatTestCase.test_eq
+*lib-python.3.test.test_binop.RatTestCase.test_floordiv
+*lib-python.3.test.test_binop.RatTestCase.test_gcd
+*lib-python.3.test.test_binop.RatTestCase.test_mul
+*lib-python.3.test.test_binop.RatTestCase.test_sub
+*lib-python.3.test.test_binop.RatTestCase.test_true_div

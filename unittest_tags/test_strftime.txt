@@ -1,0 +1,4 @@
+*lib-python.3.test.test_strftime.StrftimeTest.test_strftime
+*lib-python.3.test.test_strftime.Y1900Tests.test_y_1900
+*lib-python.3.test.test_strftime.Y1900Tests.test_y_after_1900
+*lib-python.3.test.test_strftime.Y1900Tests.test_y_before_1900

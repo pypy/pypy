@@ -1,0 +1,4 @@
+*lib-python.3.test.test_grp.GroupDatabaseTestCase.test_errors
+*lib-python.3.test.test_grp.GroupDatabaseTestCase.test_noninteger_gid
+*lib-python.3.test.test_grp.GroupDatabaseTestCase.test_values
+*lib-python.3.test.test_grp.GroupDatabaseTestCase.test_values_extended

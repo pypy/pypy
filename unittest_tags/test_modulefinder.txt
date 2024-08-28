@@ -1,0 +1,17 @@
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_absolute_imports
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_bytecode
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_coding_default_utf8
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_coding_explicit_cp1252
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_coding_explicit_utf8
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_extended_opargs
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_load_module_api
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_maybe
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_maybe_new
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_package
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_relative_imports
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_relative_imports_2
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_relative_imports_3
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_relative_imports_4
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_replace_paths
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_same_name_as_bad
+*lib-python.3.test.test_modulefinder.ModuleFinderTest.test_syntax_error

@@ -1,0 +1,3 @@
+*lib-python.3.test.test_abstract_numbers.TestNumbers.test_complex
+*lib-python.3.test.test_abstract_numbers.TestNumbers.test_float
+*lib-python.3.test.test_abstract_numbers.TestNumbers.test_int

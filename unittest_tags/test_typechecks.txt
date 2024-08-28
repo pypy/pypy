@@ -1,0 +1,6 @@
+*lib-python.3.test.test_typechecks.TypeChecksTest.testIsInstanceActual
+*lib-python.3.test.test_typechecks.TypeChecksTest.testIsInstanceBuiltin
+*lib-python.3.test.test_typechecks.TypeChecksTest.testIsSubclassActual
+*lib-python.3.test.test_typechecks.TypeChecksTest.testIsSubclassBuiltin
+*lib-python.3.test.test_typechecks.TypeChecksTest.testIsSubclassInternal
+*lib-python.3.test.test_typechecks.TypeChecksTest.testSubclassBehavior

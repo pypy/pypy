@@ -1,0 +1,4 @@
+*lib-python.3.test.test_zipfile64.OtherTests.testMoreThan64kFiles
+*lib-python.3.test.test_zipfile64.OtherTests.testMoreThan64kFilesAppend
+*lib-python.3.test.test_zipfile64.TestsWithSourceFile.testDeflated
+*lib-python.3.test.test_zipfile64.TestsWithSourceFile.testStored

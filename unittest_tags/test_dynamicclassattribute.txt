@@ -1,0 +1,12 @@
+*lib-python.3.test.test_dynamicclassattribute.PropertySubclassTests.test_docstring_copy
+*lib-python.3.test.test_dynamicclassattribute.PropertySubclassTests.test_property_new_getter_new_docstring
+*lib-python.3.test.test_dynamicclassattribute.PropertySubclassTests.test_property_setter_copies_getter_docstring
+*lib-python.3.test.test_dynamicclassattribute.PropertySubclassTests.test_slots_docstring_copy_exception
+*lib-python.3.test.test_dynamicclassattribute.PropertyTests.test_abstract_virtual
+*lib-python.3.test.test_dynamicclassattribute.PropertyTests.test_property___isabstractmethod__descriptor
+*lib-python.3.test.test_dynamicclassattribute.PropertyTests.test_property_decorator_baseclass
+*lib-python.3.test.test_dynamicclassattribute.PropertyTests.test_property_decorator_baseclass_doc
+*lib-python.3.test.test_dynamicclassattribute.PropertyTests.test_property_decorator_doc
+*lib-python.3.test.test_dynamicclassattribute.PropertyTests.test_property_decorator_subclass
+*lib-python.3.test.test_dynamicclassattribute.PropertyTests.test_property_decorator_subclass_doc
+*lib-python.3.test.test_dynamicclassattribute.PropertyTests.test_property_getter_doc_override

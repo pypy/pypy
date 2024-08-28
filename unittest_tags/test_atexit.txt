@@ -1,0 +1,5 @@
+*lib-python.3.test.test_atexit.FunctionalTest.test_atexit_instances
+*lib-python.3.test.test_atexit.FunctionalTest.test_shutdown
+*lib-python.3.test.test_atexit.SubinterpreterTest.test_callback_on_subinterpreter_teardown
+*lib-python.3.test.test_atexit.SubinterpreterTest.test_callbacks_leak
+*lib-python.3.test.test_atexit.SubinterpreterTest.test_callbacks_leak_refcycle
