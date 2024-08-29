@@ -257,7 +257,7 @@ Creation of Application Level objects
    Creates a Unicode string from an rpython byte string, decoded as
    "utf-8-nosg".  On PyPy3 it is the same as :py:function::`newtext`.
 
-Many more space operations can be found in `pypy/interpeter/baseobjspace.py` and
+Many more space operations can be found in `pypy/interpreter/baseobjspace.py` and
 `pypy/objspace/std/objspace.py`.
 
 Conversions from Application Level to Interpreter Level

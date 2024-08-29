@@ -56,7 +56,7 @@ more in parallel should ideally run faster than in a regular PyPy
 * ``pypy-stm`` provides (but does not impose) a special API to the
   user in the pure Python module ``transaction``.  This module is based
   on the lower-level module ``pypystm``, but also provides some
-  compatibily with non-STM PyPy's or CPython's.
+  compatibility with non-STM PyPy's or CPython's.
 
 * Building on top of the way the GIL is removed, we will talk
   about `How to write multithreaded programs: the 10'000-feet view`_
@@ -163,7 +163,7 @@ Current status (stmgc-c7)
   edge ``stmgc-c8`` is better at that.)
 
 * Weakrefs might appear to work a bit strangely for now, sometimes
-  staying alive throught ``gc.collect()``, or even dying but then
+  staying alive through ``gc.collect()``, or even dying but then
   un-dying for a short time before dying again.  A similar problem can
   show up occasionally elsewhere with accesses to some external
   resources, where the (apparent) serialized order doesn't match the
@@ -278,7 +278,7 @@ unchanged: although running on multiple cores in parallel, ``pypy-stm``
 gives the illusion that threads are run serially, with switches only
 occurring between bytecodes, not in the middle of them.  Programs can
 rely on this: using ``shared_list.append()/pop()`` or
-``shared_dict.setdefault()`` as synchronization mecanisms continues to
+``shared_dict.setdefault()`` as synchronization mechanisms continues to
 work as expected.
 
 This works by internally considering the points where a standard PyPy or
@@ -442,7 +442,7 @@ Common causes of conflicts:
   ``rtyper_makekey()`` method will be called many times for the same
   object; the code used to repeatedly set the flag to ``True``, but
   now it first checks and only does the write if it is ``False``.
-  Similarly, in the second half of the checkin, the method
+  Similarly, in the second half of the check in, the method
   ``setup_block_entry()`` used to both assign the ``concretetype``
   fields and return a list, but its two callers were different: one
   would really need the ``concretetype`` fields initialized, whereas
@@ -476,7 +476,7 @@ Here is a direct usage example::
         lst1.append(x)
 
 In this example, we are sure that the item popped off one end of
-the list is appened again at the other end atomically.  It means that
+the list is appended again at the other end atomically.  It means that
 another thread can run ``len(lst1)`` or ``x in lst1`` without any
 particular synchronization, and always see the same results,
 respectively ``10`` and ``True``.  It will never see the intermediate
@@ -653,7 +653,7 @@ queue should eventually be designed.)
 A conflict occurs as follows: when a transaction commits (i.e. finishes
 successfully) it may cause other transactions that are still in progress
 to abort and retry.  This is a waste of CPU time, but even in the worst
-case senario it is not worse than a GIL, because at least one
+case scenario it is not worse than a GIL, because at least one
 transaction succeeds (so we get at worst N-1 CPUs doing useless jobs and
 1 CPU doing a job that commits successfully).
 

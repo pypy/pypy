@@ -62,7 +62,7 @@ Highlights
 
 * Many bugs were corrected for Windows 32 bit.  This includes new
   functionality to test the validity of file descriptors; and
-  correct handling of the calling convensions for ctypes.  (Still not
+  correct handling of the calling conventions for ctypes.  (Still not
   much progress on Win64.) A lot of work on this has been done by Matti Picus
   and Amaury Forgeot d'Arc.
 

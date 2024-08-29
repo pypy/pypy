@@ -63,7 +63,7 @@ e.g. it's always constant-folded away
 
 .. branch: map-improvements
 
-Optimize instances with integer or float fields to have more efficent field
+Optimize instances with integer or float fields to have more efficient field
 reads and writes. They also use less memory if they have at least two such
 fields.
 

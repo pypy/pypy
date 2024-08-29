@@ -373,7 +373,7 @@ on some classes being old-style.
 
 We just maintain those changes in place,
 to see what is changed we have a branch called `vendor/stdlib`
-wich contains the unmodified cpython stdlib
+which contains the unmodified cpython stdlib
 
 
 .. _mixed module mechanism:
