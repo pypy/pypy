@@ -160,6 +160,22 @@ arch_map={('aarch64', 'linux'): 'aarch64',
           ('arm64', 'darwin'): ['macos_arm64'],
          }
 
+def check_tags(data):
+    # Make sure the top tag appears in https://github/pypy/pypy
+    # If this fails, probably forgot to do "git push --tags"
+    URL_BASE = "https://github.com/pypy/pypy/releases/tag"
+    pypy_newest_version = data[0]['pypy_version']
+    for d in data:
+        if d['pypy_version'] != pypy_newest_version:
+            continue
+        py_major, py_minor, py_patch = d['python_version'].split('.')
+        tag = f"release-pypy{py_major}.{py_minor}-v{pypy_newest_version}"
+        tag_url = f"{URL_BASE}/{tag}"
+        try:
+            r = request.urlopen(tag_url)
+        except error.HTTPError as e:
+            raise ValueError(f"could not find {tag}' on github. Does the tag exist (forgotten git push --tags)?") from None
+        assert_equal(r.getcode(), 200)
 
 def check_versions(data, url, verbose=0, check_times=True, nightly_only=False):
     for d in data:
@@ -259,5 +275,6 @@ if __name__ == '__main__':
         response = request.urlopen('https://buildbot.pypy.org/pypy/versions.json')
         assert_equal(response.getcode(), 200)
         data = json.loads(response.read())
-        check_versions(data, None, verbose=1)
+        check_versions(data, None, verbose=1, nightly_only=nightly_only)
+    check_tags(data)
     print('ok')

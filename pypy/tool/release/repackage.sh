@@ -167,3 +167,4 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     print_sha256
 fi
 # Now upload all the bz2 and zip
+echo don\'t forget to push the tags "git push --tags"
