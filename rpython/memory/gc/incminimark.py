@@ -1281,8 +1281,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
     def get_peak_memory_used(self):
         """ Return the peak memory GC felt ever responsible for
         """
-        mem_allocated = max(self.ac.peak_memory_used,
-                            self.ac.total_memory_used)
+        assert self.ac.peak_memory_used >= self.ac.total_memory_used
+        mem_allocated = self.ac.peak_memory_used
         return mem_allocated + self.rawmalloced_peak_size
 
     def threshold_reached(self, extra=0):
@@ -3145,8 +3145,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         elif stats_no == rgc.PEAK_RAWMALLOCED_MEMORY:
             return intmask(self.rawmalloced_peak_size)
         elif stats_no == rgc.PEAK_ARENA_MEMORY:
-            return intmask(max(self.ac.peak_memory_used,
-                               self.ac.total_memory_used))
+            assert self.ac.peak_memory_used >= self.ac.total_memory_used
+            return intmask(self.ac.peak_memory_used)
         elif stats_no == rgc.NURSERY_SIZE:
             return intmask(self.nursery_size)
         elif stats_no == rgc.TOTAL_GC_TIME:
