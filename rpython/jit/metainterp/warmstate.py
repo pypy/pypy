@@ -262,6 +262,8 @@ class WarmEnterState(object):
     def set_param_trace_limit(self, value):
         if value < 0:
             raise ValueError
+        if value > 100000000:
+            raise ValueError
         self.trace_limit = value
 
     def set_param_decay(self, decay):

@@ -725,12 +725,6 @@ class History(object):
     def length(self):
         return self.trace._count - len(self.trace.inputargs)
 
-    def trace_tag_overflow(self):
-        return self.trace.tag_overflow
-
-    def trace_tag_overflow_imminent(self):
-        return self.trace.tag_overflow_imminent()
-
     def get_trace_position(self):
         return self.trace.cut_point()
 

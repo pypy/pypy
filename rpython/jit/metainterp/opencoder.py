@@ -418,15 +418,8 @@ class Trace(BaseTrace):
     def append_int(self, i):
         self._pos += encode_varint_signed(i, self._ops)
 
-    def tag_overflow_imminent(self):
-        return False
-        return self._pos > get_model(self).MAX_VALUE * 0.8
-
     def tracing_done(self):
         from rpython.rlib.debug import debug_start, debug_stop, debug_print
-        if self.tag_overflow:
-            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
-
         self._bigints_dict = {}
         self._refs_dict = new_ref_dict()
         debug_start("jit-trace-done")
@@ -533,10 +526,6 @@ class Trace(BaseTrace):
         self._count += 1
         if opclasses[opnum].type != 'v':
             self._index += 1
-        if self.tag_overflow:
-            # potentially a broken op is left behind
-            # clean it up
-            self._pos = old_pos
 
     def record_op(self, opnum, argboxes, descr=None):
         pos = self._index
@@ -613,11 +602,10 @@ class Trace(BaseTrace):
                         vref_array)
         # guards have no descr
         self._snapshots.append(s)
-        if not self.tag_overflow: # otherwise we're broken anyway
-            assert self._ops[self._pos - 1] == '\x00'
-            self._pos -= 1
-            self._ops.pop()
-            self.append_int(len(self._snapshots) - 1)
+        assert self._ops[self._pos - 1] == '\x00'
+        self._pos -= 1
+        self._ops.pop()
+        self.append_int(len(self._snapshots) - 1)
         return s
 
     def create_empty_top_snapshot(self, vable_boxes, vref_boxes):
@@ -690,6 +678,8 @@ class Trace(BaseTrace):
         return iter.inputargs, ops
 
 def tag(kind, pos):
+    res = intmask(r_uint(pos) << TAGSHIFT)
+    assert res >> TAGSHIFT == pos
     return (pos << TAGSHIFT) | kind
 
 @specialize.ll()

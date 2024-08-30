@@ -1596,8 +1596,7 @@ class MIFrame(object):
         metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
         warmrunnerstate = jitdriver_sd.warmstate
         if (metainterp.force_finish_trace and
-                (metainterp.history.length() > warmrunnerstate.trace_limit * 0.8 or
-                 metainterp.history.trace_tag_overflow_imminent())):
+                (metainterp.history.length() > warmrunnerstate.trace_limit * 0.8)):
             self._create_segmented_trace_and_blackhole()
 
     def _create_segmented_trace_and_blackhole(self):
@@ -2767,8 +2766,7 @@ class MetaInterp(object):
     def blackhole_if_trace_too_long(self):
         warmrunnerstate = self.jitdriver_sd.warmstate
         length = self.history.length()
-        if (length > warmrunnerstate.trace_limit or
-                self.history.trace_tag_overflow()):
+        if length > warmrunnerstate.trace_limit:
             jd_sd, greenkey_of_huge_function = self.find_biggest_function()
             self.staticdata.stats.record_aborted(greenkey_of_huge_function)
             self.portal_trace_positions = None
