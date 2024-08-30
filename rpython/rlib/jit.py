@@ -826,12 +826,6 @@ def set_param_to_default(driver, name):
     """Reset one of the tunable JIT parameters to its default value."""
     _set_param(driver, name, None)
 
-class TraceLimitTooHigh(Exception):
-    """ This is raised when the trace limit is too high for the chosen
-    opencoder model, recompile your interpreter with 'big' as
-    jit_opencoder_model
-    """
-
 @specialize.arg(0)
 def set_user_param(driver, text):
     """Set the tunable JIT parameters from a user-supplied string
@@ -863,13 +857,7 @@ def set_user_param(driver, text):
                         ivalue = int(value)
                     except ValueError:
                         raise
-                    try:
-                        set_param(driver, name1, ivalue)
-                    except ValueError:
-                        if name1 == 'trace_limit' and ivalue >= 0:
-                            # turn it into a somewhat more understandable exception
-                            raise TraceLimitTooHigh
-                    break
+                    set_param(driver, name1, ivalue)
             else:
                 raise ValueError
 

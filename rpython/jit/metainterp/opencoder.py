@@ -35,10 +35,8 @@ TAGSHIFT = 2
 # XXX todos left:
 # - overallocate again
 # - is there still any kind of tag overflow?
-# - debug print for trace lengths shouldn't call str
 # - should the snapshots also go somewhere in a more compact form? just right
 #   into the byte buffer? or into its own global snapshot buffer?
-# - remove config stuff
 # - SnapshotIterator is very inefficient
 
 def encode_varint_signed(i, res):
@@ -87,13 +85,7 @@ def decode_varint_signed(b, index=0):
 #    MAX_VALUE = int(2**31 - 1)   # we could go to 2**32-1 on 64-bit, but
 #                                 # that seems already far too huge
 #    MAX_TRACE_LIMIT = 2 ** 29
-#
-#def get_model(self):
-#    return _get_model(self.metainterp_sd)
-#
-#@specialize.memo()
-#def _get_model(metainterp_sd):
-#    return getattr(metainterp_sd, 'opencoder_model', Model)
+
 
 SMALL_INT_STOP  = (2 ** (15 - TAGSHIFT)) - 1
 SMALL_INT_START = -SMALL_INT_STOP # we might want to distribute them uneven
@@ -438,12 +430,12 @@ class Trace(BaseTrace):
         self._bigints_dict = {}
         self._refs_dict = new_ref_dict()
         debug_start("jit-trace-done")
-        debug_print("trace length: " + str(self._pos))
-        debug_print(" total snapshots: " + str(self._total_snapshots))
-        debug_print(" bigint consts: " + str(self._consts_bigint) + " " + str(len(self._bigints)))
-        debug_print(" float consts: " + str(self._consts_float) + " " + str(len(self._floats)))
-        debug_print(" ref consts: " + str(self._consts_ptr) + " " + str(self._consts_ptr_nodict) + " " + str(len(self._refs)))
-        debug_print(" descrs: " + str(len(self._descrs)))
+        debug_print("trace length:", self._pos)
+        debug_print(" total snapshots:", self._total_snapshots)
+        debug_print(" bigint consts: " + str(self._consts_bigint), len(self._bigints))
+        debug_print(" float consts: " + str(self._consts_float), len(self._floats))
+        debug_print(" ref consts: " + str(self._consts_ptr) + " " + str(self._consts_ptr_nodict),  len(self._refs))
+        debug_print(" descrs:", len(self._descrs))
         debug_stop("jit-trace-done")
 
     def length(self):
@@ -534,8 +526,6 @@ class Trace(BaseTrace):
 
     def _op_end(self, opnum, descr, old_pos):
         if opwithdescr[opnum]:
-            # note that for guards we always store four bytes which are later
-            # patched during capture_resumedata
             if descr is None:
                 self.append_byte(0)
             else:

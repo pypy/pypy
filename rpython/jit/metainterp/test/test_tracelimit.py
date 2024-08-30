@@ -210,7 +210,7 @@ class TraceLimitTests:
         self.check_trace_count(10)
         self.check_jitcell_token_count(1)
 
-    def test_big_opencoder_model(self):
+    def test_huge_tracelimit_is_supported(self):
         def g(i):
             f(0)
             try:
@@ -229,11 +229,8 @@ class TraceLimitTests:
                 myjitdriver.jit_merge_point(i=i)
             return b
 
-        res = self.meta_interp(g, [10], backendopt=True, ProfilerClass=Profiler,
-                               translationoptions={"jit_opencoder_model": "big"})
-        assert res
         res = self.meta_interp(g, [10], backendopt=True, ProfilerClass=Profiler)
-        assert not res
+        assert res
 
 class TestLLtype(TraceLimitTests, LLJitMixin):
     pass
