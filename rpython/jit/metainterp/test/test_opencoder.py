@@ -240,3 +240,17 @@ class TestOpencoder(object):
         assert i == 1
         i = t._cached_const_ptr(c2)
         assert i == 2
+
+@given(strategies.integers(), strategies.binary())
+@given(strategies.integers(min_value=0), strategies.binary())
+def test_varint_hypothesis(i, prefix):
+    b = []
+    encode_varint_signed(i, b)
+    b = b"".join(b)
+    res, pos = decode_varint_signed(b)
+    assert res == i
+    assert pos == len(b)
+    res, pos = decode_varint_signed(prefix + b, len(prefix))
+    assert res == i
+    assert pos == len(b) + len(prefix)
+

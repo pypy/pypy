@@ -174,7 +174,7 @@ class MIFrame(object):
     def get_current_position_info(self):
         return self.jitcode.get_live_vars_info(self.pc, self.metainterp.staticdata.op_live)
 
-    def get_list_of_active_boxes(self, in_a_call, new_array, encode, after_residual_call=False):
+    def get_list_of_active_boxes(self, in_a_call, new_array, add_box_to_storage, after_residual_call=False):
         from rpython.jit.codewriter.liveness import decode_offset
         from rpython.jit.codewriter.liveness import LivenessIterator
         if in_a_call:
@@ -211,28 +211,27 @@ class MIFrame(object):
         start_f = start_r + length_r
         total   = start_f + length_f
         # allocate a list of the correct size
-        env = new_array(total)
-        make_sure_not_resized(env)
+        storage = new_array(total)
         # fill it now
         if length_i:
             it = LivenessIterator(offset, length_i, all_liveness)
             for index in it:
-                env[start_i] = encode(self.registers_i[index])
+                storage = add_box_to_storage(storage, self.registers_i[index])
                 start_i += 1
             offset = it.offset
         if length_r:
             it = LivenessIterator(offset, length_r, all_liveness)
             for index in it:
-                env[start_r] = encode(self.registers_r[index])
+                storage = add_box_to_storage(storage, self.registers_r[index])
                 start_r += 1
             offset = it.offset
         if length_f:
             it = LivenessIterator(offset, length_f, all_liveness)
             for index in it:
-                env[start_f] = encode(self.registers_f[index])
+                storage = add_box_to_storage(storage, self.registers_f[index])
                 start_f += 1
             offset = it.offset
-        return env
+        return storage
 
     def replace_active_box_in_frame(self, oldbox, newbox):
         if oldbox.type == 'i':

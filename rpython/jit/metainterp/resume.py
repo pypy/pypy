@@ -222,7 +222,7 @@ class ResumeDataLoopMemo(object):
 
     # env numbering
 
-    def _number_boxes(self, iter, arr, numb_state):
+    def _number_boxes(self, iter, iterator, numb_state):
         """ Number boxes from one snapshot
         """
         from rpython.jit.metainterp.optimizeopt.info import (
@@ -230,7 +230,7 @@ class ResumeDataLoopMemo(object):
         num_boxes = numb_state.num_boxes
         num_virtuals = numb_state.num_virtuals
         liveboxes = numb_state.liveboxes
-        for item in arr:
+        for item in iterator:
             box = iter.get(rffi.cast(lltype.Signed, item))
             box = box.get_box_replacement()
 
@@ -279,7 +279,7 @@ class ResumeDataLoopMemo(object):
             jitcode_index, pc = snapshot_iter.unpack_jitcode_pc(snapshot)
             numb_state.append_int(jitcode_index)
             numb_state.append_int(pc)
-            self._number_boxes(snapshot_iter, snapshot.box_array, numb_state)
+            self._number_boxes(snapshot_iter, iter(snapshot), numb_state)
         numb_state.patch_current_size(0)
 
         return numb_state

@@ -502,15 +502,10 @@ class WarmRunnerDesc(object):
         self.cpu = cpu
 
     def build_meta_interp(self, ProfilerClass, opencoder_model):
-        from rpython.jit.metainterp.opencoder import Model, BigModel
         self.metainterp_sd = MetaInterpStaticData(self.cpu,
                                                   self.opt,
                                                   ProfilerClass=ProfilerClass,
                                                   warmrunnerdesc=self)
-        if opencoder_model == 'big':
-            self.metainterp_sd.opencoder_model = BigModel
-        else:
-            self.metainterp_sd.opencoder_model = Model
         self.stats.metainterp_sd = self.metainterp_sd
 
     def make_hooks(self, hooks):

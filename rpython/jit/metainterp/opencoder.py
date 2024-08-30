@@ -13,7 +13,7 @@ from rpython.jit.metainterp.resoperation import AbstractResOp, AbstractInputArg,
     ResOperation, oparity, rop, opwithdescr, GuardResOp, IntOp, FloatOp, RefOp,\
     opclasses
 from rpython.rlib.rarithmetic import intmask, r_uint
-from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib.objectmodel import we_are_translated, specialize, always_inline
 from rpython.rlib.jit import Counters
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 
@@ -21,29 +21,78 @@ TAGINT, TAGCONSTPTR, TAGCONSTOTHER, TAGBOX = range(4)
 TAGMASK = 0x3
 TAGSHIFT = 2
 
-class Model:
-    STORAGE_TP = rffi.USHORT
-    # this is the initial size of the trace - note that we probably
-    # want something that would fit the inital "max_trace_length"
-    INIT_SIZE = 30000
-    MIN_VALUE = 0
-    MAX_VALUE = 2**16 - 1
-    MAX_TRACE_LIMIT = 2 ** 14
 
-class BigModel:
-    INIT_SIZE = 30000
-    STORAGE_TP = rffi.UINT
-    MIN_VALUE = 0
-    MAX_VALUE = int(2**31 - 1)   # we could go to 2**32-1 on 64-bit, but
-                                 # that seems already far too huge
-    MAX_TRACE_LIMIT = 2 ** 29
+# right now:
+# 2 2 optional n*2 2 optional = at least 4
+# 
+# idea: do everything in bytes instead of short storage:
+# 
+# 1 byte opnum,
+# 1 byte optional arity,
+# varsized args,
+# descr-or-snapshot-index (either varsized if known, or leave four bytes for patching)
+# 
+# XXX todos left:
+# - overallocate again
+# - is there still any kind of tag overflow?
+# - debug print for trace lengths shouldn't call str
+# - should the snapshots also go somewhere in a more compact form? just right
+#   into the byte buffer? or into its own global snapshot buffer?
+# - remove config stuff
 
-def get_model(self):
-    return _get_model(self.metainterp_sd)
+def encode_varint_signed(i, res):
+    # https://en.wikipedia.org/wiki/LEB128 signed variant
+    more = True
+    startlen = len(res)
+    while more:
+        lowest7bits = i & 0b1111111
+        i >>= 7
+        if ((i == 0) and (lowest7bits & 0b1000000) == 0) or (
+            (i == -1) and (lowest7bits & 0b1000000) != 0
+        ):
+            more = False
+        else:
+            lowest7bits |= 0b10000000
+        res.append(chr(lowest7bits))
+    return len(res) - startlen
 
-@specialize.memo()
-def _get_model(metainterp_sd):
-    return getattr(metainterp_sd, 'opencoder_model', Model)
+@always_inline
+def decode_varint_signed(b, index=0):
+    res = 0
+    shift = 0
+    while True:
+        byte = ord(b[index])
+        res = res | ((byte & 0b1111111) << shift)
+        index += 1
+        shift += 7
+        if not (byte & 0b10000000):
+            if byte & 0b1000000:
+                res |= -1 << shift
+            return res, index
+
+#class Model:
+#    STORAGE_TP = rffi.USHORT
+#    # this is the initial size of the trace - note that we probably
+#    # want something that would fit the inital "max_trace_length"
+#    INIT_SIZE = 30000
+#    MIN_VALUE = 0
+#    MAX_VALUE = 2**16 - 1
+#    MAX_TRACE_LIMIT = 2 ** 14
+#
+#class BigModel:
+#    INIT_SIZE = 30000
+#    STORAGE_TP = rffi.UINT
+#    MIN_VALUE = 0
+#    MAX_VALUE = int(2**31 - 1)   # we could go to 2**32-1 on 64-bit, but
+#                                 # that seems already far too huge
+#    MAX_TRACE_LIMIT = 2 ** 29
+#
+#def get_model(self):
+#    return _get_model(self.metainterp_sd)
+#
+#@specialize.memo()
+#def _get_model(metainterp_sd):
+#    return getattr(metainterp_sd, 'opencoder_model', Model)
 
 SMALL_INT_STOP  = (2 ** (15 - TAGSHIFT)) - 1
 SMALL_INT_START = -SMALL_INT_STOP # we might want to distribute them uneven
@@ -56,8 +105,8 @@ class SnapshotIterator(object):
         self.main_iter = main_iter
         # reverse the snapshots and store the vable, vref lists
         assert isinstance(snapshot, TopSnapshot)
-        self.vable_array = snapshot.vable_array
-        self.vref_array = snapshot.vref_array
+        self.vable_array = BoxArrayIter(snapshot.vable_array)
+        self.vref_array = BoxArrayIter(snapshot.vref_array)
         self.size = len(self.vable_array) + len(self.vref_array) + 3
         jc_index, pc = unpack_uint(snapshot.packed_jitcode_pc)
         self.framestack = []
@@ -65,7 +114,7 @@ class SnapshotIterator(object):
             return
         while snapshot:
             self.framestack.append(snapshot)
-            self.size += len(snapshot.box_array) + 2
+            self.size += len(iter(snapshot)) + 2
             snapshot = snapshot.prev
         self.framestack.reverse()
 
@@ -85,13 +134,12 @@ def _update_liverange(item, index, liveranges):
         liveranges[v] = index
 
 def update_liveranges(snapshot, index, liveranges):
-    assert isinstance(snapshot, TopSnapshot)
-    for item in snapshot.vable_array:
+    for item in snapshot.iter_vable_array():
         _update_liverange(item, index, liveranges)
-    for item in snapshot.vref_array:
+    for item in snapshot.iter_vref_array():
         _update_liverange(item, index, liveranges)
     while snapshot:
-        for item in snapshot.box_array:
+        for item in snapshot:
             _update_liverange(item, index, liveranges)
         snapshot = snapshot.prev
 
@@ -136,11 +184,17 @@ class TraceIterator(BaseTrace):
     def done(self):
         return self.pos >= self.end
 
+    def _nextbyte(self):
+        if self.done():
+            raise IndexError
+        res = ord(self.trace._ops[self.pos])
+        self.pos += 1
+        return res
+        
     def _next(self):
         if self.done():
             raise IndexError
-        res = rffi.cast(lltype.Signed, self.trace._ops[self.pos])
-        self.pos += 1
+        res, self.pos = decode_varint_signed(self.trace._ops, self.pos)
         return res
 
     def _untag(self, tagged):
@@ -163,9 +217,9 @@ class TraceIterator(BaseTrace):
         return SnapshotIterator(self, self.trace._snapshots[index])
 
     def next_element_update_live_range(self, index, liveranges):
-        opnum = self._next()
+        opnum = self._nextbyte()
         if oparity[opnum] == -1:
-            argnum = self._next()
+            argnum = self._nextbyte()
         else:
             argnum = oparity[opnum]
         for i in range(argnum):
@@ -185,10 +239,10 @@ class TraceIterator(BaseTrace):
         return index
 
     def next(self):
-        opnum = self._next()
+        opnum = self._nextbyte()
         argnum = oparity[opnum]
         if argnum == -1:
-            argnum = self._next()
+            argnum = self._nextbyte()
         if not (0 <= oparity[opnum] <= 3):
             args = []
             for i in range(argnum):
@@ -260,6 +314,24 @@ def combine_uint(index1, index2):
 def unpack_uint(packed):
     return (packed >> 16) & 0xffff, packed & 0xffff
 
+class BoxArrayIter(object):
+    def __init__(self, l):
+        self.l = l
+        self.position = 1
+
+    def __len__(self):
+        return ord(self.l[0])
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self.position >= len(self.l):
+            raise StopIteration
+        item, self.position = decode_varint_signed(self.l, self.position)
+        return item
+
+
 class Snapshot(object):
     _attrs_ = ('packed_jitcode_pc', 'box_array', 'prev')
 
@@ -269,18 +341,29 @@ class Snapshot(object):
         self.packed_jitcode_pc = packed_jitcode_pc
         self.box_array = box_array
 
+    def __iter__(self):
+        return BoxArrayIter(self.box_array)
+
+
 class TopSnapshot(Snapshot):
     def __init__(self, packed_jitcode_pc, box_array, vable_array, vref_array):
         Snapshot.__init__(self, packed_jitcode_pc, box_array)
         self.vable_array = vable_array
         self.vref_array = vref_array
 
+    def iter_vable_array(self):
+        return BoxArrayIter(self.vable_array)
+
+    def iter_vref_array(self):
+        return BoxArrayIter(self.vref_array)
+
+
 class Trace(BaseTrace):
     _deadranges = (-1, None)
 
     def __init__(self, max_num_inputargs, metainterp_sd):
         self.metainterp_sd = metainterp_sd
-        self._ops = [rffi.cast(get_model(self).STORAGE_TP, 0)] * get_model(self).INIT_SIZE
+        self._ops = ['\x00'] * max_num_inputargs
         self._pos = 0
         self._consts_bigint = 0
         self._consts_float = 0
@@ -304,7 +387,7 @@ class Trace(BaseTrace):
         self._count = max_num_inputargs # total count
         self._index = max_num_inputargs # "position" of resulting resops
         self._start = max_num_inputargs
-        self._pos = self._start
+        self._pos = max_num_inputargs
         self.tag_overflow = False
 
     def set_inputargs(self, inputargs):
@@ -314,18 +397,16 @@ class Trace(BaseTrace):
             assert len(set_positions) == len(inputargs)
             assert not set_positions or max(set_positions) < self.max_num_inputargs
 
-    def append(self, v):
-        model = get_model(self)
-        if self._pos >= len(self._ops):
-            # grow by 2X
-            self._ops = self._ops + [rffi.cast(model.STORAGE_TP, 0)] * len(self._ops)
-        if not model.MIN_VALUE <= v <= model.MAX_VALUE:
-            v = 0 # broken value, but that's fine, tracing will stop soon
-            self.tag_overflow = True
-        self._ops[self._pos] = rffi.cast(model.STORAGE_TP, v)
+    def append_byte(self, c):
+        assert 0 <= c < 256
+        self._ops.append(chr(c))
         self._pos += 1
 
+    def append_int(self, i):
+        self._pos += encode_varint_signed(i, self._ops)
+
     def tag_overflow_imminent(self):
+        return False
         return self._pos > get_model(self).MAX_VALUE * 0.8
 
     def tracing_done(self):
@@ -348,10 +429,13 @@ class Trace(BaseTrace):
         return self._pos
 
     def cut_point(self):
+        assert self._pos == len(self._ops)
         return self._pos, self._count, self._index
 
     def cut_at(self, end):
-        self._pos = end[0]
+        x = self._pos = end[0]
+        assert x >= 0
+        del self._ops[x:]
         self._count = end[1]
         self._index = end[2]
 
@@ -419,22 +503,22 @@ class Trace(BaseTrace):
 
     def _op_start(self, opnum, num_argboxes):
         old_pos = self._pos
-        self.append(opnum)
+        self.append_byte(opnum)
         expected_arity = oparity[opnum]
         if expected_arity == -1:
-            self.append(num_argboxes)
+            self.append_byte(num_argboxes)
         else:
             assert num_argboxes == expected_arity
         return old_pos
 
     def _op_end(self, opnum, descr, old_pos):
         if opwithdescr[opnum]:
-            # note that for guards we always store 0 which is later
+            # note that for guards we always store four bytes which are later
             # patched during capture_resumedata
             if descr is None:
-                self.append(0)
+                self.append_byte(0)
             else:
-                self.append(self._encode_descr(descr))
+                self.append_int(self._encode_descr(descr))
         self._count += 1
         if opclasses[opnum].type != 'v':
             self._index += 1
@@ -447,7 +531,7 @@ class Trace(BaseTrace):
         pos = self._index
         old_pos = self._op_start(opnum, len(argboxes))
         for box in argboxes:
-            self.append(self._encode(box))
+            self.append_int(self._encode(box))
         self._op_end(opnum, descr, old_pos)
         return pos
 
@@ -460,24 +544,24 @@ class Trace(BaseTrace):
     def record_op1(self, opnum, argbox1, descr=None):
         pos = self._index
         old_pos = self._op_start(opnum, 1)
-        self.append(self._encode(argbox1))
+        self.append_int(self._encode(argbox1))
         self._op_end(opnum, descr, old_pos)
         return pos
 
     def record_op2(self, opnum, argbox1, argbox2, descr=None):
         pos = self._index
         old_pos = self._op_start(opnum, 2)
-        self.append(self._encode(argbox1))
-        self.append(self._encode(argbox2))
+        self.append_int(self._encode(argbox1))
+        self.append_int(self._encode(argbox2))
         self._op_end(opnum, descr, old_pos)
         return pos
 
     def record_op3(self, opnum, argbox1, argbox2, argbox3, descr=None):
         pos = self._index
         old_pos = self._op_start(opnum, 3)
-        self.append(self._encode(argbox1))
-        self.append(self._encode(argbox2))
-        self.append(self._encode(argbox3))
+        self.append_int(self._encode(argbox1))
+        self.append_int(self._encode(argbox2))
+        self.append_int(self._encode(argbox3))
         self._op_end(opnum, descr, old_pos)
         return pos
 
@@ -489,20 +573,22 @@ class Trace(BaseTrace):
         return len(self._descrs) - 1 + len(self.metainterp_sd.all_descrs) + 1
 
     def _list_of_boxes(self, boxes):
-        array = [rffi.cast(get_model(self).STORAGE_TP, 0)] * len(boxes)
+        boxes_list_storage = self.new_array(len(boxes))
         for i in range(len(boxes)):
-            array[i] = self._encode_cast(boxes[i])
-        return array
+            boxes_list_storage = self._add_box_to_storage(boxes_list_storage, boxes[i])
+        return boxes_list_storage
 
     def new_array(self, lgt):
-        return [rffi.cast(get_model(self).STORAGE_TP, 0)] * lgt
+        assert 0 <= lgt < 256
+        return [chr(lgt)]
 
-    def _encode_cast(self, i):
-        return rffi.cast(get_model(self).STORAGE_TP, self._encode(i))
+    def _add_box_to_storage(self, boxes_list_storage, box):
+        encode_varint_signed(self._encode(box), boxes_list_storage)
+        return boxes_list_storage
 
     def create_top_snapshot(self, jitcode, pc, frame, vable_boxes, vref_boxes, after_residual_call=False):
         self._total_snapshots += 1
-        array = frame.get_list_of_active_boxes(False, self.new_array, self._encode_cast,
+        array = frame.get_list_of_active_boxes(False, self.new_array, self._add_box_to_storage,
                 after_residual_call=after_residual_call)
         vable_array = self._list_of_boxes(vable_boxes)
         vref_array = self._list_of_boxes(vref_boxes)
@@ -511,8 +597,10 @@ class Trace(BaseTrace):
         # guards have no descr
         self._snapshots.append(s)
         if not self.tag_overflow: # otherwise we're broken anyway
-            assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == 0
-            self._ops[self._pos - 1] = rffi.cast(get_model(self).STORAGE_TP, len(self._snapshots) - 1)
+            assert self._ops[self._pos - 1] == '\x00'
+            self._pos -= 1
+            self._ops.pop()
+            self.append_int(len(self._snapshots) - 1)
         return s
 
     def create_empty_top_snapshot(self, vable_boxes, vref_boxes):
@@ -530,7 +618,7 @@ class Trace(BaseTrace):
 
     def create_snapshot(self, jitcode, pc, frame, flag):
         self._total_snapshots += 1
-        array = frame.get_list_of_active_boxes(flag, self.new_array, self._encode_cast)
+        array = frame.get_list_of_active_boxes(flag, self.new_array, self._add_box_to_storage)
         return Snapshot(combine_uint(jitcode.index, pc), array)
 
     def get_iter(self):
