@@ -143,7 +143,7 @@ def _update_liverange(item, index, liveranges, data):
 
 def update_liveranges(snapshot, index, liveranges, data):
     for item in snapshot.iter_vable_array(data):
-        _update_liverange(item, index, liveranges)
+        _update_liverange(item, index, liveranges, data)
     for item in snapshot.iter_vref_array(data):
         _update_liverange(item, index, liveranges, data)
     while snapshot:
@@ -397,7 +397,7 @@ class Trace(BaseTrace):
         self._bigints_dict = {}
         self._floats = []
         self._snapshots = []
-        self._snapshot_data = []
+        self._snapshot_data = ['\x00']
         if not we_are_translated() and isinstance(max_num_inputargs, list): # old api for tests
             self.inputargs = max_num_inputargs
             for i, box in enumerate(max_num_inputargs):
@@ -600,6 +600,8 @@ class Trace(BaseTrace):
         return boxes_list_storage
 
     def new_array(self, lgt):
+        if lgt == 0:
+            return 0
         res = len(self._snapshot_data)
         self.append_snapshot_int(lgt)
         return res
@@ -630,9 +632,10 @@ class Trace(BaseTrace):
 
     def create_empty_top_snapshot(self, vable_boxes, vref_boxes):
         self._total_snapshots += 1
+        array = self._list_of_boxes([])
         vable_array = self._list_of_boxes(vable_boxes)
         vref_array = self._list_of_boxes(vref_boxes)
-        s = TopSnapshot(combine_uint(2**16 - 1, 0), [], vable_array,
+        s = TopSnapshot(combine_uint(2**16 - 1, 0), array, vable_array,
                         vref_array)
         # guards have no descr
         self._snapshots.append(s)
