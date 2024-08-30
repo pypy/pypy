@@ -34,7 +34,6 @@ TAGSHIFT = 2
 # 
 # XXX todos left:
 # - overallocate again
-# - is there still any kind of tag overflow?
 # - should the snapshots also go somewhere in a more compact form? just right
 #   into the byte buffer? or into its own global snapshot buffer?
 # - SnapshotIterator is very inefficient
@@ -87,8 +86,11 @@ def decode_varint_signed(b, index=0):
 #    MAX_TRACE_LIMIT = 2 ** 29
 
 
-SMALL_INT_STOP  = (2 ** (15 - TAGSHIFT)) - 1
-SMALL_INT_START = -SMALL_INT_STOP # we might want to distribute them uneven
+# chosen such that constant ints need at most 4 bytes
+SMALL_INT_STOP  = 0x40000
+assert encode_varint_signed(SMALL_INT_STOP, []) <= 4
+SMALL_INT_START = -0x40001
+assert encode_varint_signed(SMALL_INT_START, []) <= 4
 
 class BaseTrace(object):
     pass
