@@ -263,23 +263,23 @@ class ResumeDataLoopMemo(object):
         numb_state.append_int(0) # patch later: size of resume section
         numb_state.append_int(0) # patch later: number of failargs
 
-        arr = snapshot_iter.vable_array
+        array_iter = snapshot_iter.vable_array
 
-        numb_state.append_int(len(arr))
-        self._number_boxes(snapshot_iter, arr, numb_state)
+        numb_state.append_int(array_iter.total_length)
+        self._number_boxes(snapshot_iter, array_iter, numb_state)
 
-        arr = snapshot_iter.vref_array
-        n = len(arr)
+        array_iter = snapshot_iter.vref_array
+        n = array_iter.total_length
         assert not (n & 1)
         numb_state.append_int(n >> 1)
 
-        self._number_boxes(snapshot_iter, arr, numb_state)
+        self._number_boxes(snapshot_iter, array_iter, numb_state)
 
         for snapshot in snapshot_iter.framestack:
             jitcode_index, pc = snapshot_iter.unpack_jitcode_pc(snapshot)
             numb_state.append_int(jitcode_index)
             numb_state.append_int(pc)
-            self._number_boxes(snapshot_iter, iter(snapshot), numb_state)
+            self._number_boxes(snapshot_iter, snapshot_iter.iter(snapshot), numb_state)
         numb_state.patch_current_size(0)
 
         return numb_state

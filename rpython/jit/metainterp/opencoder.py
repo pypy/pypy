@@ -39,6 +39,7 @@ TAGSHIFT = 2
 # - should the snapshots also go somewhere in a more compact form? just right
 #   into the byte buffer? or into its own global snapshot buffer?
 # - remove config stuff
+# - SnapshotIterator is very inefficient
 
 def encode_varint_signed(i, res):
     # https://en.wikipedia.org/wiki/LEB128 signed variant
@@ -105,18 +106,22 @@ class SnapshotIterator(object):
         self.main_iter = main_iter
         # reverse the snapshots and store the vable, vref lists
         assert isinstance(snapshot, TopSnapshot)
-        self.vable_array = BoxArrayIter(snapshot.vable_array)
-        self.vref_array = BoxArrayIter(snapshot.vref_array)
-        self.size = len(self.vable_array) + len(self.vref_array) + 3
+        snapshot_data = main_iter.trace._snapshot_data
+        self.vable_array = snapshot.iter_vable_array(snapshot_data)
+        self.vref_array = snapshot.iter_vref_array(snapshot_data)
+        self.size = self.vable_array.total_length + self.vref_array.total_length + 3
         jc_index, pc = unpack_uint(snapshot.packed_jitcode_pc)
         self.framestack = []
         if jc_index == 2**16-1:
             return
         while snapshot:
             self.framestack.append(snapshot)
-            self.size += len(iter(snapshot)) + 2
+            self.size += snapshot.length(snapshot_data) + 2
             snapshot = snapshot.prev
         self.framestack.reverse()
+
+    def iter(self, snapshot):
+        return snapshot.iter(self.main_iter.trace._snapshot_data)
 
     def get(self, index):
         return self.main_iter._untag(index)
@@ -131,19 +136,19 @@ class SnapshotIterator(object):
             arr = BoxArrayIter(arr)
         return [self.get(i) for i in arr]
 
-def _update_liverange(item, index, liveranges):
+def _update_liverange(item, index, liveranges, data):
     tag, v = untag(item)
     if tag == TAGBOX:
         liveranges[v] = index
 
-def update_liveranges(snapshot, index, liveranges):
-    for item in snapshot.iter_vable_array():
+def update_liveranges(snapshot, index, liveranges, data):
+    for item in snapshot.iter_vable_array(data):
         _update_liverange(item, index, liveranges)
-    for item in snapshot.iter_vref_array():
-        _update_liverange(item, index, liveranges)
+    for item in snapshot.iter_vref_array(data):
+        _update_liverange(item, index, liveranges, data)
     while snapshot:
-        for item in snapshot:
-            _update_liverange(item, index, liveranges)
+        for item in snapshot.iter(data):
+            _update_liverange(item, index, liveranges, data)
         snapshot = snapshot.prev
 
 class TraceIterator(BaseTrace):
@@ -236,7 +241,7 @@ class TraceIterator(BaseTrace):
             descr_index = self._next()
             if rop.is_guard(opnum):
                 update_liveranges(self.trace._snapshots[descr_index], index,
-                                  liveranges)
+                                  liveranges, self.trace._snapshot_data)
         if opclasses[opnum].type != 'v':
             return index + 1
         return index
@@ -318,47 +323,56 @@ def unpack_uint(packed):
     return (packed >> 16) & 0xffff, packed & 0xffff
 
 class BoxArrayIter(object):
-    def __init__(self, l):
-        self.l = l
-        self.position = 1
-
-    def __len__(self):
-        return ord(self.l[0])
+    def __init__(self, index, data):
+        self.length, self.position = decode_varint_signed(data, index)
+        self.total_length = self.length
+        self.data = data
 
     def __iter__(self):
         return self
 
     def next(self):
-        if self.position >= len(self.l):
+        if self.length == 0:
             raise StopIteration
-        item, self.position = decode_varint_signed(self.l, self.position)
+        self.length -= 1
+        item, self.position = decode_varint_signed(self.data, self.position)
         return item
 
 
 class Snapshot(object):
-    _attrs_ = ('packed_jitcode_pc', 'box_array', 'prev')
+    """ snapshot array data is stored in Trace._snapshot_data.
+    The format of every array is:
+    length, box1, ..., boxn
+    
+    The start of the data is given by box_array_index.
+    """
+
+    _attrs_ = ('packed_jitcode_pc', 'box_array_index', 'prev')
 
     prev = None
 
-    def __init__(self, packed_jitcode_pc, box_array):
+    def __init__(self, packed_jitcode_pc, box_array_index):
         self.packed_jitcode_pc = packed_jitcode_pc
-        self.box_array = box_array
+        self.box_array_index = box_array_index
 
-    def __iter__(self):
-        return BoxArrayIter(self.box_array)
+    def length(self, data):
+        return decode_varint_signed(data, self.box_array_index)[0]
+
+    def iter(self, data):
+        return BoxArrayIter(self.box_array_index, data)
 
 
 class TopSnapshot(Snapshot):
-    def __init__(self, packed_jitcode_pc, box_array, vable_array, vref_array):
-        Snapshot.__init__(self, packed_jitcode_pc, box_array)
-        self.vable_array = vable_array
-        self.vref_array = vref_array
+    def __init__(self, packed_jitcode_pc, box_array_index, vable_array, vref_array):
+        Snapshot.__init__(self, packed_jitcode_pc, box_array_index)
+        self.vable_array_index = vable_array
+        self.vref_array_index = vref_array
 
-    def iter_vable_array(self):
-        return BoxArrayIter(self.vable_array)
+    def iter_vable_array(self, data):
+        return BoxArrayIter(self.vable_array_index, data)
 
-    def iter_vref_array(self):
-        return BoxArrayIter(self.vref_array)
+    def iter_vref_array(self, data):
+        return BoxArrayIter(self.vref_array_index, data)
 
 
 class Trace(BaseTrace):
@@ -383,6 +397,7 @@ class Trace(BaseTrace):
         self._bigints_dict = {}
         self._floats = []
         self._snapshots = []
+        self._snapshot_data = []
         if not we_are_translated() and isinstance(max_num_inputargs, list): # old api for tests
             self.inputargs = max_num_inputargs
             for i, box in enumerate(max_num_inputargs):
@@ -585,12 +600,16 @@ class Trace(BaseTrace):
         return boxes_list_storage
 
     def new_array(self, lgt):
-        assert 0 <= lgt < 256
-        return [chr(lgt)]
+        res = len(self._snapshot_data)
+        self.append_snapshot_int(lgt)
+        return res
 
     def _add_box_to_storage(self, boxes_list_storage, box):
-        encode_varint_signed(self._encode(box), boxes_list_storage)
+        self.append_snapshot_int(self._encode(box))
         return boxes_list_storage
+
+    def append_snapshot_int(self, i):
+        encode_varint_signed(i, self._snapshot_data)
 
     def create_top_snapshot(self, jitcode, pc, frame, vable_boxes, vref_boxes, after_residual_call=False):
         self._total_snapshots += 1
