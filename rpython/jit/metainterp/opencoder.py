@@ -16,11 +16,13 @@ from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import we_are_translated, specialize, always_inline
 from rpython.rlib.jit import Counters
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
+from rpython.rlib.debug import make_sure_not_resized
 
 TAGINT, TAGCONSTPTR, TAGCONSTOTHER, TAGBOX = range(4)
 TAGMASK = 0x3
 TAGSHIFT = 2
 
+INIT_SIZE = 4096
 
 # right now:
 # 2 2 optional n*2 2 optional = at least 4
@@ -33,7 +35,6 @@ TAGSHIFT = 2
 # descr-or-snapshot-index (either varsized if known, or leave four bytes for patching)
 # 
 # XXX todos left:
-# - overallocate again
 # - should the snapshots also go somewhere in a more compact form? just right
 #   into the byte buffer? or into its own global snapshot buffer?
 # - SnapshotIterator is very inefficient
@@ -67,23 +68,6 @@ def decode_varint_signed(b, index=0):
             if byte & 0b1000000:
                 res |= -1 << shift
             return res, index
-
-#class Model:
-#    STORAGE_TP = rffi.USHORT
-#    # this is the initial size of the trace - note that we probably
-#    # want something that would fit the inital "max_trace_length"
-#    INIT_SIZE = 30000
-#    MIN_VALUE = 0
-#    MAX_VALUE = 2**16 - 1
-#    MAX_TRACE_LIMIT = 2 ** 14
-#
-#class BigModel:
-#    INIT_SIZE = 30000
-#    STORAGE_TP = rffi.UINT
-#    MIN_VALUE = 0
-#    MAX_VALUE = int(2**31 - 1)   # we could go to 2**32-1 on 64-bit, but
-#                                 # that seems already far too huge
-#    MAX_TRACE_LIMIT = 2 ** 29
 
 
 # chosen such that constant ints need at most 4 bytes
@@ -196,8 +180,20 @@ class TraceIterator(BaseTrace):
     def _next(self):
         if self.done():
             raise IndexError
-        res, self.pos = decode_varint_signed(self.trace._ops, self.pos)
-        return res
+        b = self.trace._ops
+        index = self.pos
+        res = 0
+        shift = 0
+        while True:
+            byte = ord(b[index])
+            res = res | ((byte & 0b1111111) << shift)
+            index += 1
+            shift += 7
+            if not (byte & 0b10000000):
+                if byte & 0b1000000:
+                    res |= -1 << shift
+                self.pos = index
+                return res
 
     def _untag(self, tagged):
         tag, v = untag(tagged)
@@ -374,10 +370,8 @@ class Trace(BaseTrace):
 
     def __init__(self, max_num_inputargs, metainterp_sd):
         self.metainterp_sd = metainterp_sd
-        if not we_are_translated() and isinstance(max_num_inputargs, list): # old api for tests
-            self._ops = ['\x00'] * len(max_num_inputargs)
-        else:
-            self._ops = ['\x00'] * max_num_inputargs
+        self._ops = ['\x00'] * INIT_SIZE
+        make_sure_not_resized(self._ops)
         self._pos = 0
         self._consts_bigint = 0
         self._consts_float = 0
@@ -412,13 +406,29 @@ class Trace(BaseTrace):
             assert len(set_positions) == len(inputargs)
             assert not set_positions or max(set_positions) < self.max_num_inputargs
 
+    def _double_ops(self):
+        self._ops = self._ops + ['\x00'] * len(self._ops)
+
     def append_byte(self, c):
         assert 0 <= c < 256
-        self._ops.append(chr(c))
+        if self._pos >= len(self._ops):
+            self._double_ops()
+        self._ops[self._pos] = chr(c)
         self._pos += 1
 
     def append_int(self, i):
-        self._pos += encode_varint_signed(i, self._ops)
+        more = True
+        startlen = self._pos
+        while more:
+            lowest7bits = i & 0b1111111
+            i >>= 7
+            if ((i == 0) and (lowest7bits & 0b1000000) == 0) or (
+                (i == -1) and (lowest7bits & 0b1000000) != 0
+            ):
+                more = False
+            else:
+                lowest7bits |= 0b10000000
+            self.append_byte(lowest7bits)
 
     def tracing_done(self):
         from rpython.rlib.debug import debug_start, debug_stop, debug_print
@@ -437,13 +447,10 @@ class Trace(BaseTrace):
         return self._pos
 
     def cut_point(self):
-        assert self._pos == len(self._ops)
         return self._pos, self._count, self._index
 
     def cut_at(self, end):
-        x = self._pos = end[0]
-        assert x >= 0
-        del self._ops[x:]
+        self._pos = end[0]
         self._count = end[1]
         self._index = end[2]
 
@@ -606,7 +613,6 @@ class Trace(BaseTrace):
         self._snapshots.append(s)
         assert self._ops[self._pos - 1] == '\x00'
         self._pos -= 1
-        self._ops.pop()
         self.append_int(len(self._snapshots) - 1)
         return s
 
@@ -622,7 +628,6 @@ class Trace(BaseTrace):
         if not self.tag_overflow: # otherwise we're broken anyway
             assert self._ops[self._pos - 1] == '\x00'
             self._pos -= 1
-            self._ops.pop()
             self.append_int(len(self._snapshots) - 1)
         return s
 
