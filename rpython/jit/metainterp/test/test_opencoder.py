@@ -1,5 +1,5 @@
 import py
-from rpython.jit.metainterp.opencoder import Trace, untag, TAGINT, TAGBOX
+from rpython.jit.metainterp.opencoder import Trace, untag, TAGINT, TAGBOX, encode_varint_signed, decode_varint_signed
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp
 from rpython.jit.metainterp.history import ConstInt, IntFrontendOp
 from rpython.jit.metainterp.history import ConstPtrJitCode
@@ -39,7 +39,7 @@ class FakeFrame(object):
     def get_list_of_active_boxes(self, flag, new_array, encode, after_residual_call=False):
         a = new_array(len(self.boxes))
         for i, box in enumerate(self.boxes):
-            a[i] = encode(box)
+            a = encode(a, box)
         return a
 
 def unpack_snapshot(t, op, pos):
@@ -49,7 +49,7 @@ def unpack_snapshot(t, op, pos):
     vref_boxes = si.unpack_array(si.vref_array)
     for snapshot in si.framestack:
         jitcode, pc = si.unpack_jitcode_pc(snapshot)
-        boxes = si.unpack_array(snapshot.box_array)
+        boxes = si.unpack_array(iter(snapshot.box_array))
         op.framestack.append(FakeFrame(JitCode(jitcode), pc, boxes))
     op.virtualizables = virtualizables
     op.vref_boxes = vref_boxes
@@ -242,7 +242,6 @@ class TestOpencoder(object):
         assert i == 2
 
 @given(strategies.integers(), strategies.binary())
-@given(strategies.integers(min_value=0), strategies.binary())
 def test_varint_hypothesis(i, prefix):
     b = []
     encode_varint_signed(i, b)

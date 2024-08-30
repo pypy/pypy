@@ -126,6 +126,9 @@ class SnapshotIterator(object):
 
     def unpack_array(self, arr):
         # NOT_RPYTHON
+        # for tests only
+        if isinstance(arr, list):
+            arr = BoxArrayIter(arr)
         return [self.get(i) for i in arr]
 
 def _update_liverange(item, index, liveranges):
@@ -363,7 +366,10 @@ class Trace(BaseTrace):
 
     def __init__(self, max_num_inputargs, metainterp_sd):
         self.metainterp_sd = metainterp_sd
-        self._ops = ['\x00'] * max_num_inputargs
+        if not we_are_translated() and isinstance(max_num_inputargs, list): # old api for tests
+            self._ops = ['\x00'] * len(max_num_inputargs)
+        else:
+            self._ops = ['\x00'] * max_num_inputargs
         self._pos = 0
         self._consts_bigint = 0
         self._consts_float = 0
@@ -612,8 +618,10 @@ class Trace(BaseTrace):
         # guards have no descr
         self._snapshots.append(s)
         if not self.tag_overflow: # otherwise we're broken anyway
-            assert rffi.cast(lltype.Signed, self._ops[self._pos - 1]) == 0
-            self._ops[self._pos - 1] = rffi.cast(get_model(self).STORAGE_TP, len(self._snapshots) - 1)
+            assert self._ops[self._pos - 1] == '\x00'
+            self._pos -= 1
+            self._ops.pop()
+            self.append_int(len(self._snapshots) - 1)
         return s
 
     def create_snapshot(self, jitcode, pc, frame, flag):
