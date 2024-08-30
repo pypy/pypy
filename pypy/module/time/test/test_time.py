@@ -395,9 +395,12 @@ class AppTestTime:
         import os, time
         if not os.name == "posix":
             skip("tzset available only under Unix")
+        if not (os.path.exists('/usr/share/zoneinfo/Europe/Kyiv') or
+                os.path.exists('/usr/lib/zoneinfo/Europe/Kyiv')):
+            skip("Kyiv timezone unavailable")
         org_TZ = os.environ.get('TZ', None)
         try:
-            os.environ['TZ'] = 'Europe/Kiev'
+            os.environ['TZ'] = 'Europe/Kyiv'
             time.tzset()
             localtm = time.localtime(0)
             assert localtm.tm_zone == "MSK"
