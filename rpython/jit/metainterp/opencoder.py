@@ -397,7 +397,6 @@ class Trace(BaseTrace):
         self._index = max_num_inputargs # "position" of resulting resops
         self._start = max_num_inputargs
         self._pos = max_num_inputargs
-        self.tag_overflow = False
 
     def set_inputargs(self, inputargs):
         self.inputargs = inputargs
@@ -625,10 +624,9 @@ class Trace(BaseTrace):
                         vref_array)
         # guards have no descr
         self._snapshots.append(s)
-        if not self.tag_overflow: # otherwise we're broken anyway
-            assert self._ops[self._pos - 1] == '\x00'
-            self._pos -= 1
-            self.append_int(len(self._snapshots) - 1)
+        assert self._ops[self._pos - 1] == '\x00'
+        self._pos -= 1
+        self.append_int(len(self._snapshots) - 1)
         return s
 
     def create_snapshot(self, jitcode, pc, frame, flag):
