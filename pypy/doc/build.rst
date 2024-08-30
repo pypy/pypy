@@ -159,13 +159,10 @@ command:
 
     xcode-select --install
 	brew install openssl pypy pkg-config libx11
-    export CPPFLAGS=$(pkg-config openssl --cflags-only-I | cut -f2 -dI)
-    export LDFLAGS=$(pkg-config openssl --libs-only-L | cut -f2 -dL)
+    # expose openssl in the cffi _ssl_build script
+    export CPPFLAGS=$(pkg-config openssl --cflags-only-I)
+    export LDFLAGS=$(pkg-config openssl --libs-only-L)
 
-
-
-After setting this up, translation (described next) will find the libs as
-expected via ``pkg-config``.
 
 Set environment variables that will affect translation
 ------------------------------------------------------

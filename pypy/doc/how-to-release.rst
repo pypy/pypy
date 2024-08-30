@@ -83,9 +83,10 @@ packaging workflows.
 
   - Make sure the version checks pass (they ensure ``version.py`` and
     ``patchlevel.h`` agree)
-  - Make sure the tag matches the version in version.py/patchlevel.h. While
-    the repackage.sh script checks this, it is too late to change once the tags
-    are public
+  - Make sure the tag matches the version in version.py/patchlevel.h. You
+    can run the repackage.sh script without pushing the tags.
+  - Once the repackage script runs, be sure to push the tags ``git push
+    --tags``
 
 Other steps
 -----------
