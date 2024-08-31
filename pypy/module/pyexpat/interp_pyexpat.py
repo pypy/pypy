@@ -143,7 +143,7 @@ HANDLERS = dict(
     StartElementHandler = [INTERNED_CCHARP, CONST_CCHARPP],
     EndElementHandler = [INTERNED_CCHARP],
     ProcessingInstructionHandler = [INTERNED_CCHARP, INTERNED_CCHARP],
-    CharacterDataHandler = [rffi.CCHARP, rffi.INT],
+    CharacterDataHandler = [rffi.CCHARP, rffi.INT_real],
     UnparsedEntityDeclHandler = [INTERNED_CCHARP] * 5,
     NotationDeclHandler = [INTERNED_CCHARP] * 4,
     StartNamespaceDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP],
@@ -156,7 +156,7 @@ HANDLERS = dict(
     NotStandaloneHandler = [],
     ExternalEntityRefHandler = [INTERNED_CCHARP] * 4,
     StartDoctypeDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP,
-                               INTERNED_CCHARP, rffi.INT],
+                               INTERNED_CCHARP, rffi.INT_real],
     EndDoctypeDeclHandler = [],
     EntityDeclHandler = [INTERNED_CCHARP, rffi.INT, INTERNED_CCHARP, rffi.INT,
                          INTERNED_CCHARP, INTERNED_CCHARP, INTERNED_CCHARP,
@@ -249,6 +249,8 @@ for index, (name, params) in enumerate(HANDLERS.items()):
             converters.append(
                 'XML_FreeContentModel(parser.itself, arg%d)' % (i,))
         elif ARG == rffi.INT:
+            converters.append("w_arg%d = space.newint(arg%d)" % (i, i))
+        elif ARG == rffi.INT_real:
             converters.append("w_arg%d = space.newint(arg%d)" % (i, i))
         else:
             assert 0, "missing conversion case"
