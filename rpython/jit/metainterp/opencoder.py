@@ -3,7 +3,14 @@
 for each operation (inputargs numbered with negative numbers)
 <opnum> [size-if-unknown-arity] [<arg0> <arg1> ...] [descr-or-snapshot-index]
 
-Snapshot index for guards points to snapshot stored in _snapshots of trace
+<opnum> is 1 byte
+size is 1 byte
+the args are varsized
+the index is varsized
+
+Snapshot index for guards are an index into the _snapshot_data byte array.
+
+Snapshots 
 """
 
 from rpython.jit.metainterp.history import (
@@ -24,20 +31,12 @@ TAGSHIFT = 2
 
 INIT_SIZE = 4096
 
-# right now:
-# 2 2 optional n*2 2 optional = at least 4
-# 
-# idea: do everything in bytes instead of short storage:
-# 
-# 1 byte opnum,
-# 1 byte optional arity,
-# varsized args,
-# descr-or-snapshot-index (either varsized if known, or leave four bytes for patching)
-# 
 # XXX todos left:
 # - should the snapshots also go somewhere in a more compact form? just right
 #   into the byte buffer? or into its own global snapshot buffer?
 # - SnapshotIterator is very inefficient
+# - don't do snapshot array reordering in resume.capture_resumedata
+# - move vable_array and vref_array to the *front* of the top snapshot
 
 def encode_varint_signed(i, res):
     # https://en.wikipedia.org/wiki/LEB128 signed variant
@@ -79,33 +78,111 @@ assert encode_varint_signed(SMALL_INT_START, []) <= 4
 class BaseTrace(object):
     pass
 
+SNAPSHOT_PREV_NEEDS_PATCHING = -3
+SNAPSHOT_PREV_NONE = -2
+SNAPSHOT_PREV_COMES_NEXT = -1
+
+class TopDownSnapshotIterator(object):
+    """ iterates over encoded snapshots, but in top-down order, ie the most
+    recent call frame is returned last. more efficient, because that's the
+    order than things are encoded in."""
+
+    def __init__(self, trace, snapshot_index):
+        self.trace = trace
+        self.snapshot_index = snapshot_index
+        self._is_top = True
+
+        _, _, _, self.vable_array_index, self.vref_array_index, _ = self.decode_top_snapshot(snapshot_index)
+
+    def iter_vable_array(self):
+        return BoxArrayIter.make(self.vable_array_index, self.trace._snapshot_array_data)
+
+    def iter_vref_array(self):
+        return BoxArrayIter.make(self.vref_array_index, self.trace._snapshot_array_data)
+
+    def iter_array(self, snapshot_index):
+        _, _, array, _ = self.decode_snapshot(snapshot_index)
+        return BoxArrayIter.make(array, self.trace._snapshot_array_data)
+
+    def length(self, snapshot_index):
+        _, _, array, _ = self.decode_snapshot(snapshot_index)
+        length, _ = decode_varint_signed(self.trace._snapshot_array_data, array)
+        return length
+
+    def unpack_jitcode_pc(self, snapshot_index):
+        jitcode_index, pc, _, _ = self.decode_snapshot(snapshot_index)
+        return jitcode_index, pc
+
+    def decode_top_snapshot(self, snapshot_index):
+        self._index = snapshot_index
+        jitcode_index = self.decode_snapshot_int()
+        pc = self.decode_snapshot_int()
+        array_index = self.decode_snapshot_int()
+        vable_array_index = self.decode_snapshot_int()
+        vref_array_index = self.decode_snapshot_int()
+        prev = self.decode_snapshot_int()
+        assert prev != SNAPSHOT_PREV_NEEDS_PATCHING
+        if prev == SNAPSHOT_PREV_COMES_NEXT:
+            prev = self._index
+        return jitcode_index, pc, array_index, vable_array_index, vref_array_index, prev
+
+    def decode_snapshot(self, snapshot_index):
+        self._index = snapshot_index
+        jitcode_index = self.decode_snapshot_int()
+        pc = self.decode_snapshot_int()
+        array_index = self.decode_snapshot_int()
+        prev = self.decode_snapshot_int()
+        assert prev != SNAPSHOT_PREV_NEEDS_PATCHING
+        if prev == SNAPSHOT_PREV_COMES_NEXT:
+            prev = self._index
+        return jitcode_index, pc, array_index, prev
+
+    def decode_snapshot_int(self):
+        result, self._index = decode_varint_signed(self.trace._snapshot_data, self._index)
+        return result
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        res = self.snapshot_index
+        if res == SNAPSHOT_PREV_NONE:
+            raise StopIteration
+        if self._is_top:
+            _, _, _, _, _, prev = self.decode_top_snapshot(res)
+            self._is_top = False
+        else:
+            _, _, _, prev = self.decode_snapshot(res)
+        self.snapshot_index = prev
+        return res
+
+
 class SnapshotIterator(object):
-    def __init__(self, main_iter, snapshot):
+    def __init__(self, main_iter, snapshot_index):
         self.main_iter = main_iter
         # reverse the snapshots and store the vable, vref lists
-        assert isinstance(snapshot, TopSnapshot)
-        snapshot_data = main_iter.trace._snapshot_data
-        self.vable_array = snapshot.iter_vable_array(snapshot_data)
-        self.vref_array = snapshot.iter_vref_array(snapshot_data)
+        it = TopDownSnapshotIterator(main_iter.trace, snapshot_index)
+        self.topdown_snapshot_iter = it
+        self.vable_array = it.iter_vable_array()
+        self.vref_array = it.iter_vref_array()
         self.size = self.vable_array.total_length + self.vref_array.total_length + 3
-        jc_index, pc = unpack_uint(snapshot.packed_jitcode_pc)
+        jc_index, pc = it.unpack_jitcode_pc(snapshot_index)
         self.framestack = []
         if jc_index == 2**16-1:
             return
-        while snapshot:
-            self.framestack.append(snapshot)
-            self.size += snapshot.length(snapshot_data) + 2
-            snapshot = snapshot.prev
+        for snapshot_index in it:
+            self.framestack.append(snapshot_index)
+            self.size += it.length(snapshot_index) + 2
         self.framestack.reverse()
 
-    def iter(self, snapshot):
-        return snapshot.iter(self.main_iter.trace._snapshot_data)
+    def iter_array(self, snapshot_index):
+        return self.topdown_snapshot_iter.iter_array(snapshot_index)
 
     def get(self, index):
         return self.main_iter._untag(index)
 
-    def unpack_jitcode_pc(self, snapshot):
-        return unpack_uint(snapshot.packed_jitcode_pc)
+    def unpack_jitcode_pc(self, snapshot_index):
+        return self.topdown_snapshot_iter.unpack_jitcode_pc(snapshot_index)
 
     def unpack_array(self, arr):
         # NOT_RPYTHON
@@ -114,20 +191,20 @@ class SnapshotIterator(object):
             arr = BoxArrayIter(arr)
         return [self.get(i) for i in arr]
 
-def _update_liverange(item, index, liveranges, data):
+def _update_liverange(item, index, liveranges):
     tag, v = untag(item)
     if tag == TAGBOX:
         liveranges[v] = index
 
-def update_liveranges(snapshot, index, liveranges, data):
-    for item in snapshot.iter_vable_array(data):
-        _update_liverange(item, index, liveranges, data)
-    for item in snapshot.iter_vref_array(data):
-        _update_liverange(item, index, liveranges, data)
-    while snapshot:
-        for item in snapshot.iter(data):
-            _update_liverange(item, index, liveranges, data)
-        snapshot = snapshot.prev
+def update_liveranges(snapshot_index, trace, index, liveranges):
+    it = TopDownSnapshotIterator(trace, snapshot_index)
+    for item in it.iter_vable_array():
+        _update_liverange(item, index, liveranges)
+    for item in it.iter_vref_array():
+        _update_liverange(item, index, liveranges)
+    for snapshot_index in it:
+        for item in it.iter_array(snapshot_index):
+            _update_liverange(item, index, liveranges)
 
 class TraceIterator(BaseTrace):
     def __init__(self, trace, start, end, force_inputargs=None,
@@ -212,7 +289,7 @@ class TraceIterator(BaseTrace):
             assert False
 
     def get_snapshot_iter(self, index):
-        return SnapshotIterator(self, self.trace._snapshots[index])
+        return SnapshotIterator(self, index)
 
     def next_element_update_live_range(self, index, liveranges):
         opnum = self._nextbyte()
@@ -230,8 +307,8 @@ class TraceIterator(BaseTrace):
         if opwithdescr[opnum]:
             descr_index = self._next()
             if rop.is_guard(opnum):
-                update_liveranges(self.trace._snapshots[descr_index], index,
-                                  liveranges, self.trace._snapshot_data)
+                update_liveranges(descr_index, self.trace, index,
+                                  liveranges)
         if opclasses[opnum].type != 'v':
             return index + 1
         return index
@@ -318,6 +395,17 @@ class BoxArrayIter(object):
         self.total_length = self.length
         self.data = data
 
+    def __repr__(self):
+        if self.length == 0 and self.data == '\x00':
+            return "BoxArrayIter.BOXARRAYITER0"
+        return "<BoxArrayIter length=%s>" % self.length
+
+    @staticmethod
+    def make(index, data):
+        if data[index] == '\x00':
+            return BoxArrayIter.BOXARRAYITER0
+        return BoxArrayIter(index, data)
+
     def __iter__(self):
         return self
 
@@ -328,9 +416,11 @@ class BoxArrayIter(object):
         item, self.position = decode_varint_signed(self.data, self.position)
         return item
 
+BoxArrayIter.BOXARRAYITER0 = BoxArrayIter(0, '\x00')
+
 
 class Snapshot(object):
-    """ snapshot array data is stored in Trace._snapshot_data.
+    """ snapshot array data is stored in Trace._snapshot_array_data.
     The format of every array is:
     length, box1, ..., boxn
     
@@ -384,8 +474,8 @@ class Trace(BaseTrace):
         self._bigints = []
         self._bigints_dict = {}
         self._floats = []
-        self._snapshots = []
-        self._snapshot_data = ['\x00']
+        self._snapshot_data = []
+        self._snapshot_array_data = ['\x00']
         if not we_are_translated() and isinstance(max_num_inputargs, list): # old api for tests
             self.inputargs = max_num_inputargs
             for i, box in enumerate(max_num_inputargs):
@@ -417,7 +507,6 @@ class Trace(BaseTrace):
 
     def append_int(self, i):
         more = True
-        startlen = self._pos
         while more:
             lowest7bits = i & 0b1111111
             i >>= 7
@@ -528,7 +617,9 @@ class Trace(BaseTrace):
     def _op_end(self, opnum, descr, old_pos):
         if opwithdescr[opnum]:
             if descr is None:
-                self.append_byte(0)
+                # just for debugging: add an 's' for missing snapshots, will be
+                # patched
+                self.append_byte(ord('s'))
             else:
                 self.append_int(self._encode_descr(descr))
         self._count += 1
@@ -580,6 +671,9 @@ class Trace(BaseTrace):
         self._descrs.append(descr)
         return len(self._descrs) - 1 + len(self.metainterp_sd.all_descrs) + 1
 
+    # ____________________________________________________________
+    # snapshots
+
     def _list_of_boxes(self, boxes):
         boxes_list_storage = self.new_array(len(boxes))
         for i in range(len(boxes)):
@@ -589,30 +683,57 @@ class Trace(BaseTrace):
     def new_array(self, lgt):
         if lgt == 0:
             return 0
-        res = len(self._snapshot_data)
-        self.append_snapshot_int(lgt)
+        res = len(self._snapshot_array_data)
+        self.append_snapshot_array_data_int(lgt)
         return res
 
     def _add_box_to_storage(self, boxes_list_storage, box):
-        self.append_snapshot_int(self._encode(box))
+        self.append_snapshot_array_data_int(self._encode(box))
         return boxes_list_storage
 
-    def append_snapshot_int(self, i):
+    def append_snapshot_array_data_int(self, i):
+        encode_varint_signed(i, self._snapshot_array_data)
+
+    def append_snapshot_data_int(self, i):
         encode_varint_signed(i, self._snapshot_data)
 
-    def create_top_snapshot(self, jitcode, pc, frame, vable_boxes, vref_boxes, after_residual_call=False):
+    def _encode_snapshot(self, index, pc, array, vable_array=-1, vref_array=-1, is_last=False):
+        res = len(self._snapshot_data)
+        self.append_snapshot_data_int(index)
+        self.append_snapshot_data_int(pc)
+        # arrays are indexes into self._snapshot_data
+        self.append_snapshot_data_int(array)
+        if vable_array >= 0:
+            self.append_snapshot_data_int(vable_array)
+            assert vref_array >= 0
+            self.append_snapshot_data_int(vref_array)
+        # for prev. can be SNAPSHOT_PREV_COMES_NEXT, which means the prev
+        # snapshot comes right afterwards in snapshots. or it can be
+        # SNAPSHOT_PREV_NONE, which means there are no more snapshots. or it's
+        # a positive number, which means it's already somewhere in snapshot at
+        # some other index
+        if is_last:
+            self.append_snapshot_data_int(SNAPSHOT_PREV_NONE)
+        else:
+            self.append_snapshot_data_int(SNAPSHOT_PREV_NEEDS_PATCHING)
+        return res
+
+    def create_top_snapshot(self, frame, vable_boxes, vref_boxes, after_residual_call=False, is_last=False):
         self._total_snapshots += 1
         array = frame.get_list_of_active_boxes(False, self.new_array, self._add_box_to_storage,
                 after_residual_call=after_residual_call)
         vable_array = self._list_of_boxes(vable_boxes)
         vref_array = self._list_of_boxes(vref_boxes)
-        s = TopSnapshot(combine_uint(jitcode.index, pc), array, vable_array,
-                        vref_array)
-        # guards have no descr
-        self._snapshots.append(s)
-        assert self._ops[self._pos - 1] == '\x00'
+        s = self._encode_snapshot(
+                frame.jitcode.index,
+                frame.pc,
+                array,
+                vable_array,
+                vref_array,
+                is_last=is_last)
+        assert self._ops[self._pos - 1] == 's'
         self._pos -= 1
-        self.append_int(len(self._snapshots) - 1)
+        self.append_int(s)
         return s
 
     def create_empty_top_snapshot(self, vable_boxes, vref_boxes):
@@ -624,15 +745,24 @@ class Trace(BaseTrace):
                         vref_array)
         # guards have no descr
         self._snapshots.append(s)
-        assert self._ops[self._pos - 1] == '\x00'
+        assert self._ops[self._pos - 1] == 's'
         self._pos -= 1
         self.append_int(len(self._snapshots) - 1)
         return s
 
-    def create_snapshot(self, jitcode, pc, frame, flag):
+    def create_snapshot(self, frame, is_last=False):
         self._total_snapshots += 1
-        array = frame.get_list_of_active_boxes(flag, self.new_array, self._add_box_to_storage)
-        return Snapshot(combine_uint(jitcode.index, pc), array)
+        array = frame.get_list_of_active_boxes(True, self.new_array, self._add_box_to_storage)
+        self.snapshot_add_prev(SNAPSHOT_PREV_COMES_NEXT)
+        return self._encode_snapshot(frame.jitcode.index, frame.pc, array, is_last=is_last)
+
+    def snapshot_add_prev(self, prev):
+        assert self._snapshot_data[-1] == '}' # == 0x7d == -3 == SNAPSHOT_PREV_NEEDS_PATCHING
+        self._snapshot_data.pop()
+        self.append_snapshot_data_int(prev)
+
+
+    # ____________________________________________________________
 
     def get_iter(self):
         return TraceIterator(self, self._start, self._pos,

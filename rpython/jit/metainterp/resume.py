@@ -83,18 +83,16 @@ class AccumInfo(VectorInfo):
                                               self.variable,
                                               self.location)
 
-def _ensure_parent_resumedata(framestack, n, t, snapshot):
+def _ensure_parent_resumedata(framestack, n, t):
     while n > 0:
         target = framestack[n]
         back = framestack[n - 1]
         if target.parent_snapshot:
-            snapshot.prev = target.parent_snapshot
+            t.snapshot_add_prev(target.parent_snapshot)
             return
-        s = t.create_snapshot(back.jitcode, back.pc, back, True)
-        snapshot.prev = s
+        s = t.create_snapshot(back, is_last=n == 1)
         target.parent_snapshot = s
         n -= 1
-        snapshot = s
 
 def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t, after_residual_call=False):
     n = len(framestack) - 1
@@ -107,11 +105,12 @@ def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t, aft
     virtualref_boxes = virtualref_boxes[:]
     if n >= 0:
         top = framestack[n]
-        snapshot = t.create_top_snapshot(top.jitcode, top.pc,
+        snapshot = t.create_top_snapshot(
                     top, virtualizable_boxes,
                     virtualref_boxes,
-                    after_residual_call=after_residual_call)
-        _ensure_parent_resumedata(framestack, n, t,snapshot)
+                    after_residual_call=after_residual_call,
+                    is_last=n == 0)
+        _ensure_parent_resumedata(framestack, n, t)
     else:
         snapshot = t.create_empty_top_snapshot(
             virtualizable_boxes, virtualref_boxes)
@@ -272,14 +271,13 @@ class ResumeDataLoopMemo(object):
         n = array_iter.total_length
         assert not (n & 1)
         numb_state.append_int(n >> 1)
-
         self._number_boxes(snapshot_iter, array_iter, numb_state)
 
         for snapshot in snapshot_iter.framestack:
             jitcode_index, pc = snapshot_iter.unpack_jitcode_pc(snapshot)
             numb_state.append_int(jitcode_index)
             numb_state.append_int(pc)
-            self._number_boxes(snapshot_iter, snapshot_iter.iter(snapshot), numb_state)
+            self._number_boxes(snapshot_iter, snapshot_iter.iter_array(snapshot), numb_state)
         numb_state.patch_current_size(0)
 
         return numb_state
