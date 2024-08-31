@@ -21,7 +21,7 @@ from rpython.jit.metainterp.support import adr2int, ptr2int
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.rlib.debug import have_debug_prints, make_sure_not_resized
+from rpython.rlib.debug import have_debug_prints
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import we_are_translated, specialize, always_inline
 from rpython.rlib.unroll import unrolling_iterable
@@ -90,7 +90,7 @@ class MIFrame(object):
             self.registers_f = self.copy_constants(self.registers_f, jitcode.constants_f, jitcode.num_regs_f(), ConstFloat)
         self._result_argcode = 'v'
         # for resume.py operation
-        self.parent_snapshot = None
+        self.parent_snapshot = -1
         # counter for unrolling inlined loops
         self.unroll_iterations = 1
 

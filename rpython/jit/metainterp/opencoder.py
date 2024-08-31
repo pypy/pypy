@@ -164,6 +164,10 @@ class TopDownSnapshotIterator(object):
         pc = self.decode_snapshot_int()
         return jitcode_index, pc
 
+    def is_empty_snapshot(self, snapshot_index):
+        # must be a top snapshot. it's empty if the jitcode index is -1
+        return varint_only_decode(self.trace._snapshot_data, snapshot_index, skip=2) == -1
+
     def decode_snapshot_int(self):
         result, self._index = decode_varint_signed(self.trace._snapshot_data, self._index)
         return result
@@ -188,9 +192,8 @@ class SnapshotIterator(object):
         self.vable_array = it.iter_vable_array()
         self.vref_array = it.iter_vref_array()
         self.size = self.vable_array.total_length + self.vref_array.total_length + 3
-        jc_index, pc = it.unpack_jitcode_pc(snapshot_index)
         self.framestack = []
-        if jc_index == 2**16-1:
+        if it.is_empty_snapshot(snapshot_index):
             return
         for snapshot_index in it:
             self.framestack.append(snapshot_index)
@@ -438,7 +441,7 @@ class BoxArrayIter(object):
         item, self.position = decode_varint_signed(self.data, self.position)
         return item
 
-BoxArrayIter.BOXARRAYITER0 = BoxArrayIter(0, '\x00')
+BoxArrayIter.BOXARRAYITER0 = BoxArrayIter(0, ['\x00'])
 
 
 class Trace(BaseTrace):
@@ -511,6 +514,8 @@ class Trace(BaseTrace):
         debug_start("jit-trace-done")
         debug_print("trace length:", self._pos)
         debug_print(" total snapshots:", self._total_snapshots)
+        debug_print(" snapshot data:", len(self._snapshot_data))
+        debug_print(" snapshot array data:", len(self._snapshot_array_data))
         debug_print(" bigint consts: " + str(self._consts_bigint), len(self._bigints))
         debug_print(" float consts: " + str(self._consts_float), len(self._floats))
         debug_print(" ref consts: " + str(self._consts_ptr) + " " + str(self._consts_ptr_nodict),  len(self._refs))
@@ -720,18 +725,21 @@ class Trace(BaseTrace):
         return s
 
     def create_empty_top_snapshot(self, vable_boxes, vref_boxes):
-        import pdb;pdb.set_trace()
         self._total_snapshots += 1
+        s = len(self._snapshot_data)
         array = self._list_of_boxes([])
         vable_array = self._list_of_boxes(vable_boxes)
         vref_array = self._list_of_boxes(vref_boxes)
-        s = TopSnapshot(combine_uint(2**16 - 1, 0), array, vable_array,
-                        vref_array)
-        # guards have no descr
-        self._snapshots.append(s)
+        self.append_snapshot_data_int(vable_array)
+        self.append_snapshot_data_int(vref_array)
+        self._encode_snapshot(
+                -1,
+                0,
+                array,
+                is_last=True)
         assert self._ops[self._pos - 1] == 's'
         self._pos -= 1
-        self.append_int(len(self._snapshots) - 1)
+        self.append_int(s)
         return s
 
     def create_snapshot(self, frame, is_last=False):

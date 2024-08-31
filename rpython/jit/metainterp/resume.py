@@ -87,7 +87,7 @@ def _ensure_parent_resumedata(framestack, n, t):
     while n > 0:
         target = framestack[n]
         back = framestack[n - 1]
-        if target.parent_snapshot:
+        if target.parent_snapshot >= 0:
             t.snapshot_add_prev(target.parent_snapshot)
             return
         s = t.create_snapshot(back, is_last=n == 1)
