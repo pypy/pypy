@@ -85,6 +85,29 @@ def decode_varint_signed(b, index=0):
                 res |= -1 << shift
             return res, index
 
+def skip_varint_signed(b, index, skip=1):
+    while True:
+        byte = ord(b[index])
+        index += 1
+        if not (byte & 0b10000000):
+            skip -= 1
+            if not skip:
+                return index
+
+def varint_only_decode(b, index, skip=0):
+    if skip:
+        index = skip_varint_signed(b, index, skip)
+    res = 0
+    shift = 0
+    while True:
+        byte = ord(b[index])
+        res = res | ((byte & 0b1111111) << shift)
+        index += 1
+        shift += 7
+        if not (byte & 0b10000000):
+            if byte & 0b1000000:
+                res |= -1 << shift
+            return res
 
 # chosen such that constant ints need at most 4 bytes
 SMALL_INT_STOP  = 0x40000
@@ -119,28 +142,27 @@ class TopDownSnapshotIterator(object):
         return BoxArrayIter.make(self.vref_array_index, self.trace._snapshot_array_data)
 
     def iter_array(self, snapshot_index):
-        _, _, array, _ = self.decode_snapshot(snapshot_index)
+        array = varint_only_decode(self.trace._snapshot_data, snapshot_index, skip=2)
         return BoxArrayIter.make(array, self.trace._snapshot_array_data)
 
     def length(self, snapshot_index):
-        _, _, array, _ = self.decode_snapshot(snapshot_index)
+        array = varint_only_decode(self.trace._snapshot_data, snapshot_index, skip=2)
         length, _ = decode_varint_signed(self.trace._snapshot_array_data, array)
         return length
 
-    def unpack_jitcode_pc(self, snapshot_index):
-        jitcode_index, pc, _, _ = self.decode_snapshot(snapshot_index)
-        return jitcode_index, pc
-
-    def decode_snapshot(self, snapshot_index):
-        self._index = snapshot_index
-        jitcode_index = self.decode_snapshot_int()
-        pc = self.decode_snapshot_int()
-        array_index = self.decode_snapshot_int()
+    def prev(self, snapshot_index):
+        self._index = skip_varint_signed(self.trace._snapshot_data, snapshot_index, skip=3)
         prev = self.decode_snapshot_int()
         assert prev != SNAPSHOT_PREV_NEEDS_PATCHING
         if prev == SNAPSHOT_PREV_COMES_NEXT:
             prev = self._index
-        return jitcode_index, pc, array_index, prev
+        return prev
+
+    def unpack_jitcode_pc(self, snapshot_index):
+        self._index = snapshot_index
+        jitcode_index = self.decode_snapshot_int()
+        pc = self.decode_snapshot_int()
+        return jitcode_index, pc
 
     def decode_snapshot_int(self):
         result, self._index = decode_varint_signed(self.trace._snapshot_data, self._index)
@@ -153,8 +175,7 @@ class TopDownSnapshotIterator(object):
         res = self.snapshot_index
         if res == SNAPSHOT_PREV_NONE:
             raise StopIteration
-        _, _, _, prev = self.decode_snapshot(res)
-        self.snapshot_index = prev
+        self.snapshot_index = self.prev(res)
         return res
 
 
