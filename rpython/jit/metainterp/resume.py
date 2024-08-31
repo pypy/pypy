@@ -97,12 +97,6 @@ def _ensure_parent_resumedata(framestack, n, t):
 def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t, after_residual_call=False):
     n = len(framestack) - 1
     result = t.length()
-    if virtualizable_boxes is not None:
-        virtualizable_boxes = ([virtualizable_boxes[-1]] +
-                                virtualizable_boxes[:-1])
-    else:
-        virtualizable_boxes = []
-    virtualref_boxes = virtualref_boxes[:]
     if n >= 0:
         top = framestack[n]
         snapshot = t.create_top_snapshot(

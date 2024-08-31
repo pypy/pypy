@@ -668,7 +668,17 @@ class Trace(BaseTrace):
     def _list_of_boxes(self, boxes):
         boxes_list_storage = self.new_array(len(boxes))
         for i in range(len(boxes)):
-            boxes_list_storage = self._add_box_to_storage(boxes_list_storage, boxes[i])
+            self._add_box_to_storage(boxes_list_storage, boxes[i])
+        return boxes_list_storage
+
+    def _list_of_boxes_virtualizable(self, boxes):
+        if not boxes:
+            return self.new_array(0)
+        boxes_list_storage = self.new_array(len(boxes))
+        # the virtualizable is at the end, move it to the front in the snapshot
+        self._add_box_to_storage(boxes_list_storage, boxes[-1])
+        for i in range(len(boxes) - 1):
+            self._add_box_to_storage(boxes_list_storage, boxes[i])
         return boxes_list_storage
 
     def new_array(self, lgt):
@@ -710,7 +720,7 @@ class Trace(BaseTrace):
         array = frame.get_list_of_active_boxes(False, self.new_array, self._add_box_to_storage,
                 after_residual_call=after_residual_call)
         s = len(self._snapshot_data)
-        vable_array = self._list_of_boxes(vable_boxes)
+        vable_array = self._list_of_boxes_virtualizable(vable_boxes)
         vref_array = self._list_of_boxes(vref_boxes)
         self.append_snapshot_data_int(vable_array)
         self.append_snapshot_data_int(vref_array)
@@ -728,7 +738,7 @@ class Trace(BaseTrace):
         self._total_snapshots += 1
         s = len(self._snapshot_data)
         array = self._list_of_boxes([])
-        vable_array = self._list_of_boxes(vable_boxes)
+        vable_array = self._list_of_boxes_virtualizable(vable_boxes)
         vref_array = self._list_of_boxes(vref_boxes)
         self.append_snapshot_data_int(vable_array)
         self.append_snapshot_data_int(vref_array)
