@@ -216,6 +216,20 @@ class SnapshotIterator(object):
             arr = BoxArrayIter(arr)
         return [self.get(i) for i in arr]
 
+def _update_liverange(item, index, liveranges):
+    tag, v = untag(item)
+    if tag == TAGBOX:
+        liveranges[v] = index
+
+def update_liveranges(snapshot_index, trace, index, liveranges):
+    it = TopDownSnapshotIterator(trace, snapshot_index)
+    for item in it.iter_vable_array():
+        _update_liverange(item, index, liveranges)
+    for item in it.iter_vref_array():
+        _update_liverange(item, index, liveranges)
+    for snapshot_index in it:
+        for item in it.iter_array(snapshot_index):
+            _update_liverange(item, index, liveranges)
 
 class TraceIterator(BaseTrace):
     def __init__(self, trace, start, end, force_inputargs=None,
@@ -249,6 +263,10 @@ class TraceIterator(BaseTrace):
     def kill_cache_at(self, pos):
         if pos:
             self._cache[pos] = None
+
+    def replace_last_cached(self, oldbox, box):
+        assert self._cache[self._index - 1] is oldbox
+        self._cache[self._index - 1] = box
 
     def _get(self, i):
         res = self._cache[i]
@@ -301,6 +319,28 @@ class TraceIterator(BaseTrace):
 
     def get_snapshot_iter(self, index):
         return SnapshotIterator(self, index)
+
+    def next_element_update_live_range(self, index, liveranges):
+        opnum = self._nextbyte()
+        if oparity[opnum] == -1:
+            argnum = self._nextbyte()
+        else:
+            argnum = oparity[opnum]
+        for i in range(argnum):
+            tagged = self._next()
+            tag, v = untag(tagged)
+            if tag == TAGBOX:
+                liveranges[v] = index
+        if opclasses[opnum].type != 'v':
+            liveranges[index] = index
+        if opwithdescr[opnum]:
+            descr_index = self._next()
+            if rop.is_guard(opnum):
+                update_liveranges(descr_index, self.trace, index,
+                                  liveranges)
+        if opclasses[opnum].type != 'v':
+            return index + 1
+        return index
 
     def next(self):
         opnum = self._nextbyte()
@@ -744,8 +784,19 @@ class Trace(BaseTrace):
         return TraceIterator(self, self._start, self._pos,
                              metainterp_sd=self.metainterp_sd)
 
+    def get_live_ranges(self):
+        t = self.get_iter()
+        liveranges = [0] * self._index
+        index = t._count
+        while not t.done():
+            index = t.next_element_update_live_range(index, liveranges)
+        assert len(self.liveranges) == len(liveranges)
+        for index, r in enumerate(self.liveranges):
+            assert r >= liveranges[index] - 1
+        return liveranges
+
     def get_dead_ranges(self):
-        """ Same as liveranges, but returns a list of "dying" indexes,
+        """ Same as get_live_ranges, but returns a list of "dying" indexes,
         such as for each index x, the number found there is for sure dead
         before x
         """
@@ -760,7 +811,7 @@ class Trace(BaseTrace):
         if self._deadranges != (-1, None):
             if self._deadranges[0] == self._count:
                 return self._deadranges[1]
-        liveranges = self.liveranges
+        liveranges = self.get_live_ranges()
         deadranges = [0] * (self._index + 2)
         assert len(deadranges) == len(liveranges) + 2
         for i in range(self._start, len(liveranges)):
