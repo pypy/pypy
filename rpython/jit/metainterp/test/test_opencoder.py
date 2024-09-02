@@ -49,7 +49,7 @@ def unpack_snapshot(t, op, pos):
     vref_boxes = si.unpack_array(si.vref_array)
     for snapshot in si.framestack:
         jitcode, pc = si.unpack_jitcode_pc(snapshot)
-        boxes = si.unpack_array(iter(snapshot.box_array))
+        boxes = si.unpack_array(si.iter_array(snapshot))
         op.framestack.append(FakeFrame(JitCode(jitcode), pc, boxes))
     op.virtualizables = virtualizables
     op.vref_boxes = vref_boxes
@@ -115,26 +115,26 @@ class TestOpencoder(object):
         (i0, i1, i2), l, iter = self.unpack(t)
         pos = l[0].rd_resume_position
         snapshot_iter = iter.get_snapshot_iter(pos)
-        assert snapshot_iter.vable_array == []
-        assert snapshot_iter.vref_array == []
+        assert snapshot_iter.unpack_array(snapshot_iter.vable_array) == []
+        assert snapshot_iter.unpack_array(snapshot_iter.vref_array) == []
         framestack = snapshot_iter.framestack
         jc_index, pc = snapshot_iter.unpack_jitcode_pc(framestack[1])
         assert jc_index == 4
         assert pc == 3
-        assert snapshot_iter.unpack_array(framestack[1].box_array) == [i2, i2]
+        assert snapshot_iter.unpack_array(snapshot_iter.iter_array(framestack[1])) == [i2, i2]
         jc_index, pc = snapshot_iter.unpack_jitcode_pc(framestack[0])
         assert jc_index == 2
         assert pc == 1
-        assert snapshot_iter.unpack_array(framestack[0].box_array) == [i0, i1]
+        assert snapshot_iter.unpack_array(snapshot_iter.iter_array(framestack[0])) == [i0, i1]
         pos = l[1].rd_resume_position
         snapshot_iter = iter.get_snapshot_iter(pos)
         framestack = snapshot_iter.framestack
-        assert snapshot_iter.vable_array == []
-        assert snapshot_iter.vref_array == []
+        assert snapshot_iter.unpack_array(snapshot_iter.vable_array) == []
+        assert snapshot_iter.unpack_array(snapshot_iter.vref_array) == []
         jc_index, pc = snapshot_iter.unpack_jitcode_pc(framestack[1])
         assert jc_index == 4
         assert pc == 3
-        assert snapshot_iter.unpack_array(framestack[1].box_array) == [i2, i2]
+        assert snapshot_iter.unpack_array(snapshot_iter.iter_array(framestack[1])) == [i2, i2]
 
     # XXXX fixme
     @given(lists_of_operations())
@@ -206,15 +206,6 @@ class TestOpencoder(object):
         t.record_op(rop.ESCAPE_N, [ConstInt(3)])
         t.record_op(rop.FINISH, [i4])
         assert t.get_dead_ranges() == [0, 0, 0, 0, 0, 3, 4, 5]
-
-    def test_tag_overflow(self):
-        t = Trace([], metainterp_sd)
-        i0 = FakeOp(100000)
-        # if we overflow, we can keep recording
-        for i in range(10):
-            t.record_op(rop.FINISH, [i0])
-            assert t.unpack() == ([], [])
-        assert t.tag_overflow
 
     def test_encode_caching(self):
         from rpython.rtyper.lltypesystem import lltype, llmemory

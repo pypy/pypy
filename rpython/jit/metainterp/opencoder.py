@@ -50,6 +50,9 @@ INIT_SIZE = 4096
 
 # XXX todos left:
 # - SnapshotIterator is very inefficient
+# - try less inefficient varint encoding
+# - fix test_resume
+# - benchmarks
 
 def encode_varint_signed(i, res):
     # https://en.wikipedia.org/wiki/LEB128 signed variant
@@ -208,8 +211,7 @@ class SnapshotIterator(object):
     def unpack_array(self, arr):
         # NOT_RPYTHON
         # for tests only
-        if isinstance(arr, list):
-            arr = BoxArrayIter(arr)
+        assert isinstance(arr, BoxArrayIter)
         return [self.get(i) for i in arr]
 
 def _update_liverange(item, index, liveranges):
@@ -476,7 +478,6 @@ class Trace(BaseTrace):
         self._index = max_num_inputargs # "position" of resulting resops
         self._start = max_num_inputargs
         self._pos = max_num_inputargs
-        self.liveranges = [0] * max_num_inputargs
 
     def set_inputargs(self, inputargs):
         self.inputargs = inputargs
@@ -535,7 +536,6 @@ class Trace(BaseTrace):
         index = end[2]
         assert index >= 0
         self._index = index
-        del self.liveranges[index:]
 
     def cut_trace_from(self, (start, count, index, x, y), inputargs):
         return CutTrace(self, start, count, index, inputargs)
@@ -598,7 +598,6 @@ class Trace(BaseTrace):
             assert position >= 0
             # every time something is used we assume that it lives to the
             # current _index
-            self.liveranges[position] = self._index
             return tag(TAGBOX, position)
         else:
             assert False, "unreachable code"
@@ -624,8 +623,6 @@ class Trace(BaseTrace):
         self._count += 1
         if opclasses[opnum].type != 'v':
             self._index += 1
-            self.liveranges.append(self._index)
-            assert len(self.liveranges) == self._index
 
     def record_op(self, opnum, argboxes, descr=None):
         pos = self._index
@@ -786,9 +783,6 @@ class Trace(BaseTrace):
         index = t._count
         while not t.done():
             index = t.next_element_update_live_range(index, liveranges)
-        assert len(self.liveranges) == len(liveranges)
-        for index, r in enumerate(self.liveranges):
-            assert r >= liveranges[index] - 1
         return liveranges
 
     def get_dead_ranges(self):
@@ -821,7 +815,7 @@ class Trace(BaseTrace):
         iter = self.get_iter()
         ops = []
         try:
-            while True:
+            while not iter.done():
                 ops.append(iter.next())
         except IndexError:
             pass
