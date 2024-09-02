@@ -49,11 +49,7 @@ TAGSHIFT = 2
 INIT_SIZE = 4096
 
 # XXX todos left:
-# - should the snapshots also go somewhere in a more compact form? just right
-#   into the byte buffer? or into its own global snapshot buffer?
 # - SnapshotIterator is very inefficient
-# - don't do snapshot array reordering in resume.capture_resumedata
-# - move vable_array and vref_array to the *front* of the top snapshot
 
 def encode_varint_signed(i, res):
     # https://en.wikipedia.org/wiki/LEB128 signed variant
