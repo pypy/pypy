@@ -19,8 +19,8 @@ Features
 
 Currently the following operations can be vectorized if the trace contains parallel operations:
 
-* float32/float64: add, substract, multiply, divide, negate, absolute
-* int8/int16/int32/int64 arithmetic: add, substract, multiply, negate, absolute
+* float32/float64: add, subtract, multiply, divide, negate, absolute
+* int8/int16/int32/int64 arithmetic: add, subtract, multiply, negate, absolute
 * int8/int16/int32/int64 logical: and, or, xor
 
 Reduction
@@ -33,7 +33,7 @@ Reduction is implemented:
 Constant & Variable Expansion
 -----------------------------
 
-Packed arithmetic operations expand scalar variables or contants into vector registers.
+Packed arithmetic operations expand scalar variables or constants into vector registers.
 
 Guard Strengthening
 -------------------
@@ -79,7 +79,7 @@ Future Work and Limitations
   The opcode needed spans over multiple instructions. In terms of performance
   there might only be little to non advantage to use SIMD instructions for this
   conversions.
-* For a guard that checks true/false on a vector integer regsiter, it would be handy
+* For a guard that checks true/false on a vector integer register, it would be handy
   to have 2 xmm registers (one filled with zero bits and the other with one every bit).
   This cuts down 2 instructions for guard checking, trading for higher register pressure.
 * prod, sum are only supported by 64 bit data types

@@ -7,7 +7,7 @@ percentage of the time have been spent in which loops.
 Long term goal: integrate the data collected by the profiler with the
 jitviewer.
 
-The idea is record an event in the PYPYLOG everytime we enter and exit a loop
+The idea is record an event in the PYPYLOG every time we enter and exit a loop
 or a bridge.
 
 Expected output

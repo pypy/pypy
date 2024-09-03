@@ -3,7 +3,7 @@ PyPy 5.1.1
 ==========
 
 We have released a bugfix for PyPy 5.1, due to a regression_ in
-installing third-party packages dependant on numpy (using our numpy fork
+installing third-party packages dependent on numpy (using our numpy fork
 available at https://bitbucket.org/pypy/numpy ).
 
 Thanks to those who reported the issue. We also fixed a regression in

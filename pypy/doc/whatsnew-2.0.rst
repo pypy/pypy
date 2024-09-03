@@ -7,7 +7,7 @@ What's new in PyPy 2.0
 
 .. branch: split-rpython
 
-Split rpython and pypy into seperate directories
+Split rpython and pypy into separate directories
 
 .. branch: callback-jit
 

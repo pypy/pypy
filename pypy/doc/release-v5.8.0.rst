@@ -151,7 +151,7 @@ Note that these are also merged into PyPy 3.5
   * Support posix_fallocate and posix_fadvise, expose them on PyPy3.5
   * Test and fix for int_and() propagating wrong bounds
   * Improve the generated machine code by tracking the (constant) value of
-    r11 across intructions.  This lets us avoid reloading r11 with another
+    r11 across instructions.  This lets us avoid reloading r11 with another
     (apparently slowish) "movabs" instruction, replacing it with either
     nothing or a cheaper variant.
   * Performance tweaks in the x86 JIT-generated machine code: rarely taken
@@ -192,7 +192,7 @@ Highlights of the PyPy3.5 release (since 5.7 beta released March 2017)
     lib-python/3/test runs
   * Call ``sys.__interactivehook__`` at startup
   * Let ``OrderedDict.__init__`` behave like CPython wrt. subclasses
-    overridding ``__setitem__``
+    overriding ``__setitem__``
 
 * Performance improvements:
 

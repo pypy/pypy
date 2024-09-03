@@ -58,7 +58,7 @@ Reasons why this is not PyPy 2.0:
   call from C.
 
 * ``numpypy`` lazy computation was disabled for the sake of simplicity.
-  We should reenable this for the final 2.0 release.
+  We should re-enable this for the final 2.0 release.
 
 Highlights
 ==========
