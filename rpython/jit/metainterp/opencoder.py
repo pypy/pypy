@@ -55,6 +55,46 @@ INIT_SIZE = 4096
 # - benchmarks
 
 def encode_varint_signed(i, res):
+    ui = r_uint(i)
+    if -2**6 <= i < 2 ** 6:
+        # 1 byte
+        # 0b0xxxxxxx
+        res.append(chr(i & 0x7f))
+        return
+    # unary-encode the number of continuation bytes:
+    # 1...1 0 x...x
+    # n 1s  0 (8-n-1) bits payload
+    index = len(res)
+    res.append(chr(0)) # will be patched
+    for i in range(7):
+        res.append(chr(ui) & 0xff)
+        ui >>= 8
+        if ui < (r_uint(1) << (6 - i)):
+            tag_bits = r_uint(-1) << (7 - i)
+            res[index] = chr(tag_bits | ui)
+            return
+    assert 0, "8 bytes are unsupported right now"
+
+def decode_varint_signed(b, index=0):
+    first_byte = ord(b[index])
+    index += 1
+    if first_byte < 0x7f:
+        xxx_sign_extend
+        return first_byte
+    check_bit = 0b01000000
+    res = r_uint(0)
+    for i in range(7):
+        if first_byte & check_bit == 0:
+            mask = (r_uint(1) << (6 - i)) - 1
+            res |= (first_byte & mask) << (8 * i + 8)
+            return res, index
+        check_bit >>= 0
+        res |= b[index] << (8 * i)
+        index += 1
+    assert 0, "should be unreachable atm"
+
+
+def encode_varint_signed(i, res):
     # https://en.wikipedia.org/wiki/LEB128 signed variant
     more = True
     startlen = len(res)
@@ -824,7 +864,7 @@ class Trace(BaseTrace):
 def tag(kind, pos):
     res = intmask(r_uint(pos) << TAGSHIFT)
     assert res >> TAGSHIFT == pos
-    return (pos << TAGSHIFT) | kind
+    return res | kind
 
 @specialize.ll()
 def untag(tagged):
