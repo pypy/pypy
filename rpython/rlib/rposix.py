@@ -320,9 +320,9 @@ class CConfig:
     _HAVE_STRUCT_TERMIOS_C_OSPEED = rffi_platform.Defined(
             '_HAVE_STRUCT_TERMIOS_C_OSPEED')
     if not _WIN32:
-        UID_T = rffi_platform.SimpleType('uid_t', rffi.UINT)
-        GID_T = rffi_platform.SimpleType('gid_t', rffi.UINT)
-        ID_T = rffi_platform.SimpleType('id_t', rffi.UINT)
+        UID_T = rffi_platform.SimpleType('uid_t', rffi.UINT_real)
+        GID_T = rffi_platform.SimpleType('gid_t', rffi.UINT_real)
+        ID_T = rffi_platform.SimpleType('id_t', rffi.UINT_real)
         TIOCGWINSZ = rffi_platform.DefinedConstantInteger('TIOCGWINSZ')
         NCCS = rffi_platform.DefinedConstantInteger('NCCS')
 
@@ -984,7 +984,7 @@ if not _WIN32:
     WINSIZE_P = lltype.Ptr(WINSIZE)
     c_fork = external('fork', [], rffi.PID_T, _nowrapper = True)
     c_openpty = external('openpty',
-                         [rffi.INTP, rffi.INTP, rffi.VOIDP, TERMIOS_P, WINSIZE_P],
+                         [rffi.INT_realP, rffi.INT_realP, rffi.VOIDP, TERMIOS_P, WINSIZE_P],
                          rffi.INT,
                          save_err=rffi.RFFI_SAVE_ERRNO)
     c_forkpty = external('forkpty',
@@ -1010,8 +1010,8 @@ def fork():
 @replace_os_function('openpty')
 @jit.dont_look_inside
 def openpty():
-    master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-    slave_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    master_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
+    slave_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
     try:
         handle_posix_error(
             'openpty', c_openpty(master_p, slave_p, None,
@@ -1062,13 +1062,13 @@ elif _CYGWIN:
                          save_err=rffi.RFFI_SAVE_ERRNO)
 else:
     c_waitpid = external('waitpid',
-                         [rffi.PID_T, rffi.INTP, rffi.INT], rffi.PID_T,
+                         [rffi.PID_T, rffi.INT_realP, rffi.INT_real], rffi.PID_T,
                          save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('waitpid')
 def waitpid(pid, options):
-    status_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-    status_p[0] = rffi.cast(rffi.INT, 0)
+    status_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
+    status_p[0] = rffi.cast(rffi.INT_real, 0)
     try:
         result = handle_posix_error('waitpid',
                                     c_waitpid(pid, status_p, options))
@@ -1360,8 +1360,8 @@ if _WIN32:
     for name in constants:
         locals()[name] = pipe_config[name]
 else:
-    INT_ARRAY_P = rffi.CArrayPtr(rffi.INT)
-    c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT,
+    INT_ARRAY_P = rffi.CArrayPtr(rffi.INT_real)
+    c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT_real,
                       save_err=rffi.RFFI_SAVE_ERRNO)
     class CConfig:
         _compilation_info_ = eci
@@ -1375,7 +1375,7 @@ else:
     HAVE_PIPE2 = pipe_config['HAVE_PIPE2']
     HAVE_DUP3 = pipe_config['HAVE_DUP3']
     if HAVE_PIPE2:
-        c_pipe2 = external('pipe2', [INT_ARRAY_P, rffi.INT], rffi.INT,
+        c_pipe2 = external('pipe2', [INT_ARRAY_P, rffi.INT_real], rffi.INT_real,
                           save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('pipe')
@@ -2011,7 +2011,7 @@ if not _WIN32:
             ngroups = widen(ngroups_p[0])
             groups = [0] * ngroups
             for i in range(ngroups):
-                groups[i] = groups_p[i]
+                groups[i] = widen(groups_p[i])
             return groups
         finally:
             lltype.free(ngroups_p, flavor='raw')
@@ -2951,7 +2951,7 @@ class ENoSysCache(object):
     def fallback(self, res):
         nosys = self.cached_nosys
         if nosys == -1:
-            nosys = (res < 0 and get_saved_errno() == errno.ENOSYS)
+            nosys = (widen(res) < 0 and get_saved_errno() == errno.ENOSYS)
             self.cached_nosys = nosys
         return nosys
 
