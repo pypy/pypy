@@ -988,7 +988,7 @@ if not _WIN32:
                          rffi.INT,
                          save_err=rffi.RFFI_SAVE_ERRNO)
     c_forkpty = external('forkpty',
-                         [rffi.INTP, rffi.VOIDP, TERMIOS_P, WINSIZE_P],
+                         [rffi.INT_realP, rffi.VOIDP, TERMIOS_P, WINSIZE_P],
                          rffi.PID_T, _nowrapper = True)
 
 @replace_os_function('fork')
@@ -1025,8 +1025,8 @@ def openpty():
 @replace_os_function('forkpty')
 @jit.dont_look_inside
 def forkpty():
-    master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-    master_p[0] = rffi.cast(rffi.INT, -1)
+    master_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
+    master_p[0] = rffi.cast(rffi.INT_real, -1)
     null = lltype.nullptr(rffi.VOIDP.TO)
     try:
         ofs = debug.debug_offset()
