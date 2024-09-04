@@ -115,7 +115,7 @@ Other Highlights (since 4.0.1 released in November 2015)
   * Fix (de)pickling long values by simplifying the implementation
 
   * Fix RPython rthread so that objects stored as threadlocal do not force minor
-    GC collection and are kept alive automatically. This improves perfomance of
+    GC collection and are kept alive automatically. This improves performance of
     short-running Python callbacks and prevents resetting such object between
     calls
 
@@ -212,7 +212,7 @@ Other Highlights (since 4.0.1 released in November 2015)
 
   * Refactor rtyper debug code into python.rtyper.debug
 
-  * Seperate structmember.h from Python.h Also enhance creating api functions
+  * Separate structmember.h from Python.h Also enhance creating api functions
     to specify which header file they appear in (previously only pypy_decl.h)
 
   * Fix tokenizer to enforce universal newlines, needed for Python 3 support

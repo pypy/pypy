@@ -157,7 +157,7 @@ Changes shared across versions
   ``translate``, forrmatting, ``__int__``, ``str(<int>)``, ``startswith``,
   ``endswith``,
 * Reduce the probability of a deadlock when acquiring a semaphore by
-  moving global state changes closer to the actual aquire (`issue 2953`_)
+  moving global state changes closer to the actual acquire (`issue 2953`_)
 * Cleanup and refactor parts of the JIT code
 * Cleanup ``optimizeopt``
 * Support the ``z15`` variant of the ``s390x`` CPU.
@@ -178,7 +178,7 @@ Changes shared across versions
   using `Lehmer's algorithm`_ and use it in the ``math`` module
 * Add ``RFile.closed`` to mirror standard `file` behaviour
 * Add a ``-D`` pytest option to run tests directly on the host python without
-  any knowlege of PyPy internals. This allows using ``pypy3 pytest.py ...``
+  any knowledge of PyPy internals. This allows using ``pypy3 pytest.py ...``
   for a subset of tests (called **app-level testing**)
 * Accept arguments to ``subprocess.Popen`` that are not directly subscriptable
   (like iterators) (`issue 3050`_)

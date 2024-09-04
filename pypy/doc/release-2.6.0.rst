@@ -3,7 +3,7 @@ PyPy 2.6.0 - Cameo Charm
 ========================
 
 We're pleased to announce PyPy 2.6.0, only two months after PyPy 2.5.1.
-We are particulary happy to update `cffi`_ to version 1.1, which makes the
+We are particularly happy to update `cffi`_ to version 1.1, which makes the
 popular ctypes-alternative even easier to use, and to support the new vmprof_
 statistical profiler.
 
@@ -89,7 +89,7 @@ Highlights
 * New features:
 
   * Add preliminary support for a new lightweight statistical profiler
-    `vmprof`_, which has been designed to accomodate profiling JITted code
+    `vmprof`_, which has been designed to accommodate profiling JITted code
 
 * Numpy:
 

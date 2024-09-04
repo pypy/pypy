@@ -171,7 +171,7 @@ def addr_from_object(family, fd, space, w_address):
         else:                 pkttype = 0
         if len(pieces_w) > 3: hatype = space.int_w(pieces_w[3])
         else:                 hatype = 0
-        if len(pieces_w) > 4: haddr = space.text_w(pieces_w[4])
+        if len(pieces_w) > 4: haddr = space.bytes_w(pieces_w[4])
         else:                 haddr = ""
         if len(haddr) > 8:
             raise oefmt(space.w_ValueError,

@@ -613,6 +613,18 @@ class AppTestAppFloatTest:
         assert 1234.56.__format__('.4') == '1.235e+03'
         assert 12345.6.__format__('.4') == '1.235e+04'
 
+    def test_format_thousands(self):
+        f = float('inf')
+        assert format(1000, '20,f') == '        1,000.000000'
+
+    def test_format_bug_inf_float(self):
+        f = float('inf')
+        assert format(f, '7,f') == '    inf'
+        f = float('-inf')
+        assert format(f, '7,f') == '   -inf'
+        f = float('nan')
+        assert format(f, '7,f') == '    nan'
+
     def test_float_real(self):
         class A(float): pass
         b = A(5).real

@@ -147,7 +147,7 @@ A *virtual* value is an array, struct, or RPython level instance that is created
 during the loop and does not escape from it via calls or longevity past the
 loop.  Since it is only used by the JIT, it can be "optimized out"; the value
 doesn't have to be allocated at all and its fields can be stored as first class
-values instead of deferencing them in memory.  Virtuals allow temporary objects
+values instead of dereferencing them in memory.  Virtuals allow temporary objects
 in the interpreter to be unwrapped.  For example, a W_IntObject in the PyPy interpreter can
 be unwrapped to just be its integer value as long as the object is known not to
 escape the machine code.
@@ -174,7 +174,7 @@ article:
 .. __: https://foss.heptapod.net/pypy/extradoc/-/tree/branch/extradoc/icooolps2009/bolz-tracing-jit-final.pdf
 
 Chapters 5 and 6 of `Antonio Cuni's PhD thesis`__ contain an overview of how
-Tracing JITs work in general and more informations about the concrete case of
+Tracing JITs work in general and more information about the concrete case of
 PyPy's JIT.
 
 .. __: http://antocuni.eu/download/antocuni-phd-thesis.pdf

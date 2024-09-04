@@ -109,7 +109,7 @@ RPython is not apparent at first.  Built-in modules are written in
 ``pypy/module/*``.  Some modules that CPython implements in C are
 simply written in pure Python; they are in the top-level ``lib_pypy``
 directory.  The standard library of Python (with a few changes to
-accomodate PyPy) is in ``lib-python``.
+accommodate PyPy) is in ``lib-python``.
 
 JIT Compiler
 ~~~~~~~~~~~~

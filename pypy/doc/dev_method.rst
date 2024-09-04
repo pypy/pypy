@@ -2,7 +2,7 @@ Distributed and agile development in PyPy
 =========================================
 
 .. note::
-  This page describes the mode of development that preceeds the current models
+  This page describes the mode of development that precedes the current models
   of Open Source development. While people are welcome to join our (now yearly)
   sprints, we encourage engagement via the GitHub repo at
   https://github.com/pypy/pypy/. Issues can be filed and discussed in the
@@ -64,7 +64,7 @@ Other typical sprint factors:
     conditions, releases and such like. What we do have is a local organizer,
     often a developer living in the area and one more developer who prepares
     and organizes sprint. They do not "manage" the sprint when its started -
-    their role is more of the logistic nature. This doesn't mean that we wont
+    their role is more of the logistic nature. This doesn't mean that we won't
     have use for the coach technique or something similar in the future).
 
   * only coding (this is a tough one. There have been projects who have used

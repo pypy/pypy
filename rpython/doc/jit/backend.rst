@@ -61,7 +61,7 @@ Front-end and optimization pass
 
 Not discussed here in detail.  This produces loops and bridges using an
 instruction set that is "high-level" in some sense: it contains
-intructions like "new"/"new_array", and
+instructions like "new"/"new_array", and
 "setfield"/"setarrayitem"/"setinteriorfield" which describe the action
 of storing a value in a precise field of the structure or array.  For
 example, the "setfield" action might require implicitly a GC write

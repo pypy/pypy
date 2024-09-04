@@ -21,7 +21,7 @@ PyObject.  There are two kinds of link:
 
 rawrefcount.create_link_pypy(p, ob)
 
-    Makes a link between an exising object gcref 'p' and a newly
+    Makes a link between an existing object gcref 'p' and a newly
     allocated PyObject structure 'ob'.  ob->ob_refcnt must be
     initialized to either REFCNT_FROM_PYPY, or
     REFCNT_FROM_PYPY_LIGHT.  (The second case is an optimization:

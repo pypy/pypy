@@ -1300,6 +1300,20 @@ class MIFrame(object):
                 debug_stop("jit-tco")
                 assert self.metainterp.framestack[-2] is self
                 del self.metainterp.framestack[-2]
+                tracelength = self.metainterp.history.length()
+                if tracelength == self.metainterp.trace_length_at_last_tco:
+                    # gh-5021: fix a pretty obscure problem: we can have
+                    # infinite recursion that is turned into a loop, without a
+                    # single new traced op. this would lead to an infinite
+                    # tail-recursive loop purely in the meta-interp, that isn't
+                    # even interuptible with ctrl-c
+
+                    # we solve this with tracing a useless same_as. then we
+                    # will run into the tracelimit in this situation.
+                    self.metainterp._record_helper(
+                        rop.SAME_AS_I, tracelength, None, ConstInt(tracelength))
+                else:
+                    self.metainterp.trace_length_at_last_tco = tracelength
 
     opimpl_inline_call_r_i = _opimpl_inline_call1
     opimpl_inline_call_r_r = _opimpl_inline_call1
@@ -2391,6 +2405,7 @@ class MetaInterp(object):
         # with a GUARD_ALWAYS_FAILS (and an unreachable finish that raises
         # AssertionError)
         self.force_finish_trace = force_finish_trace
+        self.trace_length_at_last_tco = -1
 
     def retrace_needed(self, trace, exported_state):
         self.partial_trace = trace

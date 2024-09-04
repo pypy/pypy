@@ -7,7 +7,7 @@ What's new in PyPy 5.1
 
 .. branch: s390x-backend
 
-The jit compiler backend implementation for the s390x architecutre.
+The jit compiler backend implementation for the s390x architecture.
 The backend manages 64-bit values in the literal pool of the assembly instead of loading them as immediates.
 It includes a simplification for the operation 'zero_array'. Start and length parameters are bytes instead of size.
 
@@ -57,7 +57,7 @@ annoying special-purpose code for pinned pointers.
 
 .. branch: cleanup-includes
 
-Remove old uneeded numpy headers, what is left is only for testing. Also 
+Remove old unneeded numpy headers, what is left is only for testing. Also 
 generate pypy_numpy.h which exposes functions to directly use micronumpy
 ndarray and ufuncs
 

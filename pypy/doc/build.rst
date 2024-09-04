@@ -207,7 +207,7 @@ are shorthand for::
 
     pypy ../../rpython/bin/rpython <rpython options> targetpypystandalone.py <pypy options>
 
-More help is availabe via ``--help`` at either option position, and more info
+More help is available via ``--help`` at either option position, and more info
 can be found in the :doc:`config/index` section.
 
 (You can use ``python`` instead of ``pypy`` here, which will take longer
@@ -216,7 +216,7 @@ but works too.)
 If everything works correctly this will:
 
 1. Run the rpython `translation chain`_, producing a database of the
-   entire pypy interpreter. This step is currently singe threaded, and RAM
+   entire pypy interpreter. This step is currently single threaded, and RAM
    hungry. As part of this step,  the chain creates a large number of C code
    files and a Makefile to compile them in a
    directory controlled by the ``PYPY_USESSION_DIR`` environment variable.
