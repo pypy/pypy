@@ -55,8 +55,9 @@ def walk_traceback(CodeClass, callback, arg, array_p, array_length):
         return
     i = 0
     array_length = widen(array_length)
+    array_p = rffi.cast(rffi.INTPTR_TP, array_p)
     while i < array_length - 1:
-        tag = widen(array_p[i])
+        tag = array_p[i]
         tagged_value = array_p[i + 1]
         if tag == rvmprof.VMPROF_CODE_TAG:
             loc = LOC_INTERPRETED

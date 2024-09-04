@@ -26,7 +26,7 @@ def direct_llexternal(*args, **kwargs):
 
 
 DUMP_CALLBACK = lltype.Ptr(lltype.FuncType(
-                     [rffi.INT_real, rffi.INTPTR_TP, rffi.INTPTR_T], lltype.Void))
+                     [rffi.INT_real, rffi.VOIDP, rffi.INT_real], lltype.Void))
 
 pypy_faulthandler_setup = direct_llexternal(
     'pypy_faulthandler_setup', [DUMP_CALLBACK], rffi.CCHARP)
