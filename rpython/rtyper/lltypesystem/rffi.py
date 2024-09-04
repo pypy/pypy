@@ -744,6 +744,7 @@ r_singlefloat = rarithmetic.r_singlefloat
 
 # void *   - for now, represented as char *
 VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
+CONST_VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True, 'render_as_const': True}))
 NULL = None
 
 # void **
