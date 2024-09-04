@@ -662,7 +662,7 @@ def make_formatting_class(for_unicode):
                             spec.n_remainder) # Not padding or digits
             if self._fill_char == "0" and self._align == "=":
                 spec.n_min_width = self._width - extra_length
-            if self._loc_thousands:
+            if self._loc_thousands and spec.n_digits:
                 self._group_digits(spec, digits[to_number:])
                 n_grouped_digits = len(self._grouped_digits)
             else:
