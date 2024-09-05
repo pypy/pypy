@@ -1363,8 +1363,10 @@ class RecursiveTests:
         # the llinterp, sort of random things can happen, depending on how much
         # code in llinterp and pyjitpl are already jitted. therefore we run the
         # function in a subprocess.
-        import subprocess, sys
-        subprocess.check_output("%s %s" % (sys.executable, __file__), shell=True)
+        import subprocess, sys, os
+        env = os.environ.copy()
+        env["PYTHONPATH"] = ":".join(sys.path)
+        subprocess.check_output("%s %s" % (sys.executable, __file__), shell=True, env=env)
 
 
 class TestLLtype(RecursiveTests, LLJitMixin):

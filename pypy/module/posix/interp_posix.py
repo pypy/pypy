@@ -42,6 +42,8 @@ c_int = "c_int"
 # returns a uid_t or gid_t returns either an int or a long, depending
 # on whether it fits or not, but always positive.
 c_uid_t = 'c_uid_t'
+# this looks like a typo but is not, it goes to visit_c_uid_t and there
+# is no visit_c_gid_t
 c_gid_t = 'c_uid_t'
 
 def wrap_uid(space, uid):

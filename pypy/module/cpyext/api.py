@@ -1245,7 +1245,7 @@ def attach_c_functions(space, eci, prefix):
         mangle_name(prefix, '_Py_object_dealloc'),
         [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
-    FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT))
+    FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT_real))
     state.C.get_pyos_inputhook = rffi.llexternal(
         mangle_name(prefix, '_Py_get_PyOS_InputHook'), [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)

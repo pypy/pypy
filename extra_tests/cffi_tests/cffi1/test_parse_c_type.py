@@ -3,6 +3,7 @@ import sys, re, os
 import pytest
 import cffi
 from cffi import cffi_opcode
+# from pathlib import Path  # not on PyPy
 
 if '__pypy__' in sys.builtin_module_names:
     try:
@@ -17,7 +18,8 @@ cffi_dir = os.path.dirname(cffi_opcode.__file__)
 r_macro = re.compile(r"#define \w+[(][^\n]*|#include [^\n]*")
 r_define = re.compile(r"(#define \w+) [^\n]*")
 r_ifdefs = re.compile(r"(#ifdef |#endif)[^\n]*")
-header = open(os.path.join(cffi_dir, 'parse_c_type.h')).read()
+with open(os.path.join(cffi_dir, 'parse_c_type.h')) as _header:
+    header = _header.read()
 header = r_macro.sub(r"", header)
 header = r_define.sub(r"\1 ...", header)
 header = r_ifdefs.sub(r"", header)
@@ -25,8 +27,10 @@ header = r_ifdefs.sub(r"", header)
 ffi = cffi.FFI()
 ffi.cdef(header)
 
+with open(os.path.join(cffi_dir, '..', 'c', 'parse_c_type.c')) as _body:
+    body = _body.read()
 lib = ffi.verify(
-        open(os.path.join(cffi_dir, '..', 'c', 'parse_c_type.c')).read() + """
+    body + """
 static const char *get_common_type(const char *search, size_t search_len) {
     return NULL;
 }

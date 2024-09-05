@@ -271,7 +271,7 @@ class W_Socket(W_Root):
 
     def _finalize_(self):
         sock = self.sock
-        if sock.fd != rsocket.INVALID_SOCKET:
+        if widen(sock.fd) != rsocket.INVALID_SOCKET:
             try:
                 self._dealloc_warn()
             finally:
@@ -301,7 +301,7 @@ class W_Socket(W_Root):
                 e.write_unraisable(space, '', self)
 
     def descr_repr(self, space):
-        fd = intmask(self.sock.fd)  # Force to signed type even on Windows.
+        fd = widen(self.sock.fd)  # Force to signed type even on Windows.
         family = widen(self.sock.family)  # these are too small on win64
         tp = widen(self.sock.type)
         proto = widen(self.sock.proto)
@@ -331,7 +331,7 @@ class W_Socket(W_Root):
     # convert an app-level object into an Address
     # based on the current socket's family
     def addr_from_object(self, space, w_address):
-        fd = intmask(self.sock.fd)
+        fd = widen(self.sock.fd)
         return addr_from_object(self.sock.family, fd, space, w_address)
 
     def bind_w(self, space, w_addr):
@@ -395,7 +395,7 @@ class W_Socket(W_Root):
 
         Return the integer file descriptor of the socket.
         """
-        return space.newint(intmask(self.sock.fd))
+        return space.newint(widen(self.sock.fd))
 
     def detach_w(self, space):
         """detach()

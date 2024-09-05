@@ -178,7 +178,6 @@ class CConfig:
         libraries=rtime.libraries
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
-    has_gettimeofday = platform.Has('gettimeofday')
 
 HAS_TM_ZONE = False
 
@@ -255,6 +254,7 @@ HAS_THREAD_TIME = (_WIN or
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
+<<<<<<< HEAD
 if _WIN:
     _GetSystemTimeAsFileTime = rwin32.winexternal('GetSystemTimeAsFileTime',
                                                   [lltype.Ptr(rwin32.FILETIME)],
@@ -345,6 +345,8 @@ else:
     def gettimeofday(space, w_info=None):
         return _gettimeofday_impl(space, w_info, False)
 
+=======
+>>>>>>> main
 TM_P = lltype.Ptr(tm)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
 c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
