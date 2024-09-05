@@ -17,17 +17,17 @@ def test_rffisource():
 
 def test_proc_tp_simple():
     rffi_source = RffiSource()
-    assert rffi_source.proc_tp(ctypes.c_int) == 'rffi.INT'
+    assert rffi_source.proc_tp(ctypes.c_int) == 'rffi.INT_real'
     assert rffi_source.proc_tp(ctypes.c_void_p) == 'rffi.VOIDP'
     assert rffi_source.compiled()
 
 def test_proc_tp_complicated():
     rffi_source = RffiSource()    
     assert rffi_source.proc_tp(ctypes.POINTER(ctypes.c_uint)) == \
-           "lltype.Ptr(lltype.Array(rffi.UINT, hints={'nolength': True}))"
+           "lltype.Ptr(lltype.Array(rffi.UINT_real, hints={'nolength': True}))"
     src = rffi_source.proc_tp(random_structure)
     _src = py.code.Source("""
-    random_structure = lltype.Struct('random_structure', ('one', rffi.INT), ('two', lltype.Ptr(lltype.Array(rffi.INT, hints={'nolength': True}))),  hints={'external':'C'})
+    random_structure = lltype.Struct('random_structure', ('one', rffi.INT_real), ('two', lltype.Ptr(lltype.Array(rffi.INT_real, hints={'nolength': True}))),  hints={'external':'C'})
     """)
     src = rffi_source.source
     assert src.strip() == _src.strip(), str(src) + "\n" + str(_src)
@@ -36,7 +36,7 @@ def test_proc_tp_complicated():
 def test_proc_tp_array():
     rffi_source = RffiSource()
     src = rffi_source.proc_tp(ctypes.c_uint * 12)
-    _src = "lltype.Ptr(lltype.Array(rffi.UINT, hints={'nolength': True}))"
+    _src = "lltype.Ptr(lltype.Array(rffi.UINT_real, hints={'nolength': True}))"
     assert src == _src
 
 def test_proc_cyclic_structure():
@@ -86,7 +86,7 @@ class TestMkrffi(object):
         src = RffiSource()
         src.proc_func(func)
         _src = py.code.Source("""
-        int_to_void_p = rffi.llexternal('int_to_void_p', [rffi.INT], rffi.VOIDP)
+        int_to_void_p = rffi.llexternal('int_to_void_p', [rffi.INT_real], rffi.VOIDP)
         """)
 
         assert src.source == _src, str(src) + "\n" + str(_src)
@@ -100,9 +100,9 @@ class TestMkrffi(object):
         rffi_source.proc_func(func)
         assert random_structure in rffi_source.structs
         _src = py.code.Source("""
-        random_structure = lltype.Struct('random_structure', ('one', rffi.INT), ('two', lltype.Ptr(lltype.Array(rffi.INT, hints={'nolength': True}))),  hints={'external':'C'})
+        random_structure = lltype.Struct('random_structure', ('one', rffi.INT_real), ('two', lltype.Ptr(lltype.Array(rffi.INT_real, hints={'nolength': True}))),  hints={'external':'C'})
 
-        int_int_to_struct_p = rffi.llexternal('int_int_to_struct_p', [rffi.INT, rffi.INT], lltype.Ptr(random_structure))
+        int_int_to_struct_p = rffi.llexternal('int_int_to_struct_p', [rffi.INT_real, rffi.INT_real], lltype.Ptr(random_structure))
         """)
         src = rffi_source.source
         assert src.strip() == _src.strip(), str(src) + "\n" + str(_src)

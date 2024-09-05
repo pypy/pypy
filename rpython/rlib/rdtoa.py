@@ -44,7 +44,7 @@ dg_strtod = rffi.llexternal(
 
 dg_dtoa = rffi.llexternal(
     '_PyPy_dg_dtoa', [rffi.DOUBLE, rffi.INT, rffi.INT,
-                    rffi.INTP, rffi.INTP, rffi.CCHARPP], rffi.CCHARP,
+                    rffi.INT_realP, rffi.INT_realP, rffi.CCHARPP], rffi.CCHARP,
     compilation_info=eci, sandboxsafe=True)
 
 dg_freedtoa = rffi.llexternal(
@@ -243,9 +243,9 @@ def dtoa(value, code='r', mode=0, precision=0, flags=0,
         raise MemoryError
     if objectmodel.revdb_flag_io_disabled():
         return _revdb_dtoa(value)
-    decpt_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    decpt_ptr = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
     try:
-        sign_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        sign_ptr = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
         try:
             end_ptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
             try:

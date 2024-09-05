@@ -488,7 +488,7 @@ def make_address(addrptr, addrlen, result=None):
     elif result.family != family:
         raise RSocketError("address family mismatched")
     # copy into a new buffer the address that 'addrptr' points to
-    addrlen = rffi.cast(lltype.Signed, addrlen)
+    addrlen = rffi.cast(lltype.Signed, intmask(addrlen))
     buf = lltype.malloc(rffi.CCHARP.TO, addrlen, flavor='raw',
                         track_allocation=False)
     src = rffi.cast(rffi.CCHARP, addrptr)
@@ -555,7 +555,7 @@ class RSocket(object):
                 if not inheritable:
                     sock_set_inheritable(fd, False)
         # PLAT RISCOS
-        self.fd = fd
+        self.fd = intmask(fd)
         self.family = family
         self.type = type
         if HAVE_SOCK_CLOEXEC:
@@ -576,7 +576,7 @@ class RSocket(object):
     @rgc.must_be_light_finalizer
     def __del__(self):
         fd = self.fd
-        if fd != _c.INVALID_SOCKET:
+        if widen(fd) != _c.INVALID_SOCKET:
             self.fd = _c.INVALID_SOCKET
             _c.socketclose_no_errno(fd)
 
@@ -606,7 +606,7 @@ class RSocket(object):
         def _select(self, for_writing):
             """Returns 0 when reading/writing is possible,
             1 when timing out and -1 on error."""
-            if self.timeout <= 0.0 or self.fd == _c.INVALID_SOCKET:
+            if self.timeout <= 0.0 or widen(self.fd) == _c.INVALID_SOCKET:
                 # blocking I/O or no socket.
                 return 0
             pollfd = rffi.make(_c.pollfd)
@@ -632,7 +632,7 @@ class RSocket(object):
             """Returns 0 when reading/writing is possible,
             1 when timing out and -1 on error."""
             timeout = self.timeout
-            if timeout <= 0.0 or self.fd == _c.INVALID_SOCKET:
+            if timeout <= 0.0 or widen(self.fd) == _c.INVALID_SOCKET:
                 # blocking I/O or no socket.
                 return 0
             tv = rffi.make(_c.timeval)
@@ -694,7 +694,7 @@ class RSocket(object):
             raise self.error_handler()
         if remove_inheritable:
             sock_set_inheritable(newfd, False)
-        address.addrlen = rffi.cast(lltype.Signed, addrlen)
+        address.addrlen = rffi.cast(lltype.Signed, intmask(addrlen))
         return (newfd, address)
 
     def bind(self, address):
@@ -708,7 +708,7 @@ class RSocket(object):
     def close(self):
         """Close the socket.  It cannot be used after this call."""
         fd = self.fd
-        if fd != _c.INVALID_SOCKET:
+        if widen(fd) != _c.INVALID_SOCKET:
             self.fd = _c.INVALID_SOCKET
             res = _c.socketclose(fd)
             if res != 0:
@@ -808,7 +808,7 @@ class RSocket(object):
             if SocketClass is None:
                 SocketClass = RSocket
             fd = _c.dup(self.fd)
-            if fd < 0:
+            if widen(fd) < 0:
                 raise self.error_handler()
             return make_socket(fd, self.family, self.type, self.proto,
                                SocketClass=SocketClass)
@@ -825,7 +825,7 @@ class RSocket(object):
             address.unlock()
         if res < 0:
             raise self.error_handler()
-        address.addrlen = rffi.cast(lltype.Signed, addrlen)
+        address.addrlen = rffi.cast(lltype.Signed, intmask(addrlen))
         return address
 
     @jit.dont_look_inside
@@ -840,7 +840,7 @@ class RSocket(object):
             address.unlock()
         if res < 0:
             raise self.error_handler()
-        address.addrlen = rffi.cast(lltype.Signed, addrlen)
+        address.addrlen = rffi.cast(lltype.Signed, intmask(addrlen))
         return address
 
     @jit.dont_look_inside

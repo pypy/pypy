@@ -54,7 +54,7 @@ math_log1p = math_llexternal('log1p', [rffi.DOUBLE], rffi.DOUBLE)
 math_copysign = llexternal('copysign', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
                            elidable_function=True)
 math_atan2 = llexternal('atan2', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
-math_frexp = llexternal('frexp', [rffi.DOUBLE, rffi.INTP], rffi.DOUBLE)
+math_frexp = llexternal('frexp', [rffi.DOUBLE, rffi.INT_realP], rffi.DOUBLE)
 math_modf  = llexternal('modf',  [rffi.DOUBLE, rffi.DOUBLEP], rffi.DOUBLE)
 math_ldexp = llexternal('ldexp', [rffi.DOUBLE, rffi.INT], rffi.DOUBLE,
                         save_err=rffi.RFFI_FULL_ERRNO_ZERO)
@@ -184,7 +184,7 @@ def ll_math_frexp(x):
     else:
         if objectmodel.revdb_flag_io_disabled():
             return _revdb_frexp(x)
-        exp_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        exp_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
         try:
             mantissa = math_frexp(x, exp_p)
             exponent = rffi.cast(lltype.Signed, exp_p[0])

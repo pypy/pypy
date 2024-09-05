@@ -6,7 +6,7 @@ from rpython.rlib import jit
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform as target_platform
 
-from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rarithmetic import intmask, r_uint, widen
 import os,sys
 from textwrap import dedent
 
@@ -267,13 +267,13 @@ for name, default in constants_w_defaults:
 if _MSVC:
     socketfd_type = lltype.Unsigned
 else:
-    socketfd_type = rffi.INT
+    socketfd_type = rffi.INT_real
 
 CConfig.uint16_t = platform.SimpleType('uint16_t', rffi.USHORT)
 CConfig.uint32_t = platform.SimpleType('uint32_t', rffi.UINT)
 CConfig.size_t = platform.SimpleType('size_t', rffi.INT)
 CConfig.ssize_t = platform.SimpleType('ssize_t', rffi.INT)
-CConfig.socklen_t = platform.SimpleType('socklen_t', rffi.INT)
+CConfig.socklen_t = platform.SimpleType('socklen_t', rffi.UINT_real)
 sockaddr_ptr = lltype.Ptr(lltype.ForwardReference())
 addrinfo_ptr = lltype.Ptr(lltype.ForwardReference())
 
@@ -1186,11 +1186,11 @@ assert WIN32 == _WIN32
 
 if _MSVC:
     def invalid_socket(fd):
-        return fd == INVALID_SOCKET
+        return widen(fd) == INVALID_SOCKET
     INVALID_SOCKET = r_uint(cConfig.INVALID_SOCKET)
 else:
     def invalid_socket(fd):
-        return fd < 0
+        return widen(fd) < 0
     INVALID_SOCKET = -1
 
 uint16_t = cConfig.uint16_t
