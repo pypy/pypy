@@ -60,3 +60,6 @@ class SimpleArenaCollection(object):
         self.mass_free_prepare()
         res = self.mass_free_incremental(ok_to_free_func, sys.maxint)
         assert res
+
+    def mass_free_per_class(self, ok_to_free_func):
+        return self.mass_free_incremental(ok_to_free_func, 1)

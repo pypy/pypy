@@ -383,6 +383,14 @@ class ArenaCollection(object):
         #
         return True
 
+    def mass_free_per_class(self, ok_to_free_func):
+        """ try to free some pages for every size class """
+        size_class = self.small_request_threshold >> WORD_POWER_2
+        max_pages = 5
+        #
+        while size_class >= 1:
+            self.mass_free_in_pages(size_class, ok_to_free_func, max_pages)
+            size_class -= 1
 
     def mass_free(self, ok_to_free_func):
         """For each object, if ok_to_free_func(obj) returns True, then free
@@ -444,11 +452,11 @@ class ArenaCollection(object):
         step = 0
         while step < 2:
             if step == 0:
-                page = self.old_full_page_for_size[size_class]
-                self.old_full_page_for_size[size_class] = PAGE_NULL
-            else:
                 page = self.old_page_for_size[size_class]
                 self.old_page_for_size[size_class] = PAGE_NULL
+            else:
+                page = self.old_full_page_for_size[size_class]
+                self.old_full_page_for_size[size_class] = PAGE_NULL
             #
             while page != PAGE_NULL:
                 #
@@ -460,7 +468,7 @@ class ArenaCollection(object):
                     #
                     # The page is still full.  Re-insert it in the
                     # 'remaining_full_pages' chained list.
-                    ll_assert(step == 0,
+                    ll_assert(step == 1,
                               "A non-full page became full while freeing")
                     page.nextpage = remaining_full_pages
                     remaining_full_pages = page
@@ -482,9 +490,9 @@ class ArenaCollection(object):
                     # End of the incremental step: store back the unprocessed
                     # pages into self.old_xxx and return early
                     if step == 0:
-                        self.old_full_page_for_size[size_class] = nextpage
-                    else:
                         self.old_page_for_size[size_class] = nextpage
+                    else:
+                        self.old_full_page_for_size[size_class] = nextpage
                     step = 99     # stop
                     break
 
