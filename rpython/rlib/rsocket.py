@@ -540,7 +540,7 @@ class RSocket(object):
                 # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
                 # then we fall back to the SOCK_CLOEXEC-less case.
                 fd = _c.socket(family, type | SOCK_CLOEXEC, proto)
-                if fd < 0:
+                if widen(fd) < 0:
                     if _c.geterrno() == EINVAL:
                         # Linux older than 2.6.27 does not support
                         # SOCK_CLOEXEC.  An EINVAL might be caused by
@@ -555,7 +555,7 @@ class RSocket(object):
                 if not inheritable:
                     sock_set_inheritable(fd, False)
         # PLAT RISCOS
-        self.fd = intmask(fd)
+        self.fd = widen(fd)
         self.family = family
         self.type = type
         if HAVE_SOCK_CLOEXEC:
