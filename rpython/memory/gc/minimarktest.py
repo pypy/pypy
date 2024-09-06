@@ -20,6 +20,7 @@ class SimpleArenaCollection(object):
         self.small_request_threshold = small_request_threshold
         self.all_objects = []
         self.total_memory_used = 0
+        self.total_memory_alloced = 0
         self.arenas_count = 0
 
     def malloc(self, size):
@@ -32,6 +33,7 @@ class SimpleArenaCollection(object):
         llarena.arena_reserve(result, size)
         self.all_objects.append((result, nsize))
         self.total_memory_used += nsize
+        self.total_memory_alloced += nsize
         return result
 
     def mass_free_prepare(self):
@@ -45,6 +47,7 @@ class SimpleArenaCollection(object):
             rawobj, nsize = old.pop()
             if ok_to_free_func(rawobj):
                 llarena.arena_free(rawobj)
+                self.total_memory_alloced -= nsize
             else:
                 self.all_objects.append((rawobj, nsize))
                 self.total_memory_used += nsize

@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, llarena, rffi
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import ll_assert, fatalerror
+from rpython.rlib.debug import have_debug_prints, debug_print, debug_start, debug_stop
 
 WORD = LONG_BIT // 8
 NULL = llmemory.NULL
@@ -370,6 +371,10 @@ class ArenaCollection(object):
         if size_class >= 0:
             self._rehash_arenas_lists()
             self.size_class_with_old_pages = -1
+            debug_start("arena-debug")
+            if have_debug_prints():
+                self._debug_print_arena_stats()
+            debug_stop("arena-debug")
         #
         return True
 
@@ -580,6 +585,47 @@ class ArenaCollection(object):
         assert rem == 0, "page size_class misspecified?"
         nblocks = self.nblocks_for_size[size_class]
         return nblocks - num_initialized_blocks
+
+    def _debug_print_arena_stats(self):
+        def print_curr_arena(arena):
+            if not arena:
+                debug_print("arena is NULL")
+                return
+            debug_print("arena.nfreepages:", arena.nfreepages)
+            size = 0
+            while arena:
+                arena = arena.nextarena
+                size += 1
+            debug_print("length arena chain", size)
+        debug_print("______________________________________________")
+        debug_print("arenas")
+        if self.current_arena:
+            debug_print("current_arena.nfreepages", self.current_arena.nfreepages)
+        else:
+            debug_print("no current arena")
+        for i in range(self.max_pages_per_arena):
+            if self.arenas_lists[i]:
+                debug_print("nfree:", i)
+                print_curr_arena(self.arenas_lists[i])
+
+        debug_print("______________________________________________")
+        debug_print("pages")
+        length = self.small_request_threshold // WORD + 1
+        for i in range(length):
+            count = 0
+            page = self.full_page_for_size[i]
+            while page:
+                count += 1
+                page = page.nextpage
+            page = self.page_for_size[i]
+            count_half_full = 0
+            if page:
+                debug_print("pages for size, nblocks", i, self.nblocks_for_size[i])
+                while page:
+                    debug_print("page.nfree:", page.nfree)
+                    page = page.nextpage
+                    count_half_full += 1
+            debug_print("count, half full/full", count_half_full, count)
 
 
 # ____________________________________________________________

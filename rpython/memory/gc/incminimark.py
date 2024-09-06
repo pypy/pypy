@@ -2583,6 +2583,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             self.ac.arenas_count)
                 debug_print("bytes used in arenas: ",
                             self.ac.total_memory_used)
+                debug_print("total size of arenas (some is free): ",
+                            self.ac.total_memory_alloced)
                 debug_print("bytes raw-malloced:   ",
                             self.stat_rawmalloced_total_size, " => ",
                             self.rawmalloced_total_size)
