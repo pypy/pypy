@@ -640,12 +640,13 @@ class ArenaCollection(object):
             count_half_full = 0
             if page:
                 debug_print("pages for size, nblocks", i, self.nblocks_for_size[i])
+                curr_limit = limit
                 while page:
-                    if limit > 0:
+                    if curr_limit > 0:
                         debug_print("page.nfree:", page.nfree)
                     page = page.nextpage
                     count_half_full += 1
-                    limit -= 1
+                    curr_limit -= 1
             debug_print("count, half full/full", count_half_full, count)
 
 
