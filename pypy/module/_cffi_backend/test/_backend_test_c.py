@@ -13,7 +13,7 @@ def _assert_unraisable(error_type, message='', traceback_tokens=None):
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.17.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.18.0.dev0", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
