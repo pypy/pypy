@@ -1966,6 +1966,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         duration = time.time() - start
         self.total_gc_time += duration
+        self.ac._debug_print_arena_stats(5)
         debug_print("time taken:", duration)
         debug_stop("gc-minor")
         self.hooks.fire_gc_minor(

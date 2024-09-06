@@ -197,6 +197,14 @@ class ArenaCollection(object):
 
     def allocate_new_page(self, size_class):
         """Allocate and return a new page for the given size_class."""
+        debug_start("arena-new-page")
+        if have_debug_prints():
+            debug_print("size-class", size_class, int(self.current_arena == ARENA_NULL))
+            oldpage = self.old_page_for_size[size_class]
+            if oldpage:
+                debug_print("old-page-nfree", oldpage.nfree)
+        debug_stop("arena-new-page")
+
         #
         # Allocate a new arena if needed.
         if self.current_arena == ARENA_NULL:
@@ -371,10 +379,7 @@ class ArenaCollection(object):
         if size_class >= 0:
             self._rehash_arenas_lists()
             self.size_class_with_old_pages = -1
-            debug_start("arena-debug")
-            if have_debug_prints():
-                self._debug_print_arena_stats()
-            debug_stop("arena-debug")
+            self._debug_print_arena_stats()
         #
         return True
 
@@ -586,7 +591,13 @@ class ArenaCollection(object):
         nblocks = self.nblocks_for_size[size_class]
         return nblocks - num_initialized_blocks
 
-    def _debug_print_arena_stats(self):
+    def _debug_print_arena_stats(self, limit=sys.maxint):
+        debug_start("arena-debug")
+        if have_debug_prints():
+            self._debug_print_arena_stats_impl(limit)
+        debug_stop("arena-debug")
+
+    def _debug_print_arena_stats_impl(self, limit):
         def print_curr_arena(arena):
             if not arena:
                 debug_print("arena is NULL")
@@ -622,9 +633,11 @@ class ArenaCollection(object):
             if page:
                 debug_print("pages for size, nblocks", i, self.nblocks_for_size[i])
                 while page:
-                    debug_print("page.nfree:", page.nfree)
+                    if limit > 0:
+                        debug_print("page.nfree:", page.nfree)
                     page = page.nextpage
                     count_half_full += 1
+                    limit -= 1
             debug_print("count, half full/full", count_half_full, count)
 
 
