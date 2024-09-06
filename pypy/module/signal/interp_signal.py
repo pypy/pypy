@@ -438,8 +438,8 @@ def sigwait(space, w_signals):
     """Suspend execution of the calling thread until the delivery of one of the
     signals specified in the signal set signals. """
     with SignalMask(space, w_signals) as sigset:
-        with lltype.scoped_alloc(rffi.INTP.TO, 1) as signum_ptr:
-            ret = c_sigwait(sigset, signum_ptr)
+        with lltype.scoped_alloc(rffi.INT_realP.TO, 1) as signum_ptr:
+            ret = widen(c_sigwait(sigset, signum_ptr))
             if ret != 0:
                 raise exception_from_saved_errno(space, space.w_OSError)
             signum = signum_ptr[0]
