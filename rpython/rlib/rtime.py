@@ -42,10 +42,11 @@ class CConfig:
     _compilation_info_ = eci
     TIMEVAL = rffi_platform.Struct('struct timeval', [('tv_sec', rffi.INT),
                                                       ('tv_usec', rffi.INT)])
-    TIMEZONE = rffi_platform.Struct('struct timezone', [
+    if not _WIN32:
+        TIMEZONE = rffi_platform.Struct('struct timezone', [
                                         ('tz_minuteswest', rffi.INT_real),
                                         ('tz_dsttime', rffi.INT_real),
-                                    ])
+                                        ])
     HAVE_GETTIMEOFDAY = rffi_platform.Has('gettimeofday')
     HAVE_FTIME = rffi_platform.Has(FTIME)
     if need_rusage:
@@ -142,7 +143,6 @@ c_time = external('time', [rffi.VOIDP], rffi.TIME_T,
 
 @replace_time_function('time')
 def time():
-    tzvoid = rffi.cast(lltype.Ptr(TIMEZONE), 0)
     void = lltype.nullptr(rffi.VOIDP.TO)
     result = -1.0
     if HAVE_GETTIMEOFDAY:
@@ -154,6 +154,7 @@ def time():
             if GETTIMEOFDAY_NO_TZ:
                 errcode = c_gettimeofday(t)
             else:
+                tzvoid = rffi.cast(lltype.Ptr(TIMEZONE), 0)
                 errcode = c_gettimeofday(t, tzvoid)
 
             if rffi.cast(rffi.LONG, errcode) == 0:
