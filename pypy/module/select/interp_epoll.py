@@ -102,7 +102,7 @@ pypy_epoll_ctl = rffi.llexternal(
 pypy_epoll_wait = rffi.llexternal(
     "pypy_epoll_wait",
     [rffi.INT_real, rffi.CArrayPtr(rffi.UINT_real), rffi.CArrayPtr(rffi.INT_real),
-     rffi.INT_real, rffi.INT_real],
+     rffi.INT, rffi.INT],
     rffi.INT,
     compilation_info=eci,
     save_err=rffi.RFFI_SAVE_ERRNO
@@ -196,7 +196,7 @@ class W_Epoll(W_Root):
         with lltype.scoped_alloc(rffi.CArray(rffi.UINT_real), maxevents) as fids:
             with lltype.scoped_alloc(rffi.CArray(rffi.INT_real), maxevents) as events:
                 while True:
-                    nfds = pypy_epoll_wait(self.epfd, fids, events, maxevents, int(timeout))
+                    nfds = pypy_epoll_wait(self.epfd, fids, events, maxevents, itimeout)
                     if nfds < 0:
                         if get_saved_errno() == errno.EINTR:
                             space.getexecutioncontext().checksignals()
@@ -211,8 +211,7 @@ class W_Epoll(W_Root):
                 elist_w = [None] * nfds
                 for i in xrange(nfds):
                     elist_w[i] = space.newtuple2(
-
-                        space.newint(intmask(fids[i])), space.newint(events[i])
+                        space.newint(intmask(fids[i])), space.newint(intmask(events[i]))
                     )
                 return space.newlist(elist_w)
 
