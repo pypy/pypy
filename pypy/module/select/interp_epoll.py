@@ -198,7 +198,6 @@ class W_Epoll(W_Root):
 
                 elist_w = [None] * nfds
                 for i in xrange(nfds):
-                    fid = rffi.cast(rffi.UINT_real, fids[i])
                     elist_w[i] = space.newtuple2(
 
                         space.newint(intmask(fids[i])), space.newint(events[i])
