@@ -7,12 +7,12 @@
 
 Getting 64-bit windows to work with PyPy was a long-standing request that was
 finally cracked in the otherwise cursed year of 2020. The problem is that we
-assume that the integer type of RPython (``rffi.Signed``) is
+assume that the integer type of RPython (``rffi.SIGNED``) is
 large enough to (occasionally) contain a pointer value cast to an
 integer. On most platforms the corresponding C type of ``long`` satisfies this
 condition. But on 64-bit windows, a ``long`` is 32-bits, while
 ``sizeof(void*)`` is 64-bits. The simplest fix is to make sure that
-``rffi.Signed`` can hold a 64-bit integer, which results in a python2 with the
+``rffi.SIGNED`` can hold a 64-bit integer, which results in a python2 with the
 following incompatibility between CPython and PyPy on Win64:
 
 CPython: ``sys.maxint == 2**31-1, sys.maxsize == 2**63-1``
