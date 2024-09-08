@@ -1483,6 +1483,19 @@ class scoped_alloc_unicodebuffer:
         return unicode_from_buffer(self.raw, self.gc_buf, self.case_num,
                                    self.size, length)
 
+class scoped_alloc_utf8buffer:
+    def __init__(self, size):
+        self.size = size
+    def __enter__(self):
+        self.raw, self.gc_buf, self.case_num = alloc_unicodebuffer(self.size)
+        return self
+    def __exit__(self, *args):
+        keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf, self.case_num)
+    def str(self, length):
+        return utf8_from_buffer(self.raw, self.gc_buf, self.case_num,
+                                   self.size, length)
+
+
 # You would have to have a *huge* amount of data for this to block long enough
 # to be worth it to release the GIL.
 c_memcpy = llexternal("memcpy",
