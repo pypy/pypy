@@ -643,10 +643,11 @@ class RSocket(object):
             _c.FD_ZERO(fds)
             _c.FD_SET(self.fd, fds)
             null = lltype.nullptr(_c.fd_set.TO)
+            fd1 = widen(self.fd) + 1
             if for_writing:
-                n = _c.select(self.fd + 1, null, fds, null, tv)
+                n = _c.select(fd1, null, fds, null, tv)
             else:
-                n = _c.select(self.fd + 1, fds, null, null, tv)
+                n = _c.select(fd1, fds, null, null, tv)
             lltype.free(fds, flavor='raw')
             lltype.free(tv, flavor='raw')
             if n < 0:
