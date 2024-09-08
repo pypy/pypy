@@ -1467,7 +1467,7 @@ if _c.WIN32:
                 _c.FROM_PROTOCOL_INFO, info, 0, 0)
             if result == INVALID_SOCKET:
                 raise last_error()
-            return rffi.cast(Signed, result)
+            return rffi.cast(lltype.Signed, result)
 else:
     def dup(fd, inheritable=True):
         fd = rposix._dup(fd, inheritable)
