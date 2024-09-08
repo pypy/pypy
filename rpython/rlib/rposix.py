@@ -1067,8 +1067,12 @@ else:
 
 @replace_os_function('waitpid')
 def waitpid(pid, options):
-    status_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
-    status_p[0] = rffi.cast(rffi.INT_real, 0)
+    if _WIN32 or _CYGWIN:
+        status_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        status_p[0] = rffi.cast(rffi.INT, 0)
+    else:
+        status_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
+        status_p[0] = rffi.cast(rffi.INT_real, 0)
     try:
         result = handle_posix_error('waitpid',
                                     c_waitpid(pid, status_p, options))
