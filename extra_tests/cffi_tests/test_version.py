@@ -6,7 +6,7 @@ from urllib.request import urlopen
 import cffi
 import pypy
 
-metadata = py.path.local(pypy.__file__)/'../../lib_pypy/cffi-1.17.0.dist-info/METADATA'
+metadata = py.path.local(pypy.__file__)/'../../lib_pypy/cffi-1.18.0.dev0.dist-info/METADATA'
 
 def test_metadata():
     info = Parser().parsestr(metadata.read())
