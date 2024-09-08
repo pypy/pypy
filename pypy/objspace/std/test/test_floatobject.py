@@ -1110,3 +1110,6 @@ class AppTestFloatHex:
 
     def test_repr_str_eq(self):
         assert repr(19 * 0.1) == str(19 * 0.1)
+
+    def test_str_is_from_object(self):
+        assert float.__str__ is object.__str__
