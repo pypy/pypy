@@ -522,10 +522,13 @@ def make_null_address(family):
 
 # ____________________________________________________________
 
+# On windows, _c.INVALID_SOCKET is unsigned
+INVALID_SOCKET = rffi.cast(lltype.Signed, _c.INVALID_SOCKET)
+
 class RSocket(object):
     """RPython-level socket object.
     """
-    fd = _c.INVALID_SOCKET
+    fd = INVALID_SOCKET
     family = 0
     type = 0
     proto = 0
@@ -555,7 +558,7 @@ class RSocket(object):
                 if not inheritable:
                     sock_set_inheritable(fd, False)
         # PLAT RISCOS
-        self.fd = widen(fd)
+        self.fd = rffi.cast(lltype.Signed, fd)
         self.family = family
         self.type = type
         if HAVE_SOCK_CLOEXEC:
@@ -576,8 +579,8 @@ class RSocket(object):
     @rgc.must_be_light_finalizer
     def __del__(self):
         fd = self.fd
-        if widen(fd) != _c.INVALID_SOCKET:
-            self.fd = _c.INVALID_SOCKET
+        if widen(fd) != INVALID_SOCKET:
+            self.fd = INVALID_SOCKET
             _c.socketclose_no_errno(fd)
 
     if hasattr(_c, 'fcntl'):
@@ -606,7 +609,7 @@ class RSocket(object):
         def _select(self, for_writing):
             """Returns 0 when reading/writing is possible,
             1 when timing out and -1 on error."""
-            if self.timeout <= 0.0 or widen(self.fd) == _c.INVALID_SOCKET:
+            if self.timeout <= 0.0 or widen(self.fd) == INVALID_SOCKET:
                 # blocking I/O or no socket.
                 return 0
             pollfd = rffi.make(_c.pollfd)
@@ -632,7 +635,7 @@ class RSocket(object):
             """Returns 0 when reading/writing is possible,
             1 when timing out and -1 on error."""
             timeout = self.timeout
-            if timeout <= 0.0 or widen(self.fd) == _c.INVALID_SOCKET:
+            if timeout <= 0.0 or widen(self.fd) == INVALID_SOCKET:
                 # blocking I/O or no socket.
                 return 0
             tv = rffi.make(_c.timeval)
@@ -709,15 +712,15 @@ class RSocket(object):
     def close(self):
         """Close the socket.  It cannot be used after this call."""
         fd = self.fd
-        if widen(fd) != _c.INVALID_SOCKET:
-            self.fd = _c.INVALID_SOCKET
+        if widen(fd) != INVALID_SOCKET:
+            self.fd = INVALID_SOCKET
             res = _c.socketclose(fd)
             if res != 0:
                 raise self.error_handler()
 
     def detach(self):
         fd = self.fd
-        self.fd = _c.INVALID_SOCKET
+        self.fd = INVALID_SOCKET
         return fd
 
     if _c.WIN32:
@@ -808,8 +811,8 @@ class RSocket(object):
         def dup(self, SocketClass=None):
             if SocketClass is None:
                 SocketClass = RSocket
-            fd = _c.dup(self.fd)
-            if widen(fd) < 0:
+            fd = rffi.cast(lltype.Signed, _c.dup(self.fd))
+            if fd < 0:
                 raise self.error_handler()
             return make_socket(fd, self.family, self.type, self.proto,
                                SocketClass=SocketClass)
@@ -1464,7 +1467,7 @@ if _c.WIN32:
                 _c.FROM_PROTOCOL_INFO, info, 0, 0)
             if result == INVALID_SOCKET:
                 raise last_error()
-            return result
+            return rffi.cast(lltype.Signed, result)
 else:
     def dup(fd, inheritable=True):
         fd = rposix._dup(fd, inheritable)
