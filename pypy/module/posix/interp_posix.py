@@ -1,7 +1,7 @@
 import os
 import sys
 
-from rpython.rlib import rposix, rposix_stat
+from rpython.rlib import rposix, rposix_stat, rstring
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint
@@ -74,7 +74,7 @@ class FileDecoder(object):
         return space.unicode0_w(w_unicode)
 
     def as_utf8(self):
-        ret = self.space.fsdecode_w(self.w_obj)
+        ret = self.space.utf8_w(self.w_obj)
         if '\x00' in ret:
             raise oefmt(self.space.w_ValueError, "embedded null character")
         return ret
@@ -450,13 +450,12 @@ def _getfullpathname(space, w_path):
     """helper for ntpath.abspath """
     try:
         if space.isinstance_w(w_path, space.w_unicode):
-            path = FileEncoder(space, w_path)
-            fullpath = rposix.getfullpathname(path)
-            w_fullpath = u2utf8(space, fullpath)
+            path = FileEncoder(space, w_path).as_utf8()
+            rstring.check_str0(path)
         else:
             path = space.bytes0_w(w_path)
-            fullpath = rposix.getfullpathname(path)
-            w_fullpath = space.newbytes(fullpath)
+        fullpath = rposix.getfullpathname(path)
+        w_fullpath = space.newbytes(fullpath)
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
     else:

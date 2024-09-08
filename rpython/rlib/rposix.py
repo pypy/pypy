@@ -706,7 +706,7 @@ def getfullpathname(path):
     utf8 = _as_utf80(path)
     while True:      # should run the loop body maximum twice
         with rffi.scoped_alloc_unicodebuffer(length) as out_buf:
-            with rffi.scoped_utf82wcharp(utf8, codepoints_in_utf8(utf8)) as in_buf: 
+            with rffi.scoped_utf82wcharp(utf8, codepoints_in_utf8(utf8)) as in_buf:
                 res = win32traits.GetFullPathName(
                     in_buf, rffi.cast(rwin32.DWORD, length),
                     out_buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
@@ -717,9 +717,10 @@ def getfullpathname(path):
                 length = res + 1
                 continue
             result = out_buf.str(res)
+
             assert result is not None
             result = rstring.assert_str0(result)
-            return result
+            return result.encode('utf8')
 
 c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
                     [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP,
@@ -1026,7 +1027,7 @@ def forkpty():
     try:
         ofs = debug.debug_offset()
         opaqueaddr = rthread.gc_thread_before_fork()
-        childpid = c_forkpty(master_p, null, 
+        childpid = c_forkpty(master_p, null,
                              rffi.cast(TERMIOS_P, 0),
                              rffi.cast(WINSIZE_P, 0))
         errno = _get_errno()
@@ -1231,7 +1232,7 @@ def mkdir(path, mode=0o777):
             src_utf8 = path.as_utf8()
         src_wch = rffi.utf82wcharp(src_utf8, codepoints_in_utf8(src_utf8))
         result = win32traits.CreateDirectory(src_wch, None)
-        rffi.free_wcharp(src_wch) 
+        rffi.free_wcharp(src_wch)
         if not result:
             raise rwin32.lastSavedWindowsError()
 
@@ -2006,7 +2007,7 @@ if not _WIN32:
                     groups_p = lltype.nullptr(GID_GROUPS_T.TO)
                     groups_p = lltype.malloc(GID_GROUPS_T.TO, widen(ngroups_p[0]),
                                              flavor='raw')
-                     
+
                     n = handle_posix_error('getgrouplist', c_getgroupslist(user,
                                                      group, groups_p, ngroups_p))
             ngroups = widen(ngroups_p[0])
@@ -2206,7 +2207,7 @@ if not _WIN32:
         _compilation_info_ = ExternalCompilationInfo(
             includes=[ 'unistd.h', ],
         )
-    
+
     # Taken from posixmodule.c. Note the avaialbility is determined at
     # compile time by the host, but filled in by a runtime call to pathconf,
     # sysconf, or confstr.
@@ -2466,7 +2467,7 @@ if not _WIN32:
        setattr(ConfConfig, k, rffi_platform.DefinedConstantInteger(v))
     for k,v in sysconf_consts_defs.items():
        setattr(ConfConfig, k, rffi_platform.DefinedConstantInteger(v))
-            
+
     confConfig = rffi_platform.configure(ConfConfig)
     pathconf_names = {}
     confstr_names = {}
