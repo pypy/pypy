@@ -699,6 +699,8 @@ class RSocket(object):
         if remove_inheritable:
             sock_set_inheritable(newfd, False)
         address.addrlen = rffi.cast(lltype.Signed, intmask(addrlen))
+        if _c._WIN32:
+            newfd = rffi.cast(lltype.Signed, newfd)
         return (newfd, address)
 
     def bind(self, address):
@@ -1465,9 +1467,10 @@ if _c.WIN32:
             result = _c.WSASocket(
                 _c.FROM_PROTOCOL_INFO, _c.FROM_PROTOCOL_INFO,
                 _c.FROM_PROTOCOL_INFO, info, 0, 0)
+            result = rffi.cast(lltype.Signed, result)
             if result == INVALID_SOCKET:
                 raise last_error()
-            return rffi.cast(lltype.Signed, result)
+            return result
 else:
     def dup(fd, inheritable=True):
         fd = rposix._dup(fd, inheritable)
