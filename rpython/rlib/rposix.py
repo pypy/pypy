@@ -2015,7 +2015,7 @@ if not _WIN32:
             ngroups = widen(ngroups_p[0])
             groups = [0] * ngroups
             for i in range(ngroups):
-                groups[i] = widen(groups_p[i])
+                groups[i] = widen_gid(groups_p[i])
             return groups
         finally:
             lltype.free(ngroups_p, flavor='raw')
