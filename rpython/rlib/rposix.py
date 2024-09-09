@@ -1255,7 +1255,6 @@ c_rename = external('rename', [rffi.CCHARP, rffi.CCHARP], rffi.INT,
 @specialize.argtype(0)
 def chmod(path, mode):
     if not _WIN32:
-        xxx = xxx
         handle_posix_error('chmod', c_chmod(_as_bytes0(path), mode))
     else:
         traits = utf8_traits
