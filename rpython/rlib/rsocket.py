@@ -543,7 +543,7 @@ class RSocket(object):
                 # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
                 # then we fall back to the SOCK_CLOEXEC-less case.
                 fd = _c.socket(family, type | SOCK_CLOEXEC, proto)
-                if fd < 0:
+                if widen(fd) < 0:
                     if _c.geterrno() == EINVAL:
                         # Linux older than 2.6.27 does not support
                         # SOCK_CLOEXEC.  An EINVAL might be caused by
@@ -993,10 +993,10 @@ class RSocket(object):
         self.wait_for_data(False)
         nbuf = len(buffers)
         address, addr_p, addrlen_p = self._addrbuf()
-        message_lengths = lltype.malloc(rffi.INTP.TO, nbuf, flavor='raw')
+        message_lengths = lltype.malloc(rffi.INT_realP.TO, nbuf, flavor='raw')
         messages = lltype.malloc(rffi.CCHARPP.TO, nbuf, flavor='raw')
         for i in range(nbuf):
-            message_lengths[i] = rffi.cast(rffi.INT, buffers[i].getlength())
+            message_lengths[i] = rffi.cast(rffi.INT_real, buffers[i].getlength())
             messages[i] = buffers[i].get_raw_address()
         size_of_anc = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
         size_of_anc[0] = rffi.cast(rffi.SIGNED, 0)
