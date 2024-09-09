@@ -101,10 +101,12 @@ class ArenaCollection(object):
         # a pointer to a page that has room for at least one more
         # allocation of the given size.
         length = small_request_threshold / WORD + 1
-        self.page_for_size          = self._new_page_ptr_list(length)
-        self.full_page_for_size     = self._new_page_ptr_list(length)
-        self.old_page_for_size      = self._new_page_ptr_list(length)
-        self.old_full_page_for_size = self._new_page_ptr_list(length)
+        self.page_for_size              = self._new_page_ptr_list(length)
+        self.full_page_for_size         = self._new_page_ptr_list(length)
+        self.emptyish_page_for_size     = self._new_page_ptr_list(length)
+        self.old_page_for_size          = self._new_page_ptr_list(length)
+        self.old_full_page_for_size     = self._new_page_ptr_list(length)
+        self.old_emptyish_page_for_size = self._new_page_ptr_list(length)
         self.nblocks_for_size = lltype.malloc(rffi.CArray(lltype.Signed),
                                               length, flavor='raw',
                                               immortal=True)
@@ -119,7 +121,7 @@ class ArenaCollection(object):
                                           self.max_pages_per_arena,
                                           flavor='raw', zero=True,
                                           immortal=True)
-        # this is used in mass_free() only
+        # this is used in _rehash_arenas_lists() only
         self.old_arenas_lists = lltype.malloc(rffi.CArray(ARENA_PTR),
                                               self.max_pages_per_arena,
                                               flavor='raw', zero=True,
@@ -197,6 +199,16 @@ class ArenaCollection(object):
 
     def allocate_new_page(self, size_class):
         """Allocate and return a new page for the given size_class."""
+        ll_assert(self.page_for_size[size_class] == PAGE_NULL,
+                  "allocate_new_page() called but a page is already waiting")
+        # first try to take one of the empty-ish pages
+        page = self.emptyish_page_for_size[size_class]
+        if page != PAGE_NULL:
+            self.page_for_size[size_class] = page
+            self.emptyish_page_for_size[size_class] = page.nextpage
+            page.nextpage = PAGE_NULL
+            return page
+        # no emptyish page either, go to the arena
         debug_start("arena-new-page")
         if have_debug_prints():
             debug_print("size-class", size_class, int(self.current_arena == ARENA_NULL))
@@ -249,8 +261,6 @@ class ArenaCollection(object):
         page.nfree = 0
         page.freeblock = result + self.hdrsize
         page.nextpage = PAGE_NULL
-        ll_assert(self.page_for_size[size_class] == PAGE_NULL,
-                  "allocate_new_page() called but a page is already waiting")
         self.page_for_size[size_class] = page
         return page
 
@@ -348,8 +358,11 @@ class ArenaCollection(object):
                             self.page_for_size[size_class])
             self.old_full_page_for_size[size_class] = (
                             self.full_page_for_size[size_class])
-            self.page_for_size[size_class]      = PAGE_NULL
-            self.full_page_for_size[size_class] = PAGE_NULL
+            self.old_emptyish_page_for_size[size_class] = (
+                            self.emptyish_page_for_size[size_class])
+            self.page_for_size[size_class]          = PAGE_NULL
+            self.full_page_for_size[size_class]     = PAGE_NULL
+            self.emptyish_page_for_size[size_class] = PAGE_NULL
             size_class -= 1
 
 
@@ -362,12 +375,16 @@ class ArenaCollection(object):
         #
         while size_class >= 1:
             #
-            # Walk the pages in 'page_for_size[size_class]' and
-            # 'full_page_for_size[size_class]' and free some objects.
+            # Walk the pages in the following lists:
+            # - old_page_for_size[size_class]
+            # - old_full_page_for_size[size_class]
+            # - old_emptyish_page_for_size[size_class]
+            # and free some objects.
             # Pages completely freed are added to 'page.arena.freepages',
             # and become available for reuse by any size class.  Pages
             # not completely freed are re-chained either in
-            # 'full_page_for_size[]' or 'page_for_size[]'.
+            # 'full_page_for_size[]', 'page_for_size[]', or
+            # 'emptyish_page_for_size[]'
             max_pages = self.mass_free_in_pages(size_class, ok_to_free_func,
                                                 max_pages)
             if max_pages <= 0:
@@ -377,6 +394,21 @@ class ArenaCollection(object):
             size_class -= 1
         #
         if size_class >= 0:
+            #size_class = self.small_request_threshold >> WORD_POWER_2
+            #for size_class in range(1, size_class+1):
+            #    l = []
+            #    page = self.page_for_size[size_class]
+            #    while page:
+            #        l.append(page)
+            #        page = page.nextpage
+            #    l.sort(key=lambda page: page.nfree + self._nuninitialized(page, size_class))
+            #    self.page_for_size[size_class] = PAGE_NULL
+            #    while l:
+            #        page = l.pop()
+            #        page.nextpage = self.page_for_size[size_class]
+            #        self.page_for_size[size_class] = page
+
+
             self._rehash_arenas_lists()
             self.size_class_with_old_pages = -1
             self._debug_print_arena_stats()
@@ -389,7 +421,8 @@ class ArenaCollection(object):
         max_pages = 5
         #
         while size_class >= 1:
-            self.mass_free_in_pages(size_class, ok_to_free_func, max_pages)
+            max_pages = self.mass_free_in_pages(size_class, ok_to_free_func, max_pages)
+            max_pages += 5
             size_class -= 1
 
     def mass_free(self, ok_to_free_func):
@@ -448,21 +481,26 @@ class ArenaCollection(object):
         block_size = size_class * WORD
         remaining_partial_pages = self.page_for_size[size_class]
         remaining_full_pages = self.full_page_for_size[size_class]
+        remaining_emptyish_pages = self.emptyish_page_for_size[size_class]
         #
         step = 0
-        while step < 2:
+        while step < 3:
             if step == 0:
                 page = self.old_page_for_size[size_class]
                 self.old_page_for_size[size_class] = PAGE_NULL
-            else:
+            elif step == 1:
                 page = self.old_full_page_for_size[size_class]
                 self.old_full_page_for_size[size_class] = PAGE_NULL
-            #
+            else:
+                page = self.old_emptyish_page_for_size[size_class]
+                self.old_emptyish_page_for_size[size_class] = PAGE_NULL
+
+            # what the linked list of pages
             while page != PAGE_NULL:
                 #
                 # Collect the page.
-                surviving = self.walk_page(page, block_size, ok_to_free_func)
                 nextpage = page.nextpage
+                surviving = self.walk_page(page, block_size, ok_to_free_func)
                 #
                 if surviving == nblocks:
                     #
@@ -476,9 +514,16 @@ class ArenaCollection(object):
                 elif surviving > 0:
                     #
                     # There is at least 1 object surviving.  Re-insert
-                    # the page in the 'remaining_partial_pages' chained list.
-                    page.nextpage = remaining_partial_pages
-                    remaining_partial_pages = page
+                    # the page in the 'remaining_partial_pages' or in the
+                    # 'remaining_emptyish_pages' chained list. we use the
+                    # remaining_emptyish_pages list if only 25% of capacity
+                    # of the list remain used.
+                    if surviving < self.nblocks_for_size[size_class] // 4:
+                        page.nextpage = remaining_emptyish_pages
+                        remaining_emptyish_pages = page
+                    else:
+                        page.nextpage = remaining_partial_pages
+                        remaining_partial_pages = page
                     #
                 else:
                     # No object survives; free the page.
@@ -491,8 +536,10 @@ class ArenaCollection(object):
                     # pages into self.old_xxx and return early
                     if step == 0:
                         self.old_page_for_size[size_class] = nextpage
-                    else:
+                    elif step == 1:
                         self.old_full_page_for_size[size_class] = nextpage
+                    else:
+                        self.old_emptyish_page_for_size[size_class] = nextpage
                     step = 99     # stop
                     break
 
@@ -503,6 +550,7 @@ class ArenaCollection(object):
         #
         self.page_for_size[size_class] = remaining_partial_pages
         self.full_page_for_size[size_class] = remaining_full_pages
+        self.emptyish_page_for_size[size_class] = remaining_emptyish_pages
         return max_pages
 
 
@@ -593,9 +641,10 @@ class ArenaCollection(object):
             freeblock = freeblock.address[0]
         assert freeblock != NULL
         pageaddr = llarena.getfakearenaaddress(llmemory.cast_ptr_to_adr(page))
-        num_initialized_blocks, rem = divmod(
-            freeblock - pageaddr - self.hdrsize, size_class * WORD)
-        assert rem == 0, "page size_class misspecified?"
+        a = freeblock - pageaddr - self.hdrsize
+        b = size_class * WORD
+        num_initialized_blocks = a // b
+        assert num_initialized_blocks * b == a, "page size_class misspecified?"
         nblocks = self.nblocks_for_size[size_class]
         return nblocks - num_initialized_blocks
 
@@ -630,24 +679,42 @@ class ArenaCollection(object):
         debug_print("______________________________________________")
         debug_print("pages")
         length = self.small_request_threshold // WORD + 1
+        used_blocks = 0
+        free_blocks = 0
         for i in range(length):
             count = 0
             page = self.full_page_for_size[i]
             while page:
                 count += 1
                 page = page.nextpage
-            page = self.page_for_size[i]
+                used_blocks += self.nblocks_for_size[i]
             count_half_full = 0
-            if page:
+            if self.page_for_size[i] != PAGE_NULL or self.emptyish_page_for_size[i] != PAGE_NULL:
                 debug_print("pages for size, nblocks", i, self.nblocks_for_size[i])
                 curr_limit = limit
-                while page:
-                    if curr_limit > 0:
-                        debug_print("page.nfree:", page.nfree)
-                    page = page.nextpage
-                    count_half_full += 1
-                    curr_limit -= 1
+                step = 0
+                while step < 2:
+                    step += 1
+                    if step == 1:
+                        page = self.page_for_size[i]
+                        if page:
+                            debug_print("allocating from:")
+                    else:
+                        page = self.emptyish_page_for_size[i]
+                        if page:
+                            debug_print("almost empty:")
+                    while page:
+                        if curr_limit > 0:
+                            debug_print("page.nfree:", page.nfree, self._nuninitialized(page, i))
+                        unused = page.nfree + self._nuninitialized(page, i)
+                        free_blocks += unused
+                        used_blocks += (self.nblocks_for_size[i] - unused)
+                        page = page.nextpage
+                        count_half_full += 1
+                        curr_limit -= 1
             debug_print("count, half full/full", count_half_full, count)
+        if used_blocks or free_blocks:
+            debug_print("used, unused, percent free (lower is better):", used_blocks, free_blocks, int(float(free_blocks) / (used_blocks + free_blocks) * 100.0))
 
 
 # ____________________________________________________________

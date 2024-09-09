@@ -416,15 +416,15 @@ def test_random(incremental=False):
     def my_allocate_new_arena():
         # the following output looks cool on a 112-character-wide terminal.
         lst = sorted(ac._all_arenas(), key=lambda a: a.base.arena._arena_index)
-        for a in lst:
-            print a.base.arena, a.base.arena.usagemap
-        print '-' * 80
+        #for a in lst:
+        #    print a.base.arena, a.base.arena.usagemap
+        #print '-' * 80
         ac.__class__.allocate_new_arena(ac)
         a = ac.current_arena.base.arena
         def my_mark_freed():
             a.freed = True
             DoneTesting.counter += 1
-            if DoneTesting.counter > 3:
+            if DoneTesting.counter > 30:
                 raise DoneTesting
         a.mark_freed = my_mark_freed
     ac.allocate_new_arena = my_allocate_new_arena
@@ -438,9 +438,10 @@ def test_random(incremental=False):
 
     try:
         while True:
+            print "number live objects:", len(live_objects), DoneTesting.counter
             #
             # Allocate some more objects
-            for i in range(random.randrange(50, 100)):
+            for i in range(50):
                 allocate_object(live_objects)
             #
             # Free half the objects, randomly

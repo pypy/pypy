@@ -63,3 +63,5 @@ class SimpleArenaCollection(object):
 
     def mass_free_per_class(self, ok_to_free_func):
         return self.mass_free_incremental(ok_to_free_func, 1)
+
+    def _debug_print_arena_stats(self, *args, **kwargs): pass
