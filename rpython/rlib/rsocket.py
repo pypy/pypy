@@ -991,10 +991,10 @@ class RSocket(object):
         self.wait_for_data(False)
         nbuf = len(buffers)
         address, addr_p, addrlen_p = self._addrbuf()
-        message_lengths = lltype.malloc(rffi.INTP.TO, nbuf, flavor='raw')
+        message_lengths = lltype.malloc(rffi.INT_realP.TO, nbuf, flavor='raw')
         messages = lltype.malloc(rffi.CCHARPP.TO, nbuf, flavor='raw')
         for i in range(nbuf):
-            message_lengths[i] = rffi.cast(rffi.INT, buffers[i].getlength())
+            message_lengths[i] = rffi.cast(rffi.INT_real, buffers[i].getlength())
             messages[i] = buffers[i].get_raw_address()
         size_of_anc = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
         size_of_anc[0] = rffi.cast(rffi.SIGNED, 0)

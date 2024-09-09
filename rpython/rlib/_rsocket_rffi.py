@@ -1332,7 +1332,7 @@ recvfrom = external('recvfrom', [socketfd_type, rffi.VOIDP, size_t,
 recvmsg = jit.dont_look_inside(rffi.llexternal(
     "recvmsg_implementation",
     [rffi.INT, rffi.INT, rffi.INT, sockaddr_ptr, socklen_t_ptr,
-        rffi.INTP, rffi.CCHARPP, rffi.INT, rffi.SIGNEDP, rffi.SIGNEDPP, rffi.SIGNEDPP,
+        rffi.INT_realP, rffi.CCHARPP, rffi.INT, rffi.SIGNEDP, rffi.SIGNEDPP, rffi.SIGNEDPP,
         rffi.CCHARPP, rffi.SIGNEDPP, rffi.SIGNEDP], rffi.INT,
     save_err=SAVE_ERR, compilation_info=compilation_info))
 

@@ -1992,13 +1992,13 @@ if not _WIN32:
         return handle_posix_error('sched_yield', c_sched_yield())
 
     c_getgroupslist = external('getgrouplist', [rffi.CCHARP, GID_T,
-                            GID_GROUPS_T, rffi.INTP], rffi.INT,
+                            GID_GROUPS_T, rffi.INT_realP], rffi.INT,
                             save_err=rffi.RFFI_SAVE_ERRNO)
 
     def getgrouplist(user, group):
         groups_p = lltype.malloc(GID_GROUPS_T.TO, 64, flavor='raw')
-        ngroups_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-        ngroups_p[0] = rffi.cast(rffi.INT, 64)
+        ngroups_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
+        ngroups_p[0] = rffi.cast(rffi.INT_real, 64)
         try:
             n = handle_posix_error('getgrouplist', c_getgroupslist(user, group,
                              groups_p, ngroups_p))

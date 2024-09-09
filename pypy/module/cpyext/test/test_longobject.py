@@ -236,6 +236,14 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                 }
                 return PyLong_FromUnsignedLong(n);
              """),
+            ("assize_t", "METH_O",
+             """
+                size_t n = PyLong_AsSize_t(args);
+                if ((long)n == -1 && PyErr_Occurred()) {
+                    return NULL;
+                }
+                return PyLong_FromSize_t(n);
+             """),
             ("asunsignedlonglong", "METH_O",
              """
                 unsigned long n = PyLong_AsUnsignedLongLong(args);
@@ -248,6 +256,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
             module.asunsignedlong(-1)
         with raises(OverflowError):
             module.asunsignedlonglong(-1)
+        assert module.assize_t(100) == 100
 
     def test_fromstring(self):
         module = self.import_extension('foo', [

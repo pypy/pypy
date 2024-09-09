@@ -28,7 +28,7 @@ def PyLong_FromSize_t(space, val):
     """Return a new PyLongObject object from a C size_t, or NULL on
     failure.
     """
-    return space.newlong_from_rarith_int(val)
+    return space.newlong_from_rarith_int(rffi.cast(lltype.Unsigned, val))
 
 @cpython_api([rffi.LONGLONG], PyObject)
 def PyLong_FromLongLong(space, val):
