@@ -1240,9 +1240,12 @@ def mkdir(path, mode=0o777):
 @specialize.argtype(0)
 @jit.dont_look_inside
 def rmdir(path):
-    utf8 = _as_utf80(path)
-    with rffi.scoped_utf82wcharp(utf8, codepoints_in_utf8(utf8)) as buf:
-        handle_posix_error('wrmdir', c_wrmdir(buf))
+    if _WIN32:
+        utf8 = _as_utf80(path)
+        with rffi.scoped_utf82wcharp(utf8, codepoints_in_utf8(utf8)) as buf:
+            handle_posix_error('wrmdir', c_wrmdir(buf))
+    else:
+        handle_posix_error('rmdir', c_rmdir(_as_bytes0(path)))
 
 c_chmod = external('chmod', [rffi.CCHARP, rffi.MODE_T], rffi.INT,
                    save_err=rffi.RFFI_SAVE_ERRNO)
