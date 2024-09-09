@@ -631,6 +631,12 @@ class AppTestReversed:
         raises(StopIteration, next, r)
         assert r.__length_hint__() == 0
 
+    def test_reversed_setstate_crash(self):
+        reverse_iter = reversed((5,4,3,2,1))
+        assert list(reverse_iter) == [1, 2, 3, 4, 5]
+        reverse_iter.__setstate__(1) # used to segfault
+        assert list(reverse_iter) == []
+
 
 class AppTestAllAny:
     """
