@@ -13,7 +13,10 @@ class AppTestAppSysTests:
 
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
-        cls.w_filesystemenc = cls.space.wrap(sys.getfilesystemencoding())
+        if sys.platform == "win32":
+            cls.w_filesystemenc = cls.space.wrap("utf-8")
+        else:
+            cls.w_filesystemenc = cls.space.wrap(sys.getfilesystemencoding())
 
     def test_sys_in_modules(self):
         import sys
