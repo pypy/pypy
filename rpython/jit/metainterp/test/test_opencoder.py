@@ -91,12 +91,12 @@ class TestOpencoder(object):
         frame0 = FakeFrame(1, JitCode(2), [i0, i1])
         frame1 = FakeFrame(3, JitCode(4), [i0, i0, add])
         framestack = [frame0]
-        resume.capture_resumedata(framestack, None, [], t)
+        t.capture_resumedata(framestack, None, [])
         (i0, i1), l, iter = self.unpack(t)
         assert l[1].opnum == rop.GUARD_FALSE
         assert l[1].framestack[0].boxes == [i0, i1]
         t.record_op(rop.GUARD_FALSE, [add])
-        resume.capture_resumedata([frame0, frame1], None, [], t)
+        t.capture_resumedata([frame0, frame1], None, [])
         t.record_op(rop.INT_ADD, [add, add])
         (i0, i1), l, iter = self.unpack(t)
         assert l[1].opnum == rop.GUARD_FALSE
@@ -112,9 +112,9 @@ class TestOpencoder(object):
         t.record_op(rop.GUARD_TRUE, [i1])
         frame0 = FakeFrame(1, JitCode(2), [i0, i1])
         frame1 = FakeFrame(3, JitCode(4), [i2, i2])
-        resume.capture_resumedata([frame0, frame1], None, [], t)
+        t.capture_resumedata([frame0, frame1], None, [])
         t.record_op(rop.GUARD_TRUE, [i1])
-        resume.capture_resumedata([frame0, frame1], None, [], t)
+        t.capture_resumedata([frame0, frame1], None, [])
         (i0, i1, i2), l, iter = self.unpack(t)
         pos = l[0].rd_resume_position
         snapshot_iter = iter.get_snapshot_iter(pos)
@@ -148,8 +148,8 @@ class TestOpencoder(object):
             newop = FakeOp(t.record_op(op.getopnum(), op.getarglist()))
             newop.orig_op = op
             if newop.is_guard():
-                resume.capture_resumedata(op.framestack,
-                    None, [], t)
+                t.capture_resumedata(op.framestack,
+                    None, [])
             op.position = newop.get_position()
         inpargs, l, iter = self.unpack(t)
         loop1 = TreeLoop("loop1")
@@ -167,8 +167,8 @@ class TestOpencoder(object):
         cut_point = t.cut_point()
         add2 = FakeOp(t.record_op(rop.INT_ADD, [add1, i1]))
         t.record_op(rop.GUARD_TRUE, [add2])
-        resume.capture_resumedata([FakeFrame(3, JitCode(4), [add2, add1, i1])],
-            None, [], t)
+        t.capture_resumedata([FakeFrame(3, JitCode(4), [add2, add1, i1])],
+            None, [])
         t.record_op(rop.INT_SUB, [add2, add1])
         t2 = t.cut_trace_from(cut_point, [add1, i1])
         (i0, i1), l, iter = self.unpack(t2)
@@ -180,7 +180,7 @@ class TestOpencoder(object):
         t = Trace([i0, i1, i2], metainterp_sd)
         p0 = FakeOp(t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr()))
         t.record_op(rop.GUARD_TRUE, [i0])
-        resume.capture_resumedata([], [i1, i2, p0], [p0, i1], t)
+        t.capture_resumedata([], [i1, i2, p0], [p0, i1])
         (i0, i1, i2), l, iter = self.unpack(t)
         assert not l[1].framestack
         assert l[1].virtualizables == [l[0], i1, i2]
@@ -191,7 +191,7 @@ class TestOpencoder(object):
         t = Trace([i0, i1, i2], metainterp_sd)
         p0 = FakeOp(t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr()))
         t.record_op(rop.GUARD_TRUE, [i0])
-        resume.capture_resumedata([], [i1, i2, p0], [p0, i1], t)
+        t.capture_resumedata([], [i1, i2, p0], [p0, i1])
         assert t.get_live_ranges() == [4, 4, 4, 4]
 
     def test_deadranges(self):
@@ -199,7 +199,7 @@ class TestOpencoder(object):
         t = Trace([i0, i1, i2], metainterp_sd)
         p0 = FakeOp(t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr()))
         t.record_op(rop.GUARD_TRUE, [i0])
-        resume.capture_resumedata([], [i1, i2, p0], [p0, i1], t)
+        t.capture_resumedata([], [i1, i2, p0], [p0, i1])
         i3 = FakeOp(t.record_op(rop.INT_ADD, [i1, ConstInt(1)]))
         i4 = FakeOp(t.record_op(rop.INT_ADD, [i3, ConstInt(1)]))
         t.record_op(rop.ESCAPE_N, [ConstInt(3)])

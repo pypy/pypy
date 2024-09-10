@@ -2573,9 +2573,10 @@ class MetaInterp(object):
             saved_pc = frame.pc
             if resumepc >= 0:
                 frame.pc = resumepc
-        resume.capture_resumedata(self.framestack, virtualizable_boxes,
-                                  self.virtualref_boxes, self.history.trace,
-                                  after_residual_call)
+        self.history.trace.capture_resumedata(
+            self.framestack, virtualizable_boxes,
+            self.virtualref_boxes,
+            after_residual_call)
         if self.framestack:
             self.framestack[-1].pc = saved_pc
 

@@ -816,6 +816,32 @@ class Trace(BaseTrace):
         self._snapshot_data.pop()
         self.append_snapshot_data_int(prev)
 
+    def capture_resumedata(self, framestack, virtualizable_boxes, virtualref_boxes, after_residual_call=False):
+        n = len(framestack) - 1
+        if n >= 0:
+            top = framestack[n]
+            result = self.create_top_snapshot(
+                top, virtualizable_boxes,
+                virtualref_boxes,
+                after_residual_call=after_residual_call,
+                is_last=n == 0)
+            self._ensure_parent_resumedata(framestack, n)
+        else:
+            result = self.create_empty_top_snapshot(
+                virtualizable_boxes, virtualref_boxes)
+        return result
+
+    def _ensure_parent_resumedata(self, framestack, n):
+        while n > 0:
+            target = framestack[n]
+            back = framestack[n - 1]
+            if target.parent_snapshot >= 0:
+                self.snapshot_add_prev(target.parent_snapshot)
+                return
+            s = self.create_snapshot(back, is_last=n == 1)
+            target.parent_snapshot = s
+            n -= 1
+
 
     # ____________________________________________________________
 

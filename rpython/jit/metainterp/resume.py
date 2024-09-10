@@ -83,32 +83,6 @@ class AccumInfo(VectorInfo):
                                               self.variable,
                                               self.location)
 
-def _ensure_parent_resumedata(framestack, n, t):
-    while n > 0:
-        target = framestack[n]
-        back = framestack[n - 1]
-        if target.parent_snapshot >= 0:
-            t.snapshot_add_prev(target.parent_snapshot)
-            return
-        s = t.create_snapshot(back, is_last=n == 1)
-        target.parent_snapshot = s
-        n -= 1
-
-def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t, after_residual_call=False):
-    n = len(framestack) - 1
-    result = t.length()
-    if n >= 0:
-        top = framestack[n]
-        snapshot = t.create_top_snapshot(
-                    top, virtualizable_boxes,
-                    virtualref_boxes,
-                    after_residual_call=after_residual_call,
-                    is_last=n == 0)
-        _ensure_parent_resumedata(framestack, n, t)
-    else:
-        snapshot = t.create_empty_top_snapshot(
-            virtualizable_boxes, virtualref_boxes)
-    return result
 
 PENDINGFIELDSTRUCT = lltype.Struct('PendingField',
                                    ('lldescr', OBJECTPTR),
