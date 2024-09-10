@@ -229,23 +229,24 @@ class ResumeDataLoopMemo(object):
 
             if isinstance(box, Const):
                 tagged = self.getconst(box)
-            elif box in liveboxes:
-                tagged = liveboxes[box]
             else:
-                is_virtual = False
-                if box.type == 'r':
-                    info = getptrinfo(box)
-                    is_virtual = (info is not None and info.is_virtual())
-                if box.type == 'i':
-                    info = getrawptrinfo(box)
-                    is_virtual = (info is not None and info.is_virtual())
-                if is_virtual:
-                    tagged = tag(num_virtuals, TAGVIRTUAL)
-                    num_virtuals += 1
-                else:
-                    tagged = tag(num_boxes, TAGBOX)
-                    num_boxes += 1
-                liveboxes[box] = tagged
+                try:
+                    tagged = liveboxes[box]
+                except KeyError:
+                    is_virtual = False
+                    if box.type == 'r':
+                        info = getptrinfo(box)
+                        is_virtual = (info is not None and info.is_virtual())
+                    if box.type == 'i':
+                        info = getrawptrinfo(box)
+                        is_virtual = (info is not None and info.is_virtual())
+                    if is_virtual:
+                        tagged = tag(num_virtuals, TAGVIRTUAL)
+                        num_virtuals += 1
+                    else:
+                        tagged = tag(num_boxes, TAGBOX)
+                        num_boxes += 1
+                    liveboxes[box] = tagged
             numb_state.append_short(tagged)
         numb_state.num_boxes = num_boxes
         numb_state.num_virtuals = num_virtuals
