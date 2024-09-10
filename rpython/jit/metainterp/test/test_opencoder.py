@@ -1,5 +1,8 @@
 import py
-from rpython.jit.metainterp.opencoder import Trace, untag, TAGINT, TAGBOX, encode_varint_signed, decode_varint_signed
+from rpython.jit.metainterp.opencoder import (
+    Trace, untag, TAGINT, TAGBOX, encode_varint_signed, decode_varint_signed,
+    skip_varint_signed, MIN_VALUE, MAX_VALUE,
+)
 from rpython.jit.metainterp.resoperation import rop, AbstractResOp
 from rpython.jit.metainterp.history import ConstInt, IntFrontendOp
 from rpython.jit.metainterp.history import ConstPtrJitCode
@@ -232,7 +235,7 @@ class TestOpencoder(object):
         i = t._cached_const_ptr(c2)
         assert i == 2
 
-@given(strategies.integers(), strategies.binary())
+@given(strategies.integers(MIN_VALUE, MAX_VALUE), strategies.binary())
 def test_varint_hypothesis(i, prefix):
     b = []
     encode_varint_signed(i, b)

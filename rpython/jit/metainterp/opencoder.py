@@ -54,66 +54,84 @@ INIT_SIZE = 4096
 # - fix test_resume
 # - benchmarks
 
+MIN_VALUE = -2 ** 30
+MAX_VALUE = 2 ** 30 - 1
 
 def encode_varint_signed(i, res):
-    # https://en.wikipedia.org/wiki/LEB128 signed variant
-    more = True
+    # either encode in 2 bytes or 4 bytes. the topmost bit is not set in the
+    # 2-bytes case
     startlen = len(res)
-    while more:
-        lowest7bits = i & 0b1111111
-        i >>= 7
-        if ((i == 0) and (lowest7bits & 0b1000000) == 0) or (
-            (i == -1) and (lowest7bits & 0b1000000) != 0
-        ):
-            more = False
-        else:
-            lowest7bits |= 0b10000000
-        res.append(chr(lowest7bits))
+    assert MIN_VALUE <= i <= MAX_VALUE
+    flag = bool(not (-2**14 <= i < 2 ** 14)) << 7
+    res.append(chr((i & 0b1111111) | flag))
+    i >>= 7
+    res.append(chr(i & 0xff))
+    if flag:
+        i >>= 8
+        res.append(chr(i & 0xff))
+        i >>= 8
+        res.append(chr(i & 0xff))
     return len(res) - startlen
 
 @always_inline
 def decode_varint_signed(b, index=0):
-    res = 0
-    shift = 0
-    while True:
-        byte = ord(b[index])
-        res = res | ((byte & 0b1111111) << shift)
-        index += 1
-        shift += 7
-        if not (byte & 0b10000000):
-            if byte & 0b1000000:
-                res |= -1 << shift
-            return res, index
+    byte = ord(b[index])
+    lastbyte = ord(b[index + 1])
+    res = (byte & 0b1111111) | (lastbyte << 7)
+    shift = 15
+    index += 2
+    if byte & 0b10000000:
+        lastbyte = ord(b[index + 1])
+        res |= (ord(b[index]) << 15) | (lastbyte << 23)
+        shift = 31
+        index += 2
+    # sign-extend
+    res |= (-bool(lastbyte & 0b10000000)) << shift
+    return res, index
 
 def skip_varint_signed(b, index, skip=1):
+    assert skip > 0
     while True:
         byte = ord(b[index])
-        index += 1
-        if not (byte & 0b10000000):
-            skip -= 1
-            if not skip:
-                return index
+        if byte & 0b10000000:
+            index += 2
+        index += 2
+        skip -= 1
+        if not skip:
+            return index
 
 def varint_only_decode(b, index, skip=0):
     if skip:
         index = skip_varint_signed(b, index, skip)
-    res = 0
-    shift = 0
-    while True:
-        byte = ord(b[index])
-        res = res | ((byte & 0b1111111) << shift)
-        index += 1
-        shift += 7
-        if not (byte & 0b10000000):
-            if byte & 0b1000000:
-                res |= -1 << shift
-            return res
+    byte = ord(b[index])
+    lastbyte = ord(b[index + 1])
+    res = (byte & 0b1111111) | (lastbyte << 7)
+    shift = 15
+    index += 2
+    if byte & 0b10000000:
+        lastbyte = ord(b[index + 1])
+        res |= (ord(b[index]) << 15) | (lastbyte << 23)
+        shift = 31
+        index += 2
+    # sign-extend
+    res |= (-bool(lastbyte & 0b10000000)) << shift
+    return res
+
+def tag(kind, pos):
+    res = intmask(r_uint(pos) << TAGSHIFT)
+    assert res >> TAGSHIFT == pos
+    return res | kind
+
+@specialize.ll()
+def untag(tagged):
+    return intmask(tagged) & TAGMASK, intmask(tagged) >> TAGSHIFT
 
 # chosen such that constant ints need at most 4 bytes
-SMALL_INT_STOP  = 0x40000
-assert encode_varint_signed(SMALL_INT_STOP, []) <= 4
+SMALL_INT_STOP  = 2**28
+SMALL_INT_START = -2**28
+assert encode_varint_signed(tag(TAGINT, SMALL_INT_STOP - 1), []) <= 4
 SMALL_INT_START = -0x40001
-assert encode_varint_signed(SMALL_INT_START, []) <= 4
+assert encode_varint_signed(tag(TAGINT, SMALL_INT_START), []) <= 4
 
 class BaseTrace(object):
     pass
@@ -287,18 +305,20 @@ class TraceIterator(BaseTrace):
             raise IndexError
         b = self.trace._ops
         index = self.pos
-        res = 0
-        shift = 0
-        while True:
-            byte = ord(b[index])
-            res = res | ((byte & 0b1111111) << shift)
-            index += 1
-            shift += 7
-            if not (byte & 0b10000000):
-                if byte & 0b1000000:
-                    res |= -1 << shift
-                self.pos = index
-                return res
+        byte = ord(b[index])
+        lastbyte = ord(b[index + 1])
+        res = (byte & 0b1111111) | (lastbyte << 7)
+        shift = 15
+        index += 2
+        if byte & 0b10000000:
+            lastbyte = ord(b[index + 1])
+            res |= (ord(b[index]) << 15) | (lastbyte << 23)
+            shift = 31
+            index += 2
+        # sign-extend
+        res |= (-bool(lastbyte & 0b10000000)) << shift
+        self.pos = index
+        return res
 
     def _untag(self, tagged):
         tag, v = untag(tagged)
@@ -444,7 +464,7 @@ class BoxArrayIter(object):
         item, self.position = decode_varint_signed(self.data, self.position)
         return item
 
-BoxArrayIter.BOXARRAYITER0 = BoxArrayIter(0, ['\x00'])
+BoxArrayIter.BOXARRAYITER0 = BoxArrayIter(0, ['\x00', '\x00'])
 
 
 class Trace(BaseTrace):
@@ -467,7 +487,8 @@ class Trace(BaseTrace):
         self._bigints_dict = {}
         self._floats = []
         self._snapshot_data = []
-        self._snapshot_array_data = ['\x00']
+        self._snapshot_array_data = []
+        self.append_snapshot_array_data_int(0) # all 0-length arrays get index 0
         if not we_are_translated() and isinstance(max_num_inputargs, list): # old api for tests
             self.inputargs = max_num_inputargs
             for i, box in enumerate(max_num_inputargs):
@@ -479,6 +500,7 @@ class Trace(BaseTrace):
         self._index = max_num_inputargs # "position" of resulting resops
         self._start = max_num_inputargs
         self._pos = max_num_inputargs
+        self.tag_overflow = False
 
     def set_inputargs(self, inputargs):
         self.inputargs = inputargs
@@ -498,20 +520,27 @@ class Trace(BaseTrace):
         self._pos += 1
 
     def append_int(self, i):
-        more = True
-        while more:
-            lowest7bits = i & 0b1111111
-            i >>= 7
-            if ((i == 0) and (lowest7bits & 0b1000000) == 0) or (
-                (i == -1) and (lowest7bits & 0b1000000) != 0
-            ):
-                more = False
-            else:
-                lowest7bits |= 0b10000000
-            self.append_byte(lowest7bits)
+        # XXX only check limit once
+        if not MIN_VALUE <= i <= MAX_VALUE:
+            self.tag_overflow = True
+            i = 0
+        flag = bool(not (-2**14 <= i < 2 ** 14)) << 7
+        self.append_byte((i & 0b1111111) | flag)
+        i >>= 7
+        self.append_byte(i & 0xff)
+        if flag:
+            i >>= 8
+            self.append_byte(i & 0xff)
+            i >>= 8
+            self.append_byte(i & 0xff)
+
+    def tag_overflow_imminent(self):
+        return self._pos > MAX_VALUE * 0.8
 
     def tracing_done(self):
         from rpython.rlib.debug import debug_start, debug_stop, debug_print
+        if self.tag_overflow:
+            raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
         self._bigints_dict = {}
         self._refs_dict = new_ref_dict()
         debug_start("jit-trace-done")
@@ -701,9 +730,15 @@ class Trace(BaseTrace):
         return boxes_list_storage
 
     def append_snapshot_array_data_int(self, i):
+        if not MIN_VALUE <= i <= MAX_VALUE:
+            self.tag_overflow = True
+            i = 0
         encode_varint_signed(i, self._snapshot_array_data)
 
     def append_snapshot_data_int(self, i):
+        if not MIN_VALUE <= i <= MAX_VALUE:
+            self.tag_overflow = True
+            i = 0
         encode_varint_signed(i, self._snapshot_data)
 
     def _encode_snapshot(self, index, pc, array, is_last=False):
@@ -767,7 +802,9 @@ class Trace(BaseTrace):
         return self._encode_snapshot(frame.jitcode.index, frame.pc, array, is_last=is_last)
 
     def snapshot_add_prev(self, prev):
-        assert self._snapshot_data[-1] == '}' # == 0x7d == -3 == SNAPSHOT_PREV_NEEDS_PATCHING
+        assert self._snapshot_data[-2] == '}' # SNAPSHOT_PREV_NEEDS_PATCHING
+        assert self._snapshot_data[-1] == '\xff'
+        self._snapshot_data.pop()
         self._snapshot_data.pop()
         self.append_snapshot_data_int(prev)
 
@@ -822,11 +859,3 @@ class Trace(BaseTrace):
             pass
         return iter.inputargs, ops
 
-def tag(kind, pos):
-    res = intmask(r_uint(pos) << TAGSHIFT)
-    assert res >> TAGSHIFT == pos
-    return res | kind
-
-@specialize.ll()
-def untag(tagged):
-    return intmask(tagged) & TAGMASK, intmask(tagged) >> TAGSHIFT
