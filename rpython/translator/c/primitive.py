@@ -225,7 +225,7 @@ PrimitiveType = {
     SignedLongLong:   'long long @',
     Signed:   'Signed @',
     UnsignedLongLong: 'unsigned long long @',
-    Unsigned: 'Unsigned @',
+    Unsigned: 'size_t @',
     Float:    'double @',
     SingleFloat: 'float @',
     LongFloat: 'long double @',
