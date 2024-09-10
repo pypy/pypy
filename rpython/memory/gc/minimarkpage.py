@@ -329,7 +329,6 @@ class ArenaCollection(object):
         """
         self.peak_memory_used = max(self.peak_memory_used,
                                     self.total_memory_used)
-        self.total_memory_used = r_uint(0)
         #
         size_class = self.small_request_threshold >> WORD_POWER_2
         self.size_class_with_old_pages = size_class
@@ -517,6 +516,7 @@ class ArenaCollection(object):
         obj = llarena.getfakearenaaddress(llmemory.cast_ptr_to_adr(page))
         obj += self.hdrsize
         surviving = 0    # initially
+        freed = 0
         skip_free_blocks = page.nfree
         #
         while True:
@@ -554,6 +554,7 @@ class ArenaCollection(object):
                     #
                     # Update the number of free objects in the page.
                     page.nfree += 1
+                    freed += 1
                     #
                 else:
                     # The object survives.
@@ -562,7 +563,7 @@ class ArenaCollection(object):
             obj += block_size
         #
         # Update the global total size of objects.
-        self.total_memory_used += r_uint(surviving * block_size)
+        self.total_memory_used -= r_uint(freed * block_size)
         #
         # Return the number of surviving objects.
         return surviving
