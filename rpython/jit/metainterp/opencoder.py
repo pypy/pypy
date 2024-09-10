@@ -366,9 +366,9 @@ class TraceIterator(BaseTrace):
         if argnum == -1:
             argnum = self._nextbyte()
         if not (0 <= oparity[opnum] <= 3):
-            args = []
+            args = [None] * argnum
             for i in range(argnum):
-                args.append(self._untag(self._next()))
+                args[i] = self._untag(self._next())
             res = ResOperation(opnum, args)
         else:
             cls = opclasses[opnum]
