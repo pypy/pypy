@@ -4,7 +4,7 @@ for each operation (inputargs numbered with negative numbers)
 <opnum> [size-if-unknown-arity] [<arg0> <arg1> ...] [descr-or-snapshot-index]
 
 <opnum> is 1 byte
-size is 1 byte
+size is 1 byte (or 0 if implied by opnum)
 the args are varsized
 the index is varsized
 
@@ -164,7 +164,7 @@ class TopDownSnapshotIterator(object):
 
     def length(self, snapshot_index):
         array = varint_only_decode(self.trace._snapshot_data, snapshot_index, skip=2)
-        length, _ = decode_varint_signed(self.trace._snapshot_array_data, array)
+        length = varint_only_decode(self.trace._snapshot_array_data, array)
         return length
 
     def prev(self, snapshot_index):

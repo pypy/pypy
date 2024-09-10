@@ -624,7 +624,7 @@ def test_ResumeDataLoopMemo_number():
 
     iter = t.get_iter()
     b1, b2, b3, b4, b5 = iter.inputargs
-    numb_state = memo.number(0, iter)
+    numb_state = memo.number(snap1, iter)
     numb = numb_state.create_numbering()
     assert numb_state.num_virtuals == 0
 
@@ -640,7 +640,7 @@ def test_ResumeDataLoopMemo_number():
                                   [], [])
     t.snapshot_add_prev(snap)
 
-    numb_state2 = memo.number(1, iter)
+    numb_state2 = memo.number(snap2, iter)
     numb2 = numb_state2.create_numbering()
     assert numb_state2.num_virtuals == 0
 
@@ -664,7 +664,7 @@ def test_ResumeDataLoopMemo_number():
 
     # renamed
     b3.set_forwarded(c4)
-    numb_state3 = memo.number(2, iter)
+    numb_state3 = memo.number(snap3, iter)
     numb3 = numb_state3.create_numbering()
     assert numb_state3.num_virtuals == 0
 
@@ -680,7 +680,7 @@ def test_ResumeDataLoopMemo_number():
     t.snapshot_add_prev(snap)
 
     b4.set_forwarded(FakeVirtualInfo(True))
-    numb_state4 = memo.number(3, iter)
+    numb_state4 = memo.number(snap4, iter)
     numb4 = numb_state4.create_numbering()
     assert numb_state4.num_virtuals == 1
 
@@ -690,25 +690,23 @@ def test_ResumeDataLoopMemo_number():
                                        tag(0, TAGBOX), tag(3, TAGINT)] + base + [0, 2]
 
     t.append_byte(ord('s'))
-    snap4 = t.create_snapshot(FakeJitCode("jitcode", 2), 1, Frame(env4), False)
-    t.snapshot_add_prev(snap)
-    t.append_byte(ord('s'))
-    snap5 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 0, Frame([]),
+    snap5 = t.create_top_snapshot(Frame(FakeJitCode("jitcode", 0), 0, []),
                                   env5, [])
-    t.snapshot_add_prev(snap4)
+    snap4 = t.create_snapshot(Frame(FakeJitCode("jitcode", 2), 1, env4))
+    t.snapshot_add_prev(snap)
 
     b4.set_forwarded(FakeVirtualInfo(True))
     b5.set_forwarded(FakeVirtualInfo(True))
-    numb_state5 = memo.number(4, iter)
+    numb_state5 = memo.number(snap5, iter)
     numb5 = numb_state5.create_numbering()
     assert numb_state5.num_virtuals == 2
 
     assert numb_state5.liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
-                                     b4: tag(0, TAGVIRTUAL), b5: tag(1, TAGVIRTUAL)}
+                                     b4: tag(1, TAGVIRTUAL), b5: tag(0, TAGVIRTUAL)}
     assert unpack_numbering(numb5) == [22, 0,
-        3, tag(0, TAGBOX), tag(0, TAGVIRTUAL), tag(1, TAGVIRTUAL),
+        3, tag(0, TAGVIRTUAL), tag(0, TAGBOX), tag(1, TAGVIRTUAL),
         0] + base + [
-        2, 1, tag(3, TAGINT), tag(0, TAGVIRTUAL), tag(0, TAGBOX), tag(3, TAGINT)
+        2, 1, tag(3, TAGINT), tag(1, TAGVIRTUAL), tag(0, TAGBOX), tag(3, TAGINT)
         ] + [0, 0]
 
 @given(strategies.lists(
