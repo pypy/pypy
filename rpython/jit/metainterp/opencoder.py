@@ -50,7 +50,6 @@ INIT_SIZE = 4096
 
 # XXX todos left:
 # - SnapshotIterator is very inefficient
-# - try less inefficient varint encoding
 # - fix test_resume
 # - benchmarks
 
@@ -520,19 +519,27 @@ class Trace(BaseTrace):
         self._pos += 1
 
     def append_int(self, i):
-        # XXX only check limit once
         if not MIN_VALUE <= i <= MAX_VALUE:
             self.tag_overflow = True
             i = 0
+        if self._pos + 4 > len(self._ops):
+            self._double_ops()
+        ops = self._ops
+        pos = self._pos
         flag = bool(not (-2**14 <= i < 2 ** 14)) << 7
-        self.append_byte((i & 0b1111111) | flag)
+        ops[pos] = chr((i & 0b1111111) | flag)
+        pos += 1
         i >>= 7
-        self.append_byte(i & 0xff)
+        ops[pos] = chr(i & 0xff)
+        pos += 1
         if flag:
             i >>= 8
-            self.append_byte(i & 0xff)
+            ops[pos] = chr(i & 0xff)
+            pos += 1
             i >>= 8
-            self.append_byte(i & 0xff)
+            ops[pos] = chr(i & 0xff)
+            pos += 1
+        self._pos = pos
 
     def tag_overflow_imminent(self):
         return self._pos > MAX_VALUE * 0.8
@@ -545,12 +552,13 @@ class Trace(BaseTrace):
         self._refs_dict = new_ref_dict()
         debug_start("jit-trace-done")
         debug_print("trace length:", self._pos)
+        debug_print(" number operations:", self._count)
         debug_print(" total snapshots:", self._total_snapshots)
         debug_print(" snapshot data:", len(self._snapshot_data))
         debug_print(" snapshot array data:", len(self._snapshot_array_data))
-        debug_print(" bigint consts: " + str(self._consts_bigint), len(self._bigints))
-        debug_print(" float consts: " + str(self._consts_float), len(self._floats))
-        debug_print(" ref consts: " + str(self._consts_ptr) + " " + str(self._consts_ptr_nodict),  len(self._refs))
+        debug_print(" bigint consts: ", self._consts_bigint, len(self._bigints))
+        debug_print(" float consts: ", self._consts_float, len(self._floats))
+        debug_print(" ref consts: ", self._consts_ptr, self._consts_ptr_nodict,  len(self._refs))
         debug_print(" descrs:", len(self._descrs))
         debug_stop("jit-trace-done")
 
