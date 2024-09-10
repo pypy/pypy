@@ -39,13 +39,13 @@ def test_doc_version():
     assert ("version = '%s'\n" % v[:4]) in content
     assert ("release = '%s'\n" % v) in content
 
-def test_setup_version():
+def test_pyproject_version():
     cffi_root = Path(os.path.dirname(__file__)).parent.parent
-    p = cffi_root / 'setup.py'
+    p = cffi_root / 'pyproject.toml'
     content = _read(p)
     #
     v = cffi.__version__.replace('+', '')
-    assert ("version='%s'" % v) in content
+    assert f'version = "{v}"' in content
 
 def test_c_version():
     cffi_root = Path(os.path.dirname(__file__)).parent.parent
