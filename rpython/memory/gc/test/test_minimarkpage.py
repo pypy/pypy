@@ -66,7 +66,7 @@ def arena_collection_for_test(pagesize, pagelayout, fill_with_objects=False):
     assert " " not in pagelayout.rstrip(" ")
     nb_pages = len(pagelayout)
     arenasize = pagesize * (nb_pages + 1) - 1
-    ac = ArenaCollection(arenasize, pagesize, 9*WORD)
+    ac = ArenaCollection(arenasize, pagesize, 9*WORD, None)
     #
     def link(pageaddr, size_class, size_block, nblocks, nusedblocks, step=1):
         assert step in (1, 2)
@@ -450,11 +450,12 @@ def test_random(incremental=False):
             live_objects_extra = {}
             fresh_extra = 0
             if not incremental:
-                ac.mass_free(ok_to_free)
+                ac.ok_to_free_func = ok_to_free
+                ac.mass_free()
             else:
+                ac.ok_to_free_func = ok_to_free
                 ac.mass_free_prepare()
-                while not ac.mass_free_incremental(ok_to_free,
-                                                   random.randrange(1, 3)):
+                while not ac.mass_free_incremental(random.randrange(1, 3)):
                     print '[]'
                     prev = ac.total_memory_used
                     allocate_object(live_objects_extra)

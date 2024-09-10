@@ -88,13 +88,17 @@ PAGE_NULL = lltype.nullptr(PAGE_HEADER)
 class ArenaCollection(object):
     _alloc_flavor_ = "raw"
 
-    def __init__(self, arena_size, page_size, small_request_threshold):
+    def __init__(self, arena_size, page_size, small_request_threshold, ok_to_free_func):
         # 'small_request_threshold' is the largest size that we
         # can ask with self.malloc().
         self.arena_size = arena_size
         self.page_size = page_size
         self.small_request_threshold = small_request_threshold
         self.arenas_count = 0
+        # For each object, if ok_to_free_func(obj) returns True, then free
+        # the object.  
+        self.ok_to_free_func = ok_to_free_func
+
         #
         # 'pageaddr_for_size': for each size N between WORD and
         # small_request_threshold (included), contains either NULL or
@@ -215,6 +219,12 @@ class ArenaCollection(object):
             oldpage = self.old_page_for_size[size_class]
             if oldpage:
                 debug_print("old-page-nfree", oldpage.nfree)
+            oldpage = self.old_full_page_for_size[size_class]
+            if oldpage:
+                debug_print("old-full-page-nfree", oldpage.nfree)
+            oldpage = self.old_emptyish_page_for_size[size_class]
+            if oldpage:
+                debug_print("old-emptyish-page-nfree", oldpage.nfree)
         debug_stop("arena-new-page")
 
         #
@@ -366,9 +376,8 @@ class ArenaCollection(object):
             size_class -= 1
 
 
-    def mass_free_incremental(self, ok_to_free_func, max_pages):
-        """For each object, if ok_to_free_func(obj) returns True, then free
-        the object.  This returns True if complete, or False if the limit
+    def mass_free_incremental(self, max_pages):
+        """This returns True if complete, or False if the limit
         'max_pages' is reached.
         """
         size_class = self.size_class_with_old_pages
@@ -385,7 +394,7 @@ class ArenaCollection(object):
             # not completely freed are re-chained either in
             # 'full_page_for_size[]', 'page_for_size[]', or
             # 'emptyish_page_for_size[]'
-            max_pages = self.mass_free_in_pages(size_class, ok_to_free_func,
+            max_pages = self.mass_free_in_pages(size_class,
                                                 max_pages)
             if max_pages <= 0:
                 self.size_class_with_old_pages = size_class
@@ -415,23 +424,23 @@ class ArenaCollection(object):
         #
         return True
 
-    def mass_free_per_class(self, ok_to_free_func):
+    def mass_free_per_class(self, limit_per_class):
         """ try to free some pages for every size class """
         size_class = self.small_request_threshold >> WORD_POWER_2
-        max_pages = 5
+        max_pages = limit_per_class
         #
         while size_class >= 1:
-            max_pages = self.mass_free_in_pages(size_class, ok_to_free_func, max_pages)
-            max_pages += 5
+            max_pages = self.mass_free_in_pages(size_class, max_pages)
+            max_pages += limit_per_class
             size_class -= 1
 
-    def mass_free(self, ok_to_free_func):
+    def mass_free(self):
         """For each object, if ok_to_free_func(obj) returns True, then free
         the object.
         """
         self.mass_free_prepare()
         #
-        res = self.mass_free_incremental(ok_to_free_func, sys.maxint)
+        res = self.mass_free_incremental(sys.maxint)
         ll_assert(res, "non-incremental mass_free_in_pages() returned False")
 
 
@@ -476,7 +485,7 @@ class ArenaCollection(object):
         self.min_empty_nfreepages = 1
 
 
-    def mass_free_in_pages(self, size_class, ok_to_free_func, max_pages):
+    def mass_free_in_pages(self, size_class, max_pages):
         nblocks = self.nblocks_for_size[size_class]
         block_size = size_class * WORD
         remaining_partial_pages = self.page_for_size[size_class]
@@ -500,7 +509,7 @@ class ArenaCollection(object):
                 #
                 # Collect the page.
                 nextpage = page.nextpage
-                surviving = self.walk_page(page, block_size, ok_to_free_func)
+                surviving = self.walk_page(page, block_size)
                 #
                 if surviving == nblocks:
                     #
@@ -519,11 +528,11 @@ class ArenaCollection(object):
                     # remaining_emptyish_pages list if only 25% of capacity
                     # of the list remain used.
                     if surviving < self.nblocks_for_size[size_class] // 4:
-                        page.nextpage = remaining_emptyish_pages
-                        remaining_emptyish_pages = page
+                        remaining_emptyish_pages = _insert_bubble_by_nfree(
+                                page, remaining_emptyish_pages)
                     else:
-                        page.nextpage = remaining_partial_pages
-                        remaining_partial_pages = page
+                        remaining_partial_pages = _insert_bubble_by_nfree(
+                                page, remaining_partial_pages)
                     #
                 else:
                     # No object survives; free the page.
@@ -570,8 +579,9 @@ class ArenaCollection(object):
         arena.freepages = pageaddr
 
 
-    def walk_page(self, page, block_size, ok_to_free_func):
+    def walk_page(self, page, block_size):
         """Walk over all objects in a page, and ask ok_to_free_func()."""
+        ok_to_free_func = self.ok_to_free_func
         #
         # 'freeblock' is the next free block
         freeblock = page.freeblock
@@ -715,6 +725,18 @@ class ArenaCollection(object):
             debug_print("count, half full/full", count_half_full, count)
         if used_blocks or free_blocks:
             debug_print("used, unused, percent free (lower is better):", used_blocks, free_blocks, int(float(free_blocks) / (used_blocks + free_blocks) * 100.0))
+
+
+def _insert_bubble_by_nfree(page, nextpage):
+    """ insert page as the head of the chained list, with nextpage being the
+    previous head. however, we swap the two, depending on who has the smaller
+    amount of free space. """
+    if nextpage and nextpage.nfree < page.nfree:
+        page.nextpage = nextpage.nextpage
+        nextpage.nextpage = page
+        return nextpage
+    page.nextpage = nextpage
+    return page
 
 
 # ____________________________________________________________
