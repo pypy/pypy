@@ -34,7 +34,7 @@ if MACHINE == 'aarch64':
 # already freed!
 
 MAINDIR = os.path.dirname(os.path.dirname(__file__))
-CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache'))
+CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache', MACHINE))
 
 PLATFORMS = [
     'host',
