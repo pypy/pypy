@@ -41,11 +41,11 @@ def test_doc_version():
 
 def test_pyproject_version():
     cffi_root = Path(os.path.dirname(__file__)).parent.parent
-    p = cffi_root / 'pyproject.toml'
+    p = cffi_root / 'setup.py'
     content = _read(p)
     #
     v = cffi.__version__.replace('+', '')
-    assert f'version = "{v}"' in content
+    assert ("version='%s'" % v) in content
 
 def test_c_version():
     cffi_root = Path(os.path.dirname(__file__)).parent.parent
