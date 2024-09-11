@@ -97,3 +97,22 @@ diff -u1 -r '--exclude=__pycache__' ../pypy-base/extra_tests/cffi_tests/test_c.p
      def check_value(x):
          if x == 10000:
              raise ValueError(42)
+diff --git a/extra_tests/cffi_tests/cffi0/test_version.py b/extra_tests/cffi_tests/cffi0/test_version.py
+index 5aec6f91e27..f08731e1d14 100644
+--- extra_tests/cffi_tests/cffi0/test_version.py
++++ extra_tests/cffi_tests/cffi0/test_version.py
+@@ -41,11 +41,11 @@ def test_doc_version():
+ 
+ def test_pyproject_version():
+     cffi_root = Path(os.path.dirname(__file__)).parent.parent
+-    p = cffi_root / 'pyproject.toml'
++    p = cffi_root / 'setup.py'
+     content = _read(p)
+     #
+     v = cffi.__version__.replace('+', '')
+-    assert f'version = "{v}"' in content
++    assert ("version='%s'" % v) in content
+ 
+ def test_c_version():
+     cffi_root = Path(os.path.dirname(__file__)).parent.parent
+-- 
