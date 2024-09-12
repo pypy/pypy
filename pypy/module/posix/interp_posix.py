@@ -450,7 +450,7 @@ def _getfullpathname(space, w_path):
     """helper for ntpath.abspath """
     try:
         if space.isinstance_w(w_path, space.w_unicode):
-            path = FileEncoder(space, w_path).as_utf8()
+            path = space.utf8_w(w_path)
             rstring.check_str0(path)
         else:
             path = space.bytes0_w(w_path)

@@ -122,7 +122,8 @@ class Utf8Traits(object):
         elif isinstance(path, unicode):
             res = path.encode('utf-8')
         else:
-            res = path.as_utf8()
+            raise ValueError("unknown type in call to as_utf80")
+        assert res is not None
         rstring.check_str0(res)
         return res
 
@@ -131,43 +132,4 @@ string_traits = StringTraits()
 unicode_traits = UnicodeTraits()
 utf8_traits = Utf8Traits()
 
-
-# Returns True when the unicode function should be called:
-# - on Windows
-# - if the path is Unicode.
-if _WIN32:
-    @specialize.argtype(0)
-    def _prefer_unicode(path):
-        assert path is not None
-        if isinstance(path, str):
-            return False
-        elif isinstance(path, unicode):
-            return True
-        else:
-            return path.is_unicode
-
-    @specialize.argtype(0)
-    def _preferred_traits(path):
-        if _prefer_unicode(path):
-            return unicode_traits
-        else:
-            return string_traits
-
-    @specialize.argtype(0, 1)
-    def _preferred_traits2(path1, path2):
-        if _prefer_unicode(path1) or _prefer_unicode(path2):
-            return unicode_traits
-        else:
-            return string_traits
-else:
-    @specialize.argtype(0)
-    def _prefer_unicode(path):
-        return False
-
-    @specialize.argtype(0)
-    def _preferred_traits(path):
-        return string_traits
-
-    @specialize.argtype(0, 1)
-    def _preferred_traits2(path1, path2):
-        return string_traits
+# Always use utf8_traits

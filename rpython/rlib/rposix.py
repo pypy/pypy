@@ -8,8 +8,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rlib import debug, jit, rstring, rthread, types
 from rpython.rlib._os_support import (
     _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
-    POSIX_SIZE_T, POSIX_SSIZE_T, utf8_traits, _LINUX,
-    _prefer_unicode, _preferred_traits, _preferred_traits2)
+    POSIX_SIZE_T, POSIX_SSIZE_T, utf8_traits, _LINUX)
 from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
@@ -707,6 +706,7 @@ def getfullpathname(path):
     while True:      # should run the loop body maximum twice
         with rffi.scoped_alloc_unicodebuffer(length) as out_buf:
             with rffi.scoped_utf82wcharp(utf8, codepoints_in_utf8(utf8)) as in_buf:
+
                 res = win32traits.GetFullPathName(
                     in_buf, rffi.cast(rwin32.DWORD, length),
                     out_buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
@@ -1551,9 +1551,9 @@ def utime(path, times):
         handle_posix_error('utime', error)
     else:  # _WIN32 case
         from rpython.rlib.rwin32file import time_t_to_FILE_TIME
-        traits = _preferred_traits(path)
+        traits = utf8_traits
         win32traits = make_win32_traits(traits)
-        path = traits.as_str0(path)
+        path = traits.as_utf80(path)
         hFile = win32traits.CreateFile(path,
                            win32traits.FILE_WRITE_ATTRIBUTES, 0,
                            None, win32traits.OPEN_EXISTING,

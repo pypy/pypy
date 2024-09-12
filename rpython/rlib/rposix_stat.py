@@ -17,7 +17,7 @@ from rpython.rtyper.rmodel import Repr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.error import TyperError
 
-from rpython.rlib._os_support import _preferred_traits, string_traits
+from rpython.rlib._os_support import utf8_traits
 from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -594,7 +594,7 @@ def fstat(fd):
             return build_stat_result(stresult)
     else:
         handle = rwin32.get_osfhandle(fd)
-        win32traits = make_win32_traits(string_traits)
+        win32traits = make_win32_traits(utf8_traits)
         filetype = win32traits.GetFileType(handle)
         if filetype == win32traits.FILE_TYPE_CHAR:
             # console or LPT device
@@ -632,8 +632,8 @@ def stat(path):
             handle_posix_error('stat', c_stat(arg, stresult))
             return build_stat_result(stresult)
     else:
-        traits = _preferred_traits(path)
-        path = traits.as_str0(path)
+        traits = utf8_traits
+        path = traits.as_utf80(path)
         return win32_xstat3(traits, path, traverse=True)
 
 @replace_os_function('lstat')
@@ -645,8 +645,8 @@ def lstat(path):
             handle_posix_error('lstat', c_lstat(arg, stresult))
             return build_stat_result(stresult)
     else:
-        traits = _preferred_traits(path)
-        path = traits.as_str0(path)
+        traits = utf8_traits
+        path = traits.as_utf80(path)
         return win32_xstat3(traits, path, traverse=False)
 
 @specialize.argtype(0)
@@ -654,8 +654,8 @@ def stat3(path):
     if _WIN32:
         # On Windows, the algorithm behind os.stat() changed a lot between
         # Python 2 and Python 3.  This is the Python 3 version.
-        traits = _preferred_traits(path)
-        path = traits.as_str0(path)
+        traits = utf8_traits
+        path = traits.as_utf80(path)
         return win32_xstat3(traits, path, traverse=True)
     else:
         return stat(path)
@@ -665,8 +665,8 @@ def lstat3(path):
     if _WIN32:
         # On Windows, the algorithm behind os.lstat() changed a lot between
         # Python 2 and Python 3.  This is the Python 3 version.
-        traits = _preferred_traits(path)
-        path = traits.as_str0(path)
+        traits = utf8_traits
+        path = traits.as_utf80(path)
         return win32_xstat3(traits, path, traverse=False)
     else:
         return lstat(path)

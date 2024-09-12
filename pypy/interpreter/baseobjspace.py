@@ -1791,7 +1791,12 @@ class ObjSpace(object):
             from pypy.module.sys.interp_encoding import getfilesystemencoding
             w_obj = self.call_method(self.w_unicode, 'encode', w_obj,
                                      getfilesystemencoding(self))
-        return self.bytes0_w(w_obj)
+            ret = self.bytes_w(w_obj)
+        else:
+            # Make sure the w_obj is ascii (utf8)
+            ret = self.bytes_w(w_obj)
+            ret = rutf8.decode_latin_1(ret)
+        return rstring.assert_str0(ret)
 
     def fsencode_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.fsencode_w(w_obj)

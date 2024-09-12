@@ -90,6 +90,11 @@ class TestPosixFunction:
         res = rposix.getfullpathname(ustuff)
         assert res == ustuff
 
+    @win_only
+    def test__getfullpathname_unicode(self):
+        res = rposix.getfullpathname(u"foo\xf2\xf2")
+        assert res
+
     def test_getcwd(self):
         assert rposix.getcwd() == os.getcwd()
 

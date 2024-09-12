@@ -1405,10 +1405,10 @@ class scoped_unicode2wcharp:
 
 class scoped_utf82wcharp:
     def __init__(self, value, unicode_len):
-        if value is not None:
-            self.buf = utf82wcharp(value, unicode_len)
-        else:
+        if value is None:
             self.buf = lltype.nullptr(CWCHARP.TO)
+        else:
+            self.buf = utf82wcharp(value, unicode_len)
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
