@@ -243,7 +243,7 @@ class W_Socket(W_Root):
                         type = info_ptr.c_iSocketType 
                         fd = _c.WSASocketW(_c.FROM_PROTOCOL_INFO, _c.FROM_PROTOCOL_INFO,
                         _c.FROM_PROTOCOL_INFO, info_ptr, 0, _c.WSA_FLAG_OVERLAPPED)
-                        if fd == rsocket.INVALID_SOCKET:
+                        if widen(fd) == rsocket.INVALID_SOCKET:
                             raise converted_error(space, rsocket.last_error())
                         sock = RSocket(info_ptr.c_iAddressFamily, info_ptr.c_iSocketType, info_ptr.c_iProtocol, fd)
                     finally:
