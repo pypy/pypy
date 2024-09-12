@@ -446,18 +446,14 @@ def remove(space, w_path):
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
-def _getfullpathname(space, w_path):
+@unwrap_spec(path='fsencode')
+def _getfullpathname(space, path):
     """helper for ntpath.abspath """
     try:
-        if space.isinstance_w(w_path, space.w_unicode):
-            path = space.utf8_w(w_path)
-            rstring.check_str0(path)
-        else:
-            path = space.bytes0_w(w_path)
         fullpath = rposix.getfullpathname(path)
         w_fullpath = space.newbytes(fullpath)
     except OSError as e:
-        raise wrap_oserror2(space, e, w_path)
+        raise wrap_oserror(space, e, path)
     else:
         return w_fullpath
 

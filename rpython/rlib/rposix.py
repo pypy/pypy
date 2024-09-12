@@ -1554,11 +1554,13 @@ def utime(path, times):
         traits = utf8_traits
         win32traits = make_win32_traits(traits)
         path = traits.as_utf80(path)
-        hFile = win32traits.CreateFile(path,
-                           win32traits.FILE_WRITE_ATTRIBUTES, 0,
-                           None, win32traits.OPEN_EXISTING,
-                           win32traits.FILE_FLAG_BACKUP_SEMANTICS,
-                           rwin32.NULL_HANDLE)
+        with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+
+            hFile = win32traits.CreateFile(buf,
+                               win32traits.FILE_WRITE_ATTRIBUTES, 0,
+                               None, win32traits.OPEN_EXISTING,
+                               win32traits.FILE_FLAG_BACKUP_SEMANTICS,
+                               rwin32.NULL_HANDLE)
         if hFile == rwin32.INVALID_HANDLE_VALUE:
             raise rwin32.lastSavedWindowsError()
         ctime = lltype.nullptr(rwin32.FILETIME)

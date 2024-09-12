@@ -18,6 +18,7 @@ from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.error import TyperError
 
 from rpython.rlib._os_support import utf8_traits
+from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -732,11 +733,10 @@ if _WIN32:
         isUnhandledTag = False
         if not traverse:
             flags |= traits.FILE_FLAG_OPEN_REPARSE_POINT
-        hFile = traits.CreateFile(path, access, 0,
-            lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
-            traits.OPEN_EXISTING,
-            flags,
-            rwin32.NULL_HANDLE)
+        with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+            hFile = traits.CreateFile(buf, access, 0,
+                lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
+                traits.OPEN_EXISTING, flags, rwin32.NULL_HANDLE)
 
         if hFile == rwin32.INVALID_HANDLE_VALUE:
             # Either the path doesn't exist, or the caller lacks access
@@ -753,12 +753,12 @@ if _WIN32:
                                            "win32_xstat failed")
             elif errcode == traits.ERROR_INVALID_PARAMETER:
                 # \\.\con requires read or write access.
-                hFile = traits.CreateFile(path,
-                            access | traits.GENERIC_READ,
-                            traits.FILE_SHARE_READ | traits.FILE_SHARE_WRITE,
-                            lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
-                            traits.OPEN_EXISTING, flags,
-                            rwin32.NULL_HANDLE)
+                with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+                    hFile = traits.CreateFile(buf,
+                                access | traits.GENERIC_READ,
+                                traits.FILE_SHARE_READ | traits.FILE_SHARE_WRITE,
+                                lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
+                                traits.OPEN_EXISTING, flags, rwin32.NULL_HANDLE)
                 if hFile == rwin32.INVALID_HANDLE_VALUE:
                     raise WindowsError(rwin32.GetLastError_saved(),
                                        "win32_xstat failed")
@@ -767,11 +767,12 @@ if _WIN32:
                 if traverse:
                     traverse = False
                     isUnhandledTag = True
-                    hFile = traits.CreateFile(path, access, 0,
-                        lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
-                        traits.OPEN_EXISTING,
-                        flags | traits.FILE_FLAG_OPEN_REPARSE_POINT,
-                        rwin32.NULL_HANDLE)
+                    with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+                        hFile = traits.CreateFile(buf, access, 0,
+                            lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
+                            traits.OPEN_EXISTING,
+                            flags | traits.FILE_FLAG_OPEN_REPARSE_POINT,
+                            rwin32.NULL_HANDLE)
                 if hFile == rwin32.INVALID_HANDLE_VALUE:
                     raise WindowsError(rwin32.GetLastError_saved(),
                                        "win32_xstat failed")
@@ -786,7 +787,8 @@ if _WIN32:
                 if fileType == traits.FILE_TYPE_UNKNOWN and errcode != 0:
                     rwin32.CloseHandle(hFile)
                     raise WindowsError(errcode, "os_stat failed")
-                fileAttributes = widen(traits.GetFileAttributes(path))
+                with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+                    fileAttributes = widen(traits.GetFileAttributes(buf))
                 st_mode = 0
                 if (fileAttributes != traits.INVALID_FILE_ATTRIBUTES and
                         fileAttributes & traits.FILE_ATTRIBUTE_DIRECTORY):
@@ -896,7 +898,8 @@ if _WIN32:
     @specialize.arg(0)
     def win32_attributes_from_dir(traits, path, info, tagInfo):
         with lltype.scoped_alloc(traits.WIN32_FIND_DATA) as filedata:
-            hFindFile = traits.FindFirstFile(path, filedata)
+            with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+                hFindFile = traits.FindFirstFile(buf, filedata)
             if hFindFile == rwin32.INVALID_HANDLE_VALUE:
                 return 0
             traits.FindClose(hFindFile)
