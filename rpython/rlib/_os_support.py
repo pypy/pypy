@@ -122,7 +122,7 @@ class Utf8Traits(object):
         elif isinstance(path, unicode):
             res = path.encode('utf-8')
         else:
-            raise ValueError("unknown type in call to as_utf80")
+            res = path.as_bytes()
         assert res is not None
         rstring.check_str0(res)
         return res
