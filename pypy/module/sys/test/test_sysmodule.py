@@ -103,7 +103,7 @@ class AppTestAppSysTests:
 
     def test_getfilesystemencoding(self):
         import sys
-        assert lower(sys.getfilesystemencoding()) == 'utf-8'
+        assert sys.getfilesystemencoding().lower() == 'utf-8'
 
     def test_float_info(self):
         import sys
