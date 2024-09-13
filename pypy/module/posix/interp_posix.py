@@ -1,11 +1,12 @@
 import os
 import sys
 
-from rpython.rlib import rposix, rposix_stat
+from rpython.rlib import rposix, rposix_stat, rstring
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.rutf8 import codepoints_in_utf8
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import (
@@ -65,7 +66,7 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.bytes0_w(self.w_obj)
+        return self.space.fsencode_w(self.w_obj)
 
     def as_unicode(self):
         space = self.space
@@ -74,7 +75,7 @@ class FileDecoder(object):
         return space.unicode0_w(w_unicode)
 
     def as_utf8(self):
-        ret = self.space.fsdecode_w(self.w_obj)
+        ret = self.space.utf8_w(self.w_obj)
         if '\x00' in ret:
             raise oefmt(self.space.w_ValueError, "embedded null character")
         return ret
@@ -448,19 +449,16 @@ def remove(space, w_path):
 
 def _getfullpathname(space, w_path):
     """helper for ntpath.abspath """
+    path = space.fsencode_w(w_path)
     try:
-        if space.isinstance_w(w_path, space.w_unicode):
-            path = FileEncoder(space, w_path)
-            fullpath = rposix.getfullpathname(path)
-            w_fullpath = u2utf8(space, fullpath)
-        else:
-            path = space.bytes0_w(w_path)
-            fullpath = rposix.getfullpathname(path)
-            w_fullpath = space.newbytes(fullpath)
+        fullpath = rposix.getfullpathname(path)
     except OSError as e:
-        raise wrap_oserror2(space, e, w_path)
+        raise wrap_oserror(space, e, path)
+    if space.isinstance_w(w_path, space.w_unicode):
+        ulen = codepoints_in_utf8(fullpath)
+        return space.newutf8(fullpath, ulen)
     else:
-        return w_fullpath
+        return space.newbytes(fullpath)
 
 def getcwd(space):
     """Return the current working directory."""

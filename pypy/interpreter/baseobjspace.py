@@ -3,7 +3,7 @@ import py
 
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
-from rpython.rlib import jit, types, rutf8
+from rpython.rlib import jit, types, rutf8, rstring
 from rpython.rlib.debug import make_sure_not_resized, check_not_access_directly
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize, not_rpython)
@@ -21,6 +21,8 @@ from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
 
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
+
+_WIN32 = sys.platform.startswith('win')
 
 def get_printable_location(greenkey):
     return "unpackiterable [%s]" % (greenkey.iterator_greenkey_printable(), )
@@ -1774,7 +1776,6 @@ class ObjSpace(object):
 
     def bytes0_w(self, w_obj):
         "Like bytes_w, but rejects strings with NUL bytes."
-        from rpython.rlib import rstring
         result = w_obj.str_w(self)
         if '\x00' in result:
             raise oefmt(self.w_TypeError,
@@ -1791,7 +1792,18 @@ class ObjSpace(object):
             from pypy.module.sys.interp_encoding import getfilesystemencoding
             w_obj = self.call_method(self.w_unicode, 'encode', w_obj,
                                      getfilesystemencoding(self))
-        return self.bytes0_w(w_obj)
+            return self.bytes0_w(w_obj)
+        elif _WIN32:
+            # Make sure the w_obj is ascii (utf8)
+            bytestr = w_obj.str_w(self)
+            result = rutf8.decode_latin_1(bytestr)
+            if '\x00' in result:
+                raise oefmt(self.w_TypeError,
+                            "argument must be a string without NUL characters")
+            return rstring.assert_str0(result)
+            
+        else:
+            return self.bytes0_w(w_obj)
 
     def fsencode_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.fsencode_w(w_obj)
@@ -1873,7 +1885,6 @@ class ObjSpace(object):
 
     def unicode0_w(self, w_obj):
         "Like unicode_w, but rejects strings with NUL bytes."
-        from rpython.rlib import rstring
         result = w_obj.utf8_w(self).decode('utf8')
         if u'\x00' in result:
             raise oefmt(self.w_TypeError,

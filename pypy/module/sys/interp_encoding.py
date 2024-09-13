@@ -29,9 +29,7 @@ def get_w_default_encoder(space):
     space.sys.w_default_encoder = w_encoder    # cache it
     return w_encoder
 
-if sys.platform == "win32":
-    base_encoding = "mbcs"
-elif sys.platform == "darwin":
+if sys.platform in ("win32", "darwin"):
     base_encoding = "utf-8"
 else:
     # In CPython, the default base encoding is NULL. This is paired with a

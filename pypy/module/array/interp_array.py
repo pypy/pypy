@@ -251,30 +251,34 @@ class W_ArrayBase(W_Root):
             j = self.len
         if i >= j:
             return None
-        oldbuffer = self._buffer
-        self._buffer = lltype.malloc(rffi.CCHARP.TO,
+        newbuffer = lltype.malloc(rffi.CCHARP.TO,
             (self.len - (j - i)) * self.itemsize, flavor='raw')
         # Issue #2913: don't pass add_memory_pressure here, otherwise
         # memory pressure grows but actual raw memory usage doesn't---we
         # are freeing the old buffer at the end of this function.
-        if i:
-            rffi.c_memcpy(
-                rffi.cast(rffi.VOIDP, self._buffer),
-                rffi.cast(rffi.VOIDP, oldbuffer),
-                i * self.itemsize
-            )
-        if j < self.len:
-            rffi.c_memcpy(
-                rffi.cast(rffi.VOIDP, rffi.ptradd(self._buffer,
-                                                  i * self.itemsize)),
-                rffi.cast(rffi.VOIDP, rffi.ptradd(oldbuffer,
-                                                  j * self.itemsize)),
-                (self.len - j) * self.itemsize
-            )
+        try:
+            if i:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, newbuffer),
+                    rffi.cast(rffi.VOIDP, self._buffer),
+                    i * self.itemsize
+                )
+            if j < self.len:
+                rffi.c_memcpy(
+                    rffi.cast(rffi.VOIDP, rffi.ptradd(newbuffer,
+                                                      i * self.itemsize)),
+                    rffi.cast(rffi.VOIDP, rffi.ptradd(self._buffer,
+                                                      j * self.itemsize)),
+                    (self.len - j) * self.itemsize
+                )
+        except Exception:
+            lltype.free(newbuffer, flavor='raw')
+            raise
         self.len -= j - i
         self.allocated = self.len
-        if oldbuffer:
-            lltype.free(oldbuffer, flavor='raw')
+        if self._buffer:
+            lltype.free(self._buffer, flavor='raw')
+        self._buffer = newbuffer
 
     def readbuf_w(self, space):
         return ArrayBuffer(self, True)

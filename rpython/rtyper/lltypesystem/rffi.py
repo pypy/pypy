@@ -1405,10 +1405,10 @@ class scoped_unicode2wcharp:
 
 class scoped_utf82wcharp:
     def __init__(self, value, unicode_len):
-        if value is not None:
-            self.buf = utf82wcharp(value, unicode_len)
-        else:
+        if value is None:
             self.buf = lltype.nullptr(CWCHARP.TO)
+        else:
+            self.buf = utf82wcharp(value, unicode_len)
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
@@ -1482,6 +1482,19 @@ class scoped_alloc_unicodebuffer:
     def str(self, length):
         return unicode_from_buffer(self.raw, self.gc_buf, self.case_num,
                                    self.size, length)
+
+class scoped_alloc_utf8buffer:
+    def __init__(self, size):
+        self.size = size
+    def __enter__(self):
+        self.raw, self.gc_buf, self.case_num = alloc_unicodebuffer(self.size)
+        return self
+    def __exit__(self, *args):
+        keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf, self.case_num)
+    def str(self, length):
+        return utf8_from_buffer(self.raw, self.gc_buf, self.case_num,
+                                   self.size, length)
+
 
 # You would have to have a *huge* amount of data for this to block long enough
 # to be worth it to release the GIL.
