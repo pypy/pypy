@@ -6,6 +6,7 @@ from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.rutf8 import codepoints_in_utf8
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import (
@@ -446,16 +447,18 @@ def remove(space, w_path):
     except OSError as e:
         raise wrap_oserror2(space, e, w_path)
 
-@unwrap_spec(path='fsencode')
-def _getfullpathname(space, path):
+def _getfullpathname(space, w_path):
     """helper for ntpath.abspath """
+    path = space.fsencode_w(w_path)
     try:
         fullpath = rposix.getfullpathname(path)
-        w_fullpath = space.newbytes(fullpath)
     except OSError as e:
         raise wrap_oserror(space, e, path)
+    if space.isinstance_w(w_path, space.w_unicode):
+        ulen = codepoints_in_utf8(fullpath)
+        return space.newutf8(fullpath, ulen)
     else:
-        return w_fullpath
+        return space.newbytes(fullpath)
 
 def getcwd(space):
     """Return the current working directory."""
