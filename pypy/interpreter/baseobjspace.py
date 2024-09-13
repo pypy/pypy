@@ -1795,8 +1795,13 @@ class ObjSpace(object):
             return self.bytes0_w(w_obj)
         elif _WIN32:
             # Make sure the w_obj is ascii (utf8)
-            ret = self.bytes0_w(w_obj)
-            return rutf8.decode_latin_1(ret)
+            bytestr = w_obj.str_w(self)
+            result = rutf8.decode_latin_1(bytestr)
+            if '\x00' in result:
+                raise oefmt(self.w_TypeError,
+                            "argument must be a string without NUL characters")
+            return rstring.assert_str0(result)
+            
         else:
             return self.bytes0_w(w_obj)
 
