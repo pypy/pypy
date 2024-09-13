@@ -3,7 +3,7 @@ import py
 
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
-from rpython.rlib import jit, types, rutf8
+from rpython.rlib import jit, types, rutf8, rstring
 from rpython.rlib.debug import make_sure_not_resized, check_not_access_directly
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize, not_rpython)
@@ -22,6 +22,8 @@ from pypy.tool.generate_stdlib_module_names import get_stdlib_names
 
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
+
+_WIN32 = sys.platform.startswith('win')
 
 def get_printable_location(greenkey):
     return "unpackiterable [%s]" % (greenkey.iterator_greenkey_printable(), )
@@ -1782,7 +1784,6 @@ class ObjSpace(object):
 
     def text0_w(self, w_obj):
         "Like text_w, but rejects strings with NUL bytes."
-        from rpython.rlib import rstring
         result = self.text_w(w_obj)
         if '\x00' in result:
             raise oefmt(self.w_ValueError, "embedded null character")

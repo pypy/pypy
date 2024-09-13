@@ -86,11 +86,14 @@ class TestPosixFunction:
 
     @win_only
     def test__getfullpathname_long(self):
-        stuff = "C:" + "\\abcd" * 100
-        py.test.raises(WindowsError, rposix.getfullpathname, stuff)
         ustuff = u"C:" + u"\\abcd" * 100
         res = rposix.getfullpathname(ustuff)
         assert res == ustuff
+
+    @win_only
+    def test__getfullpathname_unicode(self):
+        res = rposix.getfullpathname(u"foo\xf2\xf2")
+        assert res
 
     def test_getcwd(self):
         assert rposix.getcwd() == os.getcwd()
@@ -351,7 +354,7 @@ class UnicodeWithEncoding:
             from rpython.rlib.runicode import unicode_encode_utf_8
             res = unicode_encode_utf_8(self.unistr, len(self.unistr), "strict")
             return rstring.assert_str0(res)
-                        
+
     else:
         def as_bytes(self):
             from rpython.rlib.runicode import unicode_encode_utf_8
@@ -421,7 +424,7 @@ class BasePosixUnicodeOrAscii:
     def test_chmod(self):
         def f():
             return rposix.chmod(self.path, 0777)
-
+        f()
         interpret(f, []) # does not crash
 
     def test_unlink(self):
@@ -455,10 +458,13 @@ class BasePosixUnicodeOrAscii:
                 if isinstance(udir.as_unicode(), str):
                     _udir = udir.as_unicode()
                     _res = ', '
+                    return _res.join(rposix.listdir(_udir))
                 else:
                     _udir = udir
-                    _res = u', '
-                return _res.join(rposix.listdir(_udir))
+                    _res = ', '
+                    contents = _res.join(rposix.listdir(_udir))
+                    return contents.decode('utf8')
+            f()  # sanity check
             result = interpret(f, [])
             assert os.path.basename(self.ufilename) in ll_to_string(result)
         else:

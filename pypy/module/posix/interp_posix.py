@@ -92,7 +92,7 @@ class FileDecoder(object):
         return ret
 
     def as_utf8(self):
-        ret = self.space.fsdecode_w(self.w_obj)
+        ret = self.space.utf8_w(self.w_obj)
         if '\x00' in ret:
             raise oefmt(self.space.w_ValueError, "embedded null character")
         return ret
@@ -847,6 +847,7 @@ dir_fd may not be implemented on your platform.
     except OSError as e:
         raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
 
+
 @unwrap_spec(path=path_or_fd(allow_fd=False),
              dir_fd=DirFD(rposix.HAVE_UNLINKAT))
 def remove(space, path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
@@ -868,19 +869,18 @@ dir_fd may not be implemented on your platform.
         raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
 
 if _WIN32:
-    @unwrap_spec(path=path_or_fd(allow_fd=False, nullable=False))
-    def _getfullpathname(space, path):
+    def _getfullpathname(space, w_path):
         """helper for ntpath.abspath """
+        path = space.fsencode_w(w_path)
         try:
-            if path.as_unicode is not None:
-                result = rposix.getfullpathname(path.as_unicode)
-                return u2utf8(space, result)
-            else:
-                result = rposix.getfullpathname(path.as_bytes)
-                return space.newbytes(result)
+            fullpath = rposix.getfullpathname(path)
         except OSError as e:
-            raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
-
+            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        if space.isinstance_w(w_path, space.w_unicode):
+            ulen = codepoints_in_utf8(fullpath)
+            return space.newutf8(fullpath, ulen)
+        else:
+            return space.newbytes(fullpath)
 
 def getcwdb(space):
     """Return the current working directory."""

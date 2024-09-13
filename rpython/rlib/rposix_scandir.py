@@ -57,11 +57,11 @@ if not rwin32.WIN32:
 else:
     # ----- Win32 version -----
     import stat
-    from rpython.rlib._os_support import unicode_traits, string_traits
+    from rpython.rlib._os_support import utf8_traits
     from rpython.rlib.rwin32file import make_win32_traits
     from rpython.rlib import rposix_stat
 
-    win32traits = make_win32_traits(unicode_traits)
+    win32traits = make_win32_traits(utf8_traits)
 
 
     SCANDIRP = lltype.Ptr(lltype.Struct('SCANDIRP',
@@ -118,11 +118,11 @@ else:
         return dirp.filedata
 
     def get_name_unicode(filedata):
-        return unicode_traits.charp2str(rffi.cast(unicode_traits.CCHARP,
+        return utf8_traits.charp2str(rffi.cast(utf8_traits.CCHARP,
                                                   filedata.c_cFileName))
 
     def get_name_bytes(filedata):
-        wcharp = rffi.cast(unicode_traits.CCHARP, filedata.c_cFileName)
+        wcharp = rffi.cast(utf8_traits.CCHARP, filedata.c_cFileName)
         utf8, i = rffi.wcharp2utf8(wcharp)
         return utf8
 
