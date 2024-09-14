@@ -169,8 +169,9 @@ class Path(object):
 
 def _path_from_unicode(space, w_value):
     if _WIN32:
+        path_b = space.bytes0_w(space.fsencode(w_value))
         path_u = FileEncoder(space, w_value).as_unicode()
-        return Path(-1, None, path_u, w_value)
+        return Path(-1, path_b, path_u, w_value)
     else:
         path_b = space.bytes0_w(space.fsencode(w_value))
         return Path(-1, path_b, None, w_value)
@@ -1154,10 +1155,14 @@ entries '.' and '..' even if they are present in the directory."""
             len_result = len(result_u)
             result_w = [None] * len_result
             for i in range(len_result):
-                result_w[i] = result_u[i].encode('utf-8')
-            return space.newlist_text(result_w)
+                result_w[i] = space.newtext(result_u[i])
+            return space.newlist(result_w)
         elif _WIN32:
-            return space.newlist_utf8(result, True)
+            len_result = len(result)
+            result_w = [None] * len_result
+            for i in range(len_result):
+                result_w[i] = space.newtext(result[i])
+            return space.newlist(result_w)
         # only non-_WIN32
         len_result = len(result)
         result_w = [None] * len_result
@@ -1992,12 +1997,9 @@ def do_utimes(space, func, arg, utime):
 def _dispatch_utime(path, times):
     # XXX: a dup. of call_rposix to specialize rposix.utime taking a
     # Path for win32 support w/ do_utimes
-    if path.as_unicode is not None:
-        return rposix.utime(path.as_unicode, times)
-    else:
-        path_b = path.as_bytes
-        assert path_b is not None
-        return rposix.utime(path.as_bytes, times)
+    path_b = path.as_bytes
+    assert path_b is not None
+    return rposix.utime(path.as_bytes, times)
 
 
 def convert_seconds(space, w_time):
@@ -2201,9 +2203,9 @@ def getppid(space):
     if not _WIN32:
         return space.newint(os.getppid())
     else:
-        from pypy.module.posix.interp_nt import win32_getppid
+        from pypy.module.posix import interp_nt as nt
         try:
-            return space.newint(win32_getppid())
+            return space.newint(nt.win32_getppid())
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
     return space.w_None
@@ -2663,8 +2665,11 @@ if _WIN32:
                                space.newint(info[2])])
 
     def _getfinalpathname(space, w_path):
+        path = space.fsdecode_w(w_path)
+        if '\x00' in path:
+            raise oefmt(space.w_ValueError, "embedded null character")
         try:
-            s, lgt = dispatch_filename(nt._getfinalpathname)(space, w_path)
+            s, lgt = nt._getfinalpathname(path)
         except nt.LLNotImplemented as e:
             raise OperationError(space.w_NotImplementedError,
                                  space.newtext(e.msg))

@@ -405,8 +405,9 @@ class AppTestPosix:
         for v in ['', b'']:
             with raises(FileNotFoundError):
                 posix.listdir(v)
+        blank_dirlist = posix.listdir()
         for v in ['.', None]:
-            assert posix.listdir() == posix.listdir(v)
+            assert blank_dirlist == posix.listdir(v)
 
     def test_listdir_bytes(self):
         import sys

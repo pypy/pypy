@@ -129,8 +129,7 @@ def make__getfinalpathname_impl(traits):
         raise LLNotImplemented("GetFinalPathNameByHandle not available on "
                                "this platform")
 
-    def _getfinalpathname_llimpl(path):
-        utf8 = traits.as_utf80(path)
+    def _getfinalpathname_llimpl(utf8):
         with rffi.scoped_utf82wcharp(utf8, codepoints_in_utf8(utf8)) as buf:
             hFile = win32traits.CreateFile(buf, 0, 0, None,
                                        win32traits.OPEN_EXISTING,
