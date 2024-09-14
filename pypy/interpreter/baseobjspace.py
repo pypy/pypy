@@ -23,8 +23,6 @@ from pypy.tool.generate_stdlib_module_names import get_stdlib_names
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
 
-_WIN32 = sys.platform.startswith('win')
-
 def get_printable_location(greenkey):
     return "unpackiterable [%s]" % (greenkey.iterator_greenkey_printable(), )
 

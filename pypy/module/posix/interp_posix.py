@@ -70,7 +70,7 @@ class FileEncoder(object):
         return ret
 
     def as_utf8(self):
-        ret = self.space.utf8_w(self.w_obj)
+        ret = self.space.fsencode_w(self.w_obj)
         if '\x00' in ret:
             raise oefmt(self.space.w_ValueError, "embedded null character")
         return ret
@@ -92,7 +92,7 @@ class FileDecoder(object):
         return ret
 
     def as_utf8(self):
-        ret = self.space.utf8_w(self.w_obj)
+        ret = self.space.fsdecode_w(self.w_obj)
         if '\x00' in ret:
             raise oefmt(self.space.w_ValueError, "embedded null character")
         return ret
@@ -873,14 +873,21 @@ if _WIN32:
         """helper for ntpath.abspath """
         path = space.fsencode_w(w_path)
         try:
+            space._try_buffer_w(w_path, space.BUF_FULL_RO)
+        except BufferInterfaceNotFound:
+            w_obj = fspath(space, w_path)
+            as_bytes = not space.isinstance_w(w_obj, space.w_text)
+        else:
+            as_bytes = True
+        try:
             fullpath = rposix.getfullpathname(path)
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-        if space.isinstance_w(w_path, space.w_unicode):
-            ulen = codepoints_in_utf8(fullpath)
-            return space.newutf8(fullpath, ulen)
-        else:
+        if as_bytes:
             return space.newbytes(fullpath)
+        else:
+            ulen = codepoints_in_utf8(fullpath)
+            return space.newtext(fullpath, ulen)
 
 def getcwdb(space):
     """Return the current working directory."""

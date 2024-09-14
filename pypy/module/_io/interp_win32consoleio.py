@@ -12,7 +12,7 @@ from pypy.interpreter.unicodehelper import (str_decode_utf_16,
         utf8_encode_utf_16)
 from pypy.module._codecs.interp_codecs import CodecState
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib._os_support import _preferred_traits
+from rpython.rlib._os_support import utf8_traits
 from rpython.rlib import rwin32
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.runicode import WideCharToMultiByte, MultiByteToWideChar
@@ -296,25 +296,24 @@ class W_WinConsoleIO(W_RawIOBase):
             if self.writable:
                 access = rwin32.GENERIC_WRITE
         
-            traits = _preferred_traits(space.realunicode_w(w_path))
-            if not (traits.str is unicode):
-                raise oefmt(space.w_ValueError,
-                            "Non-unicode string name %s", traits.str)
+            traits = utf8_traits
             win32traits = make_win32_traits(traits)
             
             pathlen = space.len_w(w_path)
             name = rffi.utf82wcharp(space.utf8_w(w_path), pathlen)
-            self.handle = win32traits.CreateFile(name, 
-                rwin32.ALL_READ_WRITE, rwin32.SHARE_READ_WRITE,
-                rffi.NULL, win32traits.OPEN_EXISTING,
-                0, rffi.cast(rwin32.HANDLE, 0))
-            if self.handle == rwin32.INVALID_HANDLE_VALUE:
+            try:
                 self.handle = win32traits.CreateFile(name, 
-                    access,
-                    rwin32.SHARE_READ_WRITE,
+                    rwin32.ALL_READ_WRITE, rwin32.SHARE_READ_WRITE,
                     rffi.NULL, win32traits.OPEN_EXISTING,
                     0, rffi.cast(rwin32.HANDLE, 0))
-            lltype.free(name, flavor='raw')
+                if self.handle == rwin32.INVALID_HANDLE_VALUE:
+                    self.handle = win32traits.CreateFile(name, 
+                        access,
+                        rwin32.SHARE_READ_WRITE,
+                        rffi.NULL, win32traits.OPEN_EXISTING,
+                        0, rffi.cast(rwin32.HANDLE, 0))
+            finally:
+                lltype.free(name, flavor='raw')
             
             if self.handle == rwin32.INVALID_HANDLE_VALUE:
                 raise WindowsError(rwin32.GetLastError_saved(),
@@ -365,7 +364,7 @@ class W_WinConsoleIO(W_RawIOBase):
             return space.newtext("<%s name=%s>" % (typename, name_repr))
             
     def fileno_w(self, space):
-        traits = _preferred_traits(u"")
+        traits = utf8_traits
         win32traits = make_win32_traits(traits)
         if self.fd < 0 and self.handle != rwin32.INVALID_HANDLE_VALUE:
             if self.writable:
