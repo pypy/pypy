@@ -117,6 +117,8 @@ class Utf8Traits(object):
     @staticmethod
     @specialize.argtype(0)
     def as_utf80(path):
+        # XXX get rid of this assert
+        assert path is not None
         if isinstance(path, str):
             res = path
         elif isinstance(path, unicode):
