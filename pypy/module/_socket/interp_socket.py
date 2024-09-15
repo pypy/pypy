@@ -243,7 +243,8 @@ class W_Socket(W_Root):
                         type = info_ptr.c_iSocketType 
                         fd = _c.WSASocketW(_c.FROM_PROTOCOL_INFO, _c.FROM_PROTOCOL_INFO,
                         _c.FROM_PROTOCOL_INFO, info_ptr, 0, _c.WSA_FLAG_OVERLAPPED)
-                        if widen(fd) == rsocket.INVALID_SOCKET:
+                        fd_int = rffi.cast(lltype.Signed, fd)
+                        if fd_int == rsocket.INVALID_SOCKET:
                             raise converted_error(space, rsocket.last_error())
                         sock = RSocket(info_ptr.c_iAddressFamily, info_ptr.c_iSocketType, info_ptr.c_iProtocol, fd)
                     finally:
@@ -253,7 +254,7 @@ class W_Socket(W_Root):
                         raise oefmt(space.w_TypeError,
                             "integer argument expected, got float")
                     fd = space.int_w(w_fileno)
-                    if ((_WIN32 and r_uint(fd) == rsocket.INVALID_SOCKET) or (fd < 0)):
+                    if fd < 0:
                         raise oefmt(space.w_ValueError,
                             "negative file descriptor")
                     if family == -1:

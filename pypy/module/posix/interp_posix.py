@@ -144,12 +144,9 @@ def dispatch_filename_2(func):
 @specialize.arg(0)
 def call_rposix(func, path, *args):
     """Call a function that takes a filesystem path as its first argument"""
-    if path.as_unicode is not None:
-        return func(path.as_unicode, *args)
-    else:
-        path_b = path.as_bytes
-        assert path_b is not None
-        return func(path_b, *args)
+    path_b = path.as_bytes
+    assert path_b is not None
+    return func(path_b, *args)
 
 
 class Path(object):
@@ -157,6 +154,7 @@ class Path(object):
 
     def __init__(self, fd, bytes, unicode, w_path):
         self.as_fd = fd
+        assert bytes is not None
         self.as_bytes = bytes
         self.as_unicode = unicode
         self.w_path = w_path
@@ -170,7 +168,7 @@ class Path(object):
 def _path_from_unicode(space, w_value):
     if _WIN32:
         path_b = space.bytes0_w(space.fsencode(w_value))
-        path_u = FileEncoder(space, w_value).as_unicode()
+        path_u = space.realunicode_w(w_value)
         return Path(-1, path_b, path_u, w_value)
     else:
         path_b = space.bytes0_w(space.fsencode(w_value))
@@ -1142,32 +1140,25 @@ entries '.' and '..' even if they are present in the directory."""
         result_u = []
         result = []
         try:
-            if u:
-                result_u = rposix.listdir(path.as_unicode)
-            elif path.as_bytes:
+            if path.as_bytes:
                 result = rposix.listdir(path.as_bytes)
             else:
                 # rposix.listdir will raise the error, but None is invalid here
                 result = rposix.listdir('')
         except OSError as e:
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
+        len_result = len(result)
+        result_w = [None] * len_result
         if u:
-            len_result = len(result_u)
-            result_w = [None] * len_result
             for i in range(len_result):
-                result_w[i] = space.newtext(result_u[i])
-            return space.newlist(result_w)
+                result_w[i] = space.newtext(result[i])
         elif _WIN32:
-            len_result = len(result)
-            result_w = [None] * len_result
             for i in range(len_result):
                 result_w[i] = space.newtext(result[i])
             return space.newlist(result_w)
-        # only non-_WIN32
-        len_result = len(result)
-        result_w = [None] * len_result
-        for i in range(len_result):
-            result_w[i] = space.newfilename(result[i])
+        else:
+            for i in range(len_result):
+                result_w[i] = space.newfilename(result[i])
         return space.newlist(result_w)
 
 @unwrap_spec(fd=c_int)

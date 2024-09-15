@@ -125,11 +125,11 @@ def make__getfileinformation_impl(traits):
 
 def make__getfinalpathname_impl(traits):
     win32traits = make_traits(traits)
-    if not win32traits.check_GetFinalPathNameByHandle():
-        raise LLNotImplemented("GetFinalPathNameByHandle not available on "
-                               "this platform")
 
     def _getfinalpathname_llimpl(utf8):
+        if not win32traits.check_GetFinalPathNameByHandle():
+            raise LLNotImplemented("GetFinalPathNameByHandle not available on "
+                                   "this platform")
         with rffi.scoped_utf82wcharp(utf8, codepoints_in_utf8(utf8)) as buf:
             hFile = win32traits.CreateFile(buf, 0, 0, None,
                                        win32traits.OPEN_EXISTING,
