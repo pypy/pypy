@@ -49,9 +49,6 @@ class FileEncoder(object):
     def as_bytes(self):
         return self.space.fsencode_w(self.w_obj)
 
-    def as_unicode(self):
-        return self.space.unicode0_w(self.w_obj)
-
     def as_utf8(self):
         ret = self.space.utf8_w(self.w_obj)
         if '\x00' in ret:
@@ -67,12 +64,6 @@ class FileDecoder(object):
 
     def as_bytes(self):
         return self.space.fsencode_w(self.w_obj)
-
-    def as_unicode(self):
-        space = self.space
-        w_unicode = space.call_method(self.w_obj, 'decode',
-                                      getfilesystemencoding(space))
-        return space.unicode0_w(w_unicode)
 
     def as_utf8(self):
         ret = self.space.utf8_w(self.w_obj)
