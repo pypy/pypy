@@ -154,7 +154,6 @@ class Path(object):
 
     def __init__(self, fd, bytes, unicode, w_path):
         self.as_fd = fd
-        assert bytes is not None
         self.as_bytes = bytes
         self.as_unicode = unicode
         self.w_path = w_path
@@ -1130,7 +1129,9 @@ entries '.' and '..' even if they are present in the directory."""
         return space.newlist([space.newfilename(f) for f in result])
     elif as_bytes:
         try:
-            result = rposix.listdir(path.as_bytes)
+            path_b = path.as_bytes
+            assert path_b is not None
+            result = rposix.listdir(path_b)
         except OSError as e:
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
         return space.newlist_bytes(result)
@@ -1140,11 +1141,12 @@ entries '.' and '..' even if they are present in the directory."""
         result_u = []
         result = []
         try:
-            if path.as_bytes:
-                result = rposix.listdir(path.as_bytes)
-            else:
+            path_b = path.as_bytes
+            if path_b is None:
                 # rposix.listdir will raise the error, but None is invalid here
                 result = rposix.listdir('')
+            else:
+                result = rposix.listdir(path_b)
         except OSError as e:
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
         len_result = len(result)
