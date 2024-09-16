@@ -341,7 +341,7 @@ class TraceIterator(BaseTrace):
     def next_element_update_live_range(self, index, liveranges):
         opnum = self._nextbyte()
         if oparity[opnum] == -1:
-            argnum = self._nextbyte()
+            argnum = self._next()
         else:
             argnum = oparity[opnum]
         for i in range(argnum):
