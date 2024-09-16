@@ -450,6 +450,7 @@ def unmarshal_pycode(space, u, tc):
     return w_codeobj
 
 def _marshal_ascii_unicode(space, s, m, w_unicode, w_interned):
+    from rpython.rlib import rutf8
     # determine typecode
     if len(s) < 256:
         is_short = True
@@ -474,6 +475,11 @@ def _marshal_ascii_unicode(space, s, m, w_unicode, w_interned):
         m.put(chr(len(s)))
     else:
         m.put_int(len(s))
+    # XXX this should be removed again, it's just for debugging gh-5000
+    try:
+        rutf8.check_ascii(s)
+    except rutf8.CheckError:
+        raise oefmt(space.w_ValueError, "internal error in marshal, trying to marshal non-ascii unicode as ascii")
     m.put(s)
 
 def _marshal_unicode(space, s, m, w_unicode=None):
