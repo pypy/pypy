@@ -8,8 +8,9 @@ import sys, os
 
 try:
     import pexpect
+    from pexpect import spawn
 except ImportError:
-    pytest.skip("no pexpect module")
+    pytest.skip("no working pexpect module")
 except SyntaxError:
     pytest.skip('pexpect wont work on py3k')
 

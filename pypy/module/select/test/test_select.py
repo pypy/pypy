@@ -235,6 +235,8 @@ class _AppTestSelect:
 
     def test_select_new_forbidden(self):
         import select
+        if not hasattr(select, 'poll'):
+            skip("no select.poll() on this platform")
         pollster = select.poll()
         Poll = type(select.poll())
         with raises(TypeError) as info:

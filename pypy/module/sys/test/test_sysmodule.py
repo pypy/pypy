@@ -592,7 +592,7 @@ class AppTestSysModulePortedFromCPython:
     def test_winver(self):
         import sys
         if hasattr(sys, "winver"):
-            assert sys.winver == sys.version[:3]
+            assert sys.winver == sys.version[:4]
 
     def test_dllhandle(self):
         import sys
