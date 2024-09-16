@@ -1,6 +1,8 @@
 import sys
 import os
 
+DISABLE_WINCONSOLEIO = True
+
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
@@ -134,7 +136,8 @@ def _pyio_get_console_type(space, w_path_or_fd):
     # Another alternative to this whole mess would be to adapt the ctypes-based
     # https://pypi.org/project/win_unicode_console/ which also implements PEP 528
 
-    return '\0'
+    if DISABLE_WINCONSOLEIO:
+        return '\0'
 
     if space.isinstance_w(w_path_or_fd, space.w_int):
         fd = space.int_w(w_path_or_fd)
