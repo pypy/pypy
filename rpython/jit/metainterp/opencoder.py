@@ -653,9 +653,9 @@ class Trace(BaseTrace):
     def _op_end(self, opnum, descr, old_pos):
         if opwithdescr[opnum]:
             if descr is None:
-                # just for debugging: add an 's' for missing snapshots, will be
-                # patched
-                self.append_byte(ord('s'))
+                # guards get a 0 which is later patched. also some tests have
+                # missing descrs
+                self.append_int(0)
             else:
                 self.append_int(self._encode_descr(descr))
         self._count += 1
@@ -780,8 +780,9 @@ class Trace(BaseTrace):
                 frame.pc,
                 array,
                 is_last=is_last)
-        assert self._ops[self._pos - 1] == 's'
-        self._pos -= 1
+        assert self._ops[self._pos - 2] == '\x00'
+        assert self._ops[self._pos - 1] == '\x00'
+        self._pos -= 2
         self.append_int(s)
         return s
 
@@ -798,8 +799,9 @@ class Trace(BaseTrace):
                 0,
                 array,
                 is_last=True)
-        assert self._ops[self._pos - 1] == 's'
-        self._pos -= 1
+        assert self._ops[self._pos - 2] == '\x00'
+        assert self._ops[self._pos - 1] == '\x00'
+        self._pos -= 2
         self.append_int(s)
         return s
 
