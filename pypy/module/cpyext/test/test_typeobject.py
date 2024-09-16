@@ -2467,7 +2467,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
     def test_heap_type2(self):
         # issue 4826: note type->tp_as_buffer is not set (not needed since
         # O.__buffer__ does not exist)
-        module = self.import_extension("foo", [], more_init="""
+        module = self.import_extension("foo", [], prologue="""
             PyObject *make_new_python_type(PyObject* scope,
                          const char *full_name, PyTypeObject *base) {
             PyHeapTypeObject *heap_type = (PyHeapTypeObject *)PyType_Type.tp_alloc(&PyType_Type, 0);
@@ -2487,7 +2487,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             PyObject_SetAttrString(scope, full_name, (PyObject*)type);
             return (PyObject *) type;
             }
-
+            """, more_init="""
             /* No error checking */
             PyObject *op = make_new_python_type(mod, "O", &PyBaseObject_Type);
             PyObject *ap = make_new_python_type(mod, "A", (PyTypeObject *) op);

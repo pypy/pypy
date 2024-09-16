@@ -10,6 +10,9 @@ from pypy.module._io import interp_win32consoleio
 from pypy.conftest import option
 from rpython.rtyper.lltypesystem import rffi
 
+if interp_win32consoleio.DISABLE_WINCONSOLEIO:
+    pytest.skip('winconsoleio disabled')
+
 class AppTestWinConsoleIO:
     spaceconfig = dict(usemodules=['_io', '_cffi_backend'])
 
