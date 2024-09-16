@@ -364,7 +364,7 @@ class TraceIterator(BaseTrace):
         opnum = self._nextbyte()
         argnum = oparity[opnum]
         if argnum == -1:
-            argnum = self._nextbyte()
+            argnum = self._next()
         if not (0 <= oparity[opnum] <= 3):
             args = [None] * argnum
             for i in range(argnum):
@@ -645,7 +645,7 @@ class Trace(BaseTrace):
         self.append_byte(opnum)
         expected_arity = oparity[opnum]
         if expected_arity == -1:
-            self.append_byte(num_argboxes)
+            self.append_int(num_argboxes)
         else:
             assert num_argboxes == expected_arity
         return old_pos
