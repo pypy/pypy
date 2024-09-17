@@ -1139,10 +1139,12 @@ def utf82wcharp(utf8, utf8len, track_allocation=True):
     if not we_are_translated():
         assert utf8len == rutf8.codepoints_in_utf8(utf8)
 
+    # add 1 for the \x00, and another for cases where the last utf8 is an
+    # incomplete codepoint
     if track_allocation:
-        w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw', track_allocation=True)
+        w = lltype.malloc(CWCHARP.TO, utf8len + 2, flavor='raw', track_allocation=True)
     else:
-        w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw', track_allocation=False)
+        w = lltype.malloc(CWCHARP.TO, utf8len + 2, flavor='raw', track_allocation=False)
     index = 0
     for ch in rutf8.Utf8StringIterator(utf8):
         w[index] = unichr(ch)
@@ -1161,7 +1163,7 @@ def utf82wcharp_ex(utf8, unilen, track_allocation=True):
         if ch > 0xffff:
             wlen += 1
         wlen += 1
-    w = lltype.malloc(CWCHARP.TO, wlen + 1, flavor='raw',
+    w = lltype.malloc(CWCHARP.TO, wlen + 3, flavor='raw',
                       track_allocation=track_allocation)
     index = 0
     for ch in rutf8.Utf8StringIterator(utf8):
@@ -1405,10 +1407,10 @@ class scoped_unicode2wcharp:
 
 class scoped_utf82wcharp:
     def __init__(self, value, unicode_len):
-        if value is not None:
-            self.buf = utf82wcharp(value, unicode_len)
-        else:
+        if value is None:
             self.buf = lltype.nullptr(CWCHARP.TO)
+        else:
+            self.buf = utf82wcharp(value, unicode_len)
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
@@ -1482,6 +1484,19 @@ class scoped_alloc_unicodebuffer:
     def str(self, length):
         return unicode_from_buffer(self.raw, self.gc_buf, self.case_num,
                                    self.size, length)
+
+class scoped_alloc_utf8buffer:
+    def __init__(self, size):
+        self.size = size
+    def __enter__(self):
+        self.raw, self.gc_buf, self.case_num = alloc_unicodebuffer(self.size)
+        return self
+    def __exit__(self, *args):
+        keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf, self.case_num)
+    def str(self, length):
+        return utf8_from_buffer(self.raw, self.gc_buf, self.case_num,
+                                   self.size, length)
+
 
 # You would have to have a *huge* amount of data for this to block long enough
 # to be worth it to release the GIL.

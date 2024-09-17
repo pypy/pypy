@@ -2,10 +2,11 @@ from rpython.rlib import rwin32
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rwin32file import make_win32_traits
-from rpython.rlib._os_support import UnicodeTraits
+from rpython.rlib._os_support import utf8_traits
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rposix import get_saved_errno
+from rpython.rlib.rutf8 import codepoints_in_utf8
 
 
 # XXX: pypy_GetFinalPathNameByHandle is needed to call the dynamically
@@ -123,16 +124,14 @@ def make__getfileinformation_impl(traits):
 
 
 def make__getfinalpathname_impl(traits):
-    assert traits.str is unicode, 'Currently only handles unicode paths'
     win32traits = make_traits(traits)
 
-    @specialize.argtype(0)
-    def _getfinalpathname_llimpl(path):
+    def _getfinalpathname_llimpl(utf8):
         if not win32traits.check_GetFinalPathNameByHandle():
             raise LLNotImplemented("GetFinalPathNameByHandle not available on "
                                    "this platform")
-
-        hFile = win32traits.CreateFile(traits.as_str0(path), 0, 0, None,
+        with rffi.scoped_utf82wcharp(utf8, codepoints_in_utf8(utf8)) as buf:
+            hFile = win32traits.CreateFile(buf, 0, 0, None,
                                        win32traits.OPEN_EXISTING,
                                        win32traits.FILE_FLAG_BACKUP_SEMANTICS,
                                        rwin32.NULL_HANDLE)
@@ -166,8 +165,8 @@ def make__getfinalpathname_impl(traits):
     return _getfinalpathname_llimpl
 
 
-_getfileinformation = make__getfileinformation_impl(UnicodeTraits())
-_getfinalpathname = make__getfinalpathname_impl(UnicodeTraits())
+_getfileinformation = make__getfileinformation_impl(utf8_traits)
+_getfinalpathname = make__getfinalpathname_impl(utf8_traits)
 
 
 def win32_getppid():

@@ -70,7 +70,7 @@ class FileEncoder(object):
         return ret
 
     def as_utf8(self):
-        ret = self.space.utf8_w(self.w_obj)
+        ret = self.space.fsencode_w(self.w_obj)
         if '\x00' in ret:
             raise oefmt(self.space.w_ValueError, "embedded null character")
         return ret
@@ -144,12 +144,9 @@ def dispatch_filename_2(func):
 @specialize.arg(0)
 def call_rposix(func, path, *args):
     """Call a function that takes a filesystem path as its first argument"""
-    if path.as_unicode is not None:
-        return func(path.as_unicode, *args)
-    else:
-        path_b = path.as_bytes
-        assert path_b is not None
-        return func(path_b, *args)
+    path_b = path.as_bytes
+    assert path_b is not None
+    return func(path_b, *args)
 
 
 class Path(object):
@@ -169,8 +166,9 @@ class Path(object):
 
 def _path_from_unicode(space, w_value):
     if _WIN32:
-        path_u = FileEncoder(space, w_value).as_unicode()
-        return Path(-1, None, path_u, w_value)
+        path_b = space.bytes0_w(space.fsencode(w_value))
+        path_u = space.realunicode_w(w_value)
+        return Path(-1, path_b, path_u, w_value)
     else:
         path_b = space.bytes0_w(space.fsencode(w_value))
         return Path(-1, path_b, None, w_value)
@@ -847,6 +845,7 @@ dir_fd may not be implemented on your platform.
     except OSError as e:
         raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
 
+
 @unwrap_spec(path=path_or_fd(allow_fd=False),
              dir_fd=DirFD(rposix.HAVE_UNLINKAT))
 def remove(space, path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
@@ -868,19 +867,25 @@ dir_fd may not be implemented on your platform.
         raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
 
 if _WIN32:
-    @unwrap_spec(path=path_or_fd(allow_fd=False, nullable=False))
-    def _getfullpathname(space, path):
+    def _getfullpathname(space, w_path):
         """helper for ntpath.abspath """
+        path = space.fsencode_w(w_path)
         try:
-            if path.as_unicode is not None:
-                result = rposix.getfullpathname(path.as_unicode)
-                return u2utf8(space, result)
-            else:
-                result = rposix.getfullpathname(path.as_bytes)
-                return space.newbytes(result)
+            space._try_buffer_w(w_path, space.BUF_FULL_RO)
+        except BufferInterfaceNotFound:
+            w_obj = fspath(space, w_path)
+            as_bytes = not space.isinstance_w(w_obj, space.w_text)
+        else:
+            as_bytes = True
+        try:
+            fullpath = rposix.getfullpathname(path)
         except OSError as e:
-            raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
-
+            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        if as_bytes:
+            return space.newbytes(fullpath)
+        else:
+            ulen = codepoints_in_utf8(fullpath)
+            return space.newtext(fullpath, ulen)
 
 def getcwdb(space):
     """Return the current working directory."""
@@ -1124,7 +1129,9 @@ entries '.' and '..' even if they are present in the directory."""
         return space.newlist([space.newfilename(f) for f in result])
     elif as_bytes:
         try:
-            result = rposix.listdir(path.as_bytes)
+            path_b = path.as_bytes
+            assert path_b is not None
+            result = rposix.listdir(path_b)
         except OSError as e:
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
         return space.newlist_bytes(result)
@@ -1134,28 +1141,26 @@ entries '.' and '..' even if they are present in the directory."""
         result_u = []
         result = []
         try:
-            if u:
-                result_u = rposix.listdir(path.as_unicode)
-            elif path.as_bytes:
-                result = rposix.listdir(path.as_bytes)
-            else:
+            path_b = path.as_bytes
+            if path_b is None:
                 # rposix.listdir will raise the error, but None is invalid here
                 result = rposix.listdir('')
+            else:
+                result = rposix.listdir(path_b)
         except OSError as e:
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
-        if u:
-            len_result = len(result_u)
-            result_w = [None] * len_result
-            for i in range(len_result):
-                result_w[i] = result_u[i].encode('utf-8')
-            return space.newlist_text(result_w)
-        elif _WIN32:
-            return space.newlist_utf8(result, True)
-        # only non-_WIN32
         len_result = len(result)
         result_w = [None] * len_result
-        for i in range(len_result):
-            result_w[i] = space.newfilename(result[i])
+        if u:
+            for i in range(len_result):
+                result_w[i] = space.newtext(result[i])
+        elif _WIN32:
+            for i in range(len_result):
+                result_w[i] = space.newtext(result[i])
+            return space.newlist(result_w)
+        else:
+            for i in range(len_result):
+                result_w[i] = space.newfilename(result[i])
         return space.newlist(result_w)
 
 @unwrap_spec(fd=c_int)
@@ -1985,12 +1990,9 @@ def do_utimes(space, func, arg, utime):
 def _dispatch_utime(path, times):
     # XXX: a dup. of call_rposix to specialize rposix.utime taking a
     # Path for win32 support w/ do_utimes
-    if path.as_unicode is not None:
-        return rposix.utime(path.as_unicode, times)
-    else:
-        path_b = path.as_bytes
-        assert path_b is not None
-        return rposix.utime(path.as_bytes, times)
+    path_b = path.as_bytes
+    assert path_b is not None
+    return rposix.utime(path.as_bytes, times)
 
 
 def convert_seconds(space, w_time):
@@ -2194,9 +2196,9 @@ def getppid(space):
     if not _WIN32:
         return space.newint(os.getppid())
     else:
-        from pypy.module.posix.interp_nt import win32_getppid
+        from pypy.module.posix import interp_nt as nt
         try:
-            return space.newint(win32_getppid())
+            return space.newint(nt.win32_getppid())
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
     return space.w_None
@@ -2656,8 +2658,11 @@ if _WIN32:
                                space.newint(info[2])])
 
     def _getfinalpathname(space, w_path):
+        path = space.fsdecode_w(w_path)
+        if '\x00' in path:
+            raise oefmt(space.w_ValueError, "embedded null character")
         try:
-            s, lgt = dispatch_filename(nt._getfinalpathname)(space, w_path)
+            s, lgt = nt._getfinalpathname(path)
         except nt.LLNotImplemented as e:
             raise OperationError(space.w_NotImplementedError,
                                  space.newtext(e.msg))

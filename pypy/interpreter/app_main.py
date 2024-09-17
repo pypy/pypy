@@ -101,6 +101,7 @@ except AttributeError:
     prepare_shutdown = lambda: 0
 
 _MACOSX = sys.platform == 'darwin'
+_WIN32 = sys.platform == 'win32'
 
 DEBUG = False       # dump exceptions before calling the except hook
 
@@ -393,6 +394,8 @@ def initstdio(encoding=None, unbuffered=False):
         else:
             errors = None
         encoding = encoding or None
+        if _WIN32 and not encoding:
+            encoding = "utf-8"
         if not (encoding or errors):
             # stdin/out default to surrogateescape in C locale
             import _locale

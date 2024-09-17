@@ -62,6 +62,8 @@ def _readlink_maybe(filename):
 
 
 def resolvedirof(filename):
+    if isinstance(filename, unicode):
+        filename = filename.encode('utf8')
     filename = rpath.rabspath(filename)
     dirname = rpath.rabspath(os.path.join(filename, '..'))
     if os.path.islink(filename):
@@ -202,7 +204,6 @@ def compute_lib_pypy_path(state, python_std_lib, prefix, use_lib_pypy=True):
         platmac = os.path.join(python_std_lib, 'plat-mac')
         importlist.append(platmac)
         importlist.append(os.path.join(platmac, 'lib-scriptpackages'))
-
     return importlist
 
 
@@ -224,7 +225,11 @@ def pypy_find_executable(space, executable):
     if _WIN32:
         module_filename = pypy_init_executable()
         if module_filename:
-            module_path = rffi.charp2str(module_filename)
+            if _WIN32:
+                module_path, lgt = rffi.wcharp2utf8(module_filename)
+                module_path = assert_str0(module_path)
+            else:
+                module_path = rffi.charp2str(module_filename)
             pypy_init_free(module_filename)
             module_path = rpath.rabspath(module_path)
             if _exists_and_is_executable(module_path):
@@ -246,7 +251,11 @@ def pypy_find_stdlib(space, executable):
         if space.config.translation.shared:
             dynamic_location = pypy_init_home()
             if dynamic_location:
-                dyn_path = rffi.charp2str(dynamic_location)
+                if _WIN32:
+                    dyn_path, lgt = rffi.wcharp2utf8(dynamic_location)
+                    dyn_path = assert_str0(dyn_path)
+                else:
+                    dyn_path = rffi.charp2str(dynamic_location)
                 pypy_init_free(dynamic_location)
                 path, prefix = find_stdlib(get_state(space), space.config.objspace.platlibdir, dyn_path)
         if path is None:
@@ -279,20 +288,20 @@ char *_pypy_init_home(void)
 {
     HMODULE hModule = 0;
     DWORD res;
-    char *p;
+    WCHAR *p;
 
-    GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
                        GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-                       (LPCTSTR)&_pypy_init_home, &hModule);
+                       (LPCWSTR)&_pypy_init_home, &hModule);
 
     if (hModule == 0 ) {
-        fprintf(stderr, "PyPy initialization: GetModuleHandleEx() failed\n");
+        fprintf(stderr, "PyPy initialization: GetModuleHandleExW() failed\n");
         return NULL;
     }
-    p = malloc(_MAX_PATH);
+    p = malloc(_MAX_PATH * sizeof(WCHAR));
     if (p == NULL)
         return NULL;
-    res = GetModuleFileName(hModule, p, _MAX_PATH);
+    res = GetModuleFileNameW(hModule, p, _MAX_PATH);
     if (res >= _MAX_PATH || res <= 0) {
         free(p);
         fprintf(stderr, "PyPy initialization: GetModuleFileName() failed\n");
@@ -301,21 +310,26 @@ char *_pypy_init_home(void)
     return p;
 }
 
-char *_pypy_init_executable(void)
+wchar_t *_pypy_init_executable(void)
 {
     DWORD res;
-    char *p;
+    WCHAR *p;
 
-    p = malloc(_MAX_PATH);
+    p = (WCHAR *)malloc(_MAX_PATH * sizeof(WCHAR));
     if (p == NULL)
         return NULL;
-    res = GetModuleFileName(NULL, p, _MAX_PATH);
+    res = GetModuleFileNameW(NULL, p, _MAX_PATH);
     if (res >= _MAX_PATH || res <= 0) {
         free(p);
         fprintf(stderr, "PyPy initialization: GetModuleFileName() failed\n");
         return NULL;
     }
     return p;
+}
+inline
+void _pypy_init_free(WCHAR *p)
+{
+    free(p);
 }
 """
 
@@ -342,9 +356,7 @@ char *_pypy_init_home(void)
     }
     return p;
 }
-"""
 
-_source_code += """
 inline
 void _pypy_init_free(char *p)
 {
@@ -356,20 +368,29 @@ if we_are_translated():
    post_include_bits = []
 else:
     # for tests 
-    post_include_bits=['RPY_EXPORTED char *_pypy_init_home(void);',
-                       'RPY_EXPORTED void _pypy_init_free(char*);',
-                      ]
     if _WIN32:
-        post_include_bits.append('RPY_EXPORTED char *_pypy_init_executable(void);')
+        post_include_bits=['RPY_EXPORTED char *_pypy_init_home(void);',
+                           'RPY_EXPORTED void _pypy_init_free(char*);',
+                           'RPY_EXPORTED wchar_t *_pypy_init_executable(void);',
+                          ]
+    else:
+        post_include_bits=['RPY_EXPORTED char *_pypy_init_home(void);',
+                           'RPY_EXPORTED void _pypy_init_free(char*);',
+                          ]
 
 _eci = ExternalCompilationInfo(separate_module_sources=[_source_code],
                                post_include_bits=post_include_bits)
 _eci = _eci.merge(rdynload.eci)
 
-pypy_init_home = rffi.llexternal("_pypy_init_home", [], rffi.CCHARP,
-                                 _nowrapper=True, compilation_info=_eci)
-pypy_init_free = rffi.llexternal("_pypy_init_free", [rffi.CCHARP], lltype.Void,
-                                 _nowrapper=True, compilation_info=_eci)
 if _WIN32:
-    pypy_init_executable = rffi.llexternal("_pypy_init_executable", [], rffi.CCHARP,
+    pypy_init_executable = rffi.llexternal("_pypy_init_executable", [], rffi.CWCHARP,
                                            _nowrapper=True, compilation_info=_eci)
+    pypy_init_free = rffi.llexternal("_pypy_init_free", [rffi.CWCHARP], lltype.Void,
+                                 _nowrapper=True, compilation_info=_eci)
+    pypy_init_home = rffi.llexternal("_pypy_init_home", [], rffi.CWCHARP,
+                                 _nowrapper=True, compilation_info=_eci)
+else:
+    pypy_init_free = rffi.llexternal("_pypy_init_free", [rffi.CCHARP], lltype.Void,
+                                 _nowrapper=True, compilation_info=_eci)
+    pypy_init_home = rffi.llexternal("_pypy_init_home", [], rffi.CCHARP,
+                                 _nowrapper=True, compilation_info=_eci)

@@ -3,7 +3,7 @@ import py
 
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
-from rpython.rlib import jit, types, rutf8
+from rpython.rlib import jit, types, rutf8, rstring
 from rpython.rlib.debug import make_sure_not_resized, check_not_access_directly
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize, not_rpython)
@@ -1782,7 +1782,6 @@ class ObjSpace(object):
 
     def text0_w(self, w_obj):
         "Like text_w, but rejects strings with NUL bytes."
-        from rpython.rlib import rstring
         result = self.text_w(w_obj)
         if '\x00' in result:
             raise oefmt(self.w_ValueError, "embedded null character")

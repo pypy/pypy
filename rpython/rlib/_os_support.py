@@ -16,7 +16,7 @@ _MACRO_ON_POSIX = True if not _WIN32 else None
 
 
 class StringTraits(object):
-    str = str
+    nickname = "bytes"
     str0 = s_Str0
     CHAR = rffi.CHAR
     CCHARP = rffi.CCHARP
@@ -50,7 +50,7 @@ class StringTraits(object):
 
 
 class UnicodeTraits(object):
-    str = unicode
+    nickname = "unicode"
     str0 = s_Unicode0
     CHAR = rffi.WCHAR_T
     CCHARP = rffi.CWCHARP
@@ -80,46 +80,58 @@ class UnicodeTraits(object):
         return res
 
 
-string_traits = StringTraits()
-unicode_traits = UnicodeTraits()
+class Utf8Traits(object):
+    nickname = "utf8"
+    str = str
+    str0 = s_Unicode0
+    CHAR = rffi.WCHAR_T
+    CCHARP = rffi.CWCHARP
+    charp2str = staticmethod(rffi.wcharp2utf8)
+    charpsize2str = staticmethod(rffi.wcharpsize2utf8)
+    str2charp = staticmethod(rffi.utf82wcharp)
+    scoped_str2charp = staticmethod(rffi.scoped_utf82wcharp)
+    free_charp = staticmethod(rffi.free_wcharp)
+    scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_unicodebuffer)
 
-
-# Returns True when the unicode function should be called:
-# - on Windows
-# - if the path is Unicode.
-if _WIN32:
+    @staticmethod
     @specialize.argtype(0)
-    def _prefer_unicode(path):
+    def as_str(path):
         assert path is not None
         if isinstance(path, str):
-            return False
+            return path
         elif isinstance(path, unicode):
-            return True
+            # This never happens in PyPy's Python interpreter!
+            # Only in raw RPython code that uses unicode strings.
+            # We implement python3 behavior: silently convert to utf8.
+            return path.encode('utf8')
         else:
-            return path.is_unicode
+            return path.as_bytes()
 
+    @staticmethod
     @specialize.argtype(0)
-    def _preferred_traits(path):
-        if _prefer_unicode(path):
-            return unicode_traits
+    def as_str0(path):
+        res = Utf8Traits.as_str(path)
+        rstring.check_str0(res)
+        return res
+
+    @staticmethod
+    @specialize.argtype(0)
+    def as_utf80(path):
+        # XXX get rid of this assert
+        assert path is not None
+        if isinstance(path, str):
+            res = path
+        elif isinstance(path, unicode):
+            res = path.encode('utf-8')
         else:
-            return string_traits
+            res = path.as_bytes()
+        assert res is not None
+        rstring.check_str0(res)
+        return res
 
-    @specialize.argtype(0, 1)
-    def _preferred_traits2(path1, path2):
-        if _prefer_unicode(path1) or _prefer_unicode(path2):
-            return unicode_traits
-        else:
-            return string_traits
-else:
-    @specialize.argtype(0)
-    def _prefer_unicode(path):
-        return False
 
-    @specialize.argtype(0)
-    def _preferred_traits(path):
-        return string_traits
+string_traits = StringTraits()
+unicode_traits = UnicodeTraits()
+utf8_traits = Utf8Traits()
 
-    @specialize.argtype(0, 1)
-    def _preferred_traits2(path1, path2):
-        return string_traits
+# Always use utf8_traits

@@ -1806,19 +1806,15 @@ def create_extension_module(space, w_spec):
         path = os.curdir + os.sep + path      # force a '/' in the path
     try:
         # XXX does this need a fsdecoder for utf8 paths?
-        ll_libname = rffi.str2charp(path)
-        try:
-            if WIN32:
-                from rpython.rlib import rwin32
-                # Allow other DLLs in the same directory
-                # use os.add_dll_directory for more locations
-                flags = (rwin32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
-                        rwin32.LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR)
-                dll = rdynload.dlopenex(ll_libname, flags)
-            else:
-                dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
-        finally:
-            lltype.free(ll_libname, flavor='raw')
+        if WIN32:
+            from rpython.rlib import rwin32
+            # Allow other DLLs in the same directory
+            # use os.add_dll_directory for more locations
+            flags = (rwin32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+                    rwin32.LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR)
+            dll = rdynload.dlopenex(path, flags)
+        else:
+            dll = rdynload.dlopen(path, space.sys.dlopenflags)
     except rdynload.DLOpenError as e:
         raise raise_import_error(space,
             space.newfilename(e.msg), w_name, w_path)
