@@ -49,37 +49,6 @@ class StringTraits(object):
         return res
 
 
-class UnicodeTraits(object):
-    nickname = "unicode"
-    str0 = s_Unicode0
-    CHAR = rffi.WCHAR_T
-    CCHARP = rffi.CWCHARP
-    charp2str = staticmethod(rffi.wcharp2unicode)
-    charpsize2str = staticmethod(rffi.wcharpsize2unicode)
-    str2charp = staticmethod(rffi.unicode2wcharp)
-    scoped_str2charp = staticmethod(rffi.scoped_unicode2wcharp)
-    free_charp = staticmethod(rffi.free_wcharp)
-    scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_unicodebuffer)
-
-    @staticmethod
-    @specialize.argtype(0)
-    def as_str(path):
-        assert path is not None
-        if isinstance(path, unicode):
-            return path
-        elif isinstance(path, str):
-            raise RuntimeError('str given where unicode expected')
-        else:
-            return path.as_unicode()
-
-    @staticmethod
-    @specialize.argtype(0)
-    def as_str0(path):
-        res = UnicodeTraits.as_str(path)
-        rstring.check_str0(res)
-        return res
-
-
 class Utf8Traits(object):
     nickname = "utf8"
     str = str
@@ -131,7 +100,6 @@ class Utf8Traits(object):
 
 
 string_traits = StringTraits()
-unicode_traits = UnicodeTraits()
 utf8_traits = Utf8Traits()
 
 # Always use utf8_traits

@@ -63,12 +63,6 @@ class FileEncoder(object):
     def as_bytes(self):
         return self.space.fsencode_w(self.w_obj)
 
-    def as_unicode(self):
-        ret = self.space.realunicode_w(self.w_obj)
-        if u'\x00' in ret:
-            raise oefmt(self.space.w_ValueError, "embedded null character")
-        return ret
-
     def as_utf8(self):
         ret = self.space.fsencode_w(self.w_obj)
         if '\x00' in ret:
@@ -84,12 +78,6 @@ class FileDecoder(object):
 
     def as_bytes(self):
         return self.space.fsencode_w(self.w_obj)
-
-    def as_unicode(self):
-        ret = self.space.fsdecode_w(self.w_obj).decode('utf-8')
-        if u'\x00' in ret:
-            raise oefmt(self.space.w_ValueError, "embedded null character")
-        return ret
 
     def as_utf8(self):
         ret = self.space.fsdecode_w(self.w_obj)

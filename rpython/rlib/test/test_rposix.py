@@ -343,27 +343,16 @@ class UnicodeWithEncoding:
     def __init__(self, unistr):
         self.unistr = unistr
 
-    if sys.platform == 'win32':
-        def as_bytes(self):
-            from rpython.rlib.runicode import unicode_encode_mbcs
-            res = unicode_encode_mbcs(self.unistr, len(self.unistr),
-                                      "strict")
-            return rstring.assert_str0(res)
+    def as_utf8(self):
+        from rpython.rlib.runicode import unicode_encode_utf_8
+        res = unicode_encode_utf_8(self.unistr, len(self.unistr), "strict")
+        return rstring.assert_str0(res)
 
-        def as_utf8(self):
-            from rpython.rlib.runicode import unicode_encode_utf_8
-            res = unicode_encode_utf_8(self.unistr, len(self.unistr), "strict")
-            return rstring.assert_str0(res)
-
-    else:
-        def as_bytes(self):
-            from rpython.rlib.runicode import unicode_encode_utf_8
-            res = unicode_encode_utf_8(self.unistr, len(self.unistr),
-                                       "strict")
-            return rstring.assert_str0(res)
-
-    def as_unicode(self):
-        return self.unistr
+    def as_bytes(self):
+        from rpython.rlib.runicode import unicode_encode_utf_8
+        res = unicode_encode_utf_8(self.unistr, len(self.unistr),
+                                   "strict")
+        return rstring.assert_str0(res)
 
 class BasePosixUnicodeOrAscii:
     def setup_method(self, method):
@@ -455,15 +444,8 @@ class BasePosixUnicodeOrAscii:
 
         if sys.platform == 'win32':
             def f():
-                if isinstance(udir.as_unicode(), str):
-                    _udir = udir.as_unicode()
-                    _res = ', '
-                    return _res.join(rposix.listdir(_udir))
-                else:
-                    _udir = udir
-                    _res = ', '
-                    contents = _res.join(rposix.listdir(_udir))
-                    return contents.decode('utf8')
+                contents = ', '.join(rposix.listdir(udir))
+                return contents.decode('utf8')
             f()  # sanity check
             result = interpret(f, [])
             assert os.path.basename(self.ufilename) in ll_to_string(result)

@@ -210,14 +210,19 @@ class TraceLimitTests:
         self.check_trace_count(10)
         self.check_jitcell_token_count(1)
 
-    def test_big_opencoder_model(self):
+    def test_huge_tracelimit_raises_exception(self):
         def g(i):
             f(0)
             try:
-                set_user_param(None, 'trace_limit=100000')
-            except Exception:
+                if i == 0:
+                    set_user_param(None, 'trace_limit=100000')
+                else:
+                    set_user_param(None, 'trace_limit=1000000000')
+            except Exception as e:
+                print e
                 return False
             f(1)
+            print "about to return True"
             return True
 
         myjitdriver = JitDriver(greens=['i'], reds='auto')
@@ -229,8 +234,7 @@ class TraceLimitTests:
                 myjitdriver.jit_merge_point(i=i)
             return b
 
-        res = self.meta_interp(g, [10], backendopt=True, ProfilerClass=Profiler,
-                               translationoptions={"jit_opencoder_model": "big"})
+        res = self.meta_interp(g, [0], backendopt=True, ProfilerClass=Profiler)
         assert res
         res = self.meta_interp(g, [10], backendopt=True, ProfilerClass=Profiler)
         assert not res
