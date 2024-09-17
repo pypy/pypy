@@ -188,8 +188,8 @@ if not _WIN32:
                 name = 'libm.so.6'
         #
         assert isinstance(name, str)
-        with rffi.scoped_str2charp(libname) as ll_libname:
-            res = c_dlopen(name, rffi.cast(rffi.INT, mode))
+        with rffi.scoped_str2charp(name) as ll_libname:
+            res = c_dlopen(ll_libname, rffi.cast(rffi.INT, mode))
         if not res:
             if not we_are_translated():
                 err = _dlerror_on_dlopen_untranslated(name)
