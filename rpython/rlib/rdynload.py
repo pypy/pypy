@@ -97,7 +97,6 @@ if not _WIN32:
     def _dlerror_on_dlopen_untranslated(name):
         # aaargh
         import ctypes
-        name = rffi.charp2str(name)
         try:
             ctypes.CDLL(name)
         except OSError as e:
