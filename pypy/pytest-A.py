@@ -2,12 +2,16 @@
 import platform
 
 DIRS_SPLIT = {
-    'arm': ['interpreter/astcompiler/test',
-            'interpreter/pyparser/test',
-            'interpreter/test',
-            'module/test_lib_pypy',
-            'objspace/std/test',
+    'arm': [
+        'interpreter/astcompiler/test',
+        'interpreter/pyparser/test',
+        'interpreter/test',
+        'module/test_lib_pypy',
+        'objspace/std/test',
     ],
+    'amd64': [  # windows
+        'module/cpyext/test',
+    ]
 }
 
 
