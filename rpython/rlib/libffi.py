@@ -443,8 +443,7 @@ class CDLL(object):
         """Load the library, or raises DLOpenError."""
         self.lib = rffi.cast(DLLHANDLE, lib)
         if lib == 0:
-            with rffi.scoped_str2charp(libname) as ll_libname:
-                self.lib = dlopen(ll_libname, mode)
+            self.lib = dlopen(libname, mode)
 
     def __del__(self):
         if self.lib:
