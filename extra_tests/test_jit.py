@@ -34,3 +34,10 @@ def test_property_immutability_bug():
 
     res = f()
     assert res == 10000 * 24
+
+def test_gigantic_trace_limit():
+    import pypyjit
+    try:
+        pypyjit.set_param(trace_limit=100000)
+    finally:
+        pypyjit.set_param("default")

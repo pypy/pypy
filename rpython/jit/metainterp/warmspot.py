@@ -256,8 +256,7 @@ class WarmRunnerDesc(object):
         elif self.opt.listops:
             self.prejit_optimizations_minimal_inline(policy, graphs)
 
-        self.build_meta_interp(ProfilerClass,
-                             translator.config.translation.jit_opencoder_model)
+        self.build_meta_interp(ProfilerClass)
         self.make_args_specifications()
         #
         from rpython.jit.metainterp.virtualref import VirtualRefInfo
@@ -501,16 +500,11 @@ class WarmRunnerDesc(object):
             cpu.supports_singlefloats = False
         self.cpu = cpu
 
-    def build_meta_interp(self, ProfilerClass, opencoder_model):
-        from rpython.jit.metainterp.opencoder import Model, BigModel
+    def build_meta_interp(self, ProfilerClass):
         self.metainterp_sd = MetaInterpStaticData(self.cpu,
                                                   self.opt,
                                                   ProfilerClass=ProfilerClass,
                                                   warmrunnerdesc=self)
-        if opencoder_model == 'big':
-            self.metainterp_sd.opencoder_model = BigModel
-        else:
-            self.metainterp_sd.opencoder_model = Model
         self.stats.metainterp_sd = self.metainterp_sd
 
     def make_hooks(self, hooks):

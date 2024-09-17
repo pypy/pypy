@@ -83,39 +83,6 @@ class AccumInfo(VectorInfo):
                                               self.variable,
                                               self.location)
 
-def _ensure_parent_resumedata(framestack, n, t, snapshot):
-    while n > 0:
-        target = framestack[n]
-        back = framestack[n - 1]
-        if target.parent_snapshot:
-            snapshot.prev = target.parent_snapshot
-            return
-        s = t.create_snapshot(back.jitcode, back.pc, back, True)
-        snapshot.prev = s
-        target.parent_snapshot = s
-        n -= 1
-        snapshot = s
-
-def capture_resumedata(framestack, virtualizable_boxes, virtualref_boxes, t, after_residual_call=False):
-    n = len(framestack) - 1
-    result = t.length()
-    if virtualizable_boxes is not None:
-        virtualizable_boxes = ([virtualizable_boxes[-1]] +
-                                virtualizable_boxes[:-1])
-    else:
-        virtualizable_boxes = []
-    virtualref_boxes = virtualref_boxes[:]
-    if n >= 0:
-        top = framestack[n]
-        snapshot = t.create_top_snapshot(top.jitcode, top.pc,
-                    top, virtualizable_boxes,
-                    virtualref_boxes,
-                    after_residual_call=after_residual_call)
-        _ensure_parent_resumedata(framestack, n, t,snapshot)
-    else:
-        snapshot = t.create_empty_top_snapshot(
-            virtualizable_boxes, virtualref_boxes)
-    return result
 
 PENDINGFIELDSTRUCT = lltype.Struct('PendingField',
                                    ('lldescr', OBJECTPTR),
@@ -222,7 +189,7 @@ class ResumeDataLoopMemo(object):
 
     # env numbering
 
-    def _number_boxes(self, iter, arr, numb_state):
+    def _number_boxes(self, iter, iterator, numb_state):
         """ Number boxes from one snapshot
         """
         from rpython.jit.metainterp.optimizeopt.info import (
@@ -230,29 +197,30 @@ class ResumeDataLoopMemo(object):
         num_boxes = numb_state.num_boxes
         num_virtuals = numb_state.num_virtuals
         liveboxes = numb_state.liveboxes
-        for item in arr:
+        for item in iterator:
             box = iter.get(rffi.cast(lltype.Signed, item))
             box = box.get_box_replacement()
 
             if isinstance(box, Const):
                 tagged = self.getconst(box)
-            elif box in liveboxes:
-                tagged = liveboxes[box]
             else:
-                is_virtual = False
-                if box.type == 'r':
-                    info = getptrinfo(box)
-                    is_virtual = (info is not None and info.is_virtual())
-                if box.type == 'i':
-                    info = getrawptrinfo(box)
-                    is_virtual = (info is not None and info.is_virtual())
-                if is_virtual:
-                    tagged = tag(num_virtuals, TAGVIRTUAL)
-                    num_virtuals += 1
-                else:
-                    tagged = tag(num_boxes, TAGBOX)
-                    num_boxes += 1
-                liveboxes[box] = tagged
+                try:
+                    tagged = liveboxes[box]
+                except KeyError:
+                    is_virtual = False
+                    if box.type == 'r':
+                        info = getptrinfo(box)
+                        is_virtual = (info is not None and info.is_virtual())
+                    if box.type == 'i':
+                        info = getrawptrinfo(box)
+                        is_virtual = (info is not None and info.is_virtual())
+                    if is_virtual:
+                        tagged = tag(num_virtuals, TAGVIRTUAL)
+                        num_virtuals += 1
+                    else:
+                        tagged = tag(num_boxes, TAGBOX)
+                        num_boxes += 1
+                    liveboxes[box] = tagged
             numb_state.append_short(tagged)
         numb_state.num_boxes = num_boxes
         numb_state.num_virtuals = num_virtuals
@@ -263,23 +231,22 @@ class ResumeDataLoopMemo(object):
         numb_state.append_int(0) # patch later: size of resume section
         numb_state.append_int(0) # patch later: number of failargs
 
-        arr = snapshot_iter.vable_array
+        array_iter = snapshot_iter.vable_array
 
-        numb_state.append_int(len(arr))
-        self._number_boxes(snapshot_iter, arr, numb_state)
+        numb_state.append_int(array_iter.total_length)
+        self._number_boxes(snapshot_iter, array_iter, numb_state)
 
-        arr = snapshot_iter.vref_array
-        n = len(arr)
+        array_iter = snapshot_iter.vref_array
+        n = array_iter.total_length
         assert not (n & 1)
         numb_state.append_int(n >> 1)
-
-        self._number_boxes(snapshot_iter, arr, numb_state)
+        self._number_boxes(snapshot_iter, array_iter, numb_state)
 
         for snapshot in snapshot_iter.framestack:
             jitcode_index, pc = snapshot_iter.unpack_jitcode_pc(snapshot)
             numb_state.append_int(jitcode_index)
             numb_state.append_int(pc)
-            self._number_boxes(snapshot_iter, snapshot.box_array, numb_state)
+            self._number_boxes(snapshot_iter, snapshot_iter.iter_array(snapshot), numb_state)
         numb_state.patch_current_size(0)
 
         return numb_state
