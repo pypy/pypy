@@ -1712,15 +1712,11 @@ def load_extension_module(space, path, name):
         path = os.curdir + os.sep + path      # force a '/' in the path
     basename = name.split('.')[-1]
     try:
-        ll_libname = rffi.str2charp(path)
-        try:
-            if WIN32:
-                # Allow other DLLs in the same directory with "path"
-                dll = rdynload.dlopenex(ll_libname)
-            else:
-                dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
-        finally:
-            lltype.free(ll_libname, flavor='raw')
+        if WIN32:
+            # Allow other DLLs in the same directory with "path"
+            dll = rdynload.dlopenex(path)
+        else:
+            dll = rdynload.dlopen(path, space.sys.dlopenflags)
     except rdynload.DLOpenError as e:
         raise oefmt(space.w_ImportError,
                     "unable to load extension module '%s': %s",

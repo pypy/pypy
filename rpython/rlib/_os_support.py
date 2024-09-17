@@ -2,6 +2,7 @@ import sys
 
 from rpython.annotator.model import s_Str0, s_Unicode0
 from rpython.rlib import rstring
+from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import rffi
 
@@ -58,9 +59,12 @@ class Utf8Traits(object):
     charp2str = staticmethod(rffi.wcharp2utf8)
     charpsize2str = staticmethod(rffi.wcharpsize2utf8)
     str2charp = staticmethod(rffi.utf82wcharp)
-    scoped_str2charp = staticmethod(rffi.scoped_utf82wcharp)
     free_charp = staticmethod(rffi.free_wcharp)
     scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_unicodebuffer)
+
+    @staticmethod
+    def scoped_str2charp(value):
+        return rffi.scoped_utf82wcharp(value, codepoints_in_utf8(value))
 
     @staticmethod
     @specialize.argtype(0)
