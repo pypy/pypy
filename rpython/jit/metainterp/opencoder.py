@@ -125,12 +125,11 @@ def tag(kind, pos):
 def untag(tagged):
     return intmask(tagged) & TAGMASK, intmask(tagged) >> TAGSHIFT
 
-# chosen such that constant ints need at most 4 bytes
+# chosen such that constant ints fit into the four bytes
 SMALL_INT_STOP  = 2**28
 SMALL_INT_START = -2**28
-assert encode_varint_signed(tag(TAGINT, SMALL_INT_STOP - 1), []) <= 4
-SMALL_INT_START = -0x40001
 assert encode_varint_signed(tag(TAGINT, SMALL_INT_START), []) <= 4
+assert encode_varint_signed(tag(TAGINT, SMALL_INT_STOP - 1), []) <= 4
 
 class BaseTrace(object):
     pass
@@ -324,7 +323,7 @@ class TraceIterator(BaseTrace):
         if tag == TAGBOX:
             return self._get(v)
         elif tag == TAGINT:
-            return ConstInt(v + SMALL_INT_START)
+            return ConstInt(v)
         elif tag == TAGCONSTPTR:
             return ConstPtr(self.trace._refs[v])
         elif tag == TAGCONSTOTHER:
@@ -606,7 +605,7 @@ class Trace(BaseTrace):
             if (isinstance(box, ConstInt) and
                 isinstance(box.getint(), int) and # symbolics
                 SMALL_INT_START <= box.getint() < SMALL_INT_STOP):
-                return tag(TAGINT, box.getint() - SMALL_INT_START)
+                return tag(TAGINT, box.getint())
             elif isinstance(box, ConstInt):
                 self._consts_bigint += 1
                 value = box.getint()
