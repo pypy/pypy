@@ -12,6 +12,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.translator import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rlib.rarithmetic import intmask, r_longlong, widen
 from rpython.rlib import jit
 
@@ -623,8 +624,12 @@ if WIN32:
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
     def SetEnvironmentVariableW(name, value):
-        with rffi.scoped_unicode2wcharp(name) as nameWbuf:
-            with rffi.scoped_unicode2wcharp(value) as valueWbuf:
+        if value:
+            cp_value = codepoints_in_utf8(value)
+        else:
+            cp_value = 0
+        with rffi.scoped_utf82wcharp(name, codepoints_in_utf8(name)) as nameWbuf:
+            with rffi.scoped_utf82wcharp(value, cp_value) as valueWbuf:
                 return _SetEnvironmentVariableW(nameWbuf, valueWbuf)
 
     _AddDllDirectory = winexternal('AddDllDirectory', [LPWSTR], rffi.VOIDP,

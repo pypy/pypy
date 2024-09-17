@@ -877,7 +877,7 @@ def listdir(path):
                 else:
                     raise WindowsError(error,  "FindFirstFile failed")
             while True:
-                name, ulen = traits.charp2str(rffi.cast(traits.CCHARP,
+                name = traits.charp2str(rffi.cast(traits.CCHARP,
                                                   filedata.c_cFileName))
                 if not (name == "." or name == ".."):
                     result.append(name)

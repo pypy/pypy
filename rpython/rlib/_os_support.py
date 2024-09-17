@@ -53,18 +53,25 @@ class StringTraits(object):
 class Utf8Traits(object):
     nickname = "utf8"
     str = str
-    str0 = s_Unicode0
+    str0 = s_Str0
     CHAR = rffi.WCHAR_T
     CCHARP = rffi.CWCHARP
-    charp2str = staticmethod(rffi.wcharp2utf8)
     charpsize2str = staticmethod(rffi.wcharpsize2utf8)
-    str2charp = staticmethod(rffi.utf82wcharp)
     free_charp = staticmethod(rffi.free_wcharp)
     scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_unicodebuffer)
 
     @staticmethod
+    def str2charp(value):
+        return rffi.utf82wcharp(value, codepoints_in_utf8(value))
+
+    @staticmethod
     def scoped_str2charp(value):
         return rffi.scoped_utf82wcharp(value, codepoints_in_utf8(value))
+
+    @staticmethod
+    def charp2str(p):
+        s, lgt = rffi.wcharp2utf8(p)
+        return rstring.assert_str0(s)
 
     @staticmethod
     @specialize.argtype(0)

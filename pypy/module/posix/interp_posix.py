@@ -1003,17 +1003,16 @@ if _WIN32:
     def _convertenviron(space, w_env):
         # _wenviron must be initialized in this way if the program is
         # started through main() instead of wmain()
-        rwin32._wgetenv(u"")
+        rwin32._wgetenv("")
         for key, value in rwin32._wenviron_items():
-            space.setitem(w_env, space.newtext(key.encode("utf-8"), len(key)),
-                    space.newtext(value.encode("utf-8"), len(value)))
+            space.setitem(w_env, space.newtext(key), space.newtext(value))
 
-    @unwrap_spec(name=unicode, value=unicode)
+    @unwrap_spec(name='text', value='text')
     def putenv(space, name, value):
         """Change or add an environment variable."""
         # Search from index 1 because on Windows starting '=' is allowed for
         # defining hidden environment variables.
-        if len(name) == 0 or u'=' in name[1:]:
+        if len(name) == 0 or '=' in name[1:]:
             raise oefmt(space.w_ValueError, "illegal environment variable name")
 
         # len includes space for '=' and a trailing NUL
@@ -1022,7 +1021,7 @@ if _WIN32:
                         "the environment variable is longer than %d "
                         "characters", rwin32._MAX_ENV)
 
-        if u'\x00' in name or u'\x00' in value:
+        if '\x00' in name or '\x00' in value:
             raise oefmt(space.w_ValueError, "embedded null character")
 
         try:
@@ -1030,12 +1029,12 @@ if _WIN32:
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
 
-    @unwrap_spec(name=unicode)
+    @unwrap_spec(name='text')
     def unsetenv(space, name):
         """Change or add an environment variable."""
         # Search from index 1 because on Windows starting '=' is allowed for
         # defining hidden environment variables.
-        if len(name) == 0 or u'=' in name[1:]:
+        if len(name) == 0 or '=' in name[1:]:
             raise oefmt(space.w_ValueError, "illegal environment variable name")
 
         # len includes space for '=' and a trailing NUL
