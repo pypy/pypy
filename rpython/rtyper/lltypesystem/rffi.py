@@ -1411,7 +1411,7 @@ class scoped_utf82wcharp:
             self.buf = lltype.nullptr(CWCHARP.TO)
         else:
             if unicode_len < 0:
-                unicode_len = codepoints_in_utf8(value)
+                unicode_len = rutf8.codepoints_in_utf8(value)
             self.buf = utf82wcharp(value, unicode_len)
     def __enter__(self):
         return self.buf
