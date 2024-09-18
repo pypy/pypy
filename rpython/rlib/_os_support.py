@@ -69,16 +69,6 @@ class Utf8Traits(object):
         return rffi.utf82wcharp(value, codepoints_in_utf8(value))
 
     @staticmethod
-<<<<<<< HEAD
-    def scoped_str2charp(value):
-        return rffi.scoped_utf82wcharp(value, codepoints_in_utf8(value))
-=======
-    def charp2str(p):
-        s, lgt = rffi.wcharp2utf8(p)
-        return rstring.assert_str0(s)
->>>>>>> main
-
-    @staticmethod
     def charp2str(p):
         s, lgt = rffi.wcharp2utf8(p)
         return rstring.assert_str0(s)
