@@ -1,4 +1,4 @@
-import py
+import pytest
 import sys, os, re
 import textwrap
 
@@ -195,9 +195,9 @@ class TestStandalone(StandaloneTestsVerified):
         assert counters == (0,3,2)
 
     def test_prof_inline(self):
-        py.test.skip("broken by 5b0e029514d4, but we don't use it any more")
+        pytest.skip("broken by 5b0e029514d4, but we don't use it any more")
         if sys.platform == 'win32':
-            py.test.skip("instrumentation support is unix only for now")
+            pytest.skip("instrumentation support is unix only for now")
         def add(a,b):
             return a + b - b + b - b + b - b + b - b + b - b + b - b + b
         def entry_point(argv):
@@ -238,7 +238,7 @@ class TestStandalone(StandaloneTestsVerified):
 
     def test_profopt(self):
         if sys.platform == 'win32':
-            py.test.skip("no profopt on win32")
+            pytest.skip("no profopt on win32")
         def add(a,b):
             return a + b - b + b - b + b - b + b - b + b - b + b - b + b
         def entry_point(argv):
@@ -1560,4 +1560,7 @@ class TestShared(StandaloneTests):
         libname = cbuilder.executable_name.join('..', 'lib' +
                                       cbuilder.modulename + ext_suffix)
         lib = ctypes.CDLL(str(libname))
-        assert lib.foo(13) == 16
+        if sys.platform == "darwin":
+            pytest.skip("crashes the interpreter with uninitialized threads")
+        else:
+            assert lib.foo(13) == 16

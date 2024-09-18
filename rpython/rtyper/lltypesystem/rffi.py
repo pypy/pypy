@@ -1407,11 +1407,12 @@ class scoped_unicode2wcharp:
 
 class scoped_utf82wcharp:
     def __init__(self, value, unicode_len=-1):
+        from rpython.rlib import rutf8
         if value is None:
             self.buf = lltype.nullptr(CWCHARP.TO)
+        elif unicode_len < 0:
+            self.buf = utf82wcharp(value, rutf8.codepoints_in_utf8(value))
         else:
-            if unicode_len < 0:
-                unicode_len = rutf8.codepoints_in_utf8(value)
             self.buf = utf82wcharp(value, unicode_len)
     def __enter__(self):
         return self.buf
