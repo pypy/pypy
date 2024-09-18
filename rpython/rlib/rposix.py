@@ -464,7 +464,7 @@ def dup2(fd, newfd, inheritable=True):
 def open(path, flags, mode):
     if _WIN32:
         utf8 = _as_utf80(path)
-        with utf8_traits.scoped_utf82wcharp(utf8) as buf:
+        with rffi.scoped_utf82wcharp(utf8) as buf:
             fd = c_wopen(buf, flags, mode)
     else:
         fd = c_open(_as_bytes0(path), flags, mode)
@@ -646,7 +646,7 @@ def chdir(path):
         # however, it also needs to set "magic" environment variables
         # indicating the per-drive current directory, which are of the
         # form =<drive>:
-        with traits.scoped_utf82wcharp(utf8) as buf:
+        with rffi.scoped_utf82wcharp(utf8) as buf:
             if not win32traits.SetCurrentDirectory(buf):
                 raise rwin32.lastSavedWindowsError()
         MAX_PATH = rwin32.MAX_PATH
@@ -672,8 +672,8 @@ def chdir(path):
         if utf8[0] == '\\' or utf8[0] == '/':  # UNC path
                 return
         magic_envvar = '=' + new_path[0] + ':'
-        with traits.scoped_utf82wcharp(utf8) as buf2:
-            with traits.scoped_utf82wcharp(magic_envvar) as buf1:
+        with rffi.scoped_utf82wcharp(utf8) as buf2:
+            with rffi.scoped_utf82wcharp(magic_envvar) as buf1:
                 if not win32traits.SetEnvironmentVariable(buf1, buf2):
                     raise rwin32.lastSavedWindowsError()
 
@@ -688,7 +688,7 @@ def access(path, mode):
         # All files are executable on Windows
         mode = mode & ~os.X_OK
         utf8 = _as_utf80(path)
-        with utf8_traits.scoped_utf82wcharp(utf8) as buf:
+        with rffi.scoped_utf82wcharp(utf8) as buf:
             error = c_waccess(buf, mode)
     else:
         error = c_access(_as_bytes0(path), mode)
@@ -703,7 +703,7 @@ def getfullpathname(path):
     utf8 = _as_utf80(path)
     while True:      # should run the loop body maximum twice
         with rffi.scoped_alloc_unicodebuffer(length) as out_buf:
-            with utf8_traits.scoped_utf82wcharp(utf8) as in_buf:
+            with rffi.scoped_utf82wcharp(utf8) as in_buf:
 
                 res = win32traits.GetFullPathName(
                     in_buf, rffi.cast(rwin32.DWORD, length),
@@ -866,7 +866,7 @@ def listdir(path):
         filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
         try:
             result = []
-            with traits.scoped_utf82wcharp(mask) as buf:
+            with rffi.scoped_utf82wcharp(mask) as buf:
                 hFindFile = win32traits.FindFirstFile(buf, filedata)
             if hFindFile == rwin32.INVALID_HANDLE_VALUE:
                 error = rwin32.GetLastError_saved()
@@ -1211,9 +1211,8 @@ def unlink(path):
             src_utf8 = path
         else:
             src_utf8 = path.as_utf8()
-        src_wch = utf8_traits.utf82wcharp(src_utf8)
-        ret = rwin32.os_unlink_impl(src_wch)
-        rffi.free_wcharp(src_wch)
+        with rffi.scoped_utf82wcharp(src_utf8) as src_wch:
+            ret = rwin32.os_unlink_impl(src_wch)
         if not ret:
             raise rwin32.lastSavedWindowsError()
 
@@ -1228,7 +1227,7 @@ def mkdir(path, mode=0o777):
             src_utf8 = path
         else:
             src_utf8 = path.as_utf8()
-        with utf8_traits.scoped_utf82wcharp(src_utf8) as src_wch:
+        with rffi.scoped_utf82wcharp(src_utf8) as src_wch:
             result = win32traits.CreateDirectory(src_wch, None)
         if not result:
             raise rwin32.lastSavedWindowsError()
@@ -1240,7 +1239,7 @@ def rmdir(path):
     if _WIN32:
         traits = utf8_traits
         utf8 = _as_utf80(path)
-        with traits.scoped_utf82wcharp(utf8) as buf:
+        with rffi.scoped_utf82wcharp(utf8) as buf:
             handle_posix_error('wrmdir', c_wrmdir(buf))
     else:
         handle_posix_error('rmdir', c_rmdir(_as_bytes0(path)))
@@ -1261,7 +1260,7 @@ def chmod(path, mode):
         traits = utf8_traits
         win32traits = make_win32_traits(traits)
         utf8 = traits.as_utf80(path)
-        with traits.scoped_utf82wcharp(utf8) as buf:
+        with rffi.scoped_utf82wcharp(utf8) as buf:
             attr = win32traits.GetFileAttributes(buf)
         if attr == win32traits.INVALID_FILE_ATTRIBUTES:
             raise rwin32.lastSavedWindowsError()
@@ -1269,7 +1268,7 @@ def chmod(path, mode):
             attr &= ~win32traits.FILE_ATTRIBUTE_READONLY
         else:
             attr |= win32traits.FILE_ATTRIBUTE_READONLY
-        with traits.scoped_utf82wcharp(utf8) as buf:
+        with rffi.scoped_utf82wcharp(utf8) as buf:
             if not win32traits.SetFileAttributes(buf, attr):
                 raise rwin32.lastSavedWindowsError()
 
@@ -1285,8 +1284,8 @@ def rename(path1, path2):
         win32traits = make_win32_traits(traits)
         utf81 = traits.as_utf80(path1)
         utf82 = traits.as_utf80(path2)
-        with traits.scoped_utf82wcharp(utf81) as buf1:
-            with traits.scoped_utf82wcharp(utf82) as buf2:
+        with rffi.scoped_utf82wcharp(utf81) as buf1:
+            with rffi.scoped_utf82wcharp(utf82) as buf2:
                 if not win32traits.MoveFileEx(buf1, buf2, 0):
                     raise rwin32.lastSavedWindowsError()
     else:
@@ -1300,8 +1299,8 @@ def replace(path1, path2):
         win32traits = make_win32_traits(traits)
         utf81 = traits.as_utf80(path1)
         utf82 = traits.as_utf80(path2)
-        with traits.scoped_utf82wcharp(utf81) as buf1:
-            with traits.scoped_utf82wcharp(utf82) as buf2:
+        with rffi.scoped_utf82wcharp(utf81) as buf1:
+            with rffi.scoped_utf82wcharp(utf82) as buf2:
                 ret = win32traits.MoveFileEx(buf1, buf2,
                              win32traits.MOVEFILE_REPLACE_EXISTING)
         if not ret:
@@ -1444,8 +1443,8 @@ def link(oldpath, newpath):
         win32traits = make_win32_traits(traits)
         utf8old = traits.as_utf80(oldpath)
         utf8new = traits.as_utf80(newpath)
-        with traits.scoped_utf82wcharp(utf8old) as oldbuf:
-            with traits.scoped_utf82wcharp(utf8new) as newbuf:
+        with rffi.scoped_utf82wcharp(utf8old) as oldbuf:
+            with rffi.scoped_utf82wcharp(utf8new) as newbuf:
                 if not win32traits.CreateHardLink(newbuf, oldbuf, None):
                     raise rwin32.lastSavedWindowsError()
 
@@ -1552,7 +1551,7 @@ def utime(path, times):
         traits = utf8_traits
         win32traits = make_win32_traits(traits)
         path = traits.as_utf80(path)
-        with traits.scoped_utf82wcharp(path) as buf:
+        with rffi.scoped_utf82wcharp(path) as buf:
 
             hFile = win32traits.CreateFile(buf,
                                win32traits.FILE_WRITE_ATTRIBUTES, 0,
