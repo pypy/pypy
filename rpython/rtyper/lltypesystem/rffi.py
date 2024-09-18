@@ -1406,10 +1406,12 @@ class scoped_unicode2wcharp:
             free_wcharp(self.buf)
 
 class scoped_utf82wcharp:
-    def __init__(self, value, unicode_len):
+    def __init__(self, value, unicode_len=-1):
         if value is None:
             self.buf = lltype.nullptr(CWCHARP.TO)
         else:
+            if unicode_len < 0:
+                unicode_len = codepoints_in_utf8(value)
             self.buf = utf82wcharp(value, unicode_len)
     def __enter__(self):
         return self.buf

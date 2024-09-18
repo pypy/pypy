@@ -186,7 +186,6 @@ if not _WIN32:
             if name == 'libm.so':
                 name = 'libm.so.6'
         #
-        assert isinstance(name, str)
         with rffi.scoped_str2charp(name) as ll_libname:
             res = c_dlopen(ll_libname, rffi.cast(rffi.INT, mode))
         if not res:
