@@ -622,10 +622,10 @@ if WIN32:
         'SetEnvironmentVariableW', [LPWSTR, LPWSTR], BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
-    def SetEnvironmentVariableW(traits, name, value):
-        with traits.scoped_utf82wcharp(name) as nameWbuf:
-            with traits.scoped_utf82wcharp(value) as valueWbuf:
-                return _SetEnvironmentVariableW(nameWbuf, valueWbuf)
+    def DelEnvironmentVariableW(name):
+        with rffi.scoped_utf82wcharp(name) as nameWbuf:
+            valueWbuf = lltype.nullptr(rffi.CWCHARP.TO)
+            return _SetEnvironmentVariableW(nameWbuf, valueWbuf)
 
     _AddDllDirectory = winexternal('AddDllDirectory', [LPWSTR], rffi.VOIDP,
         save_err=rffi.RFFI_SAVE_LASTERROR)

@@ -27,6 +27,8 @@ class StringTraits(object):
     str2charp = staticmethod(rffi.str2charp)
     free_charp = staticmethod(rffi.free_charp)
     scoped_alloc_buffer = staticmethod(rffi.scoped_alloc_buffer)
+    scoped_str2charp = staticmethod(rffi.scoped_utf82wcharp)
+
 
     @staticmethod
     @specialize.argtype(0)
@@ -63,10 +65,6 @@ class Utf8Traits(object):
     @staticmethod
     def str2charp(value):
         return rffi.utf82wcharp(value, codepoints_in_utf8(value))
-
-    @staticmethod
-    def scoped_str2charp(value):
-        return rffi.scoped_utf82wcharp(value, codepoints_in_utf8(value))
 
     @staticmethod
     def charp2str(p):
