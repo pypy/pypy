@@ -1211,9 +1211,8 @@ def unlink(path):
             src_utf8 = path
         else:
             src_utf8 = path.as_utf8()
-        src_wch = utf8_traits.utf82wcharp(src_utf8)
-        ret = rwin32.os_unlink_impl(src_wch)
-        rffi.free_wcharp(src_wch)
+        with rffi.scoped_utf82wcharp(src_utf8)
+            ret = rwin32.os_unlink_impl(src_wch)
         if not ret:
             raise rwin32.lastSavedWindowsError()
 
