@@ -3,7 +3,9 @@
  */
 
 
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <limits.h>
 #include <process.h>
@@ -138,8 +140,8 @@ _PyTime_Divide(const _PyTime_t t, const _PyTime_t k,
         _PyTime_t x, r, abs_r;
         x = t / k;
         r = t % k;
-        abs_r = Py_ABS(r);
-        if (abs_r > k / 2 || (abs_r == k / 2 && (Py_ABS(x) & 1))) {
+        abs_r = abs(r);
+        if (abs_r > k / 2 || (abs_r == k / 2 && (abs(x) & 1))) {
             if (t >= 0) {
                 x++;
             }
@@ -180,9 +182,11 @@ _PyTime_Divide(const _PyTime_t t, const _PyTime_t k,
 _PyTime_t
 _PyTime_AsMicroseconds(_PyTime_t t, _PyTime_round_t round)
 {
-    return _PyTime_Divide(t, NS_TO_US, round);
+    return _PyTime_Divide(t, 1000, round);
 }
 
+#define SEC_TO_NS (1000 * 1000 * 1000)
+#define PY_DWORD_MAX 4294967295U
 
 static int
 win_perf_counter_frequency(LONGLONG *pfrequency, int raise)
@@ -257,7 +261,7 @@ _PyTime_GetPerfCounter(void)
 {
     _PyTime_t t;
     int res;
-    res = py_get_win_perf_counter(&t, NULL, 0);
+    res = py_get_win_perf_counter(&t, 0);
     if (res  < 0) {
         // If win_perf_counter_frequency() or py_get_monotonic_clock() fails:
         // silently ignore the failure and return 0.
@@ -271,6 +275,7 @@ _PyTime_GetPerfCounter(void)
  * Taken from Python/thread_nt.h
  */
 
+#if 0
 #define PyMem_RawMalloc malloc
 #define PyMem_RawFree free
 
@@ -292,7 +297,6 @@ fail:
     PyMem_RawFree(m);
     return NULL;
 }
-
 VOID
 FreeNonRecursiveMutex(PNRMUTEX mutex)
 {
@@ -301,6 +305,13 @@ FreeNonRecursiveMutex(PNRMUTEX mutex)
         PyMUTEX_FINI(&mutex->cs);
         PyMem_RawFree(mutex);
     }
+}
+#endif
+
+static void gil_fatal(const char *msg, DWORD dw) {
+    fprintf(stderr, "Fatal error in the GIL or with locks: %s [%x,%x]\n",
+                    msg, (int)dw, (int)GetLastError());
+    abort();
 }
 
 DWORD
@@ -320,7 +331,7 @@ EnterNonRecursiveMutex(PNRMUTEX mutex, DWORD milliseconds)
         /* wait at least until the target */
         _PyTime_t now = _PyTime_GetPerfCounter();
         if (now <= 0) {
-            gil_fatal("_PyTime_GetPerfCounter() <= 0");
+            gil_fatal("_PyTime_GetPerfCounter() <= 0", (DWORD)now);
         }
         _PyTime_t nanoseconds = (_PyTime_t)milliseconds * 1000000;
         _PyTime_t target = now + nanoseconds;
@@ -368,12 +379,6 @@ typedef struct {
 
 /* win64: _beginthread takes a UINT so we can store this in a long */
 static long _pypythread_stacksize = 0;
-
-static void gil_fatal(const char *msg, DWORD dw) {
-    fprintf(stderr, "Fatal error in the GIL or with locks: %s [%x,%x]\n",
-                    msg, (int)dw, (int)GetLastError());
-    abort();
-}
 
 static void
 bootstrap(void *call)
@@ -481,16 +486,16 @@ void RPyThreadAfterFork(void)
 int RPyThreadLockInit(struct RPyOpaque_ThreadLock *lock)
 {
     /* In upstream this is AllocNonRecursiveMutex */
-    if (!m)
+    if (!lock)
         return -1;
-    if (PyCOND_INIT(&m->cv))
-        return -1;
-    if (PyMUTEX_INIT(&m->cs)) {
-        PyCOND_FINI(&m->cv);
-        return -1;
+    if (PyCOND_INIT(&lock->cv))
+        return -2;
+    if (PyMUTEX_INIT(&lock->cs)) {
+        PyCOND_FINI(&lock->cv);
+        return -3;
     }
-    m->locked = 0;
-    return 0;
+    lock->locked = 0;
+    return 1;
 }
 
 void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *mutex)
@@ -514,7 +519,7 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *aLock,
 {
     /* Fow now, intr_flag does nothing on Windows, and lock acquires are
      * uninterruptible.  */
-    PyLockStatus success;
+    RPyLockStatus success;
     RPY_TIMEOUT_T milliseconds;
 
     if (microseconds >= 0) {
@@ -522,7 +527,7 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *aLock,
         if (microseconds % 1000 > 0)
             ++milliseconds;
         if (milliseconds > PY_DWORD_MAX) {
-            gil_fatal("Timeout larger than PY_TIMEOUT_MAX");
+            gil_fatal("Timeout larger than PY_TIMEOUT_MAX", -1);
         }
     }
     else {

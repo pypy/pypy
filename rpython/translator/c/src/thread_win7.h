@@ -8,7 +8,7 @@
  * Thread support.
  */
 
-typedef struct RPyOpaque_ThreadLock {
+struct RPyOpaque_ThreadLock {
     SRWLOCK cs;
     CONDITION_VARIABLE cv;
     int locked;

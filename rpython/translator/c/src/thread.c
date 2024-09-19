@@ -24,5 +24,6 @@
   #else
     #include "src/thread_win7.c"
   #endif
+#else
   #include "src/thread_pthread.c"
 #endif
