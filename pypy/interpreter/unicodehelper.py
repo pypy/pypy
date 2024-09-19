@@ -222,15 +222,15 @@ def utf8_encode_ascii(s, errors, errorhandler):
     return result.build()
 
 if sys.platform == 'win32':
+    from rpython.rlib import rwin32
     def utf8_encode_mbcs(s, errors, errorhandler):
-        s = s.decode('utf-8')
-        slen = len(s)
-        res = runicode.unicode_encode_mbcs(s, slen, errors, errorhandler)
+        slen = rutf8.codepoints_in_utf8(s)
+        res = rwin32.utf8_encode_mbcs(s, slen, errors, errorhandler)
         return res
 
     def str_decode_mbcs(s, errors, final, errorhandler):
         slen = len(s)
-        res, size = runicode.str_decode_mbcs(s, slen, final=final, errors=errors,
+        res, size = rwin32.str_decode_mbcs(s, slen, final=final, errors=errors,
                                            errorhandler=errorhandler)
         return res.encode('utf8'), size, len(res)
 
