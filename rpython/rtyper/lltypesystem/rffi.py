@@ -1056,6 +1056,7 @@ def make_string_mappings(strtype):
  ) = make_string_mappings(unicode)
 
 
+
 def constcharp2str(cp):
     """
     Like charp2str, but takes a CONST_CCHARP instead
@@ -1497,6 +1498,7 @@ class scoped_alloc_utf8buffer:
     def __exit__(self, *args):
         keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf, self.case_num)
     def str(self, length):
+        # XXX implement me!!!
         return utf8_from_buffer(self.raw, self.gc_buf, self.case_num,
                                    self.size, length)
 

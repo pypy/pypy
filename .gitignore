@@ -58,3 +58,4 @@ pybuilddir.txt
 pypy/doc/config/*.rst
 pypy/doc/config/*.txt
 pypy/doc/_build
+externals/

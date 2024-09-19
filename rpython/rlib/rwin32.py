@@ -675,4 +675,25 @@ if WIN32:
                 return utf8
             finally:
                 lltype.free(num_chars, flavor="raw")
- 
+
+    BOOLP = lltype.Ptr(lltype.Array(BOOL, hints={'nolength': True}))
+
+    MultiByteToWideChar = rffi.llexternal('MultiByteToWideChar',
+                                          [rffi.UINT, DWORD,
+                                           LPCSTR, rffi.INT,
+                                           rffi.CWCHARP, rffi.INT],
+                                          rffi.INT,
+                                          calling_conv='win',
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    WideCharToMultiByte = rffi.llexternal('WideCharToMultiByte',
+                                          [rffi.UINT, DWORD,
+                                           rffi.CWCHARP, rffi.INT,
+                                           LPCSTR, rffi.INT,
+                                           LPCSTR, BOOLP],
+                                          rffi.INT,
+                                          calling_conv='win',
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)
+
+
+

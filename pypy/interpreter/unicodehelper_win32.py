@@ -209,3 +209,4 @@ def utf8_encode_mbcs(space, s, w_s, errors, errorhandler):
             
 def utf8_encode_oem(space, s, w_s, errors, errorhandler):
         return utf8_encode_code_page(space, rwin32.CP_OEMCP, s, w_s, errors, errorhandler)
+
