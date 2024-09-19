@@ -17,7 +17,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib._os_support import utf8_traits
 from rpython.rlib import rwin32
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.runicode import WideCharToMultiByte, MultiByteToWideChar
 from rpython.rlib.rwin32file import make_win32_traits
 from rpython.rlib.buffer import ByteBuffer
 from rpython.rlib.rarithmetic import intmask

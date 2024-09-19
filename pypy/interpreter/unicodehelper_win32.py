@@ -1,5 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.runicode import (BOOLP, WideCharToMultiByte,
+from rpython.rlib.rwin32 import (BOOLP, WideCharToMultiByte,
          MultiByteToWideChar)
 from rpython.rlib.rutf8 import (Utf8StringIterator, next_codepoint_pos,
                                 StringBuilder, codepoints_in_utf8, check_utf8)
