@@ -6,6 +6,7 @@ from __future__ import print_function
 
 import argparse
 import os
+import shutil
 import sys
 import zipfile
 from subprocess import Popen, PIPE, check_call
@@ -14,7 +15,12 @@ from rpython.translator.platform import host
 def checkout_repo(dest='externals', org='pypy', branch='default', verbose=False):
     url = 'https://github.com/{}/externals'.format(org)
     if os.path.exists(dest):
-        cmd = ['git', '-C', dest, 'pull', url]
+        if os.path.exists(os.path.join(dest, ".git")):
+            cmd = ['git', '-C', dest, 'pull', url]
+        else:
+            # remove a mercurial clone
+            shutil.rmtree(dest)
+            cmd = ['git','clone',url, dest]
     else:
         cmd = ['git','clone',url, dest]
     check_call(cmd, verbose)
