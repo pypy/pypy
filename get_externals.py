@@ -6,25 +6,10 @@ from __future__ import print_function
 
 import argparse
 import os
+import sys
 import zipfile
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, check_call
 from rpython.translator.platform import host
-
-def runcmd(cmd, verbose):
-    stdout = stderr = ''
-    report = False
-    try:
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE)
-        stdout, stderr = p.communicate()
-        if p.wait() != 0 or verbose:
-            report = True
-    except Exception as e:
-        stderr = str(e) + '\n' + stderr
-        report = True
-    if report:
-        print('running "%s" returned\n%s\n%s' % (' '.join(cmd), stdout, stderr))
-    if stderr:
-        raise RuntimeError(stderr)
 
 def checkout_repo(dest='externals', org='pypy', branch='default', verbose=False):
     url = 'https://github.com/{}/externals'.format(org)
@@ -32,14 +17,9 @@ def checkout_repo(dest='externals', org='pypy', branch='default', verbose=False)
         cmd = ['git', '-C', dest, 'pull', url]
     else:
         cmd = ['git','clone',url, dest]
-    runcmd(cmd, verbose)
+    check_call(cmd, verbose)
     cmd = ['git','-C', dest, 'checkout',branch]
-    runcmd(cmd, verbose)
-
-def extract_zip(externals_dir, zip_path):
-    with zipfile.ZipFile(os.fspath(zip_path)) as zf:
-        zf.extractall(os.fspath(externals_dir))
-        return externals_dir / zf.namelist()[0].split('/')[0]
+    check_call(cmd)
 
 def parse_args():
     p = argparse.ArgumentParser()
