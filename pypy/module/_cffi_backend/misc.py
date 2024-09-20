@@ -12,11 +12,7 @@ from rpython.rlib.rdynload import dlopen, DLOpenError, DLLHANDLE
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-if sys.platform == 'win32':
-    from rpython.rlib.rdynload import dlopenU
-    WIN32 = True
-else:
-    WIN32 = False
+_WIN32 = sys.platform == 'win32':
 
 
 # ____________________________________________________________
@@ -417,7 +413,7 @@ def dlopen_w(space, w_filename, flags):
         handle = rffi.cast(DLLHANDLE, handle)
         autoclose = False
         #
-    elif WIN32 and space.isinstance_w(w_filename, space.w_unicode):
+    elif _WIN32 and space.isinstance_w(w_filename, space.w_unicode):
         fname = space.text_w(space.repr(w_filename))
         utf8_name = space.utf8_w(w_filename)
         try:

@@ -232,6 +232,8 @@ else:  # _WIN32
 
     def dlopen(name, mode=-1):
         # mode is unused on windows, but a consistant signature
+        if not name:
+            raise DLOpenError("cannot use None")
         with rffi.scoped_utf82wcharp(name, codepoints_in_utf8(name)) as buf:
             res = rwin32.LoadLibraryW(buf)
         if not res:
@@ -242,19 +244,12 @@ else:  # _WIN32
 
     def dlopenex(name, flags=rwin32.LOAD_WITH_ALTERED_SEARCH_PATH):
         # Don't display a message box when Python can't load a DLL */
+        if not name:
+            raise DLOpenError("cannot use None")
         old_mode = rwin32.SetErrorMode(rwin32.SEM_FAILCRITICALERRORS)
         with rffi.scoped_utf82wcharp(name, codepoints_in_utf8(name)) as buf:
             res = rwin32.LoadLibraryExW(buf, flags)
         rwin32.SetErrorMode(old_mode)
-        if not res:
-            err = rwin32.GetLastError_saved()
-            ustr, lgt = rwin32.FormatErrorW(err)
-            raise DLOpenError(ustr)
-        return res
-
-    def dlopenU(name, mode=-1):
-        # mode is unused on windows, but a consistant signature
-        res = rwin32.LoadLibraryW(name)
         if not res:
             err = rwin32.GetLastError_saved()
             ustr, lgt = rwin32.FormatErrorW(err)
