@@ -151,7 +151,7 @@ def compute_stdlib_path_maybe(state, prefix):
 
 @unwrap_spec(executable='fsencode')
 def pypy_find_executable(space, executable):
-    if 0 and _WIN32:
+    if _WIN32:
         module_filename = pypy_init_executable()
         if module_filename:
             module_path = rffi.charp2str(module_filename)
