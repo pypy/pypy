@@ -27,13 +27,13 @@ def runcmd(cmd, verbose):
         raise RuntimeError(stderr)
 
 def checkout_repo(dest='externals', org='pypy', branch='default', verbose=False):
-    url = 'https://foss.heptapod.net/{}/externals'.format(org)
+    url = 'https://github.com/{}/externals'.format(org)
     if os.path.exists(dest):
-        cmd = ['hg', '-R', dest, 'pull', url]
+        cmd = ['git', '-C', dest, 'pull', url]
     else:
-        cmd = ['hg','clone',url, dest]
+        cmd = ['git','clone',url, dest]
     runcmd(cmd, verbose)
-    cmd = ['hg','-R', dest, 'update',branch]
+    cmd = ['git','-C', dest, 'checkout',branch]
     runcmd(cmd, verbose)
 
 def extract_zip(externals_dir, zip_path):
@@ -59,6 +59,8 @@ def parse_args():
 
 
 def main():
+    if sys.platform != "win32":
+        print("only needed on windows")
     args = parse_args()
     checkout_repo(
         dest=args.externals,
