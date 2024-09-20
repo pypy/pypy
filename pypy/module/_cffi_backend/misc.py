@@ -12,7 +12,7 @@ from rpython.rlib.rdynload import dlopen, DLOpenError, DLLHANDLE
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-_WIN32 = sys.platform == 'win32':
+_WIN32 = sys.platform == 'win32'
 
 
 # ____________________________________________________________
