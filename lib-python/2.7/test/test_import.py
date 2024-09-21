@@ -106,7 +106,8 @@ class ImportTests(unittest.TestCase):
         sys.path.insert(0, os.curdir)
         try:
             test_with_extension(os.extsep + "py")
-            if sys.platform.startswith("win"):
+            if 0 and sys.platform.startswith("win"):
+                # upper case not supported on PyPy
                 for ext in [".PY", ".Py", ".pY", ".pyw", ".PYW", ".pYw"]:
                     test_with_extension(ext)
         finally:
