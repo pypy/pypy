@@ -211,7 +211,7 @@ class W_MemoryView(W_Root):
         return space.decode_index4_unsafe(w_index, count)
 
     def descr_getitem(self, space, w_index):
-
+        self._check_released(space)
         is_slice = space.isinstance_w(w_index, space.w_slice)
         if is_slice or space.lookup(w_index, '__index__'):
             start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
@@ -231,11 +231,9 @@ class W_MemoryView(W_Root):
         elif is_multiindex(space, w_index):
             return self._getitem_tuple_indexed(space, w_index)
         elif is_multislice(space, w_index):
-            self._check_released(space)
             raise oefmt(space.w_NotImplementedError,
                         "multi-dimensional slicing is not implemented")
         else:
-            self._check_released(space)
             raise oefmt(space.w_TypeError, "memoryview: invalid slice key")
 
     def init_len(self):
