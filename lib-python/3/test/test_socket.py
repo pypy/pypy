@@ -927,10 +927,20 @@ class GeneralModuleTests(unittest.TestCase):
         # wrong number of args
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo')
-        self.assertIn('(1 given)', str(cm.exception))
+
+        if sys.implementation.name == 'pypy':
+            msg = 'missing 1 required positional argument'
+        else:
+            msg = '(1 given)'
+        self.assertIn(msg, str(cm.exception))
+
+        if sys.implementation.name == 'pypy':
+            msg = 'but 5 were given'
+        else:
+            msg = '(4 given)'
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', 0, sockname, 4)
-        self.assertIn('(4 given)', str(cm.exception))
+        self.assertIn(msg, str(cm.exception))
 
     def testCrucialConstants(self):
         # Testing for mission critical constants
