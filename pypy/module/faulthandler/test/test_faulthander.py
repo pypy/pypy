@@ -1,3 +1,9 @@
+import pytest
+import sys
+
+if sys.platform == 'win32':
+    pytest.skip("missing details to make faulthandler work on windows")
+
 class AppTestFaultHandler:
     spaceconfig = {
         "usemodules": ["faulthandler", "_vmprof"]
