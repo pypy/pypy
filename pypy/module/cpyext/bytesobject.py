@@ -86,7 +86,8 @@ def bytes_attach(space, py_obj, w_obj, w_userdata=None):
             "bytes_attach called on object with ob_size %d but trying to store %d",
             py_str.c_ob_size, len_s)
     with rffi.scoped_nonmovingbuffer(s) as s_ptr:
-        rffi.c_memcpy(py_str.c_ob_sval, s_ptr, len_s)
+        const_s_ptr = rffi.cast(rffi.CONST_VOIDP, s_ptr)
+        rffi.c_memcpy(py_str.c_ob_sval, const_s_ptr, len_s)
     py_str.c_ob_sval[len_s] = '\0'
     # if py_obj has a tp_hash, this will try to call it, but the objects are
     # not fully linked yet

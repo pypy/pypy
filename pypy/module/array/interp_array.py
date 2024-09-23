@@ -190,7 +190,7 @@ class W_ArrayBase(W_Root):
                         rffi.CCHARP.TO, byte_size, flavor='raw')
                     copy_bytes = min(size, self.len) * self.itemsize
                     rffi.c_memcpy(rffi.cast(rffi.VOIDP, new_buffer),
-                                  rffi.cast(rffi.VOIDP, self._buffer),
+                                  rffi.cast(rffi.CONST_VOIDP, self._buffer),
                                   copy_bytes)
             else:
                 self.len = size
@@ -260,14 +260,14 @@ class W_ArrayBase(W_Root):
             if i:
                 rffi.c_memcpy(
                     rffi.cast(rffi.VOIDP, newbuffer),
-                    rffi.cast(rffi.VOIDP, self._buffer),
+                    rffi.cast(rffi.CONST_VOIDP, self._buffer),
                     i * self.itemsize
                 )
             if j < self.len:
                 rffi.c_memcpy(
                     rffi.cast(rffi.VOIDP, rffi.ptradd(newbuffer,
                                                       i * self.itemsize)),
-                    rffi.cast(rffi.VOIDP, rffi.ptradd(self._buffer,
+                    rffi.cast(rffi.CONST_VOIDP, rffi.ptradd(self._buffer,
                                                       j * self.itemsize)),
                     (self.len - j) * self.itemsize
                 )
@@ -514,7 +514,7 @@ class W_ArrayBase(W_Root):
         w_a.setlen(self.len, overallocate=False)
         rffi.c_memcpy(
             rffi.cast(rffi.VOIDP, w_a._buffer_as_unsigned()),
-            rffi.cast(rffi.VOIDP, self._buffer_as_unsigned()),
+            rffi.cast(rffi.CONST_VOIDP, self._buffer_as_unsigned()),
             self.len * self.itemsize
         )
         return w_a
@@ -620,14 +620,14 @@ class W_ArrayBase(W_Root):
         if self.len:
             rffi.c_memcpy(
                 rffi.cast(rffi.VOIDP, a._buffer),
-                rffi.cast(rffi.VOIDP, self._buffer),
+                rffi.cast(rffi.CONST_VOIDP, self._buffer),
                 self.len * self.itemsize
             )
         if w_other.len:
             rffi.c_memcpy(
                 rffi.cast(rffi.VOIDP, rffi.ptradd(a._buffer,
                                              self.len * self.itemsize)),
-                rffi.cast(rffi.VOIDP, w_other._buffer),
+                rffi.cast(rffi.CONST_VOIDP, w_other._buffer),
                 w_other.len * self.itemsize
             )
         keepalive_until_here(self)
@@ -645,7 +645,7 @@ class W_ArrayBase(W_Root):
             rffi.c_memcpy(
                 rffi.cast(rffi.VOIDP, rffi.ptradd(self._buffer,
                                              oldlen * self.itemsize)),
-                rffi.cast(rffi.VOIDP, w_other._buffer),
+                rffi.cast(rffi.CONST_VOIDP, w_other._buffer),
                 otherlen * self.itemsize
             )
         keepalive_until_here(self)
@@ -696,7 +696,7 @@ class W_ArrayBase(W_Root):
                 dstbuf = rffi.ptradd(dstbuf, srcsize)
             for r in range(start, repeat):
                 rffi.c_memcpy(rffi.cast(rffi.VOIDP, dstbuf),
-                              rffi.cast(rffi.VOIDP, srcbuf),
+                              rffi.cast(rffi.CONST_VOIDP, srcbuf),
                               srcsize)
                 dstbuf = rffi.ptradd(dstbuf, srcsize)
         keepalive_until_here(self)
