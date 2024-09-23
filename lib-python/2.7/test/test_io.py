@@ -351,7 +351,7 @@ class IOTest(unittest.TestCase):
 
     def test_open_handles_NUL_chars(self):
         fn_with_NUL = 'foo\0bar'
-        self.assertRaises(ValueError, self.open, fn_with_NUL, 'w')
+        self.assertRaises(TypeError, self.open, fn_with_NUL, 'w')
 
         bytes_fn = fn_with_NUL.encode('ascii')
         with warnings.catch_warnings():

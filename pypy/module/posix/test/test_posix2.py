@@ -246,7 +246,7 @@ class AppTestPosix:
         posix = self.posix
         try:
             posix.open(fn_with_NUL, 0, 0)
-        except ValueError:
+        except TypeError:
             pass
         else:
             assert False, "expected ValueError"

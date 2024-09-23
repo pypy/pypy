@@ -808,7 +808,7 @@ class LocalPath(FSBase):
             if hasattr(lockfile, "mksymlinkto"):
                 lockfile.mksymlinkto(str(mypid))
             else:
-                fd = error.checked_call(
+                fd = py.error.checked_call(
                     os.open, str(lockfile), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644
                 )
                 with os.fdopen(fd, "w") as f:
@@ -829,7 +829,7 @@ class LocalPath(FSBase):
                     return
                 try:
                     lockfile.remove()
-                except error.Error:
+                except py.error.Error:
                     pass
 
             atexit.register(try_remove_lockfile)
@@ -849,7 +849,7 @@ class LocalPath(FSBase):
                 if lock_timeout:
                     lockfile = create_lockfile(udir)
                     atexit_remove_lockfile(lockfile)
-            except (error.EEXIST, error.ENOENT, error.EBUSY):
+            except (py.error.EEXIST, py.error.ENOENT, py.error.EBUSY):
                 # race condition (1): another thread/process created the dir
                 #                     in the meantime - try again
                 # race condition (2): another thread/process spuriously acquired

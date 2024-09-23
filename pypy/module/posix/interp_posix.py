@@ -52,7 +52,7 @@ class FileEncoder(object):
     def as_utf8(self):
         ret = self.space.utf8_w(self.w_obj)
         if '\x00' in ret:
-            raise oefmt(self.space.w_ValueError, "embedded null character")
+            raise oefmt(self.space.w_TypeError, "embedded null character")
         return ret
 
 class FileDecoder(object):
@@ -68,7 +68,7 @@ class FileDecoder(object):
     def as_utf8(self):
         ret = self.space.utf8_w(self.w_obj)
         if '\x00' in ret:
-            raise oefmt(self.space.w_ValueError, "embedded null character")
+            raise oefmt(self.space.w_TypeError, "embedded null character")
         return ret
 
 @specialize.memo()
