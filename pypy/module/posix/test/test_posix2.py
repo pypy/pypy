@@ -241,6 +241,17 @@ class AppTestPosix:
                 else:
                     assert 0
 
+    def test_open_handles_NUL_chars(self):
+        fn_with_NUL = 'foo\0bar'
+        posix = self.posix
+        try:
+            posix.open(fn_with_NUL, 0, 0)
+        except ValueError:
+            pass
+        else:
+            assert False, "expected ValueError"
+
+
     def test_chmod_exception(self):
         try:
             self.posix.chmod('qowieuqw/oeiu', 0)

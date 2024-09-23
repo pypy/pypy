@@ -1778,7 +1778,7 @@ class ObjSpace(object):
         "Like bytes_w, but rejects strings with NUL bytes."
         result = w_obj.str_w(self)
         if '\x00' in result:
-            raise oefmt(self.w_TypeError,
+            raise oefmt(self.w_ValueError,
                         "argument must be a string without NUL characters")
         return rstring.assert_str0(result)
 
@@ -1798,7 +1798,7 @@ class ObjSpace(object):
             bytestr = w_obj.str_w(self)
             result = rutf8.decode_latin_1(bytestr)
             if '\x00' in result:
-                raise oefmt(self.w_TypeError,
+                raise oefmt(self.w_ValueError,
                             "argument must be a string without NUL characters")
             return rstring.assert_str0(result)
             
