@@ -68,7 +68,7 @@ def arena_collection_for_test(pagesize, pagelayout, fill_with_objects=False):
     assert " " not in pagelayout.rstrip(" ")
     nb_pages = len(pagelayout)
     arenasize = pagesize * (nb_pages + 1) - 1
-    ac = ArenaCollection(arenasize, pagesize, 9*WORD)
+    ac = ArenaCollection(arenasize, pagesize, 9*WORD, None)
     #
     def link(pageaddr, size_class, size_block, nblocks, nusedblocks, step=1):
         assert step in (1, 2)
@@ -419,15 +419,15 @@ def randomize(random, incremental):
     def my_allocate_new_arena():
         # the following output looks cool on a 112-character-wide terminal.
         lst = sorted(ac._all_arenas(), key=lambda a: a.base.arena._arena_index)
-        for a in lst:
-            print a.base.arena, a.base.arena.usagemap
-        print '-' * 80
+        #for a in lst:
+        #    print a.base.arena, a.base.arena.usagemap
+        #print '-' * 80
         ac.__class__.allocate_new_arena(ac)
         a = ac.current_arena.base.arena
         def my_mark_freed():
             a.freed = True
             DoneTesting.counter += 1
-            if DoneTesting.counter > 3:
+            if DoneTesting.counter > 30:
                 raise DoneTesting
         a.mark_freed = my_mark_freed
     ac.allocate_new_arena = my_allocate_new_arena
@@ -441,6 +441,7 @@ def randomize(random, incremental):
 
     try:
         while True:
+            print "number live objects:", len(live_objects), DoneTesting.counter
             #
             # Allocate some more objects
             for i in range(random.randrange(1, 100)):
@@ -452,15 +453,16 @@ def randomize(random, incremental):
             live_objects_extra = {}
             fresh_extra = 0
             if not incremental:
-                total_memory_before = ac.total_memory_used
-                ac.mass_free(ok_to_free)
+                ac.ok_to_free_func = ok_to_free
+                ac.mass_free()
                 total_memory_after = ac.total_memory_used
                 assert total_memory_after <= total_memory_before
             else:
+                ac.ok_to_free_func = ok_to_free
                 ac.mass_free_prepare()
                 while 1:
                     total_memory_before = ac.total_memory_used
-                    complete = ac.mass_free_incremental(ok_to_free, random.randrange(1, 3))
+                    complete = ac.mass_free_incremental(random.randrange(1, 3))
                     if complete:
                         break
                     total_memory_after = ac.total_memory_used
