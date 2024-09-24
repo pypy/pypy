@@ -96,7 +96,7 @@ class ArenaCollection(object):
         self.small_request_threshold = small_request_threshold
         self.arenas_count = 0
         # For each object, if ok_to_free_func(obj) returns True, then free
-        # the object.  
+        # the object.
         self.ok_to_free_func = ok_to_free_func
 
         #
@@ -258,7 +258,7 @@ class ArenaCollection(object):
         if freepages == NULL:
             # This was the last page, so put the arena away into
             # arenas_lists[0].
-            ll_assert(arena.nfreepages == 0, 
+            ll_assert(arena.nfreepages == 0,
                       "freepages == NULL but nfreepages > 0")
             arena.nextarena = self.arenas_lists[0]
             self.arenas_lists[0] = arena
@@ -527,11 +527,11 @@ class ArenaCollection(object):
                     # remaining_emptyish_pages list if only 25% of capacity
                     # of the list remain used.
                     if surviving < self.nblocks_for_size[size_class] // 4:
-                        remaining_emptyish_pages = _insert_bubble_by_nfree(
-                                page, remaining_emptyish_pages)
+                        page.nextpage = remaining_emptyish_pages
+                        remaining_emptyish_pages = page
                     else:
-                        remaining_partial_pages = _insert_bubble_by_nfree(
-                                page, remaining_partial_pages)
+                        page.nextpage = remaining_partial_pages
+                        remaining_partial_pages = page
                     #
                 else:
                     # No object survives; free the page.
@@ -726,18 +726,6 @@ class ArenaCollection(object):
             debug_print("count, half full/full", count_half_full, count)
         if used_blocks or free_blocks:
             debug_print("used, unused, percent free (lower is better):", used_blocks, free_blocks, int(float(free_blocks) / (used_blocks + free_blocks) * 100.0))
-
-
-def _insert_bubble_by_nfree(page, nextpage):
-    """ insert page as the head of the chained list, with nextpage being the
-    previous head. however, we swap the two, depending on who has the smaller
-    amount of free space. """
-    if nextpage and nextpage.nfree < page.nfree:
-        page.nextpage = nextpage.nextpage
-        nextpage.nextpage = page
-        return nextpage
-    page.nextpage = nextpage
-    return page
 
 
 # ____________________________________________________________

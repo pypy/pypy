@@ -378,7 +378,6 @@ def test_mass_free_half_page_remains():
 def test_mass_free_half_page_becomes_more_free():
     pagesize = hdrsize + 24*WORD
     ac = arena_collection_for_test(pagesize, "/", fill_with_objects=2)
-    import pdb;pdb.set_trace()
     page = getpage(ac, 0)
     assert ac._nuninitialized(page, 2) == 4
     assert page.nfree == 4
