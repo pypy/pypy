@@ -1,4 +1,8 @@
-from _pypy_exceptiongroups import BaseExceptionGroup, ExceptionGroup
+from _pypy_exceptiongroups import \
+    BaseExceptionGroup, ExceptionGroup, \
+    _collect_eg_leafs, _exception_group_projection, \
+    _prep_reraise_star
+
 import pytest
 
 
@@ -479,3 +483,104 @@ def test_derive_always_creates_exception_group():
     eg = MyEG("abc", [ValueError(), TypeError()])
     eg2 = eg.derive([ValueError()])
     assert type(eg2) is ExceptionGroup
+
+
+### helper function tests
+
+def test_eg_leafs_basic():
+    t1, v1 = TypeError(), ValueError()
+    exceptions = [t1, v1]
+    message = "42"
+    excgroup = ExceptionGroup(message, exceptions)
+    resultset = set()
+    _collect_eg_leafs(excgroup, resultset)
+    assert {t1, v1} == resultset
+
+def test_eg_leafs_null():
+    resultset = set()
+    _collect_eg_leafs(None, resultset)
+    assert not resultset
+
+def test_eg_leafs_nogroup():
+    exc = TypeError()
+    resultset = set()
+    _collect_eg_leafs(exc, resultset)
+    assert resultset == {exc}
+
+def test_eg_leafs_recursive():
+    # TODO: fix
+    val1 = ValueError(1)
+    typ1 = TypeError()
+    val2 = ValueError(2)
+    val3 = ValueError(3)
+    typ2 = TypeError()
+    key1 = KeyError()
+    div1 = ZeroDivisionError()
+    eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
+    resultset = set()
+    collected = _collect_eg_leafs(eg, resultset)
+    assert len(resultset) == 7
+    for e in [val1, typ1, val2, val3, typ2, key1, div1]:
+        assert e in resultset
+
+def test_exception_group_projection_basic():
+    val1 = ValueError(1)
+    typ1 = TypeError()
+    val2 = ValueError(2)
+    val3 = ValueError(3)
+    typ2 = TypeError()
+    key1 = KeyError()
+    div1 = ZeroDivisionError()
+    eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
+    keep1 = ExceptionGroup("meep", [key1, typ1])
+    keep2 = ExceptionGroup("moop", [val2, ExceptionGroup("doop", [val3])])
+    result = _exception_group_projection(eg, [keep1, keep2])
+    assert repr(result) == \
+        "ExceptionGroup('abc', [KeyError(), ExceptionGroup('def', [ValueError(2), ValueError(3)]), TypeError()])"
+
+def test_exception_group_projection_duplicated_in_keep():
+    val1 = ValueError(1)
+    typ1 = TypeError()
+    val2 = ValueError(2)
+    val3 = ValueError(3)
+    typ2 = TypeError()
+    key1 = KeyError()
+    div1 = ZeroDivisionError()
+    eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
+    keep1 = ExceptionGroup("meep", [key1, typ1, val2])
+    keep2 = ExceptionGroup("moop", [val2, ExceptionGroup("doop", [key1, val3])])
+    result = _exception_group_projection(eg, [keep1, keep2])
+    assert repr(result) == \
+        "ExceptionGroup('abc', [KeyError(), ExceptionGroup('def', [ValueError(2), ValueError(3)]), TypeError()])"
+
+# TODO: Duplicates in eg?
+
+
+# _prep_reraise_star tests
+
+def test_prep_reraise_star_simple():
+    assert _prep_reraise_star(TypeError(), [None]) is None
+    assert _prep_reraise_star(ExceptionGroup('abc', [ValueError(), TypeError()]), [None]) is None
+
+    value = ValueError()
+    res = _prep_reraise_star(ExceptionGroup('abc', [value, TypeError()]), [ExceptionGroup('abc', [value])])
+    assert repr(res) == "ExceptionGroup('abc', [ValueError()])"
+    assert res.exceptions[0] is value
+
+def test_prep_reraise_exception_happens_in_except_star():
+    value = ValueError()
+    full_eg = ExceptionGroup('abc', [value, TypeError()])
+    value_eg = ExceptionGroup('abc', [value])
+    try:
+        raise Exception
+    except Exception as e:
+        tb1 = e.__traceback__
+    try:
+        raise Exception
+    except Exception as e:
+        tb2 = e.__traceback__
+    full_eg.__traceback__ = tb1
+    value_eg.__traceback__ = tb1
+    zerodiv = ZeroDivisionError('division by zero')
+    zerodiv.__traceback__ = tb2
+    assert repr(_prep_reraise_star(full_eg, [zerodiv, value_eg])) == "ExceptionGroup('', [ZeroDivisionError('division by zero'), ExceptionGroup('abc', [ValueError()])])"
