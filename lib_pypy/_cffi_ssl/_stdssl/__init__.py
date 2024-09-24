@@ -760,6 +760,7 @@ class _SSLSocket(object):
             elif err.ssl == SSL_ERROR_ZERO_RETURN and \
                  lib.SSL_get_shutdown(self.ssl) == lib.SSL_RECEIVED_SHUTDOWN:
                 count[0] = 0
+                retval = 1  # in _ssl.c this is 'goto done' to avoid raising an error
                 break;
             else:
                 sockstate = SOCKET_OPERATION_OK
