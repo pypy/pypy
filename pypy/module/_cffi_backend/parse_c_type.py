@@ -71,7 +71,7 @@ def allocate_ctxobj(src_ctx):
     p = lltype.malloc(CTXOBJ, flavor='raw', zero=True)
     if src_ctx:
         rffi.c_memcpy(rffi.cast(rffi.VOIDP, p.ctx),
-                      rffi.cast(rffi.VOIDP, src_ctx),
+                      rffi.cast(rffi.CONST_VOIDP, src_ctx),
                       rffi.cast(rffi.SIZE_T, rffi.sizeof(PCTX.TO)))
     p.info.c_ctx = p.ctx
     p.info.c_output = internal_output

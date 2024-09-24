@@ -1506,7 +1506,7 @@ class scoped_alloc_utf8buffer:
 # You would have to have a *huge* amount of data for this to block long enough
 # to be worth it to release the GIL.
 c_memcpy = llexternal("memcpy",
-            [VOIDP, VOIDP, SIZE_T],
+            [VOIDP, CONST_VOIDP, SIZE_T],
             lltype.Void,
             releasegil=False,
             calling_conv='c',
