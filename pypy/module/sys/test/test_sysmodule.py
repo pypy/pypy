@@ -13,7 +13,6 @@ class AppTestAppSysTests:
 
     def setup_class(cls):
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
-        cls.w_filesystemenc = cls.space.wrap(sys.getfilesystemencoding())
 
     def test_sys_in_modules(self):
         import sys
@@ -104,7 +103,7 @@ class AppTestAppSysTests:
 
     def test_getfilesystemencoding(self):
         import sys
-        assert sys.getfilesystemencoding() == self.filesystemenc
+        assert sys.getfilesystemencoding().lower() == 'utf-8'
 
     def test_float_info(self):
         import sys

@@ -53,8 +53,10 @@ if sys.platform == 'win32':
         Return an array of one HCRYPTPROV, initialized to NULL.
         It is filled automatically the first time urandom() is called.
         """
-        return lltype.malloc(rffi.CArray(HCRYPTPROV), 1,
+        ret = lltype.malloc(rffi.CArray(HCRYPTPROV), 1,
                              immortal=True, zero=True)
+        ret[0] = rffi.cast(HCRYPTPROV, 0)
+        return ret
 
     def urandom(context, n, signal_checker=None):
         # NOTE: no dictionaries here: rsiphash24 calls this to

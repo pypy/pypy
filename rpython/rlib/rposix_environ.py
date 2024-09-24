@@ -1,7 +1,7 @@
 import os
 import sys
 from rpython.annotator import model as annmodel
-from rpython.rlib._os_support import _WIN32, StringTraits, UnicodeTraits
+from rpython.rlib._os_support import _WIN32, string_traits, utf8_traits
 from rpython.rlib.objectmodel import enforceargs
 # importing rposix here creates a cycle on Windows
 from rpython.rtyper.controllerentry import Controller
@@ -144,16 +144,16 @@ envkeepalive.bywname = {}
 
 def make_env_impls(win32=False):
     if not win32:
-        traits = StringTraits()
+        traits = string_traits
         get_environ, getenv, putenv = os_get_environ, os_getenv, os_putenv
         byname, eq = envkeepalive.byname, '='
         def last_error(msg):
             from rpython.rlib import rposix
             raise OSError(rposix.get_saved_errno(), msg)
     else:
-        traits = UnicodeTraits()
+        traits = utf8_traits
         get_environ, getenv, putenv = get__wenviron, _wgetenv, _wputenv
-        byname, eq = envkeepalive.bywname, u'='
+        byname, eq = envkeepalive.bywname, '='
         from rpython.rlib.rwin32 import lastSavedWindowsError as last_error
 
     def envitems_llimpl():

@@ -61,8 +61,8 @@ class EmbeddingTests:
         popen = self._run_base(args, cwd=self.get_path(),
                                  stdout=subprocess.PIPE,
                                  universal_newlines=True)
-        output = popen.stdout.read()
-        err = popen.wait()
+        output, _ = popen.communicate()
+        err = popen.returncode
         if err:
             raise OSError(("popen failed with exit code %r: %r\n\n%s" % (
                 err, args, output)).rstrip())
@@ -170,8 +170,8 @@ if sys.platform == 'win32':
         popen = self._run_base([executable_name], cwd=path,
                                stdout=subprocess.PIPE,
                                universal_newlines=True)
-        result = popen.stdout.read()
-        err = popen.wait()
+        result, _ = popen.communicate()
+        err = popen.returncode
         if err:
             raise OSError("%r failed with exit code %r" % (
                 os.path.join(path, executable_name), err))

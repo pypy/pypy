@@ -11,7 +11,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib._rsocket_rffi import socketclose, FD_SETSIZE
 from rpython.rlib.rposix import get_saved_errno
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, widen
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 
@@ -98,8 +98,8 @@ pypy_epoll_ctl = rffi.llexternal(
 )
 pypy_epoll_wait = rffi.llexternal(
     "pypy_epoll_wait",
-    [rffi.INT, rffi.CArrayPtr(rffi.UINT), rffi.CArrayPtr(rffi.INT),
-     rffi.INT, rffi.INT],
+    [rffi.INT_real, rffi.CArrayPtr(rffi.UINT_real), rffi.CArrayPtr(rffi.INT_real),
+     rffi.INT_real, rffi.INT_real],
     rffi.INT,
     compilation_info=eci,
     save_err=rffi.RFFI_SAVE_ERRNO
@@ -190,8 +190,8 @@ class W_Epoll(W_Root):
             raise oefmt(space.w_ValueError,
                         "maxevents must be greater than 0, not %d", maxevents)
 
-        with lltype.scoped_alloc(rffi.CArray(rffi.UINT), maxevents) as fids:
-            with lltype.scoped_alloc(rffi.CArray(rffi.INT), maxevents) as events:
+        with lltype.scoped_alloc(rffi.CArray(rffi.UINT_real), maxevents) as fids:
+            with lltype.scoped_alloc(rffi.CArray(rffi.INT_real), maxevents) as events:
                 nfds = pypy_epoll_wait(self.epfd, fids, events, maxevents, int(timeout))
                 if nfds < 0:
                     raise exception_from_saved_errno(space, space.w_IOError)
@@ -199,7 +199,8 @@ class W_Epoll(W_Root):
                 elist_w = [None] * nfds
                 for i in xrange(nfds):
                     elist_w[i] = space.newtuple2(
-                        space.newint(fids[i]), space.newint(events[i])
+
+                        space.newint(intmask(fids[i])), space.newint(events[i])
                     )
                 return space.newlist(elist_w)
 

@@ -790,46 +790,35 @@ class LocalPath(FSBase):
         if rootdir is None:
             rootdir = cls.get_temproot()
 
+        nprefix = prefix.lower()
+
         def parse_num(path):
-            """ parse the number out of a path (if it matches the prefix) """
-            bn = path.basename
-            if bn.startswith(prefix):
+            """ Parse the number out of a path (if it matches the prefix) """
+            nbasename = path.basename.lower()
+            if nbasename.startswith(nprefix):
                 try:
-                    return int(bn[len(prefix):])
+                    return int(nbasename[len(prefix):])
                 except ValueError:
                     pass
 
-        # compute the maximum number currently in use with the
-        # prefix
-        lastmax = None
-        while True:
-            maxnum = -1
-            for path in rootdir.listdir():
-                num = parse_num(path)
-                if num is not None:
-                    maxnum = max(maxnum, num)
-
-            # make the new directory
-            try:
-                udir = rootdir.mkdir(prefix + str(maxnum+1))
-            except py.error.EEXIST:
-                # race condition: another thread/process created the dir
-                # in the meantime.  Try counting again
-                if lastmax == maxnum:
-                    raise
-                lastmax = maxnum
-                continue
-            break
-
-        # put a .lock file in the new directory that will be removed at
-        # process exit
-        if lock_timeout:
-            lockfile = udir.join('.lock')
+        def create_lockfile(path):
+            """Exclusively create lockfile. Throws when failed"""
             mypid = os.getpid()
-            if hasattr(lockfile, 'mksymlinkto'):
+            lockfile = path.join(".lock")
+            if hasattr(lockfile, "mksymlinkto"):
                 lockfile.mksymlinkto(str(mypid))
             else:
-                lockfile.write(str(mypid))
+                fd = py.error.checked_call(
+                    os.open, str(lockfile), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644
+                )
+                with os.fdopen(fd, "w") as f:
+                    f.write(str(mypid))
+            return lockfile
+
+        def atexit_remove_lockfile(lockfile):
+            """Ensure lockfile is removed at process exit"""
+            mypid = os.getpid()
+
             def try_remove_lockfile():
                 # in a fork() situation, only the last process should
                 # remove the .lock, otherwise the other processes run the
@@ -842,7 +831,38 @@ class LocalPath(FSBase):
                     lockfile.remove()
                 except py.error.Error:
                     pass
+
             atexit.register(try_remove_lockfile)
+
+        # compute the maximum number currently in use with the prefix
+        lastmax = None
+        while True:
+            maxnum = -1
+            for path in rootdir.listdir():
+                num = parse_num(path)
+                if num is not None:
+                    maxnum = max(maxnum, num)
+
+            # make the new directory
+            try:
+                udir = rootdir.mkdir(prefix + str(maxnum + 1))
+                if lock_timeout:
+                    lockfile = create_lockfile(udir)
+                    atexit_remove_lockfile(lockfile)
+            except (py.error.EEXIST, py.error.ENOENT, py.error.EBUSY):
+                # race condition (1): another thread/process created the dir
+                #                     in the meantime - try again
+                # race condition (2): another thread/process spuriously acquired
+                #                     lock treating empty directory as candidate
+                #                     for removal - try again
+                # race condition (3): another thread/process tried to create the lock at
+                #                     the same time (happened in Python 3.3 on Windows)
+                # https://ci.appveyor.com/project/pytestbot/py/build/1.0.21/job/ffi85j4c0lqwsfwa
+                if lastmax == maxnum:
+                    raise
+                lastmax = maxnum
+                continue
+            break
 
         # prune old directories
         if keep:

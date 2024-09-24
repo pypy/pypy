@@ -6,18 +6,15 @@ import py
 
 class TestDLOperations:
     def test_dlopen(self):
-        s = rffi.str2charp('xxxxxxxxxxxx')
+        s = 'xxxxxxxxxxxx'
         py.test.raises(DLOpenError, "dlopen(s)")
-        rffi.free_charp(s)
         #
-        s = rffi.str2charp(get_libc_name())
+        s = get_libc_name()
         assert dlopen(s)
-        rffi.free_charp(s)
 
     def test_dlsym(self):
-        s = rffi.str2charp(get_libc_name())
+        s = get_libc_name()
         lib = dlopen(s)
-        rffi.free_charp(s)
         handle = rffi.cast(lltype.Ptr(lltype.FuncType([lltype.Signed],
                            lltype.Signed)), dlsym(lib, 'abs'))
         assert 1 == handle(1)
@@ -29,21 +26,13 @@ class TestDLOperations:
             return
 
         fname = os.path.join(os.path.dirname(__file__), "ldscript_working1.so")
-        s = rffi.str2charp(fname)
-        assert "C object" in str(dlopen(s))
-        rffi.free_charp(s)
+        assert "C object" in str(dlopen(fname))
 
         fname = os.path.join(os.path.dirname(__file__), "ldscript_working2.so")
-        s = rffi.str2charp(fname)
-        assert "C object" in str(dlopen(s))
-        rffi.free_charp(s)
+        assert "C object" in str(dlopen(fname))
 
         fname = os.path.join(os.path.dirname(__file__), "ldscript_broken1.so")
-        s = rffi.str2charp(fname)
-        py.test.raises(DLOpenError, 'dlopen(s)')
-        rffi.free_charp(s)
+        py.test.raises(DLOpenError, 'dlopen(fname)')
 
         fname = os.path.join(os.path.dirname(__file__), "ldscript_broken2.so")
-        s = rffi.str2charp(fname)
-        py.test.raises(DLOpenError, 'dlopen(s)')
-        rffi.free_charp(s)
+        py.test.raises(DLOpenError, 'dlopen(fname)')

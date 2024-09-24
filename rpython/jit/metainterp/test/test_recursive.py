@@ -1365,7 +1365,7 @@ class RecursiveTests:
         # function in a subprocess.
         import subprocess, sys, os
         env = os.environ.copy()
-        env["PYTHONPATH"] = ":".join(sys.path)
+        env["PYTHONPATH"] = os.pathsep.join(sys.path)
         subprocess.check_output("%s %s" % (sys.executable, __file__), shell=True, env=env)
 
 

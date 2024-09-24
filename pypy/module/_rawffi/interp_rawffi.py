@@ -287,7 +287,7 @@ def read_ptr(ptr, ofs, TP):
             with lltype.scoped_alloc(T.TO, 1) as t_array:
                 rffi.c_memcpy(
                     rffi.cast(rffi.VOIDP, t_array),
-                    rffi.cast(rffi.VOIDP, ptr),
+                    rffi.cast(rffi.CONST_VOIDP, ptr),
                     rffi.sizeof(TP))
                 ptr_val = t_array[0]
                 return ptr_val
@@ -310,7 +310,7 @@ def write_ptr(ptr, ofs, value):
                 s_array[0] = value
                 rffi.c_memcpy(
                     rffi.cast(rffi.VOIDP, ptr),
-                    rffi.cast(rffi.VOIDP, s_array),
+                    rffi.cast(rffi.CONST_VOIDP, s_array),
                     rffi.sizeof(TP))
                 return
     else:

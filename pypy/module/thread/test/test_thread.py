@@ -200,7 +200,9 @@ class AppTestThread(GenericTestThread):
             raises(KeyboardInterrupt, busy_wait)
 
     def test_interrupt_non_main(self):
-        import thread, time, posix as os
+        import thread, time, sys
+        if sys.platform == "win32":
+            skip("hangs on windows")
         import __pypy__
         import signal
 

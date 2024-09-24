@@ -141,7 +141,7 @@ HANDLERS = dict(
     StartElementHandler = [INTERNED_CCHARP, CONST_CCHARPP],
     EndElementHandler = [INTERNED_CCHARP],
     ProcessingInstructionHandler = [INTERNED_CCHARP, INTERNED_CCHARP],
-    CharacterDataHandler = [rffi.CCHARP, rffi.INT],
+    CharacterDataHandler = [rffi.CCHARP, rffi.INT_real],
     UnparsedEntityDeclHandler = [INTERNED_CCHARP] * 5,
     NotationDeclHandler = [INTERNED_CCHARP] * 4,
     StartNamespaceDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP],
@@ -149,23 +149,23 @@ HANDLERS = dict(
     CommentHandler = [INTERNED_CCHARP],
     StartCdataSectionHandler = [],
     EndCdataSectionHandler = [],
-    DefaultHandler = [INTERNED_CCHARP, rffi.INT],
-    DefaultHandlerExpand = [INTERNED_CCHARP, rffi.INT],
+    DefaultHandler = [INTERNED_CCHARP, rffi.INT_real],
+    DefaultHandlerExpand = [INTERNED_CCHARP, rffi.INT_real],
     NotStandaloneHandler = [],
     ExternalEntityRefHandler = [INTERNED_CCHARP] * 4,
     StartDoctypeDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP,
-                               INTERNED_CCHARP, rffi.INT],
+                               INTERNED_CCHARP, rffi.INT_real],
     EndDoctypeDeclHandler = [],
-    EntityDeclHandler = [INTERNED_CCHARP, rffi.INT, INTERNED_CCHARP, rffi.INT,
-                         INTERNED_CCHARP, INTERNED_CCHARP, INTERNED_CCHARP,
-                         INTERNED_CCHARP],
-    XmlDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP, rffi.INT],
+    EntityDeclHandler = [INTERNED_CCHARP, rffi.INT_real, INTERNED_CCHARP,
+                         rffi.INT_real, INTERNED_CCHARP, INTERNED_CCHARP,
+                         INTERNED_CCHARP, INTERNED_CCHARP],
+    XmlDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP, rffi.INT_real],
     ElementDeclHandler = [INTERNED_CCHARP, lltype.Ptr(XML_Content)],
     AttlistDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP,
-                          INTERNED_CCHARP, INTERNED_CCHARP, rffi.INT],
+                          INTERNED_CCHARP, INTERNED_CCHARP, rffi.INT_real],
     )
 if XML_COMBINED_VERSION >= 19504:
-    HANDLERS['SkippedEntityHandler'] = [INTERNED_CCHARP, rffi.INT]
+    HANDLERS['SkippedEntityHandler'] = [INTERNED_CCHARP, rffi.INT_real]
 NB_HANDLERS = len(HANDLERS)
 
 class Storage:
@@ -248,6 +248,8 @@ for index, (name, params) in enumerate(HANDLERS.items()):
                 'XML_FreeContentModel(parser.itself, arg%d)' % (i,))
         elif ARG == rffi.INT:
             converters.append("w_arg%d = space.newint(arg%d)" % (i, i))
+        elif ARG == rffi.INT_real:
+            converters.append("w_arg%d = space.newint(arg%d)" % (i, i))
         else:
             assert 0, "missing conversion case"
         real_params.append(ARG)
@@ -258,9 +260,9 @@ for index, (name, params) in enumerate(HANDLERS.items()):
 
     if name in ['ExternalEntityRefHandler',
                 'NotStandaloneHandler']:
-        result_type = rffi.INT
-        result_converter = "rffi.cast(rffi.INT, space.int_w(w_result))"
-        result_error = "rffi.cast(rffi.INT, 0)"
+        result_type = rffi.INT_real
+        result_converter = "rffi.cast(rffi.INT_real, space.int_w(w_result))"
+        result_error = "rffi.cast(rffi.INT_real, 0)"
     else:
         result_type = lltype.Void
         result_converter = "None"
@@ -337,9 +339,10 @@ def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
         result = 0
     else:
         result = 1
-    return rffi.cast(rffi.INT, result)
+    return rffi.cast(rffi.INT_real, result)
+
 callback_type = lltype.Ptr(lltype.FuncType(
-    [rffi.VOIDP, rffi.CONST_CCHARP, XML_Encoding_Ptr], rffi.INT))
+    [rffi.VOIDP, rffi.CONST_CCHARP, XML_Encoding_Ptr], rffi.INT_real))
 XML_SetUnknownEncodingHandler = expat_external(
     'XML_SetUnknownEncodingHandler',
     [XML_Parser, callback_type, rffi.VOIDP], lltype.Void)
