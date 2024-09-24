@@ -703,3 +703,13 @@ pass
             raise AssertionError("should have raised")
         """
 
+    def test_starunpacking_as_iterator(self):
+        """
+        l = []
+        a = [1, 2, 3, 4]
+        b = [6, 7]
+        c = ()
+        for x in *a, *b, *c:
+            l.append(x)
+        assert l == [1, 2, 3, 4, 6, 7]
+        """
