@@ -282,7 +282,7 @@ class TestMMap:
         f.close()
 
     def test_write_readonly(self):
-        if os.name == "nt":
+        if sys.platform in ("win32", "darwin"):
             py.test.skip("Needs PROT_READ")
         f = open(self.tmpname + "l", "w+")
         f.write("foobar")
@@ -504,6 +504,8 @@ class TestMMap:
 
 
 def test_alloc_free():
+    if sys.platform == "darwin":
+        py.test.skip("Needs special permissions")
     map_size = 65536
     data = alloc(map_size)
 
@@ -515,6 +517,8 @@ def test_alloc_free():
     free(data, map_size)
 
 def test_compile_alloc_free():
+    if sys.platform == "darwin":
+        py.test.skip("Needs special permissions")
     from rpython.translator.c.test.test_genc import compile
 
     fn = compile(test_alloc_free, [], gcpolicy='boehm')
