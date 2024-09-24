@@ -282,7 +282,7 @@ class TestMMap:
         f.close()
 
     def test_write_readonly(self):
-        if sys.platform in ("win32", "darwin"):
+        if os.name == "nt":
             py.test.skip("Needs PROT_READ")
         f = open(self.tmpname + "l", "w+")
         f.write("foobar")
@@ -293,7 +293,7 @@ class TestMMap:
         f.close()
 
     def test_write_without_protwrite(self):
-        if os.name == "nt":
+        if sys.platform in ("win32", "darwin"):
             py.test.skip("Needs PROT_WRITE")
         f = open(self.tmpname + "l2", "w+")
         f.write("foobar")
