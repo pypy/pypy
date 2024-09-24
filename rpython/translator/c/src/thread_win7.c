@@ -2,13 +2,12 @@
  * by following code paths with !_PY_EMULATED_WIN_CV
  */
 
-
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <limits.h>
 #include <process.h>
+#include <windows.h>
 
 
 /*
@@ -119,9 +118,8 @@ PyCOND_BROADCAST(PyCOND_T *cv)
  * Taken from Python/pytime.c
  */
 
-typedef int64_t _PyTime_t;
+typedef long long _PyTime_t;
 #define _PyTime_MAX INT64_MAX
-
 typedef enum {
     _PyTime_ROUND_FLOOR=0,
     _PyTime_ROUND_CEILING=1,
@@ -186,7 +184,6 @@ _PyTime_AsMicroseconds(_PyTime_t t, _PyTime_round_t round)
 }
 
 #define SEC_TO_NS (1000 * 1000 * 1000)
-#define PY_DWORD_MAX 4294967295U
 
 static int
 win_perf_counter_frequency(LONGLONG *pfrequency, int raise)
@@ -308,43 +305,42 @@ FreeNonRecursiveMutex(PNRMUTEX mutex)
 }
 #endif
 
-static void gil_fatal(const char *msg, DWORD dw) {
-    fprintf(stderr, "Fatal error in the GIL or with locks: %s [%x,%x]\n",
-                    msg, (int)dw, (int)GetLastError());
+static void gil_fatal(const char *msg, int64_t dw) {
+    fprintf(stderr, "Fatal error in the GIL or with locks: %s [%llx,%x]\n",
+                    msg, dw, (int)GetLastError());
     abort();
 }
 
 DWORD
-EnterNonRecursiveMutex(PNRMUTEX mutex, DWORD milliseconds)
+EnterNonRecursiveMutex(PNRMUTEX mutex, RPY_TIMEOUT_T microseconds)
 {
     DWORD result = WAIT_OBJECT_0;
     if (PyMUTEX_LOCK(&mutex->cs))
         return WAIT_FAILED;
-    if (milliseconds == INFINITE) {
+    if (microseconds == INFINITE) {
         while (mutex->locked) {
             if (PyCOND_WAIT(&mutex->cv, &mutex->cs)) {
                 result = WAIT_FAILED;
                 break;
             }
         }
-    } else if (milliseconds != 0) {
+    } else if (microseconds != 0) {
         /* wait at least until the target */
-        _PyTime_t now = _PyTime_GetPerfCounter();
-        if (now <= 0) {
-            gil_fatal("_PyTime_GetPerfCounter() <= 0", (DWORD)now);
+        _PyTime_t now_ns = _PyTime_GetPerfCounter();
+        if (now_ns <= 0) {
+            gil_fatal("_PyTime_GetPerfCounter() <= 0", (int)now_ns);
         }
-        _PyTime_t nanoseconds = (_PyTime_t)milliseconds * 1000000;
-        _PyTime_t target = now + nanoseconds;
+        /* This can fail to timeout if microseconds is too big */
+        _PyTime_t target_us = now_ns / 1000 + microseconds;
         while (mutex->locked) {
-            _PyTime_t microseconds = _PyTime_AsMicroseconds(nanoseconds, _PyTime_ROUND_UP);
             if (PyCOND_TIMEDWAIT(&mutex->cv, &mutex->cs, microseconds) < 0) {
                 result = WAIT_FAILED;
                 break;
             }
-            now = _PyTime_GetPerfCounter();
-            if (target <= now)
+            now_ns = _PyTime_GetPerfCounter();
+            if (target_us <= now_ns)
                 break;
-            nanoseconds = target - now;
+            microseconds = target_us - (now_ns / 1000);
         }
     }
     if (!mutex->locked) {
@@ -361,13 +357,15 @@ BOOL
 LeaveNonRecursiveMutex(PNRMUTEX mutex)
 {
     BOOL result;
-    if (PyMUTEX_LOCK(&mutex->cs))
+    if (!mutex->locked) {
         return FALSE;
+    }
+    PyMUTEX_LOCK(&mutex->cs);
     mutex->locked = 0;
     /* condvar APIs return 0 on success. We need to return TRUE on success. */
-    result = !PyCOND_SIGNAL(&mutex->cv);
+    PyCOND_SIGNAL(&mutex->cv);
     PyMUTEX_UNLOCK(&mutex->cs);
-    return result;
+    return TRUE;
 }
 
 typedef struct {
@@ -520,22 +518,13 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *aLock,
     /* Fow now, intr_flag does nothing on Windows, and lock acquires are
      * uninterruptible.  */
     RPyLockStatus success;
-    RPY_TIMEOUT_T milliseconds;
 
-    if (microseconds >= 0) {
-        milliseconds = microseconds / 1000;
-        if (microseconds % 1000 > 0)
-            ++milliseconds;
-        if (milliseconds > PY_DWORD_MAX) {
-            gil_fatal("Timeout larger than PY_TIMEOUT_MAX", -1);
-        }
-    }
-    else {
-        milliseconds = INFINITE;
+    if (microseconds < 0) {
+        microseconds = INFINITE;
     }
 
     if (aLock && EnterNonRecursiveMutex((PNRMUTEX)aLock,
-                                        (DWORD)milliseconds) == WAIT_OBJECT_0) {
+                                        microseconds) == WAIT_OBJECT_0) {
         success = RPY_LOCK_ACQUIRED;
     }
     else {
