@@ -2533,14 +2533,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 self.stat_rawmalloced_total_size = self.rawmalloced_total_size
                 # do a tiny bit of freeing, to try to have a few pages with
                 # free objects per class available at the next minor collection
-                self.ac.mass_free_per_class(limit_per_class=10)
+                self.ac.maybe_mass_free_per_class(limit_per_class=10)
                 self.gc_state = STATE_SWEEPING
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
             # always free a few pages per class, to try to have a few pages
             # with free objects per class available at the next minor
             # collection
-            self.ac.mass_free_per_class(limit_per_class=10)
+            self.ac.maybe_mass_free_per_class(limit_per_class=10)
             if self.raw_malloc_might_sweep.non_empty():
                 # Walk all rawmalloced objects and free the ones that don't
                 # have the GCFLAG_VISITED flag.  Visit at most 'limit' objects.

@@ -63,7 +63,7 @@ class SimpleArenaCollection(object):
         res = self.mass_free_incremental(sys.maxint)
         assert res
 
-    def mass_free_per_class(self, limit_per_class=5):
-        return self.mass_free_incremental(limit_per_class)
+    def maybe_mass_free_per_class(self, limit_per_class=5):
+        return # do nothing in the SimpleArenaCollection.
 
     def _debug_print_arena_stats(self, *args, **kwargs): pass

@@ -105,6 +105,17 @@ class ArenaCollection(object):
         # a pointer to a page that has room for at least one more
         # allocation of the given size.
         length = small_request_threshold / WORD + 1
+        # we have three linked lists of pages per size class:
+        # - page_for_size contains the ones that are used for allocating
+        #   objects
+        # - full_page_for_size contains the full pages, that we can't allocate
+        #   anything into
+        # - emptyish_page_for_size contains the almost empty pages (less than
+        #   25% full at the last major collection). we try to allocate from
+        #   these last, to give the remaining objects in there some time to
+        #   die. then the page can become fully free, to be reused for a
+        #   different size class (or returned to the OS, if the full arena is
+        #   free).
         self.page_for_size              = self._new_page_ptr_list(length)
         self.full_page_for_size         = self._new_page_ptr_list(length)
         self.emptyish_page_for_size     = self._new_page_ptr_list(length)
@@ -423,8 +434,8 @@ class ArenaCollection(object):
         #
         return True
 
-    def mass_free_per_class(self, limit_per_class):
-        """ try to free some pages for every size class """
+    def maybe_mass_free_per_class(self, limit_per_class):
+        """try to free some pages for every size class."""
         size_class = self.small_request_threshold >> WORD_POWER_2
         max_pages = limit_per_class
         #
