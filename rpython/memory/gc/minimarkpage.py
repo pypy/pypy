@@ -536,8 +536,9 @@ class ArenaCollection(object):
                     # the page in the 'remaining_partial_pages' or in the
                     # 'remaining_emptyish_pages' chained list. we use the
                     # remaining_emptyish_pages list if only 25% of capacity
-                    # of the list remain used.
-                    if surviving < self.nblocks_for_size[size_class] // 4:
+                    # of the list remain used (and we already have genuine
+                    # partial page)
+                    if surviving < self.nblocks_for_size[size_class] // 4 and remaining_partial_pages:
                         page.nextpage = remaining_emptyish_pages
                         remaining_emptyish_pages = page
                     else:

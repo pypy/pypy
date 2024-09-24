@@ -408,6 +408,43 @@ def test_mass_free_half_page_becomes_more_free():
     assert freepages(ac) == NULL
     assert ac.full_page_for_size[2] == PAGE_NULL
 
+def make_ok_to_free(pattern):
+    count = [-1]
+    def ok_to_free(obj):
+        count[0] += 1
+        return pattern[count[0]]
+    return ok_to_free
+
+def test_emptyish_page_mechanism():
+    ac = ArenaCollection(SHIFT + 64*20, WORD * 8 + 4 * WORD, WORD, None)
+    objects = [ac.malloc(WORD) for i in range(16)] # two pages
+    assert ac.full_page_for_size[1]
+    assert ac.full_page_for_size[1].nextpage
+    assert not ac.full_page_for_size[1].nextpage.nextpage
+
+    ac.ok_to_free_func = make_ok_to_free([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1])
+    ac.mass_free()
+    assert ac.full_page_for_size[1]
+    assert not ac.full_page_for_size[1].nextpage
+    assert ac.page_for_size[1].nfree == 4
+
+    ac.malloc(WORD)
+    ac.malloc(WORD)
+    ac.malloc(WORD)
+    ac.malloc(WORD)
+    assert not ac.page_for_size[1]
+    ac.ok_to_free_func = make_ok_to_free([0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1])
+    ac.mass_free()
+    assert ac.page_for_size[1].nfree == 7
+    assert not ac.page_for_size[1].nextpage
+    assert ac.emptyish_page_for_size[1].nfree == 7
+
+    # now if we allocate 8 objects, the emptyish_page_for_size is used
+    emptyish_page = ac.emptyish_page_for_size[1]
+    objects = [ac.malloc(WORD) for i in range(8)]
+    assert ac.page_for_size[1] == emptyish_page
+
+
 # ____________________________________________________________
 
 class DoneTesting(Exception):
