@@ -696,7 +696,7 @@ def make_formatting_class(for_unicode):
                             spec.n_remainder) # Not padding or digits
             if self._fill_char == "0" and self._align == "=":
                 spec.n_min_width = self._width - extra_length
-            if self._loc_thousands:
+            if self._loc_thousands and spec.n_digits:
                 self._group_digits(spec, digits[to_number:])
                 n_grouped_digits = len(self._grouped_digits)
             else:
@@ -1081,8 +1081,8 @@ def make_formatting_class(for_unicode):
             add_parens = 0
             if tp == "\0":
                 #should mirror str() output
-                tp = "g"
-                default_precision = 12
+                tp = "r"
+                default_precision = 0
                 #test if real part is non-zero
                 if (w_complex.realval == 0 and
                     math.copysign(1., w_complex.realval) == 1.):
@@ -1097,6 +1097,8 @@ def make_formatting_class(for_unicode):
             #check if precision not set
             if self._precision == -1:
                 self._precision = default_precision
+            elif tp == "r":
+                tp = "g"
 
             #in CPython it's named 're' - clashes with re module
             re_num, special = rfloat.double_to_string(w_complex.realval, tp, self._precision, flags)

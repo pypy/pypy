@@ -16,7 +16,7 @@ Additionally, a few smaller bugs were fixed:
 
 - Use ``uint`` for the ``request`` argument of ``fcntl.ioctl`` (issue 3568_)
 - Fix incorrect tracing of `while True`` body in 3.8 (issue 3577_)
-- Properly close resources when using a ``conncurrent.futures.ProcessPool``
+- Properly close resources when using a ``concurrent.futures.ProcessPool``
   (issue 3317_)
 - Fix the value of ``LIBDIR`` in ``_sysconfigdata`` in 3.8 (issue 3582_)
 

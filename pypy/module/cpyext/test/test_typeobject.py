@@ -106,8 +106,13 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         raises(TypeError, "obj.char_member = 'spam'")
         raises(TypeError, "obj.char_member = 42")
         #
+
+    def test_typeobject_int_member(self):
         import sys, struct
-        bignum = struct.unpack_from("@L", b"\xFF" * 8)[0]//2 - 42
+        module = self.import_module(name='foo')
+        obj = module.new()
+        max_uint = struct.unpack_from("@L", b"\xFF" * 8)[0]
+        bignum = max_uint//2 - 42
         obj.short_member = -12345;     assert obj.short_member == -12345
         obj.long_member = -bignum;     assert obj.long_member == -bignum
         obj.ushort_member = 45678;     assert obj.ushort_member == 45678
@@ -122,6 +127,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj.ulonglong_member = 2**63;  assert obj.ulonglong_member == 2**63
         obj.ssizet_member = sys.maxsize;assert obj.ssizet_member == sys.maxsize
         #
+        obj.ulong_member = -3; assert obj.ulong_member == max_uint + 1 - 3, obj.ulong_member
 
     def test_staticmethod(self):
         module = self.import_module(name="foo")
@@ -2103,7 +2109,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
         test = module.getset_type()
         assert test.prop.__doc__ == "A docstring"
-        
+
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
@@ -2247,7 +2253,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         module = self.import_module(name='nanobind1', filename="nanobind1")
         c = module.callable()
         assert c() == 1234
-        
+
         def f(value):
             assert value == 1234
 
@@ -2461,7 +2467,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
     def test_heap_type2(self):
         # issue 4826: note type->tp_as_buffer is not set (not needed since
         # O.__buffer__ does not exist)
-        module = self.import_extension("foo", [], more_init="""
+        module = self.import_extension("foo", [], prologue="""
             PyObject *make_new_python_type(PyObject* scope,
                          const char *full_name, PyTypeObject *base) {
             PyHeapTypeObject *heap_type = (PyHeapTypeObject *)PyType_Type.tp_alloc(&PyType_Type, 0);
@@ -2481,7 +2487,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             PyObject_SetAttrString(scope, full_name, (PyObject*)type);
             return (PyObject *) type;
             }
-
+            """, more_init="""
             /* No error checking */
             PyObject *op = make_new_python_type(mod, "O", &PyBaseObject_Type);
             PyObject *ap = make_new_python_type(mod, "A", (PyTypeObject *) op);

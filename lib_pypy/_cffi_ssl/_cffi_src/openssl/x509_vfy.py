@@ -219,6 +219,14 @@ int X509_OBJECT_get_type(const X509_OBJECT *);
 X509 *X509_STORE_CTX_get0_cert(X509_STORE_CTX *);
 X509_STORE_CTX_get_issuer_fn X509_STORE_get_get_issuer(X509_STORE *);
 void X509_STORE_set_get_issuer(X509_STORE *, X509_STORE_CTX_get_issuer_fn);
+
+/* added in 3.3.0 */
+Cryptography_STACK_OF_X509_OBJECT *X509_STORE_get1_objects(X509_STORE *);
+typedef void (*sk_X509_OBJECT_freefunc)(X509_OBJECT *);
+void sk_X509_OBJECT_pop_free(Cryptography_STACK_OF_X509_OBJECT *, sk_X509_OBJECT_freefunc);
+void X509_OBJECT_free(X509_OBJECT *a);
+
+
 """
 
 CUSTOMIZATIONS = """
@@ -337,5 +345,49 @@ void (*X509_STORE_set_get_issuer)(X509_STORE *,
                                   X509_STORE_CTX_get_issuer_fn) = NULL;
 #else
 static const long Cryptography_HAS_X509_STORE_CTX_GET_ISSUER = 1;
+#endif
+
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_330
+static X509_OBJECT *x509_object_dup(const X509_OBJECT *obj)
+{
+    int ok;
+    X509_OBJECT *ret = X509_OBJECT_new();
+    if (ret == NULL) {
+        return NULL;
+    }
+    switch (X509_OBJECT_get_type(obj)) {
+        case X509_LU_X509:
+            ok = X509_OBJECT_set1_X509(ret, X509_OBJECT_get0_X509(obj));
+            break;
+        case X509_LU_CRL:
+            /* X509_OBJECT_get0_X509_CRL was not const-correct prior to 3.0.*/
+            ok = X509_OBJECT_set1_X509_CRL(
+                ret, X509_OBJECT_get0_X509_CRL((X509_OBJECT *)obj));
+            break;
+        default:
+            /* We cannot duplicate unrecognized types in a polyfill, but it is
+             * safe to leave an empty object. The caller will ignore it. */
+            ok = 1;
+            break;
+    }
+    if (!ok) {
+        X509_OBJECT_free(ret);
+        return NULL;
+    }
+    return ret;
+}
+
+Cryptography_STACK_OF_X509_OBJECT *
+X509_STORE_get1_objects(X509_STORE *store)
+{
+    STACK_OF(X509_OBJECT) *ret;
+    if (!X509_STORE_lock(store)) {
+        return NULL;
+    }
+    ret = sk_X509_OBJECT_deep_copy(X509_STORE_get0_objects(store),
+                                   x509_object_dup, X509_OBJECT_free);
+    X509_STORE_unlock(store);
+    return ret;
+}
 #endif
 """

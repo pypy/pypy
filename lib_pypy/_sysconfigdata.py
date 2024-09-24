@@ -26,6 +26,7 @@ build_time_vars = {
     'CCSHARED': "-fPIC",
     'LDFLAGS': "-Wl,-Bsymbolic-functions",
     'LDSHARED': "cc -pthread -shared -Wl,-Bsymbolic-functions",
+    'LDCXXSHARED': "c++ -shared -Wl,-O1 -Wl,-Bsymbolic-functions",
     'EXT_SUFFIX': so_ext,
     'SHLIB_SUFFIX': ".so",
     'AR': "ar",
@@ -97,5 +98,8 @@ if sys.platform[:6] == "darwin":
     #
     # In any case, keep this in sync with DARWIN_VERSION_MIN in
     # rpython/translator/platform/darwin.py and Lib/_osx_support.py
-    build_time_vars['MACOSX_DEPLOYMENT_TARGET'] = '10.13'
+    if arch == "arm64":
+        build_time_vars['MACOSX_DEPLOYMENT_TARGET'] = '11.0'
+    else:
+        build_time_vars['MACOSX_DEPLOYMENT_TARGET'] = '10.15'
 

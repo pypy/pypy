@@ -192,8 +192,11 @@ class TestCheckRegistersExplicitly(BaseTestCheckRegistersExplicitly):
         finish(i9)
         '''
         self.interpret(ops, [5, 6, 7, 8])
-        # 3 moves for arguments, 1 move for the constant 42, 1 move for result
-        assert len(self.filter_log_moves()) == 5
+        if IS_X86_64:
+            # 3 moves for arguments, 1 move for the constant 42, 1 move for result
+            assert len(self.filter_log_moves()) == 5
+        else:
+            assert len(self.filter_log_moves()) == 4
 
     def test_binop_dont_swap_unnecessarily(self):
         ops = '''

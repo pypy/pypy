@@ -140,3 +140,71 @@ def test_traceback_positions_on_cause():
         'ValueError: oh no!'
     ]
     assert processed_lines == expected_exc_format
+
+def test_colors_in_traceback():
+    import os
+    def division_by_zero(a, b):
+        return (
+            a      + b / 0 # abc
+        )
+
+    old_value = os.environ.get('FORCE_COLOR', None)
+    os.environ['FORCE_COLOR'] = '1'
+    try:
+        from _colorize import can_colorize, ANSIColors
+        assert can_colorize()
+        with raises(ZeroDivisionError) as exc_info:
+            division_by_zero(1, 2)
+
+        original_std_err = sys.stderr
+        sys.stderr = buffer = Buffer()
+        original_exc_format = sys.excepthook(
+            exc_info.type, exc_info.value, exc_info.value.__traceback__
+        )
+        sys.stderr = original_std_err
+        expected_exc_format = [
+            f'    a      + {ANSIColors.BOLD_RED}b / 0{ANSIColors.RESET} # abc',
+            f'             {ANSIColors.BOLD_RED}^^^^^{ANSIColors.RESET}',
+            f'{ANSIColors.BOLD_MAGENTA}ZeroDivisionError{ANSIColors.RESET}: {ANSIColors.MAGENTA}division by zero{ANSIColors.RESET}'
+        ]
+        assert buffer.get_lines()[-3:] == expected_exc_format
+
+    finally:
+        if old_value is None:
+            del os.environ['FORCE_COLOR']
+        else:
+            os.environ['FORCE_COLOR'] = old_value
+
+def test_old_format_works():
+    """test that overriding traceback.TracebackException with a class
+    that doesn't know about colorize (like exceptiongroup._formatting) still works
+    issue 5004
+    """
+    import traceback
+    
+    def division_by_zero(a, b):
+        return (
+            a      + b / 0 # abc
+        )
+    
+    class MyTracebackException(traceback.TracebackException):
+
+        def format(self, *, chain=None):
+            return "done"
+
+    traceback_exception_original_format = traceback.TracebackException.format
+    traceback.TracebackException.format = MyTracebackException.format
+    original_std_err = sys.stderr
+    sys.stderr = buffer = Buffer()
+    try:
+        with raises(ZeroDivisionError) as exc_info:
+            division_by_zero(1, 2)
+
+        lines = traceback.format_exception(exc_info.type, exc_info.value, exc_info.value.__traceback__)
+        print("".join(lines), file=sys.stderr)
+        expected_exc_format = ["done"]
+        assert buffer.get_lines() == expected_exc_format
+    finally:
+        sys.stderr = original_std_err
+        traceback.TracebackException.format = traceback_exception_original_format
+

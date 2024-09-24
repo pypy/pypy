@@ -2,8 +2,10 @@ import pytest
 
 try:
     import nt as posix
+    _WIN32 = True
 except ImportError:
     import posix
+    _WIN32 = False
 os = posix
 
 if hasattr(os, "fork"):
@@ -51,13 +53,20 @@ def test_putenv_invalid_name():
     with pytest.raises(ValueError):
         posix.putenv("foo=bar", "xxx")
 
-def test_all_pathconf_defined():
-    import sys
-    import posix
-    try:
-        fd = sys.stdin.fileno()
-    except ValueError:
-        # translated test run with a fake sys.stdin with no fileno
-        fd = 1
-    for name in posix.pathconf_names:
-        posix.fpathconf(fd, name) # does not crash
+if not _WIN32:
+    def test_all_pathconf_defined():
+        import sys
+        import posix
+        try:
+            fd = sys.stdin.fileno()
+        except ValueError:
+            # translated test run with a fake sys.stdin with no fileno
+            fd = 1
+        for name in posix.pathconf_names:
+            posix.fpathconf(fd, name) # does not crash
+
+if _WIN32:
+    def test__supports_virtual_terminal():
+        import sys
+        isatty = os.isatty(sys.stderr.fileno())
+        assert os._supports_virtual_terminal() == isatty

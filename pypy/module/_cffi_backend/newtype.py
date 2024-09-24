@@ -96,6 +96,8 @@ eptype("_Bool",  lltype.Bool,          ctypeprim.W_CTypePrimitiveBool)
 
 eptype("float _Complex",  rffi.FLOAT,  ctypeprim.W_CTypePrimitiveComplex, rep=2)
 eptype("double _Complex", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveComplex, rep=2)
+eptype("_cffi_float_complex_t",  rffi.FLOAT,  ctypeprim.W_CTypePrimitiveComplex, rep=2)
+eptype("_cffi_double_complex_t", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveComplex, rep=2)
 
 eptypesize("int8_t",   1, ctypeprim.W_CTypePrimitiveSigned)
 eptypesize("uint8_t",  1, ctypeprim.W_CTypePrimitiveUnsigned)

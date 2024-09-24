@@ -317,8 +317,7 @@ class ExecutionContext(object):
 
         if w_callback is not None and event != "leaveframe":
             if operr is not None:
-                operr.normalize_exception(space)
-                w_value = operr.get_w_value(space)
+                w_value = operr.normalize_exception(space)
                 w_arg = space.newtuple([operr.w_type, w_value,
                                         operr.get_w_traceback(space)])
 

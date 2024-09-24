@@ -42,9 +42,11 @@ class AppTestCMath:
         z = cmath.log(100j, 10j)
         assert abs(z - (1.6824165174565446-0.46553647994440367j)) < 1e-10
 
-    def test_pi_e(self):
+    def test_pi_tau_e(self):
         import cmath, math
         assert cmath.pi == math.pi
+        assert cmath.tau == math.tau
+        assert cmath.tau == cmath.pi * 2.0
         assert cmath.e == math.e
 
     def test_rect(self):

@@ -74,7 +74,7 @@ CFFI
 
 While not applicable only to PyPy, `cffi`_ is arguably our most significant
 contribution to the python ecosystem. Armin Rigo continued improving it,
-and PyPy reaps the benefits of `cffi-1.3`_: improved manangement of object
+and PyPy reaps the benefits of `cffi-1.3`_: improved management of object
 lifetimes, __stdcall on Win32, ffi.memmove(), and percolate ``const``,
 ``restrict`` keywords from cdef to C code.
 
@@ -130,7 +130,7 @@ Other Highlights (since 2.6.1 release two months ago)
 
   * Use gcrootfinder=shadowstack by default, asmgcc on linux only
 
-  * Fix ndarray.copy() for upstream compatability when copying non-contiguous arrays
+  * Fix ndarray.copy() for upstream compatibility when copying non-contiguous arrays
 
   * Fix assumption that lltype.UniChar is unsigned
 
@@ -175,12 +175,12 @@ Other Highlights (since 2.6.1 release two months ago)
 
   * Reuse hashed keys across dictionaries and sets
 
-  * Refactor JIT interals to improve warmup time by 20% or so at the cost of a
+  * Refactor JIT internals to improve warmup time by 20% or so at the cost of a
     minor regression in JIT speed
 
   * Recognize patterns of common sequences in the JIT backends and optimize them
 
-  * Make the garbage collecter more incremental over external_malloc() calls
+  * Make the garbage collector more incremental over external_malloc() calls
 
   * Share guard resume data where possible which reduces memory usage
 

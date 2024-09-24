@@ -1560,4 +1560,7 @@ class TestShared(StandaloneTests):
         libname = cbuilder.executable_name.join('..', 'lib' +
                                       cbuilder.modulename + ext_suffix)
         lib = ctypes.CDLL(str(libname))
-        assert lib.foo(13) == 16
+        if sys.platform == "darwin":
+            py.test.skip("crashes the interpreter with uninitialized threads")
+        else:
+            assert lib.foo(13) == 16

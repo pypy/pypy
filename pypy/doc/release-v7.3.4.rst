@@ -265,7 +265,7 @@ Python 3.7+
 - Fix for surrogates in ``winreg`` input value (issue 3345_)
 - In ``sysconfig``, ``INCLUDEPY`` and ``INCLUDEDIR`` should point to the
   original directory even in a virtualenv (issue 3364_)
-- Add ``LDLIBRARY`` to ``sysconfig`` for posgresql
+- Add ``LDLIBRARY`` to ``sysconfig`` for postgresql
 - Prevent overflow in ``_hash_long`` on win64 using method from CPython
 - Raise ``ValueError`` when ``argv[0]`` of ``execv`` and friends is empty (`bpo
   28732`_)

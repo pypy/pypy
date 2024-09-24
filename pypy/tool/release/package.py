@@ -211,7 +211,8 @@ def create_package(basedir, options, _fake=False):
         target = pypydir.join(get_platlibdir(pypy_c), IMPLEMENTATION)
     os.makedirs(str(target))
     if not _fake:
-        generate_sysconfigdata(pypy_c, str(target))
+        # issue 5015: portable builds cannot use the static data
+        # generate_sysconfigdata(pypy_c, str(target))
         subprocess.check_call([str(pypy_c), "-c", "import _testmultiphase_build"])
         subprocess.check_call([str(pypy_c), "-c", "import _ctypes_test_build"])
         subprocess.check_call([str(pypy_c), "-c", "import _testcapi"])

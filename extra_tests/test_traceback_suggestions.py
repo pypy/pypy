@@ -16,7 +16,7 @@ c = compile(content, path, 'exec')
 exec(c, d, d)
 orig_levenshtein_distance = d['_levenshtein_distance']
 def _levenshtein_distance(a, b):
-    return orig_levenshtein_distance(a, b, max(len(a), len(b)))
+    return orig_levenshtein_distance(a, b, max(len(a), len(b)) * 2)
 _compute_suggestion_error = d['_compute_suggestion_error']
 TracebackException = d['TracebackException']
 
@@ -27,7 +27,7 @@ def test_levensthein():
     assert _levenshtein_distance("cat", "sat") == 2
     assert _levenshtein_distance("cat", "ca") == 2
     assert _levenshtein_distance("cat", "caT") == 1 # case change is only edit distance 1
-    assert _levenshtein_distance("Kätzchen", "Satz") == 9
+    assert _levenshtein_distance("Kätzchen", "Satz") == 12
 
 if given is not None:
     @given(st.text())
@@ -36,7 +36,7 @@ if given is not None:
 
     @given(st.text())
     def test_x_empty(s):
-        assert _levenshtein_distance(s, '') == len(s)
+        assert _levenshtein_distance(s, '') == 2 * len(s)
 
     @given(st.text(), st.text())
     def test_symmetric(a, b):

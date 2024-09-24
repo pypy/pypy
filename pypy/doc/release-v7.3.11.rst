@@ -14,7 +14,7 @@ PyPy v7.3.11: release of python 2.7, 3.8, and 3.9
 The PyPy team is proud to release version 7.3.11 of PyPy. As could be expected,
 the first release of macOS arm64 impacted the macOS x86-64 build, so this is
 a bug release to restore the ability of macOS users to run PyPy on ``macOS <
-11.0``. It also incoporates the latest CPython stdlib updates released the day
+11.0``. It also incorporates the latest CPython stdlib updates released the day
 after 7.3.10 went out, and a few more bug fixes. The release includes three
 different interpreters:
 
@@ -138,7 +138,7 @@ Python 3.8+
 
 Python 3.9
 ----------
-- Fix pure-python implmentation of ``functools`` (issue 3869_). see also cpython GH-100242_
+- Fix pure-python implementation of ``functools`` (issue 3869_). see also cpython GH-100242_
 - Remove ``type.__ne__``, the inherited behaviour from ``object.__ne__`` is the
   correct one (issue 3879_)
 - Fix invalid parsing rule for ``genexps`` as the non-singular argument in a call (issue 3873_)

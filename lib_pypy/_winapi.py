@@ -349,12 +349,18 @@ def PeekNamedPipe(handle, size=0):
             RaiseFromWindowsErr(0)
         return  navail[0], nleft[0]
 
-def WaitForSingleObject(handle, milliseconds):
+def WaitForSingleObject(handleI, milliseconds):
     # CPython: the first argument is expected to be an integer.
-    res = _kernel32.WaitForSingleObject(_int2handle(handle), milliseconds)
-    if res < 0:
+    if handleI < 0:
+        SetLastError(ERROR_INVALID_HANDLE)
         raise_WinError()
-    return res
+    handle = _int2handle(handleI)
+    if milliseconds < 0:
+        milliseconds = INFINITE
+    res = _kernel32.WaitForSingleObject(handle, milliseconds)
+    if res == WAIT_FAILED:
+        raise_WinError()
+    return int(res)
 
 
 def WaitNamedPipe(namedpipe, milliseconds):
@@ -488,8 +494,10 @@ CREATE_NEW_PROCESS_GROUP   = 0x200
 CREATE_UNICODE_ENVIRONMENT = 0x400
 STILL_ACTIVE = 259
 _MAX_PATH = 260
+INFINITE = 0xFFFFFFFF
 
 ERROR_SUCCESS           = 0
+ERROR_INVALID_HANDLE    = 6
 ERROR_NETNAME_DELETED   = 64
 ERROR_BROKEN_PIPE       = 109
 ERROR_SEM_TIMEOUT       = 121

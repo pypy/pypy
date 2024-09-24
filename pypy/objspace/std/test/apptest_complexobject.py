@@ -619,6 +619,10 @@ def test_format():
     assert '{0:f}'.format(complex(NAN, NAN)) == 'nan+nanj'
     assert '{0:F}'.format(complex(NAN, NAN)) == 'NAN+NANj'
 
+def test_str_zeros_bug():
+    assert str(1000000000001j) == '1000000000001j'
+    assert complex.__str__ is object.__str__
+
 def test_complex_two_arguments():
     raises(TypeError, complex, 5, None)
 
@@ -658,3 +662,6 @@ def test_complex_constructor_calls_index():
             return self.val
     assert complex(A(1), A(2)) == (1.0+2.0j)
 
+def test_parse_complex_whitespace_bug():
+    c = complex('\t( -1.23+4.5J )\n\r\v ')
+    assert c == -1.23+4.5j

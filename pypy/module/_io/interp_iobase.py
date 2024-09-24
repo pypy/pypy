@@ -12,7 +12,7 @@ from rpython.rlib import rweakref, rweaklist
 DEFAULT_BUFFER_SIZE = 8192
 
 def convert_size(space, w_size):
-    if space.is_none(w_size):
+    if space.is_none(w_size) or w_size is None:
         return -1
     else:
         return space.int_w(w_size)

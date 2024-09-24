@@ -1200,12 +1200,7 @@ class W_UnicodeObject(W_Root):
         return W_UnicodeObject(res, newlength)
 
     def descr_mul(self, space, w_times):
-        try:
-            times = space.getindex_w(w_times, space.w_OverflowError)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            raise
+        times = space.getindex_w(w_times, space.w_OverflowError)
         if times <= 0:
             return self._empty()
         if times == 1:
@@ -1560,12 +1555,12 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
         encoding = None
     else:
         utf8 = space.text_w(w_encoding)
-        encoding = utf8_encode_wrapper(space, utf8, "strict")
+        encoding = utf8_encode_wrapper(space, utf8, w_encoding, "strict")
     if w_errors is None:
         errors = None
     else:
         utf8 = space.text_w(w_errors)
-        errors = utf8_encode_wrapper(space, utf8, "strict")
+        errors = utf8_encode_wrapper(space, utf8, w_errors, "strict")
     return encoding, errors
 
 def encode_object(space, w_obj, encoding, errors):
@@ -1614,7 +1609,7 @@ def decode_object(space, w_obj, encoding, errors=None):
     if errors == 'strict' or errors is None:
         # fast paths
         if encoding == 'ascii':
-            unicodehelper.check_ascii_or_raise(space, s)
+            unicodehelper.check_ascii_or_raise(space, s, w_obj)
             return space.newtext(s, len(s))
         if encoding == 'utf-8' or encoding == 'utf8':
             lgt = unicodehelper.check_utf8_or_raise(space, s)
@@ -1654,7 +1649,7 @@ def unicode_from_string(space, w_bytes):
     if encoding != 'ascii':
         return decode_object(space, w_bytes, encoding, "strict")
     s = space.bytes_w(w_bytes)
-    unicodehelper.check_ascii_or_raise(space, s)
+    unicodehelper.check_ascii_or_raise(space, s, w_bytes)
     return W_UnicodeObject(s, len(s))
 
 

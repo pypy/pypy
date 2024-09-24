@@ -21,7 +21,7 @@ class MultibyteCodec(W_Root):
         state = space.fromcache(CodecState)
         #
         try:
-            utf8_output = c_codecs.decode(self.codec, input, errors,
+            utf8_output = c_codecs.decode(space, self.codec, input, errors,
                                      state.decode_error_handler, self.name)
         except c_codecs.EncodeDecodeError as e:
             raise wrap_unicodedecodeerror(space, e, input, self.name)
@@ -39,7 +39,7 @@ class MultibyteCodec(W_Root):
         input, length = space.utf8_len_w(w_input)
         #
         try:
-            output = c_codecs.encode(self.codec, input, length, errors,
+            output = c_codecs.encode(space, self.codec, input, length, errors,
                                      state.encode_error_handler, self.name)
         except c_codecs.EncodeDecodeError as e:
             raise wrap_unicodeencodeerror(space, e, input, length,

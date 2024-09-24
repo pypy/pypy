@@ -19,34 +19,56 @@
 
 import termios
 
+
 class TermState:
     def __init__(self, tuples):
-        self.iflag, self.oflag, self.cflag, self.lflag, \
-                    self.ispeed, self.ospeed, self.cc = tuples
+        (
+            self.iflag,
+            self.oflag,
+            self.cflag,
+            self.lflag,
+            self.ispeed,
+            self.ospeed,
+            self.cc,
+        ) = tuples
+
     def as_list(self):
-        return [self.iflag, self.oflag, self.cflag, self.lflag,
-                self.ispeed, self.ospeed, self.cc]
+        return [
+            self.iflag,
+            self.oflag,
+            self.cflag,
+            self.lflag,
+            self.ispeed,
+            self.ospeed,
+            self.cc,
+        ]
 
     def copy(self):
         return self.__class__(self.as_list())
 
+
 def tcgetattr(fd):
     return TermState(termios.tcgetattr(fd))
+
 
 def tcsetattr(fd, when, attrs):
     termios.tcsetattr(fd, when, attrs.as_list())
 
+
 class Term(TermState):
     TS__init__ = TermState.__init__
+
     def __init__(self, fd=0):
         self.TS__init__(termios.tcgetattr(fd))
         self.fd = fd
         self.stack = []
+
     def save(self):
-        self.stack.append( self.as_list() )
+        self.stack.append(self.as_list())
+
     def set(self, when=termios.TCSANOW):
         termios.tcsetattr(self.fd, when, self.as_list())
+
     def restore(self):
         self.TS__init__(self.stack.pop())
         self.set()
-        

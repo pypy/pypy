@@ -11,11 +11,11 @@ release is tagged, for instance release-pypy3.5-v4.0.1.
 The release version number should be bumped. A micro release increment means
 there were no changes that justify rebuilding c-extension wheels, since
 the wheels are marked with only major.minor version numbers. It is ofen not
-clear what constitues a "major" release verses a "minor" release, the release
+clear what constitutes a "major" release verses a "minor" release, the release
 manager can make that call.
 
 After release, inevitably there are bug fixes. It is the responsibility of
-the commiter who fixes a bug to make sure this fix is on the release branch,
+the committer who fixes a bug to make sure this fix is on the release branch,
 so that we can then create a tagged bug-fix release, which will hopefully
 happen more often than stable releases.
 
@@ -58,7 +58,7 @@ when we do a merge::
 Then, we need to do the same for the 3.x branch::
 
   $ hg up -r py3.5
-  $ hg merge default # this brings the version fo 7.1.0-alpha0
+  $ hg merge default # this brings the version of 7.1.0-alpha0
   $ hg branch release-pypy3.5-v7.x
   $ # edit the version to 7.0.0-final
   $ hg ci
@@ -78,14 +78,15 @@ To change the version, you need to edit three files:
 
   - ``doc/conf.py``
 
-Add tags to the repo. Never change tags once commited: it breaks downstream
+Add tags to the repo. Never change tags once committed: it breaks downstream
 packaging workflows.
 
   - Make sure the version checks pass (they ensure ``version.py`` and
     ``patchlevel.h`` agree)
-  - Make sure the tag matches the version in version.py/patchlevel.h. While
-    the repackage.sh script checks this, it is too late to change once the tags
-    are public
+  - Make sure the tag matches the version in version.py/patchlevel.h. You
+    can run the repackage.sh script without pushing the tags.
+  - Once the repackage script runs, be sure to push the tags ``git push
+    --tags``
 
 Other steps
 -----------

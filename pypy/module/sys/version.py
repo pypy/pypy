@@ -15,8 +15,7 @@ CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 # make sure to keep PYPY_VERSION in sync with:
 #    module/cpyext/include/patchlevel.h
 #    doc/conf.py
-PYPY_VERSION               = (7, 3, 16, "alpha", 0)
-
+PYPY_VERSION               = (7, 3, 18, "alpha", 0)
 
 import pypy
 pypydir = pypy.pypydir
@@ -112,6 +111,16 @@ def get_subversion_info(space):
     return space.wrap(('PyPy', '', ''))
 
 def get_repo_info(space):
+    info = get_repo_version_info(root=pypyroot)
+    if info:
+        repo_tag, repo_version = info
+        return space.newtuple([space.newtext('PyPy'),
+                               space.newtext(repo_tag),
+                               space.newtext(repo_version)])
+    else:
+        return space.w_None
+
+def get_git_info(space):
     info = get_repo_version_info(root=pypyroot)
     if info:
         repo_tag, repo_version = info

@@ -4,6 +4,10 @@ text file.
 
 import py
 import os
+import sys
+
+if sys.version_info >= (3, 0, 0):
+    unicode = str
 
 def pytest_addoption(parser):
     group = parser.getgroup("terminal reporting", "resultlog plugin options")
@@ -100,7 +104,7 @@ class ResultLog(object):
                 longrepr = str(report.longrepr)
             else:
                 assert report.skipped
-                code = "S"
+                code = "s"
                 longrepr = "%s:%d: %s" % report.longrepr
             self.log_outcome(report, code, longrepr)
 

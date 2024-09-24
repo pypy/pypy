@@ -927,10 +927,20 @@ class GeneralModuleTests(unittest.TestCase):
         # wrong number of args
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo')
-        self.assertIn('(1 given)', str(cm.exception))
+
+        if sys.implementation.name == 'pypy':
+            msg = 'missing 1 required positional argument'
+        else:
+            msg = '(1 given)'
+        self.assertIn(msg, str(cm.exception))
+
+        if sys.implementation.name == 'pypy':
+            msg = 'but 5 were given'
+        else:
+            msg = '(4 given)'
         with self.assertRaises(TypeError) as cm:
             s.sendto(b'foo', 0, sockname, 4)
-        self.assertIn('(4 given)', str(cm.exception))
+        self.assertIn(msg, str(cm.exception))
 
     def testCrucialConstants(self):
         # Testing for mission critical constants
@@ -1076,7 +1086,20 @@ class GeneralModuleTests(unittest.TestCase):
                          'socket.if_indextoname() not available.')
     def testInvalidInterfaceIndexToName(self):
         self.assertRaises(OSError, socket.if_indextoname, 0)
+        self.assertRaises(OverflowError, socket.if_indextoname, -1)
+        self.assertRaises(OverflowError, socket.if_indextoname, 2**1000)
         self.assertRaises(TypeError, socket.if_indextoname, '_DEADBEEF')
+        if hasattr(socket, 'if_nameindex'):
+            indices = dict(socket.if_nameindex())
+            for index in indices:
+                index2 = index + 2**32
+                if index2 not in indices:
+                    with self.assertRaises((OverflowError, OSError)):
+                        socket.if_indextoname(index2)
+            for index in 2**32-1, 2**64-1:
+                if index not in indices:
+                    with self.assertRaises((OverflowError, OSError)):
+                        socket.if_indextoname(index)
 
     @unittest.skipUnless(hasattr(socket, 'if_nametoindex'),
                          'socket.if_nametoindex() not available.')

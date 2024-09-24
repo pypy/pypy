@@ -107,7 +107,7 @@ New Platforms and Features
 
 * Support for precompiled headers in the build process for MSVC
 
-* Tweak support of errno in cpyext (the PyPy implemenation of the capi)
+* Tweak support of errno in cpyext (the PyPy implementation of the capi)
 
 
 NumPy

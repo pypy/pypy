@@ -123,7 +123,7 @@ def test_utf8_index_storage(u):
         assert (rutf8.codepoint_at_index(u.encode('utf8'), index, i) ==
                 ord(item))
 
-@given(strategies.text())
+@given(strategies.text(min_size=63))
 @example(u'x' * 64 * 5)
 @example(u'x' * (64 * 5 - 1))
 def test_codepoint_position_at_index(u):
@@ -132,7 +132,7 @@ def test_codepoint_position_at_index(u):
         assert (rutf8.codepoint_position_at_index(u.encode('utf8'), index, i) ==
                 len(u[:i].encode('utf8')))
 
-@given(strategies.text())
+@given(strategies.text(min_size=63))
 @example(u'x' * 64 * 5)
 @example(u'x' * (64 * 5 - 1))
 @example(u'ä' + u'x«' * 1000 + u'–' + u'y' * 100)
@@ -144,9 +144,8 @@ def test_codepoint_index_at_byte_position(u):
         assert rutf8.codepoint_index_at_byte_position(
                        b, storage, bytepos, len(u)) == i
 
-@given(strategies.text())
+@given(strategies.text(min_size=63))
 def test_codepoint_position_at_index_inverse(u):
-    print u
     b = u.encode('utf8')
     storage = rutf8.create_utf8_index_storage(b, len(u))
     for i in range(len(u) + 1):

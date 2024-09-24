@@ -224,7 +224,10 @@ class Arguments(object):
             args_left = co_argcount - upfront
             assert args_left >= 0  # check required by rpython
             if num_args > args_left:
-                starargs_w = args_w[args_left:]
+                if args_left == 0:
+                    starargs_w = args_w # don't need to copy if its the whole list
+                else:
+                    starargs_w = args_w[args_left:]
             else:
                 starargs_w = []
             loc = co_argcount + co_kwonlyargcount

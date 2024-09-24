@@ -120,9 +120,20 @@ def print_exception(exc, /, value=_sentinel, tb=_sentinel, limit=None, \
     for line in te.format(chain=chain):
         print(line, file=file, end="")
 
+# PyPy change: copy _print_exception_bltin from cpy 3.13
+
+BUILTIN_EXCEPTION_LIMIT = object()
+
+def _print_exception_bltin(exc, /):
+    file = sys.stderr if sys.stderr is not None else sys.__stderr__
+    colorize = _colorize.can_colorize()
+    return print_exception(exc, limit=BUILTIN_EXCEPTION_LIMIT, file=file, colorize=colorize)
+
+# end PyPy change
+
 
 def format_exception(exc, /, value=_sentinel, tb=_sentinel, limit=None, \
-                     chain=True):
+                     chain=True, colorize=False):
     """Format a stack trace and the exception information.
 
     The arguments have the same meaning as the corresponding arguments
@@ -133,10 +144,11 @@ def format_exception(exc, /, value=_sentinel, tb=_sentinel, limit=None, \
     """
     value, tb = _parse_value_tb(exc, value, tb)
     te = TracebackException(type(value), value, tb, limit=limit, compact=True)
+    te._colorize = colorize
     return list(te.format(chain=chain))
 
 
-def format_exception_only(exc, /, value=_sentinel):
+def format_exception_only(exc, /, value=_sentinel, colorize=False):
     """Format the exception part of a traceback.
 
     The return value is a list of strings, each ending in a newline.
@@ -153,13 +165,22 @@ def format_exception_only(exc, /, value=_sentinel):
     if value is _sentinel:
         value = exc
     te = TracebackException(type(value), value, None, compact=True)
+    if colorize:
+        te._colorize = True
     return list(te.format_exception_only())
 
 
 # -- not official API but folk probably use these two functions.
 
-def _format_final_exc_line(etype, value):
+def _format_final_exc_line(etype, value, colorize=False):
     valuestr = _some_str(value)
+    if colorize:
+        from _colorize import ANSIColors
+        if value is None or not valuestr:
+            line = f"{ANSIColors.BOLD_MAGENTA}{etype}{ANSIColors.RESET}\n"
+        else:
+            line = f"{ANSIColors.BOLD_MAGENTA}{etype}{ANSIColors.RESET}: {ANSIColors.MAGENTA}{valuestr}{ANSIColors.RESET}\n"
+        return line
     if value is None or not valuestr:
         line = "%s\n" % etype
     else:
@@ -319,6 +340,31 @@ def _walk_stack(f):
     while f is not None:
         yield f, f.f_lineno
         f = f.f_back
+
+def _construct_positionful_frame(f, last_i, *args, **kwargs):
+    # used from module/sys/app.py and from pyrepl
+    f_summary = FrameSummary(*args, **kwargs)
+
+    # If we can't retrieve the traceback's last instruction
+    # we will give up here. It normally shouldn't happen but
+    # just handling the error path.
+    if last_i is not None:
+        # last_i represents the offset in terms of bytes, so for normalizing it
+        # for a list of instructions we need to divide it by 2.
+        instr_index = last_i // 2
+        positions = f.f_code._positions()
+        if len(positions) > instr_index:
+            _, f_summary.end_lineno, f_summary.colno, f_summary.end_colno = positions[instr_index]
+
+    return f_summary
+
+def _filelink(filename):
+    if filename.startswith("<") and filename.endswith(">"):
+        return filename
+    url = f"file://{filename}"
+    # OSC 8 ; params ; URI ST <name> OSC 8 ;; ST
+    return f'\x1b]8;;{url}\x1b\\{filename}\x1b]8;;\x1b\\'
+
 # end PyPy modification
 
 
@@ -382,13 +428,18 @@ class StackSummary(list):
     @classmethod
     def _extract_from_extended_frame_gen(klass, frame_gen, frame_constructor, *, limit=None,
             lookup_lines=True, capture_locals=False):
-        # End PyPy 3 change
-        if limit is None:
+        # PyPy 3 change: support for BUILTIN_EXCEPTION_LIMIT from cpy 3.13
+        builtin_limit = limit is BUILTIN_EXCEPTION_LIMIT
+        if limit is None or builtin_limit:
             limit = getattr(sys, 'tracebacklimit', None)
             if limit is not None and limit < 0:
                 limit = 0
         if limit is not None:
-            if limit >= 0:
+            if builtin_limit:
+                frame_gen = tuple(frame_gen)
+                frame_gen = frame_gen[len(frame_gen) - limit:]
+            # End PyPy 3 change
+            elif limit >= 0:
                 frame_gen = itertools.islice(frame_gen, limit)
             else:
                 frame_gen = collections.deque(frame_gen, maxlen=-limit)
@@ -436,7 +487,74 @@ class StackSummary(list):
                 result.append(FrameSummary(filename, lineno, name, line=line))
         return result
 
-    def format(self):
+    def _format_frame_summary(self, frame_summary, **kwargs):
+        """Format the lines for a single FrameSummary.
+
+        Returns a string representing one frame involved in the stack. This
+        gets called for every frame to be printed in the stack summary.
+        """
+        # pypy modification: mainly taken from cpy 3.13 to support colors
+        colorize = kwargs.get("colorize", False)
+        row = []
+        filename = frame_summary.filename
+        if colorize:
+            import _colorize
+            from _colorize import ANSIColors
+            row.append('  File {}"{}"{}, line {}{}{}, in {}{}{}\n'.format(
+                    ANSIColors.MAGENTA,
+                    _filelink(filename),
+                    ANSIColors.RESET,
+                    ANSIColors.MAGENTA,
+                    frame_summary.lineno,
+                    ANSIColors.RESET,
+                    ANSIColors.MAGENTA,
+                    frame_summary.name,
+                    ANSIColors.RESET,
+                    )
+            )
+        else:
+            row.append('  File "{}", line {}, in {}\n'.format(
+                filename, frame_summary.lineno, frame_summary.name))
+        if frame_summary.line:
+            row.append('    {}\n'.format(frame_summary.line.strip()))
+            # PyPy 3 change: precise traceback ranges
+            if hasattr(frame_summary, 'end_lineno'):
+                assert hasattr(frame_summary, 'colno')
+                assert hasattr(frame_summary, 'end_colno')
+                original_line = linecache.getline(frame_summary.filename, frame_summary.lineno)
+                stripped_characters = len(original_line) - len(frame_summary.line.lstrip())
+                if frame_summary.end_lineno == frame_summary.lineno and frame_summary.end_colno != 0:
+                    colno = _byte_offset_to_character_offset(original_line, frame_summary.colno)
+                    end_colno = _byte_offset_to_character_offset(original_line, frame_summary.end_colno)
+
+                    if end_colno - colno != len(frame_summary.line.strip()):
+                        length_first_part = colno - stripped_characters
+                        length_carets = end_colno - colno
+                        if colorize:
+                            colorized_line = "".join([
+                                frame_summary.line[:length_first_part],
+                                ANSIColors.BOLD_RED,
+                                frame_summary.line[length_first_part: length_first_part + length_carets],
+                                ANSIColors.RESET,
+                                frame_summary.line[length_first_part + length_carets:],
+                                "\n",
+                            ])
+                            row[-1] = '    ' + colorized_line
+                        row.append('    ')
+                        row.append(' ' * length_first_part)
+                        if colorize:
+                            row.append(ANSIColors.BOLD_RED)
+                        row.append('^' * length_carets)
+                        if colorize:
+                            row.append(ANSIColors.RESET)
+                        row.append('\n')
+            # End PyPy3 change
+        if frame_summary.locals:
+            for name, value in sorted(frame_summary.locals.items()):
+                row.append('    {name} = {value}\n'.format(name=name, value=value))
+        return ''.join(row)
+
+    def format(self, colorize=False):
         """Format the stack ready for printing.
 
         Returns a list of strings ready for printing.  Each string in the
@@ -454,6 +572,8 @@ class StackSummary(list):
         last_name = None
         count = 0
         for frame in self:
+            formatted_frame = self._format_frame_summary(frame, colorize=colorize)
+            assert formatted_frame is not None
             if (last_file is None or last_file != frame.filename or
                 last_line is None or last_line != frame.lineno or
                 last_name is None or last_name != frame.name):
@@ -470,31 +590,7 @@ class StackSummary(list):
             count += 1
             if count > _RECURSIVE_CUTOFF:
                 continue
-            row = []
-            row.append('  File "{}", line {}, in {}\n'.format(
-                frame.filename, frame.lineno, frame.name))
-            if frame.line:
-                row.append('    {}\n'.format(frame.line.strip()))
-                # PyPy 3 change: precise traceback ranges
-                if hasattr(frame, 'end_lineno'):
-                    assert hasattr(frame, 'colno')
-                    assert hasattr(frame, 'end_colno')
-                    original_line = linecache.getline(frame.filename, frame.lineno)
-                    stripped_characters = len(original_line) - len(frame.line.lstrip())
-                    if frame.end_lineno == frame.lineno and frame.end_colno != 0:
-                        colno = _byte_offset_to_character_offset(original_line, frame.colno)
-                        end_colno = _byte_offset_to_character_offset(original_line, frame.end_colno)
-
-                        if end_colno - colno != len(frame.line.strip()):
-                            row.append('    ')
-                            row.append(' ' * (colno - stripped_characters))
-                            row.append('^' * (end_colno - colno))
-                            row.append('\n')
-                # End PyPy3 change
-            if frame.locals:
-                for name, value in sorted(frame.locals.items()):
-                    row.append('    {name} = {value}\n'.format(name=name, value=value))
-            result.append(''.join(row))
+            result.append(formatted_frame)
         if count > _RECURSIVE_CUTOFF:
             count -= _RECURSIVE_CUTOFF
             result.append(
@@ -539,7 +635,7 @@ class TracebackException:
     def __init__(self, exc_type, exc_value, exc_traceback, *, limit=None,
             lookup_lines=True, capture_locals=False, compact=False,
             _seen=None,
-            _frame_constructor=_default_frame_constructor
+            _frame_constructor=_default_frame_constructor,
             # End PyPy 3 change
         ):
         # NB: we need to accept exc_traceback, exc_value, exc_traceback to
@@ -668,7 +764,7 @@ class TracebackException:
         string in the output.
         """
         if self.exc_type is None:
-            yield _format_final_exc_line(None, self._str)
+            yield _format_final_exc_line(None, self._str, colorize=getattr(self, "_colorize", False))
             return
 
         stype = self.exc_type.__qualname__
@@ -679,7 +775,7 @@ class TracebackException:
             stype = smod + '.' + stype
 
         if not issubclass(self.exc_type, SyntaxError):
-            yield _format_final_exc_line(stype, self._str)
+            yield _format_final_exc_line(stype, self._str, colorize=getattr(self, "_colorize", False))
         else:
             yield from self._format_syntax_error(stype)
 
@@ -688,8 +784,13 @@ class TracebackException:
         # Show exactly where the problem was found.
         filename_suffix = ''
         if self.lineno is not None:
-            yield '  File "{}", line {}\n'.format(
-                self.filename or "<string>", self.lineno)
+            fn = self.filename or "<string>"
+            if getattr(self, "_colorize", False):
+                from _colorize import ANSIColors
+                yield f'  File {ANSIColors.MAGENTA}"{fn}"{ANSIColors.RESET}, line {ANSIColors.MAGENTA}{self.lineno}{ANSIColors.RESET}\n'
+            else:
+                yield '  File "{}", line {}\n'.format(
+                    self.filename or "<string>", self.lineno)
         elif self.filename is not None:
             filename_suffix = ' ({})'.format(self.filename)
 
@@ -701,9 +802,9 @@ class TracebackException:
             rtext = text.rstrip('\n')
             ltext = rtext.lstrip(' \n\f')
             spaces = len(rtext) - len(ltext)
-            yield '    {}\n'.format(ltext)
-
-            if self.offset is not None:
+            if self.offset is None:
+                yield '    {}\n'.format(ltext)
+            else:
                 offset = self.offset
                 end_offset = self.end_offset if self.end_offset not in {None, 0} else offset
                 if offset == end_offset or end_offset == -1:
@@ -713,9 +814,26 @@ class TracebackException:
                 colno = offset - 1 - spaces
                 end_colno = end_offset - 1 - spaces
                 if colno >= 0:
-                    # non-space whitespace (likes tabs) must be kept for alignment
                     caretspace = ((c if c.isspace() else ' ') for c in ltext[:colno])
-                    yield '    {}{}'.format("".join(caretspace), ('^' * (end_colno - colno) + "\n"))
+                    start_color = end_color = ""
+                    if getattr(self, "_colorize", False):
+                        start_color = ANSIColors.BOLD_RED
+                        end_color = ANSIColors.RESET
+                        ltext = (
+                            ltext[:colno] +
+                            start_color + ltext[colno:end_colno] + end_color +
+                            ltext[end_colno:]
+                        )
+                    yield '    {}\n'.format(ltext)
+                    # non-space whitespace (likes tabs) must be kept for alignment
+                    yield '    {}{}{}{}\n'.format(
+                        "".join(caretspace),
+                        start_color,
+                        ('^' * (end_colno - colno)),
+                        end_color,
+                    )
+                else:
+                    yield '    {}\n'.format(ltext)
         msg = self.msg or "<no detail available>"
         yield "{}: {}{}\n".format(stype, msg, filename_suffix)
 
@@ -758,7 +876,7 @@ class TracebackException:
                 yield msg
             if exc.stack:
                 yield 'Traceback (most recent call last):\n'
-                yield from exc.stack.format()
+                yield from exc.stack.format(colorize=getattr(self, "_colorize", False))
             yield from exc.format_exception_only()
 
 

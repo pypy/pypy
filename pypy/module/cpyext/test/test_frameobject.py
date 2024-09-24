@@ -100,11 +100,12 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
         exc = raises(ValueError, module.raise_exception)
         exc.value.args[0] == 'error message'
         frame = exc.traceback.tb_frame
-        assert frame.f_code.co_filename == "filename"
-        assert frame.f_code.co_name == "funcname"
+        if not self.runappdirect:
+            assert frame.f_code.co_filename == "filename"
+            assert frame.f_code.co_name == "funcname"
 
-        assert exc.traceback.tb_lineno == 42
-        assert frame.f_lineno == 42
+            assert exc.traceback.tb_lineno == 42
+            assert frame.f_lineno == 42
 
 
     def test_traceback_check(self):
@@ -121,6 +122,12 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                      return NULL;
                  }
                  PyErr_Fetch(&type, &value, &tb);
+                 if (tb == NULL) {
+                     Py_XDECREF(type);
+                     Py_XDECREF(value);
+                     PyErr_SetString(PyExc_AssertionError, "No traceback");
+                     return NULL;
+                 }
                  check = PyTraceBack_Check(tb);
                  Py_XDECREF(type);
                  Py_XDECREF(value);
@@ -133,4 +140,5 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                  }
              """),
             ])
+        # On CPython the traceback is NULL
         assert module.traceback_check()

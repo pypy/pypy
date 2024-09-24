@@ -38,7 +38,8 @@ diff -u1 -r '--exclude=__pycache__' ../pypy-base/extra_tests/cffi_tests/cffi1/te
 diff -u1 -r '--exclude=__pycache__' ../pypy-base/extra_tests/cffi_tests/test_c.py extra_tests/cffi_tests/test_c.py
 --- ../pypy-base/extra_tests/cffi_tests/test_c.py	2024-02-12 13:18:08.732446053 +0000
 +++ extra_tests/cffi_tests/test_c.py	2024-02-12 13:23:06.921031740 +0000
-@@ -1,10 +1,3 @@
+
+@@ -1,12 +1,5 @@
 -from __future__ import annotations
 -
 -import contextlib
@@ -49,8 +50,13 @@ diff -u1 -r '--exclude=__pycache__' ../pypy-base/extra_tests/cffi_tests/test_c.p
  import sys
 -import typing as t
  
-@@ -1346,33 +1339,4 @@
+ is_musl = False
+ if sys.platform == 'linux':
+@@ -30,36 +23,6 @@ except ImportError:
+         pytest.skip("_testunc() not available")
+ from _cffi_backend import __version__
  
+-
 -@contextlib.contextmanager
 -def _assert_unraisable(error_type: type[Exception] | None, message: str = '', traceback_tokens: list[str] | None = None):
 -    """Assert that a given sys.unraisablehook interaction occurred (or did not occur, if error_type is None) while this context was active"""
@@ -80,7 +86,33 @@ diff -u1 -r '--exclude=__pycache__' ../pypy-base/extra_tests/cffi_tests/test_c.p
 -    for t in traceback_tokens or []:
 -        assert t in raised_traceback
 -
--
+ # ____________________________________________________________
+ 
+ import sys
+@@ -1377,6 +1340,7 @@ def test_callback():
+ 
+ 
  def test_callback_exception():
 +    pytest.skip("XXX not written for Python 2")
      def check_value(x):
+         if x == 10000:
+             raise ValueError(42)
+diff --git a/extra_tests/cffi_tests/cffi0/test_version.py b/extra_tests/cffi_tests/cffi0/test_version.py
+index 5aec6f91e27..f08731e1d14 100644
+--- extra_tests/cffi_tests/cffi0/test_version.py
++++ extra_tests/cffi_tests/cffi0/test_version.py
+@@ -41,11 +41,11 @@ def test_doc_version():
+ 
+ def test_pyproject_version():
+     cffi_root = Path(os.path.dirname(__file__)).parent.parent
+-    p = cffi_root / 'pyproject.toml'
++    p = cffi_root / 'setup.py'
+     content = _read(p)
+     #
+     v = cffi.__version__.replace('+', '')
+-    assert f'version = "{v}"' in content
++    assert ("version='%s'" % v) in content
+ 
+ def test_c_version():
+     cffi_root = Path(os.path.dirname(__file__)).parent.parent
+-- 

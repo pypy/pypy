@@ -1879,7 +1879,10 @@ _NonUserDefinedCallables = (_WrapperDescriptor,
                             _ClassMethodWrapper,
                             types.BuiltinFunctionType)
 
-_builtin_code_type = type(dict.update.__code__)
+if "__pypy__" in sys.modules:
+    _builtin_code_type = type(dict.update.__code__)
+else:
+    _builtin_code_type = None
 
 def _signature_get_user_defined_method(cls, method_name):
     """Private helper. Checks if ``cls`` has an attribute
@@ -1898,7 +1901,7 @@ def _signature_get_user_defined_method(cls, method_name):
             code = meth.__code__
         except AttributeError:
             return
-        if not isinstance(code, _builtin_code_type):
+        if _builtin_code_type and not isinstance(code, _builtin_code_type):
             # Once '__signature__' will be added to 'C'-level
             # callables, this check won't be necessary
             return meth

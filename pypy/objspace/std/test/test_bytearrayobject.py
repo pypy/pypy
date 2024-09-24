@@ -8,6 +8,9 @@ class DontAccess(object):
     pass
 dont_access = DontAccess()
 
+seed = random.randrange(0, 2**31)
+print "BYTEARRAY TWEAK SEED", seed
+random.seed(seed)
 
 class AppTestBytesArray:
     def setup_class(cls):
@@ -422,6 +425,7 @@ class AppTestBytesArray:
         raises(TypeError, b.__iadd__, "")
         #
         b += xx
+        print(repr(b))
         assert b == b'abcdefXX'
         assert b is b0
         #

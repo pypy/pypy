@@ -8,30 +8,31 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
+from rpython.translator import cdir
 
 import sys
 import weakref
 import py
 
+srcdir = py.path.local(__file__).dirpath().join('src', 'expat')
+
 if sys.platform == "win32":
-    libname = 'libexpat'
     pre_include_bits = ["#define XML_STATIC"]
 else:
-    libname = 'expat'
     pre_include_bits = []
-eci = ExternalCompilationInfo(
-    libraries=[libname],
-    library_dirs=platform.preprocess_library_dirs([]),
-    includes=['expat.h'],
-    include_dirs=platform.preprocess_include_dirs([]),
-    pre_include_bits = pre_include_bits,
-    )
 
-eci = rffi_platform.configure_external_library(
-    libname, eci,
-    [dict(prefix='expat-',
-          include_dir='lib', library_dir='win32/bin/release'),
-     ])
+eci = ExternalCompilationInfo(
+    includes=['expat.h', 'pyexpatns.h'],
+    include_dirs=[str(srcdir), cdir],
+    pre_include_bits = pre_include_bits,
+    separate_module_files=[
+        srcdir.join('xmlparse.c'),
+        srcdir.join('xmlrole.c'),
+        srcdir.join('xmltok.c'),
+        srcdir.join('xmltok_impl.c'),
+        srcdir.join('xmltok_ns.c'),
+    ]
+)
 
 XML_Content_Ptr = lltype.Ptr(lltype.ForwardReference())
 XML_Parser = rffi.COpaquePtr(typedef='XML_Parser')
@@ -132,6 +133,7 @@ XML_Encoding_Ptr = lltype.Ptr(XML_Encoding)
 
 def expat_external(*a, **kw):
     kw['compilation_info'] = eci
+    a = ("PyExpat_" + a[0],) + a[1:]
     return rffi.llexternal(*a, **kw)
 
 INTERNED_CCHARP = "INTERNED"
@@ -141,7 +143,7 @@ HANDLERS = dict(
     StartElementHandler = [INTERNED_CCHARP, CONST_CCHARPP],
     EndElementHandler = [INTERNED_CCHARP],
     ProcessingInstructionHandler = [INTERNED_CCHARP, INTERNED_CCHARP],
-    CharacterDataHandler = [rffi.CCHARP, rffi.INT],
+    CharacterDataHandler = [rffi.CCHARP, rffi.INT_real],
     UnparsedEntityDeclHandler = [INTERNED_CCHARP] * 5,
     NotationDeclHandler = [INTERNED_CCHARP] * 4,
     StartNamespaceDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP],
@@ -149,23 +151,23 @@ HANDLERS = dict(
     CommentHandler = [INTERNED_CCHARP],
     StartCdataSectionHandler = [],
     EndCdataSectionHandler = [],
-    DefaultHandler = [INTERNED_CCHARP, rffi.INT],
-    DefaultHandlerExpand = [INTERNED_CCHARP, rffi.INT],
+    DefaultHandler = [INTERNED_CCHARP, rffi.INT_real],
+    DefaultHandlerExpand = [INTERNED_CCHARP, rffi.INT_real],
     NotStandaloneHandler = [],
     ExternalEntityRefHandler = [INTERNED_CCHARP] * 4,
     StartDoctypeDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP,
-                               INTERNED_CCHARP, rffi.INT],
+                               INTERNED_CCHARP, rffi.INT_real],
     EndDoctypeDeclHandler = [],
-    EntityDeclHandler = [INTERNED_CCHARP, rffi.INT, INTERNED_CCHARP, rffi.INT,
-                         INTERNED_CCHARP, INTERNED_CCHARP, INTERNED_CCHARP,
-                         INTERNED_CCHARP],
-    XmlDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP, rffi.INT],
+    EntityDeclHandler = [INTERNED_CCHARP, rffi.INT_real, INTERNED_CCHARP,
+                         rffi.INT_real, INTERNED_CCHARP, INTERNED_CCHARP,
+                         INTERNED_CCHARP, INTERNED_CCHARP],
+    XmlDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP, rffi.INT_real],
     ElementDeclHandler = [INTERNED_CCHARP, lltype.Ptr(XML_Content)],
     AttlistDeclHandler = [INTERNED_CCHARP, INTERNED_CCHARP,
-                          INTERNED_CCHARP, INTERNED_CCHARP, rffi.INT],
+                          INTERNED_CCHARP, INTERNED_CCHARP, rffi.INT_real],
     )
 if XML_COMBINED_VERSION >= 19504:
-    HANDLERS['SkippedEntityHandler'] = [INTERNED_CCHARP, rffi.INT]
+    HANDLERS['SkippedEntityHandler'] = [INTERNED_CCHARP, rffi.INT_real]
 NB_HANDLERS = len(HANDLERS)
 
 class Storage:
@@ -248,6 +250,8 @@ for index, (name, params) in enumerate(HANDLERS.items()):
                 'XML_FreeContentModel(parser.itself, arg%d)' % (i,))
         elif ARG == rffi.INT:
             converters.append("w_arg%d = space.newint(arg%d)" % (i, i))
+        elif ARG == rffi.INT_real:
+            converters.append("w_arg%d = space.newint(arg%d)" % (i, i))
         else:
             assert 0, "missing conversion case"
         real_params.append(ARG)
@@ -258,9 +262,9 @@ for index, (name, params) in enumerate(HANDLERS.items()):
 
     if name in ['ExternalEntityRefHandler',
                 'NotStandaloneHandler']:
-        result_type = rffi.INT
-        result_converter = "rffi.cast(rffi.INT, space.int_w(w_result))"
-        result_error = "rffi.cast(rffi.INT, 0)"
+        result_type = rffi.INT_real
+        result_converter = "rffi.cast(rffi.INT_real, space.int_w(w_result))"
+        result_error = "rffi.cast(rffi.INT_real, 0)"
     else:
         result_type = lltype.Void
         result_converter = "None"
@@ -337,9 +341,10 @@ def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
         result = 0
     else:
         result = 1
-    return rffi.cast(rffi.INT, result)
+    return rffi.cast(rffi.INT_real, result)
+
 callback_type = lltype.Ptr(lltype.FuncType(
-    [rffi.VOIDP, rffi.CONST_CCHARP, XML_Encoding_Ptr], rffi.INT))
+    [rffi.VOIDP, rffi.CONST_CCHARP, XML_Encoding_Ptr], rffi.INT_real))
 XML_SetUnknownEncodingHandler = expat_external(
     'XML_SetUnknownEncodingHandler',
     [XML_Parser, callback_type, rffi.VOIDP], lltype.Void)
@@ -396,7 +401,9 @@ XML_FreeContentModel = expat_external(
 XML_ExternalEntityParserCreate = expat_external(
     'XML_ExternalEntityParserCreate', [XML_Parser, rffi.CCHARP, rffi.CCHARP],
     XML_Parser)
-
+if XML_COMBINED_VERSION >= 20600:
+    XML_SetReparseDeferralEnabled = expat_external(
+        'XML_SetReparseDeferralEnabled', [XML_Parser, rffi.UCHAR], rffi.INT)
 XML_ExpatVersion = expat_external(
     'XML_ExpatVersion', [], rffi.CONST_CCHARP)
 
@@ -432,6 +439,16 @@ class W_XMLParserType(W_Root):
         self.buffer = None
         self.buffer_size = 8192
         self.buffer_used = 0
+        if XML_COMBINED_VERSION >= 20600:
+            self.reparse_deferral_enabled = True
+        else:
+            self.reparse_deferral_enabled = False
+        # Whether to defer reparsing of
+        # unfinished XML tokens; a de-facto cache of
+        # what Expat has the authority on, for lack
+        # of a getter API function
+        # "XML_GetReparseDeferralEnabled" in Expat
+        # 2.6.0 */
         self.w_character_data_handler = None
 
         self._exc_info = None
@@ -485,7 +502,8 @@ getting the advantage of providing document type information to the parser.
         except rutf8.CheckError:
             from pypy.interpreter import unicodehelper
             # get the correct error msg
-            unicodehelper.str_decode_utf8(s, 'string', True,
+            w_s = space.newbytes(s)
+            unicodehelper.str_decode_utf8(space, s, w_s, 'string', True,
                 unicodehelper.decode_error_handler(space))
             assert False, "always raises"
         return space.newtext(s)
@@ -771,6 +789,30 @@ information passed to the ExternalEntityRefHandler."""
         else:
             return space.w_None
 
+    def descr_flush(self, space):
+        XML_SetReparseDeferralEnabled(self.itself, XML_FALSE)
+        res = XML_Parse(self.itself, "", 0, XML_FALSE)
+        if self._exc_info:
+            e = self._exc_info
+            self._exc_info = None
+            raise e
+        elif res == 0:
+            raise self.set_error(space, XML_GetErrorCode(self.itself))
+        XML_SetReparseDeferralEnabled(self.itself, XML_TRUE)
+        self.flush_character_buffer(space)
+        return space.newint(res)
+
+    @unwrap_spec(val=int)
+    def descr_SetReparseDeferralEnabled(self, space, val):
+        """Enable/Disable reparse deferral; enabled by default with Expat >=2.6.0.
+        """
+        if XML_COMBINED_VERSION >=2600:
+            enabled = bool(val)
+            XML_SetReparseDeferralEnabled(self.itself, rffi.cast(rffi.UCHAR, enabled))
+            self.reparse_deferral_enabled = enabled
+
+    def descr_GetReparseDeferralEnabled(self, space):
+        return space.newbool(self.reparse_deferral_enabled)
 
 def bool_property(name, cls, doc=None):
     def fget(space, obj):
@@ -804,6 +846,7 @@ W_XMLParserType.typedef = TypeDef(
                                  cls=W_XMLParserType),
     buffer_text = GetSetProperty(W_XMLParserType.get_buffer_text,
                                  W_XMLParserType.set_buffer_text, cls=W_XMLParserType),
+    flush = interp2app(W_XMLParserType.descr_flush),
 
     ErrorCode = GetSetProperty(W_XMLParserType.descr_ErrorCode, cls=W_XMLParserType),
     ErrorLineNumber = GetSetProperty(W_XMLParserType.descr_ErrorLineNumber, cls=W_XMLParserType),
@@ -812,6 +855,8 @@ W_XMLParserType.typedef = TypeDef(
     CurrentLineNumber = GetSetProperty(W_XMLParserType.descr_ErrorLineNumber, cls=W_XMLParserType),
     CurrentColumnNumber = GetSetProperty(W_XMLParserType.descr_ErrorColumnNumber, cls=W_XMLParserType),
     CurrentByteIndex = GetSetProperty(W_XMLParserType.descr_ErrorByteIndex, cls=W_XMLParserType),
+    SetReparseDeferralEnabled = interp2app(W_XMLParserType.descr_SetReparseDeferralEnabled),
+    GetReparseDeferralEnabled = interp2app(W_XMLParserType.descr_GetReparseDeferralEnabled),
 
     **_XMLParser_extras
     )

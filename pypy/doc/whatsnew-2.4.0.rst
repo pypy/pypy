@@ -73,4 +73,4 @@ Upgrades from 2.7.6 to 2.7.8
 
 .. branch: cpybug-seq-radd-rmul
 
-Fix issue #1861 - cpython compatability madness
+Fix issue #1861 - cpython compatibility madness

@@ -889,7 +889,7 @@ def always_none(self, obj):
 BuiltinFunction.typedef = TypeDef("builtin_function", **Function.typedef.rawdict)
 BuiltinFunction.typedef.rawdict.update({
     '__new__': interp2app(BuiltinFunction.descr_builtinfunction__new__.im_func),
-    '__self__': GetSetProperty(always_none, cls=BuiltinFunction),
+    '__self__': GetSetProperty(BuiltinFunction.descr_builtinfunction__self__, cls=BuiltinFunction),
     '__repr__': interp2app(BuiltinFunction.descr_function_repr),
     '__doc__': getset_func_doc,
     '__reduce__': interp2app(BuiltinFunction.descr__reduce__),

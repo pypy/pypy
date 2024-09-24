@@ -4,9 +4,10 @@ try:
 except ImportError:
     pytest.skip("hypothesis required")
 import os
+from rpython.rlib.rbigint import rbigint
 from pypy.module._io.interp_bytesio import W_BytesIO
 from pypy.module._io.interp_textio import (W_TextIOWrapper, DecodeBuffer,
-        W_IncrementalNewlineDecoder,
+        W_IncrementalNewlineDecoder, PositionCookie,
         SEEN_CR, SEEN_LF)
 
 # workaround suggestion for slowness by David McIver:
@@ -20,12 +21,15 @@ def translate_newlines(text):
     return text.replace(u'\n', os.linesep)
 
 @st.composite
-def st_readline(draw, st_nlines=st.integers(min_value=0, max_value=10)):
+def st_readline(
+        draw,
+        st_nlines=st.integers(min_value=0, max_value=10),
+        characters=st.characters(blacklist_characters=u'\r\n')):
     n_lines = draw(st_nlines)
     fragments = []
     limits = []
     for _ in range(n_lines):
-        line = draw(st.text(st.characters(blacklist_characters=u'\r\n')))
+        line = draw(st.text(characters))
         fragments.append(line)
         ending = draw(st.sampled_from([u'\n', u'\r', u'\r\n']))
         fragments.append(ending)
@@ -139,16 +143,68 @@ def test_readn_buffer(text, sizes):
         strings.append(s)
     assert ''.join(strings) == text[:sum(sizes)]
 
-@given(st.text())
-@example(u'\x800')
-def test_next_char(text):
-    buf = DecodeBuffer(text.encode('utf8'), len(text))
-    chars = []
-    try:
-        while True:
-            ch = buf.next_char().decode('utf8')
-            chars.append(ch)
-    except StopIteration:
-        pass
-    assert buf.exhausted()
-    assert u''.join(chars) == text
+@given(content=st_readline(characters=st.characters(blacklist_categories='C')))
+def test_tell(space, content):
+    txt, limits = content
+
+    restxt = translate_newlines(txt)
+    resstr = restxt.encode('utf-8')
+    for read_chars_before_seeking in range(len(restxt)):
+        w_stream = W_BytesIO(space)
+        w_stream.descr_init(space, space.newbytes(txt.encode('utf-8')))
+
+        w_textio = W_TextIOWrapper(space)
+        w_textio.descr_init(
+            space, w_stream,
+            encoding='utf-8'
+        )
+
+        w_res1 = w_textio.read_w(space, space.newint(read_chars_before_seeking))
+        assert space.len_w(w_res1) <= read_chars_before_seeking
+        w_tell = w_textio.tell_w(space)
+        w_textio.seek_w(space, space.newint(0)) # seek to beginning
+        w_textio.seek_w(space, w_tell) # then back to position
+        w_res2 = w_textio.read_w(space)
+        w_res = space.add(w_res1, w_res2)
+        res = space.text_w(w_res)
+        assert res == resstr
+
+@given(content=st_readline(characters=st.characters(blacklist_categories='C')))
+def test_getstate_setstate(space, content):
+    txt, limits = content
+
+    restxt = translate_newlines(txt)
+    for read_chars_before_getstate in range(len(restxt)):
+        w_stream = W_BytesIO(space)
+        w_stream.descr_init(space, space.newbytes(txt.encode('utf-8')))
+
+        w_textio = W_TextIOWrapper(space)
+        w_textio.descr_init(
+            space, w_stream,
+            encoding='utf-8'
+        )
+        w_state_start = w_textio.w_decoder.getstate_w(space)
+        w_res1 = w_textio.read_w(space, space.newint(read_chars_before_getstate))
+        w_current_state = w_textio.w_decoder.getstate_w(space)
+        w_textio.w_decoder.setstate_w(space, w_state_start)
+        w_textio.w_decoder.setstate_w(space, w_current_state)
+        w_res2 = w_textio.read_w(space)
+        w_res = space.add(w_res1, w_res2)
+        res = space.text_w(w_res).decode("utf-8")
+        assert res == restxt
+
+def test_cookie(space):
+    val1 = eval("0x" + "1" * 128)
+    cookie1 = PositionCookie(rbigint.fromlong(val1))
+    val2 = cookie1.pack()
+    cookie = PositionCookie(val2)
+    assert cookie.start_pos > 0
+    assert cookie.dec_flags > 0
+    assert cookie.bytes_to_feed > 0
+    assert cookie.chars_to_skip > 0
+    assert cookie.need_eof > 0
+    assert cookie.start_pos == cookie.start_pos
+    assert cookie.dec_flags == cookie.dec_flags
+    assert cookie.bytes_to_feed == cookie.bytes_to_feed
+    assert cookie.chars_to_skip == cookie.chars_to_skip
+    assert cookie.need_eof == cookie.need_eof

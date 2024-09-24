@@ -203,7 +203,7 @@ return next yielded value or raise StopIteration."""
             tb = check_traceback(space, w_tb, msg)
 
         operr = OperationError(w_type, w_val, tb)
-        operr.normalize_exception(space)
+        w_value = operr.normalize_exception(space)
 
         # note: _w_yielded_from is always None if 'self.running'
         if (self.get_delegate() is not None and
@@ -214,7 +214,7 @@ return next yielded value or raise StopIteration."""
                 return self.send_error(e)
 
         if tb is None:
-            tb = space.getattr(operr.get_w_value(space),
+            tb = space.getattr(w_value,
                                space.newtext('__traceback__'))
             if not space.is_w(tb, space.w_None):
                 operr.set_traceback(tb)

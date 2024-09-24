@@ -20,7 +20,9 @@ def _init_tokens():
         tok_name[id] = tok
     Module.interpleveldefs["tok_name"] = "space.wrap(%r)" % (tok_name,)
     Module.interpleveldefs["N_TOKENS"] = "space.wrap(%d)" % len(tok_name)
-    Module.interpleveldefs['EXACT_TOKEN_TYPES'] = "space.wrap(%r)" % pytoken.python_opmap
+    exact_token_types = pytoken.python_opmap.copy()
+    del exact_token_types['<>'] # only for barry_as_FLUFL, not exposed in token
+    Module.interpleveldefs['EXACT_TOKEN_TYPES'] = "space.wrap(%r)" % exact_token_types
     all_names = Module.interpleveldefs.keys()
     Module.interpleveldefs["__all__"] = "space.wrap(%r)" % (all_names,)
 

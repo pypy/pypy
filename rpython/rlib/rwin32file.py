@@ -115,10 +115,12 @@ def make_win32_traits(traits):
     from rpython.rlib import rwin32
     global config_global
 
-    if traits.str is unicode:
+    if traits.nickname in ("unicode", "utf8"):
         suffix = 'W'
-    else:
+    elif traits.nickname in ("bytes"):
         suffix = 'A'
+    else:
+        raise ValueError("unknown traits")
 
     class CConfig:
         _compilation_info_ = ExternalCompilationInfo(

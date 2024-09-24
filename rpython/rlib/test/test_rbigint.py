@@ -1361,11 +1361,11 @@ class TestTranslatable(object):
     def test_args_from_rarith_int(self):
         from rpython.rlib.rarithmetic import r_int
         from rpython.rlib.unroll import unrolling_iterable
-        from rpython.rtyper.lltypesystem.rffi import r_int_real
+        from rpython.rtyper.lltypesystem.rffi import r_int_real, r_uint_real
         classlist = platform.numbertype_to_rclass.values()
         cases = [] # tuples of (values, strvalues, typename)
         for r in classlist:
-            if r in (r_int, r_int_real):     # and also r_longlong on 64-bit
+            if r in (r_int, r_int_real, r_uint_real):  # and also r_longlong on 64-bit
                 continue
             if r is int:
                 mask = sys.maxint*2+1

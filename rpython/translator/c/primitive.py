@@ -225,7 +225,7 @@ PrimitiveType = {
     SignedLongLong:   'long long @',
     Signed:   'Signed @',
     UnsignedLongLong: 'unsigned long long @',
-    Unsigned: 'Unsigned @',
+    Unsigned: 'size_t @',
     Float:    'double @',
     SingleFloat: 'float @',
     LongFloat: 'long double @',
@@ -270,6 +270,7 @@ define_c_primitive(rffi.USHORT, 'unsigned short')
 define_c_primitive(rffi.INT, 'int')
 define_c_primitive(rffi.INT_real, 'int')
 define_c_primitive(rffi.UINT, 'unsigned int')
+define_c_primitive(rffi.UINT_real, 'unsigned int')
 define_c_primitive(rffi.LONG, 'long', 'L')
 define_c_primitive(rffi.ULONG, 'unsigned long', 'UL')
 define_c_primitive(rffi.LONGLONG, 'long long', 'LL')

@@ -59,17 +59,17 @@ configure_args = ['./configure',
             '--disable-dependency-tracking',
         ]
 cffi_dependencies = {
-    '_ssl': ('https://www.openssl.org/source/openssl-3.0.12.tar.gz',
-              'f93c9e8edde5e9166119de31755fc87b4aa34863662f67ddfcba14d0b6b69b61',
+    '_ssl': ('https://www.openssl.org/source/openssl-3.3.1.tar.gz',
+              '777cd596284c883375a2a7a11bf5d2786fc5413255efab20c50d6ffe6d020b7e',
               [
                ['./config', '--prefix=/usr', 'no-shared', 'enable-fips'],
                ['make', '-s', '-j', str(multiprocessing.cpu_count())],
                ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
               ]),
-    'lzma': ('https://github.com/tukaani-project/xz/releases/download/v5.2.12/xz-5.2.12.tar.gz',
-             '61bda930767dcb170a5328a895ec74cab0f5aac4558cdda561c83559db582a13',
-             [configure_args,
-              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+    'lzma': ('https://sourceforge.net/projects/lzmautils/files/xz-5.4.6.tar.bz2/download',
+            '913851b274e8e1d31781ec949f1c23e8dbcf0ecf6e73a2436dc21769dd3e6f49',
+            [configure_args,
+             ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
     '_gdbm': ('http://distfiles.macports.org/gdbm/gdbm-1.23.tar.gz',
@@ -147,7 +147,7 @@ def _build_dependency(name, patches=[]):
 
     sources = os.path.join(
         deps_destdir,
-        os.path.basename(archive).rsplit('.', 2)[0],
+        os.listdir(deps_destdir)[0],
     )
 
     # apply any patches

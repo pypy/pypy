@@ -30,7 +30,7 @@ rather than c-extensions to interact with C.
 The built-in ``_cppyy`` module was upgraded to 1.10.6, which
 provides, among others, better template resolution, stricter ``enum`` handling,
 anonymous struct/unions, cmake fragments for distribution, optimizations for
-PODs, and faster wrapper calls. We reccomend using cppyy_ for performant
+PODs, and faster wrapper calls. We recommend using cppyy_ for performant
 wrapping of C++ code for Python.
 
 The vendored pyrepl package for interaction inside the REPL was updated.

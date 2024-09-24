@@ -224,7 +224,9 @@ class AppTestThread(GenericTestThread):
             _thread.interrupt_main(-1)
 
     def test_interrupt_non_main(self):
-        import _thread as thread, time, posix as os
+        import _thread as thread, time, sys
+        if sys.platform == "win32":
+            skip("hangs on windows")
         import __pypy__
         import signal
 

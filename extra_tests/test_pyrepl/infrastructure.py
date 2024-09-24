@@ -63,6 +63,16 @@ class TestConsole(Console):
         """Nothing pending, but do not return None here."""
         return Event('key', '', b'')
 
+    def prepare(self):
+        pass
+    beep = forgetinput = finish = restore = prepare
+
+    def _crash(self, *args, **kwargs):
+        assert 0
+
+    move_cursor = set_cursor_vis = getheightwidth = push_char = clear = _crash
+    flushoutput = wait = repaint = _crash
+
 
 class BaseTestReader(Reader):
 
