@@ -1214,7 +1214,8 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
             length =  ob_type.c_tp_itemsize * nmembers
             # loc = PyHeapType_GETMEMBERS(typ)
             loc = rffi.ptradd(cts.cast("char *", typ), ob_type.c_tp_basicsize)  
-            rffi.c_memcpy(loc, slotdef.c_pfunc, length)
+            const_pfunc = rffi.cast(rffi.CONST_VOIDP, slotdef.c_pfunc)
+            rffi.c_memcpy(loc, const_pfunc, length)
             typ.c_tp_members = cts.cast("PyMemberDef *", loc)
         else:
             fill_ht_slot(res, slot, slotdef.c_pfunc)
