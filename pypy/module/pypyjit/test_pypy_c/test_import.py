@@ -62,3 +62,17 @@ class TestImport(BaseTestPyPyC):
         # check that no string compares and other calls are there
         for opname in log.opnames(loop.allops(opcode="IMPORT_NAME")):
             assert 'call' not in opname    # no call-like opcode
+
+    def test___import___has_fast_path(self):
+        def main(n):
+            i = 0
+            while i < n:
+                __import__('sys') # ID: import
+                i += 1
+            return i
+        log = self.run(main, [500])
+        assert log.result == 500
+        loop, = log.loops_by_id('import')
+        assert loop.match_by_id('import', """
+            guard_not_invalidated(descr=...)
+        """)

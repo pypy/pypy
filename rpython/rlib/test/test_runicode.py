@@ -39,10 +39,9 @@ class UnicodeTests(object):
         assert x == y
         assert type(x) is type(y)
 
-    def getdecoder(self, encoding, look_for_py3k=False):
-        prefix = "py3k_" if look_for_py3k else ""
-        return getattr(runicode, "%sstr_decode_%s" %
-                                 (prefix, encoding.replace("-", "_")))
+    def getdecoder(self, encoding):
+        return getattr(runicode, "str_decode_%s" %
+                                 encoding.replace("-", "_"))
 
     def getencoder(self, encoding):
         return getattr(runicode,
@@ -100,8 +99,7 @@ class UnicodeTests(object):
 
     def checkdecodeerror(self, s, encoding, start, stop,
                          addstuff=True, msg=None,
-                         expected_reported_encoding=None,
-                         look_for_py3k=False):
+                         expected_reported_encoding=None):
         called = [0]
         def errorhandler(errors, enc, errmsg, t, startingpos,
                          endingpos):
@@ -117,7 +115,7 @@ class UnicodeTests(object):
                     assert errmsg == msg
                 return u"42424242", stop
             return u"", endingpos
-        decoder = self.getdecoder(encoding, look_for_py3k=look_for_py3k)
+        decoder = self.getdecoder(encoding)
         if addstuff:
             s += "some rest in ascii"
         result, _ = decoder(s, len(s), "foo!", True, errorhandler)
@@ -223,27 +221,6 @@ class TestDecoding(UnicodeTests):
                   "\xff\xfe\xff\xdb\xff\xff",
                   ]:
             self.checkdecodeerror(s, "utf-16", 2, 4, addstuff=False)
-
-    def test_utf16_errors_py3k(self):
-        letter = sys.byteorder[0]
-        self.checkdecodeerror("\xff", "utf-16", 0, 1, addstuff=False,
-                              expected_reported_encoding='utf-16-%se' % letter,
-                              look_for_py3k=True)
-        self.checkdecodeerror("\xff", "utf-16-be", 0, 1, addstuff=False,
-                              expected_reported_encoding='utf-16-be',
-                              look_for_py3k=True)
-        self.checkdecodeerror("\xff", "utf-16-le", 0, 1, addstuff=False,
-                              expected_reported_encoding='utf-16-le',
-                              look_for_py3k=True)
-        self.checkdecodeerror("\xff", "utf-32", 0, 1, addstuff=False,
-                              expected_reported_encoding='utf-32-%se' % letter,
-                              look_for_py3k=True)
-        self.checkdecodeerror("\xff", "utf-32-be", 0, 1, addstuff=False,
-                              expected_reported_encoding='utf-32-be',
-                              look_for_py3k=True)
-        self.checkdecodeerror("\xff", "utf-32-le", 0, 1, addstuff=False,
-                              expected_reported_encoding='utf-32-le',
-                              look_for_py3k=True)
 
     def test_utf16_bugs(self):
         s = '\x80-\xe9\xdeL\xa3\x9b'
@@ -842,39 +819,6 @@ class TestEncoding(UnicodeTests):
 
     def test_latin1_error(self):
         self.checkencodeerror(u"abc\uffff\uffff\uffffcde", "latin-1", 3, 6)
-
-    def test_mbcs(self):
-        if sys.platform != 'win32':
-            py.test.skip("mbcs encoding is win32-specific")
-        self.checkencode(u'encoding test', "mbcs")
-        self.checkdecode('decoding test', "mbcs")
-        # XXX test this on a non-western Windows installation
-        self.checkencode(u"\N{GREEK CAPITAL LETTER PHI}", "mbcs") # a F
-        self.checkencode(u"\N{GREEK CAPITAL LETTER PSI}", "mbcs") # a ?
-
-    def test_mbcs_decode_force_ignore(self):
-        if sys.platform != 'win32':
-            py.test.skip("mbcs encoding is win32-specific")
-
-        # XXX: requires a locale w/ a restrictive encoding to test
-        from rpython.rlib.rlocale import getdefaultlocale
-        if getdefaultlocale()[1] != 'cp932':
-            py.test.skip("requires cp932 locale")
-
-        s = '\xff\xf4\x8f\xbf\xbf'
-        decoder = self.getdecoder('mbcs')
-        assert decoder(s, len(s), 'strict') == (u'\U0010ffff', 5)
-        py.test.raises(UnicodeEncodeError, decoder, s, len(s), 'strict',
-                       force_ignore=False)
-
-    def test_mbcs_encode_force_replace(self):
-        if sys.platform != 'win32':
-            py.test.skip("mbcs encoding is win32-specific")
-        u = u'@test_2224_tmp-?L??\udc80'
-        encoder = self.getencoder('mbcs')
-        assert encoder(u, len(u), 'strict') == '@test_2224_tmp-?L???'
-        py.test.raises(UnicodeEncodeError, encoder, u, len(u), 'strict',
-                       force_replace=False)
 
     def test_encode_decimal(self):
         encoder = self.getencoder('decimal')

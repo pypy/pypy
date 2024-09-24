@@ -207,8 +207,7 @@ def do_load(space, name, soname, mode):
         space.getbuiltinmodule('cpyext')
 
     try:
-        with rffi.scoped_str2charp(soname) as ll_libname:
-            lib = dlopen(ll_libname, space.sys.dlopenflags)
+        lib = dlopen(soname, space.sys.dlopenflags)
     except DLOpenError as e:
         w_path = space.newfilename(soname)
         raise raise_import_error(space,

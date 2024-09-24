@@ -26,6 +26,7 @@ def make_info_dict():
             'virt_pypy': os.path.join(VENV_DIR, TARGET_DIR, VENV_TARGET),
             'venv_dir': VENV_DIR,
             'project': 'PyPy%d.%d' % CPYTHON_VERSION[:2], # for benchmarks
+            'xdist_arg': '-n', 'xdist_n': '2',  # for extra_tests
            }
 
 def dump_info():

@@ -3,6 +3,9 @@ from rpython.tool.udir import udir
 
 def test_recursion_error_in_subprocess(space):
     import py
+    import sys
+    if sys.platform == "win32":
+        pytest.skip("no ForkedProcess on windows")
 
     def f():
         space.appexec([], """():

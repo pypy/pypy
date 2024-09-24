@@ -13,11 +13,7 @@ from rpython.rlib.nonconst import NonConstant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-if sys.platform == 'win32':
-    from rpython.rlib.rdynload import dlopenU
-    WIN32 = True
-else:
-    WIN32 = False
+_WIN32 = sys.platform == 'win32'
 
 
 # ____________________________________________________________
@@ -427,25 +423,24 @@ def dlopen_w(space, w_filename, flags):
         handle = rffi.cast(DLLHANDLE, handle)
         autoclose = False
         #
-    elif WIN32 and space.isinstance_w(w_filename, space.w_unicode):
+    elif _WIN32 and space.isinstance_w(w_filename, space.w_unicode):
         fname = space.text_w(w_filename)
         utf8_name = space.utf8_w(w_filename)
-        uni_len = space.len_w(w_filename)
-        with rffi.scoped_utf82wcharp(utf8_name, uni_len) as ll_libname:
-            try:
-                handle = dlopenU(ll_libname, flags)
-            except DLOpenError as e:
-                raise wrap_dlopenerror(space, e, fname)
+        try:
+            handle = dlopen(utf8_name, flags)
+        except DLOpenError as e:
+            raise wrap_dlopenerror(space, e, fname)
     else:
         if space.is_none(w_filename):
-            fname = None
+            _fname = None
         else:
-            fname = space.fsencode_w(w_filename)
-        with rffi.scoped_str2charp(fname) as ll_libname:
-            if fname is None:
-                fname = "<None>"
-            try:
-                handle = dlopen(ll_libname, flags)
-            except DLOpenError as e:
-                raise wrap_dlopenerror(space, e, fname)
+            _fname = space.fsencode_w(w_filename)
+        if _fname is None:
+            fname = "<None>"
+        else:
+            fname = _fname
+        try:
+            handle = dlopen(_fname, flags)
+        except DLOpenError as e:
+            raise wrap_dlopenerror(space, e, fname)
     return fname, handle, autoclose

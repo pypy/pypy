@@ -19,7 +19,12 @@ def get_error_location(msg):
 class FutureTest(unittest.TestCase):
 
     def check_syntax_error(self, err, basename, lineno, offset=1):
-        self.assertIn('%s.py, line %d' % (basename, lineno), str(err))
+        if isinstance(lineno, str):
+            # PyPy extension
+            self.assertIn('%s.py, lines %s' % (basename, lineno), str(err))
+            lineno = int(lineno[0])
+        else:
+            self.assertIn('%s.py, line %d' % (basename, lineno), str(err))
         self.assertEqual(os.path.basename(err.filename), basename + '.py')
         self.assertEqual(err.lineno, lineno)
         self.assertEqual(err.offset, offset)
@@ -64,7 +69,7 @@ class FutureTest(unittest.TestCase):
         # PyPy reports 54, which puts the caret under the f in from __future__
         # CPython reports 53, which puts the caret just befort the f
         # self.check_syntax_error(cm.exception, "badsyntax_future7", 3, 53)
-        self.check_syntax_error(cm.exception, "badsyntax_future7", 3, 54)
+        self.check_syntax_error(cm.exception, "badsyntax_future7", '3-4', 54)
 
     def test_badfuture8(self):
         with self.assertRaises(SyntaxError) as cm:
@@ -148,11 +153,7 @@ class AnnotationsFutureTestCase(unittest.TestCase):
 
     def getActual(self, annotation):
         scope = {}
-        try:
-            exec(self.template.format(ann=annotation), {}, scope)
-        except SystemError:
-            print("broken!", annotation)
-            return ""
+        exec(self.template.format(ann=annotation), {}, scope)
         func_ret_ann = scope['f'].__annotations__['return']
         func_arg_ann = scope['g'].__annotations__['arg']
         async_func_ret_ann = scope['f2'].__annotations__['return']

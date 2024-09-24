@@ -430,7 +430,6 @@ class W_FloatObject(W_Root):
     def descr_repr(self, space):
         res = float_repr(self.floatval)
         return space.newutf8(res, len(res)) # always ascii
-    descr_str = func_with_new_name(descr_repr, 'descr_str')
 
     def descr_hash(self, space):
         h = float_hash(self, self.floatval)
@@ -669,7 +668,7 @@ class W_FloatObject(W_Root):
         TOHEX_NBITS = rfloat.DBL_MANT_DIG + 3 - (rfloat.DBL_MANT_DIG + 2) % 4
         value = self.floatval
         if not isfinite(value):
-            return self.descr_str(space)
+            return self.descr_repr(space)
         if value == 0.0:
             if math.copysign(1., value) == -1.:
                 return space.newtext("-0x0.0p+0")
@@ -709,7 +708,6 @@ Convert a string or number to a floating point number, if possible.''',
     __round__ = interp2app(W_FloatObject.descr___round__),
     fromhex = interp2app(W_FloatObject.descr_fromhex, as_classmethod=True),
     __repr__ = interp2app(W_FloatObject.descr_repr),
-    __str__ = interp2app(W_FloatObject.descr_str),
     __hash__ = interp2app(W_FloatObject.descr_hash),
     __format__ = interp2app(W_FloatObject.descr_format),
     __bool__ = interp2app(W_FloatObject.descr_bool),

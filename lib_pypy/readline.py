@@ -14,3 +14,6 @@ except ImportError:
         raise ModuleNotFoundError("the 'readline' module is not available on Windows"
                                   " (on either PyPy or CPython)", name="readline")
     raise
+else:
+    from pyrepl.readline import _setup
+    _setup()

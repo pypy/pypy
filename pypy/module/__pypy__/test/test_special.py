@@ -1,4 +1,5 @@
 import pytest
+from rpython.tool.udir import udir
 
 class AppTest(object):
     spaceconfig = {"objspace.usemodules.select": False}
@@ -162,3 +163,38 @@ class AppTestJitFeatures(object):
                  "when untranslated, because it makes testing harder")
         from __pypy__ import _internal_crash
         raises(SystemError, _internal_crash, 1)
+
+
+class AppTestBuiltinify(object):
+    def setup_class(cls):
+        if cls.runappdirect:
+            pytest.skip("can only run untranslated")
+        cls.w_path = cls.space.appexec(
+            [cls.space.wrap(str(tmpdir))],
+        """(path):
+            import sys
+            sys.path.append(path)
+            return path
+        """)
+
+    def test_builtinify___self__(self):
+        import os
+        source = """
+import __pypy__
+
+@__pypy__.builtinify
+def f():
+    pass
+
+def g():
+    pass
+g.__module__ = 'non existant'
+g = __pypy__.builtinify(g)
+        """
+        with open(os.path.join(self.path, "dummy.py"), "w", encoding="utf-8") as f:
+            f.write(source)
+        import dummy
+        assert dummy.f.__self__ is dummy
+        assert dummy.g.__self__ is None
+
+tmpdir = udir.join('test_special').ensure(dir=1)

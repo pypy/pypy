@@ -5,6 +5,8 @@ from __future__ import absolute_import
 import pytest
 import sys
 import gc
+import io
+import contextlib
 
 _sqlite3 = pytest.importorskip('_sqlite3')
 
@@ -145,8 +147,10 @@ def test_connection_del(tmpdir):
                     con[i] = None
                     gc.collect(); gc.collect()
 
-        with pytest.raises(_sqlite3.OperationalError):
-            open_many(False)
+        def assert_fds_limit_triggers_operational_error():
+            with pytest.raises(_sqlite3.OperationalError):
+                open_many(False)
+        assert_fds_limit_triggers_operational_error()
         gc.collect(); gc.collect()
         open_many(True)
     finally:
@@ -609,3 +613,35 @@ def test_recursive_init():
     finally:
         del _sqlite3.converters['INIT']
 
+def test_complete_statement():
+    # tested in stdlib for cpython 3.11+
+    assert not _sqlite3.complete_statement("SELECT")  # missing ';'
+    assert _sqlite3.complete_statement("SELECT foo FROM bar;")
+
+def test_enable_callback_traceback():
+    # tested in stdlib for cpython 3.11+
+    def bad_progress():
+        1 // 0
+
+    con = _sqlite3.connect(":memory:")
+    con.set_progress_handler(bad_progress, 1)
+    # sanity check
+    with pytest.raises(_sqlite3.OperationalError):
+        con.execute("create table foo(a, b);")
+    
+    _sqlite3.enable_callback_tracebacks(True)
+    unraisables = []
+    def _hook(u):
+        unraisables.append(u)
+    old_hook = sys.unraisablehook
+    sys.unraisablehook = _hook
+    try:
+        with pytest.raises(_sqlite3.OperationalError) as e:
+            con.execute("create table foo(a, b);")
+        print(e)
+    finally:
+        _sqlite3.enable_callback_tracebacks(False)
+        sys.unraisablehook = old_hook
+    assert len(unraisables) > 0
+    cm = unraisables[-1]
+    assert cm.exc_type == ZeroDivisionError 

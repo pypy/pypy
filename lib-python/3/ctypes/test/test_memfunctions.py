@@ -52,13 +52,12 @@ class MemFunctionsTest(unittest.TestCase):
         self.assertEqual(cast(a, POINTER(c_byte))[:7:7],
                              [97])
 
-    #@support.refcount_test
+    @support.refcount_test
     def test_string_at(self):
         s = string_at(b"foo bar")
         # XXX The following may be wrong, depending on how Python
         # manages string instances
-        if hasattr(sys, 'getrefcount'):
-            self.assertEqual(2, sys.getrefcount(s))
+        self.assertEqual(2, sys.getrefcount(s))
         self.assertTrue(s, "foo bar")
 
         self.assertEqual(string_at(b"foo bar", 7), b"foo bar")

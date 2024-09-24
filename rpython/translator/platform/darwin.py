@@ -1,4 +1,5 @@
 """Support for OS X."""
+from __future__ import print_function
 
 from rpython.translator.platform import posix
 import os
@@ -11,6 +12,9 @@ import os
 # Bumped to 10.9 2021-11-22 to match CPython,
 # see https://github.com/python/cpython/blob/42205ee51
 #
+# Bumped to 10.15 on py3.9+ for variadic arg handling in HPy
+# Note this is not used on arm64 builds.
+# 
 # Keep in sync with MACOSX_DEPLOYMENT_TARGET, for pypy see
 # lib_pypy/_sysconfigdata.py
 #
@@ -37,7 +41,7 @@ class Darwin(posix.BasePosix):
     def get_rpath_flags(self, rel_libdirs):
         # needed for cross compiling on ARM, needs fixing if relevant for darwin
         if len(rel_libdirs) > 0:
-            print 'in get_rpath_flags, rel_libdirs is not fixed up',rel_libdirs
+            print('in get_rpath_flags, rel_libdirs is not fixed up',rel_libdirs)
         return self.rpath_flags
 
     def _args_for_shared(self, args, **kwds):
@@ -130,5 +134,3 @@ class Darwin_arm64(Darwin):
     name = 'darwin_arm64'
     link_flags = Darwin.link_flags + ('-arch', 'arm64')
     cflags = Darwin.cflags + ('-arch', 'arm64')
-
-    

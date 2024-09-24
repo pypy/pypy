@@ -198,11 +198,11 @@ def PyErr_NormalizeException(space, exc_p, val_p, tb_p):
         # Sensible code should probably never trigger this path on PyPy, but...
         w_evalue = space.w_None
     operr = OperationError(w_etype, w_evalue)
-    operr.normalize_exception(space)
+    w_value = operr.normalize_exception(space)
     decref(space, exc_p[0])
     decref(space, val_p[0])
     exc_p[0] = make_ref(space, operr.w_type)
-    val_p[0] = make_ref(space, operr.get_w_value(space))
+    val_p[0] = make_ref(space, w_value)
 
 @cpython_api([], rffi.INT_real, error=0)
 def PyErr_BadArgument(space):
@@ -443,9 +443,8 @@ def PyErr_PrintEx(space, set_sys_last_vars):
         PyErr_BadInternalCall(space)
 
     operror = space.fromcache(State).clear_exception()
-    operror.normalize_exception(space)
+    w_value = operror.normalize_exception(space)
     w_type = operror.w_type
-    w_value = operror.get_w_value(space)
     w_tb = operror.get_w_traceback(space)
 
     if rffi.cast(lltype.Signed, set_sys_last_vars):

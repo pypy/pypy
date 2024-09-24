@@ -24,23 +24,9 @@
 # include <io.h>
 # include <sys/types.h>   /* for 'off_t' */
 #endif
+#include <stdio.h>
 
-/* Deprecated DL_IMPORT and DL_EXPORT macros */
-#ifdef _WIN32
-# if defined(Py_BUILD_CORE)
-#  define DL_IMPORT(RTYPE) __declspec(dllexport) RTYPE
-#  define DL_EXPORT(RTYPE) __declspec(dllexport) RTYPE
-# else
-#  define DL_IMPORT(RTYPE) __declspec(dllimport) RTYPE
-#  define DL_EXPORT(RTYPE) __declspec(dllexport) RTYPE
-# endif
-#endif
-#ifndef DL_EXPORT
-#       define DL_EXPORT(RTYPE) PyAPI_FUNC(RTYPE)
-#endif
-#ifndef DL_IMPORT
-#       define DL_IMPORT(RTYPE) RTYPE
-#endif
+#include <string.h>
 #include <stdlib.h>
 
 #define Py_SAFE_DOWNCAST(VALUE, WIDE, NARROW) (NARROW)(VALUE)
@@ -55,61 +41,66 @@
 #include "pypy_macros.h"
 #include "pymacro.h"
 
+#include "pymath.h"
+#include "pymem.h"
+
 #include "object.h"
 #include "objimpl.h"
 #include "typeslots.h"
-#include "abstract.h"
-#include "pymath.h"
+#include "pyhash.h"
 #include "pytime.h"
 #include "warnings.h"
 
 #include <stdarg.h>
-#include <stdio.h>
-#include <string.h>
 #include <assert.h>
 #include <locale.h>
 #include <ctype.h>
 
-#include "pyhash.h"
+#include "bytearrayobject.h"
+#include "bytesobject.h"
+#include "unicodeobject.h"
+#include "longobject.h"
 #include "boolobject.h"
 #include "floatobject.h"
 #include "complexobject.h"
-#include "methodobject.h"
-#include "funcobject.h"
-#include "code.h"
-
-#include "moduleobject.h"
-#include "modsupport.h"
-#include "pythonrun.h"
-#include "pyerrors.h"
-#include "sysmodule.h"
-#include "bytearrayobject.h"
-#include "descrobject.h"
-#include "tupleobject.h"
-#include "dictobject.h"
-#include "longobject.h"
-#include "setobject.h"
-#include "listobject.h"
-#include "longobject.h"
-#include "unicodeobject.h"
-#include "compile.h"
-#include "frameobject.h"
 #include "memoryobject.h"
-#include "eval.h"
-#include "pymem.h"
+#include "tupleobject.h"
+#include "listobject.h"
+#include "dictobject.h"
+#include "setobject.h"
+#include "methodobject.h"
+#include "moduleobject.h"
+#include "funcobject.h"
+#include "fileobject.h"
 #include "pycapsule.h"
-#include "bytesobject.h"
+#include "code.h"
+#include "traceback.h"
 #include "sliceobject.h"
 #include "genobject.h"
-#include "datetime.h"
-#include "structseq.h"
-#include "pystate.h"
-#include "fileobject.h"
-#include "pysignals.h"
-#include "pythread.h"
-#include "traceback.h"
-#include "pylifecycle.h"
+#include "descrobject.h"
 #include "genericaliasobject.h"
+#include "structseq.h"
+#include "pyerrors.h"
+#include "pythread.h"
+#include "pystate.h"
+
+#include "modsupport.h"
+#include "compile.h"
+#include "pythonrun.h"
+#include "pylifecycle.h"
+#include "sysmodule.h"
+#include "import.h"
+
+#include "abstract.h"
+
+#include "eval.h"
+
+#include "pystrtod.h"
+
+/* Not in CPython */
+#include "frameobject.h"
+#include "datetime.h"
+#include "pysignals.h"
 
 /* Missing definitions */
 #include "missing.h"
@@ -140,6 +131,5 @@ extern "C" {
 #define PyFPE_START_PROTECT(err_string, leave_stmt)
 #define PyFPE_END_PROTECT(v)
 
-#include "pystrtod.h"
 
-#endif
+#endif /* !Py_PYTHON_H */

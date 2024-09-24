@@ -457,7 +457,7 @@ class ThreadLocalReference(ThreadLocalField):
 
 tlfield_thread_ident = ThreadLocalField(lltype.Signed, "thread_ident",
                                         loop_invariant=True)
-tlfield_p_errno = ThreadLocalField(rffi.CArrayPtr(rffi.INT), "p_errno",
+tlfield_p_errno = ThreadLocalField(rffi.CArrayPtr(rffi.INT_real), "p_errno",
                                    loop_invariant=True)
 tlfield_rpy_errno = ThreadLocalField(rffi.INT, "rpy_errno")
 tlfield_alt_errno = ThreadLocalField(rffi.INT, "alt_errno")

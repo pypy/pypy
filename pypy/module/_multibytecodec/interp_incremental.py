@@ -8,6 +8,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module._codecs.interp_codecs import CodecState
+from pypy.interpreter.error import oefmt
 
 
 class MultibyteIncrementalBase(W_Root):
@@ -57,7 +58,7 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
         if len(self.pending) > 0:
             object = self.pending + object
         try:
-            output = c_codecs.decodeex(self.decodebuf, object, self.errors,
+            output = c_codecs.decodeex(space, self.decodebuf, object, self.errors,
                                        state.decode_error_handler, self.name,
                                        get_ignore_error(final))
         except c_codecs.EncodeDecodeError as e:
@@ -70,6 +71,16 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
         lgt = rutf8.codepoints_in_utf8(output)
         return space.newutf8(output, lgt)
 
+    def getstate_w(self, space):
+        return space.newtuple([space.newbytes(self.pending), space.newint(self.state)])
+
+    def setstate_w(self, space, w_state):
+        w_buffer, w_flag = space.unpackiterable(w_state, 2)
+        bufferstr = space.utf8_w(w_buffer)
+        self.pending = bufferstr
+        # Suppport for full state requires pushing this into the C code
+        # see https://github.com/python/cpython/pull/6984
+        self.state = space.int_w(w_flag)
 
 @unwrap_spec(errors="text_or_none")
 def mbidecoder_new(space, w_subtype, errors=None):
@@ -84,6 +95,8 @@ MultibyteIncrementalDecoder.typedef = TypeDef(
     reset   = interp2app(MultibyteIncrementalDecoder.reset_w),
     errors  = GetSetProperty(MultibyteIncrementalDecoder.fget_errors,
                              MultibyteIncrementalDecoder.fset_errors),
+    setstate = interp2app(MultibyteIncrementalDecoder.setstate_w),
+    getstate = interp2app(MultibyteIncrementalDecoder.getstate_w),
 )
 
 
@@ -109,7 +122,7 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
             utf8data = self.pending + utf8data
             length += self.pending_len
         try:
-            output = c_codecs.encodeex(self.encodebuf, utf8data, length,
+            output = c_codecs.encodeex(space, self.encodebuf, utf8data, length,
                                        self.errors,
                                        state.encode_error_handler, self.name,
                                        get_ignore_error(final))
@@ -133,6 +146,27 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
             self.pending = ""
         return space.newbytes(output)
 
+    def getstate_w(self, space):
+        # Full getstate/setstate not implemented
+        # if needed, see https://github.com/python/cpython/pull/6984
+        if self.pending_len == 0:
+            return space.newint(0)
+        raise oefmt(self.space.w_RuntimeError,
+            "getstate with len(pending)>0 (%d) not implemented, please"
+            "report with a minimal reproducer", self.pending_len)
+
+    @unwrap_spec(statelong=int)
+    def setstate_w(self, space, statelong):
+        if statelong != 0: 
+            # Full getstate/setstate not implemented
+            # if needed, see https://github.com/python/cpython/pull/6984
+            raise oefmt(self.space.w_NotImplementedError,
+                "setstate(%d) with non-zero value not implemented", statelong)
+        self.pending = ""
+        self.pending_len = 0
+        # Do we need this?
+        # codecs.pypy_cjk_enc_reset(self.encodebuf)
+
 
 @unwrap_spec(errors="text_or_none")
 def mbiencoder_new(space, w_subtype, errors=None):
@@ -147,6 +181,8 @@ MultibyteIncrementalEncoder.typedef = TypeDef(
     reset   = interp2app(MultibyteIncrementalEncoder.reset_w),
     errors  = GetSetProperty(MultibyteIncrementalEncoder.fget_errors,
                              MultibyteIncrementalEncoder.fset_errors),
+    setstate = interp2app(MultibyteIncrementalEncoder.setstate_w),
+    getstate = interp2app(MultibyteIncrementalEncoder.getstate_w),
 )
 
 

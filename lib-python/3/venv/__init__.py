@@ -191,9 +191,6 @@ class EnvBuilder:
             Try symlinking a file, and if that fails, fall back to copying.
             """
             force_copy = not self.symlinks
-            if os.path.islink(src):
-                os.symlink(src, dst)
-                return
             if not force_copy:
                 try:
                     if not os.path.islink(dst): # can't link to itself!
@@ -208,6 +205,12 @@ class EnvBuilder:
             if force_copy:
                 if os.path.isdir(src):
                     shutil.copytree(src, dst)
+                elif os.path.islink(src):
+                    # On PyPy, creating a copy of a symlinked-venv must still
+                    # point back to the original file since the exe needs
+                    # libpypy* and perhaps other 'portable' shared objects
+                    final = os.path.realpath(src)
+                    os.symlink(final, dst)
                 else:
                     shutil.copyfile(src, dst)
     else:
@@ -272,7 +275,7 @@ class EnvBuilder:
             copier(context.executable, path)
             if not os.path.islink(path):
                 os.chmod(path, 0o755)
-            for suffix in ('python', 'python3', f'python3.{sys.version_info[1]}', 'pypy3', 'pypy', 'lib*'):
+            for suffix in ('python', 'python3', f'python3.{sys.version_info[1]}', 'pypy3', 'pypy'):
                 path = os.path.join(binpath, suffix)
                 if not os.path.exists(path):
                     # Issue 18807: make copies if
@@ -337,6 +340,24 @@ class EnvBuilder:
                 src = os.path.join(dirname, suffix)
                 if os.path.lexists(src):
                     copier(src, os.path.join(binpath, suffix))
+
+            exe = os.path.split(sys.executable)[1].lower()
+            if exe not in suffixes:
+                if "pypy3.10-c.exe" in suffixes:
+                    # dirname is a source build, with only the
+                    # pypy*-c.exe? Make sure to create
+                    # sys.executable as well
+                    src = os.path.join(dirname, "pypy3.10-c.exe")
+                    dst = os.path.join(binpath, exe)
+                    copier(src, dst)
+                elif not suffixes:
+                    # dirname is a source build from dirname\pypy\goal
+                    # so add that to dirname and try again
+                    src = os.path.join(dirname, "pypy", "goal", "pypy3.10-c.exe")
+                    dst = os.path.join(binpath, exe)
+                    copier(src, dst)
+                else:
+                    raise RuntimeError(f"problem finding exe {exe} in {suffixes}")
 
             if sysconfig.is_python_build(True):
                 # copy init.tcl

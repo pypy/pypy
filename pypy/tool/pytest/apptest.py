@@ -124,6 +124,7 @@ if 1:
         except exc as e:
             res = ExceptionWrapper()
             res.value = e
+            res.traceback = e.__traceback__
             return res
         else:
             raise AssertionError("DID NOT RAISE")
@@ -227,6 +228,7 @@ def run_with_python(python_, target_, usemodules, **definitions):
     res, stdout, stderr = run_subprocess(
         python_, [str(pyfile)], env=env)
     print pyfile.read()
+    print "from", str(pyfile)
     print >> sys.stdout, stdout
     print >> sys.stderr, stderr
     if res == 81:

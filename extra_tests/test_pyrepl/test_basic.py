@@ -57,6 +57,14 @@ def test_backward_kill_word():
                ( 'backward-kill-word',    ['ab ']),
                ( 'accept',                ['ab '])])
 
+def test_forward_backward_word():
+    read_spec([(('self-insert', 'ab cd'), ['ab cd']),
+               ( 'backward-word',         ['ab cd']),
+               (('self-insert', 'ef '),   ['ab ef cd']),
+               ( 'forward-word',          ['ab ef cd']),
+               (('self-insert', ' gh'),   ['ab ef cd gh']),
+               ( 'accept',                ['ab ef cd gh'])])
+
 
 def test_yank():
     read_spec([(('self-insert', 'ab cd'), ['ab cd']),

@@ -10,6 +10,7 @@
 # Updated 2014 to use DAWG as a mapping; see
 # Kowaltowski, T.; CL. Lucchesi (1993), "Applications of finite automata representing large vocabularies",
 # Software-Practice and Experience 1993
+from __future__ import print_function
 
 from pprint import pprint
 from collections import defaultdict
@@ -540,7 +541,7 @@ def build_compression_dawg(outfile, ucdata):
     for name, value in sorted(ucdata.items()):
         d.insert(name, value)
     packed, pos_to_code, reversedict = d.finish()
-    print "size of dawg [KiB]", round(len(packed) / 1024, 2), len(pos_to_code)
+    print("size of dawg [KiB]", round(len(packed) / 1024, 2), len(pos_to_code))
     outfile.print_code("from rpython.rlib.unicodedata.dawg import _lookup as _dawg_lookup, _inverse_lookup")
     outfile.print_code("packed_dawg = (")
     outfile.print_uncounted(d.packed_pp)

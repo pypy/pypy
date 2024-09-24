@@ -32,26 +32,38 @@
 # executive, temporary decision: [tab] and [C-i] are distinct, but
 # [meta-key] is identified with [esc key].  We demand that any console
 # class does quite a lot towards emulating a unix terminal.
-from __future__ import print_function
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
 import unicodedata
 from collections import deque
 
 
-class InputTranslator(object):
-    def push(self, evt):
+# types
+if False:
+    from .types import EventTuple
+
+
+class InputTranslator(ABC):
+    @abstractmethod
+    def push(self, evt: EventTuple) -> None:
         pass
-    def get(self):
-        pass
-    def empty(self):
-        pass
+
+    @abstractmethod
+    def get(self) -> EventTuple | None:
+        return None
+
+    @abstractmethod
+    def empty(self) -> bool:
+        return True
 
 
 class KeymapTranslator(InputTranslator):
-
-    def __init__(self, keymap, verbose=0,
-                 invalid_cls=None, character_cls=None):
+    def __init__(self, keymap, verbose=False, invalid_cls=None, character_cls=None):
         self.verbose = verbose
-        from pyrepl.keymap import compile_keymap, parse_keys
+        from .keymap import compile_keymap, parse_keys
+
         self.keymap = keymap
         self.invalid_cls = invalid_cls
         self.character_cls = character_cls
@@ -67,7 +79,7 @@ class KeymapTranslator(InputTranslator):
 
     def push(self, evt):
         if self.verbose:
-            print("pushed", evt.data, end='')
+            print("pushed", evt.data, end="")
         key = evt.data
         d = self.k.get(key)
         if isinstance(d, dict):
@@ -79,14 +91,12 @@ class KeymapTranslator(InputTranslator):
             if d is None:
                 if self.verbose:
                     print("invalid")
-                if self.stack or len(key) > 1 or unicodedata.category(key) == 'C':
-                    self.results.append(
-                        (self.invalid_cls, self.stack + [key]))
+                if self.stack or len(key) > 1 or unicodedata.category(key) == "C":
+                    self.results.append((self.invalid_cls, self.stack + [key]))
                 else:
                     # small optimization:
                     self.k[key] = self.character_cls
-                    self.results.append(
-                        (self.character_cls, [key]))
+                    self.results.append((self.character_cls, [key]))
             else:
                 if self.verbose:
                     print("matched", d)
@@ -100,5 +110,5 @@ class KeymapTranslator(InputTranslator):
         else:
             return None
 
-    def empty(self):
+    def empty(self) -> bool:
         return not self.results

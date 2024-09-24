@@ -17,7 +17,8 @@ from rpython.rtyper.rmodel import Repr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.error import TyperError
 
-from rpython.rlib._os_support import _preferred_traits, string_traits
+from rpython.rlib._os_support import utf8_traits
+from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -594,7 +595,7 @@ def fstat(fd):
             return build_stat_result(stresult)
     else:
         handle = rwin32.get_osfhandle(fd)
-        win32traits = make_win32_traits(string_traits)
+        win32traits = make_win32_traits(utf8_traits)
         filetype = win32traits.GetFileType(handle)
         if filetype == win32traits.FILE_TYPE_CHAR:
             # console or LPT device
@@ -632,8 +633,8 @@ def stat(path):
             handle_posix_error('stat', c_stat(arg, stresult))
             return build_stat_result(stresult)
     else:
-        traits = _preferred_traits(path)
-        path = traits.as_str0(path)
+        traits = utf8_traits
+        path = traits.as_utf80(path)
         return win32_xstat3(traits, path, traverse=True)
 
 @replace_os_function('lstat')
@@ -645,8 +646,8 @@ def lstat(path):
             handle_posix_error('lstat', c_lstat(arg, stresult))
             return build_stat_result(stresult)
     else:
-        traits = _preferred_traits(path)
-        path = traits.as_str0(path)
+        traits = utf8_traits
+        path = traits.as_utf80(path)
         return win32_xstat3(traits, path, traverse=False)
 
 @specialize.argtype(0)
@@ -654,8 +655,8 @@ def stat3(path):
     if _WIN32:
         # On Windows, the algorithm behind os.stat() changed a lot between
         # Python 2 and Python 3.  This is the Python 3 version.
-        traits = _preferred_traits(path)
-        path = traits.as_str0(path)
+        traits = utf8_traits
+        path = traits.as_utf80(path)
         return win32_xstat3(traits, path, traverse=True)
     else:
         return stat(path)
@@ -665,8 +666,8 @@ def lstat3(path):
     if _WIN32:
         # On Windows, the algorithm behind os.lstat() changed a lot between
         # Python 2 and Python 3.  This is the Python 3 version.
-        traits = _preferred_traits(path)
-        path = traits.as_str0(path)
+        traits = utf8_traits
+        path = traits.as_utf80(path)
         return win32_xstat3(traits, path, traverse=False)
     else:
         return lstat(path)
@@ -732,11 +733,10 @@ if _WIN32:
         isUnhandledTag = False
         if not traverse:
             flags |= traits.FILE_FLAG_OPEN_REPARSE_POINT
-        hFile = traits.CreateFile(path, access, 0,
-            lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
-            traits.OPEN_EXISTING,
-            flags,
-            rwin32.NULL_HANDLE)
+        with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+            hFile = traits.CreateFile(buf, access, 0,
+                lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
+                traits.OPEN_EXISTING, flags, rwin32.NULL_HANDLE)
 
         if hFile == rwin32.INVALID_HANDLE_VALUE:
             # Either the path doesn't exist, or the caller lacks access
@@ -753,12 +753,12 @@ if _WIN32:
                                            "win32_xstat failed")
             elif errcode == traits.ERROR_INVALID_PARAMETER:
                 # \\.\con requires read or write access.
-                hFile = traits.CreateFile(path,
-                            access | traits.GENERIC_READ,
-                            traits.FILE_SHARE_READ | traits.FILE_SHARE_WRITE,
-                            lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
-                            traits.OPEN_EXISTING, flags,
-                            rwin32.NULL_HANDLE)
+                with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+                    hFile = traits.CreateFile(buf,
+                                access | traits.GENERIC_READ,
+                                traits.FILE_SHARE_READ | traits.FILE_SHARE_WRITE,
+                                lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
+                                traits.OPEN_EXISTING, flags, rwin32.NULL_HANDLE)
                 if hFile == rwin32.INVALID_HANDLE_VALUE:
                     raise WindowsError(rwin32.GetLastError_saved(),
                                        "win32_xstat failed")
@@ -767,11 +767,12 @@ if _WIN32:
                 if traverse:
                     traverse = False
                     isUnhandledTag = True
-                    hFile = traits.CreateFile(path, access, 0,
-                        lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
-                        traits.OPEN_EXISTING,
-                        flags | traits.FILE_FLAG_OPEN_REPARSE_POINT,
-                        rwin32.NULL_HANDLE)
+                    with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+                        hFile = traits.CreateFile(buf, access, 0,
+                            lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
+                            traits.OPEN_EXISTING,
+                            flags | traits.FILE_FLAG_OPEN_REPARSE_POINT,
+                            rwin32.NULL_HANDLE)
                 if hFile == rwin32.INVALID_HANDLE_VALUE:
                     raise WindowsError(rwin32.GetLastError_saved(),
                                        "win32_xstat failed")
@@ -786,7 +787,8 @@ if _WIN32:
                 if fileType == traits.FILE_TYPE_UNKNOWN and errcode != 0:
                     rwin32.CloseHandle(hFile)
                     raise WindowsError(errcode, "os_stat failed")
-                fileAttributes = widen(traits.GetFileAttributes(path))
+                with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+                    fileAttributes = widen(traits.GetFileAttributes(buf))
                 st_mode = 0
                 if (fileAttributes != traits.INVALID_FILE_ATTRIBUTES and
                         fileAttributes & traits.FILE_ATTRIBUTE_DIRECTORY):
@@ -853,9 +855,7 @@ if _WIN32:
     def win32_attributes_to_mode(win32traits, attributes):
         m = 0
         attributes = widen(attributes)
-        if attributes & win32traits.FILE_ATTRIBUTE_REPARSE_POINT:
-            m |= win32traits._S_IFLNK
-        elif attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
+        if attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
             m |= win32traits._S_IFDIR | 0111 # IFEXEC for user,group,other
         else:
             m |= win32traits._S_IFREG
@@ -866,31 +866,7 @@ if _WIN32:
         return m
 
     @specialize.arg(0)
-    def win32_attribute_data_to_stat(win32traits, info):
-        st_mode = win32_attributes_to_mode(win32traits, info.c_dwFileAttributes)
-        st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
-        ctime, extra_ctime = FILE_TIME_to_time_t_nsec(info.c_ftCreationTime)
-        mtime, extra_mtime = FILE_TIME_to_time_t_nsec(info.c_ftLastWriteTime)
-        atime, extra_atime = FILE_TIME_to_time_t_nsec(info.c_ftLastAccessTime)
-
-        st_ino = 0
-        st_dev = 0
-        st_nlink = 0
-        st_file_attributes = info.c_dwFileAttributes
-        st_reparse_tag = 0
-
-        result = (st_mode,
-                  st_ino, st_dev, st_nlink, 0, 0,
-                  st_size,
-                  atime, mtime, ctime,
-                  extra_atime, extra_mtime, extra_ctime,
-                  st_file_attributes, st_reparse_tag)
-
-        return make_stat_result(result)
-
-    @specialize.arg(0)
     def win32_by_handle_info_to_stat(win32traits, info, reparse_tag):
-        # similar to the one above
         st_mode = win32_attributes_to_mode(win32traits, info.c_dwFileAttributes)
         st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
         ctime, extra_ctime = FILE_TIME_to_time_t_nsec(info.c_ftCreationTime)
@@ -901,8 +877,14 @@ if _WIN32:
         st_ino = make_longlong(info.c_nFileIndexHigh, info.c_nFileIndexLow)
         st_dev = info.c_dwVolumeSerialNumber
         st_nlink = info.c_nNumberOfLinks
-        st_file_attributes = info.c_dwFileAttributes
-        st_reparse_tag = reparse_tag
+        st_file_attributes = widen(info.c_dwFileAttributes)
+        st_reparse_tag = widen(reparse_tag)
+        if (st_file_attributes & win32traits.FILE_ATTRIBUTE_REPARSE_POINT
+                and st_reparse_tag ==  0xa000000c):  # IO_REPARSE_TAG_SYMLINK
+            # first clear the S_IMFT bits
+            st_mode ^= (st_mode & 0170000)  # S_IFMT
+            # now set the bits that make this a symlink
+            st_mode |= win32traits._S_IFLNK
 
         result = (st_mode,
                   st_ino, st_dev, st_nlink, 0, 0,
@@ -916,7 +898,8 @@ if _WIN32:
     @specialize.arg(0)
     def win32_attributes_from_dir(traits, path, info, tagInfo):
         with lltype.scoped_alloc(traits.WIN32_FIND_DATA) as filedata:
-            hFindFile = traits.FindFirstFile(path, filedata)
+            with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+                hFindFile = traits.FindFirstFile(buf, filedata)
             if hFindFile == rwin32.INVALID_HANDLE_VALUE:
                 return 0
             traits.FindClose(hFindFile)

@@ -172,7 +172,6 @@ class W_IncrementalNewlineDecoder(W_Root):
                     continue
                 builder.append(c)
             output = builder.build()
-
         self.seennl |= seennl
         return space.newutf8(output, output_len)
 
@@ -369,7 +368,11 @@ class PositionCookie(object):
         bits += r_uint.BITS
         return res.or_(rb(r_uint(self.need_eof)).lshift(bits))
 
+    def __repr__(self):
+        return "coookie w/start_pos %d dec_flags %d bytes_to_feed %d chars_to_skip %d need_eof %d" %(self.start_pos, self.dec_flags, self.bytes_to_feed, self.chars_to_skip, self.need_eof)
+
 class PositionSnapshot:
+    _immutable_fields_ = ["flags", "input"]
     def __init__(self, flags, input):
         self.flags = flags
         self.input = input
@@ -381,11 +384,12 @@ class DecodeBuffer(object):
         if text is not None:
             assert ulen >= 0
         self.text = text
-        self.pos = 0
-        self.upos = 0
+        self.pos = 0   # in utf8
+        self.upos = 0  # decoded_chars_used in CPython, in codepoints
         self.ulen = ulen
 
     def set(self, space, w_decoded):
+        # set_chars_decoded in CPython
         check_decoded(space, w_decoded)
         self.text, self.ulen = space.utf8_len_w(w_decoded)
         self.pos = 0
@@ -399,6 +403,7 @@ class DecodeBuffer(object):
 
     def get_chars(self, size):
         """ returns a tuple (utf8, lgt) """
+        # get_decoded_chars in CPython
         if self.text is None or size == 0:
             return "", 0
 
@@ -431,28 +436,6 @@ class DecodeBuffer(object):
 
     def exhausted(self):
         return self.pos >= len(self.text)
-
-    def next_char(self):
-        if self.exhausted():
-            raise StopIteration
-        newpos = next_codepoint_pos(self.text, self.pos)
-        pos = self.pos
-        assert pos >= 0
-        assert newpos >= 0
-        ch = self.text[pos:newpos]
-        self.pos = newpos
-        self.upos += 1
-        return ch
-
-    def peek_char(self):
-        # like next_char, but doesn't advance pos
-        if self.exhausted():
-            raise StopIteration
-        newpos = next_codepoint_pos(self.text, self.pos)
-        pos = self.pos
-        assert pos >= 0
-        assert newpos >= 0
-        return self.text[pos:newpos]
 
     def find_newline_universal(self, limit):
         # Universal newline search. Find any of \r, \r\n, \n
@@ -581,7 +564,9 @@ class W_TextIOWrapper(W_TextIOBase):
         self.decoded = DecodeBuffer()
         self.pending_bytes = None   # list of bytes objects waiting to be
                                     # written, or NULL
+        self.pending_bytes_count = 0
         self.chunk_size = 8192
+        self.b2cratio = 0.0
 
         self.readuniversal = False
         self.readtranslate = False
@@ -736,6 +721,7 @@ class W_TextIOWrapper(W_TextIOBase):
         self.write_through = write_through
 
         self._fix_encoder_state()
+        self.b2cratio = 0.0
 
     def _check_init(self, space):
         if self.state == STATE_ZERO:
@@ -839,7 +825,7 @@ class W_TextIOWrapper(W_TextIOBase):
     # _____________________________________________________________
     # read methods
 
-    def _read_chunk(self, space):
+    def _read_chunk(self, space, size_hint):
         """Read and decode the next chunk of data from the BufferedReader.
         The return value is True unless EOF was reached.  The decoded string
         is placed in self.decoded (replacing its previous value).
@@ -876,9 +862,12 @@ class W_TextIOWrapper(W_TextIOBase):
             dec_flags = 0
 
         # Read a chunk, decode it, and put the result in self.decoded
+        if size_hint > 0:
+            size_hint = int(max(self.b2cratio, 1.0) * float(size_hint))
+        chunk_size = max(self.chunk_size, size_hint)
         func_name = "read1" if self.has_read1 else "read"
         w_input = space.call_method(self.w_buffer, func_name,
-                                    space.newint(self.chunk_size))
+                                    space.newint(chunk_size))
 
         try:
             input_buf = w_input.buffer_w(space, space.BUF_SIMPLE)
@@ -887,7 +876,8 @@ class W_TextIOWrapper(W_TextIOBase):
                    "object, not '%T'")
             raise oefmt(space.w_TypeError, msg, func_name, w_input)
 
-        eof = input_buf.getlength() == 0
+        nbytes = input_buf.getlength()
+        eof = nbytes == 0
         w_decoder = self.w_decoder
         if type(w_decoder) is W_IncrementalNewlineDecoder:
             w_decoded = w_decoder.decode_w(space, w_input, eof)
@@ -895,8 +885,12 @@ class W_TextIOWrapper(W_TextIOBase):
             w_decoded = space.call_method(w_decoder, "decode",
                                           w_input, space.newbool(eof))
         self.decoded.set(space, w_decoded)
-        if space.len_w(w_decoded) > 0:
+        nchars = space.len_w(w_decoded)
+        if nchars > 0:
             eof = False
+            self.b2cratio = float(nbytes) / float(nchars)
+        else:
+            self.b2cratio = 0.0
 
         if self.telling:
             # At the snapshot point, len(dec_buffer) bytes before the read,
@@ -906,10 +900,10 @@ class W_TextIOWrapper(W_TextIOBase):
 
         return not eof
 
-    def _ensure_data(self, space):
+    def _ensure_data(self, space, size_hint):
         while not self.decoded.has_data():
             try:
-                if not self._read_chunk(space):
+                if not self._read_chunk(space, size_hint):
                     self.decoded.reset()
                     self.snapshot = None
                     return False
@@ -959,7 +953,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
         # Keep reading chunks until we have n characters to return
         while remaining > 0:
-            if not self._ensure_data(space):
+            if not self._ensure_data(space, remaining):
                 break
             data, size = self.decoded.get_chars(remaining)
             builder.append_utf8(data, size)
@@ -996,7 +990,7 @@ class W_TextIOWrapper(W_TextIOBase):
         builder = Utf8StringBuilder()
         while True:
             # First, get some data if necessary
-            has_data = self._ensure_data(space)
+            has_data = self._ensure_data(space, 0)
             if not has_data:
                 # end of file
                 if remnant:
@@ -1259,6 +1253,7 @@ class W_TextIOWrapper(W_TextIOBase):
                             "can't restore logical file position")
             self.decoded.set(space, w_decoded)
             self.decoded.pos = w_decoded._index_to_byte(cookie.chars_to_skip)
+            self.decoded.upos = cookie.chars_to_skip
         else:
             self.snapshot = PositionSnapshot(cookie.dec_flags, "")
 
@@ -1294,17 +1289,58 @@ class W_TextIOWrapper(W_TextIOBase):
         cookie.start_pos -= len(input)
 
         # How many decoded characters have been used up since the snapshot?
-        if not self.decoded.pos:
+        if self.decoded.pos == 0:
             # We haven't moved from the snapshot point.
             return space.newlong_from_rbigint(cookie.pack())
 
-        chars_to_skip = codepoints_in_utf8(
-            self.decoded.text, end=self.decoded.pos)
+        # chars_to_skip = codepoints_in_utf8(
+        #   self.decoded.text, end=self.decoded.pos)
+        chars_to_skip = self.decoded.upos
 
         # Starting from the snapshot position, we will walk the decoder
         # forward until it gives us enough decoded characters.
         w_saved_state = space.call_method(self.w_decoder, "getstate")
 
+        skip_bytes = 0
+        # Fast search for an acceptable start point, close to our
+        # current pos
+        skip_bytes = int(self.b2cratio * chars_to_skip)
+        skip_back = 1;
+        # ??? this assert is in CPython but is not triggered??
+        # assert skip_back <= len(input)
+        while skip_bytes > 0:
+            # Decode up to temptative start point
+            self._decoder_setstate(space, cookie)
+
+            w_decoded = space.call_method(self.w_decoder, "decode",
+                                          space.newbytes(input[0:skip_bytes])
+                                          )
+            check_decoded(space, w_decoded)
+            chars_decoded = space.len_w(w_decoded)
+            if chars_decoded <= chars_to_skip:
+                w_state = space.call_method(self.w_decoder, "getstate")
+                w_dec_buffer, w_flags = space.unpackiterable(w_state, 2)
+                dec_buffer_len = space.len_w(w_dec_buffer)
+                if (dec_buffer_len == 0):
+                    # Before pos and no bytes buffered in decoder => OK
+                    cookie.dec_flags = space.int_w(w_flags)
+                    chars_to_skip -= chars_decoded
+                    break
+                # Skip back by buffered amount and reset heuristic
+                skip_bytes -= dec_buffer_len;
+                skip_back = 1;
+            else:
+                # We're too far ahead, skip back a bit
+                skip_bytes -= skip_back;
+                skip_back *= 2;
+        if skip_bytes <= 0:
+            skip_bytes = 0
+            self._decoder_setstate(space, cookie)
+        cookie.start_pos += skip_bytes
+        cookie.chars_to_skip = chars_to_skip
+        if chars_to_skip == 0:
+            space.call_method(self.w_decoder, "setstate", w_saved_state)
+            return space.newlong_from_rbigint(cookie.pack())
         try:
             # Note our initial start point
             self._decoder_setstate(space, cookie)
@@ -1315,7 +1351,7 @@ class W_TextIOWrapper(W_TextIOBase):
             # from there and advance to this location).
 
             chars_decoded = 0
-            i = 0
+            i = skip_bytes
             while i < len(input):
                 w_decoded = space.call_method(self.w_decoder, "decode",
                                               space.newbytes(input[i]))

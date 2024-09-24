@@ -503,22 +503,21 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
 
     def __init__(self, descr, const=None, size=0, clear=False,
                  is_virtual=False):
-        from rpython.jit.metainterp.optimizeopt import intutils
+        from rpython.jit.metainterp.optimizeopt.intutils import IntBound
         assert descr is not None
         self.descr = descr
         self._is_virtual = is_virtual
         if is_virtual:
             self._init_items(const, size, clear)
-            self.lenbound = intutils.ConstIntBound(size)
+            self.lenbound = IntBound.from_constant(size)
         self._clear = clear
 
     def getlenbound(self, mode):
-        from rpython.jit.metainterp.optimizeopt import intutils
-
+        from rpython.jit.metainterp.optimizeopt.intutils import IntBound
         assert mode is None
         if self.lenbound is None:
             assert self.length == -1
-            self.lenbound = intutils.IntLowerBound(0)
+            self.lenbound = IntBound.nonnegative()
         return self.lenbound
 
     def _init_items(self, const, size, clear):
@@ -641,11 +640,10 @@ class ArrayPtrInfo(AbstractVirtualPtrInfo):
 
 class ArrayStructInfo(ArrayPtrInfo):
     def __init__(self, descr, size, is_virtual=False):
-        from rpython.jit.metainterp.optimizeopt import intutils
-
+        from rpython.jit.metainterp.optimizeopt.intutils import IntBound
         self.length = size
         lgt = len(descr.get_all_fielddescrs())
-        self.lenbound = intutils.ConstIntBound(size)
+        self.lenbound = IntBound.from_constant(size)
         self.descr = descr
         self._items = [None] * (size * lgt)
         self._is_virtual = is_virtual
@@ -796,14 +794,12 @@ class ConstPtrInfo(PtrInfo):
         return self._unpack_str(mode)
 
     def getlenbound(self, mode):
-        from rpython.jit.metainterp.optimizeopt.intutils import (
-            ConstIntBound, IntLowerBound)
-
+        from rpython.jit.metainterp.optimizeopt.intutils import IntBound
         length = self.getstrlen1(mode)
         if length < 0:
             # XXX we can do better if we know it's an array
-            return IntLowerBound(0)
-        return ConstIntBound(length)
+            return IntBound.nonnegative()
+        return IntBound.from_constant(length)
 
     def getstrlen(self, op, string_optimizer, mode):
         length = self.getstrlen1(mode)

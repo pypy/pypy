@@ -3409,7 +3409,7 @@ def parse_string_from_binary_base(parser):
     z._normalize()
     return z
 
-
+@jit.elidable
 def gcd_binary(a, b):
     """ Compute the greatest common divisor of non-negative integers a and b
     using the binary GCD algorithm. Raises ValueError on negative input. """
@@ -3453,6 +3453,7 @@ def lehmer_xgcd(a, b):
 
     return s_old, t_old, s_new, t_new
 
+@jit.elidable
 def gcd_lehmer(a, b):
     if a.lt(b):
         a, b = b, a

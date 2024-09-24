@@ -16,6 +16,7 @@ from rpython.rlib.jit import dont_look_inside, _we_are_jitted, JitDriver
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib import jit, debug
 
+_WIN32 = sys.platform == "win32"
 
 class FakeRegAlloc:
     # a RegAllocator that answers "0, 1, 2, 3, 4..." for the colors
@@ -830,17 +831,25 @@ class TestFlatten:
             int_return %i3
         """, transform=True)
 
-    def test_force_cast(self):
+    def test_force_cast_ints(self):
         # NB: we don't need to test for INT here, the logic in jtransform is
         # general enough so that if we have the below cases it should
         # generalize also to INT
+
+        # windows: ULONG is UINT which is shorter than Signed
+        if _WIN32:
+            ulong_cast = "int_and %i0, $4294967295 -> %i1"
+            ulong_sign = "int_signext %i0, $4 -> %i1"
+        else:
+            ulong_cast = ""
+            ulong_sign = ""
         for FROM, TO, expected in [
             (rffi.SIGNEDCHAR, rffi.SIGNEDCHAR, ""),
             (rffi.SIGNEDCHAR, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
             (rffi.SIGNEDCHAR, rffi.SHORT, ""),
             (rffi.SIGNEDCHAR, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
             (rffi.SIGNEDCHAR, rffi.LONG, ""),
-            (rffi.SIGNEDCHAR, rffi.ULONG, ""),
+            (rffi.SIGNEDCHAR, rffi.ULONG, ulong_cast),
 
             (rffi.UCHAR, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.UCHAR, rffi.UCHAR, ""),
@@ -854,7 +863,7 @@ class TestFlatten:
             (rffi.SHORT, rffi.SHORT, ""),
             (rffi.SHORT, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
             (rffi.SHORT, rffi.LONG, ""),
-            (rffi.SHORT, rffi.ULONG, ""),
+            (rffi.SHORT, rffi.ULONG, ulong_cast),
 
             (rffi.USHORT, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.USHORT, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
@@ -870,14 +879,14 @@ class TestFlatten:
             (rffi.LONG, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
             (rffi.LONG, lltype.Bool, "int_is_true %i0 -> %i1"),
             (rffi.LONG, rffi.LONG, ""),
-            (rffi.LONG, rffi.ULONG, ""),
+            (rffi.LONG, rffi.ULONG, ulong_cast),
 
             (rffi.ULONG, rffi.SIGNEDCHAR, "int_signext %i0, $1 -> %i1"),
             (rffi.ULONG, rffi.UCHAR, "int_and %i0, $255 -> %i1"),
             (rffi.ULONG, rffi.SHORT, "int_signext %i0, $2 -> %i1"),
             (rffi.ULONG, rffi.USHORT, "int_and %i0, $65535 -> %i1"),
             (rffi.ULONG, lltype.Bool, "int_is_true %i0 -> %i1"),
-            (rffi.ULONG, rffi.LONG, ""),
+            (rffi.ULONG, rffi.LONG, ulong_sign),
             (rffi.ULONG, rffi.ULONG, ""),
             ]:
             expected = [s.strip() for s in expected.splitlines()]

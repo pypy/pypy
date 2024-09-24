@@ -31,7 +31,7 @@ Clone the repository
 If you prefer to compile your own PyPy, or if you want to modify it, you
 will need to obtain a copy of the sources.  This can be done either by
 `downloading them from the download page`_ or by checking them out from the
-repository using mercurial.  We suggest using mercurial if you want to access
+repository using git.  We suggest using git if you want to access
 the current development.
 
 .. _downloading them from the download page: https://www.pypy.org/download.html
@@ -39,24 +39,23 @@ the current development.
 You must issue the following command on your
 command line, DOS box, or terminal::
 
-    hg clone https://foss.heptapod.net/pypy/pypy pypy
+    git clone https://github.com/pypy/pypy.git
 
 This will clone the repository and place it into a directory
 named ``pypy``, and will get you the PyPy source in ``pypy/pypy`` and
 documentation files in ``pypy/pypy/doc``.
 We try to ensure that the tip is always stable, but it might
 occasionally be broken.  You may want to check out `our nightly tests`_:
-find a revision (12-chars alphanumeric string, e.g. "963e808156b3")
-that passed at least the
-``{linux32}`` tests (corresponding to a ``+`` sign on the
+find a revision hash, e.g. "963e808156b3", that passed at least the
+``{linux64}`` tests (corresponding to a ``+`` sign on the
 line ``success``) and then, in your cloned repository, switch to this revision
 using::
 
-    hg up -r XXXXX
+    git checkout XXXXX
 
-where XXXXX is the revision id.
+where XXXXX is the revision hash.
 
-.. _our nightly tests: https://buildbot.pypy.org/summary?branch=%3Ctrunk%3E
+.. _our nightly tests: https://buildbot.pypy.org/summary?branch=main
 
 
 Install build-time dependencies
@@ -97,7 +96,7 @@ after building PyPy, otherwise the corresponding CFFI modules are not
 built (you can run or re-run `lib_pypy/pypy_tools/build_cffi_imports.py`_ to
 build them; you don't need to re-translate the whole PyPy):
 
-.. _`lib_pypy/pypy_tools/build_cffi_imports.py`: https://foss.heptapod.net/pypy/pypy/-/blob/branch/default/lib_pypy/pypy_tools/build_cffi_imports.py
+.. _`lib_pypy/pypy_tools/build_cffi_imports.py`: https://github.com/pypy/pypy/blob/main/lib_pypy/pypy_tools/build_cffi_imports.py
 
 sqlite3
     libsqlite3
@@ -160,9 +159,10 @@ command:
 
     xcode-select --install
 	brew install openssl pypy pkg-config libx11
+    # expose openssl in the cffi _ssl_build script
+    export CPPFLAGS=$(pkg-config openssl --cflags-only-I)
+    export LDFLAGS=$(pkg-config openssl --libs-only-L)
 
-After setting this up, translation (described next) will find the libs as
-expected via ``pkg-config``.
 
 Set environment variables that will affect translation
 ------------------------------------------------------
@@ -207,7 +207,7 @@ are shorthand for::
 
     pypy ../../rpython/bin/rpython <rpython options> targetpypystandalone.py <pypy options>
 
-More help is availabe via ``--help`` at either option position, and more info
+More help is available via ``--help`` at either option position, and more info
 can be found in the :doc:`config/index` section.
 
 (You can use ``python`` instead of ``pypy`` here, which will take longer
@@ -216,7 +216,7 @@ but works too.)
 If everything works correctly this will:
 
 1. Run the rpython `translation chain`_, producing a database of the
-   entire pypy interpreter. This step is currently singe threaded, and RAM
+   entire pypy interpreter. This step is currently single threaded, and RAM
    hungry. As part of this step,  the chain creates a large number of C code
    files and a Makefile to compile them in a
    directory controlled by the ``PYPY_USESSION_DIR`` environment variable.

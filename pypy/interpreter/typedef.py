@@ -686,7 +686,7 @@ PyCode.typedef = TypeDef('code',
     __ne__ = interp2app(PyCode.descr_code__ne__),
     __hash__ = interp2app(PyCode.descr_code__hash__),
     __reduce__ = interp2app(PyCode.descr__reduce__),
-    _positions = interp2app(PyCode.descr_positions),
+    co_positions = interp2app(PyCode.descr_co_positions),
     __repr__ = interp2app(PyCode.repr),
     co_argcount = interp_attrproperty('co_argcount', cls=PyCode, wrapfn="newint"),
     co_posonlyargcount = interp_attrproperty('co_posonlyargcount', cls=PyCode, wrapfn="newint"),
@@ -889,7 +889,7 @@ def always_none(self, obj):
 BuiltinFunction.typedef = TypeDef("builtin_function", **Function.typedef.rawdict)
 BuiltinFunction.typedef.rawdict.update({
     '__new__': interp2app(BuiltinFunction.descr_builtinfunction__new__.im_func),
-    '__self__': GetSetProperty(always_none, cls=BuiltinFunction),
+    '__self__': GetSetProperty(BuiltinFunction.descr_builtinfunction__self__, cls=BuiltinFunction),
     '__repr__': interp2app(BuiltinFunction.descr_function_repr),
     '__doc__': getset_func_doc,
     '__reduce__': interp2app(BuiltinFunction.descr__reduce__),

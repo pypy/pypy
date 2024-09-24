@@ -1,6 +1,7 @@
 
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.flowspace.model import mkentrymap, Variable
+from rpython.rtyper.lltypesystem import lltype
+from rpython.flowspace.model import mkentrymap, Variable, Constant
 from rpython.translator.backendopt import removenoops
 from rpython.translator import simplify
 
@@ -75,25 +76,58 @@ def _storesink_block(block, cache, inputlink):
         for k in cache.keys():
             if k[0].concretetype == concretetype and k[1] == fieldname:
                 del cache[k]
+    replacements = {}
+    def replace(op, res):
+        op.opname = 'same_as'
+        op.args = [res]
+        replacements[op.result] = res
+
+    def get_rep(arg):
+        return replacements.get(arg, arg)
 
     added_some_same_as = False
     for op in block.operations:
         if op.opname == 'getfield':
-            tup = (op.args[0], op.args[1].value)
-            res = cache.get(tup, None)
-            if res is not None:
-                op.opname = 'same_as'
-                op.args = [res]
-                added_some_same_as = True
+            arg0 = get_rep(op.args[0])
+            field = op.args[1].value
+            if (
+                    isinstance(arg0, Constant) and
+                    arg0.concretetype.TO._immutable_field(field) and
+                    arg0.value and # exclude null ptrs
+                    not isinstance(arg0.value._obj, int) # tagged int
+            ):
+                # reading an immutable field from a constant
+                llres = getattr(arg0.value, field)
+                concretetype = getattr(arg0.concretetype.TO, field)
+                res = Constant(llres, concretetype)
+                replace(op, res)
             else:
-                cache[tup] = op.result
+                tup = (arg0, op.args[1].value)
+                res = cache.get(tup, None)
+                if res is not None:
+                    replace(op, res)
+                else:
+                    cache[tup] = op.result
+        elif op.opname == 'cast_pointer':
+            arg0 = get_rep(op.args[0])
+            if isinstance(arg0, Constant):
+                llres = lltype.cast_pointer(op.result.concretetype, arg0.value)
+                res = Constant(llres, op.result.concretetype)
+                replace(op, res)
+            else:
+                tup = (arg0, op.result.concretetype)
+                res = cache.get(tup, None)
+                if res is not None:
+                    replace(op, res)
+                else:
+                    cache[tup] = op.result
         elif op.opname in ('setarrayitem', 'setinteriorfield', "malloc", "malloc_varsize"):
             pass
         elif op.opname == 'setfield':
-            target = op.args[0]
+            target = get_rep(op.args[0])
             field = op.args[1].value
             clear_cache_for(cache, target.concretetype, field)
             cache[target, field] = op.args[2]
         elif has_side_effects(op):
             cache.clear()
-    return added_some_same_as
+    return bool(replacements)

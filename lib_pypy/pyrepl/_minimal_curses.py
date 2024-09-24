@@ -9,32 +9,34 @@ Note that there is also a built-in module _minimal_curses which will
 hide this one if compiled in.
 """
 
-import ctypes, ctypes.util
+import ctypes
+import ctypes.util
+
 
 class error(Exception):
     pass
 
 
-def _find_clib():
-    trylibs = ['ncursesw', 'ncurses', 'curses']
+def _find_clib() -> str:
+    trylibs = ["ncursesw", "ncurses", "curses"]
 
     for lib in trylibs:
         path = ctypes.util.find_library(lib)
         if path:
             return path
-    raise ModuleNotFoundError("curses library not found", name="_minimal_curses")
+    raise ModuleNotFoundError("curses library not found", name="pyrepl._minimal_curses")
+
 
 _clibpath = _find_clib()
 clib = ctypes.cdll.LoadLibrary(_clibpath)
 
-clib.setupterm.argtypes = [ctypes.c_char_p, ctypes.c_int,
-                           ctypes.POINTER(ctypes.c_int)]
+clib.setupterm.argtypes = [ctypes.c_char_p, ctypes.c_int, ctypes.POINTER(ctypes.c_int)]
 clib.setupterm.restype = ctypes.c_int
 
 clib.tigetstr.argtypes = [ctypes.c_char_p]
 clib.tigetstr.restype = ctypes.POINTER(ctypes.c_char)
 
-clib.tparm.argtypes = [ctypes.c_char_p] + 9 * [ctypes.c_int]
+clib.tparm.argtypes = [ctypes.c_char_p] + 9 * [ctypes.c_int]  # type: ignore[operator]
 clib.tparm.restype = ctypes.c_char_p
 
 OK = 0
@@ -55,7 +57,7 @@ def setupterm(termstr, fd):
 @builtinify
 def tigetstr(cap):
     if not isinstance(cap, bytes):
-        cap = cap.encode('ascii')
+        cap = cap.encode("ascii")
     result = clib.tigetstr(cap)
     if ctypes.cast(result, ctypes.c_void_p).value == ERR:
         return None

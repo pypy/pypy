@@ -2,14 +2,14 @@ Distributed and agile development in PyPy
 =========================================
 
 .. note::
-  This page describes the mode of development that preceeds the current models
+  This page describes the mode of development that precedes the current models
   of Open Source development. While people are welcome to join our (now yearly)
-  sprints, we encourage engagement via the gitlab repo at
-  https://foss.heptapod.net/pypy/pypy. Issues can be filed and discussed in the
-  `issue tracker`_ and we welcome `merge requests`_.
+  sprints, we encourage engagement via the GitHub repo at
+  https://github.com/pypy/pypy/. Issues can be filed and discussed in the
+  `issue tracker`_ and we welcome `pull requests`_.
 
-.. _`issue tracker`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/issues
-.. _`merge requests`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/merge_requests
+.. _`issue tracker`: https://github.com/pypy/pypy/issues/
+.. _`pull requests`: https://github.com/pypy/pypy/pulls/
 
 PyPy isn't just about producing code - it's also about how we produce code.
 The challenges of coordinating work within a community and making sure it is
@@ -30,7 +30,7 @@ Main methods for achieving this is:
 Main tools for achieving this is:
 
   * py.test - automated testing
-  * Mercurial - version control
+  * Git - version control
   * Transparent communication and documentation (mailinglists, IRC, tutorials
     etc etc)
 
@@ -64,7 +64,7 @@ Other typical sprint factors:
     conditions, releases and such like. What we do have is a local organizer,
     often a developer living in the area and one more developer who prepares
     and organizes sprint. They do not "manage" the sprint when its started -
-    their role is more of the logistic nature. This doesn't mean that we wont
+    their role is more of the logistic nature. This doesn't mean that we won't
     have use for the coach technique or something similar in the future).
 
   * only coding (this is a tough one. There have been projects who have used

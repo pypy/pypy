@@ -28,7 +28,7 @@ def PyLong_FromSize_t(space, val):
     """Return a new PyLongObject object from a C size_t, or NULL on
     failure.
     """
-    return space.newlong_from_rarith_int(val)
+    return space.newlong_from_rarith_int(rffi.cast(lltype.Unsigned, val))
 
 @cpython_api([rffi.LONGLONG], PyObject)
 def PyLong_FromLongLong(space, val):
@@ -97,14 +97,11 @@ def PyLong_AsUnsignedLongMask(space, w_long):
 @cpython_api([PyObject], rffi.LONG, error=-1)
 def PyLong_AsLong(space, w_long):
     """
-    Get a C long int from an int object or any object that has an __int__
+    Get a C long int from an int object or any object that has an __index__
     method.  Return -1 and set an error if overflow occurs.
     """
     try:
-        if space.lookup(w_long, '__index__'):
-            val = space.int_w(space.index(w_long))
-        else:
-            val = space.int_w(space.int(w_long))
+        val = space.int_w(space.index(w_long))
     except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
@@ -123,14 +120,11 @@ def PyLong_AsLong(space, w_long):
 @cpython_api([PyObject], rffi.INT, error=-1)
 def _PyLong_AsInt(space, w_long):
     """
-    Get a C int from an int object or any object that has an __int__
+    Get a C int from an int object or any object that has an __index__
     method.  Return -1 and set an error if overflow occurs.
     """
     try:
-        if space.lookup(w_long, '__index__'):
-            val = space.int_w(space.index(w_long))
-        else:
-            val = space.int_w(space.int(w_long))
+        val = space.int_w(space.index(w_long))
     except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError

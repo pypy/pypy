@@ -1,4 +1,4 @@
-# spaceconfig = {"usemodules" : ["_locale", "array", "struct"]}
+# spaceconfig = {"usemodules" : ["_locale", "array", "struct", "_multibytecodec"]}
 import _io
 import array
 
@@ -278,6 +278,9 @@ def test_telling(tempfile):
         f.write("\xff\n")
         p2 = f.tell()
         f.seek(0)
+        assert p0 == 0
+        assert p1 == 3
+        assert p2 == 6
 
         assert f.tell() == p0
         res = f.readline()
@@ -514,3 +517,71 @@ def test_bug_newlines_rr_at_end():
     assert lines == [u'a\r', u'\r', u'b\r', u'\r', u'c']
     lines = io.TextIOWrapper(io.BytesIO(b"a\r\rb\r\n"), newline="").readlines()
     assert lines == [u'a\r', u'\r', u'b\r\n']
+
+# taken from test_univnewlines.py
+
+FATX = 'x' * (2**14)
+
+DATA_TEMPLATE = [
+    "line1=1",
+    "line2='this is a very long line designed to go past any default " +
+        "buffer limits that exist in io.py but we also want to test " +
+        "the uncommon case, naturally.'",
+    "def line3():pass",
+    "line4 = '%s'" % FATX,
+    ]
+
+DATA_CRLF = "\r\n".join(DATA_TEMPLATE) + "\r\n"
+
+
+def test_tell_univnewlines(tempfile):
+    import io
+    import sys
+        
+    NEWLINE = '\r\n'
+
+    with io.open(tempfile, "w") as fp:
+        fp.write(DATA_CRLF)
+
+    with io.open(tempfile, "r") as fp:
+        assert repr(fp.newlines) == repr(None)
+        data = fp.readline()
+        pos = fp.tell()
+    if "__pypy__" in sys.modules:
+        assert repr(fp.newlines)  == repr(NEWLINE)
+
+def test_tell_various():
+    # at some point, a failing cases the test_interp_textio hypothesis test
+    import io
+    for t  in (b'\r', u'\x80\n'.encode('utf-8')):
+        b = io.BytesIO(t)
+        w = io.TextIOWrapper(b, encoding='utf-8')
+        res1 = w.read()
+        tell = w.tell()
+        # the cookie is an opaque bigint with encoded bits. It may differ between
+        # CPython and PyPy
+        w.seek(0)
+        w.seek(tell)
+        res2 = w.read()
+        assert len(res2) == 0
+        assert res1.encode('utf8') == t.replace(b'\r', b'\n')
+
+def test_seek_with_encoder_state():
+    # Copied from lib-python/test/test_io.py
+    import io
+    import encodings  # will allow using euc_jis_2004 when untranslated
+    b = io.BytesIO(b"")
+    w = io.TextIOWrapper(b, encoding='euc_jis_2004')
+    w.write(u"\u00e6\u0300")
+    p0 = w.tell()
+    w.write(u"\u00e6")
+    w.seek(p0)
+    p1 = w.tell()
+    w.write(u"\u0300")
+
+    w.seek(0)
+    out = w.readline()
+    expected = u"\u00e6\u0300\u0300"
+    # print([hex(ord(s)) for s in out])
+    # print([hex(ord(s)) for s in expected])
+    assert out == expected

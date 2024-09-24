@@ -18,7 +18,7 @@ make it happen before the 2.0 final. The new major features are:
 * This is the first PyPy release that includes `cffi`_ as a core library.
   Version 0.6 comes included in the PyPy library. cffi has seen a lot of
   adoption among library authors and we believe it's the best way to wrap
-  C libaries. You can see examples of cffi usage in `_curses.py`_ and
+  C libraries. You can see examples of cffi usage in `_curses.py`_ and
   `_sqlite3.py`_ in the PyPy source code.
 
 You can download the PyPy 2.0 beta 2 release here:

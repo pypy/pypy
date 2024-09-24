@@ -211,7 +211,8 @@ def create_package(basedir, options, _fake=False):
         target = pypydir.join(get_platlibdir(pypy_c), IMPLEMENTATION)
     os.makedirs(str(target))
     if not _fake:
-        generate_sysconfigdata(pypy_c, str(target))
+        # issue 5015: portable builds cannot use the static data
+        # generate_sysconfigdata(pypy_c, str(target))
         subprocess.check_call([str(pypy_c), "-c", "import _testmultiphase_build"])
         subprocess.check_call([str(pypy_c), "-c", "import _ctypes_test_build"])
         subprocess.check_call([str(pypy_c), "-c", "import _testcapi"])
@@ -358,6 +359,8 @@ def create_package(basedir, options, _fake=False):
                                            '*.lib', '*.exp', '*.manifest', '__pycache__'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
+    for file in ['__init__.py',]:
+        os.unlink(str(target / file))
     # Use original LICENCE file
     base_file = str(basedir.join('LICENSE'))
     with open(base_file) as fid:

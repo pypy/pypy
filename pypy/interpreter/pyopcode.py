@@ -77,16 +77,16 @@ class __extend__(pyframe.PyFrame):
             except OperationError as operr2:
                 # this should be unreachable! but we don't want to crash if it
                 # still happens
-                operr.normalize_exception(self.space)
-                operr2.normalize_exception(self.space)
+                w_value = operr.normalize_exception(self.space)
+                w_value2 = operr2.normalize_exception(self.space)
                 # NB: don't *raise* it, it's handled by the
                 # handle_operation_error call below (otherwise some higher up
                 # except block handles it)
                 operr = oefmt(
                     self.space.w_TypeError,
                     "couldn't record exception context for exception '%T', got: %R",
-                    operr.get_w_value(self.space),
-                    operr2.get_w_value(self.space))
+                    w_value,
+                    w_value2)
             next_instr = self.handle_operation_error(ec, operr)
         except RaiseWithExplicitTraceback as e:
             next_instr = self.handle_operation_error(ec, e.operr,
@@ -876,10 +876,14 @@ class __extend__(pyframe.PyFrame):
 
     def STORE_ATTR(self, nameindex, next_instr):
         "obj.attributename = newvalue"
-        w_attributename = self.getname_w(nameindex)
         w_obj = self.popvalue()
         w_newvalue = self.popvalue()
-        self.space.setattr(w_obj, w_attributename, w_newvalue)
+        if not jit.we_are_jitted():
+            from pypy.objspace.std.mapdict import STORE_ATTR_caching
+            STORE_ATTR_caching(self.getcode(), w_obj, nameindex, w_newvalue)
+        else:
+            w_attributename = self.getname_w(nameindex)
+            self.space.setattr(w_obj, w_attributename, w_newvalue)
 
     def DELETE_ATTR(self, nameindex, next_instr):
         "del obj.attributename"
@@ -1047,7 +1051,6 @@ class __extend__(pyframe.PyFrame):
             return target * 2
 
     def IMPORT_NAME(self, nameindex, next_instr):
-        from pypy.module.imp.importing import import_name_fast_path
         space = self.space
         w_modulename = self.getname_w(nameindex)
         w_fromlist = self.popvalue()
@@ -1065,16 +1068,8 @@ class __extend__(pyframe.PyFrame):
             w_locals = space.w_None
         w_globals = self.get_w_globals()
 
-        # the space.w_default_importlib_import attribute is written to in the
-        # startup() method of _frozen_importlib
-        w_default_import = space.w_default_importlib_import
-        if (w_default_import is not None and
-                space.is_w(w_default_import, w_import)):
-            w_obj = import_name_fast_path(space, w_modulename, w_globals,
-                    w_locals, w_fromlist, w_flag)
-        else:
-            w_obj = space.call_function(w_import, w_modulename, w_globals,
-                    w_locals, w_fromlist, w_flag)
+        w_obj = space.call_function(w_import, w_modulename, w_globals,
+                w_locals, w_fromlist, w_flag)
 
         self.pushvalue(w_obj)
 
@@ -1621,9 +1616,9 @@ class __extend__(pyframe.PyFrame):
             new_error = oefmt(space.w_TypeError,
                         "'async for' received an invalid object "
                         "from __anext__: %T", w_next_iter)
-            e.normalize_exception(space)
+            w_cause = e.normalize_exception(space)
             new_error.normalize_exception(space)
-            new_error.set_cause(space, e.get_w_value(space))
+            new_error.set_cause(space, w_cause)
             raise new_error
         self.pushvalue(w_awaitable)
 
@@ -1827,9 +1822,8 @@ def delegate_to_nongen(space, w_yf, w_inputvalue_or_err):
         # bah, CPython calls here with the exact same arguments as
         # originally passed to throw().  In our case it is far removed.
         # Let's hope nobody will complain...
-        operr.normalize_exception(space)
+        w_val = operr.normalize_exception(space)
         w_exc = operr.w_type
-        w_val = operr.get_w_value(space)
         w_tb = operr.get_w_traceback(space)
         return space.call_function(w_meth, w_exc, w_val, w_tb)
     else:
@@ -1930,9 +1924,9 @@ class ExceptBlock(FrameBlock):
         # wrapped.
         assert isinstance(unroller, SApplicationException)
         operationerr = unroller.operr
-        operationerr.normalize_exception(frame.space)
+        w_value = operationerr.normalize_exception(frame.space)
         frame.pushvalue(unroller)
-        frame.pushvalue(operationerr.get_w_value(frame.space))
+        frame.pushvalue(w_value)
         frame.pushvalue(operationerr.w_type)
         # set the current value of sys_exc_info to operationerr,
         # saving the old value in a custom type of FrameBlock

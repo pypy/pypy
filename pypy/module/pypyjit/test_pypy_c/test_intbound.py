@@ -290,7 +290,7 @@ class TestIntbound(BaseTestPyPyC):
 
         log = self.run(main, [9])
         assert log.result == 300
-        loop, = log.loops_by_filename(self.filepath)
+        loop, = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         # we don't know that b>10, hence we cannot optimize it
         assert loop.match_by_id('guard', """
             i10 = int_xor(i5, i7)

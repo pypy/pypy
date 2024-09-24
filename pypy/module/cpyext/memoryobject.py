@@ -194,7 +194,7 @@ def PyMemoryView_FromMemory(space, mem, size, flags):
     PyBUF_READ or PyBUF_WRITE. view->format is set to "B" (unsigned bytes).
     The memoryview has complete buffer information.
     """
-    readonly = int(widen(flags) == PyBUF_WRITE)
+    readonly = int(widen(flags) == PyBUF_READ)
     view = CPyBuffer(space, cts.cast('void*', mem), size, None,
             readonly=readonly)
     w_mview = W_MemoryView(view)

@@ -605,24 +605,57 @@ class W_UnicodeObject(W_Root):
         value = self._utf8
         if not value:
             return self._empty()
+        if tabsize == 0:
+            res, replacements = replace_count(value, '\t', '')
+            if not replacements and type(self) is W_UnicodeObject:
+                return self
+            newlength = self._length - replacements
+            assert res is not None
+            return W_UnicodeObject(res, newlength)
 
         splitted = value.split('\t')
 
         try:
-            if tabsize > 0:
-                ovfcheck(len(splitted) * tabsize)
+            ovfcheck(len(splitted) * tabsize)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "new string is too long")
-        expanded = oldtoken = splitted.pop(0)
-        newlen = self._len() - len(splitted)
+        newlen = self._len() - len(splitted) + 1
+        builder = StringBuilder(len(value))
+        oldtoken = splitted[0]
+        builder.append(oldtoken)
 
-        for token in splitted:
+        for index in range(1, len(splitted)):
+            token = splitted[index]
             dist = self._tabindent(oldtoken, tabsize)
-            expanded += ' ' * dist + token
+            builder.append_multiple_char(' ', dist)
+            builder.append(token)
             newlen += dist
             oldtoken = token
 
-        return W_UnicodeObject(expanded, newlen)
+        return W_UnicodeObject(builder.build(), newlen)
+
+    def _tabindent(self, token, tabsize):
+        if tabsize <= 0:
+            return 0
+        distance = tabsize
+        if token:
+            distance = 0
+            offset = len(token)
+
+            while 1:
+                if token[offset-1] == "\n" or token[offset-1] == "\r":
+                    break
+                distance += 1
+                offset = rutf8.prev_codepoint_pos(token, offset)
+                if offset == 0:
+                    break
+
+            # the same like distance = len(token) - (offset + 1)
+            distance = (tabsize - distance) % tabsize
+            if distance == 0:
+                distance = tabsize
+
+        return distance
 
     def _join_utf8_len_w(self, space, w_element, i):
         try:
@@ -1167,12 +1200,7 @@ class W_UnicodeObject(W_Root):
         return W_UnicodeObject(res, newlength)
 
     def descr_mul(self, space, w_times):
-        try:
-            times = space.getindex_w(w_times, space.w_OverflowError)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            raise
+        times = space.getindex_w(w_times, space.w_OverflowError)
         if times <= 0:
             return self._empty()
         if times == 1:
@@ -1527,12 +1555,12 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
         encoding = None
     else:
         utf8 = space.text_w(w_encoding)
-        encoding = utf8_encode_wrapper(space, utf8, "strict")
+        encoding = utf8_encode_wrapper(space, utf8, w_encoding, "strict")
     if w_errors is None:
         errors = None
     else:
         utf8 = space.text_w(w_errors)
-        errors = utf8_encode_wrapper(space, utf8, "strict")
+        errors = utf8_encode_wrapper(space, utf8, w_errors, "strict")
     return encoding, errors
 
 def encode_object(space, w_obj, encoding, errors):
@@ -1581,7 +1609,7 @@ def decode_object(space, w_obj, encoding, errors=None):
     if errors == 'strict' or errors is None:
         # fast paths
         if encoding == 'ascii':
-            unicodehelper.check_ascii_or_raise(space, s)
+            unicodehelper.check_ascii_or_raise(space, s, w_obj)
             return space.newtext(s, len(s))
         if encoding == 'utf-8' or encoding == 'utf8':
             lgt = unicodehelper.check_utf8_or_raise(space, s)
@@ -1621,7 +1649,7 @@ def unicode_from_string(space, w_bytes):
     if encoding != 'ascii':
         return decode_object(space, w_bytes, encoding, "strict")
     s = space.bytes_w(w_bytes)
-    unicodehelper.check_ascii_or_raise(space, s)
+    unicodehelper.check_ascii_or_raise(space, s, w_bytes)
     return W_UnicodeObject(s, len(s))
 
 

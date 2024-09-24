@@ -40,6 +40,7 @@ class Function(W_Root):
                           'w_kw_defs?']
 
     w_kw_defs = None
+    _empty_defs = []
 
     def __init__(self, space, code, w_globals=None, defs_w=[], kw_defs_w=None,
                  closure=None, w_ann=None, forcename=None, qualname=None):
@@ -51,6 +52,10 @@ class Function(W_Root):
         self.code = code       # Code instance
         self.w_func_globals = w_globals  # the globals dictionary
         self.closure = closure    # normally, list of Cell instances or None
+        if not defs_w:
+            # in theory it would be cool to share *all* the empty lists in
+            # rpython where the identity doesn't matter
+            defs_w = Function._empty_defs
         self.defs_w = defs_w
         self.w_func_dict = None # filled out below if needed
         self.w_module = None
@@ -757,6 +762,8 @@ class BuiltinFunction(Function):
         self.w_doc = func.w_doc
         self.w_func_dict = func.w_func_dict
         self.w_module = func.w_module
+        # set in mixedmodule.py and in descr_builtinfunction__self__ below
+        self.w_moduleobj = None
         self.w_kw_defs = func.w_kw_defs
 
     def descr_builtinfunction__new__(space, w_subtype):
@@ -768,6 +775,22 @@ class BuiltinFunction(Function):
 
     def descr__reduce__(self, space):
         return space.newtext(self.qualname)
+
+    def descr_builtinfunction__self__(self, space):
+        if self.w_moduleobj is not None:
+            return self.w_moduleobj
+        # we are in the case of a BuiltinFunction constructed via
+        # @__pypy__.builtinify
+        # we get self.__module__, then try to find it in sys.modules
+        w_modules = space.getattr(space.getbuiltinmodule('sys'), space.newtext('modules'))
+        w_modstring = self.fget___module__(space)
+        if not space.is_w(w_modstring, space.w_None):
+            w_moduleobj = space.call_method(w_modules, 'get', w_modstring)
+        else:
+            w_moduleobj = space.w_None
+        self.w_moduleobj = w_moduleobj
+        return w_moduleobj
+
 
 def is_builtin_code(w_func):
     from pypy.interpreter.gateway import BuiltinCode

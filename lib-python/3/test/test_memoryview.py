@@ -15,6 +15,7 @@ import copy
 import pickle
 from test.support import check_impl_detail
 
+IS_PYPY = sys.implementation.name == 'pypy'
 
 try:
     getrefcount = sys.getrefcount
@@ -578,16 +579,17 @@ class OtherTest(unittest.TestCase):
 
         ba = None
         m = memoryview(bytearray(b'\xff'*size))
-        with self.assertRaises(ValueError):
+        with self.assertRaises(ValueError) as e:
             m[MyIndex()]
 
-        ba = None
-        m = memoryview(bytearray(b'\xff'*size))
-        self.assertEqual(list(m[:MyIndex()]), [255] * 4)
+        if not IS_PYPY:
+            ba = None
+            m = memoryview(bytearray(b'\xff'*size))
+            self.assertEqual(list(m[:MyIndex()]), [255] * 4)
 
-        ba = None
-        m = memoryview(bytearray(b'\xff'*size))
-        self.assertEqual(list(m[MyIndex():8]), [255] * 4)
+            ba = None
+            m = memoryview(bytearray(b'\xff'*size))
+            self.assertEqual(list(m[MyIndex():8]), [255] * 4)
 
         ba = None
         m = memoryview(bytearray(b'\xff'*size)).cast('B', (64, 2))

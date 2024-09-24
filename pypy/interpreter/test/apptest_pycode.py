@@ -5,5 +5,5 @@ def test_invalid_positions_dont_crash():
 
     c = f.__code__.replace(co_linetable=b'\xff')
     list(c.co_lines()) # these must not crash
-    list(c._positions())
+    list(c.co_positions())
     c.co_lnotab

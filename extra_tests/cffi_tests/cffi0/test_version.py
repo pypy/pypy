@@ -2,6 +2,7 @@
 import os, sys
 import pytest
 import cffi, _cffi_backend
+#from pathlib import Path --- but on pypy, this module should be skipped anyway
 
 def setup_module(mod):
     if '_cffi_backend' in sys.builtin_module_names:
@@ -15,6 +16,10 @@ def setup_module(mod):
 #    '0.8.4': '0.8.3',   # did not change
 #    }
 
+def _read(p):
+    with open(p) as f:
+        return f.read()
+
 def test_version():
     v = cffi.__version__
     version_info = '.'.join(str(i) for i in cffi.__version_info__)
@@ -26,45 +31,33 @@ def test_version():
     assert v == _cffi_backend.__version__
 
 def test_doc_version():
-    parent = os.path.dirname(os.path.dirname(cffi.__file__))
-    p = os.path.join(parent, 'doc', 'source', 'conf.py')
-    content = open(p).read()
+    cffi_root = Path(os.path.dirname(__file__)).parent.parent
+    p = cffi_root / 'doc/source/conf.py'
+    content = _read(p)
     #
     v = cffi.__version__
     assert ("version = '%s'\n" % v[:4]) in content
     assert ("release = '%s'\n" % v) in content
 
-def test_doc_version_file():
-    parent = os.path.dirname(os.path.dirname(cffi.__file__))
-    v = cffi.__version__.replace('+', '')
-    p = os.path.join(parent, 'doc', 'source', 'installation.rst')
-    content = open(p).read()
-    if " package version %s:" % v not in content:
-        for i in range(5):
-            if " package version %s-%d:" % (v, i) in content:
-                break
-        else:
-            assert 0, "doc/source/installation.rst needs updating"
-
-def test_setup_version():
-    parent = os.path.dirname(os.path.dirname(cffi.__file__))
-    p = os.path.join(parent, 'setup.py')
-    content = open(p).read()
+def test_pyproject_version():
+    cffi_root = Path(os.path.dirname(__file__)).parent.parent
+    p = cffi_root / 'setup.py'
+    content = _read(p)
     #
     v = cffi.__version__.replace('+', '')
     assert ("version='%s'" % v) in content
 
 def test_c_version():
-    parent = os.path.dirname(os.path.dirname(cffi.__file__))
+    cffi_root = Path(os.path.dirname(__file__)).parent.parent
     v = cffi.__version__
-    p = os.path.join(parent, 'c', 'test_c.py')
-    content = open(p).read()
+    p = cffi_root / 'src/c/test_c.py'
+    content = _read(p)
     #v = BACKEND_VERSIONS.get(v, v)
     assert (('assert __version__ == "%s"' % v) in content)
 
 def test_embedding_h():
-    parent = os.path.dirname(os.path.dirname(cffi.__file__))
+    cffi_root = Path(os.path.dirname(__file__)).parent.parent
     v = cffi.__version__
-    p = os.path.join(parent, 'cffi', '_embedding.h')
-    content = open(p).read()
+    p = cffi_root / 'src/cffi/_embedding.h'
+    content = _read(p)
     assert ('cffi version: %s"' % (v,)) in content

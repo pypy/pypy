@@ -180,3 +180,12 @@ def lazycache(filename, module_globals):
             cache[filename] = (get_lines,)
             return True
     return False
+
+# pypy modification: ported from cpy 3.13 to support showing the source lines
+# in tracebacks in the repl
+def _register_code(code, string, name):
+    cache[code] = (
+            len(string),
+            None,
+            [line + '\n' for line in string.splitlines()],
+            name)

@@ -1,4 +1,4 @@
-from __future__ import with_statement
+from __future__ import print_function, with_statement
 import py
 import sys
 from rpython.rlib.parsing.tree import Nonterminal, Symbol, RPythonVisitor
@@ -633,7 +633,7 @@ class MetaPackratParser(type):
         try:
             t = p.file()
         except BacktrackException as exc:
-            print exc.error.nice_error_message("<docstring>", source)
+            print(exc.error.nice_error_message("<docstring>", source))
             lineno, _ = exc.error.get_line_column(source)
             errorline = source.split("\n")[lineno]
             try:
@@ -641,9 +641,9 @@ class MetaPackratParser(type):
                 source = inspect.getsource(code)
                 lineno_in_orig = source.split("\n").index(errorline)
                 if lineno_in_orig >= 0:
-                    print "probable error position:"
-                    print "file:", code.co_filename
-                    print "line:", lineno_in_orig + code.co_firstlineno + 1
+                    print("probable error position:")
+                    print("file:", code.co_filename)
+                    print("line:", lineno_in_orig + code.co_firstlineno + 1)
             except (IOError, ValueError):
                 pass
             raise exc
@@ -744,5 +744,5 @@ for key, value in Parser.__dict__.iteritems():
         setattr(PyPackratSyntaxParser, key, value)
 PyPackratSyntaxParser.init_parser = Parser.__init__.im_func
 """ % (code, )
-    print content
+    print(content)
     f.write(content)

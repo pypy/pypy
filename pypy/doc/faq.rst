@@ -262,7 +262,7 @@ various corner cases in your code.  This is a bad case for JIT
 compilers.  Note also that our JIT has a very high warm-up cost, meaning
 that any program is slow at the beginning.  If you want to compare the
 timings with CPython, even relatively simple programs need to run *at
-least* one second, preferrably at least a few seconds.  Large,
+least* one second, preferably at least a few seconds.  Large,
 complicated programs need even more time to warm-up the JIT.
 
 .. _benchmarking site: https://speed.pypy.org
@@ -392,12 +392,12 @@ the most immediate way to get feedback (at least during some parts of the day;
 most PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
 
-We also encourage engagement via the gitlab repo at
-https://foss.heptapod.net/pypy/pypy. Issues can be filed and discussed in the
-`issue tracker`_ and we welcome `merge requests`.
+We also encourage engagement via the GitHub repo at
+https://github.com/pypy/pypy. Issues can be filed and discussed in the
+`issue tracker`_ and we welcome `pull requests`.
 
-.. _`issue tracker`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/issues
-.. _`merge requests`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/merge_requests
+.. _`issue tracker`: https://github.com/pypy/pypy/issues/
+.. _`pull requests`: https://github.com/pypy/pypy/pulls/
 
 .. _mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
 
@@ -422,7 +422,7 @@ Be sure to enable it again if you need it!
 How should I report a bug?
 --------------------------
 
-Our bug tracker is here: https://foss.heptapod.net/pypy/pypy/issues/
+Our bug tracker is here: https://github.com/pypy/pypy/issues/
 
 Missing features or incompatibilities with CPython are considered
 bugs, and they are welcome.  (See also our list of `known
@@ -441,7 +441,7 @@ Debugging PyPy can be annoying.
 `This is a clear and useful bug report.`__  (Admittedly, sometimes
 the problem is really hard to reproduce, but please try to.)
 
-.. __: https://foss.heptapod.net/pypy/pypy/issues/2363/segfault-in-gc-pinned-object-in
+.. __: https://github.com/pypy/pypy/issues/2363
 
 In more details:
 
@@ -468,7 +468,7 @@ In more details:
   virtual machine where the problem occurs.
 
 * If giving us access would require us to use tools other than ssh,
-  make appointments, or sign a NDA, then we can consider a commerical
+  make appointments, or sign a NDA, then we can consider a commercial
   support contract for a small sum of money.
 
 * If even that is not possible for you, then sorry, we can't help.
@@ -484,11 +484,13 @@ the GC and possibly the JIT.
 .. _git:
 .. _github:
 
-Why doesn't PyPy use Git and move to GitHub?
----------------------------------------------
+Why did PyPy switch to Git and move to GitHub?
+----------------------------------------------
 
-We discussed it during the switch away from bitbucket.  We concluded that (1)
-the Git workflow is not as well suited as the Mercurial workflow for our style,
+PyPy moved from SVN to `Mercurial and bitbucket`_ in 2010. In 2020, when
+bitbucket summarily dropped support for Mercurial, we debated whether to move
+to Git/GitHub.  At the time we concluded that (1) the Git workflow is not as
+well suited as the Mercurial workflow for our style,
 and (2) moving to github "just because everybody else does" is a argument on
 thin grounds.
 
@@ -498,13 +500,13 @@ concept.  Git has *branches,* of course, which in Mercurial are called
 bookmarks.  We're not talking about bookmarks.
 
 The difference between git branches and named branches is not that important in
-a repo with 10 branches (no matter how big).  But in the case of PyPy, we have
-at the moment 1840 branches.  Most are closed by now, of course.  But we would
+a repo with 10 branches (no matter how big).  But in the case of PyPy, we had
+at that moment 1840 branches.  Most are closed by now, of course.  But we would
 really like to retain (both now and in the future) the ability to look at a
-commit from the past, and know in which branch it was made.  Please make sure
-you understand the difference between the Git and the Mercurial branches to
-realize that this is not always possible with Git--- we looked hard, and there
-is no built-in way to get this workflow.
+commit from the past, and know in which branch it was made.  There is a
+difference between the Git and the Mercurial branches and that this is not
+always possible with Git--- we looked hard, and there is no built-in way to get
+this workflow.
 
 Still not convinced?  Consider this git repo with three commits: commit #2 with
 parent #1 and head of git branch "A"; commit #3 with also parent #1 but head of
@@ -512,6 +514,17 @@ git branch "B".  When commit #1 was made, was it in the branch "A" or "B"?
 (It could also be yet another branch whose head was also moved forward, or even
 completely deleted.)
 
+Soon after this discussion, we discovered `git notes`_, which allow annotating
+each git commit with a note indicating its origin branch. While this is not a
+perfect solution, it does somewhat soften the blow.
+
+Our development efforts pivoted to integrate PyPy into the Open Source project
+space: PyPy began to be tested on many popular python projects, including
+availability on conda-forge_. This meant it became important to lower friction
+in the interactions with other development groups. It turns out most of them
+use GitHub, which only uses Git. So at the end of 2023 we `moved to
+Git/GitHub`_ for our main development. The repos that do not have as much
+public interaction still remain at https://foss.heptapod.net/pypy/.
 
 What is needed for better Windows 64 support of PyPy?
 -----------------------------------------------------
@@ -533,3 +546,8 @@ How long will PyPy support Python2?
 Since RPython is built on top of Python2 and that is extremely unlikely to
 change, the Python2 version of PyPy will be around "forever", i.e. as long as
 PyPy itself is around.
+
+.. _`mercurial and bitbucket`: https://www.pypy.org/posts/2010/12/pypy-migrates-to-mercurial-3308736161543832134.html
+.. _`git notes`: https://git-scm.com/docs/git-notes
+.. _`conda-forge`: https://www.pypy.org/posts/2022/11/pypy-and-conda-forge.html
+.. _`moved to Git/GitHub`: https://www.pypy.org/posts/2023/12/pypy-moved-to-git-github.html

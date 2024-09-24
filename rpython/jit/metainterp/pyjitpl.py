@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 
 import py
@@ -19,7 +21,7 @@ from rpython.jit.metainterp.support import adr2int, ptr2int
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib import nonconst, rstack
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
-from rpython.rlib.debug import have_debug_prints, make_sure_not_resized
+from rpython.rlib.debug import have_debug_prints
 from rpython.rlib.jit import Counters
 from rpython.rlib.objectmodel import we_are_translated, specialize, always_inline
 from rpython.rlib.unroll import unrolling_iterable
@@ -88,7 +90,7 @@ class MIFrame(object):
             self.registers_f = self.copy_constants(self.registers_f, jitcode.constants_f, jitcode.num_regs_f(), ConstFloat)
         self._result_argcode = 'v'
         # for resume.py operation
-        self.parent_snapshot = None
+        self.parent_snapshot = -1
         # counter for unrolling inlined loops
         self.unroll_iterations = 1
 
@@ -172,7 +174,7 @@ class MIFrame(object):
     def get_current_position_info(self):
         return self.jitcode.get_live_vars_info(self.pc, self.metainterp.staticdata.op_live)
 
-    def get_list_of_active_boxes(self, in_a_call, new_array, encode, after_residual_call=False):
+    def get_list_of_active_boxes(self, in_a_call, new_array, add_box_to_storage, after_residual_call=False):
         from rpython.jit.codewriter.liveness import decode_offset
         from rpython.jit.codewriter.liveness import LivenessIterator
         if in_a_call:
@@ -209,28 +211,27 @@ class MIFrame(object):
         start_f = start_r + length_r
         total   = start_f + length_f
         # allocate a list of the correct size
-        env = new_array(total)
-        make_sure_not_resized(env)
+        storage = new_array(total)
         # fill it now
         if length_i:
             it = LivenessIterator(offset, length_i, all_liveness)
             for index in it:
-                env[start_i] = encode(self.registers_i[index])
+                storage = add_box_to_storage(storage, self.registers_i[index])
                 start_i += 1
             offset = it.offset
         if length_r:
             it = LivenessIterator(offset, length_r, all_liveness)
             for index in it:
-                env[start_r] = encode(self.registers_r[index])
+                storage = add_box_to_storage(storage, self.registers_r[index])
                 start_r += 1
             offset = it.offset
         if length_f:
             it = LivenessIterator(offset, length_f, all_liveness)
             for index in it:
-                env[start_f] = encode(self.registers_f[index])
+                storage = add_box_to_storage(storage, self.registers_f[index])
                 start_f += 1
             offset = it.offset
-        return env
+        return storage
 
     def replace_active_box_in_frame(self, oldbox, newbox):
         if oldbox.type == 'i':
@@ -279,6 +280,7 @@ class MIFrame(object):
                     'int_and', 'int_or', 'int_xor', 'int_signext',
                     'int_rshift', 'int_lshift', 'uint_rshift',
                     'uint_lt', 'uint_le', 'uint_gt', 'uint_ge',
+                    'uint_mul_high',
                     'float_add', 'float_sub', 'float_mul', 'float_truediv',
                     'float_lt', 'float_le', 'float_eq',
                     'float_ne', 'float_gt', 'float_ge',
@@ -642,19 +644,19 @@ class MIFrame(object):
                 if resvalue != tobox.getint():
                     self.metainterp._record_helper(rop.GETARRAYITEM_GC_I, resvalue, arraydescr, arraybox, indexbox)
                     self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
-                    print "assertion in GETARRAYITEM_GC_I failed", resvalue, tobox.getint()
+                    print("assertion in GETARRAYITEM_GC_I failed", resvalue, tobox.getint())
                     assert 0
             elif typ == 'r':
                 if resvalue != tobox.getref_base():
                     self.metainterp._record_helper(rop.GETARRAYITEM_GC_R, resvalue, arraydescr, arraybox, indexbox)
                     self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
-                    print "assertion in GETARRAYITEM_GC_R failed", resvalue, tobox.getref_base()
+                    print("assertion in GETARRAYITEM_GC_R failed", resvalue, tobox.getref_base())
                     assert 0
             elif typ == 'f':
                 if not ConstFloat(resvalue).same_constant(tobox.constbox()):
                     self.metainterp._record_helper(rop.GETARRAYITEM_GC_F, resvalue, arraydescr, arraybox, indexbox)
                     self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
-                    print "assertion in GETARRAYITEM_GC_F failed", resvalue, tobox.getfloat()
+                    print("assertion in GETARRAYITEM_GC_F failed", resvalue, tobox.getfloat())
                     assert 0
             else:
                 assert 0, "unreachable"
@@ -1256,13 +1258,61 @@ class MIFrame(object):
 
     @arguments("newframe")
     def _opimpl_inline_call1(self, _):
+        self._try_tco()
         raise ChangeFrame
     @arguments("newframe2")
     def _opimpl_inline_call2(self, _):
+        self._try_tco()
         raise ChangeFrame
     @arguments("newframe3")
     def _opimpl_inline_call3(self, _):
+        self._try_tco()
         raise ChangeFrame
+
+    def _try_tco(self):
+        if self.jitcode.jitdriver_sd:
+            return
+        argcode = self._result_argcode
+        pc = self.pc
+        if argcode == 'v':
+            target_index = -1
+        else:
+            target_index = ord(self.bytecode[pc - 1])
+        op = ord(self.bytecode[pc])
+        if op != self.metainterp.staticdata.op_live:
+            # XXX should really not happen
+            return
+        next_pc = pc + SIZE_LIVE_OP
+        if next_pc >= len(self.bytecode):
+            return
+        next_op = ord(self.bytecode[next_pc])
+        if ((argcode == 'i' and next_op == self.metainterp.staticdata.op_int_return) or
+            (argcode == 'r' and next_op == self.metainterp.staticdata.op_ref_return) or
+            (argcode == 'f' and next_op == self.metainterp.staticdata.op_float_return) or
+            (argcode == 'v' and next_op == self.metainterp.staticdata.op_void_return)
+        ):
+            # we have a return of the same type. check whether it's the result register
+            if (target_index < 0 or
+                    ord(self.bytecode[next_pc + 1]) == target_index):
+                debug_start("jit-tco")
+                debug_print("removed frame", self.jitcode.name)
+                debug_stop("jit-tco")
+                assert self.metainterp.framestack[-2] is self
+                del self.metainterp.framestack[-2]
+                tracelength = self.metainterp.history.length()
+                if tracelength == self.metainterp.trace_length_at_last_tco:
+                    # gh-5021: fix a pretty obscure problem: we can have
+                    # infinite recursion that is turned into a loop, without a
+                    # single new traced op. this would lead to an infinite
+                    # tail-recursive loop purely in the meta-interp, that isn't
+                    # even interuptible with ctrl-c
+
+                    # we solve this with tracing a useless same_as. then we
+                    # will run into the tracelimit in this situation.
+                    self.metainterp._record_helper(
+                        rop.SAME_AS_I, tracelength, None, ConstInt(tracelength))
+                else:
+                    self.metainterp.trace_length_at_last_tco = tracelength
 
     opimpl_inline_call_r_i = _opimpl_inline_call1
     opimpl_inline_call_r_r = _opimpl_inline_call1
@@ -1560,8 +1610,7 @@ class MIFrame(object):
         metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
         warmrunnerstate = jitdriver_sd.warmstate
         if (metainterp.force_finish_trace and
-                (metainterp.history.length() > warmrunnerstate.trace_limit * 0.8 or
-                 metainterp.history.trace_tag_overflow_imminent())):
+                (metainterp.history.length() > warmrunnerstate.trace_limit * 0.8)):
             self._create_segmented_trace_and_blackhole()
 
     def _create_segmented_trace_and_blackhole(self):
@@ -2182,6 +2231,10 @@ class MetaInterpStaticData(object):
         self.op_goto = insns.get('goto/L', -1)
         self.op_catch_exception = insns.get('catch_exception/L', -1)
         self.op_rvmprof_code = insns.get('rvmprof_code/ii', -1)
+        self.op_int_return = insns.get('int_return/i', -1)
+        self.op_ref_return = insns.get('ref_return/r', -1)
+        self.op_float_return = insns.get('float_return/f', -1)
+        self.op_void_return = insns.get('void_return/', -1)
 
     def setup_descrs(self, descrs):
         self.opcode_descrs = descrs
@@ -2334,7 +2387,7 @@ class MetaInterp(object):
         self.last_exc_value = lltype.nullptr(rclass.OBJECT)
         self.forced_virtualizable = None
         self.partial_trace = None
-        self.retracing_from = (-1, -1, -1)
+        self.retracing_from = (-1, -1, -1, -1, -1)
         self.call_pure_results = args_dict()
         self.heapcache = HeapCache()
 
@@ -2350,6 +2403,7 @@ class MetaInterp(object):
         # with a GUARD_ALWAYS_FAILS (and an unreachable finish that raises
         # AssertionError)
         self.force_finish_trace = force_finish_trace
+        self.trace_length_at_last_tco = -1
 
     def retrace_needed(self, trace, exported_state):
         self.partial_trace = trace
@@ -2484,15 +2538,15 @@ class MetaInterp(object):
             if jitcode.jitdriver_sd:
                 portal_call_depth += 1
         if portal_call_depth != self.portal_call_depth:
-            print "portal_call_depth problem!!!"
-            print portal_call_depth, self.portal_call_depth
+            print("portal_call_depth problem!!!")
+            print(portal_call_depth, self.portal_call_depth)
             for frame in self.framestack:
                 jitcode = frame.jitcode
                 if jitcode.jitdriver_sd:
-                    print "P",
+                    print("P", end=" ")
                 else:
-                    print " ",
-                print jitcode.name
+                    print(" ", end=" ")
+                print(jitcode.name)
             raise AssertionError
 
     def generate_guard(self, opnum, box=None, extraarg=None, resumepc=-1):
@@ -2534,9 +2588,10 @@ class MetaInterp(object):
             saved_pc = frame.pc
             if resumepc >= 0:
                 frame.pc = resumepc
-        resume.capture_resumedata(self.framestack, virtualizable_boxes,
-                                  self.virtualref_boxes, self.history.trace,
-                                  after_residual_call)
+        self.history.trace.capture_resumedata(
+            self.framestack, virtualizable_boxes,
+            self.virtualref_boxes,
+            after_residual_call)
         if self.framestack:
             self.framestack[-1].pc = saved_pc
 
@@ -2814,7 +2869,7 @@ class MetaInterp(object):
 
     def _compile_and_run_once(self, original_boxes):
         self.initialize_state_from_start(original_boxes)
-        self.current_merge_points = [(original_boxes, (0, 0, 0))]
+        self.current_merge_points = [(original_boxes, (0, 0, 0, 0, 0))]
         num_green_args = self.jitdriver_sd.num_green_args
         original_greenkey = original_boxes[:num_green_args]
         self.resumekey = compile.ResumeFromInterpDescr(original_greenkey)
@@ -3779,20 +3834,20 @@ def _get_opimpl_method(name, argcodes):
         #
         if not we_are_translated():
             if self.debug:
-                print '\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))),
+                print('\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))), end=" ")
             try:
                 resultbox = unboundmethod(self, *args)
             except Exception as e:
                 if self.debug:
-                    print '-> %s!' % e.__class__.__name__
+                    print('-> %s!' % e.__class__.__name__)
                 raise
             if num_return_args == 0:
                 if self.debug:
-                    print
+                    print()
                 assert resultbox is None
             else:
                 if self.debug:
-                    print '-> %r' % (resultbox,)
+                    print('-> %r' % (resultbox,))
                 assert argcodes[next_argcode] == '>'
                 result_argcode = argcodes[next_argcode + 1]
                 if 'ovf' not in name:

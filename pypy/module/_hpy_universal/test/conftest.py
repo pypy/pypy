@@ -87,6 +87,13 @@ def pytest_ignore_collect(path, config):
                                    '_vendored', 'test_support.py'):
         return True
 
+
+def pytest_collect_file(path, parent):
+    if (parent.config.getoption('runappdirect') or parent.config.getoption('direct_apptest')
+            or disable):
+        pytest.skip("_hpy_universal tests skipped, module not active")
+
+
 def make_hpy_apptest(collector, name, cls):
     """
     Automatically create HPy AppTests from the _vendored tests.

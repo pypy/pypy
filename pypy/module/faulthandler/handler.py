@@ -57,8 +57,8 @@ class Handler(object):
         self.setup()
         self.fatal_error_w_file = w_file
         self.check_err(cintf.pypy_faulthandler_enable(
-            rffi.cast(rffi.INT, fileno),
-            rffi.cast(rffi.INT, all_threads)))
+            rffi.cast(rffi.INT_real, fileno),
+            rffi.cast(rffi.INT_real, all_threads)))
 
     def disable(self):
         cintf.pypy_faulthandler_disable()
@@ -71,8 +71,8 @@ class Handler(object):
         fileno, w_file = self.get_fileno_and_file(w_file)
         self.setup()
         cintf.pypy_faulthandler_dump_traceback(
-            rffi.cast(rffi.INT, fileno),
-            rffi.cast(rffi.INT, all_threads),
+            rffi.cast(rffi.INT_real, fileno),
+            rffi.cast(rffi.INT_real, all_threads),
             llmemory.NULL)
         keepalive_until_here(w_file)
 
@@ -90,7 +90,7 @@ class Handler(object):
         self.check_err(cintf.pypy_faulthandler_dump_traceback_later(
             rffi.cast(rffi.LONGLONG, microseconds),
             rffi.cast(rffi.INT, repeat),
-            rffi.cast(rffi.INT, fileno),
+            rffi.cast(rffi.INT_real, fileno),
             rffi.cast(rffi.INT, exit)))
         self.dump_traceback_later_w_file = w_file
 
@@ -115,10 +115,10 @@ class Handler(object):
         fileno, w_file = self.get_fileno_and_file(w_file)
         self.setup()
         self.check_err(cintf.pypy_faulthandler_register(
-            rffi.cast(rffi.INT, signum),
-            rffi.cast(rffi.INT, fileno),
-            rffi.cast(rffi.INT, all_threads),
-            rffi.cast(rffi.INT, chain)))
+            rffi.cast(rffi.INT_real, signum),
+            rffi.cast(rffi.INT_real, fileno),
+            rffi.cast(rffi.INT_real, all_threads),
+            rffi.cast(rffi.INT_real, chain)))
         if self.user_w_files is None:
             self.user_w_files = {}
         self.user_w_files[signum] = w_file

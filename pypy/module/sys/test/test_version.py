@@ -38,6 +38,10 @@ class AppTestVersion:
         pypy = sys.implementation.name.lower()
         assert sys.implementation.name == pypy
 
+    def test_git_version(self):
+        import sys
+        info = sys._git
+        assert info[0] == "PyPy"
 
 
 def test_get_version():

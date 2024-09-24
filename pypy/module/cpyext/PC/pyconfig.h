@@ -29,11 +29,6 @@ WIN32 is still required for the locale module.
 
 */
 
-/* Deprecated USE_DL_EXPORT macro - please use Py_BUILD_CORE */
-#ifdef USE_DL_EXPORT
-#       define Py_BUILD_CORE
-#endif /* USE_DL_EXPORT */
-
 /* Visual Studio 2005 introduces deprecation warnings for
    "insecure" and POSIX functions. The insecure functions should
    be replaced by *_s versions (according to Microsoft); the

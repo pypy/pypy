@@ -64,7 +64,7 @@ Highlights
 * The past months have seen pypy mature and grow, as rpython becomes the goto
   solution for writing fast dynamic language interpreters. Our separation of
   Rpython and the python interpreter PyPy is now much clearer in the
-  `PyPy documentation`_  and we now have seperate `RPython documentation`_.
+  `PyPy documentation`_  and we now have separate `RPython documentation`_.
   Tell us what still isn't clear, or even better help us improve the documentation.
 
 * We merged version 2.7.9 of python's stdlib. From the python release notice:

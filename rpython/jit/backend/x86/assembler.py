@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 
 from rpython.jit.backend.llsupport import jitframe, rewrite
@@ -1160,7 +1162,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if not self.verbose:
             return
         pos = self.mc.get_relative_pos()
-        print >> sys.stderr, ' 0x%x  %s' % (pos, text)
+        print(' 0x%x  %s' % (pos, text), file=sys.stderr)
 
     # ------------------------------------------------------------
 

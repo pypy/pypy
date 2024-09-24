@@ -964,7 +964,7 @@ a = A()
         finally: pass
         """
         code = compile_with_astcompiler(source, 'exec', self.space)
-        assert code.co_stacksize == 2
+        assert code.co_stacksize == 1
 
     def test_stackeffect_bug4(self):
         source = """if 1:
@@ -1002,6 +1002,19 @@ a = A()
                 return
         '''
         code = compile_with_astcompiler(source, 'exec', self.space)
+
+    def test_stackeffect_try_except_precision(self):
+        source = """if 1:
+        try:
+            g()
+        except TypeError as e:
+            h(i(e))
+            if j:
+                raise
+        print(6)
+        """
+        code = compile_with_astcompiler(source, 'exec', self.space)
+        assert code.co_stacksize == 5 # used to be 6
 
     def test_lambda(self):
         yield self.st, "y = lambda x: x", "y(4)", 4
@@ -1456,7 +1469,7 @@ def f():
                 )
 
             co = function.__code__
-            positions = co._positions()
+            positions = co.co_positions()
         """, 'positions', [
             (3, 3, 8, 9),
             (4, 4, 8, 9),

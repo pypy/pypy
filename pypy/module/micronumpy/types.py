@@ -4,7 +4,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rutf8 import Utf8StringIterator, codepoints_in_utf8, Utf8StringBuilder
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.floatobject import float2string
-from pypy.objspace.std.complexobject import str_format
+from pypy.objspace.std.complexobject import format_float
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from rpython.rlib import clibffi, jit, rfloat, rcomplex
 from rpython.rlib.objectmodel import specialize, we_are_translated
@@ -1180,7 +1180,7 @@ class ComplexFloating(object):
 
     def str_format(self, box, add_quotes=True):
         real, imag = self.for_computation(self.unbox(box))
-        imag_str = str_format(imag)
+        imag_str = format_float(imag, 'g', rfloat.DTSF_STR_PRECISION)
         if not rfloat.isfinite(imag):
             imag_str += '*'
         imag_str += 'j'
@@ -1189,7 +1189,7 @@ class ComplexFloating(object):
         if real == 0 and math.copysign(1, real) == 1:
             return imag_str
 
-        real_str = str_format(real)
+        real_str = format_float(real, 'g', rfloat.DTSF_STR_PRECISION)
         op = '+' if imag >= 0 or math.isnan(imag) else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
 
@@ -2630,6 +2630,7 @@ complex_types = []
 _REQ_STRLEN = [0, 3, 5, 10, 10, 20, 20, 20, 20]  # data for can_cast_to()
 def _setup():
     # compute alignment
+    dummyspace = ObjSpace()
     for tp in globals().values():
         if isinstance(tp, type) and hasattr(tp, 'T'):
             tp.alignment = widen(clibffi.cast_type_to_ffitype(tp.T).c_alignment)
@@ -2639,7 +2640,7 @@ def _setup():
             if issubclass(tp, Integer):
                 all_int_types.append((tp, 'int'))
                 int_types.append(tp)
-                elsize = tp(ObjSpace()).get_element_size()
+                elsize = tp(dummyspace).get_element_size()
                 tp.strlen = _REQ_STRLEN[elsize]
                 if tp.kind == NPY.SIGNEDLTR:
                     tp.strlen += 1

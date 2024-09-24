@@ -1,5 +1,10 @@
-pytest<=6.0 ; python_version < "3.10"
-pytest ; python_version >= "3.10"
-hypothesis
+pytest<=6.2.5
+setuptools<70.1
+# use hypothesis before exceptiongroup, since it messes up exception formatting
+hypothesis<6.37.0
 vmprof ; python_implementation == "pypy"
 filelock
+pexpect
+# xdist will be triggered by setting PYTEST_XDIST_AUTO_NUM_WORKERS in the
+# buildbot worker. Useful on windows + extra_tests
+pytest-xdist

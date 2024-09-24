@@ -39,10 +39,10 @@ class ExceptionTest(unittest.TestCase):
 
     data = (('1/0', ZeroDivisionError, "division by zero\n"),
             ('abc', NameError, "name 'abc' is not defined. "
-                               "Did you mean: 'abs'?\n"),
+                               "Did you mean: 'abs'?"),
             ('int.reel', AttributeError,
                  "type object 'int' has no attribute 'reel'. "
-                 "Did you mean: 'real'?\n"),
+                 "Did you mean: 'real'?"),
             )
 
     def test_get_message(self):

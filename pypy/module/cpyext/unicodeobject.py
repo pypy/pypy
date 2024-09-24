@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rstring
-from rpython.rlib.rarithmetic import widen, r_uint
+from rpython.rlib.rarithmetic import widen, r_uint, r_uint32, intmask
 from rpython.rlib import rstring, rutf8
 from rpython.tool.sourcetools import func_renamer
 
@@ -127,14 +127,16 @@ def unicode_realize(space, py_obj):
         value = rffi.charpsize2str(data, size * kind)
         state = space.fromcache(CodecState)
         eh = state.decode_error_handler
+        w_value = space.newbytes(value)
         if kind == _1BYTE_KIND:
-            s_utf8, lgt, _ = str_decode_latin_1(value, 'strict', True, eh)
+            s_utf8, lgt, _ = str_decode_latin_1(space, value, w_value, 'strict', True, eh)
         elif kind == _2BYTE_KIND:
-            decoded = str_decode_utf_16_helper(value, 'strict', True, eh,
+            decoded = str_decode_utf_16_helper(space, value, w_value, 'strict', True, eh,
                                                byteorder=BYTEORDER)
             s_utf8, lgt = decoded[:2]
         elif kind == _4BYTE_KIND:
-            decoded = str_decode_utf_32_helper(value, 'strict', True, eh,
+            decoded = str_decode_utf_32_helper(space, value, w_value, 'strict',
+                                               True, eh,
                                                byteorder=BYTEORDER)
             s_utf8, lgt = decoded[:2]
         else:
@@ -287,127 +289,127 @@ def set_compact(py_obj, value):
     get_state(py_obj).c_compact = cts.cast('unsigned char', value)
 
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISSPACE(space, ch):
     """Return 1 or 0 depending on whether ch is a whitespace character."""
-    ch = ord(ch)
+    ch = rffi.cast(lltype.Signed, ch)
     if ch >= rutf8.MAXUNICODE:
         return 0
     return unicodedb.isspace(ch)
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISALPHA(space, ch):
     """Return 1 or 0 depending on whether ch is an alphabetic character."""
-    ch = ord(ch)
+    ch = rffi.cast(lltype.Signed, ch)
     if ch >= rutf8.MAXUNICODE:
         return 0
     return unicodedb.isalpha(ch)
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISALNUM(space, ch):
     """Return 1 or 0 depending on whether ch is an alphanumeric character."""
-    ch = ord(ch)
+    ch = rffi.cast(lltype.Signed, ch)
     if ch >= rutf8.MAXUNICODE:
         return 0
     return unicodedb.isalnum(ch)
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISLINEBREAK(space, ch):
     """Return 1 or 0 depending on whether ch is a linebreak character."""
-    ch = ord(ch)
+    ch = rffi.cast(lltype.Signed, ch)
     if ch >= rutf8.MAXUNICODE:
         return 0
     return unicodedb.islinebreak(ch)
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISDECIMAL(space, ch):
     """Return 1 or 0 depending on whether ch is a decimal character."""
-    ch = ord(ch)
+    ch = rffi.cast(lltype.Signed, ch)
     if ch >= rutf8.MAXUNICODE:
         return 0
     return unicodedb.isdecimal(ch)
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISDIGIT(space, ch):
     """Return 1 or 0 depending on whether ch is a digit character."""
-    ch = ord(ch)
+    ch = rffi.cast(lltype.Signed, ch)
     if ch >= rutf8.MAXUNICODE:
         return 0
     return unicodedb.isdigit(ch)
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISNUMERIC(space, ch):
     """Return 1 or 0 depending on whether ch is a numeric character."""
-    ch = ord(ch)
+    ch = rffi.cast(lltype.Signed, ch)
     if ch >= rutf8.MAXUNICODE:
         return 0
     return unicodedb.isnumeric(ch)
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISLOWER(space, ch):
     """Return 1 or 0 depending on whether ch is a lowercase character."""
-    ch = ord(ch)
+    ch = rffi.cast(lltype.Signed, ch)
     if ch >= rutf8.MAXUNICODE:
         return 0
     return unicodedb.islower(ch)
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISUPPER(space, ch):
     """Return 1 or 0 depending on whether ch is an uppercase character."""
-    ch = ord(ch)
+    ch = rffi.cast(lltype.Signed, ch)
     if ch >= rutf8.MAXUNICODE:
         return 0
     return unicodedb.isupper(ch)
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISTITLE(space, ch):
     """Return 1 or 0 depending on whether ch is a titlecase character."""
-    ch = ord(ch)
+    ch = rffi.cast(lltype.Signed, ch)
     if ch >= rutf8.MAXUNICODE:
         return 0
     return unicodedb.istitle(ch)
 
-@cpython_api([Py_UNICODE], Py_UNICODE, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], Py_UCS4, error=CANNOT_FAIL)
 def Py_UNICODE_TOLOWER(space, ch):
     """Return the character ch converted to lower case."""
-    val = ord(ch)
+    val = rffi.cast(lltype.Signed, ch)
     if val >= rutf8.MAXUNICODE:
         return ch
-    return unichr(unicodedb.tolower(val))
+    return r_uint32(unicodedb.tolower(val))
 
-@cpython_api([Py_UNICODE], Py_UNICODE, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], Py_UCS4, error=CANNOT_FAIL)
 def Py_UNICODE_TOUPPER(space, ch):
     """Return the character ch converted to upper case."""
-    val = ord(ch)
+    val = rffi.cast(lltype.Signed, ch)
     if val >= rutf8.MAXUNICODE:
         return ch
-    return unichr(unicodedb.toupper(val))
+    return r_uint32(unicodedb.toupper(val))
 
-@cpython_api([Py_UNICODE], Py_UNICODE, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], Py_UCS4, error=CANNOT_FAIL)
 def Py_UNICODE_TOTITLE(space, ch):
     """Return the character ch converted to title case."""
-    val = ord(ch)
+    val = rffi.cast(lltype.Signed, ch)
     if val >= rutf8.MAXUNICODE:
         return ch
-    return unichr(unicodedb.totitle(val))
+    return r_uint32(unicodedb.totitle(val))
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_TODECIMAL(space, ch):
     """Return the character ch converted to a decimal positive integer.  Return
     -1 if this is not possible.  This macro does not raise exceptions."""
-    ch = ord(ch)
-    if ch >= rutf8.MAXUNICODE:
+    val = rffi.cast(lltype.Signed, ch)
+    if val >= rutf8.MAXUNICODE:
         return -1
     try:
-        return unicodedb.decimal(ch)
+        return unicodedb.decimal(val)
     except KeyError:
         return -1
 
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_TODIGIT(space, ch):
     """Return the character ch converted to a single digit integer. Return -1 if
     this is not possible.  This macro does not raise exceptions."""
-    ch = ord(ch)
+    ch = rffi.cast(lltype.Signed, ch)
     if ch >= rutf8.MAXUNICODE:
         return -1
     try:
@@ -415,11 +417,11 @@ def Py_UNICODE_TODIGIT(space, ch):
     except KeyError:
         return -1
 
-@cpython_api([Py_UNICODE], rffi.DOUBLE, error=CANNOT_FAIL)
+@cpython_api([Py_UCS4], rffi.DOUBLE, error=CANNOT_FAIL)
 def Py_UNICODE_TONUMERIC(space, ch):
     """Return the character ch converted to a double. Return -1.0 if this is not
     possible.  This macro does not raise exceptions."""
-    ch = ord(ch)
+    ch = rffi.cast(lltype.Signed, ch)
     if ch >= rutf8.MAXUNICODE:
         return -1.0
     try:
@@ -482,7 +484,8 @@ def _readify(space, py_obj, value):
         else:
             set_ascii(py_obj, 0)
             # re-encode as latin-1
-            value = utf8_encode_latin_1(value, 'strict', None)
+            w_value = space.newtext(value)
+            value = utf8_encode_latin_1(space, value, w_value, 'strict', None)
             if use_compact:
                 set_data_compact(py_obj, value, len(value))
             else:
@@ -493,8 +496,9 @@ def _readify(space, py_obj, value):
         if rffi.sizeof(lltype.UniChar) == 2:
             ucs2_data = cts.cast('void *', get_wbuffer(py_obj))
         if not ucs2_data:
+            w_value = space.newtext(value)
             ucs2_str = utf8_encode_utf_16_helper(
-                value, 'strict',
+                space, value, w_value, 'strict',
                 byteorder=BYTEORDER)
             ucs2_data = cts.cast('void *', rffi.str2charp(ucs2_str))
             if rffi.sizeof(lltype.UniChar) == 2:
@@ -509,8 +513,9 @@ def _readify(space, py_obj, value):
         if rffi.sizeof(lltype.UniChar) == 4:
             ucs4_data = cts.cast('void *', get_wbuffer(py_obj))
         if not ucs4_data:
+            w_value = space.newtext(value)
             ucs4_str = utf8_encode_utf_32_helper(
-                value, 'strict',
+                space, value, w_value, 'strict',
                 byteorder=BYTEORDER)
             ucs4_data = cts.cast('void *', rffi.str2charp(ucs4_str))
             if rffi.sizeof(lltype.UniChar) == 4:
@@ -541,7 +546,8 @@ def PyUnicode_FromKindAndData(space, kind, data, size):
         value = rffi.charpsize2str(data, 4 * size)
         state = space.fromcache(CodecState)
         eh = state.decode_error_handler
-        result, length, pos, _ = str_decode_utf_32_helper(value,
+        w_value = space.newbytes(value)
+        result, length, pos, _ = str_decode_utf_32_helper(space, value, w_value,
                                              'surrogatpass', True, eh,
                                              byteorder=BYTEORDER,
                                              allow_surrogates=True)
@@ -1074,10 +1080,14 @@ make_conversion_functions('Latin1', 'latin-1')
 if sys.platform == 'win32':
     from pypy.module._codecs.interp_codecs import code_page_encode
     make_conversion_functions('MBCS', 'mbcs')
+
     @cpython_api([rffi.INT_real, PyObject, CONST_STRING], PyObject)
     def PyUnicode_EncodeCodePage(space, code_page, w_obj, errors):
-        res = code_page_encode(space, widen(code_page), w_obj,
-                               rffi.charp2str(errors))
+        if errors:
+            errors = rffi.charp2str(errors)
+        else:
+            errors = None
+        res = code_page_encode(space, widen(code_page), w_obj, errors)
         return space.listview(res)[0]
 
 @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, INTP_real], PyObject)
@@ -1125,8 +1135,9 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
         errors = 'strict'
 
     state = space.fromcache(CodecState)
+    w_string = space.newbytes(string)
     result, length, pos, bo = str_decode_utf_16_helper(
-        string, errors, True, state.decode_error_handler,
+        space, string, w_string, errors, True, state.decode_error_handler,
         byteorder=byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT_real, bo)
@@ -1179,8 +1190,9 @@ def PyUnicode_DecodeUTF32(space, s, size, llerrors, pbyteorder):
         errors = 'strict'
 
     state = space.fromcache(CodecState)
+    w_string = space.newbytes(string)
     result, length, pos, bo = str_decode_utf_32_helper(
-        string, errors, True, state.decode_error_handler,
+        space, string, w_string, errors, True, state.decode_error_handler,
         byteorder=byteorder)
     if pbyteorder is not None:
         pbyteorder[0] = rffi.cast(rffi.INT_real, bo)
@@ -1208,7 +1220,8 @@ def PyUnicode_EncodeDecimal(space, s, length, output, llerrors):
     else:
         errors = None
     state = space.fromcache(CodecState)
-    result = unicode_encode_decimal(u, errors, state.encode_error_handler)
+    w_u = space.newtext(u)
+    result = unicode_encode_decimal(space, u, w_u, errors, state.encode_error_handler)
     i = len(result)
     output[i] = '\0'
     i -= 1
@@ -1228,7 +1241,7 @@ def PyUnicode_TransformDecimalToASCII(space, s, size):
         ch = s[i]
         ordch = ord(ch)
         if ordch > 127:
-            decimal = Py_UNICODE_TODECIMAL(space, ch)
+            decimal = Py_UNICODE_TODECIMAL(space, ordch)
             decimal = rffi.cast(lltype.Signed, decimal)
             if decimal >= 0:
                 ordch = ord('0') + decimal

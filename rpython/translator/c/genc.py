@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import contextlib
 import py
 import sys, os
@@ -299,6 +301,7 @@ class CStandaloneBuilder(CBuilder):
             envrepr = ''
         else:
             envrepr = ' [env=%r]' % (env,)
+            env.update(os.environ)
         if exe is None:
             exe = self.executable_name
         log.cmdexec('%s %s%s' % (exe, args, envrepr))
@@ -311,7 +314,7 @@ class CStandaloneBuilder(CBuilder):
                     raise Exception("Returned %d, but expected %d" % (
                         res.returncode, expect_crash))
                 return res.out, res.err
-            print >> sys.stderr, res.err
+            print(res.err, file=sys.stderr)
             raise Exception("Returned %d" % (res.returncode,))
         if expect_crash:
             raise Exception("Program did not crash!")
@@ -632,13 +635,13 @@ class SourceGenerator:
     @contextlib.contextmanager
     def write_on_included_file(self, f, name):
         fi = self.makefile(name)
-        print >> f, '#include "%s"' % name
+        print('#include "%s"' % name, file=f)
         yield fi
         fi.close()
 
     @contextlib.contextmanager
     def write_on_maybe_separate_source(self, f, name):
-        print >> f, '/* %s */' % name
+        print('/* %s */' % name, file=f)
         if self.one_source_file:
             yield f
         else:
@@ -667,16 +670,16 @@ class SourceGenerator:
         #
         # Implementation of functions and global structures and arrays
         #
-        print >> f
-        print >> f, '/***********************************************************/'
-        print >> f, '/***  Implementations                                    ***/'
-        print >> f
+        print(file=f)
+        print('/***********************************************************/', file=f)
+        print('/***  Implementations                                    ***/', file=f)
+        print(file=f)
 
-        print >> f, '#define PYPY_FILE_NAME "%s"' % os.path.basename(f.name)
-        print >> f, '#include "src/g_include.h"'
+        print('#define PYPY_FILE_NAME "%s"' % os.path.basename(f.name), file=f)
+        print('#include "src/g_include.h"', file=f)
         if self.database.reverse_debugger:
-            print >> f, '#include "revdb_def.h"'
-        print >> f
+            print('#include "revdb_def.h"', file=f)
+        print(file=f)
 
         nextralines = 11 + 1
         for name, nodeiter in self.splitnodesimpl('nonfuncnodes.c',
@@ -684,17 +687,17 @@ class SourceGenerator:
                                                    nextralines, 1):
             with self.write_on_maybe_separate_source(f, name) as fc:
                 if fc is not f:
-                    print >> fc, '/***********************************************************/'
-                    print >> fc, '/***  Non-function Implementations                       ***/'
-                    print >> fc
-                    print >> fc, '#include "singleheader.h"'
-                    print >> fc, '#include "src/g_include.h"'
-                    print >> fc
-                print >> fc, MARKER
+                    print('/***********************************************************/', file=fc)
+                    print('/***  Non-function Implementations                       ***/', file=fc)
+                    print(file=fc)
+                    print('#include "singleheader.h"', file=fc)
+                    print('#include "src/g_include.h"', file=fc)
+                    print(file=fc)
+                print(MARKER, file=fc)
                 for node, impl in nodeiter:
-                    print >> fc, '\n'.join(impl)
-                    print >> fc, MARKER
-                print >> fc, '/***********************************************************/'
+                    print('\n'.join(impl), file=fc)
+                    print(MARKER, file=fc)
+                print('/***********************************************************/', file=fc)
 
         nextralines = 12
         for name, nodeiter in self.splitnodesimpl('implement.c',
@@ -703,80 +706,80 @@ class SourceGenerator:
                                                    split_criteria_big):
             with self.write_on_maybe_separate_source(f, name) as fc:
                 if fc is not f:
-                    print >> fc, '/***********************************************************/'
-                    print >> fc, '/***  Implementations                                    ***/'
-                    print >> fc
-                    print >> fc, '#include "singleheader.h"'
-                    print >> fc, '#define PYPY_FILE_NAME "%s"' % name
-                    print >> fc, '#include "src/g_include.h"'
+                    print('/***********************************************************/', file=fc)
+                    print('/***  Implementations                                    ***/', file=fc)
+                    print(file=fc)
+                    print('#include "singleheader.h"', file=fc)
+                    print('#define PYPY_FILE_NAME "%s"' % name, file=fc)
+                    print('#include "src/g_include.h"', file=fc)
                     if self.database.reverse_debugger:
-                        print >> fc, '#include "revdb_def.h"'
-                    print >> fc
-                print >> fc, MARKER
+                        print('#include "revdb_def.h"', file=fc)
+                    print(file=fc)
+                print(MARKER, file=fc)
                 for node, impl in nodeiter:
-                    print >> fc, '\n'.join(impl)
-                    print >> fc, MARKER
-                print >> fc, '/***********************************************************/'
-        print >> f
+                    print('\n'.join(impl), file=fc)
+                    print(MARKER, file=fc)
+                print('/***********************************************************/', file=fc)
+        print(file=f)
         if self.database.all_field_names is not None:
             gen_fieldstats(f, self)
 
 
 def gen_structdef(f, database):
     structdeflist = database.getstructdeflist()
-    print >> f, '/***********************************************************/'
-    print >> f, '/***  Structure definitions                              ***/'
-    print >> f
-    print >> f, "#ifndef _PYPY_STRUCTDEF_H"
-    print >> f, "#define _PYPY_STRUCTDEF_H"
+    print('/***********************************************************/', file=f)
+    print('/***  Structure definitions                              ***/', file=f)
+    print(file=f)
+    print("#ifndef _PYPY_STRUCTDEF_H", file=f)
+    print("#define _PYPY_STRUCTDEF_H", file=f)
     for node in structdeflist:
         if hasattr(node, 'forward_decl'):
             if node.forward_decl:
-                print >> f, node.forward_decl
+                print(node.forward_decl, file=f)
         elif node.name is not None:
-            print >> f, '%s %s;' % (node.typetag, node.name)
-    print >> f
+            print('%s %s;' % (node.typetag, node.name), file=f)
+    print(file=f)
     for node in structdeflist:
         for line in node.definition():
-            print >> f, line
+            print(line, file=f)
     gen_threadlocal_structdef(f, database)
-    print >> f, "#endif"
+    print("#endif", file=f)
 
 def gen_threadlocal_structdef(f, database):
     from rpython.translator.c.support import cdecl
-    print >> f
+    print(file=f)
     bk = database.translator.annotator.bookkeeper
     fields = list(bk.thread_local_fields)
     fields.sort(key=lambda field: field.fieldname)
     for field in fields:
-        print >> f, ('#define RPY_TLOFS_%s  offsetof(' % field.fieldname +
-                     'struct pypy_threadlocal_s, %s)' % field.fieldname)
+        print('#define RPY_TLOFS_%s  offsetof(' % field.fieldname +
+                     'struct pypy_threadlocal_s, %s)' % field.fieldname, file=f)
     if fields:
-        print >> f, '#define RPY_TLOFSFIRST  RPY_TLOFS_%s' % fields[0].fieldname
+        print('#define RPY_TLOFSFIRST  RPY_TLOFS_%s' % fields[0].fieldname, file=f)
     else:
-        print >> f, '#define RPY_TLOFSFIRST  sizeof(struct pypy_threadlocal_s)'
-    print >> f, 'struct pypy_threadlocal_s {'
-    print >> f, '\tint ready;'
-    print >> f, '\tchar *stack_end;'
-    print >> f, '\tstruct pypy_threadlocal_s *prev, *next;'
+        print('#define RPY_TLOFSFIRST  sizeof(struct pypy_threadlocal_s)', file=f)
+    print('struct pypy_threadlocal_s {', file=f)
+    print('\tint ready;', file=f)
+    print('\tchar *stack_end;', file=f)
+    print('\tstruct pypy_threadlocal_s *prev, *next;', file=f)
     # note: if the four fixed fields above are changed, you need
     # to adapt threadlocal.c's linkedlist_head declaration too
     for field in fields:
         typename = database.gettype(field.FIELDTYPE)
-        print >> f, '\t%s;' % cdecl(typename, field.fieldname)
-    print >> f, '};'
-    print >> f
+        print('\t%s;' % cdecl(typename, field.fieldname), file=f)
+    print('};', file=f)
+    print(file=f)
 
 def gen_forwarddecl(f, database):
-    print >> f, '/***********************************************************/'
-    print >> f, '/***  Forward declarations                               ***/'
-    print >> f
-    print >> f, "#ifndef _PYPY_FORWARDDECL_H"
-    print >> f, "#define _PYPY_FORWARDDECL_H"
+    print('/***********************************************************/', file=f)
+    print('/***  Forward declarations                               ***/', file=f)
+    print(file=f)
+    print("#ifndef _PYPY_FORWARDDECL_H", file=f)
+    print("#define _PYPY_FORWARDDECL_H", file=f)
     for node in database.globalcontainers():
         for line in node.forward_declaration():
-            print >> f, line
-    print >> f, "#endif"
+            print(line, file=f)
+    print("#endif", file=f)
 
 def gen_preimpl(f, database):
     f.write('#ifndef _PY_PREIMPL_H\n#define _PY_PREIMPL_H\n')
@@ -785,31 +788,31 @@ def gen_preimpl(f, database):
     preimplementationlines = pre_include_code_lines(
         database, database.translator.rtyper)
     for line in preimplementationlines:
-        print >> f, line
+        print(line, file=f)
     f.write('#endif /* _PY_PREIMPL_H */\n')
 
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
-    print >> f, 'void RPython_StartupCode(void) {'
+    print('void RPython_StartupCode(void) {', file=f)
 
     for line in database.gcpolicy.gc_startup_code():
-        print >> f,"\t" + line
+        print("\t" + line, file=f)
 
     # put float infinities in global constants, we should not have so many of them for now to make
     # a table+loop preferable
     for dest, value in database.late_initializations:
-        print >> f, "\t%s = %s;" % (dest, value)
+        print("\t%s = %s;" % (dest, value), file=f)
 
     for node in database.containerlist:
         lines = list(node.startupcode())
         if lines:
             for line in lines:
-                print >> f, '\t'+line
+                print('\t'+line, file=f)
 
     for ll_init in database.translator._call_at_startup:
-        print >> f, '\t%s();\t/* call_at_startup */' % (database.get(ll_init),)
+        print('\t%s();\t/* call_at_startup */' % (database.get(ll_init),), file=f)
 
-    print >> f, '}'
+    print('}', file=f)
 
 def commondefs(defines):
     from rpython.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
@@ -855,14 +858,14 @@ def gen_source(database, modulename, targetdir,
     #
     # Header
     #
-    print >> f, '#include "common_header.h"'
-    print >> f
+    print('#include "common_header.h"', file=f)
+    print(file=f)
     commondefs(defines)
     for key, value in defines.items():
-        print >> fi, '#define %s %s' % (key, value)
+        print('#define %s %s' % (key, value), file=fi)
 
     eci.write_c_header(fi)
-    print >> fi, '#include "src/g_prerequisite.h"'
+    print('#include "src/g_prerequisite.h"', file=fi)
     fi.write('#endif /* _PY_COMMON_HEADER_H*/\n')
 
     fi.close()
@@ -883,7 +886,7 @@ def gen_source(database, modulename, targetdir,
     if 'PYPY_INSTRUMENT' in defines:
         fi = incfilename.open('a')
         n = database.instrument_ncounter
-        print >>fi, "#define PYPY_INSTRUMENT_NCOUNTER %d" % n
+        print("#define PYPY_INSTRUMENT_NCOUNTER %d" % n, file=fi)
         fi.close()
     if database.reverse_debugger:
         from rpython.translator.revdb import gencsupp
@@ -907,22 +910,22 @@ def gen_source(database, modulename, targetdir,
 
 def gen_fieldstats(f, sg):
     with sg.write_on_maybe_separate_source(f, 'fieldstats.c') as fc:
-        print >> fc, '#include "singleheader.h"'
-        print >> fc, '#include "src/g_include.h"'
-        print >> fc, "struct rpy_access_stats_type0 rpy_access_stats = {"
-        print >> fc, ", ".join(["0"] * len(sg.database.all_field_names) * 2)
-        print >> fc, "};"
-        print >> fc, ""
-        print >> fc, "void _pypy_print_field_stats() {"
-        print >> fc, '\tPYPY_DEBUG_START("stats-fields", 0);'
-        print >> fc, '\tif (PYPY_HAVE_DEBUG_PRINTS) {'
+        print('#include "singleheader.h"', file=fc)
+        print('#include "src/g_include.h"', file=fc)
+        print("struct rpy_access_stats_type0 rpy_access_stats = {", file=fc)
+        print(", ".join(["0"] * len(sg.database.all_field_names) * 2), file=fc)
+        print("};", file=fc)
+        print("", file=fc)
+        print("void _pypy_print_field_stats() {", file=fc)
+        print('\tPYPY_DEBUG_START("stats-fields", 0);', file=fc)
+        print('\tif (PYPY_HAVE_DEBUG_PRINTS) {', file=fc)
         for kind in "read", "write":
             for fieldname in sorted(sg.database.all_field_names):
-                print >> fc, '\t\tfprintf(PYPY_DEBUG_FILE, "%s %s %%ld\\n", rpy_access_stats.%s_%s);' % (
-                        kind, fieldname, fieldname, kind)
-        print >> fc, '\t}'
-        print >> fc, '\tPYPY_DEBUG_STOP("stats-fields", 0);'
-        print >> fc, "}"
+                print('\t\tfprintf(PYPY_DEBUG_FILE, "%s %s %%ld\\n", rpy_access_stats.%s_%s);' % (
+                      kind, fieldname, fieldname, kind), file=fc)
+        print('\t}', file=fc)
+        print('\tPYPY_DEBUG_STOP("stats-fields", 0);', file=fc)
+        print("}", file=fc)
 
     # XXX hack, add something to structdef.h later
     filepath = sg.path.join('structdef.h')

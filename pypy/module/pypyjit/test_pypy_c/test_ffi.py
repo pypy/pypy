@@ -426,10 +426,6 @@ class Test__ffi(BaseTestPyPyC):
         i153 = int_add(i138, 4)
         setarrayitem_raw(i153, 0, i106, descr=...)
         p156 = getfield_gc_r(p48, descr=...)
-        i158 = getfield_raw_i(..., descr=...)
-        setfield_gc(p48, p49, descr=...)
-        setfield_gc(p134, ConstPtr(null), descr=...)
-        i159 = int_lt(i158, 0)
-        guard_false(i159, descr=...)
+        ...
         jump(..., descr=...)
         """)

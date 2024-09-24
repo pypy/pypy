@@ -14,7 +14,7 @@ objects, where allocation is very cheap, being just a pointer bump. The nursery
 size is a very crucial variable - depending on your workload (one or many
 processes) and cache sizes you might want to experiment with it via
 *PYPY_GC_NURSERY* environment variable. When the nursery is full, a minor
-collection is performed. Freed objects are no longer referencable and
+collection is performed. Freed objects are no longer referenceable and
 just die, just by not being referenced any more; on the other hand, objects
 found to still be alive must survive and are copied from the nursery
 to the old generation. Either to arenas, which are collections
@@ -310,7 +310,8 @@ several environment variables:
 
 ``PYPY_GC_NURSERY``
     The nursery size.
-    Defaults to 1/2 of your last-level cache, or ``4M`` if unknown.
+    Defaults to 1/2 of your last-level cache, ``4M`` if unknown, or ``4M`` if
+    the last-level cache is too small.
     Small values (like 1 or 1KB) are useful for debugging.
 
 ``PYPY_GC_NURSERY_DEBUG``

@@ -1050,7 +1050,7 @@ _static_opcode_stack_effects = {
 
     ops.LOAD_BUILD_CLASS: 1,
     ops.POP_BLOCK: 0,
-    ops.POP_EXCEPT: -1,
+    ops.POP_EXCEPT: 0,
     ops.SETUP_WITH: 1,
     ops.SETUP_FINALLY: 0,
     ops.SETUP_EXCEPT: 0,
@@ -1092,8 +1092,7 @@ _static_opcode_stack_effects = {
     ops.GET_AITER: 0,
     ops.GET_ANEXT: 1,
     ops.GET_YIELD_FROM_ITER: 0,
-    ops.END_ASYNC_FOR: -5, # this is really only -4, but it needs to be -5 to
-    # balance the SETUP_EXCEPT, which pretends to push +4
+    ops.END_ASYNC_FOR: -4,
 
     ops.LOAD_CONST: 1,
 
@@ -1235,13 +1234,13 @@ def _opcode_stack_effect_jump(op):
     if op == ops.FOR_ITER:
         return -1
     elif op == ops.SETUP_FINALLY:
-        return 2
-    elif op == ops.SETUP_EXCEPT:
-        return 4 # XXX why is this not 3?
-    elif op == ops.SETUP_WITH:
-        return 2
-    elif op == ops.SETUP_ASYNC_WITH:
         return 1
+    elif op == ops.SETUP_EXCEPT:
+        return 3
+    elif op == ops.SETUP_WITH:
+        return 1
+    elif op == ops.SETUP_ASYNC_WITH:
+        return 0
     elif op == ops.JUMP_IF_TRUE_OR_POP:
         return 0
     elif op == ops.JUMP_IF_FALSE_OR_POP:

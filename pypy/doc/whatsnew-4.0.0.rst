@@ -38,7 +38,7 @@ keep adding up between them.
 
 .. branch: remember-tracing-counts
 
-Reenable jithooks
+Re-enable jithooks
 
 .. branch: detect_egd2
 

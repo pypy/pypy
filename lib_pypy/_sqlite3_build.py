@@ -102,6 +102,8 @@ static void *const SQLITE_TRANSIENT;
 #define SQLITE_CREATE_VTABLE ...
 #define SQLITE_DROP_VTABLE ...
 #define SQLITE_FUNCTION ...
+#define SQLITE_RECURSIVE ...
+#define SQLITE_SAVEPOINT ...
 
 static const long SQLITE_OPEN_URI;
 static const long SQLITE_OPEN_READWRITE;
@@ -241,6 +243,7 @@ int sqlite3_value_numeric_type(sqlite3_value*);
 
 int sqlite3_sleep(int);
 const char *sqlite3_errstr(int);
+int sqlite3_complete(const char *sql);
 """)
 
 def _has_load_extension():

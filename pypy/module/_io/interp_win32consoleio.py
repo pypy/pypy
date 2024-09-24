@@ -1,6 +1,8 @@
 import sys
 import os
 
+DISABLE_WINCONSOLEIO = True
+
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
@@ -8,14 +10,13 @@ from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.module._io.interp_iobase import (W_RawIOBase, convert_size,
         DEFAULT_BUFFER_SIZE)
 from pypy.module.time.interp_time import sleep
-from pypy.interpreter.unicodehelper import (fsdecode, str_decode_utf_16,
+from pypy.interpreter.unicodehelper import (str_decode_utf_16,
         utf8_encode_utf_16)
 from pypy.module._codecs.interp_codecs import CodecState
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib._os_support import _preferred_traits
+from rpython.rlib._os_support import utf8_traits
 from rpython.rlib import rwin32
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.runicode import WideCharToMultiByte, MultiByteToWideChar
 from rpython.rlib.rwin32file import make_win32_traits
 from rpython.rlib.buffer import ByteBuffer
 from rpython.rlib.rarithmetic import intmask
@@ -134,7 +135,8 @@ def _pyio_get_console_type(space, w_path_or_fd):
     # Another alternative to this whole mess would be to adapt the ctypes-based
     # https://pypi.org/project/win_unicode_console/ which also implements PEP 528
 
-    return '\0'
+    if DISABLE_WINCONSOLEIO:
+        return '\0'
 
     if space.isinstance_w(w_path_or_fd, space.w_int):
         fd = space.int_w(w_path_or_fd)
@@ -296,25 +298,24 @@ class W_WinConsoleIO(W_RawIOBase):
             if self.writable:
                 access = rwin32.GENERIC_WRITE
         
-            traits = _preferred_traits(space.realunicode_w(w_path))
-            if not (traits.str is unicode):
-                raise oefmt(space.w_ValueError,
-                            "Non-unicode string name %s", traits.str)
+            traits = utf8_traits
             win32traits = make_win32_traits(traits)
             
             pathlen = space.len_w(w_path)
             name = rffi.utf82wcharp(space.utf8_w(w_path), pathlen)
-            self.handle = win32traits.CreateFile(name, 
-                rwin32.ALL_READ_WRITE, rwin32.SHARE_READ_WRITE,
-                rffi.NULL, win32traits.OPEN_EXISTING,
-                0, rffi.cast(rwin32.HANDLE, 0))
-            if self.handle == rwin32.INVALID_HANDLE_VALUE:
+            try:
                 self.handle = win32traits.CreateFile(name, 
-                    access,
-                    rwin32.SHARE_READ_WRITE,
+                    rwin32.ALL_READ_WRITE, rwin32.SHARE_READ_WRITE,
                     rffi.NULL, win32traits.OPEN_EXISTING,
                     0, rffi.cast(rwin32.HANDLE, 0))
-            lltype.free(name, flavor='raw')
+                if self.handle == rwin32.INVALID_HANDLE_VALUE:
+                    self.handle = win32traits.CreateFile(name, 
+                        access,
+                        rwin32.SHARE_READ_WRITE,
+                        rffi.NULL, win32traits.OPEN_EXISTING,
+                        0, rffi.cast(rwin32.HANDLE, 0))
+            finally:
+                lltype.free(name, flavor='raw')
             
             if self.handle == rwin32.INVALID_HANDLE_VALUE:
                 raise WindowsError(rwin32.GetLastError_saved(),
@@ -365,7 +366,7 @@ class W_WinConsoleIO(W_RawIOBase):
             return space.newtext("<%s name=%s>" % (typename, name_repr))
             
     def fileno_w(self, space):
-        traits = _preferred_traits(u"")
+        traits = utf8_traits
         win32traits = make_win32_traits(traits)
         if self.fd < 0 and self.handle != rwin32.INVALID_HANDLE_VALUE:
             if self.writable:
@@ -414,12 +415,13 @@ class W_WinConsoleIO(W_RawIOBase):
         # first copy any remaining buffered utf16 data
         builder = StringBuilder(length)
         wbuf = self._getbuffer(length * 2)
+        w_wbuf = space.newbytes(wbuf)
 
         state = space.fromcache(CodecState)
         errh = state.decode_error_handler
         outlen = 0
         if len(wbuf) > 0:
-            utf8, lgt, pos = str_decode_utf_16(wbuf, 'strict', final=True, errorhandler=errh)
+            utf8, lgt, pos = str_decode_utf_16(space, wbuf, w_wbuf, 'strict', final=True, errorhandler=errh)
             if self.mode == 'u':
                 length -= lgt
                 outlen += lgt
@@ -430,7 +432,7 @@ class W_WinConsoleIO(W_RawIOBase):
         
         if length > 0:
             wbuf = read_console_wide(space, self.handle, length)
-            utf8, lgt, pos = str_decode_utf_16(wbuf, 'strict', final=True, errorhandler=errh)
+            utf8, lgt, pos = str_decode_utf_16(space, wbuf, w_wbuf, 'strict', final=True, errorhandler=errh)
             if 1 or self.mode == 'u':
                 length -= lgt
                 outlen += lgt
@@ -479,7 +481,8 @@ class W_WinConsoleIO(W_RawIOBase):
         wbuf = result.build()
         state = space.fromcache(CodecState)
         errh = state.decode_error_handler
-        utf8, lgt, pos = str_decode_utf_16(wbuf, 'strict', final=True, errorhandler=errh)
+        w_wbuf = space.newbytes(wbuf)
+        utf8, lgt, pos = str_decode_utf_16(space, wbuf, w_wbuf, 'strict', final=True, errorhandler=errh)
 
         return space.newtext(utf8, lgt)
 
@@ -497,7 +500,7 @@ class W_WinConsoleIO(W_RawIOBase):
         # TODO: break up the encoding into chunks to save memory
         state = space.fromcache(CodecState)
         errh = state.encode_error_handler
-        utf16 = utf8_encode_utf_16(utf8, 'strict', errh, allow_surrogates=False)
+        utf16 = utf8_encode_utf_16(space, utf8, w_data, 'strict', errh, allow_surrogates=False)
         wlen = len(utf16) // 2
     
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as n:
