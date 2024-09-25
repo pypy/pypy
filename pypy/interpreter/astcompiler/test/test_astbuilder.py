@@ -551,7 +551,7 @@ class TestAstBuilding:
         input = "def f((x)=23): pass"
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast(input)
-        assert excinfo.value.msg == "invalid syntax"
+        assert excinfo.value.msg == "Function parameters cannot be parenthesized"
 
     def test_kwonly_arguments(self):
         fn = self.get_first_stmt("def f(a, b, c, *, kwarg): pass")

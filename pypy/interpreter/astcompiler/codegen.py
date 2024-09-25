@@ -288,7 +288,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if preserve_tos:
                 self.emit_op(ops.ROT_TWO)
             self.emit_op(ops.POP_TOP) # pop iterator
-        elif kind == F_WHILE_LOOP or kind == F_EXCEPTION_HANDLER or F_EXCEPTION_GROUP_HANDLER:
+        elif kind == F_WHILE_LOOP or kind == F_EXCEPTION_HANDLER or kind == F_EXCEPTION_GROUP_HANDLER:
             pass
         elif kind == F_TRY_EXCEPT:
             self.emit_op(ops.POP_BLOCK)
