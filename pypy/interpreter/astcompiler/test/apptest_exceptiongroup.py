@@ -113,3 +113,40 @@ def try_except_star_with_else_direct_return(x):
         with raises(SyntaxError) as info:
             exec(src)
         assert str(info.value).startswith(f"'{kw}' cannot appear in an except* block")
+
+def maybe_raise(err):
+    if err:
+        raise err
+    
+
+def with_finally(l, err):
+    try:
+        maybe_raise(err)
+    except* TypeError:
+        l.append(1)
+    except* ValueError:
+        l.append(2)
+    else:
+        l.append(3)
+    finally:
+        l.append(4)
+
+def test_finally():
+    l = []
+    with_finally(l, None)
+    assert l == [3, 4]
+    l = []
+    with_finally(l, ValueError())
+    assert l == [2, 4]
+    l = []
+    with_finally(l, TypeError())
+    assert l == [1, 4]
+    l = []
+    with_finally(l, ExceptionGroup('abc', [ValueError(), TypeError()]))
+    assert l == [1, 2, 4]
+    with raises(ZeroDivisionError):
+        l = []
+        with_finally(l, ZeroDivisionError())
+    assert l == [4]
+
+

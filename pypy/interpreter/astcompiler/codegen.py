@@ -963,7 +963,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._visit_body(tr.orelse)
         self.use_next_block(end)
 
-    def _visit_try_finally(self, tr):
+    def _visit_try_finally(self, tr, has_handlers, body, finalbody):
         body = self.new_block()
         end = self.new_block()
         exit = self.new_block()
@@ -972,22 +972,26 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.SETUP_FINALLY, end)
         self.use_next_block(body)
         self.push_frame_block(F_FINALLY_TRY, body, end, tr)
-        if tr.handlers:
-            self._visit_try_except(tr)
+        if has_handlers:
+            if isinstance(tr, ast.Try):
+                self._visit_try_except(tr)
+            else:
+                assert isinstance(tr, ast.TryStar)
+                self._visit_try_except_star(tr)
         else:
-            self._visit_body(tr.body)
+            self._visit_body(body)
         self.no_position_info()
         self.emit_op(ops.POP_BLOCK)
 
         # finally block, unexceptional case
         self.pop_frame_block(F_FINALLY_TRY, body)
-        self._visit_body(tr.finalbody)
+        self._visit_body(finalbody)
         self.emit_jump(ops.JUMP_FORWARD, exit)
 
         # finally block, exceptional case
         self.use_next_block(end)
         self.push_frame_block(F_FINALLY_END, end)
-        self._visit_body(tr.finalbody)
+        self._visit_body(finalbody)
         self.pop_frame_block(F_FINALLY_END, end)
 
         # the RERAISE will be duplicated by duplicate_exits_without_lineno
@@ -998,11 +1002,19 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Try(self, tr):
         if tr.finalbody:
-            return self._visit_try_finally(tr)
+            return self._visit_try_finally(
+                    tr, tr.handlers is not None, tr.body, tr.finalbody)
         else:
             return self._visit_try_except(tr)
 
     def visit_TryStar(self, tr):
+        if tr.finalbody:
+            return self._visit_try_finally(
+                    tr, tr.handlers is not None, tr.body, tr.finalbody)
+        else:
+            return self._visit_try_except_star(tr)
+
+    def _visit_try_except_star(self, tr):
         """
         Code generated for "try: S except* E1 as V1: S1 except* E2 as V2: S2 ...":
         (The contents of the value stack is shown in [], with the top
@@ -3000,9 +3012,9 @@ def view(startblock):
             str_instr = "%5s: %s" % (instr.position_info[0], ops.opname[instr.opcode])
             if instr.opcode >= ops.HAVE_ARGUMENT and instr.jump is None:
                 str_instr += " %s" % (instr.arg, )
-            if hasattr(instr, '_stack_depth_after'):
+            if instr._stack_depth_after != -99:
                 str_instr += " stack depth after: %s" % instr._stack_depth_after
-                if instr._stack_depth_after < 0 and instr._stack_depth_after != -99:
+                if instr._stack_depth_after < 0:
                     fillcolor = "red"
             label.append(str_instr)
             if instr.jump is not None:

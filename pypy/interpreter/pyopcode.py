@@ -2167,10 +2167,12 @@ def exception_group_match(space, w_eg, w_typ):
         w_list = space.newlist([w_eg])
         w_wrapped = space.call_function(w_ExceptionGroup, space.newtext(''), w_list)
         return w_wrapped, space.w_None
-    else:
+    elif space.isinstance_w(w_eg, w_BaseExceptionGroup):
         w_tup = space.call_method(w_eg, 'split', w_typ)
         w_match, w_rest = space.unpackiterable(w_tup, 2)
         return w_match, w_rest
+    else:
+        return space.w_None, space.w_None
 
 ### helpers written at the application-level ###
 # Some of these functions are expected to be generally useful if other
