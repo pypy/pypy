@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 
 class BaseExceptionGroup(BaseException):
+    """A combination of unrelated exceptions."""
 
     def __new__(cls, message, exceptions):
         if not isinstance(message, str):
@@ -41,8 +42,13 @@ class BaseExceptionGroup(BaseException):
     def exceptions(self):
         return self._exceptions
 
-    def subgroup(self, condition_arg):
-        condition = get_condition_filter(condition_arg)
+    def subgroup(self, condition):
+        """
+        Returns an exception group that contains only the exceptions from the
+        current group that match condition, or None if the result is empty.
+        """
+
+        condition = get_condition_filter(condition)
         modified = False
         if condition(self):
             return self
@@ -69,8 +75,12 @@ class BaseExceptionGroup(BaseException):
         else:
             return None
 
-    def split(self, condition_arg):
-        condition = get_condition_filter(condition_arg)
+    def split(self, condition):
+        """
+        Like subgroup(), but returns the pair (match, rest) where match is
+        subgroup(condition) and rest is the remaining non-matching part.
+        """
+        condition = get_condition_filter(condition)
         if condition(self):
             return self, None
 
@@ -99,8 +109,11 @@ class BaseExceptionGroup(BaseException):
         return (matching_group, nonmatching_group)
 
     def derive(self, excs):
-        eg = BaseExceptionGroup(self.message, excs)
-        return eg
+        """
+        Returns an exception group with the same message, but which wraps the
+        exceptions in excs.
+        """
+        return BaseExceptionGroup(self.message, excs)
 
     def __str__(self):
         suffix = "" if len(self._exceptions) == 1 else "s"
