@@ -149,4 +149,15 @@ def test_finally():
         with_finally(l, ZeroDivisionError())
     assert l == [4]
 
-
+def test_invalid_catching_class():
+    for cls, eg in [(int, False), (ExceptionGroup, True), (BaseExceptionGroup, True), ((ValueError, ExceptionGroup), True), ((int, ), False)]:
+        with raises(TypeError) as info:
+            try:
+                1/0
+            except* cls:
+                pass
+        if eg:
+            assert "catching ExceptionGroup with except* is not allowed. Use except instead." in str(info.value)
+        else:
+            assert "catching classes that do not inherit from BaseException is not allowed" in str(info.value)
+        assert isinstance(info.value.__context__, ZeroDivisionError)

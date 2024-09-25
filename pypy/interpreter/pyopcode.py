@@ -21,8 +21,8 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
 
-CANNOT_CATCH_MSG = ("catching classes that don't inherit from BaseException "
-                    "is not allowed in 3.x")
+CANNOT_CATCH_MSG = ("catching classes that do not inherit from BaseException "
+                    "is not allowed")
 
 @not_rpython
 def unaryoperation(operationname):
@@ -1786,7 +1786,7 @@ class __extend__(pyframe.PyFrame):
     def CHECK_EG_MATCH(self, oparg, next_instr):
         space = self.space
         w_typ = self.popvalue()
-        check_except_star_type_valid(self, w_typ)
+        check_except_star_type_valid(space, self, w_typ)
         w_eg = self.peekvalue()
         w_match, w_rest = exception_group_match(space, w_eg, w_typ)
         if space.is_w(w_match, space.w_None):
@@ -2152,9 +2152,19 @@ def _match_class(space, nargs, w_names, w_type, w_subject):
 
 # exception group helpers
 
-def check_except_star_type_valid(frame, w_typ):
-    # XXX todo, implement me
-    pass
+def check_except_star_type_valid(space, frame, w_typ):
+    def check(space, w_typ):
+        if not space.exception_is_valid_class_w(w_typ):
+            raise oefmt(space.w_TypeError, CANNOT_CATCH_MSG)
+        if space.issubtype_w(w_typ, w_BaseExceptionGroup):
+            raise oefmt(space.w_TypeError, "catching ExceptionGroup with except* is not allowed. Use except instead.")
+    w_BaseExceptionGroup = space.getattr(space.builtin, space.newtext('BaseExceptionGroup'))
+    w_ExceptionGroup = space.getattr(space.builtin, space.newtext('ExceptionGroup'))
+    if space.isinstance_w(w_typ, space.w_tuple):
+        for w_sub in space.fixedview(w_typ):
+            check(space, w_sub)
+    else:
+        check(space, w_typ)
 
 def exception_group_match(space, w_eg, w_typ):
     if space.is_w(w_eg, space.w_None):
