@@ -133,9 +133,9 @@ jobs:
     - run: |
           echo "Install requirements"
           sudo apt-get install -y libgc-dev
-          pypy2 -m pip install --user hypothesis==4.39.3
+          pypy2 -m pip install --user hypothesis==4.39.3 vmprof enum34>=1.1.2
     - name: Test RLib
-      run: pypy2 pytest.py rpython/rlib
+      run: pypy2 pytest.py rpython/rlib -v
 
   test-rtyper:
     runs-on: ${{ matrix.os }}
