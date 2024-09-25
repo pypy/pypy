@@ -1141,7 +1141,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_EXCEPT)
         self.emit_op(ops.POP_TOP) # pypy difference: get rid of unroller
-        self.emit_jump(ops.JUMP_FORWARD, otherwise)
+        self.emit_jump(ops.JUMP_FORWARD, end)
 
         self.use_next_block(reraise_block)
         if handler is not None:

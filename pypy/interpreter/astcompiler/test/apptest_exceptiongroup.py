@@ -84,4 +84,21 @@ def test_try_star_name_raise_in_except_handler():
     with raises(UnboundLocalError):
         e1
 
+def maybe_raise_typeerror(x):
+    if x:
+        raise TypeError
+
+def try_except_star_with_else(x):
+    try:
+        maybe_raise_typeerror(x)
+    except* TypeError:
+        a = 1
+    else:
+        a = 2
+    return a
+
+def test_try_except_star_with_else():
+    assert try_except_star_with_else(True) == 1
+    assert try_except_star_with_else(False) == 2
+
 
