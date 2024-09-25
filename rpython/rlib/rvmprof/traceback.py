@@ -21,8 +21,7 @@ def traceback(estimate_number_of_entries):
     stack = cintf.get_rvmprof_stack()
     array_p = lltype.malloc(rffi.SIGNEDP.TO, size, flavor='raw')
     NULL = llmemory.NULL
-    voidpp = rffi.cast(rffi.VOIDPP, array_p)
-    array_length = _cintf.vmprof_get_traceback(stack, NULL, voidpp, size)
+    array_length = _cintf.vmprof_get_traceback(stack, NULL, array_p, size)
     return (array_p, array_length)
 
 

@@ -32,6 +32,8 @@
   #define PC_FROM_UCONTEXT uc_mcontext.pc
 #elif defined(__powerpc64__)
   #define PC_FROM_UCONTEXT uc_mcontext.gp_regs[PT_NIP]
+#elif defined(__riscv)
+  #define PC_FROM_UCONTEXT uc_mcontext.__gregs[REG_PC]
 #else
   /* linux, gnuc */
   #define PC_FROM_UCONTEXT uc_mcontext.gregs[REG_RIP]
