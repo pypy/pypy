@@ -519,7 +519,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             self._stack_depth_debug_print(blocks, block, instr)
         os.write(2, "StackDepthComputationError(POS) in %s at %s:%s depth %s\n"
           % (self.compile_info.filename, self.name, self.first_lineno, depth))
-        #raise StackDepthComputationError   # would-be-nice-not-to-have
+        raise StackDepthComputationError   # would-be-nice-not-to-have
 
     def _stack_depth_debug_print(self, blocks, errorblock, errorinstr):
         print "\n" * 5
@@ -569,6 +569,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         for instr in block.instructions:
             orig_depth = depth
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
+            if not we_are_translated():
+                instr._stack_depth_after = depth
             if depth < 0:
                 # This is really a fatal error, don't comment out this
                 # 'raise'.  It means that the stack depth computation
@@ -601,8 +603,6 @@ class PythonCodeMaker(ast.ASTVisitor):
                 break
             elif jump_op == ops.RERAISE:
                 break
-            if not we_are_translated():
-                instr._stack_depth_after = depth
         else:
             if block.next_block:
                 self._next_stack_depth_walk(block.next_block, depth, (block, None))

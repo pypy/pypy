@@ -179,8 +179,6 @@ class __extend__(pyframe.PyFrame):
             opcode = ord(co_code[next_instr])
             oparg = ord(co_code[next_instr + 1])
             next_instr += 2
-            if self.pycode.co_name =='raises_one' and next_instr == 76:
-                import pdb;pdb.set_trace()
 
             # note: the structure of the code here is such that it makes
             # (after translation) a big "if/elif" chain, which is then
@@ -1301,8 +1299,6 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_res)
 
     def RERAISE(self, reset_last_instr, next_instr):
-        if self.pycode.co_name == "raises_one":
-            import pdb;pdb.set_trace()
         unroller = self.popvalue()
         if not isinstance(unroller, SApplicationException):
             assert 0
@@ -1792,7 +1788,6 @@ class __extend__(pyframe.PyFrame):
         w_typ = self.popvalue()
         check_except_star_type_valid(self, w_typ)
         w_eg = self.peekvalue()
-        import pdb; pdb.set_trace()
         w_match, w_rest = exception_group_match(space, w_eg, w_typ)
         if space.is_w(w_match, space.w_None):
             self.pushvalue(w_match)
@@ -1805,7 +1800,6 @@ class __extend__(pyframe.PyFrame):
         w_res = self.popvalue()
         w_orig = self.popvalue()
         w_mod = space.call_method(space.builtin, '__import__', space.newtext('_pypy_exceptiongroups'))
-        import pdb; pdb.set_trace()
         w_eg_or_None = space.call_method(w_mod, "_prep_reraise_star", w_orig, w_res)
         if space.is_w(w_eg_or_None, space.w_None):
             w_push = space.w_None

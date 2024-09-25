@@ -1049,7 +1049,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         []                               L0:       <next statement>
         """
-        import pdb; pdb.set_trace()
         body = self.new_block()
         exc = self.new_block() # L1 in comment above
         otherwise = self.new_block() # L0 in comment above
@@ -1141,6 +1140,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_jump(ops.POP_JUMP_IF_FALSE, reraise_block)
         self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_EXCEPT)
+        self.emit_op(ops.POP_TOP) # pypy difference: get rid of unroller
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
 
         self.use_next_block(reraise_block)
@@ -2978,6 +2978,8 @@ def view(startblock):
     for i, block in enumerate(blocks):
         name = blocknames[block]
         label = ["pos in blocks: %s/%s\\n" % (i + 1, len(blocks))]
+        if hasattr(block, 'initial_depth'):
+            label.append('initial stack depth: %s' % (block.initial_depth, ))
         if block.marked != 0:
             label.append("marked: %s\\n" % block.marked)
 
@@ -2990,6 +2992,10 @@ def view(startblock):
             str_instr = "%5s: %s" % (instr.position_info[0], ops.opname[instr.opcode])
             if instr.opcode >= ops.HAVE_ARGUMENT and instr.jump is None:
                 str_instr += " %s" % (instr.arg, )
+            if hasattr(instr, '_stack_depth_after'):
+                str_instr += " stack depth after: %s" % instr._stack_depth_after
+                if instr._stack_depth_after < 0 and instr._stack_depth_after != -99:
+                    fillcolor = "red"
             label.append(str_instr)
             if instr.jump is not None:
                 graph.emit_node(name, shape="box", label="\\l".join(label), fillcolor=fillcolor, color=color)

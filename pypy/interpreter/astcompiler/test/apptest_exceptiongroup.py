@@ -83,3 +83,5 @@ def test_try_star_name_raise_in_except_handler():
         assert "ZeroDivisionError" in repr(e)
     with raises(UnboundLocalError):
         e1
+
+
