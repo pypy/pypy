@@ -188,7 +188,7 @@ class __extend__(ast.DictComp):
 
 # These are frame blocks.
 fblock_kind_to_str = []
-for i, name in enumerate("F_WHILE_LOOP F_FOR_LOOP F_TRY_EXCEPT F_FINALLY_TRY F_FINALLY_END F_WITH F_ASYNC_WITH F_HANDLER_CLEANUP F_POP_VALUE F_EXCEPTION_HANDLER".split()):
+for i, name in enumerate("F_WHILE_LOOP F_FOR_LOOP F_TRY_EXCEPT F_FINALLY_TRY F_FINALLY_END F_WITH F_ASYNC_WITH F_HANDLER_CLEANUP F_POP_VALUE F_EXCEPTION_HANDLER F_EXCEPTION_GROUP_HANDLER".split()):
     globals()[name] = i
     fblock_kind_to_str.append(name)
 del name, i
@@ -288,7 +288,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if preserve_tos:
                 self.emit_op(ops.ROT_TWO)
             self.emit_op(ops.POP_TOP) # pop iterator
-        elif kind == F_WHILE_LOOP or kind == F_EXCEPTION_HANDLER:
+        elif kind == F_WHILE_LOOP or kind == F_EXCEPTION_HANDLER or F_EXCEPTION_GROUP_HANDLER:
             pass
         elif kind == F_TRY_EXCEPT:
             self.emit_op(ops.POP_BLOCK)
@@ -341,7 +341,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             assert 0, "unreachable"
 
-    def unwind_fblock_stack(self, preserve_tos, find_loop_block=False):
+    def unwind_fblock_stack(self, preserve_tos, cause, find_loop_block=False):
         """ Unwind block stack. If find_loop_block is True, return the first
         loop block, otherwise return None. """
         # XXX This is a bit ridiculous, but we really need to remove the
@@ -355,8 +355,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 or fblock_top.kind == F_FOR_LOOP):
             return fblock_top
         fblock = self.frame_blocks.pop()
+        if fblock.kind == F_EXCEPTION_GROUP_HANDLER:
+            if isinstance(cause, ast.Return):
+                self.error("'return' cannot appear in an except* block", cause)
+            elif isinstance(cause, ast.Break):
+                self.error("'break' cannot appear in an except* block", cause)
+            else:
+                assert isinstance(cause, ast.Continue)
+                self.error("'continue' cannot appear in an except* block", cause)
         self.unwind_fblock(fblock, preserve_tos)
-        res = self.unwind_fblock_stack(preserve_tos, find_loop_block)
+        res = self.unwind_fblock_stack(preserve_tos, cause, find_loop_block)
         self.frame_blocks.append(fblock)
         return res
 
@@ -720,7 +728,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elif ret.value:
             self.emit_line_tracing_nop(ret.value)
         self.emit_line_tracing_nop(ret)
-        self.unwind_fblock_stack(preserve_tos)
+        self.unwind_fblock_stack(preserve_tos, ret)
         if ret.value is None:
             self.load_const(self.space.w_None)
         elif not preserve_tos:
@@ -764,7 +772,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Break(self, br):
         self.emit_line_tracing_nop()
-        loop_fblock = self.unwind_fblock_stack(False, find_loop_block=True)
+        loop_fblock = self.unwind_fblock_stack(False, br, find_loop_block=True)
         if loop_fblock is None:
             self.error("'break' not properly in loop", br)
         self.unwind_fblock(loop_fblock, False)
@@ -773,7 +781,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Continue(self, cont):
         self.emit_line_tracing_nop()
-        loop_fblock = self.unwind_fblock_stack(False, find_loop_block=True)
+        loop_fblock = self.unwind_fblock_stack(False, cont, find_loop_block=True)
         if loop_fblock is None:
             self.error("'continue' not properly in loop", cont)
         self.emit_jump(ops.JUMP_ABSOLUTE, loop_fblock.block)
@@ -1062,7 +1070,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_BLOCK)
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
-        self.push_frame_block(F_EXCEPTION_HANDLER, None)
+        self.push_frame_block(F_EXCEPTION_GROUP_HANDLER, None)
         handler = None
         for i, handler in enumerate(tr.handlers):
             assert isinstance(handler, ast.ExceptHandler)
@@ -1146,7 +1154,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(reraise_block)
         if handler is not None:
             self.update_position(handler)
-        self.pop_frame_block(F_EXCEPTION_HANDLER, None)
+        self.pop_frame_block(F_EXCEPTION_GROUP_HANDLER, None)
         # pypy difference: get rid of exception # XXX is this correct for groups?
         self.emit_op(ops.ROT_TWO)
         self.emit_op(ops.POP_TOP)

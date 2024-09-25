@@ -101,4 +101,15 @@ def test_try_except_star_with_else():
     assert try_except_star_with_else(True) == 1
     assert try_except_star_with_else(False) == 2
 
-
+def test_return_break_continue_in_except_group_handler():
+    for kw in "return break continue".split():
+        src = f"""\
+def try_except_star_with_else_direct_return(x):
+    try:
+        pass
+    except* TypeError:
+        {kw}
+    """
+        with raises(SyntaxError) as info:
+            exec(src)
+        assert str(info.value).startswith(f"'{kw}' cannot appear in an except* block")
