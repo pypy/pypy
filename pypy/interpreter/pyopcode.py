@@ -687,32 +687,6 @@ class __extend__(pyframe.PyFrame):
         w_expr = self.popvalue()
         print_expr(self.space, w_expr)
 
-    def PRINT_ITEM_TO(self, oparg, next_instr):
-        w_stream = self.popvalue()
-        w_item = self.popvalue()
-        if self.space.is_w(w_stream, self.space.w_None):
-            w_stream = sys_stdout(self.space)   # grumble grumble special cases
-        print_item_to(self.space, self._printable_object(w_item), w_stream)
-
-    def PRINT_ITEM(self, oparg, next_instr):
-        w_item = self.popvalue()
-        print_item(self.space, self._printable_object(w_item))
-
-    def _printable_object(self, w_obj):
-        space = self.space
-        if not space.isinstance_w(w_obj, space.w_unicode):
-            w_obj = space.str(w_obj)
-        return w_obj
-
-    def PRINT_NEWLINE_TO(self, oparg, next_instr):
-        w_stream = self.popvalue()
-        if self.space.is_w(w_stream, self.space.w_None):
-            w_stream = sys_stdout(self.space)   # grumble grumble special cases
-        print_newline_to(self.space, w_stream)
-
-    def PRINT_NEWLINE(self, oparg, next_instr):
-        print_newline(self.space)
-
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
         if nbargs > 2:
@@ -2209,64 +2183,10 @@ app = gateway.applevel(r'''
         except AttributeError:
             raise RuntimeError("lost sys.displayhook")
         displayhook(obj)
-
-    def print_item_to(x, stream):
-        # give to write() an argument which is either a string or a unicode
-        # (and let it deals itself with unicode handling).  The check "is
-        # unicode" should not use isinstance() at app-level, because that
-        # could be fooled by strange objects, so it is done at interp-level.
-        try:
-            stream.write(x)
-        except UnicodeEncodeError:
-            print_unencodable_to(x, stream)
-
-    def print_unencodable_to(x, stream):
-        encoding = stream.encoding
-        encoded = x.encode(encoding, 'backslashreplace')
-        buffer = getattr(stream, 'buffer', None)
-        if buffer is not None:
-             buffer.write(encoded)
-        else:
-            escaped = encoded.decode(encoding, 'strict')
-            stream.write(escaped)
-
-    def print_item(x):
-        print_item_to(x, sys_stdout())
-
-    def print_newline_to(stream):
-        stream.write("\n")
-
-    def print_newline():
-        print_newline_to(sys_stdout())
 ''', filename=__file__)
 
 sys_stdout      = app.interphook('sys_stdout')
 print_expr      = app.interphook('print_expr')
-print_item      = app.interphook('print_item')
-print_item_to   = app.interphook('print_item_to')
-print_newline   = app.interphook('print_newline')
-print_newline_to= app.interphook('print_newline_to')
-
-app = gateway.applevel(r'''
-    def find_metaclass(bases, namespace, globals, builtin):
-        if '__metaclass__' in namespace:
-            return namespace['__metaclass__']
-        elif len(bases) > 0:
-            base = bases[0]
-            if hasattr(base, '__class__'):
-                return base.__class__
-            else:
-                return type(base)
-        elif '__metaclass__' in globals:
-            return globals['__metaclass__']
-        else:
-            try:
-                return builtin.__metaclass__
-            except AttributeError:
-                return type
-''', filename=__file__)
-
-find_metaclass  = app.interphook('find_metaclass')
 
 app = gateway.applevel(r'''
     def import_all_from(module, into_locals):
