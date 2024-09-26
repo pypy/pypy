@@ -963,7 +963,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._visit_body(tr.orelse)
         self.use_next_block(end)
 
-    def _visit_try_finally(self, tr, has_handlers, body, finalbody):
+    def _visit_try_finally(self, tr, has_handlers, trybody, finalbody):
         body = self.new_block()
         end = self.new_block()
         exit = self.new_block()
@@ -979,7 +979,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 assert isinstance(tr, ast.TryStar)
                 self._visit_try_except_star(tr)
         else:
-            self._visit_body(body)
+            self._visit_body(trybody)
         self.no_position_info()
         self.emit_op(ops.POP_BLOCK)
 

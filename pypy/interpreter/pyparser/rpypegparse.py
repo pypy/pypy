@@ -1030,7 +1030,7 @@ class PythonParser(Parser):
             b = self._loop0_47()
             c = self._loop0_48()
             d = self.star_etc()
-            return self . make_arguments ( a , None , b , c , d )
+            return self . make_arguments ( a . plain_names , None , b , c , d )
         self._index = mark
         a = self.slash_with_default()
         if a:
@@ -1065,14 +1065,14 @@ class PythonParser(Parser):
             if literal:
                 literal_1 = self.expect_type(12)
                 if literal_1:
-                    return a
+                    return self . make_slash_with_default ( a , None )
         self._index = mark
         a = self._loop1_54()
         if a:
             literal = self.expect_type(17)
             if literal:
                 if self.positive_lookahead(PythonParser.expect_type, 8):
-                    return a
+                    return self . make_slash_with_default ( a , None )
         self._index = mark
         return None
 
@@ -3413,7 +3413,7 @@ class PythonParser(Parser):
             b = self._loop0_104()
             c = self._loop0_105()
             d = self.lambda_star_etc()
-            return self . make_arguments ( a , None , b , c , d )
+            return self . make_arguments ( a . plain_names , None , b , c , d )
         self._index = mark
         a = self.lambda_slash_with_default()
         if a:
@@ -3448,14 +3448,14 @@ class PythonParser(Parser):
             if literal:
                 literal_1 = self.expect_type(12)
                 if literal_1:
-                    return a
+                    return self . make_slash_with_default ( a , None )
         self._index = mark
         a = self._loop1_111()
         if a:
             literal = self.expect_type(17)
             if literal:
                 if self.positive_lookahead(PythonParser.expect_type, 11):
-                    return a
+                    return self . make_slash_with_default ( a , None )
         self._index = mark
         return None
 

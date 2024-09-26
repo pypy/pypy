@@ -343,7 +343,7 @@ params:
 
 parameters[ast.arguments]:
     | a=slash_no_default b=param_no_default* c=param_with_default* d=[star_etc] {
-        self.make_arguments(a, None, b, c, d)
+        self.make_arguments(a.plain_names, None, b, c, d)
      }
     | a=slash_with_default b=param_with_default* c=[star_etc] {
         self.make_arguments(None, a, None, b, c)
@@ -361,8 +361,8 @@ parameters[ast.arguments]:
 #
 
 slash_no_default[List[ast.arg]]:
-    | a=param_no_default+ '/' ',' { a }
-    | a=param_no_default+ '/' &')' { a }
+    | a=param_no_default+ '/' ',' { self.make_slash_with_default(a, None) }
+    | a=param_no_default+ '/' &')' { self.make_slash_with_default(a, None) }
 slash_with_default[SlashWithDefault]:
     | a=param_no_default* b=param_with_default+ '/' ',' { self.make_slash_with_default(a, b) }
     | a=param_no_default* b=param_with_default+ '/' &')' { self.make_slash_with_default(a, b) }
@@ -971,7 +971,7 @@ lambda_params:
 #
 lambda_parameters[ast.arguments]:
     | a=lambda_slash_no_default b=lambda_param_no_default* c=lambda_param_with_default* d=[lambda_star_etc] {
-        self.make_arguments(a, None, b, c, d)
+        self.make_arguments(a.plain_names, None, b, c, d)
      }
     | a=lambda_slash_with_default b=lambda_param_with_default* c=[lambda_star_etc] {
         self.make_arguments(None, a, None, b, c)
@@ -985,8 +985,8 @@ lambda_parameters[ast.arguments]:
     | a=lambda_star_etc { self.make_arguments(None, None, None, [], a) }
 
 lambda_slash_no_default:
-    | a=lambda_param_no_default+ '/' ',' { a }
-    | a=lambda_param_no_default+ '/' &':' { a }
+    | a=lambda_param_no_default+ '/' ',' { self.make_slash_with_default(a, None) }
+    | a=lambda_param_no_default+ '/' &':' { self.make_slash_with_default(a, None) }
 
 lambda_slash_with_default:
     | a=lambda_param_no_default* b=lambda_param_with_default+ '/' ',' { self.make_slash_with_default(a, b) }

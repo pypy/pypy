@@ -1760,7 +1760,7 @@ class __extend__(pyframe.PyFrame):
     def CHECK_EG_MATCH(self, oparg, next_instr):
         space = self.space
         w_typ = self.popvalue()
-        check_except_star_type_valid(space, self, w_typ)
+        check_except_star_type_valid(space, w_typ)
         w_eg = self.peekvalue()
         w_match, w_rest = exception_group_match(space, w_eg, w_typ)
         if space.is_w(w_match, space.w_None):
@@ -2126,7 +2126,8 @@ def _match_class(space, nargs, w_names, w_type, w_subject):
 
 # exception group helpers
 
-def check_except_star_type_valid(space, frame, w_typ):
+@jit.unroll_safe
+def check_except_star_type_valid(space, w_typ):
     def check(space, w_typ, w_BaseExceptionGroup):
         if not space.exception_is_valid_class_w(w_typ):
             raise oefmt(space.w_TypeError, CANNOT_CATCH_MSG)
