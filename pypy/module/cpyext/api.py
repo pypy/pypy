@@ -41,7 +41,7 @@ from rpython.rlib.entrypoint import entrypoint_lowlevel
 from rpython.rlib.rposix import SuppressIPH
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
-from pypy.module.exceptions import interp_exceptions
+from pypy.module.exceptions import interp_exceptions, interp_group
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib import rawrefcount
@@ -718,13 +718,13 @@ def build_exported_objects():
     from pypy.module.exceptions.moduledef import Module as ExcModule
     all_exceptions = list(ExcModule.interpleveldefs)
     for exc_name in all_exceptions:
-        if exc_name in ('EnvironmentError', 'IOError', 'WindowsError'):
+        if exc_name in ('EnvironmentError', 'IOError', 'WindowsError') or exc_name.startswith("_"):
             # FIXME: aliases of OSError cause a clash of names via
             # export_struct
             continue
         register_global('PyExc_' + exc_name,
             'PyTypeObject*',
-            'space.gettypeobject(interp_exceptions.W_%s.typedef)'% (exc_name, ))
+            'space.gettypeobject(%s.typedef)'% (ExcModule.interpleveldefs[exc_name], ))
 
     # Common types with their own struct
     for cpyname, pypyexpr in {
