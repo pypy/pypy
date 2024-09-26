@@ -210,3 +210,46 @@ if multiarch:
     implementation_dict['_multiarch'] = multiarch
 
 implementation = SimpleNamespace(**implementation_dict)
+
+
+def sys_stdout():
+    import sys
+    try:
+        return sys.stdout
+    except AttributeError:
+        raise RuntimeError("lost sys.stdout")
+
+def print_item_to(x, stream):
+    # give to write() an argument which is either a string or a unicode
+    # (and let it deals itself with unicode handling).  The check "is
+    # unicode" should not use isinstance() at app-level, because that
+    # could be fooled by strange objects, so it is done at interp-level.
+    try:
+        stream.write(x)
+    except UnicodeEncodeError:
+        print_unencodable_to(x, stream)
+
+def print_unencodable_to(x, stream):
+    encoding = stream.encoding
+    encoded = x.encode(encoding, 'backslashreplace')
+    buffer = getattr(stream, 'buffer', None)
+    if buffer is not None:
+         buffer.write(encoded)
+    else:
+        escaped = encoded.decode(encoding, 'strict')
+        stream.write(escaped)
+
+def print_newline_to(stream):
+    stream.write("\n")
+
+def displayhook(obj):
+    """Print an object to sys.stdout and also save it in builtins._"""
+    import builtins
+    if obj is not None:
+        builtins._ = obj
+        # NB. this is slightly more complicated in CPython,
+        # see e.g. the difference with  >>> print 5,; 8
+        print_item_to(repr(obj), sys_stdout())
+        print_newline_to(sys_stdout())
+
+__displayhook__ = displayhook  # this is exactly like in CPython

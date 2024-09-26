@@ -2170,12 +2170,6 @@ app = gateway.applevel(r'''
     and other helpers"""
     import sys
 
-    def sys_stdout():
-        try:
-            return sys.stdout
-        except AttributeError:
-            raise RuntimeError("lost sys.stdout")
-
     def print_expr(obj):
         try:
             displayhook = sys.displayhook
@@ -2184,7 +2178,6 @@ app = gateway.applevel(r'''
         displayhook(obj)
 ''', filename=__file__)
 
-sys_stdout      = app.interphook('sys_stdout')
 print_expr      = app.interphook('print_expr')
 
 app = gateway.applevel(r'''

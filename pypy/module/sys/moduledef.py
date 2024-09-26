@@ -84,8 +84,6 @@ class Module(MixedModule):
         '_git'                  : 'version.get_git_info(space)',
         'hexversion'            : 'version.get_hexversion(space)',
 
-        'displayhook'           : 'hook.displayhook',
-        '__displayhook__'       : 'hook.__displayhook__',
         'meta_path'             : 'space.newlist([])',
         'path_hooks'            : 'space.newlist([])',
         'path_importer_cache'   : 'space.newdict()',
@@ -131,6 +129,8 @@ class Module(MixedModule):
         '__excepthook__'        : 'app.excepthook',
         'breakpointhook'        : 'app.breakpointhook',
         '__breakpointhook__'    : 'app.breakpointhook',
+        'displayhook'           : 'app.displayhook',
+        '__displayhook__'       : 'app.__displayhook__',
         'exit'                  : 'app.exit',
         'callstats'             : 'app.callstats',
         'copyright'             : 'app.copyright_str',
