@@ -125,7 +125,7 @@ class ArrayIter(object):
         if not self.contiguous or not other.contiguous:
             return False
         return (self.contiguous == other.contiguous and
-                self.array.dtype is self.array.dtype and
+                self.array.dtype is other.array.dtype and
                 self.shape_m1 == other.shape_m1 and
                 self.strides == other.strides and
                 self.backstrides == other.backstrides and
