@@ -81,6 +81,12 @@ W_ExceptionGroup.typedef.applevel_subclasses_base = W_BaseExceptionGroup
 def prep_reraise_star(space, w_obj, w_exc_list):
     return _prep_reraise_star(space, w_obj, w_exc_list)
 
+def collect_eg_leafs(space, w_exc, w_result_set):
+    return _collect_eg_leafs(space, w_exc, w_result_set)
+
+def exception_group_projection(space, w_eg, w_keep_list):
+    return _exception_group_projection(space, w_eg, w_keep_list)
+
 
 # lot's of helper code implemented at applevel
 
@@ -97,3 +103,5 @@ app_repr = app.interphook('__repr__')
 subgroup = app.interphook('subgroup')
 split = app.interphook('split')
 _prep_reraise_star = app.interphook('_prep_reraise_star')
+_collect_eg_leafs = app.interphook('_collect_eg_leafs')
+_exception_group_projection = app.interphook('_exception_group_projection')

@@ -77,7 +77,10 @@ class Module(MixedModule):
         'ZeroDivisionError' : 'interp_exceptions.W_ZeroDivisionError',
 
         # helper function for tests/the interpreter
-        '__prep_reraise_star': 'interp_group.prep_reraise_star',
+        # need to start with __ to not get stuck into builtins
+        '_prep_reraise_star': 'interp_group.prep_reraise_star',
+        '_collect_eg_leafs': 'interp_group.collect_eg_leafs',
+        '_exception_group_projection': 'interp_group.exception_group_projection',
         }
 
     if rwin32.WIN32:
