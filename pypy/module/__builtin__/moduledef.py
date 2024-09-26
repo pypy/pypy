@@ -119,9 +119,10 @@ class Module(MixedModule):
         space.abstract_getclass = ab.abstract_getclass.__get__(space)
 
     def startup(self, space):
-        w_mod = space.call_method(space.builtin, '__import__', space.newtext('_pypy_exceptiongroups'))
-        w_name = space.newtext('BaseExceptionGroup')
-        space.setattr(space.builtin, w_name, space.getattr(w_mod, w_name))
-        w_name = space.newtext('ExceptionGroup')
-        space.setattr(space.builtin, w_name, space.getattr(w_mod, w_name))
+        pass
+        #w_mod = space.call_method(space.builtin, '__import__', space.newtext('_pypy_exceptiongroups'))
+        #w_name = space.newtext('BaseExceptionGroup')
+        #space.setattr(space.builtin, w_name, space.getattr(w_mod, w_name))
+        #w_name = space.newtext('ExceptionGroup')
+        #space.setattr(space.builtin, w_name, space.getattr(w_mod, w_name))
 

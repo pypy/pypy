@@ -91,7 +91,7 @@ BaseException
 import errno
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (
-    TypeDef, GetSetProperty, interp_attrproperty,
+    TypeDef, GetSetProperty,
     descr_get_dict, descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
