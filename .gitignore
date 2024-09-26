@@ -47,6 +47,7 @@ lib_pypy/_sqlite3_cffi*
 lib_pypy/_syslog_cffi*
 lib_pypy/_tkinter/tklib_cffi*
 rpython/rlib/rvmprof/src/shared/libbacktrace/config.h
+rpython/rlib/test/_hacked_rbigint.py
 include/pypy*
 lib/pypy*
 pypy/doc/config/*.rst
