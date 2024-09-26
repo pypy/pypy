@@ -79,7 +79,6 @@ ffi = build_ffi_for_binding(
         "objects",
         "ocsp",
         "opensslv",
-        "osrandom_engine",
         "pem",
         "pkcs12",
         "rand",
