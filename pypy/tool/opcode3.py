@@ -87,6 +87,8 @@ def_op('MATCH_SEQUENCE', 32)
 def_op('MATCH_KEYS', 33)
 def_op('COPY_DICT_WITHOUT_KEYS', 34)
 
+def_op('CHECK_EG_MATCH', 37)
+
 def_op('WITH_EXCEPT_START', 49)
 def_op('GET_AITER', 50)
 def_op('GET_ANEXT', 51)
@@ -125,6 +127,8 @@ def_op('IMPORT_STAR', 84)
 def_op('SETUP_ANNOTATIONS', 85)
 def_op('YIELD_VALUE', 86)
 def_op('POP_BLOCK', 87)
+
+def_op('PREP_RERAISE_STAR', 88)
 
 def_op('POP_EXCEPT', 89)
 
