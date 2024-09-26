@@ -78,6 +78,9 @@ W_ExceptionGroup.typedef = TypeDef(
 )
 W_ExceptionGroup.typedef.applevel_subclasses_base = W_BaseExceptionGroup
 
+def prep_reraise_star(space, w_obj, w_exc_list):
+    return _prep_reraise_star(space, w_obj, w_exc_list)
+
 
 # lot's of helper code implemented at applevel
 
@@ -93,3 +96,4 @@ app_str = app.interphook('__str__')
 app_repr = app.interphook('__repr__')
 subgroup = app.interphook('subgroup')
 split = app.interphook('split')
+_prep_reraise_star = app.interphook('_prep_reraise_star')

@@ -1773,8 +1773,8 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         w_res = self.popvalue()
         w_orig = self.popvalue()
-        w_mod = space.call_method(space.builtin, '__import__', space.newtext('_pypy_exceptiongroups'))
-        w_eg_or_None = space.call_method(w_mod, "_prep_reraise_star", w_orig, w_res)
+        w_mod = space.call_method(space.builtin, '__import__', space.newtext('__exceptions__'))
+        w_eg_or_None = space.call_method(w_mod, "__prep_reraise_star", w_orig, w_res)
         if space.is_w(w_eg_or_None, space.w_None):
             w_push = space.w_None
         else:

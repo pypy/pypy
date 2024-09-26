@@ -694,7 +694,7 @@ class ObjSpace(object):
                     raise
                 break
             name = self.text_w(w_name)
-            if not name.startswith('__'):
+            if not name.startswith('__') and name != '_prep_reraise_star':
                 excname = name
                 w_exc = self.getitem(w_dic, w_name)
                 exc_types_w[name] = w_exc

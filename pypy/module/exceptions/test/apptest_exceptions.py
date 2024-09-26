@@ -358,3 +358,33 @@ def test_derive_always_creates_exception_group():
     eg2 = eg.derive([ValueError()])
     assert type(eg2) is ExceptionGroup
 
+# _prep_reraise_star tests
+
+from __exceptions__ import __prep_reraise_star as _prep_reraise_star
+
+def test_prep_reraise_star_simple():
+    assert _prep_reraise_star(TypeError(), [None]) is None
+    assert _prep_reraise_star(ExceptionGroup('abc', [ValueError(), TypeError()]), [None]) is None
+
+    value = ValueError()
+    res = _prep_reraise_star(ExceptionGroup('abc', [value, TypeError()]), [ExceptionGroup('abc', [value])])
+    assert repr(res) == "ExceptionGroup('abc', [ValueError()])"
+    assert res.exceptions[0] is value
+
+def test_prep_reraise_exception_happens_in_except_star():
+    value = ValueError()
+    full_eg = ExceptionGroup('abc', [value, TypeError()])
+    value_eg = ExceptionGroup('abc', [value])
+    try:
+        raise Exception
+    except Exception as e:
+        tb1 = e.__traceback__
+    try:
+        raise Exception
+    except Exception as e:
+        tb2 = e.__traceback__
+    full_eg.__traceback__ = tb1
+    value_eg.__traceback__ = tb1
+    zerodiv = ZeroDivisionError('division by zero')
+    zerodiv.__traceback__ = tb2
+    assert repr(_prep_reraise_star(full_eg, [zerodiv, value_eg])) == "ExceptionGroup('', [ZeroDivisionError('division by zero'), ExceptionGroup('abc', [ValueError()])])"

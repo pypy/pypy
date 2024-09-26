@@ -75,6 +75,9 @@ class Module(MixedModule):
         'ValueError' : 'interp_exceptions.W_ValueError',
         'Warning' : 'interp_exceptions.W_Warning',
         'ZeroDivisionError' : 'interp_exceptions.W_ZeroDivisionError',
+
+        # helper function for tests/the interpreter
+        '__prep_reraise_star': 'interp_group.prep_reraise_star',
         }
 
     if rwin32.WIN32:
