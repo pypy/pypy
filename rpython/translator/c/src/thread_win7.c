@@ -97,6 +97,7 @@ PyCOND_WAIT(PyCOND_T *cv, PyMUTEX_T *cs)
 Py_LOCAL_INLINE(int)
 PyCOND_TIMEDWAIT(PyCOND_T *cv, PyMUTEX_T *cs, long long us)
 {
+    /* timeout in milliseconds */
     return SleepConditionVariableSRW(cv, cs, (DWORD)(us/1000), 0) ? 2 : -1;
 }
 
@@ -186,7 +187,7 @@ _PyTime_AsMicroseconds(_PyTime_t t, _PyTime_round_t round)
 #define SEC_TO_NS (1000 * 1000 * 1000)
 
 static int
-win_perf_counter_frequency(LONGLONG *pfrequency, int raise)
+win_perf_counter_frequency(LONGLONG *pfrequency)
 {
     LONGLONG frequency;
 
@@ -229,11 +230,11 @@ _PyTime_MulDiv(_PyTime_t ticks, _PyTime_t mul, _PyTime_t div)
 }
 
 static int
-py_get_win_perf_counter(_PyTime_t *tp, int raise)
+py_get_win_perf_counter(_PyTime_t *tp)
 {
     static LONGLONG frequency = 0;
     if (frequency == 0) {
-        if (win_perf_counter_frequency(&frequency, raise) < 0) {
+        if (win_perf_counter_frequency(&frequency) < 0) {
             return -1;
         }
     }
@@ -258,7 +259,7 @@ _PyTime_GetPerfCounter(void)
 {
     _PyTime_t t;
     int res;
-    res = py_get_win_perf_counter(&t, 0);
+    res = py_get_win_perf_counter(&t);
     if (res  < 0) {
         // If win_perf_counter_frequency() or py_get_monotonic_clock() fails:
         // silently ignore the failure and return 0.
@@ -331,16 +332,16 @@ EnterNonRecursiveMutex(PNRMUTEX mutex, RPY_TIMEOUT_T microseconds)
             gil_fatal("_PyTime_GetPerfCounter() <= 0", (int)now_ns);
         }
         /* This can fail to timeout if microseconds is too big */
-        _PyTime_t target_us = now_ns / 1000 + microseconds;
+        _PyTime_t target_ns = now_ns + (microseconds * 1000);
         while (mutex->locked) {
             if (PyCOND_TIMEDWAIT(&mutex->cv, &mutex->cs, microseconds) < 0) {
                 result = WAIT_FAILED;
                 break;
             }
             now_ns = _PyTime_GetPerfCounter();
-            if (target_us <= now_ns)
+            if (target_ns <= now_ns)
                 break;
-            microseconds = target_us - (now_ns / 1000);
+            microseconds = _PyTime_AsMicroseconds(target_ns - now_ns, _PyTime_ROUND_TIMEOUT);
         }
     }
     if (!mutex->locked) {
@@ -522,7 +523,6 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *aLock,
     if (microseconds < 0) {
         microseconds = INFINITE;
     }
-
     if (aLock && EnterNonRecursiveMutex((PNRMUTEX)aLock,
                                         microseconds) == WAIT_OBJECT_0) {
         success = RPY_LOCK_ACQUIRED;
