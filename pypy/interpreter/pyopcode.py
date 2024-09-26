@@ -1922,6 +1922,9 @@ class FinallyBlock(FrameBlock):
         if isinstance(unroller, SApplicationException):
             operationerr = unroller.operr
             operationerr.normalize_exception(frame.space)
+        else:
+            import pdb;pdb.set_trace()
+
         frame.pushvalue(unroller)
         # set the current value of sys_exc_info to operationerr,
         # saving the old value in a custom type of FrameBlock

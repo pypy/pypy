@@ -312,6 +312,19 @@ class AstValidator(ast.ASTVisitor):
         self._validate_stmts(node.orelse)
         self._validate_stmts(node.finalbody)
 
+    def visit_TryStar(self, node):
+        self._validate_body(node.body, "TryStar")
+        if not node.handlers and not node.finalbody:
+            raise ValidationError(
+                "TryStar has neither except handlers nor finalbody")
+        if not node.handlers and node.orelse:
+            raise ValidationError(
+                "TryStar has orelse but no except handlers")
+        for handler in node.handlers:
+            handler.walkabout(self)
+        self._validate_stmts(node.orelse)
+        self._validate_stmts(node.finalbody)
+
     def visit_ExceptHandler(self, node):
         if node.type:
             self._validate_expr(node.type)
