@@ -38,7 +38,7 @@ class GcLLDescription(GcCache):
         self._generated_functions = []
         self.memcpy_fn = memcpy_fn
         self.memcpy_descr = get_call_descr(self,
-            [rffi.VOIDP, rffi.CONST_VOIDP, lltype.Signed], rffi.VOIDP,
+            [lltype.Signed, lltype.Signed, lltype.Signed], lltype.Void,
             EffectInfo([], [], [], [], [], [], EffectInfo.EF_CANNOT_RAISE,
                 can_collect=False))
 

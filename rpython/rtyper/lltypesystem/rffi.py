@@ -1507,13 +1507,13 @@ class scoped_alloc_utf8buffer:
 # to be worth it to release the GIL.
 c_memcpy = llexternal("memcpy",
             [VOIDP, CONST_VOIDP, SIZE_T],
-            VOIDP,
+            lltype.Void,
             releasegil=False,
             calling_conv='c',
         )
 c_memset = llexternal("memset",
             [VOIDP, lltype.Signed, SIZE_T],
-            VOIDP,
+            lltype.Void,
             releasegil=False,
             calling_conv='c',
         )
