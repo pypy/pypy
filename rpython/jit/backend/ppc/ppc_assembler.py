@@ -40,8 +40,8 @@ from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.jit.backend.ppc.jump import remap_frame_layout_mixed
 
-memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
-                                       rffi.SIZE_T], lltype.Void,
+memcpy_fn = rffi.llexternal('memcpy', [rffi.VOIDP, rffi.CONST_VOIDP,
+                                       rffi.SIZE_T], rffi.VOIDP,
                             sandboxsafe=True, _nowrapper=True)
 
 DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
