@@ -93,7 +93,7 @@ def test_traceback_positions():
     sys.stderr = original_exc_format
     expected_exc_format = [
         '    a      + b / 0',
-        '             ^^^^^',
+        '             ~~^~~',
         'ZeroDivisionError: division by zero'
     ]
     assert buffer.get_lines()[-3:] == expected_exc_format
@@ -128,7 +128,7 @@ def test_traceback_positions_on_cause():
         '    1 + foo(x) + foo(x)',
         '        ^^^^^^',
         '    1 + 1/0 + 2',
-        '        ^^^',
+        '        ~^~',
         'ZeroDivisionError: division by zero',
         '',
         'The above exception was the direct cause of the following exception:',
@@ -164,7 +164,7 @@ def test_colors_in_traceback():
         sys.stderr = original_std_err
         expected_exc_format = [
             f'    a      + {ANSIColors.BOLD_RED}b / 0{ANSIColors.RESET} # abc',
-            f'             {ANSIColors.BOLD_RED}^^^^^{ANSIColors.RESET}',
+            f'             {ANSIColors.BOLD_RED}~~^~~{ANSIColors.RESET}',
             f'{ANSIColors.BOLD_MAGENTA}ZeroDivisionError{ANSIColors.RESET}: {ANSIColors.MAGENTA}division by zero{ANSIColors.RESET}'
         ]
         assert buffer.get_lines()[-3:] == expected_exc_format
