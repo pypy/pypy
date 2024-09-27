@@ -356,7 +356,6 @@ def _walk_stack(f):
         f = f.f_back
 
 def _construct_positionful_frame(f, last_i, *args, **kwargs):
-    # used from module/sys/app.py and from pyrepl
     f_summary = FrameSummary(*args, **kwargs)
 
     # If we can't retrieve the traceback's last instruction
@@ -785,8 +784,7 @@ class TracebackException:
 
     def __init__(self, exc_type, exc_value, exc_traceback, *, limit=None,
             lookup_lines=True, capture_locals=False, compact=False,
-            max_group_width=15, max_group_depth=10, _seen=None,
-            _frame_constructor=None):
+            max_group_width=15, max_group_depth=10, _seen=None):
         # NB: we need to accept exc_traceback, exc_value, exc_traceback to
         # permit backwards compat with the existing API, otherwise we
         # need stub thunk objects just to glue it together.

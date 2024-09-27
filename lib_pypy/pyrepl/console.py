@@ -193,7 +193,6 @@ class InteractiveColoredConsole(code.InteractiveConsole):
             value,
             tb,
             limit=traceback.BUILTIN_EXCEPTION_LIMIT,
-            _frame_constructor=traceback._construct_positionful_frame,
         )
         tb_exc._colorize = self.can_colorize
         lines = tb_exc.format()

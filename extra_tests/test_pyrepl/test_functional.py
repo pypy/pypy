@@ -3,6 +3,7 @@
 # License: MIT
 # some functional tests, to see if this is really working
 
+import pytest
 from contextlib import contextmanager
 import sys, os
 

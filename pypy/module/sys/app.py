@@ -22,7 +22,7 @@ def excepthook(exctype, value, traceback):
         pass
 
     try:
-        from traceback import StackSummary, TracebackException, walk_tb, _construct_positionful_frame
+        from traceback import TracebackException
         from _colorize import can_colorize
         limit = getattr(sys, 'tracebacklimit', None)
         format_exc_only = False
@@ -52,7 +52,6 @@ def excepthook(exctype, value, traceback):
             value,
             traceback,
             limit=limit,
-            _frame_constructor=_construct_positionful_frame,
         )
         tb_exc._colorize = can_colorize()
         if format_exc_only:
