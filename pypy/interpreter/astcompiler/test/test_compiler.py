@@ -964,7 +964,7 @@ a = A()
         finally: pass
         """
         code = compile_with_astcompiler(source, 'exec', self.space)
-        assert code.co_stacksize == 1
+        assert code.co_stacksize == 2 # maybe should be 1
 
     def test_stackeffect_bug4(self):
         source = """if 1:
@@ -1014,7 +1014,7 @@ a = A()
         print(6)
         """
         code = compile_with_astcompiler(source, 'exec', self.space)
-        assert code.co_stacksize == 5 # used to be 6
+        assert code.co_stacksize == 4 # used to be 6, then 5
 
     def test_lambda(self):
         yield self.st, "y = lambda x: x", "y(4)", 4

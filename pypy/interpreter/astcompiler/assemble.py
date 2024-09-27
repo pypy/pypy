@@ -123,6 +123,9 @@ class Block(object):
         self.exits_function = False
         self.auto_inserted_return = False
 
+    def __repr__(self):
+        return "<Block %s>" % (self.instructions, )
+
     def emit_instr(self, instr):
         self.instructions.append(instr)
         op = instr.opcode
@@ -325,6 +328,9 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.no_position_info()
         self.add_none_to_final_return = True
         self.match_context = None
+
+    def __repr__(self):
+        return "<PythonCodeMaker %s in %s:%s>" % (self.name, self.compile_info.filename, self.first_lineno)
 
     def _check_consistency(self, blocks):
         current_off = 0
@@ -1092,7 +1098,7 @@ _static_opcode_stack_effects = {
     ops.GET_AITER: 0,
     ops.GET_ANEXT: 1,
     ops.GET_YIELD_FROM_ITER: 0,
-    ops.END_ASYNC_FOR: -4,
+    ops.END_ASYNC_FOR: -3,
 
     ops.LOAD_CONST: 1,
 
@@ -1236,7 +1242,7 @@ def _opcode_stack_effect_jump(op):
     elif op == ops.SETUP_FINALLY:
         return 1
     elif op == ops.SETUP_EXCEPT:
-        return 3
+        return 2
     elif op == ops.SETUP_WITH:
         return 1
     elif op == ops.SETUP_ASYNC_WITH:

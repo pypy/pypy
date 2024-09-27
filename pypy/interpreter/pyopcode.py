@@ -969,7 +969,7 @@ class __extend__(pyframe.PyFrame):
                     raise oefmt(space.w_TypeError, CANNOT_CATCH_MSG)
         elif not space.exception_is_valid_class_w(w_2):
             raise oefmt(space.w_TypeError, CANNOT_CATCH_MSG)
-        return space.exception_match(w_1, w_2)
+        return space.exception_match(space.type(w_1), w_2)
 
     def COMPARE_OP(self, testnum, next_instr):
         w_2 = self.popvalue()
@@ -1599,14 +1599,13 @@ class __extend__(pyframe.PyFrame):
         assert isinstance(block, SysExcInfoRestorer)
         block.cleanupstack(self)   # restores ec.sys_exc_operror
 
-        w_typ = self.popvalue()
-        if self.space.exception_match(w_typ, self.space.w_StopAsyncIteration):
-            self.popvalue() # w_exc
+        w_exc = self.popvalue()
+        if self.space.exception_match(self.space.type(w_exc), self.space.w_StopAsyncIteration):
             self.popvalue() # unroller
             self.popvalue() # aiter
             return next_instr
         else:
-            unroller = self.peekvalue(1)
+            unroller = self.peekvalue(0)
             if not isinstance(unroller, SApplicationException):
                 raise oefmt(self.space.w_RuntimeError,
                         "END_ASYNC_FOR found no exception")
@@ -1900,7 +1899,6 @@ class ExceptBlock(FrameBlock):
         w_value = operationerr.normalize_exception(frame.space)
         frame.pushvalue(unroller)
         frame.pushvalue(w_value)
-        frame.pushvalue(operationerr.w_type)
         # set the current value of sys_exc_info to operationerr,
         # saving the old value in a custom type of FrameBlock
         frame.save_and_change_sys_exc_info(operationerr)

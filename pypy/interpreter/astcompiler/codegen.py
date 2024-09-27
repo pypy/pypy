@@ -887,6 +887,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(exc)
         self.push_frame_block(F_EXCEPTION_HANDLER, None)
         handler = None
+        if self.name == "_spec_from_module":
+            import pdb;pdb.set_trace()
         for i, handler in enumerate(tr.handlers):
             assert isinstance(handler, ast.ExceptHandler)
             self.update_position(handler)
@@ -899,7 +901,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 if i != len(tr.handlers) - 1:
                     self.error(
                         "bare 'except:' must be the last except block", handler)
-            self.emit_op(ops.POP_TOP)
             if handler.name:
                 ## generate the equivalent of:
                 ##
@@ -956,7 +957,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.update_position(handler)
         self.pop_frame_block(F_EXCEPTION_HANDLER, None)
         # pypy difference: get rid of exception
-        self.emit_op(ops.POP_TOP)
         self.emit_op(ops.POP_TOP)
         self.emit_op(ops.RERAISE) # reraise uses the SApplicationException
         self.use_next_block(otherwise)
@@ -1092,7 +1092,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             next_except_with_nop = self.new_block() # L2 in comment above
             assert handler.type is not None
             if i == 0:
-                self.emit_op(ops.POP_TOP) # XXX pypy difference: exception type is on stack
                 self.emit_op(ops.DUP_TOP)
                 self.emit_op(ops.BUILD_LIST)
                 self.emit_op(ops.ROT_TWO)
@@ -1138,7 +1137,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.name_op(handler.name, ast.Store, handler)
                 self.name_op(handler.name, ast.Del, handler)
 
-            self.emit_op(ops.POP_TOP) # get rid of type
             self.emit_op_arg(ops.LIST_APPEND, 3)
             self.emit_op(ops.POP_TOP)
             self.emit_jump(ops.JUMP_FORWARD, next_except)
@@ -1167,7 +1165,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if handler is not None:
             self.update_position(handler)
         self.pop_frame_block(F_EXCEPTION_GROUP_HANDLER, None)
-        # pypy difference: get rid of exception # XXX is this correct for groups?
+        # pypy difference: get rid of exception
         self.emit_op(ops.ROT_TWO)
         self.emit_op(ops.POP_TOP)
         self.emit_op(ops.RERAISE)
