@@ -125,9 +125,8 @@ def test_all():
     with open(str(testfile), "wt") as outfid:
         outfid.write("#copied from '%s'\n\n" % thisfile)
         outfid.write(text)
-    if not 'pytest.py' in os.listdir('.'):
-        print "cwd is '%s', but no pytest.py found" % os.getcwd()
-    p = subprocess.Popen([sys.executable, "pytest.py", str(testfile)])
+    p = subprocess.Popen([sys.executable, pytest.__file__, str(testfile)],
+                        universal_newlines=True)
     result = p.wait()
-    assert result == 0
+    assert result == 0, "tests failed, run using '%s'" % testfile
 
