@@ -14,12 +14,14 @@ WORD = LONG_BIT // 8
 
 class SimpleArenaCollection(object):
 
-    def __init__(self, arena_size, page_size, small_request_threshold):
+    def __init__(self, arena_size, page_size, small_request_threshold, ok_to_free_func):
         self.arena_size = arena_size   # ignored
         self.page_size = page_size
         self.small_request_threshold = small_request_threshold
+        self.ok_to_free_func = ok_to_free_func
         self.all_objects = []
         self.total_memory_used = 0
+        self.total_memory_alloced = 0
         self.arenas_count = 0
 
     def malloc(self, size):
@@ -32,6 +34,7 @@ class SimpleArenaCollection(object):
         llarena.arena_reserve(result, size)
         self.all_objects.append((result, nsize))
         self.total_memory_used += nsize
+        self.total_memory_alloced += nsize
         return result
 
     def mass_free_prepare(self):
@@ -39,12 +42,14 @@ class SimpleArenaCollection(object):
         self.all_objects = []
         self.total_memory_used = 0
 
-    def mass_free_incremental(self, ok_to_free_func, max_pages):
+    def mass_free_incremental(self, max_pages):
+        ok_to_free_func = self.ok_to_free_func
         old = self.old_all_objects
         while old:
             rawobj, nsize = old.pop()
             if ok_to_free_func(rawobj):
                 llarena.arena_free(rawobj)
+                self.total_memory_alloced -= nsize
             else:
                 self.all_objects.append((rawobj, nsize))
                 self.total_memory_used += nsize
@@ -53,7 +58,12 @@ class SimpleArenaCollection(object):
                 return False
         return True
 
-    def mass_free(self, ok_to_free_func):
+    def mass_free(self):
         self.mass_free_prepare()
-        res = self.mass_free_incremental(ok_to_free_func, sys.maxint)
+        res = self.mass_free_incremental(sys.maxint)
         assert res
+
+    def maybe_mass_free_per_class(self, limit_per_class=5):
+        return # do nothing in the SimpleArenaCollection.
+
+    def _debug_print_arena_stats(self, *args, **kwargs): pass

@@ -332,7 +332,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             from rpython.memory.gc import minimarkpage
             ArenaCollectionClass = minimarkpage.ArenaCollection
         self.ac = ArenaCollectionClass(arena_size, page_size,
-                                       small_request_threshold)
+                                       small_request_threshold,
+                                       self._free_if_unvisited)
         #
         # Used by minor collection: a list of (mostly non-young) objects that
         # (may) contain a pointer to a young object.  Populated by
@@ -2530,10 +2531,16 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 #
                 self.stat_ac_arenas_count = self.ac.arenas_count
                 self.stat_rawmalloced_total_size = self.rawmalloced_total_size
+                # do a tiny bit of freeing, to try to have a few pages with
+                # free objects per class available at the next minor collection
+                self.ac.maybe_mass_free_per_class(limit_per_class=10)
                 self.gc_state = STATE_SWEEPING
             #END MARKING
         elif self.gc_state == STATE_SWEEPING:
-            #
+            # always free a few pages per class, to try to have a few pages
+            # with free objects per class available at the next minor
+            # collection
+            self.ac.maybe_mass_free_per_class(limit_per_class=10)
             if self.raw_malloc_might_sweep.non_empty():
                 # Walk all rawmalloced objects and free the ones that don't
                 # have the GCFLAG_VISITED flag.  Visit at most 'limit' objects.
@@ -2551,8 +2558,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # GCFLAG_VISITED on the others.  Visit at most '3 *
                 # nursery_size' bytes.
                 limit = 3 * self.nursery_size // self.ac.page_size
-                done = self.ac.mass_free_incremental(self._free_if_unvisited,
-                                                     limit)
+                done = self.ac.mass_free_incremental( limit)
                 status = done and "No more pages left." or "More to do."
                 debug_print("freeing GC objects, up to", limit, "pages.", status)
             # XXX tweak the limits above
@@ -2583,6 +2589,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                             self.ac.arenas_count)
                 debug_print("bytes used in arenas: ",
                             self.ac.total_memory_used)
+                debug_print("total size of arenas (some is free): ",
+                            self.ac.total_memory_alloced)
                 debug_print("bytes raw-malloced:   ",
                             self.stat_rawmalloced_total_size, " => ",
                             self.rawmalloced_total_size)

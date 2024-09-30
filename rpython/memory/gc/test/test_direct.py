@@ -824,7 +824,6 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         debuglog.reset()
         self.gc.collect(1) # run one more step
         assert sorted(debuglog.summary()) == ['gc-collect-step', 'gc-minor']
-        assert s.x == 42 # s is not freed yet
         #
         debuglog.reset()
         self.gc.collect() # finish the major collection
@@ -1017,6 +1016,25 @@ class TestIncrementalMiniMarkGCFull(DirectGCTest):
         # this used to crash, with unexpected GCFLAG_VISITED in
         # _debug_check_object_scanning, called on the shadow
         self.gc.collect()
+
+    def test_last_marking_phase_frees_some_pages(self):
+        # a few dead old objects
+        for i in range(10):
+            obj = self.malloc(S)
+            self.stackroots.append(obj)
+        self.gc._minor_collection()
+        assert self.gc.gc_state == incminimark.STATE_SCANNING
+        for i in range(0, 10, 2): # free half
+            self.stackroots.pop()
+        assert self.gc.ac.page_for_size[4]
+        self.gc.collect_step() # marking
+        assert self.gc.ac.page_for_size[4]
+        self.gc.collect_step() # marking
+        assert self.gc.gc_state == incminimark.STATE_SWEEPING
+        # make sure that the last marking phase does a tiny bit of sweeping
+        # already, so that the next minor collect doesn't need to grab fresh
+        # empty pages from some arena, and reuses half-full pages instead
+        assert self.gc.ac.page_for_size[4]
 
 
 class Node(object):
