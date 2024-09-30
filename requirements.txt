@@ -12,3 +12,6 @@ enum34>=1.1.2
 
 # this is used by pypy/module/_hpy_universal/_vendored/hpy/devel
 pathlib
+
+# needed for some test compatibility with python3
+future
