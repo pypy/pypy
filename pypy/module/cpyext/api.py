@@ -1630,7 +1630,8 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          translator_c_dir / "src" / "signals.c",
                          ]
 if WIN32:
-    separate_module_files.append(source_dir / "pythread_nt.c")
+    # separate_module_files.append(source_dir / "pythread_nt.c")
+    separate_module_files.append(source_dir / "pythread_win7.c")
 else:
     separate_module_files.append(source_dir / "pythread_posix.c")
 
