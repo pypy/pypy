@@ -119,24 +119,24 @@ PyCOND_BROADCAST(PyCOND_T *cv)
  * Taken from Python/pytime.c
  */
 
-typedef long long _PyTime_t;
-#define _PyTime_MAX INT64_MAX
+typedef long long _RPyTime_t;
+#define _RPyTime_MAX INT64_MAX
 typedef enum {
-    _PyTime_ROUND_FLOOR=0,
-    _PyTime_ROUND_CEILING=1,
-    _PyTime_ROUND_HALF_EVEN=2,
-    _PyTime_ROUND_UP=3,
-    _PyTime_ROUND_TIMEOUT = _PyTime_ROUND_UP
-} _PyTime_round_t;
+    _RPyTime_ROUND_FLOOR=0,
+    _RPyTime_ROUND_CEILING=1,
+    _RPyTime_ROUND_HALF_EVEN=2,
+    _RPyTime_ROUND_UP=3,
+    _RPyTime_ROUND_TIMEOUT = _RPyTime_ROUND_UP
+} _RPyTime_round_t;
 
 
-static _PyTime_t
-_PyTime_Divide(const _PyTime_t t, const _PyTime_t k,
-               const _PyTime_round_t round)
+static _RPyTime_t
+_PyTime_Divide(const _RPyTime_t t, const _RPyTime_t k,
+               const _RPyTime_round_t round)
 {
     assert(k > 1);
-    if (round == _PyTime_ROUND_HALF_EVEN) {
-        _PyTime_t x, r, abs_r;
+    if (round == _RPyTime_ROUND_HALF_EVEN) {
+        _RPyTime_t x, r, abs_r;
         x = t / k;
         r = t % k;
         abs_r = abs(r);
@@ -150,7 +150,7 @@ _PyTime_Divide(const _PyTime_t t, const _PyTime_t k,
         }
         return x;
     }
-    else if (round == _PyTime_ROUND_CEILING) {
+    else if (round == _RPyTime_ROUND_CEILING) {
         if (t >= 0) {
             return (t + k - 1) / k;
         }
@@ -158,7 +158,7 @@ _PyTime_Divide(const _PyTime_t t, const _PyTime_t k,
             return t / k;
         }
     }
-    else if (round == _PyTime_ROUND_FLOOR){
+    else if (round == _RPyTime_ROUND_FLOOR){
         if (t >= 0) {
             return t / k;
         }
@@ -167,7 +167,7 @@ _PyTime_Divide(const _PyTime_t t, const _PyTime_t k,
         }
     }
     else {
-        assert(round == _PyTime_ROUND_UP);
+        assert(round == _RPyTime_ROUND_UP);
         if (t >= 0) {
             return (t + k - 1) / k;
         }
@@ -178,8 +178,8 @@ _PyTime_Divide(const _PyTime_t t, const _PyTime_t k,
 }
 
 
-_PyTime_t
-_PyTime_AsMicroseconds(_PyTime_t t, _PyTime_round_t round)
+static _RPyTime_t
+_RPyTime_AsMicroseconds(_RPyTime_t t, _RPyTime_round_t round)
 {
     return _PyTime_Divide(t, 1000, round);
 }
@@ -202,8 +202,8 @@ win_perf_counter_frequency(LONGLONG *pfrequency)
         return -1;
     }
 
-    if (frequency > _PyTime_MAX
-        || frequency > (LONGLONG)_PyTime_MAX / (LONGLONG)SEC_TO_NS)
+    if (frequency > _RPyTime_MAX
+        || frequency > (LONGLONG)_RPyTime_MAX / (LONGLONG)SEC_TO_NS)
     {
         return -1;
     }
@@ -212,10 +212,10 @@ win_perf_counter_frequency(LONGLONG *pfrequency)
     return 0;
 }
 
-static _PyTime_t
-_PyTime_MulDiv(_PyTime_t ticks, _PyTime_t mul, _PyTime_t div)
+static _RPyTime_t
+_PyTime_MulDiv(_RPyTime_t ticks, _RPyTime_t mul, _RPyTime_t div)
 {
-    _PyTime_t intpart, remaining;
+    _RPyTime_t intpart, remaining;
     /* Compute (ticks * mul / div) in two parts to prevent integer overflow:
        compute integer part, and then the remaining part.
 
@@ -230,7 +230,7 @@ _PyTime_MulDiv(_PyTime_t ticks, _PyTime_t mul, _PyTime_t div)
 }
 
 static int
-py_get_win_perf_counter(_PyTime_t *tp)
+py_get_win_perf_counter(_RPyTime_t *tp)
 {
     static LONGLONG frequency = 0;
     if (frequency == 0) {
@@ -243,21 +243,21 @@ py_get_win_perf_counter(_PyTime_t *tp)
     QueryPerformanceCounter(&now);
     LONGLONG ticksll = now.QuadPart;
 
-    /* Make sure that casting LONGLONG to _PyTime_t cannot overflow,
+    /* Make sure that casting LONGLONG to _RPyTime_t cannot overflow,
  *        both types are signed */
-    _PyTime_t ticks;
+    _RPyTime_t ticks;
     assert(sizeof(ticksll) <= sizeof(ticks));
-    ticks = (_PyTime_t)ticksll;
+    ticks = (_RPyTime_t)ticksll;
 
-    *tp = _PyTime_MulDiv(ticks, SEC_TO_NS, (_PyTime_t)frequency);
+    *tp = _PyTime_MulDiv(ticks, SEC_TO_NS, (_RPyTime_t)frequency);
     return 0;
 }
 
 
-static _PyTime_t
+static _RPyTime_t
 _PyTime_GetPerfCounter(void)
 {
-    _PyTime_t t;
+    _RPyTime_t t;
     int res;
     res = py_get_win_perf_counter(&t);
     if (res  < 0) {
@@ -327,12 +327,12 @@ EnterNonRecursiveMutex(PNRMUTEX mutex, RPY_TIMEOUT_T microseconds)
         }
     } else if (microseconds != 0) {
         /* wait at least until the target */
-        _PyTime_t now_ns = _PyTime_GetPerfCounter();
+        _RPyTime_t now_ns = _PyTime_GetPerfCounter();
         if (now_ns <= 0) {
             gil_fatal("_PyTime_GetPerfCounter() <= 0", (int)now_ns);
         }
         /* This can fail to timeout if microseconds is too big */
-        _PyTime_t target_ns = now_ns + (microseconds * 1000);
+        _RPyTime_t target_ns = now_ns + (microseconds * 1000);
         while (mutex->locked) {
             if (PyCOND_TIMEDWAIT(&mutex->cv, &mutex->cs, microseconds) < 0) {
                 result = WAIT_FAILED;
@@ -341,7 +341,7 @@ EnterNonRecursiveMutex(PNRMUTEX mutex, RPY_TIMEOUT_T microseconds)
             now_ns = _PyTime_GetPerfCounter();
             if (target_ns <= now_ns)
                 break;
-            microseconds = _PyTime_AsMicroseconds(target_ns - now_ns, _PyTime_ROUND_TIMEOUT);
+            microseconds = _RPyTime_AsMicroseconds(target_ns - now_ns, _RPyTime_ROUND_TIMEOUT);
         }
     }
     if (!mutex->locked) {
