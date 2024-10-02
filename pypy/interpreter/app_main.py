@@ -394,11 +394,13 @@ def initstdio(encoding=None, unbuffered=False):
         else:
             errors = None
         encoding = encoding or None
+        # issue 5034
+        import _locale
+        _locale.setlocale(_locale.LC_CTYPE, "")
         if _WIN32 and not encoding:
             encoding = "utf-8"
         if not (encoding or errors):
             # stdin/out default to surrogateescape in C locale
-            import _locale
             if _locale.setlocale(_locale.LC_CTYPE, None) == 'C':
                 errors = 'surrogateescape'
 

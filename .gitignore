@@ -52,6 +52,7 @@ lib_pypy/_blake2/impl/*.o
 lib_pypy/_*test*.pypy*.so
 lib_pypy/_ctypes/_ctypes_cffi*
 rpython/rlib/rvmprof/src/shared/libbacktrace/config.h
+rpython/rlib/test/_hacked_rbigint.py
 include/pypy*
 lib/pypy*
 pybuilddir.txt

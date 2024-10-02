@@ -262,7 +262,7 @@ class MsvcPlatform(Platform):
     def check___thread(self):
         # __declspec(thread) does not seem to work when using assembler.
         # Returning False will cause the program to use TlsAlloc functions.
-        # see src/thread_nt.h
+        # see src/thread_nt.h or src/thread_win7.h
         return False
 
     def _link_args_from_eci(self, eci, standalone):

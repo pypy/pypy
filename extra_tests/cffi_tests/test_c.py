@@ -26,9 +26,17 @@ from _cffi_backend import __version__
 # ____________________________________________________________
 
 import sys
+import platform
+import pytest
 assert __version__ == "1.18.0.dev0", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
+
+if sys.platform == "darwin" and platform.machine() == "arm64":
+    IS_MACOS_ARM64 = True
+else:
+    IS_MACOS_ARM64 = False
+
 if sys.version_info < (3,):
     type_or_class = "type"
     mandatory_b_prefix = ''
@@ -1192,7 +1200,10 @@ def test_cannot_pass_struct_with_array_of_length_0():
     BFunc2 = new_function_type((BInt,), BStruct, False)
     pytest.raises(NotImplementedError, cast(BFunc2, 123), 123)
 
+pytest.mark.skipif(IS_MACOS_ARM64, reason="vararg not supported")
 def test_call_function_9():
+    if not sys.platform.startswith("linux"):
+        pytest.skip("untested")
     BInt = new_primitive_type("int")
     BFunc9 = new_function_type((BInt,), BInt, True)    # vararg
     f = cast(BFunc9, _testfunc(9))
