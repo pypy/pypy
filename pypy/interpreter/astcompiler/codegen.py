@@ -887,8 +887,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(exc)
         self.push_frame_block(F_EXCEPTION_HANDLER, None)
         handler = None
-        if self.name == "_spec_from_module":
-            import pdb;pdb.set_trace()
         for i, handler in enumerate(tr.handlers):
             assert isinstance(handler, ast.ExceptHandler)
             self.update_position(handler)
