@@ -9,8 +9,8 @@
  */
 
 struct RPyOpaque_ThreadLock {
-    SRWLOCK cs;
-    CONDITION_VARIABLE cv;
+    SRWLOCK cs;            /* mut in thread_pthread.c */
+    CONDITION_VARIABLE cv; /*cond in thread_pythread.c */
     int locked;
 };
 
