@@ -1,8 +1,8 @@
 import z3
 from rpython.jit.metainterp.optimizeopt.test.test_z3intbound import (
-    Z3IntBound,
     make_z3_intbounds_instance,
 )
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.ruleopt import parse
 from rpython.rlib.rarithmetic import LONG_BIT
 
@@ -85,6 +85,8 @@ def z3_expression(opname, arg0, arg1=None):
         expr = -arg0
     elif opname == "int_invert":
         expr = ~arg0
+    elif opname == "int_force_ge_zero":
+        expr = z3.If(arg0 < 0, 0, arg0)
     else:
         expr, valid = z3_bool_expression(opname, arg0, arg1)
         return z3_cond(expr), valid
@@ -234,7 +236,7 @@ class Prover(parse.Visitor):
         var = self._convert_var(expr.name)
         if targettype is int:
             return var, True
-        if targettype is Z3IntBound:
+        if targettype is IntBound:
             b = self._convert_intbound(expr.name)
             return b, True
         import pdb
@@ -251,14 +253,10 @@ class Prover(parse.Visitor):
         return res, True
 
     def visit_MethodCall(self, expr, targettype=int):
-        res, resvalid = self.visit(expr.value, Z3IntBound)
-        assert isinstance(res, Z3IntBound)
-        if expr.methname in ("known_eq_const", "known_le_const", "known_ge_const"):
-            targettypes = [int]
-        else:
-            targettypes = [Z3IntBound] * len(expr.args)
+        res, resvalid = self.visit(expr.value, IntBound)
+        assert isinstance(res, IntBound)
         args = [
-            self.visit(arg, typ) for arg, typ in zip(expr.args, targettypes)
+            self.visit(arg, arg.typ) for arg in expr.args
         ]
         methargs = [arg[0] for arg in args]
         return getattr(res, expr.methname)(*methargs), z3_and(

@@ -31,6 +31,17 @@ ne_same: int_ne(x, x)
 
 ne_zero: int_ne(x, 0)
     => int_is_true(x)
+
+
+
+force_ge_zero_pos: int_force_ge_zero(x)
+    check x.known_nonnegative()
+    => x
+
+force_ge_zero_neg: int_force_ge_zero(x)
+    check x.known_lt_const(0)
+    => 0
+
 #
 #
 #sub_zero: int_sub(x, 0)

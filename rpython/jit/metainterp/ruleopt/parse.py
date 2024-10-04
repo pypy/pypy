@@ -627,9 +627,11 @@ def parse(s):
 INTBOUND_METHODTYPES = {
     "known_eq_const": (IntBound, [int], bool),
     "known_le_const": (IntBound, [int], bool),
+    "known_lt_const": (IntBound, [int], bool),
     "known_ge_const": (IntBound, [int], bool),
-    "known_ge_const": (IntBound, [int], bool),
+    "known_gt_const": (IntBound, [int], bool),
     "known_ne": (IntBound, [IntBound], bool),
+    "known_nonnegative": (IntBound, [], bool),
     "is_constant": (IntBound, [], bool),
     "is_bool": (IntBound, [], bool),
     "get_constant_int": (IntBound, [], int),

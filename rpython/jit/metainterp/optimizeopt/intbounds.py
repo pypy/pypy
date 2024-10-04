@@ -421,15 +421,6 @@ class OptIntBounds(Optimization):
                 assert r.get_constant_int() == 0
                 self.make_unsigned_lt(op.getarg(0), op.getarg(1))
 
-    def optimize_INT_FORCE_GE_ZERO(self, op):
-        b = self.getintbound(op.getarg(0))
-        if b.known_nonnegative():
-            self.make_equal_to(op, op.getarg(0))
-        elif b.known_lt_const(0):
-            self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
-
     def optimize_INT_SIGNEXT(self, op):
         b = self.getintbound(op.getarg(0))
         numbits = op.getarg(1).getint() * 8
