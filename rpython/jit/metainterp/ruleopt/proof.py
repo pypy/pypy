@@ -298,6 +298,8 @@ class Prover(parse.Visitor):
 
 
 def prove_source(s):
-    for rule in parse.parse(s).rules:
+    ast = parse.parse(s)
+    for rule in ast.rules:
         p = Prover()
         p.check_rule(rule)
+    return ast

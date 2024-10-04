@@ -1,6 +1,4 @@
 import sys
-from contextlib import contextmanager
-from collections import defaultdict
 from rply import LexerGenerator, LexingError, ParserGenerator, ParsingError
 from rply.token import BaseBox
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
@@ -244,6 +242,7 @@ class BinOp(Expression):
 
 class IntBinOp(BinOp):
     typ = int
+    need_ruint = False
 
 class BoolBinOp(BinOp):
     typ = bool
@@ -252,20 +251,24 @@ class BoolBinOp(BinOp):
 class Add(IntBinOp):
     opname = "int_add"
     pysymbol = "+"
+    need_ruint = True
 
 
 class Sub(IntBinOp):
     opname = "int_sub"
     pysymbol = "-"
+    need_ruint = True
 
 
 class Mul(IntBinOp):
     opname = "int_mul"
     pysymbol = "*"
+    need_ruint = True
 
 
 class Div(IntBinOp):
-    opname = "int_div"
+    opname = None
+    pysymbol = "//"
 
 
 class LShift(IntBinOp):
@@ -275,11 +278,13 @@ class LShift(IntBinOp):
 
 class URShift(IntBinOp):
     opname = "uint_rshift"
+    need_ruint = True
 
 
 class ARShift(IntBinOp):
     opname = "int_rshift"
     pysymbol = ">>"
+    need_ruint = False
 
 
 class OpAnd(IntBinOp):

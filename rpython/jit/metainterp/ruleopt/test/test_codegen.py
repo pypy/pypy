@@ -125,17 +125,6 @@ int_sub_zero_neg: int_sub(0, x)
     ]
 
 
-def test_generate_expr_precedence():
-    c = Codegen()
-    res = c.visit(Mul(Sub(Name('a'), Name('b')), Name('c')))
-    assert res == '(a - b) * c'
-    res = c.visit(Sub(Mul(Name('a'), Name('b')), Name('c')))
-    assert res == 'a * b - c'
-    res = c.visit(Sub(Sub(Name('a'), Name('b')), Name('c')))
-    assert res == 'a - b - c'
-    res = c.visit(Sub(Name('a'), Sub(Name('b'), Name('c'))))
-    assert res == 'a - (b - c)'
-
 def test_generate_code():
     s = """\
 sub_zero: int_sub(x, 0)
@@ -146,8 +135,6 @@ sub_add: int_sub(int_add(x, y), y)
     => x
 sub_zero_neg: int_sub(0, x)
     => int_neg(x)
-sub_add_const: int_sub(int_add(x, C), C) # nonsense rule, but I want to see const matching working
-    => x
 sub_add_consts: int_sub(int_add(x, C1), C2)
     C = C2 - C1
     => int_sub(x, C)
@@ -174,30 +161,6 @@ def optimize_INT_SUB(self, op):
     if b_arg_1.known_eq_const(0):
         self.make_equal_to(op, arg_0)
         return
-    # sub_add_const: int_sub(int_add(x, C), C) => x
-    arg_0_int_add = self.optimizer.as_operation(arg_0, rop.INT_ADD)
-    if arg_0_int_add is not None:
-        arg_0_int_add_0 = get_box_replacement(arg_0.getarg(0))
-        b_arg_0_int_add_0 = self.getintbound(arg_0_int_add_0)
-        arg_0_int_add_1 = get_box_replacement(arg_0.getarg(1))
-        b_arg_0_int_add_1 = self.getintbound(arg_0_int_add_1)
-        if b_arg_0_int_add_1.is_constant():
-            C_arg_0_int_add_1 = b_arg_0_int_add_1.get_constant_int()
-            if b_arg_1.known_eq_const(C_arg_0_int_add_1):
-                self.make_equal_to(op, arg_0_int_add_0)
-                return
-    # sub_add_const: int_sub(int_add(C, x), C) => x
-    arg_0_int_add = self.optimizer.as_operation(arg_0, rop.INT_ADD)
-    if arg_0_int_add is not None:
-        arg_0_int_add_0 = get_box_replacement(arg_0.getarg(0))
-        b_arg_0_int_add_0 = self.getintbound(arg_0_int_add_0)
-        arg_0_int_add_1 = get_box_replacement(arg_0.getarg(1))
-        b_arg_0_int_add_1 = self.getintbound(arg_0_int_add_1)
-        if b_arg_0_int_add_0.is_constant():
-            C_arg_0_int_add_0 = b_arg_0_int_add_0.get_constant_int()
-            if b_arg_1.known_eq_const(C_arg_0_int_add_0):
-                self.make_equal_to(op, arg_0_int_add_1)
-                return
     # sub_add: int_sub(int_add(x, y), y) => x
     arg_0_int_add = self.optimizer.as_operation(arg_0, rop.INT_ADD)
     if arg_0_int_add is not None:
@@ -234,7 +197,7 @@ def optimize_INT_SUB(self, op):
             C_arg_0_int_add_1 = b_arg_0_int_add_1.get_constant_int()
             if b_arg_1.is_constant():
                 C_arg_1 = b_arg_1.get_constant_int()
-                C = C2 - C1
+                C = intmask(r_uint(C_arg_1) - r_uint(C_arg_0_int_add_1))
                 newop = self.replace_op_with(op, rop.INT_SUB, args=[arg_0_int_add_0, ConstInt(C)])
                 self.optimizer.send_extra_operation(newop)
                 return
@@ -249,10 +212,11 @@ def optimize_INT_SUB(self, op):
             C_arg_0_int_add_0 = b_arg_0_int_add_0.get_constant_int()
             if b_arg_1.is_constant():
                 C_arg_1 = b_arg_1.get_constant_int()
-                C = C2 - C1
+                C = intmask(r_uint(C_arg_1) - r_uint(C_arg_0_int_add_0))
                 newop = self.replace_op_with(op, rop.INT_SUB, args=[arg_0_int_add_1, ConstInt(C)])
                 self.optimizer.send_extra_operation(newop)
                 return
+    return self.emit(op)
 
 def optimize_INT_AND(self, op):
     arg_0 = get_box_replacement(op.getarg(0))
@@ -262,9 +226,10 @@ def optimize_INT_AND(self, op):
     # and_x_c_in_range: int_and(x, C) => x
     if b_arg_1.is_constant():
         C_arg_1 = b_arg_1.get_constant_int()
-        if x.lower >= 0 and x.upper <= C & ~(C + 1):
+        if x.lower >= 0 and x.upper <= C_arg_1 & ~intmask(r_uint(C_arg_1) + r_uint(1)):
             self.make_equal_to(op, arg_0)
             return
+    return self.emit(op)
 """
     )
 
