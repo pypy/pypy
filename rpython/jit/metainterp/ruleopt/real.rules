@@ -21,6 +21,17 @@ eq_zero: int_eq(x, 0)
     => int_is_zero(x)
 
 
+ne_different_knownbits: int_ne(x, y)
+    SORRY_Z3
+    check x.known_ne(y)
+    => 1
+
+ne_same: int_ne(x, x)
+    => 0
+
+ne_zero: int_ne(x, 0)
+    => int_is_true(x)
+#
 #
 #sub_zero: int_sub(x, 0)
 #    => x

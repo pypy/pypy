@@ -421,28 +421,6 @@ class OptIntBounds(Optimization):
                 assert r.get_constant_int() == 0
                 self.make_unsigned_lt(op.getarg(0), op.getarg(1))
 
-    def optimize_INT_NE(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        b0 = self.getintbound(arg0)
-        arg1 = get_box_replacement(op.getarg(1))
-        b1 = self.getintbound(arg1)
-        if b0.known_ne(b1):
-            self.make_constant_int(op, 1)
-        elif arg0 is arg1:
-            self.make_constant_int(op, 0)
-        elif b0.is_constant() and b0.get_constant_int() == 0:
-            op = self.replace_op_with(op, rop.INT_IS_TRUE,
-                        args=[arg1])
-            self.optimizer.send_extra_operation(op)
-            return
-        elif b1.is_constant() and b1.get_constant_int() == 0:
-            op = self.replace_op_with(op, rop.INT_IS_TRUE,
-                        args=[arg0])
-            self.optimizer.send_extra_operation(op)
-            return
-        else:
-            return self.emit(op)
-
     def optimize_INT_FORCE_GE_ZERO(self, op):
         b = self.getintbound(op.getarg(0))
         if b.known_nonnegative():
