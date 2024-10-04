@@ -26,3 +26,11 @@ def test_z3_prove(name, rule):
     p = Prover()
     p.check_rule(rule)
 
+def test_sorry():
+    s = """\
+eq_different_knownbits: int_eq(x, y)
+    SORRY_Z3
+    => 0
+    """
+    prove_source(s)
+

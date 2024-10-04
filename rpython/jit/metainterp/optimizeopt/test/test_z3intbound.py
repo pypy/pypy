@@ -493,6 +493,9 @@ class Z3IntBound(IntBound):
     def is_constant(self):
         return self.lower == self.upper
 
+    def is_bool(self):
+        return z3.And(0 <= self.lower, self.upper <= 1)
+
     def known_eq_const(self, value):
         return z3.If(self.is_constant(), self.lower == value, False)
 
@@ -940,6 +943,15 @@ def test_prove_known_cmp():
     b1.prove_implies(
         b2,
         b1.known_ge(b2),
+        b1.concrete_variable >= b2.concrete_variable,
+    )
+
+def test_prove_known_ne():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    b1.prove_implies(
+        b2,
+        b1.known_ne(b2),
         b1.concrete_variable >= b2.concrete_variable,
     )
 

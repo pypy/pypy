@@ -2,8 +2,9 @@ from contextlib import contextmanager
 from collections import defaultdict
 
 from rpython.jit.metainterp.ruleopt import parse
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 
-commutative_ops = {"int_add", "int_mul"}
+commutative_ops = {"int_add", "int_mul", "int_eq", "int_ne"}
 
 
 def generate_commutative_patterns_args(args):
@@ -31,7 +32,7 @@ def generate_commutative_patterns(pattern):
 
 def generate_commutative_rules(rule):
     for pattern in generate_commutative_patterns(rule.pattern):
-        yield parse.Rule(rule.name, pattern, rule.elements, rule.target)
+        yield rule.newpattern(pattern)
 
 def sort_rules(rules):
     return sorted(
@@ -81,6 +82,7 @@ class Codegen(parse.Visitor):
         else:
             if p.name not in self.bindings:
                 self.bindings[p.name] = varname
+                self.intbound_bindings[p.name] = intbound_name
                 return
             elif varname == self.bindings[p.name]:
                 return
@@ -152,14 +154,21 @@ class Codegen(parse.Visitor):
         for rule in rules:
             all_rules.extend(generate_commutative_rules(rule))
         all_rules = sort_rules(all_rules)
-        self.emit("_rule_names_%s = %r" % (opname, [rule.name for rule in all_rules]))
-        self.emit("_rule_fired_%s = [0] * %s" % (opname, len(all_rules)))
+        name_positions = {}
+        names = []
+        for rule in all_rules:
+            if rule.name not in name_positions:
+                name_positions[rule.name] = len(name_positions)
+                names.append(rule.name)
+        self.emit("_rule_names_%s = %r" % (opname, names))
+        self.emit("_rule_fired_%s = [0] * %s" % (opname, len(names)))
         self.emit("_all_rules_fired.append((_rule_names_%s, _rule_fired_%s))" % (opname, opname))
         with self.emit_indent("def optimize_%s(self, op):" % opname.upper()):
             numargs = len(rules[0].pattern.args)
             boxnames, boundnames = self._emit_arg_reads("arg", "op", numargs)
             for ruleindex, rule in enumerate(all_rules):
                 self.bindings = {}
+                self.intbound_bindings = {}
                 self.emit("# %s: %s => %s" % (rule.name, rule.pattern, rule.target))
                 currlevel = self.level
                 checks = []
@@ -167,7 +176,7 @@ class Codegen(parse.Visitor):
                 for el in rule.elements:
                     self.visit(el)
                 self.generate_target(rule.target)
-                self.emit("self._rule_fired_%s[%s] += 1" % (opname, ruleindex))
+                self.emit("self._rule_fired_%s[%s] += 1" % (opname, name_positions[rule.name]))
                 self.emit("return")
                 self.level = currlevel
             self.emit("return self.emit(op)")
@@ -202,6 +211,8 @@ class Codegen(parse.Visitor):
     def visit_Name(self, expr, prec=0):
         if expr.name in ("LONG_BIT", ):
             return expr.name
+        if expr.typ is IntBound:
+            return self.intbound_bindings[expr.name]
         return self.bindings[expr.name]
 
     def visit_Attribute(self, expr, prec=0):

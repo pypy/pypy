@@ -85,6 +85,7 @@ int_sub_zero_neg: int_sub(0, x)
     rules = sort_rules(ast.rules)
     assert rules == [
         Rule(
+            cantproof=False,
             name="int_sub_x_x",
             pattern=PatternOp(
                 opname="int_sub", args=[PatternVar("x"), PatternVar("x")]
@@ -93,6 +94,7 @@ int_sub_zero_neg: int_sub(0, x)
             target=PatternConst("0"),
         ),
         Rule(
+            cantproof=False,
             name="int_sub_zero",
             pattern=PatternOp(
                 opname="int_sub", args=[PatternVar("x"), PatternConst("0")]
@@ -101,6 +103,7 @@ int_sub_zero_neg: int_sub(0, x)
             target=PatternVar("x"),
         ),
         Rule(
+            cantproof=False,
             name="int_sub_add",
             pattern=PatternOp(
                 opname="int_sub",
@@ -115,6 +118,7 @@ int_sub_zero_neg: int_sub(0, x)
             target=PatternVar("x"),
         ),
         Rule(
+            cantproof=False,
             name="int_sub_zero_neg",
             pattern=PatternOp(
                 opname="int_sub", args=[PatternConst("0"), PatternVar("x")]
@@ -148,8 +152,8 @@ and_x_c_in_range: int_and(x, C)
     assert (
         res
         == """\
-_rule_names_int_sub = ['sub_x_x', 'sub_zero', 'sub_add', 'sub_add', 'sub_zero_neg', 'sub_add_consts', 'sub_add_consts']
-_rule_fired_int_sub = [0] * 7
+_rule_names_int_sub = ['sub_x_x', 'sub_zero', 'sub_add', 'sub_zero_neg', 'sub_add_consts']
+_rule_fired_int_sub = [0] * 5
 _all_rules_fired.append((_rule_names_int_sub, _rule_fired_int_sub))
 
 def optimize_INT_SUB(self, op):
@@ -187,13 +191,13 @@ def optimize_INT_SUB(self, op):
         b_arg_0_int_add_1 = self.getintbound(arg_0_int_add_1)
         if arg_1 is arg_0_int_add_0:
             self.make_equal_to(op, arg_0_int_add_1)
-            self._rule_fired_int_sub[3] += 1
+            self._rule_fired_int_sub[2] += 1
             return
     # sub_zero_neg: int_sub(0, x) => int_neg(x)
     if b_arg_0.known_eq_const(0):
         newop = self.replace_op_with(op, rop.INT_NEG, args=[arg_1])
         self.optimizer.send_extra_operation(newop)
-        self._rule_fired_int_sub[4] += 1
+        self._rule_fired_int_sub[3] += 1
         return
     # sub_add_consts: int_sub(int_add(x, C1), C2) => int_sub(x, C)
     arg_0_int_add = self.optimizer.as_operation(arg_0, rop.INT_ADD)
@@ -209,7 +213,7 @@ def optimize_INT_SUB(self, op):
                 C = intmask(r_uint(C_arg_1) - r_uint(C_arg_0_int_add_1))
                 newop = self.replace_op_with(op, rop.INT_SUB, args=[arg_0_int_add_0, ConstInt(C)])
                 self.optimizer.send_extra_operation(newop)
-                self._rule_fired_int_sub[5] += 1
+                self._rule_fired_int_sub[4] += 1
                 return
     # sub_add_consts: int_sub(int_add(C1, x), C2) => int_sub(x, C)
     arg_0_int_add = self.optimizer.as_operation(arg_0, rop.INT_ADD)
@@ -225,7 +229,7 @@ def optimize_INT_SUB(self, op):
                 C = intmask(r_uint(C_arg_1) - r_uint(C_arg_0_int_add_0))
                 newop = self.replace_op_with(op, rop.INT_SUB, args=[arg_0_int_add_1, ConstInt(C)])
                 self.optimizer.send_extra_operation(newop)
-                self._rule_fired_int_sub[6] += 1
+                self._rule_fired_int_sub[4] += 1
                 return
     return self.emit(op)
 _rule_names_int_and = ['and_x_c_in_range']

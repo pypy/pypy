@@ -1,14 +1,21 @@
 import pytest
+
 try:
     import rply
 except ImportError:
-    pytest.skip('rply not installed')
+    pytest.skip("rply not installed")
 
 from rpython.jit.metainterp.ruleopt.parse import *
 
 import os
-with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "all.rules")) as f:
+
+with open(
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "all.rules"
+    )
+) as f:
     ALLRULES = f.read()
+
 
 def test_parse_int_add_zero():
     s = """\
@@ -20,6 +27,7 @@ add_zero: int_add(x, 0)
         rules=[
             Rule(
                 elements=[],
+                cantproof=False,
                 name="add_zero",
                 pattern=PatternOp(
                     args=[PatternVar(name="x"), PatternConst(const="0")],
@@ -41,6 +49,7 @@ add_reassoc_consts: int_add(int_add(x, C1), C2)
     assert ast == File(
         rules=[
             Rule(
+                cantproof=False,
                 elements=[
                     Compute(
                         expr=Add(left=Name(name="C1"), right=Name(name="C2")), name="C"
@@ -83,6 +92,7 @@ mul_neg_neg: int_mul(int_neg(x), int_neg(y))
     assert ast == File(
         rules=[
             Rule(
+                cantproof=False,
                 elements=[],
                 name="mul_zero",
                 pattern=PatternOp(
@@ -92,6 +102,7 @@ mul_neg_neg: int_mul(int_neg(x), int_neg(y))
                 target=PatternConst(const="0"),
             ),
             Rule(
+                cantproof=False,
                 elements=[],
                 name="mul_one",
                 pattern=PatternOp(
@@ -101,6 +112,7 @@ mul_neg_neg: int_mul(int_neg(x), int_neg(y))
                 target=PatternConst(const="1"),
             ),
             Rule(
+                cantproof=False,
                 elements=[],
                 name="mul_minus_one",
                 pattern=PatternOp(
@@ -110,6 +122,7 @@ mul_neg_neg: int_mul(int_neg(x), int_neg(y))
                 target=PatternOp(args=[PatternVar(name="x")], opname="int_neg"),
             ),
             Rule(
+                cantproof=False,
                 elements=[],
                 name="mul_neg_neg",
                 pattern=PatternOp(
@@ -126,6 +139,7 @@ mul_neg_neg: int_mul(int_neg(x), int_neg(y))
         ]
     )
 
+
 def test_parse_function_many_args():
     s = """\
 n: op(C)
@@ -133,6 +147,28 @@ n: op(C)
     => C
     """
     ast = parse(s)
+
+
+def test_sorry():
+    s = """\
+eq_different_knownbits: int_eq(x, y)
+    SORRY_Z3
+    => 0
+    """
+    ast = parse(s)
+    assert ast == File(
+        [
+            Rule(
+                name="eq_different_knownbits",
+                pattern=PatternOp(
+                    opname="int_eq", args=[PatternVar("x"), PatternVar("y")]
+                ),
+                cantproof=True,
+                elements=[],
+                target=PatternConst("0"),
+            )
+        ]
+    )
 
 
 def test_parse_lshift_rshift():
@@ -143,8 +179,32 @@ int_lshift_int_rshift_consts: int_lshift(int_rshift(x, C1), C1)
     """
     ast = parse(s)
 
+
+def test_parse_lshift_rshift():
+    s = """\
+eq_different_knownbits: int_eq(x, y)
+    SORRY_Z3
+    => 0
+    """
+    ast = parse(s)
+    assert ast == File(
+        [
+            Rule(
+                name="eq_different_knownbits",
+                pattern=PatternOp(
+                    opname="int_eq", args=[PatternVar("x"), PatternVar("y")]
+                ),
+                cantproof=True,
+                elements=[],
+                target=PatternConst("0"),
+            )
+        ]
+    )
+
+
 def test_parse_all():
-    ast = parse(ALLRULES) # also typechecks
+    ast = parse(ALLRULES)  # also typechecks
+
 
 def test_undefined_name():
     s = """\
@@ -155,6 +215,7 @@ n: op(C)
         ast = parse(s)
     assert str(info.value) == "variable 'x' is not defined"
 
+
 def test_doubly_defined_name():
     s = """\
 n: op(C)
@@ -164,6 +225,7 @@ n: op(C)
     with pytest.raises(TypeCheckError) as info:
         ast = parse(s)
     assert str(info.value) == "'C' is already defined"
+
 
 def test_check_not_bool():
     s = """\

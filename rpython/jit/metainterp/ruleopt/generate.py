@@ -25,4 +25,7 @@ from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask, ovfcheck, uint_m
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    try:
+        sys.exit(main(sys.argv))
+    except Exception:
+        import pdb;pdb.xpm()

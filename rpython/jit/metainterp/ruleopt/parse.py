@@ -24,6 +24,7 @@ def addkeyword(kw):
 addkeyword("check")
 addkeyword("and")
 addkeyword("or")
+addkeyword("SORRY_Z3")
 
 addtok("NUMBER", r"[+-]?([1-9]\d*)|0")
 addtok("NAME", r"[a-zA-Z_][a-zA-Z_0-9]*")
@@ -35,6 +36,7 @@ addtok("LPAREN", r"[(]")
 addtok("RPAREN", r"[)]")
 addtok("COMMA", r"[,]")
 addtok("EQUALEQUAL", r"[=][=]")
+addtok("NE", r"[!][=]")
 addtok("EQUAL", r"[=]")
 addtok("COLON", r"[:]")
 addtok("DOT", r"[.]")
@@ -42,7 +44,6 @@ addtok("GE", r"[>][=]")
 addtok("GT", r"[>]")
 addtok("LE", r"[<][=]")
 addtok("LT", r"[<]")
-addtok("NE", r"[!=]")
 
 addtok("PLUS", r"[+]")
 addtok("MINUS", r"[-]")
@@ -131,11 +132,15 @@ class File(BaseAst):
 
 
 class Rule(BaseAst):
-    def __init__(self, name, pattern, elements, target):
+    def __init__(self, name, pattern, cantproof, elements, target):
         self.name = name
         self.pattern = pattern
+        self.cantproof = cantproof
         self.elements = elements
         self.target = target
+
+    def newpattern(self, pattern):
+        return Rule(self.name, pattern, self.cantproof, self.elements, self.target)
 
     def __str__(self):
         lines = [self.name + ": " + str(self.pattern)]
@@ -433,9 +438,13 @@ def newlines(p):
     return None
 
 
-@pg.production("rule : NAME COLON pattern elements ARROW pattern newlines")
+@pg.production("rule : NAME COLON pattern newlines maybesorry elements ARROW pattern newlines")
 def rule(p):
-    return Rule(p[0].value, p[2], p[3], p[5])
+    return Rule(p[0].value, p[2], p[4], p[5], p[7])
+
+@pg.production("maybesorry : | SORRY_Z3 newlines")
+def maybesorry(p):
+    return bool(p)
 
 
 @pg.production("pattern : NAME")
@@ -460,11 +469,11 @@ def patternargs(p):
     return [p[0]] + p[2]
 
 
-@pg.production("elements : newlines | newlines element elements")
+@pg.production("elements : | element newlines elements")
 def elements(p):
-    if len(p) == 1:
+    if len(p) == 0:
         return []
-    return [p[1]] + p[2]
+    return [p[0]] + p[2]
 
 
 @pg.production("element : NAME EQUAL expression")
@@ -620,7 +629,9 @@ INTBOUND_METHODTYPES = {
     "known_le_const": (IntBound, [int], bool),
     "known_ge_const": (IntBound, [int], bool),
     "known_ge_const": (IntBound, [int], bool),
+    "known_ne": (IntBound, [IntBound], bool),
     "is_constant": (IntBound, [], bool),
+    "is_bool": (IntBound, [], bool),
     "get_constant_int": (IntBound, [], int),
 }
 

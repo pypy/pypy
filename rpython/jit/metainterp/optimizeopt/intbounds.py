@@ -153,15 +153,15 @@ class OptIntBounds(Optimization):
         r.intersect(b)
 
     def optimize_UINT_RSHIFT(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        b = b1.urshift_bound(b2)
+        arg0 = get_box_replacement(op.getarg(0))
+        b0 = self.getintbound(arg0)
+        arg1 = get_box_replacement(op.getarg(1))
+        b1 = self.getintbound(arg1)
+        b = b0.urshift_bound(b1)
         if b.is_constant():
             # constant result (likely 0, for rshifts that kill all bits)
             self.make_constant_int(op, b.get_constant_int())
             return None
-<<<<<<< HEAD
-=======
         if b1.known_eq_const(0):
             self.make_equal_to(op, op.getarg(0))
             return
@@ -179,7 +179,6 @@ class OptIntBounds(Optimization):
                 if sub_b1.is_constant() and const == sub_b1.get_constant_int():
                     op = self.replace_op_with(op, rop.INT_AND,
                                 args=[sub_arg0, ConstInt(intmask(r_uint(-1) >> const))])
->>>>>>> 4ad3182326a (use the new way of calling as_operation in more places)
         return self.emit(op)
 
     def postprocess_UINT_RSHIFT(self, op):
@@ -421,30 +420,6 @@ class OptIntBounds(Optimization):
             else:
                 assert r.get_constant_int() == 0
                 self.make_unsigned_lt(op.getarg(0), op.getarg(1))
-
-    def optimize_INT_EQ(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        b0 = self.getintbound(arg0)
-        arg1 = get_box_replacement(op.getarg(1))
-        b1 = self.getintbound(arg1)
-        if b0.known_ne(b1):
-            self.make_constant_int(op, 0)
-        elif arg0.same_box(arg1):
-            self.make_constant_int(op, 1)
-        elif b1.is_constant() and b1.get_constant_int() and b0.is_bool():
-            self.make_equal_to(op, op.getarg(0))
-        elif b0.is_constant() and b0.get_constant_int() == 0:
-            op = self.replace_op_with(op, rop.INT_IS_ZERO,
-                        args=[arg1])
-            self.optimizer.send_extra_operation(op)
-            return
-        elif b1.is_constant() and b1.get_constant_int() == 0:
-            op = self.replace_op_with(op, rop.INT_IS_ZERO,
-                        args=[arg0])
-            self.optimizer.send_extra_operation(op)
-            return
-        else:
-            return self.emit(op)
 
     def optimize_INT_NE(self, op):
         arg0 = get_box_replacement(op.getarg(0))

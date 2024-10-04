@@ -1,6 +1,26 @@
 add_reassoc_consts: int_add(int_add(x, C1), C2)
     C = C1 + C2
     => int_add(x, C)
+
+
+
+
+eq_different_knownbits: int_eq(x, y)
+    SORRY_Z3
+    check x.known_ne(y)
+    => 0
+
+eq_same: int_eq(x, x)
+    => 1
+
+eq_one: int_eq(x, 1)
+    check x.is_bool()
+    => x
+
+eq_zero: int_eq(x, 0)
+    => int_is_zero(x)
+
+
 #
 #sub_zero: int_sub(x, 0)
 #    => x

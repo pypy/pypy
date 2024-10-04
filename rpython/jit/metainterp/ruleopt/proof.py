@@ -300,6 +300,9 @@ class Prover(parse.Visitor):
 def prove_source(s):
     ast = parse.parse(s)
     for rule in ast.rules:
+        if rule.cantproof:
+            print "SKIPPING PROOF!", rule.name
+            continue
         p = Prover()
         p.check_rule(rule)
     return ast
