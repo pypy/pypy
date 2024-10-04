@@ -67,11 +67,11 @@ lexer = lg.build()
 
 
 class Visitor(object):
-    def visit(self, ast, **kwargs):
+    def visit(self, ast, *args, **kwargs):
         for typ in type(ast).mro():
             meth = getattr(self, "visit_%s" % typ.__name__, None)
             if meth is not None:
-                return meth(ast, **kwargs)
+                return meth(ast, *args, **kwargs)
         return self.default_visit(ast, **kwargs)
 
     def default_visit(self, ast, **kwargs):
@@ -364,14 +364,12 @@ class MethodCall(Expression):
         self.value = value
         self.methname = methname
         self.args = args
-        # XXX type checks
 
 
 class FuncCall(Expression):
     def __init__(self, funcname, args):
         self.funcname = funcname
         self.args = args
-        # XXX type checks
 
 
 precedence_classes = [
@@ -602,5 +600,139 @@ print_conflicts()
 
 
 def parse(s):
-    return parser.parse(lexer.lex(s))
+    ast = parser.parse(lexer.lex(s))
+    t = TypingVisitor()
+    for rule in ast.rules:
+        t.visit(rule)
+    return ast
 
+
+# ___________________________________________________________________________
+# attach types
+
+INTBOUND_METHODTYPES = {
+    "known_eq_const": (IntBound, [int], bool),
+    "known_le_const": (IntBound, [int], bool),
+    "known_ge_const": (IntBound, [int], bool),
+    "known_ge_const": (IntBound, [int], bool),
+    "is_constant": (IntBound, [], bool),
+    "get_constant_int": (IntBound, [], int),
+}
+
+FUNCTYPES = {
+    "highest_bit": ([int], int)
+}
+
+class TypeCheckError(Exception):
+    def __init__(self, msg, ast):
+        self.msg = msg
+        self.ast = ast
+
+    def __str__(self):
+        return self.msg
+
+class TypingVisitor(Visitor):
+    def _must_be_same_typ(self, ast, typ, targettyp):
+        if targettyp is not typ:
+            raise TypeCheckError("%s must have type %s, got %s" % (ast, targettyp, typ), ast)
+
+    def _error(self, msg, ast):
+        raise TypeCheckError(msg, ast)
+
+    def visit_Rule(self, rule):
+        self.bindings = {}
+        self.visit(rule.pattern, patterndefine=True)
+        for el in rule.elements:
+            self.visit(el)
+        self.visit(rule.target, patterndefine=False)
+
+    def visit_PatternVar(self, ast, patterndefine):
+        if patterndefine:
+            if ast.name.startswith('C'):
+                typ = int
+            else:
+                typ = IntBound
+            if ast.name in self.bindings:
+                self._must_be_same_typ(ast, self.bindings[ast.name], typ)
+            else:
+                self.bindings[ast.name] = typ
+        else:
+            if ast.name not in self.bindings:
+                self._error("variable %s is not defined" % (repr(ast.name), ), ast)
+            typ = self.bindings[ast.name]
+        return typ
+
+    def visit_PatternConst(self, ast, patterndefine):
+        return ast.typ
+
+    def visit_PatternOp(self, ast, patterndefine):
+        # XXX check that name exists
+        for arg in ast.args:
+            self.visit(arg, patterndefine=patterndefine)
+
+    def visit_Compute(self, ast):
+        if ast.name in self.bindings:
+            self._error("%r is already defined" % ast.name, ast)
+        self.bindings[ast.name] = self.visit(ast.expr)
+
+    def visit_Check(self, ast):
+        typ = self.visit(ast.expr)
+        if typ is not bool:
+            self._error("expected check expression to return a bool, got %s" % typ.__name__, ast)
+
+    def visit_Expression(self, ast):
+        assert 0, "should be unreachable"
+
+    def visit_Name(self, ast):
+        if ast.name == "LONG_BIT":
+            return int
+        if ast.name not in self.bindings:
+            self._error("variable %s is not defined" % (repr(ast.name), ), ast)
+        typ = self.bindings[ast.name]
+        ast.typ = typ
+        return typ
+
+    def visit_Number(self, ast):
+        return ast.typ
+
+    def visit_IntBinOp(self, ast):
+        self._must_be_same_typ(ast.left, int, self.visit(ast.left))
+        self._must_be_same_typ(ast.right, int, self.visit(ast.right))
+        return int
+
+    def visit_IntUnaryOp(self, ast):
+        self._must_be_same_typ(ast.left, int, self.visit(ast.left))
+        return int
+
+    def visit_BoolBinOp(self, ast):
+        self._must_be_same_typ(ast.left, int, self.visit(ast.left))
+        self._must_be_same_typ(ast.right, int, self.visit(ast.right))
+        return bool
+
+    def visit_ShortcutAnd(self, ast):
+        self._must_be_same_typ(ast.left, bool, self.visit(ast.left))
+        self._must_be_same_typ(ast.right, bool, self.visit(ast.right))
+        return bool
+
+    def visit_MethodCall(self, ast):
+        if ast.methname in INTBOUND_METHODTYPES:
+            _, argtyps, restyp = INTBOUND_METHODTYPES[ast.methname]
+            for arg, typ in zip(ast.args, argtyps):
+                hastyp = self.visit(arg)
+                self._must_be_same_typ(arg, hastyp, typ)
+            self.typ = restyp
+            return restyp
+        self._error("unknown method %r" % ast.methname, ast)
+
+    def visit_FuncCall(self, ast):
+        if ast.funcname in FUNCTYPES:
+            argtyps, restyp = FUNCTYPES[ast.funcname]
+            for arg, typ in zip(ast.args, argtyps):
+                hastyp = self.visit(arg)
+                self._must_be_same_typ(arg, hastyp, typ)
+            self.typ = restyp
+            return restyp
+
+    def default_visit(self, ast):
+        assert ast.typ is not None
+        return ast.typ

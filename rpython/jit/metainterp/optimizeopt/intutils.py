@@ -1076,7 +1076,7 @@ class IntBound(AbstractInfo):
 
         pos1 = self.known_nonnegative()
         pos2 = other.known_nonnegative()
-        # the next three if-conditions are proven by test_prove_and_bounds_logic
+        # the next three if-conditions are proven by test_prove_and_bound_logic
         lower = MININT
         upper = MAXINT
         if pos1 or pos2:

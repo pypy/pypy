@@ -469,6 +469,37 @@ class Z3IntBound(IntBound):
             self.lower, self.upper, self.tvalue, self.tmask, more)
     __str__ = __repr__
 
+    # ____________________________________________________________
+    # reimplementations of methods with control flow that Z3 doesn't support
+
+    def and_bound(self, other):
+        pos1 = self.known_nonnegative()
+        pos2 = other.known_nonnegative()
+        # the next three if-conditions are proven by test_prove_and_bound_logic
+        lower = z3.If(z3.Or(pos1, pos2), z3.BitVecVal(0, LONG_BIT), MININT)
+        upper = z3.If(
+            pos1,
+            z3.If(
+                pos2,
+                z3_min(self.upper, other.upper),
+                self.upper),
+            z3.If(
+                pos2,
+                other.upper,
+                MAXINT))
+        res_tvalue, res_tmask = self._tnum_and(other)
+        return self.new(lower, upper, res_tvalue, res_tmask)
+
+    def is_constant(self):
+        return self.lower == self.upper
+
+    def known_eq_const(self, value):
+        return z3.If(self.is_constant(), self.lower == value, False)
+
+    def get_constant_int(self):
+        return z3.If(self.is_constant(), self.lower, 0xdeadbeef)
+    # ____________________________________________________________
+
     def z3_formula(self, variable=None, must_be_minimal=False):
         """ return the Z3 condition that:
         - self is well-formed
@@ -639,24 +670,15 @@ def test_prove_and():
         z3_tnum_condition(b1.concrete_variable & b2.concrete_variable, tvalue, tmask),
     )
 
-def test_prove_and_bounds_logic():
+def test_prove_and_bound_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     res = b1.concrete_variable & b2.concrete_variable
+    b3 = b1.and_bound(b2)
+    b3.concrete_variable = res
     b1.prove_implies(
         b2,
-        z3.Or(b1.known_nonnegative(), b2.known_nonnegative()),
-        res >= 0
-    )
-    b1.prove_implies(
-        b2,
-        b1.known_nonnegative(),
-        res <= b1.upper,
-    )
-    b1.prove_implies(
-        b2,
-        b2.known_nonnegative(),
-        res <= b2.upper,
+        b3
     )
 
 def test_prove_add_knownbits():
@@ -845,6 +867,15 @@ def test_prove_known_unsigned_lt_from_signed_lt_logic():
         b1.lower < 0,
         b2.lower < b2.lower,
         z3.ULT(b1.concrete_variable, b2.concrete_variable),
+    )
+
+
+def test_prove_known_eq_const_logic():
+    b1 = make_z3_intbounds_instance('self')
+    x = BitVec('x')
+    b1.prove_implies(
+        b1.known_eq_const(x),
+        b1.concrete_variable == x
     )
 
 def test_prove_uint_less_nonnegative_implies_nonnegative():

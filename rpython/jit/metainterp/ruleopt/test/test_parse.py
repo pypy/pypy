@@ -6,6 +6,9 @@ except ImportError:
 
 from rpython.jit.metainterp.ruleopt.parse import *
 
+import os
+with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "all.rules")) as f:
+    ALLRULES = f.read()
 
 def test_parse_int_add_zero():
     s = """\
@@ -126,7 +129,7 @@ mul_neg_neg: int_mul(int_neg(x), int_neg(y))
 def test_parse_function_many_args():
     s = """\
 n: op(C)
-    C = f(C, C, C, C)
+    C1 = f(C, C, C, C)
     => C
     """
     ast = parse(s)
@@ -141,8 +144,33 @@ int_lshift_int_rshift_consts: int_lshift(int_rshift(x, C1), C1)
     ast = parse(s)
 
 def test_parse_all():
-    import os
-    with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "all.rules")) as f:
-        content = f.read()
-    ast = parse(content)
+    ast = parse(ALLRULES) # also typechecks
 
+def test_undefined_name():
+    s = """\
+n: op(C)
+    => x
+    """
+    with pytest.raises(TypeCheckError) as info:
+        ast = parse(s)
+    assert str(info.value) == "variable 'x' is not defined"
+
+def test_doubly_defined_name():
+    s = """\
+n: op(C)
+    C = C + 1
+    => C
+    """
+    with pytest.raises(TypeCheckError) as info:
+        ast = parse(s)
+    assert str(info.value) == "'C' is already defined"
+
+def test_check_not_bool():
+    s = """\
+n: op(C)
+    check C
+    => C
+    """
+    with pytest.raises(TypeCheckError) as info:
+        ast = parse(s)
+    assert str(info.value) == "expected check expression to return a bool, got int"
