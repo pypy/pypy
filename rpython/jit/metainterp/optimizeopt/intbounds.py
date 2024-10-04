@@ -238,6 +238,7 @@ class OptIntBounds(Optimization):
             # NB: this case also takes care of int_add_ovf with 0 as one of the
             # arguments
             op = self.replace_op_with(op, rop.INT_ADD)
+            return self.optimizer.send_extra_operation(op)
         return self.emit(op)
 
     def postprocess_INT_ADD_OVF(self, op):

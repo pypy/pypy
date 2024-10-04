@@ -173,22 +173,6 @@ class OptRewrite(Optimization):
             self.optimizer.pure_from_args(rop.INT_SUB, [op, inv_arg1], arg0)
             self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], inv_arg1)
 
-    def optimize_INT_ADD(self, op):
-        if self.is_raw_ptr(op.getarg(0)) or self.is_raw_ptr(op.getarg(1)):
-            return self.emit(op)
-        arg1 = get_box_replacement(op.getarg(0))
-        b1 = self.getintbound(arg1)
-        arg2 = get_box_replacement(op.getarg(1))
-        b2 = self.getintbound(arg2)
-
-        # If one side of the op is 0 the result is the other side.
-        if b1.known_eq_const(0):
-            self.make_equal_to(op, arg2)
-        elif b2.known_eq_const(0):
-            self.make_equal_to(op, arg1)
-        else:
-            return self.emit(op)
-
     def postprocess_INT_ADD(self, op):
         import sys
         arg0 = op.getarg(0)

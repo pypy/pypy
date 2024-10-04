@@ -2,6 +2,8 @@ add_reassoc_consts: int_add(int_add(x, C1), C2)
     C = C1 + C2
     => int_add(x, C)
 
+add_zero: int_add(x, 0)
+    => x
 
 
 
