@@ -186,15 +186,15 @@ force_ge_zero_neg: int_force_ge_zero(x)
 invert_invert: int_invert(int_invert(x))
     => x
 
+neg_neg: int_neg(int_neg(x))
+    => x
+
 #lshift_lshift_c_c: int_lshift(int_lshift(x, C1), C2)
 #    check 0 <= C1 and C1 < LONG_BIT and 0 <= C2 and C2 < LONG_BIT
 #    C = C1 + C2
 #    check C < LONG_BIT
 #    => int_lshift(x, C)
-#
-#neg_neg: int_neg(int_neg(x))
-#    => x
-#
+
 #
 #
 #xor_x_y_sub_y: int_sub(int_xor(x, y), y)
