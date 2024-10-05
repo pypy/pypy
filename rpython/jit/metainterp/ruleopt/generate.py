@@ -18,7 +18,7 @@ from rpython.jit.metainterp.optimizeopt.util import (
     get_box_replacement)
 from rpython.jit.metainterp.resoperation import rop
 
-from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask, ovfcheck, uint_mul_high
+from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask, ovfcheck, uint_mul_high, highest_bit
 """)
         f.write(result)
 

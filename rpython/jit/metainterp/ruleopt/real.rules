@@ -31,6 +31,15 @@ mul_one: int_mul(x, 1)
 mul_minus_one: int_mul(x, -1)
     => int_neg(x)
 
+mul_pow2_const: int_mul(x, C)
+    check C > 0 and C & (C - 1) == 0
+    shift = highest_bit(C)
+    => int_lshift(x, shift)
+
+mul_lshift: int_mul(x, int_lshift(1, y))
+    check y.known_ge_const(0) and y.known_le_const(LONG_BIT)
+    => int_lshift(x, y)
+
 
 and_zero: int_and(a, 0)
     => 0
@@ -170,11 +179,3 @@ invert_invert: int_invert(int_invert(x))
 #mul_neg_neg: int_mul(int_neg(x), int_neg(y))
 #    => int_mul(x, y)
 #
-#mul_lshift: int_mul(x, int_lshift(1, y))
-#    check y.known_ge_const(0) and y.known_le_const(LONG_BIT)
-#    => int_lshift(x, y)
-#
-#mul_pow2_const: int_mul(x, C)
-#    check C > 0 and C & (C - 1) == 0
-#    shift = highest_bit(C)
-#    => int_lshift(x, shift)

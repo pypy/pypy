@@ -155,8 +155,9 @@ class Pattern(BaseAst):
 
 
 class PatternVar(Pattern):
-    def __init__(self, name):
+    def __init__(self, name, typ=None):
         self.name = name
+        self.typ = typ
 
     def sort_key(self):
         return (2, self.name)
@@ -225,12 +226,15 @@ class Expression(BaseAst):
 
 
 class Name(Expression):
-    def __init__(self, name):
+    def __init__(self, name, typ=None):
         self.name = name
-        if self.name.startswith('C'):
-            self.typ = int
+        if typ is None:
+            if self.name.startswith('C'):
+                self.typ = int
+            else:
+                self.typ = IntBound
         else:
-            self.typ = IntBound
+            self.typ = typ
 
 
 class Number(Expression):
@@ -674,10 +678,12 @@ class TypingVisitor(Visitor):
                 self._must_be_same_typ(ast, self.bindings[ast.name], typ)
             else:
                 self.bindings[ast.name] = typ
+                ast.typ = typ
         else:
             if ast.name not in self.bindings:
                 self._error("variable %s is not defined" % (repr(ast.name), ), ast)
             typ = self.bindings[ast.name]
+            ast.typ = typ
         return typ
 
     def visit_PatternConst(self, ast, patterndefine):

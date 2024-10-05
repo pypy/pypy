@@ -118,7 +118,7 @@ class Codegen(parse.Visitor):
             args = []
             for arg in target.args:
                 if isinstance(arg, parse.PatternVar):
-                    if arg.name.startswith('C'):
+                    if arg.name.startswith('C') or arg.typ is int:
                         args.append("ConstInt(%s)" % self.bindings[arg.name])
                     else:
                         args.append(self.bindings[arg.name])

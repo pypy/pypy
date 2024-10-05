@@ -167,39 +167,6 @@ class OptRewrite(Optimization):
         self.optimizer.pure_from_args(rop.INT_ADD, [op, inv_arg0], arg1)
         self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg0, op], arg1)
 
-    def optimize_INT_MUL(self, op):
-        arg1 = get_box_replacement(op.getarg(0))
-        b1 = self.getintbound(arg1)
-        arg2 = get_box_replacement(op.getarg(1))
-        b2 = self.getintbound(arg2)
-
-        if 1:
-            for lhs, rhs in [(arg1, arg2), (arg2, arg1)]:
-                lh_info = self.getintbound(lhs)
-                if lh_info.is_constant():
-                    x = lh_info.get_constant_int()
-                    # x & (x - 1) == 0 is a quick test for power of 2
-                    if x & (x - 1) == 0:
-                        new_rhs = ConstInt(highest_bit(lh_info.get_constant_int()))
-                        op = self.replace_op_with(op, rop.INT_LSHIFT, args=[rhs, new_rhs])
-                        break
-                    elif x == -1:
-                        op = self.replace_op_with(op, rop.INT_NEG, args=[rhs])
-                        break
-                else:
-                    shiftop = self.optimizer.as_operation(get_box_replacement(lhs), rop.INT_LSHIFT)
-                    if shiftop is None:
-                        continue
-                    if not shiftop.getarg(0).is_constant() or shiftop.getarg(0).getint() != 1:
-                        continue
-                    shiftvar = get_box_replacement(shiftop.getarg(1))
-                    shiftbound = self.getintbound(shiftvar)
-                    if shiftbound.known_nonnegative() and shiftbound.known_lt_const(LONG_BIT):
-                        op = self.replace_op_with(
-                                op, rop.INT_LSHIFT, args=[rhs, shiftvar])
-                        break
-            return self.emit(op)
-
     def postprocess_INT_MUL(self, op):
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))
