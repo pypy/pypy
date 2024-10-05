@@ -40,6 +40,16 @@ add_reassoc_consts: int_add(int_add(x, C1), C2)
         'int_add(C2, int_add(C1, x))'
     ]
 
+def test_generate_commutative_rules_only_when_necessary():
+    s = """\
+or_x_x: int_or(x, x)
+    => x
+"""
+    ast = parse(s)
+    patterns = list(generate_commutative_patterns(ast.rules[0].pattern))
+    assert str(patterns[0]) == "int_or(x, x)"
+    assert len(patterns) == 1
+
 def test_sort_patterns():
     s = """\
 int_sub_zero: int_sub(x, 0)

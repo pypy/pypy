@@ -24,7 +24,7 @@ def generate_commutative_patterns(pattern):
         yield pattern
         return
     for subargs in generate_commutative_patterns_args(pattern.args):
-        if pattern.opname not in commutative_ops:
+        if pattern.opname not in commutative_ops or str(subargs[0]) == str(subargs[1]):
             yield pattern.newargs(subargs)
         else:
             yield pattern.newargs(subargs)
