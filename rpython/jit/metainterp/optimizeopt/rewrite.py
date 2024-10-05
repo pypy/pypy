@@ -99,17 +99,6 @@ class OptRewrite(Optimization):
         if b.is_constant():
             self.make_constant_int(op, b.get_constant_int())
             return
-        if b2.is_constant():
-            val = b2.get_constant_int()
-            if val == -1 or (b1.lower >= 0 and b1.upper <= val & ~(val + 1)):
-                self.make_equal_to(op, op.getarg(0))
-                return
-        elif b1.is_constant():
-            val = b1.get_constant_int()
-            if val == -1 or (b2.lower >= 0 and b2.upper <= val & ~(val + 1)):
-                self.make_equal_to(op, op.getarg(1))
-                return
-
         return self.emit(op)
 
     def postprocess_INT_AND(self, op):
