@@ -109,37 +109,6 @@ class OptRewrite(Optimization):
             self.optimizer.pure_from_args(rop.INT_SUB, [op, inv_arg1], arg0)
             self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], inv_arg1)
 
-    def postprocess_INT_ADD(self, op):
-        import sys
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
-        # Synthesize the reverse op for optimize_default to reuse
-        self.optimizer.pure_from_args(rop.INT_SUB, [op, arg1], arg0)
-        self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], arg1)
-        if isinstance(arg0, ConstInt):
-            # invert the constant
-            i0 = arg0.getint()
-            if i0 == -sys.maxint - 1:
-                return
-            inv_arg0 = ConstInt(-i0)
-        elif isinstance(arg1, ConstInt):
-            # commutative
-            i0 = arg1.getint()
-            if i0 == -sys.maxint - 1:
-                return
-            inv_arg0 = ConstInt(-i0)
-            arg1 = arg0
-        else:
-            return
-        self.optimizer.pure_from_args(rop.INT_SUB, [arg1, inv_arg0], op)
-        self.optimizer.pure_from_args(rop.INT_SUB, [arg1, op], inv_arg0)
-        self.optimizer.pure_from_args(rop.INT_ADD, [op, inv_arg0], arg1)
-        self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg0, op], arg1)
-
-    def postprocess_INT_MUL(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        arg1 = get_box_replacement(op.getarg(1))
-
     def _optimize_CALL_INT_UDIV(self, op):
         b2 = self.getintbound(op.getarg(2))
         if b2.is_constant() and b2.get_constant_int() == 1:
@@ -147,11 +116,6 @@ class OptRewrite(Optimization):
             self.last_emitted_operation = REMOVED
             return True
         return False
-
-    def postprocess_INT_XOR(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        arg1 = get_box_replacement(op.getarg(1))
-        self.optimizer.pure_from_args(rop.INT_XOR, [arg1, arg0], op)
 
     def optimize_FLOAT_MUL(self, op):
         arg1 = op.getarg(0)

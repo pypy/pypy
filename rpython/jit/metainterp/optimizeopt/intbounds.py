@@ -76,17 +76,57 @@ class OptIntBounds(Optimization):
         self.getintbound(op).intersect(b)
 
     def postprocess_INT_SUB(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        b = b1.sub_bound(b2)
+        import sys
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+        b = b0.sub_bound(b1)
         self.getintbound(op).intersect(b)
+        self.optimizer.pure_from_args(rop.INT_ADD, [op, arg1], arg0)
+        self.optimizer.pure_from_args(rop.INT_SUB, [arg0, op], arg1)
+        if isinstance(arg1, ConstInt):
+            # invert the constant
+            i1 = arg1.getint()
+            if i1 == -sys.maxint - 1:
+                return
+            inv_arg1 = ConstInt(-i1)
+            self.optimizer.pure_from_args(rop.INT_ADD, [arg0, inv_arg1], op)
+            self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg1, arg0], op)
+            self.optimizer.pure_from_args(rop.INT_SUB, [op, inv_arg1], arg0)
+            self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], inv_arg1)
+
 
     def postprocess_INT_ADD(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        r = self.getintbound(op)
-        b = b1.add_bound(b2)
-        r.intersect(b)
+        import sys
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
+        b = b0.add_bound(b1)
+        self.getintbound(op).intersect(b)
+        # Synthesize the reverse op for optimize_default to reuse
+        self.optimizer.pure_from_args(rop.INT_SUB, [op, arg1], arg0)
+        self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], arg1)
+        if isinstance(arg0, ConstInt):
+            # invert the constant
+            i0 = arg0.getint()
+            if i0 == -sys.maxint - 1:
+                return
+            inv_arg0 = ConstInt(-i0)
+        elif isinstance(arg1, ConstInt):
+            # commutative
+            i0 = arg1.getint()
+            if i0 == -sys.maxint - 1:
+                return
+            inv_arg0 = ConstInt(-i0)
+            arg1 = arg0
+        else:
+            return
+        self.optimizer.pure_from_args(rop.INT_SUB, [arg1, inv_arg0], op)
+        self.optimizer.pure_from_args(rop.INT_SUB, [arg1, op], inv_arg0)
+        self.optimizer.pure_from_args(rop.INT_ADD, [op, inv_arg0], arg1)
+        self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg0, op], arg1)
 
     def postprocess_INT_MUL(self, op):
         b1 = self.getintbound(op.getarg(0))
