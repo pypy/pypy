@@ -63,12 +63,10 @@ and_x_y_covered_ones: int_and(x, y)
     check ~y.tvalue & (x.tmask | x.tvalue) == 0
     => x
 
-
 and_known_result: int_and(a, b)
     check a.and_bound(b).is_constant()
     C = a.and_bound(b).get_constant_int()
     => C
-
 
 
 or_minus_1: int_or(x, -1)
@@ -79,6 +77,11 @@ or_zero: int_or(x, 0)
 
 or_x_x: int_or(a, a)
     => a
+
+or_known_result: int_or(a, b)
+    check a.or_bound(b).is_constant()
+    C = a.or_bound(b).get_constant_int()
+    => C
 
 
 xor_x_x: int_xor(a, a)
@@ -100,9 +103,15 @@ lshift_zero_x: int_lshift(0, x)
 lshift_zero_x: int_lshift(x, 0)
     => x
 
-#rshift_zero_x: int_rshift(0, x)
-#    => 0
-#
+rshift_zero_x: int_rshift(0, x)
+    => 0
+
+rshift_known_result: int_rshift(a, b)
+    SORRY_Z3
+    check a.rshift_bound(b).is_constant()
+    C = a.rshift_bound(b).get_constant_int()
+    => C
+
 #urshift_zero_x: uint_rshift(0, x)
 #    => 0
 

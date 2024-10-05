@@ -97,17 +97,6 @@ class OptRewrite(Optimization):
         arg1 = get_box_replacement(op.getarg(1))
         self.optimizer.pure_from_args(rop.INT_AND, [arg1, arg0], op)
 
-    def optimize_INT_OR(self, op):
-        v1 = get_box_replacement(op.getarg(0))
-        v2 = get_box_replacement(op.getarg(1))
-        b1 = self.getintbound(v1)
-        b2 = self.getintbound(v2)
-        b = b1.or_bound(b2)
-        if b.is_constant():
-            self.make_constant_int(op, b.get_constant_int())
-            return
-        return self.emit(op)
-
     def postprocess_INT_OR(self, op):
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))

@@ -135,16 +135,6 @@ class OptIntBounds(Optimization):
             self.pure_from_args(rop.INT_RSHIFT,
                                 [op, arg1], arg0)
 
-    def optimize_INT_RSHIFT(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        b = b1.rshift_bound(b2)
-        if b.is_constant():
-            # constant result (likely 0, for rshifts that kill all bits)
-            self.make_constant_int(op, b.get_constant_int())
-            return None
-        return self.emit(op)
-
     def postprocess_INT_RSHIFT(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
