@@ -4,7 +4,7 @@ from rpython.jit.metainterp.optimizeopt.test.test_z3intbound import (
 )
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.ruleopt import parse
-from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
 
 
 class CouldNotProve(Exception):

@@ -103,6 +103,16 @@ lshift_zero_x: int_lshift(0, x)
 lshift_x_zero: int_lshift(x, 0)
     => x
 
+lshift_rshift_c_c: int_lshift(int_rshift(x, C1), C1)
+    check 0 <= C1 and C1 < LONG_BIT
+    C = (-1 >>a C1) << C1
+    => int_and(x, C)
+
+lshift_urshift_c_c: int_lshift(uint_rshift(x, C1), C1)
+    check 0 <= C1 and C1 < LONG_BIT
+    C = (-1 >>a C1) << C1
+    => int_and(x, C)
+
 
 rshift_zero_x: int_rshift(0, x)
     => 0
@@ -116,12 +126,12 @@ rshift_known_result: int_rshift(a, b)
     C = a.rshift_bound(b).get_constant_int()
     => C
 
+
 urshift_zero_x: uint_rshift(0, x)
     => 0
 
 urshift_x_zero: uint_rshift(x, 0)
     => x
-
 
 urshift_known_result: uint_rshift(a, b)
     SORRY_Z3
@@ -176,11 +186,6 @@ force_ge_zero_neg: int_force_ge_zero(x)
 invert_invert: int_invert(int_invert(x))
     => x
 
-#lshift_rshift_c_c: int_lshift(int_rshift(x, C1), C1)
-#    check 0 <= C1 and C1 < LONG_BIT
-#    C = (-1 >>a C1) << C1
-#    => int_and(x, C)
-#
 #lshift_lshift_c_c: int_lshift(int_lshift(x, C1), C2)
 #    check 0 <= C1 and C1 < LONG_BIT and 0 <= C2 and C2 < LONG_BIT
 #    C = C1 + C2
