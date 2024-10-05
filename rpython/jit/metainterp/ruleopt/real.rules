@@ -44,6 +44,8 @@ force_ge_zero_neg: int_force_ge_zero(x)
     check x.known_lt_const(0)
     => 0
 
+invert_invert: int_invert(int_invert(x))
+    => x
 #
 #
 #sub_zero: int_sub(x, 0)

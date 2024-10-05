@@ -319,14 +319,6 @@ class OptRewrite(Optimization):
         arg1 = get_box_replacement(op.getarg(1))
         self.optimizer.pure_from_args(rop.INT_XOR, [arg1, arg0], op)
 
-    def optimize_INT_INVERT(self, op):
-        v = get_box_replacement(op.getarg(0))
-        arg_op = self.optimizer.as_operation(v, rop.INT_INVERT)
-        if arg_op is not None:
-            self.make_equal_to(op, arg_op.getarg(0))
-        else:
-            return self.emit(op)
-
     def optimize_FLOAT_MUL(self, op):
         arg1 = op.getarg(0)
         arg2 = op.getarg(1)
