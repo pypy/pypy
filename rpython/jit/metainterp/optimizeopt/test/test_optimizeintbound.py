@@ -3475,6 +3475,74 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_and_with_itself(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, i1)
+        jump(i2)
+        """
+        expected = """
+        [i1]
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_two_ands_with_constants(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 57)
+        i3 = int_and(i2, 504)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 57) # dead
+        i3 = int_and(i1, 56)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i2 = int_and(57, i1)
+        i3 = int_and(i2, 504)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_and(57, i1) # dead
+        i3 = int_and(i1, 56)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i2 = int_and(i1, 57)
+        i3 = int_and(504, i2)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 57)
+        i3 = int_and(i1, 56)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i2 = int_and(57, i1)
+        i3 = int_and(504, i2)
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_and(57, i1) # dead
+        i3 = int_and(i1, 56)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestComplexIntOpts(BaseTestBasic):
 

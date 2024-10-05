@@ -4,7 +4,7 @@ from collections import defaultdict
 from rpython.jit.metainterp.ruleopt import parse
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 
-commutative_ops = {"int_add", "int_mul", "int_eq", "int_ne"}
+commutative_ops = {"int_add", "int_mul", "int_and", "int_eq", "int_ne"}
 
 
 def generate_commutative_patterns_args(args):
@@ -216,7 +216,7 @@ class Codegen(parse.Visitor):
         return self.bindings[expr.name]
 
     def visit_Attribute(self, expr, prec=0):
-        return "%s.%s" % (expr.varname, expr.attrname)
+        return "%s.%s" % (self.intbound_bindings[expr.varname], expr.attrname)
 
     def visit_Number(self, expr, prec=0):
         return str(expr.value)
