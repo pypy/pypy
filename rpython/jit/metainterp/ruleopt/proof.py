@@ -8,7 +8,31 @@ from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
 
 
 class CouldNotProve(Exception):
-    pass
+    def __init__(self, rule, cond, model, lhs, rhs, prover):
+        self.rule = rule
+        self.cond = cond
+        self.model = model
+        self.rhs = rhs
+        self.lhs = lhs
+        self.prover = prover
+
+    def format(self):
+        rule = self.rule
+        res = ["Could not prove correctness of rule '%s'" % self.rule.name]
+        if self.rule.sourcepos:
+            res.append("in line %s" % (self.rule.sourcepos.lineno, ))
+        prover = self.prover
+        model = prover.solver.model()
+        res.append("counterexample given by Z3:")
+        res.append("counterexample values:")
+        for name in prover.name_to_intbound:
+            res.append("%s: %s" % (name, model[prover.name_to_z3[name]].as_signed_long()))
+        res.append("operation %s with Z3 formula %s" % (rule.pattern, self.lhs))
+        res.append("has counterexample result vale: %s" % (model.evaluate(self.lhs).as_signed_long(), ))
+        res.append("BUT")
+        res.append("target expression: %s with Z3 formula %s" % (rule.target, self.rhs))
+        res.append("has counterexample value: %s" % (model.evaluate(self.rhs).as_signed_long(), ))
+        return "\n".join(res)
 
 
 TRUEBV = z3.BitVecVal(1, LONG_BIT)
@@ -137,7 +161,7 @@ def z3_highest_bit(x):
 
 class Prover(parse.Visitor):
     def __init__(self):
-        self.solver = z3.Solver()
+        self.solver = z3.Optimize()
         self.name_to_z3 = {}
         self.name_to_intbound = {}
         self.glue_conditions_added = set()
@@ -165,6 +189,7 @@ class Prover(parse.Visitor):
         if name in self.name_to_z3:
             return self.name_to_z3[name]
         res = newvar(name)
+        self.solver.minimize(res)
         b = make_z3_intbounds_instance(name, res)
         self.name_to_intbound[name] = b
         return res
@@ -292,7 +317,8 @@ class Prover(parse.Visitor):
         condition = z3_implies(z3_and(*implies_left), z3_and(*implies_right))
         print("checking %s" % rule)
         print(condition)
-        assert self.prove(condition)
+        if not self.prove(condition):
+            raise CouldNotProve(rule, condition, model, lhs, rhs, self)
 
 
 def prove_source(s):

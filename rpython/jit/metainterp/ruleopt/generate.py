@@ -22,6 +22,10 @@ def main(argv):
     except parse.TypeCheckError as e:
         print(e.format(content))
         return -2
+    except proof.CouldNotProve as e:
+        print("_" * 60)
+        print(e.format())
+        return -3
     cgen = codegen.Codegen()
     result = cgen.generate_mixin(ast)
     with open(out_file, "w") as f:

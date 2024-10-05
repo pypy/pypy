@@ -34,3 +34,22 @@ eq_different_knownbits: int_eq(x, y)
     """
     prove_source(s)
 
+def test_explain_problem():
+    s = """\
+bug: int_and(x, y)
+    => 1
+    """
+    with pytest.raises(CouldNotProve) as info:
+        prove_source(s)
+    assert info.value.format() == '''\
+Could not prove correctness of rule 'bug'
+in line 1
+counterexample given by Z3:
+counterexample values:
+x: 0
+y: 0
+operation int_and(x, y) with Z3 formula x & y
+has counterexample result vale: 0
+BUT
+target expression: 1 with Z3 formula 1
+has counterexample value: 1'''
