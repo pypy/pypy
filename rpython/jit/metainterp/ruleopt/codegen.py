@@ -37,9 +37,25 @@ def generate_commutative_rules(rule):
 
 def sort_rules(rules):
     return sorted(
-        rules, key=lambda rule: (rule.target.sort_key_result(), rule.pattern.sort_key())
+        rules, key=lambda rule: rule.pattern.sort_key()
     )
 
+def split_by_result_type(rules):
+    constant_results = []
+    box_results = []
+    op_results = []
+    for rule in rules:
+        target = rule.target
+        if isinstance(target, parse.PatternConst):
+            constant_results.append(rule)
+        elif isinstance(target, parse.PatternVar):
+            if target.name.startswith('C'):
+                constant_results.append(rule)
+            else:
+                box_results.append(rule)
+        else:
+            op_results.append(rule)
+    return constant_results, box_results, op_results
 
 
 class Codegen(parse.Visitor):
@@ -158,7 +174,7 @@ class Codegen(parse.Visitor):
         all_rules = []
         for rule in rules:
             all_rules.extend(generate_commutative_rules(rule))
-        all_rules = sort_rules(all_rules)
+
         name_positions = {}
         names = []
         for rule in all_rules:
@@ -171,20 +187,25 @@ class Codegen(parse.Visitor):
         with self.emit_indent("def optimize_%s(self, op):" % opname.upper()):
             numargs = len(rules[0].pattern.args)
             boxnames, boundnames = self._emit_arg_reads("arg", "op", numargs)
-            for ruleindex, rule in enumerate(all_rules):
-                self.bindings = {}
-                self.intbound_bindings = {}
-                self.emit("# %s: %s => %s" % (rule.name, rule.pattern, rule.target))
-                currlevel = self.level
-                checks = []
-                self._pattern_arg_check(boxnames, boundnames, rule.pattern.args)
-                for el in rule.elements:
-                    self.visit(el)
-                self.generate_target(rule.target)
-                self.emit("self._rule_fired_%s[%s] += 1" % (opname, name_positions[rule.name]))
-                self.emit("return")
-                self.level = currlevel
+            for subset_rules in split_by_result_type(all_rules):
+                subset_rules = sort_rules(subset_rules)
+                for rule in subset_rules:
+                    self.generate_rule(rule, opname, name_positions[rule.name], boxnames, boundnames)
             self.emit("return self.emit(op)")
+
+    def generate_rule(self, rule, opname, position, boxnames, boundnames):
+        self.bindings = {}
+        self.intbound_bindings = {}
+        self.emit("# %s: %s => %s" % (rule.name, rule.pattern, rule.target))
+        currlevel = self.level
+        checks = []
+        self._pattern_arg_check(boxnames, boundnames, rule.pattern.args)
+        for el in rule.elements:
+            self.visit(el)
+        self.generate_target(rule.target)
+        self.emit("self._rule_fired_%s[%s] += 1" % (opname, position))
+        self.emit("return")
+        self.level = currlevel
 
     def visit_Compute(self, el):
         self.bindings[el.name] = el.name

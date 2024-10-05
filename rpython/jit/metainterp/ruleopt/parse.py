@@ -167,9 +167,6 @@ class PatternVar(Pattern):
     def sort_key(self):
         return (2, self.name)
 
-    def sort_key_result(self):
-        return (1, self.name)
-
     def __str__(self):
         return self.name
 
@@ -180,9 +177,6 @@ class PatternConst(BaseAst):
         self.const = const
 
     def sort_key(self):
-        return (0, self.const)
-
-    def sort_key_result(self):
         return (0, self.const)
 
     def __str__(self):
@@ -199,11 +193,6 @@ class PatternOp(BaseAst):
 
     def sort_key(self):
         return (1, self.opname) + tuple(sorted(arg.sort_key() for arg in self.args))
-
-    def sort_key_result(self):
-        return (2, self.opname) + tuple(
-            sorted(arg.sort_key_result() for arg in self.args)
-        )
 
     def __str__(self):
         return "%s(%s)" % (self.opname, ", ".join([str(arg) for arg in self.args]))

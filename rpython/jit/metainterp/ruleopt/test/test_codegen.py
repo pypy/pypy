@@ -63,7 +63,7 @@ int_sub_zero_neg: int_sub(0, x)
     """
     ast = parse(s)
     rules = sort_rules(ast.rules)
-    assert [r.name for r in rules] == ['int_sub_x_x', 'int_sub_zero', 'int_sub_add', 'int_sub_zero_neg']
+    assert [r.name for r in rules] == ['int_sub_zero', 'int_sub_zero_neg', 'int_sub_add', 'int_sub_x_x']
 
 def test_generate_code_many():
     codegen = Codegen()

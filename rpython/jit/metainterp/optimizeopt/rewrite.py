@@ -92,23 +92,6 @@ class OptRewrite(Optimization):
 
         return False
 
-    def postprocess_INT_SUB(self, op):
-        import sys
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
-        self.optimizer.pure_from_args(rop.INT_ADD, [op, arg1], arg0)
-        self.optimizer.pure_from_args(rop.INT_SUB, [arg0, op], arg1)
-        if isinstance(arg1, ConstInt):
-            # invert the constant
-            i1 = arg1.getint()
-            if i1 == -sys.maxint - 1:
-                return
-            inv_arg1 = ConstInt(-i1)
-            self.optimizer.pure_from_args(rop.INT_ADD, [arg0, inv_arg1], op)
-            self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg1, arg0], op)
-            self.optimizer.pure_from_args(rop.INT_SUB, [op, inv_arg1], arg0)
-            self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], inv_arg1)
-
     def _optimize_CALL_INT_UDIV(self, op):
         b2 = self.getintbound(op.getarg(2))
         if b2.is_constant() and b2.get_constant_int() == 1:
