@@ -472,6 +472,11 @@ class Z3IntBound(IntBound):
     # ____________________________________________________________
     # reimplementations of methods with control flow that Z3 doesn't support
 
+    def add_bound_cannot_overflow(self, other):
+        lower, no_ovf_lower = z3_add_overflow(self.lower, other.lower)
+        upper, no_ovf_upper = z3_add_overflow(self.upper, other.upper)
+        return z3.And(no_ovf_lower, no_ovf_upper)
+
     def and_bound(self, other):
         pos1 = self.known_nonnegative()
         pos2 = other.known_nonnegative()
@@ -694,7 +699,7 @@ def test_prove_add_knownbits():
         z3_tnum_condition(result, res_tvalue, res_tmask),
     )
 
-def test_prove_add_bounds_logic():
+def test_prove_add_bound_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result = b1.concrete_variable + b2.concrete_variable
@@ -711,15 +716,13 @@ def test_prove_add_bounds_logic():
         b3
     )
 
-def test_prove_add_bounds_cannot_overflow_logic():
+def test_prove_add_bound_cannot_overflow_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result, no_ovf_result = z3_add_overflow(b1.concrete_variable, b2.concrete_variable)
-    lower, no_ovf_lower = z3_add_overflow(b1.lower, b2.lower)
-    upper, no_ovf_upper = z3_add_overflow(b1.upper, b2.upper)
     b1.prove_implies(
         b2,
-        z3.And(no_ovf_lower, no_ovf_upper),
+        b1.add_bound_cannot_overflow(b2),
         no_ovf_result,
     )
 
