@@ -22,6 +22,14 @@ sub_add_consts: int_sub(int_add(x, C1), C2)
 sub_add: int_sub(int_add(x, y), y)
     => x
 
+mul_zero: int_mul(x, 0)
+    => 0
+
+mul_one: int_mul(x, 1)
+    => x
+
+mul_minus_one: int_mul(x, -1)
+    => int_neg(x)
 
 
 and_zero: int_and(a, 0)
@@ -158,14 +166,6 @@ invert_invert: int_invert(int_invert(x))
 #    check x.and_bound(y).known_eq_const(0)
 #    => x
 #
-#mul_zero: int_mul(x, 0)
-#    => 0
-#
-#mul_one: int_mul(x, 1)
-#    => x
-#
-#mul_minus_one: int_mul(x, -1)
-#    => int_neg(x)
 #
 #mul_neg_neg: int_mul(int_neg(x), int_neg(y))
 #    => int_mul(x, y)

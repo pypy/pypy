@@ -4,7 +4,8 @@ from collections import defaultdict
 from rpython.jit.metainterp.ruleopt import parse
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 
-commutative_ops = {"int_add", "int_mul", "int_and", "int_or", "int_xor", "int_eq", "int_ne"}
+commutative_ops = {"int_add", "int_mul", "int_and", "int_mul", "int_or",
+                   "int_xor", "int_eq", "int_ne"}
 
 
 def generate_commutative_patterns_args(args):

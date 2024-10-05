@@ -282,6 +282,7 @@ class OptIntBounds(Optimization):
         if b0.mul_bound_cannot_overflow(b1):
             # this case also takes care of multiplication with 0 and 1
             op = self.replace_op_with(op, rop.INT_MUL)
+            return self.optimizer.send_extra_operation(op)
         return self.emit(op)
 
     def postprocess_INT_MUL_OVF(self, op):

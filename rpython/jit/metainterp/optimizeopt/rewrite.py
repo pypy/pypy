@@ -173,14 +173,7 @@ class OptRewrite(Optimization):
         arg2 = get_box_replacement(op.getarg(1))
         b2 = self.getintbound(arg2)
 
-        # If one side of the op is 1 the result is the other side.
-        if b1.known_eq_const(1):
-            self.make_equal_to(op, arg2)
-        elif b2.known_eq_const(1):
-            self.make_equal_to(op, arg1)
-        elif b1.known_eq_const(0) or b2.known_eq_const(0):
-            self.make_constant_int(op, 0)
-        else:
+        if 1:
             for lhs, rhs in [(arg1, arg2), (arg2, arg1)]:
                 lh_info = self.getintbound(lhs)
                 if lh_info.is_constant():
