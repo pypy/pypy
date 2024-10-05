@@ -23,21 +23,18 @@ add_zero: int_add(x, 0)
     => x
 """
     ast = parse(s)
-    assert ast == File(
-        rules=[
-            Rule(
-                elements=[],
-                cantproof=False,
-                name="add_zero",
-                pattern=PatternOp(
-                    args=[PatternVar(name="x", typ=IntBound), PatternConst(const="0")],
-                    opname="int_add",
-                ),
-                target=PatternVar(name="x", typ=IntBound),
-            )
-        ]
-    )
+    assert str(ast.rules[0]) == 'add_zero: int_add(x, 0)\n    => x'
 
+def test_parse_source_positions():
+    s = """\
+add_zero: int_add(x, 0)
+    => x
+"""
+    ast = parse(s)
+    rule = ast.rules[0]
+    assert rule.sourcepos.lineno == 1
+    assert rule.target.sourcepos.lineno == 2
+    assert rule.target.sourcepos.colno == 8
 
 def test_parse_function_many_args():
     s = """\
@@ -55,20 +52,7 @@ eq_different_knownbits: int_eq(x, y)
     => 0
     """
     ast = parse(s)
-    assert ast == File(
-        [
-            Rule(
-                name="eq_different_knownbits",
-                pattern=PatternOp(
-                    opname="int_eq", args=[PatternVar("x", typ=IntBound), PatternVar("y", typ=IntBound)]
-                ),
-                cantproof=True,
-                elements=[],
-                target=PatternConst("0"),
-            )
-        ]
-    )
-
+    assert ast.rules[0].cantproof == True
 
 def test_parse_lshift_rshift():
     s = """\
@@ -77,28 +61,6 @@ int_lshift_int_rshift_consts: int_lshift(int_rshift(x, C1), C1)
     => int_and(x, C)
     """
     ast = parse(s)
-
-
-def test_parse_lshift_rshift():
-    s = """\
-eq_different_knownbits: int_eq(x, y)
-    SORRY_Z3
-    => 0
-    """
-    ast = parse(s)
-    assert ast == File(
-        [
-            Rule(
-                name="eq_different_knownbits",
-                pattern=PatternOp(
-                    opname="int_eq", args=[PatternVar("x", typ=IntBound), PatternVar("y", typ=IntBound)]
-                ),
-                cantproof=True,
-                elements=[],
-                target=PatternConst("0"),
-            )
-        ]
-    )
 
 
 def test_parse_all():
@@ -113,7 +75,11 @@ n: op(C)
     with pytest.raises(TypeCheckError) as info:
         ast = parse(s)
     assert str(info.value) == "variable 'x' is not defined"
-
+    assert info.value.format(s) == '''\
+Type error: variable 'x' is not defined
+in line 2
+        => x
+           ^'''
 
 def test_doubly_defined_name():
     s = """\
@@ -135,3 +101,8 @@ n: op(C)
     with pytest.raises(TypeCheckError) as info:
         ast = parse(s)
     assert str(info.value) == "expected check expression to return a bool, got int"
+    assert info.value.format(s) == '''\
+Type error: expected check expression to return a bool, got int
+in line 2
+        check C
+              ^'''

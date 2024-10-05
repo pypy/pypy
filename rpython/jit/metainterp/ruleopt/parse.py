@@ -79,6 +79,11 @@ class Visitor(object):
 
 class BaseAst(BaseBox):
     # __metaclass__ = extendabletype
+    sourcepos = None
+    endsourcepos = None
+
+    def getsourcepos(self):
+        return self.sourcepos
 
     def __eq__(self, other):
         if type(self) != type(other):
@@ -412,6 +417,20 @@ for i, tup in enumerate(precedence_classes):
 # ____________________________________________________________
 # parser
 
+def production(s):
+    def wrapper(func):
+        def newfunc(p):
+            res = func(p)
+            if isinstance(res, BaseAst) and res.sourcepos is None:
+                sourcepositions = [a.getsourcepos() for a in p if hasattr(a, 'getsourcepos')]
+                if sourcepositions:
+                    res.sourcepos = sourcepositions[0]
+                    res.endsourcepos = sourcepositions[-1]
+            return res
+        return pg.production(s)(newfunc)
+    return wrapper
+
+
 pg = ParserGenerator(
     alltokens,
     precedence=[
@@ -431,104 +450,104 @@ pg = ParserGenerator(
 )
 
 
-@pg.production("file : rule | file rule")
+@production("file : rule | file rule")
 def file(p):
     if len(p) == 1:
         return File(p)
     return File(p[0].rules + [p[1]])
 
 
-@pg.production("newlines : NEWLINE | NEWLINE newlines")
+@production("newlines : NEWLINE | NEWLINE newlines")
 def newlines(p):
     return None
 
 
-@pg.production("rule : NAME COLON pattern newlines maybesorry elements ARROW pattern newlines")
+@production("rule : NAME COLON pattern newlines maybesorry elements ARROW pattern newlines")
 def rule(p):
     return Rule(p[0].value, p[2], p[4], p[5], p[7])
 
-@pg.production("maybesorry : | SORRY_Z3 newlines")
+@production("maybesorry : | SORRY_Z3 newlines")
 def maybesorry(p):
     return bool(p)
 
 
-@pg.production("pattern : NAME")
+@production("pattern : NAME")
 def pattern_var(p):
     return PatternVar(p[0].value)
 
 
-@pg.production("pattern : NUMBER")
+@production("pattern : NUMBER")
 def pattern_const(p):
     return PatternConst(p[0].value)
 
 
-@pg.production("pattern : NAME LPAREN patternargs RPAREN")
+@production("pattern : NAME LPAREN patternargs RPAREN")
 def pattern_op(p):
     return PatternOp(p[0].value, p[2])
 
 
-@pg.production("patternargs : pattern | pattern COMMA patternargs")
+@production("patternargs : pattern | pattern COMMA patternargs")
 def patternargs(p):
     if len(p) == 1:
         return p
     return [p[0]] + p[2]
 
 
-@pg.production("elements : | element newlines elements")
+@production("elements : | element newlines elements")
 def elements(p):
     if len(p) == 0:
         return []
     return [p[0]] + p[2]
 
 
-@pg.production("element : NAME EQUAL expression")
+@production("element : NAME EQUAL expression")
 def compute_element(p):
     return Compute(p[0].value, p[2])
 
 
-@pg.production("element : CHECK expression")
+@production("element : CHECK expression")
 def check(p):
     return Check(p[1])
 
 
-@pg.production("expression : NUMBER")
+@production("expression : NUMBER")
 def expression_number(p):
     return Number(int(p[0].getstr()))
 
 
-@pg.production("expression : NAME")
+@production("expression : NAME")
 def expression_name(p):
     return Name(p[0].getstr())
 
 
-@pg.production("expression : LPAREN expression RPAREN")
+@production("expression : LPAREN expression RPAREN")
 def expression_parens(p):
     return p[1]
 
 
-@pg.production("expression : INVERT expression")
+@production("expression : INVERT expression")
 def expression_unary(p):
     return Invert(p[1])
 
 
-@pg.production("expression : expression PLUS expression")
-@pg.production("expression : expression MINUS expression")
-@pg.production("expression : expression MUL expression")
-@pg.production("expression : expression DIV expression")
-@pg.production("expression : expression LSHIFT expression")
-@pg.production("expression : expression URSHIFT expression")
-@pg.production("expression : expression ARSHIFT expression")
-@pg.production("expression : expression AND expression")
-@pg.production("expression : expression OR expression")
-@pg.production("expression : expression OP_AND expression")
-@pg.production("expression : expression OP_OR expression")
-@pg.production("expression : expression OP_XOR expression")
-@pg.production("expression : expression EQUALEQUAL expression")
-@pg.production("expression : expression GE expression")
-@pg.production("expression : expression GT expression")
-@pg.production("expression : expression LE expression")
-@pg.production("expression : expression LT expression")
-@pg.production("expression : expression NE expression")
+@production("expression : expression PLUS expression")
+@production("expression : expression MINUS expression")
+@production("expression : expression MUL expression")
+@production("expression : expression DIV expression")
+@production("expression : expression LSHIFT expression")
+@production("expression : expression URSHIFT expression")
+@production("expression : expression ARSHIFT expression")
+@production("expression : expression AND expression")
+@production("expression : expression OR expression")
+@production("expression : expression OP_AND expression")
+@production("expression : expression OP_OR expression")
+@production("expression : expression OP_XOR expression")
+@production("expression : expression EQUALEQUAL expression")
+@production("expression : expression GE expression")
+@production("expression : expression GT expression")
+@production("expression : expression LE expression")
+@production("expression : expression LT expression")
+@production("expression : expression NE expression")
 def expression_binop(p):
     left = p[0]
     right = p[2]
@@ -572,7 +591,7 @@ def expression_binop(p):
         raise AssertionError("Oops, this should not be possible!")
 
 
-@pg.production("expression : expression DOT NAME maybecall")
+@production("expression : expression DOT NAME maybecall")
 def attr_or_method(p):
     assert p[1].gettokentype() == "DOT"
     if p[3] is not None:
@@ -580,19 +599,19 @@ def attr_or_method(p):
     return Attribute(p[0].name, p[2].value)
 
 
-@pg.production("expression : NAME LPAREN args RPAREN")
+@production("expression : NAME LPAREN args RPAREN")
 def funccall(p):
     return FuncCall(p[0].value, p[2])
 
 
-@pg.production("maybecall : | LPAREN args RPAREN")
+@production("maybecall : | LPAREN args RPAREN")
 def methodcall(p):
     if not p:
         return None
     return p[1]
 
 
-@pg.production("args : | expression | expression COMMA args ")
+@production("args : | expression | expression COMMA args ")
 def args(p):
     if len(p) <= 1:
         return p
@@ -654,6 +673,18 @@ class TypeCheckError(Exception):
     def __str__(self):
         return self.msg
 
+    def format(self, sourcelines=None):
+        res = ["Type error: %s" % self.msg]
+        if self.ast.sourcepos:
+            pos = self.ast.sourcepos
+            res.append("in line %s" % pos.lineno)
+            if sourcelines:
+                line = sourcelines.splitlines()[pos.lineno - 1]
+                res.append("    " + line)
+                res.append("    " + " " * (pos.colno - 1) + "^")
+        return "\n".join(res)
+
+
 class TypingVisitor(Visitor):
     def _must_be_same_typ(self, ast, typ, targettyp):
         if targettyp is not typ:
@@ -703,7 +734,7 @@ class TypingVisitor(Visitor):
     def visit_Check(self, ast):
         typ = self.visit(ast.expr)
         if typ is not bool:
-            self._error("expected check expression to return a bool, got %s" % typ.__name__, ast)
+            self._error("expected check expression to return a bool, got %s" % typ.__name__, ast.expr)
 
     def visit_Expression(self, ast):
         assert 0, "should be unreachable"

@@ -40,6 +40,7 @@ mul_lshift: int_mul(x, int_lshift(1, y))
     check y.known_ge_const(0) and y.known_le_const(LONG_BIT)
     => int_lshift(x, y)
 
+
 and_zero: int_and(a, 0)
     => 0
 

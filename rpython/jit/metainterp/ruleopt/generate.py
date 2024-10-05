@@ -19,7 +19,9 @@ def main(argv):
         print("    " + line)
         print("    " + " " * (pos.colno - 1) + "^")
         return -1
-
+    except parse.TypeCheckError as e:
+        print(e.format(content))
+        return -2
     cgen = codegen.Codegen()
     result = cgen.generate_mixin(ast)
     with open(out_file, "w") as f:
