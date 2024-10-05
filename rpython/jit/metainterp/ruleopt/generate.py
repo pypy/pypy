@@ -1,4 +1,7 @@
+from __future__ import print_function
+
 import sys, os
+from rply.errors import ParsingError, LexingError
 from rpython.jit.metainterp.ruleopt import parse, proof, codegen
 
 def main(argv):
@@ -7,7 +10,16 @@ def main(argv):
     out_file = os.path.join(here, "..", "optimizeopt", "autogenintrules.py")
     with open(def_file) as f:
         content = f.read()
-    ast = proof.prove_source(content)
+    try:
+        ast = proof.prove_source(content)
+    except (ParsingError, LexingError) as e:
+        pos = e.getsourcepos()
+        print("Parse error in line %s:" % pos.lineno)
+        line = content.splitlines()[pos.lineno - 1]
+        print("    " + line)
+        print("    " + " " * (pos.colno - 1) + "^")
+        return -1
+
     cgen = codegen.Codegen()
     result = cgen.generate_mixin(ast)
     with open(out_file, "w") as f:
