@@ -264,6 +264,7 @@ class OptIntBounds(Optimization):
         if b0.sub_bound_cannot_overflow(b1):
             # this case takes care of int_sub_ovf(x, 0) as well
             op = self.replace_op_with(op, rop.INT_SUB)
+            return self.optimizer.send_extra_operation(op)
         return self.emit(op)
 
     def postprocess_INT_SUB_OVF(self, op):

@@ -141,21 +141,6 @@ class OptRewrite(Optimization):
         arg1 = get_box_replacement(op.getarg(1))
         self.optimizer.pure_from_args(rop.INT_OR, [arg1, arg0], op)
 
-    def optimize_INT_SUB(self, op):
-        arg1 = get_box_replacement(op.getarg(0))
-        arg2 = get_box_replacement(op.getarg(1))
-        b1 = self.getintbound(arg1)
-        b2 = self.getintbound(arg2)
-        if b2.known_eq_const(0):
-            self.make_equal_to(op, arg1)
-        elif b1.known_eq_const(0):
-            op = self.replace_op_with(op, rop.INT_NEG, args=[arg2])
-            return self.emit(op)
-        elif arg1 == arg2:
-            self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
-
     def postprocess_INT_SUB(self, op):
         import sys
         arg0 = op.getarg(0)
