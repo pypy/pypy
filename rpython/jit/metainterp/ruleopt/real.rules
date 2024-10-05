@@ -100,8 +100,9 @@ xor_minus_1: int_xor(x, -1)
 lshift_zero_x: int_lshift(0, x)
     => 0
 
-lshift_zero_x: int_lshift(x, 0)
+lshift_x_zero: int_lshift(x, 0)
     => x
+
 
 rshift_zero_x: int_rshift(0, x)
     => 0
@@ -112,8 +113,22 @@ rshift_known_result: int_rshift(a, b)
     C = a.rshift_bound(b).get_constant_int()
     => C
 
-#urshift_zero_x: uint_rshift(0, x)
-#    => 0
+urshift_zero_x: uint_rshift(0, x)
+    => 0
+
+urshift_x_zero: uint_rshift(x, 0)
+    => x
+
+
+urshift_known_result: uint_rshift(a, b)
+    SORRY_Z3
+    check a.urshift_bound(b).is_constant()
+    C = a.urshift_bound(b).get_constant_int()
+    => C
+
+urshift_lshift_x_c_c: uint_rshift(int_lshift(x, C), C)
+    mask = (-1 << C) >>u C
+    => int_and(x, mask)
 
 
 eq_different_knownbits: int_eq(x, y)

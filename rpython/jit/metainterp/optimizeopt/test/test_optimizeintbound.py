@@ -1020,6 +1020,21 @@ class TestOptimizeIntBounds(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_ushift_lshift(self):
+        ops = """
+        [i0]
+        i2 = int_lshift(i0, 30)
+        i4 = uint_rshift(i2, 30)
+        jump(i4)
+        """
+        expected = """
+        [i0]
+        i2 = int_lshift(i0, 30) # dead
+        i4 = int_and(i0, 17179869183) # 0x3ffffffff
+        jump(i4)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_bound_and(self):
         ops = """
         [i0]

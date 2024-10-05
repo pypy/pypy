@@ -142,35 +142,6 @@ class OptIntBounds(Optimization):
         r = self.getintbound(op)
         r.intersect(b)
 
-    def optimize_UINT_RSHIFT(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        b0 = self.getintbound(arg0)
-        arg1 = get_box_replacement(op.getarg(1))
-        b1 = self.getintbound(arg1)
-        b = b0.urshift_bound(b1)
-        if b.is_constant():
-            # constant result (likely 0, for rshifts that kill all bits)
-            self.make_constant_int(op, b.get_constant_int())
-            return None
-        if b1.known_eq_const(0):
-            self.make_equal_to(op, op.getarg(0))
-            return
-        if b0.known_eq_const(0):
-            self.make_constant_int(op, 0)
-            return
-        if b1.is_constant():
-            argop = self.optimizer.as_operation(arg0, rop.INT_LSHIFT)
-            if argop is not None:
-                sub_arg0 = get_box_replacement(argop.getarg(0))
-                sub_arg1 = get_box_replacement(argop.getarg(1))
-                sub_b0 = self.getintbound(sub_arg0)
-                sub_b1 = self.getintbound(sub_arg1)
-                const = b1.get_constant_int()
-                if sub_b1.is_constant() and const == sub_b1.get_constant_int():
-                    op = self.replace_op_with(op, rop.INT_AND,
-                                args=[sub_arg0, ConstInt(intmask(r_uint(-1) >> const))])
-        return self.emit(op)
-
     def postprocess_UINT_RSHIFT(self, op):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))

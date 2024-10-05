@@ -287,6 +287,7 @@ class LShift(IntBinOp):
 
 class URShift(IntBinOp):
     opname = "uint_rshift"
+    pysymbol = ">>"
     need_ruint = True
 
 
