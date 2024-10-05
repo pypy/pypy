@@ -94,6 +94,18 @@ xor_minus_1: int_xor(x, -1)
     => int_invert(x)
 
 
+lshift_zero_x: int_lshift(0, x)
+    => 0
+
+lshift_zero_x: int_lshift(x, 0)
+    => x
+
+#rshift_zero_x: int_rshift(0, x)
+#    => 0
+#
+#urshift_zero_x: uint_rshift(0, x)
+#    => 0
+
 
 eq_different_knownbits: int_eq(x, y)
     SORRY_Z3
