@@ -160,17 +160,6 @@ class OptRewrite(Optimization):
             return True
         return False
 
-    def optimize_INT_RSHIFT(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-
-        if b2.known_eq_const(0):
-            self.make_equal_to(op, op.getarg(0))
-        elif b1.known_eq_const(0):
-            self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
-
     def postprocess_INT_XOR(self, op):
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))
