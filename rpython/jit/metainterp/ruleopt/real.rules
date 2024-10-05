@@ -37,6 +37,10 @@ and_reassoc_consts: int_and(int_and(x, C1), C2)
     C = C1 & C2
     => int_and(x, C)
 
+#and_known_result: int_and(a, b)
+#    check a.and_bound(b).is_constant()
+#    C = a.and_bound(b).get_constant_int()
+#    => C
 #
 #and_x_c_in_range: int_and(x, C)
 #    check x.lower >= 0 and x.upper <= C & ~(C + 1)
@@ -46,10 +50,20 @@ and_reassoc_consts: int_and(int_and(x, C1), C2)
 #    check ~y.tvalue & (x.tmask | x.tvalue) == 0
 #    => x
 #
-#and_known_result: int_and(a, b)
-#    check a.and_bound(b).is_constant()
-#    C = a.and_bound(b).get_constant_int()
-#    => C
+#
+
+xor_x_x: int_xor(a, a)
+    => 0
+
+xor_absorb: int_xor(int_xor(a, b), b)
+    => a
+
+xor_zero: int_xor(a, 0)
+    => a
+
+xor_minus_1: int_xor(x, -1)
+    => int_invert(x)
+
 
 
 eq_different_knownbits: int_eq(x, y)
@@ -136,18 +150,6 @@ invert_invert: int_invert(int_invert(x))
 #    => int_or(a, b)
 #
 #
-#
-#xor_x_x: int_xor(a, a)
-#    => 0
-#
-#xor_absorb: int_xor(int_xor(a, b), b)
-#    => a
-#
-#xor_zero: int_xor(a, 0)
-#    => a
-#
-#xor_minus_1: int_xor(x, -1)
-#    => int_invert(x)
 #
 #xor_x_y_sub_y: int_sub(int_xor(x, y), y)
 #    # (x ^ y) - y == x if x & y == 0
