@@ -92,15 +92,6 @@ class OptRewrite(Optimization):
 
         return False
 
-    def optimize_INT_AND(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        b = b1.and_bound(b2)
-        if b.is_constant():
-            self.make_constant_int(op, b.get_constant_int())
-            return
-        return self.emit(op)
-
     def postprocess_INT_AND(self, op):
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))

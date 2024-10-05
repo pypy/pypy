@@ -64,12 +64,12 @@ and_x_y_covered_ones: int_and(x, y)
     => x
 
 
-#and_known_result: int_and(a, b)
-#    check a.and_bound(b).is_constant()
-#    C = a.and_bound(b).get_constant_int()
-#    => C
-#
-#
+and_known_result: int_and(a, b)
+    check a.and_bound(b).is_constant()
+    C = a.and_bound(b).get_constant_int()
+    => C
+
+
 
 or_minus_1: int_or(x, -1)
     => -1
@@ -148,24 +148,7 @@ force_ge_zero_neg: int_force_ge_zero(x)
 
 invert_invert: int_invert(int_invert(x))
     => x
-#
-#
-#sub_zero: int_sub(x, 0)
-#    => x
-#
-#sub_from_zero: int_sub(0, x)
-#    => int_neg(x)
-#
-#sub_x_x: int_sub(x, x)
-#    => 0
-#
-#sub_add_consts: int_sub(int_add(x, C1), C2)
-#    C = C2 - C1
-#    => int_sub(x, C)
-#
-#sub_add: int_sub(int_add(x, y), y)
-#    => x
-#
+
 #lshift_rshift_c_c: int_lshift(int_rshift(x, C1), C1)
 #    check 0 <= C1 and C1 < LONG_BIT
 #    C = (-1 >>a C1) << C1

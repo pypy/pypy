@@ -109,7 +109,11 @@ class Codegen(parse.Visitor):
 
     def generate_target(self, target):
         if isinstance(target, parse.PatternVar):
-            self.emit("self.make_equal_to(op, %s)" % self.bindings[target.name])
+            if target.typ is int:
+                value = "ConstInt(%s)" % self.bindings[target.name]
+            else:
+                value = self.bindings[target.name]
+            self.emit("self.make_equal_to(op, %s)" % value)
             return
         if isinstance(target, parse.PatternConst):
             self.emit("self.make_constant_int(op, %s)" % target.const)
