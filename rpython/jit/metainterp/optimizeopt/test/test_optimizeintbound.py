@@ -3619,6 +3619,18 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_or_minus_one(self):
+        ops = """
+        [i0]
+        i1 = int_or(i0, -1)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(-1)
+        """
+        self.optimize_loop(ops, expected)
+
 
 
 class TestComplexIntOpts(BaseTestBasic):

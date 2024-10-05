@@ -109,21 +109,13 @@ class OptRewrite(Optimization):
     def optimize_INT_OR(self, op):
         v1 = get_box_replacement(op.getarg(0))
         v2 = get_box_replacement(op.getarg(1))
-        if v1 is v2:
-            self.make_equal_to(op, v1)
-            return
         b1 = self.getintbound(v1)
         b2 = self.getintbound(v2)
         b = b1.or_bound(b2)
         if b.is_constant():
             self.make_constant_int(op, b.get_constant_int())
             return
-        if b1.known_eq_const(0):
-            self.make_equal_to(op, v2)
-        elif b2.known_eq_const(0):
-            self.make_equal_to(op, v1)
-        else:
-            return self.emit(op)
+        return self.emit(op)
 
     def postprocess_INT_OR(self, op):
         arg0 = get_box_replacement(op.getarg(0))

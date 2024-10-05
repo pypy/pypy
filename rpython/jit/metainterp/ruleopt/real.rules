@@ -53,6 +53,17 @@ and_x_y_covered_ones: int_and(x, y)
 #    => C
 #
 #
+
+or_minus_1: int_or(x, -1)
+    => -1
+
+or_zero: int_or(x, 0)
+    => x
+
+or_x_x: int_or(a, a)
+    => a
+
+
 xor_x_x: int_xor(a, a)
     => 0
 
@@ -82,7 +93,6 @@ eq_one: int_eq(x, 1)
 eq_zero: int_eq(x, 0)
     => int_is_zero(x)
 
-
 ne_different_knownbits: int_ne(x, y)
     SORRY_Z3
     check x.known_ne(y)
@@ -94,6 +104,9 @@ ne_same: int_ne(x, x)
 ne_zero: int_ne(x, 0)
     => int_is_true(x)
 
+
+#or_absorb: int_or(a, int_or(a, b))
+#    => int_or(a, b)
 
 
 force_ge_zero_pos: int_force_ge_zero(x)
@@ -137,18 +150,6 @@ invert_invert: int_invert(int_invert(x))
 #
 #neg_neg: int_neg(int_neg(x))
 #    => x
-#
-#invert_invert: int_invert(int_invert(x))
-#    => x
-#
-#or_minus_1: int_or(x, -1)
-#    => -1
-#
-#or_x_x: int_or(a, a)
-#    => a
-#
-#or_absorb: int_or(a, int_or(a, b))
-#    => int_or(a, b)
 #
 #
 #
