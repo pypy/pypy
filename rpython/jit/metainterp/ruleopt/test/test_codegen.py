@@ -22,14 +22,8 @@ add_zero: int_add(x, 0)
 """
     ast = parse(s)
     patterns = list(generate_commutative_patterns(ast.rules[0].pattern))
-    assert patterns == [
-        PatternOp(
-            args=[PatternVar(name="x"), PatternConst(const="0")], opname="int_add"
-        ),
-        PatternOp(
-            args=[PatternConst(const="0"), PatternVar(name="x")], opname="int_add"
-        ),
-    ]
+    assert str(patterns[0]) == "int_add(x, 0)"
+    assert str(patterns[1]) == "int_add(0, x)"
     assert len(patterns) == 2
 
     s = """\
@@ -39,35 +33,11 @@ add_reassoc_consts: int_add(int_add(x, C1), C2)
 """
     ast = parse(s)
     patterns = list(generate_commutative_patterns(ast.rules[0].pattern))
-    assert patterns == [
-        PatternOp(
-            opname="int_add",
-            args=[
-                PatternOp(opname="int_add", args=[PatternVar("x"), PatternVar("C1")]),
-                PatternVar("C2"),
-            ],
-        ),
-        PatternOp(
-            opname="int_add",
-            args=[
-                PatternVar("C2"),
-                PatternOp(opname="int_add", args=[PatternVar("x"), PatternVar("C1")]),
-            ],
-        ),
-        PatternOp(
-            opname="int_add",
-            args=[
-                PatternOp(opname="int_add", args=[PatternVar("C1"), PatternVar("x")]),
-                PatternVar("C2"),
-            ],
-        ),
-        PatternOp(
-            opname="int_add",
-            args=[
-                PatternVar("C2"),
-                PatternOp(opname="int_add", args=[PatternVar("C1"), PatternVar("x")]),
-            ],
-        ),
+    assert [str(p) for p in patterns] == [
+        'int_add(int_add(x, C1), C2)',
+        'int_add(C2, int_add(x, C1))',
+        'int_add(int_add(C1, x), C2)',
+        'int_add(C2, int_add(C1, x))'
     ]
 
 def test_sort_patterns():
@@ -83,50 +53,7 @@ int_sub_zero_neg: int_sub(0, x)
     """
     ast = parse(s)
     rules = sort_rules(ast.rules)
-    assert rules == [
-        Rule(
-            cantproof=False,
-            name="int_sub_x_x",
-            pattern=PatternOp(
-                opname="int_sub", args=[PatternVar("x"), PatternVar("x")]
-            ),
-            elements=[],
-            target=PatternConst("0"),
-        ),
-        Rule(
-            cantproof=False,
-            name="int_sub_zero",
-            pattern=PatternOp(
-                opname="int_sub", args=[PatternVar("x"), PatternConst("0")]
-            ),
-            elements=[],
-            target=PatternVar("x"),
-        ),
-        Rule(
-            cantproof=False,
-            name="int_sub_add",
-            pattern=PatternOp(
-                opname="int_sub",
-                args=[
-                    PatternOp(
-                        opname="int_add", args=[PatternVar("x"), PatternVar("y")]
-                    ),
-                    PatternVar("y"),
-                ],
-            ),
-            elements=[],
-            target=PatternVar("x"),
-        ),
-        Rule(
-            cantproof=False,
-            name="int_sub_zero_neg",
-            pattern=PatternOp(
-                opname="int_sub", args=[PatternConst("0"), PatternVar("x")]
-            ),
-            elements=[],
-            target=PatternOp(opname="int_neg", args=[PatternVar("x")]),
-        ),
-    ]
+    assert [r.name for r in rules] == ['int_sub_x_x', 'int_sub_zero', 'int_sub_add', 'int_sub_zero_neg']
 
 def test_generate_code_many():
     codegen = Codegen()
