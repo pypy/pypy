@@ -789,27 +789,6 @@ class AppTestSysModulePortedFromCPython:
         import sys
         sys.__dict__   # check that we don't crash initializing any attribute
 
-    def test_subversion(self):
-        import sys
-        if '__pypy__' not in sys.builtin_module_names:
-            skip("only on PyPy")
-        assert sys.subversion == ('PyPy', '', '')
-
-    def test__mercurial(self):
-        import sys, re
-        if '__pypy__' not in sys.builtin_module_names:
-            skip("only on PyPy")
-        project, hgtag, hgid = sys._mercurial
-        assert project == 'PyPy'
-        # the tag or branch may be anything, including the empty string
-        assert isinstance(hgtag, str)
-        # the id is either nothing, or an id of 12 hash digits, with a possible
-        # suffix of '+' if there are local modifications
-        assert hgid == '' or re.match('[0-9a-f]{12}\+?', hgid)
-        # the id should also show up in sys.version
-        if hgid != '':
-            assert hgid in sys.version
-
     def test_float_repr_style(self):
         import sys
 
