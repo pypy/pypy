@@ -149,6 +149,8 @@ class IntTestCases(unittest.TestCase):
         self.assertEqual(int(' 0O123   ', 0), 83)
         self.assertEqual(int(' 0X123  ', 0), 291)
         self.assertEqual(int(' 0B100 ', 0), 4)
+        with self.assertRaises(ValueError):
+            int('010', 0)
 
         # without base still base 10
         self.assertEqual(int('0123'), 123)
@@ -214,6 +216,24 @@ class IntTestCases(unittest.TestCase):
         self.assertEqual(int('2qhxjlj', 34), 4294967297)
         self.assertEqual(int('2br45qc', 35), 4294967297)
         self.assertEqual(int('1z141z5', 36), 4294967297)
+
+    def test_invalid_signs(self):
+        with self.assertRaises(ValueError):
+            int('+')
+        with self.assertRaises(ValueError):
+            int('-')
+        with self.assertRaises(ValueError):
+            int('- 1')
+        with self.assertRaises(ValueError):
+            int('+ 1')
+        with self.assertRaises(ValueError):
+            int(' + 1 ')
+
+    def test_unicode(self):
+        self.assertEqual(int("१२३४५६७८९०1234567890"), 12345678901234567890)
+        self.assertEqual(int('١٢٣٤٥٦٧٨٩٠'), 1234567890)
+        self.assertEqual(int("१२३४५६७८९०1234567890", 0), 12345678901234567890)
+        self.assertEqual(int('١٢٣٤٥٦٧٨٩٠', 0), 1234567890)
 
     def test_underscores(self):
         for lit in VALID_UNDERSCORE_LITERALS:
@@ -370,12 +390,14 @@ class IntTestCases(unittest.TestCase):
             class JustTrunc(base):
                 def __trunc__(self):
                     return 42
-            self.assertEqual(int(JustTrunc()), 42)
+            with self.assertWarns(DeprecationWarning):
+                self.assertEqual(int(JustTrunc()), 42)
 
             class ExceptionalTrunc(base):
                 def __trunc__(self):
                     1 / 0
-            with self.assertRaises(ZeroDivisionError):
+            with self.assertRaises(ZeroDivisionError), \
+                 self.assertWarns(DeprecationWarning):
                 int(ExceptionalTrunc())
 
             for trunc_result_base in (object, Classic):
@@ -386,7 +408,8 @@ class IntTestCases(unittest.TestCase):
                 class TruncReturnsNonInt(base):
                     def __trunc__(self):
                         return Index()
-                self.assertEqual(int(TruncReturnsNonInt()), 42)
+                with self.assertWarns(DeprecationWarning):
+                    self.assertEqual(int(TruncReturnsNonInt()), 42)
 
                 class Intable(trunc_result_base):
                     def __int__(self):
@@ -395,7 +418,8 @@ class IntTestCases(unittest.TestCase):
                 class TruncReturnsNonIndex(base):
                     def __trunc__(self):
                         return Intable()
-                self.assertEqual(int(TruncReturnsNonInt()), 42)
+                with self.assertWarns(DeprecationWarning):
+                    self.assertEqual(int(TruncReturnsNonInt()), 42)
 
                 class NonIntegral(trunc_result_base):
                     def __trunc__(self):
@@ -406,12 +430,12 @@ class IntTestCases(unittest.TestCase):
                     def __trunc__(self):
                         return NonIntegral()
                 try:
-                    int(TruncReturnsNonIntegral())
+                    with self.assertWarns(DeprecationWarning):
+                        int(TruncReturnsNonIntegral())
                 except TypeError as e:
-                    if support.check_impl_detail(pypy=False):
-                        self.assertEqual(str(e),
-                                          "__trunc__ returned non-Integral"
-                                          " (type NonIntegral)")
+                    self.assertEqual(str(e),
+                                      "__trunc__ returned non-Integral"
+                                      " (type NonIntegral)")
                 else:
                     self.fail("Failed to raise TypeError with %s" %
                               ((base, trunc_result_base),))
@@ -425,7 +449,8 @@ class IntTestCases(unittest.TestCase):
                     def __trunc__(self):
                         return BadInt()
 
-                with self.assertRaises(TypeError):
+                with self.assertRaises(TypeError), \
+                     self.assertWarns(DeprecationWarning):
                     int(TruncReturnsBadInt())
 
     def test_int_subclass_with_index(self):
@@ -519,13 +544,16 @@ class IntTestCases(unittest.TestCase):
         self.assertIs(type(n), int)
 
         bad_int = TruncReturnsBadInt()
-        self.assertRaises(TypeError, int, bad_int)
+        with self.assertWarns(DeprecationWarning):
+            self.assertRaises(TypeError, int, bad_int)
 
         good_int = TruncReturnsIntSubclass()
-        n = int(good_int)
+        with self.assertWarns(DeprecationWarning):
+            n = int(good_int)
         self.assertEqual(n, 1)
         self.assertIs(type(n), int)
-        n = IntSubclass(good_int)
+        with self.assertWarns(DeprecationWarning):
+            n = IntSubclass(good_int)
         self.assertEqual(n, 1)
         self.assertIs(type(n), IntSubclass)
 
@@ -640,10 +668,6 @@ class IntStrDigitLimitsTests(unittest.TestCase):
             huge_decimal = str(huge_int)
         seconds_to_convert = get_time() - start
         self.assertEqual(len(huge_decimal), digits)
-
-        if support.check_impl_detail(pypy=True):
-            raise unittest.SkipTest('"slow" conversion too fast on PyPy')
-
         # Ensuring that we chose a slow enough conversion to measure.
         # It takes 0.1 seconds on a Zen based cloud VM in an opt build.
         # Some OSes have a low res 1/64s timer, skip if hard to measure.

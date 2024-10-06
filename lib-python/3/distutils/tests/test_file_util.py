@@ -8,7 +8,6 @@ from distutils.file_util import move_file, copy_file
 from distutils import log
 from distutils.tests import support
 from distutils.errors import DistutilsFileError
-from test.support import run_unittest
 from test.support.os_helper import unlink
 
 
@@ -79,6 +78,7 @@ class FileUtilTestCase(support.TempdirManager, unittest.TestCase):
                 fobj.write('spam eggs')
             move_file(self.source, self.target, verbose=0)
 
+    @unittest.skipUnless(hasattr(os, 'link'), 'requires os.link')
     def test_copy_file_hard_link(self):
         with open(self.source, 'w') as f:
             f.write('some content')
@@ -99,6 +99,7 @@ class FileUtilTestCase(support.TempdirManager, unittest.TestCase):
         with open(self.source, 'r') as f:
             self.assertEqual(f.read(), 'some content')
 
+    @unittest.skipUnless(hasattr(os, 'link'), 'requires os.link')
     def test_copy_file_hard_link_failure(self):
         # If hard linking fails, copy_file() falls back on copying file
         # (some special filesystems don't support hard linking even under
@@ -117,8 +118,5 @@ class FileUtilTestCase(support.TempdirManager, unittest.TestCase):
                 self.assertEqual(f.read(), 'some content')
 
 
-def test_suite():
-    return unittest.makeSuite(FileUtilTestCase)
-
 if __name__ == "__main__":
-    run_unittest(test_suite())
+    unittest.main()

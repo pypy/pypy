@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import patch
 import builtins
 import rlcompleter
+from test.support import MISSING_C_DOCSTRINGS
 
 class CompleteMe:
     """ Trivial class used in testing rlcompleter.Completer. """
@@ -40,12 +41,12 @@ class TestRlcompleter(unittest.TestCase):
 
         # test with a customized namespace
         self.assertEqual(self.completer.global_matches('CompleteM'),
-                         ['CompleteMe()'])
+                ['CompleteMe(' if MISSING_C_DOCSTRINGS else 'CompleteMe()'])
         self.assertEqual(self.completer.global_matches('eg'),
                          ['egg('])
         # XXX: see issue5256
         self.assertEqual(self.completer.global_matches('CompleteM'),
-                         ['CompleteMe()'])
+                ['CompleteMe(' if MISSING_C_DOCSTRINGS else 'CompleteMe()'])
 
     def test_attr_matches(self):
         # test with builtins namespace
@@ -138,6 +139,9 @@ class TestRlcompleter(unittest.TestCase):
         self.assertEqual(completer.complete('el', 0), 'elif ')
         self.assertEqual(completer.complete('el', 1), 'else')
         self.assertEqual(completer.complete('tr', 0), 'try:')
+        self.assertEqual(completer.complete('_', 0), '_')
+        self.assertEqual(completer.complete('match', 0), 'match ')
+        self.assertEqual(completer.complete('case', 0), 'case ')
 
     def test_duplicate_globals(self):
         namespace = {

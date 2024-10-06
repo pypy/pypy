@@ -12,6 +12,8 @@ heappush(heap, item) # pushes a new item on the heap
 item = heappop(heap) # pops the smallest item from the heap
 item = heap[0]       # smallest item on the heap without popping it
 heapify(x)           # transforms list into a heap, in-place, in linear time
+item = heappushpop(heap, item) # pushes a new item and then returns
+                               # the smallest item; the heap size is unchanged
 item = heapreplace(heap, item) # pops and returns smallest item, and adds
                                # new item; the heap size is unchanged
 
@@ -311,105 +313,6 @@ def _siftup_max(heap, pos):
     heap[pos] = newitem
     _siftdown_max(heap, startpos, pos)
 
-
-class _MergeNode:
-    """
-    Binary tree invariants:
-        - A node N is a leaf iff N.leaf is N
-        - For each leaf node:
-            - leaf.right is an iterator
-            - leaf.left is the item most recently produced by leaf.right
-            - leaf.key is key(leaf.left)
-        - For each non-leaf node:
-            - node.left and node.right are Nodes
-            - node.left.parent is node is node.right.parent
-            - node.leaf is one of node's descendant leaves
-            - node.key is node.leaf.key
-            - if "winner" is the higher priority of node.left and
-              node.right based on their keys, then node.leaf is
-              winner.leaf and node.key is winner.key.
-    """
-
-    __slots__ = "key", "leaf", "parent", "left", "right"
-
-    @classmethod
-    def construct_leaf(cls, iterator, keyfunc):
-        it = iter(iterator)
-        try:
-            item = next(it)
-        except StopIteration:
-            return None
-        key = item if keyfunc is None else keyfunc(item)
-        node = cls()
-        node.key = key
-        node.left = item
-        node.right = it
-        node.parent = None
-        node.leaf = node
-        return node
-
-    @classmethod
-    def construct_parent(cls, left, right, reverse):
-        if reverse:
-            winner = right if left.key < right.key else left
-        else:
-            winner = right if right.key < left.key else left
-        node = cls()
-        node.key = winner.key
-        node.left = left
-        node.right = right
-        node.parent = None
-        node.leaf = winner.leaf
-        left.parent = right.parent = node
-        return node
-
-    @classmethod
-    def build_tree(cls, iterables, key, reverse):
-        nodes = []
-        for it in iterables:
-            leaf = cls.construct_leaf(it, key)
-            if leaf is not None:
-                nodes.append(leaf)
-        if not nodes:
-            return None
-        n = len(nodes)
-        # unite pairs of adjacent nodes with a common parent until all
-        # nodes are united into one big tree.
-        while n > 1:
-            # Prefer keeping the leftmost nodes shallower in the tree
-            # since they're more likely to win for stability reasons.
-            new_nodes, rest = nodes[:n & 1], nodes[n & 1:]
-            for left, right in zip(rest[::2], rest[1::2]):
-                parent = cls.construct_parent(left, right, reverse)
-                new_nodes.append(parent)
-            nodes = new_nodes
-            n = len(nodes)
-        (root,) = nodes
-        return root
-
-    def promote_sibling(self):
-        """
-        Remove self and its sibling from the tree, while linking their
-        parent to the sibling's children.
-        """
-        assert self.leaf is self
-        parent = self.parent
-        left = parent.left
-        right = parent.right
-        sibling = left if self is right else right
-        parent.left = sibling.left
-        parent.right = sibling.right
-        parent.key = sibling.key
-        if sibling.leaf is sibling:
-            # sibling was a leaf, so now parent becomes a leaf
-            parent.leaf = parent
-        else:
-            parent.leaf = sibling.leaf
-            # give custody of sibling's children to parent
-            sibling.left.parent = sibling.right.parent = parent
-        return parent
-
-
 def merge(*iterables, key=None, reverse=False):
     '''Merge multiple sorted inputs into a single sorted output.
 
@@ -428,50 +331,67 @@ def merge(*iterables, key=None, reverse=False):
 
     '''
 
-    root = _MergeNode.build_tree(iterables, key, reverse)
-    if root is None:
-        return
-    elif root.leaf is root:
-        yield root.left
-        yield from root.right
+    h = []
+    h_append = h.append
+
+    if reverse:
+        _heapify = _heapify_max
+        _heappop = _heappop_max
+        _heapreplace = _heapreplace_max
+        direction = -1
+    else:
+        _heapify = heapify
+        _heappop = heappop
+        _heapreplace = heapreplace
+        direction = 1
+
+    if key is None:
+        for order, it in enumerate(map(iter, iterables)):
+            try:
+                next = it.__next__
+                h_append([next(), order * direction, next])
+            except StopIteration:
+                pass
+        _heapify(h)
+        while len(h) > 1:
+            try:
+                while True:
+                    value, order, next = s = h[0]
+                    yield value
+                    s[0] = next()           # raises StopIteration when exhausted
+                    _heapreplace(h, s)      # restore heap condition
+            except StopIteration:
+                _heappop(h)                 # remove empty iterator
+        if h:
+            # fast case when only a single iterator remains
+            value, order, next = h[0]
+            yield value
+            yield from next.__self__
         return
 
-    _next, _StopIteration = next, StopIteration
-    while True:
-        # To find the value to yield, check which leaf
-        # the root's key came from.
-        node = root.leaf
-        yield node.left
-
-        # refill the leaf with one value from the iterator.
+    for order, it in enumerate(map(iter, iterables)):
         try:
-            node.left = val = _next(node.right)
-        except _StopIteration:
-            node = node.promote_sibling()
-            if root.leaf is root:
-                yield root.left
-                yield from root.right
-                return
-        else:
-            node.key = val if key is None else key(val)
-
-        # The tight loop: For each ancestor of the chosen leaf,
-        # re-evaluate which of its children is higher priority,
-        # then take that winning child's key and leaf references.
-        if reverse:
-            while node is not root:
-                node = node.parent
-                left, right = node.left, node.right
-                winner = right if left.key < right.key else left
-                node.key = winner.key
-                node.leaf = winner.leaf
-        else:
-            while node is not root:
-                node = node.parent
-                left, right = node.left, node.right
-                winner = right if right.key < left.key else left
-                node.key = winner.key
-                node.leaf = winner.leaf
+            next = it.__next__
+            value = next()
+            h_append([key(value), order * direction, value, next])
+        except StopIteration:
+            pass
+    _heapify(h)
+    while len(h) > 1:
+        try:
+            while True:
+                key_value, order, value, next = s = h[0]
+                yield value
+                value = next()
+                s[0] = key(value)
+                s[2] = value
+                _heapreplace(h, s)
+        except StopIteration:
+            _heappop(h)
+    if h:
+        key_value, order, value, next = h[0]
+        yield value
+        yield from next.__self__
 
 
 # Algorithm notes for nlargest() and nsmallest()

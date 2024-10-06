@@ -15,14 +15,15 @@ import time
 import unittest
 
 from unittest import mock, skipUnless
-from concurrent.futures import ProcessPoolExecutor
 try:
     # compileall relies on ProcessPoolExecutor if ProcessPoolExecutor exists
     # and it can function.
+    from multiprocessing.util import _cleanup_tests as multiprocessing_cleanup_tests
+    from concurrent.futures import ProcessPoolExecutor
     from concurrent.futures.process import _check_system_limits
     _check_system_limits()
     _have_multiprocessing = True
-except NotImplementedError:
+except (NotImplementedError, ModuleNotFoundError):
     _have_multiprocessing = False
 
 from test import support
@@ -54,6 +55,8 @@ class CompileallTestsBase:
 
     def setUp(self):
         self.directory = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.directory)
+
         self.source_path = os.path.join(self.directory, '_test.py')
         self.bc_path = importlib.util.cache_from_source(self.source_path)
         with open(self.source_path, 'w', encoding="utf-8") as file:
@@ -65,9 +68,6 @@ class CompileallTestsBase:
         os.mkdir(self.subdirectory)
         self.source_path3 = os.path.join(self.subdirectory, '_test3.py')
         shutil.copyfile(self.source_path, self.source_path3)
-
-    def tearDown(self):
-        shutil.rmtree(self.directory)
 
     def add_bad_source_file(self):
         self.bad_source_path = os.path.join(self.directory, '_test_bad.py')
@@ -272,6 +272,7 @@ class CompileallTestsBase:
         self.assertFalse(pool_mock.called)
         self.assertTrue(compile_file_mock.called)
 
+    @skipUnless(_have_multiprocessing, "requires multiprocessing")
     @mock.patch('concurrent.futures.ProcessPoolExecutor', new=None)
     @mock.patch('compileall.compile_file')
     def test_compile_missing_multiprocessing(self, compile_file_mock):
@@ -306,9 +307,13 @@ class CompileallTestsBase:
             script_helper.make_script(path, "__init__", "")
             mods.append(script_helper.make_script(path, "mod",
                                                   "def fn(): 1/0\nfn()\n"))
+
+        if parallel:
+            self.addCleanup(multiprocessing_cleanup_tests)
         compileall.compile_dir(
                 self.directory, quiet=True, ddir=ddir,
                 workers=2 if parallel else 1)
+
         self.assertTrue(mods)
         for mod in mods:
             self.assertTrue(mod.startswith(self.directory), mod)
@@ -324,6 +329,7 @@ class CompileallTestsBase:
         """Recursive compile_dir ddir= contains package paths; bpo39769."""
         return self._test_ddir_only(ddir="<a prefix>", parallel=False)
 
+    @skipUnless(_have_multiprocessing, "requires multiprocessing")
     def test_ddir_multiple_workers(self):
         """Recursive compile_dir ddir= contains package paths; bpo39769."""
         return self._test_ddir_only(ddir="<a prefix>", parallel=True)
@@ -332,6 +338,7 @@ class CompileallTestsBase:
         """Recursive compile_dir ddir='' contains package paths; bpo39769."""
         return self._test_ddir_only(ddir="", parallel=False)
 
+    @skipUnless(_have_multiprocessing, "requires multiprocessing")
     def test_ddir_empty_multiple_workers(self):
         """Recursive compile_dir ddir='' contains package paths; bpo39769."""
         return self._test_ddir_only(ddir="", parallel=True)
@@ -459,6 +466,9 @@ class CompileallTestsWithoutSourceEpoch(CompileallTestsBase,
     pass
 
 
+# WASI does not have a temp directory and uses cwd instead. The cwd contains
+# non-ASCII chars, so _walk_dir() fails to encode self.directory.
+@unittest.skipIf(support.is_wasi, "tempdir is not encodable on WASI")
 class EncodingTest(unittest.TestCase):
     """Issue 6716: compileall should escape source code when printing errors
     to stdout."""
@@ -545,6 +555,7 @@ class CommandLineTestsBase:
             self.assertNotCompiled(self.barfn)
 
     @without_source_date_epoch  # timestamp invalidation test
+    @support.requires_resource('cpu')
     def test_no_args_respects_force_flag(self):
         bazfn = script_helper.make_script(self.directory, 'baz', '')
         with self.temporary_pycache_prefix() as env:
@@ -562,6 +573,7 @@ class CommandLineTestsBase:
         mtime2 = os.stat(pycpath).st_mtime
         self.assertNotEqual(mtime, mtime2)
 
+    @support.requires_resource('cpu')
     def test_no_args_respects_quiet_flag(self):
         script_helper.make_script(self.directory, 'baz', '')
         with self.temporary_pycache_prefix() as env:
@@ -940,6 +952,7 @@ class CommandLineTestsNoSourceEpoch(CommandLineTestsBase,
 
 
 
+@unittest.skipUnless(hasattr(os, 'link'), 'requires os.link')
 class HardlinkDedupTestsBase:
     # Test hardlink_dupes parameter of compileall.compile_dir()
 

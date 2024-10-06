@@ -1,7 +1,7 @@
 import unittest
 import weakref
 
-from test.support import check_syntax_error
+from test.support import check_syntax_error, cpython_only
 from test.support import gc_collect
 
 
@@ -176,6 +176,57 @@ class ScopeTests(unittest.TestCase):
 
         self.assertEqual(foo(a=42), 50)
         self.assertEqual(foo(), 25)
+
+    def testCellIsArgAndEscapes(self):
+        # We need to be sure that a cell passed in as an arg still
+        # gets wrapped in a new cell if the arg escapes into an
+        # inner function (closure).
+
+        def external():
+            value = 42
+            def inner():
+                return value
+            cell, = inner.__closure__
+            return cell
+        cell_ext = external()
+
+        def spam(arg):
+            def eggs():
+                return arg
+            return eggs
+
+        eggs = spam(cell_ext)
+        cell_closure, = eggs.__closure__
+        cell_eggs = eggs()
+
+        self.assertIs(cell_eggs, cell_ext)
+        self.assertIsNot(cell_eggs, cell_closure)
+
+    def testCellIsLocalAndEscapes(self):
+        # We need to be sure that a cell bound to a local still
+        # gets wrapped in a new cell if the local escapes into an
+        # inner function (closure).
+
+        def external():
+            value = 42
+            def inner():
+                return value
+            cell, = inner.__closure__
+            return cell
+        cell_ext = external()
+
+        def spam(arg):
+            cell = arg
+            def eggs():
+                return cell
+            return eggs
+
+        eggs = spam(cell_ext)
+        cell_closure, = eggs.__closure__
+        cell_eggs = eggs()
+
+        self.assertIs(cell_eggs, cell_ext)
+        self.assertIsNot(cell_eggs, cell_closure)
 
     def testRecursion(self):
 
@@ -500,6 +551,7 @@ class ScopeTests(unittest.TestCase):
         self.assertNotIn("x", varnames)
         self.assertIn("y", varnames)
 
+    @cpython_only
     def testLocalsClass_WithTrace(self):
         # Issue23728: after the trace function returns, the locals()
         # dictionary is used to update all variables, this used to
@@ -529,6 +581,7 @@ class ScopeTests(unittest.TestCase):
         inst = f(3)()
         self.assertEqual(inst.a, inst.m())
 
+    @cpython_only
     def testInteractionWithTraceFunc(self):
 
         import sys
@@ -728,6 +781,7 @@ class ScopeTests(unittest.TestCase):
         self.assertFalse(hasattr(X, "x"))
         self.assertEqual(x, 42)
 
+    @cpython_only
     def testCellLeak(self):
         # Issue 17927.
         #

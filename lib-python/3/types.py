@@ -52,25 +52,13 @@ ModuleType = type(sys)
 
 try:
     raise TypeError
-except TypeError:
-    tb = sys.exc_info()[2]
-    TracebackType = type(tb)
-    FrameType = type(tb.tb_frame)
-    tb = None; del tb
+except TypeError as exc:
+    TracebackType = type(exc.__traceback__)
+    FrameType = type(exc.__traceback__.tb_frame)
 
-#
-# On CPython, FunctionType.__code__ is a 'getset_descriptor', but
-# FunctionType.__globals__ is a 'member_descriptor', just like app-level
-# slots.  On PyPy, all descriptors of built-in types are
-# 'getset_descriptor', but the app-level slots are 'member_descriptor'
-# as well.  (On Jython the situation might still be different.)
-#
-# Note that MemberDescriptorType was equal to GetSetDescriptorType in
-# PyPy <= 6.0.
-#
+# For Jython, the following two types are identical
 GetSetDescriptorType = type(FunctionType.__code__)
-class _C: __slots__ = 's'
-MemberDescriptorType = type(_C.s)
+MemberDescriptorType = type(FunctionType.__globals__)
 
 del sys, _f, _g, _C, _c, _ag  # Not for export
 
@@ -92,7 +80,7 @@ def resolve_bases(bases):
     updated = False
     shift = 0
     for i, base in enumerate(bases):
-        if isinstance(base, type) and not isinstance(base, GenericAlias):
+        if isinstance(base, type):
             continue
         if not hasattr(base, "__mro_entries__"):
             continue
@@ -168,7 +156,7 @@ class DynamicClassAttribute:
     attributes on the class with the same name.  (Enum used this between Python
     versions 3.4 - 3.9 .)
 
-    Subclass from this to use a different method of accessing virtual atributes
+    Subclass from this to use a different method of accessing virtual attributes
     and still be treated properly by the inspect module. (Enum uses this since
     Python 3.10 .)
 
@@ -307,7 +295,8 @@ def coroutine(func):
 
     return wrapped
 
-from _pypy_generic_alias import GenericAlias, UnionType
+GenericAlias = type(list[int])
+UnionType = type(int | str)
 
 EllipsisType = type(Ellipsis)
 NoneType = type(None)

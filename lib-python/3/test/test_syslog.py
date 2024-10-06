@@ -51,6 +51,7 @@ class Test(unittest.TestCase):
         syslog.openlog()
         syslog.syslog('test message from python test_syslog')
 
+    @threading_helper.requires_working_threading()
     def test_syslog_threaded(self):
         start = threading.Event()
         stop = False

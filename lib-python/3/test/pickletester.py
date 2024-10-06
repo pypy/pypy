@@ -1383,6 +1383,7 @@ class AbstractUnpickleTests:
             self.check_unpickling_error(self.truncated_errors, p)
 
     @threading_helper.reap_threads
+    @threading_helper.requires_working_threading()
     def test_unpickle_module_race(self):
         # https://bugs.python.org/issue34572
         locker_module = dedent("""
@@ -1824,6 +1825,14 @@ class AbstractPickleTests:
             p = self.dumps(t, proto)
             t2 = self.loads(p)
             self.assert_is_copy(t, t2)
+
+    def test_unicode_memoization(self):
+        # Repeated str is re-used (even when escapes added).
+        for proto in protocols:
+            for s in '', 'xyz', 'xyz\n', 'x\\yz', 'x\xa1yz\r':
+                p = self.dumps((s, s), proto)
+                s1, s2 = self.loads(p)
+                self.assertIs(s1, s2)
 
     def test_bytes(self):
         for proto in protocols:
@@ -2412,9 +2421,11 @@ class AbstractPickleTests:
     def test_bad_getattr(self):
         # Issue #3514: crash when there is an infinite loop in __getattr__
         x = BadGetattr()
-        for proto in protocols:
+        for proto in range(2):
             with support.infinite_recursion():
                 self.assertRaises(RuntimeError, self.dumps, x, proto)
+        for proto in range(2, pickle.HIGHEST_PROTOCOL + 1):
+            s = self.dumps(x, proto)
 
     def test_reduce_bad_iterator(self):
         # Issue4176: crash when 4th and 5th items of __reduce__()
@@ -2576,6 +2587,7 @@ class AbstractPickleTests:
             self.assertLess(pos - frameless_start, self.FRAME_SIZE_MIN)
 
     @support.skip_if_pgo_task
+    @support.requires_resource('cpu')
     def test_framing_many_objects(self):
         obj = list(range(10**5))
         for proto in range(4, pickle.HIGHEST_PROTOCOL + 1):
@@ -3481,6 +3493,84 @@ class AbstractPickleModuleTests:
 
         self.assertRaises(pickle.PicklingError, BadPickler().dump, 0)
         self.assertRaises(pickle.UnpicklingError, BadUnpickler().load)
+
+    def test_unpickler_bad_file(self):
+        # bpo-38384: Crash in _pickle if the read attribute raises an error.
+        def raises_oserror(self, *args, **kwargs):
+            raise OSError
+        @property
+        def bad_property(self):
+            1/0
+
+        # File without read and readline
+        class F:
+            pass
+        self.assertRaises((AttributeError, TypeError), self.Unpickler, F())
+
+        # File without read
+        class F:
+            readline = raises_oserror
+        self.assertRaises((AttributeError, TypeError), self.Unpickler, F())
+
+        # File without readline
+        class F:
+            read = raises_oserror
+        self.assertRaises((AttributeError, TypeError), self.Unpickler, F())
+
+        # File with bad read
+        class F:
+            read = bad_property
+            readline = raises_oserror
+        self.assertRaises(ZeroDivisionError, self.Unpickler, F())
+
+        # File with bad readline
+        class F:
+            readline = bad_property
+            read = raises_oserror
+        self.assertRaises(ZeroDivisionError, self.Unpickler, F())
+
+        # File with bad readline, no read
+        class F:
+            readline = bad_property
+        self.assertRaises(ZeroDivisionError, self.Unpickler, F())
+
+        # File with bad read, no readline
+        class F:
+            read = bad_property
+        self.assertRaises((AttributeError, ZeroDivisionError), self.Unpickler, F())
+
+        # File with bad peek
+        class F:
+            peek = bad_property
+            read = raises_oserror
+            readline = raises_oserror
+        try:
+            self.Unpickler(F())
+        except ZeroDivisionError:
+            pass
+
+        # File with bad readinto
+        class F:
+            readinto = bad_property
+            read = raises_oserror
+            readline = raises_oserror
+        try:
+            self.Unpickler(F())
+        except ZeroDivisionError:
+            pass
+
+    def test_pickler_bad_file(self):
+        # File without write
+        class F:
+            pass
+        self.assertRaises(TypeError, self.Pickler, F())
+
+        # File with bad write
+        class F:
+            @property
+            def write(self):
+                1/0
+        self.assertRaises(ZeroDivisionError, self.Pickler, F())
 
     def check_dumps_loads_oob_buffers(self, dumps, loads):
         # No need to do the full gamut of tests here, just enough to

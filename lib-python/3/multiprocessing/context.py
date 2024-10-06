@@ -227,7 +227,6 @@ class Process(process.BaseProcess):
     def _after_fork():
         return _default_context.get_context().Process._after_fork()
 
-
 class DefaultContext(BaseContext):
     Process = Process
 

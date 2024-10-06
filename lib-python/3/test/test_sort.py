@@ -146,15 +146,10 @@ class TestBugs(unittest.TestCase):
                 return random.random() < 0.5
 
         L = [C() for i in range(50)]
-        try:
-            L.sort()
-        except ValueError:
-            pass
+        self.assertRaises(ValueError, L.sort)
 
-    @support.impl_detail(pypy=False)
     def test_undetected_mutation(self):
         # Python 2.4a1 did not always detect mutation
-        # So does pypy...
         memorywaster = []
         for i in range(20):
             def mutating_cmp(x, y):
@@ -220,10 +215,7 @@ class TestDecorateSortUndecorate(unittest.TestCase):
                 data[:] = range(20)
             def __lt__(self, other):
                 return id(self) < id(other)
-        try:
-            data.sort(key=SortKiller)
-        except ValueError:
-            pass
+        self.assertRaises(ValueError, data.sort, key=SortKiller)
 
     def test_key_with_mutating_del_and_exception(self):
         data = list(range(10))
@@ -386,6 +378,12 @@ class TestOptimizedCompares(unittest.TestCase):
         self.assertRaises(TypeError, [(1.0, 1.0), (False, "A"), 6].sort)
         self.assertRaises(TypeError, [('a', 1), (1, 'a')].sort)
         self.assertRaises(TypeError, [(1, 'a'), ('a', 1)].sort)
+
+    def test_none_in_tuples(self):
+        expected = [(None, 1), (None, 2)]
+        actual = sorted([(None, 2), (None, 1)])
+        self.assertEqual(actual, expected)
+
 #==============================================================================
 
 if __name__ == "__main__":

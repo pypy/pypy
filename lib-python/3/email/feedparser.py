@@ -42,7 +42,6 @@ boundaryend_re = re.compile(r'(?P<end>--)?(?P<ws>[ \t]*)(?P<linesep>\r\n|\r|\n)?
 NeedMoreData = object()
 
 
-
 class BufferedSubFile(object):
     """A file-ish object that can have new data loaded into it.
 
@@ -133,7 +132,6 @@ class BufferedSubFile(object):
         return line
 
 
-
 class FeedParser:
     """A feed-style parser of email."""
 
@@ -190,7 +188,7 @@ class FeedParser:
         assert not self._msgstack
         # Look for final set of defects
         if root.get_content_maintype() == 'multipart' \
-               and not root.is_multipart():
+               and not root.is_multipart() and not self._headersonly:
             defect = errors.MultipartInvariantViolationDefect()
             self.policy.handle_defect(root, defect)
         return root

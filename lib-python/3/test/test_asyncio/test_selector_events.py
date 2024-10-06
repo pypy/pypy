@@ -1,5 +1,6 @@
 """Tests for selector_events.py"""
 
+import sys
 import selectors
 import socket
 import unittest
@@ -60,7 +61,6 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
     def test_make_socket_transport(self):
         m = mock.Mock()
         self.loop.add_reader = mock.Mock()
-        self.loop.add_reader._is_coroutine = False
         transport = self.loop._make_socket_transport(m, asyncio.Protocol())
         self.assertIsInstance(transport, _SelectorSocketTransport)
 
@@ -69,44 +69,6 @@ class BaseSelectorEventLoopTests(test_utils.TestCase):
         repr(transport)
 
         close_transport(transport)
-
-    @unittest.skipIf(ssl is None, 'No ssl module')
-    def test_make_ssl_transport(self):
-        m = mock.Mock()
-        self.loop._add_reader = mock.Mock()
-        self.loop._add_reader._is_coroutine = False
-        self.loop._add_writer = mock.Mock()
-        self.loop._remove_reader = mock.Mock()
-        self.loop._remove_writer = mock.Mock()
-        waiter = self.loop.create_future()
-        with test_utils.disable_logger():
-            transport = self.loop._make_ssl_transport(
-                m, asyncio.Protocol(), m, waiter)
-
-            with self.assertRaisesRegex(RuntimeError,
-                                        r'SSL transport.*not.*initialized'):
-                transport.is_reading()
-
-            # execute the handshake while the logger is disabled
-            # to ignore SSL handshake failure
-            test_utils.run_briefly(self.loop)
-
-        self.assertTrue(transport.is_reading())
-        transport.pause_reading()
-        transport.pause_reading()
-        self.assertFalse(transport.is_reading())
-        transport.resume_reading()
-        transport.resume_reading()
-        self.assertTrue(transport.is_reading())
-
-        # Sanity check
-        class_name = transport.__class__.__name__
-        self.assertIn("ssl", class_name.lower())
-        self.assertIn("transport", class_name.lower())
-
-        transport.close()
-        # execute pending callbacks to close the socket transport
-        test_utils.run_briefly(self.loop)
 
     @mock.patch('asyncio.selector_events.ssl', None)
     @mock.patch('asyncio.sslproto.ssl', None)
@@ -572,6 +534,22 @@ class SelectorSocketTransportTests(test_utils.TestCase):
         self.assertFalse(tr.is_reading())
         self.loop.assert_no_reader(7)
 
+    def test_pause_reading_connection_made(self):
+        tr = self.socket_transport()
+        self.protocol.connection_made.side_effect = lambda _: tr.pause_reading()
+        test_utils.run_briefly(self.loop)
+        self.assertFalse(tr.is_reading())
+        self.loop.assert_no_reader(7)
+
+        tr.resume_reading()
+        self.assertTrue(tr.is_reading())
+        self.loop.assert_reader(7, tr._read_ready)
+
+        tr.close()
+        self.assertFalse(tr.is_reading())
+        self.loop.assert_no_reader(7)
+
+
     def test_read_eof_received_error(self):
         transport = self.socket_transport()
         transport.close = mock.Mock()
@@ -822,6 +800,7 @@ class SelectorSocketTransportTests(test_utils.TestCase):
         self.sock.close.assert_called_with()
         self.protocol.connection_lost.assert_called_with(None)
 
+    @unittest.skipIf(sys.flags.optimize, "Assertions are disabled in optimized mode")
     def test_write_ready_no_data(self):
         transport = self.socket_transport()
         # This is an internal error.

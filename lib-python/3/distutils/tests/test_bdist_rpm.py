@@ -3,7 +3,7 @@
 import unittest
 import sys
 import os
-from test.support import run_unittest, requires_zlib
+from test.support import requires_zlib
 
 from distutils.core import Distribution
 from distutils.command.bdist_rpm import bdist_rpm
@@ -49,6 +49,9 @@ class BuildRpmTestCase(support.TempdirManager,
                      'the rpm command is not found')
     @unittest.skipIf(find_executable('rpmbuild') is None,
                      'the rpmbuild command is not found')
+    # import foo fails with safe path
+    @unittest.skipIf(sys.flags.safe_path,
+                     'PYTHONSAFEPATH changes default sys.path')
     def test_quiet(self):
         # let's create a package
         tmp_dir = self.mkdtemp()
@@ -93,6 +96,9 @@ class BuildRpmTestCase(support.TempdirManager,
                      'the rpm command is not found')
     @unittest.skipIf(find_executable('rpmbuild') is None,
                      'the rpmbuild command is not found')
+    # import foo fails with safe path
+    @unittest.skipIf(sys.flags.safe_path,
+                     'PYTHONSAFEPATH changes default sys.path')
     def test_no_optimize_flag(self):
         # let's create a package that breaks bdist_rpm
         tmp_dir = self.mkdtemp()
@@ -128,8 +134,5 @@ class BuildRpmTestCase(support.TempdirManager,
 
         os.remove(os.path.join(pkg_dir, 'dist', 'foo-0.1-1.noarch.rpm'))
 
-def test_suite():
-    return unittest.makeSuite(BuildRpmTestCase)
-
 if __name__ == '__main__':
-    run_unittest(test_suite())
+    unittest.main()

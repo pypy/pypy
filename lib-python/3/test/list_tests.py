@@ -62,7 +62,7 @@ class CommonTest(seq_tests.CommonTest):
 
     def test_repr_deep(self):
         a = self.type2test([])
-        for i in range(sys.getrecursionlimit() + 10000):
+        for i in range(sys.getrecursionlimit() + 100):
             a = self.type2test([a])
         self.assertRaises(RecursionError, repr, a)
 
@@ -496,7 +496,7 @@ class CommonTest(seq_tests.CommonTest):
         u += "eggs"
         self.assertEqual(u, self.type2test("spameggs"))
 
-        self.assertRaises(TypeError, "u += None")  # PyPy change
+        self.assertRaises(TypeError, u.__iadd__, None)
 
     def test_imul(self):
         super().test_imul()

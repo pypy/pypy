@@ -3,12 +3,14 @@ import copy
 import operator
 import pickle
 import struct
-import struct
 import unittest
 import plistlib
 import os
+import sys
+import json
 import datetime
 import codecs
+import subprocess
 import binascii
 import collections
 from test import support
@@ -811,6 +813,31 @@ class TestPlistlib(unittest.TestCase):
                 pl2 = plistlib.loads(data)
                 self.assertEqual(dict(pl), dict(pl2))
 
+    def test_dump_invalid_format(self):
+        with self.assertRaises(ValueError):
+            plistlib.dumps({}, fmt="blah")
+
+    def test_load_invalid_file(self):
+        with self.assertRaises(plistlib.InvalidFileException):
+            plistlib.loads(b"these are not plist file contents")
+
+    def test_modified_uid_negative(self):
+        neg_uid = UID(1)
+        neg_uid.data = -1  # dodge the negative check in the constructor
+        with self.assertRaises(ValueError):
+            plistlib.dumps(neg_uid, fmt=plistlib.FMT_BINARY)
+
+    def test_modified_uid_huge(self):
+        huge_uid = UID(1)
+        huge_uid.data = 2 ** 64  # dodge the size check in the constructor
+        with self.assertRaises(OverflowError):
+            plistlib.dumps(huge_uid, fmt=plistlib.FMT_BINARY)
+
+    def test_xml_plist_with_entity_decl(self):
+        with self.assertRaisesRegex(plistlib.InvalidFileException,
+                                    "XML entity declarations are not supported"):
+            plistlib.loads(XML_PLIST_WITH_ENTITY, fmt=plistlib.FMT_XML)
+
 
 class TestBinaryPlistlib(unittest.TestCase):
 
@@ -881,12 +908,13 @@ class TestBinaryPlistlib(unittest.TestCase):
         self.assertIs(b['x'], b)
 
     def test_deep_nesting(self):
-        for N in [300, 100000]:
+        tests = [50, 100_000] if support.is_wasi else [50, 300, 100_000]
+        for N in tests:
             chunks = [b'\xa1' + (i + 1).to_bytes(4, 'big') for i in range(N)]
             try:
                 result = self.decode(*chunks, b'\x54seed', offset_size=4, ref_size=4)
             except RecursionError:
-                pass
+                self.assertGreater(N, sys.getrecursionlimit()//3)
             else:
                 for i in range(N):
                     self.assertIsInstance(result, list)
@@ -973,6 +1001,77 @@ class MiscTestCase(unittest.TestCase):
         not_exported = {"PlistFormat", "PLISTHEADER"}
         support.check__all__(self, plistlib, not_exported=not_exported)
 
+@unittest.skipUnless(sys.platform == "darwin", "plutil utility is for Mac os")
+class TestPlutil(unittest.TestCase):
+    file_name = "plutil_test.plist"
+    properties = {
+            "fname" : "H",
+            "lname":"A",
+            "marks" : {"a":100, "b":0x10}
+        }
+    exptected_properties = {
+        "fname" : "H",
+        "lname": "A",
+        "marks" : {"a":100, "b":16}
+    }
+    pl = {
+            "HexType" : 0x0100000c,
+            "IntType" : 0o123
+        }
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        ## Generate plist file with plistlib and parse with plutil
+        with open(cls.file_name,'wb') as f:
+            plistlib.dump(cls.properties, f, fmt=plistlib.FMT_BINARY)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        os.remove(cls.file_name)
+
+    def get_lint_status(self):
+        return subprocess.run(['plutil', "-lint", self.file_name], capture_output=True, text=True).stdout
+
+    def convert_to_json(self):
+        """Convert binary file to json using plutil
+        """
+        subprocess.run(['plutil', "-convert", 'json', self.file_name])
+
+    def convert_to_bin(self):
+        """Convert file to binary using plutil
+        """
+        subprocess.run(['plutil', "-convert", 'binary1', self.file_name])
+
+    def write_pl(self):
+        """Write Hex properties to file using writePlist
+        """
+        with open(self.file_name, 'wb') as f:
+            plistlib.dump(self.pl, f, fmt=plistlib.FMT_BINARY)
+
+    def test_lint_status(self):
+        # check lint status of file using plutil
+        self.assertEqual(f"{self.file_name}: OK\n", self.get_lint_status())
+
+    def check_content(self):
+        # check file content with plutil converting binary to json
+        self.convert_to_json()
+        with open(self.file_name) as f:
+            ff = json.loads(f.read())
+            self.assertEqual(ff, self.exptected_properties)
+
+    def check_plistlib_parse(self):
+        # Generate plist files with plutil and parse with plistlib
+        self.convert_to_bin()
+        with open(self.file_name, 'rb') as f:
+            self.assertEqual(plistlib.load(f), self.exptected_properties)
+
+    def test_octal_and_hex(self):
+        self.write_pl()
+        self.convert_to_json()
+        with open(self.file_name, 'r') as f:
+            p = json.loads(f.read())
+            self.assertEqual(p.get("HexType"), 16777228)
+            self.assertEqual(p.get("IntType"), 83)
 
 if __name__ == '__main__':
     unittest.main()

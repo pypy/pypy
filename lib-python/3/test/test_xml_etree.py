@@ -24,7 +24,7 @@ import weakref
 from functools import partial
 from itertools import product, islice
 from test import support
-from test.support import os_helper, impl_detail
+from test.support import os_helper
 from test.support import warnings_helper
 from test.support import findfile, gc_collect, swap_attr, swap_item
 from test.support.import_helper import import_fresh_module
@@ -368,6 +368,7 @@ class ElementTreeTest(unittest.TestCase):
         from xml.etree import ElementPath
 
         elem = ET.XML(SAMPLE_XML)
+        ElementPath._cache.clear()
         for i in range(10): ET.ElementTree(elem).find('./'+str(i))
         cache_len_10 = len(ElementPath._cache)
         for i in range(10): ET.ElementTree(elem).find('./'+str(i))
@@ -538,7 +539,9 @@ class ElementTreeTest(unittest.TestCase):
         iterparse = ET.iterparse
 
         context = iterparse(SIMPLE_XMLFILE)
+        self.assertIsNone(context.root)
         action, elem = next(context)
+        self.assertIsNone(context.root)
         self.assertEqual((action, elem.tag), ('end', 'element'))
         self.assertEqual([(action, elem.tag) for action, elem in context], [
                 ('end', 'element'),
@@ -1341,8 +1344,9 @@ class ElementTreeTest(unittest.TestCase):
     def test_html_empty_elems_serialization(self):
         # issue 15970
         # from http://www.w3.org/TR/html401/index/elements.html
-        for element in ['AREA', 'BASE', 'BASEFONT', 'BR', 'COL', 'FRAME', 'HR',
-                        'IMG', 'INPUT', 'ISINDEX', 'LINK', 'META', 'PARAM']:
+        for element in ['AREA', 'BASE', 'BASEFONT', 'BR', 'COL', 'EMBED', 'FRAME',
+                        'HR', 'IMG', 'INPUT', 'ISINDEX', 'LINK', 'META', 'PARAM',
+                        'SOURCE', 'TRACK', 'WBR']:
             for elem in [element, element.lower()]:
                 expected = '<%s>' % elem
                 serialized = serialize(ET.XML('<%s />' % elem), method='html')
@@ -1625,11 +1629,10 @@ class XMLPullParserTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             ET.XMLPullParser(events=('start', 'end', 'bogus'))
 
+    @unittest.skipIf(pyexpat.version_info < (2, 6, 0),
+                     f'Expat {pyexpat.version_info} does not '
+                     'support reparse deferral')
     def test_flush_reparse_deferral_enabled(self):
-        if pyexpat.version_info < (2, 6, 0):
-            self.skipTest(f'Expat {pyexpat.version_info} does not '
-                          'support reparse deferral')
-
         parser = ET.XMLPullParser(events=('start', 'end'))
 
         for chunk in ("<doc", ">"):
@@ -1661,8 +1664,8 @@ class XMLPullParserTest(unittest.TestCase):
                 self.skipTest(f'XMLParser.(Get|Set)ReparseDeferralEnabled '
                               'methods not available in C')
             parser._parser._parser.SetReparseDeferralEnabled(False)
+            self.assert_event_tags(parser, [])  # i.e. no elements started
 
-        self.assert_event_tags(parser, [])  # i.e. no elements started
         if ET is pyET:
             self.assertFalse(parser._parser._parser.GetReparseDeferralEnabled())
 
@@ -2567,8 +2570,7 @@ class BasicElementTest(ElementTestCase, unittest.TestCase):
                     <group><dogs>4</dogs>
                     </group>"""
                 e1 = dumper.fromstring(XMLTEXT)
-                if hasattr(e1, '__getstate__'):
-                    self.assertEqual(e1.__getstate__()['tag'], 'group')
+                self.assertEqual(e1.__getstate__()['tag'], 'group')
                 e2 = self.pickleRoundTrip(e1, 'xml.etree.ElementTree',
                                           dumper, loader, proto)
                 self.assertEqual(e2.tag, 'group')
@@ -2627,6 +2629,7 @@ class BadElementTest(ElementTestCase, unittest.TestCase):
         e.extend([ET.Element('bar')])
         self.assertRaises(ValueError, e.remove, X('baz'))
 
+    @support.infinite_recursion(25)
     def test_recursive_repr(self):
         # Issue #25455
         e = ET.Element('foo')
@@ -2778,6 +2781,20 @@ class BadElementPathTest(ElementTestCase, unittest.TestCase):
             e.findtext(BadElementPath('x'))
         except ZeroDivisionError:
             pass
+
+    def test_findtext_with_falsey_text_attribute(self):
+        root_elem = ET.Element('foo')
+        sub_elem = ET.SubElement(root_elem, 'bar')
+        falsey = ["", 0, False, [], (), {}]
+        for val in falsey:
+            sub_elem.text = val
+            self.assertEqual(root_elem.findtext('./bar'), val)
+
+    def test_findtext_with_none_text_attribute(self):
+        root_elem = ET.Element('foo')
+        sub_elem = ET.SubElement(root_elem, 'bar')
+        sub_elem.text = None
+        self.assertEqual(root_elem.findtext('./bar'), '')
 
     def test_findall_with_mutating(self):
         e = ET.Element('foo')
@@ -4005,8 +4022,9 @@ class KeywordArgsTest(unittest.TestCase):
 # --------------------------------------------------------------------
 
 class NoAcceleratorTest(unittest.TestCase):
-    def setUp(self):
-        if not pyET:
+    @classmethod
+    def setUpClass(cls):
+        if ET is not pyET:
             raise unittest.SkipTest('only for the Python version')
 
     # Test that the C accelerator was not imported for pyET
@@ -4252,8 +4270,7 @@ class C14NTest(unittest.TestCase):
 
 # --------------------------------------------------------------------
 
-
-def test_main(module=None):
+def setUpModule(module=None):
     # When invoked without a module, runs the Python ET tests by loading pyET.
     # Otherwise, uses the given module as the ET.
     global pyET
@@ -4265,62 +4282,30 @@ def test_main(module=None):
     global ET
     ET = module
 
-    test_classes = [
-        ModuleTest,
-        ElementSlicingTest,
-        BasicElementTest,
-        BadElementTest,
-        BadElementPathTest,
-        ElementTreeTest,
-        IOTest,
-        ParseErrorTest,
-        XIncludeTest,
-        ElementTreeTypeTest,
-        ElementFindTest,
-        ElementIterTest,
-        TreeBuilderTest,
-        XMLParserTest,
-        XMLPullParserTest,
-        BugsTest,
-        KeywordArgsTest,
-        C14NTest,
-        ]
-
-    # These tests will only run for the pure-Python version that doesn't import
-    # _elementtree. We can't use skipUnless here, because pyET is filled in only
-    # after the module is loaded.
-    if pyET is not ET:
-        test_classes.extend([
-            NoAcceleratorTest,
-            ])
+    # don't interfere with subsequent tests
+    def cleanup():
+        global ET, pyET
+        ET = pyET = None
+    unittest.addModuleCleanup(cleanup)
 
     # Provide default namespace mapping and path cache.
     from xml.etree import ElementPath
     nsmap = ET.register_namespace._namespace_map
     # Copy the default namespace mapping
     nsmap_copy = nsmap.copy()
+    unittest.addModuleCleanup(nsmap.update, nsmap_copy)
+    unittest.addModuleCleanup(nsmap.clear)
+
     # Copy the path cache (should be empty)
     path_cache = ElementPath._cache
+    unittest.addModuleCleanup(setattr, ElementPath, "_cache", path_cache)
     ElementPath._cache = path_cache.copy()
+
     # Align the Comment/PI factories.
     if hasattr(ET, '_set_factories'):
         old_factories = ET._set_factories(ET.Comment, ET.PI)
-    else:
-        old_factories = None
-
-    try:
-        support.run_unittest(*test_classes)
-    finally:
-        from xml.etree import ElementPath
-        # Restore mapping and path cache
-        nsmap.clear()
-        nsmap.update(nsmap_copy)
-        ElementPath._cache = path_cache
-        if old_factories is not None:
-            ET._set_factories(*old_factories)
-        # don't interfere with subsequent tests
-        ET = pyET = None
+        unittest.addModuleCleanup(ET._set_factories, *old_factories)
 
 
 if __name__ == '__main__':
-    test_main()
+    unittest.main()

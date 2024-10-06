@@ -120,7 +120,13 @@ class MimeTypes:
         but non-standard types.
         """
         url = os.fspath(url)
-        scheme, url = urllib.parse._splittype(url)
+        p = urllib.parse.urlparse(url)
+        if p.scheme and len(p.scheme) > 1:
+            scheme = p.scheme
+            url = p.path
+        else:
+            scheme = None
+            url = os.path.splitdrive(url)[1]
         if scheme == 'data':
             # syntax of data URLs:
             # dataurl   := "data:" [ mediatype ] [ ";base64" ] "," data
@@ -434,6 +440,8 @@ def _default_mime_types():
         '.doc'    : 'application/msword',
         '.dot'    : 'application/msword',
         '.wiz'    : 'application/msword',
+        '.nq'     : 'application/n-quads',
+        '.nt'     : 'application/n-triples',
         '.bin'    : 'application/octet-stream',
         '.a'      : 'application/octet-stream',
         '.dll'    : 'application/octet-stream',
@@ -447,6 +455,7 @@ def _default_mime_types():
         '.ps'     : 'application/postscript',
         '.ai'     : 'application/postscript',
         '.eps'    : 'application/postscript',
+        '.trig'   : 'application/trig',
         '.m3u'    : 'application/vnd.apple.mpegurl',
         '.m3u8'   : 'application/vnd.apple.mpegurl',
         '.xls'    : 'application/vnd.ms-excel',
@@ -514,6 +523,7 @@ def _default_mime_types():
         '.aiff'   : 'audio/x-aiff',
         '.ra'     : 'audio/x-pn-realaudio',
         '.wav'    : 'audio/x-wav',
+        '.avif'   : 'image/avif',
         '.bmp'    : 'image/bmp',
         '.gif'    : 'image/gif',
         '.ief'    : 'image/ief',
@@ -528,7 +538,6 @@ def _default_mime_types():
         '.tif'    : 'image/tiff',
         '.ico'    : 'image/vnd.microsoft.icon',
         '.ras'    : 'image/x-cmu-raster',
-        '.bmp'    : 'image/x-ms-bmp',
         '.pnm'    : 'image/x-portable-anymap',
         '.pbm'    : 'image/x-portable-bitmap',
         '.pgm'    : 'image/x-portable-graymap',
@@ -545,14 +554,17 @@ def _default_mime_types():
         '.csv'    : 'text/csv',
         '.html'   : 'text/html',
         '.htm'    : 'text/html',
+        '.n3'     : 'text/n3',
         '.txt'    : 'text/plain',
         '.bat'    : 'text/plain',
         '.c'      : 'text/plain',
         '.h'      : 'text/plain',
         '.ksh'    : 'text/plain',
         '.pl'     : 'text/plain',
+        '.srt'    : 'text/plain',
         '.rtx'    : 'text/richtext',
         '.tsv'    : 'text/tab-separated-values',
+        '.vtt'    : 'text/vtt',
         '.py'     : 'text/x-python',
         '.etx'    : 'text/x-setext',
         '.sgm'    : 'text/x-sgml',
@@ -584,6 +596,7 @@ def _default_mime_types():
         '.pict': 'image/pict',
         '.pct' : 'image/pict',
         '.pic' : 'image/pict',
+        '.webp': 'image/webp',
         '.xul' : 'text/xul',
         }
 

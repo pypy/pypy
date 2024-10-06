@@ -37,12 +37,15 @@ try:
 except ImportError:
     fcntl = None
 
+support.requires_working_socket(module=True)
+
 HOST = socket_helper.HOST
 # test unicode string and carriage return
 MSG = 'Michael Gilfix was here\u1234\r\n'.encode('utf-8')
 
 VSOCKPORT = 1234
 AIX = platform.system() == "AIX"
+WSL = "microsoft-standard-WSL" in platform.release()
 
 try:
     import _socket
@@ -199,24 +202,6 @@ class SocketUDPLITETest(SocketUDPTest):
         self.serv = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDPLITE)
         self.port = socket_helper.bind_port(self.serv)
 
-class ThreadSafeCleanupTestCase:
-    """Subclass of unittest.TestCase with thread-safe cleanup methods.
-
-    This subclass protects the addCleanup() and doCleanups() methods
-    with a recursive lock.
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._cleanup_lock = threading.RLock()
-
-    def addCleanup(self, *args, **kwargs):
-        with self._cleanup_lock:
-            return super().addCleanup(*args, **kwargs)
-
-    def doCleanups(self, *args, **kwargs):
-        with self._cleanup_lock:
-            return super().doCleanups(*args, **kwargs)
 
 class SocketCANTest(unittest.TestCase):
 
@@ -336,9 +321,7 @@ class ThreadableTest:
         self.server_ready.set()
 
     def _setUp(self):
-        self.wait_threads = threading_helper.wait_threads_exit()
-        self.wait_threads.__enter__()
-        self.addCleanup(self.wait_threads.__exit__, None, None, None)
+        self.enterContext(threading_helper.wait_threads_exit())
 
         self.server_ready = threading.Event()
         self.client_ready = threading.Event()
@@ -485,6 +468,7 @@ class ThreadedRDSSocketTest(SocketRDSTest, ThreadableTest):
         ThreadableTest.clientTearDown(self)
 
 @unittest.skipIf(fcntl is None, "need fcntl")
+@unittest.skipIf(WSL, 'VSOCK does not work on Microsoft WSL')
 @unittest.skipUnless(HAVE_SOCKET_VSOCK,
           'VSOCK sockets required for this test.')
 @unittest.skipUnless(get_cid() != 2,
@@ -501,6 +485,7 @@ class ThreadedVSOCKSocketStreamTest(unittest.TestCase, ThreadableTest):
         self.serv.bind((socket.VMADDR_CID_ANY, VSOCKPORT))
         self.serv.listen()
         self.serverExplicitReady()
+        self.serv.settimeout(support.LOOPBACK_TIMEOUT)
         self.conn, self.connaddr = self.serv.accept()
         self.addCleanup(self.conn.close)
 
@@ -611,8 +596,7 @@ class SocketListeningTestMixin(SocketTestBase):
         self.serv.listen()
 
 
-class ThreadedSocketTestMixin(ThreadSafeCleanupTestCase, SocketTestBase,
-                              ThreadableTest):
+class ThreadedSocketTestMixin(SocketTestBase, ThreadableTest):
     """Mixin to add client socket and allow client/server tests.
 
     Client socket is self.cli and its address is self.cli_addr.  See
@@ -886,8 +870,6 @@ class GeneralModuleTests(unittest.TestCase):
 
     def testSendtoErrors(self):
         # Testing that sendto doesn't mask failures. See #10169.
-        # PyPy note: made the test accept broader messages: PyPy's
-        # messages are equivalent but worded differently.
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.addCleanup(s.close)
         s.bind(('', 0))
@@ -972,6 +954,19 @@ class GeneralModuleTests(unittest.TestCase):
         socket.IPPROTO_L2TP
         socket.IPPROTO_SCTP
 
+    @unittest.skipIf(support.is_wasi, "WASI is missing these methods")
+    def test_socket_methods(self):
+        # socket methods that depend on a configure HAVE_ check. They should
+        # be present on all platforms except WASI.
+        names = [
+            "_accept", "bind", "connect", "connect_ex", "getpeername",
+            "getsockname", "listen", "recvfrom", "recvfrom_into", "sendto",
+            "setsockopt", "shutdown"
+        ]
+        for name in names:
+            if not hasattr(socket.socket, name):
+                self.fail(f"socket method {name} is missing")
+
     @unittest.skipUnless(sys.platform == 'darwin', 'macOS specific test')
     @unittest.skipUnless(socket_helper.IPV6_ENABLED, 'IPv6 required for this test')
     def test3542SocketOptions(self):
@@ -1033,8 +1028,10 @@ class GeneralModuleTests(unittest.TestCase):
 
     def test_host_resolution_bad_address(self):
         # These are all malformed IP addresses and expected not to resolve to
-        # any result.  But some ISPs, e.g. AWS, may successfully resolve these
-        # IPs.
+        # any result.  But some ISPs, e.g. AWS and AT&T, may successfully
+        # resolve these IPs. In particular, AT&T's DNS Error Assist service
+        # will break this test.  See https://bugs.python.org/issue42092 for a
+        # workaround.
         explanation = (
             "resolving an invalid IP address did not raise OSError; "
             "can be caused by a broken DNS server"
@@ -1555,9 +1552,11 @@ class GeneralModuleTests(unittest.TestCase):
         infos = socket.getaddrinfo(HOST, 80, socket.AF_INET, socket.SOCK_STREAM)
         for family, type, _, _, _ in infos:
             self.assertEqual(family, socket.AF_INET)
-            self.assertEqual(str(family), 'AddressFamily.AF_INET')
+            self.assertEqual(repr(family), '<AddressFamily.AF_INET: %r>' % family.value)
+            self.assertEqual(str(family), str(family.value))
             self.assertEqual(type, socket.SOCK_STREAM)
-            self.assertEqual(str(type), 'SocketKind.SOCK_STREAM')
+            self.assertEqual(repr(type), '<SocketKind.SOCK_STREAM: %r>' % type.value)
+            self.assertEqual(str(type), str(type.value))
         infos = socket.getaddrinfo(HOST, None, 0, socket.SOCK_STREAM)
         for _, socktype, _, _, _ in infos:
             self.assertEqual(socktype, socket.SOCK_STREAM)
@@ -1835,8 +1834,10 @@ class GeneralModuleTests(unittest.TestCase):
         # Make sure that the AF_* and SOCK_* constants have enum-like string
         # reprs.
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            self.assertEqual(str(s.family), 'AddressFamily.AF_INET')
-            self.assertEqual(str(s.type), 'SocketKind.SOCK_STREAM')
+            self.assertEqual(repr(s.family), '<AddressFamily.AF_INET: %r>' % s.family.value)
+            self.assertEqual(repr(s.type), '<SocketKind.SOCK_STREAM: %r>' % s.type.value)
+            self.assertEqual(str(s.family), str(s.family.value))
+            self.assertEqual(str(s.type), str(s.type.value))
 
     def test_socket_consistent_sock_type(self):
         SOCK_NONBLOCK = getattr(socket, 'SOCK_NONBLOCK', 0)
@@ -1982,6 +1983,41 @@ class GeneralModuleTests(unittest.TestCase):
                     socket.SOCK_STREAM,
                     fileno=afile.fileno())
             self.assertEqual(cm.exception.errno, errno.ENOTSOCK)
+
+    def test_addressfamily_enum(self):
+        import _socket, enum
+        CheckedAddressFamily = enum._old_convert_(
+                enum.IntEnum, 'AddressFamily', 'socket',
+                lambda C: C.isupper() and C.startswith('AF_'),
+                source=_socket,
+                )
+        enum._test_simple_enum(CheckedAddressFamily, socket.AddressFamily)
+
+    def test_socketkind_enum(self):
+        import _socket, enum
+        CheckedSocketKind = enum._old_convert_(
+                enum.IntEnum, 'SocketKind', 'socket',
+                lambda C: C.isupper() and C.startswith('SOCK_'),
+                source=_socket,
+                )
+        enum._test_simple_enum(CheckedSocketKind, socket.SocketKind)
+
+    def test_msgflag_enum(self):
+        import _socket, enum
+        CheckedMsgFlag = enum._old_convert_(
+                enum.IntFlag, 'MsgFlag', 'socket',
+                lambda C: C.isupper() and C.startswith('MSG_'),
+                source=_socket,
+                )
+        enum._test_simple_enum(CheckedMsgFlag, socket.MsgFlag)
+
+    def test_addressinfo_enum(self):
+        import _socket, enum
+        CheckedAddressInfo = enum._old_convert_(
+                enum.IntFlag, 'AddressInfo', 'socket',
+                lambda C: C.isupper() and C.startswith('AI_'),
+                source=_socket)
+        enum._test_simple_enum(CheckedAddressInfo, socket.AddressInfo)
 
 
 @unittest.skipUnless(HAVE_SOCKET_CAN, 'SocketCan required for this test.')
@@ -2671,7 +2707,7 @@ class BasicUDPLITETest(ThreadedUDPLITESocketTest):
 # here assumes that datagram delivery on the local machine will be
 # reliable.
 
-class SendrecvmsgBase(ThreadSafeCleanupTestCase):
+class SendrecvmsgBase:
     # Base class for sendmsg()/recvmsg() tests.
 
     # Time in seconds to wait before considering a test failed, or
@@ -4537,7 +4573,6 @@ class InterruptedRecvTimeoutTest(InterruptedTimeoutBase, UDPTestBase):
 @unittest.skipUnless(hasattr(signal, "alarm") or hasattr(signal, "setitimer"),
                      "Don't have signal.alarm or signal.setitimer")
 class InterruptedSendTimeoutTest(InterruptedTimeoutBase,
-                                 ThreadSafeCleanupTestCase,
                                  SocketListeningTestMixin, TCPTestBase):
     # Test interrupting the interruptible send*() methods with signals
     # when a timeout is set.
@@ -4700,10 +4735,10 @@ class NonBlockingTCPTests(ThreadedTCPSocketTest):
             self.skipTest('needs UINT_MAX < ULONG_MAX')
 
         self.serv.setblocking(False)
-        self.assertEqual(self.serv.gettimeout(), 0.0)
+        self.assert_sock_timeout(self.serv, 0.0)
 
         self.serv.setblocking(_testcapi.UINT_MAX + 1)
-        self.assertIsNone(self.serv.gettimeout())
+        self.assert_sock_timeout(self.serv, None)
 
     _testSetBlocking_overflow = support.cpython_only(_testSetBlocking)
 
@@ -5007,7 +5042,6 @@ class UnbufferedFileObjectClassTestCase(FileObjectClassTestCase):
         self.write_file.write(self.write_msg)
         self.write_file.flush()
 
-    @support.refcount_test
     def testMakefileCloseSocketDestroy(self):
         refcount_before = sys.getrefcount(self.cli_conn)
         self.read_file.close()
@@ -5147,6 +5181,7 @@ class NetworkConnectionNoServer(unittest.TestCase):
         finally:
             socket.socket = old_socket
 
+    @socket_helper.skip_if_tcp_blackhole
     def test_connect(self):
         port = socket_helper.find_unused_port()
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -5155,6 +5190,7 @@ class NetworkConnectionNoServer(unittest.TestCase):
             cli.connect((HOST, port))
         self.assertEqual(cm.exception.errno, errno.ECONNREFUSED)
 
+    @socket_helper.skip_if_tcp_blackhole
     def test_create_connection(self):
         # Issue #9792: errors raised by create_connection() should have
         # a proper errno attribute.
@@ -5179,6 +5215,24 @@ class NetworkConnectionNoServer(unittest.TestCase):
         expected_errnos = socket_helper.get_socket_conn_refused_errs()
         self.assertIn(cm.exception.errno, expected_errnos)
 
+    def test_create_connection_all_errors(self):
+        port = socket_helper.find_unused_port()
+        try:
+            socket.create_connection((HOST, port), all_errors=True)
+        except ExceptionGroup as e:
+            eg = e
+        else:
+            self.fail('expected connection to fail')
+
+        self.assertIsInstance(eg, ExceptionGroup)
+        for e in eg.exceptions:
+            self.assertIsInstance(e, OSError)
+
+        addresses = socket.getaddrinfo(
+            'localhost', port, 0, socket.SOCK_STREAM)
+        # assert that we got an exception for each address
+        self.assertEqual(len(addresses), len(eg.exceptions))
+
     def test_create_connection_timeout(self):
         # Issue #9792: create_connection() should not recast timeout errors
         # as generic socket errors.
@@ -5195,6 +5249,7 @@ class NetworkConnectionNoServer(unittest.TestCase):
 
 
 class NetworkConnectionAttributesTest(SocketTCPTest, ThreadableTest):
+    cli = None
 
     def __init__(self, methodName='runTest'):
         SocketTCPTest.__init__(self, methodName=methodName)
@@ -5204,7 +5259,8 @@ class NetworkConnectionAttributesTest(SocketTCPTest, ThreadableTest):
         self.source_port = socket_helper.find_unused_port()
 
     def clientTearDown(self):
-        self.cli.close()
+        if self.cli is not None:
+            self.cli.close()
         self.cli = None
         ThreadableTest.clientTearDown(self)
 
@@ -6236,6 +6292,7 @@ class SendfileUsingSendTest(ThreadedTCPSocketTest):
     def testWithTimeoutTriggeredSend(self):
         conn = self.accept_conn()
         conn.recv(88192)
+        # bpo-45212: the wait here needs to be longer than the client-side timeout (0.01s)
         time.sleep(1)
 
     # errors
@@ -6312,12 +6369,16 @@ class LinuxKernelCryptoAPI(unittest.TestCase):
                 self.assertEqual(op.recv(512), expected)
 
     def test_hmac_sha1(self):
-        expected = bytes.fromhex("effcdf6ae5eb2fa2d27416d5f184df9c259a7c79")
+        # gh-109396: In FIPS mode, Linux 6.5 requires a key
+        # of at least 112 bits. Use a key of 152 bits.
+        key = b"Python loves AF_ALG"
+        data = b"what do ya want for nothing?"
+        expected = bytes.fromhex("193dbb43c6297b47ea6277ec0ce67119a3f3aa66")
         with self.create_alg('hash', 'hmac(sha1)') as algo:
-            algo.setsockopt(socket.SOL_ALG, socket.ALG_SET_KEY, b"Jefe")
+            algo.setsockopt(socket.SOL_ALG, socket.ALG_SET_KEY, key)
             op, _ = algo.accept()
             with op:
-                op.sendall(b"what do ya want for nothing?")
+                op.sendall(data)
                 self.assertEqual(op.recv(512), expected)
 
     # Although it should work with 3.19 and newer the test blocks on

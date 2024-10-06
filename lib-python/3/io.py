@@ -45,7 +45,8 @@ __all__ = ["BlockingIOError", "open", "open_code", "IOBase", "RawIOBase",
            "FileIO", "BytesIO", "StringIO", "BufferedIOBase",
            "BufferedReader", "BufferedWriter", "BufferedRWPair",
            "BufferedRandom", "TextIOBase", "TextIOWrapper",
-           "UnsupportedOperation", "SEEK_SET", "SEEK_CUR", "SEEK_END"]
+           "UnsupportedOperation", "SEEK_SET", "SEEK_CUR", "SEEK_END",
+           "DEFAULT_BUFFER_SIZE", "text_encoding", "IncrementalNewlineDecoder"]
 
 
 import _io
@@ -70,7 +71,7 @@ def __getattr__(name):
         global OpenWrapper
         OpenWrapper = open
         return OpenWrapper
-    raise AttributeError(name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # Pretend this exception was created here.

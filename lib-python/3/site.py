@@ -171,14 +171,15 @@ def addpackage(sitedir, name, known_paths):
     else:
         reset = False
     fullname = os.path.join(sitedir, name)
-    _trace(f"Processing .pth file: {fullname!r}")
     try:
         st = os.lstat(fullname)
     except OSError:
         return
     if ((getattr(st, 'st_flags', 0) & stat.UF_HIDDEN) or
         (getattr(st, 'st_file_attributes', 0) & stat.FILE_ATTRIBUTE_HIDDEN)):
+        _trace(f"Skipping hidden .pth file: {fullname!r}")
         return
+    _trace(f"Processing .pth file: {fullname!r}")
     try:
         # locale encoding is not ideal especially on Windows. But we have used
         # it for a long time. setuptools uses the locale encoding too.
@@ -284,8 +285,8 @@ def _getuserbase():
     if env_base:
         return env_base
 
-    # VxWorks has no home directories
-    if sys.platform == "vxworks":
+    # Emscripten, VxWorks, and WASI have no home directories
+    if sys.platform in {"emscripten", "vxworks", "wasi"}:
         return None
 
     def joinuser(*args):
@@ -380,13 +381,13 @@ def getsitepackages(prefixes=None):
         if not prefix or prefix in seen:
             continue
         seen.add(prefix)
-        libdirs = [sys.platlibdir]
-        if sys.platlibdir != "lib":
-            libdirs.append("lib")
 
         implementation = _get_implementation().lower()
-        ver = sys.version_info
         if os.sep == '/':
+            libdirs = [sys.platlibdir]
+            if sys.platlibdir != "lib":
+                libdirs.append("lib")
+
             for libdir in libdirs:
                 path = os.path.join(prefix, libdir,
                                     f"{implementation}%d.%d" % sys.version_info[:2],
@@ -394,10 +395,7 @@ def getsitepackages(prefixes=None):
                 sitepackages.append(path)
         else:
             sitepackages.append(prefix)
-
-            for libdir in libdirs:
-                path = os.path.join(prefix, libdir, "site-packages")
-                sitepackages.append(path)
+            sitepackages.append(os.path.join(prefix, "Lib", "site-packages"))
     return sitepackages
 
 def addsitepackages(known_paths, prefixes=None):
@@ -447,8 +445,10 @@ def setcopyright():
     files, dirs = [], []
     # Not all modules are required to have a __file__ attribute.  See
     # PEP 420 for more details.
-    if hasattr(os, '__file__'):
+    here = getattr(sys, '_stdlib_dir', None)
+    if not here and hasattr(os, '__file__'):
         here = os.path.dirname(os.__file__)
+    if here:
         files.extend(["LICENSE.txt", "LICENSE"])
         dirs.extend([os.path.join(here, os.pardir), here, os.curdir])
     builtins.license = _sitebuiltins._Printer(
@@ -459,20 +459,6 @@ def setcopyright():
 
 def sethelper():
     builtins.help = _sitebuiltins._Helper()
-
-def gethistoryfile():
-    """Check if the PYTHON_HISTORY environment variable is set and define
-    it as the .python_history file.  If PYTHON_HISTORY is not set, use the
-    default .python_history file.
-    """
-    # pypy modification: ported from cpython 3.13 to support pyrepl
-    if not sys.flags.ignore_environment:
-        history = os.environ.get("PYTHON_HISTORY")
-        if history:
-            return history
-    return os.path.join(os.path.expanduser('~'),
-        '.python_history')
-
 
 def enablerlcompleter():
     """Enable default readline configuration on interactive prompts, by
@@ -488,10 +474,7 @@ def enablerlcompleter():
         try:
             import readline
             import rlcompleter
-            from pyrepl.main import CAN_USE_PYREPL
         except ImportError:
-            return
-        if not CAN_USE_PYREPL:
             return
 
         # Reading the initialization (config) file may not be enough to set a
@@ -503,9 +486,7 @@ def enablerlcompleter():
             readline.parse_and_bind('tab: complete')
 
         try:
-            # Unimplemented on PyPy
-            #readline.read_init_file()
-            pass
+            readline.read_init_file()
         except OSError:
             # An OSError here could have many causes, but the most likely one
             # is that there's no .inputrc file (or .editrc file in the case of

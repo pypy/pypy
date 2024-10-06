@@ -5,7 +5,7 @@ import sys
 import unittest
 import site
 
-from test.support import captured_stdout, run_unittest
+from test.support import captured_stdout, requires_subprocess
 
 from distutils import sysconfig
 from distutils.command.install import install, HAS_USER_SITE
@@ -65,13 +65,13 @@ class InstallTestCase(support.TempdirManager,
             expected = os.path.normpath(expected)
             self.assertEqual(got, expected)
 
-        libdir = os.path.join(destination, "lib", sys.implementation.name)
+        libdir = os.path.join(destination, "lib", "python")
         check_path(cmd.install_lib, libdir)
-        platlibdir = os.path.join(destination, sys.platlibdir, sys.implementation.name)
+        platlibdir = os.path.join(destination, sys.platlibdir, "python")
         check_path(cmd.install_platlib, platlibdir)
         check_path(cmd.install_purelib, libdir)
         check_path(cmd.install_headers,
-                   os.path.join(destination, "include", sys.implementation.name, "foopkg"))
+                   os.path.join(destination, "include", "python", "foopkg"))
         check_path(cmd.install_scripts, os.path.join(destination, "bin"))
         check_path(cmd.install_data, destination)
 
@@ -208,6 +208,7 @@ class InstallTestCase(support.TempdirManager,
                     'UNKNOWN-0.0.0-py%s.%s.egg-info' % sys.version_info[:2]]
         self.assertEqual(found, expected)
 
+    @requires_subprocess()
     def test_record_extensions(self):
         cmd = test_support.missing_compiler_executable()
         if cmd is not None:
@@ -253,8 +254,5 @@ class InstallTestCase(support.TempdirManager,
         self.assertGreater(len(self.logs), old_logs_len)
 
 
-def test_suite():
-    return unittest.makeSuite(InstallTestCase)
-
 if __name__ == "__main__":
-    run_unittest(test_suite())
+    unittest.main()

@@ -122,7 +122,6 @@ class Test_IncrementalEncoder(unittest.TestCase):
         self.assertRaises(UnicodeEncodeError, encoder.encode, '\u0123')
         self.assertEqual(encoder.encode('', True), b'\xa9\xdc')
 
-    @support.cpython_only
     def test_state_methods_with_buffer_state(self):
         # euc_jis_2004 stores state as a buffer of pending bytes
         encoder = codecs.getincrementalencoder('euc_jis_2004')()
@@ -138,7 +137,6 @@ class Test_IncrementalEncoder(unittest.TestCase):
         encoder.setstate(partial_state)
         self.assertEqual(encoder.encode('\u0300'), b'\xab\xc4')
 
-    @support.cpython_only
     def test_state_methods_with_non_buffer_state(self):
         # iso2022_jp stores state without using a buffer
         encoder = codecs.getincrementalencoder('iso2022_jp')()
@@ -156,7 +154,6 @@ class Test_IncrementalEncoder(unittest.TestCase):
         encoder.setstate(en_state)
         self.assertEqual(encoder.encode('z'), b'z')
 
-    @support.cpython_only
     def test_getstate_returns_expected_value(self):
         # Note: getstate is implemented such that these state values
         # are expected to be the same across all builds of Python,
@@ -189,7 +186,6 @@ class Test_IncrementalEncoder(unittest.TestCase):
                              b"\xc2\x42\x00\x00\x00\x00\x00\x00",
                              'little'))
 
-    @support.cpython_only
     def test_setstate_validates_input_size(self):
         encoder = codecs.getincrementalencoder('euc_jp')()
         pending_size_nine = int.from_bytes(
@@ -199,7 +195,6 @@ class Test_IncrementalEncoder(unittest.TestCase):
             'little')
         self.assertRaises(UnicodeError, encoder.setstate, pending_size_nine)
 
-    @support.cpython_only
     def test_setstate_validates_input_bytes(self):
         encoder = codecs.getincrementalencoder('euc_jp')()
         invalid_utf8 = int.from_bytes(
@@ -275,7 +270,6 @@ class Test_IncrementalDecoder(unittest.TestCase):
             decoder = codecs.getincrementaldecoder(enc)()
             self.assertRaises(TypeError, decoder.decode, "")
 
-    @support.cpython_only
     def test_state_methods(self):
         decoder = codecs.getincrementaldecoder('euc_jp')()
 
@@ -304,7 +298,6 @@ class Test_IncrementalDecoder(unittest.TestCase):
         decoder.setstate((b'abc', 123456789))
         self.assertEqual(decoder.getstate(), (b'abc', 123456789))
 
-    @support.cpython_only
     def test_setstate_validates_input(self):
         decoder = codecs.getincrementaldecoder('euc_jp')()
         self.assertRaises(TypeError, decoder.setstate, 123)
@@ -370,6 +363,7 @@ class Test_ISO2022(unittest.TestCase):
             e = '\u3406'.encode(encoding)
             self.assertFalse(any(x > 0x80 for x in e))
 
+    @support.requires_resource('cpu')
     def test_bug1572832(self):
         for x in range(0x10000, 0x110000):
             # Any ISO 2022 codec will cause the segfault

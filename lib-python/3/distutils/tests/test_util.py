@@ -3,7 +3,6 @@ import os
 import sys
 import unittest
 from copy import copy
-from test.support import run_unittest
 from unittest import mock
 
 from distutils.errors import DistutilsPlatformError, DistutilsByteCompileError
@@ -248,7 +247,10 @@ class UtilTestCase(support.EnvironGuard, unittest.TestCase):
         util._environ_checked = 0
         os.environ.pop('HOME', None)
 
-        import pwd
+        try:
+            import pwd
+        except ImportError:
+            raise unittest.SkipTest("Test requires pwd module.")
 
         # only set pw_dir field, other fields are not used
         result = pwd.struct_passwd((None, None, None, None, None,
@@ -303,8 +305,5 @@ class UtilTestCase(support.EnvironGuard, unittest.TestCase):
         self.assertEqual(msg, "error: Unable to find batch file")
 
 
-def test_suite():
-    return unittest.makeSuite(UtilTestCase)
-
 if __name__ == "__main__":
-    run_unittest(test_suite())
+    unittest.main()

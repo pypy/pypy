@@ -10,10 +10,15 @@ import io
 import tempfile
 from test import support
 from test.support import os_helper
+from test.support import socket_helper
 import unittest
 import textwrap
 import mailbox
 import glob
+
+
+if not socket_helper.has_gethostname:
+    raise unittest.SkipTest("test requires gethostname()")
 
 
 class TestBase:
@@ -111,10 +116,13 @@ class TestMailbox(TestBase):
         self.assertMailboxEmpty()
 
     def test_add_that_raises_leaves_mailbox_empty(self):
+        class CustomError(Exception): ...
+        exc_msg = "a fake error"
+
         def raiser(*args, **kw):
-            raise Exception("a fake error")
+            raise CustomError(exc_msg)
         support.patch(self, email.generator.BytesGenerator, 'flatten', raiser)
-        with self.assertRaises(Exception):
+        with self.assertRaisesRegex(CustomError, exc_msg):
             self._box.add(email.message_from_string("From: Alphöso"))
         self.assertEqual(len(self._box), 0)
         self._box.close()
@@ -1019,12 +1027,14 @@ class _TestMboxMMDF(_TestSingleFile):
         # Add a string starting with 'From ' to the mailbox
         key = self._box.add('From foo@bar blah\nFrom: foo\n\n0\n')
         self.assertEqual(self._box[key].get_from(), 'foo@bar blah')
+        self.assertEqual(self._box[key].get_unixfrom(), 'From foo@bar blah')
         self.assertEqual(self._box[key].get_payload(), '0\n')
 
     def test_add_from_bytes(self):
         # Add a byte string starting with 'From ' to the mailbox
         key = self._box.add(b'From foo@bar blah\nFrom: foo\n\n0\n')
         self.assertEqual(self._box[key].get_from(), 'foo@bar blah')
+        self.assertEqual(self._box[key].get_unixfrom(), 'From foo@bar blah')
         self.assertEqual(self._box[key].get_payload(), '0\n')
 
     def test_add_mbox_or_mmdf_message(self):
@@ -1061,7 +1071,7 @@ class _TestMboxMMDF(_TestSingleFile):
             self.assertEqual(contents, f.read())
         self._box = self._factory(self._path)
 
-    @unittest.skipUnless(hasattr(os, 'fork'), "Test needs fork().")
+    @support.requires_fork()
     @unittest.skipUnless(hasattr(socket, 'socketpair'), "Test needs socketpair().")
     def test_lock_conflict(self):
         # Fork off a child process that will lock the mailbox temporarily,
@@ -1537,18 +1547,23 @@ class _TestMboxMMDFMessage:
         msg = mailbox.Message(_sample_message)
         msg.set_unixfrom('From foo@bar blah')
         msg = mailbox.mboxMessage(msg)
-        self.assertEqual(msg.get_from(), 'foo@bar blah', msg.get_from())
+        self.assertEqual(msg.get_from(), 'foo@bar blah')
+        self.assertEqual(msg.get_unixfrom(), 'From foo@bar blah')
 
     def test_from(self):
         # Get and set "From " line
         msg = mailbox.mboxMessage(_sample_message)
         self._check_from(msg)
+        self.assertIsNone(msg.get_unixfrom())
         msg.set_from('foo bar')
         self.assertEqual(msg.get_from(), 'foo bar')
+        self.assertIsNone(msg.get_unixfrom())
         msg.set_from('foo@bar', True)
         self._check_from(msg, 'foo@bar')
+        self.assertIsNone(msg.get_unixfrom())
         msg.set_from('blah@temp', time.localtime())
         self._check_from(msg, 'blah@temp')
+        self.assertIsNone(msg.get_unixfrom())
 
     def test_flags(self):
         # Use get_flags(), set_flags(), add_flag(), remove_flag()
@@ -1736,6 +1751,7 @@ class TestMessageConversion(TestBase, unittest.TestCase):
                 self.assertEqual(msg.get_flags(), result)
                 self.assertEqual(msg.get_from(), 'MAILER-DAEMON %s' %
                              time.asctime(time.gmtime(0.0)))
+                self.assertIsNone(msg.get_unixfrom())
             msg_maildir.set_subdir('cur')
             self.assertEqual(class_(msg_maildir).get_flags(), 'RODFA')
 
@@ -1784,10 +1800,12 @@ class TestMessageConversion(TestBase, unittest.TestCase):
             msg_mboxMMDF = class_(_sample_message)
             msg_mboxMMDF.set_flags('RODFA')
             msg_mboxMMDF.set_from('foo@bar')
+            self.assertIsNone(msg_mboxMMDF.get_unixfrom())
             for class2_ in (mailbox.mboxMessage, mailbox.MMDFMessage):
                 msg2 = class2_(msg_mboxMMDF)
                 self.assertEqual(msg2.get_flags(), 'RODFA')
                 self.assertEqual(msg2.get_from(), 'foo@bar')
+                self.assertIsNone(msg2.get_unixfrom())
 
     def test_mboxmmdf_to_mh(self):
         # Convert mboxMessage and MMDFMessage to MHMessage

@@ -4,7 +4,7 @@ import tkinter
 from tkinter import TclError
 from test.support import requires
 
-from tkinter.test.support import pixels_conv, tcl_version, requires_tcl
+from tkinter.test.support import pixels_conv
 from tkinter.test.widget_tests import AbstractWidgetTest
 
 requires('gui')
@@ -108,8 +108,8 @@ class PackTest(AbstractWidgetTest, unittest.TestCase):
         a.pack_configure(in_=c)
         self.assertEqual(pack.pack_slaves(), [b, c, d])
         self.assertEqual(c.pack_slaves(), [a])
-        with self.assertRaisesRegex(TclError,
-                                    'can\'t pack %s inside itself' % (a,)):
+        with self.assertRaisesRegex(
+                TclError, """can't pack "?%s"? inside itself""" % (a,)):
             a.pack_configure(in_=a)
         with self.assertRaisesRegex(TclError, 'bad window path name ".foo"'):
             a.pack_configure(in_='.foo')
@@ -292,11 +292,12 @@ class PlaceTest(AbstractWidgetTest, unittest.TestCase):
     def test_place_configure_in(self):
         t, f, f2 = self.create2()
         self.assertEqual(f2.winfo_manager(), '')
-        with self.assertRaisesRegex(TclError, "can't place %s relative to "
-                                    "itself" % re.escape(str(f2))):
+        with self.assertRaisesRegex(
+                TclError,
+                """can't place "?%s"? relative to itself"""
+                 % re.escape(str(f2))):
             f2.place_configure(in_=f2)
-        if tcl_version >= (8, 5):
-            self.assertEqual(f2.winfo_manager(), '')
+        self.assertEqual(f2.winfo_manager(), '')
         with self.assertRaisesRegex(TclError, 'bad window path name'):
             f2.place_configure(in_='spam')
         f2.place_configure(in_=f)
@@ -491,8 +492,7 @@ class GridTest(AbstractWidgetTest, unittest.TestCase):
         for i in range(rows + 1):
             self.root.grid_rowconfigure(i, weight=0, minsize=0, pad=0, uniform='')
         self.root.grid_propagate(1)
-        if tcl_version >= (8, 5):
-            self.root.grid_anchor('nw')
+        self.root.grid_anchor('nw')
         super().tearDown()
 
     def test_grid_configure(self):
@@ -619,16 +619,14 @@ class GridTest(AbstractWidgetTest, unittest.TestCase):
             self.root.grid_columnconfigure((0, 3))
         b = tkinter.Button(self.root)
         b.grid_configure(column=0, row=0)
-        if tcl_version >= (8, 5):
-            self.root.grid_columnconfigure('all', weight=3)
-            with self.assertRaisesRegex(TclError, 'expected integer but got "all"'):
-                self.root.grid_columnconfigure('all')
-            self.assertEqual(self.root.grid_columnconfigure(0, 'weight'), 3)
+        self.root.grid_columnconfigure('all', weight=3)
+        with self.assertRaisesRegex(TclError, 'expected integer but got "all"'):
+            self.root.grid_columnconfigure('all')
+        self.assertEqual(self.root.grid_columnconfigure(0, 'weight'), 3)
         self.assertEqual(self.root.grid_columnconfigure(3, 'weight'), 2)
         self.assertEqual(self.root.grid_columnconfigure(265, 'weight'), 0)
-        if tcl_version >= (8, 5):
-            self.root.grid_columnconfigure(b, weight=4)
-            self.assertEqual(self.root.grid_columnconfigure(0, 'weight'), 4)
+        self.root.grid_columnconfigure(b, weight=4)
+        self.assertEqual(self.root.grid_columnconfigure(0, 'weight'), 4)
 
     def test_grid_columnconfigure_minsize(self):
         with self.assertRaisesRegex(TclError, 'bad screen distance "foo"'):
@@ -675,16 +673,14 @@ class GridTest(AbstractWidgetTest, unittest.TestCase):
             self.root.grid_rowconfigure((0, 3))
         b = tkinter.Button(self.root)
         b.grid_configure(column=0, row=0)
-        if tcl_version >= (8, 5):
-            self.root.grid_rowconfigure('all', weight=3)
-            with self.assertRaisesRegex(TclError, 'expected integer but got "all"'):
-                self.root.grid_rowconfigure('all')
-            self.assertEqual(self.root.grid_rowconfigure(0, 'weight'), 3)
+        self.root.grid_rowconfigure('all', weight=3)
+        with self.assertRaisesRegex(TclError, 'expected integer but got "all"'):
+            self.root.grid_rowconfigure('all')
+        self.assertEqual(self.root.grid_rowconfigure(0, 'weight'), 3)
         self.assertEqual(self.root.grid_rowconfigure(3, 'weight'), 2)
         self.assertEqual(self.root.grid_rowconfigure(265, 'weight'), 0)
-        if tcl_version >= (8, 5):
-            self.root.grid_rowconfigure(b, weight=4)
-            self.assertEqual(self.root.grid_rowconfigure(0, 'weight'), 4)
+        self.root.grid_rowconfigure(b, weight=4)
+        self.assertEqual(self.root.grid_rowconfigure(0, 'weight'), 4)
 
     def test_grid_rowconfigure_minsize(self):
         with self.assertRaisesRegex(TclError, 'bad screen distance "foo"'):
@@ -774,7 +770,6 @@ class GridTest(AbstractWidgetTest, unittest.TestCase):
         self.assertEqual(info['pady'], self._str(4))
         self.assertEqual(info['sticky'], 'ns')
 
-    @requires_tcl(8, 5)
     def test_grid_anchor(self):
         with self.assertRaisesRegex(TclError, 'bad anchor "x"'):
             self.root.grid_anchor('x')

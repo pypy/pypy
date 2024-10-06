@@ -116,7 +116,9 @@ class CmdLineTest(unittest.TestCase):
         self.assertIn(printed_file.encode('utf-8'), data)
         self.assertIn(printed_package.encode('utf-8'), data)
         self.assertIn(printed_argv0.encode('utf-8'), data)
-        self.assertIn(printed_path0.encode('utf-8'), data)
+        # PYTHONSAFEPATH=1 changes the default sys.path[0]
+        if not sys.flags.safe_path:
+            self.assertIn(printed_path0.encode('utf-8'), data)
         self.assertIn(printed_cwd.encode('utf-8'), data)
 
     def _check_script(self, script_exec_args, expected_file,
@@ -178,21 +180,11 @@ class CmdLineTest(unittest.TestCase):
             stderr = p.stdout
         try:
             # Drain stderr until prompt
-            if support.check_impl_detail(pypy=True):
-                ps1 = b">>>> "
-                # PyPy: the prompt is still printed to stdout, like it
-                # is in CPython 2.7.  This messes up the logic below
-                # if stdout and stderr are different.  Skip for now.
-                if separate_stderr:
-                    self.skipTest("the prompt is still written to "
-                                  "stdout in pypy")
-            else:
-                ps1 = b">>> "
-            # logic fixed to support the case of lines that are shorter
-            # than len(ps1) characters
-            got = b""
-            while not got.endswith(ps1):
-                got += stderr.read(1)
+            while True:
+                data = stderr.read(4)
+                if data == b">>> ":
+                    break
+                stderr.readline()
             yield p
         finally:
             kill_python(p)
@@ -484,7 +476,6 @@ class CmdLineTest(unittest.TestCase):
                 br'ModuleNotFoundError'),
             ('builtins.x.y', br'Error while finding module specification.*'
                 br'ModuleNotFoundError.*No module named.*not a package'),
-            ('os.path', br'loader.*cannot handle'),
             ('importlib', br'No module named.*'
                 br'is a package and cannot be directly executed'),
             ('importlib.nonexistent', br'No module named'),
@@ -567,8 +558,9 @@ class CmdLineTest(unittest.TestCase):
         # Mac OS X denies the creation of a file with an invalid UTF-8 name.
         # Windows allows creating a name with an arbitrary bytes name, but
         # Python cannot a undecodable bytes argument to a subprocess.
+        # WASI does not permit invalid UTF-8 names.
         if (os_helper.TESTFN_UNDECODABLE
-        and sys.platform not in ('win32', 'darwin')):
+        and sys.platform not in ('win32', 'darwin', 'emscripten', 'wasi')):
             name = os.fsdecode(os_helper.TESTFN_UNDECODABLE)
         elif os_helper.TESTFN_NONASCII:
             name = os_helper.TESTFN_NONASCII
@@ -665,6 +657,31 @@ class CmdLineTest(unittest.TestCase):
                 ],
             )
 
+    def test_syntaxerror_null_bytes(self):
+        script = "x = '\0' nothing to see here\n';import os;os.system('echo pwnd')\n"
+        with os_helper.temp_dir() as script_dir:
+            script_name = _make_test_script(script_dir, 'script', script)
+            exitcode, stdout, stderr = assert_python_failure(script_name)
+            self.assertEqual(
+                stderr.splitlines()[-2:],
+                [   b"    x = '",
+                    b'SyntaxError: source code cannot contain null bytes'
+                ],
+            )
+
+    def test_syntaxerror_null_bytes_in_multiline_string(self):
+        scripts = ["\n'''\nmultilinestring\0\n'''", "\nf'''\nmultilinestring\0\n'''"] # Both normal and f-strings
+        with os_helper.temp_dir() as script_dir:
+            for script in scripts:
+                script_name = _make_test_script(script_dir, 'script', script)
+                _, _, stderr = assert_python_failure(script_name)
+                self.assertEqual(
+                    stderr.splitlines()[-2:],
+                    [   b"    multilinestring",
+                        b'SyntaxError: source code cannot contain null bytes'
+                    ]
+                )
+
     def test_consistent_sys_path_for_direct_execution(self):
         # This test case ensures that the following all give the same
         # sys.path configuration:
@@ -749,6 +766,9 @@ class CmdLineTest(unittest.TestCase):
         self.assertNotEqual(proc.returncode, 0)
 
     @unittest.skipUnless(os.path.exists('/dev/fd/0'), 'requires /dev/fd platform')
+    @unittest.skipIf(sys.platform.startswith("freebsd") and
+                     os.stat("/dev").st_dev == os.stat("/dev/fd").st_dev,
+                     "Requires fdescfs mounted on /dev/fd on FreeBSD")
     def test_script_as_dev_fd(self):
         # GH-87235: On macOS passing a non-trivial script to /dev/fd/N can cause
         # problems because all open /dev/fd/N file descriptors share the same
@@ -757,7 +777,7 @@ class CmdLineTest(unittest.TestCase):
         with os_helper.temp_dir() as work_dir:
             script_name = _make_test_script(work_dir, 'script.py', script)
             with open(script_name, "r") as fp:
-                p = spawn_python(f"/dev/fd/{fp.fileno()}", close_fds=False, pass_fds=(0,1,2,fp.fileno()))
+                p = spawn_python(f"/dev/fd/{fp.fileno()}", close_fds=True, pass_fds=(0,1,2,fp.fileno()))
                 out, err = p.communicate()
                 self.assertEqual(out, b"12345678912345678912345\n")
 

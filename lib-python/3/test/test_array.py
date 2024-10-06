@@ -5,6 +5,7 @@
 import collections.abc
 import unittest
 from test import support
+from test.support import import_helper
 from test.support import os_helper
 from test.support import _2G
 import weakref
@@ -579,10 +580,9 @@ class BaseTest:
         )
 
         b = array.array(self.badtypecode())
-        with self.assertRaises(TypeError):
-            a + b
-        with self.assertRaises(TypeError):
-            a + 'bad'
+        self.assertRaises(TypeError, a.__add__, b)
+
+        self.assertRaises(TypeError, a.__add__, "bad")
 
     def test_iadd(self):
         a = array.array(self.typecode, self.example[::-1])
@@ -601,10 +601,9 @@ class BaseTest:
         )
 
         b = array.array(self.badtypecode())
-        with self.assertRaises(TypeError):
-            a += b
-        with self.assertRaises(TypeError):
-            a += 'bad'
+        self.assertRaises(TypeError, a.__add__, b)
+
+        self.assertRaises(TypeError, a.__iadd__, "bad")
 
     def test_mul(self):
         a = 5*array.array(self.typecode, self.example)
@@ -637,8 +636,7 @@ class BaseTest:
             array.array(self.typecode, [a[0]] * 5)
         )
 
-        with self.assertRaises(TypeError):
-            a * 'bad'
+        self.assertRaises(TypeError, a.__mul__, "bad")
 
     def test_imul(self):
         a = array.array(self.typecode, self.example)
@@ -667,8 +665,7 @@ class BaseTest:
         a *= -1
         self.assertEqual(a, array.array(self.typecode))
 
-        with self.assertRaises(TypeError):
-            a *= 'bad'
+        self.assertRaises(TypeError, a.__imul__, "bad")
 
     def test_getitem(self):
         a = array.array(self.typecode, self.example)
@@ -1155,9 +1152,9 @@ class BaseTest:
 
     @support.cpython_only
     def test_obsolete_write_lock(self):
-        from _testcapi import getbuffer_with_null_view
+        _testcapi = import_helper.import_module('_testcapi')
         a = array.array('B', b"")
-        self.assertRaises(BufferError, getbuffer_with_null_view, a)
+        self.assertRaises(BufferError, _testcapi.getbuffer_with_null_view, a)
 
     def test_free_after_iterating(self):
         support.check_free_after_iterating(self, iter, array.array,

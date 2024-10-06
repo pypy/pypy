@@ -4,6 +4,9 @@ import inspect
 import re
 import unittest
 from contextlib import contextmanager
+from test import support
+
+support.requires_working_socket(module=True)
 
 from asyncio import run, iscoroutinefunction
 from unittest import IsolatedAsyncioTestCase
@@ -190,8 +193,7 @@ class AsyncMockTest(unittest.TestCase):
 
     def test_future_isfuture(self):
         loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        fut = asyncio.Future()
+        fut = loop.create_future()
         loop.stop()
         loop.close()
         mock = AsyncMock(fut)
@@ -427,9 +429,10 @@ class AsyncArguments(IsolatedAsyncioTestCase):
         self.assertEqual(output, 10)
 
     async def test_add_side_effect_exception(self):
+        class CustomError(Exception): pass
         async def addition(var): pass
-        mock = AsyncMock(addition, side_effect=Exception('err'))
-        with self.assertRaises(Exception):
+        mock = AsyncMock(addition, side_effect=CustomError('side-effect'))
+        with self.assertRaisesRegex(CustomError, 'side-effect'):
             await mock(5)
 
     async def test_add_side_effect_coroutine(self):

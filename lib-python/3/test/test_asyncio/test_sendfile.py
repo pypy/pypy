@@ -94,8 +94,8 @@ class MyProto(asyncio.Protocol):
 class SendfileBase:
 
     # 256 KiB plus small unaligned to buffer chunk
-    # Newer versions of Windows seems to have increased its internal 
-    # buffer and tries to send as much of the data as it can as it 
+    # Newer versions of Windows seems to have increased its internal
+    # buffer and tries to send as much of the data as it can as it
     # has some form of buffering for this which is less than 256KiB
     # on newer server versions and Windows 11.
     # So DATA should be larger than 256 KiB to make this test reliable.
@@ -470,8 +470,11 @@ class SendfileMixin(SendfileBase):
 
         self.assertTrue(1024 <= srv_proto.nbytes < len(self.DATA),
                         srv_proto.nbytes)
-        self.assertTrue(1024 <= self.file.tell() < len(self.DATA),
-                        self.file.tell())
+        if not (sys.platform == 'win32'
+                and isinstance(self.loop, asyncio.ProactorEventLoop)):
+            # On Windows, Proactor uses transmitFile, which does not update tell()
+            self.assertTrue(1024 <= self.file.tell() < len(self.DATA),
+                            self.file.tell())
         self.assertTrue(cli_proto.transport.is_closing())
 
     def test_sendfile_fallback_close_peer_in_the_middle_of_receiving(self):

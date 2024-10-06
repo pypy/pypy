@@ -51,8 +51,6 @@ import io  # C implementation of io
 import _pyio as pyio # Python implementation of io
 
 try:
-    if '__pypy__' in sys.builtin_module_names:
-        raise ImportError    # don't use ctypes, missing ctypes.resize()
     import ctypes
 except ImportError:
     def byteslike(*pos, **kw):
@@ -78,6 +76,14 @@ def _default_chunk_size():
     with open(__file__, "r", encoding="latin-1") as f:
         return f._CHUNK_SIZE
 
+requires_alarm = unittest.skipUnless(
+    hasattr(signal, "alarm"), "test requires signal.alarm()"
+)
+
+
+class BadIndex:
+    def __index__(self):
+        1/0
 
 class MockRawIOWithoutRead:
     """A RawIO implementation without read(), so as to exercise the default
@@ -257,6 +263,27 @@ class PyMockUnseekableIO(MockUnseekableIO, pyio.BytesIO):
     UnsupportedOperation = pyio.UnsupportedOperation
 
 
+class MockCharPseudoDevFileIO(MockFileIO):
+    # GH-95782
+    # ftruncate() does not work on these special files (and CPython then raises
+    # appropriate exceptions), so truncate() does not have to be accounted for
+    # here.
+    def __init__(self, data):
+        super().__init__(data)
+
+    def seek(self, *args):
+        return 0
+
+    def tell(self, *args):
+        return 0
+
+class CMockCharPseudoDevFileIO(MockCharPseudoDevFileIO, io.BytesIO):
+    pass
+
+class PyMockCharPseudoDevFileIO(MockCharPseudoDevFileIO, pyio.BytesIO):
+    pass
+
+
 class MockNonBlockWriterIO:
 
     def __init__(self):
@@ -424,6 +451,10 @@ class IOTest(unittest.TestCase):
             self.assertRaises(exc, fp.seek, 1, self.SEEK_CUR)
             self.assertRaises(exc, fp.seek, -1, self.SEEK_END)
 
+    @unittest.skipIf(
+        support.is_emscripten, "fstat() of a pipe fd is not supported"
+    )
+    @unittest.skipUnless(hasattr(os, "pipe"), "requires os.pipe()")
     def test_optional_abilities(self):
         # Test for OSError when optional APIs are not supported
         # The purpose of this test is to try fileno(), reading, writing and
@@ -1453,6 +1484,7 @@ class BufferedReaderTest(unittest.TestCase, CommonBufferedTests):
 
         self.assertEqual(b"abcdefg", bufio.read())
 
+    @threading_helper.requires_working_threading()
     @support.requires_resource('cpu')
     def test_threads(self):
         try:
@@ -1545,6 +1577,30 @@ class BufferedReaderTest(unittest.TestCase, CommonBufferedTests):
         self.assertRaises(self.UnsupportedOperation, bufio.truncate)
         self.assertRaises(self.UnsupportedOperation, bufio.truncate, 0)
 
+    def test_tell_character_device_file(self):
+        # GH-95782
+        # For the (former) bug in BufferedIO to manifest, the wrapped IO obj
+        # must be able to produce at least 2 bytes.
+        raw = self.MockCharPseudoDevFileIO(b"12")
+        buf = self.tp(raw)
+        self.assertEqual(buf.tell(), 0)
+        self.assertEqual(buf.read(1), b"1")
+        self.assertEqual(buf.tell(), 0)
+
+    def test_seek_character_device_file(self):
+        raw = self.MockCharPseudoDevFileIO(b"12")
+        buf = self.tp(raw)
+        self.assertEqual(buf.seek(0, io.SEEK_CUR), 0)
+        self.assertEqual(buf.seek(1, io.SEEK_SET), 0)
+        self.assertEqual(buf.seek(0, io.SEEK_CUR), 0)
+        self.assertEqual(buf.read(1), b"1")
+
+        # In the C implementation, tell() sets the BufferedIO's abs_pos to 0,
+        # which means that the next seek() could return a negative offset if it
+        # does not sanity-check:
+        self.assertEqual(buf.tell(), 0)
+        self.assertEqual(buf.seek(0, io.SEEK_CUR), 0)
+
 
 class CBufferedReaderTest(BufferedReaderTest, SizeofTest):
     tp = io.BufferedReader
@@ -1593,7 +1649,7 @@ class CBufferedReaderTest(BufferedReaderTest, SizeofTest):
 
     def test_args_error(self):
         # Issue #17275
-        with self.assertRaisesRegex(TypeError, "BufferedReader|__init__"):
+        with self.assertRaisesRegex(TypeError, "BufferedReader"):
             self.tp(io.BytesIO(), 1024, 1024, 1024)
 
     def test_bad_readinto_value(self):
@@ -1608,14 +1664,9 @@ class CBufferedReaderTest(BufferedReaderTest, SizeofTest):
         rawio = io.BufferedReader(io.BytesIO(b"12"))
         rawio.readinto = lambda buf: b''
         bufio = self.tp(rawio)
-        if sys.implementation.name == 'pypy':
-            with self.assertRaises(TypeError) as cm:
-                bufio.readline()
-            self.assertIsNone(cm.exception.__cause__)
-        else:
-            with self.assertRaises(OSError) as cm:
-                bufio.readline()
-            self.assertIsInstance(cm.exception.__cause__, TypeError)
+        with self.assertRaises(OSError) as cm:
+            bufio.readline()
+        self.assertIsInstance(cm.exception.__cause__, TypeError)
 
 
 class PyBufferedReaderTest(BufferedReaderTest):
@@ -1832,6 +1883,7 @@ class BufferedWriterTest(unittest.TestCase, CommonBufferedTests):
                 f.truncate()
                 self.assertEqual(f.tell(), buffer_size + 2)
 
+    @threading_helper.requires_working_threading()
     @support.requires_resource('cpu')
     def test_threads(self):
         try:
@@ -1903,6 +1955,7 @@ class BufferedWriterTest(unittest.TestCase, CommonBufferedTests):
         self.assertRaises(OSError, b.close) # exception not swallowed
         self.assertTrue(b.closed)
 
+    @threading_helper.requires_working_threading()
     def test_slow_close_from_thread(self):
         # Issue #31976
         rawio = self.SlowFlushRawIO()
@@ -1960,7 +2013,7 @@ class CBufferedWriterTest(BufferedWriterTest, SizeofTest):
 
     def test_args_error(self):
         # Issue #17275
-        with self.assertRaisesRegex(TypeError, "BufferedWriter|__init__"):
+        with self.assertRaisesRegex(TypeError, "BufferedWriter"):
             self.tp(io.BytesIO(), 1024, 1024, 1024)
 
 
@@ -2395,6 +2448,28 @@ class BufferedRandomTest(BufferedReaderTest, BufferedWriterTest):
                 f.flush()
                 self.assertEqual(raw.getvalue(), b'a2c')
 
+    def test_read1_after_write(self):
+        with self.BytesIO(b'abcdef') as raw:
+            with self.tp(raw, 3) as f:
+                f.write(b"1")
+                self.assertEqual(f.read1(1), b'b')
+                f.flush()
+                self.assertEqual(raw.getvalue(), b'1bcdef')
+        with self.BytesIO(b'abcdef') as raw:
+            with self.tp(raw, 3) as f:
+                f.write(b"1")
+                self.assertEqual(f.read1(), b'bcd')
+                f.flush()
+                self.assertEqual(raw.getvalue(), b'1bcdef')
+        with self.BytesIO(b'abcdef') as raw:
+            with self.tp(raw, 3) as f:
+                f.write(b"1")
+                # XXX: read(100) returns different numbers of bytes
+                # in Python and C implementations.
+                self.assertEqual(f.read1(100)[:3], b'bcd')
+                f.flush()
+                self.assertEqual(raw.getvalue(), b'1bcdef')
+
     def test_interleaved_readline_write(self):
         with self.BytesIO(b'ab\ncdef\ng\n') as raw:
             with self.tp(raw) as f:
@@ -2436,7 +2511,7 @@ class CBufferedRandomTest(BufferedRandomTest, SizeofTest):
 
     def test_args_error(self):
         # Issue #17275
-        with self.assertRaisesRegex(TypeError, "BufferedRandom|__init__"):
+        with self.assertRaisesRegex(TypeError, "BufferedRandom"):
             self.tp(io.BytesIO(), 1024, 1024, 1024)
 
 
@@ -2609,8 +2684,29 @@ class TextIOWrapperTest(unittest.TestCase):
         self.assertEqual(t.encoding, "utf-8")
         self.assertEqual(t.line_buffering, True)
         self.assertEqual("\xe9\n", t.readline())
-        self.assertRaises(TypeError, t.__init__, b, encoding="utf-8", newline=42)
-        self.assertRaises(ValueError, t.__init__, b, encoding="utf-8", newline='xyzzy')
+        invalid_type = TypeError if self.is_C else ValueError
+        with self.assertRaises(invalid_type):
+            t.__init__(b, encoding=42)
+        with self.assertRaises(UnicodeEncodeError):
+            t.__init__(b, encoding='\udcfe')
+        with self.assertRaises(ValueError):
+            t.__init__(b, encoding='utf-8\0')
+        with self.assertRaises(invalid_type):
+            t.__init__(b, encoding="utf-8", errors=42)
+        if support.Py_DEBUG or sys.flags.dev_mode or self.is_C:
+            with self.assertRaises(UnicodeEncodeError):
+                t.__init__(b, encoding="utf-8", errors='\udcfe')
+        if support.Py_DEBUG or sys.flags.dev_mode or self.is_C:
+            with self.assertRaises(ValueError):
+                t.__init__(b, encoding="utf-8", errors='replace\0')
+        with self.assertRaises(TypeError):
+            t.__init__(b, encoding="utf-8", newline=42)
+        with self.assertRaises(ValueError):
+            t.__init__(b, encoding="utf-8", newline='\udcfe')
+        with self.assertRaises(ValueError):
+            t.__init__(b, encoding="utf-8", newline='\n\0')
+        with self.assertRaises(ValueError):
+            t.__init__(b, encoding="utf-8", newline='xyzzy')
 
     def test_uninitialized(self):
         t = self.TextIOWrapper.__new__(self.TextIOWrapper)
@@ -2731,7 +2827,7 @@ class TextIOWrapperTest(unittest.TestCase):
                 if key in os.environ:
                     del os.environ[key]
 
-            current_locale_encoding = locale.getpreferredencoding(False)
+            current_locale_encoding = locale.getencoding()
             b = self.BytesIO()
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", EncodingWarning)
@@ -2740,17 +2836,6 @@ class TextIOWrapperTest(unittest.TestCase):
         finally:
             os.environ.clear()
             os.environ.update(old_environ)
-
-    @support.cpython_only
-    @unittest.skipIf(sys.flags.utf8_mode, "utf-8 mode is enabled")
-    def test_device_encoding(self):
-        # Issue 15989
-        import _testcapi
-        b = self.BytesIO()
-        b.fileno = lambda: _testcapi.INT_MAX + 1
-        self.assertRaises(OverflowError, self.TextIOWrapper, b, encoding="locale")
-        b.fileno = lambda: _testcapi.UINT_MAX + 1
-        self.assertRaises(OverflowError, self.TextIOWrapper, b, encoding="locale")
 
     def test_encoding(self):
         # Check the encoding attribute is always set, and valid
@@ -3080,28 +3165,32 @@ class TextIOWrapperTest(unittest.TestCase):
             StatefulIncrementalDecoder.codecEnabled = 0
 
     def test_multibyte_seek_and_tell(self):
-        with self.open(os_helper.TESTFN, "w", encoding="euc_jp") as f:
-            f.write("AB\n\u3046\u3048\n")
+        f = self.open(os_helper.TESTFN, "w", encoding="euc_jp")
+        f.write("AB\n\u3046\u3048\n")
+        f.close()
 
-        with self.open(os_helper.TESTFN, "r", encoding="euc_jp") as f:
-            self.assertEqual(f.readline(), "AB\n")
-            p0 = f.tell()
-            self.assertEqual(f.readline(), "\u3046\u3048\n")
-            p1 = f.tell()
-            f.seek(p0)
-            self.assertEqual(f.readline(), "\u3046\u3048\n")
-            self.assertEqual(f.tell(), p1)
+        f = self.open(os_helper.TESTFN, "r", encoding="euc_jp")
+        self.assertEqual(f.readline(), "AB\n")
+        p0 = f.tell()
+        self.assertEqual(f.readline(), "\u3046\u3048\n")
+        p1 = f.tell()
+        f.seek(p0)
+        self.assertEqual(f.readline(), "\u3046\u3048\n")
+        self.assertEqual(f.tell(), p1)
+        f.close()
 
     def test_seek_with_encoder_state(self):
-        with self.open(os_helper.TESTFN, "w", encoding="euc_jis_2004") as f:
-            f.write("\u00e6\u0300")
-            p0 = f.tell()
-            f.write("\u00e6")
-            f.seek(p0)
-            f.write("\u0300")
+        f = self.open(os_helper.TESTFN, "w", encoding="euc_jis_2004")
+        f.write("\u00e6\u0300")
+        p0 = f.tell()
+        f.write("\u00e6")
+        f.seek(p0)
+        f.write("\u0300")
+        f.close()
 
-        with self.open(os_helper.TESTFN, "r", encoding="euc_jis_2004") as f:
-            self.assertEqual(f.readline(), "\u00e6\u0300\u0300")
+        f = self.open(os_helper.TESTFN, "r", encoding="euc_jis_2004")
+        self.assertEqual(f.readline(), "\u00e6\u0300\u0300")
+        f.close()
 
     def test_encoded_writes(self):
         data = "1234567890"
@@ -3291,6 +3380,7 @@ class TextIOWrapperTest(unittest.TestCase):
             self.assertEqual(f.errors, "replace")
 
     @support.no_tracing
+    @threading_helper.requires_working_threading()
     def test_threads_write(self):
         # Issue6750: concurrent writes could duplicate data
         event = threading.Event()
@@ -3518,7 +3608,6 @@ class TextIOWrapperTest(unittest.TestCase):
         t = _make_very_illegal_wrapper((1, 2))
         self.assertRaises(TypeError, t.read, 42)
 
-    @support.impl_detail("PyPy does not call __del__ at shutdown", pypy=False)
     def _check_create_at_shutdown(self, **kwargs):
         # Issue #20037: creating a TextIOWrapper at shutdown
         # shouldn't crash the interpreter.
@@ -3580,6 +3669,10 @@ class TextIOWrapperTest(unittest.TestCase):
 
         F.tell = lambda x: 0
         t = self.TextIOWrapper(F(), encoding='utf-8')
+
+    def test_reconfigure_locale(self):
+        wrapper = io.TextIOWrapper(io.BytesIO(b"test"))
+        wrapper.reconfigure(encoding="locale")
 
     def test_reconfigure_encoding_read(self):
         # latin1 -> utf8
@@ -3662,6 +3755,59 @@ class TextIOWrapperTest(unittest.TestCase):
 
         self.assertEqual(txt.detach().getvalue(), b'LF\nCRLF\r\n')
 
+    def test_reconfigure_errors(self):
+        txt = self.TextIOWrapper(self.BytesIO(), 'ascii', 'replace', '\r')
+        with self.assertRaises(TypeError):  # there was a crash
+            txt.reconfigure(encoding=42)
+        if self.is_C:
+            with self.assertRaises(UnicodeEncodeError):
+                txt.reconfigure(encoding='\udcfe')
+            with self.assertRaises(LookupError):
+                txt.reconfigure(encoding='locale\0')
+        # TODO: txt.reconfigure(encoding='utf-8\0')
+        # TODO: txt.reconfigure(encoding='nonexisting')
+        with self.assertRaises(TypeError):
+            txt.reconfigure(errors=42)
+        if self.is_C:
+            with self.assertRaises(UnicodeEncodeError):
+                txt.reconfigure(errors='\udcfe')
+        # TODO: txt.reconfigure(errors='ignore\0')
+        # TODO: txt.reconfigure(errors='nonexisting')
+        with self.assertRaises(TypeError):
+            txt.reconfigure(newline=42)
+        with self.assertRaises(ValueError):
+            txt.reconfigure(newline='\udcfe')
+        with self.assertRaises(ValueError):
+            txt.reconfigure(newline='xyz')
+        if not self.is_C:
+            # TODO: Should fail in C too.
+            with self.assertRaises(ValueError):
+                txt.reconfigure(newline='\n\0')
+        if self.is_C:
+            # TODO: Use __bool__(), not __index__().
+            with self.assertRaises(ZeroDivisionError):
+                txt.reconfigure(line_buffering=BadIndex())
+            with self.assertRaises(OverflowError):
+                txt.reconfigure(line_buffering=2**1000)
+            with self.assertRaises(ZeroDivisionError):
+                txt.reconfigure(write_through=BadIndex())
+            with self.assertRaises(OverflowError):
+                txt.reconfigure(write_through=2**1000)
+            with self.assertRaises(ZeroDivisionError):  # there was a crash
+                txt.reconfigure(line_buffering=BadIndex(),
+                                write_through=BadIndex())
+        self.assertEqual(txt.encoding, 'ascii')
+        self.assertEqual(txt.errors, 'replace')
+        self.assertIs(txt.line_buffering, False)
+        self.assertIs(txt.write_through, False)
+
+        txt.reconfigure(encoding='latin1', errors='ignore', newline='\r\n',
+                        line_buffering=True, write_through=True)
+        self.assertEqual(txt.encoding, 'latin1')
+        self.assertEqual(txt.errors, 'ignore')
+        self.assertIs(txt.line_buffering, True)
+        self.assertIs(txt.write_through, True)
+
     def test_reconfigure_newline(self):
         raw = self.BytesIO(b'CR\rEOF')
         txt = self.TextIOWrapper(raw, 'ascii', newline='\n')
@@ -3708,6 +3854,14 @@ class TextIOWrapperTest(unittest.TestCase):
         t.read(1)
         t.write('x')
         t.tell()
+
+    def test_issue35928(self):
+        p = self.BufferedRWPair(self.BytesIO(b'foo\nbar\n'), self.BytesIO())
+        f = self.TextIOWrapper(p)
+        res = f.readline()
+        self.assertEqual(res, 'foo\n')
+        f.write(res)
+        self.assertEqual(res + f.readline(), 'foo\nbar\n')
 
 
 class MemviewBytesIO(io.BytesIO):
@@ -3948,33 +4102,22 @@ class PyIncrementalNewlineDecoderTest(IncrementalNewlineDecoderTest):
 
 class MiscIOTest(unittest.TestCase):
 
+    # for test__all__, actual values are set in subclasses
+    name_of_module = None
+    extra_exported = ()
+    not_exported = ()
+
     def tearDown(self):
         os_helper.unlink(os_helper.TESTFN)
 
     def test___all__(self):
-        for name in self.io.__all__:
-            obj = getattr(self.io, name, None)
-            self.assertIsNotNone(obj, name)
-            if name in ("open", "open_code"):
-                continue
-            elif "error" in name.lower() or name == "UnsupportedOperation":
-                self.assertTrue(issubclass(obj, Exception), name)
-            elif not name.startswith("SEEK_"):
-                self.assertTrue(issubclass(obj, self.IOBase))
+        support.check__all__(self, self.io, self.name_of_module,
+                             extra=self.extra_exported,
+                             not_exported=self.not_exported)
 
     def test_attributes(self):
         f = self.open(os_helper.TESTFN, "wb", buffering=0)
         self.assertEqual(f.mode, "wb")
-        f.close()
-
-        with warnings_helper.check_warnings(('', DeprecationWarning)):
-            f = self.open(os_helper.TESTFN, "U", encoding="utf-8")
-        self.assertEqual(f.name,            os_helper.TESTFN)
-        self.assertEqual(f.buffer.name,     os_helper.TESTFN)
-        self.assertEqual(f.buffer.raw.name, os_helper.TESTFN)
-        self.assertEqual(f.mode,            "U")
-        self.assertEqual(f.buffer.mode,     "rb")
-        self.assertEqual(f.buffer.raw.mode, "rb")
         f.close()
 
         f = self.open(os_helper.TESTFN, "w+", encoding="utf-8")
@@ -3990,6 +4133,17 @@ class MiscIOTest(unittest.TestCase):
         f.close()
         g.close()
 
+    def test_removed_u_mode(self):
+        # bpo-37330: The "U" mode has been removed in Python 3.11
+        for mode in ("U", "rU", "r+U"):
+            with self.assertRaises(ValueError) as cm:
+                self.open(os_helper.TESTFN, mode)
+            self.assertIn('invalid mode', str(cm.exception))
+
+    @unittest.skipIf(
+        support.is_emscripten, "fstat() of a pipe fd is not supported"
+    )
+    @unittest.skipUnless(hasattr(os, "pipe"), "requires os.pipe()")
     def test_open_pipe_with_append(self):
         # bpo-27805: Ignore ESPIPE from lseek() in open().
         r, w = os.pipe()
@@ -4128,6 +4282,7 @@ class MiscIOTest(unittest.TestCase):
         with warnings_helper.check_no_resource_warning(self):
             open(r, *args, closefd=False, **kwargs)
 
+    @unittest.skipUnless(hasattr(os, "pipe"), "requires os.pipe()")
     def test_warn_on_dealloc_fd(self):
         self._check_warn_on_dealloc_fd("rb", buffering=0)
         self._check_warn_on_dealloc_fd("rb")
@@ -4153,14 +4308,21 @@ class MiscIOTest(unittest.TestCase):
                 with self.open(os_helper.TESTFN, **kwargs) as f:
                     self.assertRaises(TypeError, pickle.dumps, f, protocol)
 
+    @unittest.skipIf(
+        support.is_emscripten, "fstat() of a pipe fd is not supported"
+    )
     def test_nonblock_pipe_write_bigbuf(self):
         self._test_nonblock_pipe_write(16*1024)
 
+    @unittest.skipIf(
+        support.is_emscripten, "fstat() of a pipe fd is not supported"
+    )
     def test_nonblock_pipe_write_smallbuf(self):
         self._test_nonblock_pipe_write(1024)
 
     @unittest.skipUnless(hasattr(os, 'set_blocking'),
                          'os.set_blocking() required for this test')
+    @unittest.skipUnless(hasattr(os, "pipe"), "requires os.pipe()")
     def _test_nonblock_pipe_write(self, bufsize):
         sent = []
         received = []
@@ -4296,6 +4458,17 @@ class MiscIOTest(unittest.TestCase):
         self.assertTrue(
             warnings[1].startswith(b"<string>:8: EncodingWarning: "))
 
+    def test_text_encoding(self):
+        # PEP 597, bpo-47000. io.text_encoding() returns "locale" or "utf-8"
+        # based on sys.flags.utf8_mode
+        code = "import io; print(io.text_encoding(None))"
+
+        proc = assert_python_ok('-X', 'utf8=0', '-c', code)
+        self.assertEqual(b"locale", proc.out.strip())
+
+        proc = assert_python_ok('-X', 'utf8=1', '-c', code)
+        self.assertEqual(b"utf-8", proc.out.strip())
+
     @support.cpython_only
     # Depending if OpenWrapper was already created or not, the warning is
     # emitted or not. For example, the attribute is already created when this
@@ -4307,6 +4480,8 @@ class MiscIOTest(unittest.TestCase):
 
 class CMiscIOTest(MiscIOTest):
     io = io
+    name_of_module = "io", "_io"
+    extra_exported = "BlockingIOError",
 
     def test_readinto_buffer_overflow(self):
         # Issue #18025
@@ -4358,15 +4533,22 @@ class CMiscIOTest(MiscIOTest):
         else:
             self.assertFalse(err.strip('.!'))
 
+    @threading_helper.requires_working_threading()
+    @support.requires_resource('walltime')
     def test_daemon_threads_shutdown_stdout_deadlock(self):
         self.check_daemon_threads_shutdown_deadlock('stdout')
 
+    @threading_helper.requires_working_threading()
+    @support.requires_resource('walltime')
     def test_daemon_threads_shutdown_stderr_deadlock(self):
         self.check_daemon_threads_shutdown_deadlock('stderr')
 
 
 class PyMiscIOTest(MiscIOTest):
     io = pyio
+    name_of_module = "_pyio", "io"
+    extra_exported = "BlockingIOError", "open_code",
+    not_exported = "valid_seek_flags",
 
 
 @unittest.skipIf(os.name == 'nt', 'POSIX signals required for this test.')
@@ -4458,12 +4640,18 @@ class SignalsTest(unittest.TestCase):
                 if e.errno != errno.EBADF:
                     raise
 
+    @requires_alarm
+    @unittest.skipUnless(hasattr(os, "pipe"), "requires os.pipe()")
     def test_interrupted_write_unbuffered(self):
         self.check_interrupted_write(b"xy", b"xy", mode="wb", buffering=0)
 
+    @requires_alarm
+    @unittest.skipUnless(hasattr(os, "pipe"), "requires os.pipe()")
     def test_interrupted_write_buffered(self):
         self.check_interrupted_write(b"xy", b"xy", mode="wb")
 
+    @requires_alarm
+    @unittest.skipUnless(hasattr(os, "pipe"), "requires os.pipe()")
     def test_interrupted_write_text(self):
         self.check_interrupted_write("xy", b"xy", mode="w", encoding="ascii")
 
@@ -4495,9 +4683,11 @@ class SignalsTest(unittest.TestCase):
             wio.close()
             os.close(r)
 
+    @requires_alarm
     def test_reentrant_write_buffered(self):
         self.check_reentrant_write(b"xy", mode="wb")
 
+    @requires_alarm
     def test_reentrant_write_text(self):
         self.check_reentrant_write("xy", mode="w", encoding="ascii")
 
@@ -4525,10 +4715,14 @@ class SignalsTest(unittest.TestCase):
             os.close(w)
             os.close(r)
 
+    @requires_alarm
+    @support.requires_resource('walltime')
     def test_interrupted_read_retry_buffered(self):
         self.check_interrupted_read_retry(lambda x: x.decode('latin1'),
                                           mode="rb")
 
+    @requires_alarm
+    @support.requires_resource('walltime')
     def test_interrupted_read_retry_text(self):
         self.check_interrupted_read_retry(lambda x: x,
                                           mode="r", encoding="latin1")
@@ -4601,9 +4795,13 @@ class SignalsTest(unittest.TestCase):
                 if e.errno != errno.EBADF:
                     raise
 
+    @requires_alarm
+    @support.requires_resource('walltime')
     def test_interrupted_write_retry_buffered(self):
         self.check_interrupted_write_retry(b"x", mode="wb")
 
+    @requires_alarm
+    @support.requires_resource('walltime')
     def test_interrupted_write_retry_text(self):
         self.check_interrupted_write_retry("x", mode="w", encoding="latin1")
 
@@ -4620,7 +4818,7 @@ class PySignalsTest(SignalsTest):
     test_reentrant_write_text = None
 
 
-def load_tests(*args):
+def load_tests(loader, tests, pattern):
     tests = (CIOTest, PyIOTest, APIMismatchTest,
              CBufferedReaderTest, PyBufferedReaderTest,
              CBufferedWriterTest, PyBufferedWriterTest,
@@ -4637,8 +4835,8 @@ def load_tests(*args):
     # classes in the __dict__ of each test.
     mocks = (MockRawIO, MisbehavedRawIO, MockFileIO, CloseFailureIO,
              MockNonBlockWriterIO, MockUnseekableIO, MockRawIOWithoutRead,
-             SlowFlushRawIO)
-    all_members = io.__all__ + ["IncrementalNewlineDecoder"]
+             SlowFlushRawIO, MockCharPseudoDevFileIO)
+    all_members = io.__all__
     c_io_ns = {name : getattr(io, name) for name in all_members}
     py_io_ns = {name : getattr(pyio, name) for name in all_members}
     globs = globals()
@@ -4648,11 +4846,15 @@ def load_tests(*args):
         if test.__name__.startswith("C"):
             for name, obj in c_io_ns.items():
                 setattr(test, name, obj)
+            test.is_C = True
         elif test.__name__.startswith("Py"):
             for name, obj in py_io_ns.items():
                 setattr(test, name, obj)
+            test.is_C = False
 
-    suite = unittest.TestSuite([unittest.makeSuite(test) for test in tests])
+    suite = loader.suiteClass()
+    for test in tests:
+        suite.addTest(loader.loadTestsFromTestCase(test))
     return suite
 
 if __name__ == "__main__":

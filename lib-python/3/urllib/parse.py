@@ -31,11 +31,13 @@ it either due to existing user code API behavior expectations (Hyrum's Law).
 It serves as a useful guide when making changes.
 """
 
+from collections import namedtuple
+import functools
 import re
 import sys
 import types
-import collections
 import warnings
+import ipaddress
 
 __all__ = ["urlparse", "urlunparse", "urljoin", "urldefrag",
            "urlsplit", "urlunsplit", "urlencode", "parse_qs",
@@ -50,18 +52,18 @@ __all__ = ["urlparse", "urlunparse", "urljoin", "urldefrag",
 
 uses_relative = ['', 'ftp', 'http', 'gopher', 'nntp', 'imap',
                  'wais', 'file', 'https', 'shttp', 'mms',
-                 'prospero', 'rtsp', 'rtspu', 'sftp',
+                 'prospero', 'rtsp', 'rtsps', 'rtspu', 'sftp',
                  'svn', 'svn+ssh', 'ws', 'wss']
 
 uses_netloc = ['', 'ftp', 'http', 'gopher', 'nntp', 'telnet',
                'imap', 'wais', 'file', 'mms', 'https', 'shttp',
-               'snews', 'prospero', 'rtsp', 'rtspu', 'rsync',
+               'snews', 'prospero', 'rtsp', 'rtsps', 'rtspu', 'rsync',
                'svn', 'svn+ssh', 'sftp', 'nfs', 'git', 'git+ssh',
                'ws', 'wss']
 
 uses_params = ['', 'ftp', 'hdl', 'prospero', 'http', 'imap',
-               'https', 'shttp', 'rtsp', 'rtspu', 'sip', 'sips',
-               'mms', 'sftp', 'tel']
+               'https', 'shttp', 'rtsp', 'rtsps', 'rtspu', 'sip',
+               'sips', 'mms', 'sftp', 'tel']
 
 # These are not actually used anymore, but should stay for backwards
 # compatibility.  (They are undocumented, but have a public-looking name.)
@@ -70,7 +72,7 @@ non_hierarchical = ['gopher', 'hdl', 'mailto', 'news',
                     'telnet', 'wais', 'imap', 'snews', 'sip', 'sips']
 
 uses_query = ['', 'http', 'wais', 'imap', 'https', 'shttp', 'mms',
-              'gopher', 'rtsp', 'rtspu', 'sip', 'sips']
+              'gopher', 'rtsp', 'rtsps', 'rtspu', 'sip', 'sips']
 
 uses_fragment = ['', 'ftp', 'hdl', 'http', 'gopher', 'news',
                  'nntp', 'wais', 'https', 'shttp', 'snews',
@@ -89,15 +91,10 @@ _WHATWG_C0_CONTROL_OR_SPACE = '\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\
 # Unsafe bytes to be removed per WHATWG spec
 _UNSAFE_URL_BYTES_TO_REMOVE = ['\t', '\r', '\n']
 
-# XXX: Consider replacing with functools.lru_cache
-MAX_CACHE_SIZE = 20
-_parse_cache = {}
-
 def clear_cache():
-    """Clear the parse cache and the quoters cache."""
-    _parse_cache.clear()
-    _safe_quoters.clear()
-
+    """Clear internal performance caches. Undocumented; some tests want it."""
+    urlsplit.cache_clear()
+    _byte_quoter_factory.cache_clear()
 
 # Helpers for bytes handling
 # For 3.2, we deliberately require applications that
@@ -249,8 +246,6 @@ class _NetlocResultMixinBytes(_NetlocResultMixinBase, _ResultMixinBytes):
             port = None
         return hostname, port
 
-
-from collections import namedtuple
 
 _DefragResultBase = namedtuple('DefragResult', 'url fragment')
 _SplitResultBase = namedtuple(
@@ -441,6 +436,20 @@ def _checknetloc(netloc):
             raise ValueError("netloc '" + netloc + "' contains invalid " +
                              "characters under NFKC normalization")
 
+# Valid bracketed hosts are defined in
+# https://www.rfc-editor.org/rfc/rfc3986#page-49 and https://url.spec.whatwg.org/
+def _check_bracketed_host(hostname):
+    if hostname.startswith('v'):
+        if not re.match(r"\Av[a-fA-F0-9]+\..+\Z", hostname):
+            raise ValueError(f"IPvFuture address is invalid")
+    else:
+        ip = ipaddress.ip_address(hostname) # Throws Value Error if not IPv6 or IPv4
+        if isinstance(ip, ipaddress.IPv4Address):
+            raise ValueError(f"An IPv4 address cannot be in brackets")
+
+# typed=True avoids BytesWarnings being emitted during cache key
+# comparison since this API supports both bytes and str input.
+@functools.lru_cache(typed=True)
 def urlsplit(url, scheme='', allow_fragments=True):
     """Parse a URL into 5 components:
     <scheme>://<netloc>/<path>?<query>#<fragment>
@@ -473,33 +482,28 @@ def urlsplit(url, scheme='', allow_fragments=True):
         scheme = scheme.replace(b, "")
 
     allow_fragments = bool(allow_fragments)
-    key = url, scheme, allow_fragments, type(url), type(scheme)
-    cached = _parse_cache.get(key, None)
-    if cached:
-        return _coerce_result(cached)
-    if len(_parse_cache) >= MAX_CACHE_SIZE: # avoid runaway growth
-        clear_cache()
     netloc = query = fragment = ''
     i = url.find(':')
-    if i > 0:
+    if i > 0 and url[0].isascii() and url[0].isalpha():
         for c in url[:i]:
             if c not in scheme_chars:
                 break
         else:
             scheme, url = url[:i].lower(), url[i+1:]
-
     if url[:2] == '//':
         netloc, url = _splitnetloc(url, 2)
         if (('[' in netloc and ']' not in netloc) or
                 (']' in netloc and '[' not in netloc)):
             raise ValueError("Invalid IPv6 URL")
+        if '[' in netloc and ']' in netloc:
+            bracketed_host = netloc.partition('[')[2].partition(']')[0]
+            _check_bracketed_host(bracketed_host)
     if allow_fragments and '#' in url:
         url, fragment = url.split('#', 1)
     if '?' in url:
         url, query = url.split('?', 1)
     _checknetloc(netloc)
     v = SplitResult(scheme, netloc, url, query, fragment)
-    _parse_cache[key] = v
     return _coerce_result(v)
 
 def urlunparse(components):
@@ -751,11 +755,29 @@ def parse_qsl(qs, keep_blank_values=False, strict_parsing=False,
 
         Returns a list, as G-d intended.
     """
-    qs, _coerce_result = _coerce_args(qs)
-    separator, _ = _coerce_args(separator)
 
-    if not separator or (not isinstance(separator, (str, bytes))):
+    if not separator or not isinstance(separator, (str, bytes)):
         raise ValueError("Separator must be of type string or bytes.")
+    if isinstance(qs, str):
+        if not isinstance(separator, str):
+            separator = str(separator, 'ascii')
+        eq = '='
+        def _unquote(s):
+            return unquote_plus(s, encoding=encoding, errors=errors)
+    else:
+        if not qs:
+            return []
+        # Use memoryview() to reject integers and iterables,
+        # acceptable by the bytes constructor.
+        qs = bytes(memoryview(qs))
+        if isinstance(separator, str):
+            separator = bytes(separator, 'ascii')
+        eq = b'='
+        def _unquote(s):
+            return unquote_to_bytes(s.replace(b'+', b' '))
+
+    if not qs:
+        return []
 
     # If max_num_fields is defined then check that the number of fields
     # is less than max_num_fields. This prevents a memory exhaustion DOS
@@ -767,25 +789,14 @@ def parse_qsl(qs, keep_blank_values=False, strict_parsing=False,
 
     r = []
     for name_value in qs.split(separator):
-        if not name_value and not strict_parsing:
-            continue
-        nv = name_value.split('=', 1)
-        if len(nv) != 2:
-            if strict_parsing:
+        if name_value or strict_parsing:
+            name, has_eq, value = name_value.partition(eq)
+            if not has_eq and strict_parsing:
                 raise ValueError("bad query field: %r" % (name_value,))
-            # Handle case of a control-name with no equal sign
-            if keep_blank_values:
-                nv.append('')
-            else:
-                continue
-        if len(nv[1]) or keep_blank_values:
-            name = nv[0].replace('+', ' ')
-            name = unquote(name, encoding=encoding, errors=errors)
-            name = _coerce_result(name)
-            value = nv[1].replace('+', ' ')
-            value = unquote(value, encoding=encoding, errors=errors)
-            value = _coerce_result(value)
-            r.append((name, value))
+            if value or keep_blank_values:
+                name = _unquote(name)
+                value = _unquote(value)
+                r.append((name, value))
     return r
 
 def unquote_plus(string, encoding='utf-8', errors='replace'):
@@ -802,23 +813,30 @@ _ALWAYS_SAFE = frozenset(b'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
                          b'0123456789'
                          b'_.-~')
 _ALWAYS_SAFE_BYTES = bytes(_ALWAYS_SAFE)
-_safe_quoters = {}
 
-class Quoter(collections.defaultdict):
-    """A mapping from bytes (in range(0,256)) to strings.
+def __getattr__(name):
+    if name == 'Quoter':
+        warnings.warn('Deprecated in 3.11. '
+                      'urllib.parse.Quoter will be removed in Python 3.14. '
+                      'It was not intended to be a public API.',
+                      DeprecationWarning, stacklevel=2)
+        return _Quoter
+    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')
+
+class _Quoter(dict):
+    """A mapping from bytes numbers (in range(0,256)) to strings.
 
     String values are percent-encoded byte values, unless the key < 128, and
-    in the "safe" set (either the specified safe set, or default set).
+    in either of the specified safe set, or the always safe set.
     """
-    # Keeps a cache internally, using defaultdict, for efficiency (lookups
+    # Keeps a cache internally, via __missing__, for efficiency (lookups
     # of cached keys don't call Python code at all).
     def __init__(self, safe):
         """safe: bytes object."""
         self.safe = _ALWAYS_SAFE.union(safe)
 
     def __repr__(self):
-        # Without this, will just display as a defaultdict
-        return "<%s %r>" % (self.__class__.__name__, dict(self))
+        return f"<Quoter {dict(self)!r}>"
 
     def __missing__(self, b):
         # Handle a cache miss. Store quoted string in cache and return.
@@ -897,6 +915,11 @@ def quote_plus(string, safe='', encoding=None, errors=None):
     string = quote(string, safe + space, encoding, errors)
     return string.replace(' ', '+')
 
+# Expectation: A typical program is unlikely to create more than 5 of these.
+@functools.lru_cache
+def _byte_quoter_factory(safe):
+    return _Quoter(safe).__getitem__
+
 def quote_from_bytes(bs, safe='/'):
     """Like quote(), but accepts a bytes object rather than a str, and does
     not perform string-to-bytes encoding.  It always returns an ASCII string.
@@ -910,13 +933,11 @@ def quote_from_bytes(bs, safe='/'):
         # Normalize 'safe' by converting to bytes and removing non-ASCII chars
         safe = safe.encode('ascii', 'ignore')
     else:
+        # List comprehensions are faster than generator expressions.
         safe = bytes([c for c in safe if c < 128])
     if not bs.rstrip(_ALWAYS_SAFE_BYTES + safe):
         return bs.decode()
-    try:
-        quoter = _safe_quoters[safe]
-    except KeyError:
-        _safe_quoters[safe] = quoter = Quoter(safe).__getitem__
+    quoter = _byte_quoter_factory(safe)
     return ''.join([quoter(char) for char in bs])
 
 def urlencode(query, doseq=False, safe='', encoding=None, errors=None,
@@ -950,10 +971,9 @@ def urlencode(query, doseq=False, safe='', encoding=None, errors=None,
             # but that's a minor nit.  Since the original implementation
             # allowed empty dicts that type of behavior probably should be
             # preserved for consistency
-        except TypeError:
-            ty, va, tb = sys.exc_info()
+        except TypeError as err:
             raise TypeError("not a valid non-string sequence "
-                            "or mapping object").with_traceback(tb)
+                            "or mapping object") from err
 
     l = []
     if not doseq:

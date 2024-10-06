@@ -79,6 +79,7 @@ class PlatformTest(unittest.TestCase):
         res = platform.architecture()
 
     @os_helper.skip_unless_symlink
+    @support.requires_subprocess()
     def test_architecture_via_symlink(self): # issue3762
         with support.PythonSymlink() as py:
             cmd = "-c", "import platform; print(platform.architecture())"
@@ -279,6 +280,7 @@ class PlatformTest(unittest.TestCase):
         self.assertIn('processor', res)
 
     @unittest.skipIf(sys.platform in ['win32', 'OpenVMS'], "uname -p not used")
+    @support.requires_subprocess()
     def test_uname_processor(self):
         """
         On some systems, the processor must match the output
@@ -317,8 +319,36 @@ class PlatformTest(unittest.TestCase):
         if sys.platform == 'java':
             self.assertTrue(all(res))
 
+    @unittest.skipUnless(support.MS_WINDOWS, 'This test only makes sense on Windows')
     def test_win32_ver(self):
-        res = platform.win32_ver()
+        release1, version1, csd1, ptype1 = 'a', 'b', 'c', 'd'
+        res = platform.win32_ver(release1, version1, csd1, ptype1)
+        self.assertEqual(len(res), 4)
+        release, version, csd, ptype = res
+        if release:
+            # Currently, release names always come from internal dicts,
+            # but this could change over time. For now, we just check that
+            # release is something different from what we have passed.
+            self.assertNotEqual(release, release1)
+        if version:
+            # It is rather hard to test explicit version without
+            # going deep into the details.
+            self.assertIn('.', version)
+            for v in version.split('.'):
+                int(v)  # should not fail
+        if csd:
+            self.assertTrue(csd.startswith('SP'), msg=csd)
+        if ptype:
+            if os.cpu_count() > 1:
+                self.assertIn('Multiprocessor', ptype)
+            else:
+                self.assertIn('Uniprocessor', ptype)
+
+    @unittest.skipIf(support.MS_WINDOWS, 'This test only makes sense on non Windows')
+    def test_win32_ver_on_non_windows(self):
+        release, version, csd, ptype = 'a', '1.0', 'c', 'd'
+        res = platform.win32_ver(release, version, csd, ptype)
+        self.assertSequenceEqual(res, (release, version, csd, ptype), seq_type=tuple)
 
     def test_mac_ver(self):
         res = platform.mac_ver()
@@ -372,6 +402,7 @@ class PlatformTest(unittest.TestCase):
             # parent
             support.wait_process(pid, exitcode=0)
 
+    @unittest.skipIf(support.is_emscripten, "Does not apply to Emscripten")
     def test_libc_ver(self):
         # check that libc_ver(executable) doesn't raise an exception
         if os.path.isdir(sys.executable) and \

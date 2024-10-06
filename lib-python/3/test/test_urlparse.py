@@ -19,6 +19,10 @@ parse_qsl_test_cases = [
     ("=a", [('', 'a')]),
     ("a", [('a', '')]),
     ("a=", [('a', '')]),
+    ("a=b=c", [('a', 'b=c')]),
+    ("a%3Db=c", [('a=b', 'c')]),
+    ("a=b&c=d", [('a', 'b'), ('c', 'd')]),
+    ("a=b%26c=d", [('a', 'b&c=d')]),
     ("&a=b", [('a', 'b')]),
     ("a=a+b&b=b+c", [('a', 'a b'), ('b', 'b c')]),
     ("a=1&a=2", [('a', '1'), ('a', '2')]),
@@ -29,6 +33,10 @@ parse_qsl_test_cases = [
     (b"=a", [(b'', b'a')]),
     (b"a", [(b'a', b'')]),
     (b"a=", [(b'a', b'')]),
+    (b"a=b=c", [(b'a', b'b=c')]),
+    (b"a%3Db=c", [(b'a=b', b'c')]),
+    (b"a=b&c=d", [(b'a', b'b'), (b'c', b'd')]),
+    (b"a=b%26c=d", [(b'a', b'b&c=d')]),
     (b"&a=b", [(b'a', b'b')]),
     (b"a=a+b&b=b+c", [(b'a', b'a b'), (b'b', b'b c')]),
     (b"a=1&a=2", [(b'a', b'1'), (b'a', b'2')]),
@@ -36,6 +44,14 @@ parse_qsl_test_cases = [
     ("a=a+b;b=b+c", [('a', 'a b;b=b c')]),
     (b";a=b", [(b';a', b'b')]),
     (b"a=a+b;b=b+c", [(b'a', b'a b;b=b c')]),
+
+    ("\u0141=\xE9", [('\u0141', '\xE9')]),
+    ("%C5%81=%C3%A9", [('\u0141', '\xE9')]),
+    ("%81=%A9", [('\ufffd', '\ufffd')]),
+    (b"\xc5\x81=\xc3\xa9", [(b'\xc5\x81', b'\xc3\xa9')]),
+    (b"%C5%81=%C3%A9", [(b'\xc5\x81', b'\xc3\xa9')]),
+    (b"\x81=\xA9", [(b'\x81', b'\xa9')]),
+    (b"%81=%A9", [(b'\x81', b'\xa9')]),
 ]
 
 # Each parse_qs testcase is a two-tuple that contains
@@ -49,6 +65,10 @@ parse_qs_test_cases = [
     ("=a", {'': ['a']}),
     ("a", {'a': ['']}),
     ("a=", {'a': ['']}),
+    ("a=b=c", {'a': ['b=c']}),
+    ("a%3Db=c", {'a=b': ['c']}),
+    ("a=b&c=d", {'a': ['b'], 'c': ['d']}),
+    ("a=b%26c=d", {'a': ['b&c=d']}),
     ("&a=b", {'a': ['b']}),
     ("a=a+b&b=b+c", {'a': ['a b'], 'b': ['b c']}),
     ("a=1&a=2", {'a': ['1', '2']}),
@@ -59,6 +79,10 @@ parse_qs_test_cases = [
     (b"=a", {b'': [b'a']}),
     (b"a", {b'a': [b'']}),
     (b"a=", {b'a': [b'']}),
+    (b"a=b=c", {b'a': [b'b=c']}),
+    (b"a%3Db=c", {b'a=b': [b'c']}),
+    (b"a=b&c=d", {b'a': [b'b'], b'c': [b'd']}),
+    (b"a=b%26c=d", {b'a': [b'b&c=d']}),
     (b"&a=b", {b'a': [b'b']}),
     (b"a=a+b&b=b+c", {b'a': [b'a b'], b'b': [b'b c']}),
     (b"a=1&a=2", {b'a': [b'1', b'2']}),
@@ -66,6 +90,15 @@ parse_qs_test_cases = [
     ("a=a+b;b=b+c", {'a': ['a b;b=b c']}),
     (b";a=b", {b';a': [b'b']}),
     (b"a=a+b;b=b+c", {b'a':[ b'a b;b=b c']}),
+    (b"a=a%E2%80%99b", {b'a': [b'a\xe2\x80\x99b']}),
+
+    ("\u0141=\xE9", {'\u0141': ['\xE9']}),
+    ("%C5%81=%C3%A9", {'\u0141': ['\xE9']}),
+    ("%81=%A9", {'\ufffd': ['\ufffd']}),
+    (b"\xc5\x81=\xc3\xa9", {b'\xc5\x81': [b'\xc3\xa9']}),
+    (b"%C5%81=%C3%A9", {b'\xc5\x81': [b'\xc3\xa9']}),
+    (b"\x81=\xA9", {b'\x81': [b'\xa9']}),
+    (b"%81=%A9", {b'\x81': [b'\xa9']}),
 ]
 
 class UrlParseTestCase(unittest.TestCase):
@@ -727,6 +760,24 @@ class UrlParseTestCase(unittest.TestCase):
                         with self.assertRaises(ValueError):
                             p.port
 
+    def test_attributes_bad_scheme(self):
+        """Check handling of invalid schemes."""
+        for bytes in (False, True):
+            for parse in (urllib.parse.urlsplit, urllib.parse.urlparse):
+                for scheme in (".", "+", "-", "0", "http&", "६http"):
+                    with self.subTest(bytes=bytes, parse=parse, scheme=scheme):
+                        url = scheme + "://www.example.net"
+                        if bytes:
+                            if url.isascii():
+                                url = url.encode("ascii")
+                            else:
+                                continue
+                        p = parse(url)
+                        if bytes:
+                            self.assertEqual(p.scheme, b"")
+                        else:
+                            self.assertEqual(p.scheme, "")
+
     def test_attributes_without_netloc(self):
         # This example is straight from RFC 3261.  It looks like it
         # should allow the username, hostname, and port to be filled
@@ -972,8 +1023,8 @@ class UrlParseTestCase(unittest.TestCase):
 
     def test_parse_qsl_max_num_fields(self):
         with self.assertRaises(ValueError):
-            urllib.parse.parse_qs('&'.join(['a=a']*11), max_num_fields=10)
-        urllib.parse.parse_qs('&'.join(['a=a']*10), max_num_fields=10)
+            urllib.parse.parse_qsl('&'.join(['a=a']*11), max_num_fields=10)
+        urllib.parse.parse_qsl('&'.join(['a=a']*10), max_num_fields=10)
 
     def test_parse_qs_separator(self):
         parse_qs_semicolon_cases = [
@@ -1016,6 +1067,30 @@ class UrlParseTestCase(unittest.TestCase):
                 result_bytes = urllib.parse.parse_qsl(orig, separator=b';')
                 self.assertEqual(result_bytes, expect, "Error parsing %r" % orig)
 
+    def test_parse_qsl_bytes(self):
+        self.assertEqual(urllib.parse.parse_qsl(b'a=b'), [(b'a', b'b')])
+        self.assertEqual(urllib.parse.parse_qsl(bytearray(b'a=b')), [(b'a', b'b')])
+        self.assertEqual(urllib.parse.parse_qsl(memoryview(b'a=b')), [(b'a', b'b')])
+
+    def test_parse_qsl_false_value(self):
+        kwargs = dict(keep_blank_values=True, strict_parsing=True)
+        for x in '', b'', None, 0, 0.0, [], {}, memoryview(b''):
+            self.assertEqual(urllib.parse.parse_qsl(x, **kwargs), [])
+            self.assertRaises(ValueError, urllib.parse.parse_qsl, x, separator=1)
+
+    def test_parse_qsl_errors(self):
+        self.assertRaises(TypeError, urllib.parse.parse_qsl, list(b'a=b'))
+        self.assertRaises(TypeError, urllib.parse.parse_qsl, iter(b'a=b'))
+        self.assertRaises(TypeError, urllib.parse.parse_qsl, 1)
+        self.assertRaises(TypeError, urllib.parse.parse_qsl, object())
+
+        for separator in '', b'', None, 0, 1, 0.0, 1.5:
+            with self.assertRaises(ValueError):
+                urllib.parse.parse_qsl('a=b', separator=separator)
+        with self.assertRaises(UnicodeEncodeError):
+            urllib.parse.parse_qsl(b'a=b', separator='\xa6')
+        with self.assertRaises(UnicodeDecodeError):
+            urllib.parse.parse_qsl('a=b', separator=b'\xa6')
 
     def test_urlencode_sequences(self):
         # Other tests incidentally urlencode things; test non-covered cases:
@@ -1074,6 +1149,32 @@ class UrlParseTestCase(unittest.TestCase):
         self.assertEqual(p2.scheme, 'tel')
         self.assertEqual(p2.path, '+31641044153')
 
+    def test_invalid_bracketed_hosts(self):
+        self.assertRaises(ValueError, urllib.parse.urlsplit, 'Scheme://user@[192.0.2.146]/Path?Query')
+        self.assertRaises(ValueError, urllib.parse.urlsplit, 'Scheme://user@[important.com:8000]/Path?Query')
+        self.assertRaises(ValueError, urllib.parse.urlsplit, 'Scheme://user@[v123r.IP]/Path?Query')
+        self.assertRaises(ValueError, urllib.parse.urlsplit, 'Scheme://user@[v12ae]/Path?Query')
+        self.assertRaises(ValueError, urllib.parse.urlsplit, 'Scheme://user@[v.IP]/Path?Query')
+        self.assertRaises(ValueError, urllib.parse.urlsplit, 'Scheme://user@[v123.]/Path?Query')
+        self.assertRaises(ValueError, urllib.parse.urlsplit, 'Scheme://user@[v]/Path?Query')
+        self.assertRaises(ValueError, urllib.parse.urlsplit, 'Scheme://user@[0439:23af::2309::fae7:1234]/Path?Query')
+        self.assertRaises(ValueError, urllib.parse.urlsplit, 'Scheme://user@[0439:23af:2309::fae7:1234:2342:438e:192.0.2.146]/Path?Query')
+        self.assertRaises(ValueError, urllib.parse.urlsplit, 'Scheme://user@]v6a.ip[/Path')
+
+    def test_splitting_bracketed_hosts(self):
+        p1 = urllib.parse.urlsplit('scheme://user@[v6a.ip]/path?query')
+        self.assertEqual(p1.hostname, 'v6a.ip')
+        self.assertEqual(p1.username, 'user')
+        self.assertEqual(p1.path, '/path')
+        p2 = urllib.parse.urlsplit('scheme://user@[0439:23af:2309::fae7%test]/path?query')
+        self.assertEqual(p2.hostname, '0439:23af:2309::fae7%test')
+        self.assertEqual(p2.username, 'user')
+        self.assertEqual(p2.path, '/path')
+        p3 = urllib.parse.urlsplit('scheme://user@[0439:23af:2309::fae7:1234:192.0.2.146%test]/path?query')
+        self.assertEqual(p3.hostname, '0439:23af:2309::fae7:1234:192.0.2.146%test')
+        self.assertEqual(p3.username, 'user')
+        self.assertEqual(p3.path, '/path')
+
     def test_port_casting_failure_message(self):
         message = "Port could not be cast to integer value as 'oracle'"
         p1 = urllib.parse.urlparse('http://Server=sde; Service=sde:oracle')
@@ -1106,8 +1207,16 @@ class UrlParseTestCase(unittest.TestCase):
         self.assertEqual(p1.params, 'phone-context=+1-914-555')
 
     def test_Quoter_repr(self):
-        quoter = urllib.parse.Quoter(urllib.parse._ALWAYS_SAFE)
+        quoter = urllib.parse._Quoter(urllib.parse._ALWAYS_SAFE)
         self.assertIn('Quoter', repr(quoter))
+
+    def test_clear_cache_for_code_coverage(self):
+        urllib.parse.clear_cache()
+
+    def test_urllib_parse_getattr_failure(self):
+        """Test that urllib.parse.__getattr__() fails correctly."""
+        with self.assertRaises(AttributeError):
+            unused = urllib.parse.this_does_not_exist
 
     def test_all(self):
         expected = []
@@ -1115,7 +1224,7 @@ class UrlParseTestCase(unittest.TestCase):
             'splitattr', 'splithost', 'splitnport', 'splitpasswd',
             'splitport', 'splitquery', 'splittag', 'splittype', 'splituser',
             'splitvalue',
-            'Quoter', 'ResultBase', 'clear_cache', 'to_bytes', 'unwrap',
+            'ResultBase', 'clear_cache', 'to_bytes', 'unwrap',
         }
         for name in dir(urllib.parse):
             if name.startswith('_') or name in undocumented:
@@ -1133,7 +1242,8 @@ class UrlParseTestCase(unittest.TestCase):
         hex_chars = {'{:04X}'.format(ord(c)) for c in illegal_chars}
         denorm_chars = [
             c for c in map(chr, range(128, sys.maxunicode))
-            if (hex_chars & set(unicodedata.decomposition(c).split()))
+            if unicodedata.decomposition(c)
+            and (hex_chars & set(unicodedata.decomposition(c).split()))
             and c not in illegal_chars
         ]
         # Sanity check that we found at least one such character
@@ -1307,6 +1417,12 @@ class Utility_Tests(unittest.TestCase):
 
 
 class DeprecationTest(unittest.TestCase):
+
+    def test_Quoter_deprecation(self):
+        with self.assertWarns(DeprecationWarning) as cm:
+            old_class = urllib.parse.Quoter
+            self.assertIs(old_class, urllib.parse._Quoter)
+        self.assertIn('Quoter will be removed', str(cm.warning))
 
     def test_splittype_deprecation(self):
         with self.assertWarns(DeprecationWarning) as cm:

@@ -14,10 +14,12 @@ import shutil
 import threading
 import unittest
 from unittest import mock
-from test.support import verbose, cpython_only
+from test.support import verbose
 from test.support.import_helper import forget
 from test.support.os_helper import (TESTFN, unlink, rmtree)
 from test.support import script_helper, threading_helper
+
+threading_helper.requires_working_threading(module=True)
 
 def task(N, done, done_tasks, errors):
     try:
@@ -185,10 +187,7 @@ class ThreadedImportTests(unittest.TestCase):
         import test.test_importlib.threaded_import_hangers
         self.assertFalse(test.test_importlib.threaded_import_hangers.errors)
 
-    @cpython_only
     def test_circular_imports(self):
-        # Skip on PyPy, see extra_tests/test_import.py and PyPy issue 3897
-        #
         # The goal of this test is to exercise implementations of the import
         # lock which use a per-module lock, rather than a global lock.
         # In these implementations, there is a possible deadlock with
@@ -245,7 +244,8 @@ class ThreadedImportTests(unittest.TestCase):
         self.addCleanup(forget, TESTFN)
         self.addCleanup(rmtree, '__pycache__')
         importlib.invalidate_caches()
-        __import__(TESTFN)
+        with threading_helper.wait_threads_exit():
+            __import__(TESTFN)
         del sys.modules[TESTFN]
 
     def test_concurrent_futures_circular_import(self):

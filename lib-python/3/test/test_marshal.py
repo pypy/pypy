@@ -1,5 +1,6 @@
 from test import support
-from test.support import os_helper
+from test.support import os_helper, requires_debug_ranges
+from test.support.script_helper import assert_python_ok
 import array
 import io
 import marshal
@@ -7,6 +8,7 @@ import sys
 import unittest
 import os
 import types
+import textwrap
 
 try:
     import _testcapi
@@ -126,6 +128,30 @@ class CodeTestCase(unittest.TestCase):
         self.assertEqual(co1.co_filename, "f1")
         self.assertEqual(co2.co_filename, "f2")
 
+    @requires_debug_ranges()
+    def test_minimal_linetable_with_no_debug_ranges(self):
+        # Make sure when demarshalling objects with `-X no_debug_ranges`
+        # that the columns are None.
+        co = ExceptionTestCase.test_exceptions.__code__
+        code = textwrap.dedent("""
+        import sys
+        import marshal
+        with open(sys.argv[1], 'rb') as f:
+            co = marshal.load(f)
+            positions = list(co.co_positions())
+            assert positions[0][2] is None
+            assert positions[0][3] is None
+        """)
+
+        try:
+            with open(os_helper.TESTFN, 'wb') as f:
+                marshal.dump(co, f)
+
+            assert_python_ok('-X', 'no_debug_ranges',
+                             '-c', code, os_helper.TESTFN)
+        finally:
+            os_helper.unlink(os_helper.TESTFN)
+
     @support.cpython_only
     def test_same_filename_used(self):
         s = """def f(): pass\ndef g(): pass"""
@@ -234,6 +260,8 @@ class BugsTestCase(unittest.TestCase):
         #if os.name == 'nt' and hasattr(sys, 'gettotalrefcount'):
         if os.name == 'nt':
             MAX_MARSHAL_STACK_DEPTH = 1000
+        elif sys.platform == 'wasi':
+            MAX_MARSHAL_STACK_DEPTH = 1500
         else:
             MAX_MARSHAL_STACK_DEPTH = 2000
         for i in range(MAX_MARSHAL_STACK_DEPTH - 2):
@@ -324,6 +352,34 @@ class BugsTestCase(unittest.TestCase):
         for i in range(len(data)):
             self.assertRaises(EOFError, marshal.loads, data[0: i])
 
+    def test_deterministic_sets(self):
+        # bpo-37596: To support reproducible builds, sets and frozensets need to
+        # have their elements serialized in a consistent order (even when they
+        # have been scrambled by hash randomization):
+        for kind in ("set", "frozenset"):
+            for elements in (
+                "float('nan'), b'a', b'b', b'c', 'x', 'y', 'z'",
+                # Also test for bad interactions with backreferencing:
+                "('Spam', 0), ('Spam', 1), ('Spam', 2), ('Spam', 3), ('Spam', 4), ('Spam', 5)",
+            ):
+                s = f"{kind}([{elements}])"
+                with self.subTest(s):
+                    # First, make sure that our test case still has different
+                    # orders under hash seeds 0 and 1. If this check fails, we
+                    # need to update this test with different elements. Skip
+                    # this part if we are configured to use any other hash
+                    # algorithm (for example, using Py_HASH_EXTERNAL):
+                    if sys.hash_info.algorithm in {"fnv", "siphash24"}:
+                        args = ["-c", f"print({s})"]
+                        _, repr_0, _ = assert_python_ok(*args, PYTHONHASHSEED="0")
+                        _, repr_1, _ = assert_python_ok(*args, PYTHONHASHSEED="1")
+                        self.assertNotEqual(repr_0, repr_1)
+                    # Then, perform the actual test:
+                    args = ["-c", f"import marshal; print(marshal.dumps({s}))"]
+                    _, dump_0, _ = assert_python_ok(*args, PYTHONHASHSEED="0")
+                    _, dump_1, _ = assert_python_ok(*args, PYTHONHASHSEED="1")
+                    self.assertEqual(dump_0, dump_1)
+
 LARGE_SIZE = 2**31
 pointer_size = 8 if sys.maxsize > 0xFFFFFFFF else 4
 if support.check_impl_detail(pypy=False):
@@ -389,8 +445,7 @@ def CollectObjectIDs(ids, obj):
 class InstancingTestCase(unittest.TestCase, HelperMixin):
     keys = (123, 1.2345, 'abc', (123, 'abc'), frozenset({123, 'abc'}))
 
-    def helper3(self, rsample, recursive=False, simple=False,
-                check_sharing=True, check_non_sharing=True):
+    def helper3(self, rsample, recursive=False, simple=False):
         #we have two instances
         sample = (rsample, rsample)
 
@@ -401,22 +456,17 @@ class InstancingTestCase(unittest.TestCase, HelperMixin):
             n3 = CollectObjectIDs(set(), marshal.loads(s3))
 
             #same number of instances generated
-            # except in one corner case on top of pypy, for code objects
-            if check_sharing:
-                self.assertEqual(n3, n0)
+            self.assertEqual(n3, n0)
 
         if not recursive:
             #can compare with version 2
             s2 = marshal.dumps(sample, 2)
             n2 = CollectObjectIDs(set(), marshal.loads(s2))
             #old format generated more instances
-            # except on pypy where equal ints or floats always have
-            # the same id anyway
-            if check_non_sharing:
-                self.assertGreater(n2, n0)
+            self.assertGreater(n2, n0)
 
             #if complex objects are in there, old format is larger
-            if check_non_sharing and not simple:
+            if not simple:
                 self.assertGreater(len(s2), len(s3))
             else:
                 self.assertGreaterEqual(len(s2), len(s3))
@@ -424,14 +474,12 @@ class InstancingTestCase(unittest.TestCase, HelperMixin):
     def testInt(self):
         intobj = 123321
         self.helper(intobj)
-        self.helper3(intobj, simple=True,
-                     check_non_sharing=support.check_impl_detail())
+        self.helper3(intobj, simple=True)
 
     def testFloat(self):
         floatobj = 1.2345
         self.helper(floatobj)
-        self.helper3(floatobj,
-                     check_non_sharing=support.check_impl_detail())
+        self.helper3(floatobj)
 
     def testStr(self):
         strobj = "abcde"*3
@@ -479,7 +527,7 @@ class InstancingTestCase(unittest.TestCase, HelperMixin):
         if __file__.endswith(".py"):
             code = compile(code, __file__, "exec")
         self.helper(code)
-        self.helper3(code, check_sharing=support.check_impl_detail())
+        self.helper3(code)
 
     def testRecursion(self):
         obj = 1.2345

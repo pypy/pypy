@@ -6,15 +6,15 @@ class X(Structure):
 
 class TestCase(unittest.TestCase):
     def test_simple(self):
-        self.assertRaises((TypeError, AttributeError),
+        self.assertRaises(TypeError,
                           delattr, c_int(42), "value")
 
     def test_chararray(self):
-        self.assertRaises((TypeError, AttributeError),
+        self.assertRaises(TypeError,
                           delattr, (c_char * 5)(), "value")
 
     def test_struct(self):
-        self.assertRaises((TypeError, AttributeError),
+        self.assertRaises(TypeError,
                           delattr, X(), "foo")
 
 if __name__ == "__main__":

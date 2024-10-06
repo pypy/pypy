@@ -6,6 +6,8 @@ import random
 import time
 import unittest
 import weakref
+from test import support
+from test.support import threading_helper
 
 try:
     from _testcapi import hamt
@@ -24,7 +26,7 @@ def isolated_context(func):
 
 class ContextTest(unittest.TestCase):
     def test_context_var_new_1(self):
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(TypeError, 'takes exactly 1'):
             contextvars.ContextVar()
 
         with self.assertRaisesRegex(TypeError, 'must be a str'):
@@ -73,11 +75,11 @@ class ContextTest(unittest.TestCase):
                 pass
 
     def test_context_new_1(self):
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(TypeError, 'any arguments'):
             contextvars.Context(1)
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(TypeError, 'any arguments'):
             contextvars.Context(1, a=1)
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(TypeError, 'any arguments'):
             contextvars.Context(a=1)
         contextvars.Context(**{})
 
@@ -341,6 +343,7 @@ class ContextTest(unittest.TestCase):
         ctx1.run(ctx1_fun)
 
     @isolated_context
+    @threading_helper.requires_working_threading()
     def test_context_threads_1(self):
         cvar = contextvars.ContextVar('cvar')
 
@@ -568,6 +571,7 @@ class HamtTest(unittest.TestCase):
 
         self.assertEqual({k.name for k in h.keys()}, {'C', 'D', 'E'})
 
+    @support.requires_resource('cpu')
     def test_hamt_stress(self):
         COLLECTION_SIZE = 7000
         TEST_ITERS_EVERY = 647

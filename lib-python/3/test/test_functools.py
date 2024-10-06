@@ -27,15 +27,15 @@ import functools
 
 py_functools = import_helper.import_fresh_module('functools',
                                                  blocked=['_functools'])
-c_functools = import_helper.import_fresh_module('functools')
-
-# pypy difference: skip the c_functools tests if _functools does not exist
-try:
-    import _functools
-except ImportError:
-    c_functools = None
+c_functools = import_helper.import_fresh_module('functools',
+                                                fresh=['_functools'])
 
 decimal = import_helper.import_fresh_module('decimal', fresh=['_decimal'])
+
+_partial_types = [py_functools.partial]
+if c_functools:
+    _partial_types.append(c_functools.partial)
+
 
 @contextlib.contextmanager
 def replaced_module(name, replacement):
@@ -190,20 +190,6 @@ class TestPartial:
         flat = partial(signature, 'asdf', bar=True)
         self.assertEqual(signature(nested), signature(flat))
 
-    def test_nested_optimization_bug(self):
-        # extra pypy test
-        partial = self.partial
-        class Builder:
-            def __call__(self, tag, *children, **attrib):
-                return (tag, children, attrib)
-
-            def __getattr__(self, tag):
-                return partial(self, tag)
-
-        B = Builder()
-        m = B.m
-        assert m(1, 2, a=2) == ('m', (1, 2), dict(a=2))
-
     def test_nested_partial_with_attribute(self):
         # see issue 25137
         partial = self.partial
@@ -222,9 +208,7 @@ class TestPartial:
         kwargs = {'a': object(), 'b': object()}
         kwargs_reprs = ['a={a!r}, b={b!r}'.format_map(kwargs),
                         'b={b!r}, a={a!r}'.format_map(kwargs)]
-        if c_functools and self.partial is c_functools.partial:
-            name = 'functools.partial'
-        elif self.partial is py_functools.partial:
+        if self.partial in _partial_types:
             name = 'functools.partial'
         else:
             name = self.partial.__name__
@@ -246,9 +230,7 @@ class TestPartial:
                        for kwargs_repr in kwargs_reprs])
 
     def test_recursive_repr(self):
-        if c_functools and self.partial is c_functools.partial:
-            name = 'functools.partial'
-        elif self.partial is py_functools.partial:
+        if self.partial in _partial_types:
             name = 'functools.partial'
         else:
             name = self.partial.__name__
@@ -275,7 +257,7 @@ class TestPartial:
             f.__setstate__((capture, (), {}, {}))
 
     def test_pickle(self):
-        with self.AllowPickle():
+        with replaced_module('functools', self.module):
             f = self.partial(signature, ['asdf'], bar=[True])
             f.attr = []
             for proto in range(pickle.HIGHEST_PROTOCOL + 1):
@@ -358,7 +340,7 @@ class TestPartial:
         self.assertIs(type(r[0]), tuple)
 
     def test_recursive_pickle(self):
-        with self.AllowPickle():
+        with replaced_module('functools', self.module):
             f = self.partial(capture)
             f.__setstate__((f, (), {}, {}))
             try:
@@ -412,13 +394,8 @@ class TestPartial:
 @unittest.skipUnless(c_functools, 'requires the C _functools module')
 class TestPartialC(TestPartial, unittest.TestCase):
     if c_functools:
+        module = c_functools
         partial = c_functools.partial
-
-    class AllowPickle:
-        def __enter__(self):
-            return self
-        def __exit__(self, type, value, tb):
-            return False
 
     def test_attributes_unwritable(self):
         # attributes should not be writable
@@ -462,15 +439,9 @@ class TestPartialC(TestPartial, unittest.TestCase):
 
 
 class TestPartialPy(TestPartial, unittest.TestCase):
+    module = py_functools
     partial = py_functools.partial
 
-    class AllowPickle:
-        def __init__(self):
-            self._cm = replaced_module("functools", py_functools)
-        def __enter__(self):
-            return self._cm.__enter__()
-        def __exit__(self, type, value, tb):
-            return self._cm.__exit__(type, value, tb)
 
 if c_functools:
     class CPartialSubclass(c_functools.partial):
@@ -627,7 +598,7 @@ class TestUpdateWrapper(unittest.TestCase):
                       updated=functools.WRAPPER_UPDATES):
         # Check attributes were assigned
         for name in assigned:
-            self.assertTrue(getattr(wrapper, name) == getattr(wrapped, name))
+            self.assertIs(getattr(wrapper, name), getattr(wrapped, name))
         # Check attributes were updated
         for name in updated:
             wrapper_attr = getattr(wrapper, name)
@@ -1073,6 +1044,73 @@ class TestTotalOrdering(unittest.TestCase):
             class A:
                 pass
 
+    def test_notimplemented(self):
+        # Verify NotImplemented results are correctly handled
+        @functools.total_ordering
+        class ImplementsLessThan:
+            def __init__(self, value):
+                self.value = value
+            def __eq__(self, other):
+                if isinstance(other, ImplementsLessThan):
+                    return self.value == other.value
+                return False
+            def __lt__(self, other):
+                if isinstance(other, ImplementsLessThan):
+                    return self.value < other.value
+                return NotImplemented
+
+        @functools.total_ordering
+        class ImplementsLessThanEqualTo:
+            def __init__(self, value):
+                self.value = value
+            def __eq__(self, other):
+                if isinstance(other, ImplementsLessThanEqualTo):
+                    return self.value == other.value
+                return False
+            def __le__(self, other):
+                if isinstance(other, ImplementsLessThanEqualTo):
+                    return self.value <= other.value
+                return NotImplemented
+
+        @functools.total_ordering
+        class ImplementsGreaterThan:
+            def __init__(self, value):
+                self.value = value
+            def __eq__(self, other):
+                if isinstance(other, ImplementsGreaterThan):
+                    return self.value == other.value
+                return False
+            def __gt__(self, other):
+                if isinstance(other, ImplementsGreaterThan):
+                    return self.value > other.value
+                return NotImplemented
+
+        @functools.total_ordering
+        class ImplementsGreaterThanEqualTo:
+            def __init__(self, value):
+                self.value = value
+            def __eq__(self, other):
+                if isinstance(other, ImplementsGreaterThanEqualTo):
+                    return self.value == other.value
+                return False
+            def __ge__(self, other):
+                if isinstance(other, ImplementsGreaterThanEqualTo):
+                    return self.value >= other.value
+                return NotImplemented
+
+        self.assertIs(ImplementsLessThan(1).__le__(1), NotImplemented)
+        self.assertIs(ImplementsLessThan(1).__gt__(1), NotImplemented)
+        self.assertIs(ImplementsLessThan(1).__ge__(1), NotImplemented)
+        self.assertIs(ImplementsLessThanEqualTo(1).__lt__(1), NotImplemented)
+        self.assertIs(ImplementsLessThanEqualTo(1).__gt__(1), NotImplemented)
+        self.assertIs(ImplementsLessThanEqualTo(1).__ge__(1), NotImplemented)
+        self.assertIs(ImplementsGreaterThan(1).__lt__(1), NotImplemented)
+        self.assertIs(ImplementsGreaterThan(1).__gt__(1), NotImplemented)
+        self.assertIs(ImplementsGreaterThan(1).__ge__(1), NotImplemented)
+        self.assertIs(ImplementsGreaterThanEqualTo(1).__lt__(1), NotImplemented)
+        self.assertIs(ImplementsGreaterThanEqualTo(1).__le__(1), NotImplemented)
+        self.assertIs(ImplementsGreaterThanEqualTo(1).__gt__(1), NotImplemented)
+
     def test_type_error_when_not_implemented(self):
         # bug 10042; ensure stack overflow does not occur
         # when decorated types return NotImplemented
@@ -1438,7 +1476,7 @@ class TestLRU:
 
     def test_lru_star_arg_handling(self):
         # Test regression that arose in ea064ff3c10f
-        @functools.lru_cache()
+        @self.module.lru_cache()
         def f(*args):
             return args
 
@@ -1450,11 +1488,11 @@ class TestLRU:
         # lru_cache was leaking when one of the arguments
         # wasn't cacheable.
 
-        @functools.lru_cache(maxsize=None)
+        @self.module.lru_cache(maxsize=None)
         def infinite_cache(o):
             pass
 
-        @functools.lru_cache(maxsize=10)
+        @self.module.lru_cache(maxsize=10)
         def limited_cache(o):
             pass
 
@@ -1519,6 +1557,33 @@ class TestLRU:
             self.assertEqual(square.cache_info().hits, 4)
             self.assertEqual(square.cache_info().misses, 4)
 
+    def test_lru_cache_typed_is_not_recursive(self):
+        cached = self.module.lru_cache(typed=True)(repr)
+
+        self.assertEqual(cached(1), '1')
+        self.assertEqual(cached(True), 'True')
+        self.assertEqual(cached(1.0), '1.0')
+        self.assertEqual(cached(0), '0')
+        self.assertEqual(cached(False), 'False')
+        self.assertEqual(cached(0.0), '0.0')
+
+        self.assertEqual(cached((1,)), '(1,)')
+        self.assertEqual(cached((True,)), '(1,)')
+        self.assertEqual(cached((1.0,)), '(1,)')
+        self.assertEqual(cached((0,)), '(0,)')
+        self.assertEqual(cached((False,)), '(0,)')
+        self.assertEqual(cached((0.0,)), '(0,)')
+
+        class T(tuple):
+            pass
+
+        self.assertEqual(cached(T((1,))), '(1,)')
+        self.assertEqual(cached(T((True,))), '(1,)')
+        self.assertEqual(cached(T((1.0,))), '(1,)')
+        self.assertEqual(cached(T((0,))), '(0,)')
+        self.assertEqual(cached(T((False,))), '(0,)')
+        self.assertEqual(cached(T((0.0,))), '(0,)')
+
     def test_lru_with_keyword_args(self):
         @self.module.lru_cache()
         def fib(n):
@@ -1567,6 +1632,7 @@ class TestLRU:
         for attr in self.module.WRAPPER_ASSIGNMENTS:
             self.assertEqual(getattr(g, attr), getattr(f, attr))
 
+    @threading_helper.requires_working_threading()
     def test_lru_cache_threaded(self):
         n, m = 5, 11
         def orig(x, y):
@@ -1615,6 +1681,7 @@ class TestLRU:
         finally:
             sys.setswitchinterval(orig_si)
 
+    @threading_helper.requires_working_threading()
     def test_lru_cache_threaded2(self):
         # Simultaneous call with the same arguments
         n, m = 5, 7
@@ -1642,6 +1709,7 @@ class TestLRU:
                 pause.reset()
                 self.assertEqual(f.cache_info(), (0, (i+1)*n, m*n, i+1))
 
+    @threading_helper.requires_working_threading()
     def test_lru_cache_threaded3(self):
         @self.module.lru_cache(maxsize=2)
         def f(x):
@@ -1807,9 +1875,9 @@ class TestLRUPy(TestLRU, unittest.TestCase):
         return 3 * x + y
 
 
-if c_functools:
-    @unittest.skipUnless(c_functools, 'requires the C _functools module')
-    class TestLRUC(TestLRU, unittest.TestCase):
+@unittest.skipUnless(c_functools, 'requires the C _functools module')
+class TestLRUC(TestLRU, unittest.TestCase):
+    if c_functools:
         module = c_functools
         cached_func = c_cached_func,
 
@@ -2536,7 +2604,10 @@ class TestSingleDispatch(unittest.TestCase):
             A().static_func
         ):
             with self.subTest(meth=meth):
-                self.assertEqual(meth.__doc__, 'My function docstring')
+                self.assertEqual(meth.__doc__,
+                                 ('My function docstring'
+                                  if support.HAVE_DOCSTRINGS
+                                  else None))
                 self.assertEqual(meth.__annotations__['arg'], int)
 
         self.assertEqual(A.func.__name__, 'func')
@@ -2625,7 +2696,10 @@ class TestSingleDispatch(unittest.TestCase):
             WithSingleDispatch().decorated_classmethod
         ):
             with self.subTest(meth=meth):
-                self.assertEqual(meth.__doc__, 'My function docstring')
+                self.assertEqual(meth.__doc__,
+                                 ('My function docstring'
+                                  if support.HAVE_DOCSTRINGS
+                                  else None))
                 self.assertEqual(meth.__annotations__['arg'], int)
 
         self.assertEqual(
@@ -2684,6 +2758,17 @@ class TestSingleDispatch(unittest.TestCase):
             'typing.Iterable[str] is not a class.'
         ))
 
+        with self.assertRaises(TypeError) as exc:
+            @i.register
+            def _(arg: typing.Union[int, typing.Iterable[str]]):
+                return "Invalid Union"
+        self.assertTrue(str(exc.exception).startswith(
+            "Invalid annotation for 'arg'."
+        ))
+        self.assertTrue(str(exc.exception).endswith(
+            'typing.Union[int, typing.Iterable[str]] not all arguments are classes.'
+        ))
+
     def test_invalid_positional_argument(self):
         @functools.singledispatch
         def f(*args):
@@ -2691,6 +2776,68 @@ class TestSingleDispatch(unittest.TestCase):
         msg = 'f requires at least 1 positional argument'
         with self.assertRaisesRegex(TypeError, msg):
             f()
+
+    def test_union(self):
+        @functools.singledispatch
+        def f(arg):
+            return "default"
+
+        @f.register
+        def _(arg: typing.Union[str, bytes]):
+            return "typing.Union"
+
+        @f.register
+        def _(arg: int | float):
+            return "types.UnionType"
+
+        self.assertEqual(f([]), "default")
+        self.assertEqual(f(""), "typing.Union")
+        self.assertEqual(f(b""), "typing.Union")
+        self.assertEqual(f(1), "types.UnionType")
+        self.assertEqual(f(1.0), "types.UnionType")
+
+    def test_union_conflict(self):
+        @functools.singledispatch
+        def f(arg):
+            return "default"
+
+        @f.register
+        def _(arg: typing.Union[str, bytes]):
+            return "typing.Union"
+
+        @f.register
+        def _(arg: int | str):
+            return "types.UnionType"
+
+        self.assertEqual(f([]), "default")
+        self.assertEqual(f(""), "types.UnionType")  # last one wins
+        self.assertEqual(f(b""), "typing.Union")
+        self.assertEqual(f(1), "types.UnionType")
+
+    def test_union_None(self):
+        @functools.singledispatch
+        def typing_union(arg):
+            return "default"
+
+        @typing_union.register
+        def _(arg: typing.Union[str, None]):
+            return "typing.Union"
+
+        self.assertEqual(typing_union(1), "default")
+        self.assertEqual(typing_union(""), "typing.Union")
+        self.assertEqual(typing_union(None), "typing.Union")
+
+        @functools.singledispatch
+        def types_union(arg):
+            return "default"
+
+        @types_union.register
+        def _(arg: int | None):
+            return "types.UnionType"
+
+        self.assertEqual(types_union(""), "default")
+        self.assertEqual(types_union(1), "types.UnionType")
+        self.assertEqual(types_union(None), "types.UnionType")
 
     def test_register_genericalias(self):
         @functools.singledispatch
@@ -2705,8 +2852,6 @@ class TestSingleDispatch(unittest.TestCase):
             f.register(list[int] | str, lambda arg: "types.UnionTypes(types.GenericAlias)")
         with self.assertRaisesRegex(TypeError, "Invalid first argument to "):
             f.register(typing.List[float] | bytes, lambda arg: "typing.Union[typing.GenericAlias]")
-        with self.assertRaisesRegex(TypeError, "Invalid first argument to "):
-            f.register(typing.Any, lambda arg: "typing.Any")
 
         self.assertEqual(f([1]), "default")
         self.assertEqual(f([1.0]), "default")
@@ -2726,8 +2871,6 @@ class TestSingleDispatch(unittest.TestCase):
             f.register(list[int] | str)
         with self.assertRaisesRegex(TypeError, "Invalid first argument to "):
             f.register(typing.List[int] | str)
-        with self.assertRaisesRegex(TypeError, "Invalid first argument to "):
-            f.register(typing.Any)
 
     def test_register_genericalias_annotation(self):
         @functools.singledispatch
@@ -2750,10 +2893,6 @@ class TestSingleDispatch(unittest.TestCase):
             @f.register
             def _(arg: typing.List[float] | bytes):
                 return "typing.Union[typing.GenericAlias]"
-        with self.assertRaisesRegex(TypeError, "Invalid annotation for 'arg'"):
-            @f.register
-            def _(arg: typing.Any):
-                return "typing.Any"
 
         self.assertEqual(f([1]), "default")
         self.assertEqual(f([1.0]), "default")
@@ -2825,6 +2964,7 @@ class TestCachedProperty(unittest.TestCase):
         self.assertEqual(item.get_cost(), 4)
         self.assertEqual(item.cached_cost, 3)
 
+    @threading_helper.requires_working_threading()
     def test_threaded(self):
         go = threading.Event()
         item = CachedCostItemWait(go)
@@ -2923,7 +3063,10 @@ class TestCachedProperty(unittest.TestCase):
         self.assertIsInstance(CachedCostItem.cost, py_functools.cached_property)
 
     def test_doc(self):
-        self.assertEqual(CachedCostItem.cost.__doc__, "The cost of the item.")
+        self.assertEqual(CachedCostItem.cost.__doc__,
+                         ("The cost of the item."
+                          if support.HAVE_DOCSTRINGS
+                          else None))
 
 
 if __name__ == '__main__':

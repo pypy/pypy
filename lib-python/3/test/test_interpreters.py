@@ -5,10 +5,9 @@ from textwrap import dedent
 import unittest
 import time
 
-try:
-    import _xxsubinterpreters as _interpreters
-except ModuleNotFoundError:
-    raise NotImplementedError("PyPy does not yet handle subinterpreters")
+from test import support
+from test.support import import_helper
+_interpreters = import_helper.import_module('_xxsubinterpreters')
 from test.support import interpreters
 
 
@@ -410,7 +409,7 @@ class TestInterpreterRun(TestBase):
 
         self.assertEqual(out, 'it worked!')
 
-    @unittest.skipUnless(hasattr(os, 'fork'), "test needs os.fork()")
+    @support.requires_fork()
     def test_fork(self):
         interp = interpreters.create()
         import tempfile
@@ -746,3 +745,7 @@ class TestSendRecv(TestBase):
         self.assertEqual(obj4, b'spam')
         self.assertEqual(obj5, b'eggs')
         self.assertIs(obj6, default)
+
+
+if __name__ == "__main__":
+    unittest.main()

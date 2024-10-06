@@ -17,6 +17,7 @@ import subprocess
 import sys
 import threading
 import time
+import types
 import errno
 import unittest
 from unittest import mock
@@ -30,6 +31,7 @@ from asyncio import coroutines
 from asyncio import events
 from asyncio import proactor_events
 from asyncio import selector_events
+from multiprocessing.util import _cleanup_tests as multiprocessing_cleanup_tests
 from test.test_asyncio import utils as test_utils
 from test import support
 from test.support import socket_helper
@@ -293,10 +295,11 @@ class EventLoopTestsMixin:
     # 15.6 msec, we use fairly long sleep times here (~100 msec).
 
     def test_run_until_complete(self):
+        delay = 0.100
         t0 = self.loop.time()
-        self.loop.run_until_complete(asyncio.sleep(0.1))
-        t1 = self.loop.time()
-        self.assertTrue(0.08 <= t1-t0 <= 0.8, t1-t0)
+        self.loop.run_until_complete(asyncio.sleep(delay))
+        dt = self.loop.time() - t0
+        self.assertGreaterEqual(dt, delay - test_utils.CLOCK_RES)
 
     def test_run_until_complete_stopped(self):
 
@@ -671,6 +674,7 @@ class EventLoopTestsMixin:
             self.assertEqual(port, expected)
             tr.close()
 
+    @socket_helper.skip_if_tcp_blackhole
     def test_create_connection_local_addr_skip_different_family(self):
         # See https://github.com/python/cpython/issues/86508
         port1 = socket_helper.find_unused_port()
@@ -692,6 +696,7 @@ class EventLoopTestsMixin:
         with self.assertRaises(OSError):
             self.loop.run_until_complete(f)
 
+    @socket_helper.skip_if_tcp_blackhole
     def test_create_connection_local_addr_nomatch_family(self):
         # See https://github.com/python/cpython/issues/86508
         port1 = socket_helper.find_unused_port()
@@ -778,14 +783,6 @@ class EventLoopTestsMixin:
 
     @unittest.skipIf(ssl is None, 'No ssl module')
     def test_ssl_connect_accepted_socket(self):
-        if (sys.platform == 'win32' and
-            sys.version_info < (3, 5) and
-            isinstance(self.loop, proactor_events.BaseProactorEventLoop)
-            ):
-            raise unittest.SkipTest(
-                'SSL not supported with proactor event loops before Python 3.5'
-                )
-
         server_context = test_utils.simple_server_sslcontext()
         client_context = test_utils.simple_client_sslcontext()
 
@@ -1256,6 +1253,7 @@ class EventLoopTestsMixin:
 
         server.close()
 
+    @socket_helper.skip_if_tcp_blackhole
     def test_server_close(self):
         f = self.loop.create_server(MyProto, '0.0.0.0', 0)
         server = self.loop.run_until_complete(f)
@@ -1354,6 +1352,80 @@ class EventLoopTestsMixin:
         self.assertIsInstance(pr, MyDatagramProto)
         tr.close()
         self.loop.run_until_complete(pr.done)
+
+    def test_datagram_send_to_non_listening_address(self):
+        # see:
+        #   https://github.com/python/cpython/issues/91227
+        #   https://github.com/python/cpython/issues/88906
+        #   https://bugs.python.org/issue47071
+        #   https://bugs.python.org/issue44743
+        # The Proactor event loop would fail to receive datagram messages after
+        # sending a message to an address that wasn't listening.
+        loop = self.loop
+
+        class Protocol(asyncio.DatagramProtocol):
+
+            _received_datagram = None
+
+            def datagram_received(self, data, addr):
+                self._received_datagram.set_result(data)
+
+            async def wait_for_datagram_received(self):
+                self._received_datagram = loop.create_future()
+                result = await asyncio.wait_for(self._received_datagram, 10)
+                self._received_datagram = None
+                return result
+
+        def create_socket():
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setblocking(False)
+            sock.bind(('127.0.0.1', 0))
+            return sock
+
+        socket_1 = create_socket()
+        transport_1, protocol_1 = loop.run_until_complete(
+            loop.create_datagram_endpoint(Protocol, sock=socket_1)
+        )
+        addr_1 = socket_1.getsockname()
+
+        socket_2 = create_socket()
+        transport_2, protocol_2 = loop.run_until_complete(
+            loop.create_datagram_endpoint(Protocol, sock=socket_2)
+        )
+        addr_2 = socket_2.getsockname()
+
+        # creating and immediately closing this to try to get an address that
+        # is not listening
+        socket_3 = create_socket()
+        transport_3, protocol_3 = loop.run_until_complete(
+            loop.create_datagram_endpoint(Protocol, sock=socket_3)
+        )
+        addr_3 = socket_3.getsockname()
+        transport_3.abort()
+
+        transport_1.sendto(b'a', addr=addr_2)
+        self.assertEqual(loop.run_until_complete(
+            protocol_2.wait_for_datagram_received()
+        ), b'a')
+
+        transport_2.sendto(b'b', addr=addr_1)
+        self.assertEqual(loop.run_until_complete(
+            protocol_1.wait_for_datagram_received()
+        ), b'b')
+
+        # this should send to an address that isn't listening
+        transport_1.sendto(b'c', addr=addr_3)
+        loop.run_until_complete(asyncio.sleep(0))
+
+        # transport 1 should still be able to receive messages after sending to
+        # an address that wasn't listening
+        transport_2.sendto(b'd', addr=addr_1)
+        self.assertEqual(loop.run_until_complete(
+            protocol_1.wait_for_datagram_received()
+        ), b'd')
+
+        transport_1.close()
+        transport_2.close()
 
     def test_internal_fds(self):
         loop = self.create_event_loop()
@@ -1674,12 +1746,9 @@ class EventLoopTestsMixin:
                 self.loop.stop()
             return res
 
-        start = time.monotonic()
         t = self.loop.create_task(main())
         self.loop.run_forever()
-        elapsed = time.monotonic() - start
 
-        self.assertLess(elapsed, 0.1)
         self.assertEqual(t.result(), 'cancelled')
         self.assertRaises(asyncio.CancelledError, f.result)
         if ov is not None:
@@ -1699,7 +1768,6 @@ class EventLoopTestsMixin:
         self.loop._run_once = _run_once
 
         async def wait():
-            loop = self.loop
             await asyncio.sleep(1e-2)
             await asyncio.sleep(1e-4)
             await asyncio.sleep(1e-6)
@@ -2226,8 +2294,7 @@ class HandleTests(test_utils.TestCase):
                         '<Handle cancelled>')
 
         # decorated function
-        with self.assertWarns(DeprecationWarning):
-            cb = asyncio.coroutine(noop)
+        cb = types.coroutine(noop)
         h = asyncio.Handle(cb, (), self.loop)
         self.assertEqual(repr(h),
                         '<Handle noop() at %s:%s>'
@@ -2248,17 +2315,15 @@ class HandleTests(test_utils.TestCase):
         self.assertRegex(repr(h), regex)
 
         # partial method
-        if sys.version_info >= (3, 4):
-            method = HandleTests.test_handle_repr
-            cb = functools.partialmethod(method)
-            filename, lineno = test_utils.get_function_source(method)
-            h = asyncio.Handle(cb, (), self.loop)
+        method = HandleTests.test_handle_repr
+        cb = functools.partialmethod(method)
+        filename, lineno = test_utils.get_function_source(method)
+        h = asyncio.Handle(cb, (), self.loop)
 
-            cb_regex = r'<function HandleTests.test_handle_repr .*>'
-            cb_regex = (r'functools.partialmethod\(%s, , \)\(\)' % cb_regex)
-            regex = (r'^<Handle %s at %s:%s>$'
-                     % (cb_regex, re.escape(filename), lineno))
-            self.assertRegex(repr(h), regex)
+        cb_regex = r'<function HandleTests.test_handle_repr .*>'
+        cb_regex = fr'functools.partialmethod\({cb_regex}, , \)\(\)'
+        regex = fr'^<Handle {cb_regex} at {re.escape(filename)}:{lineno}>$'
+        self.assertRegex(repr(h), regex)
 
     def test_handle_repr_debug(self):
         self.loop.get_debug.return_value = True
@@ -2384,10 +2449,6 @@ class TimerTests(unittest.TestCase):
         self.assertIsNone(h._callback)
         self.assertIsNone(h._args)
 
-        # when cannot be None
-        self.assertRaises(AssertionError,
-                          asyncio.TimerHandle, None, callback, args,
-                          self.loop)
 
     def test_timer_repr(self):
         self.loop.get_debug.return_value = False
@@ -2655,7 +2716,7 @@ class PolicyTests(unittest.TestCase):
         old_loop = policy.new_event_loop()
         policy.set_event_loop(old_loop)
 
-        self.assertRaises(AssertionError, policy.set_event_loop, object())
+        self.assertRaises(TypeError, policy.set_event_loop, object())
 
         loop = policy.new_event_loop()
         policy.set_event_loop(loop)
@@ -2671,7 +2732,7 @@ class PolicyTests(unittest.TestCase):
 
     def test_set_event_loop_policy(self):
         self.assertRaises(
-            AssertionError, asyncio.set_event_loop_policy, object())
+            TypeError, asyncio.set_event_loop_policy, object())
 
         old_policy = asyncio.get_event_loop_policy()
 
@@ -2741,6 +2802,8 @@ class GetEventLoopTestsMixin:
             # ProcessPoolExecutor is not functional when the
             # multiprocessing.synchronize module cannot be imported.
             support.skip_if_broken_multiprocessing_synchronize()
+
+            self.addCleanup(multiprocessing_cleanup_tests)
 
             async def main():
                 pool = concurrent.futures.ProcessPoolExecutor()

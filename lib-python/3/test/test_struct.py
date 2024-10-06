@@ -542,16 +542,16 @@ class StructTest(unittest.TestCase):
         self.assertRaises(struct.error, struct.pack, 'c12345', 'x')
         self.assertRaises(struct.error, struct.unpack, 'c12345', b'x')
         self.assertRaises(struct.error, struct.pack_into, 'c12345', store, 0,
-                           b'x')
+                           'x')
         self.assertRaises(struct.error, struct.unpack_from, 'c12345', store,
                            0)
 
         # Mixed format tests
-        self.assertRaises(struct.error, struct.pack, '14s42', b'spam and eggs')
+        self.assertRaises(struct.error, struct.pack, '14s42', 'spam and eggs')
         self.assertRaises(struct.error, struct.unpack, '14s42',
                           b'spam and eggs')
         self.assertRaises(struct.error, struct.pack_into, '14s42', store, 0,
-                          b'spam and eggs')
+                          'spam and eggs')
         self.assertRaises(struct.error, struct.unpack_from, '14s42', store, 0)
 
     def test_Struct_reinitialization(self):
@@ -708,6 +708,24 @@ class StructTest(unittest.TestCase):
             with self.assertRaisesRegex(struct.error,
                                         'embedded null character'):
                 struct.calcsize(s)
+
+    @support.cpython_only
+    def test_issue45034_unsigned(self):
+        _testcapi = import_helper.import_module('_testcapi')
+        error_msg = f'ushort format requires 0 <= number <= {_testcapi.USHRT_MAX}'
+        with self.assertRaisesRegex(struct.error, error_msg):
+            struct.pack('H', 70000)  # too large
+        with self.assertRaisesRegex(struct.error, error_msg):
+            struct.pack('H', -1)  # too small
+
+    @support.cpython_only
+    def test_issue45034_signed(self):
+        _testcapi = import_helper.import_module('_testcapi')
+        error_msg = f'short format requires {_testcapi.SHRT_MIN} <= number <= {_testcapi.SHRT_MAX}'
+        with self.assertRaisesRegex(struct.error, error_msg):
+            struct.pack('h', 70000)  # too large
+        with self.assertRaisesRegex(struct.error, error_msg):
+            struct.pack('h', -70000)  # too small
 
 
 class UnpackIteratorTest(unittest.TestCase):

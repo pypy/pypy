@@ -226,6 +226,72 @@ class MockTest(unittest.TestCase):
             with self.assertRaisesRegex(InvalidSpecError,
                                         "Cannot spec attr 'B' as the spec_set "):
                 mock.patch.object(A, 'B', spec_set=A.B).start()
+            with self.assertRaisesRegex(InvalidSpecError,
+                                        "Cannot spec attr 'B' as the spec_set "):
+                mock.patch.object(A, 'B', spec_set=A.B).start()
+            with self.assertRaisesRegex(InvalidSpecError, "Cannot spec a Mock object."):
+                mock.Mock(A.B)
+            with mock.patch('builtins.open', mock.mock_open()):
+                mock.mock_open()  # should still be valid with open() mocked
+
+    def test_create_autospec_wraps_class(self):
+        """Autospec a class with wraps & test if the call is passed to the
+        wrapped object."""
+        result = "real result"
+
+        class Result:
+            def get_result(self):
+                return result
+        class_mock = create_autospec(spec=Result, wraps=Result)
+        # Have to reassign the return_value to DEFAULT to return the real
+        # result (actual instance of "Result") when the mock is called.
+        class_mock.return_value = mock.DEFAULT
+        self.assertEqual(class_mock().get_result(), result)
+        # Autospec should also wrap child attributes of parent.
+        self.assertEqual(class_mock.get_result._mock_wraps, Result.get_result)
+
+    def test_create_autospec_instance_wraps_class(self):
+        """Autospec a class instance with wraps & test if the call is passed
+        to the wrapped object."""
+        result = "real result"
+
+        class Result:
+            @staticmethod
+            def get_result():
+                """This is a static method because when the mocked instance of
+                'Result' will call this method, it won't be able to consume
+                'self' argument."""
+                return result
+        instance_mock = create_autospec(spec=Result, instance=True, wraps=Result)
+        # Have to reassign the return_value to DEFAULT to return the real
+        # result from "Result.get_result" when the mocked instance of "Result"
+        # calls "get_result".
+        instance_mock.get_result.return_value = mock.DEFAULT
+        self.assertEqual(instance_mock.get_result(), result)
+        # Autospec should also wrap child attributes of the instance.
+        self.assertEqual(instance_mock.get_result._mock_wraps, Result.get_result)
+
+    def test_create_autospec_wraps_function_type(self):
+        """Autospec a function or a method with wraps & test if the call is
+        passed to the wrapped object."""
+        result = "real result"
+
+        class Result:
+            def get_result(self):
+                return result
+        func_mock = create_autospec(spec=Result.get_result, wraps=Result.get_result)
+        self.assertEqual(func_mock(Result()), result)
+
+    def test_explicit_return_value_even_if_mock_wraps_object(self):
+        """If the mock has an explicit return_value set then calls are not
+        passed to the wrapped object and the return_value is returned instead.
+        """
+        def my_func():
+            return None
+        func_mock = create_autospec(spec=my_func, wraps=my_func)
+        return_value = "explicit return value"
+        func_mock.return_value = return_value
+        self.assertEqual(func_mock(), return_value)
 
     def test_reset_mock(self):
         parent = Mock()
@@ -595,6 +661,14 @@ class MockTest(unittest.TestCase):
         real = Mock()
 
         mock = Mock(wraps=real)
+        # If "Mock" wraps an object, just accessing its
+        # "return_value" ("NonCallableMock.__get_return_value") should not
+        # trigger its descriptor ("NonCallableMock.__set_return_value") so
+        # the default "return_value" should always be "sentinel.DEFAULT".
+        self.assertEqual(mock.return_value, DEFAULT)
+        # It will not be "sentinel.DEFAULT" if the mock is not wrapping any
+        # object.
+        self.assertNotEqual(real.return_value, DEFAULT)
         self.assertEqual(mock(), real())
 
         real.reset_mock()
@@ -901,8 +975,7 @@ class MockTest(unittest.TestCase):
         self.addCleanup(sys.setrecursionlimit, current)
 
         # can't use sys.maxint as this doesn't exist in Python 3
-        # changed from 10e8 to 10e6 on PyPY, 10e8 causes a MemoryError
-        sys.setrecursionlimit(int(10e6))
+        sys.setrecursionlimit(int(10e8))
         # this segfaults without the fix in place
         copy.copy(Mock())
 
@@ -1032,7 +1105,7 @@ class MockTest(unittest.TestCase):
 
         actual = 'not called.'
         expected = "mock(1, '2', 3, bar='foo')"
-        message = 'expected call not found.\nExpected: %s\nActual: %s'
+        message = 'expected call not found.\nExpected: %s\n  Actual: %s'
         self.assertRaisesWithMsg(
             AssertionError, message % (expected, actual),
             mock.assert_called_with, 1, '2', 3, bar='foo'
@@ -1047,7 +1120,7 @@ class MockTest(unittest.TestCase):
         for meth in asserters:
             actual = "foo(1, '2', 3, foo='foo')"
             expected = "foo(1, '2', 3, bar='foo')"
-            message = 'expected call not found.\nExpected: %s\nActual: %s'
+            message = 'expected call not found.\nExpected: %s\n  Actual: %s'
             self.assertRaisesWithMsg(
                 AssertionError, message % (expected, actual),
                 meth, 1, '2', 3, bar='foo'
@@ -1057,7 +1130,7 @@ class MockTest(unittest.TestCase):
         for meth in asserters:
             actual = "foo(1, '2', 3, foo='foo')"
             expected = "foo(bar='foo')"
-            message = 'expected call not found.\nExpected: %s\nActual: %s'
+            message = 'expected call not found.\nExpected: %s\n  Actual: %s'
             self.assertRaisesWithMsg(
                 AssertionError, message % (expected, actual),
                 meth, bar='foo'
@@ -1067,7 +1140,7 @@ class MockTest(unittest.TestCase):
         for meth in asserters:
             actual = "foo(1, '2', 3, foo='foo')"
             expected = "foo(1, 2, 3)"
-            message = 'expected call not found.\nExpected: %s\nActual: %s'
+            message = 'expected call not found.\nExpected: %s\n  Actual: %s'
             self.assertRaisesWithMsg(
                 AssertionError, message % (expected, actual),
                 meth, 1, 2, 3
@@ -1077,7 +1150,7 @@ class MockTest(unittest.TestCase):
         for meth in asserters:
             actual = "foo(1, '2', 3, foo='foo')"
             expected = "foo()"
-            message = 'expected call not found.\nExpected: %s\nActual: %s'
+            message = 'expected call not found.\nExpected: %s\n  Actual: %s'
             self.assertRaisesWithMsg(
                 AssertionError, message % (expected, actual), meth
             )
@@ -1526,7 +1599,7 @@ class MockTest(unittest.TestCase):
                 '^{}$'.format(
                     re.escape('Calls not found.\n'
                               'Expected: [call()]\n'
-                              'Actual: [call(1)]'))) as cm:
+                              '  Actual: [call(1)]'))) as cm:
             mock.assert_has_calls([call()])
         self.assertIsNone(cm.exception.__cause__)
 
@@ -1538,7 +1611,7 @@ class MockTest(unittest.TestCase):
                         'Error processing expected calls.\n'
                         "Errors: [None, TypeError('too many positional arguments')]\n"
                         "Expected: [call(), call(1, 2)]\n"
-                        'Actual: [call(1)]'))) as cm:
+                        '  Actual: [call(1)]'))) as cm:
             mock.assert_has_calls([call(), call(1, 2)])
         self.assertIsInstance(cm.exception.__cause__, TypeError)
 

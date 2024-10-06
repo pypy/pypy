@@ -2,7 +2,6 @@ import sys, unittest, struct, math, ctypes
 from binascii import hexlify
 
 from ctypes import *
-from test.support import impl_detail
 
 def bin(s):
     return hexlify(memoryview(s)).decode().upper()
@@ -15,14 +14,6 @@ def bin(s):
 # For Structures and Unions, these types are created on demand.
 
 class Test(unittest.TestCase):
-    @unittest.skip('test disabled')
-    def test_X(self):
-        print(sys.byteorder, file=sys.stderr)
-        for i in range(32):
-            bits = BITS()
-            setattr(bits, "i%s" % i, 1)
-            dump(bits)
-
     @impl_detail("slots are irrelevant on PyPy", pypy=False)
     def test_slots(self):
         class BigPoint(BigEndianStructure):
@@ -172,40 +163,34 @@ class Test(unittest.TestCase):
         self.assertIs(c_char.__ctype_le__, c_char)
         self.assertIs(c_char.__ctype_be__, c_char)
 
-    def test_struct_fields_1(self):
-        if sys.byteorder == "little":
-            base = BigEndianStructure
-        else:
-            base = LittleEndianStructure
+    def test_struct_fields_unsupported_byte_order(self):
 
-        class T(base):
-            pass
-        _fields_ = [("a", c_ubyte),
-                    ("b", c_byte),
-                    ("c", c_short),
-                    ("d", c_ushort),
-                    ("e", c_int),
-                    ("f", c_uint),
-                    ("g", c_long),
-                    ("h", c_ulong),
-                    ("i", c_longlong),
-                    ("k", c_ulonglong),
-                    ("l", c_float),
-                    ("m", c_double),
-                    ("n", c_char),
-
-                    ("b1", c_byte, 3),
-                    ("b2", c_byte, 3),
-                    ("b3", c_byte, 2),
-                    ("a", c_int * 3 * 3 * 3)]
-        T._fields_ = _fields_
+        fields = [
+            ("a", c_ubyte),
+            ("b", c_byte),
+            ("c", c_short),
+            ("d", c_ushort),
+            ("e", c_int),
+            ("f", c_uint),
+            ("g", c_long),
+            ("h", c_ulong),
+            ("i", c_longlong),
+            ("k", c_ulonglong),
+            ("l", c_float),
+            ("m", c_double),
+            ("n", c_char),
+            ("b1", c_byte, 3),
+            ("b2", c_byte, 3),
+            ("b3", c_byte, 2),
+            ("a", c_int * 3 * 3 * 3)
+        ]
 
         # these fields do not support different byte order:
         for typ in c_wchar, c_void_p, POINTER(c_int):
-            _fields_.append(("x", typ))
-            class T(base):
-                pass
-            self.assertRaises(TypeError, setattr, T, "_fields_", [("x", typ)])
+            with self.assertRaises(TypeError):
+                class T(BigEndianStructure if sys.byteorder == "little" else LittleEndianStructure):
+                    _fields_ = fields + [("x", typ)]
+
 
     def test_struct_struct(self):
         # nested structures with different byteorders
@@ -235,7 +220,7 @@ class Test(unittest.TestCase):
                 self.assertEqual(s.point.x, 1)
                 self.assertEqual(s.point.y, 2)
 
-    def test_struct_fields_2(self):
+    def test_struct_field_alignment(self):
         # standard packing in struct uses no alignment.
         # So, we have to align using pad bytes.
         #
@@ -269,7 +254,6 @@ class Test(unittest.TestCase):
         class S(base):
             _pack_ = 1
             _fields_ = [("b", c_byte),
-
                         ("h", c_short),
 
                         ("_1", c_byte),
@@ -312,6 +296,81 @@ class Test(unittest.TestCase):
         s1.d = 3.14
         s2 = struct.pack(fmt, 0x12, 0x1234, 0x12345678, 3.14)
         self.assertEqual(bin(s1), bin(s2))
+
+    def test_union_fields_unsupported_byte_order(self):
+
+        fields = [
+            ("a", c_ubyte),
+            ("b", c_byte),
+            ("c", c_short),
+            ("d", c_ushort),
+            ("e", c_int),
+            ("f", c_uint),
+            ("g", c_long),
+            ("h", c_ulong),
+            ("i", c_longlong),
+            ("k", c_ulonglong),
+            ("l", c_float),
+            ("m", c_double),
+            ("n", c_char),
+            ("b1", c_byte, 3),
+            ("b2", c_byte, 3),
+            ("b3", c_byte, 2),
+            ("a", c_int * 3 * 3 * 3)
+        ]
+
+        # these fields do not support different byte order:
+        for typ in c_wchar, c_void_p, POINTER(c_int):
+            with self.assertRaises(TypeError):
+                class T(BigEndianUnion if sys.byteorder == "little" else LittleEndianUnion):
+                    _fields_ = fields + [("x", typ)]
+
+    def test_union_struct(self):
+        # nested structures in unions with different byteorders
+
+        # create nested structures in unions with given byteorders and set memory to data
+
+        for nested, data in (
+            (BigEndianStructure, b'\0\0\0\1\0\0\0\2'),
+            (LittleEndianStructure, b'\1\0\0\0\2\0\0\0'),
+        ):
+            for parent in (
+                BigEndianUnion,
+                LittleEndianUnion,
+                Union,
+            ):
+                class NestedStructure(nested):
+                    _fields_ = [("x", c_uint32),
+                                ("y", c_uint32)]
+
+                class TestUnion(parent):
+                    _fields_ = [("point", NestedStructure)]
+
+                self.assertEqual(len(data), sizeof(TestUnion))
+                ptr = POINTER(TestUnion)
+                s = cast(data, ptr)[0]
+                del ctypes._pointer_type_cache[TestUnion]
+                self.assertEqual(s.point.x, 1)
+                self.assertEqual(s.point.y, 2)
+
+    def test_build_struct_union_opposite_system_byteorder(self):
+        # gh-105102
+        if sys.byteorder == "little":
+            _Structure = BigEndianStructure
+            _Union = BigEndianUnion
+        else:
+            _Structure = LittleEndianStructure
+            _Union = LittleEndianUnion
+
+        class S1(_Structure):
+            _fields_ = [("a", c_byte), ("b", c_byte)]
+
+        class U1(_Union):
+            _fields_ = [("s1", S1), ("ab", c_short)]
+
+        class S2(_Structure):
+            _fields_ = [("u1", U1), ("c", c_byte)]
+
 
 if __name__ == "__main__":
     unittest.main()

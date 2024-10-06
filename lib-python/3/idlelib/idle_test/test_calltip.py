@@ -7,6 +7,7 @@ import textwrap
 import types
 import re
 from idlelib.idle_test.mock_tk import Text
+from test.support import MISSING_C_DOCSTRINGS
 
 
 # Test Class TC is used in multiple get_argspec test methods
@@ -50,6 +51,8 @@ class Get_argspecTest(unittest.TestCase):
     # but a red buildbot is better than a user crash (as has happened).
     # For a simple mismatch, change the expected output to the actual.
 
+    @unittest.skipIf(MISSING_C_DOCSTRINGS,
+                     "Signature information for builtins requires docstrings")
     def test_builtins(self):
 
         def tiptest(obj, out):
@@ -66,18 +69,21 @@ class Get_argspecTest(unittest.TestCase):
                     f'(iterable=(), /)'
                     f'\n{List.__doc__}')
         tiptest(list.__new__,
-              '(listtype, *args, **keywords)\n'
+              '(*args, **kwargs)\n'
               'Create and return a new object.  '
               'See help(type) for accurate signature.')
         tiptest(list.__init__,
-              '(self, iterable=<no value>, /)\n'
+              '(self, /, *args, **kwargs)\n'
               'Initialize self.  See help(type(self)) for accurate signature.')
         append_doc = "\nAppend object to the end of the list."
-        tiptest(list.append, '(self, item)' + append_doc)
-        tiptest(List.append, '(self, item)' + append_doc)
-        tiptest([].append, '(item)' + append_doc)
+        tiptest(list.append, '(self, object, /)' + append_doc)
+        tiptest(List.append, '(self, object, /)' + append_doc)
+        tiptest([].append, '(object, /)' + append_doc)
+        # The use of 'object' above matches the signature text.
 
-        tiptest(types.MethodType, "instancemethod(function, instance, class)")
+        tiptest(types.MethodType,
+              '(function, instance, /)\n'
+              'Create a bound instance method object.')
         tiptest(SB(), default_tip)
 
         p = re.compile('')
@@ -141,6 +147,8 @@ you\'ll probably have to override _wrap_chunks().''')
         f.__doc__ = 'a'*300
         self.assertEqual(get_spec(f), f"()\n{'a'*(calltip._MAX_COLS-3) + '...'}")
 
+    @unittest.skipIf(MISSING_C_DOCSTRINGS,
+                     "Signature information for builtins requires docstrings")
     def test_multiline_docstring(self):
         # Test fewer lines than max.
         self.assertEqual(get_spec(range),
@@ -155,6 +163,7 @@ bytes(bytes_or_buffer) -> immutable copy of bytes_or_buffer
 bytes(int) -> bytes object of size given by the parameter initialized with null bytes
 bytes() -> empty bytes object''')
 
+    def test_multiline_docstring_2(self):
         # Test more than max lines
         def f(): pass
         f.__doc__ = 'a\n' * 15

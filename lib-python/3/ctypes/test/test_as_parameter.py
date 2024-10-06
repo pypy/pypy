@@ -122,6 +122,7 @@ class BasicWrapTestCase(unittest.TestCase):
         result = f(self.wrap(-10), self.wrap(cb))
         self.assertEqual(result, -18)
 
+    @need_symbol('c_longlong')
     def test_longlong_callbacks(self):
 
         f = dll._testfunc_callback_q_qf
@@ -193,7 +194,7 @@ class BasicWrapTestCase(unittest.TestCase):
     def test_recursive_as_param(self):
         from ctypes import c_int
 
-        class A(object):
+        class A:
             pass
 
         a = A()
@@ -204,7 +205,7 @@ class BasicWrapTestCase(unittest.TestCase):
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-class AsParamWrapper(object):
+class AsParamWrapper:
     def __init__(self, param):
         self._as_parameter_ = param
 
@@ -213,7 +214,7 @@ class AsParamWrapperTestCase(BasicWrapTestCase):
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-class AsParamPropertyWrapper(object):
+class AsParamPropertyWrapper:
     def __init__(self, param):
         self._param = param
 
@@ -225,6 +226,17 @@ class AsParamPropertyWrapperTestCase(BasicWrapTestCase):
     wrap = AsParamPropertyWrapper
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+class AsParamNestedWrapperTestCase(BasicWrapTestCase):
+    """Test that _as_parameter_ is evaluated recursively.
+
+    The _as_parameter_ attribute can be another object which
+    defines its own _as_parameter_ attribute.
+    """
+
+    def wrap(self, param):
+        return AsParamWrapper(AsParamWrapper(AsParamWrapper(param)))
+
 
 if __name__ == '__main__':
     unittest.main()

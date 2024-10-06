@@ -1,5 +1,6 @@
 import gc
 import sys
+import doctest
 import unittest
 import collections
 import weakref
@@ -13,6 +14,7 @@ import random
 from test import support
 from test.support import script_helper, ALWAYS_EQ
 from test.support import gc_collect
+from test.support import threading_helper
 
 # Used in ReferencesTestCase.test_ref_created_during_del() .
 ref_from_del = None
@@ -77,7 +79,7 @@ class TestBase(unittest.TestCase):
 
 
 @contextlib.contextmanager
-def collect_in_thread(period=0.001):
+def collect_in_thread(period=0.0001):
     """
     Ensure GC collections happen in a different thread, at a high frequency.
     """
@@ -113,6 +115,17 @@ class ReferencesTestCase(TestBase):
         # Dead reference:
         del o
         repr(wr)
+
+    def test_repr_failure_gh99184(self):
+        class MyConfig(dict):
+            def __getattr__(self, x):
+                return self[x]
+
+        obj = MyConfig(offset=5)
+        obj_weakref = weakref.ref(obj)
+
+        self.assertIn('MyConfig', repr(obj_weakref))
+        self.assertIn('MyConfig', str(obj_weakref))
 
     def test_basic_callback(self):
         self.check_basic_callback(C)
@@ -444,7 +457,8 @@ class ReferencesTestCase(TestBase):
                 return weakref.proxy(not_an_iterator)
         a = A()
 
-        with self.assertRaises(TypeError):
+        msg = "Weakref proxy referenced a non-iterator"
+        with self.assertRaisesRegex(TypeError, msg):
             list(a)
 
     def test_proxy_reversed(self):
@@ -1829,6 +1843,7 @@ class MappingTestCase(TestBase):
         dict = weakref.WeakKeyDictionary()
         self.assertRegex(repr(dict), '<WeakKeyDictionary at 0x.*>')
 
+    @threading_helper.requires_working_threading()
     def test_threaded_weak_valued_setdefault(self):
         d = weakref.WeakValueDictionary()
         with collect_in_thread():
@@ -1837,6 +1852,7 @@ class MappingTestCase(TestBase):
                 self.assertIsNot(x, None)  # we never put None in there!
                 del x
 
+    @threading_helper.requires_working_threading()
     def test_threaded_weak_valued_pop(self):
         d = weakref.WeakValueDictionary()
         with collect_in_thread():
@@ -1845,6 +1861,7 @@ class MappingTestCase(TestBase):
                 x = d.pop(10, 10)
                 self.assertIsNot(x, None)  # we never put None in there!
 
+    @threading_helper.requires_working_threading()
     def test_threaded_weak_valued_consistency(self):
         # Issue #28427: old keys should not remove new values from
         # WeakValueDictionary when collecting from another thread.
@@ -1918,21 +1935,27 @@ class MappingTestCase(TestBase):
         if exc:
             raise exc[0]
 
+    @threading_helper.requires_working_threading()
     def test_threaded_weak_key_dict_copy(self):
         # Issue #35615: Weakref keys or values getting GC'ed during dict
         # copying should not result in a crash.
         self.check_threaded_weak_dict_copy(weakref.WeakKeyDictionary, False)
 
+    @threading_helper.requires_working_threading()
+    @support.requires_resource('cpu')
     def test_threaded_weak_key_dict_deepcopy(self):
         # Issue #35615: Weakref keys or values getting GC'ed during dict
         # copying should not result in a crash.
         self.check_threaded_weak_dict_copy(weakref.WeakKeyDictionary, True)
 
+    @threading_helper.requires_working_threading()
     def test_threaded_weak_value_dict_copy(self):
         # Issue #35615: Weakref keys or values getting GC'ed during dict
         # copying should not result in a crash.
         self.check_threaded_weak_dict_copy(weakref.WeakValueDictionary, False)
 
+    @threading_helper.requires_working_threading()
+    @support.requires_resource('cpu')
     def test_threaded_weak_value_dict_deepcopy(self):
         # Issue #35615: Weakref keys or values getting GC'ed during dict
         # copying should not result in a crash.
@@ -2223,18 +2246,10 @@ OK
 
 __test__ = {'libreftest' : libreftest}
 
-def test_main():
-    support.run_unittest(
-        ReferencesTestCase,
-        WeakMethodTestCase,
-        MappingTestCase,
-        WeakValueDictionaryTestCase,
-        WeakKeyDictionaryTestCase,
-        SubclassableWeakrefTestCase,
-        FinalizeTestCase,
-        )
-    support.run_doctest(sys.modules[__name__])
+def load_tests(loader, tests, pattern):
+    tests.addTest(doctest.DocTestSuite())
+    return tests
 
 
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

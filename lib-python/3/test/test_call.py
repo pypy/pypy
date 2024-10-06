@@ -1,4 +1,3 @@
-import sys
 import unittest
 from test.support import cpython_only
 try:
@@ -35,6 +34,18 @@ class FunctionCalls(unittest.TestCase):
         self.assertIsInstance(res, dict)
         self.assertEqual(list(res.items()), expected)
 
+    def test_frames_are_popped_after_failed_calls(self):
+        # GH-93252: stuff blows up if we don't pop the new frame after
+        # recovering from failed calls:
+        def f():
+            pass
+        for _ in range(1000):
+            try:
+                f(None)
+            except TypeError:
+                pass
+        # BOOM!
+
 
 @cpython_only
 class CFunctionCallsErrorMessages(unittest.TestCase):
@@ -48,7 +59,7 @@ class CFunctionCallsErrorMessages(unittest.TestCase):
         self.assertRaisesRegex(TypeError, msg, {}.__contains__, 0, 1)
 
     def test_varargs3(self):
-        msg = r"^from_bytes\(\) takes exactly 2 positional arguments \(3 given\)"
+        msg = r"^from_bytes\(\) takes at most 2 positional arguments \(3 given\)"
         self.assertRaisesRegex(TypeError, msg, int.from_bytes, b'a', 'little', False)
 
     def test_varargs1min(self):
@@ -138,7 +149,7 @@ class CFunctionCallsErrorMessages(unittest.TestCase):
                                min, 0, default=1, key=2, foo=3)
 
     def test_varargs17_kw(self):
-        msg = r"^print\(\) takes at most 4 keyword arguments \(5 given\)$"
+        msg = r"'foo' is an invalid keyword argument for print\(\)$"
         self.assertRaisesRegex(TypeError, msg,
                                print, 0, sep=1, end=2, file=3, flush=4, foo=5)
 
@@ -570,7 +581,6 @@ def testfunction_kw(self, *, kw):
 
 class TestPEP590(unittest.TestCase):
 
-    @cpython_only
     def test_method_descriptor_flag(self):
         import functools
         cached = functools.lru_cache(1)(testfunction)
@@ -585,7 +595,7 @@ class TestPEP590(unittest.TestCase):
         self.assertTrue(_testcapi.MethodDescriptorDerived.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
         self.assertFalse(_testcapi.MethodDescriptorNopGet.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
 
-        # Heap type should not inherit Py_TPFLAGS_METHOD_DESCRIPTOR
+        # Mutable heap types should not inherit Py_TPFLAGS_METHOD_DESCRIPTOR
         class MethodDescriptorHeap(_testcapi.MethodDescriptorBase):
             pass
         self.assertFalse(MethodDescriptorHeap.__flags__ & Py_TPFLAGS_METHOD_DESCRIPTOR)
@@ -596,7 +606,7 @@ class TestPEP590(unittest.TestCase):
         self.assertFalse(_testcapi.MethodDescriptorNopGet.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL)
         self.assertTrue(_testcapi.MethodDescriptor2.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL)
 
-        # Heap type should not inherit Py_TPFLAGS_HAVE_VECTORCALL
+        # Mutable heap types should not inherit Py_TPFLAGS_HAVE_VECTORCALL
         class MethodDescriptorHeap(_testcapi.MethodDescriptorBase):
             pass
         self.assertFalse(MethodDescriptorHeap.__flags__ & Py_TPFLAGS_HAVE_VECTORCALL)
@@ -609,11 +619,7 @@ class TestPEP590(unittest.TestCase):
         # additionally that no new tuple is created for this call.
         args = tuple(range(5))
         f = _testcapi.MethodDescriptorNopGet()
-        if sys.implementation.name == 'pypy':
-            # processing via cpyext creates a new tuple
-            self.assertEqual(f(*args), args)
-        else:
-            self.assertIs(f(*args), args)
+        self.assertIs(f(*args), args)
 
     def test_vectorcall(self):
         # Test a bunch of different ways to call objects:
@@ -704,6 +710,7 @@ class A:
     def positional_only(arg, /):
         pass
 
+@cpython_only
 class TestErrorMessagesUseQualifiedName(unittest.TestCase):
 
     @contextlib.contextmanager
@@ -722,7 +729,6 @@ class TestErrorMessagesUseQualifiedName(unittest.TestCase):
         with self.check_raises_type_error(msg):
             A.static_no_args("oops it's an arg")
 
-    @cpython_only
     def test_positional_only_passed_as_keyword(self):
         msg = "A.positional_only() got some positional-only arguments passed as keyword arguments: 'arg'"
         with self.check_raises_type_error(msg):

@@ -1,5 +1,4 @@
 import builtins
-import contextlib
 import errno
 import glob
 import importlib.util
@@ -17,13 +16,17 @@ import threading
 import time
 import unittest
 from unittest import mock
+import _imp
 
 from test.support import os_helper
-from test.support import (is_jython, swap_attr, swap_item, cpython_only)
+from test.support import (
+    STDLIB_DIR, is_jython, swap_attr, swap_item, cpython_only, is_emscripten,
+    is_wasi)
 from test.support.import_helper import (
-    forget, make_legacy_pyc, unlink, unload, DirsOnSysPath)
+    forget, make_legacy_pyc, unlink, unload, ready_to_import,
+    DirsOnSysPath, CleanImport)
 from test.support.os_helper import (
-    TESTFN, rmtree, temp_umask, TESTFN_UNENCODABLE, temp_dir)
+    TESTFN, rmtree, temp_umask, TESTFN_UNENCODABLE)
 from test.support import script_helper
 from test.support import threading_helper
 from test.test_importlib.util import uncache
@@ -41,27 +44,6 @@ def remove_files(name):
               name + "$py.class"):
         unlink(f)
     rmtree('__pycache__')
-
-
-@contextlib.contextmanager
-def _ready_to_import(name=None, source=""):
-    # sets up a temporary directory and removes it
-    # creates the module file
-    # temporarily clears the module from sys.modules (if any)
-    # reverts or removes the module when cleaning up
-    name = name or "spam"
-    with temp_dir() as tempdir:
-        path = script_helper.make_script(tempdir, name, source)
-        old_module = sys.modules.pop(name, None)
-        try:
-            sys.path.insert(0, tempdir)
-            yield name, path
-            sys.path.remove(tempdir)
-        finally:
-            if old_module is not None:
-                sys.modules[name] = old_module
-            elif name in sys.modules:
-                del sys.modules[name]
 
 
 class ImportTests(unittest.TestCase):
@@ -86,8 +68,10 @@ class ImportTests(unittest.TestCase):
             from importlib import something_that_should_not_exist_anywhere
 
     def test_from_import_missing_attr_has_name_and_path(self):
-        with self.assertRaises(ImportError) as cm:
-            from os import i_dont_exist
+        with CleanImport('os'):
+            import os
+            with self.assertRaises(ImportError) as cm:
+                from os import i_dont_exist
         self.assertEqual(cm.exception.name, 'os')
         self.assertEqual(cm.exception.path, os.__file__)
         self.assertRegex(str(cm.exception), r"cannot import name 'i_dont_exist' from 'os' \(.*os.py\)")
@@ -98,8 +82,17 @@ class ImportTests(unittest.TestCase):
         with self.assertRaises(ImportError) as cm:
             from _testcapi import i_dont_exist
         self.assertEqual(cm.exception.name, '_testcapi')
-        self.assertEqual(cm.exception.path, _testcapi.__file__)
-        self.assertRegex(str(cm.exception), r"cannot import name 'i_dont_exist' from '_testcapi' \(.*\.(so|pyd)\)")
+        if hasattr(_testcapi, "__file__"):
+            self.assertEqual(cm.exception.path, _testcapi.__file__)
+            self.assertRegex(
+                str(cm.exception),
+                r"cannot import name 'i_dont_exist' from '_testcapi' \(.*\.(so|pyd)\)"
+            )
+        else:
+            self.assertEqual(
+                str(cm.exception),
+                "cannot import name 'i_dont_exist' from '_testcapi' (unknown location)"
+            )
 
     def test_from_import_missing_attr_has_name(self):
         with self.assertRaises(ImportError) as cm:
@@ -116,7 +109,7 @@ class ImportTests(unittest.TestCase):
 
     def test_from_import_star_invalid_type(self):
         import re
-        with _ready_to_import() as (name, path):
+        with ready_to_import() as (name, path):
             with open(path, 'w', encoding='utf-8') as f:
                 f.write("__all__ = [b'invalid_type']")
             globals = {}
@@ -125,7 +118,7 @@ class ImportTests(unittest.TestCase):
             ):
                 exec(f"from {name} import *", globals)
             self.assertNotIn(b"invalid_type", globals)
-        with _ready_to_import() as (name, path):
+        with ready_to_import() as (name, path):
             with open(path, 'w', encoding='utf-8') as f:
                 f.write("globals()[b'invalid_type'] = object()")
             globals = {}
@@ -142,9 +135,12 @@ class ImportTests(unittest.TestCase):
             import RAnDoM
 
     def test_double_const(self):
-        # Another brief digression to test the accuracy of manifest float
-        # constants.
-        from test import double_const  # don't blink -- that *was* the test
+        # Importing double_const checks that float constants
+        # serialiazed by marshal as PYC files don't lose precision
+        # (SF bug 422177).
+        from test.test_import.data import double_const
+        unload('test.test_import.data.double_const')
+        from test.test_import.data import double_const
 
     def test_import(self):
         def test_with_extension(ext):
@@ -436,6 +432,7 @@ class ImportTests(unittest.TestCase):
             with self.assertRaises(AttributeError):
                 os.does_not_exist
 
+    @threading_helper.requires_working_threading()
     def test_concurrency(self):
         # bpo 38091: this is a hack to slow down the code that calls
         # has_deadlock(); the logic was itself sometimes deadlocking.
@@ -493,7 +490,7 @@ class ImportTests(unittest.TestCase):
 
             env = None
             env = {k.upper(): os.environ[k] for k in os.environ}
-            env["PYTHONPATH"] = tmp2 + ";" + os.path.dirname(os.__file__)
+            env["PYTHONPATH"] = tmp2 + ";" + STDLIB_DIR
 
             # Test 1: import with added DLL directory
             subprocess.check_call([
@@ -515,6 +512,13 @@ class ImportTests(unittest.TestCase):
                                     env=env,
                                     cwd=os.path.dirname(pyexe))
 
+    def test_issue105979(self):
+        # this used to crash
+        with self.assertRaises(ImportError) as cm:
+            _imp.get_frozen_object("x", b"6\'\xd5Cu\x12")
+        self.assertIn("Frozen object named 'x' is invalid",
+                      str(cm.exception))
+
 
 @skip_if_dont_write_bytecode
 class FilePermissionTests(unittest.TestCase):
@@ -522,9 +526,13 @@ class FilePermissionTests(unittest.TestCase):
 
     @unittest.skipUnless(os.name == 'posix',
                          "test meaningful only on posix systems")
+    @unittest.skipIf(
+        is_emscripten or is_wasi,
+        "Emscripten's/WASI's umask is a stub."
+    )
     def test_creation_mode(self):
         mask = 0o022
-        with temp_umask(mask), _ready_to_import() as (name, path):
+        with temp_umask(mask), ready_to_import() as (name, path):
             cached_path = importlib.util.cache_from_source(path)
             module = __import__(name)
             if not os.path.exists(cached_path):
@@ -539,10 +547,11 @@ class FilePermissionTests(unittest.TestCase):
 
     @unittest.skipUnless(os.name == 'posix',
                          "test meaningful only on posix systems")
+    @os_helper.skip_unless_working_chmod
     def test_cached_mode_issue_2051(self):
         # permissions of .pyc should match those of .py, regardless of mask
         mode = 0o600
-        with temp_umask(0o022), _ready_to_import() as (name, path):
+        with temp_umask(0o022), ready_to_import() as (name, path):
             cached_path = importlib.util.cache_from_source(path)
             os.chmod(path, mode)
             __import__(name)
@@ -555,9 +564,10 @@ class FilePermissionTests(unittest.TestCase):
 
     @unittest.skipUnless(os.name == 'posix',
                          "test meaningful only on posix systems")
+    @os_helper.skip_unless_working_chmod
     def test_cached_readonly(self):
         mode = 0o400
-        with temp_umask(0o022), _ready_to_import() as (name, path):
+        with temp_umask(0o022), ready_to_import() as (name, path):
             cached_path = importlib.util.cache_from_source(path)
             os.chmod(path, mode)
             __import__(name)
@@ -572,7 +582,7 @@ class FilePermissionTests(unittest.TestCase):
     def test_pyc_always_writable(self):
         # Initially read-only .pyc files on Windows used to cause problems
         # with later updates, see issue #6074 for details
-        with _ready_to_import() as (name, path):
+        with ready_to_import() as (name, path):
             # Write a Python file, make it read-only and import it
             with open(path, 'w', encoding='utf-8') as f:
                 f.write("x = 'original'\n")
@@ -865,9 +875,10 @@ class PycacheTests(unittest.TestCase):
 
     @unittest.skipUnless(os.name == 'posix',
                          "test meaningful only on posix systems")
-    @unittest.skipIf(hasattr(os, 'geteuid') and os.geteuid() == 0,
-            "due to varying filesystem permission semantics (issue #11956)")
     @skip_if_dont_write_bytecode
+    @os_helper.skip_unless_working_chmod
+    @os_helper.skip_if_dac_override
+    @unittest.skipIf(is_emscripten, "umask is a stub")
     def test_unwritable_directory(self):
         # When the umask causes the new __pycache__ directory to be
         # unwritable, the import still succeeds but no .pyc file is written.
@@ -906,7 +917,7 @@ class PycacheTests(unittest.TestCase):
         m = __import__(TESTFN)
         try:
             self.assertEqual(m.__file__,
-                             os.path.join(os.getcwd(), os.curdir, os.path.relpath(pyc_file)))
+                             os.path.join(os.getcwd(), os.path.relpath(pyc_file)))
         finally:
             os.remove(pyc_file)
 
@@ -914,7 +925,7 @@ class PycacheTests(unittest.TestCase):
         # Modules now also have an __cached__ that points to the pyc file.
         m = __import__(TESTFN)
         pyc_file = importlib.util.cache_from_source(TESTFN + '.py')
-        self.assertEqual(m.__cached__, os.path.join(os.getcwd(), os.curdir, pyc_file))
+        self.assertEqual(m.__cached__, os.path.join(os.getcwd(), pyc_file))
 
     @skip_if_dont_write_bytecode
     def test___cached___legacy_pyc(self):
@@ -930,7 +941,7 @@ class PycacheTests(unittest.TestCase):
         importlib.invalidate_caches()
         m = __import__(TESTFN)
         self.assertEqual(m.__cached__,
-                         os.path.join(os.getcwd(), os.curdir, os.path.relpath(pyc_file)))
+                         os.path.join(os.getcwd(), os.path.relpath(pyc_file)))
 
     @skip_if_dont_write_bytecode
     def test_package___cached__(self):
@@ -950,10 +961,10 @@ class PycacheTests(unittest.TestCase):
         m = __import__('pep3147.foo')
         init_pyc = importlib.util.cache_from_source(
             os.path.join('pep3147', '__init__.py'))
-        self.assertEqual(m.__cached__, os.path.join(os.getcwd(), os.curdir, init_pyc))
+        self.assertEqual(m.__cached__, os.path.join(os.getcwd(), init_pyc))
         foo_pyc = importlib.util.cache_from_source(os.path.join('pep3147', 'foo.py'))
         self.assertEqual(sys.modules['pep3147.foo'].__cached__,
-                         os.path.join(os.getcwd(), os.curdir, foo_pyc))
+                         os.path.join(os.getcwd(), foo_pyc))
 
     def test_package___cached___from_pyc(self):
         # Like test___cached__ but ensuring __cached__ when imported from a
@@ -977,10 +988,10 @@ class PycacheTests(unittest.TestCase):
         m = __import__('pep3147.foo')
         init_pyc = importlib.util.cache_from_source(
             os.path.join('pep3147', '__init__.py'))
-        self.assertEqual(m.__cached__, os.path.join(os.getcwd(), os.curdir, init_pyc))
+        self.assertEqual(m.__cached__, os.path.join(os.getcwd(), init_pyc))
         foo_pyc = importlib.util.cache_from_source(os.path.join('pep3147', 'foo.py'))
         self.assertEqual(sys.modules['pep3147.foo'].__cached__,
-                         os.path.join(os.getcwd(), os.curdir, foo_pyc))
+                         os.path.join(os.getcwd(), foo_pyc))
 
     def test_recompute_pyc_same_second(self):
         # Even when the source file doesn't change timestamp, a change in
@@ -1346,6 +1357,16 @@ class CircularImportTests(unittest.TestCase):
         self.assertIn(
             "cannot import name 'b' from partially initialized module "
             "'test.test_import.data.circular_imports.from_cycle1' "
+            "(most likely due to a circular import)",
+            str(cm.exception),
+        )
+
+    def test_absolute_circular_submodule(self):
+        with self.assertRaises(AttributeError) as cm:
+            import test.test_import.data.circular_imports.subpkg2.parent
+        self.assertIn(
+            "cannot access submodule 'parent' of module "
+            "'test.test_import.data.circular_imports.subpkg2' "
             "(most likely due to a circular import)",
             str(cm.exception),
         )

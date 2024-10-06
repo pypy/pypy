@@ -1,4 +1,5 @@
-from . import util
+from test.test_importlib import util
+
 abc = util.import_importlib('importlib.abc')
 init = util.import_importlib('importlib')
 machinery = util.import_importlib('importlib.machinery')
@@ -802,7 +803,7 @@ class PEP3147Tests:
         with util.temporary_pycache_prefix(pycache_prefix):
             self.assertEqual(
                 self.util.cache_from_source(path, optimization=''),
-                expect)
+                os.path.normpath(expect))
 
     @unittest.skipIf(sys.implementation.cache_tag is None,
                      'requires sys.implementation.cache_tag to not be None')
@@ -860,7 +861,7 @@ class MagicNumberTests(unittest.TestCase):
         # stakeholders such as OS package maintainers must be notified
         # in advance. Such exceptional releases will then require an
         # adjustment to this test case.
-        EXPECTED_MAGIC_NUMBER = 3439
+        EXPECTED_MAGIC_NUMBER = 3495
         actual = int.from_bytes(importlib.util.MAGIC_NUMBER[:2], 'little')
 
         msg = (

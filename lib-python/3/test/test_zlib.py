@@ -3,6 +3,7 @@ from test import support
 from test.support import import_helper
 import binascii
 import copy
+import os
 import pickle
 import random
 import sys
@@ -17,6 +18,50 @@ requires_Compress_copy = unittest.skipUnless(
 requires_Decompress_copy = unittest.skipUnless(
         hasattr(zlib.decompressobj(), "copy"),
         'requires Decompress.copy()')
+
+
+def _zlib_runtime_version_tuple(zlib_version=zlib.ZLIB_RUNTIME_VERSION):
+    # Register "1.2.3" as "1.2.3.0"
+    # or "1.2.0-linux","1.2.0.f","1.2.0.f-linux"
+    v = zlib_version.split('-', 1)[0].split('.')
+    if len(v) < 4:
+        v.append('0')
+    elif not v[-1].isnumeric():
+        v[-1] = '0'
+    return tuple(map(int, v))
+
+
+ZLIB_RUNTIME_VERSION_TUPLE = _zlib_runtime_version_tuple()
+
+
+# bpo-46623: On s390x, when a hardware accelerator is used, using different
+# ways to compress data with zlib can produce different compressed data.
+# Simplified test_pair() code:
+#
+#   def func1(data):
+#       return zlib.compress(data)
+#
+#   def func2(data)
+#       co = zlib.compressobj()
+#       x1 = co.compress(data)
+#       x2 = co.flush()
+#       return x1 + x2
+#
+# On s390x if zlib uses a hardware accelerator, func1() creates a single
+# "final" compressed block whereas func2() produces 3 compressed blocks (the
+# last one is a final block). On other platforms with no accelerator, func1()
+# and func2() produce the same compressed data made of a single (final)
+# compressed block.
+#
+# Only the compressed data is different, the decompression returns the original
+# data:
+#
+#   zlib.decompress(func1(data)) == zlib.decompress(func2(data)) == data
+#
+# Make the assumption that s390x always has an accelerator to simplify the skip
+# condition. Windows doesn't have os.uname() but it doesn't support s390x.
+skip_on_s390x = unittest.skipIf(hasattr(os, 'uname') and os.uname().machine == 's390x',
+                                'skipped on s390x')
 
 
 class VersionTestCase(unittest.TestCase):
@@ -172,7 +217,6 @@ class CompressTestCase(BaseCompressTestCase, unittest.TestCase):
         x = zlib.compress(HAMLET_SCENE)
         self.assertEqual(zlib.decompress(x), HAMLET_SCENE)
 
-    @support.cpython_only
     def test_keywords(self):
         x = zlib.compress(HAMLET_SCENE, level=3)
         self.assertEqual(zlib.decompress(x), HAMLET_SCENE)
@@ -183,6 +227,7 @@ class CompressTestCase(BaseCompressTestCase, unittest.TestCase):
                                          bufsize=zlib.DEF_BUF_SIZE),
                          HAMLET_SCENE)
 
+    @skip_on_s390x
     def test_speech128(self):
         # compress more data
         data = HAMLET_SCENE * 128
@@ -234,6 +279,7 @@ class CompressTestCase(BaseCompressTestCase, unittest.TestCase):
 
 class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
     # Test compression object
+    @skip_on_s390x
     def test_pair(self):
         # straightforward compress/decompress objects
         datasrc = HAMLET_SCENE * 128
@@ -253,7 +299,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
             self.assertIsInstance(dco.unconsumed_tail, bytes)
             self.assertIsInstance(dco.unused_data, bytes)
 
-    @support.cpython_only
     def test_keywords(self):
         level = 2
         method = zlib.DEFLATED
@@ -421,8 +466,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         # Sizes up to sys.maxsize should be accepted, although zlib is
         # internally limited to expressing sizes with unsigned int
         data = HAMLET_SCENE * 10
-        if len(data) < zlib.DEF_BUF_SIZE:
-            data = HAMLET_SCENE * 20
         self.assertGreater(len(data), zlib.DEF_BUF_SIZE)
         compressed = zlib.compress(data, 1)
         dco = zlib.decompressobj()
@@ -449,9 +492,8 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         sync_opt = ['Z_NO_FLUSH', 'Z_SYNC_FLUSH', 'Z_FULL_FLUSH',
                     'Z_PARTIAL_FLUSH']
 
-        ver = tuple(int(v) for v in zlib.ZLIB_RUNTIME_VERSION.split('.'))
         # Z_BLOCK has a known failure prior to 1.2.5.3
-        if ver >= (1, 2, 5, 3):
+        if ZLIB_RUNTIME_VERSION_TUPLE >= (1, 2, 5, 3):
             sync_opt.append('Z_BLOCK')
 
         sync_opt = [getattr(zlib, opt) for opt in sync_opt
@@ -488,18 +530,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
 
         # Try 17K of data
         # generate random data stream
-        try:
-            # In 2.3 and later, WichmannHill is the RNG of the bug report
-            gen = random.WichmannHill()
-        except AttributeError:
-            try:
-                # 2.2 called it Random
-                gen = random.Random()
-            except AttributeError:
-                # others might simply have a single RNG
-                gen = random
-        gen.seed(1)
-        data = gen.randbytes(17 * 1024)
+        data = random.randbytes(17 * 1024)
 
         # compress, sync-flush, and decompress
         first = co.compress(data)
@@ -780,16 +811,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
 
     def test_wbits(self):
         # wbits=0 only supported since zlib v1.2.3.5
-        # Register "1.2.3" as "1.2.3.0"
-        # or "1.2.0-linux","1.2.0.f","1.2.0.f-linux"
-        v = zlib.ZLIB_RUNTIME_VERSION.split('-', 1)[0].split('.')
-        if len(v) < 4:
-            v.append('0')
-        elif not v[-1].isnumeric():
-            v[-1] = '0'
-
-        v = tuple(map(int, v))
-        supports_wbits_0 = v >= (1, 2, 3, 5)
+        supports_wbits_0 = ZLIB_RUNTIME_VERSION_TUPLE >= (1, 2, 3, 5)
 
         co = zlib.compressobj(level=1, wbits=15)
         zlib15 = co.compress(HAMLET_SCENE) + co.flush()
@@ -835,6 +857,13 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         dco = zlib.decompressobj(32 + 15)
         self.assertEqual(dco.decompress(gzip), HAMLET_SCENE)
 
+        for wbits in (-15, 15, 31):
+            with self.subTest(wbits=wbits):
+                expected = HAMLET_SCENE
+                actual = zlib.decompress(
+                    zlib.compress(HAMLET_SCENE, wbits=wbits), wbits=wbits
+                )
+                self.assertEqual(expected, actual)
 
 def choose_lines(source, number, seed=None, generator=random):
     """Return a list of number lines randomly chosen from the source"""

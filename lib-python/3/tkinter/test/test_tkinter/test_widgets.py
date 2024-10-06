@@ -4,11 +4,11 @@ from tkinter import TclError
 import os
 from test.support import requires
 
-from tkinter.test.support import (tcl_version, requires_tcl,
+from tkinter.test.support import (requires_tk,
                                   get_tk_patchlevel, widget_eq,
                                   AbstractDefaultRootTest)
 from tkinter.test.widget_tests import (
-    add_standard_options, noconv, pixels_round,
+    add_standard_options,
     AbstractWidgetTest, StandardOptionsTests, IntegerSizeTests, PixelSizeTests,
     setUpModule)
 
@@ -20,7 +20,7 @@ def float_round(x):
 
 
 class AbstractToplevelTest(AbstractWidgetTest, PixelSizeTests):
-    _conv_pad_pixels = noconv
+    _conv_pad_pixels = False
 
     def test_configure_class(self):
         widget = self.create()
@@ -77,6 +77,8 @@ class ToplevelTest(AbstractToplevelTest, unittest.TestCase):
 
     def test_configure_screen(self):
         widget = self.create()
+        if widget._windowingsystem != 'x11':
+            self.skipTest('Not using Tk for X11')
         self.assertEqual(widget['screen'], '')
         try:
             display = os.environ['DISPLAY']
@@ -139,7 +141,7 @@ class LabelFrameTest(AbstractToplevelTest, unittest.TestCase):
 
 
 class AbstractLabelTest(AbstractWidgetTest, IntegerSizeTests):
-    _conv_pixels = noconv
+    _conv_pixels = False
 
     def test_configure_highlightthickness(self):
         widget = self.create()
@@ -275,7 +277,7 @@ class MenubuttonTest(AbstractLabelTest, unittest.TestCase):
         'takefocus', 'text', 'textvariable',
         'underline', 'width', 'wraplength',
     )
-    _conv_pixels = staticmethod(pixels_round)
+    _conv_pixels = round
 
     def create(self, **kwargs):
         return tkinter.Menubutton(self.root, **kwargs)
@@ -371,10 +373,7 @@ class EntryTest(AbstractWidgetTest, unittest.TestCase):
         self.checkPixelsParam(widget, 'insertwidth', 1.3, 3.6, '10p')
         self.checkParam(widget, 'insertwidth', 0.1, expected=2)
         self.checkParam(widget, 'insertwidth', -2, expected=2)
-        if pixels_round(0.9) <= 0:
-            self.checkParam(widget, 'insertwidth', 0.9, expected=2)
-        else:
-            self.checkParam(widget, 'insertwidth', 0.9, expected=1)
+        self.checkParam(widget, 'insertwidth', 0.9, expected=1)
 
     def test_configure_invalidcommand(self):
         widget = self.create()
@@ -576,8 +575,6 @@ class TextTest(AbstractWidgetTest, unittest.TestCase):
         'tabs', 'tabstyle', 'takefocus', 'undo', 'width', 'wrap',
         'xscrollcommand', 'yscrollcommand',
     )
-    if tcl_version < (8, 5):
-        _stringify = True
 
     def create(self, **kwargs):
         return tkinter.Text(self.root, **kwargs)
@@ -586,12 +583,10 @@ class TextTest(AbstractWidgetTest, unittest.TestCase):
         widget = self.create()
         self.checkBooleanParam(widget, 'autoseparators')
 
-    @requires_tcl(8, 5)
     def test_configure_blockcursor(self):
         widget = self.create()
         self.checkBooleanParam(widget, 'blockcursor')
 
-    @requires_tcl(8, 5)
     def test_configure_endline(self):
         widget = self.create()
         text = '\n'.join('Line %d' for i in range(100))
@@ -615,12 +610,11 @@ class TextTest(AbstractWidgetTest, unittest.TestCase):
         widget = self.create()
         self.checkIntegerParam(widget, 'maxundo', 0, 5, -1)
 
-    @requires_tcl(8, 5)
     def test_configure_inactiveselectbackground(self):
         widget = self.create()
         self.checkColorParam(widget, 'inactiveselectbackground')
 
-    @requires_tcl(8, 6)
+    @requires_tk(8, 6)
     def test_configure_insertunfocussed(self):
         widget = self.create()
         self.checkEnumParam(widget, 'insertunfocussed',
@@ -629,8 +623,7 @@ class TextTest(AbstractWidgetTest, unittest.TestCase):
     def test_configure_selectborderwidth(self):
         widget = self.create()
         self.checkPixelsParam(widget, 'selectborderwidth',
-                              1.3, 2.6, -2, '10p', conv=noconv,
-                              keep_orig=tcl_version >= (8, 5))
+                              1.3, 2.6, -2, '10p', conv=False)
 
     def test_configure_spacing1(self):
         widget = self.create()
@@ -647,7 +640,6 @@ class TextTest(AbstractWidgetTest, unittest.TestCase):
         self.checkPixelsParam(widget, 'spacing3', 20, 21.4, 22.6, '0.5c')
         self.checkParam(widget, 'spacing3', -10, expected=0)
 
-    @requires_tcl(8, 5)
     def test_configure_startline(self):
         widget = self.create()
         text = '\n'.join('Line %d' for i in range(100))
@@ -663,27 +655,18 @@ class TextTest(AbstractWidgetTest, unittest.TestCase):
 
     def test_configure_state(self):
         widget = self.create()
-        if tcl_version < (8, 5):
-            self.checkParams(widget, 'state', 'disabled', 'normal')
-        else:
-            self.checkEnumParam(widget, 'state', 'disabled', 'normal')
+        self.checkEnumParam(widget, 'state', 'disabled', 'normal')
 
     def test_configure_tabs(self):
         widget = self.create()
-        if get_tk_patchlevel() < (8, 5, 11):
-            self.checkParam(widget, 'tabs', (10.2, 20.7, '1i', '2i'),
-                            expected=('10.2', '20.7', '1i', '2i'))
-        else:
-            self.checkParam(widget, 'tabs', (10.2, 20.7, '1i', '2i'))
+        self.checkParam(widget, 'tabs', (10.2, 20.7, '1i', '2i'))
         self.checkParam(widget, 'tabs', '10.2 20.7 1i 2i',
                         expected=('10.2', '20.7', '1i', '2i'))
         self.checkParam(widget, 'tabs', '2c left 4c 6c center',
                         expected=('2c', 'left', '4c', '6c', 'center'))
         self.checkInvalidParam(widget, 'tabs', 'spam',
-                               errmsg='bad screen distance "spam"',
-                               keep_orig=tcl_version >= (8, 5))
+                               errmsg='bad screen distance "spam"')
 
-    @requires_tcl(8, 5)
     def test_configure_tabstyle(self):
         widget = self.create()
         self.checkEnumParam(widget, 'tabstyle', 'tabular', 'wordprocessor')
@@ -700,10 +683,7 @@ class TextTest(AbstractWidgetTest, unittest.TestCase):
 
     def test_configure_wrap(self):
         widget = self.create()
-        if tcl_version < (8, 5):
-            self.checkParams(widget, 'wrap', 'char', 'none', 'word')
-        else:
-            self.checkEnumParam(widget, 'wrap', 'char', 'none', 'word')
+        self.checkEnumParam(widget, 'wrap', 'char', 'none', 'word')
 
     def test_bbox(self):
         widget = self.create()
@@ -939,7 +919,7 @@ class CanvasTest(AbstractWidgetTest, unittest.TestCase):
         for i in range(4):
             self.assertIsInstance(coords[i], float)
 
-    @requires_tcl(8, 6)
+    @requires_tk(8, 6)
     def test_moveto(self):
         widget = self.create()
         i1 = widget.create_rectangle(1, 1, 20, 20, tags='group')
@@ -984,7 +964,7 @@ class ListboxTest(AbstractWidgetTest, unittest.TestCase):
         self.checkEnumParam(widget, 'activestyle',
                             'dotbox', 'none', 'underline')
 
-    test_configure_justify = requires_tcl(8, 6, 5)(StandardOptionsTests.test_configure_justify)
+    test_configure_justify = requires_tk(8, 6, 5)(StandardOptionsTests.test_configure_justify)
 
     def test_configure_listvariable(self):
         widget = self.create()
@@ -1123,7 +1103,7 @@ class ScaleTest(AbstractWidgetTest, unittest.TestCase):
 
     def test_configure_from(self):
         widget = self.create()
-        conv = float if get_tk_patchlevel() >= (8, 6, 10) else float_round
+        conv = float if get_tk_patchlevel(self.root) >= (8, 6, 10) else float_round
         self.checkFloatParam(widget, 'from', 100, 14.9, 15.1, conv=conv)
 
     def test_configure_label(self):
@@ -1239,30 +1219,30 @@ class PanedWindowTest(AbstractWidgetTest, unittest.TestCase):
     def test_configure_handlesize(self):
         widget = self.create()
         self.checkPixelsParam(widget, 'handlesize', 8, 9.4, 10.6, -3, '2m',
-                              conv=noconv)
+                              conv=False)
 
     def test_configure_height(self):
         widget = self.create()
         self.checkPixelsParam(widget, 'height', 100, 101.2, 102.6, -100, 0, '1i',
-                              conv=noconv)
+                              conv=False)
 
     def test_configure_opaqueresize(self):
         widget = self.create()
         self.checkBooleanParam(widget, 'opaqueresize')
 
-    @requires_tcl(8, 6, 5)
+    @requires_tk(8, 6, 5)
     def test_configure_proxybackground(self):
         widget = self.create()
         self.checkColorParam(widget, 'proxybackground')
 
-    @requires_tcl(8, 6, 5)
+    @requires_tk(8, 6, 5)
     def test_configure_proxyborderwidth(self):
         widget = self.create()
         self.checkPixelsParam(widget, 'proxyborderwidth',
                               0, 1.3, 2.9, 6, -2, '10p',
-                              conv=noconv)
+                              conv=False)
 
-    @requires_tcl(8, 6, 5)
+    @requires_tk(8, 6, 5)
     def test_configure_proxyrelief(self):
         widget = self.create()
         self.checkReliefParam(widget, 'proxyrelief')
@@ -1282,7 +1262,7 @@ class PanedWindowTest(AbstractWidgetTest, unittest.TestCase):
     def test_configure_sashwidth(self):
         widget = self.create()
         self.checkPixelsParam(widget, 'sashwidth', 10, 11.1, 15.6, -3, '1m',
-                              conv=noconv)
+                              conv=False)
 
     def test_configure_showhandle(self):
         widget = self.create()
@@ -1291,7 +1271,7 @@ class PanedWindowTest(AbstractWidgetTest, unittest.TestCase):
     def test_configure_width(self):
         widget = self.create()
         self.checkPixelsParam(widget, 'width', 402, 403.4, 404.6, -402, 0, '5i',
-                              conv=noconv)
+                              conv=False)
 
     def create2(self):
         p = self.create()
@@ -1311,15 +1291,12 @@ class PanedWindowTest(AbstractWidgetTest, unittest.TestCase):
             self.assertEqual(v, p.paneconfigure(b, k))
             self.assertEqual(v[4], p.panecget(b, k))
 
-    def check_paneconfigure(self, p, b, name, value, expected, stringify=False):
-        conv = lambda x: x
-        if not self.wantobjects or stringify:
+    def check_paneconfigure(self, p, b, name, value, expected):
+        if not self.wantobjects:
             expected = str(expected)
-        if self.wantobjects and stringify:
-            conv = str
         p.paneconfigure(b, **{name: value})
-        self.assertEqual(conv(p.paneconfigure(b, name)[4]), expected)
-        self.assertEqual(conv(p.panecget(b, name)), expected)
+        self.assertEqual(p.paneconfigure(b, name)[4], expected)
+        self.assertEqual(p.panecget(b, name), expected)
 
     def check_paneconfigure_bad(self, p, b, name, msg):
         with self.assertRaisesRegex(TclError, msg):
@@ -1339,12 +1316,10 @@ class PanedWindowTest(AbstractWidgetTest, unittest.TestCase):
 
     def test_paneconfigure_height(self):
         p, b, c = self.create2()
-        self.check_paneconfigure(p, b, 'height', 10, 10,
-                                 stringify=get_tk_patchlevel() < (8, 5, 11))
+        self.check_paneconfigure(p, b, 'height', 10, 10)
         self.check_paneconfigure_bad(p, b, 'height',
                                      'bad screen distance "badValue"')
 
-    @requires_tcl(8, 5)
     def test_paneconfigure_hide(self):
         p, b, c = self.create2()
         self.check_paneconfigure(p, b, 'hide', False, 0)
@@ -1377,7 +1352,6 @@ class PanedWindowTest(AbstractWidgetTest, unittest.TestCase):
                                      'be a string containing zero or more of '
                                      'n, e, s, and w')
 
-    @requires_tcl(8, 5)
     def test_paneconfigure_stretch(self):
         p, b, c = self.create2()
         self.check_paneconfigure(p, b, 'stretch', 'alw', 'always')
@@ -1387,8 +1361,7 @@ class PanedWindowTest(AbstractWidgetTest, unittest.TestCase):
 
     def test_paneconfigure_width(self):
         p, b, c = self.create2()
-        self.check_paneconfigure(p, b, 'width', 10, 10,
-                                 stringify=get_tk_patchlevel() < (8, 5, 11))
+        self.check_paneconfigure(p, b, 'width', 10, 10)
         self.check_paneconfigure_bad(p, b, 'width',
                                      'bad screen distance "badValue"')
 
@@ -1402,10 +1375,15 @@ class MenuTest(AbstractWidgetTest, unittest.TestCase):
         'postcommand', 'relief', 'selectcolor', 'takefocus',
         'tearoff', 'tearoffcommand', 'title', 'type',
     )
-    _conv_pixels = noconv
+    _conv_pixels = False
 
     def create(self, **kwargs):
         return tkinter.Menu(self.root, **kwargs)
+
+    def test_indexcommand_none(self):
+        widget = self.create()
+        i = widget.index('none')
+        self.assertIsNone(i)
 
     def test_configure_postcommand(self):
         widget = self.create()
@@ -1425,10 +1403,13 @@ class MenuTest(AbstractWidgetTest, unittest.TestCase):
 
     def test_configure_type(self):
         widget = self.create()
+        opts = ('normal, tearoff, or menubar'
+                if widget.info_patchlevel() < (8, 7) else
+                'menubar, normal, or tearoff')
         self.checkEnumParam(
             widget, 'type',
             'normal', 'tearoff', 'menubar',
-            errmsg='bad type "{}": must be normal, tearoff, or menubar',
+            errmsg='bad type "{}": must be ' + opts,
             )
 
     def test_entryconfigure(self):
@@ -1474,7 +1455,7 @@ class MessageTest(AbstractWidgetTest, unittest.TestCase):
         'justify', 'padx', 'pady', 'relief',
         'takefocus', 'text', 'textvariable', 'width',
     )
-    _conv_pad_pixels = noconv
+    _conv_pad_pixels = False
 
     def create(self, **kwargs):
         return tkinter.Message(self.root, **kwargs)

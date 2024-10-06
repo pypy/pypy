@@ -46,6 +46,10 @@ class Indexable:
 
 class BaseBytesTest:
 
+    def assertTypedEqual(self, actual, expected):
+        self.assertIs(type(actual), type(expected))
+        self.assertEqual(actual, expected)
+
     def test_basics(self):
         b = self.type2test()
         self.assertEqual(type(b), self.type2test)
@@ -715,6 +719,24 @@ class BaseBytesTest:
         self.assertEqual(b, b'hello,\x00world!')
         self.assertIs(type(b), self.type2test)
 
+        def check(fmt, vals, result):
+            b = self.type2test(fmt)
+            b = b % vals
+            self.assertEqual(b, result)
+            self.assertIs(type(b), self.type2test)
+
+        # A set of tests adapted from test_unicode:UnicodeTest.test_formatting
+        check(b'...%(foo)b...', {b'foo':b"abc"}, b'...abc...')
+        check(b'...%(f(o)o)b...', {b'f(o)o':b"abc", b'foo':b'bar'}, b'...abc...')
+        check(b'...%(foo)b...', {b'foo':b"abc",b'def':123}, b'...abc...')
+        check(b'%*b', (5, b'abc',), b'  abc')
+        check(b'%*b', (-5, b'abc',), b'abc  ')
+        check(b'%*.*b', (5, 2, b'abc',), b'   ab')
+        check(b'%*.*b', (5, 3, b'abc',), b'  abc')
+        check(b'%i %*.*b', (10, 5, 3, b'abc',), b'10   abc')
+        check(b'%i%b %*.*b', (10, b'3', 5, 3, b'abc',), b'103   abc')
+        check(b'%c', b'a', b'a')
+
     def test_imod(self):
         b = self.type2test(b'hello, %b!')
         orig = b
@@ -981,6 +1003,18 @@ class BaseBytesTest:
 class BytesTest(BaseBytesTest, unittest.TestCase):
     type2test = bytes
 
+    def test__bytes__(self):
+        foo = b'foo\x00bar'
+        self.assertEqual(foo.__bytes__(), foo)
+        self.assertEqual(type(foo.__bytes__()), self.type2test)
+
+        class bytes_subclass(bytes):
+            pass
+
+        bar = bytes_subclass(b'bar\x00foo')
+        self.assertEqual(bar.__bytes__(), bar)
+        self.assertEqual(type(bar.__bytes__()), self.type2test)
+
     def test_getitem_error(self):
         b = b'python'
         msg = "byte indices must be integers or slices"
@@ -993,36 +1027,63 @@ class BytesTest(BaseBytesTest, unittest.TestCase):
             self.assertRaises(TypeError, f.readinto, b"")
 
     def test_custom(self):
-        class A:
-            def __bytes__(self):
-                return b'abc'
-        self.assertEqual(bytes(A()), b'abc')
-        class A: pass
-        self.assertRaises(TypeError, bytes, A())
-        class A:
-            def __bytes__(self):
-                return None
-        self.assertRaises(TypeError, bytes, A())
-        class A:
+        self.assertEqual(bytes(BytesSubclass(b'abc')), b'abc')
+        self.assertEqual(BytesSubclass(OtherBytesSubclass(b'abc')),
+                         BytesSubclass(b'abc'))
+        self.assertEqual(bytes(WithBytes(b'abc')), b'abc')
+        self.assertEqual(BytesSubclass(WithBytes(b'abc')), BytesSubclass(b'abc'))
+
+        class NoBytes: pass
+        self.assertRaises(TypeError, bytes, NoBytes())
+        self.assertRaises(TypeError, bytes, WithBytes('abc'))
+        self.assertRaises(TypeError, bytes, WithBytes(None))
+        class IndexWithBytes:
             def __bytes__(self):
                 return b'a'
             def __index__(self):
                 return 42
-        self.assertEqual(bytes(A()), b'a')
+        self.assertEqual(bytes(IndexWithBytes()), b'a')
         # Issue #25766
-        class A(str):
+        class StrWithBytes(str):
+            def __new__(cls, value):
+                self = str.__new__(cls, '\u20ac')
+                self.value = value
+                return self
             def __bytes__(self):
-                return b'abc'
-        self.assertEqual(bytes(A('\u20ac')), b'abc')
-        self.assertEqual(bytes(A('\u20ac'), 'iso8859-15'), b'\xa4')
+                return self.value
+        self.assertEqual(bytes(StrWithBytes(b'abc')), b'abc')
+        self.assertEqual(bytes(StrWithBytes(b'abc'), 'iso8859-15'), b'\xa4')
+        self.assertEqual(bytes(StrWithBytes(BytesSubclass(b'abc'))), b'abc')
+        self.assertEqual(BytesSubclass(StrWithBytes(b'abc')), BytesSubclass(b'abc'))
+        self.assertEqual(BytesSubclass(StrWithBytes(b'abc'), 'iso8859-15'),
+                         BytesSubclass(b'\xa4'))
+        self.assertEqual(BytesSubclass(StrWithBytes(BytesSubclass(b'abc'))),
+                         BytesSubclass(b'abc'))
+        self.assertEqual(BytesSubclass(StrWithBytes(OtherBytesSubclass(b'abc'))),
+                         BytesSubclass(b'abc'))
         # Issue #24731
-        class A:
+        self.assertTypedEqual(bytes(WithBytes(BytesSubclass(b'abc'))), BytesSubclass(b'abc'))
+        self.assertTypedEqual(BytesSubclass(WithBytes(BytesSubclass(b'abc'))),
+                              BytesSubclass(b'abc'))
+        self.assertTypedEqual(BytesSubclass(WithBytes(OtherBytesSubclass(b'abc'))),
+                              BytesSubclass(b'abc'))
+
+        class BytesWithBytes(bytes):
+            def __new__(cls, value):
+                self = bytes.__new__(cls, b'\xa4')
+                self.value = value
+                return self
             def __bytes__(self):
-                return OtherBytesSubclass(b'abc')
-        self.assertEqual(bytes(A()), b'abc')
-        self.assertIs(type(bytes(A())), OtherBytesSubclass)
-        self.assertEqual(BytesSubclass(A()), b'abc')
-        self.assertIs(type(BytesSubclass(A())), BytesSubclass)
+                return self.value
+        self.assertTypedEqual(bytes(BytesWithBytes(b'abc')), b'abc')
+        self.assertTypedEqual(BytesSubclass(BytesWithBytes(b'abc')),
+                              BytesSubclass(b'abc'))
+        self.assertTypedEqual(bytes(BytesWithBytes(BytesSubclass(b'abc'))),
+                              BytesSubclass(b'abc'))
+        self.assertTypedEqual(BytesSubclass(BytesWithBytes(BytesSubclass(b'abc'))),
+                              BytesSubclass(b'abc'))
+        self.assertTypedEqual(BytesSubclass(BytesWithBytes(OtherBytesSubclass(b'abc'))),
+                              BytesSubclass(b'abc'))
 
     # Test PyBytes_FromFormat()
     @cpython_only
@@ -1391,13 +1452,9 @@ class ByteArrayTest(BaseBytesTest, unittest.TestCase):
     def test_del_expand(self):
         # Reducing the size should not expand the buffer (issue #23985)
         b = bytearray(10)
-        try:
-            size = sys.getsizeof(b)
-        except TypeError:
-            pass            # e.g. on pypy
-        else:
-            del b[:1]
-            self.assertLessEqual(sys.getsizeof(b), size)
+        size = sys.getsizeof(b)
+        del b[:1]
+        self.assertLessEqual(sys.getsizeof(b), size)
 
     def test_extended_set_del_slice(self):
         indices = (0, None, 1, 3, 19, 300, 1<<333, sys.maxsize,
@@ -1643,30 +1700,10 @@ class ByteArrayTest(BaseBytesTest, unittest.TestCase):
         self.assertRaises(BufferError, delslice)
         self.assertEqual(b, orig)
 
-    @test.support.impl_detail("resizing semantics", cpython=False)
-    def test_resize_forbidden_non_cpython(self):
-        # on non-CPython implementations, we cannot prevent changes to
-        # bytearrays just because there are buffers around.  Instead,
-        # we get (on PyPy) a buffer that follows the changes and resizes.
-        b = bytearray(range(10))
-        v = memoryview(b)
-        b[5] = 99
-        self.assertIn(v[5], (99, bytes([99])))
-        b[5] = 100
-        b += b
-        b += b
-        b += b
-        self.assertEqual(len(v), 80)
-        self.assertIn(v[5], (100, bytes([100])))
-        self.assertIn(v[79], (9, bytes([9])))
-        del b[10:]
-        self.assertRaises(IndexError, lambda: v[10])
-        self.assertEqual(len(v), 10)
-
     @test.support.cpython_only
     def test_obsolete_write_lock(self):
-        from _testcapi import getbuffer_with_null_view
-        self.assertRaises(BufferError, getbuffer_with_null_view, bytearray())
+        _testcapi = import_helper.import_module('_testcapi')
+        self.assertRaises(BufferError, _testcapi.getbuffer_with_null_view, bytearray())
 
     def test_iterator_pickling2(self):
         orig = bytearray(b'abc')
@@ -1972,28 +2009,30 @@ class SubclassTest:
     def test_pickle(self):
         a = self.type2test(b"abcd")
         a.x = 10
-        a.y = self.type2test(b"efgh")
+        a.z = self.type2test(b"efgh")
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             b = pickle.loads(pickle.dumps(a, proto))
             self.assertNotEqual(id(a), id(b))
             self.assertEqual(a, b)
             self.assertEqual(a.x, b.x)
-            self.assertEqual(a.y, b.y)
+            self.assertEqual(a.z, b.z)
             self.assertEqual(type(a), type(b))
-            self.assertEqual(type(a.y), type(b.y))
+            self.assertEqual(type(a.z), type(b.z))
+            self.assertFalse(hasattr(b, 'y'))
 
     def test_copy(self):
         a = self.type2test(b"abcd")
         a.x = 10
-        a.y = self.type2test(b"efgh")
+        a.z = self.type2test(b"efgh")
         for copy_method in (copy.copy, copy.deepcopy):
             b = copy_method(a)
             self.assertNotEqual(id(a), id(b))
             self.assertEqual(a, b)
             self.assertEqual(a.x, b.x)
-            self.assertEqual(a.y, b.y)
+            self.assertEqual(a.z, b.z)
             self.assertEqual(type(a), type(b))
-            self.assertEqual(type(a.y), type(b.y))
+            self.assertEqual(type(a.z), type(b.z))
+            self.assertFalse(hasattr(b, 'y'))
 
     def test_fromhex(self):
         b = self.type2test.fromhex('1a2B30')
@@ -2026,11 +2065,20 @@ class SubclassTest:
 class ByteArraySubclass(bytearray):
     pass
 
+class ByteArraySubclassWithSlots(bytearray):
+    __slots__ = ('x', 'y', '__dict__')
+
 class BytesSubclass(bytes):
     pass
 
 class OtherBytesSubclass(bytes):
     pass
+
+class WithBytes:
+    def __init__(self, value):
+        self.value = value
+    def __bytes__(self):
+        return self.value
 
 class ByteArraySubclassTest(SubclassTest, unittest.TestCase):
     basetype = bytearray
@@ -2046,6 +2094,9 @@ class ByteArraySubclassTest(SubclassTest, unittest.TestCase):
         x = subclass(newarg=4, source=b"abcd")
         self.assertEqual(x, b"abcd")
 
+class ByteArraySubclassWithSlotsTest(SubclassTest, unittest.TestCase):
+    basetype = bytearray
+    type2test = ByteArraySubclassWithSlots
 
 class BytesSubclassTest(SubclassTest, unittest.TestCase):
     basetype = bytes

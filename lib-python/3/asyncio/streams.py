@@ -67,9 +67,8 @@ async def start_server(client_connected_cb, host=None, port=None, *,
     positional host and port, with various optional keyword arguments
     following.  The return value is the same as loop.create_server().
 
-    Additional optional keyword arguments are loop (to set the event loop
-    instance to use) and limit (to set the buffer limit passed to the
-    StreamReader).
+    Additional optional keyword argument is limit (to set the buffer
+    limit passed to the StreamReader).
 
     The return value is the same as loop.create_server(), i.e. a
     Server object which can be used to stop the service.
@@ -215,6 +214,13 @@ class StreamReaderProtocol(FlowControlMixin, protocols.Protocol):
             return None
         return self._stream_reader_wr()
 
+    def _replace_writer(self, writer):
+        loop = self._loop
+        transport = writer.transport
+        self._stream_writer = writer
+        self._transport = transport
+        self._over_ssl = transport.get_extra_info('sslcontext') is not None
+
     def connection_made(self, transport):
         if self._reject_connection:
             context = {
@@ -239,7 +245,22 @@ class StreamReaderProtocol(FlowControlMixin, protocols.Protocol):
             res = self._client_connected_cb(reader,
                                             self._stream_writer)
             if coroutines.iscoroutine(res):
+                def callback(task):
+                    if task.cancelled():
+                        transport.close()
+                        return
+                    exc = task.exception()
+                    if exc is not None:
+                        self._loop.call_exception_handler({
+                            'message': 'Unhandled exception in client_connected_cb',
+                            'exception': exc,
+                            'transport': transport,
+                        })
+                        transport.close()
+
                 self._task = self._loop.create_task(res)
+                self._task.add_done_callback(callback)
+
             self._strong_reader = None
 
     def connection_lost(self, exc):
@@ -370,6 +391,27 @@ class StreamWriter:
             await sleep(0)
         await self._protocol._drain_helper()
 
+    async def start_tls(self, sslcontext, *,
+                        server_hostname=None,
+                        ssl_handshake_timeout=None):
+        """Upgrade an existing stream-based connection to TLS."""
+        server_side = self._protocol._client_connected_cb is not None
+        protocol = self._protocol
+        await self.drain()
+        new_transport = await self._loop.start_tls(  # type: ignore
+            self._transport, protocol, sslcontext,
+            server_side=server_side, server_hostname=server_hostname,
+            ssl_handshake_timeout=ssl_handshake_timeout)
+        self._transport = new_transport
+        protocol._replace_writer(self)
+
+    def __del__(self):
+        if not self._transport.is_closing():
+            if self._loop.is_closed():
+                warnings.warn("loop is closed", ResourceWarning)
+            else:
+                self.close()
+                warnings.warn(f"unclosed {self!r}", ResourceWarning)
 
 class StreamReader:
 

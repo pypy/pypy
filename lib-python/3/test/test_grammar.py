@@ -13,10 +13,9 @@ from sys import *
 
 # different import patterns to check that __annotations__ does not interfere
 # with import machinery
-import test.ann_module as ann_module
+import test.typinganndata.ann_module as ann_module
 import typing
-from collections import ChainMap
-from test import ann_module2
+from test.typinganndata import ann_module2
 import test
 
 # These are shared with test_tokenize and other test modules.
@@ -104,6 +103,7 @@ INVALID_UNDERSCORE_LITERALS = [
 class TokenTests(unittest.TestCase):
 
     from test.support import check_syntax_error
+    from test.support.warnings_helper import check_syntax_warning
 
     def test_backslash(self):
         # Backslash means line continuation:
@@ -178,7 +178,7 @@ class TokenTests(unittest.TestCase):
     def test_float_exponent_tokenization(self):
         # See issue 21642.
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore', DeprecationWarning)
+            warnings.simplefilter('ignore', SyntaxWarning)
             self.assertEqual(eval("1 if 1else 0"), 1)
             self.assertEqual(eval("1 if 0else 0"), 0)
         self.assertRaises(SyntaxError, eval, "0 if 1Else 0")
@@ -218,12 +218,13 @@ class TokenTests(unittest.TestCase):
             with self.subTest(expr=test):
                 if error:
                     with warnings.catch_warnings(record=True) as w:
-                        with self.assertRaises(SyntaxError):
+                        with self.assertRaisesRegex(SyntaxError,
+                                    r'invalid \w+ literal'):
                             compile(test, "<testcase>", "eval")
                     self.assertEqual(w,  [])
                 else:
-                    with self.assertWarns(DeprecationWarning):
-                        compile(test, "<testcase>", "eval")
+                    self.check_syntax_warning(test,
+                            errtext=r'invalid \w+ literal')
 
         for num in "0xf", "0o7", "0b1", "9", "0", "1.", "1e3", "1j":
             compile(num, "<testcase>", "eval")
@@ -231,14 +232,25 @@ class TokenTests(unittest.TestCase):
             check(f"{num}or x", error=(num == "0"))
             check(f"{num}in x")
             check(f"{num}not in x")
-            with warnings.catch_warnings():
-                warnings.filterwarnings('ignore', '"is" with a literal',
-                                        SyntaxWarning)
-                check(f"{num}is x")
             check(f"{num}if x else y")
             check(f"x if {num}else y", error=(num == "0xf"))
             check(f"[{num}for x in ()]")
             check(f"{num}spam", error=True)
+
+            # gh-88943: Invalid non-ASCII character following a numerical literal.
+            with self.assertRaisesRegex(SyntaxError, r"invalid character '⁄' \(U\+2044\)"):
+                compile(f"{num}⁄7", "<testcase>", "eval")
+
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore', '"is" with a literal',
+                                        SyntaxWarning)
+                with self.assertWarnsRegex(SyntaxWarning,
+                            r'invalid \w+ literal'):
+                    compile(f"{num}is x", "<testcase>", "eval")
+                warnings.simplefilter('error', SyntaxWarning)
+                with self.assertRaisesRegex(SyntaxError,
+                            r'invalid \w+ literal'):
+                    compile(f"{num}is x", "<testcase>", "eval")
 
         check("[0x1ffor x in ()]")
         check("[0x1for x in ()]")
@@ -346,6 +358,11 @@ class GrammarTests(unittest.TestCase):
         check_syntax_error(self, "x: int: str")
         check_syntax_error(self, "def f():\n"
                                  "    nonlocal x: int\n")
+        check_syntax_error(self, "def f():\n"
+                                 "    global x: int\n")
+        check_syntax_error(self, "x: int = y = 1")
+        check_syntax_error(self, "z = w: int = 1")
+        check_syntax_error(self, "x: int = y: int = 1")
         # AST pass
         check_syntax_error(self, "[x, 0]: int\n")
         check_syntax_error(self, "f(): int\n")
@@ -358,6 +375,12 @@ class GrammarTests(unittest.TestCase):
                                  "    global x\n")
         check_syntax_error(self, "def f():\n"
                                  "    global x\n"
+                                 "    x: int\n")
+        check_syntax_error(self, "def f():\n"
+                                 "    x: int\n"
+                                 "    nonlocal x\n")
+        check_syntax_error(self, "def f():\n"
+                                 "    nonlocal x\n"
                                  "    x: int\n")
 
     def test_var_annot_basic_semantics(self):
@@ -448,7 +471,7 @@ class GrammarTests(unittest.TestCase):
     def test_var_annot_in_module(self):
         # check that functions fail the same way when executed
         # outside of module where they were defined
-        ann_module3 = import_helper.import_fresh_module("test.ann_module3")
+        ann_module3 = import_helper.import_fresh_module("test.typinganndata.ann_module3")
         with self.assertRaises(NameError):
             ann_module3.f_bad_ann()
         with self.assertRaises(NameError):
@@ -1369,6 +1392,12 @@ class GrammarTests(unittest.TestCase):
             result.append(x)
         self.assertEqual(result, [1, 2, 3])
 
+        result = []
+        a = b = c = [1, 2, 3]
+        for x in *a, *b, *c:
+            result.append(x)
+        self.assertEqual(result, 3 * a)
+
     def test_try(self):
         ### try_stmt: 'try' ':' suite (except_clause ':' suite)+ ['else' ':' suite]
         ###         | 'try' ':' suite 'finally' ':' suite
@@ -1393,6 +1422,30 @@ class GrammarTests(unittest.TestCase):
         with self.assertRaises(SyntaxError):
             compile("try:\n    pass\nexcept Exception as a.b:\n    pass", "?", "exec")
             compile("try:\n    pass\nexcept Exception as a[b]:\n    pass", "?", "exec")
+
+    def test_try_star(self):
+        ### try_stmt: 'try': suite (except_star_clause : suite) + ['else' ':' suite]
+        ### except_star_clause: 'except*' expr ['as' NAME]
+        try:
+            1/0
+        except* ZeroDivisionError:
+            pass
+        else:
+            pass
+        try: 1/0
+        except* EOFError: pass
+        except* ZeroDivisionError as msg: pass
+        else: pass
+        try: 1/0
+        except* (EOFError, TypeError, ZeroDivisionError): pass
+        try: 1/0
+        except* (EOFError, TypeError, ZeroDivisionError) as msg: pass
+        try: pass
+        finally: pass
+        with self.assertRaises(SyntaxError):
+            compile("try:\n    pass\nexcept* Exception as a.b:\n    pass", "?", "exec")
+            compile("try:\n    pass\nexcept* Exception as a[b]:\n    pass", "?", "exec")
+            compile("try:\n    pass\nexcept*:\n    pass", "?", "exec")
 
     def test_suite(self):
         # simple_stmt | NEWLINE INDENT NEWLINE* (stmt NEWLINE*)+ DEDENT

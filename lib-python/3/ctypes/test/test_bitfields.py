@@ -1,5 +1,5 @@
 from ctypes import *
-from ctypes.test import need_symbol, xfail
+from ctypes.test import need_symbol
 from test import support
 import unittest
 import os
@@ -280,7 +280,6 @@ class BitFieldTest(unittest.TestCase):
         self.assertEqual(b, b'\xef\xcd\xab\x21')
 
     @need_symbol('c_uint32')
-    @xfail
     def test_uint32_swap_big_endian(self):
         # Issue #23319
         class Big(BigEndianStructure):

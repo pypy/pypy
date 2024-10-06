@@ -128,9 +128,16 @@ class AnyDBMTestCase:
         assert(f[key] == b"Python:")
         f.close()
 
+    def test_open_with_bytes(self):
+        dbm.open(os.fsencode(_fname), "c").close()
+
+    def test_open_with_pathlib_path(self):
+        dbm.open(os_helper.FakePath(_fname), "c").close()
+
+    def test_open_with_pathlib_path_bytes(self):
+        dbm.open(os_helper.FakePath(os.fsencode(_fname)), "c").close()
+
     def read_helper(self, f):
-        f['a']  # Work around a bug in BerkeleyDB:
-                # https://bugs.launchpad.net/ubuntu/+source/db5.3/+bug/1421223
         keys = self.keys_helper(f)
         for key in self._dict:
             self.assertEqual(self._dict[key], f[key.encode("ascii")])
@@ -158,6 +165,9 @@ class AnyDBMTestCase:
 class WhichDBTestCase(unittest.TestCase):
     def test_whichdb(self):
         self.addCleanup(setattr, dbm, '_defaultmod', dbm._defaultmod)
+        _bytes_fname = os.fsencode(_fname)
+        fnames = [_fname, os_helper.FakePath(_fname),
+                  _bytes_fname, os_helper.FakePath(_bytes_fname)]
         for module in dbm_iterator():
             # Check whether whichdb correctly guesses module name
             # for databases opened with "module" module.
@@ -166,7 +176,8 @@ class WhichDBTestCase(unittest.TestCase):
             dbm._defaultmod = module
             # Try with empty files first
             with module.open(_fname, 'c'): pass
-            self.assertEqual(name, self.dbm.whichdb(_fname))
+            for path in fnames:
+                self.assertEqual(name, self.dbm.whichdb(path))
             # Now add a key
             with module.open(_fname, 'w') as f:
                 f[b"1"] = b"1"
@@ -174,13 +185,18 @@ class WhichDBTestCase(unittest.TestCase):
                 self.assertIn(b"1", f)
                 # and read it
                 self.assertEqual(f[b"1"], b"1")
-            self.assertEqual(name, self.dbm.whichdb(_fname))
+            for path in fnames:
+                self.assertEqual(name, self.dbm.whichdb(path))
 
     @unittest.skipUnless(ndbm, reason='Test requires ndbm')
     def test_whichdb_ndbm(self):
         # Issue 17198: check that ndbm which is referenced in whichdb is defined
         with open(_fname + '.db', 'wb'): pass
-        self.assertIsNone(self.dbm.whichdb(_fname))
+        _bytes_fname = os.fsencode(_fname)
+        fnames = [_fname, os_helper.FakePath(_fname),
+                  _bytes_fname, os_helper.FakePath(_bytes_fname)]
+        for path in fnames:
+            self.assertIsNone(self.dbm.whichdb(path))
 
     def setUp(self):
         self.addCleanup(cleaunup_test_dir)

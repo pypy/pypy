@@ -1,10 +1,15 @@
-import mailcap
-import os
 import copy
-import test.support
-from test.support import os_helper
-import unittest
+import os
 import sys
+import test.support
+import unittest
+import warnings
+from test.support import os_helper
+from test.support import warnings_helper
+
+
+mailcap = warnings_helper.import_deprecated('mailcap')
+
 
 # Location of mailcap file
 MAILCAPFILE = test.support.findfile("mailcap.txt")
@@ -123,7 +128,6 @@ class HelperFunctionTest(unittest.TestCase):
             (["", "audio/*", "foo.txt"], ""),
             (["echo foo", "audio/*", "foo.txt"], "echo foo"),
             (["echo %s", "audio/*", "foo.txt"], "echo foo.txt"),
-            (["echo %t", "audio/*", "foo.txt"], None),
             (["echo %t", "audio/wav", "foo.txt"], "echo audio/wav"),
             (["echo \\%t", "audio/*", "foo.txt"], "echo %t"),
             (["echo foo", "audio/*", "foo.txt", plist], "echo foo"),
@@ -206,9 +210,6 @@ class FindmatchTest(unittest.TestCase):
             ([c, "audio/basic"],
              {"key": "description", "filename": fname},
              ('"An audio fragment"', audio_basic_entry)),
-            ([c, "audio/*"],
-             {"filename": fname},
-             (None, None)),
             ([c, "audio/wav"],
              {"filename": fname},
              ("/usr/local/bin/showaudio audio/wav", audio_entry)),
@@ -220,6 +221,10 @@ class FindmatchTest(unittest.TestCase):
 
     @unittest.skipUnless(os.name == "posix", "Requires 'test' command on system")
     @unittest.skipIf(sys.platform == "vxworks", "'test' command is not supported on VxWorks")
+    @unittest.skipUnless(
+        test.support.has_subprocess_support,
+        "'test' command needs process support."
+    )
     def test_test(self):
         # findmatch() will automatically check any "test" conditions and skip
         # the entry if the check fails.
@@ -236,6 +241,30 @@ class FindmatchTest(unittest.TestCase):
             ([caps, "test/fail", "test"], {}, (None, None))
         ]
         self._run_cases(cases)
+
+    def test_unsafe_mailcap_input(self):
+        with self.assertWarnsRegex(mailcap.UnsafeMailcapInput,
+                                   'Refusing to substitute parameter.*'
+                                   'into a shell command'):
+            unsafe_param = mailcap.subst("echo %{total}",
+                                         "audio/wav",
+                                         "foo.txt",
+                                         ["total=*"])
+            self.assertEqual(unsafe_param, None)
+
+        with self.assertWarnsRegex(mailcap.UnsafeMailcapInput,
+                                   'Refusing to substitute MIME type'
+                                   '.*into a shell'):
+            unsafe_mimetype = mailcap.subst("echo %t", "audio/*", "foo.txt")
+            self.assertEqual(unsafe_mimetype, None)
+
+        with self.assertWarnsRegex(mailcap.UnsafeMailcapInput,
+                                   'Refusing to use mailcap with filename.*'
+                                   'Use a safe temporary filename.'):
+            unsafe_filename = mailcap.findmatch(MAILCAPDICT,
+                                                "audio/wav",
+                                                filename="foo*.txt")
+            self.assertEqual(unsafe_filename, (None, None))
 
     def _run_cases(self, cases):
         for c in cases:

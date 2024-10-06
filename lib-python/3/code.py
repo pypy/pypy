@@ -105,15 +105,28 @@ class InteractiveInterpreter:
         The output is written by self.write(), below.
 
         """
-        try:
-            typ, value, tb = sys.exc_info()
-            # pypy change: patch filename in more directly, also for
-            # IndentationError
-            if filename and typ in (SyntaxError, IndentationError):
-                value.filename = filename
-            self._showtraceback(typ, value, None)
-        finally:
-            typ = value = tb = None
+        type, value, tb = sys.exc_info()
+        sys.last_type = type
+        sys.last_value = value
+        sys.last_traceback = tb
+        if filename and type is SyntaxError:
+            # Work hard to stuff the correct filename in the exception
+            try:
+                msg, (dummy_filename, lineno, offset, line) = value.args
+            except ValueError:
+                # Not the format we expect; leave it alone
+                pass
+            else:
+                # Stuff in the right filename
+                value = SyntaxError(msg, (filename, lineno, offset, line))
+                sys.last_value = value
+        if sys.excepthook is sys.__excepthook__:
+            lines = traceback.format_exception_only(type, value)
+            self.write(''.join(lines))
+        else:
+            # If someone has set sys.excepthook, we let that take precedence
+            # over self.write
+            sys.excepthook(type, value, tb)
 
     def showtraceback(self):
         """Display the exception that just occurred.
@@ -123,6 +136,7 @@ class InteractiveInterpreter:
         The output is written by self.write(), below.
 
         """
+        # PyPy change: backport some things from py3.13
         try:
             typ, value, tb = sys.exc_info()
             self._showtraceback(typ, value, tb.tb_next)
@@ -130,7 +144,7 @@ class InteractiveInterpreter:
             typ = value = tb = None
 
     def _showtraceback(self, typ, value, tb, colorize=False, limit=None):
-        # This method is being overwritten in
+        # PyPy: This method is being overwritten in
         # _pyrepl.console.InteractiveColoredConsole to pass different values of
         # colorize and limit
         sys.last_type = typ
@@ -155,7 +169,7 @@ class InteractiveInterpreter:
                 sys.__excepthook__(typ, value, tb)
 
     def _excepthook(self, typ, value, tb):
-        # This method is being overwritten in
+        # PyPy: This method is being overwritten in
         # _pyrepl.console.InteractiveColoredConsole
         lines = traceback.format_exception(typ, value, tb)
         self.write(''.join(lines))

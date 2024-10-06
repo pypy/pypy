@@ -332,10 +332,11 @@ class _LowLevelFile:
 class _Stream:
     """Class that serves as an adapter between TarFile and
        a stream-like object.  The stream-like object only
-       needs to have a read() or write() method and is accessed
-       blockwise.  Use of gzip or bzip2 compression is possible.
-       A stream-like object could be for example: sys.stdin,
-       sys.stdout, a socket, a tape device etc.
+       needs to have a read() or write() method that works with bytes,
+       and the method is accessed blockwise.
+       Use of gzip or bzip2 compression is possible.
+       A stream-like object could be for example: sys.stdin.buffer,
+       sys.stdout.buffer, a socket, a tape device etc.
 
        _Stream is intended to be used only internally.
     """
@@ -372,8 +373,8 @@ class _Stream:
                 self.zlib = zlib
                 self.crc = zlib.crc32(b"")
                 if mode == "r":
-                    self._init_read_gz()
                     self.exception = zlib.error
+                    self._init_read_gz()
                 else:
                     self._init_write_gz()
 
@@ -2444,7 +2445,8 @@ class TarFile(object):
                 # later in _extract_member().
                 os.mkdir(targetpath, 0o700)
         except FileExistsError:
-            pass
+            if not os.path.isdir(targetpath):
+                raise
 
     def makefile(self, tarinfo, targetpath):
         """Make a file called targetpath.
@@ -2591,6 +2593,8 @@ class TarFile(object):
 
         # Advance the file pointer.
         if self.offset != self.fileobj.tell():
+            if self.offset == 0:
+                return None
             self.fileobj.seek(self.offset - 1)
             if not self.fileobj.read(1):
                 raise ReadError("unexpected end of data")
@@ -2782,7 +2786,9 @@ def is_tarfile(name):
     """
     try:
         if hasattr(name, "read"):
+            pos = name.tell()
             t = open(fileobj=name)
+            name.seek(pos)
         else:
             t = open(name)
         t.close()

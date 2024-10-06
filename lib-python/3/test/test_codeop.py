@@ -7,6 +7,7 @@ import unittest
 import warnings
 from test import support
 from test.support import warnings_helper
+from textwrap import dedent
 
 from codeop import compile_command, PyCF_DONT_IMPLY_DEDENT
 import io
@@ -46,7 +47,6 @@ class CodeopTests(unittest.TestCase):
 
     def assertIncomplete(self, str, symbol='single'):
         '''succeed iff str is the start of a valid piece of code'''
-        print(repr(str), symbol)
         self.assertEqual(compile_command(str, symbol=symbol), None)
 
     def assertInvalid(self, str, symbol='single', is_syntax=1):
@@ -276,9 +276,6 @@ class CodeopTests(unittest.TestCase):
         ai("a = 'a\\\n")
 
         ai("a = 1","eval")
-        if support.check_impl_detail():   # on PyPy it asks for more data, which is not
-            ai("a = (","eval")    # completely correct but hard to fix and
-                                  # really a detail (in my opinion <arigo>)
         ai("]","eval")
         ai("())","eval")
         ai("[}","eval")
@@ -344,6 +341,19 @@ class CodeopTests(unittest.TestCase):
         self.assertEqual(w[0].category, DeprecationWarning)
         self.assertRegex(str(w[0].message), 'invalid escape sequence')
         self.assertEqual(w[0].filename, '<input>')
+
+    def assertSyntaxErrorMatches(self, code, message):
+        with self.subTest(code):
+            with self.assertRaisesRegex(SyntaxError, message):
+                compile_command(code, symbol='exec')
+
+    def test_syntax_errors(self):
+        self.assertSyntaxErrorMatches(
+            dedent("""\
+                def foo(x,x):
+                   pass
+            """), "duplicate argument 'x' in function definition")
+
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ import types as _types
 
 __version__ = "1.1.0"
 
+#PyPy change
 import _ffi
 from _ctypes import Union, Structure, Array
 from _ctypes import _Pointer
@@ -66,12 +67,8 @@ def create_string_buffer(init, size=None):
         return buf
     raise TypeError(init)
 
-def c_buffer(init, size=None):
-##    "deprecated, use create_string_buffer instead"
-##    import warnings
-##    warnings.warn("c_buffer is deprecated, use create_string_buffer instead",
-##                  DeprecationWarning, stacklevel=2)
-    return create_string_buffer(init, size)
+# Alias to create_string_buffer() for backward compatibility
+c_buffer = create_string_buffer
 
 _c_functype_cache = {}
 def CFUNCTYPE(restype, *argtypes, **kw):
@@ -97,15 +94,18 @@ def CFUNCTYPE(restype, *argtypes, **kw):
         flags |= _FUNCFLAG_USE_LASTERROR
     if kw:
         raise ValueError("unexpected keyword argument(s) %s" % kw.keys())
+
     try:
         return _c_functype_cache[(restype, argtypes, flags)]
     except KeyError:
-        class CFunctionType(_CFuncPtr):
-            _argtypes_ = argtypes
-            _restype_ = restype
-            _flags_ = flags
-        _c_functype_cache[(restype, argtypes, flags)] = CFunctionType
-        return CFunctionType
+        pass
+
+    class CFunctionType(_CFuncPtr):
+        _argtypes_ = argtypes
+        _restype_ = restype
+        _flags_ = flags
+    _c_functype_cache[(restype, argtypes, flags)] = CFunctionType
+    return CFunctionType
 
 if _os.name == "nt":
     from _ctypes import LoadLibrary as _dlopen
@@ -121,15 +121,18 @@ if _os.name == "nt":
             flags |= _FUNCFLAG_USE_LASTERROR
         if kw:
             raise ValueError("unexpected keyword argument(s) %s" % kw.keys())
+
         try:
             return _win_functype_cache[(restype, argtypes, flags)]
         except KeyError:
-            class WinFunctionType(_CFuncPtr):
-                _argtypes_ = argtypes
-                _restype_ = restype
-                _flags_ = flags
-            _win_functype_cache[(restype, argtypes, flags)] = WinFunctionType
-            return WinFunctionType
+            pass
+
+        class WinFunctionType(_CFuncPtr):
+            _argtypes_ = argtypes
+            _restype_ = restype
+            _flags_ = flags
+        _win_functype_cache[(restype, argtypes, flags)] = WinFunctionType
+        return WinFunctionType
     if WINFUNCTYPE.__doc__:
         WINFUNCTYPE.__doc__ = CFUNCTYPE.__doc__.replace("CFUNCTYPE", "WINFUNCTYPE")
 
@@ -372,16 +375,17 @@ class CDLL(object):
         self._FuncPtr = _FuncPtr
 
         if handle is None:
+            # PyPy change
             if flags & _FUNCFLAG_CDECL:
                 pypy_dll = _ffi.CDLL(name, mode)
             else:
                 pypy_dll = _ffi.WinDLL(name, mode)
-            self.__pypy_dll__ = pypy_dll
-            handle = int(pypy_dll)
-        self._handle = handle
+            self._handle = pypy_dll
+        else:
+            self._handle = handle
 
     def __repr__(self):
-        return "<%s '%s', handle %x at 0x%x>" % \
+        return "<%s '%s', handle %x at %#x>" % \
                (self.__class__.__name__, self._name,
                 (self._handle & (_sys.maxsize*2 + 1)),
                 id(self) & (_sys.maxsize*2 + 1))
@@ -504,12 +508,9 @@ def PYFUNCTYPE(restype, *argtypes):
         _flags_ = _FUNCFLAG_CDECL | _FUNCFLAG_PYTHONAPI
     return CFunctionType
 
+_cast = PYFUNCTYPE(py_object, c_void_p, py_object, py_object)(_cast_addr)
 def cast(obj, typ):
-    try:
-        c_void_p.from_param(obj)
-    except TypeError as e:
-        raise ArgumentError(str(e))
-    return _cast_addr(obj, obj, typ)
+    return _cast(obj, obj, typ)
 
 _string_at = PYFUNCTYPE(py_object, c_void_p, c_int)(_string_at_addr)
 def string_at(ptr, size=-1):
@@ -548,6 +549,7 @@ if _os.name == "nt": # COM stuff
         return ccom.DllCanUnloadNow()
 
 from ctypes._endian import BigEndianStructure, LittleEndianStructure
+from ctypes._endian import BigEndianUnion, LittleEndianUnion
 
 # Fill in specifically-sized types
 c_int8 = c_byte

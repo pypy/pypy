@@ -30,7 +30,6 @@ except ImportError:  # pragma: no cover
 from asyncio import base_events
 from asyncio import events
 from asyncio import format_helpers
-from asyncio import exceptions
 from asyncio import futures
 from asyncio import tasks
 from asyncio.log import logger
@@ -38,21 +37,27 @@ from test import support
 from test.support import threading_helper
 
 
-def data_file(filename):
+# Use the maximum known clock resolution (gh-75191, gh-110088): Windows
+# GetTickCount64() has a resolution of 15.6 ms. Use 50 ms to tolerate rounding
+# issues.
+CLOCK_RES = 0.050
+
+
+def data_file(*filename):
     if hasattr(support, 'TEST_HOME_DIR'):
-        fullname = os.path.join(support.TEST_HOME_DIR, filename)
+        fullname = os.path.join(support.TEST_HOME_DIR, *filename)
         if os.path.isfile(fullname):
             return fullname
-    fullname = os.path.join(os.path.dirname(__file__), '..', filename)
+    fullname = os.path.join(os.path.dirname(__file__), '..', *filename)
     if os.path.isfile(fullname):
         return fullname
-    raise FileNotFoundError(filename)
+    raise FileNotFoundError(os.path.join(filename))
 
 
-ONLYCERT = data_file('ssl_cert.pem')
-ONLYKEY = data_file('ssl_key.pem')
-SIGNED_CERTFILE = data_file('keycert3.pem')
-SIGNING_CA = data_file('pycacert.pem')
+ONLYCERT = data_file('certdata', 'ssl_cert.pem')
+ONLYKEY = data_file('certdata', 'ssl_key.pem')
+SIGNED_CERTFILE = data_file('certdata', 'keycert3.pem')
+SIGNING_CA = data_file('certdata', 'pycacert.pem')
 PEERCERT = {
     'OCSP': ('http://testca.pythontest.net/testca/ocsp/',),
     'caIssuers': ('http://testca.pythontest.net/testca/pycacert.cer',),
@@ -115,7 +120,7 @@ def run_until(loop, pred, timeout=support.SHORT_TIMEOUT):
         if timeout is not None:
             timeout = deadline - time.monotonic()
             if timeout <= 0:
-                raise exceptions.TimeoutError()
+                raise futures.TimeoutError()
         loop.run_until_complete(tasks.sleep(0.001))
 
 
@@ -280,6 +285,31 @@ def run_test_server(*, host='127.0.0.1', port=0, use_ssl=False):
     yield from _run_test_server(address=(host, port), use_ssl=use_ssl,
                                 server_cls=SilentWSGIServer,
                                 server_ssl_cls=SSLWSGIServer)
+
+
+def echo_datagrams(sock):
+    while True:
+        data, addr = sock.recvfrom(4096)
+        if data == b'STOP':
+            sock.close()
+            break
+        else:
+            sock.sendto(data, addr)
+
+
+@contextlib.contextmanager
+def run_udp_echo_server(*, host='127.0.0.1', port=0):
+    addr_info = socket.getaddrinfo(host, port, type=socket.SOCK_DGRAM)
+    family, type, proto, _, sockaddr = addr_info[0]
+    sock = socket.socket(family, type, proto)
+    sock.bind((host, port))
+    thread = threading.Thread(target=lambda: echo_datagrams(sock))
+    thread.start()
+    try:
+        yield sock.getsockname()
+    finally:
+        sock.sendto(b'STOP', sock.getsockname())
+        thread.join()
 
 
 def make_test_protocol(base):
@@ -518,6 +548,7 @@ class TestCase(unittest.TestCase):
             else:
                 loop._default_executor.shutdown(wait=True)
         loop.close()
+
         policy = support.maybe_get_event_loop_policy()
         if policy is not None:
             try:
@@ -527,9 +558,13 @@ class TestCase(unittest.TestCase):
                 pass
             else:
                 if isinstance(watcher, asyncio.ThreadedChildWatcher):
-                    threads = list(watcher._threads.values())
-                    for thread in threads:
-                        thread.join()
+                    # Wait for subprocess to finish, but not forever
+                    for thread in list(watcher._threads.values()):
+                        thread.join(timeout=support.SHORT_TIMEOUT)
+                        if thread.is_alive():
+                            raise RuntimeError(f"thread {thread} still alive: "
+                                               "subprocess still running")
+
 
     def set_event_loop(self, loop, *, cleanup=True):
         if loop is None:
@@ -582,3 +617,18 @@ def mock_nonblocking_socket(proto=socket.IPPROTO_TCP, type=socket.SOCK_STREAM,
     sock.family = family
     sock.gettimeout.return_value = 0.0
     return sock
+
+
+async def await_without_task(coro):
+    exc = None
+    def func():
+        try:
+            for _ in coro.__await__():
+                pass
+        except BaseException as err:
+            nonlocal exc
+            exc = err
+    asyncio.get_running_loop().call_soon(func)
+    await asyncio.sleep(0)
+    if exc is not None:
+        raise exc

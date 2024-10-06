@@ -11,6 +11,7 @@ import sys
 from distutils.core import Command
 from distutils.errors import *
 from distutils.sysconfig import customize_compiler, get_python_version
+from distutils.sysconfig import get_config_h_filename
 from distutils.dep_util import newer_group
 from distutils.extension import Extension
 from distutils.util import get_platform
@@ -695,7 +696,7 @@ class build_ext(Command):
         suffix = '_' + ext.name.split('.')[-1]
         try:
             # Unicode module name support as defined in PEP-489
-            # https://www.python.org/dev/peps/pep-0489/#export-hook-name
+            # https://peps.python.org/pep-0489/#export-hook-name
             suffix.encode('ascii')
         except UnicodeEncodeError:
             suffix = 'U' + suffix.encode('punycode').replace(b'-', b'_').decode('ascii')

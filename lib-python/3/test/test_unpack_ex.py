@@ -1,5 +1,9 @@
 # Tests for extended unpacking, starred expressions.
 
+import doctest
+import unittest
+
+
 doctests = """
 
 Unpack tuple
@@ -173,7 +177,7 @@ List comprehension element unpacking
 #                   ^
 #     SyntaxError: invalid syntax
 
-    >>> dict(**x for x in [{1:2}]) # doctest: +IGNORE_EXCEPTION_DETAIL
+    >>> dict(**x for x in [{1:2}])
     Traceback (most recent call last):
     ...
         dict(**x for x in [{1:2}])
@@ -239,35 +243,30 @@ Make sure the raised errors are right for keyword argument unpackings
 
 Overridden parameters
 
-    >>> f(x=5, **{'x': 3}, y=2)     # doctest:+ELLIPSIS
+    >>> f(x=5, **{'x': 3}, y=2)
     Traceback (most recent call last):
       ...
-    TypeError: ...got multiple values for keyword argument 'x'
+    TypeError: test.test_unpack_ex.f() got multiple values for keyword argument 'x'
 
-    >>> f(**{'x': 3}, x=5, y=2)     # doctest:+ELLIPSIS
+    >>> f(**{'x': 3}, x=5, y=2)
     Traceback (most recent call last):
       ...
-    TypeError: ...got multiple values for keyword argument 'x'
+    TypeError: test.test_unpack_ex.f() got multiple values for keyword argument 'x'
 
-    >>> f(x=5, **{'x': 3}, **{'x': 2})     # doctest:+ELLIPSIS
+    >>> f(**{'x': 3}, **{'x': 5}, y=2)
     Traceback (most recent call last):
       ...
-    TypeError: ...got multiple values for keyword argument 'x'
+    TypeError: test.test_unpack_ex.f() got multiple values for keyword argument 'x'
 
-    >>> f(**{1: 3}, **{1: 5})     # doctest:+ELLIPSIS
+    >>> f(x=5, **{'x': 3}, **{'x': 2})
     Traceback (most recent call last):
       ...
-    TypeError: ...got multiple values for keyword argument...
+    TypeError: test.test_unpack_ex.f() got multiple values for keyword argument 'x'
 
-    >>> f(x=5, **{'x': 3}, **{'x': 2})     # doctest:+ELLIPSIS
+    >>> f(**{1: 3}, **{1: 5})
     Traceback (most recent call last):
       ...
-    TypeError: ...got multiple values for keyword argument 'x'
-
-    >>> f(**{1: 3}, **{1: 5})     # doctest:+ELLIPSIS
-    Traceback (most recent call last):
-      ...
-    TypeError: ...got multiple values for keyword argument...
+    TypeError: test.test_unpack_ex.f() got multiple values for keyword argument '1'
 
 Unpacking non-sequence
 
@@ -336,23 +335,20 @@ Now some general starred expressions (all fail).
       ...
     SyntaxError: starred assignment target must be in a list or tuple
 
-    # PyPy: can't -> cannot
     >>> *a # doctest:+ELLIPSIS
     Traceback (most recent call last):
       ...
-    SyntaxError: can...t use starred expression here
+    SyntaxError: can't use starred expression here
 
-    # PyPy: can't -> cannot
     >>> *1 # doctest:+ELLIPSIS
     Traceback (most recent call last):
       ...
-    SyntaxError: can...t use starred expression here
+    SyntaxError: can't use starred expression here
 
-    # PyPy: can't -> cannot
     >>> x = *a # doctest:+ELLIPSIS
     Traceback (most recent call last):
       ...
-    SyntaxError: can...t use starred expression here
+    SyntaxError: can't use starred expression here
 
     >>> (*x),y = 1, 2 # doctest:+ELLIPSIS
     Traceback (most recent call last):
@@ -400,10 +396,10 @@ Some size constraints (all fail.)
 
 __test__ = {'doctests' : doctests}
 
-def test_main(verbose=False):
-    from test import support
-    from test import test_unpack_ex
-    support.run_doctest(test_unpack_ex, verbose)
+def load_tests(loader, tests, pattern):
+    tests.addTest(doctest.DocTestSuite())
+    return tests
+
 
 if __name__ == "__main__":
-    test_main(verbose=True)
+    unittest.main()

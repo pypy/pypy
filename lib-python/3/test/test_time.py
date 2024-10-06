@@ -38,6 +38,10 @@ class _PyTime(enum.IntEnum):
     # Round away from zero
     ROUND_UP = 3
 
+# _PyTime_t is int64_t
+_PyTime_MIN = -2 ** 63
+_PyTime_MAX = 2 ** 63 - 1
+
 # Rounding modes supported by PyTime
 ROUNDING_MODES = (
     # (PyTime rounding method, decimal rounding method)
@@ -154,6 +158,13 @@ class TimeTestCase(unittest.TestCase):
         self.assertRaises(ValueError, time.sleep, -2)
         self.assertRaises(ValueError, time.sleep, -1)
         time.sleep(1.2)
+
+    def test_epoch(self):
+        # bpo-43869: Make sure that Python use the same Epoch on all platforms:
+        # January 1, 1970, 00:00:00 (UTC).
+        epoch = time.gmtime(0)
+        # Only test the date and time, ignore other gmtime() members
+        self.assertEqual(tuple(epoch)[:6], (1970, 1, 1, 0, 0, 0), epoch)
 
     def test_strftime(self):
         tt = time.gmtime(self.t)
@@ -302,6 +313,9 @@ class TimeTestCase(unittest.TestCase):
     def test_asctime_bounding_check(self):
         self._bounds_checking(time.asctime)
 
+    @unittest.skipIf(
+        support.is_emscripten, "musl libc issue on Emscripten, bpo-46390"
+    )
     def test_ctime(self):
         t = time.mktime((1973, 9, 16, 1, 3, 52, 0, 0, -1))
         self.assertEqual(time.ctime(t), 'Sun Sep 16 01:03:52 1973')
@@ -475,6 +489,9 @@ class TimeTestCase(unittest.TestCase):
     def test_perf_counter(self):
         time.perf_counter()
 
+    @unittest.skipIf(
+        support.is_wasi, "process_time not available on WASI"
+    )
     def test_process_time(self):
         # process_time() should not include time spend during a sleep
         start = time.process_time()
@@ -550,8 +567,9 @@ class TimeTestCase(unittest.TestCase):
             'perf_counter',
             'process_time',
             'time',
-            'thread_time',
         ]
+        if hasattr(time, 'thread_time'):
+            clocks.append('thread_time')
 
         for name in clocks:
             with self.subTest(name=name):
@@ -583,8 +601,6 @@ class TestLocale(unittest.TestCase):
             self.skipTest('could not set locale.LC_ALL to fr_FR')
         # This should not cause an exception
         time.strftime("%B", (2009,2,1,0,0,0,0,0,0))
-        # PyPy addition:
-        time.strftime("%B", (2009,8,1,0,0,0,0,0,0)).lower()
 
 
 class _TestAsctimeYear:
@@ -613,6 +629,9 @@ class _TestStrftimeYear:
     def yearstr(self, y):
         return time.strftime('%Y', (y,) + (0,) * 8)
 
+    @unittest.skipUnless(
+        support.has_strftime_extensions, "requires strftime extension"
+    )
     def test_4dyear(self):
         # Check that we can return the zero padded value.
         if self._format == '%04d':
@@ -686,6 +705,9 @@ class TestStrftime4dyear(_TestStrftimeYear, _Test4dYear, unittest.TestCase):
 class TestPytime(unittest.TestCase):
     @skip_if_buggy_ucrt_strfptime
     @unittest.skipUnless(time._STRUCT_TM_ITEMS == 11, "needs tm_zone support")
+    @unittest.skipIf(
+        support.is_emscripten, "musl libc issue on Emscripten, bpo-46390"
+    )
     def test_localtime_timezone(self):
 
         # Get the localtime and examine it for the offset and zone.
@@ -968,6 +990,49 @@ class TestCPyTime(CPyTimeTestCase, unittest.TestCase):
                                 timespec_converter,
                                 NS_TO_SEC,
                                 value_filter=self.time_t_filter)
+
+    @unittest.skipUnless(hasattr(_testcapi, 'PyTime_AsTimeval_clamp'),
+                         'need _testcapi.PyTime_AsTimeval_clamp')
+    def test_AsTimeval_clamp(self):
+        from _testcapi import PyTime_AsTimeval_clamp
+
+        if sys.platform == 'win32':
+            from _testcapi import LONG_MIN, LONG_MAX
+            tv_sec_max = LONG_MAX
+            tv_sec_min = LONG_MIN
+        else:
+            tv_sec_max = self.time_t_max
+            tv_sec_min = self.time_t_min
+
+        for t in (_PyTime_MIN, _PyTime_MAX):
+            ts = PyTime_AsTimeval_clamp(t, _PyTime.ROUND_CEILING)
+            with decimal.localcontext() as context:
+                context.rounding = decimal.ROUND_CEILING
+                us = self.decimal_round(decimal.Decimal(t) / US_TO_NS)
+            tv_sec, tv_usec = divmod(us, SEC_TO_US)
+            if tv_sec_max < tv_sec:
+                tv_sec = tv_sec_max
+                tv_usec = 0
+            elif tv_sec < tv_sec_min:
+                tv_sec = tv_sec_min
+                tv_usec = 0
+            self.assertEqual(ts, (tv_sec, tv_usec))
+
+    @unittest.skipUnless(hasattr(_testcapi, 'PyTime_AsTimespec_clamp'),
+                         'need _testcapi.PyTime_AsTimespec_clamp')
+    def test_AsTimespec_clamp(self):
+        from _testcapi import PyTime_AsTimespec_clamp
+
+        for t in (_PyTime_MIN, _PyTime_MAX):
+            ts = PyTime_AsTimespec_clamp(t)
+            tv_sec, tv_nsec = divmod(t, NS_TO_SEC)
+            if self.time_t_max < tv_sec:
+                tv_sec = self.time_t_max
+                tv_nsec = 0
+            elif tv_sec < self.time_t_min:
+                tv_sec = self.time_t_min
+                tv_nsec = 0
+            self.assertEqual(ts, (tv_sec, tv_nsec))
 
     def test_AsMilliseconds(self):
         from _testcapi import PyTime_AsMilliseconds

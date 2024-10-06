@@ -6,7 +6,6 @@ import types
 import pickle
 from test import support
 from test.support import import_helper
-import test.test_importlib.util
 
 import unittest
 import unittest.mock
@@ -396,7 +395,7 @@ class TestDiscovery(unittest.TestCase):
         self.addCleanup(restore_isdir)
 
         _find_tests_args = []
-        def _find_tests(start_dir, pattern, namespace=None):
+        def _find_tests(start_dir, pattern):
             _find_tests_args.append((start_dir, pattern))
             return ['tests']
         loader._find_tests = _find_tests
@@ -792,7 +791,7 @@ class TestDiscovery(unittest.TestCase):
         expectedPath = os.path.abspath(os.path.dirname(unittest.test.__file__))
 
         self.wasRun = False
-        def _find_tests(start_dir, pattern, namespace=None):
+        def _find_tests(start_dir, pattern):
             self.wasRun = True
             self.assertEqual(start_dir, expectedPath)
             return tests
@@ -825,38 +824,9 @@ class TestDiscovery(unittest.TestCase):
                          'Can not use builtin modules '
                          'as dotted module names')
 
-    def test_discovery_from_dotted_namespace_packages(self):
-        loader = unittest.TestLoader()
-
-        package = types.ModuleType('package')
-        package.__path__ = ['/a', '/b']
-        package.__spec__ = types.SimpleNamespace(
-           loader=None,
-           submodule_search_locations=['/a', '/b']
-        )
-
-        def _import(packagename, *args, **kwargs):
-            sys.modules[packagename] = package
-            return package
-
-        _find_tests_args = []
-        def _find_tests(start_dir, pattern, namespace=None):
-            _find_tests_args.append((start_dir, pattern))
-            return ['%s/tests' % start_dir]
-
-        loader._find_tests = _find_tests
-        loader.suiteClass = list
-
-        with unittest.mock.patch('builtins.__import__', _import):
-            # Since loader.discover() can modify sys.path, restore it when done.
-            with import_helper.DirsOnSysPath():
-                # Make sure to remove 'package' from sys.modules when done.
-                with test.test_importlib.util.uncache('package'):
-                    suite = loader.discover('package')
-
-        self.assertEqual(suite, ['/a/tests', '/b/tests'])
-
     def test_discovery_failed_discovery(self):
+        from test.test_importlib import util
+
         loader = unittest.TestLoader()
         package = types.ModuleType('package')
 
@@ -868,7 +838,7 @@ class TestDiscovery(unittest.TestCase):
             # Since loader.discover() can modify sys.path, restore it when done.
             with import_helper.DirsOnSysPath():
                 # Make sure to remove 'package' from sys.modules when done.
-                with test.test_importlib.util.uncache('package'):
+                with util.uncache('package'):
                     with self.assertRaises(TypeError) as cm:
                         loader.discover('package')
                     self.assertEqual(str(cm.exception),

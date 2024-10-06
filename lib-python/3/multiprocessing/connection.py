@@ -9,6 +9,7 @@
 
 __all__ = [ 'Client', 'Listener', 'Pipe', 'wait' ]
 
+import errno
 import io
 import os
 import sys
@@ -183,10 +184,9 @@ class _ConnectionBase:
         self._check_closed()
         self._check_writable()
         m = memoryview(buf)
-        # HACK for byte-indexing of non-bytewise buffers (e.g. array.array)
         if m.itemsize > 1:
-            m = memoryview(bytes(m))
-        n = len(m)
+            m = m.cast('B')
+        n = m.nbytes
         if offset < 0:
             raise ValueError("offset is negative")
         if n < offset:
@@ -272,12 +272,22 @@ if _winapi:
         with FILE_FLAG_OVERLAPPED.
         """
         _got_empty_message = False
+        _send_ov = None
 
         def _close(self, _CloseHandle=_winapi.CloseHandle):
+            ov = self._send_ov
+            if ov is not None:
+                # Interrupt WaitForMultipleObjects() in _send_bytes()
+                ov.cancel()
             _CloseHandle(self._handle)
 
         def _send_bytes(self, buf):
+            if self._send_ov is not None:
+                # A connection should only be used by a single thread
+                raise ValueError("concurrent send_bytes() calls "
+                                 "are not supported")
             ov, err = _winapi.WriteFile(self._handle, buf, overlapped=True)
+            self._send_ov = ov
             try:
                 if err == _winapi.ERROR_IO_PENDING:
                     waitres = _winapi.WaitForMultipleObjects(
@@ -287,7 +297,13 @@ if _winapi:
                 ov.cancel()
                 raise
             finally:
+                self._send_ov = None
                 nwritten, err = ov.GetOverlappedResult(True)
+            if err == _winapi.ERROR_OPERATION_ABORTED:
+                # close() was called by another thread while
+                # WaitForMultipleObjects() was waiting for the overlapped
+                # operation.
+                raise OSError(errno.EPIPE, "handle is closed")
             assert err == 0
             assert nwritten == len(buf)
 
@@ -460,8 +476,9 @@ class Listener(object):
         '''
         if self._listener is None:
             raise OSError('listener is closed')
+
         c = self._listener.accept()
-        if self._authkey:
+        if self._authkey is not None:
             deliver_challenge(c, self._authkey)
             answer_challenge(c, self._authkey)
         return c
@@ -938,7 +955,7 @@ else:
                             return ready
 
 #
-# Make connection and socket objects sharable if possible
+# Make connection and socket objects shareable if possible
 #
 
 if sys.platform == 'win32':

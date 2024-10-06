@@ -2,6 +2,8 @@
 # these are all functions _testcapi exports whose name begins with 'test_'.
 
 from collections import OrderedDict
+import _thread
+import contextlib
 import importlib.machinery
 import importlib.util
 import os
@@ -25,6 +27,10 @@ try:
     import _posixsubprocess
 except ImportError:
     _posixsubprocess = None
+try:
+    import _testmultiphase
+except ImportError:
+    _testmultiphase = None
 
 # Skip this test if the _testcapi module isn't available.
 _testcapi = import_helper.import_module('_testcapi')
@@ -34,6 +40,8 @@ import _testinternalcapi
 # Were we compiled --with-pydebug or with #define Py_DEBUG?
 Py_DEBUG = hasattr(sys, 'gettotalrefcount')
 
+
+NULL = None
 
 def decode_stderr(err):
     return err.decode('utf-8', 'replace').replace('\r', '')
@@ -61,6 +69,7 @@ class CAPITest(unittest.TestCase):
         self.assertEqual(testfunction.attribute, "test")
         self.assertRaises(AttributeError, setattr, inst.testfunction, "attribute", "test")
 
+    @support.requires_subprocess()
     def test_no_FatalError_infinite_loop(self):
         with support.SuppressCrashReport():
             p = subprocess.Popen([sys.executable, "-c",
@@ -81,6 +90,28 @@ class CAPITest(unittest.TestCase):
 
     def test_memoryview_from_NULL_pointer(self):
         self.assertRaises(ValueError, _testcapi.make_memoryview_from_NULL_pointer)
+
+    def test_exception(self):
+        raised_exception = ValueError("5")
+        new_exc = TypeError("TEST")
+        try:
+            raise raised_exception
+        except ValueError as e:
+            orig_sys_exception = sys.exception()
+            orig_exception = _testcapi.set_exception(new_exc)
+            new_sys_exception = sys.exception()
+            new_exception = _testcapi.set_exception(orig_exception)
+            reset_sys_exception = sys.exception()
+
+            self.assertEqual(orig_exception, e)
+
+            self.assertEqual(orig_exception, raised_exception)
+            self.assertEqual(orig_sys_exception, orig_exception)
+            self.assertEqual(reset_sys_exception, orig_exception)
+            self.assertEqual(new_exception, new_exc)
+            self.assertEqual(new_sys_exception, new_exception)
+        else:
+            self.fail("Exception not raised")
 
     def test_exc_info(self):
         raised_exception = ValueError("5")
@@ -105,14 +136,43 @@ class CAPITest(unittest.TestCase):
         else:
             self.assertTrue(False)
 
+    def test_set_object(self):
+        # new exception as obj is not an exception
+        with self.assertRaises(ValueError) as e:
+            _testcapi.exc_set_object(ValueError, 42)
+        self.assertEqual(e.exception.args, (42,))
+
+        # wraps the exception because unrelated types
+        with self.assertRaises(ValueError) as e:
+            _testcapi.exc_set_object(ValueError, TypeError(1,2,3))
+        wrapped = e.exception.args[0]
+        self.assertIsInstance(wrapped, TypeError)
+        self.assertEqual(wrapped.args, (1, 2, 3))
+
+        # is superclass, so does not wrap
+        with self.assertRaises(PermissionError) as e:
+            _testcapi.exc_set_object(OSError, PermissionError(24))
+        self.assertEqual(e.exception.args, (24,))
+
+        class Meta(type):
+            def __subclasscheck__(cls, sub):
+                1/0
+
+        class Broken(Exception, metaclass=Meta):
+            pass
+
+        with self.assertRaises(ZeroDivisionError) as e:
+            _testcapi.exc_set_object(Broken, Broken())
+
     @unittest.skipUnless(_posixsubprocess, '_posixsubprocess required for this test.')
     def test_seq_bytes_to_charp_array(self):
         # Issue #15732: crash in _PySequence_BytesToCharpArray()
         class Z(object):
             def __len__(self):
                 return 1
-        self.assertRaises(TypeError, _posixsubprocess.fork_exec,
-                          1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
+        with self.assertRaisesRegex(TypeError, 'indexing'):
+            _posixsubprocess.fork_exec(
+                          1,Z(),True,(1, 2),5,6,7,8,9,10,11,12,13,14,True,True,17,False,19,20,21,22,False)
         # Issue #15736: overflow in _PySequence_BytesToCharpArray()
         class Z(object):
             def __len__(self):
@@ -120,7 +180,7 @@ class CAPITest(unittest.TestCase):
             def __getitem__(self, i):
                 return b'x'
         self.assertRaises(MemoryError, _posixsubprocess.fork_exec,
-                          1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
+                          1,Z(),True,(1, 2),5,6,7,8,9,10,11,12,13,14,True,True,17,False,19,20,21,22,False)
 
     @unittest.skipUnless(_posixsubprocess, '_posixsubprocess required for this test.')
     def test_subprocess_fork_exec(self):
@@ -130,7 +190,7 @@ class CAPITest(unittest.TestCase):
 
         # Issue #15738: crash in subprocess_fork_exec()
         self.assertRaises(TypeError, _posixsubprocess.fork_exec,
-                          Z(),[b'1'],3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
+                          Z(),[b'1'],True,(1, 2),5,6,7,8,9,10,11,12,13,14,True,True,17,False,19,20,21,22,False)
 
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
                      "Signature information for builtins requires docstrings")
@@ -323,9 +383,13 @@ class CAPITest(unittest.TestCase):
                         break
         """
         rc, out, err = assert_python_ok('-c', code)
-        self.assertIn(b'MemoryError 1 10', out)
-        self.assertIn(b'MemoryError 2 20', out)
-        self.assertIn(b'MemoryError 3 30', out)
+        lines = out.splitlines()
+        for i, line in enumerate(lines, 1):
+            self.assertIn(b'MemoryError', out)
+            *_, count = line.split(b' ')
+            count = int(count)
+            self.assertLessEqual(count, i*5)
+            self.assertGreaterEqual(count, i*5-2)
 
     def test_mapping_keys_values_items(self):
         class Mapping1(dict):
@@ -382,6 +446,86 @@ class CAPITest(unittest.TestCase):
         dct2 = SubDict({'a': 1})
         self.assertTrue(_testcapi.mapping_has_key(dct2, 'a'))
         self.assertFalse(_testcapi.mapping_has_key(dct2, 'b'))
+
+    def test_sequence_set_slice(self):
+        # Correct case:
+        data = [1, 2, 3, 4, 5]
+        data_copy = data.copy()
+
+        _testcapi.sequence_set_slice(data, 1, 3, [8, 9])
+        data_copy[1:3] = [8, 9]
+        self.assertEqual(data, data_copy)
+        self.assertEqual(data, [1, 8, 9, 4, 5])
+
+        # Custom class:
+        class Custom:
+            def __setitem__(self, index, value):
+                self.index = index
+                self.value = value
+
+        c = Custom()
+        _testcapi.sequence_set_slice(c, 0, 5, 'abc')
+        self.assertEqual(c.index, slice(0, 5))
+        self.assertEqual(c.value, 'abc')
+
+        # Immutable sequences must raise:
+        bad_seq1 = (1, 2, 3, 4)
+        with self.assertRaises(TypeError):
+            _testcapi.sequence_set_slice(bad_seq1, 1, 3, (8, 9))
+        self.assertEqual(bad_seq1, (1, 2, 3, 4))
+
+        bad_seq2 = 'abcd'
+        with self.assertRaises(TypeError):
+            _testcapi.sequence_set_slice(bad_seq2, 1, 3, 'xy')
+        self.assertEqual(bad_seq2, 'abcd')
+
+        # Not a sequence:
+        with self.assertRaises(TypeError):
+            _testcapi.sequence_set_slice(None, 1, 3, 'xy')
+
+        mapping = {1: 'a', 2: 'b', 3: 'c'}
+        with self.assertRaises(TypeError):
+            _testcapi.sequence_set_slice(mapping, 1, 3, 'xy')
+        self.assertEqual(mapping, {1: 'a', 2: 'b', 3: 'c'})
+
+    def test_sequence_del_slice(self):
+        # Correct case:
+        data = [1, 2, 3, 4, 5]
+        data_copy = data.copy()
+
+        _testcapi.sequence_del_slice(data, 1, 3)
+        del data_copy[1:3]
+        self.assertEqual(data, data_copy)
+        self.assertEqual(data, [1, 4, 5])
+
+        # Custom class:
+        class Custom:
+            def __delitem__(self, index):
+                self.index = index
+
+        c = Custom()
+        _testcapi.sequence_del_slice(c, 0, 5)
+        self.assertEqual(c.index, slice(0, 5))
+
+        # Immutable sequences must raise:
+        bad_seq1 = (1, 2, 3, 4)
+        with self.assertRaises(TypeError):
+            _testcapi.sequence_del_slice(bad_seq1, 1, 3)
+        self.assertEqual(bad_seq1, (1, 2, 3, 4))
+
+        bad_seq2 = 'abcd'
+        with self.assertRaises(TypeError):
+            _testcapi.sequence_del_slice(bad_seq2, 1, 3)
+        self.assertEqual(bad_seq2, 'abcd')
+
+        # Not a sequence:
+        with self.assertRaises(TypeError):
+            _testcapi.sequence_del_slice(None, 1, 3)
+
+        mapping = {1: 'a', 2: 'b', 3: 'c'}
+        with self.assertRaises(TypeError):
+            _testcapi.sequence_del_slice(mapping, 1, 3)
+        self.assertEqual(mapping, {1: 'a', 2: 'b', 3: 'c'})
 
     @unittest.skipUnless(hasattr(_testcapi, 'negative_refcount'),
                          'need _testcapi.negative_refcount')
@@ -446,6 +590,8 @@ class CAPITest(unittest.TestCase):
             del L
             self.assertEqual(PyList.num, 0)
 
+    @unittest.skipIf(MISSING_C_DOCSTRINGS,
+                     "Signature information for builtins requires docstrings")
     def test_heap_ctype_doc_and_text_signature(self):
         self.assertEqual(_testcapi.HeapDocCType.__doc__, "somedoc")
         self.assertEqual(_testcapi.HeapDocCType.__text_signature__, "(arg1, arg2)")
@@ -496,7 +642,12 @@ class CAPITest(unittest.TestCase):
         del subclass_instance
 
         # Test that setting __class__ modified the reference counts of the types
-        self.assertEqual(type_refcnt - 1, B.refcnt_in_del)
+        if Py_DEBUG:
+            # gh-89373: In debug mode, _Py_Dealloc() keeps a strong reference
+            # to the type while calling tp_dealloc()
+            self.assertEqual(type_refcnt, B.refcnt_in_del)
+        else:
+            self.assertEqual(type_refcnt - 1, B.refcnt_in_del)
         self.assertEqual(new_type_refcnt + 1, A.refcnt_in_del)
 
         # Test that the original type already has decreased its refcnt
@@ -561,7 +712,12 @@ class CAPITest(unittest.TestCase):
         del subclass_instance
 
         # Test that setting __class__ modified the reference counts of the types
-        self.assertEqual(type_refcnt - 1, _testcapi.HeapCTypeSubclassWithFinalizer.refcnt_in_del)
+        if Py_DEBUG:
+            # gh-89373: In debug mode, _Py_Dealloc() keeps a strong reference
+            # to the type while calling tp_dealloc()
+            self.assertEqual(type_refcnt, _testcapi.HeapCTypeSubclassWithFinalizer.refcnt_in_del)
+        else:
+            self.assertEqual(type_refcnt - 1, _testcapi.HeapCTypeSubclassWithFinalizer.refcnt_in_del)
         self.assertEqual(new_type_refcnt + 1, _testcapi.HeapCTypeSubclass.refcnt_in_del)
 
         # Test that the original type already has decreased its refcnt
@@ -577,6 +733,25 @@ class CAPITest(unittest.TestCase):
         self.assertEqual(obj.pvalue, 12)
         del obj.value
         self.assertEqual(obj.pvalue, 0)
+
+    def test_multiple_inheritance_ctypes_with_weakref_or_dict(self):
+
+        class Both1(_testcapi.HeapCTypeWithWeakref, _testcapi.HeapCTypeWithDict):
+            pass
+        class Both2(_testcapi.HeapCTypeWithDict, _testcapi.HeapCTypeWithWeakref):
+            pass
+
+        for cls in (_testcapi.HeapCTypeWithDict, _testcapi.HeapCTypeWithDict2,
+            _testcapi.HeapCTypeWithWeakref, _testcapi.HeapCTypeWithWeakref2):
+            for cls2 in (_testcapi.HeapCTypeWithDict, _testcapi.HeapCTypeWithDict2,
+                _testcapi.HeapCTypeWithWeakref, _testcapi.HeapCTypeWithWeakref2):
+                if cls is not cls2:
+                    class S(cls, cls2):
+                        pass
+            class B1(Both1, cls):
+                pass
+            class B2(Both1, cls):
+                pass
 
     def test_pynumber_tobase(self):
         from _testcapi import pynumber_tobase
@@ -613,6 +788,7 @@ class CAPITest(unittest.TestCase):
             self.assertNotIn(name, modules)
         self.assertEqual(len(modules), total)
 
+    @support.requires_subprocess()
     def test_fatal_error(self):
         # By default, stdlib extension modules are ignored,
         # but not test modules.
@@ -651,6 +827,134 @@ class CAPITest(unittest.TestCase):
         expected = compile(code, "<string>", "exec")
         self.assertEqual(result.co_consts, expected.co_consts)
 
+    def test_export_symbols(self):
+        # bpo-44133: Ensure that the "Py_FrozenMain" and
+        # "PyThread_get_thread_native_id" symbols are exported by the Python
+        # (directly by the binary, or via by the Python dynamic library).
+        ctypes = import_helper.import_module('ctypes')
+        names = []
+
+        # Test if the PY_HAVE_THREAD_NATIVE_ID macro is defined
+        if hasattr(_thread, 'get_native_id'):
+            names.append('PyThread_get_thread_native_id')
+
+        # Python/frozenmain.c fails to build on Windows when the symbols are
+        # missing:
+        # - PyWinFreeze_ExeInit
+        # - PyWinFreeze_ExeTerm
+        # - PyInitFrozenExtensions
+        if os.name != 'nt':
+            names.append('Py_FrozenMain')
+
+        for name in names:
+            with self.subTest(name=name):
+                self.assertTrue(hasattr(ctypes.pythonapi, name))
+
+    def test_eval_get_func_name(self):
+        def function_example(): ...
+
+        class A:
+            def method_example(self): ...
+
+        self.assertEqual(_testcapi.eval_get_func_name(function_example),
+                         "function_example")
+        self.assertEqual(_testcapi.eval_get_func_name(A.method_example),
+                         "method_example")
+        self.assertEqual(_testcapi.eval_get_func_name(A().method_example),
+                         "method_example")
+        self.assertEqual(_testcapi.eval_get_func_name(sum), "sum")  # c function
+        self.assertEqual(_testcapi.eval_get_func_name(A), "type")
+
+    def test_eval_get_func_desc(self):
+        def function_example(): ...
+
+        class A:
+            def method_example(self): ...
+
+        self.assertEqual(_testcapi.eval_get_func_desc(function_example),
+                         "()")
+        self.assertEqual(_testcapi.eval_get_func_desc(A.method_example),
+                         "()")
+        self.assertEqual(_testcapi.eval_get_func_desc(A().method_example),
+                         "()")
+        self.assertEqual(_testcapi.eval_get_func_desc(sum), "()")  # c function
+        self.assertEqual(_testcapi.eval_get_func_desc(A), " object")
+
+    def test_function_get_code(self):
+        import types
+
+        def some():
+            pass
+
+        code = _testcapi.function_get_code(some)
+        self.assertIsInstance(code, types.CodeType)
+        self.assertEqual(code, some.__code__)
+
+        with self.assertRaises(SystemError):
+            _testcapi.function_get_code(None)  # not a function
+
+    def test_function_get_globals(self):
+        def some():
+            pass
+
+        globals_ = _testcapi.function_get_globals(some)
+        self.assertIsInstance(globals_, dict)
+        self.assertEqual(globals_, some.__globals__)
+
+        with self.assertRaises(SystemError):
+            _testcapi.function_get_globals(None)  # not a function
+
+    def test_function_get_module(self):
+        def some():
+            pass
+
+        module = _testcapi.function_get_module(some)
+        self.assertIsInstance(module, str)
+        self.assertEqual(module, some.__module__)
+
+        with self.assertRaises(SystemError):
+            _testcapi.function_get_module(None)  # not a function
+
+    def test_sys_getobject(self):
+        getobject = _testcapi.sys_getobject
+
+        self.assertIs(getobject(b'stdout'), sys.stdout)
+        with support.swap_attr(sys, '\U0001f40d', 42):
+            self.assertEqual(getobject('\U0001f40d'.encode()), 42)
+
+        self.assertIs(getobject(b'nonexisting'), AttributeError)
+        self.assertIs(getobject(b'\xff'), AttributeError)
+        # CRASHES getobject(NULL)
+
+    def test_sys_setobject(self):
+        setobject = _testcapi.sys_setobject
+
+        value = ['value']
+        value2 = ['value2']
+        try:
+            self.assertEqual(setobject(b'newattr', value), 0)
+            self.assertIs(sys.newattr, value)
+            self.assertEqual(setobject(b'newattr', value2), 0)
+            self.assertIs(sys.newattr, value2)
+            self.assertEqual(setobject(b'newattr', NULL), 0)
+            self.assertFalse(hasattr(sys, 'newattr'))
+            self.assertEqual(setobject(b'newattr', NULL), 0)
+        finally:
+            with contextlib.suppress(AttributeError):
+                del sys.newattr
+        try:
+            self.assertEqual(setobject('\U0001f40d'.encode(), value), 0)
+            self.assertIs(getattr(sys, '\U0001f40d'), value)
+            self.assertEqual(setobject('\U0001f40d'.encode(), NULL), 0)
+            self.assertFalse(hasattr(sys, '\U0001f40d'))
+        finally:
+            with contextlib.suppress(AttributeError):
+                delattr(sys, '\U0001f40d')
+
+        with self.assertRaises(UnicodeDecodeError):
+            setobject(b'\xff', value)
+        # CRASHES setobject(NULL, value)
+
 
 class TestPendingCalls(unittest.TestCase):
 
@@ -688,6 +992,7 @@ class TestPendingCalls(unittest.TestCase):
         if False and support.verbose:
             print("(%i)"%(len(l),))
 
+    @threading_helper.requires_working_threading()
     def test_pendingcalls_threaded(self):
 
         #do every callback on a separate thread
@@ -733,6 +1038,7 @@ class TestPendingCalls(unittest.TestCase):
 
 class SubinterpreterTest(unittest.TestCase):
 
+    @unittest.skipUnless(hasattr(os, "pipe"), "requires os.pipe()")
     def test_subinterps(self):
         import builtins
         r, w = os.pipe()
@@ -748,6 +1054,7 @@ class SubinterpreterTest(unittest.TestCase):
             self.assertNotEqual(pickle.load(f), id(sys.modules))
             self.assertNotEqual(pickle.load(f), id(builtins))
 
+    @unittest.skipUnless(hasattr(os, "pipe"), "requires os.pipe()")
     def test_subinterps_recent_language_features(self):
         r, w = os.pipe()
         code = """if 1:
@@ -782,6 +1089,7 @@ class SubinterpreterTest(unittest.TestCase):
 
         self.assertFalse(hasattr(binascii.Error, "foobar"))
 
+    @unittest.skipIf(_testmultiphase is None, "test requires _testmultiphase module")
     def test_module_state_shared_in_global(self):
         """
         bpo-44050: Extension module state should be shared between interpreters
@@ -817,6 +1125,7 @@ class SubinterpreterTest(unittest.TestCase):
 class TestThreadState(unittest.TestCase):
 
     @threading_helper.reap_threads
+    @threading_helper.requires_working_threading()
     def test_thread_state(self):
         # some extra thread-state tests driven via _testcapi
         def target():
@@ -838,6 +1147,7 @@ class TestThreadState(unittest.TestCase):
         t.join()
 
     @threading_helper.reap_threads
+    @threading_helper.requires_working_threading()
     def test_gilstate_ensure_no_deadlock(self):
         # See https://github.com/python/cpython/issues/96071
         code = textwrap.dedent(f"""
@@ -862,6 +1172,9 @@ class Test_testcapi(unittest.TestCase):
     def test_widechar(self):
         _testcapi.test_widechar()
 
+    def test_version_api_data(self):
+        self.assertEqual(_testcapi.Py_Version, sys.hexversion)
+
 
 class Test_testinternalcapi(unittest.TestCase):
     locals().update((name, getattr(_testinternalcapi, name))
@@ -869,6 +1182,7 @@ class Test_testinternalcapi(unittest.TestCase):
                     if name.startswith('test_'))
 
 
+@support.requires_subprocess()
 class PyMemDebugTests(unittest.TestCase):
     PYTHONMALLOC = 'debug'
     # '0x04c06e0' or '04C06E0'
@@ -986,6 +1300,7 @@ class PyMemDefaultTests(PyMemDebugTests):
     PYTHONMALLOC = ''
 
 
+@unittest.skipIf(_testmultiphase is None, "test requires _testmultiphase module")
 class Test_ModuleStateAccess(unittest.TestCase):
     """Test access to module start (PEP 573)"""
 
@@ -1057,7 +1372,7 @@ class Test_ModuleStateAccess(unittest.TestCase):
                     increment_count(1, 2, 3)
 
     def test_get_module_bad_def(self):
-        # _PyType_GetModuleByDef fails gracefully if it doesn't
+        # PyType_GetModuleByDef fails gracefully if it doesn't
         # find what it's looking for.
         # see bpo-46433
         instance = self.module.StateAccessType()
@@ -1065,12 +1380,82 @@ class Test_ModuleStateAccess(unittest.TestCase):
             instance.getmodulebydef_bad_def()
 
     def test_get_module_static_in_mro(self):
-        # Here, the class _PyType_GetModuleByDef is looking for
+        # Here, the class PyType_GetModuleByDef is looking for
         # appears in the MRO after a static type (Exception).
         # see bpo-46433
         class Subclass(BaseException, self.module.StateAccessType):
             pass
         self.assertIs(Subclass().get_defining_module(), self.module)
+
+
+class Test_FrameAPI(unittest.TestCase):
+
+    def getframe(self):
+        return sys._getframe()
+
+    def getgenframe(self):
+        yield sys._getframe()
+
+    def test_frame_getters(self):
+        frame = self.getframe()
+        self.assertEqual(frame.f_locals, _testcapi.frame_getlocals(frame))
+        self.assertIs(frame.f_globals, _testcapi.frame_getglobals(frame))
+        self.assertIs(frame.f_builtins, _testcapi.frame_getbuiltins(frame))
+        self.assertEqual(frame.f_lasti, _testcapi.frame_getlasti(frame))
+
+    def test_frame_get_generator(self):
+        gen = self.getgenframe()
+        frame = next(gen)
+        self.assertIs(gen, _testcapi.frame_getgenerator(frame))
+
+    def test_frame_fback_api(self):
+        """Test that accessing `f_back` does not cause a segmentation fault on
+        a frame created with `PyFrame_New` (GH-99110)."""
+        def dummy():
+            pass
+
+        frame = _testcapi.frame_new(dummy.__code__, globals(), locals())
+        # The following line should not cause a segmentation fault.
+        self.assertIsNone(frame.f_back)
+
+
+SUFFICIENT_TO_DEOPT_AND_SPECIALIZE = 100
+
+class Test_Pep523API(unittest.TestCase):
+
+    def do_test(self, func, names):
+        actual_calls = []
+        start = SUFFICIENT_TO_DEOPT_AND_SPECIALIZE
+        count = start + SUFFICIENT_TO_DEOPT_AND_SPECIALIZE
+        try:
+            for i in range(count):
+                if i == start:
+                    _testinternalcapi.set_eval_frame_record(actual_calls)
+                func()
+        finally:
+            _testinternalcapi.set_eval_frame_default()
+        expected_calls = names * SUFFICIENT_TO_DEOPT_AND_SPECIALIZE
+        self.assertEqual(len(expected_calls), len(actual_calls))
+        for expected, actual in zip(expected_calls, actual_calls, strict=True):
+            self.assertEqual(expected, actual)
+
+    def test_inlined_binary_subscr(self):
+        class C:
+            def __getitem__(self, other):
+                return None
+        def func():
+            C()[42]
+        names = ["func", "__getitem__"]
+        self.do_test(func, names)
+
+    def test_inlined_call(self):
+        def inner(x=42):
+            pass
+        def func():
+            inner()
+            inner(42)
+        names = ["func", "inner", "inner"]
+        self.do_test(func, names)
 
 
 if __name__ == "__main__":

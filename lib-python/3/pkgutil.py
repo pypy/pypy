@@ -413,6 +413,7 @@ def get_importer(path_item):
     The cache (or part of it) can be cleared manually if a
     rescan of sys.path_hooks is necessary.
     """
+    path_item = os.fsdecode(path_item)
     try:
         importer = sys.path_importer_cache[path_item]
     except KeyError:
@@ -510,10 +511,10 @@ def extend_path(path, name):
         from pkgutil import extend_path
         __path__ = extend_path(__path__, __name__)
 
-    This will add to the package's __path__ all subdirectories of
-    directories on sys.path named after the package.  This is useful
-    if one wants to distribute different parts of a single logical
-    package as multiple directories.
+    For each directory on sys.path that has a subdirectory that
+    matches the package name, add the subdirectory to the package's
+    __path__.  This is useful if one wants to distribute different
+    parts of a single logical package as multiple directories.
 
     It also looks for *.pkg files beginning where * matches the name
     argument.  This feature is similar to *.pth files (see site.py),

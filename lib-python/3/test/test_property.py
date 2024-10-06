@@ -183,6 +183,24 @@ class PropertyTests(unittest.TestCase):
             fake_prop.__init__('fget', 'fset', 'fdel', 'doc')
         self.assertAlmostEqual(gettotalrefcount() - refs_before, 0, delta=10)
 
+    @support.refcount_test
+    def test_gh_115618(self):
+        # Py_XDECREF() was improperly called for None argument
+        # in property methods.
+        gettotalrefcount = support.get_attribute(sys, 'gettotalrefcount')
+        prop = property()
+        refs_before = gettotalrefcount()
+        for i in range(100):
+            prop = prop.getter(None)
+        self.assertIsNone(prop.fget)
+        for i in range(100):
+            prop = prop.setter(None)
+        self.assertIsNone(prop.fset)
+        for i in range(100):
+            prop = prop.deleter(None)
+        self.assertIsNone(prop.fdel)
+        self.assertAlmostEqual(gettotalrefcount() - refs_before, 0, delta=10)
+
     @unittest.skipIf(sys.flags.optimize >= 2,
                      "Docstrings are omitted with -O2 and above")
     def test_class_property(self):
@@ -204,7 +222,6 @@ class PropertyTests(unittest.TestCase):
                 return 'Second'
         self.assertEqual(A.__doc__, 'Second')
 
-    @unittest.expectedFailure # pypy has a different error message
     def test_property_set_name_incorrect_args(self):
         p = property()
 
@@ -243,6 +260,7 @@ class PropertySubSlots(property):
 
 class PropertySubclassTests(unittest.TestCase):
 
+    @support.requires_docstrings
     def test_slots_docstring_copy_exception(self):
         try:
             class Foo(object):
@@ -340,27 +358,27 @@ class _PropertyUnreachableAttribute:
         cls.obj = cls.cls()
 
     def test_get_property(self):
-        with self.assertRaisesRegex(AttributeError, self._format_exc_msg("unreadable attribute")):
+        with self.assertRaisesRegex(AttributeError, self._format_exc_msg("has no getter")):
             self.obj.foo
 
     def test_set_property(self):
-        with self.assertRaisesRegex(AttributeError, self._format_exc_msg("can't set attribute")):
+        with self.assertRaisesRegex(AttributeError, self._format_exc_msg("has no setter")):
             self.obj.foo = None
 
     def test_del_property(self):
-        with self.assertRaisesRegex(AttributeError, self._format_exc_msg("can't delete attribute")):
+        with self.assertRaisesRegex(AttributeError, self._format_exc_msg("has no deleter")):
             del self.obj.foo
 
 
 class PropertyUnreachableAttributeWithName(_PropertyUnreachableAttribute, unittest.TestCase):
-    msg_format = "^{} 'foo'$"
+    msg_format = r"^property 'foo' of 'PropertyUnreachableAttributeWithName\.cls' object {}$"
 
     class cls:
         foo = property()
 
 
 class PropertyUnreachableAttributeNoName(_PropertyUnreachableAttribute, unittest.TestCase):
-    msg_format = "^{}$"
+    msg_format = r"^property of 'PropertyUnreachableAttributeNoName\.cls' object {}$"
 
     class cls:
         pass

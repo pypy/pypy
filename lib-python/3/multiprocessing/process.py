@@ -61,7 +61,7 @@ def parent_process():
 def _cleanup():
     # check for processes which have finished
     for p in list(_children):
-        if p._popen.poll() is not None:
+        if (child_popen := p._popen) and child_popen.poll() is not None:
             _children.discard(p)
 
 #
@@ -433,6 +433,7 @@ _exitcode_to_name = {}
 for name, signum in list(signal.__dict__.items()):
     if name[:3]=='SIG' and '_' not in name:
         _exitcode_to_name[-signum] = f'-{name}'
+del name, signum
 
 # For debug and leak testing
 _dangling = WeakSet()

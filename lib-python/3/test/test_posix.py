@@ -6,16 +6,12 @@ from test.support import os_helper
 from test.support import warnings_helper
 from test.support.script_helper import assert_python_ok
 
-# Skip these tests if there is no posix module.
-posix = import_helper.import_module('posix')
-
 import errno
 import sys
 import signal
 import time
 import os
 import platform
-import pwd
 import stat
 import tempfile
 import unittest
@@ -23,11 +19,24 @@ import warnings
 import textwrap
 from contextlib import contextmanager
 
+try:
+    import posix
+except ImportError:
+    import nt as posix
+
+try:
+    import pwd
+except ImportError:
+    pwd = None
+
 _DUMMY_SYMLINK = os.path.join(tempfile.gettempdir(),
                               os_helper.TESTFN + '-dummy-symlink')
 
-requires_32b = unittest.skipUnless(sys.maxsize < 2**32,
-        'test is only meaningful on 32-bit builds')
+requires_32b = unittest.skipUnless(
+    # Emscripten/WASI have 32 bits pointers, but support 64 bits syscall args.
+    sys.maxsize < 2**32 and not (support.is_emscripten or support.is_wasi),
+    'test is only meaningful on 32-bit builds'
+)
 
 def _supports_sched():
     if not hasattr(posix, 'sched_getscheduler'):
@@ -46,18 +55,12 @@ class PosixTester(unittest.TestCase):
 
     def setUp(self):
         # create empty file
+        self.addCleanup(os_helper.unlink, os_helper.TESTFN)
         with open(os_helper.TESTFN, "wb"):
             pass
-        self.teardown_files = [ os_helper.TESTFN ]
-        self._warnings_manager = warnings_helper.check_warnings()
-        self._warnings_manager.__enter__()
+        self.enterContext(warnings_helper.check_warnings())
         warnings.filterwarnings('ignore', '.* potential security risk .*',
                                 RuntimeWarning)
-
-    def tearDown(self):
-        for teardown_file in self.teardown_files:
-            os_helper.unlink(teardown_file)
-        self._warnings_manager.__exit__(None, None, None)
 
     def testNoArgFunctions(self):
         # test posix functions which take no arguments and have
@@ -71,8 +74,9 @@ class PosixTester(unittest.TestCase):
         for name in NO_ARG_FUNCTIONS:
             posix_func = getattr(posix, name, None)
             if posix_func is not None:
-                posix_func()
-                self.assertRaises(TypeError, posix_func, 1)
+                with self.subTest(name):
+                    posix_func()
+                    self.assertRaises(TypeError, posix_func, 1)
 
     @unittest.skipUnless(hasattr(posix, 'getresuid'),
                          'test needs posix.getresuid()')
@@ -126,6 +130,7 @@ class PosixTester(unittest.TestCase):
 
     @unittest.skipUnless(hasattr(posix, 'initgroups'),
                          "test needs os.initgroups()")
+    @unittest.skipUnless(hasattr(pwd, 'getpwuid'), "test needs pwd.getpwuid()")
     def test_initgroups(self):
         # It takes a string and an integer; check that it raises a TypeError
         # for other argument lists.
@@ -184,7 +189,7 @@ class PosixTester(unittest.TestCase):
         posix.truncate(os_helper.TESTFN, 0)
 
     @unittest.skipUnless(getattr(os, 'execve', None) in os.supports_fd, "test needs execve() to support the fd parameter")
-    @unittest.skipUnless(hasattr(os, 'fork'), "test needs os.fork()")
+    @support.requires_fork()
     def test_fexecve(self):
         fp = os.open(sys.executable, os.O_RDONLY)
         try:
@@ -199,7 +204,7 @@ class PosixTester(unittest.TestCase):
 
 
     @unittest.skipUnless(hasattr(posix, 'waitid'), "test needs posix.waitid()")
-    @unittest.skipUnless(hasattr(os, 'fork'), "test needs os.fork()")
+    @support.requires_fork()
     def test_waitid(self):
         pid = os.fork()
         if pid == 0:
@@ -209,7 +214,7 @@ class PosixTester(unittest.TestCase):
             res = posix.waitid(posix.P_PID, pid, posix.WEXITED)
             self.assertEqual(pid, res.si_pid)
 
-    @unittest.skipUnless(hasattr(os, 'fork'), "test needs os.fork()")
+    @support.requires_fork()
     def test_register_at_fork(self):
         with self.assertRaises(TypeError, msg="Positional args not allowed"):
             os.register_at_fork(lambda: None)
@@ -544,6 +549,7 @@ class PosixTester(unittest.TestCase):
 
     @unittest.skipUnless(hasattr(posix, 'dup'),
                          'test needs posix.dup()')
+    @unittest.skipIf(support.is_wasi, "WASI does not have dup()")
     def test_dup(self):
         fp = open(os_helper.TESTFN)
         try:
@@ -561,6 +567,7 @@ class PosixTester(unittest.TestCase):
 
     @unittest.skipUnless(hasattr(posix, 'dup2'),
                          'test needs posix.dup2()')
+    @unittest.skipIf(support.is_wasi, "WASI does not have dup2()")
     def test_dup2(self):
         fp1 = open(os_helper.TESTFN)
         fp2 = open(os_helper.TESTFN)
@@ -572,6 +579,7 @@ class PosixTester(unittest.TestCase):
 
     @unittest.skipUnless(hasattr(os, 'O_CLOEXEC'), "needs os.O_CLOEXEC")
     @support.requires_linux_version(2, 6, 23)
+    @support.requires_subprocess()
     def test_oscloexec(self):
         fd = os.open(os_helper.TESTFN, os.O_RDONLY|os.O_CLOEXEC)
         self.addCleanup(os.close, fd)
@@ -731,7 +739,11 @@ class PosixTester(unittest.TestCase):
             is_root = (uid in (0, 1))
         else:
             is_root = (uid == 0)
-        if is_root:
+        if support.is_emscripten:
+            # Emscripten getuid() / geteuid() always return 0 (root), but
+            # cannot chown uid/gid to random value.
+            pass
+        elif is_root:
             # Try an amusingly large uid/gid to make sure we handle
             # large unsigned values.  (chown lets you use any
             # uid/gid you like, even if they aren't defined.)
@@ -776,7 +788,8 @@ class PosixTester(unittest.TestCase):
             self.assertRaises(TypeError, chown_func, first_param, uid, t(gid))
             check_stat(uid, gid)
 
-    @unittest.skipUnless(hasattr(posix, 'chown'), "test needs os.chown()")
+    @unittest.skipUnless(hasattr(os, "chown"), "requires os.chown()")
+    @unittest.skipIf(support.is_emscripten, "getgid() is a stub")
     def test_chown(self):
         # raise an OSError if the file does not exist
         os.unlink(os_helper.TESTFN)
@@ -786,7 +799,9 @@ class PosixTester(unittest.TestCase):
         os_helper.create_empty_file(os_helper.TESTFN)
         self._test_all_chown_common(posix.chown, os_helper.TESTFN, posix.stat)
 
+    @os_helper.skip_unless_working_chmod
     @unittest.skipUnless(hasattr(posix, 'fchown'), "test needs os.fchown()")
+    @unittest.skipIf(support.is_emscripten, "getgid() is a stub")
     def test_fchown(self):
         os.unlink(os_helper.TESTFN)
 
@@ -799,6 +814,7 @@ class PosixTester(unittest.TestCase):
         finally:
             test_file.close()
 
+    @os_helper.skip_unless_working_chmod
     @unittest.skipUnless(hasattr(posix, 'lchown'), "test needs os.lchown()")
     def test_lchown(self):
         os.unlink(os_helper.TESTFN)
@@ -919,6 +935,124 @@ class PosixTester(unittest.TestCase):
         posix.utime(os_helper.TESTFN, (int(now), int(now)))
         posix.utime(os_helper.TESTFN, (now, now))
 
+    def check_chmod(self, chmod_func, target, **kwargs):
+        mode = os.stat(target).st_mode
+        try:
+            new_mode = mode & ~(stat.S_IWOTH | stat.S_IWGRP | stat.S_IWUSR)
+            chmod_func(target, new_mode, **kwargs)
+            self.assertEqual(os.stat(target).st_mode, new_mode)
+            if stat.S_ISREG(mode):
+                try:
+                    with open(target, 'wb+'):
+                        pass
+                except PermissionError:
+                    pass
+            new_mode = mode | (stat.S_IWOTH | stat.S_IWGRP | stat.S_IWUSR)
+            chmod_func(target, new_mode, **kwargs)
+            self.assertEqual(os.stat(target).st_mode, new_mode)
+            if stat.S_ISREG(mode):
+                with open(target, 'wb+'):
+                    pass
+        finally:
+            posix.chmod(target, mode)
+
+    @os_helper.skip_unless_working_chmod
+    def test_chmod_file(self):
+        self.check_chmod(posix.chmod, os_helper.TESTFN)
+
+    def tempdir(self):
+        target = os_helper.TESTFN + 'd'
+        posix.mkdir(target)
+        self.addCleanup(posix.rmdir, target)
+        return target
+
+    @os_helper.skip_unless_working_chmod
+    def test_chmod_dir(self):
+        target = self.tempdir()
+        self.check_chmod(posix.chmod, target)
+
+    @unittest.skipUnless(hasattr(posix, 'lchmod'), 'test needs os.lchmod()')
+    def test_lchmod_file(self):
+        self.check_chmod(posix.lchmod, os_helper.TESTFN)
+        self.check_chmod(posix.chmod, os_helper.TESTFN, follow_symlinks=False)
+
+    @unittest.skipUnless(hasattr(posix, 'lchmod'), 'test needs os.lchmod()')
+    def test_lchmod_dir(self):
+        target = self.tempdir()
+        self.check_chmod(posix.lchmod, target)
+        self.check_chmod(posix.chmod, target, follow_symlinks=False)
+
+    def check_chmod_link(self, chmod_func, target, link, **kwargs):
+        target_mode = os.stat(target).st_mode
+        link_mode = os.lstat(link).st_mode
+        try:
+            new_mode = target_mode & ~(stat.S_IWOTH | stat.S_IWGRP | stat.S_IWUSR)
+            chmod_func(link, new_mode, **kwargs)
+            self.assertEqual(os.stat(target).st_mode, new_mode)
+            self.assertEqual(os.lstat(link).st_mode, link_mode)
+            new_mode = target_mode | (stat.S_IWOTH | stat.S_IWGRP | stat.S_IWUSR)
+            chmod_func(link, new_mode, **kwargs)
+            self.assertEqual(os.stat(target).st_mode, new_mode)
+            self.assertEqual(os.lstat(link).st_mode, link_mode)
+        finally:
+            posix.chmod(target, target_mode)
+
+    def check_lchmod_link(self, chmod_func, target, link, **kwargs):
+        target_mode = os.stat(target).st_mode
+        link_mode = os.lstat(link).st_mode
+        new_mode = link_mode & ~(stat.S_IWOTH | stat.S_IWGRP | stat.S_IWUSR)
+        chmod_func(link, new_mode, **kwargs)
+        self.assertEqual(os.stat(target).st_mode, target_mode)
+        self.assertEqual(os.lstat(link).st_mode, new_mode)
+        new_mode = link_mode | (stat.S_IWOTH | stat.S_IWGRP | stat.S_IWUSR)
+        chmod_func(link, new_mode, **kwargs)
+        self.assertEqual(os.stat(target).st_mode, target_mode)
+        self.assertEqual(os.lstat(link).st_mode, new_mode)
+
+    @os_helper.skip_unless_symlink
+    def test_chmod_file_symlink(self):
+        target = os_helper.TESTFN
+        link = os_helper.TESTFN + '-link'
+        os.symlink(target, link)
+        self.addCleanup(posix.unlink, link)
+        if os.name == 'nt':
+            self.check_lchmod_link(posix.chmod, target, link)
+        else:
+            self.check_chmod_link(posix.chmod, target, link)
+            self.check_chmod_link(posix.chmod, target, link, follow_symlinks=True)
+
+    @os_helper.skip_unless_symlink
+    def test_chmod_dir_symlink(self):
+        target = self.tempdir()
+        link = os_helper.TESTFN + '-link'
+        os.symlink(target, link, target_is_directory=True)
+        self.addCleanup(posix.unlink, link)
+        if os.name == 'nt':
+            self.check_lchmod_link(posix.chmod, target, link)
+        else:
+            self.check_chmod_link(posix.chmod, target, link)
+            self.check_chmod_link(posix.chmod, target, link, follow_symlinks=True)
+
+    @unittest.skipUnless(hasattr(posix, 'lchmod'), 'test needs os.lchmod()')
+    @os_helper.skip_unless_symlink
+    def test_lchmod_file_symlink(self):
+        target = os_helper.TESTFN
+        link = os_helper.TESTFN + '-link'
+        os.symlink(target, link)
+        self.addCleanup(posix.unlink, link)
+        self.check_lchmod_link(posix.chmod, target, link, follow_symlinks=False)
+        self.check_lchmod_link(posix.lchmod, target, link)
+
+    @unittest.skipUnless(hasattr(posix, 'lchmod'), 'test needs os.lchmod()')
+    @os_helper.skip_unless_symlink
+    def test_lchmod_dir_symlink(self):
+        target = self.tempdir()
+        link = os_helper.TESTFN + '-link'
+        os.symlink(target, link)
+        self.addCleanup(posix.unlink, link)
+        self.check_lchmod_link(posix.chmod, target, link, follow_symlinks=False)
+        self.check_lchmod_link(posix.lchmod, target, link)
+
     def _test_chflags_regular_file(self, chflags_func, target_file, **kwargs):
         st = os.stat(target_file)
         self.assertTrue(hasattr(st, 'st_flags'))
@@ -959,8 +1093,8 @@ class PosixTester(unittest.TestCase):
 
         self.assertTrue(hasattr(testfn_st, 'st_flags'))
 
+        self.addCleanup(os_helper.unlink, _DUMMY_SYMLINK)
         os.symlink(os_helper.TESTFN, _DUMMY_SYMLINK)
-        self.teardown_files.append(_DUMMY_SYMLINK)
         dummy_symlink_st = os.lstat(_DUMMY_SYMLINK)
 
         def chflags_nofollow(path, flags):
@@ -999,15 +1133,16 @@ class PosixTester(unittest.TestCase):
         with self.assertRaises(ValueError):
             os.putenv('FRUIT\0VEGETABLE', 'cabbage')
         with self.assertRaises(ValueError):
-            os.putenv(b'FRUIT\0VEGETABLE', b'cabbage')
-        with self.assertRaises(ValueError):
             os.putenv('FRUIT', 'orange\0VEGETABLE=cabbage')
         with self.assertRaises(ValueError):
-            os.putenv(b'FRUIT', b'orange\0VEGETABLE=cabbage')
-        with self.assertRaises(ValueError):
             os.putenv('FRUIT=ORANGE', 'lemon')
-        with self.assertRaises(ValueError):
-            os.putenv(b'FRUIT=ORANGE', b'lemon')
+        if os.name == 'posix':
+            with self.assertRaises(ValueError):
+                os.putenv(b'FRUIT\0VEGETABLE', b'cabbage')
+            with self.assertRaises(ValueError):
+                os.putenv(b'FRUIT', b'orange\0VEGETABLE=cabbage')
+            with self.assertRaises(ValueError):
+                os.putenv(b'FRUIT=ORANGE', b'lemon')
 
     @unittest.skipUnless(hasattr(posix, 'getcwd'), 'test needs posix.getcwd()')
     def test_getcwd_long_pathnames(self):
@@ -1056,6 +1191,7 @@ class PosixTester(unittest.TestCase):
 
     @unittest.skipUnless(hasattr(os, 'getegid'), "test needs os.getegid()")
     @unittest.skipUnless(hasattr(os, 'popen'), "test needs os.popen()")
+    @support.requires_subprocess()
     def test_getgroups(self):
         with os.popen('id -G 2>/dev/null') as idg:
             groups = idg.read().strip()
@@ -1190,12 +1326,22 @@ class PosixTester(unittest.TestCase):
     @requires_sched_affinity
     def test_sched_setaffinity(self):
         mask = posix.sched_getaffinity(0)
+        self.addCleanup(posix.sched_setaffinity, 0, list(mask))
+
         if len(mask) > 1:
             # Empty masks are forbidden
             mask.pop()
         posix.sched_setaffinity(0, mask)
         self.assertEqual(posix.sched_getaffinity(0), mask)
-        self.assertRaises(OSError, posix.sched_setaffinity, 0, [])
+
+        try:
+            posix.sched_setaffinity(0, [])
+            # gh-117061: On RHEL9, sched_setaffinity(0, []) does not fail
+        except OSError:
+            # sched_setaffinity() manual page documents EINVAL error
+            # when the mask is empty.
+            pass
+
         self.assertRaises(ValueError, posix.sched_setaffinity, 0, [-10])
         self.assertRaises(ValueError, posix.sched_setaffinity, 0, map(int, "0X"))
         self.assertRaises(OverflowError, posix.sched_setaffinity, 0, [1<<128])
@@ -1203,6 +1349,8 @@ class PosixTester(unittest.TestCase):
             # bpo-47205: does not raise OSError on FreeBSD
             self.assertRaises(OSError, posix.sched_setaffinity, -1, mask)
 
+    @unittest.skipIf(support.is_wasi, "No dynamic linking on WASI")
+    @unittest.skipUnless(os.name == 'posix', "POSIX-only test")
     def test_rtld_constants(self):
         # check presence of major RTLD_* constants
         posix.RTLD_LAZY
@@ -1342,6 +1490,7 @@ class TestPosixDirFd(unittest.TestCase):
 
     @unittest.skipUnless(hasattr(os, 'chown') and (os.chown in os.supports_dir_fd),
                          "test needs dir_fd support in os.chown()")
+    @unittest.skipIf(support.is_emscripten, "getgid() is a stub")
     def test_chown_dir_fd(self):
         with self.prepare_file() as (dir_fd, name, fullname):
             posix.chown(name, os.getuid(), os.getgid(), dir_fd=dir_fd)
@@ -1397,7 +1546,14 @@ class TestPosixDirFd(unittest.TestCase):
                     # whoops!  using both together not supported on this platform.
                     pass
 
-    @unittest.skipUnless(os.link in os.supports_dir_fd, "test needs dir_fd support in os.link()")
+    @unittest.skipIf(
+        support.is_wasi,
+        "WASI: symlink following on path_link is not supported"
+    )
+    @unittest.skipUnless(
+        hasattr(os, "link") and os.link in os.supports_dir_fd,
+        "test needs dir_fd support in os.link()"
+    )
     def test_link_dir_fd(self):
         with self.prepare_file() as (dir_fd, name, fullname), \
              self.prepare() as (dir_fd2, linkname, fulllinkname):
@@ -1485,7 +1641,7 @@ class TestPosixDirFd(unittest.TestCase):
                 self.addCleanup(posix.unlink, fullname)
                 raise
 
-    @unittest.skipUnless(os.mkfifo in os.supports_dir_fd, "test needs dir_fd support in os.mkfifo()")
+    @unittest.skipUnless(hasattr(os, 'mkfifo') and os.mkfifo in os.supports_dir_fd, "test needs dir_fd support in os.mkfifo()")
     def test_mkfifo_dir_fd(self):
         with self.prepare() as (dir_fd, name, fullname):
             try:

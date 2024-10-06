@@ -1,7 +1,7 @@
 import unittest
 import unittest.mock
 from test.support import (verbose, refcount_test,
-                          cpython_only)
+                          cpython_only, requires_subprocess)
 from test.support.import_helper import import_module
 from test.support.os_helper import temp_dir, TESTFN, unlink
 from test.support.script_helper import assert_python_ok, make_script
@@ -83,8 +83,8 @@ else:
 ### Tests
 ###############################################################################
 
+@cpython_only
 class GCTests(unittest.TestCase):
-    @cpython_only
     def test_list(self):
         l = []
         l.append(l)
@@ -92,7 +92,6 @@ class GCTests(unittest.TestCase):
         del l
         self.assertEqual(gc.collect(), 1)
 
-    @cpython_only
     def test_dict(self):
         d = {}
         d[1] = d
@@ -100,7 +99,6 @@ class GCTests(unittest.TestCase):
         del d
         self.assertEqual(gc.collect(), 1)
 
-    @cpython_only
     def test_tuple(self):
         # since tuples are immutable we close the loop with a list
         l = []
@@ -111,7 +109,6 @@ class GCTests(unittest.TestCase):
         del l
         self.assertEqual(gc.collect(), 2)
 
-    @cpython_only
     def test_class(self):
         class A:
             pass
@@ -120,7 +117,6 @@ class GCTests(unittest.TestCase):
         del A
         self.assertNotEqual(gc.collect(), 0)
 
-    @cpython_only
     def test_newstyleclass(self):
         class A(object):
             pass
@@ -128,7 +124,6 @@ class GCTests(unittest.TestCase):
         del A
         self.assertNotEqual(gc.collect(), 0)
 
-    @cpython_only
     def test_instance(self):
         class A:
             pass
@@ -138,7 +133,6 @@ class GCTests(unittest.TestCase):
         del a
         self.assertNotEqual(gc.collect(), 0)
 
-    @cpython_only
     def test_newinstance(self):
         class A(object):
             pass
@@ -163,7 +157,6 @@ class GCTests(unittest.TestCase):
         self.assertNotEqual(gc.collect(), 0)
         self.assertEqual(gc.collect(), 0)
 
-    @cpython_only
     def test_method(self):
         # Tricky: self.__init__ is a bound method, it references the instance.
         class A:
@@ -226,7 +219,6 @@ class GCTests(unittest.TestCase):
             self.fail("didn't find obj in garbage (finalizer)")
         gc.garbage.remove(obj)
 
-    @cpython_only
     def test_function(self):
         # Tricky: f -> d -> f, code should call d.clear() after the exec to
         # break the cycle.
@@ -235,6 +227,73 @@ class GCTests(unittest.TestCase):
         gc.collect()
         del d
         self.assertEqual(gc.collect(), 2)
+
+    def test_function_tp_clear_leaves_consistent_state(self):
+        # https://github.com/python/cpython/issues/91636
+        code = """if 1:
+
+        import gc
+        import weakref
+
+        class LateFin:
+            __slots__ = ('ref',)
+
+            def __del__(self):
+
+                # 8. Now `latefin`'s finalizer is called. Here we
+                #    obtain a reference to `func`, which is currently
+                #    undergoing `tp_clear`.
+                global func
+                func = self.ref()
+
+        class Cyclic(tuple):
+            __slots__ = ()
+
+            # 4. The finalizers of all garbage objects are called. In
+            #    this case this is only us as `func` doesn't have a
+            #    finalizer.
+            def __del__(self):
+
+                # 5. Create a weakref to `func` now. If we had created
+                #    it earlier, it would have been cleared by the
+                #    garbage collector before calling the finalizers.
+                self[1].ref = weakref.ref(self[0])
+
+                # 6. Drop the global reference to `latefin`. The only
+                #    remaining reference is the one we have.
+                global latefin
+                del latefin
+
+            # 7. Now `func` is `tp_clear`-ed. This drops the last
+            #    reference to `Cyclic`, which gets `tp_dealloc`-ed.
+            #    This drops the last reference to `latefin`.
+
+        latefin = LateFin()
+        def func():
+            pass
+        cyc = tuple.__new__(Cyclic, (func, latefin))
+
+        # 1. Create a reference cycle of `cyc` and `func`.
+        func.__module__ = cyc
+
+        # 2. Make the cycle unreachable, but keep the global reference
+        #    to `latefin` so that it isn't detected as garbage. This
+        #    way its finalizer will not be called immediately.
+        del func, cyc
+
+        # 3. Invoke garbage collection,
+        #    which will find `cyc` and `func` as garbage.
+        gc.collect()
+
+        # 9. Previously, this would crash because `func_qualname`
+        #    had been NULL-ed out by func_clear().
+        print(f"{func=}")
+        """
+        # We're mostly just checking that this doesn't crash.
+        rc, stdout, stderr = assert_python_ok("-c", code)
+        self.assertEqual(rc, 0)
+        self.assertRegex(stdout, rb"""\A\s*func=<function  at \S+>\s*\Z""")
+        self.assertFalse(stderr)
 
     @refcount_test
     def test_frame(self):
@@ -258,13 +317,11 @@ class GCTests(unittest.TestCase):
         L.append(L)
         id_L = id(L)
 
-        if sys.implementation.name == 'cpython':
-            debug = gc.get_debug()
-            gc.set_debug(debug | gc.DEBUG_SAVEALL)
+        debug = gc.get_debug()
+        gc.set_debug(debug | gc.DEBUG_SAVEALL)
         del L
         gc.collect()
-        if sys.implementation.name == 'cpython':
-            gc.set_debug(debug)
+        gc.set_debug(debug)
 
         self.assertEqual(len(gc.garbage), 1)
         obj = gc.garbage.pop()
@@ -376,7 +433,7 @@ class GCTests(unittest.TestCase):
                 v = {1: v, 2: Ouch()}
         gc.disable()
 
-    @cpython_only
+    @threading_helper.requires_working_threading()
     def test_trashcan_threads(self):
         # Issue #13992: trashcan mechanism should be thread-safe
         NESTING = 60
@@ -456,7 +513,7 @@ class GCTests(unittest.TestCase):
         # 0, thus mutating the trash graph as a side effect of merely asking
         # whether __del__ exists.  This used to (before 2.3b1) crash Python.
         # Now __getattr__ isn't called.
-        self.assertEqual(gc.collect(), 4)
+        self.assertEqual(gc.collect(), 2)
         self.assertEqual(len(gc.garbage), garbagelen)
 
     def test_boom2(self):
@@ -483,62 +540,7 @@ class GCTests(unittest.TestCase):
         # there isn't a second time, so this simply cleans up the trash cycle.
         # We expect a, b, a.__dict__ and b.__dict__ (4 objects) to get
         # reclaimed this way.
-        if sys.implementation.name == 'pypy':
-            gc.collect()
-            gc.collect()
-        else:
-            self.assertEqual(gc.collect(), 4)
-        self.assertEqual(len(gc.garbage), garbagelen)
-
-    def test_boom_new(self):
-        # boom__new and boom2_new are exactly like boom and boom2, except use
-        # new-style classes.
-
-        class Boom_New(object):
-            def __getattr__(self, someattribute):
-                del self.attr
-                raise AttributeError
-
-        a = Boom_New()
-        b = Boom_New()
-        a.attr = b
-        b.attr = a
-
-        gc.collect()
-        gc.collect()
-        garbagelen = len(gc.garbage)
-        del a, b
-        if sys.implementation.name == 'pypy':
-            gc.collect()
-            gc.collect()
-        else:
-            self.assertEqual(gc.collect(), 4)
-        self.assertEqual(len(gc.garbage), garbagelen)
-
-    def test_boom2_new(self):
-        class Boom2_New(object):
-            def __init__(self):
-                self.x = 0
-
-            def __getattr__(self, someattribute):
-                self.x += 1
-                if self.x > 1:
-                    del self.attr
-                raise AttributeError
-
-        a = Boom2_New()
-        b = Boom2_New()
-        a.attr = b
-        b.attr = a
-
-        gc.collect()
-        garbagelen = len(gc.garbage)
-        del a, b
-        if sys.implementation.name == 'pypy':
-            gc.collect()
-            gc.collect()
-        else:
-            self.assertEqual(gc.collect(), 4)
+        self.assertEqual(gc.collect(), 2)
         self.assertEqual(len(gc.garbage), garbagelen)
 
     def test_get_referents(self):
@@ -564,7 +566,6 @@ class GCTests(unittest.TestCase):
 
         self.assertEqual(gc.get_referents(1, 'a', 4j), [])
 
-    @cpython_only
     def test_is_tracked(self):
         # Atomic built-in types are not tracked, user-defined objects and
         # mutable containers are.
@@ -687,6 +688,7 @@ class GCTests(unittest.TestCase):
         gc.collect() # this blows up (bad C pointer) when it fails
 
     @cpython_only
+    @requires_subprocess()
     def test_garbage_at_shutdown(self):
         import subprocess
         code = """if 1:
@@ -807,14 +809,12 @@ class GCTests(unittest.TestCase):
         self.assertEqual(new[1]["collections"], old[1]["collections"])
         self.assertEqual(new[2]["collections"], old[2]["collections"] + 1)
 
-    @cpython_only
     def test_freeze(self):
         gc.freeze()
         self.assertGreater(gc.get_freeze_count(), 0)
         gc.unfreeze()
         self.assertEqual(gc.get_freeze_count(), 0)
 
-    @cpython_only
     def test_get_objects(self):
         gc.collect()
         l = []
@@ -971,8 +971,8 @@ class GCTests(unittest.TestCase):
             A()
         t = gc.collect()
         c, nc = getstats()
-        self.assertEqual(t, 2*N) # instance object & its dict
-        self.assertEqual(c - oldc, 2*N)
+        self.assertEqual(t, N) # instance objects
+        self.assertEqual(c - oldc, N)
         self.assertEqual(nc - oldnc, 0)
 
         # But Z() is not actually collected.
@@ -992,8 +992,8 @@ class GCTests(unittest.TestCase):
         Z()
         t = gc.collect()
         c, nc = getstats()
-        self.assertEqual(t, 2*N)
-        self.assertEqual(c - oldc, 2*N)
+        self.assertEqual(t, N)
+        self.assertEqual(c - oldc, N)
         self.assertEqual(nc - oldnc, 0)
 
         # The A() trash should have been reclaimed already but the
@@ -1002,8 +1002,8 @@ class GCTests(unittest.TestCase):
         zs.clear()
         t = gc.collect()
         c, nc = getstats()
-        self.assertEqual(t, 4)
-        self.assertEqual(c - oldc, 4)
+        self.assertEqual(t, 2)
+        self.assertEqual(c - oldc, 2)
         self.assertEqual(nc - oldnc, 0)
 
         gc.enable()
@@ -1073,9 +1073,8 @@ class GCCallbackTests(unittest.TestCase):
         # Save gc state and disable it.
         self.enabled = gc.isenabled()
         gc.disable()
-        if sys.implementation.name == 'cpython':
-            self.debug = gc.get_debug()
-            gc.set_debug(0)
+        self.debug = gc.get_debug()
+        gc.set_debug(0)
         gc.callbacks.append(self.cb1)
         gc.callbacks.append(self.cb2)
         self.othergarbage = []
@@ -1085,8 +1084,7 @@ class GCCallbackTests(unittest.TestCase):
         del self.visit
         gc.callbacks.remove(self.cb1)
         gc.callbacks.remove(self.cb2)
-        if sys.implementation.name == 'cpython':
-            gc.set_debug(self.debug)
+        gc.set_debug(self.debug)
         if self.enabled:
             gc.enable()
         # destroy any uncollectables
@@ -1158,8 +1156,7 @@ class GCCallbackTests(unittest.TestCase):
     @cpython_only
     def test_collect_garbage(self):
         self.preclean()
-        # Each of these cause four objects to be garbage: Two
-        # Uncollectables and their instance dicts.
+        # Each of these cause two objects to be garbage:
         Uncollectable()
         Uncollectable()
         C1055820(666)
@@ -1168,8 +1165,8 @@ class GCCallbackTests(unittest.TestCase):
             if v[1] != "stop":
                 continue
             info = v[2]
-            self.assertEqual(info["collected"], 2)
-            self.assertEqual(info["uncollectable"], 8)
+            self.assertEqual(info["collected"], 1)
+            self.assertEqual(info["uncollectable"], 4)
 
         # We should now have the Uncollectables in gc.garbage
         self.assertEqual(len(gc.garbage), 4)
@@ -1186,7 +1183,7 @@ class GCCallbackTests(unittest.TestCase):
                 continue
             info = v[2]
             self.assertEqual(info["collected"], 0)
-            self.assertEqual(info["uncollectable"], 4)
+            self.assertEqual(info["uncollectable"], 2)
 
         # Uncollectables should be gone
         self.assertEqual(len(gc.garbage), 0)
@@ -1254,7 +1251,6 @@ class GCTogglingTests(unittest.TestCase):
     def tearDown(self):
         gc.disable()
 
-    @cpython_only
     def test_bug1055820c(self):
         # Corresponds to temp2c.py in the bug report.  This is pretty
         # elaborate.
@@ -1325,7 +1321,6 @@ class GCTogglingTests(unittest.TestCase):
             # with an empty __dict__.
             self.assertEqual(x, None)
 
-    @cpython_only
     def test_bug1055820d(self):
         # Corresponds to temp2d.py in the bug report.  This is very much like
         # test_bug1055820c, but uses a __del__ method instead of a weakref
@@ -1426,9 +1421,8 @@ def setUpModule():
     enabled = gc.isenabled()
     gc.disable()
     assert not gc.isenabled()
-    if sys.implementation.name == 'cpython':
-        debug = gc.get_debug()
-        gc.set_debug(debug & ~gc.DEBUG_LEAK) # this test is supposed to leak
+    debug = gc.get_debug()
+    gc.set_debug(debug & ~gc.DEBUG_LEAK) # this test is supposed to leak
     gc.collect() # Delete 2nd generation garbage
 
 

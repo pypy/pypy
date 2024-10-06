@@ -4,7 +4,7 @@ import dis
 import pickle
 import unittest
 
-from test.support import check_syntax_error, cpython_only
+from test.support import check_syntax_error
 
 
 def global_pos_only_f(a, b, /):
@@ -70,11 +70,11 @@ class PositionalOnlyTestCase(unittest.TestCase):
 
         self.assertEqual(f(1, 2, 3), 6)
         self.assertEqual(f(1, 2, c=3), 6)
-        with self.assertRaisesRegex(TypeError, r"f\(\) got .* positional-only argument.* passed as keyword argument.*: 'b'"):
+        with self.assertRaisesRegex(TypeError, r"f\(\) got some positional-only arguments passed as keyword arguments: 'b'"):
             f(1, b=2, c=3)
 
         self.assertEqual(f(1, 2), 103)
-        with self.assertRaisesRegex(TypeError, r"f\(\) got .* positional-only argument.* passed as keyword argument.*: 'b'"):
+        with self.assertRaisesRegex(TypeError, r"f\(\) got some positional-only arguments passed as keyword arguments: 'b'"):
             f(1, b=2)
         self.assertEqual(f(1, c=2), 13)
 
@@ -83,11 +83,11 @@ class PositionalOnlyTestCase(unittest.TestCase):
 
         self.assertEqual(f(1, 2, 3), 6)
         self.assertEqual(f(1, 2, c=3), 6)
-        with self.assertRaisesRegex(TypeError, r"f\(\) got .* positional-only argument.* passed as keyword argument.*: 'b'"):
+        with self.assertRaisesRegex(TypeError, r"f\(\) got some positional-only arguments passed as keyword arguments: 'b'"):
             f(1, b=2, c=3)
 
         self.assertEqual(f(1, 2), 103)
-        with self.assertRaisesRegex(TypeError, r"f\(\) got .* positional-only argument.* passed as keyword argument.*: 'b'"):
+        with self.assertRaisesRegex(TypeError, r"f\(\) got some positional-only arguments passed as keyword arguments: 'b'"):
             f(1, b=2)
         self.assertEqual(f(1, c=2), 13)
 
@@ -120,13 +120,13 @@ class PositionalOnlyTestCase(unittest.TestCase):
     def test_use_positional_as_keyword(self):
         def f(a, /):
             pass
-        expected = r"f\(\) got .* positional-only argument.* passed as keyword argument.*: 'a'"
+        expected = r"f\(\) got some positional-only arguments passed as keyword arguments: 'a'"
         with self.assertRaisesRegex(TypeError, expected):
             f(a=1)
 
         def f(a, /, b):
             pass
-        expected = r"f\(\) got .* positional-only argument.* passed as keyword argument.*: 'a'"
+        expected = r"f\(\) got some positional-only arguments passed as keyword arguments: 'a'"
         with self.assertRaisesRegex(TypeError, expected):
             f(a=1, b=2)
 
@@ -257,7 +257,7 @@ class PositionalOnlyTestCase(unittest.TestCase):
         self.assertEqual(Example().f(1, 2), (1, 2))
         self.assertEqual(Example.f(Example(), 1, 2), (1, 2))
         self.assertRaises(TypeError, Example.f, 1, 2)
-        expected = r"f\(\) got .* positional-only argument.* passed as keyword argument.*: 'b'"
+        expected = r"f\(\) got some positional-only arguments passed as keyword arguments: 'b'"
         with self.assertRaisesRegex(TypeError, expected):
             Example().f(1, b=2)
 
@@ -366,14 +366,14 @@ class PositionalOnlyTestCase(unittest.TestCase):
             unpickled_posonly(a=1,b=2)
 
         self.assertEqual(unpickled_optional(1,2), (1,2))
-        expected = r"global_pos_only_and_normal\(\) got .* positional-only argument.* "\
-                   r"passed as keyword argument.*: 'a'"
+        expected = r"global_pos_only_and_normal\(\) got some positional-only arguments "\
+                   r"passed as keyword arguments: 'a'"
         with self.assertRaisesRegex(TypeError, expected):
             unpickled_optional(a=1,b=2)
 
         self.assertEqual(unpickled_defaults(), (1,2))
-        expected = r"global_pos_only_defaults\(\) got .* positional-only argument.* "\
-                   r"passed as keyword argument.*: 'a'"
+        expected = r"global_pos_only_defaults\(\) got some positional-only arguments "\
+                   r"passed as keyword arguments: 'a'"
         with self.assertRaisesRegex(TypeError, expected):
             unpickled_defaults(a=1,b=2)
 
@@ -382,7 +382,7 @@ class PositionalOnlyTestCase(unittest.TestCase):
         async def f(a=1, /, b=2):
             return a, b
 
-        with self.assertRaisesRegex(TypeError, r"f\(\) got .* positional-only argument.* passed as keyword argument.*: 'a'"):
+        with self.assertRaisesRegex(TypeError, r"f\(\) got some positional-only arguments passed as keyword arguments: 'a'"):
             f(a=1, b=2)
 
         def _check_call(*args, **kwargs):
@@ -403,7 +403,7 @@ class PositionalOnlyTestCase(unittest.TestCase):
         def f(a=1, /, b=2):
             yield a, b
 
-        with self.assertRaisesRegex(TypeError, r"f\(\) got .* positional-only argument.* passed as keyword argument.*: 'a'"):
+        with self.assertRaisesRegex(TypeError, r"f\(\) got some positional-only arguments passed as keyword arguments: 'a'"):
             f(a=1, b=2)
 
         gen = f(1, 2)
@@ -429,7 +429,6 @@ class PositionalOnlyTestCase(unittest.TestCase):
 
         self.assertEqual(C().method(), sentinel)
 
-    @cpython_only
     def test_annotations_constant_fold(self):
         def g():
             def f(x: not (int is int), /): ...

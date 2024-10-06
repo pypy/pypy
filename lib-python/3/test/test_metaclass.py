@@ -1,3 +1,7 @@
+import doctest
+import unittest
+
+
 doctests = """
 
 Basic class construction.
@@ -128,17 +132,17 @@ Check for duplicate keywords.
     ...
     Traceback (most recent call last):
     [...]
-    SyntaxError: keyword argument repeated: 'metaclass'
+    SyntaxError: keyword argument repeated: metaclass
     >>>
 
 Another way.
 
     >>> kwds = {'metaclass': type}
-    >>> class C(metaclass=type, **kwds): pass #doctest: +ELLIPSIS
+    >>> class C(metaclass=type, **kwds): pass
     ...
     Traceback (most recent call last):
     [...]
-    TypeError: ...got multiple values for keyword argument 'metaclass'
+    TypeError: __build_class__() got multiple values for keyword argument 'metaclass'
     >>>
 
 Use a __prepare__ method that returns an instrumented dict.
@@ -256,10 +260,10 @@ if hasattr(sys, 'gettrace') and sys.gettrace():
 else:
     __test__ = {'doctests' : doctests}
 
-def test_main(verbose=False):
-    from test import support
-    from test import test_metaclass
-    support.run_doctest(test_metaclass, verbose)
+def load_tests(loader, tests, pattern):
+    tests.addTest(doctest.DocTestSuite())
+    return tests
+
 
 if __name__ == "__main__":
-    test_main(verbose=True)
+    unittest.main()

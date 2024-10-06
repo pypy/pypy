@@ -1,6 +1,9 @@
 import asyncio
+import contextvars
 import unittest
 from test import support
+
+support.requires_working_socket(module=True)
 
 
 class MyException(Exception):
@@ -9,6 +12,32 @@ class MyException(Exception):
 
 def tearDownModule():
     asyncio.set_event_loop_policy(None)
+
+
+class TestCM:
+    def __init__(self, ordering, enter_result=None):
+        self.ordering = ordering
+        self.enter_result = enter_result
+
+    async def __aenter__(self):
+        self.ordering.append('enter')
+        return self.enter_result
+
+    async def __aexit__(self, *exc_info):
+        self.ordering.append('exit')
+
+
+class LacksEnterAndExit:
+    pass
+class LacksEnter:
+    async def __aexit__(self, *exc_info):
+        pass
+class LacksExit:
+    async def __aenter__(self):
+        pass
+
+
+VAR = contextvars.ContextVar('VAR', default=())
 
 
 class TestAsyncCase(unittest.TestCase):
@@ -35,66 +64,84 @@ class TestAsyncCase(unittest.TestCase):
             def setUp(self):
                 self.assertEqual(events, [])
                 events.append('setUp')
+                VAR.set(VAR.get() + ('setUp',))
                 self.addCleanup(self.on_cleanup1)
                 self.addAsyncCleanup(self.on_cleanup2)
 
             async def asyncSetUp(self):
                 self.assertEqual(events, expected[:1])
                 events.append('asyncSetUp')
+                VAR.set(VAR.get() + ('asyncSetUp',))
                 self.addCleanup(self.on_cleanup3)
                 self.addAsyncCleanup(self.on_cleanup4)
 
             async def test_func(self):
                 self.assertEqual(events, expected[:2])
                 events.append('test')
+                VAR.set(VAR.get() + ('test',))
                 self.addCleanup(self.on_cleanup5)
                 self.addAsyncCleanup(self.on_cleanup6)
 
             async def asyncTearDown(self):
                 self.assertEqual(events, expected[:3])
+                VAR.set(VAR.get() + ('asyncTearDown',))
                 events.append('asyncTearDown')
 
             def tearDown(self):
                 self.assertEqual(events, expected[:4])
                 events.append('tearDown')
+                VAR.set(VAR.get() + ('tearDown',))
 
             def on_cleanup1(self):
                 self.assertEqual(events, expected[:10])
                 events.append('cleanup1')
+                VAR.set(VAR.get() + ('cleanup1',))
+                nonlocal cvar
+                cvar = VAR.get()
 
             async def on_cleanup2(self):
                 self.assertEqual(events, expected[:9])
                 events.append('cleanup2')
+                VAR.set(VAR.get() + ('cleanup2',))
 
             def on_cleanup3(self):
                 self.assertEqual(events, expected[:8])
                 events.append('cleanup3')
+                VAR.set(VAR.get() + ('cleanup3',))
 
             async def on_cleanup4(self):
                 self.assertEqual(events, expected[:7])
                 events.append('cleanup4')
+                VAR.set(VAR.get() + ('cleanup4',))
 
             def on_cleanup5(self):
                 self.assertEqual(events, expected[:6])
                 events.append('cleanup5')
+                VAR.set(VAR.get() + ('cleanup5',))
 
             async def on_cleanup6(self):
                 self.assertEqual(events, expected[:5])
                 events.append('cleanup6')
+                VAR.set(VAR.get() + ('cleanup6',))
 
         events = []
+        cvar = ()
         test = Test("test_func")
         result = test.run()
         self.assertEqual(result.errors, [])
         self.assertEqual(result.failures, [])
         self.assertEqual(events, expected)
+        self.assertEqual(cvar, tuple(expected))
 
         events = []
+        cvar = ()
         test = Test("test_func")
         test.debug()
         self.assertEqual(events, expected)
+        self.assertEqual(cvar, tuple(expected))
         test.doCleanups()
         self.assertEqual(events, expected)
+        self.assertEqual(cvar, tuple(expected))
 
     def test_exception_in_setup(self):
         class Test(unittest.IsolatedAsyncioTestCase):
@@ -122,7 +169,7 @@ class TestAsyncCase(unittest.TestCase):
 
         events = []
         test = Test("test_func")
-        self.addCleanup(test._tearDownAsyncioLoop)
+        self.addCleanup(test._tearDownAsyncioRunner)
         try:
             test.debug()
         except MyException:
@@ -158,7 +205,7 @@ class TestAsyncCase(unittest.TestCase):
 
         events = []
         test = Test("test_func")
-        self.addCleanup(test._tearDownAsyncioLoop)
+        self.addCleanup(test._tearDownAsyncioRunner)
         try:
             test.debug()
         except MyException:
@@ -194,7 +241,7 @@ class TestAsyncCase(unittest.TestCase):
 
         events = []
         test = Test("test_func")
-        self.addCleanup(test._tearDownAsyncioLoop)
+        self.addCleanup(test._tearDownAsyncioRunner)
         try:
             test.debug()
         except MyException:
@@ -236,7 +283,7 @@ class TestAsyncCase(unittest.TestCase):
 
         events = []
         test = Test("test_func")
-        self.addCleanup(test._tearDownAsyncioLoop)
+        self.addCleanup(test._tearDownAsyncioRunner)
         try:
             test.debug()
         except MyException:
@@ -246,6 +293,37 @@ class TestAsyncCase(unittest.TestCase):
         self.assertEqual(events, ['asyncSetUp', 'test', 'asyncTearDown', 'cleanup2'])
         test.doCleanups()
         self.assertEqual(events, ['asyncSetUp', 'test', 'asyncTearDown', 'cleanup2', 'cleanup1'])
+
+    def test_deprecation_of_return_val_from_test(self):
+        # Issue 41322 - deprecate return of value that is not None from a test
+        class Nothing:
+            def __eq__(self, o):
+                return o is None
+        class Test(unittest.IsolatedAsyncioTestCase):
+            async def test1(self):
+                return 1
+            async def test2(self):
+                yield 1
+            async def test3(self):
+                return Nothing()
+
+        with self.assertWarns(DeprecationWarning) as w:
+            Test('test1').run()
+        self.assertIn('It is deprecated to return a value that is not None', str(w.warning))
+        self.assertIn('test1', str(w.warning))
+        self.assertEqual(w.filename, __file__)
+
+        with self.assertWarns(DeprecationWarning) as w:
+            Test('test2').run()
+        self.assertIn('It is deprecated to return a value that is not None', str(w.warning))
+        self.assertIn('test2', str(w.warning))
+        self.assertEqual(w.filename, __file__)
+
+        with self.assertWarns(DeprecationWarning) as w:
+            Test('test3').run()
+        self.assertIn('It is deprecated to return a value that is not None', str(w.warning))
+        self.assertIn('test3', str(w.warning))
+        self.assertEqual(w.filename, __file__)
 
     def test_cleanups_interleave_order(self):
         events = []
@@ -315,6 +393,36 @@ class TestAsyncCase(unittest.TestCase):
         output = test.run()
         self.assertTrue(cancelled)
 
+    def test_enterAsyncContext(self):
+        events = []
+
+        class Test(unittest.IsolatedAsyncioTestCase):
+            async def test_func(slf):
+                slf.addAsyncCleanup(events.append, 'cleanup1')
+                cm = TestCM(events, 42)
+                self.assertEqual(await slf.enterAsyncContext(cm), 42)
+                slf.addAsyncCleanup(events.append, 'cleanup2')
+                events.append('test')
+
+        test = Test('test_func')
+        output = test.run()
+        self.assertTrue(output.wasSuccessful(), output)
+        self.assertEqual(events, ['enter', 'test', 'cleanup2', 'exit', 'cleanup1'])
+
+    def test_enterAsyncContext_arg_errors(self):
+        class Test(unittest.IsolatedAsyncioTestCase):
+            async def test_func(slf):
+                with self.assertRaisesRegex(TypeError, 'asynchronous context manager'):
+                    await slf.enterAsyncContext(LacksEnterAndExit())
+                with self.assertRaisesRegex(TypeError, 'asynchronous context manager'):
+                    await slf.enterAsyncContext(LacksEnter())
+                with self.assertRaisesRegex(TypeError, 'asynchronous context manager'):
+                    await slf.enterAsyncContext(LacksExit())
+
+        test = Test('test_func')
+        output = test.run()
+        self.assertTrue(output.wasSuccessful())
+
     def test_debug_cleanup_same_loop(self):
         class Test(unittest.IsolatedAsyncioTestCase):
             async def asyncSetUp(self):
@@ -349,7 +457,7 @@ class TestAsyncCase(unittest.TestCase):
 
         events = []
         test = Test("test_func")
-        self.addCleanup(test._tearDownAsyncioLoop)
+        self.addCleanup(test._tearDownAsyncioRunner)
         try:
             test.debug()
         except MyException:
@@ -360,6 +468,21 @@ class TestAsyncCase(unittest.TestCase):
         test.doCleanups()
         self.assertEqual(events, ['asyncSetUp', 'test', 'cleanup'])
 
+    def test_setup_get_event_loop(self):
+        # See https://github.com/python/cpython/issues/95736
+        # Make sure the default event loop is not used
+        asyncio.set_event_loop(None)
+
+        class TestCase1(unittest.IsolatedAsyncioTestCase):
+            def setUp(self):
+                asyncio.get_event_loop_policy().get_event_loop()
+
+            async def test_demo1(self):
+                pass
+
+        test = TestCase1('test_demo1')
+        result = test.run()
+        self.assertTrue(result.wasSuccessful())
 
 if __name__ == "__main__":
     unittest.main()

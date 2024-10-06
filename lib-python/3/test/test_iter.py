@@ -84,6 +84,16 @@ class BadIterableClass:
     def __iter__(self):
         raise ZeroDivisionError
 
+class CallableIterClass:
+    def __init__(self):
+        self.i = 0
+    def __call__(self):
+        i = self.i
+        self.i = i + 1
+        if i > 100:
+            raise IndexError # Emergency stop
+        return i
+
 class EmptyIterClass:
     def __len__(self):
         return 0
@@ -277,6 +287,7 @@ class TestCase(unittest.TestCase):
             (bytearray(8),),
             ((1, 2, 3),),
             (lambda: 0, 0),
+            (tuple[int],)  # GenericAlias
         ]
 
         try:
@@ -291,7 +302,7 @@ class TestCase(unittest.TestCase):
             # listiter_reduce_general
             self.assertEqual(
                 run("reversed", orig["reversed"](list(range(8)))),
-                (iter, ([],))
+                (reversed, ([],))
             )
 
             for case in types:
@@ -317,16 +328,7 @@ class TestCase(unittest.TestCase):
 
     # Test two-argument iter() with callable instance
     def test_iter_callable(self):
-        class C:
-            def __init__(self):
-                self.i = 0
-            def __call__(self):
-                i = self.i
-                self.i = i + 1
-                if i > 100:
-                    raise IndexError # Emergency stop
-                return i
-        self.check_iterator(iter(C(), 10), list(range(10)), pickle=False)
+        self.check_iterator(iter(CallableIterClass(), 10), list(range(10)), pickle=True)
 
     # Test two-argument iter() with function
     def test_iter_function(self):

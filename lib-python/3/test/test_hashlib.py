@@ -10,6 +10,7 @@ import array
 from binascii import unhexlify
 import hashlib
 import importlib
+import io
 import itertools
 import os
 import sys
@@ -20,6 +21,7 @@ import warnings
 from test import support
 from test.support import _4G, bigmemtest
 from test.support.import_helper import import_fresh_module
+from test.support import os_helper
 from test.support import threading_helper
 from test.support import warnings_helper
 from http.client import HTTPException
@@ -43,9 +45,7 @@ else:
 # Otherwise import prints noise on stderr
 openssl_hashlib = import_fresh_module('hashlib', fresh=['_hashlib'])
 if builtin_hashes == default_builtin_hashes:
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        builtin_hashlib = import_fresh_module('hashlib', blocked=['_hashlib'])
+    builtin_hashlib = import_fresh_module('hashlib', blocked=['_hashlib'])
 else:
     builtin_hashlib = None
 
@@ -377,6 +377,36 @@ class HashLibTestCase(unittest.TestCase):
             if not shake:
                 self.assertEqual(len(digest), m.digest_size)
 
+        if not shake and kwargs.get("key") is None:
+            # skip shake and blake2 extended parameter tests
+            self.check_file_digest(name, data, hexdigest)
+
+    def check_file_digest(self, name, data, hexdigest):
+        hexdigest = hexdigest.lower()
+        try:
+            hashlib.new(name)
+        except ValueError:
+            # skip, algorithm is blocked by security policy.
+            return
+        digests = [name]
+        digests.extend(self.constructors_to_test[name])
+
+        with open(os_helper.TESTFN, "wb") as f:
+            f.write(data)
+
+        try:
+            for digest in digests:
+                buf = io.BytesIO(data)
+                buf.seek(0)
+                self.assertEqual(
+                    hashlib.file_digest(buf, digest).hexdigest(), hexdigest
+                )
+                with open(os_helper.TESTFN, "rb") as f:
+                    digestobj = hashlib.file_digest(f, digest)
+                self.assertEqual(digestobj.hexdigest(), hexdigest)
+        finally:
+            os.unlink(os_helper.TESTFN)
+
     def check_no_unicode(self, algorithm_name):
         # Unicode objects are not allowed as input.
         constructors = self.constructors_to_test[algorithm_name]
@@ -496,15 +526,6 @@ class HashLibTestCase(unittest.TestCase):
     @bigmemtest(size=_4G - 1, memuse=1, dry_run=False)
     def test_case_md5_uintmax(self, size):
         self.check('md5', b'A'*size, '28138d306ff1b8281f1a9067e1a1a2b3')
-
-    @unittest.skipIf(sys.maxsize < _4G - 1, 'test cannot run on 32-bit systems')
-    @bigmemtest(size=_4G - 1, memuse=1, dry_run=False)
-    def test_sha3_update_overflow(self, size):
-        """Regression test for gh-98517 CVE-2022-37454."""
-        h = hashlib.sha3_224()
-        h.update(b'\x01')
-        h.update(b'\x01'*0xffff_ffff)
-        self.assertEqual(h.hexdigest(), '80762e8ce6700f114fec0f621fd97c4b9c00147fa052215294cceeed')
 
     # use the three examples from Federal Information Processing Standards
     # Publication 180-1, Secure Hash Standard,  1995 April 17
@@ -894,6 +915,7 @@ class HashLibTestCase(unittest.TestCase):
         )
 
     @threading_helper.reap_threads
+    @threading_helper.requires_working_threading()
     def test_threaded_hashing(self):
         # Updating the same hash object from several threads at once
         # using data chunk sizes containing the same byte sequences.
@@ -1131,6 +1153,33 @@ class KDFTests(unittest.TestCase):
     def test_normalized_name(self):
         self.assertNotIn("blake2b512", hashlib.algorithms_available)
         self.assertNotIn("sha3-512", hashlib.algorithms_available)
+
+    def test_file_digest(self):
+        data = b'a' * 65536
+        d1 = hashlib.sha256()
+        self.addCleanup(os.unlink, os_helper.TESTFN)
+        with open(os_helper.TESTFN, "wb") as f:
+            for _ in range(10):
+                d1.update(data)
+                f.write(data)
+
+        with open(os_helper.TESTFN, "rb") as f:
+            d2 = hashlib.file_digest(f, hashlib.sha256)
+
+        self.assertEqual(d1.hexdigest(), d2.hexdigest())
+        self.assertEqual(d1.name, d2.name)
+        self.assertIs(type(d1), type(d2))
+
+        with self.assertRaises(ValueError):
+            hashlib.file_digest(None, "sha256")
+
+        with self.assertRaises(ValueError):
+            with open(os_helper.TESTFN, "r") as f:
+                hashlib.file_digest(f, "sha256")
+
+        with self.assertRaises(ValueError):
+            with open(os_helper.TESTFN, "wb") as f:
+                hashlib.file_digest(f, "sha256")
 
 
 if __name__ == "__main__":

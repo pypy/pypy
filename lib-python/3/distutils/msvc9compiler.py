@@ -221,7 +221,6 @@ def find_vcvarsall(version):
     that fails it falls back to the VS90COMNTOOLS env var.
     """
     vsbase = VS_BASE % version
-    batfile = 'vcvarsall.bat'
     try:
         productdir = Reg.get_value(r"%s\Setup\VC" % vsbase,
                                    "productdir")
@@ -234,12 +233,8 @@ def find_vcvarsall(version):
         toolsdir = os.environ.get(toolskey, None)
 
         if toolsdir and os.path.isdir(toolsdir):
-            if os.path.exists(os.path.join(toolsdir, 'VsDevCmd.bat')):
-                productdir = toolsdir
-                batfile = 'VsDevCmd.bat'
-            else:
-                productdir = os.path.join(toolsdir, os.pardir, os.pardir, "VC")
-                productdir = os.path.abspath(productdir)
+            productdir = os.path.join(toolsdir, os.pardir, os.pardir, "VC")
+            productdir = os.path.abspath(productdir)
             if not os.path.isdir(productdir):
                 log.debug("%s is not a valid directory" % productdir)
                 return None
@@ -248,7 +243,7 @@ def find_vcvarsall(version):
     if not productdir:
         log.debug("No productdir found")
         return None
-    vcvarsall = os.path.join(productdir, batfile)
+    vcvarsall = os.path.join(productdir, "vcvarsall.bat")
     if os.path.isfile(vcvarsall):
         return vcvarsall
     log.debug("Unable to find vcvarsall.bat")
@@ -258,12 +253,12 @@ def query_vcvarsall(version, arch="x86"):
     """Launch vcvarsall.bat and read the settings from its environment
     """
     vcvarsall = find_vcvarsall(version)
-    interesting = {"include", "lib", "path"}
+    interesting = {"include", "lib", "libpath", "path"}
     result = {}
 
     if vcvarsall is None:
         raise DistutilsPlatformError("Unable to find vcvarsall.bat")
-    log.debug("Calling '%s %s' (version=%s)", vcvarsall, arch, version)
+    log.debug("Calling 'vcvarsall.bat %s' (version=%s)", arch, version)
     popen = subprocess.Popen('"%s" %s & set' % (vcvarsall, arch),
                              stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE)
@@ -273,10 +268,6 @@ def query_vcvarsall(version, arch="x86"):
             raise DistutilsPlatformError(stderr.decode("mbcs"))
 
         stdout = stdout.decode("mbcs")
-        log.debug('-'*30)
-        log.debug(stderr.decode('mbcs'))
-        log.debug(stdout)
-        log.debug('-'*30)
         for line in stdout.split("\n"):
             line = Reg.convert_mbcs(line)
             if '=' not in line:
@@ -296,7 +287,6 @@ def query_vcvarsall(version, arch="x86"):
     if len(result) != len(interesting):
         raise ValueError(str(list(result.keys())))
 
-    log.debug('Got %s', str(result))
     return result
 
 # More globals
@@ -677,7 +667,6 @@ class MSVCCompiler(CCompiler) :
         temp_manifest = os.path.join(
                 build_temp,
                 os.path.basename(output_filename) + ".manifest")
-        ld_args.append('/MANIFEST')
         ld_args.append('/MANIFESTFILE:' + temp_manifest)
 
     def manifest_get_embed_info(self, target_desc, ld_args):

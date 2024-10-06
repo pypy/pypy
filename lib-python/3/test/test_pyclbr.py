@@ -9,6 +9,7 @@ from types import FunctionType, MethodType, BuiltinFunctionType
 import pyclbr
 from unittest import TestCase, main as unittest_main
 from test.test_importlib import util as test_importlib_util
+import warnings
 
 
 StaticMethodType = type(staticmethod(lambda: None))
@@ -129,10 +130,7 @@ class PyclbrTest(TestCase):
                     raise
 
         # Now check for missing stuff.
-        def defined_in(item, module, name):
-            if item.__name__ != name:
-                # Item was defined with another name
-                return False
+        def defined_in(item, module):
             if isinstance(item, type):
                 return item.__module__ == module.__name__
             if isinstance(item, FunctionType):
@@ -141,7 +139,7 @@ class PyclbrTest(TestCase):
         for name in dir(module):
             item = getattr(module, name)
             if isinstance(item,  (type, FunctionType)):
-                if defined_in(item, module, name):
+                if defined_in(item, module):
                     self.assertHaskey(dict, name, ignore)
 
     def test_easy(self):
@@ -219,13 +217,20 @@ class PyclbrTest(TestCase):
     def test_others(self):
         cm = self.checkModule
 
-        # These were once about the 10 longest modules
+        # These were once some of the longest modules.
         cm('random', ignore=('Random',))  # from _random import Random as CoreGenerator
-        cm('cgi', ignore=('log',))      # set with = in module
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', DeprecationWarning)
+            cm('cgi', ignore=('log',))      # set with = in module
         cm('pickle', ignore=('partial', 'PickleBuffer'))
-        cm('aifc', ignore=('_aifc_params',))  # set with = in module
-        cm('sre_parse', ignore=('dump', 'groups', 'pos')) # from sre_constants import *; property
-        cm('pdb')
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', DeprecationWarning)
+            cm('sre_parse', ignore=('dump', 'groups', 'pos')) # from sre_constants import *; property
+        cm(
+            'pdb',
+            # pyclbr does not handle elegantly `typing` or properties
+            ignore=('Union', '_ModuleTarget', '_ScriptTarget'),
+        )
         cm('pydoc', ignore=('input', 'output',)) # properties
 
         # Tests for modules inside packages

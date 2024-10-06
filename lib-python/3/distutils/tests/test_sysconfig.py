@@ -10,7 +10,7 @@ import unittest
 from distutils import sysconfig
 from distutils.ccompiler import get_default_compiler
 from distutils.tests import support
-from test.support import run_unittest, swap_item, cpython_only
+from test.support import swap_item, requires_subprocess, is_wasi
 from test.support.os_helper import TESTFN
 from test.support.warnings_helper import check_warnings
 
@@ -32,6 +32,7 @@ class SysconfigTestCase(support.EnvironGuard, unittest.TestCase):
         elif os.path.isdir(TESTFN):
             shutil.rmtree(TESTFN)
 
+    @unittest.skipIf(is_wasi, "Incompatible with WASI mapdir and OOT builds")
     def test_get_config_h_filename(self):
         config_h = sysconfig.get_config_h_filename()
         self.assertTrue(os.path.isfile(config_h), config_h)
@@ -48,7 +49,7 @@ class SysconfigTestCase(support.EnvironGuard, unittest.TestCase):
         self.assertIsInstance(cvars, dict)
         self.assertTrue(cvars)
 
-    @cpython_only
+    @unittest.skipIf(is_wasi, "Incompatible with WASI mapdir and OOT builds")
     def test_srcdir(self):
         # See Issues #15322, #15364.
         srcdir = sysconfig.get_config_var('srcdir')
@@ -61,7 +62,11 @@ class SysconfigTestCase(support.EnvironGuard, unittest.TestCase):
             # should be a full source checkout.
             Python_h = os.path.join(srcdir, 'Include', 'Python.h')
             self.assertTrue(os.path.exists(Python_h), Python_h)
-            self.assertTrue(sysconfig._is_python_source_dir(srcdir))
+            # <srcdir>/PC/pyconfig.h always exists even if unused on POSIX.
+            pyconfig_h = os.path.join(srcdir, 'PC', 'pyconfig.h')
+            self.assertTrue(os.path.exists(pyconfig_h), pyconfig_h)
+            pyconfig_h_in = os.path.join(srcdir, 'pyconfig.h.in')
+            self.assertTrue(os.path.exists(pyconfig_h_in), pyconfig_h_in)
         elif os.name == 'posix':
             self.assertEqual(
                 os.path.dirname(sysconfig.get_makefile_filename()),
@@ -228,26 +233,7 @@ class SysconfigTestCase(support.EnvironGuard, unittest.TestCase):
         self.assertEqual(global_sysconfig.get_config_var('CC'),
                          sysconfig.get_config_var('CC'))
 
-    @unittest.skipIf(sysconfig.get_config_var('EXT_SUFFIX') is None,
-                     'EXT_SUFFIX required for this test')
-    def test_SO_deprecation(self):
-        self.assertWarns(DeprecationWarning,
-                         sysconfig.get_config_var, 'SO')
-
-    @unittest.skipIf(sysconfig.get_config_var('EXT_SUFFIX') is None,
-                     'EXT_SUFFIX required for this test')
-    def test_SO_value(self):
-        with check_warnings(('', DeprecationWarning)):
-            self.assertEqual(sysconfig.get_config_var('SO'),
-                             sysconfig.get_config_var('EXT_SUFFIX'))
-
-    @unittest.skipIf(sysconfig.get_config_var('EXT_SUFFIX') is None,
-                     'EXT_SUFFIX required for this test')
-    def test_SO_in_vars(self):
-        vars = sysconfig.get_config_vars()
-        self.assertIsNotNone(vars['SO'])
-        self.assertEqual(vars['SO'], vars['EXT_SUFFIX'])
-
+    @requires_subprocess()
     def test_customize_compiler_before_get_config_vars(self):
         # Issue #21923: test that a Distribution compiler
         # instance can be called without an explicit call to
@@ -268,11 +254,5 @@ class SysconfigTestCase(support.EnvironGuard, unittest.TestCase):
         self.assertEqual(0, p.returncode, "Subprocess failed: " + outs)
 
 
-def test_suite():
-    suite = unittest.TestSuite()
-    suite.addTest(unittest.makeSuite(SysconfigTestCase))
-    return suite
-
-
 if __name__ == '__main__':
-    run_unittest(test_suite())
+    unittest.main()

@@ -26,14 +26,12 @@ class OptimizedPickleTests(AbstractPickleTests, unittest.TestCase):
             pickled = pickle.dumps(data, proto)
             unpickled = pickle.loads(pickled)
             self.assertEqual(unpickled, data)
-            # compare two strings, xxx don't use assertIs() here:
-            self.assertEqual(unpickled[-1], unpickled[-2])
+            self.assertIs(unpickled[-1], unpickled[-2])
 
             pickled2 = pickletools.optimize(pickled)
             unpickled2 = pickle.loads(pickled2)
             self.assertEqual(unpickled2, data)
-            # compare two strings, xxx don't use assertIs() here:
-            self.assertEqual(unpickled2[-1], unpickled2[-2])
+            self.assertIs(unpickled2[-1], unpickled2[-2])
             self.assertNotIn(pickle.LONG_BINGET, pickled2)
             self.assertNotIn(pickle.LONG_BINPUT, pickled2)
 
