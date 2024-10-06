@@ -23,6 +23,7 @@ class Module(MixedModule):
         code_w = Module._cached_compile(space, name, source,
                                         pathname, 'exec', 0)
         space.setitem(w_dict, space.wrap('__name__'), w_name)
+        space.setitem(w_dict, space.wrap('__origname__'), w_name)
         space.setitem(w_dict, space.wrap('__builtins__'),
                       space.wrap(space.builtin))
         code_w.exec_code(space, w_dict, w_dict)
