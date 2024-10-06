@@ -737,6 +737,11 @@ class W_BytesObject(W_AbstractBytesObject):
         assert isinstance(self, W_BytesObject)
         return self._getitem_result(space, index)
 
+    def descr_bytes(self, space):
+        """Convert this value to exact type bytes."""
+        if type(self) is W_BytesObject:
+            return self
+        return W_BytesObject(self._value)
 
 def _create_list_from_bytes(value):
     # need this helper function to allow the jit to look inside and inline
@@ -910,6 +915,8 @@ W_BytesObject.typedef = TypeDef(
     __rmod__ = interpindirect2app(W_AbstractBytesObject.descr_rmod),
 
     __getitem__ = interpindirect2app(W_AbstractBytesObject.descr_getitem),
+
+    __bytes__ = interp2app(W_BytesObject.descr_bytes),
 
     capitalize = interpindirect2app(W_AbstractBytesObject.descr_capitalize),
     center = interpindirect2app(W_AbstractBytesObject.descr_center),

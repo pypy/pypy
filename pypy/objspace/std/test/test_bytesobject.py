@@ -1119,3 +1119,13 @@ class AppTestBytesObject:
 
         a = Sub(b"abc!")
         assert a * 1 is not a
+
+    def test_bytes_special_method(self):
+        b = b"abc"
+        assert b.__bytes__() is b
+
+        class Sub(bytes):
+            pass
+        a = Sub(b"abc!")
+        assert a.__bytes__() == a
+        assert a.__bytes__().__class__ is bytes
