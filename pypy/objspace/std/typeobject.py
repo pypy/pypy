@@ -920,7 +920,7 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
     if not space.is_w(w_winner, w_typetype):
         newfunc = space.getattr(w_winner, space.newtext('__new__'))
         if not space.is_w(newfunc, space.getattr(space.w_type, space.newtext('__new__'))):
-            return space.call_function(newfunc, w_winner, w_name, w_bases, w_dict)
+            return space.call_obj_args(newfunc, w_winner, __args__)
         w_typetype = w_winner
 
     name = space.text_w(w_name)

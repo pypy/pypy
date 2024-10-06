@@ -1636,6 +1636,19 @@ class AppTestTypeObject:
         assert repr(int | str | int) == "int | str"
         """
 
+    def test_metaclass_new_args_when_calling_type(self):
+        """
+        class T1(type):
+            def __new__(metacls, cls, bases, body, extraarg=False):
+                assert metacls is T1
+                assert extraarg
+                return super().__new__(metacls, cls, bases, body)
+
+        class D1(metaclass=T1, extraarg=True):
+            pass
+
+        type('D2', (D1, ), {}, extraarg=True)
+        """
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}
