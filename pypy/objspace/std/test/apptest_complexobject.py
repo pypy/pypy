@@ -665,3 +665,11 @@ def test_complex_constructor_calls_index():
 def test_parse_complex_whitespace_bug():
     c = complex('\t( -1.23+4.5J )\n\r\v ')
     assert c == -1.23+4.5j
+
+def test_has_complex_special_method():
+    x = 1+1j
+    assert x.__complex__() is x
+    class C(complex): pass
+    x = C(1+1j)
+    assert x.__complex__() == x
+    assert x.__complex__().__class__ is complex

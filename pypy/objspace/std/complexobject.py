@@ -409,6 +409,10 @@ class W_ComplexObject(W_Root):
     def descr_pos(self, space):
         return W_ComplexObject(self.realval, self.imagval)
 
+    def descr_complex(self, space):
+        """Convert this value to exact type complex."""
+        return W_ComplexObject(self.realval, self.imagval)
+
     def descr_abs(self, space):
         try:
             return space.newfloat(math.hypot(self.realval, self.imagval))
@@ -578,4 +582,5 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __rpow__ = interp2app(W_ComplexObject.descr_rpow),
 
     conjugate = interp2app(W_ComplexObject.descr_conjugate),
+    __complex__ = interp2app(W_ComplexObject.descr_complex),
 )
