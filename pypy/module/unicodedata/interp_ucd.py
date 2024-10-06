@@ -8,7 +8,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from rpython.rlib.rarithmetic import r_longlong, r_uint
 from rpython.rlib.unicodedata import unicodedb_13_0_0, unicodedb_3_2_0
-from rpython.rlib.rutf8 import Utf8StringBuilder, unichr_as_utf8
+from rpython.rlib.rutf8 import Utf8StringBuilder, unichr_as_utf8, Utf8StringPosIterator
 
 
 # Contants for Hangul characters
@@ -173,13 +173,14 @@ class UCD(W_Root):
             raise oefmt(space.w_ValueError, "invalid normalization form")
 
         strlen = space.len_w(w_unistr)
+        content = space.utf8_w(w_unistr)
+        if len(content) == strlen:
+            return space.newutf8(content, strlen)
         result = [0] * (strlen + strlen / 10 + 10)
         j = 0
         resultlen = len(result)
         # Expand the character
-        for i in range(strlen):
-            # XXX this is bad, uses indexing on unicode! iterate the utf-8 instead
-            ch = space.int_w(space.ord(space.getitem(w_unistr, space.newint(i))))
+        for ch, i in Utf8StringPosIterator(content):
             # Do Hangul decomposition
             if SBase <= ch < SBase + SCount:
                 SIndex = ch - SBase
