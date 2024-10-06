@@ -41,81 +41,6 @@ typedef SRWLOCK PyMUTEX_T;
 typedef CONDITION_VARIABLE  PyCOND_T;
 
 /* -------------------------
- * From Python/condvar.h
- */
-
-
-Py_LOCAL_INLINE(int)
-PyMUTEX_INIT(PyMUTEX_T *cs)
-{
-    InitializeSRWLock(cs);
-    return 0;
-}
-
-Py_LOCAL_INLINE(int)
-PyMUTEX_FINI(PyMUTEX_T *cs)
-{
-    return 0;
-}
-
-Py_LOCAL_INLINE(int)
-PyMUTEX_LOCK(PyMUTEX_T *cs)
-{
-    AcquireSRWLockExclusive(cs);
-    return 0;
-}
-
-Py_LOCAL_INLINE(int)
-PyMUTEX_UNLOCK(PyMUTEX_T *cs)
-{
-    ReleaseSRWLockExclusive(cs);
-    return 0;
-}
-
-
-Py_LOCAL_INLINE(int)
-PyCOND_INIT(PyCOND_T *cv)
-{
-    InitializeConditionVariable(cv);
-    return 0;
-}
-Py_LOCAL_INLINE(int)
-PyCOND_FINI(PyCOND_T *cv)
-{
-    return 0;
-}
-
-Py_LOCAL_INLINE(int)
-PyCOND_WAIT(PyCOND_T *cv, PyMUTEX_T *cs)
-{
-    return SleepConditionVariableSRW(cv, cs, INFINITE, 0) ? 0 : -1;
-}
-
-/* This implementation makes no distinction about timeouts.  Signal
- * 2 to indicate that we don't know.
- */
-Py_LOCAL_INLINE(int)
-PyCOND_TIMEDWAIT(PyCOND_T *cv, PyMUTEX_T *cs, long long us)
-{
-    /* timeout in milliseconds */
-    return SleepConditionVariableSRW(cv, cs, (DWORD)(us/1000), 0) ? 2 : -1;
-}
-
-Py_LOCAL_INLINE(int)
-PyCOND_SIGNAL(PyCOND_T *cv)
-{
-     WakeConditionVariable(cv);
-     return 0;
-}
-
-Py_LOCAL_INLINE(int)
-PyCOND_BROADCAST(PyCOND_T *cv)
-{
-     WakeAllConditionVariable(cv);
-     return 0;
-}
-
-/* -------------------------
  * Taken from Python/pytime.c
  */
 
@@ -269,6 +194,82 @@ _PyTime_GetPerfCounter(void)
 }
 
 
+
+/* -------------------------
+ * From Python/condvar.h
+ */
+
+
+Py_LOCAL_INLINE(int)
+PyMUTEX_INIT(PyMUTEX_T *cs)
+{
+    InitializeSRWLock(cs);
+    return 0;
+}
+
+Py_LOCAL_INLINE(int)
+PyMUTEX_FINI(PyMUTEX_T *cs)
+{
+    return 0;
+}
+
+Py_LOCAL_INLINE(int)
+PyMUTEX_LOCK(PyMUTEX_T *cs)
+{
+    AcquireSRWLockExclusive(cs);
+    return 0;
+}
+
+Py_LOCAL_INLINE(int)
+PyMUTEX_UNLOCK(PyMUTEX_T *cs)
+{
+    ReleaseSRWLockExclusive(cs);
+    return 0;
+}
+
+
+Py_LOCAL_INLINE(int)
+PyCOND_INIT(PyCOND_T *cv)
+{
+    InitializeConditionVariable(cv);
+    return 0;
+}
+Py_LOCAL_INLINE(int)
+PyCOND_FINI(PyCOND_T *cv)
+{
+    return 0;
+}
+
+Py_LOCAL_INLINE(int)
+PyCOND_WAIT(PyCOND_T *cv, PyMUTEX_T *cs)
+{
+    return SleepConditionVariableSRW(cv, cs, INFINITE, 0) ? 0 : -1;
+}
+
+/* This implementation makes no distinction about timeouts.  Signal
+ * 2 to indicate that we don't know.
+ */
+Py_LOCAL_INLINE(int)
+PyCOND_TIMEDWAIT(PyCOND_T *cv, PyMUTEX_T *cs, long long us)
+{
+    /* timeout in milliseconds */
+    DWORD ms = (DWORD)_PyTime_Divide(us, 1000, _RPyTime_ROUND_TIMEOUT);
+    return SleepConditionVariableSRW(cv, cs, ms, 0) != 0 ? 2 : -1;
+}
+
+Py_LOCAL_INLINE(int)
+PyCOND_SIGNAL(PyCOND_T *cv)
+{
+     WakeConditionVariable(cv);
+     return 0;
+}
+
+Py_LOCAL_INLINE(int)
+PyCOND_BROADCAST(PyCOND_T *cv)
+{
+     WakeAllConditionVariable(cv);
+     return 0;
+}
 /* -------------------------
  * Taken from Python/thread_nt.h
  */
@@ -335,8 +336,12 @@ EnterNonRecursiveMutex(PNRMUTEX mutex, RPY_TIMEOUT_T microseconds)
         _RPyTime_t target_ns = now_ns + (microseconds * 1000);
         while (mutex->locked) {
             if (PyCOND_TIMEDWAIT(&mutex->cv, &mutex->cs, microseconds) < 0) {
-                result = WAIT_FAILED;
-                break;
+                DWORD err = GetLastError();
+                if (err != ERROR_TIMEOUT) {
+                    fprintf(stderr, "EnterNonRecursiveMutex failed %d\n", GetLastError());
+                    result = WAIT_FAILED;
+                    break;
+                }
             }
             now_ns = _PyTime_GetPerfCounter();
             if (target_ns <= now_ns)
@@ -551,53 +556,65 @@ Signed RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 /* GIL code                                                 */
 /************************************************************/
 
-typedef HANDLE mutex2_t;   /* a semaphore, on Windows */
+#define ASSERT_STATUS(call)                             \
+    if (call != 0) {                                    \
+        fprintf(stderr, "Fatal error: " #call);         \
+        abort();                                        \
+    }
 
-static INLINE void mutex2_init(mutex2_t *mutex) {
-    *mutex = CreateSemaphore(NULL, 1, 1, NULL);
-    if (*mutex == NULL)
-        gil_fatal("CreateSemaphore failed", 0);
-}
 
-static INLINE void mutex2_lock(mutex2_t *mutex) {
-    DWORD res = WaitForSingleObject(*mutex, INFINITE);
-    if (res != WAIT_OBJECT_0)
-        gil_fatal("mutex2_lock", res);
-}
-
-static INLINE void mutex2_unlock(mutex2_t *mutex) {
-    if (!ReleaseSemaphore(*mutex, 1, NULL))
-        gil_fatal("mutex2_unlock", 0);
-}
-
-static INLINE void mutex2_init_locked(mutex2_t *mutex) {
-    mutex2_init(mutex);
-    mutex2_lock(mutex);
-}
-
-static INLINE void mutex2_loop_start(mutex2_t *mutex) { }
-static INLINE void mutex2_loop_stop(mutex2_t *mutex) { }
-
-static INLINE int mutex2_lock_timeout(mutex2_t *mutex, double delay)
-{
-    DWORD result = WaitForSingleObject(*mutex, (DWORD)(delay * 1000.0 + 0.999));
-    if (result != WAIT_TIMEOUT && result != WAIT_OBJECT_0)
-        gil_fatal("mutex2_lock_timeout", result);
-    return (result != WAIT_TIMEOUT);
-}
-
-typedef CRITICAL_SECTION mutex1_t;
+typedef PyMUTEX_T mutex1_t;
 
 static INLINE void mutex1_init(mutex1_t *mutex) {
-    InitializeCriticalSection(mutex);
+    ASSERT_STATUS(PyMUTEX_INIT(mutex));
 }
 
 static INLINE void mutex1_lock(mutex1_t *mutex) {
-    EnterCriticalSection(mutex);
+    ASSERT_STATUS(PyMUTEX_LOCK(mutex));
 }
 
 static INLINE void mutex1_unlock(mutex1_t *mutex) {
-    LeaveCriticalSection(mutex);
+    ASSERT_STATUS(PyMUTEX_UNLOCK(mutex));
+}
+
+typedef NRMUTEX mutex2_t; 
+
+static INLINE void mutex2_init_locked(mutex2_t *mutex) {
+    mutex->locked = 1;
+    ASSERT_STATUS(PyCOND_INIT(&mutex->cv));
+    ASSERT_STATUS(PyMUTEX_INIT(&mutex->cs));
+}
+
+static INLINE void mutex2_unlock(mutex2_t *mutex) {
+    ASSERT_STATUS(PyMUTEX_LOCK(&mutex->cs));
+    mutex->locked = 0;
+    ASSERT_STATUS(PyMUTEX_UNLOCK(&mutex->cs));
+    PyCOND_SIGNAL(&mutex->cv);
+}
+
+static INLINE void mutex2_loop_start(mutex2_t *mutex) {
+    ASSERT_STATUS(PyMUTEX_LOCK(&mutex->cs));
+}
+static INLINE void mutex2_loop_stop(mutex2_t *mutex) {
+    ASSERT_STATUS(PyMUTEX_UNLOCK(&mutex->cs));
+}
+
+static INLINE int mutex2_lock_timeout(mutex2_t *mutex, double delay)
+{
+    if (mutex->locked) {
+        /* delay in seconds */
+        DWORD ms = (DWORD)(delay * 1000.0 + 0.999);
+        int error_from_timedwait = SleepConditionVariableSRW(&mutex->cv, &mutex->cs, ms, 0);
+        if (error_from_timedwait == 0) {
+            DWORD err = GetLastError();
+            if (err != ERROR_TIMEOUT) {
+                ASSERT_STATUS(error_from_timedwait);
+            }
+        }
+    }
+    int result = !mutex->locked;
+    mutex->locked = 1;
+    return result;
 }
 
 //#define pypy_lock_test_and_set(ptr, value)  see thread_nt.h
