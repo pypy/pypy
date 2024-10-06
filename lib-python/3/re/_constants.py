@@ -13,7 +13,7 @@
 
 # update when constants are added or removed
 
-MAGIC = 20220615
+MAGIC = 20171005 # XXX PyPy change: should be fixed to 20220615 once the new features are implemented
 
 from _sre import MAXREPEAT, MAXGROUPS
 
@@ -97,9 +97,6 @@ OPCODES = _makecodes(
     'REPEAT_ONE',
     'SUBPATTERN',
     'MIN_REPEAT_ONE',
-    'ATOMIC_GROUP',
-    'POSSESSIVE_REPEAT',
-    'POSSESSIVE_REPEAT_ONE',
 
     'GROUPREF_IGNORE',
     'IN_IGNORE',
@@ -120,6 +117,12 @@ OPCODES = _makecodes(
     # The following opcodes are only occurred in the parser output,
     # but not in the compiled code.
     'MIN_REPEAT', 'MAX_REPEAT',
+
+    # PyPy change: for ease of maintenance of rlib, the new opcodes must come
+    # at the end
+    'ATOMIC_GROUP',
+    'POSSESSIVE_REPEAT',
+    'POSSESSIVE_REPEAT_ONE',
 )
 del OPCODES[-2:] # remove MIN_REPEAT and MAX_REPEAT
 
