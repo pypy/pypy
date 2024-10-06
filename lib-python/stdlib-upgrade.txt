@@ -21,7 +21,7 @@ Process for upgrading the stdlib to a new cpython version
    2g. Do not delete the CPython token.py, it is needed for app_main tests
 3. update stdlib-version.txt with the output of `git status` from the cpython repo
 4. commit
-5. update to py3.10
+5. update to py3.11
 6. create a integration branch for the new stdlib
    (just git branch stdlib-$version)
 7. merge vendor/stdlib or vendor/stdlib-3-*
