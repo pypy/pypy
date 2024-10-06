@@ -20,6 +20,8 @@ class Module(MixedModule):
         'exec_builtin':    'interp_imp.exec_builtin',
         'get_frozen_object': 'interp_imp.get_frozen_object',
         'is_frozen_package': 'interp_imp.is_frozen_package',
+        '_frozen_module_names': 'interp_imp._frozen_module_names',
+        'find_frozen':      'interp_imp.find_frozen',
 
         'lock_held':       'interp_imp.lock_held',
         'acquire_lock':    'interp_imp.acquire_lock',

@@ -99,13 +99,21 @@ def is_frozen(space, w_name):
         return space.w_True
     return space.w_False
 
+def _frozen_module_names(space):
+    return space.newlist([space.newtext(s) for s in ["_frozen_importlib", "_frozen_importlib_external", "zipimport",
+                # For tests, not implemented on PyPy
+                "__hello__", "__phello__", "_phello__.spam"]])
+
 def get_frozen_object(space, w_name):
     raise oefmt(space.w_ImportError,
                 "No such frozen object named %R", w_name)
 
 def is_frozen_package(space, w_name):
-    raise oefmt(space.w_ImportError,
-                "No such frozen object named %R", w_name)
+    return space.w_False
+
+def find_frozen(space, w_name):
+    return space.w_None
+
 
 #__________________________________________________________________
 

@@ -115,6 +115,10 @@ class AppTestImpModule:
         assert not imp.is_builtin('hello.world.this.is.never.a.builtin.module.name')
         assert not imp.is_frozen('hello.world.this.is.never.a.frozen.module.name')
 
+    def test_find_frozen(self):
+        import _imp
+        assert _imp.find_frozen('hello.what.now') is None
+
     def test_is_builtin(self):
         import sys, imp
         for name in sys.builtin_module_names:
