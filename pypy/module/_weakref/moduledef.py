@@ -2,6 +2,7 @@ from pypy.interpreter.mixedmodule import MixedModule
     
 class Module(MixedModule):
     appleveldefs = {
+        '_remove_dead_weakref': 'app_weakref._remove_dead_weakref',
     }
     interpleveldefs = {
         'ref': 'interp__weakref.W_Weakref',
