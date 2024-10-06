@@ -329,7 +329,6 @@ EnterNonRecursiveMutex(PNRMUTEX mutex, RPY_TIMEOUT_T microseconds)
     } else if (microseconds != 0) {
         /* wait at least until the target */
         _RPyTime_t now_ns = _PyTime_GetPerfCounter();
-        int line = __LINE__;
         if (now_ns <= 0) {
             gil_fatal("_PyTime_GetPerfCounter() <= 0", (int)now_ns);
         }
