@@ -3706,6 +3706,40 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_and_with_itself_indirect(self):
+        # tests and_absorb
+        ops = """
+        [i1, i2, i11, i12]
+        i3 = int_and(i1, i2)
+        i4 = int_and(i3, i1)
+        i13 = int_and(i12, i11)
+        i14 = int_and(i13, i11)
+        jump(i4, i14)
+        """
+        expected = """
+        [i1, i2, i11, i12]
+        i3 = int_and(i1, i2)
+        i13 = int_and(i12, i11)
+        jump(i3, i13)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1, i2, i11, i12]
+        i3 = int_and(i1, i2)
+        i4 = int_and(i1, i3)
+        i13 = int_and(i12, i11) # changed order
+        i14 = int_and(i11, i13) # changed order
+        jump(i4, i14)
+        """
+        expected = """
+        [i1, i2, i11, i12]
+        i3 = int_and(i1, i2)
+        i13 = int_and(i12, i11)
+        jump(i3, i13)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_useless_and(self):
         # constant version
         ops = """

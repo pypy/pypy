@@ -68,6 +68,9 @@ and_known_result: int_and(a, b)
     C = a.and_bound(b).get_constant_int()
     => C
 
+and_absorb: int_and(a, int_and(a, b))
+    => int_and(a, b)
+
 
 or_minus_1: int_or(x, -1)
     => -1
