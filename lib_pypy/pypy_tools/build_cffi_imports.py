@@ -319,17 +319,6 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
 
 if __name__ == '__main__':
     import argparse
-    if '__pypy__' not in sys.builtin_module_names:
-        print('Call with a pypy interpreter', file=sys.stderr)
-        sys.exit(1)
-
-    tool_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
-    lib_pypy_dir = os.path.dirname(os.path.dirname(tool_dir))
-    sys.path.insert(0, lib_pypy_dir)
-
-    class Options(object):
-        pass
-
     parser = argparse.ArgumentParser(description='Build all cffi backends in lib_pypy')
     parser.add_argument('--exefile', dest='exefile', default=sys.executable,
                         help='instead of executing sys.executable' \
@@ -341,6 +330,17 @@ if __name__ == '__main__':
     parser.add_argument('--embed-dependencies', dest='embed_dependencies', action='store_true',
         help='embed dependencies for distribution')
     args = parser.parse_args()
+
+    if '__pypy__' not in sys.builtin_module_names:
+        print('Call with a pypy interpreter', file=sys.stderr)
+        sys.exit(1)
+
+    tool_dir = os.path.dirname(os.path.abspath(sys.argv[0]))
+    lib_pypy_dir = os.path.dirname(os.path.dirname(tool_dir))
+    sys.path.insert(0, lib_pypy_dir)
+
+    class Options(object):
+        pass
 
     exename = join(os.getcwd(), args.exefile)
     basedir = exename
