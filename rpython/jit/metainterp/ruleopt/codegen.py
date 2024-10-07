@@ -64,21 +64,24 @@ class BaseMatcher(parse.BaseAst):
 
 class Matcher(BaseMatcher):
     ifyes = None
+    ifno = None
     nextmatcher = None
 
 
 class IsConstMatcher(Matcher):
-    def __init__(self, name, ifyes, nextmatcher, constname):
+    def __init__(self, name, ifyes, ifno, nextmatcher, constname):
         self.name = name
         self.ifyes = ifyes
+        self.ifno = ifno
         self.nextmatcher = nextmatcher
         self.constname = constname
 
 class OpMatcher(Matcher):
-    def __init__(self, name, opname, ifyes, nextmatcher, argnames):
+    def __init__(self, name, opname, ifyes, ifno, nextmatcher, argnames):
         self.name = name
         self.opname = opname
         self.ifyes = ifyes
+        self.ifno = ifno
         self.nextmatcher = nextmatcher
         self.argnames = argnames
 
@@ -108,13 +111,16 @@ def create_matcher(rules):
     return res
 
 def _create_matcher(rules, patterns, names, name_paths, bindings):
+    if not rules:
+        return None
     while patterns:
         assert len(names) == len(name_paths) == len(patterns[0])
         if len(patterns[0]) == 0:
             return Terminal(rules, bindings)
         matchpatterns = []
         matchrules = []
-        matchnames = []
+        cantmatchpatterns = []
+        cantmatchrules = []
         restpatterns = []
         restrules = []
         newpatterns = []
@@ -125,39 +131,55 @@ def _create_matcher(rules, patterns, names, name_paths, bindings):
                 if pattern[0].matches_constant():
                     matchrules.append(rule)
                     matchpatterns.append(pattern[1:])
+                elif isinstance(pattern[0], parse.PatternOp):
+                    cantmatchrules.append(rule)
+                    cantmatchpatterns.append(pattern[:])
                 else:
                     restrules.append(rule)
                     restpatterns.append(pattern[:])
-            res = IsConstMatcher(names[0], None, None, "C_" + names[0])
+            res = IsConstMatcher(names[0], None, None, None, "C_" + names[0])
             yes_name_paths = name_paths[1:]
             yes_bindings = bindings.copy()
             yes_bindings[name_paths[0] + ('C', )] = "C_" + names[0]
             ifyes = _create_matcher(matchrules, matchpatterns, names[1:], yes_name_paths, yes_bindings)
+            ifno = _create_matcher(cantmatchrules, cantmatchpatterns, names[:], name_paths[:], bindings)
             nextmatcher = _create_matcher(restrules, restpatterns, names[:], name_paths, bindings)
             res.ifyes = ifyes
+            res.ifno = ifno
             res.nextmatcher = nextmatcher
             return res
         elif any(isinstance(pattern[0], parse.PatternOp) for pattern in patterns):
             name = names[0]
             opname = None
             for rule, pattern in zip(rules, patterns):
-                if isinstance(pattern[0], parse.PatternOp) and (opname is None or (pattern[0].opname == opname)):
-                    opname = pattern[0].opname
-                    matchrules.append(rule)
-                    argnames = [names[0] + "_%s" % (i, ) for i in range(len(pattern[0].args))]
-                    arg_paths = [name_paths[0] + ((opname, i), ) for i in range(len(pattern[0].args))]
-                    matchpatterns.append(pattern[0].args + pattern[1:])
+                if isinstance(pattern[0], parse.PatternOp):
+                    can_match = opname is None or (pattern[0].opname == opname)
+                    if can_match:
+                        opname = pattern[0].opname
+                        matchrules.append(rule)
+                        argnames = [names[0] + "_%s" % (i, ) for i in range(len(pattern[0].args))]
+                        arg_paths = [name_paths[0] + ((opname, i), ) for i in range(len(pattern[0].args))]
+                        matchpatterns.append(pattern[0].args + pattern[1:])
+                    else:
+                        cantmatchrules.append(rule)
+                        cantmatchpatterns.append(pattern[:])
+                    continue
+                if pattern[0].matches_constant():
+                    cantmatchrules.append(rule)
+                    cantmatchpatterns.append(pattern[:])
                 else:
                     restrules.append(rule)
                     restpatterns.append(pattern[:])
-            res = OpMatcher(names[0], opname, None, None, argnames)
+            res = OpMatcher(names[0], opname, None, None, None, argnames)
             yes_name_paths = arg_paths + name_paths[1:]
             yes_bindings = bindings.copy()
             for p, n in zip(arg_paths, argnames):
                 yes_bindings[p] = n
             ifyes = _create_matcher(matchrules, matchpatterns, argnames + names[1:], yes_name_paths, yes_bindings)
+            ifno = _create_matcher(cantmatchrules, cantmatchpatterns, names[:], name_paths[:], bindings)
             nextmatcher = _create_matcher(restrules, restpatterns, names[:], name_paths[:], bindings)
             res.ifyes = ifyes
+            res.ifno = ifno
             res.nextmatcher = nextmatcher
             return res
         else:
@@ -308,7 +330,11 @@ class Codegen(parse.Visitor):
         self.emit("%s = b_%s.get_constant_int()" % (ast.constname, ast.name))
         self.visit(ast.ifyes)
         self.level = currlevel
-        self.visit(ast.nextmatcher)
+        if ast.ifno:
+            with self.emit_indent("else:"):
+                self.visit(ast.ifno)
+        if ast.nextmatcher:
+            self.visit(ast.nextmatcher)
 
     def visit_OpMatcher(self, ast):
         currlevel = self.level
@@ -322,7 +348,11 @@ class Codegen(parse.Visitor):
         assert boxnames == ast.argnames
         self.visit(ast.ifyes)
         self.level = currlevel
-        self.visit(ast.nextmatcher)
+        if ast.ifno:
+            with self.emit_indent("else:"):
+                self.visit(ast.ifno)
+        if ast.nextmatcher:
+            self.visit(ast.nextmatcher)
 
     def generate_method(self, opname, rules):
         all_rules = []
