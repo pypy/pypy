@@ -3896,15 +3896,49 @@ finish()
         i2 = int_and(i1, 31)
         i3 = int_xor(i2, 2048)
         i4 = int_add(i2, 2048)
-        jump(i4, i3) # equal
+        i5 = int_or(i2, 2048)
+        jump(i5, i4, i3) # equal
         """
         expected = """
         [i1]
         i2 = int_and(i1, 31)
         i3 = int_xor(i2, 2048)
-        jump(i3, i3) # equal
+        jump(i3, i3, i3)
         """
         self.optimize_loop(ops, expected)
+
+    def test_or_is_addition(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 31)
+        i3 = int_or(i2, 2048)
+        i4 = int_sub(i3, 2048)
+        jump(i4, i2) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 31)
+        i3 = int_or(i2, 2048) # dead
+        jump(i2, i2) # equal
+        """
+        self.optimize_loop(ops, expected)
+
+
+    def test_or_xor_add_are_the_same(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, 1)
+        i3 = int_or(i2, 2)
+        i4 = int_add(i2, 2)
+        i5 = int_xor(i2, 2)
+        jump(i5, i4, i3) # equal
+        """
+        expected = """
+        [i1]
+        i2 = int_and(i1, 1)
+        i3 = int_or(i2, 2)
+        jump(i3, i3, i3)
+        """
 
 
 class TestComplexIntOpts(BaseTestBasic):

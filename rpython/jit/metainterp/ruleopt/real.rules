@@ -30,6 +30,20 @@ sub_sub_c_x_c: int_sub(int_sub(C1, x), C2)
     C = C1 - C2
     => int_sub(C, x)
 
+sub_xor_x_y_y: int_sub(int_xor(x, y), y)
+    # (x ^ y) - y == x if x & y == 0
+    # because `(x + y) = (x ^ y) + (x & y) * 2`
+    check x.and_bound(y).known_eq_const(0)
+    => x
+
+sub_or_x_y_y: int_sub(int_or(x, y), y)
+    # (x | y) - y == x if x & y == 0
+    # because `(x + y) = (x ^ y) + (x & y) * 2`
+    # and because (x | y) = (x ^ y) + (x & y)
+    check x.and_bound(y).known_eq_const(0)
+    => x
+
+
 mul_zero: int_mul(x, 0)
     => 0
 
@@ -113,11 +127,6 @@ xor_zero: int_xor(a, 0)
 xor_minus_1: int_xor(x, -1)
     => int_invert(x)
 
-xor_x_y_sub_y: int_sub(int_xor(x, y), y)
-    # (x ^ y) - y == x if x & y == 0
-    # because `(x + y) = (x ^ y) + (x & y) * 2`
-    check x.and_bound(y).known_eq_const(0)
-    => x
 
 lshift_zero_x: int_lshift(0, x)
     => 0

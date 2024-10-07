@@ -71,6 +71,8 @@ class OptIntBounds(Optimization):
         if b0.and_bound(b1).known_eq_const(0):
             self.pure_from_args(rop.INT_ADD,
                                 [arg0, arg1], op)
+            self.pure_from_args(rop.INT_OR,
+                                [arg0, arg1], op)
         b = b0.xor_bound(b1)
         self.getintbound(op).intersect(b)
 
