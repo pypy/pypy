@@ -48,6 +48,9 @@ mul_lshift: int_mul(x, int_lshift(1, y))
     check y.known_ge_const(0) and y.known_le_const(LONG_BIT)
     => int_lshift(x, y)
 
+#mul_neg_neg: int_mul(int_neg(x), int_neg(y))
+#    => int_mul(x, y)
+
 
 and_zero: int_and(a, 0)
     => 0
@@ -132,6 +135,12 @@ lshift_urshift_c_c: int_lshift(uint_rshift(x, C1), C1)
     C = (-1 >>a C1) << C1
     => int_and(x, C)
 
+#lshift_lshift_c_c: int_lshift(int_lshift(x, C1), C2)
+#    check 0 <= C1 and C1 < LONG_BIT and 0 <= C2 and C2 < LONG_BIT
+#    C = C1 + C2
+#    check C < LONG_BIT
+#    => int_lshift(x, C)
+
 
 rshift_zero_x: int_rshift(0, x)
     => 0
@@ -205,16 +214,3 @@ invert_invert: int_invert(int_invert(x))
 neg_neg: int_neg(int_neg(x))
     => x
 
-#lshift_lshift_c_c: int_lshift(int_lshift(x, C1), C2)
-#    check 0 <= C1 and C1 < LONG_BIT and 0 <= C2 and C2 < LONG_BIT
-#    C = C1 + C2
-#    check C < LONG_BIT
-#    => int_lshift(x, C)
-
-#
-#
-#
-#
-#mul_neg_neg: int_mul(int_neg(x), int_neg(y))
-#    => int_mul(x, y)
-#
