@@ -29,7 +29,6 @@ from sysconfig import (
     parse_config_h as sysconfig_parse_config_h,
 
     _init_non_posix,
-    _is_python_source_dir,
     _sys_home,
 
     _variable_rx,

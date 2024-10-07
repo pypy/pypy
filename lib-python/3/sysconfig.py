@@ -233,23 +233,7 @@ def is_python_build(check_home=None):
             return True
     return False
 
-_sys_home = getattr(sys, '_home', None)
-
-if os.name == 'nt':
-    def _fix_pcbuild(d):
-        if d and os.path.normcase(d).startswith(
-                os.path.normcase(os.path.join(_PREFIX, "PCbuild"))):
-            return _PREFIX
-        return d
-    _PROJECT_BASE = _fix_pcbuild(_PROJECT_BASE)
-    _sys_home = _fix_pcbuild(_sys_home)
-
-def is_python_build(check_home=False):
-    if check_home and _sys_home:
-        return _is_python_source_dir(_sys_home)
-    return _is_python_source_dir(_PROJECT_BASE)
-
-_PYTHON_BUILD = False # is_python_build(True)
+_PYTHON_BUILD = is_python_build()
 
 if _PYTHON_BUILD:
     for scheme in ('posix_prefix', 'posix_home'):
@@ -466,7 +450,7 @@ def _parse_makefile(filename, vars=None, keep_unresolved=True):
 def get_makefile_filename():
     """Return the path of the Makefile."""
     if _PYTHON_BUILD:
-        return os.path.join(_sys_home or _PROJECT_BASE, "Makefile")
+        return os.path.join(_PROJECT_BASE, "Makefile")
     if hasattr(sys, 'abiflags'):
         config_dir_name = f'config-{_PY_VERSION_SHORT}{sys.abiflags}'
     else:
@@ -634,9 +618,9 @@ def get_config_h_filename():
     """Return the path of pyconfig.h."""
     if _PYTHON_BUILD:
         if os.name == "nt":
-            inc_dir = os.path.join(_sys_home or _PROJECT_BASE, "PC")
+            inc_dir = os.path.join(_PROJECT_BASE, "PC")
         else:
-            inc_dir = _sys_home or _PROJECT_BASE
+            inc_dir = _PROJECT_BASE
     else:
         inc_dir = get_path('platinclude')
     return os.path.join(inc_dir, 'pyconfig.h')
@@ -717,10 +701,6 @@ def get_config_vars(*args):
             _CONFIG_VARS['VPATH'] = sys._vpath
         if os.name == 'posix':
             _init_posix(_CONFIG_VARS)
-        # For backward compatibility, see issue19555
-        SO = _CONFIG_VARS.get('EXT_SUFFIX')
-        if SO is not None:
-            _CONFIG_VARS['SO'] = SO
         if _HAS_USER_BASE:
             # Setting 'userbase' is done below the call to the
             # init function to enable using 'get_config_var' in
