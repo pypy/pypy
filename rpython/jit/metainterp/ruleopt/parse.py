@@ -167,6 +167,9 @@ class PatternVar(Pattern):
     def sort_key(self):
         return (2, self.name)
 
+    def matches_constant(self):
+        return self.name.startswith("C")
+
     def __str__(self):
         return self.name
 
@@ -179,6 +182,9 @@ class PatternConst(BaseAst):
     def sort_key(self):
         return (0, self.const)
 
+    def matches_constant(self):
+        return True
+
     def __str__(self):
         return str(self.const)
 
@@ -190,6 +196,9 @@ class PatternOp(BaseAst):
 
     def newargs(self, args):
         return PatternOp(self.opname, args)
+
+    def matches_constant(self):
+        return False
 
     def sort_key(self):
         return (1, self.opname) + tuple(sorted(arg.sort_key() for arg in self.args))

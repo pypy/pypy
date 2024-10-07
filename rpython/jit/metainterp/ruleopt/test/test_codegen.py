@@ -65,6 +65,22 @@ int_sub_zero_neg: int_sub(0, x)
     rules = sort_rules(ast.rules)
     assert [r.name for r in rules] == ['int_sub_zero', 'int_sub_zero_neg', 'int_sub_add', 'int_sub_x_x']
 
+def test_create_matcher():
+    s = """\
+sub_from_zero: int_sub(0, x)
+    => int_neg(x)
+
+sub_add_consts: int_sub(int_add(x, C1), C2)
+    C = C2 - C1
+    => int_sub(x, C)
+
+sub_add_consts: int_sub(int_add(C1, x), C2)
+    C = C2 - C1
+    => int_sub(x, C)
+    """
+    ast = parse(s)
+    matcher = create_matcher(ast.rules)
+
 def test_generate_code_many():
     codegen = Codegen()
     res = codegen.generate_code(parse(ALLRULES))
