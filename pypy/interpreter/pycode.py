@@ -94,6 +94,7 @@ class PyCode(eval.Code):
         self.hidden_applevel = hidden_applevel
         self.magic = magic
         self._signature = make_signature(self)
+        self._cached_source = None
         self._initialize()
         self._init_ready()
         self.new_code_hook()
@@ -430,6 +431,26 @@ class PyCode(eval.Code):
 
     def repr(self, space):
         return space.newtext(self.get_repr())
+
+    def get_linenum_for_offset(self, offset):
+        # Given a bytecode offset, return a 1-based index into the lines of the
+        # source code
+        return offset2lineno(self, offset)
+
+    def _ensure_source(self):
+        # Lazily grab the source lines into self._cached_source (or raise
+        # an IOError)
+        if not self._cached_source:
+            f = open(self.co_filename, 'r')
+            source = [line.rstrip() for line in f.readlines()]
+            f.close()
+            self._cached_source = source
+    
+    def get_source_text(self, linenum):
+        # Given a 1-based index, get the corresponding line of source code (or
+        # raise an IOError)
+        self._ensure_source()
+        return self._cached_source[linenum - 1]
 
 def _compute_args_as_cellvars(varnames, cellvars, argcount):
     # Cell vars could shadow already-set arguments.
