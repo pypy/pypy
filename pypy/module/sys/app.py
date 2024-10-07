@@ -173,12 +173,13 @@ class sysflags(metaclass=structseqtype):
     utf8_mode = structseqfield(14)
     warn_default_encoding = structseqfield(15)
     int_max_str_digits = structseqfield(16)
+    safe_path = structseqfield(17)
 
 # The real flags are set in app_main, which is not used in untranslated tests.
 # Set reasonable defaults for testing, in particular set utf8_mode to 1
 # no clue why dev_mode in particular has to be a bool, but CPython has tests
 # for that
-null_sysflags = sysflags((0,)*13 + (False, 1, 0, -1))
+null_sysflags = sysflags((0,)*13 + (False, 1, 0, -1, 0))
 null__xoptions = {}
 
 # copied from version.py

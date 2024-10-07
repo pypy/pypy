@@ -1187,8 +1187,9 @@ class TestNonInteractive:
         #    ./python -sm script_pkg.__main__
         #    ./python -sm script_pkg
         #
-        # And that this fails as unable to find the package:
+        # And that these fails as unable to find the package:
         #    ./python -Im script_pkg
+        #    ./python -Pm script_pkg
         work_dir = _get_next_path(ext='')
         script = textwrap.dedent("""
             import sys
@@ -1215,6 +1216,14 @@ class TestNonInteractive:
         assert out_by_module == out_by_package
 
         p = subprocess.Popen([get_python3(), app_main, "-Im", "script_pkg"],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             cwd=str(work_dir))
+        res = p.wait()
+        stderr = p.stderr.read()
+        traceback_lines = stderr.decode().splitlines()
+        assert "No module named script_pkg" in traceback_lines[-1]
+
+        p = subprocess.Popen([get_python3(), app_main, "-Pm", "script_pkg"],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                              cwd=str(work_dir))
         res = p.wait()

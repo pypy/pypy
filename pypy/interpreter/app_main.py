@@ -20,6 +20,8 @@ Options and arguments (and corresponding environment variables):
          .pyc extension; also PYTHONOPTIMIZE=x
 -OO    : do -O changes and also discard docstrings; add .opt-2 before
          .pyc extension
+-P     : don't prepend a potentially unsafe path to sys.path; also
+         PYTHONSAFEPATH
 -q     : don't print version and copyright messages on interactive startup
 -s     : don't add user site directory to sys.path; also PYTHONNOUSERSITE
 -S     : don't imply 'import site' on initialization
@@ -476,6 +478,7 @@ sys_flags = (
     "utf8_mode",
     "warn_default_encoding",
     "int_max_str_digits",
+    "safe_path",
 )
 # ^^^ Order is significant!  Keep in sync with module.sys.app.sysflags
 
@@ -578,6 +581,7 @@ cmdline_options = {
     'I': (isolated_option, 'isolated'),
     'i': (simple_option, 'interactive'),
     'O': (simple_option, 'optimize'),
+    'P': (simple_option, 'safe_path'),
     's': (simple_option, 'no_user_site'),
     'S': (simple_option, 'no_site'),
     'u': (simple_option, 'unbuffered'),
@@ -697,6 +701,8 @@ def _parse_command_line(argv):
             options['dont_write_bytecode'] = 1
         if getenv('PYTHONNOUSERSITE'):
             options["no_user_site"] = 1
+        if getenv('PYTHONSAFEPATH'):
+            options["safe_path"] = 1
         if getenv('PYTHONUNBUFFERED'):
             options["unbuffered"] = 1
         parse_env('PYTHONVERBOSE', "verbose", options)
@@ -772,6 +778,9 @@ def run_command_line(interactive,
                      isolated,
                      dev_mode,
                      utf8_mode,
+                     warn_default_encoding,
+                     int_max_str_digits,
+                     safe_path,
                      **ignored):
     # with PyPy on top of CPython we can only have around 100
     # but we need more in the PyPy level for the compiler package
@@ -901,7 +910,7 @@ def run_command_line(interactive,
                 display_exception(e)
                 success = False
             else:
-                if not isolated:
+                if not isolated and not safe_path:
                     sys.path.insert(0, '')
                 @hidden_applevel
                 def run_it():
@@ -921,7 +930,7 @@ def run_command_line(interactive,
         elif run_module != 0:
             # handle the "-m" command
             # Put abspath('') on sys.path
-            if not isolated:
+            if not isolated and not safe_path:
                 fullpath = abspath('.')
                 sys.path.insert(0, fullpath)
             import runpy
@@ -934,7 +943,7 @@ def run_command_line(interactive,
             # "site.py" file in the script's directory. Only run this if we're
             # executing the interactive prompt, if we're running a script we
             # put it's directory on sys.path
-            if not isolated:
+            if not isolated and not safe_path:
                 sys.path.insert(0, '')
 
             if interactive or sys.stdin.isatty():
@@ -1001,7 +1010,7 @@ def run_command_line(interactive,
                     continue
             else:
                 importer = None
-            if importer is None and not isolated:
+            if importer is None and not isolated and not safe_path:
                 sys.path.insert(0, sys.pypy_resolvedirof(filename))
             # assume it's a pyc file only if its name says so.
             # CPython goes to great lengths to detect other cases
