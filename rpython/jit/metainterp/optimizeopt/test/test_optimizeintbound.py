@@ -3806,6 +3806,35 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_sub_int_sub_consts(self):
+        ops = """
+        [i1]
+        i3 = int_sub(i1, 2)
+        i4 = int_sub(i3, 1)
+        jump(i4) # equal
+        """
+        expected = """
+        [i1]
+        i3 = int_sub(i1, 2) # dead
+        i4 = int_sub(i1, 3)
+        jump(i4)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1]
+        i3 = int_sub(2, i1)
+        i4 = int_sub(i3, 1)
+        jump(i4) # equal
+        """
+        expected = """
+        [i1]
+        i3 = int_sub(2, i1) # dead
+        i4 = int_sub(1, i1)
+        jump(i4)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 
