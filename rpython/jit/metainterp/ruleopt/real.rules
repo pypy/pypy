@@ -83,6 +83,9 @@ or_known_result: int_or(a, b)
     C = a.or_bound(b).get_constant_int()
     => C
 
+or_absorb: int_or(a, int_or(a, b))
+    => int_or(a, b)
+
 
 xor_x_x: int_xor(a, a)
     => 0
@@ -170,9 +173,6 @@ ne_same: int_ne(x, x)
 ne_zero: int_ne(x, 0)
     => int_is_true(x)
 
-
-#or_absorb: int_or(a, int_or(a, b))
-#    => int_or(a, b)
 
 
 force_ge_zero_pos: int_force_ge_zero(x)

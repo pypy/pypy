@@ -3672,6 +3672,40 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_or_with_itself_indirect(self):
+        # tests or_absorb
+        ops = """
+        [i1, i2, i11, i12]
+        i3 = int_or(i1, i2)
+        i4 = int_or(i3, i1)
+        i13 = int_or(i12, i11)
+        i14 = int_or(i13, i11)
+        jump(i4, i14)
+        """
+        expected = """
+        [i1, i2, i11, i12]
+        i3 = int_or(i1, i2)
+        i13 = int_or(i12, i11)
+        jump(i3, i13)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i1, i2, i11, i12]
+        i3 = int_or(i1, i2)
+        i4 = int_or(i1, i3)
+        i13 = int_or(i12, i11) # changed order
+        i14 = int_or(i11, i13) # changed order
+        jump(i4, i14)
+        """
+        expected = """
+        [i1, i2, i11, i12]
+        i3 = int_or(i1, i2)
+        i13 = int_or(i12, i11)
+        jump(i3, i13)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_useless_and(self):
         # constant version
         ops = """
