@@ -80,6 +80,13 @@ sub_add_consts: int_sub(int_add(C1, x), C2)
     """
     ast = parse(s)
     matcher = create_matcher(ast.rules)
+    assert isinstance(matcher, IsConstMatcher)
+    assert matcher.name == "arg_0"
+    assert matcher.ifyes.rules[0].name == "sub_from_zero"
+    assert matcher.ifyes.bindings == {(('int_sub', 0),): 'arg_0', (('int_sub', 1),): 'arg_1', (('int_sub', 0), 'C'): 'C_arg_0'}
+    nextmatcher = matcher.nextmatcher
+    assert isinstance(nextmatcher, OpMatcher)
+    assert nextmatcher.name == "arg_0"
 
 def test_generate_code_many():
     codegen = Codegen()

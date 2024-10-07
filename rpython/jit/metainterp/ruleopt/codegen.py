@@ -98,13 +98,13 @@ class Terminal(BaseMatcher):
 
 
 def create_matcher(rules):
-    assert rules
+    assert len({rule.pattern.opname for rule in rules}) == 1
     # patterns is a list of lists, all the same length
     # len(patterns) == len(rules)
     patterns = [rule.pattern.args[:] for rule in rules]
     # names is a list of strings, as long as patterns[0]
     names = ["arg_%s" % i for i in range(len(patterns[0]))]
-    name_paths = [(i, ) for i in range(len(patterns[0]))]
+    name_paths = [((rules[0].pattern.opname, i), ) for i in range(len(patterns[0]))]
     bindings = {p: n for p, n in zip(name_paths, names)}
     res = _create_matcher(rules, patterns, names, name_paths, bindings)
     return res
@@ -289,10 +289,7 @@ class Codegen(parse.Visitor):
             while path:
                 el = path[0]
                 path = path[1:]
-                if isinstance(el, int):
-                    assert isinstance(pattern, parse.PatternOp)
-                    pattern = pattern.args[el]
-                elif el == 'C':
+                if el == 'C':
                     assert pattern.matches_constant()
                 else:
                     opname, index = el
