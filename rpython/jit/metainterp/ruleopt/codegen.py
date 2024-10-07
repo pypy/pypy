@@ -68,16 +68,14 @@ class Matcher(BaseMatcher):
 
 
 class IsConstMatcher(Matcher):
-    def __init__(self, index, name, ifyes, nextmatcher, constname):
-        self.index = index
+    def __init__(self, name, ifyes, nextmatcher, constname):
         self.name = name
         self.ifyes = ifyes
         self.nextmatcher = nextmatcher
         self.constname = constname
 
 class OpMatcher(Matcher):
-    def __init__(self, index, name, opname, ifyes, nextmatcher, argnames):
-        self.index = index
+    def __init__(self, name, opname, ifyes, nextmatcher, argnames):
         self.name = name
         self.opname = opname
         self.ifyes = ifyes
@@ -110,7 +108,6 @@ def create_matcher(rules):
     return res
 
 def _create_matcher(rules, patterns, names, name_paths, bindings):
-    startindex = 0
     while patterns:
         assert len(names) == len(name_paths) == len(patterns[0])
         if len(patterns[0]) == 0:
@@ -131,7 +128,7 @@ def _create_matcher(rules, patterns, names, name_paths, bindings):
                 else:
                     restrules.append(rule)
                     restpatterns.append(pattern[:])
-            res = IsConstMatcher(startindex, names[0], None, None, "C_" + names[0])
+            res = IsConstMatcher(names[0], None, None, "C_" + names[0])
             yes_name_paths = name_paths[1:]
             yes_bindings = bindings.copy()
             yes_bindings[name_paths[0] + ('C', )] = "C_" + names[0]
@@ -153,7 +150,7 @@ def _create_matcher(rules, patterns, names, name_paths, bindings):
                 else:
                     restrules.append(rule)
                     restpatterns.append(pattern[:])
-            res = OpMatcher(startindex, names[0], opname, None, None, argnames)
+            res = OpMatcher(names[0], opname, None, None, argnames)
             yes_name_paths = arg_paths + name_paths[1:]
             yes_bindings = bindings.copy()
             for p, n in zip(arg_paths, argnames):
@@ -168,7 +165,6 @@ def _create_matcher(rules, patterns, names, name_paths, bindings):
                 del pattern[0]
             del names[0]
             del name_paths[0]
-            startindex += 1
             continue
     return Terminal(rules, bindings)
 
