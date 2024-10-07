@@ -24,9 +24,11 @@ class CConfig:
     NGROUPS_MAX = platform.DefinedConstantInteger('NGROUPS_MAX')
     HAVE_SETREGID = platform.Has("setregid")
     HAVE_SETREUID = platform.Has("setreuid")
+    HAVE_SETPGID = platform.Has("setpgid")
 
     uid_t = platform.SimpleType("uid_t", ctype_hint=rffi.UINT_real)
     gid_t = platform.SimpleType("gid_t", ctype_hint=rffi.UINT_real)
+    pid_t = platform.SimpleType("pid_t", ctype_hint=rffi.INT_real)
 
 config = platform.configure(CConfig)
 
@@ -51,8 +53,12 @@ if HAVE_SETREGID:
 HAVE_SETREUID = config['HAVE_SETREUID']
 if HAVE_SETREUID:
     compile_extra.append("-DHAVE_SETREUID")
+HAVE_SETPGID = config['HAVE_SETPGID']
+if HAVE_SETPGID:
+    compile_extra.append("-DHAVE_SETPGID")
 gid_t = config['gid_t']
 uid_t = config['uid_t']
+pid_t = config['pid_t']
 if config["NGROUPS_MAX"] is not None:
     MAX_GROUPS = config['NGROUPS_MAX']
 else:
@@ -77,7 +83,7 @@ c_child_exec = rffi.llexternal(
     [rffi.CCHARPP, rffi.CCHARPP, rffi.CCHARPP, rffi.CCHARP,
      rffi.INT, rffi.INT, rffi.INT, rffi.INT, rffi.INT, rffi.INT,
      rffi.INT, rffi.INT, rffi.INT, rffi.INT, rffi.INT,
-     rffi.INT, gid_t, # call_setgid, gid
+     rffi.INT, gid_t, pid_t, # call_setgid, gid, pgid_to_set,
      rffi.INT, rffi.SIZE_T, rffi.CArrayPtr(gid_t), # call_setgroups, groups_size, groups
      rffi.INT, uid_t, rffi.INT, # call_setuid, uid child_umask
      rffi.CArrayPtr(rffi.LONG), lltype.Signed,
@@ -128,19 +134,21 @@ def seqstr2charpp(space, w_seqstr):
 
 @unwrap_spec(p2cread=int, p2cwrite=int, c2pread=int, c2pwrite=int,
              errread=int, errwrite=int, errpipe_read=int, errpipe_write=int,
-             restore_signals=int, call_setsid=int, child_umask=int)
+             restore_signals=int, call_setsid=int, child_umask=int,
+             allow_vfork=int)
 def fork_exec(space, w_process_args, w_executable_list,
               w_close_fds, w_fds_to_keep, w_cwd, w_env_list,
               p2cread, p2cwrite, c2pread, c2pwrite,
               errread, errwrite, errpipe_read, errpipe_write,
-              restore_signals, call_setsid,
+              restore_signals, call_setsid, w_pgid_to_set,
               w_gid, w_groups_list, w_uid, child_umask,
-              w_preexec_fn):
+              w_preexec_fn, allow_vfork):
     """\
     fork_exec(args, executable_list, close_fds, cwd, env,
               p2cread, p2cwrite, c2pread, c2pwrite,
               errread, errwrite, errpipe_read, errpipe_write,
-              restore_signals, call_setsid, preexec_fn)
+              restore_signals, call_setsid, pgid_to_set,
+              preexec_fn, allow_vfork)
 
     Forks a child process, closes parent file descriptors as appropriate in the
     child and dups the few that are needed before calling exec() in the child
@@ -156,6 +164,8 @@ def fork_exec(space, w_process_args, w_executable_list,
     Returns: the child process's PID.
 
     Raises: Only on an error in the parent process.
+
+    Note: PyPy does not use vfork, so allow_vfork is a NOOP argument
     """
     close_fds = space.is_true(w_close_fds)
     if close_fds and errpipe_write < 3:  # precondition
@@ -238,6 +248,12 @@ def fork_exec(space, w_process_args, w_executable_list,
             call_setuid = 1
             uid = rffi.cast(uid_t, space.c_uid_t_w(w_uid))
 
+        pgid_to_set = rffi.cast(pid_t, -1)
+        if not space.is_none(w_pgid_to_set):
+            if not HAVE_SETPGID:
+                raise oefmt(space.w_SystemError, "bad internal call, setpgid not supported")
+            pgid_to_set = rffi.cast(pid_t, space.int_w(w_pgid_to_set))
+
         if need_after_fork:
             run_fork_hooks('before', space)
 
@@ -264,7 +280,7 @@ def fork_exec(space, w_process_args, w_executable_list,
                     l_exec_array, l_argv, l_envp, l_cwd,
                     p2cread, p2cwrite, c2pread, c2pwrite,
                     errread, errwrite, errpipe_read, errpipe_write,
-                    close_fds, restore_signals, call_setsid,
+                    close_fds, restore_signals, call_setsid, pgid_to_set,
                     call_setgid, gid, call_setgroups, num_groups, l_groups,
                     call_setuid, uid, child_umask,
                     l_fds_to_keep, len(fds_to_keep),

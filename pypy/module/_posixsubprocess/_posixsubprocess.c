@@ -393,7 +393,7 @@ pypy_subprocess_child_exec(
            int errread, int errwrite,
            int errpipe_read, int errpipe_write,
            int close_fds, int restore_signals,
-           int call_setsid,
+           int call_setsid, pid_t pgid_to_set,
            int call_setgid, gid_t gid,
            int call_setgroups, size_t groups_size, const gid_t *groups,
            int call_setuid, uid_t uid, int child_umask,
@@ -487,6 +487,11 @@ pypy_subprocess_child_exec(
 #ifdef HAVE_SETSID
     if (call_setsid)
         POSIX_CALL(setsid());
+#endif
+
+#ifdef HAVE_SETPGID
+    if (pgid_to_set >= 0)
+        POSIX_CALL(setpgid(0, pgid_to_set));
 #endif
 
 #ifdef HAVE_SETGROUPS

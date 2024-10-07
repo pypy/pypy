@@ -61,10 +61,10 @@ def test_cpython_issue15736():
         def __getitem__(self, i):
             return b'x'
     pytest.raises(MemoryError, _posixsubprocess.fork_exec,
-           1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
+           1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23)
     n = 1
     pytest.raises(OverflowError, _posixsubprocess.fork_exec,
-           1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21)
+           1,Z(),3,(1, 2),5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23)
 
 def test_pass_fds_make_inheritable():
     fd1, fd2 = posix.pipe()
@@ -172,8 +172,8 @@ def test_issue_3630():
                 args, [os.fsencode(path)], True, passfds, None, None,
                 -1, -1, -1, -1, -1, -1, errpipe_read, errpipe_write,
                 False, False,
-                None, None, None, -1,
-                preexec_fn)
+                None, None, None, None, -1,
+                preexec_fn, subprocess._USE_VFORK)
         finally:
             os.close(errpipe_read)
             os.close(errpipe_write)
@@ -254,14 +254,15 @@ def test_restore_signals():
             p2cread = p2cwrite = -1
             errread = errwrite = umask = -1
             call_setsid = False
+            pgid_to_set = -1
             preexec_fn = None
             gid = gids = uid = None
             pid = _posixsubprocess.fork_exec(args, executable_list, close_fds,
                         fds_to_keep, cwd, env_list, p2cread, p2cwrite, c2pread,
                         c2pwrite, errread, errwrite, errpipe_read,
-                        errpipe_write, restore_signals, call_setsid,
+                        errpipe_write, restore_signals, call_setsid, pgid_to_set,
                         gid, gids, uid, umask,
-                        preexec_fn)
+                        preexec_fn, subprocess._USE_VFORK)
             os.close(errpipe_write)
             # Wait for exec to fail or succeed; possibly raising an
             # exception (limited in size)
