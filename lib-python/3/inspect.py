@@ -135,7 +135,11 @@ __all__ = [
 
 import abc
 import ast
-import dis
+try:
+    import dis
+except Exception:
+    # XXX FIXME
+    dis = None
 import collections.abc
 import enum
 import importlib.machinery
@@ -155,10 +159,11 @@ from collections import namedtuple, OrderedDict
 
 # Create constants for the compiler flags in Include/code.h
 # We try to get them from dis to avoid duplication
-mod_dict = globals()
-for k, v in dis.COMPILER_FLAG_NAMES.items():
-    mod_dict["CO_" + v] = k
-del k, v, mod_dict
+if dis:
+    mod_dict = globals()
+    for k, v in dis.COMPILER_FLAG_NAMES.items():
+        mod_dict["CO_" + v] = k
+    del k, v, mod_dict
 
 # See Include/object.h
 TPFLAGS_IS_ABSTRACT = 1 << 20
@@ -1701,6 +1706,8 @@ def getframeinfo(frame, context=1):
     else:
         lines = index = None
 
+    if not dis:
+        raise RuntimeError("could not import dis to get positions")
     return Traceback(filename, lineno, frame.f_code.co_name, lines,
                      index, positions=dis.Positions(*positions))
 
@@ -1793,11 +1800,6 @@ def _is_type(obj):
         return False
     return True
 
-if hasattr(_dict_attr, "__objclass__"):
-    _objclass_check = lambda d, entry: d.__objclass__ is entry
-else:
-    # PyPy __dict__ descriptors are 'generic' and lack __objclass__
-    _objclass_check = lambda d, entry: not hasattr(d, "__objclass__")
 def _shadowed_dict(klass):
     dict_attr = type.__dict__["__dict__"]
     for entry in _static_getmro(klass):
@@ -1808,7 +1810,7 @@ def _shadowed_dict(klass):
         else:
             if not (type(class_dict) is types.GetSetDescriptorType and
                     class_dict.__name__ == "__dict__" and
-                    _objclass_check(class_dict, entry)):
+                    class_dict.__objclass__ is entry):
                 return class_dict
     return _sentinel
 
@@ -1960,10 +1962,8 @@ def _signature_get_user_defined_method(cls, method_name):
     named ``method_name`` and returns it only if it is a
     pure python function.
     """
-    try:
-        meth = getattr(cls, method_name)
-    except AttributeError:
-        return
+    if method_name == '__new__':
+        meth = getattr(cls, method_name, None)
     else:
         # The particular check cpython uses to determine if a particular method
         # is a builtin or not doesn't work on pypy. The following code is
