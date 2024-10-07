@@ -11,7 +11,7 @@ from rpython.jit.metainterp.ruleopt.codegen import *
 from rpython.jit.metainterp.ruleopt.parse import *
 
 import os
-with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "all.rules")) as f:
+with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "real.rules")) as f:
     ALLRULES = f.read()
 
 

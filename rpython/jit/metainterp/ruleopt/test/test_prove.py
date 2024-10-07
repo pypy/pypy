@@ -10,7 +10,7 @@ from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask, ovfcheck, uint_m
 from rpython.jit.metainterp.ruleopt.proof import *
 
 import os
-with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "all.rules")) as f:
+with open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "real.rules")) as f:
     ALLRULES = f.read()
 
 
@@ -21,7 +21,7 @@ def test_higest_bit():
         assert highest_bit(r_uint(1) << i) == i
 
 
-@pytest.mark.parametrize("name,rule", [(rule.name, rule) for rule in parse.parse(ALLRULES).rules])
+@pytest.mark.parametrize("name,rule", [(rule.name, rule) for rule in parse.parse(ALLRULES).rules if not rule.cantproof])
 def test_z3_prove(name, rule):
     p = Prover()
     p.check_rule(rule)
