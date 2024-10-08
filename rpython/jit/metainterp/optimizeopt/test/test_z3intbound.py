@@ -438,6 +438,13 @@ class Z3IntBound(IntBound):
         return res
 
     @staticmethod
+    def from_constant(const):
+        if isinstance(const, int):
+            const = BitVecVal(const)
+        res = Z3IntBound(const, const, const, 0)
+        return res
+
+    @staticmethod
     def intmask(x):
         # casts from unsigned to signed don't actually matter to Z3
         return x
@@ -471,6 +478,16 @@ class Z3IntBound(IntBound):
 
     # ____________________________________________________________
     # reimplementations of methods with control flow that Z3 doesn't support
+
+    def add_bound(self, other):
+        lower, no_ovf_lower = z3_add_overflow(self.lower, other.lower)
+        upper, no_ovf_upper = z3_add_overflow(self.upper, other.upper)
+        result_lower = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                             lower, MININT)
+        result_upper = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                             upper, MAXINT)
+        tvalue, tmask = self._tnum_add(other)
+        return Z3IntBound(result_lower, result_upper, tvalue, tmask)
 
     def add_bound_cannot_overflow(self, other):
         lower, no_ovf_lower = z3_add_overflow(self.lower, other.lower)
@@ -703,14 +720,8 @@ def test_prove_add_bound_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result = b1.concrete_variable + b2.concrete_variable
-    lower, no_ovf_lower = z3_add_overflow(b1.lower, b2.lower)
-    upper, no_ovf_upper = z3_add_overflow(b1.upper, b2.upper)
-    result_lower = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
-                         lower, MININT)
-    result_upper = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
-                         upper, MAXINT)
-    tvalue, tmask = b1._tnum_add(b2)
-    b3 = Z3IntBound(result_lower, result_upper, tvalue, tmask, result)
+    b3 = b1.add_bound(b2)
+    b3.concrete_variable = result
     b1.prove_implies(
         b2,
         b3
@@ -731,21 +742,19 @@ def test_prove_add_bound_no_overflow():
     b2 = make_z3_intbounds_instance('other')
     result, no_ovf = z3_add_overflow(b1.concrete_variable, b2.concrete_variable)
     b3 = b1.add_bound_no_overflow(b2)
+    b3.concrete_variable = result
     b1.prove_implies(
         b2,
         no_ovf,
-        b3.z3_formula(result)
+        b3
     )
 
 def test_prove_neg_logic():
     b1 = make_z3_intbounds_instance('self')
     one = Z3IntBound(BitVecVal(1), BitVecVal(1), BitVecVal(1), BitVecVal(0))
-    b2 = b1.invert_bound()
-    tvalue, tmask = b2._tnum_add(one) # constant 1
-    result = -b1.concrete_variable
-    b1.prove_implies(
-        z3_tnum_condition(result, tvalue, tmask)
-    )
+    b2 = b1.neg_bound()
+    b2.concrete_variable = -b1.concrete_variable
+    b1.prove_implies(b2)
 
 def test_prove_sub_knownbits():
     b1 = make_z3_intbounds_instance('self')

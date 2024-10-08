@@ -830,7 +830,7 @@ class IntBound(AbstractInfo):
         return changed
 
     def add(self, value):
-        return self.add_bound(IntBound.from_constant(value))
+        return self.add_bound(self.from_constant(value))
 
     def add_bound(self, other):
         """
