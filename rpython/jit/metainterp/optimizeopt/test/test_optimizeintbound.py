@@ -3939,6 +3939,7 @@ finish()
         i3 = int_or(i2, 2)
         jump(i3, i3, i3)
         """
+        self.optimize_loop(ops, expected)
 
     def test_int_or_int_is_false(self):
         ops = """
