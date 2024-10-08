@@ -208,6 +208,17 @@ ne_zero: int_ne(x, 0)
     => int_is_true(x)
 
 
+is_true_bool: int_is_true(x)
+    check x.is_bool()
+    => x
+
+is_true_true: int_is_true(x)
+    check x.lower > 0 or x.upper < 0 or x.tvalue != 0
+    => 1
+
+is_zero_true: int_is_zero(x)
+    check x.lower > 0 or x.upper < 0 or x.tvalue != 0
+    => 0
 
 force_ge_zero_pos: int_force_ge_zero(x)
     check x.known_nonnegative()

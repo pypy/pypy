@@ -768,6 +768,11 @@ class TypingVisitor(Visitor):
         self._must_be_same_typ(ast.right, bool, self.visit(ast.right))
         return bool
 
+    def visit_ShortcutOr(self, ast):
+        self._must_be_same_typ(ast.left, bool, self.visit(ast.left))
+        self._must_be_same_typ(ast.right, bool, self.visit(ast.right))
+        return bool
+
     def visit_MethodCall(self, ast):
         if ast.methname in INTBOUND_METHODTYPES:
             _, argtyps, restyp = INTBOUND_METHODTYPES[ast.methname]
