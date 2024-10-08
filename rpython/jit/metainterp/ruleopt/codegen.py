@@ -370,7 +370,7 @@ class Codegen(parse.Visitor):
         self.method_opname = opname
         self.emit("_rule_names_%s = %r" % (opname, names))
         self.emit("_rule_fired_%s = [0] * %s" % (opname, len(names)))
-        self.emit("_all_rules_fired.append((_rule_names_%s, _rule_fired_%s))" % (opname, opname))
+        self.emit("_all_rules_fired.append((%r, _rule_names_%s, _rule_fired_%s))" % (opname, opname, opname))
         with self.emit_indent("def optimize_%s(self, op):" % opname.upper()):
             numargs = len(rules[0].pattern.args)
             boxnames, boundnames = self._emit_arg_reads("arg", "op", numargs)

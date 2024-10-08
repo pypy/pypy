@@ -120,6 +120,16 @@ and_x_c_in_range: int_and(x, C)
     => x
 ```
 
+## Printing rule statistics
+
+The JIT can print statistics about which rule fired how often in the
+`jit-intbounds-stats` category. Eg to print it to stdout at the end of program
+execution, run PyPy like this:
+
+```
+PYPYLOG=jit-intbounds-stats:- pypy ...
+```
+
 ## Proofs
 
 It is very easy to write a peephole rule that is not correct in all corner

@@ -848,3 +848,13 @@ class IntegerAnalysisLogger(object):
     def log_inputargs(self, inputargs):
         args = ", ".join([self.log_operations.repr_of_arg(arg) for arg in inputargs])
         debug_print('[' + args + ']')
+
+def print_rewrite_rule_statistics():
+    from rpython.rlib.debug import debug_start, debug_stop, have_debug_prints
+    debug_start("jit-intbounds-stats")
+    if have_debug_prints():
+        for opname, names, counts in OptIntBounds._all_rules_fired:
+            debug_print(opname)
+            for index in range(len(names)):
+                debug_print("    " + names[index], counts[index])
+    debug_stop("jit-intbounds-stats")
