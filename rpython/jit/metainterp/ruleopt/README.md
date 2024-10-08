@@ -120,6 +120,12 @@ and_x_c_in_range: int_and(x, C)
     => x
 ```
 
+## Checking rule coverage
+
+Every rewrite rule should have at least one unit test where it triggers. To
+ensure this, the tests in file `test_optimizeintbound.py` have an assert at the
+end of a test run, that every rule fired at least once.
+
 ## Printing rule statistics
 
 The JIT can print statistics about which rule fired how often in the
