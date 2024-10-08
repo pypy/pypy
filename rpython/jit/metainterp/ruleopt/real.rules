@@ -158,7 +158,6 @@ rshift_x_zero: int_rshift(x, 0)
     => x
 
 rshift_known_result: int_rshift(a, b)
-    SORRY_Z3
     check a.rshift_bound(b).is_constant()
     C = a.rshift_bound(b).get_constant_int()
     => C

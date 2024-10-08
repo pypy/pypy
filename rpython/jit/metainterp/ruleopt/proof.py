@@ -299,6 +299,8 @@ class Prover(parse.Visitor):
 
     def check_rule(self, rule):
         lhs, lhsvalid = self.visit(rule.pattern)
+        somevar = z3.BitVec('check_not_empty', LONG_BIT)
+        assert self.solver.check(z3.And(lhs == somevar, lhsvalid)) == z3.sat
         rhs, rhsvalid = self.visit(rule.target)
         implies_left = [lhsvalid]
         implies_right = [rhsvalid, rhs == lhs]
@@ -314,6 +316,7 @@ class Prover(parse.Visitor):
                 continue
             assert 0, "unreachable"
         implies_left.extend(self.glue_conditions)
+        assert self.solver.check(z3_and(lhs == somevar, lhsvalid, *implies_left)) == z3.sat
         condition = z3_implies(z3_and(*implies_left), z3_and(*implies_right))
         print("checking %s" % rule)
         print(condition)

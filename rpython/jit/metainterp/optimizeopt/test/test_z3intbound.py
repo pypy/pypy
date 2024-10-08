@@ -535,8 +535,27 @@ class Z3IntBound(IntBound):
         _, no_ovf4 = z3_lshift_overflow(self.upper, other.upper)
         return z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4)
 
+    def rshift_bound(self, other):
+        result = self.concrete_variable >> other.concrete_variable
+        result1 = self.lower >> other.lower
+        result2 = self.lower >> other.upper
+        result3 = self.upper >> other.lower
+        result4 = self.upper >> other.upper
+        min1 = z3_min(result1, result2, result3, result4)
+        max1 = z3_max(result1, result2, result3, result4)
+        cond = z3.And(other.lower >= 0, other.upper < LONG_BIT)
+        min1 = z3.If(cond, min1, MININT)
+        max1 = z3.If(cond, max1, MAXINT)
+        tvalue, tmask = self._tnum_rshift(other.lower)
+        cond2 = z3.And(other.is_constant(), cond)
+        tvalue = z3.If(cond2,
+                       tvalue, 0)
+        tmask = z3.If(cond2,
+                      tmask, -1)
+        return Z3IntBound(min1, max1, tvalue, tmask)
+
     def is_constant(self):
-        return self.lower == self.upper
+        return z3.And(self.lower == self.upper, self.tmask == 0)
 
     def is_bool(self):
         return z3.And(0 <= self.lower, self.upper <= 1)
@@ -1258,6 +1277,19 @@ def test_prove_rshift_bound_logic():
         b2.lower >= 0,
         min1 <= result,
         result <= max1,
+    )
+
+@z3_with_reduced_bitwidth(32)
+def test_2_prove_rshift_bound_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    b3 = b1.rshift_bound(b2)
+    b3.concrete_variable = result = b1.concrete_variable >> b2.concrete_variable
+    b1.prove_implies(
+        b2,
+        b2.lower >= 0,
+        b2.upper < LONG_BIT,
+        b3,
     )
 
 def test_prove_urshift_knownbits():
