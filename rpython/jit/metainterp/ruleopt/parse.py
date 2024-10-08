@@ -657,6 +657,7 @@ INTBOUND_METHODTYPES = {
     "is_constant": (IntBound, [], bool),
     "is_bool": (IntBound, [], bool),
     "get_constant_int": (IntBound, [], int),
+    "lshift_bound_cannot_overflow": (IntBound, [IntBound], bool),
 }
 
 FUNCTYPES = {

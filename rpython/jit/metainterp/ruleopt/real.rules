@@ -163,6 +163,9 @@ rshift_known_result: int_rshift(a, b)
     C = a.rshift_bound(b).get_constant_int()
     => C
 
+rshift_lshift: int_rshift(int_lshift(x, y), y)
+    check x.lshift_bound_cannot_overflow(y)
+    => x
 
 urshift_zero_x: uint_rshift(0, x)
     => 0
