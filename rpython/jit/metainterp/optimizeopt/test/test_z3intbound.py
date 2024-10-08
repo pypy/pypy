@@ -528,6 +528,13 @@ class Z3IntBound(IntBound):
         res_tvalue, res_tmask = self._tnum_and(other)
         return self.new(lower, upper, res_tvalue, res_tmask)
 
+    def lshift_bound_cannot_overflow(self, other):
+        _, no_ovf1 = z3_lshift_overflow(self.lower, other.lower)
+        _, no_ovf2 = z3_lshift_overflow(self.lower, other.upper)
+        _, no_ovf3 = z3_lshift_overflow(self.upper, other.lower)
+        _, no_ovf4 = z3_lshift_overflow(self.upper, other.upper)
+        return z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4)
+
     def is_constant(self):
         return self.lower == self.upper
 
@@ -1217,14 +1224,11 @@ def test_prove_lshift_knownbits():
 def test_prove_lshift_bound_cannot_overflow_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
+    res = b1.lshift_bound_cannot_overflow(b2)
     result, no_ovf = z3_lshift_overflow(b1.concrete_variable, b2.concrete_variable)
-    _, no_ovf1 = z3_lshift_overflow(b1.lower, b2.lower)
-    _, no_ovf2 = z3_lshift_overflow(b1.lower, b2.upper)
-    _, no_ovf3 = z3_lshift_overflow(b1.upper, b2.lower)
-    _, no_ovf4 = z3_lshift_overflow(b1.upper, b2.upper)
     b1.prove_implies(
         b2,
-        z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4),
+        res,
         no_ovf
     )
 
