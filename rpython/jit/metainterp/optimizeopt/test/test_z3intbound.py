@@ -489,9 +489,25 @@ class Z3IntBound(IntBound):
         tvalue, tmask = self._tnum_add(other)
         return Z3IntBound(result_lower, result_upper, tvalue, tmask)
 
+    def sub_bound(self, other):
+        result = self.concrete_variable - other.concrete_variable
+        lower, no_ovf_lower = z3_sub_overflow(self.lower, other.upper)
+        upper, no_ovf_upper = z3_sub_overflow(self.upper, other.lower)
+        result_lower = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                             lower, MININT)
+        result_upper = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                             upper, MAXINT)
+        tvalue, tmask = self._tnum_sub(other)
+        return Z3IntBound(result_lower, result_upper, tvalue, tmask)
+
     def add_bound_cannot_overflow(self, other):
         lower, no_ovf_lower = z3_add_overflow(self.lower, other.lower)
         upper, no_ovf_upper = z3_add_overflow(self.upper, other.upper)
+        return z3.And(no_ovf_lower, no_ovf_upper)
+
+    def sub_bound_cannot_overflow(self, other):
+        lower, no_ovf_lower = z3_sub_overflow(self.lower, other.upper)
+        upper, no_ovf_upper = z3_sub_overflow(self.upper, other.lower)
         return z3.And(no_ovf_lower, no_ovf_upper)
 
     def and_bound(self, other):
@@ -769,15 +785,8 @@ def test_prove_sub_knownbits():
 def test_prove_sub_bound_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
-    result = b1.concrete_variable - b2.concrete_variable
-    lower, no_ovf_lower = z3_sub_overflow(b1.lower, b2.upper)
-    upper, no_ovf_upper = z3_sub_overflow(b1.upper, b2.lower)
-    result_lower = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
-                         lower, MININT)
-    result_upper = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
-                         upper, MAXINT)
-    tvalue, tmask = b1._tnum_sub(b2)
-    b3 = Z3IntBound(result_lower, result_upper, tvalue, tmask, result)
+    b3 = b1.sub_bound(b2)
+    b3.concrete_variable = b1.concrete_variable - b2.concrete_variable
     b1.prove_implies(
         b2,
         b3
@@ -787,11 +796,9 @@ def test_prove_sub_bound_cannot_overflow_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result, no_ovf_result = z3_sub_overflow(b1.concrete_variable, b2.concrete_variable)
-    lower, no_ovf_lower = z3_sub_overflow(b1.lower, b2.upper)
-    upper, no_ovf_upper = z3_sub_overflow(b1.upper, b2.lower)
     b1.prove_implies(
         b2,
-        z3.And(no_ovf_lower, no_ovf_upper),
+        b1.sub_bound_cannot_overflow(b2),
         no_ovf_result,
     )
 
@@ -955,15 +962,6 @@ def test_prove_known_cmp():
     b1.prove_implies(
         b2,
         b1.known_ge(b2),
-        b1.concrete_variable >= b2.concrete_variable,
-    )
-
-def test_prove_known_ne():
-    b1 = make_z3_intbounds_instance('self')
-    b2 = make_z3_intbounds_instance('other')
-    b1.prove_implies(
-        b2,
-        b1.known_ne(b2),
         b1.concrete_variable >= b2.concrete_variable,
     )
 
