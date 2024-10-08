@@ -53,3 +53,20 @@ has counterexample result vale: 0
 BUT
 target expression: 1 with Z3 formula 1
 has counterexample value: 1'''
+
+def test_explain_problem_empty():
+    s = """\
+never_applies: int_is_true(x)
+    check x.known_lt_const(0) and x.known_gt_const(0) # impossible condition
+    => x
+"""
+    with pytest.raises(RuleCannotApply) as info:
+        prove_source(s)
+    assert info.value.format() == '''\
+Rule 'never_applies' cannot ever apply
+in line 1
+Z3 did not manage to find values for variables x such that the following condition becomes True:
+And(x <= x_upper,
+    x_lower <= x,
+    If(x_upper < 0, x_lower > 0, x_upper < 0))\
+'''

@@ -190,3 +190,27 @@ eq_different_knownbits: int_eq(x, y)
     => 0
 ```
 
+## Checking for satisfiability
+
+In addition to checking whether the rule yields a correct optimization, we also
+check whether the rule can ever apply. This ensures that there are *some*
+runtime values that would fulfil all the checks in a rule. Here's an example of
+a rule violating this:
+
+```
+never_applies: int_is_true(x)
+    check x.known_lt_const(0) and x.known_gt_const(0) # impossible condition, always False
+    => x
+```
+
+Right now the error messages are not completely easy to understand, I hope to
+improve this later:
+
+```
+Rule 'never_applies' cannot ever apply
+in line 1
+Z3 did not manage to find values for variables x such that the following condition becomes True:
+And(x <= x_upper,
+    x_lower <= x,
+    If(x_upper < 0, x_lower > 0, x_upper < 0))
+```

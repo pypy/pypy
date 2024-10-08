@@ -6,8 +6,10 @@ from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.ruleopt import parse
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
 
+class ProofProblem(Exception):
+    pass
 
-class CouldNotProve(Exception):
+class CouldNotProve(ProofProblem):
     def __init__(self, rule, cond, model, lhs, rhs, prover):
         self.rule = rule
         self.cond = cond
@@ -34,6 +36,21 @@ class CouldNotProve(Exception):
         res.append("has counterexample value: %s" % (model.evaluate(self.rhs).as_signed_long(), ))
         return "\n".join(res)
 
+class RuleCannotApply(ProofProblem):
+    def __init__(self, rule, cond, prover):
+        self.rule = rule
+        self.cond = cond
+        self.prover = prover
+
+    def format(self):
+        rule = self.rule
+        res = ["Rule '%s' cannot ever apply" % self.rule.name]
+        if self.rule.sourcepos:
+            res.append("in line %s" % (self.rule.sourcepos.lineno, ))
+        prover = self.prover
+        res.append("Z3 did not manage to find values for variables %s such that the following condition becomes True:" % ", ".join(prover.name_to_z3))
+        res.append(str(self.cond))
+        return "\n".join(res)
 
 TRUEBV = z3.BitVecVal(1, LONG_BIT)
 FALSEBV = z3.BitVecVal(0, LONG_BIT)
@@ -297,10 +314,40 @@ class Prover(parse.Visitor):
         funcargs = [arg[0] for arg in args]
         return func(*funcargs), z3_and(*[arg[1] for arg in args])
 
+    def must_be_sat(self, rule, lhs, *conditions):
+        def _find_index_to_remove():
+            for removeindex in range(len(conditions)):
+                if self.solver.check(z3_and(lhs == somevar, *(conditions[:removeindex] + conditions[removeindex + 1:]))) == z3.unsat:
+                    return removeindex
+            return -1
+        todo = list(conditions)
+        conditions = []
+        while todo:
+            c = todo.pop()
+            if c is True:
+                continue
+            if c.decl().name() == 'and':
+                todo.extend(c.children())
+            else:
+                conditions.append(c)
+
+        somevar = z3.BitVec('check_not_empty', LONG_BIT)
+        conditions.append(lhs == somevar)
+        cond = z3_and(*conditions)
+        if self.solver.check(cond) != z3.sat:
+            # try to remove conditions
+            while 1:
+                removeindex = _find_index_to_remove()
+                if removeindex >= 0:
+                    del conditions[removeindex]
+                    cond = z3_and(*conditions)
+                else:
+                    break
+            raise RuleCannotApply(rule, cond, self)
+
     def check_rule(self, rule):
         lhs, lhsvalid = self.visit(rule.pattern)
-        somevar = z3.BitVec('check_not_empty', LONG_BIT)
-        assert self.solver.check(z3.And(lhs == somevar, lhsvalid)) == z3.sat
+        self.must_be_sat(rule, lhs, lhsvalid)
         rhs, rhsvalid = self.visit(rule.target)
         implies_left = [lhsvalid]
         implies_right = [rhsvalid, rhs == lhs]
@@ -316,7 +363,7 @@ class Prover(parse.Visitor):
                 continue
             assert 0, "unreachable"
         implies_left.extend(self.glue_conditions)
-        assert self.solver.check(z3_and(lhs == somevar, lhsvalid, *implies_left)) == z3.sat
+        self.must_be_sat(rule, lhs, lhsvalid, *implies_left)
         condition = z3_implies(z3_and(*implies_left), z3_and(*implies_right))
         print("checking %s" % rule)
         print(condition)

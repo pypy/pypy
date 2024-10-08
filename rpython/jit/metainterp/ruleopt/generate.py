@@ -22,7 +22,7 @@ def main(argv):
     except parse.TypeCheckError as e:
         print(e.format(content))
         return -2
-    except proof.CouldNotProve as e:
+    except proof.ProofProblem as e:
         print("_" * 60)
         print(e.format())
         return -3
