@@ -2526,7 +2526,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
         expected = """
         [i75]
         i77 = int_and(i75, %s)
-        i78 = int_is_true(i77)
+        i78 = int_lt(i75, 0)
         guard_true(i78) []
         jump()
         """ % MININT
@@ -3974,6 +3974,39 @@ finish()
         jump(-1, -1)
         """
         self.optimize_loop(ops, expected)
+
+    def test_int_is_true_and_MININT_is_int_lt(self):
+        ops = """
+        [i1]
+        i2 = int_and(i1, %s)
+        i3 = int_is_true(i2)
+        jump(i3)
+        """ % MININT
+        expected = """
+        [i1]
+        i2 = int_and(i1, %s) # dead
+        i3 = int_lt(i1, 0)
+        jump(i3)
+        """ % MININT
+        self.optimize_loop(ops, expected)
+
+    def test_int_sub_int_eq_min_1(self):
+        ops = """
+        [i1, i2]
+        i3 = int_eq(i1, -1)
+        i4 = int_sub(i1, i3)
+        i5 = int_eq(i4, -1)
+        guard_false(i5) []
+        jump(i4)
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_eq(i1, -1)
+        i4 = int_sub(i1, i3)
+        jump(i4)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

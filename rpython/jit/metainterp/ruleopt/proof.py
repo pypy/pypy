@@ -1,3 +1,4 @@
+import sys
 import z3
 from rpython.jit.metainterp.optimizeopt.test.test_z3intbound import (
     make_z3_intbounds_instance,
@@ -5,6 +6,9 @@ from rpython.jit.metainterp.optimizeopt.test.test_z3intbound import (
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.ruleopt import parse
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
+
+MAXINT = sys.maxint
+MININT = -sys.maxint - 1
 
 class ProofProblem(Exception):
     pass
@@ -232,6 +236,12 @@ class Prover(parse.Visitor):
         return res, z3_and(valid, *[arg[1] for arg in args])
 
     def visit_PatternVar(self, pattern):
+        if pattern.name == "LONG_BIT":
+            return z3.BitVecVal(LONG_BIT, LONG_BIT)
+        elif pattern.name == "MININT":
+            return z3.BitVecVal(MININT, LONG_BIT), True
+        elif pattern.name == "MAXINT":
+            return z3.BitVecVal(MAXINT, LONG_BIT), True
         return self._convert_var(pattern.name), True
 
     def visit_PatternConst(self, pattern):
@@ -274,6 +284,7 @@ class Prover(parse.Visitor):
         if expr.name == "MAXINT":
             return MAXINT, True
         if expr.name == "MININT":
+            import pdb;pdb.set_trace()
             return MININT, True
         var = self._convert_var(expr.name)
         if targettype is int:

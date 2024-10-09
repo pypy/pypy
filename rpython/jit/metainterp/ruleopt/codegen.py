@@ -273,7 +273,7 @@ class Codegen(parse.Visitor):
                         args.append("ConstInt(%s)" % self.bindings[arg.name])
                     else:
                         args.append(self.bindings[arg.name])
-                elif isinstance(arg, PatternConst):
+                elif isinstance(arg, parse.PatternConst):
                     args.append("ConstInt(%s)" % arg.const)
                 else:
                     assert 0

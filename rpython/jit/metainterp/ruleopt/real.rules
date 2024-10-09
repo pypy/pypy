@@ -5,6 +5,16 @@ add_reassoc_consts: int_add(int_add(x, C1), C2)
 add_zero: int_add(x, 0)
     => x
 
+#add_sub_consts: int_add(int_sub(x, C1), C2)
+#    C = C2 - C1
+#    => int_add(x, C)
+#
+#add_sub: int_add(int_sub(x, y), y)
+#    => x
+#
+#add_neg: int_add(int_neg(x), y)
+#    => int_sub(y, x)
+#
 
 sub_zero: int_sub(x, 0)
     => x
@@ -42,6 +52,9 @@ sub_or_x_y_y: int_sub(int_or(x, y), y)
     # and because (x | y) = (x ^ y) + (x & y)
     check x.and_bound(y).known_eq_const(0)
     => x
+
+#sub_neg: int_sub(x, int_neg(y))
+#    => int_add(x, y)
 
 
 mul_zero: int_mul(x, 0)
@@ -127,6 +140,11 @@ xor_zero: int_xor(a, 0)
 xor_minus_1: int_xor(x, -1)
     => int_invert(x)
 
+#xor_known_result: int_xor(a, b)
+#    check a.xor_bound(b).is_constant()
+#    C = a.xor_bound(b).get_constant_int()
+#    => C
+
 
 lshift_zero_x: int_lshift(0, x)
     => 0
@@ -143,6 +161,11 @@ lshift_urshift_c_c: int_lshift(uint_rshift(x, C1), C1)
     check 0 <= C1 and C1 < LONG_BIT
     C = (-1 >>a C1) << C1
     => int_and(x, C)
+
+#lshift_and_urshift: int_lshift(int_and(uint_rshift(x, C1), C2), C1)
+#    check 0 <= C1 and C1 < LONG_BIT
+#    C = ((-1 >>a C1) & C2) << C1
+#    => int_and(x, C)
 
 #lshift_lshift_c_c: int_lshift(int_lshift(x, C1), C2)
 #    check 0 <= C1 and C1 < LONG_BIT and 0 <= C2 and C2 < LONG_BIT
@@ -198,6 +221,13 @@ eq_one: int_eq(x, 1)
 eq_zero: int_eq(x, 0)
     => int_is_zero(x)
 
+eq_sub_eq: int_eq(int_sub(x, int_eq(x, a)), a)
+    => 0
+
+#eq_add_const: int_eq(int_add(x, C1), C2)
+#    C = C2 - C1
+#    => int_eq(x, C)
+
 ne_different_knownbits: int_ne(x, y)
     SORRY_Z3
     check x.known_ne(y)
@@ -218,9 +248,18 @@ is_true_true: int_is_true(x)
     check x.lower > 0 or x.upper < 0 or x.tvalue != 0
     => 1
 
+is_true_and_minint: int_is_true(int_and(x, MININT))
+    => int_lt(x, 0)
+
 is_zero_true: int_is_zero(x)
     check x.lower > 0 or x.upper < 0 or x.tvalue != 0
     => 0
+
+#is_zero_or: int_is_zero(int_or(x, y))
+#    # this is because x | y = x ^ y + x & y
+#    # and x ^ y == 0 <=> x == y
+#    check x.and_bound(y).known_eq_const(0)
+#    => int_eq(x, y)
 
 force_ge_zero_pos: int_force_ge_zero(x)
     check x.known_nonnegative()
