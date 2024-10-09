@@ -1,11 +1,18 @@
 import sys
+import os
+from hashlib import md5
+
 import z3
+
 from rpython.jit.metainterp.optimizeopt.test.test_z3intbound import (
     make_z3_intbounds_instance,
 )
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.ruleopt import parse
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
+
+from rpython.config.translationoption import CACHE_DIR
+from rpython.tool.gcc_cache import try_atomic_write
 
 MAXINT = sys.maxint
 MININT = -sys.maxint - 1
@@ -386,12 +393,27 @@ class Prover(parse.Visitor):
         print("took %s seconds" % (t2 - t1))
 
 
-def prove_source(s):
+def prove_source(s, force=False):
     ast = parse.parse(s)
     for rule in ast.rules:
         if rule.cantproof:
             print "SKIPPING PROOF!", rule.name
             continue
+        cachename = None
+        if not force:
+            rule_repr = repr(rule)
+            h = md5(rule_repr)
+            cachename = os.path.join(
+                CACHE_DIR, "jit_dsl_rule_%s" % (h.hexdigest(), ))
+            try:
+                with open(cachename, 'rb') as f:
+                    f.read() # just needs to exist, really
+                print "reusing previous proof", rule.name
+                continue
+            except IOError:
+                pass
         p = Prover()
         p.check_rule(rule)
+        if cachename is not None:
+            try_atomic_write(cachename, rule_repr)
     return ast
