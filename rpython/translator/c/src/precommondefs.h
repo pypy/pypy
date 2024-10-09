@@ -10,12 +10,13 @@
 
 /* Define on Darwin to activate all library features */
 #define _DARWIN_C_SOURCE 1
-/* This must be set to 64 on some systems to enable large file support. */
-#define _FILE_OFFSET_BITS 64
+/* These must be set to 64 to enable large file support on 32-bit systems. */
+#if defined(i386) || defined(__i386__) || defined(__i386) || defined(_M_IX86)
+  #define _FILE_OFFSET_BITS 64
+  #define _LARGEFILE_SOURCE 1
+#endif
 /* Define on Linux to activate all library features */
 #define _GNU_SOURCE 1
-/* This must be defined on some systems to enable large file support. */
-#define _LARGEFILE_SOURCE 1
 /* Define on NetBSD to activate all library features */
 #define _NETBSD_SOURCE 1
 /* Define to activate features from IEEE Stds 1003.1-2008, except on
