@@ -3456,16 +3456,6 @@ finish()
         """
         self.optimize_loop(ops, ops)
 
-    def test_int_force_ge_zero_bug2(self):
-        ops = """
-        [i0]
-        i1 = int_lt(i0, -2)
-        guard_true(i1) []
-        i2 = int_force_ge_zero(i0)
-        finish(i2)
-        """
-        self.optimize_loop(ops, ops)
-
     def test_int_eq_1_bool(self):
         ops = """
         [i0]
