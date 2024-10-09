@@ -346,6 +346,9 @@ class Prover(parse.Visitor):
             raise RuleCannotApply(rule, cond, self)
 
     def check_rule(self, rule):
+        import time
+        t1 = time.time()
+        print("checking %s" % rule)
         lhs, lhsvalid = self.visit(rule.pattern)
         self.must_be_sat(rule, lhs, lhsvalid)
         rhs, rhsvalid = self.visit(rule.target)
@@ -365,10 +368,11 @@ class Prover(parse.Visitor):
         implies_left.extend(self.glue_conditions)
         self.must_be_sat(rule, lhs, lhsvalid, *implies_left)
         condition = z3_implies(z3_and(*implies_left), z3_and(*implies_right))
-        print("checking %s" % rule)
         print(condition)
         if not self.prove(condition):
             raise CouldNotProve(rule, condition, model, lhs, rhs, self)
+        t2 = time.time()
+        print("took %s seconds" % (t2 - t1))
 
 
 def prove_source(s):
