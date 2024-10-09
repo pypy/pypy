@@ -24,7 +24,11 @@ def test_higest_bit():
 @pytest.mark.parametrize("name,rule", [(rule.name, rule) for rule in parse.parse(ALLRULES).rules if not rule.cantproof])
 def test_z3_prove(name, rule):
     p = Prover()
-    p.check_rule(rule)
+    try:
+        p.check_rule(rule)
+    except ProofProblem as e:
+        print e.format()
+        raise
 
 def test_sorry():
     s = """\
