@@ -4007,6 +4007,18 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_bug_wrong_minint_generation(self):
+        ops = """
+        [i4, i5] 
+        i21 = int_rshift(i4, i5) 
+        i41 = int_and(41, i4) 
+        i44 = int_is_true(i41) 
+        guard_true(i44) []
+        jump(i5)
+        """
+        # used to raise InvalidLoop
+        self.optimize_loop(ops, ops)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

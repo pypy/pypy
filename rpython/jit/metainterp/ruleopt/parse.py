@@ -471,6 +471,8 @@ def maybesorry(p):
 
 @production("pattern : NAME")
 def pattern_var(p):
+    if p[0].value in ("LONG_BIT", "MININT", "MAXINT"):
+        return PatternConst(p[0].value)
     return PatternVar(p[0].value)
 
 

@@ -236,15 +236,15 @@ class Prover(parse.Visitor):
         return res, z3_and(valid, *[arg[1] for arg in args])
 
     def visit_PatternVar(self, pattern):
-        if pattern.name == "LONG_BIT":
-            return z3.BitVecVal(LONG_BIT, LONG_BIT)
-        elif pattern.name == "MININT":
-            return z3.BitVecVal(MININT, LONG_BIT), True
-        elif pattern.name == "MAXINT":
-            return z3.BitVecVal(MAXINT, LONG_BIT), True
         return self._convert_var(pattern.name), True
 
     def visit_PatternConst(self, pattern):
+        if pattern.const == "LONG_BIT":
+            return z3.BitVecVal(LONG_BIT, LONG_BIT)
+        elif pattern.const == "MININT":
+            return z3.BitVecVal(MININT, LONG_BIT), True
+        elif pattern.const == "MAXINT":
+            return z3.BitVecVal(MAXINT, LONG_BIT), True
         res = z3.BitVecVal(pattern.const, LONG_BIT)
         return res, True
 
