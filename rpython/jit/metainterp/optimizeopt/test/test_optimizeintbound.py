@@ -16,7 +16,7 @@ class TestOptimizeIntBounds(BaseTestBasic):
             except ValueError:
                 pass
             else:
-                raise ValueError("no test found for rule %s, opname %s" % names[index], opname)
+                raise ValueError("no test found for rule %s, opname %s" % (names[index], opname))
 
     def test_very_simple(self):
         ops = """
