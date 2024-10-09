@@ -251,9 +251,19 @@ is_true_true: int_is_true(x)
 is_true_and_minint: int_is_true(int_and(x, MININT))
     => int_lt(x, 0)
 
+
 is_zero_true: int_is_zero(x)
     check x.lower > 0 or x.upper < 0 or x.tvalue != 0
     => 0
+
+#is_zero_negate_eq: int_is_zero(int_eq(x, y))
+#    => int_ne(x, y)
+
+#is_zero_negate_ne: int_is_zero(int_ne(x, y))
+#    => int_eq(x, y)
+
+#is_zero_is_true: int_is_zero(int_is_true(x))
+#    => int_is_zero(x)
 
 #is_zero_or: int_is_zero(int_or(x, y))
 #    # this is because x | y = x ^ y + x & y

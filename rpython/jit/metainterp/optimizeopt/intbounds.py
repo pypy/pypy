@@ -460,7 +460,8 @@ class OptIntBounds(Optimization):
         b = self.getintbound(op)
         b.make_ge_const(0)
         b1 = self.getintbound(op.getarg(0))
-        b.make_le(b1)
+        if b1.upper >= 0:
+            b.make_le(b1)
 
     def postprocess_INT_INVERT(self, op):
         b = self.getintbound(op.getarg(0))
