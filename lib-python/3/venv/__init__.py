@@ -353,9 +353,17 @@ class EnvBuilder:
                 elif not suffixes:
                     # dirname is a source build from dirname\pypy\goal
                     # so add that to dirname and try again
-                    src = os.path.join(dirname, "pypy", "goal", "pypy3.10-c.exe")
-                    dst = os.path.join(binpath, exe)
-                    copier(src, dst)
+                    dirname = os.path.join(dirname, "pypy", "goal")
+                    suffixes = [
+                        f for f in os.listdir(dirname) if
+                        os.path.normcase(os.path.splitext(f)[1]) in ('.exe', '.dll')
+                    ]
+                    for suffix in suffixes:
+                        src = os.path.join(dirname, suffix)
+                        if os.path.lexists(src):
+                            copier(src, os.path.join(binpath, suffix))
+                    src = os.path.join(dirname, "pypy3.10-c.exe")
+                    copier(src, context.env_exec_cmd)
                 else:
                     raise RuntimeError(f"problem finding exe {exe} in {suffixes}")
 
