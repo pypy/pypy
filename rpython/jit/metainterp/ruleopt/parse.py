@@ -145,7 +145,10 @@ class Rule(BaseAst):
         self.target = target
 
     def newpattern(self, pattern):
-        return Rule(self.name, pattern, self.cantproof, self.elements, self.target)
+        res = Rule(self.name, pattern, self.cantproof, self.elements, self.target)
+        res.sourcepos = self.sourcepos
+        res.endsourcepos = self.endsourcepos
+        return res
 
     def __str__(self):
         lines = [self.name + ": " + str(self.pattern)]

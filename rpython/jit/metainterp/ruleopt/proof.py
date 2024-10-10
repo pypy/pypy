@@ -394,6 +394,7 @@ class Prover(parse.Visitor):
 
 
 def prove_source(s, force=False):
+    lines = s.splitlines()
     ast = parse.parse(s)
     for rule in ast.rules:
         if rule.cantproof:
@@ -401,8 +402,11 @@ def prove_source(s, force=False):
             continue
         cachename = None
         if not force:
-            rule_repr = repr(rule)
-            h = md5(rule_repr)
+            start_lineno = rule.sourcepos.lineno - 1
+            end_lineno = rule.endsourcepos.lineno
+            rule_lines = lines[start_lineno:end_lineno]
+
+            h = md5("\n".join(rule_lines))
             cachename = os.path.join(
                 CACHE_DIR, "jit_dsl_rule_%s" % (h.hexdigest(), ))
             try:
@@ -415,5 +419,5 @@ def prove_source(s, force=False):
         p = Prover()
         p.check_rule(rule)
         if cachename is not None:
-            try_atomic_write(cachename, rule_repr)
+            try_atomic_write(cachename, "\n".join(rule_lines))
     return ast
