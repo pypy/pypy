@@ -1806,8 +1806,12 @@ def create_extension_module(space, w_spec):
         path = os.curdir + os.sep + path      # force a '/' in the path
     try:
         if WIN32:
+            from rpython.rlib import rwin32
             # Allow other DLLs in the same directory with "path"
-            dll = rdynload.dlopenex(path, space.sys.dlopenflags)
+            # use os.add_dll_directory for more locations
+            flags = (rwin32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+                    rwin32.LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR)
+            dll = rdynload.dlopenex(path, space.sys.dlopenflags | flags)
         else:
             dll = rdynload.dlopen(path, space.sys.dlopenflags)
     except rdynload.DLOpenError as e:
