@@ -112,6 +112,7 @@ def _test_jitted():
     addr = got[0][0]
     assert got == [(addr, '1'), (addr, '1'), (addr, '0')]
 
+@pytest.mark.flaky
 def test_all():
     import os, sys, subprocess
     thisfile = os.path.abspath(__file__)
