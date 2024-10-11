@@ -364,6 +364,8 @@ class EnvBuilder:
                             copier(src, os.path.join(binpath, suffix))
                     src = os.path.join(dirname, "pypy3.10-c.exe")
                     copier(src, context.env_exec_cmd)
+                    copier(src, os.path.join(binpath, "python.exe"))
+                    copier(src, os.path.join(binpath, "python3.exe"))
                 else:
                     raise RuntimeError(f"problem finding exe {exe} in {suffixes}")
 
