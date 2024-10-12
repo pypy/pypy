@@ -176,10 +176,12 @@ def test_union_unary(s):
     assert union(s_ImpossibleValue, s) == s
 
 @given(s1=st_annotation, s2=st_annotation)
+@settings(max_examples=500, suppress_health_check=[HealthCheck.filter_too_much])
 def test_commutativity_of_union_compatibility(s1, s2):
     assert compatible(s1, s2) == compatible(s2, s1)
 
 @given(st_annotation, st_annotation)
+@settings(max_examples=500, suppress_health_check=[HealthCheck.filter_too_much])
 def test_union_commutative(s1, s2):
     try:
         s_union = union(s1, s2)
@@ -205,6 +207,7 @@ def test_constants_are_atoms(s_const, s_obj):
 
 @pytest.mark.xfail
 @given(st_annotation, st_annotation)
+@settings(max_examples=500, suppress_health_check=[HealthCheck.filter_too_much])
 def test_generalize_isinstance(annotator, s1, s2):
     try:
         s_12 = union(s1, s2)
