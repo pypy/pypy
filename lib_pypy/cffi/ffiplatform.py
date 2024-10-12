@@ -39,7 +39,7 @@ def _build(tmpdir, ext, compiler_verbose=0, debug=None):
     oldir = os.getcwd()
     # Shorten the names of the sources for msvc's long file names
     os.chdir(tmpdir)
-    ext.sources = [os.path.relpath(x) for x in ext.sources]
+    ext.sources = [os.path.relpath(os.path.join(oldir, x)) for x in ext.sources]
     try:
         options['debug'] = ('ffiplatform', debug)
         options['force'] = ('ffiplatform', True)
