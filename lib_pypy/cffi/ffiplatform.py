@@ -36,12 +36,14 @@ def _build(tmpdir, ext, compiler_verbose=0, debug=None):
     options = dist.get_option_dict('build_ext')
     if debug is None:
         debug = sys.flags.debug
-    options['debug'] = ('ffiplatform', debug)
-    options['force'] = ('ffiplatform', True)
-    options['build_lib'] = ('ffiplatform', tmpdir)
-    options['build_temp'] = ('ffiplatform', tmpdir)
-    #
+    oldir = os.getcwd()
+    os.chdir(tmpdir)
+    ext.sources = [os.path.relpath(x) for x in ext.sources]
     try:
+        options['debug'] = ('ffiplatform', debug)
+        options['force'] = ('ffiplatform', True)
+        options['build_lib'] = ('ffiplatform', ".")
+        options['build_temp'] = ('ffiplatform', ".")
         old_level = set_threshold(0) or 0
         try:
             set_verbosity(compiler_verbose)
@@ -52,8 +54,11 @@ def _build(tmpdir, ext, compiler_verbose=0, debug=None):
             set_threshold(old_level)
     except (CompileError, LinkError) as e:
         raise VerificationError('%s: %s' % (e.__class__.__name__, e))
+    finally:
+        os.chdir(oldir)
     #
-    return soname
+    return os.path.join(tmpdir, soname)
+
 
 try:
     from os.path import samefile
