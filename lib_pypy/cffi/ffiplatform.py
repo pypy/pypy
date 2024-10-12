@@ -37,6 +37,7 @@ def _build(tmpdir, ext, compiler_verbose=0, debug=None):
     if debug is None:
         debug = sys.flags.debug
     oldir = os.getcwd()
+    # Shorten the names of the sources for msvc's long file names
     os.chdir(tmpdir)
     ext.sources = [os.path.relpath(x) for x in ext.sources]
     try:
@@ -56,7 +57,7 @@ def _build(tmpdir, ext, compiler_verbose=0, debug=None):
         raise VerificationError('%s: %s' % (e.__class__.__name__, e))
     finally:
         os.chdir(oldir)
-    #
+    # Since we shortened the file names, make sure the soname is correct
     return os.path.join(tmpdir, soname)
 
 

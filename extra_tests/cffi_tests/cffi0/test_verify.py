@@ -2165,7 +2165,7 @@ def test_verify_dlopen_flags():
     ffi1 = FFI()
     ffi1.cdef("extern int foo_verify_dlopen_flags;")
 
-    modulename = "_cffi_test_verify_dlopen_flags_")
+    modulename = "_cffi_test_verify_dlopen_flags_"
     lib1 = ffi1.verify("int foo_verify_dlopen_flags;",
                        flags=ffi1.RTLD_GLOBAL | ffi1.RTLD_LAZY,
                        modulename=modulename)
