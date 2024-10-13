@@ -5,6 +5,7 @@
 
 from contextlib import contextmanager
 import sys, os
+import pytest
 
 try:
     import pexpect
