@@ -363,7 +363,8 @@ class EnvBuilder:
                         if os.path.lexists(src):
                             copier(src, os.path.join(binpath, suffix))
                     src = os.path.join(dirname, "pypy3.10-c.exe")
-                    copier(src, context.env_exec_cmd)
+                    if src != context.env_exec_cmd:
+                        copier(src, context.env_exec_cmd)
                     copier(src, os.path.join(binpath, "python.exe"))
                     copier(src, os.path.join(binpath, "python3.exe"))
                 else:
