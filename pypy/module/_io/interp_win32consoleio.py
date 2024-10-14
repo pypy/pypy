@@ -1,7 +1,6 @@
 import sys
 import os
 
-DISABLE_WINCONSOLEIO = True
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
@@ -135,7 +134,8 @@ def _pyio_get_console_type(space, w_path_or_fd):
     # Another alternative to this whole mess would be to adapt the ctypes-based
     # https://pypi.org/project/win_unicode_console/ which also implements PEP 528
 
-    if DISABLE_WINCONSOLEIO:
+    enable_winconsoleio = os.environ.get("PYPY_ENABLE_WINCONSOLEIO")
+    if not enable_winconsoleio:
         return '\0'
 
     if space.isinstance_w(w_path_or_fd, space.w_int):
@@ -145,14 +145,14 @@ def _pyio_get_console_type(space, w_path_or_fd):
             return '\0'
         return _get_console_type(handle)
 
-    decoded = space.fsdecode_w(w_path_or_fd)
-    if not decoded:
+    encoded = space.fsencode_w(w_path_or_fd)
+    if not encoded:
         return '\0'
  
     m = '\0'
 
     # In CPython the _wcsicmp function is used to perform case insensitive comparison
-    dlower = decoded.lower()
+    dlower = encoded.lower()
     if len(dlower) >=4:
         if dlower[:4] == '\\\\.\\' or dlower[:4] == '\\\\?\\':
             dlower = dlower[4:]
@@ -170,7 +170,7 @@ def _pyio_get_console_type(space, w_path_or_fd):
         return m
 
     # Handle things like 'c:\users\user\appdata\local\temp\usession\CONOUT$
-    dlower = getfullpathname(decoded).lower()
+    dlower = getfullpathname(encoded).lower()
     if dlower[:4] == '\\\\.\\' or dlower[:4] == '\\\\?\\':
         dlower = dlower[4:]
     if  dlower == 'conin$':
