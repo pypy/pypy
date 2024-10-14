@@ -17,6 +17,7 @@ TYPE_COMMENT_PREFIX = 'type'
 TYPE_IGNORE = 'ignore'
 
 TRIPLE_QUOTE_UNTERMINATED_ERROR = "unterminated triple-quoted string literal"
+SINGLE_QUOTE_UNTERMINATED_ERROR = "unterminated string literal"
 EOF_MULTI_LINE_STATEMENT_ERROR = "unexpected end of file (EOF) in multi-line statement"
 
 def match_encoding_declaration(comment):
@@ -134,9 +135,9 @@ def raise_unterminated_string(is_triple_quoted, line, lineno, column, tokens,
         end_lineno, end_offset=0):
     # same arguments as TokenError, ie 1-based offsets
     if is_triple_quoted:
-        msg = "unterminated triple-quoted string literal (detected at line %s)" % (end_lineno, )
+        msg = TRIPLE_QUOTE_UNTERMINATED_ERROR + " (detected at line %s)" % (end_lineno, )
     else:
-        msg = "unterminated string literal (detected at line %s)" % (end_lineno, )
+        msg = SINGLE_QUOTE_UNTERMINATED_ERROR + " (detected at line %s)" % (end_lineno, )
     raise TokenError(msg, line, lineno, column, tokens, end_lineno, end_offset)
 
 def potential_identifier_char(ch):
@@ -203,7 +204,6 @@ def generate_tokens(lines, flags):
 
         if contstrs:
             if not line:
-                assert strstart[3] # must be triple-quoted
                 raise_unterminated_string(strstart[3], strstart[2], strstart[0],
                                           strstart[1] + 1, token_list,
                                           lnum - 1, len(line))
