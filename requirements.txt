@@ -15,3 +15,6 @@ pathlib
 
 # needed for some test compatibility with python3
 future
+
+# for app_main tests
+pexpect

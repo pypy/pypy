@@ -365,13 +365,13 @@ class TestInteraction:
         child.expect(re.escape('Argv: ' + repr([demo_script])))
         child.expect('goodbye')
 
-    def test_run_script_relative_turns_to_absolute(self, demo_script):
+    def test_run_script_file_path(self, demo_script):
         demo_script = str(py.path.local().bestrelpath(py.path.local(demo_script)))
         child = self.spawn([demo_script])
         idx = child.expect(['hello', 'Python ', '>>> '])
         assert idx == 0   # no banner or prompt
         child.expect(re.escape("Name: __main__"))
-        child.expect(re.escape('File: ' + os.path.abspath(demo_script)))
+        child.expect(re.escape('File: ' + os.path.join(os.getcwd(), demo_script)))
         child.expect(re.escape('Exec: ' + app_main))
         child.expect(re.escape('Argv: ' + repr([demo_script])))
         child.expect('goodbye')
