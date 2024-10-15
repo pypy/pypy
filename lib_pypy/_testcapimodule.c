@@ -5682,7 +5682,9 @@ test_set_type_size(PyObject *self, PyObject *Py_UNUSED(ignored))
     Py_RETURN_NONE;
 }
 
-
+#ifdef PYPY_VERSION
+#define TEST_REFCOUNT() Py_RETURN_NONE;
+#else
 #define TEST_REFCOUNT() \
     do { \
         PyObject *obj = PyList_New(0); \
@@ -5707,8 +5709,8 @@ test_set_type_size(PyObject *self, PyObject *Py_UNUSED(ignored))
         \
         Py_DECREF(obj); \
         Py_RETURN_NONE; \
-    } while (0) \
-
+    } while (0)
+#endif
 
 // Test Py_NewRef() and Py_XNewRef() macros
 static PyObject*

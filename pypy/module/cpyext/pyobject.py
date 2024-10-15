@@ -98,7 +98,7 @@ class BaseCpyTypedescr(object):
                             flavor='raw', zero=True,
                             add_memory_pressure=True, immortal=immortal)
         pyobj = rffi.cast(PyObject, buf)
-        if itemsize:
+        if itemsize or space.issubtype_w(w_type, space.w_list):
             pyvarobj = rffi.cast(PyVarObject, pyobj)
             pyvarobj.c_ob_size = itemcount
         pyobj.c_ob_refcnt = 1
@@ -226,7 +226,7 @@ def create_ref(space, w_obj, w_userdata=None, immortal=False):
         itemsize = 0
     else:
         itemsize = pytype.c_tp_itemsize
-    if itemsize != 0:
+    if itemsize != 0 or space.issubtype_w(w_type, space.w_list):
         # PyBytesObject, compact PyUnicodeObject and subclasses
         try:
             itemcount = space.len_w(w_obj)
