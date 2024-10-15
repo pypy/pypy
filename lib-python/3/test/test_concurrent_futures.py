@@ -461,11 +461,16 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, BaseTestCase
         res = executor.map(abs, range(-5, 5))
         threads = executor._threads
         del executor
-        support.gc_collect()
-
         for t in threads:
-            t.join()
-
+            # t.join()
+            # XXX PyPy change: gc must collect the threads, or test will hang
+            while True:
+                t.join(0.001)  # 1 ms
+                
+                if not t.is_alive():
+                    break
+        
+                support.gc_collect()
         # Make sure the results were all computed before the
         # executor got shutdown.
         assert all([r == abs(v) for r, v in zip(res, range(-5, 5))])
