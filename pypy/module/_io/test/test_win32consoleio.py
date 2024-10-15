@@ -3,15 +3,15 @@ import pytest
 
 if os.name != 'nt':
     pytest.skip('Windows only tests')
+if not os.environ.get("PYPY_ENABLE_WINCONSOLEIO", False):
+    pytest.skip('_WindowsConsoleIO disabled')
+
 
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import interp2app
 from pypy.module._io import interp_win32consoleio
 from pypy.conftest import option
 from rpython.rtyper.lltypesystem import rffi
-
-if interp_win32consoleio.DISABLE_WINCONSOLEIO:
-    pytest.skip('winconsoleio disabled')
 
 class AppTestWinConsoleIO:
     spaceconfig = dict(usemodules=['_io', '_cffi_backend'])

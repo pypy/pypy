@@ -15,8 +15,11 @@ class TestPexpect(object):
     def setup_class(cls):
         try:
             import pexpect
+            import sys
         except ImportError:
             pytest.skip("pexpect not found")
+        if sys.platform == "win32":
+            pytest.skip("no pexpect.spawn on windows")
 
     def _spawn(self, *args, **kwds):
         import pexpect

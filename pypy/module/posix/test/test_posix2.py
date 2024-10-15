@@ -462,7 +462,7 @@ class AppTestPosix:
         result2 = posix.listdir(memoryview(bytes_dir))  # -> list of unicodes
         assert [fsencode(x) for x in result2] == result1
 
-    @py.test.mark.skipif("sys.platform == 'win32'")
+    @py.test.mark.pytest.skipif("sys.platform == 'win32'")
     def test_fdlistdir(self):
         posix = self.posix
         dirfd = posix.open('.', posix.O_RDONLY)
@@ -1973,7 +1973,7 @@ class AppTestPep475Retry:
 
     def setup_class(cls):
         if os.name != 'posix':
-            skip("xxx tests are posix-only")
+            pytest.skip("xxx tests are posix-only")
         if cls.runappdirect:
             skip("xxx does not work with -A")
 
