@@ -187,6 +187,26 @@ class VMProf(object):
         """
         self.cintf.vmprof_start_sampling()
 
+    def vmprof_resolve_address(self, addr):
+        """
+        Resolve name, lineno and source file for an address of a native function
+        """
+        with rffi.scoped_alloc_buffer(256) as namebuffer, \
+                rffi.scoped_alloc_buffer(256) as sourcefilebuffer, \
+                rffi.scoped_alloc_buffer(rffi.sizeof(rffi.INT_real)) as intbuffer:
+                    namebuffer.raw[0] = '\x00'
+                    sourcefilebuffer.raw[0] = '-'
+                    sourcefilebuffer.raw[1] = '\x00'
+                    intbuffer = rffi.cast(rffi.INT_realP, intbuffer.raw)
+                    intbuffer[0] = rffi.cast(rffi.INT_real, -1)
+                    length = rffi.cast(rffi.INT, 256)
+                    if self.cintf.vmprof_resolve_address(rffi.cast(rffi.VOIDP, addr), namebuffer.raw, length, intbuffer, sourcefilebuffer.raw, length) != 0:
+                        return (None, -1, None)
+                    
+                    return (rffi.charp2str(namebuffer.raw), rffi.cast(rffi.SIGNED, intbuffer[0]), rffi.charp2str(sourcefilebuffer.raw))
+
+
+
 
 def vmprof_execute_code(name, get_code_fn, result_class=None,
                         _hack_update_stack_untranslated=False):

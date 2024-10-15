@@ -152,3 +152,9 @@ class AppTestVMProf(object):
         assert pos3 > pos
         _vmprof.disable()
 
+    def test_resolve(self):
+        import _vmprof
+        
+        result = _vmprof.resolve_addr(1)
+
+        assert result == ("", -1, "-")
