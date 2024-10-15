@@ -6,7 +6,7 @@ from rpython.rlib import jit
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.function import descr_function_get
+from pypy.interpreter.gateway import descr_function_get
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module._hpy_universal import llapi

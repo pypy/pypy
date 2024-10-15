@@ -4,7 +4,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
-     WrappedDefault)
+     WrappedDefault, descr_function_get)
 
 from rpython.rlib.jit import promote
 from rpython.rlib.objectmodel import compute_identity_hash, specialize
@@ -561,7 +561,7 @@ from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import SApplicationException
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import (Function, Method, StaticMethod,
-    ClassMethod, BuiltinFunction, descr_function_get)
+    ClassMethod, BuiltinFunction)
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.nestedscope import Cell, descr_new_cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
