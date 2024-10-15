@@ -104,12 +104,12 @@ class Translation(object):
     def source_c(self, **kwds):
         self.update_options(kwds)
         self.ensure_backend('c')
-        self.driver.source_c()
+        return self.driver.source_c()
 
     def source_cl(self, **kwds):
         self.update_options(kwds)
         self.ensure_backend('cl')
-        self.driver.source_cl()
+        return self.driver.source_cl()
 
     def compile(self, **kwds):
         self.update_options(kwds)
