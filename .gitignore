@@ -15,6 +15,7 @@ __pycache__/
 bin/pypy-c
 include/*.h
 include/numpy/
+include/_numpypy/
 lib_pypy/ctypes_config_cache/_[^_]*_*.py
 libpypy*-c.*
 pypy-c
