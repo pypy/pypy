@@ -200,8 +200,10 @@ class VMProf(object):
                     intbuffer = rffi.cast(rffi.INT_realP, intbuffer.raw)
                     intbuffer[0] = rffi.cast(rffi.INT_real, -1)
                     length = rffi.cast(rffi.INT, 256)
-                    if self.cintf.vmprof_resolve_address(rffi.cast(rffi.VOIDP, addr), namebuffer.raw, length, intbuffer, sourcefilebuffer.raw, length) != 0:
-                        return (None, -1, None)
+                    res = self.cintf.vmprof_resolve_address(rffi.cast(rffi.VOIDP, addr), namebuffer.raw, length, intbuffer, sourcefilebuffer.raw, length)
+        
+                    #if res != 0:
+                    #    return (None, rffi.cast(rffi.SIGNED, -1), None)
                     
                     return (rffi.charp2str(namebuffer.raw), rffi.cast(rffi.SIGNED, intbuffer[0]), rffi.charp2str(sourcefilebuffer.raw))
 
