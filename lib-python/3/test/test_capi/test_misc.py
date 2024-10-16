@@ -298,6 +298,7 @@ class CAPITest(unittest.TestCase):
     def test_buildvalue_N(self):
         _testcapi.test_buildvalue_N()
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no allocation hooks on PyPy")
     def test_set_nomemory(self):
         code = """if 1:
             import _testcapi
@@ -413,10 +414,12 @@ class CAPITest(unittest.TestCase):
             L = MyList((L,))
 
     @support.requires_resource('cpu')
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no trashcan on PyPy")
     def test_trashcan_python_class1(self):
         self.do_test_trashcan_python_class(list)
 
     @support.requires_resource('cpu')
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no trashcan on PyPy")
     def test_trashcan_python_class2(self):
         from _testcapi import MyList
         self.do_test_trashcan_python_class(MyList)
@@ -883,6 +886,7 @@ class Test_testinternalcapi(unittest.TestCase):
                     if name.startswith('test_'))
 
 
+@unittest.skipIf(support.check_impl_detail(pypy=True), "no malloc policies on PyPy")
 class PyMemDebugTests(unittest.TestCase):
     PYTHONMALLOC = 'debug'
     # '0x04c06e0' or '04C06E0'
@@ -988,16 +992,19 @@ class PyMemDebugTests(unittest.TestCase):
         self.check_pyobject_is_freed('check_pyobject_freed_is_freed')
 
 
+@unittest.skipIf(support.check_impl_detail(pypy=True), "no malloc policies on PyPy")
 class PyMemMallocDebugTests(PyMemDebugTests):
     PYTHONMALLOC = 'malloc_debug'
 
 
 @unittest.skipUnless(support.with_pymalloc(), 'need pymalloc')
+@unittest.skipIf(support.check_impl_detail(pypy=True), "no malloc policies on PyPy")
 class PyMemPymallocDebugTests(PyMemDebugTests):
     PYTHONMALLOC = 'pymalloc_debug'
 
 
 @unittest.skipUnless(Py_DEBUG, 'need Py_DEBUG')
+@unittest.skipIf(support.check_impl_detail(pypy=True), "no malloc policies on PyPy")
 class PyMemDefaultTests(PyMemDebugTests):
     # test default allocator of Python compiled in debug mode
     PYTHONMALLOC = ''
