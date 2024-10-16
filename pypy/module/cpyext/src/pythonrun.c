@@ -7,9 +7,14 @@
 #endif
 
 void
-Py_FatalError(const char *msg)
+_Py_FatalErrorFunc(const char * func, const char *msg)
 {
-    fprintf(stderr, "Fatal Python error: %s\n", msg);
+    if (func) {
+        fprintf(stderr, "Fatal Python error: %s: %s\n", func, msg);
+    }
+    else {
+        fprintf(stderr, "Fatal Python error: %s\n", msg);
+    }
     fflush(stderr); /* it helps in Windows debug build */
     if (PyErr_Occurred()) {
         PyErr_PrintEx(0);

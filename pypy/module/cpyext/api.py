@@ -588,7 +588,7 @@ FUNCTIONS_BY_HEADER = defaultdict(dict)
 # files somewhere in the implementation of cpyext (rather than being defined in
 # RPython). Their name will be mangled by a #define
 SYMBOLS_C = [
-    'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
+    '_Py_FatalErrorFunc', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
     'PyArg_VaParse', 'PyArg_VaParseTupleAndKeywords', '_PyArg_NoKeywords',
     'PyUnicode_FromFormat', 'PyUnicode_FromFormatV', 'PyUnicode_AsWideCharString',
@@ -1195,9 +1195,9 @@ def setup_init_functions(eci, prefix):
         setdefenc(rffi.str2charp(s, track_allocation=False))  # "leaks"
 
     from pypy.module.posix.interp_posix import add_fork_hook
-    global py_fatalerror
-    py_fatalerror = rffi.llexternal('%s_FatalError' % prefix,
-                                    [CONST_STRING], lltype.Void,
+    global py_fatalerrorfunc
+    py_fatalerrorfunc = rffi.llexternal('_%s_FatalErrorFunc' % prefix,
+                                    [CONST_STRING, CONST_STRING], lltype.Void,
                                     compilation_info=eci)
     _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [],
                                   lltype.Void, compilation_info=eci)

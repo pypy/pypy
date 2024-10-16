@@ -50,6 +50,10 @@ typedef struct {
     PyObject *value;
 } PyStopIterationObject;
 
+PyAPI_FUNC(void) _Py_FatalErrorFunc(const char * func, const char *msg);
+
+#define Py_FatalError(message) _Py_FatalErrorFunc(__func__, message)
+
 #ifdef __cplusplus
 }
 #endif
