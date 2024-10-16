@@ -636,7 +636,7 @@ SYMBOLS_C = [
     'PyStructSequence_InitType', 'PyStructSequence_InitType2',
     'PyStructSequence_New', 'PyStructSequence_UnnamedField',
     'PyStructSequence_NewType', 'PyStructSequence_GetItem',
-    'PyStructSequence_SetItem', 
+    'PyStructSequence_SetItem',
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
     'PyCapsule_Type',
@@ -1599,7 +1599,7 @@ def generate_decls_and_callbacks(db, prefix=''):
         else:
             write_header(header_name, header_decls)
 
- 
+
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
                          source_dir / "modsupport.c",
@@ -2025,14 +2025,12 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
                 state = space.fromcache(State)
                 state.clear_exception()
                 raise oefmt(space.w_SystemError,
-                            "An exception was set, but function returned a "
-                            "value")
+                            "c function call returned a result with an exception set")
             elif not expect_null and not has_new_error and not has_result:
                 state = space.fromcache(State)
                 state.clear_exception()
                 raise oefmt(space.w_SystemError,
-                            "Function returned a NULL result without setting "
-                            "an exception")
+                            "c function call returned NULL without setting an exception")
             elif has_new_error:
                 state = space.fromcache(State)
                 state.check_and_raise_exception()
