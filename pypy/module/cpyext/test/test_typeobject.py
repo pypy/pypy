@@ -1575,12 +1575,23 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 void * tp_bases = PyType_GetSlot(typ, Py_tp_bases);
                 long eq = (tp_bases == (void*)typ->tp_bases);
                 return PyLong_FromLong(eq);
-            ''')])
+            '''),
+            ("test_tp_new", "METH_NOARGS",
+            '''
+               newfunc tp_new = PyType_GetSlot(&PyLong_Type, Py_tp_new);
+               if (PyLong_Type.tp_new != tp_new) {
+                   PyErr_SetString(PyExc_AssertionError, "mismatch: tp_new of long");
+                   return NULL;
+               }
+               Py_RETURN_NONE;
+            '''),
+            ])
         obj = module.new_obj()
         assert 'Base12' in str(obj)
         assert type(obj).__doc__ == "The Base12 type or object"
         assert obj.__doc__ == "The Base12 type or object"
         assert module.test_getslot(obj) == 1
+        module.test_tp_new()
 
     def test_multiple_inheritance_fetch_tp_bases(self):
         module = self.import_extension('foo', [

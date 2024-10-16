@@ -935,18 +935,21 @@ class PyMemDebugTests(unittest.TestCase):
         regex = regex.format(ptr=self.PTR_REGEX)
         self.assertRegex(out, regex)
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no debug hooks on PyPy")
     def check_malloc_without_gil(self, code):
         out = self.check(code)
         expected = ('Fatal Python error: _PyMem_DebugMalloc: '
                     'Python memory allocator called without holding the GIL')
         self.assertIn(expected, out)
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no debug hooks on PyPy")
     def test_pymem_malloc_without_gil(self):
         # Debug hooks must raise an error if PyMem_Malloc() is called
         # without holding the GIL
         code = 'import _testcapi; _testcapi.pymem_malloc_without_gil()'
         self.check_malloc_without_gil(code)
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no debug hooks on PyPy")
     def test_pyobject_malloc_without_gil(self):
         # Debug hooks must raise an error if PyObject_Malloc() is called
         # without holding the GIL

@@ -1066,9 +1066,15 @@ def fill_ht_slot(ht, slotnum, ptr):
         if num == slotnum:
             setattr(getattr(ht, membername), slotname, rffi.cast(TARGET, ptr))
 
-def get_ht_slot(ht, slotnum):
+def get_slot_by_num(typ, slotnum):
+    isheaptype = widen(typ.c_tp_flags) & Py_TPFLAGS_HEAPTYPE
+    ht = rffi.cast(PyHeapTypeObject, typ)
     for num, membername, slotname, TARGET in SLOT_TABLE:
         if num == slotnum:
+            # Some of the slots are only available for heap types
+            if membername != "c_ht_type" and not isheaptype:
+                return rffi.cast(rffi.VOIDP, 0)
+                # raise oefmt(space.w_SystemError, "Bad internal call!")
             return rffi.cast(rffi.VOIDP, getattr(getattr(ht, membername), slotname))
     return rffi.cast(rffi.VOIDP, 0)
 
@@ -1256,15 +1262,12 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
             w_type.setdictvalue(space, name, w_descr)
     return res_obj
 
-@cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP)
+@cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP, error=CANNOT_FAIL)
 def PyType_GetSlot(space, typ, slot):
     """ Use the Py_tp* macros in typeslots.h to return a slot function
     """
     slot = widen(slot)
-    if slot < 0 or not widen(typ.c_tp_flags) & Py_TPFLAGS_HEAPTYPE:
-        raise oefmt(space.w_SystemError, "Bad internal call!")
-    heapobj = rffi.cast(PyHeapTypeObject, typ)
-    return get_ht_slot(heapobj, slot)
+    return get_slot_by_num(typ, slot)
 
 @cpython_api([PyTypeObjectPtr, PyObject], PyObject, error=CANNOT_FAIL,
              result_borrowed=True)
