@@ -92,11 +92,8 @@ def CALL_METHOD(f, oparg, *ignored):
 
     if not n_kwargs:
         w_callable = f.peekvalue(n_args + (2 * n_kwargs) + 1)
-        try:
-            w_result = f.space.call_valuestack(
-                    w_callable, n, f, methodcall=w_self is not None)
-        finally:
-            f.dropvalues(n_args + 2)
+        w_result = f.space.call_valuestack(
+            w_callable, n, f, methodcall=w_self is not None, dropvalues=n_args + 2)
     else:
         keywords = [None] * n_kwargs
         keywords_w = [None] * n_kwargs

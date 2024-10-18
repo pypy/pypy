@@ -1230,10 +1230,7 @@ class __extend__(pyframe.PyFrame):
             # Only positional arguments
             nargs = oparg & 0xff
             w_function = self.peekvalue(nargs)
-            try:
-                w_result = self.space.call_valuestack(w_function, nargs, self)
-            finally:
-                self.dropvalues(nargs + 1)
+            w_result = self.space.call_valuestack(w_function, nargs, self, dropvalues=nargs+1)
             self.pushvalue(w_result)
         # XXX end of hack for performance
         else:
