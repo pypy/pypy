@@ -249,7 +249,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
         self.run_args = []
 
     def scopenext(self):
-        return "scope_w[%d]" % self.succ()
+        return "self._move_from_scope(scope_w, %d)" % self.succ()
 
     def visit_self(self, typ):
         self.run_args.append("space.descr_self_interp_w(%s, %s)" %
@@ -421,6 +421,11 @@ class BuiltinActivation(object):
     @not_rpython
     def __init__(self, behavior, unwrap_spec):
         self.behavior = behavior
+
+    def _move_from_scope(self, scope_w, idx):
+        v = scope_w[idx]
+        scope_w[idx] = None
+        return v
 
     def _run(self, space, scope_w):
         """Subclasses with behavior specific for an unwrap spec are generated"""
