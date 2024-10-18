@@ -36,15 +36,24 @@ class CouldNotProve(ProofProblem):
             res.append("in line %s" % (self.rule.sourcepos.lineno, ))
         prover = self.prover
         model = prover.solver.model()
+        detail = []
         res.append("counterexample given by Z3:")
         res.append("counterexample values:")
-        for name in prover.name_to_intbound:
+        for name, bound in prover.name_to_intbound.iteritems():
+            realbound = IntBound(model.evaluate(bound.lower).as_signed_long(),
+                                  model.evaluate(bound.upper).as_signed_long(),
+                                  r_uint(model.evaluate(bound.tmask).as_signed_long()),
+                                  r_uint(model.evaluate(bound.tvalue).as_signed_long()),)
+            details.append("bounds for %s: %s" % (name, bound))
+
+
             res.append("%s: %s" % (name, model[prover.name_to_z3[name]].as_signed_long()))
         res.append("operation %s with Z3 formula %s" % (rule.pattern, self.lhs))
         res.append("has counterexample result vale: %s" % (model.evaluate(self.lhs).as_signed_long(), ))
         res.append("BUT")
         res.append("target expression: %s with Z3 formula %s" % (rule.target, self.rhs))
         res.append("has counterexample value: %s" % (model.evaluate(self.rhs).as_signed_long(), ))
+        res.extend(detail)
         return "\n".join(res)
 
 class RuleCannotApply(ProofProblem):
@@ -293,8 +302,8 @@ class Prover(parse.Visitor):
         if expr.name == "MININT":
             import pdb;pdb.set_trace()
             return MININT, True
-        var = self._convert_var(expr.name)
         if targettype is int:
+            var = self._convert_var(expr.name)
             return var, True
         if targettype is IntBound:
             b = self._convert_intbound(expr.name)
@@ -375,8 +384,12 @@ class Prover(parse.Visitor):
         for el in rule.elements:
             if isinstance(el, parse.Compute):
                 expr, exprvalid = self.visit(el.expr, int)
-                implies_left.append(self._convert_var(el.name) == expr)
-                implies_right.append(exprvalid)
+                if el.expr.typ is not IntBound:
+                    implies_left.append(self._convert_var(el.name) == expr)
+                    implies_right.append(exprvalid)
+                else:
+                    self.name_to_intbound[el.name] = expr
+                    self.glue_conditions_added.add(el.name)
                 continue
             if isinstance(el, parse.Check):
                 expr, _ = self.visit(el.expr, bool)
@@ -388,6 +401,7 @@ class Prover(parse.Visitor):
         condition = z3_implies(z3_and(*implies_left), z3_and(*implies_right))
         print(condition)
         if not self.prove(condition):
+            import pdb;pdb.set_trace()
             raise CouldNotProve(rule, condition, model, lhs, rhs, self)
         t2 = time.time()
         print("took %s seconds" % (t2 - t1))

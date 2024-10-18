@@ -399,7 +399,10 @@ class Codegen(parse.Visitor):
         self.level = currlevel
 
     def visit_Compute(self, el):
-        self.bindings[el.name] = el.name
+        if el.expr.typ is IntBound:
+            self.intbound_bindings[el.name] = el.name
+        else:
+            self.bindings[el.name] = el.name
         res = self.visit(el.expr)
         self.emit("%s = %s" % (el.name, res))
 

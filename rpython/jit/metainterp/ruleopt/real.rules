@@ -102,8 +102,9 @@ and_x_y_covered_ones: int_and(x, y)
     => x
 
 and_known_result: int_and(a, b)
-    check a.and_bound(b).is_constant()
-    C = a.and_bound(b).get_constant_int()
+    bound = a.and_bound(b)
+    check bound.is_constant()
+    C = bound.get_constant_int()
     => C
 
 and_absorb: int_and(a, int_and(a, b))
@@ -120,8 +121,9 @@ or_x_x: int_or(a, a)
     => a
 
 or_known_result: int_or(a, b)
-    check a.or_bound(b).is_constant()
-    C = a.or_bound(b).get_constant_int()
+    bound = a.or_bound(b)
+    check bound.is_constant()
+    C = bound.get_constant_int()
     => C
 
 or_absorb: int_or(a, int_or(a, b))
@@ -182,8 +184,9 @@ rshift_x_zero: int_rshift(x, 0)
     => x
 
 rshift_known_result: int_rshift(a, b)
-    check a.rshift_bound(b).is_constant()
-    C = a.rshift_bound(b).get_constant_int()
+    bound = a.rshift_bound(b)
+    check bound.is_constant()
+    C = bound.get_constant_int()
     => C
 
 rshift_lshift: int_rshift(int_lshift(x, y), y)
@@ -198,8 +201,9 @@ urshift_x_zero: uint_rshift(x, 0)
 
 urshift_known_result: uint_rshift(a, b)
     SORRY_Z3
-    check a.urshift_bound(b).is_constant()
-    C = a.urshift_bound(b).get_constant_int()
+    bound = a.urshift_bound(b)
+    check bound.is_constant()
+    C = bound.get_constant_int()
     => C
 
 urshift_lshift_x_c_c: uint_rshift(int_lshift(x, C), C)
@@ -239,6 +243,9 @@ ne_same: int_ne(x, x)
 
 ne_zero: int_ne(x, 0)
     => int_is_true(x)
+
+#lt_self: int_lt(x, x)
+#    => 0
 
 
 is_true_bool: int_is_true(x)

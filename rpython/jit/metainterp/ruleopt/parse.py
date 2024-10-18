@@ -663,6 +663,11 @@ INTBOUND_METHODTYPES = {
     "is_bool": (IntBound, [], bool),
     "get_constant_int": (IntBound, [], int),
     "lshift_bound_cannot_overflow": (IntBound, [IntBound], bool),
+    "and_bound": (IntBound, [IntBound], IntBound),
+    "or_bound": (IntBound, [IntBound], IntBound),
+    "lshift_bound": (IntBound, [IntBound], IntBound),
+    "rshift_bound": (IntBound, [IntBound], IntBound),
+    "urshift_bound": (IntBound, [IntBound], IntBound),
 }
 
 FUNCTYPES = {
@@ -785,7 +790,7 @@ class TypingVisitor(Visitor):
             for arg, typ in zip(ast.args, argtyps):
                 hastyp = self.visit(arg)
                 self._must_be_same_typ(arg, hastyp, typ)
-            self.typ = restyp
+            ast.typ = restyp
             return restyp
         self._error("unknown method %r" % ast.methname, ast)
 
