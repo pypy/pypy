@@ -15,6 +15,7 @@ def test_same_file():
 
     # source is for upstream dev version, dest can be different
     # source = source.replace("1.18.0.dev0", "1.18.0.dev0")
+    source = source.replace("pytest.skip", "skip")
     # remove patch for issue 4937. Leave the starting #
     pstart = dest.index("# XXX patch start") + 1
     pend = dest.index("XXX patch end") + len("XXX patch end")
