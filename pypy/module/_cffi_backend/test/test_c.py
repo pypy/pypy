@@ -142,7 +142,12 @@ with tmpname.open('w') as f:
     for func in lst:
         print >> f, 'def %s(self):' % (func,)
         print >> f, '    import _all_test_c'
-        print >> f, '    _all_test_c.%s()' % (func,)
+        print >> f, '    try:'
+        print >> f, '        _all_test_c.%s()' % (func,)
+        print >> f, '    except BaseException as e:'
+        print >> f, '        if "Skipped" in str(type(e)):'
+        print >> f, '            skip(e.msg)'
+        print >> f, '        raise'
 
 tmpname2 = tmpdir.join('_all_test_c.py')
 with tmpname2.open('w') as f:
