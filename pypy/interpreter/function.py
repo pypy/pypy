@@ -195,8 +195,7 @@ class Function(W_Root):
         new_frame = self.space.createframe(code, self.w_func_globals,
                                                    self)
         for i in xrange(nargs):
-            w_arg = frame.peekvalue(nargs-1-i)
-            new_frame.locals_cells_stack_w[i] = w_arg
+            new_frame.locals_cells_stack_w[i] = frame.peekvalue(nargs-1-i)
 
         frame.dropvalues(dropvalues)
         return new_frame.run()
@@ -207,8 +206,7 @@ class Function(W_Root):
         new_frame = self.space.createframe(code, self.w_func_globals,
                                                    self)
         for i in xrange(nargs):
-            w_arg = frame.peekvalue(nargs-1-i)
-            new_frame.locals_cells_stack_w[i] = w_arg
+            new_frame.locals_cells_stack_w[i] = frame.peekvalue(nargs-1-i)
 
         ndefs = len(self.defs_w)
         start = ndefs - defs_to_load
