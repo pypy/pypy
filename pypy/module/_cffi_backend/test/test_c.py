@@ -64,6 +64,8 @@ class AppTestC(object):
                 else:
                     import ctypes.util
                     path = ctypes.util.find_library(name)
+                    if path is None and name == 'c' and sys.platform == 'win32':
+                        skip("dlopen(None) cannot work on Windows")
                 import _cffi_backend
                 return _cffi_backend.load_library(path, is_global)
 
