@@ -158,6 +158,29 @@ print it to stdout at the end of program execution, run PyPy like this::
 
     PYPYLOG=jit-intbounds-stats:- pypy ...
 
+The output of that will look something like this::
+
+    int_add
+        add_reassoc_consts 2514
+        add_zero 107008
+    int_sub
+        sub_zero 31519
+        sub_from_zero 523
+        sub_x_x 3153
+        sub_add_consts 159
+        sub_add 55
+        sub_sub_x_c_c 1752
+        sub_sub_c_x_c 0
+        sub_xor_x_y_y 0
+        sub_or_x_y_y 0
+    int_mul
+        mul_zero 0
+        mul_one 110
+        mul_minus_one 0
+        mul_pow2_const 1456
+        mul_lshift 0
+    ...
+
 Proofs
 ===================================================
 
