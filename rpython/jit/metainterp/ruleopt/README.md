@@ -45,17 +45,28 @@ This pattern matches `int_sub` operations, where the first argument was
 produced by an `int_add` operation. In addition, one of the arguments of the
 addition has to be the same as the second argument of the subtraction.
 
+The constants `MININT`, `MAXINT` and `LONG_BIT` (which is either 32 or 64) can
+be used in rules, they behave like writing numbers but allow
+bit-width-independent formulations:
+
+```
+is_true_and_minint: int_is_true(int_and(x, MININT))
+    => int_lt(x, 0)
+```
+
 It is also possible to have a pattern where some arguments needs to be a
 constant, without specifying which constant. Those patterns look like this:
 
 ```
 sub_add_consts: int_sub(int_add(x, C1), C2) # incomplete
+    # more goes here
     => int_sub(x, C)
 ```
 
 Variables in the pattern that start with a `C` match against constants only.
-However, in current form the rule is incomplete, because `C` is not defined in
-the target operation. We will see how to compute it in the next section.
+However, in this current form the rule is incomplete, because `C` is not
+defined in the target operation. We will see how to compute it in the next
+section.
 
 ## Computing constants and other intermediate results
 
@@ -124,7 +135,9 @@ and_x_c_in_range: int_and(x, C)
 
 Every rewrite rule should have at least one unit test where it triggers. To
 ensure this, the tests in file `test_optimizeintbound.py` have an assert at the
-end of a test run, that every rule fired at least once.
+end of a test run, that every rule fired at least once (this check can
+somethings trigger as a false positive, for example when running individual
+tests with `-k`).
 
 ## Printing rule statistics
 
@@ -140,10 +153,10 @@ PYPYLOG=jit-intbounds-stats:- pypy ...
 
 It is very easy to write a peephole rule that is not correct in all corner
 cases. Therefore all the rules are proven correct with Z3 before compiled into
-actual JIT code. When the proof fails, a (hopefully minimal) counterexample is
-printed. The counterexample consists of values for all the inputs that fulfil
-the checks, values for the intermediate expressions, and then two *different*
-values for the source and the target operations.
+actual JIT code, by default. When the proof fails, a (hopefully minimal)
+counterexample is printed. The counterexample consists of values for all the
+inputs that fulfil the checks, values for the intermediate expressions, and
+then two *different* values for the source and the target operations.
 
 E.g. if we try to add the incorrect rule:
 
@@ -194,10 +207,14 @@ has counterexample value: 5
 
 Some `IntBound` methods cannot be used in Z3 proofs because they have too
 complex control flow. If that is the case, they can have Z3-equivalent
-formulations defined, in the `test_z3intbound.Z3IntBound` class.
+formulations defined, in the `test_z3intbound.Z3IntBound` class (in every case
+this is done, it's a potential proof hole if the Z3 friendly reformulation and
+the real implementation differ from each other, therefore extra care is required to
+make very sure they are equivalent).
 
 If that is too hard as well, it's possible to skip the proof of individual
-rules by adding `SORRY_Z3` to its body:
+rules by adding `SORRY_Z3` to its body (but we should try not to do that too
+often):
 
 ```
 eq_different_knownbits: int_eq(x, y)
@@ -230,3 +247,14 @@ And(x <= x_upper,
     x_lower <= x,
     If(x_upper < 0, x_lower > 0, x_upper < 0))
 ```
+
+## Adding new rules
+
+To add new rules (ideally motivated by observed problems in real trace), the following steps should be performed:
+
+- Add a failing test to `test_optimizeintbound.py`.
+- Add the rule to `real.rules`.
+- Regenerate the Python code by running `pypy ruleopt/generate.py` (you need
+  the `z3-solver` package installed for that).
+- Check that `test_optimizeintbound.py` passes, then run the other
+  `optimizeopt/` tests.
