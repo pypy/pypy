@@ -142,8 +142,8 @@ tests with `-k`).
 ## Printing rule statistics
 
 The JIT can print statistics about which rule fired how often in the
-`jit-intbounds-stats` category. Eg to print it to stdout at the end of program
-execution, run PyPy like this:
+`jit-intbounds-stats` logging category. For example, to print it to stdout at
+the end of program execution, run PyPy like this:
 
 ```
 PYPYLOG=jit-intbounds-stats:- pypy ...
@@ -205,9 +205,10 @@ target expression: int_add(a, b) with Z3 formula a + b
 has counterexample value: 5
 ```
 
-Some `IntBound` methods cannot be used in Z3 proofs because they have too
-complex control flow. If that is the case, they can have Z3-equivalent
-formulations defined, in the `test_z3intbound.Z3IntBound` class (in every case
+Some `IntBound` methods cannot be used in Z3 proofs because they have [too
+complex control flow](https://pypy.org/posts/2024/08/toy-knownbits.html#cases-where-this-style-of-z3-proof-doesnt-work).
+If that is the case, they can have Z3-equivalent formulations defined, in the
+`test_z3intbound.Z3IntBound` class (in every case
 this is done, it's a potential proof hole if the Z3 friendly reformulation and
 the real implementation differ from each other, therefore extra care is required to
 make very sure they are equivalent).
@@ -250,11 +251,15 @@ And(x <= x_upper,
 
 ## Adding new rules
 
-To add new rules (ideally motivated by observed problems in real trace), the following steps should be performed:
+To add new rules (ideally motivated by [observed problems in real
+traces](https://pypy.org/posts/2024/07/mining-jit-traces-missing-optimizations-z3.html)),
+the following steps should be performed:
 
 - Add a failing test to `test_optimizeintbound.py`.
 - Add the rule to `real.rules`.
 - Regenerate the Python code by running `pypy ruleopt/generate.py` (you need
   the `z3-solver` package installed for that).
 - Check that `test_optimizeintbound.py` passes, then run the other
-  `optimizeopt/` tests.
+  `optimizeopt/` tests (in particular `optimizeopt/test/test_z3checktests.py`
+  checks that the operations and expected outputs [are
+  sensible](https://pypy.org/posts/2022/12/jit-bug-finding-smt-fuzzing.html)).
