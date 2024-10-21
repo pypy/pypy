@@ -401,7 +401,7 @@ class GetSetProperty(W_Root):
         fdel = self.fdel
         if fdel is None:
             raise oefmt(space.w_AttributeError,
-                        "can't delete %N.%s", w_obj, self.name)
+                        "cannot delete '%s' attribute of immutable type '%N'", self.name, w_obj)
         try:
             fdel(self, space, w_obj)
         except DescrMismatch:

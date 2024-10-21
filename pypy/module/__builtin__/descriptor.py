@@ -219,7 +219,8 @@ class W_Property(W_Root):
             if self.w_name is None:
                 raise oefmt(space.w_AttributeError, "can't delete attribute")
             else:
-                raise oefmt(space.w_AttributeError, "can't delete attribute %R", self.w_name)
+                raise oefmt(space.w_AttributeError, "cannot delete '%R' attribute of  imuutable type '%N'",
+                            self.w_name, w_obj)
         space.call_function(self.w_fdel, w_obj)
         return space.w_None
 
