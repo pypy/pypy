@@ -4019,6 +4019,20 @@ finish()
         # used to raise InvalidLoop
         self.optimize_loop(ops, ops)
 
+    def test_constfold_xor(self):
+        ops = """
+        [i0]
+        i1 = int_xor(1, 3)
+        i2 = int_mul(i0, 2)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i2 = int_lshift(i0, 1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

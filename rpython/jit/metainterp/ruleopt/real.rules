@@ -142,10 +142,9 @@ xor_zero: int_xor(a, 0)
 xor_minus_1: int_xor(x, -1)
     => int_invert(x)
 
-#xor_known_result: int_xor(a, b)
-#    check a.xor_bound(b).is_constant()
-#    C = a.xor_bound(b).get_constant_int()
-#    => C
+xor_known_result: int_xor(C1, C2)
+    C = C1 ^ C2
+    => C
 
 
 lshift_zero_x: int_lshift(0, x)

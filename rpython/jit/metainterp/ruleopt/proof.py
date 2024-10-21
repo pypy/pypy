@@ -40,14 +40,11 @@ class CouldNotProve(ProofProblem):
         res.append("counterexample given by Z3:")
         res.append("counterexample values:")
         for name, bound in prover.name_to_intbound.iteritems():
-            try:
+            if name in prover.glue_conditions_added:
                 realbound = IntBound(model.evaluate(bound.lower).as_signed_long(),
                                       model.evaluate(bound.upper).as_signed_long(),
                                       r_uint(model.evaluate(bound.tmask).as_signed_long()),
                                       r_uint(model.evaluate(bound.tvalue).as_signed_long()),)
-            except AttributeError:
-                pass
-            else:
                 details.append("bounds for %s: %s" % (name, bound))
             res.append("%s: %s" % (name, model[prover.name_to_z3[name]].as_signed_long()))
         res.append("operation %s with Z3 formula %s" % (rule.pattern, self.lhs))

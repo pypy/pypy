@@ -51,7 +51,7 @@ addtok("MUL", r"[*]")
 addtok("DIV", r"[/][/]")
 addtok("OP_AND", r"[&]")
 addtok("OP_OR", r"[|]")
-addtok("OP_XOR", r"^")
+addtok("OP_XOR", r"\^")
 addtok("INVERT", r"~")
 
 addtok("NEWLINE", r" *([#].*)?\n")
