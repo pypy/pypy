@@ -163,17 +163,17 @@ lshift_urshift_c_c: int_lshift(uint_rshift(x, C1), C1)
     C = -1 << C1
     => int_and(x, C)
 
-#lshift_and_urshift: int_lshift(int_and(uint_rshift(x, C1), C2), C1)
-#    check 0 <= C1 and C1 < LONG_BIT
-#    C = ((-1 >>a C1) & C2) << C1
-#    => int_and(x, C)
+lshift_and_urshift: int_lshift(int_and(uint_rshift(x, C1), C2), C1)
+    check 0 <= C1 and C1 < LONG_BIT
+    C = C2 << C1
+    => int_and(x, C)
 
 
-#lshift_lshift_c_c: int_lshift(int_lshift(x, C1), C2)
-#    check 0 <= C1 and C1 < LONG_BIT and 0 <= C2 and C2 < LONG_BIT
-#    C = C1 + C2
-#    check C < LONG_BIT
-#    => int_lshift(x, C)
+lshift_lshift_c_c: int_lshift(int_lshift(x, C1), C2)
+    check 0 <= C1 and C1 < LONG_BIT and 0 <= C2 and C2 < LONG_BIT
+    C = C1 + C2
+    check C < LONG_BIT
+    => int_lshift(x, C)
 
 
 rshift_zero_x: int_rshift(0, x)

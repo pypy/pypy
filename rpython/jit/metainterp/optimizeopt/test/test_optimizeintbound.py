@@ -4033,6 +4033,39 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_lshift_lshift(self):
+        ops = """
+        [i0]
+        i1 = int_lshift(i0, 10)
+        i2 = int_lshift(i1, 10)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        i1 = int_lshift(i0, 10)
+        i2 = int_lshift(i0, 20)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_lshift_and_urshift(self):
+        ops = """
+        [i0]
+        i1 = uint_rshift(i0, 10)
+        i2 = int_and(i1, 13)
+        i3 = int_lshift(i2, 10)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = uint_rshift(i0, 10)
+        i2 = int_and(i1, 13)
+        i3 = int_and(i0, 13312)
+        jump(i3)
+        """
+        self.optimize_loop(ops, expected)
+
+
 
 class TestComplexIntOpts(BaseTestBasic):
 
