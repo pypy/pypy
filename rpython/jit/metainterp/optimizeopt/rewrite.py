@@ -92,176 +92,6 @@ class OptRewrite(Optimization):
 
         return False
 
-    def optimize_INT_AND(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        b = b1.and_bound(b2)
-        if b.is_constant():
-            self.make_constant_int(op, b.get_constant_int())
-            return
-        if b2.is_constant():
-            val = b2.get_constant_int()
-            if val == -1 or (b1.lower >= 0 and b1.upper <= val & ~(val + 1)):
-                self.make_equal_to(op, op.getarg(0))
-                return
-        elif b1.is_constant():
-            val = b1.get_constant_int()
-            if val == -1 or (b2.lower >= 0 and b2.upper <= val & ~(val + 1)):
-                self.make_equal_to(op, op.getarg(1))
-                return
-
-        return self.emit(op)
-
-    def postprocess_INT_AND(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        arg1 = get_box_replacement(op.getarg(1))
-        self.optimizer.pure_from_args(rop.INT_AND, [arg1, arg0], op)
-
-    def optimize_INT_OR(self, op):
-        v1 = get_box_replacement(op.getarg(0))
-        v2 = get_box_replacement(op.getarg(1))
-        if v1 is v2:
-            self.make_equal_to(op, v1)
-            return
-        b1 = self.getintbound(v1)
-        b2 = self.getintbound(v2)
-        b = b1.or_bound(b2)
-        if b.is_constant():
-            self.make_constant_int(op, b.get_constant_int())
-            return
-        if b1.known_eq_const(0):
-            self.make_equal_to(op, v2)
-        elif b2.known_eq_const(0):
-            self.make_equal_to(op, v1)
-        else:
-            return self.emit(op)
-
-    def postprocess_INT_OR(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        arg1 = get_box_replacement(op.getarg(1))
-        self.optimizer.pure_from_args(rop.INT_OR, [arg1, arg0], op)
-
-    def optimize_INT_SUB(self, op):
-        arg1 = get_box_replacement(op.getarg(0))
-        arg2 = get_box_replacement(op.getarg(1))
-        b1 = self.getintbound(arg1)
-        b2 = self.getintbound(arg2)
-        if b2.known_eq_const(0):
-            self.make_equal_to(op, arg1)
-        elif b1.known_eq_const(0):
-            op = self.replace_op_with(op, rop.INT_NEG, args=[arg2])
-            return self.emit(op)
-        elif arg1 == arg2:
-            self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
-
-    def postprocess_INT_SUB(self, op):
-        import sys
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
-        self.optimizer.pure_from_args(rop.INT_ADD, [op, arg1], arg0)
-        self.optimizer.pure_from_args(rop.INT_SUB, [arg0, op], arg1)
-        if isinstance(arg1, ConstInt):
-            # invert the constant
-            i1 = arg1.getint()
-            if i1 == -sys.maxint - 1:
-                return
-            inv_arg1 = ConstInt(-i1)
-            self.optimizer.pure_from_args(rop.INT_ADD, [arg0, inv_arg1], op)
-            self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg1, arg0], op)
-            self.optimizer.pure_from_args(rop.INT_SUB, [op, inv_arg1], arg0)
-            self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], inv_arg1)
-
-    def optimize_INT_ADD(self, op):
-        if self.is_raw_ptr(op.getarg(0)) or self.is_raw_ptr(op.getarg(1)):
-            return self.emit(op)
-        arg1 = get_box_replacement(op.getarg(0))
-        b1 = self.getintbound(arg1)
-        arg2 = get_box_replacement(op.getarg(1))
-        b2 = self.getintbound(arg2)
-
-        # If one side of the op is 0 the result is the other side.
-        if b1.known_eq_const(0):
-            self.make_equal_to(op, arg2)
-        elif b2.known_eq_const(0):
-            self.make_equal_to(op, arg1)
-        else:
-            return self.emit(op)
-
-    def postprocess_INT_ADD(self, op):
-        import sys
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
-        self.optimizer.pure_from_args(rop.INT_ADD, [arg1, arg0], op)
-        # Synthesize the reverse op for optimize_default to reuse
-        self.optimizer.pure_from_args(rop.INT_SUB, [op, arg1], arg0)
-        self.optimizer.pure_from_args(rop.INT_SUB, [op, arg0], arg1)
-        if isinstance(arg0, ConstInt):
-            # invert the constant
-            i0 = arg0.getint()
-            if i0 == -sys.maxint - 1:
-                return
-            inv_arg0 = ConstInt(-i0)
-        elif isinstance(arg1, ConstInt):
-            # commutative
-            i0 = arg1.getint()
-            if i0 == -sys.maxint - 1:
-                return
-            inv_arg0 = ConstInt(-i0)
-            arg1 = arg0
-        else:
-            return
-        self.optimizer.pure_from_args(rop.INT_SUB, [arg1, inv_arg0], op)
-        self.optimizer.pure_from_args(rop.INT_SUB, [arg1, op], inv_arg0)
-        self.optimizer.pure_from_args(rop.INT_ADD, [op, inv_arg0], arg1)
-        self.optimizer.pure_from_args(rop.INT_ADD, [inv_arg0, op], arg1)
-
-    def optimize_INT_MUL(self, op):
-        arg1 = get_box_replacement(op.getarg(0))
-        b1 = self.getintbound(arg1)
-        arg2 = get_box_replacement(op.getarg(1))
-        b2 = self.getintbound(arg2)
-
-        # If one side of the op is 1 the result is the other side.
-        if b1.known_eq_const(1):
-            self.make_equal_to(op, arg2)
-        elif b2.known_eq_const(1):
-            self.make_equal_to(op, arg1)
-        elif b1.known_eq_const(0) or b2.known_eq_const(0):
-            self.make_constant_int(op, 0)
-        else:
-            for lhs, rhs in [(arg1, arg2), (arg2, arg1)]:
-                lh_info = self.getintbound(lhs)
-                if lh_info.is_constant():
-                    x = lh_info.get_constant_int()
-                    # x & (x - 1) == 0 is a quick test for power of 2
-                    if x & (x - 1) == 0:
-                        new_rhs = ConstInt(highest_bit(lh_info.get_constant_int()))
-                        op = self.replace_op_with(op, rop.INT_LSHIFT, args=[rhs, new_rhs])
-                        break
-                    elif x == -1:
-                        op = self.replace_op_with(op, rop.INT_NEG, args=[rhs])
-                        break
-                else:
-                    shiftop = self.optimizer.as_operation(get_box_replacement(lhs))
-                    if shiftop is None or shiftop.opnum != rop.INT_LSHIFT:
-                        continue
-                    if not shiftop.getarg(0).is_constant() or shiftop.getarg(0).getint() != 1:
-                        continue
-                    shiftvar = get_box_replacement(shiftop.getarg(1))
-                    shiftbound = self.getintbound(shiftvar)
-                    if shiftbound.known_nonnegative() and shiftbound.known_lt_const(LONG_BIT):
-                        op = self.replace_op_with(
-                                op, rop.INT_LSHIFT, args=[rhs, shiftvar])
-                        break
-            return self.emit(op)
-
-    def postprocess_INT_MUL(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        arg1 = get_box_replacement(op.getarg(1))
-        self.optimizer.pure_from_args(rop.INT_MUL, [arg1, arg0], op)
-
     def _optimize_CALL_INT_UDIV(self, op):
         b2 = self.getintbound(op.getarg(2))
         if b2.is_constant() and b2.get_constant_int() == 1:
@@ -269,79 +99,6 @@ class OptRewrite(Optimization):
             self.last_emitted_operation = REMOVED
             return True
         return False
-
-    def optimize_INT_LSHIFT(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-
-        if b2.known_eq_const(0):
-            self.make_equal_to(op, op.getarg(0))
-        elif b1.known_eq_const(0):
-            self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
-
-    def optimize_INT_RSHIFT(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-
-        if b2.known_eq_const(0):
-            self.make_equal_to(op, op.getarg(0))
-        elif b1.known_eq_const(0):
-            self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
-
-    def optimize_UINT_RSHIFT(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-
-        if b2.known_eq_const(0):
-            self.make_equal_to(op, op.getarg(0))
-        elif b1.known_eq_const(0):
-            self.make_constant_int(op, 0)
-        else:
-            return self.emit(op)
-
-    def optimize_INT_XOR(self, op):
-        v1 = get_box_replacement(op.getarg(0))
-        v2 = get_box_replacement(op.getarg(1))
-        if v1 is v2:
-            self.make_constant_int(op, 0)
-            return
-        b1 = self.getintbound(v1)
-        b2 = self.getintbound(v2)
-
-        if b1.known_eq_const(0):
-            self.make_equal_to(op, v2)
-            return
-        elif b2.known_eq_const(0):
-            self.make_equal_to(op, v1)
-            return
-        if b1.known_eq_const(-1):
-            newop = ResOperation(rop.INT_INVERT, [v2])
-            self.optimizer.send_extra_operation(newop)
-            self.make_equal_to(op, newop)
-            return
-        elif b2.known_eq_const(-1):
-            newop = ResOperation(rop.INT_INVERT, [v1])
-            self.optimizer.send_extra_operation(newop)
-            self.make_equal_to(op, newop)
-            return
-        return self.emit(op)
-
-    def postprocess_INT_XOR(self, op):
-        arg0 = get_box_replacement(op.getarg(0))
-        arg1 = get_box_replacement(op.getarg(1))
-        self.optimizer.pure_from_args(rop.INT_XOR, [arg1, arg0], op)
-
-    def optimize_INT_INVERT(self, op):
-        v = get_box_replacement(op.getarg(0))
-        arg_op = self.optimizer.as_operation(v)
-        if arg_op is not None and arg_op.opnum == rop.INT_INVERT:
-            self.make_equal_to(op, arg_op.getarg(0))
-        else:
-            return self.emit(op)
 
     def optimize_FLOAT_MUL(self, op):
         arg1 = op.getarg(0)
@@ -389,16 +146,16 @@ class OptRewrite(Optimization):
 
     def optimize_FLOAT_NEG(self, op):
         v = get_box_replacement(op.getarg(0))
-        arg_op = self.optimizer.as_operation(v)
-        if arg_op is not None and arg_op.opnum == rop.FLOAT_NEG:
+        arg_op = self.optimizer.as_operation(v, rop.FLOAT_NEG)
+        if arg_op is not None:
             self.make_equal_to(op, arg_op.getarg(0))
         else:
             return self.emit(op)
 
     def optimize_FLOAT_ABS(self, op):
         v = get_box_replacement(op.getarg(0))
-        arg_op = self.optimizer.as_operation(v)
-        if arg_op is not None and arg_op.getopnum() == rop.FLOAT_ABS:
+        arg_op = self.optimizer.as_operation(v, rop.FLOAT_ABS)
+        if arg_op is not None:
             self.make_equal_to(op, v)
         else:
             return self.emit(op)
@@ -594,8 +351,8 @@ class OptRewrite(Optimization):
 
     def postprocess_GUARD_TRUE(self, op):
         box = get_box_replacement(op.getarg(0))
-        box1 = self.optimizer.as_operation(box)
-        if box1 is not None and box1.getopnum() == rop.INT_IS_TRUE:
+        box1 = self.optimizer.as_operation(box, rop.INT_IS_TRUE)
+        if box1 is not None:
             # we can't use the (current) range analysis for this because
             # "anything but 0" is not a valid range
             self.pure_from_args(rop.INT_IS_ZERO, [box1.getarg(0)], CONST_0)
@@ -606,8 +363,8 @@ class OptRewrite(Optimization):
 
     def postprocess_GUARD_FALSE(self, op):
         box = get_box_replacement(op.getarg(0))
-        box1 = self.optimizer.as_operation(box)
-        if box1 is not None and box1.getopnum() == rop.INT_IS_ZERO:
+        box1 = self.optimizer.as_operation(box, rop.INT_IS_ZERO)
+        if box1 is not None:
             # we can't use the (current) range analysis for this because
             # "anything but 0" is not a valid range
             self.pure_from_args(rop.INT_IS_TRUE, [box1.getarg(0)], CONST_1)
@@ -967,8 +724,8 @@ class OptRewrite(Optimization):
             self.last_emitted_operation = REMOVED
             return True
         if not b2.is_constant():
-            shiftop = self.optimizer.as_operation(get_box_replacement(arg2))
-            if (shiftop and shiftop.opnum == rop.INT_LSHIFT and
+            shiftop = self.optimizer.as_operation(get_box_replacement(arg2), rop.INT_LSHIFT)
+            if (shiftop and
                     shiftop.getarg(0).is_constant() and
                     shiftop.getarg(0).getint() == 1):
                 # x // (1 << y) == 1 >> y

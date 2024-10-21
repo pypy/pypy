@@ -1,3 +1,50 @@
+"""
+This file contains an abstract domain IntBound for word-sized integers. This is
+used to perform abstract interpretation on traces, specifically the integer
+operations on them.
+
+The abstract domain tracks a (signed) upper and lower bound (both ends
+inclusive) for every integer variable in the trace. It also tracks which bits
+of a range are known 0 or known 1 (the remaining bits are unknown. The ranges
+and the known bits feed back into each other, ie we can improve the range if
+some upper bits have known values, and we can learn some known bits from the
+range too. Every instance of IntBound represents a set of concrete integers.
+
+We do the analysis at the same time as optimization. We initialize all integer
+variables to have an unknown range, with no known bits. Then we proceed along
+the trace and improve the ranges. We can shrink ranges if we see integer
+comparisons followed by guards. We can learn some bits of an integer if there
+are bit-operations such as `and` (masking out some bits), followed by a guard.
+
+For every operation in the trace we use a "transfer function" that computes an
+IntBound instance for the result of that operation, given the IntBounds of the
+arguments. Those functions are called `..._bound`, eg `add_bound`, `and_bound`,
+`neg_bound`, etc. Applying the transfer functions while we encounter them along
+the trace is forwards reasoning.
+
+We can also reason backwards (but we only do that in a limited way). Here's an
+example:
+
+i1 = int_add(i0, 1)
+i2 = int_lt(i1, 100)
+guard_true(i2)
+
+At the last guard we learn that i1 < 100 must be true, and from that we can
+conclude that i0 < 99 in the rest of the trace (this is not quite true due to
+possible overflow of the int_add).
+
+More generally, when we shrink (ie make more precise) an IntBound instance due
+to a guard, we can often conclude something about earlier variables in the
+trace. To reason backwards we look at the operation that created a variable and
+then compute the implications.
+
+The reason for having both a range and known bits are that each of them is good
+for different situations. Range knownledge is useful for comparisons and
+"linear" operations like additions, subtractions, multiplications, etc.
+Knowledge about certain bits is good for bit twiddling code, bitfields, stuff
+like that.
+"""
+
 import sys
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, maxint, is_valid_int, r_uint, intmask
 from rpython.rlib.objectmodel import we_are_translated, always_inline
@@ -209,7 +256,7 @@ class IntBound(AbstractInfo):
     def __repr__(self):
         if self.is_unbounded():
             return "IntBound.unbounded()"
-        if self.lower == 0 and self.upper == MAXINT and self._are_bounds_implied():
+        if self.lower == 0 and self.upper == MAXINT and self._are_knownbits_implied():
             return "IntBound.nonnegative()"
         if self.is_constant():
             return "IntBound.from_constant(%s)" % self._to_dec_or_hex_str_heuristics(self.get_constant_int())
@@ -765,8 +812,7 @@ class IntBound(AbstractInfo):
         """
         Mutates `self` so that it contains integers that are contained in
         `self` and the range [`lower`, `upper`], and only those. Basically
-        intersection of sets. Does only affect the bounds, so if possible the
-        use of the `intersect` function is recommended instead.
+        intersection of sets.
         """
         changed = False
         if lower > self.lower:
@@ -784,7 +830,7 @@ class IntBound(AbstractInfo):
         return changed
 
     def add(self, value):
-        return self.add_bound(IntBound.from_constant(value))
+        return self.add_bound(self.from_constant(value))
 
     def add_bound(self, other):
         """
@@ -1061,12 +1107,17 @@ class IntBound(AbstractInfo):
                 # no sign to extend, we get constant 0
                 tvalue, tmask = TNUM_KNOWN_ZERO
             elif c_other >= 0:
-                tvalue = self.tvalue >> r_uint(c_other)
-                tmask = self.tmask >> r_uint(c_other)
+                tvalue, tmask = self._tnum_urshift(c_other)
             # else: bits are unknown because arguments invalid
 
         # we don't do bounds on unsigned
         return IntBound.from_knownbits(tvalue, tmask)
+
+    @always_inline
+    def _tnum_urshift(self, c_other):
+        tvalue = self._urshift(self.tvalue, c_other)
+        tmask = self._urshift(self.tmask, c_other)
+        return tvalue, tmask
 
     def and_bound(self, other):
         """
@@ -1076,7 +1127,7 @@ class IntBound(AbstractInfo):
 
         pos1 = self.known_nonnegative()
         pos2 = other.known_nonnegative()
-        # the next three if-conditions are proven by test_prove_and_bounds_logic
+        # the next three if-conditions are proven by test_prove_and_bound_logic
         lower = MININT
         upper = MAXINT
         if pos1 or pos2:
@@ -1214,8 +1265,7 @@ class IntBound(AbstractInfo):
 
     def is_bool(self):
         """
-        Returns `True` iff the properties of this abstract integer allow it to
-        represent a conventional boolean value.
+        Returns `True` iff self is exactly the set {0, 1}
         """
         return (self.known_nonnegative() and self.known_le_const(1))
 
@@ -1230,7 +1280,7 @@ class IntBound(AbstractInfo):
         boolean value.
         (Mutates `self`.)
         """
-        self.intersect(IntBound(0, 1))
+        self.intersect_const(0, 1)
 
     def getconst(self):
         """
@@ -1285,7 +1335,7 @@ class IntBound(AbstractInfo):
                   self
             0   1   ?
          0  ?   0   ?
-         1  X   1   ?
+         1  X   1   1
          ?  ?   ?   ?   <- other
         result
 
@@ -1303,11 +1353,10 @@ class IntBound(AbstractInfo):
 
     @always_inline
     def _tnum_and_backwards(self, result):
-        # we learn something about other only in the places where self.tvalue
-        # is 1 and where result is known
-        tmask = (~self.tvalue) | result.tmask
-        # in those places, copy the value from result.tvalue
-        tvalue = self.tvalue & result.tvalue
+        # in all the places where the result is 1 both arguments have to 1. in
+        # the places where result is 0, other has to be 0 iff self is known 1.
+        tvalue = result.tvalue
+        tmask = ((~self.tvalue) | result.tmask) & ~tvalue
         # if we have a place where result is 1 but self is 0, then we are
         # inconsistent
         inconsistent = result.tvalue & ~self.tmask & ~self.tvalue
@@ -1330,7 +1379,7 @@ class IntBound(AbstractInfo):
         backwards | (this one):
                   self
             0   1   ?
-         0  0   X   ?
+         0  0   X   0
          1  1   ?   ?
          ?  ?   ?   ?   <- other (where X=invalid)
         result
@@ -1343,14 +1392,15 @@ class IntBound(AbstractInfo):
 
     @always_inline
     def _tnum_or_backwards(self, result):
-        # we learn something about other only in the places where self
-        # is 0 and where result is known
-        tmask = self.tvalue | self.tmask | result.tmask
-        # in those places, copy the value from result
-        tvalue = result.tvalue & ~tmask
+        # in all the places where the result is 0 both arguments have to be 0.
+        zeros = (~result.tmask & ~result.tvalue)
+        # apart from that, in the places where self is 0 and where result is 1
+        # other must be 1
+        tvalue = (result.tvalue & ~self.tvalue & ~self.tmask)
+        tmask = ~(zeros | tvalue)
         # if we have a place where result is 0 but self is 1, then we are
         # inconsistent
-        inconsistent = self.tvalue & ~result.tmask & ~result.tvalue
+        inconsistent = self.tvalue & zeros
         return tvalue, tmask, inconsistent == 0
 
     def rshift_bound_backwards(self, other):

@@ -6317,7 +6317,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         [p1]
         guard_nonnull(p1) []
         i1 = strlen(p1)
-        i0 = int_eq(i1, 0)
+        i0 = int_is_zero(i1)
         escape_n(i0)
         jump(p1, i0)
         """

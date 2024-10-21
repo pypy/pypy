@@ -438,6 +438,13 @@ class Z3IntBound(IntBound):
         return res
 
     @staticmethod
+    def from_constant(const):
+        if isinstance(const, int):
+            const = BitVecVal(const)
+        res = Z3IntBound(const, const, const, 0)
+        return res
+
+    @staticmethod
     def intmask(x):
         # casts from unsigned to signed don't actually matter to Z3
         return x
@@ -468,6 +475,103 @@ class Z3IntBound(IntBound):
         return "<Z3IntBound lower=%s, upper=%s, tvalue=%s, tmask=%s%s>" % (
             self.lower, self.upper, self.tvalue, self.tmask, more)
     __str__ = __repr__
+
+    # ____________________________________________________________
+    # reimplementations of methods with control flow that Z3 doesn't support
+
+    def add_bound(self, other):
+        lower, no_ovf_lower = z3_add_overflow(self.lower, other.lower)
+        upper, no_ovf_upper = z3_add_overflow(self.upper, other.upper)
+        result_lower = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                             lower, MININT)
+        result_upper = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                             upper, MAXINT)
+        tvalue, tmask = self._tnum_add(other)
+        return Z3IntBound(result_lower, result_upper, tvalue, tmask)
+
+    def sub_bound(self, other):
+        result = self.concrete_variable - other.concrete_variable
+        lower, no_ovf_lower = z3_sub_overflow(self.lower, other.upper)
+        upper, no_ovf_upper = z3_sub_overflow(self.upper, other.lower)
+        result_lower = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                             lower, MININT)
+        result_upper = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
+                             upper, MAXINT)
+        tvalue, tmask = self._tnum_sub(other)
+        return Z3IntBound(result_lower, result_upper, tvalue, tmask)
+
+    def add_bound_cannot_overflow(self, other):
+        lower, no_ovf_lower = z3_add_overflow(self.lower, other.lower)
+        upper, no_ovf_upper = z3_add_overflow(self.upper, other.upper)
+        return z3.And(no_ovf_lower, no_ovf_upper)
+
+    def sub_bound_cannot_overflow(self, other):
+        lower, no_ovf_lower = z3_sub_overflow(self.lower, other.upper)
+        upper, no_ovf_upper = z3_sub_overflow(self.upper, other.lower)
+        return z3.And(no_ovf_lower, no_ovf_upper)
+
+    def and_bound(self, other):
+        pos1 = self.known_nonnegative()
+        pos2 = other.known_nonnegative()
+        # the next three if-conditions are proven by test_prove_and_bound_logic
+        lower = z3.If(z3.Or(pos1, pos2), z3.BitVecVal(0, LONG_BIT), MININT)
+        upper = z3.If(
+            pos1,
+            z3.If(
+                pos2,
+                z3_min(self.upper, other.upper),
+                self.upper),
+            z3.If(
+                pos2,
+                other.upper,
+                MAXINT))
+        res_tvalue, res_tmask = self._tnum_and(other)
+        return self.new(lower, upper, res_tvalue, res_tmask)
+
+    def lshift_bound_cannot_overflow(self, other):
+        _, no_ovf1 = z3_lshift_overflow(self.lower, other.lower)
+        _, no_ovf2 = z3_lshift_overflow(self.lower, other.upper)
+        _, no_ovf3 = z3_lshift_overflow(self.upper, other.lower)
+        _, no_ovf4 = z3_lshift_overflow(self.upper, other.upper)
+        return z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4)
+
+    def rshift_bound(self, other):
+        result = self.concrete_variable >> other.concrete_variable
+        result1 = self.lower >> other.lower
+        result2 = self.lower >> other.upper
+        result3 = self.upper >> other.lower
+        result4 = self.upper >> other.upper
+        min1 = z3_min(result1, result2, result3, result4)
+        max1 = z3_max(result1, result2, result3, result4)
+        cond = z3.And(other.lower >= 0, other.upper < LONG_BIT)
+        min1 = z3.If(cond, min1, MININT)
+        max1 = z3.If(cond, max1, MAXINT)
+        tvalue, tmask = self._tnum_rshift(other.lower)
+        cond2 = z3.And(other.is_constant(), cond)
+        tvalue = z3.If(cond2,
+                       tvalue, 0)
+        tmask = z3.If(cond2,
+                      tmask, -1)
+        return Z3IntBound(min1, max1, tvalue, tmask)
+
+    def urshift_bound(self, other):
+        tvalue_if_const, tmask_if_const = self._tnum_urshift(other.lower)
+        tvalue = z3.If(other.is_constant(), tvalue_if_const, 0)
+        tmask = z3.If(other.is_constant(), tmask_if_const, -1)
+        return Z3IntBound.from_knownbits(tvalue, tmask)
+
+    def is_constant(self):
+        return z3.And(self.lower == self.upper, self.tmask == 0)
+
+    def is_bool(self):
+        return z3.And(0 <= self.lower, self.upper <= 1)
+
+    def known_eq_const(self, value):
+        return z3.If(self.is_constant(), self.lower == value, False)
+
+    def get_constant_int(self):
+        return z3.If(self.is_constant(), self.lower, 0xdeadbeef)
+    # ____________________________________________________________
 
     def z3_formula(self, variable=None, must_be_minimal=False):
         """ return the Z3 condition that:
@@ -639,24 +743,15 @@ def test_prove_and():
         z3_tnum_condition(b1.concrete_variable & b2.concrete_variable, tvalue, tmask),
     )
 
-def test_prove_and_bounds_logic():
+def test_prove_and_bound_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     res = b1.concrete_variable & b2.concrete_variable
+    b3 = b1.and_bound(b2)
+    b3.concrete_variable = res
     b1.prove_implies(
         b2,
-        z3.Or(b1.known_nonnegative(), b2.known_nonnegative()),
-        res >= 0
-    )
-    b1.prove_implies(
-        b2,
-        b1.known_nonnegative(),
-        res <= b1.upper,
-    )
-    b1.prove_implies(
-        b2,
-        b2.known_nonnegative(),
-        res <= b2.upper,
+        b3
     )
 
 def test_prove_add_knownbits():
@@ -669,32 +764,24 @@ def test_prove_add_knownbits():
         z3_tnum_condition(result, res_tvalue, res_tmask),
     )
 
-def test_prove_add_bounds_logic():
+def test_prove_add_bound_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result = b1.concrete_variable + b2.concrete_variable
-    lower, no_ovf_lower = z3_add_overflow(b1.lower, b2.lower)
-    upper, no_ovf_upper = z3_add_overflow(b1.upper, b2.upper)
-    result_lower = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
-                         lower, MININT)
-    result_upper = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
-                         upper, MAXINT)
-    tvalue, tmask = b1._tnum_add(b2)
-    b3 = Z3IntBound(result_lower, result_upper, tvalue, tmask, result)
+    b3 = b1.add_bound(b2)
+    b3.concrete_variable = result
     b1.prove_implies(
         b2,
         b3
     )
 
-def test_prove_add_bounds_cannot_overflow_logic():
+def test_prove_add_bound_cannot_overflow_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result, no_ovf_result = z3_add_overflow(b1.concrete_variable, b2.concrete_variable)
-    lower, no_ovf_lower = z3_add_overflow(b1.lower, b2.lower)
-    upper, no_ovf_upper = z3_add_overflow(b1.upper, b2.upper)
     b1.prove_implies(
         b2,
-        z3.And(no_ovf_lower, no_ovf_upper),
+        b1.add_bound_cannot_overflow(b2),
         no_ovf_result,
     )
 
@@ -703,21 +790,19 @@ def test_prove_add_bound_no_overflow():
     b2 = make_z3_intbounds_instance('other')
     result, no_ovf = z3_add_overflow(b1.concrete_variable, b2.concrete_variable)
     b3 = b1.add_bound_no_overflow(b2)
+    b3.concrete_variable = result
     b1.prove_implies(
         b2,
         no_ovf,
-        b3.z3_formula(result)
+        b3
     )
 
 def test_prove_neg_logic():
     b1 = make_z3_intbounds_instance('self')
     one = Z3IntBound(BitVecVal(1), BitVecVal(1), BitVecVal(1), BitVecVal(0))
-    b2 = b1.invert_bound()
-    tvalue, tmask = b2._tnum_add(one) # constant 1
-    result = -b1.concrete_variable
-    b1.prove_implies(
-        z3_tnum_condition(result, tvalue, tmask)
-    )
+    b2 = b1.neg_bound()
+    b2.concrete_variable = -b1.concrete_variable
+    b1.prove_implies(b2)
 
 def test_prove_sub_knownbits():
     b1 = make_z3_intbounds_instance('self')
@@ -732,15 +817,8 @@ def test_prove_sub_knownbits():
 def test_prove_sub_bound_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
-    result = b1.concrete_variable - b2.concrete_variable
-    lower, no_ovf_lower = z3_sub_overflow(b1.lower, b2.upper)
-    upper, no_ovf_upper = z3_sub_overflow(b1.upper, b2.lower)
-    result_lower = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
-                         lower, MININT)
-    result_upper = z3.If(z3.And(no_ovf_lower, no_ovf_upper),
-                         upper, MAXINT)
-    tvalue, tmask = b1._tnum_sub(b2)
-    b3 = Z3IntBound(result_lower, result_upper, tvalue, tmask, result)
+    b3 = b1.sub_bound(b2)
+    b3.concrete_variable = b1.concrete_variable - b2.concrete_variable
     b1.prove_implies(
         b2,
         b3
@@ -750,11 +828,9 @@ def test_prove_sub_bound_cannot_overflow_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
     result, no_ovf_result = z3_sub_overflow(b1.concrete_variable, b2.concrete_variable)
-    lower, no_ovf_lower = z3_sub_overflow(b1.lower, b2.upper)
-    upper, no_ovf_upper = z3_sub_overflow(b1.upper, b2.lower)
     b1.prove_implies(
         b2,
-        z3.And(no_ovf_lower, no_ovf_upper),
+        b1.sub_bound_cannot_overflow(b2),
         no_ovf_result,
     )
 
@@ -845,6 +921,15 @@ def test_prove_known_unsigned_lt_from_signed_lt_logic():
         b1.lower < 0,
         b2.lower < b2.lower,
         z3.ULT(b1.concrete_variable, b2.concrete_variable),
+    )
+
+
+def test_prove_known_eq_const_logic():
+    b1 = make_z3_intbounds_instance('self')
+    x = BitVec('x')
+    b1.prove_implies(
+        b1.known_eq_const(x),
+        b1.concrete_variable == x
     )
 
 def test_prove_uint_less_nonnegative_implies_nonnegative():
@@ -1164,18 +1249,15 @@ def test_prove_lshift_knownbits():
 def test_prove_lshift_bound_cannot_overflow_logic():
     b1 = make_z3_intbounds_instance('self')
     b2 = make_z3_intbounds_instance('other')
+    res = b1.lshift_bound_cannot_overflow(b2)
     result, no_ovf = z3_lshift_overflow(b1.concrete_variable, b2.concrete_variable)
-    _, no_ovf1 = z3_lshift_overflow(b1.lower, b2.lower)
-    _, no_ovf2 = z3_lshift_overflow(b1.lower, b2.upper)
-    _, no_ovf3 = z3_lshift_overflow(b1.upper, b2.lower)
-    _, no_ovf4 = z3_lshift_overflow(b1.upper, b2.upper)
     b1.prove_implies(
         b2,
-        z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4),
+        res,
         no_ovf
     )
 
-def test_prove_rshift_knownbits_logic():
+def test_prove_rshift_knownbits():
     b1 = make_z3_intbounds_instance('self')
     c = BitVec('const')
     result = b1.concrete_variable >> c
@@ -1203,15 +1285,38 @@ def test_prove_rshift_bound_logic():
         result <= max1,
     )
 
-def test_prove_urshift_knownbits_logic():
+@z3_with_reduced_bitwidth(32)
+def test_2_prove_rshift_bound_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    b3 = b1.rshift_bound(b2)
+    b3.concrete_variable = result = b1.concrete_variable >> b2.concrete_variable
+    b1.prove_implies(
+        b2,
+        b2.lower >= 0,
+        b2.upper < LONG_BIT,
+        b3,
+    )
+
+def test_prove_urshift_knownbits():
     b1 = make_z3_intbounds_instance('self')
     c = BitVec('const')
     result = z3.LShR(b1.concrete_variable, c)
-    tvalue = z3.LShR(b1.tvalue, c)
-    tmask = z3.LShR(b1.tmask, c)
+    tvalue, tmask = b1._tnum_urshift(c)
     b1.prove_implies(
         c >= 0,
         z3_tnum_condition(result, tvalue, tmask),
+    )
+
+def test_prove_urshift_knownbits_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result = z3.LShR(b1.concrete_variable, b2.concrete_variable)
+    b3 = b1.urshift_bound(b2)
+    b3.concrete_variable = result
+    b1.prove_implies(
+        b2,
+        b3,
     )
 
 def test_prove_lshift_bound_backwards_logic():
@@ -1265,6 +1370,22 @@ def test_prove_mul_bound_logic():
         z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4),
         z3.And(min1 <= result, result <= max1, no_ovf),
     )
+
+@z3_with_reduced_bitwidth(8)
+def test_prove_mul_bound_cannot_overflow_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result, no_ovf_result = z3_mul_overflow(b1.concrete_variable, b2.concrete_variable)
+    result1, no_ovf1 = z3_mul_overflow(b1.lower, b2.lower)
+    result2, no_ovf2 = z3_mul_overflow(b1.lower, b2.upper)
+    result3, no_ovf3 = z3_mul_overflow(b1.upper, b2.lower)
+    result4, no_ovf4 = z3_mul_overflow(b1.upper, b2.upper)
+    b1.prove_implies(
+        b2,
+        z3.And(no_ovf1, no_ovf2, no_ovf3, no_ovf4),
+        no_ovf_result,
+    )
+
 
 def z3_pymod_nonzero(x, y):
     r = x % y

@@ -1075,6 +1075,8 @@ class WarmRunnerDesc(object):
 
     def add_finish(self):
         def finish():
+            from rpython.jit.metainterp.optimizeopt.intbounds import print_rewrite_rule_statistics
+            print_rewrite_rule_statistics()
             if self.metainterp_sd.profiler.initialized:
                 self.metainterp_sd.profiler.finish()
             self.metainterp_sd.cpu.finish_once()
