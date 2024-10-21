@@ -90,6 +90,8 @@ def pytest_ignore_collect(path, config):
     if path == config.rootdir.join('pypy', 'module', '_hpy_universal', 'test',
                                    '_vendored', 'test_support.py'):
         return True
+    if "/trace/" in str(path) or r'\trace\t' in str(path):
+        return True
 
 
 def pytest_collect_file(path, parent):
