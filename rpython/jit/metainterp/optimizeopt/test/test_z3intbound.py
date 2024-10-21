@@ -554,6 +554,12 @@ class Z3IntBound(IntBound):
                       tmask, -1)
         return Z3IntBound(min1, max1, tvalue, tmask)
 
+    def urshift_bound(self, other):
+        tvalue_if_const, tmask_if_const = self._tnum_urshift(other.lower)
+        tvalue = z3.If(other.is_constant(), tvalue_if_const, 0)
+        tmask = z3.If(other.is_constant(), tmask_if_const, -1)
+        return Z3IntBound.from_knownbits(tvalue, tmask)
+
     def is_constant(self):
         return z3.And(self.lower == self.upper, self.tmask == 0)
 
@@ -1300,6 +1306,17 @@ def test_prove_urshift_knownbits():
     b1.prove_implies(
         c >= 0,
         z3_tnum_condition(result, tvalue, tmask),
+    )
+
+def test_prove_urshift_knownbits_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    result = z3.LShR(b1.concrete_variable, b2.concrete_variable)
+    b3 = b1.urshift_bound(b2)
+    b3.concrete_variable = result
+    b1.prove_implies(
+        b2,
+        b3,
     )
 
 def test_prove_lshift_bound_backwards_logic():

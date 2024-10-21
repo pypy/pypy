@@ -200,7 +200,6 @@ urshift_x_zero: uint_rshift(x, 0)
     => x
 
 urshift_known_result: uint_rshift(a, b)
-    SORRY_Z3
     bound = a.urshift_bound(b)
     check bound.is_constant()
     C = bound.get_constant_int()

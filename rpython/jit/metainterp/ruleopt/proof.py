@@ -40,13 +40,15 @@ class CouldNotProve(ProofProblem):
         res.append("counterexample given by Z3:")
         res.append("counterexample values:")
         for name, bound in prover.name_to_intbound.iteritems():
-            realbound = IntBound(model.evaluate(bound.lower).as_signed_long(),
-                                  model.evaluate(bound.upper).as_signed_long(),
-                                  r_uint(model.evaluate(bound.tmask).as_signed_long()),
-                                  r_uint(model.evaluate(bound.tvalue).as_signed_long()),)
-            details.append("bounds for %s: %s" % (name, bound))
-
-
+            try:
+                realbound = IntBound(model.evaluate(bound.lower).as_signed_long(),
+                                      model.evaluate(bound.upper).as_signed_long(),
+                                      r_uint(model.evaluate(bound.tmask).as_signed_long()),
+                                      r_uint(model.evaluate(bound.tvalue).as_signed_long()),)
+            except AttributeError:
+                pass
+            else:
+                details.append("bounds for %s: %s" % (name, bound))
             res.append("%s: %s" % (name, model[prover.name_to_z3[name]].as_signed_long()))
         res.append("operation %s with Z3 formula %s" % (rule.pattern, self.lhs))
         res.append("has counterexample result vale: %s" % (model.evaluate(self.lhs).as_signed_long(), ))
@@ -401,7 +403,6 @@ class Prover(parse.Visitor):
         condition = z3_implies(z3_and(*implies_left), z3_and(*implies_right))
         print(condition)
         if not self.prove(condition):
-            import pdb;pdb.set_trace()
             raise CouldNotProve(rule, condition, model, lhs, rhs, self)
         t2 = time.time()
         print("took %s seconds" % (t2 - t1))
