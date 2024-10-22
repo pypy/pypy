@@ -413,5 +413,6 @@ class AppTestTypeDef:
         class X:
             "hi there"
         assert X.__doc__ == 'hi there'
-        exc = raises(AttributeError, 'del X.__doc__')
-        assert "can't delete X.__doc__" in str(exc.value)
+        with raises(AttributeError) as exc:
+            del X.__doc__
+        assert "cannot delete '__doc__' attribute" in str(exc.value), str(exc.value)
