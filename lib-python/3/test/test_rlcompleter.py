@@ -53,7 +53,13 @@ class TestRlcompleter(unittest.TestCase):
                          ['str.{}('.format(x) for x in dir(str)
                           if x.startswith('s')])
         self.assertEqual(self.stdcompleter.attr_matches('tuple.foospamegg'), [])
-        expected = sorted({'None.%s%s' % (x, '(' if x != '__doc__' else '')
+        # PyPy changes: CPython 3.10 has ( for everything exept __doc__
+        expected = sorted({'None.%s%s' % (x,
+                                          '()' if x in (
+            '__bool__', '__class__', '__dir__', '__hash__', '__init_subclass__',
+            '__reduce__', '__repr__', '__str__')
+                                          else '' if x == '__doc__'
+                                          else '(')
                            for x in dir(None)})
         self.assertEqual(self.stdcompleter.attr_matches('None.'), expected)
         self.assertEqual(self.stdcompleter.attr_matches('None._'), expected)
