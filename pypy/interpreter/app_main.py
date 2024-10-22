@@ -400,9 +400,9 @@ def initstdio(encoding=None, unbuffered=False):
         if _WIN32 and not encoding:
             encoding = "utf-8"
         if not (encoding or errors):
-            # stdin/out default to surrogateescape in C locale
+            # stdin/out default to strict in C locale
             if _locale.setlocale(_locale.LC_CTYPE, None) == 'C':
-                errors = 'surrogateescape'
+                errors = 'strict'
 
         sys.stderr = sys.__stderr__ = create_stdio(
             2, True, "<stderr>", encoding, 'backslashreplace', unbuffered)
@@ -783,7 +783,7 @@ def run_command_line(interactive,
     readenv = not ignore_environment
     io_encoding = getenv("PYTHONIOENCODING") if readenv else None
     if (not io_encoding or io_encoding == ":") and utf8_mode:
-        io_encoding = "utf-8:surrogateescape"
+        io_encoding = "utf-8"
     initstdio(io_encoding, unbuffered)
 
     if 'faulthandler' in sys.builtin_module_names:
