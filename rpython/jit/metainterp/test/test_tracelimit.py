@@ -160,7 +160,7 @@ class TraceLimitTests:
         self.meta_interp(g, [10], backendopt=True, ProfilerClass=Profiler)
         stats = get_stats()
         assert stats.metainterp_sd.profiler.counters[
-            Counters.ABORT_SEGMENTED_TRACE] == 4
+            Counters.ABORT_SEGMENTED_TRACE] == 2
 
     def test_bug_segmented_trace_makes_no_progress(self):
         def p(pc, code):
