@@ -34,7 +34,7 @@ Content
 - :doc:`Notes <pyjitpl5>` about the current work in PyPy
 
 - :doc:`Optimizer <optimizer>`: the step between tracing and writing
-  machine code, including the `Ruleopt <ruleopt>`, which is a DSL for
+  machine code, including the :doc:`Ruleopt <ruleopt>`, which is a DSL for
   specifying peephole optimization rules for integers.
 
 - :doc:`Virtualizable <virtualizable>`: how virtualizables work and what
