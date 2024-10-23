@@ -61,15 +61,15 @@ constant, without specifying which constant. Those patterns look like this::
         => int_sub(x, C)
 
 Variables in the pattern that start with a ``C`` match against constants only.
-However, in this current form the rule is incomplete, because ``C`` is not
-defined in the target operation. We will see how to compute it in the next
-section.
+However, in this current form the rule is incomplete, because the variable ``C``
+that is being used in the target operation is not defined anywhere. We will see
+how to compute it in the next section.
 
 Computing constants and other intermediate results
 ===================================================
 
 Sometimes it is necessary to compute intermediate results that are used in the
-target operation. To do that, there can extra assignments between the rule head
+target operation. To do that, there can be extra assignments between the rule head
 and the rule target.::
 
     sub_add_consts: int_sub(int_add(x, C1), C2) # incomplete
@@ -180,6 +180,27 @@ The output of that will look something like this::
         mul_pow2_const 1456
         mul_lshift 0
     ...
+
+Termination and Confluence
+=========================================
+
+Right now there are unfortunately no checks that the rules actually rewrite
+operations towards "simpler" forms. There is no cost model, and also nothing
+that prevents you from writing a rule like this::
+
+
+    neg_complication: int_neg(x) # leads to infinite rewrites
+        => int_mul(-1, x)
+
+Doing this would lead to endless rewrites if there is also another rule that
+turns multiplication with -1 into negation.
+
+There is also no checking for confluence__ (yet?), i.e. the property that all
+rewrites starting from the same input trace always lead to the same output
+trace, no matter in which order the rules are applied.
+
+.. __: https://en.wikipedia.org/wiki/Confluence_(abstract_rewriting)
+
 
 Proofs
 ===================================================
