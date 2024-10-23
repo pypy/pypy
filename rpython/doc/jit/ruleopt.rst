@@ -80,7 +80,7 @@ The right hand side of such an assignment is a subset of Python syntax,
 supporting arithmetic using ``+``, ``-``, ``*``, and certain helper functions.
 However, the syntax allows you to be explicit about unsignedness for some
 operations. E.g. ``>>u`` exists for unsigned right shifts (and I plan to add
-`>u``, ``>=u``, ``<u``, ``<=u`` for comparisons).
+``>u``, ``>=u``, ``<u``, ``<=u`` for comparisons).
 
 Checks
 ===================================================
