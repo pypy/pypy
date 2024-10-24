@@ -1,0 +1,293 @@
+add_reassoc_consts: int_add(int_add(x, C1), C2)
+    C = C1 + C2
+    => int_add(x, C)
+
+add_zero: int_add(x, 0)
+    => x
+
+#add_sub_consts: int_add(int_sub(x, C1), C2)
+#    C = C2 - C1
+#    => int_add(x, C)
+#
+#add_sub: int_add(int_sub(x, y), y)
+#    => x
+#
+#add_neg: int_add(int_neg(x), y)
+#    => int_sub(y, x)
+#
+
+sub_zero: int_sub(x, 0)
+    => x
+
+sub_from_zero: int_sub(0, x)
+    => int_neg(x)
+
+sub_x_x: int_sub(x, x)
+    => 0
+
+sub_add_consts: int_sub(int_add(x, C1), C2)
+    C = C2 - C1
+    => int_sub(x, C)
+
+sub_add: int_sub(int_add(x, y), y)
+    => x
+
+sub_sub_x_c_c: int_sub(int_sub(x, C1), C2)
+    C = C1 + C2
+    => int_sub(x, C)
+
+sub_sub_c_x_c: int_sub(int_sub(C1, x), C2)
+    C = C1 - C2
+    => int_sub(C, x)
+
+sub_xor_x_y_y: int_sub(int_xor(x, y), y)
+    # (x ^ y) - y == x if x & y == 0
+    # because `(x + y) = (x ^ y) + (x & y) * 2`
+    check x.and_bound(y).known_eq_const(0)
+    => x
+
+sub_or_x_y_y: int_sub(int_or(x, y), y)
+    # (x | y) - y == x if x & y == 0
+    # because `(x + y) = (x ^ y) + (x & y) * 2`
+    # and because (x | y) = (x ^ y) + (x & y)
+    check x.and_bound(y).known_eq_const(0)
+    => x
+
+#sub_neg: int_sub(x, int_neg(y))
+#    => int_add(x, y)
+
+
+mul_zero: int_mul(x, 0)
+    => 0
+
+mul_one: int_mul(x, 1)
+    => x
+
+mul_minus_one: int_mul(x, -1)
+    => int_neg(x)
+
+mul_pow2_const: int_mul(x, C)
+    check C > 0 and C & (C - 1) == 0
+    shift = highest_bit(C)
+    => int_lshift(x, shift)
+
+mul_lshift: int_mul(x, int_lshift(1, y))
+    check y.known_ge_const(0) and y.known_le_const(LONG_BIT)
+    => int_lshift(x, y)
+
+#mul_neg_neg: int_mul(int_neg(x), int_neg(y))
+#    => int_mul(x, y)
+
+
+and_zero: int_and(a, 0)
+    => 0
+
+and_x_x: int_and(a, a)
+    => a
+
+and_minus_1: int_and(x, -1)
+    => x
+
+and_reassoc_consts: int_and(int_and(x, C1), C2)
+    C = C1 & C2
+    => int_and(x, C)
+
+and_x_c_in_range: int_and(x, C)
+    check x.lower >= 0 and x.upper <= C & ~(C + 1)
+    => x
+
+and_x_y_covered_ones: int_and(x, y)
+    # int_and(x, y) == x if the 1s in y cover all 1s and all ?s in x
+    check ~y.tvalue & (x.tmask | x.tvalue) == 0
+    => x
+
+and_known_result: int_and(a, b)
+    bound = a.and_bound(b)
+    check bound.is_constant()
+    C = bound.get_constant_int()
+    => C
+
+and_absorb: int_and(a, int_and(a, b))
+    => int_and(a, b)
+
+
+or_minus_1: int_or(x, -1)
+    => -1
+
+or_zero: int_or(x, 0)
+    => x
+
+or_x_x: int_or(a, a)
+    => a
+
+or_known_result: int_or(a, b)
+    bound = a.or_bound(b)
+    check bound.is_constant()
+    C = bound.get_constant_int()
+    => C
+
+or_absorb: int_or(a, int_or(a, b))
+    => int_or(a, b)
+
+
+xor_x_x: int_xor(a, a)
+    => 0
+
+xor_absorb: int_xor(int_xor(a, b), b)
+    => a
+
+xor_zero: int_xor(a, 0)
+    => a
+
+xor_minus_1: int_xor(x, -1)
+    => int_invert(x)
+
+xor_known_result: int_xor(C1, C2)
+    C = C1 ^ C2
+    => C
+
+
+lshift_zero_x: int_lshift(0, x)
+    => 0
+
+lshift_x_zero: int_lshift(x, 0)
+    => x
+
+lshift_rshift_c_c: int_lshift(int_rshift(x, C1), C1)
+    check 0 <= C1 and C1 < LONG_BIT
+    C = -1 << C1
+    => int_and(x, C)
+
+lshift_urshift_c_c: int_lshift(uint_rshift(x, C1), C1)
+    check 0 <= C1 and C1 < LONG_BIT
+    C = -1 << C1
+    => int_and(x, C)
+
+lshift_and_urshift: int_lshift(int_and(uint_rshift(x, C1), C2), C1)
+    check 0 <= C1 and C1 < LONG_BIT
+    C = C2 << C1
+    => int_and(x, C)
+
+
+lshift_lshift_c_c: int_lshift(int_lshift(x, C1), C2)
+    check 0 <= C1 and C1 < LONG_BIT and 0 <= C2 and C2 < LONG_BIT
+    C = C1 + C2
+    check C < LONG_BIT
+    => int_lshift(x, C)
+
+
+rshift_zero_x: int_rshift(0, x)
+    => 0
+
+rshift_x_zero: int_rshift(x, 0)
+    => x
+
+rshift_known_result: int_rshift(a, b)
+    bound = a.rshift_bound(b)
+    check bound.is_constant()
+    C = bound.get_constant_int()
+    => C
+
+rshift_lshift: int_rshift(int_lshift(x, y), y)
+    check x.lshift_bound_cannot_overflow(y)
+    => x
+
+urshift_zero_x: uint_rshift(0, x)
+    => 0
+
+urshift_x_zero: uint_rshift(x, 0)
+    => x
+
+urshift_known_result: uint_rshift(a, b)
+    bound = a.urshift_bound(b)
+    check bound.is_constant()
+    C = bound.get_constant_int()
+    => C
+
+urshift_lshift_x_c_c: uint_rshift(int_lshift(x, C), C)
+    mask = (-1 << C) >>u C
+    => int_and(x, mask)
+
+
+eq_different_knownbits: int_eq(x, y)
+    SORRY_Z3
+    check x.known_ne(y)
+    => 0
+
+eq_same: int_eq(x, x)
+    => 1
+
+eq_one: int_eq(x, 1)
+    check x.is_bool()
+    => x
+
+eq_zero: int_eq(x, 0)
+    => int_is_zero(x)
+
+eq_sub_eq: int_eq(int_sub(x, int_eq(x, a)), a)
+    => 0
+
+#eq_add_const: int_eq(int_add(x, C1), C2)
+#    C = C2 - C1
+#    => int_eq(x, C)
+
+ne_different_knownbits: int_ne(x, y)
+    SORRY_Z3
+    check x.known_ne(y)
+    => 1
+
+ne_same: int_ne(x, x)
+    => 0
+
+ne_zero: int_ne(x, 0)
+    => int_is_true(x)
+
+#lt_self: int_lt(x, x)
+#    => 0
+
+
+is_true_bool: int_is_true(x)
+    check x.is_bool()
+    => x
+
+is_true_true: int_is_true(x)
+    check x.lower > 0 or x.upper < 0 or x.tvalue != 0
+    => 1
+
+is_true_and_minint: int_is_true(int_and(x, MININT))
+    => int_lt(x, 0)
+
+
+is_zero_true: int_is_zero(x)
+    check x.lower > 0 or x.upper < 0 or x.tvalue != 0
+    => 0
+
+#is_zero_negate_eq: int_is_zero(int_eq(x, y))
+#    => int_ne(x, y)
+
+#is_zero_negate_ne: int_is_zero(int_ne(x, y))
+#    => int_eq(x, y)
+
+#is_zero_is_true: int_is_zero(int_is_true(x))
+#    => int_is_zero(x)
+
+#is_zero_or: int_is_zero(int_or(x, y))
+#    # this is because x | y = x ^ y + x & y
+#    # and x ^ y == 0 <=> x == y
+#    check x.and_bound(y).known_eq_const(0)
+#    => int_eq(x, y)
+
+force_ge_zero_pos: int_force_ge_zero(x)
+    check x.known_nonnegative()
+    => x
+
+force_ge_zero_neg: int_force_ge_zero(x)
+    check x.known_lt_const(0)
+    => 0
+
+invert_invert: int_invert(int_invert(x))
+    => x
+
+neg_neg: int_neg(int_neg(x))
+    => x
+
