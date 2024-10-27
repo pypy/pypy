@@ -149,35 +149,32 @@ def test_del_exception():
     class A(object):
         def __del__(self):
             raise ValueError('foo bar')
-    prev = sys.stderr
+    unraisables = []
+    def ownhook(hookargs):
+        unraisables.append(hookargs)
+    oldhook = sys.unraisablehook
+    sys.unraisablehook = ownhook
     try:
-        sys.stderr = StringIO()
         A()
         gc.collect()
-        res = sys.stderr.getvalue()
-        sys.stderr = StringIO()
         A()
         gc.collect()
-        res2 = sys.stderr.getvalue()
         A.__del__ = lambda a, b, c: None  # will get "not enough arguments"
-        sys.stderr = StringIO()
         A()
         gc.collect()
-        res3 = sys.stderr.getvalue()
     finally:
-        sys.stderr = prev
+        sys.unraisablehook = oldhook
     def check_tb(x, traceback=True):
-        # print('----\n%s----\n' % (x,))
-        assert x.startswith('Exception ignored in: <function ')
         if traceback:
-            assert '>\nTraceback (most recent call last):\n  File "' in x
-            assert " in __del__\n" in x
-            assert x.endswith("\nValueError: foo bar\n")
+            assert x.exc_traceback.tb_frame.f_code.co_name == "__del__"
+            assert repr(x.exc_value) == "ValueError('foo bar')"
         else:
-            assert "TypeError: <lambda>() missing 2 required positional arguments: 'b' and 'c'"
-    check_tb(res)
-    check_tb(res2)
-    check_tb(res3, traceback=False)
+            assert x.exc_type is TypeError
+            assert "<lambda>() missing 2 required positional arguments: 'b' and 'c'" in str(x.exc_value)
+    assert len(unraisables) == 3
+    check_tb(unraisables[0])
+    check_tb(unraisables[1])
+    check_tb(unraisables[2], traceback=False)
 
 def test_instance_overrides_meth():
     class C(object):
