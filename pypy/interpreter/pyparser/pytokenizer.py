@@ -196,6 +196,7 @@ def generate_tokens(lines, flags):
     pos = 0
     lines.append("")
     strstart = (0, 0, "", False) # linenumber, offset, starting_line, is_triple_quoted
+    cont_line_col = 0
     for lines_index, line in enumerate(lines):
         lnum = lnum + 1
         line = universal_newline(line)
@@ -229,8 +230,8 @@ def generate_tokens(lines, flags):
 
         elif not parenstack and not continued:  # new statement
             if not line: break
-            column = 0
-            altcolumn = 0
+            column = cont_line_col
+            altcolumn = cont_line_col
             while pos < max:                   # measure leading whitespace
                 if line[pos] == ' ':
                     column = column + 1
@@ -248,10 +249,19 @@ def generate_tokens(lines, flags):
             if line[pos] in '\r\n':
                 # skip blank lines
                 continue
-            if line[pos] == '\\' and line[pos + 1] in '\r\n' and lines[lines_index + 1] != "":
-                # skip lines that are only a line continuation char, but only
-                # if there are further lines
-                continue
+            if line[pos] == '\\' and line[pos + 1] in '\r\n':
+                if lines[lines_index + 1] not in "\r\n":
+                    # continuation marker after spaces should increase the indentation level
+                    if pos != cont_line_col:
+                        indents.append(pos)
+                        altindents.append(pos)
+                        token_list.append(Token(tokens.INDENT, line[:pos], lnum, 0, line[:pos] + lines[lines_index + 1], lnum, pos, level=len(parenstack)))
+                        cont_line_col = pos
+                    continue
+                if lines[lines_index + 1] != "":
+                    # skip lines that are only a line continuation char
+                    # followed by an empty line (not last line)
+                    continue
             if line[pos] == '#':
                 # skip full-line comment, but still check that it is valid utf-8
                 if not verify_utf8(line):
