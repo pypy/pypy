@@ -4065,6 +4065,21 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_or_zeros_covered(self):
+        ops = """
+        [i0, i1]
+        i2 = int_or(i0, 1)
+        i3 = int_and(i1, 1)
+        i4 = int_or(i2, i3) 3 # ?...?1 | 0...0?
+        jump(i4)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_or(i0, 1)
+        i3 = int_and(i1, 1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
 
 
 class TestComplexIntOpts(BaseTestBasic):

@@ -436,7 +436,13 @@ class Codegen(parse.Visitor):
         return self.bindings[expr.name]
 
     def visit_Attribute(self, expr, prec=0):
-        return "%s.%s" % (self.intbound_bindings[expr.varname], expr.attrname)
+        attrname = expr.attrname
+        varname = self.intbound_bindings[expr.varname]
+        if expr.attrname == 'ones':
+            attrname = 'tvalue'
+        if expr.attrname == 'zeros':
+            return "intmask(~(%s.tvalue | %s.tmask))" % (varname, varname)
+        return "intmask(%s.%s)" % (varname, attrname)
 
     def visit_Number(self, expr, prec=0):
         return str(expr.value)

@@ -243,6 +243,10 @@ class Prover(parse.Visitor):
         attrname,
     ):
         b = self._convert_intbound(varname)
+        if attrname == 'ones':
+            return b.tvalue
+        if attrname == 'zeros':
+            return ~(b.tvalue | b.tmask)
         return getattr(b, attrname)
 
     def visit_PatternOp(self, pattern):
