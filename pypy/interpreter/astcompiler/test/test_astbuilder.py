@@ -861,11 +861,11 @@ class TestAstBuilding:
             ("'str'", "literal"),
             ("b'bytes'", "literal"),
             ("23", "literal"),
-            ("{}", "dict display"),
+            ("{}", "dict literal"),
             ("{1, 2, 3}", "set display"),
             ("(x > 4)", "comparison"),
             ("(x if y else a)", "conditional expression"),
-            ("...", "Ellipsis"),
+            ("...", "ellipsis"),
         )
         test_contexts = (
             ("assign to", "%s = 23"),
@@ -960,6 +960,8 @@ class TestAstBuilding:
             ("(a, *True, c) = (1, 2, 3)", "cannot assign to True"),
             ("for (x, *(y, z.d())) in b: pass", "cannot assign to function call", 14, 19),
             ("1 + 2 = 3", "cannot assign to expression", 1, 6),
+            ("while a.x = 3:", "cannot assign to attribute", 7, 10),
+            ("while a[0] = 3:", "cannot assign to subscript", 7, 11),
         ]
         for entry in invalid:
             wrong = entry[0]
