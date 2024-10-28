@@ -25,3 +25,9 @@ def test_min_repeat_one_with_backref():
     r = [MARK, 0, ANY, MARK, 1, MIN_REPEAT_ONE, 6, 0, MAXREPEAT,
          GROUPREF, 0, SUCCESS, LITERAL, 98, SUCCESS]
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "aaab").match_end == 4
+
+def test_possessive_repeat_one():
+    r = [POSSESSIVE_REPEAT_ONE, 6, 0, MAXREPEAT, LITERAL, ord('a'), SUCCESS, LITERAL, ord('b'), SUCCESS]
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "aaab").match_end == 4
+    r = [POSSESSIVE_REPEAT_ONE, 6, 0, MAXREPEAT, LITERAL, ord('a'), SUCCESS, LITERAL, ord('a'), SUCCESS]
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "aaaa") is None

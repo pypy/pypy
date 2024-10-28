@@ -956,7 +956,30 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             result = MinRepeatOneMatchResult(nextppos, ppos+3, max_count,
                                              ptr, marks)
             return result.find_first_result(ctx, pattern)
+        elif consts.eq(op, consts.OPCODE_POSSESSIVE_REPEAT_ONE):
+            # match repeated sequence (maximizing regexp) without
+            # backtracking
 
+            # this operator only works if the repeated item is
+            # exactly one character wide, and we're not already
+            # collecting backtracking points.  for other cases,
+            # use the MAX_REPEAT operator
+
+            # <POSSESSIVE_REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS>
+            # tail
+            import pdb;pdb.set_trace()
+            start = ptr
+
+            try:
+                minptr = ctx.next_n(start, pattern.pat(ppos+1), ctx.end)
+            except EndOfString:
+                return    # cannot match
+            ptr = find_repetition_end(ctx, pattern, ppos+3, start,
+                                      pattern.pat(ppos+2),
+                                      marks)
+            # when we arrive here, ptr points to the tail of the target
+            # string. match the rest of the pattern.
+            ppos += pattern.pat(ppos)
         else:
             raise Error("bad pattern code %d" % op)
 
