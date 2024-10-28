@@ -20,7 +20,8 @@ def get_deps_darwin(binary):
     for line in output:
         path = line.strip().split()[0]
         if (not path or
-                not path.startswith('/usr/local/') or
+                path.startswith('/usr/') or
+                path.startswith('/System/') or
                 basename(path) == basename(binary)):
             continue
         needed = basename(path)
