@@ -31,3 +31,9 @@ def test_possessive_repeat_one():
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "aaab").match_end == 4
     r = [POSSESSIVE_REPEAT_ONE, 6, 0, MAXREPEAT, LITERAL, ord('a'), SUCCESS, LITERAL, ord('a'), SUCCESS]
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "aaaa") is None
+
+def test_possessive_repeat():
+    r = [POSSESSIVE_REPEAT, 8, 0, MAXREPEAT, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS, LITERAL, ord('b'), LITERAL, ord('b'), SUCCESS]
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "abababababbb").match_end == 12
+    r = [POSSESSIVE_REPEAT, 8, 0, MAXREPEAT, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS]
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "abababababababab") is None
