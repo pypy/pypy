@@ -1240,6 +1240,7 @@ class ArgsTestCase(BaseTestCase):
         # --fail-env-changed must catch unraisable exception.
         # The exception must be displayed even if sys.stderr is redirected.
         code = textwrap.dedent(r"""
+            import gc
             import unittest
             import weakref
             from test.support import captured_stderr
@@ -1258,6 +1259,7 @@ class ArgsTestCase(BaseTestCase):
                         # call weakref_callback() which logs
                         # an unraisable exception
                         obj = None
+                        gc.collect()
                     self.assertEqual(stderr.getvalue(), '')
         """)
         testname = self.create_test(code=code)
