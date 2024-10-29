@@ -238,6 +238,8 @@ class Block(object):
                 pass
             elif target_lineno != instr_lineno and target_lineno != -1 and instr_lineno != -1:
                 continue # don't jump thread to not lose lines
+            if target_instr is instr:
+                continue # it's the same instruction (ie an infinite loop)
             # Optimize an unconditional jump going to another
             # unconditional jump.
             if opcode == ops.JUMP_ABSOLUTE or opcode == ops.JUMP_FORWARD:
