@@ -33,12 +33,25 @@ def test_possessive_repeat_one():
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "aaaa") is None
 
 def test_possessive_repeat():
-    r = [POSSESSIVE_REPEAT, 8, 0, MAXREPEAT, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS, LITERAL, ord('b'), LITERAL, ord('b'), SUCCESS]
+    r = [POSSESSIVE_REPEAT, 7, 0, MAXREPEAT, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS, LITERAL, ord('b'), LITERAL, ord('b'), SUCCESS]
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "abababababbb").match_end == 12
-    r = [POSSESSIVE_REPEAT, 8, 0, MAXREPEAT, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS]
+    r = [POSSESSIVE_REPEAT, 7, 0, MAXREPEAT, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS]
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "abababababababab") is None
 
 def test_atomic_group():
     r = [ATOMIC_GROUP, 11, LITERAL, ord('a'), REPEAT_ONE, 6, 0, 1, LITERAL, ord('b'), SUCCESS, SUCCESS, LITERAL, ord('b'), SUCCESS]
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "abb").match_end == 3
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "ab") is None
+
+def test_possessive_repeat_of_atomic_group():
+    # (?>x)++x
+    r = [POSSESSIVE_REPEAT, 8, 1, MAXREPEAT, ATOMIC_GROUP, 4, LITERAL, ord('x'), SUCCESS, SUCCESS, LITERAL, ord('x'), SUCCESS]
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "xxx") is None
+    # '(?>x++)x'
+    r = [ATOMIC_GROUP, 9, POSSESSIVE_REPEAT, 6, 1, MAXREPEAT, LITERAL, ord('x'), SUCCESS, SUCCESS, LITERAL, ord('x'), SUCCESS]
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "xxx") is None
+
+def test_possessive_repeat_mark():
+    # '(.)++.'
+    r = [POSSESSIVE_REPEAT, 8, 1, MAXREPEAT, MARK, 0, ANY, MARK, 1, SUCCESS, ANY, SUCCESS]
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "xxx") is None
