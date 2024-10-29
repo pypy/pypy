@@ -12,6 +12,7 @@ for name, value in rsre_constants.__dict__.items():
     if name.startswith('OPCODE_') and isinstance(value, int):
         globals()[name[7:]] = value
 
+ab_plus_plus_bb = [POSSESSIVE_REPEAT, 7, 0, MAXREPEAT, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS, LITERAL, ord('b'), LITERAL, ord('b'), SUCCESS]
 
 def test_repeat_one_with_backref():
     # Python 3.5 compiles "(.)\1*" using REPEAT_ONE instead of REPEAT:
@@ -33,7 +34,7 @@ def test_possessive_repeat_one():
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "aaaa") is None
 
 def test_possessive_repeat():
-    r = [POSSESSIVE_REPEAT, 7, 0, MAXREPEAT, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS, LITERAL, ord('b'), LITERAL, ord('b'), SUCCESS]
+    r = ab_plus_plus_bb
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "abababababbb").match_end == 12
     r = [POSSESSIVE_REPEAT, 7, 0, MAXREPEAT, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS, LITERAL, ord('a'), LITERAL, ord('b'), SUCCESS]
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "abababababababab") is None

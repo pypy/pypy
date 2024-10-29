@@ -608,17 +608,27 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
             ptr = ctx.match_end
             marks = ctx.match_marks
 
+install_jitdriver('MaxUntilPossessive',
+                  greens=['ppos', 'pattern'],
+                  reds=['ptr', 'matches_done', 'marks', 'ctx'],
+                  debugprint=(1, 0))
+
 @specializectx
-def find_repetition_end_possessive(ctx, pattern, ppos, ptr, minmatch, maxmatch, marks):
+def find_repetition_end_possessive(ctx, pattern, ppos, ptr, marks):
     matches_done = 0
     enum = None
     while True:
-        # xxx jitdriver
+        ctx.jitdriver_MaxUntilPossessive.jit_merge_point(
+            ppos=ppos,
+            ptr=ptr, marks=marks, ctx=ctx, matches_done=matches_done,
+            pattern=pattern)
+        maxmatch = pattern.pat(ppos+2)
         if maxmatch == rsre_char.MAXREPEAT or matches_done < maxmatch:
             # try to match one more 'item'
-            enum = sre_match(ctx, pattern, ppos, ptr, marks)
+            enum = sre_match(ctx, pattern, ppos + 3, ptr, marks)
         else:
             enum = None    # 'max' reached, no more matches
+        minmatch = pattern.pat(ppos+1)
         if enum is not None:
             matches_done += 1
             # matched one more 'item'.
@@ -1027,7 +1037,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             start = ptr
             ptr = find_repetition_end_possessive(
                     ctx, pattern,
-                    ppos+3, start, pattern.pat(ppos+1), pattern.pat(ppos+2),
+                    ppos, start,
                     marks)
             if ptr < 0:
                 return None
