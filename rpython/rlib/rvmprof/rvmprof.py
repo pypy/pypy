@@ -186,11 +186,17 @@ class VMProf(object):
         Undo the effect of stop_sampling
         """
         self.cintf.vmprof_start_sampling()
+    
+    def supports_native_profiling(self):
+        return cintf.NATIVE_PROFILING_SUPPORTED
 
     def vmprof_resolve_address(self, addr):
         """
         Resolve name, lineno and source file for an address of a native function
         """
+        if not self.supports_native_profiling():
+            return ("", -1, "-")
+
         with rffi.scoped_alloc_buffer(256) as namebuffer, \
                 rffi.scoped_alloc_buffer(256) as sourcefilebuffer, \
                 rffi.scoped_alloc_buffer(rffi.sizeof(rffi.INT_real)) as intbuffer:

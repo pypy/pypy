@@ -94,8 +94,9 @@ def start_sampling(space):
     rvmprof.start_sampling()
     return space.w_None
 
-@unwrap_spec(addr=int)
-def vmprof_resolve_address(space, addr):
-    """ resolve name, lineno and source file for an adress of a native function """
-    funcname, lineno, filename = rvmprof.vmprof_resolve_address(addr)
-    return space.newtuple([space.newtext(funcname), space.newint(lineno), space.newtext(filename)])
+if rvmprof.supports_native_profiling():
+    @unwrap_spec(addr=int)
+    def vmprof_resolve_address(space, addr):
+        """ resolve name, lineno and source file for an adress of a native function """
+        funcname, lineno, filename = rvmprof.vmprof_resolve_address(addr)
+        return space.newtuple([space.newtext(funcname), space.newint(lineno), space.newtext(filename)])

@@ -1,5 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib.rvmprof import VMProfPlatformUnsupported
+from rpython.rlib import rvmprof
 from rpython.translator.platform import CompilationError
 
 
@@ -17,10 +18,11 @@ class Module(MixedModule):
         'get_profile_path': 'interp_vmprof.get_profile_path',
         'stop_sampling': 'interp_vmprof.stop_sampling',
         'start_sampling': 'interp_vmprof.start_sampling',
-        'resolve_addr': 'interp_vmprof.vmprof_resolve_address',
 
         'VMProfError': 'space.fromcache(interp_vmprof.Cache).w_VMProfError',
     }
+    if rvmprof.supports_native_profiling():
+        interpleveldefs.update({'resolve_addr': 'interp_vmprof.vmprof_resolve_address'})
 
 
 # Force the __extend__ hacks and method replacements to occur
