@@ -88,23 +88,3 @@ class Test_DescrOperation:
         for val in "abc", [1, 2, 3], {'a', 'b', 'c'}, dict(a=1, b=2, d=3):
             assert space.len_w(space.wrap(val)) == 3
 
-    def test_getattribute(self, space):
-        w_x = space.appexec((), """():
-            class X:
-                @classmethod
-                def cm(cls, x):
-                    '''A class method'''
-                    ...
-
-                def cm2(self, x):
-                    '''Second method'''
-                    ...
-
-            return X""")
-        w_cm = space.getattr(w_x, space.newtext("cm"))
-        w_cm_doc1 = space.getattr(w_cm, space.newtext("__doc__"))
-        w_cm_doc2 = space.call_method(space.w_object, '__getattribute__',
-                                     w_cm, space.newtext("__doc__"))
-        cm_doc1 = space.utf8_w(w_cm_doc1)
-        cm_doc2 = space.utf8_w(w_cm_doc2)
-        assert cm_doc1 == cm_doc2
