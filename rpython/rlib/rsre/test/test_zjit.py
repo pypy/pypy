@@ -50,7 +50,10 @@ class TestJitRSre(support.LLJitMixin):
 
     def meta_interp_match(self, pattern, string, repeat=1):
         r = get_code(pattern)
-        return self.meta_interp(entrypoint1, [list2array(r.pattern), llstr(string),
+        return self.meta_interp_match_raw(r.pattern, string, repeat)
+
+    def meta_interp_match_raw(self, compiled_pattern, string, repeat=1):
+        return self.meta_interp(entrypoint1, [list2array(compiled_pattern), llstr(string),
                                               repeat],
                                 listcomp=True, backendopt=True)
 
@@ -117,6 +120,12 @@ class TestJitRSre(support.LLJitMixin):
         res = self.meta_interp_match(r"^(?:ab)*?c",
                                      "ababababababababababc")
         assert res == 21
+        self.check_trace_count(1)
+
+    def test_max_until_possessive(self):
+        from rpython.rlib.rsre.test.test_ext_opcode import ab_plus_plus_bb
+        res = self.meta_interp_match_raw(ab_plus_plus_bb,
+                                     "ababababababababababbb")
         self.check_trace_count(1)
 
     def test_example_1(self):
