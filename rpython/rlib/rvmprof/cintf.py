@@ -20,6 +20,7 @@ class VMProfPlatformUnsupported(Exception):
 
 # vmprof works only on x86 for now
 IS_SUPPORTED = False
+NATIVE_PROFILING_SUPPORTED = False
 if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('freebsd'):
     try:
         proc = detect_cpu.autodetect()

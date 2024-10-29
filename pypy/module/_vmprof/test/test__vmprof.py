@@ -157,4 +157,4 @@ class AppTestVMProf(object):
         
         result = _vmprof.resolve_addr(1)
 
-        assert result == ("", -1, "-")
+        assert result == ("", 0, "-")

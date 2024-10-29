@@ -204,7 +204,7 @@ class VMProf(object):
                     sourcefilebuffer.raw[0] = '-'
                     sourcefilebuffer.raw[1] = '\x00'
                     intbuffer = rffi.cast(rffi.INT_realP, intbuffer.raw)
-                    intbuffer[0] = rffi.cast(rffi.INT_real, -1)
+                    intbuffer[0] = rffi.cast(rffi.INT_real, 0)
                     length = rffi.cast(rffi.INT, 256)
                     res = self.cintf.vmprof_resolve_address(rffi.cast(rffi.VOIDP, addr), namebuffer.raw, length, intbuffer, sourcefilebuffer.raw, length)
         

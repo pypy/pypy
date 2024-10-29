@@ -27,4 +27,4 @@ class DummyVMProf(object):
         return -1
     
     def vmprof_resolve_address(addr):
-        return ("", -1, "-")
+        return ("", 0, "-")
