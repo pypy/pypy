@@ -298,6 +298,7 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert c.__iter__.__doc__ == "usable docstring"
         assert mod.C.__qualname__ == "C"
         assert c.__iter__.__qualname__ == "C.__iter__"
+        assert type(c.__iter__).__doc__.startswith('instancemethod(function, instance)')
 
     def test_module_name(self):
         # issue 3993

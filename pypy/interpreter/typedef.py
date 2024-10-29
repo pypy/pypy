@@ -93,6 +93,7 @@ class TypeDef(object):
                 if name in rawdict]
             assert not names
             return
+        self.rpy_cls = rpy_cls
         if 'micronumpy' in rpy_cls.__module__:
             return
         if '_descroperation_shortcuts_installed' in rpy_cls.__dict__:
@@ -810,9 +811,7 @@ Function.typedef.acceptable_as_base_class = False
 
 Method.typedef = TypeDef(
     "method",
-    __doc__ = """instancemethod(function, instance, class)
-
-Create an instance method object.""",
+    __doc__ = GetSetProperty(Method.descr_get_doc),
     __new__ = interp2app(Method.descr_method__new__.im_func),
     __call__ = interp2app(Method.descr_method_call),
     __get__ = interp2app(Method.descr_method_get),
@@ -827,6 +826,7 @@ Create an instance method object.""",
     __weakref__ = make_weakref_descr(Method),
     )
 Method.typedef.acceptable_as_base_class = False
+Method.typedef.doc = Method.__doc__
 
 StaticMethod.typedef = TypeDef("staticmethod",
     __doc__ = """staticmethod(function) -> static method

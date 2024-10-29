@@ -422,9 +422,7 @@ class CMethod(_Method):
 
 CMethod.typedef = TypeDef(
     "builtin method",
-    __doc__ = """instancemethod(function, instance, class)
-
-Create an instance method object.""",
+    __doc__ = GetSetProperty(CMethod.descr_get_doc),
     __new__ = interp2app(CMethod.descr_method__new__.im_func),
     __call__ = interp2app(CMethod.descr_method_call),
     __get__ = interp2app(CMethod.descr_method_get),
@@ -439,6 +437,9 @@ Create an instance method object.""",
     __weakref__ = make_weakref_descr(CMethod),
     )
 CMethod.typedef.acceptable_as_base_class = False
+CMethod.typedef.doc = """instancemethod(function, instance)
+
+Create an instance method object."""
 
 
 def cmethod_descr_get(space, w_function, w_obj, w_cls=None):
