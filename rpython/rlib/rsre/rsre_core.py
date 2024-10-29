@@ -58,7 +58,7 @@ class CompiledPattern(object):
         if not consts.V37:      # 'flags' is ignored in >=3.7 mode
             self.flags = flags
         # check we don't get the old value of MAXREPEAT
-        # during the untranslated tests. 
+        # during the untranslated tests.
         # On python3, MAXCODE can appear in patterns. It will be 65535
         # when CODESIZE is 2
         if not we_are_translated() and rsre_char.CODESIZE != 2:
@@ -597,6 +597,35 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
             ptr = ctx.match_end
             marks = ctx.match_marks
 
+@specializectx
+def find_repetition_end_possessive(ctx, pattern, ppos, ptr, minmatch, maxmatch, marks):
+    matches_done = 0
+    enum = None
+    while True:
+        # xxx jitdriver
+        if maxmatch == rsre_char.MAXREPEAT or matches_done < maxmatch:
+            # try to match one more 'item'
+            enum = sre_match(ctx, pattern, ppos, ptr, marks)
+        else:
+            enum = None    # 'max' reached, no more matches
+        if enum is not None:
+            matches_done += 1
+            # matched one more 'item'.
+            last_match_zero_length = (ctx.match_end == ptr)
+            ptr = ctx.match_end
+            marks = ctx.match_marks
+            if last_match_zero_length and matches_done >= minmatch:
+                # zero-width protection: after an empty match, if there
+                # are enough matches, don't try to match more.  Instead,
+                # fall through to trying to match 'tail'.
+                raise ValueError # xxx need test
+            else:
+                continue
+        if matches_done >= minmatch:
+            return ptr
+        return -1
+
+
 # ____________________________________________________________
 
 @specializectx
@@ -956,7 +985,50 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             result = MinRepeatOneMatchResult(nextppos, ppos+3, max_count,
                                              ptr, marks)
             return result.find_first_result(ctx, pattern)
+        elif consts.eq(op, consts.OPCODE_POSSESSIVE_REPEAT_ONE):
+            # match repeated sequence (maximizing regexp) without
+            # backtracking
 
+            # this operator only works if the repeated item is
+            # exactly one character wide, and we're not already
+            # collecting backtracking points.  for other cases,
+            # use the MAX_REPEAT operator
+
+            # <POSSESSIVE_REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS>
+            # tail
+            start = ptr
+
+            try:
+                minptr = ctx.next_n(start, pattern.pat(ppos+1), ctx.end)
+            except EndOfString:
+                return    # cannot match
+            ptr = find_repetition_end(ctx, pattern, ppos+3, start,
+                                      pattern.pat(ppos+2),
+                                      marks)
+            # when we arrive here, ptr points to the tail of the target
+            # string. match the rest of the pattern.
+            ppos += pattern.pat(ppos)
+        elif consts.eq(op, consts.OPCODE_POSSESSIVE_REPEAT):
+            # create possessive repeat contexts.
+            # <POSSESSIVE_REPEAT> <skip> <1=min> <2=max> pattern
+            # <SUCCESS> tail
+            start = ptr
+            ptr = find_repetition_end_possessive(
+                    ctx, pattern,
+                    ppos+3, start, pattern.pat(ppos+1), pattern.pat(ppos+2),
+                    marks)
+            if ptr < 0:
+                return None
+            ppos += pattern.pat(ppos) # match tail now
+        elif consts.eq(op, consts.OPCODE_ATOMIC_GROUP):
+            # Atomic Group Sub Pattern
+            # <ATOMIC_GROUP> <skip> pattern <SUCCESS> tail
+
+            match = sre_match(ctx, pattern, ppos + 1, ptr, marks)
+            if match is None:
+                return None
+            ptr = ctx.match_end
+            ppos += pattern.pat(ppos) # match tail now
         else:
             raise Error("bad pattern code %d" % op)
 

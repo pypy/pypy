@@ -18,6 +18,9 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rsre import rsre_core, rsre_char, rsre_utf8, rsre_constants as consts
 from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, set_unicode_db
 
+from rpython.rlib.rsre.rpy.sre_constants import OPCODES
+
+
 
 @unwrap_spec(character=int)
 def w_ascii_iscased(space, character):
