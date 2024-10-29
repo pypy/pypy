@@ -38,6 +38,7 @@ def initpkg(pkgname, exportdefs, attr=dict()):
         d['__path__'] = [_py_abspath(p) for p in oldmod.__path__]
     if '__doc__' not in exportdefs and getattr(oldmod, '__doc__', None):
         d['__doc__'] = oldmod.__doc__
+    d["__spec__"] = getattr(oldmod, "__spec__", None)
     d.update(attr)
     if hasattr(oldmod, "__dict__"):
         oldmod.__dict__.update(d)

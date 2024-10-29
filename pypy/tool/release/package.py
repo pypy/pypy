@@ -22,6 +22,7 @@ import py
 import fnmatch
 import subprocess
 import platform
+import warnings
 from pypy.tool.release.smartstrip import smartstrip
 from pypy.tool.release.make_portable import make_portable
 
@@ -212,8 +213,10 @@ def create_package(basedir, options, _fake=False):
     os.makedirs(str(target))
     if not _fake:
         # issue 5015: portable builds cannot use the static data
+        # See that issue for a post-installation solution
         # generate_sysconfigdata(pypy_c, str(target))
-        subprocess.check_call([str(pypy_c), "-c", "import _testmultiphase_build"])
+        warnings.warn("fix _testmultiphase_build compilation")
+        # subprocess.check_call([str(pypy_c), "-c", "import _testmultiphase_build"])
         subprocess.check_call([str(pypy_c), "-c", "import _ctypes_test_build"])
         subprocess.check_call([str(pypy_c), "-c", "import _testcapi"])
     if ARCH == 'win32':
@@ -369,7 +372,7 @@ def create_package(basedir, options, _fake=False):
         LICENSE.write(license)
     #
     spdir = target.ensure('site-packages', dir=True)
-    shutil.copy(str(basedir.join('lib', IMPLEMENTATION, 'site-packages', 'README.txt')),
+    shutil.copy(str(basedir.join('lib-python/3/site-packages/README.txt')),
                 str(spdir))
     #
     if ARCH == 'win32':
