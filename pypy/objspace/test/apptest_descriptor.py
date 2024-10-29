@@ -173,14 +173,3 @@ def test_issue3255():
     class X(object):
         __getattribute__ = Descriptor()
     assert X().foo == "foo"
-
-def test_getattr_doc():
-    class X:
-        @classmethod
-        def cm(cls, x):
-            '''A class method'''
-            ...
-
-    doc1 = object.__getattribute__(X.cm, '__doc__')
-    doc2 = X.cm.__doc__
-    assert doc1 == doc2

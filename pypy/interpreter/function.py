@@ -526,7 +526,6 @@ class Function(W_Root):
 
 
 class _Method(W_Root):
-    """A method is a function bound to a specific instance."""
     _immutable_fields_ = ['w_function', 'w_instance']
 
     def __init__(self, space, w_function, w_instance):
@@ -563,6 +562,9 @@ class _Method(W_Root):
         objrepr = space.utf8_w(space.repr(self.w_instance))
         s = b'<bound method %s of %s>' % (name, objrepr)
         return space.newtext(s)
+
+    def descr_get_doc(self, space):
+        return space.getattr(self.w_function, space.newtext('__doc__'))
 
     def descr_method_getattribute(self, w_attr):
         space = self.space
@@ -619,6 +621,8 @@ class _Method(W_Root):
         return space.newtuple2(new_inst, space.newtuple(tup))
 
 class Method(_Method):
+    """Create an instance method object."""
+
     def descr_method__new__(space, w_subtype, w_function, w_instance):
         if space.is_w(w_instance, space.w_None):
             w_instance = None
