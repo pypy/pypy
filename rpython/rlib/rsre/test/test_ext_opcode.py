@@ -55,3 +55,9 @@ def test_possessive_repeat_mark():
     # '(.)++.'
     r = [POSSESSIVE_REPEAT, 8, 1, MAXREPEAT, MARK, 0, ANY, MARK, 1, SUCCESS, ANY, SUCCESS]
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "xxx") is None
+
+def test_possesive_repeat_groups():
+    # (.){3}+
+    r = [POSSESSIVE_REPEAT, 8, 3, 3, MARK, 0, ANY, MARK, 1, SUCCESS, SUCCESS]
+    match = rsre_core.match(rsre_core.CompiledPattern(r, 0), "abc")
+    assert match.match_marks is not None
