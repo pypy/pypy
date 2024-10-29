@@ -218,6 +218,15 @@ SRE_INFO_PREFIX = 1 # has prefix
 SRE_INFO_LITERAL = 2 # entire pattern is literal (given by prefix)
 SRE_INFO_CHARSET = 4 # pattern starts with character from given set
 
+# safety check for pypy: check compatibility of opcode values
+try:
+    from _sre import OPCODES as _internal_opcodes
+except ImportError:
+    pass
+else:
+    for name, value in OPCODES.iteritems():
+        assert _internal_opcodes[value] == name
+
 if __name__ == "__main__":
     def dump(f, d, prefix):
         items = d.items()
