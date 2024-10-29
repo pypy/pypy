@@ -331,6 +331,9 @@ class Mark(object):
         self.position = position
         self.prev = prev      # chained list
 
+    def __repr__(self):
+        return "Mark(%r, %r, %r)" % (self.gid, self.position, self.prev)
+
 def find_mark(mark, gid):
     while mark is not None:
         if mark.gid == gid:
@@ -622,6 +625,7 @@ def find_repetition_end_possessive(ctx, pattern, ppos, ptr, minmatch, maxmatch, 
             else:
                 continue
         if matches_done >= minmatch:
+            ctx.match_marks = marks
             return ptr
         return -1
 
@@ -1019,6 +1023,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
                     marks)
             if ptr < 0:
                 return None
+            marks = ctx.match_marks
             ppos += pattern.pat(ppos) + 1 # match tail now
         elif consts.eq(op, consts.OPCODE_ATOMIC_GROUP):
             # Atomic Group Sub Pattern
