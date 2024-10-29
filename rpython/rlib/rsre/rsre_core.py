@@ -618,7 +618,7 @@ def find_repetition_end_possessive(ctx, pattern, ppos, ptr, minmatch, maxmatch, 
                 # zero-width protection: after an empty match, if there
                 # are enough matches, don't try to match more.  Instead,
                 # fall through to trying to match 'tail'.
-                xxx # need test
+                raise ValueError # xxx need test
             else:
                 continue
         if matches_done >= minmatch:
