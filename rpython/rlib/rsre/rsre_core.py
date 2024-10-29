@@ -546,6 +546,10 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
             match_more = False
 
 class MinUntilMatchResult(AbstractUntilMatchResult):
+    install_jitdriver('MinUntil',
+                      greens=['ppos', 'tailppos', 'resume', 'pattern'],
+                      reds=['ptr', 'marks', 'self', 'ctx'],
+                      debugprint=(3, 0, 2))
 
     def find_first_result(self, ctx, pattern):
         return self.search_next(ctx, pattern, resume=False)
@@ -556,14 +560,18 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
     def search_next(self, ctx, pattern, resume):
         # XXX missing jit support here
         ppos = self.ppos
-        min = pattern.pat(ppos+1)
-        max = pattern.pat(ppos+2)
         ptr = self.cur_ptr
         marks = self.cur_marks
+        tailppos = self.tailppos
         while True:
+            ctx.jitdriver_MinUntil.jit_merge_point(
+                ppos=ppos, tailppos=tailppos, resume=resume,
+                ptr=ptr, marks=marks, self=self, ctx=ctx,
+                pattern=pattern)
             # try to match 'tail' if we have enough 'item'
+            min = pattern.pat(ppos+1)
             if not resume and self.num_pending >= min:
-                result = sre_match(ctx, pattern, self.tailppos, ptr, marks)
+                result = sre_match(ctx, pattern, tailppos, ptr, marks)
                 if result is not None:
                     self.subresult = result
                     self.cur_ptr = ptr
@@ -571,6 +579,7 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
                     return self
             resume = False
 
+            max = pattern.pat(ppos+2)
             if max == rsre_char.MAXREPEAT or self.num_pending < max:
                 # try to match one more 'item'
                 enum = sre_match(ctx, pattern, ppos + 3, ptr, marks)

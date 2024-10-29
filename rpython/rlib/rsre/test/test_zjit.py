@@ -113,6 +113,12 @@ class TestJitRSre(support.LLJitMixin):
                                      "ababababababababababc")
         assert res == 21
 
+    def test_min_until_1(self):
+        res = self.meta_interp_match(r"^(?:ab)*?c",
+                                     "ababababababababababc")
+        assert res == 21
+        self.check_trace_count(1)
+
     def test_example_1(self):
         res = self.meta_interp_search(
             r"Active\s+20\d\d-\d\d-\d\d\s+[[]\d+[]]([^[]+)",
