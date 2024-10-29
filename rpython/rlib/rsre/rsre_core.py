@@ -1020,6 +1020,15 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             if ptr < 0:
                 return None
             ppos += pattern.pat(ppos) # match tail now
+        elif consts.eq(op, consts.OPCODE_ATOMIC_GROUP):
+            # Atomic Group Sub Pattern
+            # <ATOMIC_GROUP> <skip> pattern <SUCCESS> tail
+
+            match = sre_match(ctx, pattern, ppos + 1, ptr, marks)
+            if match is None:
+                return None
+            ptr = ctx.match_end
+            ppos += pattern.pat(ppos) # match tail now
         else:
             raise Error("bad pattern code %d" % op)
 
