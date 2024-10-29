@@ -15,7 +15,7 @@
 
 MAGIC = 20171005 # XXX PyPy change: should be fixed to 20220615 once the new features are implemented
 
-from _sre import MAXREPEAT, MAXGROUPS
+from _sre import MAXREPEAT, MAXGROUPS, OPCODES as _internal_opcodes
 
 # SRE standard exception (access as sre.error)
 # should this really be here?
@@ -66,12 +66,16 @@ class _NamedIntConstant(int):
 
 MAXREPEAT = _NamedIntConstant(MAXREPEAT, 'MAXREPEAT')
 
-def _makecodes(*names):
-    items = [_NamedIntConstant(i, name) for i, name in enumerate(names)]
+def _makecodes(*names, preexisting_values=None):
+    # pypy change: preexisting_values support
+    items = [_NamedIntConstant(preexisting_values[name] if preexisting_values else i, name) for i, name in enumerate(names)]
     globals().update({item.name: item for item in items})
     return items
 
 # operators
+_preexisting_values = {name.upper(): i for i, name in enumerate(_internal_opcodes)}
+_preexisting_values['MIN_REPEAT'] = max(_preexisting_values.values()) + 1
+_preexisting_values['MAX_REPEAT'] = max(_preexisting_values.values()) + 1
 OPCODES = _makecodes(
     # failure=0 success=1 (just because it looks better that way :-)
     'FAILURE', 'SUCCESS',
@@ -97,6 +101,9 @@ OPCODES = _makecodes(
     'REPEAT_ONE',
     'SUBPATTERN',
     'MIN_REPEAT_ONE',
+    'ATOMIC_GROUP',
+    'POSSESSIVE_REPEAT',
+    'POSSESSIVE_REPEAT_ONE',
 
     'GROUPREF_IGNORE',
     'IN_IGNORE',
@@ -118,11 +125,8 @@ OPCODES = _makecodes(
     # but not in the compiled code.
     'MIN_REPEAT', 'MAX_REPEAT',
 
-    # PyPy change: for ease of maintenance of rlib, the new opcodes must come
-    # at the end
-    'ATOMIC_GROUP',
-    'POSSESSIVE_REPEAT',
-    'POSSESSIVE_REPEAT_ONE',
+    # pypy change: use the internal opcode values
+    preexisting_values=_preexisting_values
 )
 del OPCODES[-2:] # remove MIN_REPEAT and MAX_REPEAT
 
