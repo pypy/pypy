@@ -1019,7 +1019,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
                     marks)
             if ptr < 0:
                 return None
-            ppos += pattern.pat(ppos) # match tail now
+            ppos += pattern.pat(ppos) + 1 # match tail now
         elif consts.eq(op, consts.OPCODE_ATOMIC_GROUP):
             # Atomic Group Sub Pattern
             # <ATOMIC_GROUP> <skip> pattern <SUCCESS> tail
