@@ -913,3 +913,8 @@ def test_method_doc():
     doc2 = X.cm.__doc__
     assert doc1 == doc2 == 'A class method'
     assert isinstance(MethodType.__doc__, str)
+
+def test_method_getattr():
+    class A:
+        def f(self): pass
+    assert A().f.__code__ is A.f.__code__
