@@ -1533,8 +1533,8 @@ class AppTestPosix:
             if not self.runappdirect:
                 skip("should not try to import cffi at app-level")
             startfile = self.posix.startfile
-            for t1 in [str, unicode]:
-                for t2 in [str, unicode]:
+            for t1 in [str, bytes]:
+                for t2 in [str, bytes]:
                     with raises(WindowsError) as e:
                         startfile(t1("\\"), t2("close"))
                     assert e.value.args[0] == 1155
