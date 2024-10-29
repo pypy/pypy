@@ -817,7 +817,6 @@ Method.typedef = TypeDef(
     __get__ = interp2app(Method.descr_method_get),
     __func__ = interp_attrproperty_w('w_function', cls=Method),
     __self__ = interp_attrproperty_w('w_instance', cls=Method),
-    __getattribute__ = interp2app(Method.descr_method_getattribute),
     __eq__ = interp2app(Method.descr_method_eq),
     __ne__ = interp2app(Method.descr_method_ne),
     __hash__ = interp2app(Method.descr_method_hash),

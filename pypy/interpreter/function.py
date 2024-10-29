@@ -566,18 +566,6 @@ class _Method(W_Root):
     def descr_get_doc(self, space):
         return space.getattr(self.w_function, space.newtext('__doc__'))
 
-    def descr_method_getattribute(self, w_attr):
-        space = self.space
-        if space.text_w(w_attr) != '__doc__':
-            try:
-                return space.call_method(space.w_object, '__getattribute__',
-                                         self, w_attr)
-            except OperationError as e:
-                if not e.match(space, space.w_AttributeError):
-                    raise
-        # fall-back to the attribute of the underlying 'im_func'
-        return space.getattr(self.w_function, w_attr)
-
     def descr_method_eq(self, w_other):
         space = self.space
         if not isinstance(w_other, _Method):
