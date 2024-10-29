@@ -7,7 +7,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'CODESIZE':       'space.newint(interp_sre.CODESIZE)',
-        'MAGIC':          'space.newint(20171005)',
+        'MAGIC':          'space.newint(20220615)',
         'MAXREPEAT':      'space.newint(interp_sre.MAXREPEAT)',
         'MAXGROUPS':      'space.newint(interp_sre.MAXGROUPS)',
         'OPCODES':        'space.newlist([space.newtext(s) if s is not None else space.w_None for s in interp_sre.OPCODES])',

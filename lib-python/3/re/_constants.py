@@ -13,7 +13,7 @@
 
 # update when constants are added or removed
 
-MAGIC = 20171005 # XXX PyPy change: should be fixed to 20220615 once the new features are implemented
+MAGIC = 20220615
 
 from _sre import MAXREPEAT, MAXGROUPS, OPCODES as _internal_opcodes
 
