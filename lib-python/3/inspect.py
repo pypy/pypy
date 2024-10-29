@@ -1965,17 +1965,14 @@ def _signature_get_user_defined_method(cls, method_name):
     if method_name == '__new__':
         meth = getattr(cls, method_name, None)
     else:
-        # The particular check cpython uses to determine if a particular method
-        # is a builtin or not doesn't work on pypy. The following code is
-        # pypy-specific.
-        try:
-            code = meth.__code__
-        except AttributeError:
-            return
-        if _builtin_code_type and not isinstance(code, _builtin_code_type):
-            # Once '__signature__' will be added to 'C'-level
-            # callables, this check won't be necessary
-            return meth
+        meth = getattr_static(cls, method_name, None)
+    if meth is None or isinstance(meth, _NonUserDefinedCallables):
+        # Once '__signature__' will be added to 'C'-level
+        # callables, this check won't be necessary
+        return None
+    if method_name != '__new__':
+        meth = _descriptor_get(meth, cls)
+    return meth
 
 
 def _signature_get_partial(wrapped_sig, partial, extra_args=()):
@@ -2572,19 +2569,14 @@ def _signature_from_callable(obj, *,
         # in its metaclass
         call = _signature_get_user_defined_method(type(obj), '__call__')
         if call is not None:
-            sig = _get_signature_of(call)
-        else:
-            factory_method = None
-            # pypy specific logic: in pypy, a lot of builtin functions have
-            # sensible signatures. therefore we don't call
-            # _signature_get_user_defined_method, but just use getattr and
-            # exclude object/type new/init (handled below)
-            new = getattr(obj, '__new__', None)
-            if new is object.__new__ or new is type.__new__:
-                new = None
-            init = getattr(obj, '__init__', None)
-            if init is object.__init__ or init is type.__init__:
-                init = None
+            return _get_signature_of(call)
+
+        new = _signature_get_user_defined_method(obj, '__new__')
+        init = _signature_get_user_defined_method(obj, '__init__')
+
+        # Go through the MRO and see if any class has user-defined
+        # pure Python __new__ or __init__ method
+        for base in obj.__mro__:
             # Now we check if the 'obj' class has an own '__new__' method
             if new is not None and '__new__' in base.__dict__:
                 sig = _get_signature_of(new)
