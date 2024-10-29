@@ -6,7 +6,9 @@
 #endif
 
 #include "Python.h"
+#ifndef PYPY_VERSION
 #include "pycore_namespace.h"     // _PyNamespace_New()
+#endif
 
 /* State for testing module state access from methods */
 
