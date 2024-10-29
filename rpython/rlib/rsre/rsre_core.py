@@ -558,7 +558,6 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
         return self.search_next(ctx, pattern, resume=True)
 
     def search_next(self, ctx, pattern, resume):
-        # XXX missing jit support here
         ppos = self.ppos
         ptr = self.cur_ptr
         marks = self.cur_marks
