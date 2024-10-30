@@ -639,7 +639,7 @@ def find_repetition_end_possessive(ctx, pattern, ppos, ptr, marks):
                 # zero-width protection: after an empty match, if there
                 # are enough matches, don't try to match more.  Instead,
                 # fall through to trying to match 'tail'.
-                raise ValueError # xxx need test
+                pass
             else:
                 continue
         if matches_done >= minmatch:

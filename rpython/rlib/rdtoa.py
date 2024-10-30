@@ -214,6 +214,15 @@ def format_number(digits, buflen, sign, decpt, code, precision, flags, upper):
         if last >= 0 and s[last] == '.':
             s = s[:last]
 
+    # remove the - for negative zeros if DTSF_NO_NEG_0 is given
+    if flags & rfloat.DTSF_NO_NEG_0 and s and s[0] == '-':
+        for index in range(1, len(s)):
+            c = s[index]
+            if c != '.' and c != '0':
+                break
+        else:
+            s = s[1:]
+
     # Now that we've done zero padding, add an exponent if needed.
     if use_exp:
         if upper:

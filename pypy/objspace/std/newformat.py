@@ -459,6 +459,7 @@ def make_formatting_class(for_unicode):
             self._align = default_align
             self._alternate = False
             self._sign = "\0"
+            self._zeros = False # do we have the 3.11 z specifier
             self._thousands_sep = "\0"
             self._precision = -1
             the_type = default_type
@@ -486,6 +487,9 @@ def make_formatting_class(for_unicode):
                 got_align = False
             if length - i >= 1 and self._is_sign(spec[i]):
                 self._sign = spec[i]
+                i += 1
+            if length - i >= 1 and spec[i] == 'z':
+                self._zeros = True
                 i += 1
             if length - i >= 1 and spec[i] == "#":
                 self._alternate = True
@@ -995,6 +999,8 @@ def make_formatting_class(for_unicode):
             default_precision = 6
             if self._alternate:
                flags |= rfloat.DTSF_ALT
+            if self._zeros:
+                flags |= rfloat.DTSF_NO_NEG_0
 
             tp = self._type
             self._get_locale(tp)
@@ -1076,6 +1082,8 @@ def make_formatting_class(for_unicode):
                             "specifier")
             if self._alternate:
                 flags |= rfloat.DTSF_ALT
+            if self._zeros:
+                flags |= rfloat.DTSF_NO_NEG_0
 
             skip_re = 0
             add_parens = 0

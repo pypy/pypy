@@ -36,3 +36,6 @@ def test_flag_cut_exp_0():
 
 def test_g_trailing_zero_bug():
     assert dtoa_formatd(1505.0, "g", 3, 0) == "1.5e+03"
+
+def test_flag_neg_zero():
+    assert dtoa(-0.0, code="g", precision=2, flags=rfloat.DTSF_NO_NEG_0) == "0"

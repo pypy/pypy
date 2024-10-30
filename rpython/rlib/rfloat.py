@@ -86,6 +86,7 @@ DTSF_SIGN      = 0x1
 DTSF_ADD_DOT_0 = 0x2
 DTSF_ALT       = 0x4
 DTSF_CUT_EXP_0 = 0x8
+DTSF_NO_NEG_0 = 0x10
 
 DIST_FINITE   = 1
 DIST_NAN      = 2
