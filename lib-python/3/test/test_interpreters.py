@@ -6,7 +6,7 @@ import unittest
 import time
 from test.support import import_helper
 
-_interpreters = import import_helper.import_module('_xxsubinterpreters')
+_interpreters = import_helper.import_module('_xxsubinterpreters')
 from test.support import interpreters
 
 
