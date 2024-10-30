@@ -999,6 +999,8 @@ def make_formatting_class(for_unicode):
             default_precision = 6
             if self._alternate:
                flags |= rfloat.DTSF_ALT
+            if self._zeros:
+                flags |= rfloat.DTSF_NO_NEG_0
 
             tp = self._type
             self._get_locale(tp)

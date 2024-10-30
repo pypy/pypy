@@ -318,7 +318,6 @@ def test_negative_zero():
     assert f"{0.:z.1f}" == "0.0"
     assert f"{0.:z6.1f}" == "   0.0"
     assert f"{-1.:z6.1f}" == "  -1.0"
-    return
     assert f"{-0.:z.1f}" == "0.0"
     assert f"{.01:z.1f}" == "0.0"
     assert f"{-0:z.1f}" == "0.0"  # z is allowed for integer input
@@ -355,6 +354,7 @@ def test_negative_zero():
     assert f"{-1.:+z.0f}" == "-1"
     assert f"{-1.:-z.0f}" == "-1"
 
+    return
     assert f"{0.j:z.1f}" == "0.0+0.0j"
     assert f"{-0.j:z.1f}" == "0.0+0.0j"
     assert f"{.01j:z.1f}" == "0.0+0.0j"
