@@ -526,7 +526,6 @@ If no argument is given, the constructor creates a new empty list.
 The argument must be an iterable if specified."""
         assert list.__new__.__doc__ == "Create and return a new object.  See help(type) for accurate signature."
         assert list.__init__.__doc__ == "Initialize self.  See help(type(self)) for accurate signature."
-        print(list.__text_signature__)
         assert list.__text_signature__ == "(iterable=(), /)"
 
     def test_getstrategyfromlist_w(self):
