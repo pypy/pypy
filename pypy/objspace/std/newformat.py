@@ -489,7 +489,7 @@ def make_formatting_class(for_unicode):
                 self._sign = spec[i]
                 i += 1
             if length - i >= 1 and spec[i] == 'z':
-                self._zeros = spec[i]
+                self._zeros = True
                 i += 1
             if length - i >= 1 and spec[i] == "#":
                 self._alternate = True
