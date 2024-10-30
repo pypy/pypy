@@ -21,13 +21,13 @@ import os
 import sys
 
 from rpython.tool.version import get_repo_version_info
-from py.path import local 
+import py
 
 PYPY_KEEP = int(os.environ.get('PYPY_USESSION_KEEP', '3'))
 
 def make_udir(dir=None, basename=None):
     if dir is not None:
-        dir = local(dir)
+        dir = py.path.local(dir)
     if basename is None:
         info = get_repo_version_info()
         if info:
@@ -43,7 +43,7 @@ def make_udir(dir=None, basename=None):
         basename = '-' + basename
     if not basename.endswith('-'):
         basename = basename + '-'
-    return local.make_numbered_dir(rootdir = dir,
+    return py.path.local.make_numbered_dir(rootdir = dir,
                                    prefix = 'usession' + basename,
                                    keep = PYPY_KEEP)
 

@@ -45,10 +45,11 @@ jobs:
 
     - name: package
       run: |
-        ./pypy/goal/pypy*-c pypy/tool/release/package.py --make-portable
+        ./pypy/goal/pypy*-c pypy/tool/release/package.py --make-portable --target=.
 
     - name: upload
+      if: success() || failure()
       uses: actions/upload-artifact@v4
       with:
         name: pypy-ci-build-${{ matrix.os }}
-        path: /tmp/usession-pypy-*-runner/build/pypy-nightly.tar.bz2
+        path: ./pypy-nightly.tar.bz2

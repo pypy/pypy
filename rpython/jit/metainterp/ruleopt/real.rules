@@ -79,14 +79,8 @@ mul_lshift: int_mul(x, int_lshift(1, y))
 #    => int_mul(x, y)
 
 
-and_zero: int_and(a, 0)
-    => 0
-
 and_x_x: int_and(a, a)
     => a
-
-and_minus_1: int_and(x, -1)
-    => x
 
 and_reassoc_consts: int_and(int_and(x, C1), C2)
     C = C1 & C2
@@ -96,9 +90,9 @@ and_x_c_in_range: int_and(x, C)
     check x.lower >= 0 and x.upper <= C & ~(C + 1)
     => x
 
-and_x_y_covered_ones: int_and(x, y)
+and_idempotent: int_and(x, y)
     # int_and(x, y) == x if the 1s in y cover all 1s and all ?s in x
-    check ~y.tvalue & (x.tmask | x.tvalue) == 0
+    check y.ones | x.zeros == -1
     => x
 
 and_known_result: int_and(a, b)
@@ -108,14 +102,8 @@ and_known_result: int_and(a, b)
     => C
 
 and_absorb: int_and(a, int_and(a, b))
-    => int_and(a, b)
+    => int_and(a, b) # XXX reuse the inner op
 
-
-or_minus_1: int_or(x, -1)
-    => -1
-
-or_zero: int_or(x, 0)
-    => x
 
 or_x_x: int_or(a, a)
     => a
@@ -128,6 +116,11 @@ or_known_result: int_or(a, b)
 
 or_absorb: int_or(a, int_or(a, b))
     => int_or(a, b)
+
+or_idempotent: int_or(x, y)
+    # int_or(x, y) == x if the 0s in y cover all 0s and all ?s in x
+    check x.ones | y.zeros == -1
+    => x
 
 
 xor_x_x: int_xor(a, a)
