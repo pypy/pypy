@@ -54,7 +54,6 @@ def jabs_op(name, op):
 # Instruction opcodes for compiled code
 # Blank lines correspond to available opcodes
 
-def_op('CACHE', 0)
 def_op('POP_TOP', 1)
 def_op('ROT_TWO', 2)
 def_op('ROT_THREE', 3)

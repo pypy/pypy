@@ -2,9 +2,9 @@ name: Translate PyPy
 
 on:
   push:
-    branches: [ "main", "py3.9", "py3.10"]
+    branches: [ "main", "py3.10", "py3.11"]
   pull_request:
-    branches: [ "main", "py3.9", "py3.10"]
+    branches: [ "main", "py3.10", "py3.11"]
   workflow_dispatch:
 
 permissions:

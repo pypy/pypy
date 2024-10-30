@@ -38,7 +38,7 @@ LOAD_GLOBAL = opmap['LOAD_GLOBAL']
 BINARY_OP = -1 ## opmap['BINARY_OP']
 JUMP_BACKWARD = -1  ## opmap['JUMP_BACKWARD']
 
-CACHE = opmap["CACHE"]
+CACHE = 0 ## opmap["CACHE"]
 
 _all_opname = list(opname)
 _all_opmap = dict(opmap)
