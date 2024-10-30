@@ -9,8 +9,11 @@ import linecache
 import os
 import dis
 from os.path import normcase
-import _pickle
 import pickle
+try:
+    import _pickle
+except ModuleNotFoundError:
+    _pickle = pickle
 import shutil
 import sys
 import types
