@@ -242,12 +242,33 @@ def _getnewargs(space, w_obj):
         w_kwargs = space.w_None
     return hasargs, w_args, w_kwargs
 
+def descr__getstate__(space, w_obj):
+    """Helper for pickle"""
+    return object_getstate_default(space, w_obj, 0)
+
 def descr__reduce__(space, w_obj):
+    """Helper for pickle"""
     w_proto = space.newint(0)
     return reduce_1(space, w_obj, w_proto)
 
+def object_getstate_default(space, w_obj, required):
+    if required and space.lookup(w_obj, '__len__'):
+        # never reached, required is always 0?
+        raise oefmt(space.w_TypeError, "cannot pickle %N objects", w_obj)
+    w_objdict = w_obj.getdict(space)
+    if not w_objdict or space.len_w(w_objdict) < 1:
+        return space.w_None
+    w_ret = space.call_method(w_objdict, 'copy')
+    dict_w = space.type(w_obj).dict_w
+    # TODO: iterate over the __slots__ in dict_w. If there are any, create a dict
+    # of key: space.getattr(w_obj, key), then return a tuple
+    # (w_ret, slots_dict)
+    # This is like _getstate() and reduce_2
+    return w_ret
+
 @unwrap_spec(proto=int)
 def descr__reduce_ex__(space, w_obj, proto):
+    """Helper for pickle"""
     w_st_reduce = space.newtext('__reduce__')
     w_reduce = space.findattr(w_obj, w_st_reduce)
     if w_reduce is not None:
@@ -330,6 +351,7 @@ W_ObjectObject.typedef = TypeDef("object",
     __hash__ = interp2app(default_identity_hash),
     __reduce__ = interp2app(descr__reduce__),
     __reduce_ex__ = interp2app(descr__reduce_ex__),
+    __getstate__ = interp2app(descr__getstate__),
     __format__ = interp2app(descr___format__),
     __dir__ = interp2app(descr__dir__),
 

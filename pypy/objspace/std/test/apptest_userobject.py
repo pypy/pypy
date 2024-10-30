@@ -236,3 +236,12 @@ def test_del_attr_class():
 
     with raises(AttributeError):
         del Foo.x
+
+def test_getstate():
+    class Foo:
+        pass
+
+    a = Foo()
+    a.abc = 42
+    state = a.__getstate__()
+    assert state == {'abc': 42}
