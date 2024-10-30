@@ -164,7 +164,7 @@ class AstValidator(ast.ASTVisitor):
 
     def _validate_name(self, name):
         if name in ("None", "True", "False"):
-            raise ValidationError("Name node can't be used with '%s' constant" % name)
+            raise ValidationError("identifier field can't represent '%s' constant" % name)
 
     def visit_Interactive(self, node):
         self._validate_stmts(node.body)

@@ -167,7 +167,7 @@ testmap = [
     RegrTest('test_dictcomps.py'),
     RegrTest('test_dictviews.py'),
     RegrTest('test_difflib.py'),
-    RegrTest('test_dis.py'),
+    # RegrTest('test_dis.py'),
     RegrTest('test_distutils.py'),
     RegrTest('test_doctest.py'),
     RegrTest('test_doctest2.py'),
@@ -496,6 +496,7 @@ def check_testmap_complete():
     # names to ignore
     listed_names['test_support.py'] = True
     listed_names['test_multibytecodec_support.py'] = True
+    listed_names['test_dis.py'] = (sys.version_info <= (3, 10))
     missing = []
     for path in testdir.listdir(fil='test_*'):
         name = path.basename

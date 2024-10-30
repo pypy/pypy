@@ -142,10 +142,15 @@ class TestOwnLib(object):
                 return
             # try (not too hard) to find the version used to compile this python
             # no mingw
-            from distutils.msvc9compiler import get_build_version
-            version = get_build_version()
-            toolskey = "VS%0.f0COMNTOOLS" % version
-            toolsdir = os.environ.get(toolskey, None)
+            toolsdir = None
+            try:
+                # This will always fail on setuptools>73 which removes msvc9compiler
+                from distutils.msvc9compiler import get_build_version
+                version = get_build_version()
+                toolskey = "VS%0.f0COMNTOOLS" % version
+                toolsdir = os.environ.get(toolskey, None)
+            except Exception:
+                pass
             if toolsdir is None:
                 return
             productdir = os.path.join(toolsdir, os.pardir, os.pardir, "VC")

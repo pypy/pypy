@@ -199,6 +199,7 @@ class PegParser(object):
         except error.TokenError as e:
             if (compile_info.flags & consts.PyCF_ALLOW_INCOMPLETE_INPUT and
                     (pytokenizer.TRIPLE_QUOTE_UNTERMINATED_ERROR in e.msg or
+                     pytokenizer.SINGLE_QUOTE_UNTERMINATED_ERROR in e.msg or
                      'was never closed' in e.msg or
                      pytokenizer.EOF_MULTI_LINE_STATEMENT_ERROR in e.msg)):
                 e.msg = "incomplete input"

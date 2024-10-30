@@ -11,7 +11,10 @@ from test.support import os_helper, requires_resource
 if sys.platform != 'win32':
     raise unittest.SkipTest("test only relevant on win32")
 
-from _testconsole import write_input
+try:
+    from _testconsole import write_input
+except Exception:
+    write_input = None
 
 ConIO = io._WindowsConsoleIO
 
@@ -126,6 +129,7 @@ class WindowsConsoleIOTests(unittest.TestCase):
         with ConIO('CONOUT$', 'w') as f:
             self.assertEqual(f.write(b''), 0)
 
+    @unittest.skipIf(not write_input, "no _testconsole.write_input")
     def assertStdinRoundTrip(self, text):
         stdin = open('CONIN$', 'r')
         old_stdin = sys.stdin
@@ -156,6 +160,7 @@ class WindowsConsoleIOTests(unittest.TestCase):
         self.assertStdinRoundTrip('\U00100000\U0010ffff\U0010fffd')
 
     @requires_resource('console')
+    @unittest.skipIf(not write_input, "no _testconsole.write_input")
     def test_partial_reads(self):
         # Test that reading less than 1 full character works when stdin
         # contains multibyte UTF-8 sequences
@@ -191,7 +196,11 @@ class WindowsConsoleIOTests(unittest.TestCase):
 
                 self.assertEqual(actual, expected, 'stdin.read({})'.format(read_count))
 
+<<<<<<< HEAD
     @requires_resource('console')
+=======
+    @unittest.skipIf(not write_input, "no _testconsole.write_input")
+>>>>>>> py3.10
     def test_ctrl_z(self):
         with open('CONIN$', 'rb', buffering=0) as stdin:
             source = '\xC4\x1A\r\n'.encode('utf-16-le')

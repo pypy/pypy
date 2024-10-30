@@ -25,6 +25,10 @@ it.  (Maybe we should enable the ellipsis option for these tests.)
 
 In ast.c, syntax errors are raised by calling ast_error().
 
+PyPy-specific changes:
+- replace 'invalid syntax' with 'Unknown character' when '$' appears
+- replace 'invalid syntax' with 'expected ':' in 'match x x:'
+
 Errors from set_context():
 
 >>> obj.None = 1
@@ -302,13 +306,13 @@ SyntaxError: invalid syntax
 ...     case y:
 ...        3 $ 3
 Traceback (most recent call last):
-SyntaxError: invalid syntax
+SyntaxError: Unknown character
 
 >>> match x:
 ...     case $:
 ...        ...
 Traceback (most recent call last):
-SyntaxError: invalid syntax
+SyntaxError: Unknown character
 
 >>> match ...:
 ...     case {**rest, "key": value}:
@@ -1089,7 +1093,7 @@ Missing ':' before suites:
    ...   case list():
    ...       pass
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: expected ':'
 
    >>> match x:
    ...   case list()
@@ -1225,19 +1229,19 @@ Custom error message for try block mixing except and except*
 Ensure that early = are not matched by the parser as invalid comparisons
    >>> f(2, 4, x=34); 1 $ 2
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: Unknown character
 
    >>> dict(x=34); x $ y
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: Unknown character
 
    >>> dict(x=34, (x for x in range 10), 1); x $ y
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: Unknown character
 
    >>> dict(x=34, x=1, y=2); x $ y
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: Unknown character
 
 Incomplete dictionary literals
 
@@ -1269,7 +1273,7 @@ Incomplete dictionary literals
 
    >>> {1} $
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: Unknown character
 
    # Ensure that the error is not raised for invalid expressions
 
@@ -1279,7 +1283,7 @@ Incomplete dictionary literals
 
    >>> {1: $, 2: 3}
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: Unknown character
 
 Specialized indentation errors:
 
@@ -1725,22 +1729,22 @@ A[*(1:2)]
     >>> A[*(1:2)]
     Traceback (most recent call last):
         ...
-    SyntaxError: invalid syntax
+    SyntaxError: Invalid star expression
     >>> A[*(1:2)] = 1
     Traceback (most recent call last):
         ...
-    SyntaxError: invalid syntax
+    SyntaxError: Invalid star expression
     >>> del A[*(1:2)]
     Traceback (most recent call last):
         ...
-    SyntaxError: invalid syntax
+    SyntaxError: Invalid star expression
 
 A[*:] and A[:*]
 
     >>> A[*:]
     Traceback (most recent call last):
         ...
-    SyntaxError: invalid syntax
+    SyntaxError: Invalid star expression
     >>> A[:*]
     Traceback (most recent call last):
         ...
@@ -1751,7 +1755,7 @@ A[*]
     >>> A[*]
     Traceback (most recent call last):
         ...
-    SyntaxError: invalid syntax
+    SyntaxError: Invalid star expression
 
 A[**]
 
@@ -1833,11 +1837,23 @@ Invalid bytes literals:
 
    >>> f(**x, *)
    Traceback (most recent call last):
-   SyntaxError: iterable argument unpacking follows keyword argument unpacking
+   SyntaxError: Invalid star expression
 
    >>> f(x, *:)
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: Invalid star expression
+
+   >>> f(x, *)
+   Traceback (most recent call last):
+   SyntaxError: Invalid star expression
+
+   >>> f(x = 5, *)
+   Traceback (most recent call last):
+   SyntaxError: Invalid star expression
+
+   >>> f(x = 5, *:)
+   Traceback (most recent call last):
+   SyntaxError: Invalid star expression
 """
 
 import re
@@ -1970,7 +1986,10 @@ class SyntaxTestCase(unittest.TestCase):
                           "outside function")
 
     def test_break_outside_loop(self):
-        msg = "outside loop"
+        if sys.implementation.name == 'pypy':
+            msg = "not properly in loop"
+        else:
+            msg = "outside loop"
         self._check_error("break", msg, lineno=1)
         self._check_error("if 0: break", msg, lineno=1)
         self._check_error("if 0: break\nelse:  x=1", msg, lineno=1)

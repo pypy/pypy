@@ -9,13 +9,9 @@ implementation."""
 
 base_encoding = "utf-8"
 if sys.platform == "win32":
-    base_error = "strict"
-elif sys.platform == "darwin":
-    base_error = "surrogateescape"
-elif sys.platform == "linux2":
-    base_error = "surrogateescape"
+    # PEP 529
+    base_error = "surrogatepass"
 else:
-    # Unknown platform
     base_error = "surrogateescape"
 
 def _getfilesystemencoding(space):

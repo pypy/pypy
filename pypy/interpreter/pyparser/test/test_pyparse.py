@@ -565,3 +565,4 @@ class TestIncompleteInput(object):
 
     def test_line_continuation(self):
         self.check_incomplete("a = \\")
+        self.check_incomplete("a = '\\")

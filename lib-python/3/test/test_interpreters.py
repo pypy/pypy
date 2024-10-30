@@ -4,6 +4,7 @@ import threading
 from textwrap import dedent
 import unittest
 import time
+from test.support import import_helper
 
 from test import support
 from test.support import import_helper

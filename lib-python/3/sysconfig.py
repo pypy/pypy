@@ -106,6 +106,14 @@ else:
 
 # NOTE: site.py has copy of this function.
 # Sync it when modify this function.
+def _get_implementation():
+    if sys.implementation.name == 'pypy':
+        return 'PyPy'
+    return 'Python'
+
+
+# NOTE: site.py has copy of this function.
+# Sync it when modify this function.
 def _getuserbase():
     env_base = os.environ.get("PYTHONUSERBASE", None)
     if env_base:
@@ -181,13 +189,6 @@ _variable_rx = r"([a-zA-Z][a-zA-Z0-9_]+)\s*=\s*(.*)"
 _findvar1_rx = r"\$\(([A-Za-z][A-Za-z0-9_]*)\)"
 _findvar2_rx = r"\${([A-Za-z][A-Za-z0-9_]*)}"
 
-
-# NOTE: site.py has copy of this function.
-# Sync it when modify this function.
-def _get_implementation():
-    if sys.implementation.name == 'pypy':
-        return 'PyPy'
-    return 'Python'
 
 def _safe_realpath(path):
     try:

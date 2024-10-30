@@ -525,18 +525,7 @@ class Function(W_Root):
         self.w_ann = None
 
 
-def descr_function_get(space, w_function, w_obj, w_cls=None):
-    """functionobject.__get__(obj[, type]) -> method"""
-    # this is not defined as a method on Function because it's generally
-    # useful logic: w_function can be any callable.  It is used by Method too.
-    if w_obj is None or space.is_w(w_obj, space.w_None):
-        return w_function
-    else:
-        return Method(space, w_function, w_obj)
-
-
 class _Method(W_Root):
-    """A method is a function bound to a specific instance."""
     _immutable_fields_ = ['w_function', 'w_instance']
 
     def __init__(self, space, w_function, w_instance):
@@ -552,7 +541,7 @@ class _Method(W_Root):
         space = self.space
         return space.call_obj_args(self.w_function, self.w_instance, args)
 
-    def descr_method_get(self, w_obj, w_cls=None):
+    def descr_method_get(self, w_instance, w_owner=None):
         return self     # already bound
 
     def descr_method_call(self, __args__):
@@ -573,6 +562,9 @@ class _Method(W_Root):
         objrepr = space.utf8_w(space.repr(self.w_instance))
         s = b'<bound method %s of %s>' % (name, objrepr)
         return space.newtext(s)
+
+    def descr_get_doc(self, space):
+        return space.getattr(self.w_function, space.newtext('__doc__'))
 
     def descr_method_getattribute(self, w_attr):
         space = self.space
@@ -629,6 +621,8 @@ class _Method(W_Root):
         return space.newtuple2(new_inst, space.newtuple(tup))
 
 class Method(_Method):
+    """Create an instance method object."""
+
     def descr_method__new__(space, w_subtype, w_function, w_instance):
         if space.is_w(w_instance, space.w_None):
             w_instance = None

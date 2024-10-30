@@ -285,6 +285,39 @@ class TestOptBridge(LLJitMixin):
         self.check_resops(guard_value=1)
         self.check_resops(getarrayitem_gc_i=4)
 
+    def test_bridge_array_read_dont_crash_on_huge_index(self):
+        myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n', 'a'])
+        def f(x, y, n):
+            a = [0] * 40000
+            if x:
+                a[37000] = 1
+                a[38000] = n
+                a[39000] = 0
+            else:
+                a[37000] = 2
+                a[38000] = n
+                a[39000] = 0
+            res = 0
+            while y > 0:
+                myjitdriver.jit_merge_point(y=y, n=n, res=res, a=a)
+                n1 = a[38000]
+                m = jit.promote(a[37000])
+                res += m
+                a[39000] += 1
+                if y > n:
+                    res += 1
+                m = jit.promote(a[37000])
+                res += m
+                res += n1 + a[1]
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 32, 16])
+        assert res == f(6, 32, 16)
+        self.check_trace_count(3)
+        # can't cache the huge indexes, they are larger than 2**15
+        self.check_resops(guard_value=3)
+        self.check_resops(getarrayitem_gc_i=10)
+
     def test_bridge_array_read_constant(self):
         myjitdriver = jit.JitDriver(greens=[], reds=['y', 'res', 'n'])
         class A(object):

@@ -411,7 +411,7 @@ class W_TypeObject(W_Root):
     def setdictvalue(self, space, name, w_value):
         if not self.is_heaptype():
             raise oefmt(space.w_TypeError,
-                        "cannot set attributes on immutable type object '%N'", self)
+                        "cannot set '%s' attribute of immutable type '%N'", name, self)
         if name == "__del__" and name not in self.dict_w:
             msg = ("a __del__ method added to an existing type will not be "
                    "called")
@@ -1157,7 +1157,7 @@ type(name, bases, dict) -> a new type""")
 def descr_set__doc(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
-        raise oefmt(space.w_TypeError, "can't set %N.__doc__", w_type)
+        raise oefmt(space.w_TypeError, "cannot set '__doc__' attribute of immutable type '%N'", w_type)
     w_type.setdictvalue(space, '__doc__', w_value)
 
 def type_get_txtsig(space, w_type):

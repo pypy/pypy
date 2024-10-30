@@ -15,6 +15,7 @@ __pycache__/
 bin/pypy-c
 include/*.h
 include/numpy/
+include/_numpypy/
 lib_pypy/ctypes_config_cache/_[^_]*_*.py
 libpypy*-c.*
 pypy-c
@@ -59,3 +60,9 @@ pybuilddir.txt
 pypy/doc/config/*.rst
 pypy/doc/config/*.txt
 pypy/doc/_build
+site-packages/pip*
+site-packages/setuptools*
+site-packages/pkg_resources*
+site-packages/easy_install.py
+bin/pip*
+bin/easy_install*

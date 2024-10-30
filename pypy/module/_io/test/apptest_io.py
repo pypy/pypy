@@ -320,6 +320,9 @@ def test_errors_property(tempfile):
     with _io.open(tempfile, "w", errors="replace") as f:
         assert f.errors == "replace"
 
+    with raises(TypeError):
+        _io.open(tempfile, "w", errors=3)
+
 def test_append_bom(tempfile):
     # The BOM is not written again when appending to a non-empty file
     for charset in ["utf-8-sig", "utf-16", "utf-32"]:

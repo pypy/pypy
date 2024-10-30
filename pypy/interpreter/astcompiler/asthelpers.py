@@ -81,6 +81,7 @@ class __extend__(ast.List):
 
 
 class __extend__(ast.Attribute):
+    _description = 'attribute'
 
     def set_context_copy(self, ctx):
         return ast.Attribute(
@@ -92,6 +93,7 @@ class __extend__(ast.Attribute):
 
 
 class __extend__(ast.Subscript):
+    _description = 'subscript'
 
     def set_context_copy(self, ctx):
         return ast.Subscript(
@@ -174,7 +176,7 @@ class __extend__(ast.List):
     _type_name = "list"
 
 class __extend__(ast.Dict):
-    _description = "dict display"
+    _description = "dict literal"
     _type_name = "dict"
 
 class __extend__(ast.Set):
@@ -226,7 +228,7 @@ class __extend__(ast.Constant):
             (space.w_True, 'True'),
             (space.w_False, 'False'),
             (space.w_None, 'None'),
-            (space.w_Ellipsis, 'Ellipsis')
+            (space.w_Ellipsis, 'ellipsis')
         ]:
             if space.is_w(self.value, singleton):
                 return name

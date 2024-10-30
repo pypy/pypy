@@ -2,10 +2,9 @@ from rpython.rlib.objectmodel import import_from_mixin, specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.function import descr_function_get
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import (
-    interp2app, interpindirect2app, unwrap_spec)
+    interp2app, interpindirect2app, unwrap_spec, descr_function_get)
 from pypy.objspace.std.typeobject import W_TypeObject
 
 from pypy.module._hpy_universal import llapi

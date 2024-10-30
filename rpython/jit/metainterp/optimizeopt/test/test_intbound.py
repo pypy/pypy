@@ -1656,7 +1656,15 @@ def test_knownbits_and_backwards_otherconst_examples():
     o = knownbits(0b101010,
                   0b010100) # 1?1?10
     r = o.and_bound_backwards(IntBound.from_constant(0b110))
-    assert check_knownbits_string(r, "0?0?1?")
+    assert check_knownbits_string(r, "0?011?")
+
+def test_knownbits_and_backwards_example():
+    o = knownbits(0b11100000,
+                  0b00000111) # 11100???
+    r = knownbits(0b10000100,
+                  0b00101001) # 10?0?10?
+    s = o.and_bound_backwards(r)
+    assert check_knownbits_string(s, '?10???1??', '?')
 
 def test_knownbits_and_backwards_example_inconsistent():
     o = knownbits(0b111000000, 0b000000111) # 111000???
@@ -1670,7 +1678,7 @@ def test_knownbits_or_backwards_example():
     r = knownbits(0b10100100,
                   0b01001001) # 1?10?10?
     s = o.or_bound_backwards(r)
-    assert check_knownbits_string(s, '00??10????', '0')
+    assert check_knownbits_string(s, '00??10??0?', '0')
 
     o = knownbits(0b111000000, 0b000000111) # 111000???
     r = knownbits(0b100100100, 0b001001001) # 10?10?10?
@@ -1863,6 +1871,17 @@ def test_knownbits_and_backwards_random(t1, t2):
     # this should not fail
     b1.intersect(newb1)
 
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
+def test_knownbits_or_backwards_random(t1, t2):
+    b1, n1 = t1     # self
+    b2, n2 = t2     # other
+    rb = b1.or_bound(b2)
+    rn = n1 & n2
+    newb1 = b2.or_bound_backwards(rb)
+    assert newb1.contains(n1)
+    # this should not fail
+    b1.intersect(newb1)
+
 @given(knownbits_and_bound_with_contained_number, constant)
 def test_knownbits_urshift_backwards_random(t1, t2):
     b1, n1 = t1     # self
@@ -1919,3 +1938,10 @@ def test_getnullness_random(t1):
         assert n1 == 0
     else:
         assert res == INFO_UNKNOWN
+
+@given(knownbits_and_bound_with_contained_number)
+def test_make_bool(t1):
+    b1, n1 = t1
+    if b1.contains(0) or b1.contains(1):
+        b1.make_bool()
+        assert b1.is_bool()

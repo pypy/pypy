@@ -301,6 +301,7 @@ f'{a * x()} {a * x()} {a * x()}'
         self.assertEqual(name.col_offset, 22)
         self.assertEqual(name.end_col_offset, 25)
 
+    @cpython_only
     def test_ast_line_numbers_multiline_fstring(self):
         # See bpo-30465 for details.
         expr = """

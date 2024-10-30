@@ -1111,7 +1111,10 @@ class TestDescriptions(unittest.TestCase):
 
         self.assertEqual(pydoc.describe(int | str), 'UnionType')
         doc = pydoc.render_doc(int | str, renderer=pydoc.plaintext)
-        self.assertIn('UnionType in module types object', doc)
+        if sys.implementation.name == "pypy":
+            self.assertIn('UnionType in module _pypy_generic_alias object', doc)
+        else:
+            self.assertIn('UnionType in module types object', doc)
         self.assertIn('\nclass UnionType(builtins.object)', doc)
         if not MISSING_C_DOCSTRINGS:
             self.assertIn(types.UnionType.__doc__.strip().splitlines()[0], doc)

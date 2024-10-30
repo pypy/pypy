@@ -262,6 +262,7 @@ def test_reuse_closed_handles(compiler):
         _debug.set_closed_handles_queue_max_size(old_size)
 
 
+@pytest.mark.skipif(True, "Does not raise, even on CPython")
 def test_set_on_invalid_handle(compiler):
     from hpy.universal import _debug
     def callback():

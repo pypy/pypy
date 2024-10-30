@@ -1,7 +1,7 @@
 #
 # DEPRECATED: implementation for ffi.verify()
 #
-import sys, os, binascii, shutil, io
+import sys, os, binascii, shutil, io, threading
 from . import __version_verifier_modules__
 from . import ffiplatform
 from .error import VerificationError
@@ -197,8 +197,20 @@ class Verifier(object):
 
     def _compile_module(self):
         # compile this C source
+        # Note: compilation will create artifacts in tmpdir + sourcefilename
+        # This can exceed the windows MAXPATH quite easily. To make it shorter,
+        # cd into tmpdir and make the sourcefilename relative to tmdir
         tmpdir = os.path.dirname(self.sourcefilename)
-        outputfilename = ffiplatform.compile(tmpdir, self.get_extension())
+        olddir = os.getcwd()
+        os.chdir(tmpdir)
+        self.sourcefilename_orig = self.sourcefilename
+        try:
+            self.sourcefilename = os.path.relpath(self.sourcefilename)
+            output_rel_filename = ffiplatform.compile(tmpdir, self.get_extension())
+            outputfilename = os.path.join(tmpdir, output_rel_filename)
+        finally:
+            os.chdir(olddir)
+            self.sourcefilename = self.sourcefilename_orig
         try:
             same = ffiplatform.samefile(outputfilename, self.modulefilename)
         except OSError:
@@ -215,12 +227,13 @@ class Verifier(object):
         else:
             return self._vengine.load_library()
 
+local = threading.local()
 # ____________________________________________________________
 
-_FORCE_GENERIC_ENGINE = False      # for tests
+local._FORCE_GENERIC_ENGINE = False      # for tests
 
 def _locate_engine_class(ffi, force_generic_engine):
-    if _FORCE_GENERIC_ENGINE:
+    if local._FORCE_GENERIC_ENGINE:
         force_generic_engine = True
     if not force_generic_engine:
         if '__pypy__' in sys.builtin_module_names:
@@ -241,11 +254,11 @@ def _locate_engine_class(ffi, force_generic_engine):
 
 # ____________________________________________________________
 
-_TMPDIR = None
+local._TMPDIR = None
 
 def _caller_dir_pycache():
-    if _TMPDIR:
-        return _TMPDIR
+    if local._TMPDIR:
+        return local._TMPDIR
     result = os.environ.get('CFFI_TMPDIR')
     if result:
         return result
@@ -255,8 +268,7 @@ def _caller_dir_pycache():
 
 def set_tmpdir(dirname):
     """Set the temporary directory to use instead of __pycache__."""
-    global _TMPDIR
-    _TMPDIR = dirname
+    local._TMPDIR = dirname
 
 def cleanup_tmpdir(tmpdir=None, keep_so=False):
     """Clean up the temporary directory by removing all files in it
