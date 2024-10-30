@@ -382,7 +382,7 @@ class AppTestTypeDef:
         assert bm.__self__ is obj
         assert bm.__doc__ == "aaa"
         assert bm.x == 3
-        assert type(bm).__doc__ == "instancemethod(function, instance, class)\n\nCreate an instance method object."
+        assert type(bm).__doc__ == "Create a method object."
         raises(AttributeError, setattr, bm, 'x', 15)
         l = []
         assert l.append.__self__ is l

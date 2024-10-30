@@ -621,7 +621,7 @@ class _Method(W_Root):
         return space.newtuple2(new_inst, space.newtuple(tup))
 
 class Method(_Method):
-    """Create an instance method object."""
+    """Create a method object."""
 
     def descr_method__new__(space, w_subtype, w_function, w_instance):
         if space.is_w(w_instance, space.w_None):
