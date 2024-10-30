@@ -608,10 +608,10 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
             ptr = ctx.match_end
             marks = ctx.match_marks
 
-install_jitdriver('MaxUntilPossessive',
-                  greens=['ppos', 'pattern'],
-                  reds=['ptr', 'matches_done', 'marks', 'ctx'],
-                  debugprint=(1, 0))
+install_jitdriver_spec('MaxUntilPossessive',
+                       greens=['ppos', 'pattern'],
+                       reds=['ptr', 'matches_done', 'marks', 'ctx'],
+                       debugprint=(1, 0))
 
 @specializectx
 def find_repetition_end_possessive(ctx, pattern, ppos, ptr, marks):
