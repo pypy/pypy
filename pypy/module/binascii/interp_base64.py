@@ -35,8 +35,8 @@ def _transform(n):
 table_a2b_base64 = ''.join(map(_transform, table_a2b_base64))
 assert len(table_a2b_base64) == 256
 
-@unwrap_spec(ascii=AsciiBufferUnwrapper)
-def a2b_base64(space, ascii):
+@unwrap_spec(ascii=AsciiBufferUnwrapper, strict_mode=int)
+def a2b_base64(space, ascii, strict_mode=0):
     "Decode a line of base64 data."
 
     res = StringBuilder((len(ascii) // 4) * 3)   # maximum estimate
@@ -46,15 +46,24 @@ def a2b_base64(space, ascii):
     last_char_was_a_pad = False
     bin_used = 0
 
+    if strict_mode and len(ascii) > 0 and ascii[0] == '=':
+        raise_Error(space, "Leading padding not allowed")
+    i = 0
     for c in ascii:
         if c == PAD:
             if quad_pos > 2 or (quad_pos == 2 and last_char_was_a_pad):
+                if strict_mode and i + 1 < len(ascii):
+                    raise_Error(space, "Excess data after padding")
                 break      # stop on 'xxx=' or on 'xx=='
             last_char_was_a_pad = True
         else:
             n = ord(table_a2b_base64[ord(c)])
             if n == 0xff:
+                if strict_mode:
+                    raise_Error(space, "Only base64 data is allowed")
                 continue    # ignore strange characters
+            if strict_mode and last_char_was_a_pad:
+                raise_Error(space, "Discontinuous padding not allowed")
             #
             # Shift it in on the low end, and see if there's
             # a byte ready for output.
@@ -69,6 +78,7 @@ def a2b_base64(space, ascii):
                 bin_used += 1
             #
             last_char_was_a_pad = False
+        i += 1
     else:
         if leftbits != 0:
             if leftbits == 6:
