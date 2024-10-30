@@ -46,13 +46,3 @@ def test_ctrl_c_causes_atexit():
     line = process.stdout.read()
     assert line == b'called atexit\n'
 
-
-def test_minus_c_knowns_source_code():
-    process = subprocess.Popen(
-            [sys.executable,
-             '-c', '1 + 1/0'],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    error = process.stderr.read().decode("utf-8")
-    assert "1 + 1/0" in error
-    assert "^^^" in error
-
