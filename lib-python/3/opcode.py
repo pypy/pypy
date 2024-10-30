@@ -54,6 +54,7 @@ def jabs_op(name, op):
 # Instruction opcodes for compiled code
 # Blank lines correspond to available opcodes
 
+def_op('CACHE', 0)
 def_op('POP_TOP', 1)
 def_op('ROT_TWO', 2)
 def_op('ROT_THREE', 3)
@@ -224,3 +225,207 @@ def_op('CALL_METHOD_KW', 204)
 def_op('LOAD_REVDB_VAR', 205)         # reverse debugger (syntax example: $5)
 
 del def_op, name_op, jrel_op, jabs_op
+
+_nb_ops = [
+    ("NB_ADD", "+"),
+    ("NB_AND", "&"),
+    ("NB_FLOOR_DIVIDE", "//"),
+    ("NB_LSHIFT", "<<"),
+    ("NB_MATRIX_MULTIPLY", "@"),
+    ("NB_MULTIPLY", "*"),
+    ("NB_REMAINDER", "%"),
+    ("NB_OR", "|"),
+    ("NB_POWER", "**"),
+    ("NB_RSHIFT", ">>"),
+    ("NB_SUBTRACT", "-"),
+    ("NB_TRUE_DIVIDE", "/"),
+    ("NB_XOR", "^"),
+    ("NB_INPLACE_ADD", "+="),
+    ("NB_INPLACE_AND", "&="),
+    ("NB_INPLACE_FLOOR_DIVIDE", "//="),
+    ("NB_INPLACE_LSHIFT", "<<="),
+    ("NB_INPLACE_MATRIX_MULTIPLY", "@="),
+    ("NB_INPLACE_MULTIPLY", "*="),
+    ("NB_INPLACE_REMAINDER", "%="),
+    ("NB_INPLACE_OR", "|="),
+    ("NB_INPLACE_POWER", "**="),
+    ("NB_INPLACE_RSHIFT", ">>="),
+    ("NB_INPLACE_SUBTRACT", "-="),
+    ("NB_INPLACE_TRUE_DIVIDE", "/="),
+    ("NB_INPLACE_XOR", "^="),
+]
+
+_specializations = {
+    "BINARY_OP": [
+        "BINARY_OP_ADAPTIVE",
+        "BINARY_OP_ADD_FLOAT",
+        "BINARY_OP_ADD_INT",
+        "BINARY_OP_ADD_UNICODE",
+        "BINARY_OP_INPLACE_ADD_UNICODE",
+        "BINARY_OP_MULTIPLY_FLOAT",
+        "BINARY_OP_MULTIPLY_INT",
+        "BINARY_OP_SUBTRACT_FLOAT",
+        "BINARY_OP_SUBTRACT_INT",
+    ],
+    "BINARY_SUBSCR": [
+        "BINARY_SUBSCR_ADAPTIVE",
+        "BINARY_SUBSCR_DICT",
+        "BINARY_SUBSCR_GETITEM",
+        "BINARY_SUBSCR_LIST_INT",
+        "BINARY_SUBSCR_TUPLE_INT",
+    ],
+    "CALL": [
+        "CALL_ADAPTIVE",
+        "CALL_PY_EXACT_ARGS",
+        "CALL_PY_WITH_DEFAULTS",
+    ],
+    "COMPARE_OP": [
+        "COMPARE_OP_ADAPTIVE",
+        "COMPARE_OP_FLOAT_JUMP",
+        "COMPARE_OP_INT_JUMP",
+        "COMPARE_OP_STR_JUMP",
+    ],
+    "EXTENDED_ARG": [
+        "EXTENDED_ARG_QUICK",
+    ],
+    "JUMP_BACKWARD": [
+        "JUMP_BACKWARD_QUICK",
+    ],
+    "LOAD_ATTR": [
+        "LOAD_ATTR_ADAPTIVE",
+        "LOAD_ATTR_INSTANCE_VALUE",
+        "LOAD_ATTR_MODULE",
+        "LOAD_ATTR_SLOT",
+        "LOAD_ATTR_WITH_HINT",
+    ],
+    "LOAD_CONST": [
+        "LOAD_CONST__LOAD_FAST",
+    ],
+    "LOAD_FAST": [
+        "LOAD_FAST__LOAD_CONST",
+        "LOAD_FAST__LOAD_FAST",
+    ],
+    "LOAD_GLOBAL": [
+        "LOAD_GLOBAL_ADAPTIVE",
+        "LOAD_GLOBAL_BUILTIN",
+        "LOAD_GLOBAL_MODULE",
+    ],
+    "LOAD_METHOD": [
+        "LOAD_METHOD_ADAPTIVE",
+        "LOAD_METHOD_CLASS",
+        "LOAD_METHOD_MODULE",
+        "LOAD_METHOD_NO_DICT",
+        "LOAD_METHOD_WITH_DICT",
+        "LOAD_METHOD_WITH_VALUES",
+    ],
+    "PRECALL": [
+        "PRECALL_ADAPTIVE",
+        "PRECALL_BOUND_METHOD",
+        "PRECALL_BUILTIN_CLASS",
+        "PRECALL_BUILTIN_FAST_WITH_KEYWORDS",
+        "PRECALL_METHOD_DESCRIPTOR_FAST_WITH_KEYWORDS",
+        "PRECALL_NO_KW_BUILTIN_FAST",
+        "PRECALL_NO_KW_BUILTIN_O",
+        "PRECALL_NO_KW_ISINSTANCE",
+        "PRECALL_NO_KW_LEN",
+        "PRECALL_NO_KW_LIST_APPEND",
+        "PRECALL_NO_KW_METHOD_DESCRIPTOR_FAST",
+        "PRECALL_NO_KW_METHOD_DESCRIPTOR_NOARGS",
+        "PRECALL_NO_KW_METHOD_DESCRIPTOR_O",
+        "PRECALL_NO_KW_STR_1",
+        "PRECALL_NO_KW_TUPLE_1",
+        "PRECALL_NO_KW_TYPE_1",
+        "PRECALL_PYFUNC",
+    ],
+    "RESUME": [
+        "RESUME_QUICK",
+    ],
+    "STORE_ATTR": [
+        "STORE_ATTR_ADAPTIVE",
+        "STORE_ATTR_INSTANCE_VALUE",
+        "STORE_ATTR_SLOT",
+        "STORE_ATTR_WITH_HINT",
+    ],
+    "STORE_FAST": [
+        "STORE_FAST__LOAD_FAST",
+        "STORE_FAST__STORE_FAST",
+    ],
+    "STORE_SUBSCR": [
+        "STORE_SUBSCR_ADAPTIVE",
+        "STORE_SUBSCR_DICT",
+        "STORE_SUBSCR_LIST_INT",
+    ],
+    "UNPACK_SEQUENCE": [
+        "UNPACK_SEQUENCE_ADAPTIVE",
+        "UNPACK_SEQUENCE_LIST",
+        "UNPACK_SEQUENCE_TUPLE",
+        "UNPACK_SEQUENCE_TWO_TUPLE",
+    ],
+}
+_specialized_instructions = [
+    opcode for family in _specializations.values() for opcode in family
+]
+_specialization_stats = [
+    "success",
+    "failure",
+    "hit",
+    "deferred",
+    "miss",
+    "deopt",
+]
+
+_cache_format = {
+    "LOAD_GLOBAL": {
+        "counter": 1,
+        "index": 1,
+        "module_keys_version": 2,
+        "builtin_keys_version": 1,
+    },
+    "BINARY_OP": {
+        "counter": 1,
+    },
+    "UNPACK_SEQUENCE": {
+        "counter": 1,
+    },
+    "COMPARE_OP": {
+        "counter": 1,
+        "mask": 1,
+    },
+    "BINARY_SUBSCR": {
+        "counter": 1,
+        "type_version": 2,
+        "func_version": 1,
+    },
+    "LOAD_ATTR": {
+        "counter": 1,
+        "version": 2,
+        "index": 1,
+    },
+    "STORE_ATTR": {
+        "counter": 1,
+        "version": 2,
+        "index": 1,
+    },
+    "LOAD_METHOD": {
+        "counter": 1,
+        "type_version": 2,
+        "dict_offset": 1,
+        "keys_version": 2,
+        "descr": 4,
+    },
+    "CALL": {
+        "counter": 1,
+        "func_version": 2,
+        "min_args": 1,
+    },
+    "PRECALL": {
+        "counter": 1,
+    },
+    "STORE_SUBSCR": {
+        "counter": 1,
+    },
+}
+
+_inline_cache_entries = [
+    sum(_cache_format.get(opname[opcode], {}).values()) for opcode in range(256)
+]

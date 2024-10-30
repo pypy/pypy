@@ -135,11 +135,7 @@ __all__ = [
 
 import abc
 import ast
-try:
-    import dis
-except Exception:
-    # XXX FIXME
-    dis = None
+import dis
 import collections.abc
 import enum
 import importlib.machinery
@@ -159,11 +155,10 @@ from collections import namedtuple, OrderedDict
 
 # Create constants for the compiler flags in Include/code.h
 # We try to get them from dis to avoid duplication
-if dis:
-    mod_dict = globals()
-    for k, v in dis.COMPILER_FLAG_NAMES.items():
-        mod_dict["CO_" + v] = k
-    del k, v, mod_dict
+mod_dict = globals()
+for k, v in dis.COMPILER_FLAG_NAMES.items():
+    mod_dict["CO_" + v] = k
+del k, v, mod_dict
 
 # See Include/object.h
 TPFLAGS_IS_ABSTRACT = 1 << 20

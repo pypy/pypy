@@ -35,8 +35,8 @@ MAKE_FUNCTION_FLAGS = ('defaults', 'kwdefaults', 'annotations', 'closure')
 
 LOAD_CONST = opmap['LOAD_CONST']
 LOAD_GLOBAL = opmap['LOAD_GLOBAL']
-BINARY_OP = opmap['BINARY_OP']
-JUMP_BACKWARD = opmap['JUMP_BACKWARD']
+BINARY_OP = -1 ## opmap['BINARY_OP']
+JUMP_BACKWARD = -1  ## opmap['JUMP_BACKWARD']
 
 CACHE = opmap["CACHE"]
 
