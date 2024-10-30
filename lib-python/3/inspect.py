@@ -1961,9 +1961,13 @@ def _signature_get_user_defined_method(cls, method_name):
         meth = getattr(cls, method_name, None)
     else:
         meth = getattr_static(cls, method_name, None)
-    if meth is None or isinstance(meth, _NonUserDefinedCallables):
-        # Once '__signature__' will be added to 'C'-level
-        # callables, this check won't be necessary
+    # PYPY: logic changed here
+    # if meth is None or isinstance(meth, _NonUserDefinedCallables):
+    if meth is None:
+        return None
+    try:
+        code = meth.__code__
+    except AttributeError:
         return None
     if method_name != '__new__':
         meth = _descriptor_get(meth, cls)
