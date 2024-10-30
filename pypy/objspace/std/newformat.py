@@ -1082,6 +1082,8 @@ def make_formatting_class(for_unicode):
                             "specifier")
             if self._alternate:
                 flags |= rfloat.DTSF_ALT
+            if self._zeros:
+                flags |= rfloat.DTSF_NO_NEG_0
 
             skip_re = 0
             add_parens = 0

@@ -354,7 +354,6 @@ def test_negative_zero():
     assert f"{-1.:+z.0f}" == "-1"
     assert f"{-1.:-z.0f}" == "-1"
 
-    return
     assert f"{0.j:z.1f}" == "0.0+0.0j"
     assert f"{-0.j:z.1f}" == "0.0+0.0j"
     assert f"{.01j:z.1f}" == "0.0+0.0j"
