@@ -62,3 +62,9 @@ def test_possesive_repeat_groups():
     r = [POSSESSIVE_REPEAT, 8, 3, 3, MARK, 0, ANY, MARK, 1, SUCCESS, SUCCESS]
     match = rsre_core.match(rsre_core.CompiledPattern(r, 0), "abc")
     assert match.match_marks is not None
+
+def test_possessive_repeat_zero_width():
+    # (e?){2,4}+a
+    r = [POSSESSIVE_REPEAT, 14, 2, 4, MARK, 0, REPEAT_ONE, 6, 0, 1, LITERAL, ord('e'), SUCCESS, MARK, 1, SUCCESS, LITERAL, ord('a'), SUCCESS]
+    match = rsre_core.match(rsre_core.CompiledPattern(r, 0), "eeea")
+    assert match.match_marks is not None
