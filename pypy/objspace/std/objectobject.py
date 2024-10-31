@@ -24,34 +24,6 @@ def reduce_1(obj, proto):
     import copyreg
     return copyreg._reduce_ex(obj, proto)
 
-def _getstate(obj, required=False):
-    cls = obj.__class__
-
-    try:
-        getstate = obj.__getstate__
-    except AttributeError:
-        # and raises a TypeError if the condition holds true, this is done
-        # just before reduce_2 is called in pypy
-        state = getattr(obj, "__dict__", None)
-        # CPython returns None if the dict is empty
-        if state is not None and len(state) == 0:
-            state = None
-        names = slotnames(cls) # not checking for list
-        if names is not None:
-            slots = {}
-            for name in names:
-                try:
-                    value = getattr(obj, name)
-                except AttributeError:
-                    pass
-                else:
-                    slots[name] =  value
-            if slots:
-                state = state, slots
-    else:
-        state = getstate()
-    return state
-
 def reduce_2(obj, proto, args, kwargs):
     cls = obj.__class__
 
@@ -71,11 +43,26 @@ def reduce_2(obj, proto, args, kwargs):
     else:
        newobj = copyreg.__newobj_ex__
        args2 = (cls, args, kwargs)
-    state = _getstate(obj)
+    state = obj.__getstate__()
     listitems = iter(obj) if isinstance(obj, list) else None
     dictitems = iter(obj.items()) if isinstance(obj, dict) else None
 
     return newobj, args2, state, listitems, dictitems
+
+
+def get_slotvalues(obj):
+    names = slotnames(obj.__class__)
+    if not names:
+        return None
+    slots = {}
+    for name in names:
+        try:
+            value = getattr(obj, name)
+        except AttributeError:
+            pass
+        else:
+            slots[name] =  value
+    return slots
 
 
 def slotnames(cls):
@@ -100,6 +87,7 @@ def slotnames(cls):
 _abstract_method_error = app.interphook("_abstract_method_error")
 reduce_1 = app.interphook('reduce_1')
 reduce_2 = app.interphook('reduce_2')
+get_slotvalues = app.interphook('get_slotvalues')
 
 
 class W_ObjectObject(W_Root):
@@ -252,18 +240,18 @@ def descr__reduce__(space, w_obj):
     return reduce_1(space, w_obj, w_proto)
 
 def object_getstate_default(space, w_obj, required):
-    if required and space.lookup(w_obj, '__len__'):
+    w_obj_type = space.type(w_obj)
+    if required and w_obj_type.layout.typedef.variable_sized:
         # never reached, required is always 0?
         raise oefmt(space.w_TypeError, "cannot pickle %N objects", w_obj)
-    w_objdict = w_obj.getdict(space)
-    if not w_objdict or space.len_w(w_objdict) < 1:
-        return space.w_None
-    w_ret = space.call_method(w_objdict, 'copy')
-    dict_w = space.type(w_obj).dict_w
-    # TODO: iterate over the __slots__ in dict_w. If there are any, create a dict
-    # of key: space.getattr(w_obj, key), then return a tuple
-    # (w_ret, slots_dict)
-    # This is like _getstate() and reduce_2
+    w_objdict = space.findattr(w_obj, space.newtext("__dict__"))
+    if w_objdict and space.len_w(w_objdict) > 0:
+        w_ret = space.call_method(w_objdict, 'copy')
+    else:
+        w_ret = space.w_None
+    w_slots = get_slotvalues(space, w_obj)
+    if w_slots is not space.w_None:
+        w_ret = space.newtuple([w_ret, w_slots])
     return w_ret
 
 @unwrap_spec(proto=int)

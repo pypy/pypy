@@ -241,7 +241,25 @@ def test_getstate():
     class Foo:
         pass
 
+    class Base:
+        __slots__ = {"name": "foo"}
+        def __init__(self, name):
+            self.name = name
+
+    class Bar(Base):
+        pass
+
     a = Foo()
     a.abc = 42
     state = a.__getstate__()
     assert state == {'abc': 42}
+
+    b = Bar('world')
+    b.abc = 'hello'
+    state = b.__getstate__()
+    assert state == ({'abc': 'hello'}, {'name': 'world'})
+
+    b = Base('world')
+    state = b.__getstate__()
+    assert state == (None, {'name': 'world'})
+    
