@@ -32,9 +32,9 @@ jobs:
 
     - name: install system dependencies
       uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: libffi-dev pkg-config zlib1g-dev libbz2-dev libsqlite3-dev libncurses5-dev libexpat1-dev libssl-dev libgdbm-dev tk-dev libgc-dev liblzma-dev libncursesw5-dev patchelf
-          version: 1.0
+      with:
+        packages: libffi-dev pkg-config zlib1g-dev libbz2-dev libsqlite3-dev libncurses5-dev libexpat1-dev libssl-dev libgdbm-dev tk-dev libgc-dev liblzma-dev libncursesw5-dev patchelf
+        version: 1.0
 
     - name: run objspace unit tests
       run: |
