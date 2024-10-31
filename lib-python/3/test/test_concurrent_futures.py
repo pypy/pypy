@@ -575,11 +575,17 @@ class ProcessPoolShutdownTest(ExecutorShutdownTest):
         call_queue = executor._call_queue
         executor_manager_thread = executor._executor_manager_thread
         del executor
-        support.gc_collect()  # For PyPy or other GCs.
 
         # Make sure that all the executor resources were properly cleaned by
         # the shutdown process
-        executor_manager_thread.join()
+        # executor_manager_thread.join()
+        # PyPy change: wait for the executor to be collected
+        while True:
+            executor_manager_thread.join(0.001)
+            if not executor_manager_thread.is_alive():
+                break
+            support.gc_collect()  # For PyPy or other GCs.
+
         for p in processes.values():
             p.join()
         call_queue.join_thread()
@@ -601,7 +607,14 @@ class ProcessPoolShutdownTest(ExecutorShutdownTest):
 
         # Make sure that all the executor resources were properly cleaned by
         # the shutdown process
-        executor_manager_thread.join()
+        # executor_manager_thread.join()
+        # PyPy change: wait for the executor to be collected
+        while True:
+            executor_manager_thread.join(0.001)
+            if not executor_manager_thread.is_alive():
+                break
+            support.gc_collect()  # For PyPy or other GCs.
+
         for p in processes.values():
             p.join()
         call_queue.join_thread()
