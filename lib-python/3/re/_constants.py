@@ -14,8 +14,14 @@
 # update when constants are added or removed
 
 MAGIC = 20220615
+import sys
+_IS_PYPY = sys.implementation.name == 'pypy'
 
-from _sre import MAXREPEAT, MAXGROUPS, OPCODES as _internal_opcodes
+from _sre import MAXREPEAT, MAXGROUPS
+if _IS_PYPY:
+    from _sre import OPCODES as _internal_opcodes
+else:
+    _internal_opcodes = []
 
 # SRE standard exception (access as sre.error)
 # should this really be here?
@@ -74,8 +80,9 @@ def _makecodes(*names, preexisting_values=None):
 
 # operators
 _preexisting_values = {name.upper(): i for i, name in enumerate(_internal_opcodes)}
-_preexisting_values['MIN_REPEAT'] = max(_preexisting_values.values()) + 1
-_preexisting_values['MAX_REPEAT'] = max(_preexisting_values.values()) + 1
+if _IS_PYPY:
+    _preexisting_values['MIN_REPEAT'] = max(_preexisting_values.values()) + 1
+    _preexisting_values['MAX_REPEAT'] = max(_preexisting_values.values()) + 1
 OPCODES = _makecodes(
     # failure=0 success=1 (just because it looks better that way :-)
     'FAILURE', 'SUCCESS',
