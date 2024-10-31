@@ -13,6 +13,7 @@ Process for upgrading the stdlib to a new cpython version
    2c. copy to `lib_pypy`
      - `Modules/_ctypes/_ctypes_test.c`
      - `Modules/_testcapimodule.c`
+     - `Modules/_testcapi_feature_macros.inc`
      - `Modules/_testmultiphase.c`
      - `Modules/clinic/_testmultiphase.c.h`
    2d. `git add lib-python/3/`

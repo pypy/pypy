@@ -622,9 +622,9 @@ SYMBOLS_C = [
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
     'PyBuffer_GetPointer', 'PyBuffer_ToContiguous', 'PyBuffer_FromContiguous',
 
-    'PyImport_ImportModuleLevel', '_PyType_Name', '_PyType_GetModuleByDef',
+    'PyImport_ImportModuleLevel', '_PyType_Name', 'PyType_GetModuleByDef',
 
-    'PyOS_getsig', 'PyOS_setsig',
+    'PyOS_getsig', 'PyOS_setsig', 'PyType_GetName', 'PyType_GetQualName',
     '_Py_RestoreSignals',
     'PyThread_get_thread_ident', 'PyThread_allocate_lock', 'PyThread_free_lock',
     'PyThread_acquire_lock', 'PyThread_release_lock',

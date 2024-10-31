@@ -721,8 +721,11 @@ times.
 /* end Py3k buffer interface */
 
 PyAPI_FUNC(const char *) _PyType_Name(PyTypeObject *);
+PyAPI_FUNC(PyObject *) PyType_GetName(PyTypeObject *);
+PyAPI_FUNC(PyObject *) PyType_GetQualName(PyTypeObject *);
+
 struct PyModuleDef;
-PyAPI_FUNC(PyObject *) _PyType_GetModuleByDef(PyTypeObject *, struct PyModuleDef *);
+PyAPI_FUNC(PyObject *) PyType_GetModuleByDef(PyTypeObject *, struct PyModuleDef *);
 
 /* Safely decref `op` and set `op` to `op2`.
  *
