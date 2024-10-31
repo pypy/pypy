@@ -12,7 +12,8 @@ class FutureFlags(object):
                 flag = feature.compiler_flag
                 compiler_flags |= flag
                 self.compiler_features[fname] = flag
-            if version >= feature.getMandatoryRelease():
+            mandatory_release = feature.getMandatoryRelease()
+            if version >= mandatory_release and mandatory_release is not None:
                 self.mandatory_flags |= feature.compiler_flag
         self.allowed_flags = compiler_flags
 
@@ -34,6 +35,7 @@ futureFlags_3_5 = FutureFlags((3, 5, 0, 'final', 0))
 futureFlags_3_7 = FutureFlags((3, 7, 0, 'final', 0))
 futureFlags_3_8 = FutureFlags((3, 8, 0, 'final', 0))
 futureFlags_3_9 = FutureFlags((3, 9, 0, 'final', 0))
+futureFlags_3_11 = FutureFlags((3, 11, 0, 'final', 0))
 
 
 class TokenIterator:

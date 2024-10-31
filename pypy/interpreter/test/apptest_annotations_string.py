@@ -32,3 +32,21 @@ def test_async_return_bug():
     async def foo(x) -> Foobar:
         pass
     assert foo.__annotations__ == {"return": "Foobar"}
+
+def test_future_bug():
+    source = """
+from __future__ import annotations
+
+class A:
+    def __init__(
+        self,
+        appname: str | None = None,
+        appauthor: str | None | Literal[False] = None,
+        version: str | None = None,
+    ) -> None:
+        pass
+    """
+    code = compile(source, "<dummy>", "exec", dont_inherit=1)
+    d = {}
+    exec(code, d) # used to crash
+    assert d["A"].__init__.__annotations__ == {'appname': 'str | None', 'appauthor': 'str | None | Literal[False]', 'version': 'str | None', 'return': 'None'}

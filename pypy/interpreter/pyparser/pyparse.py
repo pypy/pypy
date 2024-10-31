@@ -162,7 +162,7 @@ class PythonParser(object): # leave class for mergeability of _handle_encoding
                               token.line, compile_info.filename)
 
 class PegParser(object):
-    def __init__(self, space, future_flags=future.futureFlags_3_9):
+    def __init__(self, space, future_flags=future.futureFlags_3_11):
         self.space = space
         self.future_flags = future_flags
         self.type_ignores = []
