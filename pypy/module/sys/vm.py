@@ -199,6 +199,20 @@ def exc_info_direct(space, frame):
     else:
         return exc_info_without_tb(space, operror)
 
+def exception(space):
+    """
+    Return the current exception.
+
+    Return the most recent exception caught by an except clause
+    in the current stack frame or in an older stack frame, or None
+    if no such exception exists.
+    """
+    ec = space.getexecutioncontext()
+    operror = ec.sys_exc_info()
+    if operror is None:
+        return space.w_None
+    return operror.get_w_value(space)
+
 def settrace(space, w_func):
     """Set the global debug tracing function.  It will be called on each
 function call.  See the debugger chapter in the library manual."""

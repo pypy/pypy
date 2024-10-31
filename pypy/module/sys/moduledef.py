@@ -67,6 +67,7 @@ class Module(MixedModule):
         'setswitchinterval'     : 'vm.setswitchinterval',
         'getswitchinterval'     : 'vm.getswitchinterval',
         'exc_info'              : 'vm.exc_info',
+        'exception'             : 'vm.exception',
         'settrace'              : 'vm.settrace',
         'gettrace'              : 'vm.gettrace',
         'setprofile'            : 'vm.setprofile',
