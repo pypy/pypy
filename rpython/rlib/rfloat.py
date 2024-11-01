@@ -591,3 +591,19 @@ def _error_check_errno_unary_math(x, r, can_overflow):
                 errno = EDOM
     if errno:
         _likely_raise(errno, r)
+
+# ____________________________________________________________
+# some math functions needed in 3.11+
+
+
+math_eci = ExternalCompilationInfo(
+    libraries=['m'])
+math_exp2 = rffi.llexternal('exp2', [rffi.DOUBLE], rffi.DOUBLE,
+                            save_err=rffi.RFFI_FULL_ERRNO_ZERO,
+                            compilation_info=math_eci)
+
+def exp2(x):
+    "Return 2 raised to the power of x."
+    r = math_exp2(x)
+    _error_check_errno_unary_math(x, r, can_overflow=True)
+    return r
