@@ -436,3 +436,7 @@ class AppTestMath:
         with raises(ValueError):
             math.isqrt(-1)
 
+    def test_pow_zero_ninf(self):
+        import math
+        assert math.pow(0.0, -float('inf')) == float('inf')
+        assert math.pow(-0.0, -float('inf')) == float('inf')

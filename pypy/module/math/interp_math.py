@@ -89,7 +89,17 @@ def pow(space, w_x, w_y):
 
        Return x**y (x to the power of y).
     """
-    return math2(space, math.pow, w_x, w_y)
+    x = _get_double(space, w_x)
+    y = _get_double(space, w_y)
+    try:
+        r = math.pow(x, y)
+    except OverflowError:
+        raise oefmt(space.w_OverflowError, "math range error")
+    except ValueError:
+        if x == 0.0 and math.isinf(y) and y < 0:
+            return space.newfloat(rfloat.INFINITY)
+        raise oefmt(space.w_ValueError, "math domain error")
+    return space.newfloat(r)
 
 def cosh(space, w_x):
     """cosh(x)
