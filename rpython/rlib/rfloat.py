@@ -607,3 +607,13 @@ def exp2(x):
     r = math_exp2(x)
     _error_check_errno_unary_math(x, r, can_overflow=True)
     return r
+
+math_cbrt = rffi.llexternal('cbrt', [rffi.DOUBLE], rffi.DOUBLE,
+                            save_err=rffi.RFFI_FULL_ERRNO_ZERO,
+                            compilation_info=math_eci)
+
+def cbrt(x):
+    "Return cube root of x."
+    r = math_cbrt(x)
+    _error_check_errno_unary_math(x, r, can_overflow=True)
+    return r

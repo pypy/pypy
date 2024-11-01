@@ -5,7 +5,7 @@ from rpython.rlib.rfloat import round_away
 from rpython.rlib.rfloat import round_double
 from rpython.rlib.rfloat import erf, erfc, gamma, lgamma
 from rpython.rlib.rfloat import ulps_check, acc_check
-from rpython.rlib.rfloat import string_to_float, exp2
+from rpython.rlib.rfloat import string_to_float, exp2, cbrt
 from rpython.rlib.rbigint import rbigint
 
 def test_round_away():
@@ -336,3 +336,18 @@ def test_exp2():
     assert math.isnan(exp2(-float('nan')))
     with pytest.raises(OverflowError):
         exp2(10000000)
+
+def test_cbrt():
+    assert cbrt(0.0) == 0.0
+    assert cbrt(1.0) == 1.0
+    assert cbrt(8.0) == 2.0
+    assert cbrt(0.0) == 0.0
+    assert ulps_check(cbrt(-0.0), -0.0, 0) is None
+    assert ulps_check(cbrt(1.2), 1.062658569182611, 5) is None
+    assert ulps_check(cbrt(-2.6), -1.375068867074141, 5) is None
+    assert ulps_check(cbrt(27.0), 3.0, 5) is None
+    assert ulps_check(cbrt(-27.0), -3.0, 5) is None
+    assert cbrt(-1.0) == -1.0
+    assert cbrt(float('inf')) == float('inf')
+    assert cbrt(-float('inf')) == -float('inf')
+    assert math.isnan(cbrt(float('nan')))
