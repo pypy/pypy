@@ -351,3 +351,28 @@ def test_cbrt():
     assert cbrt(float('inf')) == float('inf')
     assert cbrt(-float('inf')) == -float('inf')
     assert math.isnan(cbrt(float('nan')))
+
+def test_exp2_cbrt_translated():
+    from rpython.translator.c.test.test_genc import compile
+    def wrapper(arg, use_exp2):
+        try:
+            if use_exp2:
+                return exp2(arg)
+            else:
+                return cbrt(arg)
+        except OverflowError:
+            return -42
+
+    f = compile(wrapper, [float, bool])
+    # exp2
+    for i in range(-100, 100):
+        assert f(float(i), True) == 2.0 ** i
+    assert f(10000000.0, True) == -42
+    # cbrt
+    assert f(0.0, False) == 0.0
+    assert f(1.0, False) == 1.0
+    assert f(8.0, False) == 2.0
+    assert f(0.0, False) == 0.0
+    assert f(-1.0, False) == -1.0
+    assert f(float('inf'), False) == float('inf')
+    assert f(-float('inf'), False) == -float('inf')
