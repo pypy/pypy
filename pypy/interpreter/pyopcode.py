@@ -1245,9 +1245,9 @@ class __extend__(pyframe.PyFrame):
         w_enter = self.space.lookup(w_manager, "__enter__")
         w_descr = self.space.lookup(w_manager, "__exit__")
         if w_enter is None or w_descr is None:
-            raise oefmt(self.space.w_AttributeError,
-                        "'%T' object is not a context manager (no __enter__/"
-                        "__exit__ method)", w_manager)
+            raise oefmt(self.space.w_TypeError,
+                        "'%T' object does not support the context manager "
+                        "protocol (no __enter__/__exit__ method)", w_manager)
         w_exit = self.space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
         w_result = self.space.get_and_call_function(w_enter, w_manager)
@@ -1536,9 +1536,10 @@ class __extend__(pyframe.PyFrame):
         w_enter = space.lookup(w_manager, "__aenter__")
         w_descr = space.lookup(w_manager, "__aexit__")
         if w_enter is None or w_descr is None:
-            raise oefmt(space.w_AttributeError,
-                        "'%T' object is not a context manager (no __aenter__/"
-                        "__aexit__ method)", w_manager)
+            raise oefmt(space.w_TypeError,
+                        "'%T' object does not support the asynchronous context "
+                        "manager protocol (no __enter__/__exit__ method)",
+                        w_manager)
         w_exit = space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
         w_result = space.get_and_call_function(w_enter, w_manager)
