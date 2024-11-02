@@ -787,3 +787,10 @@ def ulp(space, w_x):
         return space.newfloat(x - x2)
     return space.newfloat(x2 - x)
 
+def exp2(space, w_x):
+    'Return 2 raised to the power of x.'
+    return math1(space, rfloat.exp2, w_x)
+
+def cbrt(space, w_x):
+    'Return the cube root of x.'
+    return math1(space, rfloat.cbrt, w_x)

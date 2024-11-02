@@ -440,3 +440,27 @@ class AppTestMath:
         import math
         assert math.pow(0.0, -float('inf')) == float('inf')
         assert math.pow(-0.0, -float('inf')) == float('inf')
+
+    def test_exp2(self):
+        import math
+        from math import exp2
+        for i in range(-100, 100):
+            assert exp2(float(i)) == 2.0 ** i
+        assert exp2(float('inf')) == float('inf')
+        assert exp2(-float('inf')) == 0.0
+        assert math.isnan(exp2(-float('nan')))
+        with raises(OverflowError):
+            exp2(10000000)
+
+    def test_cbrt(self):
+        import math
+        from math import cbrt
+        assert cbrt(0.0) == 0.0
+        assert cbrt(1.0) == 1.0
+        assert cbrt(8.0) == 2.0
+        assert cbrt(0.0) == 0.0
+        assert cbrt(-1.0) == -1.0
+        assert cbrt(float('inf')) == float('inf')
+        assert cbrt(-float('inf')) == -float('inf')
+        assert math.isnan(cbrt(float('nan')))
+

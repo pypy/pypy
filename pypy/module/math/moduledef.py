@@ -46,6 +46,7 @@ class Module(MixedModule):
        'atan2'          : 'interp_math.atan2',
        'modf'           : 'interp_math.modf',
        'exp'            : 'interp_math.exp',
+       'exp2'           : 'interp_math.exp2',
        'expm1'          : 'interp_math.expm1',
        'acos'           : 'interp_math.acos',
        'isinf'          : 'interp_math.isinf',
@@ -66,5 +67,6 @@ class Module(MixedModule):
        'gcd'            : 'interp_math.gcd',
        'nextafter'      : 'interp_math.nextafter',
        'ulp'            : 'interp_math.ulp',
+       'cbrt'           : 'interp_math.cbrt',
 }
 
