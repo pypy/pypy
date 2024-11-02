@@ -615,6 +615,12 @@ class Test_rbigint(object):
                 result = f1.int_mul(y)
                 assert result.tolong() == x * y
 
+    def test_mul_int_int_rbigint_result(self):
+        for x in signed_int_vals:
+            for y in signed_int_vals:
+                result = rbigint.mul_int_int_bigint_result(x, y)
+                assert result.tolong() == x * y
+
     def test_tofloat(self):
         x = 12345678901234567890L ** 10
         f1 = rbigint.fromlong(x)
@@ -1413,6 +1419,13 @@ class TestTranslatable(object):
         res = interpret(fn, [100])
         assert res == True
 
+    def test_mul_int_int_rbigint_result(self):
+        def fn(x, y):
+            res = rbigint.mul_int_int_bigint_result(x, y)
+            return len(res.str())
+        res = interpret(fn, [sys.maxint, sys.maxint])
+
+
 
 class TestTranslated(StandaloneTests):
 
@@ -1832,6 +1845,11 @@ class TestHypothesis(object):
         x = a * a
         lx = rbigint.fromlong(x)
         assert lx.isqrt().tolong() == a
+
+    @given(ints, ints)
+    def test_mul_int_int_rbigint_result(self, a, b):
+        res = rbigint.mul_int_int_bigint_result(a, b)
+        assert res.tolong() == a * b
 
 
 
