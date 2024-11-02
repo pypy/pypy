@@ -131,8 +131,8 @@ class AppTestImpModule:
     def test_load_module_py(self):
         import imp
         fn = self._py_file()
-        descr = ('.py', 'U', imp.PY_SOURCE)
-        f = open(fn, 'U')
+        descr = ('.py', 'r', imp.PY_SOURCE)
+        f = open(fn, 'r')
         mod = imp.load_module('test_imp_extra_AUTO1', f, fn, descr)
         f.close()
         assert mod.MARKER == 42
@@ -186,7 +186,7 @@ class AppTestImpModule:
         import imp
         fn = self._py_file()
         f = open(fn, 'rb')
-        descr = ('.py', 'U', imp.PY_SOURCE)
+        descr = ('.py', 'r', imp.PY_SOURCE)
         mod = imp.load_module('test_imp_extra_AUTO6', f, fn, descr)
         f.close()
         f = open(fn, 'rb')

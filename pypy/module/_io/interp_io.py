@@ -38,7 +38,7 @@ def _open(space, w_file, mode, buffering, encoding, errors, newline, closefd,
             space.isinstance_w(w_file, space.w_int)):
         w_file = interp_posix.fspath(space, w_file)
 
-    reading = writing = creating = appending = updating = text = binary = universal = False
+    reading = writing = creating = appending = updating = text = binary = False
 
     for i in range(1, len(mode)):
         flag = mode[i]
@@ -60,20 +60,10 @@ def _open(space, w_file, mode, buffering, encoding, errors, newline, closefd,
             text = True
         elif flag == "b":
             binary = True
-        elif flag == "U":
-            universal = True
-            reading = True
         else:
             raise oefmt(space.w_ValueError, "invalid mode: %s", mode)
 
 
-    if universal:
-        if writing or appending or creating or updating:
-            raise oefmt(space.w_ValueError,
-                        "mode U cannot be combined with 'x', 'w', 'a', or '+'")
-        space.warn(space.newtext("'U' mode is deprecated ('r' has the same "
-                              "effect in Python 3.x)"),
-                   space.w_DeprecationWarning)
     if text and binary:
         raise oefmt(space.w_ValueError,
                     "can't have text and binary mode at once")

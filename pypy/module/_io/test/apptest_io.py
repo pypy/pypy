@@ -206,17 +206,6 @@ def test_attributes(tempfile):
     with _io.open(tempfile, "wb", buffering=0) as f:
         assert f.mode == "wb"
 
-    with warnings.catch_warnings(record=True) as l:
-        warnings.simplefilter("always")
-        with _io.open(tempfile, "U") as f:
-            assert f.name == tempfile
-            assert f.buffer.name == tempfile
-            assert f.buffer.raw.name == tempfile
-            assert f.mode == "U"
-            assert f.buffer.mode == "rb"
-            assert f.buffer.raw.mode == "rb"
-    assert isinstance(l[0].message, DeprecationWarning)
-
     with _io.open(tempfile, "w+") as f:
         assert f.mode == "w+"
         assert f.buffer.mode == "rb+"
