@@ -218,11 +218,14 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, BaseTestCase
         executor.map(abs, range(-5, 5))
         threads = executor._threads
         del executor
-        support.gc_collect()  # For PyPy or other GCs.
 
         for t in threads:
             self.assertRegex(t.name, r'^SpecialPool_[0-4]$')
-            t.join()
+            # t.join()
+            # XXX PyPy change: gc must collect the executor, or test will hang
+            while t.is_alive():
+                support.gc_collect()  # For PyPy or other GCs.
+                t.join(0.01)  # 10 ms
 
     def test_thread_names_default(self):
         executor = futures.ThreadPoolExecutor(max_workers=5)
