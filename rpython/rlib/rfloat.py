@@ -572,6 +572,7 @@ def _likely_raise(errno, x):
     else:
         raise ValueError("math domain error")
 
+@objectmodel.specialize.arg(2)
 def _error_check_errno_unary_math(x, r, can_overflow):
     # Error checking fun.  Copied from CPython 2.6
     from rpython.rlib import rposix
