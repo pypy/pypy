@@ -1,6 +1,5 @@
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import oefmt
-from rpython.rlib import rthread, rgil
 
 
 def signals_enter(space):
