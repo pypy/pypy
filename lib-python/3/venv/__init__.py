@@ -362,6 +362,7 @@ class EnvBuilder:
                 suffixes = [
                     f for f in os.listdir(dirname) if
                     os.path.normcase(os.path.splitext(f)[1]) in ('.exe', '.dll')
+                ]
                 base_exe = os.path.basename(context.env_exe)
                 suffixes.add(base_exe)
 
