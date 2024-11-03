@@ -99,10 +99,33 @@ def is_frozen(space, w_name):
         return space.w_True
     return space.w_False
 
-def _frozen_module_names(space):
-    return space.newlist([space.newtext(s) for s in ["_frozen_importlib", "_frozen_importlib_external", "zipimport",
-                # For tests, not implemented on PyPy
-                "__hello__", "__phello__", "_phello__.spam"]])
+def use_frozen(space):
+    """private function that allows never using frozen modules"""
+    from pypy.module.imp.state import State
+    state = space.fromcache(State)
+    override = state.override_frozen_modules
+    if override > 0:
+        return True
+    elif override < 0:
+        return False
+    # TODO: when built with Py_DEBUG, return False
+    return True
+
+
+def list_frozen_module_names(space):
+    always_freeze = space.newlist([space.newtext(s) for s in [
+        "_frozen_importlib", "_frozen_importlib_external", "zipimport",
+        ]])
+
+    frozen = always_freeze
+    # issue 5098: also freeze test and stdlib modules
+    if use_frozen(space):
+        # For tests, not implemented on PyPy
+        # frozen +=  ["__hello__", "__phello__", "_phello__.spam"]
+        # For speedups
+        # frozen += stdlib_frozens
+        pass
+    return frozen
 
 def get_frozen_object(space, w_name):
     raise oefmt(space.w_ImportError,
@@ -113,6 +136,7 @@ def is_frozen_package(space, w_name):
 
 def find_frozen(space, w_name):
     return space.w_None
+    # TODO: use the stdlibfrozens and test frozens
 
 
 #__________________________________________________________________

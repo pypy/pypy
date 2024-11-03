@@ -169,7 +169,7 @@ See LockType.__doc__ for information about locks."""
 def _set_sentinel(space):
     """_set_sentinel() -> lock
 
-    Set a sentinel lock that will be released when the current thread 
+    Set a sentinel lock that will be released when the current thread
     state is finalized (after it is untied from the interpreter).
 
     This is a private API for the threading module."""
@@ -258,6 +258,16 @@ class W_RLock(W_Root):
             self.rlock_owner = 0
             self.lock.release()
 
+    def recursion_count(self, space):
+        """_recursion_count() -> int
+
+        For internal use by reentrancy checks."""
+
+        tid = rthread.get_ident()
+        if self.rlock_owner == tid:
+            return space.newint(self.rlock_count)
+        return space.newint(0)
+
     def is_owned_w(self, space):
         """For internal use by `threading.Condition`."""
         tid = rthread.get_ident()
@@ -308,6 +318,7 @@ W_RLock.typedef = TypeDef(
     __new__ = interp2app(W_RLock.descr__new__.im_func),
     acquire = interp2app(W_RLock.acquire_w),
     release = interp2app(W_RLock.release_w),
+    _recursion_count = interp2app(W_RLock.recursion_count),
     _is_owned = interp2app(W_RLock.is_owned_w),
     _acquire_restore = interp2app(W_RLock.acquire_restore_w),
     _release_save = interp2app(W_RLock.release_save_w),
