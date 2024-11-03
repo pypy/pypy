@@ -146,9 +146,14 @@ class TestSysConfig(unittest.TestCase):
         # before bpo-45413, here we assert the posix_venv scheme does not regress
         binpath = 'bin'
         incpath = 'include'
-        libpath = os.path.join('lib',
-                               'python%d.%d' % sys.version_info[:2],
-                               'site-packages')
+        if is_pypy:
+            libpath = os.path.join('lib',
+                                   'pypy%d.%d' % sys.version_info[:2],
+                                   'site-packages')
+        else:
+            libpath = os.path.join('lib',
+                                   'python%d.%d' % sys.version_info[:2],
+                                   'site-packages')
 
         # Resolve the paths in an imaginary venv/ directory
         binpath = os.path.join('venv', binpath)

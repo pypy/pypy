@@ -557,7 +557,7 @@ class BasicTest(BaseTest):
         libdir = os.path.join(non_installed_dir, platlibdir, self.lib[1])
         os.makedirs(libdir)
         landmark = os.path.join(libdir, "os.py")
-        stdlib_zip = "python%d%d.zip" % sys.version_info[:2]
+        stdlib_zip = "pypy%d%d.zip" % sys.version_info[:2]
         zip_landmark = os.path.join(non_installed_dir,
                                     platlibdir,
                                     stdlib_zip)

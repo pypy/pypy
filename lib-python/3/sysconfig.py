@@ -74,14 +74,14 @@ _INSTALL_SCHEMES = {
     # Downstream distributors who patch posix_prefix/nt scheme are encouraged to
     # leave the following schemes unchanged
     'posix_venv': {
-        'stdlib': '{installed_base}/{platlibdir}/python{py_version_short}',
-        'platstdlib': '{platbase}/{platlibdir}/python{py_version_short}',
-        'purelib': '{base}/lib/python{py_version_short}/site-packages',
-        'platlib': '{platbase}/{platlibdir}/python{py_version_short}/site-packages',
+        'stdlib': '{installed_base}/{platlibdir}/{implementation_lower}{py_version_short}',
+        'platstdlib': '{platbase}/{platlibdir}/{implementation_lower}{py_version_short}',
+        'purelib': '{base}/lib/{implementation_lower}{py_version_short}/site-packages',
+        'platlib': '{platbase}/{platlibdir}/{implementation_lower}{py_version_short}/site-packages',
         'include':
-            '{installed_base}/include/python{py_version_short}{abiflags}',
+            '{installed_base}/include/{implementation_lower}{py_version_short}{abiflags}',
         'platinclude':
-            '{installed_platbase}/include/python{py_version_short}{abiflags}',
+            '{installed_platbase}/include/{implementation_lower}{py_version_short}{abiflags}',
         'scripts': '{base}/bin',
         'data': '{base}',
         },
