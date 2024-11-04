@@ -96,7 +96,7 @@ class _CDataMeta(type):
         return False
 
     def in_dll(self, dll, name):
-        return self.from_address(dll.__pypy_dll__.getaddressindll(name))
+        return self.from_address(dll._handle.getaddressindll(name))
 
     def from_buffer(self, obj, offset=0):
         if self._is_abstract():

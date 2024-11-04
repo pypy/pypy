@@ -36,6 +36,8 @@ if _os.name in ("nt", "ce"):
 
 from _rawffi import FUNCFLAG_STDCALL, FUNCFLAG_CDECL, FUNCFLAG_PYTHONAPI
 from _rawffi import FUNCFLAG_USE_ERRNO, FUNCFLAG_USE_LASTERROR
+CTYPES_MAX_ARGCOUNT = 1024
+
 
 from _ctypes.builtin import get_errno, set_errno
 if _os.name in ("nt", "ce"):
