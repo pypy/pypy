@@ -237,7 +237,8 @@ PrimitiveType = {
     Void:     'void @',
     Address:  'void* @',
     GCREF:    'void* @',
-    cached_platform.types['SIZE_T']: 'size_t @'
+    rffi.SIZE_T: 'size_t @',
+    rffi.SSIZE_T: 'ssize_t @'
     }
 
 def define_c_primitive(ll_type, c_name, suffix=''):
