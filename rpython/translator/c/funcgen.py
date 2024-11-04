@@ -512,9 +512,12 @@ class FunctionCodeGenerator(object):
     def OP_BARE_SETFIELD(self, op):
         assert isinstance(op.args[1], Constant)
         STRUCT = self.lltypemap(op.args[0]).TO
+        prefix = ''
+        if op.args[1].value in STRUCT._hints.get("nonneg_int_fields", set()):
+            prefix = 'RPyAssert(%s >= 0, "trying to set non-negative field to negative number"); ' % (self.expr(op.args[-1]), )
         structdef = self.db.gettypedefnode(STRUCT)
         baseexpr_is_const = isinstance(op.args[0], Constant)
-        prefix = self._field_stat(op, structdef, "write")
+        prefix = prefix + self._field_stat(op, structdef, "write")
         expr = structdef.ptr_access_expr(self.expr(op.args[0]),
                                          op.args[1].value,
                                          baseexpr_is_const)
