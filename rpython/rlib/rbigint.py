@@ -829,7 +829,9 @@ class rbigint(object):
             return NULLRBIGINT
         selfsign = intsign(iself)
         othersign = intsign(iother)
-        otherdigit = r_uint(abs(iother))
+        otherdigit = r_uint(iother)
+        if iother < 0: # can use abs because of minint
+            otherdigit = -otherdigit
         res = _unsigned_widen_digit(abs(iself)) * otherdigit
         carry = res >> SHIFT
         if carry:

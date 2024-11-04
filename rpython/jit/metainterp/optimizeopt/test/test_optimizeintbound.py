@@ -4081,6 +4081,25 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_abs(self):
+        ops = """
+        [i0]
+        i1 = int_lt(i0, 0)
+        guard_true(i1) []
+        i2 = int_rshift(i0, %s)
+        i3 = int_xor(i0, i2)
+        i4 = int_sub(i3, i2)
+        jump(i4)
+        """ % (LONG_BIT - 1)
+        expected = """
+        [i0]
+        i1 = int_lt(i0, 0)
+        guard_true(i1) []
+        i3 = int_invert(i0)
+        i4 = int_neg(i0)
+        jump(i4)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestComplexIntOpts(BaseTestBasic):
 

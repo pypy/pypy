@@ -122,7 +122,7 @@ as `issue 736`__.
 Using the default GC (called ``minimark``), the built-in function ``id()``
 works like it does in CPython.  With other GCs it returns numbers that
 are not real addresses (because an object can move around several times)
-and calling it a lot can lead to performance problem.
+and calling it a lot can lead to performance problems.
 
 Note that if you have a long chain of objects, each with a reference to
 the next one, and each with a ``__del__``, PyPy's GC will perform badly.  On
@@ -155,7 +155,7 @@ Missing ``sys.getrefcount``
 Because of the different strategy above, ``sys.getrefcount()`` would return
 an unreliable number. So PyPy does not implement that, trying to use it will
 raise ``AttributeError: module 'sys' has no attribute 'getrefcount'``. Note
-that newer versions of CPython also change the meaining of ``sys.getrefcount()``.
+that newer versions of CPython also change the meaning of ``sys.getrefcount()``.
 
 Subclasses of built-in types
 ----------------------------
