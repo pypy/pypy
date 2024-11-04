@@ -2,6 +2,7 @@ import sys, unittest, struct, math, ctypes
 from binascii import hexlify
 
 from ctypes import *
+from test.support import impl_detail
 
 def bin(s):
     return hexlify(memoryview(s)).decode().upper()

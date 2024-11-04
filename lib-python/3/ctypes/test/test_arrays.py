@@ -1,5 +1,5 @@
 import unittest
-from test.support import bigmemtest, _2G
+from test.support import bigmemtest, _2G, impl_detail
 import sys
 from ctypes import *
 
