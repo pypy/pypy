@@ -1,11 +1,11 @@
-import re, py
+import re, pytest
 from rpython.rlib import rvmprof, jit
 from rpython.rlib.rvmprof import traceback
+from rpython.tool.udir import udir
 from rpython.translator.interactive import Translation
 from rpython.rtyper.lltypesystem import lltype
 
-
-def test_direct():
+def _test_direct():
     class MyCode:
         pass
     def get_name(mycode):
@@ -34,7 +34,7 @@ def test_direct():
                     (code1, traceback.LOC_INTERPRETED, 42),
                     (code1, traceback.LOC_INTERPRETED, 42)]
 
-def test_compiled():
+def _test_compiled():
     class MyCode:
         pass
     def get_name(mycode):
@@ -67,11 +67,7 @@ def test_compiled():
     got = r.findall(stdout)
     assert got == [got[0]] * 3
 
-def test_jitted():
-    from rpython.jit.backend import detect_cpu
-    if not detect_cpu.autodetect().startswith('x86'):
-        py.test.skip("HAS_CODEMAP is only in the x86 jit backend for now")
-
+def _test_jitted():
     class MyCode:
         pass
     def get_name(mycode):
@@ -115,3 +111,23 @@ def test_jitted():
     got = r.findall(stdout)
     addr = got[0][0]
     assert got == [(addr, '1'), (addr, '1'), (addr, '0')]
+ 
+@pytest.mark.flaky
+def test_all():
+    import os, sys, subprocess
+    thisfile = os.path.abspath(__file__)
+    if thisfile.endswith("pyc"):
+        thisfile = thisfile[:-1]
+    testfile = udir.join("test_all.py")
+    with open(thisfile) as infid:
+        text = infid.read()
+        text = text.replace('def _test_', 'def test_')
+        text = text.replace('def test_all', 'def _test_all')
+    with open(str(testfile), "wt") as outfid:
+        outfid.write("#copied from '%s'\n\n" % thisfile)
+        outfid.write(text)
+    p = subprocess.Popen([sys.executable, pytest.__file__, str(testfile)],
+                        universal_newlines=True)
+    result = p.wait()
+    assert result == 0, "tests failed, run using '%s'" % testfile
+

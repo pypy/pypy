@@ -274,9 +274,6 @@ class StdObjSpace(ObjSpace):
                 return W_SmallLongObject(r_longlong(intval))
         intval = widen(intval)
         if not isinstance(intval, int):
-            if isinstance(intval, r_uint) and intval <= maxint:
-                # important to make id(obj) return an int not a long
-                return wrapint(self, intmask(intval))
             return W_LongObject.fromrarith_int(intval)
         return wrapint(self, intval)
 

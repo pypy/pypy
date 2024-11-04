@@ -13,7 +13,7 @@ def _assert_unraisable(error_type, message='', traceback_tokens=None):
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.17.0.dev0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.18.0.dev0", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -197,7 +197,7 @@ def test_float_types():
 def test_complex_types():
     INF = 1E200 * 1E200
     for name in ["float", "double"]:
-        p = new_primitive_type(name + " _Complex")
+        p = new_primitive_type("_cffi_" + name + "_complex_t")
         assert bool(cast(p, 0)) is False
         assert bool(cast(p, INF))
         assert bool(cast(p, -INF))
@@ -1196,7 +1196,7 @@ def test_call_function_9():
 
 def test_call_function_24():
     BFloat = new_primitive_type("float")
-    BFloatComplex = new_primitive_type("float _Complex")
+    BFloatComplex = new_primitive_type("_cffi_float_complex_t")
     BFunc3 = new_function_type((BFloat, BFloat), BFloatComplex, False)
     if 0:   # libffi returning nonsense silently, so logic disabled for now
         f = cast(BFunc3, _testfunc(24))
@@ -1210,7 +1210,7 @@ def test_call_function_24():
 
 def test_call_function_25():
     BDouble = new_primitive_type("double")
-    BDoubleComplex = new_primitive_type("double _Complex")
+    BDoubleComplex = new_primitive_type("_cffi_double_complex_t")
     BFunc3 = new_function_type((BDouble, BDouble), BDoubleComplex, False)
     if 0:   # libffi returning nonsense silently, so logic disabled for now
         f = cast(BFunc3, _testfunc(25))
@@ -2946,9 +2946,10 @@ if sys.version_info >= (3,):
 def test_FILE():
     if sys.platform == "win32":
         pytest.skip("testing FILE not implemented")
+    # XXX patch start
     if sys.platform == "darwin":
         pytest.skip("testing variadic broken on macos (issue 4937)")
-    #
+    # XXX patch end
     BFILE = new_struct_type("struct _IO_FILE")
     BFILEP = new_pointer_type(BFILE)
     BChar = new_primitive_type("char")
@@ -4488,9 +4489,9 @@ def test_unaligned_types():
     buf = buffer(pbuf)
     #
     for name in ['short', 'int', 'long', 'long long', 'float', 'double',
-                 'float _Complex', 'double _Complex']:
+                 '_cffi_float_complex_t', '_cffi_double_complex_t']:
         p = new_primitive_type(name)
-        if name.endswith(' _Complex'):
+        if name.endswith('_complex_t'):
             num = cast(p, 1.23 - 4.56j)
         else:
             num = cast(p, 0x0123456789abcdef)

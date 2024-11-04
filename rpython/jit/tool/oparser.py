@@ -428,7 +428,7 @@ def pick_cls(inp):
 def convert_loop_to_trace(loop, metainterp_sd, skip_last=False):
     from rpython.jit.metainterp.opencoder import Trace
     from rpython.jit.metainterp.test.test_opencoder import FakeFrame
-    from rpython.jit.metainterp import history, resume
+    from rpython.jit.metainterp import history
 
     def get(a):
         if isinstance(a, history.Const):
@@ -461,7 +461,7 @@ def convert_loop_to_trace(loop, metainterp_sd, skip_last=False):
             if op.getfailargs():
                 failargs = [get(arg) for arg in op.getfailargs()]
             frame = FakeFrame(100, jitcode, failargs)
-            resume.capture_resumedata([frame], None, [], trace)
+            trace.capture_resumedata([frame], None, [])
         if op.type != 'v':
             newop = pick_cls(op)(newpos)
             mapping[op] = newop

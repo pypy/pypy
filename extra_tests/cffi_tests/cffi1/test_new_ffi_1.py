@@ -5,7 +5,7 @@ import sys, os, ctypes
 import cffi
 from extra_tests.cffi_tests.udir import udir
 from extra_tests.cffi_tests.support import *
-from cffi.recompiler import recompile
+from cffi.recompiler import recompile, NativeIO
 from cffi.cffi_opcode import PRIMITIVE_TO_INDEX
 
 SIZE_OF_INT   = ctypes.sizeof(ctypes.c_int)
@@ -1777,6 +1777,13 @@ class TestNewFFI1:
         ffi.emit_c_code(c_file)
         assert os.path.isfile(c_file)
 
+    def test_emit_c_code_to_file_obj(self):
+        ffi = cffi.FFI()
+        ffi.set_source("foobar", "??")
+        fileobj = NativeIO()
+        ffi.emit_c_code(fileobj)
+        assert 'foobar' in fileobj.getvalue()
+
     def test_import_from_lib(self):
         ffi2 = cffi.FFI()
         ffi2.cdef("int myfunc(int); extern int myvar;\n#define MYFOO ...\n")
@@ -1827,5 +1834,5 @@ class TestNewFFI1:
         assert list(y) == [u+'\u1234', u+'\u5678', u+'\x00']
         z = ffi.new("char32_t[]", u+'\U00012345')
         assert len(z) == 2
-        assert list(z) == [u+'\U00012345', u+'\x00'] # maybe a 2-unichars strin
+        assert list(z) == [u+'\U00012345', u+'\x00'] # maybe a 2-unichars string
         assert ffi.string(z) == u+'\U00012345'

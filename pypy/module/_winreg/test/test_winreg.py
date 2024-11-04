@@ -40,6 +40,7 @@ class AppTestFfi:
         cls.w_canSaveKey = space.wrap(canSaveKey)
         cls.w_tmpfilename = space.wrap(str(udir.join('winreg-temp')))
         cls.w_win64_machine = space.wrap(machine() == "AMD64")
+        cls.w_runappdirect = space.wrap(cls.runappdirect)
 
         test_data = [
             ("Int Value", 0xFEDCBA98, _winreg.REG_DWORD),
@@ -238,6 +239,8 @@ class AppTestFfi:
             DeleteKey(HKEY_CURRENT_USER, self.test_key_name)
 
     def test_dynamic_key(self):
+        if not self.runappdirect:
+            skip("too slow untranslated")
         from _winreg import EnumValue, QueryValueEx, HKEY_PERFORMANCE_DATA
         try:
             EnumValue(HKEY_PERFORMANCE_DATA, 0)

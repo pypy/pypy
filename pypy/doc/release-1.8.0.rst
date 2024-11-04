@@ -5,7 +5,7 @@ PyPy 1.8 - business as usual
 We're pleased to announce the 1.8 release of PyPy. As habitual this
 release brings a lot of bugfixes, together with performance and memory
 improvements over the 1.7 release. The main highlight of the release
-is the introduction of `list strategies`_ which makes homogenous lists
+is the introduction of `list strategies`_ which makes homogeneous lists
 more efficient both in terms of performance and memory. This release
 also upgrades us from Python 2.7.1 compatibility to 2.7.2. Otherwise
 it's "business as usual" in the sense that performance improved

@@ -104,7 +104,7 @@ def test_compile_loop():
     #
     greenkey = 'faked'
     target_token = compile_loop(
-        metainterp, greenkey, (0, 0, 0), t.inputargs,
+        metainterp, greenkey, (0, 0, 0, 0, 0), t.inputargs,
         [t._mapping[x] for x in loop.operations[-1].getarglist()],
         use_unroll=False)
     jitcell_token = target_token.targeting_jitcell_token

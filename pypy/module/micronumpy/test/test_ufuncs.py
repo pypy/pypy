@@ -1,3 +1,6 @@
+import platform
+import py
+
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 from pypy.module.micronumpy.ufuncs import W_UfuncGeneric, unary_ufunc
 from pypy.module.micronumpy.support import _parse_signature
@@ -808,8 +811,20 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert ([ninf, -2.0, -2.0, -1.0, 0.0, 1.0, 1.0, 0.0, inf] == floor(a)).all()
         assert ([ninf, -1.0, -1.0, -1.0, 0.0, 1.0, 2.0, 1.0, inf] == ceil(a)).all()
         assert ([ninf, -1.0, -1.0, -1.0, 0.0, 1.0, 1.0, 0.0, inf] == trunc(a)).all()
+
+    def test_floorceiltrunc_nan(self):
+        from numpy import floor, ceil, trunc
+        import math
         assert all([math.isnan(f(float("nan"))) for f in floor, ceil, trunc])
         assert all([math.copysign(1, f(abs(float("nan")))) == 1 for f in floor, ceil, trunc])
+
+    def test_floorceiltrunc_nan_negative(self):
+        # self.machine comes from test_base.py
+        if self.machine.startswith('riscv'):
+            py.test.skip('riscv floor/ceil/trunc canonicalizes nan to '
+                         'positive nan')
+        from numpy import floor, ceil, trunc
+        import math
         assert all([math.copysign(1, f(-abs(float("nan")))) == -1 for f in floor, ceil, trunc])
 
     def test_round(self):

@@ -23,7 +23,9 @@ IS_SUPPORTED = False
 if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('freebsd'):
     try:
         proc = detect_cpu.autodetect()
-        IS_SUPPORTED = proc.startswith('x86') or proc == 'aarch64'
+        IS_SUPPORTED = (proc.startswith('x86')
+                        or proc == 'aarch64'
+                        or proc == 'riscv64')
     except detect_cpu.ProcessorAutodetectError:
         print("PROCESSOR NOT DETECTED, SKIPPING VMPROF")
 
@@ -136,7 +138,7 @@ def setup():
                                             _nowrapper=True)
     vmprof_get_traceback = rffi.llexternal("vmprof_get_traceback",
                                   [PVMPROFSTACK, llmemory.Address,
-                                   rffi.SIGNEDP, lltype.Signed],
+                                   rffi.VOIDPP, lltype.Signed],
                                   lltype.Signed, compilation_info=eci,
                                   _nowrapper=True)
 

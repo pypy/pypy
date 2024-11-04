@@ -86,7 +86,7 @@ class TestCall(BaseTestPyPyC):
             p41 = getfield_gc_r(p38, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
             guard_value(p41, ConstPtr(ptr42), descr=...)
             i42 = getfield_gc_i(p38, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
-            i43 = int_eq(i42, 0)
+            i43 = int_is_zero(i42)
             guard_true(i43, descr=...)
             i50 = force_token()
         """)
@@ -448,7 +448,7 @@ class TestCall(BaseTestPyPyC):
             p32 = getfield_gc_r(p29, descr=<FieldP pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
             guard_value(p32, ConstPtr(ptr33), descr=...)
             i34 = getfield_gc_i(p29, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
-            i35 = int_eq(i34, 0)
+            i35 = int_is_zero(i34)
             guard_true(i35, descr=...)
             i40 = int_add(i22, 5)
             --TICK--
@@ -676,3 +676,16 @@ class TestCall(BaseTestPyPyC):
         ...
         ''')
 
+    def test_function_escape_without_defaults(self):
+        def main():
+            global f
+            res = 0
+            for i in range(10000):
+                def f():
+                    return i + 1
+                res += f() # ID: call
+
+        log = self.run(main, [])
+        loop, = log.loops_by_id('call')
+        opnames = log.opnames(loop._allops())
+        assert opnames.count("new_array_clear") == 2 # for the closure, but not for defaults

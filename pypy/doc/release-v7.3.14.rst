@@ -4,7 +4,7 @@ PyPy v7.3.14: release of python 2.7, 3.9, and 3.10
 
 The PyPy team is proud to release version 7.3.14 of PyPy.
 
-Hightlights of this release are compatibility with HPy-0.9_, cffi 1.16,
+Highlights of this release are compatibility with HPy-0.9_, cffi 1.16,
 additional C-API interfaces, and more python3.10 fixes.
 
 The release includes three different interpreters:

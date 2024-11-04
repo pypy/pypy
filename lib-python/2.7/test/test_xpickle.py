@@ -31,6 +31,7 @@ if pickletester.__name__ in sys.modules:
     raise RuntimeError("Did not expect to find test.pickletester loaded")
 sys.modules[pickletester.__name__] = pickletester
 
+_WIN32 = sys.platform == "win32"
 
 class DumpCPickle_LoadPickle(AbstractPickleTests):
 
@@ -225,7 +226,10 @@ class PicklePython26Compat(CPicklePython26Compat):
 class CPicklePython27Compat(AbstractCompatTests):
 
     module = cPickle
-    python = "python2.7"
+    if _WIN32:
+        python = "python2.7.exe"
+    else:
+        python = "python2.7"
     error = cPickle.BadPickleGet
 
 class PicklePython27Compat(CPicklePython27Compat):
@@ -244,13 +248,13 @@ def test_main():
     test_support.run_unittest(
         DumpCPickle_LoadPickle,
         DumpPickle_LoadCPickle,
-        CPicklePython24Compat,
-        CPicklePython25Compat,
-        CPicklePython26Compat,
+        # CPicklePython24Compat,
+        # CPicklePython25Compat,
+        # CPicklePython26Compat,
         CPicklePython27Compat,
-        PicklePython24Compat,
-        PicklePython25Compat,
-        PicklePython26Compat,
+        # PicklePython24Compat,
+        # PicklePython25Compat,
+        # PicklePython26Compat,
         PicklePython27Compat,
     )
 

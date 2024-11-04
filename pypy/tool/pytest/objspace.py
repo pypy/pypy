@@ -119,6 +119,9 @@ class TinyObjSpace(object):
     def newutf8(self, obj, lgth):
         return obj
 
+    def newtext(self, obj):
+        return obj
+
     def call_function(self, func, *args, **kwds):
         return func(*args, **kwds)
 

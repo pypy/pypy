@@ -5,8 +5,8 @@
 #include <stdint.h>
 
 
-typedef void (*pypy_faulthandler_cb_t)(int fd, intptr_t *array_p,
-                                       intptr_t length);
+typedef void (*pypy_faulthandler_cb_t)(int fd, void *array_p,
+                                       int length);
 
 RPY_EXTERN char *pypy_faulthandler_setup(pypy_faulthandler_cb_t dump_callback);
 RPY_EXTERN void pypy_faulthandler_teardown(void);

@@ -241,6 +241,17 @@ class AppTestPosix:
                 else:
                     assert 0
 
+    def test_open_handles_NUL_chars(self):
+        fn_with_NUL = 'foo\0bar'
+        posix = self.posix
+        try:
+            posix.open(fn_with_NUL, 0, 0)
+        except TypeError:
+            pass
+        else:
+            assert False, "expected ValueError"
+
+
     def test_chmod_exception(self):
         try:
             self.posix.chmod('qowieuqw/oeiu', 0)
@@ -381,9 +392,7 @@ class AppTestPosix:
             u = "caf\xe9".decode(file_system_encoding)
         except UnicodeDecodeError:
             # Could not decode, listdir returned the byte string
-            if sys.platform != 'darwin':
-                assert (str, "caf\xe9") in typed_result
-            else:
+            if sys.platform == 'darwin':
                 # if the test is being run in an utf-8 encoded macOS
                 # the posix.listdir function is returning the name of
                 # the file properly.
@@ -394,6 +403,11 @@ class AppTestPosix:
                 else:
                     # darwin 'normalized' it
                     assert (unicode, 'caf%E9') in typed_result
+            elif sys.platform == 'win32':
+                # Windows uses unicode, even when encoding is 'utf8'
+                assert (unicode, u"caf\xe9") in typed_result
+            else:
+                assert (str, "caf\xe9") in typed_result
         else:
             assert (unicode, u) in typed_result
         assert posix.access(b'caf\xe9', posix.R_OK) is False
@@ -516,6 +530,8 @@ class AppTestPosix:
             # just see if it does anything
             path = sysdrv + 'hubber'
             assert '\\' in posix._getfullpathname(path)
+            ufoo = posix._getfullpathname(u"foo")
+            assert isinstance(ufoo, unicode)
 
     def test_utime(self):
         os = self.posix

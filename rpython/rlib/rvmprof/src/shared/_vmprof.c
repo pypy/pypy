@@ -11,6 +11,14 @@
 #include "_vmprof.h"
 #include "vmprof_common.h"
 
+
+#ifndef RPYTHON_VMPROF
+  #if PY_VERSION_HEX >= 0x030b00f0 /* >= 3.11 */
+  #include "internal/pycore_frame.h"
+  #include "populate_frames.h"
+  #endif
+#endif
+
 static destructor Original_code_dealloc = 0;
 static PyObject* (*_default_eval_loop)(PyFrameObject *, int) = 0;
 
@@ -112,7 +120,7 @@ static int _look_for_code_object(PyObject *o, void * param)
         /* as a special case, recursively look for and add code
            objects found in the co_consts.  The problem is that code
            objects are not created as GC-aware in CPython, so we need
-           to hack like this to hope to find most of them. 
+           to hack like this to hope to find most of them.
         */
         i = PyTuple_Size(co->co_consts);
         while (i > 0) {
@@ -267,6 +275,15 @@ write_all_code_objects(PyObject *module, PyObject * seen_code_ids)
 }
 
 
+#if PY_VERSION_HEX < 0x030900B1 /* < 3.9 */
+static inline PyFrameObject* PyThreadState_GetFrame(PyThreadState *tstate)
+{
+    Py_XINCREF(tstate->frame);
+    return tstate->frame;
+}
+#endif
+
+
 
 static PyObject *
 sample_stack_now(PyObject *module, PyObject * args)
@@ -298,7 +315,17 @@ sample_stack_now(PyObject *module, PyObject * args)
         vmprof_ignore_signals(0);
         return NULL;
     }
-    entry_count = vmp_walk_and_record_stack(tstate->frame, m, SINGLE_BUF_SIZE/sizeof(void*)-1, (int)skip, 0);
+
+#if PY_VERSION_HEX >= 0x030B0000 /* < 3.11, no pypy 3.11 at the moment*/ 
+    _PyInterpreterFrame *  frame = unsafe_PyThreadState_GetInterpreterFrame(tstate);
+#else
+    PyFrameObject* frame = PyThreadState_GetFrame(tstate);
+#endif
+
+    entry_count = vmp_walk_and_record_stack(frame, m, SINGLE_BUF_SIZE/sizeof(void*)-1, (int)skip, 0);
+
+    Py_XDECREF(frame);
+
 
     for (i = 0; i < entry_count; i++) {
         routine_ip = m[i];

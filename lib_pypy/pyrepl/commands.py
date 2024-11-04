@@ -370,6 +370,15 @@ class qIHelp(Command):
         r.insert((self.event + r.console.getpending().data) * r.get_arg())
         r.pop_input_trans()
 
+class enable_bracketed_paste(Command):
+    def do(self):
+        self.reader.in_bracketed_paste = True
+
+class disable_bracketed_paste(Command):
+    def do(self):
+        self.reader.in_bracketed_paste = False
+        self.reader.dirty = True
+
 from pyrepl import input
 
 class QITrans(object):

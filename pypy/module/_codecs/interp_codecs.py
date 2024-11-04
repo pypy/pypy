@@ -450,8 +450,7 @@ for decoder in [
          ]:
     make_decoder_wrapper(decoder)
 
-from rpython.rlib import runicode
-if hasattr(runicode, 'str_decode_mbcs'):
+if hasattr(unicodehelper, 'str_decode_mbcs'):
     make_encoder_wrapper('mbcs_encode')
     make_decoder_wrapper('mbcs_decode')
 

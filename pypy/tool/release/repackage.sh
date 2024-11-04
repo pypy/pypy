@@ -3,11 +3,11 @@
 set -e
 
 # Edit these appropriately before running this script
-pmaj=2  # python main version: 2 or 3
-pmin=7  # python minor version
+pmaj=3  # python main version: 2 or 3
+pmin=10  # python minor version
 maj=7
 min=3
-rev=16
+rev=17
 #rc=rc2  # comment this line for actual release
 
 function maybe_exit {
@@ -57,7 +57,7 @@ fi
 function repackage_builds {
     # Download latest builds from the buildmaster, rename the top
     # level directory, and repackage ready to be uploaded 
-    for plat in linux linux64 macos_x86_64 macos_arm64 s390x aarch64
+    for plat in linux linux64 macos_x86_64 macos_arm64 aarch64
       do
         echo downloading package for $plat
         if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.tar.bz2
@@ -167,3 +167,4 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     print_sha256
 fi
 # Now upload all the bz2 and zip
+echo don\'t forget to push the tags "git push --tags"

@@ -42,6 +42,11 @@ class CConfig:
     _compilation_info_ = eci
     TIMEVAL = rffi_platform.Struct('struct timeval', [('tv_sec', rffi.INT),
                                                       ('tv_usec', rffi.INT)])
+    if not _WIN32:
+        TIMEZONE = rffi_platform.Struct('struct timezone', [
+                                        ('tz_minuteswest', rffi.INT_real),
+                                        ('tz_dsttime', rffi.INT_real),
+                                        ])
     HAVE_GETTIMEOFDAY = rffi_platform.Has('gettimeofday')
     HAVE_FTIME = rffi_platform.Has(FTIME)
     if need_rusage:
@@ -125,7 +130,7 @@ if HAVE_GETTIMEOFDAY:
                                   _nowrapper=True, releasegil=False)
     else:
         c_gettimeofday = external('gettimeofday',
-                                  [lltype.Ptr(TIMEVAL), rffi.VOIDP], rffi.INT,
+                                  [lltype.Ptr(TIMEVAL), lltype.Ptr(TIMEZONE)], rffi.INT,
                                   _nowrapper=True, releasegil=False)
 if HAVE_FTIME:
     globals().update(rffi_platform.configure(CConfigForFTime))
@@ -149,7 +154,8 @@ def time():
             if GETTIMEOFDAY_NO_TZ:
                 errcode = c_gettimeofday(t)
             else:
-                errcode = c_gettimeofday(t, void)
+                tzvoid = rffi.cast(lltype.Ptr(TIMEZONE), 0)
+                errcode = c_gettimeofday(t, tzvoid)
 
             if rffi.cast(rffi.LONG, errcode) == 0:
                 result = decode_timeval(t)

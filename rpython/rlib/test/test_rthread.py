@@ -173,7 +173,7 @@ class AbstractThreadTests(AbstractGCTestClass):
         answers = fn()
         assert answers == expected
 
-    def test_acquire_timed(self):
+    def test_acquire_timed_1sec(self):
         import time
         def f():
             l = allocate_lock()

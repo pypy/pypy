@@ -251,8 +251,8 @@ def allocate_ll_lock():
     # reason it is set to False is that we get it from all app-level
     # lock objects, as well as from the GIL, which exists at shutdown.
     ll_lock = lltype.malloc(TLOCKP.TO, flavor='raw', track_allocation=False)
-    res = c_thread_lock_init(ll_lock)
-    if rffi.cast(lltype.Signed, res) <= 0:
+    res = rffi.cast(lltype.Signed, c_thread_lock_init(ll_lock))
+    if res <= 0:
         lltype.free(ll_lock, flavor='raw', track_allocation=False)
         raise error("out of resources")
     return ll_lock
@@ -457,7 +457,7 @@ class ThreadLocalReference(ThreadLocalField):
 
 tlfield_thread_ident = ThreadLocalField(lltype.Signed, "thread_ident",
                                         loop_invariant=True)
-tlfield_p_errno = ThreadLocalField(rffi.CArrayPtr(rffi.INT), "p_errno",
+tlfield_p_errno = ThreadLocalField(rffi.CArrayPtr(rffi.INT_real), "p_errno",
                                    loop_invariant=True)
 tlfield_rpy_errno = ThreadLocalField(rffi.INT, "rpy_errno")
 tlfield_alt_errno = ThreadLocalField(rffi.INT, "alt_errno")

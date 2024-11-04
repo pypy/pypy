@@ -32,7 +32,7 @@ class TestGenerators(BaseTestPyPyC):
             jump(..., descr=...)
             """)
         assert loop.match_by_id("subtract", """
-            i2 = int_sub(i1, 42)
+            i2 = int_sub(i1, 43)
             """)
 
     def test_simple_generator2(self):

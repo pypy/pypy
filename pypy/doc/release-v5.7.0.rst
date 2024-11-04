@@ -136,7 +136,7 @@ See also issues that were resolved_
   * fix for ``ctypes.c_bool`` returning ``bool`` restype, issue 2475_
   * fix in corner cases with the GIL and C-API functions
   * allow overriding thread.local.__init__ in a subclass, issue 2501_
-  * allow ``PyClass_New`` to be called with NULL as the first arguemnt, issue 2504_
+  * allow ``PyClass_New`` to be called with NULL as the first argument, issue 2504_
 
 
 * Performance improvements:
@@ -144,7 +144,7 @@ See also issues that were resolved_
   * clean-ups in the jit optimizeopt
   * optimize ``if x is not None: return x`` or ``if x != 0: return x``
   * add ``jit.conditional_call_elidable()``, a way to tell the JIT 
-    "conditonally call this function" returning a result
+    "conditionally call this function" returning a result
   * try harder to propagate ``can_be_None=False`` information
   * add ``rarithmetic.ovfcheck_int32_add/sub/mul``
   * add and use ``rgc.may_ignore_finalizer()``: an optimization hint that makes
@@ -177,7 +177,7 @@ Development moved from the py3k branch to the py3.5 branch in the PyPy bitbucket
 * New features
 
   * this first PyPy3.5 release implements most of Python 3.5.3, exceptions are listed below
-  * PEP 456 allowing secure and interchangable hash algorithms
+  * PEP 456 allowing secure and interchangeable hash algorithms
   * use cryptography_'s cffi backend for SSL
 
 

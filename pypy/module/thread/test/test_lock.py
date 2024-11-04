@@ -8,7 +8,7 @@ from platform import machine
 
 class AppTestLock(GenericTestThread):
 
-    def test_lock(self):
+    def test_lock_basic(self):
         import thread
         lock = thread.allocate_lock()
         assert type(lock) is thread.LockType
@@ -135,7 +135,7 @@ def test_compile_lock():
 
 class AppTestLockAgain(GenericTestThread):
     # test it at app-level again to detect strange interactions
-    test_lock_again = AppTestLock.test_lock.im_func
+    test_lock_again = AppTestLock.test_lock_basic.im_func
 
 
 class AppTestRLock(GenericTestThread):

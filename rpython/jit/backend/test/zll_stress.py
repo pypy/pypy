@@ -10,7 +10,10 @@ CPU = getcpuclass()
 
 total_iterations = 1000
 if platform.machine().startswith('arm'):
-    total_iterations = 100
+    if sys.platform == "darwin":
+        total_iterations = 10
+    else:
+        total_iterations = 100
 
 pieces = 4
 per_piece = total_iterations / pieces

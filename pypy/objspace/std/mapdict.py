@@ -807,7 +807,7 @@ class MapdictStorageMixin(object):
     def _mapdict_init_empty(self, map):
         from rpython.rlib.debug import make_sure_not_resized
         self._set_mapdict_map(map)
-        self.storage = make_sure_not_resized([])
+        self.storage = None
 
     def _mapdict_read_storage(self, storageindex):
         assert storageindex >= 0
@@ -817,15 +817,19 @@ class MapdictStorageMixin(object):
         self.storage[storageindex] = value
 
     def _mapdict_storage_length(self):
-        """ return the size of the storage (which should be longer or equal in
-        size to self.map.storage_needed() due to overallocation). """
-        return len(self.storage)
+        """ return the size of the storage. """
+        # we don't overallocate since a while any more
+        return self.map.storage_needed()
 
     def _set_mapdict_increase_storage(self, map, value):
         """ increase storage size, adding value """
-        len_storage = len(self.storage)
-        new_storage = self.storage + [erase_item(None)] * (map.storage_needed() - len_storage)
-        new_storage[len_storage] = value
+        len_storage = self._get_mapdict_map().storage_needed()
+        if not len_storage:
+            assert map.storage_needed() == 1
+            new_storage = [value]
+        else:
+            new_storage = self.storage + [erase_item(None)] * (map.storage_needed() - len_storage)
+            new_storage[len_storage] = value
         self._set_mapdict_map(map)
         self.storage = new_storage
 
@@ -912,12 +916,12 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
 
         def _mapdict_storage_length(self):
             if self._has_storage_list():
-                return len(self._mapdict_get_storage_list()) + (n - 1)
+                return self.map.storage_needed()
             return n
 
         def _set_mapdict_storage_and_map(self, storage, map):
             self._set_mapdict_map(map)
-            len_storage = len(storage)
+            len_storage = len(storage) if storage is not None else 0
             for i in rangenmin1:
                 if i < len_storage:
                     erased = storage[i]

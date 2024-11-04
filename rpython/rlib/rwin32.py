@@ -127,7 +127,7 @@ class CConfig:
                        LOAD_WITH_ALTERED_SEARCH_PATH CT_CTYPE3 C3_HIGHSURROGATE
                        CP_ACP CP_UTF8 CP_UTF7 CP_OEMCP MB_ERR_INVALID_CHARS
                        LOAD_LIBRARY_SEARCH_DEFAULT_DIRS SEM_FAILCRITICALERRORS
-                       LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR
+                       LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR ENABLE_VIRTUAL_TERMINAL_PROCESSING
                        _Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE
                     """
         from rpython.translator.platform import host_factory
@@ -622,10 +622,10 @@ if WIN32:
         'SetEnvironmentVariableW', [LPWSTR, LPWSTR], BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
-    def SetEnvironmentVariableW(name, value):
-        with rffi.scoped_unicode2wcharp(name) as nameWbuf:
-            with rffi.scoped_unicode2wcharp(value) as valueWbuf:
-                return _SetEnvironmentVariableW(nameWbuf, valueWbuf)
+    def DelEnvironmentVariableW(name):
+        with rffi.scoped_utf82wcharp(name) as nameWbuf:
+            valueWbuf = lltype.nullptr(rffi.CWCHARP.TO)
+            return _SetEnvironmentVariableW(nameWbuf, valueWbuf)
 
     _AddDllDirectory = winexternal('AddDllDirectory', [LPWSTR], rffi.VOIDP,
         save_err=rffi.RFFI_SAVE_LASTERROR)
@@ -674,4 +674,25 @@ if WIN32:
                 return utf8
             finally:
                 lltype.free(num_chars, flavor="raw")
- 
+
+    BOOLP = lltype.Ptr(lltype.Array(BOOL, hints={'nolength': True}))
+
+    MultiByteToWideChar = rffi.llexternal('MultiByteToWideChar',
+                                          [rffi.UINT, DWORD,
+                                           LPCSTR, rffi.INT,
+                                           rffi.CWCHARP, rffi.INT],
+                                          rffi.INT,
+                                          calling_conv='win',
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    WideCharToMultiByte = rffi.llexternal('WideCharToMultiByte',
+                                          [rffi.UINT, DWORD,
+                                           rffi.CWCHARP, rffi.INT,
+                                           LPCSTR, rffi.INT,
+                                           LPCSTR, BOOLP],
+                                          rffi.INT,
+                                          calling_conv='win',
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)
+
+
+

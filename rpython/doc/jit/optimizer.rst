@@ -83,6 +83,10 @@ The trace is 'propagated' into each optimization using the method
 first optimization to the last optimization. The method `emit_operation`
 is called for every operation that is passed to the next optimizer.
 
+The intbounds optimizations (which is mostly concerned with optimizing integer
+operations) is mostly implemented with a :doc:`rule-based pattern matching DSL
+<ruleopt>`.
+
 A frequently encountered pattern
 --------------------------------
 

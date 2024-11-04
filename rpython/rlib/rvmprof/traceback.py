@@ -6,6 +6,7 @@ from the faulthandler module.
 from rpython.rlib.rvmprof import cintf, rvmprof
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rlib.rarithmetic import widen
 
 
 def traceback(estimate_number_of_entries):
@@ -20,7 +21,8 @@ def traceback(estimate_number_of_entries):
     stack = cintf.get_rvmprof_stack()
     array_p = lltype.malloc(rffi.SIGNEDP.TO, size, flavor='raw')
     NULL = llmemory.NULL
-    array_length = _cintf.vmprof_get_traceback(stack, NULL, array_p, size)
+    voidpp = rffi.cast(rffi.VOIDPP, array_p)
+    array_length = _cintf.vmprof_get_traceback(stack, NULL, voidpp, size)
     return (array_p, array_length)
 
 
@@ -32,6 +34,7 @@ LOC_JITTED_INLINED = 2
 @specialize.arg(0, 1)
 def _traceback_one(CodeClass, callback, arg, code_id, loc):
     found_code = None
+    code_id = widen(code_id)
     if code_id != 0:
         all_code_wrefs = CodeClass._vmprof_weak_list.get_all_handles()
         i = len(all_code_wrefs) - 1
@@ -52,6 +55,8 @@ def walk_traceback(CodeClass, callback, arg, array_p, array_length):
     if not cintf.IS_SUPPORTED:
         return
     i = 0
+    array_length = widen(array_length)
+    array_p = rffi.cast(rffi.INTPTR_TP, array_p)
     while i < array_length - 1:
         tag = array_p[i]
         tagged_value = array_p[i + 1]
@@ -61,7 +66,7 @@ def walk_traceback(CodeClass, callback, arg, array_p, array_length):
         elif tag == rvmprof.VMPROF_JITTED_TAG:
             if i + 2 >= array_length:  # skip last entry, can't determine if
                 break                  # it's LOC_JITTED_INLINED or LOC_JITTED
-            if array_p[i + 2] == rvmprof.VMPROF_JITTED_TAG:
+            if widen(array_p[i + 2]) == rvmprof.VMPROF_JITTED_TAG:
                 loc = LOC_JITTED_INLINED
             else:
                 loc = LOC_JITTED

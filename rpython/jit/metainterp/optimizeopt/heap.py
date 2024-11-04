@@ -726,6 +726,8 @@ class OptHeap(Optimization):
                     if not box1.is_constant() and box1 not in available_boxes:
                         continue
                     arrayinfo = cf.cached_infos[i]
+                    if index >= 2**15:
+                        continue
                     box2 = arrayinfo.getitem(descr, index)
                     if box2 is None:
                         # XXX this should not happen, as it is an invariant

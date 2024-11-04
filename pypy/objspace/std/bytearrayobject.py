@@ -67,6 +67,7 @@ class W_BytearrayObject(W_Root):
 
     def _new(self, value):
         if value is self._data:
+            # XXX I think the annotator proves this is always true
             value = value[:]
         return W_BytearrayObject(value)
 

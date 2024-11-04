@@ -60,6 +60,7 @@ Contributors
   Adrien Di Mascio
   Anders Hammarquist
   Ondrej Baranovič
+  Logan Chien
   Mark Young
   Dan Villiom Podlaski Christiansen
   muke101
@@ -84,13 +85,14 @@ Contributors
   Camillo Bruni
   Nicolas Truessel
   Simon Burton
+  Maxwell Bernstein
+  Bartosz Skowron
   Michael Foord
   Jean-Paul Calderone
   Timo Paulssen
   Alexandre Fayolle
   Martin Matusiak
   Konstantin Lopuhin
-  Bartosz Skowron
   Simon Cross
   Laurence Tratt
   Greg Price
@@ -104,6 +106,7 @@ Contributors
   Guido van Rossum
   Michał Górny
   Stian Andreassen
+  Mikael Schönenberg
   Tobias Pape
   Tyler Wade
   Paul deGrandis
@@ -113,13 +116,12 @@ Contributors
   tav
   Paweł Piotr Przeradowski
   Mike Blume
+  Oscar Nierstrasz
   Wanja Saatkamp
   Gerald Klix
   Taavi Burns
-  Max Bernstein
   Tobias Oberstein
   Stefan H. Muller
-  Oscar Nierstrasz
   Jan de Mooij
   Dodan Mihai
   Rami Chowdhury
@@ -158,6 +160,7 @@ Contributors
   Alecsandru Patrascu
   Anton Gulenko
   Wouter van Heyst
+  Beatrice During
   Jared Grubb
   Olivier Dormond
   Nils Müller
@@ -172,19 +175,19 @@ Contributors
   Jason Creighton
   Stuart Williams
   Gintautas Miliauskas
+  devdanzin
   Matt Jackson
   Berkin Ilbeyi
   Stanislaw Halik
   Michael Cheng
   Lucian Branescu Mihaila
-  Mikael Schönenberg
   Justas Sadzevicius
+  Oliver Margetts
   Ricky Zhou
   Mihnea Saracin
   Chirag Jadwani
   Elmo Mäntynen
   Anders Qvist
-  Beatrice During
   Jonathan David Riehl
   Rodrigo Tobar
   Felix C. Stegerman
@@ -213,7 +216,6 @@ Contributors
   Andreas Stührk
   Gasper Zejn
   Jens-Uwe Mager
-  devdanzin
   Petr Vaněk
   Wenzel Jakob
   Pauli Virtanen
@@ -232,12 +234,12 @@ Contributors
   Gabriel
   Aaron Iles
   Jacek Generowicz
+  Paul Gey
   Alessandro Ogier
   Chris Burr
   nimaje
   Bernd Schoeller
   Miro Hrončok
-  Logan Chien
   Catalin Fierut
   Catalin Gabriel Manciu
   Philipp Rustemeuer
@@ -256,6 +258,7 @@ Contributors
   Jacob Oscarson
   Ignas Mikalajunas
   Lutz Paelike
+  Benjamin Moody
   Renaud Blanch
   h-vertini
   Alex Orange
@@ -305,7 +308,9 @@ Contributors
   Yusei Tahara
   Joshua Gilbert
   Andrew Thompson
-  Paul Gey
+  diath
+  robinverduijn
+  Oskar Haarklou Veileborg
   Karl Otness
   Blackasthesky
   Isuru Fernando

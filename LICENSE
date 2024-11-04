@@ -94,6 +94,7 @@ copyrighted by one or more of the following people and organizations:
   Adrien Di Mascio
   Anders Hammarquist
   Ondrej Baranovič
+  Logan Chien
   Mark Young
   Dan Villiom Podlaski Christiansen
   muke101
@@ -118,13 +119,14 @@ copyrighted by one or more of the following people and organizations:
   Camillo Bruni
   Nicolas Truessel
   Simon Burton
+  Maxwell Bernstein
+  Bartosz Skowron
   Michael Foord
   Jean-Paul Calderone
   Timo Paulssen
   Alexandre Fayolle
   Martin Matusiak
   Konstantin Lopuhin
-  Bartosz Skowron
   Simon Cross
   Laurence Tratt
   Greg Price
@@ -138,6 +140,7 @@ copyrighted by one or more of the following people and organizations:
   Guido van Rossum
   Michał Górny
   Stian Andreassen
+  Mikael Schönenberg
   Tobias Pape
   Tyler Wade
   Paul deGrandis
@@ -147,13 +150,12 @@ copyrighted by one or more of the following people and organizations:
   tav
   Paweł Piotr Przeradowski
   Mike Blume
+  Oscar Nierstrasz
   Wanja Saatkamp
   Gerald Klix
   Taavi Burns
-  Max Bernstein
   Tobias Oberstein
   Stefan H. Muller
-  Oscar Nierstrasz
   Jan de Mooij
   Dodan Mihai
   Rami Chowdhury
@@ -192,6 +194,7 @@ copyrighted by one or more of the following people and organizations:
   Alecsandru Patrascu
   Anton Gulenko
   Wouter van Heyst
+  Beatrice During
   Jared Grubb
   Olivier Dormond
   Nils Müller
@@ -206,19 +209,19 @@ copyrighted by one or more of the following people and organizations:
   Jason Creighton
   Stuart Williams
   Gintautas Miliauskas
+  devdanzin
   Matt Jackson
   Berkin Ilbeyi
   Stanislaw Halik
   Michael Cheng
   Lucian Branescu Mihaila
-  Mikael Schönenberg
   Justas Sadzevicius
+  Oliver Margetts
   Ricky Zhou
   Mihnea Saracin
   Chirag Jadwani
   Elmo Mäntynen
   Anders Qvist
-  Beatrice During
   Jonathan David Riehl
   Rodrigo Tobar
   Felix C. Stegerman
@@ -247,7 +250,6 @@ copyrighted by one or more of the following people and organizations:
   Andreas Stührk
   Gasper Zejn
   Jens-Uwe Mager
-  devdanzin
   Petr Vaněk
   Wenzel Jakob
   Pauli Virtanen
@@ -266,12 +268,12 @@ copyrighted by one or more of the following people and organizations:
   Gabriel
   Aaron Iles
   Jacek Generowicz
+  Paul Gey
   Alessandro Ogier
   Chris Burr
   nimaje
   Bernd Schoeller
   Miro Hrončok
-  Logan Chien
   Catalin Fierut
   Catalin Gabriel Manciu
   Philipp Rustemeuer
@@ -290,6 +292,7 @@ copyrighted by one or more of the following people and organizations:
   Jacob Oscarson
   Ignas Mikalajunas
   Lutz Paelike
+  Benjamin Moody
   Renaud Blanch
   h-vertini
   Alex Orange
@@ -339,7 +342,9 @@ copyrighted by one or more of the following people and organizations:
   Yusei Tahara
   Joshua Gilbert
   Andrew Thompson
-  Paul Gey
+  diath
+  robinverduijn
+  Oskar Haarklou Veileborg
   Karl Otness
   Blackasthesky
   Isuru Fernando
