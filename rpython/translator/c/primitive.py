@@ -13,6 +13,7 @@ from rpython.rtyper.lltypesystem.lltype import (Signed, SignedLongLong, Unsigned
 from rpython.rtyper.lltypesystem.llarena import RoundedUpForAllocation
 from rpython.rtyper.tool.rffi_platform import memory_alignment
 from rpython.translator.c.support import cdecl, barebonearray
+from rpython.rtyper.tool.rfficache import platform as cached_platform
 
 
 SUPPORT_INT128 = hasattr(rffi, '__INT128_T')
@@ -225,6 +226,7 @@ PrimitiveType = {
     SignedLongLong:   'long long @',
     Signed:   'Signed @',
     UnsignedLongLong: 'unsigned long long @',
+    Unsigned: 'Unsigned @',
     Unsigned: 'size_t @',
     Float:    'double @',
     SingleFloat: 'float @',
@@ -235,6 +237,7 @@ PrimitiveType = {
     Void:     'void @',
     Address:  'void* @',
     GCREF:    'void* @',
+    cached_platform.types['SIZE_T']: 'size_t @'
     }
 
 def define_c_primitive(ll_type, c_name, suffix=''):

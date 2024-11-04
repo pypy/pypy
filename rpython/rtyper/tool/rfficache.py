@@ -77,17 +77,21 @@ class Platform:
             return self._make_type(name, signed, size)
 
     def _make_type(self, name, signed, size):
-        inttype = rarithmetic.build_int('r_' + name, signed, size*8)
+        if 'size_t' in name.lower():
+            force_creation = True
+        else:
+            force_creation = False
+        inttype = rarithmetic.build_int('r_' + name, signed, size*8, force_creation=force_creation)
         tp = lltype.build_number(name, inttype)
         self.numbertype_to_rclass[tp] = inttype
         self.types[name] = tp
         return tp
 
-    def populate_inttypes(self, list, **kwds):
+    def populate_inttypes(self, int_list, **kwds):
         """'list' is a list of (name, c_name, signed)."""
         missing = []
         names_c = []
-        for name, c_name, signed in list:
+        for name, c_name, signed in int_list:
             if name not in self.types:
                 missing.append((name, signed))
                 names_c.append(c_name)
