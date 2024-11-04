@@ -220,6 +220,8 @@ PrimitiveName = {
     Void:     name_void,
     Address:  name_address,
     GCREF:    name_gcref,
+    rffi.SIZE_T: name_unsigned,
+    rffi.SSIZE_T: name_signed,
     }
 
 PrimitiveType = {
