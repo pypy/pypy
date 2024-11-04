@@ -394,14 +394,6 @@ def PyFunction_GetGlobals(space, op):
     borrow_from()
 
 @cpython_api([PyObject], PyObject)
-def PyFunction_GetModule(space, op):
-    """Return the __module__ attribute of the function object op. This is normally
-    a string containing the module name, but can be set to any other object by
-    Python code."""
-    raise NotImplementedError
-    borrow_from()
-
-@cpython_api([PyObject], PyObject)
 def PyFunction_GetDefaults(space, op):
     """Return the argument default values of the function object op. This can be a
     tuple of arguments or NULL."""

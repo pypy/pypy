@@ -194,3 +194,10 @@ def PyCode_Addr2Line(space, w_code, offset):
     if offset > len(co.co_code):
         return -1
     return offset2lineno(co, offset)
+
+@cpython_api([PyObject], PyObject)
+def PyFunction_GetModule(space, w_op):
+    """Return the __module__ attribute of the function object op. This is normally
+    a string containing the module name, but can be set to any other object by
+    Python code."""
+    return space.getattr(w_op, space.newtext("__module__"))

@@ -4,7 +4,7 @@ from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref, decref
 from pypy.module.cpyext.methodobject import PyClassMethod_New
 from pypy.module.cpyext.funcobject import (
     PyFunctionObject, PyCodeObject, CODE_FLAGS, PyMethod_Function,
-    PyMethod_Self, PyMethod_New, PyFunction_GetCode,
+    PyMethod_Self, PyMethod_New, PyFunction_GetCode, PyFunction_GetModule,
     PyCode_NewEmpty, PyCode_GetNumFree, PyCode_Addr2Line)
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.interpreter.function import Function
@@ -41,9 +41,10 @@ class TestFunctionObject(BaseApiTest):
         w_method2 = PyMethod_New(space, w_function, w_self)
         assert space.eq_w(w_method, w_method2)
 
-    def test_getcode(self, space):
+    def test_getxxx(self, space):
         w_function = space.appexec([], """():
             def func(x, y, z): return x
+            func.__module__ = "abc"
             return func
         """, cache=False)
         w_code = PyFunction_GetCode(space, w_function)
@@ -56,6 +57,9 @@ class TestFunctionObject(BaseApiTest):
             from_ref(space, rffi.cast(PyCodeObject, ref).c_co_name))
         assert 3 == rffi.cast(PyCodeObject, ref).c_co_argcount
         decref(space, ref)
+
+        w_module = PyFunction_GetModule(space,w_function)
+        assert space.utf8_w(w_module) == "abc"
 
     def test_co_flags(self, space):
         def get_flags(signature, body="pass"):
