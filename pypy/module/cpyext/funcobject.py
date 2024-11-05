@@ -146,6 +146,36 @@ def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                   freevars=unwrap_list_of_texts(space, w_freevars),
                   cellvars=unwrap_list_of_texts(space, w_cellvars))
 
+@cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
+              rffi.INT_real, rffi.INT_real,
+              PyObject, PyObject, PyObject, PyObject, PyObject, PyObject,
+              PyObject, PyObject, PyObject, rffi.INT_real, PyObject, PyObject], PyCodeObject)
+def PyCode_NewWithPosOnlyArgs(space, argcount, posonlyargcount, kwonlyargcount,
+                nlocals, stacksize, flags,
+                w_code, w_consts, w_names, w_varnames, w_freevars, w_cellvars,
+                w_filename, w_funcname, w_qualname, firstlineno, w_linetable, w_exceptiontable):
+    """Return a new code object.  If you need a dummy code object to
+    create a frame, use PyCode_NewEmpty() instead.  Calling
+    PyCode_New() directly can bind you to a precise Python
+    version since the definition of the bytecode changes often."""
+    return PyCode(space,
+                  argcount=rffi.cast(lltype.Signed, argcount),
+                  posonlyargcount=rffi.cast(lltype.Signed, posonlyargcount),
+                  kwonlyargcount = rffi.cast(lltype.Signed, kwonlyargcount),
+                  nlocals=rffi.cast(lltype.Signed, nlocals),
+                  stacksize=rffi.cast(lltype.Signed, stacksize),
+                  flags=rffi.cast(lltype.Signed, flags),
+                  code=space.bytes_w(w_code),
+                  consts=space.fixedview(w_consts),
+                  names=unwrap_list_of_texts(space, w_names),
+                  varnames=unwrap_list_of_texts(space, w_varnames),
+                  filename=space.fsencode_w(w_filename),
+                  name=space.text_w(w_funcname),
+                  firstlineno=rffi.cast(lltype.Signed, firstlineno),
+                  linetable=space.bytes_w(w_linetable),
+                  freevars=unwrap_list_of_texts(space, w_freevars),
+                  cellvars=unwrap_list_of_texts(space, w_cellvars))
+
 raises_assertionerror_bytecode = bytes(bytearray([
     opcodedesc.LOAD_ASSERTION_ERROR.index, 0,
     opcodedesc.RAISE_VARARGS.index, 1,
@@ -194,10 +224,3 @@ def PyCode_Addr2Line(space, w_code, offset):
     if offset > len(co.co_code):
         return -1
     return offset2lineno(co, offset)
-
-@cpython_api([PyObject], PyObject)
-def PyFunction_GetModule(space, w_op):
-    """Return the __module__ attribute of the function object op. This is normally
-    a string containing the module name, but can be set to any other object by
-    Python code."""
-    return space.getattr(w_op, space.newtext("__module__"))

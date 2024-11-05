@@ -4276,7 +4276,7 @@ static void __pyx_insert_code_object(int code_line, PyCodeObject* code_object) {
 #include "compile.h"
 #include "frameobject.h"
 #include "traceback.h"
-#if PY_VERSION_HEX >= 0x030b00a6 && !CYTHON_COMPILING_IN_LIMITED_API
+#if PY_VERSION_HEX >= 0x030b00a6 && !CYTHON_COMPILING_IN_LIMITED_API && !defined(PYPY_VERSION)
   #ifndef Py_BUILD_CORE
     #define Py_BUILD_CORE 1
   #endif
