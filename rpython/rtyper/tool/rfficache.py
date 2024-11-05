@@ -77,11 +77,7 @@ class Platform:
             return self._make_type(name, signed, size)
 
     def _make_type(self, name, signed, size):
-        if 'size_t' in name.lower():
-            force_creation = True
-        else:
-            force_creation = False
-        inttype = rarithmetic.build_int('r_' + name, signed, size*8, force_creation=force_creation)
+        inttype = rarithmetic.build_int('r_' + name, signed, size*8, force_creation=False)
         tp = lltype.build_number(name, inttype)
         self.numbertype_to_rclass[tp] = inttype
         self.types[name] = tp
