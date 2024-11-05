@@ -39,7 +39,7 @@ def interactive_console(mainmodule=None, quiet=False):
         from pyrepl.main import interactive_console
         run_interactive = interactive_console
     except ImportError:
-        raise
+        # Can happen in own tests of app_main.py
         pass
     except SyntaxError:
         print("Warning: 'import pyrepl' failed with SyntaxError")
