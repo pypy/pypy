@@ -6,6 +6,25 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+// Cast an function to the PyCFunction type to use it with PyMethodDef.
+//
+// This macro can be used to prevent compiler warnings if the first parameter
+// uses a different pointer type than PyObject* (ex: METH_VARARGS and METH_O
+// calling conventions).
+//
+// The macro can also be used for METH_FASTCALL and METH_VARARGS|METH_KEYWORDS
+// calling conventions to avoid compiler warnings because the function has more
+// than 2 parameters. The macro first casts the function to the
+// "void func(void)" type to prevent compiler warnings.
+//
+// If a function is declared with the METH_NOARGS calling convention, it must
+// have 2 parameters. Since the second parameter is unused, Py_UNUSED() can be
+// used to prevent a compiler warning. If the function has a single parameter,
+// it triggers an undefined behavior when Python calls it with 2 parameters
+// (bpo-33012).
+#define _PyCFunction_CAST(func) \
+    _Py_CAST(PyCFunction, _Py_CAST(void(*)(void), (func)))
+
 
 /* Flag passed to newmethodobject */
 #define METH_VARARGS  0x0001

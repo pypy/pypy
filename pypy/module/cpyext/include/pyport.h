@@ -1,9 +1,36 @@
 #ifndef Py_PYPORT_H
 #define Py_PYPORT_H
 
-#include <pyconfig.h> /* include for defines */
+#include "pyconfig.h" /* include for defines */
 
 #include <inttypes.h>
+#include <limits.h>
+#ifndef UCHAR_MAX
+#  error "limits.h must define UCHAR_MAX"
+#endif
+#if UCHAR_MAX != 255
+#  error "Python's source code assumes C's unsigned char is an 8-bit type"
+#endif
+
+
+// Macro to use C++ static_cast<> in the Python C API.
+#ifdef __cplusplus
+#  define _Py_STATIC_CAST(type, expr) static_cast<type>(expr)
+#else
+#  define _Py_STATIC_CAST(type, expr) ((type)(expr))
+#endif
+// Macro to use the more powerful/dangerous C-style cast even in C++.
+#define _Py_CAST(type, expr) ((type)(expr))
+
+// Static inline functions should use _Py_NULL rather than using directly NULL
+// to prevent C++ compiler warnings. On C++11 and newer, _Py_NULL is defined as
+// nullptr.
+#if defined(__cplusplus) && __cplusplus >= 201103
+#  define _Py_NULL nullptr
+#else
+#  define _Py_NULL NULL
+#endif
+
 
 /**************************************************************************
 Symbols and macros to supply platform-independent interfaces to basic

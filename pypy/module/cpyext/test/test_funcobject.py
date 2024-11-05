@@ -5,7 +5,7 @@ from pypy.module.cpyext.methodobject import PyClassMethod_New
 from pypy.module.cpyext.funcobject import (
     PyFunctionObject, PyCodeObject, CODE_FLAGS, PyMethod_Function,
     PyMethod_Self, PyMethod_New, PyFunction_GetCode, PyFunction_GetModule,
-    PyCode_NewEmpty, PyCode_GetNumFree, PyCode_Addr2Line)
+    PyCode_NewEmpty, PyCode_Addr2Line)
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.interpreter.function import Function
 from pypy.interpreter.pycode import PyCode
@@ -90,14 +90,6 @@ class TestFunctionObject(BaseApiTest):
         rffi.free_charp(filename)
         rffi.free_charp(funcname)
 
-    def test_getnumfree(self, space):
-        w_function = space.appexec([], """():
-            a = 5
-            def method(x): return a, x
-            return method
-        """)
-        assert PyCode_GetNumFree(space, w_function.code) == 1
-
     def test_classmethod(self, space):
         w_function = space.appexec([], """():
             def method(x): return x
@@ -159,3 +151,59 @@ class AppTestCall(AppTestCpythonExtensionBase):
             assert lines == [(0, 4, 23)]
             assert info.tb.tb_next.tb_lineno == 23
 
+
+    def test_get_xxx(self):
+        module = self.import_extension('foo', [
+            ("code_numfree", "METH_O",
+             """
+                PyCodeObject *code = (PyCodeObject*)PyFunction_GetCode(args);
+                if (code == NULL) {
+                    return NULL;
+                }
+                size_t n = PyCode_GetNumFree(code);
+                return PyLong_FromSize_t(n);
+             """),
+            ("code_cellvars", "METH_O",
+             """
+                PyCodeObject *code = (PyCodeObject*)PyFunction_GetCode(args);
+                if (code == NULL) {
+                    return NULL;
+                }
+                return PyCode_GetCellvars(code);
+             """),
+            ("code_code", "METH_O",
+             """
+                PyCodeObject *code = (PyCodeObject*)PyFunction_GetCode(args);
+                if (code == NULL) {
+                    return NULL;
+                }
+                return PyCode_GetCode(code);
+             """),
+            ("code_freevars", "METH_O",
+             """
+                PyCodeObject *code = (PyCodeObject*)PyFunction_GetCode(args);
+                if (code == NULL) {
+                    return NULL;
+                }
+                return PyCode_GetFreevars(code);
+             """),
+            ("code_varnames", "METH_O",
+             """
+                PyCodeObject *code = (PyCodeObject*)PyFunction_GetCode(args);
+                if (code == NULL) {
+                    return NULL;
+                }
+                return PyCode_GetVarnames(code);
+             """),
+        ])
+
+        def wrapper(x):
+            a = 5
+            def func(x):
+                return a, x
+        code = wrapper.__code__
+        assert module.code_cellvars(wrapper) == ('a', )
+        assert module.code_numfree(wrapper) == 0
+        assert module.code_code(wrapper) == code.co_code
+        assert module.code_freevars(wrapper) == code.co_freevars
+        assert module.code_varnames(wrapper) == code.co_varnames

@@ -93,6 +93,10 @@ def PyFunction_GetCode(space, w_func):
     func = space.interp_w(Function, w_func)
     return func.code      # borrowed ref
 
+@cpython_api([PyObject], PyObject)
+def PyFunction_GetModule(space, w_func):
+    return space.getattr(w_func, space.newtext('__module__'))
+
 @cpython_api([PyObject, PyObject], PyObject)
 def PyMethod_New(space, w_func, w_self):
     """Return a new method object, with func being any callable object
@@ -224,3 +228,23 @@ def PyCode_Addr2Line(space, w_code, offset):
     if offset > len(co.co_code):
         return -1
     return offset2lineno(co, offset)
+
+@cpython_api([PyCodeObject], PyObject)
+def PyCode_GetCellvars(space, w_co):
+    co = space.interp_w(PyCode, w_co)
+    return space.newtuple([space.newtext(v) for v in co.co_cellvars])
+
+@cpython_api([PyCodeObject], PyObject)
+def PyCode_GetCode(space, w_co):
+    co = space.interp_w(PyCode, w_co)
+    return space.newbytes(co.co_code)
+
+@cpython_api([PyCodeObject], PyObject)
+def PyCode_GetFreevars(space, w_co):
+    co = space.interp_w(PyCode, w_co)
+    return space.newtuple([space.newtext(v) for v in co.co_freevars])
+
+@cpython_api([PyCodeObject], PyObject)
+def PyCode_GetVarnames(space, w_co):
+    co = space.interp_w(PyCode, w_co)
+    return space.newtuple([space.newtext(v) for v in co.co_varnames])
