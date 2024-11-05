@@ -177,9 +177,9 @@ class sysflags(metaclass=structseqtype):
 
 # The real flags are set in app_main, which is not used in untranslated tests.
 # Set reasonable defaults for testing, in particular set utf8_mode to 1
-# no clue why dev_mode in particular has to be a bool, but CPython has tests
-# for that
-null_sysflags = sysflags((0,)*13 + (False, 1, 0, -1, 0))
+# no clue why some have to be a bool, but CPython has tests
+# for that. Also see default_otions in app_main
+null_sysflags = sysflags((0,)*13 + (False, 1, 0, -1, False))
 null__xoptions = {}
 
 # copied from version.py

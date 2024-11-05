@@ -490,10 +490,11 @@ default_options = dict.fromkeys(
     "warnoptions",
     "unbuffered"), 0)
 default_options["check_hash_based_pycs"] = "default"
-default_options["dev_mode"] = False # needs to be bool
+default_options["dev_mode"] = False  # needs to be bool
 default_options["utf8_mode"] = -1
 default_options["warn_default_encoding"] = 0
 default_options["int_max_str_digits"] = -1
+default_options["safe_path"] = False  # needs to be bool
 
 def simple_option(options, name, iterargv):
     options[name] += 1
@@ -702,7 +703,7 @@ def _parse_command_line(argv):
         if getenv('PYTHONNOUSERSITE'):
             options["no_user_site"] = 1
         if getenv('PYTHONSAFEPATH'):
-            options["safe_path"] = 1
+            options["safe_path"] = True
         if getenv('PYTHONUNBUFFERED'):
             options["unbuffered"] = 1
         parse_env('PYTHONVERBOSE', "verbose", options)

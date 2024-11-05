@@ -812,7 +812,10 @@ class CmdLineTest(unittest.TestCase):
 
     def test_pythonmalloc(self):
         # Test the PYTHONMALLOC environment variable
-        pymalloc = support.with_pymalloc()
+        try:
+            pymalloc = support.with_pymalloc()
+        except AtributeError:
+            pymalloc = None
         if pymalloc:
             default_name = 'pymalloc_debug' if Py_DEBUG else 'pymalloc'
             default_name_debug = 'pymalloc_debug'
