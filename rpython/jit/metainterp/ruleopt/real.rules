@@ -53,6 +53,10 @@ sub_or_x_y_y: int_sub(int_or(x, y), y)
     check x.and_bound(y).known_eq_const(0)
     => x
 
+sub_invert_one: int_sub(int_invert(x), -1)
+    # useful for int_abs(known-negative-value)
+    => int_neg(x)
+
 #sub_neg: int_sub(x, int_neg(y))
 #    => int_add(x, y)
 

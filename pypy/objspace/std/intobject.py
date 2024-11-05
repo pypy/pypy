@@ -498,7 +498,8 @@ def _make_ovf2long(opname, ovf2small=None):
             a = r_longlong(x)
             b = r_longlong(y)
             return W_SmallLongObject(op(a, b))
-
+        if opname == 'mul':
+            return space.newlong_from_rbigint(rbigint.mul_int_int_bigint_result(x, y))
         from pypy.objspace.std.longobject import W_LongObject, W_AbstractLongObject
         w_x = W_LongObject.fromint(space, x)
         assert w_y is not None
