@@ -558,6 +558,8 @@ class Z3IntBound(IntBound):
         tvalue_if_const, tmask_if_const = self._tnum_urshift(other.lower)
         tvalue = z3.If(other.is_constant(), tvalue_if_const, 0)
         tmask = z3.If(other.is_constant(), tmask_if_const, -1)
+        lower = z3.If(z3.And(other.is_constant(), self.lower >= 0), self.lower >> other.lower, MININT)
+        upper = z3.If(z3.And(other.is_constant(), self.lower >= 0), self.upper >> other.lower, MAXINT)
         return Z3IntBound.from_knownbits(tvalue, tmask)
 
     def is_constant(self):
