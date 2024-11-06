@@ -606,6 +606,7 @@ SYMBOLS_C = [
     'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
+    'PyEval_GetFuncDesc', 'PyEval_GetFuncName',
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
@@ -1626,6 +1627,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "tupleobject.c",
                          source_dir / "sliceobject.c",
                          source_dir / "call.c",
+                         source_dir / "ceval.c",
                          # for PyErr pypysig_pushback
                          translator_c_dir / "src" / "signals.c",
                          ]
