@@ -119,6 +119,7 @@ class Module(MixedModule):
     if sys.platform == 'win32':
         interpleveldefs['winver'] = 'version.get_winver(space)'
         interpleveldefs['getwindowsversion'] = 'vm.getwindowsversion'
+        interpleveldefs['_vpath'] = 'space.newtext(r"..\..")'
     else:
         interpleveldefs['getdlopenflags'] = 'system.getdlopenflags'
         interpleveldefs['setdlopenflags'] = 'system.setdlopenflags'
