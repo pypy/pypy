@@ -37,6 +37,16 @@ nextafter = rffi.llexternal(
     'nextafter', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
     compilation_info=CConfig._compilation_info_, sandboxsafe=True)
 
+# exp2, cbrt math functions needed in 3.11+
+
+math_exp2 = rffi.llexternal('exp2', [rffi.DOUBLE], rffi.DOUBLE,
+                            save_err=rffi.RFFI_FULL_ERRNO_ZERO,
+                            compilation_info=CConfig._compilation_info_)
+
+math_cbrt = rffi.llexternal('cbrt', [rffi.DOUBLE], rffi.DOUBLE,
+                            save_err=rffi.RFFI_FULL_ERRNO_ZERO,
+                            compilation_info=CConfig._compilation_info_)
+
 globals().update(rffi_platform.configure(CConfig))
 
 INVALID_MSG = "could not convert string to float"
@@ -597,21 +607,11 @@ def _error_check_errno_unary_math(x, r, can_overflow):
 # some math functions needed in 3.11+
 
 
-math_eci = ExternalCompilationInfo(
-    libraries=['m'])
-math_exp2 = rffi.llexternal('exp2', [rffi.DOUBLE], rffi.DOUBLE,
-                            save_err=rffi.RFFI_FULL_ERRNO_ZERO,
-                            compilation_info=math_eci)
-
 def exp2(x):
     "Return 2 raised to the power of x."
     r = math_exp2(x)
     _error_check_errno_unary_math(x, r, can_overflow=True)
     return r
-
-math_cbrt = rffi.llexternal('cbrt', [rffi.DOUBLE], rffi.DOUBLE,
-                            save_err=rffi.RFFI_FULL_ERRNO_ZERO,
-                            compilation_info=math_eci)
 
 def cbrt(x):
     "Return cube root of x."
