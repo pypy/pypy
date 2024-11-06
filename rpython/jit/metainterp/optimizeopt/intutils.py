@@ -1012,6 +1012,7 @@ class IntBound(AbstractInfo):
                  tvalue, tmask = TNUM_KNOWN_ZERO
             elif 0 <= c_other < LONG_BIT:
                 tvalue, tmask = self._tnum_lshift(c_other)
+                # XXX
                 tvalue = self.tvalue << r_uint(c_other)
                 tmask = self.tmask << r_uint(c_other)
             # else: bits are unknown because arguments invalid
