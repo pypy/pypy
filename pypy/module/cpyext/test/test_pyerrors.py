@@ -796,3 +796,38 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         ret = module.clevel_error(fname)
         print(ret)
         assert ret is True
+
+    def test_set_get(self):
+        # taken from test_capi
+        module = self.import_extension('foo', [
+            ('set_exception', "METH_O",
+            """
+                PyObject *exc = PyErr_GetHandledException();
+                assert(PyExceptionInstance_Check(exc) || exc == NULL);
+
+                PyErr_SetHandledException(args);
+                return exc;
+            """)])
+        import sys
+
+        raised_exception = ValueError("5")
+        new_exc = TypeError("TEST")
+        try:
+            raise raised_exception
+        except ValueError as e:
+            orig_sys_exception = sys.exception()
+            orig_exception = module.set_exception(new_exc)
+            new_sys_exception = sys.exception()
+            new_exception = module.set_exception(orig_exception)
+            reset_sys_exception = sys.exception()
+
+            assert orig_exception == e
+
+            assert orig_exception == raised_exception
+            assert orig_sys_exception == orig_exception
+            print(repr(orig_exception), type(reset_sys_exception), repr(reset_sys_exception))
+            assert reset_sys_exception == orig_exception
+            assert new_exception == new_exc
+            assert new_sys_exception == new_exception
+        else:
+            assert False
