@@ -4,6 +4,7 @@
 #include <pyconfig.h> /* angle brackets allow using the one in PC on windows */
 
 #include <inttypes.h>
+
 #include <limits.h>
 #ifndef UCHAR_MAX
 #  error "limits.h must define UCHAR_MAX"
@@ -102,7 +103,10 @@ typedef long Py_ssize_t;
 typedef long Py_hash_t;
 typedef unsigned long Py_uhash_t;
 #endif
+#define PY_SSIZE_T_MAX ((Py_ssize_t)(((size_t)-1)>>1))
 
+/* Smallest negative value of type Py_ssize_t. */
+#define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
 
 /* Py_hash_t is the same size as a pointer. */
 #define SIZEOF_PY_HASH_T SIZEOF_SIZE_T
@@ -112,11 +116,6 @@ typedef unsigned long Py_uhash_t;
 /* Largest possible value of size_t. */
 #define PY_SIZE_MAX SIZE_MAX
 
-/* Largest positive value of type Py_ssize_t. */
-#define PY_SSIZE_T_MAX ((Py_ssize_t)(((size_t)-1)>>1))
-/* Smallest negative value of type Py_ssize_t. */
-#define PY_SSIZE_T_MIN (-PY_SSIZE_T_MAX-1)
-
 #include <stdarg.h>
 
 /* Py_LOCAL can be used instead of static to get the fastest possible calling
@@ -125,23 +124,12 @@ typedef unsigned long Py_uhash_t;
  * Py_LOCAL_INLINE does the same thing, and also explicitly requests inlining,
  * for platforms that support that.
  *
- * If PY_LOCAL_AGGRESSIVE is defined before python.h is included, more
- * "aggressive" inlining/optimization is enabled for the entire module.  This
- * may lead to code bloat, and may slow things down for those reasons.  It may
- * also lead to errors, if the code relies on pointer aliasing.  Use with
- * care.
- *
  * NOTE: You can only use this for functions that are entirely local to a
  * module; functions that are exported via method tables, callbacks, etc,
  * should keep using static.
  */
 
 #if defined(_MSC_VER)
-#  if defined(PY_LOCAL_AGGRESSIVE)
-   /* enable more aggressive optimization for MSVC */
-   /* active in both release and debug builds - see bpo-43271 */
-#  pragma optimize("gt", on)
-#endif
    /* ignore warnings if the compiler decides not to inline a function */
 #  pragma warning(disable: 4710)
    /* fastest possible local call under MSVC */
@@ -152,14 +140,22 @@ typedef unsigned long Py_uhash_t;
 #  define Py_LOCAL_INLINE(type) static inline type
 #endif
 
+// bpo-28126: Py_MEMCPY is kept for backwards compatibility,
+#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 < 0x030b0000
+#  define Py_MEMCPY memcpy
+#endif
 
+#ifdef HAVE_IEEEFP_H
+#include <ieeefp.h>  /* needed for 'finite' declaration on some platforms */
+#endif
 
+#include <math.h> /* Moved here from the math section, before extern "C" */
 /* CPython needs this for the c-extension datetime, which is pure python on PyPy
    downstream packages assume it is here (Pandas for instance) */
-#include <time.h>
 #ifndef _MSC_VER
 #include <sys/time.h>
 #endif
+#include <time.h>
 
 /*******************************
  * stat() and fstat() fiddling *
@@ -201,6 +197,20 @@ typedef unsigned long Py_uhash_t;
 #include <stat.h>
 #else
 #endif
+/* Py_SAFE_DOWNCAST(VALUE, WIDE, NARROW)
+ * Cast VALUE to type NARROW from type WIDE.  In Py_DEBUG mode, this
+ * assert-fails if any information is lost.
+ * Caution:
+ *    VALUE may be evaluated more than once.
+ */
+#ifdef Py_DEBUG
+#  define Py_SAFE_DOWNCAST(VALUE, WIDE, NARROW) \
+       (assert(_Py_STATIC_CAST(WIDE, _Py_STATIC_CAST(NARROW, (VALUE))) == (VALUE)), \
+        _Py_STATIC_CAST(NARROW, (VALUE)))
+#else
+#  define Py_SAFE_DOWNCAST(VALUE, WIDE, NARROW) _Py_STATIC_CAST(NARROW, (VALUE))
+#endif
+
 
 /* Py_DEPRECATED(version)
  * Declare a variable, type, or function deprecated.

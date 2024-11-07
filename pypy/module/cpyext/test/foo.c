@@ -668,7 +668,7 @@ static PyTypeObject CustomType;
 static PyObject *newCustom(PyObject *self, PyObject *args)
 {
     PyObject *obj = calloc(1, sizeof(PyObject));
-    Py_TYPE(obj) = &CustomType;
+    Py_SET_TYPE(obj, &CustomType);
     _Py_NewReference(obj);
     return obj;
 }
@@ -807,7 +807,7 @@ initfoo(void)
         INITERROR;
 
 
-    Py_TYPE(&CustomType) = &MetaType;
+    Py_SET_TYPE(&CustomType, &MetaType);
     if (PyType_Ready(&CustomType) < 0)
         INITERROR;
 

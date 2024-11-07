@@ -65,14 +65,14 @@ array_resize(arrayobject *self, Py_ssize_t newsize)
     if (self->allocated >= newsize &&
         Py_SIZE(self) < newsize + 16 &&
         self->ob_item != NULL) {
-        Py_SIZE(self) = newsize;
+        Py_SET_SIZE(self, newsize);
         return 0;
     }
 
     if (newsize == 0) {
         PyMem_FREE(self->ob_item);
         self->ob_item = NULL;
-        Py_SIZE(self) = 0;
+        Py_SET_SIZE(self, 0);
         self->allocated = 0;
         return 0;
     }
@@ -102,7 +102,7 @@ array_resize(arrayobject *self, Py_ssize_t newsize)
         return -1;
     }
     self->ob_item = items;
-    Py_SIZE(self) = newsize;
+    Py_SET_SIZE(self, newsize);
     self->allocated = _new_size;
     return 0;
 }
@@ -437,7 +437,7 @@ newarrayobject(PyTypeObject *type, Py_ssize_t size, struct arraydescr *descr)
     op->ob_descr = descr;
     op->allocated = size;
     op->weakreflist = NULL;
-    Py_SIZE(op) = size;
+    Py_SET_SIZE(op, size);
     if (size <= 0) {
         op->ob_item = NULL;
     }
@@ -2456,7 +2456,7 @@ array_getbuffer(arrayobject *self, Py_buffer *view, int flags)
     view->suboffsets = NULL;
     view->shape = NULL;
     if ((flags & PyBUF_ND)==PyBUF_ND) {
-        view->shape = &((Py_SIZE(self)));
+        view->shape = &(_PyVarObject_CAST(self)->ob_size);
     }
     view->strides = NULL;
     if ((flags & PyBUF_STRIDES)==PyBUF_STRIDES)
@@ -2604,7 +2604,7 @@ array_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
                         return NULL;
                     }
                     self->ob_item = item;
-                    Py_SIZE(self) = n / sizeof(Py_UNICODE);
+                    Py_SET_SIZE(self, n / sizeof(Py_UNICODE));
                     memcpy(item, PyUnicode_AS_DATA(initial), n);
                     self->allocated = Py_SIZE(self);
                 }
@@ -3053,11 +3053,11 @@ PyInit_array(void)
     register Py_UNICODE *p;
     struct arraydescr *descr;
 
-    Py_TYPE(&ArrayBasetype) = &PyType_Type;
+    Py_SET_TYPE(&ArrayBasetype, &PyType_Type);
     Arraytype.tp_base = &ArrayBasetype;
     if (PyType_Ready(&Arraytype) < 0)
         return NULL;
-    Py_TYPE(&PyArrayIter_Type) = &PyType_Type;
+    Py_SET_TYPE(&PyArrayIter_Type, &PyType_Type);
     m = PyModule_Create(&arraymodule);
     if (m == NULL)
         return NULL;

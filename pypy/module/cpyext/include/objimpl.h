@@ -154,6 +154,7 @@ PyAPI_FUNC(PyVarObject *) _PyObject_NewVar(PyTypeObject *, Py_ssize_t);
 // directly PyObject_MALLOC() with _PyObject_VAR_SIZE().
 #define PyObject_NEW_VAR(type, typeobj, n) PyObject_NewVar(type, typeobj, n)
 
+
 /*
  * Garbage Collection Support
  * ==========================
@@ -198,9 +199,9 @@ PyAPI_FUNC(void) PyObject_GC_UnTrack(void *);
 PyAPI_FUNC(void) PyObject_GC_Del(void *);
 
 #define PyObject_GC_New(type, typeobj) \
-                ( (type *) _PyObject_GC_New(typeobj) )
+    _Py_CAST(type*, _PyObject_GC_New(typeobj))
 #define PyObject_GC_NewVar(type, typeobj, n) \
-                ( (type *) _PyObject_GC_NewVar((typeobj), (n)) )
+    _Py_CAST(type*, _PyObject_GC_NewVar((typeobj), (n)))
 
 PyAPI_FUNC(int) PyObject_GC_IsTracked(PyObject *);
 PyAPI_FUNC(int) PyObject_GC_IsFinalized(PyObject *);
@@ -219,12 +220,11 @@ PyAPI_FUNC(int) PyObject_GC_IsFinalized(PyObject *);
         }                                                               \
     } while (0)
 
-
-
-
+#ifndef Py_LIMITED_API
+#  define Py_CPYTHON_OBJIMPL_H
 
 /*********************
-cpython/objimpl.h
+from cpython/objimpl.h
 *********************/
 
 #define _PyObject_SIZE(typeobj) ( (typeobj)->tp_basicsize )
@@ -262,6 +262,8 @@ typedef union _gc_head {
 } PyGC_Head;
 
 
+#  undef Py_CPYTHON_OBJIMPL_H
+#endif
 
 #ifdef __cplusplus
 }

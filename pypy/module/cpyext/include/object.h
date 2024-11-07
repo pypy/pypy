@@ -68,10 +68,10 @@ typedef struct _typeobject PyTypeObject;
 #ifdef Py_TRACE_REFS
 /* Define pointers to support a doubly-linked list of all live heap objects. */
 #define _PyObject_HEAD_EXTRA            \
-    struct _object *_ob_next;           \
-    struct _object *_ob_prev;
+    PyObject *_ob_next;           \
+    PyObject *_ob_prev;
 
-#define _PyObject_EXTRA_INIT 0, 0,
+#define _PyObject_EXTRA_INIT _Py_NULL, _Py_NULL,
 
 #else
 #  define _PyObject_HEAD_EXTRA
@@ -318,6 +318,13 @@ given type object has a specified feature.
 */
 
 #ifndef Py_LIMITED_API
+
+/* Placement of dict (and values) pointers are managed by the VM, not by the type.
+ * The VM will automatically set tp_dictoffset. Should not be used for variable sized
+ * classes, such as classes that extend tuple.
+ */
+#define Py_TPFLAGS_MANAGED_DICT (1 << 4)
+
 /* Set if instances of the type object are treated as sequences for pattern matching */
 #define Py_TPFLAGS_SEQUENCE (1 << 5)
 /* Set if instances of the type object are treated as mappings for pattern matching */

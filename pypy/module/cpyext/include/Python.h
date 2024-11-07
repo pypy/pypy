@@ -1,6 +1,13 @@
+// Entry point of the Python C API.
+// C extensions should only #include <Python.h>, and not include directly
+// the other Python header files included by <Python.h>.
+
 #ifndef Py_PYTHON_H
 #define Py_PYTHON_H
 
+// Since this is a "meta-include" file, no #ifdef __cplusplus / extern "C" {
+
+// Include Python header files
 #include "patchlevel.h"
 #include <pyconfig.h>
 
@@ -10,18 +17,9 @@
 #endif
 #ifndef _WIN32
 # include <stddef.h>
-# include <limits.h>
-# include <math.h>
 # include <errno.h>
 # include <unistd.h>
 #else
-# ifdef _MSC_VER
-#  include <crtdefs.h>
-# endif
-# ifdef __MINGW32__
-#  include <limits.h>
-# endif
-# include <io.h>
 # include <sys/types.h>   /* for 'off_t' */
 #endif
 #include <stdio.h>
@@ -29,13 +27,10 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define Py_SAFE_DOWNCAST(VALUE, WIDE, NARROW) (NARROW)(VALUE)
-
 #define Py_USING_UNICODE
 
 #define statichere static
 
-#define Py_MEMCPY memcpy
 #include "pyport.h"
 
 #include "pypy_macros.h"
