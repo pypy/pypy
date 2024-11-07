@@ -54,7 +54,14 @@ class GlobalPyobjContainer(object):
         if isinstance(obj, weakref.ReferenceType):
             self.objs.append(obj)
         else:
-            self.objs.append(weakref.ref(obj))
+            try:
+                wr = weakref.ref(obj)
+            except TypeError as e:
+                # obj is something like an int object
+                def getter():
+                    return obj
+                wr = getter
+            self.objs.append(wr)
         return num
 
     def get(self, num):
