@@ -125,18 +125,11 @@ PyAPI_FUNC(PyObject *) PyObject_Init(PyObject *, PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) PyObject_InitVar(PyVarObject *,
                                            PyTypeObject *, Py_ssize_t);
 
-#ifndef PYPY_VERSION
 #define PyObject_INIT(op, typeobj) \
     PyObject_Init(_PyObject_CAST(op), (typeobj))
 #define PyObject_INIT_VAR(op, typeobj, size) \
     PyObject_InitVar(_PyVarObject_CAST(op), (typeobj), (size))
-#else
-#define PyObject_INIT(op, typeobj) \
-    ( Py_TYPE(op) = (typeobj), ((PyObject *)(op))->ob_refcnt = 1,\
-      ((PyObject *)(op))->ob_pypy_link = 0, (op) )
-#define PyObject_INIT_VAR(op, typeobj, size) \
-    ( Py_SIZE(op) = (size), PyObject_INIT((op), (typeobj)) )
-#endif
+
 
 PyAPI_FUNC(PyObject *) _PyObject_New(PyTypeObject *);
 PyAPI_FUNC(PyVarObject *) _PyObject_NewVar(PyTypeObject *, Py_ssize_t);
