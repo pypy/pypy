@@ -48,7 +48,7 @@ typedef int(*objobjargproc)(PyObject *, PyObject *, PyObject *);
 
 /* Py3k buffer interface, adapted for PyPy */
 /* Changing this constant changes the ABI */
-#define PyBUF_MAX_NDIM 36
+#define PyBUF_MAX_NDIM 64
 typedef struct bufferinfo {
     void *buf;
     PyObject *obj;        /* owned reference */
