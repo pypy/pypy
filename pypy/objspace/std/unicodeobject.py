@@ -1043,7 +1043,7 @@ class W_UnicodeObject(W_Root):
             else:
                 return self._getitem_slice_slowpath(space, start, step, sl)
 
-        index = space.getindex_w(w_index, space.w_IndexError, "string index")
+        index = space.getindex_w(w_index, space.w_IndexError, "string")
         return self._getitem_result(space, index)
 
     def _getitem_slice_slowpath(self, space, start, step, sl):

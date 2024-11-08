@@ -1215,7 +1215,10 @@ class MixinStrUnicodeUserStringTest:
         self.checkraises(TypeError, 'abc', '__getitem__', 'def')
 
         for idx_type in ('def', object()):
-            expected_msg = "string indices must be integers, not '{}'".format(type(idx_type).__name__)
+            if sys.implementation.name == 'pypy':
+                expected_msg = "string indices must be integers or slices, not '{}'".format(type(idx_type).__name__)
+            else:
+                expected_msg = "string indices must be integers, not '{}'".format(type(idx_type).__name__)
             self.checkraises(TypeError, 'abc', '__getitem__', idx_type, expected_msg=expected_msg)
 
     def test_slice(self):
