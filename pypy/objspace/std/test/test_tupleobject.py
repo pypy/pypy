@@ -483,4 +483,4 @@ class AppTestW_TupleObject:
         with raises(TypeError) as excinfo:
             a = None
             (1, 2, 3)[a]
-        assert str(excinfo.value) == "tuple indices must be integers or slices, not NoneType"
+        assert str(excinfo.value) == "tuple indices must be integers or slices, not 'NoneType'"
