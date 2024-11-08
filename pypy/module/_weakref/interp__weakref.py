@@ -266,7 +266,7 @@ def descr__new__weakref(space, w_subtype, w_obj, w_callable=None,
     else:
         return lifeline.make_weakref_with_callback(w_subtype, w_obj, w_callable)
 
-W_Weakref.typedef = TypeDef("weakref",
+W_Weakref.typedef = TypeDef("weakref.ReferenceType",
     __doc__ = """A weak reference to an object 'obj'.  A 'callback' can be given,
 which is called with 'obj' as an argument when it is about to be finalized.""",
     __new__ = interp2app(descr__new__weakref),
@@ -410,14 +410,14 @@ def proxy_reversed(space, w_obj):
 proxy_typedef_dict['__reversed__'] = interp2app(proxy_reversed)
 callable_proxy_typedef_dict['__reversed__'] = interp2app(proxy_reversed)
 
-W_Proxy.typedef = TypeDef("weakproxy",
+W_Proxy.typedef = TypeDef("weakref.ProxyType",
     __new__ = interp2app(descr__new__proxy),
     __hash__ = interp2app(W_Proxy.descr__hash__),
     __repr__ = interp2app(W_WeakrefBase.descr__repr__),
     **proxy_typedef_dict)
 W_Proxy.typedef.acceptable_as_base_class = False
 
-W_CallableProxy.typedef = TypeDef("weakcallableproxy",
+W_CallableProxy.typedef = TypeDef("weakref.CallableProxyType",
     __new__ = interp2app(descr__new__callableproxy),
     __hash__ = interp2app(W_CallableProxy.descr__hash__),
     __repr__ = interp2app(W_WeakrefBase.descr__repr__),
