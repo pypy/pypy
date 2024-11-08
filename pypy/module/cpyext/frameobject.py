@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObjectFields, cpython_struct,
-    CANNOT_FAIL, slot_function)
+    CANNOT_FAIL, slot_function, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     PyObject, decref, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
@@ -98,3 +98,44 @@ def PyTraceBack_Here(space, w_frame):
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyTraceBack_Check(space, w_obj):
     return isinstance(w_obj, PyTraceback)
+
+@cpython_api([PyFrameObject], PyObject)
+def PyFrame_GetGlobals(space, w_frame):
+    frame = space.interp_w(PyFrame, w_frame)
+    return frame.get_w_globals()
+
+@cpython_api([PyFrameObject], PyObject)
+def PyFrame_GetLocals(space, w_frame):
+    frame = space.interp_w(PyFrame, w_frame)
+    return frame.get_w_locals()
+
+@cpython_api([PyFrameObject], PyObject)
+def PyFrame_GetGenerator(space, w_frame):
+    frame = space.interp_w(PyFrame, w_frame)
+    return frame.get_generator()
+
+@cpython_api([PyFrameObject], PyObject)
+def PyFrame_GetBuiltins(space, w_frame):
+    frame = space.interp_w(PyFrame, w_frame)
+    return frame.fget_f_builtins(space)
+
+@cpython_api([PyFrameObject], rffi.INT_real, error=-1)
+def PyFrame_GetLasti(space, w_frame):
+    frame = space.interp_w(PyFrame, w_frame)
+    w_lasti = frame.fget_f_lasti(space)
+    return space.int_w(w_lasti)
+
+@cpython_api([PyFrameObject], rffi.INT_real, error=-1)
+def PyFrame_GetLineNumber(space, w_frame):
+    frame = space.interp_w(PyFrame, w_frame)
+    return frame.get_last_lineno()
+
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+def PyFrame_Check(space, w_frame):
+    try:
+        space.interp_w(PyFrame, w_frame)
+    except Exception:
+        return 0
+    return 1
+
+

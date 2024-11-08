@@ -142,3 +142,86 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
             ])
         # On CPython the traceback is NULL
         assert module.traceback_check()
+
+    def test_get_xxx(self):
+        module = self.import_extension('foo', [
+            ("frame_getlocals", "METH_O",
+             """
+                if (!PyFrame_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                return PyFrame_GetLocals((PyFrameObject *)args);
+
+             """),
+            ("frame_getglobals", "METH_O",
+             """
+                if (!PyFrame_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                return PyFrame_GetGlobals((PyFrameObject *)args);
+             """),
+            ("frame_getgenerator", "METH_O",
+             """
+                if (!PyFrame_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                return PyFrame_GetGenerator((PyFrameObject *)args);
+             """),
+            ("frame_getbuiltins", "METH_O",
+             """
+                if (!PyFrame_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                return PyFrame_GetBuiltins((PyFrameObject *)args);
+             """),
+            ("frame_getlasti", "METH_O",
+             """
+                if (!PyFrame_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                int lasti = PyFrame_GetLasti((PyFrameObject *)args);
+                if (lasti < 0) {
+                    assert(lasti == -1);
+                    Py_RETURN_NONE;
+                }
+                return PyLong_FromLong(lasti);
+             """),
+            ("frame_getlinenumber", "METH_O",
+             """
+                if (!PyFrame_Check(args)) {
+                    PyErr_SetString(PyExc_TypeError, "argument must be a frame");
+                    return NULL;
+                }
+                int num = PyFrame_GetLineNumber((PyFrameObject *)args);
+                if (num < 0) {
+                    assert(lasti == -1);
+                    Py_RETURN_NONE;
+                }
+                return PyLong_FromLong(num);
+             """),
+            ])
+        import sys
+        frame = sys._getframe()
+        assert frame.f_locals == module.frame_getlocals(frame) 
+        assert frame.f_globals == module.frame_getglobals(frame) 
+        assert frame.f_builtins == module.frame_getbuiltins(frame)
+        lasti = module.frame_getlasti(frame) 
+        assert abs(frame.f_lasti - lasti) < 40
+        assert frame.f_lineno == module.frame_getlinenumber(frame)
+
+        def getgenframe():
+            yield sys._getframe()
+
+        gen = getgenframe()
+        frame = next(gen)
+        assert gen == module.frame_getgenerator(frame)
+        
+        
+        
+        
+        
