@@ -455,7 +455,7 @@ testmap = [
     RegrTest('test_webbrowser.py'),
     RegrTest('test_winconsoleio.py'),
     RegrTest('test_winreg.py'),
-    RegrTest('test_winsound.py'), skip="requires audio"),
+    RegrTest('test_winsound.py', skip="requires audio"),
     RegrTest('test_with.py'),
     RegrTest('test_wsgiref.py'),
     RegrTest('test_xdrlib.py'),
@@ -483,7 +483,7 @@ testmap = [
     RegrTest('test_fileutils.py'),
     RegrTest('test_future_stmt'),
     RegrTest('test_gdb'),
-    RegrTest('test_getpath.py'), skip="CPython internal details"),
+    RegrTest('test_getpath.py', skip="CPython internal details"),
     RegrTest('test_inspect'),
     RegrTest('test_launcher.py'),
     RegrTest('test_module'),
@@ -583,7 +583,7 @@ class ReallyRunFileExternal(pytest.collect.Item):
         if not execpath:
             raise LookupError("could not find executable %r" % option.pypy)
 
-        cmd = "%s -m test -v %s" % (execpath, fspath.purebasename)
+        cmd = "%s -m test -v %s -u network" % (execpath, fspath.purebasename)
         # add watchdog for timing out
         cmd = "%s %s %s %s" % (python, watchdog_script, TIMEOUT, cmd)
         return cmd
