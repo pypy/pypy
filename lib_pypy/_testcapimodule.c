@@ -6211,6 +6211,7 @@ eval_get_func_desc(PyObject *self, PyObject *func)
     return PyUnicode_FromString(PyEval_GetFuncDesc(func));
 }
 
+#ifndef PYPY_VERSION
 static PyObject *
 eval_eval_code_ex(PyObject *mod, PyObject *pos_args)
 {
@@ -6348,6 +6349,7 @@ exit:
 
     return result;
 }
+#endif
 
 static PyObject *
 get_feature_macros(PyObject *self, PyObject *Py_UNUSED(args))
@@ -6476,6 +6478,7 @@ error:
     return res;
 }
 
+#ifndef PYPY_VERSION
 static PyObject *
 settrace_to_record(PyObject *self, PyObject *list)
 {
@@ -6487,6 +6490,7 @@ settrace_to_record(PyObject *self, PyObject *list)
     PyEval_SetTrace(record_func, list);
     Py_RETURN_NONE;
 }
+#endif
 
 static int
 error_func(PyObject *obj, PyFrameObject *f, int what, PyObject *arg)
@@ -6504,6 +6508,7 @@ error_func(PyObject *obj, PyFrameObject *f, int what, PyObject *arg)
     return -1;
 }
 
+#ifndef PYPY_VERSION
 static PyObject *
 settrace_to_error(PyObject *self, PyObject *list)
 {
@@ -6514,6 +6519,7 @@ settrace_to_error(PyObject *self, PyObject *list)
     PyEval_SetTrace(error_func, list);
     Py_RETURN_NONE;
 }
+#endif
 
 static PyObject *negative_dictoffset(PyObject *, PyObject *);
 
@@ -6763,7 +6769,9 @@ static PyMethodDef TestMethods[] = {
     {"set_exc_info",            test_set_exc_info,               METH_VARARGS},
     {"argparsing",              argparsing,                      METH_VARARGS},
     {"code_newempty",           code_newempty,                   METH_VARARGS},
+#ifndef PYPY_VERSION
     {"eval_code_ex",            eval_eval_code_ex,               METH_VARARGS},
+#endif
     {"make_exception_with_doc", _PyCFunction_CAST(make_exception_with_doc),
      METH_VARARGS | METH_KEYWORDS},
     {"make_memoryview_from_NULL_pointer", make_memoryview_from_NULL_pointer,
@@ -6925,8 +6933,10 @@ static PyMethodDef TestMethods[] = {
     {"eval_get_func_desc", eval_get_func_desc, METH_O, NULL},
     {"get_feature_macros", get_feature_macros, METH_NOARGS, NULL},
     {"test_code_api", test_code_api, METH_NOARGS, NULL},
+#ifndef PYPY_VERSION
     {"settrace_to_error", settrace_to_error, METH_O, NULL},
     {"settrace_to_record", settrace_to_record, METH_O, NULL},
+#endif
     {"function_get_code", function_get_code, METH_O, NULL},
     {"function_get_globals", function_get_globals, METH_O, NULL},
     {"function_get_module", function_get_module, METH_O, NULL},
