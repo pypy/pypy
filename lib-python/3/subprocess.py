@@ -827,21 +827,6 @@ class Popen:
         # finished a waitpid() call.
         self._waitpid_lock = threading.Lock()
 
-        # --- PyPy hack, see _pypy_install_libs_after_virtualenv() ---
-        # match arguments passed by different versions of virtualenv
-        if type(args) is list and args[1:] in (
-            ['-c', 'import sys; print(sys.prefix)'],        # 1.6 10ba3f3c
-            ['-c', "\nimport sys\nprefix = sys.prefix\n"    # 1.7 0e9342ce
-             "if sys.version_info[0] == 3:\n"
-             "    prefix = prefix.encode('utf8')\n"
-             "if hasattr(sys.stdout, 'detach'):\n"
-             "    sys.stdout = sys.stdout.detach()\n"
-             "elif hasattr(sys.stdout, 'buffer'):\n"
-             "    sys.stdout = sys.stdout.buffer\nsys.stdout.write(prefix)\n"],
-            ['-c', 'import sys;out=sys.stdout;getattr(out, "buffer"'
-             ', out).write(sys.prefix.encode("utf-8"))']):  # 1.7.2 a9454bce
-            _pypy_install_libs_after_virtualenv(args[0])
-
         self._input = None
         self._communication_started = False
         if bufsize is None:
