@@ -196,11 +196,8 @@ class WindowsConsoleIOTests(unittest.TestCase):
 
                 self.assertEqual(actual, expected, 'stdin.read({})'.format(read_count))
 
-<<<<<<< HEAD
     @requires_resource('console')
-=======
     @unittest.skipIf(not write_input, "no _testconsole.write_input")
->>>>>>> py3.10
     def test_ctrl_z(self):
         with open('CONIN$', 'rb', buffering=0) as stdin:
             source = '\xC4\x1A\r\n'.encode('utf-16-le')

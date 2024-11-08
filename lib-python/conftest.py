@@ -455,7 +455,7 @@ testmap = [
     RegrTest('test_webbrowser.py'),
     RegrTest('test_winconsoleio.py'),
     RegrTest('test_winreg.py'),
-    RegrTest('test_winsound.py'),
+    RegrTest('test_winsound.py'), skip="requires audio"),
     RegrTest('test_with.py'),
     RegrTest('test_wsgiref.py'),
     RegrTest('test_xdrlib.py'),
