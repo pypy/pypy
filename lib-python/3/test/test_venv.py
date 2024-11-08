@@ -21,7 +21,7 @@ from test.support import (captured_stdout, captured_stderr, requires_zlib,
                           skip_if_broken_multiprocessing_synchronize, verbose,
                           requires_subprocess, is_emscripten, is_wasi,
                           requires_venv_with_pip, TEST_HOME_DIR,
-                          requires_resource, copy_python_src_ignore)
+                          requires_resource, copy_python_src_ignore, impl_detail)
 from test.support.os_helper import (can_symlink, EnvironmentVarGuard, rmtree)
 import unittest
 import venv
@@ -540,6 +540,7 @@ class BasicTest(BaseTest):
 
     @unittest.skipIf(os.name == 'nt', 'not relevant on Windows')
     @requireVenvCreate
+    @impl_detail("pypy does not add zip to sys.path unless it exists", pypy=False)
     def test_zippath_from_non_installed_posix(self):
         """
         Test that when create venv from non-installed python, the zip path
@@ -554,6 +555,12 @@ class BasicTest(BaseTest):
         bindir = os.path.join(non_installed_dir, self.bindir)
         os.mkdir(bindir)
         shutil.copy2(sys.executable, bindir)
+        # PYPY: also copy the shared library
+        old_bindir = os.path.split(sys.executable)[0]
+        for f in os.listdir(old_bindir):
+            if f.startswith('libpypy'):
+                shutil.copy2(os.path.join(old_bindir, f), bindir)
+        # end of PYPY
         libdir = os.path.join(non_installed_dir, platlibdir, self.lib[1])
         os.makedirs(libdir)
         landmark = os.path.join(libdir, "os.py")
@@ -571,7 +578,9 @@ class BasicTest(BaseTest):
                     shutil.copyfile(
                         eachpath,
                         os.path.join(non_installed_dir, platlibdir))
-            elif os.path.isfile(os.path.join(eachpath, "os.py")):
+            elif (os.path.isfile(os.path.join(eachpath, "os.py")) or
+                  # PYPY: also copy lib_pypy when testing a source build
+                  os.path.isfile(os.path.join(eachpath, "_pypy_generic_alias.py"))) :
                 names = os.listdir(eachpath)
                 ignored_names = copy_python_src_ignore(eachpath, names)
                 for name in names:
@@ -616,6 +625,7 @@ class BasicTest(BaseTest):
         # correct zip path in pythonpath.
         cmd = [envpy, '-S', '-c', 'import sys; print(sys.path)']
         out, err = check_output(cmd)
+        import pdb;pdb.set_trace()
         self.assertTrue(zip_landmark.encode() in out)
 
 @requireVenvCreate

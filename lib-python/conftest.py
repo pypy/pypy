@@ -483,7 +483,7 @@ testmap = [
     RegrTest('test_fileutils.py'),
     RegrTest('test_future_stmt'),
     RegrTest('test_gdb'),
-    RegrTest('test_getpath.py'),
+    RegrTest('test_getpath.py'), skip="CPython internal details"),
     RegrTest('test_inspect'),
     RegrTest('test_launcher.py'),
     RegrTest('test_module'),

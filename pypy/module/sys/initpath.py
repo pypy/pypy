@@ -1,5 +1,7 @@
 """
 Logic to find sys.executable and the initial sys.path containing the stdlib
+In CPython much of this is done in Modules/getpath.py which is frozen into
+the executable as bytecode
 """
 
 import errno
