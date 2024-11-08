@@ -432,6 +432,7 @@ def test_repr():
         else:
             assert (s.startswith('<weakref.CallableProxyType at ') or
                     s.startswith('<weakeref.ProxyType at '))
+        assert type(w).__module__ == "weakref"
         assert "function" in s
         del foobaz
         try:
