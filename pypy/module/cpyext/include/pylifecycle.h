@@ -10,6 +10,11 @@ extern "C" {
 PyAPI_FUNC(void) _Py_RestoreSignals(void);
 #endif
 
+#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x030B0000
+PyAPI_DATA(const unsigned long) Py_Version;
+#endif
+
+
 /* In Python <= 3.6 there is a variable _Py_Finalizing of type
    'PyThreadState *'.  Emulate it with a macro. */
 #define _Py_Finalizing  \

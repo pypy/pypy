@@ -1094,21 +1094,6 @@ def PyFrame_GetLineNumber(space, frame):
     """Return the line number that frame is currently executing."""
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.CCHARP)
-def PyEval_GetFuncName(space, func):
-    """Return the name of func if it is a function, class or instance object, else the
-    name of funcs type."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.CCHARP)
-def PyEval_GetFuncDesc(space, func):
-    """Return a description string, depending on the type of func.
-    Return values include "()" for functions and methods, " constructor",
-    " instance", and " object".  Concatenated with the result of
-    PyEval_GetFuncName(), the result will be a description of
-    func."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject], Py_ssize_t, error=-1)
 def PySequence_Count(space, o, value):
     """Return the number of occurrences of value in o, that is, return the number

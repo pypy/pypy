@@ -644,7 +644,7 @@ SYMBOLS_C = [
 
     'Py_FrozenFlag', # not part of sys.flags
     'Py_UnbufferedStdioFlag',  # not part of sys.flags (python3)
-    '_Py_PackageContext', 'PyOS_InputHook',
+    '_Py_PackageContext', 'PyOS_InputHook', 'Py_Version', 
     '_Py_PackageContext', 'PyErr_SetInterrupt','PyErr_SetInterruptEx',
 
     'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
@@ -660,6 +660,8 @@ SYMBOLS_C = [
     'PyObject_Init', 'PyObject_InitVar',
     'PyTuple_New', '_Py_Dealloc', '_Py_object_dealloc',
     'PyVectorcall_Call', 'PyState_FindModule', 'PySlice_AdjustIndices',
+    'PyFloatPack2', 'PyFloatPack4', 'PyFloatPack8', 'PyFloatUnpack2', 
+    'PyFloatUnpack4', 'PyFloatUnpack8', 
 ]
 if sys.platform == "win32":
     SYMBOLS_C.append('Py_LegacyWindowsStdioFlag')
@@ -1628,6 +1630,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "sliceobject.c",
                          source_dir / "call.c",
                          source_dir / "ceval.c",
+                         source_dir / "floatobject.c",
                          # for PyErr pypysig_pushback
                          translator_c_dir / "src" / "signals.c",
                          ]
