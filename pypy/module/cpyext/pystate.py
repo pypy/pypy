@@ -226,6 +226,19 @@ def PyThreadState_Swap(space, tstate):
         ec.cpyext_threadstate_is_current = False
     return old_tstate
 
+@cpython_api([PyThreadState], lltype.Void, error=CANNOT_FAIL)
+def PyThreadState_EnterTracing(space, tstate):
+    """Suspend tracing and profiling in the Python thread state tstate."""
+    
+@cpython_api([PyThreadState], lltype.Void, error=CANNOT_FAIL)
+def PyThreadState_LeaveTracing(space, tstate):
+    """Resume tracing and profiling in the Python thread state tstate suspended
+    by the PyThreadState_EnterTracing() function.
+
+    See also PyEval_SetTrace() and PyEval_SetProfile() functions."""
+    
+    
+
 @cpython_api([PyThreadState], lltype.Void, gil="acquire")
 def PyEval_AcquireThread(space, tstate):
     """Acquire the global interpreter lock and set the current thread state to
