@@ -97,6 +97,11 @@ def PyFunction_GetCode(space, w_func):
 def PyFunction_GetModule(space, w_func):
     return space.getattr(w_func, space.newtext('__module__'))
 
+
+@cpython_api([PyObject], PyObject)
+def PyFunction_GetGlobals(space, w_func):
+    return space.getattr(w_func, space.newtext('__globals__'))
+
 @cpython_api([PyObject, PyObject], PyObject)
 def PyMethod_New(space, w_func, w_self):
     """Return a new method object, with func being any callable object

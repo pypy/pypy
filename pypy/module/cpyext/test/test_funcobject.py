@@ -195,10 +195,17 @@ class AppTestCall(AppTestCpythonExtensionBase):
                 }
                 return PyCode_GetVarnames(code);
              """),
+            ("func_globals", "METH_O",
+             """
+                return PyFunction_GetGlobals(args);
+             """),
         ])
 
+        g = 42
         def wrapper(x):
             a = 5
+            global g
+            g = 12
             def func(x):
                 return a, x
         code = wrapper.__code__
@@ -207,3 +214,4 @@ class AppTestCall(AppTestCpythonExtensionBase):
         assert module.code_code(wrapper) == code.co_code
         assert module.code_freevars(wrapper) == code.co_freevars
         assert module.code_varnames(wrapper) == code.co_varnames
+        assert module.func_globals(wrapper) == wrapper.__globals__
