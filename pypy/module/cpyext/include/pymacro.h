@@ -1,6 +1,28 @@
 #ifndef Py_PYMACRO_H
 #define Py_PYMACRO_H
 
+// gh-91782: On FreeBSD 12, if the _POSIX_C_SOURCE and _XOPEN_SOURCE macros are
+// defined, <sys/cdefs.h> disables C11 support and <assert.h> does not define
+// the static_assert() macro.
+// https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=255290
+//
+// macOS <= 10.10 doesn't define static_assert in assert.h at all despite
+// having C11 compiler support.
+//
+// static_assert is defined in glibc from version 2.16. Compiler support for
+// the C11 _Static_assert keyword is in gcc >= 4.6.
+//
+// MSVC makes static_assert a keyword in C11-17, contrary to the standards.
+//
+// In C++11 and C2x, static_assert is a keyword, redefining is undefined
+// behaviour. So only define if building as C (if __STDC_VERSION__ is defined),
+// not C++, and only for C11-17.
+#if !defined(static_assert) && (defined(__GNUC__) || defined(__clang__)) \
+     && defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L \
+     && __STDC_VERSION__ <= 201710L
+#  define static_assert _Static_assert
+#endif
+
 /* Minimum value between x and y */
 #define Py_MIN(x, y) (((x) > (y)) ? (y) : (x))
 
@@ -53,7 +75,7 @@
 
    Requires at GCC 3.1+ */
 #if (defined(__GNUC__) && !defined(__STRICT_ANSI__) && \
-    (((__GNUC__ == 3) && (__GNU_MINOR__ >= 1)) || (__GNUC__ >= 4)))
+    (((__GNUC__ == 3) && (__GNUC_MINOR__ >= 1)) || (__GNUC__ >= 4)))
 /* Two gcc extensions.
    &a[0] degrades to a pointer: a different type from an array */
 #define Py_ARRAY_LENGTH(array) \
@@ -67,7 +89,7 @@
 
 
 /* Define macros for inline documentation. */
-#define PyDoc_VAR(name) static char name[]
+#define PyDoc_VAR(name) static const char name[]
 #define PyDoc_STRVAR(name,str) PyDoc_VAR(name) = PyDoc_STR(str)
 #ifdef WITH_DOC_STRINGS
 #define PyDoc_STR(str) str
@@ -89,10 +111,15 @@
 /* Check if pointer "p" is aligned to "a"-bytes boundary. */
 #define _Py_IS_ALIGNED(p, a) (!((uintptr_t)(p) & (uintptr_t)((a) - 1)))
 
-#ifdef __GNUC__
-#define Py_UNUSED(name) _unused_ ## name __attribute__((unused))
+/* Use this for unused arguments in a function definition to silence compiler
+ * warnings. Example:
+ *
+ * int func(int a, int Py_UNUSED(b)) { return a; }
+ */
+#if defined(__GNUC__) || defined(__clang__)
+#  define Py_UNUSED(name) _unused_ ## name __attribute__((unused))
 #else
-#define Py_UNUSED(name) _unused_ ## name
+#  define Py_UNUSED(name) _unused_ ## name
 #endif
 
 #if defined(__GNUC__)

@@ -43,6 +43,7 @@ class State:
         self.extensions = {}
         # XXX will leak if _PyDateTime_Import already called
         self.datetimeAPI = []
+        self.threadstate_count = 100
 
         self.cpyext_is_imported = False
 

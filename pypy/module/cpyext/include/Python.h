@@ -114,7 +114,6 @@ extern "C" {
 #endif  /* PYPY_STANDALONE */
 
 /* Define macros for inline documentation. */
-#define PyDoc_VAR(name) static char name[]
 #define PyDoc_STRVAR(name,str) PyDoc_VAR(name) = PyDoc_STR(str)
 #ifdef WITH_DOC_STRINGS
 #define PyDoc_STR(str) str

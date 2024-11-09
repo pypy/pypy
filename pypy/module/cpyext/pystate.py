@@ -104,7 +104,6 @@ def cleanup_cpyext_state(self):
 ExecutionContext.cleanup_cpyext_state = cleanup_cpyext_state
 
 class InterpreterState(object):
-    ID = 100
     def __init__(self, space):
         self.interpreter_state = lltype.malloc(
             PyInterpreterState.TO, flavor='raw', zero=True, immortal=True)
@@ -119,10 +118,12 @@ class InterpreterState(object):
         :returns: A new ThreadStateCapsule holding a newly allocated
             PyThreadState and referring to this interpreter state.
         """
+        from pypy.module.cpyext.state import State
         capsule = ThreadStateCapsule(space)
         ts = capsule.memory
-        InterpreterState.ID += 1
-        ts.c_id = rffi.cast(rffi.ULONGLONG, InterpreterState.ID)
+        space.fromcache(State).threadstate_count += 1
+        ts.c_id = rffi.cast(rffi.ULONGLONG,
+                            space.fromcache(State).threadstate_count)
         ts.c_interp = self.interpreter_state
         ts.c_dict = make_ref(space, space.newdict())
         return capsule
