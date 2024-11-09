@@ -1012,8 +1012,6 @@ class IntBound(AbstractInfo):
                  tvalue, tmask = TNUM_KNOWN_ZERO
             elif 0 <= c_other < LONG_BIT:
                 tvalue, tmask = self._tnum_lshift(c_other)
-                tvalue = self.tvalue << r_uint(c_other)
-                tmask = self.tmask << r_uint(c_other)
             # else: bits are unknown because arguments invalid
 
         if other.known_nonnegative() and other.known_lt_const(LONG_BIT):
@@ -1091,7 +1089,6 @@ class IntBound(AbstractInfo):
                 pass
         return False
 
-
     def urshift_bound(self, other):
         """
         Shifts this abstract integer `other` bits to the right, where `other`
@@ -1100,6 +1097,8 @@ class IntBound(AbstractInfo):
         """
 
         # this seems to always be the signed variant..?
+        lower = MININT
+        upper = MAXINT
         tvalue, tmask = TNUM_UNKNOWN
         if other.is_constant():
             c_other = other.get_constant_int()
@@ -1108,7 +1107,11 @@ class IntBound(AbstractInfo):
                 tvalue, tmask = TNUM_KNOWN_ZERO
             elif c_other >= 0:
                 tvalue, tmask = self._tnum_urshift(c_other)
+                if self.lower >= 0:
+                    upper = intmask(r_uint(self.upper) >> c_other)
+                    lower = intmask(r_uint(self.lower) >> c_other)
             # else: bits are unknown because arguments invalid
+        return IntBound(lower, upper, tvalue, tmask)
 
         # we don't do bounds on unsigned
         return IntBound.from_knownbits(tvalue, tmask)

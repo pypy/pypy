@@ -558,6 +558,8 @@ class Z3IntBound(IntBound):
         tvalue_if_const, tmask_if_const = self._tnum_urshift(other.lower)
         tvalue = z3.If(other.is_constant(), tvalue_if_const, 0)
         tmask = z3.If(other.is_constant(), tmask_if_const, -1)
+        lower = z3.If(z3.And(other.is_constant(), self.lower >= 0), self.lower >> other.lower, MININT)
+        upper = z3.If(z3.And(other.is_constant(), self.lower >= 0), self.upper >> other.lower, MAXINT)
         return Z3IntBound.from_knownbits(tvalue, tmask)
 
     def is_constant(self):
@@ -1350,9 +1352,29 @@ def test_prove_rshift_bound_backwards_logic():
     b1.prove_implies(
         bresult,
         0 <= c_other,
-        c_other <= LONG_BIT,
+        c_other < LONG_BIT,
         z3_tnum_condition(b1.concrete_variable, tvalue, tmask)
     )
+
+def test_prove_rshift_bound_backwards_logic2():
+    b1 = make_z3_intbounds_instance('self')
+    c_other = BitVec('const')
+    res = b1.concrete_variable >> c_other
+    bresult = make_z3_intbounds_instance('result', res)
+    power = 1 << c_other
+    lower_shifted, no_ovf1 = z3_mul_overflow(bresult.lower, power)
+    upper_shifted, no_ovf2 = z3_mul_overflow(bresult.upper, power)
+    lower = z3_min(lower_shifted, lower_shifted | (power - 1), upper_shifted, upper_shifted | (power - 1))
+    upper = z3_max(lower_shifted, lower_shifted | (power - 1), upper_shifted, upper_shifted | (power - 1))
+    b1.prove_implies(
+        bresult,
+        0 <= c_other,
+        c_other < LONG_BIT,
+        no_ovf1,
+        no_ovf2,
+        z3.And(lower <= b1.concrete_variable, b1.concrete_variable <= upper),
+    )
+
 
 @z3_with_reduced_bitwidth(8)
 def test_prove_mul_bound_logic():

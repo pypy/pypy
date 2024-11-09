@@ -4101,6 +4101,21 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_sub_add_self(self):
+        ops = """
+        [i1, i2]
+        i3 = int_add(i1, i2)
+        i4 = int_sub(i2, i3)
+        jump(i4, -1) # lower
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_add(i1, i2) # dead
+        i4 = int_neg(i1)
+        jump(i4, -1) # lower
+        """
+        self.optimize_loop(ops, expected)
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_intmod_bounds(self):
