@@ -49,11 +49,12 @@ class AppTestUnicodeData:
         assert int(unicodedata.unidata_version.split(".")[0]) >= 8
         cases = [
             ('3400', '4DB5'),
-            ('4E00', '9FFC'),
-            ('20000', '2A6D6'),
-            ('2A700', '2B734'),
+            ('4E00', '9FFD'),
+            ('20000', '2A6DF'),
+            ('2A700', '2B738'),
             ('2B740', '2CEA1'),
             ('2CEB0', '2EBE0'),
+            ('30000', '3134A'),
         ]
         for first, last in cases:
             first = int(first, 16)
@@ -180,3 +181,7 @@ class AppTestUnicodeData:
     def test_13_0_change(self):
         import unicodedata
         assert unicodedata.lookup('CIRCLED CC')
+
+    def test_14_0_change(self):
+        import unicodedata
+        assert unicodedata.lookup('PLAYGROUND SLIDE')
