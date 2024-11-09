@@ -577,6 +577,10 @@ def cpython_struct(name, fields, forward=None, level=1):
 
 GLOBALS = {}
 def register_global(name, typ, expr, header=None):
+    # GLOBALS will be turned into a list of static_pyobjs and a list of
+    # static_objs_w by builder.prepare, and these will be traversed in
+    # attach_recursively to assign the pyobj name of type typ to the result
+    # of eval(expr). The name will also be exported in the header
     if header is not None:
         name = '%s#%s' % (name, header)
     GLOBALS[name] = (typ, expr)
