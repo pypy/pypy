@@ -710,6 +710,10 @@ register_global('_Py_NotImplementedStruct',
 register_global('_Py_EllipsisObject',
     'PyObject*', 'space.w_Ellipsis', header=pypy_decl)
 register_global('PyDateTimeAPI', 'PyDateTime_CAPI*', 'None')
+register_global('Py_GenericAliasType', 'PyTypeObject*',
+    '''space.appexec([], """():
+    return type(tuple[int])
+    """)''', header=pypy_decl)
 
 def build_exported_objects():
     # Standard exceptions
@@ -1319,8 +1323,9 @@ def call_init_flags(space):
     state.C.init_flags(space)
 
 #_____________________________________________________
-# Build the bridge DLL, Allow extension DLLs to call
-# back into Pypy space functions
+# Build the bridge DLL when untranslated.
+# Magic: Allow extension DLLs to call # back into Pypy untranslated
+# space functions
 # Do not call this more than once per process
 def build_bridge(space):
     "NOT_RPYTHON"
@@ -1373,6 +1378,7 @@ def build_bridge(space):
 
     # populate static data
     builder = space.fromcache(State).builder = TestingObjBuilder()
+    from pypy.module import cpyext    # for the eval() below
     for name, (typ, expr) in GLOBALS.iteritems():
         if '#' in name:
             name, header = name.split('#')
@@ -1385,7 +1391,6 @@ def build_bridge(space):
         else:
             raise ValueError("Unknown static data: %s %s" % (typ, name))
 
-        from pypy.module import cpyext    # for the eval() below
         w_obj = eval(expr)
         INTERPLEVEL_API[name] = w_obj
 
@@ -1745,6 +1750,7 @@ def setup_library(space):
     builder = space.fromcache(State).builder = TranslationObjBuilder()
     lines = ['PyObject *pypy_static_pyobjs[] = {\n']
     include_lines = ['RPY_EXTERN PyObject *pypy_static_pyobjs[];\n']
+    from pypy.module import cpyext     # for the eval() below
     for name, (typ, expr) in sorted(GLOBALS.items()):
         if '#' in name:
             name, header = name.split('#')
@@ -1760,7 +1766,6 @@ def setup_library(space):
         else:
             raise ValueError("Unknown static data: %s %s" % (typ, name))
 
-        from pypy.module import cpyext     # for the eval() below
         w_obj = eval(expr)
         builder.prepare(None, w_obj)
         lines.append('\t(PyObject *)&%s,\n' % (name,))

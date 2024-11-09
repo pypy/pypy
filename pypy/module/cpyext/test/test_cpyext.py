@@ -966,3 +966,12 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         # This is intentionally set to -1 by default from missing.c
         # and should be set to sys.flags.optimize at startup
         assert mod.test_optimize() == sys.flags.optimize
+
+    def test_generic_type(self):
+        mod = self.import_extension('foo', [
+            ('is_genericalias_type', 'METH_O',
+            """
+                long test = (Py_TYPE(args) == &Py_GenericAliasType);
+                return PyLong_FromLong(test);
+            """)])
+        assert mod.is_genericalias_type(tuple[int])
