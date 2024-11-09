@@ -2811,7 +2811,7 @@ class AppTestCompiler:
                 assert len(w) == 1, case
                 assert issubclass(w[-1].category, SyntaxWarning)
                 assert exc_message is not None
-                initial_part, _, info_part = w[-1].message.args[0].partition("; ")
+                initial_part, _, info_part = w[-1].message.args[0].partition("not ")
                 assert initial_part in exc_message
 
     def test_syntax_warnings_is_with_literal(self):
