@@ -895,7 +895,6 @@ static inline int _PyType_CheckExact(PyObject *op) {
 
 /* PyPy internal ----------------------------------- */
 PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);
-#define PyObject_Length PyObject_Size
 #define _PyObject_GC_Del PyObject_GC_Del
 PyAPI_FUNC(void) _PyPy_subtype_dealloc(PyObject *);
 PyAPI_FUNC(void) _PyPy_object_dealloc(PyObject *);

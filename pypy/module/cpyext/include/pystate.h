@@ -27,14 +27,6 @@ typedef struct _ts {
     uint64_t id;
 } PyThreadState;
 
-#define Py_BEGIN_ALLOW_THREADS { \
-			PyThreadState *_save; \
-			_save = PyEval_SaveThread();
-#define Py_BLOCK_THREADS	PyEval_RestoreThread(_save);
-#define Py_UNBLOCK_THREADS	_save = PyEval_SaveThread();
-#define Py_END_ALLOW_THREADS	PyEval_RestoreThread(_save); \
-		 }
-
 enum {PyGILState_LOCKED, PyGILState_UNLOCKED};
 typedef int PyGILState_STATE;
 

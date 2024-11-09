@@ -116,28 +116,19 @@ def PyObject_HasAttrString(space, w_obj, name_ptr):
 
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
 def PyObject_SetAttr(space, w_obj, w_name, w_value):
-    operation.setattr(space, w_obj, w_name, w_value)
+    if w_value:
+        operation.setattr(space, w_obj, w_name, w_value)
+    else:
+        space.delattr(w_obj, w_name)
     return 0
 
 @cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1)
 def PyObject_SetAttrString(space, w_obj, name_ptr, w_value):
     w_name = space.newtext(rffi.charp2str(name_ptr))
-    operation.setattr(space, w_obj, w_name, w_value)
-    return 0
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyObject_DelAttr(space, w_obj, w_name):
-    """Delete attribute named attr_name, for object o. Returns -1 on failure.
-    This is the equivalent of the Python statement del o.attr_name."""
-    space.delattr(w_obj, w_name)
-    return 0
-
-@cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1)
-def PyObject_DelAttrString(space, w_obj, name_ptr):
-    """Delete attribute named attr_name, for object o. Returns -1 on failure.
-    This is the equivalent of the Python statement del o.attr_name."""
-    w_name = space.newtext(rffi.charp2str(name_ptr))
-    space.delattr(w_obj, w_name)
+    if w_value:
+        operation.setattr(space, w_obj, w_name, w_value)
+    else:
+        space.delattr(w_obj, w_name)
     return 0
 
 @cpython_api([PyObject], lltype.Void)

@@ -95,7 +95,7 @@ def PyTraceBack_Here(space, w_frame):
     record_application_traceback(space, state.get_exception(), frame, 0)
     return 0
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyFrameObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyTraceBack_Check(space, w_obj):
     return isinstance(w_obj, PyTraceback)
 

@@ -83,12 +83,11 @@
 #include "compile.h"
 #include "pythonrun.h"
 #include "pylifecycle.h"
+#include "ceval.h"
 #include "sysmodule.h"
 #include "import.h"
 
 #include "abstract.h"
-
-#include "eval.h"
 
 #include "pystrtod.h"
 
