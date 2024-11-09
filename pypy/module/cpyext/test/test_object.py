@@ -8,8 +8,8 @@ from pypy.module.cpyext.api import (
     Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT, INTP_real)
 from pypy.module.cpyext.object import (
     PyObject_IsTrue, PyObject_Not, PyObject_GetAttrString,
-    PyObject_DelAttrString, PyObject_GetAttr, PyObject_DelAttr,
-    PyObject_GetItem,
+    PyObject_GetAttr, PyObject_GetItem, PyObject_SetAttrString,
+    PyObject_SetAttr,
     PyObject_IsInstance, PyObject_IsSubclass, PyObject_AsFileDescriptor,
     PyObject_Hash)
 
@@ -76,14 +76,14 @@ class TestObject(BaseApiTest):
         with raises_w(space, AttributeError):
             PyObject_GetAttrString(space, space.wrap(""), charp2)
         with raises_w(space, AttributeError):
-            PyObject_DelAttrString(space, space.wrap(""), charp1)
+            PyObject_SetAttrString(space, space.wrap(""), charp1, None)
         rffi.free_charp(charp1)
         rffi.free_charp(charp2)
 
         assert get_w_obj_and_decref(space,
             PyObject_GetAttr(space, space.wrap(""), space.wrap("__len__")))
         with raises_w(space, AttributeError):
-            PyObject_DelAttr(space, space.wrap(""), space.wrap("__len__"))
+            PyObject_SetAttr(space, space.wrap(""), space.wrap("__len__"), None)
 
     def test_getitem(self, space, api):
         w_t = space.wrap((1, 2, 3, 4, 5))

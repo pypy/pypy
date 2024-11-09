@@ -147,6 +147,7 @@ extern "C" {
 PyAPI_FUNC(PyObject *) PyObject_CallNoArgs(PyObject *func);
 #endif
 #endif
+
 /* Call a callable Python object 'callable' with arguments given by the
    tuple 'args' and keywords arguments given by the dictionary 'kwargs'.
 
@@ -290,14 +291,8 @@ PyAPI_FUNC(Py_ssize_t) PyObject_Length(PyObject *o);
 #define PyObject_Length PyObject_Size
 
 
+PyAPI_FUNC(int) PyObject_DelItemString(PyObject *o, char *key);
 
-
-
-
-#endif
-
-
-     PyAPI_FUNC(int) PyObject_DelItemString(PyObject *o, char *key);
 /* === Number Protocol ================================================== */
 
 /* Returns 1 if the object 'o' provides numeric protocols, and 0 otherwise.

@@ -130,7 +130,7 @@ def PyFrame_GetLineNumber(space, w_frame):
     frame = space.interp_w(PyFrame, w_frame)
     return frame.get_last_lineno()
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyFrameObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyFrame_Check(space, w_frame):
     try:
         space.interp_w(PyFrame, w_frame)

@@ -2,7 +2,6 @@ from importlib.util import spec_from_file_location, module_from_spec
 import os
 
 try:
-    raise ImportError # XXX disabled for now
     import cpyext
 except ImportError:
     pass   # no 'cpyext', but we still have to define e.g. awaitType

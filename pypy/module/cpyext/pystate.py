@@ -220,7 +220,7 @@ def _PyThreadState_GetDict(space, tstate):
     is available. If this function returns NULL, no exception has been raised and
     the caller should assume no current thread state is available.
     """
-    return ts.c_dict
+    return tstate.c_dict
 
 
 @cpython_api([PyThreadState], PyThreadState, error=CANNOT_FAIL)
