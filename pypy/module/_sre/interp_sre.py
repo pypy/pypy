@@ -20,6 +20,7 @@ from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, set_unic
 
 from rpython.rlib.rsre.rpy.sre_constants import OPCODES
 
+ORDERED_OPCODE_NAMES = [name for name, value in sorted(OPCODES.items(), key=lambda element: element[1])]
 
 
 @unwrap_spec(character=int)
