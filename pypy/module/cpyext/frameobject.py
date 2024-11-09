@@ -138,4 +138,8 @@ def PyFrame_Check(space, w_frame):
         return 0
     return 1
 
-
+@cpython_api([PyThreadState], PyFrameObject)
+def PyThreadState_GetFrame(space, tstate):
+    ec = space.getexecutioncontext()
+    caller = ec.gettopframe_nohidden()
+    return caller

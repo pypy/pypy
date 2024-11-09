@@ -19,6 +19,7 @@ PyThreadState = lltype.Ptr(cpython_struct(
     "PyThreadState",
     [('interp', PyInterpreterState),
      ('dict', PyObject),
+     ('id', rffi.ULONGLONG),
      ]))
 
 class NoThreads(Exception):
@@ -103,6 +104,7 @@ def cleanup_cpyext_state(self):
 ExecutionContext.cleanup_cpyext_state = cleanup_cpyext_state
 
 class InterpreterState(object):
+    ID = 100
     def __init__(self, space):
         self.interpreter_state = lltype.malloc(
             PyInterpreterState.TO, flavor='raw', zero=True, immortal=True)
@@ -119,6 +121,8 @@ class InterpreterState(object):
         """
         capsule = ThreadStateCapsule(space)
         ts = capsule.memory
+        InterpreterState.ID += 1
+        ts.c_id = rffi.cast(rffi.ULONGLONG, InterpreterState.ID)
         ts.c_interp = self.interpreter_state
         ts.c_dict = make_ref(space, space.newdict())
         return capsule
@@ -236,8 +240,14 @@ def PyThreadState_LeaveTracing(space, tstate):
     by the PyThreadState_EnterTracing() function.
 
     See also PyEval_SetTrace() and PyEval_SetProfile() functions."""
-    
-    
+
+@cpython_api([PyThreadState], rffi.ULONGLONG, error=-1)
+def PyThreadState_GetID(space, tstate):
+    return tstate.c_id
+
+@cpython_api([PyThreadState], PyInterpreterState)
+def PyThreadState_GetInterpreter(space, tstate):
+    return tstate.c_interp
 
 @cpython_api([PyThreadState], lltype.Void, gil="acquire")
 def PyEval_AcquireThread(space, tstate):

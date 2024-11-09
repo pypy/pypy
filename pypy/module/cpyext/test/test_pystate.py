@@ -72,19 +72,21 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                      if (tstate == NULL) {
                          return PyLong_FromLong(0);
                      }
-                     if (tstate->interp != PyInterpreterState_Head()) {
+                     PyInterpreterState *interp = PyThreadState_GetInterpreter(tstate);
+                     if (interp != PyInterpreterState_Head()) {
                          return PyLong_FromLong(1);
                      }
-                     if (tstate->interp->next != NULL) {
+                     if (PyInterpreterState_Next(interp) != NULL) {
                          return PyLong_FromLong(2);
                      }
                      if (tstate != _PyThreadState_UncheckedGet()) {
                          return PyLong_FromLong(4);
                      }
-                     return PyLong_FromLong(3);
+                     int64_t id = PyThreadState_GetID(tstate);
+                     return PyLong_FromLong(id + 100);
                  """),
                 ])
-        assert module.get() == 3
+        assert module.get() > 100
 
     @py.test.mark.xfail(run=False, reason='PyThreadState_Get() segfaults on py3k and CPython')
     def test_basic_threadstate_dance(self):
