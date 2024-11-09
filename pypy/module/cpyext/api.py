@@ -27,6 +27,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod, ClassMethod
+from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyparser import pygram
 from pypy.interpreter.typedef import Function, Method, PyTraceback
 from pypy.objspace.std.dictmultiobject import W_DictViewKeysObject, W_DictViewValuesObject
@@ -719,6 +720,7 @@ register_global('Py_GenericAliasType', 'PyTypeObject*',
     return type(tuple[int])
     """)''', header=pypy_decl)
 
+
 def build_exported_objects():
     # Standard exceptions
     # PyExc_BaseException, PyExc_Exception, PyExc_ValueError, PyExc_KeyError,
@@ -779,6 +781,7 @@ def build_exported_objects():
         'PyMethod_Type': 'space.gettypeobject(Method.typedef)',
         'PyTraceBack_Type': 'space.gettypeobject(PyTraceback.typedef)',
         'PyCapsule_Type': 'space.gettypeobject(W_Capsule.typedef)',
+        'PyFrame_Type': 'space.gettypeobject(PyFrame.typedef)',
         }.items():
         register_global(cpyname, 'PyTypeObject*', pypyexpr, header=pypy_decl)
 

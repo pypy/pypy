@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
     cpython_api, bootstrap_function, PyObjectFields, cpython_struct,
-    CANNOT_FAIL, slot_function, build_type_checkers)
+    CANNOT_FAIL, slot_function)
 from pypy.module.cpyext.pyobject import (
     PyObject, decref, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr)
@@ -95,7 +95,7 @@ def PyTraceBack_Here(space, w_frame):
     record_application_traceback(space, state.get_exception(), frame, 0)
     return 0
 
-@cpython_api([PyFrameObject], rffi.INT_real, error=CANNOT_FAIL)
+@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyTraceBack_Check(space, w_obj):
     return isinstance(w_obj, PyTraceback)
 
@@ -129,14 +129,6 @@ def PyFrame_GetLasti(space, w_frame):
 def PyFrame_GetLineNumber(space, w_frame):
     frame = space.interp_w(PyFrame, w_frame)
     return frame.get_last_lineno()
-
-@cpython_api([PyFrameObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyFrame_Check(space, w_frame):
-    try:
-        space.interp_w(PyFrame, w_frame)
-    except Exception:
-        return 0
-    return 1
 
 @cpython_api([PyThreadState], PyFrameObject)
 def PyThreadState_GetFrame(space, tstate):

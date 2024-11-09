@@ -147,7 +147,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("frame_getlocals", "METH_O",
              """
-                if (!PyFrame_Check((PyFrameObject *)args)) {
+                if (!PyFrame_Check(args)) {
                     PyErr_SetString(PyExc_TypeError, "argument must be a frame");
                     return NULL;
                 }
@@ -156,7 +156,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
              """),
             ("frame_getglobals", "METH_O",
              """
-                if (!PyFrame_Check((PyFrameObject *)args)) {
+                if (!PyFrame_Check(args)) {
                     PyErr_SetString(PyExc_TypeError, "argument must be a frame");
                     return NULL;
                 }
@@ -164,7 +164,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
              """),
             ("frame_getgenerator", "METH_O",
              """
-                if (!PyFrame_Check((PyFrameObject *)args)) {
+                if (!PyFrame_Check(args)) {
                     PyErr_SetString(PyExc_TypeError, "argument must be a frame");
                     return NULL;
                 }
@@ -172,7 +172,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
              """),
             ("frame_getbuiltins", "METH_O",
              """
-                if (!PyFrame_Check((PyFrameObject *)args)) {
+                if (!PyFrame_Check(args)) {
                     PyErr_SetString(PyExc_TypeError, "argument must be a frame");
                     return NULL;
                 }
@@ -180,7 +180,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
              """),
             ("frame_getlasti", "METH_O",
              """
-                if (!PyFrame_Check((PyFrameObject *)args)) {
+                if (!PyFrame_Check(args)) {
                     PyErr_SetString(PyExc_TypeError, "argument must be a frame");
                     return NULL;
                 }
@@ -193,7 +193,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
              """),
             ("frame_getlinenumber", "METH_O",
              """
-                if (!PyFrame_Check((PyFrameObject *)args)) {
+                if (!PyFrame_Check(args)) {
                     PyErr_SetString(PyExc_TypeError, "argument must be a frame");
                     return NULL;
                 }

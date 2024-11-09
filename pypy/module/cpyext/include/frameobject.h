@@ -13,6 +13,8 @@ typedef struct _frame {
     int f_lineno;
 } PyFrameObject;
 
+#define PyFrame_Check(op) Py_IS_TYPE((op), &PyFrame_Type)
+
 #ifdef __cplusplus
 }
 #endif
