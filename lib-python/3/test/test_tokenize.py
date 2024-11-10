@@ -10,7 +10,7 @@ from textwrap import dedent
 from unittest import TestCase, mock
 from test.test_grammar import (VALID_UNDERSCORE_LITERALS,
                                INVALID_UNDERSCORE_LITERALS)
-from test.support import os_helper
+from test.support import os_helper, impl_detail
 from test.support.script_helper import run_test_script, make_script
 import os
 import token
@@ -1654,6 +1654,7 @@ class TestRoundtrip(TestCase):
         self.check_roundtrip(code)
 
 
+@impl_detail("no c-extension _tokenize in pypy", pypy=False)
 class CTokenizeTest(TestCase):
     def check_tokenize(self, s, expected):
         # Format the tokens in s in a table format.
