@@ -1376,7 +1376,7 @@ invalid_default:
     | a='=' &(')'|',') { self.raise_syntax_error_known_location("expected default value expression", a) }
 invalid_star_etc:
     | a='*' (')' | ',' (')' | '**')) { self.raise_syntax_error_known_location("named arguments must follow bare *", a) }
-    | '*' ',' TYPE_COMMENT { RAISE_SYNTAX_ERROR("bare * has associated type comment") }
+    | '*' ',' TYPE_COMMENT { self.raise_indentation_error("bare * has associated type comment") }
     | '*' param a='=' { self.raise_syntax_error_known_location("var-positional argument cannot have default value", a) }
     | '*' (param_no_default | ',') param_maybe_default* a='*' (param_no_default | ',') {
         self.raise_syntax_error_known_location("* argument may appear only once", a) }
@@ -1404,11 +1404,6 @@ invalid_lambda_parameters[NoReturn]:
 invalid_lambda_parameters_helper:
     | a=lambda_slash_with_default { self.dummy_name() }
     | a=lambda_param_with_default+ { self.dummy_name() }
-invalid_star_etc[NoReturn]:
-    | a='*' (')' | ',' (')' | '**')) {
-        self.raise_syntax_error_known_location("named arguments must follow bare *", a)
-     }
-    | '*' ',' TYPE_COMMENT { self.raise_syntax_error("bare * has associated type comment") }
 invalid_lambda_star_etc[NoReturn]:
     | '*' (':' | ',' (':' | '**')) {
         self.raise_syntax_error("named arguments must follow bare *")

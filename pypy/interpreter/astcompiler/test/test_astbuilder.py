@@ -576,6 +576,9 @@ class TestAstBuilding:
         input = "def f(p1, *, **k1):  pass"
         exc = pytest.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "named arguments must follow bare *"
+        input = "def foo(a,*b=3,c):"
+        exc = pytest.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == "var-positional argument cannot have default value"
 
     def test_posonly_arguments(self):
         fn = self.get_first_stmt("def f(a, b, c, /, arg): pass")
