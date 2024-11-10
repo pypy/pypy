@@ -441,6 +441,7 @@ def make_formatting_class(for_unicode):
         def __init__(self, space, spec):
             self.space = space
             self.spec = spec
+            self.w_obj = space.w_None
 
         def _is_alignment(self, c):
             return (c == "<" or
@@ -518,7 +519,7 @@ def make_formatting_class(for_unicode):
                 if self._precision == -1:
                     raise oefmt(space.w_ValueError, "no precision given")
             if length - i > 1:
-                raise oefmt(space.w_ValueError, "invalid format spec")
+                raise oefmt(space.w_ValueError, "Invalid format specifier '%8' for object of type '%T'", spec, self.w_obj)
             if length - i == 1:
                 presentation_type = spec[i]
                 if self.is_unicode:
@@ -1232,6 +1233,7 @@ unicode_formatter = make_formatting_class(for_unicode=True)
 
 
 @specialize.arg(2)
-def run_formatter(space, w_format_spec, meth, *args):
+def run_formatter(space, w_format_spec, meth, w_obj, *args):
     formatter = unicode_formatter(space, space.utf8_w(w_format_spec))
-    return getattr(formatter, meth)(*args)
+    formatter.w_obj = w_obj
+    return getattr(formatter, meth)(w_obj, *args)

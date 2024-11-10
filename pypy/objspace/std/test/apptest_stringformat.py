@@ -608,3 +608,8 @@ def test_s_compat_bytearray():
     with raises(TypeError):
         bytearray(b"<%s>") % "?"
     assert bytearray(b"<%s>") % memoryview(b"X") == bytearray(b"<X>")
+
+def test_format_better_error():
+    with raises(ValueError) as info:
+        "{a:%ЫйЯЧ}".format(a='a')
+    assert str(info.value) == "Invalid format specifier '%ЫйЯЧ' for object of type 'str'"
