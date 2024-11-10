@@ -114,6 +114,20 @@ def try_except_star_with_else_direct_return(x):
             exec(src)
         assert str(info.value).startswith(f"'{kw}' cannot appear in an except* block")
 
+def test_syntax_error_both_except_except_star():
+    src = f"""\
+try:
+    pass
+except ValueError:
+    pass
+except* TypeError:
+    pass
+"""
+    with raises(SyntaxError) as info:
+        exec(src)
+    assert str(info.value).startswith("cannot have both 'except' and 'except*' on the same 'try'")
+
+
 def maybe_raise(err):
     if err:
         raise err
