@@ -402,7 +402,11 @@ def _parse_varint(iterator):
     return val
 
 def _parse_exception_table(code):
-    iterator = iter(code.co_exceptiontable)
+    try:
+        co_exceptiontable = code.co_exceptiontable
+    except AttributeError:
+        co_exceptiontable = []
+    iterator = iter(co_exceptiontable)
     entries = []
     try:
         while True:
@@ -433,7 +437,7 @@ def _get_instructions_bytes(code, varname_from_oparg=None,
     arguments.
 
     """
-    co_positions = co_positions or iter(())
+    co_positions = iter(co_positions) or iter(())
     get_name = None if names is None else names.__getitem__
     labels = set(findlabels(code))
     for start, end, target, _, _ in exception_entries:
@@ -520,8 +524,12 @@ def disassemble(co, lasti=-1, *, file=None, show_caches=False, adaptive=False):
     """Disassemble a code object."""
     linestarts = dict(findlinestarts(co))
     exception_entries = _parse_exception_table(co)
+    try:
+        varname_from_oparg = co._varname_from_oparg
+    except AttributeError:
+        varname_from_oparg = None
     _disassemble_bytes(_get_code_array(co, adaptive),
-                       lasti, co._varname_from_oparg,
+                       lasti, varname_from_oparg,
                        co.co_names, co.co_consts, linestarts, file=file,
                        exception_entries=exception_entries,
                        co_positions=co.co_positions(), show_caches=show_caches)
@@ -746,8 +754,12 @@ class Bytecode:
         else:
             offset = -1
         with io.StringIO() as output:
+            try:
+                varname_from_oparg = co._varname_from_oparg
+            except AttributeError:
+                varname_from_oparg = None
             _disassemble_bytes(_get_code_array(co, self.adaptive),
-                               varname_from_oparg=co._varname_from_oparg,
+                               varname_from_oparg=varname_from_oparg,
                                names=co.co_names, co_consts=co.co_consts,
                                linestarts=self._linestarts,
                                line_offset=self._line_offset,
