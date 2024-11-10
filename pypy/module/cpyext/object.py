@@ -115,17 +115,19 @@ def PyObject_HasAttrString(space, w_obj, name_ptr):
         return 0
 
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
-def PyObject_SetAttr(space, w_obj, w_name, w_value):
-    if w_value:
+def PyObject_SetAttr(space, w_obj, w_name, value):
+    if value:
+        w_value = from_ref(space, value)
         operation.setattr(space, w_obj, w_name, w_value)
     else:
         space.delattr(w_obj, w_name)
     return 0
 
 @cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1)
-def PyObject_SetAttrString(space, w_obj, name_ptr, w_value):
+def PyObject_SetAttrString(space, w_obj, name_ptr, value):
     w_name = space.newtext(rffi.charp2str(name_ptr))
-    if w_value:
+    if value:
+        w_value = from_ref(space, value)
         operation.setattr(space, w_obj, w_name, w_value)
     else:
         space.delattr(w_obj, w_name)
