@@ -1190,6 +1190,12 @@ class TestNonInteractive:
         # And that these fails as unable to find the package:
         #    ./python -Im script_pkg
         #    ./python -Pm script_pkg
+        p = subprocess.Popen([get_python3(), "-c",
+                     "import sys; print('PYTHON3 is', sys.version)"],
+                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        res = p.wait()
+        print(p.stdout.read())
+        out_by_module = p.stdout.read().splitlines()
         work_dir = _get_next_path(ext='')
         script = textwrap.dedent("""
             import sys
@@ -1229,6 +1235,10 @@ class TestNonInteractive:
         res = p.wait()
         stderr = p.stderr.read()
         traceback_lines = stderr.decode().splitlines()
+        if len(traceback_lines) < 1:
+            print('--------stdout--------')
+            print(p.stdout.read())
+            print('----------------------')
         assert "No module named script_pkg" in traceback_lines[-1]
  
     def test_error_msg(self):
