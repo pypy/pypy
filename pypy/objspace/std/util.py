@@ -103,3 +103,10 @@ def generic_alias_class_getitem(space, w_cls, w_item):
             space.newtext("_pypy_generic_alias"))
     w_GenericAlias = space.getattr(w_mod, space.newtext("GenericAlias"))
     return space.call_function(w_GenericAlias, w_cls, w_item)
+
+def builtinclass_new_args_check(space, name, w_basetyp, w_subtyp, __args__):
+    if space.is_w(w_basetyp, w_subtyp):
+        if __args__.arguments_w:
+            raise oefmt(space.w_TypeError, "%8 expected at most 1 argument, got %d", name, len(__args__.arguments_w))
+        if __args__.keyword_names_w:
+            raise oefmt(space.w_TypeError, "%8 takes no keyword arguments", name)

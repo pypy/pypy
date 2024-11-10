@@ -10,7 +10,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
     normalize_simple_slice)
 from pypy.objspace.std.util import negate, IDTAG_SPECIAL, IDTAG_SHIFT, \
-    generic_alias_class_getitem
+    generic_alias_class_getitem, builtinclass_new_args_check
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_uint
@@ -92,7 +92,8 @@ class W_AbstractTupleObject(W_Root):
         return iterobject.W_FastTupleIterObject(self, self.tolist())
 
     @staticmethod
-    def descr_new(space, w_tupletype, w_sequence=None, __posonly__=None):
+    def descr_new(space, w_tupletype, w_sequence=None, __posonly__=None, __args__=None):
+        builtinclass_new_args_check(space, "tuple", space.w_tuple, w_tupletype, __args__)
         if w_sequence is None:
             tuple_w = []
         elif (space.is_w(w_tupletype, space.w_tuple) and
