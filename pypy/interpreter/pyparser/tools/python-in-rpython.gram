@@ -911,7 +911,7 @@ primary:
 
 slices:
     | a=slice !',' { a }
-    | a=','.slice+ [','] {
+    | a=','.(slice | starred_expression)+ [','] {
         ast.Tuple(elts=a, ctx=Load, LOCATIONS)
      }
 

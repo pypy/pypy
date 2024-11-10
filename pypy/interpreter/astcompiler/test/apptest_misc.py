@@ -86,3 +86,20 @@ def test_compile_nonascii_char_in_bytes_error():
         compile("b = b'café'", "long-filename.py", "exec")
     assert excinfo.value.filename == "long-filename.py"
     assert excinfo.value.msg == "bytes can only contain ASCII literal characters."
+
+def test_star_in_slice():
+    class A:
+        def __getitem__(self, index):
+            return index
+        def __setitem__(self, index, value):
+            self.index = index
+            self.value = value
+        def __delitem__(self, index):
+            self.delindex = index
+    a = A()
+    assert a[1] == 1
+    assert a[*(1, 2, 3)] == (1, 2, 3)
+    a[*(1, 2, 3)] = 12
+    assert a.index == (1, 2, 3)
+    del a[*(1, 2, 8)]
+    assert a.delindex == (1, 2, 8)
