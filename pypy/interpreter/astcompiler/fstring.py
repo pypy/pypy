@@ -40,7 +40,7 @@ def add_constant_string(astbuilder, joined_pieces, w_string, token,
     joined_pieces.append(ast.Constant(w_string, space.newtext_or_none(kind),
         start_lineno, start_column, end_lineno, end_column))
 
-def f_string_compile(astbuilder, source, token, fstr, start_offset):
+def f_string_compile(astbuilder, source, token, fstr, start_offset, nextchar):
     # Note: a f-string is kept as a single literal up to here.
     # At this point only, we recursively call the AST compiler
     # on all the '{expr}' parts.  The 'expr' part is not parsed
@@ -52,7 +52,7 @@ def f_string_compile(astbuilder, source, token, fstr, start_offset):
         if c not in ' \t\n\r\v\f':
             break
     else:
-        astbuilder.raise_syntax_error_known_location("f-string: empty expression not allowed", token)
+        astbuilder.raise_syntax_error_known_location("f-string: expression required before '%s'" % nextchar, token)
 
     assert isinstance(source, str)    # utf-8 encoded
 
@@ -253,7 +253,7 @@ def fstring_find_expr(astbuilder, fstr, token, rec):
     # Compile the expression as soon as possible, so we show errors
     # related to the expression before errors related to the
     # conversion or format_spec.
-    expr = f_string_compile(astbuilder, s[expr_start:i], token, fstr, expr_start)
+    expr = f_string_compile(astbuilder, s[expr_start:i], token, fstr, expr_start, nextchar=s[i])
     assert isinstance(expr, ast.Expression)
 
     # Check for the equal sign (debugging expr)

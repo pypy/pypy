@@ -363,3 +363,10 @@ def test_negative_zero():
     assert f"{-0.:z>z6.1f}" == "zzz0.0"
     assert f"{-0.:x>z6.1f}" == "xxx0.0"
     assert f"{-0.:🖤>z6.1f}" == "🖤🖤🖤0.0"  # multi-byte fill char
+
+def test_empty_expression_error():
+    s = '''f'{  !x:a}' '''
+    with raises(SyntaxError) as info:
+        eval(s)
+    assert str(info.value).startswith("f-string: expression required before '!'")
+
