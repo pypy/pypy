@@ -237,7 +237,7 @@ class TestObjSpace:
             self.space.getindex_w(self.space.w_tuple, None, "foobar")
         except OperationError as e:
             assert e.errorstr(self.space) == (
-               "TypeError: foobar indices must be integers or slices, not type")
+               "TypeError: foobar indices must be integers or slices, not 'type'")
         else:
             assert 0, "should have raised"
 
