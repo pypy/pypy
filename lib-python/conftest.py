@@ -360,7 +360,7 @@ testmap = [
     RegrTest('test_source_encoding.py'),
     RegrTest('test_spwd.py'),
     RegrTest('test_ssl.py'),
-    RegrTest('test_stable_abi_ctypes.py'),
+    RegrTest('test_stable_abi_ctypes.py', skip="needs ctypes.pythonapi"),
     RegrTest('test_startfile.py'),
     RegrTest('test_stat.py'),
     RegrTest('test_statistics.py'),
