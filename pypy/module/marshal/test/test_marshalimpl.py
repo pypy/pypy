@@ -30,9 +30,10 @@ class AppTestMarshalMore:
         code2 = marshal.loads(s)
         for attr_name in dir(code2):
             if attr_name.startswith("co_"):
-                if attr_name == "co_lines":
-                    continue
-                assert getattr(code2, attr_name) == getattr(foo.__code__, attr_name)
+                if callable(getattr(code2, attr_name)): # co_lines, co_positions
+                    assert list(getattr(code2, attr_name)()) == list(getattr(foo.__code__, attr_name)())
+                else:
+                    assert getattr(code2, attr_name) == getattr(foo.__code__, attr_name)
 
     def test_marshal_code_positions(self):
         def foo(a, b):
