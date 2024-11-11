@@ -1131,10 +1131,15 @@ class PythonParser(Parser):
             self._index = mark
         return None
 
-    def kwds(self): # type Optional[Any]
-        # kwds: '**' param_no_default
+    def kwds(self): # type Optional[arg_ty]
+        # kwds: invalid_kwds | '**' param_no_default
         mark = self._index
         if self._verbose: log_start(self, 'kwds')
+        if self.call_invalid_rules:
+            invalid_kwds = self.invalid_kwds()
+            if invalid_kwds:
+                assert 0, 'unreachable'
+            self._index = mark
         literal = self.expect_type(36)
         if literal:
             a = self.param_no_default()

@@ -373,7 +373,9 @@ star_etc[StarEtc]:
     | a=kwds { self.make_star_etc(None, [], a) }
     | invalid_star_etc
 
-kwds: '**' a=param_no_default { a }
+kwds[arg_ty]:
+    | invalid_kwds
+    | '**' a=param_no_default { a }
 
 # One parameter.  This *includes* a following comma and type comment.
 #
