@@ -486,6 +486,11 @@ class AppTestW_TupleObject:
         assert str(excinfo.value) == "tuple indices must be integers or slices, not 'NoneType'"
 
     def test_subclass_kwarg(self):
+        class bare_subclass(tuple):
+            pass
+        with raises(TypeError):
+            bare_subclass((), newarg=3)
+
         class subclass_with_new(tuple):
             def __new__(cls, arg, newarg=None):
                 self = super().__new__(cls, arg)
