@@ -1857,6 +1857,7 @@ Invalid bytes literals:
 """
 
 import re
+import sys
 import doctest
 import unittest
 
