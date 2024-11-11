@@ -128,7 +128,6 @@ class Module(MixedModule):
 
     submodules = {
         "builders": BuildersModule,
-        "time": TimeModule,
         "thread": ThreadModule,
         "intop": IntOpModule,
         "os": OsModule,
