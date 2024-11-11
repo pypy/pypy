@@ -17,6 +17,7 @@ def get_deps_darwin(binary):
     output = check_output(['otool', '-L', binary], universal_newlines=True)
     output = output.splitlines()
     output = output[1:]  # first line is binary name
+    libs = []
     for line in output:
         path = line.strip().split()[0]
         if (not path or
@@ -34,6 +35,7 @@ def get_deps(binary):
         return get_deps_darwin(binary)
     deps = {}
     output = check_output(['ldd', binary], universal_newlines=True)
+    lib = []
     for line in output.splitlines():
         if '=>' not in line:
             continue
@@ -113,11 +115,12 @@ def make_portable(copytree, python_ver):
     for binary, rpath in rpaths.items():
         print('Set RPATH of {0} to {1}'.format(binary, rpath))
 
-    # copy tcl/tk shared files, search /usr and copy the containing dir...
+    # copy tcl/tk shared files, search 'base' and copy the containing dir...
     # this assumes there is only one version of tcl/tk
     # TODO: parse the version of tcl/tk from the dependencies above
+    base = os.environ.get('HOMEBREW_CELLAR', '/usr')
     found_tk = found_tcl = False
-    for path, dirs, files in os.walk('/usr'):
+    for path, dirs, files in os.walk(base):
         if not found_tk and 'tk.tcl' in files:
             print('Found tk shared files at: %s' % (path))
             found_tk = True

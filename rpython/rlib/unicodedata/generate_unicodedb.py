@@ -882,7 +882,7 @@ def name(code):
         while 1:
             try:
                 char_list_data.append(base_mod._char_list_data(i))
-            except IndexError:
+            except KeyError:
                 break
             i += 1
         for length in range(1, 20):
