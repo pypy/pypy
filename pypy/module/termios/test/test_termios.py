@@ -102,7 +102,6 @@ class TestTermios(object):
         source = py.code.Source("""
         import termios
         import fcntl
-        import termios
         f = termios.tcgetattr(2)
         f[3] |= termios.ICANON
         termios.tcsetattr(2, termios.TCSANOW, f)
@@ -110,6 +109,19 @@ class TestTermios(object):
         assert len([i for i in f[-1] if isinstance(i, int)]) == 2
         assert isinstance(f[-1][termios.VMIN], int)
         assert isinstance(f[-1][termios.VTIME], int)
+        print('ok!')
+        """)
+        f = udir.join("test_ioctl_termios.py")
+        f.write(source)
+        child = self.spawn(['--withmod-termios', '--withmod-fcntl', str(f)])
+        child.expect('ok!')
+
+    def test_winsize(self):
+        source = py.code.Source("""
+        import termios
+        termios.tcsetwinsize(2, (50, 200))
+        size = termios.tcgetwinsize(2)
+        assert size == (50, 200)
         print('ok!')
         """)
         f = udir.join("test_ioctl_termios.py")

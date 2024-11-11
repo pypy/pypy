@@ -23,6 +23,8 @@ class Module(MixedModule):
         'tcsendbreak' : 'interp_termios.tcsendbreak',
         'tcsetattr'   : 'interp_termios.tcsetattr',
         'error'       : 'space.fromcache(interp_termios.Cache).w_error',
+        'tcgetwinsize': 'interp_termios.tcgetwinsize',
+        'tcsetwinsize': 'interp_termios.tcsetwinsize',
     }
 
     for name in rtermios.all_constants:

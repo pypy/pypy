@@ -4,8 +4,11 @@ little use of termios module on RPython level by itself
 """
 
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.error import oefmt, wrap_oserror
+from pypy.interpreter.error import oefmt, wrap_oserror, exception_from_saved_errno
 from rpython.rlib import rtermios
+from rpython.rlib import rposix
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rarithmetic import r_uint, widen
 
 class Cache:
     def __init__(self, space):
@@ -84,3 +87,44 @@ def tcflow(space, w_fd, action):
         rtermios.tcflow(fd, action)
     except OSError as e:
         raise convert_error(space, e)
+
+@unwrap_spec(fd=int)
+def tcgetwinsize(space, fd):
+    if rtermios.TIOCGWINSZ:
+        with lltype.scoped_alloc(rposix.WINSIZE) as winsize:
+            failed = rposix.c_ioctl_voidp(fd, rtermios.TIOCGWINSZ, winsize)
+            if failed:
+                w_error = space.fromcache(Cache).w_error
+                raise exception_from_saved_errno(space, w_error)
+            w_col = space.newint(r_uint(winsize.c_ws_col))
+            w_row = space.newint(r_uint(winsize.c_ws_row))
+            return space.newtuple([w_row, w_col])
+    elif rtermios.TIOCGSIZE:
+        raise oefmt(space.w_NotImplementedError, "TIOCGSIZE not supported")
+    else:
+        raise oefmt(space.w_NotImplementedError, "requires termios.TIOCGWINSZ")
+         
+@unwrap_spec(fd=int)
+def tcsetwinsize(space, fd, w_winsz):
+    winsz_w = space.listview(w_winsz)
+    rows = space.int_w(winsz_w[0])
+    cols = space.int_w(winsz_w[1])
+    if rtermios.TIOCGWINSZ and rtermios.TIOCSWINSZ:
+        with lltype.scoped_alloc(rposix.WINSIZE) as winsize:
+            failed = rposix.c_ioctl_voidp(fd, rposix.TIOCGWINSZ, winsize)
+            if failed:
+                w_error = space.fromcache(Cache).w_error
+                raise exception_from_saved_errno(space, w_error)
+            winsize.c_ws_row = rffi.cast(rffi.USHORT, rows)
+            winsize.c_ws_col = rffi.cast(rffi.USHORT, cols)
+            if (widen(winsize.c_ws_row) != rows or
+                widen(winsize.c_ws_col) != cols):
+                raise oefmt(space.w_OverflowError, "winsize value(s) out of range")
+            failed = rposix.c_ioctl_voidp(fd, rtermios.TIOCSWINSZ, winsize)
+            if failed:
+                w_error = space.fromcache(Cache).w_error
+                raise exception_from_saved_errno(space, w_error)
+    elif rtermios.TIOCSSIZE:
+        raise oefmt(space.w_NotImplementedError, "TIOCSSIZE not supported")
+    else:
+        raise oefmt(space.w_NotImplementedError, "requires termios.TIOCGWINSZ, termios.TIOCSWINSZ")
