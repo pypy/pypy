@@ -452,12 +452,6 @@ class W_BytesObject(W_AbstractBytesObject):
     def utf8_w(self, space):
         return self._value
 
-    def utf8_w(self, space):
-        return self._value
-
-    def utf8_w(self, space):
-        return self._value
-
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
         return SimpleView(StringBuffer(self._value), w_obj=self)
