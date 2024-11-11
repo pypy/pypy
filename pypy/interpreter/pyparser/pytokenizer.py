@@ -109,14 +109,14 @@ def verify_identifier(token, line, lnum, start, token_list, flags):
     it = rutf8.Utf8StringIterator(token)
     code = it.next()
     if not (unicodedb.isxidstart(code) or first == '_'):
-        raise_invalid_unicode_char(code, token, line, lnum, start, token_list)
+        raise_invalid_unicode_char(code, line, lnum, start, token_list)
     pos = it.get_pos()
     for ch in it:
         if not unicodedb.isxidcontinue(ch):
-            raise_invalid_unicode_char(ch, token, line, lnum, start + pos, token_list)
+            raise_invalid_unicode_char(ch, line, lnum, start + pos, token_list)
         pos = it.get_pos()
 
-def raise_invalid_unicode_char(code, token, line, lnum, start, token_list):
+def raise_invalid_unicode_char(code, line, lnum, start, token_list):
     from pypy.module.unicodedata.interp_ucd import unicodedb
     # valid utf-8, but it gives a unicode char that cannot
     # be used in identifiers
@@ -144,6 +144,17 @@ def potential_identifier_char(ch):
     return (ch in NAMECHARS or  # ordinary name
             ord(ch) >= 0x80)    # unicode
 
+def raise_unknown_character(line, start, lnum, token_list, flags):
+    from pypy.module.unicodedata.interp_ucd import unicodedb
+    code = ord(line[start])
+    if code < 128:
+        try:
+            rutf8.check_utf8(line, False, start=start)
+        except rutf8.CheckError:
+            raise bad_utf8("line", line, lnum, start + 1,
+                           token_list, flags)
+        code = rutf8.codepoint_at_pos(line, start)
+    raise_invalid_unicode_char(code, line, lnum, start, token_list)
 
 DUMMY_DFA = automata.DFA([], [])
 
@@ -329,8 +340,7 @@ def generate_tokens(lines, flags):
                         raise TokenError("unexpected character after line continuation character", line,
                                          lnum, start + 2, token_list)
 
-                    raise TokenError("Unknown character", line,
-                                     lnum, start + 1, token_list)
+                    raise_unknown_character(line, start, lnum, token_list, flags)
 
                 pos = end
                 token, initial = line[start:end], line[start]
