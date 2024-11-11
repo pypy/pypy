@@ -932,7 +932,7 @@ class PythonParser(Parser):
         return None
 
     def function_def_raw(self): # type Optional[Union [ast . FunctionDef , ast . AsyncFunctionDef]]
-        # function_def_raw: invalid_def_raw | 'def' NAME '(' params? ')' ['->' expression] &&':' func_type_comment? block | ASYNC 'def' NAME '(' params? ')' ['->' expression] &&':' func_type_comment? block
+        # function_def_raw: invalid_def_raw | 'def' NAME &&'(' params? ')' ['->' expression] &&':' func_type_comment? block | ASYNC 'def' NAME &&'(' params? ')' ['->' expression] &&':' func_type_comment? block
         mark = self._index
         if self._verbose: log_start(self, 'function_def_raw')
         tok = self.peek()
@@ -946,7 +946,7 @@ class PythonParser(Parser):
         if literal:
             n = self.name()
             if n:
-                literal_1 = self.expect_type(7)
+                literal_1 = self.expect_forced(self.expect_type(7), "'('")
                 if literal_1:
                     params = self.params()
                     literal_2 = self.expect_type(8)
@@ -967,7 +967,7 @@ class PythonParser(Parser):
             if literal:
                 n = self.name()
                 if n:
-                    literal_1 = self.expect_type(7)
+                    literal_1 = self.expect_forced(self.expect_type(7), "'('")
                     if literal_1:
                         params = self.params()
                         literal_2 = self.expect_type(8)
@@ -3520,9 +3520,14 @@ class PythonParser(Parser):
         return None
 
     def lambda_kwds(self): # type Optional[ast . arg]
-        # lambda_kwds: '**' lambda_param_no_default
+        # lambda_kwds: invalid_lambda_kwds | '**' lambda_param_no_default
         mark = self._index
         if self._verbose: log_start(self, 'lambda_kwds')
+        if self.call_invalid_rules:
+            invalid_lambda_kwds = self.invalid_lambda_kwds()
+            if invalid_lambda_kwds:
+                assert 0, 'unreachable'
+            self._index = mark
         literal = self.expect_type(36)
         if literal:
             a = self.lambda_param_no_default()
@@ -3944,7 +3949,7 @@ class PythonParser(Parser):
         return None
 
     def starred_expression(self): # type Optional[Any]
-        # starred_expression: '*' expression
+        # starred_expression: '*' expression | '*'
         mark = self._index
         if self._verbose: log_start(self, 'starred_expression')
         tok = self.peek()
@@ -3956,6 +3961,10 @@ class PythonParser(Parser):
                 tok = self.get_last_non_whitespace_token()
                 end_lineno, end_col_offset = tok.end_lineno, tok.end_column
                 return ast . Starred ( value = a , ctx = Load , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+        self._index = mark
+        literal = self.expect_type(16)
+        if literal:
+            return self . raise_syntax_error ( "Invalid star expression" )
         self._index = mark
         return None
 
@@ -4948,6 +4957,40 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
+    def invalid_lambda_kwds(self): # type Optional[Any]
+        # invalid_lambda_kwds: '**' lambda_param '=' | '**' lambda_param ',' lambda_param | '**' lambda_param ',' ('*' | '**' | '/')
+        mark = self._index
+        if self._verbose: log_start(self, 'invalid_lambda_kwds')
+        literal = self.expect_type(36)
+        if literal:
+            lambda_param = self.lambda_param()
+            if lambda_param:
+                a = self.expect_type(22)
+                if a:
+                    return self . raise_syntax_error_known_location ( "var-keyword argument cannot have default value" , a )
+        self._index = mark
+        literal = self.expect_type(36)
+        if literal:
+            lambda_param = self.lambda_param()
+            if lambda_param:
+                literal_1 = self.expect_type(12)
+                if literal_1:
+                    a = self.lambda_param()
+                    if a:
+                        return self . raise_syntax_error_known_location ( "arguments cannot follow var-keyword argument" , a )
+        self._index = mark
+        literal = self.expect_type(36)
+        if literal:
+            lambda_param = self.lambda_param()
+            if lambda_param:
+                literal_1 = self.expect_type(12)
+                if literal_1:
+                    a = self._tmp_188()
+                    if a:
+                        return self . raise_syntax_error_known_location ( "arguments cannot follow var-keyword argument" , a )
+        self._index = mark
+        return None
+
     def invalid_double_type_comments(self): # type Optional[NoReturn]
         # invalid_double_type_comments: TYPE_COMMENT NEWLINE TYPE_COMMENT NEWLINE INDENT
         mark = self._index
@@ -4976,7 +5019,7 @@ class PythonParser(Parser):
             if literal:
                 a = self.expression()
                 if a:
-                    if self.positive_lookahead(PythonParser._tmp_188, ):
+                    if self.positive_lookahead(PythonParser._tmp_189, ):
                         return self . raise_syntax_error_if_invalid_target ( a , "assign" )
         self._index = mark
         return None
@@ -5039,8 +5082,8 @@ class PythonParser(Parser):
         opt = self.expect_type(58)
         literal = self.expect_type(520)
         if literal:
-            _gather_189 = self._gather_189()
-            if _gather_189:
+            _gather_190 = self._gather_190()
+            if _gather_190:
                 n = self.expect_type(4)
                 if n:
                     return self . raise_syntax_error_known_location ( "expected ':'" , n )
@@ -5050,8 +5093,8 @@ class PythonParser(Parser):
         if literal:
             literal_1 = self.expect_type(7)
             if literal_1:
-                _gather_191 = self._gather_191()
-                if _gather_191:
+                _gather_192 = self._gather_192()
+                if _gather_192:
                     opt_1 = self.expect_type(12)
                     literal_2 = self.expect_type(8)
                     if literal_2:
@@ -5068,8 +5111,8 @@ class PythonParser(Parser):
         opt = self.expect_type(58)
         a = self.expect_type(520)
         if a:
-            _gather_193 = self._gather_193()
-            if _gather_193:
+            _gather_194 = self._gather_194()
+            if _gather_194:
                 literal = self.expect_type(11)
                 if literal:
                     _newline = self.expect_type(4)
@@ -5082,8 +5125,8 @@ class PythonParser(Parser):
         if a:
             literal = self.expect_type(7)
             if literal:
-                _gather_195 = self._gather_195()
-                if _gather_195:
+                _gather_196 = self._gather_196()
+                if _gather_196:
                     opt_1 = self.expect_type(12)
                     literal_1 = self.expect_type(8)
                     if literal_1:
@@ -5115,23 +5158,23 @@ class PythonParser(Parser):
             if literal_1:
                 block = self.block()
                 if block:
-                    if self.negative_lookahead(PythonParser._tmp_197, ):
+                    if self.negative_lookahead(PythonParser._tmp_198, ):
                         return self . raise_syntax_error ( "expected 'except' or 'finally' block" )
         self._index = mark
         literal = self.expect_type(510)
         if literal:
             literal_1 = self.expect_type(11)
             if literal_1:
-                _loop0_198 = self._loop0_198()
-                _loop1_199 = self._loop1_199()
-                if _loop1_199:
+                _loop0_199 = self._loop0_199()
+                _loop1_200 = self._loop1_200()
+                if _loop1_200:
                     a = self.expect_type(522)
                     if a:
                         b = self.expect_type(16)
                         if b:
                             expression = self.expression()
                             if expression:
-                                opt = self._tmp_200()
+                                opt = self._tmp_201()
                                 literal_2 = self.expect_type(11)
                                 if literal_2:
                                     return self . raise_syntax_error_known_range ( "cannot have both 'except' and 'except*' on the same 'try'" , a , b )
@@ -5140,12 +5183,12 @@ class PythonParser(Parser):
         if literal:
             literal_1 = self.expect_type(11)
             if literal_1:
-                _loop0_201 = self._loop0_201()
-                _loop1_202 = self._loop1_202()
-                if _loop1_202:
+                _loop0_202 = self._loop0_202()
+                _loop1_203 = self._loop1_203()
+                if _loop1_203:
                     a = self.expect_type(522)
                     if a:
-                        opt = self._tmp_203()
+                        opt = self._tmp_204()
                         literal_2 = self.expect_type(11)
                         if literal_2:
                             return self . raise_syntax_error_known_location ( "cannot have both 'except' and 'except*' on the same 'try'" , a )
@@ -5153,7 +5196,7 @@ class PythonParser(Parser):
         return None
 
     def invalid_except_stmt(self): # type Optional[None]
-        # invalid_except_stmt: 'except' expression ',' expressions ['as' NAME] ':' | 'except' expression ['as' NAME] NEWLINE | 'except' NEWLINE
+        # invalid_except_stmt: 'except' expression ',' expressions ['as' NAME] ':' | 'except' expression ['as' NAME] NEWLINE | 'except' NEWLINE | 'except' '*' (NEWLINE | ':')
         mark = self._index
         if self._verbose: log_start(self, 'invalid_except_stmt')
         literal = self.expect_type(522)
@@ -5164,7 +5207,7 @@ class PythonParser(Parser):
                 if literal_1:
                     expressions = self.expressions()
                     if expressions:
-                        opt = self._tmp_204()
+                        opt = self._tmp_205()
                         literal_2 = self.expect_type(11)
                         if literal_2:
                             return self . raise_syntax_error_starting_from ( "multiple exception types must be parenthesized" , a )
@@ -5173,7 +5216,7 @@ class PythonParser(Parser):
         if a:
             expression = self.expression()
             if expression:
-                opt = self._tmp_205()
+                opt = self._tmp_206()
                 n = self.expect_type(4)
                 if n:
                     return self . raise_syntax_error_known_location ( "expected ':'" , n )
@@ -5183,6 +5226,14 @@ class PythonParser(Parser):
             n = self.expect_type(4)
             if n:
                 return self . raise_syntax_error_known_location ( "expected ':'" , n )
+        self._index = mark
+        a = self.expect_type(522)
+        if a:
+            literal = self.expect_type(16)
+            if literal:
+                _tmp_207 = self._tmp_207()
+                if _tmp_207:
+                    return self . raise_syntax_error ( "expected one or more exception types" )
         self._index = mark
         return None
 
@@ -5209,7 +5260,7 @@ class PythonParser(Parser):
         if a:
             expression = self.expression()
             if expression:
-                opt = self._tmp_206()
+                opt = self._tmp_208()
                 literal = self.expect_type(11)
                 if literal:
                     _newline = self.expect_type(4)
@@ -5238,7 +5289,7 @@ class PythonParser(Parser):
             if literal:
                 expression = self.expression()
                 if expression:
-                    opt = self._tmp_207()
+                    opt = self._tmp_209()
                     literal_1 = self.expect_type(11)
                     if literal_1:
                         _newline = self.expect_type(4)
@@ -5339,7 +5390,7 @@ class PythonParser(Parser):
         # invalid_class_argument_pattern: [positional_patterns ','] keyword_patterns ',' positional_patterns
         mark = self._index
         if self._verbose: log_start(self, 'invalid_class_argument_pattern')
-        opt = self._tmp_208()
+        opt = self._tmp_210()
         keyword_patterns = self.keyword_patterns()
         if keyword_patterns:
             literal = self.expect_type(12)
@@ -5489,7 +5540,7 @@ class PythonParser(Parser):
                     opt_1 = self.params()
                     literal_1 = self.expect_type(8)
                     if literal_1:
-                        opt_2 = self._tmp_209()
+                        opt_2 = self._tmp_211()
                         literal_2 = self.expect_type(11)
                         if literal_2:
                             _newline = self.expect_type(4)
@@ -5507,7 +5558,7 @@ class PythonParser(Parser):
         if literal:
             name = self.name()
             if name:
-                opt = self._tmp_210()
+                opt = self._tmp_212()
                 n = self.expect_type(4)
                 if n:
                     return self . raise_syntax_error_known_location ( "expected ':'" , n )
@@ -5516,7 +5567,7 @@ class PythonParser(Parser):
         if a:
             name = self.name()
             if name:
-                opt = self._tmp_211()
+                opt = self._tmp_213()
                 literal = self.expect_type(11)
                 if literal:
                     _newline = self.expect_type(4)
@@ -5530,8 +5581,8 @@ class PythonParser(Parser):
         # invalid_double_starred_kvpairs: ','.double_starred_kvpair+ ',' invalid_kvpair | expression ':' '*' bitwise_or | expression ':' &('}' | ',')
         mark = self._index
         if self._verbose: log_start(self, 'invalid_double_starred_kvpairs')
-        _gather_212 = self._gather_212()
-        if _gather_212:
+        _gather_214 = self._gather_214()
+        if _gather_214:
             literal = self.expect_type(12)
             if literal:
                 invalid_kvpair = self.invalid_kvpair()
@@ -5552,7 +5603,7 @@ class PythonParser(Parser):
         if expression:
             a = self.expect_type(11)
             if a:
-                if self.positive_lookahead(PythonParser._tmp_214, ):
+                if self.positive_lookahead(PythonParser._tmp_216, ):
                     return self . raise_syntax_error_known_location ( "expression expected after dictionary key and ':'" , a )
         self._index = mark
         return None
@@ -5893,10 +5944,10 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, '_loop1_22')
         children = []
         while True:
-            _tmp_215 = self._tmp_215()
-            if not _tmp_215:
+            _tmp_217 = self._tmp_217()
+            if not _tmp_217:
                 break
-            children.append(_tmp_215)
+            children.append(_tmp_217)
             mark = self._index
         self._index = mark
         return children
@@ -6031,10 +6082,10 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, '_loop0_32')
         children = []
         while True:
-            _tmp_216 = self._tmp_216()
-            if not _tmp_216:
+            _tmp_218 = self._tmp_218()
+            if not _tmp_218:
                 break
-            children.append(_tmp_216)
+            children.append(_tmp_218)
             mark = self._index
         self._index = mark
         return children
@@ -6045,10 +6096,10 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, '_loop1_33')
         children = []
         while True:
-            _tmp_217 = self._tmp_217()
-            if not _tmp_217:
+            _tmp_219 = self._tmp_219()
+            if not _tmp_219:
                 break
-            children.append(_tmp_217)
+            children.append(_tmp_219)
             mark = self._index
         self._index = mark
         return children
@@ -6851,10 +6902,10 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, '_loop1_90')
         children = []
         while True:
-            _tmp_218 = self._tmp_218()
-            if not _tmp_218:
+            _tmp_220 = self._tmp_220()
+            if not _tmp_220:
                 break
-            children.append(_tmp_218)
+            children.append(_tmp_220)
             mark = self._index
         self._index = mark
         return children
@@ -6894,10 +6945,10 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, '_loop1_93')
         children = []
         while True:
-            _tmp_219 = self._tmp_219()
-            if not _tmp_219:
+            _tmp_221 = self._tmp_221()
+            if not _tmp_221:
                 break
-            children.append(_tmp_219)
+            children.append(_tmp_221)
             mark = self._index
         self._index = mark
         return children
@@ -6908,10 +6959,10 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, '_loop1_94')
         children = []
         while True:
-            _tmp_220 = self._tmp_220()
-            if not _tmp_220:
+            _tmp_222 = self._tmp_222()
+            if not _tmp_222:
                 break
-            children.append(_tmp_220)
+            children.append(_tmp_222)
             mark = self._index
         self._index = mark
         return children
@@ -6922,10 +6973,10 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, '_loop1_95')
         children = []
         while True:
-            _tmp_221 = self._tmp_221()
-            if not _tmp_221:
+            _tmp_223 = self._tmp_223()
+            if not _tmp_223:
                 break
-            children.append(_tmp_221)
+            children.append(_tmp_223)
             mark = self._index
         self._index = mark
         return children
@@ -6953,7 +7004,7 @@ class PythonParser(Parser):
             literal = self.expect_type(12)
             if not literal:
                 break
-            elem = self._tmp_222()
+            elem = self._tmp_224()
             if not elem:
                 break
             children.append(elem)
@@ -6965,7 +7016,7 @@ class PythonParser(Parser):
         # _gather_97: (slice | starred_expression) _loop0_98
         mark = self._index
         if self._verbose: log_start(self, '_gather_97')
-        elem = self._tmp_222()
+        elem = self._tmp_224()
         if elem is not None:
             seq = self._loop0_98()
             if seq is not None:
@@ -7324,10 +7375,10 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, '_loop0_123')
         children = []
         while True:
-            _tmp_223 = self._tmp_223()
-            if not _tmp_223:
+            _tmp_225 = self._tmp_225()
+            if not _tmp_225:
                 break
-            children.append(_tmp_223)
+            children.append(_tmp_225)
             mark = self._index
         self._index = mark
         return children
@@ -7338,10 +7389,10 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, '_loop0_124')
         children = []
         while True:
-            _tmp_224 = self._tmp_224()
-            if not _tmp_224:
+            _tmp_226 = self._tmp_226()
+            if not _tmp_226:
                 break
-            children.append(_tmp_224)
+            children.append(_tmp_226)
             mark = self._index
         self._index = mark
         return children
@@ -7370,7 +7421,7 @@ class PythonParser(Parser):
             literal = self.expect_type(12)
             if not literal:
                 break
-            elem = self._tmp_225()
+            elem = self._tmp_227()
             if not elem:
                 break
             children.append(elem)
@@ -7382,7 +7433,7 @@ class PythonParser(Parser):
         # _gather_126: (starred_expression | (assignment_expression | expression !':=') !'=') _loop0_127
         mark = self._index
         if self._verbose: log_start(self, '_gather_126')
-        elem = self._tmp_225()
+        elem = self._tmp_227()
         if elem is not None:
             seq = self._loop0_127()
             if seq is not None:
@@ -7524,10 +7575,10 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, '_loop0_137')
         children = []
         while True:
-            _tmp_226 = self._tmp_226()
-            if not _tmp_226:
+            _tmp_228 = self._tmp_228()
+            if not _tmp_228:
                 break
-            children.append(_tmp_226)
+            children.append(_tmp_228)
             mark = self._index
         self._index = mark
         return children
@@ -7567,10 +7618,10 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, '_loop1_140')
         children = []
         while True:
-            _tmp_227 = self._tmp_227()
-            if not _tmp_227:
+            _tmp_229 = self._tmp_229()
+            if not _tmp_229:
                 break
-            children.append(_tmp_227)
+            children.append(_tmp_229)
             mark = self._index
         self._index = mark
         return children
@@ -7751,10 +7802,10 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, '_loop0_152')
         children = []
         while True:
-            _tmp_228 = self._tmp_228()
-            if not _tmp_228:
+            _tmp_230 = self._tmp_230()
+            if not _tmp_230:
                 break
-            children.append(_tmp_228)
+            children.append(_tmp_230)
             mark = self._index
         self._index = mark
         return children
@@ -7765,10 +7816,10 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, '_loop0_153')
         children = []
         while True:
-            _tmp_229 = self._tmp_229()
-            if not _tmp_229:
+            _tmp_231 = self._tmp_231()
+            if not _tmp_231:
                 break
-            children.append(_tmp_229)
+            children.append(_tmp_231)
             mark = self._index
         self._index = mark
         return children
@@ -7997,8 +8048,8 @@ class PythonParser(Parser):
         self._index = mark
         literal = self.expect_type(12)
         if literal:
-            _tmp_230 = self._tmp_230()
-            if _tmp_230:
+            _tmp_232 = self._tmp_232()
+            if _tmp_232:
                 return self.dummy_name()
         self._index = mark
         return None
@@ -8256,16 +8307,34 @@ class PythonParser(Parser):
         self._index = mark
         literal = self.expect_type(12)
         if literal:
-            _tmp_231 = self._tmp_231()
-            if _tmp_231:
+            _tmp_233 = self._tmp_233()
+            if _tmp_233:
                 return self.dummy_name()
         self._index = mark
         return None
 
     def _tmp_188(self): # type Optional[Any]
-        # _tmp_188: ',' | ')' | ':'
+        # _tmp_188: '*' | '**' | '/'
         mark = self._index
         if self._verbose: log_start(self, '_tmp_188')
+        literal = self.expect_type(16)
+        if literal:
+            return literal
+        self._index = mark
+        literal = self.expect_type(36)
+        if literal:
+            return literal
+        self._index = mark
+        literal = self.expect_type(17)
+        if literal:
+            return literal
+        self._index = mark
+        return None
+
+    def _tmp_189(self): # type Optional[Any]
+        # _tmp_189: ',' | ')' | ':'
+        mark = self._index
+        if self._verbose: log_start(self, '_tmp_189')
         literal = self.expect_type(12)
         if literal:
             return literal
@@ -8280,68 +8349,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _loop0_190(self): # type Optional[Any]
-        # _loop0_190: ',' (expression ['as' star_target])
+    def _loop0_191(self): # type Optional[Any]
+        # _loop0_191: ',' (expression ['as' star_target])
         mark = self._index
-        if self._verbose: log_start(self, '_loop0_190')
-        children = []
-        while True:
-            literal = self.expect_type(12)
-            if not literal:
-                break
-            elem = self._tmp_232()
-            if not elem:
-                break
-            children.append(elem)
-            mark = self._index
-        self._index = mark
-        return children
-
-    def _gather_189(self): # type Optional[Any]
-        # _gather_189: (expression ['as' star_target]) _loop0_190
-        mark = self._index
-        if self._verbose: log_start(self, '_gather_189')
-        elem = self._tmp_232()
-        if elem is not None:
-            seq = self._loop0_190()
-            if seq is not None:
-                return [elem] + seq
-        self._index = mark
-        return None
-
-    def _loop0_192(self): # type Optional[Any]
-        # _loop0_192: ',' (expressions ['as' star_target])
-        mark = self._index
-        if self._verbose: log_start(self, '_loop0_192')
-        children = []
-        while True:
-            literal = self.expect_type(12)
-            if not literal:
-                break
-            elem = self._tmp_233()
-            if not elem:
-                break
-            children.append(elem)
-            mark = self._index
-        self._index = mark
-        return children
-
-    def _gather_191(self): # type Optional[Any]
-        # _gather_191: (expressions ['as' star_target]) _loop0_192
-        mark = self._index
-        if self._verbose: log_start(self, '_gather_191')
-        elem = self._tmp_233()
-        if elem is not None:
-            seq = self._loop0_192()
-            if seq is not None:
-                return [elem] + seq
-        self._index = mark
-        return None
-
-    def _loop0_194(self): # type Optional[Any]
-        # _loop0_194: ',' (expression ['as' star_target])
-        mark = self._index
-        if self._verbose: log_start(self, '_loop0_194')
+        if self._verbose: log_start(self, '_loop0_191')
         children = []
         while True:
             literal = self.expect_type(12)
@@ -8355,22 +8366,22 @@ class PythonParser(Parser):
         self._index = mark
         return children
 
-    def _gather_193(self): # type Optional[Any]
-        # _gather_193: (expression ['as' star_target]) _loop0_194
+    def _gather_190(self): # type Optional[Any]
+        # _gather_190: (expression ['as' star_target]) _loop0_191
         mark = self._index
-        if self._verbose: log_start(self, '_gather_193')
+        if self._verbose: log_start(self, '_gather_190')
         elem = self._tmp_234()
         if elem is not None:
-            seq = self._loop0_194()
+            seq = self._loop0_191()
             if seq is not None:
                 return [elem] + seq
         self._index = mark
         return None
 
-    def _loop0_196(self): # type Optional[Any]
-        # _loop0_196: ',' (expressions ['as' star_target])
+    def _loop0_193(self): # type Optional[Any]
+        # _loop0_193: ',' (expressions ['as' star_target])
         mark = self._index
-        if self._verbose: log_start(self, '_loop0_196')
+        if self._verbose: log_start(self, '_loop0_193')
         children = []
         while True:
             literal = self.expect_type(12)
@@ -8384,22 +8395,80 @@ class PythonParser(Parser):
         self._index = mark
         return children
 
-    def _gather_195(self): # type Optional[Any]
-        # _gather_195: (expressions ['as' star_target]) _loop0_196
+    def _gather_192(self): # type Optional[Any]
+        # _gather_192: (expressions ['as' star_target]) _loop0_193
         mark = self._index
-        if self._verbose: log_start(self, '_gather_195')
+        if self._verbose: log_start(self, '_gather_192')
         elem = self._tmp_235()
         if elem is not None:
-            seq = self._loop0_196()
+            seq = self._loop0_193()
             if seq is not None:
                 return [elem] + seq
         self._index = mark
         return None
 
-    def _tmp_197(self): # type Optional[Any]
-        # _tmp_197: 'except' | 'finally'
+    def _loop0_195(self): # type Optional[Any]
+        # _loop0_195: ',' (expression ['as' star_target])
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_197')
+        if self._verbose: log_start(self, '_loop0_195')
+        children = []
+        while True:
+            literal = self.expect_type(12)
+            if not literal:
+                break
+            elem = self._tmp_236()
+            if not elem:
+                break
+            children.append(elem)
+            mark = self._index
+        self._index = mark
+        return children
+
+    def _gather_194(self): # type Optional[Any]
+        # _gather_194: (expression ['as' star_target]) _loop0_195
+        mark = self._index
+        if self._verbose: log_start(self, '_gather_194')
+        elem = self._tmp_236()
+        if elem is not None:
+            seq = self._loop0_195()
+            if seq is not None:
+                return [elem] + seq
+        self._index = mark
+        return None
+
+    def _loop0_197(self): # type Optional[Any]
+        # _loop0_197: ',' (expressions ['as' star_target])
+        mark = self._index
+        if self._verbose: log_start(self, '_loop0_197')
+        children = []
+        while True:
+            literal = self.expect_type(12)
+            if not literal:
+                break
+            elem = self._tmp_237()
+            if not elem:
+                break
+            children.append(elem)
+            mark = self._index
+        self._index = mark
+        return children
+
+    def _gather_196(self): # type Optional[Any]
+        # _gather_196: (expressions ['as' star_target]) _loop0_197
+        mark = self._index
+        if self._verbose: log_start(self, '_gather_196')
+        elem = self._tmp_237()
+        if elem is not None:
+            seq = self._loop0_197()
+            if seq is not None:
+                return [elem] + seq
+        self._index = mark
+        return None
+
+    def _tmp_198(self): # type Optional[Any]
+        # _tmp_198: 'except' | 'finally'
+        mark = self._index
+        if self._verbose: log_start(self, '_tmp_198')
         literal = self.expect_type(522)
         if literal:
             return literal
@@ -8410,10 +8479,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _loop0_198(self): # type Optional[Any]
-        # _loop0_198: block
+    def _loop0_199(self): # type Optional[Any]
+        # _loop0_199: block
         mark = self._index
-        if self._verbose: log_start(self, '_loop0_198')
+        if self._verbose: log_start(self, '_loop0_199')
         children = []
         while True:
             block = self.block()
@@ -8424,10 +8493,10 @@ class PythonParser(Parser):
         self._index = mark
         return children
 
-    def _loop1_199(self): # type Optional[Any]
-        # _loop1_199: except_block
+    def _loop1_200(self): # type Optional[Any]
+        # _loop1_200: except_block
         mark = self._index
-        if self._verbose: log_start(self, '_loop1_199')
+        if self._verbose: log_start(self, '_loop1_200')
         children = []
         while True:
             except_block = self.except_block()
@@ -8438,10 +8507,10 @@ class PythonParser(Parser):
         self._index = mark
         return children
 
-    def _tmp_200(self): # type Optional[Any]
-        # _tmp_200: 'as' NAME
+    def _tmp_201(self): # type Optional[Any]
+        # _tmp_201: 'as' NAME
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_200')
+        if self._verbose: log_start(self, '_tmp_201')
         literal = self.expect_type(521)
         if literal:
             name = self.name()
@@ -8450,10 +8519,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _loop0_201(self): # type Optional[Any]
-        # _loop0_201: block
+    def _loop0_202(self): # type Optional[Any]
+        # _loop0_202: block
         mark = self._index
-        if self._verbose: log_start(self, '_loop0_201')
+        if self._verbose: log_start(self, '_loop0_202')
         children = []
         while True:
             block = self.block()
@@ -8464,10 +8533,10 @@ class PythonParser(Parser):
         self._index = mark
         return children
 
-    def _loop1_202(self): # type Optional[Any]
-        # _loop1_202: except_star_block
+    def _loop1_203(self): # type Optional[Any]
+        # _loop1_203: except_star_block
         mark = self._index
-        if self._verbose: log_start(self, '_loop1_202')
+        if self._verbose: log_start(self, '_loop1_203')
         children = []
         while True:
             except_star_block = self.except_star_block()
@@ -8478,26 +8547,14 @@ class PythonParser(Parser):
         self._index = mark
         return children
 
-    def _tmp_203(self): # type Optional[Any]
-        # _tmp_203: expression ['as' NAME]
-        mark = self._index
-        if self._verbose: log_start(self, '_tmp_203')
-        expression = self.expression()
-        if expression:
-            opt = self._tmp_236()
-            return self.dummy_name()
-        self._index = mark
-        return None
-
     def _tmp_204(self): # type Optional[Any]
-        # _tmp_204: 'as' NAME
+        # _tmp_204: expression ['as' NAME]
         mark = self._index
         if self._verbose: log_start(self, '_tmp_204')
-        literal = self.expect_type(521)
-        if literal:
-            name = self.name()
-            if name:
-                return self.dummy_name()
+        expression = self.expression()
+        if expression:
+            opt = self._tmp_238()
+            return self.dummy_name()
         self._index = mark
         return None
 
@@ -8526,9 +8583,23 @@ class PythonParser(Parser):
         return None
 
     def _tmp_207(self): # type Optional[Any]
-        # _tmp_207: 'as' NAME
+        # _tmp_207: NEWLINE | ':'
         mark = self._index
         if self._verbose: log_start(self, '_tmp_207')
+        _newline = self.expect_type(4)
+        if _newline:
+            return _newline
+        self._index = mark
+        literal = self.expect_type(11)
+        if literal:
+            return literal
+        self._index = mark
+        return None
+
+    def _tmp_208(self): # type Optional[Any]
+        # _tmp_208: 'as' NAME
+        mark = self._index
+        if self._verbose: log_start(self, '_tmp_208')
         literal = self.expect_type(521)
         if literal:
             name = self.name()
@@ -8537,10 +8608,22 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_208(self): # type Optional[Any]
-        # _tmp_208: positional_patterns ','
+    def _tmp_209(self): # type Optional[Any]
+        # _tmp_209: 'as' NAME
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_208')
+        if self._verbose: log_start(self, '_tmp_209')
+        literal = self.expect_type(521)
+        if literal:
+            name = self.name()
+            if name:
+                return self.dummy_name()
+        self._index = mark
+        return None
+
+    def _tmp_210(self): # type Optional[Any]
+        # _tmp_210: positional_patterns ','
+        mark = self._index
+        if self._verbose: log_start(self, '_tmp_210')
         positional_patterns = self.positional_patterns()
         if positional_patterns:
             literal = self.expect_type(12)
@@ -8549,10 +8632,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_209(self): # type Optional[Any]
-        # _tmp_209: '->' expression
+    def _tmp_211(self): # type Optional[Any]
+        # _tmp_211: '->' expression
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_209')
+        if self._verbose: log_start(self, '_tmp_211')
         literal = self.expect_type(52)
         if literal:
             expression = self.expression()
@@ -8561,10 +8644,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_210(self): # type Optional[Any]
-        # _tmp_210: '(' arguments? ')'
+    def _tmp_212(self): # type Optional[Any]
+        # _tmp_212: '(' arguments? ')'
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_210')
+        if self._verbose: log_start(self, '_tmp_212')
         literal = self.expect_type(7)
         if literal:
             opt = self.arguments()
@@ -8574,10 +8657,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_211(self): # type Optional[Any]
-        # _tmp_211: '(' arguments? ')'
+    def _tmp_213(self): # type Optional[Any]
+        # _tmp_213: '(' arguments? ')'
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_211')
+        if self._verbose: log_start(self, '_tmp_213')
         literal = self.expect_type(7)
         if literal:
             opt = self.arguments()
@@ -8587,10 +8670,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _loop0_213(self): # type Optional[Any]
-        # _loop0_213: ',' double_starred_kvpair
+    def _loop0_215(self): # type Optional[Any]
+        # _loop0_215: ',' double_starred_kvpair
         mark = self._index
-        if self._verbose: log_start(self, '_loop0_213')
+        if self._verbose: log_start(self, '_loop0_215')
         children = []
         while True:
             literal = self.expect_type(12)
@@ -8604,22 +8687,22 @@ class PythonParser(Parser):
         self._index = mark
         return children
 
-    def _gather_212(self): # type Optional[Any]
-        # _gather_212: double_starred_kvpair _loop0_213
+    def _gather_214(self): # type Optional[Any]
+        # _gather_214: double_starred_kvpair _loop0_215
         mark = self._index
-        if self._verbose: log_start(self, '_gather_212')
+        if self._verbose: log_start(self, '_gather_214')
         elem = self.double_starred_kvpair()
         if elem is not None:
-            seq = self._loop0_213()
+            seq = self._loop0_215()
             if seq is not None:
                 return [elem] + seq
         self._index = mark
         return None
 
-    def _tmp_214(self): # type Optional[Any]
-        # _tmp_214: '}' | ','
+    def _tmp_216(self): # type Optional[Any]
+        # _tmp_216: '}' | ','
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_214')
+        if self._verbose: log_start(self, '_tmp_216')
         literal = self.expect_type(27)
         if literal:
             return literal
@@ -8630,10 +8713,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_215(self): # type Optional[Any]
-        # _tmp_215: star_targets '='
+    def _tmp_217(self): # type Optional[Any]
+        # _tmp_217: star_targets '='
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_215')
+        if self._verbose: log_start(self, '_tmp_217')
         z = self.star_targets()
         if z:
             literal = self.expect_type(22)
@@ -8642,38 +8725,38 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_216(self): # type Optional[Any]
-        # _tmp_216: '.' | '...'
-        mark = self._index
-        if self._verbose: log_start(self, '_tmp_216')
-        literal = self.expect_type(23)
-        if literal:
-            return literal
-        self._index = mark
-        literal = self.expect_type(53)
-        if literal:
-            return literal
-        self._index = mark
-        return None
-
-    def _tmp_217(self): # type Optional[Any]
-        # _tmp_217: '.' | '...'
-        mark = self._index
-        if self._verbose: log_start(self, '_tmp_217')
-        literal = self.expect_type(23)
-        if literal:
-            return literal
-        self._index = mark
-        literal = self.expect_type(53)
-        if literal:
-            return literal
-        self._index = mark
-        return None
-
     def _tmp_218(self): # type Optional[Any]
-        # _tmp_218: ',' star_expression
+        # _tmp_218: '.' | '...'
         mark = self._index
         if self._verbose: log_start(self, '_tmp_218')
+        literal = self.expect_type(23)
+        if literal:
+            return literal
+        self._index = mark
+        literal = self.expect_type(53)
+        if literal:
+            return literal
+        self._index = mark
+        return None
+
+    def _tmp_219(self): # type Optional[Any]
+        # _tmp_219: '.' | '...'
+        mark = self._index
+        if self._verbose: log_start(self, '_tmp_219')
+        literal = self.expect_type(23)
+        if literal:
+            return literal
+        self._index = mark
+        literal = self.expect_type(53)
+        if literal:
+            return literal
+        self._index = mark
+        return None
+
+    def _tmp_220(self): # type Optional[Any]
+        # _tmp_220: ',' star_expression
+        mark = self._index
+        if self._verbose: log_start(self, '_tmp_220')
         literal = self.expect_type(12)
         if literal:
             c = self.star_expression()
@@ -8682,10 +8765,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_219(self): # type Optional[Any]
-        # _tmp_219: ',' expression
+    def _tmp_221(self): # type Optional[Any]
+        # _tmp_221: ',' expression
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_219')
+        if self._verbose: log_start(self, '_tmp_221')
         literal = self.expect_type(12)
         if literal:
             c = self.expression()
@@ -8694,10 +8777,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_220(self): # type Optional[Any]
-        # _tmp_220: 'or' conjunction
+    def _tmp_222(self): # type Optional[Any]
+        # _tmp_222: 'or' conjunction
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_220')
+        if self._verbose: log_start(self, '_tmp_222')
         literal = self.expect_type(530)
         if literal:
             c = self.conjunction()
@@ -8706,10 +8789,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_221(self): # type Optional[Any]
-        # _tmp_221: 'and' inversion
+    def _tmp_223(self): # type Optional[Any]
+        # _tmp_223: 'and' inversion
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_221')
+        if self._verbose: log_start(self, '_tmp_223')
         literal = self.expect_type(531)
         if literal:
             c = self.inversion()
@@ -8718,10 +8801,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_222(self): # type Optional[Any]
-        # _tmp_222: slice | starred_expression
+    def _tmp_224(self): # type Optional[Any]
+        # _tmp_224: slice | starred_expression
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_222')
+        if self._verbose: log_start(self, '_tmp_224')
         slice = self.slice()
         if slice:
             return slice
@@ -8732,61 +8815,49 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_223(self): # type Optional[Any]
-        # _tmp_223: 'if' disjunction
-        mark = self._index
-        if self._verbose: log_start(self, '_tmp_223')
-        literal = self.expect_type(509)
-        if literal:
-            z = self.disjunction()
-            if z:
-                return z
-        self._index = mark
-        return None
-
-    def _tmp_224(self): # type Optional[Any]
-        # _tmp_224: 'if' disjunction
-        mark = self._index
-        if self._verbose: log_start(self, '_tmp_224')
-        literal = self.expect_type(509)
-        if literal:
-            z = self.disjunction()
-            if z:
-                return z
-        self._index = mark
-        return None
-
     def _tmp_225(self): # type Optional[Any]
-        # _tmp_225: starred_expression | (assignment_expression | expression !':=') !'='
+        # _tmp_225: 'if' disjunction
         mark = self._index
         if self._verbose: log_start(self, '_tmp_225')
-        starred_expression = self.starred_expression()
-        if starred_expression:
-            return starred_expression
-        self._index = mark
-        _tmp_237 = self._tmp_237()
-        if _tmp_237:
-            if self.negative_lookahead(PythonParser.expect_type, 22):
-                return _tmp_237
+        literal = self.expect_type(509)
+        if literal:
+            z = self.disjunction()
+            if z:
+                return z
         self._index = mark
         return None
 
     def _tmp_226(self): # type Optional[Any]
-        # _tmp_226: ',' star_target
+        # _tmp_226: 'if' disjunction
         mark = self._index
         if self._verbose: log_start(self, '_tmp_226')
-        literal = self.expect_type(12)
+        literal = self.expect_type(509)
         if literal:
-            c = self.star_target()
-            if c:
-                return c
+            z = self.disjunction()
+            if z:
+                return z
         self._index = mark
         return None
 
     def _tmp_227(self): # type Optional[Any]
-        # _tmp_227: ',' star_target
+        # _tmp_227: starred_expression | (assignment_expression | expression !':=') !'='
         mark = self._index
         if self._verbose: log_start(self, '_tmp_227')
+        starred_expression = self.starred_expression()
+        if starred_expression:
+            return starred_expression
+        self._index = mark
+        _tmp_239 = self._tmp_239()
+        if _tmp_239:
+            if self.negative_lookahead(PythonParser.expect_type, 22):
+                return _tmp_239
+        self._index = mark
+        return None
+
+    def _tmp_228(self): # type Optional[Any]
+        # _tmp_228: ',' star_target
+        mark = self._index
+        if self._verbose: log_start(self, '_tmp_228')
         literal = self.expect_type(12)
         if literal:
             c = self.star_target()
@@ -8795,34 +8866,46 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_228(self): # type Optional[Any]
-        # _tmp_228: star_targets '='
-        mark = self._index
-        if self._verbose: log_start(self, '_tmp_228')
-        star_targets = self.star_targets()
-        if star_targets:
-            literal = self.expect_type(22)
-            if literal:
-                return self.dummy_name()
-        self._index = mark
-        return None
-
     def _tmp_229(self): # type Optional[Any]
-        # _tmp_229: star_targets '='
+        # _tmp_229: ',' star_target
         mark = self._index
         if self._verbose: log_start(self, '_tmp_229')
-        star_targets = self.star_targets()
-        if star_targets:
-            literal = self.expect_type(22)
-            if literal:
-                return self.dummy_name()
+        literal = self.expect_type(12)
+        if literal:
+            c = self.star_target()
+            if c:
+                return c
         self._index = mark
         return None
 
     def _tmp_230(self): # type Optional[Any]
-        # _tmp_230: ')' | '**'
+        # _tmp_230: star_targets '='
         mark = self._index
         if self._verbose: log_start(self, '_tmp_230')
+        star_targets = self.star_targets()
+        if star_targets:
+            literal = self.expect_type(22)
+            if literal:
+                return self.dummy_name()
+        self._index = mark
+        return None
+
+    def _tmp_231(self): # type Optional[Any]
+        # _tmp_231: star_targets '='
+        mark = self._index
+        if self._verbose: log_start(self, '_tmp_231')
+        star_targets = self.star_targets()
+        if star_targets:
+            literal = self.expect_type(22)
+            if literal:
+                return self.dummy_name()
+        self._index = mark
+        return None
+
+    def _tmp_232(self): # type Optional[Any]
+        # _tmp_232: ')' | '**'
+        mark = self._index
+        if self._verbose: log_start(self, '_tmp_232')
         literal = self.expect_type(8)
         if literal:
             return literal
@@ -8833,10 +8916,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_231(self): # type Optional[Any]
-        # _tmp_231: ':' | '**'
+    def _tmp_233(self): # type Optional[Any]
+        # _tmp_233: ':' | '**'
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_231')
+        if self._verbose: log_start(self, '_tmp_233')
         literal = self.expect_type(11)
         if literal:
             return literal
@@ -8844,28 +8927,6 @@ class PythonParser(Parser):
         literal = self.expect_type(36)
         if literal:
             return literal
-        self._index = mark
-        return None
-
-    def _tmp_232(self): # type Optional[Any]
-        # _tmp_232: expression ['as' star_target]
-        mark = self._index
-        if self._verbose: log_start(self, '_tmp_232')
-        expression = self.expression()
-        if expression:
-            opt = self._tmp_238()
-            return self.dummy_name()
-        self._index = mark
-        return None
-
-    def _tmp_233(self): # type Optional[Any]
-        # _tmp_233: expressions ['as' star_target]
-        mark = self._index
-        if self._verbose: log_start(self, '_tmp_233')
-        expressions = self.expressions()
-        if expressions:
-            opt = self._tmp_239()
-            return self.dummy_name()
         self._index = mark
         return None
 
@@ -8892,9 +8953,31 @@ class PythonParser(Parser):
         return None
 
     def _tmp_236(self): # type Optional[Any]
-        # _tmp_236: 'as' NAME
+        # _tmp_236: expression ['as' star_target]
         mark = self._index
         if self._verbose: log_start(self, '_tmp_236')
+        expression = self.expression()
+        if expression:
+            opt = self._tmp_242()
+            return self.dummy_name()
+        self._index = mark
+        return None
+
+    def _tmp_237(self): # type Optional[Any]
+        # _tmp_237: expressions ['as' star_target]
+        mark = self._index
+        if self._verbose: log_start(self, '_tmp_237')
+        expressions = self.expressions()
+        if expressions:
+            opt = self._tmp_243()
+            return self.dummy_name()
+        self._index = mark
+        return None
+
+    def _tmp_238(self): # type Optional[Any]
+        # _tmp_238: 'as' NAME
+        mark = self._index
+        if self._verbose: log_start(self, '_tmp_238')
         literal = self.expect_type(521)
         if literal:
             name = self.name()
@@ -8903,10 +8986,10 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def _tmp_237(self): # type Optional[Any]
-        # _tmp_237: assignment_expression | expression !':='
+    def _tmp_239(self): # type Optional[Any]
+        # _tmp_239: assignment_expression | expression !':='
         mark = self._index
-        if self._verbose: log_start(self, '_tmp_237')
+        if self._verbose: log_start(self, '_tmp_239')
         assignment_expression = self.assignment_expression()
         if assignment_expression:
             return assignment_expression
@@ -8915,30 +8998,6 @@ class PythonParser(Parser):
         if expression:
             if self.negative_lookahead(PythonParser.expect_type, 54):
                 return expression
-        self._index = mark
-        return None
-
-    def _tmp_238(self): # type Optional[Any]
-        # _tmp_238: 'as' star_target
-        mark = self._index
-        if self._verbose: log_start(self, '_tmp_238')
-        literal = self.expect_type(521)
-        if literal:
-            star_target = self.star_target()
-            if star_target:
-                return self.dummy_name()
-        self._index = mark
-        return None
-
-    def _tmp_239(self): # type Optional[Any]
-        # _tmp_239: 'as' star_target
-        mark = self._index
-        if self._verbose: log_start(self, '_tmp_239')
-        literal = self.expect_type(521)
-        if literal:
-            star_target = self.star_target()
-            if star_target:
-                return self.dummy_name()
         self._index = mark
         return None
 
@@ -8958,6 +9017,30 @@ class PythonParser(Parser):
         # _tmp_241: 'as' star_target
         mark = self._index
         if self._verbose: log_start(self, '_tmp_241')
+        literal = self.expect_type(521)
+        if literal:
+            star_target = self.star_target()
+            if star_target:
+                return self.dummy_name()
+        self._index = mark
+        return None
+
+    def _tmp_242(self): # type Optional[Any]
+        # _tmp_242: 'as' star_target
+        mark = self._index
+        if self._verbose: log_start(self, '_tmp_242')
+        literal = self.expect_type(521)
+        if literal:
+            star_target = self.star_target()
+            if star_target:
+                return self.dummy_name()
+        self._index = mark
+        return None
+
+    def _tmp_243(self): # type Optional[Any]
+        # _tmp_243: 'as' star_target
+        mark = self._index
+        if self._verbose: log_start(self, '_tmp_243')
         literal = self.expect_type(521)
         if literal:
             star_target = self.star_target()

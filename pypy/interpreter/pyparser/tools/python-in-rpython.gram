@@ -301,7 +301,7 @@ function_def[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
 
 function_def_raw[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
     | invalid_def_raw
-    | 'def' n=NAME '(' params=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
+    | 'def' n=NAME &&'(' params=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
         ast.FunctionDef(
             name=self.extract_id(n),
             args=params or self.make_arguments(None, None, None, [], None),
@@ -312,7 +312,7 @@ function_def_raw[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
             LOCATIONS,
         )
      }
-    | ASYNC 'def' n=NAME '(' params=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
+    | ASYNC 'def' n=NAME &&'(' params=[params] ')' a=['->' z=expression { z }] &&':' tc=[func_type_comment] b=block {
        self.check_version(
             (3, 5),
             "Async functions are",
@@ -1002,7 +1002,9 @@ lambda_star_etc[StarEtc]:
     | a=lambda_kwds { self.make_star_etc(None, None, a) }
     | invalid_lambda_star_etc
 
-lambda_kwds[ast.arg]: '**' a=lambda_param_no_default { a }
+lambda_kwds[ast.arg]:
+    | invalid_lambda_kwds
+    | '**' a=lambda_param_no_default { a }
 
 lambda_param_no_default[ast.arg]:
     | a=lambda_param ',' { a }
@@ -1118,6 +1120,7 @@ kwargs[list]:
 
 starred_expression:
     | '*' a=expression { ast.Starred(value=a, ctx=Load, LOCATIONS) }
+    | '*' { self.raise_syntax_error("Invalid star expression") }
 
 kwarg_or_starred:
     | invalid_kwarg
@@ -1410,6 +1413,10 @@ invalid_lambda_star_etc[NoReturn]:
     | '*' (':' | ',' (':' | '**')) {
         self.raise_syntax_error("named arguments must follow bare *")
      }
+invalid_lambda_kwds:
+    | '**' lambda_param a='=' { self.raise_syntax_error_known_location("var-keyword argument cannot have default value", a) }
+    | '**' lambda_param ',' a=lambda_param { self.raise_syntax_error_known_location("arguments cannot follow var-keyword argument", a) }
+    | '**' lambda_param ',' a[Token*]=('*'|'**'|'/') { self.raise_syntax_error_known_location("arguments cannot follow var-keyword argument", a) }
 invalid_double_type_comments[NoReturn]:
     | TYPE_COMMENT NEWLINE TYPE_COMMENT NEWLINE INDENT {
         self.raise_syntax_error("Cannot have two type comments on def")
@@ -1470,6 +1477,7 @@ invalid_except_stmt[None]:
      }
     | a='except' expression ['as' NAME ] n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
     | a='except' n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
+    | a='except' '*' (NEWLINE | ':') { self.raise_syntax_error("expected one or more exception types") }
 invalid_finally_stmt[NoReturn]:
     | a='finally' ':' NEWLINE !INDENT {
         self.raise_indentation_error(
