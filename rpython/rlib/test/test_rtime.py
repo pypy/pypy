@@ -57,7 +57,7 @@ class TestTime(BaseRtypingTest):
         assert t1 - t0 >= 0.15
 
     def test_clock_gettime(self):
-        if not rtime.HAS_CLOCK_GETTIME:
+        if not rtime.HAS_CLOCK_GETTIME_RUNTIME:
             py.test.skip("no clock_gettime()")
         lst = []
         for i in range(50):
@@ -70,7 +70,7 @@ class TestTime(BaseRtypingTest):
         assert lst == sorted(lst)
 
     def test_clock_getres(self):
-        if not rtime.HAS_CLOCK_GETTIME:
+        if not rtime.HAS_CLOCK_GETTIME_RUNTIME:
             py.test.skip("no clock_gettime()")
         lst = []
         with lltype.scoped_alloc(rtime.TIMESPEC) as a1:

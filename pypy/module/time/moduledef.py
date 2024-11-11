@@ -28,7 +28,7 @@ class Module(MixedModule):
         '_get_time_info': 'interp_time._get_time_info',
     }
 
-    if rtime.HAS_CLOCK_GETTIME:
+    if rtime.HAS_CLOCK_GETTIME_RUNTIME:
         interpleveldefs['clock_gettime'] = 'interp_time.clock_gettime'
         interpleveldefs['clock_gettime_ns'] = 'interp_time.clock_gettime_ns'
         interpleveldefs['clock_settime'] = 'interp_time.clock_settime'
