@@ -15,16 +15,6 @@ class BuildersModule(MixedModule):
         "BytesBuilder": "interp_builders.W_BytesBuilder",
     }
 
-class TimeModule(MixedModule):
-    appleveldefs = {}
-    interpleveldefs = {}
-    if rtime.HAS_CLOCK_GETTIME:
-        interpleveldefs["clock_gettime"] = "interp_time.clock_gettime"
-        interpleveldefs["clock_getres"] = "interp_time.clock_getres"
-        for name in rtime.ALL_DEFINED_CLOCKS:
-            interpleveldefs[name] = "space.wrap(%d)" % getattr(rtime, name)
-
-
 class ThreadModule(MixedModule):
     appleveldefs = {
         'signals_enabled': 'app_signal.signals_enabled',
