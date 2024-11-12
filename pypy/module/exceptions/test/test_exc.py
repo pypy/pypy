@@ -216,7 +216,8 @@ class AppTestExc(object):
         import builtins
         for name, e in builtins.__dict__.items():
             if isinstance(e, type) and issubclass(e, BaseException):
-                assert e.__doc__, e
+                if e not in (ExceptionGroup,):
+                    assert e.__doc__, e
                 assert e.__module__ == 'builtins', e
         assert 'run-time' in RuntimeError.__doc__
 

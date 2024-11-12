@@ -1466,7 +1466,7 @@ class AppTestOptimizer(object):
         finally:
             sys.stdout = out
         output = s.getvalue()
-        assert "CALL_METHOD" in output
+        assert "CALL_METHOD" in output, output
 
     def test_interned_strings(self):
         source = """x = ('foo_bar42', 5); y = 'foo_bar42'; z = x[0]"""
