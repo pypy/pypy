@@ -344,8 +344,12 @@ def get_instructions(x, *, first_line=None, show_caches=False, adaptive=False):
         line_offset = first_line - co.co_firstlineno
     else:
         line_offset = 0
+    try:
+        varname_from_oparg = co._varname_from_oparg
+    except AttributeError:
+        varname_from_oparg = None
     return _get_instructions_bytes(_get_code_array(co, adaptive),
-                                   co._varname_from_oparg,
+                                   varname_from_oparg,
                                    co.co_names, co.co_consts,
                                    linestarts, line_offset,
                                    co_positions=co.co_positions(),
@@ -720,8 +724,12 @@ class Bytecode:
 
     def __iter__(self):
         co = self.codeobj
+        try:
+            varname_from_oparg = co._varname_from_oparg
+        except AttributeError:
+            varname_from_oparg = None
         return _get_instructions_bytes(_get_code_array(co, self.adaptive),
-                                       co._varname_from_oparg,
+                                       varname_from_oparg,
                                        co.co_names, co.co_consts,
                                        self._linestarts,
                                        line_offset=self._line_offset,
