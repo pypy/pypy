@@ -802,6 +802,8 @@ class TestSSL(test_utils.TestCase):
         # No garbage is left for SSL client from loop.create_connection, even
         # if user stores the SSLTransport in corresponding protocol instance
         client_context = weakref.ref(client_context)
+        # PYPY: add gc.collect
+        support.gc_collect()
         self.assertIsNone(client_context())
 
     def test_start_tls_client_buf_proto_1(self):
@@ -1482,6 +1484,8 @@ class TestSSL(test_utils.TestCase):
             self.loop.run_until_complete(test(ctx))
             ctx = weakref.ref(ctx)
 
+        # PYPY: add gc.collect
+        support.gc_collect()
         # SSLProtocol should be DECREF to 0
         self.assertIsNone(ctx())
 
@@ -1741,3 +1745,7 @@ class TestThreadedServer(SocketThread):
     @property
     def addr(self):
         return self._sock.getsockname()
+
+
+if __name__ == '__main__':
+    unittest.main()
