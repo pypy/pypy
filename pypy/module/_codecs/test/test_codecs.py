@@ -1572,3 +1572,9 @@ class AppTestPartialEvaluation:
             encoded = input.encode(enc, "test.bug36819")
             assert encoded.decode(enc) == "abcdx" * 51
 
+    def test_invalid(self):
+        import _codecs
+        with raises(ValueError):
+            _codecs.lookup_error('utf8\0')
+        with raises(ValueError):
+            _codecs.lookup('utf8\0')

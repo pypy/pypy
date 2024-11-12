@@ -195,7 +195,7 @@ def normalize(encoding):
 
 
 
-@unwrap_spec(encoding='text')
+@unwrap_spec(encoding='text0')
 def lookup_codec(space, encoding):
     """lookup(encoding) -> (encoder, decoder, stream_reader, stream_writer)
     Looks up a codec tuple in the Python codec registry and returns
@@ -594,7 +594,7 @@ def _call_codec(space, w_coder, w_obj, action, encoding, errors):
                     "%s must return a tuple (object, integer)", action)
     return space.getitem(w_res, space.newint(0))
 
-@unwrap_spec(errors='text')
+@unwrap_spec(errors='text0')
 def lookup_error(space, errors):
     """lookup_error(errors) -> handler
 
