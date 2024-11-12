@@ -722,11 +722,12 @@ class _SSLSocket(object):
         sock = self.get_socket_or_connection_gone()
 
         mem = ffi.from_buffer(buffer_into)
-        if length <= 0 or length > len(buffer_into):
-            length = len(buffer_into)
+        max_mem = len(mem)
+        if length <= 0 or length > max_mem:
+            length = max_mem
             if length > _MAX_INT:
                 raise OverflowError("maximum length can't fit in a C 'int'")
-            if len(buffer_into) == 0:
+            if max_mem == 0:
                 return 0
 
         if sock:
@@ -837,6 +838,8 @@ class _SSLSocket(object):
 
     def version(self):
         if self.ssl == ffi.NULL:
+            return None
+        if not lib.SSL_is_init_finished(self.ssl):
             return None
         version = _str_from_buf(lib.SSL_get_version(self.ssl))
         if version == "unknown":
@@ -1263,7 +1266,10 @@ class _SSLContext(object):
             lib.SSL_OP_NO_SSLv2 | lib.SSL_OP_NO_SSLv3 | lib.SSL_OP_NO_TLSv1 |
             lib.SSL_OP_NO_TLSv1_1 | lib.SSL_OP_NO_TLSv1_2 | lib.SSL_OP_NO_TLSv1_3
         )
-        new_opts = int(value)
+        try:
+            new_opts = int(value)
+        except ValueError:
+            raise TypeError(f"argument must be int, not '{type(value).__name__}'") from None
         opts = lib.SSL_CTX_get_options(self.ctx)
         clear = opts & ~new_opts
         set = ~opts & new_opts
@@ -2031,9 +2037,8 @@ class MemoryBIO(object):
     def write(self, strlike):
         INT_MAX = 2**31-1
         if isinstance(strlike, memoryview):
-            # FIXME pypy must support get_raw_address for
-            # StringBuffer to remove this case!
-            strlike = strlike.tobytes()
+            if not strlike.c_contiguous:
+                raise BufferError("memoryview: underlying buffer is not C-contiguous")
         buf = ffi.from_buffer(strlike)
         if len(buf) > INT_MAX:
             raise OverflowError("string longer than %d bytes", INT_MAX)

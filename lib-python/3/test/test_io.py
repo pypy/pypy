@@ -51,6 +51,8 @@ import io  # C implementation of io
 import _pyio as pyio # Python implementation of io
 
 try:
+    if '__pypy__' in sys.builtin_module_names:
+        raise ImportError    # don't use ctypes, missing ctypes.resize()
     import ctypes
 except ImportError:
     def byteslike(*pos, **kw):
@@ -1649,7 +1651,8 @@ class CBufferedReaderTest(BufferedReaderTest, SizeofTest):
 
     def test_args_error(self):
         # Issue #17275
-        with self.assertRaisesRegex(TypeError, "BufferedReader"):
+        #PyPy: error message has __init__
+        with self.assertRaisesRegex(TypeError, "BufferedReader|__init__"):
             self.tp(io.BytesIO(), 1024, 1024, 1024)
 
     def test_bad_readinto_value(self):
@@ -1664,9 +1667,14 @@ class CBufferedReaderTest(BufferedReaderTest, SizeofTest):
         rawio = io.BufferedReader(io.BytesIO(b"12"))
         rawio.readinto = lambda buf: b''
         bufio = self.tp(rawio)
-        with self.assertRaises(OSError) as cm:
-            bufio.readline()
-        self.assertIsInstance(cm.exception.__cause__, TypeError)
+        if sys.implementation.name == 'pypy':
+            with self.assertRaises(TypeError) as cm:
+                bufio.readline()
+            self.assertIsNone(cm.exception.__cause__)
+        else:
+            with self.assertRaises(OSError) as cm:
+                bufio.readline()
+            self.assertIsInstance(cm.exception.__cause__, TypeError)
 
 
 class PyBufferedReaderTest(BufferedReaderTest):
@@ -2013,7 +2021,8 @@ class CBufferedWriterTest(BufferedWriterTest, SizeofTest):
 
     def test_args_error(self):
         # Issue #17275
-        with self.assertRaisesRegex(TypeError, "BufferedWriter"):
+        #PyPy: error message has __init__
+        with self.assertRaisesRegex(TypeError, "BufferedWriter|__init__"):
             self.tp(io.BytesIO(), 1024, 1024, 1024)
 
 
@@ -2511,7 +2520,8 @@ class CBufferedRandomTest(BufferedRandomTest, SizeofTest):
 
     def test_args_error(self):
         # Issue #17275
-        with self.assertRaisesRegex(TypeError, "BufferedRandom"):
+        #PyPy: error message has __init__
+        with self.assertRaisesRegex(TypeError, "BufferedRandom|__init__"):
             self.tp(io.BytesIO(), 1024, 1024, 1024)
 
 
@@ -2687,14 +2697,16 @@ class TextIOWrapperTest(unittest.TestCase):
         invalid_type = TypeError if self.is_C else ValueError
         with self.assertRaises(invalid_type):
             t.__init__(b, encoding=42)
-        with self.assertRaises(UnicodeEncodeError):
+        # PyPy: tweak these errors
+        # These should really be moved to codec tests...
+        with self.assertRaises((UnicodeEncodeError, LookupError)):
             t.__init__(b, encoding='\udcfe')
         with self.assertRaises(ValueError):
             t.__init__(b, encoding='utf-8\0')
         with self.assertRaises(invalid_type):
             t.__init__(b, encoding="utf-8", errors=42)
         if support.Py_DEBUG or sys.flags.dev_mode or self.is_C:
-            with self.assertRaises(UnicodeEncodeError):
+            with self.assertRaises((UnicodeEncodeError, LookupError)):
                 t.__init__(b, encoding="utf-8", errors='\udcfe')
         if support.Py_DEBUG or sys.flags.dev_mode or self.is_C:
             with self.assertRaises(ValueError):
@@ -3757,7 +3769,8 @@ class TextIOWrapperTest(unittest.TestCase):
 
     def test_reconfigure_errors(self):
         txt = self.TextIOWrapper(self.BytesIO(), 'ascii', 'replace', '\r')
-        with self.assertRaises(TypeError):  # there was a crash
+        # PyPy: add LookupError
+        with self.assertRaises((TypeError, LookupError)):  # there was a crash
             txt.reconfigure(encoding=42)
         if self.is_C:
             with self.assertRaises(UnicodeEncodeError):

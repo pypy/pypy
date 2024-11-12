@@ -4,7 +4,7 @@ import sys
 import unittest
 import unittest.mock
 from test import support
-from test.support import cpython_only
+from test.support import cpython_only, impl_detail
 from test.support import import_helper
 from test.support import os_helper
 from test.support import socket_helper
@@ -381,6 +381,7 @@ class BasicSocketTests(unittest.TestCase):
             with socket.socket() as s:
                 ssl.SSLSocket(s)
 
+    @impl_detail("pypy repr(IntEnum) is wrong", pypy=False)
     def test_str_for_enums(self):
         # Make sure that the PROTOCOL_* constants have enum-like string
         # reprs.
@@ -2667,14 +2668,6 @@ class ThreadedEchoServer(threading.Thread):
                             )
                         else:
                             handle_error("Test server failure:\n")
-                    if 'UNEXPECTED_EOF_WHILE_READING' == e.reason:
-                        # PyPy OpenSSL3 needs this, on CPython a
-                        # BrokenPipeError is raised which is caught as an
-                        # OSError. In this case do not stop the server.
-                        if self.server.chatty:
-                            handle_error("Test server failure:\n")
-                        self.close()
-                        self.running = False
                     try:
                         self.write(b"ERROR\n")
                     except OSError:
