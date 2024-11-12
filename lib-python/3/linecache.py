@@ -54,16 +54,17 @@ def checkcache(filename=None):
     (This is not checked upon each call!)"""
 
     if filename is None:
-        filenames = list(cache.keys())
+        filenames = cache.copy().keys()
     elif filename in cache:
         filenames = [filename]
     else:
         return
 
     for filename in filenames:
-        entry = cache[filename]
-        if len(entry) == 1:
-            # lazy cache entry, leave it lazy.
+        # PyPy modification: be careful about disappearing cache keys
+        entry = cache.get(filename)
+        if entry is None or len(entry) == 1:
+            # deleted or lazy cache entry, leave it lazy.
             continue
         size, mtime, lines, fullname = entry
         if mtime is None:
