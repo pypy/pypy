@@ -44,16 +44,21 @@ def zlib_error(space, msg):
     return OperationError(w_error, space.newtext(msg))
 
 
-@unwrap_spec(data='bufferstr', level=int)
-def compress(space, data, level=rzlib.Z_DEFAULT_COMPRESSION):
+@unwrap_spec(data='bufferstr', level=int, wbits=int)
+def compress(space, data, __posonly__=None, level=rzlib.Z_DEFAULT_COMPRESSION, wbits=rzlib.MAX_WBITS):
     """
-    compress(data[, level]) -- Returned compressed string.
+    Returns a bytes object containing compressed data.
 
-    Optional arg level is the compression level, in 1-9.
+    data
+      Binary data to be compressed.
+    level
+      Compression level, in 0-9 or -1.
+    wbits
+      The window buffer size and container format.
     """
     try:
         try:
-            stream = rzlib.deflateInit(level)
+            stream = rzlib.deflateInit(level=level, wbits=wbits)
         except ValueError:
             raise zlib_error(space, "Bad compression level")
         try:
@@ -66,7 +71,7 @@ def compress(space, data, level=rzlib.Z_DEFAULT_COMPRESSION):
 
 
 @unwrap_spec(string='bufferstr', wbits="c_int", bufsize=int)
-def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
+def decompress(space, string, __posonly__=None, wbits=rzlib.MAX_WBITS, bufsize=0):
     """
     decompress(string[, wbits[, bufsize]]) -- Return decompressed string.
 
@@ -282,7 +287,7 @@ class Decompress(ZLibObject):
             self.unconsumed_tail = tail
 
     @unwrap_spec(data='bufferstr', max_length=int)
-    def decompress(self, space, data, max_length=0):
+    def decompress(self, space, data, __posonly__=None, max_length=0):
         """
         decompress(data[, max_length]) -- Return a string containing the
         decompressed version of the data.
