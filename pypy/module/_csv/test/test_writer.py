@@ -90,3 +90,19 @@ class AppTestWriter(object):
     def test_writerows(self):
         self._write_test([['a'],['b','c']], 'a\r\nb,c')
 
+    def test_write_lineterminator(self):
+        r"""
+        from io import StringIO
+        import csv
+        for lineterminator in '\r\n', '\n', '\r', '!@#', '\0':
+                with StringIO() as sio:
+                    writer = csv.writer(sio, lineterminator=lineterminator)
+                    writer.writerow(['a', 'b'])
+                    writer.writerow([1, 2])
+                    writer.writerow(['\r', '\n'])
+                    assert (sio.getvalue() ==
+                                     f'a,b{lineterminator}'
+                                     f'1,2{lineterminator}'
+                                     f'"\r","\n"{lineterminator}'
+                                     )
+        """

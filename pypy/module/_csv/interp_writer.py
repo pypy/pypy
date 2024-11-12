@@ -15,7 +15,7 @@ class W_Writer(W_Root):
         self.dialect = dialect
         self.w_filewrite = space.getattr(w_fileobj, space.newtext('write'))
         # precompute this
-        special = [dialect.delimiter]
+        special = [dialect.delimiter, ord('\r'), ord('\n')]
         for c in Utf8StringIterator(dialect.lineterminator):
             special.append(c)
         if dialect.escapechar != 0:
