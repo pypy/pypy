@@ -102,7 +102,10 @@ class CodecState(object):
                     raise oefmt(space.w_ValueError,
                             "error handler modified exc.object must be str")
                 obj = space.utf8_w(w_obj)
-            return space.utf8_w(w_replace), newpos, rettype, obj, w_obj
+            if rettype == 'b':
+                return space.bytes_w(w_replace), newpos, rettype, obj, w_obj
+            else:
+                return space.utf8_w(w_replace), newpos, rettype, obj, w_obj
         return call_errorhandler
 
     def make_decode_errorhandler(self, space):

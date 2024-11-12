@@ -9,7 +9,7 @@ def wrap_pos(space, num):
 @specialize.memo()
 def make_replace_error_handler(space):
     def replace_error_handler(errors, encoding, msg, w_s, startpos, endpos):
-        return b'\xef\xbf\xbd', endpos, 'b', space.utf8_w(w_s), w_s
+        return b'\xef\xbf\xbd', endpos, 'b', space.bytes_w(w_s), w_s
     return replace_error_handler
 
 def _adjust_offset(space, offset, text, unilength):
