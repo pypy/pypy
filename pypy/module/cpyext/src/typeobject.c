@@ -113,12 +113,9 @@ PyType_IsSubtype(PyTypeObject *a, PyTypeObject *b)
 /* Get the module of the first superclass where the module has the
  * given PyModuleDef.
  * Implemented by walking the MRO, is relatively slow.
- *
- * This is internal API for experimentation within stdlib. Discussion:
- * https://mail.python.org/archives/list/capi-sig@python.org/thread/T3P2QNLNLBRFHWSKYSTPMVEIL2EEKFJU/
  */
 PyObject *
-_PyType_GetModuleByDef(PyTypeObject *type, struct PyModuleDef *def)
+PyType_GetModuleByDef(PyTypeObject *type, struct PyModuleDef *def)
 {
     assert(PyType_Check(type));
     PyObject *mro = type->tp_mro;
@@ -131,7 +128,7 @@ _PyType_GetModuleByDef(PyTypeObject *type, struct PyModuleDef *def)
     Py_ssize_t n = PyTuple_GET_SIZE(mro);
     for (Py_ssize_t i = 0; i < n; i++) {
         PyObject *super = PyTuple_GET_ITEM(mro, i);
-        // _PyType_GetModuleByDef() must only be called on a heap type created
+        // PyType_GetModuleByDef() must only be called on a heap type created
         // by PyType_FromModuleAndSpec() or on its subclasses.
         // type_ready_mro() ensures that a static type cannot inherit from a
         // heap type.
@@ -149,7 +146,7 @@ _PyType_GetModuleByDef(PyTypeObject *type, struct PyModuleDef *def)
     }
     PyErr_Format(
         PyExc_TypeError,
-        "_PyType_GetModuleByDef: No superclass of '%s' has the given module",
+        "PyType_GetModuleByDef: No superclass of '%s' has the given module",
         type->tp_name);
     return NULL;
 }
