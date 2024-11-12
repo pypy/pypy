@@ -999,13 +999,13 @@ class TestUnicode(BaseApiTest):
         w_input = space.newtext("test", 4)
         with rffi.scoped_str2charp('strict') as errors:
             w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
-            assert space.utf8_w(w_ret) == 'test'
+            assert space.bytes_w(w_ret) == b'test'
         with rffi.scoped_str2charp(None) as errors:
             w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
-            assert space.utf8_w(w_ret) == 'test'
+            assert space.bytes_w(w_ret) == b'test'
         with rffi.scoped_str2charp('surrogateescape') as errors:
             w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
-            assert space.utf8_w(w_ret) == 'test'
+            assert space.bytes_w(w_ret) == b'test'
         # 'errors' is invalid
         with rffi.scoped_str2charp('something else') as errors:
             with pytest.raises(OperationError):
