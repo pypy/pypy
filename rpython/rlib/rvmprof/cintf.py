@@ -27,7 +27,7 @@ if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('fre
         IS_SUPPORTED = (proc.startswith('x86')
                         or proc == 'aarch64'
                         or proc == 'riscv64')
-        NATIVE_PROFILING_SUPPORTED = proc.startswith('x86')# or proc.startswith('ppc-64')
+        NATIVE_PROFILING_SUPPORTED = proc.startswith('x86')
     except detect_cpu.ProcessorAutodetectError:
         print("PROCESSOR NOT DETECTED, SKIPPING VMPROF")
 

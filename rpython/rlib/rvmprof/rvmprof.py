@@ -195,7 +195,7 @@ class VMProf(object):
         Resolve name, lineno and source file for an address of a native function
         """
         if not self.supports_native_profiling():
-            return ("", -1, "-")
+            return ("", 0, "-")
 
         with rffi.scoped_alloc_buffer(256) as namebuffer, \
                 rffi.scoped_alloc_buffer(256) as sourcefilebuffer, \
@@ -207,9 +207,9 @@ class VMProf(object):
                     intbuffer[0] = rffi.cast(rffi.INT_real, 0)
                     length = rffi.cast(rffi.INT, 256)
                     res = self.cintf.vmprof_resolve_address(rffi.cast(rffi.VOIDP, addr), namebuffer.raw, length, intbuffer, sourcefilebuffer.raw, length)
-        
-                    #if res != 0:
-                    #    return (None, rffi.cast(rffi.SIGNED, -1), None)
+                    
+                    if rffi.cast(lltype.Signed, res) != 0:
+                        return ("", 0, "-")
                     
                     return (rffi.charp2str(namebuffer.raw), rffi.cast(rffi.SIGNED, intbuffer[0]), rffi.charp2str(sourcefilebuffer.raw))
 

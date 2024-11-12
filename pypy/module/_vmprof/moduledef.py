@@ -22,7 +22,7 @@ class Module(MixedModule):
         'VMProfError': 'space.fromcache(interp_vmprof.Cache).w_VMProfError',
     }
     if rvmprof.supports_native_profiling():
-        interpleveldefs.update({'resolve_addr': 'interp_vmprof.vmprof_resolve_address'})
+        interpleveldefs['resolve_addr']= 'interp_vmprof.vmprof_resolve_address'
 
 
 # Force the __extend__ hacks and method replacements to occur
