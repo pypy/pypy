@@ -79,9 +79,6 @@ class W_Reader(W_Root):
                                  "(did you open the file in text mode?")
             line = space.utf8_w(w_line)
             for c in Utf8StringIterator(line):
-                if c == 0:
-                    raise self.error("line contains NULL byte")
-
                 if state == START_RECORD:
                     if c == ord(u'\n') or c == ord(u'\r'):
                         state = EAT_CRNL
@@ -188,9 +185,8 @@ class W_Reader(W_Root):
 
                 elif state == EAT_CRNL:
                     if not (c == ord(u'\n') or c == ord(u'\r')):
-                        raise self.error("new-line character seen in unquoted "
-                                         "field - do you need to open the file "
-                                         "in universal-newline mode?")
+                        raise self.error("new-line character seen in unquoted field - "
+                                         "do you need to open the file with newline=''?")
 
             if state == IN_FIELD or state == QUOTE_IN_QUOTED_FIELD:
                 self.save_field(field_builder)

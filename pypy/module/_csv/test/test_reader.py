@@ -39,11 +39,10 @@ class AppTestReader(object):
         self._read_test([], [])
         self._read_test([''], [[]])
         self._read_test(['"ab"c'], 'Error', strict = 1)
-        # cannot handle null bytes for the moment
-        self._read_test(['ab\0c'], 'Error', strict = 1)
         self._read_test(['"ab"c'], [['abc']], doublequote = 0)
 
     def test_read_eol(self):
+        import csv
         self._read_test(['a,b'], [['a','b']])
         self._read_test(['a,b\n'], [['a','b']])
         self._read_test(['a,b\r\n'], [['a','b']])
@@ -51,6 +50,10 @@ class AppTestReader(object):
         self._read_test(['a,b\rc,d'], 'Error')
         self._read_test(['a,b\nc,d'], 'Error')
         self._read_test(['a,b\r\nc,d'], 'Error')
+        errmsg = "with newline=''"
+        with raises(csv.Error) as info:
+            next(csv.reader(['a,b\rc,d']))
+        assert errmsg in str(info.value)
 
     def test_read_escape(self):
         self._read_test(['a,\\b,c'], [['a', 'b', 'c']], escapechar='\\')
@@ -59,6 +62,7 @@ class AppTestReader(object):
         self._read_test(['a,"b,\\c"'], [['a', 'b,c']], escapechar='\\')
         self._read_test(['a,"b,c\\""'], [['a', 'b,c"']], escapechar='\\')
         self._read_test(['a,"b,c"\\'], [['a', 'b,c\\']], escapechar='\\')
+        self._read_test(['a,\0b,c'], [['a', 'b', 'c']], escapechar='\0')
 
     def test_read_quoting(self):
         import _csv as csv
@@ -74,6 +78,7 @@ class AppTestReader(object):
         raises(ValueError, self._read_test,
                           ['abc,3'], [[]],
                           quoting=csv.QUOTE_NONNUMERIC)
+        self._read_test(['1,\0,3,\0,5'], [['1', ',3,', '5']], quotechar='\0')
 
     def test_read_bigfield(self):
         # This exercises the buffer realloc functionality and field size
@@ -118,3 +123,14 @@ class AppTestReader(object):
         self._read_test(['a,"'], 'Error', strict=True)
         self._read_test(['"a'], 'Error', strict=True)
         self._read_test(['^'], 'Error', escapechar='^', strict=True)
+
+    def test_read_nul(self):
+        self._read_test(['\0'], [['\0']])
+        self._read_test(['a,\0b,c'], [['a', '\0b', 'c']])
+        self._read_test(['a,b\0,c'], [['a', 'b\0', 'c']])
+        self._read_test(['a,b\\\0,c'], [['a', 'b\0', 'c']], escapechar='\\')
+        self._read_test(['a,"\0b",c'], [['a', '\0b', 'c']])
+
+
+    def test_read_nul_delimiter(self):
+        self._read_test(['a\0b\0c'], [['a', 'b', 'c']], delimiter='\0')
