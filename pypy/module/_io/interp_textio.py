@@ -49,11 +49,14 @@ def make_newlines_dict(space):
     }
 
 def io_check_errors(space, w_errors):
+    # Make sure w_errors is valid:
+    # - no \0
+    # - can be encoded into utf8, no surrogates
+    # - if dev_mode, is a valid error handler
+    errors = space.text0_w(w_errors)
+    space.encode_unicode_object(w_errors, 'utf8', 'strict')
     if not space.sys.get_flag('dev_mode'):
         return
-    # Will raise LookupError on garbage, which is the whole point of this
-    # function
-    errors = space.text_w(w_errors)
     interp_codecs.lookup_error(space, errors)
 
 class W_IncrementalNewlineDecoder(W_Root):
@@ -335,7 +338,10 @@ def text_encoding(space, w_encoding, stacklevel=2):
     """
     if space.is_none(w_encoding):
         _maybe_warn_encoding(space, stacklevel + 1)
-        return space.newtext("locale")
+        if space.sys.get_flag('utf8_mode') == 0:
+            return space.newtext("locale")
+        else:
+            return space.newtext("utf-8")
     return w_encoding
 
 def _maybe_warn_encoding(space, stacklevel=1):
@@ -588,7 +594,7 @@ class W_TextIOWrapper(W_TextIOBase):
                                               # of the stream
         self.snapshot = None
 
-    @unwrap_spec(encoding="text_or_none", line_buffering=int, write_through=int)
+    @unwrap_spec(encoding="text0_or_none", line_buffering=int, write_through=int)
     def descr_init(self, space, w_buffer, encoding=None,
                    w_errors=None, w_newline=None, line_buffering=0,
                    write_through=0):
@@ -688,6 +694,21 @@ class W_TextIOWrapper(W_TextIOBase):
         w_encoding = kwargs_w.pop("encoding", space.w_None)
         w_errors = kwargs_w.pop("errors", space.w_None)
         w_newline = kwargs_w.pop("newline", None)
+        if (not space.is_none(w_encoding) and
+            not space.isinstance_w(w_encoding, space.w_text)):
+            raise oefmt(space.w_TypeError,
+                "reconfigure argument 'encoding' must be str or None, not %T",
+                 w_encoding)
+        if (not space.is_none(w_errors) and
+            not space.isinstance_w(w_errors, space.w_text)):
+            raise oefmt(space.w_TypeError,
+                "reconfigure argument 'errors' must be str or None, not %T",
+                 w_errors)
+        if (not space.is_none(w_newline) and
+            not space.isinstance_w(w_newline, space.w_text)):
+            raise oefmt(space.w_TypeError,
+                "reconfigure argument 'newline' must be str or None, not %T",
+                 w_newline)
         w_line_buffering = kwargs_w.pop("line_buffering", space.w_None)
         w_write_through = kwargs_w.pop("write_through", space.w_None)
         if kwargs_w:
@@ -717,6 +738,8 @@ class W_TextIOWrapper(W_TextIOBase):
         space.call_method(self, "flush")
         if w_newline is not None:
             self._set_newline(newline)
+        if not space.is_none(w_errors):
+            io_check_errors(space, w_errors)
         # if encoding is specified but not errors, set errors to strict
         if not space.is_none(w_encoding):
             if space.is_none(w_errors):
@@ -724,6 +747,8 @@ class W_TextIOWrapper(W_TextIOBase):
         if not space.is_none(w_encoding) or not space.is_none(w_errors) or (w_newline is not None and self.readuniversal):
             if space.is_none(w_encoding):
                 w_encoding = self.w_encoding
+            elif space.eq_w(w_encoding, space.newtext("locale")):
+                w_encoding = space.newtext("utf-8")
             if space.is_none(w_errors):
                 w_errors = self.w_errors
             # NB we also need to call _set_encoder_decoder if the newline

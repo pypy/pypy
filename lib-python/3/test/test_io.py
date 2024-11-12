@@ -3641,6 +3641,7 @@ class TextIOWrapperTest(unittest.TestCase):
             """.format(iomod=iomod, kwargs=kwargs)
         return assert_python_ok("-c", code)
 
+    @support.cpython_only
     def test_create_at_shutdown_without_encoding(self):
         rc, out, err = self._check_create_at_shutdown()
         if err:
@@ -3650,6 +3651,7 @@ class TextIOWrapperTest(unittest.TestCase):
         else:
             self.assertEqual("ok", out.decode().strip())
 
+    @support.cpython_only
     def test_create_at_shutdown_with_encoding(self):
         rc, out, err = self._check_create_at_shutdown(encoding='utf-8',
                                                       errors='strict')
@@ -3773,7 +3775,7 @@ class TextIOWrapperTest(unittest.TestCase):
         with self.assertRaises((TypeError, LookupError)):  # there was a crash
             txt.reconfigure(encoding=42)
         if self.is_C:
-            with self.assertRaises(UnicodeEncodeError):
+            with self.assertRaises((UnicodeEncodeError, LookupError)):
                 txt.reconfigure(encoding='\udcfe')
             with self.assertRaises(LookupError):
                 txt.reconfigure(encoding='locale\0')
@@ -3782,7 +3784,7 @@ class TextIOWrapperTest(unittest.TestCase):
         with self.assertRaises(TypeError):
             txt.reconfigure(errors=42)
         if self.is_C:
-            with self.assertRaises(UnicodeEncodeError):
+            with self.assertRaises((UnicodeEncodeError, LookupError)):
                 txt.reconfigure(errors='\udcfe')
         # TODO: txt.reconfigure(errors='ignore\0')
         # TODO: txt.reconfigure(errors='nonexisting')

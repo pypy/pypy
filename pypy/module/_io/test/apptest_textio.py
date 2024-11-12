@@ -21,6 +21,7 @@ def test_constructor():
     assert t.readline() == "\xe9\n"
     raises(TypeError, t.__init__, b, newline=42)
     raises(ValueError, t.__init__, b, newline='xyzzy')
+    raises(UnicodeEncodeError, t.__init__, b, errors='\udcfe')
     t = _io.TextIOWrapper(b)
     assert t.encoding
 

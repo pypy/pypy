@@ -1730,8 +1730,12 @@ class ObjSpace(object):
 
         if self.isinstance_w(w_obj, self.w_unicode):
             return w_obj.charbuf_w(self)
+
     def text_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.text_w(w_obj)
+
+    def text0_or_none_w(self, w_obj):
+        return None if self.is_none(w_obj) else self.text0_w(w_obj)
 
     @specialize.argtype(1)
     def bytes_w(self, w_obj):
