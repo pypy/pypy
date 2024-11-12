@@ -289,6 +289,15 @@ class AppTestMarshal:
             # TYPE_ASCII but not actually ascii
             marshal.loads(b'a\x01\0\0\0\xff')
 
+    def test_list_recursive(self):
+        import marshal
+        l = []
+        l.append(l)
+        b = marshal.dumps(l)
+        l2 = marshal.loads(b)
+        assert len(l2) == 1
+        assert l2[0] is l2
+
 
 @pytest.mark.skipif('config.option.runappdirect or sys.maxint > 2 ** 32')
 class AppTestSmallLong(AppTestMarshal):
