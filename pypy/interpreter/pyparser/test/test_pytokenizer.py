@@ -60,7 +60,10 @@ class TestTokenizer(object):
 
 
     def test_unknown_char(self):
-        check_token_error("?", "Unknown character", 1)
+        check_token_error("?", "invalid character '?' (U+003F)", 1)
+        check_token_error("$", "invalid character '$' (U+0024)", 1)
+        check_token_error("⫛", "invalid character '⫛' (U+2ADB)", 1)
+        check_token_error("\x17", "invalid non-printable character U+0017", 1)
 
     def test_eol_string(self):
         check_token_error("x = 'a", pos=5, line=1)

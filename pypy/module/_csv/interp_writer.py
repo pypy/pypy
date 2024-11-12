@@ -4,7 +4,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.interpreter.typedef import interp_attrproperty_w
-from pypy.module._csv.interp_csv import _build_dialect
+from pypy.module._csv.interp_csv import _build_dialect, NOT_SET
 from pypy.module._csv.interp_csv import (QUOTE_MINIMAL, QUOTE_ALL,
                                          QUOTE_NONNUMERIC, QUOTE_NONE)
 
@@ -15,7 +15,7 @@ class W_Writer(W_Root):
         self.dialect = dialect
         self.w_filewrite = space.getattr(w_fileobj, space.newtext('write'))
         # precompute this
-        special = [dialect.delimiter]
+        special = [dialect.delimiter, ord('\r'), ord('\n')]
         for c in Utf8StringIterator(dialect.lineterminator):
             special.append(c)
         if dialect.escapechar != 0:
@@ -107,7 +107,7 @@ class W_Writer(W_Root):
                         if c == dialect.escapechar:
                             want_escape = True
                     if want_escape:
-                        if dialect.escapechar == 0:
+                        if dialect.escapechar == NOT_SET:
                             raise self.error("need to escape, "
                                              "but no escapechar set")
                         rec.append_code(dialect.escapechar)

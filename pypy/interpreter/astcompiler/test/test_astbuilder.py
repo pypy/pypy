@@ -2086,3 +2086,19 @@ class TestAstBuilding:
         assert tree.keywords[1].col_offset == 7
         assert tree.keywords[1].end_col_offset == 14
 
+    def test_invalid_star_expression(self):
+        input = "f(x = 5, *)"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast(input)
+        assert excinfo.value.msg == "Invalid star expression"
+
+    def test_invalid_except_star(self):
+        input = """
+try:
+    pass
+except*:
+    pass
+"""
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast(input)
+        assert excinfo.value.msg == "expected one or more exception types"
