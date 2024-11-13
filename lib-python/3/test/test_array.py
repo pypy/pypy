@@ -580,9 +580,12 @@ class BaseTest:
         )
 
         b = array.array(self.badtypecode())
-        self.assertRaises(TypeError, a.__add__, b)
-
-        self.assertRaises(TypeError, a.__add__, "bad")
+        if sys.implementation.name == 'pypy':
+            self.assertEqual(a.__add__(b), NotImplemented)
+            self.assertEqual(a.__add__("bad"), NotImplemented)
+        else:
+            self.assertRaises(TypeError, a.__add__, b)
+            self.assertRaises(TypeError, a.__add__, "bad")
 
     def test_iadd(self):
         a = array.array(self.typecode, self.example[::-1])
@@ -601,9 +604,12 @@ class BaseTest:
         )
 
         b = array.array(self.badtypecode())
-        self.assertRaises(TypeError, a.__add__, b)
-
-        self.assertRaises(TypeError, a.__iadd__, "bad")
+        if sys.implementation.name == 'pypy':
+            self.assertEqual(a.__iadd__(b), NotImplemented)
+            self.assertEqual(a.__iadd__("bad"), NotImplemented)
+        else:
+            self.assertRaises(TypeError, a.__iadd__, b)
+            self.assertRaises(TypeError, a.__iadd__, "bad")
 
     def test_mul(self):
         a = 5*array.array(self.typecode, self.example)
@@ -636,7 +642,10 @@ class BaseTest:
             array.array(self.typecode, [a[0]] * 5)
         )
 
-        self.assertRaises(TypeError, a.__mul__, "bad")
+        if sys.implementation.name == 'pypy':
+            self.assertEqual(a.__mul__("bad"), NotImplemented)
+        else:
+            self.assertRaises(TypeError, a.__mul__, "bad")
 
     def test_imul(self):
         a = array.array(self.typecode, self.example)
@@ -665,7 +674,10 @@ class BaseTest:
         a *= -1
         self.assertEqual(a, array.array(self.typecode))
 
-        self.assertRaises(TypeError, a.__imul__, "bad")
+        if sys.implementation.name == 'pypy':
+            self.assertEqual(a.__imul__("bad"), NotImplemented)
+        else:
+            self.assertRaises(TypeError, a.__imul__, "bad")
 
     def test_getitem(self):
         a = array.array(self.typecode, self.example)
