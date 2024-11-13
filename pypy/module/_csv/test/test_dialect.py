@@ -71,6 +71,26 @@ class AppTestDialect(object):
         exc_info = raises(TypeError, _csv.register_dialect, 'foo1', lineterminator=4)
         assert exc_info.value.args[0] == '"lineterminator" must be a string'
 
+    def test_typeerror_delimiter_message(self):
+        import _csv
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', delimiter=None)
+        assert str(exc_info.value) == '"delimiter" must be string, not NoneType'
+
+    def test_typeerror_empty_escapechar(self):
+        import _csv
+        _csv.register_dialect('foo1_escapechar', escapechar=None) # works
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', escapechar='')
+        print(str(exc_info.value))
+        assert str(exc_info.value) == '"escapechar" must be a 1-character string'
+
+    def test_typeerror_empty_quotechar_but_quoting(self):
+        import _csv
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', quotechar='', quoting=_csv.QUOTE_ALL)
+        assert str(exc_info.value) == '"quotechar" must be a 1-character string'
+        exc_info = raises(TypeError, _csv.reader, [], quoting=_csv.QUOTE_NONE, quotechar='')
+        print(str(exc_info.value))
+        assert str(exc_info.value) == '"quotechar" must be a 1-character string'
+
     def test_bool_arg(self):
         # boolean arguments take *any* object and use its truth-value
         import _csv

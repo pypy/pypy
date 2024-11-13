@@ -56,10 +56,10 @@ def _get_str(space, w_src, default, attrname):
             raise oefmt(space.w_TypeError, '"%s" must be a string', attrname)
         raise
 
-def _get_codepoint(space, w_src, default, name):
+def _get_codepoint(space, w_src, default, name, can_be_None=True, can_be_not_set=True):
     if w_src is None:
         return default
-    if space.is_w(w_src, space.w_None):
+    if space.is_w(w_src, space.w_None) and can_be_None:
         return NOT_SET
     if not space.isinstance_w(w_src, space.w_unicode):
         raise oefmt(space.w_TypeError, '"%s" must be string, not %T', name, w_src)
@@ -68,7 +68,7 @@ def _get_codepoint(space, w_src, default, name):
         res = rutf8.codepoint_at_pos(src, 0)
         assert res >= 0
         return res
-    if len(src) == 0:
+    if len(src) == 0 and can_be_not_set:
         return NOT_SET
     raise oefmt(space.w_TypeError, '"%s" must be a 1-character string', name)
 
@@ -109,25 +109,24 @@ def _build_dialect(space, w_dialect, w_delimiter, w_doublequote,
             w_strict = _fetch(space, w_dialect, 'strict')
 
     dialect = W_Dialect()
-    dialect.delimiter = _get_codepoint(space, w_delimiter, ord(u','), 'delimiter')
+    dialect.delimiter = _get_codepoint(space, w_delimiter, ord(u','), 'delimiter', can_be_None=False)
     dialect.doublequote = _get_bool(space, w_doublequote, True)
-    dialect.escapechar = _get_codepoint(space, w_escapechar, NOT_SET, 'escapechar')
+    dialect.escapechar = _get_codepoint(space, w_escapechar, NOT_SET, 'escapechar', can_be_not_set=False)
     dialect.lineterminator = _get_str(space, w_lineterminator, '\r\n', 'lineterminator')
-    dialect.quotechar = _get_codepoint(space, w_quotechar, ord(u'"'), 'quotechar')
     tmp_quoting = _get_int(space, w_quoting, QUOTE_MINIMAL, 'quoting')
+    if not (0 <= tmp_quoting < 4):
+        raise oefmt(space.w_TypeError, 'bad "quoting" value')
+    if space.is_w(w_quotechar, space.w_None) and w_quoting is None:
+        tmp_quoting = QUOTE_NONE
+    dialect.quotechar = _get_codepoint(space, w_quotechar, ord(u'"'), 'quotechar', can_be_not_set=False)
     dialect.skipinitialspace = _get_bool(space, w_skipinitialspace, False)
     dialect.strict = _get_bool(space, w_strict, False)
 
-    # validate options
-    if not (0 <= tmp_quoting < 4):
-        raise oefmt(space.w_TypeError, 'bad "quoting" value')
 
     if dialect.delimiter == NOT_SET:
         raise oefmt(space.w_TypeError,
                     '"delimiter" must be a 1-character string')
 
-    if space.is_w(w_quotechar, space.w_None) and w_quoting is None:
-        tmp_quoting = QUOTE_NONE
     if tmp_quoting != QUOTE_NONE and dialect.quotechar == NOT_SET:
         raise oefmt(space.w_TypeError,
                     "quotechar must be set if quoting enabled")
