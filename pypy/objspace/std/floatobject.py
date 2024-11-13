@@ -25,7 +25,8 @@ from pypy.objspace.std.longobject import (
     W_AbstractLongObject, newlong_from_float)
 from rpython.rlib.rarithmetic import (
     LONG_BIT, intmask, ovfcheck_float_to_int, r_uint)
-from pypy.objspace.std.util import wrap_parsestringerror
+from pypy.objspace.std.util import wrap_parsestringerror,\
+    builtinclass_new_args_check
 
 HASH_INF  = 314159
 HASH_NAN  = 0
@@ -220,7 +221,8 @@ class W_FloatObject(W_Root):
 
     @staticmethod
     @unwrap_spec(w_x=WrappedDefault(0.0))
-    def descr__new__(space, w_floattype, w_x, __posonly__):
+    def descr__new__(space, w_floattype, w_x, __posonly__, __args__):
+        builtinclass_new_args_check(space, "float", space.w_float, w_floattype, __args__)
         w_value = w_x     # 'x' is the keyword argument name in CPython
         if space.lookup(w_value, "__float__") is not None:
             w_obj = space.float(w_value)
