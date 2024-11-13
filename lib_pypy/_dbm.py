@@ -212,4 +212,4 @@ def open(filename, flag='r', mode=0o666):
     
     return dbm(a_db, openflag)
 
-__all__ = ('datum', 'dbm', 'error', 'funcs', 'open', 'library')
+__all__ = ('error', 'open', 'library')
