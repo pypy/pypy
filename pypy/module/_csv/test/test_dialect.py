@@ -80,8 +80,10 @@ class AppTestDialect(object):
         import _csv
         _csv.register_dialect('foo1_escapechar', escapechar=None) # works
         exc_info = raises(TypeError, _csv.register_dialect, 'foo1', escapechar='')
-        print(str(exc_info.value))
         assert str(exc_info.value) == '"escapechar" must be a 1-character string'
+        exc_info = raises(TypeError, _csv.register_dialect, 'foo1', escapechar=b'')
+        print(str(exc_info.value))
+        assert str(exc_info.value) == '"escapechar" must be string or None, not bytes'
 
     def test_typeerror_empty_quotechar_but_quoting(self):
         import _csv
@@ -120,7 +122,7 @@ class AppTestDialect(object):
         import _csv
 
         exc_info = raises(TypeError, _csv.register_dialect, 'foo1', quotechar=4)
-        assert exc_info.value.args[0] == '"quotechar" must be string, not int'
+        assert exc_info.value.args[0] == '"quotechar" must be string or None, not int'
 
     def test_line_terminator(self):
         # lineterminator can be the empty string

@@ -62,6 +62,8 @@ def _get_codepoint(space, w_src, default, name, can_be_None=True, can_be_not_set
     if space.is_w(w_src, space.w_None) and can_be_None:
         return NOT_SET
     if not space.isinstance_w(w_src, space.w_unicode):
+        if can_be_None:
+            raise oefmt(space.w_TypeError, '"%s" must be string or None, not %T', name, w_src)
         raise oefmt(space.w_TypeError, '"%s" must be string, not %T', name, w_src)
     src, length = space.utf8_len_w(w_src)
     if length == 1:
