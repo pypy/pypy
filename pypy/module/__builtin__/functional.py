@@ -890,12 +890,16 @@ class W_Map(W_Root):
             w_res = None
         return w_res
 
-def W_Map___new__(space, w_subtype, w_fun, args_w):
-    if len(args_w) == 0:
+def W_Map___new__(space, w_subtype, __args__):
+    args_w = __args__.arguments_w
+    if space.is_w(w_subtype, space.gettypeobject(W_Map.typedef)) and __args__.keyword_names_w:
+        raise oefmt(space.w_TypeError,
+                    "map() takes no keyword arguments")
+    if not args_w or len(args_w) < 2:
         raise oefmt(space.w_TypeError,
                     "map() must have at least two arguments")
     r = space.allocate_instance(W_Map, w_subtype)
-    r.__init__(space, w_fun, args_w)
+    r.__init__(space, args_w[0], args_w[1:])
     return r
 
 W_Map.typedef = TypeDef(

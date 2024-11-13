@@ -72,6 +72,33 @@ class AppTestMap:
     def test_repr(self):
         assert repr(map(1, [2])).startswith('<map object ')
 
+    def test_subclass_kwarg(self):
+        class subclass_with_new(map):
+            def __new__(cls, f, v, newarg=None):
+                self = super().__new__(cls, f, v)
+                self.newarg = newarg
+                return self
+        u = subclass_with_new(int, ['1', '2'], newarg=3)
+        assert u.newarg == 3
+        assert list(u) == [1, 2]
+
+        class subclass_with_init(map):
+            def __init__(self, f, v, newarg=None):
+                self.newarg = newarg
+        u = subclass_with_init(int, ['1', '2'], newarg=3)
+        assert u.newarg == 3
+        assert list(u) == [1, 2]
+
+        with raises(TypeError) as e:
+            u = map()
+        print(e.value)
+        assert str(e.value) == "map() must have at least two arguments"
+
+        with raises(TypeError) as e:
+            u = map(int, [1, 2], newargs=3)
+        assert str(e.value) == "map() takes no keyword arguments"
+
+
 class AppTestMap2:
 
     def test_map(self):
