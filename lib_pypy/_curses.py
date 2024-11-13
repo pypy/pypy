@@ -999,6 +999,7 @@ def pair_number(pairvalue):
 
 
 def putp(text):
+    _ensure_initialised()
     text = _bytestype(text)
     return _check_ERR(lib.putp(text), "putp")
 
