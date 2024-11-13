@@ -1874,6 +1874,11 @@ The argument must be an iterable if specified."""
             subclass(sequence=())
         assert str(e.value) == "list() takes no keyword arguments"
 
+    def test_iadd_raises(self):
+        with raises(TypeError):
+            [].__iadd__(1)
+
+
 class AppTestWithoutStrategies:
     spaceconfig = {"objspace.std.withliststrategies": False}
 
