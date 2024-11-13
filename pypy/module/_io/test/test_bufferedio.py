@@ -13,7 +13,7 @@ class AppTestBufferedReader:
     spaceconfig = dict(usemodules=['_io'])
     if os.name != 'nt':
         spaceconfig['usemodules'].append('fcntl')
-        
+
     def setup_class(cls):
         tmpfile = udir.join('tmpfile')
         tmpfile.write("a\nb\nc", mode='wb')
@@ -431,12 +431,31 @@ class AppTestBufferedReader:
         assert s == b''
         f.close()
 
+    def test_device_like(self):
+        # CPython GH-95782
+        import _io
+        class MockDevice(_io.BytesIO):
+            def seek(self, *args):
+                return 0
+
+            def tell(self, *args):
+                return 0
+
+        fd = MockDevice(b"aaaa")
+        bufio = _io.BufferedReader(fd, 4)
+        textio = _io.TextIOWrapper(bufio)
+        val = textio.read(1)
+        assert val == "a", val
+        t = textio.tell()
+        assert t == 0, t
+        assert textio.seek(0) == 0
+
 
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
     spaceconfig = dict(usemodules=['_io', 'thread', 'time'])
     if os.name != 'nt':
         spaceconfig['usemodules'].append('fcntl')
-        
+
 
     def test_readinto_small_parts(self):
         import _io, os, _thread, time

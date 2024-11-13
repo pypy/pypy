@@ -310,8 +310,11 @@ class BufferedMixin:
 
     def tell_w(self, space):
         self._check_init(space)
-        pos = self._raw_tell(space) - self._raw_offset()
-        return space.newint(pos)
+        raw_tell = self._raw_tell(space)
+        raw_offset = self._raw_offset()
+        if raw_tell < raw_offset:
+            return space.newint(0)
+        return space.newint(raw_tell - raw_offset)
 
     @unwrap_spec(pos=r_longlong, whence=int)
     def seek_w(self, space, pos, whence=0):
@@ -337,7 +340,10 @@ class BufferedMixin:
                     newpos = self.pos + int(offset)
                     assert newpos >= 0
                     self.pos = newpos
-                    return space.newint(current - available + offset)
+                    totl = available + offset
+                    if totl < current:
+                        return space.newint(current - totl)
+                    return space.newint(0)
 
         # Fallback: invoke raw seek() method and clear buffer
         with self.lock:

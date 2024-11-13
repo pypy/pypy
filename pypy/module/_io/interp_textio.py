@@ -983,8 +983,10 @@ class W_TextIOWrapper(W_TextIOBase):
         check_decoded(space, w_decoded)
         w_result = space.newutf8(*self.decoded.get_chars(-1))
         w_final = space.add(w_result, w_decoded)
-        self.decoded.reset()
-        self.snapshot = None
+        if self.snapshot:
+            # CPython GH-35928
+            self.decoded.reset()
+            self.snapshot = None
         return w_final
 
     def _read(self, space, size):
@@ -1144,8 +1146,10 @@ class W_TextIOWrapper(W_TextIOBase):
         if needflush:
             space.call_method(self.w_buffer, "flush")
 
-        self.decoded.reset()
-        self.snapshot = None
+        if self.snapshot:
+            # CPython GH-35928
+            self.decoded.reset()
+            self.snapshot = None
 
         if self.w_decoder:
             space.call_method(self.w_decoder, "reset")
@@ -1326,6 +1330,10 @@ class W_TextIOWrapper(W_TextIOBase):
         # Skip backward to the snapshot point (see _read_chunk)
         cookie.dec_flags = self.snapshot.flags
         input = self.snapshot.input
+        if len(input) > cookie.start_pos:
+            # Must be a device or something that reports 0 for tell()
+            # CPython GH-95782
+            return space.newint(0)
         cookie.start_pos -= len(input)
 
         # How many decoded characters have been used up since the snapshot?
