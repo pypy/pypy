@@ -1844,6 +1844,25 @@ The argument must be an iterable if specified."""
         assert ga.__origin__ is list
         assert ga.__args__ == (int, )
 
+    def test_subclass_kwarg(self):
+        class subclass_with_new(list):
+            def __new__(cls, arg, newarg=None):
+                self = super().__new__(cls, arg)
+                self.newarg = newarg
+                return self
+        u = subclass_with_new([1, 2], newarg=3)
+        assert u.newarg == 3
+
+        class subclass_with_init(list):
+            def __init__(self, arg, newarg=None):
+                self.newarg = newarg
+        u = subclass_with_init([1, 2], newarg=3)
+        assert u.newarg == 3
+
+        with raises(TypeError) as e:
+            u = list([1, 2], newarg=3)
+        assert str(e.value) == "list() takes no keyword arguments"
+
 
 class AppTestWithoutStrategies:
     spaceconfig = {"objspace.std.withliststrategies": False}

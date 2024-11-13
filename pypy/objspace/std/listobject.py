@@ -36,7 +36,8 @@ from pypy.objspace.std.iterobject import (
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
 from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
-from pypy.objspace.std.util import get_positive_index, negate, generic_alias_class_getitem
+from pypy.objspace.std.util import (get_positive_index, negate,
+         generic_alias_class_getitem, builtinclass_new_args_check)
 
 __all__ = ['W_ListObject', 'make_range_list', 'make_empty_list_with_size']
 
@@ -482,12 +483,18 @@ class W_ListObject(W_Root):
     @staticmethod
     def descr_new(space, w_listtype, __args__):
         "Create and return a new object.  See help(type) for accurate signature."
+        # builtinclass_new_args_check(space, 'list', space.w_list, w_listtype, __args__)
         w_obj = space.allocate_instance(W_ListObject, w_listtype)
         w_obj.clear(space)
         return w_obj
 
-    def descr_init(self, space, w_iterable=None, __posonly__=None):
+    def descr_init(self, space, w_iterable=None, __posonly__=None, __args__=None):
         """Initialize self.  See help(type(self)) for accurate signature."""
+        if space.is_w(space.type(self), space.w_list):
+            if __args__.arguments_w:
+                raise oefmt(space.w_TypeError, "list() expected at most 1 argument, got %d", name, 1 + len(__args__.arguments_w))
+            if __args__.keyword_names_w:
+                raise oefmt(space.w_TypeError, "list() takes no keyword arguments")
         self.clear(space)
         if w_iterable is not None:
             self.extend(w_iterable)

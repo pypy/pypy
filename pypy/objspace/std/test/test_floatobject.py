@@ -704,6 +704,21 @@ class AppTestAppFloatTest:
                 return reallybig
         assert float(A()) == float(reallybig)
 
+    def test_subclass_kwarg(self):
+        class subclass_with_new(float):
+            def __new__(cls, arg, newarg=None):
+                self = super().__new__(cls, arg)
+                self.newarg = newarg
+                return self
+        u = subclass_with_new(1.0, newarg=3)
+        assert u.newarg == 3
+
+        class subclass_with_init(float):
+            def __init__(self, arg, newarg=None):
+                self.newarg = newarg
+        u = subclass_with_init(42.0, newarg=3)
+        assert u.newarg == 3
+
 
 class AppTestFloatHex:
     spaceconfig = {
