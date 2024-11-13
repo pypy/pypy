@@ -1433,7 +1433,10 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         w_dict = self.peekvalue(1)
         w_item = self.popvalue()
-        _dict_merge(space, w_dict, w_item)
+        # dict merge happens always in places where the function is on the
+        # stack too
+        w_function = self.peekvalue(oparg+2)
+        _dict_merge(space, w_dict, w_item, w_function)
 
     def DICT_UPDATE(self, oparg, next_instr):
         w_item = self.popvalue()
@@ -1991,8 +1994,7 @@ def ensure_ns(space, w_globals, w_locals, funcname, caller=None):
 
     return w_globals, w_locals
 
-def _dict_merge(space, w_dict, w_item):
-    # xxx maybe this function should just be in dictmultiobject.py
+def _dict_merge(space, w_dict, w_item, w_function):
     from pypy.objspace.std.dictmultiobject import W_DictMultiObject, update1
     l1 = space.len_w(w_dict)
     unroll_safe = jit.isvirtual(w_dict) and l1 < 10
@@ -2004,8 +2006,8 @@ def _dict_merge(space, w_dict, w_item):
         unroll_safe = False
         if not space.ismapping_w(w_item):
             raise oefmt(space.w_TypeError,
-                        "argument after ** must be a mapping, not %T",
-                        w_item)
+                        "%s argument after ** must be a mapping, not %T",
+                        space.guess_function_name_parens(w_function), w_item)
     else:
         l2 = space.len_w(w_item)
         if l1 == 0:
@@ -2015,18 +2017,18 @@ def _dict_merge(space, w_dict, w_item):
         if l2 == 0:
             return
         unroll_safe = unroll_safe and jit.isvirtual(w_item) and l2 < 10
-    _dict_merge_loop(space, w_dict, w_item, unroll_safe)
+    _dict_merge_loop(space, w_dict, w_item, unroll_safe, w_function)
 
-@jit.look_inside_iff(lambda space, w_dict, w_item, unroll_safe: unroll_safe)
-def _dict_merge_loop(space, w_dict, w_item, unroll_safe):
+@jit.look_inside_iff(lambda space, w_dict, w_item, unroll_safe, w_function: unroll_safe)
+def _dict_merge_loop(space, w_dict, w_item, unroll_safe, w_function):
     try:
         w_iterator = space.iter(space.call_method(w_item, "keys"))
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
         raise oefmt(space.w_TypeError,
-                    "argument after ** must be a mapping, not %T",
-                    w_item)
+                    "%s argument after ** must be a mapping, not %T",
+                    space.guess_function_name_parens(w_function), w_item)
     while True:
         try:
             w_key = space.next(w_iterator)
@@ -2037,8 +2039,8 @@ def _dict_merge_loop(space, w_dict, w_item, unroll_safe):
         w_value = space.getitem(w_item, w_key)
         if space.contains_w(w_dict, w_key):
             raise oefmt(space.w_TypeError,
-                "got multiple values for keyword argument %R",
-                w_key)
+                "%s got multiple values for keyword argument %R",
+                space.guess_function_name_parens(w_function), w_key)
         space.setitem(w_dict, w_key, w_value)
 
 def _copy_dict_without_keys(space, w_keys, w_subject):

@@ -2101,6 +2101,18 @@ class ObjSpace(object):
         custom iterators should override it. """
         return w_iterable.iterator_greenkey(self)
 
+    def guess_function_name_parens(self, w_function):
+        """ Returns 'funcname()' from callable w_function. If it's not a
+        function or a method, returns 'Classname object'"""
+        # XXX this is super annoying to compute every time we do a function call!
+        # CPython has a similar function, PyEval_GetFuncName
+        from pypy.interpreter.function import Function, _Method
+        if isinstance(w_function, Function):
+            return w_function.qualname + '()'
+        if isinstance(w_function, _Method):
+            return self.guess_function_name_parens(w_function.w_function)
+        return self.type(w_function).getname(self) + ' object'
+
 
 class AppExecCache(SpaceCache):
     @not_rpython

@@ -328,7 +328,7 @@ def test_kwargs_nondict_mapping():
     assert res[1] == {'a': 'a', 'b': 'b'}
     with raises(TypeError) as excinfo:
         func(42, **[])
-    assert ('argument after ** must be a mapping, not list' in
+    assert ('func() argument after ** must be a mapping, not list' in
         str(excinfo.value))
 
 def test_star_error():
@@ -918,3 +918,25 @@ def test_method_getattr():
     class A:
         def f(self): pass
     assert A().f.__code__ is A.f.__code__
+
+def test_dict_merge_errors_funcname():
+    def f(): pass
+    with pytest.raises(TypeError) as info:
+        f(a=1, **{'a': 1})
+    assert ("f() got multiple values for keyword argument 'a'" in
+        str(info.value))
+    with pytest.raises(TypeError) as info:
+        f(a=1, **12)
+    assert ("f() argument after ** must be a mapping, not int" in
+        str(info.value))
+    with pytest.raises(TypeError) as info:
+        f(a=1, **{'b': 1}, **12)
+    assert ("f() argument after ** must be a mapping, not int" in
+        str(info.value))
+
+def test_argument_parse_errors_use_qualname():
+    with pytest.raises(TypeError) as info:
+        set.__init__()
+    assert 'set' in str(info.value)
+    assert '__init__' in str(info.value)
+
