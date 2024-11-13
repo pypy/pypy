@@ -690,7 +690,7 @@ class AppTestAppFloatTest:
     def test_new_pos_only(self):
         with raises(TypeError) as info:
             float(x=1)
-        assert "got a positional-only argument passed as keyword argument: 'x'" in str(info.value)
+        assert "float() takes no keyword arguments" in str(info.value)
 
     def test_float_constructor_calls_index(self):
         class A:
@@ -705,6 +705,11 @@ class AppTestAppFloatTest:
         assert float(A()) == float(reallybig)
 
     def test_subclass_kwarg(self):
+        class bare_subclass(float):
+            pass
+        with raises(TypeError):
+            bare_subclass(1.0, newarg=3)
+
         class subclass_with_new(float):
             def __new__(cls, arg, newarg=None):
                 self = super().__new__(cls, arg)
@@ -716,7 +721,6 @@ class AppTestAppFloatTest:
         class subclass_with_init(float):
             def __init__(self, arg, newarg=None):
                 self.newarg = newarg
-        u = subclass_with_init(42.0, newarg=3)
         assert u.newarg == 3
 
 

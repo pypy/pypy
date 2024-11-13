@@ -220,9 +220,9 @@ class W_FloatObject(W_Root):
 
     @staticmethod
     @unwrap_spec(w_x=WrappedDefault(0.0))
-    def descr__new__(space, w_floattype, w_x, __posonly__, __args__=None):
+    def descr__new__(space, w_floattype, w_x, __posonly__, __args__):
+        builtinclass_new_args_check(space, "float", space.w_float, w_floattype, __args__)
         w_value = w_x     # 'x' is the keyword argument name in CPython
-        builtinclass_new_args_check(space, "float", space.w_float, w_x, __args__)
         if space.lookup(w_value, "__float__") is not None:
             w_obj = space.float(w_value)
             w_obj_type = space.type(w_obj)

@@ -509,30 +509,17 @@ class PyFrame(W_Root):
             depth -= 1
         self.valuestackdepth = finaldepth
 
-    def _guess_function_name_parens(self, fnname=None, w_function=None):
-        """ Returns 'funcname()' from either a function name fnname or a
-        wrapped callable w_function. If it's not a function or a method, returns
-        'Classname object'"""
-        # XXX this is super annoying to compute every time we do a function call!
-        # CPython has a similar function, PyEval_GetFuncName
-        from pypy.interpreter.function import Function, _Method
-        if fnname is not None:
-            return fnname + '()'
-        if w_function is None:
-            return None
-        if isinstance(w_function, Function):
-            return w_function.name + '()'
-        if isinstance(w_function, _Method):
-            return self._guess_function_name_parens(None, w_function.w_function)
-        return self.space.type(w_function).getname(self.space) + ' object'
-
     def make_arguments(self, nargs, methodcall=False, w_function=None, fnname=None):
-        fnname_parens = self._guess_function_name_parens(fnname, w_function)
+        if fnname:
+            import pdb;pdb.set_trace()
+        fnname_parens = self.space.guess_function_name_parens(w_function)
         return Arguments(
                 self.space, self.peekvalues(nargs), methodcall=methodcall, fnname_parens=fnname_parens)
 
     def argument_factory(self, arguments, keyword_names_w, keywords_w, w_star, w_starstar, methodcall=False, w_function=None, fnname=None):
-        fnname_parens = self._guess_function_name_parens(fnname, w_function)
+        if fnname:
+            import pdb;pdb.set_trace()
+        fnname_parens = self.space.guess_function_name_parens(w_function)
         return Arguments(
                 self.space, arguments, keyword_names_w, keywords_w, w_star,
                 w_starstar, methodcall=methodcall, fnname_parens=fnname_parens)
