@@ -91,13 +91,16 @@ class AppTestMap:
 
         with raises(TypeError) as e:
             u = map()
-        print(e.value)
         assert str(e.value) == "map() must have at least two arguments"
 
         with raises(TypeError) as e:
             u = map(int, [1, 2], newargs=3)
         assert str(e.value) == "map() takes no keyword arguments"
 
+        class subclass(map):
+            pass
+        with raises(TypeError) as e:
+            subclass(str, [1, 2], newarg=3)
 
 class AppTestMap2:
 

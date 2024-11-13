@@ -892,8 +892,12 @@ class W_Map(W_Root):
 
 def W_Map___new__(space, w_subtype, __args__):
     args_w = __args__.arguments_w
-    if space.is_w(w_subtype, space.gettypeobject(W_Map.typedef)) and __args__.keyword_names_w:
-        raise oefmt(space.w_TypeError,
+    w_map = space.gettypeobject(W_Map.typedef)
+    w_init = space.newtext("__init__")
+    if (space.is_w(w_subtype, w_map) or 
+        space.is_w(space.getattr(w_subtype, w_init), space.getattr(w_map, w_init))):
+        if __args__.keyword_names_w:
+            raise oefmt(space.w_TypeError,
                     "map() takes no keyword arguments")
     if not args_w or len(args_w) < 2:
         raise oefmt(space.w_TypeError,

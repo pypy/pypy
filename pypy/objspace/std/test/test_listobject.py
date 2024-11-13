@@ -1520,14 +1520,19 @@ The argument must be an iterable if specified."""
     def test_mutate_while_extend(self):
         # this used to segfault pypy-c (with py.test -A)
         import sys
+        if self.runappdirect:
+            iterations = 10
+        else:
+            # this is slow untranslated
+            iterations = 2
         if hasattr(sys, 'pypy_translation_info'):
             if sys.pypy_translation_info['translation.gc'] == 'boehm':
                 skip("not reliable on top of Boehm")
         class A(object):
             def __del__(self):
-                print('del')
+                # print('del')
                 del lst[:]
-        for i in range(10):
+        for i in range(iterations):
             keepalive = []
             lst = list(str(i)) * 100
             A()
@@ -1863,6 +1868,11 @@ The argument must be an iterable if specified."""
             u = list([1, 2], newarg=3)
         assert str(e.value) == "list() takes no keyword arguments"
 
+        class subclass(list):
+            pass
+        with raises(TypeError) as e:
+            subclass(sequence=())
+        assert str(e.value) == "list() takes no keyword arguments"
 
 class AppTestWithoutStrategies:
     spaceconfig = {"objspace.std.withliststrategies": False}
