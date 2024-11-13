@@ -106,3 +106,6 @@ class AppTestWriter(object):
                                      f'"\r","\n"{lineterminator}'
                                      )
         """
+
+    def test_write_empty_fields_space_delimiter(self):
+        self._write_test(['', ''], '"" ""', delimiter=' ', skipinitialspace=True)

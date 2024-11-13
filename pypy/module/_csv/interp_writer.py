@@ -75,13 +75,20 @@ class W_Writer(W_Root):
                     quoted = False
             else:
                 quoted = False
+            if len(field) == 0:
+                if dialect.delimiter == ord(' ') and dialect.skipinitialspace:
+                    if dialect.quoting == QUOTE_NONE:
+                        self.error(
+                             "empty field must be quoted if delimiter is a space "
+                             "and skipinitialspace is true")
+                    quoted = True
 
-            # If field is empty check if it needs to be quoted
-            if len(field) == 0 and len(fields_w) == 1:
-                if dialect.quoting == QUOTE_NONE:
-                    raise self.error("single empty field record "
-                                     "must be quoted")
-                quoted = True
+                # If field is empty check if it needs to be quoted
+                if len(fields_w) == 1:
+                    if dialect.quoting == QUOTE_NONE:
+                        raise self.error("single empty field record "
+                                         "must be quoted")
+                    quoted = True
 
             # If this is not the first field we need a field separator
             if field_index > 0:
