@@ -106,7 +106,7 @@ If only globals is given, locals defaults to it.
         ec = space.getexecutioncontext()
         code = ec.compiler.compile(source.lstrip(' \t'), "<string>", 'eval',
                                    flags)
-    if space.finditem_str(w_globals, "__builtins__") is None:
+    if space.contains_w(w_globals, space.newtext("__builtins__")):
         space.setitem_str(w_globals, "__builtins__", space.builtin)
 
     return code.exec_code(space, w_globals, w_locals)

@@ -221,3 +221,15 @@ def fn(): return '%s'
     ns = {}
     eval(co, ns)
     assert ns['fn']() == '%s' % chr(230)
+
+
+def test_weird_globals_builtins_eval():
+    class MyGlobals(dict):
+        def __missing__(self, key):
+            assert key != '__builtins__'
+            return int(key.removeprefix("_number_"))
+
+    code = "lambda: " + "+".join(f"_number_{i}" for i in range(1000))
+    sum_1000 = eval(code, MyGlobals())
+    expected = sum(range(1000))
+    assert sum_1000() == expected
