@@ -13,6 +13,7 @@ class FakeFunc(object):
     def __init__(self, space, name):
         self.space = space
         self.name = name
+        self.qualname = name
         self.defs_w = []
         self.w_kw_defs = None
 
