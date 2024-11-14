@@ -288,10 +288,23 @@ class W_FilterFalse(W_Filter):
                   self.w_iterable]
         return space.newtuple([space.type(self), space.newtuple(args_w)])
 
-def W_FilterFalse___new__(space, w_subtype, w_predicate, w_iterable):
+def W_FilterFalse___new__(space, w_subtype, __args__):
+    args_w = __args__.arguments_w
+    w_filter = space.gettypeobject(W_FilterFalse.typedef)
+    w_init = space.newtext("__init__")
+    if (space.is_w(w_subtype, w_filter) or 
+        space.is_w(space.getattr(w_subtype, w_init), space.getattr(w_filter, w_init))):
+        if __args__.keyword_names_w:
+            raise oefmt(space.w_TypeError,
+                    "filterfalse() takes no keyword arguments")
+    length = len(args_w) if args_w else 0
+    if length != 2:
+        raise oefmt(space.w_TypeError,
+                    "filterfalse() expected 2 arguments got %d", length)
     r = space.allocate_instance(W_FilterFalse, w_subtype)
-    r.__init__(space, w_predicate, w_iterable)
+    r.__init__(space, args_w[0], args_w[1])
     return r
+
 
 W_FilterFalse.typedef = TypeDef(
         'itertools.filterfalse',
@@ -535,7 +548,15 @@ class W_Chain(W_Root):
                         "function takes at most 2 arguments (%d given)",
                         num_args)
 
-def W_Chain___new__(space, w_subtype, args_w):
+def W_Chain___new__(space, w_subtype, __args__):
+    args_w = __args__.arguments_w
+    w_chain = space.gettypeobject(W_Chain.typedef)
+    w_init = space.newtext("__init__")
+    if (space.is_w(w_subtype, w_chain) or 
+        space.is_w(space.getattr(w_subtype, w_init), space.getattr(w_chain, w_init))):
+        if __args__.keyword_names_w:
+            raise oefmt(space.w_TypeError,
+                    "chain() takes no keyword arguments")
     r = space.allocate_instance(W_Chain, w_subtype)
     w_args = space.newtuple(args_w)
     r.__init__(space, space.iter(w_args))
@@ -781,9 +802,21 @@ class W_StarMap(W_Root):
                                         self.w_iterable])
                                     ])
 
-def W_StarMap___new__(space, w_subtype, w_fun, w_iterable):
+def W_StarMap___new__(space, w_subtype, __args__):
+    args_w = __args__.arguments_w
+    w_starmap = space.gettypeobject(W_StarMap.typedef)
+    w_init = space.newtext("__init__")
+    if (space.is_w(w_subtype, w_starmap) or 
+        space.is_w(space.getattr(w_subtype, w_init), space.getattr(w_starmap, w_init))):
+        if __args__.keyword_names_w:
+            raise oefmt(space.w_TypeError,
+                    "starmap() takes no keyword arguments")
+    length = len(args_w) if args_w else 0
+    if length != 2:
+        raise oefmt(space.w_TypeError,
+                    "starmap() expected 2 arguments got %d", length)
     r = space.allocate_instance(W_StarMap, w_subtype)
-    r.__init__(space, w_fun, w_iterable)
+    r.__init__(space, args_w[0], args_w[1])
     return r
 
 W_StarMap.typedef = TypeDef(

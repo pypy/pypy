@@ -195,6 +195,37 @@ class AppTestItertools(object):
 
         raises(TypeError, itertools.filterfalse, bool, None)
 
+    def test_filterfalse_subclass_kwarg(self):
+        from itertools import filterfalse
+        class subclass_with_new(filterfalse):
+            def __new__(cls, f, v, newarg=None):
+                self = super().__new__(cls, f, v)
+                self.newarg = newarg
+                return self
+        u = subclass_with_new(lambda a: False, [1, 2], newarg=3)
+        assert u.newarg == 3
+        assert list(u) == [1, 2]
+
+        class subclass_with_init(filterfalse):
+            def __init__(self, f, v, newarg=None):
+                self.newarg = newarg
+        u = subclass_with_init(lambda a: False, [1, 2], newarg=3)
+        assert u.newarg == 3
+        assert list(u) == [1, 2]
+
+        with raises(TypeError) as e:
+            u = filterfalse()
+        assert str(e.value) == "filterfalse() expected 2 arguments got 0"
+
+        with raises(TypeError) as e:
+            u = filterfalse(None, [1, 2], newargs=3)
+        assert str(e.value) == "filterfalse() takes no keyword arguments"
+
+        class subclass(filterfalse):
+            pass
+        with raises(TypeError) as e:
+            subclass(None, [1, 2], newarg=3)
+
     def test_islice(self):
         import itertools
 
@@ -355,6 +386,34 @@ class AppTestItertools(object):
         assert next(it) == 1
         raises(StopIteration, next, it)
 
+    def test_chain_subclass_kwarg(self):
+        from itertools import chain
+        class subclass_with_new(chain):
+            def __new__(cls, arg, newarg=None):
+                self = super().__new__(cls, arg)
+                self.newarg = newarg
+                return self
+        u = subclass_with_new([1, 2], newarg=3)
+        assert u.newarg == 3
+        assert next(u) == 1
+
+        class subclass_with_init(chain):
+            def __init__(self, arg, newarg=None):
+                self.newarg = newarg
+        u = subclass_with_init([1, 2], newarg=3)
+        assert u.newarg == 3
+        assert next(u) == 1
+
+        with raises(TypeError) as e:
+            u = chain([1, 2], [3], newargs=3)
+        assert str(e.value) == "chain() takes no keyword arguments"
+
+        class subclass(chain):
+            pass
+        with raises(TypeError) as e:
+            subclass([1, 2], newarg=3)
+
+
     def test_cycle(self):
         import itertools
 
@@ -390,6 +449,38 @@ class AppTestItertools(object):
 
         it = itertools.starmap(bool, [0])
         raises(TypeError, next, it)
+
+    def test_starmap_subclass_kwarg(self):
+        from itertools import starmap
+        import _operator as operator
+        class subclass_with_new(starmap):
+            def __new__(cls, f, v, newarg=None):
+                self = super().__new__(cls, f, v)
+                self.newarg = newarg
+                return self
+        u = subclass_with_new(operator.add, [[1, 2]], newarg=3)
+        assert u.newarg == 3
+        assert next(u) == 3
+
+        class subclass_with_init(starmap):
+            def __init__(self, f, v, newarg=None):
+                self.newarg = newarg
+        u = subclass_with_init(operator.add, [[1, 2]], newarg=3)
+        assert u.newarg == 3
+        assert next(u) == 3
+
+        with raises(TypeError) as e:
+            u = starmap()
+        assert str(e.value) == "starmap() expected 2 arguments got 0"
+
+        with raises(TypeError) as e:
+            u = starmap(operator.add, [[1, 2]], newargs=3)
+        assert str(e.value) == "starmap() takes no keyword arguments"
+
+        class subclass(starmap):
+            pass
+        with raises(TypeError) as e:
+            subclass(operator.add, [[1, 2]], newarg=3)
 
     def test_tee(self):
         import itertools
