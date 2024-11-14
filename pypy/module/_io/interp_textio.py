@@ -300,8 +300,8 @@ def _determine_encoding(space, encoding, w_buffer):
                 return w_encoding
     if space.sys.get_flag('utf8_mode'):
         # if device_encoding returns None, CPython does
-        # _Py_GetLocaleEncodingObject, which has this at the top
-        return space.newtext("UTF-8")
+        # _Py_GetLocaleEncoding, which has this at the top
+        return space.newtext("utf-8")
 
     # On legacy systems or darwin, try app-level
     # _bootlocale.getprefferedencoding(False)
