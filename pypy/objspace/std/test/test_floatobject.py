@@ -721,6 +721,7 @@ class AppTestAppFloatTest:
         class subclass_with_init(float):
             def __init__(self, arg, newarg=None):
                 self.newarg = newarg
+        u = subclass_with_init(1.0, newarg=3)
         assert u.newarg == 3
 
 

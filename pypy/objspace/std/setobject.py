@@ -7,7 +7,7 @@ from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.listobject import is_plain_int1, plain_int_w
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT, \
-    generic_alias_class_getitem
+    generic_alias_class_getitem, builtinclass_new_args_check
 
 from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.objectmodel import iterkeys_with_hash, contains_with_hash
@@ -611,7 +611,8 @@ class W_FrozensetObject(W_BaseSetObject):
         return W_FrozensetObject(space, w_iterable)
 
     @staticmethod
-    def descr_new2(space, w_frozensettype, w_iterable=None):
+    def descr_new2(space, w_frozensettype, w_iterable=None, __posonly__=None, __args__=None):
+        builtinclass_new_args_check(space, "frozenset", space.w_frozenset, w_frozensettype, __args__)
         if (space.is_w(w_frozensettype, space.w_frozenset) and
             w_iterable is not None and type(w_iterable) is W_FrozensetObject):
             return w_iterable

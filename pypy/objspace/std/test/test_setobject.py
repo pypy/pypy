@@ -341,6 +341,27 @@ class AppTestAppSetTest:
         assert type(b) is frozenset
         assert frozenset(b) == frozenset('abc')
 
+    def test_subclass_kwarg(self):
+        class bare_subclass(frozenset):
+            pass
+        with raises(TypeError):
+            bare_subclass('abc', newarg=3)
+
+        class subclass_with_new(frozenset):
+            def __new__(cls, arg, newarg=None):
+                self = super().__new__(cls, arg)
+                self.newarg = newarg
+                return self
+        u = subclass_with_new('abc', newarg=3)
+        assert u.newarg == 3
+
+        class subclass_with_init(frozenset):
+            def __init__(self, arg, newarg=None):
+                self.newarg = newarg
+        u = subclass_with_init('abc', newarg=3)
+        assert u.newarg == 3
+
+
     def test_union(self):
         a = set([4, 5])
         b = a.union([5, 7])
