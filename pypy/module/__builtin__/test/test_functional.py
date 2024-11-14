@@ -239,6 +239,37 @@ class AppTestFilter:
         f = filter(bool, it)
         assert f.__reduce__() == (filter, (bool, it))
 
+    def test_subclass_kwarg(self):
+        class subclass_with_new(filter):
+            def __new__(cls, f, v, newarg=None):
+                self = super().__new__(cls, f, v)
+                self.newarg = newarg
+                return self
+        u = subclass_with_new(None, [1, 2], newarg=3)
+        assert u.newarg == 3
+        assert list(u) == [1, 2]
+
+        class subclass_with_init(filter):
+            def __init__(self, f, v, newarg=None):
+                self.newarg = newarg
+        u = subclass_with_init(None, [1, 2], newarg=3)
+        assert u.newarg == 3
+        assert list(u) == [1, 2]
+
+        with raises(TypeError) as e:
+            u = filter()
+        assert str(e.value) == "filter() expected 2 arguments got 0"
+
+        with raises(TypeError) as e:
+            u = filter(None, [1, 2], newargs=3)
+        assert str(e.value) == "filter() takes no keyword arguments"
+
+        class subclass(filter):
+            pass
+        with raises(TypeError) as e:
+            subclass(None, [1, 2], newarg=3)
+
+
 class AppTestFilter2:
     def test_filter(self):
         it = filter(None, [])
