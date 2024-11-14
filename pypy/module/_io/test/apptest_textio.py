@@ -449,7 +449,10 @@ def test_device_encoding_ovf():
     
     b = _io.BytesIO()
     b.fileno = lambda: sys.maxsize + 1
-    raises(OverflowError, _io.TextIOWrapper, b)
+    if sys.implementation.name == 'pypy':
+        raises(OverflowError, _io.TextIOWrapper, b)
+    else:
+        u = _io.TextIOWrapper(b)
 
 def test_uninitialized():
     
@@ -762,10 +765,14 @@ def test_reconfigure_defaults():
 
 def test_text_encoding():
     assert _io.text_encoding("abc") == "abc"
-    assert _io.text_encoding(None) == "locale"
+    if sys.flags.utf8_mode:
+        # default on PyPy, will be default on CPython 3.15+
+        assert _io.text_encoding(None) == "utf-8"
+    else:
+        assert _io.text_encoding(None) == "locale"
 
 def test_pseudo_encoding_locale():
     r = _io.BytesIO(b"\xc3\xa9\n\n")
     t1 = _io.TextIOWrapper(r, encoding="locale")
     t2 = _io.TextIOWrapper(r)
-    assert t1.encoding == t2.encoding
+    assert t1.encoding.lower() == t2.encoding
