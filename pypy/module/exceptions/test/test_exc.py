@@ -517,26 +517,6 @@ class AppTestExc(object):
             print -1
         assert 'Did you mean "print(<-number>)"?' in str(excinfo.value)
 
-    def test_importerror_kwarg_error(self):
-        msg = "__init__() got an unexpected keyword argument 'invalid'"
-        exc = raises(TypeError,
-                     ImportError,
-                     'test', invalid='keyword', another=True)
-        assert str(exc.value) == "__init__() got 2 unexpected keyword arguments"
-
-        exc = raises(TypeError, ImportError, 'test', invalid='keyword')
-        assert str(exc.value) == msg
-
-        exc = raises(TypeError,
-                     ImportError,
-                     'test', name='name', invalid='keyword')
-        assert str(exc.value) == msg
-
-        exc = raises(TypeError,
-                     ImportError,
-                     'test', path='path', invalid='keyword')
-        assert str(exc.value) == msg
-
 
     def test_attribute_error_name_obj_attributes(self):
         exc = AttributeError("'a' not found", name="a", obj=7)

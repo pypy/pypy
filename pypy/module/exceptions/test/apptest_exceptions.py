@@ -1,4 +1,5 @@
 import pytest
+import sys
 
 def test_delete_attrs():
     # for whatever reason CPython raises TypeError instead of AttributeError
@@ -6,7 +7,10 @@ def test_delete_attrs():
     for attr in ["__cause__", "__context__", "args", "__traceback__", "__suppress_context__"]:
         with pytest.raises(TypeError) as info:
             delattr(Exception(), attr)
-        assert str(info.value).endswith("may not be deleted")
+        if sys.implementation.name != 'pypy' and attr in ("__suppress_context__",):
+            assert str(info.value).endswith("can't delete numeric/char attribute")
+        else:
+            assert str(info.value).endswith("may not be deleted")
 
 def test_notes():
     base = BaseException()
@@ -17,6 +21,30 @@ def test_notes():
     with pytest.raises(TypeError):
         base.add_note(42)
     assert base.__notes__ == ['test note', 'second note']
+
+def test_importerror_kwarg_error():
+    if sys.implementation.name == 'pypy':
+        msg = "ImportError.__init__() got an unexpected keyword argument 'invalid'"
+    else:
+        msg = "'invalid' is an invalid keyword argument for ImportError()"
+    exc = raises(TypeError,
+                 ImportError,
+                 'test', invalid='keyword', another=True)
+    assert str(exc.value) == "ImportError.__init__() got 2 unexpected keyword arguments"
+
+    exc = raises(TypeError, ImportError, 'test', invalid='keyword')
+    assert str(exc.value) == msg
+
+    exc = raises(TypeError,
+                 ImportError,
+                 'test', name='name', invalid='keyword')
+    assert str(exc.value) == msg
+
+    exc = raises(TypeError,
+                 ImportError,
+                 'test', path='path', invalid='keyword')
+    assert str(exc.value) == msg
+
 
 
 # ExceptionGroup tests
@@ -366,7 +394,8 @@ def test_subgroup_bytype_is_id_if_all_subexceptions_match_and_split_is_not():
     eg_subgroup = eg.subgroup(TypeError)
     eg_split = eg.split(TypeError)[0]
     assert repr(eg_subgroup) == repr(eg_split)
-    assert eg_subgroup is eg
+    if sys.implementation.name == 'pypy':
+        assert eg_subgroup is eg
     assert not eg_split is eg
 
 def test_split_bytype_single_simple():
@@ -510,99 +539,100 @@ def test_derive_always_creates_exception_group():
 
 # _prep_reraise_star tests
 
-from __exceptions__ import _prep_reraise_star, _collect_eg_leafs, _exception_group_projection
+if sys.implementation.name == 'pypy':
+    from __exceptions__ import _prep_reraise_star, _collect_eg_leafs, _exception_group_projection
 
-def test_prep_reraise_star_simple():
-    assert _prep_reraise_star(TypeError(), [None]) is None
-    assert _prep_reraise_star(ExceptionGroup('abc', [ValueError(), TypeError()]), [None]) is None
+    def test_prep_reraise_star_simple():
+        assert _prep_reraise_star(TypeError(), [None]) is None
+        assert _prep_reraise_star(ExceptionGroup('abc', [ValueError(), TypeError()]), [None]) is None
 
-    value = ValueError()
-    res = _prep_reraise_star(ExceptionGroup('abc', [value, TypeError()]), [ExceptionGroup('abc', [value])])
-    assert repr(res) == "ExceptionGroup('abc', [ValueError()])"
-    assert res.exceptions[0] is value
+        value = ValueError()
+        res = _prep_reraise_star(ExceptionGroup('abc', [value, TypeError()]), [ExceptionGroup('abc', [value])])
+        assert repr(res) == "ExceptionGroup('abc', [ValueError()])"
+        assert res.exceptions[0] is value
 
-def test_prep_reraise_exception_happens_in_except_star():
-    value = ValueError()
-    full_eg = ExceptionGroup('abc', [value, TypeError()])
-    value_eg = ExceptionGroup('abc', [value])
-    try:
-        raise Exception
-    except Exception as e:
-        tb1 = e.__traceback__
-    try:
-        raise Exception
-    except Exception as e:
-        tb2 = e.__traceback__
-    full_eg.__traceback__ = tb1
-    value_eg.__traceback__ = tb1
-    zerodiv = ZeroDivisionError('division by zero')
-    zerodiv.__traceback__ = tb2
-    assert repr(_prep_reraise_star(full_eg, [zerodiv, value_eg])) == "ExceptionGroup('', [ZeroDivisionError('division by zero'), ExceptionGroup('abc', [ValueError()])])"
+    def test_prep_reraise_exception_happens_in_except_star():
+        value = ValueError()
+        full_eg = ExceptionGroup('abc', [value, TypeError()])
+        value_eg = ExceptionGroup('abc', [value])
+        try:
+            raise Exception
+        except Exception as e:
+            tb1 = e.__traceback__
+        try:
+            raise Exception
+        except Exception as e:
+            tb2 = e.__traceback__
+        full_eg.__traceback__ = tb1
+        value_eg.__traceback__ = tb1
+        zerodiv = ZeroDivisionError('division by zero')
+        zerodiv.__traceback__ = tb2
+        assert repr(_prep_reraise_star(full_eg, [zerodiv, value_eg])) == "ExceptionGroup('', [ZeroDivisionError('division by zero'), ExceptionGroup('abc', [ValueError()])])"
 
-# helper function tests
+    # helper function tests
 
-def test_eg_leafs_basic():
-    t1, v1 = TypeError(), ValueError()
-    exceptions = [t1, v1]
-    message = "42"
-    excgroup = ExceptionGroup(message, exceptions)
-    resultset = set()
-    _collect_eg_leafs(excgroup, resultset)
-    assert {t1, v1} == resultset
+    def test_eg_leafs_basic():
+        t1, v1 = TypeError(), ValueError()
+        exceptions = [t1, v1]
+        message = "42"
+        excgroup = ExceptionGroup(message, exceptions)
+        resultset = set()
+        _collect_eg_leafs(excgroup, resultset)
+        assert {t1, v1} == resultset
 
-def test_eg_leafs_null():
-    resultset = set()
-    _collect_eg_leafs(None, resultset)
-    assert not resultset
+    def test_eg_leafs_null():
+        resultset = set()
+        _collect_eg_leafs(None, resultset)
+        assert not resultset
 
-def test_eg_leafs_nogroup():
-    exc = TypeError()
-    resultset = set()
-    _collect_eg_leafs(exc, resultset)
-    assert resultset == {exc}
+    def test_eg_leafs_nogroup():
+        exc = TypeError()
+        resultset = set()
+        _collect_eg_leafs(exc, resultset)
+        assert resultset == {exc}
 
-def test_eg_leafs_recursive():
-    # TODO: fix
-    val1 = ValueError(1)
-    typ1 = TypeError()
-    val2 = ValueError(2)
-    val3 = ValueError(3)
-    typ2 = TypeError()
-    key1 = KeyError()
-    div1 = ZeroDivisionError()
-    eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
-    resultset = set()
-    collected = _collect_eg_leafs(eg, resultset)
-    assert len(resultset) == 7
-    for e in [val1, typ1, val2, val3, typ2, key1, div1]:
-        assert e in resultset
+    def test_eg_leafs_recursive():
+        # TODO: fix
+        val1 = ValueError(1)
+        typ1 = TypeError()
+        val2 = ValueError(2)
+        val3 = ValueError(3)
+        typ2 = TypeError()
+        key1 = KeyError()
+        div1 = ZeroDivisionError()
+        eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
+        resultset = set()
+        collected = _collect_eg_leafs(eg, resultset)
+        assert len(resultset) == 7
+        for e in [val1, typ1, val2, val3, typ2, key1, div1]:
+            assert e in resultset
 
-def test_exception_group_projection_basic():
-    val1 = ValueError(1)
-    typ1 = TypeError()
-    val2 = ValueError(2)
-    val3 = ValueError(3)
-    typ2 = TypeError()
-    key1 = KeyError()
-    div1 = ZeroDivisionError()
-    eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
-    keep1 = ExceptionGroup("meep", [key1, typ1])
-    keep2 = ExceptionGroup("moop", [val2, ExceptionGroup("doop", [val3])])
-    result = _exception_group_projection(eg, [keep1, keep2])
-    assert repr(result) == \
-        "ExceptionGroup('abc', [KeyError(), ExceptionGroup('def', [ValueError(2), ValueError(3)]), TypeError()])"
+    def test_exception_group_projection_basic():
+        val1 = ValueError(1)
+        typ1 = TypeError()
+        val2 = ValueError(2)
+        val3 = ValueError(3)
+        typ2 = TypeError()
+        key1 = KeyError()
+        div1 = ZeroDivisionError()
+        eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
+        keep1 = ExceptionGroup("meep", [key1, typ1])
+        keep2 = ExceptionGroup("moop", [val2, ExceptionGroup("doop", [val3])])
+        result = _exception_group_projection(eg, [keep1, keep2])
+        assert repr(result) == \
+            "ExceptionGroup('abc', [KeyError(), ExceptionGroup('def', [ValueError(2), ValueError(3)]), TypeError()])"
 
-def test_exception_group_projection_duplicated_in_keep():
-    val1 = ValueError(1)
-    typ1 = TypeError()
-    val2 = ValueError(2)
-    val3 = ValueError(3)
-    typ2 = TypeError()
-    key1 = KeyError()
-    div1 = ZeroDivisionError()
-    eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
-    keep1 = ExceptionGroup("meep", [key1, typ1, val2])
-    keep2 = ExceptionGroup("moop", [val2, ExceptionGroup("doop", [key1, val3])])
-    result = _exception_group_projection(eg, [keep1, keep2])
-    assert repr(result) == \
-        "ExceptionGroup('abc', [KeyError(), ExceptionGroup('def', [ValueError(2), ValueError(3)]), TypeError()])"
+    def test_exception_group_projection_duplicated_in_keep():
+        val1 = ValueError(1)
+        typ1 = TypeError()
+        val2 = ValueError(2)
+        val3 = ValueError(3)
+        typ2 = TypeError()
+        key1 = KeyError()
+        div1 = ZeroDivisionError()
+        eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
+        keep1 = ExceptionGroup("meep", [key1, typ1, val2])
+        keep2 = ExceptionGroup("moop", [val2, ExceptionGroup("doop", [key1, val3])])
+        result = _exception_group_projection(eg, [keep1, keep2])
+        assert repr(result) == \
+            "ExceptionGroup('abc', [KeyError(), ExceptionGroup('def', [ValueError(2), ValueError(3)]), TypeError()])"
