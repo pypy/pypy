@@ -228,22 +228,23 @@ def parse_filter_chain_spec(filterspecs):
             filters[i].options = filter.options
     return filters
 
-def build_filter_spec(filter):
-    spec = {'id': filter.id}
+def build_filter_spec(lzma_filter):
+    spec = {'id': lzma_filter.id}
     def add_opts(options_type, *opts):
-        options = ffi.cast('%s*' % (options_type,), filter.options)
-        for v in opts:
-            spec[v] = getattr(options, v)
-    if filter.id == m.LZMA_FILTER_LZMA1:
+        options = ffi.cast('%s*' % (options_type,), lzma_filter.options)
+        if options:
+            for v in opts:
+                spec[v] = getattr(options, v)
+    if lzma_filter.id == m.LZMA_FILTER_LZMA1:
         add_opts('lzma_options_lzma', 'lc', 'lp', 'pb', 'dict_size')
-    elif filter.id == m.LZMA_FILTER_LZMA2:
+    elif lzma_filter.id == m.LZMA_FILTER_LZMA2:
         add_opts('lzma_options_lzma', 'dict_size')
-    elif filter.id == m.LZMA_FILTER_DELTA:
+    elif lzma_filter.id == m.LZMA_FILTER_DELTA:
         add_opts('lzma_options_delta', 'dist')
-    elif filter.id in BCJ_FILTERS:
+    elif lzma_filter.id in BCJ_FILTERS:
         add_opts('lzma_options_bcj', 'start_offset')
     else:
-        raise ValueError("Invalid filter ID: %s" % filter.id)
+        raise ValueError("Invalid filter ID: %s" % lzma_filter.id)
     return spec
 
 def _decode_filter_properties(filter_id, encoded_props):
@@ -251,15 +252,15 @@ def _decode_filter_properties(filter_id, encoded_props):
 
     Return a dict describing a filter with ID *filter_id*, and options
     (properties) decoded from the bytes object *encoded_props*."""
-    filter = ffi.new('lzma_filter*')
-    filter.id = filter_id
+    lzma_filter = ffi.new('lzma_filter*')
+    lzma_filter.id = filter_id
     catch_lzma_error(m.lzma_properties_decode,
-        filter, ffi.NULL, encoded_props, len(encoded_props))
+        lzma_filter, ffi.NULL, encoded_props, len(encoded_props))
     try:
-        return build_filter_spec(filter)
+        return build_filter_spec(lzma_filter)
     finally:
         # TODO do we need this, the only use of m.free?
-        m.free(filter.options)
+        m.free(lzma_filter.options)
 
 def _decode_stream_header_or_footer(decode_f, in_bytes):
     footer_o = ffi.new('char[]', to_bytes(in_bytes))
