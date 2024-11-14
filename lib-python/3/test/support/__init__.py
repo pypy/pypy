@@ -44,7 +44,7 @@ __all__ = [
     "check__all__", "skip_if_buggy_ucrt_strfptime",
     "check_disallow_instantiation", "check_sanitizer", "skip_if_sanitizer",
     # sys
-    "MS_WINDOWS", "is_jython", "is_android", "is_emscripten", "is_wasi",
+    "MS_WINDOWS", "is_jython", "is_android", "is_emscripten", "is_wasi", "is_pypy",
     "check_impl_detail", "unix_shell", "setswitchinterval",
     # network
     "open_urlresource",
@@ -526,6 +526,7 @@ else:
 # have subprocess or fork support.
 is_emscripten = sys.platform == "emscripten"
 is_wasi = sys.platform == "wasi"
+is_pypy = sys.implementation.name == "pypy"
 
 has_fork_support = hasattr(os, "fork") and not is_emscripten and not is_wasi
 
