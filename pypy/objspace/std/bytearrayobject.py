@@ -193,17 +193,15 @@ class W_BytearrayObject(W_Root):
         from pypy.interpreter.unicodehelper import str_decode_latin_1
 
         assert isinstance(self, W_BytearrayObject)
-        w_dict = self.getdict(space)
+        w_state = space.call_method(self, '__getstate__')
         s_ = ''.join(self.getdata()[:-1])
         w_s = space.newbytes(s_)
-        if w_dict is None:
-            w_dict = space.w_None
         s, _, lgt = str_decode_latin_1(space, s_, w_s, 'strict',
             True, None)
         return space.newtuple([
             space.type(self), space.newtuple2(
                 space.newutf8(s, lgt), space.newtext('latin-1')),
-            w_dict])
+            w_state])
 
     @staticmethod
     def descr_fromhex(space, w_bytearraytype, w_hexstring):

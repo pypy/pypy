@@ -598,6 +598,18 @@ class AppTestBytesArray:
         assert bytearray(b'caf\xe9').__reduce__() == (
             bytearray, ('caf\xe9', 'latin-1'), None)
 
+    def test_reduce_subclass(self):
+        class Slots(bytearray):
+            __slots__ = ['x', 'y', '__dict__']
+
+        b = Slots(b'caf\xe9')
+        b.x = 1
+        b.y = 2
+        b.z = 3
+
+        assert b.__reduce__() == (
+            Slots, ('caf\xe9', 'latin-1'), ({'z': 3}, {'x': 1, 'y': 2}))
+
     def test_setitem_slice_performance(self):
         # because of a complexity bug, this used to take forever on a
         # translated pypy.  On CPython2.6 -A, it takes around 8 seconds.
