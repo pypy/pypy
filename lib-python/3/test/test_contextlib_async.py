@@ -541,6 +541,8 @@ class TestAsyncExitStack(TestBaseExitStack, unittest.TestCase):
         ('__exit__', 'return self.run_coroutine(self.__aexit__(*exc_details))'),
         ('run_coroutine', 'raise exc'),
         ('run_coroutine', 'raise exc'),
+        # PyPy addition
+        ('__step', 'result = coro.send(None)'),
         ('__aexit__', 'raise exc_details[1]'),
         ('__aexit__', 'cb_suppress = cb(*exc_details)'),
     ]
