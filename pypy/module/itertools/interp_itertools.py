@@ -2,10 +2,28 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
-from pypy.objspace.std.util import generic_alias_class_getitem
+from pypy.objspace.std.util import generic_alias_class_getitem, builtinclass_new_args_check
 from rpython.rlib import jit
 
 from pypy.module.__builtin__.functional import W_Filter, build_iterators_from_args
+
+def W_Twoarg__new__(space, w_subtype, W_Base, name, __args__):
+    args_w = __args__.arguments_w
+    w_type = space.gettypeobject(W_Base.typedef)
+    w_init = space.newtext("__init__")
+    if (space.is_w(w_subtype, w_type) or 
+        space.is_w(space.getattr(w_subtype, w_init), space.getattr(w_type, w_init))):
+        if __args__.keyword_names_w:
+            raise oefmt(space.w_TypeError,
+                    "%s() takes no keyword arguments", name)
+    length = len(args_w) if args_w else 0
+    if length != 2:
+        raise oefmt(space.w_TypeError,
+                    "%s() expected 2 arguments, got %d", name, length)
+    r = space.allocate_instance(W_Base, w_subtype)
+    r.__init__(space, args_w[0], args_w[1])
+    return r
+
 
 class W_Count(W_Root):
     def __init__(self, space, w_firstval, w_step):
@@ -191,11 +209,8 @@ class W_TakeWhile(W_Root):
     def descr_setstate(self, space, w_state):
         self.stopped = space.bool_w(w_state)
 
-def W_TakeWhile___new__(space, w_subtype, w_predicate, w_iterable):
-    r = space.allocate_instance(W_TakeWhile, w_subtype)
-    r.__init__(space, w_predicate, w_iterable)
-    return r
-
+def W_TakeWhile___new__(space, w_subtype, __args__):
+    return W_Twoarg__new__(space, w_subtype, W_TakeWhile, "takewhile", __args__)
 
 W_TakeWhile.typedef = TypeDef(
         'itertools.takewhile',
@@ -251,10 +266,8 @@ class W_DropWhile(W_Root):
     def descr_setstate(self, space, w_state):
         self.started = space.bool_w(w_state)
 
-def W_DropWhile___new__(space, w_subtype, w_predicate, w_iterable):
-    r = space.allocate_instance(W_DropWhile, w_subtype)
-    r.__init__(space, w_predicate, w_iterable)
-    return r
+def W_DropWhile___new__(space, w_subtype, __args__):
+    return W_Twoarg__new__(space, w_subtype, W_DropWhile, "dropwhile", __args__)
 
 
 W_DropWhile.typedef = TypeDef(
@@ -289,22 +302,7 @@ class W_FilterFalse(W_Filter):
         return space.newtuple([space.type(self), space.newtuple(args_w)])
 
 def W_FilterFalse___new__(space, w_subtype, __args__):
-    args_w = __args__.arguments_w
-    w_filter = space.gettypeobject(W_FilterFalse.typedef)
-    w_init = space.newtext("__init__")
-    if (space.is_w(w_subtype, w_filter) or 
-        space.is_w(space.getattr(w_subtype, w_init), space.getattr(w_filter, w_init))):
-        if __args__.keyword_names_w:
-            raise oefmt(space.w_TypeError,
-                    "filterfalse() takes no keyword arguments")
-    length = len(args_w) if args_w else 0
-    if length != 2:
-        raise oefmt(space.w_TypeError,
-                    "filterfalse() expected 2 arguments got %d", length)
-    r = space.allocate_instance(W_FilterFalse, w_subtype)
-    r.__init__(space, args_w[0], args_w[1])
-    return r
-
+    return W_Twoarg__new__(space, w_subtype, W_FilterFalse, 'filterfalse', __args__)
 
 W_FilterFalse.typedef = TypeDef(
         'itertools.filterfalse',
@@ -453,7 +451,15 @@ class W_ISlice(W_Root):
     def descr_setstate(self, space, w_state):
         self.count = space.int_w(w_state)
 
-def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, args_w):
+def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, __args__):
+    args_w = __args__.arguments_w
+    w_islice = space.gettypeobject(W_ISlice.typedef)
+    w_init = space.newtext("__init__")
+    if (space.is_w(w_subtype, w_islice) or 
+        space.is_w(space.getattr(w_subtype, w_init), space.getattr(w_islice, w_init))):
+        if __args__.keyword_names_w:
+            raise oefmt(space.w_TypeError,
+                    "islice() takes no keyword arguments")
     r = space.allocate_instance(W_ISlice, w_subtype)
     r.__init__(space, w_iterable, w_startstop, args_w)
     return r
@@ -753,7 +759,9 @@ class W_Cycle(W_Root):
         # w_exhausted ignored
 
 
-def W_Cycle___new__(space, w_subtype, w_iterable):
+def W_Cycle___new__(space, w_subtype, w_iterable, __posonly__, __args__):
+    w_type = space.gettypeobject(W_Cycle.typedef)
+    builtinclass_new_args_check(space, "cycle", w_type, w_subtype, __args__)
     r = space.allocate_instance(W_Cycle, w_subtype)
     r.__init__(space, w_iterable)
     return r
@@ -803,21 +811,7 @@ class W_StarMap(W_Root):
                                     ])
 
 def W_StarMap___new__(space, w_subtype, __args__):
-    args_w = __args__.arguments_w
-    w_starmap = space.gettypeobject(W_StarMap.typedef)
-    w_init = space.newtext("__init__")
-    if (space.is_w(w_subtype, w_starmap) or 
-        space.is_w(space.getattr(w_subtype, w_init), space.getattr(w_starmap, w_init))):
-        if __args__.keyword_names_w:
-            raise oefmt(space.w_TypeError,
-                    "starmap() takes no keyword arguments")
-    length = len(args_w) if args_w else 0
-    if length != 2:
-        raise oefmt(space.w_TypeError,
-                    "starmap() expected 2 arguments got %d", length)
-    r = space.allocate_instance(W_StarMap, w_subtype)
-    r.__init__(space, args_w[0], args_w[1])
-    return r
+    return W_Twoarg__new__(space, w_subtype, W_StarMap, "starmap", __args__)
 
 W_StarMap.typedef = TypeDef(
         'itertools.starmap',

@@ -134,6 +134,34 @@ class AppTestItertools(object):
 
         raises(TypeError, itertools.takewhile, bool, None)
 
+    def test_takewhile_subclass_kwarg(self):
+        from itertools import takewhile
+        class subclass_with_new(takewhile):
+            def __new__(cls, predicate, iterable, newarg=None):
+                self = super().__new__(cls, predicate, iterable)
+                self.newarg = newarg
+                return self
+        u = subclass_with_new(bool, [1, 2], newarg=3)
+        assert u.newarg == 3
+        assert next(u) == 1
+
+        class subclass_with_init(takewhile):
+            def __init__(self, predicate, iterable, newarg=None):
+                self.newarg = newarg
+        u = subclass_with_init(bool, [1, 2], newarg=3)
+        assert u.newarg == 3
+        assert next(u) == 1
+
+        with raises(TypeError) as e:
+            u = takewhile(bool, [1, 2], newargs=3)
+        assert str(e.value) == "takewhile() takes no keyword arguments"
+
+        class subclass(takewhile):
+            pass
+        with raises(TypeError) as e:
+            subclass(bool, [1, 2], newarg=3)
+
+
     def test_dropwhile(self):
         import itertools
 
@@ -159,6 +187,33 @@ class AppTestItertools(object):
         raises(TypeError, next, it)
 
         raises(TypeError, itertools.dropwhile, bool, None)
+
+    def test_dropwhile_subclass_kwarg(self):
+        from itertools import dropwhile
+        class subclass_with_new(dropwhile):
+            def __new__(cls, predicate, iterable, newarg=None):
+                self = super().__new__(cls, predicate, iterable)
+                self.newarg = newarg
+                return self
+        u = subclass_with_new(lambda a: False, [1, 2], newarg=3)
+        assert u.newarg == 3
+        assert list(u) == [1, 2]
+
+        class subclass_with_init(dropwhile):
+            def __init__(self, predicate, iterable, newarg=None):
+                self.newarg = newarg
+        u = subclass_with_init(lambda a: False, [1, 2], newarg=3)
+        assert u.newarg == 3
+        assert list(u) == [1, 2]
+
+        with raises(TypeError) as e:
+            u = dropwhile(lambda a: False, [1, 2], newargs=3)
+        assert str(e.value) == "dropwhile() takes no keyword arguments"
+
+        class subclass(dropwhile):
+            pass
+        with raises(TypeError) as e:
+            subclass(lambda a: True, [1, 2], newarg=3)
 
     def test_filterfalse(self):
         import itertools
@@ -215,7 +270,8 @@ class AppTestItertools(object):
 
         with raises(TypeError) as e:
             u = filterfalse()
-        assert str(e.value) == "filterfalse() expected 2 arguments got 0"
+        # CPython has a worse error message (filterfalse() -> filterfalse)
+        assert str(e.value) == "filterfalse() expected 2 arguments, got 0", str(e.value)
 
         with raises(TypeError) as e:
             u = filterfalse(None, [1, 2], newargs=3)
@@ -365,6 +421,33 @@ class AppTestItertools(object):
         raises(ValueError, itertools.islice, [], 0, "a", 2)
         raises(ValueError, itertools.islice, [], 0, 1, "a")
 
+    def test_islice_subclass_kwarg(self):
+        from itertools import islice
+        class subclass_with_new(islice):
+            def __new__(cls, iterable, startstop, args, newarg=None):
+                self = super().__new__(cls, iterable, startstop, args)
+                self.newarg = newarg
+                return self
+        u = subclass_with_new([1, 2], 0, 3, newarg=3)
+        assert u.newarg == 3
+        assert next(u) == 1
+
+        class subclass_with_init(islice):
+            def __init__(self, iterable, startstop, args, newarg=None):
+                self.newarg = newarg
+        u = subclass_with_init([1, 2], 0, 3, newarg=3)
+        assert u.newarg == 3
+        assert next(u) == 1
+
+        with raises(TypeError) as e:
+            u = islice([1, 2], 0, 3, newargs=3)
+        assert str(e.value) == "islice() takes no keyword arguments"
+
+        class subclass(islice):
+            pass
+        with raises(TypeError) as e:
+            subclass([1, 2], newarg=3)
+
     def test_chain(self):
         import itertools
 
@@ -424,6 +507,36 @@ class AppTestItertools(object):
         for x in [1, 2, 3, 1, 2, 3, 1, 2, 3]:
             assert next(it) == x
 
+    def test_cycle_subclass_kwarg(self):
+        from itertools import cycle
+        class subclass_with_new(cycle):
+            def __new__(cls, v, newarg=None):
+                self = super().__new__(cls, v)
+                self.newarg = newarg
+                return self
+        u = subclass_with_new([1, 2], newarg=3)
+        assert u.newarg == 3
+        assert next(u) == 1
+
+        class subclass_with_init(cycle):
+            def __init__(self, v, newarg=None):
+                self.newarg = newarg
+        u = subclass_with_init([1, 2], newarg=3)
+        assert u.newarg == 3
+        assert next(u) == 1
+
+        with raises(TypeError) as e:
+            u = cycle()
+
+        with raises(TypeError) as e:
+            u = cycle([1, 2], newargs=3)
+        assert str(e.value) == "cycle() takes no keyword arguments"
+
+        class subclass(cycle):
+            pass
+        with raises(TypeError) as e:
+            subclass([1, 2], newarg=3)
+
     def test_starmap(self):
         import itertools
         import _operator as operator
@@ -471,7 +584,8 @@ class AppTestItertools(object):
 
         with raises(TypeError) as e:
             u = starmap()
-        assert str(e.value) == "starmap() expected 2 arguments got 0"
+        # CPython has a worse error message (starmap() -> starmap)
+        assert str(e.value) == "starmap() expected 2 arguments, got 0", str(e.value)
 
         with raises(TypeError) as e:
             u = starmap(operator.add, [[1, 2]], newargs=3)
