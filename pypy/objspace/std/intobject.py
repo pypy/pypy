@@ -98,9 +98,9 @@ class W_AbstractIntObject(W_Root):
         return w_obj
 
     @unwrap_spec(length=int, byteorder='text', signed=bool)
-    def descr_to_bytes(self, space, length, byteorder='big', signed=False):
+    def descr_to_bytes(self, space, length=1, byteorder='big', signed=False):
         """to_bytes(...)
-        int.to_bytes(length, byteorder='big', *, signed=False) -> bytes
+        int.to_bytes(length=1, byteorder='big', *, signed=False) -> bytes
 
         Return an array of bytes representing an integer.
 
