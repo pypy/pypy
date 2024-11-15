@@ -269,6 +269,17 @@ def test_reduce():
     r = d.__reduce__()
     assert r[:3] == (D, ((), 42), {'a': 5})
 
+    class DequeWithSlots(deque):
+        __slots__ = ('x', 'y', '__dict__')
+
+    d = DequeWithSlots()
+    d.x = 1
+    d.y = 2
+    d.z = 3
+    r = d.__reduce__()
+    assert r[:3] == (DequeWithSlots, (), ({'z': 3}, {'x': 1, 'y': 2}))
+
+
 def test_copy():
     import copy
     mut = [10]
