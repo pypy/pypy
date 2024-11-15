@@ -1347,6 +1347,10 @@ class AppTestItertools27(object):
         assert list(itertools.islice(
             pickle.loads(pickle.dumps(c)), 10)) == list('bcabcabcab')
 
+        # CPython does not add the 'exhausted' state
+        state = c.__reduce__()
+        assert len(state[2]) == 2
+
     def test_takewhile_pickle(self):
         data = [1, 2, 3, 0, 4, 5, 6]
         import itertools, pickle

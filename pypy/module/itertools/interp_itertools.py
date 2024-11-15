@@ -20,9 +20,7 @@ def W_Twoarg__new__(space, w_subtype, W_Base, name, __args__):
     if length != 2:
         raise oefmt(space.w_TypeError,
                     "%s() expected 2 arguments, got %d", name, length)
-    r = space.allocate_instance(W_Base, w_subtype)
-    r.__init__(space, args_w[0], args_w[1])
-    return r
+    return args_w
 
 
 class W_Count(W_Root):
@@ -210,7 +208,10 @@ class W_TakeWhile(W_Root):
         self.stopped = space.bool_w(w_state)
 
 def W_TakeWhile___new__(space, w_subtype, __args__):
-    return W_Twoarg__new__(space, w_subtype, W_TakeWhile, "takewhile", __args__)
+    args_w = W_Twoarg__new__(space, w_subtype, W_TakeWhile, "takewhile", __args__)
+    r = space.allocate_instance(W_TakeWhile, w_subtype)
+    r.__init__(space, args_w[0], args_w[1])
+    return r
 
 W_TakeWhile.typedef = TypeDef(
         'itertools.takewhile',
@@ -267,7 +268,10 @@ class W_DropWhile(W_Root):
         self.started = space.bool_w(w_state)
 
 def W_DropWhile___new__(space, w_subtype, __args__):
-    return W_Twoarg__new__(space, w_subtype, W_DropWhile, "dropwhile", __args__)
+    args_w = W_Twoarg__new__(space, w_subtype, W_DropWhile, "dropwhile", __args__)
+    r = space.allocate_instance(W_DropWhile, w_subtype)
+    r.__init__(space, args_w[0], args_w[1])
+    return r
 
 
 W_DropWhile.typedef = TypeDef(
@@ -302,7 +306,10 @@ class W_FilterFalse(W_Filter):
         return space.newtuple([space.type(self), space.newtuple(args_w)])
 
 def W_FilterFalse___new__(space, w_subtype, __args__):
-    return W_Twoarg__new__(space, w_subtype, W_FilterFalse, 'filterfalse', __args__)
+    args_w = W_Twoarg__new__(space, w_subtype, W_FilterFalse, 'filterfalse', __args__)
+    r = space.allocate_instance(W_FilterFalse, w_subtype)
+    r.__init__(space, args_w[0], args_w[1])
+    return r
 
 W_FilterFalse.typedef = TypeDef(
         'itertools.filterfalse',
@@ -748,15 +755,18 @@ class W_Cycle(W_Root):
             space.newtuple([
                 space.newlist(self.saved_w),
                 space.newint(self.index),
-                space.newbool(self.index > 0),
+                # space.newbool(self.index > 0),
             ]),
         ])
 
     def descr_setstate(self, space, w_state):
-        w_saved, w_index, w_exhausted = space.unpackiterable(w_state, 3)
+        state_w = space.unpackiterable(w_state, 2)
+        w_saved = state_w[0]
         self.saved_w = space.unpackiterable(w_saved)
+        w_index = state_w[1]
         self.index = space.int_w(w_index)
         # w_exhausted ignored
+        # w_exhausted = state_w[2]
 
 
 def W_Cycle___new__(space, w_subtype, w_iterable, __posonly__, __args__):
@@ -811,7 +821,10 @@ class W_StarMap(W_Root):
                                     ])
 
 def W_StarMap___new__(space, w_subtype, __args__):
-    return W_Twoarg__new__(space, w_subtype, W_StarMap, "starmap", __args__)
+    args_w = W_Twoarg__new__(space, w_subtype, W_StarMap, "starmap", __args__)
+    r = space.allocate_instance(W_StarMap, w_subtype)
+    r.__init__(space, args_w[0], args_w[1])
+    return r
 
 W_StarMap.typedef = TypeDef(
         'itertools.starmap',
