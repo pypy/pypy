@@ -495,7 +495,6 @@ class CommonTest(seq_tests.CommonTest):
         u = self.type2test("spam")
         u += "eggs"
         self.assertEqual(u, self.type2test("spameggs"))
-        import pdb;pdb.set_trace()
 
         self.assertRaises(TypeError, u.__iadd__, None)
 
