@@ -470,6 +470,9 @@ class AppTestLong:
         raises(ValueError, (-5).to_bytes, 1, 'foo')
         assert 65535 .to_bytes(length=2, byteorder='big') == b'\xff\xff'
 
+    def test_to_bytes_default_length(self):
+        assert 11 .to_bytes() == b'\x0b'
+
     def test_negative_zero(self):
         x = eval("-self._long(0)")
         assert x == self._long(0)

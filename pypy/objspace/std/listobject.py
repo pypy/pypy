@@ -593,16 +593,7 @@ class W_ListObject(W_Root):
         return w_clone
 
     def descr_inplace_add(self, space, w_iterable):
-        if isinstance(w_iterable, W_ListObject):
-            self.extend(w_iterable)
-            return self
-
-        try:
-            self.extend(w_iterable)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                return space.w_NotImplemented
-            raise
+        self.extend(w_iterable)
         return self
 
     def descr_mul(self, space, w_times):
