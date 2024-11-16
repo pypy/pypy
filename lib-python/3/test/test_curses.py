@@ -1031,6 +1031,7 @@ class TestCurses(unittest.TestCase):
             p.userptr()
 
     @requires_curses_func('panel')
+    @cpython_only
     def test_userptr_memory_leak(self):
         w = curses.newwin(10, 10)
         p = curses.panel.new_panel(w)

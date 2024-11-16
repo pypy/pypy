@@ -63,9 +63,11 @@ def _find_panel(pan):
 
 
 class Panel(object):
+    sentinel = object()
     def __init__(self, pan, window):
         self._pan = pan
         self._window = window
+        self._userptr = self.sentinel
         _add_panel(self)
 
     def __del__(self):
@@ -93,16 +95,15 @@ class Panel(object):
         panel._window = window
         return None
 
-    def set_panel_userptr(self, obj):
-        code = lib.set_panel_userptr(self._pan, ffi.cast("void *", obj))
-        return _check_ERR(code, "set_panel_userptr")
+    def set_userptr(self, obj):
+        self._userptr = obj
 
     def userptr(self):
         # XXX: This is probably wrong.
-        obj = lib.panel_userptr(self._pan)
-        if obj == ffi.NULL:
-            raise error("no userptr set")
-        return obj
+        if self._userptr is self.sentinel:
+            raise error("userptr not set")
+        return self._userptr
+        
 
 
 def bottom_panel():
