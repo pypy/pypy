@@ -1,7 +1,8 @@
 import sys
 from rpython.jit.metainterp.history import Const, REF, JitCellToken
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.jit.metainterp.resoperation import rop, AbstractValue
+from rpython.jit.metainterp.resoperation import rop, AbstractResOpOrInputArg
+from rpython.jit.metainterp.optimizeopt.info import AbstractInfo
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 
@@ -14,7 +15,7 @@ SAVE_DEFAULT_REGS = 0
 SAVE_GCREF_REGS = 2
 SAVE_ALL_REGS = 1
 
-class TempVar(AbstractValue):
+class TempVar(AbstractResOpOrInputArg): # this base class to get get_forwarded and set_forwarded
     def __init__(self):
         pass
 
@@ -809,7 +810,7 @@ class BaseRegalloc(object):
 
 UNDEF_POS = -42
 
-class Lifetime(object):
+class Lifetime(AbstractInfo):
     def __init__(self, definition_pos=UNDEF_POS, last_usage=UNDEF_POS):
         # all positions are indexes into the operations list
 
@@ -934,9 +935,14 @@ class FixedRegisterPositions(object):
 
 
 class LifetimeManager(object):
-    def __init__(self, longevity):
-        self.longevity = longevity
-
+    def __init__(self, longevity=None):
+        if we_are_translated():
+            assert longevity is None
+        else:
+            if longevity:
+                # old interface for tests
+                for box, lifetime in longevity.iteritems():
+                    self[box] = lifetime
         # dictionary maps register to FixedRegisterPositions
         self.fixed_register_use = {}
 
@@ -947,7 +953,7 @@ class LifetimeManager(object):
         if var is None:
             definition_pos = opindex
         else:
-            varlifetime = self.longevity[var]
+            varlifetime = self[var]
             definition_pos = varlifetime.fixed_register(opindex, register)
         if register not in self.fixed_register_use:
             self.fixed_register_use[register] = FixedRegisterPositions(register)
@@ -1036,20 +1042,28 @@ class LifetimeManager(object):
         # to do in the current system
         return None
 
-    def __contains__(self, var):
-        return var in self.longevity
+    def __contains__(self, op):
+        info = op.get_forwarded()
+        return info is not None
 
-    def __getitem__(self, var):
-        return self.longevity[var]
+    def __getitem__(self, op):
+        info = op.get_forwarded()
+        if info is None:
+            raise KeyError
+        assert isinstance(info, Lifetime)
+        return info
 
-    def __setitem__(self, var, val):
-        self.longevity[var] = val
+    def __setitem__(self, op, lifetime):
+        assert op not in self or isinstance(op, TempVar)
+        op.set_forwarded(lifetime)
+
 
 def compute_vars_longevity(inputargs, operations):
-    # compute a dictionary that maps variables to Lifetime information
-    # if a variable is not in the dictionary, it's operation is dead because
-    # it's side-effect-free and the result is unused
-    longevity = {}
+    # compute Lifetime information for every variable, storing it in the
+    # forwarded field of every operation and input arg.
+    # if a variable has no Lifetime, the operation is dead because its
+    # side-effect-free and the result is unused
+    longevity = LifetimeManager()
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
         opnum = op.getopnum()
@@ -1095,13 +1109,16 @@ def compute_vars_longevity(inputargs, operations):
                 if not isinstance(arg, Const):
                     assert arg in produced
             produced[op] = None
-    for lifetime in longevity.itervalues():
+    for op in operations:
+        if op not in longevity:
+            continue
+        lifetime = longevity[op]
         if lifetime.real_usages is not None:
             lifetime.real_usages.reverse()
         if not we_are_translated():
             lifetime._check_invariants()
 
-    return LifetimeManager(longevity)
+    return longevity
 
 # YYY unused?
 def is_comparison_or_ovf_op(opnum):
