@@ -84,7 +84,9 @@ Py_DEPRECATED(3.9) PyAPI_FUNC(PyObject *) PyEval_CallMethod(
                  }
 
 
+#ifndef PYPY_VERSION
 PyAPI_FUNC(const char *) PyEval_GetFuncName(PyObject *);
+#endif
 PyAPI_FUNC(const char *) PyEval_GetFuncDesc(PyObject *);
 
 #ifdef __cplusplus

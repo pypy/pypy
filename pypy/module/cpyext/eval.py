@@ -1,4 +1,4 @@
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.astcompiler import consts
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import we_are_translated
@@ -325,3 +325,19 @@ def _PyEval_GetAsyncGenFinalizer(space):
     # sys.get_asyncgen_hooks().finalizer
     ec = space.getexecutioncontext()
     return ec.w_asyncgen_finalizer_fn
+
+@cpython_api([PyObject], rffi.CONST_CCHARP)
+def PyEval_GetFuncName(space, w_obj):
+    try:
+        w_name = space.getattr(w_obj, space.newtext('__name__'))
+        name = space.utf8_w(w_name)
+    except OperationError as e:
+        e.write_unraisable(space, "PyEval_GetFuncName")
+        name = "unknown"
+        
+    # leak the allocation. We could track this in a cache, and free it at
+    # shutdown.
+    return rffi.str2constcharp(name, track_allocation=False)
+
+
+

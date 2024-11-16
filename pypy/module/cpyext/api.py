@@ -611,7 +611,7 @@ SYMBOLS_C = [
     'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
-    'PyEval_GetFuncDesc', 'PyEval_GetFuncName',
+    'PyEval_GetFuncDesc', 
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 

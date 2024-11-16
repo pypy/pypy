@@ -312,7 +312,8 @@ _, _ = build_type_checkers("MethodDescr", W_PyCMethodObject)
 
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyCFunction_Check(space, w_obj):
+def PyCFunction_Check(space, pyobj):
+    w_obj = from_ref(space, pyobj)
     from pypy.interpreter.function import BuiltinFunction
     if w_obj is None:
         return False

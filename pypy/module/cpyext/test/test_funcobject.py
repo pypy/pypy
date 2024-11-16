@@ -41,7 +41,7 @@ class TestFunctionObject(BaseApiTest):
         w_method2 = PyMethod_New(space, w_function, w_self)
         assert space.eq_w(w_method, w_method2)
 
-    def test_getxxx(self, space):
+    def test_get_code_and_module(self, space):
         w_function = space.appexec([], """():
             def func(x, y, z): return x
             func.__module__ = "abc"
@@ -199,6 +199,10 @@ class AppTestCall(AppTestCpythonExtensionBase):
              """
                 return PyFunction_GetGlobals(args);
              """),
+            ("func_name", "METH_O",
+             """            
+                return PyUnicode_FromString(PyEval_GetFuncName(args));
+             """),
         ])
 
         g = 42
@@ -209,9 +213,18 @@ class AppTestCall(AppTestCpythonExtensionBase):
             def func(x):
                 return a, x
         code = wrapper.__code__
+
+        class A:
+            def method_example(self): pass
+
+ 
         assert module.code_cellvars(wrapper) == ('a', )
         assert module.code_numfree(wrapper) == 0
         assert module.code_code(wrapper) == code.co_code
         assert module.code_freevars(wrapper) == code.co_freevars
         assert module.code_varnames(wrapper) == code.co_varnames
         assert module.func_globals(wrapper) == wrapper.__globals__
+        assert module.func_name(sum) == "sum"
+        assert module.func_name(wrapper) == "wrapper"
+        assert module.func_name(A.method_example) == "method_example"
+        assert module.func_name(A().method_example) == "method_example"

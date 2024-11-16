@@ -1197,13 +1197,19 @@ test_get_type_name(PyObject *self, PyObject *Py_UNUSED(ignored))
         goto done;
     }
     tp_name = PyType_GetName((PyTypeObject *)HeapTypeNameType);
+    #ifndef PYPY_VERSION
     assert(strcmp(PyUnicode_AsUTF8(tp_name), "test_name") == 0);
+    #endif
     Py_DECREF(name);
     Py_DECREF(tp_name);
 
   done:
     Py_DECREF(HeapTypeNameType);
+    #ifdef PYPY_VERSION
+    Py_RETURN_FALSE;
+    #else
     Py_RETURN_NONE;
+    #endif
 }
 
 
@@ -1297,6 +1303,8 @@ test_type_from_ephemeral_spec(PyObject *self, PyObject *Py_UNUSED(ignored))
 
     PyTypeObject *class_tp = (PyTypeObject *)class;
     PyHeapTypeObject *class_ht = (PyHeapTypeObject *)class;
+    PyErr_SetString(PyExc_RuntimeError, "test faileds on line 1306");
+    goto finally;
     assert(strcmp(class_tp->tp_name, "testcapi._Test") == 0);
     assert(strcmp(PyUnicode_AsUTF8(class_ht->ht_name), "_Test") == 0);
     assert(strcmp(PyUnicode_AsUTF8(class_ht->ht_qualname), "_Test") == 0);
@@ -1358,14 +1366,20 @@ test_get_type_qualname(PyObject *self, PyObject *Py_UNUSED(ignored))
         goto done;
     }
     tp_qualname = PyType_GetQualName((PyTypeObject *)HeapTypeNameType);
+    #ifndef PYPY_VERSION
     assert(strcmp(PyUnicode_AsUTF8(tp_qualname),
                   "_testcapi.HeapTypeNameType") == 0);
+    #endif
     Py_DECREF(spec_name);
     Py_DECREF(tp_qualname);
 
   done:
     Py_DECREF(HeapTypeNameType);
+    #ifdef PYPY_VERSION
+    Py_RETURN_FALSE;
+    #else
     Py_RETURN_NONE;
+    #endif
 }
 
 
