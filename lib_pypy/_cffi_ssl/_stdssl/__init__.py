@@ -855,6 +855,8 @@ class _SSLSocket(object):
             3) self.socket() is not None
             This method returns True if there is not weakref object allocated
         """
+        if not self.ssl:
+            raise TypeError("requires a valid context")
         if self.socket is None:
             return None
         sock = self.socket()
