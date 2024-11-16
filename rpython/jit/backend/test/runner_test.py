@@ -67,7 +67,15 @@ class Runner(object):
                                                                 descr)
         return self.execute_operations(inputargs, operations, result_type)
 
+    def _prepare_reuse(self, inputargs, operations):
+        # clean Lifetime instances for repeatedly passing them to the backend
+        for arg in inputargs:
+            arg.set_forwarded(None)
+        for op in operations:
+            op.set_forwarded(None)
+
     def execute_operations(self, inputargs, operations, result_type):
+        self._prepare_reuse(inputargs, operations)
         looptoken = JitCellToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
         args = []
@@ -1768,6 +1776,7 @@ class BaseBackendTest(Runner):
                         looptoken = JitCellToken()
                         # Use "set" to unique-ify inputargs
                         unique_testcase_list = list(set(inputargs))
+                        self._prepare_reuse(unique_testcase_list, operations)
                         self.cpu.compile_loop(unique_testcase_list, operations,
                                               looptoken)
                         args = [box.getfloatstorage() for box in
