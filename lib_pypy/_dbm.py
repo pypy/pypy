@@ -7,7 +7,7 @@ class error(IOError):
     def __init__(self, msg, filename=None):
         self.msg = msg
         if filename:
-            self.filename = filename 
+            self.filename = filename
 
     def __str__(self):
         return self.msg
@@ -26,10 +26,11 @@ class datum(Structure):
             raise TypeError(msg.format(type(text).__name__))
         Structure.__init__(self, text, len(text))
 
-class dbm(object):
-    def __init__(self, dbmobj, flags):
+class _dbm(object):
+    def __init__(self, dbmobj, flags, closefunc):
         self._aobj = dbmobj
         self._flags = flags
+        self._closefunc = closefunc
 
     def close(self):
         if not self._aobj:
@@ -38,8 +39,8 @@ class dbm(object):
         self._aobj = None
 
     def __del__(self):
-        if self._aobj:
-            self.close()
+        if self._aobj and self._closefunc:
+            self._closefunc(self)
 
     def keys(self):
         if not self._aobj:
@@ -73,7 +74,7 @@ class dbm(object):
         return value
 
     def __setitem__(self, key, value):
-        if not self._aobj: 
+        if not self._aobj:
             raise error('DBM object has already been closed')
         dat = datum(key)
         data = datum(value)
@@ -200,7 +201,6 @@ def open(filename, flag='r', mode=0o666):
         if isinstance(filename, bytes):
             filename = filename.decode()
         raise error("Could not open file %s.db" % filename, filename)
-    
-    return dbm(a_db, openflag)
+    return _dbm(a_db, openflag, _dbm.close)
 
 __all__ = ('error', 'open', 'library')
