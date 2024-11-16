@@ -307,6 +307,17 @@ class AppTestBufferedReader:
         raises(ValueError, buf.isatty)
         repr(buf)  # Should still work
 
+    def test_detach_warn(self):
+        import _io, warnings
+        warnings.resetwarnings()
+        raw = _io.FileIO(self.tmpfile)
+        f = _io.BufferedReader(raw)
+        raw2 = f.detach()
+        assert raw2 == raw
+        raw.close()
+        with raises(RuntimeError):
+            f._dealloc_warn(1)
+
     def test_tell(self):
         import _io
         raw = _io.FileIO(self.tmpfile)
