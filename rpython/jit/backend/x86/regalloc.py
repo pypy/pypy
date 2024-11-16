@@ -391,8 +391,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             self.rm._check_invariants()
             self.xrm._check_invariants()
             i += 1
-        assert not self.rm.reg_bindings
-        assert not self.xrm.reg_bindings
+        assert len(self.rm.reg_bindings) == 0
+        assert len(self.xrm.reg_bindings) == 0
         if not we_are_translated():
             self.assembler.mc.UD2()
         self.flush_loop()

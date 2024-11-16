@@ -2540,7 +2540,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                     break
             else:
                 callee_only = True
-            if self._regalloc.xrm.reg_bindings:
+            if len(self._regalloc.xrm.reg_bindings):
                 floats = True
         sp.variant_num = floats * 2 + callee_only
         #

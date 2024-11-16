@@ -283,6 +283,9 @@ class RegBindingsDict(object):
         assert isinstance(lifetime, Lifetime)
         return lifetime
 
+    def _register_index(self, reg):
+        return self.regman.all_regs.index(reg)
+
     def __contains__(self, box):
         lifetime = self._get_lifetime(box)
         if lifetime is None:
@@ -327,8 +330,8 @@ class RegBindingsDict(object):
         index = lifetime.current_register_index
         if index >= 0:
             self.regman.reg_bindings_list[index] = None
-        lifetime.current_register_index = reg._register_manager_index
-        self.regman.reg_bindings_list[reg._register_manager_index] = box
+        newindex = lifetime.current_register_index = self._register_index(reg)
+        self.regman.reg_bindings_list[newindex] = box
     
     def __delitem__(self, box):
         lifetime = self._get_lifetime(box)
@@ -352,7 +355,6 @@ class RegBindingsDict(object):
             box = self.regman.reg_bindings_list[i]
             if box is not None:
                 res.append(self.regman.all_regs[i])
-        self.regman._add_annotation_checker(res)
         return res
 
     def keys(self):
@@ -367,44 +369,14 @@ class RegBindingsDict(object):
         return res
     iteritems = items # xxx
 
+    def __nonzero__(self):
+        assert False, '__nonzero__ is not rpython'
 
-class RegisterManagerMetaclass(type):
-    def __new__(typ, name, bases, dct):
-        res = type.__new__(typ, name, bases, dct)
-        regcls = None
-        for index, reg in enumerate(res.all_regs):
-            reg._register_manager_index = index
-            if regcls is None:
-                regcls = type(reg)
-            else:
-                assert type(reg) is regcls
-        if not regcls:
-            import pdb;pdb.set_trace()
-        res._register_class = regcls
-        def annotation_checker(s_arg, bookkeeper):
-            if res._register_class:
-                s_arg.listdef.listitem.resize()
-                s_arg.listdef.listitem.dont_change_any_more = True
-                assert s_arg.listdef.listitem.s_value.classdef.classdesc.pyobj is res._register_class
-            return True
-        def add_annotation_checker(self, l=None):
-            from rpython.rlib.debug import check_annotation
-            if l is not None:
-                check_annotation(l, annotation_checker)
-                return
-            check_annotation(self.all_regs, annotation_checker)
-            check_annotation(self.free_regs, annotation_checker)
-            if have_save:
-                check_annotation(self.save_around_call_regs, annotation_checker)
-        have_save = hasattr(res, 'save_around_call_regs')
-        res._add_annotation_checker = add_annotation_checker
-        return res
 
 class RegisterManager(object):
 
     """ Class that keeps track of register allocations
     """
-    __metaclass__ = RegisterManagerMetaclass
 
     box_types             = None       # or a list of acceptable types
     all_regs              = []
@@ -416,7 +388,6 @@ class RegisterManager(object):
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
         self.free_regs.reverse()
-        self._add_annotation_checker()
         self.reg_bindings_list = [None] * len(self.all_regs)
         self.longevity = longevity
         self.temp_boxes = []
@@ -480,12 +451,12 @@ class RegisterManager(object):
             for reg in self.free_regs:
                 assert reg not in rev_regs
             assert len(rev_regs) + len(self.free_regs) == len(self.all_regs)
-        for reg in self.all_regs:
-            box = self.reg_bindings_list[reg._register_manager_index]
+        for index, reg in enumerate(self.all_regs):
+            box = self.reg_bindings_list[index]
             if reg not in self.free_regs:
                 lifetime = self.longevity[box]
                 assert lifetime is not None
-                assert lifetime.current_register_index == reg._register_manager_index
+                assert lifetime.current_register_index == index
                 assert lifetime.last_usage > self.position
             else:
                 assert box is None
