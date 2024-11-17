@@ -287,7 +287,7 @@ testmap = [
     RegrTest('test_optparse.py'),
     RegrTest('test_ordered_dict.py'),
     RegrTest('test_os.py'),
-    RegrTest('test_ossaudiodev.py'),
+    RegrTest('test_ossaudiodev.py', skip="needs low level audio"),
     RegrTest('test_osx_env.py'),
     RegrTest('test_pathlib.py'),
     RegrTest('test_patma.py'),
@@ -469,7 +469,7 @@ testmap = [
     RegrTest('test_yield_from.py'),
     RegrTest('test_zipapp.py'),
     RegrTest('test_zipfile.py'),
-    RegrTest('test_zipfile64.py'),
+    RegrTest('test_zipfile64.py', skip="demands too many resources"),
     RegrTest('test_zipimport.py'),
     RegrTest('test_zipimport_support.py'),
     RegrTest('test_zlib.py'),
@@ -583,7 +583,7 @@ class ReallyRunFileExternal(pytest.collect.Item):
         if not execpath:
             raise LookupError("could not find executable %r" % option.pypy)
 
-        cmd = "%s -m test -v %s -u network" % (execpath, fspath.purebasename)
+        cmd = "%s -m test -v %s -u network -u curses -u gui" % (execpath, fspath.purebasename)
         # add watchdog for timing out
         cmd = "%s %s %s %s" % (python, watchdog_script, TIMEOUT, cmd)
         return cmd
