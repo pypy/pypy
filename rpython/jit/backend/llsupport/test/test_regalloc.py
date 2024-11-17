@@ -6,7 +6,7 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.resoperation import InputArgInt, InputArgRef,\
      InputArgFloat
 from rpython.jit.backend.detect_cpu import getcpuclass
-from rpython.jit.backend.llsupport.regalloc import FrameManager, LinkedList
+from rpython.jit.backend.llsupport.regalloc import FrameManager
 from rpython.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan,\
      Lifetime as RealLifetime, UNDEF_POS, BaseRegalloc, compute_vars_longevity,\
      LifetimeManager
@@ -16,7 +16,11 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llhelper
 
 def newboxes(*values):
-    return [InputArgInt(v) for v in values]
+    res = []
+    for v in values:
+        box = InputArgInt(v)
+        res.append(box)
+    return res
 
 def newrefboxes(count):
     return [InputArgRef() for _ in range(count)]
@@ -34,7 +38,7 @@ def Lifetime(definition_pos=UNDEF_POS, last_usage=UNDEF_POS,
 
 def boxes_and_longevity(num):
     res = []
-    longevity = {}
+    longevity = LifetimeManager()
     for i in range(num):
         box = InputArgInt(0)
         res.append(box)
@@ -683,10 +687,10 @@ class TestRegalloc(object):
 
     def test_hint_frame_locations_1(self):
         for hint_value in range(11):
-            b0, = newboxes(0)
+            (b0, ), _ = boxes_and_longevity(1)
             fm = TFrameManager()
-            fm.hint_frame_pos[b0] = hint_value
-            blist = newboxes(*range(10))
+            fm.add_frame_pos_hint(b0, FakeFramePos(hint_value, 'i'))
+            blist, _ = boxes_and_longevity(10)
             for b1 in blist:
                 fm.loc(b1)
             for b1 in blist:
@@ -700,71 +704,8 @@ class TestRegalloc(object):
             assert fm.get_loc_index(loc) == expected
             assert fm.get_frame_depth() == 10
 
-    def test_linkedlist(self):
-        class Loc(object):
-            def __init__(self, pos, size, tp):
-                self.pos = pos
-                self.size = size
-                self.tp = tp
-
-        class FrameManager(object):
-            @staticmethod
-            def get_loc_index(item):
-                return item.pos
-            @staticmethod
-            def frame_pos(pos, tp):
-                if tp == 13:
-                    size = 2
-                else:
-                    size = 1
-                return Loc(pos, size, tp)
-
-        fm = FrameManager()
-        l = LinkedList(fm)
-        l.append(1, Loc(1, 1, 0))
-        l.append(1, Loc(4, 1, 0))
-        l.append(1, Loc(2, 1, 0))
-        l.append(1, Loc(0, 1, 0))
-        assert l.master_node.val == 0
-        assert l.master_node.next.val == 1
-        assert l.master_node.next.next.val == 2
-        assert l.master_node.next.next.next.val == 4
-        assert l.master_node.next.next.next.next is None
-        item = l.pop(1, 0)
-        assert item.pos == 0
-        item = l.pop(1, 0)
-        assert item.pos == 1
-        item = l.pop(1, 0)
-        assert item.pos == 2
-        item = l.pop(1, 0)
-        assert item.pos == 4
-        assert l.pop(1, 0) is None
-        l.append(1, Loc(1, 1, 0))
-        l.append(1, Loc(5, 1, 0))
-        l.append(1, Loc(2, 1, 0))
-        l.append(1, Loc(0, 1, 0))
-        item = l.pop(2, 13)
-        assert item.tp == 13
-        assert item.pos == 0
-        assert item.size == 2
-        assert l.pop(2, 0) is None # 2 and 4
-        l.append(1, Loc(4, 1, 0))
-        item = l.pop(2, 13)
-        assert item.pos == 4
-        assert item.size == 2
-        assert l.pop(1, 0).pos == 2
-        assert l.pop(1, 0) is None
-        l.append(2, Loc(1, 2, 0))
-        # this will not work because the result will be odd
-        assert l.pop(2, 13) is None
-        l.append(1, Loc(3, 1, 0))
-        item = l.pop(2, 13)
-        assert item.pos == 2
-        assert item.tp == 13
-        assert item.size == 2
-
     def test_frame_manager_basic_equal(self):
-        b0, b1 = newboxes(0, 1)
+        (b0, b1, b2, b3), longevity = boxes_and_longevity(4)
         fm = TFrameManagerEqual()
         loc0 = fm.loc(b0)
         assert fm.get_loc_index(loc0) == 0
@@ -777,46 +718,82 @@ class TestRegalloc(object):
         loc0b = fm.loc(b0)
         assert loc0b == loc0
         #
-        fm.loc(InputArgInt())
+        fm.loc(b3)
         assert fm.get_frame_depth() == 3
         #
         f0 = InputArgFloat()
+        longevity[f0] = Lifetime()
         locf0 = fm.loc(f0)
         assert fm.get_loc_index(locf0) == 3
         assert fm.get_frame_depth() == 4
         #
         f1 = InputArgFloat()
+        longevity[f1] = Lifetime()
         locf1 = fm.loc(f1)
         assert fm.get_loc_index(locf1) == 4
         assert fm.get_frame_depth() == 5
         fm.mark_as_free(b1)
-        assert fm.freelist
-        b2 = InputArgInt()
+        assert fm.freelist_len_for_tests()
         fm.loc(b2) # should be in the same spot as b1 before
         assert fm.get(b1) is None
         assert fm.get(b2) == loc1
         fm.mark_as_free(b0)
         p0 = InputArgRef()
+        longevity[p0] = Lifetime()
         ploc = fm.loc(p0)
         assert fm.get_loc_index(ploc) == 0
         assert fm.get_frame_depth() == 5
         assert ploc != loc1
         p1 = InputArgRef()
+        longevity[p1] = Lifetime()
         p1loc = fm.loc(p1)
         assert fm.get_loc_index(p1loc) == 5
         assert fm.get_frame_depth() == 6
         fm.mark_as_free(p0)
         p2 = InputArgRef()
+        longevity[p2] = Lifetime()
         p2loc = fm.loc(p2)
         assert p2loc == ploc
-        assert len(fm.freelist) == 0
-        for box in fm.bindings.keys():
+        assert fm.freelist_len_for_tests() == 0
+        for box in fm.boxes_in_frame:
             fm.mark_as_free(box)
-        fm.bind(InputArgRef(), FakeFramePos(3, 'r'))
-        assert len(fm.freelist) == 6
+        p3 = InputArgRef()
+        longevity[p3] = Lifetime()
+        fm.bind(p3, FakeFramePos(3, 'r'))
+        assert fm.freelist_len_for_tests() == 5
+
+    def test_frame_manager_size_2_even_positions(self):
+        (b0, b1, b2, b3, b4), longevity = boxes_and_longevity(5)
+        f0 = InputArgFloat()
+        longevity[f0] = Lifetime()
+        f1 = InputArgFloat()
+        longevity[f1] = Lifetime()
+
+        fm = TFrameManager()
+        loc0 = fm.loc(b0)
+        assert fm.get_frame_depth() == 1
+
+        fm.loc(b1)
+        fm.loc(b2)
+        fm.mark_as_free(b1)
+        fm.mark_as_free(b2) # now index 1 & 2 are free
+        assert fm.get_frame_depth() == 3
+
+        # but we can't use them because they start at an odd index
+        assert fm._find_frame_location(2, 'f') is None
+        loc1 = fm.loc(f0)
+        assert loc1.pos == 2
+        assert fm.get_frame_depth() == 4
+        fm.loc(b3)
+        fm.loc(b4)
+        assert fm.get_frame_depth() == 5
+        loc2 = fm.loc(f1)
+        assert loc2.pos == 6
+        assert fm.get_frame_depth() == 8
 
     def test_frame_manager_basic(self):
-        b0, b1 = newboxes(0, 1)
+        (b0, b1, b2, b3), longevity = boxes_and_longevity(4)
+
         fm = TFrameManager()
         loc0 = fm.loc(b0)
         assert fm.get_loc_index(loc0) == 0
@@ -829,46 +806,53 @@ class TestRegalloc(object):
         loc0b = fm.loc(b0)
         assert loc0b == loc0
         #
-        fm.loc(InputArgInt())
+        fm.loc(b3)
         assert fm.get_frame_depth() == 3
         #
         f0 = InputArgFloat()
+        longevity[f0] = Lifetime()
         locf0 = fm.loc(f0)
         # can't be odd
         assert fm.get_loc_index(locf0) == 4
         assert fm.get_frame_depth() == 6
         #
         f1 = InputArgFloat()
+        longevity[f1] = Lifetime()
         locf1 = fm.loc(f1)
         assert fm.get_loc_index(locf1) == 6
         assert fm.get_frame_depth() == 8
         fm.mark_as_free(b1)
-        assert fm.freelist
-        b2 = InputArgInt()
+        assert fm.freelist_len_for_tests()
         fm.loc(b2) # should be in the same spot as b1 before
         assert fm.get(b1) is None
         assert fm.get(b2) == loc1
         fm.mark_as_free(b0)
         p0 = InputArgRef()
+        longevity[p0] = Lifetime()
         ploc = fm.loc(p0)
         assert fm.get_loc_index(ploc) == 0
         assert fm.get_frame_depth() == 8
         assert ploc != loc1
         p1 = InputArgRef()
+        longevity[p1] = Lifetime()
         p1loc = fm.loc(p1)
         assert fm.get_loc_index(p1loc) == 3
         assert fm.get_frame_depth() == 8
         fm.mark_as_free(p0)
         p2 = InputArgRef()
+        longevity[p2] = Lifetime()
         p2loc = fm.loc(p2)
         assert p2loc == ploc
-        assert len(fm.freelist) == 0
+        assert fm.freelist_len_for_tests() == 0
         fm.mark_as_free(b2)
         f3 = InputArgFloat()
+        longevity[f3] = Lifetime()
         fm.mark_as_free(p2)
         floc = fm.loc(f3)
         assert fm.get_loc_index(floc) == 0
-        for box in fm.bindings.keys():
+        for box in fm.boxes_in_frame:
+            if box is None:
+                continue
             fm.mark_as_free(box)
 
 

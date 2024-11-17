@@ -25,127 +25,6 @@ class TempVar(AbstractResOpOrInputArg): # this base class to get get_forwarded a
 class NoVariableToSpill(Exception):
     pass
 
-class Node(object):
-    def __init__(self, val, next):
-        self.val = val
-        self.next = next
-
-    def __repr__(self):
-        return '<Node %d %r>' % (self.val, next)
-
-class LinkedList(object):
-    def __init__(self, fm, lst=None):
-        # assume the list is sorted
-        if lst is not None:
-            node = None
-            for i in range(len(lst) - 1, -1, -1):
-                item = lst[i]
-                node = Node(item, node)
-            self.master_node = node
-        else:
-            self.master_node = None
-        self.fm = fm
-
-    def append(self, size, item):
-        key = self.fm.get_loc_index(item)
-        if size == 2:
-            self._append(key)
-            self._append(key + 1)
-        else:
-            assert size == 1
-            self._append(key)
-
-    def _append(self, key):
-        if self.master_node is None or self.master_node.val > key:
-            self.master_node = Node(key, self.master_node)
-        else:
-            node = self.master_node
-            prev_node = self.master_node
-            while node and node.val < key:
-                prev_node = node
-                node = node.next
-            prev_node.next = Node(key, node)
-
-    @specialize.arg(1)
-    def foreach(self, function, arg):
-        # XXX unused?
-        node = self.master_node
-        while node is not None:
-            function(arg, node.val)
-            node = node.next
-
-    def pop(self, size, tp, hint=-1):
-        if size == 2:
-            return self._pop_two(tp)   # 'hint' ignored for floats on 32-bit
-        assert size == 1
-        if not self.master_node:
-            return None
-        node = self.master_node
-        #
-        if hint >= 0:
-            # Look for and remove the Node with the .val matching 'hint'.
-            # If not found, fall back to removing the first Node.
-            # Note that the loop below ignores the first Node, but
-            # even if by chance it is the one with the correct .val,
-            # it will be the one we remove at the end anyway.
-            prev_node = node
-            while prev_node.next:
-                if prev_node.next.val == hint:
-                    node = prev_node.next
-                    prev_node.next = node.next
-                    break
-                prev_node = prev_node.next
-            else:
-                self.master_node = node.next
-        else:
-            self.master_node = node.next
-        #
-        return self.fm.frame_pos(node.val, tp)
-
-    def _candidate2(self, node):
-        return (node.val & 1 == 0) and (node.val + 1 == node.next.val)
-
-    def _pop_two(self, tp):
-        node = self.master_node
-        if node is None or node.next is None:
-            return None
-        if self._candidate2(node):
-            self.master_node = node.next.next
-            return self.fm.frame_pos(node.val, tp)
-        prev_node = node
-        node = node.next
-        while True:
-            if node.next is None:
-                return None
-            if self._candidate2(node):
-                # pop two
-                prev_node.next = node.next.next
-                return self.fm.frame_pos(node.val, tp)
-            node = node.next
-
-    def len(self):
-        node = self.master_node
-        c = 0
-        while node:
-            node = node.next
-            c += 1
-        return c
-
-    def __len__(self):
-        """ For tests only
-        """
-        return self.len()
-
-    def __repr__(self):
-        if not self.master_node:
-            return 'LinkedList(<empty>)'
-        node = self.master_node
-        l = []
-        while node:
-            l.append(str(node.val))
-            node = node.next
-        return 'LinkedList(%s)' % '->'.join(l)
-
 
 def get_lifetime(box):
     lifetime = box.get_forwarded()
@@ -189,7 +68,12 @@ class FrameManager(object):
     def __init__(self, start_free_depth=0, freelist=None):
         self.current_frame_depth = start_free_depth
         self.boxes_in_frame = [None] * self.current_frame_depth
-        self.freelist = LinkedList(self, freelist)
+
+    def freelist_len_for_tests(self):
+        res = 0
+        for box in self.boxes_in_frame:
+            res += int(box is None)
+        return res
 
     def get_frame_depth(self):
         return self.current_frame_depth
@@ -222,16 +106,18 @@ class FrameManager(object):
         # that 'size' is a power of two.  The reason for doing so is to
         # avoid obscure issues in jump.py with stack locations that try
         # to move from position (6,7) to position (7,8).
-        newloc = self.freelist.pop(size, box.type, hint)
+        newloc = self._find_frame_location(size, box.type, hint)
         if newloc is None:
             #
             index = self.get_frame_depth()
-            if index & 1 and size == 2:
+            if size == 2 and index & 1 == 1:
                 # we can't allocate it at odd position
-                self.freelist._append(index)
-                newloc = self.frame_pos(index + 1, box.type)
-                self._increase_frame_depth(3)
-                index += 1 # for test
+                if self.boxes_in_frame[index - 1] is None:
+                    index -= 1
+                else:
+                    index += 1
+                newloc = self.frame_pos(index, box.type)
+                self._increase_frame_depth(index + size - self.current_frame_depth)
             else:
                 newloc = self.frame_pos(index, box.type)
                 self._increase_frame_depth(size)
@@ -239,12 +125,38 @@ class FrameManager(object):
             if not we_are_translated():    # extra testing
                 testindex = self.get_loc_index(newloc)
                 assert testindex == index
+                for index in range(testindex, testindex+size):
+                    assert self.boxes_in_frame[index] is None
             #
+        if not we_are_translated():
+            assert self.boxes_in_frame[self.get_loc_index(newloc)] is None
 
         self.bind(box, newloc)
         if not we_are_translated():
             self._check_invariants()
         return newloc
+
+    def _find_frame_location(self, size, tp, hint=-1):
+        assert size == 1 or size == 2
+        if size == 1:
+            if (0 <= hint < self.current_frame_depth and
+                    self.boxes_in_frame[hint] is None):
+                resindex = hint
+            else:
+                for resindex in range(self.current_frame_depth):
+                    if self.boxes_in_frame[resindex] is None:
+                        break
+                else:
+                    return None # no free location that fits
+        else:
+            assert size == 2
+            for resindex in range(0, (self.current_frame_depth >> 1) << 1, 2):
+                if (self.boxes_in_frame[resindex] is None and
+                        self.boxes_in_frame[resindex + 1] is None):
+                    break
+            else:
+                return None
+        return self.frame_pos(resindex, tp)
 
     def bind(self, box, loc):
         pos = self.get_loc_index(loc)
@@ -264,16 +176,6 @@ class FrameManager(object):
         return BindingsIterItems(self)
 
     def finish_binding(self):
-        all = [False] * self.get_frame_depth()
-        for b, loc in self.bindings_iteritems():
-            size = self.frame_size(b.type)
-            pos = self.get_loc_index(loc)
-            for i in range(pos, pos + size):
-                all[i] = True
-        self.freelist = LinkedList(self) # we don't care
-        for elem in range(len(all)):
-            if not all[elem]:
-                self.freelist._append(elem)
         if not we_are_translated():
             self._check_invariants()
 
@@ -290,7 +192,6 @@ class FrameManager(object):
         for index in range(pos, pos + size):
             self.boxes_in_frame[index] = None
 
-        self.freelist.append(size, loc)
         if not we_are_translated():
             self._check_invariants()
 
@@ -315,11 +216,6 @@ class FrameManager(object):
                 assert not all[i]
                 all[i] = True
                 assert self.boxes_in_frame[i] is b
-        node = self.freelist.master_node
-        while node is not None:
-            assert not all[node.val]
-            all[node.val] = True
-            node = node.next
 
     @staticmethod
     def _gather_gcroots(lst, var):
