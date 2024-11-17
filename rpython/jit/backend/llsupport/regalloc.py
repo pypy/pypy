@@ -1083,7 +1083,6 @@ class LifetimeManager(object):
         that register can remain free, according to the constraints of the
         fixed registers. Find the register that is free the longest. Return a
         tuple (reg, free_until_pos). """
-        free_until_pos = {}
         max_free_pos = position
         best_reg = None
         # reverse for compatibility with old code
