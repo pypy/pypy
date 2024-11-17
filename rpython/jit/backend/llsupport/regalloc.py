@@ -393,7 +393,7 @@ class RegisterManager(object):
         self.longevity = longevity
         self.temp_boxes = []
         self.reg_bindings = RegBindingsDict(self)
-        self.bindings_to_frame_reg = {}
+        self.box_currently_in_frame_reg = None
         self.position = -1
         self.frame_manager = frame_manager
         self.assembler = assembler
@@ -427,6 +427,8 @@ class RegisterManager(object):
             if v in self.reg_bindings:
                 self.free_regs.append(self.reg_bindings[v])
                 del self.reg_bindings[v]
+            if v is self.box_currently_in_frame_reg:
+                self.box_currently_in_frame_reg = None
             if self.frame_manager is not None:
                 self.frame_manager.mark_as_free(v)
 
@@ -601,7 +603,8 @@ class RegisterManager(object):
 
     def force_allocate_frame_reg(self, v):
         """ Allocate the new variable v in the frame register."""
-        self.bindings_to_frame_reg[v] = None
+        assert self.box_currently_in_frame_reg is None
+        self.box_currently_in_frame_reg = v
 
     def force_spill_var(self, var):
         self._sync_var_to_stack(var)
@@ -621,7 +624,7 @@ class RegisterManager(object):
         try:
             return self.reg_bindings[box]
         except KeyError:
-            if box in self.bindings_to_frame_reg:
+            if box is self.box_currently_in_frame_reg:
                 return self.frame_reg
             return self.frame_manager.loc(box, must_exist)
 

@@ -303,7 +303,8 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                     used[loc] = None
                 else:
                     if loc is ebp:
-                        self.rm.bindings_to_frame_reg[arg] = None
+                        assert self.rm.box_currently_in_frame_reg is None
+                        self.rm.box_currently_in_frame_reg = arg
                     else:
                         self.rm.reg_bindings[arg] = loc
                         used[loc] = None
@@ -1377,7 +1378,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             if self.loc(arg) is ebp:
                 loc2 = self.fm.loc(arg)
                 self.assembler.mc.MOV(loc2, ebp)
-        self.rm.bindings_to_frame_reg.clear()
+        self.rm.box_currently_in_frame_reg = None
         #
         for i in range(len(inputargs)):
             arg = inputargs[i]
