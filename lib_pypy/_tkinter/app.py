@@ -44,9 +44,9 @@ def Tcl_AppInit(app):
         tcl_path = tcl_path.replace(sep, '/')
         tk_path = tk_path.replace(sep, '/')
     else:
-        lib_path = join(dirname(dirname(dirname(__file__))), 'lib')
-        tcl_path = join(lib_path, 'tcl')
-        tk_path = join(lib_path, 'tk')
+        lib_path = join(dirname(dirname(dirname(__file__))))
+        tcl_path = join(lib_path, 'tcl8.6')
+        tk_path = join(lib_path, 'tk8.6')
     if exists(tcl_path):
         tklib.Tcl_Eval(app.interp, 'set tcl_library "{0}"'.format(tcl_path).encode('utf-8'))
     if exists(tk_path):    
