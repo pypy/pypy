@@ -2417,13 +2417,13 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         helper_num = card_marking
         if is_frame:
             helper_num = 4
-        elif self._regalloc is not None and self._regalloc.xrm.reg_bindings:
+        elif self._regalloc is not None and len(self._regalloc.xrm.reg_bindings):
             helper_num += 2
         if self.wb_slowpath[helper_num] == 0:    # tests only
             assert not we_are_translated()
             self.cpu.gc_ll_descr.write_barrier_descr = descr
             self._build_wb_slowpath(card_marking,
-                                    bool(self._regalloc.xrm.reg_bindings))
+                                    len(self._regalloc.xrm.reg_bindings) > 0)
             assert self.wb_slowpath[helper_num] != 0
         #
         mc.TEST8(loc, imm(mask))
