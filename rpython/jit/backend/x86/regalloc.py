@@ -1260,7 +1260,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         self.rm.possibly_free_var(tmpbox_high)
 
     def compute_hint_frame_locations(self, operations):
-        # optimization only: fill in the 'hint_frame_pos' dictionary
+        # optimization only: add a frame position hint
         # of 'fm' based on the JUMP at the end of the loop, by looking
         # at where we would like the boxes to be after the jump.
         op = operations[-1]
@@ -1276,7 +1276,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             self._compute_hint_locations_from_descr(descr)
         #else:
         #   The loop ends in a JUMP going back to a LABEL in the same loop.
-        #   We cannot fill 'hint_frame_pos' immediately, but we can
+        #   We cannot add a frame pos hint immediately, but we can
         #   wait until the corresponding consider_label() to know where the
         #   we would like the boxes to be after the jump.
         # YYY can we do coalescing hints in the new register allocation model?
@@ -1291,7 +1291,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             if not isinstance(box, Const):
                 loc = arglocs[i]
                 if isinstance(loc, FrameLoc):
-                    self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
+                    self.fm.add_frame_pos_hint(box, loc)
                 else:
                     if box not in hinted:
                         hinted.append(box)

@@ -188,7 +188,6 @@ class FrameManager(object):
     def __init__(self, start_free_depth=0, freelist=None):
         self.current_frame_depth = start_free_depth
         self.boxes_in_frame = [None] * self.current_frame_depth
-        self.hint_frame_pos = {}
         self.freelist = LinkedList(self, freelist)
 
     def get_frame_depth(self):
@@ -217,7 +216,7 @@ class FrameManager(object):
 
     def get_new_loc(self, box):
         size = self.frame_size(box.type)
-        hint = self.hint_frame_pos.get(box, -1)
+        hint = self.get_frame_pos_hint(box)
         # frame_depth is rounded up to a multiple of 'size', assuming
         # that 'size' is a power of two.  The reason for doing so is to
         # avoid obscure issues in jump.py with stack locations that try
@@ -291,6 +290,17 @@ class FrameManager(object):
         self.freelist.append(size, loc)
         if not we_are_translated():
             self._check_invariants()
+
+    def add_frame_pos_hint(self, box, loc):
+        lifetime = get_lifetime(box)
+        assert lifetime is not None
+        lifetime.hint_frame_pos = self.get_loc_index(loc)
+
+    def get_frame_pos_hint(self, box):
+        lifetime = get_lifetime(box)
+        if lifetime is None:
+            return -1
+        return lifetime.hint_frame_pos
 
     def _check_invariants(self):
         assert len(self.boxes_in_frame) == self.current_frame_depth
@@ -1002,6 +1012,9 @@ class Lifetime(AbstractInfo):
 
         # the frame location where the box currently lives
         self.current_frame_loc = None
+
+        # the hinted frame location (at the end of the trace)
+        self.hint_frame_pos = -1
 
     def last_usage_including_sharing(self):
         while self.share_with is not None:
