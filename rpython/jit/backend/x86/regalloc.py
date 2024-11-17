@@ -1100,7 +1100,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
                 assert isinstance(loc, RegLoc)
                 val = gpr_reg_mgr_cls.all_reg_indexes[loc.value]
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
-        for box, loc in self.fm.bindings.iteritems():
+        for box, loc in self.fm.bindings_iteritems():
             if box.type == REF and self.rm.is_still_alive(box):
                 assert isinstance(loc, FrameLoc)
                 val = loc.position + JITFRAME_FIXED_SIZE

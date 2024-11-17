@@ -516,6 +516,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if not we_are_translated():
             # Arguments should be unique
             assert len(set(inputargs)) == len(inputargs)
+            for arg in inputargs:
+                assert arg.get_forwarded() is None
 
         self.setup(looptoken)
         if self.cpu.HAS_CODEMAP:

@@ -146,6 +146,39 @@ class LinkedList(object):
             node = node.next
         return 'LinkedList(%s)' % '->'.join(l)
 
+
+def get_lifetime(box):
+    lifetime = box.get_forwarded()
+    if lifetime is None:
+        return None
+    assert isinstance(lifetime, Lifetime)
+    return lifetime
+
+class BindingsIterItems(object):
+    def __init__(self, fm):
+        self.fm = fm
+        self.index = 0
+
+    def next(self):
+        while True:
+            index = self.index
+            if index >= self.fm.current_frame_depth:
+                raise StopIteration
+            box = self.fm.boxes_in_frame[index]
+            self.index = index + 1
+            if box is None:
+                continue
+            lifetime = get_lifetime(box)
+            assert lifetime is not None
+            loc = lifetime.current_frame_loc
+            assert loc is not None
+            assert self.fm.get_loc_index(loc) == index
+            return box, lifetime.current_frame_loc
+
+    def __iter__(self):
+        return self
+
+
 class FrameManager(object):
     """ Manage frame positions
 
@@ -153,25 +186,33 @@ class FrameManager(object):
     we like.
     """
     def __init__(self, start_free_depth=0, freelist=None):
-        self.bindings = {}
         self.current_frame_depth = start_free_depth
+        self.boxes_in_frame = [None] * self.current_frame_depth
         self.hint_frame_pos = {}
         self.freelist = LinkedList(self, freelist)
 
     def get_frame_depth(self):
         return self.current_frame_depth
 
+    def _increase_frame_depth(self, incby):
+        self.current_frame_depth += incby
+        for i in range(incby):
+            self.boxes_in_frame.append(None)
+
     def get(self, box):
-        return self.bindings.get(box, None)
+        lifetime = get_lifetime(box)
+        if lifetime is None:
+            return None
+        return lifetime.current_frame_loc
 
     def loc(self, box, must_exist=False):
         """Return or create the frame location associated with 'box'."""
         # first check if it's already in the frame_manager
-        try:
-            return self.bindings[box]
-        except KeyError:
-            if must_exist:
-                raise
+        res = self.get(box)
+        if res is not None:
+            return res
+        if must_exist:
+            raise KeyError
         return self.get_new_loc(box)
 
     def get_new_loc(self, box):
@@ -189,18 +230,18 @@ class FrameManager(object):
                 # we can't allocate it at odd position
                 self.freelist._append(index)
                 newloc = self.frame_pos(index + 1, box.type)
-                self.current_frame_depth += 3
+                self._increase_frame_depth(3)
                 index += 1 # for test
             else:
                 newloc = self.frame_pos(index, box.type)
-                self.current_frame_depth += size
+                self._increase_frame_depth(size)
             #
             if not we_are_translated():    # extra testing
                 testindex = self.get_loc_index(newloc)
                 assert testindex == index
             #
 
-        self.bindings[box] = newloc
+        self.bind(box, newloc)
         if not we_are_translated():
             self._check_invariants()
         return newloc
@@ -208,16 +249,26 @@ class FrameManager(object):
     def bind(self, box, loc):
         pos = self.get_loc_index(loc)
         size = self.frame_size(box.type)
-        self.current_frame_depth = max(pos + size, self.current_frame_depth)
-        self.bindings[box] = loc
+        if pos + size > self.current_frame_depth:
+            self._increase_frame_depth(pos + size - self.current_frame_depth)
+        assert self.boxes_in_frame[pos] is None
+        if not we_are_translated():
+            assert box not in self.boxes_in_frame
+        self.boxes_in_frame[pos] = box
+        lifetime = get_lifetime(box)
+        assert lifetime is not None
+        lifetime.current_frame_loc = loc
+
+    def bindings_iteritems(self):
+        return BindingsIterItems(self)
 
     def finish_binding(self):
-        all = [0] * self.get_frame_depth()
-        for b, loc in self.bindings.iteritems():
+        all = [False] * self.get_frame_depth()
+        for b, loc in self.bindings_iteritems():
             size = self.frame_size(b.type)
             pos = self.get_loc_index(loc)
             for i in range(pos, pos + size):
-                all[i] = 1
+                all[i] = True
         self.freelist = LinkedList(self) # we don't care
         for elem in range(len(all)):
             if not all[elem]:
@@ -226,28 +277,34 @@ class FrameManager(object):
             self._check_invariants()
 
     def mark_as_free(self, box):
-        try:
-            loc = self.bindings[box]
-        except KeyError:
-            return    # already gone
-        del self.bindings[box]
+        loc = self.get(box)
+        if loc is None:
+            return # not in frame
+        lifetime = get_lifetime(box)
+        assert lifetime.current_frame_loc is loc
+        lifetime.current_frame_loc = None
+        pos = self.get_loc_index(loc)
+        assert self.boxes_in_frame[pos] is box
+        self.boxes_in_frame[pos] = None
+
         size = self.frame_size(box.type)
         self.freelist.append(size, loc)
         if not we_are_translated():
             self._check_invariants()
 
     def _check_invariants(self):
-        all = [0] * self.get_frame_depth()
-        for b, loc in self.bindings.iteritems():
-            size = self.frame_size(b)
+        assert len(self.boxes_in_frame) == self.current_frame_depth
+        all = [False] * self.get_frame_depth()
+        for b, loc in self.bindings_iteritems():
+            size = self.frame_size(b.type)
             pos = self.get_loc_index(loc)
             for i in range(pos, pos + size):
                 assert not all[i]
-                all[i] = 1
+                all[i] = True
         node = self.freelist.master_node
         while node is not None:
             assert not all[node.val]
-            all[node.val] = 1
+            all[node.val] = True
             node = node.next
 
     @staticmethod
@@ -333,7 +390,7 @@ class RegBindingsDict(object):
             self.regman.reg_bindings_list[index] = None
         newindex = lifetime.current_register_index = self._register_index(reg)
         self.regman.reg_bindings_list[newindex] = box
-    
+
     def __delitem__(self, box):
         lifetime = self._get_lifetime(box)
         assert lifetime is not None
@@ -939,8 +996,12 @@ class Lifetime(AbstractInfo):
         # the other lifetime will have this variable set to self.definition_pos
         self._definition_pos_shared = UNDEF_POS
 
-        # the current location where the backend stores the box
+        # the current register index where the backend stores the box
+        # the index is for the relevant RegisterManager's all_regs list
         self.current_register_index = -1
+
+        # the frame location where the box currently lives
+        self.current_frame_loc = None
 
     def last_usage_including_sharing(self):
         while self.share_with is not None:
