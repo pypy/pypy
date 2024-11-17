@@ -164,13 +164,14 @@ class FrameManager(object):
     def get(self, box):
         return self.bindings.get(box, None)
 
-    def loc(self, box):
+    def loc(self, box, must_exist=False):
         """Return or create the frame location associated with 'box'."""
         # first check if it's already in the frame_manager
         try:
             return self.bindings[box]
         except KeyError:
-            pass
+            if must_exist:
+                raise
         return self.get_new_loc(box)
 
     def get_new_loc(self, box):
@@ -622,9 +623,7 @@ class RegisterManager(object):
         except KeyError:
             if box in self.bindings_to_frame_reg:
                 return self.frame_reg
-            if must_exist:
-                return self.frame_manager.bindings[box]
-            return self.frame_manager.loc(box)
+            return self.frame_manager.loc(box, must_exist)
 
     def return_constant(self, v, forbidden_vars=[], selected_reg=None):
         """ Return the location of the constant v.  If 'selected_reg' is
