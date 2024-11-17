@@ -1,6 +1,6 @@
 # C bindings with libtcl and libtk.
 
-from cffi import FFI
+from cffi import FFI, PkgConfigError
 import sys, os
 
 # XXX find a better way to detect paths
@@ -241,9 +241,9 @@ char *get_tcl_version(void) { return TCL_VERSION; }
 """ % globals() 
 
 try:
-    tkffi.set_source_pkgconfig("_tkinter.tklib_cffi", "tk", c_header)
-    print("used pkg-config 'tk'")
-except cffi.PkgConfigError:
+    tkffi.set_source_pkgconfig("_tkinter.tklib_cffi", ["tk", "tcl"], c_header)
+    print("used pkg-config")
+except PkgConfigError:
     tkffi.set_source("_tkinter.tklib_cffi", c_header,
         include_dirs=incdirs,
         libraries=linklibs,
