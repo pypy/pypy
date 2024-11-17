@@ -770,8 +770,7 @@ class Regalloc(BaseRegalloc):
             if not isinstance(box, Const):
                 loc = arglocs[i]
                 if loc is not None and loc.is_stack():
-                    self.frame_manager.hint_frame_pos[box] = (
-                        self.fm.get_loc_index(loc))
+                    self.frame_manager.add_frame_pos_hint(box, loc)
 
     def prepare_op_jump(self, op, fcond):
         assert self.jump_target_descr is None

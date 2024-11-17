@@ -704,7 +704,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
             if not isinstance(box, Const):
                 loc = arglocs[i]
                 if loc is not None and loc.is_stack():
-                    self.fm.hint_frame_pos[box] = self.fm.get_loc_index(loc)
+                    self.fm.add_frame_pos_hint(box, loc)
 
     def prepare_jump(self, op):
         descr = op.getdescr()
