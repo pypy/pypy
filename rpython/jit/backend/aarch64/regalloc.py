@@ -1098,7 +1098,7 @@ class Regalloc(BaseRegalloc):
                 assert loc.is_core_reg()
                 val = self.cpu.all_reg_indexes[loc.value]
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
-        for box, loc in self.fm.bindings.iteritems():
+        for box, loc in self.fm.bindings_iteritems():
             if box.type == REF and self.rm.is_still_alive(box):
                 assert loc.is_stack()
                 val = loc.position + JITFRAME_FIXED_SIZE

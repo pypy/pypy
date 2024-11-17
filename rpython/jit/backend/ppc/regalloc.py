@@ -377,7 +377,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
                 assert loc.is_reg()
                 val = self.assembler.cpu.all_reg_indexes[loc.value]
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
-        for box, loc in self.fm.bindings.iteritems():
+        for box, loc in self.fm.bindings_iteritems():
             if box.type == REF and self.rm.is_still_alive(box):
                 assert isinstance(loc, locations.StackLocation)
                 val = loc.get_position() + r.JITFRAME_FIXED_SIZE
