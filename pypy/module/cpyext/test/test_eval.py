@@ -10,7 +10,7 @@ from pypy.module.cpyext.eval import (
     Py_single_input, Py_file_input, Py_eval_input, PyCompilerFlags,
     PyEval_CallObjectWithKeywords, PyObject_CallObject, PyEval_EvalCode,
     PyRun_SimpleString, PyRun_String, PyRun_StringFlags, PyRun_File,
-    PyEval_GetBuiltins, PyEval_GetLocals, PyEval_GetGlobals,
+    PyEval_GetLocals, PyEval_GetGlobals,
     _PyEval_SliceIndex)
 from pypy.module.cpyext.api import (
     c_fopen, c_fclose, c_fileno, Py_ssize_tP)
@@ -156,24 +156,6 @@ class TestEval(BaseApiTest):
             with raises_w(space, IOError):
                 PyRun_File(space, fp, filename, Py_file_input, w_globals, w_locals)
         rffi.free_charp(filename)
-
-    def test_getbuiltins(self, space):
-        assert PyEval_GetBuiltins(space) is space.builtin.w_dict
-
-        def cpybuiltins(space):
-            return PyEval_GetBuiltins(space)
-        w_cpybuiltins = space.wrap(interp2app(cpybuiltins))
-
-        w_result = space.appexec([w_cpybuiltins], """(cpybuiltins):
-            return cpybuiltins() is __builtins__.__dict__
-        """)
-        assert space.is_true(w_result)
-
-        w_result = space.appexec([w_cpybuiltins], """(cpybuiltins):
-            d = dict(__builtins__={'len':len}, cpybuiltins=cpybuiltins)
-            return eval("cpybuiltins()", d, d)
-        """)
-        assert space.len_w(w_result) == 1
 
     def test_getglobals(self, space):
         assert PyEval_GetLocals(space) is None
@@ -568,3 +550,23 @@ class AppTestCall(AppTestCpythonExtensionBase):
              """),], prologue="#include <frameobject.h>\n")
         res = module.getframe1()
         assert res is sys._getframe(0)
+
+    def test_getbuiltins(self):
+        module = self.import_extension('foo', [
+            ("getbuiltins", "METH_NOARGS",
+             """
+                /* borrowed ref */
+                PyObject *ret = PyEval_GetBuiltins();
+                Py_INCREF(ret);
+                return ret;
+             """)])
+        builtins = module.getbuiltins()
+        assert builtins is __builtins__.__dict__
+
+        def cpybuiltins():
+            return module.getbuiltins()
+        d = dict(__builtins__ = {'sum': sum}, cpybuiltins=cpybuiltins)
+        result = eval("cpybuiltins()", d, d)
+        assert len(result) == len(builtins)
+
+
