@@ -348,7 +348,7 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
             accuminfo = descr.rd_vector_info
             while accuminfo:
                 accuminfo.location = faillocs[accuminfo.getpos_in_failargs()]
-                loc = self.loc(accuminfo.getoriginal())
+                loc = self.loc(accuminfo.getoriginal().get_box_replacement())
                 faillocs[accuminfo.getpos_in_failargs()] = loc
                 accuminfo = accuminfo.next()
         return faillocs
