@@ -11,7 +11,6 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.llsupport.descr import GcCache
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.backend.arm.regalloc import Regalloc, ARMFrameManager
-from rpython.jit.backend.llsupport.regalloc import is_comparison_or_ovf_op
 from rpython.jit.tool.oparser import parse
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import llhelper
@@ -21,11 +20,6 @@ from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.codewriter import longlong
 from rpython.jit.backend.llsupport.test.test_regalloc_integration import BaseTestRegalloc
 
-
-def test_is_comparison_or_ovf_op():
-    assert not is_comparison_or_ovf_op(rop.INT_ADD)
-    assert is_comparison_or_ovf_op(rop.INT_ADD_OVF)
-    assert is_comparison_or_ovf_op(rop.INT_EQ)
 
 CPU = getcpuclass()
 

@@ -6,7 +6,7 @@ from rpython.jit.backend.llsupport import symbolic
 from rpython.jit.backend.llsupport.descr import CallDescr, unpack_arraydescr
 from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
-     RegisterManager, TempVar, compute_vars_longevity, is_comparison_or_ovf_op,
+     RegisterManager, TempVar, compute_vars_longevity,
      valid_addressing_size, get_scale, SAVE_DEFAULT_REGS, SAVE_GCREF_REGS,
      SAVE_ALL_REGS)
 from rpython.jit.backend.x86 import rx86

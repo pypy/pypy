@@ -1193,9 +1193,6 @@ def compute_vars_longevity(inputargs, operations):
 
     return longevity
 
-# YYY unused?
-def is_comparison_or_ovf_op(opnum):
-    return rop.is_comparison(opnum) or rop.is_ovf(opnum)
 
 def valid_addressing_size(size):
     return size == 1 or size == 2 or size == 4 or size == 8
