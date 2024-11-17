@@ -165,9 +165,10 @@ class BindingsIterItems(object):
             if index >= self.fm.current_frame_depth:
                 raise StopIteration
             box = self.fm.boxes_in_frame[index]
-            self.index = index + 1
             if box is None:
+                self.index = index + 1
                 continue
+            self.index = index + self.fm.frame_size(box.type)
             lifetime = get_lifetime(box)
             assert lifetime is not None
             loc = lifetime.current_frame_loc
@@ -253,7 +254,8 @@ class FrameManager(object):
         assert self.boxes_in_frame[pos] is None
         if not we_are_translated():
             assert box not in self.boxes_in_frame
-        self.boxes_in_frame[pos] = box
+        for index in range(pos, pos + size):
+            self.boxes_in_frame[index] = box
         lifetime = get_lifetime(box)
         assert lifetime is not None
         lifetime.current_frame_loc = loc
@@ -283,10 +285,11 @@ class FrameManager(object):
         assert lifetime.current_frame_loc is loc
         lifetime.current_frame_loc = None
         pos = self.get_loc_index(loc)
-        assert self.boxes_in_frame[pos] is box
-        self.boxes_in_frame[pos] = None
-
         size = self.frame_size(box.type)
+        assert self.boxes_in_frame[pos] is box
+        for index in range(pos, pos + size):
+            self.boxes_in_frame[index] = None
+
         self.freelist.append(size, loc)
         if not we_are_translated():
             self._check_invariants()
@@ -311,6 +314,7 @@ class FrameManager(object):
             for i in range(pos, pos + size):
                 assert not all[i]
                 all[i] = True
+                assert self.boxes_in_frame[i] is b
         node = self.freelist.master_node
         while node is not None:
             assert not all[node.val]
