@@ -976,7 +976,16 @@ class Lifetime(AbstractInfo):
             s = " " + ", ".join("@%s in %s" % (index, reg) for (index, reg) in self.fixed_positions)
         else:
             s = ""
-        return "%s:%s(%s)%s" % (self.definition_pos, self.real_usages, self.last_usage, s)
+        register = ""
+        if self.current_register_index >= 0:
+            register = " current register index: %s" % (self.current_register_index, )
+        frame = ""
+        if self.current_frame_loc:
+            frame = " curren frame loc: %s" % (self.current_frame_loc, )
+        frame_hint = ""
+        if self.hint_frame_pos >= 0:
+            frame_hint = " frame hint: %s" % (self.hint_frame_pos, )
+        return "%s:%s(%s)%s%s%s%s" % (self.definition_pos, self.real_usages, self.last_usage, s, register, frame, frame_hint)
 
 
 class FixedRegisterPositions(object):
