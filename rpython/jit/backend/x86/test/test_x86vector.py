@@ -1,6 +1,6 @@
 import py
 from rpython.jit.backend.x86.regloc import *
-from rpython.jit.backend.llsupport.regalloc import Lifetime
+from rpython.jit.backend.llsupport.regalloc import Lifetime, LifetimeManager
 from rpython.jit.backend.x86.regalloc import (RegAlloc,
         X86FrameManager, X86XMMRegisterManager, X86RegisterManager)
 from rpython.jit.backend.x86.vector_ext import TempVector
@@ -48,12 +48,18 @@ def regalloc(request):
     asm.setup(looptoken)
     regalloc = RegAlloc(asm)
     regalloc.fm = fm = X86FrameManager(cpu.get_baseofs_of_frame_field())
-    regalloc.rm = X86RegisterManager({}, frame_manager = fm, assembler = asm)
-    regalloc.xrm = X86XMMRegisterManager({}, frame_manager = fm, assembler = asm)
+    longevity = LifetimeManager()
+    regalloc.rm = X86RegisterManager(longevity, frame_manager = fm, assembler = asm)
+    regalloc.xrm = X86XMMRegisterManager(longevity, frame_manager = fm, assembler = asm)
     request.cls.asm = asm
     request.cls.regalloc = regalloc
 
 
+
+def temp_vector(name):
+    res = TempVector(name)
+    res.set_forwarded(Lifetime())
+    return res
 
 class TestAssembler(BaseTestAssembler):
 
@@ -118,21 +124,20 @@ class TestAssembler(BaseTestAssembler):
         assert res == 22
 
     def test_enforce_var(self, regalloc):
-        arg = TempVector('f')
+        arg = temp_vector('f')
         args = []
-        self.regalloc.fm.bindings[arg] = FrameLoc(0, 64, 'f')
         reg = self.regalloc.enforce_var_in_vector_reg(arg, args, xmm0)
         assert reg is xmm0
 
     def test_enforce_var_xmm0_forbidden(self, regalloc):
-        arg = TempVector('f')
-        arg1 = TempVector('f')
+        arg = temp_vector('f')
+        arg1 = temp_vector('f')
         args = [arg1]
         xrm = self.regalloc.xrm
         xrm.reg_bindings[arg1] = xmm0
         fr = xrm.free_regs
         xrm.free_regs = [r for r in fr if r is not xmm0]
-        self.regalloc.fm.bindings[arg] = FrameLoc(0, 64, 'f')
+        self.regalloc.fm.bind(arg, FrameLoc(0, 64, 'f'))
         reg = self.regalloc.enforce_var_in_vector_reg(arg, args, xmm0)
         assert reg is xmm0
         assert len(xrm.reg_bindings) == 2
@@ -145,15 +150,15 @@ class TestAssembler(BaseTestAssembler):
         arg2 = TempVector('f')
         args = []
         xrm = self.regalloc.xrm
-        xrm.reg_bindings[arg1] = xmm0
-        xrm.reg_bindings[arg2] = xmm1
         xrm.longevity[arg1] = Lifetime(0,1)
         xrm.longevity[arg2] = Lifetime(0,2)
         xrm.longevity[arg] = Lifetime(0,3)
+        xrm.reg_bindings[arg1] = xmm0
+        xrm.reg_bindings[arg2] = xmm1
         fr = xrm.free_regs
         xrm.free_regs = []
-        self.regalloc.fm.bindings[arg] = FrameLoc(0, 64, 'f')
-        self.regalloc.fm.bindings[arg2] = FrameLoc(0, 72, 'f')
+        self.regalloc.fm.bind(arg, FrameLoc(0, 64, 'f'))
+        self.regalloc.fm.bind(arg2, FrameLoc(1, 72, 'f'))
         reg = self.regalloc.enforce_var_in_vector_reg(arg, args, xmm0)
         assert reg is xmm0
         assert len(xrm.reg_bindings) == 2
