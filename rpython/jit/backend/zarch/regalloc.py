@@ -499,7 +499,7 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
             i += 1
             if loc.is_core_reg():
                 if loc is r.SPP:
-                    self.rm.bindings_to_frame_reg[arg] = None
+                    self.rm.box_currently_in_frame_reg = arg
                 else:
                     self.rm.reg_bindings[arg] = loc
                     used[loc] = None
@@ -1291,7 +1291,7 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
         for arg in inputargs:
             assert self.loc(arg) is not r.SPP, (
                 "variable stored in spp in prepare_label")
-        self.rm.bindings_to_frame_reg.clear()
+        self.rm.box_currently_in_frame_reg = None
         #
         for i in range(len(inputargs)):
             arg = inputargs[i]
