@@ -102,14 +102,14 @@ class LinkedList(object):
         #
         return self.fm.frame_pos(node.val, tp)
 
-    def _candidate(self, node):
+    def _candidate2(self, node):
         return (node.val & 1 == 0) and (node.val + 1 == node.next.val)
 
     def _pop_two(self, tp):
         node = self.master_node
         if node is None or node.next is None:
             return None
-        if self._candidate(node):
+        if self._candidate2(node):
             self.master_node = node.next.next
             return self.fm.frame_pos(node.val, tp)
         prev_node = node
@@ -117,7 +117,7 @@ class LinkedList(object):
         while True:
             if node.next is None:
                 return None
-            if self._candidate(node):
+            if self._candidate2(node):
                 # pop two
                 prev_node.next = node.next.next
                 return self.fm.frame_pos(node.val, tp)
@@ -344,25 +344,18 @@ class RegBindingsDict(object):
     def __init__(self, regman):
         self.regman = regman
 
-    def _get_lifetime(self, box):
-        lifetime = box.get_forwarded()
-        if lifetime is None:
-            return None
-        assert isinstance(lifetime, Lifetime)
-        return lifetime
-
     def _register_index(self, reg):
         return self.regman.all_regs.index(reg)
 
     def __contains__(self, box):
-        lifetime = self._get_lifetime(box)
+        lifetime = get_lifetime(box)
         if lifetime is None:
             return False
         index = lifetime.current_register_index
         return index >= 0
 
     def __getitem__(self, box):
-        lifetime = self._get_lifetime(box)
+        lifetime = get_lifetime(box)
         if lifetime is None:
             raise KeyError
         index = lifetime.current_register_index
@@ -372,7 +365,7 @@ class RegBindingsDict(object):
 
     def get(self, box, default=None):
         lifetime = box.get_forwarded()
-        lifetime = self._get_lifetime(box)
+        lifetime = get_lifetime(box)
         if lifetime is None:
             return default
         index = lifetime.current_register_index
@@ -381,7 +374,7 @@ class RegBindingsDict(object):
         return default
 
     def pop(self, box):
-        lifetime = self._get_lifetime(box)
+        lifetime = get_lifetime(box)
         if lifetime is None:
             raise KeyError
         index = lifetime.current_register_index
@@ -393,7 +386,7 @@ class RegBindingsDict(object):
         raise KeyError
 
     def __setitem__(self, box, reg):
-        lifetime = self._get_lifetime(box)
+        lifetime = get_lifetime(box)
         assert lifetime is not None
         index = lifetime.current_register_index
         if index >= 0:
@@ -402,7 +395,7 @@ class RegBindingsDict(object):
         self.regman.reg_bindings_list[newindex] = box
 
     def __delitem__(self, box):
-        lifetime = self._get_lifetime(box)
+        lifetime = get_lifetime(box)
         assert lifetime is not None
         index = lifetime.current_register_index
         if index < 0:
