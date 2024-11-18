@@ -396,7 +396,7 @@ class TestRegallocSimple(CustomBaseTestRegalloc):
         """
         regalloc = self.prepare_loop(ops)
         assert len(regalloc.rm.reg_bindings) == 0
-        assert len(regalloc.frame_manager.bindings) == 4
+        assert regalloc.frame_manager.bindings_len_for_tests() == 4
 
     def test_loopargs_2(self):
         ops = """
@@ -405,7 +405,7 @@ class TestRegallocSimple(CustomBaseTestRegalloc):
         guard_false(i0) [i4, i1, i2, i3]
         """
         regalloc = self.prepare_loop(ops)
-        assert len(regalloc.frame_manager.bindings) == 4
+        assert regalloc.frame_manager.bindings_len_for_tests() == 4
 
     def test_loopargs_3(self):
         ops = """
@@ -415,7 +415,7 @@ class TestRegallocSimple(CustomBaseTestRegalloc):
         jump(i4, i1, i2, i3)
         """
         regalloc = self.prepare_loop(ops)
-        assert len(regalloc.frame_manager.bindings) == 4
+        assert regalloc.frame_manager.bindings_len_for_tests() == 4
 
 
 class TestRegallocCompOps(CustomBaseTestRegalloc):

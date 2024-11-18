@@ -923,7 +923,7 @@ class OpAssembler(BaseAssembler):
                     break
             else:
                 callee_only = True
-            if self._regalloc.fprm.reg_bindings:
+            if len(self._regalloc.fprm.reg_bindings):
                 floats = True
 
         # Jump to cond_call trampoline.
@@ -1041,14 +1041,14 @@ class OpAssembler(BaseAssembler):
         helper_num = card_marking
         if is_frame:
             helper_num = 4
-        elif self._regalloc is not None and self._regalloc.fprm.reg_bindings:
+        elif self._regalloc is not None and len(self._regalloc.fprm.reg_bindings):
             helper_num += 2  # Slowpath must spill float registers
 
         if self.wb_slowpath[helper_num] == 0:  # Tests only
             assert not we_are_translated()
             self.cpu.gc_ll_descr.write_barrier_descr = descr
             self._build_wb_slowpath(card_marking,
-                                    bool(self._regalloc.fprm.reg_bindings))
+                                    bool(len(self._regalloc.fprm.reg_bindings)))
             assert self.wb_slowpath[helper_num] != 0
 
         # Save `r.x10` to stack.

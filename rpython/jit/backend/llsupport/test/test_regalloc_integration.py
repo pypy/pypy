@@ -421,7 +421,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         regalloc = self.prepare_loop(ops)
         # we pass stuff on the frame
         assert len(regalloc.rm.reg_bindings) == 0
-        assert len(regalloc.fm.bindings) == 4
+        assert regalloc.fm.bindings_len_for_tests() == 4
 
     def test_longevity(self):
         ops = """

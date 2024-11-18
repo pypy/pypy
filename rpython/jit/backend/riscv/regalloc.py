@@ -1363,7 +1363,7 @@ class Regalloc(BaseRegalloc):
         frame_depth = self.frame_manager.get_frame_depth()
         gcmap = allocate_gcmap(self.assembler,
                                frame_depth, JITFRAME_FIXED_SIZE)
-        for box, loc in self.rm.reg_bindings.iteritems():
+        for box, loc in self.rm.reg_bindings_iteritems():
             if loc in forbidden_regs:
                 continue
             if box.type == REF and self.rm.is_still_alive(box):
@@ -1371,7 +1371,7 @@ class Regalloc(BaseRegalloc):
                 assert loc.is_core_reg()
                 val = self.cpu.all_reg_indexes[loc.value]
                 gcmap[val // XLEN // 8] |= r_uint(1) << (val % (XLEN * 8))
-        for box, loc in self.frame_manager.bindings.iteritems():
+        for box, loc in self.frame_manager.bindings_iteritems():
             if box.type == REF and self.rm.is_still_alive(box):
                 assert loc.is_stack()
                 val = loc.position + JITFRAME_FIXED_SIZE

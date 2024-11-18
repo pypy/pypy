@@ -75,6 +75,9 @@ class FrameManager(object):
             res += int(box is None)
         return res
 
+    def bindings_len_for_tests(self):
+        return len(boxes_in_frame) - self.freelist_len_for_tests()
+
     def get_frame_depth(self):
         return self.current_frame_depth
 
