@@ -1,5 +1,5 @@
 from rpython.rlib import rgc
-from rpython.rlib.objectmodel import we_are_translated, always_inline
+from rpython.rlib.objectmodel import we_are_translated, always_inline, newlist_hint
 from rpython.rlib.rarithmetic import ovfcheck, highest_bit
 from rpython.rtyper.lltypesystem import llmemory, lltype, rstr
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
@@ -54,7 +54,6 @@ class GcRewriterAssembler(object):
     def __init__(self, gc_ll_descr, cpu):
         self.gc_ll_descr = gc_ll_descr
         self.cpu = cpu
-        self._newops = []
         self._known_lengths = {}
         self._write_barrier_applied = {}
         self._delayed_zero_setfields = {}
@@ -353,6 +352,8 @@ class GcRewriterAssembler(object):
         self.gcrefs_recently_loaded = None
         operations = self.remove_bridge_exception(operations)
         self._changed_op = None
+        # the number of ops goes slightly up, if anything
+        self._newops = newlist_hint(len(operations))
         for i in range(len(operations)):
             op = operations[i]
             if op.get_forwarded():
