@@ -339,6 +339,7 @@ class AppTestBufferedReader:
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
         assert repr(f) == '<_io.BufferedReader name=%r>' % (self.tmpfile,)
+        f.close()
 
     def test_read_interrupted(self):
         import _io, errno
