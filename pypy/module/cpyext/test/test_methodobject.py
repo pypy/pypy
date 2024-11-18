@@ -304,3 +304,9 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         # issue 3993
         mod = self.import_module(name="test_func")
         assert mod.f.__module__ == "test_func"
+
+    def test_min_max(self):
+        mod = self.import_module(name="builtin_min_max")
+        mod.test_max2()
+
+        

@@ -229,7 +229,13 @@ def create_ref(space, w_obj, w_userdata=None, immortal=False):
     if itemsize != 0 or space.issubtype_w(w_type, space.w_list):
         # PyBytesObject, compact PyUnicodeObject and subclasses
         try:
-            itemcount = space.len_w(w_obj)
+            # Can cause infinite recursion if w_obj.__len__ is a c function
+            # so the call will try to convert w_obj to a pyobj via create_ref
+            from pypy.objspace.std.listobject import W_ListObject
+            if  isinstance(w_obj, W_ListObject):
+                itemcount = w_obj.length()
+            else:
+                itemcount = space.len_w(w_obj)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 # issue 4013: is this correct?
