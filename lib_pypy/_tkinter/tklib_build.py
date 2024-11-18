@@ -85,6 +85,8 @@ tkffi = FFI()
 tkffi.cdef("""
 char *get_tk_version();
 char *get_tcl_version();
+char *get_tk_patch_level();
+char *get_tcl_patch_level();
 #define HAVE_LIBTOMMATH ...
 #define HAVE_WIDE_INT_TYPE ...
 
@@ -238,6 +240,8 @@ c_header ="""
 
 char *get_tk_version(void) { return TK_VERSION; }
 char *get_tcl_version(void) { return TCL_VERSION; }
+char *get_tk_patch_level(void) { return TK_PATCH_LEVEL; }
+char *get_tcl_patch_level(void) { return TCL_PATCH_LEVEL; }
 """ % globals() 
 
 try:

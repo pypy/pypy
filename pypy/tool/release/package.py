@@ -141,6 +141,21 @@ def get_platlibdir(pypy_c, quiet=False):
              'import sysconfig as s; print(s.get_config_var("platlibdir"))'], **kwds)
     return ver.strip()
 
+def get_tcl_patch_level(pypy_c, quiet=False):
+    kwds = {'universal_newlines': True}
+    if quiet:
+        kwds['stderr'] = subprocess.NULL
+    ver = subprocess.check_output([str(pypy_c), '-c',
+             'import _tkinter; print(_tkinter.TCL_PATCH_LEVEL)'], **kwds)
+    return ver.strip()
+
+def get_tk_patch_level(pypy_c, quiet=False):
+    kwds = {'universal_newlines': True}
+    if quiet:
+        kwds['stderr'] = subprocess.NULL
+    ver = subprocess.check_output([str(pypy_c), '-c',
+             'import _tkinter; print(_tkinter.TK_PATCH_LEVEL)'], **kwds)
+    return ver.strip()
 
 def generate_sysconfigdata(pypy_c, stdlib):
     """Create a _sysconfigdata_*.py file that is platform specific and can be
@@ -421,7 +436,9 @@ def create_package(basedir, options, _fake=False):
                 os.chdir(str(name))
                 if not os.path.exists('lib'):
                     os.mkdir('lib')
-                deps = make_portable(copytree, python_ver)
+                tk_patch = get_tk_patch_level(pypy_c)
+                tcl_patch = get_tcl_patch_level(pypy_c)
+                deps = make_portable(copytree, python_ver, tk_patch, tcl_patch)
                 with open("lib/PYPY_PORTABLE_DEPS.txt", "wt") as fid:
                     for k in deps.keys():
                         fid.write("%s\n" % k)

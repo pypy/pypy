@@ -18,6 +18,8 @@ from .tclobj import Tcl_Obj
 
 TK_VERSION = tkffi.string(tklib.get_tk_version()).decode('utf-8')
 TCL_VERSION = tkffi.string(tklib.get_tcl_version()).decode('utf-8')
+TK_PATCH_LEVEL = tkffi.string(tklib.get_tk_patch_level()).decode('utf-8')
+TCL_PATCH_LEVEL = tkffi.string(tklib.get_tcl_patch_level()).decode('utf-8')
 
 READABLE = tklib.TCL_READABLE
 WRITABLE = tklib.TCL_WRITABLE
