@@ -207,3 +207,24 @@ class TestNative(RVMProfSamplingTest):
                     del not_found[i]
                     break
         assert not_found == []
+
+def test_symboltable():
+    """" Test if vmprof can resolve the name of a function """
+    eci = ExternalCompilationInfo(compile_extra=['-g','-O0', '-Werror'],
+        post_include_bits = ['int native_func(int);'],
+        separate_module_sources=["""
+        RPY_EXTERN int native_func(int d) {
+           return 7;
+        }
+        RPY_EXTERN long get_addr() {
+            return (long) native_func;
+        }                                
+        """])
+    native_func = rffi.llexternal("get_addr", [], rffi.SIGNED,
+                                    compilation_info=eci)
+    
+    addr = native_func()
+
+    result = rvmprof.vmprof_resolve_address(addr)
+
+    assert result[0] == 'native_func'
