@@ -58,7 +58,7 @@ def test_callback_order():
     del a1
     gc.collect()
     assert a2.x == 42
-    
+
 def test_dont_callback_if_weakref_dead():
     import _weakref, gc
     class A(object):
@@ -345,7 +345,8 @@ def test_simple():
     p = _weakref.proxy(a)
     assert p.x == 1
     assert str(p) == str(a)
-    raises(TypeError, p)
+    with raises(TypeError):
+        p()
 
 def test_caching():
     import _weakref, gc
@@ -404,7 +405,8 @@ def test_proxy_to_dead_object():
         pass
     p = _weakref.proxy(A())
     gc.collect()
-    raises(ReferenceError, "p + 1")
+    with raises(ReferenceError):
+        p + 1
 
 def test_proxy_with_callback():
     import _weakref, gc
@@ -415,7 +417,8 @@ def test_proxy_with_callback():
         a2.seen = proxy
     p = _weakref.proxy(A(), callback)
     gc.collect()
-    raises(ReferenceError, "p + 1")
+    with raises(ReferenceError):
+        p + 1
     assert a2.seen is p
 
 def test_repr():
