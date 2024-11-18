@@ -51,9 +51,11 @@ class GcRewriterAssembler(object):
     c_zero = ConstInt(0)
     c_null = ConstPtr(lltype.nullptr(llmemory.GCREF.TO))
 
-    def __init__(self, gc_ll_descr, cpu):
+    def __init__(self, gc_ll_descr, cpu, num_operations_hint=1):
         self.gc_ll_descr = gc_ll_descr
         self.cpu = cpu
+        # the number of ops goes slightly up, if anything
+        self._newops = newlist_hint(num_operations_hint)
         self._known_lengths = {}
         self._write_barrier_applied = {}
         self._delayed_zero_setfields = {}
@@ -352,8 +354,6 @@ class GcRewriterAssembler(object):
         self.gcrefs_recently_loaded = None
         operations = self.remove_bridge_exception(operations)
         self._changed_op = None
-        # the number of ops goes slightly up, if anything
-        self._newops = newlist_hint(len(operations))
         for i in range(len(operations)):
             op = operations[i]
             if op.get_forwarded():
