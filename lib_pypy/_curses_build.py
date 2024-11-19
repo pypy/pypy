@@ -5,20 +5,6 @@ import sys
 version_str = '''
     static const int NCURSES_VERSION_MAJOR;
     static const int NCURSES_VERSION_MINOR;
-#if NCURSES_EXT_COLORS
-#else
-    static const int NCURSES_EXT_COLORS = 0;
-#endif
-#if NCURSES_EXT_FUNCS
-#else
-    static const int NCURSES_EXT_FUNCS = 0;
-int (*init_extended_pair)(int pair, int f, int b) = NULL;
-int (*init_extended_color)(int color, int r, int g, int b) = NULL;
-int (*extended_color_content)(int, int*, int*, int*) = NULL;
-int (*extended_pair_content)(int, int*, int*) = NULL;
-
-#endif
-
 '''
 
 def find_library(options):
@@ -116,6 +102,18 @@ int _m_ispad(WINDOW *win) {
 void _m_getsyx(int *yx) {
     getsyx(yx[0], yx[1]);
 }
+#ifndef NCURSES_EXT_COLORS
+    static const int NCURSES_EXT_COLORS = 0;
+#endif
+#ifndef NCURSES_EXT_FUNCS
+    static const int NCURSES_EXT_FUNCS = 0;
+int (*init_extended_pair)(int pair, int f, int b) = NULL;
+int (*init_extended_color)(int color, int r, int g, int b) = NULL;
+int (*extended_color_content)(int, int*, int*, int*) = NULL;
+int (*extended_pair_content)(int, int*, int*) = NULL;
+#endif
+
+
 """, libraries=libs,
      library_dirs = library_dirs,
      include_dirs=include_dirs,
