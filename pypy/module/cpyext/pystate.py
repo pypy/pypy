@@ -258,10 +258,6 @@ def PyThreadState_LeaveTracing(space, tstate):
 def PyThreadState_GetID(space, tstate):
     return tstate.c_id
 
-@cpython_api([PyThreadState], PyInterpreterState)
-def PyThreadState_GetInterpreter(space, tstate):
-    return tstate.c_interp
-
 @cpython_api([PyThreadState], lltype.Void, gil="acquire")
 def PyEval_AcquireThread(space, tstate):
     """Acquire the global interpreter lock and set the current thread state to

@@ -32,6 +32,7 @@ typedef int PyGILState_STATE;
 
 #define PyThreadState_GET() PyThreadState_Get()
 PyAPI_FUNC(PyObject*) PyState_FindModule(struct PyModuleDef*);
+PyAPI_FUNC(PyInterpreterState*) PyThreadState_GetInterpreter(PyThreadState *tstate);
 
 #ifdef __cplusplus
 }

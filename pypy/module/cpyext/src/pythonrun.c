@@ -76,3 +76,10 @@ PyPy_FatalError(const char *msg)
 #endif /* MS_WINDOWS */
     abort();
 }
+
+PyInterpreterState *
+PyThreadState_GetInterpreter(PyThreadState *tstate)
+{
+    assert(tstate != NULL);
+    return tstate->interp;
+}

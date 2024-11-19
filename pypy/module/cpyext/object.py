@@ -471,15 +471,22 @@ def PyObject_GenericSetDict(space, w_obj, w_value, context):
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyGC_IsEnabled(space):
-    return 0
+    import gc
+    return int(gc.is_enabled())
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyGC_Disable(space):
-    return 0
+    import gc
+    ret = int(gc.is_enabled())
+    gc.disable()
+    return ret
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyGC_Enable(space):
-    return 0
+    import gc
+    ret = int(gc.is_enabled())
+    gc.enable()
+    return ret
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyObject_GC_IsTracked(space, w_obj):
@@ -497,3 +504,9 @@ def PyObject_GC_IsFinalized(space, w_obj):
 def Py_Is(space, w_obj1, w_obj2):
     res = space.is_w(w_obj1, w_obj2)
     return int(res)
+
+@cpython_api([], rffi.INT_real, error = -1)
+def PyGC_Collect(space):
+    import gc
+    gc.collect()
+    return 0
