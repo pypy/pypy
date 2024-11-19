@@ -472,19 +472,19 @@ def PyObject_GenericSetDict(space, w_obj, w_value, context):
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyGC_IsEnabled(space):
     import gc
-    return int(gc.is_enabled())
+    return int(gc.isenabled())
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyGC_Disable(space):
     import gc
-    ret = int(gc.is_enabled())
+    ret = int(gc.isenabled())
     gc.disable()
     return ret
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyGC_Enable(space):
     import gc
-    ret = int(gc.is_enabled())
+    ret = int(gc.isenabled())
     gc.enable()
     return ret
 
