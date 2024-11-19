@@ -1,4 +1,5 @@
 import hashlib
+import pytest
 
 def test_python_names():
     for algo in hashlib.algorithms_available:
@@ -13,3 +14,10 @@ def test_large_hmac():
     import hmac
     m  = hmac.HMAC(b'', msg=b'0'*2049, digestmod='sha256')
     assert len(m.digest()) == 32
+
+def test_crash():
+    # issue 5127
+    with pytest.raises((AttributeError, TypeError)):
+        hashlib.shake_128()._keccak_init(())
+
+
