@@ -352,10 +352,8 @@ def test_rwbuffer_newline_none():
 def test_reinit():
     obj = StringIO("\x00")
     obj.writelines("\x00")
-    print(obj)
     try:
         obj.__init__(1j)
     except TypeError as e:
-        print(e)
         pass
     obj.__getstate__()
