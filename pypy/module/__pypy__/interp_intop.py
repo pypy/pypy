@@ -42,4 +42,6 @@ def uint_rshift(space, n, m):
 
 @unwrap_spec(a=int, b=int, c=int)
 def int_mulmod(space, a, b, c):
+    if c <= 0:
+        raise oefmt(space.w_ValueError, "'c' must be greater than 0")
     return space.newint(mulmod(a, b, c))
