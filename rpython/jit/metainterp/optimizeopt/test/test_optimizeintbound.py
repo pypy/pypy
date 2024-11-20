@@ -4116,6 +4116,41 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_split_into_bytes_and_merge_again(self):
+        ops = """
+        [i14]
+        i31 = int_and(i14, 255)
+        i33 = int_rshift(i14, 8)
+        i35 = int_and(i33, 255)
+        i37 = int_rshift(i33, 8)
+        i39 = int_and(i37, 255)
+        i41 = int_rshift(i37, 8)
+        i43 = int_lshift(i35, 8)
+        i44 = int_or(i31, i43)
+        i46 = int_lshift(i39, 16)
+        i47 = int_or(i44, i46)
+        i49 = int_lshift(i41, 24)
+        i50 = int_or(i47, i49)
+        jump(i50, i14)
+        """
+        expected = """
+        [i14]
+        # all operations are dead, and the result is the identity
+        i31 = int_and(i14, 255)
+        i33 = int_rshift(i14, 8)
+        i35 = int_and(i33, 255)
+        i37 = int_rshift(i14, 16)
+        i39 = int_and(i37, 255)
+        i41 = int_rshift(i14, 24)
+        i43 = int_and(i14, 65280)
+        i44 = int_and(i14, 65535)
+        i46 = int_and(i14, 16711680)
+        i47 = int_and(i14, 16777215)
+        i49 = int_and(i14, -16777216)
+        jump(i14, i14)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_intmod_bounds(self):

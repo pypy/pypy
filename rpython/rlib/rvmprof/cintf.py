@@ -20,12 +20,14 @@ class VMProfPlatformUnsupported(Exception):
 
 # vmprof works only on x86 for now
 IS_SUPPORTED = False
+NATIVE_PROFILING_SUPPORTED = False
 if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('freebsd'):
     try:
         proc = detect_cpu.autodetect()
         IS_SUPPORTED = (proc.startswith('x86')
                         or proc == 'aarch64'
                         or proc == 'riscv64')
+        NATIVE_PROFILING_SUPPORTED = proc.startswith('x86')
     except detect_cpu.ProcessorAutodetectError:
         print("PROCESSOR NOT DETECTED, SKIPPING VMPROF")
 
@@ -152,6 +154,11 @@ def setup():
     vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
                                             lltype.Void, compilation_info=eci,
                                             _nowrapper=True)
+    if NATIVE_PROFILING_SUPPORTED:
+        vmprof_resolve_address = rffi.llexternal("vmp_resolve_addr", [rffi.VOIDP, rffi.CCHARP, rffi.INT,
+                                                                    rffi.INT_realP,  rffi.CCHARP, rffi.INT],
+                                                rffi.INT, compilation_info=eci,
+                                                _nowrapper=True)
 
     return CInterface(locals())
 
