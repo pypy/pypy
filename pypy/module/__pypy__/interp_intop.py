@@ -1,4 +1,5 @@
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.error import oefmt
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rarithmetic import r_uint, intmask
@@ -20,10 +21,14 @@ def int_mul(space, n, m):
 
 @unwrap_spec(n=int, m=int)
 def int_floordiv(space, n, m):
+    if m == 0:
+        raise oefmt(space.w_ZeroDivisionError, "division by zero")
     return space.newint(int_c_div(n, m))
 
 @unwrap_spec(n=int, m=int)
 def int_mod(space, n, m):
+    if m == 0:
+        raise oefmt(space.w_ZeroDivisionError, "division by zero")
     return space.newint(int_c_mod(n, m))
 
 @unwrap_spec(n=int, m=int)
