@@ -113,4 +113,6 @@ class AppTestIntOp:
             intop.int_mod(1, 0)
         with raises(ZeroDivisionError):
             intop.int_floordiv(1, 0)
+        with raises(ValueError):
+            intop.int_mulmod(1, 0, 0)
     
