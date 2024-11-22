@@ -58,7 +58,11 @@ except TypeError as exc:
 
 # For Jython, the following two types are identical
 GetSetDescriptorType = type(FunctionType.__code__)
-MemberDescriptorType = type(FunctionType.__globals__)
+GenericAlias = type(list[int])
+if sys.implementation.name == 'pypy':
+    MemberDescriptorType = type(GenericAlias._origin)
+else:
+    MemberDescriptorType = type(FunctionType.__globals__)
 
 del sys, _f, _g, _C, _c, _ag  # Not for export
 
@@ -295,7 +299,6 @@ def coroutine(func):
 
     return wrapped
 
-GenericAlias = type(list[int])
 UnionType = type(int | str)
 
 EllipsisType = type(Ellipsis)
