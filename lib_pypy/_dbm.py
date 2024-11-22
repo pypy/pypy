@@ -3,7 +3,7 @@ import sys
 import ctypes.util
 from ctypes import Structure, c_char, c_char_p, c_int, c_void_p, CDLL, POINTER
 
-class error(IOError):
+class error(OSError):
     def __init__(self, msg, filename=None):
         self.msg = msg
         if filename:

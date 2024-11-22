@@ -140,7 +140,7 @@ class gdbm(object):
 
     def __check_closed(self):
         if not self.__ll_dbm:
-            raise error(0, "GDBM object has already been closed")
+            raise error("GDBM object has already been closed")
 
     __del__ = close
 
