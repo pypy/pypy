@@ -1,11 +1,12 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (PyObjectFields, bootstrap_function,
-    cpython_struct, build_type_checkers,
+    cpython_struct, build_type_checkers, init_function,
     CANNOT_FAIL, cpython_api, PyObject, CONST_STRING)
 from pypy.module.cpyext.pyobject import (
     make_typedescr, track_reference, from_ref)
 from rpython.rlib.rstruct import runpack
 from pypy.objspace.std.floatobject import W_FloatObject
+from pypy.module.cpyext.state import State
 
 PyFloatObjectStruct = lltype.ForwardReference()
 PyFloatObject = lltype.Ptr(PyFloatObjectStruct)
@@ -22,6 +23,11 @@ def init_floatobject(space):
                    basestruct=PyFloatObject.TO,
                    attach=float_attach,
                    realize=float_realize)
+
+@init_function
+def call_init(space):
+    state = space.fromcache(State)
+    state.C.float_init()
 
 def float_attach(space, py_obj, w_obj, w_userdata=None):
     """

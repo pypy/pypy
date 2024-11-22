@@ -11,14 +11,13 @@ from rpython.rlib.rfloat import (
     float_as_rbigint_ratio, formatd, isfinite)
 from rpython.rlib.rstring import ParseStringError
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rtyper.lltypesystem.module.ll_math import math_fmod
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
-from pypy.interpreter.typedef import GetSetProperty, TypeDef
+from pypy.interpreter.typedef import GetSetProperty, TypeDef, default_identity_hash
 from pypy.objspace.std import newformat
 from pypy.objspace.std.intobject import HASH_BITS, HASH_MODULUS, W_IntObject
 from pypy.objspace.std.longobject import (
@@ -158,11 +157,11 @@ def newint_from_float(space, floatval):
     else:
         return space.newint(value)
 
-def float_hash(w_float, floatval):
-    if w_float.user_overridden_class and math.isnan(floatval):
-        return compute_unique_id(w_float)
+def float_hash(space, w_float, floatval):
+    if math.isnan(floatval):
+        return default_identity_hash(space, w_float)
     else:
-        return _hash_float(floatval)
+        return space.newint(_hash_float(floatval))
 
 class W_FloatObject(W_Root):
     """This is a implementation of the app-level 'float' type.
@@ -433,8 +432,7 @@ class W_FloatObject(W_Root):
         return space.newutf8(res, len(res)) # always ascii
 
     def descr_hash(self, space):
-        h = float_hash(self, self.floatval)
-        return space.newint(h)
+        return float_hash(space, self, self.floatval)
 
     def descr_format(self, space, w_spec):
         return newformat.run_formatter(space, w_spec, "format_float", self)
@@ -790,10 +788,9 @@ def _string_to_float(space, w_source, string):
 
 @jit.elidable
 def _hash_float(v):
-    if not isfinite(v):
-        if math.isinf(v):
-            return HASH_INF if v > 0 else -HASH_INF
-        return HASH_NAN
+    if math.isinf(v):
+        return HASH_INF if v > 0 else -HASH_INF
+    # nan hash is handled elsewhere
 
     m, e = math.frexp(v)
 

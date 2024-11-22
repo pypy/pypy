@@ -611,7 +611,7 @@ SYMBOLS_C = [
     'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
-    'PyEval_GetFuncDesc', 
+    'PyEval_GetFuncDesc',
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
     '_PyObject_CallFunction_SizeT', '_PyObject_CallMethod_SizeT',
 
@@ -649,7 +649,7 @@ SYMBOLS_C = [
 
     'Py_FrozenFlag', # not part of sys.flags
     'Py_UnbufferedStdioFlag',  # not part of sys.flags (python3)
-    '_Py_PackageContext', 'PyOS_InputHook', 'Py_Version', 
+    '_Py_PackageContext', 'PyOS_InputHook', 'Py_Version',
     '_Py_PackageContext', 'PyErr_SetInterrupt','PyErr_SetInterruptEx',
 
     'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
@@ -665,8 +665,8 @@ SYMBOLS_C = [
     'PyObject_Init', 'PyObject_InitVar',
     'PyTuple_New', '_Py_Dealloc', '_Py_object_dealloc',
     'PyVectorcall_Call', 'PyState_FindModule', 'PySlice_AdjustIndices',
-    'PyFloatPack2', 'PyFloatPack4', 'PyFloatPack8', 'PyFloatUnpack2', 
-    'PyFloatUnpack4', 'PyFloatUnpack8', 
+    'PyFloat_Pack2', 'PyFloat_Pack4', 'PyFloat_Pack8', 'PyFloat_Unpack2',
+    'PyFloat_Unpack4', 'PyFloat_Unpack8', '_PyFloat_InitState',
 ]
 if sys.platform == "win32":
     SYMBOLS_C.append('Py_LegacyWindowsStdioFlag')
@@ -1275,6 +1275,11 @@ def attach_c_functions(space, eci, prefix):
         mangle_name(prefix, '_Py_tuple_new'),
         [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
+    state.C.float_init = rffi.llexternal(
+        mangle_name(prefix, '_PyFloat_InitState'),
+        [], lltype.Void,
+        compilation_info=eci, _nowrapper=True)
+
     if we_are_translated():
         eci_flags = eci
     else:

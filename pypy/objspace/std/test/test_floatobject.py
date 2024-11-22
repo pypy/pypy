@@ -193,8 +193,7 @@ class AppTestAppFloatTest:
 
     def test_float_hash_nan(self):
         nan = float('nan')
-        assert hash(nan) == 0
-        # subclasses must be id-based!
+        assert hash(nan) == object.__hash__(nan)
         class F(float):
             pass
         nanf1 = F('nan')

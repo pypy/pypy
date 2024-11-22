@@ -8,6 +8,59 @@ typedef enum {
 
 static float_format_type double_format, float_format;
 
+void
+_PyFloat_InitState()
+{
+    float_format_type detected_double_format, detected_float_format;
+
+    /* We attempt to determine if this machine is using IEEE
+       floating point formats by peering at the bits of some
+       carefully chosen values.  If it looks like we are on an
+       IEEE platform, the float packing/unpacking routines can
+       just copy bits, if not they resort to arithmetic & shifts
+       and masks.  The shifts & masks approach works on all finite
+       values, but what happens to infinities, NaNs and signed
+       zeroes on packing is an accident, and attempting to unpack
+       a NaN or an infinity will raise an exception.
+
+       Note that if we're on some whacked-out platform which uses
+       IEEE formats but isn't strictly little-endian or big-
+       endian, we will fall back to the portable shifts & masks
+       method. */
+
+#if SIZEOF_DOUBLE == 8
+    {
+        double x = 9006104071832581.0;
+        if (memcmp(&x, "\x43\x3f\xff\x01\x02\x03\x04\x05", 8) == 0)
+            detected_double_format = ieee_big_endian_format;
+        else if (memcmp(&x, "\x05\x04\x03\x02\x01\xff\x3f\x43", 8) == 0)
+            detected_double_format = ieee_little_endian_format;
+        else
+            detected_double_format = unknown_format;
+    }
+#else
+    detected_double_format = unknown_format;
+#endif
+
+#if SIZEOF_FLOAT == 4
+    {
+        float y = 16711938.0;
+        if (memcmp(&y, "\x4b\x7f\x01\x02", 4) == 0)
+            detected_float_format = ieee_big_endian_format;
+        else if (memcmp(&y, "\x02\x01\x7f\x4b", 4) == 0)
+            detected_float_format = ieee_little_endian_format;
+        else
+            detected_float_format = unknown_format;
+    }
+#else
+    detected_float_format = unknown_format;
+#endif
+
+    double_format = detected_double_format;
+    float_format = detected_float_format;
+}
+
+
 /*----------------------------------------------------------------------------
  * PyFloat_{Pack,Unpack}{2,4,8}.  See floatobject.h.
  * To match the NPY_HALF_ROUND_TIES_TO_EVEN behavior in:
@@ -58,7 +111,7 @@ PyFloat_Pack2(double x, char *data, int le)
         f = frexp(x, &e);
         if (f < 0.5 || f >= 1.0) {
             PyErr_SetString(PyExc_SystemError,
-                            "frexp() result out of range");
+                            "frexp() result out of range in PyFloat_Pack2");
             return -1;
         }
 
@@ -158,7 +211,7 @@ PyFloat_Pack4(double x, char *data, int le)
             e = 0;
         else {
             PyErr_SetString(PyExc_SystemError,
-                            "frexp() result out of range");
+                            "frexp() result out of range in PyFloat_Pack4");
             return -1;
         }
 
@@ -266,7 +319,7 @@ PyFloat_Pack8(double x, char *data, int le)
             e = 0;
         else {
             PyErr_SetString(PyExc_SystemError,
-                            "frexp() result out of range");
+                            "frexp() result out of range in PyFloat_Pack8");
             return -1;
         }
 

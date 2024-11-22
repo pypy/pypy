@@ -219,3 +219,110 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
             import struct
             float_bits = struct.Struct('d').pack
             assert float_bits(module.test()) == float_bits(float('nan'))
+
+    def test_roundtrip(self):
+        module = self.import_extension('foo', [
+            ("float_pack", "METH_VARARGS",
+             """
+                int size;
+                double d;
+                int le;
+                if (!PyArg_ParseTuple(args, "idi", &size, &d, &le)) {
+                    return NULL;
+                }
+                switch (size)
+                {
+                case 2:
+                {
+                    char data[2];
+                    if (PyFloat_Pack2(d, data, le) < 0) {
+                        return NULL;
+                    }
+                    return PyBytes_FromStringAndSize(data, Py_ARRAY_LENGTH(data));
+                }
+                case 4:
+                {
+                    char data[4];
+                    if (PyFloat_Pack4(d, data, le) < 0) {
+                        return NULL;
+                    }
+                    return PyBytes_FromStringAndSize(data, Py_ARRAY_LENGTH(data));
+                }
+                case 8:
+                {
+                    char data[8];
+                    if (PyFloat_Pack8(d, data, le) < 0) {
+                        return NULL;
+                    }
+                    return PyBytes_FromStringAndSize(data, Py_ARRAY_LENGTH(data));
+                }
+                default: break;
+                }
+
+                PyErr_SetString(PyExc_ValueError, "size must 2, 4 or 8");
+                return NULL;
+             """),
+            ("float_unpack", "METH_VARARGS",
+             """
+                assert(!PyErr_Occurred());
+                const char *data;
+                Py_ssize_t size;
+                int le;
+                if (!PyArg_ParseTuple(args, "y#i", &data, &size, &le)) {
+                    return NULL;
+                }
+                double d;
+                switch (size)
+                {
+                case 2:
+                    d = PyFloat_Unpack2(data, le);
+                    break;
+                case 4:
+                    d = PyFloat_Unpack4(data, le);
+                    break;
+                case 8:
+                    d = PyFloat_Unpack8(data, le);
+                    break;
+                default:
+                    PyErr_SetString(PyExc_ValueError, "data length must 2, 4 or 8 bytes");
+                    return NULL;
+                }
+
+                if (d == -1.0 && PyErr_Occurred()) {
+                    return NULL;
+                }
+                return PyFloat_FromDouble(d);
+             """),
+        ], PY_SSIZE_T_CLEAN=1)
+        import math
+        HAVE_IEEE_754 = float.__getformat__("double").startswith("IEEE")
+        INF = float("inf")
+        NAN = float("nan")
+        BIG_ENDIAN = 0
+        LITTLE_ENDIAN = 1
+        EPSILON = {
+            2: 2.0 ** -11,  # binary16
+            4: 2.0 ** -24,  # binary32
+            8: 2.0 ** -53,  # binary64
+}
+        large = 2.0 ** 100
+        values = [1.0, 1.5, large, 1.0/7, math.pi]
+        if HAVE_IEEE_754:
+            values.extend((INF, NAN))
+        for value in values:
+            for size in (2, 4, 8,):
+                if size == 2 and value == large:
+                    # too large for 16-bit float
+                    continue
+                rel_tol = EPSILON[size]
+                for endian in (BIG_ENDIAN, LITTLE_ENDIAN):
+                    data = module.float_pack(size, value, endian)
+                    value2 = module.float_unpack(data, endian)
+                    if math.isnan(value):
+                        assert math.isnan(value2), (value, value2)
+                    elif size < 8:
+                        assert math.isclose(value2, value, rel_tol=rel_tol), (value, value2)
+                    else:
+                        assert value2 == value
+
+

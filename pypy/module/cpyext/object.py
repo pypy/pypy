@@ -377,7 +377,7 @@ def _Py_HashDouble(space, w_obj, v):
     except for nans
     """
     from pypy.objspace.std.floatobject import float_hash
-    return float_hash(w_obj, v)
+    return float_hash(space, w_obj, v)
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyObject_HashNotImplemented(space, o):
