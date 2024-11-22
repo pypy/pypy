@@ -76,7 +76,7 @@ class FrameManager(object):
         return res
 
     def bindings_len_for_tests(self):
-        return len(boxes_in_frame) - self.freelist_len_for_tests()
+        return len(self.boxes_in_frame) - self.freelist_len_for_tests()
 
     def get_frame_depth(self):
         return self.current_frame_depth
@@ -258,23 +258,13 @@ class RegBindingsDict(object):
         return index >= 0
 
     def __getitem__(self, box):
-        lifetime = get_lifetime(box)
-        if lifetime is None:
+        res = self.regman.reg_bindings_get(box)
+        if res is None:
             raise KeyError
-        index = lifetime.current_register_index
-        if index >= 0:
-            return self.regman.all_regs[index]
-        raise KeyError
+        return res
 
     def get(self, box, default=None):
-        lifetime = box.get_forwarded()
-        lifetime = get_lifetime(box)
-        if lifetime is None:
-            return default
-        index = lifetime.current_register_index
-        if index >= 0:
-            return self.regman.all_regs[index]
-        return default
+        return self.regman.reg_bindings_get(box, default)
 
     def pop(self, box):
         lifetime = get_lifetime(box)
@@ -374,6 +364,15 @@ class RegisterManager(object):
     def next_instruction(self, incr=1):
         self.position += incr
 
+    def reg_bindings_get(self, box, default=None):
+        lifetime = get_lifetime(box)
+        if lifetime is None:
+            return default
+        index = lifetime.current_register_index
+        if index >= 0:
+            return self.all_regs[index]
+        return default
+
     def _check_type(self, v):
         if not we_are_translated() and self.box_types is not None:
             assert isinstance(v, TempVar) or v.type in self.box_types
@@ -387,8 +386,9 @@ class RegisterManager(object):
         if isinstance(v, Const):
             return
         if v not in self.longevity or self.longevity[v].last_usage <= self.position:
-            if v in self.reg_bindings:
-                self.free_regs.append(self.reg_bindings[v])
+            reg = self.reg_bindings_get(v)
+            if reg is not None:
+                self.free_regs.append(reg)
                 del self.reg_bindings[v]
             if v is self.box_currently_in_frame_reg:
                 self.box_currently_in_frame_reg = None
@@ -442,7 +442,7 @@ class RegisterManager(object):
         # YYY all subtly similar code
         assert not isinstance(v, Const)
         if selected_reg is not None:
-            res = self.reg_bindings.get(v, None)
+            res = self.reg_bindings_get(v)
             if res is not None:
                 if res is selected_reg:
                     return res
@@ -456,7 +456,7 @@ class RegisterManager(object):
                 return selected_reg
             return None
         if need_lower_byte:
-            loc = self.reg_bindings.get(v, None)
+            loc = self.reg_bindings_get(v)
             if loc is not None and loc not in self.no_lower_byte_regs:
                 return loc
             free_regs = [reg for reg in self.free_regs
@@ -470,9 +470,10 @@ class RegisterManager(object):
                 self.free_regs.append(loc)
             self.reg_bindings[v] = newloc
             return newloc
-        try:
-            return self.reg_bindings[v]
-        except KeyError:
+        res = self.reg_bindings_get(v)
+        if res is not None:
+            return res
+        else:
             loc = self.longevity.try_pick_free_reg(
                 self.position, v, self.free_regs)
             if loc is None:
@@ -558,7 +559,7 @@ class RegisterManager(object):
             return loc
         loc = self._spill_var(forbidden_vars, selected_reg,
                               need_lower_byte=need_lower_byte)
-        prev_loc = self.reg_bindings.get(v, None)
+        prev_loc = self.reg_bindings_get(v)
         if prev_loc is not None:
             self.free_regs.append(prev_loc)
         self.reg_bindings[v] = loc
@@ -584,12 +585,13 @@ class RegisterManager(object):
         self._check_type(box)
         if isinstance(box, Const):
             return self.convert_to_imm(box)
-        try:
-            return self.reg_bindings[box]
-        except KeyError:
-            if box is self.box_currently_in_frame_reg:
-                return self.frame_reg
-            return self.frame_manager.loc(box, must_exist)
+        res = self.reg_bindings_get(box)
+        if res is not None:
+            return res
+        if box is self.box_currently_in_frame_reg:
+            return self.frame_reg
+        return self.frame_manager.loc(box, must_exist)
+
 
     def return_constant(self, v, forbidden_vars=[], selected_reg=None):
         """ Return the location of the constant v.  If 'selected_reg' is
@@ -1132,11 +1134,7 @@ class LifetimeManager(object):
         return info is not None
 
     def __getitem__(self, op):
-        info = op.get_forwarded()
-        if info is None:
-            raise KeyError
-        assert isinstance(info, Lifetime)
-        return info
+        return get_lifetime(op)
 
     def __setitem__(self, op, lifetime):
         assert op not in self or isinstance(op, TempVar)
