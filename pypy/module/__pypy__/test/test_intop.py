@@ -106,3 +106,13 @@ class AppTestIntOp:
     def test_mulmod(self):
         from __pypy__ import intop
         assert intop.int_mulmod(9373891, 9832739, 2**31-1) == 1025488209
+
+    def test_invalid(self):
+        from __pypy__ import intop
+        with raises(ZeroDivisionError):
+            intop.int_mod(1, 0)
+        with raises(ZeroDivisionError):
+            intop.int_floordiv(1, 0)
+        with raises(ValueError):
+            intop.int_mulmod(1, 0, 0)
+    

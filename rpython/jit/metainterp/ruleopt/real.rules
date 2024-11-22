@@ -132,6 +132,10 @@ or_idempotent: int_or(x, y)
     check x.ones | y.zeros == -1
     => x
 
+or_and_two_parts: int_or(int_and(x, C1), int_and(x, C2))
+    C = C1 | C2
+    => int_and(x, C)
+
 
 xor_x_x: int_xor(a, a)
     => 0
@@ -159,6 +163,11 @@ lshift_x_zero: int_lshift(x, 0)
 lshift_rshift_c_c: int_lshift(int_rshift(x, C1), C1)
     check 0 <= C1 and C1 < LONG_BIT
     C = -1 << C1
+    => int_and(x, C)
+
+lshift_and_rshift: int_lshift(int_and(int_rshift(x, C1), C2), C1)
+    check 0 <= C1 and C1 < LONG_BIT
+    C = C2 << C1
     => int_and(x, C)
 
 lshift_urshift_c_c: int_lshift(uint_rshift(x, C1), C1)
@@ -194,6 +203,13 @@ rshift_known_result: int_rshift(a, b)
 rshift_lshift: int_rshift(int_lshift(x, y), y)
     check x.lshift_bound_cannot_overflow(y)
     => x
+
+rshift_rshift_c_c: int_rshift(int_rshift(x, C1), C2)
+    check 0 <= C1 and C1 < LONG_BIT and 0 <= C2 and C2 < LONG_BIT
+    C = C1 + C2
+    check 0 <= C and C < LONG_BIT
+    => int_rshift(x, C)
+
 
 urshift_zero_x: uint_rshift(0, x)
     => 0

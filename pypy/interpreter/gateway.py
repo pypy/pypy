@@ -854,7 +854,10 @@ class BuiltinCode(Code):
     @staticmethod
     def find(space, identifier):
         from pypy.interpreter.function import Function
-        return Function.find(space, identifier).code
+        func = Function.find(space, identifier)
+        if not func:
+            raise oefmt(space.w_ValueError, "invalid code: '%s'", identifier)
+        return func.code
 
     def signature(self):
         return self.sig
