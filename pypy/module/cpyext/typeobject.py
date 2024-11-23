@@ -1050,6 +1050,7 @@ def _parse_typeslots():
 
     TABLE = []
     HTO = cts.gettype('PyHeapTypeObject')
+    slots_len = 0
     for name, num in slots_hdr.macros.items():
         assert isinstance(num, int)
         assert name.startswith('Py_')
@@ -1058,8 +1059,9 @@ def _parse_typeslots():
         slotname = 'c_' + name
         TARGET = HTO._flds[membername]._flds[slotname]
         TABLE.append((num, membername, slotname, TARGET))
-    return unrolling_iterable(TABLE)
-SLOT_TABLE = _parse_typeslots()
+        slots_len += 1
+    return unrolling_iterable(TABLE), slots_len
+SLOT_TABLE, slots_len = _parse_typeslots()
 
 def fill_ht_slot(ht, slotnum, ptr):
     for num, membername, slotname, TARGET in SLOT_TABLE:
@@ -1071,8 +1073,18 @@ def get_slot_by_num(typ, slotnum):
     ht = rffi.cast(PyHeapTypeObject, typ)
     for num, membername, slotname, TARGET in SLOT_TABLE:
         if num == slotnum:
+            if membername == 'c_as_number' and typ.c_tp_as_number:
+                return rffi.cast(rffi.VOIDP, getattr(typ.c_tp_as_number, slotname))
+            elif membername == 'c_as_mapping' and typ.c_tp_as_mapping:
+                return rffi.cast(rffi.VOIDP, getattr(typ.c_tp_as_mapping, slotname))
+            elif membername == 'c_as_sequnce' and typ.c_tp_as_sequnce:
+                return rffi.cast(rffi.VOIDP, getattr(typ.c_tp_as_sequnce, slotname))
+            elif membername == 'c_as_async' and typ.c_tp_as_async:
+                return rffi.cast(rffi.VOIDP, getattr(typ.c_tp_as_async, slotname))
+            elif membername == 'c_as_buffer' and typ.c_tp_as_buffer:
+                return rffi.cast(rffi.VOIDP, getattr(typ.c_tp_as_buffer, slotname))
             # Some of the slots are only available for heap types
-            if membername != "c_ht_type" and not isheaptype:
+            elif membername != "c_ht_type" and not isheaptype:
                 return rffi.cast(rffi.VOIDP, 0)
                 # raise oefmt(space.w_SystemError, "Bad internal call!")
             return rffi.cast(rffi.VOIDP, getattr(getattr(ht, membername), slotname))
@@ -1262,11 +1274,13 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
             w_type.setdictvalue(space, name, w_descr)
     return res_obj
 
-@cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP, error=CANNOT_FAIL)
+@cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP, error=rffi.cast(rffi.VOIDP, 0))
 def PyType_GetSlot(space, typ, slot):
     """ Use the Py_tp* macros in typeslots.h to return a slot function
     """
     slot = widen(slot)
+    if slot <=0 or slot >= slots_len:
+        raise oefmt(space.w_SystemError, "Bad internal call!")
     return get_slot_by_num(typ, slot)
 
 @cpython_api([PyTypeObjectPtr, PyObject], PyObject, error=CANNOT_FAIL,

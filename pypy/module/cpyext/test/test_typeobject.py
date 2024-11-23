@@ -1585,6 +1585,20 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                }
                Py_RETURN_NONE;
             '''),
+            ("test_nb_add", "METH_NOARGS",
+            '''
+               binaryfunc nb_add = PyType_GetSlot(&PyLong_Type, Py_nb_add);
+               if (PyLong_Type.tp_as_number->nb_add != nb_add) {
+                   PyErr_SetString(PyExc_AssertionError, "mismatch: nb_add of long");
+                   return NULL;
+               }
+               Py_RETURN_NONE;
+            '''),
+            ("test_zero", "METH_NOARGS",
+            '''
+               binaryfunc nb_add = PyType_GetSlot(&PyLong_Type, 0);
+               return NULL;
+            '''),
             ])
         obj = module.new_obj()
         assert 'Base12' in str(obj)
@@ -1592,6 +1606,9 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         assert obj.__doc__ == "The Base12 type or object"
         assert module.test_getslot(obj) == 1
         module.test_tp_new()
+        module.test_nb_add()
+        with raises(SystemError):
+            module.test_zero()
 
     def test_multiple_inheritance_fetch_tp_bases(self):
         module = self.import_extension('foo', [
