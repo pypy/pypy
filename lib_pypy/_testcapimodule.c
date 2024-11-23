@@ -1022,7 +1022,6 @@ raise_error(void *unused)
     return NULL;
 }
 
-static PyObject *collect_func = NULL;
 
 static int
 test_buildvalue_N_error(const char *fmt)
@@ -1045,7 +1044,7 @@ test_buildvalue_N_error(const char *fmt)
      * gc to collect the object
      */  
     Py_DECREF(res);
-    PyObject_CallFunction(collect_func, NULL);
+    PyGC_Collect();
     size_t diff = Py_REFCNT(arg) - arg_cnt;
     if (diff != 0) {
         PyErr_Format(TestError, "test_buildvalue_N: "
@@ -1157,11 +1156,15 @@ test_get_statictype_slots(PyObject *self, PyObject *Py_UNUSED(ignored))
         PyErr_SetString(PyExc_AssertionError, "mismatch: slot 0 of long");
         return NULL;
     }
-    if (PyErr_ExceptionMatches(PyExc_SystemError)) {
+    if (PyErr_Occurred() && PyErr_ExceptionMatches(PyExc_SystemError)) {
         // This is the right exception
         PyErr_Clear();
     }
+    else if (PyErr_Occurred()){
+        return NULL;
+    }
     else {
+        PyErr_SetString(PyExc_AssertionError, "PyType_GetSlot returned NULL without setting an error");
         return NULL;
     }
 
@@ -3379,12 +3382,13 @@ test_capsule(PyObject *self, PyObject *Py_UNUSED(ignored))
         { NULL, NULL },
     };
     known_capsule *known = &known_capsules[0];
-    PyObject *gc_module = PyImport_ImportModule("gc");
-    PyObject *collect = PyObject_GetAttrString(gc_module, "collect");
 
 #define FAIL(x) { error = (x); goto exit; }
 
+// PyPy adds the collect calls
 #define CHECK_DESTRUCTOR \
+    PyGC_Collect(); \
+    PyGC_Collect(); \
     if (capsule_error) { \
         FAIL(capsule_error); \
     } \
@@ -3481,8 +3485,6 @@ test_capsule(PyObject *self, PyObject *Py_UNUSED(ignored))
     }
 
   exit:
-    Py_DECREF(gc_module);
-    Py_DECREF(collect);
     if (error) {
         return raiseTestError("test_capsule", error);
     }
