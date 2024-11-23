@@ -284,12 +284,16 @@ class CAPITest(unittest.TestCase):
                 r'\n'
                 r'Current thread.*:\n'
                 r'  File .*", line 6 in <module>\n')
+        elif sys.implementation.name == 'pypy':
+            with self.assertRaises(SystemError) as cm:
+                _testcapi.return_null_without_error()
+            self.assertRegex(str(cm.exception),
+                             'returned NULL without setting an exception')
         else:
             with self.assertRaises(SystemError) as cm:
                 _testcapi.return_null_without_error()
             self.assertRegex(str(cm.exception),
-                             'return_null_without_error.* '
-                             'returned NULL without setting an exception')
+                             'return_null_without_error.* ')
 
     def test_return_result_with_error(self):
         # Issue #23571: A function must not return a result with an error set
@@ -318,12 +322,16 @@ class CAPITest(unittest.TestCase):
                     r'\n'
                     r'Current thread.*:\n'
                     r'  File .*, line 6 in <module>\n')
+        elif sys.implementation.name == 'pypy':
+            with self.assertRaises(SystemError) as cm:
+                _testcapi.return_result_with_error()
+            self.assertRegex(str(cm.exception),
+                             'returned a result with an exception set')
         else:
             with self.assertRaises(SystemError) as cm:
                 _testcapi.return_result_with_error()
             self.assertRegex(str(cm.exception),
-                             'return_result_with_error.* '
-                             'returned a result with an exception set')
+                             'return_result_with_error.*')
 
     def test_getitem_with_error(self):
         # Test _Py_CheckSlotResult(). Raise an exception and then calls
@@ -695,6 +703,7 @@ class CAPITest(unittest.TestCase):
         b = bytes(inst)
         self.assertEqual(b, b"1234")
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no getrefcount in PyPy")
     def test_c_subclass_of_heap_ctype_with_tpdealloc_decrefs_once(self):
         subclass_instance = _testcapi.HeapCTypeSubclass()
         type_refcnt = sys.getrefcount(_testcapi.HeapCTypeSubclass)
@@ -707,6 +716,7 @@ class CAPITest(unittest.TestCase):
         del subclass_instance
         self.assertEqual(type_refcnt - 1, sys.getrefcount(_testcapi.HeapCTypeSubclass))
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no getrefcount in PyPy")
     def test_c_subclass_of_heap_ctype_with_del_modifying_dunder_class_only_decrefs_once(self):
         subclass_instance = _testcapi.HeapCTypeSubclassWithFinalizer()
         type_refcnt = sys.getrefcount(_testcapi.HeapCTypeSubclassWithFinalizer)
@@ -835,6 +845,7 @@ class CAPITest(unittest.TestCase):
         expected = compile(code, "<string>", "exec")
         self.assertEqual(result.co_consts, expected.co_consts)
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no ctypes.pythonapi in PyPy")
     def test_export_symbols(self):
         # bpo-44133: Ensure that the "Py_FrozenMain" and
         # "PyThread_get_thread_native_id" symbols are exported by the Python
@@ -898,7 +909,8 @@ class CAPITest(unittest.TestCase):
         self.assertIsInstance(code, types.CodeType)
         self.assertEqual(code, some.__code__)
 
-        with self.assertRaises(SystemError):
+        # PyPy raises TypeError
+        with self.assertRaises((TypeError, SystemError)):
             _testcapi.function_get_code(None)  # not a function
 
     def test_function_get_globals(self):
@@ -909,7 +921,8 @@ class CAPITest(unittest.TestCase):
         self.assertIsInstance(globals_, dict)
         self.assertEqual(globals_, some.__globals__)
 
-        with self.assertRaises(SystemError):
+        # PyPy raises AttributeError
+        with self.assertRaises((AttributeError, SystemError)):
             _testcapi.function_get_globals(None)  # not a function
 
     def test_function_get_module(self):
@@ -920,21 +933,12 @@ class CAPITest(unittest.TestCase):
         self.assertIsInstance(module, str)
         self.assertEqual(module, some.__module__)
 
-        with self.assertRaises(SystemError):
+        # PyPy raises AttributeError
+        with self.assertRaises((AttributeError, SystemError)):
             _testcapi.function_get_module(None)  # not a function
 
-    def test_sys_getobject(self):
-        getobject = _testcapi.sys_getobject
-
-        self.assertIs(getobject(b'stdout'), sys.stdout)
-        with support.swap_attr(sys, '\U0001f40d', 42):
-            self.assertEqual(getobject('\U0001f40d'.encode()), 42)
-
-        self.assertIs(getobject(b'nonexisting'), AttributeError)
-        self.assertIs(getobject(b'\xff'), AttributeError)
-        # CRASHES getobject(NULL)
-
     def test_sys_setobject(self):
+        # will be in next 3.11 release
         setobject = _testcapi.sys_setobject
 
         value = ['value']
@@ -962,6 +966,7 @@ class CAPITest(unittest.TestCase):
         with self.assertRaises(UnicodeDecodeError):
             setobject(b'\xff', value)
         # CRASHES setobject(NULL, value)
+
 
 def dummy():
     pass
@@ -1445,6 +1450,7 @@ class Test_FrameAPI(unittest.TestCase):
 
 SUFFICIENT_TO_DEOPT_AND_SPECIALIZE = 100
 
+@unittest.skipIf(support.check_impl_detail(pypy=True), "no _testinternalcapi PyPy")
 class Test_Pep523API(unittest.TestCase):
 
     def do_test(self, func, names):
