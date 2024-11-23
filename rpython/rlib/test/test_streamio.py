@@ -1219,3 +1219,29 @@ def speed_main():
     timeit(opener=diskopen)
     timeit(opener=mmapopen)
     timeit(opener=open)
+
+from hypothesis import strategies, given
+
+@given(strategies.lists(strategies.tuples(strategies.binary(), strategies.sampled_from(['\r', '\n', '\r\n']))),
+       strategies.binary())
+def test_replace_crlf_with_lf(l, suffix):
+    res = []
+    for s, n in l:
+        res.append(s)
+        res.append(n)
+    res.append(suffix)
+    s = "".join(res)
+    substrings = s.split("\r")
+    result = [substrings[0]]
+    for substring in substrings[1:]:
+        if not substring:
+            result.append("")
+        elif substring[0] == "\n":
+            result.append(substring[1:])
+        else:
+            result.append(substring)
+    res = "\n".join(result)
+
+    res2 = streamio.replace_crlf_with_lf(s)
+    assert "\r" not in res2
+    assert res == res2
