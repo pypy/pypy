@@ -17,12 +17,17 @@ def PySys_SetObject(space, name, pyobj):
     """Set name in the sys module to v unless v is NULL, in which
     case name is deleted from the sys module. Returns 0 on success, -1
     on error."""
-    name = rffi.charp2str(name)
-    w_name = space.newtext(name)
+
+    w_str = space.newbytes(rffi.charp2str(name))
+    w_name = space.call_method(w_str, 'decode', space.newtext("utf-8"))
     w_dict = space.sys.getdict(space)
     if pyobj:
         w_obj = from_ref(space, pyobj)
         space.setitem(w_dict, w_name, w_obj)
     else:
-        space.delitem(w_dict, w_name)
+        try:
+            # Ignore KeyError
+            space.delitem(w_dict, w_name)
+        except:
+            pass
     return 0

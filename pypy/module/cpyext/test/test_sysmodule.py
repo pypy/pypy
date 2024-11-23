@@ -30,9 +30,30 @@ class AppTestSysModule(AppTestCpythonExtensionBase):
         finally:
             sys.stdout = prev
 
-class TestSysModule(BaseApiTest):
-    def test_sysmodule(self, space, api):
-        buf = rffi.str2charp("last_tb")
-        api.PySys_SetObject(buf, space.wrap(1))
-        rffi.free_charp(buf)
-        assert space.unwrap(space.sys.get("last_tb")) == 1
+    def test_sysgetset(self):
+        module = self.import_extension('foo', [
+            ("setobject", "METH_VARARGS",
+             """
+                const char *name;
+                Py_ssize_t size;
+                PyObject *value = NULL;
+                if (!PyArg_ParseTuple(args, "z#|O", &name, &size, &value)) {
+                    return NULL;
+                }
+                if (value == Py_None) {
+                    value = NULL;
+                }
+                int ret = PySys_SetObject(name, value);
+                if (ret < 0)
+                    return NULL;
+                return PyLong_FromLong(ret);
+             """)])
+        import sys
+        module.setobject("newattr", 1)
+        assert sys.newattr == 1
+        module.setobject("newattr")
+        assert not hasattr(sys, 'newattr')
+        # Cpython lets you call this, even if the attribute does not exist
+        module.setobject("newattr")
+        with raises(UnicodeDecodeError):
+            module.setobject(b'\xff', 1)
