@@ -179,7 +179,8 @@ class InterpreterState(object):
 def PyThreadState_Get(space):
     state = space.fromcache(InterpreterState)
     ts = state.get_thread_state(space)
-    if not ts:
+    ec = space.getexecutioncontext()
+    if not ts or not ec.cpyext_threadstate_is_current:
         from pypy.module.cpyext.api import py_fatalerrorfunc
         py_fatalerrorfunc("PyThreadState_Get", "no current thread")
     return ts
