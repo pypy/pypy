@@ -365,10 +365,14 @@ def PyObject_AsFileDescriptor(space, w_obj):
 
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
-def PyObject_Hash(space, w_obj):
+def PyObject_Hash(space, pyobj):
     """
     Compute and return the hash value of an object o.  On failure, return -1.
     This is the equivalent of the Python expression hash(o)."""
+
+    from pypy.module.cpyext.typeobject import py_type_ready
+    py_type_ready(space, pyobj.c_ob_type)
+    w_obj = from_ref(space, pyobj)
     return space.hash_w(w_obj)
 
 @cpython_api([PyObject, rffi.DOUBLE], lltype.Signed, error=-1)
@@ -377,7 +381,7 @@ def _Py_HashDouble(space, w_obj, v):
     except for nans
     """
     from pypy.objspace.std.floatobject import float_hash
-    return float_hash(space, w_obj, v)
+    return space.int_w(float_hash(space, w_obj, v))
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyObject_HashNotImplemented(space, o):

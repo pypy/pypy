@@ -12,7 +12,7 @@ from rpython.tool.sourcetools import func_with_new_name
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
-from pypy.interpreter.typedef import GetSetProperty, TypeDef
+from pypy.interpreter.typedef import GetSetProperty, TypeDef, default_identity_hash
 from pypy.objspace.std import newformat
 from pypy.objspace.std.floatobject import _hash_float, _remove_underscores
 from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
@@ -384,8 +384,14 @@ class W_ComplexObject(W_Root):
                              + sign + repr_format(self.imagval) + 'j)')
 
     def descr_hash(self, space):
-        hashreal = _hash_float(self.realval)
-        hashimg = _hash_float(self.imagval)   # 0 if self.imagval == 0
+        if math.isnan(self.realval):
+            hashreal = space.int_w(default_identity_hash(space, self))
+        else:
+            hashreal = _hash_float(self.realval)
+        if math.isnan(self.imagval):
+            hashimg = space.int_w(default_identity_hash(space, self))
+        else:
+            hashimg = _hash_float(self.imagval)
         h = intmask(hashreal + HASH_IMAG * hashimg)
         h -= (h == -1)
         return space.newint(h)
