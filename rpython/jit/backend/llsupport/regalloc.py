@@ -321,10 +321,36 @@ class RegBindingsDict(object):
             if box is not None:
                 res.append((box, self.regman.all_regs[i]))
         return res
-    iteritems = items # xxx
+
+    def iteritems(self):
+        return self.regman.reg_bindings_iteritems()
 
     def __nonzero__(self):
         assert False, '__nonzero__ is not rpython'
+
+class RegBindingsIterItems(object):
+    def __init__(self, rm):
+        self.rm = rm
+        self.index = -1
+
+    def next(self):
+        index = self.index = RegBindingsIterItems._next(self.index + 1, self.rm)
+        return self.rm.reg_bindings_list[index], self.rm.all_regs[index]
+
+    @staticmethod
+    def _next(index, rm):
+        while True:
+            if index >= len(rm.reg_bindings_list):
+                raise StopIteration
+            box = rm.reg_bindings_list[index]
+            if box is None:
+                index += 1
+                continue
+            return index
+
+    def __iter__(self):
+        return self
+
 
 
 class RegisterManager(object):
@@ -372,6 +398,9 @@ class RegisterManager(object):
         if index >= 0:
             return self.all_regs[index]
         return default
+
+    def reg_bindings_iteritems(self):
+        return RegBindingsIterItems(self)
 
     def _check_type(self, v):
         if not we_are_translated() and self.box_types is not None:
