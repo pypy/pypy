@@ -23,12 +23,21 @@ int pypysig_poll(void);   /* => signum or -1 */
 RPY_EXTERN
 void pypysig_pushback(int signum);
 
+#define PATH_MAX 1024
+
 /* When a signal is received, pypysig_counter is set to -1. */
-/* This is a struct for the JIT. See rsignal.py. */
 struct pypysig_long_struct {
     Signed value;
+    /* mechanism to start a debugger remotely, via process_vm_writev:
+     * - write a .py path to debugger_script_path
+     * - set debugger_pending_call to 1
+     * - set value to -1
+     * */
+    char cookie[8];
+    Signed debugger_pending_call;
+    char debugger_script_path[PATH_MAX];
 };
-RPY_EXTERN struct pypysig_long_struct pypysig_counter;
+RPY_EXPORTED struct pypysig_long_struct pypysig_counter;
 
 /* some C tricks to get/set the variable as efficiently as possible:
    use macros when compiling as a stand-alone program, but still
