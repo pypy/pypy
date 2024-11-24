@@ -59,17 +59,24 @@ class MyNotImplementedError(Exception):
 
 # ____________________________________________________________
 
-def replace_crlf_with_lf(s):
-    substrings = s.split("\r")
-    result = [substrings[0]]
-    for substring in substrings[1:]:
-        if not substring:
-            result.append("")
-        elif substring[0] == "\n":
-            result.append(substring[1:])
-        else:
-            result.append(substring)
-    return "\n".join(result)
+def replace_crlf_with_lf(s, first_index=-1):
+    if first_index < 0:
+        first_index = s.find("\r")
+        if first_index < 0:
+            return s
+    builder = StringBuilder(len(s))
+    builder.append_slice(s, 0, first_index)
+    while first_index < len(s):
+        builder.append("\n")
+        index = s.find("\r", first_index + 1)
+        if index < 0:
+            index = len(s)
+        if first_index + 1 < len(s) and s[first_index + 1] == "\n":
+            # \r\n
+            first_index += 1
+        builder.append_slice(s, first_index + 1, index)
+        first_index = index
+    return builder.build()
 
 def replace_char_with_str(string, c, s):
     return s.join(string.split(c))
@@ -1026,19 +1033,24 @@ class TextInputFilter(Stream):
                 self.CR = True
             self.atcr = False
 
+        seen_cr = -1
         for i in range(len(data)):
             if data[i] == '\n':
                 if i > 0 and data[i-1] == '\r':
+                    if seen_cr < 0:
+                        seen_cr = i - 1
                     self.CRLF = True
                 else:
                     self.NL = True
             elif data[i] == '\r':
+                if seen_cr < 0:
+                    seen_cr = i
                 if i < len(data)-1 and data[i+1] != '\n':
                     self.CR = True
 
-        if "\r" in data:
+        if seen_cr >= 0:
             self.atcr = data.endswith("\r")
-            data = replace_crlf_with_lf(data)
+            data = replace_crlf_with_lf(data, first_index=seen_cr)
 
         return data
 
