@@ -18,7 +18,7 @@ import unittest
 from unittest import mock
 import _imp
 
-from test.support import os_helper
+from test.support import os_helper, impl_detail
 from test.support import (
     STDLIB_DIR, is_jython, swap_attr, swap_item, cpython_only, is_emscripten,
     is_wasi)
@@ -512,6 +512,7 @@ class ImportTests(unittest.TestCase):
                                     env=env,
                                     cwd=os.path.dirname(pyexe))
 
+    @impl_detail("pypy does not accept a data argument to get_frozen_object", pypy=False)
     def test_issue105979(self):
         # this used to crash
         with self.assertRaises(ImportError) as cm:
