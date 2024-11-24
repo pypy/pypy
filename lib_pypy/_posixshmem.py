@@ -8,6 +8,8 @@ import os
 def shm_open(path, flags, mode=0o777):
     'Open a shared memory object.  Returns a file descriptor (integer).'
     path_utf8 = path.encode("utf-8")
+    if b'\x00' in path_utf8:
+        raise ValueError('embedded null character')
     while 1:
         fd = lib.shm_open(path_utf8, flags, mode)
         if fd < 0:
@@ -26,6 +28,8 @@ region.
     '''
 
     path_utf8 = path.encode("utf-8")
+    if b'\x00' in path_utf8:
+        raise ValueError('embedded null character')
     while 1:
         rv = lib.shm_unlink(path_utf8)
         if rv < 0:

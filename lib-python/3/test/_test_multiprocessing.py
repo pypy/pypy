@@ -37,7 +37,11 @@ from test.support import socket_helper
 from test.support import threading_helper
 from test.support import warnings_helper
 
-
+if sys.implementation.name == 'pypy':
+    def noop(*args):
+        return []
+    gc.get_threshold = noop
+    gc.set_threshold = noop
 # Skip tests if _multiprocessing wasn't built.
 _multiprocessing = import_helper.import_module('_multiprocessing')
 # Skip tests if sem_open implementation is broken.
