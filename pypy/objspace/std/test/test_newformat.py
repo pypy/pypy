@@ -549,3 +549,8 @@ class AppTestInternalMethods:
     def test_error(self):
         info = raises(ValueError, "{: }".format, '')
         assert info.value.args[0].startswith("Space")
+
+    def test_error_int(self):
+        with raises(ValueError) as e:
+            format(0, 'z')
+        assert e.value.args[0].startswith("Negative zero coercion (z)")

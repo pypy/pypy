@@ -829,13 +829,17 @@ def make_formatting_class(for_unicode):
             space = self.space
             if self._precision != -1:
                 raise oefmt(space.w_ValueError,
-                            "precision not allowed in integer type")
+                            "Precision not allowed in integer format specifier")
+            if self.spec == 'z':
+                raise oefmt(space.w_ValueError,
+                        "Negative zero coercion (z) not allowed in integer"
+                        " format specifier")
             sign_char = "\0"
             tp = self._type
             if tp == "c":
                 if self._sign != "\0":
                     raise oefmt(space.w_ValueError,
-                                "sign not allowed with 'c' presentation type")
+                                "Sign not allowed with integer format specifier 'c'")
                 if self._alternate:
                     raise oefmt(space.w_ValueError,
                                 "Alternate form (#) not allowed "
