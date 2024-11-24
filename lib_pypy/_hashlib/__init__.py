@@ -321,7 +321,7 @@ if hasattr(lib, 'PKCS5_PBKDF2_HMAC'):
         c_name = _str_to_ffi_buffer(hash_name)
         digest = lib.EVP_get_digestbyname(c_name)
         if digest == ffi.NULL:
-            raise ValueError("unsupported hash type")
+            raise UnsupportedDigestmodError("unsupported hash type")
         if dklen is None:
             dklen = lib.EVP_MD_size(digest)
         if dklen < 1:
@@ -459,7 +459,7 @@ def py_digest_by_name(name, py_ht):
     elif py_ht == Py_ht_evp_nosecurity:
         digest = PY_EVP_MD_fetch(c_name, _str_to_ffi_buffer("-fips"))
     if not digest:
-        raise ValueError(f"unsupported hash type {name}")
+        raise UnsupportedDigestmodError(f"unsupported hash type {name}")
     ffi.gc(digest, PY_EVP_MD_free)
     return digest 
     
