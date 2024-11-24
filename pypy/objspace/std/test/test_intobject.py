@@ -568,10 +568,14 @@ class AppTestInt(object):
         raises((AttributeError,TypeError), int, b())
 
     def test_just_trunc(self):
+        import warnings
         class myint(object):
             def __trunc__(self):
                 return 42
-        assert int(myint()) == 42
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            assert int(myint()) == 42
+            assert log[0].category == DeprecationWarning
 
     def test_override___int__(self):
         class myint(int):
@@ -583,24 +587,33 @@ class AppTestInt(object):
         assert int(myotherint(21)) == 21
 
     def test_trunc_returns_non_int(self):
+        import warnings
         class Integral(object):
             def __int__(self):
                 return 42
         class TruncReturnsNonInt(object):
             def __trunc__(self):
                 return Integral()
-        with raises(TypeError):
-            int(TruncReturnsNonInt())
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            with raises(TypeError):
+                int(TruncReturnsNonInt())
+            assert log[0].category == DeprecationWarning
 
     def test_trunc_returns_int_subclass(self):
+        import warnings
         class TruncReturnsNonInt:
             def __trunc__(self):
                 return True
-        n = int(TruncReturnsNonInt())
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            n = int(TruncReturnsNonInt())
+            assert log[0].category == DeprecationWarning
         assert n == 1
         assert type(n) is int
 
     def test_trunc_returns_int_subclass_2(self):
+        import warnings
         class BadInt:
             def __int__(self):
                 return True
@@ -608,17 +621,24 @@ class AppTestInt(object):
             def __trunc__(self):
                 return BadInt()
         bad_int = TruncReturnsBadInt()
-        with raises(TypeError):
-            int(bad_int)
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            with raises(TypeError):
+                int(bad_int)
+            assert log[0].category == DeprecationWarning
 
     def test_trunc_returns_index(self):
+        import warnings
         class Index:
             def __index__(self):
                 return 17
         class TruncReturnsIndex:
             def __trunc__(self):
                 return Index()
-        assert int(TruncReturnsIndex()) == 17
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            assert int(TruncReturnsIndex()) == 17
+            assert log[0].category == DeprecationWarning
 
     def test_int_before_string(self):
         class Integral(str):

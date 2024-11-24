@@ -997,6 +997,9 @@ def _new_baseint(space, w_value, w_base=None):
             w_intvalue = space.int(w_value)
             return _ensure_baseint(space, w_intvalue)
         elif space.lookup(w_value, '__trunc__') is not None:
+            space.warn(space.newtext(
+                "The delegation of int() to __trunc__ is deprecated."),
+                space.w_DeprecationWarning)
             w_obj = space.trunc(w_value)
             if not space.isinstance_w(w_obj, space.w_int):
                 try:
