@@ -1596,8 +1596,12 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             '''),
             ("test_zero", "METH_NOARGS",
             '''
-               binaryfunc nb_add = PyType_GetSlot(&PyLong_Type, 0);
-               return NULL;
+                binaryfunc nb_add = PyType_GetSlot(&PyLong_Type, 0);
+                if (nb_add != NULL) {
+                    PyErr_SetString(PyExc_AssertionError,
+                             "PyType_GetSlot should not succeed");
+                }
+                return NULL;
             '''),
             ])
         obj = module.new_obj()
