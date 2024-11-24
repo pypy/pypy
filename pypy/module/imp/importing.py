@@ -449,6 +449,14 @@ def is_spec_initializing(space, w_spec):
     else:
         return space.is_true(w_initializing)
 
+def is_spec_uninitialized_submodule(space, w_spec, w_name):
+    # Check if the submodule name is in the "_uninitialized_submodules" attribute
+    # of the module spec.
+    if space.is_none(w_spec):
+        return False
+    w_value = space.getattr(w_spec, space.newtext("_uninitialized_submodules"))
+    return space.contains_w(w_value, w_name)
+
 def get_path(space, w_module):
     default = space.newtext("unknown location")
     try:

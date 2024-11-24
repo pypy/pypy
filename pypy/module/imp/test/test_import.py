@@ -137,6 +137,9 @@ def setup_directory_structure(cls):
     setuppkg('absolute_circular',
              circ1 = "from absolute_circular.circ2 import a; b = 1",
              circ2 = "from absolute_circular.circ1 import b; a = 1")
+    setuppkg('circular_subpkg.subpkg2.parent',
+             __init__ = 'import circular_subpkg.subpkg2.parent.child',
+             child = 'import circular_subpkg.subpkg2.parent\n\ncircular_subpkg.subpkg2.parent')
     setuppkg('module_with_wrong_all',
              __init__ = "__all__ = ['x', 'y', 3, 'z']; x, y, z = 1, 2, 3")
 
@@ -551,6 +554,13 @@ class AppTestImport(BaseFSEncodeTest):
 
         assert ("cannot import name 'b' from partially initialized "
                 "module 'absolute_circular.circ1'") in info.value.msg
+
+    def test_absolute_circular_submodule(self):
+        with raises(AttributeError) as cm:
+            import circular_subpkg.subpkg2.parent
+        assert ("cannot access submodule 'parent' of module "
+            "'circular_subpkg.subpkg2' "
+            "(most likely due to a circular import)") in cm.value.args, cm.value.args
 
     def test_import_function(self):
         # More tests for __import__

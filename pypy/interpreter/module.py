@@ -129,7 +129,8 @@ class Module(W_Root):
 
     def descr_getattribute(self, space, w_attr):
         from pypy.objspace.descroperation import object_getattribute
-        from pypy.module.imp.importing import is_spec_initializing
+        from pypy.module.imp.importing import (is_spec_initializing,
+                                 is_spec_uninitialized_submodule)
         try:
             return space.call_function(object_getattribute(space), self, w_attr)
         except OperationError as e:
@@ -151,6 +152,11 @@ class Module(W_Root):
                     "(most likely due to a circular import)",
                     w_name, w_attr
                 )
+            elif w_spec is not None and is_spec_uninitialized_submodule(space, w_spec, w_attr):
+                raise oefmt(space.w_AttributeError,
+                    "cannot access submodule %R of module %R "
+                    "(most likely due to a circular import)",
+                    w_attr, w_name)
             else:
                 raise oefmt(space.w_AttributeError,
                     "module %R has no attribute %R", w_name, w_attr)

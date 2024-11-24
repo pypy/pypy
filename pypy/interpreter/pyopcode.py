@@ -1072,14 +1072,21 @@ class __extend__(pyframe.PyFrame):
                 (space.utf8_w(w_pkgname), space.utf8_w(w_name)))
             return space.getitem(space.sys.get('modules'), w_fullname)
         except OperationError:
-            from pypy.module.imp.importing import is_spec_initializing, get_path, get_spec
+            from pypy.module.imp.importing import (is_spec_initializing,
+                get_path, get_spec, is_spec_uninitialized_submodule)
 
             w_pkgpath = get_path(space, w_module)
             args = (space.utf8_w(w_name), space.utf8_w(w_pkgname), space.utf8_w(w_pkgpath))
-            if is_spec_initializing(space, get_spec(space, w_module)):
+            w_spec = get_spec(space, w_module)
+            if is_spec_initializing(space, w_spec):
                 msg = (
                     "cannot import name '%s' from partially initialized module '%s' "
                     "(most likely due to a circular import) (%s)" % args
+                )
+            elif is_spec_uninitialized_submodule(space, w_spec, w_pkgname):
+                msg = (
+                    "cannot access submodule '%s' of module '%s' "
+                    "(most likely due to a circular import)" % (args[1], args[0])
                 )
             else:
                 msg = "cannot import name '%s' from '%s' (%s)" % args
