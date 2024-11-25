@@ -96,7 +96,11 @@ def _derive_and_copy_attrs(self, excs):
     eg = self.derive(excs)
     if hasattr(self, "__notes__"):
         # Create a new list so that add_note() only affects one exceptiongroup
-        eg.__notes__ = list(self.__notes__)
+        try:
+            eg.__notes__ = list(self.__notes__)
+        except TypeError:
+            # ignore non-sequence __notes__
+            pass
     eg.__cause__ = self.__cause__
     eg.__context__ = self.__context__
     eg.__traceback__ = self.__traceback__

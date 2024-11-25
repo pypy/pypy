@@ -178,3 +178,12 @@ def test_invalid_catching_class():
 
 def test_exceptiongroup_is_generic():
     assert isinstance(ExceptionGroup[int], type(list[int]))
+
+def test_split_does_not_copy_non_sequence_notes():
+    # __notes__ should be a sequence, which is shallow copied.
+    # If it is not a sequence, the split parts don't get any notes.
+    eg = ExceptionGroup("eg", [ValueError(1), TypeError(2)])
+    eg.__notes__ = 123
+    match, rest = eg.split(TypeError)
+    assert not hasattr(match, '__notes__')
+    assert not hasattr(rest, '__notes__')
