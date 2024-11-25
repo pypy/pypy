@@ -3,6 +3,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault, ap
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, interp_attrproperty_w,
     descr_get_dict, descr_set_dict, descr_del_dict)
+from pypy.objspace.std.util import generic_alias_class_getitem
 
 class W_BaseExceptionGroup(W_BaseException):
     """A combination of unrelated exceptions."""
@@ -75,6 +76,8 @@ W_ExceptionGroup.typedef = TypeDef(
     'ExceptionGroup',
     (W_BaseExceptionGroup.typedef, W_Exception.typedef),
     __module__ = 'builtins',
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
 )
 W_ExceptionGroup.typedef.applevel_subclasses_base = W_BaseExceptionGroup
 

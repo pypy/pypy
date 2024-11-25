@@ -175,3 +175,6 @@ def test_invalid_catching_class():
         else:
             assert "catching classes that do not inherit from BaseException is not allowed" in str(info.value)
         assert isinstance(info.value.__context__, ZeroDivisionError)
+
+def test_exceptiongroup_is_generic():
+    assert isinstance(ExceptionGroup[int], type(list[int]))
