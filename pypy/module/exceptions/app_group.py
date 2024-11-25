@@ -142,12 +142,13 @@ def _exception_group_projection(eg, keep_list):
     * in any exception group in keep.
     */
     """
+    from __pypy__ import identity_dict
     # TODO: muss es nicht eigentlich anders herum sein
     # (return rest instead of match)?
     assert isinstance(eg, BaseExceptionGroup)
     assert isinstance(keep_list, list)
 
-    resultset = set()
+    resultset = identity_dict()
     for keep in keep_list:
         _collect_eg_leafs(keep, resultset)
 
@@ -168,7 +169,7 @@ def _collect_eg_leafs(eg_or_exc, resultset):
     elif isinstance(eg_or_exc, BaseException):
         # we have a single exception (not a group),
         # return a singleton list containing the exc
-        resultset.add(eg_or_exc)
+        resultset[eg_or_exc] = None
     else:
         raise TypeError(f"expected BaseException, got {type(eg_or_exc)}")
 

@@ -2151,7 +2151,6 @@ def check_except_star_type_valid(space, w_typ):
         check(space, w_typ, w_BaseExceptionGroup)
 
 def exception_group_match(space, w_eg, w_typ):
-    import pdb;pdb.set_trace()
     if space.is_w(w_eg, space.w_None):
         return space.w_None, space.w_None
     assert space.isinstance_w(w_eg, space.w_Exception)

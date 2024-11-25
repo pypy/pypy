@@ -232,6 +232,15 @@ def test_exception_group_except_star_Exception_not_wrapped():
         ExceptionGroup("eg", [ValueError("V")]),
         None)
 
+def test_match_single_type_partial_match():
+    do_split_test(
+        ExceptionGroup(
+            "test3",
+            [ValueError("V1"), OSError("OS"), ValueError("V2")]),
+        ValueError,
+        ExceptionGroup("test3", [ValueError("V1"), ValueError("V2")]),
+        ExceptionGroup("test3", [OSError("OS")]))
+
 def test_reraise_plain_exception_named():
     try:
         try:
@@ -247,3 +256,23 @@ def test_reraise_plain_exception_named():
     assert_exception_is_like(
         exc, ExceptionGroup("", [ValueError(42)]))
 
+def test_unhashable():
+    class UnhashableExc(ValueError):
+        __hash__ = None
+    def except_type(eg, type):
+        match, rest = None, None
+        try:
+            try:
+                raise eg
+            except* type  as e:
+                match = e
+        except Exception as e:
+            rest = e
+        return match, rest
+
+    eg = ExceptionGroup("eg", [TypeError(1), UnhashableExc(2)])
+    match, rest = except_type(eg, UnhashableExc)
+    assert_exception_is_like(
+        match, ExceptionGroup("eg", [UnhashableExc(2)]))
+    assert_exception_is_like(
+        rest, ExceptionGroup("eg", [TypeError(1)]))
