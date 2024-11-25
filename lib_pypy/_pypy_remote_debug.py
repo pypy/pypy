@@ -15,6 +15,12 @@ import time
 import tempfile
 
 # __________________________________________________________
+# Linux support only for now
+#
+# in case we want to add windows support we could look at pymem: https://pypi.org/project/Pymem/
+# for Mac https://developer.apple.com/documentation/kernel/1402070-mach_vm_write
+
+# __________________________________________________________
 # first, some elf support
 #
 # Note that this implementation is inspired by the ELF object file reader
