@@ -256,19 +256,20 @@ def test_reraise_plain_exception_named():
     assert_exception_is_like(
         exc, ExceptionGroup("", [ValueError(42)]))
 
+def except_type(eg, type):
+    match, rest = None, None
+    try:
+        try:
+            raise eg
+        except* type  as e:
+            match = e
+    except Exception as e:
+        rest = e
+    return match, rest
+
 def test_unhashable():
     class UnhashableExc(ValueError):
         __hash__ = None
-    def except_type(eg, type):
-        match, rest = None, None
-        try:
-            try:
-                raise eg
-            except* type  as e:
-                match = e
-        except Exception as e:
-            rest = e
-        return match, rest
 
     eg = ExceptionGroup("eg", [TypeError(1), UnhashableExc(2)])
     match, rest = except_type(eg, UnhashableExc)
@@ -276,3 +277,15 @@ def test_unhashable():
         match, ExceptionGroup("eg", [UnhashableExc(2)]))
     assert_exception_is_like(
         rest, ExceptionGroup("eg", [TypeError(1)]))
+
+def test_broken_eq():
+    class Bad(ValueError):
+        def __eq__(self, other):
+            raise RuntimeError()
+
+    eg = ExceptionGroup("eg", [TypeError(1), Bad(2)])
+    match, rest = except_type(eg, TypeError)
+    assert_exception_is_like(
+        match, ExceptionGroup("eg", [TypeError(1)]))
+    assert_exception_is_like(
+        rest, ExceptionGroup("eg", [Bad(2)]))

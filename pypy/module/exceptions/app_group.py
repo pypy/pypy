@@ -114,10 +114,10 @@ def _is_same_exception_metadata(exc1, exc2):
     assert isinstance(exc1, Exception)
     assert isinstance(exc2, Exception)
 
-    return (getattr(exc1, '__notes__', _SENTINEL) == getattr(exc2, '__notes__', _SENTINEL) and
-            exc1.__traceback__ == exc2.__traceback__ and
-            exc1.__cause__     == exc2.__cause__ and
-            exc1.__context__   == exc2.__context__)
+    return (getattr(exc1, '__notes__', _SENTINEL) is getattr(exc2, '__notes__', _SENTINEL) and
+            exc1.__traceback__ is exc2.__traceback__ and
+            exc1.__cause__     is exc2.__cause__ and
+            exc1.__context__   is exc2.__context__)
 
 def get_condition_filter(condition):
     if isinstance(condition, type) and issubclass(condition, BaseException):
@@ -158,7 +158,7 @@ def _exception_group_projection(eg, keep_list):
     return split_match
 
 def _collect_eg_leafs(eg_or_exc, resultset):
-    if eg_or_exc == None:
+    if eg_or_exc is None:
         # empty exception groups appear as a result
         # of matches (split, subgroup) and thus are valid
         pass
@@ -192,7 +192,7 @@ def _prep_reraise_star(orig, exc_list):
     raised_list = []
     reraised_list = []
     for exc in exc_list:
-        if exc != None:
+        if exc is not None:
             if _is_same_exception_metadata(exc, orig):
                 reraised_list.append(exc)
             else:
