@@ -16,7 +16,7 @@ If the other process is currently blocked by a system call or running a
 long-running computation in a C extension, it will not be interrupted. In this
 case the script will be executed once that is finished.
 
-It's also possible to direcly execute some Python code with the ``-c`` option::
+It's also possible to directly execute some Python code with the ``-c`` option::
 
     pypy -m _pypy_remote_debug -c "import gc; gc.dump_rpy_heap('/tmp/rpy-heap-dump')"
 
