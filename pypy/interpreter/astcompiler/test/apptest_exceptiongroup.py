@@ -115,8 +115,19 @@ def try_except_star_with_else_direct_return(x):
             exec(src)
         assert str(info.value).startswith(f"'{kw}' cannot appear in an except* block")
 
+def test_return_in_except_star_outside_function():
+    src = """\
+try:
+    pass
+except* TypeError:
+    return
+    """
+    with raises(SyntaxError) as info:
+        exec(src)
+    assert str(info.value).startswith("'return' cannot appear in an except* block")
+
 def test_syntax_error_both_except_except_star():
-    src = f"""\
+    src = """\
 try:
     pass
 except ValueError:

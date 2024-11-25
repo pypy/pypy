@@ -737,6 +737,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             # not using walkabout here because that might mess up line numbers
             # if there is a finally block
             self.load_const(value.value)
+        if not isinstance(self, AbstractFunctionCodeGenerator):
+            self.error("return outside function", ret)
         self.emit_op(ops.RETURN_VALUE)
 
     def visit_Delete(self, delete):

@@ -484,11 +484,6 @@ def f(x):
             input = "def f():\n    yield y\n    %s\n    yield y" % (input,)
             assert not self.func_scope(input).has_yield_inside_try
 
-    def test_return(self):
-        for input in ("class x: return", "return"):
-            exc = py.test.raises(SyntaxError, self.func_scope, input).value
-            assert exc.msg == "return outside function"
-
     def test_tmpnames(self):
         scp = self.mod_scope("with x: pass")
         assert scp.lookup("_[1]") == symtable.SCOPE_LOCAL

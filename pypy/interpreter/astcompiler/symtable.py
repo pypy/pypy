@@ -126,7 +126,7 @@ class Scope(object):
 
     def note_return(self, ret):
         """Called when a return statement is found."""
-        self.error("return outside function", ret)
+        pass
 
     def note_import_star(self, imp):
         """Called when a star import is found."""

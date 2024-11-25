@@ -105,6 +105,10 @@ class TestCompiler(BaseTestCompiler):
         func = "def f(_=2): return (_ if _ else _) if False else _"
         yield self.st, func, "f()", 2
 
+    def test_return(self):
+        for input in ("class x: return", "return"):
+            yield self.error_test, input, SyntaxError, "return outside function"
+
     def test_long_jump(self):
         func = """def f(x):
     y = 0
