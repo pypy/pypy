@@ -348,6 +348,7 @@ class DescrOperation(object):
 
     @use_special_method_shortcut('__getitem__')
     def getitem(space, w_obj, w_key):
+        from pypy.objspace.std.typeobject import W_TypeObject
         w_descr = space.lookup(w_obj, '__getitem__')
         if w_descr is None and space.isinstance_w(w_obj, space.w_type):
             # you've got to be kidding me :-( - cpython does the same
@@ -361,6 +362,11 @@ class DescrOperation(object):
                     w_descr = None
                 else:
                     raise e
+            if w_descr is None:
+                assert isinstance(w_obj, W_TypeObject)
+                raise oefmt(space.w_TypeError,
+                            "type '%8' is not subscriptable (key %R)",
+                            w_obj.name, w_key)
         if w_descr is None:
             raise oefmt(space.w_TypeError,
                         "'%T' object is not subscriptable (key %R)",

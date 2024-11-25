@@ -890,7 +890,7 @@ def test_64bit_hash():
 def test_class_getitem():
     with raises(TypeError) as excinfo:
         int[int]
-    assert "'type' object is not subscriptable" in str(excinfo.value)
+    assert "type 'int' is not subscriptable" in str(excinfo.value)
 
 def test_error_ipow():
     with raises(TypeError) as info:
@@ -905,3 +905,9 @@ def test_error_pow():
     with raises(TypeError) as info:
         pow(None, 2, 2.1)
     assert "unsupported operand type(s) for pow(): 'NoneType', 'int', 'float'" in str(info.value)
+
+def test_type_subscription_message():
+    with raises(TypeError) as info:
+        Exception[int]
+    assert "type 'Exception' is not subscriptable" in str(info.value)
+
