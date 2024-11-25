@@ -738,6 +738,8 @@ class PythonCodeMaker(ast.ASTVisitor):
     def assemble(self):
         """Build a PyCode object."""
         blocks, size = self._finalize_blocks()
+        if self.name == 'test_reraise_plain_exception_named':
+            import pdb;pdb.set_trace()
         stack_depth = self._stacksize(blocks)
         positions = self._build_positions(blocks)
         consts_w = self.consts_w[:]

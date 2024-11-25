@@ -231,3 +231,19 @@ def test_exception_group_except_star_Exception_not_wrapped():
         Exception,
         ExceptionGroup("eg", [ValueError("V")]),
         None)
+
+def test_reraise_plain_exception_named():
+    try:
+        try:
+            raise ValueError(42)
+        except* ValueError as e:
+            print('sys.exc_info', sys.exc_info())
+            print('except* e', e)
+            raise e
+    except ExceptionGroup as e:
+        print('ExceptionGroup', e)
+        exc = e
+
+    assert_exception_is_like(
+        exc, ExceptionGroup("", [ValueError(42)]))
+
