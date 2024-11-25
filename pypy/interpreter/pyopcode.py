@@ -2155,7 +2155,8 @@ def exception_group_match(space, w_eg, w_typ):
     w_BaseExceptionGroup = space.getattr(space.builtin, space.newtext('BaseExceptionGroup'))
     w_ExceptionGroup = space.getattr(space.builtin, space.newtext('ExceptionGroup'))
     if space.exception_match(space.type(w_eg), w_typ):
-        assert not space.isinstance_w(w_eg, w_BaseExceptionGroup)
+        if space.isinstance_w(w_eg, w_BaseExceptionGroup):
+            return w_eg, space.w_None
         w_list = space.newlist([w_eg])
         w_wrapped = space.call_function(w_ExceptionGroup, space.newtext(''), w_list)
         return w_wrapped, space.w_None

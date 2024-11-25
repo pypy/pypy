@@ -1,3 +1,4 @@
+import sys
 from pytest import raises
 
 def test_simple():
@@ -187,3 +188,46 @@ def test_split_does_not_copy_non_sequence_notes():
     match, rest = eg.split(TypeError)
     assert not hasattr(match, '__notes__')
     assert not hasattr(rest, '__notes__')
+
+
+def assert_exception_is_like(exc, template):
+    if exc is None and template is None:
+        return
+
+    assert template is not None
+    assert exc is not None
+
+    if not isinstance(exc, ExceptionGroup):
+        assert exc.__class__ == template.__class__
+        assert exc.args[0] == template.args[0]
+    else:
+        assert exc.message == template.message
+        assert len(exc.exceptions) == len(template.exceptions)
+        for e, t in zip(exc.exceptions, template.exceptions):
+            assert_exception_is_like(e, t)
+
+
+def do_split_test_named(exc, T, match_template, rest_template):
+    initial_sys_exception = sys.exc_info()[1]
+    sys_exception = match = rest = None
+    try:
+        try:
+            raise exc
+        except* T as e:
+            sys_exception = sys.exc_info()[1]
+            match = e
+    except BaseException as e:
+        rest = e
+
+    assert sys_exception == match
+    assert_exception_is_like(match, match_template)
+    assert_exception_is_like(rest, rest_template)
+    assert sys.exc_info()[1] == initial_sys_exception
+do_split_test = do_split_test_named
+
+def test_exception_group_except_star_Exception_not_wrapped():
+    do_split_test(
+        ExceptionGroup("eg", [ValueError("V")]),
+        Exception,
+        ExceptionGroup("eg", [ValueError("V")]),
+        None)
