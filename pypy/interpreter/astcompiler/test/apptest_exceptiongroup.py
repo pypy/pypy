@@ -179,6 +179,7 @@ def test_invalid_catching_class():
 
 def test_exceptiongroup_is_generic():
     assert isinstance(ExceptionGroup[int], type(list[int]))
+    assert isinstance(BaseExceptionGroup[int], type(list[int]))
 
 def test_split_does_not_copy_non_sequence_notes():
     # __notes__ should be a sequence, which is shallow copied.

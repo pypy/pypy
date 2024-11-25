@@ -62,6 +62,8 @@ W_BaseExceptionGroup.typedef = TypeDef(
     __new__ = interp2app(W_BaseExceptionGroup.descr_new),
     __str__ = interp2app(W_BaseExceptionGroup.descr_str),
     __repr__ = interp2app(W_BaseExceptionGroup.descr_repr),
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
     subgroup = interp2app(W_BaseExceptionGroup.subgroup),
     split = interp2app(W_BaseExceptionGroup.split),
     derive = interp2app(W_BaseExceptionGroup.derive),
@@ -76,8 +78,6 @@ W_ExceptionGroup.typedef = TypeDef(
     'ExceptionGroup',
     (W_BaseExceptionGroup.typedef, W_Exception.typedef),
     __module__ = 'builtins',
-    __class_getitem__ = interp2app(
-        generic_alias_class_getitem, as_classmethod=True),
 )
 W_ExceptionGroup.typedef.applevel_subclasses_base = W_BaseExceptionGroup
 
