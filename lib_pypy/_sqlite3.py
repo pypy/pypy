@@ -1333,7 +1333,7 @@ class Row(object):
             return self.values[item]
         elif isinstance(item, slice):
             return self.values[item]
-        else:
+        elif isinstance(item, str):
             for idx, desc in enumerate(self.description):
                 # but to bug compatibility: CPython does case folding only for
                 # ascii chars
@@ -1344,6 +1344,7 @@ class Row(object):
                 if desc[0].lower() == item.lower():
                     return self.values[idx]
             raise IndexError("No item with that key")
+        raise IndexError(f"index must be int or string, not '{type(item).__name__}'")
 
     def keys(self):
         return [desc[0] for desc in self.description]
