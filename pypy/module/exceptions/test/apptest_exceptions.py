@@ -541,6 +541,7 @@ def test_derive_always_creates_exception_group():
 
 if sys.implementation.name == 'pypy':
     from __exceptions__ import _prep_reraise_star, _collect_eg_leafs, _exception_group_projection
+    from __pypy__ import identity_dict
 
     def test_prep_reraise_star_simple():
         assert _prep_reraise_star(TypeError(), [None]) is None
@@ -576,20 +577,22 @@ if sys.implementation.name == 'pypy':
         exceptions = [t1, v1]
         message = "42"
         excgroup = ExceptionGroup(message, exceptions)
-        resultset = set()
+        resultset = identity_dict()
         _collect_eg_leafs(excgroup, resultset)
-        assert {t1, v1} == resultset
+        print(resultset.keys())
+        assert t1 in resultset
+        assert v1 in resultset
 
     def test_eg_leafs_null():
-        resultset = set()
+        resultset = identity_dict()
         _collect_eg_leafs(None, resultset)
         assert not resultset
 
     def test_eg_leafs_nogroup():
         exc = TypeError()
-        resultset = set()
+        resultset = identity_dict()
         _collect_eg_leafs(exc, resultset)
-        assert resultset == {exc}
+        assert exc in resultset
 
     def test_eg_leafs_recursive():
         # TODO: fix
@@ -601,7 +604,7 @@ if sys.implementation.name == 'pypy':
         key1 = KeyError()
         div1 = ZeroDivisionError()
         eg = ExceptionGroup("abc", [key1, val1, ExceptionGroup("def", [val2, val3, typ2, div1]), typ1])
-        resultset = set()
+        resultset = identity_dict()
         collected = _collect_eg_leafs(eg, resultset)
         assert len(resultset) == 7
         for e in [val1, typ1, val2, val3, typ2, key1, div1]:
