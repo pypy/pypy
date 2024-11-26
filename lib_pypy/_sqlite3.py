@@ -95,6 +95,7 @@ exported_sqlite_symbols = [
     'SQLITE_SELECT',
     'SQLITE_TRANSACTION',
     'SQLITE_UPDATE',
+    'SQLITE_LIMIT_SQL_LENGTH',
 ]
 
 @dataclasses.dataclass
