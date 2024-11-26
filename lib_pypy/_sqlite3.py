@@ -173,8 +173,10 @@ def connect(database, timeout=5.0, detect_types=0, isolation_level="",
     factory = Connection if not factory else factory
     # an sqlite3 db seems to be around 100 KiB at least (doesn't matter if
     # backed by :memory: or a file)
-    res = factory(database, timeout, detect_types, isolation_level,
-                    check_same_thread, factory, cached_statements, uri)
+    res = factory(database=database, timeout=timeout,
+                  detect_types=detect_types, isolation_level=isolation_level,
+                  check_same_thread=check_same_thread, factory=factory,
+                  cached_statements=cached_statements, uri=uri)
     add_memory_pressure(100 * 1024)
     return res
 
