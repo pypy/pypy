@@ -210,6 +210,11 @@ rshift_rshift_c_c: int_rshift(int_rshift(x, C1), C2)
     check 0 <= C and C < LONG_BIT
     => int_rshift(x, C)
 
+#rshift_rshift_max: int_rshift(int_rshift(x, y), z)
+#    check y.add_bound(z).known_ge_const(LONG_BIT)
+#    C = LONG_BIT - 1
+#    => int_rshift(x, C)
+
 
 urshift_zero_x: uint_rshift(0, x)
     => 0
