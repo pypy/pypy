@@ -618,7 +618,7 @@ def methodcall(p):
 def args(p):
     if len(p) <= 1:
         return p
-    return [p[0], p[2]]
+    return [p[0]] + p[2]
 
 
 parser = pg.build()
@@ -671,7 +671,8 @@ INTBOUND_METHODTYPES = {
 }
 
 FUNCTYPES = {
-    "highest_bit": ([int], int)
+    "highest_bit": ([int], int),
+    "min": ([int, int], int),
 }
 
 class TypeCheckError(Exception):

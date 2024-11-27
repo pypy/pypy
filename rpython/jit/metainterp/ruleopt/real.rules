@@ -206,7 +206,7 @@ rshift_lshift: int_rshift(int_lshift(x, y), y)
 
 rshift_rshift_c_c: int_rshift(int_rshift(x, C1), C2)
     check 0 <= C1 and C1 < LONG_BIT and 0 <= C2 and C2 < LONG_BIT
-    C = C1 + C2
+    C = min(C1 + C2, LONG_BIT - 1)
     check 0 <= C and C < LONG_BIT
     => int_rshift(x, C)
 
