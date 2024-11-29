@@ -23,7 +23,6 @@
 #
 # Note: This software has been modified for use in PyPy.
 
-import dataclasses
 import datetime
 import os
 import string
@@ -1514,7 +1513,7 @@ def set_sqlite_error(context, msg, exc, unraisable_obj=None):
         _lib.sqlite3_result_error(context, msg, len(msg))
     if unraisable_obj is None:
         unraisable_obj = context
-    print_or_clear_traceback(context, exc)
+    print_or_clear_traceback(unraisable_obj, exc)
     
 def print_or_clear_traceback(ctx, exc):
     """the function name matches CPython, but the functionality is a bit
