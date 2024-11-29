@@ -672,3 +672,11 @@ def test_bad_conform(con):
 
 def test_collation_unicode(con):
     con.create_collation('ä', lambda *args: None)
+
+def test_function_raises_memory_error(con):
+    def mem():
+        raise MemoryError()
+    con.create_function("mem", 0, mem)
+    with pytest.raises(MemoryError):
+        cur = con.execute("select mem()")
+

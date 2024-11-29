@@ -1451,7 +1451,10 @@ def set_sqlite_error(context, msg, exc):
     """internal function to set sqlite3 error and maybe raise an exception
        msg is bytes
     """
-    _lib.sqlite3_result_error(context, msg, len(msg))
+    if isinstance(exc, MemoryError):
+        _lib.sqlite3_result_error_nomem(context)
+    else:
+        _lib.sqlite3_result_error(context, msg, len(msg))
     print_or_clear_traceback(context, exc)
     
 def print_or_clear_traceback(ctx, exc):
