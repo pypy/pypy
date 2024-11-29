@@ -610,9 +610,10 @@ class Connection(object):
     @_check_thread_wrap
     @_check_closed_wrap
     def create_collation(self, name, callback):
-        name = str.upper(name)
-        if not all(c in string.ascii_uppercase + string.digits + '_' for c in name):
-            raise ProgrammingError("invalid character in collation name")
+        if not isinstance(name, str):
+            raise TypeError("create_collation() argument 1 must be str, not '%s'" % (type(name).__name__, ))
+        if "\x00" in name:
+            raise ValueError("embedded null character")
 
         if callback is None:
             del self.__collations[name]

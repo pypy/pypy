@@ -661,4 +661,5 @@ def test_bad_conform(con):
         con.execute("insert into test(foo) values (?)", (val,))
     assert 'BadConform' in str(info.value)
 
-
+def test_collation_unicode(con):
+    con.create_collation('ä', lambda *args: None)

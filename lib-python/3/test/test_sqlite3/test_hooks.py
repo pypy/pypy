@@ -205,6 +205,7 @@ class ProgressTests(unittest.TestCase):
     def test_error_in_progress_handler(self):
         con = sqlite.connect(":memory:")
         def bad_progress():
+            import pdb;pdb.set_trace()
             1 / 0
         con.set_progress_handler(bad_progress, 1)
         with self.assertRaises(sqlite.OperationalError):
