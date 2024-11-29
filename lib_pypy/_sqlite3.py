@@ -1453,6 +1453,8 @@ def set_sqlite_error(context, msg, exc):
     """
     if isinstance(exc, MemoryError):
         _lib.sqlite3_result_error_nomem(context)
+    elif isinstance(exc, OverflowError):
+        _lib.sqlite3_result_error_toobig(context)
     else:
         _lib.sqlite3_result_error(context, msg, len(msg))
     print_or_clear_traceback(context, exc)

@@ -680,3 +680,9 @@ def test_function_raises_memory_error(con):
     with pytest.raises(MemoryError):
         cur = con.execute("select mem()")
 
+def test_function_raises_overflow_error(con):
+    def ovf():
+        raise OverflowError()
+    con.create_function("ovf", 0, ovf)
+    with pytest.raises(_sqlite3.DataError):
+        cur = con.execute("select ovf()")
