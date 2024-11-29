@@ -658,9 +658,8 @@ class Connection(object):
                         # OverflowError when casting the return value
                         assert int(_ffi.cast('int', ret)) == ret
                         return ret
-                    except Exception:
-                        if _enable_callback_tracebacks[0]:
-                            print(traceback.format_exc())
+                    except Exception as e:
+                        print_or_clear_traceback(callback, e)
                         return _lib.SQLITE_DENY
                 self.__func_cache[callback] = authorizer
             else:
