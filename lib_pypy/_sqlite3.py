@@ -61,6 +61,10 @@ exported_sqlite_symbols = [
     'SQLITE_ALTER_TABLE',
     'SQLITE_ANALYZE',
     'SQLITE_ATTACH',
+    'SQLITE_BUSY',
+    'SQLITE_CANTOPEN',
+    'SQLITE_CONSTRAINT',
+    'SQLITE_CORRUPT',
     'SQLITE_CREATE_INDEX',
     'SQLITE_CREATE_TABLE',
     'SQLITE_CREATE_TEMP_INDEX',
@@ -83,9 +87,34 @@ exported_sqlite_symbols = [
     'SQLITE_DROP_TRIGGER',
     'SQLITE_DROP_VIEW',
     'SQLITE_DROP_VTABLE',
+    'SQLITE_EMPTY',
+    'SQLITE_ERROR',
+    'SQLITE_FORMAT',
+    'SQLITE_FULL',
     'SQLITE_FUNCTION',
     'SQLITE_IGNORE',
     'SQLITE_INSERT',
+    'SQLITE_INTERNAL',
+    'SQLITE_INTERRUPT',
+    'SQLITE_IOERR',
+    'SQLITE_LIMIT_ATTACHED',
+    'SQLITE_LIMIT_COLUMN',
+    'SQLITE_LIMIT_COMPOUND_SELECT',
+    'SQLITE_LIMIT_EXPR_DEPTH',
+    'SQLITE_LIMIT_FUNCTION_ARG',
+    'SQLITE_LIMIT_LENGTH',
+    'SQLITE_LIMIT_LIKE_PATTERN_LENGTH',
+    'SQLITE_LIMIT_SQL_LENGTH',
+    'SQLITE_LIMIT_SQL_LENGTH',
+    'SQLITE_LIMIT_TRIGGER_DEPTH',
+    'SQLITE_LIMIT_VARIABLE_NUMBER',
+    'SQLITE_LIMIT_VDBE_OP',
+    'SQLITE_LOCKED',
+    'SQLITE_MISMATCH',
+    'SQLITE_MISUSE',
+    'SQLITE_NOLFS',
+    'SQLITE_NOMEM',
+    'SQLITE_NOTADB',
     'SQLITE_OK',
     'SQLITE_PRAGMA',
     'SQLITE_READ',
@@ -95,8 +124,6 @@ exported_sqlite_symbols = [
     'SQLITE_SELECT',
     'SQLITE_TRANSACTION',
     'SQLITE_UPDATE',
-    'SQLITE_LIMIT_SQL_LENGTH',
-    'SQLITE_LIMIT_LENGTH',
 ]
 
 
@@ -797,6 +824,34 @@ class Connection(object):
             if rc != 0:
                 raise OperationalError(_ffi.string(errmsg[0]).decode())
 
+
+    @_check_thread_wrap
+    @_check_closed_wrap
+    def setlimit(self, category, limit):
+        """
+            category: int
+                The limit category to be set.
+            limit: int
+                The new limit. If the new limit is a negative number, the limit is
+                unchanged
+
+        Set connection run-time limits.
+        Attempts to increase a limit above its hard upper bound are silently truncated
+        to the hard upper bound. Regardless of whether or not the limit was changed,
+        the prior value of the limit is returned.
+        """
+        return _lib.sqlite3_limit(self._db, category, limit)
+
+    def getlimit(self, category):
+        """
+            category: int
+                The limit category to be queried.
+
+        Get connection run-time limits.
+        """
+        return self.setlimit(category, -1)
+
+
 class Cursor(object):
     __initialized = False
     __statement = None
@@ -1447,7 +1502,7 @@ def _convert_result(con, val):
     else:
         raise NotImplementedError
 
-def set_sqlite_error(context, msg, exc):
+def set_sqlite_error(context, msg, exc, unraisable_obj=None):
     """internal function to set sqlite3 error and maybe raise an exception
        msg is bytes
     """
@@ -1457,6 +1512,8 @@ def set_sqlite_error(context, msg, exc):
         _lib.sqlite3_result_error_toobig(context)
     else:
         _lib.sqlite3_result_error(context, msg, len(msg))
+    if unraisable_obj is None:
+        unraisable_obj = context
     print_or_clear_traceback(context, exc)
     
 def print_or_clear_traceback(ctx, exc):
@@ -1477,13 +1534,13 @@ def _function_callback(real_cb, context, nargs, c_params):
         val = real_cb(*params)
     except Exception as e:
         msg = b"user-defined function raised exception"
-        set_sqlite_error(context, msg, e)
+        set_sqlite_error(context, msg, e, unraisable_obj=real_cb)
     else:
         try:
             _convert_result(context, val)
         except Exception as e:
             msg = b"user-defined function raised exception"
-            set_sqlite_error(context, msg, e)
+            set_sqlite_error(context, msg, e, unraisable_obj=real_cb)
 
 converters = {}
 adapters = {}
