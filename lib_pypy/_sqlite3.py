@@ -98,13 +98,6 @@ exported_sqlite_symbols = [
     'SQLITE_LIMIT_SQL_LENGTH',
 ]
 
-@dataclasses.dataclass
-class _UnraisableHookArgs:
-    exc_type: type[BaseException]
-    exc_value: BaseException | None
-    exc_traceback: types.TracebackType | None
-    err_msg: str | None
-    object: object
 
 for symbol in exported_sqlite_symbols:
     globals()[symbol] = getattr(_lib, symbol)
@@ -687,7 +680,7 @@ class Connection(object):
                         return bool(callable())
                     except Exception as exc:
                         # abort query if error occurred
-                        print_or_clear_traceback(self, exc)
+                        print_or_clear_traceback(callable, exc)
                         return 1
                 self.__func_cache[callable] = progress_handler
         _lib.sqlite3_progress_handler(self._db, n, progress_handler,
@@ -1462,10 +1455,9 @@ def print_or_clear_traceback(ctx, exc):
     different: there is no need to clear the excption
     """
     if _enable_callback_tracebacks[0]:
+        import __pypy__
         try:
-            sys.unraisablehook(
-                _UnraisableHookArgs(type(exc), exc, None, None, ctx)
-            )
+            __pypy__.write_unraisable('in sqlite3 callback', exc, ctx)
         except Exception as e:
             # Should never happen
             print(e, file=sys.stderr)
