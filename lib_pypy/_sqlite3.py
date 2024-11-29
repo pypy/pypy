@@ -580,7 +580,7 @@ class Connection(object):
                     except Exception as e:
                         msg = (b"user-defined aggregate's '__init__' "
                                b"method raised error")
-                        set_sqlite_error(context, msg, e)
+                        set_sqlite_error(context, msg, e, unraisable_obj=cls)
                         return
                     aggregate_id = id(aggregate)
                     self.__aggregate_instances[aggregate_id] = aggregate
@@ -594,7 +594,7 @@ class Connection(object):
                 except Exception as e:
                     msg = (b"user-defined aggregate's 'step' "
                            b"method raised error")
-                    set_sqlite_error(context, msg, e)
+                    set_sqlite_error(context, msg, e, unraisable_obj=cls)
 
             @_ffi.callback("void(sqlite3_context*)")
             def final_callback(context):
@@ -609,7 +609,7 @@ class Connection(object):
                     except Exception as e:
                         msg = (b"user-defined aggregate's 'finalize' "
                                b"method raised error")
-                        set_sqlite_error(context, msg, e)
+                        set_sqlite_error(context, msg, e, unraisable_obj=cls)
                     else:
                         _convert_result(context, val)
                     finally:
