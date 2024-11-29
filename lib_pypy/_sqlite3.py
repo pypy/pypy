@@ -588,13 +588,20 @@ class Connection(object):
                 else:
                     aggregate = self.__aggregate_instances[aggregate_ptr[0]]
 
-                params = _convert_params(context, argc, c_params)
                 try:
-                    aggregate.step(*params)
-                except Exception as e:
+                    meth = aggregate.step
+                except AttributeError as e:
                     msg = (b"user-defined aggregate's 'step' "
-                           b"method raised error")
+                           b"method not defined")
                     set_sqlite_error(context, msg, e, unraisable_obj=cls)
+                else:
+                    params = _convert_params(context, argc, c_params)
+                    try:
+                        meth(*params)
+                    except Exception as e:
+                        msg = (b"user-defined aggregate's 'step' "
+                               b"method raised error")
+                        set_sqlite_error(context, msg, e, unraisable_obj=cls)
 
             @_ffi.callback("void(sqlite3_context*)")
             def final_callback(context):
@@ -605,13 +612,21 @@ class Connection(object):
                 if aggregate_ptr[0]:
                     aggregate = self.__aggregate_instances[aggregate_ptr[0]]
                     try:
-                        val = aggregate.finalize()
-                    except Exception as e:
-                        msg = (b"user-defined aggregate's 'finalize' "
-                               b"method raised error")
-                        set_sqlite_error(context, msg, e, unraisable_obj=cls)
-                    else:
-                        _convert_result(context, val)
+                        try:
+                            meth = aggregate.finalize
+                        except AttributeError as e:
+                            msg = (b"user-defined aggregate's 'finalize' "
+                                   b"method not defined")
+                            set_sqlite_error(context, msg, e, unraisable_obj=cls)
+                        else:
+                            try:
+                                val = meth()
+                            except Exception as e:
+                                msg = (b"user-defined aggregate's 'finalize' "
+                                       b"method raised error")
+                                set_sqlite_error(context, msg, e, unraisable_obj=cls)
+                            else:
+                                _convert_result(context, val)
                     finally:
                         del self.__aggregate_instances[aggregate_ptr[0]]
 
