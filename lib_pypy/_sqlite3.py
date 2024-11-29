@@ -1242,7 +1242,7 @@ class Statement(object):
             and typ is not str
             and typ is not NoneType
         ):
-            param = adapt(param)
+            param = _adapt(param)
 
         if param is None:
             rc = _lib.sqlite3_bind_null(self._statement, idx)
@@ -1532,7 +1532,12 @@ def register_adapters_and_converters():
     register_converter("timestamp", convert_timestamp)
 
 
-def adapt(val, proto=PrepareProtocol):
+SENTINEL = object()
+
+def adapt(val, proto=PrepareProtocol, alt=SENTINEL):
+    return _adapt(val, proto, alt, raise_=True)
+
+def _adapt(val, proto=PrepareProtocol, alt=SENTINEL, raise_=False):
     # look for an adapter in the registry
     adapter = adapters.get((type(val), proto), None)
     if adapter is not None:
@@ -1557,7 +1562,10 @@ def adapt(val, proto=PrepareProtocol):
         else:
             if adapted is not None:
                 return adapted
-
+    if alt is not SENTINEL:
+        return alt
+    if raise_:
+        raise ProgrammingError("can't adapt")
     return val
 
 def enable_shared_cache(enable):

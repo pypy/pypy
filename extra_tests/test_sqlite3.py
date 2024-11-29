@@ -645,3 +645,8 @@ def test_enable_callback_traceback():
     assert len(unraisables) > 0
     cm = unraisables[-1]
     assert cm.exc_type == ZeroDivisionError 
+
+def test_adapt_three_args():
+    assert _sqlite3.adapt(print, alt=123) == 123
+    with pytest.raises(_sqlite3.ProgrammingError):
+        _sqlite3.adapt(print)
