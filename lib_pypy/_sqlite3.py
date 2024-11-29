@@ -1290,8 +1290,9 @@ class Statement(object):
             for i in range(num_params):
                 rc = self.__set_param(i + 1, params[i])
                 if rc is _UNSUPPORTED_TYPE:
-                    raise InterfaceError("Error binding parameter %d - "
-                                         "probably unsupported type." % i)
+                    raise ProgrammingError("Error binding parameter %d - "
+                                           "Type '%s' is not supported." %
+                                           (i, type(params[i]).__name__))
                 if rc != _lib.SQLITE_OK:
                     raise self.__con._get_exception(rc)
         elif isinstance(params, dict):
@@ -1309,9 +1310,9 @@ class Statement(object):
                                            "binding %d." % i)
                 rc = self.__set_param(i, param)
                 if rc is _UNSUPPORTED_TYPE:
-                    raise InterfaceError("Error binding parameter :%s - "
-                                         "probably unsupported type." %
-                                         param_name)
+                    raise ProgrammingError("Error binding parameter :%s - "
+                                           "Type '%s' is not supported." %
+                                           (param_name, type(param).__name__))
                 if rc != _lib.SQLITE_OK:
                     raise self.__con._get_exception(rc)
         else:

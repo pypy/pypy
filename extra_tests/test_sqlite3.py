@@ -650,3 +650,15 @@ def test_adapt_three_args():
     assert _sqlite3.adapt(print, alt=123) == 123
     with pytest.raises(_sqlite3.ProgrammingError):
         _sqlite3.adapt(print)
+
+def test_bad_conform(con):
+    class BadConform:
+        def __conform__(self, protocol):
+            raise TypeError
+    val = BadConform()
+    con.execute("create table test(foo)")
+    with pytest.raises(_sqlite3.ProgrammingError) as info:
+        con.execute("insert into test(foo) values (?)", (val,))
+    assert 'BadConform' in str(info.value)
+
+
