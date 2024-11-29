@@ -261,6 +261,15 @@ def test_authorizer_bad_value(con):
             ("illegal return value (1) from the authorization function - "
                 "should be SQLITE_OK, SQLITE_IGNORE, or SQLITE_DENY")
 
+def test_authorizer_clear(con):
+    def authorizer_cb(action, arg1, arg2, dbname, source):
+        return _sqlite3.SQLITE_DENY
+    con.set_authorizer(authorizer_cb)
+    with pytest.raises(_sqlite3.DatabaseError) as e:
+        con.execute('select 123')
+    con.set_authorizer(None)
+    con.execute('select 123')
+
 def test_issue1573(con):
     cur = con.cursor()
     cur.execute(u'SELECT 1 as méil')

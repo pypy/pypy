@@ -96,6 +96,7 @@ exported_sqlite_symbols = [
     'SQLITE_TRANSACTION',
     'SQLITE_UPDATE',
     'SQLITE_LIMIT_SQL_LENGTH',
+    'SQLITE_LIMIT_LENGTH',
 ]
 
 
@@ -642,24 +643,28 @@ class Connection(object):
     @_check_thread_wrap
     @_check_closed_wrap
     def set_authorizer(self, callback):
+        """ Sets authorizer callback. """
         try:
             authorizer = self.__func_cache[callback]
         except KeyError:
-            @_ffi.callback("int(void*, int, const char*, const char*, "
-                           "const char*, const char*)")
-            def authorizer(userdata, action, arg1, arg2, dbname, source):
-                try:
-                    ret = callback(action, arg1, arg2, dbname, source)
-                    assert isinstance(ret, int)
-                    # try to detect cases in which cffi would swallow
-                    # OverflowError when casting the return value
-                    assert int(_ffi.cast('int', ret)) == ret
-                    return ret
-                except Exception:
-                    if _enable_callback_tracebacks[0]:
-                        print(traceback.format_exc())
-                    return _lib.SQLITE_DENY
-            self.__func_cache[callback] = authorizer
+            if callback is not None:
+                @_ffi.callback("int(void*, int, const char*, const char*, "
+                               "const char*, const char*)")
+                def authorizer(userdata, action, arg1, arg2, dbname, source):
+                    try:
+                        ret = callback(action, arg1, arg2, dbname, source)
+                        assert isinstance(ret, int)
+                        # try to detect cases in which cffi would swallow
+                        # OverflowError when casting the return value
+                        assert int(_ffi.cast('int', ret)) == ret
+                        return ret
+                    except Exception:
+                        if _enable_callback_tracebacks[0]:
+                            print(traceback.format_exc())
+                        return _lib.SQLITE_DENY
+                self.__func_cache[callback] = authorizer
+            else:
+                authorizer = _ffi.NULL
 
         ret = _lib.sqlite3_set_authorizer(self._db, authorizer, _ffi.NULL)
         if ret != _lib.SQLITE_OK:
