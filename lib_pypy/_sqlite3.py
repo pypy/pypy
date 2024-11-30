@@ -1370,7 +1370,7 @@ class Statement(object):
         if not isinstance(sql, basestring):
             raise TypeError("sql argument must be str, not %s" % (type(sql).__name__, ))
         if '\0' in sql:
-            raise ValueError("the query contains a null character")
+            raise ProgrammingError("the query contains a null character")
 
         to_check = sql.lstrip().upper()
         self._valid = bool(to_check)
