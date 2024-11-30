@@ -199,6 +199,7 @@ int sqlite3_get_autocommit(sqlite3*);
 int sqlite3_reset(sqlite3_stmt *pStmt);
 int sqlite3_step(sqlite3_stmt*);
 int sqlite3_errcode(sqlite3 *db);
+int sqlite3_extended_errcode(sqlite3 *db);
 const char *sqlite3_errmsg(sqlite3*);
 int sqlite3_changes(sqlite3*);
 

@@ -522,6 +522,7 @@ class Connection(object):
             exc = ProgrammingError
         else:
             exc = DatabaseError
+        errorcode = _lib.sqlite3_extended_errcode(self._db)
         return self.__exc(exc, error_message, error_code)
 
     def __exc(self, cls, error_message, error_code):
