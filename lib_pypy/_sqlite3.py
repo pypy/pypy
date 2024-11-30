@@ -1850,6 +1850,10 @@ class Blob(object):
             raise ValueError("offset out of blob range")
         self.__offset = offset
 
+    def tell(self):
+        """ Return the current access position for the blob."""
+        self._check()
+        return self.__offset
 
     def __enter__(self):
         self._check()

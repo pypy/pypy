@@ -769,6 +769,7 @@ class TestBlob:
         con.execute("insert into test(b) values (?)", (data, ))
         with con.blobopen("test", "b", 1) as blob:
             blob.write(b"some new data")
+            assert blob.tell() == len(b"some new data")
         with con.blobopen("test", "b", 1) as blob:
             assert blob.read() == b'some new dataa string is exactly fifty bytes long!'
 
