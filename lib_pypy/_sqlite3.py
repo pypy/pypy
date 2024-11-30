@@ -1822,6 +1822,35 @@ class Blob(object):
         if rc != _lib.SQLITE_OK:
             raise self.__connection._get_exception(rc)
 
+    def seek(self, offset, origin=0):
+        """
+            offset: int
+            origin: int = 0
+
+        Set the current access position to offset.
+
+        The origin argument defaults to os.SEEK_SET (absolute blob positioning).
+        Other values for origin are os.SEEK_CUR (seek relative to the current position)
+        and os.SEEK_END (seek relative to the blob's end).
+        """
+        import operator
+        self._check()
+        blob_len = _lib.sqlite3_blob_bytes(self.__blob)
+        offset = operator.index(offset)
+        if origin == 0:
+            pass
+        elif origin == os.SEEK_CUR:
+            offset += self.__offset
+        elif origin == os.SEEK_END:
+            offset += blob_len
+        else:
+            raise ValueError("'origin' should be os.SEEK_SET, os.SEEK_CUR, or "
+                            "os.SEEK_END")
+        if not 0 <= offset < blob_len:
+            raise ValueError("offset out of blob range")
+        self.__offset = offset
+
+
     def __enter__(self):
         self._check()
         return self

@@ -771,3 +771,12 @@ class TestBlob:
             blob.write(b"some new data")
         with con.blobopen("test", "b", 1) as blob:
             assert blob.read() == b'some new dataa string is exactly fifty bytes long!'
+
+    def test_seek(self, con):
+        con.execute("create table test(b blob)")
+        data = b"this blob data string is exactly fifty bytes long!"
+        con.execute("insert into test(b) values (?)", (data, ))
+        with con.blobopen("test", "b", 1) as blob:
+            blob.write(b"some new data")
+            blob.seek(0)
+            assert blob.read() == b'some new dataa string is exactly fifty bytes long!'
