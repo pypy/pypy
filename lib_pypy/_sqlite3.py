@@ -1707,6 +1707,8 @@ class Statement(object):
             rc = _lib.sqlite3_bind_text(self._statement, idx, param,
                                         len(param), _SQLITE_TRANSIENT)
         elif isinstance(param, (buffer, bytes, bytearray)):
+            if isinstance(param, buffer) and not param.c_contiguous:
+                raise BufferError('only contiguous buffers are supported')
             param = bytes(param)
             rc = _lib.sqlite3_bind_blob(self._statement, idx, param,
                                         len(param), _SQLITE_TRANSIENT)
