@@ -969,7 +969,10 @@ class Connection(object):
         to the hard upper bound. Regardless of whether or not the limit was changed,
         the prior value of the limit is returned.
         """
-        return _lib.sqlite3_limit(self._db, category, limit)
+        oldlimit = _lib.sqlite3_limit(self._db, category, limit)
+        if oldlimit < 0:
+            raise ProgrammingError("'category' is out of bounds");
+        return oldlimit
 
     def getlimit(self, category):
         """
