@@ -1417,7 +1417,7 @@ class Cursor(object):
         if isinstance(sql, unicode):
             sql = sql.encode('utf-8')
         elif not isinstance(sql, str):
-            raise ValueError("script argument must be unicode.")
+            raise TypeError("script argument must be unicode.")
         if len(sql) > _lib.sqlite3_limit(self.__connection._db, SQLITE_LIMIT_SQL_LENGTH, -1):
             raise DataError("query string is too large")
         statement_star = _ffi.new('sqlite3_stmt **')
