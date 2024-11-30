@@ -1763,7 +1763,7 @@ class Blob(object):
         self.__connection._check_closed()
         self.__connection._check_thread()
         if not self.__blob:
-            raise ProgrammingError("cannot operate on a closed blob")
+            raise ProgrammingError("Cannot operate on a closed blob")
 
     def close(self):
         """ Close the blob. """
@@ -1798,6 +1798,42 @@ class Blob(object):
         if rc != _lib.SQLITE_OK:
             raise self.__connection._get_exception(rc)
         return _ffi.buffer(raw_buffer, length)[:]
+
+    def write(self, data):
+        """
+            data: Py_buffer
+
+        Write data at the current offset.
+
+        This function cannot change the blob length.  Writing beyond the end of the
+        blob will result in an exception being raised.
+        """
+        self._check()
+        self.__inner_write(data, self.__offset)
+        self.__offset += len(data)
+
+    def __inner_write(self, data, offset):
+        blob_len = _lib.sqlite3_blob_bytes(self.__blob)
+        remaining_len = blob_len - offset
+        if len(data) > remaining_len:
+            raise ValueError("data longer than blob length")
+        rc = _lib.sqlite3_blob_write(self.__blob, _ffi.from_buffer(data),
+                                     len(data), offset)
+        if rc != _lib.SQLITE_OK:
+            raise self.__connection._get_exception(rc)
+
+    def __enter__(self):
+        self._check()
+        return self
+
+    def __exit__(self, typ, val, tb):
+        self._check()
+        self.close()
+        return False
+
+    def __len__(self):
+        self._check()
+        return _lib.sqlite3_blob_bytes(self.__blob)
 
 def _check_remaining_sql(s):
     state = "NORMAL"
