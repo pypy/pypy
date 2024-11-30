@@ -754,3 +754,11 @@ def test_serialize(con):
     # Deserialize and verify that test table is restored.
     con.deserialize(data)
     con.execute("select t from t")
+
+class TestBlob:
+    def test_simple(self, con):
+        con.execute("create table test(b blob)")
+        data = b"this blob data string is exactly fifty bytes long!"
+        con.execute("insert into test(b) values (?)", (data, ))
+        blob = con.blobopen("test", "b", 1)
+        assert blob.read(len(data)) == data

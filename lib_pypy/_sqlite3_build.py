@@ -328,6 +328,22 @@ int sqlite3_deserialize(
 void *sqlite3_malloc(int);
 void *sqlite3_malloc64(sqlite3_uint64);
 void sqlite3_free(void*);
+
+// APIs for BLOBs
+
+typedef ... sqlite3_blob;
+int sqlite3_blob_open(
+  sqlite3*,
+  const char *zDb,
+  const char *zTable,
+  const char *zColumn,
+  sqlite3_int64 iRow,
+  int flags,
+  sqlite3_blob **ppBlob
+);
+int sqlite3_blob_close(sqlite3_blob *);
+int sqlite3_blob_bytes(sqlite3_blob *);
+int sqlite3_blob_read(sqlite3_blob *, void *Z, int N, int iOffset);
 """)
 
 def _has_load_extension():

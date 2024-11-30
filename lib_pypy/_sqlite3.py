@@ -356,6 +356,8 @@ class Connection(object):
         self._statement_cache = _StatementCache(self, cached_statements)
         self.__statements_already_committed = []
 
+        self.__blobs = []
+
         self.__func_cache = {}
         self.__aggregates = {}
         self.__aggregate_instances = {}
@@ -389,6 +391,14 @@ class Connection(object):
         self._check_thread()
 
         self.__do_all_statements(Statement._finalize, True)
+
+        # close all blobs
+        for blobref in self.__blobs:
+            blob = blobref()
+            if blob is None:
+                continue
+            blob.close()
+        self.__blobs.clear()
 
         # depending on when this close() is called, the statements' weakrefs
         # may be already dead, even though Statement.__del__() was not called
@@ -433,6 +443,14 @@ class Connection(object):
         @wraps(func)
         def wrapper(self, *args, **kwargs):
             self._check_thread()
+            return func(self, *args, **kwargs)
+        return wrapper
+
+    def _check_closed_and_thread_wrap(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            self._check_thread()
+            self._check_closed()
             return func(self, *args, **kwargs)
         return wrapper
 
@@ -1135,7 +1153,37 @@ class Connection(object):
         flags = _lib.SQLITE_DESERIALIZE_FREEONCLOSE | _lib.SQLITE_DESERIALIZE_RESIZEABLE
         rc = _lib.sqlite3_deserialize(self._db, name.encode('utf-8'), buf, size, size, flags)
         if rc != _lib.SQLITE_OK:
-            raise self.__con._get_exception(ret)
+            raise self._get_exception(rc)
+
+    @_check_closed_and_thread_wrap
+    def blobopen(self, table, column, row, readonly=False, name='main'):
+        """
+            table: str
+                Table name.
+            column: str
+                Column name.
+            row: int
+                Row index.
+            readonly = False:
+                Open the BLOB without write permissions.
+            name: str = "main"
+                Database name.
+
+        Open and return a BLOB object.
+        """
+        blob_ref = _ffi.new("sqlite3_blob **")
+        nameenc = name.encode('utf-8')
+        tableenc = table.encode('utf-8')
+        columnenc = column.encode('utf-8')
+        rc = _lib.sqlite3_blob_open(
+                self._db, nameenc, tableenc, columnenc,
+                row, not readonly, blob_ref)
+        if rc != _lib.SQLITE_OK:
+            raise self._get_exception(rc)
+        res = Blob(self, blob_ref[0])
+        self.__blobs.append(weakref.ref(res))
+        return res
+
 
 class Cursor(object):
     __initialized = False
@@ -1702,6 +1750,54 @@ class Row(object):
     def __hash__(self):
         return hash(tuple(self.description)) ^ hash(tuple(self.values))
 
+
+class Blob(object):
+    def __init__(self, con, blob):
+        if not isinstance(con, Connection):
+            raise TypeError
+        self.__connection = con
+        self.__blob = blob
+        self.__offset = 0
+
+    def _check(self):
+        self.__connection._check_closed()
+        self.__connection._check_thread()
+        if not self.__blob:
+            raise ProgrammingError("cannot operate on a closed blob")
+
+    def close(self):
+        """ Close the blob. """
+        if self.__blob:
+            _lib.sqlite3_blob_close(self.__blob)
+            self.__blob = _ffi.NULL
+
+    def read(self, length=-1):
+        """
+            length: int = -1
+                Read length in bytes.
+
+        Read data at the current offset position.
+        If the end of the blob is reached, the data up to end of file will be returned.
+        When length is not specified, or is negative, Blob.read() will read until the
+        end of the blob.
+        """
+        self._check()
+        # Make sure we never read past "EOB". Also read the rest of the blob if
+        # a negative length is specified.
+        blob_len = _lib.sqlite3_blob_bytes(self.__blob)
+        max_read_len = blob_len - self.__offset
+        if length < 0 or length > max_read_len:
+            length = max_read_len
+        buffer = self.__inner_read(length, self.__offset)
+        self.__offset += length
+        return buffer
+
+    def __inner_read(self, length, offset):
+        raw_buffer = _ffi.new("char[]", length)
+        rc = _lib.sqlite3_blob_read(self.__blob, raw_buffer, length, offset)
+        if rc != _lib.SQLITE_OK:
+            raise self.__connection._get_exception(rc)
+        return _ffi.buffer(raw_buffer, length)[:]
 
 def _check_remaining_sql(s):
     state = "NORMAL"
