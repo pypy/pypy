@@ -790,3 +790,29 @@ class TestBlob:
             assert blob[0] == ord('t')
             assert blob[:2] == b'th'
             assert blob[::2] == data[::2]
+
+    def test_setitem(self, con):
+        con.execute("create table test(b blob)")
+        data = b"this blob data string is exactly fifty bytes long!"
+        con.execute("insert into test(b) values (?)", (data, ))
+        with con.blobopen("test", "b", 1) as blob:
+            blob[0] = 14
+            assert blob[0] == 14
+            blob[:len(b"some new data")] = b"some new data"
+            assert blob.tell() == 0
+        with con.blobopen("test", "b", 1) as blob:
+            assert blob.read() == b'some new dataa string is exactly fifty bytes long!'
+
+    def test_setitem_stride(self, con):
+        con.execute("create table test(b blob)")
+        data = b"this blob data string is exactly fifty bytes long!"
+        con.execute("insert into test(b) values (?)", (data, ))
+        with con.blobopen("test", "b", 1) as blob:
+            blob[0] = 14
+            assert blob[0] == 14
+            blob[:len(b"some new data")*2:2] = b"some new data"
+            assert blob.tell() == 0
+            expected = bytearray(data)
+            expected[:len(b"some new data")*2:2] = b"some new data"
+            assert blob[:] == expected
+

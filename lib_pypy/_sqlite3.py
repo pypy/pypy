@@ -1875,12 +1875,57 @@ class Blob(object):
             if offset < 0:
                 offset += blob_len
             if not 0 <= offset < blob_len:
-                raise ValueError("offset out of blob range")
+                raise IndexError("index out of range")
             raw_buffer = _ffi.new("char[]", 1)
             rc = _lib.sqlite3_blob_read(self.__blob, raw_buffer, 1, offset)
             if rc != _lib.SQLITE_OK:
                 raise self.__connection._get_exception(rc)
             return _ffi.buffer(raw_buffer, 1)[0][0]
+
+    def __setitem__(self, item, value):
+        self._check()
+        blob_len = _lib.sqlite3_blob_bytes(self.__blob)
+        if isinstance(item, slice):
+            start, stop, stride = item.indices(blob_len)
+            length = len(range(start, stop, stride))
+            if length != len(value):
+                raise IndexError("Blob slice assignment is wrong size")
+            if stride == 1:
+                rc = _lib.sqlite3_blob_write(self.__blob, _ffi.from_buffer(value),
+                                             len(value), start)
+                if rc != _lib.SQLITE_OK:
+                    raise self.__connection._get_exception(rc)
+            else:
+                readlen = stop - start
+                raw_buffer = _ffi.new("unsigned char[]", readlen)
+                rc = _lib.sqlite3_blob_read(self.__blob, raw_buffer, readlen, start)
+                if rc != _lib.SQLITE_OK:
+                    raise self.__connection._get_exception(rc)
+                # raw_buffer[0: readlen: stride] = value
+                j = 0
+                for i in range(0, readlen, stride):
+                    raw_buffer[i] = value[j]
+                    j += 1
+                rc = _lib.sqlite3_blob_write(self.__blob, raw_buffer,
+                                             readlen, start)
+                if rc != _lib.SQLITE_OK:
+                    raise self.__connection._get_exception(rc)
+        else:
+            offset = operator.index(item)
+            value = operator.index(value)
+            if offset < 0:
+                offset += blob_len
+            if not 0 <= value < 256:
+                raise ValueError("byte must be in range(0, 256)")
+            data = _ffi.new('unsigned char[1]')
+            data[0] = value
+            rc = _lib.sqlite3_blob_write(self.__blob, data, len(data), offset)
+            if rc != _lib.SQLITE_OK:
+                raise self.__connection._get_exception(rc)
+
+
+    def __iter__(self):
+        raise TypeError("blob is not iterable")
 
     def __enter__(self):
         self._check()
