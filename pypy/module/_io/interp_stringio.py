@@ -139,8 +139,6 @@ class W_StringIO(W_TextIOBase):
             return len(self.buf.data)
 
     def _init_newline(self, space, w_newline):
-        self.w_decoder = None
-        self.readnl = None
         self.writenl = None
 
         if space.is_w(w_newline, space.w_None):
@@ -160,6 +158,8 @@ class W_StringIO(W_TextIOBase):
                     space.newtext("illegal newline value: %s"), w_newline
                 )
             )
+        self.w_decoder = None
+        self.readnl = None
         if newline is not None:
             self.readnl = newline
         self.readuniversal = newline is None or newline == ""
