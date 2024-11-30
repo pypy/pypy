@@ -738,6 +738,9 @@ def test_query_limit(con):
     with pytest.raises(_sqlite3.DataError) as info:
         con.execute('select 1'.ljust(limit + 1))
     assert "query string is too large" in str(info.value)
+    with pytest.raises(_sqlite3.DataError) as info:
+        con.executescript('select 1'.ljust(limit + 1))
+    assert "query string is too large" in str(info.value)
 
 def test_serialize(con):
     with con:
