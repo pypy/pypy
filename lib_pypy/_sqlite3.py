@@ -219,6 +219,43 @@ for symbol in exported_sqlite_symbols:
 
 _SQLITE_TRANSIENT = _lib.SQLITE_TRANSIENT
 
+# error codes
+
+_error_names = {
+    globals()[name] : name for name in [
+        "SQLITE_ABORT",
+        "SQLITE_AUTH",
+        "SQLITE_BUSY",
+        "SQLITE_CANTOPEN",
+        "SQLITE_CONSTRAINT",
+        "SQLITE_CORRUPT",
+        "SQLITE_DONE",
+        "SQLITE_EMPTY",
+        "SQLITE_ERROR",
+        "SQLITE_FORMAT",
+        "SQLITE_FULL",
+        "SQLITE_INTERNAL",
+        "SQLITE_INTERRUPT",
+        "SQLITE_IOERR",
+        "SQLITE_LOCKED",
+        "SQLITE_MISMATCH",
+        "SQLITE_MISUSE",
+        "SQLITE_NOLFS",
+        "SQLITE_NOMEM",
+        "SQLITE_NOTADB",
+        "SQLITE_NOTFOUND",
+        "SQLITE_OK",
+        "SQLITE_PERM",
+        "SQLITE_PROTOCOL",
+        "SQLITE_READONLY",
+        "SQLITE_ROW",
+        "SQLITE_SCHEMA",
+        "SQLITE_TOOBIG",
+        "SQLITE_NOTICE",
+        "SQLITE_WARNING",
+    ]
+}
+
 # pysqlite version information
 version = "2.6.0"
 
@@ -333,11 +370,13 @@ class Connection(object):
             flags = _lib.SQLITE_OPEN_READWRITE | _lib.SQLITE_OPEN_CREATE
             if uri:
                 flags |= _lib.SQLITE_OPEN_URI
-            if _lib.sqlite3_open_v2(database, db_star, flags, _ffi.NULL) != _lib.SQLITE_OK:
-                raise OperationalError("Could not open database")
+            rc = _lib.sqlite3_open_v2(database, db_star, flags, _ffi.NULL)
+            if rc != _lib.SQLITE_OK:
+                raise self.__exc(OperationalError, "unable to open database file", rc)
         else:
-            if _lib.sqlite3_open(database, db_star) != _lib.SQLITE_OK:
-                raise OperationalError("Could not open database")
+            rc = _lib.sqlite3_open(database, db_star)
+            if rc != _lib.SQLITE_OK:
+                raise self.__exc(OperationalError, "unable to open database file", rc)
         self._db = db_star[0]
         if timeout is not None:
             timeout = int(timeout * 1000)  # pysqlite2 uses timeout in seconds
@@ -483,8 +522,14 @@ class Connection(object):
             exc = ProgrammingError
         else:
             exc = DatabaseError
-        exc = exc(error_message)
+        return self.__exc(exc, error_message, error_code)
+
+    def __exc(self, cls, error_message, error_code):
+        exc = cls(error_message)
         exc.error_code = error_code
+        exc.sqlite_errorcode = error_code
+        if error_code in _error_names:
+            exc.sqlite_errorname = _error_names[error_code]
         return exc
 
     def _remember_cursor(self, cursor):
@@ -660,7 +705,7 @@ class Connection(object):
                 raise NotSupportedError(
                         "deterministic=True requires building _sqlite3 with "
                         "SQLite 3.8.3 or higher")
-            
+
             if _lib.sqlite3_libversion_number() < 3008003:
                 raise NotSupportedError(
                         "deterministic=True requires SQLite 3.8.3 or higher")
@@ -2043,7 +2088,7 @@ def set_sqlite_error(context, msg, exc, unraisable_obj=None):
     if unraisable_obj is None:
         unraisable_obj = context
     print_or_clear_traceback(unraisable_obj, exc)
-    
+
 def print_or_clear_traceback(ctx, exc):
     """the function name matches CPython, but the functionality is a bit
     different: there is no need to clear the excption
@@ -2173,6 +2218,6 @@ def enable_callback_tracebacks(enable, /):
     """Enable or disable callback functions throwing errors to stderr.
     """
     _enable_callback_tracebacks[0] = int(enable)
-    
+
 
 register_adapters_and_converters()

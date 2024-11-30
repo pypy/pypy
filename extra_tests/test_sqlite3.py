@@ -179,7 +179,7 @@ def test_statement_arg_checking(con):
         con.execute(123)
     with pytest.raises(TypeError) as e:
         con.executemany(123, 123)
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(TypeError) as e:
         con.executescript(123)
     assert str(e.value).startswith('script argument must be unicode')
 
