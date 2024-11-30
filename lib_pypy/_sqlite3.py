@@ -1423,6 +1423,8 @@ class Cursor(object):
             raise TypeError("script argument must be unicode.")
         if len(sql) > _lib.sqlite3_limit(self.__connection._db, SQLITE_LIMIT_SQL_LENGTH, -1):
             raise DataError("query string is too large")
+        if b'\x00' in sql:
+            raise ValueError("the query contains a null character")
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
 
