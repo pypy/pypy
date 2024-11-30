@@ -2221,3 +2221,6 @@ def enable_callback_tracebacks(enable, /):
 
 
 register_adapters_and_converters()
+
+threadsafety = [0, 3, 1][_lib.sqlite3_threadsafe()]
+

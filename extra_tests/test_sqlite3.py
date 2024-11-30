@@ -819,3 +819,6 @@ class TestBlob:
             expected[:len(b"some new data")*2:2] = b"some new data"
             assert blob[:] == expected
 
+
+def test_threadsafe():
+    assert _sqlite3.threadsafety in {0, 1, 3}
