@@ -31,6 +31,7 @@ import threading
 import traceback
 import types
 import weakref
+import operator
 from collections import OrderedDict
 from functools import wraps
 
@@ -1833,7 +1834,6 @@ class Blob(object):
         Other values for origin are os.SEEK_CUR (seek relative to the current position)
         and os.SEEK_END (seek relative to the blob's end).
         """
-        import operator
         self._check()
         blob_len = _lib.sqlite3_blob_bytes(self.__blob)
         offset = operator.index(offset)
@@ -1854,6 +1854,33 @@ class Blob(object):
         """ Return the current access position for the blob."""
         self._check()
         return self.__offset
+
+    def __getitem__(self, item):
+        self._check()
+        blob_len = _lib.sqlite3_blob_bytes(self.__blob)
+        if isinstance(item, slice):
+            start, stop, stride = item.indices(blob_len)
+            length = len(range(start, stop, stride))
+            if stride == 1:
+                readlen = length
+            else:
+                readlen = stop - start
+            raw_buffer = _ffi.new("char[]", readlen)
+            rc = _lib.sqlite3_blob_read(self.__blob, raw_buffer, readlen, start)
+            if rc != _lib.SQLITE_OK:
+                raise self.__connection._get_exception(rc)
+            return _ffi.buffer(raw_buffer, readlen)[::stride]
+        else:
+            offset = operator.index(item)
+            if offset < 0:
+                offset += blob_len
+            if not 0 <= offset < blob_len:
+                raise ValueError("offset out of blob range")
+            raw_buffer = _ffi.new("char[]", 1)
+            rc = _lib.sqlite3_blob_read(self.__blob, raw_buffer, 1, offset)
+            if rc != _lib.SQLITE_OK:
+                raise self.__connection._get_exception(rc)
+            return _ffi.buffer(raw_buffer, 1)[0][0]
 
     def __enter__(self):
         self._check()
