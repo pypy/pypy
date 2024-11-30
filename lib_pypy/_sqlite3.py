@@ -892,7 +892,7 @@ class Connection(object):
                         "a string or None, not %s" % type(val).__name__)
             stmt = str("BEGIN " + val).upper()
             if stmt not in BEGIN_STATMENTS:
-                raise ValueError("invalid value for isolation_level")
+                raise ValueError("isolation_level string must be '', 'DEFERRED', 'IMMEDIATE', or 'EXCLUSIVE'")
             self._begin_statement = stmt.encode('utf-8')
         self._isolation_level = val
     isolation_level = property(__get_isolation_level, __set_isolation_level)
