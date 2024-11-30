@@ -278,6 +278,9 @@ class Connection(object):
         if not check_same_thread and _lib.sqlite3_libversion_number() < 3003001:
             raise NotSupportedError("shared connections not available")
 
+        self.__windows = {}
+        self.__window_instances = {}
+
         self.Error = Error
         self.Warning = Warning
         self.InterfaceError = InterfaceError
@@ -568,68 +571,8 @@ class Connection(object):
         try:
             step_callback, final_callback = self.__aggregates[cls]
         except KeyError:
-            @_ffi.callback("void(sqlite3_context*, int, sqlite3_value**)")
-            def step_callback(context, argc, c_params):
-                res = _lib.sqlite3_aggregate_context(context,
-                                                     _ffi.sizeof("size_t"))
-                aggregate_ptr = _ffi.cast("size_t[1]", res)
-
-                if not aggregate_ptr[0]:
-                    try:
-                        aggregate = cls()
-                    except Exception as e:
-                        msg = (b"user-defined aggregate's '__init__' "
-                               b"method raised error")
-                        set_sqlite_error(context, msg, e, unraisable_obj=cls)
-                        return
-                    aggregate_id = id(aggregate)
-                    self.__aggregate_instances[aggregate_id] = aggregate
-                    aggregate_ptr[0] = aggregate_id
-                else:
-                    aggregate = self.__aggregate_instances[aggregate_ptr[0]]
-
-                try:
-                    meth = aggregate.step
-                except AttributeError as e:
-                    msg = (b"user-defined aggregate's 'step' "
-                           b"method not defined")
-                    set_sqlite_error(context, msg, e, unraisable_obj=cls)
-                else:
-                    params = _convert_params(context, argc, c_params)
-                    try:
-                        meth(*params)
-                    except Exception as e:
-                        msg = (b"user-defined aggregate's 'step' "
-                               b"method raised error")
-                        set_sqlite_error(context, msg, e, unraisable_obj=cls)
-
-            @_ffi.callback("void(sqlite3_context*)")
-            def final_callback(context):
-                res = _lib.sqlite3_aggregate_context(context,
-                                                     _ffi.sizeof("size_t"))
-                aggregate_ptr = _ffi.cast("size_t[1]", res)
-
-                if aggregate_ptr[0]:
-                    aggregate = self.__aggregate_instances[aggregate_ptr[0]]
-                    try:
-                        try:
-                            meth = aggregate.finalize
-                        except AttributeError as e:
-                            msg = (b"user-defined aggregate's 'finalize' "
-                                   b"method not defined")
-                            set_sqlite_error(context, msg, e, unraisable_obj=cls)
-                        else:
-                            try:
-                                val = meth()
-                            except Exception as e:
-                                msg = (b"user-defined aggregate's 'finalize' "
-                                       b"method raised error")
-                                set_sqlite_error(context, msg, e, unraisable_obj=cls)
-                            else:
-                                _convert_result(context, val)
-                    finally:
-                        del self.__aggregate_instances[aggregate_ptr[0]]
-
+            step_callback = self.__make_step_callback(cls)
+            final_callback = self.__make_final_callback(cls)
             self.__aggregates[cls] = (step_callback, final_callback)
 
         if isinstance(name, unicode):
@@ -641,6 +584,72 @@ class Connection(object):
                                            final_callback)
         if ret != _lib.SQLITE_OK:
             raise self._get_exception(ret)
+
+    def __make_step_callback(self, cls):
+        @_ffi.callback("void(sqlite3_context*, int, sqlite3_value**)")
+        def step_callback(context, argc, c_params):
+            res = _lib.sqlite3_aggregate_context(context,
+                                                 _ffi.sizeof("size_t"))
+            aggregate_ptr = _ffi.cast("size_t[1]", res)
+
+            if not aggregate_ptr[0]:
+                try:
+                    aggregate = cls()
+                except Exception as e:
+                    msg = (b"user-defined aggregate's '__init__' "
+                           b"method raised error")
+                    set_sqlite_error(context, msg, e, unraisable_obj=cls)
+                    return
+                aggregate_id = id(aggregate)
+                self.__aggregate_instances[aggregate_id] = aggregate
+                aggregate_ptr[0] = aggregate_id
+            else:
+                aggregate = self.__aggregate_instances[aggregate_ptr[0]]
+
+            try:
+                meth = aggregate.step
+            except AttributeError as e:
+                msg = (b"user-defined aggregate's 'step' "
+                       b"method not defined")
+                set_sqlite_error(context, msg, e, unraisable_obj=cls)
+            else:
+                params = _convert_params(context, argc, c_params)
+                try:
+                    meth(*params)
+                except Exception as e:
+                    msg = (b"user-defined aggregate's 'step' "
+                           b"method raised error")
+                    set_sqlite_error(context, msg, e, unraisable_obj=cls)
+        return step_callback
+
+    def __make_final_callback(self, cls):
+        @_ffi.callback("void(sqlite3_context*)")
+        def final_callback(context):
+            res = _lib.sqlite3_aggregate_context(context,
+                                                 _ffi.sizeof("size_t"))
+            aggregate_ptr = _ffi.cast("size_t[1]", res)
+
+            if aggregate_ptr[0]:
+                aggregate = self.__aggregate_instances[aggregate_ptr[0]]
+                try:
+                    try:
+                        meth = aggregate.finalize
+                    except AttributeError as e:
+                        msg = (b"user-defined aggregate's 'finalize' "
+                               b"method not defined")
+                        set_sqlite_error(context, msg, e, unraisable_obj=cls)
+                    else:
+                        try:
+                            val = meth()
+                        except Exception as e:
+                            msg = (b"user-defined aggregate's 'finalize' "
+                                   b"method raised error")
+                            set_sqlite_error(context, msg, e, unraisable_obj=cls)
+                        else:
+                            _convert_result(context, val)
+                finally:
+                    del self.__aggregate_instances[aggregate_ptr[0]]
+        return final_callback
 
     @_check_thread_wrap
     @_check_closed_wrap
@@ -864,6 +873,127 @@ class Connection(object):
         Get connection run-time limits.
         """
         return self.setlimit(category, -1)
+
+    @_check_thread_wrap
+    @_check_closed_wrap
+    def create_window_function(self, name, num_params, aggregate_class):
+        """
+            name: str
+                The name of the SQL aggregate window function to be created or
+                redefined.
+            num_params: int
+                The number of arguments the step and inverse methods takes.
+            aggregate_class: object
+                A class with step(), finalize(), value(), and inverse() methods.
+                Set to None to clear the window function.
+
+        Creates or redefines an aggregate window function. Non-standard.
+        """
+        try:
+            (step_callback, final_callback,
+                value_callback, inverse_callback) = self.__windows[aggregate_class]
+        except KeyError:
+            step_callback = self.__make_step_callback(aggregate_class)
+            final_callback = self.__make_final_callback(aggregate_class)
+            value_callback = self.__make_value_callback(aggregate_class)
+            inverse_callback = self.__make_inverse_callback(aggregate_class)
+
+            self.__windows[aggregate_class] = (
+                step_callback, final_callback,
+                value_callback, inverse_callback)
+
+        if isinstance(name, unicode):
+            name = name.encode('utf-8')
+        ret = _lib.sqlite3_create_window_function(
+            self._db, name, num_params,
+            _lib.SQLITE_UTF8,
+            _ffi.NULL,
+            step_callback,
+            final_callback,
+            value_callback,
+            inverse_callback,
+            _ffi.NULL)
+        if ret != _lib.SQLITE_OK:
+            raise self._get_exception(ret)
+
+    def __make_value_callback(self, cls):
+        @_ffi.callback("void(sqlite3_context*)")
+        def value_callback(context):
+            res = _lib.sqlite3_aggregate_context(context,
+                                                 _ffi.sizeof("size_t"))
+            aggregate_ptr = _ffi.cast("size_t[1]", res)
+
+            if not aggregate_ptr[0]:
+                try:
+                    aggregate = cls()
+                except Exception as e:
+                    msg = (b"user-defined aggregate's '__init__' "
+                           b"method raised error")
+                    set_sqlite_error(context, msg, e, unraisable_obj=cls)
+                    return
+                aggregate_id = id(aggregate)
+                self.__aggregate_instances[aggregate_id] = aggregate
+                aggregate_ptr[0] = aggregate_id
+            else:
+                aggregate = self.__aggregate_instances[aggregate_ptr[0]]
+
+            try:
+                meth = aggregate.value
+            except AttributeError as e:
+                msg = (b"user-defined aggregate's 'value' "
+                       b"method not defined")
+                set_sqlite_error(context, msg, e, unraisable_obj=cls)
+            else:
+                try:
+                    val = meth()
+                except Exception as e:
+                    msg = (b"user-defined aggregate's 'value' "
+                           b"method raised error")
+                    set_sqlite_error(context, msg, e, unraisable_obj=cls)
+                else:
+                    try:
+                        _convert_result(context, val)
+                    except Exception as e:
+                        msg = b"user-defined function raised exception"
+                        set_sqlite_error(context, msg, e)
+        return value_callback
+
+    def __make_inverse_callback(self, cls):
+        @_ffi.callback("void(sqlite3_context*, int, sqlite3_value**)")
+        def inverse_callback(context, argc, c_params):
+            res = _lib.sqlite3_aggregate_context(context,
+                                                 _ffi.sizeof("size_t"))
+            aggregate_ptr = _ffi.cast("size_t[1]", res)
+
+            if not aggregate_ptr[0]:
+                try:
+                    aggregate = cls()
+                except Exception as e:
+                    msg = (b"user-defined aggregate's '__init__' "
+                           b"method raised error")
+                    set_sqlite_error(context, msg, e, unraisable_obj=cls)
+                    return
+                aggregate_id = id(aggregate)
+                self.__aggregate_instances[aggregate_id] = aggregate
+                aggregate_ptr[0] = aggregate_id
+            else:
+                aggregate = self.__aggregate_instances[aggregate_ptr[0]]
+
+            try:
+                meth = aggregate.inverse
+            except AttributeError as e:
+                msg = (b"user-defined aggregate's 'inverse' "
+                       b"method not defined")
+                set_sqlite_error(context, msg, e, unraisable_obj=cls)
+            else:
+                params = _convert_params(context, argc, c_params)
+                try:
+                    meth(*params)
+                except Exception as e:
+                    msg = (b"user-defined aggregate's 'inverse' "
+                           b"method raised error")
+                    set_sqlite_error(context, msg, e, unraisable_obj=cls)
+        return inverse_callback
 
 
 class Cursor(object):

@@ -686,3 +686,45 @@ def test_function_raises_overflow_error(con):
     con.create_function("ovf", 0, ovf)
     with pytest.raises(_sqlite3.DataError):
         cur = con.execute("select ovf()")
+
+def test_window_function(con):
+    class WindowSumInt:
+        def __init__(self):
+            self.count = 0
+
+        def step(self, value):
+            self.count += value
+
+        def value(self):
+            return self.count
+
+        def inverse(self, value):
+            self.count -= value
+
+        def finalize(self):
+            return self.count
+
+    con.create_window_function('sumint', 1, WindowSumInt)
+    con.execute("create table test(x, y)")
+    values = [
+        ("a", 4),
+        ("b", 5),
+        ("c", 3),
+        ("d", 8),
+        ("e", 1),
+    ]
+    con.executemany("insert into test values(?, ?)", values)
+    query = """
+            select x, sumint(y) over (
+                order by x rows between 1 preceding and 1 following
+            ) as sum_y
+            from test order by x
+    """
+    res = con.execute(query)
+    assert list(res) == [
+        ("a", 9),
+        ("b", 12),
+        ("c", 16),
+        ("d", 12),
+        ("e", 9),
+    ]

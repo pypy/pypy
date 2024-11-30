@@ -210,6 +210,19 @@ int sqlite3_create_function(
 );
 void *sqlite3_aggregate_context(sqlite3_context*, int nBytes);
 
+int sqlite3_create_window_function(
+    sqlite3 *db,
+    const char *zFunctionName,
+    int nArg,
+    int eTextRep,
+    void *pApp,
+    void (*xStep)(sqlite3_context*,int,sqlite3_value**),
+    void (*xFinal)(sqlite3_context*),
+    void (*xValue)(sqlite3_context*),
+    void (*xInverse)(sqlite3_context*,int,sqlite3_value**),
+    void(*xDestroy)(void*)
+);
+
 sqlite3_int64 sqlite3_last_insert_rowid(sqlite3*);
 int sqlite3_bind_parameter_count(sqlite3_stmt*);
 const char *sqlite3_bind_parameter_name(sqlite3_stmt*, int);
