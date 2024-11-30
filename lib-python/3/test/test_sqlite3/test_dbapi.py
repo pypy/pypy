@@ -31,7 +31,7 @@ import urllib.parse
 
 from test.support import (
     SHORT_TIMEOUT, bigmemtest, check_disallow_instantiation, requires_subprocess,
-    is_emscripten, is_wasi
+    is_emscripten, is_wasi, cpython_only,
 )
 from test.support import threading_helper
 from _testcapi import INT_MAX, ULLONG_MAX
@@ -336,6 +336,7 @@ class ModuleTests(unittest.TestCase):
     # sqlite3_enable_shared_cache() is deprecated on macOS and calling it may raise
     # OperationalError on some buildbots.
     @unittest.skipIf(sys.platform == "darwin", "shared cache is deprecated on macOS")
+    @cpython_only
     def test_shared_cache_deprecated(self):
         for enable in (True, False):
             with self.assertWarns(DeprecationWarning) as cm:
