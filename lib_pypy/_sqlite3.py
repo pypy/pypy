@@ -663,8 +663,6 @@ class Connection(object):
         if not self.in_transaction:
             return
 
-        self.__do_all_statements(Statement._force_reset, True)
-
         statement_star = _ffi.new('sqlite3_stmt **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"ROLLBACK", -1,
                                       statement_star, _ffi.NULL)
