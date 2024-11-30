@@ -1231,6 +1231,13 @@ class Connection(object):
         self.__blobs.append(weakref.ref(res))
         return res
 
+    @_check_closed_and_thread_wrap
+    def interrupt(self):
+        """
+        Abort any pending database operation.
+        """
+        _lib.sqlite3_interrupt(self.__con)
+
 
 class Cursor(object):
     __initialized = False
