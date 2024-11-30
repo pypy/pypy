@@ -731,3 +731,11 @@ def test_window_function(con):
         ("d", 12),
         ("e", 9),
     ]
+
+def test_query_limit(con):
+    con.setlimit(_sqlite3.SQLITE_LIMIT_SQL_LENGTH, 100)
+    limit = con.getlimit(_sqlite3.SQLITE_LIMIT_SQL_LENGTH)
+    with pytest.raises(_sqlite3.DataError) as info:
+        con.execute('select 1'.ljust(limit + 1))
+    assert "query string is too large" in str(info.value)
+

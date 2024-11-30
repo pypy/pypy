@@ -104,7 +104,6 @@ exported_sqlite_symbols = [
     'SQLITE_LIMIT_LENGTH',
     'SQLITE_LIMIT_LIKE_PATTERN_LENGTH',
     'SQLITE_LIMIT_SQL_LENGTH',
-    'SQLITE_LIMIT_SQL_LENGTH',
     'SQLITE_LIMIT_TRIGGER_DEPTH',
     'SQLITE_LIMIT_VARIABLE_NUMBER',
     'SQLITE_LIMIT_VDBE_OP',
@@ -1379,7 +1378,10 @@ class Statement(object):
 
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
-        c_sql = _ffi.new("char[]", sql.encode('utf-8'))
+        encoded = sql.encode('utf-8')
+        if len(encoded) > _lib.sqlite3_limit(self.__con._db, SQLITE_LIMIT_SQL_LENGTH, -1):
+            raise DataError("query string is too large")
+        c_sql = _ffi.new("char[]", encoded)
         ret = _lib.sqlite3_prepare_v2(self.__con._db, c_sql, -1,
                                       statement_star, next_char)
         self._statement = statement_star[0]
