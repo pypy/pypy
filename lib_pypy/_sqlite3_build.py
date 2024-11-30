@@ -151,6 +151,10 @@ static void *const SQLITE_TRANSIENT;
 #define SQLITE_LIMIT_VARIABLE_NUMBER ...
 #define SQLITE_LIMIT_TRIGGER_DEPTH ...
 
+#define SQLITE_SERIALIZE_NOCOPY ...
+#define SQLITE_DESERIALIZE_FREEONCLOSE ...
+#define SQLITE_DESERIALIZE_RESIZEABLE ...
+
 static const long SQLITE_OPEN_URI;
 static const long SQLITE_OPEN_READWRITE;
 static const long SQLITE_OPEN_CREATE;
@@ -305,6 +309,25 @@ const char *sqlite3_errstr(int);
 int sqlite3_complete(const char *sql);
 
 int sqlite3_limit(sqlite3*, int, int);
+
+unsigned char *sqlite3_serialize(
+    sqlite3 *db,
+    const char *zSchema,
+    sqlite3_int64 *piSize,
+    unsigned int mFlags
+);
+int sqlite3_deserialize(
+    sqlite3 *db,
+    const char *zSchema,
+    unsigned char *pData,
+    sqlite3_int64 szDb,
+    sqlite3_int64 szBuf,
+    unsigned mFlags
+);
+
+void *sqlite3_malloc(int);
+void *sqlite3_malloc64(sqlite3_uint64);
+void sqlite3_free(void*);
 """)
 
 def _has_load_extension():

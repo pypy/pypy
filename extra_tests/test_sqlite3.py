@@ -291,17 +291,17 @@ def test_adapter_exception(con):
 def test_null_character(con):
     if not hasattr(_sqlite3, '_ffi') and sys.version_info < (2, 7, 9):
         pytest.skip("_sqlite3 too old")
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(_sqlite3.ProgrammingError) as excinfo:
         con("\0select 1")
     assert str(excinfo.value) == "the query contains a null character"
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(_sqlite3.ProgrammingError) as excinfo:
         con("select 1\0")
     assert str(excinfo.value) == "the query contains a null character"
     cur = con.cursor()
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(_sqlite3.ProgrammingError) as excinfo:
         cur.execute("\0select 2")
     assert str(excinfo.value) == "the query contains a null character"
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises(_sqlite3.ProgrammingError) as excinfo:
         cur.execute("select 2\0")
     assert str(excinfo.value) == "the query contains a null character"
 
@@ -739,3 +739,18 @@ def test_query_limit(con):
         con.execute('select 1'.ljust(limit + 1))
     assert "query string is too large" in str(info.value)
 
+def test_serialize(con):
+    with con:
+        con.execute("create table t(t)")
+    data = con.serialize()
+    assert len(data) == 8192
+
+    # Remove test table, verify that it was removed.
+    with con:
+        con.execute("drop table t")
+    with pytest.raises(_sqlite3.OperationalError):
+        con.execute("select t from t")
+
+    # Deserialize and verify that test table is restored.
+    con.deserialize(data)
+    con.execute("select t from t")
