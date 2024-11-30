@@ -1013,6 +1013,7 @@ class Cursor(object):
         self._reset = False
         self.__locked = False
         self.__closed = False
+        self.__have_next_row = False
         self.__lastrowid = None
         self.__rowcount = -1
 
@@ -1151,10 +1152,7 @@ class Cursor(object):
     def __execute(self, multiple, sql, many_params):
         self.__locked = True
         self._reset = False
-        try:
-            del self.__next_row
-        except AttributeError:
-            pass
+        self.__have_next_row = False
         try:
             if not isinstance(sql, basestring):
                 raise TypeError("operation parameter must be str or unicode, not %s" % (type(sql).__name__, ))
@@ -1201,7 +1199,7 @@ class Cursor(object):
                     if multiple:
                         raise ProgrammingError("executemany() can only execute DML statements.")
                     self.__build_row_cast_map()
-                    self.__next_row = self.__fetch_one_row()
+                    self.__have_next_row = True
                 elif ret == _lib.SQLITE_DONE:
                     if not multiple:
                         self.__statement._reset(self.__in_use_token)
@@ -1272,25 +1270,23 @@ class Cursor(object):
         self.__check_reset()
         if not self.__statement:
             raise StopIteration
-
-        try:
-            next_row = self.__next_row
-        except AttributeError:
+        if not self.__have_next_row:
             raise StopIteration
-        del self.__next_row
 
+        assert not self.__locked
+        self.__locked = True
+        try:
+            next_row = self.__fetch_one_row()
+        finally:
+            self.__locked = False
         if self.row_factory is not None:
             next_row = self.row_factory(self, next_row)
 
         ret = _lib.sqlite3_step(self.__statement._statement)
         if ret == _lib.SQLITE_ROW:
-            assert not self.__locked
-            self.__locked = True
-            try:
-                self.__next_row = self.__fetch_one_row()
-            finally:
-                self.__locked = False
+            self.__have_next_row = True
         else:
+            self.__have_next_row = False
             self.__statement._reset(self.__in_use_token)
             if ret != _lib.SQLITE_DONE:
                 raise self.__connection._get_exception(ret)

@@ -586,6 +586,7 @@ def test_recursive_close():
         _sqlite3.converters['CLOSE'] = conv
         with pytest.raises(_sqlite3.ProgrammingError):
             cursor.execute(f'select x as "x [CLOSE]", x from test')
+            next(cursor)
     finally:
         del _sqlite3.converters['CLOSE']
 
@@ -603,6 +604,7 @@ def test_recursive_fetch():
         _sqlite3.converters['ITER'] = conv
         with pytest.raises(_sqlite3.ProgrammingError):
             cursor.execute(f'select x as "x [ITER]", x from test')
+            next(cursor)
     finally:
         del _sqlite3.converters['ITER']
 
@@ -619,6 +621,7 @@ def test_recursive_init():
         _sqlite3.converters['INIT'] = conv
         with pytest.raises(_sqlite3.ProgrammingError):
             cursor.execute(f'select x as "x [INIT]", x from test')
+            next(cursor)
     finally:
         del _sqlite3.converters['INIT']
 
