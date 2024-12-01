@@ -311,21 +311,6 @@ int sqlite3_complete(const char *sql);
 
 int sqlite3_limit(sqlite3*, int, int);
 
-unsigned char *sqlite3_serialize(
-    sqlite3 *db,
-    const char *zSchema,
-    sqlite3_int64 *piSize,
-    unsigned int mFlags
-);
-int sqlite3_deserialize(
-    sqlite3 *db,
-    const char *zSchema,
-    unsigned char *pData,
-    sqlite3_int64 szDb,
-    sqlite3_int64 szBuf,
-    unsigned mFlags
-);
-
 void *sqlite3_malloc(int);
 void *sqlite3_malloc64(sqlite3_uint64);
 void sqlite3_free(void*);
@@ -529,6 +514,25 @@ if SQLITE3_VERSION >= 3034000:
     _ffi.cdef("""
 #define SQLITE_IOERR_CORRUPTFS ...
 """)
+
+if SQLITE3_VERSION >= 3036000:
+    _ffi.cdef("""
+unsigned char *sqlite3_serialize(
+    sqlite3 *db,
+    const char *zSchema,
+    sqlite3_int64 *piSize,
+    unsigned int mFlags
+);
+int sqlite3_deserialize(
+    sqlite3 *db,
+    const char *zSchema,
+    unsigned char *pData,
+    sqlite3_int64 szDb,
+    sqlite3_int64 szBuf,
+    unsigned mFlags
+);
+""")
+
 
 libraries=['sqlite3']
 if sys.platform.startswith('freebsd'):
