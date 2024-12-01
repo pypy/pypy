@@ -357,3 +357,11 @@ def test_reinit():
     except TypeError as e:
         pass
     obj.__getstate__()
+
+def test_issue5140():
+    obj = StringIO("1")
+    try:
+        obj.__init__("", ())
+    except:
+        pass
+    assert obj.__next__() == "1"
