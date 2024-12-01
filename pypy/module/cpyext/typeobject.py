@@ -1272,6 +1272,20 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
             name = rffi.constcharp2str(name)
             w_descr = W_GetSetPropertyEx(getset, w_type)
             w_type.setdictvalue(space, name, w_descr)
+    if dictoffset:
+        # Link the PyDictObject and w_type.__dict__
+        # See also create_ref
+        try:
+            w_dict = space.getattr(w_type, space.newtext("__dict__"))
+        except:
+            dictref = make_ref(space, space.w_None)
+        else:
+            dictref = make_ref(space, w_dict)
+        if dictoffset < 0:
+            dictoffset += typ.c_tp_basicsize
+        loc = rffi.ptradd(cts.cast("char *", typ), dictoffset)
+        dictloc = cts.cast("PyObject **", loc)[0]
+        dictloc = dictref
     return res_obj
 
 @cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP, error=rffi.cast(rffi.VOIDP, 0))

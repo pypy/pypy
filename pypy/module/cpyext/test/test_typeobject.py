@@ -2142,7 +2142,61 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         test = module.getset_type()
         assert test.prop.__doc__ == "A docstring"
 
+    def test_dictoffset(self):
+        module = self.import_extension("foo", [
+            ("negative_dictoffset", "METH_NOARGS",
+            """
+                    return PyType_FromSpec(&HeapCTypeWithNegativeDict_spec);
+            """),
 
+            ], prologue="""
+                #include <structmember.h>
+                typedef struct {
+                    PyObject_HEAD
+                    PyObject *dict;
+                } HeapCTypeWithDictObject;
+
+                static void
+                heapctypewithdict_dealloc(HeapCTypeWithDictObject* self)
+                {
+
+                    PyTypeObject *tp = Py_TYPE(self);
+                    Py_XDECREF(self->dict);
+                    PyObject_Free(self);
+                    Py_DECREF(tp);
+                }
+
+                static PyGetSetDef heapctypewithdict_getsetlist[] = {
+                    {"__dict__", PyObject_GenericGetDict, PyObject_GenericSetDict},
+                    {NULL} /* Sentinel */
+                };
+
+                static struct PyMemberDef heapctypewithnegativedict_members[] = {
+                    {"dictobj", T_OBJECT, offsetof(HeapCTypeWithDictObject, dict)},
+                    {"__dictoffset__", T_PYSSIZET, -(Py_ssize_t)sizeof(void*), READONLY},
+                    {NULL} /* Sentinel */
+                };
+
+                static PyType_Slot HeapCTypeWithNegativeDict_slots[] = {
+                    {Py_tp_members, heapctypewithnegativedict_members},
+                    {Py_tp_getset, heapctypewithdict_getsetlist},
+                    {Py_tp_dealloc, heapctypewithdict_dealloc},
+                    {0, 0},
+                };
+
+                static PyType_Spec HeapCTypeWithNegativeDict_spec = {
+                    "_testcapi.HeapCTypeWithNegativeDict",
+                    sizeof(HeapCTypeWithDictObject),
+                    0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                    HeapCTypeWithNegativeDict_slots
+                };
+            """)
+        inst = module.negative_dictoffset()()
+        inst.foo = 42
+        assert inst.dictobj == inst.__dict__
+        assert inst.dictobj == {"foo": 42} 
+ 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
         if not self.runappdirect:

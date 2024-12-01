@@ -465,6 +465,7 @@ test_lazy_hash_inheritance(PyObject* self, PyObject *Py_UNUSED(ignored))
         return NULL;
     }
 
+#ifndef PYPY_VERSION /* PyPy only fills slots when calling type_attach */
     if (type->tp_hash != PyType_Type.tp_hash) {
         PyErr_SetString(
             TestError,
@@ -472,6 +473,7 @@ test_lazy_hash_inheritance(PyObject* self, PyObject *Py_UNUSED(ignored))
         Py_DECREF(obj);
         return NULL;
     }
+#endif
 
     Py_DECREF(obj);
 

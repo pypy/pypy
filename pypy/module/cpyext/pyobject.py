@@ -258,6 +258,22 @@ def create_ref(space, w_obj, w_userdata=None, immortal=False):
     py_obj.c_ob_refcnt -= 1
     #
     typedescr.attach(space, py_obj, w_obj, w_userdata)
+    # This is probably not the best place for this stanza, but we need the
+    # w_obj so it cannot be done in allocate()
+    # It should probably also be in track_reference
+    if pytype.c_tp_dictoffset:
+        dictoffset = pytype.c_tp_dictoffset
+        try:
+            w_dict = space.getattr(w_obj, space.newtext("__dict__"))
+        except OperationError as e:
+            dictref = make_ref(space, space.w_None)
+        else:
+            dictref = make_ref(space, w_dict)
+        if dictoffset < 0:
+            dictoffset += pytype.c_tp_basicsize
+        loc = rffi.ptradd(cts.cast("char *", py_obj), dictoffset)
+        dictloc = cts.cast("PyObject **", loc)
+        dictloc[0] = dictref
     return py_obj
 
 def track_reference(space, py_obj, w_obj):
