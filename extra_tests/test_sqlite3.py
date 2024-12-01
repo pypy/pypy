@@ -742,6 +742,9 @@ def test_query_limit(con):
         con.executescript('select 1'.ljust(limit + 1))
     assert "query string is too large" in str(info.value)
 
+@pytest.mark.skipif(
+    not hasattr(_sqlite3.Connection, 'serialize'),
+    reason='sqlite3 version too old for serialize')
 def test_serialize(con):
     with con:
         con.execute("create table t(t)")

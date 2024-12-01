@@ -265,6 +265,7 @@ PARSE_DECLTYPES = 2
 
 # SQLite version information
 sqlite_version = str(_ffi.string(_lib.sqlite3_libversion()).decode('ascii'))
+_sqlite_version_triple = tuple(int(x) for x in sqlite_version.split('.'))
 
 # flag that signals if base types need adaption
 BASE_TYPE_ADAPTED = False
@@ -1148,60 +1149,61 @@ class Connection(object):
                     set_sqlite_error(context, msg, e, unraisable_obj=cls)
         return inverse_callback
 
-    @_check_thread_wrap
-    @_check_closed_wrap
-    def serialize(self, name="main"):
-        """
-            name: Which database to serialize.
+    if _sqlite_version_triple >= (3, 36, 0):
+        @_check_thread_wrap
+        @_check_closed_wrap
+        def serialize(self, name="main"):
+            """
+                name: Which database to serialize.
 
-        Serialize a database into a byte string.
-        For an ordinary on-disk database file, the serialization is just a copy of the
-        disk file. For an in-memory database or a "temp" database, the serialization is
-        the same sequence of bytes which would be written to disk if that database
-        were backed up to disk.
-        """
-        encname = name.encode('utf-8')
-        flags = _lib.SQLITE_SERIALIZE_NOCOPY
-        sizemem = _ffi.new('int64_t *')
-        data = _lib.sqlite3_serialize(self._db, encname, sizemem, flags)
-        if data:
-            return bytes(_ffi.buffer(data, sizemem[0]))
-        flags &= ~_lib.SQLITE_SERIALIZE_NOCOPY
-        data = _lib.sqlite3_serialize(self._db, encname, sizemem, flags)
-        if not data:
-            raise OperationalError("unable to serialize '%s'" % (name, ))
-        try:
-            return bytes(_ffi.buffer(data, sizemem[0]))
-        finally:
-            _lib.sqlite3_free(data)
+            Serialize a database into a byte string.
+            For an ordinary on-disk database file, the serialization is just a copy of the
+            disk file. For an in-memory database or a "temp" database, the serialization is
+            the same sequence of bytes which would be written to disk if that database
+            were backed up to disk.
+            """
+            encname = name.encode('utf-8')
+            flags = _lib.SQLITE_SERIALIZE_NOCOPY
+            sizemem = _ffi.new('int64_t *')
+            data = _lib.sqlite3_serialize(self._db, encname, sizemem, flags)
+            if data:
+                return bytes(_ffi.buffer(data, sizemem[0]))
+            flags &= ~_lib.SQLITE_SERIALIZE_NOCOPY
+            data = _lib.sqlite3_serialize(self._db, encname, sizemem, flags)
+            if not data:
+                raise OperationalError("unable to serialize '%s'" % (name, ))
+            try:
+                return bytes(_ffi.buffer(data, sizemem[0]))
+            finally:
+                _lib.sqlite3_free(data)
 
-    @_check_thread_wrap
-    @_check_closed_wrap
-    def deserialize(self, data, name="main"):
-        """
-            data:
-                The serialized database content.
-            name: str = "main"
-                Which database to reopen with the deserialization.
+        @_check_thread_wrap
+        @_check_closed_wrap
+        def deserialize(self, data, name="main"):
+            """
+                data:
+                    The serialized database content.
+                name: str = "main"
+                    Which database to reopen with the deserialization.
 
-        Load a serialized database.
-        The deserialize interface causes the database connection to disconnect from the
-        target database, and then reopen it as an in-memory database based on the given
-        serialized data.
-        The deserialize interface will fail with SQLITE_BUSY if the database is
-        currently in a read transaction or is involved in a backup operation.
-        """
-        if isinstance(data, memoryview) and not data.c_contiguous:
-            raise BufferError('only contiguous buffers are supported')
-        size = len(data)
-        buf = _lib.sqlite3_malloc64(size)
-        if not buf:
-            raise MemoryError()
-        _ffi.memmove(buf, data, size)
-        flags = _lib.SQLITE_DESERIALIZE_FREEONCLOSE | _lib.SQLITE_DESERIALIZE_RESIZEABLE
-        rc = _lib.sqlite3_deserialize(self._db, name.encode('utf-8'), buf, size, size, flags)
-        if rc != _lib.SQLITE_OK:
-            raise self._get_exception(rc)
+            Load a serialized database.
+            The deserialize interface causes the database connection to disconnect from the
+            target database, and then reopen it as an in-memory database based on the given
+            serialized data.
+            The deserialize interface will fail with SQLITE_BUSY if the database is
+            currently in a read transaction or is involved in a backup operation.
+            """
+            if isinstance(data, memoryview) and not data.c_contiguous:
+                raise BufferError('only contiguous buffers are supported')
+            size = len(data)
+            buf = _lib.sqlite3_malloc64(size)
+            if not buf:
+                raise MemoryError()
+            _ffi.memmove(buf, data, size)
+            flags = _lib.SQLITE_DESERIALIZE_FREEONCLOSE | _lib.SQLITE_DESERIALIZE_RESIZEABLE
+            rc = _lib.sqlite3_deserialize(self._db, name.encode('utf-8'), buf, size, size, flags)
+            if rc != _lib.SQLITE_OK:
+                raise self._get_exception(rc)
 
     @_check_closed_and_thread_wrap
     def blobopen(self, table, column, row, readonly=False, name='main'):
