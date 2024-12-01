@@ -1652,7 +1652,7 @@ class Statement(object):
 
         tail = _ffi.string(next_char[0]).decode('utf-8')
         if _check_remaining_sql(tail):
-            raise Warning("You can only execute one statement at a time.")
+            raise ProgrammingError("You can only execute one statement at a time.")
 
     def __new__(cls, *args):
         raise TypeError("cannot create '_sqlite3.Statement' instances")
