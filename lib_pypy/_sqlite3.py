@@ -1239,7 +1239,7 @@ class Connection(object):
         """
         Abort any pending database operation.
         """
-        _lib.sqlite3_interrupt(self.__con)
+        _lib.sqlite3_interrupt(self._db)
 
 
 class Cursor(object):
