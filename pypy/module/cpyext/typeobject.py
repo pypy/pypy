@@ -740,8 +740,8 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         heaptype = cts.cast('PyHeapTypeObject*', pto)
         heaptype.c_ht_name = make_ref(space, w_typename)
         from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
-        pto.c_tp_name = cts.cast('const char *',
-            PyUnicode_AsUTF8(space, heaptype.c_ht_name))
+        utf8 = PyUnicode_AsUTF8(space, heaptype.c_ht_name)
+        pto.c_tp_name = cts.cast('const char *', utf8)
     else:
         pto.c_tp_name = cts.cast('const char*', rffi.str2charp(w_type.name))
     # uninitialized fields:
@@ -1100,7 +1100,7 @@ def PyType_FromSpecWithBases(space, spec, bases):
     PyType_FromModuleAndSpec(PyObject *module, PyType_Spec *spec, PyObject *bases)""",
     result_is_ll=True)
 def PyType_FromModuleAndSpec(space, module, spec, bases):
-    from pypy.module.cpyext.unicodeobject import PyUnicode_FromString
+    from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
     state = space.fromcache(State)
     p_type = cts.cast('PyTypeObject*', make_ref(space, space.w_type))
     slotdefs = rffi.cast(rffi.CArrayPtr(cts.gettype('PyType_Slot')), spec.c_slots)
@@ -1173,7 +1173,8 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     res.c_ht_name = make_ref(space, space.newtext(name))
     res.c_ht_qualname = res.c_ht_name
     incref(space, res.c_ht_qualname)
-    typ.c_tp_name = spec.c_name
+    utf8 = PyUnicode_AsUTF8(space, res.c_ht_name)
+    typ.c_tp_name = cts.cast('const char *', utf8)
     if module:
         incref(space, module)
         res.c_ht_module = module

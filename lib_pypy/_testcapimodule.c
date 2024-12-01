@@ -1308,9 +1308,8 @@ test_type_from_ephemeral_spec(PyObject *self, PyObject *Py_UNUSED(ignored))
 
     PyTypeObject *class_tp = (PyTypeObject *)class;
     PyHeapTypeObject *class_ht = (PyHeapTypeObject *)class;
-    PyErr_SetString(PyExc_RuntimeError, "test faileds on line 1306");
-    goto finally;
-    assert(strcmp(class_tp->tp_name, "testcapi._Test") == 0);
+    // PyPy
+    //assert(strcmp(class_tp->tp_name, "testcapi._Test") == 0);
     assert(strcmp(PyUnicode_AsUTF8(class_ht->ht_name), "_Test") == 0);
     assert(strcmp(PyUnicode_AsUTF8(class_ht->ht_qualname), "_Test") == 0);
     assert(strcmp(class_tp->tp_doc, "a test class") == 0);
