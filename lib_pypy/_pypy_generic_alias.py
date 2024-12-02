@@ -1,6 +1,7 @@
 _ATTR_EXCEPTIONS = frozenset((
     "__origin__",
     "__args__",
+    "__unpacked__",
     "__parameters__",
     "__mro_entries__",
     "__reduce_ex__",  # needed so we don't look up object.__reduce_ex__
@@ -11,7 +12,7 @@ _ATTR_EXCEPTIONS = frozenset((
 
 class GenericAlias:
 
-    __slots__ = ("__weakref__", "_origin", "_args", "_parameters", "_hash")
+    __slots__ = ("__weakref__", "_origin", "_args", "_parameters", "_hash", "__unpacked__")
 
     def __new__(cls, origin, args):
         result = super(GenericAlias, cls).__new__(cls)
@@ -20,6 +21,7 @@ class GenericAlias:
         result._origin = origin
         result._args = args
         result._parameters = _make_parameters(args)
+        result.__unpacked__ = False
         return result
 
     @property
@@ -54,12 +56,15 @@ class GenericAlias:
         inner = ', '.join([_repr_item(x) for x in self.__args__])
         if len(self.__args__) == 0:
             inner = "()"
-        return f"{_repr_item(self.__origin__)}[{inner}]"
+        star = '*' if self.__unpacked__ else ''
+        return f"{star}{_repr_item(self.__origin__)}[{inner}]"
 
     def __eq__(self, other):
         if not isinstance(other, GenericAlias):
             return NotImplemented
-        return self.__origin__ == other.__origin__ and self.__args__ == other.__args__
+        return (self.__origin__ == other.__origin__ and
+                self.__args__ == other.__args__ and
+                self.__unpacked__ == other.__unpacked__)
 
     def __getitem__(self, items):
         if not isinstance(items, tuple):
@@ -91,6 +96,11 @@ class GenericAlias:
 
     def __ror__(self, other):
         return _create_union(other, self)
+
+    def __iter__(self):
+        res = GenericAlias(self.__origin__, self.__args__)
+        res.__unpacked__ = True
+        yield res
 
 
 def _repr_item(it):

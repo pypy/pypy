@@ -237,3 +237,9 @@ def test_union_typevars():
 def test_union_type_none():
     assert int | type(None) == int | None
 
+def test_getitem():
+    ga = GenericAlias(tuple, (int, ))
+    starred = list(ga)[0]
+    assert starred.__unpacked__ is True
+    assert repr(starred) == '*tuple[int]'
+    assert starred != ga
