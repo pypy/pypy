@@ -2095,6 +2095,8 @@ def _convert_result(con, val):
         val = val.encode('utf-8')
         _lib.sqlite3_result_text(con, val, len(val), _SQLITE_TRANSIENT)
     elif isinstance(val, (buffer, bytes)):
+        if isinstance(val, buffer) and not val.c_contiguous:
+            raise BufferError('underlying buffer is not C-contiguous')
         _lib.sqlite3_result_blob(con, bytes(val), len(val), _SQLITE_TRANSIENT)
     else:
         raise NotImplementedError
