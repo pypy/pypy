@@ -198,7 +198,7 @@ def test_statement_param_checking(con):
         con.execute('insert into foo(x) values (?)', seq())
     with pytest.raises(_sqlite3.ProgrammingError):
         con.execute('insert into foo(x) values (?)', {2:2})
-    with pytest.raises(ValueError) as e:
+    with pytest.raises(_sqlite3.ProgrammingError) as e:
         con.execute('insert into foo(x) values (?)', 2)
     assert str(e.value) == 'parameters are of unsupported type'
 
@@ -841,3 +841,11 @@ def test_sql_lstrip_comments():
     assert strip('\n               -- comment\n               select 2\n            ') == 'select 2\n            '
     assert strip('\n        ') == ''
     assert strip('\n\n            /*\n            foo\n            */\n            ') == ''
+
+def test_weird_reinit(con):
+    # not quite sure why that's useful, but oh well
+    with pytest.raises(_sqlite3.OperationalError):
+        con.__init__('hopefull/does/not/exist/in/this/directory/äöúß')
+    with pytest.raises(_sqlite3.ProgrammingError):
+        con.execute('select 1')
+    con.__init__(':memory:')

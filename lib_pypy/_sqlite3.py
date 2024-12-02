@@ -361,7 +361,7 @@ class Connection(object):
 
     def __init__(self, database, timeout=5.0, detect_types=0, isolation_level="",
                  check_same_thread=True, factory=None, cached_statements=100, uri=0):
-        self.__initialized = True
+        self.__initialized = False
         db_star = _ffi.new('sqlite3 **')
 
         database = os.fsencode(database)
@@ -378,6 +378,7 @@ class Connection(object):
             rc = _lib.sqlite3_open(database, db_star)
             if rc != _lib.SQLITE_OK:
                 raise self.__exc(OperationalError, "unable to open database file", rc)
+        self.__initialized = True
         self._db = db_star[0]
         if timeout is not None:
             timeout = int(timeout * 1000)  # pysqlite2 uses timeout in seconds
