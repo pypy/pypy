@@ -788,6 +788,14 @@ class TestBlob:
             blob.seek(0)
             assert blob.read() == b'some new dataa string is exactly fifty bytes long!'
 
+    def test_seek_to_end(self, con):
+        con.execute("create table test(b blob)")
+        data = b"this blob data string is exactly fifty bytes long!"
+        con.execute("insert into test(b) values (?)", (data, ))
+        with con.blobopen("test", "b", 1) as blob:
+            blob.seek(len(data))
+            assert blob.read() == b''
+
     def test_getitem(self, con):
         con.execute("create table test(b blob)")
         data = b"this blob data string is exactly fifty bytes long!"

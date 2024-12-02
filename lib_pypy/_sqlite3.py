@@ -26,6 +26,7 @@
 import datetime
 import os
 import string
+import struct
 import sys
 import threading
 import traceback
@@ -1838,6 +1839,8 @@ class Row(object):
     def __hash__(self):
         return hash(tuple(self.description)) ^ hash(tuple(self.values))
 
+_INT_MIN = -2**(struct.calcsize('i') * 8 - 1)
+_INT_MAX = ~_INT_MIN
 
 class Blob(object):
     def __init__(self, con, blob):
@@ -1933,7 +1936,9 @@ class Blob(object):
         else:
             raise ValueError("'origin' should be os.SEEK_SET, os.SEEK_CUR, or "
                             "os.SEEK_END")
-        if not 0 <= offset < blob_len:
+        if not 0 <= offset <= blob_len:
+            if not _INT_MIN <= offset <= _INT_MAX:
+                raise OverflowError('seek offset results in overflow')
             raise ValueError("offset out of blob range")
         self.__offset = offset
 
