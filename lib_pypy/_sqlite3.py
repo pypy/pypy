@@ -228,6 +228,17 @@ _error_names = {
         "SQLITE_BUSY",
         "SQLITE_CANTOPEN",
         "SQLITE_CONSTRAINT",
+        "SQLITE_CONSTRAINT_CHECK",
+        "SQLITE_CONSTRAINT_COMMITHOOK",
+        "SQLITE_CONSTRAINT_FOREIGNKEY",
+        "SQLITE_CONSTRAINT_FUNCTION",
+        "SQLITE_CONSTRAINT_NOTNULL",
+        "SQLITE_CONSTRAINT_PINNED",
+        "SQLITE_CONSTRAINT_PRIMARYKEY",
+        "SQLITE_CONSTRAINT_ROWID",
+        "SQLITE_CONSTRAINT_TRIGGER",
+        "SQLITE_CONSTRAINT_UNIQUE",
+        "SQLITE_CONSTRAINT_VTAB",
         "SQLITE_CORRUPT",
         "SQLITE_DONE",
         "SQLITE_EMPTY",
@@ -524,7 +535,7 @@ class Connection(object):
             exc = ProgrammingError
         else:
             exc = DatabaseError
-        errorcode = _lib.sqlite3_extended_errcode(self._db)
+        error_code = _lib.sqlite3_extended_errcode(self._db)
         return self.__exc(exc, error_message, error_code)
 
     def __exc(self, cls, error_message, error_code):
