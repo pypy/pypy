@@ -825,3 +825,19 @@ class TestBlob:
 
 def test_threadsafe():
     assert _sqlite3.threadsafety in {0, 1, 3}
+
+def test_sql_lstrip_comments():
+    strip = _sqlite3._sql_lstrip_comments
+    assert strip(' *not a comment') == '*not a comment'
+    assert strip(' -*not a comment') == '-*not a comment'
+    assert strip(' -- foo bar') == ''
+    assert strip(' --') == ''
+    assert strip(' -\n- select 2') == '-\n- select 2'
+    assert strip(' /') == '/'
+    assert strip(' /* */ a') == 'a'
+    assert strip(' /*') == ''
+    assert strip(' // c++ comments are not allowed') == '// c++ comments are not allowed'
+    assert strip(' select 2') == 'select 2'
+    assert strip('\n               -- comment\n               select 2\n            ') == 'select 2\n            '
+    assert strip('\n        ') == ''
+    assert strip('\n\n            /*\n            foo\n            */\n            ') == ''

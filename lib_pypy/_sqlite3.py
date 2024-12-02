@@ -1623,7 +1623,7 @@ class Statement(object):
         if '\0' in sql:
             raise ProgrammingError("the query contains a null character")
 
-        to_check = sql.lstrip().upper()
+        to_check = _sql_lstrip_comments(sql).upper()
         self._valid = bool(to_check)
         self._is_dml = to_check.startswith(('INSERT', 'UPDATE', 'DELETE', 'REPLACE'))
 
@@ -1651,7 +1651,7 @@ class Statement(object):
         self.__con._remember_statement(self)
 
         tail = _ffi.string(next_char[0]).decode('utf-8')
-        if _check_remaining_sql(tail):
+        if _sql_lstrip_comments(tail):
             raise ProgrammingError("You can only execute one statement at a time.")
 
     def __new__(cls, *args):
@@ -2002,47 +2002,36 @@ class Blob(object):
         self._check()
         return _lib.sqlite3_blob_bytes(self.__blob)
 
-def _check_remaining_sql(s):
-    state = "NORMAL"
-    for char in s:
-        if char == chr(0):
-            return 0
+def _sql_lstrip_comments(s):
+    index = 0
+    while index < len(s):
+        char = s[index]
+        index += 1
+        if char in ' \t\f\n\r':
+            continue
         elif char == '-':
-            if state == "NORMAL":
-                state = "LINECOMMENT_1"
-            elif state == "LINECOMMENT_1":
-                state = "IN_LINECOMMENT"
-        elif char in (' ', '\t'):
-            pass
-        elif char == '\n':
-            if state == "IN_LINECOMMENT":
-                state = "NORMAL"
+            # skip line comment
+            if index < len(s) and s[index] == '-':
+                while index < len(s):
+                    char = s[index]
+                    index += 1
+                    if char == '\n':
+                        break
+                if index == len(s):
+                    return ''
+                continue
         elif char == '/':
-            if state == "NORMAL":
-                state = "COMMENTSTART_1"
-            elif state == "COMMENTEND_1":
-                state = "NORMAL"
-            elif state == "COMMENTSTART_1":
-                return 1
-        elif char == '*':
-            if state == "NORMAL":
-                return 1
-            elif state == "LINECOMMENT_1":
-                return 1
-            elif state == "COMMENTSTART_1":
-                state = "IN_COMMENT"
-            elif state == "IN_COMMENT":
-                state = "COMMENTEND_1"
-        else:
-            if state == "COMMENTEND_1":
-                state = "IN_COMMENT"
-            elif state == "IN_LINECOMMENT":
-                pass
-            elif state == "IN_COMMENT":
-                pass
-            else:
-                return 1
-    return 0
+            # skip C-style comment
+            if index < len(s) and s[index] == '*':
+                while index < len(s):
+                    char = s[index]
+                    index += 1
+                    if char == '*' and index < len(s) and s[index] == '/':
+                        index += 1
+                        break
+                continue
+        return s[index-1:]
+    return ''
 
 
 def _convert_params(con, nargs, params):
