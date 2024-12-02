@@ -28231,7 +28231,11 @@ _pos_to_code = [
 129296, 129503, 983259, 983218, 983217, 983219,
 ]
 _pos_to_code = _all_uint32(_pos_to_code)
-def pos_to_code(index): return intmask(_pos_to_code[index])
+def pos_to_code(index):
+    try:
+        return intmask(_pos_to_code[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_charcode(c):
     pos = _charcode_to_pos(c)
@@ -28246,51 +28250,83 @@ __charcode_to_pos_564 = [
 9319, 9307, 9230, 9432, 9253, 9472, 9295, 9527, 9287, 9537, 9328, 9626,
 ]
 __charcode_to_pos_564 = _all_ushort(__charcode_to_pos_564)
-def _charcode_to_pos_564(index): return intmask(__charcode_to_pos_564[index])
+def _charcode_to_pos_564(index):
+    try:
+        return intmask(__charcode_to_pos_564[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.05 KiB
 __charcode_to_pos_751 = [
 11845, 11853, 11847, 11849, 11850, 11860, 11858, 11859, 11852, 11866, 11946, 11840, 11947, 11841, 11870, 11948,
 11846,
 ]
 __charcode_to_pos_751 = _all_ushort(__charcode_to_pos_751)
-def _charcode_to_pos_751(index): return intmask(__charcode_to_pos_751[index])
+def _charcode_to_pos_751(index):
+    try:
+        return intmask(__charcode_to_pos_751[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.05 KiB
 __charcode_to_pos_848 = [
 3596, 3571, 3614, 3613, 3569, 3597, 3595, 3599, 3458, 3382, 3468, 3615, 3466, 3465, 3462, 3463,
 ]
 __charcode_to_pos_848 = _all_ushort(__charcode_to_pos_848)
-def _charcode_to_pos_848(index): return intmask(__charcode_to_pos_848[index])
+def _charcode_to_pos_848(index):
+    try:
+        return intmask(__charcode_to_pos_848[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.05 KiB
 __charcode_to_pos_880 = [
 7540, 7606, 7536, 7602, -1, -1, 7537, 7603, -1, -1, -1, 7608, 7609, 7607, -1, 7541,
 ]
 __charcode_to_pos_880 = _all_short(__charcode_to_pos_880)
-def _charcode_to_pos_880(index): return intmask(__charcode_to_pos_880[index])
+def _charcode_to_pos_880(index):
+    try:
+        return intmask(__charcode_to_pos_880[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_1015 = [
 7538, 7604, 7542, 7539, 7605, 7656, 7544, 7545, 7543,
 ]
 __charcode_to_pos_1015 = _all_ushort(__charcode_to_pos_1015)
-def _charcode_to_pos_1015(index): return intmask(__charcode_to_pos_1015[index])
+def _charcode_to_pos_1015(index):
+    try:
+        return intmask(__charcode_to_pos_1015[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_1270 = [
 5160, 5211, -1, -1, 5161, 5212, 5162, 5213, 5163, 5214,
 ]
 __charcode_to_pos_1270 = _all_short(__charcode_to_pos_1270)
-def _charcode_to_pos_1270(index): return intmask(__charcode_to_pos_1270[index])
+def _charcode_to_pos_1270(index):
+    try:
+        return intmask(__charcode_to_pos_1270[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.08 KiB
 __charcode_to_pos_1296 = [
 5132, 5232, 5157, 5208, 5183, 5221, 5133, 5234, 5179, 5252, 5184, 5256, 5185, 5250, 5139, 5190,
 5155, 5206, 5158, 5209, 5177, 5227, 5172, 5235, 5159, 5210, 5149, 5200, 5153, 5204, 5156, 5207,
 ]
 __charcode_to_pos_1296 = _all_ushort(__charcode_to_pos_1296)
-def _charcode_to_pos_1296(index): return intmask(__charcode_to_pos_1296[index])
+def _charcode_to_pos_1296(index):
+    try:
+        return intmask(__charcode_to_pos_1296[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_1416 = [
 1271, -1, -1, -1, -1, 14419, 9680, 1273,
 ]
 __charcode_to_pos_1416 = _all_short(__charcode_to_pos_1416)
-def _charcode_to_pos_1416(index): return intmask(__charcode_to_pos_1416[index])
+def _charcode_to_pos_1416(index):
+    try:
+        return intmask(__charcode_to_pos_1416[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.08 KiB
 __charcode_to_pos_1536 = [
 1186, 1208, 948, 1209, 1210, 1185, 1267, 1268, 1194, 1269, 1270, 1341, -1, 940, 1265, 1212,
@@ -28298,13 +28334,21 @@ __charcode_to_pos_1536 = [
 991,
 ]
 __charcode_to_pos_1536 = _all_short(__charcode_to_pos_1536)
-def _charcode_to_pos_1536(index): return intmask(__charcode_to_pos_1536[index])
+def _charcode_to_pos_1536(index):
+    try:
+        return intmask(__charcode_to_pos_1536[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_1622 = [
 1236, 1195, 1040, 1266, 1264, 1263, 1262, 1190, 945, 1261,
 ]
 __charcode_to_pos_1622 = _all_ushort(__charcode_to_pos_1622)
-def _charcode_to_pos_1622(index): return intmask(__charcode_to_pos_1622[index])
+def _charcode_to_pos_1622(index):
+    try:
+        return intmask(__charcode_to_pos_1622[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.12 KiB
 __charcode_to_pos_1869 = [
 16297, 16296, 16298, 963, 966, 961, 962, 964, 965, 959, 987, 986, 971, 969, 1010, 1019,
@@ -28313,7 +28357,11 @@ __charcode_to_pos_1869 = [
 1020, 1016, 990,
 ]
 __charcode_to_pos_1869 = _all_ushort(__charcode_to_pos_1869)
-def _charcode_to_pos_1869(index): return intmask(__charcode_to_pos_1869[index])
+def _charcode_to_pos_1869(index):
+    try:
+        return intmask(__charcode_to_pos_1869[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.35 KiB
 __charcode_to_pos_1984 = [
 12560, 12562, 12559, 12558, 12554, 12555, 12557, 12556, 12553, 12561, 12594, 12593, 12595, 12592, 12596, 12579,
@@ -28329,14 +28377,22 @@ __charcode_to_pos_1984 = [
 16286, 16291, 16287, 16289, 16285, 16284, 16288, 16292, 16283, 16282, 16290,
 ]
 __charcode_to_pos_1984 = _all_short(__charcode_to_pos_1984)
-def _charcode_to_pos_1984(index): return intmask(__charcode_to_pos_1984[index])
+def _charcode_to_pos_1984(index):
+    try:
+        return intmask(__charcode_to_pos_1984[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.07 KiB
 __charcode_to_pos_2208 = [
 960, 967, 1025, 1023, 979, 1007, 997, 1000, 1031, 1033, 1014, 1028, 1015, 999, 972, 1022,
 1035, 1021, 1034, 953, 989, -1, 958, 968, 1024, 1009, 1032, 949, 951, 950,
 ]
 __charcode_to_pos_2208 = _all_short(__charcode_to_pos_2208)
-def _charcode_to_pos_2208(index): return intmask(__charcode_to_pos_2208[index])
+def _charcode_to_pos_2208(index):
+    try:
+        return intmask(__charcode_to_pos_2208[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.11 KiB
 __charcode_to_pos_2259 = [
 1232, 1218, 1217, 1230, 1228, 1226, 1231, 1219, 1221, 1220, 1224, 1222, 1223, 1214, 1216, 944,
@@ -28345,93 +28401,153 @@ __charcode_to_pos_2259 = [
 -1, 5303,
 ]
 __charcode_to_pos_2259 = _all_short(__charcode_to_pos_2259)
-def _charcode_to_pos_2259(index): return intmask(__charcode_to_pos_2259[index])
+def _charcode_to_pos_2259(index):
+    try:
+        return intmask(__charcode_to_pos_2259[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_2382 = [
 5323, 5316, -1, -1, -1, -1, -1, 5322, 5321, 5320,
 ]
 __charcode_to_pos_2382 = _all_short(__charcode_to_pos_2382)
-def _charcode_to_pos_2382(index): return intmask(__charcode_to_pos_2382[index])
+def _charcode_to_pos_2382(index):
+    try:
+        return intmask(__charcode_to_pos_2382[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.05 KiB
 __charcode_to_pos_2417 = [
 5315, 5304, 5295, 5294, 5292, 5297, 5296, 5299, 5305, 5302, 5291, 5300, 5290, 5298, 5301, 2273,
 ]
 __charcode_to_pos_2417 = _all_ushort(__charcode_to_pos_2417)
-def _charcode_to_pos_2417(index): return intmask(__charcode_to_pos_2417[index])
+def _charcode_to_pos_2417(index):
+    try:
+        return intmask(__charcode_to_pos_2417[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_2555 = [
 2271, 2268, 2272, 2270, -1, -1, 7749, -1, 7752,
 ]
 __charcode_to_pos_2555 = _all_short(__charcode_to_pos_2555)
-def _charcode_to_pos_2555(index): return intmask(__charcode_to_pos_2555[index])
+def _charcode_to_pos_2555(index):
+    try:
+        return intmask(__charcode_to_pos_2555[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_2809 = [
 7675, 7680, 7679, 7681, 7677, 7678, 7676,
 ]
 __charcode_to_pos_2809 = _all_ushort(__charcode_to_pos_2809)
-def _charcode_to_pos_2809(index): return intmask(__charcode_to_pos_2809[index])
+def _charcode_to_pos_2809(index):
+    try:
+        return intmask(__charcode_to_pos_2809[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_2929 = [
 13518, 13514, 13513, 13515, 13512, 13511, 13516,
 ]
 __charcode_to_pos_2929 = _all_ushort(__charcode_to_pos_2929)
-def _charcode_to_pos_2929(index): return intmask(__charcode_to_pos_2929[index])
+def _charcode_to_pos_2929(index):
+    try:
+        return intmask(__charcode_to_pos_2929[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.05 KiB
 __charcode_to_pos_3059 = [
 16636, 16908, 16906, 16634, 16633, 16907, 16639, 16638, -1, -1, -1, -1, -1, 17692, -1, -1,
 -1, 17691,
 ]
 __charcode_to_pos_3059 = _all_short(__charcode_to_pos_3059)
-def _charcode_to_pos_3059(index): return intmask(__charcode_to_pos_3059[index])
+def _charcode_to_pos_3059(index):
+    try:
+        return intmask(__charcode_to_pos_3059[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_3192 = [
 17685, 17683, 17681, 17679, 17684, 17682, 17680, 17693, 8802, 8805, -1, -1, 8803,
 ]
 __charcode_to_pos_3192 = _all_short(__charcode_to_pos_3192)
-def _charcode_to_pos_3192(index): return intmask(__charcode_to_pos_3192[index])
+def _charcode_to_pos_3192(index):
+    try:
+        return intmask(__charcode_to_pos_3192[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_3386 = [
 10736, 10743, 10740, 10744, -1, -1, -1, -1, -1, -1, 10749,
 ]
 __charcode_to_pos_3386 = _all_short(__charcode_to_pos_3386)
-def _charcode_to_pos_3386(index): return intmask(__charcode_to_pos_3386[index])
+def _charcode_to_pos_3386(index):
+    try:
+        return intmask(__charcode_to_pos_3386[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.06 KiB
 __charcode_to_pos_3406 = [
 10733, 10745, -1, -1, -1, -1, 10731, 10732, 10726, -1, 10715, 10711, 10720, 10713, 10714, 10721,
 10712, 10735, -1, -1, 10747, 10748,
 ]
 __charcode_to_pos_3406 = _all_short(__charcode_to_pos_3406)
-def _charcode_to_pos_3406(index): return intmask(__charcode_to_pos_3406[index])
+def _charcode_to_pos_3406(index):
+    try:
+        return intmask(__charcode_to_pos_3406[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.05 KiB
 __charcode_to_pos_3440 = [
 10739, 10738, 10737, 10719, 10718, 10722, 10717, 10716, 10723, 10746, 10728, 10727, 10729, 10724, 10725, 10730,
 ]
 __charcode_to_pos_3440 = _all_ushort(__charcode_to_pos_3440)
-def _charcode_to_pos_3440(index): return intmask(__charcode_to_pos_3440[index])
+def _charcode_to_pos_3440(index):
+    try:
+        return intmask(__charcode_to_pos_3440[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_3558 = [
 15722, 15724, 15721, 15720, 15716, 15717, 15719, 15718, 15715, 15723,
 ]
 __charcode_to_pos_3558 = _all_ushort(__charcode_to_pos_3558)
-def _charcode_to_pos_3558(index): return intmask(__charcode_to_pos_3558[index])
+def _charcode_to_pos_3558(index):
+    try:
+        return intmask(__charcode_to_pos_3558[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_4046 = [
 17819, -1, 17811, 17812, 17817, 17814, 17813, 14421, 9682, 14422, 9683, 17815, 17816,
 ]
 __charcode_to_pos_4046 = _all_short(__charcode_to_pos_4046)
-def _charcode_to_pos_4046(index): return intmask(__charcode_to_pos_4046[index])
+def _charcode_to_pos_4046(index):
+    try:
+        return intmask(__charcode_to_pos_4046[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_4130 = [
 12147, -1, -1, -1, -1, -1, 12128, -1, -1, 12236,
 ]
 __charcode_to_pos_4130 = _all_short(__charcode_to_pos_4130)
-def _charcode_to_pos_4130(index): return intmask(__charcode_to_pos_4130[index])
+def _charcode_to_pos_4130(index):
+    try:
+        return intmask(__charcode_to_pos_4130[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_4147 = [
 12227, 12228, 12237, -1, -1, -1, -1, 12194, 12097, 12095, 12096, 12094, 12168,
 ]
 __charcode_to_pos_4147 = _all_short(__charcode_to_pos_4147)
-def _charcode_to_pos_4147(index): return intmask(__charcode_to_pos_4147[index])
+def _charcode_to_pos_4147(index):
+    try:
+        return intmask(__charcode_to_pos_4147[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.15 KiB
 __charcode_to_pos_4186 = [
 12127, 12126, 12124, 12125, 12100, 12099, 12098, 12150, 12229, 12210, 12211, 12166, 12165, 12234, 12235, 12187,
@@ -28441,50 +28557,82 @@ __charcode_to_pos_4186 = [
 12175, 12176, 12222, 12223, 12199, 12198,
 ]
 __charcode_to_pos_4186 = _all_ushort(__charcode_to_pos_4186)
-def _charcode_to_pos_4186(index): return intmask(__charcode_to_pos_4186[index])
+def _charcode_to_pos_4186(index):
+    try:
+        return intmask(__charcode_to_pos_4186[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_4295 = [
 7206, -1, -1, -1, -1, -1, 7205,
 ]
 __charcode_to_pos_4295 = _all_short(__charcode_to_pos_4295)
-def _charcode_to_pos_4295(index): return intmask(__charcode_to_pos_4295[index])
+def _charcode_to_pos_4295(index):
+    try:
+        return intmask(__charcode_to_pos_4295[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_4345 = [
 7209, 7208, -1, 11949, 7207, 7211, 7212,
 ]
 __charcode_to_pos_4345 = _all_short(__charcode_to_pos_4345)
-def _charcode_to_pos_4345(index): return intmask(__charcode_to_pos_4345[index])
+def _charcode_to_pos_4345(index):
+    try:
+        return intmask(__charcode_to_pos_4345[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.07 KiB
 __charcode_to_pos_4992 = [
 7022, 7008, 7007, 7006, 7020, 6922, 6921, 6920, 7021, 7019, 7018, 7017, 7023, 7014, 7013, 7012,
 7066, 7057, 7063, 7064, 7059, 7061, 7065, 7060, 7058, 7062,
 ]
 __charcode_to_pos_4992 = _all_ushort(__charcode_to_pos_4992)
-def _charcode_to_pos_4992(index): return intmask(__charcode_to_pos_4992[index])
+def _charcode_to_pos_4992(index):
+    try:
+        return intmask(__charcode_to_pos_4992[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_5109 = [
 3134, -1, -1, 3122, 3123, 3124, 3125, 3126, 3108, -1, -1, 2756,
 ]
 __charcode_to_pos_5109 = _all_short(__charcode_to_pos_5109)
-def _charcode_to_pos_5109(index): return intmask(__charcode_to_pos_5109[index])
+def _charcode_to_pos_5109(index):
+    try:
+        return intmask(__charcode_to_pos_5109[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_5751 = [
 2750, 2746, 2747, 2748, 2749, 2744, 2745, 2751, 2681,
 ]
 __charcode_to_pos_5751 = _all_ushort(__charcode_to_pos_5751)
-def _charcode_to_pos_5751(index): return intmask(__charcode_to_pos_5751[index])
+def _charcode_to_pos_5751(index):
+    try:
+        return intmask(__charcode_to_pos_5751[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_5873 = [
 14556, 14555, 14554, 14553, 14552, 14551, 14550, 14549,
 ]
 __charcode_to_pos_5873 = _all_ushort(__charcode_to_pos_5873)
-def _charcode_to_pos_5873(index): return intmask(__charcode_to_pos_5873[index])
+def _charcode_to_pos_5873(index):
+    try:
+        return intmask(__charcode_to_pos_5873[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_6128 = [
 9014, 9013, 9010, 9012, 9011, 9005, 9008, 9009, 9007, 9006,
 ]
 __charcode_to_pos_6128 = _all_ushort(__charcode_to_pos_6128)
-def _charcode_to_pos_6128(index): return intmask(__charcode_to_pos_6128[index])
+def _charcode_to_pos_6128(index):
+    try:
+        return intmask(__charcode_to_pos_6128[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.16 KiB
 __charcode_to_pos_6314 = [
 11958, -1, -1, -1, -1, -1, 2712, 2680, 2679, 2752, 2732, 2731, 2730, 2740, 2693, 2692,
@@ -28494,7 +28642,11 @@ __charcode_to_pos_6314 = [
 2723, 2722, 2724, 2687, 2684, 2688, 2686, 2725, 2689, 2682, 2683, 2685,
 ]
 __charcode_to_pos_6314 = _all_short(__charcode_to_pos_6314)
-def _charcode_to_pos_6314(index): return intmask(__charcode_to_pos_6314[index])
+def _charcode_to_pos_6314(index):
+    try:
+        return intmask(__charcode_to_pos_6314[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.24 KiB
 __charcode_to_pos_6400 = [
 9893, 9860, 9859, 9840, 9839, 9846, 9854, 9853, 9858, 9857, 9842, 9845, 9843, 9856, 9855, 9847,
@@ -28507,7 +28659,11 @@ __charcode_to_pos_6400 = [
 16314, 16315, 16316, 16317, 16318,
 ]
 __charcode_to_pos_6400 = _all_short(__charcode_to_pos_6400)
-def _charcode_to_pos_6400(index): return intmask(__charcode_to_pos_6400[index])
+def _charcode_to_pos_6400(index):
+    try:
+        return intmask(__charcode_to_pos_6400[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.64 KiB
 __charcode_to_pos_6528 = [
 12383, 12405, 12365, 12367, 12370, 12387, 12389, 12392, 12373, 12369, 12385, 12395, 12391, 12407, 12374, 12372,
@@ -28532,7 +28688,11 @@ __charcode_to_pos_6528 = [
 3471, 3473, 3531, 3472, 3606, 3612, 3610, 3589, 3464, 3573, 3601, 3592, 3467, 3593, 3591,
 ]
 __charcode_to_pos_6528 = _all_short(__charcode_to_pos_6528)
-def _charcode_to_pos_6528(index): return intmask(__charcode_to_pos_6528[index])
+def _charcode_to_pos_6528(index):
+    try:
+        return intmask(__charcode_to_pos_6528[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.49 KiB
 __charcode_to_pos_6912 = [
 1451, 1450, 1453, 1449, 1452, 1364, 1365, 1380, 1381, 1384, 1385, 1402, 1403, 1393, 1394, 1377,
@@ -28553,7 +28713,11 @@ __charcode_to_pos_6912 = [
 2197, 2198, 2237, 2238,
 ]
 __charcode_to_pos_6912 = _all_short(__charcode_to_pos_6912)
-def _charcode_to_pos_6912(index): return intmask(__charcode_to_pos_6912[index])
+def _charcode_to_pos_6912(index):
+    try:
+        return intmask(__charcode_to_pos_6912[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.29 KiB
 __charcode_to_pos_7164 = [
 2242, 2240, 2241, 2239, 9753, 9752, 9751, 9765, 9764, 9770, 9780, 9779, 9783, 9771, 9778, 9777,
@@ -28567,7 +28731,11 @@ __charcode_to_pos_7164 = [
 13092, 13104, 13091, 13090, 5233, 5220, 5226, 5249, 5242, 5246, 5240, 5241, 5224,
 ]
 __charcode_to_pos_7164 = _all_short(__charcode_to_pos_7164)
-def _charcode_to_pos_7164(index): return intmask(__charcode_to_pos_7164[index])
+def _charcode_to_pos_7164(index):
+    try:
+        return intmask(__charcode_to_pos_7164[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.13 KiB
 __charcode_to_pos_7312 = [
 7215, 7246, 7234, 7251, 7217, 7252, 7244, 7227, 7253, 7238, 7225, 7247, 7249, 7254, 7240, 7243,
@@ -28576,7 +28744,11 @@ __charcode_to_pos_7312 = [
 16196, 16194, 16195, 16193, 16192, 16191, 16190, 16189,
 ]
 __charcode_to_pos_7312 = _all_short(__charcode_to_pos_7312)
-def _charcode_to_pos_7312(index): return intmask(__charcode_to_pos_7312[index])
+def _charcode_to_pos_7312(index):
+    try:
+        return intmask(__charcode_to_pos_7312[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.61 KiB
 __charcode_to_pos_7376 = [
 18698, 18711, 18700, 18678, 18692, 18706, 18707, 18708, 18694, 18709, 18696, 18704, 18699, 18697, 18705, 18703,
@@ -28600,38 +28772,62 @@ __charcode_to_pos_7376 = [
 3555, 3566, 3538, 3552, 3554, 3607, 3474, 3475, 3459, 3611, -1, 3457, 3469, 3383, 3568, 3594,
 ]
 __charcode_to_pos_7376 = _all_short(__charcode_to_pos_7376)
-def _charcode_to_pos_7376(index): return intmask(__charcode_to_pos_7376[index])
+def _charcode_to_pos_7376(index):
+    try:
+        return intmask(__charcode_to_pos_7376[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.06 KiB
 __charcode_to_pos_8275 = [
 16232, 8624, 7157, 17788, -1, 7173, 7148, 18039, 7174, 5543, 18009, 18714, -1, -1, -1, -1,
 -1, 8626, -1, 9686, 14425, 7142, 14187,
 ]
 __charcode_to_pos_8275 = _all_short(__charcode_to_pos_8275)
-def _charcode_to_pos_8275(index): return intmask(__charcode_to_pos_8275[index])
+def _charcode_to_pos_8275(index):
+    try:
+        return intmask(__charcode_to_pos_8275[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_8336 = [
 9633, 9634, 9642, 9648, 9632, 9635, 9638, 9639, 9640, 9641, 9643, 9631, 9645,
 ]
 __charcode_to_pos_8336 = _all_ushort(__charcode_to_pos_8336)
-def _charcode_to_pos_8336(index): return intmask(__charcode_to_pos_8336[index])
+def _charcode_to_pos_8336(index):
+    try:
+        return intmask(__charcode_to_pos_8336[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_8370 = [
 7671, 1284, 8440, 2883, 10514, 15968, 17697, 8552, 18018, 12640, 10841, 14516, 9197, 2383,
 ]
 __charcode_to_pos_8370 = _all_ushort(__charcode_to_pos_8370)
-def _charcode_to_pos_8370(index): return intmask(__charcode_to_pos_8370[index])
+def _charcode_to_pos_8370(index):
+    try:
+        return intmask(__charcode_to_pos_8370[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_8524 = [
 13948, 1343, 18028, 16278, 19000, 19002, 19001,
 ]
 __charcode_to_pos_8524 = _all_ushort(__charcode_to_pos_8524)
-def _charcode_to_pos_8524(index): return intmask(__charcode_to_pos_8524[index])
+def _charcode_to_pos_8524(index):
+    try:
+        return intmask(__charcode_to_pos_8524[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_8580 = [
 9541, 14492, 14489, 14490, 14491, 19003, 18025, 18024,
 ]
 __charcode_to_pos_8580 = _all_ushort(__charcode_to_pos_8580)
-def _charcode_to_pos_8580(index): return intmask(__charcode_to_pos_8580[index])
+def _charcode_to_pos_8580(index):
+    try:
+        return intmask(__charcode_to_pos_8580[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.11 KiB
 __charcode_to_pos_9167 = [
 7084, 18716, 11561, 11553, 11560, 11554, 11558, 11559, 11557, 11556, 11555, 5760, 7194, 17984, 2492, 17979,
@@ -28640,7 +28836,11 @@ __charcode_to_pos_9167 = [
 13642,
 ]
 __charcode_to_pos_9167 = _all_ushort(__charcode_to_pos_9167)
-def _charcode_to_pos_9167(index): return intmask(__charcode_to_pos_9167[index])
+def _charcode_to_pos_9167(index):
+    try:
+        return intmask(__charcode_to_pos_9167[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.27 KiB
 __charcode_to_pos_9866 = [
 11971, 11972, 5355, 5358, 5357, 5356, 19120, 2408, 7760, 930, 3817, 16116, 14723, 327, 7156, 7201,
@@ -28654,20 +28854,32 @@ __charcode_to_pos_9866 = [
 14288, 14282,
 ]
 __charcode_to_pos_9866 = _all_short(__charcode_to_pos_9866)
-def _charcode_to_pos_9866(index): return intmask(__charcode_to_pos_9866[index])
+def _charcode_to_pos_9866(index):
+    try:
+        return intmask(__charcode_to_pos_9866[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_10060 = [
 3814, -1, 12347, -1, -1, -1, -1, 2467, 19139, 19119, -1, 7992,
 ]
 __charcode_to_pos_10060 = _all_short(__charcode_to_pos_10060)
-def _charcode_to_pos_10060(index): return intmask(__charcode_to_pos_10060[index])
+def _charcode_to_pos_10060(index):
+    try:
+        return intmask(__charcode_to_pos_10060[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.05 KiB
 __charcode_to_pos_10175 = [
 5544, 17787, 19154, 13949, 13501, 13500, 9669, 14409, 13508, 14347, 16223, 18713, 10997, 10522, 11000, 16083,
 16084,
 ]
 __charcode_to_pos_10175 = _all_ushort(__charcode_to_pos_10175)
-def _charcode_to_pos_10175(index): return intmask(__charcode_to_pos_10175[index])
+def _charcode_to_pos_10175(index):
+    try:
+        return intmask(__charcode_to_pos_10175[index])
+    except IndexError:
+        raise KeyError
 # estimated 1.22 KiB
 __charcode_to_pos_11008 = [
 12630, 12638, 15863, 15871, 9666, 9705, 18103, 5587, 12628, 12636, 15861, 15869, 9664, 18085, 14430, 14431,
@@ -28711,14 +28923,22 @@ __charcode_to_pos_11008 = [
 17871, 17872, 17873, 17857, 17827, 17859, 17874, 17877,
 ]
 __charcode_to_pos_11008 = _all_short(__charcode_to_pos_11008)
-def _charcode_to_pos_11008(index): return intmask(__charcode_to_pos_11008[index])
+def _charcode_to_pos_11008(index):
+    try:
+        return intmask(__charcode_to_pos_11008[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.06 KiB
 __charcode_to_pos_11647 = [
 17881, 7044, 7009, 7045, 7032, 7024, 6930, 7041, 6953, 7011, 7010, 6973, 7055, 6967, 6960, 7043,
 7033, 6952, 7015, 7016, 6968, 6972, 6971, 6970,
 ]
 __charcode_to_pos_11647 = _all_ushort(__charcode_to_pos_11647)
-def _charcode_to_pos_11647(index): return intmask(__charcode_to_pos_11647[index])
+def _charcode_to_pos_11647(index):
+    try:
+        return intmask(__charcode_to_pos_11647[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.36 KiB
 __charcode_to_pos_11680 = [
 7025, 7031, 7029, 7026, 7028, 7027, 7030, -1, 6945, 6951, 6949, 6946, 6948, 6947, 6950, -1,
@@ -28734,7 +28954,11 @@ __charcode_to_pos_11680 = [
 5545, 14356, 5547, 5266, 5548, 8621, 8622, 10527, 10528, 5549, 5538, 18008, 11118, 13822, 14261,
 ]
 __charcode_to_pos_11680 = _all_short(__charcode_to_pos_11680)
-def _charcode_to_pos_11680(index): return intmask(__charcode_to_pos_11680[index])
+def _charcode_to_pos_11680(index):
+    try:
+        return intmask(__charcode_to_pos_11680[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.1 KiB
 __charcode_to_pos_12728 = [
 2485, 2487, 2484, -1, -1, -1, -1, -1, 3323, 3326, 3327, 3325, 3314, 3299, 3305, 3296,
@@ -28742,13 +28966,21 @@ __charcode_to_pos_12728 = [
 3316, 3322, 3320, 3310, 3312, 3324, 3319, 3315, 3307, 3301, 3311, 3330,
 ]
 __charcode_to_pos_12728 = _all_short(__charcode_to_pos_12728)
-def _charcode_to_pos_12728(index): return intmask(__charcode_to_pos_12728[index])
+def _charcode_to_pos_12728(index):
+    try:
+        return intmask(__charcode_to_pos_12728[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_12868 = [
 3160, 3157, 3159, 3158, 3172, 3171, 3170, 3166, 3167, 3169, 3168, 3173, 13857,
 ]
 __charcode_to_pos_12868 = _all_ushort(__charcode_to_pos_12868)
-def _charcode_to_pos_12868(index): return intmask(__charcode_to_pos_12868[index])
+def _charcode_to_pos_12868(index):
+    try:
+        return intmask(__charcode_to_pos_12868[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.14 KiB
 __charcode_to_pos_19904 = [
 8369, 8373, 8334, 8383, 8381, 8329, 8367, 8346, 8363, 8380, 8358, 8364, 8339, 8341, 8352, 8385,
@@ -28757,7 +28989,11 @@ __charcode_to_pos_19904 = [
 8361, 8370, 8366, 8379, 8333, 8376, 8323, 8375, 8377, 8378, 8335, 8384, 8347, 8362, 8322, 8325,
 ]
 __charcode_to_pos_19904 = _all_ushort(__charcode_to_pos_19904)
-def _charcode_to_pos_19904(index): return intmask(__charcode_to_pos_19904[index])
+def _charcode_to_pos_19904(index):
+    try:
+        return intmask(__charcode_to_pos_19904[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.7 KiB
 __charcode_to_pos_42192 = [
 10499, 10494, 10493, 10477, 10475, 10474, 10488, 10492, 10491, 10501, 10486, 10485, 10476, 10473, 10472, 10503,
@@ -28784,7 +29020,11 @@ __charcode_to_pos_42192 = [
 18426, 18428, 18425, 18424, 18420, 18421, 18423, 18422, 18419, 18427, 18289, 18286,
 ]
 __charcode_to_pos_42192 = _all_ushort(__charcode_to_pos_42192)
-def _charcode_to_pos_42192(index): return intmask(__charcode_to_pos_42192[index])
+def _charcode_to_pos_42192(index):
+    try:
+        return intmask(__charcode_to_pos_42192[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.38 KiB
 __charcode_to_pos_42560 = [
 5182, 5255, 5151, 5202, 5129, 5229, 5168, 5219, 5146, 5197, 5170, 5223, 5142, 5193, 5171, 5225,
@@ -28801,7 +29041,11 @@ __charcode_to_pos_42560 = [
 1492, 1491, 2144, 2146, 1494, 1493, 2145, 2147,
 ]
 __charcode_to_pos_42560 = _all_ushort(__charcode_to_pos_42560)
-def _charcode_to_pos_42560(index): return intmask(__charcode_to_pos_42560[index])
+def _charcode_to_pos_42560(index):
+    try:
+        return intmask(__charcode_to_pos_42560[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.38 KiB
 __charcode_to_pos_42752 = [
 11824, 11820, 11821, 11817, 11822, 11818, 11823, 11819, 11834, 11862, 11856, 11844, 11838, 11833, 11861, 11855,
@@ -28818,7 +29062,11 @@ __charcode_to_pos_42752 = [
 9304, 9306, 9251, 9220, 9214, 9400, 9276, 9519, 9318, 9599,
 ]
 __charcode_to_pos_42752 = _all_ushort(__charcode_to_pos_42752)
-def _charcode_to_pos_42752(index): return intmask(__charcode_to_pos_42752[index])
+def _charcode_to_pos_42752(index):
+    try:
+        return intmask(__charcode_to_pos_42752[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.27 KiB
 __charcode_to_pos_42999 = [
 9338, 11798, 11904, 9351, 9336, 9337, 9334, 9335, 9333, 16260, 16262, 16271, 16264, 16261, 16263, 16269,
@@ -28832,7 +29080,11 @@ __charcode_to_pos_42999 = [
 14000,
 ]
 __charcode_to_pos_42999 = _all_short(__charcode_to_pos_42999)
-def _charcode_to_pos_42999(index): return intmask(__charcode_to_pos_42999[index])
+def _charcode_to_pos_42999(index):
+    try:
+        return intmask(__charcode_to_pos_42999[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.15 KiB
 __charcode_to_pos_43136 = [
 14688, 14690, 14639, 14640, 14656, 14657, 14658, 14659, 14653, 14654, 14651, 14652, 14685, 14686, 14641, 14660,
@@ -28842,7 +29094,11 @@ __charcode_to_pos_43136 = [
 14692, 14702, 14703, 14693, 14689, 14687,
 ]
 __charcode_to_pos_43136 = _all_ushort(__charcode_to_pos_43136)
-def _charcode_to_pos_43136(index): return intmask(__charcode_to_pos_43136[index])
+def _charcode_to_pos_43136(index):
+    try:
+        return intmask(__charcode_to_pos_43136[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.28 KiB
 __charcode_to_pos_43214 = [
 14707, 14706, 14715, 14717, 14714, 14713, 14709, 14710, 14712, 14711, 14708, 14716, -1, -1, -1, -1,
@@ -28856,7 +29112,11 @@ __charcode_to_pos_43214 = [
 14329, 14301, 14300, 14303, 14302, 14336,
 ]
 __charcode_to_pos_43214 = _all_short(__charcode_to_pos_43214)
-def _charcode_to_pos_43214(index): return intmask(__charcode_to_pos_43214[index])
+def _charcode_to_pos_43214(index):
+    try:
+        return intmask(__charcode_to_pos_43214[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.44 KiB
 __charcode_to_pos_43359 = [
 14327, 7798, 7797, 7795, 7796, 7781, 7784, 7787, 7782, 7789, 7788, 7783, 7779, 7785, 7786, 7780,
@@ -28875,7 +29135,11 @@ __charcode_to_pos_43359 = [
 3024, 3020, 3021, 3027, 2962, 2960, 2959, 2961,
 ]
 __charcode_to_pos_43359 = _all_short(__charcode_to_pos_43359)
-def _charcode_to_pos_43359(index): return intmask(__charcode_to_pos_43359[index])
+def _charcode_to_pos_43359(index):
+    try:
+        return intmask(__charcode_to_pos_43359[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.27 KiB
 __charcode_to_pos_43584 = [
 2968, 2967, 2964, 2956, 2965, 2972, 2963, 2970, 2973, 2971, 2969, 2966, 2958, 2957, -1, -1,
@@ -28889,21 +29153,33 @@ __charcode_to_pos_43584 = [
 16523, 16524, 16525,
 ]
 __charcode_to_pos_43584 = _all_short(__charcode_to_pos_43584)
-def _charcode_to_pos_43584(index): return intmask(__charcode_to_pos_43584[index])
+def _charcode_to_pos_43584(index):
+    try:
+        return intmask(__charcode_to_pos_43584[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.07 KiB
 __charcode_to_pos_43739 = [
 16519, 16522, 16521, 16520, 16518, 11184, 11185, 11143, 11161, 11172, 11171, 11147, 11146, 11160, 11166, 11167,
 11198, 11200, 11190, 11192, 11191, 11138, 11136, 11137, 11187, 11188, 11202, 11203,
 ]
 __charcode_to_pos_43739 = _all_ushort(__charcode_to_pos_43739)
-def _charcode_to_pos_43739(index): return intmask(__charcode_to_pos_43739[index])
+def _charcode_to_pos_43739(index):
+    try:
+        return intmask(__charcode_to_pos_43739[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.06 KiB
 __charcode_to_pos_43777 = [
 7040, 7038, 7035, 7037, 7036, 7039, -1, -1, 6959, 6957, 6954, 6956, 6955, 6958, -1, -1,
 6966, 6964, 6961, 6963, 6962, 6965,
 ]
 __charcode_to_pos_43777 = _all_short(__charcode_to_pos_43777)
-def _charcode_to_pos_43777(index): return intmask(__charcode_to_pos_43777[index])
+def _charcode_to_pos_43777(index):
+    try:
+        return intmask(__charcode_to_pos_43777[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.15 KiB
 __charcode_to_pos_43808 = [
 6931, 6937, 6935, 6932, 6934, 6933, 6936, -1, 6923, 6929, 6927, 6924, 6926, 6925, 6928, -1,
@@ -28913,7 +29189,11 @@ __charcode_to_pos_43808 = [
 9551, 9469, 9517, 9607, 9466, 7589,
 ]
 __charcode_to_pos_43808 = _all_short(__charcode_to_pos_43808)
-def _charcode_to_pos_43808(index): return intmask(__charcode_to_pos_43808[index])
+def _charcode_to_pos_43808(index):
+    try:
+        return intmask(__charcode_to_pos_43808[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.29 KiB
 __charcode_to_pos_43888 = [
 3128, 3129, 3130, 3131, 3132, 3133, 3091, 3127, 3092, 3093, 3094, 3095, 3096, 3056, 3057, 3058,
@@ -28927,7 +29207,11 @@ __charcode_to_pos_43888 = [
 11211, 11213, 11210, 11209, 11205, 11206, 11208, 11207, 11204, 11212,
 ]
 __charcode_to_pos_43888 = _all_short(__charcode_to_pos_43888)
-def _charcode_to_pos_43888(index): return intmask(__charcode_to_pos_43888[index])
+def _charcode_to_pos_43888(index):
+    try:
+        return intmask(__charcode_to_pos_43888[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.16 KiB
 __charcode_to_pos_55216 = [
 7875, 7878, 7882, 7883, 7881, 7880, 7879, 7884, 7885, 7865, 7864, 7863, 7866, 7867, 7868, 7870,
@@ -28937,7 +29221,11 @@ __charcode_to_pos_55216 = [
 7834, 7836, 7837, 7816, 7815, 7858, 7855, 7802, 7801, 7839, 7817, 7818,
 ]
 __charcode_to_pos_55216 = _all_short(__charcode_to_pos_55216)
-def _charcode_to_pos_55216(index): return intmask(__charcode_to_pos_55216[index])
+def _charcode_to_pos_55216(index):
+    try:
+        return intmask(__charcode_to_pos_55216[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.23 KiB
 __charcode_to_pos_64107 = [
 3186, 3187, 3188, -1, -1, 3189, 3190, 3191, 3192, 3193, 3194, 3195, 3196, 3197, 3198, 3199,
@@ -28949,25 +29237,41 @@ __charcode_to_pos_64107 = [
 3280, 3281, 3282, 3283, 3284, 3285, 3286, 3287, 3288, 3289, 3290, 3291, 3292, 3293, 3294,
 ]
 __charcode_to_pos_64107 = _all_short(__charcode_to_pos_64107)
-def _charcode_to_pos_64107(index): return intmask(__charcode_to_pos_64107[index])
+def _charcode_to_pos_64107(index):
+    try:
+        return intmask(__charcode_to_pos_64107[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.05 KiB
 __charcode_to_pos_64434 = [
 1238, 1239, 1246, 1247, 1242, 1243, 1240, 1241, 1248, 1249, 1237, 1244, 1245, 1252, 1250, 1251,
 ]
 __charcode_to_pos_64434 = _all_ushort(__charcode_to_pos_64434)
-def _charcode_to_pos_64434(index): return intmask(__charcode_to_pos_64434[index])
+def _charcode_to_pos_64434(index):
+    try:
+        return intmask(__charcode_to_pos_64434[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_65040 = [
 14215, 14206, 14207, 14214, 14213, 14216, 14218, 14209, 14212, 14217,
 ]
 __charcode_to_pos_65040 = _all_ushort(__charcode_to_pos_65040)
-def _charcode_to_pos_65040(index): return intmask(__charcode_to_pos_65040[index])
+def _charcode_to_pos_65040(index):
+    try:
+        return intmask(__charcode_to_pos_65040[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_65060 = [
 3577, 3579, 3437, 3574, 3575, 3604, 3605, 3578, 3580, 3438, 3432, 3433,
 ]
 __charcode_to_pos_65060 = _all_ushort(__charcode_to_pos_65060)
-def _charcode_to_pos_65060(index): return intmask(__charcode_to_pos_65060[index])
+def _charcode_to_pos_65060(index):
+    try:
+        return intmask(__charcode_to_pos_65060[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.2 KiB
 __charcode_to_pos_65536 = [
 10381, 10405, 10398, 10431, 10388, 10377, 10409, 10376, 10387, 10417, 10420, 10414, -1, 10404, 10430, 10435,
@@ -28978,7 +29282,11 @@ __charcode_to_pos_65536 = [
 10457, 10458, 10460, 10459, 10448, 10449, 10456, 10450, 10451, 10461, 10452, 10453, 10454, 10455,
 ]
 __charcode_to_pos_65536 = _all_short(__charcode_to_pos_65536)
-def _charcode_to_pos_65536(index): return intmask(__charcode_to_pos_65536[index])
+def _charcode_to_pos_65536(index):
+    try:
+        return intmask(__charcode_to_pos_65536[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.58 KiB
 __charcode_to_pos_65664 = [
 10262, 10263, 10264, 10251, 10253, 10252, 10254, 10255, 10256, 10257, 10259, 10258, 10261, 10260, 10268, 10267,
@@ -29002,7 +29310,11 @@ __charcode_to_pos_65664 = [
 7615,
 ]
 __charcode_to_pos_65664 = _all_short(__charcode_to_pos_65664)
-def _charcode_to_pos_65664(index): return intmask(__charcode_to_pos_65664[index])
+def _charcode_to_pos_65664(index):
+    try:
+        return intmask(__charcode_to_pos_65664[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.11 KiB
 __charcode_to_pos_66000 = [
 14033, 14034, 14045, 14013, 14020, 14047, 14025, 14024, 14046, 14052, 14011, 14038, 14016, 14030, 14031, 14041,
@@ -29010,7 +29322,11 @@ __charcode_to_pos_66000 = [
 14044, 14008, 14035, 14053, 14032, 14036, 14028, 14050, 14049, 14023, 14042, 14043, 14048, 14019,
 ]
 __charcode_to_pos_66000 = _all_ushort(__charcode_to_pos_66000)
-def _charcode_to_pos_66000(index): return intmask(__charcode_to_pos_66000[index])
+def _charcode_to_pos_66000(index):
+    try:
+        return intmask(__charcode_to_pos_66000[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.17 KiB
 __charcode_to_pos_66176 = [
 10547, 10549, 10542, 10543, 10554, 10553, 10556, 10564, 10566, 10545, 10557, 10540, 10560, 10558, 10538, 10551,
@@ -29021,14 +29337,22 @@ __charcode_to_pos_66176 = [
 2796,
 ]
 __charcode_to_pos_66176 = _all_short(__charcode_to_pos_66176)
-def _charcode_to_pos_66176(index): return intmask(__charcode_to_pos_66176[index])
+def _charcode_to_pos_66176(index):
+    try:
+        return intmask(__charcode_to_pos_66176[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.07 KiB
 __charcode_to_pos_66272 = [
 3686, 3713, 3711, 3710, 3706, 3707, 3709, 3708, 3705, 3712, 3703, 3702, 3700, 3692, 3690, 3696,
 3694, 3688, 3698, 3704, 3701, 3699, 3691, 3689, 3695, 3693, 3687, 3697,
 ]
 __charcode_to_pos_66272 = _all_ushort(__charcode_to_pos_66272)
-def _charcode_to_pos_66272(index): return intmask(__charcode_to_pos_66272[index])
+def _charcode_to_pos_66272(index):
+    try:
+        return intmask(__charcode_to_pos_66272[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.28 KiB
 __charcode_to_pos_66384 = [
 13284, 13283, 13279, 13252, 13253, 13277, 13250, 13278, 13251, 13255, 13282, 13261, 13258, 13259, 13268, 13260,
@@ -29042,7 +29366,11 @@ __charcode_to_pos_66384 = [
 13336, 13291, 13288, 13289, 13287, 13290,
 ]
 __charcode_to_pos_66384 = _all_short(__charcode_to_pos_66384)
-def _charcode_to_pos_66384(index): return intmask(__charcode_to_pos_66384[index])
+def _charcode_to_pos_66384(index):
+    try:
+        return intmask(__charcode_to_pos_66384[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.44 KiB
 __charcode_to_pos_66638 = [
 5285, 5284, 14879, 14874, 14860, 14885, 14872, 14871, 14870, 14850, 14877, 14856, 14849, 14882, 14886, 14887,
@@ -29061,7 +29389,11 @@ __charcode_to_pos_66638 = [
 6843, 6873, 6868, 6869, 6874, 6846, 6845, 6848, 6847, 6839,
 ]
 __charcode_to_pos_66638 = _all_short(__charcode_to_pos_66638)
-def _charcode_to_pos_66638(index): return intmask(__charcode_to_pos_66638[index])
+def _charcode_to_pos_66638(index):
+    try:
+        return intmask(__charcode_to_pos_66638[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.12 KiB
 __charcode_to_pos_66864 = [
 2827, 2874, 2844, 2840, 2842, 2869, 2841, 2867, 2864, 2831, 2866, 2868, 2845, 2858, 2853, 2846,
@@ -29070,7 +29402,11 @@ __charcode_to_pos_66864 = [
 2829, 2865, 2854, 2850,
 ]
 __charcode_to_pos_66864 = _all_ushort(__charcode_to_pos_66864)
-def _charcode_to_pos_66864(index): return intmask(__charcode_to_pos_66864[index])
+def _charcode_to_pos_66864(index):
+    try:
+        return intmask(__charcode_to_pos_66864[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.62 KiB
 __charcode_to_pos_67072 = [
 10230, 10231, 10232, 10233, 10234, 10235, 10236, 10237, 10238, 10169, 10170, 10171, 10172, 10173, 10182, 10174,
@@ -29095,20 +29431,32 @@ __charcode_to_pos_67072 = [
 10127, 10128, 10115, 10116, 10117, 10118, 10119,
 ]
 __charcode_to_pos_67072 = _all_ushort(__charcode_to_pos_67072)
-def _charcode_to_pos_67072(index): return intmask(__charcode_to_pos_67072[index])
+def _charcode_to_pos_67072(index):
+    try:
+        return intmask(__charcode_to_pos_67072[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.06 KiB
 __charcode_to_pos_67392 = [
 10148, 10146, 10149, 10147, 10151, 10139, 10140, 10150, 10145, 10141, 10144, 10143, 10142, 10152, 10153, 10157,
 10154, 10155, 10156, 10158, 10160, 10159,
 ]
 __charcode_to_pos_67392 = _all_ushort(__charcode_to_pos_67392)
-def _charcode_to_pos_67392(index): return intmask(__charcode_to_pos_67392[index])
+def _charcode_to_pos_67392(index):
+    try:
+        return intmask(__charcode_to_pos_67392[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_67424 = [
 10161, 10162, 10163, 10164, 10165, 10166, 10167, 10168,
 ]
 __charcode_to_pos_67424 = _all_ushort(__charcode_to_pos_67424)
-def _charcode_to_pos_67424(index): return intmask(__charcode_to_pos_67424[index])
+def _charcode_to_pos_67424(index):
+    try:
+        return intmask(__charcode_to_pos_67424[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.33 KiB
 __charcode_to_pos_67584 = [
 5124, 5125, 5126, 5127, 5128, 5118, -1, -1, 5119, -1, 5078, 5079, 5080, 5081, 5082, 5083,
@@ -29123,13 +29471,21 @@ __charcode_to_pos_67584 = [
 12243, 12254, 12248, 12270, 12249, 12271, 12264, 12258, 12272, 12263, 12255, 12256, 12244, 12265, 12252,
 ]
 __charcode_to_pos_67584 = _all_short(__charcode_to_pos_67584)
-def _charcode_to_pos_67584(index): return intmask(__charcode_to_pos_67584[index])
+def _charcode_to_pos_67584(index):
+    try:
+        return intmask(__charcode_to_pos_67584[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_67751 = [
 12277, 12274, 12275, 12279, 12281, 12280, 12276, 12273, 12278,
 ]
 __charcode_to_pos_67751 = _all_ushort(__charcode_to_pos_67751)
-def _charcode_to_pos_67751(index): return intmask(__charcode_to_pos_67751[index])
+def _charcode_to_pos_67751(index):
+    try:
+        return intmask(__charcode_to_pos_67751[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.2 KiB
 __charcode_to_pos_67808 = [
 7940, 7956, 7948, 7947, 7949, 7954, 7942, 7950, 7943, 7955, 7957, 7945, 7958, 7959, 7952, 7941,
@@ -29140,7 +29496,11 @@ __charcode_to_pos_67808 = [
 10590, 10582, 10588, 10577, 10568, 10572, 10574, 10570, 10576, 10580, -1, -1, -1, -1, -1, 10593,
 ]
 __charcode_to_pos_67808 = _all_short(__charcode_to_pos_67808)
-def _charcode_to_pos_67808(index): return intmask(__charcode_to_pos_67808[index])
+def _charcode_to_pos_67808(index):
+    try:
+        return intmask(__charcode_to_pos_67808[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.41 KiB
 __charcode_to_pos_67968 = [
 11545, 11546, 11547, 11548, 11544, 11543, 11519, 11520, 11541, 11540, 11523, 11524, 11525, 11526, 11521, 11522,
@@ -29158,13 +29518,21 @@ __charcode_to_pos_67968 = [
 8890, 8889, 8888, 8887, 8931, 8930, 8929, 8928, 8954,
 ]
 __charcode_to_pos_67968 = _all_short(__charcode_to_pos_67968)
-def _charcode_to_pos_67968(index): return intmask(__charcode_to_pos_67968[index])
+def _charcode_to_pos_67968(index):
+    try:
+        return intmask(__charcode_to_pos_67968[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_68176 = [
 8935, 8940, 8933, 8932, 8939, 8937, 8936, 8934, 8938,
 ]
 __charcode_to_pos_68176 = _all_ushort(__charcode_to_pos_68176)
-def _charcode_to_pos_68176(index): return intmask(__charcode_to_pos_68176[index])
+def _charcode_to_pos_68176(index):
+    try:
+        return intmask(__charcode_to_pos_68176[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.14 KiB
 __charcode_to_pos_68192 = [
 13399, 13396, 13400, 13404, 13397, 13401, 13390, 13398, 13403, 13394, 13389, 13386, 13405, 13385, 13387, 13388,
@@ -29173,7 +29541,11 @@ __charcode_to_pos_68192 = [
 13239, 13217, 13218, 13219, 13221, 13220, 13222, 13229, 13231, 13228, 13241, 13227, 13232, 13248, 13247, 13246,
 ]
 __charcode_to_pos_68192 = _all_ushort(__charcode_to_pos_68192)
-def _charcode_to_pos_68192(index): return intmask(__charcode_to_pos_68192[index])
+def _charcode_to_pos_68192(index):
+    try:
+        return intmask(__charcode_to_pos_68192[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.12 KiB
 __charcode_to_pos_68288 = [
 10789, 10793, 10792, 10797, 10796, 10794, 10817, 10819, 10837, 10801, 10800, 10799, 10798, 10818, 10811, 10820,
@@ -29182,7 +29554,11 @@ __charcode_to_pos_68288 = [
 10836, 10835, 10832, 10831, 10830, 10833, 10834,
 ]
 __charcode_to_pos_68288 = _all_short(__charcode_to_pos_68288)
-def _charcode_to_pos_68288(index): return intmask(__charcode_to_pos_68288[index])
+def _charcode_to_pos_68288(index):
+    try:
+        return intmask(__charcode_to_pos_68288[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.3 KiB
 __charcode_to_pos_68352 = [
 1285, 1286, 1292, 1288, 1291, 1287, 1289, 1290, 1328, 1329, 1326, 1327, 1322, 1323, 1324, 1325,
@@ -29197,13 +29573,21 @@ __charcode_to_pos_68352 = [
 14245, 14246,
 ]
 __charcode_to_pos_68352 = _all_short(__charcode_to_pos_68352)
-def _charcode_to_pos_68352(index): return intmask(__charcode_to_pos_68352[index])
+def _charcode_to_pos_68352(index):
+    try:
+        return intmask(__charcode_to_pos_68352[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.03 KiB
 __charcode_to_pos_68521 = [
 14256, 14253, 14254, 14258, 14255, 14252, 14257,
 ]
 __charcode_to_pos_68521 = _all_ushort(__charcode_to_pos_68521)
-def _charcode_to_pos_68521(index): return intmask(__charcode_to_pos_68521[index])
+def _charcode_to_pos_68521(index):
+    try:
+        return intmask(__charcode_to_pos_68521[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.16 KiB
 __charcode_to_pos_68608 = [
 13410, 13452, 13453, 13442, 13478, 13471, 13445, 13446, 13480, 13423, 13463, 13411, 13456, 13425, 13465, 13413,
@@ -29213,7 +29597,11 @@ __charcode_to_pos_68608 = [
 13461, 13436, 13475, 13430, 13469, 13419, 13459, 13450, 13451,
 ]
 __charcode_to_pos_68608 = _all_ushort(__charcode_to_pos_68608)
-def _charcode_to_pos_68608(index): return intmask(__charcode_to_pos_68608[index])
+def _charcode_to_pos_68608(index):
+    try:
+        return intmask(__charcode_to_pos_68608[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.12 KiB
 __charcode_to_pos_68736 = [
 13105, 13108, 13132, 13106, 13121, 13117, 13123, 13133, 13107, 13111, 13110, 13134, 13135, 13124, 13125, 13136,
@@ -29222,7 +29610,11 @@ __charcode_to_pos_68736 = [
 13131, 13116, 13151,
 ]
 __charcode_to_pos_68736 = _all_ushort(__charcode_to_pos_68736)
-def _charcode_to_pos_68736(index): return intmask(__charcode_to_pos_68736[index])
+def _charcode_to_pos_68736(index):
+    try:
+        return intmask(__charcode_to_pos_68736[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.12 KiB
 __charcode_to_pos_68800 = [
 13156, 13159, 13183, 13157, 13172, 13168, 13174, 13184, 13158, 13162, 13161, 13185, 13186, 13175, 13176, 13187,
@@ -29231,7 +29623,11 @@ __charcode_to_pos_68800 = [
 13182, 13167, 13202,
 ]
 __charcode_to_pos_68800 = _all_ushort(__charcode_to_pos_68800)
-def _charcode_to_pos_68800(index): return intmask(__charcode_to_pos_68800[index])
+def _charcode_to_pos_68800(index):
+    try:
+        return intmask(__charcode_to_pos_68800[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.11 KiB
 __charcode_to_pos_68858 = [
 13209, 13208, 13212, 13207, 13211, 13210, 7916, 7903, 7911, 7895, 7894, 7908, 7904, 7907, 7892, 7905,
@@ -29239,20 +29635,32 @@ __charcode_to_pos_68858 = [
 7896, 7897, 7912, 7923, 7925, 7927, 7924, 7926, 7918, 7917, 7922, 7919, 7921, 7920,
 ]
 __charcode_to_pos_68858 = _all_ushort(__charcode_to_pos_68858)
-def _charcode_to_pos_68858(index): return intmask(__charcode_to_pos_68858[index])
+def _charcode_to_pos_68858(index):
+    try:
+        return intmask(__charcode_to_pos_68858[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_68912 = [
 7935, 7937, 7934, 7933, 7929, 7930, 7932, 7931, 7928, 7936,
 ]
 __charcode_to_pos_68912 = _all_ushort(__charcode_to_pos_68912)
-def _charcode_to_pos_68912(index): return intmask(__charcode_to_pos_68912[index])
+def _charcode_to_pos_68912(index):
+    try:
+        return intmask(__charcode_to_pos_68912[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.08 KiB
 __charcode_to_pos_69216 = [
 14548, 14546, 14545, 14541, 14542, 14544, 14543, 14540, 14547, 14538, 14537, 14535, 14527, 14525, 14531, 14529,
 14523, 14533, 14539, 14536, 14534, 14526, 14524, 14530, 14528, 14522, 14532, 14518, 14519, 14520, 14521,
 ]
 __charcode_to_pos_69216 = _all_ushort(__charcode_to_pos_69216)
-def _charcode_to_pos_69216(index): return intmask(__charcode_to_pos_69216[index])
+def _charcode_to_pos_69216(index):
+    try:
+        return intmask(__charcode_to_pos_69216[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.09 KiB
 __charcode_to_pos_69376 = [
 13340, 13348, 13363, 13349, 13353, 13354, 13350, 13361, 13356, 13355, 13362, 13364, 13352, 13365, 13366, 13342,
@@ -29260,7 +29668,11 @@ __charcode_to_pos_69376 = [
 13376, 13377, 13373, 13371, 13370, 13375, 13338, 13368,
 ]
 __charcode_to_pos_69376 = _all_ushort(__charcode_to_pos_69376)
-def _charcode_to_pos_69376(index): return intmask(__charcode_to_pos_69376[index])
+def _charcode_to_pos_69376(index):
+    try:
+        return intmask(__charcode_to_pos_69376[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.1 KiB
 __charcode_to_pos_69424 = [
 15788, 15803, 15790, 15791, 15801, 15796, 15792, 15802, 15805, 15793, 15806, 15807, 15798, 15789, 15808, 15797,
@@ -29268,7 +29680,11 @@ __charcode_to_pos_69424 = [
 15779, 15809, 15812, 15811, 15810, 15815, 15816, 15813, 15817, 15814,
 ]
 __charcode_to_pos_69424 = _all_ushort(__charcode_to_pos_69424)
-def _charcode_to_pos_69424(index): return intmask(__charcode_to_pos_69424[index])
+def _charcode_to_pos_69424(index):
+    try:
+        return intmask(__charcode_to_pos_69424[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.23 KiB
 __charcode_to_pos_69632 = [
 2586, 2590, 2588, 2587, 2589, 2515, 2516, 2532, 2533, 2534, 2535, 2529, 2530, 2527, 2528, 2559,
@@ -29280,7 +29696,11 @@ __charcode_to_pos_69632 = [
 2571, 2569, 2561, 2567, 2574, 2573, 2615, 2617, 2614, 2613, 2609, 2610, 2612, 2611, 2608, 2616,
 ]
 __charcode_to_pos_69632 = _all_short(__charcode_to_pos_69632)
-def _charcode_to_pos_69632(index): return intmask(__charcode_to_pos_69632[index])
+def _charcode_to_pos_69632(index):
+    try:
+        return intmask(__charcode_to_pos_69632[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.15 KiB
 __charcode_to_pos_69759 = [
 2580, 8780, 8782, 8784, 8740, 8741, 8748, 8749, 8750, 8751, 8778, 8742, 8779, 8743, 8768, 8767,
@@ -29290,14 +29710,22 @@ __charcode_to_pos_69759 = [
 8786, 8788, 8787,
 ]
 __charcode_to_pos_69759 = _all_ushort(__charcode_to_pos_69759)
-def _charcode_to_pos_69759(index): return intmask(__charcode_to_pos_69759[index])
+def _charcode_to_pos_69759(index):
+    try:
+        return intmask(__charcode_to_pos_69759[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.07 KiB
 __charcode_to_pos_69837 = [
 8790, -1, -1, 15838, 15839, 15828, 15829, 15830, 15831, 15824, 15825, 15835, 15827, 15840, 15836, 15841,
 15837, 15832, 15834, 15833, 15826, 15842, 15821, 15843, 15845, 15844, 15822, 15823,
 ]
 __charcode_to_pos_69837 = _all_short(__charcode_to_pos_69837)
-def _charcode_to_pos_69837(index): return intmask(__charcode_to_pos_69837[index])
+def _charcode_to_pos_69837(index):
+    try:
+        return intmask(__charcode_to_pos_69837[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.19 KiB
 __charcode_to_pos_69872 = [
 15853, 15855, 15852, 15851, 15847, 15848, 15850, 15849, 15846, 15854, -1, -1, -1, -1, -1, -1,
@@ -29308,7 +29736,11 @@ __charcode_to_pos_69872 = [
 2926, 2941, 2940, 2952, 2908, 2928, 2932,
 ]
 __charcode_to_pos_69872 = _all_short(__charcode_to_pos_69872)
-def _charcode_to_pos_69872(index): return intmask(__charcode_to_pos_69872[index])
+def _charcode_to_pos_69872(index):
+    try:
+        return intmask(__charcode_to_pos_69872[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.09 KiB
 __charcode_to_pos_69968 = [
 10633, 10635, 10637, 10634, 10636, 10625, 10624, 10621, 10620, 10619, 10618, 10623, 10622, 10604, 10613, 10612,
@@ -29316,7 +29748,11 @@ __charcode_to_pos_69968 = [
 10631, 10628, 10606, 10640, 10641, 10639, 10638,
 ]
 __charcode_to_pos_69968 = _all_ushort(__charcode_to_pos_69968)
-def _charcode_to_pos_69968(index): return intmask(__charcode_to_pos_69968[index])
+def _charcode_to_pos_69968(index):
+    try:
+        return intmask(__charcode_to_pos_69968[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.24 KiB
 __charcode_to_pos_70016 = [
 14816, 14815, 14821, 14763, 14764, 14780, 14781, 14782, 14783, 14777, 14778, 14775, 14776, 14807, 14765, 14808,
@@ -29329,7 +29765,11 @@ __charcode_to_pos_70016 = [
 15707, 15703, 15706, 15702, 15701,
 ]
 __charcode_to_pos_70016 = _all_short(__charcode_to_pos_70016)
-def _charcode_to_pos_70016(index): return intmask(__charcode_to_pos_70016[index])
+def _charcode_to_pos_70016(index):
+    try:
+        return intmask(__charcode_to_pos_70016[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.14 KiB
 __charcode_to_pos_70144 = [
 9057, 9058, 9082, 9084, 9081, 9059, 9083, 9060, 9072, 9071, 9047, 9045, 9046, 9065, 9070, 9069,
@@ -29338,7 +29778,11 @@ __charcode_to_pos_70144 = [
 9096, 9092, 9097, 9093, 9089, 9087, 9088, 9085, 9041, 9040, 9099, 9090, 9039, 9100, 9086,
 ]
 __charcode_to_pos_70144 = _all_short(__charcode_to_pos_70144)
-def _charcode_to_pos_70144(index): return intmask(__charcode_to_pos_70144[index])
+def _charcode_to_pos_70144(index):
+    try:
+        return intmask(__charcode_to_pos_70144[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.49 KiB
 __charcode_to_pos_70272 = [
 12071, 12073, 12074, 12072, 12062, 12061, 12060, -1, 12059, -1, 12058, 12057, 12050, 12049, -1, 12047,
@@ -29359,7 +29803,11 @@ __charcode_to_pos_70272 = [
 3525, 3521, 3522, 3524, 3523,
 ]
 __charcode_to_pos_70272 = _all_short(__charcode_to_pos_70272)
-def _charcode_to_pos_70272(index): return intmask(__charcode_to_pos_70272[index])
+def _charcode_to_pos_70272(index):
+    try:
+        return intmask(__charcode_to_pos_70272[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.2 KiB
 __charcode_to_pos_70656 = [
 12449, 12450, 12461, 12462, 12463, 12464, 12467, 12468, 12465, 12466, 12493, 12451, 12494, 12452, 12481, 12480,
@@ -29370,7 +29818,11 @@ __charcode_to_pos_70656 = [
 12528, 12530, 12527, 12526, 12522, 12523, 12525, 12524, 12521, 12529, -1, 12517, -1, 12531, 12503,
 ]
 __charcode_to_pos_70656 = _all_short(__charcode_to_pos_70656)
-def _charcode_to_pos_70656(index): return intmask(__charcode_to_pos_70656[index])
+def _charcode_to_pos_70656(index):
+    try:
+        return intmask(__charcode_to_pos_70656[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.16 KiB
 __charcode_to_pos_70784 = [
 17891, 17892, 17893, 17909, 17910, 17911, 17912, 17906, 17907, 17904, 17905, 17937, 17894, 17938, 17895, 17929,
@@ -29380,13 +29832,21 @@ __charcode_to_pos_70784 = [
 17940, 17944, 17943, 17942, 17939, 17960, 17890, 17971,
 ]
 __charcode_to_pos_70784 = _all_ushort(__charcode_to_pos_70784)
-def _charcode_to_pos_70784(index): return intmask(__charcode_to_pos_70784[index])
+def _charcode_to_pos_70784(index):
+    try:
+        return intmask(__charcode_to_pos_70784[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_70864 = [
 17968, 17970, 17967, 17966, 17962, 17963, 17965, 17964, 17961, 17969,
 ]
 __charcode_to_pos_70864 = _all_ushort(__charcode_to_pos_70864)
-def _charcode_to_pos_70864(index): return intmask(__charcode_to_pos_70864[index])
+def _charcode_to_pos_70864(index):
+    try:
+        return intmask(__charcode_to_pos_70864[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.2 KiB
 __charcode_to_pos_71040 = [
 14915, 14917, 14936, 14937, 14938, 14939, 14933, 14934, 14931, 14932, 14964, 14918, 14965, 14919, 14956, 14955,
@@ -29397,7 +29857,11 @@ __charcode_to_pos_71040 = [
 14970, 14979, 14982, 14974, 14975, 14973, 14972, 14971, 14920, 14922, 14923, 14916, 14991, 14992,
 ]
 __charcode_to_pos_71040 = _all_short(__charcode_to_pos_71040)
-def _charcode_to_pos_71040(index): return intmask(__charcode_to_pos_71040[index])
+def _charcode_to_pos_71040(index):
+    try:
+        return intmask(__charcode_to_pos_71040[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.15 KiB
 __charcode_to_pos_71168 = [
 11745, 11746, 11762, 11763, 11764, 11765, 11759, 11760, 11757, 11758, 11789, 11747, 11790, 11748, 11782, 11781,
@@ -29407,14 +29871,22 @@ __charcode_to_pos_71168 = [
 11712, 11732, 11731, 11730, 11714,
 ]
 __charcode_to_pos_71168 = _all_ushort(__charcode_to_pos_71168)
-def _charcode_to_pos_71168(index): return intmask(__charcode_to_pos_71168[index])
+def _charcode_to_pos_71168(index):
+    try:
+        return intmask(__charcode_to_pos_71168[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.07 KiB
 __charcode_to_pos_71248 = [
 11740, 11742, 11739, 11738, 11734, 11735, 11737, 11736, 11733, 11741, -1, -1, -1, -1, -1, -1,
 11966, 11959, 11969, 11967, 11965, 11961, 11960, 11955, 11956, 11962, 11964, 11963, 11968,
 ]
 __charcode_to_pos_71248 = _all_short(__charcode_to_pos_71248)
-def _charcode_to_pos_71248(index): return intmask(__charcode_to_pos_71248[index])
+def _charcode_to_pos_71248(index):
+    try:
+        return intmask(__charcode_to_pos_71248[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.13 KiB
 __charcode_to_pos_71296 = [
 16542, 16543, 16554, 16555, 16556, 16557, 16581, 16544, 16582, 16545, 16571, 16570, 16567, 16566, 16558, 16565,
@@ -29423,13 +29895,21 @@ __charcode_to_pos_71296 = [
 16592, 16593, 16594, 16588, 16595, 16589, 16585, 16583,
 ]
 __charcode_to_pos_71296 = _all_ushort(__charcode_to_pos_71296)
-def _charcode_to_pos_71296(index): return intmask(__charcode_to_pos_71296[index])
+def _charcode_to_pos_71296(index):
+    try:
+        return intmask(__charcode_to_pos_71296[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_71360 = [
 16603, 16605, 16602, 16601, 16597, 16598, 16600, 16599, 16596, 16604,
 ]
 __charcode_to_pos_71360 = _all_ushort(__charcode_to_pos_71360)
-def _charcode_to_pos_71360(index): return intmask(__charcode_to_pos_71360[index])
+def _charcode_to_pos_71360(index):
+    try:
+        return intmask(__charcode_to_pos_71360[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.14 KiB
 __charcode_to_pos_71424 = [
 171, 170, 158, 160, 175, 157, 173, 172, 163, 178, 169, 161, 174, 179, 177, 180,
@@ -29438,7 +29918,11 @@ __charcode_to_pos_71424 = [
 206, 208, 205, 204, 200, 201, 203, 202, 199, 207, 198, 197, 181, 182, 184, 185,
 ]
 __charcode_to_pos_71424 = _all_short(__charcode_to_pos_71424)
-def _charcode_to_pos_71424(index): return intmask(__charcode_to_pos_71424[index])
+def _charcode_to_pos_71424(index):
+    try:
+        return intmask(__charcode_to_pos_71424[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.13 KiB
 __charcode_to_pos_71680 = [
 5379, 5380, 5391, 5392, 5393, 5394, 5419, 5381, 5420, 5382, 5411, 5410, 5407, 5406, 5395, 5405,
@@ -29447,7 +29931,11 @@ __charcode_to_pos_71680 = [
 5429, 5421, 5422, 5430, 5424, 5431, 5425, 5434, 5436, 5435, 5433, 5432,
 ]
 __charcode_to_pos_71680 = _all_ushort(__charcode_to_pos_71680)
-def _charcode_to_pos_71680(index): return intmask(__charcode_to_pos_71680[index])
+def _charcode_to_pos_71680(index):
+    try:
+        return intmask(__charcode_to_pos_71680[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.18 KiB
 __charcode_to_pos_71840 = [
 19020, 19008, 19039, 19031, 19033, 19034, 19038, 19030, 19012, 19022, 19009, 19037, 19035, 19014, 19032, 19029,
@@ -29458,7 +29946,11 @@ __charcode_to_pos_71840 = [
 19086, 19082, 19085,
 ]
 __charcode_to_pos_71840 = _all_ushort(__charcode_to_pos_71840)
-def _charcode_to_pos_71840(index): return intmask(__charcode_to_pos_71840[index])
+def _charcode_to_pos_71840(index):
+    try:
+        return intmask(__charcode_to_pos_71840[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.16 KiB
 __charcode_to_pos_72192 = [
 19288, 19309, 19306, 19305, 19308, 19304, 19303, 19301, 19302, 19307, 19300, 19256, 19255, 19275, 19274, 19257,
@@ -29468,7 +29960,11 @@ __charcode_to_pos_72192 = [
 19239, 19292, 19290, 19289, 19291, 19245, 19238, 19299,
 ]
 __charcode_to_pos_72192 = _all_ushort(__charcode_to_pos_72192)
-def _charcode_to_pos_72192(index): return intmask(__charcode_to_pos_72192[index])
+def _charcode_to_pos_72192(index):
+    try:
+        return intmask(__charcode_to_pos_72192[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.18 KiB
 __charcode_to_pos_72272 = [
 15932, 15951, 15949, 15948, 15950, 15946, 15947, 15944, 15945, 15943, 15942, 15952, 15899, 15898, 15918, 15917,
@@ -29479,7 +29975,11 @@ __charcode_to_pos_72272 = [
 15889, 15940, 15941,
 ]
 __charcode_to_pos_72272 = _all_short(__charcode_to_pos_72272)
-def _charcode_to_pos_72272(index): return intmask(__charcode_to_pos_72272[index])
+def _charcode_to_pos_72272(index):
+    try:
+        return intmask(__charcode_to_pos_72272[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.13 KiB
 __charcode_to_pos_72384 = [
 13886, 13884, 13893, 13894, 13890, 13898, 13897, 13875, 13892, 13891, 13883, 13896, 13889, 13882, 13888, 13887,
@@ -29488,7 +29988,11 @@ __charcode_to_pos_72384 = [
 13864, 13911, 13912, 13903, 13902, 13862, 13904, 13905, 13863,
 ]
 __charcode_to_pos_72384 = _all_ushort(__charcode_to_pos_72384)
-def _charcode_to_pos_72384(index): return intmask(__charcode_to_pos_72384[index])
+def _charcode_to_pos_72384(index):
+    try:
+        return intmask(__charcode_to_pos_72384[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.15 KiB
 __charcode_to_pos_72704 = [
 2283, 2284, 2295, 2296, 2297, 2298, 2279, 2280, 2281, -1, 2323, 2285, 2324, 2286, 2315, 2314,
@@ -29498,7 +30002,11 @@ __charcode_to_pos_72704 = [
 2343, 2362, 2361, 2360, 2373, 2374,
 ]
 __charcode_to_pos_72704 = _all_short(__charcode_to_pos_72704)
-def _charcode_to_pos_72704(index): return intmask(__charcode_to_pos_72704[index])
+def _charcode_to_pos_72704(index):
+    try:
+        return intmask(__charcode_to_pos_72704[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.22 KiB
 __charcode_to_pos_72784 = [
 2370, 2372, 2369, 2368, 2364, 2365, 2367, 2366, 2363, 2371, 2342, 2340, 2337, 2328, 2330, 2335,
@@ -29510,7 +30018,11 @@ __charcode_to_pos_72784 = [
 10907, 10909, 10911, 10908, 10910, 10877, 10876,
 ]
 __charcode_to_pos_72784 = _all_short(__charcode_to_pos_72784)
-def _charcode_to_pos_72784(index): return intmask(__charcode_to_pos_72784[index])
+def _charcode_to_pos_72784(index):
+    try:
+        return intmask(__charcode_to_pos_72784[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.16 KiB
 __charcode_to_pos_72960 = [
 10926, 10927, 10934, 10935, 10936, 10937, 10961, -1, 10928, 10962, -1, 10929, 10940, 10939, 10953, 10952,
@@ -29520,7 +30032,11 @@ __charcode_to_pos_72960 = [
 10969, 10968, 10967, 10965, 10966, 10980, 10964, 10963,
 ]
 __charcode_to_pos_72960 = _all_short(__charcode_to_pos_72960)
-def _charcode_to_pos_72960(index): return intmask(__charcode_to_pos_72960[index])
+def _charcode_to_pos_72960(index):
+    try:
+        return intmask(__charcode_to_pos_72960[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.16 KiB
 __charcode_to_pos_73040 = [
 10988, 10990, 10987, 10986, 10982, 10983, 10985, 10984, 10981, 10989, -1, -1, -1, -1, -1, -1,
@@ -29530,20 +30046,32 @@ __charcode_to_pos_73040 = [
 7734, 7727, -1, 7733, 7728, 7737, 7736, 7735, 7748,
 ]
 __charcode_to_pos_73040 = _all_short(__charcode_to_pos_73040)
-def _charcode_to_pos_73040(index): return intmask(__charcode_to_pos_73040[index])
+def _charcode_to_pos_73040(index):
+    try:
+        return intmask(__charcode_to_pos_73040[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_73120 = [
 7745, 7747, 7744, 7743, 7739, 7740, 7742, 7741, 7738, 7746,
 ]
 __charcode_to_pos_73120 = _all_ushort(__charcode_to_pos_73120)
-def _charcode_to_pos_73120(index): return intmask(__charcode_to_pos_73120[index])
+def _charcode_to_pos_73120(index):
+    try:
+        return intmask(__charcode_to_pos_73120[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.06 KiB
 __charcode_to_pos_73440 = [
 10695, 10693, 10687, 10698, 10690, 10697, 10701, 10692, 10689, 10691, 10694, 10688, 10703, 10699, 10696, 10702,
 10700, 10704, 10710, 10707, 10709, 10706, 10708, 10705, 10686,
 ]
 __charcode_to_pos_73440 = _all_ushort(__charcode_to_pos_73440)
-def _charcode_to_pos_73440(index): return intmask(__charcode_to_pos_73440[index])
+def _charcode_to_pos_73440(index):
+    try:
+        return intmask(__charcode_to_pos_73440[index])
+    except IndexError:
+        raise KeyError
 # estimated 1.82 KiB
 __charcode_to_pos_73728 = [
 3942, 3950, 3948, 3944, 3949, 3946, 3943, 3945, 3947, 4011, 3951, 3960, 3959, 3953, 3952, 3964,
@@ -29606,7 +30134,11 @@ __charcode_to_pos_73728 = [
 4756, 4754, 4733, 4762, 4793, 4810, 4822, 4940, 4973, 4956,
 ]
 __charcode_to_pos_73728 = _all_ushort(__charcode_to_pos_73728)
-def _charcode_to_pos_73728(index): return intmask(__charcode_to_pos_73728[index])
+def _charcode_to_pos_73728(index):
+    try:
+        return intmask(__charcode_to_pos_73728[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.24 KiB
 __charcode_to_pos_74752 = [
 3926, 3921, 3858, 3844, 3905, 3901, 3833, 3878, 3925, 3866, 3850, 3911, 3900, 3832, 3877, 3864,
@@ -29619,7 +30151,11 @@ __charcode_to_pos_74752 = [
 3941, 3940, 3939, 3937, 3938,
 ]
 __charcode_to_pos_74752 = _all_short(__charcode_to_pos_74752)
-def _charcode_to_pos_74752(index): return intmask(__charcode_to_pos_74752[index])
+def _charcode_to_pos_74752(index):
+    try:
+        return intmask(__charcode_to_pos_74752[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.4 KiB
 __charcode_to_pos_74880 = [
 3962, 3956, 3974, 4014, 4016, 4018, 4017, 4030, 4069, 4064, 4074, 4073, 4077, 4094, 4092, 4093,
@@ -29637,7 +30173,11 @@ __charcode_to_pos_74880 = [
 5010, 5045, 5055, 5057,
 ]
 __charcode_to_pos_74880 = _all_ushort(__charcode_to_pos_74880)
-def _charcode_to_pos_74880(index): return intmask(__charcode_to_pos_74880[index])
+def _charcode_to_pos_74880(index):
+    try:
+        return intmask(__charcode_to_pos_74880[index])
+    except IndexError:
+        raise KeyError
 # estimated 2.11 KiB
 __charcode_to_pos_77824 = [
 5768, 5769, 5770, 5771, 5766, 5767, 5763, 5764, 5765, 5772, 5773, 5774, 5779, 5780, 5781, 5782,
@@ -29709,7 +30249,11 @@ __charcode_to_pos_77824 = [
 5865, 5866, 5867, 5868, 5869, 5870, 5871, 5872, 5873, 5874, 5875, 5876, 5854, 5855, 5856,
 ]
 __charcode_to_pos_77824 = _all_ushort(__charcode_to_pos_77824)
-def _charcode_to_pos_77824(index): return intmask(__charcode_to_pos_77824[index])
+def _charcode_to_pos_77824(index):
+    try:
+        return intmask(__charcode_to_pos_77824[index])
+    except IndexError:
+        raise KeyError
 # estimated 1.15 KiB
 __charcode_to_pos_82944 = [
 408, 409, 410, 411, 412, 413, 414, 415, 416, 397, 398, 399, 400, 401, 402, 403,
@@ -29751,7 +30295,11 @@ __charcode_to_pos_82944 = [
 913, 914, 915, 916, 917, 918, 889,
 ]
 __charcode_to_pos_82944 = _all_ushort(__charcode_to_pos_82944)
-def _charcode_to_pos_82944(index): return intmask(__charcode_to_pos_82944[index])
+def _charcode_to_pos_82944(index):
+    try:
+        return intmask(__charcode_to_pos_82944[index])
+    except IndexError:
+        raise KeyError
 # estimated 1.13 KiB
 __charcode_to_pos_92160 = [
 1574, 1541, 1599, 1600, 1570, 1607, 1618, 1589, 1606, 1601, 1602, 1554, 1619, 1576, 1555, 1560,
@@ -29792,7 +30340,11 @@ __charcode_to_pos_92160 = [
 2065, 2086, 2068, 2069, 2066, 2099, 2057, 2094, 2100,
 ]
 __charcode_to_pos_92160 = _all_ushort(__charcode_to_pos_92160)
-def _charcode_to_pos_92160(index): return intmask(__charcode_to_pos_92160[index])
+def _charcode_to_pos_92160(index):
+    try:
+        return intmask(__charcode_to_pos_92160[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.11 KiB
 __charcode_to_pos_92736 = [
 12015, 12007, 12022, 12005, 12023, 12016, 12025, 12011, 12000, 11996, 12017, 12019, 11999, 12009, 12004, 12006,
@@ -29800,7 +30352,11 @@ __charcode_to_pos_92736 = [
 12035, 12037, 12034, 12033, 12029, 12030, 12032, 12031, 12028, 12036, -1, -1, -1, -1, 12027, 12026,
 ]
 __charcode_to_pos_92736 = _all_short(__charcode_to_pos_92736)
-def _charcode_to_pos_92736(index): return intmask(__charcode_to_pos_92736[index])
+def _charcode_to_pos_92736(index):
+    try:
+        return intmask(__charcode_to_pos_92736[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.09 KiB
 __charcode_to_pos_92880 = [
 2167, 2172, 2191, 2188, 2180, 2178, 2170, 2164, 2171, 2184, 2179, 2175, 2186, 2169, 2165, 2190,
@@ -29808,7 +30364,11 @@ __charcode_to_pos_92880 = [
 2160, 2162, 2163, 2161, 2159, 2194,
 ]
 __charcode_to_pos_92880 = _all_short(__charcode_to_pos_92880)
-def _charcode_to_pos_92880(index): return intmask(__charcode_to_pos_92880[index])
+def _charcode_to_pos_92880(index):
+    try:
+        return intmask(__charcode_to_pos_92880[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.15 KiB
 __charcode_to_pos_92928 = [
 13756, 13757, 13762, 13763, 13750, 13751, 13766, 13767, 13758, 13759, 13748, 13749, 13768, 13769, 13752, 13753,
@@ -29818,7 +30378,11 @@ __charcode_to_pos_92928 = [
 13731, 13722, 13730, 13720, 13742, 13713,
 ]
 __charcode_to_pos_92928 = _all_ushort(__charcode_to_pos_92928)
-def _charcode_to_pos_92928(index): return intmask(__charcode_to_pos_92928[index])
+def _charcode_to_pos_92928(index):
+    try:
+        return intmask(__charcode_to_pos_92928[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.14 KiB
 __charcode_to_pos_93008 = [
 13781, 13783, 13780, 13779, 13775, 13776, 13778, 13777, 13774, 13782, -1, 13707, 13704, 13706, 13709, 13703,
@@ -29827,7 +30391,11 @@ __charcode_to_pos_93008 = [
 13662, 13672, 13660, 13657, 13675, 13667, 13665, 13673, 13659, 13658, 13668, 13674, 13670, 13666, 13661, 13669,
 ]
 __charcode_to_pos_93008 = _all_short(__charcode_to_pos_93008)
-def _charcode_to_pos_93008(index): return intmask(__charcode_to_pos_93008[index])
+def _charcode_to_pos_93008(index):
+    try:
+        return intmask(__charcode_to_pos_93008[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.19 KiB
 __charcode_to_pos_93760 = [
 11046, 11050, 11053, 11054, 11024, 11056, 11032, 11047, 11051, 11042, 11041, 11043, 11031, 11023, 11044, 11040,
@@ -29838,7 +30406,11 @@ __charcode_to_pos_93760 = [
 11076, 11075, 11072, 11080, 11063, 11061, 11059, 11057, 11116, 11115, 11117,
 ]
 __charcode_to_pos_93760 = _all_ushort(__charcode_to_pos_93760)
-def _charcode_to_pos_93760(index): return intmask(__charcode_to_pos_93760[index])
+def _charcode_to_pos_93760(index):
+    try:
+        return intmask(__charcode_to_pos_93760[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.15 KiB
 __charcode_to_pos_93952 = [
 11634, 11644, 11624, 11633, 11643, 11642, 11569, 11645, 11616, 11615, 11614, 11577, 11619, 11620, 11613, 11576,
@@ -29848,7 +30420,11 @@ __charcode_to_pos_93952 = [
 11627, 11625, 11647, 11570, 11640,
 ]
 __charcode_to_pos_93952 = _all_ushort(__charcode_to_pos_93952)
-def _charcode_to_pos_93952(index): return intmask(__charcode_to_pos_93952[index])
+def _charcode_to_pos_93952(index):
+    try:
+        return intmask(__charcode_to_pos_93952[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.11 KiB
 __charcode_to_pos_94032 = [
 11586, 11651, 11650, 11649, 11656, 11662, 11659, 11657, 11658, 11680, 11682, 11698, 11697, 11665, 11666, 11667,
@@ -29856,14 +30432,22 @@ __charcode_to_pos_94032 = [
 11688, 11695, 11696, 11660, 11661, 11669, 11692, 11668, 11691, 11663, 11670, 11664, 11683, 11693, 11694,
 ]
 __charcode_to_pos_94032 = _all_ushort(__charcode_to_pos_94032)
-def _charcode_to_pos_94032(index): return intmask(__charcode_to_pos_94032[index])
+def _charcode_to_pos_94032(index):
+    try:
+        return intmask(__charcode_to_pos_94032[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.05 KiB
 __charcode_to_pos_94095 = [
 11654, 11655, 11652, 11653, 11603, 11604, 11605, 11606, 11607, 11608, 11609, 11594, 11595, 11596, 11597, 11598,
 11599,
 ]
 __charcode_to_pos_94095 = _all_ushort(__charcode_to_pos_94095)
-def _charcode_to_pos_94095(index): return intmask(__charcode_to_pos_94095[index])
+def _charcode_to_pos_94095(index):
+    try:
+        return intmask(__charcode_to_pos_94095[index])
+    except IndexError:
+        raise KeyError
 # estimated 1.49 KiB
 __charcode_to_pos_100352 = [
 16912, 16913, 16914, 16915, 16916, 16917, 16918, 16919, 16920, 16921, 16922, 16923, 16924, 16925, 16926, 16927,
@@ -29916,7 +30500,11 @@ __charcode_to_pos_100352 = [
 17614, 17615, 17616,
 ]
 __charcode_to_pos_100352 = _all_ushort(__charcode_to_pos_100352)
-def _charcode_to_pos_100352(index): return intmask(__charcode_to_pos_100352[index])
+def _charcode_to_pos_100352(index):
+    try:
+        return intmask(__charcode_to_pos_100352[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.58 KiB
 __charcode_to_pos_110592 = [
 8817, 8400, 8037, 8038, 8039, 8036, 8318, 8319, 8320, 8321, 8310, 8311, 8312, 8313, 8314, 8305,
@@ -29939,7 +30527,11 @@ __charcode_to_pos_110592 = [
 8275, 8276, 8284, 8285, 8286, 8287, 8277, 8278, 8279, 8280, 8281, 8282, 8283, 8172, 8173,
 ]
 __charcode_to_pos_110592 = _all_ushort(__charcode_to_pos_110592)
-def _charcode_to_pos_110592(index): return intmask(__charcode_to_pos_110592[index])
+def _charcode_to_pos_110592(index):
+    try:
+        return intmask(__charcode_to_pos_110592[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.79 KiB
 __charcode_to_pos_110960 = [
 12650, 12651, 12652, 12653, 12654, 12655, 12656, 12657, 12658, 12659, 12660, 12661, 12662, 12663, 12664, 12665,
@@ -29969,7 +30561,11 @@ __charcode_to_pos_110960 = [
 13034, 13035, 13036, 13037, 13038, 13039, 13040, 13041, 13042, 13043, 13044, 13045,
 ]
 __charcode_to_pos_110960 = _all_ushort(__charcode_to_pos_110960)
-def _charcode_to_pos_110960(index): return intmask(__charcode_to_pos_110960[index])
+def _charcode_to_pos_110960(index):
+    try:
+        return intmask(__charcode_to_pos_110960[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.28 KiB
 __charcode_to_pos_113664 = [
 5740, 5738, 5687, 5720, 5647, 5660, 5664, 5745, 5641, 5728, 5649, 5691, 5690, 5642, 5648, 5662,
@@ -29983,20 +30579,32 @@ __charcode_to_pos_113664 = [
 5620, 5616, 5619, 5614, 5623, 5622, 5615, 5621, 5617,
 ]
 __charcode_to_pos_113664 = _all_short(__charcode_to_pos_113664)
-def _charcode_to_pos_113664(index): return intmask(__charcode_to_pos_113664[index])
+def _charcode_to_pos_113664(index):
+    try:
+        return intmask(__charcode_to_pos_113664[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.05 KiB
 __charcode_to_pos_113808 = [
 5625, 5629, 5632, 5627, 5635, 5634, 5628, 5633, 5630, 5626, -1, -1, 5749, 5746, 5747, 5748,
 14902, 14901, 14903, 14904,
 ]
 __charcode_to_pos_113808 = _all_short(__charcode_to_pos_113808)
-def _charcode_to_pos_113808(index): return intmask(__charcode_to_pos_113808[index])
+def _charcode_to_pos_113808(index):
+    try:
+        return intmask(__charcode_to_pos_113808[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_119262 = [
 12080, 12083, 12086, 12090, 12089, 12088, 12084, 12085, 12081, 12082, 12087,
 ]
 __charcode_to_pos_119262 = _all_ushort(__charcode_to_pos_119262)
-def _charcode_to_pos_119262(index): return intmask(__charcode_to_pos_119262[index])
+def _charcode_to_pos_119262(index):
+    try:
+        return intmask(__charcode_to_pos_119262[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.15 KiB
 __charcode_to_pos_119296 = [
 7636, 7624, 7647, 7648, 7630, 7649, 7650, 7651, 7652, 7637, 7638, 7639, 7640, 7641, 7642, 7643,
@@ -30006,14 +30614,22 @@ __charcode_to_pos_119296 = [
 7582, 7583, 3529, 3528, 3530, 7595,
 ]
 __charcode_to_pos_119296 = _all_ushort(__charcode_to_pos_119296)
-def _charcode_to_pos_119296(index): return intmask(__charcode_to_pos_119296[index])
+def _charcode_to_pos_119296(index):
+    try:
+        return intmask(__charcode_to_pos_119296[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.05 KiB
 __charcode_to_pos_119520 = [
 11020, 11021, 11018, 11016, 11007, 11006, 11011, 11009, 11002, 11013, 11019, 11004, 11017, 11015, 11008, 11005,
 11012, 11010, 11003, 11014,
 ]
 __charcode_to_pos_119520 = _all_ushort(__charcode_to_pos_119520)
-def _charcode_to_pos_119520(index): return intmask(__charcode_to_pos_119520[index])
+def _charcode_to_pos_119520(index):
+    try:
+        return intmask(__charcode_to_pos_119520[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.19 KiB
 __charcode_to_pos_119552 = [
 11970, 5359, 5360, 5353, 5354, 5352, 17717, 17739, 17760, 17706, 17753, 17715, 17701, 17761, 17705, 17721,
@@ -30024,14 +30640,22 @@ __charcode_to_pos_119552 = [
 17740, 17703, 17711, 17762, 17722, 17755, 17737,
 ]
 __charcode_to_pos_119552 = _all_ushort(__charcode_to_pos_119552)
-def _charcode_to_pos_119552(index): return intmask(__charcode_to_pos_119552[index])
+def _charcode_to_pos_119552(index):
+    try:
+        return intmask(__charcode_to_pos_119552[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.06 KiB
 __charcode_to_pos_119648 = [
 3799, 3797, 3796, 3792, 3793, 3795, 3794, 3791, 3798, 3790, 3788, 3787, 3783, 3784, 3786, 3785,
 3782, 3789, 8448, 8447, 8446, 8444, 8445, 16608, 16607,
 ]
 __charcode_to_pos_119648 = _all_ushort(__charcode_to_pos_119648)
-def _charcode_to_pos_119648(index): return intmask(__charcode_to_pos_119648[index])
+def _charcode_to_pos_119648(index):
+    try:
+        return intmask(__charcode_to_pos_119648[index])
+    except IndexError:
+        raise KeyError
 # estimated 1.29 KiB
 __charcode_to_pos_120832 = [
 15151, 15107, 15132, 15348, 15303, 15089, 15152, 15116, 15265, 15217, 15193, 15154, 15157, 15114, 15158, 15108,
@@ -30077,14 +30701,22 @@ __charcode_to_pos_120832 = [
 15375, 15370, 15373, 15372, 15369, 15371, 15374, 15026, 15086, 15638, 15025, 15684,
 ]
 __charcode_to_pos_120832 = _all_ushort(__charcode_to_pos_120832)
-def _charcode_to_pos_120832(index): return intmask(__charcode_to_pos_120832[index])
+def _charcode_to_pos_120832(index):
+    try:
+        return intmask(__charcode_to_pos_120832[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.06 KiB
 __charcode_to_pos_121499 = [
 15071, 15072, 15073, 15074, 15075, -1, 15595, 15596, 15597, 15598, 15599, 15600, 15601, 15602, 15588, 15589,
 15590, 15591, 15592, 15593, 15594,
 ]
 __charcode_to_pos_121499 = _all_short(__charcode_to_pos_121499)
-def _charcode_to_pos_121499(index): return intmask(__charcode_to_pos_121499[index])
+def _charcode_to_pos_121499(index):
+    try:
+        return intmask(__charcode_to_pos_121499[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.1 KiB
 __charcode_to_pos_122880 = [
 3489, 3491, 3502, 3495, 3477, 3503, 3510, -1, 3509, 3482, 3479, 3478, 3476, 3511, 3498, 3497,
@@ -30092,7 +30724,11 @@ __charcode_to_pos_122880 = [
 3504, 3506, -1, 3508, 3483, -1, 3507, 3481, 3490, 3480, 3494,
 ]
 __charcode_to_pos_122880 = _all_short(__charcode_to_pos_122880)
-def _charcode_to_pos_122880(index): return intmask(__charcode_to_pos_122880[index])
+def _charcode_to_pos_122880(index):
+    try:
+        return intmask(__charcode_to_pos_122880[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.44 KiB
 __charcode_to_pos_124928 = [
 11221, 11222, 11223, 11289, 11310, 11298, 11262, 11396, 11224, 11226, 11228, 11349, 11333, 11338, 11261, 11413,
@@ -30111,7 +30747,11 @@ __charcode_to_pos_124928 = [
 11216, 11215, 11219, 11217, 11214, 11218, 11220,
 ]
 __charcode_to_pos_124928 = _all_short(__charcode_to_pos_124928)
-def _charcode_to_pos_124928(index): return intmask(__charcode_to_pos_124928[index])
+def _charcode_to_pos_124928(index):
+    try:
+        return intmask(__charcode_to_pos_124928[index])
+    except IndexError:
+        raise KeyError
 __charcode_to_pos_125184 = (
 '\x17\t\x1b\x0e\x06\x15"\x05 #\x1e$%\n\x07\x1a\x12\x0f\x08&'
 '\r\x18\x1f\x19\x0c\x14\x1c\x13!\x11\x0b\x1d\x10\x16:,>1)8'
@@ -30119,7 +30759,11 @@ __charcode_to_pos_125184 = (
 "?6D4.@39\x03\x04KN'JO\xff\xff\xff\xff\xff"
 'WYVUQRTSPX\xff\xff\xff\xffLM'
 )
-def _charcode_to_pos_125184(index): return signed_ord(__charcode_to_pos_125184[index])
+def _charcode_to_pos_125184(index):
+    try:
+        return signed_ord(__charcode_to_pos_125184[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.15 KiB
 __charcode_to_pos_126065 = [
 8538, 8533, 8528, 8504, 8499, 8521, 8516, 8492, 8511, 8536, 8531, 8526, 8502, 8497, 8522, 8517,
@@ -30129,7 +30773,11 @@ __charcode_to_pos_126065 = [
 8491, 8490, 8489, 8484,
 ]
 __charcode_to_pos_126065 = _all_ushort(__charcode_to_pos_126065)
-def _charcode_to_pos_126065(index): return intmask(__charcode_to_pos_126065[index])
+def _charcode_to_pos_126065(index):
+    try:
+        return intmask(__charcode_to_pos_126065[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.38 KiB
 __charcode_to_pos_126464 = [
 1168, 1178, 1174, 1072, -1, 1176, 1172, 1177, 1164, 1181, 1171, 1120, 1175, 1183, 1147, 1169,
@@ -30146,7 +30794,11 @@ __charcode_to_pos_126464 = [
 1063, 1049, 1069, 1064, 1047, 1055, 1052, 1046, 1053, 1050, 1057, 1066,
 ]
 __charcode_to_pos_126464 = _all_short(__charcode_to_pos_126464)
-def _charcode_to_pos_126464(index): return intmask(__charcode_to_pos_126464[index])
+def _charcode_to_pos_126464(index):
+    try:
+        return intmask(__charcode_to_pos_126464[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.3 KiB
 __charcode_to_pos_126976 = [
 10647, 10663, 10678, 10654, 10682, 10681, 10679, 10660, 10676, 10673, 10652, 10649, 10668, 10665, 10645, 10656,
@@ -30161,7 +30813,11 @@ __charcode_to_pos_126976 = [
 5533, 5534, 5535, 5536,
 ]
 __charcode_to_pos_126976 = _all_short(__charcode_to_pos_126976)
-def _charcode_to_pos_126976(index): return intmask(__charcode_to_pos_126976[index])
+def _charcode_to_pos_126976(index):
+    try:
+        return intmask(__charcode_to_pos_126976[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.18 KiB
 __charcode_to_pos_127136 = [
 14095, 14167, 14142, 14138, 14101, 14106, 14126, 14122, 14118, 14171, 14134, 14175, 14110, 14130, 14114, -1,
@@ -30172,7 +30828,11 @@ __charcode_to_pos_127136 = [
 14153, 14154, 14155, 14156, 14144, 14145,
 ]
 __charcode_to_pos_127136 = _all_short(__charcode_to_pos_127136)
-def _charcode_to_pos_127136(index): return intmask(__charcode_to_pos_127136[index])
+def _charcode_to_pos_127136(index):
+    try:
+        return intmask(__charcode_to_pos_127136[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.35 KiB
 __charcode_to_pos_127232 = [
 5351, 5350, 5344, 5348, 5347, 5342, 5341, 5346, 5345, 5349, 5343, 5361, 5362, -1, -1, -1,
@@ -30188,14 +30848,22 @@ __charcode_to_pos_127232 = [
 16046, 16091, 16101, 16093, 16088, 16082, 16050, 16049, 16048, 16085, 16092, 16105, 16106,
 ]
 __charcode_to_pos_127232 = _all_short(__charcode_to_pos_127232)
-def _charcode_to_pos_127232(index): return intmask(__charcode_to_pos_127232[index])
+def _charcode_to_pos_127232(index):
+    try:
+        return intmask(__charcode_to_pos_127232[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.07 KiB
 __charcode_to_pos_127462 = [
 14361, 14362, 14363, 14364, 14365, 14366, 14367, 14368, 14369, 14370, 14371, 14372, 14373, 14374, 14375, 14376,
 14377, 14378, 14379, 14380, 14381, 14382, 14383, 14384, 14385, 14386, 15988, 16052, 16053,
 ]
 __charcode_to_pos_127462 = _all_ushort(__charcode_to_pos_127462)
-def _charcode_to_pos_127462(index): return intmask(__charcode_to_pos_127462[index])
+def _charcode_to_pos_127462(index):
+    try:
+        return intmask(__charcode_to_pos_127462[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.13 KiB
 __charcode_to_pos_127504 = [
 16019, 16016, 16008, 16054, 16002, 16014, 16037, 16013, 16001, 16026, 16034, 16025, 16006, 16017, 16018, 16024,
@@ -30204,7 +30872,11 @@ __charcode_to_pos_127504 = [
 17994, 17988, 17989, 17991, 17995, 17992, 17996, 17990, 17993,
 ]
 __charcode_to_pos_127504 = _all_short(__charcode_to_pos_127504)
-def _charcode_to_pos_127504(index): return intmask(__charcode_to_pos_127504[index])
+def _charcode_to_pos_127504(index):
+    try:
+        return intmask(__charcode_to_pos_127504[index])
+    except IndexError:
+        raise KeyError
 # estimated 1.93 KiB
 __charcode_to_pos_127744 = [
 5257, 7165, 3367, 13050, 16220, 16219, 3182, 16221, 14278, 2622, 19097, 18739, 11704, 5759, 5758, 5757,
@@ -30271,7 +30943,11 @@ __charcode_to_pos_127744 = [
 14176, 13053, 14896, 16140, 13656,
 ]
 __charcode_to_pos_127744 = _all_ushort(__charcode_to_pos_127744)
-def _charcode_to_pos_127744(index): return intmask(__charcode_to_pos_127744[index])
+def _charcode_to_pos_127744(index):
+    try:
+        return intmask(__charcode_to_pos_127744[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.3 KiB
 __charcode_to_pos_128736 = [
 7759, 14890, 13056, 11984, 14275, 11982, 18088, 18091, 18089, 15748, 12639, 209, 210, -1, -1, -1,
@@ -30286,7 +30962,11 @@ __charcode_to_pos_128736 = [
 251, 267, 254, 255,
 ]
 __charcode_to_pos_128736 = _all_short(__charcode_to_pos_128736)
-def _charcode_to_pos_128736(index): return intmask(__charcode_to_pos_128736[index])
+def _charcode_to_pos_128736(index):
+    try:
+        return intmask(__charcode_to_pos_128736[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.19 KiB
 __charcode_to_pos_128896 = [
 2415, 2403, 2440, 2396, 2451, 11120, 2477, 8017, 18731, 7075, 19111, 14505, 2458, 2452, 9835, 11134,
@@ -30297,7 +30977,11 @@ __charcode_to_pos_128896 = [
 18723, 7989, 9831, 8023, 8022, 3177, 12319, 3178, 12320,
 ]
 __charcode_to_pos_128896 = _all_ushort(__charcode_to_pos_128896)
-def _charcode_to_pos_128896(index): return intmask(__charcode_to_pos_128896[index])
+def _charcode_to_pos_128896(index):
+    try:
+        return intmask(__charcode_to_pos_128896[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.16 KiB
 __charcode_to_pos_129024 = [
 9699, 18100, 14436, 5584, 9696, 18097, 14433, 5581, 9695, 18096, 14432, 5580, -1, -1, -1, -1,
@@ -30307,7 +30991,11 @@ __charcode_to_pos_129024 = [
 9737, 18105, 14466, 5589, 9738, 18106, 14467, 5590,
 ]
 __charcode_to_pos_129024 = _all_short(__charcode_to_pos_129024)
-def _charcode_to_pos_129024(index): return intmask(__charcode_to_pos_129024[index])
+def _charcode_to_pos_129024(index):
+    try:
+        return intmask(__charcode_to_pos_129024[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.13 KiB
 __charcode_to_pos_129104 = [
 9740, 18109, 14469, 5593, 12637, 12629, 15862, 15870, 9665, 18086, -1, -1, -1, -1, -1, -1,
@@ -30316,14 +31004,22 @@ __charcode_to_pos_129104 = [
 19160, 19175, 19165, 19170, 19185, 19180, 19190, 19195,
 ]
 __charcode_to_pos_129104 = _all_short(__charcode_to_pos_129104)
-def _charcode_to_pos_129104(index): return intmask(__charcode_to_pos_129104[index])
+def _charcode_to_pos_129104(index):
+    try:
+        return intmask(__charcode_to_pos_129104[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.07 KiB
 __charcode_to_pos_129168 = [
 9720, 18124, 14463, 5576, 9736, 18127, 14465, 5578, 9697, 18098, 14434, 5582, 7976, 7979, 7977, 7978,
 9703, 14439, 9729, 14448, 9732, 14446, 9734, 14444, 9702, 14438, 9730, 14442, 19110, 19109,
 ]
 __charcode_to_pos_129168 = _all_ushort(__charcode_to_pos_129168)
-def _charcode_to_pos_129168(index): return intmask(__charcode_to_pos_129168[index])
+def _charcode_to_pos_129168(index):
+    try:
+        return intmask(__charcode_to_pos_129168[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.33 KiB
 __charcode_to_pos_129280 = [
 3151, 3150, 3149, 9658, 9657, 9656, 9659, 9655, 5558, 5560, 5559, 5561, -1, -1, -1, -1,
@@ -30339,14 +31035,22 @@ __charcode_to_pos_129280 = [
 11703, 1357, 16230,
 ]
 __charcode_to_pos_129280 = _all_short(__charcode_to_pos_129280)
-def _charcode_to_pos_129280(index): return intmask(__charcode_to_pos_129280[index])
+def _charcode_to_pos_129280(index):
+    try:
+        return intmask(__charcode_to_pos_129280[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.05 KiB
 __charcode_to_pos_129456 = [
 6881, 6882, 6884, 6883, 2508, 9820, 7166, 17978, 16224, 16225, -1, -1, -1, -1, -1, -1,
 3046, 5065, 14567,
 ]
 __charcode_to_pos_129456 = _all_short(__charcode_to_pos_129456)
-def _charcode_to_pos_129456(index): return intmask(__charcode_to_pos_129456[index])
+def _charcode_to_pos_129456(index):
+    try:
+        return intmask(__charcode_to_pos_129456[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.11 KiB
 __charcode_to_pos_129488 = [
 7092, 92, 3140, 13485, 2258, 13939, 13934, 13943, 13935, 10602, 7124, 18669, 11551, 6880, 7299, 19313,
@@ -30354,13 +31058,21 @@ __charcode_to_pos_129488 = [
 17977, 2625, 10601, 9821, 10523, 15975, 1490, 14566, 17673, 2627, 2157, 14481, 2155, 15979, 14295, 12284,
 ]
 __charcode_to_pos_129488 = _all_ushort(__charcode_to_pos_129488)
-def _charcode_to_pos_129488(index): return intmask(__charcode_to_pos_129488[index])
+def _charcode_to_pos_129488(index):
+    try:
+        return intmask(__charcode_to_pos_129488[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.04 KiB
 __charcode_to_pos_129632 = [
 19232, 19234, 19231, 19233, 19230, 19229, 19235, 19225, 19227, 19224, 19226, 19223, 19222, 19228,
 ]
 __charcode_to_pos_129632 = _all_ushort(__charcode_to_pos_129632)
-def _charcode_to_pos_129632(index): return intmask(__charcode_to_pos_129632[index])
+def _charcode_to_pos_129632(index):
+    try:
+        return intmask(__charcode_to_pos_129632[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.48 KiB
 __charcode_to_pos_917760 = [
 18499, 18510, 18521, 18602, 18613, 18624, 18635, 18646, 18657, 18665, 18666, 18667, 18668, 18532, 18533, 18534,
@@ -30380,7 +31092,11 @@ __charcode_to_pos_917760 = [
 18648, 18649, 18650, 18651, 18652, 18653, 18654, 18655, 18656, 18658, 18659, 18660, 18661, 18662, 18663, 18664,
 ]
 __charcode_to_pos_917760 = _all_ushort(__charcode_to_pos_917760)
-def _charcode_to_pos_917760(index): return intmask(__charcode_to_pos_917760[index])
+def _charcode_to_pos_917760(index):
+    try:
+        return intmask(__charcode_to_pos_917760[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.93 KiB
 __charcode_to_pos_983040 = [
 13049, 13048, 16121, 15953, 16125, 16142, 6898, 7068, 6896, 6911, 6906, 6905, 1, 0, 328, 2262,
@@ -30415,7 +31131,11 @@ __charcode_to_pos_983040 = [
 18912, 18913, 18914, 18915,
 ]
 __charcode_to_pos_983040 = _all_ushort(__charcode_to_pos_983040)
-def _charcode_to_pos_983040(index): return intmask(__charcode_to_pos_983040[index])
+def _charcode_to_pos_983040(index):
+    try:
+        return intmask(__charcode_to_pos_983040[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.88 KiB
 __charcode_to_pos_983552 = [
 8873, 8874, 8882, 8884, 8881, 8880, 8876, 8877, 8879, 8878, 8875, 8883, 9200, 9375, 9225, 9424,
@@ -30448,7 +31168,11 @@ __charcode_to_pos_983552 = [
 8820, 8822, 8819, 8821, 8815, 8814, 8813, 8816, 11832, 11836,
 ]
 __charcode_to_pos_983552 = _all_ushort(__charcode_to_pos_983552)
-def _charcode_to_pos_983552(index): return intmask(__charcode_to_pos_983552[index])
+def _charcode_to_pos_983552(index):
+    try:
+        return intmask(__charcode_to_pos_983552[index])
+    except IndexError:
+        raise KeyError
 def _charcode_to_pos(code):
     res = -1
     if code == 545: res = 9413
@@ -30967,7 +31691,11 @@ __char_list_data = [
 125245, 125246, 125247, 125248, 125249, 125250, 125251, 141380, 141386, 144341, 148206, 148395, 152137, 154832, 163539,
 ]
 __char_list_data = _all_uint32(__char_list_data)
-def _char_list_data(index): return intmask(__char_list_data[index])
+def _char_list_data(index):
+    try:
+        return intmask(__char_list_data[index])
+    except IndexError:
+        raise KeyError
 
 def char_list_data(index):
     if index < 6646:
@@ -31350,7 +32078,11 @@ __comp_pairs_pgtbl = [
 4, 4, 4, 655,
 ]
 __comp_pairs_pgtbl = _all_ushort(__comp_pairs_pgtbl)
-def _comp_pairs_pgtbl(index): return intmask(__comp_pairs_pgtbl[index])
+def _comp_pairs_pgtbl(index):
+    try:
+        return intmask(__comp_pairs_pgtbl[index])
+    except IndexError:
+        raise KeyError
 # estimated 10.27 KiB
 __comp_pairs_pages = [
 192, 193, 194, 195, 196, 197, 0, 256, 258, 260, 550, 461, 0, 0, 512, 514,
@@ -31519,7 +32251,11 @@ __comp_pairs_pages = [
 70475, 70476, 0, 0, 70843, 70844, 70846, 0, 0, 71098, 0, 0, 0, 0, 0, 71099,
 ]
 __comp_pairs_pages = _all_uint32(__comp_pairs_pages)
-def _comp_pairs_pages(index): return intmask(__comp_pairs_pages[index])
+def _comp_pairs_pages(index):
+    try:
+        return intmask(__comp_pairs_pages[index])
+    except IndexError:
+        raise KeyError
 
 def _composition(code):
     return _comp_pairs_pages((_comp_pairs_pgtbl(code >> 2) << 2) + (code & 3))
@@ -31756,7 +32492,11 @@ _lookup_composition_prefix_index_middle = (
 '\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n'
 '\n\n\n\n\n\n\n\n\n\x02\x02\x02\x02\x02\x02\x02\x02\x02\x07\x07'
 )
-def lookup_composition_prefix_index_middle(index): return ord(_lookup_composition_prefix_index_middle[index])
+def lookup_composition_prefix_index_middle(index):
+    try:
+        return ord(_lookup_composition_prefix_index_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_composition_decomp_len(index):
     if 54 <= index <= 4451:
@@ -31989,7 +32729,11 @@ _lookup_composition_decomp_len_middle = (
 '\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01'
 '\x01\x01\x01\x01\x01\x01\x01\x01\x01\x03\x03\x03\x03\x03\x03\x03\x03\x03'
 )
-def lookup_composition_decomp_len_middle(index): return ord(_lookup_composition_decomp_len_middle[index])
+def lookup_composition_decomp_len_middle(index):
+    try:
+        return ord(_lookup_composition_decomp_len_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_composition_decomp(index):
     if 54 <= index <= 4929:
@@ -32309,7 +33053,11 @@ _lookup_composition_decomp_middle = [
 5609, 6641, 6642, 6643, 6458, 5610, 6463, 6465, 6466, 6468, 6470, 6472,
 ]
 _lookup_composition_decomp_middle = _all_ushort(_lookup_composition_decomp_middle)
-def lookup_composition_decomp_middle(index): return intmask(_lookup_composition_decomp_middle[index])
+def lookup_composition_decomp_middle(index):
+    try:
+        return intmask(_lookup_composition_decomp_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_composition_compat_decomp_len(index):
     if 54 <= index <= 4451:
@@ -32542,7 +33290,11 @@ _lookup_composition_compat_decomp_len_middle = (
 '\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01'
 '\x01\x01\x01\x01\x01\x01\x01\x01\x01\x03\x03\x03\x03\x03\x03\x03\x03\x03'
 )
-def lookup_composition_compat_decomp_len_middle(index): return ord(_lookup_composition_compat_decomp_len_middle[index])
+def lookup_composition_compat_decomp_len_middle(index):
+    try:
+        return ord(_lookup_composition_compat_decomp_len_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_composition_compat_decomp(index):
     if 54 <= index <= 4929:
@@ -32862,7 +33614,11 @@ _lookup_composition_compat_decomp_middle = [
 5609, 6641, 6642, 6643, 6458, 5610, 6463, 6465, 6466, 6468, 6470, 6472,
 ]
 _lookup_composition_compat_decomp_middle = _all_ushort(_lookup_composition_compat_decomp_middle)
-def lookup_composition_compat_decomp_middle(index): return intmask(_lookup_composition_compat_decomp_middle[index])
+def lookup_composition_compat_decomp_middle(index):
+    try:
+        return intmask(_lookup_composition_compat_decomp_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_composition_canon_decomp_len(index):
     if 68 <= index <= 4453:
@@ -33095,7 +33851,11 @@ _lookup_composition_canon_decomp_len_middle = (
 '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 '\x00\x00\x00\x00\x00\x00'
 )
-def lookup_composition_canon_decomp_len_middle(index): return ord(_lookup_composition_canon_decomp_len_middle[index])
+def lookup_composition_canon_decomp_len_middle(index):
+    try:
+        return ord(_lookup_composition_canon_decomp_len_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_composition_canon_decomp(index):
     if 68 <= index <= 4929:
@@ -33414,7 +34174,11 @@ _lookup_composition_canon_decomp_middle = [
 6449, 6640, 5609, 6641, 6642, 6643, 6458, 5610, 6463, 6465, 6466, 6468, 6470, 6472,
 ]
 _lookup_composition_canon_decomp_middle = _all_ushort(_lookup_composition_canon_decomp_middle)
-def lookup_composition_canon_decomp_middle(index): return intmask(_lookup_composition_canon_decomp_middle[index])
+def lookup_composition_canon_decomp_middle(index):
+    try:
+        return intmask(_lookup_composition_canon_decomp_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_composition_combining(index):
     if 364 <= index <= 4185:
@@ -33619,7 +34383,11 @@ _lookup_composition_combining_middle = (
 '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 '\x00\xe2'
 )
-def lookup_composition_combining_middle(index): return ord(_lookup_composition_combining_middle[index])
+def lookup_composition_combining_middle(index):
+    try:
+        return ord(_lookup_composition_combining_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_composition_left_index(index):
     if 1 <= index <= 4175:
@@ -33895,7 +34663,11 @@ _lookup_composition_left_index_middle = [
 -1, 372, -1, -1, -1, -1, 373, -1, -1, -1, -1, -1, -1, 374, 375,
 ]
 _lookup_composition_left_index_middle = _all_short(_lookup_composition_left_index_middle)
-def lookup_composition_left_index_middle(index): return intmask(_lookup_composition_left_index_middle[index])
+def lookup_composition_left_index_middle(index):
+    try:
+        return intmask(_lookup_composition_left_index_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_composition_right_index(index):
     if 364 <= index <= 4173:
@@ -34099,7 +34871,11 @@ _lookup_composition_right_index_middle = (
 '\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff67\xff\xff\xff\xff8\xff\xff'
 '\xff9;\xff:\xff\xff<\xff='
 )
-def lookup_composition_right_index_middle(index): return signed_ord(_lookup_composition_right_index_middle[index])
+def lookup_composition_right_index_middle(index):
+    try:
+        return signed_ord(_lookup_composition_right_index_middle[index])
+    except IndexError:
+        raise KeyError
 
 def _composition_pgtbl(index):
     if 1 <= index <= 1524:
@@ -34189,7 +34965,11 @@ __composition_pgtbl_middle = (
 '\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\x95'
 '\x96\x97\x98\x99'
 )
-def _composition_pgtbl_middle(index): return ord(__composition_pgtbl_middle[index])
+def _composition_pgtbl_middle(index):
+    try:
+        return ord(__composition_pgtbl_middle[index])
+    except IndexError:
+        raise KeyError
 
 def _composition_pages(index):
     if 60 <= index <= 19613:
@@ -35427,7 +36207,11 @@ __composition_pages_middle = [
 4929, 4930,
 ]
 __composition_pages_middle = _all_ushort(__composition_pages_middle)
-def _composition_pages_middle(index): return intmask(__composition_pages_middle[index])
+def _composition_pages_middle(index):
+    try:
+        return intmask(__composition_pages_middle[index])
+    except IndexError:
+        raise KeyError
 
 def _composition_index(code):
     return _composition_pages((_composition_pgtbl(code >> 7) << 7) + (code & 127))
@@ -35466,7 +36250,11 @@ __composition_prefixes = [
 '<narrow>',
 ]
 
-def _composition_prefixes(index): return __composition_prefixes[index]
+def _composition_prefixes(index):
+    try:
+        return __composition_prefixes[index]
+    except IndexError:
+        raise KeyError
 
 def decomposition(code):
     index = _composition_index(code)
@@ -35517,7 +36305,11 @@ _lookup_special_casing_lower_len_middle = (
 '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x01\x01\x01\x01\x00\x00'
 )
-def lookup_special_casing_lower_len_middle(index): return ord(_lookup_special_casing_lower_len_middle[index])
+def lookup_special_casing_lower_len_middle(index):
+    try:
+        return ord(_lookup_special_casing_lower_len_middle[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.37 KiB
 _lookup_special_casing_lower = [
 0, 7110, 2981, 7114, 0, 7119, 0, 4947, 4966, 0, 0, 0, 0, 0, 0, 0,
@@ -35534,7 +36326,11 @@ _lookup_special_casing_lower = [
 7771, 7772, 7773, 7774, 7775, 7776, 7777,
 ]
 _lookup_special_casing_lower = _all_ushort(_lookup_special_casing_lower)
-def lookup_special_casing_lower(index): return intmask(_lookup_special_casing_lower[index])
+def lookup_special_casing_lower(index):
+    try:
+        return intmask(_lookup_special_casing_lower[index])
+    except IndexError:
+        raise KeyError
 _lookup_special_casing_title_len = (
 '\x00\x02\x01\x02\x00\x02\x00\x03\x03\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00'
 '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
@@ -35547,7 +36343,11 @@ _lookup_special_casing_title_len = (
 '\x03\x03\x03\x02\x02\x03\x02\x01\x02\x02\x03\x02\x02\x02\x03\x03\x02\x02\x02\x02'
 '\x02\x02\x02'
 )
-def lookup_special_casing_title_len(index): return ord(_lookup_special_casing_title_len[index])
+def lookup_special_casing_title_len(index):
+    try:
+        return ord(_lookup_special_casing_title_len[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.37 KiB
 _lookup_special_casing_title = [
 0, 6932, 7112, 6948, 0, 6920, 0, 6822, 6831, 0, 0, 0, 0, 0, 0, 0,
@@ -35564,7 +36364,11 @@ _lookup_special_casing_title = [
 6934, 6934, 6992, 6986, 6988, 6996, 6990,
 ]
 _lookup_special_casing_title = _all_ushort(_lookup_special_casing_title)
-def lookup_special_casing_title(index): return intmask(_lookup_special_casing_title[index])
+def lookup_special_casing_title(index):
+    try:
+        return intmask(_lookup_special_casing_title[index])
+    except IndexError:
+        raise KeyError
 _lookup_special_casing_upper_len = (
 '\x00\x02\x01\x02\x00\x02\x00\x03\x03\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00'
 '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
@@ -35577,7 +36381,11 @@ _lookup_special_casing_upper_len = (
 '\x03\x03\x03\x02\x02\x03\x02\x02\x02\x02\x03\x02\x02\x02\x03\x03\x02\x02\x02\x02'
 '\x02\x02\x02'
 )
-def lookup_special_casing_upper_len(index): return ord(_lookup_special_casing_upper_len[index])
+def lookup_special_casing_upper_len(index):
+    try:
+        return ord(_lookup_special_casing_upper_len[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.37 KiB
 _lookup_special_casing_upper = [
 0, 6928, 7112, 6948, 0, 6920, 0, 6822, 6831, 0, 0, 0, 0, 0, 0, 0,
@@ -35594,7 +36402,11 @@ _lookup_special_casing_upper = [
 6930, 6930, 6984, 6978, 6980, 6994, 6982,
 ]
 _lookup_special_casing_upper = _all_ushort(_lookup_special_casing_upper)
-def lookup_special_casing_upper(index): return intmask(_lookup_special_casing_upper[index])
+def lookup_special_casing_upper(index):
+    try:
+        return intmask(_lookup_special_casing_upper[index])
+    except IndexError:
+        raise KeyError
 _lookup_special_casing_casefold_len = (
 '\x01\x02\x00\x02\x01\x02\x01\x03\x03\x01\x01\x01\x01\x01\x01\x01\x01\x02\x01\x01'
 '\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01'
@@ -35607,7 +36419,11 @@ _lookup_special_casing_casefold_len = (
 '\x03\x03\x03\x02\x02\x03\x02\x02\x02\x02\x03\x02\x02\x02\x03\x03\x02\x02\x02\x02'
 '\x02\x02\x02'
 )
-def lookup_special_casing_casefold_len(index): return ord(_lookup_special_casing_casefold_len[index])
+def lookup_special_casing_casefold_len(index):
+    try:
+        return ord(_lookup_special_casing_casefold_len[index])
+    except IndexError:
+        raise KeyError
 # estimated 0.37 KiB
 _lookup_special_casing_casefold = [
 3593, 3150, 0, 3489, 6933, 2999, 4508, 1761, 1800, 4978, 4967, 4971, 4980, 4976, 4972, 3601,
@@ -35624,7 +36440,11 @@ _lookup_special_casing_casefold = [
 3151, 3151, 3749, 3743, 3745, 3751, 3747,
 ]
 _lookup_special_casing_casefold = _all_ushort(_lookup_special_casing_casefold)
-def lookup_special_casing_casefold(index): return intmask(_lookup_special_casing_casefold[index])
+def lookup_special_casing_casefold(index):
+    try:
+        return intmask(_lookup_special_casing_casefold[index])
+    except IndexError:
+        raise KeyError
 _lookup_db_category = [
 'Cc',
 'Cc',
@@ -36875,7 +37695,11 @@ _lookup_db_category = [
 'So',
 ]
 
-def lookup_db_category(index): return _lookup_db_category[index]
+def lookup_db_category(index):
+    try:
+        return _lookup_db_category[index]
+    except IndexError:
+        raise KeyError
 _lookup_db_bidirectional = [
 'BN',
 'S',
@@ -38126,7 +38950,11 @@ _lookup_db_bidirectional = [
 'L',
 ]
 
-def lookup_db_bidirectional(index): return _lookup_db_bidirectional[index]
+def lookup_db_bidirectional(index):
+    try:
+        return _lookup_db_bidirectional[index]
+    except IndexError:
+        raise KeyError
 _lookup_db_east_asian_width = [
 'N',
 'N',
@@ -39377,7 +40205,11 @@ _lookup_db_east_asian_width = [
 'A',
 ]
 
-def lookup_db_east_asian_width(index): return _lookup_db_east_asian_width[index]
+def lookup_db_east_asian_width(index):
+    try:
+        return _lookup_db_east_asian_width[index]
+    except IndexError:
+        raise KeyError
 _lookup_db_numeric = [
 0.0,
 0.0,
@@ -40628,7 +41460,11 @@ _lookup_db_numeric = [
 0.0,
 ]
 
-def lookup_db_numeric(index): return _lookup_db_numeric[index]
+def lookup_db_numeric(index):
+    try:
+        return _lookup_db_numeric[index]
+    except IndexError:
+        raise KeyError
 
 def lookup_db_decimal(index):
     if 17 <= index <= 943:
@@ -40688,7 +41524,11 @@ _lookup_db_decimal_middle = (
 '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02'
 '\x03\x04\x05\x06\x07\x08\t'
 )
-def lookup_db_decimal_middle(index): return ord(_lookup_db_decimal_middle[index])
+def lookup_db_decimal_middle(index):
+    try:
+        return ord(_lookup_db_decimal_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_db_digit(index):
     if 17 <= index <= 1127:
@@ -40757,7 +41597,11 @@ _lookup_db_digit_middle = (
 '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04\x00'
 '\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\t'
 )
-def lookup_db_digit_middle(index): return ord(_lookup_db_digit_middle[index])
+def lookup_db_digit_middle(index):
+    try:
+        return ord(_lookup_db_digit_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_db_upperdist(index):
     if 46 <= index <= 1196:
@@ -40844,7 +41688,11 @@ _lookup_db_upperdist_middle = [
 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 34,
 ]
 _lookup_db_upperdist_middle = _all_int32(_lookup_db_upperdist_middle)
-def lookup_db_upperdist_middle(index): return intmask(_lookup_db_upperdist_middle[index])
+def lookup_db_upperdist_middle(index):
+    try:
+        return intmask(_lookup_db_upperdist_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_db_lowerdist(index):
     if 53 <= index <= 1195:
@@ -40931,7 +41779,11 @@ _lookup_db_lowerdist_middle = [
 0, 0, 0, 0, 0, 0, -34,
 ]
 _lookup_db_lowerdist_middle = _all_int32(_lookup_db_lowerdist_middle)
-def lookup_db_lowerdist_middle(index): return intmask(_lookup_db_lowerdist_middle[index])
+def lookup_db_lowerdist_middle(index):
+    try:
+        return intmask(_lookup_db_lowerdist_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_db_titledist(index):
     if 31 <= index <= 1196:
@@ -41019,7 +41871,11 @@ _lookup_db_titledist_middle = [
 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 34,
 ]
 _lookup_db_titledist_middle = _all_int32(_lookup_db_titledist_middle)
-def lookup_db_titledist_middle(index): return intmask(_lookup_db_titledist_middle[index])
+def lookup_db_titledist_middle(index):
+    try:
+        return intmask(_lookup_db_titledist_middle[index])
+    except IndexError:
+        raise KeyError
 
 def lookup_db_special_casing_index(index):
     if 46 <= index <= 911:
@@ -41089,7 +41945,11 @@ _lookup_db_special_casing_index_middle = [
 181, 182,
 ]
 _lookup_db_special_casing_index_middle = _all_short(_lookup_db_special_casing_index_middle)
-def lookup_db_special_casing_index_middle(index): return intmask(_lookup_db_special_casing_index_middle[index])
+def lookup_db_special_casing_index_middle(index):
+    try:
+        return intmask(_lookup_db_special_casing_index_middle[index])
+    except IndexError:
+        raise KeyError
 # estimated 2.45 KiB
 _lookup_db_flags = [
 0, 1, 5, 5, 5, 4097, 4096, 4096, 4096, 12288, 4608, 4608, 4096, 4096, 4096, 12288,
@@ -41172,7 +42032,11 @@ _lookup_db_flags = [
 4160, 4160, 4160, 4160, 4160, 4160, 4160, 4160, 4160, 4160, 4160, 4160, 4160, 4288, 4104,
 ]
 _lookup_db_flags = _all_ushort(_lookup_db_flags)
-def lookup_db_flags(index): return intmask(_lookup_db_flags[index])
+def lookup_db_flags(index):
+    try:
+        return intmask(_lookup_db_flags[index])
+    except IndexError:
+        raise KeyError
 # estimated 17.02 KiB
 __db_pgtbl = [
 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
@@ -41721,7 +42585,11 @@ __db_pgtbl = [
 146, 146, 146, 146, 146, 146, 146, 146, 146, 146, 146, 146, 146, 146, 146, 294,
 ]
 __db_pgtbl = _all_ushort(__db_pgtbl)
-def _db_pgtbl(index): return intmask(__db_pgtbl[index])
+def _db_pgtbl(index):
+    try:
+        return intmask(__db_pgtbl[index])
+    except IndexError:
+        raise KeyError
 # estimated 73.77 KiB
 __db_pages = [
 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 2, 0, 0,
@@ -44086,7 +44954,11 @@ __db_pages = [
 899, 899, 899, 899, 899, 899, 899, 899, 899, 899, 899, 899, 899, 899, 143, 143,
 ]
 __db_pages = _all_ushort(__db_pages)
-def _db_pages(index): return intmask(__db_pages[index])
+def _db_pages(index):
+    try:
+        return intmask(__db_pages[index])
+    except IndexError:
+        raise KeyError
 
 def _db_index(code):
     return _db_pages((_db_pgtbl(code >> 7) << 7) + (code & 127))
@@ -44647,7 +45519,11 @@ __named_sequences = [
 '\xcb\xa9\xcb\xa5',
 ]
 
-def _named_sequences(index): return __named_sequences[index]
+def _named_sequences(index):
+    try:
+        return __named_sequences[index]
+    except IndexError:
+        raise KeyError
 
 def _named_sequence_lengths(index):
     if 12 <= index <= 383:
@@ -44679,7 +45555,11 @@ __named_sequence_lengths_middle = (
 '\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x02\x03\x04\x04\x04'
 '\x04\x04\x04\x04\x04\x04\x04\x04\x04\x03\x03\x03'
 )
-def _named_sequence_lengths_middle(index): return ord(__named_sequence_lengths_middle[index])
+def _named_sequence_lengths_middle(index):
+    try:
+        return ord(__named_sequence_lengths_middle[index])
+    except IndexError:
+        raise KeyError
 
 
 def lookup_named_sequence(code):
@@ -44728,7 +45608,11 @@ __name_aliases = [
 917996, 917997, 917998, 917999,
 ]
 __name_aliases = _all_uint32(__name_aliases)
-def _name_aliases(index): return intmask(__name_aliases[index])
+def _name_aliases(index):
+    try:
+        return intmask(__name_aliases[index])
+    except IndexError:
+        raise KeyError
 
 
 def lookup_with_alias(name, with_named_sequence=False):

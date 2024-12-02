@@ -17,6 +17,16 @@ class TestTranslated(BaseRtypingTest):
         print hex(res)
         assert res == f(1)
 
+    def test_translated_crash(self):
+        def f(n):
+            try:
+                return unicodedb_5_2_0.tolower(n)
+            except KeyError:
+                return -9
+        res = self.interpret(f, [1])
+        assert res == f(1)
+        res = self.interpret(f, [2 ** 30])
+        assert res == f(2 ** 30) == -9
 
 def test_code_to_unichr():
     def f(c):

@@ -820,6 +820,25 @@ class rbigint(object):
         result._set_sign(selfsign * othersign)
         return result
 
+    @staticmethod
+    @jit.elidable
+    def mul_int_int_bigint_result(iself, iother):
+        if not SUPPORT_INT128 or not int_in_valid_range(iself):
+            return rbigint.fromint(iself).int_mul(iother)
+        if iself == 0 or iother == 0:
+            return NULLRBIGINT
+        selfsign = intsign(iself)
+        othersign = intsign(iother)
+        otherdigit = r_uint(iother)
+        if iother < 0: # can use abs because of minint
+            otherdigit = -otherdigit
+        res = _unsigned_widen_digit(abs(iself)) * otherdigit
+        carry = res >> SHIFT
+        if carry:
+            return rbigint([_store_digit(res & MASK), _store_digit(carry)], selfsign * othersign, 2)
+        else:
+            return rbigint([_store_digit(res & MASK)], selfsign * othersign, 1)
+
     @jit.elidable
     def truediv(self, other):
         div = _bigint_true_divide(self, other)

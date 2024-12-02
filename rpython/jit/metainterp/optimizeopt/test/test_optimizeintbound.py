@@ -4009,10 +4009,10 @@ finish()
 
     def test_bug_wrong_minint_generation(self):
         ops = """
-        [i4, i5] 
-        i21 = int_rshift(i4, i5) 
-        i41 = int_and(41, i4) 
-        i44 = int_is_true(i41) 
+        [i4, i5]
+        i21 = int_rshift(i4, i5)
+        i41 = int_and(41, i4)
+        i44 = int_is_true(i41)
         guard_true(i44) []
         jump(i5)
         """
@@ -4081,6 +4081,119 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_abs(self):
+        ops = """
+        [i0]
+        i1 = int_lt(i0, 0)
+        guard_true(i1) []
+        i2 = int_rshift(i0, %s)
+        i3 = int_xor(i0, i2)
+        i4 = int_sub(i3, i2)
+        jump(i4)
+        """ % (LONG_BIT - 1)
+        expected = """
+        [i0]
+        i1 = int_lt(i0, 0)
+        guard_true(i1) []
+        i3 = int_invert(i0)
+        i4 = int_neg(i0)
+        jump(i4)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_sub_add_self(self):
+        ops = """
+        [i1, i2]
+        i3 = int_add(i1, i2)
+        i4 = int_sub(i2, i3)
+        jump(i4, -1) # lower
+        """
+        expected = """
+        [i1, i2]
+        i3 = int_add(i1, i2) # dead
+        i4 = int_neg(i1)
+        jump(i4, -1) # lower
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_split_into_bytes_and_merge_again(self):
+        ops = """
+        [i14]
+        i31 = int_and(i14, 255)
+        i33 = int_rshift(i14, 8)
+        i35 = int_and(i33, 255)
+        i37 = int_rshift(i33, 8)
+        i39 = int_and(i37, 255)
+        i41 = int_rshift(i37, 8)
+        i43 = int_lshift(i35, 8)
+        i44 = int_or(i31, i43)
+        i46 = int_lshift(i39, 16)
+        i47 = int_or(i44, i46)
+        i49 = int_lshift(i41, 24)
+        i50 = int_or(i47, i49)
+        jump(i50, i14)
+        """
+        expected = """
+        [i14]
+        # all operations are dead, and the result is the identity
+        i31 = int_and(i14, 255)
+        i33 = int_rshift(i14, 8)
+        i35 = int_and(i33, 255)
+        i37 = int_rshift(i14, 16)
+        i39 = int_and(i37, 255)
+        i41 = int_rshift(i14, 24)
+        i43 = int_and(i14, 65280)
+        i44 = int_and(i14, 65535)
+        i46 = int_and(i14, 16711680)
+        i47 = int_and(i14, 16777215)
+        i49 = int_and(i14, -16777216)
+        jump(i14, i14)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_rshift_max(self):
+        ops = '''
+        [i1]
+        i3 = int_rshift(i1, %s)
+        i4 = int_rshift(i3, %s)
+        jump(i4)
+        ''' % (LONG_BIT//2, LONG_BIT//2)
+        expected = '''
+        [i1]
+        i3 = int_rshift(i1, %s)
+        i4 = int_rshift(i1, %s)
+        jump(i4)
+        ''' % (LONG_BIT//2, LONG_BIT-1)
+        self.optimize_loop(ops, expected)
+
+    def test_urshift_max(self):
+        ops = '''
+        [i1]
+        i3 = uint_rshift(i1, %s)
+        i4 = uint_rshift(i3, %s)
+        jump(i4)
+        ''' % (LONG_BIT//2, LONG_BIT//2)
+        expected = '''
+        [i1]
+        i3 = uint_rshift(i1, %s)
+        jump(0)
+        ''' % (LONG_BIT//2, )
+        self.optimize_loop(ops, expected)
+
+    def test_lshift_max(self):
+        ops = '''
+        [i1]
+        i3 = int_lshift(i1, %s)
+        i4 = int_lshift(i3, %s)
+        jump(i4)
+        ''' % (LONG_BIT//2, LONG_BIT//2)
+        expected = '''
+        [i1]
+        i3 = int_lshift(i1, %s)
+        i4 = int_lshift(i3, %s)
+        jump(0)
+        ''' % (LONG_BIT//2, LONG_BIT//2)
+        self.optimize_loop(ops, expected)
 
 class TestComplexIntOpts(BaseTestBasic):
 

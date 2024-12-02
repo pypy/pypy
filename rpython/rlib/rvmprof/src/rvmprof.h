@@ -26,6 +26,11 @@ typedef intptr_t ssize_t;
 #define RPY_EXPORTED  extern __attribute__((visibility("default")))
 #endif
 
+#ifdef VMP_SUPPORTS_NATIVE_PROFILING
+RPY_EXTERN int vmp_resolve_addr(void * addr, char * name, int name_len, int * lineno,
+                      char * srcfile, int srcfile_len);
+#endif
+
 RPY_EXTERN char *vmprof_init(int fd, double interval, int memory,
                      int lines, const char *interp_name, int native, int real_time);
 RPY_EXTERN void vmprof_ignore_signals(int);
