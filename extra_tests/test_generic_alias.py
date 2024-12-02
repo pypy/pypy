@@ -243,3 +243,8 @@ def test_getitem():
     assert starred.__unpacked__ is True
     assert repr(starred) == '*tuple[int]'
     assert starred != ga
+
+def test_isinstance_type():
+    ga = GenericAlias(tuple, (int, ))
+    assert ga.__class__ is ga
+    assert not isinstance(list[int], type)

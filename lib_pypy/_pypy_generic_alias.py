@@ -8,6 +8,7 @@ _ATTR_EXCEPTIONS = frozenset((
     "__reduce__",
     "__copy__",
     "__deepcopy__",
+    "__class__",
 ))
 
 class GenericAlias:
