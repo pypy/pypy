@@ -1207,6 +1207,8 @@ class Connection(object):
             """
             if isinstance(data, memoryview) and not data.c_contiguous:
                 raise BufferError('only contiguous buffers are supported')
+            if isinstance(data, list):
+                raise TypeError("need bytes, not 'list'")
             size = len(data)
             buf = _lib.sqlite3_malloc64(size)
             if not buf:
