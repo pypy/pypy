@@ -901,17 +901,28 @@ class Connection(object):
             try:
                 trace_callback = self.__func_cache[callable]
             except KeyError:
-                @_ffi.callback("void(void*, const char*)")
-                def trace_callback(userdata, statement):
-                    # CPython tries harder here to work with really long
-                    # statements and uses sqlite3_expanded_sql
-                    stmt = _ffi.string(statement).decode('utf-8')
+                @_ffi.callback("int(unsigned, void*, void*, void*)")
+                def trace_callback(typ, ctx, statement, sql):
+                    if typ != _lib.SQLITE_TRACE_STMT:
+                        return 0
+                    expanded_sql = _lib.sqlite3_expanded_sql(statement)
+                    if not expanded_sql:
+                        exc = DataError("Expanded SQL string exceeds the maximum string length")
+                        print_or_clear_traceback(self, exc)
+                        stmt = _ffi.string(_ffi.cast('char*', sql)).decode('utf-8')
+                    else:
+                        try:
+                            stmt = _ffi.string(expanded_sql).decode('utf-8')
+                        finally:
+                            _lib.sqlite3_free(expanded_sql)
                     try:
                         callable(stmt)
                     except Exception as exc:
                         print_or_clear_traceback(self, exc)
+                    return 0
                 self.__func_cache[callable] = trace_callback
-        _lib.sqlite3_trace(self._db, trace_callback, _ffi.NULL)
+        _lib.sqlite3_trace_v2(self._db, _lib.SQLITE_TRACE_STMT,
+                              trace_callback, _ffi.NULL)
 
     @property
     @_check_closed_wrap

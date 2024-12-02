@@ -155,6 +155,8 @@ static void *const SQLITE_TRANSIENT;
 #define SQLITE_DESERIALIZE_FREEONCLOSE ...
 #define SQLITE_DESERIALIZE_RESIZEABLE ...
 
+#define SQLITE_TRACE_STMT ...
+
 static const long SQLITE_OPEN_URI;
 static const long SQLITE_OPEN_READWRITE;
 static const long SQLITE_OPEN_CREATE;
@@ -225,6 +227,14 @@ const char *sqlite3_column_decltype(sqlite3_stmt*,int);
 
 void sqlite3_progress_handler(sqlite3*, int, int(*)(void*), void*);
 void sqlite3_trace(sqlite3*, void(*)(void*, const char*), void*);
+int sqlite3_trace_v2(
+  sqlite3*,
+  unsigned uMask,
+  int(*xCallback)(unsigned,void*,void*,void*),
+  void *pCtx
+);
+char *sqlite3_expanded_sql(sqlite3_stmt *pStmt);
+
 int sqlite3_create_collation(
     sqlite3*,
     const char *zName,
