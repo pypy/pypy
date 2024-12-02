@@ -1764,7 +1764,7 @@ class Statement(object):
                 if rc != _lib.SQLITE_OK:
                     raise self.__con._get_exception(rc)
         else:
-            raise ValueError("parameters are of unsupported type")
+            raise ProgrammingError("parameters are of unsupported type")
 
 
 class Row(object):
