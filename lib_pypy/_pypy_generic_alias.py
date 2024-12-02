@@ -90,6 +90,9 @@ class GenericAlias:
         raise TypeError("isinstance() argument 2 cannot be a parameterized generic")
 
     def __reduce__(self):
+        if self.__unpacked__:
+            orig = GenericAlias(self.__origin__, self.__args__)
+            return (_make_starred, (orig, ))
         return (type(self), (self.__origin__, self.__args__))
 
     def __or__(self, other):
@@ -99,9 +102,13 @@ class GenericAlias:
         return _create_union(other, self)
 
     def __iter__(self):
-        res = GenericAlias(self.__origin__, self.__args__)
-        res.__unpacked__ = True
-        yield res
+        yield _make_starred(self)
+
+
+def _make_starred(ga):
+    res = GenericAlias(ga.__origin__, ga.__args__)
+    res.__unpacked__ = True
+    return res
 
 
 def _repr_item(it):
