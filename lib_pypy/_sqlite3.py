@@ -1256,7 +1256,8 @@ class Connection(object):
                 row, not readonly, blob_ref)
         if rc != _lib.SQLITE_OK:
             raise self._get_exception(rc)
-        res = Blob(self, blob_ref[0])
+        res = object.__new__(Blob)
+        res.__init__(self, blob_ref[0])
         self.__blobs.append(weakref.ref(res))
         return res
 
@@ -1843,6 +1844,9 @@ _INT_MIN = -2**(struct.calcsize('i') * 8 - 1)
 _INT_MAX = ~_INT_MIN
 
 class Blob(object):
+    def __new__(self, *args, **kwargs):
+        raise TypeError("cannot create '_sqlite3.Blob' instances")
+
     def __init__(self, con, blob):
         if not isinstance(con, Connection):
             raise TypeError
