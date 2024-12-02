@@ -1,6 +1,5 @@
 import pytest
 import gc
-import sys
 import weakref
 
 def test_memory_doesnt_jump_during_sweeping():
