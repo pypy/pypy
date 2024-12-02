@@ -1967,6 +1967,8 @@ class Blob(object):
             if offset < 0:
                 offset += blob_len
             if not 0 <= offset < blob_len:
+                if offset > _INT_MAX:
+                    raise IndexError("cannot fit 'int'")
                 raise IndexError("index out of range")
             raw_buffer = _ffi.new("char[]", 1)
             rc = _lib.sqlite3_blob_read(self.__blob, raw_buffer, 1, offset)
