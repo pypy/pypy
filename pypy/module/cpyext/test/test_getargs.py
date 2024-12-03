@@ -216,7 +216,7 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             ''')])
         raises(TypeError, module.getargs_keywords, (1,2), 3, (4,(5,6)), (7,8,9), **{'\uDC80': 10})
 
-    def test_ystar(self):
+    def test_y(self):
         module = self.import_extension('foo', [
         ("getargs_y_star", "METH_VARARGS",
          """
@@ -228,6 +228,13 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             PyBuffer_Release(&buffer);
             return bytes;
          """),
+        ("getargs_y", "METH_VARARGS",
+         """
+            char *str;
+            if (!PyArg_ParseTuple(args, "y", &str))
+                return NULL;
+            return PyBytes_FromString(str);
+         """),
          ])
         NONCONTIG_WRITABLE = memoryview(bytearray(b'noncontig'))[::-2]
         NONCONTIG_READONLY = memoryview(b'noncontig')[::-2]
@@ -235,3 +242,8 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             module.getargs_y_star(NONCONTIG_WRITABLE)
         with raises(BufferError):
             module.getargs_y_star(NONCONTIG_READONLY)
+        assert module.getargs_y(b'bytes') ==  b'bytes'
+        with raises(TypeError):
+            # Fails since we are not assigning a bf_releasebuffer function
+            # to memoryviews, see issue 5100
+            module.getargs_y(memoryview(b'memoryview'))

@@ -157,7 +157,8 @@ class FQ(rgc.FinalizerQueue):
             buf  = self.next_dead()
             if not buf:
                 break
-            buf.releasebuffer()
+            if buf.releasebuffer:
+                buf.releasebuffer()
 
 fq = FQ()
 
