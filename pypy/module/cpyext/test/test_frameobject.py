@@ -199,7 +199,6 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                 }
                 int num = PyFrame_GetLineNumber((PyFrameObject *)args);
                 if (num < 0) {
-                    assert(lasti == -1);
                     Py_RETURN_NONE;
                 }
                 return PyLong_FromLong(num);

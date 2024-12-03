@@ -7,6 +7,7 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
 
     def test_basic(self):
         module = self.import_module(name='array')
+        import sys
         arr = module.array('i', [1,2,3])
         assert arr.typecode == 'i'
         assert arr.itemsize == 4
@@ -14,7 +15,10 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         assert len(arr.buffer_info()) == 2
         exc = raises(TypeError, module.array.append)
         errstr = str(exc.value)
-        assert errstr.startswith("descriptor 'append' of")
+        if sys.implementation.name == 'pypy':
+            assert errstr.startswith("descriptor 'append' of 'array' object"), errstr
+        else:
+            assert errstr.startswith("unbound method array.append"), errstr
         arr.append(4)
         assert arr.tolist() == [1, 2, 3, 4]
         assert len(arr) == 4
@@ -60,8 +64,7 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         module = self.import_module(name='array')
         arr = module.array('i', [1, 2, 3, 4])
         buf = memoryview(arr)
-        exc = raises(TypeError, "buf[1] = 1")
-        assert str(exc.value) == "cannot modify read-only memory"
+        buf[1] = 2
         if sys.byteorder == 'big':
             expected = b'\0\0\0\x01\0\0\0\x02\0\0\0\x03\0\0\0\x04'
         else:
@@ -121,6 +124,8 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
         import sys
         arr = module.array('u', '123')
         view = memoryview(arr)
+        print("view.shape", view.shape)
+        print("view.strides", view.strides)
         isize = view.itemsize
         if sys.platform == 'win32':
             assert isize == 2

@@ -835,7 +835,7 @@ def slot_from_buffer_w(space, typedef):
     def buff_w(space, w_self, c_view, flags):
         w_obj = w_self
         if c_view:
-            #like PyObject_GetBuffer
+            #typically called from PyObject_GetBuffer
             flags = widen(flags)
             buf = space.buffer_w(w_obj, flags)
             try:

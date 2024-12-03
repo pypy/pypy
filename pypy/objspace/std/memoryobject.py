@@ -18,6 +18,25 @@ MEMORYVIEW_FORTRAN  = 0x0004
 MEMORYVIEW_SCALAR   = 0x0008
 MEMORYVIEW_PIL      = 0x0010
 
+# Copied from headers, could be imported via cpyext.api.py
+PyBUF_SIMPLE = 0
+PyBUF_WRITABLE = 0x0001
+PyBUF_FORMAT = 0x0004
+PyBUF_ND = 0x0008
+PyBUF_STRIDES = (0x0010 | PyBUF_ND)
+PyBUF_C_CONTIGUOUS = (0x0020 | PyBUF_STRIDES)
+PyBUF_F_CONTIGUOUS = (0x0040 | PyBUF_STRIDES)
+PyBUF_ANY_CONTIGUOUS = (0x0080 | PyBUF_STRIDES)
+PyBUF_INDIRECT = (0x0100 | PyBUF_STRIDES)
+
+PyBUF_CONTIG = (PyBUF_ND | PyBUF_WRITABLE)
+PyBUF_CONTIG_RO = (PyBUF_ND)
+
+PyBUF_STRIDED = (PyBUF_STRIDES | PyBUF_WRITABLE)
+PyBUF_STRIDED_RO = (PyBUF_STRIDES)
+
+
+
 def is_multiindex(space, w_key):
     from pypy.objspace.std.tupleobject import W_AbstractTupleObject
     if not space.isinstance_w(w_key, space.w_tuple):
@@ -47,6 +66,20 @@ def is_multislice(space, w_key):
             return 0
         i += 1
     return 1
+
+# Memoryview buffer properties
+MV_C_CONTIGUOUS = lambda flags: flags & (MEMORYVIEW_SCALAR | MEMORYVIEW_C)
+MV_F_CONTIGUOUS = lambda flags: flags & (MEMORYVIEW_SCALAR | MEMORYVIEW_FORTRAN)
+MV_ANY_CONTIGUOUS = lambda flags: flags & (MEMORYVIEW_SCALAR | MEMORYVIEW_C | MEMORYVIEW_FORTRAN)
+
+# getbuffer() requests
+REQ_INDIRECT = lambda flags: (flags & PyBUF_INDIRECT) == PyBUF_INDIRECT
+REQ_C_CONTIGUOUS = lambda flags: (flags & PyBUF_C_CONTIGUOUS) == PyBUF_C_CONTIGUOUS
+REQ_F_CONTIGUOUS = lambda flags: (flags & PyBUF_F_CONTIGUOUS) == PyBUF_F_CONTIGUOUS
+REQ_ANY_CONTIGUOUS = lambda flags: (flags & PyBUF_ANY_CONTIGUOUS) == PyBUF_ANY_CONTIGUOUS
+REQ_STRIDES = lambda flags: (flags & PyBUF_STRIDES) == PyBUF_STRIDES
+REQ_SHAPE = lambda flags: (flags & PyBUF_ND) == PyBUF_ND
+
 
 class W_MemoryView(W_Root):
     """Implement the built-in 'memoryview' type as a wrapper around
@@ -79,9 +112,35 @@ class W_MemoryView(W_Root):
         self._check_released(space)
         if self.getndim() > MEMORYVIEW_MAX_DIM:
             raise oefmt(space.w_ValueError,
-                "memoryview: number of dimensions must not exceed 64, got %d",
-                self.getndim())
+                "memoryview: number of dimensions must not exceed %d, got %d",
+                MEMORYVIEW_MAX_DIM, self.getndim())
         space.check_buf_flags(flags, self.view.readonly)
+        if REQ_C_CONTIGUOUS(flags) and not MV_C_CONTIGUOUS(self.flags):
+            raise oefmt(space.w_BufferError,
+                "memoryview: underlying buffer is not C-contiguous")
+        if REQ_F_CONTIGUOUS(flags) and not MV_F_CONTIGUOUS(self.flags):
+            raise oefmt(space.w_BufferError,
+                "memoryview: underlying buffer is not Fortran contiguous")
+        if REQ_ANY_CONTIGUOUS(flags) and not MV_ANY_CONTIGUOUS(self.flags):
+            raise oefmt(space.w_BufferError,
+                "memoryview: underlying buffer is not contiguous")
+        if not REQ_INDIRECT(flags) and (self.flags & MEMORYVIEW_PIL):
+            raise oefmt(space.w_BufferError,
+                "memoryview: underlying buffer requires suboffsets")
+        if not REQ_STRIDES(flags):
+            if not MV_C_CONTIGUOUS(self.flags):
+                raise oefmt(space.w_BufferError,
+                    "memoryview: underlying buffer is not C-contiguous")
+        if not REQ_SHAPE(flags):
+            # PyBUF_SIMPLE or PyBUF_WRITABLE: at this point buf is C-contiguous,
+            # so base->buf = ndbuf->data
+            if not self.getformat():
+                # PyBUF_SIMPLE|PyBUF_FORMAT and PyBUF_WRITABLE|PyBUF_FORMAT do
+                # not make sense.
+                raise oefmt(space.w_BufferError,
+                    "memoryview: cannot cast to unsigned bytes if the format flag "
+                    "is present");
+            # self.view.strides = []
         return self.view
 
     @staticmethod
