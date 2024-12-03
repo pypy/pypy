@@ -15,7 +15,7 @@ class AppTestWriter(object):
             def _write_test(fields, expect, **kwargs):
                 fileobj = DummyFile()
                 writer = _csv.writer(fileobj, **kwargs)
-                if len(fields) > 0 and type(fields[0]) is list:
+                if hasattr(fields, '__len__') and len(fields) > 0 and type(fields[0]) is list:
                     writer.writerows(fields)
                 else:
                     writer.writerow(fields)
@@ -31,7 +31,7 @@ class AppTestWriter(object):
 
     def test_write_arg_valid(self):
         import _csv as csv
-        raises(TypeError, self._write_test, None, '')    # xxx different API!
+        raises(csv.Error, self._write_test, None, '')    # xxx different API!
         self._write_test((), '')
         self._write_test([None], '""')
         raises(csv.Error, self._write_test,

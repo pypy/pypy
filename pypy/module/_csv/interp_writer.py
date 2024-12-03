@@ -29,13 +29,19 @@ class W_Writer(W_Root):
         space = self.space
         w_module = space.getbuiltinmodule('_csv')
         w_error = space.getattr(w_module, space.newtext('Error'))
-        raise OperationError(w_error, space.newtext(msg))
+        return OperationError(w_error, space.newtext(msg))
 
     def writerow(self, w_fields):
         """Construct and write a CSV record from a sequence of fields.
         Non-string elements will be converted to string."""
         space = self.space
-        fields_w = space.listview(w_fields)
+        try:
+            fields_w = space.listview(w_fields)
+        except OperationError as e:
+            if e.match(space, space.w_TypeError):
+                raise self.error("iterable expected, not %s" % space.repr(w_fields))
+            raise e
+            
         dialect = self.dialect
         rec = Utf8StringBuilder(80)
         #
@@ -78,7 +84,7 @@ class W_Writer(W_Root):
             if len(field) == 0:
                 if dialect.delimiter == ord(' ') and dialect.skipinitialspace:
                     if dialect.quoting == QUOTE_NONE:
-                        self.error(
+                        raise self.error(
                              "empty field must be quoted if delimiter is a space "
                              "and skipinitialspace is true")
                     quoted = True
