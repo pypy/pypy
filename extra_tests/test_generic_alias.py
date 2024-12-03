@@ -237,7 +237,7 @@ def test_union_typevars():
 def test_union_type_none():
     assert int | type(None) == int | None
 
-def test_getitem():
+def test_unpacked():
     ga = GenericAlias(tuple, (int, ))
     starred = list(ga)[0]
     assert starred.__unpacked__ is True
@@ -247,6 +247,13 @@ def test_getitem():
     reconstructed = func(*args)
     assert reconstructed == starred
     assert reconstructed != ga
+
+def test_unpacked_subst():
+    from typing import TypeVar
+    T = TypeVar('T')
+    ga = GenericAlias(tuple, (T, ))
+    starred_generic = list(ga)[0]
+    assert starred_generic[int].__unpacked__
 
 def test_isinstance_type():
     ga = GenericAlias(tuple, (int, ))

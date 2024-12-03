@@ -74,7 +74,10 @@ class GenericAlias:
         params = self.__parameters__
         args = self.__args__
         newargs = subs_parameters(self, args, params, items)
-        return GenericAlias(self.__origin__, tuple(newargs))
+        res = GenericAlias(self.__origin__, tuple(newargs))
+        if self.__unpacked__:
+            res.__unpacked__ = True
+        return res
 
     def __hash__(self):
         return hash(self.__origin__) ^ hash(self.__args__)
