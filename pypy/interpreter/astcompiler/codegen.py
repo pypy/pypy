@@ -516,9 +516,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op_arg(ops.BUILD_CONST_KEY_MAP, len(keys_w))
         return defaults
 
-    def _visit_arg_annotation(self, name, ann, names):
+    def _visit_arg_annotation(self, name, ann, names, can_be_starred=False):
         if ann:
-            ann.walkabout(self)
+            if can_be_starred and isinstance(ann, ast.Starred):
+                ann.value.walkabout(self)
+                self.emit_op_arg(ops.UNPACK_SEQUENCE, 1)
+            else:
+                ann.walkabout(self)
             names.append(self.scope.mangle(name))
 
     def _visit_arg_annotations(self, args, names):
@@ -536,7 +540,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         vararg = args.vararg
         if vararg:
             self._visit_arg_annotation(vararg.arg, vararg.annotation,
-                                       names)
+                                       names, can_be_starred=True)
         self._visit_arg_annotations(args.kwonlyargs, names)
         kwarg = args.kwarg
         if kwarg:

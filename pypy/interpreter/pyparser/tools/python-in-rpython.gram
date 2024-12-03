@@ -368,10 +368,13 @@ slash_with_default[SlashWithDefault]:
     | a=param_no_default* b=param_with_default+ '/' &')' { self.make_slash_with_default(a, b) }
 
 star_etc[StarEtc]:
+    | invalid_star_etc
     | '*' a=param_no_default b=param_maybe_default* c=[kwds] { self.make_star_etc(a, b, c) }
+    | '*' a=param_no_default_star_annotation b=param_maybe_default* c=[kwds] {
+        self.make_star_etc(a, b, c) }
     | '*' ',' b=param_maybe_default+ c=[kwds] { self.make_star_etc(None, b, c) }
     | a=kwds { self.make_star_etc(None, [], a) }
-    | invalid_star_etc
+
 
 kwds[arg_ty]:
     | invalid_kwds
@@ -393,6 +396,9 @@ kwds[arg_ty]:
 param_no_default[ast.arg]:
     | a=param ',' tc=TYPE_COMMENT? { self.set_arg_type_comment(a, tc) }
     | a=param tc=TYPE_COMMENT? &')' { self.set_arg_type_comment(a, tc) }
+param_no_default_star_annotation[ast.arg]:
+    | a=param_star_annotation ',' tc=TYPE_COMMENT? { self.set_arg_type_comment(a, tc) }
+    | a=param_star_annotation tc=TYPE_COMMENT? &')' { self.set_arg_type_comment(a, tc) }
 param_with_default[NameDefaultPair]:
     | a=param c=default ',' tc=TYPE_COMMENT? { self.name_default_pair(a, c, tc) }
     | a=param c=default tc=TYPE_COMMENT? &')' { self.name_default_pair(a, c, tc) }
@@ -400,7 +406,9 @@ param_maybe_default[NameDefaultPair]:
     | a=param c=default? ',' tc=TYPE_COMMENT? { self.name_default_pair(a, c, tc) }
     | a=param c=default? tc=TYPE_COMMENT? &')' { self.name_default_pair(a, c, tc) }
 param[ast.arg]: a=NAME b=annotation? { ast.arg(arg=self.extract_id(a), annotation=b, type_comment=None, LOCATIONS) }
+param_star_annotation[ast.arg]: a=NAME b=star_annotation { ast.arg(arg=self.extract_id(a), annotation=b, type_comment=None, LOCATIONS) }
 annotation: ':' a=expression { a }
+star_annotation: ':' a=star_expression { a }
 default: '=' a=expression { a }
 
 # If statement

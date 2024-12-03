@@ -2395,6 +2395,9 @@ match x:
         self.st("x = sorted({j*k for i in range(4) for j in [i+1] for k in [j+1]})", "x", [2, 6, 12, 20])
         self.st("[*x] = (j*k for i in range(4) for j in [i+1] for k in [j+1])", "x", [2, 6, 12, 20])
 
+    def test_type_with_star_311(self):
+        self.st("def func1(*args: *(1, )): pass", "func1.__annotations__['args']", 1)
+
 
 class TestLinenoChanges310(object):
     def get_line_numbers(self, source, expected, function=False):
