@@ -1,14 +1,15 @@
 _ATTR_EXCEPTIONS = frozenset((
-    "__origin__",
     "__args__",
-    "__unpacked__",
-    "__parameters__",
-    "__mro_entries__",
-    "__reduce_ex__",  # needed so we don't look up object.__reduce_ex__
-    "__reduce__",
+    "__class__",
     "__copy__",
     "__deepcopy__",
-    "__class__",
+    "__mro_entries__",
+    "__origin__",
+    "__parameters__",
+    "__reduce__",
+    "__reduce_ex__",  # needed so we don't look up object.__reduce_ex__
+    "__typing_unpacked_tuple_args__",
+    "__unpacked__",
 ))
 
 class GenericAlias:
@@ -104,6 +105,12 @@ class GenericAlias:
     def __iter__(self):
         yield _make_starred(self)
 
+    @property
+    def __typing_unpacked_tuple_args__(self):
+        if self.__unpacked__ and self.__origin__ is tuple:
+            return self.__args__
+        return None
+
 
 def _make_starred(ga):
     res = GenericAlias(ga.__origin__, ga.__args__)
@@ -183,10 +190,11 @@ def subs_tvars(obj, params, argitems):
     return obj[tuple(subargs)]
 
 def subs_parameters(self, args, params, items):
-    from typing import _is_unpacked_typevartuple
+    from typing import _is_unpacked_typevartuple, _unpack_args
     nparams = len(params)
     if nparams == 0:
         raise TypeError("There are no type variables left in %r" % self)
+    items = _unpack_args(items)
     for param in params:
         prepare = getattr(param, '__typing_prepare_subst__', None)
         if prepare is not None:

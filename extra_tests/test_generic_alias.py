@@ -267,3 +267,5 @@ def test_typevartuple_subst():
     tupinner = GenericAlias(tuple, (int, float, bool))
     tup = B[tupinner]
     assert tup == GenericAlias(list, tupinner)
+    tup = B[*tupinner]
+    assert tup == GenericAlias(list, (int, float, bool))
