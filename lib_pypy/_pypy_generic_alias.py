@@ -164,35 +164,54 @@ def subs_tvars(obj, params, argitems):
     and argitems is (str, int), return list[str]. If obj doesn't have a
     __parameters__ attribute or that's not a non-empty tuple, return a new
     reference to obj. """
+    from typing import TypeVarTuple
     subparams = getattr(obj, "__parameters__", ())
     if not subparams or not isinstance(subparams, tuple):
         return obj
     nparams = len(params)
     nsubparams = len(subparams)
     subargs = []
-    for arg in subparams:
+    for param in subparams:
         try:
-            arg = argitems[params.index(arg)]
+            arg = argitems[params.index(param)]
         except ValueError:
             pass
-        subargs.append(arg)
+        if isinstance(param, TypeVarTuple):
+            subargs.extend(arg)
+        else:
+            subargs.append(arg)
     return obj[tuple(subargs)]
 
 def subs_parameters(self, args, params, items):
+    from typing import _is_unpacked_typevartuple
     nparams = len(params)
-    nitems = len(items)
     if nparams == 0:
         raise TypeError("There are no type variables left in %r" % self)
+    for param in params:
+        prepare = getattr(param, '__typing_prepare_subst__', None)
+        if prepare is not None:
+            items = prepare(self, items)
+    nitems = len(items)
     if nparams != nitems:
-        raise TypeError("mismatched arguments for %r" % self)
-    args = args
+        direction = 'many' if nitems > nparams else 'few'
+        raise TypeError(f"Too {direction} arguments for {self}; actual {nitems}, expected {nparams}")
     newargs = []
-    for i, arg in enumerate(args):
-        if _is_typevar(arg):
-            iparam = params.index(arg)
-            newargs.append(items[iparam])
+    for i, old_arg in enumerate(args):
+        if isinstance(old_arg, type):
+            newargs.append(old_arg)
+            continue
+        unpack = _is_unpacked_typevartuple(old_arg)
+        meth = getattr(old_arg, '__typing_subst__', None)
+        if meth is not None:
+            iparam = params.index(old_arg)
+            arg = meth(items[iparam])
         else:
-            newargs.append(subs_tvars(arg, params, items))
+            arg = subs_tvars(old_arg, params, items)
+        if unpack:
+            newargs.extend(arg)
+        else:
+            newargs.append(arg)
+
     return newargs
 
 class UnionType:

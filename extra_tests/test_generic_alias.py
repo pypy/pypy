@@ -162,7 +162,7 @@ def test_ga_ror():
 def test_ga_subclass_repr():
     import types
     a = list[int]
-    class SubClass(types.GenericAlias): ...
+    class SubClass(type(a)): ...
     d = SubClass(list, float)
     assert repr(a | d) == repr(a) + " | " + repr(d)
 
@@ -252,3 +252,10 @@ def test_isinstance_type():
     ga = GenericAlias(tuple, (int, ))
     assert ga.__class__ is GenericAlias
     assert not isinstance(ga, type)
+
+def test_typevartuple_subst():
+    Ts = TypeVarTuple('Ts')
+    # A = tuple[*Ts]
+    A = GenericAlias(tuple, (*Ts, ))
+    assert A[int] == tuple[int]
+
