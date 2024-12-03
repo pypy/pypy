@@ -2,6 +2,7 @@ import collections.abc
 import traceback
 import types
 import unittest
+import sys
 
 
 class TestExceptionGroupTypeHierarchy(unittest.TestCase):
@@ -22,12 +23,16 @@ class TestExceptionGroupTypeHierarchy(unittest.TestCase):
 
 class BadConstructorArgs(unittest.TestCase):
     def test_bad_EG_construction__too_many_args(self):
-        MSG = r'BaseExceptionGroup.__new__\(\) takes exactly 2 arguments'
-        with self.assertRaisesRegex(TypeError, MSG):
+        if sys.implementation.name == 'pypy':
+            MSG1 = r"BaseExceptionGroup.__new__\(\) missing 1 required positional argument: 'exceptions'"
+            MSG2 = r"BaseExceptionGroup.__new__\(\) takes 3 positional arguments but 4 were given"
+        else:
+            MSG1 = MSG2 = r'BaseExceptionGroup.__new__\(\) takes exactly 2 arguments'
+        with self.assertRaisesRegex(TypeError, MSG1):
             ExceptionGroup('no errors')
-        with self.assertRaisesRegex(TypeError, MSG):
+        with self.assertRaisesRegex(TypeError, MSG1):
             ExceptionGroup([ValueError('no msg')])
-        with self.assertRaisesRegex(TypeError, MSG):
+        with self.assertRaisesRegex(TypeError, MSG2):
             ExceptionGroup('eg', [ValueError('too')], [TypeError('many')])
 
     def test_bad_EG_construction__bad_message(self):
