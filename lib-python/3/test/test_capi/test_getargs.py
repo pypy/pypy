@@ -1356,10 +1356,12 @@ class Test_testcapi(unittest.TestCase):
                     if name.startswith('test_') and name.endswith('_code'))
 
     @warnings_helper.ignore_warnings(category=DeprecationWarning)
+    @support.impl_detail("no test_u_code on PyPy", pypy=False)
     def test_u_code(self):
         _testcapi.test_u_code()
 
     @warnings_helper.ignore_warnings(category=DeprecationWarning)
+    @support.impl_detail("no test_Z_code on PyPy", pypy=False)
     def test_Z_code(self):
         _testcapi.test_Z_code()
 

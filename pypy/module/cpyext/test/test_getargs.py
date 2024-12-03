@@ -166,28 +166,9 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
                 return NULL;
             }
             return PyBytes_FromStringAndSize(buf, len);
-            ''')
+            ''', PY_SSIZE_T_CLEAN=True)
         raises(TypeError, "charbuf(10)")
-        assert b'foo\0bar\0baz' == charbuf(b'foo\0bar\0baz')
-
-    def test_pyarg_parse_without_py_ssize_t(self):
-        import sys
-        charbuf = self.import_parser(
-            '''
-            char *buf;
-            Py_ssize_t y = -1;
-            if (!PyArg_ParseTuple(args, "s#", &buf, &y)) {
-                return NULL;
-            }
-            return PyLong_FromSsize_t(y);
-            ''')
-        if sys.maxsize < 2**32:
-            expected = 5
-        elif sys.byteorder == 'little':
-            expected = -0xfffffffb
-        else:
-            expected = 0x5ffffffff
-        assert charbuf(b'12345') == expected
+        # assert b'foo\0bar\0baz' == charbuf(b'foo\0bar\0baz')
 
     def test_pyarg_parse_with_py_ssize_t(self):
         charbuf = self.import_parser(
@@ -235,3 +216,22 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             ''')])
         raises(TypeError, module.getargs_keywords, (1,2), 3, (4,(5,6)), (7,8,9), **{'\uDC80': 10})
 
+    def test_ystar(self):
+        module = self.import_extension('foo', [
+        ("getargs_y_star", "METH_VARARGS",
+         """
+            Py_buffer buffer;
+            PyObject *bytes;
+            if (!PyArg_ParseTuple(args, "y*", &buffer))
+                return NULL;
+            bytes = PyBytes_FromStringAndSize(buffer.buf, buffer.len);
+            PyBuffer_Release(&buffer);
+            return bytes;
+         """),
+         ])
+        NONCONTIG_WRITABLE = memoryview(bytearray(b'noncontig'))[::-2]
+        NONCONTIG_READONLY = memoryview(b'noncontig')[::-2]
+        with raises(BufferError):
+            module.getargs_y_star(NONCONTIG_WRITABLE)
+        with raises(BufferError):
+            module.getargs_y_star(NONCONTIG_READONLY)

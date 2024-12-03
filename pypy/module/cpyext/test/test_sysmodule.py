@@ -47,7 +47,7 @@ class AppTestSysModule(AppTestCpythonExtensionBase):
                 if (ret < 0)
                     return NULL;
                 return PyLong_FromLong(ret);
-             """)])
+             """)], PY_SSIZE_T_CLEAN=True)
         import sys
         module.setobject("newattr", 1)
         assert sys.newattr == 1
