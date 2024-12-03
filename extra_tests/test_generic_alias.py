@@ -276,3 +276,15 @@ def test_typevartuple_subst():
     assert tup == GenericAlias(list, tupinner)
     tup = B[*tupinner]
     assert tup == GenericAlias(list, (int, float, bool))
+
+def test_collect_parameters_bug():
+    from typing import TypeVar
+    T = TypeVar('T')
+    class A:
+        __parameters__ = (T,)
+    g = GenericAlias(list, (A, ))
+    assert g.__parameters__ == ()
+    with pytest.raises(TypeError):
+        g[str]
+
+

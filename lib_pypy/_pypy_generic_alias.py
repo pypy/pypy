@@ -22,7 +22,7 @@ class GenericAlias:
             args = (args, )
         result._origin = origin
         result._args = args
-        result._parameters = _make_parameters(args)
+        result._parameters = _collect_parameters(args)
         result.__unpacked__ = False
         return result
 
@@ -147,26 +147,38 @@ def _is_typevar(v):
     t = type(v)
     return t.__name__ == "TypeVar" and t.__module__ == "typing"
 
-def _make_parameters(args):
-    res = []
-    seen = set()
-    def add(x):
-        if x not in seen:
-            seen.add(x)
-            res.append(x)
-    for arg in args:
-        if _is_typevar(arg):
-            add(arg)
+def _collect_parameters(args):
+    """Collect all type variables and parameter specifications in args
+    in order of first appearance (lexicographic order).
+
+    For example::
+
+        >>> P = ParamSpec('P')
+        >>> T = TypeVar('T')
+        >>> _collect_parameters((T, Callable[P, T]))
+        (~T, ~P)
+    """
+    # copied from typing.py, for bootstrapping reasons
+    parameters = []
+    for t in args:
+        if isinstance(t, type):
+            # We don't want __parameters__ descriptor of a bare Python class.
+            pass
+        elif isinstance(t, tuple):
+            # `t` might be a tuple, when `ParamSpec` is substituted with
+            # `[T, int]`, or `[int, *Ts]`, etc.
+            for x in t:
+                for collected in _collect_parameters([x]):
+                    if collected not in parameters:
+                        parameters.append(collected)
+        elif hasattr(t, '__typing_subst__'):
+            if t not in parameters:
+                parameters.append(t)
         else:
-            try:
-                params = arg.__parameters__
-            except AttributeError:
-                pass
-            else:
-                if isinstance(params, tuple):
-                    for param in params:
-                        add(param)
-    return tuple(res)
+            for x in getattr(t, '__parameters__', ()):
+                if x not in parameters:
+                    parameters.append(x)
+    return tuple(parameters)
 
 def subs_tvars(obj, params, argitems):
     """If obj is a generic alias, substitute type variables params with
@@ -196,7 +208,7 @@ def subs_parameters(self, args, params, items):
     from typing import _is_unpacked_typevartuple, _unpack_args
     nparams = len(params)
     if nparams == 0:
-        raise TypeError("There are no type variables left in %r" % self)
+        raise TypeError(f"{self!r} is not a generic class")
     items = _unpack_args(items)
     for param in params:
         prepare = getattr(param, '__typing_prepare_subst__', None)
@@ -249,7 +261,7 @@ class UnionType:
         for a in args:
             add_recurse(a)
         self._args = tuple(res)
-        self.__parameters__ = _make_parameters(args)
+        self.__parameters__ = _collect_parameters(args)
 
     @property
     def __args__(self):
