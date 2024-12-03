@@ -175,7 +175,7 @@ def subs_tvars(obj, params, argitems):
         try:
             arg = argitems[params.index(param)]
         except ValueError:
-            pass
+            arg = param
         if isinstance(param, TypeVarTuple):
             subargs.extend(arg)
         else:
