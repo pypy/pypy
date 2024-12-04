@@ -1449,6 +1449,7 @@ class ByteArrayTest(BaseBytesTest, unittest.TestCase):
         b += bytes(2)  # Append exactly the number of deleted bytes
         del b          # Free memory buffer, allowing pydebug verification
 
+    @test.support.cpython_only
     def test_del_expand(self):
         # Reducing the size should not expand the buffer (issue #23985)
         b = bytearray(10)
