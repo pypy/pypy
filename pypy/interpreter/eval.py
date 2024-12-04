@@ -25,11 +25,11 @@ class Code(W_Root):
     def __init__(self, co_name):
         self.co_name = co_name
 
-    def exec_code(self, space, w_globals, w_locals):
+    def exec_code(self, space, w_globals, w_locals, w_closure=None):
         "Implements the 'exec' statement."
         # this should be on PyCode?
-        frame = space.createframe(self, w_globals, None)
-        frame.setdictscope(w_locals)
+        frame = space.createframe(self, w_globals, w_closure)
+        frame.setdictscope(w_locals, skip_free_vars=w_closure is not None)
         return frame.run()
 
     def signature(self):

@@ -550,12 +550,12 @@ class PyFrame(W_Root):
         self.fast2locals()
         return self.debugdata.w_locals
 
-    def setdictscope(self, w_locals):
+    def setdictscope(self, w_locals, skip_free_vars=False):
         """
         Initialize the locals from a dictionary.
         """
         self.getorcreatedebug().w_locals = w_locals
-        self.locals2fast()
+        self.locals2fast(skip_free_vars=skip_free_vars)
 
     @jit.unroll_safe
     def fast2locals(self):
@@ -605,7 +605,7 @@ class PyFrame(W_Root):
 
 
     @jit.unroll_safe
-    def locals2fast(self):
+    def locals2fast(self, skip_free_vars=False):
         # Copy values from self.w_locals to the fastlocals
         w_locals = self.getorcreatedebug().w_locals
         assert w_locals is not None
@@ -623,7 +623,7 @@ class PyFrame(W_Root):
         self.setfastscope(new_fastlocals_w)
 
         freevarnames = self.pycode.co_cellvars
-        if self.pycode.co_flags & consts.CO_OPTIMIZED:
+        if self.pycode.co_flags & consts.CO_OPTIMIZED and not skip_free_vars:
             freevarnames = freevarnames + self.pycode.co_freevars
             # If the namespace is unoptimized, then one of the
             # following cases applies:

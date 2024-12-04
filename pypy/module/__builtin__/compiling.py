@@ -111,9 +111,9 @@ If only globals is given, locals defaults to it.
 
     return code.exec_code(space, w_globals, w_locals)
 
-def exec_(space, w_prog, w_globals=None, w_locals=None):
+def exec_(space, w_prog, w_globals=None, w_locals=None, __posonly__=None, w_closure=None):
     """
-    exec(source, globals=None, locals=None, /)
+    exec(source, globals=None, locals=None, *, closure=None)
 
     Execute the given source in the context of globals and locals.
 
@@ -122,10 +122,13 @@ def exec_(space, w_prog, w_globals=None, w_locals=None):
     The globals must be a dictionary and locals can be any mapping,
     defaulting to the current globals and locals.
     If only globals is given, locals defaults to it.
+
+    The closure must be a tuple of cellvars, and can only be used when source
+    is a code object requiring exactly that many cellvars.
     """
 
     frame = space.getexecutioncontext().gettopframe()
-    frame.exec_(w_prog, w_globals, w_locals)
+    frame.exec_(w_prog, w_globals, w_locals, w_closure)
 
 def _update_bases(space, w_bases, bases_w):
     new_bases_w = None

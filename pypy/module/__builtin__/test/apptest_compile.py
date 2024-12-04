@@ -233,3 +233,88 @@ def test_weird_globals_builtins_eval():
     sum_1000 = eval(code, MyGlobals())
     expected = sum(range(1000))
     assert sum_1000() == expected
+
+def test_exec_with_closure():
+    from types import CellType
+
+    def function_without_closures():
+        return 3 * 5
+
+    result = 0
+    def make_closure_functions():
+        a = 2
+        b = 3
+        c = 5
+        def three_freevars():
+            nonlocal result
+            nonlocal a
+            nonlocal b
+            result = a*b
+        def four_freevars():
+            nonlocal result
+            nonlocal a
+            nonlocal b
+            nonlocal c
+            result = a*b*c
+        return three_freevars, four_freevars
+    three_freevars, four_freevars = make_closure_functions()
+
+    # "smoke" test
+    result = 0
+    exec(three_freevars.__code__,
+        three_freevars.__globals__,
+        closure=three_freevars.__closure__)
+    assert result == 6
+
+    # should also work with a manually created closure
+    result = 0
+    my_closure = (CellType(35), CellType(72), three_freevars.__closure__[2])
+    exec(three_freevars.__code__,
+        three_freevars.__globals__,
+        closure=my_closure)
+
+    assert result == 2520
+
+def test_exec_with_closure_errors():
+    from types import CellType
+    def f(a, b):
+        def g():
+            print(a, b)
+            return a + b
+        return g
+
+    g = f(1, 2)
+
+    locals = globals = {'a': 12, 'b': 23}
+    with raises(TypeError) as info:
+        exec(g.__code__, locals, globals)
+    assert str(info.value) == "code object requires a closure of exactly length 2"
+
+    my_closure = (CellType(35), CellType(72), CellType(100))
+    with raises(TypeError) as info:
+        exec(g.__code__, locals, globals, closure=my_closure)
+    assert str(info.value) == "code object requires a closure of exactly length 2"
+
+    def f():
+        pass
+    with raises(TypeError) as info:
+        exec(f.__code__, locals, globals, closure=my_closure)
+    assert str(info.value) == "cannot use a closure with this code object"
+
+    with raises(TypeError) as info:
+        exec('print(1)', locals, globals, closure=my_closure)
+    assert str(info.value) == "closure can only be used when source is a code object"
+
+
+def test_exec_with_closure_dont_overwrite_cell_vars_from_locals():
+    def f(a, b):
+        def g():
+            print(a, b)
+            return a + b
+        return g
+
+    g = f(1, 2)
+
+    locals = globals = {'a': 12, 'b': 23}
+    print(exec(g.__code__, locals, globals, closure=g.__closure__))
+    print(g.__closure__)

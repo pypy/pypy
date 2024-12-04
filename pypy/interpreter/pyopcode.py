@@ -724,8 +724,9 @@ class __extend__(pyframe.PyFrame):
     def LOAD_LOCALS(self, oparg, next_instr):
         self.pushvalue(self.getorcreatedebug().w_locals)
 
-    def exec_(self, w_prog, w_globals, w_locals):
+    def exec_(self, w_prog, w_globals, w_locals, w_closure=None):
         """The builtins.exec function."""
+        from pypy.interpreter.function import Function
         space = self.space
         ec = space.getexecutioncontext()
         flags = ec.compiler.getcodeflags(self.pycode)
@@ -733,8 +734,28 @@ class __extend__(pyframe.PyFrame):
         if space.isinstance_w(w_prog, space.gettypeobject(PyCode.typedef)):
             space.audit("exec", [w_prog])
             code = space.interp_w(PyCode, w_prog)
+            if code.co_freevars:
+                needed = len(code.co_freevars)
+                if (space.is_none(w_closure) or
+                        not space.isinstance_w(w_closure, space.w_tuple) or 
+                        not space.len_w(w_closure) == needed):
+                    raise oefmt(
+                        space.w_TypeError,
+                        "code object requires a closure of exactly length %d",
+                        needed)
+                closure_w = space.unpackiterable(w_closure, needed)
+                w_closure = Function(space, code, closure=closure_w)
+            else:
+                if not space.is_none(w_closure):
+                    raise oefmt(
+                        space.w_TypeError,
+                        "cannot use a closure with this code object")
         else:
             from pypy.interpreter.astcompiler import consts
+            if not space.is_none(w_closure):
+                raise oefmt(
+                    space.w_TypeError,
+                    "closure can only be used when source is a code object")
             flags |= consts.PyCF_SOURCE_IS_UTF8
             source, flags = source_as_str(space, w_prog, 'exec',
                                           "string, bytes or code", flags)
@@ -745,7 +766,7 @@ class __extend__(pyframe.PyFrame):
         space.call_method(w_globals, 'setdefault', space.newtext('__builtins__'),
                           self.get_builtin())
 
-        code.exec_code(space, w_globals, w_locals)
+        code.exec_code(space, w_globals, w_locals, w_closure)
 
     def POP_EXCEPT(self, oparg, next_instr):
         block = self.pop_block()
