@@ -10,6 +10,7 @@
 import ast
 import os
 import re
+import sys
 import types
 import decimal
 import unittest
@@ -656,13 +657,16 @@ x = (
         self.assertEqual(f'{x} {x}', '1 2')
 
     def test_missing_expression(self):
-        self.assertAllRaise(SyntaxError, 'f-string: empty expression not allowed',
+        if sys.implementation.name == 'pypy':
+            msg = "f-string: expression required before '}'"
+        else:
+            msg = 'f-string: empty expression not allowed'
+        self.assertAllRaise(SyntaxError, msg,
                             ["f'{}'",
-                             "f'{ }'"
+                             "f'{ }'",
                              "f' {} '",
                              "f'{10:{ }}'",
                              "f' { } '",
-
                              # The Python parser ignores also the following
                              # whitespace characters in additional to a space.
                              "f'''{\t\f\r\n}'''",
