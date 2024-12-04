@@ -625,6 +625,8 @@ def make_formatting_class(for_unicode):
                 raise oefmt(space.w_ValueError,
                             "'=' alignment not allowed in string format "
                             "specifier")
+            if self._zeros:
+                raise oefmt(space.w_ValueError, "Negative zero coercion (z) not allowed")
             length = space.len_w(w_string)
             precision = self._precision
             if precision != -1 and length >= precision:
@@ -971,6 +973,8 @@ def make_formatting_class(for_unicode):
                 tp == "x" or
                 tp == "X" or
                 tp == "n"):
+                if self._zeros:
+                    raise oefmt(space.w_ValueError, "Negative zero coercion (z) not allowed")
                 return self._format_int_or_long(w_num, kind)
             elif (tp == "e" or
                   tp == "E" or

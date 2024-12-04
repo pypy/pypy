@@ -364,6 +364,20 @@ def test_negative_zero():
     assert f"{-0.:x>z6.1f}" == "xxx0.0"
     assert f"{-0.:🖤>z6.1f}" == "🖤🖤🖤0.0"  # multi-byte fill char
 
+def test_specifier_z_error():
+    with raises(ValueError) as info:
+        f"{0:zd}"  # can't apply to int presentation type
+    assert "Negative zero coercion (z) not allowed" in str(info.value)
+    with raises(ValueError) as info:
+        f"{'x':zs}"  # can't apply to string
+    assert "Negative zero coercion (z) not allowed" in str(info.value)
+
+    #error_msg = re.escape("unsupported format character 'z'")
+    #with self.assertRaisesRegex(ValueError, error_msg):
+    #    "%z.1f" % 0  # not allowed in old style string interpolation
+    #with self.assertRaisesRegex(ValueError, error_msg):
+    #    b"%z.1f" % 0
+
 def test_empty_expression_error():
     s = '''f'{  !x:a}' '''
     with raises(SyntaxError) as info:
