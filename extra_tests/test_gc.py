@@ -1,5 +1,6 @@
 import pytest
 import gc
+import weakref
 
 def test_memory_doesnt_jump_during_sweeping():
     memory = []
@@ -40,3 +41,25 @@ def test_gc_stats_sum_is_correct():
             total = extract_mb(lines[1])
             summed = extract_mb(lines[2]) + extract_mb(lines[3]) + extract_mb(lines[4])
             assert 0.9 < summed / total < 1.1
+
+def test_args_passed_are_eligible_for_gc():
+    class A:
+        pass
+
+    def other(a):
+        # delete the only remaining ref to a and replace with a weakref
+        a = weakref.ref(a)
+
+        for _ in range(5):
+            gc.collect()
+
+        assert a() is None
+
+
+    # move our reference to the instance of A into other
+    other(A())
+    # also works with kwargs (which uses a different code path)
+    other(a=A())
+
+if __name__ == "__main__":
+    sys.exit(main())

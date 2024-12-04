@@ -123,7 +123,7 @@ class Function(W_Root):
                                               list(args_w[1:])))
         return self.call_args(Arguments(self.space, list(args_w)))
 
-    def funccall_valuestack(self, nargs, frame, methodcall=False): # speed hack
+    def funccall_valuestack(self, nargs, frame, dropvalues, methodcall=False): # speed hack
         # methodcall is only for better error messages
         from pypy.interpreter import gateway
         from pypy.interpreter.pycode import PyCode
@@ -132,67 +132,81 @@ class Function(W_Root):
         #
         if (jit.we_are_jitted() and code is self.space._code_of_sys_exc_info
                                 and nargs == 0):
+            frame.dropvalues(dropvalues)
             from pypy.module.sys.vm import exc_info_direct
             return exc_info_direct(self.space, frame)
         #
         fast_natural_arity = code.fast_natural_arity
         if nargs == fast_natural_arity:
             if nargs == 0:
+                frame.dropvalues(dropvalues)
                 assert isinstance(code, gateway.BuiltinCode0)
                 return code.fastcall_0(self.space, self)
             elif nargs == 1:
+                f_0 = frame.peekvalue(0)
+                frame.dropvalues(dropvalues)
                 assert isinstance(code, gateway.BuiltinCode1)
-                return code.fastcall_1(self.space, self, frame.peekvalue(0))
+                return code.fastcall_1(self.space, self, f_0)
             elif nargs == 2:
+                f_0 = frame.peekvalue(0)
+                f_1 = frame.peekvalue(1)
+                frame.dropvalues(dropvalues)
                 assert isinstance(code, gateway.BuiltinCode2)
-                return code.fastcall_2(self.space, self, frame.peekvalue(1),
-                                       frame.peekvalue(0))
+                return code.fastcall_2(self.space, self, f_1, f_0)
             elif nargs == 3:
                 assert isinstance(code, gateway.BuiltinCode3)
-                return code.fastcall_3(self.space, self, frame.peekvalue(2),
-                                       frame.peekvalue(1), frame.peekvalue(0))
+                f_0 = frame.peekvalue(0)
+                f_1 = frame.peekvalue(1)
+                f_2 = frame.peekvalue(2)
+                frame.dropvalues(dropvalues)
+                return code.fastcall_3(self.space, self, f_2,
+                                       f_1, f_0)
             elif nargs == 4:
                 assert isinstance(code, gateway.BuiltinCode4)
-                return code.fastcall_4(self.space, self, frame.peekvalue(3),
-                                       frame.peekvalue(2), frame.peekvalue(1),
-                                        frame.peekvalue(0))
+                f_0 = frame.peekvalue(0)
+                f_1 = frame.peekvalue(1)
+                f_2 = frame.peekvalue(2)
+                f_3 = frame.peekvalue(3)
+                frame.dropvalues(dropvalues)
+                return code.fastcall_4(self.space, self, f_3, f_2, f_1, f_0)
         elif (nargs | Code.FLATPYCALL) == fast_natural_arity:
             assert isinstance(code, PyCode)
-            return self._flat_pycall(code, nargs, frame)
+            return self._flat_pycall(code, nargs, frame, dropvalues)
         elif fast_natural_arity & Code.FLATPYCALL:
             natural_arity = fast_natural_arity & 0xff
             if natural_arity > nargs >= natural_arity - len(self.defs_w):
                 assert isinstance(code, PyCode)
                 return self._flat_pycall_defaults(code, nargs, frame,
-                                                  natural_arity - nargs)
+                                                  natural_arity - nargs, dropvalues)
         elif fast_natural_arity == Code.PASSTHROUGHARGS1 and nargs >= 1:
             assert isinstance(code, gateway.BuiltinCodePassThroughArguments1)
             w_obj = frame.peekvalue(nargs-1)
             args = frame.make_arguments(nargs-1)
+            frame.dropvalues(dropvalues)
             return code.funcrun_obj(self, w_obj, args)
 
         args = frame.make_arguments(nargs, methodcall=methodcall)
+        frame.dropvalues(dropvalues)
         return self.call_args(args)
 
     @jit.unroll_safe
-    def _flat_pycall(self, code, nargs, frame):
+    def _flat_pycall(self, code, nargs, frame, dropvalues):
         # code is a PyCode
         new_frame = self.space.createframe(code, self.w_func_globals,
                                                    self)
         for i in xrange(nargs):
-            w_arg = frame.peekvalue(nargs-1-i)
-            new_frame.locals_cells_stack_w[i] = w_arg
+            new_frame.locals_cells_stack_w[i] = frame.peekvalue(nargs-1-i)
 
+        frame.dropvalues(dropvalues)
         return new_frame.run()
 
     @jit.unroll_safe
-    def _flat_pycall_defaults(self, code, nargs, frame, defs_to_load):
+    def _flat_pycall_defaults(self, code, nargs, frame, defs_to_load, dropvalues):
         # code is a PyCode
         new_frame = self.space.createframe(code, self.w_func_globals,
                                                    self)
         for i in xrange(nargs):
-            w_arg = frame.peekvalue(nargs-1-i)
-            new_frame.locals_cells_stack_w[i] = w_arg
+            new_frame.locals_cells_stack_w[i] = frame.peekvalue(nargs-1-i)
 
         ndefs = len(self.defs_w)
         start = ndefs - defs_to_load
@@ -200,6 +214,7 @@ class Function(W_Root):
         for j in xrange(start, ndefs):
             new_frame.locals_cells_stack_w[i] = self.defs_w[j]
             i += 1
+        frame.dropvalues(dropvalues)
         return new_frame.run()
 
     def getdict(self, space):
