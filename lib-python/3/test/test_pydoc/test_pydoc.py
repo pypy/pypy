@@ -6,7 +6,6 @@ import inspect
 import pydoc
 import py_compile
 import keyword
-import _pickle
 import pkgutil
 import re
 import stat
@@ -1176,8 +1175,10 @@ class TestDescriptions(unittest.TestCase):
         self.assertEqual(self._get_summary_line(textwrap.TextWrapper.wrap),
             "wrap(self, text)")
 
+    @support.cpython_only
     @requires_docstrings
     def test_unbound_builtin_method(self):
+        import _pickle
         self.assertEqual(self._get_summary_line(_pickle.Pickler.dump),
             "dump(self, obj, /) unbound _pickle.Pickler method")
 
@@ -1186,6 +1187,7 @@ class TestDescriptions(unittest.TestCase):
         t = textwrap.TextWrapper()
         self.assertEqual(self._get_summary_line(t.wrap),
             "wrap(text) method of textwrap.TextWrapper instance")
+
     def test_field_order_for_named_tuples(self):
         Person = namedtuple('Person', ['nickname', 'firstname', 'agegroup'])
         s = pydoc.render_doc(Person)
@@ -1202,8 +1204,10 @@ class TestDescriptions(unittest.TestCase):
         pydoc.render_doc(NonIterableFields)
         pydoc.render_doc(NonHashableFields)
 
+    @support.cpython_only
     @requires_docstrings
     def test_bound_builtin_method(self):
+        import _pickle
         s = StringIO()
         p = _pickle.Pickler(s)
         self.assertEqual(self._get_summary_line(p.dump),
