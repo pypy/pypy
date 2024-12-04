@@ -1184,6 +1184,20 @@ class AppTestAppSetTest:
         items.add(first)
         assert items == set(d)
 
+    def test_reduce_with_slots(self):
+        for base in (set, frozenset):
+            class S(base):
+                __slots__ = ('a', 'b', '__dict__')
+            s = S({123, 456, -42})
+            s.a = 'abcdef'
+            s.b = 12345623456
+            s.hello = ('b', 'y', 'e')
+            reduced = s.__reduce__()
+            assert reduced[0] is S
+            assert set(reduced[1][0]) == {456, 123, -42}
+            assert reduced[2] == ({'hello': ('b', 'y', 'e')},
+                                  {'a': 'abcdef', 'b': 12345623456})
+
     def test_unicode_bug_in_listview_utf8(self):
         l1 = set(u'\u1234\u2345')
         assert l1 == set([u'\u1234', '\u2345'])

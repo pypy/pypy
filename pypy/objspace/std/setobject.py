@@ -1762,8 +1762,7 @@ setrepr = app.interphook("setrepr")
 
 app = gateway.applevel("""
     def setreduce(s):
-        dict = getattr(s,'__dict__', None)
-        return (s.__class__, (tuple(s),), dict)
+        return (s.__class__, (tuple(s),), s.__getstate__())
 
 """, filename=__file__)
 
