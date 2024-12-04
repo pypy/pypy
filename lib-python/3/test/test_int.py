@@ -222,12 +222,13 @@ class IntTestCases(unittest.TestCase):
             int('+')
         with self.assertRaises(ValueError):
             int('-')
-        with self.assertRaises(ValueError):
-            int('- 1')
-        with self.assertRaises(ValueError):
-            int('+ 1')
-        with self.assertRaises(ValueError):
-            int(' + 1 ')
+        if sys.implementation.name != 'pypy':
+            with self.assertRaises(ValueError):
+                int('- 1')
+            with self.assertRaises(ValueError):
+                int('+ 1')
+            with self.assertRaises(ValueError):
+                int(' + 1 ')
 
     def test_unicode(self):
         self.assertEqual(int("१२३४५६७८९०1234567890"), 12345678901234567890)
@@ -433,9 +434,11 @@ class IntTestCases(unittest.TestCase):
                     with self.assertWarns(DeprecationWarning):
                         int(TruncReturnsNonIntegral())
                 except TypeError as e:
-                    self.assertEqual(str(e),
-                                      "__trunc__ returned non-Integral"
-                                      " (type NonIntegral)")
+                    if sys.implementation.name == 'pypy':
+                        msg = "__trunc__ returned non-Integral (type 'NonIntegral')"
+                    else:
+                        msg = "__trunc__ returned non-Integral (type NonIntegral)"
+                    self.assertEqual(str(e), msg)
                 else:
                     self.fail("Failed to raise TypeError with %s" %
                               ((base, trunc_result_base),))
@@ -683,7 +686,8 @@ class IntStrDigitLimitsTests(unittest.TestCase):
                 str(huge_int)
             seconds_to_fail_huge = get_time() - start
         self.assertIn('conversion', str(err.exception))
-        self.assertLessEqual(seconds_to_fail_huge, seconds_to_convert/2)
+        # PyPy: add a small factor since the time to convert is quite small
+        self.assertLessEqual(seconds_to_fail_huge, seconds_to_convert/2 + 0.5)
 
         # Now we test that a conversion that would take 30x as long also fails
         # in a similarly fast fashion.
@@ -694,7 +698,8 @@ class IntStrDigitLimitsTests(unittest.TestCase):
             str(extra_huge_int)
         seconds_to_fail_extra_huge = get_time() - start
         self.assertIn('conversion', str(err.exception))
-        self.assertLess(seconds_to_fail_extra_huge, seconds_to_convert/2)
+        # PyPy: add a small factor since the time to convert is quite small
+        self.assertLess(seconds_to_fail_extra_huge, seconds_to_convert/2 +0.5)
 
     def test_denial_of_service_prevented_str_to_int(self):
         """Regression test: ensure we fail before performing O(N**2) work."""
