@@ -1306,6 +1306,7 @@ class BootstrapTest(unittest.TestCase):
 
 
 class FinalizationTest(unittest.TestCase):
+    @support.cpython_only
     def test_finalization(self):
         # Issue #19421: warnings.warn() should not crash
         # during Python finalization
@@ -1323,6 +1324,7 @@ a=A()
         self.assertEqual(err.decode().rstrip(),
                          '<string>:7: UserWarning: test')
 
+    @support.cpython_only
     def test_late_resource_warning(self):
         # Issue #21925: Emitting a ResourceWarning late during the Python
         # shutdown must be logged.
