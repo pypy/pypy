@@ -133,22 +133,6 @@ class W_BaseException(W_Root):
         else:
             return space.str(space.newtuple(self.args_w))
 
-    def descr_unicode(self, space):
-        w_str = space.lookup(self, "__str__")
-        w_base_type = space.gettypeobject(W_BaseException.typedef)
-        w_base_str = w_base_type.dict_w["__str__"]
-        if not space.is_w(w_str, w_base_str):
-            w_as_str = space.get_and_call_function(w_str, self)
-            return space.call_function(space.w_unicode, w_as_str)
-        lgt = len(self.args_w)
-        if lgt == 0:
-            return space.newutf8("", 0)
-        if lgt == 1:
-            return space.call_function(space.w_unicode, self.args_w[0])
-        else:
-            w_tup = space.newtuple(self.args_w)
-            return space.call_function(space.w_unicode, w_tup)
-
     def descr_repr(self, space):
         lgt = len(self.args_w)
         if lgt == 0:
@@ -286,7 +270,6 @@ W_BaseException.typedef = TypeDef(
     __new__ = _new(W_BaseException),
     __init__ = interp2app(W_BaseException.descr_init),
     __str__ = interp2app(W_BaseException.descr_str),
-    __unicode__ = interp2app(W_BaseException.descr_unicode),
     __repr__ = interp2app(W_BaseException.descr_repr),
     __dict__ = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
                               cls=W_BaseException),
