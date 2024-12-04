@@ -581,8 +581,9 @@ class CWarnTests(WarnTests, unittest.TestCase):
     # As an early adopter, we sanity check the
     # test.import_helper.import_fresh_module utility function
     def test_accelerated(self):
+        import inspect
         self.assertIsNot(original_warnings, self.module)
-        self.assertFalse(hasattr(self.module.warn, '__code__'))
+        self.assertTrue(inspect.isbuiltin(self.module.warn))
 
 class PyWarnTests(WarnTests, unittest.TestCase):
     module = py_warnings
@@ -590,8 +591,9 @@ class PyWarnTests(WarnTests, unittest.TestCase):
     # As an early adopter, we sanity check the
     # test.import_helper.import_fresh_module utility function
     def test_pure_python(self):
+        import inspect
         self.assertIsNot(original_warnings, self.module)
-        self.assertTrue(hasattr(self.module.warn, '__code__'))
+        self.assertFalse(inspect.isbuiltin(self.module.warn))
 
 
 class WCmdLineTests(BaseTest):
