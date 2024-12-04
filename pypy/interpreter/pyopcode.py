@@ -730,6 +730,7 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         ec = space.getexecutioncontext()
         flags = ec.compiler.getcodeflags(self.pycode)
+        outer_func = None
 
         if space.isinstance_w(w_prog, space.gettypeobject(PyCode.typedef)):
             space.audit("exec", [w_prog])
@@ -744,7 +745,7 @@ class __extend__(pyframe.PyFrame):
                         "code object requires a closure of exactly length %d",
                         needed)
                 closure_w = space.fixedview(w_closure, needed)
-                w_closure = Function(space, code, closure=closure_w)
+                outer_func = Function(space, code, closure=closure_w)
             else:
                 if not space.is_none(w_closure):
                     raise oefmt(
@@ -766,7 +767,7 @@ class __extend__(pyframe.PyFrame):
         space.call_method(w_globals, 'setdefault', space.newtext('__builtins__'),
                           self.get_builtin())
 
-        code.exec_code(space, w_globals, w_locals, w_closure)
+        code.exec_code(space, w_globals, w_locals, outer_func)
 
     def POP_EXCEPT(self, oparg, next_instr):
         block = self.pop_block()
