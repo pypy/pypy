@@ -1,5 +1,6 @@
 import operator
 from pypy.interpreter.error import OperationError, oefmt, oefmt_attribute_error
+from pypy.interpreter.error import enrich_attribute_error
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.argument import Arguments
@@ -224,7 +225,11 @@ class DescrOperation(object):
     def getattr(space, w_obj, w_name):
         # may be overridden in StdObjSpace
         w_descr = space.lookup(w_obj, '__getattribute__')
-        return space._handle_getattribute(w_descr, w_obj, w_name)
+        try:
+            return space._handle_getattribute(w_descr, w_obj, w_name)
+        except OperationError as e:
+            enrich_attribute_error(space, e, w_obj, w_name)
+            raise e
 
     def _handle_getattribute(space, w_descr, w_obj, w_name):
         try:

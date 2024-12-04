@@ -272,6 +272,24 @@ def test_iteration_full_tracebacks():
         assert [tb.tb_lineno for tb in tbs] == expected_tbs[i]
 
 
+def test_attribute_error_from_getattr_has_name_and_object():
+    class A:
+        def __getattr__(self, name):
+            raise AttributeError('nope')
+    a = A()
+    with raises(AttributeError) as info:
+        a.abc
+    assert info.value.name == 'abc'
+    assert info.value.obj is a
+
+    class A:
+        def __getattr__(self, name):
+            return getattr(list, name + 'nd')
+    a = A()
+    with raises(AttributeError) as info:
+        a.app
+    assert info.value.name == 'appnd'
+    assert info.value.obj is list
 
 # TODO: Duplicates in eg?
 

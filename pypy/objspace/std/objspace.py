@@ -1,7 +1,7 @@
 import __builtin__
 from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, enrich_attribute_error
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.interpreter.unicodehelper import decode_utf8sp
@@ -698,7 +698,11 @@ class StdObjSpace(ObjSpace):
 
         w_descr = self.lookup(w_obj, '__getattr__')
         if w_descr is not None:
-            return self.get_and_call_function(w_descr, w_obj, w_name)
+            try:
+                return self.get_and_call_function(w_descr, w_obj, w_name)
+            except OperationError as e:
+                enrich_attribute_error(self, e, w_obj, w_name)
+                raise
         elif e is not None:
             raise e
         else:
