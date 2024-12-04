@@ -124,6 +124,12 @@ class AppTestTypeObject:
         exc = raises(AttributeError, "X.a")
         assert str(exc.value) == "type object 'X' has no attribute 'a'"
         assert exc.value.name == "a"
+        exc = raises(AttributeError, "del x.a")
+        assert str(exc.value) == "'X' object has no attribute 'a'"
+        assert exc.value.name == "a"
+        exc = raises(AttributeError, "del X.a")
+        assert str(exc.value) == "type object 'X' has no attribute 'a'"
+        assert exc.value.name == "a"
 
     def test_call_type(self):
         assert type(42) is int

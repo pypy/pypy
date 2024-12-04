@@ -55,8 +55,10 @@ def dict_getitem(space):
 
 
 def raiseattrerror(space, w_obj, w_name, w_descr=None):
-    # space.repr always returns an encodable string.
     if w_descr is None:
+        if space.isinstance_w(w_obj, space.w_type):
+            raise oefmt_attribute_error(
+                space, w_obj, w_name, "type object '%N' has no attribute %R")
         raise oefmt_attribute_error(space,
                     w_obj, w_name, "'%T' object has no attribute %R")
     else:
