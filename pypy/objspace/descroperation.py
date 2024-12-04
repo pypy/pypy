@@ -369,7 +369,7 @@ class DescrOperation(object):
                     w_descr = None
                 else:
                     raise e
-            if w_descr is None:
+            if space.is_none(w_descr):
                 assert isinstance(w_obj, W_TypeObject)
                 raise oefmt(space.w_TypeError,
                             "type '%8' is not subscriptable (key %R)",

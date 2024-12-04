@@ -1497,6 +1497,13 @@ class AppTestTypeObject:
         assert WithMetaclass[int] == "Metaclass[int]"
         """
 
+    def test_class_getitem_None(self):
+        class DontWantToBeGeneric(tuple):
+            __class_getitem__ = None
+        with raises(TypeError) as info:
+            DontWantToBeGeneric[int]
+        assert "DontWantToBeGeneric" in str(info.value)
+
     def test_mro_entries(self):
         """
         class BaseA: pass
