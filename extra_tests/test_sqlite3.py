@@ -816,6 +816,9 @@ class TestBlob:
             assert blob.tell() == 0
         with con.blobopen("test", "b", 1) as blob:
             assert blob.read() == b'some new dataa string is exactly fifty bytes long!'
+        with pytest.raises(IndexError):
+            with con.blobopen("test", "b", 1) as blob:
+                blob[-1999] = 14
 
     def test_setitem_stride(self, con):
         con.execute("create table test(b blob)")

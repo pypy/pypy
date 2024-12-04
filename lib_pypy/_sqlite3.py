@@ -2013,7 +2013,7 @@ class Blob(object):
             value = operator.index(value)
             if offset < 0:
                 offset += blob_len
-            if offset >= blob_len:
+            if not 0 <= offset < blob_len:
                 raise IndexError("Blob index out of range")
             if not 0 <= value < 256:
                 raise ValueError("byte must be in range(0, 256)")
