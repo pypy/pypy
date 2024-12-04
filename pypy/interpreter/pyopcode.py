@@ -737,13 +737,13 @@ class __extend__(pyframe.PyFrame):
             if code.co_freevars:
                 needed = len(code.co_freevars)
                 if (space.is_none(w_closure) or
-                        not space.isinstance_w(w_closure, space.w_tuple) or 
+                        not space.isinstance_w(w_closure, space.w_tuple) or
                         not space.len_w(w_closure) == needed):
                     raise oefmt(
                         space.w_TypeError,
                         "code object requires a closure of exactly length %d",
                         needed)
-                closure_w = space.unpackiterable(w_closure, needed)
+                closure_w = space.fixedview(w_closure, needed)
                 w_closure = Function(space, code, closure=closure_w)
             else:
                 if not space.is_none(w_closure):
