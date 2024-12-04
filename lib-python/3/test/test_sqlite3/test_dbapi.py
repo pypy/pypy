@@ -1344,11 +1344,15 @@ class BlobTests(unittest.TestCase):
 
     def test_blob_mapping_invalid_index_type(self):
         msg = "indices must be integers"
+        if sys.implementation.name == 'pypy':
+            msg2 = "object cannot be interpreted as an integer"
+        else:
+            msg2 = msg
         with self.assertRaisesRegex(TypeError, msg):
             self.blob[5:5.5]
-        with self.assertRaisesRegex(TypeError, msg):
+        with self.assertRaisesRegex(TypeError, msg2):
             self.blob[1.5]
-        with self.assertRaisesRegex(TypeError, msg):
+        with self.assertRaisesRegex(TypeError, msg2):
             self.blob["a"] = b"b"
 
     def test_blob_get_item_error(self):
@@ -1366,13 +1370,17 @@ class BlobTests(unittest.TestCase):
             self.blob[0]
 
     def test_blob_set_item_error(self):
+        if sys.implementation.name == 'pypy':
+            msg = "does not support.*deletion"
+        else:
+            msg = "doesn't support.*deletion"
         with self.assertRaisesRegex(TypeError, "cannot be interpreted"):
             self.blob[0] = b"multiple"
         with self.assertRaisesRegex(TypeError, "cannot be interpreted"):
             self.blob[0] = b"1"
         with self.assertRaisesRegex(TypeError, "cannot be interpreted"):
             self.blob[0] = bytearray(b"1")
-        with self.assertRaisesRegex(TypeError, "doesn't support.*deletion"):
+        with self.assertRaisesRegex(TypeError, msg):
             del self.blob[0]
         with self.assertRaisesRegex(IndexError, "Blob index out of range"):
             self.blob[1000] = 0
@@ -1385,15 +1393,20 @@ class BlobTests(unittest.TestCase):
             self.blob[0] = 2**65
 
     def test_blob_set_slice_error(self):
+        if sys.implementation.name == 'pypy':
+            msg = "does not support.*deletion"
+        else:
+            msg = "doesn't support.*deletion"
         with self.assertRaisesRegex(IndexError, "wrong size"):
             self.blob[5:10] = b"a"
         with self.assertRaisesRegex(IndexError, "wrong size"):
             self.blob[5:10] = b"a" * 1000
-        with self.assertRaisesRegex(TypeError, "doesn't support.*deletion"):
+        with self.assertRaisesRegex(TypeError, msg):
             del self.blob[5:10]
         with self.assertRaisesRegex(ValueError, "step cannot be zero"):
             self.blob[5:10:0] = b"12345"
-        with self.assertRaises(BufferError):
+        # PyPy raises an index error
+        with self.assertRaises((BufferError, IndexError)):
             self.blob[5:10] = memoryview(b"abcde")[::2]
 
     def test_blob_sequence_not_supported(self):
