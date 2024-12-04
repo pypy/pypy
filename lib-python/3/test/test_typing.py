@@ -8471,7 +8471,8 @@ class SpecialAttrsTests(BaseTestCase):
         self.assertFalse(hasattr(fr, '__qualname__'))
         self.assertEqual(fr.__module__, 'typing')
         # Forward refs are currently unpicklable.
-        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+        # PyPy change: we can pickle ForwardRefs just fine on higher protocols
+        for proto in range(2):
             with self.assertRaises(TypeError):
                 pickle.dumps(fr, proto)
 
