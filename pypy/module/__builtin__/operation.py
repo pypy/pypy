@@ -39,20 +39,9 @@ def len(space, w_obj):
 
 
 def checkattrname(space, w_name, msg):
-    # This is a check to ensure that getattr/setattr/delattr only pass a
-    # ascii string to the rest of the code.  XXX not entirely sure if these
-    # functions are the only way for non-string objects to reach
-    # space.{get,set,del}attr()...
-    # Note that if w_name is already an exact string it must be ascii encoded
     if not space.isinstance_w(w_name, space.w_text):
-        try:
-            name = space.text_w(w_name)    # typecheck
-        except OperationError as e:
-            if e.match(space, space.w_UnicodeError):
-                raise e
-            raise oefmt(space.w_TypeError,
-                 "%s(): attribute name must be string", msg)
-        w_name = space.newtext(name)
+        raise oefmt(space.w_TypeError,
+             "%s(): attribute name must be string, not '%T'", msg, w_name)
     return w_name
 
 def delattr(space, w_object, w_name):
