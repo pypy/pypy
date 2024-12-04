@@ -283,6 +283,8 @@ class W_BaseException(W_Root):
                 raise
             space.setitem(w_dict, w_attr, space.newlist([w_note]))
             return
+        if not space.isinstance_w(w_list, space.w_list):
+            raise oefmt(space.w_TypeError, "Cannot add note: __notes__ is not a list")
         space.call_method(w_list, "append", w_note)
 
 def _new(cls, basecls=None):

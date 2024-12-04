@@ -22,6 +22,11 @@ def test_notes():
         base.add_note(42)
     assert base.__notes__ == ['test note', 'second note']
 
+    e = Exception()
+    e.__notes__ = 12
+    with pytest.raises(TypeError):
+        e.add_note('abc')
+
 def test_importerror_kwarg_error():
     if sys.implementation.name == 'pypy':
         msg = "ImportError.__init__() got an unexpected keyword argument 'invalid'"
