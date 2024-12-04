@@ -121,6 +121,8 @@ def check_no_warnings(testcase, message='', category=Warning, force_gc=False):
     Other keyword arguments are passed to warnings.filterwarnings().
     """
     from test.support import gc_collect
+    if force_gc:
+        gc_collect()
     with warnings.catch_warnings(record=True) as warns:
         warnings.filterwarnings('always',
                                 message=message,

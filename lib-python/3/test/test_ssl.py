@@ -4865,6 +4865,7 @@ class TestSSLDebug(unittest.TestCase):
 
         with self.assertRaises(TypeError):
             ctx.keylog_filename = 1
+        ctx.keylog_filename = None
 
     @requires_keylog
     @unittest.skipIf(Py_DEBUG_WIN32, "Avoid mixing debug/release CRT on Windows")
@@ -4917,9 +4918,11 @@ class TestSSLDebug(unittest.TestCase):
 
             ctx = ssl.create_default_context()
             self.assertEqual(ctx.keylog_filename, os_helper.TESTFN)
+            ctx.keylog_filename = None
 
             ctx = ssl._create_stdlib_context()
             self.assertEqual(ctx.keylog_filename, os_helper.TESTFN)
+            ctx.keylog_filename = None
 
     def test_msg_callback(self):
         client_context, server_context, hostname = testing_context()
