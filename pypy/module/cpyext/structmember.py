@@ -23,41 +23,21 @@ def convert_bool(space, w_obj):
         return True
     raise oefmt(space.w_TypeError, "attribute value type must be bool")
 
-def convert_long(space, w_obj):
-    val = PyLong_AsLong(space, w_obj)
-    return widen(val)
-
-ULONG_MAX = (2 ** (8 * rffi.sizeof(rffi.ULONG)) -1)
-
-@specialize.memo()
-def get_ulong_max(space):
-    return W_LongObject.fromlong(ULONG_MAX)
-
-def convert_ulong(space, w_obj):
-    # w_obj could be a bigint, so do the following in rpython
-    # if obj < 0:
-    #      obj = cast(unsigned long, obj)
-    if space.is_true(space.lt(w_obj, space.newint(0))):
-        w_obj = space.add(get_ulong_max(space), w_obj)
-        w_obj = space.add(space.newint(1), w_obj)
-    val = PyLong_AsUnsignedLong(space, w_obj)
-    return widen(val)
-
-integer_converters = unrolling_iterable([             # range checking
-    (T_SHORT,  rffi.SHORT,  convert_long,             True),
-    (T_INT,    rffi.INT,    convert_long,             True),
-    (T_LONG,   rffi.LONG,   convert_long,             False),
-    (T_USHORT, rffi.USHORT, convert_ulong,            True),
-    (T_UINT,   rffi.UINT,   convert_ulong,            True),
-    (T_ULONG,  rffi.ULONG,  convert_ulong,            False),
-    (T_BYTE,   rffi.SIGNEDCHAR, convert_long,         True),
-    (T_UBYTE,  rffi.UCHAR,  convert_ulong,            True),
-    (T_BOOL,   rffi.UCHAR,  convert_bool,                     False),
-    (T_FLOAT,  rffi.FLOAT,  PyFloat_AsDouble,                 False),
-    (T_DOUBLE, rffi.DOUBLE, PyFloat_AsDouble,                 False),
-    (T_LONGLONG,  rffi.LONGLONG,  PyLong_AsLongLong,          False),
-    (T_ULONGLONG, rffi.ULONGLONG, PyLong_AsUnsignedLongLong,  False),
-    (T_PYSSIZET, rffi.SSIZE_T, PyLong_AsSsize_t,              False),
+integer_converters = unrolling_iterable([ # range checking, unsigned
+    (T_SHORT,  rffi.SHORT),
+    (T_INT,    rffi.INT),
+    (T_LONG,   rffi.LONG),
+    (T_USHORT, rffi.USHORT),
+    (T_UINT,   rffi.UINT),
+    (T_ULONG,  rffi.ULONG),
+    (T_BYTE,   rffi.SIGNEDCHAR),
+    (T_UBYTE,  rffi.UCHAR),
+    (T_BOOL,   rffi.UCHAR),
+    (T_FLOAT,  rffi.FLOAT),
+    (T_DOUBLE, rffi.DOUBLE),
+    (T_LONGLONG,  rffi.LONGLONG),
+    (T_ULONGLONG, rffi.ULONGLONG),
+    (T_PYSSIZET, rffi.SSIZE_T),
     ])
 
 _HEADER = 'pypy_structmember_decl.h'
@@ -68,7 +48,7 @@ def PyMember_GetOne(space, obj, w_member):
     addr = rffi.ptradd(obj, w_member.c_offset)
     member_type = rffi.cast(lltype.Signed, w_member.c_type)
     for converter in integer_converters:
-        typ, lltyp, _, _ = converter
+        typ, lltyp = converter
         if typ == member_type:
             result = rffi.cast(rffi.CArrayPtr(lltyp), addr)
             if lltyp is rffi.FLOAT:
@@ -134,22 +114,126 @@ def PyMember_SetOne(space, obj, w_member, w_value):
         elif member_type != T_OBJECT:
             raise oefmt(space.w_TypeError,
                         "can't delete numeric/char attribute")
-
-    for converter in integer_converters:
-        typ, lltyp, getter, range_checking = converter
-        if typ == member_type:
-            value = getter(space, w_value)
-            array = rffi.cast(rffi.CArrayPtr(lltyp), addr)
-            casted = rffi.cast(lltyp, value)
-            if range_checking:
-                value = widen(value)
-                if rffi.cast(lltype.typeOf(value), casted) != value:
-                    space.warn(space.newtext("structmember: truncation of value"),
-                               space.w_RuntimeWarning)
+    elif member_type == T_BOOL:
+        value = convert_bool(space, w_value)
+        array = rffi.cast(rffi.CArrayPtr(rffi.UCHAR), addr)
+        casted = rffi.cast(rffi.UCHAR, value)
+        array[0] = casted
+    elif member_type == T_BYTE:
+        value = PyLong_AsLong(space, w_value)
+        array = rffi.cast(rffi.CArrayPtr(rffi.SIGNEDCHAR), addr)
+        casted = rffi.cast(rffi.SIGNEDCHAR, value)
+        if rffi.cast(lltype.typeOf(value), casted) != widen(value):
+            space.warn(
+                space.newtext("Truncation of value to char"),
+                space.w_RuntimeWarning)
+        array[0] = casted
+    elif member_type == T_UBYTE:
+        value = PyLong_AsLong(space, w_value)
+        array = rffi.cast(rffi.CArrayPtr(rffi.UCHAR), addr)
+        casted = rffi.cast(rffi.UCHAR, value)
+        if rffi.cast(lltype.typeOf(value), casted) != widen(value):
+            space.warn(
+                space.newtext("Truncation of value to unsigned char"),
+                space.w_RuntimeWarning)
+        array[0] = casted
+    elif member_type == T_SHORT:
+        value = PyLong_AsLong(space, w_value)
+        array = rffi.cast(rffi.CArrayPtr(rffi.SHORT), addr)
+        casted = rffi.cast(rffi.SHORT, value)
+        if rffi.cast(lltype.typeOf(value), casted) != widen(value):
+            space.warn(
+                space.newtext("Truncation of value to short"),
+                space.w_RuntimeWarning)
+        array[0] = casted
+    elif member_type == T_USHORT:
+        # Does not warn on negative assignment
+        value = PyLong_AsLong(space, w_value)
+        array = rffi.cast(rffi.CArrayPtr(rffi.USHORT), addr)
+        casted = rffi.cast(rffi.USHORT, value)
+        if rffi.cast(lltype.typeOf(value), casted) != widen(value):
+            space.warn(
+                space.newtext("Truncation of value to unsigned short"),
+                space.w_RuntimeWarning)
+        array[0] = casted
+    elif member_type == T_INT:
+        w_value = space.index(w_value)
+        value = PyLong_AsLong(space, w_value)
+        array = rffi.cast(rffi.CArrayPtr(rffi.INT), addr)
+        casted = rffi.cast(rffi.INT, value)
+        if rffi.cast(lltype.typeOf(value), casted) != widen(value):
+            space.warn(
+                space.newtext("Truncation of value to int"),
+                space.w_RuntimeWarning)
+        array[0] = casted
+    elif member_type == T_UINT:
+        w_value = space.index(w_value)
+        array = rffi.cast(rffi.CArrayPtr(rffi.UINT), addr)
+        if space.is_true(space.lt(w_value, space.newint(0))):
+            value = PyLong_AsLong(space, w_value)
+            casted = rffi.cast(rffi.UINT, value)
+            space.warn(
+                space.newtext("Writing negative value into unsigned field"),
+                space.w_RuntimeWarning)
+        else:
+            value = PyLong_AsUnsignedLong(space, w_value)
+            casted = rffi.cast(rffi.UINT, value)
+            if rffi.cast(lltype.typeOf(value), casted) != widen(value):
+                space.warn(
+                    space.newtext("Truncation of value to unsigned int"),
+                    space.w_RuntimeWarning)
+        array[0] = casted
+    elif member_type == T_LONG:
+        value = PyLong_AsLong(space, w_value)
+        array = rffi.cast(rffi.CArrayPtr(rffi.LONG), addr)
+        casted = rffi.cast(rffi.LONG, value)
+        array[0] = casted
+    elif member_type == T_ULONG:
+        array = rffi.cast(rffi.CArrayPtr(rffi.ULONG), addr)
+        if space.is_true(space.lt(w_value, space.newint(0))):
+            value = PyLong_AsLong(space, w_value)
+            casted = rffi.cast(rffi.ULONG, value)
+            space.warn(
+                space.newtext("Writing negative value into unsigned field"),
+                space.w_RuntimeWarning)
+        else:
+            value = PyLong_AsUnsignedLong(space, w_value)
+            casted = rffi.cast(rffi.ULONG, value)
+        array[0] = casted
+    elif member_type == T_PYSSIZET:
+        value = PyLong_AsSsize_t(space, w_value)
+        array = rffi.cast(rffi.CArrayPtr(rffi.SSIZE_T), addr)
+        casted = rffi.cast(rffi.SSIZE_T, value)
+        array[0] = casted
+    elif member_type == T_FLOAT:
+        value = PyFloat_AsDouble(space, w_value)
+        array = rffi.cast(rffi.CArrayPtr(rffi.FLOAT), addr)
+        casted = rffi.cast(rffi.FLOAT, value)
+        array[0] = casted
+    elif member_type == T_DOUBLE:
+        value = PyFloat_AsDouble(space, w_value)
+        array = rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), addr)
+        casted = rffi.cast(rffi.DOUBLE, value)
+        array[0] = casted
+    elif member_type == T_LONGLONG:
+        value = PyLong_AsLongLong(space, w_value)
+        array = rffi.cast(rffi.CArrayPtr(rffi.LONGLONG), addr)
+        casted = rffi.cast(rffi.LONGLONG, value)
+        array[0] = casted
+    elif member_type == T_ULONGLONG:
+        w_value = space.index(w_value)
+        array = rffi.cast(rffi.CArrayPtr(rffi.ULONGLONG), addr)
+        if space.is_true(space.lt(w_value, space.newint(0))):
+            value = PyLong_AsLong(space, w_value)
+            casted = rffi.cast(rffi.ULONGLONG, value)
+            space.warn(
+                space.newtext("Writing negative value into unsigned field"),
+                space.w_RuntimeWarning)
+        else:
+            value = PyLong_AsUnsignedLongLong(space, w_value)
+            casted = rffi.cast(rffi.ULONGLONG, value)
             array[0] = casted
-            return 0
-
-    if member_type == T_CHAR:
+    elif member_type == T_CHAR:
         str_value = space.text_w(w_value)
         if len(str_value) != 1:
             raise oefmt(space.w_TypeError, "string of length 1 expected")

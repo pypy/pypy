@@ -129,6 +129,21 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         #
         obj.ulong_member = -3; assert obj.ulong_member == max_uint + 1 - 3, obj.ulong_member
 
+    def test_overflow(self):
+        import struct, warnings
+        module = self.import_module(name='foo')
+        obj = module.new()
+        nbits_short = len(struct.pack("H", 0)) * 8 - 1
+        shrt_min = -2 ** nbits_short
+        with raises(OverflowError) as e:
+            obj.ushort_member = -2**63 - 1
+        assert "int too large to convert to C" in str(e.value)
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always", RuntimeWarning)
+            obj.ushort_member = shrt_min - 100
+        assert len(w) == 1
+        assert "runcation of value" in str(w[0]), str(w[0])
+
     def test_staticmethod(self):
         module = self.import_module(name="foo")
         obj = module.fooType.create()

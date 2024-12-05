@@ -176,7 +176,7 @@ foo_call(PyObject *self, PyObject *args, PyObject *kwds)
 static int
 foo_setattro(fooobject *self, PyObject *name, PyObject *value)
 {
-    char *name_str;
+    const char *name_str;
     if (!PyThing_Check(name)) {
         PyErr_SetObject(PyExc_AttributeError, name);
         return -1;
