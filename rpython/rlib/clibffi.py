@@ -132,11 +132,10 @@ class CConfig:
 
     FFI_TYPE_STRUCT = rffi_platform.ConstantInteger('FFI_TYPE_STRUCT')
 
-    size_t = rffi_platform.SimpleType("size_t", rffi.ULONG)
     ffi_abi = rffi_platform.SimpleType("ffi_abi", rffi.USHORT)
     ffi_arg = rffi_platform.SimpleType("ffi_arg", lltype.Signed)
 
-    ffi_type = rffi_platform.Struct('ffi_type', [('size', rffi.ULONG),
+    ffi_type = rffi_platform.Struct('ffi_type', [('size', rffi.SIZE_T),
                                                  ('alignment', rffi.USHORT),
                                                  ('type', rffi.USHORT),
                                                  ('elements', FFI_TYPE_PP)])
@@ -152,7 +151,7 @@ def add_simple_type(type_name):
 
 def configure_simple_type(type_name):
     l = lltype.malloc(FFI_TYPE_P.TO, flavor='raw', immortal=True)
-    for tp, name in [(size_t, 'size'),
+    for tp, name in [(rffi.SIZE_T, 'size'),
                      (rffi.USHORT, 'alignment'),
                      (rffi.USHORT, 'type')]:
         value = getattr(cConfig, '%s_%s' % (type_name, name))
@@ -179,7 +178,6 @@ for k, v in rffi_platform.configure(CConfig).items():
     setattr(cConfig, k, v)
 
 FFI_TYPE_P.TO.become(cConfig.ffi_type)
-size_t = cConfig.size_t
 FFI_ABI = cConfig.ffi_abi
 ffi_arg = cConfig.ffi_arg
 
