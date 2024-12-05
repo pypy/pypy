@@ -8,7 +8,7 @@ def bin(x):
 
     """
     value = _operator.index(x)
-    return value.__format__("#b")
+    return int.__format__(value, "#b")
 
 def oct(x):
     """Return the octal representation of an integer.
@@ -18,7 +18,7 @@ def oct(x):
 
     """
     x = _operator.index(x)
-    return x.__format__("#o")
+    return int.__format__(x, "#o")
 
 def hex(x):
     """Return the hexadecimal representation of an integer.
@@ -28,7 +28,7 @@ def hex(x):
 
     """
     x = _operator.index(x)
-    return x.__format__("#x")
+    return int.__format__(x, "#x")
 
 
 # anext and aiter adapted from: https://github.com/python/cpython/pull/8895
