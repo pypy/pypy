@@ -62,3 +62,23 @@ class AppTestCComplex(AppTestCpythonExtensionBase):
                  return Py_BuildValue("dd", c.real, c.imag);
              """)])
         assert module.test(1.2 + 3.4j) == (1.2, 3.4)
+
+    def test_PyComplex_AsCComplex(self):
+        module = self.import_extension('foo', [
+            ("test", "METH_O",
+             """
+                Py_complex c = PyComplex_AsCComplex(args);
+                if (c.real == -1. && PyErr_Occurred()) {
+                    return NULL;
+                }
+                return Py_BuildValue("dd", c.real, c.imag);
+             """)])
+
+        class C(complex):
+            def __complex__(self):
+                return -10-10j
+
+        assert module.test(complex(1 + 1j)) == (1, 1)
+        assert complex(C(1 + 1j)) == -10-10j, C(1 + 1j)
+        # since it is a subclass, the __complex__ is ignored.
+        assert module.test(C(1 + 1j)) == (1, 1)

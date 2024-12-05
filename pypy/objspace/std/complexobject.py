@@ -133,14 +133,15 @@ def repr_format(x):
     return format_float(x, 'r', 0)
 
 
-def unpackcomplex(space, w_complex, strict_typing=True, firstarg=True):
+def unpackcomplex(space, w_complex, allow_subclass=False, firstarg=True):
     """
     convert w_complex into a complex and return the unwrapped (real, imag)
-    tuple. If strict_typing==True, we also typecheck the value returned by
-    __complex__ to actually be a complex (and not e.g. a float).
-    See test___complex___returning_non_complex.
+    tuple. If allow_subclass (i.e. _PyComplex_AsCComplex) we fast path subclasses
+    of complex.
     """
     if type(w_complex) is W_ComplexObject:
+        return (w_complex.realval, w_complex.imagval)
+    if allow_subclass and isinstance(w_complex, W_ComplexObject):
         return (w_complex.realval, w_complex.imagval)
     #
     # test for a '__complex__' method, and call it if found.
@@ -151,7 +152,6 @@ def unpackcomplex(space, w_complex, strict_typing=True, firstarg=True):
     #
     if w_z is not None:
         # __complex__() must return a complex
-        # (XXX should not use isinstance here)
         if isinstance(w_z, W_ComplexObject):
             if type(w_z) is not W_ComplexObject:
                 space.warn(

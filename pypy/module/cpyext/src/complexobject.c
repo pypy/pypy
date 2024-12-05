@@ -5,7 +5,10 @@ Py_complex
 PyComplex_AsCComplex(PyObject *obj)
 {
     Py_complex result;
-    _PyComplex_AsCComplex(obj, &result);
+    if (_PyComplex_AsCComplex(obj, &result) < 0) {
+        result.real = -1.;
+        result.imag = 0.;
+    }
     return result;
 }
 

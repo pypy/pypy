@@ -673,3 +673,10 @@ def test_has_complex_special_method():
     x = C(1+1j)
     assert x.__complex__() == x
     assert x.__complex__().__class__ is complex
+
+    class C(complex):
+        def __complex__(self):
+            return -10-10j
+
+    assert complex(C(1 + 1j)) == -10-10j
+

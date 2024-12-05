@@ -3,8 +3,7 @@ from pypy.module.cpyext.api import (PyObjectFields, bootstrap_function,
     cpython_api, cpython_struct, PyObject, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     make_typedescr, track_reference, from_ref)
-from pypy.module.cpyext.floatobject import PyFloat_AsDouble
-from pypy.objspace.std.complexobject import W_ComplexObject
+from pypy.objspace.std.complexobject import W_ComplexObject, unpackcomplex
 from pypy.interpreter.error import oefmt
 
 PyComplex_Check, PyComplex_CheckExact = build_type_checkers("Complex")
@@ -78,6 +77,7 @@ def _PyComplex_FromCComplex(space, v):
 
 # lltype does not handle functions returning a structure.  This implements a
 # helper function, which takes as argument a reference to the return value.
+# The real function is in src/complexobject.c
 @cpython_api([PyObject, Py_complex_ptr], rffi.INT_real, error=-1)
 def _PyComplex_AsCComplex(space, w_obj, result):
     """Return the Py_complex value of the complex number op.
@@ -86,22 +86,7 @@ def _PyComplex_AsCComplex(space, w_obj, result):
     method, this method will first be called to convert op to a Python complex
     number object."""
     # return -1 on failure
-    result.c_real = -1.0
-    result.c_imag = 0.0
-    if not PyComplex_Check(space, w_obj):
-        try:
-            w_obj = space.call_method(w_obj, "__complex__")
-        except:
-            # if the above did not work, interpret obj as a float giving the
-            # real part of the result, and fill in the imaginary part as 0.
-            result.c_real = PyFloat_AsDouble(space, w_obj) # -1 on failure
-            return 0
-
-        if not PyComplex_Check(space, w_obj):
-            raise oefmt(space.w_TypeError,
-                        "__complex__ should return a complex object")
-
-    assert isinstance(w_obj, W_ComplexObject)
-    result.c_real = w_obj.realval
-    result.c_imag = w_obj.imagval
+    realvalue, imagvalue = unpackcomplex(space, w_obj, allow_subclass=True)
+    result.c_real = realvalue
+    result.c_imag = imagvalue
     return 0
