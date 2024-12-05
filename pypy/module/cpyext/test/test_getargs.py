@@ -247,3 +247,19 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             # Fails since we are not assigning a bf_releasebuffer function
             # to memoryviews, see issue 5100
             module.getargs_y(memoryview(b'memoryview'))
+
+    def test_d(self):
+        module = self.import_extension('foo', [
+        ("getargs_d", "METH_VARARGS",
+         """
+            double d;
+            if (!PyArg_ParseTuple(args, "d", &d))
+                return NULL;
+            return PyFloat_FromDouble(d);
+         """),
+         ])
+        class FloatSubclass2(float):
+            def __float__(self):
+                return 4.25
+        # float subclass value overrides __float__ in PyFloat_AsDouble
+        assert module.getargs_d(FloatSubclass2(7.5)) == 7.5

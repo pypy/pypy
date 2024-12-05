@@ -1152,6 +1152,7 @@ class Object_TestCase(unittest.TestCase):
 
 # Bug #6012
 class Test6012(unittest.TestCase):
+    @support.refcount_test
     def test(self):
         self.assertEqual(_testcapi.argparsing("Hello", "World"), 1)
 

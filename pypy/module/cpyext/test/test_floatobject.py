@@ -4,8 +4,7 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.floatobject import (
-    PyFloat_FromDouble, PyFloat_AsDouble, PyFloat_AS_DOUBLE, PyNumber_Float,
-    _PyFloat_Unpack4, _PyFloat_Unpack8)
+    PyFloat_FromDouble, PyFloat_AsDouble, PyFloat_AS_DOUBLE, PyNumber_Float)
 
 class TestFloatObject(BaseApiTest):
     def test_floatobject(self, space):
@@ -25,16 +24,6 @@ class TestFloatObject(BaseApiTest):
                     return 42.5
             return Coerce()""")
         assert space.eq_w(PyNumber_Float(space, w_obj), space.wrap(42.5))
-
-    def test_unpack(self, space):
-        with rffi.scoped_str2charp("\x9a\x99\x99?") as ptr:
-            assert abs(_PyFloat_Unpack4(space, ptr, 1) - 1.2) < 1e-7
-        with rffi.scoped_str2charp("?\x99\x99\x9a") as ptr:
-            assert abs(_PyFloat_Unpack4(space, ptr, 0) - 1.2) < 1e-7
-        with rffi.scoped_str2charp("\x1f\x85\xebQ\xb8\x1e\t@") as ptr:
-            assert abs(_PyFloat_Unpack8(space, ptr, 1) - 3.14) < 1e-15
-        with rffi.scoped_str2charp("@\t\x1e\xb8Q\xeb\x85\x1f") as ptr:
-            assert abs(_PyFloat_Unpack8(space, ptr, 0) - 3.14) < 1e-15
 
 class AppTestFloatObject(AppTestCpythonExtensionBase):
     def test_fromstring(self):
