@@ -194,6 +194,8 @@ def z3_highest_bit(x):
     x |= z3.LShR(x, 32)
     return popcount64(x) - 1
 
+def z3_min(a, b):
+    return z3.If(a <= b, a, b)
 
 class Prover(parse.Visitor):
     def __init__(self):
