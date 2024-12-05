@@ -1,7 +1,12 @@
 import pytest
+import sys
 from types import GenericAlias, UnionType
-from _pypy_generic_alias import _create_union
-from typing import TypeVar, Any, Union
+try:
+    from _pypy_generic_alias import _create_union
+except ModuleNotFoundError:
+    _create_union = None
+    
+from typing import TypeVar, Any, Union, TypeVarTuple
 T = TypeVar('T')
 K = TypeVar('K')
 V = TypeVar('V')
@@ -151,10 +156,12 @@ def test_ga_or_does_not_use_typing():
     union2 = list[int] | float
     assert type(union1) is type(union2)
 
+@pytest.mark.skipif(sys.implementation.name != 'pypy', reason='pypy only')
 def test_ga_or():
     assert list[int] | float == UnionType((list[int], float))
     assert list[int] | None == UnionType((list[int], None))
 
+@pytest.mark.skipif(sys.implementation.name != 'pypy', reason='pypy only')
 def test_ga_ror():
     assert float | list[int] == UnionType((float, list[int]))
     assert None | list[int] == UnionType((None, list[int]))
@@ -169,25 +176,27 @@ def test_ga_subclass_repr():
 # union tests
 
 def test_union_create():
-    u = UnionType((int, list))
+    u = int | list
     assert u.__args__ == (int, list)
-    u = UnionType((int, list, int))
+    u = int | list | int
     assert u.__args__ == (int, list) # deduplicate
-    u = UnionType((int, UnionType((list, int, str, float))))
+    u = int | (list | int | str | float)
     assert u.__args__ == (int, list, str, float) # flatten
 
+@pytest.mark.skipif(not _create_union, reason='pypy only')
 def test_union_forbidden_args():
     assert _create_union(1, int) is NotImplemented
     assert _create_union(int, 1) is NotImplemented
 
+@pytest.mark.skipif(not _create_union, reason='pypy only')
 def test_union_with_itself():
     assert _create_union(int, int) is int
 
 def test_union_hash_eq():
-    u1 = UnionType((int, list))
-    u2 = UnionType((int, list))
-    u3 = UnionType((int, str))
-    u4 = UnionType((list, int))
+    u1 = int | list
+    u2 = int | list
+    u3 = int | str
+    u4 = list | int
     assert u1 == u2
     assert u1 == u4
     assert u3 != u1
@@ -199,31 +208,35 @@ def test_union_hash_eq():
     assert hash(u3) != hash(u4)
 
 def test_union_isinstance():
-    u = UnionType((int, list))
+    u = int | list
     assert isinstance(1, u)
     assert isinstance([], u)
     assert issubclass(int, u)
     assert issubclass(list, u)
 
-    u2 = UnionType((int, None))
+    u2 = int | None
     assert isinstance(None, u2)
     assert isinstance(6, u2)
     assert issubclass(int, u2)
     assert issubclass(type(None), u2)
 
-    with pytest.raises(TypeError):
-        issubclass(int, UnionType((int, GenericAlias(dict, int))))
-    with pytest.raises(TypeError):
-        isinstance(2, UnionType((int, GenericAlias(dict, int))))
+    if sys.implementation.name == 'pypy':
+        # XXX make this pass like CPython?
+        with pytest.raises(TypeError):
+            issubclass(int, int | GenericAlias(dict, int))
+        with pytest.raises(TypeError):
+            isinstance(2, int | GenericAlias(dict, int))
 
 def test_union_repr():
-    u = UnionType((int, list))
+    u = int | list
     assert repr(u) == "int | list"
 
+@pytest.mark.skipif(sys.implementation.name != 'pypy', reason='pypy only')
 def test_union_or():
-    u = UnionType((int, list))
+    u = int | list
     assert u | int == UnionType((int, list))
 
+@pytest.mark.skipif(sys.implementation.name != 'pypy', reason='pypy only')
 def test_union_ror():
     assert None | int == UnionType((None, int))
     assert None | (int | float) == UnionType((None, int, float))
@@ -249,7 +262,6 @@ def test_unpacked():
     assert reconstructed != ga
 
 def test_unpacked_subst():
-    from typing import TypeVar
     T = TypeVar('T')
     ga = GenericAlias(tuple, (T, ))
     starred_generic = list(ga)[0]
