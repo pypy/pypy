@@ -50,9 +50,6 @@ from sysconfig import (
 # which might not be true in the time of import.
 _config_vars = get_config_vars()
 
-if os.name == "nt":
-    from sysconfig import _fix_pcbuild
-
 warnings.warn(
     'The distutils.sysconfig module is deprecated, use sysconfig instead',
     DeprecationWarning,
