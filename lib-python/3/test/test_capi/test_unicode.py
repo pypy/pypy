@@ -12,6 +12,8 @@ except ImportError:
 class CAPITest(unittest.TestCase):
 
     # Test PyUnicode_FromFormat()
+
+    @support.impl_detail('no pythonapi in PyPy', pypy=False)
     def test_from_format(self):
         import_helper.import_module('ctypes')
         from ctypes import (
