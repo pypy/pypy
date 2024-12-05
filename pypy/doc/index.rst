@@ -52,6 +52,7 @@ Using PyPy
   __pypy__-module
   sandbox
   stm
+  remotedebugging
 
 Development
 -----------
