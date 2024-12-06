@@ -103,8 +103,6 @@ def PyMember_SetOne(space, obj, w_member, w_value):
 
     if flags & READONLY:
         raise oefmt(space.w_AttributeError, "readonly attribute")
-    elif member_type in [T_STRING, T_STRING_INPLACE]:
-        raise oefmt(space.w_TypeError, "readonly attribute")
     elif w_value is None:
         if member_type == T_OBJECT_EX:
             if not rffi.cast(PyObjectP, addr)[0]:
@@ -114,7 +112,7 @@ def PyMember_SetOne(space, obj, w_member, w_value):
         elif member_type != T_OBJECT:
             raise oefmt(space.w_TypeError,
                         "can't delete numeric/char attribute")
-    elif member_type == T_BOOL:
+    if member_type == T_BOOL:
         value = convert_bool(space, w_value)
         array = rffi.cast(rffi.CArrayPtr(rffi.UCHAR), addr)
         casted = rffi.cast(rffi.UCHAR, value)
@@ -244,6 +242,8 @@ def PyMember_SetOne(space, obj, w_member, w_value):
         if array[0]:
             decref(space, array[0])
         array[0] = make_ref(space, w_value)
+    elif member_type in [T_STRING, T_STRING_INPLACE]:
+        raise oefmt(space.w_TypeError, "readonly attribute")
     else:
         raise oefmt(space.w_SystemError, "bad memberdescr type")
     return 0

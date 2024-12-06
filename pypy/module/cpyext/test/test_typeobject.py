@@ -76,6 +76,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         obj.object_member = "hello"
         assert obj.object_member == "hello"
         del obj.object_member
+        # Make sure a second call does not fail
         del obj.object_member
         assert obj.object_member is None
         raises(AttributeError, "obj.object_member_ex")
