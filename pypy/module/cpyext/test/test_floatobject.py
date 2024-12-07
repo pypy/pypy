@@ -120,51 +120,44 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
             ])
             assert module.test() == const_strval
 
-    def test_Py_IS_NAN(self):
+    def test_Py_IS(self):
         module = self.import_extension('foo', [
-            ("test", "METH_O",
+            ("test_nan", "METH_O",
              """
                  double d = PyFloat_AsDouble(args);
                  return PyBool_FromLong(Py_IS_NAN(d));
              """),
-            ])
-        assert not module.test(0)
-        assert not module.test(1)
-        assert not module.test(-1)
-        assert not module.test(float('inf'))
-        assert module.test(float('nan'))
-
-    def test_Py_IS_INFINITY(self):
-        module = self.import_extension('foo', [
-            ("test", "METH_O",
+            ("test_inf", "METH_O",
              """
                  double d = PyFloat_AsDouble(args);
                  return PyBool_FromLong(Py_IS_INFINITY(d));
              """),
-            ])
-        assert not module.test(0)
-        assert not module.test(1)
-        assert not module.test(-1)
-        assert not module.test(float('nan'))
-        assert module.test(float('inf'))
-        assert module.test(float('-inf'))
-
-    def test_Py_IS_FINITE(self):
-        module = self.import_extension('foo', [
-            ("test", "METH_O",
+            ("test_finite", "METH_O",
              """
                  double d = PyFloat_AsDouble(args);
                  return PyBool_FromLong(Py_IS_FINITE(d));
              """),
             ])
-        assert module.test(0)
-        assert module.test(1)
-        assert module.test(-1)
-        assert not module.test(float('nan'))
-        assert not module.test(float('inf'))
-        assert not module.test(float('-inf'))
+        assert not module.test_nan(0)
+        assert not module.test_nan(1)
+        assert not module.test_nan(-1)
+        assert not module.test_nan(float('inf'))
+        assert module.test_nan(float('nan'))
+        assert not module.test_inf(0)
+        assert not module.test_inf(1)
+        assert not module.test_inf(-1)
+        assert not module.test_inf(float('nan'))
+        assert module.test_inf(float('inf'))
+        assert module.test_inf(float('-inf'))
+        assert module.test_finite(0)
+        assert module.test_finite(1)
+        assert module.test_finite(-1)
+        assert not module.test_finite(float('nan'))
+        assert not module.test_finite(float('inf'))
+        assert not module.test_finite(float('-inf'))
 
-    def test_Py_Float_AsDouble_err(self):
+    def test_Py_Float_AsDouble(self):
+        import warnings
         module = self.import_extension('foo', [
             ("test", "METH_O",
              """
@@ -182,6 +175,18 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
             assert str(e) == 'must be real number, not list'
         else:
             assert False
+
+        class Floatsub(float): pass
+        class BadFloat:
+            def __float__(self):
+                return Floatsub(4.25)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always", DeprecationWarning)
+            res = module.test(BadFloat())
+        assert res == 4.25
+        assert len(w) == 1
+        assert "strict subclass" in str(w[0]), str(w[0])
 
     def test_Py_HUGE_VAL(self):
         module = self.import_extension('foo', [
