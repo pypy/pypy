@@ -109,14 +109,4 @@ def continue_after_call(frame):
                 map['CALL_FUNCTION_VAR'], map['CALL_FUNCTION_VAR_KW'],
                 map['CALL_METHOD']]
     assert opcode in call_ops   # XXX check better, and complain better
-    instr += 1
-    oparg = ord(code[instr]) | ord(code[instr + 1]) << 8
-    nargs = oparg & 0xff
-    nkwds = (oparg >> 8) & 0xff
-    if nkwds == 0:     # only positional arguments
-        # fast paths leaves things on the stack, pop them
-        if opcode == map['CALL_METHOD']:
-            frame.dropvalues(nargs + 2)
-        elif opcode == map['CALL_FUNCTION']:
-            frame.dropvalues(nargs + 1)
-    frame.last_instr = instr + 1    # continue after the call
+    frame.last_instr = instr + 2    # continue after the call

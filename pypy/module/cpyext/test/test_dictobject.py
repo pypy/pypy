@@ -361,6 +361,14 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
                 }
                 return PyLong_FromLong(ret);
             '''),
+            ("exhaust_pos", "METH_O",
+             """
+                PyObject *key, *val;
+                Py_ssize_t pos = 0;
+                while (PyDict_Next(args, &pos, &key, &val)) {
+                }
+                return PyLong_FromLong(pos);
+             """),
             ])
         d = {'a': 1, 'b':2}
         assert module.dict_len(d) == 2
@@ -369,6 +377,7 @@ class AppTestDictObject(AppTestCpythonExtensionBase):
         assert module.dict_delitem(d, 'a') == 0
         r = module.dict_next({'a': 1, 'b': 2})
         assert r == 2
+        assert module.exhaust_pos({'a': 1}) == 1
 
     def test_subclassing(self):
         module = self.import_extension('foo', [

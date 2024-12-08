@@ -4009,10 +4009,10 @@ finish()
 
     def test_bug_wrong_minint_generation(self):
         ops = """
-        [i4, i5] 
-        i21 = int_rshift(i4, i5) 
-        i41 = int_and(41, i4) 
-        i44 = int_is_true(i41) 
+        [i4, i5]
+        i21 = int_rshift(i4, i5)
+        i41 = int_and(41, i4)
+        i44 = int_is_true(i41)
         guard_true(i44) []
         jump(i5)
         """
@@ -4149,6 +4149,50 @@ finish()
         i49 = int_and(i14, -16777216)
         jump(i14, i14)
         """
+        self.optimize_loop(ops, expected)
+
+    def test_rshift_max(self):
+        ops = '''
+        [i1]
+        i3 = int_rshift(i1, %s)
+        i4 = int_rshift(i3, %s)
+        jump(i4)
+        ''' % (LONG_BIT//2, LONG_BIT//2)
+        expected = '''
+        [i1]
+        i3 = int_rshift(i1, %s)
+        i4 = int_rshift(i1, %s)
+        jump(i4)
+        ''' % (LONG_BIT//2, LONG_BIT-1)
+        self.optimize_loop(ops, expected)
+
+    def test_urshift_max(self):
+        ops = '''
+        [i1]
+        i3 = uint_rshift(i1, %s)
+        i4 = uint_rshift(i3, %s)
+        jump(i4)
+        ''' % (LONG_BIT//2, LONG_BIT//2)
+        expected = '''
+        [i1]
+        i3 = uint_rshift(i1, %s)
+        jump(0)
+        ''' % (LONG_BIT//2, )
+        self.optimize_loop(ops, expected)
+
+    def test_lshift_max(self):
+        ops = '''
+        [i1]
+        i3 = int_lshift(i1, %s)
+        i4 = int_lshift(i3, %s)
+        jump(i4)
+        ''' % (LONG_BIT//2, LONG_BIT//2)
+        expected = '''
+        [i1]
+        i3 = int_lshift(i1, %s)
+        i4 = int_lshift(i3, %s)
+        jump(0)
+        ''' % (LONG_BIT//2, LONG_BIT//2)
         self.optimize_loop(ops, expected)
 
 class TestComplexIntOpts(BaseTestBasic):
