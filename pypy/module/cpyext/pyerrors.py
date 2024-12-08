@@ -223,7 +223,13 @@ def PyErr_NoMemory(space):
     so an object allocation function can write return PyErr_NoMemory(); when it
     runs out of memory.
     Return value: always NULL."""
-    PyErr_SetNone(space, space.w_MemoryError)
+    return PyErr_SetNone(space, space.w_MemoryError)
+    # use pre-allocated exception since there is no memory
+    state = space.fromcache(State)
+    static_operr = state.static_memory_error
+    static_operr.record_context(space, space.getexecutioncontext())
+    state.set_exception(static_operr)
+    return rffi.cast(PyObject, 0)
 
 @cpython_api([PyObject], PyObject)
 def PyErr_SetFromErrno(space, w_type):
