@@ -121,7 +121,7 @@ def PyMember_SetOne(space, obj, w_member, w_value):
         value = PyLong_AsLong(space, w_value)
         array = rffi.cast(rffi.CArrayPtr(rffi.SIGNEDCHAR), addr)
         casted = rffi.cast(rffi.SIGNEDCHAR, value)
-        if rffi.cast(lltype.typeOf(value), casted) != widen(value):
+        if widen(rffi.cast(lltype.typeOf(value), casted)) != widen(value):
             space.warn(
                 space.newtext("Truncation of value to char"),
                 space.w_RuntimeWarning)
@@ -130,7 +130,7 @@ def PyMember_SetOne(space, obj, w_member, w_value):
         value = PyLong_AsLong(space, w_value)
         array = rffi.cast(rffi.CArrayPtr(rffi.UCHAR), addr)
         casted = rffi.cast(rffi.UCHAR, value)
-        if rffi.cast(lltype.typeOf(value), casted) != widen(value):
+        if widen(rffi.cast(lltype.typeOf(value), casted)) != widen(value):
             space.warn(
                 space.newtext("Truncation of value to unsigned char"),
                 space.w_RuntimeWarning)
@@ -139,7 +139,7 @@ def PyMember_SetOne(space, obj, w_member, w_value):
         value = PyLong_AsLong(space, w_value)
         array = rffi.cast(rffi.CArrayPtr(rffi.SHORT), addr)
         casted = rffi.cast(rffi.SHORT, value)
-        if rffi.cast(lltype.typeOf(value), casted) != widen(value):
+        if widen(rffi.cast(lltype.typeOf(value), casted)) != widen(value):
             space.warn(
                 space.newtext("Truncation of value to short"),
                 space.w_RuntimeWarning)
@@ -149,7 +149,7 @@ def PyMember_SetOne(space, obj, w_member, w_value):
         value = PyLong_AsLong(space, w_value)
         array = rffi.cast(rffi.CArrayPtr(rffi.USHORT), addr)
         casted = rffi.cast(rffi.USHORT, value)
-        if rffi.cast(lltype.typeOf(value), casted) != widen(value):
+        if widen(rffi.cast(lltype.typeOf(value), casted)) != widen(value):
             space.warn(
                 space.newtext("Truncation of value to unsigned short"),
                 space.w_RuntimeWarning)
@@ -159,7 +159,7 @@ def PyMember_SetOne(space, obj, w_member, w_value):
         value = PyLong_AsLong(space, w_value)
         array = rffi.cast(rffi.CArrayPtr(rffi.INT), addr)
         casted = rffi.cast(rffi.INT, value)
-        if rffi.cast(lltype.typeOf(value), casted) != widen(value):
+        if widen(rffi.cast(lltype.typeOf(value), casted)) != widen(value):
             space.warn(
                 space.newtext("Truncation of value to int"),
                 space.w_RuntimeWarning)
@@ -176,7 +176,7 @@ def PyMember_SetOne(space, obj, w_member, w_value):
         else:
             value = PyLong_AsUnsignedLong(space, w_value)
             casted = rffi.cast(rffi.UINT, value)
-            if rffi.cast(lltype.typeOf(value), casted) != widen(value):
+            if widen(rffi.cast(lltype.typeOf(value), casted)) != widen(value):
                 space.warn(
                     space.newtext("Truncation of value to unsigned int"),
                     space.w_RuntimeWarning)

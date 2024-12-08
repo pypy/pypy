@@ -364,7 +364,7 @@ class EnvBuilder:
                     os.path.normcase(os.path.splitext(f)[1]) in ('.exe', '.dll')
                 ]
                 base_exe = os.path.basename(context.env_exe)
-                suffixes.add(base_exe)
+                suffixes.append(base_exe)
 
             for suffix in suffixes:
                 src = os.path.join(dirname, suffix)
