@@ -1,5 +1,4 @@
 import pytest
-
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rlib.buffer import StringBuffer
 
@@ -36,21 +35,7 @@ class TestMemoryViewObject(BaseApiTest):
         decref(space, ref)
         decref(space, c_memoryview)
 
-    def test_class_with___buffer__(self, space, api):
-        w_obj = space.appexec([], """():
-            from __pypy__.bufferable import bufferable
-            class B(bufferable):
-                def __init__(self):
-                    self.buf = bytearray(10)
-
-                def __buffer__(self, flags):
-                    return memoryview(self.buf)
-            return B()""")
-        py_obj = make_ref(space, w_obj)
-        assert py_obj.c_ob_type.c_tp_as_buffer
-        assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getbuffer
-        assert not py_obj.c_ob_type.c_tp_as_buffer.c_bf_releasebuffer
-         
+        
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):
@@ -224,7 +209,7 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
 
 
     def test_releasebuffer(self):
-        module = self.import_extension('foo', [
+        module = self.import_extension('test_releasebuffer', [
             ("create_test", "METH_NOARGS",
              """
                 PyObject *obj;
@@ -283,7 +268,6 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
 
                 if (PyType_Ready(&type->ht_type) < 0) INITERROR;
             """, )
-        import gc
         assert module.get_cnt() == 0
         a = memoryview(module.create_test())
         assert module.get_cnt() == 1
@@ -379,4 +363,45 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         assert b == b"1234"
         # release the buffer
         del inst
-        import gc; gc.collect()
+        self.debug_collect()
+
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
+    def test_class_with___buffer__(self):
+        from __pypy__.bufferable import bufferable
+        release_count = [0]
+        class B(bufferable):
+            def __init__(self):
+                self.buf = bytearray(10)
+
+            def __buffer__(self, flags):
+                return memoryview(self.buf)
+
+            def ___release_buffer__(self):
+                self.buf = None
+                release_count += 1
+
+        module = self.import_extension('foo', [
+            ('check_tp_buf', 'METH_O',
+            """
+                PyTypeObject * typ = Py_TYPE(args);
+                if (! typ->tp_as_buffer) {
+                    return PyLong_FromLong(-1);
+                }
+                if (! typ->tp_as_buffer->bf_getbuffer) {
+                    return PyLong_FromLong(-2);
+                }
+                if (! typ->tp_as_buffer->bf_releasebuffer) {
+                    return PyLong_FromLong(-2);
+                }
+                return PyLong_FromLong(0);
+            """),
+            ])
+        b = B()
+        assert module.check_tp_buf(b) == 0
+        del b
+        m = memoryview(B())
+        result = module.check_tp_buf(m)
+        assert result ==0, result
+        del m
+        self.debug_collect()
+        assert release_count[0] == 1

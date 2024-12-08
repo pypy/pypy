@@ -12,7 +12,7 @@ from pypy.module.cpyext.typeobjectdefs import (
     getattrfunc, getattrofunc, setattrofunc, lenfunc, ssizeargfunc, inquiry,
     ssizessizeargfunc, ssizeobjargproc, iternextfunc, initproc, richcmpfunc,
     cmpfunc, hashfunc, descrgetfunc, descrsetfunc, objobjproc, objobjargproc,
-    getbufferproc, ssizessizeobjargproc, destructor)
+    getbufferproc, ssizessizeobjargproc, destructor, releasebufferproc)
 from pypy.module.cpyext.pyobject import make_ref, from_ref, as_pyobj, decref
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
@@ -363,43 +363,6 @@ class wrap_hashfunc(W_PyCWrapperObject):
             space.fromcache(State).check_and_raise_exception(always=True)
         return space.newint(res)
 
-class wrap_getreadbuffer(W_PyCWrapperObject):
-    def call(self, space, w_self, __args__):
-        func = self.get_func_to_call()
-        func_target = rffi.cast(readbufferproc, func)
-        py_type = _get_ob_type(space, w_self)
-        rbp = rffi.cast(rffi.VOIDP, 0)
-        if py_type.c_tp_as_buffer:
-            rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
-        with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
-            index = rffi.cast(Py_ssize_t, 0)
-            size = generic_cpy_call(space, func_target, w_self, index, ptr)
-            if size < 0:
-                space.fromcache(State).check_and_raise_exception(always=True)
-            view = CPyBuffer(space, ptr[0], size, w_self,
-                                   releasebufferproc=rbp)
-            fq.register_finalizer(view)
-            return space.newbuffer(CBuffer(view))
-
-class wrap_getwritebuffer(W_PyCWrapperObject):
-    def call(self, space, w_self, __args__):
-        func = self.get_func_to_call()
-        func_target = rffi.cast(readbufferproc, func)
-        py_type = _get_ob_type(space, w_self)
-        rbp = rffi.cast(rffi.VOIDP, 0)
-        if py_type.c_tp_as_buffer:
-            rbp = rffi.cast(rffi.VOIDP, py_type.c_tp_as_buffer.c_bf_releasebuffer)
-        with lltype.scoped_alloc(rffi.VOIDPP.TO, 1) as ptr:
-            index = rffi.cast(Py_ssize_t, 0)
-            size = generic_cpy_call(space, func_target, w_self, index, ptr)
-            if size < 0:
-                space.fromcache(State).check_and_raise_exception(always=True)
-            view = CPyBuffer(space, ptr[0], size, w_self, readonly=False,
-                                   releasebufferproc=rbp)
-            fq.register_finalizer(view)
-            return space.newbuffer(CBuffer(view))
-
-
 class wrap_getbuffer(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         func = self.get_func_to_call()
@@ -441,6 +404,15 @@ class wrap_getbuffer(W_PyCWrapperObject):
                                 releasebufferproc = rbp)
             fq.register_finalizer(buf)
             return buf.wrap(space)
+
+class wrap_releasebuffer(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 1)
+        w_view = __args__.arguments_w[0]
+        func = self.get_func_to_call()
+        func_target = rffi.cast(releasebufferproc, func)
+        print "XXX in wrap_releasebuffer, need to convervt w_view to Py_bufferP"
+        # generic_cpy_call(space, func_target, w_self, w_view)
 
 def get_richcmp_func(OP_CONST):
     class wrap_richcmp(W_PyCWrapperObject):
@@ -788,6 +760,19 @@ def make_bf_getbuffer(space, typedef, name, attr):
     else:
         return None
 
+@slot_factory('tp_as_buffer.c_bf_releasebuffer')
+def make_bf_releasebuffer(space, typedef, name, attr):
+    w_type = space.gettypeobject(typedef)
+    release_fn = w_type.lookup('__release_buffer__')
+    if release_fn is None:
+        return None
+    @slot_function([PyObject, Py_bufferP], lltype.Void)
+    @func_renamer("cpyext_%s_%s" % (name.replace('.', '_'), typedef.name))
+    def slot_bf_releasebuffer(space, w_self, pybuffer):
+        space.call_function(release_fn, w_self)
+        return lltype.Void
+    return slot_bf_releasebuffer
+
 @slot_factory('tp_descr_get')
 def make_tp_descr_get(space, typedef, name, attr):
     w_type = space.gettypeobject(typedef)
@@ -877,11 +862,6 @@ missing_builtin_slots = [
     'tp_as_number.c_nb_inplace_matrix_multiply',
     'tp_as_sequence.c_sq_slice', 'tp_as_sequence.c_sq_ass_slice',
     'tp_as_sequence.c_sq_contains',
-    ]
-if PY2:
-    missing_builtin_slots += [
-        'tp_as_buffer.c_bf_getreadbuffer',
-        'tp_as_buffer.c_bf_getwritebuffer',
     ]
 for name in missing_builtin_slots:
     slot_factory(name)(make_missing_slot)
@@ -1164,16 +1144,11 @@ for regex, repl in slotdef_replacements:
     slotdefs_str = re.sub(regex, repl, slotdefs_str)
 
 slotdefs = eval(slotdefs_str)
-# PyPy addition, was added to CPython 3.12
+# PyPy additions, was added to CPython 3.12
 slotdefs += (
     TPSLOT("__buffer__", "tp_as_buffer.c_bf_getbuffer", "slot_bf_getbuffer", "wrap_getbuffer", ""),
+    TPSLOT("__release_buffer__", "tp_as_buffer.c_bf_releasebuffer", "slot_bf_releasebuffer", "wrap_releasebuffer", ""),
 )
-
-if PY2:
-    slotdefs += (
-        TPSLOT("__rbuffer__", "tp_as_buffer.c_bf_getreadbuffer", None, "wrap_getreadbuffer", ""),
-        TPSLOT("__wbuffer__", "tp_as_buffer.c_bf_getwritebuffer", None, "wrap_getwritebuffer", ""),
-    )
 
 
 # partial sort to solve some slot conflicts:
@@ -1187,10 +1162,6 @@ def slotdef_sort_key(slotdef):
         return 2
     if slotdef.slot_name.startswith('tp_as_sequence'):
         return 3
-    if slotdef.slot_name == 'tp_as_buffer.c_bf_getbuffer':
-        return 100
-    if slotdef.slot_name == 'tp_as_buffer.c_bf_getreadbuffer':
-        return 101
     return 0
 slotdefs = sorted(slotdefs, key=slotdef_sort_key)
 

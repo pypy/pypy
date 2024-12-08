@@ -9,13 +9,13 @@ details are likely subtly wrong.  Another problem is that we don't
 track changes to an app-level Python class (addition or removal of
 '__xxx__' special methods) after initalization of the PyTypeObject.
 """
-
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import widen
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.argument import Arguments
 from pypy.module.cpyext.api import (
     slot_function, PyObject, Py_ssize_t, Py_bufferP, PyTypeObjectPtr,
+    CANNOT_FAIL,
     )
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.pyobject import make_ref
@@ -214,3 +214,13 @@ def slot_bf_getbuffer(space, w_self, c_view, flags):
         return ret
     return 0
 
+@slot_function([PyObject, Py_bufferP], lltype.Void, error=CANNOT_FAIL)
+def slot_bf_releasebuffer(space, w_self, pybuf):
+    from pypy.module.cpyext.buffer import CPyBuffer
+    w_release = space.lookup(w_self, "__release_buffer__")
+    if w_release is None:
+        return lltype.Void
+    # pybuf is unused? Maybe we can get the w_view from w_self.__buffer__(),
+    # or do we have to do the whole  slotdefs wrap_getbuffer dance? 
+    space.call_function(w_release, w_self, space.w_None)
+    return lltype.Void

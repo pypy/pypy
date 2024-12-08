@@ -79,7 +79,7 @@ class CPyBuffer(BufferView):
         self.releasebufferproc = releasebufferproc
 
     def releasebuffer(self):
-        if self.pyobj:
+        if self and self.pyobj:
             if self.needs_decref:
                 if self.releasebufferproc:
                     func_target = rffi.cast(releasebufferproc, self.releasebufferproc)

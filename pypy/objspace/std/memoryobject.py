@@ -703,6 +703,7 @@ Create a new memoryview object which references the given object.
     tolist      = interp2app(W_MemoryView.descr_tolist),
     toreadonly  = interp2app(W_MemoryView.descr_toreadonly),
     release     = interp2app(W_MemoryView.descr_release),
+    __releasebuffer__ = interp2app(W_MemoryView.descr_release),
     format      = GetSetProperty(W_MemoryView.w_get_format),
     itemsize    = GetSetProperty(W_MemoryView.w_get_itemsize),
     ndim        = GetSetProperty(W_MemoryView.w_get_ndim),
