@@ -75,4 +75,12 @@ def test_mixed_type_or_bug():
     assert type(d) is OrderedDict
     assert d == OrderedDict({1: 2})
 
-
+def test_reduce():
+    class D(OrderedDict):
+        __slots__ = ('x', 'y')
+    d1 = D({1: 2, 3: 4})
+    d1.x = ['x']
+    d1.z = ['z']
+    r = d1.__reduce_ex__(4)
+    assert isinstance(r[2], tuple)
+    assert r[2] == ({'z': ['z']}, {'x': ['x']})

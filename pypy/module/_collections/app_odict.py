@@ -103,8 +103,8 @@ class OrderedDict(dict):
 
     def __reduce__(self):
         'Return state information for pickling'
-        inst_dict = vars(self).copy()
-        return self.__class__, (), inst_dict or None, None, iter(self.items())
+        state = object.__getstate__(self)
+        return self.__class__, (), state or None, None, iter(self.items())
 
     def copy(self):
         'od.copy() -> a shallow copy of od'
