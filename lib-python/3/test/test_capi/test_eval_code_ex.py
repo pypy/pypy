@@ -7,6 +7,8 @@ from test.support import import_helper
 _testcapi = import_helper.import_module('_testcapi')
 
 
+@unittest.skipUnless(hasattr(_testcapi, 'eval_code_ex'),
+                     'need _testcapi.eval_code_ex')
 class PyEval_EvalCodeExTests(unittest.TestCase):
 
     def test_simple(self):

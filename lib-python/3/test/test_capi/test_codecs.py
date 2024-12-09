@@ -26,6 +26,8 @@ class CAPITest(unittest.TestCase):
         # TODO: Test PyUnicode_DecodeUTF8() with NULL as data and
         # negative size.
 
+    @unittest.skipUnless(hasattr(_testcapi, 'unicode_decodeutf8stateful'),
+                         'need _testcapi.unicode_decodeutf8stateful')
     def test_decodeutf8stateful(self):
         """Test PyUnicode_DecodeUTF8Stateful()"""
         decodeutf8stateful = _testcapi.unicode_decodeutf8stateful
