@@ -355,6 +355,7 @@ class ImportTests(unittest.TestCase):
         import _frozen_importlib
         self.assertEqual(_frozen_importlib.__spec__.origin, "frozen")
 
+    @support.cpython_only
     def test_source_hash(self):
         self.assertEqual(_imp.source_hash(42, b'hi'), b'\xfb\xd9G\x05\xaf$\x9b~')
         self.assertEqual(_imp.source_hash(43, b'hi'), b'\xd0/\x87C\xccC\xff\xe2')
