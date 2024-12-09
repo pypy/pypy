@@ -197,7 +197,7 @@ testmap = [
     RegrTest('test_format.py'),
     RegrTest('test_fractions.py'),
     RegrTest('test_frame.py'),
-    RegrTest('test_frozen.py'),
+    RegrTest('test_frozen.py', skip="implementation detail"),
     RegrTest('test_fstring.py'),
     RegrTest('test_ftplib.py'),
     RegrTest('test_funcattrs.py'),
