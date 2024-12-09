@@ -616,7 +616,8 @@ class FormatTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, error_msg):
             f"{'x':zs}"  # can't apply to string
 
-        error_msg = re.escape("unsupported format character 'z'")
+        # PyPY: use regex
+        error_msg = "unsupported format character .*'z'"
         with self.assertRaisesRegex(ValueError, error_msg):
             "%z.1f" % 0  # not allowed in old style string interpolation
         with self.assertRaisesRegex(ValueError, error_msg):
