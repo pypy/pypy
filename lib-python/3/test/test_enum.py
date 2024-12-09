@@ -3594,8 +3594,9 @@ class OldTestIntFlag(unittest.TestCase):
                 )
 
     def test_global_enum_str(self):
-        self.assertEqual(repr(NoName.ONE), __name__ + '.ONE')
-        self.assertEqual(repr(NoName(0)), __name__ + '.NoName(0)')
+        # PyPy: use regex
+        self.assertRegex(repr(NoName.ONE), 'ONE$')
+        self.assertRegex(repr(NoName(0)), 'NoName\(0\)$')
         self.assertEqual(str(NoName.ONE & NoName.TWO), 'NoName(0)')
         self.assertEqual(str(NoName(0)), 'NoName(0)')
 
