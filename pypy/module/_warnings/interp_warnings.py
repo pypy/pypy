@@ -27,7 +27,7 @@ class State:
         filters_w.append(create_filter(
             space, space.w_ImportWarning, "ignore"))
 
-        bytes_warning = space.sys.get_flag('bytes_warning')
+        bytes_warning = 0 # YYY space.sys.get_flag('bytes_warning')
         if bytes_warning > 1:
             action = "error"
         elif bytes_warning == 0:
