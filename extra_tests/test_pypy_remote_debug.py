@@ -90,7 +90,7 @@ sys.stdin.readline()
     out.stdin.flush()
     out.wait()
 
-def test_integration(tmpdir):
+def test_integration():
     code = """
 import time
 for i in range(20):
@@ -105,11 +105,9 @@ sys.stdout.flush()
     out = subprocess.Popen([sys.executable, '-c',
          code], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     pid = out.pid
-    debug_script = tmpdir.join('debug.py')
-    debug_script.write(debug_code)
-    _pypy_remote_debug.start_debugger(pid, str(debug_script))
-    l = out.stdout.readline()
-    assert l == 'Executing remote debugger script %s\n' % debug_script
+    _pypy_remote_debug.start_debugger(pid, debug_code)
+    l = [out.stdout.readline() for _ in range(len(debug_code.splitlines()) + 2)]
+    assert ''.join(l) == 'Executing remote debugger script:\n%s\n' % debug_code
     l = out.stdout.readline()
     assert l == 'hello from %s\n' % pid
     exitcode = out.wait()

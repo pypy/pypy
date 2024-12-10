@@ -3,20 +3,24 @@ Remote Debugging
 
 PyPy has an experimental remote debugging facility built into the virtual
 machine. It can be used to inject arbitrary Python code into another PyPy
-process. So far, it works only under Linux.
+process. So far, it works only under Linux. This mechanism is strongly inspired
+by `PEP 768`_.
 
-To start a script in another PyPy process, you can run this command::
+.. _`PEP 768`: https://peps.python.org/pep-0768/
 
-    pypy -m _pypy_remote_debug <pid> <scriptfile.py>
+To directly execute Python code in another PyPy process, you can run this command::
+
+    pypy -m _pypy_remote_debug <pid> <code>
 
 This will cause the other PyPy process with process id ``pid`` the to execute
-``scriptfile.py``.
+the ``code`` given.
 
 If the other process is currently blocked by a system call or running a
 long-running computation in a C extension, it will not be interrupted. In this
 case the script will be executed once that is finished.
 
-It's also possible to directly execute some Python code with the ``-c`` option::
+For example, to cause the other process to dump its (RPython-level) heap, you
+can run::
 
     pypy -m _pypy_remote_debug -c "import gc; gc.dump_rpy_heap('/tmp/rpy-heap-dump')"
 

@@ -260,8 +260,8 @@ def _find_file_and_base_addr(pid):
 
 COOKIE_OFFSET = struct.calcsize('l')
 PENDING_CALL_OFFSET = COOKIE_OFFSET + struct.calcsize('cccccccc')
-PATH_OFFSET = PENDING_CALL_OFFSET + struct.calcsize('l')
-PATH_MAX = 1024
+SCRIPT_OFFSET = PENDING_CALL_OFFSET + struct.calcsize('l')
+SCRIPT_MAX = 4096
 
 
 def compute_remote_addr(pid):
@@ -276,13 +276,19 @@ def compute_remote_addr(pid):
     return base_addr + symbol_value - phdr.vaddr
 
 
-def start_debugger(pid, filename, wait=True):
+def start_debugger(pid, script, wait=True):
+    if not sys.platform.startswith('linux'):
+        raise ValueError('This works on Linux only so far')
     addr = compute_remote_addr(pid)
     cookie = read_memory(pid, addr + COOKIE_OFFSET, 8)
     assert cookie == b'pypysigs'
-    # write the path
-    assert len(filename) < PATH_MAX
-    write_memory(pid, addr + PATH_OFFSET, filename + b'\x00')
+    # write the script, and a null byte
+    script = script.encode('utf-8')
+    if not len(script) + 1 < SCRIPT_MAX:
+        raise ValueError('script can be at most %s bytes long, not %s' % (SCRIPT_MAX - 1, len(script)))
+    if b'\x00' in script:
+        raise ValueError('script must not contain null byte')
+    write_memory(pid, addr + SCRIPT_OFFSET, script + b'\x00')
     # write a 1 into pypysig_counter.debugger_pending_call
     write_memory(pid, addr + PENDING_CALL_OFFSET, struct.pack('l', 1))
     # write a -1 into pypysig_counter.value
@@ -298,25 +304,10 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="Execute Python code in another PyPy process.")
     parser.add_argument("pid", help="process id of the target process", type=int)
-    parser.add_argument("script", nargs='?', help="script file to execute in the remote process")
-    parser.add_argument("-c", help="python code passed as string to execute in the remote process", metavar='code')
+    parser.add_argument("code", help="python code passed as string to execute in the remote process", metavar='code')
     parser.add_argument("--dont-wait", help="dont wait for the other process to run the debug code", action='store_true')
     args = parser.parse_args()
-    if not sys.platform.startswith('linux'):
-        parser.error('This works on Linux only so far')
-    if args.script:
-        start_debugger(args.pid, os.path.realpath(args.script), wait=not args.dont_wait)
-    elif args.c:
-        if args.dont_wait:
-            parser.error("can't pass -c and --dont-wait together")
-        with tempfile.NamedTemporaryFile(mode='wb') as f:
-            f.write(args.c.encode('utf-8'))
-            f.flush()
-            # make it world-readable, in case we have to use sudo
-            os.chmod(f.name, 0o644)
-            start_debugger(args.pid, f.name, wait=True)
-    else:
-        parser.error('need to pass either a script or -c')
+    start_debugger(args.pid, args.code, wait=not args.dont_wait)
 
 
 if __name__ == '__main__':
