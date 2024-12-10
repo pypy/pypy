@@ -91,25 +91,26 @@ sys.stdin.readline()
     out.wait()
 
 def test_integration():
-    code = """
+    import __pypy__
+    for func in (_pypy_remote_debug.start_debugger, __pypy__.remote_exec):
+        code = """
 import time
 for i in range(20):
     time.sleep(0.1)
 """
-    debug_code = r"""
+        debug_code = r"""
 import sys, os
 sys.stdout.write('hello from %s\n' % os.getpid())
 sys.stdout.flush()
 """
-    print debug_code
-    out = subprocess.Popen([sys.executable, '-c',
-         code], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-    pid = out.pid
-    _pypy_remote_debug.start_debugger(pid, debug_code)
-    l = [out.stdout.readline() for _ in range(len(debug_code.splitlines()) + 2)]
-    assert ''.join(l) == 'Executing remote debugger script:\n%s\n' % debug_code
-    l = out.stdout.readline()
-    assert l == 'hello from %s\n' % pid
-    exitcode = out.wait()
-    assert exitcode == 0
+        out = subprocess.Popen([sys.executable, '-c',
+             code], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        pid = out.pid
+        func(pid, debug_code)
+        l = [out.stdout.readline() for _ in range(len(debug_code.splitlines()) + 2)]
+        assert ''.join(l) == 'Executing remote debugger script:\n%s\n' % debug_code
+        l = out.stdout.readline()
+        assert l == 'hello from %s\n' % pid
+        exitcode = out.wait()
+        assert exitcode == 0
 

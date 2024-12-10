@@ -8,6 +8,9 @@ by `PEP 768`_.
 
 .. _`PEP 768`: https://peps.python.org/pep-0768/
 
+From the commandline
+---------------------
+
 To directly execute Python code in another PyPy process, you can run this command::
 
     pypy -m _pypy_remote_debug <pid> <code>
@@ -23,6 +26,12 @@ For example, to cause the other process to dump its (RPython-level) heap, you
 can run::
 
     pypy -m _pypy_remote_debug -c "import gc; gc.dump_rpy_heap('/tmp/rpy-heap-dump')"
+
+API
+---
+
+To execute code remotely from Python code, there is the function
+``__pypy__.remote_exec(pid, code, wait=True)``.
 
 Security
 ---------

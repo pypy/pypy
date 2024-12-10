@@ -12,7 +12,6 @@ from __future__ import print_function
 import os
 import sys
 import time
-import tempfile
 
 # __________________________________________________________
 # Linux support only for now
@@ -282,8 +281,9 @@ def start_debugger(pid, script, wait=True):
     addr = compute_remote_addr(pid)
     cookie = read_memory(pid, addr + COOKIE_OFFSET, 8)
     assert cookie == b'pypysigs'
+    if not isinstance(script, bytes):
+        raise TypeError('script must be bytes, not %r' % (type(script).__name__, ))
     # write the script, and a null byte
-    script = script.encode('utf-8')
     if not len(script) + 1 < SCRIPT_MAX:
         raise ValueError('script can be at most %s bytes long, not %s' % (SCRIPT_MAX - 1, len(script)))
     if b'\x00' in script:
@@ -307,7 +307,8 @@ def main():
     parser.add_argument("code", help="python code passed as string to execute in the remote process", metavar='code')
     parser.add_argument("--dont-wait", help="dont wait for the other process to run the debug code", action='store_true')
     args = parser.parse_args()
-    start_debugger(args.pid, args.code, wait=not args.dont_wait)
+
+    start_debugger(args.pid, args.code.encode('utf-8'), wait=not args.dont_wait)
 
 
 if __name__ == '__main__':

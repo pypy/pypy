@@ -71,3 +71,7 @@ class AppTestDebug:
             pass
         ts2 = debug_stop('foo', timestamp=True)
         assert ts2 > ts1
+
+    def test_remote_exec_exists(self):
+        assert hasattr(__pypy__, 'remote_exec')
+        # real test in test_pypy_remote_debug.py
