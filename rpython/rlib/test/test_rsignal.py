@@ -81,3 +81,11 @@ def test_raise():
 
 def test_strsignal():
     assert rsignal.strsignal(rsignal.SIGSEGV).startswith("Segmentation fault")
+
+def test_have_debugger_fields():
+    s = rsignal.pypysig_getaddr_occurred()
+    assert s.c_debugger_pending_call == 0
+    for index in range(8):
+        assert s.c_cookie[index] == "pypysigs"[index]
+
+    assert hasattr(rsignal.pypysig_getaddr_occurred(), 'c_debugger_script')

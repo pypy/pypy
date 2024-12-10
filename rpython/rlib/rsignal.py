@@ -88,6 +88,9 @@ pypysig_pushback = external('pypysig_pushback', [rffi.INT], lltype.Void,
 # don't use rffi.LONGP because the JIT doesn't support raw arrays so far
 struct_name = 'pypysig_long_struct'
 LONG_STRUCT = lltype.Struct(struct_name, ('c_value', lltype.Signed),
+                                         ('c_cookie', rffi.CFixedArray(lltype.Char, 8)),
+                                         ('c_debugger_pending_call', lltype.Signed),
+                                         ('c_debugger_script', lltype.Array(lltype.Char, hints={'nolength': True})),
                             hints={'c_name' : struct_name, 'external' : 'C'})
 del struct_name
 
