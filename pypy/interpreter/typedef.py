@@ -589,7 +589,7 @@ def descr_get_weakref(space, w_obj):
     return lifeline.get_any_weakref(space)
 
 dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
-                            doc="dictionary for instance variables (if defined)")
+                            doc="dictionary for instance variables")
 dict_descr.name = '__dict__'
 
 
@@ -630,7 +630,7 @@ def fget_co_consts(space, code): # unwrapping through unwrap_spec
     return space.newtuple([w_docstring])
 
 weakref_descr = GetSetProperty(descr_get_weakref,
-                    doc="list of weak references to the object (if defined)")
+                    doc="list of weak references to the object")
 weakref_descr.name = '__weakref__'
 
 def make_weakref_descr(cls):
