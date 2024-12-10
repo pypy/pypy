@@ -88,4 +88,4 @@ def test_have_debugger_fields():
     for index in range(8):
         assert s.c_cookie[index] == "pypysigs"[index]
 
-    assert hasattr(rsignal.pypysig_getaddr_occurred(), 'c_debugger_script_path')
+    assert hasattr(rsignal.pypysig_getaddr_occurred(), 'c_debugger_script')

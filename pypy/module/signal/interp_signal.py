@@ -103,9 +103,9 @@ class CheckSignalAction(PeriodicAsyncAction):
         n = self.pending_signal
         p = pypysig_getaddr_occurred()
         if p.c_debugger_pending_call:
-            path = rffi.charp2str(p.c_debugger_script_path)
+            script = rffi.charp2str(p.c_debugger_script)
             p.c_debugger_pending_call = 0
-            run_debugger(self.space, path)
+            run_debugger(self.space, script)
             return
         if n < 0:
             n = pypysig_poll()
@@ -165,23 +165,18 @@ def report_signal(space, n):
     w_frame = ec.gettopframe_nohidden()
     space.call_function(w_handler, space.newint(n), w_frame)
 
-def run_debugger(space, path):
+def run_debugger(space, script):
     from pypy.interpreter.streamutil import wrap_streamerror
     from pypy.interpreter.eval import Code
     from rpython.rlib import streamio
     try:
-        w_file = space.call_method(space.newbytes(path), 'decode', space.newtext('utf-8'))
-        msg = "Executing remote debugger script "
-        w_msg = space.add(space.newtext(msg), w_file)
+        w_script = space.call_method(space.newbytes(script), 'decode', space.newtext('utf-8'))
+        msg = "Executing remote debugger script:\n"
+        w_msg = space.add(space.newtext(msg), w_script)
         w_msg = space.add(w_msg, space.newtext('\n'))
         space.call_method(space.getattr(space.sys, space.newtext('stdout')), 'write', w_msg)
-        try:
-            stream = streamio.open_file_as_stream(path, 'r')
-            source = stream.readall()
-        except streamio.StreamErrors as e:
-            raise wrap_streamerror(space, e)
         ec = space.getexecutioncontext()
-        pycode = ec.compiler.compile(source, path, 'exec', 0)
+        pycode = ec.compiler.compile(script, '<debug>', 'exec', 0)
         w_globals = space.newdict()
         pycode.exec_code(space, w_globals, w_globals)
     except OperationError as e:
