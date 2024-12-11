@@ -257,30 +257,30 @@ class W_ListObject(W_Root):
 
     @staticmethod
     def newlist_bytes(space, list_b):
-        debug.make_sure_not_resized(list_b)
+        # YYY can take over storage
         strategy = space.fromcache(BytesListStrategy)
-        storage = strategy.erase(list_b)
+        storage = strategy.erase(list_b[:])
         return W_ListObject.from_storage_and_strategy(space, storage, strategy, len(list_b))
 
     @staticmethod
     def newlist_ascii(space, list_u):
-        debug.make_sure_not_resized(list_u)
+        # YYY can take over storage
         strategy = space.fromcache(AsciiListStrategy)
-        storage = strategy.erase(list_u)
+        storage = strategy.erase(list_u[:])
         return W_ListObject.from_storage_and_strategy(space, storage, strategy, len(list_u))
 
     @staticmethod
     def newlist_int(space, list_i):
-        debug.make_sure_not_resized(list_i)
+        # YYY can take over storage
         strategy = space.fromcache(IntegerListStrategy)
-        storage = strategy.erase(list_i)
+        storage = strategy.erase(list_i[:])
         return W_ListObject.from_storage_and_strategy(space, storage, strategy, len(list_i))
 
     @staticmethod
     def newlist_float(space, list_f):
-        debug.make_sure_not_resized(list_f)
+        # YYY can take over storage
         strategy = space.fromcache(FloatListStrategy)
-        storage = strategy.erase(list_f)
+        storage = strategy.erase(list_f[:])
         return W_ListObject.from_storage_and_strategy(space, storage, strategy, len(list_f))
 
     def __repr__(self):
@@ -367,7 +367,9 @@ class W_ListObject(W_Root):
         self.strategy.append(self, w_item)
 
     def length(self):
-        return self._length
+        res = self._length
+        assert res >= 0
+        return res
 
     def getitem(self, index):
         """Returns the wrapped object that is found in the
@@ -1189,15 +1191,15 @@ class EmptyListStrategy(ListStrategy):
         # need to copy because the *list can share with w_iterable
         intlist = space.unpackiterable_int(w_iterable)
         if intlist is not None:
-            debug.make_sure_not_resized(intlist)
             w_list.strategy = strategy = space.fromcache(IntegerListStrategy)
+            # YYY
             w_list.lstorage = strategy.erase(intlist[:])
             w_list._length = len(intlist)
             return
 
         floatlist = space.unpackiterable_float(w_iterable)
         if floatlist is not None:
-            debug.make_sure_not_resized(floatlist)
+            # YYY
             w_list.strategy = strategy = space.fromcache(FloatListStrategy)
             w_list.lstorage = strategy.erase(floatlist[:])
             w_list._length = len(floatlist)
@@ -1205,7 +1207,7 @@ class EmptyListStrategy(ListStrategy):
 
         byteslist = space.listview_bytes(w_iterable)
         if byteslist is not None:
-            debug.make_sure_not_resized(byteslist)
+            # YYY
             w_list.strategy = strategy = space.fromcache(BytesListStrategy)
             w_list.lstorage = strategy.erase(byteslist[:])
             w_list._length = len(byteslist)
@@ -1213,7 +1215,7 @@ class EmptyListStrategy(ListStrategy):
 
         unilist = space.listview_ascii(w_iterable)
         if unilist is not None:
-            debug.make_sure_not_resized(unilist)
+            # YYY
             w_list.strategy = strategy = space.fromcache(AsciiListStrategy)
             w_list.lstorage = strategy.erase(unilist[:])
             w_list._length = len(unilist)
@@ -1546,12 +1548,14 @@ class AbstractUnwrappedStrategy(object):
 
     def init_from_list_w(self, w_list, list_w):
         l = self._init_from_list_w_helper(list_w)
+        l = l[:]
         debug.make_sure_not_resized(l)
         w_list.lstorage = self.erase(l)
 
     @jit.look_inside_iff(lambda space, list_w:
             jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
     def _init_from_list_w_helper(self, list_w):
+        # YYY get rid of copy
         return [self.unwrap(w_item) for w_item in list_w]
 
     def get_empty_storage(self, sizehint):
@@ -1630,7 +1634,11 @@ class AbstractUnwrappedStrategy(object):
         return w_clone
 
     def _resize_hint(self, w_list, hint):
-        resizelist_hint(self.unerase(w_list.lstorage), hint)
+        l = self.unerase(w_list.lstorage)
+        cond = len(l) < hint
+        # YYY jit stuff
+        if cond:
+            self._list_resize_really(w_list, hint)
 
     def copy_into(self, w_list, w_other):
         w_other.strategy = self
@@ -1972,6 +1980,12 @@ class AbstractUnwrappedStrategy(object):
         storage = self.unerase(w_list.lstorage)
         return jit.loop_unrolling_heuristic(storage, len(storage), UNROLL_CUTOFF)
 
+def _wrap_erase(erase):
+    @staticmethod
+    def werase(l):
+        debug.make_sure_not_resized(l)
+        return erase(l)
+    return werase
 
 class ObjectListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
@@ -1988,20 +2002,20 @@ class ObjectListStrategy(ListStrategy):
         return a is b
 
     erase, unerase = rerased.new_erasing_pair("object")
-    erase = staticmethod(erase)
+    erase = _wrap_erase(erase)
     unerase = staticmethod(unerase)
 
     def getitems_copy(self, w_list):
         storage = self.unerase(w_list.lstorage)
-        return storage[:]
+        return storage[:w_list.length()]
 
     def getitems_unroll(self, w_list):
         storage = self.unerase(w_list.lstorage)
-        return storage[:]
+        return storage[:w_list.length()]
 
     def getitems_fixedsize(self, w_list):
         storage = self.unerase(w_list.lstorage)
-        return storage[:]
+        return storage[:w_list.length()]
 
     def is_correct_type(self, w_obj):
         return True
@@ -2010,7 +2024,8 @@ class ObjectListStrategy(ListStrategy):
         return w_list.strategy is self.space.fromcache(ObjectListStrategy)
 
     def init_from_list_w(self, w_list, list_w):
-        w_list.lstorage = self.erase(list_w)
+        # YYY
+        w_list.lstorage = self.erase(list_w[:])
 
     def clear(self, w_list):
         w_list._length = 0
@@ -2047,7 +2062,7 @@ class IntegerListStrategy(ListStrategy):
         return a == b
 
     erase, unerase = rerased.new_erasing_pair("integer")
-    erase = staticmethod(erase)
+    erase = _wrap_erase(erase)
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
@@ -2162,7 +2177,7 @@ class FloatListStrategy(ListStrategy):
         return self.space.float_w(w_float)
 
     erase, unerase = rerased.new_erasing_pair("float")
-    erase = staticmethod(erase)
+    erase = _wrap_erase(erase)
     unerase = staticmethod(unerase)
 
     def _quick_cmp(self, a, b):
@@ -2237,11 +2252,11 @@ class FloatListStrategy(ListStrategy):
     @staticmethod
     def float_2_float_or_int(w_list):
         l = FloatListStrategy.unerase(w_list.lstorage)
-        generalized_list = []
-        for floatval in l:
+        generalized_list = [FloatListStrategy._none_value] * len(l)
+        for index, floatval in enumerate(l):
             if not longlong2float.can_encode_float(floatval):
                 raise ValueError
-            generalized_list.append(
+            generalized_list[index] = (
                 longlong2float.float2longlong(floatval))
         return generalized_list
 
@@ -2308,7 +2323,7 @@ class IntOrFloatListStrategy(ListStrategy):
         return a == b
 
     erase, unerase = rerased.new_erasing_pair("longlong")
-    erase = staticmethod(erase)
+    erase = _wrap_erase(erase)
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
@@ -2439,7 +2454,7 @@ class BytesListStrategy(ListStrategy):
         return a is b
 
     erase, unerase = rerased.new_erasing_pair("bytes")
-    erase = staticmethod(erase)
+    erase = _wrap_erase(erase)
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
@@ -2475,7 +2490,7 @@ class AsciiListStrategy(ListStrategy):
         return a is b
 
     erase, unerase = rerased.new_erasing_pair("unicode")
-    erase = staticmethod(erase)
+    erase = _wrap_erase(erase)
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):

@@ -645,7 +645,7 @@ class TestW_ListStrategies(TestW_ListObject):
         l = ['a', 'b']
         w_l = self.space.newlist_bytes(l)
         assert isinstance(w_l.strategy, BytesListStrategy)
-        assert space.listview_bytes(w_l) is l
+        assert space.listview_bytes(w_l) == l
 
     def test_string_uses_newlist_bytes(self):
         space = self.space
