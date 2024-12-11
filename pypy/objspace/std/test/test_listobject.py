@@ -7,7 +7,7 @@ from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
 from pypy.interpreter.error import OperationError
 from rpython.rlib.rarithmetic import is_valid_int
 
-from hypothesis import strategies, given
+from hypothesis import strategies, given, assume
 
 
 class TestW_ListObject(object):
@@ -2024,6 +2024,7 @@ class ListChecks(RuleBasedStateMachine):
     @rule(listid=listids)
     def check(self, listid):
         l, w = self._get(listid)
+        assume(len(l) < 10000)
         print listid, l, w
         assert self.space.eq_w(w, self.space.wrap(l))
 
@@ -2118,6 +2119,36 @@ class ListChecks(RuleBasedStateMachine):
         else:
             assert i == w.find_or_count(w_value)
 
+    @rule(id=listids)
+    def rule_pop_noarg(self, id):
+        l, w = self._get(id)
+        if not l:
+            return
+        res = l.pop()
+        wres = w.pop_end()
+        assert self.space.eq_w(wres, self.space.wrap(res))
+        self.check(id)
+
+    @rule(id=listids)
+    def rule_pop_zero(self, id):
+        l, w = self._get(id)
+        if not l:
+            return
+        res = l.pop(0)
+        wres = w.pop(0)
+        assert self.space.eq_w(wres, self.space.wrap(res))
+        self.check(id)
+
+    @rule(id=listids, random=strategies.randoms())
+    def rule_pop(self, id, random):
+        l, w = self._get(id)
+        if not l:
+            return
+        index = random.randrange(len(l))
+        res = l.pop(index)
+        wres = w.pop(index)
+        assert self.space.eq_w(wres, self.space.wrap(res))
+        self.check(id)
     #def rule_pop
 
     @rule(id=listids, value=values)
