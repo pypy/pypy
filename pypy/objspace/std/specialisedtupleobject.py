@@ -188,14 +188,14 @@ def _build_zipped_spec(space, Cls, lst1, lst2):
 def _build_zipped_spec_oo(space, w_list1, w_list2):
     strat1 = w_list1.strategy
     strat2 = w_list2.strategy
-    length = min(strat1.length(w_list1), strat2.length(w_list2))
+    length = min(w_list1.length(), w_list2.length())
     return [Cls_oo(space, strat1.getitem(w_list1, i),
                           strat2.getitem(w_list2, i)) for i in range(length)]
 
 def _build_zipped_unspec(space, w_list1, w_list2):
     strat1 = w_list1.strategy
     strat2 = w_list2.strategy
-    length = min(strat1.length(w_list1), strat2.length(w_list2))
+    length = min(w_list1.length(), w_list2.length())
     return [space.newtuple2(strat1.getitem(w_list1, i),
                             strat2.getitem(w_list2, i)) for i in range(length)]
 

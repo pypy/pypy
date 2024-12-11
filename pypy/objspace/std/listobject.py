@@ -229,7 +229,6 @@ def list_unroll_condition(w_list1, space, w_list2):
 class W_ListObject(W_Root):
     strategy = None
     _length = 0
-    lstorage = None
 
     def __init__(self, space, wrappeditems, sizehint=-1):
         assert isinstance(wrappeditems, list)
@@ -1086,7 +1085,7 @@ class EmptyListStrategy(ListStrategy):
 
     def clone(self, w_list, sizehint=0):
         return W_ListObject.from_storage_and_strategy(
-                self.space, w_list.lstorage, self)
+                self.space, w_list.lstorage, self, 0)
 
     def copy_into(self, w_list, w_other):
         pass
@@ -2065,7 +2064,7 @@ class IntegerListStrategy(ListStrategy):
             l.reverse()
 
     def getitems_int(self, w_list):
-        return self.unerase(w_list.lstorage)
+        return self.unerase(w_list.lstorage)[:w_list.length()]
 
 
     _base_extend_from_list = _extend_from_list
@@ -2183,7 +2182,7 @@ class FloatListStrategy(ListStrategy):
             l.reverse()
 
     def getitems_float(self, w_list):
-        return self.unerase(w_list.lstorage)
+        return self.unerase(w_list.lstorage)[:w_list.length()]
 
 
     _base_extend_from_list = _extend_from_list
@@ -2457,7 +2456,7 @@ class BytesListStrategy(ListStrategy):
             l.reverse()
 
     def getitems_bytes(self, w_list):
-        return self.unerase(w_list.lstorage)
+        return self.unerase(w_list.lstorage)[:w_list.length()]
 
 
 class AsciiListStrategy(ListStrategy):
@@ -2493,7 +2492,7 @@ class AsciiListStrategy(ListStrategy):
             l.reverse()
 
     def getitems_ascii(self, w_list):
-        return self.unerase(w_list.lstorage)
+        return self.unerase(w_list.lstorage)[:w_list.length()]
 
 # _______________________________________________________
 
