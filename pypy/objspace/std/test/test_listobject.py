@@ -1997,8 +1997,8 @@ class ListChecks(RuleBasedStateMachine):
     values = Bundle('values')
     listids = Bundle('listids')
 
-    @rule(produces=values, val=st_values)
-    def newval(val):
+    @rule(target=values, val=st_values)
+    def newval(self, val):
         return val
 
     def _nextid(self):
@@ -2011,7 +2011,7 @@ class ListChecks(RuleBasedStateMachine):
         id = self._nextid()
         self.model[id] = l
         self.wlists[id] = w
-        assert self.space.unwrap(w) == l
+        self.check(id)
         return id
 
     def _get(self, id):
@@ -2023,11 +2023,12 @@ class ListChecks(RuleBasedStateMachine):
 
     @rule(listid=listids)
     def check(self, listid):
-        assert self.space.unwrap(self.wlists[listid]) == self.model[listid]
+        l, w = self._get(listid)
+        print listid, l, w
+        assert self.space.eq_w(w, self.space.wrap(l))
 
     @rule(target=listids, id1=listids, id2=listids)
     def rule_add(self, id1, id2):
-        id = self._nextid()
         res = self.model[id1] + self.model[id2]
         w_res = self.space.add(self.wlists[id1], self.wlists[id2])
         return self._add(res, w_res)
@@ -2039,7 +2040,6 @@ class ListChecks(RuleBasedStateMachine):
         w.append(self.space.wrap(value))
         self.check(id)
 
-    #def rule_contains(self):
     #def rule___delitem__
     #def rule___delslice__
 
@@ -2051,14 +2051,28 @@ class ListChecks(RuleBasedStateMachine):
 
     #def rule___ne__
     #def rule___ge__
+    #def rule___gt__
     #def rule___le__
     #def rule___lt__
     #def rule___format__
     #def rule___getitem__
     #def rule___getslice__
-    #def rule___gt__
-    #def rule___iadd__
-    #def rule___imul__
+
+    @rule(id1=listids, id2=listids)
+    def rule_iadd(self, id1, id2):
+        l1, w1 = self._get(id1)
+        l2, w2 = self._get(id2)
+        l1 += l2
+        w1.descr_inplace_add(self.space, w2)
+        self.check(id1)
+
+    @rule(id1=listids, factor=strategies.integers(-5, 100))
+    def rule_imul(self, id1, factor):
+        l1, w1 = self._get(id1)
+        l1 *= factor
+        w1.descr_inplace_mul(self.space, self.space.wrap(factor))
+        self.check(id1)
+
     #def rule___init__
     #def rule___iter__
 
@@ -2067,13 +2081,20 @@ class ListChecks(RuleBasedStateMachine):
         l, w = self._get(id)
         assert len(l) == w.length()
 
-    #def rule___mul__
-    #def rule___repr__
+    @rule(target=listids, id1=listids, factor=strategies.integers(-5, 100))
+    def rule_mul(self, id1, factor):
+        l, w = self._get(id1)
+        return self._add(l * factor, w.mul(factor))
+
+    @rule(id=listids)
+    def rule_repr(self, id):
+        l, w = self._get(id)
+        print repr(l)
+        assert repr(l) == self.space.unwrap(w.strategy.repr(w))
+
     #def rule___reversed__
-    #def rule___rmul__
     #def rule___setitem__
     #def rule___setslice__
-    #def rule___str__
 
     @rule(id=listids, value=values)
     def rule_count(self, id, value):
@@ -2094,7 +2115,8 @@ class ListChecks(RuleBasedStateMachine):
         except ValueError:
             with pytest.raises(ValueError):
                 w.find_or_count(w_value)
-        assert i == w.find_or_count(w_value)
+        else:
+            assert i == w.find_or_count(w_value)
 
     #def rule_pop
 
@@ -2105,7 +2127,7 @@ class ListChecks(RuleBasedStateMachine):
         try:
             i = l.remove(value)
         except ValueError:
-            with pytest.raises(ValueError):
+            with pytest.raises(OperationError):
                 w.descr_remove(self.space, w_value)
         else:
             w.descr_remove(self.space, w_value)
@@ -2121,3 +2143,14 @@ class ListChecks(RuleBasedStateMachine):
     #def rule_sort
 
 TestRandom = ListChecks.TestCase
+
+def test_stateful_bug1():
+    state = ListChecks()
+    v1 = state.newemptylist()
+    v2 = state.newval(val=v1)
+    v3 = state.newval(val=0.0)
+    state.rule_append(id=v1, value=v3)
+    v5 = state.newemptylist()
+    state.rule_append(id=v5, value=v2)
+    state.rule_iadd(id1=v5, id2=v1)
+    state.teardown()

@@ -2241,8 +2241,10 @@ class FloatListStrategy(ListStrategy):
     @staticmethod
     def float_2_float_or_int(w_list):
         l = FloatListStrategy.unerase(w_list.lstorage)
-        generalized_list = [FloatListStrategy._none_value] * len(l)
-        for index, floatval in enumerate(l):
+        length = w_list.length()
+        generalized_list = [IntOrFloatListStrategy._none_value] * length
+        for index in range(length):
+            floatval = l[index]
             if not longlong2float.can_encode_float(floatval):
                 raise ValueError
             generalized_list[index] = (
