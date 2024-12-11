@@ -14,7 +14,8 @@ import sys
 from rpython.rlib import debug, jit, rerased, rutf8
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
-    import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize)
+    import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize,
+    resizable_list_extract_storage)
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from rpython.rlib import longlong2float
 from rpython.tool.sourcetools import func_with_new_name
@@ -231,6 +232,7 @@ class W_ListObject(W_Root):
     _length = 0
 
     def __init__(self, space, wrappeditems, sizehint=-1):
+        # wrappeditems is resizable
         assert isinstance(wrappeditems, list)
         self.space = space
         if space.config.objspace.std.withliststrategies:
@@ -238,8 +240,7 @@ class W_ListObject(W_Root):
                                                           sizehint)
         else:
             self.strategy = space.fromcache(ObjectListStrategy)
-        # YYY
-        self.init_from_list_w(wrappeditems[:])
+        self.init_from_list_w(wrappeditems)
 
     def _unrolling_heuristic(self):
         strategy = self.strategy
@@ -258,30 +259,26 @@ class W_ListObject(W_Root):
 
     @staticmethod
     def newlist_bytes(space, list_b):
-        # YYY can take over storage
         strategy = space.fromcache(BytesListStrategy)
-        storage = strategy.erase(list_b[:])
+        storage = strategy.erase(resizable_list_extract_storage(list_b))
         return W_ListObject.from_storage_and_strategy(space, storage, strategy, len(list_b))
 
     @staticmethod
     def newlist_ascii(space, list_u):
-        # YYY can take over storage
         strategy = space.fromcache(AsciiListStrategy)
-        storage = strategy.erase(list_u[:])
+        storage = strategy.erase(resizable_list_extract_storage(list_u))
         return W_ListObject.from_storage_and_strategy(space, storage, strategy, len(list_u))
 
     @staticmethod
     def newlist_int(space, list_i):
-        # YYY can take over storage
         strategy = space.fromcache(IntegerListStrategy)
-        storage = strategy.erase(list_i[:])
+        storage = strategy.erase(resizable_list_extract_storage(list_i))
         return W_ListObject.from_storage_and_strategy(space, storage, strategy, len(list_i))
 
     @staticmethod
     def newlist_float(space, list_f):
-        # YYY can take over storage
         strategy = space.fromcache(FloatListStrategy)
-        storage = strategy.erase(list_f[:])
+        storage = strategy.erase(resizable_list_extract_storage(list_f))
         return W_ListObject.from_storage_and_strategy(space, storage, strategy, len(list_f))
 
     def __repr__(self):
@@ -300,12 +297,12 @@ class W_ListObject(W_Root):
             return
         list_w = self.getitems_fixedsize()
         self.strategy = object_strategy
-        object_strategy.init_from_list_w(self, list_w)
+        self.lstorage = object_strategy.erase(list_w)
 
     def _temporarily_as_objects(self):
         if self.strategy is self.space.fromcache(ObjectListStrategy):
             return self
-        list_w = self.getitems()
+        list_w = self.getitems_fixedsize()
         strategy = self.space.fromcache(ObjectListStrategy)
         storage = strategy.erase(list_w)
         w_objectlist = W_ListObject.from_storage_and_strategy(
@@ -328,6 +325,7 @@ class W_ListObject(W_Root):
         """Initializes listobject by iterating through the given list of
         wrapped items, unwrapping them if neccessary and creating a
         new erased object as storage"""
+        # list_w is resizable
         self._length = len(list_w)
         self.strategy.init_from_list_w(self, list_w)
 
@@ -1193,14 +1191,12 @@ class EmptyListStrategy(ListStrategy):
         intlist = space.unpackiterable_int(w_iterable)
         if intlist is not None:
             w_list.strategy = strategy = space.fromcache(IntegerListStrategy)
-            # YYY
             w_list.lstorage = strategy.erase(intlist[:])
             w_list._length = len(intlist)
             return
 
         floatlist = space.unpackiterable_float(w_iterable)
         if floatlist is not None:
-            # YYY
             w_list.strategy = strategy = space.fromcache(FloatListStrategy)
             w_list.lstorage = strategy.erase(floatlist[:])
             w_list._length = len(floatlist)
@@ -1208,7 +1204,6 @@ class EmptyListStrategy(ListStrategy):
 
         byteslist = space.listview_bytes(w_iterable)
         if byteslist is not None:
-            # YYY
             w_list.strategy = strategy = space.fromcache(BytesListStrategy)
             w_list.lstorage = strategy.erase(byteslist[:])
             w_list._length = len(byteslist)
@@ -1216,7 +1211,6 @@ class EmptyListStrategy(ListStrategy):
 
         unilist = space.listview_ascii(w_iterable)
         if unilist is not None:
-            # YYY
             w_list.strategy = strategy = space.fromcache(AsciiListStrategy)
             w_list.lstorage = strategy.erase(unilist[:])
             w_list._length = len(unilist)
@@ -1549,8 +1543,7 @@ class AbstractUnwrappedStrategy(object):
 
     def init_from_list_w(self, w_list, list_w):
         l = self._init_from_list_w_helper(list_w)
-        l = l[:]
-        debug.make_sure_not_resized(l)
+        l = l[:] # YYY
         w_list.lstorage = self.erase(l)
 
     @jit.look_inside_iff(lambda space, list_w:
@@ -2025,8 +2018,7 @@ class ObjectListStrategy(ListStrategy):
         return w_list.strategy is self.space.fromcache(ObjectListStrategy)
 
     def init_from_list_w(self, w_list, list_w):
-        # YYY
-        w_list.lstorage = self.erase(list_w[:])
+        w_list.lstorage = self.erase(resizable_list_extract_storage(list_w))
 
     def clear(self, w_list):
         w_list._length = 0
