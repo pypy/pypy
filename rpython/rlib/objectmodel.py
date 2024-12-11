@@ -523,6 +523,63 @@ class Entry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.gendirectcall(ll_func, v_list)
 
+def resizable_list_extract_storage(l):
+    return FixedSizeList(l)
+
+def ll_resizable_list_extract_storage(l):
+    return l.items
+
+
+class Entry(ExtRegistryEntry):
+    _about_ = resizable_list_extract_storage
+
+    def compute_result_annotation(self, s_l):
+        from rpython.annotator import model as annmodel
+        if annmodel.s_None.contains(s_l):
+            pass # first argument is only None so far, but we
+                 # expect a generalization later
+        elif not isinstance(s_l, annmodel.SomeList):
+            raise annmodel.AnnotatorError("First argument must be a list")
+        s_l.listdef.resize()
+        s_res = s_l.listdef.offspring(self.bookkeeper)
+        s_res.listdef.never_resize()
+        return s_res
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem.rlist import FixedSizeListRepr, ListRepr
+        v_list, = hop.inputargs(*hop.args_r)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(ll_resizable_list_extract_storage, v_list)
+
+
+class FixedSizeList(object):
+    def __init__(self, l):
+        self._l = l
+        self._extra_elements = []
+        if l:
+            element = l[0]
+            if isinstance(element, int):
+                self._extra_elements = [0] * 4
+            elif isinstance(element, float):
+                self._extra_elements = [0.0] * 4
+            else:
+                self._extra_elements = [None] * 4
+
+    def __len__(self):
+        return len(self._l) + len(self._extra_elements)
+
+    def __getitem__(self, index):
+        return (self._l + self._extra_elements)[index]
+
+    def __setitem__(self, index, value):
+        assert 0 <= index < len(self)
+        if index < len(self._l):
+            self._l[index] = value
+        else:
+            self._extra_elements[index - len(self._l)] = value
+
+    def __repr__(self):
+        return "<FixedSizeList %r %r>" % (self._l, self._extra_elements)
 
 # ____________________________________________________________
 #

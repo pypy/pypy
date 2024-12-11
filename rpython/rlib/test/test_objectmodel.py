@@ -9,7 +9,7 @@ from rpython.rlib.objectmodel import (
     setitem_with_hash, getitem_with_hash, delitem_with_hash, import_from_mixin,
     fetch_translated_config, try_inline, delitem_if_value_is, move_to_end,
     never_allocate, dont_inline, list_get_physical_size,
-    dict_to_switch)
+    dict_to_switch, resizable_list_extract_storage)
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret, LLException, gengraph
@@ -608,6 +608,17 @@ def test_list_get_physical_size():
 
     r = interpret(f, [29])
     assert r == 2
+
+def test_resizable_list_extract_storage():
+    def f(z):
+        l = [z]
+        l.append(z + 1)
+        l2 = resizable_list_extract_storage(l)
+        l2[0] -= 1
+        assert l[0] == z - 1
+        assert len(l2) >= len(l)
+    f(31)
+    interpret(f, [31])
 
 def test_iterkeys_with_hash():
     def f(i):
