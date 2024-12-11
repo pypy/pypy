@@ -190,7 +190,7 @@ class ListDef(object):
         if self.listitem.resized:
             raise ListChangeUnallowed("list already resized")
         if position is None:
-            position = self.bookkeeper.position_key
+            position = self.listitem.bookkeeper.position_key
         self.listitem.must_not_resize = position
 
     def mark_as_immutable(self):

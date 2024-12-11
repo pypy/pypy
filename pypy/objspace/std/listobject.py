@@ -298,7 +298,7 @@ class W_ListObject(W_Root):
         object_strategy = self.space.fromcache(ObjectListStrategy)
         if self.strategy is object_strategy:
             return
-        list_w = self.getitems()
+        list_w = self.getitems_fixedsize()
         self.strategy = object_strategy
         object_strategy.init_from_list_w(self, list_w)
 
@@ -2039,9 +2039,8 @@ class ObjectListStrategy(ListStrategy):
     def getitems(self, w_list):
         l = self.unerase(w_list.lstorage)
         length = w_list.length()
-        if len(l) != length:
-            # YYY allow wrapping into a resizable list
-            l = l[:length]
+        # YYY allow wrapping into a resizable list
+        l = l[:length]
         return l
 
     # no sort() method here: W_ListObject.descr_sort() handles this
