@@ -238,7 +238,8 @@ class W_ListObject(W_Root):
                                                           sizehint)
         else:
             self.strategy = space.fromcache(ObjectListStrategy)
-        self.init_from_list_w(wrappeditems)
+        # YYY
+        self.init_from_list_w(wrappeditems[:])
 
     def _unrolling_heuristic(self):
         strategy = self.strategy

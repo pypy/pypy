@@ -74,7 +74,7 @@ class ListItem(object):
             if other.must_not_resize:
                 if self.resized:
                     raise ListChangeUnallowed("list merge with a resized")
-                self.must_not_resize = True
+                self.must_not_resize = other.must_not_resize
             if other.mutated:
                 self.mutate()
             if other.resized:
@@ -186,10 +186,12 @@ class ListDef(object):
         self.listitem.mutate()
         self.listitem.resize()
 
-    def never_resize(self):
+    def never_resize(self, position=None):
         if self.listitem.resized:
             raise ListChangeUnallowed("list already resized")
-        self.listitem.must_not_resize = True
+        if position is None:
+            position = self.bookkeeper.position_key
+        self.listitem.must_not_resize = position
 
     def mark_as_immutable(self):
         # Sets the 'immutable' flag.  Note that unlike "never resized",
