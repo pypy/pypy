@@ -1190,30 +1190,37 @@ class EmptyListStrategy(ListStrategy):
             w_list.__init__(space, w_iterable.getitems_copy())
             return
 
+        # need to copy because the *list can share with w_iterable
         intlist = space.unpackiterable_int(w_iterable)
         if intlist is not None:
+            debug.make_sure_not_resized(intlist)
             w_list.strategy = strategy = space.fromcache(IntegerListStrategy)
-            w_list.lstorage = strategy.erase(intlist)
+            w_list.lstorage = strategy.erase(intlist[:])
+            w_list._length = len(intlist)
             return
 
         floatlist = space.unpackiterable_float(w_iterable)
         if floatlist is not None:
+            debug.make_sure_not_resized(floatlist)
             w_list.strategy = strategy = space.fromcache(FloatListStrategy)
-            w_list.lstorage = strategy.erase(floatlist)
+            w_list.lstorage = strategy.erase(floatlist[:])
+            w_list._length = len(floatlist)
             return
 
         byteslist = space.listview_bytes(w_iterable)
         if byteslist is not None:
+            debug.make_sure_not_resized(byteslist)
             w_list.strategy = strategy = space.fromcache(BytesListStrategy)
-            # need to copy because intlist can share with w_iterable
             w_list.lstorage = strategy.erase(byteslist[:])
+            w_list._length = len(byteslist)
             return
 
         unilist = space.listview_ascii(w_iterable)
         if unilist is not None:
+            debug.make_sure_not_resized(unilist)
             w_list.strategy = strategy = space.fromcache(AsciiListStrategy)
-            # need to copy because intlist can share with w_iterable
             w_list.lstorage = strategy.erase(unilist[:])
+            w_list._length = len(unilist)
             return
 
         ListStrategy._extend_from_iterable(self, w_list, w_iterable)
@@ -1277,6 +1284,7 @@ class BaseRangeListStrategy(ListStrategy):
     def copy_into(self, w_list, w_other):
         w_other.strategy = self
         w_other.lstorage = w_list.lstorage
+        w_other._length = w_list._length
 
     def getitem(self, w_list, i):
         return self.wrap(self._getitem_unwrapped(w_list, i))
@@ -1757,23 +1765,25 @@ class AbstractUnwrappedStrategy(object):
         self.switch_to_next_strategy(w_list, w_item)
         w_list.insert(index, w_item)
 
+    def _extend_from_list_prefix(self, w_list, other, otherlength):
+        length1 = w_list.length()
+        try:
+            ressize = ovfcheck(length1 + otherlength)
+        except OverflowError:
+            raise MemoryError
+        self._resize_ge(w_list, ressize)
+        l = self.unerase(w_list.lstorage)
+
+        index = length1
+        # YYY arraycopy
+        for i in range(otherlength):
+            l[index] = other[i]
+            index += 1
+
     def _extend_from_list(self, w_list, w_other):
         if self.list_is_correct_type(w_other):
-            length1 = w_list.length()
-            length2 = w_other.length()
-            try:
-                ressize = ovfcheck(length1 + length2)
-            except OverflowError:
-                raise MemoryError
-            self._resize_ge(w_list, ressize)
-            l = self.unerase(w_list.lstorage)
-            l2 = self.unerase(w_other.lstorage)
-
-            index = length1
-            # YYY arraycopy
-            for i in range(length2):
-                l[index] = l2[i]
-                index += 1
+            self._extend_from_list_prefix(w_list, self.unerase(w_other.lstorage),
+                                          w_other.length())
             return
         elif w_other.strategy.is_empty_strategy():
             return
@@ -1912,9 +1922,9 @@ class AbstractUnwrappedStrategy(object):
 
     def pop_end(self, w_list):
         items = self.unerase(w_list.lstorage)
-        index = w_list.length()
-        w_res = self.wrap(items[length - 1])
-        self._resize_le(w_list, length - 1)
+        length = w_list.length() - 1
+        w_res = self.wrap(items[length])
+        self._resize_le(w_list, length)
         return w_res
 
     def pop(self, w_list, index):
@@ -2318,31 +2328,28 @@ class IntOrFloatListStrategy(ListStrategy):
 
     _base_extend_from_list = _extend_from_list
 
-    def _extend_longlong(self, w_list, longlong_list):
-        l = self.unerase(w_list.lstorage)
-        l += longlong_list
-
     def _extend_from_list(self, w_list, w_other):
+        # YYY what about RangeListStrategy?
         if w_other.strategy is self.space.fromcache(IntegerListStrategy):
             try:
                 longlong_list = IntegerListStrategy.int_2_float_or_int(w_other)
             except ValueError:
                 pass
             else:
-                return self._extend_longlong(w_list, longlong_list)
+                return self._extend_from_list_prefix(w_list, longlong_list, len(longlong_list))
         if w_other.strategy is self.space.fromcache(FloatListStrategy):
             try:
                 longlong_list = FloatListStrategy.float_2_float_or_int(w_other)
             except ValueError:
                 pass
             else:
-                return self._extend_longlong(w_list, longlong_list)
+                return self._extend_from_list_prefix(w_list, longlong_list, len(longlong_list))
         return self._base_extend_from_list(w_list, w_other)
 
     _base_setslice = setslice
 
     def _temporary_longlong_list(self, longlong_list):
-        make_sure_not_resized(longlong_list)
+        debug.make_sure_not_resized(longlong_list)
         storage = self.erase(longlong_list)
         return W_ListObject.from_storage_and_strategy(self.space, storage, self, len(longlong_list))
 
