@@ -2,7 +2,7 @@ from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
 from rpython.rlib import rgc, jit, types
 from rpython.rtyper.debug import ll_assert
-from rpython.rlib.objectmodel import malloc_zero_filled, enforceargs, specialize
+from rpython.rlib.objectmodel import malloc_zero_filled, enforceargs, specialize, FixedSizeList
 from rpython.rlib.signature import signature
 from rpython.rlib.rarithmetic import ovfcheck, widen, r_uint, intmask
 from rpython.rlib.rarithmetic import int_force_ge_zero
@@ -71,6 +71,10 @@ class AbstractBaseListRepr(Repr):
         # get object from bound list method
         if listobj is None:
             return self.null_const()
+        if isinstance(listobj, FixedSizeList):
+            from rpython.rtyper.lltypesystem.rlist import FixedSizeListRepr
+            assert isinstance(self, FixedSizeListRepr)
+            listobj = listobj._l
         if not isinstance(listobj, list):
             raise TyperError("expected a list: %r" % (listobj,))
         try:

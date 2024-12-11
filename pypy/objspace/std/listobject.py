@@ -27,7 +27,6 @@ from pypy.interpreter.gateway import (
     WrappedDefault, applevel, interp2app, unwrap_spec)
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter.miscutils import StringSort
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import W_IntObject
@@ -1282,7 +1281,8 @@ class BaseRangeListStrategy(ListStrategy):
         return self.wrap(self._getitem_unwrapped(w_list, i))
 
     def getitems_int(self, w_list):
-        return self._getitems_range(w_list, False)
+        # YYY
+        return self._getitems_range(w_list, False)[:]
 
     def getitems_copy(self, w_list):
         return self._getitems_range(w_list, True)
@@ -2095,7 +2095,8 @@ class IntegerListStrategy(ListStrategy):
 
     def setslice(self, w_list, start, step, slicelength, w_other):
         if w_other.strategy is self.space.fromcache(RangeListStrategy):
-            storage = self.erase(w_other.getitems_int())
+            # YYY
+            storage = self.erase(w_other.getitems_int()[:])
             w_other = W_ListObject.from_storage_and_strategy(
                     self.space, storage, self, w_other.length())
         if (w_other.strategy is self.space.fromcache(FloatListStrategy) or
@@ -2519,6 +2520,14 @@ TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
 FloatBaseTimSort = make_timsort_class()
 IntOrFloatBaseTimSort = make_timsort_class()
+
+# can't use miscutils, because of resizability
+StringBaseTimSort = make_timsort_class()
+
+class StringSort(StringBaseTimSort):
+    def lt(self, a, b):
+        return a < b
+
 
 
 class KeyContainer(W_Root):
