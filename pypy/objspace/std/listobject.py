@@ -196,7 +196,7 @@ def listrepr(space, w_currently_in_repr, w_list):
     space.setitem(w_currently_in_repr, w_list, space.newint(1))
     try:
         assert length > 0
-        builder = StringBuilder()
+        builder = StringBuilder(3 * length + 2)
         builder.append('[')
         w_first = w_list.getitem(0)
         builder.append(space.text_w(space.repr(w_first)))
@@ -339,6 +339,7 @@ class W_ListObject(W_Root):
         else:
             strategy = space.fromcache(ObjectListStrategy)
         self.strategy = strategy
+        self._length = 0
         strategy.clear(self)
 
     def clone(self, sizehint=0):
@@ -712,8 +713,6 @@ class W_ListObject(W_Root):
             return
 
         idx = space.getindex_w(w_idx, space.w_IndexError, "list index")
-        if idx < 0:
-            idx += self.length()
         try:
             self.pop(idx)
         except IndexError:
@@ -755,8 +754,6 @@ class W_ListObject(W_Root):
         # clearly differentiate between list.pop() and list.pop(index)
         if index == -1:
             return self.pop_end()  # cannot raise because list is not empty
-        if index < 0:
-            index += length
         try:
             return self.pop(index)
         except IndexError:
@@ -1054,7 +1051,7 @@ class ListStrategy(object):
 
     def repr(self, w_list):
         space = self.space
-        if self.length(w_list) == 0:
+        if w_list.length() == 0:
             return space.newtext('[]')
         return listrepr(space, space.get_objects_in_repr(), w_list)
 
@@ -1161,7 +1158,7 @@ class EmptyListStrategy(ListStrategy):
     def setslice(self, w_list, start, step, slicelength, w_other):
         strategy = w_other.strategy
         if step != 1:
-            len2 = strategy.length(w_other)
+            len2 = w_other.length()
             if len2 == 0:
                 return
             else:
@@ -1171,7 +1168,7 @@ class EmptyListStrategy(ListStrategy):
         storage = strategy.getstorage_copy(w_other)
         w_list.strategy = strategy
         w_list.lstorage = storage
-        w_list._length = slicelength
+        w_list._length = w_other.length()
 
     def sort(self, w_list, reverse):
         return
@@ -1690,8 +1687,6 @@ class AbstractUnwrappedStrategy(object):
                 prevvalue = item
                 w_item = self.wrap(item)
             res[index] = w_item
-        if None in res:
-            import pdb;pdb.set_trace()
         return res
 
     getitems_unroll = jit.unroll_safe(
@@ -1875,12 +1870,10 @@ class AbstractUnwrappedStrategy(object):
                     i -= 1
                 return
             else:
-                import pdb;pdb.set_trace()
                 # other_items is items and step is < 0, therefore:
                 assert step == -1
-                items.reverse()
+                w_list.reverse()
                 return
-                #other_items = list(other_items)
         for i in range(len2):
             items[start] = other_items[i]
             start += step
@@ -1902,6 +1895,7 @@ class AbstractUnwrappedStrategy(object):
             index = start
             for i in range(start + slicelength, length):
                 items[index] = items[i]
+                index += 1
         else:
             i = start
 
@@ -1937,8 +1931,8 @@ class AbstractUnwrappedStrategy(object):
         w_res = self.wrap(l[index])
         newlength = length - 1
         # YYY arraymove
-        for i in range(index, newlength - index):
-            l[index] = l[index + 1]
+        for i in range(index, newlength):
+            l[i] = l[i + 1]
         l[newlength] = self._none_value
         self._resize_le(w_list, newlength)
         return w_res
@@ -1950,6 +1944,9 @@ class AbstractUnwrappedStrategy(object):
             self.space, self.erase(res), self, len(res))
 
     def inplace_mul(self, w_list, times):
+        if times < 0:
+            w_list.clear(self.space)
+            return
         # YYY can be done without the extra copy?
         res = self.unerase(w_list.lstorage)[:w_list.length()] * times
         w_list._length *= times
@@ -2138,7 +2135,19 @@ class IntegerListStrategy(ListStrategy):
 
     def repr(self, w_list):
         space = self.space
-        res = str(self.unerase(w_list.lstorage))
+        length = w_list.length()
+        if length == 0:
+            return space.newtext('[]')
+        builder = StringBuilder(3 * length + 2)
+        builder.append('[')
+        items = self.unerase(w_list.lstorage)
+        for index in range(length):
+            if index > 0:
+                builder.append(', ')
+            value = items[index]
+            builder.append(str(value))
+        builder.append(']')
+        res = builder.build()
         return space.newtext(res)
 
 
@@ -2262,11 +2271,12 @@ class FloatListStrategy(ListStrategy):
     def repr(self, w_list):
         from pypy.objspace.std.floatobject import float_repr
         l = self.unerase(w_list.lstorage)
-        if len(l) == 0:
+        length = w_list.length()
+        if length == 0:
             return self.space.newtext('[]')
         b = StringBuilder()
         b.append('[')
-        for i in range(len(l)):
+        for i in range(length):
             if i > 0:
                 b.append(', ')
             b.append(float_repr(l[i]))
@@ -2396,11 +2406,12 @@ class IntOrFloatListStrategy(ListStrategy):
     def repr(self, w_list):
         from pypy.objspace.std.floatobject import float_repr
         l = self.unerase(w_list.lstorage)
+        length = w_list.length()
         if len(l) == 0:
             return self.space.newtext('[]')
         b = StringBuilder()
         b.append('[')
-        for i in range(len(l)):
+        for i in range(length):
             if i > 0:
                 b.append(', ')
             llval = l[i]
