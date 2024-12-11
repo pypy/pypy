@@ -50,10 +50,10 @@ def make_range_list(space, start, step, length):
         storage = strategy.erase(None)
     elif start == 0 and step == 1:
         strategy = space.fromcache(SimpleRangeListStrategy)
-        storage = strategy.erase((length,))
+        storage = strategy.erase(None)
     else:
         strategy = space.fromcache(RangeListStrategy)
-        storage = strategy.erase((start, step, length))
+        storage = strategy.erase((start, step))
     return W_ListObject.from_storage_and_strategy(space, storage, strategy, length)
 
 
@@ -1358,7 +1358,7 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
     def find_or_count(self, w_list, w_obj, startindex, stopindex, count):
         if type(w_obj) is W_IntObject:
             obj = self.unwrap(w_obj)
-            length = self.unerase(w_list.lstorage)[0]
+            length = w_list.length()
             if 0 <= obj < length and startindex <= obj < stopindex:
                 if count:
                     return 1
@@ -1374,7 +1374,7 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
         return 1
 
     def _getitem_unwrapped(self, w_list, i):
-        length = self.unerase(w_list.lstorage)[0]
+        length = w_list.length()
         if i < 0:
             i += length
             if i < 0:
@@ -1385,7 +1385,7 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
 
     @specialize.arg(2)
     def _getitems_range(self, w_list, wrap_items):
-        length = self.unerase(w_list.lstorage)[0]
+        length = w_list.length()
         if wrap_items:
             r = [None] * length
         else:
@@ -1404,11 +1404,10 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
             func_with_new_name(_getitems_range, "_getitems_range_unroll"))
 
     def pop_end(self, w_list):
-        new_length = self.unerase(w_list.lstorage)[0] - 1
+        new_length = w_list.length() - 1
+        w_list._length = new_length
         w_result = self.wrap(new_length)
-        if new_length > 0:
-            w_list.lstorage = self.erase((new_length,))
-        else:
+        if new_length == 0:
             strategy = w_list.strategy = self.space.fromcache(EmptyListStrategy)
             w_list.lstorage = strategy.erase(None)
         return w_result
@@ -1432,7 +1431,8 @@ class RangeListStrategy(BaseRangeListStrategy):
     def find_or_count(self, w_list, w_obj, startindex, stopindex, count):
         if type(w_obj) is W_IntObject:
             obj = self.unwrap(w_obj)
-            start, step, length = self.unerase(w_list.lstorage)
+            start, step = self.unerase(w_list.lstorage)
+            length = w_list.length()
             if ((step > 0 and start <= obj <= start + (length - 1) * step and
                  (start - obj) % step == 0) or
                 (step < 0 and start + (length - 1) * step <= obj <= start and
@@ -1456,10 +1456,8 @@ class RangeListStrategy(BaseRangeListStrategy):
         return self.unerase(w_list.lstorage)[1]
 
     def _getitem_unwrapped(self, w_list, i):
-        v = self.unerase(w_list.lstorage)
-        start = v[0]
-        step = v[1]
-        length = v[2]
+        start, step = self.unerase(w_list.lstorage)
+        length = w_list.length()
         if i < 0:
             i += length
             if i < 0:
@@ -1470,10 +1468,8 @@ class RangeListStrategy(BaseRangeListStrategy):
 
     @specialize.arg(2)
     def _getitems_range(self, w_list, wrap_items):
-        l = self.unerase(w_list.lstorage)
-        start = l[0]
-        step = l[1]
-        length = l[2]
+        start, step = self.unerase(w_list.lstorage)
+        length = w_list.length()
         if wrap_items:
             r = [None] * length
         else:
@@ -1494,20 +1490,21 @@ class RangeListStrategy(BaseRangeListStrategy):
             func_with_new_name(_getitems_range, "_getitems_range_unroll"))
 
     def pop_end(self, w_list):
-        start, step, length = self.unerase(w_list.lstorage)
+        start, step = self.unerase(w_list.lstorage)
+        length = w_list.length()
         w_result = self.wrap(start + (length - 1) * step)
-        new = self.erase((start, step, length - 1))
+        new = self.erase((start, step))
+        w_list._length -= 1
         w_list.lstorage = new
         return w_result
 
     def pop(self, w_list, index):
-        l = self.unerase(w_list.lstorage)
-        start = l[0]
-        step = l[1]
-        length = l[2]
+        start, step = self.unerase(w_list.lstorage)
+        length = w_list.length()
         if index == 0:
             w_result = self.wrap(start)
-            new = self.erase((start + step, step, length - 1))
+            new = self.erase((start + step, step))
+            w_list._length -= 1
             w_list.lstorage = new
             return w_result
         elif index == length - 1:
