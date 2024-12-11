@@ -38,7 +38,7 @@ Security
 
 This feature is implemented by writing to the heap memory of another process.
 Under Linux, it uses the ``process_vm_writev`` function. This function is
-disabled by default on most hardened Linux distributions by Yama__. Therefore
+disabled by default on most hardened Linux distributions by Yama_. Therefore
 you might need sudo to run the above commands.
 
-.. __Yama: https://www.kernel.org/doc/html/v4.15/admin-guide/LSM/Yama.html#ptrace-scope
+.. _Yama: https://www.kernel.org/doc/html/v4.15/admin-guide/LSM/Yama.html#ptrace-scope
