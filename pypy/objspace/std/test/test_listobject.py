@@ -673,6 +673,11 @@ class AppTestListObject(object):
         assert m == [5,2,3]
         assert l == [1,2,3]
 
+    def test_extend_self(self):
+        l = [None]
+        l.extend(l)
+        assert l == [None, None]
+
     def test_extend_tuple(self):
         l = l0 = [1]
         l.extend((2,))
@@ -2021,6 +2026,23 @@ class ListChecks(RuleBasedStateMachine):
     def newemptylist(self):
         return self._add([], self.space.newlist([]))
 
+    @rule(target=listids, len=strategies.integers(1, 500))
+    def newsimplerange(self, len):
+        from pypy.objspace.std.listobject import make_range_list
+
+        return self._add(range(len),
+                         make_range_list(self.space, 0, 1, len))
+
+    @rule(target=listids, start=strategies.integers(-10000, 10000), len=strategies.integers(1, 500), step=strategies.integers(-100, 100))
+    def newrangelist(self, start, len, step):
+        from pypy.objspace.std.listobject import make_range_list
+        if step == 0:
+            step = 1
+        end = start + step * len
+
+        return self._add(range(start, end, step),
+                         make_range_list(self.space, start, step, len))
+
     @rule(listid=listids)
     def check(self, listid):
         l, w = self._get(listid)
@@ -2104,7 +2126,13 @@ class ListChecks(RuleBasedStateMachine):
         # XXX start stop
         assert l.count(value) == w.find_or_count(w_value, count=True)
 
-    #def rule_extend
+    @rule(id1=listids, id2=listids)
+    def rule_extend(self, id1, id2):
+        l1, w1 = self._get(id1)
+        l2, w2 = self._get(id2)
+        l1.extend(l2)
+        w1.extend(w2)
+        self.check(id1)
 
     @rule(id=listids, value=values)
     def rule_index(self, id, value):
@@ -2184,4 +2212,11 @@ def test_stateful_bug1():
     v5 = state.newemptylist()
     state.rule_append(id=v5, value=v2)
     state.rule_iadd(id1=v5, id2=v1)
+    state.teardown()
+
+
+def test_stateful_bug2():
+    state = ListChecks()
+    v1 = state.newsimplerange(len=1)
+    v2 = state.rule_add(id1=v1, id2=v1)
     state.teardown()

@@ -555,31 +555,19 @@ class Entry(ExtRegistryEntry):
 class FixedSizeList(object):
     def __init__(self, l):
         self._l = l
-        self._extra_elements = []
-        if l:
-            element = l[0]
-            if isinstance(element, int):
-                self._extra_elements = [0] * 4
-            elif isinstance(element, float):
-                self._extra_elements = [0.0] * 4
-            else:
-                self._extra_elements = [None] * 4
 
     def __len__(self):
-        return len(self._l) + len(self._extra_elements)
+        return len(self._l)
 
     def __getitem__(self, index):
-        return (self._l + self._extra_elements)[index]
+        return self._l[index]
 
     def __setitem__(self, index, value):
         assert 0 <= index < len(self)
-        if index < len(self._l):
-            self._l[index] = value
-        else:
-            self._extra_elements[index - len(self._l)] = value
+        self._l[index] = value
 
     def __repr__(self):
-        return "<FixedSizeList %r %r>" % (self._l, self._extra_elements)
+        return "<FixedSizeList %r>" % (self._l, )
 
 # ____________________________________________________________
 #

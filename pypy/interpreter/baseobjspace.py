@@ -1131,6 +1131,8 @@ class ObjSpace(object):
     def newlist_bytes(self, list_s):
         return self.newlist([self.newbytes(s) for s in list_s])
 
+    newlist_text = newlist_bytes
+
     def newlist_utf8(self, list_u, is_ascii):
         l_w = [None] * len(list_u)
         for i, item in enumerate(list_u):

@@ -726,7 +726,6 @@ class W_UnicodeObject(W_Root):
 
     @unwrap_spec(maxsplit=int)
     def descr_split(self, space, w_sep=None, maxsplit=-1):
-        res = []
         value = self._utf8
         is_ascii = self.is_ascii()
         if space.is_none(w_sep):
@@ -746,7 +745,6 @@ class W_UnicodeObject(W_Root):
 
     @unwrap_spec(maxsplit=int)
     def descr_rsplit(self, space, w_sep=None, maxsplit=-1):
-        res = []
         value = self._utf8
         if space.is_none(w_sep):
             res = rsplit(value, maxsplit=maxsplit, isutf8=True)

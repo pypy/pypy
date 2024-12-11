@@ -246,6 +246,7 @@ class W_ListObject(W_Root):
         strategy = self.strategy
         return strategy._unrolling_heuristic(self)
 
+
     @staticmethod
     def from_storage_and_strategy(space, storage, strategy, length):
         self = instantiate(W_ListObject)
@@ -1250,7 +1251,8 @@ class BaseRangeListStrategy(ListStrategy):
     def switch_to_integer_strategy(self, w_list):
         items = self._getitems_range(w_list, False)
         strategy = w_list.strategy = self.space.fromcache(IntegerListStrategy)
-        w_list.lstorage = strategy.erase(items)
+        # YYY
+        w_list.lstorage = strategy.erase(items[:])
 
     def wrap(self, intval):
         return self.space.newint(intval)
@@ -2078,7 +2080,8 @@ class IntegerListStrategy(ListStrategy):
             l = self.unerase(w_list.lstorage)
             other = w_other.getitems_int()
             assert other is not None
-            l += other
+            # YYY
+            self._extend_from_list_prefix(w_list, other[:], len(other))
             return
         if (w_other.strategy is self.space.fromcache(FloatListStrategy) or
             w_other.strategy is self.space.fromcache(IntOrFloatListStrategy)):

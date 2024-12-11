@@ -342,7 +342,7 @@ class CPyListStrategy(ListStrategy):
     def clone(self, w_list, sizehint=0):
         storage = self.getstorage_copy(w_list)
         w_clone = W_ListObject.from_storage_and_strategy(self.space, storage,
-                                                         self)
+                                                         self, w_list.length())
         return w_clone
 
     def getitems_copy(self, w_list):

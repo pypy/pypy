@@ -24,7 +24,7 @@ from rpython.annotator import description
 from rpython.annotator.signature import annotationoftype
 from rpython.annotator.argument import simple_args
 from rpython.annotator.specialize import memo
-from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic
+from rpython.rlib.objectmodel import r_dict, r_ordereddict, Symbolic, FixedSizeList
 from rpython.tool.algo.unionfind import UnionFind
 from rpython.rtyper import extregistry
 
@@ -252,12 +252,17 @@ class Bookkeeper(object):
             result = SomeTuple(items = [self.immutablevalue(e) for e in x])
         elif tp is float:
             result = SomeFloat()
-        elif tp is list:
+        elif tp is list or tp is FixedSizeList:
+            if tp is FixedSizeList:
+                x = x._l
             key = Constant(x)
             try:
                 return self.immutable_cache[key]
             except KeyError:
-                result = SomeList(ListDef(self, s_ImpossibleValue))
+                listdef = ListDef(self, s_ImpossibleValue)
+                result = SomeList(listdef)
+                if tp is FixedSizeList:
+                    listdef.never_resize()
                 self.immutable_cache[key] = result
                 for e in x:
                     result.listdef.generalize(self.immutablevalue(e))
