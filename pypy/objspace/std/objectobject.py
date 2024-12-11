@@ -309,28 +309,88 @@ def descr__dir__(space, w_obj):
     from pypy.objspace.std.util import _objectdir
     return space.call_function(space.w_list, _objectdir(space, w_obj))
 
+class ObjectObjectDocstrings:
+
+    def __new__():
+        """T.__new__(S, ...) -> a new object with type S, a subtype of T"""
+
+    def __subclasshook__():
+        """Abstract classes can override this to customize issubclass().
+
+        This is invoked early on by abc.ABCMeta.__subclasscheck__().
+        It should return True, False or NotImplemented.  If it returns
+        NotImplemented, the normal algorithm is used.  Otherwise, it
+        overrides the normal algorithm (and the outcome is cached).
+        """
+
+    def __hash__():
+        """x.__hash__() <==> hash(x)"""
+
+    def __setattr__():
+        """x.__setattr__('name', value) <==> x.name = value"""
+
+    def __getattribute__():
+        """"x.__getattribute__('name') <==> x.name"""
+
+    def __delattr__():
+        """x.__delattr__('name') <==> del x.name"""
+
+    def __init__():
+        """x.__init__(...) initializes x; see help(type(x)) for signature."""
+
+    def __class__():
+        """type(object) -> the object's type
+        type(name, bases, dict) -> a new type"""
+
+    def __repr__():
+        """x.__repr__() <==> repr(x)"""
+
+    def __str__():
+        """x.__str__() <==> str(x)"""
+
+    def __reduce__():
+        """helper for pickle"""
+
+    def __reduce_ex__():
+        """helper for pickle"""
+
+    def __format__():
+        """default object formatter"""
+
 W_ObjectObject.typedef = TypeDef("object",
     __rpython_level_class__ = W_ObjectObject,
     _text_signature_='()',
     __doc__ = "The most base type",
-    __new__ = interp2app(descr__new__),
-    __subclasshook__ = interp2app(descr___subclasshook__, as_classmethod=True),
+    __new__ = interp2app(descr__new__,
+                         doc=ObjectObjectDocstrings.__new__.__doc__),
+    __subclasshook__ = interp2app(descr___subclasshook__, as_classmethod=True,
+                                  doc=ObjectObjectDocstrings.__subclasshook__.__doc__),
     __init_subclass__ = interp2app(descr___init_subclass__, as_classmethod=True),
 
     # these are actually implemented in pypy.objspace.descroperation
-    __getattribute__ = interp2app(Object.descr__getattribute__.im_func),
-    __setattr__ = interp2app(Object.descr__setattr__.im_func),
-    __delattr__ = interp2app(Object.descr__delattr__.im_func),
+    __getattribute__ = interp2app(Object.descr__getattribute__.im_func,
+                                  doc=ObjectObjectDocstrings.__getattribute__.__doc__),
+    __setattr__ = interp2app(Object.descr__setattr__.im_func,
+                             doc=ObjectObjectDocstrings.__setattr__.__doc__),
+    __delattr__ = interp2app(Object.descr__delattr__.im_func,
+                             doc=ObjectObjectDocstrings.__delattr__.__doc__),
 
-
-    __init__ = interp2app(descr__init__),
-    __class__ = GetSetProperty(descr_get___class__, descr_set___class__),
-    __repr__ = interp2app(descr__repr__),
-    __str__ = interp2app(descr__str__),
-    __hash__ = interp2app(default_identity_hash),
-    __reduce__ = interp2app(descr__reduce__),
-    __reduce_ex__ = interp2app(descr__reduce_ex__),
-    __format__ = interp2app(descr___format__),
+    __init__ = interp2app(descr__init__,
+                          doc=ObjectObjectDocstrings.__init__.__doc__),
+    __class__ = GetSetProperty(descr_get___class__, descr_set___class__,
+                               doc=ObjectObjectDocstrings.__class__.__doc__),
+    __repr__ = interp2app(descr__repr__,
+                          doc=ObjectObjectDocstrings.__repr__.__doc__),
+    __str__ = interp2app(descr__str__,
+                         doc=ObjectObjectDocstrings.__str__.__doc__),
+    __hash__ = interp2app(default_identity_hash,
+                          doc=ObjectObjectDocstrings.__hash__.__doc__),
+    __reduce__ = interp2app(descr__reduce__,
+                            doc=ObjectObjectDocstrings.__reduce__.__doc__),
+    __reduce_ex__ = interp2app(descr__reduce_ex__,
+                               doc=ObjectObjectDocstrings.__reduce_ex__.__doc__),
+    __format__ = interp2app(descr___format__,
+                            doc=ObjectObjectDocstrings.__format__.__doc__),
     __dir__ = interp2app(descr__dir__),
 
     __eq__ = interp2app(descr__eq__),
