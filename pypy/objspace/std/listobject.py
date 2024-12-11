@@ -245,12 +245,15 @@ class W_ListObject(W_Root):
         strategy = self.strategy
         return strategy._unrolling_heuristic(self)
 
+    def _set_length(self, length):
+        assert length >= 0
+        self._length = length
 
     @staticmethod
     def from_storage_and_strategy(space, storage, strategy, length):
         self = instantiate(W_ListObject)
         self.space = space
-        self._length = length
+        self._set_length(length)
         self.strategy = strategy
         self.lstorage = storage
         if not space.config.objspace.std.withliststrategies:
@@ -326,7 +329,7 @@ class W_ListObject(W_Root):
         wrapped items, unwrapping them if neccessary and creating a
         new erased object as storage"""
         # list_w is resizable
-        self._length = len(list_w)
+        self._set_length(len(list_w))
         self.strategy.init_from_list_w(self, list_w)
 
     def clear(self, space):
@@ -337,7 +340,7 @@ class W_ListObject(W_Root):
         else:
             strategy = space.fromcache(ObjectListStrategy)
         self.strategy = strategy
-        self._length = 0
+        self._set_length(0)
         strategy.clear(self)
 
     def clone(self, sizehint=0):
@@ -1165,7 +1168,7 @@ class EmptyListStrategy(ListStrategy):
         storage = strategy.getstorage_copy(w_other)
         w_list.strategy = strategy
         w_list.lstorage = storage
-        w_list._length = w_other.length()
+        w_list._set_length(w_other.length())
 
     def sort(self, w_list, reverse):
         return
@@ -1189,28 +1192,28 @@ class EmptyListStrategy(ListStrategy):
         if intlist is not None:
             w_list.strategy = strategy = space.fromcache(IntegerListStrategy)
             w_list.lstorage = strategy.erase(intlist[:])
-            w_list._length = len(intlist)
+            w_list._set_length(len(intlist))
             return
 
         floatlist = space.unpackiterable_float(w_iterable)
         if floatlist is not None:
             w_list.strategy = strategy = space.fromcache(FloatListStrategy)
             w_list.lstorage = strategy.erase(floatlist[:])
-            w_list._length = len(floatlist)
+            w_list._set_length(len(floatlist))
             return
 
         byteslist = space.listview_bytes(w_iterable)
         if byteslist is not None:
             w_list.strategy = strategy = space.fromcache(BytesListStrategy)
             w_list.lstorage = strategy.erase(byteslist[:])
-            w_list._length = len(byteslist)
+            w_list._set_length(len(byteslist))
             return
 
         unilist = space.listview_ascii(w_iterable)
         if unilist is not None:
             w_list.strategy = strategy = space.fromcache(AsciiListStrategy)
             w_list.lstorage = strategy.erase(unilist[:])
-            w_list._length = len(unilist)
+            w_list._set_length(len(unilist))
             return
 
         ListStrategy._extend_from_iterable(self, w_list, w_iterable)
@@ -1275,7 +1278,7 @@ class BaseRangeListStrategy(ListStrategy):
     def copy_into(self, w_list, w_other):
         w_other.strategy = self
         w_other.lstorage = w_list.lstorage
-        w_other._length = w_list._length
+        w_other._set_length(w_list._length)
 
     def getitem(self, w_list, i):
         return self.wrap(self._getitem_unwrapped(w_list, i))
@@ -1405,7 +1408,7 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
 
     def pop_end(self, w_list):
         new_length = w_list.length() - 1
-        w_list._length = new_length
+        w_list._set_length(new_length)
         w_result = self.wrap(new_length)
         if new_length == 0:
             strategy = w_list.strategy = self.space.fromcache(EmptyListStrategy)
@@ -1563,7 +1566,7 @@ class AbstractUnwrappedStrategy(object):
         # YYY jit stuff
         if cond:
             self._list_resize_really(w_list, newsize)
-        w_list._length = newsize
+        w_list._set_length(newsize)
 
     def _resize_le(self, w_list, newsize):
         """This is called with 'newsize' smaller than the current length of the
@@ -1575,7 +1578,7 @@ class AbstractUnwrappedStrategy(object):
         # YYY jit stuff
         if cond:
             self._list_resize_really(w_list, newsize)
-        w_list._length = newsize
+        w_list._set_length(newsize)
 
     def _list_resize_really(self, w_list, newsize, overallocate=True):
         """
@@ -1585,7 +1588,7 @@ class AbstractUnwrappedStrategy(object):
         """
         # see comments in _ll_list_resize_really
         if newsize <= 0:
-            w_list._length = 0
+            w_list._set_length(0)
             w_list.lstorage = self.erase([])
             return
         elif overallocate:
@@ -1638,7 +1641,7 @@ class AbstractUnwrappedStrategy(object):
         length = w_list.length()
         items = self.unerase(w_list.lstorage)[:length]
         w_other.lstorage = self.erase(items)
-        w_other._length = length
+        w_other._set_length(length)
 
     def find_or_count(self, w_list, w_obj, start, stop, count):
         if self.is_correct_type(w_obj):
@@ -2020,7 +2023,7 @@ class ObjectListStrategy(ListStrategy):
         w_list.lstorage = self.erase(resizable_list_extract_storage(list_w))
 
     def clear(self, w_list):
-        w_list._length = 0
+        w_list._set_length(0)
         w_list.lstorage = self.erase([])
 
     def find_or_count(self, w_list, w_obj, start, stop, count):
