@@ -15,7 +15,7 @@ from rpython.rlib import debug, jit, rerased, rutf8
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
     import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize,
-    resizable_list_extract_storage)
+    resizable_list_extract_storage, we_are_translated)
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from rpython.rlib import longlong2float
 from rpython.tool.sourcetools import func_with_new_name
@@ -1543,22 +1543,35 @@ class AbstractUnwrappedStrategy(object):
     def list_is_correct_type(self, w_list):
         raise NotImplementedError("abstract base class")
 
-    def init_from_list_w(self, w_list, list_w):
-        l = self._init_from_list_w_helper(list_w)
-        l = l[:] # YYY
-        w_list.lstorage = self.erase(l)
+    # ___________________________________________________
+    # resizable list support
 
-    @jit.look_inside_iff(lambda space, list_w:
-            jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
-    def _init_from_list_w_helper(self, list_w):
-        # YYY get rid of copy
-        return [self.unwrap(w_item) for w_item in list_w]
+    def _arrayclear(self, items, start, stop):
+        for i in range(start, stop):
+            items[i] = self._none_value
 
-    def get_empty_storage(self, sizehint):
-        if sizehint < 0:
-            return self.erase([])
-        newitems = [self._none_value] * sizehint
-        return self.erase(newitems)
+    # YYY oopspec
+    def _arraymove(self, items, source_start, dest_start, length):
+        # YYY communicate with GC somehow
+        delta = dest_start - source_start
+        if delta < 0:
+            for i in range(source_start, source_start + length):
+                items[i + delta] = items[i]
+        elif delta > 0:
+            for i in range(source_start + length - 1, source_start - 1, -1):
+                items[i + delta] = items[i]
+
+    @staticmethod
+    @jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
+    def _arraycopy(source, dest, source_start, dest_start, length):
+        # YYY communicate with GC somehow
+        # supports non-overlapping copies only
+        if not we_are_translated():
+            if source is dest:
+                assert (source_start + length <= dest_start or
+                        dest_start + length <= source_start)
+        for i in range(length):
+            dest[i + dest_start] = source[i + source_start]
 
     def _resize_ge(self, w_list, newsize):
         l = self.unerase(w_list.lstorage)
@@ -1577,7 +1590,7 @@ class AbstractUnwrappedStrategy(object):
         cond = newsize < (len(l) >> 1) - 5
         # YYY jit stuff
         if cond:
-            self._list_resize_really(w_list, newsize)
+            self._list_resize_really(w_list, newsize, False)
         w_list._set_length(newsize)
 
     def _list_resize_really(self, w_list, newsize, overallocate=True):
@@ -1608,20 +1621,35 @@ class AbstractUnwrappedStrategy(object):
                 p = before_len
             else:
                 p = newsize
-            # YYY rgc.ll_arraycopy(items, newitems, 0, 0, p)
             items = self.unerase(w_list.lstorage)
-            for index in range(p):
-                newitems[index] = items[index]
+            self._arraycopy(items, newitems, 0, 0, p)
         w_list.lstorage = self.erase(newitems)
+
+    # ___________________________________________________
+
+    def init_from_list_w(self, w_list, list_w):
+        l = self._init_from_list_w_helper(list_w)
+        l = l[:] # YYY
+        w_list.lstorage = self.erase(l)
+
+    @jit.look_inside_iff(lambda space, list_w:
+            jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
+    def _init_from_list_w_helper(self, list_w):
+        # YYY get rid of copy
+        return [self.unwrap(w_item) for w_item in list_w]
+
+    def get_empty_storage(self, sizehint):
+        if sizehint < 0:
+            return self.erase([])
+        newitems = [self._none_value] * sizehint
+        return self.erase(newitems)
 
     def clone(self, w_list, sizehint=0):
         l = self.unerase(w_list.lstorage)
         if sizehint:
             assert sizehint >= w_list.length()
-            # YYY listcopy
             l2 = [self._none_value] * sizehint
-            for i in range(w_list.length()):
-                l2[i] = l[i]
+            self._arraycopy(l, l2, 0, 0, w_list.length())
         else:
             l2 = l[:]
         storage = self.erase(l2)
@@ -1751,13 +1779,8 @@ class AbstractUnwrappedStrategy(object):
             length = w_list.length()
             self._resize_ge(w_list, length + 1)
             items = self.unerase(w_list.lstorage)
-            # YYY arraymove
-            prev = self.unwrap(w_item)
-            for i in range(index, length):
-                saved = items[i]
-                items[i] = prev
-                prev = saved
-            items[length] = prev
+            self._arraymove(items, index, index + 1, length - index)
+            items[index] = self.unwrap(w_item)
             return
 
         self.switch_to_next_strategy(w_list, w_item)
@@ -1772,11 +1795,7 @@ class AbstractUnwrappedStrategy(object):
         self._resize_ge(w_list, ressize)
         l = self.unerase(w_list.lstorage)
 
-        index = length1
-        # YYY arraycopy
-        for i in range(otherlength):
-            l[index] = other[i]
-            index += 1
+        self._arraycopy(other, l, 0, length1, otherlength)
 
     def _extend_from_list(self, w_list, w_other):
         if self.list_is_correct_type(w_other):
@@ -1845,8 +1864,7 @@ class AbstractUnwrappedStrategy(object):
                 for i in range(start + delta, oldsize):
                     items[index] = items[i]
                     index += 1
-                for i in range(oldsize - delta, oldsize):
-                    items[index] = self._none_value
+                self._arrayclear(items, oldsize - delta, oldsize)
                 self._resize_le(w_list, oldsize - delta)
         elif len2 != slicelength:  # No resize for extended slices
             raise oefmt(space.w_ValueError,
@@ -1894,14 +1912,12 @@ class AbstractUnwrappedStrategy(object):
         if step == 1:
             assert start >= 0
             assert slicelength > 0
-            # YYY arraymove
-            index = start
-            for i in range(start + slicelength, length):
-                items[index] = items[i]
-                index += 1
+            self._arraymove(
+                items, start + slicelength, start, length - start - slicelength)
         else:
             i = start
 
+            # YYY various arraymoves
             for discard in range(1, slicelength):
                 j = i + 1
                 i += step
@@ -1913,8 +1929,7 @@ class AbstractUnwrappedStrategy(object):
             while j < length:
                 items[j - slicelength] = items[j]
                 j += 1
-        for i in range(length - slicelength, length):
-            items[i] = self._none_value
+        self._arrayclear(items, length - slicelength, length)
         self._resize_le(w_list, length - slicelength)
 
     def pop_end(self, w_list):
@@ -1933,9 +1948,7 @@ class AbstractUnwrappedStrategy(object):
             raise IndexError
         w_res = self.wrap(l[index])
         newlength = length - 1
-        # YYY arraymove
-        for i in range(index, newlength):
-            l[i] = l[i + 1]
+        self._arraymove(l, index + 1, index, newlength - index)
         l[newlength] = self._none_value
         self._resize_le(w_list, newlength)
         return w_res
