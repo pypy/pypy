@@ -1,11 +1,12 @@
 # coding: iso-8859-15
 import py
-import random
 from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
      IntegerListStrategy, BytesListStrategy, FloatListStrategy, \
      ObjectListStrategy, IntOrFloatListStrategy, AsciiListStrategy
 from pypy.interpreter.error import OperationError
 from rpython.rlib.rarithmetic import is_valid_int
+
+from hypothesis import strategies, given
 
 
 class TestW_ListObject(object):
@@ -90,7 +91,8 @@ class TestW_ListObject(object):
             assert self.space.eq_w(floatlist_copy[i], floatlist.getitem(i))
             assert self.space.eq_w(objlist_copy[i], objlist.getitem(i))
 
-    def test_random_getitem(self):
+    @given(strategies.randoms())
+    def test_random_getitem(self, random):
         w = self.space.wrap
         s = list('qedx387tn3uixhvt 7fh387fymh3dh238 dwd-wq.dwq9')
         w_list = W_ListObject(self.space, map(w, s))
@@ -224,9 +226,10 @@ class TestW_ListObject(object):
         self.space.raises_w(self.space.w_IndexError,
                             self.space.setitem, w_list, w(-3), w(5))
 
-    def test_random_setitem_delitem(self):
+    @given(strategies.randoms())
+    def test_random_setitem_delitem(self, random):
         w = self.space.wrap
-        s = range(39)
+        s = range(random.randrange(40))
         w_list = W_ListObject(self.space, map(w, s))
         expected = list(s)
         keys = range(-len(s)-5, len(s)+5)
@@ -234,6 +237,7 @@ class TestW_ListObject(object):
         stepchoices = [None, None, None, 1, 1, -1, -1, 2, -2,
                        len(s)-1, len(s), len(s)+1,
                        -len(s)-1, -len(s), -len(s)+1]
+        stepchoices = [i for i in stepchoices if i != 0]
         for i in range(50):
             keys.append(slice(random.choice(choices),
                               random.choice(choices),
@@ -241,7 +245,7 @@ class TestW_ListObject(object):
         random.shuffle(keys)
         n = len(s)
         for key in keys:
-            if random.random() < 0.15:
+            if random.random() > 0.85:
                 random.shuffle(s)
                 w_list = W_ListObject(self.space, map(w, s))
                 expected = list(s)

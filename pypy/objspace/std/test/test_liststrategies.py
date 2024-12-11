@@ -540,8 +540,7 @@ class TestW_ListStrategies(TestW_ListObject):
     def test_getitems_does_not_copy_object_list(self):
         l1 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap("two"), self.space.wrap(3)])
         l2 = l1.getitems()
-        l2.append(self.space.wrap("four"))
-        assert l2 == l1.getitems()
+        assert l1.getitems() is l2
 
     def test_clone(self):
         l1 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap(2), self.space.wrap(3)])

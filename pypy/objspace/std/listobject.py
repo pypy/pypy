@@ -309,7 +309,7 @@ class W_ListObject(W_Root):
         strategy = self.space.fromcache(ObjectListStrategy)
         storage = strategy.erase(list_w)
         w_objectlist = W_ListObject.from_storage_and_strategy(
-                self.space, storage, strategy)
+                self.space, storage, strategy, len(list_w))
         return w_objectlist
 
     def convert_to_cpy_strategy(self, space):
@@ -1171,6 +1171,7 @@ class EmptyListStrategy(ListStrategy):
         storage = strategy.getstorage_copy(w_other)
         w_list.strategy = strategy
         w_list.lstorage = storage
+        w_list._length = slicelength
 
     def sort(self, w_list, reverse):
         return
@@ -1575,7 +1576,7 @@ class AbstractUnwrappedStrategy(object):
         cond = newsize < (len(l) >> 1) - 5
         # YYY jit stuff
         if cond:
-            self._list_resize_really(self, w_list, newsize)
+            self._list_resize_really(w_list, newsize)
         w_list._length = newsize
 
     def _list_resize_really(self, w_list, newsize, overallocate=True):
@@ -1631,10 +1632,11 @@ class AbstractUnwrappedStrategy(object):
         resizelist_hint(self.unerase(w_list.lstorage), hint)
 
     def copy_into(self, w_list, w_other):
-        import pdb;pdb.set_trace()
         w_other.strategy = self
-        items = self.unerase(w_list.lstorage)[:]
+        length = w_list.length()
+        items = self.unerase(w_list.lstorage)[:length]
         w_other.lstorage = self.erase(items)
+        w_other._length = length
 
     def find_or_count(self, w_list, w_obj, start, stop, count):
         if self.is_correct_type(w_obj):
@@ -1742,11 +1744,17 @@ class AbstractUnwrappedStrategy(object):
         w_list.append(w_item)
 
     def insert(self, w_list, index, w_item):
-        import pdb;pdb.set_trace()
-        l = self.unerase(w_list.lstorage)
-
         if self.is_correct_type(w_item):
-            l.insert(index, self.unwrap(w_item))
+            length = w_list.length()
+            self._resize_ge(w_list, length + 1)
+            items = self.unerase(w_list.lstorage)
+            # YYY arraymove
+            prev = self.unwrap(w_item)
+            for i in range(index, length):
+                saved = items[i]
+                items[i] = prev
+                prev = saved
+            items[length] = prev
             return
 
         self.switch_to_next_strategy(w_list, w_item)
@@ -1879,13 +1887,15 @@ class AbstractUnwrappedStrategy(object):
             start = start + step * (slicelength - 1)
             step = -step
 
+        length = w_list.length()
         if step == 1:
-            import pdb;pdb.set_trace()
             assert start >= 0
-            if slicelength > 0:
-                del items[start:start + slicelength]
+            assert slicelength > 0
+            # YYY arraymove
+            index = start
+            for i in range(start + slicelength, length):
+                items[index] = items[i]
         else:
-            n = w_list.length()
             i = start
 
             for discard in range(1, slicelength):
@@ -1896,17 +1906,19 @@ class AbstractUnwrappedStrategy(object):
                     j += 1
 
             j = i + 1
-            while j < n:
+            while j < length:
                 items[j - slicelength] = items[j]
                 j += 1
-            for i in range(n - slicelength, n):
-                items[i] = self._none_value
-            self._resize_le(w_list, n - slicelength)
+        for i in range(length - slicelength, length):
+            items[i] = self._none_value
+        self._resize_le(w_list, length - slicelength)
 
     def pop_end(self, w_list):
-        import pdb;pdb.set_trace()
-        l = self.unerase(w_list.lstorage)
-        return self.wrap(l.pop())
+        items = self.unerase(w_list.lstorage)
+        index = w_list.length()
+        w_res = self.wrap(items[length - 1])
+        self._resize_le(w_list, length - 1)
+        return w_res
 
     def pop(self, w_list, index):
         l = self.unerase(w_list.lstorage)
@@ -1931,15 +1943,23 @@ class AbstractUnwrappedStrategy(object):
             self.space, self.erase(res), self, len(res))
 
     def inplace_mul(self, w_list, times):
-        import pdb;pdb.set_trace()
         # YYY can be done without the extra copy?
         res = self.unerase(w_list.lstorage)[:w_list.length()] * times
         w_list._length *= times
         w_list.lstorage = self.erase(res)
 
     def reverse(self, w_list):
-        import pdb;pdb.set_trace()
-        self.unerase(w_list.lstorage).reverse()
+        length = w_list.length()
+        items = self.unerase(w_list.lstorage)
+        i = 0
+        length_1_i = length - 1 - i
+        # YYY make w_list not escape
+        while i < length_1_i:
+            tmp = items[i]
+            items[i] = items[length_1_i]
+            items[length_1_i] = tmp
+            i += 1
+            length_1_i -= 1
 
     def physical_size(self, w_list):
         l = self.unerase(w_list.lstorage)
@@ -2067,7 +2087,7 @@ class IntegerListStrategy(ListStrategy):
         if w_other.strategy is self.space.fromcache(RangeListStrategy):
             storage = self.erase(w_other.getitems_int())
             w_other = W_ListObject.from_storage_and_strategy(
-                    self.space, storage, self)
+                    self.space, storage, self, w_other.length())
         if (w_other.strategy is self.space.fromcache(FloatListStrategy) or
             w_other.strategy is self.space.fromcache(IntOrFloatListStrategy)):
             if self.switch_to_int_or_float_strategy(w_list):
@@ -2079,12 +2099,14 @@ class IntegerListStrategy(ListStrategy):
     @staticmethod
     def int_2_float_or_int(w_list):
         l = IntegerListStrategy.unerase(w_list.lstorage)
+        length = w_list.length()
         if not longlong2float.CAN_ALWAYS_ENCODE_INT32:
-            for intval in l:
+            for index in range(length):
+                intval = l[index]
                 if not longlong2float.can_encode_int32(intval):
                     raise ValueError
-        return [longlong2float.encode_int32_into_longlong_nan(intval)
-                for intval in l]
+        return [longlong2float.encode_int32_into_longlong_nan(l[index])
+                for index in range(length)]
 
     def switch_to_int_or_float_strategy(self, w_list):
         try:
@@ -2323,8 +2345,9 @@ class IntOrFloatListStrategy(ListStrategy):
     _base_setslice = setslice
 
     def _temporary_longlong_list(self, longlong_list):
+        make_sure_not_resized(longlong_list)
         storage = self.erase(longlong_list)
-        return W_ListObject.from_storage_and_strategy(self.space, storage, self)
+        return W_ListObject.from_storage_and_strategy(self.space, storage, self, len(longlong_list))
 
     def setslice(self, w_list, start, step, slicelength, w_other):
         if w_other.strategy is self.space.fromcache(IntegerListStrategy):
