@@ -509,9 +509,6 @@ class W_ListObject(W_Root):
 
     def descr_repr(self, space):
         return self.strategy.repr(self)
-        if self.length() == 0:
-            return space.newtext('[]')
-        return listrepr(space, space.get_objects_in_repr(), self)
 
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_ListObject):

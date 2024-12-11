@@ -1,5 +1,6 @@
 # coding: iso-8859-15
 import py
+import pytest
 from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
      IntegerListStrategy, BytesListStrategy, FloatListStrategy, \
      ObjectListStrategy, IntOrFloatListStrategy, AsciiListStrategy
@@ -430,9 +431,9 @@ class TestW_ListObject(object):
         assert res == 3
         res = intlist.find_or_count(w(4), 0, 100)
         assert res == 3
-        with py.test.raises(ValueError):
+        with pytest.raises(ValueError):
             intlist.find_or_count(w(4), 4, 7)
-        with py.test.raises(ValueError):
+        with pytest.raises(ValueError):
             intlist.find_or_count(w(4), 0, 2)
 
     def test_count_fast_on_intlist(self, monkeypatch):
@@ -1980,3 +1981,143 @@ class AppTestListFastSubscr:
             assert l[i] == i
         assert l[3:] == [3, 4]
         raises(TypeError, operator.getitem, l, "str")
+
+from hypothesis.stateful import Bundle, RuleBasedStateMachine, rule, consumes, invariant, initialize, precondition
+
+class ListChecks(RuleBasedStateMachine):
+    def __init__(self):
+        from pypy.tool.pytest.objspace import gettestobjspace
+        self.space = gettestobjspace()
+        RuleBasedStateMachine.__init__(self)
+        self.model = {}
+        self.wlists = {}
+
+    st_values = strategies.integers(-1000, 1000) | strategies.floats() | strategies.just(None) | strategies.binary() | strategies.text()
+
+    values = Bundle('values')
+    listids = Bundle('listids')
+
+    @rule(produces=values, val=st_values)
+    def newval(val):
+        return val
+
+    def _nextid(self):
+        if not self.model:
+            return 0
+        else:
+            return max(self.model) + 1
+
+    def _add(self, l, w):
+        id = self._nextid()
+        self.model[id] = l
+        self.wlists[id] = w
+        assert self.space.unwrap(w) == l
+        return id
+
+    def _get(self, id):
+        return (self.model[id], self.wlists[id])
+
+    @rule(target=listids)
+    def newemptylist(self):
+        return self._add([], self.space.newlist([]))
+
+    @rule(listid=listids)
+    def check(self, listid):
+        assert self.space.unwrap(self.wlists[listid]) == self.model[listid]
+
+    @rule(target=listids, id1=listids, id2=listids)
+    def rule_add(self, id1, id2):
+        id = self._nextid()
+        res = self.model[id1] + self.model[id2]
+        w_res = self.space.add(self.wlists[id1], self.wlists[id2])
+        return self._add(res, w_res)
+
+    @rule(id=listids, value=values)
+    def rule_append(self, id, value):
+        l, w = self._get(id)
+        l.append(value)
+        w.append(self.space.wrap(value))
+        self.check(id)
+
+    #def rule_contains(self):
+    #def rule___delitem__
+    #def rule___delslice__
+
+    @rule(id1=listids, id2=listids)
+    def rule_eq(self, id1, id2):
+        l1, w1 = self._get(id1)
+        l2, w2 = self._get(id2)
+        assert (l1 == l2) == self.space.is_true(w1._descr_eq(self.space, w2))
+
+    #def rule___ne__
+    #def rule___ge__
+    #def rule___le__
+    #def rule___lt__
+    #def rule___format__
+    #def rule___getitem__
+    #def rule___getslice__
+    #def rule___gt__
+    #def rule___iadd__
+    #def rule___imul__
+    #def rule___init__
+    #def rule___iter__
+
+    @rule(id=listids)
+    def rule_len(self, id):
+        l, w = self._get(id)
+        assert len(l) == w.length()
+
+    #def rule___mul__
+    #def rule___repr__
+    #def rule___reversed__
+    #def rule___rmul__
+    #def rule___setitem__
+    #def rule___setslice__
+    #def rule___str__
+
+    @rule(id=listids, value=values)
+    def rule_count(self, id, value):
+        l, w = self._get(id)
+        w_value = self.space.wrap(value)
+        # XXX start stop
+        assert l.count(value) == w.find_or_count(w_value, count=True)
+
+    #def rule_extend
+
+    @rule(id=listids, value=values)
+    def rule_index(self, id, value):
+        l, w = self._get(id)
+        w_value = self.space.wrap(value)
+        # XXX start stop
+        try:
+            i = l.index(value)
+        except ValueError:
+            with pytest.raises(ValueError):
+                w.find_or_count(w_value)
+        assert i == w.find_or_count(w_value)
+
+    #def rule_pop
+
+    @rule(id=listids, value=values)
+    def rule_remove(self, id, value):
+        l, w = self._get(id)
+        w_value = self.space.wrap(value)
+        try:
+            i = l.remove(value)
+        except ValueError:
+            with pytest.raises(ValueError):
+                w.descr_remove(self.space, w_value)
+        else:
+            w.descr_remove(self.space, w_value)
+        self.check(id)
+
+    @rule(id=listids, value=values)
+    def rule_reverse(self, id, value):
+        l, w = self._get(id)
+        l.reverse()
+        w.reverse()
+        self.check(id)
+
+    #def rule_sort
+
+TestRandom = ListChecks.TestCase
