@@ -350,6 +350,8 @@ If the argument is a tuple, the return value is the same object.""",
                              doc=TupleDocstrings.__getitem__.__doc__),
     __getnewargs__ = interp2app(W_AbstractTupleObject.descr_getnewargs,
                                 doc=TupleDocstrings.__getnewargs__.__doc__),
+    __class_getitem__ = interp2app(
+        generic_alias_class_getitem, as_classmethod=True),
     count = interp2app(W_AbstractTupleObject.descr_count,
                        doc=TupleDocstrings.count.__doc__),
     index = interp2app(W_AbstractTupleObject.descr_index,

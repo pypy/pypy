@@ -549,13 +549,16 @@ class AppTestTypeObject:
         """
 
     def test_mro_mutation_interaction_bug(self):
+        """
         class Base(object):
             value = 1
 
-        class WeirdClass(object):
-            class __metaclass__(type):
-                def mro(cls):
-                    return (cls, Base, object)
+        class Meta(type):
+            def mro(cls):
+                return (cls, Base, object)
+
+        class WeirdClass(metaclass=Meta):
+            pass
 
         assert Base.value == 1
         assert WeirdClass.value == 1
@@ -569,6 +572,7 @@ class AppTestTypeObject:
         assert WeirdClass.value == 3
 
         assert len(Base.__subclasses__()) == 0
+        """
 
     def test_abstract_mro(self):
         """
