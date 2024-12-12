@@ -1629,13 +1629,11 @@ class AbstractUnwrappedStrategy(object):
 
     def init_from_list_w(self, w_list, list_w):
         l = self._init_from_list_w_helper(list_w)
-        l = l[:] # YYY
         w_list.lstorage = self.erase(l)
 
     @jit.look_inside_iff(lambda space, list_w:
             jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
     def _init_from_list_w_helper(self, list_w):
-        # YYY get rid of copy
         return [self.unwrap(w_item) for w_item in list_w]
 
     def get_empty_storage(self, sizehint):
