@@ -36,6 +36,7 @@ def openlog(ident=None, logoption=0, facility=lib.LOG_USER):
     global _S_ident_o, _S_log_open
     if ident is None:
         ident = _get_argv()
+    orig_ident = ident
     if ident is None:
         _S_ident_o = ffi.NULL
     else:
@@ -44,6 +45,7 @@ def openlog(ident=None, logoption=0, facility=lib.LOG_USER):
             raise TypeError(msg.format(type(ident).__name__))
         ident = ident.encode(sys.getdefaultencoding())
         _S_ident_o = ffi.new("char[]", ident)  # keepalive
+    sys.audit('syslog.openlog', orig_ident, logoption, facility)
     lib.openlog(_S_ident_o, logoption, facility)
     _S_log_open = True
 
@@ -53,6 +55,7 @@ def syslog(arg1, arg2=None):
         priority, message = arg1, arg2
     else:
         priority, message = LOG_INFO, arg1
+    sys.audit("syslog.syslog", priority, message)
     # if log is not opened, open it now
     if not _S_log_open:
         openlog()
@@ -65,6 +68,7 @@ def syslog(arg1, arg2=None):
 @builtinify
 def closelog():
     global _S_log_open, S_ident_o
+    sys.audit("syslog.closelog")
     if _S_log_open:
         lib.closelog()
         _S_log_open = False
@@ -72,6 +76,7 @@ def closelog():
 
 @builtinify
 def setlogmask(mask):
+    sys.audit("syslog.setlogmask", mask)
     return lib.setlogmask(mask)
 
 @builtinify
