@@ -199,7 +199,7 @@ class TestStruct(BaseTestPyPyC):
             i70 = getfield_gc_i(p14, descr=<FieldS pypy.objspace.std.bytearrayobject.W_BytearrayObject.inst__offset \d+>)
             i71 = int_sub(i69, i70)
             i72 = int_sub(i71, 1)
-            i73 = int_sub(i72, 4)
+            i73 = int_sub(i71, 5)
             i75 = int_lt(i73, 2)
             guard_false(i75, descr=...)
             i77 = int_le(i62, 32767)
