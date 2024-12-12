@@ -8,10 +8,10 @@ add_zero: int_add(x, 0)
 #add_self: int_add(x, x)
 #    => int_mul(x, 2)
 
-#add_sub_consts: int_add(int_sub(x, C1), C2)
-#    C = C2 - C1
-#    => int_add(x, C)
-#
+add_sub_consts: int_add(int_sub(x, C1), C2)
+    C = C2 - C1
+    => int_add(x, C)
+
 #add_sub: int_add(int_sub(x, y), y)
 #    => x
 #

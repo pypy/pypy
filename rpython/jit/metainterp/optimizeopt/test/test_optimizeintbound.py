@@ -4195,6 +4195,23 @@ finish()
         ''' % (LONG_BIT//2, LONG_BIT//2)
         self.optimize_loop(ops, expected)
 
+    def test_int_add_int_sub_consts(self):
+        ops = '''
+        [i1]
+        i2 = int_sub(i1, 1)
+        i3 = int_sub(i2, 1)
+        i4 = int_add(i3, 1)
+        jump(i4)
+        '''
+        expected = '''
+        [i1]
+        i2 = int_sub(i1, 1)
+        i3 = int_sub(i1, 2) # dead
+        jump(i2)
+        '''
+        self.optimize_loop(ops, expected)
+
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_intmod_bounds(self):
