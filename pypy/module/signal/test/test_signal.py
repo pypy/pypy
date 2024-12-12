@@ -459,6 +459,8 @@ class AppTestRemotelyTriggeredDebugger:
     def setup_class(cls):
         from pypy.interpreter.gateway import interp2app
         from rpython.rlib.rsignal import pypysig_getaddr_occurred
+        if cls.runappdirect:
+            pytest.skip("can only be run untranslated")
         tmpdir = pytest.ensuretemp("signal")
         outfile = tmpdir.join('out.txt')
         script = '''

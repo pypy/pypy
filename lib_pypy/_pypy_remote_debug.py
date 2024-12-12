@@ -89,6 +89,9 @@ class ElfSectionHeader(ElfBase):
     TYPE_SYMTAB = 2
     TYPE_STRTAB = 3
 
+    name_as_bytes = None
+    section_data = None
+
     def __init__(self, data, is_64bit=False):
         self.name, self.type, self.flags, self.addr, self.offset, self.size, self.link, self.info, self.addralign, self.entsize = self._unpack(data, is_64bit)
 
@@ -117,29 +120,63 @@ def read_header(file_obj):
         raise ValueError("unknown kind of elf file")
     return ElfHeader.from_file(file_obj, is_64bit)
 
-
-def elf_find_symbol(file_obj, symbol):
+def _elf_section_headers(file_obj):
     ehdr = read_header(file_obj)
 
     symtab_data = None
     strtab_data = None
+    shstr_data = None
+    sections = []
     for section_idx in range(ehdr.shnum):
         section_header = ElfSectionHeader.from_file(file_obj, ehdr.is_64bit,
                                                     ehdr.shoff + section_idx * ehdr.shentsize)
+        file_obj.seek(section_header.offset)
+        data = file_obj.read(section_header.size)
+        section_header.section_data = data
+        sections.append(section_header)
         if section_header.type not in (ElfSectionHeader.TYPE_STRTAB, ElfSectionHeader.TYPE_SYMTAB):
             continue
 
-        file_obj.seek(section_header.offset)
-        data = file_obj.read(section_header.size)
         if section_header.type == ElfSectionHeader.TYPE_STRTAB:
             if section_idx != ehdr.shstrndx:
                 strtab_data = data
+            else:
+                shstr_data = data
         elif section_header.type == ElfSectionHeader.TYPE_SYMTAB:
             symtab_data = data
+    for section_header in sections:
+        start = section_header.name
+        end = shstr_data.find(b'\0', start)
+        assert end >= 0
+        section_header.name_as_bytes = shstr_data[start: end]
+    return sections, symtab_data, strtab_data
 
+
+def elf_find_symbol(file_obj, symbol):
+    sections, symtab_data, strtab_data = _elf_section_headers(file_obj)
     assert strtab_data is not None
-    assert symtab_data is not None
+    file_obj.seek(0)
+    ehdr = read_header(file_obj)
+    # try the symbol table, if we have it
+    if symtab_data is not None:
+        res = _elf_find_symbol_in_symtab(ehdr, symtab_data, strtab_data, symbol)
+        if res is not None:
+            return res
+    # try the dynamic symbol table(s) next
+    for section in sections:
+        if section.name_as_bytes != b'.dynsym':
+            continue
+        res = _elf_find_symbol_in_symtab(ehdr, section.section_data, strtab_data, symbol)
+        if res is not None:
+            return res
 
+
+    if symtab_data is None:
+        raise ValueError("no symbols in elf file %s" % (file_obj, ))
+
+    raise ValueError('not found')
+
+def _elf_find_symbol_in_symtab(ehdr, symtab_data, strtab_data, symbol):
     symtabentry_nbytes = ElfSymTabEntry.NBYTES64 if ehdr.is_64bit else ElfSymTabEntry.NBYTES
     num_symbols = len(symtab_data) // symtabentry_nbytes
     for sym_idx in range(num_symbols):
@@ -156,8 +193,11 @@ def elf_find_symbol(file_obj, symbol):
         assert end >= 0
         name = strtab_data[start: end]
         if name == symbol:
-            return sym.value
-    raise ValueError('not found')
+            if sym.value:
+                return sym.value
+            if sym.info:
+                return sym.info
+    return None
 
 def elf_read_first_load_section(file_obj):
     ehdr = read_header(file_obj)
@@ -253,6 +293,23 @@ def _find_file_and_base_addr(pid):
             raise ValueError('could not find executable nor libpypy.so in /proc/%s/maps' % pid)
     return maps[0]['file'], maps[0]['from_']
 
+def _check_elf_debuglink(file):
+    with open(file, 'rb') as f:
+        sections, _, _ = _elf_section_headers(f)
+        debuglinks = [section for section in sections if section.name_as_bytes == b'.gnu_debuglink']
+        if debuglinks:
+            debuglink = debuglinks[0]
+            end = debuglink.section_data.find(b'\x00')
+            fn = debuglink.section_data[:end]
+            res = os.path.join(os.path.dirname(os.path.realpath(file)), fn)
+            try:
+                os.stat(res)
+            except OSError:
+                pass
+            else:
+                return res
+    return file
+
 # __________________________________________________________
 # actually starting the debugger
 
@@ -265,6 +322,8 @@ SCRIPT_MAX = 4096
 
 def compute_remote_addr(pid):
     file, base_addr = _find_file_and_base_addr(pid)
+    origfile = file
+    file = _check_elf_debuglink(file)
     with open(file, 'rb') as f:
         symbol_value = elf_find_symbol(f, b'pypysig_counter')
         f.seek(0)
