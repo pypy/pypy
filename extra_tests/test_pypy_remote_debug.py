@@ -24,7 +24,7 @@ def test_elf_find_symbol():
         value = _pypy_remote_debug.elf_find_symbol(f, b'pypysig_counter')
     # compare against output of nm
     out = subprocess.check_output(['nm', file])
-    for line in out.splitlines():
+    for line in out.decode('ascii').splitlines():
         if 'pypysig_counter' in line:
             addr, _, _ = line.split()
             assert int(addr, 16) == value
@@ -41,7 +41,7 @@ def test_elf_read_first_load_section():
 
     # compare against output of objdump
     out = subprocess.check_output(['objdump', '-p', file])
-    for line in out.splitlines():
+    for line in out.decode('ascii').splitlines():
         if 'LOAD' in line:
             outline = line
             break
@@ -56,8 +56,8 @@ def test_read_memory():
     pid = os.getpid()
     data = b'hello, world!'
     sourcebuffer = ffi.new('char[]', len(data))
-    for i, char in enumerate(data):
-        sourcebuffer[i] = char
+    for i in range(len(data)):
+        sourcebuffer[i] = data[i:i+1]
     result = _pypy_remote_debug.read_memory(pid, int(ffi.cast('intptr_t', sourcebuffer)), len(data))
     assert result == data
 
@@ -86,7 +86,7 @@ sys.stdin.readline()
     pid = out.pid
     file, base_addr = _pypy_remote_debug._find_file_and_base_addr(pid)
     assert file == sys.executable or 'libpypy' in file
-    out.stdin.write('1\n')
+    out.stdin.write(b'1\n')
     out.stdin.flush()
     out.wait()
 
@@ -98,7 +98,7 @@ import time
 for i in range(20):
     time.sleep(0.1)
 """
-        debug_code = r"""
+        debug_code = rb"""
 import sys, os
 sys.stdout.write('hello from %s\n' % os.getpid())
 sys.stdout.flush()
@@ -108,9 +108,9 @@ sys.stdout.flush()
         pid = out.pid
         func(pid, debug_code)
         l = [out.stdout.readline() for _ in range(len(debug_code.splitlines()) + 2)]
-        assert ''.join(l) == 'Executing remote debugger script:\n%s\n' % debug_code
+        assert b''.join(l) == b'Executing remote debugger script:\n%s\n' % debug_code
         l = out.stdout.readline()
-        assert l == 'hello from %s\n' % pid
+        assert l == ('hello from %s\n' % pid).encode('ascii')
         exitcode = out.wait()
         assert exitcode == 0
 
