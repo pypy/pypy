@@ -73,5 +73,6 @@ class AppTestDebug:
         assert ts2 > ts1
 
     def test_remote_exec_exists(self):
+        import __pypy__
         assert hasattr(__pypy__, 'remote_exec')
         # real test in test_pypy_remote_debug.py
