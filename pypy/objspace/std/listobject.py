@@ -1570,8 +1570,10 @@ class AbstractUnwrappedStrategy(object):
             if source is dest:
                 assert (source_start + length <= dest_start or
                         dest_start + length <= source_start)
-        for i in range(length):
+        i = 0
+        while i < length:
             dest[i + dest_start] = source[i + source_start]
+            i += 1
 
     def _resize_ge(self, w_list, newsize):
         l = self.unerase(w_list.lstorage)
@@ -1855,13 +1857,9 @@ class AbstractUnwrappedStrategy(object):
             else:
                 # start < 0 is only possible with slicelength == 0
                 assert start >= 0
-                # YYY listcopy
-                # del items[start:start + delta]
                 index = start
                 items = self.unerase(w_list.lstorage)
-                for i in range(start + delta, oldsize):
-                    items[index] = items[i]
-                    index += 1
+                self._arraymove(items, start + delta, start, oldsize - start - delta)
                 self._arrayclear(items, oldsize - delta, oldsize)
                 self._resize_le(w_list, oldsize - delta)
         elif len2 != slicelength:  # No resize for extended slices
