@@ -466,6 +466,7 @@ with open(%r, 'w') as f:
     f.write('done')
 print('done')
 ''' % str(outfile)
+        cls.w_script = cls.space.newtext(script)
         cls.w_outfile = cls.space.wrap(
             str(outfile))
         def trigger_debugger(space):
@@ -483,3 +484,15 @@ print('done')
             content = f.read()
             assert content == 'done'
 
+    def test_audit_hook(self):
+        import __pypy__
+        import sys
+        l = []
+        def f(*args):
+            l.append(args)
+        sys.addaudithook(f)
+        try:
+            self.trigger_debugger()
+            assert l[0] == ('remote_exec', (self.script, ))
+        finally:
+            __pypy__._testing_clear_audithooks()

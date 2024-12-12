@@ -173,6 +173,7 @@ def run_debugger(space, script):
     from rpython.rlib import streamio
     try:
         w_script = space.call_method(space.newbytes(script), 'decode', space.newtext('utf-8'))
+        space.audit('remote_exec', [w_script])
         msg = "Executing remote debugger script:\n"
         w_msg = space.add(space.newtext(msg), w_script)
         w_msg = space.add(w_msg, space.newtext('\n'))
