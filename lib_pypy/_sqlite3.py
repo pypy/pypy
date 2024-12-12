@@ -212,6 +212,7 @@ class Connection(object):
 
     def __init__(self, database, timeout=5.0, detect_types=0, isolation_level="",
                  check_same_thread=True, factory=None, cached_statements=100, uri=0):
+        sys.audit("sqlite3.connect", database)
         self.__initialized = True
         db_star = _ffi.new('sqlite3 **')
 
@@ -265,6 +266,7 @@ class Connection(object):
         self.IntegrityError = IntegrityError
         self.DataError = DataError
         self.NotSupportedError = NotSupportedError
+        sys.audit("sqlite3.connect/handle", self)
 
     def __del__(self):
         if self._db:
@@ -744,6 +746,7 @@ class Connection(object):
         @_check_thread_wrap
         @_check_closed_wrap
         def enable_load_extension(self, enabled):
+            sys.audit("sqlite3.enable_load_extension", self, enabled)
             rc = _lib.sqlite3_enable_load_extension(self._db, int(enabled))
             if rc != _lib.SQLITE_OK:
                 raise OperationalError("Error enabling load extension")
@@ -789,6 +792,7 @@ class Connection(object):
         @_check_thread_wrap
         @_check_closed_wrap
         def load_extension(self, ext_name):
+            sys.audit("sqlite3.load_extension", self, ext_name)
             errmsg = _ffi.new('char **')
             ext_name_b = ext_name.encode()
             null = _ffi.cast('char *', 0)
