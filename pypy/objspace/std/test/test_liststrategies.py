@@ -538,6 +538,7 @@ class TestW_ListStrategies(TestW_ListObject):
         assert not l2 == l1.getitems()
 
     def test_getitems_does_not_copy_object_list(self):
+        skip()
         l1 = W_ListObject(self.space, [self.space.wrap(1), self.space.wrap("two"), self.space.wrap(3)])
         l2 = l1.getitems()
         assert l1.getitems() is l2

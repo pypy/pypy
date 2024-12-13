@@ -300,6 +300,21 @@ class TestOtherContainers(BaseTestPyPyC):
         opnames = log.opnames(ops)
         assert "new_with_vtable" not in opnames
 
+    def test_reverse_doesnt_escape_w_list(self):
+        def main():
+            res = 0
+            for i in range(10000):
+                l = [1, 2, i, 3, 4, i+1]
+                l.reverse() # ID: reverse
+                res += l[0] - len(l)
+            return res
+
+        log = self.run(main, [])
+        loop, = log.loops_by_id("reverse")
+        ops = loop.ops_by_id("reverse")
+        opnames = log.opnames(ops)
+        assert ops == []
+
     def test_dict_values_single_copy(self):
         def main():
             res = 0

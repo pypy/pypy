@@ -1891,6 +1891,10 @@ class AbstractUnwrappedStrategy(object):
                 assert step == -1
                 w_list.reverse()
                 return
+        if step == 1:
+            self._arraycopy(other_items, items, 0, start, len2)
+            return
+
         for i in range(len2):
             items[start] = other_items[i]
             start += step
@@ -1967,9 +1971,13 @@ class AbstractUnwrappedStrategy(object):
     def reverse(self, w_list):
         length = w_list.length()
         items = self.unerase(w_list.lstorage)
+        self._reverse(items, length)
+
+    @staticmethod
+    @jit.look_inside_iff(lambda items, length: jit.isvirtual(l))
+    def _reverse(items, length):
         i = 0
         length_1_i = length - 1 - i
-        # YYY make w_list not escape
         while i < length_1_i:
             tmp = items[i]
             items[i] = items[length_1_i]
