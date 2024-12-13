@@ -1548,16 +1548,22 @@ class AbstractUnwrappedStrategy(object):
         for i in range(start, stop):
             items[i] = self._none_value
 
-    # YYY oopspec
-    def _arraymove(self, items, source_start, dest_start, length):
+    @staticmethod
+    @jit.oopspec('list.ll_arraymove(array, source_start, dest_start, length)')
+    def _arraymove(array, source_start, dest_start, length):
         # YYY communicate with GC somehow
         delta = dest_start - source_start
         if delta < 0:
-            for i in range(source_start, source_start + length):
-                items[i + delta] = items[i]
+            i = source_start
+            length += source_start
+            while i < length:
+                array[i + delta] = array[i]
+                i += 1
         elif delta > 0:
-            for i in range(source_start + length - 1, source_start - 1, -1):
-                items[i + delta] = items[i]
+            i = source_start + length - 1
+            while i >= source_start:
+                array[i + delta] = array[i]
+                i -= 1
 
     @staticmethod
     @jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
