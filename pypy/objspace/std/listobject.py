@@ -1580,26 +1580,65 @@ class AbstractUnwrappedStrategy(object):
             i += 1
 
     def _resize_ge(self, w_list, newsize):
+        """This is called with 'newsize' larger than the current length of the
+        list.  If the list storage doesn't have enough space, then really
+        allocate more space.  In the common case where we already overallocated
+        enough, then this is a very fast operation.
+        """
         l = self.unerase(w_list.lstorage)
         cond = len(l) < newsize
-        # YYY jit stuff
-        if cond:
-            self._list_resize_really(w_list, newsize)
+        if jit.isconstant(len(l)) and jit.isconstant(newsize):
+            if cond:
+                self._list_resize_hint_really(self, w_list, newsize, True)
+        else:
+            func = self._list_resize_hint_really
+            jit.conditional_call(cond,
+                                 func, self, w_list, newsize, True)
         w_list._set_length(newsize)
 
     def _resize_le(self, w_list, newsize):
-        """This is called with 'newsize' smaller than the current length of the
-        list.  If 'newsize' falls lower than half the allocated size, proceed
-        with the realloc() to shrink the list.
+        """This is called with 'newsize' smaller than the current physical
+        length of the list.  If 'newsize' falls lower than half the allocated
+        size, proceed with the shrinking the list.
         """
         l = self.unerase(w_list.lstorage)
         cond = newsize < (len(l) >> 1) - 5
-        # YYY jit stuff
-        if cond:
-            self._list_resize_really(w_list, newsize, False)
+        # note: overallocate=False should be safe here
+        if jit.isconstant(len(l)) and jit.isconstant(newsize):
+            if cond:
+                self._list_resize_hint_really(self, w_list, newsize, False)
+        else:
+            func = self._list_resize_hint_really
+            jit.conditional_call(cond, func, self, w_list, newsize,
+                                 False)
         w_list._set_length(newsize)
 
-    def _list_resize_really(self, w_list, newsize, overallocate=True):
+    def _resize_hint(self, w_list, hint):
+        """Ensure l.items has room for at least newsize elements without
+        setting l.length to newsize.
+
+        Used before (and after) a batch operation that will likely grow the
+        list to the newsize (and after the operation incase the initial
+        guess lied).
+        """
+        assert hint >= 0, "negative list length"
+        l = self.unerase(w_list.lstorage)
+        allocated = len(l)
+        if hint > allocated:
+            overallocate = True
+        elif hint < (allocated >> 1) - 5:
+            overallocate = False
+        else:
+            return
+        self._list_resize_hint_really(self, w_list, hint, overallocate)
+
+
+    @staticmethod # bizarre jit hack to support conditional_call
+    @jit.look_inside_iff(
+        lambda self, w_list, newsize, overallocate:
+            jit.isconstant(len(self.unerase(w_list.lstorage))) and
+                jit.isconstant(newsize))
+    def _list_resize_hint_really(self, w_list, newsize, overallocate):
         """
         Ensure w_list has room for at least newsize elements.  Note that
         w_list.lstorage may change, and even if newsize is less than
@@ -1622,7 +1661,7 @@ class AbstractUnwrappedStrategy(object):
         l = self.unerase(w_list.lstorage)
         newitems = [self._none_value] * new_allocated
         before_len = w_list.length()
-        if before_len:   # avoids copying GC flags from the prebuilt_empty_array
+        if before_len:
             if before_len < newsize:
                 p = before_len
             else:
@@ -1660,13 +1699,6 @@ class AbstractUnwrappedStrategy(object):
         w_clone = W_ListObject.from_storage_and_strategy(
                 self.space, storage, self, w_list.length())
         return w_clone
-
-    def _resize_hint(self, w_list, hint):
-        l = self.unerase(w_list.lstorage)
-        cond = len(l) < hint
-        # YYY jit stuff
-        if cond:
-            self._list_resize_really(w_list, hint)
 
     def copy_into(self, w_list, w_other):
         w_other.strategy = self
