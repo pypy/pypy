@@ -1253,8 +1253,7 @@ class BaseRangeListStrategy(ListStrategy):
     def switch_to_integer_strategy(self, w_list):
         items = self._getitems_range(w_list, False)
         strategy = w_list.strategy = self.space.fromcache(IntegerListStrategy)
-        # YYY
-        w_list.lstorage = strategy.erase(items[:])
+        w_list.lstorage = strategy.erase(resizable_list_extract_storage(items))
 
     def wrap(self, intval):
         return self.space.newint(intval)
@@ -1284,8 +1283,7 @@ class BaseRangeListStrategy(ListStrategy):
         return self.wrap(self._getitem_unwrapped(w_list, i))
 
     def getitems_int(self, w_list):
-        # YYY
-        return self._getitems_range(w_list, False)[:]
+        return self._getitems_range(w_list, False)
 
     def getitems_copy(self, w_list):
         return self._getitems_range(w_list, True)
@@ -1974,7 +1972,7 @@ class AbstractUnwrappedStrategy(object):
         self._reverse(items, length)
 
     @staticmethod
-    @jit.look_inside_iff(lambda items, length: jit.isvirtual(l))
+    @jit.look_inside_iff(lambda items, length: jit.isvirtual(items) and jit.isconstant(length))
     def _reverse(items, length):
         i = 0
         length_1_i = length - 1 - i
@@ -2087,7 +2085,7 @@ class IntegerListStrategy(ListStrategy):
         sorter = IntSort(l, w_list.length())
         sorter.sort()
         if reverse:
-            l.reverse()
+            self.reverse(w_list)
 
     def getitems_int(self, w_list):
         return self.unerase(w_list.lstorage)[:w_list.length()]
@@ -2097,11 +2095,11 @@ class IntegerListStrategy(ListStrategy):
 
     def _extend_from_list(self, w_list, w_other):
         if isinstance(w_other.strategy, BaseRangeListStrategy):
-            l = self.unerase(w_list.lstorage)
-            other = w_other.getitems_int()
+            other = resizable_list_extract_storage(w_other.getitems_int())
             assert other is not None
-            # YYY
-            self._extend_from_list_prefix(w_list, other[:], len(other))
+            # XXX could conceivably done more efficiently, unlikely to be worth
+            # it
+            self._extend_from_list_prefix(w_list, other, len(other))
             return
         if (w_other.strategy is self.space.fromcache(FloatListStrategy) or
             w_other.strategy is self.space.fromcache(IntOrFloatListStrategy)):
@@ -2115,8 +2113,9 @@ class IntegerListStrategy(ListStrategy):
 
     def setslice(self, w_list, start, step, slicelength, w_other):
         if w_other.strategy is self.space.fromcache(RangeListStrategy):
-            # YYY
-            storage = self.erase(w_other.getitems_int()[:])
+            # XXX could conceivably done more efficiently, unlikely to be worth
+            # it
+            storage = self.erase(resizable_list_extract_storage(w_other.getitems_int()))
             w_other = W_ListObject.from_storage_and_strategy(
                     self.space, storage, self, w_other.length())
         if (w_other.strategy is self.space.fromcache(FloatListStrategy) or
@@ -2368,7 +2367,7 @@ class IntOrFloatListStrategy(ListStrategy):
     _base_extend_from_list = _extend_from_list
 
     def _extend_from_list(self, w_list, w_other):
-        # YYY what about RangeListStrategy?
+        # XXX what about RangeListStrategy?
         if w_other.strategy is self.space.fromcache(IntegerListStrategy):
             try:
                 longlong_list = IntegerListStrategy.int_2_float_or_int(w_other)

@@ -300,7 +300,7 @@ class TestOtherContainers(BaseTestPyPyC):
         opnames = log.opnames(ops)
         assert "new_with_vtable" not in opnames
 
-    def test_reverse_doesnt_escape_w_list(self):
+    def test_reverse_doesnt_escape_list(self):
         def main():
             res = 0
             for i in range(10000):
@@ -310,6 +310,22 @@ class TestOtherContainers(BaseTestPyPyC):
             return res
 
         log = self.run(main, [])
+        loop, = log.loops_by_id("reverse")
+        ops = loop.ops_by_id("reverse")
+        opnames = log.opnames(ops)
+        assert ops == []
+
+        # in this variant the array escapes, but not the w_list
+        def main2():
+            res = 0
+            l = [1, 2, 3]
+            for i in range(10000):
+                l2 = list(l)
+                l2.reverse() # ID: reverse
+                res += l2[0] - len(l2)
+            return res
+
+        log = self.run(main2, [])
         loop, = log.loops_by_id("reverse")
         ops = loop.ops_by_id("reverse")
         opnames = log.opnames(ops)

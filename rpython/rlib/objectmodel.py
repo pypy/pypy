@@ -536,8 +536,8 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, s_l):
         from rpython.annotator import model as annmodel
         if annmodel.s_None.contains(s_l):
-            pass # first argument is only None so far, but we
-                 # expect a generalization later
+            return s_l # first argument is only None so far, but we
+                       # expect a generalization later
         elif not isinstance(s_l, annmodel.SomeList):
             raise annmodel.AnnotatorError("First argument must be a list")
         s_l.listdef.resize()
