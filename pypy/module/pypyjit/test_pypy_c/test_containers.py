@@ -315,21 +315,23 @@ class TestOtherContainers(BaseTestPyPyC):
         opnames = log.opnames(ops)
         assert ops == []
 
+    def test_reverse_doesnt_escape_w_list(self):
         # in this variant the array escapes, but not the w_list
         def main2():
             res = 0
             l = [1, 2, 3]
             for i in range(10000):
                 l2 = list(l)
-                l2.reverse() # ID: reverse
+                i -= 1
+                l2.reverse() # ID: reverse2
                 res += l2[0] - len(l2)
             return res
 
         log = self.run(main2, [])
-        loop, = log.loops_by_id("reverse")
-        ops = loop.ops_by_id("reverse")
+        loop, = log.loops_by_id("reverse2")
+        ops = loop.ops_by_id("reverse2")
         opnames = log.opnames(ops)
-        assert ops == []
+        assert opnames == ['call_n']
 
     def test_dict_values_single_copy(self):
         def main():

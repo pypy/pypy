@@ -1972,7 +1972,8 @@ class AbstractUnwrappedStrategy(object):
         self._reverse(items, length)
 
     @staticmethod
-    @jit.look_inside_iff(lambda items, length: jit.isvirtual(items) and jit.isconstant(length))
+    @jit.look_inside_iff(lambda items, length: jit.isvirtual(items) and
+                         jit.isconstant(length))
     def _reverse(items, length):
         i = 0
         length_1_i = length - 1 - i
