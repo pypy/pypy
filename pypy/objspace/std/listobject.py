@@ -1881,11 +1881,8 @@ class AbstractUnwrappedStrategy(object):
                 newsize = oldsize + delta
                 self._resize_ge(w_list, newsize)
                 items = self.unerase(w_list.lstorage)
-                lim = start + len2
-                i = newsize - 1
-                while i >= lim:
-                    items[i] = items[i - delta]
-                    i -= 1
+                self._arraymove(items, start + slicelength, start + len2,
+                                oldsize - start - slicelength)
             elif delta == 0:
                 pass
             else:
@@ -1910,15 +1907,7 @@ class AbstractUnwrappedStrategy(object):
             other_items = self.unerase(w_other.lstorage)
         if other_items is items:
             if step > 0:
-                # Always copy starting from the right to avoid
-                # having to make a shallow copy in the case where
-                # the source and destination lists are the same list.
-                i = len2 - 1
-                start += i * step
-                while i >= 0:
-                    items[start] = other_items[i]
-                    start -= step
-                    i -= 1
+                self._setslice_copy_self_is_other(items, start, step, len2)
                 return
             else:
                 # other_items is items and step is < 0, therefore:
@@ -1929,9 +1918,23 @@ class AbstractUnwrappedStrategy(object):
             self._arraycopy(other_items, items, 0, start, len2)
             return
 
+        self._setslice_copy_with_step(items, other_items, start, step, len2)
+
+    def _setslice_copy_with_step(self, items, other_items, start, step, len2):
         for i in range(len2):
             items[start] = other_items[i]
             start += step
+
+    def _setslice_copy_self_is_other(self, items, start, step, len2):
+        # Always copy starting from the right to avoid
+        # having to make a shallow copy in the case where
+        # the source and destination lists are the same list.
+        i = len2 - 1
+        start += i * step
+        while i >= 0:
+            items[start] = items[i]
+            start -= step
+            i -= 1
 
     def _deleteslice_step(self, items, length, start, step, slicelength):
         # YYY oopspec? unroll?
