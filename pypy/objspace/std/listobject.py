@@ -488,9 +488,6 @@ class W_ListObject(W_Root):
         # exposed in __pypy__
         return self.strategy.physical_size(self)
 
-    def add(self, w_other):
-        """ add self to w_other """
-        return self.strategy.add(self, w_other)
 
     # exposed to app-level
 
@@ -596,6 +593,7 @@ class W_ListObject(W_Root):
                 sizehint = ovfcheck(length1 + length2)
             except OverflowError:
                 raise MemoryError
+            assert sizehint >= 0
         w_clone = self.clone(sizehint=sizehint)
         w_clone.extend(w_list2)
         return w_clone
@@ -1935,7 +1933,24 @@ class AbstractUnwrappedStrategy(object):
             items[start] = other_items[i]
             start += step
 
+    def _deleteslice_step(self, items, length, start, step, slicelength):
+        # YYY oopspec? unroll?
+        # YYY various arraymoves
+        i = start
+        for discard in range(1, slicelength):
+            j = i + 1
+            i += step
+            while j < i:
+                items[j - discard] = items[j]
+                j += 1
+
+        j = i + 1
+        while j < length:
+            items[j - slicelength] = items[j]
+            j += 1
+
     def deleteslice(self, w_list, start, step, slicelength):
+        # YYY need test_pypy_c test for not escaping the w_list
         items = self.unerase(w_list.lstorage)
         if slicelength == 0:
             return
@@ -1951,20 +1966,8 @@ class AbstractUnwrappedStrategy(object):
             self._arraymove(
                 items, start + slicelength, start, length - start - slicelength)
         else:
-            i = start
+            self._deleteslice_step(items, length, start, step, slicelength)
 
-            # YYY various arraymoves
-            for discard in range(1, slicelength):
-                j = i + 1
-                i += step
-                while j < i:
-                    items[j - discard] = items[j]
-                    j += 1
-
-            j = i + 1
-            while j < length:
-                items[j - slicelength] = items[j]
-                j += 1
         self._arrayclear(items, length - slicelength, length)
         self._resize_le(w_list, length - slicelength)
 
