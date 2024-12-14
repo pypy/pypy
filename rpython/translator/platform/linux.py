@@ -19,8 +19,8 @@ class Linux(BasePosix):
               # The parser turns 'const char *const *includes' into 'const const char **includes'
               '-Wno-duplicate-decl-specifier',
               # These make older gcc  behave like gcc-14
-              # '-Werror=incompatible-pointer-types', '-Werror=implicit',
-              # '-Werror=int-conversion',
+              '-Werror=incompatible-pointer-types', '-Werror=implicit',
+              '-Werror=int-conversion',
              ]
              + os.environ.get('CFLAGS', '').split())
     standalone_only = ()

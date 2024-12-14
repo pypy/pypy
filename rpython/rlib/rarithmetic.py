@@ -626,6 +626,8 @@ else:
     r_int32 = build_int('r_int32', True, 32)     # also needed for rposix_stat.time_t_to_FILE_TIME in the 64 bit case
     r_uint32 = build_int('r_uint32', False, 32)
 
+r_size_t = build_int('r_size_t', False, 64, force_creation=True)
+r_ssize_t = build_int('r_ssize_t', False, 64, force_creation=True)
 
 SHRT_MIN = -2**(_get_bitsize('h') - 1)
 SHRT_MAX = 2**(_get_bitsize('h') - 1) - 1
