@@ -749,7 +749,7 @@ class W_ListObject(W_Root):
         '''L.pop([index]) -> item -- remove and return item at
         index (default last)'''
         length = self.length()
-        if length == 0:
+        if length <= 0: # length cannot actually be < 0, but this way the jit learns that too
             raise oefmt(space.w_IndexError, "pop from empty list")
         # clearly differentiate between list.pop() and list.pop(index)
         if index == -1:
@@ -978,7 +978,7 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def pop_end(self, w_list):
-        return self.pop(w_list, self.length(w_list) - 1)
+        return self.pop(w_list, w_list.length() - 1)
 
     def setitem(self, w_list, index, w_item):
         raise NotImplementedError
@@ -1058,7 +1058,7 @@ class ListStrategy(object):
     def _unrolling_heuristic(self, w_list):
         # default implementation: we will only go by size, not whether the list
         # is virtual
-        size = self.length(w_list)
+        size = w_list.length()
         return size == 0 or (jit.isconstant(size) and size <= UNROLL_CUTOFF)
 
 

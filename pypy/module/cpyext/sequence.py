@@ -305,10 +305,6 @@ class CPyListStrategy(ListStrategy):
         storage._elems[index] = make_ref(w_list.space, w_obj)
         decref(w_list.space, py_old)
 
-    def length(self, w_list):
-        storage = self.unerase(w_list.lstorage)
-        return storage._length
-
     def getslice(self, w_list, start, stop, step, length):
         w_list.switch_to_object_strategy()
         return w_list.strategy.getslice(w_list, start, stop, step, length)
@@ -424,7 +420,6 @@ class CPyListStorage(object):
         self.space = space
         self._elems = lltype.malloc(PyObjectList.TO, len(lst), flavor='raw')
         self._length = len(lst)
-        self._allocated = len(lst)
         for i, item in enumerate(lst):
             self._elems[i] = make_ref(space, lst[i])
 
