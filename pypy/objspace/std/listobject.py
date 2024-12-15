@@ -1262,7 +1262,8 @@ class BaseRangeListStrategy(ListStrategy):
         return self.space.newint(intval)
 
     def unwrap(self, w_int):
-        return self.space.int_w(w_int)
+        assert type(w_int) is W_IntObject
+        return w_int.intval
 
     def init_from_list_w(self, w_list, list_w):
         raise NotImplementedError
@@ -1682,7 +1683,6 @@ class AbstractUnwrappedStrategy(object):
     @jit.look_inside_iff(lambda space, list_w:
             jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
     def _init_from_list_w_helper(self, list_w):
-        # YYY this is call_may_force, which is not ideal
         return [self.unwrap(w_item) for w_item in list_w]
 
     def get_empty_storage(self, sizehint):
@@ -2116,7 +2116,8 @@ class IntegerListStrategy(ListStrategy):
         return self.space.newint(intval)
 
     def unwrap(self, w_int):
-        return self.space.int_w(w_int)
+        assert type(w_int) is W_IntObject
+        return w_int.intval
 
     def _quick_cmp(self, a, b):
         return a == b
@@ -2237,7 +2238,8 @@ class FloatListStrategy(ListStrategy):
         return self.space.newfloat(floatval)
 
     def unwrap(self, w_float):
-        return self.space.float_w(w_float)
+        assert type(w_float) is W_FloatObject
+        return w_float.floatval
 
     erase, unerase = rerased.new_erasing_pair("float")
     erase = _wrap_erase(erase)
@@ -2378,10 +2380,11 @@ class IntOrFloatListStrategy(ListStrategy):
 
     def unwrap(self, w_int_or_float):
         if type(w_int_or_float) is W_IntObject:
-            intval = self.space.int_w(w_int_or_float)
+            intval = w_int_or_float.intval
             return longlong2float.encode_int32_into_longlong_nan(intval)
         else:
-            floatval = self.space.float_w(w_int_or_float)
+            assert type(w_int_or_float) is W_FloatObject
+            floatval = w_int_or_float.floatval
             return longlong2float.float2longlong(floatval)
 
     def _quick_cmp(self, a, b):
@@ -2513,7 +2516,8 @@ class BytesListStrategy(ListStrategy):
         return self.space.newbytes(stringval)
 
     def unwrap(self, w_string):
-        return self.space.bytes_w(w_string)
+        assert type(w_string) is W_BytesObject
+        return w_string._value
 
     def _quick_cmp(self, a, b):
         return a is b
@@ -2549,7 +2553,8 @@ class AsciiListStrategy(ListStrategy):
         return self.space.newutf8(stringval, len(stringval))
 
     def unwrap(self, w_string):
-        return self.space.utf8_w(w_string)
+        assert type(w_string) is W_UnicodeObject
+        return w_string._utf8
 
     def _quick_cmp(self, a, b):
         return a is b
