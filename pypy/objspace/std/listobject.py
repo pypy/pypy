@@ -841,10 +841,7 @@ class W_ListObject(W_Root):
         finally:
             # unwrap each item if needed
             if has_key:
-                for i in range(sorter.listlength):
-                    w_obj = sorter.list[i]
-                    if isinstance(w_obj, KeyContainer):
-                        sorter.list[i] = w_obj.w_item
+                _unwrap_sorting_keys(sorter)
 
             # check if the user mucked with the list during the sort
             mucked = self.length() > 0
@@ -878,6 +875,13 @@ def _compute_keys_for_sorting(strategy, list_w, w_callable):
         w_keyitem = space.call_function(w_callable, w_item)
         list_w[i] = KeyContainer(w_keyitem, w_item)
         i += 1
+
+
+def _unwrap_sorting_keys(sorter):
+    for i in range(sorter.listlength):
+        w_obj = sorter.list[i]
+        if isinstance(w_obj, KeyContainer):
+            sorter.list[i] = w_obj.w_item
 
 def get_printable_location_find(count, strategy_type, tp):
     if count:
@@ -997,6 +1001,7 @@ class ListStrategy(object):
                 not w_any.user_overridden_class and
                 w_any.length() < UNROLL_CUTOFF
         ):
+            # YYY should deal with w_list being empty specially
             self._extend_from_tuple(w_list, w_any.tolist())
         elif space.is_generator(w_any):
             w_any.unpack_into_w(w_list)
@@ -1677,6 +1682,7 @@ class AbstractUnwrappedStrategy(object):
     @jit.look_inside_iff(lambda space, list_w:
             jit.loop_unrolling_heuristic(list_w, len(list_w), UNROLL_CUTOFF))
     def _init_from_list_w_helper(self, list_w):
+        # YYY this is call_may_force, which is not ideal
         return [self.unwrap(w_item) for w_item in list_w]
 
     def get_empty_storage(self, sizehint):

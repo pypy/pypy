@@ -63,6 +63,7 @@ class WeakrefLifeline(W_Root):
         w_weakreftype = space.gettypeobject(W_Weakref.typedef)
         #
         if space.is_w(w_weakreftype, w_subtype):
+            # YYY cond_call?
             if self.cached_weakref is not None:
                 w_cached = self.cached_weakref()
                 if w_cached is not None:
