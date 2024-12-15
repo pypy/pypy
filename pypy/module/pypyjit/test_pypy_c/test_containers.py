@@ -333,6 +333,21 @@ class TestOtherContainers(BaseTestPyPyC):
         opnames = log.opnames(ops)
         assert opnames == ['call_n']
 
+    def test_setslice_list(self):
+        def main():
+            l = [0, 1, 2] * 10000
+            l2 = [0, 1, 2] * 10000
+            res = 0
+            for i in range(10000):
+                rhs = l2[:i]
+                l[:i] = rhs # ID: setslice
+        log = self.run(main, [])
+        loop, = log.loops_by_id("setslice")
+        ops = loop.ops_by_id("setslice")
+        opnames = log.opnames(ops)
+        assert not any(name.startswith('call_may_force') for name in opnames)
+
+
     def test_dict_values_single_copy(self):
         def main():
             res = 0
