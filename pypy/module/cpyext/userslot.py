@@ -16,6 +16,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.argument import Arguments
 from pypy.module.cpyext.api import (
     slot_function, PyObject, Py_ssize_t, Py_bufferP, PyTypeObjectPtr,
+    CANNOT_FAIL,
     )
 from pypy.module.cpyext.memoryobject import fill_Py_buffer
 from pypy.module.cpyext.pyobject import make_ref
@@ -214,3 +215,6 @@ def slot_bf_getbuffer(space, w_self, c_view, flags):
         return ret
     return 0
 
+@slot_function([PyObject, Py_bufferP], lltype.Void, error=CANNOT_FAIL)
+def slot_bf_releasebuffer(space, w_self, c_view):
+    return

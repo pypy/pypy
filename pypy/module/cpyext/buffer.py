@@ -46,7 +46,7 @@ class CPyBuffer(BufferView):
     def __init__(self, space, ptr, size, w_obj, format='B', shape=None,
                  strides=None, ndim=1, itemsize=1, readonly=True,
                  needs_decref=False,
-                 releasebufferproc=rffi.cast(rffi.VOIDP, 0)):
+                 releasebufferproc=rffi.cast(releasebufferproc, 0)):
         self.space = space
         self.ptr = ptr
         self.size = size

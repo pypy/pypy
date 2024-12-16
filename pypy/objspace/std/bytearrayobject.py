@@ -593,6 +593,11 @@ class W_BytearrayObject(W_Root):
         index = space.getindex_w(w_index, space.w_IndexError, self._KIND1)
         return self._getitem_result(space, index)
 
+    def descr_releasebuffer(self, w_view):
+        # in CPython this decrements a counter that is incremented by getbuffer,
+        # and the counter is checked at deallocation. Used in the C-API
+        return None
+
 # ____________________________________________________________
 
 
@@ -1243,7 +1248,7 @@ W_BytearrayObject.typedef = TypeDef(
 
     __getitem__ = interp2app(W_BytearrayObject.descr_getitem,
                              doc=BytearrayDocstrings.__getitem__.__doc__),
-
+    __release_buffer__ = interp2app(W_BytearrayObject.descr_releasebuffer),
     capitalize = interp2app(W_BytearrayObject.descr_capitalize,
                             doc=BytearrayDocstrings.capitalize.__doc__),
     center = interp2app(W_BytearrayObject.descr_center,

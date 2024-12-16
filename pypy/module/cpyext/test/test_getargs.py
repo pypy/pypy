@@ -1,4 +1,4 @@
-
+from __future__ import print_function
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 
@@ -244,9 +244,9 @@ class AppTestGetargs(AppTestCpythonExtensionBase):
             module.getargs_y_star(NONCONTIG_READONLY)
         assert module.getargs_y(b'bytes') ==  b'bytes'
         with raises(TypeError):
-            # Fails since we are not assigning a bf_releasebuffer function
-            # to memoryviews, see issue 5100
             module.getargs_y(memoryview(b'memoryview'))
+        with raises(TypeError):
+            module.getargs_y(bytearray(b'memoryview'))
 
     def test_d(self):
         module = self.import_extension('foo', [

@@ -428,6 +428,12 @@ class W_MemoryView(W_Root):
             self.view.releasebuffer()
         self.view = None
 
+    def descr_release_buffer(self, space, w_view):
+        # assert view is w_view
+        if self.view:
+            self.view.releasebuffer()
+        self.view = None
+
     def _check_released(self, space):
         if self.view is None:
             raise oefmt(space.w_ValueError,
@@ -703,6 +709,7 @@ Create a new memoryview object which references the given object.
     tolist      = interp2app(W_MemoryView.descr_tolist),
     toreadonly  = interp2app(W_MemoryView.descr_toreadonly),
     release     = interp2app(W_MemoryView.descr_release),
+    __release_buffer__ = interp2app(W_MemoryView.descr_release_buffer),
     format      = GetSetProperty(W_MemoryView.w_get_format),
     itemsize    = GetSetProperty(W_MemoryView.w_get_itemsize),
     ndim        = GetSetProperty(W_MemoryView.w_get_ndim),
