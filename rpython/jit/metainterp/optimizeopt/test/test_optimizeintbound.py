@@ -4211,6 +4211,21 @@ finish()
         '''
         self.optimize_loop(ops, expected)
 
+        ops = '''
+        [i1]
+        i2 = int_sub(-1, i1)
+        i3 = int_add(i2, 1)
+        i4 = int_neg(i1)
+        jump(i4, i3)
+        '''
+        expected = '''
+        [i1]
+        i2 = int_sub(-1, i1)
+        i4 = int_neg(i1)
+        jump(i4, i4)
+        '''
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 
