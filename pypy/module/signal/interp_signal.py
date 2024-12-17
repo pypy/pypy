@@ -101,7 +101,7 @@ class CheckSignalAction(PeriodicAsyncAction):
     def _poll_for_signals(self):
         # Poll for the next signal, if any
         n = self.pending_signal
-        p = pypysig_getaddr_occurred()
+        p = pypysig_getaddr_occurred_fullstruct()
         if p.c_debugger_pending_call:
             script = rffi.charp2str(p.c_debugger_script)
             p.c_debugger_pending_call = 0

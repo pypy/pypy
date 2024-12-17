@@ -26,8 +26,12 @@ void pypysig_pushback(int signum);
 #define SCRIPT_MAX 4096
 
 /* When a signal is received, pypysig_counter is set to -1. */
-struct pypysig_long_struct {
+struct pypysig_long_struct_inner {
     Signed value;
+};
+
+struct pypysig_long_struct {
+    struct pypysig_long_struct_inner inner;
     /* mechanism to start a debugger remotely, via process_vm_writev:
      * - write a .py path to debugger_script_path
      * - set debugger_pending_call to 1
@@ -48,9 +52,9 @@ void *pypysig_getaddr_occurred(void);
 
 inline static char pypysig_check_and_reset(void) {
     /* used by reverse_debugging */
-    char result = --pypysig_counter.value < 0;
+    char result = --pypysig_counter.inner.value < 0;
     if (result)
-        pypysig_counter.value = 100;
+        pypysig_counter.inner.value = 100;
     return result;
 }
 

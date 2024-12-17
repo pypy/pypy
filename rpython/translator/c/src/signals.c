@@ -43,7 +43,7 @@
 #define PYPYSIG_NO_WARN_FULL    0x04
 
 struct pypysig_long_struct pypysig_counter = {
-    0,
+    { 0, },
     "pypysigs",
     0,
 };
@@ -109,7 +109,7 @@ void pypysig_pushback(int signum)
             ok = atomic_cas(&pypysig_flags_bits[index], value, value | bitmask);
         } while (!ok);
 
-        pypysig_counter.value = -1;
+        pypysig_counter.inner.value = -1;
       }
 }
 
