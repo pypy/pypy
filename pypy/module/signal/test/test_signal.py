@@ -458,7 +458,7 @@ class AppTestRemotelyTriggeredDebugger:
 
     def setup_class(cls):
         from pypy.interpreter.gateway import interp2app
-        from rpython.rlib.rsignal import pypysig_getaddr_occurred
+        from rpython.rlib.rsignal import pypysig_getaddr_occurred_fullstruct
         if cls.runappdirect:
             pytest.skip("can only be run untranslated")
         tmpdir = pytest.ensuretemp("signal")
@@ -472,7 +472,7 @@ print('done')
         cls.w_outfile = cls.space.wrap(
             str(outfile))
         def trigger_debugger(space):
-            addr = pypysig_getaddr_occurred()
+            addr = pypysig_getaddr_occurred_fullstruct()
             for index, c in enumerate(str(script)):
                 addr.c_debugger_script[index] = c
             addr.c_debugger_script[index + 1] = '\x00'

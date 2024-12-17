@@ -315,3 +315,20 @@ invert_invert: int_invert(int_invert(x))
 neg_neg: int_neg(int_neg(x))
     => x
 
+
+#le_self: int_le(x, x)
+#    => 1
+#
+#le_known_true: int_le(x, y)
+#    check x.known_le(y)
+#    => 1
+#
+#le_known_false: int_le(x, y)
+#    check x.known_gt(y)
+#    => 0
+#
+#le_maxint: int_le(x, MAXINT)
+#    => 1
+#
+#le_minint: int_le(x, MININT)
+#    => int_eq(x, MININT)
