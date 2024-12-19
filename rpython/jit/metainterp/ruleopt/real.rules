@@ -298,6 +298,10 @@ is_zero_true: int_is_zero(x)
     check x.lower > 0 or x.upper < 0 or x.tvalue != 0
     => 0
 
+#is_zero_add: int_is_zero(int_add(x, C))
+#    check x.lower > 0-C or x.upper < 0-C
+#    => 0
+
 #is_zero_negate_eq: int_is_zero(int_eq(x, y))
 #    => int_ne(x, y)
 
@@ -344,3 +348,8 @@ neg_neg: int_neg(int_neg(x))
 #
 #le_minint: int_le(x, MININT)
 #    => int_eq(x, MININT)
+#
+#ge_from_sub: int_ge(int_sub(x, y), x)
+#    check y.known_gt_const(0)
+#    check x.sub_bound_cannot_overflow(y)
+#    => 0
