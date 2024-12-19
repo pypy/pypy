@@ -497,8 +497,8 @@ def ll_alloc_and_set(LIST, count, item):
 
 def _ll_alloc_and_set_nojit(LIST, count, item):
     l = LIST.ll_newlist(count)
-    if malloc_zero_filled and _ll_zero_or_null(item):
-        return l
+    if _ll_zero_or_null(item):
+        return _ll_alloc_and_clear(LIST, count)
     i = 0
     while i < count:
         l.ll_setitem_fast(i, item)
