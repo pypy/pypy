@@ -527,6 +527,58 @@ def ll_arrayclear(p):
         llmemory.raw_memclear(dest_addr, llmemory.sizeof(ARRAY.OF) * length)
     keepalive_until_here(p)
 
+def hl_arraycopy(source, dest, source_start, dest_start, length):
+    if not we_are_translated():
+        if source is dest:
+            assert (source_start + length <= dest_start or
+                    dest_start + length <= source_start)
+    i = 0
+    while i < length:
+        dest[i + dest_start] = source[i + source_start]
+        i += 1
+
+class HLArrayCopyEntry(ExtRegistryEntry):
+    _about_ = hl_arraycopy
+
+    def compute_result_annotation(self, *args_s):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeNone()
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        args_r = hop.inputargs(*hop.args_r)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(ll_arraycopy, *args_r)
+
+
+def hl_arraymove(array, source_start, dest_start, length):
+    delta = dest_start - source_start
+    if delta < 0:
+        i = source_start
+        length += source_start
+        while i < length:
+            array[i + delta] = array[i]
+            i += 1
+    elif delta > 0:
+        i = source_start + length - 1
+        while i >= source_start:
+            array[i + delta] = array[i]
+            i -= 1
+
+
+class HLArrayMoveEntry(ExtRegistryEntry):
+    _about_ = hl_arraymove
+
+    def compute_result_annotation(self, *args_s):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeNone()
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        args_r = hop.inputargs(*hop.args_r)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(ll_arraymove, *args_r)
+
 
 def no_release_gil(func):
     func._dont_inline_ = True

@@ -17,7 +17,7 @@ from rpython.rlib.objectmodel import (
     import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize,
     resizable_list_extract_storage, wrap_into_resizable_list, we_are_translated)
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
-from rpython.rlib import longlong2float
+from rpython.rlib import longlong2float, rgc
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.rstring import StringBuilder
 
@@ -1522,6 +1522,8 @@ class RangeListStrategy(BaseRangeListStrategy):
 
 class AbstractUnwrappedStrategy(object):
 
+    _need_clearing = True
+
     def wrap(self, unwrapped):
         raise NotImplementedError
 
@@ -1550,39 +1552,20 @@ class AbstractUnwrappedStrategy(object):
     # resizable list support
 
     def _arrayclear(self, items, start, stop):
+        if not self._need_clearing:
+            return
         for i in range(start, stop):
             items[i] = self._none_value
 
     @staticmethod
     @jit.oopspec('list.ll_arraymove(array, source_start, dest_start, length)')
     def _arraymove(array, source_start, dest_start, length):
-        # YYY communicate with GC somehow
-        delta = dest_start - source_start
-        if delta < 0:
-            i = source_start
-            length += source_start
-            while i < length:
-                array[i + delta] = array[i]
-                i += 1
-        elif delta > 0:
-            i = source_start + length - 1
-            while i >= source_start:
-                array[i + delta] = array[i]
-                i -= 1
+        rgc.hl_arraymove(array, source_start, dest_start, length)
 
     @staticmethod
     @jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
     def _arraycopy(source, dest, source_start, dest_start, length):
-        # YYY communicate with GC somehow
-        # supports non-overlapping copies only
-        if not we_are_translated():
-            if source is dest:
-                assert (source_start + length <= dest_start or
-                        dest_start + length <= source_start)
-        i = 0
-        while i < length:
-            dest[i + dest_start] = source[i + source_start]
-            i += 1
+        return rgc.hl_arraycopy(source, dest, source_start, dest_start, length)
 
     def _resize_ge(self, w_list, newsize):
         """This is called with 'newsize' larger than the current length of the
@@ -1944,8 +1927,7 @@ class AbstractUnwrappedStrategy(object):
             i -= 1
 
     def _deleteslice_step(self, items, length, start, step, slicelength):
-        # YYY oopspec? unroll?
-        # YYY various arraymoves
+        # XXX oopspec? unroll?
         i = start
         for discard in range(1, slicelength):
             j = i + 1
@@ -1998,7 +1980,8 @@ class AbstractUnwrappedStrategy(object):
         w_res = self.wrap(l[index])
         newlength = length - 1
         self._arraymove(l, index + 1, index, newlength - index)
-        l[newlength] = self._none_value
+        if self._need_clearing:
+            l[newlength] = self._none_value
         self._resize_le(w_list, newlength)
         return w_res
 
@@ -2014,7 +1997,7 @@ class AbstractUnwrappedStrategy(object):
         if times < 0:
             w_list.clear(self.space)
             return
-        # YYY can be done without the extra copy?
+        # XXX can be done without the extra copy?
         res = self.unerase(w_list.lstorage)[:w_list.length()] * times
         w_list._length *= times
         w_list.lstorage = self.erase(res)
@@ -2112,6 +2095,7 @@ class IntegerListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = 0
+    _need_clearing = False
 
     def wrap(self, intval):
         return self.space.newint(intval)
@@ -2234,6 +2218,7 @@ class FloatListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = 0.0
+    _need_clearing = False
 
     def wrap(self, floatval):
         return self.space.newfloat(floatval)
@@ -2370,6 +2355,7 @@ class IntOrFloatListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
     _none_value = longlong2float.float2longlong(0.0)
+    _need_clearing = False
 
     def wrap(self, llval):
         if longlong2float.is_int32_from_longlong_nan(llval):
