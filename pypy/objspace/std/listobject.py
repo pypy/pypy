@@ -15,7 +15,7 @@ from rpython.rlib import debug, jit, rerased, rutf8
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
     import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize,
-    resizable_list_extract_storage, we_are_translated)
+    resizable_list_extract_storage, wrap_into_resizable_list, we_are_translated)
 from rpython.rlib.rarithmetic import ovfcheck, r_uint, intmask
 from rpython.rlib import longlong2float
 from rpython.tool.sourcetools import func_with_new_name
@@ -225,6 +225,7 @@ def listrepr(space, w_currently_in_repr, w_list):
 def list_unroll_condition(w_list1, space, w_list2):
     return (w_list1._unrolling_heuristic() or w_list2._unrolling_heuristic())
 
+# YYY implement iterator_greenkey(!)
 
 class W_ListObject(W_Root):
     strategy = None
@@ -999,9 +1000,9 @@ class ListStrategy(object):
             self._extend_from_list(w_list, w_any)
         elif (isinstance(w_any, W_AbstractTupleObject) and
                 not w_any.user_overridden_class and
-                w_any.length() < UNROLL_CUTOFF
+                w_any.length() < UNROLL_CUTOFF and
+                w_list.length() > 0
         ):
-            # YYY should deal with w_list being empty specially
             self._extend_from_tuple(w_list, w_any.tolist())
         elif space.is_generator(w_any):
             w_any.unpack_into_w(w_list)
@@ -2002,8 +2003,10 @@ class AbstractUnwrappedStrategy(object):
         return w_res
 
     def mul(self, w_list, times):
-        # YYY can be done without the extra copy?
-        res = self.unerase(w_list.lstorage)[:w_list.length()] * times
+        l = self.unerase(w_list.lstorage)
+        rl = wrap_into_resizable_list(l, w_list.length())
+        resl = rl * times
+        res = resizable_list_extract_storage(resl)
         return W_ListObject.from_storage_and_strategy(
             self.space, self.erase(res), self, len(res))
 
@@ -2099,9 +2102,7 @@ class ObjectListStrategy(ListStrategy):
     def getitems(self, w_list):
         l = self.unerase(w_list.lstorage)
         length = w_list.length()
-        # YYY allow wrapping into a resizable list
-        l = l[:length]
-        return l
+        return wrap_into_resizable_list(l, length)
 
     # no sort() method here: W_ListObject.descr_sort() handles this
     # case explicitly

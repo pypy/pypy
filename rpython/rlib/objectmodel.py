@@ -569,6 +569,47 @@ class FixedSizeList(object):
     def __repr__(self):
         return "<FixedSizeList %r>" % (self._l, )
 
+def wrap_into_resizable_list(l, size):
+    assert len(l) >= size
+    if len(l) == size:
+        if isinstance(l, FixedSizeList):
+            return l._l
+        return l
+    return l[:size]
+
+def ll_wrap_into_resizable_list(cRESLIST, items, size):
+    from rpython.rtyper.lltypesystem.lltype import malloc
+    l = malloc(cRESLIST)
+    l.length = size
+    l.items = items
+    return l
+
+
+
+
+class Entry(ExtRegistryEntry):
+    _about_ = wrap_into_resizable_list
+
+    def compute_result_annotation(self, s_l, s_size):
+        from rpython.annotator import model as annmodel
+        if annmodel.s_None.contains(s_l):
+            return s_l # first argument is only None so far, but we
+                       # expect a generalization later
+        elif not isinstance(s_l, annmodel.SomeList):
+            raise annmodel.AnnotatorError("First argument must be a list")
+        s_l.listdef.never_resize()
+        s_res = s_l.listdef.offspring(self.bookkeeper)
+        s_res.listdef.resize()
+        return s_res
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        v_list, v_size = hop.inputargs(*hop.args_r)
+        cRESLIST = hop.inputconst(lltype.Void, hop.r_result.LIST)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(ll_wrap_into_resizable_list, cRESLIST, v_list, v_size)
+
+
 # ____________________________________________________________
 #
 # id-like functions.  The idea is that calling hash() or id() is not
