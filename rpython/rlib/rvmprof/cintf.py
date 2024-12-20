@@ -59,6 +59,8 @@ def make_eci():
            BACKTRACE.join('sort.c'),
         ]
         _libs = ['dl']
+        if NATIVE_PROFILING_SUPPORTED:
+            _libs.extend(['unwind', 'unwind-x86_64'])
         compile_extra += ['-DVMPROF_UNIX']
         compile_extra += ['-DVMPROF_LINUX']
     elif sys.platform == 'win32':

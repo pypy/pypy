@@ -14,6 +14,12 @@
 
 #if defined(VMPROF_LINUX)
 #include <link.h>
+#if defined(X86_64) || defined(X86_32)
+#include <stdlib.h>
+#include <unistd.h>
+#include <endian.h>
+#include <libunwind.h>
+#endif
 #endif
 
 #ifdef _PY_TEST
@@ -207,6 +213,18 @@ int backtrace_full_cb(void *data, uintptr_t pc, const char *filename,
 }
 #endif
 
+int _vmp_resolve_addr_libunwind(void * addr, char * name, int name_len, int * lineno, char * srcfile, int srcfile_len) {
+
+    unw_word_t offset = 0;
+
+    int res_funcname = unw_get_proc_name_by_ip(unw_local_addr_space, (unw_word_t) addr, name, name_len, &offset, NULL);
+    if(res_funcname == 0) {
+        //printf("libunwind found %p %s\n",addr, name);
+        return 0;
+    }
+    return 1;
+}
+
 static
 struct backtrace_state * bstate = NULL;
 
@@ -236,8 +254,9 @@ int vmp_resolve_addr(void * addr, char * name, int name_len, int * lineno, char 
                        };
     if (backtrace_pcinfo(bstate, (uintptr_t)addr, backtrace_full_cb,
                          backtrace_error_cb, (void*)&info)) {
+        return _vmp_resolve_addr_libunwind(addr, name, name_len, lineno, srcfile, srcfile_len); 
         // failed
-        return 1;
+        //return 1;
     }
 
     // nothing found, try with dladdr
@@ -248,8 +267,10 @@ int vmp_resolve_addr(void * addr, char * name, int name_len, int * lineno, char 
         if (dlinfo.dli_sname != NULL) {
             (void)strncpy(info.name, dlinfo.dli_sname, info.name_len-1);
             name[name_len-1] = 0;
+        } else {
+            // dladdr didn't find the name
+            _vmp_resolve_addr_libunwind(addr, name, name_len, lineno, srcfile, srcfile_len);
         }
-
     }
 
     // copy the shared object name to the source file name if source cannot be determined
