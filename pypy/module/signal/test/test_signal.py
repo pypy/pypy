@@ -450,3 +450,51 @@ class AppTestPThread:
 
         signal.signal(signum, signal.SIG_DFL)
 
+
+class AppTestRemotelyTriggeredDebugger:
+    spaceconfig = {
+        "usemodules": USEMODULES,
+    }
+
+    def setup_class(cls):
+        from pypy.interpreter.gateway import interp2app
+        from rpython.rlib.rsignal import pypysig_getaddr_occurred_fullstruct
+        if cls.runappdirect:
+            pytest.skip("can only be run untranslated")
+        tmpdir = pytest.ensuretemp("signal")
+        outfile = tmpdir.join('out.txt')
+        script = '''
+with open(%r, 'w') as f:
+    f.write('done')
+print('done')
+''' % str(outfile)
+        cls.w_script = cls.space.newtext(script)
+        cls.w_outfile = cls.space.wrap(
+            str(outfile))
+        def trigger_debugger(space):
+            addr = pypysig_getaddr_occurred_fullstruct()
+            for index, c in enumerate(str(script)):
+                addr.c_debugger_script[index] = c
+            addr.c_debugger_script[index + 1] = '\x00'
+            addr.c_debugger_pending_call = 1
+            addr.c_value = -1
+        cls.w_trigger_debugger = cls.space.wrap(interp2app(trigger_debugger))
+
+    def test_run_debugger(self):
+        self.trigger_debugger() # should happen right away
+        with open(self.outfile) as f:
+            content = f.read()
+            assert content == 'done'
+
+    def test_audit_hook(self):
+        import __pypy__
+        import sys
+        l = []
+        def f(*args):
+            l.append(args)
+        sys.addaudithook(f)
+        try:
+            self.trigger_debugger()
+            assert l[0] == ('remote_exec', (self.script, ))
+        finally:
+            __pypy__._testing_clear_audithooks()

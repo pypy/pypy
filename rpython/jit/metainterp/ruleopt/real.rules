@@ -8,10 +8,10 @@ add_zero: int_add(x, 0)
 #add_self: int_add(x, x)
 #    => int_mul(x, 2)
 
-#add_sub_consts: int_add(int_sub(x, C1), C2)
-#    C = C2 - C1
-#    => int_add(x, C)
-#
+add_sub_consts: int_add(int_sub(x, C1), C2)
+    C = C2 - C1
+    => int_add(x, C)
+
 #add_sub: int_add(int_sub(x, y), y)
 #    => x
 #
@@ -315,3 +315,20 @@ invert_invert: int_invert(int_invert(x))
 neg_neg: int_neg(int_neg(x))
     => x
 
+
+#le_self: int_le(x, x)
+#    => 1
+#
+#le_known_true: int_le(x, y)
+#    check x.known_le(y)
+#    => 1
+#
+#le_known_false: int_le(x, y)
+#    check x.known_gt(y)
+#    => 0
+#
+#le_maxint: int_le(x, MAXINT)
+#    => 1
+#
+#le_minint: int_le(x, MININT)
+#    => int_eq(x, MININT)

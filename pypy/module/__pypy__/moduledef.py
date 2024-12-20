@@ -70,6 +70,7 @@ class Module(MixedModule):
     """ PyPy specific "magic" functions. A lot of them are experimental and
     subject to change, many are internal. """
     appleveldefs = {
+        'remote_exec': 'app_debug.remote_exec',
     }
 
     interpleveldefs = {
