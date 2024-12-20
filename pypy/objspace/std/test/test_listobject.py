@@ -3,7 +3,8 @@ import py
 import pytest
 from pypy.objspace.std.listobject import W_ListObject, SizeListStrategy,\
      IntegerListStrategy, BytesListStrategy, FloatListStrategy, \
-     ObjectListStrategy, IntOrFloatListStrategy, AsciiListStrategy
+     ObjectListStrategy, IntOrFloatListStrategy, AsciiListStrategy, \
+     EmptyListStrategy
 from pypy.interpreter.error import OperationError
 from rpython.rlib.rarithmetic import is_valid_int
 
@@ -2047,6 +2048,9 @@ class ListChecks(RuleBasedStateMachine):
     def check(self, listid):
         l, w = self._get(listid)
         assume(len(l) < 10000)
+        if isinstance(w.strategy, EmptyListStrategy):
+            assert not l
+            assert w.strategy.unerase(w.lstorage) is None
         print listid, l, w
         assert self.space.eq_w(w, self.space.wrap(l))
 

@@ -902,8 +902,8 @@ class ListStrategy(object):
     def __init__(self, space):
         self.space = space
 
-    def get_sizehint(self):
-        return -1
+    def get_sizehint(self, sizehint=-1):
+        return sizehint
 
     def init_from_list_w(self, w_list, list_w):
         raise NotImplementedError
@@ -1125,7 +1125,7 @@ class EmptyListStrategy(ListStrategy):
     def getstorage_copy(self, w_list):
         return self.erase(None)
 
-    def switch_to_correct_strategy(self, w_list, w_item):
+    def switch_to_correct_strategy(self, w_list, w_item, sizehint=-1):
         if type(w_item) is W_IntObject:
             strategy = self.space.fromcache(IntegerListStrategy)
         elif type(w_item) is W_BytesObject:
@@ -1137,12 +1137,13 @@ class EmptyListStrategy(ListStrategy):
         else:
             strategy = self.space.fromcache(ObjectListStrategy)
 
-        storage = strategy.get_empty_storage(self.get_sizehint())
+        storage = strategy.get_empty_storage(self.get_sizehint(sizehint))
         w_list.strategy = strategy
         w_list.lstorage = storage
 
     def append(self, w_list, w_item):
-        self.switch_to_correct_strategy(w_list, w_item)
+        # 4, to follow the usual overallocation growth pattern
+        self.switch_to_correct_strategy(w_list, w_item, sizehint=4)
         w_list.append(w_item)
 
     def inplace_mul(self, w_list, times):
@@ -1245,7 +1246,7 @@ class SizeListStrategy(EmptyListStrategy):
         self.sizehint = sizehint
         ListStrategy.__init__(self, space)
 
-    def get_sizehint(self):
+    def get_sizehint(self, sizehint=-1):
         return self.sizehint
 
     def _resize_hint(self, w_list, hint):
