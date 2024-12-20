@@ -307,8 +307,6 @@ class TestIntbound(BaseTestPyPyC):
 
         log = self.run(main, [-10000, 10000])
         loop, = log.loops_by_filename(self.filepath)
-        # if both are >=0, a^b is known to be >=0
-        # note that we know that b>10
         assert loop.match_by_id('abs', """
             setfield_gc(p18, i60, descr=...)
             guard_not_invalidated(descr=...)
