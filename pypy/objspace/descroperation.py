@@ -571,7 +571,7 @@ class DescrOperation(object):
     def index(space, w_obj):
         if space.isinstance_w(w_obj, space.w_bool):
             pass
-        elif space.isinstance_w(w_obj, space.w_int):
+        elif space.is_w(space.type(w_obj), space.w_int):
             return w_obj
         w_impl = space.lookup(w_obj, '__index__')
         if w_impl is None:
