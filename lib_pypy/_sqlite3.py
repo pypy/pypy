@@ -374,6 +374,7 @@ class Connection(object):
     def __init__(self, database, timeout=5.0, detect_types=0, isolation_level="",
                  check_same_thread=True, factory=None, cached_statements=100, uri=0):
         sys.audit("sqlite3.connect", database)
+        self.__initialized = False
         db_star = _ffi.new('sqlite3 **')
 
         database = os.fsencode(database)
