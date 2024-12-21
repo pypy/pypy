@@ -172,6 +172,7 @@ class GeneratorTest(unittest.TestCase):
             g.send(0)
         self.assertEqual(next(g), 1)
 
+    @support.impl_detail('no gc.threshold', pypy=False)
     def test_handle_frame_object_in_creation(self):
 
         #Attempt to expose partially constructed frames
