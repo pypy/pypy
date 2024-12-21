@@ -1,6 +1,6 @@
 # Python test set -- part 6, built-in types
 
-from test.support import run_with_locale, cpython_only, MISSING_C_DOCSTRINGS
+from test.support import run_with_locale, cpython_only, MISSING_C_DOCSTRINGS, impl_detail
 import collections.abc
 from collections import namedtuple
 import copy
@@ -587,6 +587,7 @@ class TypesTests(unittest.TestCase):
         for code in 'xXobns':
             self.assertRaises(ValueError, format, 0, ',' + code)
 
+    @impl_detail('no __basicsize__', pypy=False)
     def test_internal_sizes(self):
         self.assertGreater(object.__basicsize__, 0)
         self.assertGreater(tuple.__itemsize__, 0)
@@ -619,7 +620,8 @@ class TypesTests(unittest.TestCase):
 
         self.assertIsInstance(int.__dict__['from_bytes'], types.ClassMethodDescriptorType)
         self.assertIsInstance(int.from_bytes, types.BuiltinMethodType)
-        self.assertIsInstance(int.__new__, types.BuiltinMethodType)
+        # Not on PyPy ...
+        # self.assertIsInstance(int.__new__, types.BuiltinMethodType)
 
     def test_ellipsis_type(self):
         self.assertIsInstance(Ellipsis, types.EllipsisType)
@@ -1754,8 +1756,11 @@ class SimpleNamespaceTests(unittest.TestCase):
         ns2._y = 5
         name = "namespace"
 
-        self.assertEqual(repr(ns1), "{name}(x=1, y=2, w=3)".format(name=name))
-        self.assertEqual(repr(ns2), "{name}(x='spam', _y=5)".format(name=name))
+        # self.assertEqual(repr(ns1), "{name}(x=1, y=2, w=3)".format(name=name))
+        # self.assertEqual(repr(ns2), "{name}(x='spam', _y=5)".format(name=name))
+        # PyPy sorts the kwarg
+        self.assertEqual(repr(ns1), "{name}(w=3, x=1, y=2)".format(name=name))
+        self.assertEqual(repr(ns2), "{name}(_y=5, x='spam')".format(name=name))
 
     def test_equal(self):
         ns1 = types.SimpleNamespace(x=1)
@@ -1804,7 +1809,9 @@ class SimpleNamespaceTests(unittest.TestCase):
         ns3.spam = ns2
         name = "namespace"
         repr1 = "{name}(c='cookie', spam={name}(...))".format(name=name)
-        repr2 = "{name}(spam={name}(x=1, spam={name}(...)))".format(name=name)
+        # PyPy sorts the kwargs
+        # repr2 = "{name}(spam={name}(x=1, spam={name}(...)))".format(name=name)
+        repr2 = "{name}(spam={name}(spam={name}(...), x=1))".format(name=name)
 
         self.assertEqual(repr(ns1), repr1)
         self.assertEqual(repr(ns2), repr2)
