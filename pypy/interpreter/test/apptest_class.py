@@ -141,3 +141,49 @@ def test_nonsensical_base_error_message():
             pass
     assert str(exc.value).startswith(
         "duplicate base class 'object'")
+
+def test_setclass_recursive():
+    class Self:
+        ready = False
+    self = Self()
+    # taken from lib-python/3/test/test_descr.py's
+    # test_tp_subclasses_cycle_in_update_slots 
+    class DebugHelperMeta(type):
+        """
+        Sets default __doc__ and simplifies repr() output.
+        """
+        def __new__(mcls, name, bases, attrs):
+            if attrs.get('__doc__') is None:
+                attrs['__doc__'] = name  # helps when debugging with gdb
+            return type.__new__(mcls, name, bases, attrs)
+        def __repr__(cls):
+            return repr(cls.__name__)
+
+    class M(DebugHelperMeta):
+        def mro(cls):
+            if self.ready and cls.__name__ == 'C':
+                self.ready = False
+                C.__bases__ = (B2,)
+            return type.mro(cls)
+
+    class A(metaclass=M):
+        pass
+    class B1(A):
+        pass
+    class B2(A):
+        pass
+    class C(A):
+        pass
+
+    self.ready = True
+    C.__bases__ = (B1,)
+    B1.__bases__ = (C,)
+
+    assert C.__bases__ == (B2,)
+    assert B2.__subclasses__() == [C]
+    assert B1.__subclasses__() == []
+
+    assert B1.__bases__ == (C,)
+    assert C.__subclasses__() == [B1]
+
+ 

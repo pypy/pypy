@@ -654,6 +654,8 @@ class W_TypeObject(W_Root):
         newref = weakref.ref(w_subclass)
         for i in range(len(self.weak_subclasses)):
             ref = self.weak_subclasses[i]
+            if ref() is w_subclass:
+                return
             if ref() is None:
                 self.weak_subclasses[i] = newref
                 return
