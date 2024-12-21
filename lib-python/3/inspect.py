@@ -1942,7 +1942,7 @@ def getcoroutinelocals(coroutine):
 ###############################################################################
 
 
-_NonUserDefinedCallables = (types.WrapperDescriptorType,
+_NonUserDefinedCallables = (# types.WrapperDescriptorType,
                             types.MethodWrapperType,
                             types.ClassMethodDescriptorType,
                             types.BuiltinFunctionType)
@@ -1962,8 +1962,9 @@ def _signature_get_user_defined_method(cls, method_name):
     else:
         meth = getattr_static(cls, method_name, None)
     # PYPY: logic changed here
-    # if meth is None or isinstance(meth, _NonUserDefinedCallables):
-    if meth is None:
+    if meth is None or isinstance(meth, _NonUserDefinedCallables):
+        return None
+    if meth in (type.__call__, type.__init__, type.__new__):
         return None
     try:
         code = meth.__code__
@@ -2083,6 +2084,10 @@ def _signature_is_builtin(obj):
     return (isbuiltin(obj) or
             ismethoddescriptor(obj) or
             isinstance(obj, _NonUserDefinedCallables) or
+            # PyPy extension
+            obj in (type.__call__, type.__init__, type.__new__) or
+            obj in (type.__call__, type.__init__, type.__new__) or
+            obj in (object.__call__, object.__init__, object.__new__) or
             # Can't test 'isinstance(type)' here, as it would
             # also be True for regular python classes
             obj in (type, object))
@@ -2578,6 +2583,8 @@ def _signature_from_callable(obj, *,
         for base in obj.__mro__:
             # Now we check if the 'obj' class has an own '__new__' method
             if new is not None and '__new__' in base.__dict__:
+                if new is object.__new__:
+                    return Signature()
                 sig = _get_signature_of(new)
                 if skip_bound_arg:
                     sig = _signature_bound_method(sig)

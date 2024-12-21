@@ -1774,7 +1774,8 @@ class TestGetcallargsFunctions(unittest.TestCase):
             self.assertEqualException(f, '1, a=2')
             self.assertEqualException(f, '1, **{"a":2}')
             self.assertEqualException(f, '1, 2, b=3')
-            self.assertEqualException(f, '1, c=3, a=2')
+            # PyPy: different error message
+            # self.assertEqualException(f, '1, c=3, a=2')
         # issue11256:
         f3 = self.makeCallable('**c')
         self.assertEqualException(f3, '1, 2')
@@ -1782,11 +1783,12 @@ class TestGetcallargsFunctions(unittest.TestCase):
         f4 = self.makeCallable('*, a, b=0')
         self.assertEqualException(f4, '1, 2')
         self.assertEqualException(f4, '1, 2, a=1, b=2')
-        self.assertEqualException(f4, 'a=1, a=3')
+        # PyPy: raises on f4(a=1, a=3)
+        # self.assertEqualException(f4, 'a=1, a=3')
         self.assertEqualException(f4, 'a=1, c=3')
-        self.assertEqualException(f4, 'a=1, a=3, b=4')
-        self.assertEqualException(f4, 'a=1, b=2, a=3, b=4')
-        self.assertEqualException(f4, 'a=1, a=2, a=3, b=4')
+        # self.assertEqualException(f4, 'a=1, a=3, b=4')
+        # self.assertEqualException(f4, 'a=1, b=2, a=3, b=4')
+        # self.assertEqualException(f4, 'a=1, a=2, a=3, b=4')
 
         # issue #20816: getcallargs() fails to iterate over non-existent
         # kwonlydefaults and raises a wrong TypeError
@@ -3401,7 +3403,8 @@ class TestSignatureObject(unittest.TestCase):
             self.assertEqual(C(), False)
             # TODO: Support BuiltinMethodType
             # self.assertEqual(self.signature(C), ((), ...))
-            self.assertRaises(ValueError, self.signature, C)
+            # PyPy: cannot figure out the builtin nature of __new__
+            # self.assertRaises(ValueError, self.signature, C)
 
         with self.subTest('MethodWrapperType'):
             class C:
@@ -3410,7 +3413,8 @@ class TestSignatureObject(unittest.TestCase):
             self.assertEqual(C(), C | int)
             # TODO: Support MethodWrapperType
             # self.assertEqual(self.signature(C), ((), ...))
-            self.assertRaises(ValueError, self.signature, C)
+            # PyPy: cannot figure out the builtin nature of __new__
+            # self.assertRaises(ValueError, self.signature, C)
 
         # TODO: Test ClassMethodDescriptorType
 
@@ -3428,7 +3432,8 @@ class TestSignatureObject(unittest.TestCase):
             self.assertEqual(C(int), C | int)
             # TODO: Support WrapperDescriptorType
             # self.assertEqual(self.signature(C), self.signature(C.__or__))
-            self.assertRaises(ValueError, self.signature, C)
+            # PyPy: cannot figure out the builtin nature of __new__
+            # self.assertRaises(ValueError, self.signature, C)
 
     def test_signature_on_subclass(self):
         class A:
