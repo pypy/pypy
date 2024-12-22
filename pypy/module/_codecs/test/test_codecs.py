@@ -148,13 +148,15 @@ class AppTestCodecs:
         assert decode(br"[\x0]\x0", "ignore") == (b"[]", 8)
         assert decode(br"[\x0]\x0", "replace") == (b"[?]?", 8)
 
-    def test_unicode_escape_warning(self):
+    def test_escape_warning(self):
         from _codecs import escape_decode
         import warnings
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("error")
             with raises(DeprecationWarning):
                 escape_decode("a\\zb")
+            with raises(DeprecationWarning):
+                escape_decode(b"\\400")
 
 
     def test_unicode_escape(self):
@@ -620,7 +622,7 @@ class AppTestPartialEvaluation:
         uval = u"\x00\xff\u07ff\u0800\uffff\U00010000"
         for (c, partialresult) in zip(uval.encode('utf-8'), check_partial):
             buf += bytes([c])
-            print('partial buf', buf)
+            # print('partial buf', buf)
             val, lgt = _codecs.utf_8_decode(buf, 'strict', False)
             if lgt >0 :
                 buf = b''
@@ -1468,10 +1470,12 @@ class AppTestPartialEvaluation:
             warnings.simplefilter("always")
             codecs.unicode_escape_decode(b'\\A')
             codecs.unicode_escape_decode(b"\\" + b"\xff")
+            codecs.unicode_escape_decode("\\400")
 
-        assert len(l) == 2
+        assert len(l) == 3
         assert isinstance(l[0].message, DeprecationWarning)
         assert isinstance(l[1].message, DeprecationWarning)
+        assert isinstance(l[2].message, DeprecationWarning)
 
     def test_invalid_type_errors(self):
         # hex is not a text encoding. it works via the codecs functions, but

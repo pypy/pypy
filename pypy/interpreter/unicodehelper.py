@@ -626,18 +626,22 @@ def str_decode_unicode_escape(space, s, w_s, errors, final, errorhandler, ud_han
         elif ch == 'a':
             builder.append_char('\a')
         elif '0' <= ch <= '7':
+            span = ch
             x = ord(ch) - ord('0')
             if pos < len(s):
                 ch = s[pos]
                 if '0' <= ch <= '7':
+                    span += ch
                     pos += 1
                     x = (x << 3) + ord(ch) - ord('0')
                     if pos < len(s):
                         ch = s[pos]
                         if '0' <= ch <= '7':
+                            span += ch
                             pos += 1
                             x = (x << 3) + ord(ch) - ord('0')
             if x > 0x7F:
+                first_escape_error_char = "\\" + span
                 builder.append_code(x)
             else:
                 builder.append_char(chr(x))
