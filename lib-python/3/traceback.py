@@ -565,13 +565,14 @@ class StackSummary(list):
                         anchors and anchors.right_start_offset - anchors.left_end_offset > 0):
 
                     if colorize:
+                        delta = stripped_characters - 1
                         colorized_line = "".join([
                             "    ",
-                            stripped_line[:start_offset],
+                            stripped_line[:start_offset-delta],
                             ANSIColors.BOLD_RED,
                             code_segment,
                             ANSIColors.RESET,
-                            stripped_line[end_offset:],
+                            stripped_line[end_offset-delta:],
                             "\n",
                         ])
                         row[-1] = colorized_line
@@ -588,11 +589,19 @@ class StackSummary(list):
                     if anchors:
                         dp_left_end_offset = _display_width(code_segment, anchors.left_end_offset)
                         dp_right_start_offset = _display_width(code_segment, anchors.right_start_offset)
+                        if colorize:
+                            row.append(ANSIColors.BOLD_RED)
                         row.append(anchors.primary_char * dp_left_end_offset)
                         row.append(anchors.secondary_char * (dp_right_start_offset - dp_left_end_offset))
                         row.append(anchors.primary_char * (dp_end_offset - dp_start_offset - dp_right_start_offset))
+                        if colorize:
+                            row.append(ANSIColors.RESET)
                     else:
+                        if colorize:
+                            row.append(ANSIColors.BOLD_RED)
                         row.append('^' * (dp_end_offset - dp_start_offset))
+                        if colorize:
+                            row.append(ANSIColors.RESET)
 
                     row.append('\n')
 
@@ -1001,6 +1010,7 @@ class TracebackException:
                     caretspace = ((c if c.isspace() else ' ') for c in ltext[:colno])
                     start_color = end_color = ""
                     if getattr(self, "_colorize", False):
+                        print(f"colorize from colno {colno} to {end_colno}")
                         start_color = ANSIColors.BOLD_RED
                         end_color = ANSIColors.RESET
                         ltext = (
