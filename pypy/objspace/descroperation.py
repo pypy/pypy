@@ -568,10 +568,8 @@ class DescrOperation(object):
     def isinstance(space, w_inst, w_type):
         return space.newbool(space.isinstance_w(w_inst, w_type))
 
-    def index(space, w_obj):
-        if space.isinstance_w(w_obj, space.w_bool):
-            pass
-        elif space.is_w(space.type(w_obj), space.w_int):
+    def _index(space, w_obj):
+        if space.isinstance_w(w_obj, space.w_int):
             return w_obj
         w_impl = space.lookup(w_obj, '__index__')
         if w_impl is None:
@@ -582,17 +580,23 @@ class DescrOperation(object):
 
         if space.is_w(space.type(w_result), space.w_int):
             return w_result
-        if space.isinstance_w(w_result, space.w_int):
-            tp = space.type(w_result).name
-            space.warn(space.newtext(
-                "__index__ returned non-int (type %s).  "
-                "The ability to return an instance of a strict subclass of int "
-                "is deprecated, and may be removed in a future version of "
-                "Python." % (tp,)), space.w_DeprecationWarning)
-            return w_result
-        raise oefmt(space.w_TypeError,
+        if not space.isinstance_w(w_result, space.w_int):
+            raise oefmt(space.w_TypeError,
                     "__index__ returned non-int (type %T)", w_result)
+        tp = space.type(w_result).name
+        space.warn(space.newtext(
+            "__index__ returned non-int (type %s).  "
+            "The ability to return an instance of a strict subclass of int "
+            "is deprecated, and may be removed in a future version of "
+            "Python." % (tp,)), space.w_DeprecationWarning)
+        return w_result
 
+    def index(space, w_obj):
+        w_result = space._index(w_obj)
+        if not space.is_w(space.type(w_result), space.w_int):
+            result = space.bigint_w(w_result)
+            w_result = space.newlong_from_rbigint(result)
+        return w_result
 
 # helpers
 

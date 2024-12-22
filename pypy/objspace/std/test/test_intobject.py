@@ -815,7 +815,7 @@ class AppTestInt(object):
             n = int(bad)
             m = _operator.index(bad)
         assert n == 1 and type(n) is int
-        assert m is False
+        assert m == 0 and type(m) is int
         assert len(log) == 2
 
     def test_deprecation_warning_2(self):
@@ -831,7 +831,8 @@ class AppTestInt(object):
             n = int(bad)
             m = _operator.index(bad)  # no warning
         assert n == 1 and type(n) is int
-        assert m is bad
+        print(m, type(m))
+        assert m == 1 and type(m) is int
         assert len(log) == 1
         assert log[0].message.args[0].startswith('__int__')
 
@@ -848,7 +849,7 @@ class AppTestInt(object):
             n = int(bad)
             m = _operator.index(bad)  # no warning
         assert n == bad and type(n) is int
-        assert m is bad
+        assert m == bad and type(m) is int
         assert len(log) == 1
         assert log[0].message.args[0].startswith('__int__')
 
