@@ -399,6 +399,15 @@ class AppTestCtypes(object):
         assert (m[0], m[1], m[2], m[3]) == expected
         a.free()
 
+    def test_zero_dim(self):
+        import _rawffi, sys
+        float4 = _rawffi.Array((_rawffi.Array('f'), 4))
+        float4_0 = _rawffi.Array((float4, 0))
+        x = float4_0(2)
+        m = memoryview(x)
+        del m
+        x.free()
+
 class MockBuffer(BufferView):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
                  w_itemsize, w_strides, w_shape, w_obj=None):
