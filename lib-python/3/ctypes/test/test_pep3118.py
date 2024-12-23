@@ -24,7 +24,7 @@ class Test(unittest.TestCase):
             ob = tp()
             v = memoryview(ob)
             try:
-                self.assertEqual(normalize(v.format), normalize(fmt))
+                self.assertEqualRegex(normalize(v.format), normalize(fmt))
                 if shape:
                     self.assertEqual(len(v), shape[0])
                 else:

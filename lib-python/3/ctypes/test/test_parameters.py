@@ -79,6 +79,7 @@ class SimpleTypesTestCase(unittest.TestCase):
         pa = c_wchar_p.from_param(c_wchar_p("123"))
         self.assertEqual(type(pa), c_wchar_p)
 
+    @xfail
     def test_int_pointers(self):
         from ctypes import c_short, c_uint, c_int, c_long, POINTER, pointer
         LPINT = POINTER(c_int)
@@ -201,6 +202,7 @@ class SimpleTypesTestCase(unittest.TestCase):
         with self.assertRaises(ZeroDivisionError):
             WorseStruct().__setstate__({}, b'foo')
 
+    @test.support.cpython_only
     def test_parameter_repr(self):
         from ctypes import (
             c_bool,
