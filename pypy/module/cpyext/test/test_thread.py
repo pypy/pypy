@@ -136,7 +136,6 @@ class AppTestThread(AppTestCpythonExtensionBase):
                 if not module.timed_acquire_lock(1000000):
                     failure.append("Lock should have become available")
                     return
-                print("CCCC")
                 module.release_lock()
             thread = threading.Thread(target=thread_func)
             thread.start()
