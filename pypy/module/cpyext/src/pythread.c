@@ -60,7 +60,7 @@ PyThread_acquire_lock(PyThread_type_lock lock, int waitflag)
 }
 
 PyLockStatus
-PyThread_acquire_lock_timed(PyThread_type_lock,
+PyThread_acquire_lock_timed(PyThread_type_lock lock,
                             PY_TIMEOUT_T microseconds,
                             int intr_flag)
 {

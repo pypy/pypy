@@ -25,7 +25,7 @@ PyAPI_FUNC(int) PyThread_acquire_lock(PyThread_type_lock, int);
 
 
 #define PY_TIMEOUT_T long long
-PyAPI_FUNC(PyLockStatus) PyThread_acquire_lock_timed(PyThread_type_lock,
+PyAPI_FUNC(PyLockStatus) PyThread_acquire_lock_timed(PyThread_type_lock lock,
                                                      PY_TIMEOUT_T microseconds,
                                                      int intr_flag);
 PyAPI_FUNC(void) PyThread_release_lock(PyThread_type_lock);
