@@ -82,6 +82,77 @@ class AppTestThread(AppTestCpythonExtensionBase):
         module.test_release_lock()
 
     @pytest.mark.skipif(only_pypy, reason='pypy only test')
+    def test_timed_lock(self):
+        module = self.import_extension('foo', [
+            ("timed_acquire_lock", "METH_O",
+             """
+#ifndef PyThread_acquire_lock_timed
+#error "seems we are not accessing PyPy's functions"
+#endif
+                PyLockStatus acquire_result;
+                int microseconds = PyLong_AsLong(args);
+                Py_BEGIN_ALLOW_THREADS
+                acquire_result = PyThread_acquire_lock_timed(global_lock, microseconds, 0);
+                Py_END_ALLOW_THREADS
+                if (acquire_result == PY_LOCK_ACQUIRED) {
+                    Py_RETURN_TRUE;
+                } else {
+                    Py_RETURN_FALSE;
+                }
+             """),
+            ("release_lock", "METH_NOARGS",
+              """
+              PyThread_release_lock(global_lock);
+              Py_RETURN_NONE;
+              """),
+            ("cleanup_lock", "METH_NOARGS",
+              """
+              // cleanup isn't part of the test, but I'd feel guilty otherwise
+              PyThread_free_lock(global_lock); global_lock=NULL;
+              Py_RETURN_NONE;
+              """
+             )
+            ],
+            prologue="static PyThread_type_lock global_lock;",
+            more_init="global_lock = PyThread_allocate_lock();"
+        )
+        try:
+            import threading
+            import time
+            failure = []
+            assert module.timed_acquire_lock(-1)
+            main_thread_should_release_the_lock_barrier = threading.Barrier(2)
+
+            def thread_func():
+                try:
+                    if module.timed_acquire_lock(0):
+                        failure.append("Lock should be held elsewhere")
+                        return
+                    if module.timed_acquire_lock(1):
+                        failure.append("Lock should be held elsewhere")
+                        return
+                finally:
+                    main_thread_should_release_the_lock_barrier.wait()
+                if not module.timed_acquire_lock(1000000):
+                    failure.append("Lock should have become available")
+                    return
+                module.release_lock()
+            thread = threading.Thread(target=thread_func)
+            thread.start()
+            main_thread_should_release_the_lock_barrier.wait()
+            # At this point, thread_func should be waiting 1s for the lock,
+            # so sleep a short amount of time then let it have the lock.
+            time.sleep(0.01)
+            module.release_lock()
+
+            thread.join()
+            assert not failure, failure
+        finally:
+            module.cleanup_lock()
+
+        # The intr_flag isn't tested here though
+
+    @pytest.mark.skipif(only_pypy, reason='pypy only test')
     @pytest.mark.xfail(reason='segfaults', run=False)
     def test_tls(self):
         module = self.import_extension('foo', [

@@ -59,6 +59,14 @@ PyThread_acquire_lock(PyThread_type_lock lock, int waitflag)
     return RPyThreadAcquireLock((struct RPyOpaque_ThreadLock*)lock, waitflag);
 }
 
+PyLockStatus
+PyThread_acquire_lock_timed(PyThread_type_lock lock,
+                            PY_TIMEOUT_T microseconds,
+                            int intr_flag)
+{
+    return RPyThreadAcquireLockTimed((struct RPyOpaque_ThreadLock*)lock, microseconds, intr_flag);
+}
+
 void
 PyThread_release_lock(PyThread_type_lock lock)
 {

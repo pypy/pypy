@@ -9,6 +9,12 @@ typedef void *PyThread_type_lock;
 extern "C" {
 #endif
 
+typedef enum PyLockStatus {
+    PY_LOCK_FAILURE = 0,
+    PY_LOCK_ACQUIRED = 1,
+    PY_LOCK_INTR
+} PyLockStatus;
+
 PyAPI_FUNC(long) PyThread_get_thread_ident(void);
 
 PyAPI_FUNC(PyThread_type_lock) PyThread_allocate_lock(void);
@@ -16,6 +22,12 @@ PyAPI_FUNC(void) PyThread_free_lock(PyThread_type_lock);
 PyAPI_FUNC(int) PyThread_acquire_lock(PyThread_type_lock, int);
 #define WAIT_LOCK	1
 #define NOWAIT_LOCK	0
+
+
+#define PY_TIMEOUT_T long long
+PyAPI_FUNC(PyLockStatus) PyThread_acquire_lock_timed(PyThread_type_lock lock,
+                                                     PY_TIMEOUT_T microseconds,
+                                                     int intr_flag);
 PyAPI_FUNC(void) PyThread_release_lock(PyThread_type_lock);
 
 PyAPI_FUNC(void) PyThread_init_thread(void);
