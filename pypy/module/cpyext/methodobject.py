@@ -8,7 +8,7 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, interp_attrproperty, interp_attrproperty_w,
     descr_generic_ne, make_weakref_descr)
-from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.typeobject import W_TypeObject, extract_doc, extract_txtsig
 from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_FASTCALL,
     METH_NOARGS, METH_O, METH_STATIC, METH_VARARGS, METH_METHOD,
@@ -103,39 +103,6 @@ def w_fastcall_args_from_args(space, __args__):
 
     py_args = rffi.cast(PyTupleObject, py_args)
     return py_args, len(__args__.arguments_w), w_kwnames
-
-def undotted_name(name):
-    """Return the last component of a dotted name"""
-    dotpos = name.rfind('.')
-    if dotpos < 0:
-        return name
-    else:
-        return name[dotpos + 1:]
-
-SIGNATURE_MARKER = ')\n--\n\n'
-
-def extract_doc(raw_doc, name):
-    doc = raw_doc
-    name = undotted_name(name)
-    if raw_doc.startswith(name + '('):
-        end_sig = raw_doc.find(SIGNATURE_MARKER)
-        if end_sig > 0:
-            doc = raw_doc[end_sig + len(SIGNATURE_MARKER):]
-    if not doc:
-        return None
-    return doc
-
-def extract_txtsig(raw_doc, name):
-    name = undotted_name(name)
-    if raw_doc.startswith(name + '('):
-        end_sig = raw_doc.find(SIGNATURE_MARKER)
-        if end_sig > 0:
-            # Notes:
-            # * Parentheses are included
-            # * SIGNATURE_MARKER cannot appear inside name,
-            #   so end_sig > len(name)
-            return raw_doc[len(name): end_sig + 1]
-    return None
 
 class W_PyCFunctionObject(W_Root):
     _immutable_fields_ = ["flags", "ml"]

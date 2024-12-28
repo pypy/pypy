@@ -36,7 +36,7 @@ class W_AbstractExtensionFunction(W_Root):
         self.w_module = space.w_None
 
     def get_txtsig(self, space):
-        from pypy.module.cpyext.methodobject import extract_txtsig
+        from pypy.objspace.std.typeobject import extract_txtsig
         rawdoc = self.doc
         if rawdoc:
             txtsig = extract_txtsig(rawdoc, self.name)
@@ -45,7 +45,7 @@ class W_AbstractExtensionFunction(W_Root):
         return space.w_None
 
     def get_doc(self, space):
-        from pypy.module.cpyext.methodobject import extract_doc
+        from pypy.objspace.std.typeobject import extract_doc
         rawdoc = self.doc
         if rawdoc:
             doc = extract_doc(rawdoc, self.name)

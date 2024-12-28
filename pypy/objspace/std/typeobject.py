@@ -1172,11 +1172,51 @@ def descr_set__doc(space, w_type, w_value):
         raise oefmt(space.w_TypeError, "cannot set '__doc__' attribute of immutable type '%N'", w_type)
     w_type.setdictvalue(space, '__doc__', w_value)
 
-def type_get_txtsig(space, w_type):
+# Duplicate of code in pypy/module/cpyext/methodobject.py
+def undotted_name(name):
+    """Return the last component of a dotted name"""
+    dotpos = name.rfind('.')
+    if dotpos < 0:
+        return name
+    else:
+        return name[dotpos + 1:]
+
+SIGNATURE_MARKER = ')\n--\n\n'
+
+def extract_doc(raw_doc, name):
+    doc = raw_doc
+    name = undotted_name(name)
+    if raw_doc.startswith(name + '('):
+        end_sig = raw_doc.find(SIGNATURE_MARKER)
+        if end_sig > 0:
+            doc = raw_doc[end_sig + len(SIGNATURE_MARKER):]
+    if not doc:
+        return None
+    return doc
+
+def extract_txtsig(raw_doc, name):
+    name = undotted_name(name)
+    if raw_doc.startswith(name + '('):
+        end_sig = raw_doc.find(SIGNATURE_MARKER)
+        if end_sig > 0:
+            # Notes:
+            # * Parentheses are included
+            # * SIGNATURE_MARKER cannot appear inside name,
+            #   so end_sig > len(name)
+            return raw_doc[len(name): end_sig + 1]
+    return None
+# End of duplicate code
+
+def type_get_text_signature(space, w_type):
     w_type = _check(space, w_type)
-    if w_type.text_signature is None:
-        return space.w_None
-    return space.newtext(w_type.text_signature)
+    if w_type.text_signature:
+        return space.newtext(w_type.text_signature)
+    w_doc = descr__doc(space, w_type)
+    rawdoc = space.text_w(w_doc)
+    txtsig = extract_txtsig(rawdoc, w_type.name)
+    if txtsig is not None:
+        return space.newtext(txtsig)
+    return space.w_None
 
 def descr__dir(space, w_type):
     from pypy.objspace.std.util import _classdir
@@ -1252,7 +1292,7 @@ W_TypeObject.typedef = TypeDef("type",
     __mro__ = GetSetProperty(descr_get__mro__),
     __dict__=GetSetProperty(type_get_dict),
     __doc__ = GetSetProperty(descr__doc, descr_set__doc, cls=W_TypeObject, name='__doc__'),
-    __text_signature__=GetSetProperty(type_get_txtsig),
+    __text_signature__=GetSetProperty(type_get_text_signature),
     __dir__ = gateway.interp2app(descr__dir),
     mro = gateway.interp2app(descr_mro),
     __flags__ = GetSetProperty(descr__flags),

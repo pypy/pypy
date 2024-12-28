@@ -27,8 +27,7 @@ from pypy.module.cpyext.api import (
 from rpython.tool.cparser import CTypeSpace
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     PyCFunction, PyMethodDef,
-    W_PyCMethodObject, W_PyCFunctionObject, extract_doc, extract_txtsig,
-    W_PyCWrapperObject)
+    W_PyCMethodObject, W_PyCFunctionObject, W_PyCWrapperObject)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
     make_ref, from_ref, get_typedescr, make_typedescr,
@@ -41,7 +40,8 @@ from pypy.module.cpyext.structmember import PyMember_GetOne, PyMember_SetOne
 from pypy.module.cpyext.typeobjectdefs import (
     PyGetSetDef, PyMemberDef, PyMappingMethods,
     PyNumberMethods, PySequenceMethods, PyBufferProcs)
-from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
+from pypy.objspace.std.typeobject import (W_TypeObject, find_best_base,
+    extract_doc, extract_txtsig)
 
 
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False

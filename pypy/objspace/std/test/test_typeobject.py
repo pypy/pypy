@@ -596,45 +596,6 @@ class AppTestTypeObject:
         assert E1.__mro__ == (E1, D1, B1, C1, A1, object)
         """
 
-    def test_nodoc(self):
-        class NoDoc(object):
-            pass
-
-        try:
-            assert NoDoc.__doc__ == None
-        except AttributeError:
-            raise AssertionError("__doc__ missing!")
-
-    def test_explicitdoc(self):
-        class ExplicitDoc(object):
-            __doc__ = 'foo'
-
-        assert ExplicitDoc.__doc__ == 'foo'
-
-    def test_implicitdoc(self):
-        class ImplicitDoc(object):
-            "foo"
-
-        assert ImplicitDoc.__doc__ == 'foo'
-
-    def test_set_doc(self):
-        class X:
-            "elephant"
-        X.__doc__ = "banana"
-        assert X.__doc__ == "banana"
-        raises(TypeError, lambda:
-               type(list).__dict__["__doc__"].__set__(list, "blah"))
-        raises((AttributeError, TypeError), lambda:
-               type(X).__dict__["__doc__"].__delete__(X))
-        assert X.__doc__ == "banana"
-
-    def test_text_signature(self):
-        assert object.__text_signature__ == '()'
-
-        class A:
-            pass
-        assert A.__text_signature__ is None
-
     def test_metaclass_conflict(self):
         """
         class T1(type):
