@@ -341,6 +341,7 @@ class AST_Tests(unittest.TestCase):
             tree = ast.parse(snippet)
             compile(tree, '<string>', 'exec')
 
+    @support.cpython_only
     def test_invalid_position_information(self):
         invalid_linenos = [
             (10, 1), (-10, -11), (10, -11), (-5, -2), (-5, 1)
@@ -863,7 +864,8 @@ class AST_Tests(unittest.TestCase):
         check_limit("a", "*a")
 
     def test_null_bytes(self):
-        with self.assertRaises(SyntaxError,
+        # PyPy raises a ValueError
+        with self.assertRaises((SyntaxError, ValueError),
             msg="source code string cannot contain null bytes"):
             ast.parse("a\0b")
 
@@ -1259,7 +1261,11 @@ Module(
             ast.literal_eval(node)
 
     def test_literal_eval_syntax_errors(self):
-        with self.assertRaisesRegex(SyntaxError, "unexpected indent"):
+        if sys.implementation.name == 'pypy':
+            errmsg = "unexpected character"
+        else:
+            errmsg = "unxepected indent"
+        with self.assertRaisesRegex(SyntaxError, errmsg):
             ast.literal_eval(r'''
                 \
                 (\
