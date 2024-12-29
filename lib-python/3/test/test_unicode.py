@@ -2462,6 +2462,7 @@ class UnicodeTest(string_tests.CommonTest,
         s = 'abc'
         self.assertIs(s.expandtabs(), s)
 
+    @support.cpython_only
     def test_raiseMemError(self):
         asciifields = "nnbP"
         compactfields = asciifields + "nPn"
