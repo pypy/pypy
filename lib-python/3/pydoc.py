@@ -209,7 +209,7 @@ def parentname(object, modname):
     if necessary) or module."""
     if '.' in object.__qualname__:
         name = object.__qualname__.rpartition('.')[0]
-        if object.__module__ != modname:
+        if object.__module__ and object.__module__ != modname:
             return object.__module__ + '.' + name
         else:
             return name
