@@ -843,7 +843,7 @@ def test_str_unicode_concat_overrides():
 
     _test_concat(str, str)
 
-def test_returns_subclass():
+def test_returns_subclass1():
     class X(str):
         pass
 
@@ -852,6 +852,21 @@ def test_returns_subclass():
             return X("stuff")
 
     assert str(Y()).__class__ is X
+
+def test_returns_subclass2():
+    class StrSubclass(str):
+        pass
+
+    class WithRepr:
+        def __init__(self, value):
+            self.value = value
+        def __repr__(self):
+            return self.value
+
+    expected = StrSubclass("abc")
+    actual = ascii(WithRepr(expected))
+    assert type(actual) is type(expected)
+    assert actual == expected
 
 def test_getslice():
     s = u"\u0105b\u0107"
@@ -1231,3 +1246,5 @@ def test_mul():
     assert u'abc'.__mul__(2) == u'abcabc'
     with raises(TypeError):
         u'abc'.__mul__('')
+
+
