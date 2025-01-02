@@ -166,7 +166,6 @@ class BaseProcess(object):
         if returncode is None:
             return True
         else:
-            self.close()
             _children.discard(self)
             return False
 
