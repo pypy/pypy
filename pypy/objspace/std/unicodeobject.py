@@ -1642,7 +1642,8 @@ def ascii_from_object(space, w_obj):
     w_repr = space.repr(w_obj)
     w_type = space.type(w_repr)
     w_encoded = encode_object(space, w_repr, 'ascii', 'backslashreplace')
-    if w_type is space.w_text:
+    # Weird CPython logic
+    if w_type is space.w_text or (space.len_w(w_repr) != space.len_w(w_encoded)):
         return decode_object(space, w_encoded, 'ascii', 'strict')
     else:
         w_obj = decode_object(space, w_encoded, 'ascii', 'strict')

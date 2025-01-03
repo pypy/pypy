@@ -869,6 +869,11 @@ def test_returns_subclass2():
     assert type(actual) is type(expected)
     assert actual == expected
 
+    expected = r"<\U0001f40d>"
+    actual = ascii(WithRepr(StrSubclass("<\U0001f40d>")))
+    assert type(actual) is type(expected)
+    assert actual == expected
+
 def test_getslice():
     s = u"\u0105b\u0107"
     assert s[:] == u"\u0105b\u0107"
@@ -1253,5 +1258,3 @@ def test_mul():
     assert u'abc'.__mul__(2) == u'abcabc'
     with raises(TypeError):
         u'abc'.__mul__('')
-
-
