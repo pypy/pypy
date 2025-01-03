@@ -368,6 +368,10 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
         if fname in fields_dict:
             raise oefmt(space.w_KeyError, "duplicate field name '%s'", fname)
         #
+        if ftype.size == -2:
+            # Lazy struct, try to force now
+            from pypy.module._cffi_backend import realize_c_type
+            realize_c_type.do_realize_lazy_struct(ftype)
         if ftype.size < 0:
             if (isinstance(ftype, ctypearray.W_CTypeArray) and fbitsize < 0
                     and (i == len(fields_w) - 1 or foffset != -1)):
