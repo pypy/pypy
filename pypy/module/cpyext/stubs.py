@@ -1206,7 +1206,7 @@ def PyUnicode_ClearFreeList(space, ):
 
 
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_ISPRINTABLE(space, ch):
+def _PyUnicode_IsPrintable(space, ch):
     """Return 1 or 0 depending on whether ch is a printable character.
     Nonprintable characters are those characters defined in the Unicode character
     database as "Other" or "Separator", excepting the ASCII space (0x20) which is

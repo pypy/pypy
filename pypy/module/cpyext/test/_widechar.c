@@ -12,7 +12,10 @@ test_widechar(PyObject *self)
     wide = PyUnicode_FromUnicode(NULL, 1);
     if (wide == NULL)
         return NULL;
+    _Py_COMP_DIAG_PUSH
+    _Py_COMP_DIAG_IGNORE_DEPR_DECLS
     PyUnicode_AS_UNICODE(wide)[0] = invalid[0];
+    _Py_COMP_DIAG_POP
     if (_PyUnicode_Ready(wide) < 0) {
         return NULL;
     }

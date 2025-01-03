@@ -5,6 +5,9 @@
 #endif
 #define Py_ISDIGIT isdigit
 #define Py_ISALPHA isalpha
+_Py_COMP_DIAG_IGNORE_DEPR_DECLS
+
+#include "unicodetype_db.h"
 
 static void
 makefmt(char *fmt, int longflag, int longlongflag, int size_tflag,
@@ -41,6 +44,38 @@ makefmt(char *fmt, int longflag, int longlongflag, int size_tflag,
     *fmt++ = c;
     *fmt = '\0';
 }
+
+/* Fast detection of the most frequent whitespace characters */
+const unsigned char _Py_ascii_whitespace[] = {
+    0, 0, 0, 0, 0, 0, 0, 0,
+/*     case 0x0009: * CHARACTER TABULATION */
+/*     case 0x000A: * LINE FEED */
+/*     case 0x000B: * LINE TABULATION */
+/*     case 0x000C: * FORM FEED */
+/*     case 0x000D: * CARRIAGE RETURN */
+    0, 1, 1, 1, 1, 1, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+/*     case 0x001C: * FILE SEPARATOR */
+/*     case 0x001D: * GROUP SEPARATOR */
+/*     case 0x001E: * RECORD SEPARATOR */
+/*     case 0x001F: * UNIT SEPARATOR */
+    0, 0, 0, 0, 1, 1, 1, 1,
+/*     case 0x0020: * SPACE */
+    1, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0
+};
+
 
 #define appendstring(string) {for (copy = string;*copy;) *s++ = *copy++;}
 
@@ -600,6 +635,10 @@ PyUnicode_AppendAndDel(PyObject **pleft, PyObject *right)
 {
     PyUnicode_Append(pleft, right);
     Py_XDECREF(right);
+}
+
+Py_UNICODE * PyUnicode_AsUnicode(PyObject* unicode) {
+    return PyUnicode_AsUnicodeAndSize(unicode, NULL);
 }
 
 

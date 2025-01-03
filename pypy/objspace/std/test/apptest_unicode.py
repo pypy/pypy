@@ -807,7 +807,8 @@ def test_call_special_methods():
     assert 'abc'.__add__('def') == 'abcdef'
     assert u'abc'.__rmod__(u'%s') == u'abc'
     ret = u'abc'.__rmod__('%s')
-    raises(AttributeError, "u'abc'.__radd__(u'def')")
+    with raises(AttributeError):
+        u'abc'.__radd__(u'def')
 
 def test_str_unicode_concat_overrides():
     "Test from Jython about being bug-compatible with CPython."
@@ -1030,8 +1031,10 @@ def test_formatting_not_tuple():
     assert 'xxx' % b'foo' == 'xxx'   # b'foo' considered as a mapping(!)
     assert 'xxx' % bytearray() == 'xxx'   # same
     assert 'xxx' % [] == 'xxx'       # [] considered as a mapping(!)
-    raises(TypeError, "'xxx' % 'foo'")
-    raises(TypeError, "'xxx' % 53")
+    with raises(TypeError):
+        'xxx' % 'foo'
+    with raises(TypeError):
+        'xxx' % 53
 
 def test_str_subclass():
     class Foo9(str):
@@ -1108,10 +1111,14 @@ def test_join_subclass():
     assert b''.join([s2]) is not s2
 
 def test_encoding_and_errors_cant_be_none():
-    raises(TypeError, "b''.decode(None)")
-    raises(TypeError, "u''.encode(None)")
-    raises(TypeError, "str(b'', encoding=None)")
-    raises(TypeError, 'u"".encode("utf-8", None)')
+    with raises(TypeError):
+        b''.decode(None)
+    with raises(TypeError):
+        u''.encode(None)
+    with raises(TypeError):
+        str(b'', encoding=None)
+    with raises(TypeError):
+        u"".encode("utf-8", None)
 
 def test_encode_wrong_errors():
     assert ''.encode(errors='some_wrong_name') == b''

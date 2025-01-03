@@ -2445,10 +2445,8 @@ unicode_copycharacters(PyObject *self, PyObject *args)
 
 #if USE_UNICODE_WCHAR_CACHE
 /* Ignore use of deprecated APIs */
-#ifndef PYPY_VERSION
 _Py_COMP_DIAG_PUSH
 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
-#endif
 
 static PyObject *
 unicode_legacy_string(PyObject *self, PyObject *args)
@@ -2472,9 +2470,7 @@ unicode_legacy_string(PyObject *self, PyObject *args)
 
     return u;
 }
-#ifndef PYPY_VERSION
 _Py_COMP_DIAG_POP
-#endif // ifndef PYPY_VERSION
 #endif /* USE_UNICODE_WCHAR_CACHE */
 
 static PyObject *

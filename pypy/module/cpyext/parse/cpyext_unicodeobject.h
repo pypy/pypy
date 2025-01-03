@@ -11,9 +11,11 @@ typedef wchar_t Py_UNICODE;
 
 /* Py_UCS4 and Py_UCS2 are typedefs for the respective
    unicode representations. */
+/* PyPy: the cpyext parser does not understand uint32_t, uint16_t, uint8_t */
 typedef unsigned int Py_UCS4;
 typedef unsigned short Py_UCS2;
 typedef unsigned char Py_UCS1;
+
 
 /* --- Unicode Type ------------------------------------------------------- */
 
@@ -26,6 +28,8 @@ typedef struct {
            If interned != SSTATE_NOT_INTERNED, the two references from the
            dictionary to this object are *not* counted in ob_refcnt.
          */
+        /* no bit fields on PyPy
+          unsigned int interned:2; */
         unsigned char interned;
         /* Character size:
 
@@ -54,24 +58,33 @@ typedef struct {
              * all characters are in the range U+0000-U+10FFFF
              * at least one character is in the range U+10000-U+10FFFF
          */
+        /* no bit fields on PyPy
+          unsigned int kind:3; */
         unsigned char kind;
         /* Compact is with respect to the allocation scheme. Compact unicode
            objects only require one memory block while non-compact objects use
            one block for the PyUnicodeObject struct and another for its data
            buffer. */
+        /* no bit fields on PyPy
+          unsigned int compact:1; */
         unsigned char compact;
         /* The string only contains characters in the range U+0000-U+007F (ASCII)
            and the kind is PyUnicode_1BYTE_KIND. If ascii is set and compact is
            set, use the PyASCIIObject structure. */
+        /* no bit fields on PyPy
+          unsigned int ascii:1; */
         unsigned char ascii;
         /* The ready flag indicates whether the object layout is initialized
            completely. This means that this is either a compact object, or
            the data pointer is filled out. The bit is redundant, and helps
            to minimize the test in PyUnicode_IS_READY(). */
+        /* no bit fields on PyPy
+          unsigned int ready:1; */
         unsigned char ready;
         /* Padding to ensure that PyUnicode_DATA() is always aligned to
            4 bytes (see issue #19537 on m68k). */
-        /* not on PyPy */
+        /* Not on PyPy, since not using bit fields */
+        /*unsigned int padding:24; */
     } _PyASCIIObject_state_t;
 
 /* ASCII-only strings created through PyUnicode_New use the PyASCIIObject
@@ -154,7 +167,7 @@ typedef struct {
     */
     PyObject_HEAD
     Py_ssize_t length;          /* Number of code points in the string */
-    //Py_hash_t hash;             /* Hash value; -1 if not set */
+    Py_hash_t hash;             /* Hash value; -1 if not set */
     _PyASCIIObject_state_t state;
     wchar_t *wstr;              /* wchar_t representation (null-terminated) */
 } PyASCIIObject;
@@ -176,7 +189,13 @@ typedef struct {
    block, and copied into the data block using _PyUnicode_Ready. */
 typedef struct {
     PyCompactUnicodeObject _base;
-    void* data;                     /* Canonical, smallest-form Unicode buffer */
+    /*
+    union {
+        void *any;
+        Py_UCS1 *latin1;
+        Py_UCS2 *ucs2;
+        Py_UCS4 *ucs4;
+    } */ void * data;        /* Canonical, smallest-form Unicode buffer */
 } PyUnicodeObject;
 
 

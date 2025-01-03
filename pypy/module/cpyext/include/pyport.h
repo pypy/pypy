@@ -195,8 +195,55 @@ typedef unsigned long Py_uhash_t;
 #include <sys/stat.h>
 #elif defined(HAVE_STAT_H)
 #include <stat.h>
-#else
 #endif
+
+#ifndef S_ISDIR
+#define S_ISDIR(x) (((x) & S_IFMT) == S_IFDIR)
+#endif
+
+#ifndef S_ISCHR
+#define S_ISCHR(x) (((x) & S_IFMT) == S_IFCHR)
+#endif
+
+#ifdef __cplusplus
+/* Move this down here since some C++ #include's don't like to be included
+   inside an extern "C" */
+extern "C" {
+#endif
+
+
+/* Py_ARITHMETIC_RIGHT_SHIFT
+ * C doesn't define whether a right-shift of a signed integer sign-extends
+ * or zero-fills.  Here a macro to force sign extension:
+ * Py_ARITHMETIC_RIGHT_SHIFT(TYPE, I, J)
+ *    Return I >> J, forcing sign extension.  Arithmetically, return the
+ *    floor of I/2**J.
+ * Requirements:
+ *    I should have signed integer type.  In the terminology of C99, this can
+ *    be either one of the five standard signed integer types (signed char,
+ *    short, int, long, long long) or an extended signed integer type.
+ *    J is an integer >= 0 and strictly less than the number of bits in the
+ *    type of I (because C doesn't define what happens for J outside that
+ *    range either).
+ *    TYPE used to specify the type of I, but is now ignored.  It's been left
+ *    in for backwards compatibility with versions <= 2.6 or 3.0.
+ * Caution:
+ *    I may be evaluated more than once.
+ */
+#ifdef SIGNED_RIGHT_SHIFT_ZERO_FILLS
+#define Py_ARITHMETIC_RIGHT_SHIFT(TYPE, I, J) \
+    ((I) < 0 ? -1-((-1-(I)) >> (J)) : (I) >> (J))
+#else
+#define Py_ARITHMETIC_RIGHT_SHIFT(TYPE, I, J) ((I) >> (J))
+#endif
+
+/* Py_FORCE_EXPANSION(X)
+ * "Simply" returns its argument.  However, macro expansions within the
+ * argument are evaluated.  This unfortunate trickery is needed to get
+ * token-pasting to work as desired in some cases.
+ */
+#define Py_FORCE_EXPANSION(X) X
+
 /* Py_SAFE_DOWNCAST(VALUE, WIDE, NARROW)
  * Cast VALUE to type NARROW from type WIDE.  In Py_DEBUG mode, this
  * assert-fails if any information is lost.
@@ -229,6 +276,155 @@ typedef unsigned long Py_uhash_t;
 #else
 #define Py_DEPRECATED(VERSION_UNUSED)
 #endif
+
+#if defined(__clang__)
+#define _Py_COMP_DIAG_PUSH _Pragma("clang diagnostic push")
+#define _Py_COMP_DIAG_IGNORE_DEPR_DECLS \
+    _Pragma("clang diagnostic ignored \"-Wdeprecated-declarations\"")
+#define _Py_COMP_DIAG_POP _Pragma("clang diagnostic pop")
+#elif defined(__GNUC__) \
+    && ((__GNUC__ >= 5) || (__GNUC__ == 4) && (__GNUC_MINOR__ >= 6))
+#define _Py_COMP_DIAG_PUSH _Pragma("GCC diagnostic push")
+#define _Py_COMP_DIAG_IGNORE_DEPR_DECLS \
+    _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
+#define _Py_COMP_DIAG_POP _Pragma("GCC diagnostic pop")
+#elif defined(_MSC_VER)
+#define _Py_COMP_DIAG_PUSH __pragma(warning(push))
+#define _Py_COMP_DIAG_IGNORE_DEPR_DECLS __pragma(warning(disable: 4996))
+#define _Py_COMP_DIAG_POP __pragma(warning(pop))
+#else
+#define _Py_COMP_DIAG_PUSH
+#define _Py_COMP_DIAG_IGNORE_DEPR_DECLS
+#define _Py_COMP_DIAG_POP
+#endif
+
+/* _Py_HOT_FUNCTION
+ * The hot attribute on a function is used to inform the compiler that the
+ * function is a hot spot of the compiled program. The function is optimized
+ * more aggressively and on many target it is placed into special subsection of
+ * the text section so all hot functions appears close together improving
+ * locality.
+ *
+ * Usage:
+ *    int _Py_HOT_FUNCTION x(void) { return 3; }
+ *
+ * Issue #28618: This attribute must not be abused, otherwise it can have a
+ * negative effect on performance. Only the functions were Python spend most of
+ * its time must use it. Use a profiler when running performance benchmark
+ * suite to find these functions.
+ */
+#if defined(__GNUC__) \
+    && ((__GNUC__ >= 5) || (__GNUC__ == 4) && (__GNUC_MINOR__ >= 3))
+#define _Py_HOT_FUNCTION __attribute__((hot))
+#else
+#define _Py_HOT_FUNCTION
+#endif
+
+// Ask the compiler to always inline a static inline function. The compiler can
+// ignore it and decides to not inline the function.
+//
+// It can be used to inline performance critical static inline functions when
+// building Python in debug mode with function inlining disabled. For example,
+// MSC disables function inlining when building in debug mode.
+//
+// Marking blindly a static inline function with Py_ALWAYS_INLINE can result in
+// worse performances (due to increased code size for example). The compiler is
+// usually smarter than the developer for the cost/benefit analysis.
+//
+// If Python is built in debug mode (if the Py_DEBUG macro is defined), the
+// Py_ALWAYS_INLINE macro does nothing.
+//
+// It must be specified before the function return type. Usage:
+//
+//     static inline Py_ALWAYS_INLINE int random(void) { return 4; }
+#if defined(Py_DEBUG)
+   // If Python is built in debug mode, usually compiler optimizations are
+   // disabled. In this case, Py_ALWAYS_INLINE can increase a lot the stack
+   // memory usage. For example, forcing inlining using gcc -O0 increases the
+   // stack usage from 6 KB to 15 KB per Python function call.
+#  define Py_ALWAYS_INLINE
+#elif defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+#  define Py_ALWAYS_INLINE __attribute__((always_inline))
+#elif defined(_MSC_VER)
+#  define Py_ALWAYS_INLINE __forceinline
+#else
+#  define Py_ALWAYS_INLINE
+#endif
+
+// Py_NO_INLINE
+// Disable inlining on a function. For example, it reduces the C stack
+// consumption: useful on LTO+PGO builds which heavily inline code (see
+// bpo-33720).
+//
+// Usage:
+//
+//    Py_NO_INLINE static int random(void) { return 4; }
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+#  define Py_NO_INLINE __attribute__ ((noinline))
+#elif defined(_MSC_VER)
+#  define Py_NO_INLINE __declspec(noinline)
+#else
+#  define Py_NO_INLINE
+#endif
+
+/**************************************************************************
+Prototypes that are missing from the standard include files on some systems
+(and possibly only some versions of such systems.)
+
+Please be conservative with adding new ones, document them and enclose them
+in platform-specific #ifdefs.
+**************************************************************************/
+
+#ifdef HAVE__GETPTY
+#include <sys/types.h>          /* we need to import mode_t */
+extern char * _getpty(int *, int, mode_t, int);
+#endif
+
+/* On QNX 6, struct termio must be declared by including sys/termio.h
+   if TCGETA, TCSETA, TCSETAW, or TCSETAF are used.  sys/termio.h must
+   be included before termios.h or it will generate an error. */
+#if defined(HAVE_SYS_TERMIO_H) && !defined(__hpux)
+#include <sys/termio.h>
+#endif
+
+
+/* On 4.4BSD-descendants, ctype functions serves the whole range of
+ * wchar_t character set rather than single byte code points only.
+ * This characteristic can break some operations of string object
+ * including str.upper() and str.split() on UTF-8 locales.  This
+ * workaround was provided by Tim Robbins of FreeBSD project.
+ */
+
+#if defined(__APPLE__)
+#  define _PY_PORT_CTYPE_UTF8_ISSUE
+#endif
+
+#ifdef _PY_PORT_CTYPE_UTF8_ISSUE
+#ifndef __cplusplus
+   /* The workaround below is unsafe in C++ because
+    * the <locale> defines these symbols as real functions,
+    * with a slightly different signature.
+    * See issue #10910
+    */
+#include <ctype.h>
+#include <wctype.h>
+#undef isalnum
+#define isalnum(c) iswalnum(btowc(c))
+#undef isalpha
+#define isalpha(c) iswalpha(btowc(c))
+#undef islower
+#define islower(c) iswlower(btowc(c))
+#undef isspace
+#define isspace(c) iswspace(btowc(c))
+#undef isupper
+#define isupper(c) iswupper(btowc(c))
+#undef tolower
+#define tolower(c) towlower(btowc(c))
+#undef toupper
+#define toupper(c) towupper(btowc(c))
+#endif
+#endif
+
 
 /* Declarations for symbol visibility.
 
@@ -303,7 +499,6 @@ typedef unsigned long Py_uhash_t;
 #       endif /* __cplusplus */
 #endif
 
-
 /*
  * Hide GCC attributes from compilers that don't support them.
  */
@@ -340,10 +535,62 @@ typedef unsigned long Py_uhash_t;
 
 #define Py_VA_COPY va_copy
 
+/*
+ * Convenient macros to deal with endianness of the platform. WORDS_BIGENDIAN is
+ * detected by configure and defined in pyconfig.h. The code in pyconfig.h
+ * also takes care of Apple's universal builds.
+ */
+
+#ifdef WORDS_BIGENDIAN
+#  define PY_BIG_ENDIAN 1
+#  define PY_LITTLE_ENDIAN 0
+#else
+#  define PY_BIG_ENDIAN 0
+#  define PY_LITTLE_ENDIAN 1
+#endif
+
+#ifdef __ANDROID__
+   /* The Android langinfo.h header is not used. */
+#  undef HAVE_LANGINFO_H
+#  undef CODESET
+#endif
+
+/* Maximum value of the Windows DWORD type */
+#define PY_DWORD_MAX 4294967295U
+
+/* This macro used to tell whether Python was built with multithreading
+ * enabled.  Now multithreading is always enabled, but keep the macro
+ * for compatibility.
+ */
+#ifndef WITH_THREAD
+#  define WITH_THREAD
+#endif
+
+/* Check that ALT_SOABI is consistent with Py_TRACE_REFS:
+   ./configure --with-trace-refs should must be used to define Py_TRACE_REFS */
+#if defined(ALT_SOABI) && defined(Py_TRACE_REFS)
+#  error "Py_TRACE_REFS ABI is not compatible with release and debug ABI"
+#endif
+
+#if defined(__ANDROID__) || defined(__VXWORKS__)
+   // Use UTF-8 as the locale encoding, ignore the LC_CTYPE locale.
+   // See _Py_GetLocaleEncoding(), PyUnicode_DecodeLocale()
+   // and PyUnicode_EncodeLocale().
+#  define _Py_FORCE_UTF8_LOCALE
+#endif
+
+#if defined(_Py_FORCE_UTF8_LOCALE) || defined(__APPLE__)
+   // Use UTF-8 as the filesystem encoding.
+   // See PyUnicode_DecodeFSDefaultAndSize(), PyUnicode_EncodeFSDefault(),
+   // Py_DecodeLocale() and Py_EncodeLocale().
+#  define _Py_FORCE_UTF8_FS_ENCODING
+#endif
+
 /* Mark a function which cannot return. Example:
    PyAPI_FUNC(void) _Py_NO_RETURN PyThread_exit_thread(void);
 
    XLC support is intentionally omitted due to bpo-40244 */
+#ifndef _Py_NO_RETURN
 #if defined(__clang__) || \
     (defined(__GNUC__) && \
      ((__GNUC__ >= 3) || \
@@ -353,6 +600,7 @@ typedef unsigned long Py_uhash_t;
 #  define _Py_NO_RETURN __declspec(noreturn)
 #else
 #  define _Py_NO_RETURN
+#endif
 #endif
 
 
@@ -366,5 +614,23 @@ typedef unsigned long Py_uhash_t;
 #  define _Py__has_builtin(x) 0
 #endif
 
+
+/* A convenient way for code to know if sanitizers are enabled. */
+#if defined(__has_feature)
+#  if __has_feature(memory_sanitizer)
+#    if !defined(_Py_MEMORY_SANITIZER)
+#      define _Py_MEMORY_SANITIZER
+#    endif
+#  endif
+#  if __has_feature(address_sanitizer)
+#    if !defined(_Py_ADDRESS_SANITIZER)
+#      define _Py_ADDRESS_SANITIZER
+#    endif
+#  endif
+#elif defined(__GNUC__)
+#  if defined(__SANITIZE_ADDRESS__)
+#    define _Py_ADDRESS_SANITIZER
+#  endif
+#endif
 
 #endif /* Py_PYPORT_H */

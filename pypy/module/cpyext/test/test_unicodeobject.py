@@ -24,9 +24,12 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  PyObject* s = PyUnicode_FromString("Hello world");
                  int result = 0;
 
+                 _Py_COMP_DIAG_PUSH
+                 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
                  if(PyUnicode_GetSize(s) != 11) {
                      result = -PyUnicode_GetSize(s);
                  }
+                 _Py_COMP_DIAG_POP
                  if(s->ob_type->tp_basicsize != sizeof(PyUnicodeObject))
                      result = s->ob_type->tp_basicsize;
                  Py_DECREF(s);
@@ -46,7 +49,10 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             ("test_GetSize_exception", "METH_NOARGS",
              """
                  PyObject* f = PyFloat_FromDouble(1.0);
+                 _Py_COMP_DIAG_PUSH
+                 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
                  PyUnicode_GetSize(f);
+                 _Py_COMP_DIAG_POP
 
                  Py_DECREF(f);
                  return NULL;
@@ -69,6 +75,13 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                 // No need to decref s, it is done for us.
                 return ret;
              """),
+             ("test_TONUMERIC", "METH_O",
+             """
+                Py_UCS4 *ucs4 = PyUnicode_AsUCS4Copy(args);
+                if (ucs4 == NULL) return NULL;
+                double result = _PyUnicode_ToNumeric(ucs4[0]);
+                return PyFloat_FromDouble(result);
+            """),
             ])
         assert module.get_hello1() == u'Hello world'
         assert module.test_GetSize() == 0
@@ -82,6 +95,8 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         a = u"a"
         assert module.test_append(a, u"b") == u"ab"
         assert module.test_appenddel(a) ==  a + u"Hello world"
+        assert module.test_TONUMERIC('6') == 6.0
+        assert module.test_TONUMERIC('A') == -1.0
 
     def test_strlen(self):
         module = self.import_extension('foo', [
@@ -121,7 +136,10 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                  if (t == NULL)
                     return NULL;
                  Py_DECREF(t);
+                 _Py_COMP_DIAG_PUSH
+                 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
                  c = PyUnicode_AsUnicode(s);
+                 _Py_COMP_DIAG_POP
                  c[0] = 'a';
                  c[1] = 0xe9;
                  c[2] = 0x00;
@@ -157,6 +175,8 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                 PyObject* o = PyUnicode_FromString("");
                 PyUnicodeObject* u = (PyUnicodeObject*)o;
 
+                _Py_COMP_DIAG_PUSH
+                _Py_COMP_DIAG_IGNORE_DEPR_DECLS
                 PyUnicode_GET_SIZE(u);
                 PyUnicode_GET_SIZE(o);
 
@@ -165,10 +185,35 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
 
                 PyUnicode_AS_UNICODE(o);
                 PyUnicode_AS_UNICODE(u);
+                _Py_COMP_DIAG_POP
                 return o;
-             """)])
+             """),
+             ("test_ISWHITESPACE", "METH_O",
+             """
+                Py_UCS4 *ucs4 = PyUnicode_AsUCS4Copy(args);
+                if (ucs4 == NULL) return NULL;
+                int result = _PyUnicode_IsWhitespace(ucs4[0]);
+                return PyLong_FromLong(result);
+             """),
+             ("test_ISLINEBREAK", "METH_O",
+             """
+                Py_UCS4 *ucs4 = PyUnicode_AsUCS4Copy(args);
+                if (ucs4 == NULL) return NULL;
+                int result = Py_UNICODE_ISLINEBREAK(ucs4[0]);
+                return PyLong_FromLong(result);
+             """),
+            ])
         assert module.test_macro_invocations() == u''
-
+        for char in [0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f,
+                     0x20, 0x85, 0xa0, 0x1680, 0x2000, 0x2001, 0x2002,
+                     0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008,
+                     0x2009, 0x200a,
+                     #0x200b is in Other_Default_Ignorable_Code_Point in 4.1.0
+                     0x2028, 0x2029, 0x202f, 0x205f, 0x3000]:
+            assert module.test_ISWHITESPACE(chr(char)) == 1
+        assert module.test_ISWHITESPACE('a') == 0
+        for char in [0x0a, 0x0d, 0x1c, 0x1d, 0x1e, 0x85, 0x2028, 0x2029]:
+            assert module.test_ISLINEBREAK(chr(char))
 
     def test_format_v(self):
         module = self.import_extension('foo', [
@@ -825,13 +870,13 @@ class TestUnicode(BaseApiTest):
 
     def test_AS(self, space):
         word = space.wrap(u'spam')
-        array = rffi.cast(rffi.CWCHARP, PyUnicode_AsUnicode(space, word))
-        array2 = PyUnicode_AsUnicode(space, word)
+        array = rffi.cast(rffi.CWCHARP, PyUnicode_AsUnicodeAndSize(space, word, None))
+        array2 = PyUnicode_AsUnicodeAndSize(space, word, None)
         for (i, char) in enumerate(space.utf8_w(word)):
             assert array[i] == char
             assert array2[i] == char
         with raises_w(space, TypeError):
-            PyUnicode_AsUnicode(space, space.newbytes('spam'))
+            PyUnicode_AsUnicodeAndSize(space, space.newbytes('spam'), None)
 
         utf_8 = rffi.str2charp('utf-8')
         encoded = PyUnicode_AsEncodedString(space, space.wrap(u'späm'),
@@ -1013,61 +1058,52 @@ class TestUnicode(BaseApiTest):
 
 
     def test_IS(self, space):
-        for char in [0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f,
-                     0x20, 0x85, 0xa0, 0x1680, 0x2000, 0x2001, 0x2002,
-                     0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008,
-                     0x2009, 0x200a,
-                     #0x200b is in Other_Default_Ignorable_Code_Point in 4.1.0
-                     0x2028, 0x2029, 0x202f, 0x205f, 0x3000]:
-            assert Py_UNICODE_ISSPACE(space, char)
-        assert not Py_UNICODE_ISSPACE(space, ord('a'))
+        from pypy.module.cpyext.unicodeobject import (_PyUnicode_IsAlpha,
+            _PyUnicode_IsDecimalDigit, _PyUnicode_IsDigit, _PyUnicode_IsNumeric,
+            _PyUnicode_IsLowercase, _PyUnicode_IsUppercase,
+            _PyUnicode_IsTitlecase)
+        assert not _PyUnicode_IsAlpha(space, ord('0'))
+        assert _PyUnicode_IsAlpha(space, ord('a'))
+        assert not _PyUnicode_IsAlpha(space, ord('+'))
 
-        assert Py_UNICODE_ISALPHA(space, ord('a'))
-        assert not Py_UNICODE_ISALPHA(space, ord('0'))
-        assert Py_UNICODE_ISALNUM(space, ord('a'))
-        assert Py_UNICODE_ISALNUM(space, ord('0'))
-        assert not Py_UNICODE_ISALNUM(space, ord('+'))
+        assert _PyUnicode_IsDecimalDigit(space, ord(u'\u0660'))
+        assert not _PyUnicode_IsDecimalDigit(space, ord('a'))
+        assert _PyUnicode_IsDigit(space, ord('9'))
+        assert not _PyUnicode_IsDigit(space, ord('@'))
+        assert _PyUnicode_IsNumeric(space, ord('9'))
+        assert not _PyUnicode_IsNumeric(space, ord('@'))
 
-        assert Py_UNICODE_ISDECIMAL(space, ord(u'\u0660'))
-        assert not Py_UNICODE_ISDECIMAL(space, ord('a'))
-        assert Py_UNICODE_ISDIGIT(space, ord('9'))
-        assert not Py_UNICODE_ISDIGIT(space, ord('@'))
-        assert Py_UNICODE_ISNUMERIC(space, ord('9'))
-        assert not Py_UNICODE_ISNUMERIC(space, ord('@'))
-
-        for char in [0x0a, 0x0d, 0x1c, 0x1d, 0x1e, 0x85, 0x2028, 0x2029]:
-            assert Py_UNICODE_ISLINEBREAK(space, char)
-
-        assert Py_UNICODE_ISLOWER(space, ord('\xdf')) # sharp s
-        assert Py_UNICODE_ISUPPER(space, ord('\xde')) # capital thorn
-        assert Py_UNICODE_ISLOWER(space, ord('a'))
-        assert not Py_UNICODE_ISUPPER(space, ord('a'))
-        assert not Py_UNICODE_ISTITLE(space, ord('\xce'))
-        assert Py_UNICODE_ISTITLE(space,
+        assert _PyUnicode_IsLowercase(space, ord('\xdf')) # sharp s
+        assert _PyUnicode_IsUppercase(space, ord('\xde')) # capital thorn
+        assert _PyUnicode_IsLowercase(space, ord('a'))
+        assert not _PyUnicode_IsUppercase(space, ord('a'))
+        assert not _PyUnicode_IsTitlecase(space, ord('\xce'))
+        assert _PyUnicode_IsTitlecase(space,
             ord(u'\N{LATIN CAPITAL LETTER L WITH SMALL LETTER J}'))
 
     def test_TOLOWER(self, space):
-        assert Py_UNICODE_TOLOWER(space, ord(u'�') == ord(u'�'))
-        assert Py_UNICODE_TOLOWER(space, ord(u'�') == ord(u'�'))
+        from pypy.module.cpyext.unicodeobject import _PyUnicode_ToLowercase
+        assert _PyUnicode_ToLowercase(space, ord(u'�') == ord(u'�'))
+        assert _PyUnicode_ToLowercase(space, ord(u'�') == ord(u'�'))
 
     def test_TOUPPER(self, space):
-        assert Py_UNICODE_TOUPPER(space, ord(u'�') == ord(u'�'))
-        assert Py_UNICODE_TOUPPER(space, ord(u'�') == ord(u'�'))
+        from pypy.module.cpyext.unicodeobject import _PyUnicode_ToUppercase
+        assert _PyUnicode_ToUppercase(space, ord(u'�') == ord(u'�'))
+        assert _PyUnicode_ToUppercase(space, ord(u'�') == ord(u'�'))
 
     def test_TOTITLE(self, space):
-        assert Py_UNICODE_TOTITLE(space, ord('/') == ord('/'))
+        from pypy.module.cpyext.unicodeobject import _PyUnicode_ToTitlecase
+        assert _PyUnicode_ToTitlecase(space, ord('/') == ord('/'))
 
     def test_TODECIMAL(self, space):
-        assert Py_UNICODE_TODECIMAL(space, ord('6')) == 6
-        assert Py_UNICODE_TODECIMAL(space, ord('A')) == -1
+        from pypy.module.cpyext.unicodeobject import _PyUnicode_ToDecimalDigit
+        assert _PyUnicode_ToDecimalDigit(space, ord('6')) == 6
+        assert _PyUnicode_ToDecimalDigit(space, ord('A')) == -1
 
     def test_TODIGIT(self, space):
-        assert Py_UNICODE_TODIGIT(space, ord('6')) == 6
-        assert Py_UNICODE_TODIGIT(space, ord('A')) == -1
-
-    def test_TONUMERIC(self, space):
-        assert Py_UNICODE_TONUMERIC(space, ord('6')) == 6.0
-        assert Py_UNICODE_TONUMERIC(space, ord('A')) == -1.0
+        from pypy.module.cpyext.unicodeobject import _PyUnicode_ToDigit
+        assert _PyUnicode_ToDigit(space, ord('6')) == 6
+        assert _PyUnicode_ToDigit(space, ord('A')) == -1
 
     def test_transform_decimal(self, space):
         def transform_decimal(s):
@@ -1255,7 +1291,7 @@ class TestUnicode(BaseApiTest):
         count1 = space.int_w(space.len(w_x))
         target_chunk = lltype.malloc(rffi.CWCHARP.TO, count1, flavor='raw')
 
-        x_chunk = PyUnicode_AsUnicode(space, w_x)
+        x_chunk = PyUnicode_AsUnicodeAndSize(space, w_x, None)
         Py_UNICODE_COPY(space, target_chunk, x_chunk, 4)
         w_y = space.wrap(rffi.wcharpsize2unicode(target_chunk, 4))
 
