@@ -1,6 +1,6 @@
-========================================
-PyPy v7.3.7: bug-fix release of 3.7, 3.8
-========================================
+=============================================================
+PyPy v7.3.7: bug-fix release of 3.7, 3.8, released 2021-10-25
+=============================================================
 
 We are releasing a PyPy 7.3.7 to fix the recent 7.3.6 release's binary
 incompatibility with the previous 7.3.x releases. We mistakenly added fields

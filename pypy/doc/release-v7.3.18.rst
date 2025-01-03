@@ -3,7 +3,7 @@ PyPy v7.3.18: release of python 2.7, 3.10 and 3.11 beta
 =======================================================
 
 ..
-     updated to dc81fc45b53c736dda85
+     updated to 696ddf306acdbf7ad0b7403cb0e476a661efdeba
 
 .. note::
     This is a pre-release announcement. When the release actually happens, it
@@ -96,20 +96,72 @@ Changelog
 
 For all versions
 ----------------
+- Update cffi backend to 1.18.0-dev
+- Refactor use of Python2 unicode in rpython to use only utf-8. This affects
+  windows calls to ``rposix`` routines. Now all the system calls on windows
+  should use the ``FunctionW`` variants instead of the ``FunctionA`` ones.
+- Update to vmprof-0.4.17
+- Add support for unicode version 14
 
 Bugfixes
 ~~~~~~~~
+- Make sure that tracing tail-recursive infinite recursion ends (:issue:`5021`)
+- Revive ``tools/gcdumpy.py`` which uses ``PYPYLOG``
+- Fix ``socket.socket.sendto`` for ``AF_PACKET`` protocol (:issue:`5024`)
+- Fix ``inf``/``nan`` formatting with thousands separator (:issue:`5018`)
+- Fixup int/long confusion on 32-bit builds
+- Fix the ``gc.get_stats`` output (:issue:`5005`)
+- Use simple interactive console if ``stdin`` is closed (:issue:`2981`)
+- Use ``HOMEBREW_CELLAR`` to find ``tcl`` library on macOS (:issue:`5096`)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
+- Make the opencoder encoding support varsized ints. This shrinks the memory
+  usage and is supposed to support really long trace limits withou recompiling
+  pypy
+- Implement a ``try_cast_erased`` function
+- Copy CPython's ``threading`` implementation for windows
+- Only use ``largefile`` glibc interfaces on 32-bit build (:issue:`5071`)
+- Add a DSL for integer optimizations, use it to create some optimizatons, see the blogpost_
+- Optimize overflowing ``int*int`` multiplication that produces a ``long`` result
+
+.. _blogpost: https://pypy.org/posts/2024/07/mining-jit-traces-missing-optimizations-z3.html
 
 Python 3.10
 -----------
 
 Bugfixes
 ~~~~~~~~
-- sync ``Python.h`` with upstream, add ``import.h`` (:issue:`5013`)
+- Sync ``Python.h`` with upstream, add ``import.h`` (:issue:`5013`)
+- Prefer static sysconfigdata if it exists and do not create static
+  sysconfigdata on portable builds (:issue:`5015`)
+- Fix python2-isms in ``complex``, in both str and format
+- Do not segfault in ``reversed.__setstate__`` (:issue:`5029`)
+- Fix weird edge case where a ``index`` of a ``memoryview`` releases the
+  underlying buffer
+- Fix ``_ssl.read`` when ``get_shutdown`` is true, should no longer error
+- Always initialize locale by calling ``setlocale(LC_CTYPE, '')``
+- Fix when metaclass ``__new__`` has extra args
+- Fix ``venv`` when src is a source build
+- Also create python.exe and python3.exe when creating a venv in a source build
+  on windows
+- Sync ``'user_base'`` between ``site.py`` and ``sysconfig.py`` on windows
+  (:issue:`5073`)
+- Allow unterminated string error to propogate in the tokenizer (:issue:`5076`)
+- Fix subtle problem with ``Py_SIZE(PyListObject)`` since it assumes
+  ``PyListObject`` is a ``PyVarObject``.
+- Fix race in ``Thread.join()`` (:issue:`5080`) and ``threadpool`` stopping (:issue:`4994`)
+- Fix logic in packaging ``tklib`` for darwin (:issue:`5082`)
+- Fix an infinite loop in the jump threading optimization in the bytecode
+  compiler (:issue:`5090`)
+- Make ``__doc__`` a proper descr on methods
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
+- Move ``_remove_dead_weakref`` to the _weakref module (:issue:`5068`)
+- Make ``unicodedata.normalize`` O(1) for ascii strings (:issue:`5052`)
+- Add ``PyContextVar_Reset``, ``Py_FatalError`` (:issue:`5081`) (:issue:`5086`)
+- Make ``Py_FatalError`` a macro that adds the current function name, like
+  CPython
+- Many error message tweaks for test compliance with CPython
 
