@@ -117,12 +117,12 @@ Bugfixes
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 - Make the opencoder encoding support varsized ints. This shrinks the memory
-  usage and is supposed to support really long trace limits withou recompiling
+  usage and is supposed to support really long trace limits without recompiling
   pypy
 - Implement a ``try_cast_erased`` function
 - Copy CPython's ``threading`` implementation for windows
 - Only use ``largefile`` glibc interfaces on 32-bit build (:issue:`5071`)
-- Add a DSL for integer optimizations, use it to create some optimizatons, see the blogpost_
+- Add a DSL for integer optimizations, use it to create some optimizations, see the blogpost_
 - Optimize overflowing ``int*int`` multiplication that produces a ``long`` result
 
 .. _blogpost: https://pypy.org/posts/2024/07/mining-jit-traces-missing-optimizations-z3.html
@@ -147,7 +147,7 @@ Bugfixes
   on windows
 - Sync ``'user_base'`` between ``site.py`` and ``sysconfig.py`` on windows
   (:issue:`5073`)
-- Allow unterminated string error to propogate in the tokenizer (:issue:`5076`)
+- Allow unterminated string error to propagate in the tokenizer (:issue:`5076`)
 - Fix subtle problem with ``Py_SIZE(PyListObject)`` since it assumes
   ``PyListObject`` is a ``PyVarObject``.
 - Fix race in ``Thread.join()`` (:issue:`5080`) and ``threadpool`` stopping (:issue:`4994`)
