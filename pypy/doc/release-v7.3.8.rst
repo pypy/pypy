@@ -1,6 +1,6 @@
-==========================================================
-PyPy v7.3.8: release of python 2.7, 3.7, 3.8, and 3.9-beta
-==========================================================
+==============================================================================
+PyPy v7.3.8: release of python 2.7, 3.7, 3.8, and 3.9-beta, released 2022-2-20
+==============================================================================
 
 The PyPy team is proud to release version 7.3.8 of PyPy. It has been only a few
 months since our last release, but we have some nice speedups and bugfixes we

@@ -665,6 +665,8 @@ INTBOUND_METHODTYPES = {
     "lshift_bound_cannot_overflow": (IntBound, [IntBound], bool),
     "and_bound": (IntBound, [IntBound], IntBound),
     "or_bound": (IntBound, [IntBound], IntBound),
+    "sub_bound": (IntBound, [IntBound], IntBound),
+    "sub_bound_cannot_overflow": (IntBound, [IntBound], bool),
     "lshift_bound": (IntBound, [IntBound], IntBound),
     "rshift_bound": (IntBound, [IntBound], IntBound),
     "urshift_bound": (IntBound, [IntBound], IntBound),

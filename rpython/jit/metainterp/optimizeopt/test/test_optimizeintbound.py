@@ -4211,6 +4211,36 @@ finish()
         '''
         self.optimize_loop(ops, expected)
 
+        ops = '''
+        [i1]
+        i2 = int_sub(-1, i1)
+        i3 = int_add(i2, 1)
+        i4 = int_neg(i1)
+        jump(i4, i3)
+        '''
+        expected = '''
+        [i1]
+        i2 = int_sub(-1, i1)
+        i4 = int_neg(i1)
+        jump(i4, i4)
+        '''
+        self.optimize_loop(ops, expected)
+
+    def dont_test_strlen_int_is_zero_bug(self):
+        ops = '''
+        [p1]
+        i109 = strlen(p1)
+        i111 = int_add(i109, 3)
+        i114 = int_is_zero(i111)
+        jump(i114, 0) # constant
+        '''
+        expected = '''
+        [p1]
+        i109 = strlen(p1)
+        i111 = int_add(i109, 3)
+        jump(0, 0) # constant
+        '''
+        self.optimize_loop(ops, expected)
 
 class TestComplexIntOpts(BaseTestBasic):
 
