@@ -485,8 +485,10 @@ def _ll_zero_or_null(item):
     return not check
 
 @specialize.memo()
-def _null_of_type(T):
-    return T._defl()
+def _is_array_of_gcref(T):
+    ITEM = T.ITEM
+    return isinstance(ITEM, Ptr) and ITEM.TO._gckind == 'gc'
+
 
 def ll_alloc_and_set(LIST, count, item):
     count = int_force_ge_zero(count)
@@ -519,14 +521,14 @@ def _ll_alloc_and_set_jit(LIST, count, item):
 
 @jit.oopspec("newlist_clear(count)")
 def _ll_alloc_and_clear(LIST, count):
+    from rpython.rlib.rgc import ll_arrayclear
     l = LIST.ll_newlist(count)
-    if malloc_zero_filled:
+    if malloc_zero_filled or _is_array_of_gcref(LIST):
+        # if it's an array of gcrefs, we don't need to clear it (the
+        # exceptiontransformer inserts clear calls, otherwise the GC would
+        # crash)
         return l
-    zeroitem = _null_of_type(LIST.ITEM)
-    i = 0
-    while i < count:
-        l.ll_setitem_fast(i, zeroitem)
-        i += 1
+    ll_arrayclear(l.ll_items())
     return l
 
 @jit.look_inside_iff(lambda LIST, count, item: jit.isconstant(count) and count < 137)

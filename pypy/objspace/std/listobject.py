@@ -1648,6 +1648,7 @@ class AbstractUnwrappedStrategy(object):
         else:
             new_allocated = newsize
         l = self.unerase(w_list.lstorage)
+        assert new_allocated >= 0
         newitems = [self._none_value] * new_allocated
         before_len = w_list.length()
         if before_len:
