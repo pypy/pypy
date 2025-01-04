@@ -12,10 +12,7 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 from pypy.interpreter.signature import Signature
 
 @specialize.argtype(1)
-@jit.look_inside_iff(lambda space, s, start, end:
-       jit.isconstant(s) and
-       jit.isconstant(start) and
-       jit.isconstant(end))
+@jit.elidable
 def _parse_int(space, s, start, end):
     """Parse a number and check for overflows"""
     result = 0
@@ -663,7 +660,11 @@ def make_formatting_class(for_unicode):
             if self._fill_char == "0" and self._align == "=":
                 spec.n_min_width = self._width - extra_length
             if self._loc_thousands and spec.n_digits:
-                self._group_digits(spec, digits[to_number:])
+                self._grouped_digits = self._group_digits(digits[to_number:],
+                                                          spec.n_min_width,
+                                                          spec.n_digits,
+                                                          self._loc_grouping,
+                                                          self._loc_thousands)
                 n_grouped_digits = len(self._grouped_digits)
             else:
                 n_grouped_digits = spec.n_digits
@@ -686,7 +687,9 @@ def make_formatting_class(for_unicode):
                            spec.n_decimal + spec.n_remainder + spec.n_rpadding
             return spec
 
-        def _fill_digits(self, buf, digits, d_state, n_chars, n_zeros,
+        @staticmethod
+        @jit.elidable
+        def _fill_digits(buf, digits, d_state, n_chars, n_zeros,
                          thousands_sep):
             if thousands_sep:
                 for c in thousands_sep:
@@ -696,13 +699,13 @@ def make_formatting_class(for_unicode):
             for i in range(n_zeros):
                 buf.append("0")
 
-        def _group_digits(self, spec, digits):
+        @staticmethod
+        @jit.elidable
+        def _group_digits(digits, min_width, left, loc_grouping, loc_thousands):
             buf = []
-            grouping = self._loc_grouping
-            min_width = spec.n_min_width
+            grouping = loc_grouping
             grouping_state = 0
-            left = spec.n_digits
-            n_ts = len(self._loc_thousands)
+            n_ts = len(loc_thousands)
             need_separator = False
             done = False
             previous = 0
@@ -720,8 +723,8 @@ def make_formatting_class(for_unicode):
                 final_grouping = min(group, max(left, max(min_width, 1)))
                 n_zeros = max(0, final_grouping - left)
                 n_chars = max(0, min(left, final_grouping))
-                ts = self._loc_thousands if need_separator else None
-                self._fill_digits(buf, digits, left, n_chars, n_zeros, ts)
+                ts = loc_thousands if need_separator else None
+                Formatter._fill_digits(buf, digits, left, n_chars, n_zeros, ts)
                 need_separator = True
                 left -= n_chars
                 min_width -= final_grouping
@@ -733,20 +736,13 @@ def make_formatting_class(for_unicode):
                 group = max(max(left, min_width), 1)
                 n_zeros = max(0, group - left)
                 n_chars = max(0, min(left, group))
-                ts = self._loc_thousands if need_separator else None
-                self._fill_digits(buf, digits, left, n_chars, n_zeros, ts)
+                ts = loc_thousands if need_separator else None
+                Formatter._fill_digits(buf, digits, left, n_chars, n_zeros, ts)
             buf.reverse()
-            self._grouped_digits = "".join(buf)
-
-        def _upcase_string(self, s):
-            buf = []
-            for c in s:
-                index = ord(c)
-                if ord("a") <= index <= ord("z"):
-                    c = chr(index - 32)
-                buf.append(c)
             return "".join(buf)
 
+        def _upcase_string(self, s):
+            return s.upper()
 
         def _fill_number(self, spec, num, to_digits, to_prefix, fill_char,
                          to_remainder, upper, grouped_digits=None):
@@ -864,12 +860,11 @@ def make_formatting_class(for_unicode):
                 return rutf8.decode_latin_1(as_str)
             return as_str
 
-        def _int_to_base(self, base, value):
+        @staticmethod
+        @jit.elidable
+        def _int_to_base(base, value):
             if base == 10:
-                s = str(value)
-                if self.is_unicode:
-                    return rutf8.decode_latin_1(s)
-                return s
+                return str(value)
             # This part is slow.
             negative = value < 0
             base = r_uint(base)
