@@ -345,7 +345,10 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("from_unicode", "METH_O",
              """
+                 _Py_COMP_DIAG_PUSH
+                 _Py_COMP_DIAG_IGNORE_DEPR_DECLS
                  Py_UNICODE* u = PyUnicode_AsUnicode(args);
+                 _Py_COMP_DIAG_POP
                  return Py_BuildValue("NN",
                      PyLong_FromUnicode(u, 6, 10),
                      PyLong_FromUnicode(u, 6, 16));

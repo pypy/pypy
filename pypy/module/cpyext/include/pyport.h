@@ -499,6 +499,10 @@ extern char * _getpty(int *, int, mode_t, int);
 #       endif /* __cplusplus */
 #endif
 
+#ifdef __cplusplus
+}
+#endif
+
 /*
  * Hide GCC attributes from compilers that don't support them.
  */
