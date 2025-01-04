@@ -3,7 +3,7 @@ PyPy v7.3.18: release of python 2.7, 3.10 and 3.11 beta
 =======================================================
 
 ..
-     updated to 696ddf306acdbf7ad0b7403cb0e476a661efdeba
+     updated to 1bf2407648a3b4bcd47af684ebd05ad70afc9819
 
 .. note::
     This is a pre-release announcement. When the release actually happens, it
@@ -16,7 +16,8 @@ The PyPy team is proud to release version 7.3.18 of PyPy.
 
 This release includes a python 3.11 interpreter. We are labelling it "beta"
 because it is the first one. In the next release we will drop 3.10 and remove
-the "beta" label.
+the "beta" label. There are a particualrly large set of bugfixes in this
+release thanks to Victor Stinner and @devdanzin using fusil on the 3.10 builds.
 
 The release includes three different interpreters:
 
@@ -113,6 +114,10 @@ Bugfixes
 - Fix the ``gc.get_stats`` output (:issue:`5005`)
 - Use simple interactive console if ``stdin`` is closed (:issue:`2981`)
 - Use ``HOMEBREW_CELLAR`` to find ``tcl`` library on macOS (:issue:`5096`)
+- Don't segfault in unicodedb when looking up invalid codepoints (:issue:`5113`)
+- Fix segfault in ``pyexpat`` (:issue:`5112`)
+- Guard against list mutation in the list ``repr`` (:issue:`5117`)
+- Use the slow path for ``mul_int_int_bigint_result`` if there is no ``int128``
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -124,6 +129,9 @@ Speedups and enhancements
 - Only use ``largefile`` glibc interfaces on 32-bit build (:issue:`5071`)
 - Add a DSL for integer optimizations, use it to create some optimizations, see the blogpost_
 - Optimize overflowing ``int*int`` multiplication that produces a ``long`` result
+- Resolve names of native functions in vmprof (:issue:`5114`)
+- Make internal streamio ``replace_crlf_with_lf`` do only one copy, not two
+  since we often read programatically generated python code.
 
 .. _blogpost: https://pypy.org/posts/2024/07/mining-jit-traces-missing-optimizations-z3.html
 
@@ -155,6 +163,33 @@ Bugfixes
 - Fix an infinite loop in the jump threading optimization in the bytecode
   compiler (:issue:`5090`)
 - Make ``__doc__`` a proper descr on methods
+- Limit ``_string.formatter*`` functions to reject ``bytes`` (:issue:`5111`)
+- Remove internal calls of ``utf8(bytes)``, fix error handler, add test
+  (:issue:`5110`, :issue:`5111`)
+- Make ``linecache.checkcache`` more resiliant (:issue:`5109`)
+- Remove extraneous exports from ``_dbm.__all__`` (:issue:`5115`)
+- Add missing ``_ensure_initialized`` in ``_curses.putp`` (:issue:`5116`)
+- Check ``self.ssl`` for pathological use of ``_ssl`` (:issue:`5124`)
+- Use ``os.fsencode`` for ``dbm.*.open`` (:issue:`5115`)
+- Check for NULL ssl certificate (:issue:`5120`)
+- Check before calling ``_dealloc_warn_w`` (:issue:`5123`)
+- Fix ``_curses`` tests and hide ``_mk_acs`` (:issue:`5122`)
+- Use  ``pkg-config`` for cffi ``_tkinter``, fix tk/tcl_path for portable
+  builds (:issue:`5064`, :issue:`5096`)
+- Test, fix infinite recursion when creating a ``pyobj`` from ``w_obj`` when
+  the ``pyobj`` is a list subtype that overrides ``__len__`` in c
+- Be more careful in the order of ``StringIO.__init__`` since decoding can fail
+  (:issue:`5126`)
+- Refactor hashlib ``_keccak_init`` to be a regular class method (:issue:`5127`)
+- Fix ``list.pop`` and ``list.insert`` to use ``__index__``
+- Check input for divide-by-zero in ``__pypy__.intops`` (:issue:`5129`)
+- Check input for valid c in ``mulmod(a, b, c)`` (:issue:`5128`)
+- Check code validity in ``_pickle_support.builtin_code`` (:issue:`5130`)
+- Check for bad result when calling ``nl_langinfo`` (:issue:`5132`)
+- Backport cpython fix to not write incomplete pyc files
+  (:issue:`python/cpython#126606`)
+- Do not initialize values if stringio newline is wrong (:issue:`5140`)
+- Initialize buffer view ``readonly`` flag properly (:issue:`5136`)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -164,4 +199,6 @@ Speedups and enhancements
 - Make ``Py_FatalError`` a macro that adds the current function name, like
   CPython
 - Many error message tweaks for test compliance with CPython
-
+- Make unmarshaling use unrolling_iterable instead of a function ptr table
+- Add ``_ssl.keylog_filename`` which is useful for debugging ssl problems
+  (:issue:`5141`)
