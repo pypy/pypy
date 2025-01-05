@@ -3,7 +3,7 @@ PyPy v7.3.18: release of python 2.7, 3.10 and 3.11 beta
 =======================================================
 
 ..
-     updated to 1bf2407648a3b4bcd47af684ebd05ad70afc9819
+     updated to 8633d98efb4b32cafe1761a2503af77ef4f941c9
 
 .. note::
     This is a pre-release announcement. When the release actually happens, it
@@ -16,7 +16,7 @@ The PyPy team is proud to release version 7.3.18 of PyPy.
 
 This release includes a python 3.11 interpreter. We are labelling it "beta"
 because it is the first one. In the next release we will drop 3.10 and remove
-the "beta" label. There are a particualrly large set of bugfixes in this
+the "beta" label. There are a particularly large set of bugfixes in this
 release thanks to Victor Stinner and @devdanzin using fusil on the 3.10 builds.
 
 The release includes three different interpreters:
@@ -103,6 +103,9 @@ For all versions
   should use the ``FunctionW`` variants instead of the ``FunctionA`` ones.
 - Update to vmprof-0.4.17
 - Add support for unicode version 14
+- Implement `PEP 768`_-inspired remote debugging facility. See
+  :doc:`remotedebugging`.
+- Add many more int optimization rules.
 
 Bugfixes
 ~~~~~~~~
@@ -131,9 +134,17 @@ Speedups and enhancements
 - Optimize overflowing ``int*int`` multiplication that produces a ``long`` result
 - Resolve names of native functions in vmprof (:issue:`5114`)
 - Make internal streamio ``replace_crlf_with_lf`` do only one copy, not two
-  since we often read programatically generated python code.
+  since we often read programmatically generated python code.
+- Avoid keeping refs on the frame stack when calling functions
+- Fix ``reverse`` JIT unrolling, which was done too eagerly
+- Write ``abs(int)`` in a branch-free way
+- On windows, use ``wchar_t`` for ``main(..., argv)``. Solves long standing
+  issue around calling ``pypy.exe <unicode-named-file>.py``
+- Fix cffi backend for struct-in-a-struct (:issue:`python-cffi/cffi#147`)
+- Make ``newformat.py`` somewhat more jit friendly
 
 .. _blogpost: https://pypy.org/posts/2024/07/mining-jit-traces-missing-optimizations-z3.html
+.. _`PEP 768`: https://peps.python.org/pep-0768/
 
 Python 3.10
 -----------
@@ -166,7 +177,7 @@ Bugfixes
 - Limit ``_string.formatter*`` functions to reject ``bytes`` (:issue:`5111`)
 - Remove internal calls of ``utf8(bytes)``, fix error handler, add test
   (:issue:`5110`, :issue:`5111`)
-- Make ``linecache.checkcache`` more resiliant (:issue:`5109`)
+- Make ``linecache.checkcache`` more resilient (:issue:`5109`)
 - Remove extraneous exports from ``_dbm.__all__`` (:issue:`5115`)
 - Add missing ``_ensure_initialized`` in ``_curses.putp`` (:issue:`5116`)
 - Check ``self.ssl`` for pathological use of ``_ssl`` (:issue:`5124`)
@@ -190,6 +201,14 @@ Bugfixes
   (:issue:`python/cpython#126606`)
 - Do not initialize values if stringio newline is wrong (:issue:`5140`)
 - Initialize buffer view ``readonly`` flag properly (:issue:`5136`)
+- Only increment ``pos`` in ``PyDict_Next`` after checking len (:issue:`5142`)
+- In builtin ``hex(x)``, ``oct(x)``, ``bin(x)``, use ``int.__format__`` not
+  ``x.__format__``
+- Invalidate the method cache in the presence of overridden mros (:issue:`5149`)
+- Fix new failure in ``lib-python/3/test/test_descr`` when ``mro()`` sets
+  ``__bases__``
+- Avoid segfault when creating memoryview of ctypes array with 0 shape
+  (:issue:`5156`)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -202,3 +221,7 @@ Speedups and enhancements
 - Make unmarshaling use unrolling_iterable instead of a function ptr table
 - Add ``_ssl.keylog_filename`` which is useful for debugging ssl problems
   (:issue:`5141`)
+- Allocate less when using ``PyErr_NoMemory`` to raise an error rather than
+  segfault
+- Add docstrings to tupleobject
+- Add audit events to ``syslog`` and ``_sqlite3``
