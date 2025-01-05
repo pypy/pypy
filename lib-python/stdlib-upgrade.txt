@@ -40,7 +40,7 @@ In pypy, cd into `lib-python/3`
 Then do 
 patch -p2 -i <outfile>
 
-If patch asks about reveresed patches, reply "no" and apply anyway "yes"
+If patch asks about reversed patches, reply "no" and apply anyway "yes"
 
 Carefully note the failures in the *.rej files and try to resolve the conflicts.
 Delete all the *.orig files, and look for files that should be added to version control

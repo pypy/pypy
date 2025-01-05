@@ -60,6 +60,9 @@ os_symlink_impl(wchar_t *src, wchar_t *dst, int target_is_directory);
 RPY_EXPORTED int
 os_unlink_impl(wchar_t *src);
 
+RPY_EXPORTED int
+os_createdirectory_impl(wchar_t *path, int mode);
+
 #ifdef __cplusplus
 }
 #endif

@@ -920,7 +920,7 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError.
 
-The mode argument is ignored on Windows."""
+Any mode but 0700 is ignored on Windows."""
     try:
         if rposix.HAVE_MKDIRAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
@@ -1570,6 +1570,8 @@ def _run_forking_function(space, kind):
             pass
         raise wrap_oserror(space, e, eintr_retry=False)
     if pid == 0:
+        from pypy.module.thread import os_thread
+        os_thread.reinit_threads(space)
         run_fork_hooks('child', space)
     else:
         run_fork_hooks('parent', space)

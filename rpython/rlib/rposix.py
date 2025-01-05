@@ -1228,9 +1228,10 @@ def mkdir(path, mode=0o777):
         else:
             src_utf8 = path.as_utf8()
         with rffi.scoped_utf82wcharp(src_utf8) as src_wch:
-            result = win32traits.CreateDirectory(src_wch, None)
-        if not result:
+            result = rwin32.os_createdirectory_impl(src_wch, mode)
+        if result < 0:
             raise rwin32.lastSavedWindowsError()
+
 
 @replace_os_function('rmdir')
 @specialize.argtype(0)
