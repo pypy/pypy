@@ -1,6 +1,6 @@
 // #define WIN32_LEAN_AND_MEAN // FSCTL_GET_REPARSE_POINT is not defined in LEAN_AND_MEAN
 #include <windows.h>
-#include <winreparse.h>
+#include <winhelpers.h>
 #include <stdio.h>
 #include <aclapi.h>             // SetEntriesInAcl
 #include <sddl.h>               // SDDL_REVISION_1
