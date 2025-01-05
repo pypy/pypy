@@ -493,7 +493,10 @@ class W_WinConsoleIO(W_RawIOBase):
         if not self.writable:
             raise err_mode(space,"writing")
         
-        utf8 = space.utf8_w(w_data)
+        if space.isinstance_w(w_data, space.w_text):
+            utf8 = space.utf8_w(w_data)
+        else:
+            utf8 = space.bytes_w(w_data)
         if not len(utf8):
             return space.newint(0)
         
