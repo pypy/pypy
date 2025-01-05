@@ -344,7 +344,7 @@ class W_Pickler(W_Root):
         try:
             obj = space.int_w(w_obj)
         except OperationError as e:
-            if not e.match(space.w_TypeError):
+            if not e.match(space, space.w_OverflowError):
                 raise
         else:
             if obj >= 0:
@@ -364,7 +364,7 @@ class W_Pickler(W_Root):
         if n < 256:
             self.write(packB(op.LONG1, n) + encoded)
         else:
-            self.write(packB(op.LONG4, i) + encoded)
+            self.write(packi(op.LONG4, n) + encoded)
         return
 
 
