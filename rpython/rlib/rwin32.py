@@ -23,10 +23,10 @@ srcdir = os.path.join(os.path.dirname(__file__), 'src')
 
 if WIN32:
     eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h', 'winreparse.h'],
+        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h', 'winhelpers.h'],
         include_dirs = [srcdir, cdir],
         libraries = ['kernel32', 'Advapi32'],
-        separate_module_files = [os.path.join(srcdir, "winreparse.c")],
+        separate_module_files = [os.path.join(srcdir, "winhelpers.c")],
         )
 
     def external(name, args, result, compilation_info=eci, **kwds):
@@ -696,4 +696,8 @@ if WIN32:
                                           save_err=rffi.RFFI_SAVE_LASTERROR)
 
 
-
+    os_createdirectory_impl = rffi.llexternal("os_createdirectory_impl",
+                                          [rffi.CWCHARP, rffi.INT_real],
+                                          rffi.INT,
+                                          calling_conv='win',
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)
