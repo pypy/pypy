@@ -12,3 +12,11 @@ def test_save_int():
     assert s == b'\x80\x04\x8a\x05\x00\x00\x00\x00\x01.'
     s = dumps(-3**19999)
     assert s.startswith(b'\x80\x04\x8b{\x0f\x00\x00\xd5\xcd\xc3\x89\xb1\x86$f\xe8+p\x1c@Y')
+
+def test_save_none_true_false():
+    s = dumps(None)
+    assert s == b'\x80\x04N.'
+    s = dumps(True)
+    assert s == b'\x80\x04\x88.'
+    s = dumps(False)
+    assert s == b'\x80\x04\x89.'
