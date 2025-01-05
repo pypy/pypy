@@ -335,6 +335,17 @@ class W_Pickler(W_Root):
         # Save the reduce() output and finally memoize the object
         self.save_reduce(w_obj=w_obj, *rv)
 
+    def save_none(self, w_obj):
+        self.write(op.NONE)
+
+    def save_bool(self, w_obj):
+        space = self.space
+        if self.proto >= 2:
+            self.write(op.NEWTRUE if space.is_w(space.w_True, w_obj) else op.NEWFALSE)
+        else:
+            self.write(op.TRUE if space.is_w(space.w_True, w_obj) else op.FALSE)
+
+
     def save_long(self, w_obj):
         # If the int is small enough to fit in a signed 4-byte 2's-comp
         # format, we can store it more efficiently than the general
@@ -393,7 +404,6 @@ def encode_long(space, w_x):
     assert isinstance(w_x, intobject.W_AbstractIntObject)
     if not space.is_true(w_x):
         return b''
-    import pdb;pdb.set_trace()
     nbytes = (space.int_w(w_x.descr_bit_length(space)) >> 3) + 1
     result = space.bytes_w(w_x.descr_to_bytes(space, nbytes, byteorder='little', signed=True))
     if space.is_true(space.lt(w_x, space.newint(0))) and nbytes > 1:
