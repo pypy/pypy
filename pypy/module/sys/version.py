@@ -8,7 +8,7 @@ Version numbers exposed by PyPy through the 'sys' module.
 import os
 
 #XXX # the release serial 42 is not in range(16)
-CPYTHON_VERSION            = (3, 11, 9, "final", 0)
+CPYTHON_VERSION            = (3, 11, 11, "final", 0)
 #XXX # sync CPYTHON_VERSION with patchlevel.h, package.py
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 

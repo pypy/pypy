@@ -1128,15 +1128,22 @@ class W_TextIOWrapper(W_TextIOBase):
             w_bytes = space.call_method(self.w_encoder, "encode", w_text)
 
         b = space.bytes_w(w_bytes)
+
+        if len(b) >= self.chunk_size:
+            # _textiowrapper_writeflush() calls buffer.write().
+            # self->pending_bytes can be appended during buffer->write()
+            # or other thread.
+            # We need to loop until buffer becomes empty.
+            # https://github.com/python/cpython/issues/118138
+            # https://github.com/python/cpython/issues/119506
+            while self.pending_bytes:
+                self._writeflush(space)
+
         if not self.pending_bytes:
-            self.pending_bytes = [b]
-            self.pending_bytes_count = 0
-        elif self.pending_bytes_count + len(b) > self.chunk_size:
-            # Prevent to concatenate more than chunk_size data
-            self._writeflush(space)
             self.pending_bytes = [b]
         else:
             self.pending_bytes.append(b)
+                
         self.pending_bytes_count += len(b)
 
         if (self.pending_bytes_count >= self.chunk_size or

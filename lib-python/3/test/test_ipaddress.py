@@ -2269,6 +2269,10 @@ class IpaddrUnitTest(unittest.TestCase):
         self.assertEqual(True, ipaddress.ip_address(
                 '172.31.255.255').is_private)
         self.assertEqual(False, ipaddress.ip_address('172.32.0.0').is_private)
+        self.assertFalse(ipaddress.ip_address('192.0.0.0').is_global)
+        self.assertTrue(ipaddress.ip_address('192.0.0.9').is_global)
+        self.assertTrue(ipaddress.ip_address('192.0.0.10').is_global)
+        self.assertFalse(ipaddress.ip_address('192.0.0.255').is_global)
 
         self.assertEqual(True,
                          ipaddress.ip_address('169.254.100.200').is_link_local)
@@ -2294,6 +2298,7 @@ class IpaddrUnitTest(unittest.TestCase):
         self.assertEqual(True, ipaddress.ip_network("169.254.0.0/16").is_private)
         self.assertEqual(True, ipaddress.ip_network("172.16.0.0/12").is_private)
         self.assertEqual(True, ipaddress.ip_network("192.0.0.0/29").is_private)
+        self.assertEqual(False, ipaddress.ip_network("192.0.0.9/32").is_private)
         self.assertEqual(True, ipaddress.ip_network("192.0.0.170/31").is_private)
         self.assertEqual(True, ipaddress.ip_network("192.0.2.0/24").is_private)
         self.assertEqual(True, ipaddress.ip_network("192.168.0.0/16").is_private)
@@ -2310,8 +2315,8 @@ class IpaddrUnitTest(unittest.TestCase):
         self.assertEqual(True, ipaddress.ip_network("::/128").is_private)
         self.assertEqual(True, ipaddress.ip_network("::ffff:0:0/96").is_private)
         self.assertEqual(True, ipaddress.ip_network("100::/64").is_private)
-        self.assertEqual(True, ipaddress.ip_network("2001::/23").is_private)
         self.assertEqual(True, ipaddress.ip_network("2001:2::/48").is_private)
+        self.assertEqual(False, ipaddress.ip_network("2001:3::/48").is_private)
         self.assertEqual(True, ipaddress.ip_network("2001:db8::/32").is_private)
         self.assertEqual(True, ipaddress.ip_network("2001:10::/28").is_private)
         self.assertEqual(True, ipaddress.ip_network("fc00::/7").is_private)
@@ -2390,6 +2395,20 @@ class IpaddrUnitTest(unittest.TestCase):
         self.assertEqual(True, ipaddress.ip_address('0::0').is_unspecified)
         self.assertEqual(False, ipaddress.ip_address('::1').is_unspecified)
 
+        self.assertFalse(ipaddress.ip_address('64:ff9b:1::').is_global)
+        self.assertFalse(ipaddress.ip_address('2001::').is_global)
+        self.assertTrue(ipaddress.ip_address('2001:1::1').is_global)
+        self.assertTrue(ipaddress.ip_address('2001:1::2').is_global)
+        self.assertFalse(ipaddress.ip_address('2001:2::').is_global)
+        self.assertTrue(ipaddress.ip_address('2001:3::').is_global)
+        self.assertFalse(ipaddress.ip_address('2001:4::').is_global)
+        self.assertTrue(ipaddress.ip_address('2001:4:112::').is_global)
+        self.assertFalse(ipaddress.ip_address('2001:10::').is_global)
+        self.assertTrue(ipaddress.ip_address('2001:20::').is_global)
+        self.assertTrue(ipaddress.ip_address('2001:30::').is_global)
+        self.assertFalse(ipaddress.ip_address('2001:40::').is_global)
+        self.assertFalse(ipaddress.ip_address('2002::').is_global)
+
         # some generic IETF reserved addresses
         self.assertEqual(True, ipaddress.ip_address('100::').is_reserved)
         self.assertEqual(True, ipaddress.ip_network('4000::1/128').is_reserved)
@@ -2401,6 +2420,30 @@ class IpaddrUnitTest(unittest.TestCase):
         self.assertEqual(ipaddress.ip_address('::c0a8:101').ipv4_mapped, None)
         self.assertEqual(ipaddress.ip_address('::ffff:c0a8:101').ipv4_mapped,
                          ipaddress.ip_address('192.168.1.1'))
+
+    def testIpv4MappedProperties(self):
+        # Test that an IPv4 mapped IPv6 address has
+        # the same properties as an IPv4 address.
+        for addr4 in (
+            "178.62.3.251",     # global
+            "169.254.169.254",  # link local
+            "127.0.0.1",        # loopback
+            "224.0.0.1",        # multicast
+            "192.168.0.1",      # private
+            "0.0.0.0",          # unspecified
+            "100.64.0.1",       # public and not global
+        ):
+            with self.subTest(addr4):
+                ipv4 = ipaddress.IPv4Address(addr4)
+                ipv6 = ipaddress.IPv6Address(f"::ffff:{addr4}")
+
+                self.assertEqual(ipv4.is_global, ipv6.is_global)
+                self.assertEqual(ipv4.is_private, ipv6.is_private)
+                self.assertEqual(ipv4.is_reserved, ipv6.is_reserved)
+                self.assertEqual(ipv4.is_multicast, ipv6.is_multicast)
+                self.assertEqual(ipv4.is_unspecified, ipv6.is_unspecified)
+                self.assertEqual(ipv4.is_link_local, ipv6.is_link_local)
+                self.assertEqual(ipv4.is_loopback, ipv6.is_loopback)
 
     def testIpv4MappedPrivateCheck(self):
         self.assertEqual(
