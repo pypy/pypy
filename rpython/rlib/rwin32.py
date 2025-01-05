@@ -698,6 +698,6 @@ if WIN32:
 
     os_createdirectory_impl = rffi.llexternal("os_createdirectory_impl",
                                           [rffi.CWCHARP, rffi.INT_real],
-                                          rffi.int,
+                                          rffi.INT,
                                           calling_conv='win',
                                           save_err=rffi.RFFI_SAVE_LASTERROR)

@@ -240,11 +240,11 @@ os_unlink_impl(wchar_t *lpFileName)
 
 int
 os_createdirectory_impl(wchar_t *path, int mode){
+    int result = 0;
     int error = 0;
-    int pathError = 0;
     SECURITY_ATTRIBUTES secAttr = { sizeof(secAttr) };
     SECURITY_ATTRIBUTES *pSecAttr = NULL;
-    if (mode == 0o700 /* 0o700 */) {
+    if (mode == 0700 /* 0o700 */) {
         ULONG sdSize;
         pSecAttr = &secAttr;
         // Set a discretionary ACL (D) that is protected (P) and includes
@@ -260,7 +260,7 @@ os_createdirectory_impl(wchar_t *path, int mode){
         }
     }
     if (!error) {
-        result = CreateDirectoryW(path->wide, pSecAttr);
+        result = CreateDirectoryW(path, pSecAttr);
         if (secAttr.lpSecurityDescriptor &&
             // uncommonly, LocalFree returns non-zero on error, but still uses
             // GetLastError() to see what the error code is
