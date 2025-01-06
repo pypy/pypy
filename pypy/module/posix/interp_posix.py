@@ -528,15 +528,11 @@ class State:
     def __init__(self, space):
         self.space = space
         self.w_environ = space.newdict()
-        self.random_context = rurandom.init_urandom()
     def startup(self, space):
         _convertenviron(space, self.w_environ)
     def _freeze_(self):
         # don't capture the environment in the translated pypy
         self.space.call_method(self.w_environ, 'clear')
-        # also reset random_context to a fresh new context (empty so far,
-        # to be filled at run-time by rurandom.urandom())
-        self.random_context = rurandom.init_urandom()
         return True
 
 def get(space):
@@ -1389,13 +1385,12 @@ def urandom(space, n):
 
     Return a string of n random bytes suitable for cryptographic use.
     """
-    context = get(space).random_context
     try:
         # urandom() takes a final argument that should be a regular function,
         # not a bound method like 'getexecutioncontext().checksignals'.
         # Otherwise, we can't use it from several independent places.
         _sigcheck.space = space
-        return space.newbytes(rurandom.urandom(context, n, _signal_checker))
+        return space.newbytes(rurandom.urandom(n, _signal_checker))
     except OSError as e:
         # CPython raises NotImplementedError if /dev/urandom cannot be found.
         # To maximize compatibility, we should also raise NotImplementedError
