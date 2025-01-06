@@ -119,6 +119,10 @@ def packi(opcode, val):
         val >>= 8
     return res.build()
 
+def packI(opcode, val):
+    assert val >= 0
+    return packi(opcode, val)
+
 def packB(opcode, val):
     return opcode + chr(val)
 
@@ -240,6 +244,9 @@ class W_Pickler(W_Root):
     def write(self, data):
         self.space.call_method(self.w_file, 'write', self.space.newbytes(data))
 
+    def _write_large_bytes(self, arg0, arg1):
+        return self.framer.write_large_bytes(arg0, arg1)
+
     def dump(self, w_obj):
         """Write a pickled representation of obj to the open file."""
         if self.proto >= 2:
@@ -275,9 +282,25 @@ class W_Pickler(W_Root):
             self.save_float(w_obj)
 
         # Check the memo
-        x = self.memo.get(w_obj)
-        if x is not None:
-            self.write(self.get(x[0]))
+        x = self.memo.get(w_obj, -1)
+        if x >= 0:
+            self.write(self.get(x))
+            return
+
+        if space.is_w(space.w_bytes, w_type):
+            self.save_bytes(w_obj)
+            return
+
+        if space.is_w(space.w_unicode, w_type):
+            self.save_str(w_obj)
+            return
+
+        if space.is_w(space.w_tuple, w_type):
+            self.save_tuple(w_obj)
+            return
+
+        if space.is_w(space.w_list, w_type):
+            self.save_list(w_obj)
             return
 
         rv = NotImplemented
@@ -377,6 +400,184 @@ class W_Pickler(W_Root):
         else:
             self.write(packi(op.LONG4, n) + encoded)
         return
+
+    def save_bytes(self, w_obj):
+        space = self.space
+        if self.proto < 3:
+            assert 0
+        n = space.len_w(w_obj)
+        obj = space.bytes_w(w_obj)
+        if n <= 0xff:
+            self.write(packB(op.SHORT_BINBYTES, n) + obj)
+        elif n > 0xffffffff and self.proto >= 4:
+            self._write_large_bytes(packQ(op.BINBYTES8, n), obj)
+        elif n >= self.framer._FRAME_SIZE_TARGET:
+            self._write_large_bytes(packI(op.BINBYTES, n), obj)
+        else:
+            self.write(packI(op.BINBYTES, n) + obj)
+        self.memoize(w_obj)
+
+    def save_str(self, w_obj):
+        space = self.space
+        w_encoded = space.call_method(w_obj, "encode", space.newtext('utf-8'), space.newtext('surrogatepass'))
+        encoded = space.bytes_w(w_encoded)
+        n = len(encoded)
+        if n <= 0xff and self.proto >= 4:
+            self.write(packB(op.SHORT_BINUNICODE, n) + encoded)
+        elif n > 0xffffffff and self.proto >= 4:
+            self._write_large_bytes(packQ(op.BINUNICODE8, n), encoded)
+        elif n >= self.framer._FRAME_SIZE_TARGET:
+            self._write_large_bytes(packI(op.BINUNICODE, n), encoded)
+        else:
+            self.write(packI(op.BINUNICODE, n) + encoded)
+        self.memoize(w_obj)
+
+    def save_tuple(self, w_obj):
+        space = self.space
+        n = space.len_w(w_obj)
+        if not n: # tuple is empty
+            if self.bin:
+                self.write(op.EMPTY_TUPLE)
+            else:
+                self.write(op.MARK + op.TUPLE)
+            return
+
+        save = self.save
+        memo = self.memo
+        if n <= 3 and self.proto >= 2:
+            for element in space.unpackiterable(w_obj):
+                save(element)
+            # Subtle.  Same as in the big comment below.
+            if w_obj in memo:
+                get = self.get(memo[w_obj][0])
+                self.write(op.POP * n + get)
+            else:
+                self.write(op._tuplesize2code[n])
+                self.memoize(w_obj)
+            return
+
+        # proto 0 or proto 1 and tuple isn't empty, or proto > 1 and tuple
+        # has more than 3 elements.
+        write = self.write
+        write(op.MARK)
+        for element in space.unpackiterable(w_obj):
+            save(element)
+
+        if w_obj in memo:
+            # Subtle.  d was not in memo when we entered save_tuple(), so
+            # the process of saving the tuple's elements must have saved
+            # the tuple itself:  the tuple is recursive.  The proper action
+            # now is to throw away everything we put on the stack, and
+            # simply GET the tuple (it's already constructed).  This check
+            # could have been done in the "for element" loop instead, but
+            # recursive tuples are a rare thing.
+            get = self.get(memo[w_obj])
+            if self.bin:
+                write(op.POP_MARK + get)
+            else:   # proto 0 -- POP_MARK not available
+                write(op.POP * (n+1) + get)
+            return
+
+        # No recursion.
+        write(op.TUPLE)
+        self.memoize(w_obj)
+
+    def save_list(self, w_obj):
+        if self.bin:
+            self.write(op.EMPTY_LIST)
+        else:   # proto 0 -- can't use EMPTY_LIST
+            self.write(op.MARK + op.LIST)
+
+        self.memoize(w_obj)
+        self._batch_appends(w_obj)
+
+
+    _BATCHSIZE = 1000
+    def _batch_appends(self, w_list):
+        def next(space, w_it):
+            try:
+                return space.next(w_it)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                return None
+        space = self.space
+        # Helper to batch up APPENDS sequences
+        save = self.save
+        write = self.write
+
+        if not self.bin:
+            for x in space.listview(w_list):
+                save(x)
+                write(APPEND)
+            return
+
+        w_it = space.iter(w_list)
+        while True:
+            w_firstitem = next(space, w_it)
+            if w_firstitem is None:
+                return
+            w_item = next(space, w_it)
+            if w_item is None:
+                # only one item
+                self.save(w_firstitem)
+                self.write(op.APPEND)
+                return
+
+            # more than two items, batch them
+            self.write(op.MARK)
+            n = 1
+            self.save(w_firstitem)
+            while 1:
+                self.save(w_item)
+                n += 1
+                if n == self._BATCHSIZE:
+                    break
+                w_item = next(space, w_it)
+                if not w_item:
+                    break
+            self.write(op.APPENDS)
+
+
+    def memoize(self, w_obj):
+        """Store an object in the memo."""
+
+        # The Pickler memo is a dictionary mapping objects to the
+        # Unpickler memo key.
+
+        # The use of the Unpickler memo length as the memo key is just a
+        # convention.  The only requirement is that the memo values be unique.
+        # But there appears no advantage to any other scheme, and this
+        # scheme allows the Unpickler memo to be implemented as a plain (but
+        # growable) array, indexed by memo key.
+        if self.fast:
+            return
+        assert w_obj not in self.memo
+        idx = len(self.memo)
+        self.write(self.put(idx))
+        self.memo[w_obj] = idx
+
+    # Return a PUT (BINPUT, LONG_BINPUT) opcode string, with argument i.
+    def put(self, idx):
+        if self.proto >= 4:
+            return op.MEMOIZE
+        elif self.bin:
+            if idx < 256:
+                return packB(op.BINPUT, idx)
+            else:
+                return packI(op.LONG_BINPUT, idx)
+        else:
+            return op.PUT + repr(idx) + b'\n'
+
+    # Return a GET (BINGET, LONG_BINGET) opcode string, with argument i.
+    def get(self, i):
+        if self.bin:
+            if i < 256:
+                return packB(op.BINGET, i)
+            else:
+                return packI(op.LONG_BINGET, i)
+
+        return op.GET + repr(i) + b'\n'
 
 
 def encode_long(space, w_x):
