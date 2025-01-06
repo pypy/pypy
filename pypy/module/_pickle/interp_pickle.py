@@ -189,6 +189,13 @@ class _Framer(object):
         write(header)
         write(payload)
 
+def spacenext(space, w_it):
+    try:
+        return space.next(w_it)
+    except OperationError as e:
+        if not e.match(space, space.w_StopIteration):
+            raise
+        return None
 
 class W_Pickler(W_Root):
     """
@@ -301,6 +308,10 @@ class W_Pickler(W_Root):
 
         if space.is_w(space.w_list, w_type):
             self.save_list(w_obj)
+            return
+
+        if space.is_w(space.w_dict, w_type):
+            self.save_dict(w_obj)
             return
 
         rv = NotImplemented
@@ -494,13 +505,6 @@ class W_Pickler(W_Root):
 
     _BATCHSIZE = 1000
     def _batch_appends(self, w_list):
-        def next(space, w_it):
-            try:
-                return space.next(w_it)
-            except OperationError as e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                return None
         space = self.space
         # Helper to batch up APPENDS sequences
         save = self.save
@@ -514,10 +518,10 @@ class W_Pickler(W_Root):
 
         w_it = space.iter(w_list)
         while True:
-            w_firstitem = next(space, w_it)
+            w_firstitem = spacenext(space, w_it)
             if w_firstitem is None:
                 return
-            w_item = next(space, w_it)
+            w_item = spacenext(space, w_it)
             if w_item is None:
                 # only one item
                 self.save(w_firstitem)
@@ -533,11 +537,64 @@ class W_Pickler(W_Root):
                 n += 1
                 if n == self._BATCHSIZE:
                     break
-                w_item = next(space, w_it)
+                w_item = spacenext(space, w_it)
                 if not w_item:
                     break
             self.write(op.APPENDS)
 
+    def save_dict(self, w_obj):
+        if self.bin:
+            self.write(op.EMPTY_DICT)
+        else:   # proto 0 -- can't use EMPTY_DICT
+            self.write(op.MARK + op.DICT)
+
+        self.memoize(w_obj)
+        self._batch_setitems(w_obj)
+
+    def _batch_setitems(self, w_dict):
+        def savetup2(self, w_tup):
+            space = self.space
+            w_k, w_v = space.unpackiterable(w_tup, 2)
+            self.save(w_k)
+            self.save(w_v)
+
+        # Helper to batch up SETITEMS sequences; proto >= 1 only
+        space = self.space
+        save = self.save
+        write = self.write
+
+        if not self.bin:
+            import pdb;pdb.set_trace()
+            for k, v in items:
+                save(k)
+                save(v)
+                write(SETITEM)
+            return
+
+        w_it = space.iter(space.call_method(w_dict, 'items'))
+        while True:
+            w_firstitem = spacenext(space, w_it)
+            if w_firstitem is None:
+                return
+            w_item = spacenext(space, w_it)
+            if w_item is None:
+                savetup2(self, w_firstitem)
+                self.write(op.SETITEM)
+                return
+
+            # more than two items, batch them
+            self.write(op.MARK)
+            n = 1
+            savetup2(self, w_firstitem)
+            while 1:
+                savetup2(self, w_item)
+                n += 1
+                if n == self._BATCHSIZE:
+                    break
+                w_item = spacenext(space, w_it)
+                if not w_item:
+                    break
+            self.write(op.SETITEMS)
 
     def memoize(self, w_obj):
         """Store an object in the memo."""
