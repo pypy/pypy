@@ -55,7 +55,6 @@ def select_random_seed(s):
     _update_prebuilt_hashes()
 
 
-random_ctx = rurandom.init_urandom()
 strtoul = rffi.llexternal("strtoul", [rffi.CCHARP, rffi.CCHARPP, rffi.INT],
                           rffi.ULONG, save_err=rffi.RFFI_SAVE_ERRNO)
 
