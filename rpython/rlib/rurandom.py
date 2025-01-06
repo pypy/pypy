@@ -108,7 +108,7 @@ else:  # Posix implementation
                 raise AssertionError("unreachable")
             return n
 
-    def urandom(context, n, signal_checker=None):
+    def urandom(n, signal_checker=None):
         "Read n bytes from /dev/urandom."
         # NOTE: no dictionaries here: rsiphash24 calls this to
         # initialize the random seed of string hashes
