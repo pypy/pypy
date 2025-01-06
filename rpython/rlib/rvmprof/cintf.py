@@ -21,6 +21,7 @@ class VMProfPlatformUnsupported(Exception):
 # vmprof works only on x86 for now
 IS_SUPPORTED = False
 NATIVE_PROFILING_SUPPORTED = False
+IS_DARWIN = 'darwin' in sys.platform
 if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('freebsd'):
     try:
         proc = detect_cpu.autodetect()
@@ -161,6 +162,11 @@ def setup():
                                                                     rffi.INT_realP,  rffi.CCHARP, rffi.INT],
                                                 rffi.INT, compilation_info=eci,
                                                 _nowrapper=True)
+        vmprof_load_libunwind_addr_resolve = rffi.llexternal("vmp_load_libunwind", [], rffi.INT, compilation_info=eci,
+                                                _nowrapper=True)
+        vmprof_close_libunwind_addr_resolve = rffi.llexternal("vmp_close_libunwind", [], lltype.Void, compilation_info=eci,
+                                                _nowrapper=True)
+        
 
     return CInterface(locals())
 

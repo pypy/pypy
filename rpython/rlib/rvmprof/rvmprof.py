@@ -143,6 +143,10 @@ class VMProf(object):
             native = 0 # force disabled on Windows
         lines = 0 # not supported on PyPy currently
 
+        # Load unw_get_proc_name_by_ip from libunwind if available and use that later for native address resolving
+        if native == 1 and self.supports_native_profiling() and not cintf.IS_DARWIN:
+            self.cintf.vmprof_load_libunwind_addr_resolve()
+
         p_error = self.cintf.vmprof_init(fileno, interval, memory, lines, "pypy", native, real_time)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
@@ -160,6 +164,11 @@ class VMProf(object):
         """
         if not self.is_enabled:
             raise VMProfError("vmprof is not enabled")
+        
+        if self.supports_native_profiling() and not cintf.IS_DARWIN:
+            self.cintf.vmprof_close_libunwind_addr_resolve()
+
+        self.cintf.vmprof_close_libunwind_addr_resolve()
         self.is_enabled = False
         res = self.cintf.vmprof_disable()
         if res < 0:
@@ -189,7 +198,7 @@ class VMProf(object):
     
     def supports_native_profiling(self):
         return cintf.NATIVE_PROFILING_SUPPORTED
-
+    
     def vmprof_resolve_address(self, addr):
         """
         Resolve name, lineno and source file for an address of a native function

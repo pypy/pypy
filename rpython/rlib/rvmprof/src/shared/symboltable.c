@@ -15,12 +15,16 @@
 #if defined(VMPROF_LINUX)
 #include <link.h>
 #if defined(X86_64) || defined(X86_32)
-#include <stdlib.h>
-#include <unistd.h>
-#include <endian.h>
-#include <libunwind.h>
+#include "unwind/vmprof_unwind.h"
+static const char * vmprof_error = NULL;
+static void * libhandle = NULL;
+
+static void* unw_local_address_space = NULL;
+// function copied from libunwind using dlopen
+static int (*unw_get_proc_name_by_ip)(void *, unw_word_t, char *, size_t, unw_word_t *, void *) = NULL;
 #endif
 #endif
+static int resolve_with_libunwind = 0;
 
 #ifdef _PY_TEST
 #define LOG(...) printf(__VA_ARGS__)
@@ -182,6 +186,94 @@ void lookup_vmprof_debug_info(const char * name, const void * h,
 
 #endif
 
+// copied from vmp_stack.c
+#ifdef VMPROF_LINUX
+#define LIBUNWIND "libunwind.so"
+#ifdef __i386__
+#define PREFIX "x86"
+#define LIBUNWIND_SUFFIX ""
+#elif __x86_64__
+#define PREFIX "x86_64"
+#define LIBUNWIND_SUFFIX "-x86_64"
+#endif
+#define U_PREFIX "_U"
+#define UL_PREFIX "_UL"
+#endif
+
+#ifdef VMPROF_LINUX
+int vmp_load_libunwind(void) {
+    void * oldhandle = NULL;
+    struct link_map * map = NULL;
+    if (libhandle == NULL) {
+        // on linux, the wheel includes the libunwind shared object.
+        libhandle = dlopen(NULL, RTLD_NOW);
+        if (libhandle != NULL) {
+            // load the link map, it will contain an entry to
+            // .libs_vmprof/libunwind-...so, this is the file that is
+            // distributed with the wheel.
+            if (dlinfo(libhandle, RTLD_DI_LINKMAP, &map) != 0) {
+                (void)dlclose(libhandle);
+                libhandle = NULL;
+                goto bail_out;
+            }
+            // grab the new handle
+            do {
+                if (strstr(map->l_name, ".libs_vmprof/libunwind" LIBUNWIND_SUFFIX) != NULL) {
+                    oldhandle = libhandle;
+                    libhandle = dlopen(map->l_name, RTLD_LAZY|RTLD_LOCAL);
+                    (void)dlclose(oldhandle);
+                    oldhandle = NULL;
+                    goto loaded_libunwind;
+                }
+                map = map->l_next;
+            } while (map != NULL);
+            // did not find .libs_vmprof/libunwind...
+            (void)dlclose(libhandle);
+            libhandle = NULL;
+        }
+
+        // fallback! try to load the system's libunwind.so
+        if ((libhandle = dlopen(LIBUNWIND, RTLD_LAZY | RTLD_LOCAL)) == NULL) {
+            printf("couldnt open %s \n", LIBUNWIND);
+            goto bail_out;
+        }
+loaded_libunwind:
+        if ((unw_get_proc_name_by_ip = dlsym(libhandle, UL_PREFIX PREFIX "_get_proc_name_by_ip")) == NULL) { // _ULx86_64_get_proc_name_by_ip
+            printf("couldnt load %s \n", UL_PREFIX PREFIX "_get_proc_name_by_ip");
+            goto bail_out;
+        }
+        if ((unw_local_address_space = dlsym(libhandle, UL_PREFIX PREFIX "_local_addr_space")) == NULL) { // _ULx86_64_local_addr_space
+            printf("couldnt load %s \n", UL_PREFIX PREFIX "_local_addr_space");
+            goto bail_out;
+        }
+        resolve_with_libunwind = 1;
+    }
+    return 1;
+
+bail_out:
+    vmprof_error = dlerror();
+    fprintf(stderr, "could not load libunwind at runtime. error: %s\n", vmprof_error);
+    resolve_with_libunwind = 0;
+    return 0;
+}
+
+
+void vmp_close_libunwind(void) {
+
+    if (libhandle != NULL) {
+        if (dlclose(libhandle)) {
+            vmprof_error = dlerror();
+#if DEBUG
+            fprintf(stderr, "could not close libunwind at runtime. error: %s\n", vmprof_error);
+#endif
+        }
+        resolve_with_libunwind = 0;
+        libhandle = NULL;
+    }
+}
+#endif
+
+
 #ifdef __unix__
 #include "libbacktrace/backtrace.h"
 void backtrace_error_cb(void *data, const char *msg, int errnum)
@@ -215,11 +307,40 @@ int backtrace_full_cb(void *data, uintptr_t pc, const char *filename,
 
 int _vmp_resolve_addr_libunwind(void * addr, char * name, int name_len, int * lineno, char * srcfile, int srcfile_len) {
 
+#if defined(X86_64) 
+
+    uint64_t local_addr_space_addr = 0;
+
+    asm(
+        "mov %1, %%rax \n\t"
+        "mov (%%rax), %0"
+        : "=r" (local_addr_space_addr)
+        : "r" (unw_local_address_space)
+    );
+
+#elif defined(x86_32)
+
+    uint32_t local_addr_space_addr = 0;
+
+    asm(
+        "mov %1, %%eax \n\t"
+        "mov (%%eax), %0"
+        : "=r" (local_addr_space_addr)
+        : "r" (unw_local_address_space)
+    );
+
+#endif
+    
+    if (resolve_with_libunwind == 0) {
+        // unw_get_proc_name_by_ip hasn't been loaded => dont try to use it
+        return 1;
+    }
+
     unw_word_t offset = 0;
 
-    int res_funcname = unw_get_proc_name_by_ip(unw_local_addr_space, (unw_word_t) addr, name, name_len, &offset, NULL);
+    int res_funcname = unw_get_proc_name_by_ip((void *) local_addr_space_addr, (unw_word_t) addr, name, name_len, &offset, NULL);
+    
     if(res_funcname == 0) {
-        //printf("libunwind found %p %s\n",addr, name);
         return 0;
     }
     return 1;
