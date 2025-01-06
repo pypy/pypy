@@ -23,7 +23,7 @@ def test_save_none_true_false():
 
 def test_save_bytes():
     s = dumps(b'abc')
-    assert s == b'\x80\x04C\x03abc.'
+    assert s == b'\x80\x04C\x03abc\x94.'
     s = dumps(b'abc' * 1000)
     assert s.startswith(b'\x80\x04B\xb8\x0b\x00\x00abcab')
     s = dumps(b'abc' * 1000000)
@@ -31,7 +31,7 @@ def test_save_bytes():
 
 def test_save_unicode():
     s = dumps(u'abc')
-    assert s == b'\x80\x04\x8c\x03abc.'
+    assert s == b'\x80\x04\x8c\x03abc\x94.'
     s = dumps(u'abc' * 1000)
     assert s.startswith(b'\x80\x04X\xb8\x0b\x00\x00abcabcabc')
     s = dumps(u'abc' * 100000)
@@ -41,7 +41,7 @@ def test_save_tuple():
     s = dumps(())
     assert s == b'\x80\x04).'
     s = dumps((1, ))
-    assert s.startswith(b'\x80\x04K\x01\x85.')
+    assert s.startswith(b'\x80\x04K\x01\x85\x94.')
     s = dumps((1, ) * 1000)
     assert s.startswith(b'\x80\x04(K\x01K\x01K')
 
@@ -55,9 +55,28 @@ def test_memo():
 
 def test_save_list():
     s = dumps([])
-    assert s ==  b'\x80\x04]\x94.'
+    assert s == b'\x80\x04]\x94.'
     s = dumps([1])
     assert s == b'\x80\x04]\x94K\x01a.'
     s = dumps([1] * 1000)
     assert s.startswith(b'\x80\x04]\x94(K\x01K\x01K\x01K\x01K\x01K\x01K')
+
+def test_save_list_memo():
+    l = []
+    l.append(l)
+    s = dumps(l)
+    assert s == b'\x80\x04]\x94h\x00a.'
+
+    t = (1, 2, 3, [], "abc")
+    t[3].append(t)
+    s = dumps(t)
+    assert s == b'\x80\x04(K\x01K\x02K\x03]\x94(K\x01K\x02K\x03h\x00\x8c\x03abc\x94t\x94ah\x011h\x02.'
+
+def test_save_dict():
+    s = dumps({})
+    assert s == b'\x80\x04}\x94.'
+    s = dumps({1: 2})
+    assert s == b'\x80\x04}\x94K\x01K\x02s.'
+    s = dumps(dict([(a, str(a)) for a in range(10000)]))
+    assert s.startswith(b'\x80\x04}\x94(K\x00\x8c\x010\x94K\x01\x8c\x011\x94K\x02')
 
