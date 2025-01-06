@@ -991,9 +991,6 @@ class State:
     def _freeze_(self):
         # don't capture the environment in the translated pypy
         self.space.call_method(self.w_environ, 'clear')
-        # also reset random_context to a fresh new context (empty so far,
-        # to be filled at run-time by rurandom.urandom())
-        self.random_context = rurandom.init_urandom()
         return True
 
 def get(space):
@@ -2579,15 +2576,22 @@ def urandom(space, size):
 
     Return a string of 'size' random bytes suitable for cryptographic use.
     """
+<<<<<<< HEAD
     context = get(space).random_context
     if size < 0:
         raise oefmt(space.w_ValueError, "negative argument not allowed")
+=======
+>>>>>>> main
     try:
         # urandom() takes a final argument that should be a regular function,
         # not a bound method like 'getexecutioncontext().checksignals'.
         # Otherwise, we can't use it from several independent places.
         _sigcheck.space = space
+<<<<<<< HEAD
         return space.newbytes(rurandom.urandom(context, size, _signal_checker))
+=======
+        return space.newbytes(rurandom.urandom(n, _signal_checker))
+>>>>>>> main
     except OSError as e:
         # CPython raises NotImplementedError if /dev/urandom cannot be found.
         # To maximize compatibility, we should also raise NotImplementedError
