@@ -89,7 +89,7 @@ def initialize_from_env():
             s = lcg_urandom(seed)
     else:
         try:
-            s = rurandom.urandom(random_ctx, 16)
+            s = rurandom.urandom(16)
         except Exception as e:
             os.write(2,
                 "%s: failed to get random numbers to initialize Python\n" %
