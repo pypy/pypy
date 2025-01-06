@@ -142,6 +142,10 @@ Speedups and enhancements
   issue around calling ``pypy.exe <unicode-named-file>.py``
 - Fix cffi backend for struct-in-a-struct (:issue:`python-cffi/cffi#147`)
 - Make ``newformat.py`` somewhat more jit friendly
+- Use ``BCryptGenRandom`` on windows in ``rurandom`` (:issue:`5039`)
+- If mode is 0700 in ``mkdir`` on windows, restrict the directory to
+  the current user
+
 
 .. _blogpost: https://pypy.org/posts/2024/07/mining-jit-traces-missing-optimizations-z3.html
 .. _`PEP 768`: https://peps.python.org/pep-0768/
