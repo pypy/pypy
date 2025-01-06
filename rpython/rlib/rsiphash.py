@@ -55,6 +55,7 @@ def select_random_seed(s):
     _update_prebuilt_hashes()
 
 
+random_ctx = rurandom.init_urandom()
 strtoul = rffi.llexternal("strtoul", [rffi.CCHARP, rffi.CCHARPP, rffi.INT],
                           rffi.ULONG, save_err=rffi.RFFI_SAVE_ERRNO)
 
@@ -89,7 +90,7 @@ def initialize_from_env():
             s = lcg_urandom(seed)
     else:
         try:
-            s = rurandom.urandom(16)
+            s = rurandom.urandom(random_ctx, 16)
         except Exception as e:
             os.write(2,
                 "%s: failed to get random numbers to initialize Python\n" %
