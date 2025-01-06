@@ -696,8 +696,7 @@ if WIN32:
                                           save_err=rffi.RFFI_SAVE_LASTERROR)
 
 
-    os_createdirectory_impl = rffi.llexternal("os_createdirectory_impl",
+    os_createdirectory_impl = winexternal("os_createdirectory_impl",
                                           [rffi.CWCHARP, rffi.INT_real],
                                           rffi.INT,
-                                          calling_conv='win',
                                           save_err=rffi.RFFI_SAVE_LASTERROR)
