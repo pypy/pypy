@@ -4,7 +4,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.error import oefmt, OperationError
 
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, applevel
 
 class Opcodes(object):
     MARK           = b'('   # push special markobject on stack
@@ -197,6 +197,7 @@ def spacenext(space, w_it):
             raise
         return None
 
+
 class W_Pickler(W_Root):
     """
     This takes a binary file for writing a pickle data stream.
@@ -320,54 +321,50 @@ class W_Pickler(W_Root):
             rv = reduce(w_obj)
 
         if rv is NotImplemented:
-            # Check the type dispatch table
-            t = type(w_obj)
-            f = self.dispatch.get(t)
-            if f is not None:
-                f(self, w_obj)  # Call unbound method with explicit self
-                return
-
             # Check private dispatch table if any, or else
             # copyreg.dispatch_table
-            reduce = getattr(self, 'dispatch_table', dispatch_table).get(t)
-            if reduce is not None:
+            #reduce = getattr(self, 'dispatch_table', dispatch_table).get(t)
+            if 0: # reduce is not None:
                 rv = reduce(w_obj)
             else:
                 # Check for a class with a custom metaclass; treat as regular
                 # class
-                if issubclass(t, type):
+                if space.issubtype_w(w_type, space.w_type):
                     self.save_global(w_obj)
                     return
 
                 # Check for a __reduce_ex__ method, fall back to __reduce__
-                reduce = getattr(w_obj, "__reduce_ex__", None)
-                if reduce is not None:
-                    rv = reduce(self.proto)
+                w_reduce = space.lookup(w_obj, "__reduce_ex__")
+                if w_reduce is not None:
+                    w_rv = space.get_and_call_function(w_reduce, w_obj, space.newint(self.proto))
                 else:
-                    reduce = getattr(w_obj, "__reduce__", None)
-                    if reduce is not None:
-                        rv = reduce()
+                    w_reduce = space.lookup(w_obj, "__reduce__")
+                    if w_reduce is not None:
+                        w_rv = space.get_and_call_function(w_reduce, w_obj)
                     else:
+                        import pdb;pdb.set_trace()
                         raise PicklingError("Can't pickle %r object: %r" %
                                             (t.__name__, w_obj))
 
         # Check for string returned by reduce(), meaning "save as global"
-        if isinstance(rv, str):
-            self.save_global(w_obj, rv)
+        if space.isinstance_w(w_rv, space.w_unicode):
+            self.save_global(w_obj, w_rv)
             return
 
         # Assert that reduce() returned a tuple
-        if not isinstance(rv, tuple):
+        if not space.isinstance_w(w_rv, space.w_tuple):
+            import pdb;pdb.set_trace()
             raise PicklingError("%s must return string or tuple" % reduce)
 
         # Assert that it returned an appropriately sized tuple
-        l = len(rv)
+        l = space.len_w(w_rv)
         if not (2 <= l <= 6):
+            import pdb;pdb.set_trace()
             raise PicklingError("Tuple returned by %s must have "
                                 "two to six elements" % reduce)
 
         # Save the reduce() output and finally memoize the object
-        self.save_reduce(w_obj=w_obj, *rv)
+        self.save_reduce(w_obj, w_rv)
 
     def save_none(self, w_obj):
         self.write(op.NONE)
@@ -596,6 +593,222 @@ class W_Pickler(W_Root):
                     break
             self.write(op.SETITEMS)
 
+    def save_reduce(self, w_obj, w_rv):
+        space = self.space
+        #func, args, state=None, listitems=None,
+        #            dictitems=None, state_setter=None, *, obj=None):
+        # This API is called by some subclasses
+        values_w = space.unpackiterable(w_rv)
+        w_func = values_w[0]
+        w_args = values_w[1]
+        if len(values_w) >= 3:
+            w_state = values_w[2]
+            if len(values_w) >= 4:
+                w_listitems = values_w[3]
+                if len(values_w) >= 5:
+                    w_dictitems = values_w[4]
+                    if len(values_w) == 6:
+                        w_state_setter = values_w[5]
+                    else:
+                        w_state_setter = None
+                else:
+                    w_dictitems = None
+            else:
+                w_listitems = None
+        else:
+            w_state = None
+
+        if not space.isinstance_w(w_args, space.w_tuple):
+            import pdb;pdb.set_trace()
+            raise PicklingError("args from save_reduce() must be a tuple")
+        if not space.callable_w(w_func):
+            import pdb;pdb.set_trace()
+            raise PicklingError("func from save_reduce() must be callable")
+
+        save = self.save
+        write = self.write
+
+        w_func_name = space.findattr(w_func, space.newtext("__name__"))
+        if self.proto >= 2 and space.eq_w(w_func_name, space.newtext("__newobj_ex__")):
+            w_cls, w_args, w_kwargs = space.unpackiterable(w_args, 3)
+            if space.findattr(w_cls, space.newtext("__new__")):
+                raise PicklingError("args[0] from {} args has no __new__"
+                                    .format(func_name))
+            if w_obj is not None and not space.is_w(w_cls, space.getattr(obj, space.newtext('__class__'))):
+                raise PicklingError("args[0] from {} args has the wrong class"
+                                    .format(func_name))
+            if self.proto >= 4:
+                save(w_cls)
+                save(w_args)
+                save(w_kwargs)
+                write(NEWOBJ_EX)
+            else:
+                import pdb;pdb.set_trace()
+                func = partial(cls.__new__, cls, *args, **kwargs)
+                save(func)
+                save(())
+                write(REDUCE)
+        elif self.proto >= 2 and space.eq_w(w_func_name, space.newtext("__newobj__")):
+            # A __reduce__ implementation can direct protocol 2 or newer to
+            # use the more efficient NEWOBJ opcode, while still
+            # allowing protocol 0 and 1 to work normally.  For this to
+            # work, the function returned by __reduce__ should be
+            # called __newobj__, and its first argument should be a
+            # class.  The implementation for __newobj__
+            # should be as follows, although pickle has no way to
+            # verify this:
+            #
+            # def __newobj__(cls, *args):
+            #     return cls.__new__(cls, *args)
+            #
+            # Protocols 0 and 1 will pickle a reference to __newobj__,
+            # while protocol 2 (and above) will pickle a reference to
+            # cls, the remaining args tuple, and the NEWOBJ code,
+            # which calls cls.__new__(cls, *args) at unpickling time
+            # (see load_newobj below).  If __reduce__ returns a
+            # three-tuple, the state from the third tuple item will be
+            # pickled regardless of the protocol, calling __setstate__
+            # at unpickling time (see load_build below).
+            #
+            # Note that no standard __newobj__ implementation exists;
+            # you have to provide your own.  This is to enforce
+            # compatibility with Python 2.2 (pickles written using
+            # protocol 0 or 1 in Python 2.3 should be unpicklable by
+            # Python 2.2).
+            w_cls = space.getitem(w_args, space.newint(0))
+            if not space.findattr(w_cls, space.newtext("__new__")):
+                raise PicklingError(
+                    "args[0] from __newobj__ args has no __new__")
+            if w_obj is not None and not space.is_w(w_cls, space.getattr(w_obj, space.newtext('__class__'))):
+                import pdb;pdb.set_trace()
+                raise PicklingError(
+                    "args[0] from __newobj__ args has the wrong class")
+            w_args = space.getitem(w_args, space.newslice(space.newint(1), space.w_None, space.w_None))
+            self.save(w_cls)
+            self.save(w_args)
+            self.write(op.NEWOBJ)
+        else:
+            save(func)
+            save(args)
+            write(REDUCE)
+
+        if w_obj is not None:
+            # If the object is already in the memo, this means it is
+            # recursive. In this case, throw away everything we put on the
+            # stack, and fetch the object back from the memo.
+            if w_obj in self.memo:
+                write(op.POP + self.get(self.memo[w_obj]))
+            else:
+                self.memoize(w_obj)
+
+        # More new special cases (that work with older protocols as
+        # well): when __reduce__ returns a tuple with 4 or 5 items,
+        # the 4th and 5th item should be iterators that provide list
+        # items and dict items (as (key, value) tuples), or None.
+
+        if not space.is_none(w_listitems):
+            self._batch_appends(w_listitems)
+
+        if not space.is_none(w_dictitems):
+            self._batch_setitems(w_dictitems)
+
+        if not space.is_none(w_state):
+            if w_state_setter is None:
+                save(w_state)
+                write(op.BUILD)
+            else:
+                # If a state_setter is specified, call it instead of load_build
+                # to update obj's with its previous state.
+                # First, push state_setter and its tuple of expected arguments
+                # (obj, state) onto the stack.
+                save(w_state_setter)
+                save(w_obj)  # simple BINGET opcode as obj is already memoized.
+                save(w_state)
+                write(op.TUPLE2)
+                # Trigger a state_setter(obj, state) function call.
+                write(op.REDUCE)
+                # The purpose of state_setter is to carry-out an
+                # inplace modification of obj. We do not care about what the
+                # method might return, so its output is eventually removed from
+                # the stack.
+                write(op.POP)
+
+    def save_global(self, w_obj, w_name=None):
+        space = self.space
+        write = self.write
+        memo = self.memo
+
+        if space.is_none(w_name):
+            w_name = space.findattr(w_obj, space.newtext('__qualname__'))
+        if space.is_none(w_name):
+            w_name = space.getattr(w_obj, space.newtext('__name__'))
+
+        w_module_name = whichmodule(space, w_obj, w_name)
+        try:
+            w_import = space.getattr(space.builtin, space.newtext("__import__"))
+            space.call_function(w_import, w_module_name)
+            w_module = space.getitem(space.getattr(space.sys, space.newtext('modules')), w_module_name)
+            w_obj2, w_parent = space.unpackiterable(_getattribute(space, w_module, w_name), 2)
+        except OperationError as e:
+            if (not e.match(space, space.w_ImportError) and
+                    not e.match(space, space.w_KeyError) and
+                    e.match(space, space.w_AttributeError)):
+                raise
+            import pdb;pdb.set_trace()
+            raise PicklingError(
+                "Can't pickle %r: it's not found as %s.%s" %
+                (obj, module_name, name))
+        else:
+            if not space.is_w(w_obj2, w_obj):
+                import pdb;pdb.set_trace()
+                raise PicklingError(
+                    "Can't pickle %r: it's not the same object as %s.%s" %
+                    (obj, module_name, name))
+
+        if self.proto >= 2:
+            #code = _extension_registry.get((module_name, name))
+            if 0: #code:
+                assert code > 0
+                if code <= 0xff:
+                    write(EXT1 + pack("<B", code))
+                elif code <= 0xffff:
+                    write(EXT2 + pack("<H", code))
+                else:
+                    write(EXT4 + pack("<i", code))
+                return
+        name = space.text_w(w_name)
+        lastname = name.split('.')[-1]
+        if space.is_w(w_parent, w_module):
+            w_name = space.newtext(lastname)
+        # Non-ASCII identifiers are supported only with protocols >= 3.
+        if self.proto >= 4:
+            self.save(w_module_name)
+            self.save(w_name)
+            write(op.STACK_GLOBAL)
+        elif not space.is_w(w_parent, w_module):
+            self.save_reduce(space.getattr(space.builtin, 'getattr'), space.newtuple2(w_parent, w_lastname))
+        elif self.proto >= 3:
+            write(op.GLOBAL + bytes(module_name, "utf-8") + b'\n' +
+                  bytes(name, "utf-8") + b'\n')
+        else:
+            if self.fix_imports:
+                r_name_mapping = _compat_pickle.REVERSE_NAME_MAPPING
+                r_import_mapping = _compat_pickle.REVERSE_IMPORT_MAPPING
+                if (module_name, name) in r_name_mapping:
+                    module_name, name = r_name_mapping[(module_name, name)]
+                elif module_name in r_import_mapping:
+                    module_name = r_import_mapping[module_name]
+            try:
+                write(GLOBAL + bytes(module_name, "ascii") + b'\n' +
+                      bytes(name, "ascii") + b'\n')
+            except UnicodeEncodeError:
+                raise PicklingError(
+                    "can't pickle global identifier '%s.%s' using "
+                    "pickle protocol %i" % (module, name, self.proto))
+
+        self.memoize(w_obj)
+
+
     def memoize(self, w_obj):
         """Store an object in the memo."""
 
@@ -636,6 +849,42 @@ class W_Pickler(W_Root):
 
         return op.GET + repr(i) + b'\n'
 
+app = applevel('''
+def _getattribute(obj, name):
+    for subpath in name.split('.'):
+        if subpath == '<locals>':
+            raise AttributeError("Can't get local attribute {!r} on {!r}"
+                                 .format(name, obj))
+        try:
+            parent = obj
+            obj = getattr(obj, subpath)
+        except AttributeError:
+            raise AttributeError("Can't get attribute {!r} on {!r}"
+                                 .format(name, obj)) from None
+    return obj, parent
+
+def whichmodule(obj, name):
+    """Find the module an object belong to."""
+    module_name = getattr(obj, '__module__', None)
+    if module_name is not None:
+        return module_name
+    # Protect the iteration by using a list copy of sys.modules against dynamic
+    # modules that trigger imports of other modules upon calls to getattr.
+    for module_name, module in sys.modules.copy().items():
+        if (module_name == '__main__'
+            or module_name == '__mp_main__'  # bpo-42406
+            or module is None):
+            continue
+        try:
+            if _getattribute(module, name)[0] is obj:
+                return module_name
+        except AttributeError:
+            pass
+    return '__main__'
+''', filename=__file__)
+
+_getattribute = app.interphook('_getattribute')
+whichmodule = app.interphook('whichmodule')
 
 def encode_long(space, w_x):
     r"""Encode a long to a two's complement little-endian binary string.

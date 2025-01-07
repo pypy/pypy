@@ -80,3 +80,27 @@ def test_save_dict():
     s = dumps(dict([(a, str(a)) for a in range(10000)]))
     assert s.startswith(b'\x80\x04}\x94(K\x00\x8c\x010\x94K\x01\x8c\x011\x94K\x02')
 
+def test_reduce():
+    import sys
+    class A:
+        pass
+
+    mod = type(sys)('fakemod')
+    mod.A = A
+    A.__module__ = 'fakemod'
+    A.__qualname__ = 'A'
+    A.__name__ = 'A'
+
+    sys.modules['fakemod'] = mod
+    try:
+
+        a = A()
+        a.x = 'abc'
+        s = dumps(a)
+        assert s == b'\x80\x04\x8c\x07fakemod\x94\x8c\x01A\x94\x93\x94)\x81\x94}\x94\x8c\x01x\x94\x8c\x03abc\x94sb.'
+    finally:
+        del sys.modules['fakemod']
+
+def test_globals():
+    s = dumps(dumps)
+    assert s == b'\x80\x04\x8c\x07_pickle\x94\x8c\x05dumps\x94\x93\x94.'
