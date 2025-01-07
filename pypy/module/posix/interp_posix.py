@@ -982,7 +982,6 @@ class State:
     def __init__(self, space):
         self.space = space
         self.w_environ = space.newdict()
-        self.random_context = rurandom.init_urandom()
 
     def startup(self, space):
         space.call_method(self.w_environ, 'clear')
