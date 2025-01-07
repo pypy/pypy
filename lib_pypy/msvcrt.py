@@ -132,6 +132,7 @@ def ungetwch(ch):
         _ioerr()
 
 SetErrorMode = _kernel32.SetErrorMode
+GetErrorMode = _kernel32.GetErrorMode
 SEM_FAILCRITICALERRORS     = _lib.SEM_FAILCRITICALERRORS
 SEM_NOGPFAULTERRORBOX      = _lib.SEM_NOGPFAULTERRORBOX
 SEM_NOALIGNMENTFAULTEXCEPT = _lib.SEM_NOALIGNMENTFAULTEXCEPT

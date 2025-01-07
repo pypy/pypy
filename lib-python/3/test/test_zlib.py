@@ -19,6 +19,29 @@ requires_Decompress_copy = unittest.skipUnless(
         hasattr(zlib.decompressobj(), "copy"),
         'requires Decompress.copy()')
 
+def _zlib_runtime_version_tuple(zlib_version=zlib.ZLIB_RUNTIME_VERSION):
+    # Register "1.2.3" as "1.2.3.0"
+    # or "1.2.0-linux","1.2.0.f","1.2.0.f-linux"
+    v = zlib_version.split('-', 1)[0].split('.')
+    if len(v) < 4:
+        v.append('0')
+    elif not v[-1].isnumeric():
+        v[-1] = '0'
+    return tuple(map(int, v))
+
+
+ZLIB_RUNTIME_VERSION_TUPLE = _zlib_runtime_version_tuple()
+
+
+# bpo-46623: When a hardware accelerator is used (currently only on s390x),
+# using different ways to compress data with zlib can produce different
+# compressed data.
+#
+# To simplify the skip condition, make the assumption that s390x always has an
+# accelerator, and nothing else has it.
+# Windows doesn't have os.uname() but it doesn't support s390x.
+HW_ACCELERATED = hasattr(os, 'uname') and os.uname().machine == 's390x'
+
 
 def _zlib_runtime_version_tuple(zlib_version=zlib.ZLIB_RUNTIME_VERSION):
     # Register "1.2.3" as "1.2.3.0"

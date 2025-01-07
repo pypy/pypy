@@ -920,7 +920,7 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError.
 
-The mode argument is ignored on Windows."""
+Any mode but 0700 is ignored on Windows."""
     try:
         if rposix.HAVE_MKDIRAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
@@ -982,7 +982,6 @@ class State:
     def __init__(self, space):
         self.space = space
         self.w_environ = space.newdict()
-        self.random_context = rurandom.init_urandom()
 
     def startup(self, space):
         space.call_method(self.w_environ, 'clear')
@@ -991,9 +990,6 @@ class State:
     def _freeze_(self):
         # don't capture the environment in the translated pypy
         self.space.call_method(self.w_environ, 'clear')
-        # also reset random_context to a fresh new context (empty so far,
-        # to be filled at run-time by rurandom.urandom())
-        self.random_context = rurandom.init_urandom()
         return True
 
 def get(space):
@@ -1570,6 +1566,8 @@ def _run_forking_function(space, kind):
             pass
         raise wrap_oserror(space, e, eintr_retry=False)
     if pid == 0:
+        from pypy.module.thread import os_thread
+        os_thread.reinit_threads(space)
         run_fork_hooks('child', space)
     else:
         run_fork_hooks('parent', space)
@@ -2577,7 +2575,6 @@ def urandom(space, size):
 
     Return a string of 'size' random bytes suitable for cryptographic use.
     """
-    context = get(space).random_context
     if size < 0:
         raise oefmt(space.w_ValueError, "negative argument not allowed")
     try:
@@ -2585,7 +2582,7 @@ def urandom(space, size):
         # not a bound method like 'getexecutioncontext().checksignals'.
         # Otherwise, we can't use it from several independent places.
         _sigcheck.space = space
-        return space.newbytes(rurandom.urandom(context, size, _signal_checker))
+        return space.newbytes(rurandom.urandom(size, _signal_checker))
     except OSError as e:
         # CPython raises NotImplementedError if /dev/urandom cannot be found.
         # To maximize compatibility, we should also raise NotImplementedError

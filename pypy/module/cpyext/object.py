@@ -187,6 +187,7 @@ def PyObject_Str(space, w_obj):
 
 @cts.decl("PyObject * PyObject_Bytes(PyObject *v)")
 def PyObject_Bytes(space, w_obj):
+    from pypy.module.cpyext.bytesobject import PyBytes_FromObject
     if w_obj is None:
         return space.newbytes("<NULL>")
     if space.type(w_obj) is space.w_bytes:
@@ -194,9 +195,7 @@ def PyObject_Bytes(space, w_obj):
     w_result = invoke_bytes_method(space, w_obj)
     if w_result is not None:
         return w_result
-    # return PyBytes_FromObject(space, w_obj)
-    buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
-    return space.newbytes(buffer.as_str())
+    return PyBytes_FromObject(space, w_obj)
 
 @cpython_api([PyObject], PyObject)
 def PyObject_Repr(space, w_obj):

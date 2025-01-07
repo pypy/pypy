@@ -433,6 +433,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
              """)])
         assert type(module.asbytes(sub1(b''))) is bytes
         assert type(module.asbytes(sub2(b''))) is sub2
+        assert module.asbytes(list(b"a")) == b"a"
 
     def test_LengthHint(self):
         import operator

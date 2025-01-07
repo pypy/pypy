@@ -9,7 +9,7 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr, as_pyobj, get_w_obj_and_decref,
     pyobj_has_w_obj)
-from pypy.objspace.std.bytesobject import W_BytesObject
+from pypy.objspace.std.bytesobject import W_BytesObject, _convert_from_buffer_or_iterable
 
 ##
 ## Implementation of PyBytesObject
@@ -263,5 +263,6 @@ def PyBytes_FromObject(space, w_obj):
     the buffer protocol."""
     if space.is_w(space.type(w_obj), space.w_bytes):
         return w_obj
-    buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
-    return space.newbytes(buffer.as_str())
+    if space.isinstance_w(w_obj, space.w_bytes):
+        return space.newbytes(space.bytes_w(w_obj))
+    return space.newbytes(_convert_from_buffer_or_iterable(space, w_obj))
