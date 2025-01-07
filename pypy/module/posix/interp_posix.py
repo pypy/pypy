@@ -2582,7 +2582,7 @@ def urandom(space, size):
         # not a bound method like 'getexecutioncontext().checksignals'.
         # Otherwise, we can't use it from several independent places.
         _sigcheck.space = space
-        return space.newbytes(rurandom.urandom(n, _signal_checker))
+        return space.newbytes(rurandom.urandom(size, _signal_checker))
     except OSError as e:
         # CPython raises NotImplementedError if /dev/urandom cannot be found.
         # To maximize compatibility, we should also raise NotImplementedError
