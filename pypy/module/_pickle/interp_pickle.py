@@ -126,6 +126,10 @@ def packI(opcode, val):
 def packB(opcode, val):
     return opcode + chr(val)
 
+def pickling_error(space):
+    w_module = space.getbuiltinmodule('_pickle')
+    return space.getattr(w_module, space.newtext('PicklingError'))
+
 class _Framer(object):
 
     _FRAME_SIZE_MIN = 4
@@ -342,9 +346,7 @@ class W_Pickler(W_Root):
                     if w_reduce is not None:
                         w_rv = space.get_and_call_function(w_reduce, w_obj)
                     else:
-                        import pdb;pdb.set_trace()
-                        raise PicklingError("Can't pickle %r object: %r" %
-                                            (t.__name__, w_obj))
+                        raise oefmt(pickling_error(space), "Can't pickle %T object: %R", w_obj, w_obj)
 
         # Check for string returned by reduce(), meaning "save as global"
         if space.isinstance_w(w_rv, space.w_unicode):
@@ -354,14 +356,13 @@ class W_Pickler(W_Root):
         # Assert that reduce() returned a tuple
         if not space.isinstance_w(w_rv, space.w_tuple):
             import pdb;pdb.set_trace()
-            raise PicklingError("%s must return string or tuple" % reduce)
+            raise oefmt(pickling_error(space), "%S must return string or tuple", w_reduce)
 
         # Assert that it returned an appropriately sized tuple
         l = space.len_w(w_rv)
         if not (2 <= l <= 6):
-            import pdb;pdb.set_trace()
-            raise PicklingError("Tuple returned by %s must have "
-                                "two to six elements" % reduce)
+            raise oefmt(pickling_error(space), "Tuple returned by %S must have "
+                                "two to six elements", w_reduce)
 
         # Save the reduce() output and finally memoize the object
         self.save_reduce(w_obj, w_rv)
@@ -619,11 +620,9 @@ class W_Pickler(W_Root):
             w_state = None
 
         if not space.isinstance_w(w_args, space.w_tuple):
-            import pdb;pdb.set_trace()
-            raise PicklingError("args from save_reduce() must be a tuple")
+            raise oefmt(pickling_error(space), "args from save_reduce() must be a tuple")
         if not space.callable_w(w_func):
-            import pdb;pdb.set_trace()
-            raise PicklingError("func from save_reduce() must be callable")
+            raise oefmt(pickling_error(space), "func from save_reduce() must be callable")
 
         save = self.save
         write = self.write
@@ -632,11 +631,9 @@ class W_Pickler(W_Root):
         if self.proto >= 2 and space.eq_w(w_func_name, space.newtext("__newobj_ex__")):
             w_cls, w_args, w_kwargs = space.unpackiterable(w_args, 3)
             if space.findattr(w_cls, space.newtext("__new__")):
-                raise PicklingError("args[0] from {} args has no __new__"
-                                    .format(func_name))
+                raise oefmt(pickling_error(space), "args[0] from %S args has no __new__", w_func_name)
             if w_obj is not None and not space.is_w(w_cls, space.getattr(obj, space.newtext('__class__'))):
-                raise PicklingError("args[0] from {} args has the wrong class"
-                                    .format(func_name))
+                raise oefmt(pickling_error(space), "args[0] from %S args has the wrong class", w_func_name)
             if self.proto >= 4:
                 save(w_cls)
                 save(w_args)
@@ -677,11 +674,10 @@ class W_Pickler(W_Root):
             # Python 2.2).
             w_cls = space.getitem(w_args, space.newint(0))
             if not space.findattr(w_cls, space.newtext("__new__")):
-                raise PicklingError(
+                raise oefmt(pickling_error(space),
                     "args[0] from __newobj__ args has no __new__")
             if w_obj is not None and not space.is_w(w_cls, space.getattr(w_obj, space.newtext('__class__'))):
-                import pdb;pdb.set_trace()
-                raise PicklingError(
+                raise oefmt(pickling_error(space),
                     "args[0] from __newobj__ args has the wrong class")
             w_args = space.getitem(w_args, space.newslice(space.newint(1), space.w_None, space.w_None))
             self.save(w_cls)
@@ -754,16 +750,14 @@ class W_Pickler(W_Root):
                     not e.match(space, space.w_KeyError) and
                     e.match(space, space.w_AttributeError)):
                 raise
-            import pdb;pdb.set_trace()
-            raise PicklingError(
-                "Can't pickle %r: it's not found as %s.%s" %
-                (obj, module_name, name))
+            raise oefmt(pickling_error(space),
+                "Can't pickle %R: it's not found as %S.%S",
+                w_obj, w_module_name, w_name)
         else:
             if not space.is_w(w_obj2, w_obj):
-                import pdb;pdb.set_trace()
-                raise PicklingError(
-                    "Can't pickle %r: it's not the same object as %s.%s" %
-                    (obj, module_name, name))
+                raise oefmt(pickling_error(space),
+                    "Can't pickle %R: it's not the same object as %S.%S" %
+                    w_obj, w_module_name, w_name)
 
         if self.proto >= 2:
             #code = _extension_registry.get((module_name, name))
@@ -802,12 +796,10 @@ class W_Pickler(W_Root):
                 write(GLOBAL + bytes(module_name, "ascii") + b'\n' +
                       bytes(name, "ascii") + b'\n')
             except UnicodeEncodeError:
-                raise PicklingError(
-                    "can't pickle global identifier '%s.%s' using "
-                    "pickle protocol %i" % (module, name, self.proto))
-
+                raise oefmt(pickling_error(space),
+                    "can't pickle global identifier '%S.%S' using "
+                    "pickle protocol %d" % (w_module, w_name, self.proto))
         self.memoize(w_obj)
-
 
     def memoize(self, w_obj):
         """Store an object in the memo."""
