@@ -156,7 +156,7 @@ typedef enum {
     PYGEN_NEXT = 1,
 } PySendResult;
 
-typedef PySendResult (*sendfunc)(PyObject *iter, PyObject *value, PyObject **result);
+typedef int (*sendfunc)(PyObject *iter, PyObject *value, PyObject **result);
 
 typedef struct {
     unaryfunc am_await;
