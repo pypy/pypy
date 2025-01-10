@@ -246,6 +246,7 @@ loaded_libunwind:
             printf("couldnt load %s \n", UL_PREFIX PREFIX "_local_addr_space");
             goto bail_out;
         }
+        unw_local_address_space = *((void**) unw_local_address_space); // dlsym returns ptr to struct, but we need the addr of the struct
         resolve_with_libunwind = 1;
     }
     return 1;
@@ -306,31 +307,7 @@ int backtrace_full_cb(void *data, uintptr_t pc, const char *filename,
 #endif
 
 int _vmp_resolve_addr_libunwind(void * addr, char * name, int name_len, int * lineno, char * srcfile, int srcfile_len) {
-
-#if defined(X86_64) 
-
-    uint64_t local_addr_space_addr = 0;
-
-    asm(
-        "mov %1, %%rax \n\t"
-        "mov (%%rax), %0"
-        : "=r" (local_addr_space_addr)
-        : "r" (unw_local_address_space)
-    );
-
-#elif defined(x86_32)
-
-    uint32_t local_addr_space_addr = 0;
-
-    asm(
-        "mov %1, %%eax \n\t"
-        "mov (%%eax), %0"
-        : "=r" (local_addr_space_addr)
-        : "r" (unw_local_address_space)
-    );
-
-#endif
-    
+ 
     if (resolve_with_libunwind == 0) {
         // unw_get_proc_name_by_ip hasn't been loaded => dont try to use it
         return 1;
@@ -338,7 +315,7 @@ int _vmp_resolve_addr_libunwind(void * addr, char * name, int name_len, int * li
 
     unw_word_t offset = 0;
 
-    int res_funcname = unw_get_proc_name_by_ip((void *) local_addr_space_addr, (unw_word_t) addr, name, name_len, &offset, NULL);
+    int res_funcname = unw_get_proc_name_by_ip(unw_local_address_space, (unw_word_t) addr, name, name_len, &offset, NULL);
     
     if(res_funcname == 0) {
         return 0;
