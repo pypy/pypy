@@ -3730,7 +3730,6 @@ class DirtyZipInfo(zipfile.ZipInfo):
             self.external_attr = 0o600 << 16  # ?rw-------
         return self
 
-<<<<<<< HEAD
 
 class EncodedMetadataTests(unittest.TestCase):
     file_names = ['\u4e00', '\u4e8c', '\u4e09']  # Han 'one', 'two', 'three'
@@ -3876,8 +3875,6 @@ class EncodedMetadataTests(unittest.TestCase):
         for name in self.file_names:
             self.assertIn(name, listing)
 
-=======
->>>>>>> py3.10
 
 class StripExtraTests(unittest.TestCase):
     # Note: all of the "z" characters are technically invalid, but up
