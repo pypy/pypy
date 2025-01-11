@@ -3,7 +3,7 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.interpreter.error import (OperationError, oefmt,
         strerror as _strerror, exception_from_saved_errno)
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.timeutils import (
+from pypy.module.time.timeutils import (
     SECS_TO_NS, MS_TO_NS, US_TO_NS, monotonic as _monotonic, timestamp_w)
 from pypy.interpreter.unicodehelper import decode_utf8sp
 from pypy.module._codecs.locale import (

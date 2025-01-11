@@ -1,7 +1,7 @@
 import pytest
 from rpython.rlib.rarithmetic import r_longlong
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.timeutils import timestamp_w
+from pypy.module.time.timeutils import timestamp_w
 
 def test_timestamp_w(space):
     w_1_year = space.newint(365 * 24 * 3600)

@@ -7,7 +7,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.error import exception_from_saved_errno
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.interpreter import timeutils
+from pypy.module.time import timeutils
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib._rsocket_rffi import socketclose, FD_SETSIZE
