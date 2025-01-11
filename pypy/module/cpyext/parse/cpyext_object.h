@@ -160,7 +160,7 @@ that are defined as returning PySendResult will be compatible with the definitio
 of sendfunc (especially on C++).
 The only thing this breaks is C++ code that writes PySendResult::PYGEN_RETURN.
 */
-typedef enum {
+enum {
     PYGEN_RETURN = 0,
     PYGEN_ERROR = -1,
     PYGEN_NEXT = 1,
