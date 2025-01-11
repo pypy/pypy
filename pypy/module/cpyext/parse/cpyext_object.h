@@ -152,10 +152,10 @@ typedef struct {
 /* Result of calling PyIter_Send
 
 Note: small deviation from CPython definitions here:
-PyPy wants to return and int from "sendfunc" because it knows sizeof(int)
+PyPy wants to return an int from "sendfunc" because it knows sizeof(int)
 and doesn't know sizeof(enum PySendResult).
 Therefore introduce the symbols like PYGEN_RETURN into the global namespace
-with an anoymous enum, but define PySendResult as int so that funnctions
+with an anoymous enum, but define PySendResult as int so that functions
 that are defined as returning PySendResult will be compatible with the definition
 of sendfunc (especially on C++).
 The only thing this breaks is C++ code that writes PySendResult::PYGEN_RETURN.
