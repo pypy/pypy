@@ -1369,44 +1369,6 @@ if HAS_THREAD_TIME:
         sum of the kernel and user-space CPU time."""
         return _thread_time_impl(space, None, True)
 
-_clock = external('clock', [], rposix.CLOCK_T)
-def _clock_impl(space, w_info, return_ns):
-    space.warn(space.newtext(
-        "time.clock has been deprecated in Python 3.3 and will "
-        "be removed from Python 3.8: "
-        "use time.perf_counter or time.process_time "
-        "instead"), space.w_DeprecationWarning)
-    if _WIN:
-        try:
-            return _win_perf_counter_impl(space, w_info, return_ns)
-        except ValueError:
-            pass
-    value = widen(_clock())
-    if value == widen(rffi.cast(rposix.CLOCK_T, -1)):
-        raise oefmt(space.w_RuntimeError,
-                    "the processor time used is not available or its value"
-                    "cannot be represented")
-
-    if _MACOSX:
-        # small hack apparently solving unsigned int on mac
-        value = intmask(value)
-
-    if w_info is not None:
-        _setinfo(space, w_info,
-                 "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
-    if return_ns:
-        return space.newint(r_int64(value) * 10**9 // CLOCKS_PER_SEC)
-    else:
-        return space.newfloat(float(value) / CLOCKS_PER_SEC)
-
-def clock(space):
-    """clock() -> floating point number
-
-    Return the CPU time or real time since the start of the process or since
-    the first call to clock().  This has as much precision as the system
-    records."""
-    return _clock_impl(space, None, False)
-
 
 def _setinfo(space, w_info, impl, res, mono, adj):
     space.setattr(w_info, space.newtext('implementation'), space.newtext(impl))
