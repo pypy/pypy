@@ -18,6 +18,8 @@ from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.tool.cparser import CTypeSpace
+from rpython.translator import cdir
 
 import errno
 import os
@@ -170,6 +172,14 @@ if _WIN:
 
     time_state = TimeState()
 
+cts = CTypeSpace()
+with open(os.path.join(my_dir, 'time_module.h')) as fid:
+    data = fid.read()
+    start = data.find("// parse from here")
+    cts.parse_source("typedef long time_t;")
+    cts.parse_source("typedef long _PyTime_t;")
+    cts.parse_source(data[start:].replace("RPY_EXTERN", ""))
+
 compile_extra = ["-DBUILD_TIME_MODULE"]
 _includes = ["time.h"]
 if _POSIX:
@@ -185,7 +195,7 @@ if HAS_CLOCK_HIGHRES:
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes=_includes,
-        include_dirs = [my_dir],
+        include_dirs = [my_dir, cdir],
         libraries=rtime.libraries,
         separate_module_files=[os.path.join(src_dir, "pytime.c")],
         compile_extra=compile_extra,
@@ -194,6 +204,7 @@ class CConfig:
 
 HAS_TM_ZONE = False
 
+clock_info_t = cts.gettype("_Py_clock_info_t")
 if _POSIX:
     calling_conv = 'c'
     CConfig.timeval = platform.Struct("struct timeval",
@@ -264,7 +275,13 @@ HAS_MONOTONIC = (_WIN or _MACOSX or
 HAS_THREAD_TIME = (_WIN or
                    (HAS_CLOCK_GETTIME_RUNTIME and rtime.CLOCK_PROCESS_CPUTIME_ID is not None))
 tm = cConfig.tm
+pytime_t = rffi.LONG  # int64_t
+
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
+
+_PyTime_GetPerfCounterWithInfo = external("_PyTime_GetPerfCounterWithInfo",
+    [rffi.CArrayPtr(pytime_t), rffi.CArrayPtr(clock_info_t)], rffi.INT)
+_PyTime_AsSecondsDouble = external("_PyTime_AsSecondsDouble", [pytime_t], rffi.DOUBLE)
 
 if _WIN:
     _GetSystemTimeAsFileTime = rwin32.winexternal('GetSystemTimeAsFileTime',
@@ -352,7 +369,7 @@ else:
                 return space.newint(r_int64(result) * 10**9)
             else:
                 return space.newfloat(float(result))
-    
+
     def gettimeofday(space, w_info=None):
         return _gettimeofday_impl(space, w_info, False)
 
@@ -768,10 +785,8 @@ def _get_time_info(space, name, w_info):
         _time_impl(space, w_info, False)
     elif name == 'monotonic' and HAS_MONOTONIC:
         _monotonic_impl(space, w_info, False)
-    elif name == 'clock':
-        _clock_impl(space, w_info, False)
     elif name == 'perf_counter':
-        _perf_counter_impl(space, w_info, False)
+        _perf_counter_impl(space, w_info)
     elif name == "process_time":
         _process_time_impl(space, w_info, False)
     elif name == "thread_time" and HAS_THREAD_TIME:
@@ -781,7 +796,7 @@ def _get_time_info(space, name, w_info):
 
 def time_time_ns(space):
     """time_ns() -> int
-    
+
     Return the current time in nanoseconds since the Epoch."""
     return _time_impl(space, None, True)
 
@@ -872,7 +887,7 @@ def localtime(space, w_seconds=None):
         if not space.eq_w(daylight_w, space.newint(0)):
             offset -= 3600
         return _tm_to_tuple(space, p, zone=space.utf8_w(zone_w), offset=-offset)
-        
+
 
 def mktime(space, w_tup):
     """mktime(tuple) -> floating point number
@@ -896,7 +911,7 @@ if HAS_CLOCK_GETTIME_RUNTIME:
 
     def _timespec_to_nanoseconds(timespec):
         return r_int64(timespec.c_tv_sec) * 10**9 + r_int64(timespec.c_tv_nsec)
-    
+
     def _clock_gettime_impl(space, clk_id, return_ns):
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_gettime(clk_id, timespec)
@@ -910,21 +925,21 @@ if HAS_CLOCK_GETTIME_RUNTIME:
     @unwrap_spec(clk_id='c_int')
     def clock_gettime(space, clk_id):
         """clock_gettime(clk_id) -> float
-    
+
         Return the time of the specified clock clk_id."""
         return _clock_gettime_impl(space, clk_id, False)
 
     @unwrap_spec(clk_id='c_int')
     def clock_gettime_ns(space, clk_id):
         """clock_gettime_ns(clk_id) -> int
-    
+
         Return the time of the specified clock clk_id as nanoseconds."""
         return _clock_gettime_impl(space, clk_id, True)
 
     @unwrap_spec(clk_id='c_int', secs=float)
     def clock_settime(space, clk_id, secs):
         """clock_settime(clk_id, time)
-    
+
         Set the time of the specified clock clk_id."""
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             integer_secs = rffi.cast(TIMESPEC.c_tv_sec, secs)
@@ -938,7 +953,7 @@ if HAS_CLOCK_GETTIME_RUNTIME:
     @unwrap_spec(clk_id='c_int', ns=r_int64)
     def clock_settime_ns(space, clk_id, ns):
         """clock_settime_ns(clk_id, time)
-    
+
         Set the time of the specified clock clk_id with nanoseconds."""
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             rffi.setintfield(timespec, 'c_tv_sec', ns // 10**9)
@@ -950,7 +965,7 @@ if HAS_CLOCK_GETTIME_RUNTIME:
     @unwrap_spec(clk_id='c_int')
     def clock_getres(space, clk_id):
         """clock_getres(clk_id) -> floating point number
-    
+
         Return the resolution (precision) of the specified clock clk_id."""
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_getres(clk_id, timespec)
@@ -1005,7 +1020,7 @@ def strftime(space, format, w_tup=None):
         tm_year = rffi.getintfield(buf_value, 'c_tm_year')
         if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
             raise oefmt(space.w_ValueError, "strftime() requires year in [1; 9999]")
-     
+
         # wcharp with track_allocation=True
         format_for_call = rffi.utf82wcharp(
                     format, codepoints_in_utf8(format))
@@ -1138,79 +1153,49 @@ if HAS_MONOTONIC:
 
     def monotonic(space):
         """monotonic() -> float
-    
+
         Monotonic clock, cannot go backward."""
         return _monotonic_impl(space, None, False)
 
     def monotonic_ns(space):
         """monotonic_ns() -> int
-    
+
         Monotonic clock, cannot go backward, as nanoseconds."""
         return _monotonic_impl(space, None, True)
 
-if _WIN:
-    # hacking to avoid LARGE_INTEGER which is a union...
-    QueryPerformanceCounter = external(
-        'QueryPerformanceCounter', [rffi.CArrayPtr(lltype.SignedLongLong)],
-         lltype.Void)
-    QueryPerformanceCounter = rwin32.winexternal('QueryPerformanceCounter',
-                                                 [rffi.CArrayPtr(lltype.SignedLongLong)],
-                                                 rwin32.DWORD)
-    QueryPerformanceFrequency = rwin32.winexternal(
-        'QueryPerformanceFrequency', [rffi.CArrayPtr(lltype.SignedLongLong)],
-        rffi.INT)
-    def _win_perf_counter_impl(space, w_info, return_ns):
-        with lltype.scoped_alloc(rffi.CArray(rffi.lltype.SignedLongLong), 1) as a:
-            succeeded = True
-            if time_state.divisor == 0:
-                QueryPerformanceCounter(a)
-                time_state.counter_start = a[0]
-                succeeded = QueryPerformanceFrequency(a)
-                time_state.divisor = a[0]
-            if succeeded and time_state.divisor != 0:
-                QueryPerformanceCounter(a)
-                diff = a[0] - time_state.counter_start
-            else:
-                raise ValueError("Failed to generate the result.")
-            if w_info is not None:
-                resolution = 1 / float(time_state.divisor)
-                _setinfo(space, w_info, "QueryPerformanceCounter()", resolution,
-                         True, False)
-            if return_ns:
-                return space.newint((diff * r_longlong(10**9)) // r_longlong(time_state.divisor))
-            else:
-                return space.newfloat(float(diff) / float(time_state.divisor))
+def _perf_counter_impl(space, w_info):
+    with lltype.scoped_alloc(rffi.CArray(pytime_t), 1) as t:
+        if w_info:
+            with lltype.scoped_alloc(rffi.CArray(clock_info_t), 1) as info:
+                res = _PyTime_GetPerfCounterWithInfo(t, info)
+                implementation = rffi.constcharp2str(info[0].c_implementation)
+                resolution = info[0].c_resolution
+                mono = bool(widen(info[0].c_monotonic))
+                adjust =  bool(widen(info[0].c_adjustable))
+                _setinfo(space, w_info, implementation, resolution, mono, adjust)
 
-    def _perf_counter_impl(space, w_info, return_ns):
-        try:
-            return _win_perf_counter_impl(space, w_info, return_ns)
-        except ValueError:
-            if HAS_MONOTONIC:
-                try:
-                    return _monotonic_impl(space, w_info, return_ns)
-                except Exception:
-                    pass
-        return _time_impl(space, w_info, return_ns)
-else:
-    def _perf_counter_impl(space, w_info, return_ns):
-        if HAS_MONOTONIC:
-            try:
-                return _monotonic_impl(space, w_info, return_ns)
-            except Exception:
-                pass
-        return _time_impl(space, w_info, return_ns)
+        else:
+            res = _PyTime_GetPerfCounterWithInfo(t, rffi.cast(rffi.CArrayPtr(clock_info_t), 0))
+        if res < 0:
+            raise oefmt(space.w_RuntimeError, "could not get perf_counter")
+        return t[0]
 
 def perf_counter(space):
     """perf_counter() -> float
-    
+
     Performance counter for benchmarking."""
-    return _perf_counter_impl(space, None, False)
+
+    t = _perf_counter_impl(space, None)
+    d = _PyTime_AsSecondsDouble(t)
+    return space.newfloat(d)
 
 def perf_counter_ns(space):
     """perf_counter_ns() -> int
-    
+
     Performance counter for benchmarking as nanoseconds."""
-    return _perf_counter_impl(space, None, True)
+    t = _perf_counter_impl(space, None)
+    return space.newint(t)
+
 
 if _WIN:
     def _process_time_impl(space, w_info, return_ns):
@@ -1235,7 +1220,7 @@ if _WIN:
             return space.newint((tolong(kernel_time2) +
                                  tolong(user_time2)) * 100)
         else:
-            return space.newfloat((float(kernel_time2) + 
+            return space.newfloat((float(kernel_time2) +
                                    float(user_time2)) * 1e-7)
 else:
     have_times = hasattr(rposix, 'c_times')
@@ -1337,7 +1322,7 @@ if HAS_THREAD_TIME:
                          r_ulonglong(kernel_time.c_dwHighDateTime) << 32)
                 utime = (user_time.c_dwLowDateTime |
                          r_ulonglong(user_time.c_dwHighDateTime) << 32)
-            
+
             if w_info is not None:
                 _setinfo(space, w_info, "GetThreadTimes()", 1e-7, True, False)
 
@@ -1361,8 +1346,7 @@ if HAS_THREAD_TIME:
                                 res = _timespec_to_seconds(tsres)
                             else:
                                 res = 1e-9
-                        _setinfo(space, w_info,
-                                 implementation, res, True, False)
+                        _setinfo(space, w_info, implementation, res, True, False)
                     if return_ns:
                         return space.newint(_timespec_to_nanoseconds(timespec))
                     else:
@@ -1384,11 +1368,6 @@ if HAS_THREAD_TIME:
 
 _clock = external('clock', [], rposix.CLOCK_T)
 def _clock_impl(space, w_info, return_ns):
-    space.warn(space.newtext(
-        "time.clock has been deprecated in Python 3.3 and will "
-        "be removed from Python 3.8: "
-        "use time.perf_counter or time.process_time "
-        "instead"), space.w_DeprecationWarning)
     if _WIN:
         try:
             return _win_perf_counter_impl(space, w_info, return_ns)
@@ -1405,8 +1384,7 @@ def _clock_impl(space, w_info, return_ns):
         value = intmask(value)
 
     if w_info is not None:
-        _setinfo(space, w_info,
-                 "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
+        _setinfo(space, w_info, "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
     if return_ns:
         return space.newint(r_int64(value) * 10**9 // CLOCKS_PER_SEC)
     else:

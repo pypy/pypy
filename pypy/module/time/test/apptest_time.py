@@ -625,7 +625,7 @@ def test_thread_time_ns():
 
 def test_get_clock_info():
     import time
-    clocks = ['clock', 'perf_counter', 'process_time', 'time']
+    clocks = ['perf_counter', 'process_time', 'time']
     if hasattr(time, 'monotonic'):
         clocks.append('monotonic')
     if hasattr(time, 'thread_time'):

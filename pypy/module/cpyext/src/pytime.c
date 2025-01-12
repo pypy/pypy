@@ -610,6 +610,17 @@ _PyTime_FromMillisecondsObject(_PyTime_t *tp, PyObject *obj, _PyTime_round_t rou
     return pytime_from_object(tp, obj, round, MS_TO_NS);
 }
 
+
+PyObject *
+_PyTime_AsNanosecondsObject(_PyTime_t t)
+{
+    _PyTime_t ns =  pytime_as_nanoseconds(t);
+    static_assert(sizeof(long long) >= sizeof(_PyTime_t),
+                  "_PyTime_t is larger than long long");
+    return PyLong_FromLongLong((long long)ns);
+}
+#endif
+
 double
 _PyTime_AsSecondsDouble(_PyTime_t t)
 {
@@ -630,16 +641,6 @@ _PyTime_AsSecondsDouble(_PyTime_t t)
     return d;
 }
 
-
-PyObject *
-_PyTime_AsNanosecondsObject(_PyTime_t t)
-{
-    _PyTime_t ns =  pytime_as_nanoseconds(t);
-    static_assert(sizeof(long long) >= sizeof(_PyTime_t),
-                  "_PyTime_t is larger than long long");
-    return PyLong_FromLongLong((long long)ns);
-}
-#endif
 
 static _PyTime_t
 pytime_divide_round_up(const _PyTime_t t, const _PyTime_t k)
