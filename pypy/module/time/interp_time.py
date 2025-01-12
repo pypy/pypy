@@ -8,6 +8,7 @@ from pypy.module.time.timeutils import (
 from pypy.interpreter.unicodehelper import decode_utf8sp
 from pypy.module._codecs.locale import (
     str_decode_locale_surrogateescape, utf8_encode_locale_surrogateescape)
+from pypy import pypydir
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
     intmask, r_ulonglong, r_longfloat, r_int64, widen, ovfcheck,
@@ -23,6 +24,9 @@ import os
 import math
 import sys
 import time as pytime
+
+src_dir = os.path.join(pypydir, 'module', 'cpyext',  'src')
+my_dir = os.path.join(pypydir, 'module', 'time',  'src')
 
 if HAVE_FTIME:
     from rpython.rlib.rtime import TIMEB, c_ftime
@@ -56,7 +60,7 @@ if _WIN:
     from pypy.interpreter.error import wrap_oserror
     from rpython.rlib import rthread as thread
 
-    eci = ExternalCompilationInfo(
+    wineci = ExternalCompilationInfo(
         includes = ['windows.h'],
         post_include_bits = [
             "RPY_EXTERN\n"
@@ -94,13 +98,13 @@ if _WIN:
     _setCtrlHandlerRoutine = rffi.llexternal(
         'pypy_timemodule_setCtrlHandler',
         [rwin32.HANDLE], rwin32.BOOL,
-        compilation_info=eci,
+        compilation_info=wineci,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
     pypy_GetTickCount64 = rffi.llexternal(
         'pypy_GetTickCount64',
         [rffi.VOIDP],
-        rffi.ULONGLONG, compilation_info=eci)
+        rffi.ULONGLONG, compilation_info=wineci)
 
     class GlobalState:
         def __init__(self):
@@ -166,16 +170,25 @@ if _WIN:
 
     time_state = TimeState()
 
+compile_extra = ["-DBUILD_TIME_MODULE"]
 _includes = ["time.h"]
 if _POSIX:
     _includes.append('sys/time.h')
+    compile_extra.append("-DHAVE_SYS_TIME_H")
 if _MACOSX:
     _includes.append('mach/mach_time.h')
+    compile_extra.append("-DHAVE_SYS_TIME_H")
 
+HAS_CLOCK_HIGHRES = rtime.CLOCK_HIGHRES is not None
+if HAS_CLOCK_HIGHRES:
+    compile_extra.append("-DCLOCK_HIGHRES")
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes=_includes,
-        libraries=rtime.libraries
+        include_dirs = [my_dir],
+        libraries=rtime.libraries,
+        separate_module_files=[os.path.join(src_dir, "pytime.c")],
+        compile_extra=compile_extra,
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
 
@@ -245,7 +258,6 @@ if _POSIX:
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
 HAS_CLOCK_GETTIME_RUNTIME = rtime.HAS_CLOCK_GETTIME_RUNTIME
-HAS_CLOCK_HIGHRES = rtime.CLOCK_HIGHRES is not None
 HAS_CLOCK_MONOTONIC = rtime.CLOCK_MONOTONIC is not None
 HAS_MONOTONIC = (_WIN or _MACOSX or
                  (HAS_CLOCK_GETTIME_RUNTIME and (HAS_CLOCK_HIGHRES or HAS_CLOCK_MONOTONIC)))
@@ -740,7 +752,7 @@ def _time_impl(space, w_info, return_ns):
                     return space.newfloat(_timespec_to_seconds(timespec))
     return _gettimeofday_impl(space, w_info, return_ns)
 
-def time(space):
+def time_time(space):
     """time() -> floating point number
 
     Return the current time in seconds since the Epoch.
@@ -767,7 +779,7 @@ def _get_time_info(space, name, w_info):
     else:
         raise oefmt(space.w_ValueError, "unknown clock")
 
-def time_ns(space):
+def time_time_ns(space):
     """time_ns() -> int
     
     Return the current time in nanoseconds since the Epoch."""
@@ -1221,7 +1233,7 @@ if _WIN:
             _setinfo(space, w_info, "GetProcessTimes()", 1e-7, True, False)
         if return_ns:
             return space.newint((tolong(kernel_time2) +
-                                 tolong(user_time2)) * 10**2)
+                                 tolong(user_time2)) * 100)
         else:
             return space.newfloat((float(kernel_time2) + 
                                    float(user_time2)) * 1e-7)
@@ -1368,6 +1380,37 @@ if HAS_THREAD_TIME:
         Thread time for profiling as nanoseconds:
         sum of the kernel and user-space CPU time."""
         return _thread_time_impl(space, None, True)
+
+
+_clock = external('clock', [], rposix.CLOCK_T)
+def _clock_impl(space, w_info, return_ns):
+    space.warn(space.newtext(
+        "time.clock has been deprecated in Python 3.3 and will "
+        "be removed from Python 3.8: "
+        "use time.perf_counter or time.process_time "
+        "instead"), space.w_DeprecationWarning)
+    if _WIN:
+        try:
+            return _win_perf_counter_impl(space, w_info, return_ns)
+        except ValueError:
+            pass
+    value = widen(_clock())
+    if value == widen(rffi.cast(rposix.CLOCK_T, -1)):
+        raise oefmt(space.w_RuntimeError,
+                    "the processor time used is not available or its value"
+                    "cannot be represented")
+
+    if _MACOSX:
+        # small hack apparently solving unsigned int on mac
+        value = intmask(value)
+
+    if w_info is not None:
+        _setinfo(space, w_info,
+                 "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
+    if return_ns:
+        return space.newint(r_int64(value) * 10**9 // CLOCKS_PER_SEC)
+    else:
+        return space.newfloat(float(value) / CLOCKS_PER_SEC)
 
 
 def _setinfo(space, w_info, impl, res, mono, adj):

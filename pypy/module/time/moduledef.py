@@ -10,8 +10,8 @@ class Module(MixedModule):
     applevel_name = 'time'
 
     interpleveldefs = {
-        'time': 'interp_time.time',
-        'time_ns': 'interp_time.time_ns',
+        'time': 'interp_time.time_time',
+        'time_ns': 'interp_time.time_time_ns',
         'ctime': 'interp_time.ctime',
         'asctime': 'interp_time.asctime',
         'gmtime': 'interp_time.gmtime',

@@ -1,4 +1,17 @@
+/* This file is copied from CPython. It is used both in module.cpyext and in
+ * module.time (for _PyTime_GetSystemClockWithInfo). If used in module.time,
+ * BUILD_TIME_MODULE will be defined.
+ */
+#if defined(Py_BUILD_CORE) && defined(BUILD_TIME_MODULE)
+#undef BUILD_TIME_MODULE
+#endif
+
+#ifdef BUILD_TIME_MODULE
+#include "time_module.h"
+#else
 #include "Python.h"
+#endif
+
 #ifdef MS_WINDOWS
 #  include <winsock2.h>           // struct timeval
 #endif
@@ -52,18 +65,21 @@
 static void
 pytime_time_t_overflow(void)
 {
+#ifndef BUILD_TIME_MODULE
     PyErr_SetString(PyExc_OverflowError,
                     "timestamp out of range for platform time_t");
+#endif
 }
 
 
 static void
 pytime_overflow(void)
 {
+#ifndef BUILD_TIME_MODULE
     PyErr_SetString(PyExc_OverflowError,
                     "timestamp too large to convert to C _PyTime_t");
+#endif
 }
-
 
 static inline _PyTime_t
 pytime_from_nanoseconds(_PyTime_t t)
@@ -164,7 +180,7 @@ _PyTime_MulDiv(_PyTime_t ticks, _PyTime_t mul, _PyTime_t div)
     return _PyTime_Add(_PyTime_Mul(intpart, mul), remaining);
 }
 
-
+#ifndef BUILD_TIME_MODULE
 time_t
 _PyLong_AsTime_t(PyObject *obj)
 {
@@ -196,6 +212,7 @@ _PyLong_FromTime_t(time_t t)
 #   error "unsupported time_t size"
 #endif
 }
+#endif // BUILD_TIME_MODULE
 
 
 // Convert _PyTime_t to time_t.
@@ -326,6 +343,7 @@ pytime_double_to_denominator(double d, time_t *sec, long *numerator,
 }
 
 
+#ifndef BUILD_TIME_MODULE
 static int
 pytime_object_to_denominator(PyObject *obj, time_t *sec, long *numerator,
                              long denominator, _PyTime_round_t round)
@@ -402,6 +420,7 @@ _PyTime_ObjectToTimeval(PyObject *obj, time_t *sec, long *usec,
 {
     return pytime_object_to_denominator(obj, sec, usec, SEC_TO_US, round);
 }
+#endif // BUILD_TIME_MODULE
 
 
 _PyTime_t
@@ -428,6 +447,7 @@ _PyTime_FromNanoseconds(_PyTime_t ns)
 }
 
 
+#ifndef BUILD_TIME_MODULE
 int
 _PyTime_FromNanosecondsObject(_PyTime_t *tp, PyObject *obj)
 {
@@ -452,9 +472,9 @@ _PyTime_FromNanosecondsObject(_PyTime_t *tp, PyObject *obj)
     *tp = pytime_from_nanoseconds(t);
     return 0;
 }
+#endif
 
 
-#ifdef HAVE_CLOCK_GETTIME
 static int
 pytime_fromtimespec(_PyTime_t *tp, struct timespec *ts, int raise_exc)
 {
@@ -483,7 +503,6 @@ _PyTime_FromTimespec(_PyTime_t *tp, struct timespec *ts)
 {
     return pytime_fromtimespec(tp, ts, 1);
 }
-#endif
 
 
 #ifndef MS_WINDOWS
@@ -541,6 +560,7 @@ pytime_from_double(_PyTime_t *tp, double value, _PyTime_round_t round,
 }
 
 
+#ifndef BUILD_TIME_MODULE
 static int
 pytime_from_object(_PyTime_t *tp, PyObject *obj, _PyTime_round_t round,
                    long unit_to_ns)
@@ -590,7 +610,6 @@ _PyTime_FromMillisecondsObject(_PyTime_t *tp, PyObject *obj, _PyTime_round_t rou
     return pytime_from_object(tp, obj, round, MS_TO_NS);
 }
 
-
 double
 _PyTime_AsSecondsDouble(_PyTime_t t)
 {
@@ -620,7 +639,7 @@ _PyTime_AsNanosecondsObject(_PyTime_t t)
                   "_PyTime_t is larger than long long");
     return PyLong_FromLongLong((long long)ns);
 }
-
+#endif
 
 static _PyTime_t
 pytime_divide_round_up(const _PyTime_t t, const _PyTime_t k)
@@ -858,7 +877,6 @@ _PyTime_AsTimespec(_PyTime_t t, struct timespec *ts)
 }
 #endif
 
-
 static int
 py_get_system_clock(_PyTime_t *tp, _Py_clock_info_t *info, int raise_exc)
 {
@@ -885,7 +903,9 @@ py_get_system_clock(_PyTime_t *tp, _Py_clock_info_t *info, int raise_exc)
         ok = GetSystemTimeAdjustment(&timeAdjustment, &timeIncrement,
                                      &isTimeAdjustmentDisabled);
         if (!ok) {
+#ifndef BUILD_TIME_MODULE
             PyErr_SetFromWindowsErr(0);
+#endif
             return -1;
         }
         info->resolution = timeIncrement * 1e-7;
@@ -969,7 +989,6 @@ py_get_system_clock(_PyTime_t *tp, _Py_clock_info_t *info, int raise_exc)
     return 0;
 }
 
-
 _PyTime_t
 _PyTime_GetSystemClock(void)
 {
@@ -1040,7 +1059,6 @@ py_mach_timebase_info(_PyTime_t *pnumer, _PyTime_t *pdenom, int raise)
     return 0;
 }
 #endif
-
 
 static int
 py_get_monotonic_clock(_PyTime_t *tp, _Py_clock_info_t *info, int raise_exc)
@@ -1212,10 +1230,12 @@ py_win_perf_counter_frequency(LONGLONG *pfrequency, int raise)
        None of these frequencies can overflow with 64-bit _PyTime_t, but
        check for integer overflow just in case. */
     if (frequency > _PyTime_MAX / SEC_TO_NS) {
+#ifndef BUILD_TIME_MODULE
         if (raise) {
             PyErr_SetString(PyExc_OverflowError,
                             "QueryPerformanceFrequency is too large");
         }
+#endif
         return -1;
     }
 
