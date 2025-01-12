@@ -1,6 +1,6 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
-from .interp_time import HAS_MONOTONIC, HAS_THREAD_TIME
+from .interp_time import HAS_THREAD_TIME
 from rpython.rlib import rtime
 import os
 
@@ -25,6 +25,8 @@ class Module(MixedModule):
         'process_time': 'interp_time.process_time',
         'process_time_ns': 'interp_time.process_time_ns',
         '_get_time_info': 'interp_time._get_time_info',
+        'monotonic': 'interp_time.monotonic',
+        'monotonic_ns': 'interp_time.monotonic_ns',
     }
 
     if rtime.HAS_CLOCK_GETTIME_RUNTIME:
@@ -36,9 +38,6 @@ class Module(MixedModule):
         for constant in rtime.ALL_DEFINED_CLOCKS:
             interpleveldefs[constant] = 'space.wrap(%d)' % (
                 getattr(rtime, constant),)
-    if HAS_MONOTONIC:
-        interpleveldefs['monotonic'] = 'interp_time.monotonic'
-        interpleveldefs['monotonic_ns'] = 'interp_time.monotonic_ns'
     if HAS_THREAD_TIME:
         interpleveldefs['thread_time'] = 'interp_time.thread_time'
         interpleveldefs['thread_time_ns'] = 'interp_time.thread_time_ns'

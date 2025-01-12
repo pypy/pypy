@@ -4,7 +4,7 @@ from pypy.interpreter.error import (OperationError, oefmt,
         strerror as _strerror, exception_from_saved_errno)
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.module.time.timeutils import (
-    SECS_TO_NS, MS_TO_NS, US_TO_NS, monotonic as _monotonic, timestamp_w)
+    SECS_TO_NS, MS_TO_NS, US_TO_NS, timestamp_w)
 from pypy.interpreter.unicodehelper import decode_utf8sp
 from pypy.module._codecs.locale import (
     str_decode_locale_surrogateescape, utf8_encode_locale_surrogateescape)
@@ -269,9 +269,6 @@ if _POSIX:
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
 HAS_CLOCK_GETTIME_RUNTIME = rtime.HAS_CLOCK_GETTIME_RUNTIME
-HAS_CLOCK_MONOTONIC = rtime.CLOCK_MONOTONIC is not None
-HAS_MONOTONIC = (_WIN or _MACOSX or
-                 (HAS_CLOCK_GETTIME_RUNTIME and (HAS_CLOCK_HIGHRES or HAS_CLOCK_MONOTONIC)))
 HAS_THREAD_TIME = (_WIN or
                    (HAS_CLOCK_GETTIME_RUNTIME and rtime.CLOCK_PROCESS_CPUTIME_ID is not None))
 tm = cConfig.tm
@@ -280,6 +277,10 @@ pytime_t = rffi.LONG  # int64_t
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
 _PyTime_GetPerfCounterWithInfo = external("_PyTime_GetPerfCounterWithInfo",
+    [rffi.CArrayPtr(pytime_t), rffi.CArrayPtr(clock_info_t)], rffi.INT)
+_PyTime_GetMonotonicClockWithInfo = external("_PyTime_GetMonotonicClockWithInfo",
+    [rffi.CArrayPtr(pytime_t), rffi.CArrayPtr(clock_info_t)], rffi.INT)
+_PyTime_GetSystemClockWithInfo = external("_PyTime_GetMonotonicClockWithInfo",
     [rffi.CArrayPtr(pytime_t), rffi.CArrayPtr(clock_info_t)], rffi.INT)
 _PyTime_AsSecondsDouble = external("_PyTime_AsSecondsDouble", [pytime_t], rffi.DOUBLE)
 
@@ -749,32 +750,38 @@ def _checktm(space, t_ref):
     if not 0 <= rffi.getintfield(t_ref, 'c_tm_yday') <= 365:
         raise oefmt(space.w_ValueError, "day of year out of range")
 
-def _time_impl(space, w_info, return_ns):
-    if HAS_CLOCK_GETTIME_RUNTIME:
-        with lltype.scoped_alloc(TIMESPEC) as timespec:
-            ret = c_clock_gettime(rtime.CLOCK_REALTIME, timespec)
-            if ret == 0:
-                if w_info is not None:
-                    with lltype.scoped_alloc(TIMESPEC) as tsres:
-                        ret = c_clock_getres(rtime.CLOCK_REALTIME, tsres)
-                        if ret == 0:
-                            res = _timespec_to_seconds(tsres)
-                        else:
-                            res = 1e-9
-                        _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
-                                 res, False, True)
-                if return_ns:
-                    return space.newint(_timespec_to_nanoseconds(timespec))
-                else:
-                    return space.newfloat(_timespec_to_seconds(timespec))
-    return _gettimeofday_impl(space, w_info, return_ns)
+def _time_impl(space, w_info):
+    with lltype.scoped_alloc(rffi.CArray(pytime_t), 1) as t:
+        if w_info:
+            with lltype.scoped_alloc(rffi.CArray(clock_info_t), 1) as info:
+                res = _PyTime_GetSystemClockWithInfo(t, info)
+                implementation = rffi.constcharp2str(info[0].c_implementation)
+                resolution = info[0].c_resolution
+                mono = bool(widen(info[0].c_monotonic))
+                adjust =  bool(widen(info[0].c_adjustable))
+                _setinfo(space, w_info, implementation, resolution, mono, adjust)
+
+        else:
+            res = _PyTime_GetSystemClockWithInfo(t, rffi.cast(rffi.CArrayPtr(clock_info_t), 0))
+        if res < 0:
+            raise oefmt(space.w_RuntimeError, "could not get system clock")
+        return t[0]
 
 def time_time(space):
     """time() -> floating point number
 
     Return the current time in seconds since the Epoch.
     Fractions of a second may be present if the system clock provides them."""
-    return _time_impl(space, None, False)
+    t = _time_impl(space, None)
+    d = _PyTime_AsSecondsDouble(t)
+    return space.newfloat(d)
+
+def time_time_ns(space):
+    """time_ns() -> int
+
+    Return the current time in nanoseconds since the Epoch."""
+    t = _time_impl(space, None)
+    return space.newint(t)
 
 @unwrap_spec(name='text0')
 def _get_time_info(space, name, w_info):
@@ -782,9 +789,9 @@ def _get_time_info(space, name, w_info):
     Internal helper for get_clock_info
     """
     if name == 'time':
-        _time_impl(space, w_info, False)
-    elif name == 'monotonic' and HAS_MONOTONIC:
-        _monotonic_impl(space, w_info, False)
+        _time_impl(space, w_info)
+    elif name == 'monotonic':
+        _monotonic_impl(space, w_info)
     elif name == 'perf_counter':
         _perf_counter_impl(space, w_info)
     elif name == "process_time":
@@ -793,12 +800,6 @@ def _get_time_info(space, name, w_info):
         _thread_time_impl(space, w_info, False)
     else:
         raise oefmt(space.w_ValueError, "unknown clock")
-
-def time_time_ns(space):
-    """time_ns() -> int
-
-    Return the current time in nanoseconds since the Epoch."""
-    return _time_impl(space, None, True)
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
@@ -1065,103 +1066,42 @@ def strftime(space, format, w_tup=None):
         if _WIN:
             rffi.free_wcharp(format_for_call)
 
-if HAS_MONOTONIC:
-    if _WIN:
-        _GetTickCount = rwin32.winexternal('GetTickCount', [], rwin32.DWORD)
-        def _monotonic_impl(space, w_info, return_ns):
-            result = 0
-            HAS_GETTICKCOUNT64 = time_state.check_GetTickCount64()
-            if HAS_GETTICKCOUNT64:
-                tick_count = time_state.GetTickCount64()
-            else:
-                ticks = _GetTickCount()
-                if ticks < time_state.last_ticks:
-                    time_state.n_overflow += 1
-                time_state.last_ticks = ticks
-                tick_count = math.ldexp(time_state.n_overflow, 32)
-                tick_count = tick_count + ticks
+def _monotonic_impl(space, w_info):
+    with lltype.scoped_alloc(rffi.CArray(pytime_t), 1) as t:
+        if w_info:
+            with lltype.scoped_alloc(rffi.CArray(clock_info_t), 1) as info:
+                res = _PyTime_GetMonotonicClockWithInfo(t, info)
+                implementation = rffi.constcharp2str(info[0].c_implementation)
+                resolution = info[0].c_resolution
+                mono = bool(widen(info[0].c_monotonic))
+                adjust =  bool(widen(info[0].c_adjustable))
+                _setinfo(space, w_info, implementation, resolution, mono, adjust)
 
-            if w_info is not None:
-                if HAS_GETTICKCOUNT64:
-                    implementation = "GetTickCount64()"
-                else:
-                    implementation = "GetTickCount()"
-                resolution = 1e-7
-                with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as time_adjustment, \
-                     lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as time_increment, \
-                     lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as is_time_adjustment_disabled:
-                    ok = _GetSystemTimeAdjustment(time_adjustment,
-                                                  time_increment,
-                                                  is_time_adjustment_disabled)
-                    if not ok:
-                        # Is this right? Cargo culting...
-                        raise wrap_oserror(space,
-                            rwin32.lastSavedWindowsError("GetSystemTimeAdjustment"))
-                    resolution = resolution * intmask(time_increment[0])
-                _setinfo(space, w_info, implementation, resolution, True, False)
+        else:
+            res = _PyTime_GetMonotonicClockWithInfo(t, rffi.cast(rffi.CArrayPtr(clock_info_t), 0))
+        if res < 0:
+            raise oefmt(space.w_RuntimeError, "could not get montonic clock")
+        return t[0]
 
-            if return_ns:
-                return space.newint(tolong(tick_count) * 10**6)
-            else:
-                return space.newfloat(tick_count * 1e-3)
 
-    elif _MACOSX:
-        c_mach_timebase_info = external('mach_timebase_info',
-                                        [lltype.Ptr(cConfig.TIMEBASE_INFO)],
-                                        lltype.Void)
-        c_mach_absolute_time = external('mach_absolute_time', [], rffi.ULONGLONG)
+def _monotonic(space):
+    t = _monotonic_impl(space, None)
+    d = _PyTime_AsSecondsDouble(t)
+    return d
 
-        timebase_info = lltype.malloc(cConfig.TIMEBASE_INFO, flavor='raw',
-                                      zero=True, immortal=True)
+def monotonic(space):
+    """monotonic() -> float
 
-        def _monotonic_impl(space, w_info, return_ns):
-            if rffi.getintfield(timebase_info, 'c_denom') == 0:
-                c_mach_timebase_info(timebase_info)
-            time = rffi.cast(lltype.Signed, c_mach_absolute_time())
-            numer = rffi.getintfield(timebase_info, 'c_numer')
-            denom = rffi.getintfield(timebase_info, 'c_denom')
-            nanosecs = r_int64(time) * numer / denom
-            if w_info is not None:
-                res = (numer / denom) * 1e-9
-                _setinfo(space, w_info, "mach_absolute_time()", res, True, False)
-            if return_ns:
-                return space.newint(nanosecs)
-            else:
-                secs = nanosecs / 10**9
-                rest = nanosecs % 10**9
-                return space.newfloat(float(secs) + float(rest) * 1e-9)
+    Monotonic clock, cannot go backward."""
+    d = monotonicf(space)
+    return space.newfloat(d)
 
-    else:
-        assert _POSIX
-        def _monotonic_impl(space, w_info, return_ns):
-            if rtime.CLOCK_HIGHRES is not None:
-                clk_id = rtime.CLOCK_HIGHRES
-                implementation = "clock_gettime(CLOCK_HIGHRES)"
-            else:
-                clk_id = rtime.CLOCK_MONOTONIC
-                implementation = "clock_gettime(CLOCK_MONOTONIC)"
-            w_result = _clock_gettime_impl(space, clk_id, return_ns)
-            if w_info is not None:
-                with lltype.scoped_alloc(TIMESPEC) as tsres:
-                    ret = c_clock_getres(clk_id, tsres)
-                    if ret == 0:
-                        res = _timespec_to_seconds(tsres)
-                    else:
-                        res = 1e-9
-                _setinfo(space, w_info, implementation, res, True, False)
-            return w_result
+def monotonic_ns(space):
+    """monotonic_ns() -> int
 
-    def monotonic(space):
-        """monotonic() -> float
-
-        Monotonic clock, cannot go backward."""
-        return _monotonic_impl(space, None, False)
-
-    def monotonic_ns(space):
-        """monotonic_ns() -> int
-
-        Monotonic clock, cannot go backward, as nanoseconds."""
-        return _monotonic_impl(space, None, True)
+    Monotonic clock, cannot go backward, as nanoseconds."""
+    t = _monotonic_impl(space, None)
+    return space.newint(t)
 
 def _perf_counter_impl(space, w_info):
     with lltype.scoped_alloc(rffi.CArray(pytime_t), 1) as t:

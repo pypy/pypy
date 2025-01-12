@@ -145,9 +145,8 @@ _PyTime_t _PyTime_GetSystemClock(void);
  * On success, set *t and *info (if not NULL), and return 0.
  * On error, raise an exception and return -1.
  */
-int _PyTime_GetSystemClockWithInfo(
-    _PyTime_t *t,
-    _Py_clock_info_t *info);
+RPY_EXTERN int
+_PyTime_GetSystemClockWithInfo(_PyTime_t *t, _Py_clock_info_t *info);
 
 /* Get the time of a monotonic clock, i.e. a clock that cannot go backwards.
    The clock is not affected by system clock updates. The reference point of
@@ -169,9 +168,8 @@ _PyTime_t _PyTime_GetMonotonicClock(void);
    Fill info (if set) with information of the function used to get the time.
 
    Return 0 on success, raise an exception and return -1 on error. */
-int _PyTime_GetMonotonicClockWithInfo(
-    _PyTime_t *t,
-    _Py_clock_info_t *info);
+RPY_EXTERN int
+_PyTime_GetMonotonicClockWithInfo(_PyTime_t *t, _Py_clock_info_t *info);
 
 /* Get the performance counter: clock with the highest available resolution to
    measure a short duration.
@@ -190,9 +188,7 @@ _PyTime_t _PyTime_GetPerfCounter(void);
 
    Return 0 on success, raise an exception and return -1 on error. */
 RPY_EXTERN int
-_PyTime_GetPerfCounterWithInfo(
-    _PyTime_t *t,
-    _Py_clock_info_t *info);
+_PyTime_GetPerfCounterWithInfo(_PyTime_t *t, _Py_clock_info_t *info);
 
 
 // Create a deadline.
