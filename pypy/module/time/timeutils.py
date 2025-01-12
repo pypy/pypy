@@ -12,8 +12,10 @@ MS_TO_NS = 10 ** 6
 US_TO_NS = 10 ** 3
 
 def monotonic(space):
+    """Call time.monotonic and return a unwrapped float"""
+    # used in module.select
     from pypy.module.time import interp_time
-    return interp_time.monotonic(space)
+    return interp_time._monotonic(space)
 
 def timestamp_w(space, w_secs):
     if space.isinstance_w(w_secs, space.w_float):
