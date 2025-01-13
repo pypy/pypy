@@ -1093,7 +1093,7 @@ def monotonic(space):
     """monotonic() -> float
 
     Monotonic clock, cannot go backward."""
-    d = monotonicf(space)
+    d = _monotonic(space)
     return space.newfloat(d)
 
 def monotonic_ns(space):
