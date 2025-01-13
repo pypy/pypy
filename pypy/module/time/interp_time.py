@@ -287,7 +287,7 @@ _PyTime_GetPerfCounterWithInfo = external("_PyTime_GetPerfCounterWithInfo",
     [rffi.CArrayPtr(pytime_t), rffi.CArrayPtr(clock_info_t)], rffi.INT)
 _PyTime_GetMonotonicClockWithInfo = external("_PyTime_GetMonotonicClockWithInfo",
     [rffi.CArrayPtr(pytime_t), rffi.CArrayPtr(clock_info_t)], rffi.INT)
-_PyTime_GetSystemClockWithInfo = external("_PyTime_GetMonotonicClockWithInfo",
+_PyTime_GetSystemClockWithInfo = external("_PyTime_GetSystemClockWithInfo",
     [rffi.CArrayPtr(pytime_t), rffi.CArrayPtr(clock_info_t)], rffi.INT)
 _PyTime_AsSecondsDouble = external("_PyTime_AsSecondsDouble", [pytime_t], rffi.DOUBLE)
 
