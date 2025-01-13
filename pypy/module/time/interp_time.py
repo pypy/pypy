@@ -182,8 +182,10 @@ with open(os.path.join(my_dir, 'time_module.h')) as fid:
         cts.parse_source("typedef long time_t;")
     cts.parse_source("typedef long _PyTime_t;")
     cts.parse_source(data[start:].replace("RPY_EXTERN", ""))
+    cts.parse_source("#define PyErr_SetFromErrno(x)")
+    cts.parse_source("#define HAVE_CLOCK_GETTIME")
 
-compile_extra = ["-DBUILD_TIME_MODULE"]
+compile_extra = ["-DBUILD_TIME_MODULE", "-DHAVE_CLOCK_GETTIME"]
 _includes = ["time.h"]
 if _POSIX:
     _includes.append('sys/time.h')
