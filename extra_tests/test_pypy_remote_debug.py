@@ -6,10 +6,10 @@ import subprocess
 try:
     import __pypy__
 except ImportError:
-    pytestmark = pytest.skip('can only run these tests on pypy')
+    pytestmark = pytest.mark.skip('can only run these tests on pypy')
 
 if not sys.platform.startswith('linux'):
-    pytestmark = pytest.skip('only works on linux so far')
+    pytestmark = pytest.mark.skip('only works on linux so far')
 
 import _pypy_remote_debug
 
