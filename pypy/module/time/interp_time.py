@@ -176,7 +176,10 @@ cts = CTypeSpace()
 with open(os.path.join(my_dir, 'time_module.h')) as fid:
     data = fid.read()
     start = data.find("// parse from here")
-    cts.parse_source("typedef long time_t;")
+    if sys.platform == "win32":
+        pass
+    else:
+        cts.parse_source("typedef long time_t;")
     cts.parse_source("typedef long _PyTime_t;")
     cts.parse_source(data[start:].replace("RPY_EXTERN", ""))
 
@@ -188,6 +191,8 @@ if _POSIX:
 if _MACOSX:
     _includes.append('mach/mach_time.h')
     compile_extra.append("-DHAVE_SYS_TIME_H")
+if _WIN:
+    compile_extra.append("-DMS_WINDOWS")
 
 HAS_CLOCK_HIGHRES = rtime.CLOCK_HIGHRES is not None
 if HAS_CLOCK_HIGHRES:
@@ -250,7 +255,7 @@ for k, v in platform.configure(CConfig).items():
 cConfig.tm.__name__ = "_tm"
 
 def external(name, args, result, eci=CConfig._compilation_info_, **kwds):
-    if _WIN and rffi.sizeof(rffi.TIME_T) == 8:
+    if _WIN and rffi.sizeof(rffi.TIME_T) == 8 and not name.startswith("_PyTime"):
         # Recent Microsoft compilers use 64bit time_t and
         # the corresponding functions are named differently
         if (rffi.TIME_T in args or rffi.TIME_TP in args
@@ -272,7 +277,7 @@ HAS_CLOCK_GETTIME_RUNTIME = rtime.HAS_CLOCK_GETTIME_RUNTIME
 HAS_THREAD_TIME = (_WIN or
                    (HAS_CLOCK_GETTIME_RUNTIME and rtime.CLOCK_PROCESS_CPUTIME_ID is not None))
 tm = cConfig.tm
-pytime_t = rffi.LONG  # int64_t
+pytime_t = rffi.LONGLONG  # int64_t
 
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
@@ -765,7 +770,7 @@ def _time_impl(space, w_info):
             res = _PyTime_GetSystemClockWithInfo(t, rffi.cast(rffi.CArrayPtr(clock_info_t), 0))
         if res < 0:
             raise oefmt(space.w_RuntimeError, "could not get system clock")
-        return t[0]
+        return widen(t[0])
 
 def time_time(space):
     """time() -> floating point number

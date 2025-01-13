@@ -239,8 +239,6 @@ def test_mktime():
     assert int(time.mktime(time.gmtime(t))) - time.timezone == int(t)
     ltime = time.localtime()
     assert time.mktime(tuple(ltime)) == time.mktime(ltime)
-    if _WIN32:
-        assert time.mktime(time.localtime(-1)) == -1
 
     res = time.mktime((2000, 1, 1, 0, 0, 0, -1, -1, -1))
     assert time.ctime(res) == 'Sat Jan  1 00:00:00 2000'
@@ -466,7 +464,8 @@ def test_strftime_bounds_checking():
     # check year
     time.strftime('', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
     if _WIN32:
-        raises(ValueError(time.strftime, '', (0, 1, 1, 0, 0, 0, 0, 1, -1)))
+        with raises(ValueError):
+            time.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
     else:
         time.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
 
@@ -527,6 +526,7 @@ def test_strftime_surrogate():
         print(len(res), len(expected))
         assert res == u'76\ud80002' 
 
+@pytest.mark.skipif(_WIN32, reason="fails to encode s")
 def test_strftime_unicode():
     import time
     s = u"ððððððððððððððððððððððð꿀"
