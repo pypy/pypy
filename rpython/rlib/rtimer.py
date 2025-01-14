@@ -1,11 +1,13 @@
 import time
+import sys
 
 from rpython.rlib.rarithmetic import r_longlong, r_uint
 from rpython.rlib.rarithmetic import intmask, longlongmask
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, rffi
 
-_is_64_bit = r_uint.BITS > 32
+
+_is_64_bit = r_uint.BITS > 32 and not sys.platform == "win32"
 
 from rpython.annotator.model import SomeInteger
 if _is_64_bit:
