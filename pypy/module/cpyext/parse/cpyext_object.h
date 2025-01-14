@@ -149,12 +149,24 @@ typedef struct {
     objobjargproc mp_ass_subscript;
 } PyMappingMethods;
 
-/* Result of calling PyIter_Send */
-typedef enum {
+/* Result of calling PyIter_Send
+
+Note: small deviation from CPython definitions here:
+PyPy wants to return an int from "sendfunc" because it knows sizeof(int)
+and doesn't know sizeof(enum PySendResult).
+Therefore introduce the symbols like PYGEN_RETURN into the global namespace
+with an anoymous enum, but define PySendResult as int so that functions
+that are defined as returning PySendResult will be compatible with the definition
+of sendfunc (especially on C++).
+The only thing this breaks is C++ code that writes PySendResult::PYGEN_RETURN.
+*/
+enum {
     PYGEN_RETURN = 0,
     PYGEN_ERROR = -1,
     PYGEN_NEXT = 1,
-} PySendResult;
+};
+
+typedef int PySendResult;
 
 typedef int (*sendfunc)(PyObject *iter, PyObject *value, PyObject **result);
 
