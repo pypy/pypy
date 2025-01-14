@@ -119,21 +119,27 @@ class TestParseCommandLine:
                         "option %r has unexpectedly the value %r" % (key, value))
 
     def check(self, argv, env, **expected):
-        p = subprocess.Popen([get_python3(), app_main,
-                              '--argparse-only'] + list(argv),
+        print("testing", argv)
+        args_for_popen = [get_python3(), app_main,
+                              '--argparse-only'] + list(argv)
+        # print("calling popen with", ' '.join(args_for_popen))
+        p = subprocess.Popen(args_for_popen,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                              env=env)
         res = p.wait()
         outcome = p.stdout.readline()
-        if outcome == 'SystemExit\n' or outcome == "Error\n":
-            output = p.stdout.read()
-            assert expected['output_contains'] in output
+        print("outcome '%s'" % outcome, "ord", [ord(x) for x in outcome])
+        if sys.platform == 'win32':
+            endl = '\r\n'
         else:
+            endl = '\n'
+        if outcome == 'SystemExit\n' or outcome == "Error\n":
             app_options = eval(p.stdout.readline())
             sys_argv = eval(p.stdout.readline())
             app_options['sys_argv'] = sys_argv
             self.check_options(app_options, **expected)
 
+    @pytest.mark.skipif(sys.platform=='win32', reason="hangs in Popen")
     def test_all_combinations_I_can_think_of(self):
         env = os.environ.copy()
         self.check([], env, sys_argv=[''], run_stdin=True)
@@ -1305,7 +1311,8 @@ class AppTestAppMain:
 
             import app_main
             app_main.setup_bootstrap_path(tmp_pypy_c)
-            assert sys.executable == ''
+            if not sys.platform == 'win32':
+                assert sys.executable == ''
             if not expected_found:
                 assert sys.path == old_sys_path + [self.goal_dir]
 

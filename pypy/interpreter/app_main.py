@@ -1208,6 +1208,9 @@ def main():
 
 
     if len(sys.argv) > 1 and sys.argv[1] == '--argparse-only':
+        if sys.platform == "win32":
+            raise RuntimeError(
+                "redirecting sys.stdout, sys.stderr hangs when raising the SystemExit error")
         import io
         del sys.argv[:2]
         del bargv[:2]
