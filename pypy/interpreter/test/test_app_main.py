@@ -139,7 +139,7 @@ class TestParseCommandLine:
             app_options['sys_argv'] = sys_argv
             self.check_options(app_options, **expected)
 
-    @pytest.mark.skipif(sys.platform=='win32', reason="hangs in Popen")
+    @py.test.mark.skipif(sys.platform=='win32', reason="hangs in Popen")
     def test_all_combinations_I_can_think_of(self):
         env = os.environ.copy()
         self.check([], env, sys_argv=[''], run_stdin=True)
