@@ -181,9 +181,14 @@ with open(os.path.join(my_dir, 'time_module.h')) as fid:
     else:
         cts.parse_source("typedef long time_t;")
     cts.parse_source("typedef long _PyTime_t;")
-    cts.parse_source("""struct timeval {
-           time_t       tv_sec;   /* Seconds */
+    cts.parse_source("""
+    struct timeval {
+           time_t     tv_sec;   /* Seconds */
            long int  tv_usec;  /* Microseconds */
+       };
+    struct timespec {
+           time_t     tv_sec;   /* Seconds */
+           long int  tv_nsec;  /* Nanosecs */
        };
     """)
     cts.parse_source(data[start:].replace("RPY_EXTERN", ""))
@@ -213,6 +218,8 @@ class CConfig:
         compile_extra=compile_extra,
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
+    HAVE_NANOSLEEP = platform.Has('nanosleep')
+    HAVE_CLOCK_NANOSLEEP = platform.Has('clock_nanosleep')
 
 HAS_TM_ZONE = False
 
@@ -281,6 +288,11 @@ if _POSIX:
     timeval = cConfig.timeval
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
+HAVE_CLOCK_NANOSLEEP = cConfig.HAVE_CLOCK_NANOSLEEP
+# For some reason macOS nanosleep sets
+# errno=2 (ENOENT) instead of 4 (EINVAL) on interrupt.
+# Disable for now
+HAVE_NANOSLEEP = False  #cConfig.HAVE_NANOSLEEP
 HAS_CLOCK_GETTIME_RUNTIME = rtime.HAS_CLOCK_GETTIME_RUNTIME
 HAS_THREAD_TIME = (_WIN or
                    (HAS_CLOCK_GETTIME_RUNTIME and rtime.CLOCK_PROCESS_CPUTIME_ID is not None))
@@ -293,8 +305,10 @@ _PyTime_GetPerfCounterWithInfo = external("_PyTime_GetPerfCounterWithInfo",
     [rffi.CArrayPtr(pytime_t), rffi.CArrayPtr(clock_info_t)], rffi.INT)
 _PyTime_GetMonotonicClockWithInfo = external("_PyTime_GetMonotonicClockWithInfo",
     [rffi.CArrayPtr(pytime_t), rffi.CArrayPtr(clock_info_t)], rffi.INT)
+
 _PyTime_GetSystemClockWithInfo = external("_PyTime_GetSystemClockWithInfo",
     [rffi.CArrayPtr(pytime_t), rffi.CArrayPtr(clock_info_t)], rffi.INT)
+
 _PyTime_AsSecondsDouble = external("_PyTime_AsSecondsDouble", [pytime_t], rffi.DOUBLE)
 
 if _WIN:
@@ -386,8 +400,10 @@ else:
 
     def gettimeofday(space, w_info=None):
         return _gettimeofday_impl(space, w_info, False)
+
     _PyTime_AsTimeval = external("_PyTime_AsTimeval",
         [pytime_t, lltype.Ptr(TIMEVAL), rffi.INT], rffi.INT)
+    TIMER_ABSTIME = 0x01  # from time.h on linux
 
 TM_P = lltype.Ptr(tm)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
@@ -399,6 +415,8 @@ c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
 if HAS_CLOCK_GETTIME_RUNTIME:
     from rpython.rlib.rtime import TIMESPEC, c_clock_gettime
     from rpython.rlib.rtime import c_clock_settime, c_clock_getres
+    _PyTime_AsTimespec = external("_PyTime_AsTimespec",
+        [pytime_t, lltype.Ptr(TIMESPEC)], rffi.INT)
 if _POSIX:
     c_tzset = external('tzset', [], lltype.Void)
 if _WIN:
@@ -447,6 +465,13 @@ else:
     c_strftime = external('strftime',
                       [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
                       rffi.SIZE_T)
+
+if HAVE_NANOSLEEP:
+    from rpython.rlib.rtime import TIMESPEC
+    nanosleep = external("nanosleep", [lltype.Ptr(TIMESPEC), lltype.Ptr(TIMESPEC)], rffi.INT)
+if HAVE_CLOCK_NANOSLEEP:
+    from rpython.rlib.rtime import TIMESPEC
+    clock_nanosleep = external("clock_nanosleep", [rffi.INT, rffi.INT, lltype.Ptr(TIMESPEC), lltype.Ptr(TIMESPEC)], rffi.INT)
 
 def _init_timezone(space):
     timezone = daylight = altzone = 0
@@ -564,43 +589,74 @@ def time_sleep(space, w_secs):
         raise oefmt(space.w_ValueError,
                     "sleep length must be non-negative")
     deadline = _monotonic_impl(space, None) + timeout
-    while True:
-        # 'deadline' is reduced at the end of the loop, for the next iteration.
-        if _WIN:
-            # as decreed by Guido, only the main thread can be
-            # interrupted.
-            main_thread = space.fromcache(State).main_thread
-            interruptible = (main_thread == thread.get_ident())
-            millisecs =  deadline // 1e6
-            if millisecs < 1 or not interruptible:
-                rtime.Sleep(rffi.cast(rffi.ULONG, millisecs))
-                break
-            MAX = 0x7fffffff
-            if millisecs < MAX:
-                interval = int(millisecs)
-            else:
-                interval = MAX
-            interrupt_event = space.fromcache(State).get_interrupt_event()
-            rwin32.ResetEvent(interrupt_event)
-            rc = rwin32.WaitForSingleObject(interrupt_event, interval)
-            was_interrupted = rc == rwin32.WAIT_OBJECT_0
-            if not was_interrupted and interval < MAX:
-                break
+    try:
+        timeout_abs = None
+        timeout_ts = None
+        timeout_tv = None
+        if HAVE_CLOCK_NANOSLEEP:
+            timeout_abs = lltype.malloc(TIMESPEC, flavor='raw')
+            if _PyTime_AsTimespec(deadline, timeout_abs) < 0:
+                raise oefmt(space.w_OverflowError,
+                    "timestamp out of range for platform time_t")
+        elif HAVE_NANOSLEEP:
+            timeout_ts = lltype.malloc(TIMESPEC, flavor='raw')
         else:
-            void = lltype.nullptr(rffi.VOIDP.TO)
-            with lltype.scoped_alloc(TIMEVAL) as timeout_tv:
-                if _PyTime_AsTimeval(timeout, timeout_tv, _PyTime_ROUND_CEILING) < 0:
-                    raise oefmt(space.w_OverflowError,
-                        "timestamp out of range for platform time_t")
-                res = rffi.cast(rffi.LONG, c_select(0, void, void, void, timeout_tv))
-            if res == 0:
-                break    # normal path
-            if rposix.get_saved_errno() != EINTR:
-                raise exception_from_saved_errno(space, space.w_OSError)
-        space.getexecutioncontext().checksignals()
-        timeout = deadline - _monotonic_impl(space, None)   # retry
-        if timeout <= 0:
-            break
+            timeout_tv = lltype.malloc(TIMEVAL, flavor ='raw')
+        while True:
+            # 'deadline' is reduced at the end of the loop, for the next iteration.
+            if _WIN:
+                # as decreed by Guido, only the main thread can be
+                # interrupted.
+                main_thread = space.fromcache(State).main_thread
+                interruptible = (main_thread == thread.get_ident())
+                millisecs =  deadline // 1e6
+                if millisecs < 1 or not interruptible:
+                    rtime.Sleep(rffi.cast(rffi.ULONG, millisecs))
+                    break
+                MAX = 0x7fffffff
+                if millisecs < MAX:
+                    interval = int(millisecs)
+                else:
+                    interval = MAX
+                interrupt_event = space.fromcache(State).get_interrupt_event()
+                rwin32.ResetEvent(interrupt_event)
+                rc = rwin32.WaitForSingleObject(interrupt_event, interval)
+                was_interrupted = rc == rwin32.WAIT_OBJECT_0
+                if not was_interrupted and interval < MAX:
+                    break
+            else:
+                NULL = lltype.nullptr(rffi.VOIDP.TO)
+                NULL_TS = lltype.nullptr(lltype.Ptr(TIMESPEC).TO)
+                if HAVE_CLOCK_NANOSLEEP:
+                    ret = clock_nanosleep(rtime.CLOCK_MONOTONIC, TIMER_ABSTIME, timeout_abs, NULL_TS);
+                    pass
+                elif HAVE_NANOSLEEP:
+                    if _PyTime_AsTimespec(timeout, timeout_ts) < 0:
+                        raise oefmt(space.w_OverflowError,
+                            "timestamp out of range for platform time_t")
+                    ret = nanosleep(timeout_ts, NULL_TS);
+                else:
+                    if _PyTime_AsTimeval(timeout, timeout_tv, _PyTime_ROUND_CEILING) < 0:
+                        raise oefmt(space.w_OverflowError,
+                            "timestamp out of range for platform time_t")
+                    ret = rffi.cast(rffi.LONG,
+                                    c_select(0, NULL, NULL, NULL, timeout_tv))
+                if ret == 0:
+                    break    # normal path
+                if rposix.get_saved_errno() != EINTR:
+                    import pdb;pdb.set_trace()
+                    raise exception_from_saved_errno(space, space.w_OSError)
+            space.getexecutioncontext().checksignals()
+            timeout = deadline - _monotonic_impl(space, None)   # retry
+            if timeout <= 0:
+                break
+    finally:
+        if timeout_abs:
+            lltype.free(timeout_abs, flavor='raw')
+        if timeout_ts:
+            lltype.free(timeout_ts, flavor='raw')
+        if timeout_tv:
+            lltype.free(timeout_tv, flavor='raw')
 
 
 def _get_module_object(space, obj_name):

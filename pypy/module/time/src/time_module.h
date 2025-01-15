@@ -99,6 +99,9 @@ typedef enum {
 RPY_EXTERN int
 _PyTime_AsTimeval(_PyTime_t t, struct timeval *tv, _PyTime_round_t round);
 
+RPY_EXTERN int
+_PyTime_AsTimespec(_PyTime_t t, struct timespec *ts);
+
 
 /* Create a timestamp from a number of seconds. */
 _PyTime_t _PyTime_FromSeconds(int seconds);
