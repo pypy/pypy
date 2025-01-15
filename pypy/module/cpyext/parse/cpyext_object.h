@@ -168,7 +168,7 @@ enum {
 
 typedef int PySendResult;
 
-typedef int (*sendfunc)(PyObject *iter, PyObject *value, PyObject **result);
+typedef PySendResult (*sendfunc)(PyObject *iter, PyObject *value, PyObject **result);
 
 typedef struct {
     unaryfunc am_await;
