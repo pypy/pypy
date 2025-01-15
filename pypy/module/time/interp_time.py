@@ -181,6 +181,11 @@ with open(os.path.join(my_dir, 'time_module.h')) as fid:
     else:
         cts.parse_source("typedef long time_t;")
     cts.parse_source("typedef long _PyTime_t;")
+    cts.parse_source("""struct timeval {
+           time_t       tv_sec;   /* Seconds */
+           long int  tv_usec;  /* Microseconds */
+       };
+    """)
     cts.parse_source(data[start:].replace("RPY_EXTERN", ""))
     cts.parse_source("#define PyErr_SetFromErrno(x)")
     cts.parse_source("#define HAVE_CLOCK_GETTIME")
@@ -212,6 +217,7 @@ class CConfig:
 HAS_TM_ZONE = False
 
 clock_info_t = cts.gettype("_Py_clock_info_t")
+_PyTime_ROUND_CEILING = cts.definitions['_PyTime_round_t']._PyTime_ROUND_CEILING
 if _POSIX:
     calling_conv = 'c'
     CConfig.timeval = platform.Struct("struct timeval",
@@ -380,6 +386,8 @@ else:
 
     def gettimeofday(space, w_info=None):
         return _gettimeofday_impl(space, w_info, False)
+    _PyTime_AsTimeval = external("_PyTime_AsTimeval",
+        [pytime_t, lltype.Ptr(TIMEVAL), rffi.INT], rffi.INT)
 
 TM_P = lltype.Ptr(tm)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
@@ -550,23 +558,22 @@ if not _WIN:
     from rpython.rlib.rtime import c_select
 from rpython.rlib import rwin32
 
-def sleep(space, w_secs):
-    delay_ns = timestamp_w(space, w_secs)
-    if not (delay_ns >= 0):
+def time_sleep(space, w_secs):
+    timeout = timestamp_w(space, w_secs)
+    if not (timeout >= 0):
         raise oefmt(space.w_ValueError,
                     "sleep length must be non-negative")
-    secs = float(delay_ns) / SECS_TO_NS
-    end_time = _monotonic(space) + secs
+    deadline = _monotonic_impl(space, None) + timeout
     while True:
-        # 'secs' is reduced at the end of the loop, for the next iteration.
+        # 'deadline' is reduced at the end of the loop, for the next iteration.
         if _WIN:
             # as decreed by Guido, only the main thread can be
             # interrupted.
             main_thread = space.fromcache(State).main_thread
             interruptible = (main_thread == thread.get_ident())
-            millisecs = secs * 1000.0
-            if millisecs < 1.0 or not interruptible:
-                rtime.sleep(secs)
+            millisecs =  deadline // 1e6
+            if millisecs < 1 or not interruptible:
+                rtime.Sleep(rffi.cast(rffi.ULONG, millisecs))
                 break
             MAX = 0x7fffffff
             if millisecs < MAX:
@@ -581,20 +588,18 @@ def sleep(space, w_secs):
                 break
         else:
             void = lltype.nullptr(rffi.VOIDP.TO)
-            with lltype.scoped_alloc(TIMEVAL) as t:
-                frac = int(math.fmod(secs, 1.0) * 1000000.)
-                assert frac >= 0
-                rffi.setintfield(t, 'c_tv_sec', int(secs))
-                rffi.setintfield(t, 'c_tv_usec', frac)
-
-                res = rffi.cast(rffi.LONG, c_select(0, void, void, void, t))
+            with lltype.scoped_alloc(TIMEVAL) as timeout_tv:
+                if _PyTime_AsTimeval(timeout, timeout_tv, _PyTime_ROUND_CEILING) < 0:
+                    raise oefmt(space.w_OverflowError,
+                        "timestamp out of range for platform time_t")
+                res = rffi.cast(rffi.LONG, c_select(0, void, void, void, timeout_tv))
             if res == 0:
                 break    # normal path
             if rposix.get_saved_errno() != EINTR:
                 raise exception_from_saved_errno(space, space.w_OSError)
         space.getexecutioncontext().checksignals()
-        secs = end_time - _monotonic(space)   # retry
-        if secs <= 0:
+        timeout = deadline - _monotonic_impl(space, None)   # retry
+        if timeout <= 0:
             break
 
 

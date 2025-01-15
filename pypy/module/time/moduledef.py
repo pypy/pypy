@@ -18,7 +18,7 @@ class Module(MixedModule):
         'localtime': 'interp_time.localtime',
         'mktime': 'interp_time.mktime',
         'strftime': 'interp_time.strftime',
-        'sleep' : 'interp_time.sleep',
+        'sleep' : 'interp_time.time_sleep',
         '_STRUCT_TM_ITEMS': 'space.wrap(interp_time._STRUCT_TM_ITEMS)',
         'perf_counter': 'interp_time.perf_counter',
         'perf_counter_ns': 'interp_time.perf_counter_ns',

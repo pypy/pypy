@@ -72,6 +72,8 @@ typedef int64_t _PyTime_t;
 #define _PyTime_MAX INT64_MAX
 #define _SIZEOF_PYTIME_T 8
 
+// parse from here
+
 typedef enum {
     /* Round towards minus infinity (-inf).
        For example, used to read a clock. */
@@ -94,7 +96,9 @@ typedef enum {
     _PyTime_ROUND_TIMEOUT = _PyTime_ROUND_UP
 } _PyTime_round_t;
 
-// parse from here
+RPY_EXTERN int
+_PyTime_AsTimeval(_PyTime_t t, struct timeval *tv, _PyTime_round_t round);
+
 
 /* Create a timestamp from a number of seconds. */
 _PyTime_t _PyTime_FromSeconds(int seconds);
