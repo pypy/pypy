@@ -176,24 +176,9 @@ cts = CTypeSpace()
 with open(os.path.join(my_dir, 'time_module.h')) as fid:
     data = fid.read()
     start = data.find("// parse from here")
-    if sys.platform == "win32":
-        pass
-    else:
-        cts.parse_source("typedef long time_t;")
-    cts.parse_source("typedef long _PyTime_t;")
-    cts.parse_source("""
-    struct timeval {
-           time_t     tv_sec;   /* Seconds */
-           long int  tv_usec;  /* Microseconds */
-       };
-    struct timespec {
-           time_t     tv_sec;   /* Seconds */
-           long int  tv_nsec;  /* Nanosecs */
-       };
-    """)
-    cts.parse_source(data[start:].replace("RPY_EXTERN", ""))
-    cts.parse_source("#define PyErr_SetFromErrno(x)")
-    cts.parse_source("#define HAVE_CLOCK_GETTIME")
+    stop = data.find("// stop parsing")
+    src = data[start:stop]
+cts.parse_source(src)
 
 compile_extra = ["-DBUILD_TIME_MODULE", "-DHAVE_CLOCK_GETTIME"]
 _includes = ["time.h"]

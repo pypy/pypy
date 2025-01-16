@@ -1409,8 +1409,6 @@ _PyDeadline_Get(_PyTime_t deadline)
 
 #ifdef HAVE_NANOSLEEP
 RPY_EXTERN int
-py_nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
-RPY_EXTERN int
 py_nanosleep(const struct timespec *rqtp, struct timespec *rmtp)
 {
     int ret = nanosleep(rqtp, rmtp);
@@ -1421,10 +1419,6 @@ py_nanosleep(const struct timespec *rqtp, struct timespec *rmtp)
 #endif
 
 #ifdef HAVE_CLOCK_NANOSLEEP
-RPY_EXTERN int
-py_clock_nanosleep(clockid_t clockid, int flags,
-                   const struct timespec *request,
-                   struct timespec *remain);
 RPY_EXTERN int
 py_clock_nanosleep(clockid_t clockid, int flags,
                    const struct timespec *request,

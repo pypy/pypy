@@ -96,12 +96,15 @@ typedef enum {
     _PyTime_ROUND_TIMEOUT = _PyTime_ROUND_UP
 } _PyTime_round_t;
 
-RPY_EXTERN int
-_PyTime_AsTimeval(_PyTime_t t, struct timeval *tv, _PyTime_round_t round);
+/* Structure used by time.get_clock_info() */
+typedef struct {
+    const char *implementation;
+    int monotonic;
+    int adjustable;
+    double resolution;
+} _Py_clock_info_t;
 
-RPY_EXTERN int
-_PyTime_AsTimespec(_PyTime_t t, struct timespec *ts);
-
+// stop parsing
 
 /* Create a timestamp from a number of seconds. */
 _PyTime_t _PyTime_FromSeconds(int seconds);
@@ -130,14 +133,6 @@ _PyTime_t _PyTime_Add(_PyTime_t t1, _PyTime_t t2);
 _PyTime_t _PyTime_MulDiv(_PyTime_t ticks,
     _PyTime_t mul,
     _PyTime_t div);
-
-/* Structure used by time.get_clock_info() */
-typedef struct {
-    const char *implementation;
-    int monotonic;
-    int adjustable;
-    double resolution;
-} _Py_clock_info_t;
 
 /* Get the current time from the system clock.
 
@@ -205,3 +200,17 @@ _PyTime_t _PyDeadline_Init(_PyTime_t timeout);
 // Get remaining time from a deadline.
 // Pseudo code: deadline - _PyTime_GetMonotonicClock().
 _PyTime_t _PyDeadline_Get(_PyTime_t deadline);
+
+RPY_EXTERN int
+_PyTime_AsTimeval(_PyTime_t t, struct timeval *tv, _PyTime_round_t round);
+
+RPY_EXTERN int
+_PyTime_AsTimespec(_PyTime_t t, struct timespec *ts);
+
+RPY_EXTERN int
+py_clock_nanosleep(clockid_t clockid, int flags,
+                   const struct timespec *request,
+                   struct timespec *remain);
+
+RPY_EXTERN int
+py_nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
