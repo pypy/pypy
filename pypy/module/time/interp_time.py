@@ -13,8 +13,8 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
     intmask, r_ulonglong, r_longfloat, r_int64, widen, ovfcheck,
     ovfcheck_float_to_int, INT_MIN, r_uint, r_longlong)
-from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
-                                HAVE_GETTIMEOFDAY, HAVE_FTIME)
+from rpython.rlib.rtime import (TIMEVAL,
+                    HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.objectmodel import we_are_translated
@@ -209,6 +209,12 @@ if _WIN:
 HAS_CLOCK_HIGHRES = rtime.CLOCK_HIGHRES is not None
 if HAS_CLOCK_HIGHRES:
     compile_extra.append("-DCLOCK_HIGHRES")
+
+if rtime.HAVE_NANOSLEEP:
+    compile_extra.append("-DHAVE_NANOSLEEP")
+
+if rtime.HAVE_CLOCK_NANOSLEEP:
+    compile_extra.append("-DHAVE_CLOCK_NANOSLEEP")
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes=_includes,
@@ -218,8 +224,6 @@ class CConfig:
         compile_extra=compile_extra,
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
-    HAVE_NANOSLEEP = platform.Has('nanosleep')
-    HAVE_CLOCK_NANOSLEEP = platform.Has('clock_nanosleep')
 
 HAS_TM_ZONE = False
 
@@ -277,10 +281,11 @@ def external(name, args, result, eci=CConfig._compilation_info_, **kwds):
             or result in (rffi.TIME_T, rffi.TIME_TP)):
             name = '_' + name + '64'
     _calling_conv = kwds.pop('calling_conv', calling_conv)
+    releasegil = kwds.pop('releasegil', False)
     return rffi.llexternal(name, args, result,
                            compilation_info=eci,
                            calling_conv=_calling_conv,
-                           releasegil=False,
+                           releasegil=releasegil,
                            **kwds)
 
 if _POSIX:
@@ -288,11 +293,6 @@ if _POSIX:
     timeval = cConfig.timeval
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
-HAVE_CLOCK_NANOSLEEP = cConfig.HAVE_CLOCK_NANOSLEEP
-# For some reason macOS nanosleep sets
-# errno=2 (ENOENT) instead of 4 (EINVAL) on interrupt.
-# Disable for now
-HAVE_NANOSLEEP = False  #cConfig.HAVE_NANOSLEEP
 HAS_CLOCK_GETTIME_RUNTIME = rtime.HAS_CLOCK_GETTIME_RUNTIME
 HAS_THREAD_TIME = (_WIN or
                    (HAS_CLOCK_GETTIME_RUNTIME and rtime.CLOCK_PROCESS_CPUTIME_ID is not None))
@@ -351,7 +351,7 @@ if _WIN:
                 return space.newfloat(float(tolong(microseconds10x)) / 1e7)
 else:
     if HAVE_GETTIMEOFDAY:
-        if GETTIMEOFDAY_NO_TZ:
+        if rtime.GETTIMEOFDAY_NO_TZ:
             c_gettimeofday = external('gettimeofday',
                                       [lltype.Ptr(TIMEVAL)], rffi.INT)
         else:
@@ -360,7 +360,7 @@ else:
     def _gettimeofday_impl(space, w_info, return_ns):
         if HAVE_GETTIMEOFDAY:
             with lltype.scoped_alloc(TIMEVAL) as timeval:
-                if GETTIMEOFDAY_NO_TZ:
+                if rtime.GETTIMEOFDAY_NO_TZ:
                     errcode = c_gettimeofday(timeval)
                 else:
                     void = lltype.nullptr(rffi.VOIDP.TO)
@@ -466,12 +466,15 @@ else:
                       [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
                       rffi.SIZE_T)
 
-if HAVE_NANOSLEEP:
+if rtime.HAVE_NANOSLEEP:
     from rpython.rlib.rtime import TIMESPEC
-    nanosleep = external("nanosleep", [lltype.Ptr(TIMESPEC), lltype.Ptr(TIMESPEC)], rffi.INT)
-if HAVE_CLOCK_NANOSLEEP:
+    nanosleep = external("py_nanosleep",
+        [lltype.Ptr(TIMESPEC), lltype.Ptr(TIMESPEC)],
+        rffi.INT, releasegil=True, save_err=rffi.RFFI_SAVE_ERRNO)
+if rtime.HAVE_CLOCK_NANOSLEEP:
     from rpython.rlib.rtime import TIMESPEC
-    clock_nanosleep = external("clock_nanosleep", [rffi.INT, rffi.INT, lltype.Ptr(TIMESPEC), lltype.Ptr(TIMESPEC)], rffi.INT)
+    clock_nanosleep = external("py_clock_nanosleep",
+        [rffi.INT, rffi.INT, lltype.Ptr(TIMESPEC), lltype.Ptr(TIMESPEC)],        rffi.INT, releasegil=True, save_err=rffi.RFFI_SAVE_ERRNO)
 
 def _init_timezone(space):
     timezone = daylight = altzone = 0
@@ -593,12 +596,12 @@ def time_sleep(space, w_secs):
         timeout_abs = None
         timeout_ts = None
         timeout_tv = None
-        if HAVE_CLOCK_NANOSLEEP:
+        if rtime.HAVE_CLOCK_NANOSLEEP:
             timeout_abs = lltype.malloc(TIMESPEC, flavor='raw')
             if _PyTime_AsTimespec(deadline, timeout_abs) < 0:
                 raise oefmt(space.w_OverflowError,
                     "timestamp out of range for platform time_t")
-        elif HAVE_NANOSLEEP:
+        elif rtime.HAVE_NANOSLEEP:
             timeout_ts = lltype.malloc(TIMESPEC, flavor='raw')
         else:
             timeout_tv = lltype.malloc(TIMEVAL, flavor ='raw')
@@ -627,14 +630,19 @@ def time_sleep(space, w_secs):
             else:
                 NULL = lltype.nullptr(rffi.VOIDP.TO)
                 NULL_TS = lltype.nullptr(lltype.Ptr(TIMESPEC).TO)
-                if HAVE_CLOCK_NANOSLEEP:
+                if rtime.HAVE_CLOCK_NANOSLEEP:
                     ret = clock_nanosleep(rtime.CLOCK_MONOTONIC, TIMER_ABSTIME, timeout_abs, NULL_TS);
                     pass
-                elif HAVE_NANOSLEEP:
+                elif rtime.HAVE_NANOSLEEP:
                     if _PyTime_AsTimespec(timeout, timeout_ts) < 0:
                         raise oefmt(space.w_OverflowError,
                             "timestamp out of range for platform time_t")
                     ret = nanosleep(timeout_ts, NULL_TS);
+                    if ret == 0:
+                        break
+                    if ret != EINTR:
+                        print("nanosleep", ret)
+                        raise exception_from_saved_errno(space, space.w_OSError)
                 else:
                     if _PyTime_AsTimeval(timeout, timeout_tv, _PyTime_ROUND_CEILING) < 0:
                         raise oefmt(space.w_OverflowError,
@@ -644,7 +652,7 @@ def time_sleep(space, w_secs):
                 if ret == 0:
                     break    # normal path
                 if rposix.get_saved_errno() != EINTR:
-                    import pdb;pdb.set_trace()
+                    print("sleep returned", rposix.get_saved_errno())
                     raise exception_from_saved_errno(space, space.w_OSError)
             space.getexecutioncontext().checksignals()
             timeout = deadline - _monotonic_impl(space, None)   # retry
