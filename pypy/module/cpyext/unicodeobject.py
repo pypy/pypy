@@ -345,6 +345,15 @@ def _PyUnicode_IsTitlecase(space, ch):
         return 0
     return unicodedb.istitle(ch)
 
+@cpython_api([Py_UCS4], rffi.INT_real, error=CANNOT_FAIL)
+def _PyUnicode_IsPrintable(space, ch):
+    """Return 1 or 0 depending on whether ch is a printable character."""
+    ch = rffi.cast(lltype.Signed, ch)
+    if ch >= rutf8.MAXUNICODE:
+        return 0
+    return unicodedb.isprintable(ch)
+
+
 @cpython_api([Py_UCS4], Py_UCS4, error=CANNOT_FAIL)
 def _PyUnicode_ToLowercase(space, ch):
     """Return the character ch converted to lower case."""
