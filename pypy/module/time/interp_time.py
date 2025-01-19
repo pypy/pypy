@@ -200,6 +200,8 @@ if rtime.HAVE_NANOSLEEP:
     compile_extra.append("-DHAVE_NANOSLEEP")
     separate_module_sources.append("""
         #include <errno.h>
+        #include "time_module.h"
+
         RPY_EXTERN int
         py_nanosleep(const struct timespec *rqtp, struct timespec *rmtp)
         {
@@ -214,6 +216,8 @@ if rtime.HAVE_CLOCK_NANOSLEEP:
     compile_extra.append("-DHAVE_CLOCK_NANOSLEEP")
     separate_module_sources.append("""
         #include <errno.h>
+        #include "time_module.h"
+
         RPY_EXTERN int
         py_clock_nanosleep(clockid_t clockid, int flags,
                            const struct timespec *request,
