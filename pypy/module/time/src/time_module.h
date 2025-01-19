@@ -207,10 +207,14 @@ _PyTime_AsTimeval(_PyTime_t t, struct timeval *tv, _PyTime_round_t round);
 RPY_EXTERN int
 _PyTime_AsTimespec(_PyTime_t t, struct timespec *ts);
 
+#ifdef HAVE_CLOCK_NANOSLEEP
 RPY_EXTERN int
 py_clock_nanosleep(clockid_t clockid, int flags,
                    const struct timespec *request,
                    struct timespec *remain);
+#endif
 
+#ifdef HAVE_NANOSLEEP
 RPY_EXTERN int
 py_nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
+#endif

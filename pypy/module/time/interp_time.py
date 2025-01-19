@@ -446,6 +446,10 @@ if _WIN:
                       [rffi.CWCHARP, rffi.SIZE_T, rffi.CWCHARP, TM_P],
                       rffi.SIZE_T,
                       save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    _CreateWaitableTimerExW = rwin32.winexternal('CreateWaitableTimerExW',
+            [rwin32.LPSECURITY_ATTRIBUTES, rwin32.LPCWSTR, rwin32.DWORD, rwin32.DWORD], rwin32.HANDLE)
+    _SetWaitableTimer = rwin32.winexternal('SetWaitableTimer',
+            [rwin32.HANDLE, rffi.CArrayPtr(rffi.LONGLONG), rffi.LONG, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP, rffi.ULONG], rwin32.BOOL)
 else:
     c_strftime = external('strftime',
                       [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
@@ -577,10 +581,11 @@ def time_sleep(space, w_secs):
         raise oefmt(space.w_ValueError,
                     "sleep length must be non-negative")
     deadline = _monotonic_impl(space, None) + timeout
+    timeout_abs = None
+    timeout_ts = None
+    timeout_tv = None
+    timer = rffi.cast(rwin32.HANDLE, 0)
     try:
-        timeout_abs = None
-        timeout_ts = None
-        timeout_tv = None
         if rtime.HAVE_CLOCK_NANOSLEEP:
             timeout_abs = lltype.malloc(TIMESPEC, flavor='raw')
             if _PyTime_AsTimespec(deadline, timeout_abs) < 0:
@@ -588,32 +593,49 @@ def time_sleep(space, w_secs):
                     "timestamp out of range for platform time_t")
         elif rtime.HAVE_NANOSLEEP:
             timeout_ts = lltype.malloc(TIMESPEC, flavor='raw')
-        else:
+        elif not _WIN:
             timeout_tv = lltype.malloc(TIMEVAL, flavor ='raw')
         while True:
             # 'deadline' is reduced at the end of the loop, for the next iteration.
+            NULL = lltype.nullptr(rffi.VOIDP.TO)
             if _WIN:
-                # as decreed by Guido, only the main thread can be
-                # interrupted.
+                timeout_100ns = timeout // 100
+                if timeout_100ns == 0:
+                    # A value of zero causes the thread to relinquish the remainder of its
+                    # time slice to any other thread that is ready to run. If there are no
+                    # other threads ready to run, the function returns immediately, and
+                    # the thread continues execution.
+                    rtime.Sleep(rffi.cast(rffi.ULONG, 0))
+                    return
+                relative_timeout = rffi.cast(rffi.LONGLONG, -timeout_100ns)
+                timer_flags = 0x02  # CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+                all_access = 0x1F0003   # TIMER_ALL_ACCESS
+                timer = _CreateWaitableTimerExW(rffi.cast(rwin32.LPSECURITY_ATTRIBUTES, 0),
+                                                rffi.cast(rwin32.LPCWSTR, 0),
+                                                timer_flags, all_access)
+                if not timer:
+                    raise exception_from_saved_errno(space, space.w_OSError)
+                assert timer is not None
+                with lltype.scoped_alloc(rffi.CArray(rffi.LONGLONG), 1) as rt:
+                    rt[0] = relative_timeout
+                    if not _SetWaitableTimer(timer, rt, 0, NULL, NULL, NULL, 0):
+                        raise exception_from_saved_errno(space, space.w_OSError)
+
                 main_thread = space.fromcache(State).main_thread
                 interruptible = (main_thread == thread.get_ident())
-                millisecs =  deadline // 1e6
-                if millisecs < 1 or not interruptible:
-                    rtime.Sleep(rffi.cast(rffi.ULONG, millisecs))
-                    break
-                MAX = 0x7fffffff
-                if millisecs < MAX:
-                    interval = int(millisecs)
+                if interruptible:
+                    # Only the main thread can be interrupted
+                    space.getexecutioncontext().checksignals()
+                    interrupt_event = space.fromcache(State).get_interrupt_event()
+                    rwin32.ResetEvent(interrupt_event)
+                    rc = rwin32.WaitForMultipleObjects([interrupt_event, timer])
                 else:
-                    interval = MAX
-                interrupt_event = space.fromcache(State).get_interrupt_event()
-                rwin32.ResetEvent(interrupt_event)
-                rc = rwin32.WaitForSingleObject(interrupt_event, interval)
-                was_interrupted = rc == rwin32.WAIT_OBJECT_0
-                if not was_interrupted and interval < MAX:
+                    rc = rwin32.WaitForSingleObject(timer, rwin32.INFINITE)
+                if rc == rwin32.WAIT_FAILED:
+                    raise exception_from_saved_errno(space, space.w_OSError)
+                if rc == rwin32.WAIT_OBJECT_0:
                     break
             else:
-                NULL = lltype.nullptr(rffi.VOIDP.TO)
                 NULL_TS = lltype.nullptr(lltype.Ptr(TIMESPEC).TO)
                 if rtime.HAVE_CLOCK_NANOSLEEP:
                     ret = clock_nanosleep(rtime.CLOCK_MONOTONIC, TIMER_ABSTIME, timeout_abs, NULL_TS);
@@ -650,6 +672,8 @@ def time_sleep(space, w_secs):
             lltype.free(timeout_ts, flavor='raw')
         if timeout_tv:
             lltype.free(timeout_tv, flavor='raw')
+        if timer:
+            rwin32.CloseHandle(timer)
 
 
 def _get_module_object(space, obj_name):
@@ -1300,13 +1324,11 @@ def process_time_ns(space):
 
 if HAS_THREAD_TIME:
     if _WIN:
+        FILETIME_P = lltype.Ptr(rwin32.FILETIME)
         _GetCurrentThread = rwin32.winexternal('GetCurrentThread', [], rwin32.HANDLE)
-        _GetThreadTimes = rwin32.winexternal('GetThreadTimes', [rwin32.HANDLE,
-                                                                lltype.Ptr(rwin32.FILETIME),
-                                                                lltype.Ptr(rwin32.FILETIME),
-                                                                lltype.Ptr(rwin32.FILETIME),
-                                                                lltype.Ptr(rwin32.FILETIME)],
-                                                               rwin32.BOOL)
+        _GetThreadTimes = rwin32.winexternal('GetThreadTimes',
+                [rwin32.HANDLE, FILETIME_P, FILETIME_P, FILETIME_P, FILETIME_P],
+                rwin32.BOOL)
         def _thread_time_impl(space, w_info, return_ns):
             thread = _GetCurrentThread()
 

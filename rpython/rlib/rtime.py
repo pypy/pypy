@@ -272,7 +272,7 @@ def clock():
 # time.sleep()
 
 if _WIN32:
-    Sleep = external('Sleep', [rffi.ULONG], lltype.Void)
+    Sleep = external('Sleep', [rffi.ULONG], lltype.Void, releasegil=True)
 else:
     c_select = external('select', [rffi.INT, rffi.VOIDP,
                                    rffi.VOIDP, rffi.VOIDP,
