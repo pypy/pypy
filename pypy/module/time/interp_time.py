@@ -192,20 +192,45 @@ if _WIN:
     compile_extra.append("-DMS_WINDOWS")
 
 HAS_CLOCK_HIGHRES = rtime.CLOCK_HIGHRES is not None
+separate_module_sources = []
 if HAS_CLOCK_HIGHRES:
     compile_extra.append("-DCLOCK_HIGHRES")
 
 if rtime.HAVE_NANOSLEEP:
     compile_extra.append("-DHAVE_NANOSLEEP")
+    separate_module_sources.append("""
+        RPY_EXTERN int
+        py_nanosleep(const struct timespec *rqtp, struct timespec *rmtp)
+        {
+            int ret = nanosleep(rqtp, rmtp);
+            if (ret == 0)
+                return 0;
+            return errno;
+        }
+    """)
 
 if rtime.HAVE_CLOCK_NANOSLEEP:
     compile_extra.append("-DHAVE_CLOCK_NANOSLEEP")
+    separate_module_sources.append("""
+        RPY_EXTERN int
+        py_clock_nanosleep(clockid_t clockid, int flags,
+                           const struct timespec *request,
+                           struct timespec *remain)
+        {
+            int ret = clock_nanosleep(clockid, flags, request, remain);
+            if (ret == 0)
+                return 0;
+            return errno;
+        }
+    """)
+
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes=_includes,
         include_dirs = [my_dir, cdir],
         libraries=rtime.libraries,
         separate_module_files=[os.path.join(src_dir, "pytime.c")],
+        separate_module_sources=separate_module_sources,
         compile_extra=compile_extra,
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")

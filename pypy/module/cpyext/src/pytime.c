@@ -1406,27 +1406,3 @@ _PyDeadline_Get(_PyTime_t deadline)
     _PyTime_t now = _PyTime_GetMonotonicClock();
     return deadline - now;
 }
-
-#ifdef HAVE_NANOSLEEP
-RPY_EXTERN int
-py_nanosleep(const struct timespec *rqtp, struct timespec *rmtp)
-{
-    int ret = nanosleep(rqtp, rmtp);
-    if (ret == 0)
-        return 0;
-    return errno;
-}
-#endif
-
-#ifdef HAVE_CLOCK_NANOSLEEP
-RPY_EXTERN int
-py_clock_nanosleep(clockid_t clockid, int flags,
-                   const struct timespec *request,
-                   struct timespec *remain)
-{
-    int ret = clock_nanosleep(clockid, flags, request, remain);
-    if (ret == 0)
-        return 0;
-    return errno;
-}
-#endif
