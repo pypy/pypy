@@ -199,6 +199,7 @@ if HAS_CLOCK_HIGHRES:
 if rtime.HAVE_NANOSLEEP:
     compile_extra.append("-DHAVE_NANOSLEEP")
     separate_module_sources.append("""
+        #include <errno.h>
         RPY_EXTERN int
         py_nanosleep(const struct timespec *rqtp, struct timespec *rmtp)
         {
@@ -212,6 +213,7 @@ if rtime.HAVE_NANOSLEEP:
 if rtime.HAVE_CLOCK_NANOSLEEP:
     compile_extra.append("-DHAVE_CLOCK_NANOSLEEP")
     separate_module_sources.append("""
+        #include <errno.h>
         RPY_EXTERN int
         py_clock_nanosleep(clockid_t clockid, int flags,
                            const struct timespec *request,
@@ -609,7 +611,8 @@ def time_sleep(space, w_secs):
     timeout_abs = None
     timeout_ts = None
     timeout_tv = None
-    timer = rffi.cast(rwin32.HANDLE, 0)
+    if _WIN:
+        timer = rffi.cast(rwin32.HANDLE, 0)
     try:
         if rtime.HAVE_CLOCK_NANOSLEEP:
             timeout_abs = lltype.malloc(TIMESPEC, flavor='raw')
@@ -697,7 +700,7 @@ def time_sleep(space, w_secs):
             lltype.free(timeout_ts, flavor='raw')
         if timeout_tv:
             lltype.free(timeout_tv, flavor='raw')
-        if timer:
+        if _WIN and timer:
             rwin32.CloseHandle(timer)
 
 
