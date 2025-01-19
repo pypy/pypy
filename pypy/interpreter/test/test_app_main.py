@@ -119,7 +119,7 @@ class TestParseCommandLine:
                         "option %r has unexpectedly the value %r" % (key, value))
 
     def check(self, argv, env, **expected):
-        print("testing", argv)
+        # print("testing", argv)
         args_for_popen = [get_python3(), app_main,
                               '--argparse-only'] + list(argv)
         # print("calling popen with", ' '.join(args_for_popen))
@@ -128,12 +128,10 @@ class TestParseCommandLine:
                              env=env)
         res = p.wait()
         outcome = p.stdout.readline()
-        print("outcome '%s'" % outcome, "ord", [ord(x) for x in outcome])
-        if sys.platform == 'win32':
-            endl = '\r\n'
-        else:
-            endl = '\n'
         if outcome == 'SystemExit\n' or outcome == "Error\n":
+            output = p.stdout.read()
+            assert expected['output_contains'] in output
+        else:
             app_options = eval(p.stdout.readline())
             sys_argv = eval(p.stdout.readline())
             app_options['sys_argv'] = sys_argv
@@ -934,7 +932,7 @@ class TestNonInteractive:
                         expect_prompt=True, expect_banner=False)
         assert '42\n' in data
 
-    @py.test.mark.skipif('sys.platform=="win32"', reason="windows, sendata, and quoting problems")
+    @py.test.mark.skipif('linux' not in sys.platform, reason="windows, sendata, and quoting problems")
     def test_putenv_fires_interactive_within_process(self):
         try:
             import __pypy__
@@ -1196,12 +1194,6 @@ class TestNonInteractive:
         # And that these fails as unable to find the package:
         #    ./python -Im script_pkg
         #    ./python -Pm script_pkg
-        p = subprocess.Popen([get_python3(), "-c",
-                     "import sys; print('PYTHON3 is', sys.version)"],
-                     stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        res = p.wait()
-        print(p.stdout.read())
-        out_by_module = p.stdout.read().splitlines()
         work_dir = _get_next_path(ext='')
         script = textwrap.dedent("""
             import sys
@@ -1217,7 +1209,8 @@ class TestNonInteractive:
                              cwd=str(work_dir))
         res = p.wait()
         out_by_module = p.stdout.read().splitlines()
-        assert out_by_module[0] == str(work_dir)
+        # macOS prepends '/private'
+        assert out_by_module[0].endswith(str(work_dir))
         assert script_dir not in out_by_module
 
         p = subprocess.Popen([get_python3(), app_main, "-sm", "script_pkg"],
@@ -1241,10 +1234,6 @@ class TestNonInteractive:
         res = p.wait()
         stderr = p.stderr.read()
         traceback_lines = stderr.decode().splitlines()
-        if len(traceback_lines) < 1:
-            print('--------stdout--------')
-            print(p.stdout.read())
-            print('----------------------')
         assert "No module named script_pkg" in traceback_lines[-1]
  
     def test_error_msg(self):
