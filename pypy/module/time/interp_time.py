@@ -210,7 +210,8 @@ if rtime.HAVE_NANOSLEEP:
             int ret = nanosleep(rqtp, rmtp);
             if (ret == 0)
                 return 0;
-            return errno;
+            errno = ret;
+            return ret;
         }
     """)
 
@@ -231,7 +232,8 @@ if rtime.HAVE_CLOCK_NANOSLEEP:
             int ret = clock_nanosleep(clockid, flags, request, remain);
             if (ret == 0)
                 return 0;
-            return errno;
+            errno = ret;
+            return ret;
         }
     """)
 
@@ -695,8 +697,7 @@ def time_sleep(space, w_secs):
                                     c_select(0, NULL, NULL, NULL, timeout_tv))
                 if ret == 0:
                     break    # normal path
-                if rposix.get_saved_errno() != EINTR:
-                    print("sleep returned", rposix.get_saved_errno())
+                if ret != EINTR:
                     raise exception_from_saved_errno(space, space.w_OSError)
             space.getexecutioncontext().checksignals()
             timeout = deadline - _monotonic_impl(space, None)   # retry

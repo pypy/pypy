@@ -514,7 +514,7 @@ class Parser:
         The value of ini-variables can be retrieved via a call to
         :py:func:`config.getini(name) <_pytest.config.Config.getini>`.
         """
-        assert type in (None, "pathlist", "args", "linelist", "bool")
+        assert type in (None, "pathlist", "args", "linelist", "bool", "string")
         self._inidict[name] = (help, type, default)
         self._ininames.append(name)
 

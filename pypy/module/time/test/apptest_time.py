@@ -12,6 +12,7 @@ except ImportError:
     import posix
     _WIN32 = False
 os = posix
+_MACOS = sys.platform == "darwin"
 
 
 def test_attributes():
@@ -224,12 +225,12 @@ def test_mktime():
     ltime = time.localtime()
     ltime = list(ltime)
     ltime[0] = -1
-    if _WIN32:
+    if _WIN32 or _MACOS:
         raises(OverflowError, time.mktime, tuple(ltime))
     else:
         time.mktime(tuple(ltime))  # Does not crash anymore
     ltime[0] = 100
-    if _WIN32:
+    if _WIN32 or _MACOS:
         raises(OverflowError, time.mktime, tuple(ltime))
     else:
         time.mktime(tuple(ltime))  # Does not crash anymore
@@ -260,7 +261,10 @@ def test_mktime_overflow():
     time.mktime((MAX_YEAR,) + (0,) * 8)  # doesn't raise
     with raises(OverflowError):
         time.mktime((MAX_YEAR + DELTA,) + (0,) * 8)
-    time.mktime((MIN_YEAR,) + (0,) * 8)  # doesn't raise
+    if _MACOS:
+        raises(OverflowError, time.mktime, (MIN_YEAR,) + (0,) * 8)
+    else:
+        time.mktime((MIN_YEAR,) + (0,) * 8)
     with raises(OverflowError):
         time.mktime((MIN_YEAR - DELTA,) + (0,) * 8)
 
