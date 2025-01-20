@@ -184,6 +184,7 @@ compile_extra = ["-DBUILD_TIME_MODULE", "-DHAVE_CLOCK_GETTIME"]
 _includes = ["time.h"]
 if _POSIX:
     _includes.append('sys/time.h')
+    _includes.append(os.path.join(my_dir, "time_module_posix.h"))
     compile_extra.append("-DHAVE_SYS_TIME_H")
 if _MACOSX:
     _includes.append('mach/mach_time.h')
@@ -200,7 +201,8 @@ if rtime.HAVE_NANOSLEEP:
     compile_extra.append("-DHAVE_NANOSLEEP")
     separate_module_sources.append("""
         #include <errno.h>
-        #include "time_module.h"
+        RPY_EXTERN int
+        py_nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
 
         RPY_EXTERN int
         py_nanosleep(const struct timespec *rqtp, struct timespec *rmtp)
@@ -216,8 +218,11 @@ if rtime.HAVE_CLOCK_NANOSLEEP:
     compile_extra.append("-DHAVE_CLOCK_NANOSLEEP")
     separate_module_sources.append("""
         #include <errno.h>
-        #include "time_module.h"
 
+        RPY_EXTERN int
+        py_clock_nanosleep(clockid_t clockid, int flags,
+                           const struct timespec *request,
+                           struct timespec *remain);
         RPY_EXTERN int
         py_clock_nanosleep(clockid_t clockid, int flags,
                            const struct timespec *request,
