@@ -638,10 +638,11 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_reimport_builtin_simple_case_1(self):
         import sys, time
-        del time.clock
+        del time.time
+        assert not hasattr(time, 'time')
         del sys.modules['time']
         import time
-        assert hasattr(time, 'clock')
+        assert hasattr(time, 'time')
 
     def test_reimport_builtin_simple_case_2(self):
         import sys, time

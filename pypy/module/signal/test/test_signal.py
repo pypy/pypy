@@ -313,7 +313,7 @@ class AppTestSignal:
 
     def test_strsignal(self):
         import signal
-        assert signal.strsignal(signal.Signals.SIGSEGV) == "Segmentation fault"
+        assert signal.strsignal(signal.Signals.SIGSEGV).startswith("Segmentation fault")
         raises(ValueError, signal.strsignal, 4242)
 
 

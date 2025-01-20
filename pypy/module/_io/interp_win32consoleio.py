@@ -8,7 +8,7 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import WrappedDefault, interp2app, unwrap_spec
 from pypy.module._io.interp_iobase import (W_RawIOBase, convert_size,
         DEFAULT_BUFFER_SIZE)
-from pypy.module.time.interp_time import sleep
+from pypy.module.time.interp_time import time_sleep
 from pypy.interpreter.unicodehelper import (str_decode_utf_16,
         utf8_encode_utf_16)
 from pypy.module._codecs.interp_codecs import CodecState
@@ -76,7 +76,7 @@ def read_console_wide(space, handle, maxlen):
                     break
                 err = 0
                 # This will only catch CTRL-C on the main thread
-                sleep(space, space.newfloat(0.1))
+                time_sleep(space, space.newfloat(0.1))
                 continue
             readlen += nread
             readlen_b = 2 * readlen
