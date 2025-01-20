@@ -486,7 +486,7 @@ if _WIN:
                       save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     _CreateWaitableTimerExW = rwin32.winexternal('CreateWaitableTimerExW',
             [rwin32.LPSECURITY_ATTRIBUTES, rwin32.LPCWSTR, rwin32.DWORD, rwin32.DWORD], rwin32.HANDLE)
-    _SetWaitableTimer = rwin32.winexternal('SetWaitableTimer',
+    _SetWaitableTimerEx = rwin32.winexternal('SetWaitableTimerEx',
             [rwin32.HANDLE, rffi.CArrayPtr(rffi.LONGLONG), rffi.LONG, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP, rffi.ULONG], rwin32.BOOL)
 else:
     c_strftime = external('strftime',
@@ -649,7 +649,7 @@ def time_sleep(space, w_secs):
                 relative_timeout = rffi.cast(rffi.LONGLONG, -timeout_100ns)
                 timer_flags = 0x02  # CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
                 all_access = 0x1F0003   # TIMER_ALL_ACCESS
-                timer = _CreateWaitableTimerExW(rffi.cast(rwin32.LPSECURITY_ATTRIBUTES, 0),
+                timer = _CreateWaitableTimerExW(lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
                                                 rffi.cast(rwin32.LPCWSTR, 0),
                                                 timer_flags, all_access)
                 if not timer:
@@ -657,7 +657,7 @@ def time_sleep(space, w_secs):
                 assert timer is not None
                 with lltype.scoped_alloc(rffi.CArray(rffi.LONGLONG), 1) as rt:
                     rt[0] = relative_timeout
-                    if not _SetWaitableTimer(timer, rt, 0, NULL, NULL, NULL, 0):
+                    if not _SetWaitableTimerEx(timer, rt, 0, NULL, NULL, NULL, 0):
                         raise exception_from_saved_errno(space, space.w_OSError)
 
                 main_thread = space.fromcache(State).main_thread
