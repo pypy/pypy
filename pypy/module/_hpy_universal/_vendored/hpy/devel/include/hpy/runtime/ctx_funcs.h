@@ -31,6 +31,7 @@ _HPy_HIDDEN HPy ctx_Module_Create(HPyContext *ctx, HPyModuleDef *hpydef);
 
 // ctx_object.c
 _HPy_HIDDEN void ctx_Dump(HPyContext *ctx, HPy h);
+_HPy_HIDDEN HPy ctx_Type(HPyContext *ctx, HPy h_obj);
 _HPy_HIDDEN int ctx_TypeCheck(HPyContext *ctx, HPy h_obj, HPy h_type);
 _HPy_HIDDEN int ctx_Is(HPyContext *ctx, HPy h_obj, HPy h_other);
 _HPy_HIDDEN HPy ctx_GetItem_i(HPyContext *ctx, HPy obj, HPy_ssize_t idx);
@@ -87,6 +88,7 @@ _HPy_HIDDEN void* ctx_AsStruct_Float(HPyContext *ctx, HPy h);
 _HPy_HIDDEN void* ctx_AsStruct_Unicode(HPyContext *ctx, HPy h);
 _HPy_HIDDEN void* ctx_AsStruct_Tuple(HPyContext *ctx, HPy h);
 _HPy_HIDDEN void* ctx_AsStruct_List(HPyContext *ctx, HPy h);
+_HPy_HIDDEN void* ctx_AsStruct_Dict(HPyContext *ctx, HPy h);
 _HPy_HIDDEN void* ctx_AsStruct_Slow(HPyContext *ctx, HPy h);
 _HPy_HIDDEN HPy ctx_Type_FromSpec(HPyContext *ctx, HPyType_Spec *hpyspec,
                                   HPyType_SpecParam *params);

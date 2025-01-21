@@ -428,7 +428,7 @@ class build_ext_hpy_mixin:
         ext_file = os.path.basename(ext._file_name)
         module_name = ext_file.split(".")[0]
         if not self.dry_run:
-            with open(stub_file, 'w') as f:
+            with open(stub_file, 'w', encoding='utf-8') as f:
                 f.write(_HPY_UNIVERSAL_MODULE_STUB_TEMPLATE.format(
                     ext_file=ext_file, module_name=module_name)
                 )
@@ -461,6 +461,4 @@ class build_ext_hpy_mixin:
         exports = self._mixin_super.get_export_symbols(self, ext)
         if hasattr(ext, "hpy_abi") and ext.hpy_abi in ('universal', 'hybrid'):
             exports = [re.sub(r"^PyInit_", "HPyInit_", name) for name in exports]
-            # On untranslated PyPy tests, the exports will be of the python2 form
-            exports = [re.sub(r"^init", "HPyInit_", name) for name in exports]
         return exports

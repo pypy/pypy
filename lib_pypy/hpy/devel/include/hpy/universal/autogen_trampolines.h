@@ -254,6 +254,18 @@ HPyAPI_FUNC HPy HPy_CallMethod(HPyContext *ctx, HPy name, const HPy *args, size_
      return ctx->ctx_CallMethod ( ctx, name, args, nargs, kwnames ); 
 }
 
+HPyAPI_FUNC HPy HPy_GetIter(HPyContext *ctx, HPy obj) {
+     return ctx->ctx_GetIter ( ctx, obj ); 
+}
+
+HPyAPI_FUNC HPy HPyIter_Next(HPyContext *ctx, HPy obj) {
+     return ctx->ctx_Iter_Next ( ctx, obj ); 
+}
+
+HPyAPI_FUNC int HPyIter_Check(HPyContext *ctx, HPy obj) {
+     return ctx->ctx_Iter_Check ( ctx, obj ); 
+}
+
 HPyAPI_FUNC HPy HPyErr_SetString(HPyContext *ctx, HPy h_type, const char *utf8_message) {
      ctx->ctx_Err_SetString ( ctx, h_type, utf8_message ); return HPy_NULL; 
 }
@@ -350,6 +362,10 @@ HPyAPI_FUNC HPy HPy_GetItem_s(HPyContext *ctx, HPy obj, const char *utf8_key) {
      return ctx->ctx_GetItem_s ( ctx, obj, utf8_key ); 
 }
 
+HPyAPI_FUNC HPy HPy_GetSlice(HPyContext *ctx, HPy obj, HPy_ssize_t start, HPy_ssize_t end) {
+     return ctx->ctx_GetSlice ( ctx, obj, start, end ); 
+}
+
 HPyAPI_FUNC int HPy_Contains(HPyContext *ctx, HPy container, HPy key) {
      return ctx->ctx_Contains ( ctx, container, key ); 
 }
@@ -366,6 +382,10 @@ HPyAPI_FUNC int HPy_SetItem_s(HPyContext *ctx, HPy obj, const char *utf8_key, HP
      return ctx->ctx_SetItem_s ( ctx, obj, utf8_key, value ); 
 }
 
+HPyAPI_FUNC int HPy_SetSlice(HPyContext *ctx, HPy obj, HPy_ssize_t start, HPy_ssize_t end, HPy value) {
+     return ctx->ctx_SetSlice ( ctx, obj, start, end, value ); 
+}
+
 HPyAPI_FUNC int HPy_DelItem(HPyContext *ctx, HPy obj, HPy key) {
      return ctx->ctx_DelItem ( ctx, obj, key ); 
 }
@@ -376,6 +396,10 @@ HPyAPI_FUNC int HPy_DelItem_i(HPyContext *ctx, HPy obj, HPy_ssize_t idx) {
 
 HPyAPI_FUNC int HPy_DelItem_s(HPyContext *ctx, HPy obj, const char *utf8_key) {
      return ctx->ctx_DelItem_s ( ctx, obj, utf8_key ); 
+}
+
+HPyAPI_FUNC int HPy_DelSlice(HPyContext *ctx, HPy obj, HPy_ssize_t start, HPy_ssize_t end) {
+     return ctx->ctx_DelSlice ( ctx, obj, start, end ); 
 }
 
 HPyAPI_FUNC HPy HPy_Type(HPyContext *ctx, HPy obj) {
@@ -428,6 +452,10 @@ HPyAPI_FUNC void *_HPy_AsStruct_Tuple(HPyContext *ctx, HPy h) {
 
 HPyAPI_FUNC void *_HPy_AsStruct_List(HPyContext *ctx, HPy h) {
      return ctx->ctx_AsStruct_List ( ctx, h ); 
+}
+
+HPyAPI_FUNC void *_HPy_AsStruct_Dict(HPyContext *ctx, HPy h) {
+     return ctx->ctx_AsStruct_Dict ( ctx, h ); 
 }
 
 HPyAPI_FUNC HPyType_BuiltinShape _HPyType_GetBuiltinShape(HPyContext *ctx, HPy h_type) {
@@ -562,6 +590,10 @@ HPyAPI_FUNC int HPyList_Append(HPyContext *ctx, HPy h_list, HPy h_item) {
      return ctx->ctx_List_Append ( ctx, h_list, h_item ); 
 }
 
+HPyAPI_FUNC int HPyList_Insert(HPyContext *ctx, HPy h_list, HPy_ssize_t index, HPy h_item) {
+     return ctx->ctx_List_Insert ( ctx, h_list, index, h_item ); 
+}
+
 HPyAPI_FUNC int HPyDict_Check(HPyContext *ctx, HPy h) {
      return ctx->ctx_Dict_Check ( ctx, h ); 
 }
@@ -584,6 +616,10 @@ HPyAPI_FUNC int HPyTuple_Check(HPyContext *ctx, HPy h) {
 
 HPyAPI_FUNC HPy HPyTuple_FromArray(HPyContext *ctx, const HPy items[], HPy_ssize_t n) {
      return ctx->ctx_Tuple_FromArray ( ctx, items, n ); 
+}
+
+HPyAPI_FUNC HPy HPySlice_New(HPyContext *ctx, HPy start, HPy stop, HPy step) {
+     return ctx->ctx_Slice_New ( ctx, start, stop, step ); 
 }
 
 HPyAPI_FUNC int HPySlice_Unpack(HPyContext *ctx, HPy slice, HPy_ssize_t *start, HPy_ssize_t *stop, HPy_ssize_t *step) {

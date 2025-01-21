@@ -223,19 +223,11 @@ class TestCustomLegacySlotsFeatures(HPyTest):
                 .defines = Point_defines
             };
 
-            HPyDef_METH(get_z, "get_z", HPyFunc_O)
-            static HPy get_z_impl(HPyContext *ctx, HPy self, HPy arg)
-            {
-                return HPy_GetAttr_s(ctx, arg, "z");
-            }
-
             @EXPORT_TYPE("Point", Point_spec)
-            @EXPORT(get_z)
             @INIT
         """)
         p = mod.Point()
         assert p.z == 2073
-        assert mod.get_z(p) == 2073
 
     def test_legacy_slots_fails_without_legacy(self):
         import pytest

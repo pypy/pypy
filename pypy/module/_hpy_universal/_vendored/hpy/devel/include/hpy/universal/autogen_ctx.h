@@ -277,4 +277,14 @@ struct _HPyContext_s {
     int (*ctx_SetCallFunction)(HPyContext *ctx, HPy h, HPyCallFunction *func);
     HPy (*ctx_Call)(HPyContext *ctx, HPy callable, const HPy *args, size_t nargs, HPy kwnames);
     HPy (*ctx_CallMethod)(HPyContext *ctx, HPy name, const HPy *args, size_t nargs, HPy kwnames);
+    HPy h_DictType;
+    void *(*ctx_AsStruct_Dict)(HPyContext *ctx, HPy h);
+    int (*ctx_List_Insert)(HPyContext *ctx, HPy h_list, HPy_ssize_t index, HPy h_item);
+    HPy (*ctx_GetSlice)(HPyContext *ctx, HPy obj, HPy_ssize_t start, HPy_ssize_t end);
+    int (*ctx_SetSlice)(HPyContext *ctx, HPy obj, HPy_ssize_t start, HPy_ssize_t end, HPy value);
+    int (*ctx_DelSlice)(HPyContext *ctx, HPy obj, HPy_ssize_t start, HPy_ssize_t end);
+    HPy (*ctx_GetIter)(HPyContext *ctx, HPy obj);
+    HPy (*ctx_Iter_Next)(HPyContext *ctx, HPy obj);
+    int (*ctx_Iter_Check)(HPyContext *ctx, HPy obj);
+    HPy (*ctx_Slice_New)(HPyContext *ctx, HPy start, HPy stop, HPy step);
 };

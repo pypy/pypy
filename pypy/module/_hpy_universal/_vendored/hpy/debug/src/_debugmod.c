@@ -10,7 +10,7 @@
 static UHPy new_DebugHandleObj(HPyContext *uctx, UHPy u_DebugHandleType,
                                DebugHandle *handle);
 
-HPY_MOD_EMBEDDABLE(_trace)
+HPY_MOD_EMBEDDABLE(_debug)
 
 HPyDef_METH(new_generation, "new_generation", HPyFunc_NOARGS)
 static UHPy new_generation_impl(HPyContext *uctx, UHPy self)

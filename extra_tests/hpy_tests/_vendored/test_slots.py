@@ -354,10 +354,25 @@ class TestSlots(HPyTest):
     def test_buffer(self):
         import pytest
         import sys
+        import gc
         mod = self.make_module("""
             @TYPE_STRUCT_BEGIN(FakeArrayObject)
                 int exports;
             @TYPE_STRUCT_END
+
+            HPyDef_SLOT(FakeArray_new, new_fakearray_impl, HPy_tp_new)
+            static HPy new_fakearray_impl(HPyContext *ctx, HPy cls, HPy *args,
+                                          HPy_ssize_t nargs, HPy kw)
+            {
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, ""))
+                    return HPy_NULL;
+                FakeArrayObject *arr;
+                HPy h_arr = HPy_New(ctx, cls, &arr);
+                if (HPy_IsNull(h_arr))
+                    return HPy_NULL;
+                arr->exports = 0;
+                return h_arr;
+            }
 
             static char static_mem[12] = {0,1,2,3,4,5,6,7,8,9,10,11};
             static HPy_ssize_t _shape[1] = {12};
@@ -394,6 +409,7 @@ class TestSlots(HPyTest):
             }
 
             static HPyDef *FakeArray_defines[] = {
+                &FakeArray_new,
                 &FakeArray_getbuffer,
                 &FakeArray_releasebuffer,
                 NULL
@@ -419,6 +435,7 @@ class TestSlots(HPyTest):
                 assert sys.getrefcount(arr) == init_refcount + 1
             for i in range(12):
                 assert mv[i] == i
+        gc.collect()
         if self.supports_refcounts():
             assert sys.getrefcount(arr) == init_refcount
         mv2 = memoryview(arr)  # doesn't raise
@@ -462,6 +479,7 @@ class TestSlots(HPyTest):
         assert repr(p) == 'repr(Point(1, 2))'
 
     def test_tp_hash(self):
+        import pytest
         mod = self.make_module("""
             @DEFINE_PointObject
             @DEFINE_Point_new
@@ -771,7 +789,6 @@ class TestSqSlots(HPyTest):
             'hello' in p
 
     def test_tp_richcompare(self):
-        import pytest
         mod = self.make_module("""
             @DEFINE_PointObject
             @DEFINE_Point_new
@@ -807,3 +824,27 @@ class TestSqSlots(HPyTest):
         #
         assert not p1 >= p2
         assert p1 >= p1
+
+    def test_tp_descr_get(self):
+        mod = self.make_module("""
+            @DEFINE_PointObject
+            @DEFINE_Point_new
+
+            HPyDef_SLOT(Point_get, HPy_tp_descr_get);
+            static HPy
+            Point_get_impl(HPyContext *ctx, HPy self, HPy obj, HPy type)
+            {
+                if (HPy_IsNull(obj) || HPy_Is(ctx, self, ctx->h_None)) {
+                    return HPy_Dup(ctx, self);
+                }
+                return HPyLong_FromLong(ctx, 123);
+            }
+
+            @EXPORT_POINT_TYPE(&Point_new, &Point_get)
+            @INIT
+        """)
+        p = mod.Point(10, 10)
+        class Dummy:
+            point_func = p
+        assert Dummy.point_func is p
+        assert Dummy().point_func == 123
