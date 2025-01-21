@@ -3,26 +3,32 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.interpreter.error import (OperationError, oefmt,
         strerror as _strerror, exception_from_saved_errno)
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.timeutils import (
-    SECS_TO_NS, MS_TO_NS, US_TO_NS, monotonic as _monotonic, timestamp_w)
+from pypy.module.time.timeutils import (
+    SECS_TO_NS, MS_TO_NS, US_TO_NS, timestamp_w)
 from pypy.interpreter.unicodehelper import decode_utf8sp
 from pypy.module._codecs.locale import (
     str_decode_locale_surrogateescape, utf8_encode_locale_surrogateescape)
+from pypy import pypydir
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
     intmask, r_ulonglong, r_longfloat, r_int64, widen, ovfcheck,
     ovfcheck_float_to_int, INT_MIN, r_uint, r_longlong)
-from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
-                                HAVE_GETTIMEOFDAY, HAVE_FTIME)
+from rpython.rlib.rtime import (TIMEVAL,
+                    HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.tool.cparser import CTypeSpace
+from rpython.translator import cdir
 
 import errno
 import os
 import math
 import sys
 import time as pytime
+
+src_dir = os.path.join(pypydir, 'module', 'cpyext',  'src')
+my_dir = os.path.join(pypydir, 'module', 'time',  'src')
 
 if HAVE_FTIME:
     from rpython.rlib.rtime import TIMEB, c_ftime
@@ -56,7 +62,7 @@ if _WIN:
     from pypy.interpreter.error import wrap_oserror
     from rpython.rlib import rthread as thread
 
-    eci = ExternalCompilationInfo(
+    wineci = ExternalCompilationInfo(
         includes = ['windows.h'],
         post_include_bits = [
             "RPY_EXTERN\n"
@@ -94,13 +100,13 @@ if _WIN:
     _setCtrlHandlerRoutine = rffi.llexternal(
         'pypy_timemodule_setCtrlHandler',
         [rwin32.HANDLE], rwin32.BOOL,
-        compilation_info=eci,
+        compilation_info=wineci,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
     pypy_GetTickCount64 = rffi.llexternal(
         'pypy_GetTickCount64',
         [rffi.VOIDP],
-        rffi.ULONGLONG, compilation_info=eci)
+        rffi.ULONGLONG, compilation_info=wineci)
 
     class GlobalState:
         def __init__(self):
@@ -166,21 +172,86 @@ if _WIN:
 
     time_state = TimeState()
 
+cts = CTypeSpace()
+with open(os.path.join(my_dir, 'time_module.h')) as fid:
+    data = fid.read()
+    start = data.find("// parse from here")
+    stop = data.find("// stop parsing")
+    src = data[start:stop]
+cts.parse_source(src)
+
+compile_extra = ["-DBUILD_TIME_MODULE", "-DHAVE_CLOCK_GETTIME"]
 _includes = ["time.h"]
 if _POSIX:
     _includes.append('sys/time.h')
+    _includes.append(os.path.join(my_dir, "time_module_posix.h"))
+    compile_extra.append("-DHAVE_SYS_TIME_H")
 if _MACOSX:
     _includes.append('mach/mach_time.h')
+    compile_extra.append("-DHAVE_SYS_TIME_H")
+if _WIN:
+    compile_extra.append("-DMS_WINDOWS")
+
+HAS_CLOCK_HIGHRES = rtime.CLOCK_HIGHRES is not None
+separate_module_sources = []
+if HAS_CLOCK_HIGHRES:
+    compile_extra.append("-DCLOCK_HIGHRES")
+
+if rtime.HAVE_NANOSLEEP:
+    compile_extra.append("-DHAVE_NANOSLEEP")
+    separate_module_sources.append("""
+        #include <errno.h>
+        RPY_EXTERN int
+        py_nanosleep(const struct timespec *rqtp, struct timespec *rmtp);
+
+        RPY_EXTERN int
+        py_nanosleep(const struct timespec *rqtp, struct timespec *rmtp)
+        {
+            int ret = nanosleep(rqtp, rmtp);
+            if (ret == 0)
+                return 0;
+            errno = ret;
+            return ret;
+        }
+    """)
+
+if rtime.HAVE_CLOCK_NANOSLEEP:
+    compile_extra.append("-DHAVE_CLOCK_NANOSLEEP")
+    separate_module_sources.append("""
+        #include <errno.h>
+
+        RPY_EXTERN int
+        py_clock_nanosleep(clockid_t clockid, int flags,
+                           const struct timespec *request,
+                           struct timespec *remain);
+        RPY_EXTERN int
+        py_clock_nanosleep(clockid_t clockid, int flags,
+                           const struct timespec *request,
+                           struct timespec *remain)
+        {
+            int ret = clock_nanosleep(clockid, flags, request, remain);
+            if (ret == 0)
+                return 0;
+            errno = ret;
+            return ret;
+        }
+    """)
 
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes=_includes,
-        libraries=rtime.libraries
+        include_dirs = [my_dir, cdir],
+        libraries=rtime.libraries,
+        separate_module_files=[os.path.join(src_dir, "pytime.c")],
+        separate_module_sources=separate_module_sources,
+        compile_extra=compile_extra,
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
 
 HAS_TM_ZONE = False
 
+clock_info_t = cts.gettype("_Py_clock_info_t")
+_PyTime_ROUND_CEILING = cts.definitions['_PyTime_round_t']._PyTime_ROUND_CEILING
 if _POSIX:
     calling_conv = 'c'
     CConfig.timeval = platform.Struct("struct timeval",
@@ -226,17 +297,18 @@ for k, v in platform.configure(CConfig).items():
 cConfig.tm.__name__ = "_tm"
 
 def external(name, args, result, eci=CConfig._compilation_info_, **kwds):
-    if _WIN and rffi.sizeof(rffi.TIME_T) == 8:
+    if _WIN and rffi.sizeof(rffi.TIME_T) == 8 and not name.startswith("_PyTime"):
         # Recent Microsoft compilers use 64bit time_t and
         # the corresponding functions are named differently
         if (rffi.TIME_T in args or rffi.TIME_TP in args
             or result in (rffi.TIME_T, rffi.TIME_TP)):
             name = '_' + name + '64'
     _calling_conv = kwds.pop('calling_conv', calling_conv)
+    releasegil = kwds.pop('releasegil', False)
     return rffi.llexternal(name, args, result,
                            compilation_info=eci,
                            calling_conv=_calling_conv,
-                           releasegil=False,
+                           releasegil=releasegil,
                            **kwds)
 
 if _POSIX:
@@ -245,14 +317,22 @@ if _POSIX:
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
 HAS_CLOCK_GETTIME_RUNTIME = rtime.HAS_CLOCK_GETTIME_RUNTIME
-HAS_CLOCK_HIGHRES = rtime.CLOCK_HIGHRES is not None
-HAS_CLOCK_MONOTONIC = rtime.CLOCK_MONOTONIC is not None
-HAS_MONOTONIC = (_WIN or _MACOSX or
-                 (HAS_CLOCK_GETTIME_RUNTIME and (HAS_CLOCK_HIGHRES or HAS_CLOCK_MONOTONIC)))
 HAS_THREAD_TIME = (_WIN or
                    (HAS_CLOCK_GETTIME_RUNTIME and rtime.CLOCK_PROCESS_CPUTIME_ID is not None))
 tm = cConfig.tm
+pytime_t = rffi.LONGLONG  # int64_t
+
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
+
+_PyTime_GetPerfCounterWithInfo = external("_PyTime_GetPerfCounterWithInfo",
+    [rffi.CArrayPtr(pytime_t), rffi.CArrayPtr(clock_info_t)], rffi.INT)
+_PyTime_GetMonotonicClockWithInfo = external("_PyTime_GetMonotonicClockWithInfo",
+    [rffi.CArrayPtr(pytime_t), rffi.CArrayPtr(clock_info_t)], rffi.INT)
+
+_PyTime_GetSystemClockWithInfo = external("_PyTime_GetSystemClockWithInfo",
+    [rffi.CArrayPtr(pytime_t), rffi.CArrayPtr(clock_info_t)], rffi.INT)
+
+_PyTime_AsSecondsDouble = external("_PyTime_AsSecondsDouble", [pytime_t], rffi.DOUBLE)
 
 if _WIN:
     _GetSystemTimeAsFileTime = rwin32.winexternal('GetSystemTimeAsFileTime',
@@ -294,7 +374,7 @@ if _WIN:
                 return space.newfloat(float(tolong(microseconds10x)) / 1e7)
 else:
     if HAVE_GETTIMEOFDAY:
-        if GETTIMEOFDAY_NO_TZ:
+        if rtime.GETTIMEOFDAY_NO_TZ:
             c_gettimeofday = external('gettimeofday',
                                       [lltype.Ptr(TIMEVAL)], rffi.INT)
         else:
@@ -303,7 +383,7 @@ else:
     def _gettimeofday_impl(space, w_info, return_ns):
         if HAVE_GETTIMEOFDAY:
             with lltype.scoped_alloc(TIMEVAL) as timeval:
-                if GETTIMEOFDAY_NO_TZ:
+                if rtime.GETTIMEOFDAY_NO_TZ:
                     errcode = c_gettimeofday(timeval)
                 else:
                     void = lltype.nullptr(rffi.VOIDP.TO)
@@ -340,9 +420,13 @@ else:
                 return space.newint(r_int64(result) * 10**9)
             else:
                 return space.newfloat(float(result))
-    
+
     def gettimeofday(space, w_info=None):
         return _gettimeofday_impl(space, w_info, False)
+
+    _PyTime_AsTimeval = external("_PyTime_AsTimeval",
+        [pytime_t, lltype.Ptr(TIMEVAL), rffi.INT], rffi.INT)
+    TIMER_ABSTIME = 0x01  # from time.h on linux
 
 TM_P = lltype.Ptr(tm)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
@@ -354,6 +438,8 @@ c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
 if HAS_CLOCK_GETTIME_RUNTIME:
     from rpython.rlib.rtime import TIMESPEC, c_clock_gettime
     from rpython.rlib.rtime import c_clock_settime, c_clock_getres
+    _PyTime_AsTimespec = external("_PyTime_AsTimespec",
+        [pytime_t, lltype.Ptr(TIMESPEC)], rffi.INT)
 if _POSIX:
     c_tzset = external('tzset', [], lltype.Void)
 if _WIN:
@@ -398,10 +484,24 @@ if _WIN:
                       [rffi.CWCHARP, rffi.SIZE_T, rffi.CWCHARP, TM_P],
                       rffi.SIZE_T,
                       save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    _CreateWaitableTimerExW = rwin32.winexternal('CreateWaitableTimerExW',
+            [rwin32.LPSECURITY_ATTRIBUTES, rwin32.LPCWSTR, rwin32.DWORD, rwin32.DWORD], rwin32.HANDLE)
+    _SetWaitableTimerEx = rwin32.winexternal('SetWaitableTimerEx',
+            [rwin32.HANDLE, rffi.CArrayPtr(rffi.LONGLONG), rffi.LONG, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP, rffi.ULONG], rwin32.BOOL)
 else:
     c_strftime = external('strftime',
                       [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
                       rffi.SIZE_T)
+
+if rtime.HAVE_NANOSLEEP:
+    from rpython.rlib.rtime import TIMESPEC
+    nanosleep = external("py_nanosleep",
+        [lltype.Ptr(TIMESPEC), lltype.Ptr(TIMESPEC)],
+        rffi.INT, releasegil=True, save_err=rffi.RFFI_SAVE_ERRNO)
+if rtime.HAVE_CLOCK_NANOSLEEP:
+    from rpython.rlib.rtime import TIMESPEC
+    clock_nanosleep = external("py_clock_nanosleep",
+        [rffi.INT, rffi.INT, lltype.Ptr(TIMESPEC), lltype.Ptr(TIMESPEC)],        rffi.INT, releasegil=True, save_err=rffi.RFFI_SAVE_ERRNO)
 
 def _init_timezone(space):
     timezone = daylight = altzone = 0
@@ -513,52 +613,105 @@ if not _WIN:
     from rpython.rlib.rtime import c_select
 from rpython.rlib import rwin32
 
-def sleep(space, w_secs):
-    delay_ns = timestamp_w(space, w_secs)
-    if not (delay_ns >= 0):
+def time_sleep(space, w_secs):
+    timeout = timestamp_w(space, w_secs)
+    if not (timeout >= 0):
         raise oefmt(space.w_ValueError,
                     "sleep length must be non-negative")
-    secs = float(delay_ns) / SECS_TO_NS
-    end_time = _monotonic(space) + secs
-    while True:
-        # 'secs' is reduced at the end of the loop, for the next iteration.
-        if _WIN:
-            # as decreed by Guido, only the main thread can be
-            # interrupted.
-            main_thread = space.fromcache(State).main_thread
-            interruptible = (main_thread == thread.get_ident())
-            millisecs = secs * 1000.0
-            if millisecs < 1.0 or not interruptible:
-                rtime.sleep(secs)
-                break
-            MAX = 0x7fffffff
-            if millisecs < MAX:
-                interval = int(millisecs)
-            else:
-                interval = MAX
-            interrupt_event = space.fromcache(State).get_interrupt_event()
-            rwin32.ResetEvent(interrupt_event)
-            rc = rwin32.WaitForSingleObject(interrupt_event, interval)
-            was_interrupted = rc == rwin32.WAIT_OBJECT_0
-            if not was_interrupted and interval < MAX:
-                break
-        else:
-            void = lltype.nullptr(rffi.VOIDP.TO)
-            with lltype.scoped_alloc(TIMEVAL) as t:
-                frac = int(math.fmod(secs, 1.0) * 1000000.)
-                assert frac >= 0
-                rffi.setintfield(t, 'c_tv_sec', int(secs))
-                rffi.setintfield(t, 'c_tv_usec', frac)
+    deadline = _monotonic_impl(space, None) + timeout
+    timeout_abs = None
+    timeout_ts = None
+    timeout_tv = None
+    if _WIN:
+        timer = rffi.cast(rwin32.HANDLE, 0)
+    try:
+        if rtime.HAVE_CLOCK_NANOSLEEP:
+            timeout_abs = lltype.malloc(TIMESPEC, flavor='raw')
+            if _PyTime_AsTimespec(deadline, timeout_abs) < 0:
+                raise oefmt(space.w_OverflowError,
+                    "timestamp out of range for platform time_t")
+        elif rtime.HAVE_NANOSLEEP:
+            timeout_ts = lltype.malloc(TIMESPEC, flavor='raw')
+        elif not _WIN:
+            timeout_tv = lltype.malloc(TIMEVAL, flavor ='raw')
+        while True:
+            # 'deadline' is reduced at the end of the loop, for the next iteration.
+            NULL = lltype.nullptr(rffi.VOIDP.TO)
+            if _WIN:
+                timeout_100ns = timeout // 100
+                if timeout_100ns == 0:
+                    # A value of zero causes the thread to relinquish the remainder of its
+                    # time slice to any other thread that is ready to run. If there are no
+                    # other threads ready to run, the function returns immediately, and
+                    # the thread continues execution.
+                    rtime.Sleep(rffi.cast(rffi.ULONG, 0))
+                    return
+                relative_timeout = rffi.cast(rffi.LONGLONG, -timeout_100ns)
+                timer_flags = 0x02  # CREATE_WAITABLE_TIMER_HIGH_RESOLUTION
+                all_access = 0x1F0003   # TIMER_ALL_ACCESS
+                timer = _CreateWaitableTimerExW(lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
+                                                rffi.cast(rwin32.LPCWSTR, 0),
+                                                timer_flags, all_access)
+                if not timer:
+                    raise exception_from_saved_errno(space, space.w_OSError)
+                assert timer is not None
+                with lltype.scoped_alloc(rffi.CArray(rffi.LONGLONG), 1) as rt:
+                    rt[0] = relative_timeout
+                    if not _SetWaitableTimerEx(timer, rt, 0, NULL, NULL, NULL, 0):
+                        raise exception_from_saved_errno(space, space.w_OSError)
 
-                res = rffi.cast(rffi.LONG, c_select(0, void, void, void, t))
-            if res == 0:
-                break    # normal path
-            if rposix.get_saved_errno() != EINTR:
-                raise exception_from_saved_errno(space, space.w_OSError)
-        space.getexecutioncontext().checksignals()
-        secs = end_time - _monotonic(space)   # retry
-        if secs <= 0:
-            break
+                main_thread = space.fromcache(State).main_thread
+                interruptible = (main_thread == thread.get_ident())
+                if interruptible:
+                    # Only the main thread can be interrupted
+                    space.getexecutioncontext().checksignals()
+                    interrupt_event = space.fromcache(State).get_interrupt_event()
+                    rwin32.ResetEvent(interrupt_event)
+                    rc = rwin32.WaitForMultipleObjects([interrupt_event, timer])
+                else:
+                    rc = rwin32.WaitForSingleObject(timer, rwin32.INFINITE)
+                if rc == rwin32.WAIT_FAILED:
+                    raise exception_from_saved_errno(space, space.w_OSError)
+                if rc == rwin32.WAIT_OBJECT_0:
+                    break
+            else:
+                NULL_TS = lltype.nullptr(lltype.Ptr(TIMESPEC).TO)
+                if rtime.HAVE_CLOCK_NANOSLEEP:
+                    ret = clock_nanosleep(rtime.CLOCK_MONOTONIC, TIMER_ABSTIME, timeout_abs, NULL_TS);
+                    pass
+                elif rtime.HAVE_NANOSLEEP:
+                    if _PyTime_AsTimespec(timeout, timeout_ts) < 0:
+                        raise oefmt(space.w_OverflowError,
+                            "timestamp out of range for platform time_t")
+                    ret = nanosleep(timeout_ts, NULL_TS);
+                    if ret == 0:
+                        break
+                    if ret != EINTR:
+                        print("nanosleep", ret)
+                        raise exception_from_saved_errno(space, space.w_OSError)
+                else:
+                    if _PyTime_AsTimeval(timeout, timeout_tv, _PyTime_ROUND_CEILING) < 0:
+                        raise oefmt(space.w_OverflowError,
+                            "timestamp out of range for platform time_t")
+                    ret = rffi.cast(rffi.LONG,
+                                    c_select(0, NULL, NULL, NULL, timeout_tv))
+                if ret == 0:
+                    break    # normal path
+                if ret != EINTR:
+                    raise exception_from_saved_errno(space, space.w_OSError)
+            space.getexecutioncontext().checksignals()
+            timeout = deadline - _monotonic_impl(space, None)   # retry
+            if timeout <= 0:
+                break
+    finally:
+        if timeout_abs:
+            lltype.free(timeout_abs, flavor='raw')
+        if timeout_ts:
+            lltype.free(timeout_ts, flavor='raw')
+        if timeout_tv:
+            lltype.free(timeout_tv, flavor='raw')
+        if _WIN and timer:
+            rwin32.CloseHandle(timer)
 
 
 def _get_module_object(space, obj_name):
@@ -720,32 +873,38 @@ def _checktm(space, t_ref):
     if not 0 <= rffi.getintfield(t_ref, 'c_tm_yday') <= 365:
         raise oefmt(space.w_ValueError, "day of year out of range")
 
-def _time_impl(space, w_info, return_ns):
-    if HAS_CLOCK_GETTIME_RUNTIME:
-        with lltype.scoped_alloc(TIMESPEC) as timespec:
-            ret = c_clock_gettime(rtime.CLOCK_REALTIME, timespec)
-            if ret == 0:
-                if w_info is not None:
-                    with lltype.scoped_alloc(TIMESPEC) as tsres:
-                        ret = c_clock_getres(rtime.CLOCK_REALTIME, tsres)
-                        if ret == 0:
-                            res = _timespec_to_seconds(tsres)
-                        else:
-                            res = 1e-9
-                        _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
-                                 res, False, True)
-                if return_ns:
-                    return space.newint(_timespec_to_nanoseconds(timespec))
-                else:
-                    return space.newfloat(_timespec_to_seconds(timespec))
-    return _gettimeofday_impl(space, w_info, return_ns)
+def _time_impl(space, w_info):
+    with lltype.scoped_alloc(rffi.CArray(pytime_t), 1) as t:
+        if w_info:
+            with lltype.scoped_alloc(rffi.CArray(clock_info_t), 1) as info:
+                res = _PyTime_GetSystemClockWithInfo(t, info)
+                implementation = rffi.constcharp2str(info[0].c_implementation)
+                resolution = info[0].c_resolution
+                mono = bool(widen(info[0].c_monotonic))
+                adjust =  bool(widen(info[0].c_adjustable))
+                _setinfo(space, w_info, implementation, resolution, mono, adjust)
 
-def time(space):
+        else:
+            res = _PyTime_GetSystemClockWithInfo(t, rffi.cast(rffi.CArrayPtr(clock_info_t), 0))
+        if res < 0:
+            raise oefmt(space.w_RuntimeError, "could not get system clock")
+        return widen(t[0])
+
+def time_time(space):
     """time() -> floating point number
 
     Return the current time in seconds since the Epoch.
     Fractions of a second may be present if the system clock provides them."""
-    return _time_impl(space, None, False)
+    t = _time_impl(space, None)
+    d = _PyTime_AsSecondsDouble(t)
+    return space.newfloat(d)
+
+def time_time_ns(space):
+    """time_ns() -> int
+
+    Return the current time in nanoseconds since the Epoch."""
+    t = _time_impl(space, None)
+    return space.newint(t)
 
 @unwrap_spec(name='text0')
 def _get_time_info(space, name, w_info):
@@ -753,25 +912,17 @@ def _get_time_info(space, name, w_info):
     Internal helper for get_clock_info
     """
     if name == 'time':
-        _time_impl(space, w_info, False)
-    elif name == 'monotonic' and HAS_MONOTONIC:
-        _monotonic_impl(space, w_info, False)
-    elif name == 'clock':
-        _clock_impl(space, w_info, False)
+        _time_impl(space, w_info)
+    elif name == 'monotonic':
+        _monotonic_impl(space, w_info)
     elif name == 'perf_counter':
-        _perf_counter_impl(space, w_info, False)
+        _perf_counter_impl(space, w_info)
     elif name == "process_time":
         _process_time_impl(space, w_info, False)
     elif name == "thread_time" and HAS_THREAD_TIME:
         _thread_time_impl(space, w_info, False)
     else:
         raise oefmt(space.w_ValueError, "unknown clock")
-
-def time_ns(space):
-    """time_ns() -> int
-    
-    Return the current time in nanoseconds since the Epoch."""
-    return _time_impl(space, None, True)
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
@@ -860,7 +1011,7 @@ def localtime(space, w_seconds=None):
         if not space.eq_w(daylight_w, space.newint(0)):
             offset -= 3600
         return _tm_to_tuple(space, p, zone=space.utf8_w(zone_w), offset=-offset)
-        
+
 
 def mktime(space, w_tup):
     """mktime(tuple) -> floating point number
@@ -884,7 +1035,7 @@ if HAS_CLOCK_GETTIME_RUNTIME:
 
     def _timespec_to_nanoseconds(timespec):
         return r_int64(timespec.c_tv_sec) * 10**9 + r_int64(timespec.c_tv_nsec)
-    
+
     def _clock_gettime_impl(space, clk_id, return_ns):
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_gettime(clk_id, timespec)
@@ -898,21 +1049,21 @@ if HAS_CLOCK_GETTIME_RUNTIME:
     @unwrap_spec(clk_id='c_int')
     def clock_gettime(space, clk_id):
         """clock_gettime(clk_id) -> float
-    
+
         Return the time of the specified clock clk_id."""
         return _clock_gettime_impl(space, clk_id, False)
 
     @unwrap_spec(clk_id='c_int')
     def clock_gettime_ns(space, clk_id):
         """clock_gettime_ns(clk_id) -> int
-    
+
         Return the time of the specified clock clk_id as nanoseconds."""
         return _clock_gettime_impl(space, clk_id, True)
 
     @unwrap_spec(clk_id='c_int', secs=float)
     def clock_settime(space, clk_id, secs):
         """clock_settime(clk_id, time)
-    
+
         Set the time of the specified clock clk_id."""
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             integer_secs = rffi.cast(TIMESPEC.c_tv_sec, secs)
@@ -926,7 +1077,7 @@ if HAS_CLOCK_GETTIME_RUNTIME:
     @unwrap_spec(clk_id='c_int', ns=r_int64)
     def clock_settime_ns(space, clk_id, ns):
         """clock_settime_ns(clk_id, time)
-    
+
         Set the time of the specified clock clk_id with nanoseconds."""
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             rffi.setintfield(timespec, 'c_tv_sec', ns // 10**9)
@@ -938,7 +1089,7 @@ if HAS_CLOCK_GETTIME_RUNTIME:
     @unwrap_spec(clk_id='c_int')
     def clock_getres(space, clk_id):
         """clock_getres(clk_id) -> floating point number
-    
+
         Return the resolution (precision) of the specified clock clk_id."""
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_getres(clk_id, timespec)
@@ -993,7 +1144,7 @@ def strftime(space, format, w_tup=None):
         tm_year = rffi.getintfield(buf_value, 'c_tm_year')
         if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
             raise oefmt(space.w_ValueError, "strftime() requires year in [1; 9999]")
-     
+
         # wcharp with track_allocation=True
         format_for_call = rffi.utf82wcharp(
                     format, codepoints_in_utf8(format))
@@ -1038,167 +1189,76 @@ def strftime(space, format, w_tup=None):
         if _WIN:
             rffi.free_wcharp(format_for_call)
 
-if HAS_MONOTONIC:
-    if _WIN:
-        _GetTickCount = rwin32.winexternal('GetTickCount', [], rwin32.DWORD)
-        def _monotonic_impl(space, w_info, return_ns):
-            result = 0
-            HAS_GETTICKCOUNT64 = time_state.check_GetTickCount64()
-            if HAS_GETTICKCOUNT64:
-                tick_count = time_state.GetTickCount64()
-            else:
-                ticks = _GetTickCount()
-                if ticks < time_state.last_ticks:
-                    time_state.n_overflow += 1
-                time_state.last_ticks = ticks
-                tick_count = math.ldexp(time_state.n_overflow, 32)
-                tick_count = tick_count + ticks
+def _monotonic_impl(space, w_info):
+    with lltype.scoped_alloc(rffi.CArray(pytime_t), 1) as t:
+        if w_info:
+            with lltype.scoped_alloc(rffi.CArray(clock_info_t), 1) as info:
+                res = _PyTime_GetMonotonicClockWithInfo(t, info)
+                implementation = rffi.constcharp2str(info[0].c_implementation)
+                resolution = info[0].c_resolution
+                mono = bool(widen(info[0].c_monotonic))
+                adjust =  bool(widen(info[0].c_adjustable))
+                _setinfo(space, w_info, implementation, resolution, mono, adjust)
 
-            if w_info is not None:
-                if HAS_GETTICKCOUNT64:
-                    implementation = "GetTickCount64()"
-                else:
-                    implementation = "GetTickCount()"
-                resolution = 1e-7
-                with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as time_adjustment, \
-                     lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as time_increment, \
-                     lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as is_time_adjustment_disabled:
-                    ok = _GetSystemTimeAdjustment(time_adjustment,
-                                                  time_increment,
-                                                  is_time_adjustment_disabled)
-                    if not ok:
-                        # Is this right? Cargo culting...
-                        raise wrap_oserror(space,
-                            rwin32.lastSavedWindowsError("GetSystemTimeAdjustment"))
-                    resolution = resolution * intmask(time_increment[0])
-                _setinfo(space, w_info, implementation, resolution, True, False)
+        else:
+            res = _PyTime_GetMonotonicClockWithInfo(t, rffi.cast(rffi.CArrayPtr(clock_info_t), 0))
+        if res < 0:
+            raise oefmt(space.w_RuntimeError, "could not get montonic clock")
+        return t[0]
 
-            if return_ns:
-                return space.newint(tolong(tick_count) * 10**6)
-            else:
-                return space.newfloat(tick_count * 1e-3)
 
-    elif _MACOSX:
-        c_mach_timebase_info = external('mach_timebase_info',
-                                        [lltype.Ptr(cConfig.TIMEBASE_INFO)],
-                                        lltype.Void)
-        c_mach_absolute_time = external('mach_absolute_time', [], rffi.ULONGLONG)
+def _monotonic(space):
+    t = _monotonic_impl(space, None)
+    d = _PyTime_AsSecondsDouble(t)
+    return d
 
-        timebase_info = lltype.malloc(cConfig.TIMEBASE_INFO, flavor='raw',
-                                      zero=True, immortal=True)
+def monotonic(space):
+    """monotonic() -> float
 
-        def _monotonic_impl(space, w_info, return_ns):
-            if rffi.getintfield(timebase_info, 'c_denom') == 0:
-                c_mach_timebase_info(timebase_info)
-            time = rffi.cast(lltype.Signed, c_mach_absolute_time())
-            numer = rffi.getintfield(timebase_info, 'c_numer')
-            denom = rffi.getintfield(timebase_info, 'c_denom')
-            nanosecs = r_int64(time) * numer / denom
-            if w_info is not None:
-                res = (numer / denom) * 1e-9
-                _setinfo(space, w_info, "mach_absolute_time()", res, True, False)
-            if return_ns:
-                return space.newint(nanosecs)
-            else:
-                secs = nanosecs / 10**9
-                rest = nanosecs % 10**9
-                return space.newfloat(float(secs) + float(rest) * 1e-9)
+    Monotonic clock, cannot go backward."""
+    d = _monotonic(space)
+    return space.newfloat(d)
 
-    else:
-        assert _POSIX
-        def _monotonic_impl(space, w_info, return_ns):
-            if rtime.CLOCK_HIGHRES is not None:
-                clk_id = rtime.CLOCK_HIGHRES
-                implementation = "clock_gettime(CLOCK_HIGHRES)"
-            else:
-                clk_id = rtime.CLOCK_MONOTONIC
-                implementation = "clock_gettime(CLOCK_MONOTONIC)"
-            w_result = _clock_gettime_impl(space, clk_id, return_ns)
-            if w_info is not None:
-                with lltype.scoped_alloc(TIMESPEC) as tsres:
-                    ret = c_clock_getres(clk_id, tsres)
-                    if ret == 0:
-                        res = _timespec_to_seconds(tsres)
-                    else:
-                        res = 1e-9
-                _setinfo(space, w_info, implementation, res, True, False)
-            return w_result
+def monotonic_ns(space):
+    """monotonic_ns() -> int
 
-    def monotonic(space):
-        """monotonic() -> float
-    
-        Monotonic clock, cannot go backward."""
-        return _monotonic_impl(space, None, False)
+    Monotonic clock, cannot go backward, as nanoseconds."""
+    t = _monotonic_impl(space, None)
+    return space.newint(t)
 
-    def monotonic_ns(space):
-        """monotonic_ns() -> int
-    
-        Monotonic clock, cannot go backward, as nanoseconds."""
-        return _monotonic_impl(space, None, True)
+def _perf_counter_impl(space, w_info):
+    with lltype.scoped_alloc(rffi.CArray(pytime_t), 1) as t:
+        if w_info:
+            with lltype.scoped_alloc(rffi.CArray(clock_info_t), 1) as info:
+                res = _PyTime_GetPerfCounterWithInfo(t, info)
+                implementation = rffi.constcharp2str(info[0].c_implementation)
+                resolution = info[0].c_resolution
+                mono = bool(widen(info[0].c_monotonic))
+                adjust =  bool(widen(info[0].c_adjustable))
+                _setinfo(space, w_info, implementation, resolution, mono, adjust)
 
-if _WIN:
-    # hacking to avoid LARGE_INTEGER which is a union...
-    QueryPerformanceCounter = external(
-        'QueryPerformanceCounter', [rffi.CArrayPtr(lltype.SignedLongLong)],
-         lltype.Void)
-    QueryPerformanceCounter = rwin32.winexternal('QueryPerformanceCounter',
-                                                 [rffi.CArrayPtr(lltype.SignedLongLong)],
-                                                 rwin32.DWORD)
-    QueryPerformanceFrequency = rwin32.winexternal(
-        'QueryPerformanceFrequency', [rffi.CArrayPtr(lltype.SignedLongLong)],
-        rffi.INT)
-    def _win_perf_counter_impl(space, w_info, return_ns):
-        with lltype.scoped_alloc(rffi.CArray(rffi.lltype.SignedLongLong), 1) as a:
-            succeeded = True
-            if time_state.divisor == 0:
-                QueryPerformanceCounter(a)
-                time_state.counter_start = a[0]
-                succeeded = QueryPerformanceFrequency(a)
-                time_state.divisor = a[0]
-            if succeeded and time_state.divisor != 0:
-                QueryPerformanceCounter(a)
-                diff = a[0] - time_state.counter_start
-            else:
-                raise ValueError("Failed to generate the result.")
-            if w_info is not None:
-                resolution = 1 / float(time_state.divisor)
-                _setinfo(space, w_info, "QueryPerformanceCounter()", resolution,
-                         True, False)
-            if return_ns:
-                return space.newint((diff * r_longlong(10**9)) // r_longlong(time_state.divisor))
-            else:
-                return space.newfloat(float(diff) / float(time_state.divisor))
-
-    def _perf_counter_impl(space, w_info, return_ns):
-        try:
-            return _win_perf_counter_impl(space, w_info, return_ns)
-        except ValueError:
-            if HAS_MONOTONIC:
-                try:
-                    return _monotonic_impl(space, w_info, return_ns)
-                except Exception:
-                    pass
-        return _time_impl(space, w_info, return_ns)
-else:
-    def _perf_counter_impl(space, w_info, return_ns):
-        if HAS_MONOTONIC:
-            try:
-                return _monotonic_impl(space, w_info, return_ns)
-            except Exception:
-                pass
-        return _time_impl(space, w_info, return_ns)
+        else:
+            res = _PyTime_GetPerfCounterWithInfo(t, rffi.cast(rffi.CArrayPtr(clock_info_t), 0))
+        if res < 0:
+            raise oefmt(space.w_RuntimeError, "could not get perf_counter")
+        return t[0]
 
 def perf_counter(space):
     """perf_counter() -> float
-    
+
     Performance counter for benchmarking."""
-    return _perf_counter_impl(space, None, False)
+
+    t = _perf_counter_impl(space, None)
+    d = _PyTime_AsSecondsDouble(t)
+    return space.newfloat(d)
 
 def perf_counter_ns(space):
     """perf_counter_ns() -> int
-    
+
     Performance counter for benchmarking as nanoseconds."""
-    return _perf_counter_impl(space, None, True)
+    t = _perf_counter_impl(space, None)
+    return space.newint(t)
+
 
 if _WIN:
     def _process_time_impl(space, w_info, return_ns):
@@ -1221,9 +1281,9 @@ if _WIN:
             _setinfo(space, w_info, "GetProcessTimes()", 1e-7, True, False)
         if return_ns:
             return space.newint((tolong(kernel_time2) +
-                                 tolong(user_time2)) * 10**2)
+                                 tolong(user_time2)) * 100)
         else:
-            return space.newfloat((float(kernel_time2) + 
+            return space.newfloat((float(kernel_time2) +
                                    float(user_time2)) * 1e-7)
 else:
     have_times = hasattr(rposix, 'c_times')
@@ -1302,13 +1362,11 @@ def process_time_ns(space):
 
 if HAS_THREAD_TIME:
     if _WIN:
+        FILETIME_P = lltype.Ptr(rwin32.FILETIME)
         _GetCurrentThread = rwin32.winexternal('GetCurrentThread', [], rwin32.HANDLE)
-        _GetThreadTimes = rwin32.winexternal('GetThreadTimes', [rwin32.HANDLE,
-                                                                lltype.Ptr(rwin32.FILETIME),
-                                                                lltype.Ptr(rwin32.FILETIME),
-                                                                lltype.Ptr(rwin32.FILETIME),
-                                                                lltype.Ptr(rwin32.FILETIME)],
-                                                               rwin32.BOOL)
+        _GetThreadTimes = rwin32.winexternal('GetThreadTimes',
+                [rwin32.HANDLE, FILETIME_P, FILETIME_P, FILETIME_P, FILETIME_P],
+                rwin32.BOOL)
         def _thread_time_impl(space, w_info, return_ns):
             thread = _GetCurrentThread()
 
@@ -1325,7 +1383,7 @@ if HAS_THREAD_TIME:
                          r_ulonglong(kernel_time.c_dwHighDateTime) << 32)
                 utime = (user_time.c_dwLowDateTime |
                          r_ulonglong(user_time.c_dwHighDateTime) << 32)
-            
+
             if w_info is not None:
                 _setinfo(space, w_info, "GetThreadTimes()", 1e-7, True, False)
 
@@ -1349,8 +1407,7 @@ if HAS_THREAD_TIME:
                                 res = _timespec_to_seconds(tsres)
                             else:
                                 res = 1e-9
-                        _setinfo(space, w_info,
-                                 implementation, res, True, False)
+                        _setinfo(space, w_info, implementation, res, True, False)
                     if return_ns:
                         return space.newint(_timespec_to_nanoseconds(timespec))
                     else:
@@ -1369,13 +1426,9 @@ if HAS_THREAD_TIME:
         sum of the kernel and user-space CPU time."""
         return _thread_time_impl(space, None, True)
 
+
 _clock = external('clock', [], rposix.CLOCK_T)
 def _clock_impl(space, w_info, return_ns):
-    space.warn(space.newtext(
-        "time.clock has been deprecated in Python 3.3 and will "
-        "be removed from Python 3.8: "
-        "use time.perf_counter or time.process_time "
-        "instead"), space.w_DeprecationWarning)
     if _WIN:
         try:
             return _win_perf_counter_impl(space, w_info, return_ns)
@@ -1392,20 +1445,11 @@ def _clock_impl(space, w_info, return_ns):
         value = intmask(value)
 
     if w_info is not None:
-        _setinfo(space, w_info,
-                 "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
+        _setinfo(space, w_info, "clock()", 1.0 / CLOCKS_PER_SEC, True, False)
     if return_ns:
         return space.newint(r_int64(value) * 10**9 // CLOCKS_PER_SEC)
     else:
         return space.newfloat(float(value) / CLOCKS_PER_SEC)
-
-def clock(space):
-    """clock() -> floating point number
-
-    Return the CPU time or real time since the start of the process or since
-    the first call to clock().  This has as much precision as the system
-    records."""
-    return _clock_impl(space, None, False)
 
 
 def _setinfo(space, w_info, impl, res, mono, adj):

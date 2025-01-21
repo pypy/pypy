@@ -4,7 +4,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.error import exception_from_saved_errno, wrap_oserror
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.typedef import TypeDef, generic_new_descr, GetSetProperty
-from pypy.interpreter import timeutils
+from pypy.module.time import timeutils
 from rpython.rlib._rsocket_rffi import socketclose_no_errno
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib import rposix

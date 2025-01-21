@@ -10,7 +10,7 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import (
     Unwrapper, WrappedDefault, interp2app, unwrap_spec)
 from pypy.interpreter.typedef import TypeDef
-from pypy.interpreter import timeutils
+from pypy.module.time import timeutils
 
 defaultevents = rpoll.POLLIN | rpoll.POLLOUT | rpoll.POLLPRI
 
