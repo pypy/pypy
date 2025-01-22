@@ -122,6 +122,11 @@ def make_portable():
 
     deps = gather_deps(binaries)
 
+    # Add libunwind manually, because we load it at runtime with dlsym
+    # Must be set to the path where libunwind is installed
+    if os.path.exists("/usr/local/lib/libunwind.so"):
+        deps["libunwind.so"] = "/usr/local/lib/libunwind.so"
+
     copied = copy_deps(deps)
 
     for path, item in copied.items():

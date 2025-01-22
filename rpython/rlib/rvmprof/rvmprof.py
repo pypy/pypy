@@ -143,6 +143,10 @@ class VMProf(object):
             native = 0 # force disabled on Windows
         lines = 0 # not supported on PyPy currently
 
+        # Load unw_get_proc_name_by_ip from libunwind if available and use that later for native address resolving
+        if native == 1 and self.supports_native_profiling() and not cintf.IS_DARWIN:
+            self.cintf.vmprof_load_libunwind_addr_resolve()
+
         p_error = self.cintf.vmprof_init(fileno, interval, memory, lines, "pypy", native, real_time)
         if p_error:
             raise VMProfError(rffi.charp2str(p_error))
@@ -160,6 +164,10 @@ class VMProf(object):
         """
         if not self.is_enabled:
             raise VMProfError("vmprof is not enabled")
+
+        if self.supports_native_profiling() and not cintf.IS_DARWIN:
+            self.cintf.vmprof_close_libunwind_addr_resolve()
+
         self.is_enabled = False
         res = self.cintf.vmprof_disable()
         if res < 0:
@@ -186,7 +194,7 @@ class VMProf(object):
         Undo the effect of stop_sampling
         """
         self.cintf.vmprof_start_sampling()
-    
+
     def supports_native_profiling(self):
         return cintf.NATIVE_PROFILING_SUPPORTED
 
@@ -207,10 +215,10 @@ class VMProf(object):
                     intbuffer[0] = rffi.cast(rffi.INT_real, 0)
                     length = rffi.cast(rffi.INT, 256)
                     res = self.cintf.vmprof_resolve_address(rffi.cast(rffi.VOIDP, addr), namebuffer.raw, length, intbuffer, sourcefilebuffer.raw, length)
-                    
+
                     if rffi.cast(lltype.Signed, res) != 0:
                         return ("", 0, "-")
-                    
+
                     return (rffi.charp2str(namebuffer.raw), rffi.cast(rffi.SIGNED, intbuffer[0]), rffi.charp2str(sourcefilebuffer.raw))
 
 
