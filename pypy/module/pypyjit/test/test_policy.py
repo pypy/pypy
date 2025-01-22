@@ -29,8 +29,8 @@ def test_thread_local():
     assert pypypolicy.look_inside_function(get_ident)
 
 def test_time():
-    from pypy.module.time.interp_time import time
-    assert pypypolicy.look_inside_function(time)
+    from pypy.module.time.interp_time import time_time
+    assert pypypolicy.look_inside_function(time_time)
 
 def test_io():
     from pypy.module._io.interp_bytesio import W_BytesIO
