@@ -122,9 +122,10 @@ def make_portable():
 
     deps = gather_deps(binaries)
 
-    # Add libunwind manually, because its no binarys dependency (we load libunwind at runtime with dlsym)
-    # Must be set to the path where libunwind is installed to in dockerfile
-    deps["libunwind.so"] = "/usr/local/lib/libunwind.so"
+    # Add libunwind manually, because we load it at runtime with dlsym
+    # Must be set to the path where libunwind is installed
+    if os.path.exists("/usr/local/lib/libunwind.so"):
+        deps["libunwind.so"] = "/usr/local/lib/libunwind.so"
 
     copied = copy_deps(deps)
 

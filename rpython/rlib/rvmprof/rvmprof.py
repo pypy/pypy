@@ -164,7 +164,7 @@ class VMProf(object):
         """
         if not self.is_enabled:
             raise VMProfError("vmprof is not enabled")
-        
+
         if self.supports_native_profiling() and not cintf.IS_DARWIN:
             self.cintf.vmprof_close_libunwind_addr_resolve()
 
@@ -194,10 +194,10 @@ class VMProf(object):
         Undo the effect of stop_sampling
         """
         self.cintf.vmprof_start_sampling()
-    
+
     def supports_native_profiling(self):
         return cintf.NATIVE_PROFILING_SUPPORTED
-    
+
     def vmprof_resolve_address(self, addr):
         """
         Resolve name, lineno and source file for an address of a native function
@@ -215,10 +215,10 @@ class VMProf(object):
                     intbuffer[0] = rffi.cast(rffi.INT_real, 0)
                     length = rffi.cast(rffi.INT, 256)
                     res = self.cintf.vmprof_resolve_address(rffi.cast(rffi.VOIDP, addr), namebuffer.raw, length, intbuffer, sourcefilebuffer.raw, length)
-                    
+
                     if rffi.cast(lltype.Signed, res) != 0:
                         return ("", 0, "-")
-                    
+
                     return (rffi.charp2str(namebuffer.raw), rffi.cast(rffi.SIGNED, intbuffer[0]), rffi.charp2str(sourcefilebuffer.raw))
 
 
