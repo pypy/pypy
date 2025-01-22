@@ -530,6 +530,54 @@ class TestObject(HPyTest):
         with pytest.raises(TypeError):
             mod.f([])
 
+    def test_getslice(self):
+        import pytest
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", HPyFunc_VARARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self, const HPy *args, size_t nargs)
+            {
+                HPy seq;
+                HPy_ssize_t i1, i2;
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "Onn", &seq, &i1, &i2)) {
+                    return HPy_NULL;
+                }
+                if (HPy_Is(ctx, seq, ctx->h_None)) {
+                    seq = HPy_NULL;
+                }
+                return HPy_GetSlice(ctx, seq, i1, i2);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        l = [1,2,3,4,5]
+        assert mod.f(l, 0, 5) == l
+        assert mod.f(l, 2, 3) == [3]
+        assert mod.f(l, 1, 3) == [2, 3]
+
+        s = "hello"
+        assert mod.f(s, 0, 5) == "hello"
+        assert mod.f(s, 1, 3) == "el"
+
+        class Sliceable:
+            def __getitem__(self, key):
+                # assume 'key' is a slice
+                if key.start < 0:
+                    raise ValueError
+                return key.start + key.stop
+
+        o = Sliceable()
+        assert mod.f(o, 5, 13) == 18
+
+        # test that errors are propagated
+        with pytest.raises(ValueError):
+            mod.f(o, -1, 1)
+
+        # 'None' will be mapped to 'HPy_NULL' by the C function
+        with pytest.raises(SystemError):
+            mod.f(None, 0, 1)
+        with pytest.raises(TypeError):
+            mod.f(123, 0, 1)
+
     def test_setitem(self):
         import pytest
         mod = self.make_module("""
@@ -603,6 +651,67 @@ class TestObject(HPyTest):
         with pytest.raises(TypeError):
             mod.f([])
 
+    def test_setslice(self):
+        import pytest
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", HPyFunc_VARARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self, const HPy *args, size_t nargs)
+            {
+                int res;
+                HPy seq, value;
+                HPy_ssize_t i1, i2;
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "OnnO", &seq, &i1, &i2, &value)) {
+                    return HPy_NULL;
+                }
+                if (HPy_Is(ctx, seq, ctx->h_None)) {
+                    seq = HPy_NULL;
+                }
+                res = HPy_SetSlice(ctx, seq, i1, i2, value);
+                if (res == 0) {
+                    return HPy_Dup(ctx, seq);
+                } else if (res == -1) {
+                    return HPy_NULL;
+                }
+                HPyErr_SetString(ctx, ctx->h_SystemError,
+                    "HPy_SetSlice returned an invalid result code");
+                return HPy_NULL;
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        l = [1,2,3,4,5]
+        val = [11,22,33,44,55]
+        x = mod.f(l, 0, 5, val)
+        assert x is l
+        assert x is not val
+        assert l == val
+
+        l = [1,2,3,4,5]
+        assert mod.f(l, 0, 5, []) == []
+
+        l = [1,2,3,4,5]
+        assert mod.f(l, 1, 3, [10, 11, 12]) == [1, 10, 11, 12, 4, 5]
+
+        class Sliceable:
+            def __setitem__(self, key, value):
+                # assume 'key' is a slice
+                if key.start < 0:
+                    raise ValueError
+                self.value = (key.start, key.stop, value)
+
+        o = Sliceable()
+        assert mod.f(o, 5, 13, [7, 8, 9]).value == (5, 13, [7, 8, 9])
+
+        # test that errors are propagated
+        with pytest.raises(ValueError):
+            mod.f(o, -1, 1, [])
+
+        # 'None' will be mapped to 'HPy_NULL' by the C function
+        with pytest.raises(SystemError):
+            mod.f(None, 0, 1, [])
+        with pytest.raises(TypeError):
+            mod.f(123, 0, 1, [])
+
     def test_delitem(self):
         import pytest
         mod = self.make_module("""
@@ -675,6 +784,62 @@ class TestObject(HPyTest):
         with pytest.raises(TypeError):
             mod.delitem_s3([1, 2, 3, 4])
 
+    def test_delslice(self):
+        import pytest
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", HPyFunc_VARARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self, const HPy *args, size_t nargs)
+            {
+                int res;
+                HPy seq;
+                HPy_ssize_t i1, i2;
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "Onn", &seq, &i1, &i2)) {
+                    return HPy_NULL;
+                }
+                if (HPy_Is(ctx, seq, ctx->h_None)) {
+                    seq = HPy_NULL;
+                }
+                res = HPy_DelSlice(ctx, seq, i1, i2);
+                if (res == 0) {
+                    return HPy_Dup(ctx, seq);
+                } else if (res == -1) {
+                    return HPy_NULL;
+                }
+                HPyErr_SetString(ctx, ctx->h_SystemError,
+                    "HPy_DelSlice returned an invalid result code");
+                return HPy_NULL;
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        l = [1,2,3,4,5]
+        x = mod.f(l, 0, 5)
+        assert x is l
+        assert l == []
+
+        l = [1,2,3,4,5]
+        assert mod.f(l, 1, 3) == [1, 4, 5]
+
+        class Sliceable:
+            def __delitem__(self, key):
+                # assume 'key' is a slice
+                if key.start < 0:
+                    raise ValueError
+                self.value = key.start + key.stop
+
+        o = Sliceable()
+        assert mod.f(o, 5, 13).value == 18
+
+        # test that errors are propagated
+        with pytest.raises(ValueError):
+            mod.f(o, -1, 1)
+
+        # 'None' will be mapped to 'HPy_NULL' by the C function
+        with pytest.raises(SystemError):
+            mod.f(None, 0, 1)
+        with pytest.raises(TypeError):
+            mod.f(123, 0, 1)
+
     def test_length(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", HPyFunc_O)
@@ -740,6 +905,64 @@ class TestObject(HPyTest):
         import pytest
         with pytest.raises(TypeError):
             mod.f(Dummy(), 42)
+    
+    def test_getiter(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", HPyFunc_O)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                HPy iterator;
+                iterator = HPy_GetIter(ctx, arg);
+                if HPy_IsNull(iterator)
+                    return HPy_NULL;
+                return iterator;
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+
+        def test_for_loop(iterator):
+            results = []
+            for obj in iterator:
+                results.append(obj)
+            return results
+
+        class WithIter:
+            def __iter__(self):
+                return (1, 2, 3).__iter__()
+
+        class WithoutIter:
+            pass
+
+        case = [1, 2, 3]
+        result = mod.f(case)
+        assert result
+        assert test_for_loop(result) == [1, 2, 3]
+
+        case = iter([1, 2, 3])
+        result = mod.f(case)
+        assert result
+        assert test_for_loop(result) == [1, 2, 3]
+
+        case = zip((1, 2, 3), [4, 5, 6])
+        result = mod.f(case)
+        assert result
+        assert test_for_loop(result) == [(1, 4), (2, 5), (3, 6)]
+
+        case = range(10)
+        result = mod.f(case)
+        assert result
+        assert test_for_loop(result) == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+        case = WithIter()
+        result = mod.f(case)
+        assert result
+        assert test_for_loop(result) == [1, 2, 3]
+
+        import pytest
+        with pytest.raises(TypeError):
+            assert mod.f(WithoutIter())
+
 
     def test_dump(self):
         # _HPy_Dump is supposed to be used e.g. inside a gdb session: it

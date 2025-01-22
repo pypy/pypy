@@ -540,7 +540,7 @@ SLOTS = unrolling_iterable([
     ('tp_call',                    '__call__',      W_wrap_call),
 #   ('tp_clear',                   '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_del',                     '__xxx__',       AGS.W_SlotWrapper_...),
-#   ('tp_descr_get',               '__xxx__',       AGS.W_SlotWrapper_...),
+    ('tp_descr_get',               '__get__',       W_wrap_ternaryfunc),
 #   ('tp_descr_set',               '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_doc',                     '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_getattr',                 '__xxx__',       AGS.W_SlotWrapper_...),

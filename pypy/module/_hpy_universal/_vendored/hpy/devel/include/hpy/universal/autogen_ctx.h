@@ -258,6 +258,7 @@ struct _HPyContext_s {
     HPy h_CapsuleType;
     HPy h_SliceType;
     HPy h_Builtins;
+    HPy h_DictType;
     HPy (*ctx_Capsule_New)(HPyContext *ctx, void *pointer, const char *utf8_name, HPyCapsule_Destructor *destructor);
     void *(*ctx_Capsule_Get)(HPyContext *ctx, HPy capsule, _HPyCapsule_key key, const char *utf8_name);
     int (*ctx_Capsule_IsValid)(HPyContext *ctx, HPy capsule, const char *utf8_name);
@@ -277,7 +278,6 @@ struct _HPyContext_s {
     int (*ctx_SetCallFunction)(HPyContext *ctx, HPy h, HPyCallFunction *func);
     HPy (*ctx_Call)(HPyContext *ctx, HPy callable, const HPy *args, size_t nargs, HPy kwnames);
     HPy (*ctx_CallMethod)(HPyContext *ctx, HPy name, const HPy *args, size_t nargs, HPy kwnames);
-    HPy h_DictType;
     void *(*ctx_AsStruct_Dict)(HPyContext *ctx, HPy h);
     int (*ctx_List_Insert)(HPyContext *ctx, HPy h_list, HPy_ssize_t index, HPy h_item);
     HPy (*ctx_GetSlice)(HPyContext *ctx, HPy obj, HPy_ssize_t start, HPy_ssize_t end);
