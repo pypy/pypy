@@ -106,6 +106,7 @@ CONSTANTS = [
     ('MemoryViewType', lambda space: space.w_memoryview),
     ('SliceType', lambda space: space.w_slice),
     ('Builtins', lambda space: space.getattr(space.builtin, space.newtext("__dict__"))),
+    ('DictType', lambda space: space.w_dict),
     ('CapsuleType', lambda space: space.gettypeobject(W_Capsule.typedef)),
 ]
 

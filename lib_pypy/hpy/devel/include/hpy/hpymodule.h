@@ -129,12 +129,16 @@ typedef struct {
  */
 #define HPy_MODINIT(ext_name, mod_def)                         \
     HPy_EXPORTED_FUNC uint32_t                                 \
+    get_required_hpy_major_version_##ext_name(void);           \
+    HPy_EXPORTED_FUNC uint32_t                                 \
     get_required_hpy_major_version_##ext_name()                \
     {                                                          \
         return HPY_ABI_VERSION;                                \
     }                                                          \
     HPy_EXPORTED_FUNC uint32_t                                 \
-    get_required_hpy_minor_version_##ext_name()                \
+    get_required_hpy_minor_version_##ext_name(void);           \
+    uint32_t                                                   \
+    get_required_hpy_minor_version_##ext_name(void)            \
     {                                                          \
         return HPY_ABI_VERSION_MINOR;                          \
     }                                                          \
@@ -145,7 +149,8 @@ typedef struct {
         _ctx_for_trampolines = ctx;                            \
     }                                                          \
     HPy_EXPORTED_FUNC HPyModuleDef*                            \
-    HPyInit_##ext_name()                                       \
+    HPyInit_##ext_name(void);                                  \
+    HPyModuleDef *HPyInit_##ext_name()                         \
     {                                                          \
         return &mod_def;                                       \
     }

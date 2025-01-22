@@ -1,6 +1,5 @@
 import os
 import pytest
-import sys
 from ..support import SUPPORTS_SYS_EXECUTABLE, SUPPORTS_MEM_PROTECTION
 
 # Tests detection of usage of char pointers associated with invalid already

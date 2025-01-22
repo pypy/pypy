@@ -10,7 +10,7 @@ extern "C" {
 #include "hpy/autogen_hpyslot.h"
 #include "hpy/cpy_types.h"
 
-typedef void* (*HPyCFunction)();
+typedef void* (*HPyCFunction)(void);
 typedef void (*HPyFunc_Capsule_Destructor)(const char *name, void *pointer, void *context);
 
 /**

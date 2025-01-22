@@ -347,7 +347,7 @@ static inline HPyDebugInfo *get_info(HPyContext *dctx)
 
 HPyContext* hpy_debug_get_next_dctx_from_cache(HPyContext *dctx);
 
-void report_invalid_debug_context(void);
+void report_invalid_debug_context();
 
 void *raw_data_copy(const void* data, HPy_ssize_t size, bool write_protect);
 void raw_data_protect(void* data, HPy_ssize_t size);

@@ -46,7 +46,7 @@ void hpy_debug_close_handle(HPyContext *dctx, HPy dh);
 extern "C"
 #endif
 HPy_EXPORTED_SYMBOL
-HPyModuleDef* HPyInit__debug(void);
+HPyModuleDef* HPyInit__debug();
 
 #ifdef ___cplusplus
 extern "C"

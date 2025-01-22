@@ -7,6 +7,6 @@ diff --git a/pypy/module/_hpy_universal/_vendored/hpy/devel/include/hpy/hpydef.h
  
 -typedef void* (*HPyCFunction)();
 +typedef void* (*HPyCFunction)(void);
- 
- typedef struct {
-     HPySlot_Slot slot;     // The slot to fill
+ typedef void (*HPyFunc_Capsule_Destructor)(const char *name, void *pointer, void *context);
+
+ /**

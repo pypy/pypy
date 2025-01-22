@@ -108,3 +108,31 @@ class TestSlice(HPyTest):
         assert mod.f(10, 9, 0, -3) == (3, 9, 0, -3)
         assert mod.f(10, -1, -10, -3) == (3, 9, 0, -3)
         assert mod.f(10, 5, 5, -3) == (0, 5, 5, -3)
+
+    def test_new(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", HPyFunc_VARARGS)
+            static HPy f_impl(HPyContext *ctx, HPy self, const HPy *args, size_t nargs)
+            {
+                HPy start, stop, step;
+
+                if (nargs != 3) {
+                    HPyErr_SetString(ctx, ctx->h_TypeError,
+                        "expected exactly 3 arguments");
+                    return HPy_NULL;
+                }
+
+                if (HPyArg_Parse(ctx, NULL, args, nargs, "OOO",
+                        &start, &stop, &step) < 0) {
+                    return HPy_NULL;
+                }
+                return HPySlice_New(ctx, start, stop, step);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+
+        assert mod.f(0, 10, 1) == slice(0, 10, 1)
+        assert mod.f(None, 10, 1) == slice(None, 10, 1)
+        assert mod.f(1, None, 1) == slice(1, None, 1)
+        assert mod.f(0, 10, None) == slice(0, 10, None)

@@ -76,6 +76,7 @@ FULLY_ALIGNED_SPACE(PyFloatObject)
 FULLY_ALIGNED_SPACE(PyUnicodeObject)
 FULLY_ALIGNED_SPACE(PyTupleObject)
 FULLY_ALIGNED_SPACE(PyListObject)
+FULLY_ALIGNED_SPACE(PyDictObject)
 
 #define _HPy_HEAD_SIZE(HEAD) (offsetof(_HPy_FullyAlignedSpaceFor##HEAD, payload))
 
@@ -101,6 +102,8 @@ _HPy_GetHeaderSize(HPyType_BuiltinShape shape)
         return _HPy_HEAD_SIZE(PyTupleObject);
     case HPyType_BuiltinShape_List:
         return _HPy_HEAD_SIZE(PyListObject);
+    case HPyType_BuiltinShape_Dict:
+        return _HPy_HEAD_SIZE(PyDictObject);
     }
     return -1;
 }
@@ -1502,6 +1505,12 @@ _HPy_HIDDEN void*
 ctx_AsStruct_List(HPyContext *ctx, HPy h)
 {
     return _HPy_Payload(_h2py(h), HPyType_BuiltinShape_List);
+}
+
+_HPy_HIDDEN void*
+ctx_AsStruct_Dict(HPyContext *ctx, HPy h)
+{
+    return _HPy_Payload(_h2py(h), HPyType_BuiltinShape_Dict);
 }
 
 _HPy_HIDDEN void*

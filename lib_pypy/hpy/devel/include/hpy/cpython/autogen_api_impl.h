@@ -240,6 +240,21 @@ HPyAPI_FUNC int HPyCallable_Check(HPyContext *ctx, HPy h)
     return PyCallable_Check(_h2py(h));
 }
 
+HPyAPI_FUNC HPy HPy_GetIter(HPyContext *ctx, HPy obj)
+{
+    return _py2h(PyObject_GetIter(_h2py(obj)));
+}
+
+HPyAPI_FUNC HPy HPyIter_Next(HPyContext *ctx, HPy obj)
+{
+    return _py2h(PyIter_Next(_h2py(obj)));
+}
+
+HPyAPI_FUNC int HPyIter_Check(HPyContext *ctx, HPy obj)
+{
+    return PyIter_Check(_h2py(obj));
+}
+
 HPyAPI_FUNC HPy HPyErr_SetString(HPyContext *ctx, HPy h_type, const char *utf8_message)
 {
     PyErr_SetString(_h2py(h_type), utf8_message);
@@ -339,6 +354,11 @@ HPyAPI_FUNC HPy HPy_GetItem(HPyContext *ctx, HPy obj, HPy key)
     return _py2h(PyObject_GetItem(_h2py(obj), _h2py(key)));
 }
 
+HPyAPI_FUNC HPy HPy_GetSlice(HPyContext *ctx, HPy obj, HPy_ssize_t start, HPy_ssize_t end)
+{
+    return _py2h(PySequence_GetSlice(_h2py(obj), start, end));
+}
+
 HPyAPI_FUNC int HPy_Contains(HPyContext *ctx, HPy container, HPy key)
 {
     return PySequence_Contains(_h2py(container), _h2py(key));
@@ -349,14 +369,19 @@ HPyAPI_FUNC int HPy_SetItem(HPyContext *ctx, HPy obj, HPy key, HPy value)
     return PyObject_SetItem(_h2py(obj), _h2py(key), _h2py(value));
 }
 
+HPyAPI_FUNC int HPy_SetSlice(HPyContext *ctx, HPy obj, HPy_ssize_t start, HPy_ssize_t end, HPy value)
+{
+    return PySequence_SetSlice(_h2py(obj), start, end, _h2py(value));
+}
+
 HPyAPI_FUNC int HPy_DelItem(HPyContext *ctx, HPy obj, HPy key)
 {
     return PyObject_DelItem(_h2py(obj), _h2py(key));
 }
 
-HPyAPI_FUNC HPy HPy_Type(HPyContext *ctx, HPy obj)
+HPyAPI_FUNC int HPy_DelSlice(HPyContext *ctx, HPy obj, HPy_ssize_t start, HPy_ssize_t end)
 {
-    return _py2h(PyObject_Type(_h2py(obj)));
+    return PySequence_DelSlice(_h2py(obj), start, end);
 }
 
 HPyAPI_FUNC HPy HPy_Repr(HPyContext *ctx, HPy obj)
@@ -514,6 +539,11 @@ HPyAPI_FUNC int HPyList_Append(HPyContext *ctx, HPy h_list, HPy h_item)
     return PyList_Append(_h2py(h_list), _h2py(h_item));
 }
 
+HPyAPI_FUNC int HPyList_Insert(HPyContext *ctx, HPy h_list, HPy_ssize_t index, HPy h_item)
+{
+    return PyList_Insert(_h2py(h_list), index, _h2py(h_item));
+}
+
 HPyAPI_FUNC int HPyDict_Check(HPyContext *ctx, HPy h)
 {
     return PyDict_Check(_h2py(h));
@@ -537,6 +567,11 @@ HPyAPI_FUNC HPy HPyDict_Copy(HPyContext *ctx, HPy h)
 HPyAPI_FUNC int HPyTuple_Check(HPyContext *ctx, HPy h)
 {
     return PyTuple_Check(_h2py(h));
+}
+
+HPyAPI_FUNC HPy HPySlice_New(HPyContext *ctx, HPy start, HPy stop, HPy step)
+{
+    return _py2h(PySlice_New(_h2py(start), _h2py(stop), _h2py(step)));
 }
 
 HPyAPI_FUNC int HPySlice_Unpack(HPyContext *ctx, HPy slice, HPy_ssize_t *start, HPy_ssize_t *stop, HPy_ssize_t *step)

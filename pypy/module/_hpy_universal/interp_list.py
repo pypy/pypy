@@ -28,3 +28,13 @@ def HPyList_Append(space, handles, ctx, h_list, h_item):
     w_item = handles.deref(h_item)
     w_list.append(w_item)
     return API.int(0)
+
+@API.func("int HPyList_Insert(HPyContext *ctx, HPy h_list, HPy_ssize_t index, HPy h_item)", error_value=API.int(-1))
+def HPyList_Insert(space, handles, ctx, h_list, index, h_item):
+    w_list = handles.deref(h_list)
+    # XXX the tests should check what happens in this case
+    if not space.isinstance_w(w_list, space.w_list):
+        raise oefmt(space.w_SystemError, "bad argument to HPyList_Insert")
+    w_item = handles.deref(h_item)
+    space.call_method(space.w_list, "insert", w_list, space.newint(index), w_item)
+    return API.int(0)

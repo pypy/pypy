@@ -3,8 +3,6 @@ In this file we check that if we use legacy features in universal mode, we
 get the expected compile time errors
 """
 
-import sys
-import pytest
 from .support import HPyTest, make_hpy_abi_fixture, ONLY_LINUX
 
 # this is not strictly correct, we should check whether the actual compiler

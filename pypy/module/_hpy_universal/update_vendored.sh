@@ -4,7 +4,7 @@ RED='\033[0;31m'
 YELLOW='\033[0;33;01m'
 RESET='\033[0m' # No Color
 
-set -e
+# set -e
 
 # <argument parsing>
 FORCE_VERSION=false
@@ -61,7 +61,7 @@ check_version_status() {
     popd > /dev/null
 
     sha_git=$(git -C "$HPY" rev-parse --short HEAD)
-    ver_dist=$(grep '^Version:' "$HPY/hpy.dist-info/METADATA" | cut -d ' ' -f 2)
+    ver_dist=$(grep '^Version:' $HPY/hpy-*.dist-info/METADATA | cut -d' ' -f2)
 
     if [ "$sha_git -- $ver_dist" != "$sha_py -- $ver_py" ]
     then
@@ -104,8 +104,10 @@ apply_patches() {
     fi
 
     pushd ${BASEDIR} > /dev/null
+    echo applying patches when cwd is $BASEDIR
     for FILE in pypy/module/_hpy_universal/patches/*.patch
     do
+        echo applying patches from $FILE 
         patch -p1 < $FILE
         if [ $? -ne 0 ]
         then
@@ -129,7 +131,7 @@ myrsync -a --delete ${HPY}/hpy/debug/src/ _vendored/hpy/debug/src/
 myrsync -a --delete ${HPY}/test/* ${BASEDIR}/extra_tests/hpy_tests/_vendored/
 rsync -a --delete ${HPY}/hpy/debug/*.py ${BASEDIR}/lib_pypy/hpy/debug/
 myrsync -a --delete ${HPY}/hpy/devel/ ${BASEDIR}/lib_pypy/hpy/devel/
-myrsync -a --delete ${HPY}/hpy.dist-info ${BASEDIR}/lib_pypy/
+myrsync -a --delete ${HPY}/hpy*.dist-info ${BASEDIR}/lib_pypy/
 apply_patches
 
 echo -e "${YELLOW}GIT status${RESET} of $HPY"

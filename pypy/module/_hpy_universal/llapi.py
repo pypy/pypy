@@ -362,6 +362,7 @@ typedef struct _HPyContext_s {
     struct _HPy_s h_CapsuleType;
     struct _HPy_s h_SliceType;
     struct _HPy_s h_Builtins;
+    struct _HPy_s h_DictType;
     void * ctx_Capsule_New;
     void * ctx_Capsule_Get;
     void * ctx_Capsule_IsValid;
@@ -381,6 +382,15 @@ typedef struct _HPyContext_s {
     void * ctx_SetCallFunction;
     void * ctx_Call;
     void * ctx_CallMethod;
+    void * ctx_AsStruct_Dict;
+    void * ctx_List_Insert;
+    void * ctx_GetSlice;
+    void * ctx_SetSlice;
+    void * ctx_DelSlice;
+    void * ctx_GetIter;
+    void * ctx_Iter_Next;
+    void * ctx_Iter_Check;
+    void * ctx_Slice_New;
 } _struct_HPyContext_s;
 
 typedef struct _HPyContext_s HPyContext;
