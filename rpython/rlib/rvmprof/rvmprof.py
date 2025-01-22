@@ -168,7 +168,6 @@ class VMProf(object):
         if self.supports_native_profiling() and not cintf.IS_DARWIN:
             self.cintf.vmprof_close_libunwind_addr_resolve()
 
-        self.cintf.vmprof_close_libunwind_addr_resolve()
         self.is_enabled = False
         res = self.cintf.vmprof_disable()
         if res < 0:

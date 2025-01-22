@@ -234,7 +234,6 @@ int vmp_load_libunwind(void) {
 
         // fallback! try to load the system's libunwind.so
         if ((libhandle = dlopen(LIBUNWIND, RTLD_LAZY | RTLD_LOCAL)) == NULL) {
-            printf("couldnt open %s \n", LIBUNWIND);
             goto bail_out;
         }
 loaded_libunwind:
