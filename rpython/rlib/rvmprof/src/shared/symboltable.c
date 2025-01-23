@@ -16,6 +16,7 @@
 #include <link.h>
 #if defined(X86_64) || defined(X86_32)
 #include "unwind/vmprof_unwind.h"
+#define HAVE_GET_PROC
 static const char * vmprof_error = NULL;
 static void * libhandle = NULL;
 
@@ -305,6 +306,7 @@ int backtrace_full_cb(void *data, uintptr_t pc, const char *filename,
 }
 #endif
 
+#ifdef HAVE_GET_PROC
 int _vmp_resolve_addr_libunwind(void * addr, char * name, int name_len, int * lineno, char * srcfile, int srcfile_len) {
  
     if (resolve_with_libunwind == 0) {
@@ -321,6 +323,7 @@ int _vmp_resolve_addr_libunwind(void * addr, char * name, int name_len, int * li
     }
     return 1;
 }
+#endif
 
 static
 struct backtrace_state * bstate = NULL;
@@ -349,12 +352,14 @@ int vmp_resolve_addr(void * addr, char * name, int name_len, int * lineno, char 
                          .srcfile = srcfile, .srcfile_len = srcfile_len,
                          .lineno = lineno
                        };
+#ifdef HAVE_GET_PROC
     if (backtrace_pcinfo(bstate, (uintptr_t)addr, backtrace_full_cb,
                          backtrace_error_cb, (void*)&info)) {
         return _vmp_resolve_addr_libunwind(addr, name, name_len, lineno, srcfile, srcfile_len); 
         // failed
         //return 1;
     }
+#endif
 
     // nothing found, try with dladdr
     if (info.name[0] == 0) {
