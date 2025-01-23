@@ -290,14 +290,17 @@ def vmprof_execute_code(name, get_code_fn, result_class=None,
 def _was_registered(CodeClass):
     return hasattr(CodeClass, '_vmprof_unique_id')
 
-_vmprof_instance = None
+_vmprof_instances = []
 
 @specialize.memo()
 def _get_vmprof():
-    global _vmprof_instance
-    if _vmprof_instance is None:
+    # the weird lists are used because on some continuation tests on aarch64 it
+    # looked like _get_vmprof was being called by two threads/two continuations
+    # and I wanted to observe this concretely
+    if not _vmprof_instances:
         try:
-            _vmprof_instance = VMProf()
+            _vmprof_instances.append(VMProf())
         except cintf.VMProfPlatformUnsupported:
-            _vmprof_instance = DummyVMProf()
-    return _vmprof_instance
+            _vmprof_instances.append(DummyVMProf())
+    assert len(_vmprof_instances) == 1
+    return _vmprof_instances[0]

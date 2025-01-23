@@ -38,8 +38,8 @@ SHARED = SRC.join('shared')
 BACKTRACE = SHARED.join('libbacktrace')
 
 def make_eci():
-    if make_eci.called:
-        raise ValueError("make_eci() should be called at most once")
+    if make_eci.result is not None:
+        return make_eci.result
     #
     compile_extra = ['-DRPYTHON_VMPROF']
     separate_module_files = [
@@ -96,9 +96,10 @@ def make_eci():
         eci_kwds['separate_module_files'].append(
             SHARED.join('vmprof_mt.c'),
         )
-    make_eci.called = True
-    return ExternalCompilationInfo(**eci_kwds), eci_kwds
-make_eci.called = False
+    result = ExternalCompilationInfo(**eci_kwds), eci_kwds
+    make_eci.result = result
+    return result
+make_eci.result = None
 
 def configure_libbacktrace_linux():
     bits = 32 if sys.maxsize == 2**31-1 else 64
