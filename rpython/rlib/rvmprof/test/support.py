@@ -40,6 +40,6 @@ class FakeVMProf(object):
 @pytest.fixture
 def fakevmprof(request, monkeypatch):
     fake = FakeVMProf()
-    monkeypatch.setattr(rvmprof.rvmprof, '_vmprof_instance', fake)
+    monkeypatch.setattr(rvmprof.rvmprof, '_vmprof_instances', [fake])
     request.addfinalizer(fake.check_status)
     return fake
