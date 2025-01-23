@@ -361,7 +361,6 @@ int vmp_resolve_addr(void * addr, char * name, int name_len, int * lineno, char 
         // failed
         //return 1;
     }
-#endif
 
     // nothing found, try with dladdr
     if (info.name[0] == 0) {
@@ -376,6 +375,7 @@ int vmp_resolve_addr(void * addr, char * name, int name_len, int * lineno, char 
             _vmp_resolve_addr_libunwind(addr, name, name_len, lineno, srcfile, srcfile_len);
         }
     }
+#endif
 
     // copy the shared object name to the source file name if source cannot be determined
     if (srcfile[0] == 0) {
