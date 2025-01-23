@@ -196,6 +196,8 @@ void lookup_vmprof_debug_info(const char * name, const void * h,
 #elif __x86_64__
 #define PREFIX "x86_64"
 #define LIBUNWIND_SUFFIX "-x86_64"
+#else
+#undef VMPROF_LINUX
 #endif
 #define U_PREFIX "_U"
 #define UL_PREFIX "_UL"
