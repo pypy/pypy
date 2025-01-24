@@ -1991,13 +1991,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         is_async_function = self.scope.is_coroutine
         code, qualname = self.sub_scope(sub_scope, name, node, node.lineno)
         is_async_comprehension = self.symbols.find_scope(node).is_coroutine
-        if is_async_comprehension and not is_async_function:
-            if not isinstance(node, ast.GeneratorExp):
-                if self.allows_top_level_await():
-                    self.is_async_seen = True
-                else:
-                    self.error("asynchronous comprehension outside of "
-                               "an asynchronous function", node)
+        if is_async_comprehension and not self._check_async_function():
+            if (not isinstance(node, ast.GeneratorExp) and
+                    not isinstance(self.scope, symtable.AsyncFunctionScope) and
+                    not isinstance(self.scope, symtable.ComprehensionScope)):
+                self.error("asynchronous comprehension outside of "
+                           "an asynchronous function", node)
 
         self.update_position(node)
         self._make_function(code, qualname=qualname)
