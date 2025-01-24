@@ -1567,7 +1567,7 @@ class __extend__(pyframe.PyFrame):
         if w_enter is None or w_descr is None:
             raise oefmt(space.w_TypeError,
                         "'%T' object does not support the asynchronous context "
-                        "manager protocol (no __enter__/__exit__ method)",
+                        "manager protocol (no __aenter__/__aexit__ method)",
                         w_manager)
         w_exit = space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
