@@ -33,6 +33,19 @@ def test_attributes():
     assert g.gi_code is f.__code__
     assert g.__name__ == 'f'
 
+def test_gi_suspended():
+    def gisuspended():
+        yield 1
+        assert not g.gi_suspended
+    g = gisuspended()
+    assert not g.gi_suspended # not running yet
+    next(g)
+    assert g.gi_suspended
+    with raises(StopIteration):
+        next(g)
+    assert not g.gi_suspended
+    assert g.gi_frame is None
+
 def test_generator3():
     def f():
         yield 1

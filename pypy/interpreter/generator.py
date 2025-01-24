@@ -348,6 +348,9 @@ class GeneratorIterator(GeneratorOrCoroutine):
     unpack_into = _create_unpack_into()
     unpack_into_w = _create_unpack_into()
 
+    def descr_get_gi_suspended(self, space):
+        return space.newbool(self.frame is not None and not self.running and self.frame.last_instr >= 0)
+
 GeneratorIterator.typedef = TypeDef("generator",
     __repr__   = interp2app(GeneratorIterator.descr__repr__),
     #__reduce__   = interp2app(GeneratorIterator.descr__reduce__),
@@ -363,6 +366,7 @@ GeneratorIterator.typedef = TypeDef("generator",
     __iter__   = interp2app(GeneratorIterator.descr__iter__,
                             descrmismatch='__iter__'),
     gi_running = interp_attrproperty('running', cls=GeneratorIterator, wrapfn="newbool"),
+    gi_suspended = GetSetProperty(GeneratorIterator.descr_get_gi_suspended),
     gi_frame   = GetSetProperty(GeneratorIterator.descr_gicr_frame),
     gi_code    = interp_attrproperty_w('pycode', cls=GeneratorIterator),
     gi_yieldfrom=GetSetProperty(GeneratorIterator.descr_delegate),
