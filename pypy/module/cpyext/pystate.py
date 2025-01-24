@@ -247,6 +247,8 @@ def PyThreadState_Swap(space, tstate):
 @cpython_api([PyThreadState], lltype.Void, error=CANNOT_FAIL)
 def PyThreadState_EnterTracing(space, tstate):
     """Suspend tracing and profiling in the Python thread state tstate."""
+    ec = space.getexecutioncontext()
+    ec.is_tracing += 1
     
 @cpython_api([PyThreadState], lltype.Void, error=CANNOT_FAIL)
 def PyThreadState_LeaveTracing(space, tstate):
@@ -254,6 +256,8 @@ def PyThreadState_LeaveTracing(space, tstate):
     by the PyThreadState_EnterTracing() function.
 
     See also PyEval_SetTrace() and PyEval_SetProfile() functions."""
+    ec = space.getexecutioncontext()
+    ec.is_tracing -= 1
 
 @cpython_api([PyThreadState], rffi.ULONGLONG, error=-1)
 def PyThreadState_GetID(space, tstate):
