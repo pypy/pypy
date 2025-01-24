@@ -649,6 +649,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
             self.error(msg, new_scope.yield_node)
 
         new_scope.is_generator |= isinstance(node, ast.GeneratorExp)
+        is_async = new_scope.is_coroutine and not new_scope.is_generator
+        # bpo-33346: in a nested comprehension, the outer one becomes a
+        # coroutine if the inner one is
+        self.scope.is_coroutine |= is_async
 
     def visit_ListComp(self, listcomp):
         self._visit_comprehension(listcomp, "list comprehension", listcomp.generators, listcomp.elt)

@@ -937,3 +937,14 @@ def test_ag_running_asend_send():
     assert info.value.value == 0
     assert a.ag_running is False
 
+async def asynciter(iterable):
+    """Convert an iterable to an asynchronous iterator."""
+    for x in iterable:
+        yield x
+
+def test_nested_comprehension():
+    async def run_list_inside_list():
+        return [[i + j async for i in asynciter([1, 2])] for j in [10, 20]]
+    res = run_async(run_list_inside_list())
+    assert res == ([], [[11, 12], [21, 22]])
+
