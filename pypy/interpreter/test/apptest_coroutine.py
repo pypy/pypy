@@ -948,3 +948,26 @@ def test_nested_comprehension():
     res = run_async(run_list_inside_list())
     assert res == ([], [[11, 12], [21, 22]])
 
+def test_ag_suspended():
+    import types
+    @types.coroutine
+    def a():
+        yield
+
+    async def c():
+        await a()
+
+    async def b():
+        assert coro_b.cr_running
+        assert not coro_b.cr_suspended
+        await c()
+
+    coro_b = b()
+    assert not coro_b.cr_running
+    assert not coro_b.cr_suspended
+    coro_b.send(None)
+    assert not coro_b.cr_running
+    assert coro_b.cr_suspended
+    with raises(StopIteration):
+        coro_b.send(None)
+    assert not coro_b.cr_suspended

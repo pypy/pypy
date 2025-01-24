@@ -302,6 +302,9 @@ return next yielded value or raise StopIteration."""
     def iterator_greenkey(self, space):
         return self.pycode
 
+    def descr_get_suspended(self, space):
+        return space.newbool(self.frame is not None and not self.running and self.frame.last_instr >= 0)
+
 
 class GeneratorIterator(GeneratorOrCoroutine):
     "An iterator created by a generator."
@@ -348,8 +351,6 @@ class GeneratorIterator(GeneratorOrCoroutine):
     unpack_into = _create_unpack_into()
     unpack_into_w = _create_unpack_into()
 
-    def descr_get_gi_suspended(self, space):
-        return space.newbool(self.frame is not None and not self.running and self.frame.last_instr >= 0)
 
 GeneratorIterator.typedef = TypeDef("generator",
     __repr__   = interp2app(GeneratorIterator.descr__repr__),
@@ -366,7 +367,7 @@ GeneratorIterator.typedef = TypeDef("generator",
     __iter__   = interp2app(GeneratorIterator.descr__iter__,
                             descrmismatch='__iter__'),
     gi_running = interp_attrproperty('running', cls=GeneratorIterator, wrapfn="newbool"),
-    gi_suspended = GetSetProperty(GeneratorIterator.descr_get_gi_suspended),
+    gi_suspended = GetSetProperty(GeneratorIterator.descr_get_suspended),
     gi_frame   = GetSetProperty(GeneratorIterator.descr_gicr_frame),
     gi_code    = interp_attrproperty_w('pycode', cls=GeneratorIterator),
     gi_yieldfrom=GetSetProperty(GeneratorIterator.descr_delegate),
@@ -433,6 +434,7 @@ Coroutine.typedef = TypeDef("coroutine",
     __await__  = interp2app(Coroutine.descr__await__,
                             descrmismatch='__await__'),
     cr_running = interp_attrproperty('running', cls=Coroutine, wrapfn="newbool"),
+    cr_suspended = GetSetProperty(Coroutine.descr_get_suspended),
     cr_frame   = GetSetProperty(Coroutine.descr_gicr_frame),
     cr_code    = interp_attrproperty_w('pycode', cls=Coroutine),
     cr_await=GetSetProperty(Coroutine.descr_delegate),
