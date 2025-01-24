@@ -140,7 +140,7 @@ udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 udir.join('genericaliasobject.h').write("/* Will be filled later */\n")
 
 constant_names = """
-Py_TPFLAGS_READY Py_TPFLAGS_READYING
+Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_MANAGED_DICT
 METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_FASTCALL METH_O
 Py_TPFLAGS_HEAPTYPE METH_METHOD
