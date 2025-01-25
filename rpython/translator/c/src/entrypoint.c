@@ -93,6 +93,11 @@ int pypy_main_function(int argc, ARGV_T *argv[])
     converted_argv[argc] = NULL;
     for (int i=0; i<argc; i++) {
         int wlen = wcslen(argv[i]);
+        if (wlen < 1) {
+            converted_argv[i] = malloc(1);
+            converted_argv[i][0] = 0;
+            continue;
+        }
         int lchar = WideCharToMultiByte(CP_UTF8, 0, argv[i], wlen, NULL, 0, NULL, NULL);
         if (lchar == 0) {
             /* fprintf(stdout, "failed to convert argument %d\n", i); */
