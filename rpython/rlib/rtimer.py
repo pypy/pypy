@@ -1,5 +1,4 @@
 import time
-import sys
 
 from rpython.rlib.rarithmetic import r_longlong, r_uint
 from rpython.rlib.rarithmetic import intmask, longlongmask
