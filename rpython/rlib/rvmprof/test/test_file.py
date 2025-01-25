@@ -15,9 +15,6 @@ def get_list_of_files(shared):
     files.remove(shared.join('libbacktrace', 'config-x86_32.h'))
     files.remove(shared.join('libbacktrace', 'config-x86_64.h'))
     files.remove(shared.join('libbacktrace', 'gstdint.h'))
-    # Need to decide whether to upstream the libunwind changes
-    files.remove(shared.join('symboltable.h'))
-    files.remove(shared.join('symboltable.c'))
     try:
         files.remove(shared.join('libbacktrace', 'config.h'))
     except ValueError:

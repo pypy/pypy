@@ -21,7 +21,6 @@ class VMProfPlatformUnsupported(Exception):
 # vmprof works only on x86 for now
 IS_SUPPORTED = False
 NATIVE_PROFILING_SUPPORTED = False
-IS_DARWIN = 'darwin' in sys.platform
 if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('freebsd'):
     try:
         proc = detect_cpu.autodetect()
@@ -38,8 +37,8 @@ SHARED = SRC.join('shared')
 BACKTRACE = SHARED.join('libbacktrace')
 
 def make_eci():
-    if make_eci.result is not None:
-        return make_eci.result
+    if make_eci.called:
+        raise ValueError("make_eci() should be called at most once")
     #
     compile_extra = ['-DRPYTHON_VMPROF']
     separate_module_files = [
@@ -96,10 +95,9 @@ def make_eci():
         eci_kwds['separate_module_files'].append(
             SHARED.join('vmprof_mt.c'),
         )
-    result = ExternalCompilationInfo(**eci_kwds), eci_kwds
-    make_eci.result = result
-    return result
-make_eci.result = None
+    make_eci.called = True
+    return ExternalCompilationInfo(**eci_kwds), eci_kwds
+make_eci.called = False
 
 def configure_libbacktrace_linux():
     bits = 32 if sys.maxsize == 2**31-1 else 64
@@ -161,11 +159,6 @@ def setup():
                                                                     rffi.INT_realP,  rffi.CCHARP, rffi.INT],
                                                 rffi.INT, compilation_info=eci,
                                                 _nowrapper=True)
-        vmprof_load_libunwind_addr_resolve = rffi.llexternal("vmp_load_libunwind", [], rffi.INT, compilation_info=eci,
-                                                _nowrapper=True)
-        vmprof_close_libunwind_addr_resolve = rffi.llexternal("vmp_close_libunwind", [], lltype.Void, compilation_info=eci,
-                                                _nowrapper=True)
-        
 
     return CInterface(locals())
 

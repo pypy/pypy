@@ -29,8 +29,6 @@ typedef intptr_t ssize_t;
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
 RPY_EXTERN int vmp_resolve_addr(void * addr, char * name, int name_len, int * lineno,
                       char * srcfile, int srcfile_len);
-RPY_EXTERN int vmp_load_libunwind(void);
-RPY_EXTERN void vmp_close_libunwind(void);
 #endif
 
 RPY_EXTERN char *vmprof_init(int fd, double interval, int memory,

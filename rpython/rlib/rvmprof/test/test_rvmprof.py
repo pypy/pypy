@@ -127,10 +127,7 @@ class TestEnable(RVMProfSamplingTest):
         return s
 
     def test(self):
-        try:
-            from vmprof import read_profile
-        except ImportError:
-            pytest.skip("no vmprof")
+        from vmprof import read_profile
         assert self.entry_point(10**4, 0.1, 0) == 99990000
         assert self.tmpfile.check()
         self.tmpfile.remove()
@@ -143,10 +140,7 @@ class TestEnable(RVMProfSamplingTest):
         assert self.approx_equal(tree.count, 0.5/self.SAMPLING_INTERVAL)
 
     def test_mem(self):
-        try:
-            from vmprof import read_profile
-        except ImportError:
-            pytest.skip("no vmprof")
+        from vmprof import read_profile
         assert self.rpy_entry_point(10**4, 0.5, 1) == 99990000
         assert self.tmpfile.check()
         prof = read_profile(self.tmpfilename)
@@ -189,10 +183,7 @@ class TestNative(RVMProfSamplingTest):
             return self.native_func(100)
 
     def test(self):
-        try:
-            from vmprof import read_profile
-        except ImportError:
-            pytest.skip("no vmprof")
+        from vmprof import read_profile
         # from vmprof.show import PrettyPrinter
         assert self.rpy_entry_point(3, 0.5, 0) == 42000
         assert self.tmpfile.check()
@@ -235,7 +226,5 @@ def test_symboltable():
     addr = native_func()
 
     result = rvmprof.vmprof_resolve_address(addr)
-    if rvmprof.supports_native_profiling():
-        assert result[0] == 'native_func'
-    else:
-        assert result[0] == ''
+
+    assert result[0] == 'native_func'
