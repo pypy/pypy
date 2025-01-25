@@ -26,6 +26,8 @@ class Darwin(posix.BasePosix):
     link_flags = (DARWIN_VERSION_MIN,)
     cflags = ('-O3',
               '-fomit-frame-pointer',
+              # The parser turns 'const char *const *includes' into 'const const char **includes'
+              '-Wno-duplicate-decl-specifier',
               DARWIN_VERSION_MIN,)
 
     so_ext = 'dylib'

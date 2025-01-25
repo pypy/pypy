@@ -49,6 +49,8 @@ class CConfig:
                                         ])
     HAVE_GETTIMEOFDAY = rffi_platform.Has('gettimeofday')
     HAVE_FTIME = rffi_platform.Has(FTIME)
+    HAVE_NANOSLEEP = rffi_platform.Has('nanosleep')
+    HAVE_CLOCK_NANOSLEEP = rffi_platform.Has('clock_nanosleep')
     if need_rusage:
         RUSAGE = rffi_platform.Struct('struct rusage', [('ru_utime', TIMEVAL),
                                                         ('ru_stime', TIMEVAL)])
@@ -268,7 +270,7 @@ def clock():
 # time.sleep()
 
 if _WIN32:
-    Sleep = external('Sleep', [rffi.ULONG], lltype.Void)
+    Sleep = external('Sleep', [rffi.ULONG], lltype.Void, releasegil=True)
 else:
     c_select = external('select', [rffi.INT, rffi.VOIDP,
                                    rffi.VOIDP, rffi.VOIDP,
