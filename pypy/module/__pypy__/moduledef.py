@@ -18,7 +18,7 @@ class BuildersModule(MixedModule):
 class TimeModule(MixedModule):
     appleveldefs = {}
     interpleveldefs = {}
-    if rtime.HAS_CLOCK_GETTIME:
+    if rtime.HAS_CLOCK_GETTIME_RUNTIME:
         interpleveldefs["clock_gettime"] = "interp_time.clock_gettime"
         interpleveldefs["clock_getres"] = "interp_time.clock_getres"
         for name in rtime.ALL_DEFINED_CLOCKS:
