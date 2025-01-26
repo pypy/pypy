@@ -493,7 +493,8 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
     def test_maxlen_large(self):
         # Sizes up to sys.maxsize should be accepted, although zlib is
         # internally limited to expressing sizes with unsigned int
-        data = HAMLET_SCENE * 10
+        # PyPy: DEF_BUF_SIZE is 32*1024, CPython's is 16*1024, so make this larger
+        data = HAMLET_SCENE * 10 * 2
         self.assertGreater(len(data), zlib.DEF_BUF_SIZE)
         compressed = zlib.compress(data, 1)
         dco = zlib.decompressobj()

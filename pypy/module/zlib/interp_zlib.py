@@ -130,7 +130,7 @@ class Compress(ZLibObject):
             self.stream = rzlib.null_stream
 
     @unwrap_spec(data='bufferstr')
-    def compress(self, space, data):
+    def compress(self, space, data, __posonly__=None):
         """
         compress(data) -- Return a string containing data compressed.
 
