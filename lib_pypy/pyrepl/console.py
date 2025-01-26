@@ -187,7 +187,7 @@ class InteractiveColoredConsole(code.InteractiveConsole):
         return more
 
     def showsyntaxerror(self, filename=None, **kwargs):
-        super().showsyntaxerror(**kwargs)
+        super().showsyntaxerror(filename=filename, **kwargs)
 
     def _excepthook(self, typ, value, tb):
         import traceback
