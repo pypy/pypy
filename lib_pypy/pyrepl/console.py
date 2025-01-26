@@ -186,6 +186,9 @@ class InteractiveColoredConsole(code.InteractiveConsole):
             self.resetbuffer()
         return more
 
+    def showsyntaxerror(self, filename=None, **kwargs):
+        super().showsyntaxerror(**kwargs)
+
     def _excepthook(self, typ, value, tb):
         import traceback
         tb_exc = traceback.TracebackException(
@@ -202,7 +205,7 @@ class InteractiveColoredConsole(code.InteractiveConsole):
         try:
             tree = ast.parse(source)
         except (SyntaxError, OverflowError, ValueError):
-            self.showsyntaxerror(filename)
+            self.showsyntaxerror(filename, source=source)
             return False
         if tree.body:
             *_, last_stmt = tree.body
@@ -219,10 +222,10 @@ class InteractiveColoredConsole(code.InteractiveConsole):
                         f"Try the asyncio REPL ({python} -m asyncio) to use"
                         f" top-level 'await' and run background asyncio tasks."
                     )
-                self.showsyntaxerror(filename)
+                self.showsyntaxerror(filename, source=source)
                 return False
             except (OverflowError, ValueError):
-                self.showsyntaxerror(filename)
+                self.showsyntaxerror(filename, source=source)
                 return False
 
             if code is None:

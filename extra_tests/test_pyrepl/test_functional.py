@@ -88,13 +88,13 @@ def test_dumb_terminal():
 def test_syntaxerror_correct_filename_and_positions():
     with start_repl(colors=False) as child:
         child.sendline('a bbbb c')
-        child.expect('  File "<python-input-0>", line 1')
+        child.expect('  File "<unknown>", line 1')
         child.expect('    a bbbb c')
         child.expect('^^^^')
         child.expect('SyntaxError')
     with start_repl(colors=False) as child:
         child.sendline('   124')
-        child.expect('  File "<python-input-0>", line 1')
+        child.expect('  File "<unknown>", line 1')
         child.expect('    124')
         child.expect('^^^^')
         child.expect('IndentationError')
