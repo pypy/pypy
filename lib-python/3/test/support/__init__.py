@@ -57,6 +57,7 @@ __all__ = [
     "ALWAYS_EQ", "NEVER_EQ", "LARGEST", "SMALLEST",
     "LOOPBACK_TIMEOUT", "INTERNET_TIMEOUT", "SHORT_TIMEOUT", "LONG_TIMEOUT",
     "skip_on_s390x",
+    "force_not_colorized"
     ]
 
 
@@ -2240,6 +2241,31 @@ def copy_python_src_ignore(path, names):
             'build',
         }
     return ignored
+
+
+def force_not_colorized(func):
+    """Force the terminal not to be colorized."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        import _colorize
+        original_fn = _colorize.can_colorize
+        variables: dict[str, str | None] = {
+            "PYTHON_COLORS": None, "FORCE_COLOR": None, "NO_COLOR": None
+        }
+        try:
+            for key in variables:
+                variables[key] = os.environ.pop(key, None)
+            os.environ["NO_COLOR"] = "1"
+            _colorize.can_colorize = lambda: False
+            return func(*args, **kwargs)
+        finally:
+            _colorize.can_colorize = original_fn
+            del os.environ["NO_COLOR"]
+            for key, value in variables.items():
+                if value is not None:
+                    os.environ[key] = value
+    return wrapper
+
 
 #Windows doesn't have os.uname() but it doesn't support s390x.
 skip_on_s390x = unittest.skipIf(hasattr(os, 'uname') and os.uname().machine == 's390x',
