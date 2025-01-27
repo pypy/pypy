@@ -347,7 +347,8 @@ def get_instructions(x, *, first_line=None, show_caches=False, adaptive=False):
     try:
         varname_from_oparg = co._varname_from_oparg
     except AttributeError:
-        varname_from_oparg = None
+        # pypy change: we don't have _varname_from_oparg
+        varname_from_oparg = lambda i: co.co_varnames[i]
     return _get_instructions_bytes(_get_code_array(co, adaptive),
                                    varname_from_oparg,
                                    co.co_names, co.co_consts,
@@ -531,7 +532,8 @@ def disassemble(co, lasti=-1, *, file=None, show_caches=False, adaptive=False):
     try:
         varname_from_oparg = co._varname_from_oparg
     except AttributeError:
-        varname_from_oparg = None
+        # pypy change: we don't have _varname_from_oparg
+        varname_from_oparg = lambda i: co.co_varnames[i]
     _disassemble_bytes(_get_code_array(co, adaptive),
                        lasti, varname_from_oparg,
                        co.co_names, co.co_consts, linestarts, file=file,
@@ -727,7 +729,8 @@ class Bytecode:
         try:
             varname_from_oparg = co._varname_from_oparg
         except AttributeError:
-            varname_from_oparg = None
+            # pypy change: we don't have _varname_from_oparg
+            varname_from_oparg = lambda i: co.co_varnames[i]
         return _get_instructions_bytes(_get_code_array(co, self.adaptive),
                                        varname_from_oparg,
                                        co.co_names, co.co_consts,
@@ -765,7 +768,8 @@ class Bytecode:
             try:
                 varname_from_oparg = co._varname_from_oparg
             except AttributeError:
-                varname_from_oparg = None
+                # pypy change: we don't have _varname_from_oparg
+                varname_from_oparg = lambda i: co.co_varnames[i]
             _disassemble_bytes(_get_code_array(co, self.adaptive),
                                varname_from_oparg=varname_from_oparg,
                                names=co.co_names, co_consts=co.co_consts,

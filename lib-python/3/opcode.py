@@ -425,6 +425,8 @@ _cache_format = {
     },
 }
 
-_inline_cache_entries = [
-    sum(_cache_format.get(opname[opcode], {}).values()) for opcode in range(256)
-]
+#_inline_cache_entries = [
+#    sum(_cache_format.get(opname[opcode], {}).values()) for opcode in range(256)
+#]
+
+_inline_cache_entries = [0] * 256 # pypy has no inline caches
