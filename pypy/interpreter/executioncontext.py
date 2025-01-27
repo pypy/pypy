@@ -1,5 +1,5 @@
 import sys
-from pypy.interpreter.error import OperationError, get_cleared_operation_error
+from pypy.interpreter.error import OperationError
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib import jit, rgc, objectmodel

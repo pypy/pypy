@@ -505,8 +505,6 @@ class ClearedOpErr:
     def __init__(self, space):
         self.operr = OperationError(space.w_None, space.w_None)
 
-def get_cleared_operation_error(space):
-    return space.fromcache(ClearedOpErr).operr
 
 # ____________________________________________________________
 # optimization only: avoid the slowest operation -- the string

@@ -16,7 +16,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.astcompiler import consts
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import (
-    OperationError, get_cleared_operation_error, oefmt)
+    OperationError, oefmt)
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode

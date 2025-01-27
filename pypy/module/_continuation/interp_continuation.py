@@ -1,7 +1,7 @@
 from rpython.rlib.rstacklet import StackletThread
 from rpython.rlib import jit
 from rpython.rlib import rvmprof
-from pypy.interpreter.error import OperationError, get_cleared_operation_error
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.baseobjspace import W_Root
@@ -41,7 +41,6 @@ class W_Continulet(W_Root):
         bottomframe.locals_cells_stack_w[1] = w_callable
         bottomframe.locals_cells_stack_w[2] = w_args
         bottomframe.locals_cells_stack_w[3] = w_kwds
-        bottomframe.last_exception = get_cleared_operation_error(space)
         self.bottomframe = bottomframe
         #
         global_state.origin = self
