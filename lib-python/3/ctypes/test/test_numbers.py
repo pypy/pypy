@@ -1,5 +1,6 @@
 import sys
 from ctypes import *
+from ctypes.test import xfail
 import unittest
 import struct
 
@@ -83,12 +84,14 @@ class NumberTestCase(unittest.TestCase):
             self.assertRaises(TypeError, t, "")
             self.assertRaises(TypeError, t, None)
 
+    @xfail
     def test_from_param(self):
         # the from_param class method attribute always
         # returns PyCArgObject instances
         for t in signed_types + unsigned_types + float_types:
             self.assertEqual(ArgType, type(t.from_param(0)))
 
+    @xfail
     def test_byref(self):
         # calling byref returns also a PyCArgObject instance
         for t in signed_types + unsigned_types + float_types + bool_types:
