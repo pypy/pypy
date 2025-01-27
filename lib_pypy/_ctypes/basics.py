@@ -101,6 +101,8 @@ class _CDataMeta(type):
     def from_buffer(self, obj, offset=0):
         if self._is_abstract():
             raise TypeError('abstract class')
+        if offset < 0:
+            raise ValueError("offset cannot be negative")
         size = self._sizeofinstances()
         buf = memoryview(obj)
         if buf.nbytes < offset + size:
@@ -119,6 +121,8 @@ class _CDataMeta(type):
     def from_buffer_copy(self, obj, offset=0):
         if self._is_abstract():
             raise TypeError('abstract class')
+        if offset < 0:
+            raise ValueError("offset cannot be negative")
         size = self._sizeofinstances()
         buf = memoryview(obj)
         if buf.nbytes < offset + size:
