@@ -346,6 +346,7 @@ def test_strip():
     raises(TypeError, s.strip, bytearray(b'a'))
 
 def test_strip_nonascii():
+    assert 'c\x1d'.strip() == 'c'
     s = u" ä b "
     assert s.strip() == u"ä b"
     assert s.rstrip() == u" ä b"

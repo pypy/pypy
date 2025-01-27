@@ -1408,11 +1408,26 @@ class W_UnicodeObject(W_Root):
             lpos = 0
             rpos = len(value)
             if left:
-                lpos = StringMethods._strip_none_bytes_unboxed_left(value)
+                lpos = self._strip_none_bytes_unboxed_left(value, lpos, rpos)
             if right:
-                rpos = StringMethods._strip_none_bytes_unboxed_right(value, lpos)
+                rpos = self._strip_none_bytes_unboxed_right(value, lpos, rpos)
             return self._utf8_sliced(lpos, rpos, rpos - lpos)
         return self._strip_none_unboxed(value, lgt, left, right)
+
+    @staticmethod
+    @jit.elidable
+    def _strip_none_bytes_unboxed_left(value, lpos, rpos):
+        while lpos < rpos and rutf8.isspace(value, lpos):
+            lpos += 1
+        return lpos
+
+    @staticmethod
+    @jit.elidable
+    def _strip_none_bytes_unboxed_right(value, lpos, rpos):
+        while rpos > lpos and rutf8.isspace(value, rpos - 1):
+            rpos -= 1
+        return rpos
+
 
     @staticmethod
     @jit.elidable
