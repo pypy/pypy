@@ -214,7 +214,6 @@ class ExecutionContext(object):
             self._trace(frame, 'exception', None, operationerr)
         #operationerr.print_detailed_traceback(self.space)
 
-    @jit.unroll_safe
     def sys_exc_info(self):
         """Implements sys.exc_info().
         Return an OperationError instance or None.
@@ -228,20 +227,18 @@ class ExecutionContext(object):
     def set_sys_exc_info(self, operror):
         self.sys_exc_operror = operror
 
-    def set_sys_exc_info3(self, w_type, w_value, w_traceback):
+    def set_sys_exc_info3(self, w_value):
         from pypy.interpreter import pytraceback
+        from pypy.module.exceptions.interp_exceptions import W_BaseException
 
         space = self.space
         if space.is_none(w_value):
-            operror = None
-        else:
-            tb = None
-            if not space.is_none(w_traceback):
-                try:
-                    tb = pytraceback.check_traceback(space, w_traceback, '?')
-                except OperationError:    # catch and ignore bogus objects
-                    pass
-            operror = OperationError(w_type, w_value, tb)
+            self.sys_exc_operror = None
+            return
+        w_value = space.interp_w(W_BaseException, w_value)
+        w_type = space.type(w_value)
+        tb = w_value.w_traceback
+        operror = OperationError(w_type, w_value, tb)
         self.set_sys_exc_info(operror)
 
     @jit.dont_look_inside

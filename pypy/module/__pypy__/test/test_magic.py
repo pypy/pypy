@@ -96,6 +96,7 @@ def f():
                 return sys.exc_info()[2]
         tb = g()
         terr = TypeError("hello world")
+        terr.__traceback__ = tb
         set_exc_info(TypeError, terr, tb)
         assert sys.exc_info()[2] is tb
 

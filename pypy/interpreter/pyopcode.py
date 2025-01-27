@@ -1798,7 +1798,7 @@ class __extend__(pyframe.PyFrame):
             self.settopvalue(w_rest)
             self.pushvalue(w_match)
             ec = space.getexecutioncontext()
-            ec.set_sys_exc_info3(space.type(w_match), w_match, None)
+            ec.set_sys_exc_info3(w_match)
 
     def PREP_RERAISE_STAR(self, oparg, next_instr):
         space = self.space

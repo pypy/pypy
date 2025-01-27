@@ -578,7 +578,7 @@ def PyErr_SetExcInfo(space, py_type, py_value, py_traceback):
     w_traceback = get_w_obj_and_decref(space, py_traceback)
     #
     ec = space.getexecutioncontext()
-    ec.set_sys_exc_info3(w_type, w_value, w_traceback)
+    ec.set_sys_exc_info3(w_value)
 
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyOS_InterruptOccurred(space):
@@ -587,10 +587,8 @@ def PyOS_InterruptOccurred(space):
 @cpython_api([PyObject], lltype.Void)
 def PyErr_SetHandledException(space, w_exc):
     assert space.isinstance_w(w_exc, space.w_Exception)
-    w_traceback = space.getattr(w_exc, space.newtext('__traceback__'))
-    w_type = space.type(w_exc)
     ec = space.getexecutioncontext()
-    ec.set_sys_exc_info3(w_type, w_exc, w_traceback)
+    ec.set_sys_exc_info3(w_exc)
 
 
 @cpython_api([], PyObject)
