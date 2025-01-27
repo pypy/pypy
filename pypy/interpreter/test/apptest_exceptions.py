@@ -24,7 +24,6 @@ def test_yield_in_nested_try_excepts():
         coro.throw(SubError())
 
 def test_generator_doesnt_retain_old_exc2():
-    pytest.skip("broken right now :-(")
     # Issue bpo 28884#msg282532
     # Fixed in CPython via https://github.com/python/cpython/pull/1773
     import sys

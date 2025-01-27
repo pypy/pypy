@@ -52,6 +52,8 @@ class ExecutionContext(object):
         self.contextvar_context = None
         self.coroutine_origin_tracking_depth = 0
 
+        self.current_gen_or_coroutine = None # A linked list of GeneratorOrCoroutine instances
+
     @staticmethod
     def _mark_thread_disappeared(space):
         # Called in the child process after os.fork() by interp_posix.py.
@@ -222,6 +224,14 @@ class ExecutionContext(object):
         # NOTE: the result is not the wrapped sys.exc_info() !!!
 
         """
+        operr = self.sys_exc_operror
+        if operr is not None:
+            return operr
+        if self.current_gen_or_coroutine:
+            return self._get_topmost_exception()
+        return None
+
+    def current_exception(self):
         return self.sys_exc_operror
 
     def set_sys_exc_info(self, operror):
@@ -240,6 +250,30 @@ class ExecutionContext(object):
         tb = w_value.w_traceback
         operror = OperationError(w_type, w_value, tb)
         self.set_sys_exc_info(operror)
+
+    def push_gen_or_coroutine(self, gen):
+        current_operr = self.sys_exc_operror
+        self.set_sys_exc_info(gen.saved_operr)
+        gen.saved_operr = current_operr
+        gen.previous_gen_or_coroutine = self.current_gen_or_coroutine
+        self.current_gen_or_coroutine = gen
+
+    def pop_gen_or_coroutine(self, gen):
+        assert self.current_gen_or_coroutine is gen
+        saved_operr = gen.saved_operr
+        self.current_gen_or_coroutine = gen.previous_gen_or_coroutine
+        gen.previous_gen_or_coroutine = None
+        gen.saved_operr = self.sys_exc_operror
+        self.sys_exc_operror = saved_operr
+
+    def _get_topmost_exception(self):
+        gen = self.current_gen_or_coroutine
+        while gen:
+            if gen.saved_operr:
+                return gen.saved_operr
+            gen = gen.previous_gen_or_coroutine
+        return None
+
 
     @jit.dont_look_inside
     def settrace(self, w_func):

@@ -503,21 +503,27 @@ def test_exc_info_in_generator_3():
         assert next(gen) is ValueError
 
 def test_exc_info_in_generator_4():
-    skip("buggy behavior, both in CPython and in PyPy")
     import sys
     def g():
+        assert sys.exc_info()[0] == IndexError
         try:
             raise ValueError
         except ValueError:
+            assert sys.exc_info()[0] == ValueError
             yield 1
+            assert sys.exc_info()[0] == ValueError
         assert sys.exc_info() == (None, None, None)
         yield 2
     gen = g()
     try:
         raise IndexError
     except IndexError:
+        assert sys.exc_info()[0] == IndexError
         assert next(gen) == 1
+        assert sys.exc_info()[0] == IndexError
+    assert sys.exc_info() == (None, None, None)
     assert next(gen) == 2
+    assert sys.exc_info() == (None, None, None)
 
 def test_except_gen_except():
     def gen():

@@ -26,6 +26,7 @@ class GeneratorOrCoroutine(W_Root):
                 or self.pycode.co_flags & CO_YIELD_INSIDE_TRY):
             self.register_finalizer(self.space)
         self.saved_operr = None
+        self.previous_gen_or_coroutine = None
 
     def get_name(self):
         # 'name' is a byte string that is valid utf-8
@@ -123,10 +124,7 @@ return next yielded value or raise StopIteration."""
                             "can't send non-None value to a just-started %s",
                             self.KIND)
         ec = space.getexecutioncontext()
-        current_exc_info = ec.sys_exc_info()
-        if self.saved_operr is not None:
-            ec.set_sys_exc_info(self.saved_operr)
-            self.saved_operr = None
+        ec.push_gen_or_coroutine(self)
         d = frame.getdebug()
         self.running = True
         try:
@@ -145,12 +143,7 @@ return next yielded value or raise StopIteration."""
         finally:
             frame.f_backref = jit.vref_None
             self.running = False
-            # note: this is not perfectly correct: see
-            # test_exc_info_in_generator_4.  But it's simpler and
-            # bug-to-bug compatible with CPython 3.5 and 3.6.
-            if frame._any_except_or_finally_handler():
-                self.saved_operr = ec.sys_exc_info()
-            ec.set_sys_exc_info(current_exc_info)
+            ec.pop_gen_or_coroutine(self)
         return w_result
 
     def get_delegate(self):

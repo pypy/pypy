@@ -779,7 +779,7 @@ class __extend__(pyframe.PyFrame):
 
     def save_and_change_sys_exc_info(self, operationerr):
         ec = self.space.getexecutioncontext()
-        last_exception = ec.sys_exc_info()
+        last_exception = ec.current_exception()
         block = SysExcInfoRestorer(last_exception, self.lastblock, self.last_instr)
         self.lastblock = block
         if operationerr is not None:   # otherwise, don't change sys_exc_info
