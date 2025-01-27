@@ -266,6 +266,15 @@ class ExecutionContext(object):
         gen.saved_operr = self.sys_exc_operror
         self.sys_exc_operror = saved_operr
 
+    def save_and_reset_exc_info_state(self):
+        res = self.sys_exc_operror, self.current_gen_or_coroutine
+        self.sys_exc_operror = None
+        self.current_gen_or_coroutine = None
+        return res
+
+    def restore_save_exc_info_state(self, state):
+        self.sys_exc_operror, self.current_gen_or_coroutine = state
+
     def _get_topmost_exception(self):
         gen = self.current_gen_or_coroutine
         while gen:

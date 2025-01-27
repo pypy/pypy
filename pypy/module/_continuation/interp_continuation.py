@@ -257,8 +257,7 @@ def new_stacklet_callback(h, arg):
     return self.h
 
 def pre_switch(sthread):
-    saved_exception = sthread.ec.sys_exc_info()
-    sthread.ec.set_sys_exc_info(None)
+    saved_exception = sthread.ec.save_and_reset_exc_info_state()
     return saved_exception
 
 def post_switch(sthread, h, saved_exception):
@@ -270,7 +269,7 @@ def post_switch(sthread, h, saved_exception):
     #
     current = sthread.ec.topframeref
     sthread.ec.topframeref = self.bottomframe.f_backref
-    sthread.ec.set_sys_exc_info(saved_exception)
+    sthread.ec.restore_save_exc_info_state(saved_exception)
     self.bottomframe.f_backref = origin.bottomframe.f_backref
     origin.bottomframe.f_backref = current
     #
