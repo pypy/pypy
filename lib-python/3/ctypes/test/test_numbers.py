@@ -1,3 +1,4 @@
+import sys
 from ctypes import *
 import unittest
 import struct

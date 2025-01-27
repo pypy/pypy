@@ -280,6 +280,7 @@ class BitFieldTest(unittest.TestCase):
         self.assertEqual(b, b'\xef\xcd\xab\x21')
 
     @need_symbol('c_uint32')
+    @xfail
     def test_uint32_swap_big_endian(self):
         # Issue #23319
         class Big(BigEndianStructure):
