@@ -1,5 +1,5 @@
 from ctypes import *
-from ctypes.test import need_symbol
+from ctypes.test import need_symbol, xfail
 from test import support
 import unittest
 import os

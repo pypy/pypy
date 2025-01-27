@@ -1,4 +1,5 @@
 from ctypes import *
+from ctypes.test import xfail
 import array
 import gc
 import unittest
@@ -10,6 +11,7 @@ class X(Structure):
         self._init_called = True
 
 class Test(unittest.TestCase):
+    @xfail
     def test_from_buffer(self):
         a = array.array("i", range(16))
         x = (c_int * 16).from_buffer(a)

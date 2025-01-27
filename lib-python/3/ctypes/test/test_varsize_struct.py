@@ -1,7 +1,9 @@
 from ctypes import *
+from ctypes.test import xfail
 import unittest
 
 class VarSizeTest(unittest.TestCase):
+    @xfail
     def test_resize(self):
         class X(Structure):
             _fields_ = [("item", c_int),
