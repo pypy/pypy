@@ -2267,6 +2267,12 @@ def force_not_colorized(func):
     return wrapper
 
 
+def initialized_with_pyrepl():
+    """Detect whether PyREPL was used during Python initialization."""
+    # If the main module has a __file__ attribute it's a Python module, which means PyREPL.
+    return hasattr(sys.modules["__main__"], "__file__")
+
+
 #Windows doesn't have os.uname() but it doesn't support s390x.
 skip_on_s390x = unittest.skipIf(hasattr(os, 'uname') and os.uname().machine == 's390x',
                                 'skipped on s390x')

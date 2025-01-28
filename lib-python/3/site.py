@@ -460,6 +460,7 @@ def setcopyright():
 def sethelper():
     builtins.help = _sitebuiltins._Helper()
 
+
 def gethistoryfile():
     """Check if the PYTHON_HISTORY environment variable is set and define
     it as the .python_history file.  If PYTHON_HISTORY is not set, use the
@@ -473,38 +474,70 @@ def gethistoryfile():
     return os.path.join(os.path.expanduser('~'),
         '.python_history')
 
+
 def enablerlcompleter():
     """Enable default readline configuration on interactive prompts, by
     registering a sys.__interactivehook__.
+    """
+    sys.__interactivehook__ = register_readline
+
+
+def register_readline():
+    """Configure readline completion on interactive prompts.
 
     If the readline module can be imported, the hook will set the Tab key
     as completion key and register ~/.python_history as history file.
     This can be overridden in the sitecustomize or usercustomize module,
     or in a PYTHONSTARTUP file.
     """
-    def register_readline():
-        import atexit
-        try:
-            import readline
-            import rlcompleter
-            from pyrepl.main import CAN_USE_PYREPL
-        except ImportError:
-            return
-        if not CAN_USE_PYREPL:
-            return
+    if not sys.flags.ignore_environment:
+        PYTHON_BASIC_REPL = os.getenv("PYTHON_BASIC_REPL")
+    else:
+        PYTHON_BASIC_REPL = False
 
+    import atexit
+
+    try:
+        try:
+            import pyrepl.readline as readline
+        except ImportError:
+            readline = None
+        else:
+            import rlcompleter  # noqa: F401
+    except ImportError:
+        return
+
+    try:
+        if PYTHON_BASIC_REPL:
+            CAN_USE_PYREPL = False
+        else:
+            original_path = sys.path
+            sys.path = [p for p in original_path if p != '']
+            try:
+                import pyrepl.readline
+                if os.name == "nt":
+                    import pyrepl.windows_console
+                    console_errors = (pyrepl.windows_console._error,)
+                else:
+                    import pyrepl.unix_console
+                    console_errors = pyrepl.unix_console._error
+                from pyrepl.main import CAN_USE_PYREPL
+            finally:
+                sys.path = original_path
+    except ImportError:
+        return
+
+    if readline is not None:
         # Reading the initialization (config) file may not be enough to set a
         # completion key, so we set one first and then read the file.
-        readline_doc = getattr(readline, '__doc__', '')
-        if readline_doc is not None and 'libedit' in readline_doc:
+        if 0 and readline.backend == 'editline':
             readline.parse_and_bind('bind ^I rl_complete')
         else:
             readline.parse_and_bind('tab: complete')
 
         try:
-            # Unimplemented on PyPy
-            #readline.read_init_file()
-            pass
+            if not is_pypy:
+                readline.read_init_file()
         except OSError:
             # An OSError here could have many causes, but the most likely one
             # is that there's no .inputrc file (or .editrc file in the case of
@@ -512,30 +545,39 @@ def enablerlcompleter():
             # want to ignore the exception.
             pass
 
-        if readline.get_current_history_length() == 0:
-            # If no history was loaded, default to .python_history.
-            # The guard is necessary to avoid doubling history size at
-            # each interpreter exit when readline was already configured
-            # through a PYTHONSTARTUP hook, see:
-            # http://bugs.python.org/issue5845#msg198636
-            history = os.path.join(os.path.expanduser('~'),
-                                   '.python_history')
+    if readline is None or readline.get_current_history_length() == 0:
+        # If no history was loaded, default to .python_history,
+        # or PYTHON_HISTORY.
+        # The guard is necessary to avoid doubling history size at
+        # each interpreter exit when readline was already configured
+        # through a PYTHONSTARTUP hook, see:
+        # http://bugs.python.org/issue5845#msg198636
+        history = gethistoryfile()
+
+        if CAN_USE_PYREPL:
+            readline_module = pyrepl.readline
+            exceptions = (OSError, *console_errors)
+        else:
+            if readline is None:
+                return
+            readline_module = readline
+            exceptions = OSError
+
+        try:
+            readline_module.read_history_file(history)
+        except exceptions:
+            pass
+
+        def write_history():
             try:
-                readline.read_history_file(history)
-            except OSError:
+                readline_module.write_history_file(history)
+            except (FileNotFoundError, PermissionError):
+                # home directory does not exist or is not writable
+                # https://bugs.python.org/issue19891
                 pass
 
-            def write_history():
-                try:
-                    readline.write_history_file(history)
-                except OSError:
-                    # bpo-19891, bpo-41193: Home directory does not exist
-                    # or is not writable, or the filesystem is read-only.
-                    pass
+        atexit.register(write_history)
 
-            atexit.register(write_history)
-
-    sys.__interactivehook__ = register_readline
 
 def venv(known_paths):
     global PREFIXES, ENABLE_USER_SITE

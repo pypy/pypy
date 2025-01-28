@@ -105,7 +105,7 @@ class PyPyConsole(code.InteractiveConsole):
 
     def enable_command_line_completer(self):
         try:
-            import readline
+            from pyrepl import readline
             # Keep here to save windoze tears
             readline.set_completer(Completer(self.space, self.w_globals).complete)
             readline.parse_and_bind("tab: complete")
