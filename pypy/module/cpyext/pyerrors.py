@@ -585,8 +585,11 @@ def PyOS_InterruptOccurred(space):
     return 0;
 
 @cpython_api([PyObject], lltype.Void)
-def PyErr_SetHandledException(space, w_exc):
-    assert space.isinstance_w(w_exc, space.w_Exception)
+def PyErr_SetHandledException(space, exc):
+    if exc:
+        w_exc = from_ref(space, exc)
+    else:
+        w_exc = space.w_None
     ec = space.getexecutioncontext()
     ec.set_sys_exc_info3(w_exc)
 
