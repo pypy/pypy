@@ -110,7 +110,7 @@ delayprog = re.compile(b"\\$<([0-9]+)((?:/|\\*){0,2})>")
 try:
     poll: type[select.poll] = select.poll
 except AttributeError:
-    # this is exactly the minumum necessary to support what we
+    # this is exactly the minimum necessary to support what we
     # do with poll objects
     class MinimalPoll:
         def __init__(self):
@@ -622,7 +622,7 @@ class UnixConsole(Console):
 
         # reuse the oldline as much as possible, but stop as soon as we
         # encounter an ESCAPE, because it might be the start of an escape
-        # sequene
+        # sequence
         while (
             x_coord < minlen
             and oldline[x_pos] == newline[x_pos]

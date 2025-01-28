@@ -380,7 +380,7 @@ class _ReadlineWrapper:
             reader.ps2 = ps1
             reader.ps3 = ps2
             reader.ps4 = ""
-            if 1: #with warnings.catch_warnings(action="ignore"):
+            with warnings.catch_warnings(action="ignore"):
                 return reader.readline()
         finally:
             reader.more_lines = saved
