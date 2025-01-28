@@ -25,3 +25,9 @@ class DummyVMProf(object):
 
     def stop_sampling(self):
         return -1
+    
+    def vmprof_resolve_address(addr):
+        return ("", 0, "-")
+
+    def supports_native_profiling(self):
+        return False

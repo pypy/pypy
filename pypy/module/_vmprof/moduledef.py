@@ -1,5 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib.rvmprof import VMProfPlatformUnsupported
+from rpython.rlib import rvmprof
 from rpython.translator.platform import CompilationError
 
 
@@ -20,6 +21,8 @@ class Module(MixedModule):
 
         'VMProfError': 'space.fromcache(interp_vmprof.Cache).w_VMProfError',
     }
+    if rvmprof.supports_native_profiling():
+        interpleveldefs['resolve_addr']= 'interp_vmprof.vmprof_resolve_address'
 
 
 # Force the __extend__ hacks and method replacements to occur

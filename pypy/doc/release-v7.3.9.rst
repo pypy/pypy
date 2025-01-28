@@ -1,6 +1,6 @@
-============================
-PyPy v7.3.9 security release
-============================
+=================================================
+PyPy v7.3.9 security release, released 2022-03-30
+=================================================
 
 The PyPy team is proud to release version 7.3.9 of PyPy. This is a security
 release to match the recent `CPython release`_ and updates the portable pypy

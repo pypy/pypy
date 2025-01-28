@@ -55,6 +55,12 @@ def get_profile_path(space):
 
     return None
 
+def vmprof_resolve_address(addr):
+    return _get_vmprof().vmprof_resolve_address(addr)
+
+def supports_native_profiling():
+    return _get_vmprof().supports_native_profiling()
+
 def stop_sampling():
     return _get_vmprof().stop_sampling()
 

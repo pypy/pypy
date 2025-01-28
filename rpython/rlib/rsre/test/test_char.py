@@ -39,6 +39,7 @@ def test_getlower():
     assert rsre_char.getlower(UPPER_PI, SRE_FLAG_LOCALE) == UPPER_PI
     assert rsre_char.getlower(UPPER_PI, SRE_FLAG_LOCALE | SRE_FLAG_UNICODE) \
                                                          == UPPER_PI
+    assert rsre_char.getlower(2**30, SRE_FLAG_UNICODE) == 2 ** 30
 
 def test_getupper():
     assert rsre_char.getupper(ord('A'), 0) == ord('A')
@@ -54,6 +55,7 @@ def test_getupper():
     assert rsre_char.getupper(LOWER_PI, SRE_FLAG_LOCALE) == LOWER_PI
     assert rsre_char.getupper(LOWER_PI, SRE_FLAG_LOCALE | SRE_FLAG_UNICODE) \
                                                          == LOWER_PI
+    assert rsre_char.getupper(2**30, SRE_FLAG_UNICODE) == 2 ** 30
 
 
 def test_getupper_getlower_unicode_ascii_shortcut():
@@ -80,6 +82,7 @@ def test_is_word():
     assert rsre_char.is_uni_word(UPPER_PI)
     assert rsre_char.is_uni_word(LOWER_PI)
     assert not rsre_char.is_uni_word(ord(','))
+    assert not rsre_char.is_uni_word(2**30)
 
 def test_category():
     from rpython.rlib.rsre.rpy.sre_constants import CHCODES

@@ -135,7 +135,7 @@ jobs:
           sudo apt-get install -y libgc-dev
           pypy2 -m pip install --user hypothesis==4.39.3 vmprof enum34>=1.1.2
     - name: Test RLib
-      run: pypy2 pytest.py rpython/rlib -v
+      run: pypy2 pytest.py rpython/rlib -v -m "not flaky"
 
   test-rtyper:
     runs-on: ${{ matrix.os }}

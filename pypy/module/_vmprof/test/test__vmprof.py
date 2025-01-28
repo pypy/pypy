@@ -1,5 +1,6 @@
-import py
+import pytest
 import sys
+from rpython.rlib import rvmprof
 from rpython.tool.udir import udir
 
 class AppTestVMProf(object):
@@ -107,7 +108,7 @@ class AppTestVMProf(object):
         _vmprof.disable()
         assert _vmprof.is_enabled() is False
 
-    @py.test.mark.xfail(sys.platform.startswith('freebsd'), reason = "not implemented")
+    @pytest.mark.xfail(sys.platform.startswith('freebsd'), reason = "not implemented")
     def test_get_profile_path(self):
         import _vmprof
         with open(self.tmpfilename, "wb") as tmpfile:
@@ -152,3 +153,10 @@ class AppTestVMProf(object):
         assert pos3 > pos
         _vmprof.disable()
 
+    @pytest.mark.skipif(not rvmprof.supports_native_profiling(), reason="not implemented")
+    def test_resolve(self):
+        import _vmprof
+        
+        result = _vmprof.resolve_addr(1)
+
+        assert result == ("", 0, "-")

@@ -20,6 +20,9 @@
 #  include <stdio.h>
 #  include <fcntl.h>
 #  include <io.h>
+   typedef unsigned short ARGV_T;
+#else
+   typedef char ARGV_T;
 #endif
 
 #ifdef RPY_WITH_GIL
@@ -54,12 +57,12 @@ int rpython_startup_code(void)
 
 
 RPY_EXTERN
-int pypy_main_function(int argc, char *argv[])
+int pypy_main_function(int argc, ARGV_T *argv[])
 {
     char *errmsg;
     int i, exitcode;
 
-#if defined(MS_WINDOWS)
+#ifdef MS_WINDOWS
     _setmode(0, _O_BINARY);
     _setmode(1, _O_BINARY);
     _setmode(2, _O_BINARY);
@@ -77,23 +80,51 @@ int pypy_main_function(int argc, char *argv[])
     instrument_setup();
 
 #ifdef RPY_REVERSE_DEBUGGER
+#ifdef MS_WINDOWS
+    errmsg = "revdb not supported on windows"
+    goto error;
+#endif
     rpy_reverse_db_setup(&argc, &argv);
 #endif
 
-#ifndef MS_WINDOWS
+#ifdef MS_WINDOWS
+    /* Convert wchar_t argv into char */
+    char **converted_argv = malloc(sizeof(char*) * (argc + 1));
+    converted_argv[argc] = NULL;
+    for (int i=0; i<argc; i++) {
+        int wlen = wcslen(argv[i]);
+        int lchar = WideCharToMultiByte(CP_UTF8, 0, argv[i], wlen, NULL, 0, NULL, NULL);
+        if (lchar == 0) {
+            /* fprintf(stdout, "failed to convert argument %d\n", i); */
+            errmsg = "failed to convert command line arguments to UTF-8";
+            goto error;
+        }
+        converted_argv[i] = malloc(lchar + 1);
+
+        converted_argv[i][0] = 0;
+        int lchar2 = WideCharToMultiByte(CP_UTF8, 0, argv[i], wlen,
+                     converted_argv[i], lchar, NULL, NULL);
+        if ((lchar2 != lchar) || (lchar == 0)) {
+            errmsg = "failed to convert command line arguments to UTF-8";
+            goto error;
+        }
+        converted_argv[i][lchar] = 0;
+    }
+#else
     /* this message does no longer apply to win64 :-) */
     if (sizeof(void*) != SIZEOF_LONG) {
         errmsg = "only support platforms where sizeof(void*) == sizeof(long),"
                  " for now";
         goto error;
     }
+    char **converted_argv = argv;
 #endif
 
     RPython_StartupCode();
     mark_initialized_now();
 
 #ifndef RPY_REVERSE_DEBUGGER
-    exitcode = STANDALONE_ENTRY_POINT(argc, argv);
+    exitcode = STANDALONE_ENTRY_POINT(argc, converted_argv);
 #else
     exitcode = rpy_reverse_db_main(STANDALONE_ENTRY_POINT, argc, argv);
 #endif
@@ -122,7 +153,7 @@ int pypy_main_function(int argc, char *argv[])
     return 1;
 }
 
-int PYPY_MAIN_FUNCTION(int argc, char *argv[])
+int PYPY_MAIN_FUNCTION(int argc, ARGV_T *argv[])
 {
 #ifdef PYPY_X86_CHECK_SSE2_DEFINED
     pypy_x86_check_sse2();

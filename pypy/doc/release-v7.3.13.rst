@@ -1,6 +1,6 @@
-==================================================
-PyPy v7.3.13: release of python 2.7, 3.9, and 3.10
-==================================================
+=======================================================================
+PyPy v7.3.13: release of python 2.7, 3.9, and 3.10, released 2023-09-29
+=======================================================================
 
 The PyPy team is proud to release version 7.3.13 of PyPy.
 This is primarily a security/bug-fix release. CPython released security

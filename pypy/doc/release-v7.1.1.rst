@@ -1,6 +1,6 @@
-=========================================
-PyPy v7.1.1: release of 2.7, and 3.6-beta
-=========================================
+==============================================================
+PyPy v7.1.1: release of 2.7, and 3.6-beta, released 2019-04-18
+==============================================================
 
 The PyPy team is proud to release a bug-fix release version 7.1.1 of PyPy, which
 includes two different interpreters:

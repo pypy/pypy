@@ -1,6 +1,6 @@
-==============================================
-PyPy v7.3.3: release of 2.7, 3.6, and 3.7 beta
-==============================================
+===================================================================
+PyPy v7.3.3: release of 2.7, 3.6, and 3.7 beta, released 2020-11-21
+===================================================================
 
 -The PyPy team is proud to release the version 7.3.3 of PyPy, which includes
 three different interpreters:

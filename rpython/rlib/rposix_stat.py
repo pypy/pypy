@@ -416,9 +416,6 @@ else:
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h', 'unistd.h']
 
 compilation_info = ExternalCompilationInfo(
-    # This must be set to 64 on some systems to enable large file support.
-    #pre_include_bits = ['#define _FILE_OFFSET_BITS 64'],
-    # ^^^ nowadays it's always set in all C files we produce.
     includes=INCLUDES
 )
 

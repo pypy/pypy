@@ -67,7 +67,10 @@ def getlower_unicode(char_ord):
     if char_ord < 128: # shortcut for ascii
         return getlower_ascii(char_ord)
     assert unicodedb is not None
-    return unicodedb.tolower(char_ord)
+    try:
+        return unicodedb.tolower(char_ord)
+    except KeyError:
+        return char_ord
 
 def getlower(char_ord, flags):
     if flags & consts.SRE_FLAG_LOCALE:
@@ -95,7 +98,10 @@ def getupper_unicode(char_ord):
     # caller expects a sane result in this case, I think: iscased_unicode()
     # is fine as long as it returns anything != char_ord in this case.
     assert unicodedb is not None
-    return unicodedb.toupper_full(char_ord)[0]
+    try:
+        return unicodedb.toupper_full(char_ord)[0]
+    except KeyError:
+        return char_ord
 
 def getupper(char_ord, flags):
     if flags & consts.SRE_FLAG_LOCALE:
@@ -129,14 +135,20 @@ def is_digit(code):
 
 def is_uni_digit(code):
     assert unicodedb is not None
-    return unicodedb.isdecimal(code)
+    try:
+        return unicodedb.isdecimal(code)
+    except KeyError:
+        return False
 
 def is_space(code):
     return (code == 32) | int_between(9, code, 14)
 
 def is_uni_space(code):
     assert unicodedb is not None
-    return unicodedb.isspace(code)
+    try:
+        return unicodedb.isspace(code)
+    except KeyError:
+        return False
 
 def is_word(code):
     assert code >= 0
@@ -144,7 +156,10 @@ def is_word(code):
 
 def is_uni_word(code):
     assert unicodedb is not None
-    return unicodedb.isalnum(code) or code == underline
+    try:
+        return unicodedb.isalnum(code) or code == underline
+    except KeyError:
+        return False
 
 def is_loc_alnum(code):
     return code < 256 and isalnum(code)
@@ -157,7 +172,10 @@ def is_linebreak(code):
 
 def is_uni_linebreak(code):
     assert unicodedb is not None
-    return unicodedb.islinebreak(code)
+    try:
+        return unicodedb.islinebreak(code)
+    except KeyError:
+        return False
 
 
 #### Category dispatch

@@ -355,11 +355,14 @@ class Optimizer(Optimization):
             return info.force_box(op, optforce)
         return op
 
-    def as_operation(self, op):
+    def as_operation(self, op, required_opnum=-1):
         # You should never check "isinstance(op, AbstractResOp" directly.
         # Instead, use this helper.
-        if isinstance(op, AbstractResOp) and op in self._emittedoperations:
-            return op
+        if isinstance(op, AbstractResOp):
+            if required_opnum != -1 and op.opnum != required_opnum:
+                return None # fast return if the opnum is wrong
+            if op in self._emittedoperations:
+                return op
         return None
 
     def get_constant_box(self, box):

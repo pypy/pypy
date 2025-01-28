@@ -129,6 +129,13 @@ class TestW_IntObject:
         v = f1.descr_mul(space, f2)
         assert space.isinstance_w(v, space.w_long)
         assert space.bigint_w(v).eq(rbigint.fromlong(x * y))
+        x = sys.maxint // 4
+        y = sys.maxint // 8
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y)
+        v = f1.descr_mul(space, f2)
+        assert space.isinstance_w(v, space.w_long)
+        assert space.bigint_w(v).eq(rbigint.fromlong(x * y))
 
     def test_div(self):
         space = self.space

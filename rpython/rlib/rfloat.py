@@ -1,6 +1,6 @@
 """Float constants"""
 
-import math, struct
+import math, struct, errno
 from math import acosh, asinh, atanh, log1p, expm1
 import sys
 
@@ -86,6 +86,7 @@ DTSF_SIGN      = 0x1
 DTSF_ADD_DOT_0 = 0x2
 DTSF_ALT       = 0x4
 DTSF_CUT_EXP_0 = 0x8
+DTSF_NO_NEG_0 = 0x10
 
 DIST_FINITE   = 1
 DIST_NAN      = 2
@@ -546,3 +547,74 @@ def acc_check(expected, got, rel_err=2e-15, abs_err = 5e-323):
         return None
     return "error = {}; permitted error = {}".format(error,
                                                      permitted_error)
+# ____________________________________________________________
+#
+# Error handling functions, mainly for ll_math
+
+ERANGE = errno.ERANGE
+EDOM   = errno.EDOM
+
+def _likely_raise(errno, x):
+    """Call this with errno != 0.  It usually raises the proper RPython
+    exception, but may also just ignore it and return in case of underflow.
+    """
+    from rpython.rtyper.lltypesystem.module.ll_math import math_fabs
+    assert errno
+    if errno == ERANGE:
+        # We consider underflow to not be an error, like CPython.
+        # On some platforms (Ubuntu/ia64) it seems that errno can be
+        # set to ERANGE for subnormal results that do *not* underflow
+        # to zero.  So to be safe, we'll ignore ERANGE whenever the
+        # function result is less than one in absolute value.
+        if math_fabs(x) < 1.0:
+            return
+        raise OverflowError("math range error")
+    else:
+        raise ValueError("math domain error")
+
+@objectmodel.specialize.arg(2)
+def _error_check_errno_unary_math(x, r, can_overflow):
+    # Error checking fun.  Copied from CPython 2.6
+    from rpython.rlib import rposix
+    errno = rposix.get_saved_errno()
+    if not isfinite(r):
+        if math.isnan(r):
+            if math.isnan(x):
+                errno = 0
+            else:
+                errno = EDOM
+        else:  # isinf(r)
+            if not isfinite(x):
+                errno = 0
+            elif can_overflow:
+                errno = ERANGE
+            else:
+                errno = EDOM
+    if errno:
+        _likely_raise(errno, r)
+
+# ____________________________________________________________
+# some math functions needed in 3.11+
+
+
+math_eci = ExternalCompilationInfo(
+    libraries=['m'])
+math_exp2 = rffi.llexternal('exp2', [rffi.DOUBLE], rffi.DOUBLE,
+                            save_err=rffi.RFFI_FULL_ERRNO_ZERO,
+                            compilation_info=math_eci)
+
+def exp2(x):
+    "Return 2 raised to the power of x."
+    r = math_exp2(x)
+    _error_check_errno_unary_math(x, r, can_overflow=True)
+    return r
+
+math_cbrt = rffi.llexternal('cbrt', [rffi.DOUBLE], rffi.DOUBLE,
+                            save_err=rffi.RFFI_FULL_ERRNO_ZERO,
+                            compilation_info=math_eci)
+
+def cbrt(x):
+    "Return cube root of x."
+    r = math_cbrt(x)
+    _error_check_errno_unary_math(x, r, can_overflow=True)
+    return r

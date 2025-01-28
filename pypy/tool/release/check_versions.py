@@ -124,7 +124,7 @@ pypy_versions = {
                  '7.3.2': {'python_version': ['3.7.9', '3.6.9', '2.7.13'],
                            'date': '2020-09-25',
                           },
-                'nightly': {'python_version': ['2.7', '3.6', '3.7', '3.8', '3.9', '3.10']},
+                'nightly': {'python_version': ['2.7', '3.6', '3.7', '3.8', '3.9', '3.10', '3.11']},
                 }
 
 
@@ -225,7 +225,7 @@ def check_versions(data, url, verbose=0, check_times=True, nightly_only=False):
                         assert_in(arch_plat, download_url)
                     py_ver_tuple = [int(s) for s in py_ver.split('.')]
                     if py_ver == "2.7":
-                        py_ver = "trunk"
+                        py_ver = "main"
                 elif f['platform'] == "darwin":
                     if arch_plat[0] not in download_url and arch_plat[1] not in download_url:
                         raise ValueError(f"{arch_plat} not in {download_url}")
@@ -243,7 +243,7 @@ def check_versions(data, url, verbose=0, check_times=True, nightly_only=False):
             except error.HTTPError as e:
                 raise ValueError(f"could not open '{download_url}', got {e}") from None
             assert_equal(r.getcode(), 200)
-            if d['pypy_version'] == 'nightly' and (py_ver_tuple >= [3, 9] or py_ver == "trunk"):
+            if d['pypy_version'] == 'nightly' and (py_ver_tuple > [3, 10] or py_ver == "main"):
                 print('time-check', end='')
                 # nightly builds do not have a date entry, use time.time()
                 target = time.strftime("%Y-%m-%d")
@@ -252,10 +252,10 @@ def check_versions(data, url, verbose=0, check_times=True, nightly_only=False):
                 modified_time_str = ' '.join(r.getheader("Last-Modified").split(' ')[1:4])
                 expected_time = time.mktime(time.strptime(target, "%Y-%m-%d"))
                 modified_time = time.mktime(time.strptime(modified_time_str, "%d %b %Y"))
-                if abs(expected_time - modified_time) > 60 * 60 * 24 * 14 and 's390x' not in arch_plat:
+                delta_days = abs(expected_time - modified_time) / (60 * 60 * 24)
+                if delta_days > 14 and 's390x' not in f['arch']:
                     raise ValueError(f"expected {modified_time_str} to be within 2 weeks of {target}")
                 else:
-                    delta_days = abs(expected_time - modified_time) / (60 * 60 * 24)
                     print(f" {delta_days} days", end='')
             if verbose > 0:
                 print(f' ok')
@@ -267,7 +267,7 @@ if __name__ == '__main__':
         print(f'checking local file "{sys.argv[1]}"')
         with open(sys.argv[1]) as fid:
             data = json.loads(fid.read())
-        nightly_only = '--nightly_only' in sys.argv
+        nightly_only = '--nightly-only' in sys.argv
         check_versions(data, 'https://buildbot.pypy.org/mirror/', verbose=1,
                        nightly_only=nightly_only)
     else:
@@ -275,6 +275,6 @@ if __name__ == '__main__':
         response = request.urlopen('https://buildbot.pypy.org/pypy/versions.json')
         assert_equal(response.getcode(), 200)
         data = json.loads(response.read())
-        check_versions(data, None, verbose=1, nightly_only=nightly_only)
+        check_versions(data, None, verbose=1)
     check_tags(data)
     print('ok')

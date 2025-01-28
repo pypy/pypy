@@ -1,4 +1,4 @@
-from __future__ import with_statement
+from __future__ import print_function
 
 import signal as cpy_signal
 import sys
@@ -101,6 +101,12 @@ class CheckSignalAction(PeriodicAsyncAction):
     def _poll_for_signals(self):
         # Poll for the next signal, if any
         n = self.pending_signal
+        p = pypysig_getaddr_occurred_fullstruct()
+        if p.c_debugger_pending_call:
+            script = rffi.charp2str(p.c_debugger_script)
+            p.c_debugger_pending_call = 0
+            run_debugger(self.space, script)
+            return
         if n < 0:
             n = pypysig_poll()
         while n >= 0:
@@ -158,6 +164,23 @@ def report_signal(space, n):
     ec = space.getexecutioncontext()
     w_frame = ec.gettopframe_nohidden()
     space.call_function(w_handler, space.newint(n), w_frame)
+
+def run_debugger(space, script):
+    from pypy.interpreter.streamutil import wrap_streamerror
+    from pypy.interpreter.eval import Code
+    from rpython.rlib import streamio
+    try:
+        w_script = space.call_method(space.newbytes(script), 'decode', space.newtext('utf-8'))
+        msg = "Executing remote debugger script:\n"
+        w_msg = space.add(space.newtext(msg), w_script)
+        w_msg = space.add(w_msg, space.newtext('\n'))
+        space.call_method(space.getattr(space.sys, space.newtext('stdout')), 'write', w_msg)
+        ec = space.getexecutioncontext()
+        pycode = ec.compiler.compile(script, '<debug>', 'exec', 0)
+        w_globals = space.newdict()
+        pycode.exec_code(space, w_globals, w_globals)
+    except OperationError as e:
+        e.write_unraisable(space, "in remote debugger invocation")
 
 
 @unwrap_spec(signum=int)
