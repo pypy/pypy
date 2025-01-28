@@ -492,6 +492,7 @@ testmap = [
     RegrTest('test_multiprocessing_spawn'),
     RegrTest('test_pep646_syntax.py'),
     RegrTest('test_pydoc'),
+    RegrTest('test_pyrepl'),
     RegrTest('test_sqlite3'),
     RegrTest('test_tomllib'),
     RegrTest('test_zoneinfo'),
