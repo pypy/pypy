@@ -1010,7 +1010,7 @@ class TracebackException:
                     caretspace = ((c if c.isspace() else ' ') for c in ltext[:colno])
                     start_color = end_color = ""
                     if getattr(self, "_colorize", False):
-                        print(f"colorize from colno {colno} to {end_colno}")
+                        # print(f"colorize from colno {colno} to {end_colno}")
                         start_color = ANSIColors.BOLD_RED
                         end_color = ANSIColors.RESET
                         ltext = (
