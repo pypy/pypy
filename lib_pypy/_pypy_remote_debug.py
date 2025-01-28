@@ -169,10 +169,6 @@ def _iter_symbol_and_dynsym(file_obj):
             continue
         for sym in _elf_iter_symbols(ehdr, section.section_data, strtab_data):
             yield sym
-    if symtab_data is None:
-        raise ValueError("no symbols in elf file %s" % (file_obj, ))
-
-    raise ValueError('not found')
 
 
 def elf_find_symbol(file_obj, symbol):
@@ -336,6 +332,8 @@ def _proc_maps_find_map(value):
 
 def _symbolify(value):
     map_entry = _proc_maps_find_map(value)
+    if map_entry is None:
+        return None
     filename = map_entry['file']
     base_addr = map_entry['base_map']['from_']
     with open(filename, 'rb') as f:
@@ -348,6 +346,38 @@ def _symbolify(value):
                 return sym.name_as_bytes, filename
     return None
 
+def _symbolify_all(values):
+    # this is quite efficient, because it sorts the values, then sorts the
+    # symbols within a shared library, and proceeds in a sorted order, merging
+    # values and symbols
+    values = sorted(values)
+    res = {}
+    map_entry = None
+    for value in values:
+        if map_entry is None or map_entry['to_'] < value:
+            map_entry = _proc_maps_find_map(value)
+            if map_entry is None:
+                continue
+            filename = map_entry['file']
+            base_addr = map_entry['base_map']['from_']
+            with open(filename, 'rb') as f:
+                phdr = elf_read_first_load_section(f)
+                assert phdr.vaddr % phdr.align == 0
+                f.seek(0)
+                syms = list(_iter_symbol_and_dynsym(f))
+                syms.sort(key=lambda sym: sym.value)
+                symindex = 0
+        symbol_value = value - base_addr + phdr.vaddr
+        for symindex in range(symindex, len(syms)):
+            sym = syms[symindex]
+            if sym.value <= symbol_value < sym.value + sym.size:
+                res[value] = sym.name_as_bytes, filename
+                break
+            if sym.value > symbol_value:
+                break
+        else:
+            continue
+    return res
 
 # __________________________________________________________
 # actually starting the debugger

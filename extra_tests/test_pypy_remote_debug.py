@@ -134,6 +134,22 @@ def test_symbolify():
     assert name == 'XML_Parse'
     assert 'libexpat.so' in filename
 
+def test_symbolify_all():
+    import ctypes
+    pid = os.getpid()
+    so = ctypes.CDLL('libexpat.so')
+    names = ['XML_Parse', 'XML_GetBase']
+    all = []
+    for name in names:
+        address_of_function = (ctypes.cast(getattr(so, name), ctypes.c_void_p)).value
+        all.append(address_of_function)
+    all.append(1)
+    res = _pypy_remote_debug._symbolify_all(all)
+    for index, name in enumerate(names):
+        addr = all[index]
+        assert res[addr][0] == name
+        assert 'libexpat.so' in res[addr][1]
+
 @pytest.mark.skipif(not hasattr(_vmprof, 'resolve_addr'), reason="not implemented")
 def test_symbolify_vmprof():
     import _vmprof
