@@ -103,6 +103,8 @@ class ElfSymTabEntry(ElfBase):
     NBYTES = struct.calcsize(FORMAT)
     NBYTES64 = struct.calcsize(FORMAT64)
 
+    name_as_bytes = None
+
     def __init__(self, data="", is_64bit=False):
         self.name, self.info, self.other, self.shndx, self.value, self.size = self._unpack(data, is_64bit)
 
@@ -152,31 +154,38 @@ def _elf_section_headers(file_obj):
     return sections, symtab_data, strtab_data
 
 
-def elf_find_symbol(file_obj, symbol):
+def _iter_symbol_and_dynsym(file_obj):
     sections, symtab_data, strtab_data = _elf_section_headers(file_obj)
     assert strtab_data is not None
     file_obj.seek(0)
     ehdr = read_header(file_obj)
-    # try the symbol table, if we have it
+    # yield entries from the symbol table if we have it
     if symtab_data is not None:
-        res = _elf_find_symbol_in_symtab(ehdr, symtab_data, strtab_data, symbol)
-        if res is not None:
-            return res
-    # try the dynamic symbol table(s) next
+        for sym in _elf_iter_symbols(ehdr, symtab_data, strtab_data):
+            yield sym
+    # yield entries from the dynamic symbol table if we have it
     for section in sections:
         if section.name_as_bytes != b'.dynsym':
             continue
-        res = _elf_find_symbol_in_symtab(ehdr, section.section_data, strtab_data, symbol)
-        if res is not None:
-            return res
-
-
+        for sym in _elf_iter_symbols(ehdr, section.section_data, strtab_data):
+            yield sym
     if symtab_data is None:
         raise ValueError("no symbols in elf file %s" % (file_obj, ))
 
     raise ValueError('not found')
 
-def _elf_find_symbol_in_symtab(ehdr, symtab_data, strtab_data, symbol):
+
+def elf_find_symbol(file_obj, symbol):
+    for sym in _iter_symbol_and_dynsym(file_obj):
+        if sym.name_as_bytes == symbol:
+            if sym.value:
+                return sym.value
+            if sym.info:
+                return sym.info
+    raise ValueError('not found')
+
+
+def _elf_iter_symbols(ehdr, symtab_data, strtab_data):
     symtabentry_nbytes = ElfSymTabEntry.NBYTES64 if ehdr.is_64bit else ElfSymTabEntry.NBYTES
     num_symbols = len(symtab_data) // symtabentry_nbytes
     for sym_idx in range(num_symbols):
@@ -192,12 +201,9 @@ def _elf_find_symbol_in_symtab(ehdr, symtab_data, strtab_data, symbol):
         end = strtab_data.find(b'\0', start)
         assert end >= 0
         name = strtab_data[start: end]
-        if name == symbol:
-            if sym.value:
-                return sym.value
-            if sym.info:
-                return sym.info
-    return None
+        sym.name_as_bytes = name
+        yield sym
+
 
 def elf_read_first_load_section(file_obj):
     ehdr = read_header(file_obj)
@@ -268,7 +274,7 @@ def write_memory(pid, address, content):
 # parsing proc maps
 
 
-def _parse_maps(pid, filter=None):
+def _parse_maps(pid='self', filter=None):
     with open('/proc/%s/maps' % pid) as f:
         parsed_maps = []
         libpypy = None
@@ -309,6 +315,39 @@ def _check_elf_debuglink(file):
             else:
                 return res
     return file
+
+# __________________________________________________________
+# symbolication support, used by _vmprof.vmprof_resolve_address
+
+def _proc_maps_find_map(value):
+    maps = _parse_maps()
+    base_map = None
+    for map_entry in maps:
+        if not map_entry['file'].startswith('/'):
+            continue
+        if base_map is None or base_map['file'] != map_entry['file']:
+            base_map = map_entry
+        if map_entry['from_'] <= value < map_entry['to_']:
+            map_entry['base_map'] = base_map
+            return map_entry
+    else:
+        return None
+
+
+def _symbolify(value):
+    map_entry = _proc_maps_find_map(value)
+    filename = map_entry['file']
+    base_addr = map_entry['base_map']['from_']
+    with open(filename, 'rb') as f:
+        phdr = elf_read_first_load_section(f)
+        assert phdr.vaddr % phdr.align == 0
+        symbol_value = value - base_addr + phdr.vaddr
+        f.seek(0)
+        for sym in _iter_symbol_and_dynsym(f):
+            if sym.value <= symbol_value < sym.value + sym.size:
+                return sym.name_as_bytes, filename
+    return None
+
 
 # __________________________________________________________
 # actually starting the debugger

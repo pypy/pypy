@@ -12,6 +12,7 @@ if not sys.platform.startswith('linux'):
     pytest.skip('only works on linux so far')
 
 import _pypy_remote_debug
+import _vmprof
 
 def test_parse_maps():
     maps = _pypy_remote_debug._parse_maps('self', sys.executable)
@@ -113,4 +114,37 @@ sys.stdout.flush()
         assert l == 'hello from %s\n' % pid
         exitcode = out.wait()
         assert exitcode == 0
+
+def test_proc_maps_find_map():
+    import ctypes
+    pid = os.getpid()
+    so = ctypes.CDLL('libexpat.so')
+    address_of_function = (ctypes.cast(so.XML_Parse, ctypes.c_void_p)).value
+    map = _pypy_remote_debug._proc_maps_find_map(address_of_function)
+    assert 'libexpat.so' in map['file']
+    assert map['from_'] <= address_of_function < map['to_']
+    assert map['base_map']
+
+def test_symbolify():
+    import ctypes
+    pid = os.getpid()
+    so = ctypes.CDLL('libexpat.so')
+    address_of_function = (ctypes.cast(so.XML_Parse, ctypes.c_void_p)).value
+    name, filename = _pypy_remote_debug._symbolify(address_of_function)
+    assert name == 'XML_Parse'
+    assert 'libexpat.so' in filename
+
+@pytest.mark.skipif(not hasattr(_vmprof, 'resolve_addr'), reason="not implemented")
+def test_symbolify_vmprof():
+    import _vmprof
+    import ctypes
+    pid = os.getpid()
+    so = ctypes.CDLL('libexpat.so')
+    address_of_function = (ctypes.cast(so.XML_Parse, ctypes.c_void_p)).value
+    name, lineno, filename = _vmprof.resolve_addr(address_of_function)
+    assert name == 'XML_Parse'
+    assert 'libexpat.so' in filename
+
+    result = _vmprof.resolve_addr(1)
+    assert result == ("", 0, "-")
 

@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib.rvmprof import VMProfPlatformUnsupported
 from rpython.rlib import rvmprof
@@ -10,6 +11,8 @@ class Module(MixedModule):
     """
     appleveldefs = {
     }
+    if sys.implementation.startswith('linux'):
+        appleveldefs['resolve_addr'] = 'app_vmprof.resolve_addr'
 
     interpleveldefs = {
         'enable': 'interp_vmprof.enable',
@@ -21,8 +24,6 @@ class Module(MixedModule):
 
         'VMProfError': 'space.fromcache(interp_vmprof.Cache).w_VMProfError',
     }
-    if rvmprof.supports_native_profiling():
-        interpleveldefs['resolve_addr']= 'interp_vmprof.vmprof_resolve_address'
 
 
 # Force the __extend__ hacks and method replacements to occur
