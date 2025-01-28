@@ -6,6 +6,10 @@ from ctypes import *
 from ctypes.test import need_symbol
 from _ctypes import CTYPES_MAX_ARGCOUNT
 import _ctypes_test
+try:
+    from sys import getrefcount as grc
+except ImportError:
+    grc = None      # e.g. PyPy
 
 class Callbacks(unittest.TestCase):
     functype = CFUNCTYPE
@@ -94,8 +98,9 @@ class Callbacks(unittest.TestCase):
         self.check_type(c_char, b"a")
 
     def test_pyobject(self):
+        if grc is None:
+            return unittest.skip("no sys.getrefcount()")
         o = ()
-        from sys import getrefcount as grc
         for o in (), [], object():
             initial = grc(o)
             # This call leaks a reference to 'o'...
