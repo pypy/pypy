@@ -16,7 +16,7 @@ import _vmprof
 
 def test_parse_maps():
     maps = _pypy_remote_debug._parse_maps('self', sys.executable)
-    assert sys.executable == maps[0]['file']
+    assert os.path.realpath(sys.executable) == maps[0]['file']
 
 def test_elf_find_symbol():
     pid = os.getpid()
@@ -25,6 +25,8 @@ def test_elf_find_symbol():
         value = _pypy_remote_debug.elf_find_symbol(f, b'pypysig_counter')
     # compare against output of nm
     out = subprocess.check_output(['nm', file])
+    if not out:
+        pytest.skip("test can't work on stripped binary")
     for line in out.splitlines():
         if 'pypysig_counter' in line:
             addr, _, _ = line.split()
@@ -57,8 +59,8 @@ def test_read_memory():
     pid = os.getpid()
     data = b'hello, world!'
     sourcebuffer = ffi.new('char[]', len(data))
-    for i, char in enumerate(data):
-        sourcebuffer[i] = char
+    for i in range(len(data)):
+        sourcebuffer[i] = data[i:i+1]
     result = _pypy_remote_debug.read_memory(pid, int(ffi.cast('intptr_t', sourcebuffer)), len(data))
     assert result == data
 
@@ -87,7 +89,7 @@ sys.stdin.readline()
     pid = out.pid
     file, base_addr = _pypy_remote_debug._find_file_and_base_addr(pid)
     assert file == sys.executable or 'libpypy' in file
-    out.stdin.write('1\n')
+    out.stdin.write(b'1\n')
     out.stdin.flush()
     out.wait()
 
@@ -131,7 +133,7 @@ def test_symbolify():
     so = ctypes.CDLL('libexpat.so')
     address_of_function = (ctypes.cast(so.XML_Parse, ctypes.c_void_p)).value
     name, filename = _pypy_remote_debug._symbolify(address_of_function)
-    assert name == 'XML_Parse'
+    assert name == b'XML_Parse'
     assert 'libexpat.so' in filename
 
 def test_symbolify_all():
@@ -147,14 +149,32 @@ def test_symbolify_all():
     res = _pypy_remote_debug._symbolify_all(all)
     for index, name in enumerate(names):
         addr = all[index]
-        assert res[addr][0] == name
+        assert res[addr][0] == name.encode('ascii')
         assert 'libexpat.so' in res[addr][1]
+
+def test_symbolify_pypy_function():
+    addr = _pypy_remote_debug.compute_remote_addr()
+    name, filename = _pypy_remote_debug._symbolify(addr)
+    assert name == b'pypysig_counter'
+    addr = _pypy_remote_debug.compute_remote_addr(symbolname=b'pypy_g_DiskFile_read')
+    name, filename = _pypy_remote_debug._symbolify(addr)
+    assert name == b'pypy_g_DiskFile_read'
+
+def test_symbolify_all_pypy_function():
+    names = [b'pypy_g_DiskFile_read', b'pypy_g_DiskFile_write']
+    all = []
+    for name in names:
+        address_of_function = _pypy_remote_debug.compute_remote_addr('self', name)
+        all.append(address_of_function)
+    all.append(1)
+    res = _pypy_remote_debug._symbolify_all(all)
+    for index, name in enumerate(names):
+        addr = all[index]
+        assert res[addr][0] == name
 
 @pytest.mark.skipif(not hasattr(_vmprof, 'resolve_addr'), reason="not implemented")
 def test_symbolify_vmprof():
-    import _vmprof
-    import ctypes
-    pid = os.getpid()
+    import _vmprof, ctypes
     so = ctypes.CDLL('libexpat.so')
     address_of_function = (ctypes.cast(so.XML_Parse, ctypes.c_void_p)).value
     name, lineno, filename = _vmprof.resolve_addr(address_of_function)
@@ -162,5 +182,25 @@ def test_symbolify_vmprof():
     assert 'libexpat.so' in filename
 
     result = _vmprof.resolve_addr(1)
-    assert result == ("", 0, "-")
+    assert result is None
 
+@pytest.mark.skipif(not hasattr(_vmprof, 'resolve_many_addrs'), reason="not implemented")
+def test_symbolify_vmprof_many():
+    import _vmprof, ctypes
+    names = [b'pypy_g_DiskFile_read', b'pypy_g_DiskFile_write']
+    all = []
+    for name in names:
+        address_of_function = _pypy_remote_debug.compute_remote_addr('self', name)
+        all.append(address_of_function)
+
+    names2 = ['XML_Parse', 'XML_GetBase']
+    so = ctypes.CDLL('libexpat.so')
+    for name in names2:
+        address_of_function = (ctypes.cast(getattr(so, name), ctypes.c_void_p)).value
+        all.append(address_of_function)
+    all.append(1)
+
+    res = _vmprof.resolve_many_addrs(all)
+    for index, name in enumerate(names + names2):
+        addr = all[index]
+        assert res[addr][0] == name

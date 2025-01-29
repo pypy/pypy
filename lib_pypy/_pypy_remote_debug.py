@@ -88,12 +88,18 @@ class ElfSectionHeader(ElfBase):
 
     TYPE_SYMTAB = 2
     TYPE_STRTAB = 3
+    TYPE_DYNSYM = 11
 
     name_as_bytes = None
     section_data = None
+    section_index = None
 
     def __init__(self, data, is_64bit=False):
         self.name, self.type, self.flags, self.addr, self.offset, self.size, self.link, self.info, self.addralign, self.entsize = self._unpack(data, is_64bit)
+
+    def __repr__(self):
+        return "<ElfSectionHeader name_as_bytes=%r section_index=%s type=%s>" % (self.name_as_bytes, self.section_index, self.type)
+
 
 
 
@@ -107,6 +113,11 @@ class ElfSymTabEntry(ElfBase):
 
     def __init__(self, data="", is_64bit=False):
         self.name, self.info, self.other, self.shndx, self.value, self.size = self._unpack(data, is_64bit)
+
+    def __repr__(self):
+        if self.name_as_bytes:
+            return "<ElfSymTabEntry name_as_bytes=%r value=%x size=%x info=%s>" % (self.name_as_bytes, self.value, self.size, self.info)
+        return "<ElfSymTabEntry value=%x size=%x info=%s>" % (self.value, self.size, self.info)
 
 
 def read_header(file_obj):
@@ -132,6 +143,7 @@ def _elf_section_headers(file_obj):
     for section_idx in range(ehdr.shnum):
         section_header = ElfSectionHeader.from_file(file_obj, ehdr.is_64bit,
                                                     ehdr.shoff + section_idx * ehdr.shentsize)
+        section_header.section_index = section_idx
         file_obj.seek(section_header.offset)
         data = file_obj.read(section_header.size)
         section_header.section_data = data
@@ -140,35 +152,36 @@ def _elf_section_headers(file_obj):
             continue
 
         if section_header.type == ElfSectionHeader.TYPE_STRTAB:
-            if section_idx != ehdr.shstrndx:
-                strtab_data = data
-            else:
+            if section_idx == ehdr.shstrndx:
                 shstr_data = data
-        elif section_header.type == ElfSectionHeader.TYPE_SYMTAB:
-            symtab_data = data
     for section_header in sections:
         start = section_header.name
         end = shstr_data.find(b'\0', start)
         assert end >= 0
         section_header.name_as_bytes = shstr_data[start: end]
-    return sections, symtab_data, strtab_data
+    return sections, ehdr #, symtab_data, strtab_data
 
+def _find_section(sections, what):
+    res = []
+    for section in sections:
+        if section.type == what or section.name_as_bytes == what:
+            res.append(section)
+    return res
 
 def _iter_symbol_and_dynsym(file_obj):
-    sections, symtab_data, strtab_data = _elf_section_headers(file_obj)
-    assert strtab_data is not None
-    file_obj.seek(0)
-    ehdr = read_header(file_obj)
-    # yield entries from the symbol table if we have it
-    if symtab_data is not None:
-        for sym in _elf_iter_symbols(ehdr, symtab_data, strtab_data):
-            yield sym
-    # yield entries from the dynamic symbol table if we have it
-    for section in sections:
-        if section.name_as_bytes != b'.dynsym':
+    sections, ehdr = _elf_section_headers(file_obj)
+    symtabs = _find_section(sections, ElfSectionHeader.TYPE_SYMTAB) + _find_section(sections, ElfSectionHeader.TYPE_DYNSYM)
+    for symtab in symtabs:
+        strtab_index = symtab.link
+        if not 0 <= strtab_index < len(sections):
             continue
-        for sym in _elf_iter_symbols(ehdr, section.section_data, strtab_data):
+        strtab = sections[strtab_index]
+        if strtab.type != ElfSectionHeader.TYPE_STRTAB:
+            continue
+        for sym in _elf_iter_symbols(ehdr, symtab.section_data, strtab.section_data):
+            sym.source = symtab
             yield sym
+    return
 
 
 def elf_find_symbol(file_obj, symbol):
@@ -188,14 +201,14 @@ def _elf_iter_symbols(ehdr, symtab_data, strtab_data):
         start = sym_idx * symtabentry_nbytes
         sym_data = symtab_data[start: start + symtabentry_nbytes]
         if sym_idx == 0:
-            assert sym_data == b"\x00" * len(sym_data)
             continue
 
         sym = ElfSymTabEntry(sym_data, ehdr.is_64bit)
         start = sym.name
         assert start >= 0
         end = strtab_data.find(b'\0', start)
-        assert end >= 0
+        if end < 0:
+            continue
         name = strtab_data[start: end]
         sym.name_as_bytes = name
         yield sym
@@ -286,7 +299,7 @@ def _parse_maps(pid='self', filter=None):
             parsed_maps.append(dict(file=mapping[-1], from_=from_, to_=to_, full_line=entry))
         return parsed_maps
 
-def _find_file_and_base_addr(pid):
+def _find_file_and_base_addr(pid='self'):
     maps = _parse_maps(pid, 'libpypy')
     if not maps:
         executable = os.path.realpath('/proc/%s/exe' % pid)
@@ -297,12 +310,12 @@ def _find_file_and_base_addr(pid):
 
 def _check_elf_debuglink(file):
     with open(file, 'rb') as f:
-        sections, _, _ = _elf_section_headers(f)
+        sections, ehdr = _elf_section_headers(f)
         debuglinks = [section for section in sections if section.name_as_bytes == b'.gnu_debuglink']
         if debuglinks:
             debuglink = debuglinks[0]
             end = debuglink.section_data.find(b'\x00')
-            fn = debuglink.section_data[:end]
+            fn = debuglink.section_data[:end].decode('utf-8')
             res = os.path.join(os.path.dirname(os.path.realpath(file)), fn)
             try:
                 os.stat(res)
@@ -313,7 +326,8 @@ def _check_elf_debuglink(file):
     return file
 
 # __________________________________________________________
-# symbolication support, used by _vmprof.vmprof_resolve_address
+# symbolication support, used by _vmprof.resolve_address and
+# _vmprof.resolve_many_addrs
 
 def _proc_maps_find_map(value):
     maps = _parse_maps()
@@ -339,6 +353,8 @@ def _symbolify(value):
     with open(filename, 'rb') as f:
         phdr = elf_read_first_load_section(f)
         assert phdr.vaddr % phdr.align == 0
+    filename = _check_elf_debuglink(filename)
+    with open(filename, 'rb') as f:
         symbol_value = value - base_addr + phdr.vaddr
         f.seek(0)
         for sym in _iter_symbol_and_dynsym(f):
@@ -363,16 +379,16 @@ def _symbolify_all(values):
             with open(filename, 'rb') as f:
                 phdr = elf_read_first_load_section(f)
                 assert phdr.vaddr % phdr.align == 0
-                f.seek(0)
-                syms = list(_iter_symbol_and_dynsym(f))
+            filename = _check_elf_debuglink(filename)
+            with open(filename, 'rb') as f:
+                syms = [sym for sym in _iter_symbol_and_dynsym(f) if sym.name_as_bytes]
                 syms.sort(key=lambda sym: sym.value)
                 symindex = 0
         symbol_value = value - base_addr + phdr.vaddr
         for symindex in range(symindex, len(syms)):
             sym = syms[symindex]
             if sym.value <= symbol_value < sym.value + sym.size:
-                res[value] = sym.name_as_bytes, filename
-                break
+                res[value] = (sym.name_as_bytes, filename)
             if sym.value > symbol_value:
                 break
         else:
@@ -389,14 +405,21 @@ SCRIPT_OFFSET = PENDING_CALL_OFFSET + struct.calcsize('l')
 SCRIPT_MAX = 4096
 
 
-def compute_remote_addr(pid):
+def compute_remote_addr(pid='self', symbolname=b'pypysig_counter'):
     file, base_addr = _find_file_and_base_addr(pid)
     origfile = file
-    file = _check_elf_debuglink(file)
     with open(file, 'rb') as f:
-        symbol_value = elf_find_symbol(f, b'pypysig_counter')
-        f.seek(0)
         phdr = elf_read_first_load_section(f)
+
+    try:
+        with open(file, 'rb') as f:
+            symbol_value = elf_find_symbol(f, symbolname)
+    except ValueError:
+        file = _check_elf_debuglink(file)
+        if file == origfile:
+            raise ValueError('symbol not found')
+        with open(file, 'rb') as f:
+            symbol_value = elf_find_symbol(f, symbolname)
     # compute address in target process
     # XXX I don't understand how alignment works, assert that it is aligned
     assert phdr.vaddr % phdr.align == 0

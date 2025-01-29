@@ -11,7 +11,7 @@ class Module(MixedModule):
     """
     appleveldefs = {
     }
-    if sys.implementation.startswith('linux'):
+    if sys.platform.startswith('linux'):
         appleveldefs['resolve_addr'] = 'app_vmprof.resolve_addr'
         appleveldefs['resolve_many_addrs'] = 'app_vmprof.resolve_many_addrs'
 
