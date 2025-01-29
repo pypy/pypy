@@ -52,7 +52,7 @@ jobs:
 
     - name: upload
       if: success() || failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v4.6.0
       with:
         name: pypy-ci-build-${{ matrix.os }}
         path: ./pypy-nightly.tar.bz2
