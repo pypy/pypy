@@ -18,6 +18,12 @@ This release includes a python 3.11 interpreter. We are labelling it "beta"
 because it is the first one. In the next release we will drop 3.10 and remove
 the "beta" label. There are a particularly large set of bugfixes in this
 release thanks to Victor Stinner and @devdanzin using fusil on the 3.10 builds.
+Other significant changes:
+
+- We have updated libunwind and libffi shipped in our portable builds to enable
+  the latest vmprof code to show more native symbol names.
+
+- The HPy backend has been updated to latest HPy HEAD
 
 The release includes three different interpreters:
 
@@ -102,10 +108,12 @@ For all versions
   windows calls to ``rposix`` routines. Now all the system calls on windows
   should use the ``FunctionW`` variants instead of the ``FunctionA`` ones.
 - Update to vmprof-0.4.17
+- Update vmprof native profiling to show more native symbols
 - Add support for unicode version 14
 - Implement `PEP 768`_-inspired remote debugging facility. See
   :doc:`remotedebugging`.
 - Add many more int optimization rules.
+- Bump ``macosx-version-min`` to 10.13 on 2.7 to match 3.10, 3.11
 
 Bugfixes
 ~~~~~~~~
@@ -213,6 +221,7 @@ Bugfixes
   ``__bases__``
 - Avoid segfault when creating memoryview of ctypes array with 0 shape
   (:issue:`5156`)
+- Fix signature of ``sendfunc``
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
