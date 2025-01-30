@@ -3,7 +3,7 @@ PyPy v7.3.18: release of python 2.7, 3.10 and 3.11 beta
 =======================================================
 
 ..
-     updated to 8633d98efb4b32cafe1761a2503af77ef4f941c9
+     updated to afda0e1905a15
 
 .. note::
     This is a pre-release announcement. When the release actually happens, it
@@ -21,7 +21,9 @@ release thanks to Victor Stinner and @devdanzin using fusil on the 3.10 builds.
 Other significant changes:
 
 - We have updated libunwind and libffi shipped in our portable builds to enable
-  the latest vmprof code to show more native symbol names.
+  the latest vmprof code to show more native symbol names. We also now
+  statically link to libffi where possible which reduces the number of shared
+  object dependencies.
 
 - The HPy backend has been updated to latest HPy HEAD
 
