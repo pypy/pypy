@@ -53,6 +53,15 @@ def test_elf_read_first_load_section():
         if name == 'vaddr':
             assert int(value, 16) == phdr.vaddr
 
+def skip_on_oserror(func):
+    def wrapper():
+        try:
+            return func()
+        except OSError as e:
+            if "Operation not permitted" in str(e):
+                pytest.skip('yama ptrace_scope likely forbids read_memory call')
+
+@skip_on_oserror
 def test_read_memory():
     # test using local memory
     ffi = _pypy_remote_debug.ffi
@@ -64,6 +73,7 @@ def test_read_memory():
     result = _pypy_remote_debug.read_memory(pid, int(ffi.cast('intptr_t', sourcebuffer)), len(data))
     assert result == data
 
+@skip_on_oserror
 def test_write_memory():
     # test using local memory
     ffi = _pypy_remote_debug.ffi
@@ -73,6 +83,7 @@ def test_write_memory():
     result = _pypy_remote_debug.write_memory(pid, int(ffi.cast('intptr_t', targetbuffer)), data)
     assert ffi.buffer(targetbuffer)[:] == data
 
+@skip_on_oserror
 def test_cookie():
     pid = os.getpid()
     addr = _pypy_remote_debug.compute_remote_addr(pid)
@@ -93,6 +104,7 @@ sys.stdin.readline()
     out.stdin.flush()
     out.wait()
 
+@skip_on_oserror
 def test_integration():
     import __pypy__
     for func in (_pypy_remote_debug.start_debugger, __pypy__.remote_exec):
