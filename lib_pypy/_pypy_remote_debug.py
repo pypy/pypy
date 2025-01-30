@@ -77,7 +77,11 @@ class ElfProgramHeader(ElfBase):
     PT_LOAD = 1 # loadable segment
 
     def __init__(self, data, is_64bit=False):
-        self.type, self.flags, self.offset, self.vaddr, self.paddr, self.filesz, self.memsz, self.align = self._unpack(data, is_64bit)
+        fields = self._unpack(data, is_64bit)
+        if is_64bit:
+            self.type, self.flags, self.offset, self.vaddr, self.paddr, self.filesz, self.memsz, self.align = fields
+        else:
+            self.type, self.offset, self.vaddr, self.paddr, self.filesz, self.memsz, self.flags, self.align = fields
 
 
 class ElfSectionHeader(ElfBase):
@@ -112,7 +116,11 @@ class ElfSymTabEntry(ElfBase):
     name_as_bytes = None
 
     def __init__(self, data="", is_64bit=False):
-        self.name, self.info, self.other, self.shndx, self.value, self.size = self._unpack(data, is_64bit)
+        fields = self._unpack(data, is_64bit)
+        if is_64bit:
+            self.name, self.info, self.other, self.shndx, self.value, self.size = fields
+        else:
+            self.name, self.value, self.size, self.info, self.other, self.shndx = fields
 
     def __repr__(self):
         if self.name_as_bytes:
