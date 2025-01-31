@@ -129,6 +129,15 @@ class Logger(object):
                              None).repr_of_resop(op)
 
 
+def constptr_eq(a, b):
+    return a.same_constant(b)
+def constptr_hash(a):
+    return a._get_hash_()
+
+def constptr_dict():
+    from rpython.rlib.objectmodel import r_dict
+    return r_dict(constptr_eq, constptr_hash)
+
 class LogOperations(object):
     """
     ResOperation logger.
@@ -139,11 +148,21 @@ class LogOperations(object):
         if memo is None:
             memo = {}
         self.memo = memo
+        self.constptr_memo = constptr_dict()
 
     def repr_of_descr(self, descr):
         return descr.repr_of_descr()
 
     def repr_of_arg(self, arg):
+        if isinstance(arg, ConstPtr):
+            if not arg.value:
+                return 'ConstPtr(null)'
+            try:
+                mv = self.constptr_memo[arg]
+            except KeyError:
+                mv = len(self.constptr_memo)
+                self.constptr_memo[arg] = mv
+            return 'ConstPtr(ptr' + str(mv) + ')'
         try:
             mv = self.memo[arg]
         except KeyError:
@@ -156,10 +175,6 @@ class LogOperations(object):
                 if name:
                     return 'ConstClass(' + name + ')'
             return str(arg.value)
-        elif isinstance(arg, ConstPtr):
-            if arg.value:
-                return 'ConstPtr(ptr' + str(mv) + ')'
-            return 'ConstPtr(null)'
         elif isinstance(arg, ConstFloat):
             return str(arg.getfloat())
         elif arg is None:

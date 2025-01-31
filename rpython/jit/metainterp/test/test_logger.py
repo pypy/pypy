@@ -286,3 +286,21 @@ i4 = int_mul(i2, 2)
         assert lines[3].startswith("+20")
         assert lines[4].startswith("+30")
         assert lines[5].startswith("+40")
+
+    def test_repeated_constptr_print_same(self):
+        from rpython.jit.metainterp.history import ConstPtr
+        from rpython.rtyper.lltypesystem import lltype, llmemory
+        NODE = lltype.GcStruct('Node')
+        n1 = lltype.malloc(NODE)
+        n1o = lltype.cast_opaque_ptr(llmemory.GCREF, n1)
+        n2 = lltype.malloc(NODE)
+        n2o = lltype.cast_opaque_ptr(llmemory.GCREF, n2)
+        c1 = ConstPtr(n1o)
+        c2 = ConstPtr(n1o)
+        c3 = ConstPtr(n2o)
+        gcrefnull = lltype.nullptr(llmemory.GCREF.TO)
+        c4 = ConstPtr(gcrefnull)
+        logger = Logger(self.make_metainterp_sd())
+        logops = logger._make_log_operations(None)
+        assert logops.repr_of_arg(c1) == logops.repr_of_arg(c2) != logops.repr_of_arg(c3)
+        assert logops.repr_of_arg(c4) == 'ConstPtr(null)'
