@@ -4,6 +4,7 @@ from rpython.rlib.debug import (have_debug_prints, debug_start, debug_stop,
     debug_print)
 from rpython.rlib.objectmodel import we_are_translated, compute_unique_id
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rgc import try_cast_gcref_to_hlstr
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 
 
@@ -149,6 +150,7 @@ class LogOperations(object):
             memo = {}
         self.memo = memo
         self.constptr_memo = constptr_dict()
+        self.comments_before_op = []
 
     def repr_of_descr(self, descr):
         return descr.repr_of_descr()
@@ -158,11 +160,15 @@ class LogOperations(object):
             if not arg.value:
                 return 'ConstPtr(null)'
             try:
-                mv = self.constptr_memo[arg]
+                return self.constptr_memo[arg]
             except KeyError:
                 mv = len(self.constptr_memo)
-                self.constptr_memo[arg] = mv
-            return 'ConstPtr(ptr' + str(mv) + ')'
+                constrepr = 'ConstPtr(ptr' + str(mv) + ')'
+                self.constptr_memo[arg] = constrepr
+                as_str = try_cast_gcref_to_hlstr(arg.value)
+                if as_str:
+                    self.comments_before_op.append("# %s: %s" % (constrepr, as_str.replace("\n", "\\n")[:100]))
+                return constrepr
         try:
             mv = self.memo[arg]
         except KeyError:
@@ -260,7 +266,11 @@ class LogOperations(object):
             debug_print('[' + args + ']')
         for i in range(len(operations)):
             #op = operations[i]
-            debug_print(self.repr_of_resop(operations[i], ops_offset))
+            oprepr = self.repr_of_resop(operations[i], ops_offset)
+            for comment in self.comments_before_op:
+                debug_print(comment)
+            del self.comments_before_op[:]
+            debug_print(oprepr)
             #if op.getopnum() == rop.LABEL:
             #    self._log_inputarg_setup_ops(op)
         if ops_offset and None in ops_offset:

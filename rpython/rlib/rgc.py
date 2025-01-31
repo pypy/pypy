@@ -971,6 +971,16 @@ def try_cast_gcref_to_lltype(TYPE, gcref):
             pass
         return lltype.nullptr(TYPE.TO)
 
+def try_cast_gcref_to_hlstr(gcref):
+    from rpython.rtyper.annlowlevel import llstr, hlstr
+    from rpython.rtyper.lltypesystem import rstr
+    PTRSTR = rstr.StringRepr.lowleveltype
+    res = try_cast_gcref_to_lltype(PTRSTR, gcref)
+    if not res:
+        return None
+    return hlstr(res)
+
+
 _ffi_cache = None
 def _fetch_ffi():
     global _ffi_cache

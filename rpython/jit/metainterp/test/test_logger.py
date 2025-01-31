@@ -304,3 +304,36 @@ i4 = int_mul(i2, 2)
         logops = logger._make_log_operations(None)
         assert logops.repr_of_arg(c1) == logops.repr_of_arg(c2) != logops.repr_of_arg(c3)
         assert logops.repr_of_arg(c4) == 'ConstPtr(null)'
+
+    def test_constptr_str_print_content(self):
+        from rpython.jit.metainterp.history import ConstPtr
+        from rpython.rtyper.annlowlevel import llstr
+        from rpython.rtyper.lltypesystem import lltype, llmemory
+        val = llstr("abc")
+        gcref = lltype.cast_opaque_ptr(llmemory.GCREF, val)
+        c = ConstPtr(gcref)
+        logger = Logger(self.make_metainterp_sd())
+        logops = logger._make_log_operations(None)
+        logops.repr_of_arg(c)
+        assert logops.comments_before_op == ['# ConstPtr(ptr0): abc']
+
+        inp = '''
+        [i0]
+        i6 = int_add(i0, 12)
+        i7 = int_add(i0, 12)
+        jump(i6)
+        '''
+        _, loop, _ = self.reparse(inp)
+        loop.operations[0].setarg(0, c)
+        loop.operations[1].setarg(0, c)
+        output = logger.log_loop(loop)
+        assert output == """\
+# Loop 0 () : noopt with 3 ops
+[i0]
+# ConstPtr(ptr0): abc
+i2 = int_add(ConstPtr(ptr0), 12)
+i4 = int_add(ConstPtr(ptr0), 12)
+jump(i2)
+"""
+
+
