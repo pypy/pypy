@@ -1144,6 +1144,27 @@ class UsingFrameworkTest(object):
     def test_get_rpy_type_index(self):
         self.run("get_rpy_type_index")
 
+    def define_try_cast_gcref_to_lltype(self):
+        from rpython.rtyper.annlowlevel import llstr, hlstr
+        from rpython.rtyper.lltypesystem.rstr import STR
+        PSTR = lltype.Ptr(STR)
+        T = lltype.GcStruct('T', ('u', lltype.Signed))
+        t = lltype.malloc(T)
+        t.u = 12
+
+        def fn():
+            s = llstr("abcdef")
+            gcref1 = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+            assert hlstr(rgc.try_cast_gcref_to_lltype(PSTR, gcref1)) == "abcdef"
+            gcref2 = lltype.cast_opaque_ptr(llmemory.GCREF, t)
+            assert hlstr(rgc.try_cast_gcref_to_lltype(PSTR, gcref2)) is None
+            return 0
+
+        return fn
+
+    def test_try_cast_gcref_to_lltype(self):
+        self.run("try_cast_gcref_to_lltype")
+
     filename1_dump = str(udir.join('test_dump_rpy_heap.1'))
     filename2_dump = str(udir.join('test_dump_rpy_heap.2'))
     def define_dump_rpy_heap(self):

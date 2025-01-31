@@ -462,6 +462,20 @@ def test_ll_for_resizable_list():
     data = subprocess.check_output([str(exename), '.', '.', '.'])
     assert data.strip().endswith('OK!')
 
+def test_try_cast_gcref_to_type():
+    from rpython.rtyper.annlowlevel import llstr
+    from rpython.rtyper.lltypesystem import rstr
+    s = llstr('abc')
+    gcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+    s1 = rgc.try_cast_gcref_to_lltype(lltype.Ptr(rstr.STR), gcref)
+    assert s1 == s
+
+    NODE = lltype.GcStruct('Node')
+    n = lltype.malloc(NODE)
+    gcref = lltype.cast_opaque_ptr(llmemory.GCREF, n)
+    n1 = rgc.try_cast_gcref_to_lltype(lltype.Ptr(rstr.STR), gcref)
+    assert not n1
+
 
 def test_ListSupportingRawPtr_direct():
     lst = ['a', 'b', 'c']

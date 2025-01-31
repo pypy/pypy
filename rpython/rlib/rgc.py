@@ -951,6 +951,26 @@ def try_cast_gcref_to_instance(Class, gcref):
         return None
 try_cast_gcref_to_instance._annspecialcase_ = 'specialize:arg(0)'
 
+
+@specialize.arg(0)
+def try_cast_gcref_to_lltype(TYPE, gcref):
+    """ Try to cast a GCREF (produced by cast_opaque_ptr) to a specific rpython
+    pointer type """
+    if we_are_translated():
+        idx = get_rpy_type_index(gcref)
+        idx2 = get_rpy_type_index_of_type(TYPE)
+        if idx == idx2:
+            return lltype.cast_opaque_ptr(TYPE, gcref)
+        return lltype.nullptr(TYPE.TO)
+    else:
+        assert not isinstance(gcref, _GcRef)
+        assert isinstance(TYPE, lltype.Ptr)
+        try:
+            return lltype.cast_opaque_ptr(TYPE, gcref)
+        except lltype.InvalidCast as e:
+            pass
+        return lltype.nullptr(TYPE.TO)
+
 _ffi_cache = None
 def _fetch_ffi():
     global _ffi_cache
@@ -1050,6 +1070,23 @@ class Entry(ExtRegistryEntry):
         vlist = hop.inputargs(hop.args_r[0])
         hop.exception_cannot_occur()
         return hop.genop('gc_get_rpy_type_index', vlist,
+                         resulttype = hop.r_result)
+
+
+def get_rpy_type_index_of_type(TYPE):
+    raise NotImplementedError, "only works after translation"
+
+
+class Entry(ExtRegistryEntry):
+    _about_ = get_rpy_type_index_of_type
+    def compute_result_annotation(self, s_lltype):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeInteger()
+    def specialize_call(self, hop):
+        TYP = hop.args_s[0].const
+        typ = hop.inputconst(lltype.Void, TYP)
+        hop.exception_cannot_occur()
+        return hop.genop('gc_get_rpy_type_index_of_type', [typ],
                          resulttype = hop.r_result)
 
 class Entry(ExtRegistryEntry):

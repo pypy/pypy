@@ -1319,6 +1319,14 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=hop.spaceop.result)
         self.pop_roots(hop, livevars)
 
+    def gct_gc_get_rpy_type_index_of_type(self, hop):
+        from rpython.flowspace.model import Constant
+        TYP = hop.spaceop.args[0].value
+        tid = self.get_type_id(TYP.TO)
+        index_of_type = Constant(self.gcdata.gc.get_member_index(tid), lltype.Signed)
+        hop.genop("same_as", [index_of_type], resultvar=hop.spaceop.result)
+
+
     def gct_gc_is_rpy_instance(self, hop):
         livevars = self.push_roots(hop)
         [v_ptr] = hop.spaceop.args
