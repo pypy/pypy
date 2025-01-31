@@ -485,7 +485,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         """
         expected_name = "pypy.module.cpyext.test.dotted"
         module = self.import_module(name=expected_name, filename="dotted")
-        assert module.__name__ == expected_name
+        assert module.__name__ == expected_name, module.__name__
 
 
     def test_InitModule4_in_package(self):

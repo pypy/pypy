@@ -1174,10 +1174,9 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     typ = res.c_ht_type
     typ.c_tp_flags = rffi.cast(rffi.ULONG, widen(spec.c_flags) | Py_TPFLAGS_HEAPTYPE)
     res.c_ht_name = make_ref(space, space.newtext(name))
-    res.c_ht_qualname = res.c_ht_name
+    res.c_ht_qualname = make_ref(space, space.newtext(specname))
     incref(space, res.c_ht_qualname)
-    utf8 = PyUnicode_AsUTF8(space, res.c_ht_name)
-    typ.c_tp_name = cts.cast('const char *', utf8)
+    typ.c_tp_name = spec.c_name
     if module:
         incref(space, module)
         res.c_ht_module = module
