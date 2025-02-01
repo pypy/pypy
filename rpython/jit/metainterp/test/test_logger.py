@@ -309,13 +309,13 @@ i4 = int_mul(i2, 2)
         from rpython.jit.metainterp.history import ConstPtr
         from rpython.rtyper.annlowlevel import llstr
         from rpython.rtyper.lltypesystem import lltype, llmemory
-        val = llstr("abc")
+        val = llstr("abc\n\0def")
         gcref = lltype.cast_opaque_ptr(llmemory.GCREF, val)
         c = ConstPtr(gcref)
         logger = Logger(self.make_metainterp_sd())
         logops = logger._make_log_operations(None)
         logops.repr_of_arg(c)
-        assert logops.comments_before_op == ['# ConstPtr(ptr0): abc']
+        assert logops.comments_before_op == ["# ConstPtr(ptr0): 'abc\\n\\x00def'"]
 
         inp = '''
         [i0]
@@ -330,7 +330,7 @@ i4 = int_mul(i2, 2)
         assert output == """\
 # Loop 0 () : noopt with 3 ops
 [i0]
-# ConstPtr(ptr0): abc
+# ConstPtr(ptr0): 'abc\\n\\x00def'
 i2 = int_add(ConstPtr(ptr0), 12)
 i4 = int_add(ConstPtr(ptr0), 12)
 jump(i2)

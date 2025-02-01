@@ -3,6 +3,7 @@ import sys, py
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
 from rpython.rlib.rstring import replace, startswith, endswith, replace_count
 from rpython.rlib.rstring import find, rfind, count, _search, SEARCH_COUNT, SEARCH_FIND
+from rpython.rlib.rstring import string_escape_encode
 from rpython.rlib.buffer import StringBuffer
 from rpython.rtyper.test.tool import BaseRtypingTest
 
@@ -338,3 +339,16 @@ def test_hypothesis_search(needle, pieces, by, maxcount):
 
     res = replace(input, needle, by, maxcount)
     assert res == input.replace(needle, by, maxcount)
+
+@given(st.binary())
+def test_string_escape_encode(s):
+    e1 = string_escape_encode(s, autoquotes=False)
+    assert eval(e1) == s
+    e2 = string_escape_encode(s)
+    assert eval(e2) == s
+    if "'" not in s:
+        assert e2.startswith("'")
+        assert e2.endswith("'")
+    e3 = string_escape_encode(s, prefix='b')
+    assert eval(e3) == s
+    assert e3.startswith('b')

@@ -156,6 +156,7 @@ class LogOperations(object):
         return descr.repr_of_descr()
 
     def repr_of_arg(self, arg):
+        from rpython.rlib import rstring
         if isinstance(arg, ConstPtr):
             if not arg.value:
                 return 'ConstPtr(null)'
@@ -167,7 +168,10 @@ class LogOperations(object):
                 self.constptr_memo[arg] = constrepr
                 as_str = try_cast_gcref_to_hlstr(arg.value)
                 if as_str:
-                    self.comments_before_op.append("# %s: %s" % (constrepr, as_str.replace("\n", "\\n")[:100]))
+                    str_repr = rstring.string_escape_encode(as_str)
+                    if len(str_repr) > 100:
+                        str_repr = str_repr[:100] + "..."
+                    self.comments_before_op.append("# %s: %s" % (constrepr, str_repr))
                 return constrepr
         try:
             mv = self.memo[arg]

@@ -4,7 +4,7 @@ from rpython.rlib import jit, rutf8
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin)
 from rpython.rlib.buffer import StringBuffer
-from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.rstring import StringBuilder, string_escape_encode
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import SimpleView
@@ -583,10 +583,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def descr_repr(self, space):
         s = self._value
-        quote = "'"
-        if quote in s and '"' not in s:
-            quote = '"'
-        return space.newtext(string_escape_encode(s, quote))
+        return space.newtext(string_escape_encode(s))
 
     def descr_str(self, space):
         if type(self) is W_BytesObject:
@@ -938,48 +935,3 @@ W_BytesObject.typedef = TypeDef(
 W_BytesObject.typedef.flag_sequence_bug_compat = True
 
 
-@jit.elidable
-def string_escape_encode(s, quote):
-    buf = StringBuilder(len(s) + 2)
-
-    buf.append(quote)
-    startslice = 0
-
-    for i in range(len(s)):
-        c = s[i]
-        use_bs_char = False # character quoted by backspace
-
-        if c == '\\' or c == quote:
-            bs_char = c
-            use_bs_char = True
-        elif c == '\t':
-            bs_char = 't'
-            use_bs_char = True
-        elif c == '\r':
-            bs_char = 'r'
-            use_bs_char = True
-        elif c == '\n':
-            bs_char = 'n'
-            use_bs_char = True
-        elif not '\x20' <= c < '\x7f':
-            n = ord(c)
-            if i != startslice:
-                buf.append_slice(s, startslice, i)
-            startslice = i + 1
-            buf.append('\\x')
-            buf.append("0123456789abcdef"[n >> 4])
-            buf.append("0123456789abcdef"[n & 0xF])
-
-        if use_bs_char:
-            if i != startslice:
-                buf.append_slice(s, startslice, i)
-            startslice = i + 1
-            buf.append('\\')
-            buf.append(bs_char)
-
-    if len(s) != startslice:
-        buf.append_slice(s, startslice, len(s))
-
-    buf.append(quote)
-
-    return buf.build()

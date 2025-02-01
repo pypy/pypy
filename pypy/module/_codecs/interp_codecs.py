@@ -736,8 +736,8 @@ def unicode_internal_decode(space, w_string, errors="strict"):
 
 @unwrap_spec(data='bytes', errors='text_or_none')
 def escape_encode(space, data, errors='strict'):
-    from pypy.objspace.std.bytesobject import string_escape_encode
-    result = string_escape_encode(data, quote="'")
+    from rpython.rlib.rstring import string_escape_encode
+    result = string_escape_encode(data, autoquotes=False)
     start = 1
     end = len(result) - 1
     assert end >= 0
