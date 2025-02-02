@@ -836,7 +836,7 @@ def type_realize(space, py_obj):
     assert flags & Py_TPFLAGS_READY == 0
     assert flags & Py_TPFLAGS_READYING == 0
     if flags & Py_TPFLAGS_MANAGED_DICT:
-        raise oefmt(space.w_RuntimeError, "cannot use Py_PTFLAGS_MANAGED_DICT")
+        raise oefmt(space.w_RuntimeError, "cannot use Py_TPFLAGS_MANAGED_DICT")
     pto.c_tp_flags = rffi.cast(rffi.ULONG, flags | Py_TPFLAGS_READYING)
     try:
         w_obj = _type_realize(space, py_obj)
