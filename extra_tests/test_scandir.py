@@ -276,12 +276,14 @@ def test_resource_warning(tmpdir):
     #
     iterator = os.scandir(dir1)
     next(iterator)
-    with warnings.catch_warnings(record=True) as l:
+    with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         iterator.close()
         del iterator
         gc.collect()
-    assert len(l) == 0
+    if len(w) > 0:
+        [print(x) for x in w]
+    assert len(w) == 0
 
 
 def test_context_manager(tmpdir):
