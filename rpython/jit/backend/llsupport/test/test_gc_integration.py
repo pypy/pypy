@@ -25,10 +25,8 @@ IS_PYPY = 'pypyjit' in sys.builtin_module_names
 IS_PYPY_MACOS_ARM64 = IS_ARM64 and IS_MACOS and IS_PYPY
 
 if IS_PYPY_MACOS_ARM64:
-    @pytest.fixture(autouse=True)
-    def disable_JIT():
-        import pypyjit
-        pypyjit.set_param("off")
+    import pypyjit
+    pypyjit.set_param("off")
 
 
 def getmap(frame):
