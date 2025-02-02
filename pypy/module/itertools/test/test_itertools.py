@@ -448,6 +448,11 @@ class AppTestItertools(object):
         with raises(TypeError) as e:
             subclass([1, 2], newarg=3)
 
+    def test_islice_big_step(self):
+        import itertools, sys
+        islice = itertools.islice(itertools.count(), 1, 10, sys.maxsize)
+        assert list(islice) == [1]
+
     def test_chain(self):
         import itertools
 

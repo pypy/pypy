@@ -4,6 +4,7 @@ from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.objspace.std.util import generic_alias_class_getitem, builtinclass_new_args_check
 from rpython.rlib import jit
+from rpython.rtyper.lltypesystem import rffi
 
 from pypy.module.__builtin__.functional import W_Filter, build_iterators_from_args
 
@@ -375,10 +376,10 @@ class W_ISlice(W_Root):
         else:
             step = 1
 
-        self.count = 0
-        self.next = start
+        self.count = rffi.cast(rffi.UNSIGNED, 0)
+        self.next = rffi.cast(rffi.UNSIGNED, start)
         self.stop = stop
-        self.step = step
+        self.step = rffi.cast(rffi.UNSIGNED, step)
 
     def arg_int_w(self, w_obj, minimum, errormsg):
         space = self.space
@@ -412,9 +413,11 @@ class W_ISlice(W_Root):
             raise
         self.count += 1
         oldnext = self.next
-        self.next += self.step
-        if self.next < oldnext or self.next > stop >= 0:
-            self.next = stop
+        new_next = self.next + self.step
+        if new_next < oldnext or (stop >=0 and new_next > rffi.cast(rffi.UNSIGNED,stop)):
+            self.next = rffi.cast(rffi.UNSIGNED, stop)
+        else:
+            self.next = new_next
         return item
 
     def _ignore_items(self):
@@ -456,7 +459,7 @@ class W_ISlice(W_Root):
         ])
 
     def descr_setstate(self, space, w_state):
-        self.count = space.int_w(w_state)
+        self.count = rffi.cast(rffi.UNSIGNED, space.int_w(w_state))
 
 def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, __args__):
     args_w = __args__.arguments_w
