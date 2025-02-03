@@ -205,6 +205,8 @@ class TestParseCommandLine:
         self.check(['--abc'], env, output_contains="unknown option --abc")
 
         self.check([], {'PYPY_DISABLE_JIT': '1'}, sys_argv=[''], run_stdin=True, _jitoptions='off')
+        self.check([], {'PYTHON_DISABLE_REMOTE_DEBUG': '1'}, sys_argv=[''], run_stdin=True, _remote_debug='off')
+        self.check(['-X', 'disable-remote-debug'], {}, sys_argv=[''], run_stdin=True, _remote_debug='off')
 
     def test_sysflags(self):
         env = os.environ.copy()

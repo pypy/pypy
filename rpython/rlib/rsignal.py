@@ -104,7 +104,7 @@ struct_name = 'pypysig_long_struct'
 LONG_STRUCT = lltype.Struct(struct_name, ('c_value', lltype.Signed),
                                          ('c_cookie', rffi.CFixedArray(lltype.Char, 8)),
                                          ('c_debugger_pending_call', lltype.Signed),
-                                         ('c_debugger_script', lltype.Array(lltype.Char, hints={'nolength': True})),
+                                         ('c_debugger_script_path', lltype.Array(lltype.Char, hints={'nolength': True})),
                             hints={'c_name' : struct_name, 'external' : 'C'})
 del struct_name
 

@@ -463,19 +463,20 @@ class AppTestRemotelyTriggeredDebugger:
             pytest.skip("can only be run untranslated")
         tmpdir = pytest.ensuretemp("signal")
         outfile = tmpdir.join('out.txt')
-        script = '''
+        tmpfile = tmpdir.join("debugger.py")
+        tmpfile.write('''
 with open(%r, 'w') as f:
     f.write('done')
 print('done')
-''' % str(outfile)
-        cls.w_script = cls.space.newtext(script)
+''' % str(outfile))
+        cls.w_tmpfile = cls.space.wrap(str(tmpfile))
         cls.w_outfile = cls.space.wrap(
             str(outfile))
         def trigger_debugger(space):
             addr = pypysig_getaddr_occurred_fullstruct()
-            for index, c in enumerate(str(script)):
-                addr.c_debugger_script[index] = c
-            addr.c_debugger_script[index + 1] = '\x00'
+            for index, c in enumerate(str(tmpfile)):
+                addr.c_debugger_script_path[index] = c
+            addr.c_debugger_script_path[index + 1] = '\x00'
             addr.c_debugger_pending_call = 1
             addr.c_value = -1
         cls.w_trigger_debugger = cls.space.wrap(interp2app(trigger_debugger))
@@ -495,6 +496,20 @@ print('done')
         sys.addaudithook(f)
         try:
             self.trigger_debugger()
-            assert l[0] == ('remote_exec', (self.script, ))
+            assert l[0] == ('remote_exec', (self.tmpfile, ))
         finally:
             __pypy__._testing_clear_audithooks()
+
+    def test_disable_debugger(self):
+        import __pypy__
+        with open(self.outfile, 'w') as f:
+            f.write('nothing')
+        assert __pypy__._pypy_disable_remote_debugger == False
+        __pypy__._pypy_disable_remote_debugger = True
+        try:
+            self.trigger_debugger() # should happen right away
+        finally:
+            __pypy__._pypy_disable_remote_debugger = False
+        with open(self.outfile) as f:
+            content = f.read()
+            assert content == 'nothing'

@@ -51,6 +51,7 @@ Options and arguments (and corresponding environment variables):
          -X int_max_str_digits=number: limit the size of int<->str conversions.
              This helps avoid denial of service attacks when parsing untrusted data.
              The default is sys.int_info.default_max_str_digits.  0 disables.
+         -X disable-remote-debug: disable the remote debugging interface
   
 --check-hash-based-pycs always|default|never:
     control how Python invalidates hash-based .pyc files
@@ -80,6 +81,7 @@ PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
    topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
 PYPY_DISABLE_JIT: if set to a non-empty value, disable JIT.
+PYTHON_DISABLE_REMOTE_DEBUG: if set to a non-empty value, disable the remote debugging interface
 """
 
 try:
@@ -324,6 +326,17 @@ def set_jit_option(options, jitparam, *args):
         import pypyjit
         pypyjit.set_param(jitparam)
 
+
+def disable_remote_debug(options):
+    options['_remote_debug'] = 'off'
+    try:
+        import __pypy__
+    except ImportError:
+        pass
+    else:
+        __pypy__._pypy_disable_remote_debugger = True
+
+
 class CommandLineError(Exception):
     pass
 
@@ -519,6 +532,8 @@ def X_option(options, xoption, iterargv):
             options["utf8_mode"] = 0
     elif xoption == 'jit-off':
         set_jit_option(options, 'off')
+    elif xoption == 'disable-remote-debug':
+        disable_remote_debug(options)
     elif xoption == 'warn_default_encoding':
         options["warn_default_encoding"] = 1
 
@@ -748,6 +763,9 @@ def _parse_command_line(argv):
         del sys.flags
         sys.flags = type(oldflags)(flags)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
+
+    if getenv('PYTHON_DISABLE_REMOTE_DEBUG'):
+        disable_remote_debug(options)
 
 ##    if not WE_ARE_TRANSLATED:
 ##        for key in sorted(options):
