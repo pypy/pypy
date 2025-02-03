@@ -61,6 +61,7 @@ def skip_on_oserror(func):
         except OSError as e:
             if "Operation not permitted" in str(e):
                 pytest.skip('yama ptrace_scope likely forbids read_memory call')
+    return wrapper
 
 @skip_on_oserror
 def test_read_memory():
@@ -105,8 +106,7 @@ sys.stdin.readline()
     out.stdin.flush()
     out.wait()
 
-@skip_on_oserror
-def test_integration():
+def test_integration(tmpdir):
     import __pypy__
     for func in (_pypy_remote_debug.start_debugger, __pypy__.remote_exec):
         code = """
@@ -122,13 +122,20 @@ sys.stdout.flush()
         out = subprocess.Popen([sys.executable, '-c',
              code], stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         pid = out.pid
-        func(pid, debug_code)
-        l = [out.stdout.readline() for _ in range(len(debug_code.splitlines()) + 2)]
-        assert ''.join(l) == 'Executing remote debugger script:\n%s\n' % debug_code
+        debug_script = tmpdir.join('debug.py')
+        debug_script.write(debug_code)
+        func(pid, str(debug_script))
+        l = out.stdout.readline()
+        assert ''.join(l) == 'Executing remote debugger script %s\n' % debug_script
         l = out.stdout.readline()
         assert l == 'hello from %s\n' % pid
         exitcode = out.wait()
         assert exitcode == 0
+
+
+# __________________________________________________________
+# symbolification tests
+
 
 def load_so_or_skip(name):
     try:

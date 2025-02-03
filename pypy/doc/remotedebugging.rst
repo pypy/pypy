@@ -13,10 +13,14 @@ From the commandline
 
 To directly execute Python code in another PyPy process, you can run this command::
 
-    pypy -m _pypy_remote_debug <pid> <code>
+    pypy -m _pypy_remote_debug <pid> -c <code>
 
 This will cause the other PyPy process with process id ``pid`` the to execute
 the ``code`` given.
+
+Alternatively you can pass a script file::
+
+    pypy -m _pypy_remote_debug <pid> <filename>
 
 If the other process is currently blocked by a system call or running a
 long-running computation in a C extension, it will not be interrupted. In this
@@ -31,7 +35,7 @@ API
 ---
 
 To execute code remotely from Python code, there is the function
-``__pypy__.remote_exec(pid, code, wait=True)``.
+``__pypy__.remote_exec(pid, filename, wait=True)``.
 
 Security
 ---------

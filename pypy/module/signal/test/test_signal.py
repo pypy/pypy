@@ -344,18 +344,19 @@ class AppTestRemotelyTriggeredDebugger:
         cls.w_signal = cls.space.getbuiltinmodule('signal')
         tmpdir = pytest.ensuretemp("signal")
         outfile = tmpdir.join('out.txt')
-        script = '''
+        tmpfile = tmpdir.join("debugger.py")
+        tmpfile.write('''
 with open(%r, 'w') as f:
     f.write('done')
 print('done')
-''' % str(outfile)
+''' % str(outfile))
         cls.w_outfile = cls.space.wrap(
             str(outfile))
         def trigger_debugger(space):
             addr = pypysig_getaddr_occurred_fullstruct()
-            for index, c in enumerate(str(script)):
-                addr.c_debugger_script[index] = c
-            addr.c_debugger_script[index + 1] = '\x00'
+            for index, c in enumerate(str(tmpfile)):
+                addr.c_debugger_script_path[index] = c
+            addr.c_debugger_script_path[index + 1] = '\x00'
             addr.c_debugger_pending_call = 1
             addr.c_value = -1
         cls.w_trigger_debugger = cls.space.wrap(interp2app(trigger_debugger))

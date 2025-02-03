@@ -416,8 +416,8 @@ def _symbolify_all(values):
 
 COOKIE_OFFSET = struct.calcsize('l')
 PENDING_CALL_OFFSET = COOKIE_OFFSET + struct.calcsize('cccccccc')
-SCRIPT_OFFSET = PENDING_CALL_OFFSET + struct.calcsize('l')
-SCRIPT_MAX = 4096
+PATH_OFFSET = PENDING_CALL_OFFSET + struct.calcsize('l')
+PATH_MAX = 1024
 
 
 def compute_remote_addr(pid='self', symbolname=b'pypysig_counter'):
@@ -441,20 +441,20 @@ def compute_remote_addr(pid='self', symbolname=b'pypysig_counter'):
     return base_addr + symbol_value - phdr.vaddr
 
 
-def start_debugger(pid, script, wait=True):
+def start_debugger(pid, filename, wait=True):
     if not sys.platform.startswith('linux'):
         raise ValueError('This works on Linux only so far')
     addr = compute_remote_addr(pid)
     cookie = read_memory(pid, addr + COOKIE_OFFSET, 8)
     assert cookie == b'pypysigs'
-    if not isinstance(script, bytes):
-        raise TypeError('script must be bytes, not %r' % (type(script).__name__, ))
-    # write the script, and a null byte
-    if not len(script) + 1 < SCRIPT_MAX:
-        raise ValueError('script can be at most %s bytes long, not %s' % (SCRIPT_MAX - 1, len(script)))
-    if b'\x00' in script:
-        raise ValueError('script must not contain null byte')
-    write_memory(pid, addr + SCRIPT_OFFSET, script + b'\x00')
+    if not isinstance(filename, bytes):
+        raise TypeError('filename must be bytes, not %r' % (type(filename).__name__, ))
+    if not len(filename) + 1 < PATH_MAX:
+        raise ValueError('path can be at most %s bytes long, not %s' % (PATH_MAX - 1, len(filename)))
+    if b'\x00' in filename:
+        raise ValueError('filename must not contain null byte')
+    # write the path plus null byte
+    write_memory(pid, addr + PATH_OFFSET, filename + b'\x00')
     # write a 1 into pypysig_counter.debugger_pending_call
     write_memory(pid, addr + PENDING_CALL_OFFSET, struct.pack('l', 1))
     # write a -1 into pypysig_counter.value
@@ -470,11 +470,26 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="Execute Python code in another PyPy process.")
     parser.add_argument("pid", help="process id of the target process", type=int)
-    parser.add_argument("code", help="python code passed as string to execute in the remote process", metavar='code')
+    parser.add_argument("script", nargs='?', help="script file to execute in the remote process")
+    parser.add_argument("-c", help="python code passed as string to execute in the remote process", metavar='code')
     parser.add_argument("--dont-wait", help="dont wait for the other process to run the debug code", action='store_true')
     args = parser.parse_args()
 
-    start_debugger(args.pid, args.code.encode('utf-8'), wait=not args.dont_wait)
+    if not sys.platform.startswith('linux'):
+        parser.error('This works on Linux only so far')
+    if args.script:
+        start_debugger(args.pid, os.path.realpath(args.script), wait=not args.dont_wait)
+    elif args.c:
+        if args.dont_wait:
+            parser.error("can't pass -c and --dont-wait together")
+        with tempfile.NamedTemporaryFile(mode='wb') as f:
+            f.write(args.c.encode('utf-8'))
+            f.flush()
+            # make it world-readable, in case we have to use sudo
+            os.chmod(f.name, 0o644)
+            start_debugger(args.pid, f.name, wait=True)
+    else:
+        parser.error('need to pass either a script or -c')
 
 
 if __name__ == '__main__':
