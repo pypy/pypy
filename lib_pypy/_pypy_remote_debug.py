@@ -291,27 +291,30 @@ def write_memory(pid, address, content):
 # parsing proc maps
 
 
-def _parse_maps(pid='self', filter=None):
+def _read_and_parse_maps(pid='self', filter=None):
     with open('/proc/%s/maps' % pid) as f:
-        parsed_maps = []
-        libpypy = None
-        for entry in f:
-            mapping = entry.split()
-            mapping_range = mapping[0]
-            from_, to_ = mapping_range.split('-', 1)
-            from_ = int(from_, 16)
-            to_ = int(to_, 16)
-            mapping_file = mapping[-1]
-            if filter is not None and filter not in mapping_file:
-                continue
-            parsed_maps.append(dict(file=mapping[-1], from_=from_, to_=to_, full_line=entry))
-        return parsed_maps
+        return _parse_maps(f, filter)
+
+def _parse_maps(lineiter, filter=None):
+    parsed_maps = []
+    libpypy = None
+    for entry in lineiter:
+        mapping = entry.split()
+        mapping_range = mapping[0]
+        from_, to_ = mapping_range.split('-', 1)
+        from_ = int(from_, 16)
+        to_ = int(to_, 16)
+        mapping_file = mapping[-1]
+        if filter is not None and filter not in mapping_file:
+            continue
+        parsed_maps.append(dict(file=mapping[-1], from_=from_, to_=to_, full_line=entry))
+    return parsed_maps
 
 def _find_file_and_base_addr(pid='self'):
-    maps = _parse_maps(pid, 'libpypy')
+    maps = _read_and_parse_maps(pid, 'libpypy')
     if not maps:
         executable = os.path.realpath('/proc/%s/exe' % pid)
-        maps = _parse_maps(pid, executable)
+        maps = _read_and_parse_maps(pid, executable)
         if not maps:
             raise ValueError('could not find executable nor libpypy.so in /proc/%s/maps' % pid)
     return maps[0]['file'], maps[0]['from_']
@@ -337,8 +340,9 @@ def _check_elf_debuglink(file):
 # symbolication support, used by _vmprof.resolve_address and
 # _vmprof.resolve_many_addrs
 
-def _proc_maps_find_map(value):
-    maps = _parse_maps()
+def _proc_map_find_base_map(value, maps=None):
+    if maps is None:
+        maps = _read_and_parse_maps()
     base_map = None
     for map_entry in maps:
         if not map_entry['file'].startswith('/'):
@@ -346,18 +350,21 @@ def _proc_maps_find_map(value):
         if base_map is None or base_map['file'] != map_entry['file']:
             base_map = map_entry
         if map_entry['from_'] <= value < map_entry['to_']:
-            map_entry['base_map'] = base_map
-            return map_entry
+            # find the base map, ie the first entry with the same file name
+            for base_map in maps:
+                if base_map['file'] == map_entry['file']:
+                    return base_map
+            assert 0, 'unreachable'
     else:
         return None
 
 
 def _symbolify(value):
-    map_entry = _proc_maps_find_map(value)
+    map_entry = _proc_map_find_base_map(value)
     if map_entry is None:
         return None
     filename = map_entry['file']
-    base_addr = map_entry['base_map']['from_']
+    base_addr = map_entry['from_']
     with open(filename, 'rb') as f:
         phdr = elf_read_first_load_section(f)
         assert phdr.vaddr % phdr.align == 0
@@ -379,11 +386,11 @@ def _symbolify_all(values):
     map_entry = None
     for value in values:
         if map_entry is None or map_entry['to_'] < value:
-            map_entry = _proc_maps_find_map(value)
+            map_entry = _proc_map_find_base_map(value)
             if map_entry is None:
                 continue
             filename = map_entry['file']
-            base_addr = map_entry['base_map']['from_']
+            base_addr = map_entry['from_']
             with open(filename, 'rb') as f:
                 phdr = elf_read_first_load_section(f)
                 assert phdr.vaddr % phdr.align == 0
