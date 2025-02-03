@@ -23,7 +23,7 @@ int pypysig_poll(void);   /* => signum or -1 */
 RPY_EXTERN
 void pypysig_pushback(int signum);
 
-#define SCRIPT_MAX 4096
+#define PATH_MAX 1024
 
 /* When a signal is received, pypysig_counter is set to -1. */
 struct pypysig_long_struct_inner {
@@ -39,7 +39,7 @@ struct pypysig_long_struct {
      * */
     char cookie[8];
     Signed debugger_pending_call;
-    char debugger_script[SCRIPT_MAX];
+    char debugger_script_path[PATH_MAX];
 };
 RPY_EXPORTED struct pypysig_long_struct pypysig_counter;
 
