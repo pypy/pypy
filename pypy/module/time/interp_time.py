@@ -248,9 +248,9 @@ HAS_CLOCK_GETTIME = rtime.HAS_CLOCK_GETTIME_RUNTIME
 HAS_CLOCK_HIGHRES = rtime.CLOCK_HIGHRES is not None
 HAS_CLOCK_MONOTONIC = rtime.CLOCK_MONOTONIC is not None
 HAS_MONOTONIC = (_WIN or _MACOSX or
-                 (HAS_CLOCK_GETTIME and (HAS_CLOCK_HIGHRES or HAS_CLOCK_MONOTONIC)))
+                 (HAS_CLOCK_GETTIME_RUNTIME and (HAS_CLOCK_HIGHRES or HAS_CLOCK_MONOTONIC)))
 HAS_THREAD_TIME = (_WIN or
-                   (HAS_CLOCK_GETTIME and rtime.CLOCK_PROCESS_CPUTIME_ID is not None))
+                   (HAS_CLOCK_GETTIME_RUNTIME and rtime.CLOCK_PROCESS_CPUTIME_ID is not None))
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
