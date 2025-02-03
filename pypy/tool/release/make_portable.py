@@ -109,6 +109,12 @@ def make_portable(copytree, python_ver, tk_patch, tcl_patch):
         binaries.extend(glob('lib/pypy{}/*_pypy_openssl{}*.{}'.format(python_ver, pyver_no_dot, ext)))
         binaries.extend(glob('lib/pypy{}/_tkinter/*_cffi.pypy{}*.{}'.format(python_ver, pyver_no_dot, ext)))
     deps = gather_deps(binaries)
+
+    # Add libunwind manually, because we load it at runtime with dlsym
+    # Must be set to the path where libunwind is installed
+    if os.path.exists("/usr/local/lib/libunwind.so"):
+        deps["libunwind.so"] = "/usr/local/lib/libunwind.so"
+
     copied = copy_deps(deps)
     for path, item in copied.items():
         print('Copied {0} to {1}'.format(path, item))

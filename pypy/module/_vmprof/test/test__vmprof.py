@@ -155,11 +155,3 @@ class AppTestVMProf(object):
         pos3 = os.lseek(fileno, 0, os.SEEK_CUR)
         assert pos3 > pos
         _vmprof.disable()
-
-    @pytest.mark.skipif(not rvmprof.supports_native_profiling(), reason="not implemented")
-    def test_resolve(self):
-        import _vmprof
-        
-        result = _vmprof.resolve_addr(1)
-
-        assert result == ("", 0, "-")

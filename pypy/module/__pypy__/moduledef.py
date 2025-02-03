@@ -122,6 +122,7 @@ class Module(MixedModule):
         'write_unraisable'          : 'interp_magic.write_unraisable',
 
         'PickleBuffer'              : 'interp_buffer.W_PickleBuffer',
+        '_pypy_disable_remote_debugger': 'space.w_False'
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'

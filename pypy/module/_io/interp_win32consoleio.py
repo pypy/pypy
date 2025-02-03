@@ -519,7 +519,7 @@ class W_WinConsoleIO(W_RawIOBase):
                         raise OperationError(space.w_WindowsError, space.newint(err))
                     nwrote = intmask(n[0])
                     offset += nwrote
-                return space.newint(offset - 1)
+        return space.newint(len(utf8))
             
     def get_blksize(self,space):
         return space.newint(self.blksize)

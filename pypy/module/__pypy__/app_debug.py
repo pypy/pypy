@@ -1,23 +1,23 @@
 
-def remote_exec(pid, code, wait=True):
+def remote_exec(pid, filename, wait=True):
     """
-    Executes a block of Python code in a given remote Python process.
+    Executes a script of Python code in a given remote Python process.
 
     Arguments:
          pid (int): The process ID of the target Python process.
 
-         code (str): A string containing the Python code to be executed.
+         filename (str): A string containing the path to the file with the Python code to be executed.
 
          wait (bool): Whether to wait for the target process to start the debug
          script execution before remote_exec returns. True by default.
     """
     import operator
     pid = operator.index(pid)
-    if isinstance(code, bytes):
+    if isinstance(filename, bytes):
         pass
-    elif isinstance(code, unicode):
-        code = code.encode('utf-8')
+    elif isinstance(filename, unicode):
+        filename = filename.encode('utf-8')
     
     from _pypy_remote_debug import start_debugger
-    start_debugger(pid, code, bool(wait))
+    start_debugger(pid, filename, bool(wait))
 

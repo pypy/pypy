@@ -3,7 +3,7 @@ PyPy v7.3.18: release of python 2.7, 3.10 and 3.11 beta
 =======================================================
 
 ..
-     updated to 8633d98efb4b32cafe1761a2503af77ef4f941c9
+     updated to afda0e1905a15
 
 .. note::
     This is a pre-release announcement. When the release actually happens, it
@@ -17,7 +17,20 @@ The PyPy team is proud to release version 7.3.18 of PyPy.
 This release includes a python 3.11 interpreter. We are labelling it "beta"
 because it is the first one. In the next release we will drop 3.10 and remove
 the "beta" label. There are a particularly large set of bugfixes in this
-release thanks to Victor Stinner and @devdanzin using fusil on the 3.10 builds.
+release thanks to @devdanzin using fusil on the 3.10 builds, originally written
+by Victor Stinner. Other significant changes:
+
+- We have updated libunwind and libffi shipped in our portable builds. We also
+  now statically link to libffi where possible which reduces the number of
+  shared object dependencies.
+
+- We have added code to be able to show the native function names when
+  profiling with VMProf. So far only Linux supports this feature.
+
+- We have added a `PEP 768`_-inspired remote debugging facility. See
+  :doc:`remotedebugging`.
+
+- The HPy backend has been updated to latest HPy HEAD
 
 The release includes three different interpreters:
 
@@ -33,7 +46,7 @@ The release includes three different interpreters:
 
 The interpreters are based on much the same codebase, thus the triple
 release. This is a micro release, all APIs are compatible with the other 7.3
-releases. It follows after 7.3.17 release on August 28, 2024. 
+releases. It follows after 7.3.17 release on August 28, 2024.
 
 We recommend updating. You can find links to download the releases here:
 
@@ -65,6 +78,81 @@ building wheels for PyPy.
 .. _blog: https://pypy.org/blog
 .. _HPy: https://hpyproject.org/
 .. _direct consulting: https://www.pypy.org/pypy-sponsors.html
+
+
+VMProf Native Symbol Names
+===========================
+
+When running VMProf profiling with native profiling enabled, PyPy did so far
+not produce function names for C functions. The output looked like this::
+
+    pypy -m vmprof ~/projects/gitpypy/lib-python/2.7/test/pystone.py
+    Pystone(1.1) time for 50000 passes = 0.0109887
+    This machine benchmarks at 4.55011e+06 pystones/second
+     vmprof output:
+     %:      name:                location:
+     100.0%  entry_point          <builtin>/app_main.py:874
+     100.0%  run_command_line     <builtin>/app_main.py:601
+     100.0%  run_toplevel         <builtin>/app_main.py:93
+     100.0%  _run_module_as_main  /home/user/bin/pypy-c-jit-170203-99a72243b541-linux64/lib-python/2.7/runpy.py:150
+     100.0%  _run_code            /home/user/bin/pypy-c-jit-170203-99a72243b541-linux64/lib-python/2.7/runpy.py:62
+     100.0%  <module>             /home/user/bin/pypy-c-jit-170203-99a72243b541-linux64/site-packages/vmprof/__main__.py:1
+     100.0%  main                 /home/user/bin/pypy-c-jit-170203-99a72243b541-linux64/site-packages/vmprof/__main__.py:30
+     100.0%  run_path             /home/user/bin/pypy-c-jit-170203-99a72243b541-linux64/lib-python/2.7/runpy.py:238
+     100.0%  _run_module_code     /home/user/bin/pypy-c-jit-170203-99a72243b541-linux64/lib-python/2.7/runpy.py:75
+     100.0%  <module>             /home/user/projects/gitpypy/lib-python/2.7/test/pystone.py:3
+     100.0%  main                 /home/user/projects/gitpypy/lib-python/2.7/test/pystone.py:60
+     100.0%  pystones             /home/user/projects/gitpypy/lib-python/2.7/test/pystone.py:67
+     100.0%  Proc0                /home/user/projects/gitpypy/lib-python/2.7/test/pystone.py:79
+     76.9%   <unknown code>
+     69.2%   <unknown code>
+     53.8%   <unknown code>
+     53.8%   <unknown code>
+     46.2%   <unknown code>
+     46.2%   <unknown code>
+     38.5%   <unknown code>
+     38.5%   Proc8                /home/user/projects/gitpypy/lib-python/2.7/test/pystone.py:212
+     30.8%   <unknown code>
+     ...
+
+Whe can now symbolify these C functions and give function names and which
+shared library they come from, at least on Linux::
+
+    Pystone(1.1) time for 50000 passes = 0.218967
+    This machine benchmarks at 228345 pystones/second
+     vmprof output:
+     %:      name:                                           location:
+     100.0%  entry_point                                     <builtin>/app_main.py:889
+     100.0%  run_command_line                                <builtin>/app_main.py:616
+     100.0%  run_toplevel                                    <builtin>/app_main.py:95
+     100.0%  _run_module_as_main                             /home/user/projects/gitpypy/lib-python/2.7/runpy.py:150
+     100.0%  _run_code                                       /home/user/projects/gitpypy/lib-python/2.7/runpy.py:62
+     100.0%  <module>                                        /home/user/projects/gitpypy/site-packages/vmprof/__main__.py:1
+     100.0%  main                                            /home/user/projects/gitpypy/site-packages/vmprof/__main__.py:30
+     100.0%  run_module                                      /home/user/projects/gitpypy/lib-python/2.7/runpy.py:179
+     100.0%  _run_module_code                                /home/user/projects/gitpypy/lib-python/2.7/runpy.py:75
+     100.0%  <module>                                        /home/user/projects/gitpypy/lib-python/2.7/test/pystone.py:3
+     100.0%  main                                            /home/user/projects/gitpypy/lib-python/2.7/test/pystone.py:60
+     100.0%  pystones                                        /home/user/projects/gitpypy/lib-python/2.7/test/pystone.py:67
+     100.0%  Proc0                                           /home/user/projects/gitpypy/lib-python/2.7/test/pystone.py:79
+     95.5%   n:pypy_g_execute_frame:0:pypy-c
+     91.4%   n:pypy_g_PyFrame_dispatch:0:pypy-c
+     63.8%   n:pypy_g_PyFrame_dispatch_bytecode:0:pypy-c
+     49.8%   Proc1                                           /home/user/projects/gitpypy/lib-python/2.7/test/pystone.py:137
+     17.6%   copy                                            /home/user/projects/gitpypy/lib-python/2.7/test/pystone.py:53
+     13.6%   n:pypy_g_PyFrame_CALL_FUNCTION:0:pypy-c
+     10.4%   Proc8                                           /home/user/projects/gitpypy/lib-python/2.7/test/pystone.py:212
+     8.6%    n:pypy_g_STORE_ATTR_slowpath:0:pypy-c
+
+This becomes even more useful when using the `VMProf Firefox converter`_, which
+uses the Firefox Profiler Web UI to visualize profiling output:
+
+.. image:: image/2025-vmprof-firefox.png
+
+.. _`VMProf Firefox converter`: https://github.com/Cskorpion/vmprof-firefox-converter/
+
+
+
 
 What is PyPy?
 =============
@@ -102,32 +190,34 @@ For all versions
   windows calls to ``rposix`` routines. Now all the system calls on windows
   should use the ``FunctionW`` variants instead of the ``FunctionA`` ones.
 - Update to vmprof-0.4.17
-- Add support for unicode version 14
+- Update vmprof native profiling to show more native symbols
 - Implement `PEP 768`_-inspired remote debugging facility. See
   :doc:`remotedebugging`.
 - Add many more int optimization rules.
+- Bump ``macosx-version-min`` to 10.13 on 2.7 to match 3.10, 3.11
 
 Bugfixes
 ~~~~~~~~
 - Make sure that tracing tail-recursive infinite recursion ends (:issue:`5021`)
-- Revive ``tools/gcdumpy.py`` which uses ``PYPYLOG``
+- Revive ``tools/gcdump.py`` which uses ``PYPYLOG``
 - Fix ``socket.socket.sendto`` for ``AF_PACKET`` protocol (:issue:`5024`)
 - Fix ``inf``/``nan`` formatting with thousands separator (:issue:`5018`)
 - Fixup int/long confusion on 32-bit builds
-- Fix the ``gc.get_stats`` output (:issue:`5005`)
+- Fix the ``gc.get_stats`` output to not show incorrect numbers (:issue:`5005`)
 - Use simple interactive console if ``stdin`` is closed (:issue:`2981`)
 - Use ``HOMEBREW_CELLAR`` to find ``tcl`` library on macOS (:issue:`5096`)
 - Don't segfault in unicodedb when looking up invalid codepoints (:issue:`5113`)
 - Fix segfault in ``pyexpat`` (:issue:`5112`)
 - Guard against list mutation in the list ``repr`` (:issue:`5117`)
-- Use the slow path for ``mul_int_int_bigint_result`` if there is no ``int128``
+- Check input for divide-by-zero in ``__pypy__.intops`` (:issue:`5129`)
+- Check input for valid c in ``mulmod(a, b, c)`` (:issue:`5128`)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 - Make the opencoder encoding support varsized ints. This shrinks the memory
-  usage and is supposed to support really long trace limits without recompiling
-  pypy
-- Implement a ``try_cast_erased`` function
+  usage of the JIT and is supposed to support really long trace limits without
+  recompiling pypy
+- Implement a ``try_cast_erased`` function in RPython
 - Copy CPython's ``threading`` implementation for windows
 - Only use ``largefile`` glibc interfaces on 32-bit build (:issue:`5071`)
 - Add a DSL for integer optimizations, use it to create some optimizations, see the blogpost_
@@ -137,17 +227,18 @@ Speedups and enhancements
   since we often read programmatically generated python code.
 - Avoid keeping refs on the frame stack when calling functions
 - Fix ``reverse`` JIT unrolling, which was done too eagerly
-- Write ``abs(int)`` in a branch-free way
+- Write ``abs(int)`` in a branch-free way, producing fewer JIT traces
 - On windows, use ``wchar_t`` for ``main(..., argv)``. Solves long standing
   issue around calling ``pypy.exe <unicode-named-file>.py``
 - Fix cffi backend for struct-in-a-struct (:issue:`python-cffi/cffi#147`)
-- Make ``newformat.py`` somewhat more jit friendly
+- Make ``str.format`` somewhat more jit friendly
 - Use ``BCryptGenRandom`` on windows in ``rurandom`` (:issue:`5039`)
 - If mode is 0700 in ``mkdir`` on windows, restrict the directory to
   the current user
+- Add support for unicode version 14 to RPython
 
 
-.. _blogpost: https://pypy.org/posts/2024/07/mining-jit-traces-missing-optimizations-z3.html
+.. _blogpost: https://pypy.org/posts/2024/10/jit-peephole-dsl.html
 .. _`PEP 768`: https://peps.python.org/pep-0768/
 
 Python 3.10
@@ -181,7 +272,7 @@ Bugfixes
 - Limit ``_string.formatter*`` functions to reject ``bytes`` (:issue:`5111`)
 - Remove internal calls of ``utf8(bytes)``, fix error handler, add test
   (:issue:`5110`, :issue:`5111`)
-- Make ``linecache.checkcache`` more resilient (:issue:`5109`)
+- Make ``linecache.checkcache`` more resilient in the presence of ``__del__`` and multithreading (:issue:`5109`)
 - Remove extraneous exports from ``_dbm.__all__`` (:issue:`5115`)
 - Add missing ``_ensure_initialized`` in ``_curses.putp`` (:issue:`5116`)
 - Check ``self.ssl`` for pathological use of ``_ssl`` (:issue:`5124`)
@@ -197,11 +288,9 @@ Bugfixes
   (:issue:`5126`)
 - Refactor hashlib ``_keccak_init`` to be a regular class method (:issue:`5127`)
 - Fix ``list.pop`` and ``list.insert`` to use ``__index__``
-- Check input for divide-by-zero in ``__pypy__.intops`` (:issue:`5129`)
-- Check input for valid c in ``mulmod(a, b, c)`` (:issue:`5128`)
 - Check code validity in ``_pickle_support.builtin_code`` (:issue:`5130`)
 - Check for bad result when calling ``nl_langinfo`` (:issue:`5132`)
-- Backport cpython fix to not write incomplete pyc files
+- Backport CPython fix to not write incomplete pyc files
   (:issue:`python/cpython#126606`)
 - Do not initialize values if stringio newline is wrong (:issue:`5140`)
 - Initialize buffer view ``readonly`` flag properly (:issue:`5136`)
@@ -213,6 +302,8 @@ Bugfixes
   ``__bases__``
 - Avoid segfault when creating memoryview of ctypes array with 0 shape
   (:issue:`5156`)
+- Fix signature of ``sendfunc``
+- Backport the CPython fixes to ``pyrepl`` to PyPy (:issue:`4990`)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -222,7 +313,8 @@ Speedups and enhancements
 - Make ``Py_FatalError`` a macro that adds the current function name, like
   CPython
 - Many error message tweaks for test compliance with CPython
-- Make unmarshaling use unrolling_iterable instead of a function ptr table
+- Make unmarshaling use ``unrolling_iterable`` instead of a function ptr table,
+  which should speed it up slighly.
 - Add ``_ssl.keylog_filename`` which is useful for debugging ssl problems
   (:issue:`5141`)
 - Allocate less when using ``PyErr_NoMemory`` to raise an error rather than
