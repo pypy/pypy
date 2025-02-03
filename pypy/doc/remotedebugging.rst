@@ -46,3 +46,6 @@ disabled by default on most hardened Linux distributions by Yama_. Therefore
 you might need sudo to run the above commands.
 
 .. _Yama: https://www.kernel.org/doc/html/v4.15/admin-guide/LSM/Yama.html#ptrace-scope
+
+The feature can be disable by running PyPy with the ``-X disable-remote-debug``
+option, or setting the ``PYTHON_DISABLE_REMOTE_DEBUG`` environment variable.

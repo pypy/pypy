@@ -367,3 +367,16 @@ print('done')
             content = f.read()
             assert content == 'done'
 
+    def test_disable_debugger(self):
+        import __pypy__
+        with open(self.outfile, 'w') as f:
+            f.write('nothing')
+        assert __pypy__._pypy_disable_remote_debugger == False
+        __pypy__._pypy_disable_remote_debugger = True
+        try:
+            self.trigger_debugger() # should happen right away
+        finally:
+            __pypy__._pypy_disable_remote_debugger = False
+        with open(self.outfile) as f:
+            content = f.read()
+            assert content == 'nothing'

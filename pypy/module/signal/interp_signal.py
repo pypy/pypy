@@ -169,6 +169,9 @@ def run_debugger(space, path):
     from pypy.interpreter.streamutil import wrap_streamerror
     from pypy.interpreter.eval import Code
     from rpython.rlib import streamio
+    w_pypymod = space.getbuiltinmodule('__pypy__')
+    if space.is_true(space.getattr(w_pypymod, space.newtext('_pypy_disable_remote_debugger'))):
+        return
     try:
         w_file = space.call_method(space.newbytes(path), 'decode', space.newtext('utf-8'))
         msg = "Executing remote debugger script "
