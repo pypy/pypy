@@ -115,7 +115,7 @@ not produce function names for C functions. The output looked like this::
      30.8%   <unknown code>
      ...
 
-Whe can now symbolify these C functions and give function names and which
+We can now symbolify these C functions and give function names and which
 shared library they come from, at least on Linux::
 
     Pystone(1.1) time for 50000 passes = 0.218967
@@ -314,7 +314,7 @@ Speedups and enhancements
   CPython
 - Many error message tweaks for test compliance with CPython
 - Make unmarshaling use ``unrolling_iterable`` instead of a function ptr table,
-  which should speed it up slighly.
+  which should speed it up slightly.
 - Add ``_ssl.keylog_filename`` which is useful for debugging ssl problems
   (:issue:`5141`)
 - Allocate less when using ``PyErr_NoMemory`` to raise an error rather than
