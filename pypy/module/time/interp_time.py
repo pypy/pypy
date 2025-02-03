@@ -691,7 +691,6 @@ def time_sleep(space, w_secs):
                     if ret == 0:
                         break
                     if ret != EINTR:
-                        print("nanosleep", ret)
                         raise exception_from_saved_errno(space, space.w_OSError)
                 else:
                     if _PyTime_AsTimeval(timeout, timeout_tv, _PyTime_ROUND_CEILING) < 0:
