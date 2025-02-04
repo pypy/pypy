@@ -19,7 +19,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_LONG_SUBCLASS, Py_TPFLAGS_LIST_SUBCLASS,
     Py_TPFLAGS_TUPLE_SUBCLASS, Py_TPFLAGS_UNICODE_SUBCLASS,
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
-    Py_TPFLAGS_TYPE_SUBCLASS, Py_TPFLAGS_MANAGED_DICT,
+    Py_TPFLAGS_TYPE_SUBCLASS, Py_TPFLAGS_MANAGED_DICT, Py_TPFLAGS_MANAGED_WEAKREF,
     Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE,
     PyObject, PyVarObject,
     )
@@ -837,6 +837,8 @@ def type_realize(space, py_obj):
     assert flags & Py_TPFLAGS_READYING == 0
     if flags & Py_TPFLAGS_MANAGED_DICT:
         raise oefmt(space.w_RuntimeError, "cannot use Py_TPFLAGS_MANAGED_DICT")
+    if flags & Py_TPFLAGS_MANAGED_WEAKREF:
+        raise oefmt(space.w_RuntimeError, "cannot use Py_TPFLAGS_MANAGED_WEAKREF")
     pto.c_tp_flags = rffi.cast(rffi.ULONG, flags | Py_TPFLAGS_READYING)
     try:
         w_obj = _type_realize(space, py_obj)
