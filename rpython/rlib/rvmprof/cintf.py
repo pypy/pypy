@@ -110,7 +110,7 @@ def configure_libbacktrace_linux():
 def setup():
     if not IS_SUPPORTED:
         raise VMProfPlatformUnsupported
-    
+
     if sys.platform.startswith('linux'):
         configure_libbacktrace_linux()
 
@@ -154,12 +154,6 @@ def setup():
     vmprof_start_sampling = rffi.llexternal("vmprof_start_sampling", [],
                                             lltype.Void, compilation_info=eci,
                                             _nowrapper=True)
-    if NATIVE_PROFILING_SUPPORTED:
-        vmprof_resolve_address = rffi.llexternal("vmp_resolve_addr", [rffi.VOIDP, rffi.CCHARP, rffi.INT,
-                                                                    rffi.INT_realP,  rffi.CCHARP, rffi.INT],
-                                                rffi.INT, compilation_info=eci,
-                                                _nowrapper=True)
-
     return CInterface(locals())
 
 
