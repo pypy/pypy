@@ -202,7 +202,8 @@ def test_proc_map_find_base_map():
     assert 'libexpat.so' in map['file']
 
 def test_proc_map_find_base_map_bug():
-    # the entries can be non-consecutive
+    # the entries can be non-consecutive, and we should pick the one with file
+    # offset 0
     s = """\
 eb284000-eb285000 rw-p 00000000 00:00 0 
 eb285000-eb286000 r-xp 01a80000 103:05 8993453                           /home/user/pypy/bin/libpypy-c.so
@@ -225,7 +226,8 @@ ede3f000-ede47000 rw-p 02b92000 103:05 8993453                           /home/u
     maps = _pypy_remote_debug._parse_maps(lineiter=iter(s.splitlines()))
     map = _pypy_remote_debug._proc_map_find_base_map(0xeb28f000, maps=maps)
     assert map['file'] == '/home/user/pypy/bin/libpypy-c.so'
-    assert map['from_'] == 0xeb285000
+    assert map['from_'] == 0xeb28e000
+    assert map['file_offset'] == 0
 
 def test_symbolify():
     pid = os.getpid()

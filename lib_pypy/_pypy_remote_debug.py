@@ -304,10 +304,14 @@ def _parse_maps(lineiter, filter=None):
         from_, to_ = mapping_range.split('-', 1)
         from_ = int(from_, 16)
         to_ = int(to_, 16)
+        file_offset = int(mapping[2], 16)
         mapping_file = mapping[-1]
         if filter is not None and filter not in mapping_file:
             continue
-        parsed_maps.append(dict(file=mapping[-1], from_=from_, to_=to_, full_line=entry))
+        parsed_maps.append(dict(
+            file=mapping[-1], from_=from_, to_=to_,
+            permissions=mapping[1], file_offset=file_offset,
+            full_line=entry))
     return parsed_maps
 
 def _find_file_and_base_addr(pid='self'):
@@ -317,7 +321,10 @@ def _find_file_and_base_addr(pid='self'):
         maps = _read_and_parse_maps(pid, executable)
         if not maps:
             raise ValueError('could not find executable nor libpypy.so in /proc/%s/maps' % pid)
-    return maps[0]['file'], maps[0]['from_']
+    for map in maps:
+        if map['file_offset'] == 0:
+            return map['file'], map['from_']
+    assert 0, "no map with file offset 0 found"
 
 def _check_elf_debuglink(file):
     with open(file, 'rb') as f:
@@ -352,7 +359,7 @@ def _proc_map_find_base_map(value, maps=None):
         if map_entry['from_'] <= value < map_entry['to_']:
             # find the base map, ie the first entry with the same file name
             for base_map in maps:
-                if base_map['file'] == map_entry['file']:
+                if base_map['file'] == map_entry['file'] and base_map['file_offset'] == 0:
                     return base_map
             assert 0, 'unreachable'
     else:
@@ -425,6 +432,7 @@ def compute_remote_addr(pid='self', symbolname=b'pypysig_counter'):
     origfile = file
     with open(file, 'rb') as f:
         phdr = elf_read_first_load_section(f)
+    assert phdr.offset == 0
 
     try:
         with open(file, 'rb') as f:
@@ -482,6 +490,7 @@ def main():
     elif args.c:
         if args.dont_wait:
             parser.error("can't pass -c and --dont-wait together")
+        import tempfile
         with tempfile.NamedTemporaryFile(mode='wb') as f:
             f.write(args.c.encode('utf-8'))
             f.flush()
