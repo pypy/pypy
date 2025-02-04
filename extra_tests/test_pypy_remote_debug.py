@@ -55,12 +55,25 @@ def test_elf_read_first_load_section():
             assert int(value, 16) == phdr.vaddr
 
 def skip_on_oserror(func):
-    def wrapper():
-        try:
-            return func()
-        except OSError as e:
-            if "Operation not permitted" in str(e):
-                pytest.skip('yama ptrace_scope likely forbids read_memory call')
+    code = func.__code__
+    def check_error(e):
+        if "Operation not permitted" in str(e):
+            pytest.skip('yama ptrace_scope likely forbids read_memory call')
+    if code.co_varnames[:code.co_argcount] == ('tmpdir', ):
+        def wrapper(tmpdir):
+            try:
+                return func(tmpdir)
+            except OSError as e:
+                check_error(e)
+                if "Operation not permitted" in str(e):
+                    pytest.skip('yama ptrace_scope likely forbids read_memory call')
+    else:
+        assert code.co_argcount == 0
+        def wrapper():
+            try:
+                return func()
+            except OSError as e:
+                check_error(e)
     return wrapper
 
 @skip_on_oserror
@@ -106,6 +119,7 @@ sys.stdin.readline()
     out.stdin.flush()
     out.wait()
 
+@skip_on_oserror
 def test_integration(tmpdir):
     import __pypy__
     code = """
@@ -133,6 +147,7 @@ sys.stdout.flush()
         exitcode = out.wait()
         assert exitcode == 0
 
+@skip_on_oserror
 def test_disable_remote_debug(tmpdir):
     import __pypy__
     code = """
