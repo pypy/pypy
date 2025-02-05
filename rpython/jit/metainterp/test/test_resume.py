@@ -591,13 +591,15 @@ def test_ResumeDataLoopMemo_other():
     assert memo.consts[index - TAG_CONST_OFFSET] is const
 
 class Frame(object):
-    def __init__(self, boxes):
+    def __init__(self, jitcode, pc, boxes):
+        self.jitcode = jitcode
+        self.pc = pc
         self.boxes = boxes
 
     def get_list_of_active_boxes(self, flag, new_array, encode, after_residual_call=False):
         a = new_array(len(self.boxes))
         for i, box in enumerate(self.boxes):
-            a[i] = encode(box)
+            a = encode(a, box)
         return a
 
 def test_ResumeDataLoopMemo_number():
@@ -608,11 +610,10 @@ def test_ResumeDataLoopMemo_number():
     env = [b1, c1, b2, b1, c2]
     metainterp_sd = FakeMetaInterpStaticData()
     t = Trace([b1, b2, b3, b4, b5], metainterp_sd)
-    snap = t.create_snapshot(FakeJitCode("jitcode", 0), 0, Frame(env), False)
     env1 = [c3, b3, b1, c1]
-    t.append(0) # descr index
-    snap1 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 2, Frame(env1), [], [])
-    snap1.prev = snap
+    t.append_int(0) # descr index
+    snap1 = t.create_top_snapshot(Frame(FakeJitCode("jitcode", 0), 2, env1), [], [])
+    snap = t.create_snapshot(Frame(FakeJitCode("jitcode", 0), 0, env), is_last=True)
 
     env2 = [c3, b3, b1, c3]
     env3 = [c3, b3, b1, c3]
@@ -623,7 +624,7 @@ def test_ResumeDataLoopMemo_number():
 
     iter = t.get_iter()
     b1, b2, b3, b4, b5 = iter.inputargs
-    numb_state = memo.number(0, iter)
+    numb_state = memo.number(snap1, iter)
     numb = numb_state.create_numbering()
     assert numb_state.num_virtuals == 0
 
@@ -634,12 +635,12 @@ def test_ResumeDataLoopMemo_number():
 
     assert unpack_numbering(numb) == [17, 0, 0, 0] + base + [0, 2, tag(3, TAGINT), tag(2, TAGBOX),
                                       tag(0, TAGBOX), tag(1, TAGINT)]
-    t.append(0)
-    snap2 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 2, Frame(env2),
+    t.append_int(0)
+    snap2 = t.create_top_snapshot(Frame(FakeJitCode("jitcode", 0), 2, env2),
                                   [], [])
-    snap2.prev = snap
+    t.snapshot_add_prev(snap)
 
-    numb_state2 = memo.number(1, iter)
+    numb_state2 = memo.number(snap2, iter)
     numb2 = numb_state2.create_numbering()
     assert numb_state2.num_virtuals == 0
 
@@ -649,10 +650,10 @@ def test_ResumeDataLoopMemo_number():
     assert unpack_numbering(numb2) == [17, 0, 0, 0] + base + [0, 2, tag(3, TAGINT), tag(2, TAGBOX),
                                        tag(0, TAGBOX), tag(3, TAGINT)]
 
-    t.append(0)
-    snap3 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 2, Frame([]),
+    t.append_int(0)
+    snap3 = t.create_top_snapshot(Frame(FakeJitCode("jitcode", 0), 2, []),
                                   [], env3)
-    snap3.prev = snap
+    t.snapshot_add_prev(snap)
 
     class FakeVirtualInfo(info.AbstractVirtualPtrInfo):
         def __init__(self, virt):
@@ -663,7 +664,7 @@ def test_ResumeDataLoopMemo_number():
 
     # renamed
     b3.set_forwarded(c4)
-    numb_state3 = memo.number(2, iter)
+    numb_state3 = memo.number(snap3, iter)
     numb3 = numb_state3.create_numbering()
     assert numb_state3.num_virtuals == 0
 
@@ -673,13 +674,13 @@ def test_ResumeDataLoopMemo_number():
                                        base + [0, 2])
 
     # virtual
-    t.append(0)
-    snap4 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 2, Frame([]),
+    t.append_int(0)
+    snap4 = t.create_top_snapshot(Frame(FakeJitCode("jitcode", 0), 2, []),
                                   [], env4)
-    snap4.prev = snap
+    t.snapshot_add_prev(snap)
 
     b4.set_forwarded(FakeVirtualInfo(True))
-    numb_state4 = memo.number(3, iter)
+    numb_state4 = memo.number(snap4, iter)
     numb4 = numb_state4.create_numbering()
     assert numb_state4.num_virtuals == 1
 
@@ -688,26 +689,24 @@ def test_ResumeDataLoopMemo_number():
     assert unpack_numbering(numb4) == [17, 0, 0, 2, tag(3, TAGINT), tag(0, TAGVIRTUAL),
                                        tag(0, TAGBOX), tag(3, TAGINT)] + base + [0, 2]
 
-    t.append(0)
-    snap4 = t.create_snapshot(FakeJitCode("jitcode", 2), 1, Frame(env4), False)
-    t.append(0)
-    snap4.prev = snap
-    snap5 = t.create_top_snapshot(FakeJitCode("jitcode", 0), 0, Frame([]),
+    t.append_int(0)
+    snap5 = t.create_top_snapshot(Frame(FakeJitCode("jitcode", 0), 0, []),
                                   env5, [])
-    snap5.prev = snap4
+    snap4 = t.create_snapshot(Frame(FakeJitCode("jitcode", 2), 1, env4))
+    t.snapshot_add_prev(snap)
 
     b4.set_forwarded(FakeVirtualInfo(True))
     b5.set_forwarded(FakeVirtualInfo(True))
-    numb_state5 = memo.number(4, iter)
+    numb_state5 = memo.number(snap5, iter)
     numb5 = numb_state5.create_numbering()
     assert numb_state5.num_virtuals == 2
 
     assert numb_state5.liveboxes == {b1: tag(0, TAGBOX), b2: tag(1, TAGBOX),
-                                     b4: tag(0, TAGVIRTUAL), b5: tag(1, TAGVIRTUAL)}
+                                     b4: tag(1, TAGVIRTUAL), b5: tag(0, TAGVIRTUAL)}
     assert unpack_numbering(numb5) == [22, 0,
-        3, tag(0, TAGBOX), tag(0, TAGVIRTUAL), tag(1, TAGVIRTUAL),
+        3, tag(0, TAGVIRTUAL), tag(0, TAGBOX), tag(1, TAGVIRTUAL),
         0] + base + [
-        2, 1, tag(3, TAGINT), tag(0, TAGVIRTUAL), tag(0, TAGBOX), tag(3, TAGINT)
+        2, 1, tag(3, TAGINT), tag(1, TAGVIRTUAL), tag(0, TAGBOX), tag(3, TAGINT)
         ] + [0, 0]
 
 @given(strategies.lists(
@@ -717,9 +716,9 @@ def test_ResumeDataLoopMemo_random(lst):
     inpargs = [box for box in lst if not isinstance(box, Const)]
     metainterp_sd = FakeMetaInterpStaticData()
     t = Trace(inpargs, metainterp_sd)
-    t.append(0)
+    t.append_int(0)
     i = t.get_iter()
-    t.create_top_snapshot(FakeJitCode("", 0), 0, Frame(lst), [], [])
+    t.create_top_snapshot(Frame(FakeJitCode("", 0), 0, lst), [], [], is_last=True)
     memo = ResumeDataLoopMemo(metainterp_sd)
     numb_state = memo.number(0, i)
     numb = numb_state.create_numbering()
@@ -822,16 +821,11 @@ def _resume_remap(liveboxes, expected, *newvalues):
 def make_storage(b1, b2, b3):
     t = Trace([box for box in [b1, b2, b3] if not isinstance(box, Const)],
               FakeMetaInterpStaticData())
-    t.append(0)
+    t.append_int(0)
     storage = Storage()
-    snap1 = t.create_snapshot(FakeJitCode("code3", 41), 42,
-                              Frame([b1, ConstInt(1), b1, b2]), False)
-    snap2 = t.create_snapshot(FakeJitCode("code2", 31), 32,
-                              Frame([ConstInt(2), ConstInt(3)]), False)
-    snap3 = t.create_top_snapshot(FakeJitCode("code1", 21), 22,
-                                  Frame([b1, b2, b3]), [], [])
-    snap3.prev = snap2
-    snap2.prev = snap1
+    snap3 = t.create_top_snapshot(Frame(FakeJitCode("code1", 21), 22, [b1, b2, b3]), [], [])
+    snap2 = t.create_snapshot(Frame(FakeJitCode("code2", 31), 32, [ConstInt(2), ConstInt(3)]))
+    snap1 = t.create_snapshot(Frame(FakeJitCode("code3", 41), 42, [b1, ConstInt(1), b1, b2]), is_last=True)
     storage.rd_resume_position = 0
     return storage, t
 

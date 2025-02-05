@@ -12,10 +12,13 @@ import os
 # Bumped to 10.9 2021-11-22 to match CPython,
 # see https://github.com/python/cpython/blob/42205ee51
 #
+# Bumped to 10.15 on py3.9+ for variadic arg handling in HPy
+# Note this is not used on arm64 builds.
+# 
 # Keep in sync with MACOSX_DEPLOYMENT_TARGET, for pypy see
 # lib_pypy/_sysconfigdata.py
 #
-DARWIN_VERSION_MIN = '-mmacosx-version-min=10.9'
+DARWIN_VERSION_MIN = '-mmacosx-version-min=10.13'
 
 class Darwin(posix.BasePosix):
     name = "darwin"
@@ -26,6 +29,8 @@ class Darwin(posix.BasePosix):
     link_flags = (DARWIN_VERSION_MIN,)
     cflags = ('-O3',
               '-fomit-frame-pointer',
+              # The parser turns 'const char *const *includes' into 'const const char **includes'
+              '-Wno-duplicate-decl-specifier',
               DARWIN_VERSION_MIN,)
 
     so_ext = 'dylib'

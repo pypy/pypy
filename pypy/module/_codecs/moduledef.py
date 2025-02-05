@@ -89,8 +89,7 @@ Copyright (c) Corporation for National Research Initiatives.
     @not_rpython
     def __init__(self, space, *args):
         # mbcs codec is Windows specific, and based on rffi.
-        from rpython.rlib import runicode
-        if (hasattr(runicode, 'str_decode_mbcs')):
+        if (hasattr(interp_codecs, 'mbcs_encode')):
             self.interpleveldefs['mbcs_encode'] = 'interp_codecs.mbcs_encode'
             self.interpleveldefs['mbcs_decode'] = 'interp_codecs.mbcs_decode'
 

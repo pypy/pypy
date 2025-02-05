@@ -16,7 +16,7 @@ You can download the PyPy3 2.1 beta 1 release here:
 Highlights
 ==========
 
-* The first release of PyPy3: support for Python 3, targetting CPython 3.2.3!
+* The first release of PyPy3: support for Python 3, targeting CPython 3.2.3!
 
   - There are some `known issues`_ including performance regressions (issues
     `#1540`_ & `#1541`_) slated to be resolved before the final release.

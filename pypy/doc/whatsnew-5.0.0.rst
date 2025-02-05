@@ -30,7 +30,7 @@ to allow for alternate ``int``-like implementations (e.g., ``future.types.newint
 
 .. branch: faster-rstruct
 
-Improve the performace of struct.unpack, which now directly reads inside the
+Improve the performance of struct.unpack, which now directly reads inside the
 string buffer and directly casts the bytes to the appropriate type, when
 allowed. Unpacking of floats and doubles is about 15 times faster now, while
 for integer types it's up to ~50% faster for 64bit integers.
@@ -151,7 +151,7 @@ Refactor vmprof to work cross-operating-system.
 
 .. branch: seperate-strucmember_h
 
-Seperate structmember.h from Python.h Also enhance creating api functions
+Separate structmember.h from Python.h Also enhance creating api functions
 to specify which header file they appear in (previously only pypy_decl.h) 
 
 .. branch: llimpl

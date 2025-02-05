@@ -60,6 +60,8 @@ def _readlink_maybe(filename):
 
 
 def resolvedirof(filename):
+    if isinstance(filename, unicode):
+        filename = filename.encode('utf8')
     filename = rpath.rabspath(filename)
     dirname = rpath.rabspath(os.path.join(filename, '..'))
     if os.path.islink(filename):

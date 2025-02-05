@@ -266,7 +266,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     jitcell_token = make_jitcell_token(jitdriver_sd)
     cut_at = history.get_trace_position()
     history.record(rop.JUMP, jumpargs, None, descr=jitcell_token)
-    if start != (0, 0, 0):
+    if start != (0, 0, 0, 0, 0):
         trace = trace.cut_trace_from(start, inputargs)
     if not use_unroll:
         return compile_simple_loop(metainterp, greenkey, trace, jumpargs,

@@ -85,7 +85,7 @@ for more information see `whats-new`_:
   this mostly affects errno handling on linux, which makes external calls
   faster.
 
-* Move to a mixed polling and mutex GIL model that make mutlithreaded jitted
+* Move to a mixed polling and mutex GIL model that make multithreaded jitted
   code run *much* faster
 
 * Optimize errno handling in linux (x86 and x86-64 only)

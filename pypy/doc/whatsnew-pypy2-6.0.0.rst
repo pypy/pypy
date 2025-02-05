@@ -43,7 +43,7 @@ Improve way to describe memory
 
 .. branch: msvc14
 
-Allow compilaiton with Visual Studio 2017 compiler suite on windows
+Allow compilation with Visual Studio 2017 compiler suite on windows
 
 .. branch: refactor-slots
 

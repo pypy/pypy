@@ -494,7 +494,7 @@ class TestUnicode(BaseApiTest):
 
     def test_mbcs(self, space):
         if sys.platform != 'win32':
-            py.test.skip("mcbs encoding only exists on Windows")
+            py.test.skip("mbcs encoding only exists on Windows")
         # unfortunately, mbcs is locale-dependent.
         # This tests works at least on a Western Windows.
         unichars = u"abc" + unichr(12345)

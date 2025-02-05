@@ -1,7 +1,7 @@
 import sys
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import specialize, always_inline
-from rpython.rlib import rfloat, runicode, jit, objectmodel, rutf8
+from rpython.rlib import rfloat, jit, objectmodel, rutf8
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.error import oefmt

@@ -5,7 +5,7 @@ import sys
 
 from rpython.translator import cdir
 from rpython.rlib import jit, rposix, objectmodel
-from rpython.rlib.rfloat import INFINITY, NAN, isfinite
+from rpython.rlib.rfloat import INFINITY, NAN, isfinite, _likely_raise, _error_check_errno_unary_math
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -54,7 +54,7 @@ math_log1p = math_llexternal('log1p', [rffi.DOUBLE], rffi.DOUBLE)
 math_copysign = llexternal('copysign', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE,
                            elidable_function=True)
 math_atan2 = llexternal('atan2', [rffi.DOUBLE, rffi.DOUBLE], rffi.DOUBLE)
-math_frexp = llexternal('frexp', [rffi.DOUBLE, rffi.INTP], rffi.DOUBLE)
+math_frexp = llexternal('frexp', [rffi.DOUBLE, rffi.INT_realP], rffi.DOUBLE)
 math_modf  = llexternal('modf',  [rffi.DOUBLE, rffi.DOUBLEP], rffi.DOUBLE)
 math_ldexp = llexternal('ldexp', [rffi.DOUBLE, rffi.INT], rffi.DOUBLE,
                         save_err=rffi.RFFI_FULL_ERRNO_ZERO)
@@ -74,29 +74,8 @@ def sqrt_nonneg(x):
     return math_sqrt(x)
 sqrt_nonneg.oopspec = "math.sqrt_nonneg(x)"
 
-# ____________________________________________________________
-#
-# Error handling functions
-
 ERANGE = errno.ERANGE
 EDOM   = errno.EDOM
-
-def _likely_raise(errno, x):
-    """Call this with errno != 0.  It usually raises the proper RPython
-    exception, but may also just ignore it and return in case of underflow.
-    """
-    assert errno
-    if errno == ERANGE:
-        # We consider underflow to not be an error, like CPython.
-        # On some platforms (Ubuntu/ia64) it seems that errno can be
-        # set to ERANGE for subnormal results that do *not* underflow
-        # to zero.  So to be safe, we'll ignore ERANGE whenever the
-        # function result is less than one in absolute value.
-        if math_fabs(x) < 1.0:
-            return
-        raise OverflowError("math range error")
-    else:
-        raise ValueError("math domain error")
 
 # ____________________________________________________________
 #
@@ -184,7 +163,7 @@ def ll_math_frexp(x):
     else:
         if objectmodel.revdb_flag_io_disabled():
             return _revdb_frexp(x)
-        exp_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        exp_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
         try:
             mantissa = math_frexp(x, exp_p)
             exponent = rffi.cast(lltype.Signed, exp_p[0])
@@ -387,23 +366,7 @@ def new_unary_math_function(name, can_overflow, c99):
 
     def ll_math(x):
         r = c_func(x)
-        # Error checking fun.  Copied from CPython 2.6
-        errno = rposix.get_saved_errno()
-        if not isfinite(r):
-            if math.isnan(r):
-                if math.isnan(x):
-                    errno = 0
-                else:
-                    errno = EDOM
-            else:  # isinf(r)
-                if not isfinite(x):
-                    errno = 0
-                elif can_overflow:
-                    errno = ERANGE
-                else:
-                    errno = EDOM
-        if errno:
-            _likely_raise(errno, r)
+        _error_check_errno_unary_math(x, r, can_overflow)
         return r
 
     return func_with_new_name(ll_math, 'll_math_' + name)

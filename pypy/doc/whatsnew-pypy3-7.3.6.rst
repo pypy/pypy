@@ -34,7 +34,7 @@ identifiers.
 
 .. branch: py3.7-import-speedup
 
-Speep up cached imports by re-implementing (a subset of) BPO-22557. This brings
+Speed up cached imports by re-implementing (a subset of) BPO-22557. This brings
 it very close to PyPy2 standards.
 
 .. branch: py3.7-ignore-finalizer-files-after-close

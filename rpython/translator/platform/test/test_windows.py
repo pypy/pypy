@@ -84,7 +84,7 @@ class TestMakefile(object):
         cfile = tmpdir.join('pypy_main.c')
         cfile.write('''
         #include <stdio.h>
-        __declspec(dllexport) int pypy_main_startup(int argc, char* argv[])
+        __declspec(dllexport) int pypy_main_startup(int argc, wchar_t* argv[])
         {
             int x = 10;
             int y = x * 2;

@@ -1,6 +1,6 @@
-===================================
-PyPy v7.3.1: release of 2.7 and 3.6
-===================================
+========================================================
+PyPy v7.3.1: release of 2.7 and 3.6, released 2020-04-10
+========================================================
 
 The PyPy team is proud to release the version 7.3.1 of PyPy, which includes
 two different interpreters:

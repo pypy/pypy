@@ -72,8 +72,8 @@ class RealizeCache:
         "uint_fast64_t",
         "intmax_t",
         "uintmax_t",
-        "float _Complex",
-        "double _Complex",
+        "_cffi_float_complex_t",
+        "_cffi_double_complex_t",
         "char16_t",
         "char32_t",
         ]
@@ -567,8 +567,13 @@ def do_realize_lazy_struct(w_ctype):
     if c_flags & cffi_opcode.F_PACKED:
         sflags |= newtype.SF_PACKED
 
-    assert w_ctype.size      == rffi.getintfield(s, 'c_size')
-    assert w_ctype.alignment == rffi.getintfield(s, 'c_alignment')
+    if rffi.getintfield(s, 'c_size') == -2:
+        # Before the loop, the struct was "lazy", now it should be complete
+        # so the pre-loop values do not match
+        pass
+    else:
+        assert w_ctype.size == rffi.getintfield(s, 'c_size')
+        assert w_ctype.alignment == rffi.getintfield(s, 'c_alignment')
     try:
         w_ctype.size = -1              # make opaque again
         newtype.complete_struct_or_union(

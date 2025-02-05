@@ -12,6 +12,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.translator import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rlib.rarithmetic import intmask, r_longlong, widen
 from rpython.rlib import jit
 
@@ -22,10 +23,10 @@ srcdir = os.path.join(os.path.dirname(__file__), 'src')
 
 if WIN32:
     eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h', 'winreparse.h'],
+        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h', 'winhelpers.h'],
         include_dirs = [srcdir, cdir],
         libraries = ['kernel32', 'Advapi32'],
-        separate_module_files = [os.path.join(srcdir, "winreparse.c")],
+        separate_module_files = [os.path.join(srcdir, "winhelpers.c")],
         )
 
     def external(name, args, result, compilation_info=eci, **kwds):
@@ -110,7 +111,7 @@ class CConfig:
 
         defines = """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
                        MAX_PATH _MAX_ENV FORMAT_MESSAGE_IGNORE_INSERTS
-                       WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE
+                       WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE WAIT_FAILED
                        ERROR_INVALID_HANDLE
                        DELETE READ_CONTROL SYNCHRONIZE WRITE_DAC
                        WRITE_OWNER PROCESS_ALL_ACCESS
@@ -622,10 +623,10 @@ if WIN32:
         'SetEnvironmentVariableW', [LPWSTR, LPWSTR], BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
-    def SetEnvironmentVariableW(name, value):
-        with rffi.scoped_unicode2wcharp(name) as nameWbuf:
-            with rffi.scoped_unicode2wcharp(value) as valueWbuf:
-                return _SetEnvironmentVariableW(nameWbuf, valueWbuf)
+    def DelEnvironmentVariableW(name):
+        with rffi.scoped_utf82wcharp(name) as nameWbuf:
+            valueWbuf = lltype.nullptr(rffi.CWCHARP.TO)
+            return _SetEnvironmentVariableW(nameWbuf, valueWbuf)
 
     _AddDllDirectory = winexternal('AddDllDirectory', [LPWSTR], rffi.VOIDP,
         save_err=rffi.RFFI_SAVE_LASTERROR)
@@ -674,4 +675,28 @@ if WIN32:
                 return utf8
             finally:
                 lltype.free(num_chars, flavor="raw")
- 
+
+    BOOLP = lltype.Ptr(lltype.Array(BOOL, hints={'nolength': True}))
+
+    MultiByteToWideChar = rffi.llexternal('MultiByteToWideChar',
+                                          [rffi.UINT, DWORD,
+                                           LPCSTR, rffi.INT,
+                                           rffi.CWCHARP, rffi.INT],
+                                          rffi.INT,
+                                          calling_conv='win',
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    WideCharToMultiByte = rffi.llexternal('WideCharToMultiByte',
+                                          [rffi.UINT, DWORD,
+                                           rffi.CWCHARP, rffi.INT,
+                                           LPCSTR, rffi.INT,
+                                           LPCSTR, BOOLP],
+                                          rffi.INT,
+                                          calling_conv='win',
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)
+
+
+    os_createdirectory_impl = winexternal("os_createdirectory_impl",
+                                          [rffi.CWCHARP, rffi.INT_real],
+                                          rffi.INT,
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)

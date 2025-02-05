@@ -62,7 +62,7 @@ frame.  Then you have removed from the normal stack all intermediate
 frames, and turned them into one stand-alone cycle.  By doing the same
 permutation again you restore the original situation.
 
-In practice, in PyPy, you cannot change the ``f_back`` of an abitrary
+In practice, in PyPy, you cannot change the ``f_back`` of an arbitrary
 frame, but only of frames stored in ``continulets``.
 
 Continulets are internally implemented using stacklets_.  Stacklets are a
@@ -300,7 +300,7 @@ uses coroutines for two unrelated purposes may run into conflicts caused
 by unexpected interactions.
 
 To illustrate the problem, consider the following example (simplified
-code using a theorical ``coroutine`` class).  First, a simple usage of
+code using a theoretical ``coroutine`` class).  First, a simple usage of
 coroutine::
 
     main_coro = coroutine.getcurrent()    # the main (outer) coroutine

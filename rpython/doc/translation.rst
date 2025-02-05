@@ -622,7 +622,7 @@ and complicated beast, formed from many separate components.
    subgraph legend {
      "Input or Output" [shape=ellipse, style=filled]
      "Transformation Step" [shape=box, style="rounded,filled"]
-     // Invisible egde to make sure they are placed vertically
+     // Invisible edge to make sure they are placed vertically
      "Input or Output" -> "Transformation Step" [style=invis]
    }
 

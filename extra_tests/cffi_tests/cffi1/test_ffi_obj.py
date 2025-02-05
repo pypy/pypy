@@ -36,8 +36,9 @@ def test_ffi_cache_type():
 def test_ffi_type_not_immortal():
     import weakref, gc
     ffi = _cffi1_backend.FFI()
-    t1 = ffi.typeof("int **")
-    t2 = ffi.typeof("int *")
+    # this test can fail on free-threaded builds lazier GC if the type was used by another test
+    t1 = ffi.typeof("unsigned short int **")
+    t2 = ffi.typeof("unsigned short int *")
     w1 = weakref.ref(t1)
     w2 = weakref.ref(t2)
     del t1, ffi
@@ -45,7 +46,7 @@ def test_ffi_type_not_immortal():
     assert w1() is None
     assert w2() is t2
     ffi = _cffi1_backend.FFI()
-    assert ffi.typeof(ffi.new("int **")[0]) is t2
+    assert ffi.typeof(ffi.new("unsigned short int **")[0]) is t2
     #
     ffi = _cffi1_backend.FFI()
     t1 = ffi.typeof("int ***")

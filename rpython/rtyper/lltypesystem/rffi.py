@@ -579,6 +579,10 @@ r_int_real = rarithmetic.build_int("r_int_real", r_int.SIGN, r_int.BITS, True)
 INT_real = lltype.build_number("INT", r_int_real)
 platform.numbertype_to_rclass[INT_real] = r_int_real
 NUMBER_TYPES.append(INT_real)
+r_uint_real = rarithmetic.build_int("r_uint_real", r_uint.SIGN, r_uint.BITS, True)
+UINT_real = lltype.build_number("UINT", r_uint_real)
+platform.numbertype_to_rclass[UINT_real] = r_uint_real
+NUMBER_TYPES.append(UINT_real)
 
 # ^^^ this creates at least the following names:
 # --------------------------------------------------------------------
@@ -740,6 +744,7 @@ r_singlefloat = rarithmetic.r_singlefloat
 
 # void *   - for now, represented as char *
 VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True}))
+CONST_VOIDP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True, 'render_as_void': True, 'render_as_const': True}))
 NULL = None
 
 # void **
@@ -757,6 +762,7 @@ CWCHARP = lltype.Ptr(lltype.Array(lltype.UniChar, hints={'nolength': True}))
 
 # int *, unsigned int *, etc.
 #INTP = ...    see setup() above
+INT_realP = lltype.Ptr(lltype.Array(INT_real, hints={'nolength': True}))
 
 # double *
 DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
@@ -1050,6 +1056,7 @@ def make_string_mappings(strtype):
  ) = make_string_mappings(unicode)
 
 
+
 def constcharp2str(cp):
     """
     Like charp2str, but takes a CONST_CCHARP instead
@@ -1133,10 +1140,12 @@ def utf82wcharp(utf8, utf8len, track_allocation=True):
     if not we_are_translated():
         assert utf8len == rutf8.codepoints_in_utf8(utf8)
 
+    # add 1 for the \x00, and another for cases where the last utf8 is an
+    # incomplete codepoint
     if track_allocation:
-        w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw', track_allocation=True)
+        w = lltype.malloc(CWCHARP.TO, utf8len + 2, flavor='raw', track_allocation=True)
     else:
-        w = lltype.malloc(CWCHARP.TO, utf8len + 1, flavor='raw', track_allocation=False)
+        w = lltype.malloc(CWCHARP.TO, utf8len + 2, flavor='raw', track_allocation=False)
     index = 0
     for ch in rutf8.Utf8StringIterator(utf8):
         w[index] = unichr(ch)
@@ -1155,7 +1164,7 @@ def utf82wcharp_ex(utf8, unilen, track_allocation=True):
         if ch > 0xffff:
             wlen += 1
         wlen += 1
-    w = lltype.malloc(CWCHARP.TO, wlen + 1, flavor='raw',
+    w = lltype.malloc(CWCHARP.TO, wlen + 3, flavor='raw',
                       track_allocation=track_allocation)
     index = 0
     for ch in rutf8.Utf8StringIterator(utf8):
@@ -1398,11 +1407,14 @@ class scoped_unicode2wcharp:
             free_wcharp(self.buf)
 
 class scoped_utf82wcharp:
-    def __init__(self, value, unicode_len):
-        if value is not None:
-            self.buf = utf82wcharp(value, unicode_len)
-        else:
+    def __init__(self, value, unicode_len=-1):
+        from rpython.rlib import rutf8
+        if value is None:
             self.buf = lltype.nullptr(CWCHARP.TO)
+        elif unicode_len < 0:
+            self.buf = utf82wcharp(value, rutf8.codepoints_in_utf8(value))
+        else:
+            self.buf = utf82wcharp(value, unicode_len)
     def __enter__(self):
         return self.buf
     def __exit__(self, *args):
@@ -1477,10 +1489,24 @@ class scoped_alloc_unicodebuffer:
         return unicode_from_buffer(self.raw, self.gc_buf, self.case_num,
                                    self.size, length)
 
+class scoped_alloc_utf8buffer:
+    def __init__(self, size):
+        self.size = size
+    def __enter__(self):
+        self.raw, self.gc_buf, self.case_num = alloc_unicodebuffer(self.size)
+        return self
+    def __exit__(self, *args):
+        keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf, self.case_num)
+    def str(self, length):
+        # XXX implement me!!!
+        return utf8_from_buffer(self.raw, self.gc_buf, self.case_num,
+                                   self.size, length)
+
+
 # You would have to have a *huge* amount of data for this to block long enough
 # to be worth it to release the GIL.
 c_memcpy = llexternal("memcpy",
-            [VOIDP, VOIDP, SIZE_T],
+            [VOIDP, CONST_VOIDP, SIZE_T],
             lltype.Void,
             releasegil=False,
             calling_conv='c',

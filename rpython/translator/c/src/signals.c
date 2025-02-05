@@ -42,7 +42,12 @@
 #define PYPYSIG_USE_SEND        0x02
 #define PYPYSIG_NO_WARN_FULL    0x04
 
-struct pypysig_long_struct pypysig_counter = {0};
+struct pypysig_long_struct pypysig_counter = {
+    { 0, },
+    "pypysigs",
+    0,
+};
+
 static long volatile pypysig_flags_bits[N_LONGSIG];
 static int wakeup_fd = -1;
 static int wakeup_send_flags = PYPYSIG_WITH_NUL_BYTE;
@@ -50,7 +55,7 @@ static int wakeup_send_flags = PYPYSIG_WITH_NUL_BYTE;
 #undef pypysig_getaddr_occurred
 void *pypysig_getaddr_occurred(void)
 {
-    return (void *)(&pypysig_counter); 
+    return (void *)(&pypysig_counter);
 }
 
 void pypysig_ignore(int signum)
@@ -104,7 +109,7 @@ void pypysig_pushback(int signum)
             ok = atomic_cas(&pypysig_flags_bits[index], value, value | bitmask);
         } while (!ok);
 
-        pypysig_counter.value = -1;
+        pypysig_counter.inner.value = -1;
       }
 }
 

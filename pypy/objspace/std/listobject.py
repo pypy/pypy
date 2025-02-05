@@ -205,8 +205,12 @@ def listrepr(space, w_currently_in_repr, w_list):
             listrepr_jitdriver.jit_merge_point(
                 typ=typ,
                 strategy_type=type(w_list.strategy))
+            try:
+                w_item = w_list.getitem(i)
+            except IndexError:
+                # repr changed the length, stop
+                break
             builder.append(', ')
-            w_item = w_list.getitem(i)
             builder.append(space.text_w(space.repr(w_item)))
         builder.append(']')
         return space.newtext(builder.build())

@@ -535,6 +535,8 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_id("id")
         ops = loop.ops_by_id("id")
         opnames = log.opnames(ops)
-        # used to be calls to fromrarith_int__r_uint and rbigint.xor
-        assert "call_r" not in opnames
+        if sys.maxsize > 2**32:
+            # used to be calls to fromrarith_int__r_uint and rbigint.xor. they
+            # are gone, but only on 64-bit
+            assert "call_r" not in opnames
         assert opnames.count('call_i') == 1 # _ll_1_gc_id__pypy_interpreter_baseobjspace_W_RootPtr

@@ -222,17 +222,8 @@ def utf8_encode_ascii(s, errors, errorhandler):
     return result.build()
 
 if sys.platform == 'win32':
-    def utf8_encode_mbcs(s, errors, errorhandler):
-        s = s.decode('utf-8')
-        slen = len(s)
-        res = runicode.unicode_encode_mbcs(s, slen, errors, errorhandler)
-        return res
-
-    def str_decode_mbcs(s, errors, final, errorhandler):
-        slen = len(s)
-        res, size = runicode.str_decode_mbcs(s, slen, final=final, errors=errors,
-                                           errorhandler=errorhandler)
-        return res.encode('utf8'), size, len(res)
+    from pypy.interpreter.unicodehelper_win32 import(
+        utf8_encode_mbcs, str_decode_mbcs)
 
 def str_decode_utf8(s, errors, final, errorhandler):
     """ Same as checking for the valid utf8, but we know the utf8 is not

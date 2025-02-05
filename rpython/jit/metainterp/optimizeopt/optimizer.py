@@ -355,11 +355,14 @@ class Optimizer(Optimization):
             return info.force_box(op, optforce)
         return op
 
-    def as_operation(self, op):
+    def as_operation(self, op, required_opnum=-1):
         # You should never check "isinstance(op, AbstractResOp" directly.
         # Instead, use this helper.
-        if isinstance(op, AbstractResOp) and op in self._emittedoperations:
-            return op
+        if isinstance(op, AbstractResOp):
+            if required_opnum != -1 and op.opnum != required_opnum:
+                return None # fast return if the opnum is wrong
+            if op in self._emittedoperations:
+                return op
         return None
 
     def get_constant_box(self, box):
@@ -509,7 +512,7 @@ class Optimizer(Optimization):
         self.trace = trace
         if self.log_operations_intbounds:
             self.log_operations_intbounds.log_inputargs(trace.inputargs)
-        deadranges = trace.get_dead_ranges()
+        #deadranges = trace.get_dead_ranges()
         self.call_pure_results = call_pure_results
         last_op = None
         i = 0
@@ -520,9 +523,12 @@ class Optimizer(Optimization):
                 last_op = op
                 break
             self.send_extra_operation(op)
-            trace.kill_cache_at(deadranges[i + trace.start_index])
+            #trace.kill_cache_at(deadranges[i + trace.start_index])
             if op.type != 'v':
                 i += 1
+                newop = self.get_box_replacement(op)
+                if newop is not op:
+                    trace.replace_last_cached(op, newop)
             if self.log_operations_intbounds and self._really_emitted_operation is op:
                 # logging the result cannot be done in _emit_operation, because
                 # at that point the postprocess functions have not been called,

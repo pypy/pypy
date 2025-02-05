@@ -57,6 +57,10 @@ else:
                                                      ('tv_usec', rffi.LONG)])
         TIMESPEC = platform.Struct('struct timespec', [('tv_sec', rffi.TIME_T),
                                                        ('tv_nsec', rffi.LONG)])
+        TIMEZONE = platform.Struct('struct timezone', [
+                                            ('tz_minuteswest', rffi.INT_real),
+                                            ('tz_dsttime', rffi.INT_real),
+                                  ])
         SEM_FAILED = platform.ConstantInteger('SEM_FAILED')
         SEM_VALUE_MAX = platform.DefinedConstantInteger('SEM_VALUE_MAX')
         SEM_TIMED_WAIT = platform.Has('sem_timedwait')
@@ -65,8 +69,10 @@ else:
     config = platform.configure(CConfig)
     TIMEVAL        = config['TIMEVAL']
     TIMESPEC       = config['TIMESPEC']
+    TIMEZONE       = config['TIMEZONE']
     TIMEVALP       = rffi.CArrayPtr(TIMEVAL)
     TIMESPECP      = rffi.CArrayPtr(TIMESPEC)
+    TIMEZONEP      = rffi.CArrayPtr(TIMEZONE)
     SEM_T          = rffi.COpaquePtr('sem_t', compilation_info=eci)
     #                rffi.cast(SEM_T, config['SEM_FAILED'])
     SEM_FAILED     = config['SEM_FAILED']
@@ -100,7 +106,7 @@ else:
                             save_err=rffi.RFFI_SAVE_ERRNO)
     _sem_post = external('sem_post', [SEM_T], rffi.INT, releasegil=False,
                          save_err=rffi.RFFI_SAVE_ERRNO)
-    _sem_getvalue = external('sem_getvalue', [SEM_T, rffi.INTP], rffi.INT,
+    _sem_getvalue = external('sem_getvalue', [SEM_T, rffi.INT_realP], rffi.INT,
                              save_err=rffi.RFFI_SAVE_ERRNO)
 
     _gettimeofday = external('gettimeofday', [TIMEVALP, rffi.VOIDP], rffi.INT,
@@ -191,7 +197,7 @@ else:
             raise OSError(rposix.get_saved_errno(), "sem_post failed")
 
     def sem_getvalue(sem):
-        sval_ptr = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        sval_ptr = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
         try:
             res = _sem_getvalue(sem, sval_ptr)
             if res < 0:
@@ -202,8 +208,9 @@ else:
 
     def gettimeofday():
         now = lltype.malloc(TIMEVALP.TO, 1, flavor='raw')
+        void = lltype.nullptr(rffi.VOIDP.TO)
         try:
-            res = _gettimeofday(now, None)
+            res = _gettimeofday(now, void)
             if res < 0:
                 raise OSError(rposix.get_saved_errno(), "gettimeofday failed")
             return (rffi.getintfield(now[0], 'c_tv_sec'),

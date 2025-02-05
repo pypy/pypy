@@ -46,17 +46,16 @@ named ``pypy``, and will get you the PyPy source in ``pypy/pypy`` and
 documentation files in ``pypy/pypy/doc``.
 We try to ensure that the tip is always stable, but it might
 occasionally be broken.  You may want to check out `our nightly tests`_:
-find a revision (12-chars alphanumeric string, e.g. "963e808156b3")
-that passed at least the
-``{linux32}`` tests (corresponding to a ``+`` sign on the
+find a revision hash, e.g. "963e808156b3", that passed at least the
+``{linux64}`` tests (corresponding to a ``+`` sign on the
 line ``success``) and then, in your cloned repository, switch to this revision
 using::
 
-    hg up -r XXXXX
+    git checkout XXXXX
 
-where XXXXX is the revision id.
+where XXXXX is the revision hash.
 
-.. _our nightly tests: https://buildbot.pypy.org/summary?branch=%3Ctrunk%3E
+.. _our nightly tests: https://buildbot.pypy.org/summary?branch=main
 
 
 Install build-time dependencies
@@ -160,9 +159,10 @@ command:
 
     xcode-select --install
 	brew install openssl pypy pkg-config libx11
+    # expose openssl in the cffi _ssl_build script
+    export CPPFLAGS=$(pkg-config openssl --cflags-only-I)
+    export LDFLAGS=$(pkg-config openssl --libs-only-L)
 
-After setting this up, translation (described next) will find the libs as
-expected via ``pkg-config``.
 
 Set environment variables that will affect translation
 ------------------------------------------------------
@@ -207,7 +207,7 @@ are shorthand for::
 
     pypy ../../rpython/bin/rpython <rpython options> targetpypystandalone.py <pypy options>
 
-More help is availabe via ``--help`` at either option position, and more info
+More help is available via ``--help`` at either option position, and more info
 can be found in the :doc:`config/index` section.
 
 (You can use ``python`` instead of ``pypy`` here, which will take longer
@@ -216,7 +216,7 @@ but works too.)
 If everything works correctly this will:
 
 1. Run the rpython `translation chain`_, producing a database of the
-   entire pypy interpreter. This step is currently singe threaded, and RAM
+   entire pypy interpreter. This step is currently single threaded, and RAM
    hungry. As part of this step,  the chain creates a large number of C code
    files and a Makefile to compile them in a
    directory controlled by the ``PYPY_USESSION_DIR`` environment variable.

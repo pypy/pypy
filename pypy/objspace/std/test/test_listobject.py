@@ -1533,6 +1533,17 @@ class AppTestListObject(object):
         del l[1:X():2]
         assert l == [1]
 
+    def test_mutate_while_repr(self):
+        class X(object):
+            def __repr__(self):
+                l.__init__()
+                return 'ouchie'
+
+        l = [1]
+        l.append(X())
+        l.append(191)
+        assert repr(l) == '[1, ouchie]'
+
     def test___getslice__(self):
         l = [1,2,3,4]
         res = l.__getslice__(0, 2)

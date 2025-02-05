@@ -663,6 +663,7 @@ def uniquefilepath(LAST=[0]):
 integer_class = [rffi.SIGNEDCHAR, rffi.UCHAR, rffi.CHAR,
                  rffi.SHORT, rffi.USHORT,
                  rffi.INT, rffi.UINT,
+                 rffi.INT_real, rffi.UINT_real,
                  rffi.LONG, rffi.ULONG,
                  rffi.LONGLONG, rffi.ULONGLONG]
 # XXX SIZE_T?

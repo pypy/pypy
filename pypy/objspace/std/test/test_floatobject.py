@@ -442,6 +442,18 @@ class AppTestAppFloatTest:
         f = 1.1234e200
         assert f.__format__("G") == "1.1234E+200"
 
+    def test_format_thousands(self):
+        f = float('inf')
+        assert format(1000, '20,f') == '        1,000.000000'
+
+    def test_format_bug_inf_float(self):
+        f = float('inf')
+        assert format(f, '7,f') == '    inf'
+        f = float('-inf')
+        assert format(f, '7,f') == '   -inf'
+        f = float('nan')
+        assert format(f, '7,f') == '    nan'
+
     def test_float_real(self):
         class A(float): pass
         b = A(5).real

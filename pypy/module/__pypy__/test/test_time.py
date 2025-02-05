@@ -1,11 +1,11 @@
 import py
 
-from pypy.module.__pypy__.interp_time import HAS_CLOCK_GETTIME
+from pypy.module.__pypy__.interp_time import HAS_CLOCK_GETTIME_RUNTIME
 
 
 class AppTestTime(object):
     def setup_class(cls):
-        if not HAS_CLOCK_GETTIME:
+        if not HAS_CLOCK_GETTIME_RUNTIME:
             py.test.skip("need time.clock_gettime")
 
     def test_clock_realtime(self):

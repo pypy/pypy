@@ -1,4 +1,4 @@
-import py
+import pytest
 
 from rpython.jit.codewriter import heaptracker
 from rpython.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
@@ -543,7 +543,6 @@ class ImplicitVirtualizableTests(object):
         self.check_resops(getfield_gc_r=1, getarrayitem_gc_i=4,
                           getfield_gc_i=1)
 
-    @py.test.mark.xfail
     def test_virtualizable_with_array_huge(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'x', 'frame'],
                                 virtualizables = ['frame'])
@@ -574,7 +573,11 @@ class ImplicitVirtualizableTests(object):
                 frame.s -= 1
             return x
 
-        res = self.meta_interp(f, [50, 1], listops=True)
+        res = self.meta_interp(f, [50, 1], listops=True) # must not crash
+
+    @pytest.mark.xfail
+    def test_virtualizable_with_array_huge_should_stop_compiling(self):
+        self.test_virtualizable_with_array_huge()
         # should stop giving up to compile, eventually
         assert get_stats().aborted_count < 6
 
@@ -1357,7 +1360,7 @@ class ImplicitVirtualizableTests(object):
 
     def test_blackhole_should_not_reenter(self):
         if not self.basic:
-            py.test.skip("purely frontend test")
+            pytest.skip("purely frontend test")
 
         myjitdriver = JitDriver(greens = [], reds = ['fail', 'frame'],
                                 virtualizables = ['frame'])

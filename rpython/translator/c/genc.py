@@ -301,6 +301,7 @@ class CStandaloneBuilder(CBuilder):
             envrepr = ''
         else:
             envrepr = ' [env=%r]' % (env,)
+            env.update(os.environ)
         if exe is None:
             exe = self.executable_name
         log.cmdexec('%s %s%s' % (exe, args, envrepr))

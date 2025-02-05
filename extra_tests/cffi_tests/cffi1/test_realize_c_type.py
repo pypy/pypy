@@ -46,10 +46,8 @@ def test_funcptr_rewrite_args():
     check("int(*)(long[5])", "int(*)(long *)")
 
 def test_all_primitives():
-    mapping = {"_cffi_float_complex_t": "float _Complex",
-               "_cffi_double_complex_t": "double _Complex"}
     for name in cffi_opcode.PRIMITIVE_TO_INDEX:
-        check(name, mapping.get(name, name))
+        check(name, name)
 
 def check_func(input, expected_output=None):
     import _cffi_backend
