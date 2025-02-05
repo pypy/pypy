@@ -293,6 +293,8 @@ def _bio_get_str(biobuf):
 
 def _decode_certificate(certificate):
     retval = {}
+    if not certificate:
+        raise ssl_error("Error decoding PEM-encoded file")
 
     peer = _create_tuple_for_X509_NAME(lib.X509_get_subject_name(certificate));
     if not peer:

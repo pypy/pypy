@@ -1,4 +1,4 @@
-from __future__ import with_statement
+from __future__ import print_function
 
 import signal as cpy_signal
 import sys
@@ -101,6 +101,12 @@ class CheckSignalAction(PeriodicAsyncAction):
     def _poll_for_signals(self):
         # Poll for the next signal, if any
         n = self.pending_signal
+        p = pypysig_getaddr_occurred_fullstruct()
+        if p.c_debugger_pending_call:
+            path = rffi.charp2str(p.c_debugger_script_path)
+            p.c_debugger_pending_call = 0
+            run_debugger(self.space, path)
+            return
         if n < 0:
             n = pypysig_poll()
         while n >= 0:
@@ -160,6 +166,32 @@ def report_signal(space, n):
     ec = space.getexecutioncontext()
     w_frame = ec.gettopframe_nohidden()
     space.call_function(w_handler, space.newint(n), w_frame)
+
+def run_debugger(space, path):
+    from pypy.interpreter.streamutil import wrap_streamerror
+    from pypy.interpreter.eval import Code
+    from rpython.rlib import streamio
+    w_pypymod = space.getbuiltinmodule('__pypy__')
+    if space.is_true(space.getattr(w_pypymod, space.newtext('_pypy_disable_remote_debugger'))):
+        return
+    try:
+        w_file = space.call_method(space.newbytes(path), 'decode', space.newtext('utf-8'))
+        space.audit('remote_exec', [w_file])
+        msg = "Executing remote debugger script "
+        w_msg = space.add(space.newtext(msg), w_file)
+        w_msg = space.add(w_msg, space.newtext('\n'))
+        space.call_method(space.getattr(space.sys, space.newtext('stdout')), 'write', w_msg)
+        try:
+            stream = streamio.open_file_as_stream(path, 'r')
+            source = stream.readall()
+        except streamio.StreamErrors as e:
+            raise wrap_streamerror(space, e)
+        ec = space.getexecutioncontext()
+        pycode = ec.compiler.compile(source, path, 'exec', 0)
+        w_globals = space.newdict()
+        pycode.exec_code(space, w_globals, w_globals)
+    except OperationError as e:
+        e.write_unraisable(space, "in remote debugger invocation")
 
 
 @unwrap_spec(signum=int)
@@ -438,8 +470,8 @@ def sigwait(space, w_signals):
     """Suspend execution of the calling thread until the delivery of one of the
     signals specified in the signal set signals. """
     with SignalMask(space, w_signals) as sigset:
-        with lltype.scoped_alloc(rffi.INTP.TO, 1) as signum_ptr:
-            ret = c_sigwait(sigset, signum_ptr)
+        with lltype.scoped_alloc(rffi.INT_realP.TO, 1) as signum_ptr:
+            ret = widen(c_sigwait(sigset, signum_ptr))
             if ret != 0:
                 raise exception_from_saved_errno(space, space.w_OSError)
             signum = signum_ptr[0]

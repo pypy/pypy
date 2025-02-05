@@ -1547,6 +1547,32 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
         res = self.run('extra_item_after_alloc')
         assert res == 42
 
+    def define_rerased(cls):
+        from rpython.rlib.rerased import new_erasing_pair, try_cast_erased
+        erase_obj, unerase_obj = new_erasing_pair("test obj")
+        erase_str, unerase_str = new_erasing_pair("test str")
+        class X:
+            pass
+        def f():
+            x = X()
+            for i in range(2):
+                if i:
+                    erased = erase_str('abc')
+                else:
+                    erased = erase_obj(x)
+                obj = try_cast_erased(X, erased)
+                if obj is not None:
+                    assert i == 0
+                    assert obj is x
+                else:
+                    assert unerase_str(erased) == 'abc'
+            return 0
+        return f
+
+    def test_rerased(self):
+        res = self.run('rerased')
+        assert res == 0
+
 
 class TestGenerationalGC(TestSemiSpaceGC):
     gcpolicy = "generation"

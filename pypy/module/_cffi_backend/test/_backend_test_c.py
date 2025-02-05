@@ -4,6 +4,7 @@
 import contextlib
 
 import pytest
+from pytest import skip
 import sys
 import typing as t
 
@@ -26,7 +27,7 @@ try:
     from _cffi_backend import _testfunc
 except ImportError:
     def _testfunc(num):
-        pytest.skip("_testunc() not available")
+        skip("_testunc() not available")
 from _cffi_backend import __version__
 
 
@@ -70,7 +71,7 @@ def _assert_unraisable(error_type, message='', traceback_tokens = None):
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.17.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.18.0.dev0", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -125,7 +126,7 @@ def find_and_load_library(name, flags=RTLD_NOW):
             assert sys.platform == 'win32'
             assert (sys.version_info >= (3,) or
                     '__pypy__' in sys.builtin_module_names)
-            pytest.skip("dlopen(None) cannot work on Windows "
+            skip("dlopen(None) cannot work on Windows "
                          "with PyPy or Python 3")
     return load_library(path, flags)
 
@@ -254,7 +255,7 @@ def test_float_types():
 def test_complex_types():
     INF = 1E200 * 1E200
     for name in ["float", "double"]:
-        p = new_primitive_type(name + " _Complex")
+        p = new_primitive_type("_cffi_" + name + "_complex_t")
         assert bool(cast(p, 0)) is False
         assert bool(cast(p, INF))
         assert bool(cast(p, -INF))
@@ -1253,7 +1254,7 @@ def test_call_function_9():
 
 def test_call_function_24():
     BFloat = new_primitive_type("float")
-    BFloatComplex = new_primitive_type("float _Complex")
+    BFloatComplex = new_primitive_type("_cffi_float_complex_t")
     BFunc3 = new_function_type((BFloat, BFloat), BFloatComplex, False)
     if 0:   # libffi returning nonsense silently, so logic disabled for now
         f = cast(BFunc3, _testfunc(24))
@@ -1267,7 +1268,7 @@ def test_call_function_24():
 
 def test_call_function_25():
     BDouble = new_primitive_type("double")
-    BDoubleComplex = new_primitive_type("double _Complex")
+    BDoubleComplex = new_primitive_type("_cffi_double_complex_t")
     BFunc3 = new_function_type((BDouble, BDouble), BDoubleComplex, False)
     if 0:   # libffi returning nonsense silently, so logic disabled for now
         f = cast(BFunc3, _testfunc(25))
@@ -1328,7 +1329,7 @@ def test_read_variable():
     ## FIXME: this test assumes glibc specific behavior, it's not compliant with C standard
     ## https://bugs.pypy.org/issue1643
     if not sys.platform.startswith("linux"):
-        pytest.skip("untested")
+        skip("untested")
     BVoidP = new_pointer_type(new_void_type())
     ll = find_and_load_library('c')
     stderr = ll.read_variable(BVoidP, "stderr")
@@ -1341,7 +1342,7 @@ def test_read_variable_as_unknown_length_array():
     ## FIXME: this test assumes glibc specific behavior, it's not compliant with C standard
     ## https://bugs.pypy.org/issue1643
     if not sys.platform.startswith("linux"):
-        pytest.skip("untested")
+        skip("untested")
     BCharP = new_pointer_type(new_primitive_type("char"))
     BArray = new_array_type(BCharP, None)
     ll = find_and_load_library('c')
@@ -1353,7 +1354,7 @@ def test_write_variable():
     ## FIXME: this test assumes glibc specific behavior, it's not compliant with C standard
     ## https://bugs.pypy.org/issue1643
     if not sys.platform.startswith("linux") or is_musl:
-        pytest.skip("untested")
+        skip("untested")
     BVoidP = new_pointer_type(new_void_type())
     ll = find_and_load_library('c')
     stderr = ll.read_variable(BVoidP, "stderr")
@@ -2552,7 +2553,7 @@ def test_errno():
 
 def test_errno_callback():
     if globals().get('PY_DOT_PY'):
-        pytest.skip("cannot run this test on py.py (e.g. fails on Windows)")
+        skip("cannot run this test on py.py (e.g. fails on Windows)")
     set_errno(95)
     def cb():
         e = get_errno()
@@ -2601,7 +2602,7 @@ def test_bug_delattr():
         del x.a1
 
 def test_variable_length_struct():
-    pytest.skip("later")
+    skip("later")
     BLong = new_primitive_type("long")
     BArray = new_array_type(new_pointer_type(BLong), None)
     BStruct = new_struct_type("struct foo")
@@ -3002,10 +3003,10 @@ if sys.version_info >= (3,):
 
 def test_FILE():
     if sys.platform == "win32":
-        pytest.skip("testing FILE not implemented")
+        skip("testing FILE not implemented")
     # XXX patch start
     if sys.platform == "darwin":
-        pytest.skip("testing variadic broken on macos (issue 4937)")
+        skip("testing variadic broken on macos (issue 4937)")
     # XXX patch end
     BFILE = new_struct_type("struct _IO_FILE")
     BFILEP = new_pointer_type(BFILE)
@@ -3037,7 +3038,7 @@ def test_FILE():
 
 def test_FILE_only_for_FILE_arg():
     if sys.platform == "win32":
-        pytest.skip("testing FILE not implemented")
+        skip("testing FILE not implemented")
     #
     B_NOT_FILE = new_struct_type("struct NOT_FILE")
     B_NOT_FILEP = new_pointer_type(B_NOT_FILE)
@@ -3060,7 +3061,7 @@ def test_FILE_only_for_FILE_arg():
 
 def test_FILE_object():
     if sys.platform == "win32":
-        pytest.skip("testing FILE not implemented")
+        skip("testing FILE not implemented")
     #
     BFILE = new_struct_type("FILE")
     BFILEP = new_pointer_type(BFILE)
@@ -3100,7 +3101,7 @@ def test_errno_saved():
 
 def test_GetLastError():
     if sys.platform != "win32":
-        pytest.skip("GetLastError(): only for Windows")
+        skip("GetLastError(): only for Windows")
     #
     lib = find_and_load_library('KERNEL32.DLL')
     BInt = new_primitive_type("int")
@@ -3728,7 +3729,7 @@ def test_packed():
 
 def test_packed_with_bitfields():
     if sys.platform == "win32":
-        pytest.skip("testing gcc behavior")
+        skip("testing gcc behavior")
     BLong = new_primitive_type("long")
     BChar = new_primitive_type("char")
     BStruct = new_struct_type("struct foo")
@@ -3806,7 +3807,7 @@ def test_from_buffer_more_cases():
     try:
         from _cffi_backend import _testbuff
     except ImportError:
-        pytest.skip("not for pypy")
+        skip("not for pypy")
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
     BCharA = new_array_type(BCharP, None)
@@ -4460,7 +4461,7 @@ def test_explicit_release_from_buffer_contextmgr():
 
 def test_explicit_release_bytearray_on_cpython():
     if '__pypy__' in sys.builtin_module_names:
-        pytest.skip("pypy's bytearray are never locked")
+        skip("pypy's bytearray are never locked")
     a = bytearray(b"xyz")
     BChar = new_primitive_type("char")
     BCharP = new_pointer_type(BChar)
@@ -4546,9 +4547,9 @@ def test_unaligned_types():
     buf = buffer(pbuf)
     #
     for name in ['short', 'int', 'long', 'long long', 'float', 'double',
-                 'float _Complex', 'double _Complex']:
+                 '_cffi_float_complex_t', '_cffi_double_complex_t']:
         p = new_primitive_type(name)
-        if name.endswith(' _Complex'):
+        if name.endswith('_complex_t'):
             num = cast(p, 1.23 - 4.56j)
         else:
             num = cast(p, 0x0123456789abcdef)

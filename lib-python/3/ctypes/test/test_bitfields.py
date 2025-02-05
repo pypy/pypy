@@ -289,6 +289,7 @@ class BitFieldTest(unittest.TestCase):
                         ("c", c_uint32, 4)]
         b = bytearray(4)
         x = Big.from_buffer(b)
+        import pdb;pdb.set_trace()
         x.a = 0xabcdef
         x.b = 1
         x.c = 2

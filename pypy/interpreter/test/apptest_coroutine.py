@@ -1,7 +1,8 @@
 import pytest
 from pytest import raises
-
+import gc
 import sys
+import warnings  # XXX: importing warnings is expensive untranslated
 
 
 class suspend:
@@ -16,16 +17,18 @@ class suspend:
         yield self.msg
 
 
-@pytest.mark.filterwarnings("ignore::RuntimeWarning")
 def test_cannot_iterate():
     async def f(x):
         pass
     
-    with raises(TypeError):
-        for i in f(5):
-             pass
-    raises(TypeError, iter, f(5))
-    raises(TypeError, next, f(5))
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        with raises(TypeError):
+            for i in f(5):
+                 pass
+        raises(TypeError, iter, f(5))
+        raises(TypeError, next, f(5))
+        gc.collect()
 
 
 def test_async_for():
@@ -182,7 +185,6 @@ def test_async_with_exception_context():
 
 
 def test_runtime_warning():
-    import gc, warnings  # XXX: importing warnings is expensive untranslated
     async def foobaz():
         pass
     gc.collect()   # emit warnings from unrelated older tests
@@ -573,7 +575,6 @@ def test_agen_aclose_await_and_yield_in_finally():
         coro.send(None)
 
 def test_async_aclose_in_finalize_hook_await_in_finally():
-    import gc
     state = 0
     async def ag():
         nonlocal state
@@ -841,7 +842,6 @@ def test_coroutine_capture_origin():
         sys.set_coroutine_origin_tracking_depth(0)
 
 def test_runtime_warning_origin_tracking():
-    import gc, warnings  # XXX: importing warnings is expensive untranslated
     async def foobaz():
         pass
     gc.collect()   # emit warnings from unrelated older tests

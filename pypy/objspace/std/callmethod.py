@@ -90,11 +90,8 @@ def CALL_METHOD(f, oparg, *ignored):
     n = n_args + (w_self is not None)
 
     w_callable = f.peekvalue(n_args + 1)
-    try:
-        w_result = f.space.call_valuestack(
-                w_callable, n, f, methodcall=w_self is not None)
-    finally:
-        f.dropvalues(n_args + 2)
+    w_result = f.space.call_valuestack(
+            w_callable, n, f, methodcall=w_self is not None, dropvalues=n_args+2)
     f.pushvalue(w_result)
 
 @jit.unroll_safe

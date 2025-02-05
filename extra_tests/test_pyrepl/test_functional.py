@@ -5,20 +5,19 @@
 
 from contextlib import contextmanager
 import sys, os
+import pytest
 
 try:
-    import pexpect
+    from pexpect import spawn
 except ImportError:
-    pytest.skip("no pexpect module")
-except SyntaxError:
-    pytest.skip('pexpect wont work on py3k')
+    pytest.skip(allow_module_level=True)
 
 @contextmanager
 def start_repl(extra_env=dict(), explicit_pyrepl=True, colors=False):
     args = []
     if explicit_pyrepl:
         args = ['-S', '-c', "from pyrepl.main import interactive_console as __pyrepl_interactive_console; __pyrepl_interactive_console()"],
-    child = pexpect.spawn(
+    child = spawn(
         sys.executable,
         env=os.environ | {"PYTHON_COLORS": "1" if colors else "0"} | extra_env,
         timeout=10, encoding="utf-8")
@@ -118,7 +117,7 @@ class Console(cmd.Cmd):
 if __name__ == "__main__":
     Console().cmdloop()
 """)
-    child = pexpect.spawn(
+    child = spawn(
         sys.executable,
         [str(fn)],
         env=os.environ,

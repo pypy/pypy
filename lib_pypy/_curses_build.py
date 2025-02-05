@@ -102,6 +102,17 @@ int _m_ispad(WINDOW *win) {
 void _m_getsyx(int *yx) {
     getsyx(yx[0], yx[1]);
 }
+#ifndef NCURSES_EXT_COLORS
+    static const int NCURSES_EXT_COLORS = 0;
+#endif
+#if NCURSES_EXT_FUNCS + 0 < 20170401
+int (*init_extended_pair)(int pair, int f, int b) = NULL;
+int (*init_extended_color)(int color, int r, int g, int b) = NULL;
+int (*extended_color_content)(int, int*, int*, int*) = NULL;
+int (*extended_pair_content)(int, int*, int*) = NULL;
+#endif
+
+
 """, libraries=libs,
      library_dirs = library_dirs,
      include_dirs=include_dirs,
@@ -109,6 +120,7 @@ void _m_getsyx(int *yx) {
 
 
 ffi.cdef("""
+static const int NCURSES_EXT_FUNCS, NCURSES_EXT_COLORS;
 typedef ... WINDOW;
 typedef ... SCREEN;
 typedef unsigned long... mmask_t;
@@ -211,6 +223,8 @@ int doupdate(void);
 int echo(void);
 int endwin(void);
 char erasechar(void);
+int extended_color_content(int, int*, int*, int*);
+int extended_pair_content(int, int*, int*);
 void filter(void);
 int flash(void);
 int flushinp(void);
@@ -226,6 +240,8 @@ void immedok(WINDOW *, bool);
 WINDOW * initscr(void);
 int init_color(short, short, short, short);
 int init_pair(short, short, short);
+int init_extended_pair(int pair, int f, int b);
+int init_extended_color(int color, int r, int g, int b);
 int intrflush(WINDOW *, bool);
 bool isendwin(void);
 bool is_linetouched(WINDOW *, int);

@@ -21,7 +21,6 @@ ffi = build_ffi_for_binding(
 
         # Provider comes early as well so we define OSSL_LIB_CTX
         "provider",
-        "aes",
         "asn1",
         "bignum",
         "bio",
@@ -42,7 +41,6 @@ ffi = build_ffi_for_binding(
         "objects",
         "ocsp",
         "opensslv",
-        "osrandom_engine",
         "pem",
         "pkcs12",
         "rand",

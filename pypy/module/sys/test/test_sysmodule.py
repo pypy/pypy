@@ -592,7 +592,7 @@ class AppTestSysModulePortedFromCPython:
     def test_winver(self):
         import sys
         if hasattr(sys, "winver"):
-            assert sys.winver == sys.version[:3]
+            assert sys.winver == sys.version[:4]
 
     def test_dllhandle(self):
         import sys
@@ -916,31 +916,10 @@ class AppTestSysSettracePortedFromCpython(object):
         run_test2(settrace_and_raise)
 
 
-class AppTestCurrentFrames:
-    def test_current_frames(self):
-        try:
-            import _thread
-        except ImportError:
-            pass
-        else:
-            skip('This test requires an intepreter without threads')
-        import sys
-
-        def f():
-            return sys._current_frames()
-        frames = f()
-        assert list(frames) == [0]
-        assert frames[0].f_code.co_name in ('f', '?')
-
-
-class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
-    spaceconfig = {
-        "usemodules": ["time", "thread"],
-    }
+class AppTestCurrentFramesWithThread:
 
     def test_current_frames(self):
         import sys
-        import time
         import _thread
         if sys.platform == 'darwin':
             skip('test can hang on macos')
@@ -976,7 +955,6 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
 
     def test_current_exceptions(self):
         import sys
-        import time
         import _thread
 
         # XXX workaround for now: to prevent deadlocks, call

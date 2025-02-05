@@ -1,6 +1,6 @@
-=====================================================
-PyPy v7.3.6: release of python 2.7, 3.7, and 3.8-beta
-=====================================================
+==========================================================================
+PyPy v7.3.6: release of python 2.7, 3.7, and 3.8-beta, released 2021-10-17
+==========================================================================
 
 The PyPy team is proud to release version 7.3.6 of PyPy, which includes
 three different interpreters:
@@ -162,7 +162,7 @@ Speedups and enhancements shared across versions
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-We are no longer backporting changes to the ``cpyext`` compatiblity layer to
+We are no longer backporting changes to the ``cpyext`` compatibility layer to
 PyPy2.7.
 
 
@@ -181,10 +181,10 @@ Python 3.7+ bugfixes
 
 Python 3.7+ speedups and enhancements
 -------------------------------------
-- Speep up cached imports by re-implementing (a subset of) `bpo 22557`_. This
+- Speed up cached imports by re-implementing (a subset of) `bpo 22557`_. This
   brings PyPy3.7 very close to the speed of PyPy2 (issue 3431_)
 - Ignore finalizers on built-in ``io`` classes if we know the stream is closed.
-  Also find some other optimizations aroudn ``io`` operations.
+  Also find some other optimizations around ``io`` operations.
 - Add more fields to ``sysconfig.get_config_var`` via ``_sysconfigdata`` (issue
   3483_)
 - Add a ``sys.implementation._multiarch`` field like CPython on linux and

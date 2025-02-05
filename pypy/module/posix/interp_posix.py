@@ -42,6 +42,8 @@ c_int = "c_int"
 # returns a uid_t or gid_t returns either an int or a long, depending
 # on whether it fits or not, but always positive.
 c_uid_t = 'c_uid_t'
+# this looks like a typo but is not, it goes to visit_c_uid_t and there
+# is no visit_c_gid_t
 c_gid_t = 'c_uid_t'
 
 def wrap_uid(space, uid):
@@ -61,16 +63,10 @@ class FileEncoder(object):
     def as_bytes(self):
         return self.space.fsencode_w(self.w_obj)
 
-    def as_unicode(self):
-        ret = self.space.realunicode_w(self.w_obj)
-        if u'\x00' in ret:
-            raise oefmt(self.space.w_ValueError, "embedded null character")
-        return ret
-
     def as_utf8(self):
-        ret = self.space.utf8_w(self.w_obj)
+        ret = self.space.fsencode_w(self.w_obj)
         if '\x00' in ret:
-            raise oefmt(self.space.w_ValueError, "embedded null character")
+            raise oefmt(self.space.w_TypeError, "embedded null character")
         return ret
 
 class FileDecoder(object):
@@ -83,16 +79,10 @@ class FileDecoder(object):
     def as_bytes(self):
         return self.space.fsencode_w(self.w_obj)
 
-    def as_unicode(self):
-        ret = self.space.fsdecode_w(self.w_obj).decode('utf-8')
-        if u'\x00' in ret:
-            raise oefmt(self.space.w_ValueError, "embedded null character")
-        return ret
-
     def as_utf8(self):
         ret = self.space.fsdecode_w(self.w_obj)
         if '\x00' in ret:
-            raise oefmt(self.space.w_ValueError, "embedded null character")
+            raise oefmt(self.space.w_TypeError, "embedded null character")
         return ret
 
 @specialize.memo()
@@ -142,12 +132,9 @@ def dispatch_filename_2(func):
 @specialize.arg(0)
 def call_rposix(func, path, *args):
     """Call a function that takes a filesystem path as its first argument"""
-    if path.as_unicode is not None:
-        return func(path.as_unicode, *args)
-    else:
-        path_b = path.as_bytes
-        assert path_b is not None
-        return func(path_b, *args)
+    path_b = path.as_bytes
+    assert path_b is not None
+    return func(path_b, *args)
 
 
 class Path(object):
@@ -167,8 +154,9 @@ class Path(object):
 
 def _path_from_unicode(space, w_value):
     if _WIN32:
-        path_u = FileEncoder(space, w_value).as_unicode()
-        return Path(-1, None, path_u, w_value)
+        path_b = space.bytes0_w(space.fsencode(w_value))
+        path_u = space.realunicode_w(w_value)
+        return Path(-1, path_b, path_u, w_value)
     else:
         path_b = space.bytes0_w(space.fsencode(w_value))
         return Path(-1, path_b, None, w_value)
@@ -845,6 +833,7 @@ dir_fd may not be implemented on your platform.
     except OSError as e:
         raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
 
+
 @unwrap_spec(path=path_or_fd(allow_fd=False),
              dir_fd=DirFD(rposix.HAVE_UNLINKAT))
 def remove(space, path, __kwonly__, dir_fd=DEFAULT_DIR_FD):
@@ -866,19 +855,25 @@ dir_fd may not be implemented on your platform.
         raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
 
 if _WIN32:
-    @unwrap_spec(path=path_or_fd(allow_fd=False, nullable=False))
-    def _getfullpathname(space, path):
+    def _getfullpathname(space, w_path):
         """helper for ntpath.abspath """
+        path = space.fsencode_w(w_path)
         try:
-            if path.as_unicode is not None:
-                result = rposix.getfullpathname(path.as_unicode)
-                return u2utf8(space, result)
-            else:
-                result = rposix.getfullpathname(path.as_bytes)
-                return space.newbytes(result)
+            space._try_buffer_w(w_path, space.BUF_FULL_RO)
+        except BufferInterfaceNotFound:
+            w_obj = fspath(space, w_path)
+            as_bytes = not space.isinstance_w(w_obj, space.w_text)
+        else:
+            as_bytes = True
+        try:
+            fullpath = rposix.getfullpathname(path)
         except OSError as e:
-            raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
-
+            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        if as_bytes:
+            return space.newbytes(fullpath)
+        else:
+            ulen = codepoints_in_utf8(fullpath)
+            return space.newtext(fullpath, ulen)
 
 def getcwdb(space):
     """Return the current working directory."""
@@ -925,7 +920,7 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError.
 
-The mode argument is ignored on Windows."""
+Any mode but 0700 is ignored on Windows."""
     try:
         if rposix.HAVE_MKDIRAT and dir_fd != DEFAULT_DIR_FD:
             path = space.fsencode_w(w_path)
@@ -987,7 +982,6 @@ class State:
     def __init__(self, space):
         self.space = space
         self.w_environ = space.newdict()
-        self.random_context = rurandom.init_urandom()
 
     def startup(self, space):
         space.call_method(self.w_environ, 'clear')
@@ -996,9 +990,6 @@ class State:
     def _freeze_(self):
         # don't capture the environment in the translated pypy
         self.space.call_method(self.w_environ, 'clear')
-        # also reset random_context to a fresh new context (empty so far,
-        # to be filled at run-time by rurandom.urandom())
-        self.random_context = rurandom.init_urandom()
         return True
 
 def get(space):
@@ -1008,17 +999,16 @@ if _WIN32:
     def _convertenviron(space, w_env):
         # _wenviron must be initialized in this way if the program is
         # started through main() instead of wmain()
-        rwin32._wgetenv(u"")
+        rwin32._wgetenv("")
         for key, value in rwin32._wenviron_items():
-            space.setitem(w_env, space.newtext(key.encode("utf-8"), len(key)),
-                    space.newtext(value.encode("utf-8"), len(value)))
+            space.setitem(w_env, space.newtext(key), space.newtext(value))
 
-    @unwrap_spec(name=unicode, value=unicode)
+    @unwrap_spec(name='text', value='text')
     def putenv(space, name, value):
         """Change or add an environment variable."""
         # Search from index 1 because on Windows starting '=' is allowed for
         # defining hidden environment variables.
-        if len(name) == 0 or u'=' in name[1:]:
+        if len(name) == 0 or '=' in name[1:]:
             raise oefmt(space.w_ValueError, "illegal environment variable name")
 
         # len includes space for '=' and a trailing NUL
@@ -1027,7 +1017,7 @@ if _WIN32:
                         "the environment variable is longer than %d "
                         "characters", rwin32._MAX_ENV)
 
-        if u'\x00' in name or u'\x00' in value:
+        if '\x00' in name or '\x00' in value:
             raise oefmt(space.w_ValueError, "embedded null character")
 
         try:
@@ -1035,12 +1025,12 @@ if _WIN32:
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
 
-    @unwrap_spec(name=unicode)
+    @unwrap_spec(name='text')
     def unsetenv(space, name):
         """Change or add an environment variable."""
         # Search from index 1 because on Windows starting '=' is allowed for
         # defining hidden environment variables.
-        if len(name) == 0 or u'=' in name[1:]:
+        if len(name) == 0 or '=' in name[1:]:
             raise oefmt(space.w_ValueError, "illegal environment variable name")
 
         # len includes space for '=' and a trailing NUL
@@ -1050,7 +1040,7 @@ if _WIN32:
                         "characters", rwin32._MAX_ENV)
 
         try:
-            rwin32.SetEnvironmentVariableW(name, None)
+            rwin32.DelEnvironmentVariableW(name)
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
 
@@ -1122,7 +1112,9 @@ entries '.' and '..' even if they are present in the directory."""
         return space.newlist([space.newfilename(f) for f in result])
     elif as_bytes:
         try:
-            result = rposix.listdir(path.as_bytes)
+            path_b = path.as_bytes
+            assert path_b is not None
+            result = rposix.listdir(path_b)
         except OSError as e:
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
         return space.newlist_bytes(result)
@@ -1132,28 +1124,26 @@ entries '.' and '..' even if they are present in the directory."""
         result_u = []
         result = []
         try:
-            if u:
-                result_u = rposix.listdir(path.as_unicode)
-            elif path.as_bytes:
-                result = rposix.listdir(path.as_bytes)
-            else:
+            path_b = path.as_bytes
+            if path_b is None:
                 # rposix.listdir will raise the error, but None is invalid here
                 result = rposix.listdir('')
+            else:
+                result = rposix.listdir(path_b)
         except OSError as e:
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
-        if u:
-            len_result = len(result_u)
-            result_w = [None] * len_result
-            for i in range(len_result):
-                result_w[i] = result_u[i].encode('utf-8')
-            return space.newlist_text(result_w)
-        elif _WIN32:
-            return space.newlist_utf8(result, True)
-        # only non-_WIN32
         len_result = len(result)
         result_w = [None] * len_result
-        for i in range(len_result):
-            result_w[i] = space.newfilename(result[i])
+        if u:
+            for i in range(len_result):
+                result_w[i] = space.newtext(result[i])
+        elif _WIN32:
+            for i in range(len_result):
+                result_w[i] = space.newtext(result[i])
+            return space.newlist(result_w)
+        else:
+            for i in range(len_result):
+                result_w[i] = space.newfilename(result[i])
         return space.newlist(result_w)
 
 @unwrap_spec(fd=c_int)
@@ -1576,6 +1566,8 @@ def _run_forking_function(space, kind):
             pass
         raise wrap_oserror(space, e, eintr_retry=False)
     if pid == 0:
+        from pypy.module.thread import os_thread
+        os_thread.reinit_threads(space)
         run_fork_hooks('child', space)
     else:
         run_fork_hooks('parent', space)
@@ -1983,12 +1975,9 @@ def do_utimes(space, func, arg, utime):
 def _dispatch_utime(path, times):
     # XXX: a dup. of call_rposix to specialize rposix.utime taking a
     # Path for win32 support w/ do_utimes
-    if path.as_unicode is not None:
-        return rposix.utime(path.as_unicode, times)
-    else:
-        path_b = path.as_bytes
-        assert path_b is not None
-        return rposix.utime(path.as_bytes, times)
+    path_b = path.as_bytes
+    assert path_b is not None
+    return rposix.utime(path.as_bytes, times)
 
 
 def convert_seconds(space, w_time):
@@ -2192,9 +2181,9 @@ def getppid(space):
     if not _WIN32:
         return space.newint(os.getppid())
     else:
-        from pypy.module.posix.interp_nt import win32_getppid
+        from pypy.module.posix import interp_nt as nt
         try:
-            return space.newint(win32_getppid())
+            return space.newint(nt.win32_getppid())
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
     return space.w_None
@@ -2586,7 +2575,6 @@ def urandom(space, size):
 
     Return a string of 'size' random bytes suitable for cryptographic use.
     """
-    context = get(space).random_context
     if size < 0:
         raise oefmt(space.w_ValueError, "negative argument not allowed")
     try:
@@ -2594,7 +2582,7 @@ def urandom(space, size):
         # not a bound method like 'getexecutioncontext().checksignals'.
         # Otherwise, we can't use it from several independent places.
         _sigcheck.space = space
-        return space.newbytes(rurandom.urandom(context, size, _signal_checker))
+        return space.newbytes(rurandom.urandom(size, _signal_checker))
     except OSError as e:
         # CPython raises NotImplementedError if /dev/urandom cannot be found.
         # To maximize compatibility, we should also raise NotImplementedError
@@ -2654,8 +2642,11 @@ if _WIN32:
                                space.newint(info[2])])
 
     def _getfinalpathname(space, w_path):
+        path = space.fsdecode_w(w_path)
+        if '\x00' in path:
+            raise oefmt(space.w_ValueError, "embedded null character")
         try:
-            s, lgt = dispatch_filename(nt._getfinalpathname)(space, w_path)
+            s, lgt = nt._getfinalpathname(path)
         except nt.LLNotImplemented as e:
             raise OperationError(space.w_NotImplementedError,
                                  space.newtext(e.msg))

@@ -107,7 +107,7 @@ immediately, but only when (and if) ``myslice`` or ``mylist`` are mutated.
 NumPy rebooted
 --------------
 
-Our cpyext C-API compatiblity layer can now run upstream NumPy unmodified.
+Our cpyext C-API compatibility layer can now run upstream NumPy unmodified.
 We need to refactor the way `NumPy adds docstrings`_.
 
 .. _`NumPy adds docstrings`: https://github.com/numpy/numpy/issues/10167
@@ -158,7 +158,7 @@ The world is moving on, we should too. Work in this direction has begun on the
 things that are known to need careful refactoring:
 
 - a single character in python3 is an int, not a byte
-- we use ``str``/``unicode`` to distiguish between different modes of
+- we use ``str``/``unicode`` to distinguish between different modes of
   operation for windows in ``make_win32_traits``.
 
 There are probably more. The branch currently does not pass rpython tests so

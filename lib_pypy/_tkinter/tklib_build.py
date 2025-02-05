@@ -1,6 +1,6 @@
 # C bindings with libtcl and libtk.
 
-from cffi import FFI
+from cffi import FFI, PkgConfigError
 import sys, os
 
 # XXX find a better way to detect paths
@@ -85,6 +85,8 @@ tkffi = FFI()
 tkffi.cdef("""
 char *get_tk_version();
 char *get_tcl_version();
+char *get_tk_patch_level();
+char *get_tcl_patch_level();
 #define HAVE_LIBTOMMATH ...
 #define HAVE_WIDE_INT_TYPE ...
 
@@ -226,7 +228,7 @@ int mp_init(mp_int *a);
 void mp_clear(mp_int *a);
 """)
 
-tkffi.set_source("_tkinter.tklib_cffi", """
+c_header ="""
 #define HAVE_LIBTOMMATH %(HAVE_LIBTOMMATH)s
 #define HAVE_WIDE_INT_TYPE %(HAVE_WIDE_INT_TYPE)s
 #include <tcl.h>
@@ -238,11 +240,19 @@ tkffi.set_source("_tkinter.tklib_cffi", """
 
 char *get_tk_version(void) { return TK_VERSION; }
 char *get_tcl_version(void) { return TCL_VERSION; }
-""" % globals(),
-include_dirs=incdirs,
-libraries=linklibs,
-library_dirs = libdirs
-)
+char *get_tk_patch_level(void) { return TK_PATCH_LEVEL; }
+char *get_tcl_patch_level(void) { return TCL_PATCH_LEVEL; }
+""" % globals() 
+
+try:
+    tkffi.set_source_pkgconfig("_tkinter.tklib_cffi", ["tk", "tcl"], c_header)
+    print("used pkg-config")
+except PkgConfigError:
+    tkffi.set_source("_tkinter.tklib_cffi", c_header,
+        include_dirs=incdirs,
+        libraries=linklibs,
+        library_dirs = libdirs
+    )
 
 if __name__ == "__main__":
     tkffi.compile(os.path.join(os.path.dirname(sys.argv[0]), '..'))

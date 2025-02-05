@@ -5,6 +5,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform
 
@@ -96,7 +97,6 @@ if not _WIN32:
     def _dlerror_on_dlopen_untranslated(name):
         # aaargh
         import ctypes
-        name = rffi.charp2str(name)
         try:
             ctypes.CDLL(name)
         except OSError as e:
@@ -182,15 +182,12 @@ if not _WIN32:
         #
         # haaaack for 'pypy py.test -A' if libm.so is a linker script
         # (see reason in _dlerror_on_dlopen_untranslated())
-        must_free = False
         if not we_are_translated() and platform.name == "linux":
-            if name and rffi.charp2str(name) == 'libm.so':
-                name = rffi.str2charp('libm.so.6')
-                must_free = True
+            if name == 'libm.so':
+                name = 'libm.so.6'
         #
-        res = c_dlopen(name, rffi.cast(rffi.INT, mode))
-        if must_free:
-            rffi.free_charp(name)
+        with rffi.scoped_str2charp(name) as ll_libname:
+            res = c_dlopen(ll_libname, rffi.cast(rffi.INT, mode))
         if not res:
             if not we_are_translated():
                 err = _dlerror_on_dlopen_untranslated(name)
@@ -235,7 +232,10 @@ else:  # _WIN32
 
     def dlopen(name, mode=-1):
         # mode is unused on windows, but a consistant signature
-        res = rwin32.LoadLibrary(name)
+        if not name:
+            raise DLOpenError("cannot use None")
+        with rffi.scoped_utf82wcharp(name, codepoints_in_utf8(name)) as buf:
+            res = rwin32.LoadLibraryW(buf)
         if not res:
             err = rwin32.GetLastError_saved()
             ustr, lgt = rwin32.FormatErrorW(err)
@@ -244,18 +244,12 @@ else:  # _WIN32
 
     def dlopenex(name, flags=rwin32.LOAD_WITH_ALTERED_SEARCH_PATH):
         # Don't display a message box when Python can't load a DLL */
+        if not name:
+            raise DLOpenError("cannot use None")
         old_mode = rwin32.SetErrorMode(rwin32.SEM_FAILCRITICALERRORS)
-        res = rwin32.LoadLibraryExA(name, flags)
+        with rffi.scoped_utf82wcharp(name, codepoints_in_utf8(name)) as buf:
+            res = rwin32.LoadLibraryExW(buf, flags)
         rwin32.SetErrorMode(old_mode)
-        if not res:
-            err = rwin32.GetLastError_saved()
-            ustr, lgt = rwin32.FormatErrorW(err)
-            raise DLOpenError(ustr)
-        return res
-
-    def dlopenU(name, mode=-1):
-        # mode is unused on windows, but a consistant signature
-        res = rwin32.LoadLibraryW(name)
         if not res:
             err = rwin32.GetLastError_saved()
             ustr, lgt = rwin32.FormatErrorW(err)
@@ -285,5 +279,4 @@ else:  # _WIN32
         # XXX rffi.cast here...
         return res
 
-    LoadLibrary = rwin32.LoadLibrary
     GetModuleHandle = rwin32.GetModuleHandle

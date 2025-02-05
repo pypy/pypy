@@ -337,3 +337,23 @@ def test_erasing_pair():
     #
     erase2, unerase2 = new_erasing_pair("test2")
     py.test.raises(AssertionError, unerase2, erased)
+
+def test_erasing_pair_try_cast_instance():
+    # the translated version of this is tested in test_newgc.py, it only works
+    # translated
+    erase_obj, unerase_obj = new_erasing_pair("test obj")
+    erase_str, unerase_str = new_erasing_pair("test str")
+    class X:
+        pass
+    x = X()
+    for i in range(2):
+        if i:
+            x = 'abc'
+            erased = erase_str(x)
+        else:
+            erased = erase_obj(x)
+        obj = try_cast_erased(X, erased)
+        if obj is not None:
+            assert i == 0
+            assert obj is x
+

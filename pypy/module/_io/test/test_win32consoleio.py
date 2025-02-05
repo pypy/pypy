@@ -3,6 +3,9 @@ import pytest
 
 if os.name != 'nt':
     pytest.skip('Windows only tests')
+if not os.environ.get("PYPY_ENABLE_WINCONSOLEIO", False):
+    pytest.skip('_WindowsConsoleIO disabled')
+
 
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import interp2app

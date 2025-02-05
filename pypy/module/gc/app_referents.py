@@ -60,9 +60,12 @@ class GcStats(object):
                      'peak_arena_memory', 'peak_rawmalloced_memory',
                      ):
             setattr(self, item, self._format(getattr(self._s, item)))
-        self.memory_used_sum = self._format(self._s.total_gc_memory + self._s.total_memory_pressure +
+        memory_pressure = 0
+        if self._s.total_memory_pressure != -1:
+            memory_pressure = self._s.total_memory_pressure
+        self.memory_used_sum = self._format(self._s.total_gc_memory + memory_pressure +
                                             self._s.jit_backend_used)
-        self.memory_allocated_sum = self._format(self._s.total_allocated_memory + self._s.total_memory_pressure +
+        self.memory_allocated_sum = self._format(self._s.total_allocated_memory + memory_pressure +
                                             self._s.jit_backend_allocated)
         self.total_gc_time = self._s.total_gc_time
 
@@ -73,20 +76,22 @@ class GcStats(object):
         return "%.1fMB" % (v / 1024. / 1024.)
 
     def __repr__(self):
+
         if self._s.total_memory_pressure != -1:
-            extra = "\n    memory pressure:    %s" % self.total_memory_pressure
+            extra = "\n    memory pressure:         %s" % self.total_memory_pressure
         else:
             extra = ""
+        total_arena_allocated = self._format(self._s.total_allocated_memory - self._s.total_rawmalloced_memory - self._s.nursery_size)
         return """Total memory consumed:
-    GC used:            %s (peak: %s)
-       in arenas:            %s
-       rawmalloced:          %s
+    GC used:                 %s (peak: %s)
+       in arenas:            %s (peak: %s)
+       rawmalloced:          %s (peak: %s)
        nursery:              %s
-    raw assembler used: %s%s
+    raw assembler used:      %s%s
     -----------------------------
-    Total:              %s
+    Total:                   %s
 
-    Total memory allocated:
+    Total memory allocated (includes freelists):
     GC allocated:            %s (peak: %s)
        in arenas:            %s
        rawmalloced:          %s
@@ -97,16 +102,16 @@ class GcStats(object):
 
     Total time spent in GC:  %s
     """ % (self.total_gc_memory, self.peak_memory,
-              self.total_arena_memory,
-              self.total_rawmalloced_memory,
+              self.total_arena_memory, self.peak_arena_memory,
+              self.total_rawmalloced_memory, self.peak_rawmalloced_memory,
               self.nursery_size,
            self.jit_backend_used,
            extra,
            self.memory_used_sum,
 
            self.total_allocated_memory, self.peak_allocated_memory,
-              self.peak_arena_memory,
-              self.peak_rawmalloced_memory,
+              total_arena_allocated,
+              self.total_rawmalloced_memory,
               self.nursery_size,
            self.jit_backend_allocated,
            extra,

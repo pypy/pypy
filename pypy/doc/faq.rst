@@ -262,7 +262,7 @@ various corner cases in your code.  This is a bad case for JIT
 compilers.  Note also that our JIT has a very high warm-up cost, meaning
 that any program is slow at the beginning.  If you want to compare the
 timings with CPython, even relatively simple programs need to run *at
-least* one second, preferrably at least a few seconds.  Large,
+least* one second, preferably at least a few seconds.  Large,
 complicated programs need even more time to warm-up the JIT.
 
 .. _benchmarking site: https://speed.pypy.org
@@ -468,7 +468,7 @@ In more details:
   virtual machine where the problem occurs.
 
 * If giving us access would require us to use tools other than ssh,
-  make appointments, or sign a NDA, then we can consider a commerical
+  make appointments, or sign a NDA, then we can consider a commercial
   support contract for a small sum of money.
 
 * If even that is not possible for you, then sorry, we can't help.

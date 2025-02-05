@@ -81,7 +81,7 @@ class TestCCurses(object):
 
         def runs_setupterm():
             null = lltype.nullptr(rffi.CCHARP.TO)
-            p_errret = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+            p_errret = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
             errval = fficurses.setupterm(null, 1, p_errret)
 
         fn = compile(runs_setupterm, [])
@@ -93,7 +93,7 @@ class TestCCurses(object):
         from pypy.module._minimal_curses import fficurses
 
         def runs_ctgetstr():
-            p_errret = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+            p_errret = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
             with rffi.scoped_str2charp("xterm") as ll_term:
                 errval = fficurses.setupterm(ll_term, 1, p_errret)
             with rffi.scoped_str2charp("cup") as ll_capname:
@@ -110,7 +110,7 @@ class TestCCurses(object):
         from pypy.module._minimal_curses import fficurses
 
         def runs_tparm():
-            p_errret = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+            p_errret = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
             with rffi.scoped_str2charp("xterm") as ll_term:
                 errval = fficurses.setupterm(ll_term, 1, p_errret)
             with rffi.scoped_str2charp("cup") as ll_capname:

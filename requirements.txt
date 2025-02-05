@@ -4,7 +4,7 @@
 cffi>=1.4.0
 
 # parse log files in rvmprof tests
-vmprof>=0.4.13; 'x86' in platform.machine
+vmprof>=0.4.13
 
 # hypothesis is used for test generation on untranslated tests
 hypothesis<4.40
@@ -12,3 +12,9 @@ enum34>=1.1.2
 
 # this is used by pypy/module/_hpy_universal/_vendored/hpy/devel
 pathlib
+
+# needed for some test compatibility with python3
+future
+
+# for app_main tests
+pexpect

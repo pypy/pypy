@@ -619,6 +619,10 @@ def test_format():
     assert '{0:f}'.format(complex(NAN, NAN)) == 'nan+nanj'
     assert '{0:F}'.format(complex(NAN, NAN)) == 'NAN+NANj'
 
+def test_str_zeros_bug():
+    assert str(1000000000001j) == '1000000000001j'
+    assert complex.__str__ is object.__str__
+
 def test_complex_two_arguments():
     raises(TypeError, complex, 5, None)
 

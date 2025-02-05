@@ -68,9 +68,8 @@ def fsdecode(space, w_string):
     if rutf8.first_non_ascii_char(utf8) < 0:
         return space.newtext(utf8, len(utf8))
     if _WIN32:
-        import pypy.interpreter.unicodehelper_win32 as win32
         slen = len(utf8)
-        utf8, _, lgt = str_decode_utf8(space, utf8, w_string, 'surrogateescape', True, errorhandler)
+        utf8, lgt, _ = str_decode_utf8(space, utf8, w_string, 'surrogateescape', True, errorhandler)
     elif 0 and  _MACOSX:
         utf8, lgt, pos  = str_decode_utf8(space, utf8, w_string, 'surrogateescape', True,
                                     errorhandler, allow_surrogates=False)

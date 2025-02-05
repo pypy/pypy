@@ -8,4 +8,7 @@ def test_libdirs():
     names = ["stdlib", "platstdlib", "platlib", "purelib"]
     candidates = {sysconfig.get_path(name, scheme) for scheme in schemes for name in names}
     paths = [path for path in candidates if path in sys.path]
-    assert len(paths) > 0
+    if sys.platform == 'win32':
+        assert len(paths) == 0
+    else:
+        assert len(paths) > 0

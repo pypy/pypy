@@ -80,14 +80,15 @@ def test_terminate_process():
 
 @py.test.mark.dont_track_allocations('putenv intentionally keeps strings alive')
 def test_wenviron():
-    name, value = u'PYPY_TEST_日本', u'foobar日本'
+    name = u'PYPY_TEST_日本'.encode('utf-8')
+    value = u'foobar日本'.encode('utf-8')
     rwin32._wputenv(name, value)
     assert rwin32._wgetenv(name) == value
     env = dict(rwin32._wenviron_items())
     assert env[name] == value
     for key, value in env.iteritems():
-        assert type(key) is unicode
-        assert type(value) is unicode
+        assert type(key) is str
+        assert type(value) is str
 
 def test_formaterror():
     # choose one with formatting characters and newlines

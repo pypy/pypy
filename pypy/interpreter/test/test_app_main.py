@@ -205,6 +205,8 @@ class TestParseCommandLine:
         self.check(['--abc'], env, output_contains="unknown option --abc")
 
         self.check([], {'PYPY_DISABLE_JIT': '1'}, sys_argv=[''], run_stdin=True, _jitoptions='off')
+        self.check([], {'PYTHON_DISABLE_REMOTE_DEBUG': '1'}, sys_argv=[''], run_stdin=True, _remote_debug='off')
+        self.check(['-X', 'disable-remote-debug'], {}, sys_argv=[''], run_stdin=True, _remote_debug='off')
 
     def test_sysflags(self):
         env = os.environ.copy()
@@ -365,13 +367,13 @@ class TestInteraction:
         child.expect(re.escape('Argv: ' + repr([demo_script])))
         child.expect('goodbye')
 
-    def test_run_script_relative_turns_to_absolute(self, demo_script):
+    def test_run_script_file_path(self, demo_script):
         demo_script = str(py.path.local().bestrelpath(py.path.local(demo_script)))
         child = self.spawn([demo_script])
         idx = child.expect(['hello', 'Python ', '>>> '])
         assert idx == 0   # no banner or prompt
         child.expect(re.escape("Name: __main__"))
-        child.expect(re.escape('File: ' + os.path.abspath(demo_script)))
+        child.expect(re.escape('File: ' + os.path.join(os.getcwd(), demo_script)))
         child.expect(re.escape('Exec: ' + app_main))
         child.expect(re.escape('Argv: ' + repr([demo_script])))
         child.expect('goodbye')
@@ -1141,10 +1143,10 @@ class TestNonInteractive:
 
     def test_pythonioencoding_c_locale(self):
         for encoding, expected in [
-            (None, "surrogateescape"),
-            ("", "surrogateescape"),
-            (":strict", "strict"),
-            (":", "surrogateescape")
+            (None, "strict"),
+            ("", "strict"),
+            (":surrogateescape", "surrogateescape"),
+            (":", "strict")
         ]:
             p = getscript_in_dir("import sys; print(sys.stdout.errors, end='')")
             env = os.environ.copy()

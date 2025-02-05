@@ -509,6 +509,8 @@ class AppTest(object):
         assert check("a\"c") == "a\\\"c"
         assert check("\\\"\b\f\n\r\t") == '\\\\\\"\\b\\f\\n\\r\\t'
         assert check("\x07") == "\\u0007"
+        with raises(TypeError):
+            check(b'abc')
 
     def test_error_position(self):
         import _pypyjson

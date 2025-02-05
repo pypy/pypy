@@ -399,6 +399,15 @@ class AppTestCtypes(object):
         assert (m[0], m[1], m[2], m[3]) == expected
         a.free()
 
+    def test_zero_dim(self):
+        import _rawffi, sys
+        float4 = _rawffi.Array((_rawffi.Array('f'), 4))
+        float4_0 = _rawffi.Array((float4, 0))
+        x = float4_0(2)
+        m = memoryview(x)
+        del m
+        x.free()
+
 class MockBuffer(BufferView):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
                  w_itemsize, w_strides, w_shape, w_obj=None):
@@ -616,6 +625,54 @@ class AppTestMemoryViewMockBuffer(object):
         obj = B(65)
         with raises(ValueError):
             memoryview(obj)
+
+    def test_use_released_memory(self):
+        # gh-92888: Previously it was possible to use a memoryview even after
+        # backing buffer is freed in certain cases. This tests that those
+        # cases raise an exception.
+        size = 128
+        global ba
+        def release():
+            m.release()
+            global ba
+            ba = bytearray(size)
+        class MyIndex:
+            def __index__(self):
+                release()
+                return 4
+        class MyFloat:
+            def __float__(self):
+                release()
+                return 4.25
+        class MyBool:
+            def __bool__(self):
+                release()
+                return True
+
+        ba = None
+        m = memoryview(bytearray(b'\xff'*size))
+        with raises(ValueError) as e:
+            m[MyIndex()]
+
+        ba = None
+        m = memoryview(bytearray(b'\xff'*size)).cast('B', (64, 2))
+        with raises(ValueError) as e:
+            m[MyIndex(), 0]
+        assert "operation forbidden" in str(e.value)
+
+        ba = None
+        m = memoryview(bytearray(b'\xff'*size)).cast('B', (2, 64))
+        with raises(ValueError) as e:
+            m[0, MyIndex()]
+        assert "operation forbidden" in str(e.value)
+
+        ba = None
+        m = memoryview(bytearray(b'\xff'*size))
+        with raises(ValueError) as e:
+            m[MyIndex()] = 42
+        assert "operation forbidden" in str(e.value)
+        assert ba[:8] == b'\0'*8
+
 
 class AppTestMemoryViewReversed(object):
     spaceconfig = dict(usemodules=['array'])

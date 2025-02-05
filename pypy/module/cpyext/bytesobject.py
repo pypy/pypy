@@ -9,7 +9,7 @@ from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
     make_typedescr, get_typedescr, as_pyobj, get_w_obj_and_decref,
     pyobj_has_w_obj)
-from pypy.objspace.std.bytesobject import W_BytesObject
+from pypy.objspace.std.bytesobject import W_BytesObject, _convert_from_buffer_or_iterable
 
 ##
 ## Implementation of PyBytesObject
@@ -88,7 +88,8 @@ def bytes_attach(space, py_obj, w_obj, w_userdata=None):
             "bytes_attach called on object with ob_size %d but trying to store %d",
             ob_size, len_s)
     with rffi.scoped_nonmovingbuffer(s) as s_ptr:
-        rffi.c_memcpy(py_str.c_ob_sval, s_ptr, len_s)
+        const_s_ptr = rffi.cast(rffi.CONST_VOIDP, s_ptr)
+        rffi.c_memcpy(py_str.c_ob_sval, const_s_ptr, len_s)
     py_str.c_ob_sval[len_s] = '\0'
     # if py_obj has a tp_hash, this will try to call it, but the objects are
     # not fully linked yet
@@ -262,5 +263,6 @@ def PyBytes_FromObject(space, w_obj):
     the buffer protocol."""
     if space.is_w(space.type(w_obj), space.w_bytes):
         return w_obj
-    buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
-    return space.newbytes(buffer.as_str())
+    if space.isinstance_w(w_obj, space.w_bytes):
+        return space.newbytes(space.bytes_w(w_obj))
+    return space.newbytes(_convert_from_buffer_or_iterable(space, w_obj))

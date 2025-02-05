@@ -21,6 +21,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS,
     Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE,
+    PyObject, PyVarObject,
     )
 
 from rpython.tool.cparser import CTypeSpace
@@ -30,7 +31,7 @@ from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     W_PyCWrapperObject)
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.pyobject import (
-    PyObject, make_ref, from_ref, get_typedescr, make_typedescr,
+    make_ref, from_ref, get_typedescr, make_typedescr,
     track_reference, decref, as_pyobj, incref)
 from pypy.module.cpyext.slotdefs import (
     slotdefs_for_tp_slots, slotdefs_for_wrappers, get_slot_tp_function,
@@ -768,6 +769,9 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         finish_type_2(space, pto, w_type)
 
     pto.c_tp_basicsize = rffi.sizeof(typedescr.basestruct)
+    if space.issubtype_w(w_type, space.w_list):
+        # Make sure Py_SIZE() can cast the PyListObject to PyVarObject
+        pto.c_tp_basicsize = max(pto.c_tp_basicsize, rffi.sizeof(PyVarObject.TO))
     if pto.c_tp_base:
         if pto.c_tp_base.c_tp_basicsize > pto.c_tp_basicsize:
             pto.c_tp_basicsize = pto.c_tp_base.c_tp_basicsize
@@ -1062,9 +1066,15 @@ def fill_ht_slot(ht, slotnum, ptr):
         if num == slotnum:
             setattr(getattr(ht, membername), slotname, rffi.cast(TARGET, ptr))
 
-def get_ht_slot(ht, slotnum):
+def get_slot_by_num(typ, slotnum):
+    isheaptype = widen(typ.c_tp_flags) & Py_TPFLAGS_HEAPTYPE
+    ht = rffi.cast(PyHeapTypeObject, typ)
     for num, membername, slotname, TARGET in SLOT_TABLE:
         if num == slotnum:
+            # Some of the slots are only available for heap types
+            if membername != "c_ht_type" and not isheaptype:
+                return rffi.cast(rffi.VOIDP, 0)
+                # raise oefmt(space.w_SystemError, "Bad internal call!")
             return rffi.cast(rffi.VOIDP, getattr(getattr(ht, membername), slotname))
     return rffi.cast(rffi.VOIDP, 0)
 
@@ -1214,7 +1224,8 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
             length =  ob_type.c_tp_itemsize * nmembers
             # loc = PyHeapType_GETMEMBERS(typ)
             loc = rffi.ptradd(cts.cast("char *", typ), ob_type.c_tp_basicsize)  
-            rffi.c_memcpy(loc, slotdef.c_pfunc, length)
+            const_pfunc = rffi.cast(rffi.CONST_VOIDP, slotdef.c_pfunc)
+            rffi.c_memcpy(loc, const_pfunc, length)
             typ.c_tp_members = cts.cast("PyMemberDef *", loc)
         else:
             fill_ht_slot(res, slot, slotdef.c_pfunc)
@@ -1251,15 +1262,12 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
             w_type.setdictvalue(space, name, w_descr)
     return res_obj
 
-@cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP)
+@cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP, error=CANNOT_FAIL)
 def PyType_GetSlot(space, typ, slot):
     """ Use the Py_tp* macros in typeslots.h to return a slot function
     """
     slot = widen(slot)
-    if slot < 0 or not widen(typ.c_tp_flags) & Py_TPFLAGS_HEAPTYPE:
-        raise oefmt(space.w_SystemError, "Bad internal call!")
-    heapobj = rffi.cast(PyHeapTypeObject, typ)
-    return get_ht_slot(heapobj, slot)
+    return get_slot_by_num(typ, slot)
 
 @cpython_api([PyTypeObjectPtr, PyObject], PyObject, error=CANNOT_FAIL,
              result_borrowed=True)

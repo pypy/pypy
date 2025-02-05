@@ -31,6 +31,15 @@ class AppTestContext(AppTestCpythonExtensionBase):
                 return PyContextVar_Set(obj, val);
              '''
              ),
+            ("reset", "METH_VARARGS",
+             '''
+                PyObject *obj, *token;
+                if (!PyArg_ParseTuple(args, "OO:reset", &obj, &token)) {
+                    return NULL;
+                }
+                return PyContextVar_Reset(obj, token);
+             '''
+             ),
             ("get", "METH_VARARGS",
              '''
                 PyObject *obj, *def=NULL, *val;
@@ -49,7 +58,7 @@ class AppTestContext(AppTestCpythonExtensionBase):
              ),
             ("get_value", "METH_VARARGS",
              '''
-                /* equivalent to cython's 
+                /* equivalent to cython's
                    Cython/Includes/cpython/contextvars.pxd
                 */
                 PyObject *var, *value=NULL, *default_value=NULL;
@@ -70,7 +79,7 @@ class AppTestContext(AppTestCpythonExtensionBase):
              ),
             ("get_value_no_default", "METH_VARARGS",
              '''
-                /* equivalent to cython's 
+                /* equivalent to cython's
                    Cython/Includes/cpython/contextvars.pxd
                 */
                 PyObject *var, *value=NULL, *default_value=NULL;
@@ -90,10 +99,14 @@ class AppTestContext(AppTestCpythonExtensionBase):
             ])
 
         var = module.new("testme", 3)
-        tok = module.set(var, 4)
-        assert tok.var is var
-        four = module.get(var)
-        assert four == 4
+        tok4 = module.set(var, 4)
+        assert tok4.var is var
+        assert module.get(var) == 4
+        tok5 = module.set(var, 5)
+        assert tok5.var is var
+        assert module.get(var) == 5
+        module.reset(var, tok5)
+        assert module.get(var) == 4
 
         # no default
         var = module.new("testme")
@@ -105,7 +118,7 @@ class AppTestContext(AppTestCpythonExtensionBase):
         pycvar = contextvars.ContextVar("pycvar")
         cvar = module.new("cvar")
         cvar_with_default = module.new("cvar_wd", "DEFAULT")
-        
+
 
         assert module.get_value(cvar) is None
         assert module.get_value(cvar, "default") == "default"

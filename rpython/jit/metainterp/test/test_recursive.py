@@ -1357,6 +1357,42 @@ class RecursiveTests:
     def check_get_unique_id(self, lst):
         pass
 
+    def test_tco_doesnt_lead_to_infinite_tracing(self):
+        import multiprocessing
+        # this is super annoying to test too! since we have stack overflows in
+        # the llinterp, sort of random things can happen, depending on how much
+        # code in llinterp and pyjitpl are already jitted. therefore we run the
+        # function in a subprocess.
+        import subprocess, sys, os
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.pathsep.join(sys.path)
+        subprocess.check_output("%s %s" % (sys.executable, __file__), shell=True, env=env)
+
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
+
+def tco_doesnt_lead_to_infinite_tracing():
+    from rpython.rlib.rstackovf import _StackOverflow
+    self = TestLLtype()
+    myjitdriver = JitDriver(greens=[], reds='auto')
+    def g1(i):
+        if i < 0:
+            return 1
+        return g1(i) # infinite recursion
+    def g(i):
+        set_param(myjitdriver, "threshold", 1)
+        g1(-1)
+        x = i
+        while x < 100:
+            myjitdriver.jit_merge_point()
+            try:
+                g1(100000)
+            except _StackOverflow:
+                return x
+        return x
+    res = self.meta_interp(g, [4])
+    assert res >= 0
+
+if __name__ == '__main__':
+    tco_doesnt_lead_to_infinite_tracing()

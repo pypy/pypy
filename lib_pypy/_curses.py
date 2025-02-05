@@ -61,9 +61,29 @@ def _setup():
                 key_n = key_n.decode('utf-8')
             key_n = key_n.replace('(', '').replace(')', '')
             globals()[key_n] = key
-
 _setup()
 
+if lib.NCURSES_EXT_FUNCS >= 20170401 and lib.NCURSES_EXT_COLORS >= 20170401:
+    _NCURSES_EXTENDED_COLOR_FUNCS = 1
+    _CURSES_COLOR_VAL_TYPE="int"
+    _CURSES_COLOR_NUM_TYPE="int"
+    _CURSES_INIT_COLOR_FUNC = lib.init_extended_color
+    _CURSES_INIT_PAIR_FUNC =  lib.init_extended_pair
+    _COLOR_CONTENT_FUNC = lib.extended_color_content
+    _CURSES_PAIR_CONTENT_FUNC = lib.extended_pair_content
+    _CURSES_PAIR_CONTENT_FUNC_NAME = "extended_pair_content"
+else:
+    _NCURSES_EXTENDED_COLOR_FUNCS = 0
+    _CURSES_COLOR_VAL_TYPE="short"
+    _CURSES_COLOR_NUM_TYPE="short"
+    _CURSES_INIT_COLOR_FUNC = lib.init_color
+    _CURSES_INIT_PAIR_FUNC =  lib.init_pair
+    _COLOR_CONTENT_FUNC = lib.color_content
+    _CURSES_PAIR_CONTENT_FUNC = lib.pair_content
+    _CURSES_PAIR_CONTENT_FUNC_NAME = "pair_content"
+
+def has_extended_color_support():
+    return bool(_NCURSES_EXTENDED_COLOR_FUNCS)
 
 # ____________________________________________________________
 
@@ -134,9 +154,12 @@ def _mk_flag_func(method_name):
     return _execute
 
 
-def _mk_return_val(method_name):
+def _mk_return_val(method_name, rettype=None):
     def _execute():
-        return _call_lib(method_name)
+        ret = _call_lib(method_name)
+        if rettype:
+            return rettype(ret)
+        return ret
     _execute.__name__ = method_name
     return _execute
 
@@ -157,15 +180,21 @@ def _mk_w_no_return(method_name):
     return _execute
 
 
-def _mk_w_return_val(method_name):
+def _mk_w_return_val(method_name, rettype=None):
     def _execute(self, *args):
-        return _call_lib(method_name, self._win, *args)
+        ret = _call_lib(method_name, self._win, *args)
+        if rettype:
+            return rettype(ret)
+        return ret
     _execute.__name__ = method_name
     return _execute
 
 
 def _chtype(ch):
-    return int(ffi.cast("chtype", ch))
+    ret = int(ffi.cast("chtype", ch))
+    if ret != ffi.cast("long long", ch) or isinstance(ch, int) and ch > sys.maxsize:
+        raise OverflowError(f"{ch} cannot be converted to 'chtype'")
+    return ret
 
 def _bytestype(text):
     if isinstance(text, bytes):
@@ -276,7 +305,7 @@ class Window(object):
     erase = _mk_w_no_return("werase")
     deleteln = _mk_w_no_return("wdeleteln")
 
-    is_wintouched = _mk_w_return_val("is_wintouched")
+    is_wintouched = _mk_w_return_val("is_wintouched", bool)
 
     syncdown = _mk_w_return_val("wsyncdown")
     syncup = _mk_w_return_val("wsyncup")
@@ -444,7 +473,7 @@ class Window(object):
         return _check_ERR(code, "echochar")
 
     if lib._m_NCURSES_MOUSE_VERSION:
-        enclose = _mk_w_return_val("wenclose")
+        enclose = _mk_w_return_val("wenclose", bool)
 
     getbkgd = _mk_w_return_val("getbkgd")
 
@@ -727,28 +756,44 @@ raw = _mk_flag_func("raw")
 baudrate = _mk_return_val("baudrate")
 termattrs = _mk_return_val("termattrs")
 
-termname = _mk_return_val("termname")
-longname = _mk_return_val("longname")
+termname = _mk_return_val("termname", ffi.string)
+longname = _mk_return_val("longname", ffi.string)
 
-can_change_color = _mk_return_val("can_change_color")
-has_colors = _mk_return_val("has_colors")
-has_ic = _mk_return_val("has_ic")
-has_il = _mk_return_val("has_il")
-isendwin = _mk_return_val("isendwin")
+can_change_color = _mk_return_val("can_change_color", bool)
+has_colors = _mk_return_val("has_colors", bool)
+has_ic = _mk_return_val("has_ic", bool)
+has_il = _mk_return_val("has_il", bool)
+isendwin = _mk_return_val("isendwin", bool)
 flushinp = _mk_return_val("flushinp")
 noqiflush = _mk_return_val("noqiflush")
-
 
 def filter():
     lib.filter()
     return None
 
+def color_converter(color):
+    if color >= lib.COLORS:
+        raise ValueError(f"Color number is greater than COLORS-1 ({lib.COLORS-1}).")
+    elif color < 0:
+        raise ValueError(f"Color number is less than 0.")
+    return color
+
+def component_converter(color):
+    if color > 1000:
+        raise ValueError("Color component is greater than 1000")
+    elif color < 0:
+        raise ValueError("Color component is less than 0.")
+    return color
+
 
 def color_content(color):
     _ensure_initialised_color()
-    r, g, b = ffi.new("short *"), ffi.new("short *"), ffi.new("short *")
-    if lib.color_content(color, r, g, b) == lib.ERR:
-        raise error("Argument 1 was out of range. Check value of COLORS.")
+    r = ffi.new(f"{_CURSES_COLOR_VAL_TYPE} *")
+    g = ffi.new(f"{_CURSES_COLOR_VAL_TYPE} *")
+    b = ffi.new(f"{_CURSES_COLOR_VAL_TYPE} *")
+    color = color_converter(color) 
+    if _COLOR_CONTENT_FUNC(color, r, g, b) == lib.ERR:
+        raise error("color_content returned ERR")
     return (r[0], g[0], b[0])
 
 
@@ -815,22 +860,32 @@ if not lib._m_STRICT_SYSV_CURSES:
 
 def init_color(color, r, g, b):
     _ensure_initialised_color()
-    return _check_ERR(lib.init_color(color, r, g, b), "init_color")
+    color = color_converter(color) 
+    r = component_converter(r) 
+    g = component_converter(g) 
+    b = component_converter(b) 
+    return _check_ERR(_CURSES_INIT_COLOR_FUNC(color, r, g, b), "init_color")
 
 
 def init_pair(pair, f, b):
     _ensure_initialised_color()
-    return _check_ERR(lib.init_pair(pair, f, b), "init_pair")
+    if pair >= lib.COLOR_PAIRS:
+        raise ValueError("Color pair is greater than COLOR_PAIRS-1 ({lib.COLOR_PAIRS}).")
+    elif pair < 0:
+        raise ValueError("Color pair is less than 0.")
+    f = color_converter(f)
+    b = color_converter(b)
+    return _check_ERR(_CURSES_INIT_PAIR_FUNC(pair, f, b), "init_pair")
 
-
-def _mk_acs(name, ichar):
-    if len(ichar) == 1:
-        globals()[name] = lib.acs_map[ord(ichar)]
-    else:
-        globals()[name] = globals()[ichar]
 
 
 def _map_acs():
+    def _mk_acs(name, ichar):
+        if len(ichar) == 1:
+            globals()[name] = lib.acs_map[ord(ichar)]
+        else:
+            globals()[name] = globals()[ichar]
+
     _mk_acs("ACS_ULCORNER", 'l')
     _mk_acs("ACS_LLCORNER", 'm')
     _mk_acs("ACS_URCORNER", 'k')
@@ -929,17 +984,17 @@ def intrflush(ch):
 # XXX: #ifdef HAVE_CURSES_IS_TERM_RESIZED
 def is_term_resized(lines, columns):
     _ensure_initialised()
-    return lib.is_term_resized(lines, columns)
+    return bool(lib.is_term_resized(lines, columns))
 
 
 if not lib._m_NetBSD:
     def keyname(ch):
         _ensure_initialised()
         if ch < 0:
-            raise error("invalid key number")
+            raise ValueError("invalid key number")
         knp = lib.keyname(ch)
         if knp == ffi.NULL:
-            return ""
+            return b""
         return ffi.string(knp)
 
 
@@ -986,11 +1041,15 @@ def newwin(nlines, ncols, begin_y=None, begin_x=None):
 
 def pair_content(pair):
     _ensure_initialised_color()
-    f = ffi.new("short *")
-    b = ffi.new("short *")
-    if lib.pair_content(pair, f, b) == lib.ERR:
-        raise error("Argument 1 was out of range. (1..COLOR_PAIRS-1)")
-    return (f, b)
+    f = ffi.new(f"{_CURSES_COLOR_NUM_TYPE} *")
+    b = ffi.new(f"{_CURSES_COLOR_NUM_TYPE} *")
+    if pair >= lib.COLOR_PAIRS:
+        raise ValueError("Color pair is greater than COLOR_PAIRS-1 ({lib.COLOR_PAIRS}).")
+    elif pair < 0:
+        raise ValueError("Color pair is less than 0.")
+    if _CURSES_PAIR_CONTENT_FUNC(pair, f, b) == lib.ERR:
+        raise error(f"{_CURSES_PAIR_CONTENT_FUNC_NAME}() returned ERR")
+    return (f[0], b[0])
 
 
 def pair_number(pairvalue):
@@ -999,6 +1058,7 @@ def pair_number(pairvalue):
 
 
 def putp(text):
+    _ensure_initialised()
     text = _bytestype(text)
     return _check_ERR(lib.putp(text), "putp")
 
@@ -1091,7 +1151,7 @@ def typeahead(fd):
 
 def unctrl(ch):
     _ensure_initialised()
-    return lib.unctrl(_chtype(ch))
+    return ffi.string(lib.unctrl(_chtype(ch)))
 
 
 def ungetch(ch):

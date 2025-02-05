@@ -213,8 +213,12 @@ def _listrepr_inner(space, w_list, length):
         listrepr_jitdriver.jit_merge_point(
             typ=typ,
             strategy_type=type(w_list.strategy))
+        try:
+            w_item = w_list.getitem(i)
+        except IndexError:
+            # repr changed the length, stop
+            break
         builder.append_utf8(', ', 2)
-        w_item = w_list.getitem(i)
         builder.append_utf8(*space.utf8_len_w(space.repr(w_item)))
     builder.append_char(']')
     return space.newutf8(builder.build(), builder.getlength())
@@ -698,14 +702,14 @@ class W_ListObject(W_Root):
         i = self.find_or_count(w_value, count=True)
         return space.newint(i)
 
-    @unwrap_spec(index=int)
+    @unwrap_spec(index='index')
     def descr_insert(self, space, index, w_value):
         'L.insert(index, object) -- insert object before index'
         length = self.length()
         index = get_positive_index(index, length)
         self.insert(index, w_value)
 
-    @unwrap_spec(index=int)
+    @unwrap_spec(index='index')
     def descr_pop(self, space, index=-1):
         """L.pop([index]) -> item -- remove and return item at index (default last).
 Raises IndexError if list is empty or index is out of range."""

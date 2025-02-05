@@ -22,7 +22,8 @@ class _sha3(metaclass=Immutable):
         self = super().__new__(cls)
         self._hash_state = _ffi.new("Keccak_HashInstance*")
 
-        cls._keccak_init(self._hash_state)
+        assert self._keccak_init is not None
+        self._keccak_init()
 
         if string:
             self.update(string)
@@ -98,25 +99,31 @@ class _shake(_sha3):
 
 class sha3_224(_sha3):
     name = "sha3_224"
-    _keccak_init = _lib.Keccak_HashInitialize_SHA3_224
+    def _keccak_init(self):
+        return _lib.Keccak_HashInitialize_SHA3_224(self._hash_state)
 
 class sha3_256(_sha3):
     name = "sha3_256"
-    _keccak_init = _lib.Keccak_HashInitialize_SHA3_256
+    def _keccak_init(self):
+        return _lib.Keccak_HashInitialize_SHA3_256(self._hash_state)
 
 class sha3_384(_sha3):
     name = "sha3_384"
-    _keccak_init = _lib.Keccak_HashInitialize_SHA3_384
+    def _keccak_init(self):
+        return _lib.Keccak_HashInitialize_SHA3_384(self._hash_state)
 
 class sha3_512(_sha3):
     name = "sha3_512"
-    _keccak_init = _lib.Keccak_HashInitialize_SHA3_512
+    def _keccak_init(self):
+        return _lib.Keccak_HashInitialize_SHA3_512(self._hash_state)
 
 class shake_128(_shake):
     name = "shake_128"
-    _keccak_init = _lib.Keccak_HashInitialize_SHAKE128
+    def _keccak_init(self):
+        return _lib.Keccak_HashInitialize_SHAKE128(self._hash_state)
 
 class shake_256(_shake):
     name = "shake_256"
-    _keccak_init = _lib.Keccak_HashInitialize_SHAKE256
+    def _keccak_init(self):
+        return _lib.Keccak_HashInitialize_SHAKE256(self._hash_state)
 

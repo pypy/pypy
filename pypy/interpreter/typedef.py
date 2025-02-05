@@ -4,7 +4,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.baseobjspace import W_Root, DescrMismatch
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (interp2app, BuiltinCode, unwrap_spec,
-     WrappedDefault)
+     WrappedDefault, descr_function_get)
 
 from rpython.rlib.jit import promote
 from rpython.rlib.objectmodel import compute_identity_hash, specialize
@@ -93,6 +93,7 @@ class TypeDef(object):
                 if name in rawdict]
             assert not names
             return
+        self.rpy_cls = rpy_cls
         if 'micronumpy' in rpy_cls.__module__:
             return
         if '_descroperation_shortcuts_installed' in rpy_cls.__dict__:
@@ -401,7 +402,7 @@ class GetSetProperty(W_Root):
         fdel = self.fdel
         if fdel is None:
             raise oefmt(space.w_AttributeError,
-                        "can't delete %N.%s", w_obj, self.name)
+                        "cannot delete '%s' attribute of immutable type '%N'", self.name, w_obj)
         try:
             fdel(self, space, w_obj)
         except DescrMismatch:
@@ -561,7 +562,7 @@ from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import SApplicationException
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import (Function, Method, StaticMethod,
-    ClassMethod, BuiltinFunction, descr_function_get)
+    ClassMethod, BuiltinFunction)
 from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.nestedscope import Cell, descr_new_cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
@@ -810,9 +811,7 @@ Function.typedef.acceptable_as_base_class = False
 
 Method.typedef = TypeDef(
     "method",
-    __doc__ = """instancemethod(function, instance, class)
-
-Create an instance method object.""",
+    __doc__ = GetSetProperty(Method.descr_get_doc),
     __new__ = interp2app(Method.descr_method__new__.im_func),
     __call__ = interp2app(Method.descr_method_call),
     __get__ = interp2app(Method.descr_method_get),
@@ -827,6 +826,7 @@ Create an instance method object.""",
     __weakref__ = make_weakref_descr(Method),
     )
 Method.typedef.acceptable_as_base_class = False
+Method.typedef.doc = Method.__doc__
 
 StaticMethod.typedef = TypeDef("staticmethod",
     __doc__ = """staticmethod(function) -> static method

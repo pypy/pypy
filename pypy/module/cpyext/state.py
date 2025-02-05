@@ -21,6 +21,7 @@ class State:
         self.version = lltype.nullptr(rffi.CCHARP.TO)
         self.builder = None
         self.C = CNamespace()
+        self.static_memory_error = OperationError(space.w_MemoryError, space.w_None)
 
     def reset(self):
         from pypy.module.cpyext.modsupport import PyMethodDef

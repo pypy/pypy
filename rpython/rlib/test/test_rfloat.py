@@ -1,11 +1,11 @@
-import sys, py, math
+import sys, pytest, math
 
 from rpython.rlib.rfloat import float_as_rbigint_ratio
 from rpython.rlib.rfloat import round_away
 from rpython.rlib.rfloat import round_double
 from rpython.rlib.rfloat import erf, erfc, gamma, lgamma
 from rpython.rlib.rfloat import ulps_check, acc_check
-from rpython.rlib.rfloat import string_to_float
+from rpython.rlib.rfloat import string_to_float, exp2, cbrt
 from rpython.rlib.rbigint import rbigint
 
 def test_round_away():
@@ -112,11 +112,11 @@ def test_float_as_rbigint_ratio():
         assert num.eq(rbigint.fromint(ratio[0]))
         assert den.eq(rbigint.fromint(ratio[1]))
 
-    with py.test.raises(OverflowError):
+    with pytest.raises(OverflowError):
         float_as_rbigint_ratio(float('inf'))
-    with py.test.raises(OverflowError):
+    with pytest.raises(OverflowError):
         float_as_rbigint_ratio(float('-inf'))
-    with py.test.raises(ValueError):
+    with pytest.raises(ValueError):
         float_as_rbigint_ratio(float('nan'))
 
 def test_mtestfile():
@@ -271,8 +271,8 @@ def test_string_to_float():
                 s = ''.join(parts)
                 print repr(s)
                 if s.strip(): # empty s raises OperationError directly
-                    py.test.raises(ParseStringError, string_to_float, s)
-    py.test.raises(ParseStringError, string_to_float, "")
+                    pytest.raises(ParseStringError, string_to_float, s)
+    pytest.raises(ParseStringError, string_to_float, "")
 
 def test_string_to_float_nan():
     nan = float('nan')
@@ -288,8 +288,8 @@ def test_log2():
     assert rfloat.log2(2.0) == 1.0
     assert rfloat.log2(2.0**1023) == 1023.0
     assert 1.584 < rfloat.log2(3.0) < 1.585
-    py.test.raises(ValueError, rfloat.log2, 0)
-    py.test.raises(ValueError, rfloat.log2, -1)
+    pytest.raises(ValueError, rfloat.log2, 0)
+    pytest.raises(ValueError, rfloat.log2, -1)
 
 def test_nextafter():
     from rpython.rlib.rfloat import nextafter
@@ -326,3 +326,53 @@ def test_nextafter():
     assert math.isnan(nextafter(NAN, 1.0))
     assert math.isnan(nextafter(1.0, NAN))
     assert math.isnan(nextafter(NAN, NAN))
+
+def test_exp2():
+    for i in range(-100, 100):
+        assert exp2(float(i)) == 2.0 ** i
+    assert ulps_check(exp2(2.3), 4.924577653379665, 5) is None
+    assert exp2(float('inf')) == float('inf')
+    assert exp2(-float('inf')) == 0.0
+    assert math.isnan(exp2(-float('nan')))
+    with pytest.raises(OverflowError):
+        exp2(10000000)
+
+def test_cbrt():
+    assert cbrt(0.0) == 0.0
+    assert cbrt(1.0) == 1.0
+    assert cbrt(8.0) == 2.0
+    assert cbrt(0.0) == 0.0
+    assert ulps_check(cbrt(-0.0), -0.0, 0) is None
+    assert ulps_check(cbrt(1.2), 1.062658569182611, 5) is None
+    assert ulps_check(cbrt(-2.6), -1.375068867074141, 5) is None
+    assert ulps_check(cbrt(27.0), 3.0, 5) is None
+    assert ulps_check(cbrt(-27.0), -3.0, 5) is None
+    assert cbrt(-1.0) == -1.0
+    assert cbrt(float('inf')) == float('inf')
+    assert cbrt(-float('inf')) == -float('inf')
+    assert math.isnan(cbrt(float('nan')))
+
+def test_exp2_cbrt_translated():
+    from rpython.translator.c.test.test_genc import compile
+    def wrapper(arg, use_exp2):
+        try:
+            if use_exp2:
+                return exp2(arg)
+            else:
+                return cbrt(arg)
+        except OverflowError:
+            return -42
+
+    f = compile(wrapper, [float, bool])
+    # exp2
+    for i in range(-100, 100):
+        assert f(float(i), True) == 2.0 ** i
+    assert f(10000000.0, True) == -42
+    # cbrt
+    assert f(0.0, False) == 0.0
+    assert f(1.0, False) == 1.0
+    assert f(8.0, False) == 2.0
+    assert f(0.0, False) == 0.0
+    assert f(-1.0, False) == -1.0
+    assert f(float('inf'), False) == float('inf')
+    assert f(-float('inf'), False) == -float('inf')

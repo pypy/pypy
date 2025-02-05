@@ -35,6 +35,7 @@ def make_cpyext_struct():
     return lltype.Struct('DUMMY_CPYEXT_STRUCT', hints={'eci': eci})
 
 
+@pytest.mark.skip("too hard for FakeSpace")
 @pytest.mark.dont_track_allocations()
 def test_checkmodule():
     DUMMY_CPYEXT_STRUCT = make_cpyext_struct()

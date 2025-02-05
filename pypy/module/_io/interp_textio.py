@@ -48,6 +48,14 @@ def make_newlines_dict(space):
              space.newtext("\r\n", 2)]),
     }
 
+def io_check_errors(space, w_errors):
+    if not space.sys.get_flag('dev_mode'):
+        return
+    # Will raise LookupError on garbage, which is the whole point of this
+    # function
+    errors = space.text_w(w_errors)
+    interp_codecs.lookup_error(space, errors)
+
 class W_IncrementalNewlineDecoder(W_Root):
     seennl = 0
     pendingcr = False
@@ -60,10 +68,13 @@ class W_IncrementalNewlineDecoder(W_Root):
     def descr_init(self, space, w_decoder, translate, w_errors=None):
         self.w_decoder = w_decoder
         self.translate = translate
-        if space.is_none(w_errors):
-            self.w_errors = space.newtext("strict")
-        else:
-            self.w_errors = w_errors
+        if space.is_none(w_errors) or w_errors is None:
+            w_errors = space.newtext("strict")
+        if not space.isinstance_w(w_errors, space.w_text):
+            raise oefmt(space.w_TypeError, "TextIOWrapper() argument 'errors' "
+                "must be str or None, not %N", w_errors)
+        io_check_errors(space, w_errors)
+        self.w_errors = w_errors
 
         self.seennl = 0
 
@@ -323,7 +334,7 @@ def text_encoding(space, w_encoding, stacklevel=2):
     However, please consider using encoding="utf-8" for new APIs.
     """
     if space.is_none(w_encoding):
-        _maybe_warn_encoding(space, stacklevel)
+        _maybe_warn_encoding(space, stacklevel + 1)
         return space.newtext("locale")
     return w_encoding
 
@@ -585,8 +596,12 @@ class W_TextIOWrapper(W_TextIOBase):
         self.w_buffer = w_buffer
         self.w_encoding = w_encoding = _determine_encoding(space, encoding, w_buffer)
 
-        if space.is_none(w_errors):
+        if space.is_none(w_errors) or w_errors is None:
             w_errors = space.newtext("strict")
+        if not space.isinstance_w(w_errors, space.w_text):
+            raise oefmt(space.w_TypeError, "TextIOWrapper() argument 'errors' "
+                "must be str or None, not %N", w_errors)
+        io_check_errors(space, w_errors)
         self.w_errors = w_errors
 
         newline = unwrap_newline(space, w_newline)

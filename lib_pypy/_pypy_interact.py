@@ -28,7 +28,7 @@ def interactive_console(mainmodule=None, quiet=False):
     #
     run_interactive = run_simple_interactive_console
     try:
-        if not os.isatty(sys.stdin.fileno()):
+        if not (sys.stdin.closed or os.isatty(sys.stdin.fileno())):
             # Bail out if stdin is not tty-like, as pyrepl wouldn't be happy
             # For example, with:
             # subprocess.Popen(['pypy', '-i'], stdin=subprocess.PIPE)

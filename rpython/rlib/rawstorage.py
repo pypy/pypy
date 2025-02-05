@@ -94,7 +94,7 @@ def raw_storage_getitem_unaligned(TP, storage, index):
     ptr = rffi.ptradd(storage, index)
     with lltype.scoped_alloc(rffi.CArray(TP), 1) as s_array:
         rffi.c_memcpy(rffi.cast(rffi.VOIDP, s_array),
-                      rffi.cast(rffi.VOIDP, ptr),
+                      rffi.cast(rffi.CONST_VOIDP, ptr),
                       rffi.sizeof(TP))
         return rffi.cast(rffi.CArrayPtr(TP), s_array)[0]
 
@@ -118,7 +118,7 @@ def raw_storage_setitem_unaligned(storage, index, item):
     with lltype.scoped_alloc(rffi.CArray(TP), 1) as s_array:
         rffi.cast(rffi.CArrayPtr(TP), s_array)[0] = item
         rffi.c_memcpy(rffi.cast(rffi.VOIDP, ptr),
-                      rffi.cast(rffi.VOIDP, s_array),
+                      rffi.cast(rffi.CONST_VOIDP, s_array),
                       rffi.sizeof(TP))
 
 # ____________________________________________________________

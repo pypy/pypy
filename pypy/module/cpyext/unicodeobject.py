@@ -1080,10 +1080,14 @@ make_conversion_functions('Latin1', 'latin-1')
 if sys.platform == 'win32':
     from pypy.module._codecs.interp_codecs import code_page_encode
     make_conversion_functions('MBCS', 'mbcs')
+
     @cpython_api([rffi.INT_real, PyObject, CONST_STRING], PyObject)
     def PyUnicode_EncodeCodePage(space, code_page, w_obj, errors):
-        res = code_page_encode(space, widen(code_page), w_obj,
-                               rffi.charp2str(errors))
+        if errors:
+            errors = rffi.charp2str(errors)
+        else:
+            errors = None
+        res = code_page_encode(space, widen(code_page), w_obj, errors)
         return space.listview(res)[0]
 
 @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, INTP_real], PyObject)

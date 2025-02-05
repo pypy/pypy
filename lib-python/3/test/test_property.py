@@ -348,7 +348,8 @@ class _PropertyUnreachableAttribute:
             self.obj.foo = None
 
     def test_del_property(self):
-        with self.assertRaisesRegex(AttributeError, self._format_exc_msg("can't delete attribute")):
+        # PYPY: make message consistent with other 'delete' messages
+        with self.assertRaisesRegex(AttributeError, self._format_exc_msg("can't delete attribute" )):
             del self.obj.foo
 
 

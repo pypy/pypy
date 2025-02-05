@@ -11,6 +11,7 @@ import subprocess
 import sys
 import sysconfig
 import types
+import shlex
 
 
 CORE_VENV_DEPS = ('pip', 'setuptools')
@@ -353,9 +354,20 @@ class EnvBuilder:
                 elif not suffixes:
                     # dirname is a source build from dirname\pypy\goal
                     # so add that to dirname and try again
-                    src = os.path.join(dirname, "pypy", "goal", "pypy3.10-c.exe")
-                    dst = os.path.join(binpath, exe)
-                    copier(src, dst)
+                    dirname = os.path.join(dirname, "pypy", "goal")
+                    suffixes = [
+                        f for f in os.listdir(dirname) if
+                        os.path.normcase(os.path.splitext(f)[1]) in ('.exe', '.dll')
+                    ]
+                    for suffix in suffixes:
+                        src = os.path.join(dirname, suffix)
+                        if os.path.lexists(src):
+                            copier(src, os.path.join(binpath, suffix))
+                    src = os.path.join(dirname, "pypy3.10-c.exe")
+                    if src != context.env_exec_cmd:
+                        copier(src, context.env_exec_cmd)
+                    copier(src, os.path.join(binpath, "python.exe"))
+                    copier(src, os.path.join(binpath, "python3.exe"))
                 else:
                     raise RuntimeError(f"problem finding exe {exe} in {suffixes}")
 
@@ -428,11 +440,41 @@ class EnvBuilder:
         :param context: The information for the environment creation request
                         being processed.
         """
-        text = text.replace('__VENV_DIR__', context.env_dir)
-        text = text.replace('__VENV_NAME__', context.env_name)
-        text = text.replace('__VENV_PROMPT__', context.prompt)
-        text = text.replace('__VENV_BIN_NAME__', context.bin_name)
-        text = text.replace('__VENV_PYTHON__', context.env_exe)
+        replacements = {
+            '__VENV_DIR__': context.env_dir,
+            '__VENV_NAME__': context.env_name,
+            '__VENV_PROMPT__': context.prompt,
+            '__VENV_BIN_NAME__': context.bin_name,
+            '__VENV_PYTHON__': context.env_exe,
+        }
+
+        def quote_ps1(s):
+            """
+            This should satisfy PowerShell quoting rules [1], unless the quoted
+            string is passed directly to Windows native commands [2].
+            [1]: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_quoting_rules
+            [2]: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_parsing#passing-arguments-that-contain-quote-characters
+            """
+            s = s.replace("'", "''")
+            return f"'{s}'"
+
+        def quote_bat(s):
+            return s
+
+        # gh-124651: need to quote the template strings properly
+        quote = shlex.quote
+        script_path = context.script_path
+        if script_path.endswith('.ps1'):
+            quote = quote_ps1
+        elif script_path.endswith('.bat'):
+            quote = quote_bat
+        else:
+            # fallbacks to POSIX shell compliant quote
+            quote = shlex.quote
+
+        replacements = {key: quote(s) for key, s in replacements.items()}
+        for key, quoted in replacements.items():
+            text = text.replace(key, quoted)
         return text
 
     def install_scripts(self, context, path):
@@ -472,6 +514,7 @@ class EnvBuilder:
                 with open(srcfile, 'rb') as f:
                     data = f.read()
                 if not srcfile.endswith(('.exe', '.pdb')):
+                    context.script_path = srcfile
                     try:
                         data = data.decode('utf-8')
                         data = self.replace_variables(data, context)

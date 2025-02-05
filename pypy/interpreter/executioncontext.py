@@ -127,7 +127,7 @@ class ExecutionContext(object):
             if isinstance(w_func, FunctionWithFixedCode) and args is not None:
                 w_firstarg = args.firstarg()
                 if w_firstarg is not None:
-                    from pypy.interpreter.function import descr_function_get
+                    from pypy.interpreter.gateway import descr_function_get
                     w_func = descr_function_get(self.space, w_func, w_firstarg,
                                                 self.space.type(w_firstarg))
             #

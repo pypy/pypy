@@ -1,3 +1,4 @@
+import os
 import sys
 import textwrap
 import subprocess
@@ -24,6 +25,7 @@ def test_WeakValueDictionary_len(tmpdir):
     # snippet above completes correctly, instead of raising "dictionary
     # changed size during iteration"
     env = {'PYPY_GC_NURSERY': '1k'}
+    env['PATH'] = os.environ.get("PATH")
     subprocess.run([sys.executable, str(testfile)], env=env, check=True)
 
 
@@ -49,4 +51,5 @@ def test_WeakKeyDictionary_len(tmpdir):
     # snippet above completes correctly, instead of raising "dictionary
     # changed size during iteration"
     env = {'PYPY_GC_NURSERY': '1k'}
+    env['PATH'] = os.environ.get("PATH")
     subprocess.run([sys.executable, str(testfile)], env=env, check=True)

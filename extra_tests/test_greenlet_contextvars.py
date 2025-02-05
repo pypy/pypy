@@ -217,7 +217,7 @@ class TestContextVars:
 
         with pytest.raises(AttributeError) as e:
             del gr.gr_context
-        assert "can't delete attr" in str(e.value)
+        assert "can't delete attribute 'gr_context'" in str(e.value)
 
         self.assertIsNone(gr.gr_context)
         old_context, new_context = gr.switch()

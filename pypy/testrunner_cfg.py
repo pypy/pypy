@@ -14,7 +14,6 @@ DIRS_SPLIT = [
     'jit/backend/aarch64', 
     'jit/backend/x86',
     'module/cpyext/test',
-    'module/_hpy_universal/test/_vendored',
 ]
 
 pytestpath = os.path.abspath('pytest.py')

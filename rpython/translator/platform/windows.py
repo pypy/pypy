@@ -248,6 +248,7 @@ class MsvcPlatform(Platform):
             if lib.endswith('.dll'):
                 lib = lib[:-4]
             libs.append('%s.lib' % (lib,))
+        libs.append("kernel32.lib")
         return libs
 
     def _libdirs(self, library_dirs):
@@ -262,7 +263,7 @@ class MsvcPlatform(Platform):
     def check___thread(self):
         # __declspec(thread) does not seem to work when using assembler.
         # Returning False will cause the program to use TlsAlloc functions.
-        # see src/thread_nt.h
+        # see src/thread_nt.h or src/thread_win7.h
         return False
 
     def _link_args_from_eci(self, eci, standalone):
@@ -505,22 +506,29 @@ class MsvcPlatform(Platform):
             m.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
             m.rule('main.c', '',
                    'echo '
-                   'int $(PYPY_MAIN_FUNCTION)(int, char*[]); '
-                   'int main(int argc, char* argv[]) '
+                   'typedef unsigned short ARGV_T; '
+                   'int $(PYPY_MAIN_FUNCTION)(int, ARGV_T*[]); '
+                   'int wmain(int argc, ARGV_T* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
             deps = ['main.obj']
             m.rule('wmain.c', '',
                    ['echo #define WIN32_LEAN_AND_MEAN > $@.tmp',
                    'echo #include "stdlib.h" >> $@.tmp',
                    'echo #include "windows.h" >> $@.tmp',
-                   'echo int $(PYPY_MAIN_FUNCTION)(int, char*[]); >> $@.tmp',
+                   'echo #include "shellapi.h" >> $@.tmp',
+                   'echo int $(PYPY_MAIN_FUNCTION)(int, wchar_t*[]); >> $@.tmp',
                    'echo int WINAPI WinMain( >> $@.tmp',
                    'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@.tmp',
                    'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@.tmp',
                    'echo     LPSTR lpCmdLine,          /* pointer to command line */ >> $@.tmp',
                    'echo     int nCmdShow              /* show state of window */ >> $@.tmp',
                    'echo ) >> $@.tmp',
-                   'echo    { return $(PYPY_MAIN_FUNCTION)(__argc, __argv); } >> $@.tmp',
+                   'echo { >> $@.tmp',
+                   'echo    LPWSTR* szArgList; int argCount; >> $@.tmp',
+                   'echo    szArgList = CommandLineToArgvW(GetCommandLineW(), ^&argCount); >> $@.tmp',
+                   'echo    if (!szArgList) {return 10;} >> $@.tmp',
+                   'echo    return $(PYPY_MAIN_FUNCTION)(argCount, szArgList); >> $@.tmp',
+                   'echo } >> $@.tmp',
                    'move $@.tmp $@',
                    ])
             wdeps = ['wmain.obj']
@@ -539,7 +547,7 @@ class MsvcPlatform(Platform):
                    ['$(CC_LINK) /DEBUG /LARGEADDRESSAWARE /STACK:3145728 ' +
                     '/SUBSYSTEM:WINDOWS '  +
                     ' '.join(wdeps) + ' $(SHARED_IMPORT_LIB) ' +
-                    manifest_args + ' /out:$@ '
+                    manifest_args + ' /out:$@ Shell32.lib'
                     ])
             m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)']+deps,
                    ['$(CC_LINK) /DEBUG /LARGEADDRESSAWARE /STACK:3145728 ' +

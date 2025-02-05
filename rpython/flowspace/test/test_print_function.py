@@ -52,12 +52,12 @@ class TestPrintFunctionLogic(object):
     @pytest.mark.parametrize(
         ("first", "end", "second", "expected"),
         (
-            (("one", "two"), "", ("three", "four"), "one twothree four\n"),
-            (("one", "two"), " ", ("three", "four"), "one two three four\n"),
-            (("one", "two"), "", (), "one two\n"),
-            (("one", "two"), " ", (), "one two \n"),
-            ((), "", ("three", "four"), "three four\n"),
-            ((), " ", ("three", "four"), " three four\n"),
+            (("one", "two"), "", ("three", "four"), "one twothree four"),
+            (("one", "two"), " ", ("three", "four"), "one two three four"),
+            (("one", "two"), "", (), "one two"),
+            (("one", "two"), " ", (), "one two "),
+            ((), "", ("three", "four"), "three four"),
+            ((), " ", ("three", "four"), " three four"),
         ),
     )
     def test_rpython_print_newline_end_mixed(self, monkeypatch, first, end, second, expected):
@@ -74,6 +74,7 @@ class TestPrintFunctionLogic(object):
             rpython_print_item(item)
         rpython_print_newline()
         assert len(spied) == 1
+        expected = expected + "\n"
         assert spied[-1] == (1, expected)
 
     def test_rpython_print_newline_end_complex(self, monkeypatch):

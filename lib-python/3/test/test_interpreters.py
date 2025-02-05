@@ -4,11 +4,9 @@ import threading
 from textwrap import dedent
 import unittest
 import time
+from test.support import import_helper
 
-try:
-    import _xxsubinterpreters as _interpreters
-except ModuleNotFoundError:
-    raise NotImplementedError("PyPy does not yet handle subinterpreters")
+_interpreters = import_helper.import_module('_xxsubinterpreters')
 from test.support import interpreters
 
 

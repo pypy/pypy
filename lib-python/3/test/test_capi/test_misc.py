@@ -29,7 +29,10 @@ except ImportError:
 # Skip this test if the _testcapi module isn't available.
 _testcapi = import_helper.import_module('_testcapi')
 
-import _testinternalcapi
+try:
+    import _testinternalcapi
+except ImportError:
+    _testinternalcapi = object()
 
 # Were we compiled --with-pydebug or with #define Py_DEBUG?
 Py_DEBUG = hasattr(sys, 'gettotalrefcount')
@@ -295,6 +298,7 @@ class CAPITest(unittest.TestCase):
     def test_buildvalue_N(self):
         _testcapi.test_buildvalue_N()
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no allocation hooks on PyPy")
     def test_set_nomemory(self):
         code = """if 1:
             import _testcapi
@@ -410,10 +414,12 @@ class CAPITest(unittest.TestCase):
             L = MyList((L,))
 
     @support.requires_resource('cpu')
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no trashcan on PyPy")
     def test_trashcan_python_class1(self):
         self.do_test_trashcan_python_class(list)
 
     @support.requires_resource('cpu')
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no trashcan on PyPy")
     def test_trashcan_python_class2(self):
         from _testcapi import MyList
         self.do_test_trashcan_python_class(MyList)
@@ -453,6 +459,7 @@ class CAPITest(unittest.TestCase):
     def test_null_type_doc(self):
         self.assertEqual(_testcapi.NullTpDocType.__doc__, None)
 
+    @support.refcount_test
     def test_subclass_of_heap_gc_ctype_with_tpdealloc_decrefs_once(self):
         class HeapGcCTypeSubclass(_testcapi.HeapGcCType):
             def __init__(self):
@@ -470,6 +477,7 @@ class CAPITest(unittest.TestCase):
         del subclass_instance
         self.assertEqual(type_refcnt - 1, sys.getrefcount(HeapGcCTypeSubclass))
 
+    @support.refcount_test
     def test_subclass_of_heap_gc_ctype_with_del_modifying_dunder_class_only_decrefs_once(self):
         class A(_testcapi.HeapGcCType):
             def __init__(self):
@@ -651,7 +659,16 @@ class CAPITest(unittest.TestCase):
         expected = compile(code, "<string>", "exec")
         self.assertEqual(result.co_consts, expected.co_consts)
 
+def dummy():
+    pass
 
+can_test_pending_calls = True
+if not(_testcapi._pending_threadfunc(dummy)):
+    # XXX PyPy does not properly implement this
+    can_test_pending_calls = False
+
+
+@unittest.skipIf(not can_test_pending_calls, "cannot call Py_AddPendingCall")
 class TestPendingCalls(unittest.TestCase):
 
     def pendingcalls_submit(self, l, n):
@@ -730,7 +747,7 @@ class TestPendingCalls(unittest.TestCase):
         self.pendingcalls_submit(l, n)
         self.pendingcalls_wait(l, n)
 
-
+@unittest.skipIf(support.check_impl_detail(pypy=True), "no subinterpreters on PyPy")
 class SubinterpreterTest(unittest.TestCase):
 
     def test_subinterps(self):
@@ -869,6 +886,7 @@ class Test_testinternalcapi(unittest.TestCase):
                     if name.startswith('test_'))
 
 
+@unittest.skipIf(support.check_impl_detail(pypy=True), "no malloc policies on PyPy")
 class PyMemDebugTests(unittest.TestCase):
     PYTHONMALLOC = 'debug'
     # '0x04c06e0' or '04C06E0'
@@ -921,18 +939,21 @@ class PyMemDebugTests(unittest.TestCase):
         regex = regex.format(ptr=self.PTR_REGEX)
         self.assertRegex(out, regex)
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no debug hooks on PyPy")
     def check_malloc_without_gil(self, code):
         out = self.check(code)
         expected = ('Fatal Python error: _PyMem_DebugMalloc: '
                     'Python memory allocator called without holding the GIL')
         self.assertIn(expected, out)
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no debug hooks on PyPy")
     def test_pymem_malloc_without_gil(self):
         # Debug hooks must raise an error if PyMem_Malloc() is called
         # without holding the GIL
         code = 'import _testcapi; _testcapi.pymem_malloc_without_gil()'
         self.check_malloc_without_gil(code)
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True), "no debug hooks on PyPy")
     def test_pyobject_malloc_without_gil(self):
         # Debug hooks must raise an error if PyObject_Malloc() is called
         # without holding the GIL
@@ -971,16 +992,19 @@ class PyMemDebugTests(unittest.TestCase):
         self.check_pyobject_is_freed('check_pyobject_freed_is_freed')
 
 
+@unittest.skipIf(support.check_impl_detail(pypy=True), "no malloc policies on PyPy")
 class PyMemMallocDebugTests(PyMemDebugTests):
     PYTHONMALLOC = 'malloc_debug'
 
 
 @unittest.skipUnless(support.with_pymalloc(), 'need pymalloc')
+@unittest.skipIf(support.check_impl_detail(pypy=True), "no malloc policies on PyPy")
 class PyMemPymallocDebugTests(PyMemDebugTests):
     PYTHONMALLOC = 'pymalloc_debug'
 
 
 @unittest.skipUnless(Py_DEBUG, 'need Py_DEBUG')
+@unittest.skipIf(support.check_impl_detail(pypy=True), "no malloc policies on PyPy")
 class PyMemDefaultTests(PyMemDebugTests):
     # test default allocator of Python compiled in debug mode
     PYTHONMALLOC = ''

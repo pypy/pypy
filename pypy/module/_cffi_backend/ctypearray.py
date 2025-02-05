@@ -107,7 +107,7 @@ class W_CTypeArray(W_CTypePtrOrArray):
         if isinstance(w_ob, cdataobj.W_CData) and w_ob.ctype is self:
             length = w_ob.get_array_length()
             with w_ob as source:
-                source = rffi.cast(rffi.VOIDP, source)
+                source = rffi.cast(rffi.CONST_VOIDP, source)
                 target = rffi.cast(rffi.VOIDP, cdata)
                 size = rffi.cast(rffi.SIZE_T, self.ctitem.size * length)
                 rffi.c_memcpy(target, source, size)

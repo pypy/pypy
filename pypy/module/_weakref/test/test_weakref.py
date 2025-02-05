@@ -607,3 +607,15 @@ class AppTestProxy(object):
         assert (p > 12) == True
         print(12 > p)
         assert (12 > p) == False
+
+    def test_remove_dead_weakref(self):
+        import _weakref, gc
+        class A: pass
+        a = A()
+        r = _weakref.ref(a)
+        s = "abc"
+        d = {s: r}
+        del a
+        gc.collect()
+        assert r() is None
+        _weakref._remove_dead_weakref(d, s)

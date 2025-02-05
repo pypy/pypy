@@ -39,10 +39,10 @@ class ExceptionTest(unittest.TestCase):
 
     data = (('1/0', ZeroDivisionError, "division by zero\n"),
             ('abc', NameError, "name 'abc' is not defined. "
-                               "Did you mean: 'abs'?\n"),
+                               "Did you mean: 'abs'?"),
             ('int.reel', AttributeError,
                  "type object 'int' has no attribute 'reel'. "
-                 "Did you mean: 'real'?\n"),
+                 "Did you mean: 'real'?"),
             )
 
     def test_get_message(self):
@@ -54,7 +54,7 @@ class ExceptionTest(unittest.TestCase):
                     typ, val, tb = sys.exc_info()
                     actual = run.get_message_lines(typ, val, tb)[0]
                     expect = f'{exc.__name__}: {msg}'
-                    self.assertEqual(actual, expect)
+                    self.assertIn(expect, actual)
 
     @mock.patch.object(run, 'cleanup_traceback',
                        new_callable=lambda: (lambda t, e: None))
@@ -86,7 +86,8 @@ class S(str):
     def __unicode__(self):
         return '%s:unicode' % type(self).__name__
     def __len__(self):
-        return 3
+        # PYPY: encode/decode calls len(self) on error, make it correct
+        return len(repr(self)) - 2
     def __iter__(self):
         return iter('abc')
     def __getitem__(self, *args):

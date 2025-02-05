@@ -348,3 +348,40 @@ class AppTestListObject(AppTestCpythonExtensionBase):
                 return PyLong_FromSsize_t(0);
              """)])
         assert module.test_refcount_diff(["first"], ["second"]) == 0
+
+    def test_set_type_size(self):
+        module = self.import_extension('foo', [
+             ("test_set_type_size", "METH_O",
+             """
+                long count = PyLong_AsLong(args);
+                PyObject *obj = PyList_New(count);
+                if (obj == NULL) {
+                    return NULL;
+                }
+                // In order to use Py_SIZE, the obj must be a PyVarObject.
+                // It is allocated via the type.tp_basicsize, so that must at
+                // least be castable to a PyVarObject
+                if (Py_TYPE(obj)->tp_basicsize < sizeof(PyVarObject)) {
+                    PyErr_Format(PyExc_AssertionError, "list object %d too small, need %d",
+                        Py_TYPE(obj)->tp_basicsize, sizeof(PyVarObject) );
+                    return NULL;
+                }
+                // Ensure that following tests don't modify the object,
+                // to ensure that Py_DECREF() will not crash.
+                assert(Py_TYPE(obj) == &PyList_Type);
+                if (Py_SIZE(obj) != count) {
+                    PyErr_Format(PyExc_AssertionError, "expected Py_SIZE %d, got %d",
+                        Py_SIZE(obj), count);
+                    return NULL;
+                }
+
+                // bpo-39573: Check that Py_TYPE() and Py_SIZE() can be used
+                // as l-values to set an object type and size.
+                Py_TYPE(obj) = &PyList_Type;
+                Py_SIZE(obj) = count;
+
+                Py_DECREF(obj);
+                Py_RETURN_NONE;
+             """)])
+        module.test_set_type_size(0)
+        module.test_set_type_size(3)

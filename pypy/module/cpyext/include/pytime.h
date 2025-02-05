@@ -18,7 +18,9 @@ extern "C" {
    UNIX epoch). */
 typedef int64_t _PyTime_t;
 #define _PyTime_MIN PY_LLONG_MIN
+#ifndef _PyTime_MAX
 #define _PyTime_MAX PY_LLONG_MAX
+#endif
 
 typedef enum {
     /* Round towards minus infinity (-inf).

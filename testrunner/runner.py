@@ -85,6 +85,9 @@ def run(args, cwd, out, timeout=None):
             if returncode is not None:
                 return returncode
             # timeout!
+            f.write("Timed out running %s with cwd='%s' timeout=%s:\n"
+                    " but no error, killing process\n"
+                    % (args, cwd, timeout))
             _kill(p.pid, SIGTERM)
             if busywait(p, 10) is None:
                 _kill(p.pid, SIGKILL)

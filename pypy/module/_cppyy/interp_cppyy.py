@@ -10,7 +10,7 @@ from pypy.interpreter.baseobjspace import W_Root
 
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 
-from rpython.rlib import jit, rdynload, rweakref, rgc
+from rpython.rlib import jit, rweakref, rgc
 from rpython.rlib import jit_libffi, clibffi
 from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 

@@ -139,8 +139,6 @@ class W_StringIO(W_TextIOBase):
             return len(self.buf.data)
 
     def _init_newline(self, space, w_newline):
-        self.w_decoder = None
-        self.readnl = None
         self.writenl = None
 
         if space.is_w(w_newline, space.w_None):
@@ -160,6 +158,8 @@ class W_StringIO(W_TextIOBase):
                     space.newtext("illegal newline value: %s"), w_newline
                 )
             )
+        self.w_decoder = None
+        self.readnl = None
         if newline is not None:
             self.readnl = newline
         self.readuniversal = newline is None or newline == ""
@@ -176,15 +176,15 @@ class W_StringIO(W_TextIOBase):
 
     @unwrap_spec(w_newline = WrappedDefault(u"\n"))
     def descr_init(self, space, w_initvalue=None, w_newline=None):
-        # In case __init__ is called multiple times
-        self.buf = None
-        self.pos = 0
         self._init_newline(space, w_newline)
-
         if not space.is_none(w_initvalue):
             self.w_value = self._decode_string(space, w_initvalue)
         else:
             self.w_value = W_UnicodeObject.EMPTY
+        # In case __init__ is called multiple times
+        self.buf = None
+        self.pos = 0
+
         self.state = READING
 
     def descr_getstate(self, space):

@@ -119,7 +119,11 @@ def %(name)s(index):
             print(file=self.outfile)
             size = len(lst) * WORDSIZE + WORDSIZE * 2
             self._estimate_any(name, size, category)
-            self.print_code("def %s(index): return _%s[index]" % (name, name))
+            self.print_code("""def %s(index):
+    try:
+        return _%s[index]
+    except IndexError:
+        raise KeyError""" % (name, name))
             return
         itemsize, unsigned = get_size_unsignedness(lst)
         chunksize = 64
@@ -131,7 +135,11 @@ def %(name)s(index):
                 unwrapfunc = "signed_ord"
             self.print_string(
                 "_" + name, "".join(chr(c & 0xff) for c in lst), category)
-            self.print_code("def %s(index): return %s(_%s[index])" % (name, unwrapfunc, name))
+            self.print_code("""def %s(index):
+    try:
+        return %s(_%s[index])
+    except IndexError:
+        raise KeyError""" % (name, unwrapfunc, name))
             return
         unwrapfunc = "intmask"
         if itemsize == 2:
@@ -164,7 +172,11 @@ def %(name)s(index):
             print(", ".join(res) + ",", file=self.outfile)
         print("]", file=self.outfile)
         print("_%s = %s(_%s)" % (name, conv_func, name), file=self.outfile)
-        self.print_code("def %s(index): return %s(_%s[index])" % (name, unwrapfunc, name))
+        self.print_code("""def %s(index):
+    try:
+        return %s(_%s[index])
+    except IndexError:
+        raise KeyError""" % (name, unwrapfunc, name))
         return
 
     def print_string(self, name, string, category=None):

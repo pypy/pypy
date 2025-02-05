@@ -69,7 +69,8 @@ def eval_string(source, filename=None, space=None):
 def run_file(filename, space=None):
     if __name__ == '__main__':
         print "Running %r with %r" % (filename, space)
-    istring = open(filename).read()
+    with open(filename) as fid:
+        istring = fid.read()
     run_string(istring, filename, space)
 
 

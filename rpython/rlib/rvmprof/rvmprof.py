@@ -186,7 +186,7 @@ class VMProf(object):
         Undo the effect of stop_sampling
         """
         self.cintf.vmprof_start_sampling()
-
+    
 
 def vmprof_execute_code(name, get_code_fn, result_class=None,
                         _hack_update_stack_untranslated=False):

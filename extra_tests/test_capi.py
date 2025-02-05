@@ -1,7 +1,7 @@
 import pytest, sys, subprocess
 
 
-@pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only')
+@pytest.mark.skipif(sys.implementation.name != 'pypy', reason='pypy only')
 def test_get_hashed_dir():
     import sys
     from lib_pypy import _testcapi

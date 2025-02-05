@@ -15,6 +15,7 @@ from test.support import os_helper
 MS_WINDOWS = (sys.platform == 'win32')
 POSIX_LOCALES = ('C', 'POSIX')
 VXWORKS = (sys.platform == "vxworks")
+IS_PYPY = (sys.implementation.name == 'pypy')
 
 class UTF8ModeTests(unittest.TestCase):
     DEFAULT_ENV = {
@@ -87,8 +88,8 @@ class UTF8ModeTests(unittest.TestCase):
             self.assertEqual(out, '0')
 
         # Cannot test with the POSIX locale, since the POSIX locale enables
-        # the UTF-8 mode
-        if not self.posix_locale():
+        # the UTF-8 mode, as does PyPy
+        if not self.posix_locale() and not IS_PYPY:
             # PYTHONUTF8 should be ignored if -E is used
             out = self.get_output('-E', '-c', code, PYTHONUTF8='1')
             self.assertEqual(out, '0')

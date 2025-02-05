@@ -32,8 +32,17 @@ def PyContextVar_Set(space, w_ovar, w_val):
     return space.appexec([w_ovar, w_val], """(ovar, val):
         from _contextvars import ContextVar
         if not isinstance(ovar, ContextVar):
-            raise TypeError('an instance of ContextVar was expected') 
+            raise TypeError('an instance of ContextVar was expected')
         return ovar.set(val)
+        """)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def PyContextVar_Reset(space, w_ovar, w_token):
+    return space.appexec([w_ovar, w_token], """(ovar, token):
+        from _contextvars import ContextVar
+        if not isinstance(ovar, ContextVar):
+            raise TypeError('an instance of ContextVar was expected')
+        return ovar.reset(token)
         """)
 
 @cpython_api([PyObject, PyObject, PyObjectP], rffi.INT_real, error=-1)
@@ -43,7 +52,7 @@ def PyContextVar_Get(space, w_ovar, default, val):
         w_ret = space.appexec([w_ovar, w_def], """(ovar, default):
             from _contextvars import ContextVar
             if not isinstance(ovar, ContextVar):
-                raise TypeError('an instance of ContextVar was expected') 
+                raise TypeError('an instance of ContextVar was expected')
             return ovar.get(default)
         """)
     else:
@@ -51,7 +60,7 @@ def PyContextVar_Get(space, w_ovar, default, val):
             w_ret = space.appexec([w_ovar], """(ovar,):
                 from _contextvars import ContextVar
                 if not isinstance(ovar, ContextVar):
-                    raise TypeError('an instance of ContextVar was expected') 
+                    raise TypeError('an instance of ContextVar was expected')
                 return ovar.get()
             """)
         except OperationError as e:

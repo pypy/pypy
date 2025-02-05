@@ -1,6 +1,8 @@
 import sys
-import py
+import pytest
 from rpython.rlib import rstackovf
+
+IS_PYPY = 'pypyjit' in sys.builtin_module_names
 
 def recurse(n):
     if n > 0:
@@ -25,16 +27,17 @@ class RecurseGetAttr(object):
         return getattr(self, attr)
 
 def test_raises_AttributeError():
-    py.test.skip("not RPython code...")
+    pytest.skip("not RPython code...")
     rga = RecurseGetAttr()
     try:
         rga.y
     except AttributeError:
         pass
     else:
-        py.test.skip("interpreter is not badly behaved")
-    py.test.raises(rstackovf.StackOverflow, getattr, rga, "y")
+        pytest.skip("interpreter is not badly behaved")
+    pytest.raises(rstackovf.StackOverflow, getattr, rga, "y")
 
+@pytest.mark.skipif(IS_PYPY, reason="can fail to overflow on PyPy")
 def test_llinterp():
     from rpython.rtyper.test.test_llinterp import interpret
     res = interpret(f, [sys.maxint])

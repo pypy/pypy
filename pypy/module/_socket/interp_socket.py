@@ -171,7 +171,7 @@ def addr_from_object(family, fd, space, w_address):
         else:                 pkttype = 0
         if len(pieces_w) > 3: hatype = space.int_w(pieces_w[3])
         else:                 hatype = 0
-        if len(pieces_w) > 4: haddr = space.text_w(pieces_w[4])
+        if len(pieces_w) > 4: haddr = space.bytes_w(pieces_w[4])
         else:                 haddr = ""
         if len(haddr) > 8:
             raise oefmt(space.w_ValueError,
@@ -243,7 +243,8 @@ class W_Socket(W_Root):
                         type = info_ptr.c_iSocketType 
                         fd = _c.WSASocketW(_c.FROM_PROTOCOL_INFO, _c.FROM_PROTOCOL_INFO,
                         _c.FROM_PROTOCOL_INFO, info_ptr, 0, _c.WSA_FLAG_OVERLAPPED)
-                        if fd == rsocket.INVALID_SOCKET:
+                        fd_int = rffi.cast(lltype.Signed, fd)
+                        if fd_int == rsocket.INVALID_SOCKET:
                             raise converted_error(space, rsocket.last_error())
                         sock = RSocket(info_ptr.c_iAddressFamily, info_ptr.c_iSocketType, info_ptr.c_iProtocol, fd)
                     finally:
@@ -253,7 +254,7 @@ class W_Socket(W_Root):
                         raise oefmt(space.w_TypeError,
                             "integer argument expected, got float")
                     fd = space.int_w(w_fileno)
-                    if ((_WIN32 and r_uint(fd) == rsocket.INVALID_SOCKET) or (fd < 0)):
+                    if fd < 0:
                         raise oefmt(space.w_ValueError,
                             "negative file descriptor")
                     if family == -1:
@@ -271,7 +272,7 @@ class W_Socket(W_Root):
 
     def _finalize_(self):
         sock = self.sock
-        if sock.fd != rsocket.INVALID_SOCKET:
+        if widen(sock.fd) != rsocket.INVALID_SOCKET:
             try:
                 self._dealloc_warn()
             finally:
@@ -301,7 +302,7 @@ class W_Socket(W_Root):
                 e.write_unraisable(space, '', self)
 
     def descr_repr(self, space):
-        fd = intmask(self.sock.fd)  # Force to signed type even on Windows.
+        fd = widen(self.sock.fd)  # Force to signed type even on Windows.
         family = widen(self.sock.family)  # these are too small on win64
         tp = widen(self.sock.type)
         proto = widen(self.sock.proto)
@@ -331,7 +332,7 @@ class W_Socket(W_Root):
     # convert an app-level object into an Address
     # based on the current socket's family
     def addr_from_object(self, space, w_address):
-        fd = intmask(self.sock.fd)
+        fd = widen(self.sock.fd)
         return addr_from_object(self.sock.family, fd, space, w_address)
 
     def bind_w(self, space, w_addr):
@@ -395,7 +396,7 @@ class W_Socket(W_Root):
 
         Return the integer file descriptor of the socket.
         """
-        return space.newint(intmask(self.sock.fd))
+        return space.newint(widen(self.sock.fd))
 
     def detach_w(self, space):
         """detach()

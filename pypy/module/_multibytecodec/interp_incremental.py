@@ -76,7 +76,7 @@ class MultibyteIncrementalDecoder(MultibyteIncrementalBase):
 
     def setstate_w(self, space, w_state):
         w_buffer, w_flag = space.unpackiterable(w_state, 2)
-        bufferstr = space.utf8_w(w_buffer)
+        bufferstr = space.bytes_w(w_buffer)
         self.pending = bufferstr
         # Suppport for full state requires pushing this into the C code
         # see https://github.com/python/cpython/pull/6984

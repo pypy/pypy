@@ -418,10 +418,14 @@ class W_ReversedIterator(W_Root):
 
     def descr___setstate__(self, space, w_state):
         self.remaining = space.int_w(w_state)
-        n = space.len_w(self.w_sequence)
+        if self.w_sequence:
+            n = space.len_w(self.w_sequence)
+        else:
+            n = 0
         if self.remaining < -1:
             self.remaining = -1
         elif self.remaining > n - 1:
+            # gives -1 if the sequence is empty or there is no sequence
             self.remaining = n - 1
 
 W_ReversedIterator.typedef = TypeDef("reversed",

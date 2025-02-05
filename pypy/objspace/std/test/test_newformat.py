@@ -472,6 +472,9 @@ class AppTestInternalMethods:
         l = list(_string.formatter_parser('{0!x:12{sdd}3}'))
         assert l == [('', '0', '12{sdd}3', 'x')]
 
+        with raises(TypeError):
+            _string.formatter_parser(b'abc')
+
     def test_u_formatter_parser(self):
         import _string
         l = list(_string.formatter_parser('{0!x:12{sdd}3}'))
@@ -515,6 +518,9 @@ class AppTestInternalMethods:
         first, rest = _string.formatter_field_name_split('foo.baz[hi].bok')
         assert first == 'foo'
         assert list(rest) == [(True, 'baz'), (False, 'hi'), (True, 'bok')]
+
+        with raises(TypeError):
+            _string.formatter_field_name_split(b'abc')
 
     def test_u_formatter_field_name_split(self):
         import _string

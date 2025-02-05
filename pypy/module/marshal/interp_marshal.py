@@ -1,8 +1,8 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import WrappedDefault, unwrap_spec
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib import rstackovf
-from pypy.objspace.std.marshal_impl import marshal, get_unmarshallers
+from rpython.rlib import rstackovf, jit
+from pypy.objspace.std.marshal_impl import marshal, _unmarshallers_unroll, FLAG_REF
 
 #
 # Write Python objects to files and read them back.  This is primarily
@@ -310,27 +310,7 @@ def invalid_typecode(space, u, tc):
     u.raise_exc("bad marshal data (unknown type code %d)" % (ord(tc),))
 
 
-def _make_unmarshall_and_save_ref(func):
-    def unmarshall_save_ref(space, u, tc):
-        index = len(u.refs_w)
-        u.refs_w.append(None)
-        w_obj = func(space, u, tc)
-        u.refs_w[index] = w_obj
-        return w_obj
-    return unmarshall_save_ref
-
-def _make_unmarshaller_dispatch():
-    _dispatch = [invalid_typecode] * 256
-    for tc, func in get_unmarshallers():
-        _dispatch[ord(tc)] = func
-    for tc, func in get_unmarshallers():
-        if tc < '\x80' and _dispatch[ord(tc) + 0x80] is invalid_typecode:
-            _dispatch[ord(tc) + 0x80] = _make_unmarshall_and_save_ref(func)
-    return _dispatch
-
-
 class Unmarshaller(_Base):
-    _dispatch = _make_unmarshaller_dispatch()
     hidden_applevel = False
 
     def __init__(self, space, reader):
@@ -348,7 +328,8 @@ class Unmarshaller(_Base):
 
     def save_ref(self, typecode, w_obj):
         if typecode >= '\x80':
-            self.refs_w.append(w_obj)
+            assert self.refs_w[-1] is None
+            self.refs_w[-1] = w_obj
 
     def atom_str(self, typecode):
         self.start(typecode)
@@ -407,7 +388,26 @@ class Unmarshaller(_Base):
     def _get_w_obj(self, allow_null=False):
         space = self.space
         tc = self.get1()
-        w_ret = self._dispatch[ord(tc)](space, self, tc)
+        typecode = ord(tc)
+        save_ref = bool(typecode & FLAG_REF)
+        typecode = chr(typecode & ~FLAG_REF)
+        bad = False
+        index = len(self.refs_w)
+        w_ret = None
+        if save_ref:
+            self.refs_w.append(None)
+        for current_tc, func, save_ref_in_func in _unmarshallers_unroll:
+            if current_tc == typecode:
+                if save_ref_in_func:
+                    save_ref = False
+                w_ret = func(space, self, tc)
+                break
+        else:
+            bad = True
+        if bad:
+            self.raise_exc("bad marshal data (unknown type code %d)" % (ord(typecode),))
+        if save_ref:
+            self.refs_w[index] = w_ret
         if w_ret is None and not allow_null:
             raise oefmt(space.w_TypeError, "NULL object in marshal data")
         return w_ret

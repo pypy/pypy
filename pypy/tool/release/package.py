@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from __future__ import print_function
 """ packages PyPy, provided that it's already built.
 It uses 'pypy/goal/pypy%d.%d-c' and parts of the rest of the working
@@ -140,6 +140,21 @@ def get_platlibdir(pypy_c, quiet=False):
              'import sysconfig as s; print(s.get_config_var("platlibdir"))'], **kwds)
     return ver.strip()
 
+def get_tcl_patch_level(pypy_c, quiet=False):
+    kwds = {'universal_newlines': True}
+    if quiet:
+        kwds['stderr'] = subprocess.NULL
+    ver = subprocess.check_output([str(pypy_c), '-c',
+             'import _tkinter; print(_tkinter.TCL_PATCH_LEVEL)'], **kwds)
+    return ver.strip()
+
+def get_tk_patch_level(pypy_c, quiet=False):
+    kwds = {'universal_newlines': True}
+    if quiet:
+        kwds['stderr'] = subprocess.NULL
+    ver = subprocess.check_output([str(pypy_c), '-c',
+             'import _tkinter; print(_tkinter.TK_PATCH_LEVEL)'], **kwds)
+    return ver.strip()
 
 def generate_sysconfigdata(pypy_c, stdlib):
     """Create a _sysconfigdata_*.py file that is platform specific and can be
@@ -211,7 +226,8 @@ def create_package(basedir, options, _fake=False):
         target = pypydir.join(get_platlibdir(pypy_c), IMPLEMENTATION)
     os.makedirs(str(target))
     if not _fake:
-        generate_sysconfigdata(pypy_c, str(target))
+        # issue 5015: portable builds cannot use the static data
+        # generate_sysconfigdata(pypy_c, str(target))
         subprocess.check_call([str(pypy_c), "-c", "import _testmultiphase_build"])
         subprocess.check_call([str(pypy_c), "-c", "import _ctypes_test_build"])
         subprocess.check_call([str(pypy_c), "-c", "import _testcapi"])
@@ -418,7 +434,9 @@ def create_package(basedir, options, _fake=False):
                 os.chdir(str(name))
                 if not os.path.exists('lib'):
                     os.mkdir('lib')
-                deps = make_portable(copytree, python_ver)
+                tk_patch = get_tk_patch_level(pypy_c)
+                tcl_patch = get_tcl_patch_level(pypy_c)
+                deps = make_portable(copytree, python_ver, tk_patch, tcl_patch)
                 with open("lib/PYPY_PORTABLE_DEPS.txt", "wt") as fid:
                     for k in deps.keys():
                         fid.write("%s\n" % k)

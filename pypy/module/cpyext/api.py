@@ -588,7 +588,7 @@ FUNCTIONS_BY_HEADER = defaultdict(dict)
 # files somewhere in the implementation of cpyext (rather than being defined in
 # RPython). Their name will be mangled by a #define
 SYMBOLS_C = [
-    'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
+    '_Py_FatalErrorFunc', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
     'PyArg_VaParse', 'PyArg_VaParseTupleAndKeywords', '_PyArg_NoKeywords',
     'PyUnicode_FromFormat', 'PyUnicode_FromFormatV', 'PyUnicode_AsWideCharString',
@@ -636,7 +636,7 @@ SYMBOLS_C = [
     'PyStructSequence_InitType', 'PyStructSequence_InitType2',
     'PyStructSequence_New', 'PyStructSequence_UnnamedField',
     'PyStructSequence_NewType', 'PyStructSequence_GetItem',
-    'PyStructSequence_SetItem', 
+    'PyStructSequence_SetItem',
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
     'PyCapsule_Type',
@@ -1195,9 +1195,9 @@ def setup_init_functions(eci, prefix):
         setdefenc(rffi.str2charp(s, track_allocation=False))  # "leaks"
 
     from pypy.module.posix.interp_posix import add_fork_hook
-    global py_fatalerror
-    py_fatalerror = rffi.llexternal('%s_FatalError' % prefix,
-                                    [CONST_STRING], lltype.Void,
+    global py_fatalerrorfunc
+    py_fatalerrorfunc = rffi.llexternal('_%s_FatalErrorFunc' % prefix,
+                                    [CONST_STRING, CONST_STRING], lltype.Void,
                                     compilation_info=eci)
     _reinit_tls = rffi.llexternal('%sThread_ReInitTLS' % prefix, [],
                                   lltype.Void, compilation_info=eci)
@@ -1245,7 +1245,7 @@ def attach_c_functions(space, eci, prefix):
         mangle_name(prefix, '_Py_object_dealloc'),
         [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
-    FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT))
+    FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT_real))
     state.C.get_pyos_inputhook = rffi.llexternal(
         mangle_name(prefix, '_Py_get_PyOS_InputHook'), [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
@@ -1599,7 +1599,7 @@ def generate_decls_and_callbacks(db, prefix=''):
         else:
             write_header(header_name, header_decls)
 
- 
+
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
                          source_dir / "modsupport.c",
@@ -1805,20 +1805,15 @@ def create_extension_module(space, w_spec):
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
     try:
-        # XXX does this need a fsdecoder for utf8 paths?
-        ll_libname = rffi.str2charp(path)
-        try:
-            if WIN32:
-                from rpython.rlib import rwin32
-                # Allow other DLLs in the same directory
-                # use os.add_dll_directory for more locations
-                flags = (rwin32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
-                        rwin32.LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR)
-                dll = rdynload.dlopenex(ll_libname, flags)
-            else:
-                dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
-        finally:
-            lltype.free(ll_libname, flavor='raw')
+        if WIN32:
+            from rpython.rlib import rwin32
+            # Allow other DLLs in the same directory with "path"
+            # use os.add_dll_directory for more locations
+            flags = (rwin32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+                    rwin32.LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR)
+            dll = rdynload.dlopenex(path, space.sys.dlopenflags | flags)
+        else:
+            dll = rdynload.dlopen(path, space.sys.dlopenflags)
     except rdynload.DLOpenError as e:
         raise raise_import_error(space,
             space.newfilename(e.msg), w_name, w_path)
@@ -2030,14 +2025,12 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
                 state = space.fromcache(State)
                 state.clear_exception()
                 raise oefmt(space.w_SystemError,
-                            "An exception was set, but function returned a "
-                            "value")
+                            "c function call returned a result with an exception set")
             elif not expect_null and not has_new_error and not has_result:
                 state = space.fromcache(State)
                 state.clear_exception()
                 raise oefmt(space.w_SystemError,
-                            "Function returned a NULL result without setting "
-                            "an exception")
+                            "c function call returned NULL without setting an exception")
             elif has_new_error:
                 state = space.fromcache(State)
                 state.check_and_raise_exception()

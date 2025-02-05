@@ -3,7 +3,7 @@ import py
 
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
-from rpython.rlib import jit, types, rutf8
+from rpython.rlib import jit, types, rutf8, rstring
 from rpython.rlib.debug import make_sure_not_resized, check_not_access_directly
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize, not_rpython)
@@ -1239,13 +1239,14 @@ class ObjSpace(object):
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
 
-    def call_valuestack(self, w_func, nargs, frame, methodcall=False):
+    def call_valuestack(self, w_func, nargs, frame, dropvalues, methodcall=False):
         # methodcall is only used for better error messages in argument.py
         from pypy.interpreter.function import Function, _Method, is_builtin_code
         if frame.get_is_being_profiled() and is_builtin_code(w_func):
             # XXX: this code is copied&pasted :-( from the slow path below
             # call_valuestack().
             args = frame.make_arguments(nargs, w_function=w_func)
+            frame.dropvalues(dropvalues)
             return self.call_args_and_c_profile(frame, w_func, args)
 
         if not self.config.objspace.disable_call_speedhacks:
@@ -1259,10 +1260,12 @@ class ObjSpace(object):
 
             if isinstance(w_func, Function):
                 return w_func.funccall_valuestack(
-                        nargs, frame, methodcall=methodcall)
+                        nargs, frame, methodcall=methodcall, dropvalues=dropvalues)
+
             # end of hack for performance
 
         args = frame.make_arguments(nargs, w_function=w_func)
+        frame.dropvalues(dropvalues)
         return self.call_args(w_func, args)
 
     def call_args_and_c_profile(self, frame, w_func, args):
@@ -1782,7 +1785,6 @@ class ObjSpace(object):
 
     def text0_w(self, w_obj):
         "Like text_w, but rejects strings with NUL bytes."
-        from rpython.rlib import rstring
         result = self.text_w(w_obj)
         if '\x00' in result:
             raise oefmt(self.w_ValueError, "embedded null character")

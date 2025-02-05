@@ -16,8 +16,8 @@ from _weakref import (
      proxy,
      CallableProxyType,
      ProxyType,
-     ReferenceType
-)
+     ReferenceType,
+     _remove_dead_weakref)
 
 from _weakrefset import WeakSet, _IterationGuard
 
@@ -31,26 +31,6 @@ __all__ = ["ref", "proxy", "getweakrefcount", "getweakrefs",
            "WeakKeyDictionary", "ReferenceType", "ProxyType",
            "CallableProxyType", "ProxyTypes", "WeakValueDictionary",
            "WeakSet", "WeakMethod", "finalize"]
-
-try:
-    from __pypy__ import delitem_if_value_is as _delitem_if_value_is
-except ImportError:
-    def _delitem_if_value_is(d, key, value):
-        try:
-            if d[key] is value:  # fall-back: there is a potential
-                #             race condition in multithreaded programs HERE
-                del d[key]
-        except KeyError:
-            pass
-
-def _remove_dead_weakref(d, key):
-    try:
-        wr = d[key]
-    except KeyError:
-        pass
-    else:
-        if wr() is None:
-            _delitem_if_value_is(d, key, wr)
 
 
 _collections_abc.Set.register(WeakSet)
@@ -131,7 +111,7 @@ class WeakValueDictionary(_collections_abc.MutableMapping):
                 else:
                     # Atomic removal is necessary since this function
                     # can be called asynchronously by the GC
-                    _delitem_if_value_is(self.data, wr.key, wr)
+                    _atomic_removal(self.data, wr.key)
         self._remove = remove
         # A list of keys to be removed
         self._pending_removals = []

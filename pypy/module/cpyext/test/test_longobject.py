@@ -236,6 +236,14 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                 }
                 return PyLong_FromUnsignedLong(n);
              """),
+            ("assize_t", "METH_O",
+             """
+                size_t n = PyLong_AsSize_t(args);
+                if ((long)n == -1 && PyErr_Occurred()) {
+                    return NULL;
+                }
+                return PyLong_FromSize_t(n);
+             """),
             ("asunsignedlonglong", "METH_O",
              """
                 unsigned long n = PyLong_AsUnsignedLongLong(args);
@@ -248,6 +256,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
             module.asunsignedlong(-1)
         with raises(OverflowError):
             module.asunsignedlonglong(-1)
+        assert module.assize_t(100) == 100
 
     def test_fromstring(self):
         module = self.import_extension('foo', [
@@ -396,6 +405,14 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                 return  PyLong_FromLong(INT_MIN);
              """
             ),
+            ("as_unsignedlongmask", "METH_O",
+             """
+                unsigned long n = PyLong_AsUnsignedLongMask(args);
+                if (n == (unsigned long)-1 && PyErr_Occurred()) {
+                    return NULL;
+                }
+                return PyLong_FromLong(n);
+             """),
             ])
         module.as_long(123) == 123
         assert module.as_long(-1) == -1
@@ -407,6 +424,9 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         raises(OverflowError, module.as_long, LONG_MAX+ 1)
         assert module.as_long(LONG_MIN) == LONG_MIN
         raises(OverflowError, module.as_long, LONG_MIN - 1)
+        # does not raise
+        module.as_unsignedlongmask(LONG_MAX * 10)
+
         class A:
             def __index__(self):
                 return 42
@@ -414,11 +434,20 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
             def __int__(self):
                 return 21
 
+        class B():
+            def __int__(self):
+                return 21
+
         a = A()
+        b = B()
         assert int(a) == 21
         # new for python3.8: first try __index__
         assert module.as_long(a) == 42
-
+        assert module.as_unsignedlongmask(a) == 42
+        with raises(TypeError):
+            module.as_long(b)
+        with raises(TypeError):
+            module.as_unsignedlongmask(b)
         assert module.as_int(123) == 123
         assert module.as_int(-1) == -1
         with raises(TypeError):
@@ -429,14 +458,6 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
         raises(OverflowError, module.as_int, INT_MAX+ 1)
         assert module.as_int(INT_MIN) == INT_MIN
         raises(OverflowError, module.as_int, INT_MIN - 1)
-        class A:
-            def __index__(self):
-                return 42
-
-            def __int__(self):
-                return 21
-
-        a = A()
         assert int(a) == 21
         # new for python3.8: first try __index__
         assert module.as_int(a) == 42
@@ -490,3 +511,14 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
              """)])
         assert module.has_sub() == 0
         assert module.has_pow() == 0
+
+    def test_PyLong_AsUnsignedLongLongMask(self):
+        module = self.import_extension('foo', [
+            ("aslongmask", "METH_O",
+            """
+                uint64_t ret = PyLong_AsUnsignedLongMask(args);
+                if (!ret) return NULL;
+                return PyLong_FromLong(ret);
+            """),
+            ])
+        assert module.aslongmask(3) == 3

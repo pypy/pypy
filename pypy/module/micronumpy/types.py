@@ -4,7 +4,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rutf8 import Utf8StringIterator, codepoints_in_utf8, Utf8StringBuilder
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.floatobject import float2string
-from pypy.objspace.std.complexobject import str_format
+from pypy.objspace.std.complexobject import format_float
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from rpython.rlib import clibffi, jit, rfloat, rcomplex
 from rpython.rlib.objectmodel import specialize, we_are_translated
@@ -1180,7 +1180,7 @@ class ComplexFloating(object):
 
     def str_format(self, box, add_quotes=True):
         real, imag = self.for_computation(self.unbox(box))
-        imag_str = str_format(imag)
+        imag_str = format_float(imag, 'g', rfloat.DTSF_STR_PRECISION)
         if not rfloat.isfinite(imag):
             imag_str += '*'
         imag_str += 'j'
@@ -1189,7 +1189,7 @@ class ComplexFloating(object):
         if real == 0 and math.copysign(1, real) == 1:
             return imag_str
 
-        real_str = str_format(real)
+        real_str = format_float(real, 'g', rfloat.DTSF_STR_PRECISION)
         op = '+' if imag >= 0 or math.isnan(imag) else ''
         return ''.join(['(', real_str, op, imag_str, ')'])
 

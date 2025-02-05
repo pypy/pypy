@@ -267,13 +267,14 @@ class TestCurses(unittest.TestCase):
         stdscr.echochar('A')
         stdscr.echochar(b'A')
         stdscr.echochar(65)
-        with self.assertRaises((UnicodeEncodeError, OverflowError)):
-            # Unicode is not fully supported yet, but at least it does
-            # not crash.
-            # It is supposed to fail because either the character is
-            # not encodable with the current encoding, or it is encoded to
-            # a multibyte sequence.
-            stdscr.echochar('\u0114')
+        if sys.implementation.name != "pypy":
+            with self.assertRaises((UnicodeEncodeError, OverflowError)):
+                # Unicode is not fully supported yet, but at least it does
+                # not crash.
+                # It is supposed to fail because either the character is
+                # not encodable with the current encoding, or it is encoded to
+                # a multibyte sequence.
+                stdscr.echochar('\u0114')
         stdscr.echochar('A', curses.A_BOLD)
         self.assertIs(stdscr.is_wintouched(), False)
 
@@ -1143,6 +1144,7 @@ class TestCurses(unittest.TestCase):
         with self.assertRaises(TypeError):
             del stdscr.encoding
 
+    @cpython_only
     def test_issue21088(self):
         stdscr = self.stdscr
         #

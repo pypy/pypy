@@ -708,8 +708,17 @@ def test_broken_getattr_handling():
     gi = g()
     assert next(gi) == 1
     sys.stderr = _io.StringIO()
-    gi.close()
-    assert 'ZeroDivisionError' in sys.stderr.getvalue()
+    unraisables = []
+    def ownhook(hookargs):
+        unraisables.append(hookargs)
+    oldhook = sys.unraisablehook
+    sys.unraisablehook = ownhook
+    try:
+        gi.close()
+    finally:
+        sys.unraisablehook = oldhook
+    assert len(unraisables) == 1
+    assert isinstance(unraisables[0].exc_value,  ZeroDivisionError)
 
 def test_returning_value_from_delegated_throw():
     """

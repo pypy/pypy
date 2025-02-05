@@ -132,9 +132,6 @@ def format_float(x, code, precision):
 def repr_format(x):
     return format_float(x, 'r', 0)
 
-def str_format(x):
-    return format_float(x, 'g', DTSF_STR_PRECISION)
-
 
 def unpackcomplex(space, w_complex, strict_typing=True, firstarg=True):
     """
@@ -386,14 +383,6 @@ class W_ComplexObject(W_Root):
         return space.newtext('(' + repr_format(self.realval)
                              + sign + repr_format(self.imagval) + 'j)')
 
-    def descr_str(self, space):
-        if self.realval == 0 and math.copysign(1., self.realval) == 1.:
-            return space.newtext(str_format(self.imagval) + 'j')
-        sign = (math.copysign(1., self.imagval) == 1. or
-                math.isnan(self.imagval)) and '+' or ''
-        return space.newtext('(' + str_format(self.realval)
-                             + sign + str_format(self.imagval) + 'j)')
-
     def descr_hash(self, space):
         hashreal = _hash_float(self.realval)
         hashimg = _hash_float(self.imagval)   # 0 if self.imagval == 0
@@ -563,7 +552,6 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     imag = complexwprop('imagval',
                         doc="the imaginary part of a complex number"),
     __repr__ = interp2app(W_ComplexObject.descr_repr),
-    __str__ = interp2app(W_ComplexObject.descr_str),
     __hash__ = interp2app(W_ComplexObject.descr_hash),
     __format__ = interp2app(W_ComplexObject.descr_format),
     __bool__ = interp2app(W_ComplexObject.descr_bool),

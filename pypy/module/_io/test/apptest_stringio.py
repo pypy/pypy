@@ -348,3 +348,20 @@ def test_rwbuffer_newline_none():
     sio = rwbuffer(u"a\nb\r\nc\rd", newline=None)
     res = list(sio)
     assert res == [u"a\n", u"b\n", u"c\n", u"d"]
+
+def test_reinit():
+    obj = StringIO("\x00")
+    obj.writelines("\x00")
+    try:
+        obj.__init__(1j)
+    except TypeError as e:
+        pass
+    obj.__getstate__()
+
+def test_issue5140():
+    obj = StringIO("1")
+    try:
+        obj.__init__("", ())
+    except:
+        pass
+    assert obj.__next__() == "1"

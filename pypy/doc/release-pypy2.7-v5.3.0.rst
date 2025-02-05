@@ -3,9 +3,9 @@ PyPy2.7 v5.3
 ============
 
 We have released PyPy2.7 v5.3, about six weeks after PyPy 5.1 and a week after
-`PyPy3.3 v5.2 alpha 1`_, the first PyPy release targetting 3.3
+`PyPy3.3 v5.2 alpha 1`_, the first PyPy release targeting 3.3
 compatibility. This new PyPy2.7 release includes further improvements for the
-CAPI compatibility layer which we call cpyext. In addtion to complete support
+CAPI compatibility layer which we call cpyext. In addition to complete support
 for lxml, we now pass most (more than 90%) of the upstream numpy test suite,
 and much of SciPy is supported as well.
 
@@ -75,7 +75,7 @@ Other Highlights (since 5.1 released in April 2016)
         PyAnySet_CheckExact, PyUnicode_Concat, PyDateTime_TZInfo
       - improve support for PyGILState_Ensure, PyGILState_Release, and thread
         primitives, also find a case where CPython will allow thread creation
-        before PyEval_InitThreads is run, dissallow on PyPy 
+        before PyEval_InitThreads is run, disallow on PyPy 
       - create a PyObject-specific list strategy
       - rewrite slot assignment for typeobjects
       - improve tracking of PyObject to rpython object mapping
@@ -88,7 +88,7 @@ Other Highlights (since 5.1 released in April 2016)
   * CPyExt tweak: instead of "GIL not held when a CPython C extension module
     calls PyXxx", we now silently acquire/release the GIL.  Helps with
     CPython C extension modules that call some PyXxx() functions without
-    holding the GIL (arguably, they are theorically buggy).
+    holding the GIL (arguably, they are theoretically buggy).
 
   * Add rgc.FinalizerQueue, documented in pypy/doc/discussion/finalizer-order.rst.
     It is a more flexible way to make RPython finalizers. Use this mechanism to

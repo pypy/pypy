@@ -175,8 +175,8 @@ def PyThreadState_Get(space):
     state = space.fromcache(InterpreterState)
     ts = state.get_thread_state(space)
     if not ts:
-        from pypy.module.cpyext.api import py_fatalerror
-        py_fatalerror("PyThreadState_Get: no current thread")
+        from pypy.module.cpyext.api import py_fatalerrorfunc
+        py_fatalerrorfunc("PyThreadState_Get", "no current thread")
     return ts
 
 @cpython_api([], PyThreadState, error=CANNOT_FAIL)

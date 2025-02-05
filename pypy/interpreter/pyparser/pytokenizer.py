@@ -17,6 +17,7 @@ TYPE_COMMENT_PREFIX = 'type'
 TYPE_IGNORE = 'ignore'
 
 TRIPLE_QUOTE_UNTERMINATED_ERROR = "unterminated triple-quoted string literal"
+SINGLE_QUOTE_UNTERMINATED_ERROR = "unterminated string literal"
 EOF_MULTI_LINE_STATEMENT_ERROR = "unexpected end of file (EOF) in multi-line statement"
 
 def match_encoding_declaration(comment):
@@ -134,9 +135,9 @@ def raise_unterminated_string(is_triple_quoted, line, lineno, column, tokens,
         end_lineno, end_offset=0):
     # same arguments as TokenError, ie 1-based offsets
     if is_triple_quoted:
-        msg = "unterminated triple-quoted string literal (detected at line %s)" % (end_lineno, )
+        msg = TRIPLE_QUOTE_UNTERMINATED_ERROR + " (detected at line %s)" % (end_lineno, )
     else:
-        msg = "unterminated string literal (detected at line %s)" % (end_lineno, )
+        msg = SINGLE_QUOTE_UNTERMINATED_ERROR + " (detected at line %s)" % (end_lineno, )
     raise TokenError(msg, line, lineno, column, tokens, end_lineno, end_offset)
 
 def potential_identifier_char(ch):
@@ -195,6 +196,7 @@ def generate_tokens(lines, flags):
     pos = 0
     lines.append("")
     strstart = (0, 0, "", False) # linenumber, offset, starting_line, is_triple_quoted
+    cont_line_col = 0
     for lines_index, line in enumerate(lines):
         lnum = lnum + 1
         line = universal_newline(line)
@@ -203,7 +205,6 @@ def generate_tokens(lines, flags):
 
         if contstrs:
             if not line:
-                assert strstart[3] # must be triple-quoted
                 raise_unterminated_string(strstart[3], strstart[2], strstart[0],
                                           strstart[1] + 1, token_list,
                                           lnum - 1, len(line))
@@ -229,8 +230,8 @@ def generate_tokens(lines, flags):
 
         elif not parenstack and not continued:  # new statement
             if not line: break
-            column = 0
-            altcolumn = 0
+            column = cont_line_col
+            altcolumn = cont_line_col
             while pos < max:                   # measure leading whitespace
                 if line[pos] == ' ':
                     column = column + 1
@@ -248,10 +249,19 @@ def generate_tokens(lines, flags):
             if line[pos] in '\r\n':
                 # skip blank lines
                 continue
-            if line[pos] == '\\' and line[pos + 1] in '\r\n' and lines[lines_index + 1] != "":
-                # skip lines that are only a line continuation char, but only
-                # if there are further lines
-                continue
+            if line[pos] == '\\' and line[pos + 1] in '\r\n':
+                if lines[lines_index + 1] not in "\r\n":
+                    # continuation marker after spaces should increase the indentation level
+                    if pos != cont_line_col:
+                        indents.append(pos)
+                        altindents.append(pos)
+                        token_list.append(Token(tokens.INDENT, line[:pos], lnum, 0, line[:pos] + lines[lines_index + 1], lnum, pos, level=len(parenstack)))
+                        cont_line_col = pos
+                    continue
+                if lines[lines_index + 1] != "":
+                    # skip lines that are only a line continuation char
+                    # followed by an empty line (not last line)
+                    continue
             if line[pos] == '#':
                 # skip full-line comment, but still check that it is valid utf-8
                 if not verify_utf8(line):

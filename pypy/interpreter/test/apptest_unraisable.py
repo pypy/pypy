@@ -3,18 +3,20 @@ import sys
 import io
 
 def test_simple():
-    oldstderr = sys.stderr
-    sys.stderr = stringio = io.StringIO()
+    unraisables = []
+    def ownhook(hookargs):
+        unraisables.append(hookargs)
+    oldhook = sys.unraisablehook
+    sys.unraisablehook = ownhook
     try:
-        try:
-            raise ValueError
-        except Exception as e:
-            __pypy__.write_unraisable("in: testplace", e, None)
-        output = stringio.getvalue()
-        assert "Exception ignored in: testplace\n" in output
-        assert "ValueError" in output
+        raise ValueError
+    except Exception as e:
+        __pypy__.write_unraisable("in: testplace", e, None)
     finally:
-        sys.stderr = oldstderr
+        sys.unraisablehook = oldhook
+    output = unraisables[0]
+    assert "Exception ignored in: testplace" in output.err_msg
+    assert isinstance(output.exc_value, ValueError)
 
 def test_custom_unraisablehook():
     l = []

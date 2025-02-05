@@ -233,7 +233,10 @@ class RawBufferView(RawBufferView_Base):
         return 1
 
     def getshape(self):
-        return [self.getlength() // self.itemsize]
+        length =self.getlength()
+        if length == 0:
+            return [0]
+        return [length // self.itemsize]
 
     def getstrides(self):
         return [self.getitemsize()]

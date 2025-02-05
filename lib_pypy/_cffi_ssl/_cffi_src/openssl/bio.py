@@ -11,6 +11,8 @@ INCLUDES = """
 TYPES = """
 typedef ... BIO;
 typedef ... BIO_METHOD;
+static const long BIO_CLOSE;
+static const long BIO_FP_TEXT;
 """
 
 FUNCTIONS = """
@@ -18,10 +20,15 @@ int BIO_free(BIO *);
 void BIO_free_all(BIO *);
 BIO *BIO_new_file(const char *, const char *);
 BIO *BIO_new_dgram(int, int);
+BIO *BIO_new_fp(FILE *stream, int flags);
 size_t BIO_ctrl_pending(BIO *);
 int BIO_read(BIO *, void *, int);
 int BIO_gets(BIO *, char *, int);
 int BIO_write(BIO *, const void *, int);
+int BIO_tell(BIO *b);
+int BIO_flush(BIO *b);
+int BIO_puts(BIO *b, const char *buf);
+int BIO_printf(BIO *bio, const char *format, ...);
 /* Added in 1.1.0 */
 int BIO_up_ref(BIO *);
 

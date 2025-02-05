@@ -999,13 +999,13 @@ class TestUnicode(BaseApiTest):
         w_input = space.newtext("test", 4)
         with rffi.scoped_str2charp('strict') as errors:
             w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
-            assert space.utf8_w(w_ret) == 'test'
+            assert space.bytes_w(w_ret) == b'test'
         with rffi.scoped_str2charp(None) as errors:
             w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
-            assert space.utf8_w(w_ret) == 'test'
+            assert space.bytes_w(w_ret) == b'test'
         with rffi.scoped_str2charp('surrogateescape') as errors:
             w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
-            assert space.utf8_w(w_ret) == 'test'
+            assert space.bytes_w(w_ret) == b'test'
         # 'errors' is invalid
         with rffi.scoped_str2charp('something else') as errors:
             with pytest.raises(OperationError):
@@ -1131,14 +1131,14 @@ class TestUnicode(BaseApiTest):
     def test_mbcs(self, space):
         if sys.platform != 'win32':
             py.test.skip("mcbs encoding only exists on Windows")
-        # unfortunately, mbcs is locale-dependent.
-        # This tests works at least on a Western Windows.
-        unichars = u"abc" + unichr(12345)
+        unichars = u"abc"
         wbuf = rffi.unicode2wcharp(unichars)
-        w_bytes = PyUnicode_EncodeMBCS(space, wbuf, 4, None)
-        rffi.free_wcharp(wbuf)
+        try:
+            w_bytes = PyUnicode_EncodeMBCS(space, wbuf, 3, None)
+        finally:
+            rffi.free_wcharp(wbuf)
         assert space.type(w_bytes) is space.w_bytes
-        assert space.utf8_w(w_bytes) == "abc?"
+        assert space.utf8_w(w_bytes) == "abc"
 
     def test_codepage(self, space):
         if sys.platform != 'win32':

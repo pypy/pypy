@@ -6,6 +6,8 @@ from rpython.memory.gc.minimarkpage import _dummy_size
 from rpython.rtyper.lltypesystem import lltype, llmemory, llarena
 from rpython.rtyper.lltypesystem.llmemory import cast_ptr_to_adr
 
+from hypothesis import strategies, given
+
 NULL = llmemory.NULL
 SHIFT = WORD
 hdrsize = llmemory.raw_malloc_usage(llmemory.sizeof(PAGE_HEADER))
@@ -402,8 +404,11 @@ def test_mass_free_half_page_becomes_more_free():
 
 # ____________________________________________________________
 
-def test_random(incremental=False):
-    import random
+class DoneTesting(Exception):
+    counter = 0
+
+@given(random=strategies.randoms())
+def randomize(random, incremental):
     pagesize = hdrsize + 24*WORD
     num_pages = 3
     ac = arena_collection_for_test(pagesize, " " * num_pages)
@@ -411,8 +416,6 @@ def test_random(incremental=False):
     #
     # Run the test until three arenas are freed.  This is a quick test
     # that the arenas are really freed by the logic.
-    class DoneTesting(Exception):
-        counter = 0
     def my_allocate_new_arena():
         # the following output looks cool on a 112-character-wide terminal.
         lst = sorted(ac._all_arenas(), key=lambda a: a.base.arena._arena_index)
@@ -440,7 +443,7 @@ def test_random(incremental=False):
         while True:
             #
             # Allocate some more objects
-            for i in range(random.randrange(50, 100)):
+            for i in range(random.randrange(1, 100)):
                 allocate_object(live_objects)
             #
             # Free half the objects, randomly
@@ -449,11 +452,19 @@ def test_random(incremental=False):
             live_objects_extra = {}
             fresh_extra = 0
             if not incremental:
+                total_memory_before = ac.total_memory_used
                 ac.mass_free(ok_to_free)
+                total_memory_after = ac.total_memory_used
+                assert total_memory_after <= total_memory_before
             else:
                 ac.mass_free_prepare()
-                while not ac.mass_free_incremental(ok_to_free,
-                                                   random.randrange(1, 3)):
+                while 1:
+                    total_memory_before = ac.total_memory_used
+                    complete = ac.mass_free_incremental(ok_to_free, random.randrange(1, 3))
+                    if complete:
+                        break
+                    total_memory_after = ac.total_memory_used
+                    assert total_memory_after <= total_memory_before
                     print '[]'
                     prev = ac.total_memory_used
                     allocate_object(live_objects_extra)
@@ -475,5 +486,8 @@ def test_random(incremental=False):
     except DoneTesting:
         pass
 
+def test_random():
+    randomize(incremental=False)
+
 def test_random_incremental():
-    test_random(incremental=True)
+    randomize(incremental=True)

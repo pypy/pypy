@@ -411,7 +411,7 @@ class W_TypeObject(W_Root):
     def setdictvalue(self, space, name, w_value):
         if not self.is_heaptype():
             raise oefmt(space.w_TypeError,
-                        "cannot set attributes on immutable type object '%N'", self)
+                        "cannot set '%s' attribute of immutable type '%N'", name, self)
         if name == "__del__" and name not in self.dict_w:
             msg = ("a __del__ method added to an existing type will not be "
                    "called")
@@ -654,6 +654,8 @@ class W_TypeObject(W_Root):
         newref = weakref.ref(w_subclass)
         for i in range(len(self.weak_subclasses)):
             ref = self.weak_subclasses[i]
+            if ref() is w_subclass:
+                return
             if ref() is None:
                 self.weak_subclasses[i] = newref
                 return
@@ -668,12 +670,22 @@ class W_TypeObject(W_Root):
                 del self.weak_subclasses[i]
                 return
 
-    def get_subclasses(self):
+    def get_subclasses(self, only_real_subclasses=False):
+        """ return the subclasses of self. if only_real_subclasses is True,
+        then we check whether the subclass has self in its .__bases__ before
+        adding it to the result list (which can be false in the case of
+        metaclasses that override type.mro, see _add_mro_classes_as_subclasses).
+
+        only_real_subclasses should be False for all *invalidation* use cases,
+        and True only for descr___subclasses__"""
         space = self.space
         subclasses_w = []
         for ref in self.weak_subclasses:
             w_ob = ref()
             if w_ob is not None:
+                if only_real_subclasses:
+                    if not space.contains_w(space.getattr(w_ob, space.newtext('__bases__')), self):
+                        continue
                 subclasses_w.append(w_ob)
         return subclasses_w
 
@@ -920,7 +932,7 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
     if not space.is_w(w_winner, w_typetype):
         newfunc = space.getattr(w_winner, space.newtext('__new__'))
         if not space.is_w(newfunc, space.getattr(space.w_type, space.newtext('__new__'))):
-            return space.call_function(newfunc, w_winner, w_name, w_bases, w_dict)
+            return space.call_obj_args(newfunc, w_winner, __args__)
         w_typetype = w_winner
 
     name = space.text_w(w_name)
@@ -1157,7 +1169,7 @@ type(name, bases, dict) -> a new type""")
 def descr_set__doc(space, w_type, w_value):
     w_type = _check(space, w_type)
     if not w_type.is_heaptype():
-        raise oefmt(space.w_TypeError, "can't set %N.__doc__", w_type)
+        raise oefmt(space.w_TypeError, "cannot set '__doc__' attribute of immutable type '%N'", w_type)
     w_type.setdictvalue(space, '__doc__', w_value)
 
 def type_get_txtsig(space, w_type):
@@ -1205,7 +1217,7 @@ def descr_del___abstractmethods__(space, w_type):
 def descr___subclasses__(space, w_type):
     """Return the list of immediate subclasses."""
     w_type = _check(space, w_type)
-    return space.newlist(w_type.get_subclasses())
+    return space.newlist(w_type.get_subclasses(only_real_subclasses=True))
 
 def descr___prepare__(space, __args__):
     return space.newdict(module=True)
@@ -1516,6 +1528,7 @@ def ensure_hash(w_self):
         w_self.dict_w['__hash__'] = w_self.space.w_None
 
 def compute_mro(w_self):
+    default_mro_w = w_self.compute_default_mro()[:]
     if w_self.is_heaptype():
         space = w_self.space
         w_metaclass = space.type(w_self)
@@ -1525,9 +1538,10 @@ def compute_mro(w_self):
             w_mro = space.call_function(w_mro_meth)
             mro_w = space.fixedview(w_mro)
             w_self.mro_w = validate_custom_mro(space, mro_w)
+            _add_mro_classes_as_subclasses(space, w_self, w_self.mro_w, default_mro_w)
             w_self.hasmro = True
             return    # done
-    w_self.mro_w = w_self.compute_default_mro()[:]
+    w_self.mro_w = default_mro_w
     w_self.hasmro = True
 
 def validate_custom_mro(space, mro_w):
@@ -1538,6 +1552,17 @@ def validate_custom_mro(space, mro_w):
         if not space.abstract_isclass_w(w_class):
             raise oefmt(space.w_TypeError, "mro() returned a non-class")
     return mro_w
+
+def _add_mro_classes_as_subclasses(space, w_self, mro_w, default_mro_w):
+    # this is for quite annoying situations: if we have a metaclass that
+    # overrides type.mro, the normal subclassing-based mro invalidation
+    # mechanism doesn't work correctly. therefore, we register the entries in
+    # mro_w that aren't in the default mro as a baseclass. see
+    # test_mro_mutation_interaction_bug
+    for w_ancestor in mro_w:
+        if w_ancestor not in default_mro_w:
+            if isinstance(w_ancestor, W_TypeObject):
+                w_ancestor.add_subclass(w_self)
 
 def is_mro_purely_of_types(mro_w):
     for w_class in mro_w:

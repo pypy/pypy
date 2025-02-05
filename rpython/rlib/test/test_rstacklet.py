@@ -238,7 +238,7 @@ def variousstackdepths_callback(h, arg):
     return h
 
 QSORT_CALLBACK_PTR = lltype.Ptr(lltype.FuncType(
-    [llmemory.Address, llmemory.Address], rffi.INT))
+    [rffi.CONST_VOIDP, rffi.CONST_VOIDP], rffi.INT))
 qsort = rffi.llexternal('qsort',
                         [llmemory.Address, rffi.SIZE_T, rffi.SIZE_T,
                          QSORT_CALLBACK_PTR],

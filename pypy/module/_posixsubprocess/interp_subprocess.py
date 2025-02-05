@@ -25,8 +25,8 @@ class CConfig:
     HAVE_SETREGID = platform.Has("setregid")
     HAVE_SETREUID = platform.Has("setreuid")
 
-    uid_t = platform.SimpleType("uid_t")
-    gid_t = platform.SimpleType("gid_t")
+    uid_t = platform.SimpleType("uid_t", ctype_hint=rffi.UINT_real)
+    gid_t = platform.SimpleType("gid_t", ctype_hint=rffi.UINT_real)
 
 config = platform.configure(CConfig)
 
@@ -81,7 +81,7 @@ c_child_exec = rffi.llexternal(
      rffi.INT, rffi.SIZE_T, rffi.CArrayPtr(gid_t), # call_setgroups, groups_size, groups
      rffi.INT, uid_t, rffi.INT, # call_setuid, uid child_umask
      rffi.CArrayPtr(rffi.LONG), lltype.Signed,
-     lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.INT)), rffi.VOIDP],
+     lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.INT_real)), rffi.VOIDP],
     lltype.Void,
     compilation_info=eci,
     releasegil=True)
@@ -104,8 +104,8 @@ class PreexecCallback:
             try:
                 self.space.call_function(self.w_preexec_fn)
             except OperationError:
-                return rffi.cast(rffi.INT, 0)
-        return rffi.cast(rffi.INT, 1)
+                return rffi.cast(rffi.INT_real, 0)
+        return rffi.cast(rffi.INT_real, 1)
 preexec = PreexecCallback()
 
 

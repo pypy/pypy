@@ -316,11 +316,11 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
             # pos should have been 0, cannot fail so return 0
             return 0;
         w_keys = from_ref(space, py_dict.c__tmpkeys)
-    ppos[0] += 1
     if pos >= space.len_w(w_keys):
         decref(space, py_dict.c__tmpkeys)
         py_dict.c__tmpkeys = lltype.nullptr(PyObject.TO)
         return 0
+    ppos[0] += 1
     w_key = space.listview(w_keys)[pos]  # fast iff w_keys uses object strat
     w_value = space.getitem(w_dict, w_key)
     if pkey:

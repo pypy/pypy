@@ -164,9 +164,7 @@ class gdbm(object):
 
 
 def open(filename, flags='r', mode=0o666):
-    if not isinstance(filename, str):
-        raise TypeError("must be str, not %s" % type(filename).__name__)
-    filename = filename.encode(sys.getdefaultencoding())
+    filename = os.fsencode(filename)
 
     if flags[0] == 'r':
         iflags = lib.GDBM_READER

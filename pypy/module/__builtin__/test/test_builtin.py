@@ -125,11 +125,15 @@ class AppTestBuiltinApp:
         class Foo:
             def __index__(self):
                 return 4
+        class Bar(int):
+            def __format__(self, *args):
+                return "nope"
         assert hex(0) == "0x0"
         assert hex(-1) == "-0x1"
         assert hex(16) == "0x10"
         assert hex(-16) == "-0x10"
         assert hex(Foo()) == "0x4"
+        assert hex(Bar(16)) == "0x10", hex(Bar(16))
         raises(TypeError, hex, 0.)
 
     def test_chr(self):

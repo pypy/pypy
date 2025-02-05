@@ -16,6 +16,10 @@ def setup_module(mod):
 #    '0.8.4': '0.8.3',   # did not change
 #    }
 
+def _read(p):
+    with open(p) as f:
+        return f.read()
+
 def test_version():
     v = cffi.__version__
     version_info = '.'.join(str(i) for i in cffi.__version_info__)
@@ -29,16 +33,16 @@ def test_version():
 def test_doc_version():
     cffi_root = Path(os.path.dirname(__file__)).parent.parent
     p = cffi_root / 'doc/source/conf.py'
-    content = open(p).read()
+    content = _read(p)
     #
     v = cffi.__version__
     assert ("version = '%s'\n" % v[:4]) in content
     assert ("release = '%s'\n" % v) in content
 
-def test_setup_version():
+def test_pyproject_version():
     cffi_root = Path(os.path.dirname(__file__)).parent.parent
     p = cffi_root / 'setup.py'
-    content = open(p).read()
+    content = _read(p)
     #
     v = cffi.__version__.replace('+', '')
     assert ("version='%s'" % v) in content
@@ -47,7 +51,7 @@ def test_c_version():
     cffi_root = Path(os.path.dirname(__file__)).parent.parent
     v = cffi.__version__
     p = cffi_root / 'src/c/test_c.py'
-    content = open(p).read()
+    content = _read(p)
     #v = BACKEND_VERSIONS.get(v, v)
     assert (('assert __version__ == "%s"' % v) in content)
 
@@ -55,5 +59,5 @@ def test_embedding_h():
     cffi_root = Path(os.path.dirname(__file__)).parent.parent
     v = cffi.__version__
     p = cffi_root / 'src/cffi/_embedding.h'
-    content = open(p).read()
+    content = _read(p)
     assert ('cffi version: %s"' % (v,)) in content

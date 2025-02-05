@@ -70,3 +70,22 @@ class AppTestMmap(AppTestCpythonExtensionBase):
         
         ret = module.getbuffer(B())
         assert ret == b'hello'     
+
+    def test_argparse(self):
+        # issue 5136
+        module = self.import_extension("foo", [
+        ("getbuffer", "METH_VARARGS", """
+            Py_buffer buf;
+            if (!PyArg_ParseTuple(args, "y*", &buf))
+                return NULL;
+            int ro = buf.readonly;
+            PyBuffer_Release(&buf);
+            return PyLong_FromLong(ro);
+        """),
+        ])
+        # buf = array.array("B", [0] * 1024)
+        buf = bytearray(1024)
+        # buf = (ctypes.c_uint8 * 1024)()
+        ret = module.getbuffer(buf)
+        for i in range(2000):
+            assert ret == 0, "failed in iteration %d" % i

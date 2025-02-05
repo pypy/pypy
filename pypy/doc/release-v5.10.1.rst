@@ -17,7 +17,7 @@ due to the following issues:
 
   * Fix the winreg module for unicode entries in the registry on windows
 
-Note that many of these fixes are for our new beta verison of PyPy3.5 on
+Note that many of these fixes are for our new beta version of PyPy3.5 on
 windows. There may be more unicode problems in the windows beta version
 especially around the subject of directory- and file-names with non-ascii
 characters.

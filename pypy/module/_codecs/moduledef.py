@@ -1,6 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib.objectmodel import not_rpython
-from rpython.rlib import rwin32
 from pypy.module._codecs import interp_codecs
 
 class Module(MixedModule):
@@ -88,7 +87,7 @@ Copyright (c) Corporation for National Research Initiatives.
     @not_rpython
     def __init__(self, space, *args):
         # mbcs codec is Windows specific, and based on rffi system calls.
-        if rwin32.WIN32:
+        if (hasattr(interp_codecs, 'mbcs_encode')):
             self.interpleveldefs['mbcs_encode'] = 'interp_codecs.mbcs_encode'
             self.interpleveldefs['oem_encode'] = 'interp_codecs.oem_encode'
             self.interpleveldefs['code_page_encode'] = 'interp_codecs.code_page_encode'

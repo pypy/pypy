@@ -25,6 +25,10 @@ disable = False
 if sys.platform.startswith('linux') and sys.maxsize <= 2**31:
     # skip all tests on linux32
     disable = True
+if sys.platform == "win32":
+    # skip all tests on windows, they take around 2 hours
+    disable = True
+
 
 # Monkeypatch distutils.sysconfig.get_config_var for the parse_ext_suffix
 # check in devel/abitag.py. Needed for "cross-compilation" when
@@ -85,6 +89,8 @@ def pytest_ignore_collect(path, config):
             return True
     if path == config.rootdir.join('pypy', 'module', '_hpy_universal', 'test',
                                    '_vendored', 'test_support.py'):
+        return True
+    if "/trace/" in str(path) or r'\trace\t' in str(path):
         return True
 
 

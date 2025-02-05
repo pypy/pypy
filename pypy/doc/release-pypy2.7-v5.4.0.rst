@@ -4,7 +4,7 @@ PyPy2.7 v5.4
 
 We have released PyPy2.7 v5.4, a little under two months after PyPy2.7 v5.3.
 This new PyPy2.7 release includes incremental improvements to our C-API
-compatability layer (cpyext), enabling us to pass over 99% of the upstream
+compatibility layer (cpyext), enabling us to pass over 99% of the upstream
 numpy test suite. We updated built-in cffi_ support to version 1.8,
 which now supports the "limited API" mode for c-extensions on 
 CPython >=3.2.

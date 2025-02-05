@@ -1,6 +1,7 @@
 import sys
 import os
 
+
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import (
     TypeDef, generic_new_descr, GetSetProperty)
@@ -12,10 +13,9 @@ from pypy.interpreter.unicodehelper import (str_decode_utf_16,
         utf8_encode_utf_16)
 from pypy.module._codecs.interp_codecs import CodecState
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib._os_support import _preferred_traits
+from rpython.rlib._os_support import utf8_traits
 from rpython.rlib import rwin32
 from rpython.rlib.rstring import StringBuilder
-from rpython.rlib.runicode import WideCharToMultiByte, MultiByteToWideChar
 from rpython.rlib.rwin32file import make_win32_traits
 from rpython.rlib.buffer import ByteBuffer
 from rpython.rlib.rarithmetic import intmask
@@ -134,7 +134,9 @@ def _pyio_get_console_type(space, w_path_or_fd):
     # Another alternative to this whole mess would be to adapt the ctypes-based
     # https://pypi.org/project/win_unicode_console/ which also implements PEP 528
 
-    return '\0'
+    enable_winconsoleio = os.environ.get("PYPY_ENABLE_WINCONSOLEIO")
+    if not enable_winconsoleio:
+        return '\0'
 
     if space.isinstance_w(w_path_or_fd, space.w_int):
         fd = space.int_w(w_path_or_fd)
@@ -143,14 +145,14 @@ def _pyio_get_console_type(space, w_path_or_fd):
             return '\0'
         return _get_console_type(handle)
 
-    decoded = space.fsdecode_w(w_path_or_fd)
-    if not decoded:
+    encoded = space.fsencode_w(w_path_or_fd)
+    if not encoded:
         return '\0'
  
     m = '\0'
 
     # In CPython the _wcsicmp function is used to perform case insensitive comparison
-    dlower = decoded.lower()
+    dlower = encoded.lower()
     if len(dlower) >=4:
         if dlower[:4] == '\\\\.\\' or dlower[:4] == '\\\\?\\':
             dlower = dlower[4:]
@@ -168,7 +170,7 @@ def _pyio_get_console_type(space, w_path_or_fd):
         return m
 
     # Handle things like 'c:\users\user\appdata\local\temp\usession\CONOUT$
-    dlower = getfullpathname(decoded).lower()
+    dlower = getfullpathname(encoded).lower()
     if dlower[:4] == '\\\\.\\' or dlower[:4] == '\\\\?\\':
         dlower = dlower[4:]
     if  dlower == 'conin$':
@@ -296,25 +298,24 @@ class W_WinConsoleIO(W_RawIOBase):
             if self.writable:
                 access = rwin32.GENERIC_WRITE
         
-            traits = _preferred_traits(space.realunicode_w(w_path))
-            if not (traits.str is unicode):
-                raise oefmt(space.w_ValueError,
-                            "Non-unicode string name %s", traits.str)
+            traits = utf8_traits
             win32traits = make_win32_traits(traits)
             
             pathlen = space.len_w(w_path)
             name = rffi.utf82wcharp(space.utf8_w(w_path), pathlen)
-            self.handle = win32traits.CreateFile(name, 
-                rwin32.ALL_READ_WRITE, rwin32.SHARE_READ_WRITE,
-                rffi.NULL, win32traits.OPEN_EXISTING,
-                0, rffi.cast(rwin32.HANDLE, 0))
-            if self.handle == rwin32.INVALID_HANDLE_VALUE:
+            try:
                 self.handle = win32traits.CreateFile(name, 
-                    access,
-                    rwin32.SHARE_READ_WRITE,
+                    rwin32.ALL_READ_WRITE, rwin32.SHARE_READ_WRITE,
                     rffi.NULL, win32traits.OPEN_EXISTING,
                     0, rffi.cast(rwin32.HANDLE, 0))
-            lltype.free(name, flavor='raw')
+                if self.handle == rwin32.INVALID_HANDLE_VALUE:
+                    self.handle = win32traits.CreateFile(name, 
+                        access,
+                        rwin32.SHARE_READ_WRITE,
+                        rffi.NULL, win32traits.OPEN_EXISTING,
+                        0, rffi.cast(rwin32.HANDLE, 0))
+            finally:
+                lltype.free(name, flavor='raw')
             
             if self.handle == rwin32.INVALID_HANDLE_VALUE:
                 raise WindowsError(rwin32.GetLastError_saved(),
@@ -365,7 +366,7 @@ class W_WinConsoleIO(W_RawIOBase):
             return space.newtext("<%s name=%s>" % (typename, name_repr))
             
     def fileno_w(self, space):
-        traits = _preferred_traits(u"")
+        traits = utf8_traits
         win32traits = make_win32_traits(traits)
         if self.fd < 0 and self.handle != rwin32.INVALID_HANDLE_VALUE:
             if self.writable:
@@ -492,7 +493,10 @@ class W_WinConsoleIO(W_RawIOBase):
         if not self.writable:
             raise err_mode(space,"writing")
         
-        utf8 = space.utf8_w(w_data)
+        if space.isinstance_w(w_data, space.w_text):
+            utf8 = space.utf8_w(w_data)
+        else:
+            utf8 = space.bytes_w(w_data)
         if not len(utf8):
             return space.newint(0)
         
@@ -515,7 +519,7 @@ class W_WinConsoleIO(W_RawIOBase):
                         raise OperationError(space.w_WindowsError, space.newint(err))
                     nwrote = intmask(n[0])
                     offset += nwrote
-                return space.newint(offset - 1)
+        return space.newint(len(utf8))
             
     def get_blksize(self,space):
         return space.newint(self.blksize)

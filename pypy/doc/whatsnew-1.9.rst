@@ -124,7 +124,7 @@ content merged into "lib-python/2.7".
 
 .. branch: step-one-xrange
 
-The common case of a xrange iterator with no step argument specifed
+The common case of a xrange iterator with no step argument specified
 was somewhat optimized. The tightest loop involving it,
 sum(xrange(n)), is now 18% faster on average.
 

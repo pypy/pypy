@@ -103,7 +103,10 @@ class TracebackCases(unittest.TestCase):
         self.assertEqual(len(err), 4)
         self.assertEqual(err[1].strip(), "print(2)")
         self.assertIn("^", err[2])
-        self.assertEqual(err[1].find(")") + 1, err[2].find("^"))
+        if sys.implementation.name == 'pypy':
+            self.assertEqual(err[1].find("p"), err[2].find("^"))
+        else:
+            self.assertEqual(err[1].find(")") + 1, err[2].find("^"))
 
         # No caret for "unexpected indent"
         err = self.get_exception_format(self.syntax_error_bad_indentation2,
@@ -281,6 +284,7 @@ class TracebackCases(unittest.TestCase):
             traceback.format_exception_only(None, None), [NONE_EXC_STRING])
 
     def test_signatures(self):
+        # PyPy: add colorize
         self.assertEqual(
             str(inspect.signature(traceback.print_exception)),
             ('(exc, /, value=<implicit>, tb=<implicit>, '
@@ -289,11 +293,11 @@ class TracebackCases(unittest.TestCase):
         self.assertEqual(
             str(inspect.signature(traceback.format_exception)),
             ('(exc, /, value=<implicit>, tb=<implicit>, limit=None, '
-             'chain=True)'))
+             'chain=True, colorize=False)'))
 
         self.assertEqual(
             str(inspect.signature(traceback.format_exception_only)),
-            '(exc, /, value=<implicit>)')
+            '(exc, /, value=<implicit>, colorize=False)')
 
 
 class TracebackFormatTests(unittest.TestCase):

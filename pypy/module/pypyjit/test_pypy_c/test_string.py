@@ -353,14 +353,15 @@ class TestString(BaseTestPyPyC):
         """, [1000])
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('index', '''
-            i51 = int_ge(1, i38)
+            i51 = int_ge(1, i30)
             guard_false(i51, descr=...)
-            i59 = int_sub(i38, 1)
-            i52 = strlen(p47)
-            i53 = int_eq(i38, i52)
-            guard_false(i53, descr=...)
-            i56 = call_i(ConstClass(next_codepoint_pos_dont_look_inside), p47, 0, descr=...)
-            i57 = int_sub(i52, i56)
+            i53 = int_sub(i30, 1)
+            i55 = int_sub(i30, 2)
+            i56 = strlen(p48)
+            i57 = int_eq(i30, i56)
+            guard_false(i57, descr=...)
+            i60 = call_i(ConstClass(next_codepoint_pos_dont_look_inside), p48, 0, descr=...)
+            i61 = int_sub(i56, i60)
         ''')
 
     def test_decode_encode(self):

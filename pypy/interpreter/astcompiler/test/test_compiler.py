@@ -2960,6 +2960,13 @@ class AppTestCompiler:
         ticker = namespace['ticker']
         assert isinstance(ticker(), AsyncGeneratorType)
 
+    def test_bug_hanging_compiler(self):
+        source = '''
+def endless_looping():
+    while True: continue
+        '''
+        compile(source, '<test>', 'exec')
+
 
 class TestOptimizations:
     def count_instructions(self, source):

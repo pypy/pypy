@@ -4906,7 +4906,6 @@ pymem_malloc_without_gil(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
-
 #ifndef PYPY_VERSION
 static PyObject*
 test_pymem_getallocatorsname(PyObject *self, PyObject *args)
@@ -4918,14 +4917,17 @@ test_pymem_getallocatorsname(PyObject *self, PyObject *args)
     }
     return PyUnicode_FromString(name);
 }
+#endif
 
 
 static PyObject*
 test_pyobject_is_freed(const char *test_name, PyObject *op)
 {
+#ifndef PYPY_VERSION
     if (!_PyObject_IsFreed(op)) {
         return raiseTestError(test_name, "object is not seen as freed");
     }
+#endif
     Py_RETURN_NONE;
 }
 
@@ -4986,9 +4988,9 @@ check_pyobject_freed_is_freed(PyObject *self, PyObject *Py_UNUSED(args))
     return test_pyobject_is_freed("check_pyobject_freed_is_freed", op);
 #endif
 }
-#endif // ifndef PYPY_VERSION
 
 
+#ifndef PYPY_VERSION
 static PyObject*
 pyobject_malloc_without_gil(PyObject *self, PyObject *args)
 {
@@ -5001,9 +5003,11 @@ pyobject_malloc_without_gil(PyObject *self, PyObject *args)
     Py_END_ALLOW_THREADS
 
     PyObject_Free(buffer);
+    exit(-1);  // PyPy does not implement memory management hooks
 
     Py_RETURN_NONE;
 }
+#endif
 
 static PyObject *
 tracemalloc_track(PyObject *self, PyObject *args)
@@ -5060,7 +5064,6 @@ tracemalloc_untrack(PyObject *self, PyObject *args)
 
     Py_RETURN_NONE;
 }
-
 
 #ifndef PYPY_VERSION
 static PyObject *
@@ -5682,7 +5685,9 @@ test_set_type_size(PyObject *self, PyObject *Py_UNUSED(ignored))
     Py_RETURN_NONE;
 }
 
-
+#ifdef PYPY_VERSION
+#define TEST_REFCOUNT() Py_RETURN_NONE;
+#else
 #define TEST_REFCOUNT() \
     do { \
         PyObject *obj = PyList_New(0); \
@@ -5707,8 +5712,8 @@ test_set_type_size(PyObject *self, PyObject *Py_UNUSED(ignored))
         \
         Py_DECREF(obj); \
         Py_RETURN_NONE; \
-    } while (0) \
-
+    } while (0)
+#endif
 
 // Test Py_NewRef() and Py_XNewRef() macros
 static PyObject*
@@ -6066,22 +6071,24 @@ static PyMethodDef TestMethods[] = {
     {"PyTime_AsMicroseconds", test_PyTime_AsMicroseconds, METH_VARARGS},
     {"pymem_buffer_overflow", pymem_buffer_overflow, METH_NOARGS},
     {"pymem_api_misuse", pymem_api_misuse, METH_NOARGS},
-    {"pymem_malloc_without_gil", pymem_malloc_without_gil, METH_NOARGS},
 #ifndef PYPY_VERSION
+    {"pymem_malloc_without_gil", pymem_malloc_without_gil, METH_NOARGS},
     {"pymem_getallocatorsname", test_pymem_getallocatorsname, METH_NOARGS},
+#endif
     {"check_pyobject_null_is_freed", check_pyobject_null_is_freed, METH_NOARGS},
     {"check_pyobject_uninitialized_is_freed", check_pyobject_uninitialized_is_freed, METH_NOARGS},
     {"check_pyobject_forbidden_bytes_is_freed", check_pyobject_forbidden_bytes_is_freed, METH_NOARGS},
     {"check_pyobject_freed_is_freed", check_pyobject_freed_is_freed, METH_NOARGS},
-#endif // ifndef PYPY_VERSION
+#ifndef PYPY_VERSION
     {"pyobject_malloc_without_gil", pyobject_malloc_without_gil, METH_NOARGS},
+#endif
     {"tracemalloc_track", tracemalloc_track, METH_VARARGS},
     {"tracemalloc_untrack", tracemalloc_untrack, METH_VARARGS},
 #ifndef PYPY_VERSION
     {"tracemalloc_get_traceback", tracemalloc_get_traceback, METH_VARARGS},
     {"dict_get_version", dict_get_version, METH_VARARGS},
     {"raise_SIGINT_then_send_None", raise_SIGINT_then_send_None, METH_VARARGS},
-#endif // ifndef PYPY_VERSION
+#endif
     {"pyobject_fastcall", test_pyobject_fastcall, METH_VARARGS},
     {"pyobject_fastcalldict", test_pyobject_fastcalldict, METH_VARARGS},
     {"pyobject_vectorcall", test_pyobject_vectorcall, METH_VARARGS},

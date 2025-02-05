@@ -169,6 +169,29 @@ whatisthis"""'''
                           "unexpected character after line continuation character",
                           4)
 
+    def test_continuation_and_indentation_levels(self):
+        # Make sure the '\` generates indent/dedent tokens
+        input1 = r"""\
+def fib(n):
+    \
+'''Print a Fibonacci series up to n.'''
+    \
+a, b = 0, 1
+"""
+        input2 = r"""\
+def fib(n):
+    '''Print a Fibonacci series up to n.'''
+    a, b = 0, 1
+"""
+        def base_eq(tok1, tok2):
+            # Line numbers differ because of `\`, so only compare type and value
+            return all([(t1.token_type == t2.token_type and t1.value == t2.value) for t1, t2 in zip(tok1, tok2)])
+        tks1 = tokenize(input1)
+        tks2 = tokenize(input2)
+        if not base_eq(tks1, tks2):
+            # get better error message
+            assert tks1 == tks2
+
     def test_error_integers(self):
         check_token_error("0b106",
                 "invalid digit '6' in binary literal",

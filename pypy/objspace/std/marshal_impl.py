@@ -72,10 +72,7 @@ def marshaller(type):
 def unmarshaller(tc, save_ref=False):
     def _decorator(f):
         assert tc < '\x80'
-        _unmarshallers.append((tc, f))
-        if save_ref:
-            tcref = chr(ord(tc) + 0x80)
-            _unmarshallers.append((tcref, f))
+        _unmarshallers.append((tc, f, save_ref))
         return f
     return _decorator
 
@@ -117,9 +114,6 @@ def marshal(space, w_obj, m):
     typecode = write_ref(TYPE_STRING, w_obj, m)
     if typecode != FLAG_DONE:
         m.atom_str(typecode, s.as_str())
-
-def get_unmarshallers():
-    return _unmarshallers
 
 
 @marshaller(W_NoneObject)
@@ -597,3 +591,4 @@ def unmarshal_ref(space, u, tc):
 
 
 _marshallers_unroll = unrolling_iterable(_marshallers)
+_unmarshallers_unroll = unrolling_iterable(_unmarshallers)

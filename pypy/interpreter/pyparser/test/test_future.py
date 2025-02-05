@@ -159,7 +159,7 @@ def test_continuation_line():
 
 def test_continuation_lines():
     s = "\\\n  \t\\\nfrom __future__ import with_statement\n"
-    f = run(s, (3, 23))
+    f = run(s, (0, 0))
     assert f == 0
 
 def test_lots_of_continuation_lines():

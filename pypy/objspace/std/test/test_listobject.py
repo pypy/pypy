@@ -1402,8 +1402,15 @@ The argument must be an iterable if specified."""
         l = []
         raises(IndexError, l.pop, 0)
 
-    def test_pop_custom_int(self):
+    def test_custom_int(self):
         class A(object):
+            def __init__(self, x):
+                self.x = x
+
+            def __index__(self):
+                return self.x
+
+        class B(object):
             def __init__(self, x):
                 self.x = x
 
@@ -1411,6 +1418,12 @@ The argument must be an iterable if specified."""
                 return self.x
 
         l = list(range(10))
+        with raises(TypeError) as e:
+            x = l.pop(B(-1))
+        assert "cannot be interpreted as an integer" in str(e.value)
+        with raises(TypeError):
+            x = l.insert(B(0), 12)
+
         x = l.pop(A(-1))
         assert x == 9
         assert l == list(range(9))
@@ -1563,6 +1576,17 @@ The argument must be an iterable if specified."""
         l = [1] * 100
         del l[1:X():2]
         assert l == [1]
+
+    def test_mutate_while_repr(self):
+        class X(object):
+            def __repr__(self):
+                l.__init__()
+                return 'ouchie'
+
+        l = [1]
+        l.append(X())
+        l.append(191)
+        assert repr(l) == '[1, ouchie]'
 
     def test_unicode(self):
         s = "\ufffd\ufffd\ufffd"

@@ -10,7 +10,6 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import platform as compiler
 from rpython.rlib.rarithmetic import intmask, r_longlong
-from rpython.rlib import rgil
 import sys
 
 
@@ -286,9 +285,7 @@ class W_BZ2Compressor(W_Root):
 
     def lock(self):
         if not self._lock.acquire(False):
-            rgil.release()
             self._lock.acquire(True)
-            rgil.acquire()
 
     def unlock(self):
         self._lock.release()
@@ -424,9 +421,7 @@ class W_BZ2Decompressor(W_Root):
 
     def lock(self):
         if not self._lock.acquire(False):
-            rgil.release()
             self._lock.acquire(True)
-            rgil.acquire()
 
     def unlock(self):
         self._lock.release()

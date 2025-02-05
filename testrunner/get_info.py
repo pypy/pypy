@@ -26,6 +26,8 @@ def make_info_dict():
             'virt_pypy': os.path.join(VENV_DIR, TARGET_DIR, VENV_TARGET),
             'venv_dir': VENV_DIR,
             'project': 'PyPy%d.%d' % CPYTHON_VERSION[:2], # for benchmarks
+            # disabled, see https://github.com/python-cffi/cffi/issues/134
+            'xdist_arg': '-n', 'xdist_n': '0',  # for extra_tests
            }
 
 def dump_info():

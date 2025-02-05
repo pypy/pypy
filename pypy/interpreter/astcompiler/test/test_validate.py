@@ -243,7 +243,7 @@ class TestASTValidator:
     def test_name(self):
         for name in ("True", "False", "None"):
             e = ast.Name(name, ast.Load, *POS)
-            self.expr(e, "can't be used with '%s' constant" % name)
+            self.expr(e, "identifier field can't represent '%s' constant" % name)
 
     def test_boolop(self):
         b = ast.BoolOp(ast.And, [], *POS)
@@ -429,7 +429,9 @@ class TestASTValidator:
                                     and not fn.startswith('bad')]
             tests.sort()
         else:
-            tests = ["os.py", "test/test_grammar.py", "test/test_unpack_ex.py"]
+            # tests = ["os.py", "test/test_grammar.py", "test/test_unpack_ex.py"]
+            # speed up test from ~5 seconds to ~4 seconds
+            tests = ["test/test_unpack_ex.py"]
         #
         for module in tests:
             fn = os.path.join(stdlib, module)

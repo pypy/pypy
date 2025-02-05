@@ -9,7 +9,7 @@ What's new in PyPy 2.5.1
 Non-blocking file reads sometimes raised EAGAIN even though they
 had buffered data waiting, fixed in b1c4fcb04a42
 
-Fix a bug in cpyext in multithreded programs acquiring/releasing the GIL
+Fix a bug in cpyext in multithreaded programs acquiring/releasing the GIL
 
 .. branch: vmprof
 

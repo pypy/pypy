@@ -51,6 +51,7 @@ Options and arguments (and corresponding environment variables):
          -X int_max_str_digits=number: limit the size of int<->str conversions.
              This helps avoid denial of service attacks when parsing untrusted data.
              The default is sys.int_info.default_max_str_digits.  0 disables.
+         -X disable-remote-debug: disable the remote debugging interface
   
 --check-hash-based-pycs always|default|never:
     control how Python invalidates hash-based .pyc files
@@ -80,6 +81,7 @@ PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
    topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
 PYPY_DISABLE_JIT: if set to a non-empty value, disable JIT.
+PYTHON_DISABLE_REMOTE_DEBUG: if set to a non-empty value, disable the remote debugging interface
 """
 
 try:
@@ -101,6 +103,7 @@ except AttributeError:
     prepare_shutdown = lambda: 0
 
 _MACOSX = sys.platform == 'darwin'
+_WIN32 = sys.platform == 'win32'
 
 DEBUG = False       # dump exceptions before calling the except hook
 
@@ -323,6 +326,17 @@ def set_jit_option(options, jitparam, *args):
         import pypyjit
         pypyjit.set_param(jitparam)
 
+
+def disable_remote_debug(options):
+    options['_remote_debug'] = 'off'
+    try:
+        import __pypy__
+    except ImportError:
+        pass
+    else:
+        __pypy__._pypy_disable_remote_debugger = True
+
+
 class CommandLineError(Exception):
     pass
 
@@ -393,11 +407,15 @@ def initstdio(encoding=None, unbuffered=False):
         else:
             errors = None
         encoding = encoding or None
+        # issue 5034
+        import _locale
+        _locale.setlocale(_locale.LC_CTYPE, "")
+        if _WIN32 and not encoding:
+            encoding = "utf-8"
         if not (encoding or errors):
-            # stdin/out default to surrogateescape in C locale
-            import _locale
+            # stdin/out default to strict in C locale
             if _locale.setlocale(_locale.LC_CTYPE, None) == 'C':
-                errors = 'surrogateescape'
+                errors = 'strict'
 
         sys.stderr = sys.__stderr__ = create_stdio(
             2, True, "<stderr>", encoding, 'backslashreplace', unbuffered)
@@ -514,6 +532,8 @@ def X_option(options, xoption, iterargv):
             options["utf8_mode"] = 0
     elif xoption == 'jit-off':
         set_jit_option(options, 'off')
+    elif xoption == 'disable-remote-debug':
+        disable_remote_debug(options)
     elif xoption == 'warn_default_encoding':
         options["warn_default_encoding"] = 1
 
@@ -744,6 +764,9 @@ def _parse_command_line(argv):
         sys.flags = type(oldflags)(flags)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
 
+    if getenv('PYTHON_DISABLE_REMOTE_DEBUG'):
+        disable_remote_debug(options)
+
 ##    if not WE_ARE_TRANSLATED:
 ##        for key in sorted(options):
 ##            print '%40s: %s' % (key, options[key])
@@ -778,7 +801,7 @@ def run_command_line(interactive,
     readenv = not ignore_environment
     io_encoding = getenv("PYTHONIOENCODING") if readenv else None
     if (not io_encoding or io_encoding == ":") and utf8_mode:
-        io_encoding = "utf-8:surrogateescape"
+        io_encoding = "utf-8"
     initstdio(io_encoding, unbuffered)
 
     if 'faulthandler' in sys.builtin_module_names:

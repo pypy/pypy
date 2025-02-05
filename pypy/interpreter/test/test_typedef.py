@@ -382,7 +382,7 @@ class AppTestTypeDef:
         assert bm.__self__ is obj
         assert bm.__doc__ == "aaa"
         assert bm.x == 3
-        assert type(bm).__doc__ == "instancemethod(function, instance, class)\n\nCreate an instance method object."
+        assert type(bm).__doc__ == "Create a method object."
         raises(AttributeError, setattr, bm, 'x', 15)
         l = []
         assert l.append.__self__ is l
@@ -413,5 +413,6 @@ class AppTestTypeDef:
         class X:
             "hi there"
         assert X.__doc__ == 'hi there'
-        exc = raises(AttributeError, 'del X.__doc__')
-        assert "can't delete X.__doc__" in str(exc.value)
+        with raises(AttributeError) as exc:
+            del X.__doc__
+        assert "cannot delete '__doc__' attribute" in str(exc.value), str(exc.value)

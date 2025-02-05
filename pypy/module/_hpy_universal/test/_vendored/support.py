@@ -1,11 +1,14 @@
 import os, sys
 # from filelock import FileLock
 import pytest
-from pathlib import Path
 import re
 import subprocess
 import textwrap
 import distutils
+try:
+    from pathlib import Path
+except ImportError:
+    Path = None
 
 PY2 = sys.version_info[0] == 2
 

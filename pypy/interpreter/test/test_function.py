@@ -1,5 +1,6 @@
 from pypy.interpreter import eval
-from pypy.interpreter.function import Function, Method, descr_function_get
+from pypy.interpreter.function import Function, Method
+from pypy.interpreter.gateway import descr_function_get
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.argument import Arguments
 

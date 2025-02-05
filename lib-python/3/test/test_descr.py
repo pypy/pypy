@@ -4583,7 +4583,8 @@ order (MRO) for bases """
         self.assertTrue(list.append != list.pop)
         self.assertNotOrderable(list.append, list.append)
         self.assertEqual(list.append.__name__, 'append')
-        self.assertIs(list.append.__objclass__, list)
+        if sys.implementation.name != 'pypy':
+            self.assertIs(list.append.__objclass__, list)
 
     def test_not_implemented(self):
         # Testing NotImplemented...
@@ -4797,22 +4798,26 @@ order (MRO) for bases """
             type(list).__dict__["__doc__"].__set__(list, "blah")
         self.assertIn("cannot set '__doc__' attribute of immutable type 'list'", str(cm.exception))
 
-        with self.assertRaises(TypeError) as cm:
+        with self.assertRaises((TypeError, AttributeError)) as cm:
             type(X).__dict__["__doc__"].__delete__(X)
         self.assertIn("cannot delete '__doc__' attribute of immutable type 'X'", str(cm.exception))
         self.assertEqual(X.__doc__, "banana")
 
     def test_qualname(self):
         descriptors = [str.lower, complex.real, float.real, int.__add__]
-        types = ['method', 'member', 'getset', 'wrapper']
+        if sys.implementation.name == 'pypy':
+            types = ['function', 'getset_descriptor', 'getset_descriptor', 'function']
+        else:
+            types = ['method_descriptor', 'member_descriptor', 'getset_descriptor', 'wrapper_descriptor']
 
         # make sure we have an example of each type of descriptor
         for d, n in zip(descriptors, types):
-            self.assertEqual(type(d).__name__, n + '_descriptor')
+            self.assertEqual(type(d).__name__, n)
 
-        for d in descriptors:
-            qualname = d.__objclass__.__qualname__ + '.' + d.__name__
-            self.assertEqual(d.__qualname__, qualname)
+        if sys.implementation.name != 'pypy':
+            for d in descriptors:
+                qualname = d.__objclass__.__qualname__ + '.' + d.__name__
+                self.assertEqual(d.__qualname__, qualname)
 
         self.assertEqual(str.lower.__qualname__, 'str.lower')
         self.assertEqual(complex.real.__qualname__, 'complex.real')
@@ -4821,11 +4826,12 @@ order (MRO) for bases """
 
         class X:
             pass
-        with self.assertRaises(TypeError):
+        # PYPY: raises AttributeError
+        with self.assertRaises((TypeError, AttributeError)):
             del X.__qualname__
 
-        self.assertRaises(TypeError, type.__dict__['__qualname__'].__set__,
-                          str, 'Oink')
+        with self.assertRaises((TypeError, AttributeError)):
+            type.__dict__['__qualname__'].__set__(str, 'Oink')
 
         global Y
         class Y:
@@ -5045,6 +5051,8 @@ class AAAPTypesLongInitTest(unittest.TestCase):
 
 
 class MiscTests(unittest.TestCase):
+    # XXX PyPy difference: type.__dict__ must use str keys
+    @support.cpython_only
     def test_type_lookup_mro_reference(self):
         # Issue #14199: _PyType_Lookup() has to keep a strong reference to
         # the type MRO because it may be modified during the lookup, if

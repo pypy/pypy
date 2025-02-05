@@ -17,10 +17,12 @@ def get_deps_darwin(binary):
     output = check_output(['otool', '-L', binary], universal_newlines=True)
     output = output.splitlines()
     output = output[1:]  # first line is binary name
+    libs = []
     for line in output:
         path = line.strip().split()[0]
         if (not path or
-                not path.startswith('/usr/local/') or
+                path.startswith('/usr/') or
+                path.startswith('/System/') or
                 basename(path) == basename(binary)):
             continue
         needed = basename(path)
@@ -33,13 +35,14 @@ def get_deps(binary):
         return get_deps_darwin(binary)
     deps = {}
     output = check_output(['ldd', binary], universal_newlines=True)
+    lib = []
     for line in output.splitlines():
         if '=>' not in line:
             continue
         line = line.strip()
         needed, path = line.split(' => ')
         if path == 'not found':
-            raise ValueError('Broken dependency in ' + binary)
+            raise ValueError('Broken dependency in %s:\n %s' % (binary, output))
         path = path.split(' ')[0]
         if not path:
             continue
@@ -92,18 +95,21 @@ def rpath_binaries(binaries):
     return rpaths
 
 
-def make_portable(copytree, python_ver):
+def make_portable(copytree, python_ver, tk_patch, tcl_patch):
     exts = ['so']
     if sys.platform == 'darwin':
         exts = ['dylib', 'so']
-    binaries = glob('bin/libpypy*.' + exts[0])
+    pyver_no_dot = python_ver.replace('.', '')
+    binaries = glob('bin/libpypy{}-c.'.format(python_ver) + exts[0])
+    tcltk = []
     if not binaries:
-        raise ValueError('Could not find bin/libpypy*.%s in "%s"' % (exts[0], os.getcwd()))
+        raise ValueError('Could not find bin/libpypy%s-c.%s in "%s"' % (python_ver, exts[0], os.getcwd()))
     for ext in exts:
-        binaries.extend(glob('lib/pypy{}/*_cffi.pypy*.{}'.format(python_ver, ext)))
-        binaries.extend(glob('lib/pypy{}/*_pypy_openssl*.{}'.format(python_ver, ext)))
-        binaries.extend(glob('lib/pypy{}/_tkinter/*_cffi.pypy*.{}'.format(python_ver, ext)))
+        binaries.extend(glob('lib/pypy{}/*_cffi.pypy{}*.{}'.format(python_ver, pyver_no_dot, ext)))
+        binaries.extend(glob('lib/pypy{}/*_pypy_openssl{}*.{}'.format(python_ver, pyver_no_dot, ext)))
+        binaries.extend(glob('lib/pypy{}/_tkinter/*_cffi.pypy{}*.{}'.format(python_ver, pyver_no_dot, ext)))
     deps = gather_deps(binaries)
+
     copied = copy_deps(deps)
     for path, item in copied.items():
         print('Copied {0} to {1}'.format(path, item))
@@ -112,21 +118,37 @@ def make_portable(copytree, python_ver):
     for binary, rpath in rpaths.items():
         print('Set RPATH of {0} to {1}'.format(binary, rpath))
 
-    # copy tcl/tk shared files, search /usr and copy the containing dir...
-    # this assumes there is only one version of tcl/tk
-    # TODO: parse the version of tcl/tk from the dependencies above
+    # copy tcl/tk shared files, but only if they are the correct version
+    base = os.environ.get('HOMEBREW_CELLAR', '/usr')
     found_tk = found_tcl = False
-    for path, dirs, files in os.walk('/usr'):
+    for path, dirs, files in os.walk(base):
         if not found_tk and 'tk.tcl' in files:
-            print('Found tk shared files at: %s' % (path))
-            found_tk = True
-            target = 'lib/{}'.format(os.path.split(path)[-1])
-            copytree(path, target)
+            with open(os.path.join(path, 'tk.tcl')) as fid:
+                for line in fid:
+                    if line.startswith('package require -exact Tk'):
+                        if tk_patch in line:
+                            print('Found tk shared files at: %s' % (path))
+                            found_tk = True
+                            target = 'lib/{}'.format(os.path.split(path)[-1])
+                            copytree(path, target)
+                        else:
+                            print("Found tk.tcl at %s but wrong version" % path)
+                        break
+            if found_tcl and found_tk:
+                break
         if not found_tcl and 'init.tcl' in files:
-            print('Found tcl shared files at: %s' % (path))
-            found_tcl = True
-            target = 'lib/{}'.format(os.path.split(path)[-1])
-            copytree(path, target)
-
+            with open(os.path.join(path, 'init.tcl')) as fid:
+                for line in fid:
+                    if line.startswith('package require -exact Tcl'):
+                        if tcl_patch in line:
+                            print('Found tcl shared files at: %s' % path)
+                            found_tcl = True
+                            target = 'lib/{}'.format(os.path.split(path)[-1])
+                            copytree(path, target)
+                        else:
+                            print("Found init.tcl at %s but wrong version" % path)
+                        break
+            if found_tcl and found_tk:
+                break
     return deps
 

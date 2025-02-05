@@ -54,9 +54,6 @@ END: Cython Metadata */
 #ifndef DL_IMPORT
   #define DL_IMPORT(t) t
 #endif
-#ifndef DL_EXPORT
-  #define DL_EXPORT(t) t
-#endif
 #define __PYX_COMMA ,
 #ifndef HAVE_LONG_LONG
   #define HAVE_LONG_LONG

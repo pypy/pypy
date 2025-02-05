@@ -5,6 +5,7 @@ from rpython.rlib import rfile
 
 __pypy__ = "__pypy__" in sys.builtin_module_names
 
+PYTHON = sys.executable
 
 class TestFile(BaseRtypingTest):
     def setup_class(cls):
@@ -527,7 +528,7 @@ class TestPopen(object):
             py.test.skip("not for win32")
 
     def test_popen(self):
-        f = rfile.create_popen_file("python -c 'print(42)'", "r")
+        f = rfile.create_popen_file("%s -c 'print(42)'" % PYTHON, "r")
         s = f.read()
         f.close()
         assert s == '42\n'
@@ -536,8 +537,8 @@ class TestPopen(object):
     def test_pclose(self):
         retval = 32
         printval = 42
-        cmd = "python -c 'import sys; print(%s); sys.exit(%s)'" % (
-            printval, retval)
+        cmd = "%s -c 'import sys; print(%s); sys.exit(%s)'" % (
+            PYTHON, printval, retval)
         f = rfile.create_popen_file(cmd, "r")
         s = f.read()
         r = f.close()
@@ -554,7 +555,7 @@ class TestPopenR(BaseRtypingTest):
 
     def test_popen(self):
         printval = 42
-        cmd = "python -c 'print(%s)'" % printval
+        cmd = "%s -c 'print(%s)'" % (PYTHON, printval)
         def f():
             f = rfile.create_popen_file(cmd, "r")
             s = f.read()
@@ -565,8 +566,8 @@ class TestPopenR(BaseRtypingTest):
     def test_pclose(self):
         printval = 42
         retval = 32
-        cmd = "python -c 'import sys; print(%s); sys.exit(%s)'" % (
-            printval, retval)
+        cmd = "%s -c 'import sys; print(%s); sys.exit(%s)'" % (
+            PYTHON, printval, retval)
         def f():
             f = rfile.create_popen_file(cmd, "r")
             s = f.read()

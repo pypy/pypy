@@ -364,6 +364,7 @@ class TestTranforms(BytecodeTestCase):
         self.check_jump_targets(f)
         self.check_lnotab(f)
 
+    @cpython_only # PyPy fails check_jump_targets in some cases
     def test_elim_jump_to_uncond_jump3(self):
         # Intentionally use two-line expressions to test issue37213.
         # JUMP_IF_FALSE_OR_POP to JUMP_IF_FALSE_OR_POP --> JUMP_IF_FALSE_OR_POP to non-jump

@@ -22,7 +22,7 @@ from pypy.interpreter.signature import Signature
 from pypy.interpreter.baseobjspace import (W_Root, ObjSpace, SpaceCache,
     DescrMismatch)
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode
+from pypy.interpreter.function import ClassMethod, FunctionWithFixedCode, Method
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, r_int, r_ulonglong, r_uint
 from rpython.tool.sourcetools import func_with_new_name, compile2
@@ -845,7 +845,10 @@ class BuiltinCode(Code):
     @staticmethod
     def find(space, identifier):
         from pypy.interpreter.function import Function
-        return Function.find(space, identifier).code
+        func = Function.find(space, identifier)
+        if not func:
+            raise oefmt(space.w_ValueError, "invalid code: '%s'", identifier)
+        return func.code
 
     def signature(self):
         return self.sig
@@ -1419,3 +1422,14 @@ class applevel_temp(ApplevelClass):
 @not_rpython
 def app2interp_temp(func, applevel_temp=applevel_temp, filename=None):
     return appdef(func, applevel_temp, filename=filename)
+
+# This should be in function.py, but moved here to avoid circular imports and unwrap_spec
+@unwrap_spec(w_owner = WrappedDefault(None))
+def descr_function_get(space, w_function, w_instance, w_owner=None):
+    """functionobject.__get__(instance, owner=None, /) -> method"""
+    # this is not defined as a method on Function because it's generally
+    # useful logic: w_function can be any callable.  It is used by Method too.
+    if w_instance is None or space.is_w(w_instance, space.w_None):
+        return w_function
+    else:
+        return Method(space, w_function, w_instance)

@@ -3,6 +3,8 @@ import sys, re, os
 import pytest
 import cffi
 from cffi import cffi_opcode
+from filelock import FileLock
+from pathlib import Path
 
 if '__pypy__' in sys.builtin_module_names:
     try:
@@ -12,12 +14,13 @@ if '__pypy__' in sys.builtin_module_names:
         # older pytest
         pytest.skip("not available on pypy")
 
-cffi_dir = os.path.dirname(cffi_opcode.__file__)
+cffi_dir = str(Path(os.path.dirname(__file__)).parent.parent / "src/cffi")
 
 r_macro = re.compile(r"#define \w+[(][^\n]*|#include [^\n]*")
 r_define = re.compile(r"(#define \w+) [^\n]*")
 r_ifdefs = re.compile(r"(#ifdef |#endif)[^\n]*")
-header = open(os.path.join(cffi_dir, 'parse_c_type.h')).read()
+with open(os.path.join(cffi_dir, 'parse_c_type.h')) as _header:
+    header = _header.read()
 header = r_macro.sub(r"", header)
 header = r_define.sub(r"\1 ...", header)
 header = r_ifdefs.sub(r"", header)
@@ -25,12 +28,21 @@ header = r_ifdefs.sub(r"", header)
 ffi = cffi.FFI()
 ffi.cdef(header)
 
-lib = ffi.verify(
-        open(os.path.join(cffi_dir, '..', 'c', 'parse_c_type.c')).read() + """
-static const char *get_common_type(const char *search, size_t search_len) {
-    return NULL;
-}
-""",    include_dirs=[cffi_dir])
+
+def build_lib():
+    sourcename = os.path.join(cffi_dir, '..', 'c', 'parse_c_type.c')
+    with FileLock(sourcename + ".lock"):
+        with open(sourcename) as _body:
+            body = _body.read()
+        lib = ffi.verify(
+            body + """
+        static const char *get_common_type(const char *search, size_t search_len) {
+            return NULL;
+        }
+        """,    include_dirs=[cffi_dir])
+    return lib
+
+lib = build_lib()
 
 class ParseError(Exception):
     pass
@@ -164,6 +176,8 @@ def test_simple():
             ("long double", lib._CFFI_PRIM_LONGDOUBLE),
             (" float  _Complex", lib._CFFI_PRIM_FLOATCOMPLEX),
             ("double _Complex ", lib._CFFI_PRIM_DOUBLECOMPLEX),
+            ("_cffi_float_complex_t", lib._CFFI_PRIM_FLOATCOMPLEX),
+            (" _cffi_double_complex_t", lib._CFFI_PRIM_DOUBLECOMPLEX),
             ]:
         assert parse(simple_type) == ['->', Prim(expected)]
 

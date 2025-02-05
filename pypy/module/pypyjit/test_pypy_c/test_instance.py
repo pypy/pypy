@@ -279,7 +279,7 @@ class TestInstance(BaseTestPyPyC):
             i81 = int_add(i72, 1)
 
             # can't use TICK here, because of the extra setfield_gc
-            ticker0 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value .*>)
+            ticker0 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct_inner.c_value .*>)
             setfield_gc(p0, p65, descr=<FieldP pypy.interpreter.pyframe.PyFrame.vable_token .>)
             ticker_cond0 = int_lt(ticker0, 0)
             guard_false(ticker_cond0, descr=...)

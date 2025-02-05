@@ -28,6 +28,8 @@ class SSLError(OSError):
         if self.strerror and isinstance(self.strerror, str):
             return self.strerror
         return str(self.args)
+
+SSLError.__module__ = "ssl"
 # these are expected on socket as well
 socket.sslerror = SSLError
 for v in [ 'SSL_ERROR_ZERO_RETURN', 'SSL_ERROR_WANT_READ',

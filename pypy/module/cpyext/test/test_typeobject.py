@@ -1575,12 +1575,23 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 void * tp_bases = PyType_GetSlot(typ, Py_tp_bases);
                 long eq = (tp_bases == (void*)typ->tp_bases);
                 return PyLong_FromLong(eq);
-            ''')])
+            '''),
+            ("test_tp_new", "METH_NOARGS",
+            '''
+               newfunc tp_new = PyType_GetSlot(&PyLong_Type, Py_tp_new);
+               if (PyLong_Type.tp_new != tp_new) {
+                   PyErr_SetString(PyExc_AssertionError, "mismatch: tp_new of long");
+                   return NULL;
+               }
+               Py_RETURN_NONE;
+            '''),
+            ])
         obj = module.new_obj()
         assert 'Base12' in str(obj)
         assert type(obj).__doc__ == "The Base12 type or object"
         assert obj.__doc__ == "The Base12 type or object"
         assert module.test_getslot(obj) == 1
+        module.test_tp_new()
 
     def test_multiple_inheritance_fetch_tp_bases(self):
         module = self.import_extension('foo', [
@@ -2467,7 +2478,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
     def test_heap_type2(self):
         # issue 4826: note type->tp_as_buffer is not set (not needed since
         # O.__buffer__ does not exist)
-        module = self.import_extension("foo", [], more_init="""
+        module = self.import_extension("foo", [], prologue="""
             PyObject *make_new_python_type(PyObject* scope,
                          const char *full_name, PyTypeObject *base) {
             PyHeapTypeObject *heap_type = (PyHeapTypeObject *)PyType_Type.tp_alloc(&PyType_Type, 0);
@@ -2487,7 +2498,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             PyObject_SetAttrString(scope, full_name, (PyObject*)type);
             return (PyObject *) type;
             }
-
+            """, more_init="""
             /* No error checking */
             PyObject *op = make_new_python_type(mod, "O", &PyBaseObject_Type);
             PyObject *ap = make_new_python_type(mod, "A", (PyTypeObject *) op);

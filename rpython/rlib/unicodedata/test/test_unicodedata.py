@@ -7,7 +7,8 @@ import pytest
 
 from rpython.rlib.unicodedata import (
     unicodedb_3_2_0, unicodedb_5_2_0,
-    unicodedb_11_0_0, unicodedb_12_1_0, unicodedb_13_0_0)
+    unicodedb_11_0_0, unicodedb_12_1_0, unicodedb_13_0_0,
+    unicodedb_14_0_0)
 
 
 class TestUnicodeData(object):
@@ -253,4 +254,12 @@ def test_cjk_13_missing_range_bug():
     assert unicodedb_13_0_0.name(0x30000) == 'CJK UNIFIED IDEOGRAPH-30000'
     assert unicodedb_13_0_0.name(0x3134a) == 'CJK UNIFIED IDEOGRAPH-3134A'
     assert unicodedb_13_0_0.name(0x3104f) == 'CJK UNIFIED IDEOGRAPH-3104F'
+
+def test_unicode14():
+    assert unicodedb_14_0_0.name(0x1e290) == 'TOTO LETTER PA'
+    assert unicodedb_14_0_0.name(0x1FAC3) == 'PREGNANT MAN'
+
+def test_cjk_14_new_chars():
+    assert unicodedb_14_0_0.name(0x9ffd) == 'CJK UNIFIED IDEOGRAPH-9FFD'
+    assert unicodedb_14_0_0.name(0x2b735) == 'CJK UNIFIED IDEOGRAPH-2B735'
 

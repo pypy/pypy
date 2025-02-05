@@ -548,6 +548,32 @@ class AppTestTypeObject:
         assert type.mro(B_mro) == [B_mro, A_mro, object]
         """
 
+    def test_mro_mutation_interaction_bug(self):
+        """
+        class Base(object):
+            value = 1
+
+        class Meta(type):
+            def mro(cls):
+                return (cls, Base, object)
+
+        class WeirdClass(metaclass=Meta):
+            pass
+
+        assert Base.value == 1
+        assert WeirdClass.value == 1
+
+        Base.value = 2
+        assert Base.value == 2
+        assert WeirdClass.value == 2
+
+        Base.value = 3
+        assert Base.value == 3
+        assert WeirdClass.value == 3
+
+        assert len(Base.__subclasses__()) == 0
+        """
+
     def test_abstract_mro(self):
         """
         class A1:    # in py3k is a new-style class
@@ -1636,6 +1662,19 @@ class AppTestTypeObject:
         assert repr(int | str | int) == "int | str"
         """
 
+    def test_metaclass_new_args_when_calling_type(self):
+        """
+        class T1(type):
+            def __new__(metacls, cls, bases, body, extraarg=False):
+                assert metacls is T1
+                assert extraarg
+                return super().__new__(metacls, cls, bases, body)
+
+        class D1(metaclass=T1, extraarg=True):
+            pass
+
+        type('D2', (D1, ), {}, extraarg=True)
+        """
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

@@ -3350,7 +3350,7 @@ class TestOptimizeBasic(BaseTestBasic):
         guard_nonnull(p1) []
         # p1 is not NULL, so the string comparison (p1=="") becomes:
         i6 = strlen(p1)
-        i0 = int_eq(i6, 0)
+        i0 = int_is_zero(i6)
         escape_n(i0)
         jump(p1)
         """
@@ -3385,7 +3385,7 @@ class TestOptimizeBasic(BaseTestBasic):
         [p1]
         guard_nonnull(p1) []
         i1 = strlen(p1)
-        i0 = int_eq(i1, 0)
+        i0 = int_is_zero(i1)
         escape_n(i0)
         jump(p1)
         """
@@ -3664,7 +3664,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [p0, p1, i0, i2, i3]
-        i4 = int_eq(i3, 0)
+        i4 = int_is_zero(i3)
         guard_true(i4) []
         jump(p0, p1, i0, i2, 0)
         """

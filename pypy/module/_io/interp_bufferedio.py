@@ -388,7 +388,11 @@ class BufferedMixin:
         self.maybe_unregister_rpython_finalizer_io(space)
 
     def _dealloc_warn_w(self, space, w_source):
-        space.call_method(self.w_raw, "_dealloc_warn", w_source)
+        if self.w_raw:
+            space.call_method(self.w_raw, "_dealloc_warn", w_source)
+        else:
+            raise oefmt(space.w_RuntimeError,
+                 "calling _dealloc_warn' on a closed or detached reader")
 
     def simple_flush_w(self, space):
         self._check_init(space)

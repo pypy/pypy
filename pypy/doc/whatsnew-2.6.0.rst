@@ -33,7 +33,7 @@ Fix isspace as called by rpython unicode.strip()
 
 issue2023:
 In the cpyext 'Concrete Object Layer' API,
-don't call methods on the object (which can be overriden),
+don't call methods on the object (which can be overridden),
 but directly on the concrete base type.
 
 issue2029:
@@ -96,7 +96,7 @@ Implement np.can_cast, np.min_scalar_type and missing dtype comparison operation
 .. branch: numpy-fixes
 
 branch numpy-fixes:
-Fix some error related to object dtype, non-contiguous arrays, inplement parts of 
+Fix some error related to object dtype, non-contiguous arrays, implement parts of 
 __array_interface__, __array_priority__, __array_wrap__
 
 .. branch: cells-local-stack

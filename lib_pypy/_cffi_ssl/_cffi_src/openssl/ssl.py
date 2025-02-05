@@ -304,6 +304,9 @@ void SSL_CTX_set_info_callback(SSL_CTX *, void (*)(const SSL *, int, int));
 void (*SSL_CTX_get_info_callback(SSL_CTX *))(const SSL *, int, int);
 
 long SSL_CTX_set1_sigalgs_list(SSL_CTX *, const char *);
+typedef void (*SSL_CTX_keylog_cb_func)(const SSL *ssl, const char *line);
+void SSL_CTX_set_keylog_callback(SSL_CTX *ctx, SSL_CTX_keylog_cb_func cb);
+
 
 /*  SSL_SESSION */
 void SSL_SESSION_free(SSL_SESSION *);

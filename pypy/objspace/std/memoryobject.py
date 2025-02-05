@@ -149,22 +149,21 @@ class W_MemoryView(W_Root):
         from pypy.objspace.std.tupleobject import W_AbstractTupleObject
         start = 0
 
-        view = self.view
         length = space.len_w(w_tuple)
-        dim = view.getndim()
+        dim = self.view.getndim()
         dim = 0
         assert isinstance(w_tuple, W_AbstractTupleObject)
         while dim < length:
             w_obj = w_tuple.getitem(space, dim)
             index = space.getindex_w(w_obj, space.w_IndexError)
+            self._check_released(space)
             start += self.view.get_offset(space, dim, index)
             dim += 1
         return start
 
     def _getitem_tuple_indexed(self, space, w_index):
-        view = self.view
         length = space.len_w(w_index)
-        ndim = view.getndim()
+        ndim = self.view.getndim()
         if length < ndim:
             raise oefmt(space.w_NotImplementedError,
                         "sub-views are not implemented")
@@ -174,10 +173,11 @@ class W_MemoryView(W_Root):
                     "cannot index %d-dimension view with %d-element tuple",
                     length, ndim)
 
+        self._check_released(space)
         start = self._start_from_tuple(space, w_index)
         itemsize = self.getitemsize()
-        data = view.getbytes(start, itemsize)
-        return view.value_from_bytes(space, data)
+        data = self.view.getbytes(start, itemsize)
+        return self.view.value_from_bytes(space, data)
 
     def _setitem_tuple_indexed(self, space, w_index, w_obj):
         view = self.view
@@ -212,11 +212,11 @@ class W_MemoryView(W_Root):
 
     def descr_getitem(self, space, w_index):
         self._check_released(space)
-
         is_slice = space.isinstance_w(w_index, space.w_slice)
         if is_slice or space.lookup(w_index, '__index__'):
             start, stop, step, slicelength = self._decode_index(space, w_index, is_slice)
             # ^^^ for a non-slice index, this returns (index, 0, 0, 1)
+            self._check_released(space)
             if step == 0:  # index only
                 dim = self.getndim()
                 if dim == 0:

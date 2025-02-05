@@ -25,6 +25,10 @@ it.  (Maybe we should enable the ellipsis option for these tests.)
 
 In ast.c, syntax errors are raised by calling ast_error().
 
+PyPy-specific changes:
+- replace 'invalid syntax' with 'Unknown character' when '$' appears
+- replace 'invalid syntax' with 'expected ':' in 'match x x:'
+
 Errors from set_context():
 
 >>> obj.None = 1
@@ -302,13 +306,13 @@ SyntaxError: invalid syntax
 ...     case y:
 ...        3 $ 3
 Traceback (most recent call last):
-SyntaxError: invalid syntax
+SyntaxError: Unknown character
 
 >>> match x:
 ...     case $:
 ...        ...
 Traceback (most recent call last):
-SyntaxError: invalid syntax
+SyntaxError: Unknown character
 
 >>> match ...:
 ...     case {**rest, "key": value}:
@@ -887,7 +891,7 @@ Missing ':' before suites:
    ...   case list():
    ...       pass
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: expected ':'
 
    >>> match x:
    ...   case list()
@@ -932,19 +936,19 @@ Custom error messages for try blocks that are not followed by except/finally
 Ensure that early = are not matched by the parser as invalid comparisons
    >>> f(2, 4, x=34); 1 $ 2
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: Unknown character
 
    >>> dict(x=34); x $ y
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: Unknown character
 
    >>> dict(x=34, (x for x in range 10), 1); x $ y
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: Unknown character
 
    >>> dict(x=34, x=1, y=2); x $ y
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: Unknown character
 
 Incomplete dictionary literals
 
@@ -976,7 +980,7 @@ Incomplete dictionary literals
 
    >>> {1} $
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: Unknown character
 
    # Ensure that the error is not raised for invalid expressions
 
@@ -986,7 +990,7 @@ Incomplete dictionary literals
 
    >>> {1: $, 2: 3}
    Traceback (most recent call last):
-   SyntaxError: invalid syntax
+   SyntaxError: Unknown character
 
 Specialized indentation errors:
 
@@ -1170,8 +1174,6 @@ raise a custom exception
    Traceback (most recent call last):
    SyntaxError: multiple exception types must be parenthesized
 
-
-PyPy-specific extension
 
 >>> f(a=23, a=234)
 Traceback (most recent call last):
@@ -1359,11 +1361,7 @@ class SyntaxTestCase(unittest.TestCase):
         )
 
     def test_curly_brace_after_primary_raises_immediately(self):
-        if sys.implementation.name == 'pypy':
-            msg = "parenthesis is never closed"
-        else:
-            msg = "invalid syntax"
-        self._check_error("f{", msg, mode="single")
+        self._check_error("f{}", "invalid syntax", mode="single")
 
     def test_assign_call(self):
         self._check_error("f() = 1", "assign")
@@ -1448,7 +1446,7 @@ class SyntaxTestCase(unittest.TestCase):
 
     def test_break_outside_loop(self):
         if sys.implementation.name == 'pypy':
-            msg = "in loop"
+            msg = "not properly in loop"
         else:
             msg = "outside loop"
         self._check_error("break", msg, lineno=1)

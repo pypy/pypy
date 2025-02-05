@@ -178,7 +178,6 @@ class CConfig:
         libraries=rtime.libraries
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
-    has_gettimeofday = platform.Has('gettimeofday')
 
 HAS_TM_ZONE = False
 
@@ -245,13 +244,13 @@ if _POSIX:
     timeval = cConfig.timeval
 
 CLOCKS_PER_SEC = cConfig.CLOCKS_PER_SEC
-HAS_CLOCK_GETTIME = rtime.HAS_CLOCK_GETTIME
+HAS_CLOCK_GETTIME_RUNTIME = rtime.HAS_CLOCK_GETTIME_RUNTIME
 HAS_CLOCK_HIGHRES = rtime.CLOCK_HIGHRES is not None
 HAS_CLOCK_MONOTONIC = rtime.CLOCK_MONOTONIC is not None
 HAS_MONOTONIC = (_WIN or _MACOSX or
-                 (HAS_CLOCK_GETTIME and (HAS_CLOCK_HIGHRES or HAS_CLOCK_MONOTONIC)))
+                 (HAS_CLOCK_GETTIME_RUNTIME and (HAS_CLOCK_HIGHRES or HAS_CLOCK_MONOTONIC)))
 HAS_THREAD_TIME = (_WIN or
-                   (HAS_CLOCK_GETTIME and rtime.CLOCK_PROCESS_CPUTIME_ID is not None))
+                   (HAS_CLOCK_GETTIME_RUNTIME and rtime.CLOCK_PROCESS_CPUTIME_ID is not None))
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
@@ -352,7 +351,7 @@ c_gmtime = external('gmtime', [rffi.TIME_TP], TM_P,
 c_mktime = external('mktime', [TM_P], rffi.TIME_T)
 c_localtime = external('localtime', [rffi.TIME_TP], TM_P,
                        save_err=rffi.RFFI_SAVE_ERRNO)
-if HAS_CLOCK_GETTIME:
+if HAS_CLOCK_GETTIME_RUNTIME:
     from rpython.rlib.rtime import TIMESPEC, c_clock_gettime
     from rpython.rlib.rtime import c_clock_settime, c_clock_getres
 if _POSIX:
@@ -722,7 +721,7 @@ def _checktm(space, t_ref):
         raise oefmt(space.w_ValueError, "day of year out of range")
 
 def _time_impl(space, w_info, return_ns):
-    if HAS_CLOCK_GETTIME:
+    if HAS_CLOCK_GETTIME_RUNTIME:
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_gettime(rtime.CLOCK_REALTIME, timespec)
             if ret == 0:
@@ -879,7 +878,7 @@ def mktime(space, w_tup):
 
     return space.newfloat(float(tt))
 
-if HAS_CLOCK_GETTIME:
+if HAS_CLOCK_GETTIME_RUNTIME:
     def _timespec_to_seconds(timespec):
         return widen(timespec.c_tv_sec) + widen(timespec.c_tv_nsec) * 1e-9
 
@@ -1230,7 +1229,7 @@ else:
     have_times = hasattr(rposix, 'c_times')
 
     def _process_time_impl(space, w_info, return_ns):
-        if HAS_CLOCK_GETTIME and (
+        if HAS_CLOCK_GETTIME_RUNTIME and (
                 rtime.CLOCK_PROF is not None or
                 rtime.CLOCK_PROCESS_CPUTIME_ID is not None):
             if rtime.CLOCK_PROF is not None:
