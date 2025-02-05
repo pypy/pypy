@@ -3,7 +3,7 @@ PyPy v7.3.18: release of python 2.7, 3.10 and 3.11 beta
 =======================================================
 
 ..
-     updated to afda0e1905a15
+     updated to 30e1d327015bf68
 
 .. note::
     This is a pre-release announcement. When the release actually happens, it
@@ -20,8 +20,8 @@ the "beta" label. There are a particularly large set of bugfixes in this
 release thanks to @devdanzin using fusil on the 3.10 builds, originally written
 by Victor Stinner. Other significant changes:
 
-- We have updated libunwind and libffi shipped in our portable builds. We also
-  now statically link to libffi where possible which reduces the number of
+- We have updated libffi shipped in our portable builds. We also now statically
+  link to libffi where possible which reduces the number of
   shared object dependencies.
 
 - We have added code to be able to show the native function names when
@@ -115,7 +115,7 @@ not produce function names for C functions. The output looked like this::
      30.8%   <unknown code>
      ...
 
-Whe can now symbolify these C functions and give function names and which
+We can now symbolify these C functions and give function names and which
 shared library they come from, at least on Linux::
 
     Pystone(1.1) time for 50000 passes = 0.218967
@@ -210,7 +210,8 @@ Bugfixes
 - Fix segfault in ``pyexpat`` (:issue:`5112`)
 - Guard against list mutation in the list ``repr`` (:issue:`5117`)
 - Check input for divide-by-zero in ``__pypy__.intops`` (:issue:`5129`)
-- Check input for valid c in ``mulmod(a, b, c)`` (:issue:`5128`)
+- Check input for valid c in ``mulmod(a, b, c)``, ``mod``, and ``floordiv``
+  (:issue:`5128`)
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -304,6 +305,9 @@ Bugfixes
   (:issue:`5156`)
 - Fix signature of ``sendfunc``
 - Backport the CPython fixes to ``pyrepl`` to PyPy (:issue:`4990`)
+- Fix ``win32console._write`` return value (:issue: `5139`)
+- Backport changes to ``site.py`` from CPython3.13 to get pyrepl's
+  ``PYTHON_HISTORY`` working
 
 Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -314,7 +318,7 @@ Speedups and enhancements
   CPython
 - Many error message tweaks for test compliance with CPython
 - Make unmarshaling use ``unrolling_iterable`` instead of a function ptr table,
-  which should speed it up slighly.
+  which should speed it up slightly.
 - Add ``_ssl.keylog_filename`` which is useful for debugging ssl problems
   (:issue:`5141`)
 - Allocate less when using ``PyErr_NoMemory`` to raise an error rather than
