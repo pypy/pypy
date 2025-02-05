@@ -25,6 +25,3 @@ class DummyVMProf(object):
 
     def stop_sampling(self):
         return -1
-    
-    def vmprof_resolve_address(addr):
-        return ("", 0, "-")
