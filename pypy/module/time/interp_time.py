@@ -886,7 +886,6 @@ def _time_impl(space, w_info):
                 mono = bool(widen(info[0].c_monotonic))
                 adjust =  bool(widen(info[0].c_adjustable))
                 _setinfo(space, w_info, implementation, resolution, mono, adjust)
-
         else:
             res = _PyTime_GetSystemClockWithInfo(t, rffi.cast(rffi.CArrayPtr(clock_info_t), 0))
         if res < 0:

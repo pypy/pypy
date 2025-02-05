@@ -37,7 +37,6 @@ def _run_eval_string(source, filename, space, eval):
             from pypy.objspace.std.objspace import StdObjSpace
             space = StdObjSpace()
 
-        import pdb;pdb.set_trace()
         pycode = compilecode(space, source, filename or '<string>', cmd)
 
         mainmodule = ensure__main__(space)
