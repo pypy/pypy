@@ -139,7 +139,7 @@ Other steps
   * update pypy.org_ with the checksum hashes produced from the
     ``repackage.sh`` script or by hand and the download pages
 
-  * update the release note and the indes with the release date
+  * update the release note and the index with the release date
 
   * post announcement on pypy.org
   * send announcements to twitter.com, pypy-dev, python-list,
