@@ -380,7 +380,8 @@ class W_ISlice(W_Root):
     def next_w(self):
         if self.iterable is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
-        self._ignore_items()
+        if self.count != self.next:
+            self._ignore_items()
         stop = self.stop
         if 0 <= stop <= self.count:
             self.iterable = None
