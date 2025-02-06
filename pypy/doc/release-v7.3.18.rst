@@ -1,16 +1,9 @@
-=======================================================
-PyPy v7.3.18: release of python 2.7, 3.10 and 3.11 beta
-=======================================================
+============================================================================
+PyPy v7.3.18: release of python 2.7, 3.10 and 3.11 beta, released 2025-02-06
+============================================================================
 
 ..
      updated to 30e1d327015bf68
-
-.. note::
-    This is a pre-release announcement. When the release actually happens, it
-    will be announced on the PyPy blog_.
-
-.. note::
-   Need to add release date
 
 The PyPy team is proud to release version 7.3.18 of PyPy.
 
