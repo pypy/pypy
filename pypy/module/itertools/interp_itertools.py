@@ -314,9 +314,12 @@ W_FilterFalse.typedef = TypeDef(
     """)
 
 
+def get_printable_location(greenkey):
+    return "islice_ignore_items [%s]" % (greenkey.iterator_greenkey_printable(), )
 islice_ignore_items_driver = jit.JitDriver(name='islice_ignore_items',
-                                           greens=['tp'],
-                                           reds=['w_islice', 'w_iterator'])
+                                           greens=['greenkey'],
+                                           reds=['w_islice', 'w_iterator'],
+                                           get_printable_location=get_printable_location)
 
 class W_ISlice(W_Root):
     def __init__(self, space, w_iterable, w_startstop, args_w):
@@ -402,10 +405,10 @@ class W_ISlice(W_Root):
 
     def _ignore_items(self):
         w_iterator = self.iterable
-        tp = self.space.type(w_iterator)
+        greenkey = self.space.iterator_greenkey(w_iterator)
         while True:
             islice_ignore_items_driver.jit_merge_point(
-                tp=tp, w_islice=self, w_iterator=w_iterator)
+                greenkey=greenkey, w_islice=self, w_iterator=w_iterator)
             if self.count >= self.next:
                 break
             try:
