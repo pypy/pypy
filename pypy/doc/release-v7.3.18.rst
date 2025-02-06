@@ -32,10 +32,10 @@ The release includes three different interpreters:
   backported security updates)
 
 - PyPy3.10, which is an interpreter supporting the syntax and the features of
-  Python 3.10, including the stdlib for CPython 3.10.14.
+  Python 3.10, including the stdlib for CPython 3.10.19.
 
 - PyPy3.11, which is an interpreter supporting the syntax and the features of
-  Python 3.11, including the stdlib for CPython 3.10.10.
+  Python 3.11, including the stdlib for CPython 3.10.11.
 
 The interpreters are based on much the same codebase, thus the triple
 release. This is a micro release, all APIs are compatible with the other 7.3
