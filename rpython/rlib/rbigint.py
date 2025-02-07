@@ -3640,3 +3640,39 @@ def gcd_lehmer(a, b):
 # absolute value and so it must fit an int.
 MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
 
+
+# _________________________________________________________________
+# new attempt at integer string formatting
+
+_small_table10 = "".join(str(i).rjust(2, '0') for i in range(100))
+
+def _ruint64_to_str(u, builder):
+    # will produce exactly 20 digits including leading zeros
+    rest4 = u // 10000000000000000
+    rest4a = rest4 // 100
+    rest4b = rest4 % 100
+    u = u % 10000000000000000
+    a = u // 100000000
+    b = u % 100000000
+    aa = a // 10000
+    ab = a % 10000
+    ba = b // 10000
+    bb = b % 10000
+    aaa = aa // 100
+    aab = aa % 100
+    aba = ab // 100
+    abb = ab % 100
+    baa = ba // 100
+    bab = ba % 100
+    bba = bb // 100
+    bbb = bb % 100
+    builder.append_slice(_small_table10, 2*rest4a, 2*rest4a+2)
+    builder.append_slice(_small_table10, 2*rest4b, 2*rest4b+2)
+    builder.append_slice(_small_table10, 2*aaa, 2*aaa+2)
+    builder.append_slice(_small_table10, 2*aab, 2*aab+2)
+    builder.append_slice(_small_table10, 2*aba, 2*aba+2)
+    builder.append_slice(_small_table10, 2*aba, 2*aba+2)
+    builder.append_slice(_small_table10, 2*abb, 2*abb+2)
+    builder.append_slice(_small_table10, 2*baa, 2*baa+2)
+    builder.append_slice(_small_table10, 2*bab, 2*bab+2)
+    builder.append_slice(_small_table10, 2*bbb, 2*bbb+2)
