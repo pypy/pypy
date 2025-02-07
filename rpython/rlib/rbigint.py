@@ -2947,8 +2947,8 @@ def _compute_sequence_10():
 
 _sequence = _compute_sequence_10()
 
-def _format_int10_recursive(val, builder):
-    _format_int10_recursive_helper(val, builder, _parts_cache_10.mindigits, *_sequence)
+def _format_int10_recursive(val, builder, numdigits=_parts_cache_10.mindigits):
+    _format_int10_recursive_helper(val, builder, numdigits, *_sequence)
 
 @specialize.memo()
 def _sub_memo(a, b):
@@ -3009,14 +3009,20 @@ def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_s
                 curlen += len(s)
             lowdone = True
     else:
-        s = _format_int(high, digits)
-        output.append_multiple_char(digits[0], mindigits - len(s))
-        output.append(s)
+        if _format_int is _format_int10:
+            _format_int10_recursive(high, output)
+        else:
+            s = _format_int(high, digits)
+            output.append_multiple_char(digits[0], mindigits - len(s))
+            output.append(s)
         curlen += mindigits
     if not lowdone:
-        s = _format_int(low, digits)
-        output.append_multiple_char(digits[0], mindigits - len(s))
-        output.append(s)
+        if _format_int is _format_int10:
+            _format_int10_recursive(low, output)
+        else:
+            s = _format_int(high, digits)
+            output.append_multiple_char(digits[0], mindigits - len(s))
+            output.append(s)
         curlen += mindigits
     if max_str_digits > 0 and curlen  - size_prefix > max_str_digits:
         raise MaxIntError("requested output too large")
