@@ -2888,35 +2888,39 @@ def _format_base2_notzero(a, digits, prefix='', suffix='', max_str_digits=0):
         return ''.join(result[next_char_index:])
 
 
+class PartsCacheBase(object):
+    def __init__(self, base):
+        mindigits = 1
+        curr = base
+        while 1:
+            try:
+                curr = ovfcheck(curr * base)
+            except OverflowError:
+                break
+            mindigits += 1
+        self.mindigits = mindigits
+        part = rbigint.fromint(curr)
+        self.lowest_part = curr
+        self.parts_cache = [part]
+
 class _PartsCache(object):
     def __init__(self):
         # 36 - 3, because bases 0, 1 make no sense
         # and 2 is handled differently
         self.parts_cache = [None] * 34
-        self.mindigits = [0] * 34
-
-        for i in range(34):
-            base = i + 3
-            mindigits = 1
-            while base ** mindigits < sys.maxint:
-                mindigits += 1
-            mindigits -= 1
-            self.mindigits[i] = mindigits
 
     def get_cached_parts(self, base):
         index = base - 3
         res = self.parts_cache[index]
         if res is None:
-            rbase = rbigint.fromint(base)
-            part = rbase.pow(rbigint.fromint(self.mindigits[index]))
-            res = [part]
-            self.parts_cache[base - 3] = res
+            res = PartsCacheBase(base)
+            self.parts_cache[index] = res
         return res
 
-    def get_mindigits(self, base):
-        return self.mindigits[base - 3]
 
 _parts_cache = _PartsCache()
+_parts_cache.get_cached_parts(10)
+
 
 def _format_int_general(val, digits):
     base = len(digits)
@@ -2931,13 +2935,14 @@ def _format_int10(val, digits):
     return str(val)
 
 @specialize.arg(7)
-def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits, _format_int, max_str_digits):
+def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_str_digits):
     # bottomed out with min_digit sized pieces
     # use str of ints
     if i == 0:
+        mindigits = pcb.mindigits
         curlen = output.getlength()
         # the last divmod is guaranteed to return two ints
-        high, low = _format_lowest_level_divmod_int_results(x, pts[0].toint())
+        high, low = _format_lowest_level_divmod_int_results(x, pcb.lowest_part)
         # this checks whether any digit has been appended yet
         lowdone = False
         if curlen == size_prefix:
@@ -2964,16 +2969,8 @@ def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits, _format
         if max_str_digits > 0 and curlen  - size_prefix > max_str_digits:
             raise MaxIntError("requested output too large")
     else:
-        top, bot = x.divmod(pts[i]) # split the number
-        #if not top.tobool():
-        #    # the top half can often be 0, because the number isn't perfectly a
-        #    # power of the base
-        #    curlen = output.getlength()
-        #    if curlen != size_prefix:
-        #        output.append_multiple_char(digits[0], mindigits)
-        #else:
-        _format_recursive(top, i-1, output, pts, digits, size_prefix, mindigits, _format_int, max_str_digits)
-        _format_recursive(bot, i-1, output, pts, digits, size_prefix, mindigits, _format_int, max_str_digits)
+        _format_recursive(top, i-1, output, pcb, digits, size_prefix, _format_int, max_str_digits)
+        _format_recursive(bot, i-1, output, pcb, digits, size_prefix, _format_int, max_str_digits)
 
 def _format_lowest_level_divmod_int_results(x, iother):
     # this is only useful in the context of _format_recursive, where we know
@@ -3007,10 +3004,11 @@ def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     if negative:
         x = x.neg()
 
-    pts = _parts_cache.get_cached_parts(base)
-    mindigits = _parts_cache.get_mindigits(base)
+    pcb = _parts_cache.get_cached_parts(base)
+    mindigits = pcb.mindigits
     stringsize = mindigits
     startindex = 0
+    pts = pcb.parts_cache
     for startindex, part in enumerate(pts):
         if not part.lt(x):
             break
@@ -3039,11 +3037,11 @@ def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     else:
         if digits == BASE10:
             _format_recursive(
-                x, startindex, output, pts, digits, output.getlength(), mindigits,
+                x, startindex, output, pcb, digits, output.getlength(),
                 _format_int10, max_str_digits)
         else:
             _format_recursive(
-                x, startindex, output, pts, digits, output.getlength(), mindigits,
+                x, startindex, output, pcb, digits, output.getlength(),
                 _format_int_general, max_str_digits)
 
     output.append(suffix)
