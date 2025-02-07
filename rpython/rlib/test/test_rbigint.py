@@ -297,6 +297,17 @@ class TestRLong(object):
                 r2 = x % y
                 assert r1 == r2
 
+    def test_int_divmod_int_result(self):
+        for x in gen_signs(long_vals):
+            op1 = rbigint.fromlong(x)
+            for y in signed_int_vals:
+                if not y:
+                    continue
+                r1 = op1.int_mod_int_result(y)
+                r2 = x % y
+                assert r1 == r2
+
+
     def test_pow(self):
         for op1 in gen_signs(long_vals_not_too_big):
             rl_op1 = rbigint.fromlong(op1)

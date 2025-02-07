@@ -2945,12 +2945,12 @@ def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits, _format
                 s = _format_int(high, digits)
                 output.append(s)
                 curlen += len(s)
-            elif low:
-                s = _format_int(low, digits)
-                output.append(s)
-                curlen += len(s)
+            else:
+                if low:
+                    s = _format_int(low, digits)
+                    output.append(s)
+                    curlen += len(s)
                 lowdone = True
-
         else:
             s = _format_int(high, digits)
             output.append_multiple_char(digits[0], mindigits - len(s))
