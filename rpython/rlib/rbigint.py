@@ -2934,26 +2934,66 @@ def _format_int10(val, digits):
 def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits, _format_int, max_str_digits):
     # bottomed out with min_digit sized pieces
     # use str of ints
-    curlen = output.getlength()
-    if max_str_digits > 0 and curlen > max_str_digits:
-        raise MaxIntError("requested output too large")
-    if i < 0:
+    if i == 0:
+        curlen = output.getlength()
+        # the last divmod is guaranteed to return two ints
+        high, low = _format_lowest_level_divmod_int_results(x, pts[0].toint())
         # this checks whether any digit has been appended yet
+        lowdone = False
         if curlen == size_prefix:
-            if x.get_sign() != 0:
-                s = _format_int(x.toint(), digits)
+            if high:
+                s = _format_int(high, digits)
                 output.append(s)
+                curlen += len(s)
+            elif low:
+                s = _format_int(low, digits)
+                output.append(s)
+                curlen += len(s)
+                lowdone = True
+
         else:
-            s = _format_int(x.toint(), digits)
+            s = _format_int(high, digits)
             output.append_multiple_char(digits[0], mindigits - len(s))
             output.append(s)
-        curlen = output.getlength()
+            curlen += mindigits
+        if not lowdone:
+            s = _format_int(low, digits)
+            output.append_multiple_char(digits[0], mindigits - len(s))
+            output.append(s)
+            curlen += mindigits
         if max_str_digits > 0 and curlen  - size_prefix > max_str_digits:
             raise MaxIntError("requested output too large")
     else:
         top, bot = x.divmod(pts[i]) # split the number
+        #if not top.tobool():
+        #    # the top half can often be 0, because the number isn't perfectly a
+        #    # power of the base
+        #    curlen = output.getlength()
+        #    if curlen != size_prefix:
+        #        output.append_multiple_char(digits[0], mindigits)
+        #else:
         _format_recursive(top, i-1, output, pts, digits, size_prefix, mindigits, _format_int, max_str_digits)
         _format_recursive(bot, i-1, output, pts, digits, size_prefix, mindigits, _format_int, max_str_digits)
+
+def _format_lowest_level_divmod_int_results(x, iother):
+    # this is only useful in the context of _format_recursive, where we know
+    # that at the lowest levels the division leaves a result that fits into an
+    # int (and the mod does anyway fit into an int)
+    # x must be smaller than iother**2
+    # iother must be positive
+    if not x.tobool():
+        return 0, 0
+    assert iother > 0 and iother <= MASK
+    size = x.numdigits() - 1
+    if size == 1:
+        rem = x.uwidedigit(1)
+        assert rem < iother # otherwise iother ** 2 >= x
+    else:
+        rem = _unsigned_widen_digit(0)
+    rem = (rem << SHIFT) | x.uwidedigit(0)
+    div = rem // iother
+    rem -= div * iother
+    return rffi.cast(lltype.Signed, div), rffi.cast(lltype.Signed, rem)
 
 def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     if x.get_sign() == 0:
@@ -2967,7 +3007,6 @@ def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     if negative:
         x = x.neg()
     rbase = rbigint.fromint(base)
-    two = rbigint.fromint(2)
 
     pts = _parts_cache.get_cached_parts(base)
     mindigits = _parts_cache.get_mindigits(base)
@@ -2980,7 +3019,7 @@ def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     else:
         # not enough parts computed yet
         while pts[-1].lt(x):
-            pts.append(pts[-1].pow(two))
+            pts.append(pts[-1].int_pow(2))
             stringsize *= 2
 
         startindex = len(pts) - 1
@@ -2992,14 +3031,21 @@ def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     if negative:
         output.append('-')
     output.append(prefix)
-    if digits == BASE10:
-        _format_recursive(
-            x, startindex, output, pts, digits, output.getlength(), mindigits,
-            _format_int10, max_str_digits)
+    if startindex < 0:
+        if digits == BASE10:
+            s = _format_int10(x.toint(), digits)
+        else:
+            s = _format_int_general(x.toint(), digits)
+        output.append(s)
     else:
-        _format_recursive(
-            x, startindex, output, pts, digits, output.getlength(), mindigits,
-            _format_int_general, max_str_digits)
+        if digits == BASE10:
+            _format_recursive(
+                x, startindex, output, pts, digits, output.getlength(), mindigits,
+                _format_int10, max_str_digits)
+        else:
+            _format_recursive(
+                x, startindex, output, pts, digits, output.getlength(), mindigits,
+                _format_int_general, max_str_digits)
 
     output.append(suffix)
     return output.build()
