@@ -3006,7 +3006,6 @@ def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     negative = x.get_sign() < 0
     if negative:
         x = x.neg()
-    rbase = rbigint.fromint(base)
 
     pts = _parts_cache.get_cached_parts(base)
     mindigits = _parts_cache.get_mindigits(base)
