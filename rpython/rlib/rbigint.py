@@ -5,7 +5,7 @@ from rpython.rlib.rarithmetic import check_support_int128
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
 from rpython.rlib.objectmodel import we_are_translated, specialize, \
-        not_rpython, newlist_hint
+        not_rpython, newlist_hint, always_inline
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import extregistry
@@ -2936,48 +2936,49 @@ def _format_int10(val, digits):
 
 @specialize.arg(7)
 def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_str_digits):
-    # bottomed out with min_digit sized pieces
-    # use str of ints
-    if i == 0:
-        mindigits = pcb.mindigits
-        curlen = output.getlength()
-        # the last divmod is guaranteed to return two ints
-        high, low = _format_lowest_level_divmod_int_results(x, pcb.lowest_part)
-        # this checks whether any digit has been appended yet
-        lowdone = False
-        if curlen == size_prefix:
-            if high:
-                s = _format_int(high, digits)
-                output.append(s)
-                curlen += len(s)
-            else:
-                if low:
-                    s = _format_int(low, digits)
-                    output.append(s)
-                    curlen += len(s)
-                lowdone = True
-        else:
-            s = _format_int(high, digits)
-            output.append_multiple_char(digits[0], mindigits - len(s))
-            output.append(s)
-            curlen += mindigits
-        if not lowdone:
-            s = _format_int(low, digits)
-            output.append_multiple_char(digits[0], mindigits - len(s))
-            output.append(s)
-            curlen += mindigits
-        if max_str_digits > 0 and curlen  - size_prefix > max_str_digits:
-            raise MaxIntError("requested output too large")
-    else:
-        top, bot = x.divmod(pcb.parts_cache[i]) # split the number
+    while i > 0:
+        top, x = x.divmod(pcb.parts_cache[i]) # split the number
         if not top.tobool() and output.getlength() == size_prefix:
             # the top half can often be 0, because the number isn't perfectly a
             # power of the base
             pass
         else:
             _format_recursive(top, i-1, output, pcb, digits, size_prefix, _format_int, max_str_digits)
-        _format_recursive(bot, i-1, output, pcb, digits, size_prefix, _format_int, max_str_digits)
+        # do the second recursive call by means of manual tail calling
+        i -= 1
+    # bottomed out with min_digit sized pieces
+    # use str of ints
+    mindigits = pcb.mindigits
+    curlen = output.getlength()
+    # the last divmod is guaranteed to return two ints
+    high, low = _format_lowest_level_divmod_int_results(x, pcb.lowest_part)
+    # this checks whether any digit has been appended yet
+    lowdone = False
+    if curlen == size_prefix:
+        if high:
+            s = _format_int(high, digits)
+            output.append(s)
+            curlen += len(s)
+        else:
+            if low:
+                s = _format_int(low, digits)
+                output.append(s)
+                curlen += len(s)
+            lowdone = True
+    else:
+        s = _format_int(high, digits)
+        output.append_multiple_char(digits[0], mindigits - len(s))
+        output.append(s)
+        curlen += mindigits
+    if not lowdone:
+        s = _format_int(low, digits)
+        output.append_multiple_char(digits[0], mindigits - len(s))
+        output.append(s)
+        curlen += mindigits
+    if max_str_digits > 0 and curlen  - size_prefix > max_str_digits:
+        raise MaxIntError("requested output too large")
 
+@always_inline
 def _format_lowest_level_divmod_int_results(x, iother):
     # this is only useful in the context of _format_recursive, where we know
     # that at the lowest levels the division leaves a result that fits into an
