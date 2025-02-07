@@ -2935,11 +2935,12 @@ def _format_int10(val, digits):
     return str(val)
 
 _fourdigits_10 = "".join(str(val).rjust(4, '0') for val in range(10000))
+_fourdigits_10_numzeros = "".join(chr(4 - len(str(val))) for val in range(10000))
 
 def _compute_sequence_10():
     curr = 4
     res = []
-    while curr < 19:
+    while curr < _parts_cache_10.mindigits:
         res.append((curr, 10**curr))
         curr *= 2
     res.reverse()
@@ -2947,20 +2948,27 @@ def _compute_sequence_10():
 
 _sequence = _compute_sequence_10()
 
-def _format_int10_recursive(val, builder, numdigits=_parts_cache_10.mindigits):
-    _format_int10_recursive_helper(val, builder, numdigits, *_sequence)
+def _format_int10_recursive(val, builder, numdigits=_parts_cache_10.mindigits, zeros_in_front=False):
+    _format_int10_recursive_helper(val, builder, numdigits, zeros_in_front, *_sequence)
 
 @specialize.memo()
 def _sub_memo(a, b):
     return a - b
 
 @specialize.arg(2)
-def _format_int10_recursive_helper(val, builder, numdigits, *sequence):
+def _format_int10_recursive_helper(val, builder, numdigits, want_zeros_in_front, *sequence):
     if numdigits <= 4:
         assert 0 <= val <= 10000
-        start = val * 4 + 4 - numdigits
+        start = val * 4
+        if want_zeros_in_front:
+            start += 4 - numdigits
+        else:
+            if not val:
+                return False
+            start += ord(_fourdigits_10_numzeros[val])
         assert start >= 0
         builder.append_slice(_fourdigits_10, start, val * 4 + 4)
+        return True
     elif sequence:
         half, div = sequence[0]
         difference = _sub_memo(numdigits, half)
@@ -2968,13 +2976,14 @@ def _format_int10_recursive_helper(val, builder, numdigits, *sequence):
             if val >= div:
                 top = val // div
                 bot = val - top * div
-                _format_int10_recursive_helper(top, builder, difference, *sequence[1:])
+                want_zeros_in_front = _format_int10_recursive_helper(top, builder, difference, want_zeros_in_front, *sequence[1:])
             else:
-                builder.append('0' * difference)
+                if want_zeros_in_front:
+                    builder.append_multiple_char('0', difference)
                 bot = val
-            _format_int10_recursive_helper(bot, builder, half, *sequence[1:])
+            return _format_int10_recursive_helper(bot, builder, half, want_zeros_in_front, *sequence[1:])
         else:
-            _format_int10_recursive_helper(val, builder, numdigits, *sequence[1:])
+            return _format_int10_recursive_helper(val, builder, numdigits, want_zeros_in_front, *sequence[1:])
 
 
 @specialize.arg(7)
@@ -2989,7 +2998,7 @@ def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_s
             _format_recursive(top, i-1, output, pcb, digits, size_prefix, _format_int, max_str_digits)
         # do the second recursive call by means of manual tail calling
         i -= 1
-    # bottomed out with min_digit sized pieces
+    # bottomed out with mindigits sized pieces
     # use str of ints
     mindigits = pcb.mindigits
     curlen = output.getlength()
@@ -2999,18 +3008,26 @@ def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_s
     lowdone = False
     if curlen == size_prefix:
         if high:
-            s = _format_int(high, digits)
-            output.append(s)
-            curlen += len(s)
-        else:
-            if low:
-                s = _format_int(low, digits)
+            if _format_int is _format_int10:
+                _format_int10_recursive(high, output, zeros_in_front=False)
+                curlen = output.getlength()
+            else:
+                s = _format_int(high, digits)
                 output.append(s)
                 curlen += len(s)
+        else:
+            if low:
+                if _format_int is _format_int10:
+                    _format_int10_recursive(low, output, zeros_in_front=False)
+                    curlen = output.getlength()
+                else:
+                    s = _format_int(low, digits)
+                    output.append(s)
+                    curlen += len(s)
             lowdone = True
     else:
         if _format_int is _format_int10:
-            _format_int10_recursive(high, output)
+            _format_int10_recursive(high, output, zeros_in_front=True)
         else:
             s = _format_int(high, digits)
             output.append_multiple_char(digits[0], mindigits - len(s))
@@ -3018,7 +3035,7 @@ def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_s
         curlen += mindigits
     if not lowdone:
         if _format_int is _format_int10:
-            _format_int10_recursive(low, output)
+            _format_int10_recursive(low, output, zeros_in_front=True)
         else:
             s = _format_int(high, digits)
             output.append_multiple_char(digits[0], mindigits - len(s))

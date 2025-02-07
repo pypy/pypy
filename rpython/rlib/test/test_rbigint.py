@@ -159,9 +159,14 @@ class TestRLong(object):
             assert r2.str() == str(-n)
 
     def test_format10_int_recursive(self):
-        b = StringBuilder()
         val = 48284857328234
-        _format_int10_recursive(val, b)
+        b = StringBuilder()
+        _format_int10_recursive(val, b, zeros_in_front=False)
+        s = b.build()
+        assert s == str(val)
+
+        b = StringBuilder()
+        _format_int10_recursive(val, b, zeros_in_front=True)
         s = b.build()
         assert s.lstrip('0') == str(val)
         assert len(s) == 18
@@ -1882,11 +1887,18 @@ class TestHypothesis(object):
         val = abs(val)
         assume(len(str(val)) < 18)
         b = StringBuilder()
-        _format_int10_recursive(val, b)
+        _format_int10_recursive(val, b, zeros_in_front=False)
+        s = b.build()
+        if val:
+            assert s == str(val)
+        else:
+            assert s == ''
+
+        b = StringBuilder()
+        _format_int10_recursive(val, b, zeros_in_front=True)
         s = b.build()
         assert s.lstrip('0') == str(val).lstrip('0')
         assert len(s) == 18
-
 
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
