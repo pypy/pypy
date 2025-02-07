@@ -2969,7 +2969,13 @@ def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_s
         if max_str_digits > 0 and curlen  - size_prefix > max_str_digits:
             raise MaxIntError("requested output too large")
     else:
-        _format_recursive(top, i-1, output, pcb, digits, size_prefix, _format_int, max_str_digits)
+        top, bot = x.divmod(pcb.parts_cache[i]) # split the number
+        if not top.tobool() and output.getlength() == size_prefix:
+            # the top half can often be 0, because the number isn't perfectly a
+            # power of the base
+            pass
+        else:
+            _format_recursive(top, i-1, output, pcb, digits, size_prefix, _format_int, max_str_digits)
         _format_recursive(bot, i-1, output, pcb, digits, size_prefix, _format_int, max_str_digits)
 
 def _format_lowest_level_divmod_int_results(x, iother):
@@ -3024,6 +3030,7 @@ def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     # remove first base**2**i greater than x
     startindex -= 1
 
+    stringsize += len(prefix) + len(suffix) + negative
     output = StringBuilder(stringsize)
     if negative:
         output.append('-')
