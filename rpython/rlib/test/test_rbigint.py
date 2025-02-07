@@ -17,14 +17,16 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, L
 from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
     gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError,
-    _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10)
+    _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10,
+    _format_int10_recursive)
 from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
 from rpython.rtyper.tool.rfficache import platform
+from rpython.rlib.rstring import StringBuilder
 
-from hypothesis import given, strategies, example, settings
+from hypothesis import given, strategies, example, settings, assume
 
 longs = strategies.builds(
     long, strategies.integers())
@@ -155,6 +157,14 @@ class TestRLong(object):
             assert r1.str() == str(n)
             r2 = r1.neg()
             assert r2.str() == str(-n)
+
+    def test_format10_int_recursive(self):
+        b = StringBuilder()
+        val = 48284857328234
+        _format_int10_recursive(val, b)
+        s = b.build()
+        assert s.lstrip('0') == str(val)
+        assert len(s) == 18
 
     def test_floordiv(self):
         for op1 in gen_signs(long_vals):
@@ -1436,7 +1446,12 @@ class TestTranslatable(object):
             return len(res.str())
         res = interpret(fn, [sys.maxint, sys.maxint])
 
-
+    def test_format10_int_recursive(self):
+        def fn(x):
+            b = StringBuilder()
+            _format_int10_recursive(x, b)
+            return b.build()
+        interpret(fn, [1231551234], backendopt=True)
 
 class TestTranslated(StandaloneTests):
 
@@ -1861,6 +1876,16 @@ class TestHypothesis(object):
     def test_mul_int_int_rbigint_result(self, a, b):
         res = rbigint.mul_int_int_bigint_result(a, b)
         assert res.tolong() == a * b
+
+    @given(ints)
+    def test_format10_int_recursive(self, val):
+        val = abs(val)
+        assume(len(str(val)) < 18)
+        b = StringBuilder()
+        _format_int10_recursive(val, b)
+        s = b.build()
+        assert s.lstrip('0') == str(val).lstrip('0')
+        assert len(s) == 18
 
 
 

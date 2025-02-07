@@ -2919,7 +2919,7 @@ class _PartsCache(object):
 
 
 _parts_cache = _PartsCache()
-_parts_cache.get_cached_parts(10)
+_parts_cache_10 = _parts_cache.get_cached_parts(10)
 
 
 def _format_int_general(val, digits):
@@ -2933,6 +2933,49 @@ def _format_int_general(val, digits):
 
 def _format_int10(val, digits):
     return str(val)
+
+_fourdigits_10 = "".join(str(val).rjust(4, '0') for val in range(10000))
+
+def _compute_sequence_10():
+    curr = 4
+    res = []
+    while curr < 19:
+        res.append((curr, 10**curr))
+        curr *= 2
+    res.reverse()
+    return tuple(res)
+
+_sequence = _compute_sequence_10()
+
+def _format_int10_recursive(val, builder):
+    _format_int10_recursive_helper(val, builder, _parts_cache_10.mindigits, *_sequence)
+
+@specialize.memo()
+def _sub_memo(a, b):
+    return a - b
+
+@specialize.arg(2)
+def _format_int10_recursive_helper(val, builder, numdigits, *sequence):
+    if numdigits <= 4:
+        assert 0 <= val <= 10000
+        start = val * 4 + 4 - numdigits
+        assert start >= 0
+        builder.append_slice(_fourdigits_10, start, val * 4 + 4)
+    elif sequence:
+        half, div = sequence[0]
+        difference = _sub_memo(numdigits, half)
+        if difference >= 0:
+            if val >= div:
+                top = val // div
+                bot = val - top * div
+                _format_int10_recursive_helper(top, builder, difference, *sequence[1:])
+            else:
+                builder.append('0' * difference)
+                bot = val
+            _format_int10_recursive_helper(bot, builder, half, *sequence[1:])
+        else:
+            _format_int10_recursive_helper(val, builder, numdigits, *sequence[1:])
+
 
 @specialize.arg(7)
 def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_str_digits):
