@@ -17,7 +17,8 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, L
 from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
     gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError,
-    _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10)
+    _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10,
+    _format_lowest_level_divmod_int_results)
 from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
@@ -1861,6 +1862,17 @@ class TestHypothesis(object):
     def test_mul_int_int_rbigint_result(self, a, b):
         res = rbigint.mul_int_int_bigint_result(a, b)
         assert res.tolong() == a * b
+
+    @given(strategies.data())
+    def test_format_lowest_level_divmod_int_results(self, data):
+        b = data.draw(strategies.integers(1, MASK))
+        a = data.draw(strategies.integers(0, b-1))
+        c = data.draw(strategies.integers(0, b-1))
+        assume(bool(b))
+        atimesbplusb = rbigint.mul_int_int_bigint_result(a, b).int_add(c)
+        div, mod = _format_lowest_level_divmod_int_results(atimesbplusb, b)
+        print a, b, c, atimesbplusb, div, mod
+        assert (div, mod) == divmod(atimesbplusb.tolong(), b)
 
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
