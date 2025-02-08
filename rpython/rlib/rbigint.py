@@ -823,7 +823,7 @@ class rbigint(object):
     @staticmethod
     @jit.elidable
     def mul_int_int_bigint_result(iself, iother):
-        if not SUPPORT_INT128 or not int_in_valid_range(iself):
+        if not SUPPORT_INT128 or SHIFT != 63 or not int_in_valid_range(iself):
             return rbigint.fromint(iself).int_mul(iother)
         if iself == 0 or iother == 0:
             return NULLRBIGINT
@@ -2894,9 +2894,12 @@ class PartsCacheBase(object):
         curr = base
         while 1:
             try:
-                curr = ovfcheck(curr * base)
+                next = ovfcheck(curr * base)
             except OverflowError:
                 break
+            if next >= MASK:
+                break
+            curr = next
             mindigits += 1
         self.mindigits = mindigits
         part = rbigint.fromint(curr)
