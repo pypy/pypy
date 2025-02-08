@@ -5,9 +5,9 @@ Contributors
 ::
 
   Armin Rigo
-  Maciej Fijałkowski
   Matti Picus
   Carl Friedrich Bolz-Tereick
+  Maciej Fijałkowski
   Antonio Cuni
   Amaury Forgeot d'Arc
   Ronan Lamy
@@ -41,8 +41,8 @@ Contributors
   Alexander Schremmer
   David Edelsohn
   Raffael Tfirst
-  Lawrence Oluyede
   Stefano Rivera
+  Lawrence Oluyede
   Gregor Wegberg
   Jakub Gustak
   Romain Guillebert
@@ -52,10 +52,10 @@ Contributors
   Alexander Hesse
   Justin Peel
   Niko Matsakis
+  Nico Rittinghaus
   Toon Verwaest
   Ludovic Aubry
   stian
-  Nico Rittinghaus
   Alex Martelli
   Adrien Di Mascio
   Anders Hammarquist
@@ -149,6 +149,7 @@ Contributors
   Jason Chu
   Michael Twomey
   Rocco Moretti
+  da-woods
   Andrews Medina
   Tim Matussek
   Pieter Zieschang
@@ -163,6 +164,7 @@ Contributors
   Beatrice During
   Jared Grubb
   Olivier Dormond
+  Christoph Jung
   Nils Müller
   Sergey Matyunin
   Brian Dorsey
@@ -201,6 +203,7 @@ Contributors
   Christopher Pope
   Mike Pavone
   Alan McIntyre
+  Thomas Grainger
   Caleb Burns
   Sebastian Berg
   Matt Billenstein
@@ -234,6 +237,7 @@ Contributors
   Gabriel
   Aaron Iles
   Jacek Generowicz
+  Ilya Egorov
   Paul Gey
   Alessandro Ogier
   Chris Burr
@@ -258,6 +262,7 @@ Contributors
   Jacob Oscarson
   Ignas Mikalajunas
   Lutz Paelike
+  Christian Clauss
   Benjamin Moody
   Renaud Blanch
   h-vertini
@@ -308,8 +313,11 @@ Contributors
   Yusei Tahara
   Joshua Gilbert
   Andrew Thompson
+  Ariel Volovik
+  Martin Teichmann
   diath
   robinverduijn
+  obafgkmdh
   Oskar Haarklou Veileborg
   Karl Otness
   Blackasthesky

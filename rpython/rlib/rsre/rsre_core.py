@@ -58,7 +58,7 @@ class CompiledPattern(object):
         if not consts.V37:      # 'flags' is ignored in >=3.7 mode
             self.flags = flags
         # check we don't get the old value of MAXREPEAT
-        # during the untranslated tests. 
+        # during the untranslated tests.
         # On python3, MAXCODE can appear in patterns. It will be 65535
         # when CODESIZE is 2
         if not we_are_translated() and rsre_char.CODESIZE != 2:
@@ -331,6 +331,9 @@ class Mark(object):
         self.position = position
         self.prev = prev      # chained list
 
+    def __repr__(self):
+        return "Mark(%r, %r, %r)" % (self.gid, self.position, self.prev)
+
 def find_mark(mark, gid):
     while mark is not None:
         if mark.gid == gid:
@@ -543,6 +546,10 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
             match_more = False
 
 class MinUntilMatchResult(AbstractUntilMatchResult):
+    install_jitdriver('MinUntil',
+                      greens=['ppos', 'tailppos', 'resume', 'pattern'],
+                      reds=['ptr', 'marks', 'self', 'ctx'],
+                      debugprint=(3, 0, 2))
 
     def find_first_result(self, ctx, pattern):
         return self.search_next(ctx, pattern, resume=False)
@@ -551,16 +558,19 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
         return self.search_next(ctx, pattern, resume=True)
 
     def search_next(self, ctx, pattern, resume):
-        # XXX missing jit support here
         ppos = self.ppos
-        min = pattern.pat(ppos+1)
-        max = pattern.pat(ppos+2)
         ptr = self.cur_ptr
         marks = self.cur_marks
+        tailppos = self.tailppos
         while True:
+            ctx.jitdriver_MinUntil.jit_merge_point(
+                ppos=ppos, tailppos=tailppos, resume=resume,
+                ptr=ptr, marks=marks, self=self, ctx=ctx,
+                pattern=pattern)
             # try to match 'tail' if we have enough 'item'
+            min = pattern.pat(ppos+1)
             if not resume and self.num_pending >= min:
-                result = sre_match(ctx, pattern, self.tailppos, ptr, marks)
+                result = sre_match(ctx, pattern, tailppos, ptr, marks)
                 if result is not None:
                     self.subresult = result
                     self.cur_ptr = ptr
@@ -568,6 +578,7 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
                     return self
             resume = False
 
+            max = pattern.pat(ppos+2)
             if max == rsre_char.MAXREPEAT or self.num_pending < max:
                 # try to match one more 'item'
                 enum = sre_match(ctx, pattern, ppos + 3, ptr, marks)
@@ -596,6 +607,46 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
             self.num_pending += 1
             ptr = ctx.match_end
             marks = ctx.match_marks
+
+install_jitdriver_spec('MaxUntilPossessive',
+                       greens=['ppos', 'pattern'],
+                       reds=['ptr', 'matches_done', 'marks', 'ctx'],
+                       debugprint=(1, 0))
+
+@specializectx
+def find_repetition_end_possessive(ctx, pattern, ppos, ptr, marks):
+    matches_done = 0
+    enum = None
+    while True:
+        ctx.jitdriver_MaxUntilPossessive.jit_merge_point(
+            ppos=ppos,
+            ptr=ptr, marks=marks, ctx=ctx, matches_done=matches_done,
+            pattern=pattern)
+        maxmatch = pattern.pat(ppos+2)
+        if maxmatch == rsre_char.MAXREPEAT or matches_done < maxmatch:
+            # try to match one more 'item'
+            enum = sre_match(ctx, pattern, ppos + 3, ptr, marks)
+        else:
+            enum = None    # 'max' reached, no more matches
+        minmatch = pattern.pat(ppos+1)
+        if enum is not None:
+            matches_done += 1
+            # matched one more 'item'.
+            last_match_zero_length = (ctx.match_end == ptr)
+            ptr = ctx.match_end
+            marks = ctx.match_marks
+            if last_match_zero_length and matches_done >= minmatch:
+                # zero-width protection: after an empty match, if there
+                # are enough matches, don't try to match more.  Instead,
+                # fall through to trying to match 'tail'.
+                pass
+            else:
+                continue
+        if matches_done >= minmatch:
+            ctx.match_marks = marks
+            return ptr
+        return -1
+
 
 # ____________________________________________________________
 
@@ -956,7 +1007,51 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             result = MinRepeatOneMatchResult(nextppos, ppos+3, max_count,
                                              ptr, marks)
             return result.find_first_result(ctx, pattern)
+        elif consts.eq(op, consts.OPCODE_POSSESSIVE_REPEAT_ONE):
+            # match repeated sequence (maximizing regexp) without
+            # backtracking
 
+            # this operator only works if the repeated item is
+            # exactly one character wide, and we're not already
+            # collecting backtracking points.  for other cases,
+            # use the MAX_REPEAT operator
+
+            # <POSSESSIVE_REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS>
+            # tail
+            start = ptr
+
+            try:
+                minptr = ctx.next_n(start, pattern.pat(ppos+1), ctx.end)
+            except EndOfString:
+                return    # cannot match
+            ptr = find_repetition_end(ctx, pattern, ppos+3, start,
+                                      pattern.pat(ppos+2),
+                                      marks)
+            # when we arrive here, ptr points to the tail of the target
+            # string. match the rest of the pattern.
+            ppos += pattern.pat(ppos)
+        elif consts.eq(op, consts.OPCODE_POSSESSIVE_REPEAT):
+            # create possessive repeat contexts.
+            # <POSSESSIVE_REPEAT> <skip> <1=min> <2=max> pattern
+            # <SUCCESS> tail
+            start = ptr
+            ptr = find_repetition_end_possessive(
+                    ctx, pattern,
+                    ppos, start,
+                    marks)
+            if ptr < 0:
+                return None
+            marks = ctx.match_marks
+            ppos += pattern.pat(ppos) + 1 # match tail now
+        elif consts.eq(op, consts.OPCODE_ATOMIC_GROUP):
+            # Atomic Group Sub Pattern
+            # <ATOMIC_GROUP> <skip> pattern <SUCCESS> tail
+
+            match = sre_match(ctx, pattern, ppos + 1, ptr, marks)
+            if match is None:
+                return None
+            ptr = ctx.match_end
+            ppos += pattern.pat(ppos) # match tail now
         else:
             raise Error("bad pattern code %d" % op)
 
