@@ -2934,57 +2934,6 @@ def _format_int_general(val, digits):
 def _format_int10(val, digits):
     return str(val)
 
-_fourdigits_10 = "".join(str(val).rjust(4, '0') for val in range(10000))
-_fourdigits_10_numzeros = "".join(chr(4 - len(str(val))) for val in range(10000))
-
-def _compute_sequence_10():
-    curr = 4
-    res = []
-    while curr < _parts_cache_10.mindigits:
-        res.append((curr, 10**curr))
-        curr *= 2
-    res.reverse()
-    return tuple(res)
-
-_sequence = _compute_sequence_10()
-
-def _format_int10_recursive(val, builder, numdigits=_parts_cache_10.mindigits, zeros_in_front=False):
-    _format_int10_recursive_helper(val, builder, numdigits, zeros_in_front, *_sequence)
-
-@specialize.memo()
-def _sub_memo(a, b):
-    return a - b
-
-@specialize.arg(2)
-def _format_int10_recursive_helper(val, builder, numdigits, want_zeros_in_front, *sequence):
-    if numdigits <= 4:
-        assert 0 <= val <= 10000
-        start = val * 4
-        if want_zeros_in_front:
-            start += 4 - numdigits
-        else:
-            if not val:
-                return False
-            start += ord(_fourdigits_10_numzeros[val])
-        assert start >= 0
-        builder.append_slice(_fourdigits_10, start, val * 4 + 4)
-        return True
-    elif sequence:
-        half, div = sequence[0]
-        difference = _sub_memo(numdigits, half)
-        if difference >= 0:
-            if val >= div:
-                top = val // div
-                bot = val - top * div
-                want_zeros_in_front = _format_int10_recursive_helper(top, builder, difference, want_zeros_in_front, *sequence[1:])
-            else:
-                if want_zeros_in_front:
-                    builder.append_multiple_char('0', difference)
-                bot = val
-            return _format_int10_recursive_helper(bot, builder, half, want_zeros_in_front, *sequence[1:])
-        else:
-            return _format_int10_recursive_helper(val, builder, numdigits, want_zeros_in_front, *sequence[1:])
-
 
 @specialize.arg(7)
 def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_str_digits):
@@ -3008,38 +2957,24 @@ def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_s
     lowdone = False
     if curlen == size_prefix:
         if high:
-            if _format_int is _format_int10:
-                _format_int10_recursive(high, output, zeros_in_front=False)
-                curlen = output.getlength()
-            else:
-                s = _format_int(high, digits)
-                output.append(s)
-                curlen += len(s)
+            s = _format_int(high, digits)
+            output.append(s)
+            curlen += len(s)
         else:
             if low:
-                if _format_int is _format_int10:
-                    _format_int10_recursive(low, output, zeros_in_front=False)
-                    curlen = output.getlength()
-                else:
-                    s = _format_int(low, digits)
-                    output.append(s)
-                    curlen += len(s)
+                s = _format_int(low, digits)
+                output.append(s)
+                curlen += len(s)
             lowdone = True
     else:
-        if _format_int is _format_int10:
-            _format_int10_recursive(high, output, zeros_in_front=True)
-        else:
-            s = _format_int(high, digits)
-            output.append_multiple_char(digits[0], mindigits - len(s))
-            output.append(s)
+        s = _format_int(high, digits)
+        output.append_multiple_char(digits[0], mindigits - len(s))
+        output.append(s)
         curlen += mindigits
     if not lowdone:
-        if _format_int is _format_int10:
-            _format_int10_recursive(low, output, zeros_in_front=True)
-        else:
-            s = _format_int(high, digits)
-            output.append_multiple_char(digits[0], mindigits - len(s))
-            output.append(s)
+        s = _format_int(low, digits)
+        output.append_multiple_char(digits[0], mindigits - len(s))
+        output.append(s)
         curlen += mindigits
     if max_str_digits > 0 and curlen  - size_prefix > max_str_digits:
         raise MaxIntError("requested output too large")
@@ -3640,39 +3575,3 @@ def gcd_lehmer(a, b):
 # absolute value and so it must fit an int.
 MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
 
-
-# _________________________________________________________________
-# new attempt at integer string formatting
-
-_small_table10 = "".join(str(i).rjust(2, '0') for i in range(100))
-
-def _ruint64_to_str(u, builder):
-    # will produce exactly 20 digits including leading zeros
-    rest4 = u // 10000000000000000
-    rest4a = rest4 // 100
-    rest4b = rest4 % 100
-    u = u % 10000000000000000
-    a = u // 100000000
-    b = u % 100000000
-    aa = a // 10000
-    ab = a % 10000
-    ba = b // 10000
-    bb = b % 10000
-    aaa = aa // 100
-    aab = aa % 100
-    aba = ab // 100
-    abb = ab % 100
-    baa = ba // 100
-    bab = ba % 100
-    bba = bb // 100
-    bbb = bb % 100
-    builder.append_slice(_small_table10, 2*rest4a, 2*rest4a+2)
-    builder.append_slice(_small_table10, 2*rest4b, 2*rest4b+2)
-    builder.append_slice(_small_table10, 2*aaa, 2*aaa+2)
-    builder.append_slice(_small_table10, 2*aab, 2*aab+2)
-    builder.append_slice(_small_table10, 2*aba, 2*aba+2)
-    builder.append_slice(_small_table10, 2*aba, 2*aba+2)
-    builder.append_slice(_small_table10, 2*abb, 2*abb+2)
-    builder.append_slice(_small_table10, 2*baa, 2*baa+2)
-    builder.append_slice(_small_table10, 2*bab, 2*bab+2)
-    builder.append_slice(_small_table10, 2*bbb, 2*bbb+2)
