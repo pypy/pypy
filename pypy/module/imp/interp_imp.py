@@ -11,12 +11,7 @@ from pypy.interpreter.error import OperationError
 def extension_suffixes(space):
     suffixes_w = []
     so_ext = importing.get_so_extension(space)
-    if "powerpc64le" in so_ext or "ppc_64" in so_ext:
-        # force adding a backward-compatible suffix (issue 3833)
-        suffixes_w.append(space.newtext(".pypy39-pp73-ppc_64-linux-gnu.so"))
-        suffixes_w.append(space.newtext(".pypy39-pp73-powerpc64le-linux-gnu.so"))
-    else:   #if space.config.objspace.usemodules.cpyext:
-        suffixes_w.append(space.newtext(so_ext))
+    suffixes_w.append(space.newtext(so_ext))
     return space.newlist(suffixes_w)
 
 def get_magic(space):
