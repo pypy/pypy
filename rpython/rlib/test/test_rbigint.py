@@ -1750,8 +1750,11 @@ class TestHypothesis(object):
         r1 = rx.rshift(shift)
         assert r1.tolong() == x >> shift
 
-    @given(longs, strategies.integers(0, 2000), strategies.sampled_from([int((1 << i) - 1) for i in range(1, r_uint.BITS-1)]))
-    def test_abs_rshift_and_mask(self, x, shift, mask):
+    @given(longs, strategies.integers(0, 2000), strategies.data())
+    def test_abs_rshift_and_mask(self, x, shift, data):
+        mask = data.draw(
+            strategies.sampled_from(
+                [int((1 << i) - 1) for i in range(1, min(SHIFT, r_uint.BITS - 1))]))
         rx = rbigint.fromlong(x)
         r1 = rx.abs_rshift_and_mask(r_ulonglong(shift), mask)
         assert r1 == (abs(x) >> shift) & mask
