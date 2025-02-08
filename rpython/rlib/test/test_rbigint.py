@@ -1910,6 +1910,7 @@ def run():
             info = sys.exc_info()
             print(traceback.format_exc())
             pdb.post_mortem(info[2], pdb.Pdb)
+        raise
 
 
 if __name__ == '__main__':
