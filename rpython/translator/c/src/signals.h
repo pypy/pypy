@@ -23,7 +23,9 @@ int pypysig_poll(void);   /* => signum or -1 */
 RPY_EXTERN
 void pypysig_pushback(int signum);
 
-#define PATH_MAX 1024
+#ifndef PATH_MAX
+ #define PATH_MAX 1024
+#endif
 
 /* When a signal is received, pypysig_counter is set to -1. */
 struct pypysig_long_struct_inner {

@@ -43,9 +43,9 @@
 #define PYPYSIG_NO_WARN_FULL    0x04
 
 struct pypysig_long_struct pypysig_counter = {
-    { 0, },
+    { 0L, },
     "pypysigs",
-    0,
+    0L,
 };
 
 static long volatile pypysig_flags_bits[N_LONGSIG];
