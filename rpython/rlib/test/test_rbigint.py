@@ -18,7 +18,7 @@ from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
     gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError,
     _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10,
-    _format_lowest_level_divmod_int_results)
+    _format_lowest_level_divmod_int_results, _format_int10_18digits)
 from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
@@ -1876,6 +1876,14 @@ class TestHypothesis(object):
         div, mod = _format_lowest_level_divmod_int_results(atimesbplusb, b)
         print a, b, c, atimesbplusb, div, mod
         assert (div, mod) == divmod(atimesbplusb.tolong(), b)
+
+    @given(strategies.integers(0, 10**18-1))
+    def test_format_int10_18digits(self, val):
+        builder = StringBuilder()
+        _format_int10_18digits(val, builder)
+        s = builder.build()
+        assert len(s) == 18
+        assert s.lstrip('0') == str(val).lstrip('0')
 
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])

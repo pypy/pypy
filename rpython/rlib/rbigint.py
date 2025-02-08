@@ -2937,6 +2937,39 @@ def _format_int_general(val, digits):
 def _format_int10(val, digits):
     return str(val)
 
+_format10_table2 = "".join(str(i // 10) + str(i % 10) for i in range(100))
+
+def _format_int10_18digits(val, builder):
+    assert 0 <= val < 10**18
+    top2 = val // 10**16
+    assert top2 < 100
+    val = val % 10**16
+    a = val // 10**8
+    b = val % 10**8
+
+    aa = a // 10**4
+    ab = a % 10**4
+    ba = b // 10**4
+    bb = b % 10**4
+
+    aaa = aa // 10**2
+    aab = aa % 10**2
+    aba = ab // 10**2
+    abb = ab % 10**2
+    baa = ba // 10**2
+    bab = ba % 10**2
+    bba = bb // 10**2
+    bbb = bb % 10**2
+    builder.append_slice(_format10_table2, 2*top2, 2*top2 + 2)
+    builder.append_slice(_format10_table2, 2*aaa, 2*aaa + 2)
+    builder.append_slice(_format10_table2, 2*aab, 2*aab + 2)
+    builder.append_slice(_format10_table2, 2*aba, 2*aba + 2)
+    builder.append_slice(_format10_table2, 2*abb, 2*abb + 2)
+    builder.append_slice(_format10_table2, 2*baa, 2*baa + 2)
+    builder.append_slice(_format10_table2, 2*bab, 2*bab + 2)
+    builder.append_slice(_format10_table2, 2*bba, 2*bba + 2)
+    builder.append_slice(_format10_table2, 2*bbb, 2*bbb + 2)
+
 
 @specialize.arg(7)
 def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_str_digits):
@@ -2970,14 +3003,20 @@ def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_s
                 curlen += len(s)
             lowdone = True
     else:
-        s = _format_int(high, digits)
-        output.append_multiple_char(digits[0], mindigits - len(s))
-        output.append(s)
+        if _format_int is _format_int10 and mindigits == 18:
+            _format_int10_18digits(high, output)
+        else:
+            s = _format_int(high, digits)
+            output.append_multiple_char(digits[0], mindigits - len(s))
+            output.append(s)
         curlen += mindigits
     if not lowdone:
-        s = _format_int(low, digits)
-        output.append_multiple_char(digits[0], mindigits - len(s))
-        output.append(s)
+        if _format_int is _format_int10 and mindigits == 18:
+            _format_int10_18digits(low, output)
+        else:
+            s = _format_int(low, digits)
+            output.append_multiple_char(digits[0], mindigits - len(s))
+            output.append(s)
         curlen += mindigits
     if max_str_digits > 0 and curlen  - size_prefix > max_str_digits:
         raise MaxIntError("requested output too large")
