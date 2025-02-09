@@ -3003,7 +3003,7 @@ def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_s
                 curlen += len(s)
             lowdone = True
     else:
-        if _format_int is _format_int10 and mindigits == 18:
+        if SHIFT == 63 and _format_int is _format_int10 and mindigits == 18:
             _format_int10_18digits(high, output)
         else:
             s = _format_int(high, digits)
@@ -3011,7 +3011,7 @@ def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_s
             output.append(s)
         curlen += mindigits
     if not lowdone:
-        if _format_int is _format_int10 and mindigits == 18:
+        if SHIFT == 63 and _format_int is _format_int10 and mindigits == 18:
             _format_int10_18digits(low, output)
         else:
             s = _format_int(low, digits)
