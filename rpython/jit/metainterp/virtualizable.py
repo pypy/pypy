@@ -114,12 +114,10 @@ class VirtualizableInfo(object):
 
         def get_total_size(virtualizable):
             virtualizable = cast_gcref_to_vtype(virtualizable)
-            size = 0
+            size = num_static_fields
             for _, fieldname in unroll_array_fields:
                 lst = getattr(virtualizable, fieldname)
                 size += len(lst)
-            for _, fieldname in unroll_static_fields:
-                size += 1
             return size
 
         def write_from_resume_data_partial(virtualizable, reader):
@@ -192,12 +190,9 @@ class VirtualizableInfo(object):
 
         unroll_static_fields = unrolling_iterable(zip(FIELDTYPES,
                                                       static_fields))
+        num_static_fields = len(static_fields)
         unroll_array_fields = unrolling_iterable(zip(ARRAYITEMTYPES,
                                                      array_fields))
-        unroll_static_fields_rev = unrolling_iterable(
-                                          reversed(list(unroll_static_fields)))
-        unroll_array_fields_rev = unrolling_iterable(
-                                          reversed(list(unroll_array_fields)))
         self.read_boxes = read_boxes
         self.write_boxes = write_boxes
         self.write_from_resume_data_partial = write_from_resume_data_partial

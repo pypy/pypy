@@ -1070,13 +1070,14 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.boxes_f = boxes_f
         self._prepare_next_section(info)
 
-    def consume_virtualizable_boxes(self, vinfo):
+    def consume_virtualizable_boxes(self, vinfo, vable_size):
         # we have to ignore the initial part of 'nums' (containing vrefs),
         # find the virtualizable from nums[-1], and use it to know how many
         # boxes of which type we have to return.  This does not write
         # anything into the virtualizable.
         virtualizablebox = self.next_ref()
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizablebox)
+        assert vinfo.get_total_size(virtualizable) == vable_size - 1
         return vinfo.load_list_of_boxes(virtualizable, self, virtualizablebox)
 
     def consume_virtualref_boxes(self):
@@ -1088,7 +1089,8 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
     def consume_vref_and_vable_boxes(self, vinfo, ginfo):
         vable_size = self.resumecodereader.next_item()
         if vinfo is not None:
-            virtualizable_boxes = self.consume_virtualizable_boxes(vinfo)
+            assert vable_size
+            virtualizable_boxes = self.consume_virtualizable_boxes(vinfo, vable_size)
         elif ginfo is not None:
             virtualizable_boxes = [self.next_ref()]
         else:
@@ -1384,12 +1386,14 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
             # For each pair, we store the virtual inside the vref.
             vrefinfo.continue_tracing(vref, virtual)
 
-    def consume_vable_info(self, vinfo):
+    def consume_vable_info(self, vinfo, vable_size):
         # we have to ignore the initial part of 'nums' (containing vrefs),
         # find the virtualizable from nums[-1], load all other values
         # from the CPU stack, and copy them into the virtualizable
+        assert vable_size
         virtualizable = self.next_ref()
         # just reset the token, we'll force it later
+        assert vinfo.get_total_size(virtualizable) == vable_size - 1
         vinfo.reset_token_gcref(virtualizable)
         vinfo.write_from_resume_data_partial(virtualizable, self)
 
@@ -1411,7 +1415,7 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         vable_size = self.resumecodereader.next_item()
         if self.resume_after_guard_not_forced != 2:
             if vinfo is not None:
-                self.consume_vable_info(vinfo)
+                self.consume_vable_info(vinfo, vable_size)
             if ginfo is not None:
                 _ = self.resumecodereader.next_item()
             self.consume_virtualref_info(vrefinfo)
