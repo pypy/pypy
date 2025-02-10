@@ -3,6 +3,7 @@
 
 #include "src/precommondefs.h"
 
+#include <limits.h>
 
 /* utilities to set a signal handler */
 RPY_EXTERN
