@@ -1369,8 +1369,6 @@ class __extend__(pyframe.PyFrame):
     @jit.unroll_safe
     def MAKE_FUNCTION(self, oparg, next_instr):
         space = self.space
-        w_qualname = self.popvalue()
-        qualname = self.space.utf8_w(w_qualname)
         w_codeobj = self.popvalue()
         codeobj = self.space.interp_w(PyCode, w_codeobj)
         assert 0 <= oparg <= 0x0F
@@ -1400,7 +1398,8 @@ class __extend__(pyframe.PyFrame):
 
         fn = function.Function(space, codeobj, self.get_w_globals(),
                                defaultarguments,
-                               kw_defs_w, freevars, w_ann, qualname=qualname)
+                               kw_defs_w, freevars, w_ann,
+                               qualname=codeobj.co_qualname)
         self.pushvalue(fn)
 
     def BUILD_SLICE(self, numargs, next_instr):

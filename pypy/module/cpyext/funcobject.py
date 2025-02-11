@@ -150,6 +150,9 @@ def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                   varnames=unwrap_list_of_texts(space, w_varnames),
                   filename=space.fsencode_w(w_filename),
                   name=space.text_w(w_funcname),
+                  # TODO: the C functions should be changed to accept a
+                  # qualname. pass the funcname for now
+                  qualname=space.text_w(w_funcname),
                   firstlineno=rffi.cast(lltype.Signed, firstlineno),
                   linetable=space.bytes_w(w_linetable),
                   freevars=unwrap_list_of_texts(space, w_freevars),
@@ -180,6 +183,9 @@ def PyCode_NewWithPosOnlyArgs(space, argcount, posonlyargcount, kwonlyargcount,
                   varnames=unwrap_list_of_texts(space, w_varnames),
                   filename=space.fsencode_w(w_filename),
                   name=space.text_w(w_funcname),
+                  # TODO: the C functions should be changed to accept a
+                  # qualname. pass the funcname for now
+                  qualname=space.text_w(w_funcname),
                   firstlineno=rffi.cast(lltype.Signed, firstlineno),
                   linetable=space.bytes_w(w_linetable),
                   freevars=unwrap_list_of_texts(space, w_freevars),
@@ -199,6 +205,7 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     size_bc = len(raises_assertionerror_bytecode) // 2
     linetable = encode_positions([pos] * size_bc, firstlineno)
 
+    name = rffi.charp2str(funcname)
     return PyCode(space,
                   argcount=0,
                   posonlyargcount=0,
@@ -211,7 +218,10 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
                   names=[],
                   varnames=[],
                   filename=rffi.charp2str(filename),
-                  name=rffi.charp2str(funcname),
+                  name=name,
+                  # TODO: the C functions should be changed to accept a
+                  # qualname. pass the funcname for now
+                  qualname=name,
                   firstlineno=rffi.cast(lltype.Signed, firstlineno),
                   linetable=linetable,
                   freevars=[],

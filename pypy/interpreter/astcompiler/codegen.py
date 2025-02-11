@@ -247,10 +247,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.frame_blocks = []
         self.interactive = False
         self.temporary_name_counter = 1
-        if isinstance(self.scope, symtable.FunctionScope):
-            self.qualname = qualname + '.<locals>'
-        else:
-            self.qualname = qualname
+        self.qualname = qualname
         self._allow_top_level_await = compile_info.flags & consts.PyCF_ALLOW_TOP_LEVEL_AWAIT
         self._compile(tree)
 
@@ -263,7 +260,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self.scope.lookup(name) == symtable.SCOPE_GLOBAL_EXPLICIT:
             qualname = name
         elif self.qualname:
-            qualname = '%s.%s' % (self.qualname, name)
+            if isinstance(self.scope, symtable.FunctionScope):
+                qualname = '%s.<locals>.%s' % (self.qualname, name)
+            else:
+                qualname = '%s.%s' % (self.qualname, name)
         else:
             qualname = name
         generator = kind(self.space, name, node, lineno, self.symbols,
@@ -496,7 +496,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op_arg(ops.LOAD_CLOSURE, index)
             self.emit_op_arg(ops.BUILD_TUPLE, len(code.co_freevars))
         self.load_const(code)
-        self.load_const(w_qualname)
         self.emit_op_arg(ops.MAKE_FUNCTION, oparg)
 
     def _visit_kwonlydefaults(self, args):

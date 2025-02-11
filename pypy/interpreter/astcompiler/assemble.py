@@ -306,6 +306,7 @@ def _iter_to_dict(iterable, offset=0):
 class PythonCodeMaker(ast.ASTVisitor):
     """Knows how to assemble a PyCode object."""
     _debug_flag = False
+    qualname = None
 
     def __init__(self, space, name, first_lineno, scope, compile_info):
         self.space = space
@@ -764,6 +765,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                       var_names,
                       self.compile_info.filename,
                       self.name,
+                      self.qualname,
                       self.first_lineno,
                       positions,
                       free_names,
@@ -1164,7 +1166,7 @@ def _compute_BUILD_MAP(arg):
     return 1 - 2 * arg
 
 def _compute_MAKE_FUNCTION(arg):
-    return -1 - bool(arg & 0x01) - bool(arg & 0x02) - bool(arg & 0x04) - bool(arg & 0x08)
+    return  -bool(arg & 0x01) - bool(arg & 0x02) - bool(arg & 0x04) - bool(arg & 0x08)
 
 def _compute_BUILD_SLICE(arg):
     if arg == 3:

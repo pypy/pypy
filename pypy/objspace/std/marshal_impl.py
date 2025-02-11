@@ -394,6 +394,7 @@ def marshal_pycode(space, w_pycode, m):
     _marshal_tuple(space, co_cellvars_w, m)
     marshal(space, x.w_filename, m)
     _marshal_unicode(space, x.co_name, m)
+    _marshal_unicode(space, x.co_qualname, m)
     m.put_int(x.co_firstlineno)
     m.atom_str(TYPE_STRING, x.co_linetable)
 
@@ -433,13 +434,14 @@ def unmarshal_pycode(space, u, tc):
     filename    = space.bytes0_w(space.fsencode(w_fn))
 
     name        = space.utf8_w(u.load_w_obj())
+    qualname    = space.utf8_w(u.load_w_obj())
     firstlineno = u.get_int()
     position_info = space.bytes_w(u.load_w_obj())
     filename = assert_str0(filename)
     PyCode.__init__(w_codeobj,
                   space, argcount, posonlyargcount, kwonlyargcount, nlocals, stacksize, flags,
                   code, consts_w[:], names, varnames, filename,
-                  name, firstlineno, position_info, freevars, cellvars,
+                  name, qualname, firstlineno, position_info, freevars, cellvars,
                   hidden_applevel=u.hidden_applevel)
     return w_codeobj
 
