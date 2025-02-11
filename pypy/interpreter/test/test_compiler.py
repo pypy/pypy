@@ -1043,7 +1043,7 @@ class AppTestCompiler(object):
         import math
         code = compile("x = lambda: -0.0; y = lambda: 0.0", "<test>", "exec")
         consts = code.co_consts
-        x, _, y, z = consts
+        x, y, z = consts
         assert isinstance(x, type(code)) and isinstance(y, type(code))
         assert x is not y
         assert x != y
@@ -1055,7 +1055,7 @@ class AppTestCompiler(object):
         # defined on the same line)
         code = compile("x = lambda: 0; y = lambda: 0", "<test>", "exec")
         consts = code.co_consts
-        x, _, y, z = consts
+        x, y, z = consts
         assert isinstance(x, type(code)) and isinstance(y, type(code))
         assert x is not y
         assert x == y
