@@ -120,6 +120,9 @@ class VirtualizableInfo(object):
                 size += len(lst)
             return size
 
+        def minimum_size():
+            return num_static_fields
+
         def write_from_resume_data_partial(virtualizable, reader):
             virtualizable = cast_gcref_to_vtype(virtualizable)
             # Load values from the reader (see resume.py) described by
@@ -201,6 +204,7 @@ class VirtualizableInfo(object):
         self.get_index_in_array = get_index_in_array
         self.get_array_length = get_array_length
         self.get_total_size = get_total_size
+        self.minimum_size = minimum_size
 
         def cast_to_vtype(virtualizable):
             return lltype.cast_pointer(VTYPEPTR, virtualizable)

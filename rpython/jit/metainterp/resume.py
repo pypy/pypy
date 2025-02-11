@@ -225,7 +225,7 @@ class ResumeDataLoopMemo(object):
         numb_state.num_boxes = num_boxes
         numb_state.num_virtuals = num_virtuals
 
-    def number(self, position, trace):
+    def number(self, position, trace, minimum_virtualizable_size=-1):
         snapshot_iter = trace.get_snapshot_iter(position)
         numb_state = NumberingState(snapshot_iter.size)
         numb_state.append_int(0) # patch later: size of resume section
@@ -233,6 +233,10 @@ class ResumeDataLoopMemo(object):
 
         array_iter = snapshot_iter.vable_array
 
+        if minimum_virtualizable_size != -1:
+            # it's > and not >=, because the virtualizable itself is one entry
+            # in the array too
+            assert array_iter.total_length > minimum_virtualizable_size
         numb_state.append_int(array_iter.total_length)
         self._number_boxes(snapshot_iter, array_iter, numb_state)
 
@@ -392,7 +396,13 @@ class ResumeDataVirtualAdder(VirtualVisitor):
         resume_position = self.guard_op.rd_resume_position
         assert resume_position >= 0
         # count stack depth
-        numb_state = self.memo.number(resume_position, self.trace)
+        if self.optimizer.jitdriver_sd.virtualizable_info:
+            minimum_virtualizable_size = self.optimizer.jitdriver_sd.virtualizable_info.minimum_size()
+        else:
+            minimum_virtualizable_size = -1
+        numb_state = self.memo.number(
+            resume_position, self.trace,
+            minimum_virtualizable_size)
         self.liveboxes_from_env = liveboxes_from_env = numb_state.liveboxes
         num_virtuals = numb_state.num_virtuals
         self.liveboxes = {}
