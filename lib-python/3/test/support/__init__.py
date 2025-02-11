@@ -499,6 +499,7 @@ def requires_lzma(reason='requires lzma'):
     return unittest.skipUnless(lzma, reason)
 
 def has_no_debug_ranges():
+    return False # PyPy always has debug ranges
     try:
         import _testinternalcapi
     except ImportError:
