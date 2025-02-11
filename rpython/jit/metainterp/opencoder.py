@@ -442,13 +442,13 @@ class BoxArrayIter(object):
         self.data = data
 
     def __repr__(self):
-        if self.length == 0 and self.data == '\x00':
+        if self.length == 0 and self.data == ['\x00', '\x00']:
             return "BoxArrayIter.BOXARRAYITER0"
         return "<BoxArrayIter length=%s>" % self.length
 
     @staticmethod
     def make(index, data):
-        if data[index] == '\x00':
+        if index == 0: # length 0 arrays are always encoded to index 0
             return BoxArrayIter.BOXARRAYITER0
         return BoxArrayIter(index, data)
 
