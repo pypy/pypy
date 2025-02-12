@@ -5087,6 +5087,26 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
 
         self.meta_interp(f, [10], backendopt=True)
         self.check_resops(jit_choose_r=2)
+
+    def test_jit_choose_getfield_constants(self):
+        driver = JitDriver(greens=[], reds='auto')
+        class Bool(object):
+            _immutable_ = True
+        TRUE = Bool()
+        TRUE.value = True
+        FALSE = Bool()
+        FALSE.value = False
+        def f(i):
+            sum = 0
+            while i > 0:
+                driver.jit_merge_point()
+                w_bool = choose(i & 1 == 0, FALSE, TRUE)
+                sum += w_bool.value + w_bool.value
+                i -= 1
+            return sum
+
+        self.meta_interp(f, [10], backendopt=True)
+        self.check_resops(getfield_gc_i=0)
         self.check_trace_count(1)
 
     def test_jit_choose_r_blackhole_bug(self):

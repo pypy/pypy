@@ -2,7 +2,7 @@ from collections import OrderedDict
 
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.util import args_dict
-from rpython.jit.metainterp.history import new_ref_dict
+from rpython.jit.metainterp.history import new_ref_dict, DONT_CHANGE
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimization, REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, have_dispatcher_method, get_box_replacement)
@@ -522,12 +522,41 @@ class OptHeap(Optimization):
                     cf.force_lazy_set(self, descr)
         return pendingfields
 
+    def _try_fold_getfield_of_choose(self, getfield_op, choose_op):
+        box0 = get_box_replacement(choose_op.getarg(1))
+        if not box0.is_constant():
+            return False
+        box1 = get_box_replacement(choose_op.getarg(2))
+        if not box1.is_constant():
+            return False
+        boolbox = get_box_replacement(choose_op.getarg(0))
+        args = getfield_op.getarglist_copy()
+        args[0] = box0
+        getop0 = getfield_op.copy_and_change(getfield_op.opnum, args=args)
+        resbox0 = self.optimizer.constant_fold(getop0)
+        args[0] = box1
+        getop1 = getfield_op.copy_and_change(getfield_op.opnum, args=args)
+        resbox1 = self.optimizer.constant_fold(getop1)
+        newop = self.replace_op_with(
+            getfield_op,
+            rop.JIT_CHOOSE_I,
+            args=[boolbox, resbox0, resbox1],
+            descr=DONT_CHANGE) # means "kill the descr", for some reason
+        self.optimizer.send_extra_operation(newop)
+        return True
+
     def optimize_GETFIELD_GC_I(self, op):
         descr = op.getdescr()
-        if descr.is_always_pure() and self.get_constant_box(op.getarg(0)) is not None:
-            resbox = self.optimizer.constant_fold(op)
-            self.optimizer.make_constant(op, resbox)
-            return
+        arg0 = get_box_replacement(op.getarg(0))
+        if descr.is_always_pure():
+            if self.get_constant_box(arg0) is not None:
+                resbox = self.optimizer.constant_fold(op)
+                self.optimizer.make_constant(op, resbox)
+                return
+            oparg0 = self.optimizer.as_operation(arg0, rop.JIT_CHOOSE_R)
+            if oparg0 and self._try_fold_getfield_of_choose(op, oparg0):
+                return
+            
         structinfo = self.ensure_ptr_info_arg0(op)
         cf = self.field_cache(descr)
         field = cf.getfield_from_cache(self, structinfo, descr)
@@ -535,7 +564,7 @@ class OptHeap(Optimization):
             self.make_equal_to(op, field)
             return
         # default case: produce the operation
-        self.make_nonnull(op.getarg(0))
+        self.make_nonnull(arg0)
         # return self.emit(op)
         return self.emit(op)
 
