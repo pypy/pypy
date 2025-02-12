@@ -1328,24 +1328,11 @@ def PyUnicode_EncodeUnicodeEscape(space, s, size):
     codec."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
-def PyUnicode_DecodeRawUnicodeEscape(space, s, size, errors):
-    """Create a Unicode object by decoding size bytes of the Raw-Unicode-Escape
-    encoded string s.  Return NULL if an exception was raised by the codec."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CArrayPtr(Py_UNICODE), Py_ssize_t, rffi.CCHARP], PyObject)
 def PyUnicode_EncodeRawUnicodeEscape(space, s, size, errors):
     """Encode the Py_UNICODE buffer of the given size using Raw-Unicode-Escape
     and return a Python string object.  Return NULL if an exception was raised by
     the codec."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsRawUnicodeEscapeString(space, unicode):
-    """Encode a Unicode object using Raw-Unicode-Escape and return the result as
-    Python string object. Error handling is "strict". Return NULL if an exception
-    was raised by the codec."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, PyObject, rffi.CCHARP], PyObject)

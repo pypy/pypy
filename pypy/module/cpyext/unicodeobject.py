@@ -9,7 +9,8 @@ from pypy.interpreter.buffer import BufferInterfaceNotFound
 from pypy.interpreter.unicodehelper import (
     wcharpsize2utf8, str_decode_utf_16_helper, str_decode_utf_32_helper,
     unicode_encode_decimal, utf8_encode_utf_16_helper, BYTEORDER,
-    utf8_encode_utf_32_helper, str_decode_latin_1, utf8_encode_latin_1)
+    utf8_encode_utf_32_helper, str_decode_latin_1, utf8_encode_latin_1,
+    utf8_encode_raw_unicode_escape, str_decode_raw_unicode_escape)
 from pypy.objspace.std.unicodeobject import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, cpython_api,
@@ -1599,3 +1600,29 @@ def PyUnicode_Append(space, p_left, right):
     w_right = from_ref(space, right)
     w_append = space.add(w_left, w_right)
     p_left[0] = make_ref(space, w_append)
+
+@cpython_api([PyObject], PyObject)
+def PyUnicode_AsRawUnicodeEscapeString(space, w_obj):
+    """Encode a Unicode object using Raw-Unicode-Escape and return the result as
+    Python string object. Error handling is "strict". Return NULL if an exception
+    was raised by the codec."""
+    utf8 = space.utf8_w(w_obj)
+    ulen = space.len_w(w_obj)
+    res = utf8_encode_raw_unicode_escape(space, utf8, w_obj, "strict",  None)
+    return space.newbytes(res)
+
+
+@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
+def PyUnicode_DecodeRawUnicodeEscape(space, p_string, length, p_errors):
+    if not p_string:
+            PyErr_BadInternalCall(space)
+    if not p_errors:
+        errors = "strict"
+    else:
+        errors = rffi.charp2str(p_errors)
+    b = rffi.charpsize2str(p_string, length)
+    w_b = space.newbytes(b)
+    state = space.fromcache(CodecState)
+    eh = state.decode_error_handler
+    s, u_len, _ = str_decode_raw_unicode_escape(space, b, w_b, errors, True, eh)
+    return space.newtext(s, u_len)
