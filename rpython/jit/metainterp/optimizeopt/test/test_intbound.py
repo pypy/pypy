@@ -1034,6 +1034,12 @@ def test_union():
     assert b.lower == 0
     assert b.upper == 14
 
+def test_union_knownbits():
+    b1 = knownbits(0b111000000, 0b000000111) # 111000???
+    b2 = knownbits(0b100100100, 0b001001001) # 10?10?10?
+    b = b1.union_new(b2)
+    assert check_knownbits_string(b,          "1???0????", "0")
+
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_union_random(t1, t2):
     b1, n1 = t1

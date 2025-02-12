@@ -4268,6 +4268,26 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_jit_choose_knownbits(self):
+        ops = """
+        [i1, i2, i3]
+        i4 = int_is_true(i1)
+        i5 = int_or(i2, 1)
+        i6 = int_or(i3, 1)
+        i7 = jit_choose_i(i4, i5, i6)
+        i8 = int_and(i7, 1)
+        jump(i8)
+        """
+        expected = """
+        [i1, i2, i3]
+        i4 = int_is_true(i1)
+        i5 = int_or(i2, 1)
+        i6 = int_or(i3, 1)
+        i7 = jit_choose_i(i4, i5, i6)
+        jump(1)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

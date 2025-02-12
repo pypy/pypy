@@ -797,14 +797,6 @@ class IntBound(AbstractInfo):
             assert self._debug_check()
         return r
 
-    def union_new(self, other):
-        """
-        Computes the union between two bounds as a new bound.
-        """
-        lower = min(self.lower, other.lower)
-        upper = max(self.upper, other.upper)
-        return IntBound(lower, upper)
-
     @always_inline
     def _tnum_intersect(self, other_tvalue, other_tmask):
         union_val = self.tvalue | other_tvalue
@@ -836,6 +828,25 @@ class IntBound(AbstractInfo):
         if changed and do_shrinking:
             self.shrink()
         return changed
+
+    def union_new(self, other):
+        """
+        Computes the union between two bounds as a new bound.
+        """
+        lower = min(self.lower, other.lower)
+        upper = max(self.upper, other.upper)
+        tvalue, tmask = self._tnum_union(other.tvalue, other.tmask)
+        return IntBound(lower, upper, tvalue, tmask)
+
+    @always_inline
+    def _tnum_union(self, other_tvalue, other_tmask):
+        # the union is known where self is known and other is know and the
+        # values are the same
+        same_tvalue = ~(self.tvalue ^ other_tvalue)
+        both = self.tmask | other_tmask
+        tmask = ~unmask_zero(same_tvalue, both)
+        tvalue = unmask_zero(self.tvalue, tmask)
+        return tvalue, tmask
 
     def add(self, value):
         return self.add_bound(self.from_constant(value))

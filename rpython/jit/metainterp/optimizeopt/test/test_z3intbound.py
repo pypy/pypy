@@ -562,6 +562,12 @@ class Z3IntBound(IntBound):
         upper = z3.If(z3.And(other.is_constant(), self.lower >= 0), self.upper >> other.lower, MAXINT)
         return Z3IntBound.from_knownbits(tvalue, tmask)
 
+    def union_new(self, other):
+        lower = z3_min(self.lower, other.lower)
+        upper = z3_max(self.upper, other.upper)
+        tvalue, tmask = self._tnum_union(other.tvalue, other.tmask)
+        return Z3IntBound(lower, upper, tvalue, tmask)
+
     def is_constant(self):
         return z3.And(self.lower == self.upper, self.tmask == 0)
 
@@ -1038,6 +1044,22 @@ def test_prove_tnum_intersect_idempotent():
         )
     )
 
+def test_prove_tnum_union():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    tvalue, tmask = b1._tnum_union(b2.tvalue, b2.tmask)
+    b1.prove_implies(
+        b2,
+        z3.And(z3_tnum_condition(b1.concrete_variable, tvalue, tmask),
+               z3_tnum_condition(b2.concrete_variable, tvalue, tmask))
+    )
+
+def test_prove_union_logic():
+    b1 = make_z3_intbounds_instance('self')
+    b2 = make_z3_intbounds_instance('other')
+    b3 = b1.union_new(b2)
+    b1.prove_implies(b2,
+        z3.And(b3.z3_formula(b1.concrete_variable), b3.z3_formula(b2.concrete_variable)))
 
 # ____________________________________________________________
 # prove things about _shrink_knownbits_by_bounds
