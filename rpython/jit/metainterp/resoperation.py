@@ -1047,6 +1047,9 @@ _oplist = [
     'GETARRAYITEM_GC_PURE/2d/rfi',
     'UNICODELEN/1/i',
     'UNICODEGETITEM/2/i',
+    # conditional move
+    'JIT_CHOOSE_I/3/i',           # [int, int, int]
+    'JIT_CHOOSE_R/3/r',           # [int, ref, ref]
     #
     'LOAD_FROM_GC_TABLE/1/r',    # only emitted by rewrite.py
     'LOAD_EFFECTIVE_ADDRESS/4/i', # only emitted by rewrite.py, only if

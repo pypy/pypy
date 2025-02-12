@@ -286,6 +286,14 @@ class Transformer(object):
     def rewrite_op_jit_record_exact_class(self, op):
         return SpaceOperation("record_exact_class", [op.args[0], op.args[1]], None)
 
+    def rewrite_op_jit_choose(self, op):
+        if getkind(op.args[1].concretetype) == "int":
+            opname = "jit_choose_i"
+        else:
+            assert getkind(op.args[1].concretetype) == "ref"
+            opname = "jit_choose_r"
+        return SpaceOperation(opname, op.args, op.result)
+
     def rewrite_op_jit_record_known_result(self, op):
         for arg in op.args:
             if getkind(arg.concretetype) == 'float':

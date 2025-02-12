@@ -160,6 +160,35 @@ class OptRewrite(Optimization):
         else:
             return self.emit(op)
 
+    def optimize_JIT_CHOOSE_I(self, op):
+        intbound = self.getintbound(op.getarg(0))
+        if intbound.is_constant():
+            condition = intbound.get_constant_int()
+            if condition:
+                box = get_box_replacement(op.getarg(2))
+            else:
+                box = get_box_replacement(op.getarg(1))
+            self.make_equal_to(op, box)
+        else:
+            return self.emit(op)
+    optimize_JIT_CHOOSE_R = optimize_JIT_CHOOSE_I
+
+    def postprocess_JIT_CHOOSE_R(self, op):
+        info1 = getptrinfo(op.getarg(1))
+        info2 = getptrinfo(op.getarg(2))
+        # we propagate non-nullness and the class (if known) to op if both
+        # arguments have the same info there
+        cpu = self.optimizer.cpu
+        if cpu.supports_guard_gc_type:
+            known_class1 = info1.get_known_class(cpu)
+            known_class2 = info2.get_known_class(cpu)
+            if (known_class1 is not None and known_class2 is not None and
+                    known_class1.same_constant(known_class2)):
+                self.make_constant_class(op, known_class1, False)
+                return
+        if info1.getnullness() == info2.getnullness() == INFO_NONNULL:
+            self.make_nonnull(op)
+
     def optimize_guard(self, op, constbox):
         box = op.getarg(0)
         if box.type == 'i':
@@ -282,7 +311,28 @@ class OptRewrite(Optimization):
         getptrinfo(op.getarg(0)).mark_last_guard(self.optimizer)
 
     def optimize_GUARD_VALUE(self, op):
-        arg0 = op.getarg(0)
+        arg0 = get_box_replacement(op.getarg(0))
+        op0 = self.optimizer.as_operation(arg0)
+
+        constbox = op.getarg(1)
+        assert isinstance(constbox, Const)
+
+        # first check whether we are promoting the result of a jit_choose
+        if op0 is not None:
+            opnum = op0.getopnum()
+            if opnum == rop.JIT_CHOOSE_I or opnum == rop.JIT_CHOOSE_R:
+                arg0 = get_box_replacement(op0.getarg(0))
+                arg1 = get_box_replacement(op0.getarg(1))
+                arg2 = get_box_replacement(op0.getarg(2))
+                if (arg1.is_constant() and arg2.is_constant() and not
+                        arg1.same_constant(arg2)):
+                    condition = constbox.same_constant(arg2)
+                    if not condition and not constbox.same_constant(arg1):
+                        raise InvalidLoop("promote of the result of a jit_choose incompatible with the arguments of that jit_choose")
+                    cond_box = ConstInt(condition)
+                    new_guard = op.copy_and_change(rop.GUARD_VALUE,
+                                     args=[arg0, cond_box])
+                    return self.optimize_guard(new_guard, cond_box)
         if arg0.type == 'r':
             info = getptrinfo(arg0)
             if info:
@@ -296,8 +346,6 @@ class OptRewrite(Optimization):
             arg0 = get_box_replacement(arg0)
             if arg0.is_constant():
                 return
-        constbox = op.getarg(1)
-        assert isinstance(constbox, Const)
         return self.optimize_guard(op, constbox)
 
     def postprocess_GUARD_VALUE(self, op):
@@ -388,8 +436,10 @@ class OptRewrite(Optimization):
     def optimize_record_exact_value(self, op):
         box = op.getarg(0)
         expectedconstbox = op.getarg(1)
-        assert isinstance(expectedconstbox, Const)
-        self.make_constant(box, expectedconstbox)
+        if isinstance(expectedconstbox, Const):
+            self.make_constant(box, expectedconstbox)
+        else:
+            self.make_equal_to(box, expectedconstbox)
 
     optimize_RECORD_EXACT_VALUE_R = optimize_record_exact_value
     optimize_RECORD_EXACT_VALUE_I = optimize_record_exact_value
