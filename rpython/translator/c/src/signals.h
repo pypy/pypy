@@ -3,6 +3,7 @@
 
 #include "src/precommondefs.h"
 
+#include <limits.h>
 
 /* utilities to set a signal handler */
 RPY_EXTERN
@@ -22,10 +23,6 @@ RPY_EXTERN
 int pypysig_poll(void);   /* => signum or -1 */
 RPY_EXTERN
 void pypysig_pushback(int signum);
-
-#ifndef PATH_MAX
- #define PATH_MAX 1024
-#endif
 
 /* When a signal is received, pypysig_counter is set to -1. */
 struct pypysig_long_struct_inner {
