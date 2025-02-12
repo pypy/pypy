@@ -797,6 +797,14 @@ class IntBound(AbstractInfo):
             assert self._debug_check()
         return r
 
+    def union_new(self, other):
+        """
+        Computes the union between two bounds as a new bound.
+        """
+        lower = min(self.lower, other.lower)
+        upper = max(self.upper, other.upper)
+        return IntBound(lower, upper)
+
     @always_inline
     def _tnum_intersect(self, other_tvalue, other_tmask):
         union_val = self.tvalue | other_tvalue

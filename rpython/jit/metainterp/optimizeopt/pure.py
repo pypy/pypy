@@ -81,11 +81,11 @@ class RecentPureOps(object):
     def lookup3(self, opt, box0, box1, box2, descr):
         for i in range(len(self.lst)):
             op = self.lst[i]
+            if op is None:
+                break
             oparg0 = get_box_replacement(op.getarg(0))
             oparg1 = get_box_replacement(op.getarg(1))
             oparg2 = get_box_replacement(op.getarg(2))
-            if op is None:
-                break
             if (box0.same_box(oparg0) and
                     box1.same_box(oparg1) and
                     box2.same_box(oparg2) and

@@ -552,6 +552,12 @@ class OptIntBounds(Optimization):
             if lenbound is not None:
                 lenbound.make_gt_const(intbound.lower)
 
+    def postprocess_JIT_CHOOSE_I(self, op):
+        b1 = self.getintbound(op.getarg(1))
+        b2 = self.getintbound(op.getarg(2))
+        b = b1.union_new(b2)
+        self.getintbound(op).intersect(b)
+
     def make_int_lt(self, box1, box2):
         b1 = self.getintbound(box1)
         b2 = self.getintbound(box2)

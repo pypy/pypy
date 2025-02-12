@@ -1027,6 +1027,26 @@ def test_known_ne_compatible_intersect_random(t1, t2):
     else:
         assert not known_ne
 
+def test_union():
+    b1 = IntBound(0, 10)
+    b2 = IntBound(4, 14)
+    b = b1.union_new(b2)
+    assert b.lower == 0
+    assert b.upper == 14
+
+@given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
+def test_union_random(t1, t2):
+    b1, n1 = t1
+    b2, n2 = t2
+    b = b1.union_new(b2)
+    assert b.contains(n1)
+    assert b.contains(n2)
+
+    # check idempotence
+    bb = b.union_new(b1)
+    assert bound_eq(b, bb)
+
+
 # --------------
 
 def test_lowest_set_bit_only():
