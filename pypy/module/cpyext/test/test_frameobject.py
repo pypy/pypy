@@ -15,7 +15,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                  PyCodeObject *py_code;
                  PyFrameObject *py_frame = NULL;
 
-                 py_code = PyCode_New(
+                 py_code = (PyCodeObject *)PyCode_New(
                      0,            /*int argcount,*/
                      #if PY_MAJOR_VERSION >= 3
                      0,            /*int kwonlyargcount,*/
@@ -30,6 +30,7 @@ class AppTestFrameObject(AppTestCpythonExtensionBase):
                      empty_tuple,  /*PyObject *freevars,*/
                      empty_tuple,  /*PyObject *cellvars,*/
                      py_srcfile,   /*PyObject *filename,*/
+                     py_funcname,   /*PyObject *qualname,*/
                      py_funcname,  /*PyObject *name,*/
                      42,           /*int firstlineno,*/
                      empty_bytes   /*PyObject *lnotab*/
