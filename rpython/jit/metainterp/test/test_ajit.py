@@ -5109,6 +5109,37 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         self.check_resops(getfield_gc_i=0, jit_choose_i=0)
         self.check_trace_count(1)
 
+    def test_jit_choose_ptr_eq(self):
+        driver = JitDriver(greens=[], reds='auto')
+        class Base(object): pass
+        class Bool(Base):
+            _immutable_ = True
+        TRUE = Bool()
+        TRUE.value = True
+        FALSE = Bool()
+        FALSE.value = False
+        class NoneC(Base):
+            pass
+        NONE = NoneC()
+        def f(i):
+            sum = 0
+            while i > 0:
+                driver.jit_merge_point()
+                w_bool = choose(i & 1 == 0, FALSE, TRUE)
+                if w_bool is FALSE:
+                    sum += 2
+                if w_bool is TRUE:
+                    sum += 7
+                if w_bool is NONE:
+                    sum += 13
+                i -= 1
+            return sum
+        res = self.meta_interp(f, [10], backendopt=True)
+        assert res == f(10)
+        res = self.meta_interp(f, [17], backendopt=True)
+        assert res == f(17)
+        self.check_resops(getfield_gc_i=0, jit_choose_i=0)
+
     def test_jit_choose_r_blackhole_bug(self):
         driver = JitDriver(greens=[], reds='auto')
         class Bool(object):

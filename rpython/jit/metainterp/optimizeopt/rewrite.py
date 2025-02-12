@@ -165,10 +165,13 @@ class OptRewrite(Optimization):
         if intbound.is_constant():
             condition = intbound.get_constant_int()
             if condition:
+                # jit_choose_i(1, a, b) => b
                 box = get_box_replacement(op.getarg(2))
             else:
+                # jit_choose_i(0, a, b) => a
                 box = get_box_replacement(op.getarg(1))
             self.make_equal_to(op, box)
+            return
         else:
             return self.emit(op)
     optimize_JIT_CHOOSE_R = optimize_JIT_CHOOSE_I
@@ -609,6 +612,31 @@ class OptRewrite(Optimization):
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))
         self.pure_from_args(rop.INSTANCE_PTR_EQ, [arg1, arg0], op)
+        if arg1.is_constant():
+            chooseop = self.optimizer.as_operation(arg0, rop.JIT_CHOOSE_R)
+            if chooseop:
+                boolbox = get_box_replacement(chooseop.getarg(0))
+                choicebox0 = get_box_replacement(chooseop.getarg(1))
+                choicebox1 = get_box_replacement(chooseop.getarg(2))
+                # instance_ptr_eq(jit_choose_r(b, x, y), y) => b if x != y
+                if (arg1.same_constant(choicebox1) and not arg1.same_constant(choicebox0)
+                        and choicebox0.is_constant()):
+                    self.make_equal_to(op, boolbox)
+                    return
+                # instance_ptr_eq(jit_choose_r(b, x, y), x) => int_is_zero(b) if x != y
+                if (arg1.same_constant(choicebox0) and not arg1.same_constant(choicebox1)
+                        and choicebox1.is_constant()):
+                    newop = self.replace_op_with(
+                        op,
+                        rop.INT_IS_ZERO,
+                        args=[boolbox]
+                    )
+                    self.optimizer.send_extra_operation(newop)
+                    return
+                # instance_ptr_eq(jit_choose_r(b, x, y), z) => 0 if x != z and y != z
+                if (choicebox0.is_constant() and choicebox1.is_constant() and
+                        not arg1.same_constant(choicebox0) and not arg1.same_constant(choicebox1)):
+                    self.make_constant_int(op, 0)
         return self._optimize_oois_ooisnot(op, False, True)
 
     def optimize_INSTANCE_PTR_NE(self, op):
