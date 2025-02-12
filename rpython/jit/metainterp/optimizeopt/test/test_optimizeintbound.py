@@ -4288,6 +4288,34 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_jit_choose_is_id(self):
+        ops = """
+        [i1]
+        i4 = int_is_true(i1)
+        i7 = jit_choose_i(i4, 0, 1)
+        jump(i7)
+        """
+        expected = """
+        [i1]
+        i4 = int_is_true(i1)
+        jump(i4)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_jit_choose_is_no_choice(self):
+        ops = """
+        [i1, i2]
+        i4 = int_is_true(i1)
+        i7 = jit_choose_i(i4, i2, i2)
+        jump(i7)
+        """
+        expected = """
+        [i1, i2]
+        i4 = int_is_true(i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestComplexIntOpts(BaseTestBasic):
 

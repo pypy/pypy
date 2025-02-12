@@ -48,7 +48,7 @@ class CouldNotProve(ProofProblem):
                 detail.append("bounds for %s: %s" % (name, realbound))
             res.append("%s: %s" % (name, model[prover.name_to_z3[name]].as_signed_long()))
         res.append("operation %s with Z3 formula %s" % (rule.pattern, self.lhs))
-        res.append("has counterexample result vale: %s" % (model.evaluate(self.lhs).as_signed_long(), ))
+        res.append("has counterexample result value: %s" % (model.evaluate(self.lhs).as_signed_long(), ))
         res.append("BUT")
         res.append("target expression: %s with Z3 formula %s" % (rule.target, self.rhs))
         res.append("has counterexample value: %s" % (model.evaluate(self.rhs).as_signed_long(), ))
@@ -111,7 +111,7 @@ def z3_bool_expression(opname, arg0, arg1=None):
     return expr, valid
 
 
-def z3_expression(opname, arg0, arg1=None):
+def z3_expression(opname, arg0, arg1=None, arg2=None):
     expr = None
     valid = True
     if opname == "int_add":
@@ -147,6 +147,8 @@ def z3_expression(opname, arg0, arg1=None):
         expr = ~arg0
     elif opname == "int_force_ge_zero":
         expr = z3.If(arg0 < 0, 0, arg0)
+    elif opname == "jit_choose_i":
+        expr = z3.If(arg0 == FALSEBV, arg1, arg2)
     else:
         expr, valid = z3_bool_expression(opname, arg0, arg1)
         return z3_cond(expr), valid

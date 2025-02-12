@@ -5106,7 +5106,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             return sum
 
         self.meta_interp(f, [10], backendopt=True)
-        self.check_resops(getfield_gc_i=0)
+        self.check_resops(getfield_gc_i=0, jit_choose_i=0)
         self.check_trace_count(1)
 
     def test_jit_choose_r_blackhole_bug(self):
