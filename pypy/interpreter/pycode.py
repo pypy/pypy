@@ -95,6 +95,7 @@ class PyCode(eval.Code):
     _immutable_fields_ = ["_signature", "co_argcount", "co_posonlyargcount", "co_kwonlyargcount",
                           "co_cellvars[*]",
                           "co_code", "co_consts_w[*]", "co_filename", "w_filename",
+                          "co_qualname",
                           "co_firstlineno", "co_flags", "co_freevars[*]",
                           "co_names_w[*]", "co_nlocals",
                           "co_stacksize", "co_varnames[*]",
