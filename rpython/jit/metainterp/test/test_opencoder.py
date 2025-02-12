@@ -42,7 +42,7 @@ class FakeFrame(object):
     def get_list_of_active_boxes(self, flag, new_array, encode, after_residual_call=False):
         a = new_array(len(self.boxes))
         for i, box in enumerate(self.boxes):
-            a = encode(a, box)
+            encode(box)
         return a
 
 def unpack_snapshot(t, op, pos):
@@ -191,7 +191,6 @@ class TestOpencoder(object):
         t = Trace([i0, i1, i2], metainterp_sd)
         p0 = FakeOp(t.record_op(rop.NEW_WITH_VTABLE, [], descr=SomeDescr()))
         t.record_op(rop.GUARD_TRUE, [i0])
-        import pdb;pdb.set_trace()
         t.capture_resumedata([], [i1] * 127 + [p0], [p0, i1])
         (i0, i1, i2), l, iter = self.unpack(t)
         assert not l[1].framestack
