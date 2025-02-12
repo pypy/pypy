@@ -2970,7 +2970,7 @@ def _format_int10_18digits(val, builder):
     builder.append_slice(_format10_table2, 2*bba, 2*bba + 2)
     builder.append_slice(_format10_table2, 2*bbb, 2*bbb + 2)
 
-
+@specialize.arg(6)
 def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_str_digits):
     while i > 0:
         top, x = x.divmod(pcb.parts_cache[i]) # split the number
