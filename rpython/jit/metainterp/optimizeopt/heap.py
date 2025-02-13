@@ -556,7 +556,7 @@ class OptHeap(Optimization):
             oparg0 = self.optimizer.as_operation(arg0, rop.JIT_CHOOSE_R)
             if oparg0 and self._try_fold_getfield_of_choose(op, oparg0):
                 return
-            
+
         structinfo = self.ensure_ptr_info_arg0(op)
         cf = self.field_cache(descr)
         field = cf.getfield_from_cache(self, structinfo, descr)

@@ -308,8 +308,11 @@ is_zero_true: int_is_zero(x)
 #is_zero_negate_ne: int_is_zero(int_ne(x, y))
 #    => int_eq(x, y)
 
-#is_zero_is_true: int_is_zero(int_is_true(x))
-#    => int_is_zero(x)
+is_zero_is_true: int_is_zero(int_is_true(x))
+    => int_is_zero(x)
+
+is_zero_is_zero: int_is_zero(int_is_zero(x))
+    => int_is_true(x)
 
 #is_zero_or: int_is_zero(int_or(x, y))
 #    # this is because x | y = x ^ y + x & y

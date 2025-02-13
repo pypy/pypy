@@ -361,7 +361,8 @@ class Optimizer(Optimization):
         if isinstance(op, AbstractResOp):
             if required_opnum != -1 and op.opnum != required_opnum:
                 return None # fast return if the opnum is wrong
-            if op in self._emittedoperations:
+            if op in self._emittedoperations or (
+                    self.optheap is not None and op is self.optheap.postponed_op):
                 return op
         return None
 
