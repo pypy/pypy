@@ -448,6 +448,11 @@ class DescrOperation(object):
                 w_res = space.get_and_call_function(w_left_impl, w_obj1, w_obj2, w_obj3)
                 if _check_notimplemented(space, w_res):
                     return w_res
+        if space.type(w_obj3).is_cpytype() and space.lookup(w_obj3, '__pow__') is not None:
+            raise oefmt(space.w_TypeError,
+                "unsupported operand type(s) for pow(): '%T', '%T', '%T' (This case is unsupported in PyPy. Please comment here if you hit it: https://github.com/pypy/pypy/issues/5207 )",
+                w_obj1, w_obj2, w_obj3
+            )
         raise oefmt(space.w_TypeError,
             "unsupported operand type(s) for pow(): '%T', '%T', '%T'",
             w_obj1, w_obj2, w_obj3

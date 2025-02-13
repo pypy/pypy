@@ -243,3 +243,6 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
         assert hasattr(module, 'pow')
         res = pow(1, module.pow(), module.pow())
         assert res == 123
+        with raises(TypeError):
+            # XXX: this is the part of the logic that is still wrong
+            pow(1, 2, module.pow())
