@@ -358,9 +358,8 @@ neg_neg: int_neg(int_neg(x))
 #    => 0
 #
 
-choose_is_identity: jit_choose_i(x, 0, 1)
-    check x.is_bool()
-    => x
+choose_to_int_is_true: jit_choose_i(x, 0, 1)
+    => int_is_true(x)
 
 choose_is_no_choice: jit_choose_i(x, y, y)
     => y
