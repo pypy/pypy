@@ -395,7 +395,7 @@ class DescrOperation(object):
                         w_obj, w_res)
         return w_res
 
-    def pow_binary(space, w_obj1, w_obj2):
+    def _pow_find_impls(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__pow__')
@@ -411,6 +411,10 @@ class DescrOperation(object):
                     not space.abstract_issubclass_w(w_typ1, w_right_src)):
                     w_obj1, w_obj2 = w_obj2, w_obj1
                     w_left_impl, w_right_impl = w_right_impl, w_left_impl
+        return w_left_impl, w_right_impl, w_obj1, w_obj2
+
+    def pow_binary(space, w_obj1, w_obj2):
+        w_left_impl, w_right_impl, w_obj1, w_obj2 = space._pow_find_impls(w_obj1, w_obj2)
         if w_left_impl is not None:
             w_res = space.get_and_call_function(w_left_impl, w_obj1, w_obj2)
             if _check_notimplemented(space, w_res):
@@ -430,17 +434,36 @@ class DescrOperation(object):
                     w_obj1, w_obj2
                 )
             return w_res
-        # Three-arg power does not use __rpow__
+        # Three-arg power does not use __rpow__, unless the second argument is
+        # a cpyext type, then we use the bug-to-bug compatibility version
         w_typ1 = space.type(w_obj1)
-        w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__pow__')
-        if w_left_impl is not None:
-            w_res = space.get_and_call_function(w_left_impl, w_obj1, w_obj2, w_obj3)
-            if _check_notimplemented(space, w_res):
+        w_typ2 = space.type(w_obj2)
+        if w_typ2.is_cpytype():
+            w_res = space.pow3_bug_compat_cpyext(w_obj1, w_obj2, w_obj3)
+            if w_res is not None:
                 return w_res
+        else:
+            w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, '__pow__')
+            if w_left_impl is not None:
+                w_res = space.get_and_call_function(w_left_impl, w_obj1, w_obj2, w_obj3)
+                if _check_notimplemented(space, w_res):
+                    return w_res
         raise oefmt(space.w_TypeError,
             "unsupported operand type(s) for pow(): '%T', '%T', '%T'",
             w_obj1, w_obj2, w_obj3
         )
+
+    def pow3_bug_compat_cpyext(space, w_obj1, w_obj2, w_obj3):
+        w_left_impl, w_right_impl, w_obj1, w_obj2 = space._pow_find_impls(w_obj1, w_obj2)
+        if w_left_impl is not None:
+            w_res = space.get_and_call_function(w_left_impl, w_obj1, w_obj2, w_obj3)
+            if _check_notimplemented(space, w_res):
+                return w_res
+        if w_right_impl is not None:
+            w_res = space.get_and_call_function(w_right_impl, w_obj2, w_obj1, w_obj3)
+            if _check_notimplemented(space, w_res):
+                return w_res
+        return None
 
     def inplace_pow(space, w_lhs, w_rhs):
         w_impl = space.lookup(w_lhs, '__ipow__')

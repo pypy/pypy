@@ -238,3 +238,8 @@ class AppTestUserSlots(AppTestCpythonExtensionBase):
         cnt = module.get_cnt()
         assert cnt == 0
 
+    def test_rpow_cpyext(self):
+        module = self.import_module("pow_mod", filename="gh5207")
+        assert hasattr(module, 'pow')
+        res = pow(1, module.pow(), module.pow())
+        assert res == 123
