@@ -389,6 +389,9 @@ class GcRewriterAssembler(object):
             if opnum == rop.COPYSTRCONTENT or opnum == rop.COPYUNICODECONTENT:
                 self.rewrite_copy_str_content(op)
                 continue
+            if opnum == rop.JIT_CHOOSE_I:
+                self.rewrite_jit_choose(op)
+                continue
             # ---------- write barriers ----------
             if self.gc_ll_descr.write_barrier_descr is not None:
                 if opnum == rop.SETFIELD_GC:
@@ -1096,6 +1099,25 @@ class GcRewriterAssembler(object):
             i1 = ResOperation(rop.INT_ADD, [i1b, ConstInt(base)])
             self.emit_op(i1)
             return i1
+
+    def rewrite_jit_choose(self, op):
+        # rewrite jit_choose_i(b, b, x) to jit_choose_i(b, 0, x)
+        # and     jit_choose_i(b, x, b) to jit_choose_i(b, x, 1)
+        # optimizeopt does this rewrite too, but if somebody turns this off we
+        # want the backend to still work
+        arg0 = self.get_box_replacement(op.getarg(0))
+        arg1 = self.get_box_replacement(op.getarg(1))
+        arg2 = self.get_box_replacement(op.getarg(2))
+        if arg0 is arg1:
+            args = [arg0, ConstInt(0), arg2]
+        elif arg0 is arg2:
+            args = [arg0, arg1, ConstInt(1)]
+        else:
+            self.emit_op(op)
+            return
+        newop = ResOperation(rop.JIT_CHOOSE_I, args)
+        self.replace_op_with(op, newop)
+        self.emit_op(newop)
 
     def remove_constptr(self, c):
         """Remove all ConstPtrs, and replace them with load_from_gc_table.

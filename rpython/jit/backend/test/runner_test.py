@@ -1870,6 +1870,18 @@ class BaseBackendTest(Runner):
                                              'int')
                 assert res == 0
 
+    def test_jit_choose_i_self(self):
+        for c2 in [InputArgInt, ConstInt]:
+            box1 = InputArgInt(1)
+            res = self.execute_operation(rop.JIT_CHOOSE_I, [box1, box1, c2(10)],
+                                         'int')
+            assert res == 10
+            box1 = InputArgInt(0)
+        for c2 in [InputArgInt, ConstInt]:
+            res = self.execute_operation(rop.JIT_CHOOSE_I, [box1, c2(10), box1],
+                                         'int')
+            assert res == 10
+
 
 class LLtypeBackendTest(BaseBackendTest):
 
