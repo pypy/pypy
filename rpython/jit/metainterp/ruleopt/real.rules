@@ -363,3 +363,16 @@ choose_to_int_is_true: jit_choose_i(x, 0, 1)
 
 choose_is_no_choice: jit_choose_i(x, y, y)
     => y
+
+choose_false: jit_choose_i(0, x, y)
+    => x
+
+choose_true: jit_choose_i(1, x, y)
+    => y
+
+choose_self_left: jit_choose_i(x, x, y)
+    => jit_choose_i(x, 0, y)
+
+choose_self_right: jit_choose_i(x, y, x)
+    check x.is_bool()
+    => jit_choose_i(x, y, 1)

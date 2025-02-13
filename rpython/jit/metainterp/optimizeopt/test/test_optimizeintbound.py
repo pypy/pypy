@@ -4332,6 +4332,36 @@ finish()
         """
         self.optimize_loop(ops, expected)
 
+    def test_jit_choose_constant(self):
+        ops = """
+        [i1, i2]
+        i3 = jit_choose_i(0, i1, i2)
+        i4 = jit_choose_i(1, i1, i2)
+        jump(i3, i4)
+        """
+        expected = """
+        [i1, i2]
+        jump(i1, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_jit_choose_self(self):
+        ops = """
+        [i1, i2]
+        i0 = int_and(i2, 1)
+        i3 = jit_choose_i(i1, i1, i2)
+        i4 = jit_choose_i(i0, i1, i0)
+        jump(i3, i4)
+        """
+        expected = """
+        [i1, i2]
+        i0 = int_and(i2, 1)
+        i3 = jit_choose_i(i1, 0, i2)
+        i4 = jit_choose_i(i0, i1, 1)
+        jump(i3, i4)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_intmod_bounds(self):
