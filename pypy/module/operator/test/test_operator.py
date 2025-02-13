@@ -338,6 +338,10 @@ class AppTestOperator:
     def test_length_hint(self):
         import _operator as operator
         assert operator.length_hint([1, 2]) == 2
+        with raises(TypeError) as exc:
+            operator.length_hint("abc", "abc")
+        print(exc.value)
+        assert "cannot be interpreted as an integer" in str(exc.value)
 
     def test_repr_attrgetter(self):
         import _operator as operator
