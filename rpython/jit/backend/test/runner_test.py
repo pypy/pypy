@@ -1860,6 +1860,17 @@ class BaseBackendTest(Runner):
                                      'ref')
         assert res == t_box1.getref_base()
 
+    def test_jit_choose_i(self):
+        for c1 in [InputArgInt, ConstInt]:
+            for c2 in [InputArgInt, ConstInt]:
+                res = self.execute_operation(rop.JIT_CHOOSE_I, [InputArgInt(1), c1(0), c2(10)],
+                                             'int')
+                assert res == 10
+                res = self.execute_operation(rop.JIT_CHOOSE_I, [InputArgInt(0), c1(0), c2(10)],
+                                             'int')
+                assert res == 0
+
+
 class LLtypeBackendTest(BaseBackendTest):
 
     Ptr = lltype.Ptr

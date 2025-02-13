@@ -2717,10 +2717,22 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 self.save_into_mem(addr, imm0, imm(current))
             i += current
 
-    def genop_jit_choose_i(self, op, arglocs, resloc):
+    def genop_jit_choose_r(self, op, arglocs, resloc):
+        assert IS_X86_64
+        # arglocs[1] and resloc is the same. so do a conditional move if
+        # arglocs[0] is not 0
         self.test_location(arglocs[0])
         self.mc.CMOVNE(resloc, arglocs[2])
-    genop_jit_choose_r = genop_jit_choose_i
+
+    def genop_jit_choose_i(self, op, arglocs, resloc):
+        assert IS_X86_64
+        self.test_location(arglocs[0])
+        argloc2 = arglocs[2]
+        if isinstance(argloc2, ImmedLoc):
+            # cmov doesn't take an immediate. put it into the scratch register
+            self.mc.MOV_ri(X86_64_SCRATCH_REG.value, argloc2.value)
+            argloc2 = X86_64_SCRATCH_REG
+        self.mc.CMOVNE_rr(resloc.value, argloc2.value)
 
 
 genop_discard_list = [Assembler386.not_implemented_op_discard] * rop._LAST
