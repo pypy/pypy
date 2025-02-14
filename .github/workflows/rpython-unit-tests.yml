@@ -11,13 +11,13 @@ name: Rpython Unit Tests
 
 on:
   push:
-    branches: [ "main", "py3.9", "py3.10" ]
+    branches: [ "main", "py3.11" ]
     paths:
         - "rpython/**/*"
         - "pytest.py"
         - ".github/**/*"
   pull_request:
-    branches: [ "main", "py3.9", "py3.10" ]
+    branches: [ "main", "py3.11" ]
     paths:
       - "rpython/**/*"
       - "pytest.py"
@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-24.04]
 
     steps:
     - uses: actions/checkout@v4
@@ -66,7 +66,7 @@ jobs:
   #   strategy:
   #     fail-fast: false
   #     matrix:
-  #       os: [ubuntu-20.04]
+  #       os: [ubuntu-24.04]
 
   #   steps:
   #   - uses: actions/checkout@v4
@@ -85,7 +85,7 @@ jobs:
   #   strategy:
   #     fail-fast: false
   #     matrix:
-  #       os: [ubuntu-20.04]
+  #       os: [ubuntu-24.04]
 
   #   steps:
   #   - uses: actions/checkout@v4
@@ -104,7 +104,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-24.04]
 
     steps:
     - uses: actions/checkout@v4
@@ -142,7 +142,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-24.04]
 
     steps:
     - uses: actions/checkout@v4
@@ -166,7 +166,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-24.04]
 
     steps:
     - uses: actions/checkout@v4
