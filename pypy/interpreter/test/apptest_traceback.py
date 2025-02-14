@@ -208,3 +208,13 @@ def test_old_format_works():
         sys.stderr = original_std_err
         traceback.TracebackException.format = traceback_exception_original_format
 
+def test_multiline_method_call():
+    def f():
+        (None
+            . method
+        )
+    try:
+        f()
+    except Exception as e:
+        traceback = e.__traceback__.tb_next
+    assert traceback.tb_lineno == f.__code__.co_firstlineno + 2
