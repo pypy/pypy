@@ -905,3 +905,16 @@ def test_error_pow():
     with raises(TypeError) as info:
         pow(None, 2, 2.1)
     assert "unsupported operand type(s) for pow(): 'NoneType', 'int', 'float'" in str(info.value)
+
+def test_rpow_not_used_when_third_argument():
+    class RPOW(object):
+        def __pow__(self, other, mod=None):
+            print("__pow__")
+            return 123
+        def __rpow__(self, other, mod=None):
+            print("__rpow__")
+            return 321
+
+    a = RPOW()
+    with raises(TypeError):
+        pow(1, a, a)
