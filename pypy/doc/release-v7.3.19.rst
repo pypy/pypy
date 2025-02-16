@@ -113,6 +113,7 @@ Speedups and enhancements
 
 Python 3.10
 -----------
+- Remove vendored ``readline`` module, the one used in ``pyrepl`` is vendored into ``pyrepl`` itself.
 
 Bugfixes
 ~~~~~~~~
@@ -128,6 +129,7 @@ Speedups and enhancements
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 - Make ``itertools.islice`` faster if no step is given, following
   https://discuss.python.org/t/python-3-13-0-speed/79547
+- Add missing ``PyUnicode_DecodeRawUnicodeEscape``, ``PyUnicode_AsRawUnicodeEscapeString`` which are tested in cython, apparently not used elsewhere.
 
 Python 3.11
 -----------
