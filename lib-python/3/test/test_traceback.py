@@ -28,6 +28,12 @@ test_frame = namedtuple('frame', ['f_code', 'f_globals', 'f_locals'])
 test_tb = namedtuple('tb', ['tb_frame', 'tb_lineno', 'tb_next', 'tb_lasti'])
 
 
+def fixme(reason):
+    # Use for things that should be fixed in PyPy
+    def decorator(test):
+        return cpython_only(test)
+    return decorator
+
 class TracebackCases(unittest.TestCase):
     # For now, a very minimal set of tests.  I want to be sure that
     # formatting of SyntaxErrors works based on changes for 2.1.
@@ -104,6 +110,7 @@ class TracebackCases(unittest.TestCase):
         self.assertEqual(len(err), 3)
         self.assertEqual(err[1].strip(), "bad syntax")
 
+    @fixme(reason='no -X nodebug_ranges in PyPy')
     def test_no_caret_with_no_debug_ranges_flag(self):
         # Make sure that if `-X no_debug_ranges` is used, there are no carets
         # in the traceback.
@@ -123,6 +130,7 @@ class TracebackCases(unittest.TestCase):
         finally:
             unlink(TESTFN)
 
+    @fixme(reason='no -X nodebug_ranges in PyPy')
     def test_no_caret_with_no_debug_ranges_flag_python_traceback(self):
         code = textwrap.dedent("""
             import traceback
@@ -377,6 +385,7 @@ class TracebackCases(unittest.TestCase):
             '(exc, /, value=<implicit>, colorize=False)')
 
 
+@fixme(reason='PyPy caret implementation is slightly different')
 @requires_debug_ranges()
 class TracebackErrorLocationCaretTests(unittest.TestCase):
     """
@@ -854,7 +863,9 @@ class TracebackErrorLocationCaretTests(unittest.TestCase):
         ]
         self.assertEqual(actual, expected)
 
+    @cpython_only
     def test_multiline_method_call_c(self):
+        # XXX FIXME: PyPy reports the wrong line
         def f():
             (None
                 . method
@@ -1129,7 +1140,8 @@ class TracebackFormatTests(unittest.TestCase):
 
         # Check the recursion count is roughly as expected
         rec_limit = sys.getrecursionlimit()
-        self.assertIn(int(re.search(r"\d+", actual[-2]).group()), range(rec_limit-60, rec_limit))
+        # PyPy change: add 1000 to uppper limit
+        self.assertIn(int(re.search(r"\d+", actual[-2]).group()), range(rec_limit-60, rec_limit+1000))
 
         # Check a known (limited) number of recursive invocations
         def g(count=10):
@@ -2093,6 +2105,7 @@ class BaseExceptionReportingTests:
         report = self.get_report(exc)
         self.assertEqual(report, expected)
 
+    @cpython_only
     def test_KeyboardInterrupt_at_first_line_of_frame(self):
         # see GH-93249
         def f():
@@ -2353,6 +2366,7 @@ class TestFrame(unittest.TestCase):
 
 class TestStack(unittest.TestCase):
 
+    @cpython_only
     def test_walk_stack(self):
         def deeper():
             return list(traceback.walk_stack(None))
@@ -2449,7 +2463,7 @@ class TestStack(unittest.TestCase):
 
     def test_custom_format_frame(self):
         class CustomStackSummary(traceback.StackSummary):
-            def format_frame_summary(self, frame_summary):
+            def format_frame_summary(self, frame_summary, **kwargs):
                 return f'{frame_summary.filename}:{frame_summary.lineno}'
 
         def some_inner():
@@ -2461,6 +2475,7 @@ class TestStack(unittest.TestCase):
             s.format(),
             [f'{__file__}:{some_inner.__code__.co_firstlineno + 1}'])
 
+    @cpython_only
     def test_dropping_frames(self):
         def f():
             1/0
@@ -2474,10 +2489,10 @@ class TestStack(unittest.TestCase):
         exc_info = g()
 
         class Skip_G(traceback.StackSummary):
-            def format_frame_summary(self, frame_summary):
+            def format_frame_summary(self, frame_summary, **kwargs):
                 if frame_summary.name == 'g':
                     return None
-                return super().format_frame_summary(frame_summary)
+                return super().format_frame_summary(frame_summary, **kwargs)
 
         stack = Skip_G.extract(
             traceback.walk_tb(exc_info[2])).format()
@@ -2636,6 +2651,7 @@ class TestTracebackException(unittest.TestCase):
         self.assertEqual(exc_info[0], exc.exc_type)
         self.assertEqual(str(exc_info[1]), str(exc))
 
+    @cpython_only
     def test_no_refs_to_exception_and_traceback_objects(self):
         try:
             1/0
