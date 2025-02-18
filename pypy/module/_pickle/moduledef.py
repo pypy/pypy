@@ -1,4 +1,5 @@
 from pypy.interpreter.mixedmodule import MixedModule
+from pypy.module._pickle.state import State
 
 class Module(MixedModule):
     'Optimized RPython implementation for the Python pickle module.'
@@ -17,3 +18,6 @@ class Module(MixedModule):
         'Pickler' : 'interp_pickle.W_Pickler',
         #'Unpickler' : 'interp_pickle.W_Unpickler',
     }
+
+    def startup(self, space):
+        space.fromcache(State).startup(space)

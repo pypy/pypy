@@ -104,3 +104,7 @@ def test_reduce():
 def test_globals():
     s = dumps(dumps)
     assert s == b'\x80\x04\x8c\x07_pickle\x94\x8c\x05dumps\x94\x93\x94.'
+
+def test_save_float():
+    s = dumps(1.234)
+    assert s == b'\x80\x04G?\xf3\xbev\xc8\xb49X.'
