@@ -330,7 +330,8 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
         loop.check_consistency()
     # check jump op has same number of args as label
     jump_op = loop_ops[-1]
-    assert jump_op.numargs() == loop_info.label_op.numargs()
+    if jump_op.getdescr() is loop_info.label_op.getdescr():
+        assert jump_op.numargs() == loop_info.label_op.numargs()
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
                          inputargs, metainterp.box_names_memo)
     record_loop_or_bridge(metainterp_sd, loop)
