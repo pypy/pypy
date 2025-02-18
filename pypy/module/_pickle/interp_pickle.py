@@ -1,10 +1,13 @@
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib.mutbuffer import MutableStringBuffer
+from rpython.rlib.rstruct import ieee
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.error import oefmt, OperationError
 
-from pypy.interpreter.gateway import interp2app, applevel
+from pypy.interpreter.gateway import interp2app, applevel, unwrap_spec
+from pypy.module._pickle.state import State
 
 class Opcodes(object):
     MARK           = b'('   # push special markobject on stack
@@ -125,6 +128,12 @@ def packI(opcode, val):
 
 def packB(opcode, val):
     return opcode + chr(val)
+
+def pack_float(f):
+    # like marshal, but bigendian, marshal uses littlendian
+    buf = MutableStringBuffer(8)
+    ieee.pack_float(buf, 0, f, 8, True)
+    return buf.finish()
 
 def pickling_error(space):
     w_module = space.getbuiltinmodule('_pickle')
@@ -292,6 +301,7 @@ class W_Pickler(W_Root):
             return
         if space.is_w(space.w_float, w_type):
             self.save_float(w_obj)
+            return
 
         # Check the memo
         x = self.memo.get(w_obj, -1)
@@ -319,17 +329,20 @@ class W_Pickler(W_Root):
             self.save_dict(w_obj)
             return
 
-        rv = NotImplemented
-        reduce = getattr(self, "reducer_override", None)
-        if reduce is not None:
-            rv = reduce(w_obj)
+        w_rv = space.w_NotImplemented
+        w_reduce = space.w_None
+        if space.findattr(self, space.newtext("reducer_override")):
+            w_reduce = space.getattr(self, space.newtext("reducer_override"))
+        if not space.is_w(w_reduce, space.w_None):
+            w_rv = space.call(w_reduce, w_obj)
 
-        if rv is NotImplemented:
+        if w_rv is space.w_NotImplemented:
             # Check private dispatch table if any, or else
             # copyreg.dispatch_table
+            w_dispatch_table = space.fromcache(State).w_dispatch_table
             #reduce = getattr(self, 'dispatch_table', dispatch_table).get(t)
             if 0: # reduce is not None:
-                rv = reduce(w_obj)
+                w_rv = reduce(w_obj)
             else:
                 # Check for a class with a custom metaclass; treat as regular
                 # class
@@ -355,7 +368,6 @@ class W_Pickler(W_Root):
 
         # Assert that reduce() returned a tuple
         if not space.isinstance_w(w_rv, space.w_tuple):
-            import pdb;pdb.set_trace()
             raise oefmt(pickling_error(space), "%S must return string or tuple", w_reduce)
 
         # Assert that it returned an appropriately sized tuple
@@ -410,6 +422,15 @@ class W_Pickler(W_Root):
             self.write(packi(op.LONG4, n) + encoded)
         return
 
+    def save_float(self, w_obj):
+        space = self.space
+        if self.bin:
+            obj = space.float_w(w_obj)
+            self.write(op.BINFLOAT + pack_float(obj))
+        else:
+            as_ascii = space.utf8_w(space.repr(w_obj)) # .encode("ascii")
+            self.write(op.FLOAT + as_ascii + '\n')
+ 
     def save_bytes(self, w_obj):
         space = self.space
         if self.proto < 3:
@@ -458,7 +479,7 @@ class W_Pickler(W_Root):
                 save(element)
             # Subtle.  Same as in the big comment below.
             if w_obj in memo:
-                get = self.get(memo[w_obj][0])
+                get = self.get(memo[w_obj])
                 self.write(op.POP * n + get)
             else:
                 self.write(op._tuplesize2code[n])
@@ -509,9 +530,9 @@ class W_Pickler(W_Root):
         write = self.write
 
         if not self.bin:
-            for x in space.listview(w_list):
-                save(x)
-                write(APPEND)
+            for w_x in space.listview(w_list):
+                save(w_x)
+                write(op.APPEND)
             return
 
         w_it = space.iter(w_list)
@@ -561,15 +582,15 @@ class W_Pickler(W_Root):
         save = self.save
         write = self.write
 
-        if not self.bin:
-            import pdb;pdb.set_trace()
-            for k, v in items:
-                save(k)
-                save(v)
-                write(SETITEM)
-            return
-
         w_it = space.iter(space.call_method(w_dict, 'items'))
+        if not self.bin:
+            raise oefmt(space.w_RuntimeError, "cannot batch pickle dict with proto<2")
+            # for k, v in w_it:
+            #     save(k)
+            #     save(v)
+            #     write(SETITEM)
+            # return
+
         while True:
             w_firstitem = spacenext(space, w_it)
             if w_firstitem is None:
@@ -602,6 +623,9 @@ class W_Pickler(W_Root):
         values_w = space.unpackiterable(w_rv)
         w_func = values_w[0]
         w_args = values_w[1]
+        w_listitems = space.w_None
+        w_dictitems = space.w_None
+        w_state_setter = None
         if len(values_w) >= 3:
             w_state = values_w[2]
             if len(values_w) >= 4:
@@ -613,9 +637,9 @@ class W_Pickler(W_Root):
                     else:
                         w_state_setter = None
                 else:
-                    w_dictitems = None
+                    w_dictitems = space.w_None
             else:
-                w_listitems = None
+                w_listitems = space.w_None
         else:
             w_state = None
 
@@ -630,21 +654,24 @@ class W_Pickler(W_Root):
         w_func_name = space.findattr(w_func, space.newtext("__name__"))
         if self.proto >= 2 and space.eq_w(w_func_name, space.newtext("__newobj_ex__")):
             w_cls, w_args, w_kwargs = space.unpackiterable(w_args, 3)
-            if space.findattr(w_cls, space.newtext("__new__")):
+            w_new = space.findattr(w_cls, space.newtext("__new__"))
+            if not w_new:
                 raise oefmt(pickling_error(space), "args[0] from %S args has no __new__", w_func_name)
-            if w_obj is not None and not space.is_w(w_cls, space.getattr(obj, space.newtext('__class__'))):
+            if w_obj is not None and not space.is_w(w_cls, space.getattr(w_obj, space.newtext('__class__'))):
                 raise oefmt(pickling_error(space), "args[0] from %S args has the wrong class", w_func_name)
             if self.proto >= 4:
                 save(w_cls)
                 save(w_args)
                 save(w_kwargs)
-                write(NEWOBJ_EX)
+                write(op.NEWOBJ_EX)
             else:
-                import pdb;pdb.set_trace()
-                func = partial(cls.__new__, cls, *args, **kwargs)
-                save(func)
-                save(())
-                write(REDUCE)
+                args_w = space.listview(w_args)
+                w_partial_args = space.newlist([w_new, w_cls] + args_w)
+                w_partial = space.fromcache(State).w_partial
+                w_func = space.call(w_partial, w_partial_args, w_kwargs)
+                save(w_func)
+                save(space.newtext("()"))
+                write(op.REDUCE)
         elif self.proto >= 2 and space.eq_w(w_func_name, space.newtext("__newobj__")):
             # A __reduce__ implementation can direct protocol 2 or newer to
             # use the more efficient NEWOBJ opcode, while still
@@ -673,7 +700,8 @@ class W_Pickler(W_Root):
             # protocol 0 or 1 in Python 2.3 should be unpicklable by
             # Python 2.2).
             w_cls = space.getitem(w_args, space.newint(0))
-            if not space.findattr(w_cls, space.newtext("__new__")):
+            w_new = space.findattr(w_cls, space.newtext("__new__"))
+            if not w_new:
                 raise oefmt(pickling_error(space),
                     "args[0] from __newobj__ args has no __new__")
             if w_obj is not None and not space.is_w(w_cls, space.getattr(w_obj, space.newtext('__class__'))):
@@ -684,9 +712,9 @@ class W_Pickler(W_Root):
             self.save(w_args)
             self.write(op.NEWOBJ)
         else:
-            save(func)
-            save(args)
-            write(REDUCE)
+            save(w_func)
+            save(w_args)
+            write(op.REDUCE)
 
         if w_obj is not None:
             # If the object is already in the memo, this means it is
@@ -740,6 +768,7 @@ class W_Pickler(W_Root):
             w_name = space.getattr(w_obj, space.newtext('__name__'))
 
         w_module_name = whichmodule(space, w_obj, w_name)
+        module_name = space.utf8_w(w_module_name)
         try:
             w_import = space.getattr(space.builtin, space.newtext("__import__"))
             space.call_function(w_import, w_module_name)
@@ -756,7 +785,7 @@ class W_Pickler(W_Root):
         else:
             if not space.is_w(w_obj2, w_obj):
                 raise oefmt(pickling_error(space),
-                    "Can't pickle %R: it's not the same object as %S.%S" %
+                    "Can't pickle %R: it's not the same object as %S.%S",
                     w_obj, w_module_name, w_name)
 
         if self.proto >= 2:
@@ -764,27 +793,30 @@ class W_Pickler(W_Root):
             if 0: #code:
                 assert code > 0
                 if code <= 0xff:
-                    write(EXT1 + pack("<B", code))
+                    write(op.EXT1 + _pack("<B", code))
                 elif code <= 0xffff:
-                    write(EXT2 + pack("<H", code))
+                    write(op.EXT2 + _pack("<H", code))
                 else:
-                    write(EXT4 + pack("<i", code))
+                    write(op.EXT4 + _pack("<i", code))
                 return
-        name = space.text_w(w_name)
+        name = space.utf8_w(w_name)
         lastname = name.split('.')[-1]
         if space.is_w(w_parent, w_module):
             w_name = space.newtext(lastname)
+            name = lastname
         # Non-ASCII identifiers are supported only with protocols >= 3.
         if self.proto >= 4:
             self.save(w_module_name)
             self.save(w_name)
             write(op.STACK_GLOBAL)
         elif not space.is_w(w_parent, w_module):
-            self.save_reduce(space.getattr(space.builtin, 'getattr'), space.newtuple2(w_parent, w_lastname))
+            self.save_reduce(space.getattr(space.builtin, space.newtext('getattr')), space.newtuple2(w_parent, space.newtext(lastname)))
         elif self.proto >= 3:
-            write(op.GLOBAL + bytes(module_name, "utf-8") + b'\n' +
-                  bytes(name, "utf-8") + b'\n')
+            write(op.GLOBAL + module_name + b'\n' +
+                  name + b'\n')
         else:
+            # XXX Fixme
+            raise oefmt(pickling_error(space), "cannot use protocol<3")
             if self.fix_imports:
                 r_name_mapping = _compat_pickle.REVERSE_NAME_MAPPING
                 r_import_mapping = _compat_pickle.REVERSE_IMPORT_MAPPING
@@ -793,12 +825,12 @@ class W_Pickler(W_Root):
                 elif module_name in r_import_mapping:
                     module_name = r_import_mapping[module_name]
             try:
-                write(GLOBAL + bytes(module_name, "ascii") + b'\n' +
+                write(op.GLOBAL + bytes(module_name, "ascii") + b'\n' +
                       bytes(name, "ascii") + b'\n')
             except UnicodeEncodeError:
                 raise oefmt(pickling_error(space),
                     "can't pickle global identifier '%S.%S' using "
-                    "pickle protocol %d" % (w_module, w_name, self.proto))
+                    "pickle protocol %d", w_module, w_name, self.proto)
         self.memoize(w_obj)
 
     def memoize(self, w_obj):
@@ -829,17 +861,17 @@ class W_Pickler(W_Root):
             else:
                 return packI(op.LONG_BINPUT, idx)
         else:
-            return op.PUT + repr(idx) + b'\n'
+            return "%s%d\n" %(op.PUT, idx)
 
     # Return a GET (BINGET, LONG_BINGET) opcode string, with argument i.
-    def get(self, i):
+    def get(self, idx):
         if self.bin:
-            if i < 256:
-                return packB(op.BINGET, i)
+            if idx < 256:
+                return packB(op.BINGET, idx)
             else:
-                return packI(op.LONG_BINGET, i)
+                return packI(op.LONG_BINGET, idx)
 
-        return op.GET + repr(i) + b'\n'
+        return "%s%d\n" %(op.GET, idx)
 
 app = applevel('''
 def _getattribute(obj, name):
@@ -906,13 +938,14 @@ def encode_long(space, w_x):
     nbytes = (space.int_w(w_x.descr_bit_length(space)) >> 3) + 1
     result = space.bytes_w(w_x.descr_to_bytes(space, nbytes, byteorder='little', signed=True))
     if space.is_true(space.lt(w_x, space.newint(0))) and nbytes > 1:
-        if result[-1] == b'\xff' and (result[-2] & '\x80') != 0:
+        if result[-1] == b'\xff' and (result[-2] != '\x80'):
             result = result[:-1]
     return result
 
-def descr__new__(space, w_subtype, w_file):
+@unwrap_spec(proto=int)
+def descr__new__(space, w_subtype, w_file, proto):
     w_self = space.allocate_instance(W_Pickler, w_subtype)
-    W_Pickler.__init__(w_self, space, w_file)
+    W_Pickler.__init__(w_self, space, w_file, proto)
     return w_self
 
 W_Pickler.typedef = TypeDef("_pickle.Pickler",
