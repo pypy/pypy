@@ -8,7 +8,7 @@ def resolve_addr(addr):
     if res is None:
         return None
     name, filename = res
-    return name, 0, filename
+    return name.decode('utf-8'), 0, filename.decode('utf-8')
 
 def resolve_many_addrs(addrs):
     import sys
@@ -16,4 +16,4 @@ def resolve_many_addrs(addrs):
         return {}
     from _pypy_remote_debug import _symbolify_all
     res = _symbolify_all(addrs)
-    return {addr: (name, 0, filename) for addr, (name, filename) in res.items()}
+    return {addr: (name.decode('utf-8'), 0, filename.decode('utf-8')) for addr, (name, filename) in res.items()}
