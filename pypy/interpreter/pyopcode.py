@@ -1750,6 +1750,7 @@ class __extend__(pyframe.PyFrame):
         values_w = [None] * length
         w_seen = self.space.newset()
         w_iter = self.space.iter(w_keys)
+        w_sentinel = self.space.call_method(self.space.builtin, "object")
         try:
             i = 0
             while True:
@@ -1757,8 +1758,8 @@ class __extend__(pyframe.PyFrame):
                 if self.space.contains_w(w_seen, w_key):
                     raise oefmt(self.space.w_ValueError, "mapping pattern checks duplicate key (%R)", w_key)
                 self.space.call_method(w_seen, "add", w_key)
-                w_value = self.space.call_method(w_dict, 'get', w_key, self.space.w_None)
-                if not self.space.is_w(w_value, self.space.w_None):
+                w_value = self.space.call_method(w_dict, 'get', w_key, w_sentinel)
+                if not self.space.is_w(w_value, w_sentinel):
                     values_w[i] = w_value
                 else:
                     self.pushvalue(self.space.w_None)

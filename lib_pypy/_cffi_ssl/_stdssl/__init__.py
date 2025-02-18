@@ -1711,10 +1711,14 @@ class _SSLContext(object):
                 return 0
             if not isinstance(arg, str):
                 raise TypeError("str path expected")
-            fp = open(arg, "at")
-            self.keylog_bio = lib.BIO_new_fp(fp, lib.BIO_CLOSE | lib.BIO_FP_TEXT)
-            if not self.keylog_bio:
-                raise SSLError("Can't malloc memory for keylog file")
+            buf = _fs_converter(arg, "arg")
+            mode = ffi.new("char[]", b"at")
+            ffi.errno = 0
+            self.keylog_bio = lib.BIO_new_file(buf, mode)
+            if self.keylog_bio == ffi.NULL:
+                _errno = ffi.errno
+                lib.ERR_clear_error()
+                raise OSError(_errno, '')
             self._keylog_filename = arg
             # Write a header for seekable, empty files (this excludes pipes).
             if lib.BIO_tell(self.keylog_bio) == 0:

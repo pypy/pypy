@@ -42,6 +42,8 @@ dummyref = RefFrontendOp._resref
 class FakeOptimizer(object):
     metainterp_sd = None
     optheap = optrewrite = None
+    class jitdriver_sd:
+        virtualizable_info = None
 
     def __init__(self, trace=None):
         self.trace = trace
@@ -599,7 +601,7 @@ class Frame(object):
     def get_list_of_active_boxes(self, flag, new_array, encode, after_residual_call=False):
         a = new_array(len(self.boxes))
         for i, box in enumerate(self.boxes):
-            a = encode(a, box)
+            encode(box)
         return a
 
 def test_ResumeDataLoopMemo_number():

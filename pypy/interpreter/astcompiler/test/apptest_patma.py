@@ -345,3 +345,13 @@ def test_abstract_isinstance_check():
         case Integer(): pass
         case _: assert 0 # unreachable
 
+
+def test_dict_pattern_none_value_bug():
+    d = {"a": None}
+    res = 0
+    match d:
+        case {"a": None}:
+            res = 1
+        case _:
+            res = 2
+    assert res == 1

@@ -189,6 +189,14 @@ class Optimization(object):
         if self.optimizer.optpure:
             self.optimizer.optpure.pure_from_args(opnum, args, op, descr)
 
+    def pure_from_args2(self, opnum, arg0, arg1, op):
+        if self.optimizer.optpure:
+            self.optimizer.optpure.pure_from_args2(opnum, arg0, arg1, op)
+
+    def pure_from_args1(self, opnum, arg0, op):
+        if self.optimizer.optpure:
+            self.optimizer.optpure.pure_from_args1(opnum, arg0, op)
+
     def get_pure_result(self, key):
         if self.optimizer.optpure:
             return self.optimizer.optpure.get_pure_result(key)

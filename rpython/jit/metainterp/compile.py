@@ -328,6 +328,10 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
                        loop_info.extra_before_label + [loop_info.label_op] + loop_ops)
     if not we_are_translated():
         loop.check_consistency()
+    # check jump op has same number of args as label
+    jump_op = loop_ops[-1]
+    if jump_op.getdescr() is loop_info.label_op.getdescr():
+        assert jump_op.numargs() == loop_info.label_op.numargs()
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop",
                          inputargs, metainterp.box_names_memo)
     record_loop_or_bridge(metainterp_sd, loop)
