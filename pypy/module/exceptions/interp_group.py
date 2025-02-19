@@ -24,7 +24,7 @@ class W_BaseExceptionGroup(W_BaseException):
     def descr_init(self, space, args_w):
         if len(args_w) > 0:
             self.w_value = args_w[0]
-        W_Exception.descr_init(self, space, args_w)
+        W_BaseException.descr_init(self, space, args_w)
 
     def descr_str(self, space):
         return app_str(space, self)
@@ -60,6 +60,7 @@ W_BaseExceptionGroup.typedef = TypeDef(
     __doc__ = W_BaseExceptionGroup.__doc__,
     __module__ = 'builtins',
     __new__ = interp2app(W_BaseExceptionGroup.descr_new),
+    __init__ = interp2app(W_BaseExceptionGroup.descr_init),
     __str__ = interp2app(W_BaseExceptionGroup.descr_str),
     __repr__ = interp2app(W_BaseExceptionGroup.descr_repr),
     __class_getitem__ = interp2app(
