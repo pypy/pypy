@@ -483,7 +483,8 @@ Miscellaneous
 * PyPy's readline module was rewritten from scratch: it is not GNU's
   readline.  It should be mostly compatible, and it adds multiline
   support (see ``multiline_input()``).  On the other hand,
-  ``parse_and_bind()`` calls are ignored (issue `#2072`_).
+  ``parse_and_bind()`` calls are ignored (issue `#2072`_). On PyPy3.11+,
+  readline is now an internal module in ``pyrepl``.
 
   .. _sys-getsizeof:
 
