@@ -565,13 +565,14 @@ class StackSummary(list):
                         anchors and anchors.right_start_offset - anchors.left_end_offset > 0):
 
                     if colorize:
+                        delta = stripped_characters - 1
                         colorized_line = "".join([
                             "    ",
-                            stripped_line[:start_offset],
+                            stripped_line[:start_offset-delta],
                             ANSIColors.BOLD_RED,
                             code_segment,
                             ANSIColors.RESET,
-                            stripped_line[end_offset:],
+                            stripped_line[end_offset-delta:],
                             "\n",
                         ])
                         row[-1] = colorized_line
