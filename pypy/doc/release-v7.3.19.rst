@@ -3,7 +3,7 @@ PyPy v7.3.19: release of python 2.7, 3.10 and 3.11 beta
 =======================================================
 
 ..
-     updated to ef590f639e529e, eb7892065a7ad8be69
+     updated to ef590f639e529e, 08bdaf60c9e
 
 .. note::
     This is a pre-release announcement. When the release actually happens, it
@@ -141,4 +141,5 @@ Python 3.11
 Bugfixes
 ~~~~~~~~
 - Add missing ``co_qualname`` to code objects, also fix ``PyCode_*`` signatures (:issue:`5203`)
+- Fix printing traceback when the error line has trailing whitespace (:issue:`5219`)
 
