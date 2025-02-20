@@ -213,7 +213,6 @@ class AnotherCase:
         tps1 = [tk.token_type for tk in tks1]
         tks2 = tokenize(input2)
         tps2 = [tk.token_type for tk in tks2]
-        print "tps2 has extra", tokens.INDENT, "and", tokens.DEDENT
         assert tps1 == tps2
 
     def test_error_integers(self):

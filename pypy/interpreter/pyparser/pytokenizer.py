@@ -262,24 +262,22 @@ def generate_tokens(lines, flags):
                 continue
             if line[pos] == '\\' and line[pos + 1] in '\r\n':
                 # first non-whitespace char and last char in line is \
-                if lines[lines_index + 1] != "":
-                    # skip lines that are only a line continuation char
-                    # followed by an empty line (not last line)
-                    continue
-                if 0 and lines[lines_index + 1] not in "\r\n":
-                    # continuation marker after spaces should increase the
-                    # indentation level, but only if ... what?
-
-                    # This stanza is needed for test_continuation_and_indentation_levels
-                    # in test_pytokenizer (and Lib/test_syntax), but breaks
-                    # test_formfeed and test_backslash_before_indent in the
-                    # same file (from 'black' tests
+                if lines[lines_index + 1] not in ("\r\n", "\n", "\x0C\n"):
+                    # continuation marker after spaces can increase the
+                    # indentation level
                     if pos != cont_line_col:
                         indents.append(pos)
                         altindents.append(pos)
                         token_list.append(Token(tokens.INDENT, line[:pos], lnum, 0, line[:pos] + lines[lines_index + 1], lnum, pos, level=len(parenstack)))
                         cont_line_col = pos
+                    continued = True
                     continue
+                if lines[lines_index + 1] != "":
+                    # skip lines that are only a line continuation char
+                    # followed by an empty line (not last line)
+                    continue
+            else:
+                cont_line_col = 0
             if column == indents[-1]:
                 if altcolumn != altindents[-1]:
                     raise TabError(lnum, pos, line)
@@ -487,7 +485,6 @@ def generate_tokens(lines, flags):
                 token_list.append(tok)
                 last_comment = ''
                 pos = pos + 1
-
     lnum -= 1
     if not (flags & consts.PyCF_DONT_IMPLY_DEDENT):
         if token_list and token_list[-1].token_type != tokens.NEWLINE:
