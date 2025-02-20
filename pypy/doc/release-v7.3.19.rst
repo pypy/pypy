@@ -3,7 +3,7 @@ PyPy v7.3.19: release of python 2.7, 3.10 and 3.11 beta
 =======================================================
 
 ..
-     updated to 29b6dad653b00, d3e06383e653c
+     updated to ef590f639e529e, 08bdaf60c9e
 
 .. note::
     This is a pre-release announcement. When the release actually happens, it
@@ -123,6 +123,10 @@ Bugfixes
   in the first PyPy3.10 release (:issue:`5196`).
 - Use ``BIO_new_file`` not ``BIO_new_fp`` in ``_ssl`` since the later does not
   work on windows.
+- Assign `ht_qualname` on builtin python types (:issue:`5217`)
+- Ternary ``pow`` behaves differently with respect to calling ``__rpow__`` in
+  the interpreter and via the C-API's ``tp_as_number.nb_power`` (:issue: `5207`)
+- ``len(_weakset)`` could fail due to threading, iterate over a copy instead (:issue:`5193`)
 
 
 Speedups and enhancements
@@ -137,4 +141,5 @@ Python 3.11
 Bugfixes
 ~~~~~~~~
 - Add missing ``co_qualname`` to code objects, also fix ``PyCode_*`` signatures (:issue:`5203`)
+- Fix printing traceback when the error line has trailing whitespace (:issue:`5219`)
 
