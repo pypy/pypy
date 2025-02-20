@@ -265,13 +265,16 @@ def generate_tokens(lines, flags):
                 if lines[lines_index + 1] not in ("\r\n", "\n", "\x0C\n"):
                     # continuation marker after spaces can increase the
                     # indentation level
-                    if pos != cont_line_col:
+                    allformfeed = all([x == '\x0C' for x in line[:pos]])
+                    if allformfeed:
+                        pass
+                    elif pos != cont_line_col:
                         indents.append(pos)
                         altindents.append(pos)
                         token_list.append(Token(tokens.INDENT, line[:pos], lnum, 0, line[:pos] + lines[lines_index + 1], lnum, pos, level=len(parenstack)))
                         cont_line_col = pos
-                    continued = True
-                    continue
+                        continued = True
+                        continue
                 if lines[lines_index + 1] != "":
                     # skip lines that are only a line continuation char
                     # followed by an empty line (not last line)

@@ -192,13 +192,19 @@ def fib(n):
             # get better error message
             assert tks1 == tks2
 
-    def test_formfeed(self):
+    def test_formfeed1(self):
         # issue gh-5221
         input = "\\\n\ndef(a=1,b:bool=False): pass"
         tks = tokenize(input)
         assert tks[0].token_type != tokens.INDENT
 
-    def test_backslash_before_indent(self):
+    def test_formfeed2(self):
+        # issue gh-5221
+        input = "\\\n#\n"
+        tks = tokenize(input)
+        assert tks[0].token_type != tokens.INDENT
+
+    def test_backslash_before_indent1(self):
         # issue gh-5221
         input1 = r"""\
 class AnotherCase:
@@ -209,6 +215,23 @@ class AnotherCase:
     \
     '''Some Docstring
     '''"""
+        tks1 = tokenize(input1)
+        tps1 = [tk.token_type for tk in tks1]
+        tks2 = tokenize(input2)
+        tps2 = [tk.token_type for tk in tks2]
+        assert tps1 == tps2
+
+    def test_backslash_before_indent2(self):
+        # issue gh-5221
+        input1 = r"""\
+class Plotter:
+\
+    pass
+"""
+        input2 = r"""\
+class Plotter:
+    pass
+"""
         tks1 = tokenize(input1)
         tps1 = [tk.token_type for tk in tks1]
         tks2 = tokenize(input2)
