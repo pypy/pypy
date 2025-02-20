@@ -246,34 +246,40 @@ def generate_tokens(lines, flags):
                 pos = pos + 1
             if pos == max: break
 
-            if line[pos] in '\r\n':
+            if line[pos] in '#\r\n':
                 # skip blank lines
+                if line[pos] == '#':
+                    # skip full-line comment, but still check that it is valid utf-8
+                    if not verify_utf8(line):
+                        raise bad_utf8("comment",
+                                       line, lnum, pos, token_list, flags)
+                    type_comment_tok = handle_type_comment(line.lstrip(),
+                                                          flags, lnum, pos, line)
+                    if type_comment_tok is None:
+                        continue
+                    else:
+                        switch_indents += 1
                 continue
             if line[pos] == '\\' and line[pos + 1] in '\r\n':
-                if lines[lines_index + 1] not in "\r\n":
-                    # continuation marker after spaces should increase the indentation level
+                # first non-whitespace char and last char in line is \
+                if lines[lines_index + 1] != "":
+                    # skip lines that are only a line continuation char
+                    # followed by an empty line (not last line)
+                    continue
+                if 0 and lines[lines_index + 1] not in "\r\n":
+                    # continuation marker after spaces should increase the
+                    # indentation level, but only if ... what?
+
+                    # This stanza is needed for test_continuation_and_indentation_levels
+                    # in test_pytokenizer (and Lib/test_syntax), but breaks
+                    # test_formfeed and test_backslash_before_indent in the
+                    # same file (from 'black' tests
                     if pos != cont_line_col:
                         indents.append(pos)
                         altindents.append(pos)
                         token_list.append(Token(tokens.INDENT, line[:pos], lnum, 0, line[:pos] + lines[lines_index + 1], lnum, pos, level=len(parenstack)))
                         cont_line_col = pos
                     continue
-                if lines[lines_index + 1] != "":
-                    # skip lines that are only a line continuation char
-                    # followed by an empty line (not last line)
-                    continue
-            if line[pos] == '#':
-                # skip full-line comment, but still check that it is valid utf-8
-                if not verify_utf8(line):
-                    raise bad_utf8("comment",
-                                   line, lnum, pos, token_list, flags)
-                type_comment_tok = handle_type_comment(line.lstrip(),
-                                                      flags, lnum, pos, line)
-                if type_comment_tok is None:
-                    continue
-                else:
-                    switch_indents += 1
-
             if column == indents[-1]:
                 if altcolumn != altindents[-1]:
                     raise TabError(lnum, pos, line)

@@ -192,6 +192,30 @@ def fib(n):
             # get better error message
             assert tks1 == tks2
 
+    def test_formfeed(self):
+        # issue gh-5221
+        input = "\\\n\ndef(a=1,b:bool=False): pass"
+        tks = tokenize(input)
+        assert tks[0].token_type != tokens.INDENT
+
+    def test_backslash_before_indent(self):
+        # issue gh-5221
+        input1 = r"""\
+class AnotherCase:
+    '''Some Docstring
+    '''"""
+        input2 = r"""\
+class AnotherCase:
+    \
+    '''Some Docstring
+    '''"""
+        tks1 = tokenize(input1)
+        tps1 = [tk.token_type for tk in tks1]
+        tks2 = tokenize(input2)
+        tps2 = [tk.token_type for tk in tks2]
+        print "tps2 has extra", tokens.INDENT, "and", tokens.DEDENT
+        assert tps1 == tps2
+
     def test_error_integers(self):
         check_token_error("0b106",
                 "invalid digit '6' in binary literal",
@@ -244,6 +268,7 @@ def fib(n):
                 "invalid non-printable character U+00A0",
                 2)
 
+
 class TestTokenizer310Changes(object):
     def test_single_quoted(self):
         check_token_error('s = "abc\n', "unterminated string literal (detected at line 1)", pos=5)
@@ -281,3 +306,4 @@ class TestTokenizer310Changes(object):
         tks = tokenize(line)
         levels = [token.level for token in tks]
         assert levels == [0, 0, 1, 1, 1, 1, 0, 1, 2, 2, 2, 2, 1, 0, 0, 0, 0]
+
