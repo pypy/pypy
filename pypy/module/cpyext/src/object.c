@@ -229,6 +229,20 @@ _PyType_Name(PyTypeObject *type)
     return s;
 }
 
+PyObject *
+_PyType_GetQualName(PyTypeObject *type)
+{
+    if (type->tp_flags & Py_TPFLAGS_HEAPTYPE) {
+        PyHeapTypeObject* et = (PyHeapTypeObject*)type;
+        Py_INCREF(et->ht_qualname);
+        return et->ht_qualname;
+    }
+    else {
+        return PyUnicode_FromString(_PyType_Name(type));
+    }
+}
+
+
 void
 _Py_NewReference(PyObject *op)
 {

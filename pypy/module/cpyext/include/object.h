@@ -234,6 +234,7 @@ PyAPI_FUNC(PyObject*) PyType_FromModuleAndSpec(PyObject *, PyType_Spec *, PyObje
 PyAPI_FUNC(PyObject *) PyType_GetModule(struct _typeobject *);
 PyAPI_FUNC(void *) PyType_GetModuleState(struct _typeobject *);
 #endif
+PyAPI_FUNC(PyObject *) _PyType_GetQualName(PyTypeObject *);
 
 /* Generic type check */
 PyAPI_FUNC(int) PyType_IsSubtype(PyTypeObject *, PyTypeObject *);

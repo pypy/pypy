@@ -482,7 +482,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
             """),
             ("get_qualname", "METH_NOARGS",
             """
-                return PyType_GetQualName(PyDateTimeAPI->DateType);
+                return _PyType_GetQualName(PyDateTimeAPI->DateType);
             """),
         ], prologue='#include "datetime.h"\n')
         import time
