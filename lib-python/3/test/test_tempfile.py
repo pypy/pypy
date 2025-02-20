@@ -1836,7 +1836,8 @@ class TestTemporaryDirectory(BaseTestCase):
             name = d.name
 
             # Check for the resource warning
-            with warnings_helper.check_warnings(('Implicitly',
+            # PyPy: remove the regex for Implicitly...
+            with warnings_helper.check_warnings(('',
                                                  ResourceWarning),
                                                 quiet=False):
                 warnings.filterwarnings("always", category=ResourceWarning)
