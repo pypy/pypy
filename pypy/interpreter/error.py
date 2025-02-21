@@ -725,8 +725,8 @@ def enrich_attribute_error(space, operr, w_obj, w_name):
         return
     from pypy.module.exceptions.interp_exceptions import W_AttributeError
     w_exc = operr.get_w_value(space)
-    assert isinstance(w_exc, W_AttributeError)
-    if space.is_w(space.w_None, w_exc.w_name) and space.is_w(space.w_None, w_exc.w_obj):
+    if (isinstance(w_exc, W_AttributeError) and space.is_w(space.w_None, w_exc.w_name) and
+            space.is_w(space.w_None, w_exc.w_obj)):
         w_exc.w_name = w_name
         w_exc.w_obj = w_obj
 
