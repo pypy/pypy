@@ -179,6 +179,22 @@ def test_open(tempfile):
     with _io.open(tempfile, "rt") as f:
         assert f.mode == "rt"
 
+def test_seek_basic(tempfile):
+    f = _io.open(tempfile, "wb")
+    f.write(b"abcdefghijklmnopqrstu")
+    f.close()
+    f = _io.open(tempfile, "rb")
+    assert f.read(1) == b"a"
+    assert f.seek(3, 1) == 4
+    s = f.seek(3, 0)
+    assert f.tell() == 3
+    assert s == 3
+    assert f.read(1) == b"d"
+    assert f.seek(3, 1) == 7
+    assert f.seek(3, 1) == 10
+    assert f.read(1) == b"k"
+    
+
 def test_open_writable(tempfile):
     f = _io.open(tempfile, "w+b")
     f.close()
@@ -567,11 +583,13 @@ def test_seek_with_encoder_state():
     w.write(u"\u00e6\u0300")
     p0 = w.tell()
     w.write(u"\u00e6")
-    w.seek(p0)
+    p1_ = w.seek(p0, 0)
     p1 = w.tell()
+    assert p1_ == p1
     w.write(u"\u0300")
 
-    w.seek(0)
+    p2 = w.seek(0, 0)
+    assert p2 == 0
     out = w.readline()
     expected = u"\u00e6\u0300\u0300"
     # print([hex(ord(s)) for s in out])
