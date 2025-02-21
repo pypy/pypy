@@ -263,10 +263,9 @@ def generate_tokens(lines, flags):
             if line[pos] == '\\' and line[pos + 1] in '\r\n':
                 # first non-whitespace char and last char in line is \
                 if lines[lines_index + 1] not in ("\r\n", "\n", "\x0C\n"):
-                    # continuation marker after spaces can increase the
-                    # indentation level
-                    allformfeed = all([x == '\x0C' for x in line[:pos]])
-                    if allformfeed:
+                    # continuation marker after spaces increase the
+                    # indentation level if column > 0
+                    if column == 0:
                         pass
                     elif pos != cont_line_col:
                         indents.append(pos)
