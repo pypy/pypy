@@ -56,9 +56,9 @@ making a HPy_ / CFFI_ / cppyy_ version of your library that would be performant
 on PyPy. In any case, both `cibuildwheel`_ and the `multibuild system`_ support
 building wheels for PyPy.
 
-.. _`PyPy`: index.html
+.. _`PyPy`: https://doc.pypy.org/
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`help`: project-ideas.html
+.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
 .. _CFFI: https://cffi.readthedocs.io
 .. _cppyy: https://cppyy.readthedocs.io
 .. _`multibuild system`: https://github.com/matthew-brett/multibuild
