@@ -334,18 +334,16 @@ class BufferedMixin:
             if available > 0:
                 if whence == 0:
                     offset = pos - (current - self._raw_offset())
-                    ret = pos
                 else:
                     offset = pos
-                    ret = self.pos + pos
                 if -self.pos <= offset <= available:
                     newpos = self.pos + int(offset)
                     assert newpos >= 0
                     self.pos = newpos
-                    # totl = available + offset
-                    # if totl < current:
-                    #     return space.newint(current - totl)
-                    return space.newint(ret)
+                    res = current - available + offset
+                    if res < 0:
+                        return space.newint(0)
+                    return space.newint(res)
         # Fallback: invoke raw seek() method and clear buffer
         with self.lock:
             if self.writable:
