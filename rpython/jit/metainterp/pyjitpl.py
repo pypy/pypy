@@ -216,19 +216,19 @@ class MIFrame(object):
         if length_i:
             it = LivenessIterator(offset, length_i, all_liveness)
             for index in it:
-                storage = add_box_to_storage(storage, self.registers_i[index])
+                add_box_to_storage(self.registers_i[index])
                 start_i += 1
             offset = it.offset
         if length_r:
             it = LivenessIterator(offset, length_r, all_liveness)
             for index in it:
-                storage = add_box_to_storage(storage, self.registers_r[index])
+                add_box_to_storage(self.registers_r[index])
                 start_r += 1
             offset = it.offset
         if length_f:
             it = LivenessIterator(offset, length_f, all_liveness)
             for index in it:
-                storage = add_box_to_storage(storage, self.registers_f[index])
+                add_box_to_storage(self.registers_f[index])
                 start_f += 1
             offset = it.offset
         return storage

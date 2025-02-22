@@ -32,6 +32,10 @@ class AppTestSrePy:
         # in py3.7, it should always be 4
         assert _sre.CODESIZE == 4
 
+    def test_opcodes(self):
+        import _sre
+        assert _sre.OPCODES[:4] == 'failure success any any_all'.split()
+
 
 class AppTestSrePattern:
     def setup_class(cls):

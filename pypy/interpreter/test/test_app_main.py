@@ -198,15 +198,15 @@ class TestParseCommandLine:
         self.check([], dict(env, PYTHONOPTIMIZE='10'), sys_argv=[''], run_stdin=True, optimize=10)
         self.check(['-O'], dict(env, PYTHONOPTIMIZE='10'), sys_argv=[''], run_stdin=True, optimize=10)
         self.check(['-OOO'], dict(env, PYTHONOPTIMIZE='abc'), sys_argv=[''], run_stdin=True, optimize=3)
+        self.check([], {'PYPY_DISABLE_JIT': '1'}, sys_argv=[''], run_stdin=True, _jitoptions='off')
+        self.check([], {'PYTHON_DISABLE_REMOTE_DEBUG': '1'}, sys_argv=[''], run_stdin=True, _remote_debug='off')
+        self.check(['-X', 'disable-remote-debug'], {}, sys_argv=[''], run_stdin=True, _xoptions=['disable-remote-debug'], _remote_debug='off')
 
     def test_error(self):
         env = os.environ.copy()
         self.check(['-a'], env, output_contains="Unknown option: -a")
         self.check(['--abc'], env, output_contains="unknown option --abc")
 
-        self.check([], {'PYPY_DISABLE_JIT': '1'}, sys_argv=[''], run_stdin=True, _jitoptions='off')
-        self.check([], {'PYTHON_DISABLE_REMOTE_DEBUG': '1'}, sys_argv=[''], run_stdin=True, _remote_debug='off')
-        self.check(['-X', 'disable-remote-debug'], {}, sys_argv=[''], run_stdin=True, _remote_debug='off')
 
     def test_sysflags(self):
         env = os.environ.copy()

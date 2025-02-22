@@ -7,10 +7,10 @@ import ctypes
 try:
     import __pypy__
 except ImportError:
-    pytest.skip('can only run these tests on pypy')
+    pytestmark = pytest.mark.skip('can only run these tests on pypy')
 
 if not sys.platform.startswith('linux'):
-    pytest.skip('only works on linux so far')
+    pytestmark = pytest.mark.skip('only works on linux so far')
 
 import _pypy_remote_debug
 import _vmprof
@@ -278,7 +278,9 @@ def test_symbolify_vmprof():
     so = load_so_or_skip('libexpat.so')
     address_of_function = (ctypes.cast(so.XML_Parse, ctypes.c_void_p)).value
     name, lineno, filename = _vmprof.resolve_addr(address_of_function)
-    assert name == b'XML_Parse'
+    assert isinstance(name, str)
+    assert isinstance(filename, str)
+    assert name == 'XML_Parse'
     assert 'libexpat.so' in filename
 
     result = _vmprof.resolve_addr(1)
@@ -303,6 +305,6 @@ def test_symbolify_vmprof_many():
     res = _vmprof.resolve_many_addrs(all)
     for index, name in enumerate(names + names2):
         addr = all[index]
-        if isinstance(name, str):
-            name = name.encode('utf-8')
+        if isinstance(name, bytes):
+            name = name.decode('utf-8')
         assert res[addr][0] == name

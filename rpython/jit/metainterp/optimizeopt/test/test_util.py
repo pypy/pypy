@@ -476,6 +476,8 @@ class FakeJitDriverStaticData(object):
     class warmstate:
         pureop_historylength = 16
 
+    virtualizable_info = None
+
 class FakeMetaInterpStaticData(object):
     all_descrs = []
 

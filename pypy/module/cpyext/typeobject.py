@@ -736,9 +736,11 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
             # point we might get into troubles by doing make_ref() when
             # things are not initialized yet.  So in this case, simply use
             # str2charp() and "leak" the string.
-        w_typename = space.getattr(w_type, space.newtext('__name__'))
         heaptype = cts.cast('PyHeapTypeObject*', pto)
+        w_typename = space.getattr(w_type, space.newtext('__name__'))
+        w_qualname = space.getattr(w_type, space.newtext('__qualname__'))
         heaptype.c_ht_name = make_ref(space, w_typename)
+        heaptype.c_ht_qualname = make_ref(space, w_qualname)
         from pypy.module.cpyext.unicodeobject import PyUnicode_AsUTF8
         pto.c_tp_name = cts.cast('const char *',
             PyUnicode_AsUTF8(space, heaptype.c_ht_name))

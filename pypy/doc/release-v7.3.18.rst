@@ -1,16 +1,9 @@
-=======================================================
-PyPy v7.3.18: release of python 2.7, 3.10 and 3.11 beta
-=======================================================
+============================================================================
+PyPy v7.3.18: release of python 2.7, 3.10 and 3.11 beta, released 2025-02-06
+============================================================================
 
 ..
      updated to 30e1d327015bf68
-
-.. note::
-    This is a pre-release announcement. When the release actually happens, it
-    will be announced on the PyPy blog_.
-
-.. note::
-   Need to add release date
 
 The PyPy team is proud to release version 7.3.18 of PyPy.
 
@@ -39,10 +32,10 @@ The release includes three different interpreters:
   backported security updates)
 
 - PyPy3.10, which is an interpreter supporting the syntax and the features of
-  Python 3.10, including the stdlib for CPython 3.10.14.
+  Python 3.10, including the stdlib for CPython 3.10.19.
 
 - PyPy3.11, which is an interpreter supporting the syntax and the features of
-  Python 3.11, including the stdlib for CPython 3.10.10.
+  Python 3.11, including the stdlib for CPython 3.11.11.
 
 The interpreters are based on much the same codebase, thus the triple
 release. This is a micro release, all APIs are compatible with the other 7.3
