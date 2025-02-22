@@ -5,7 +5,7 @@ from rpython.rlib.rarithmetic import check_support_int128
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.debug import make_sure_not_resized, check_regular_int
 from rpython.rlib.objectmodel import we_are_translated, specialize, \
-        not_rpython, newlist_hint
+        not_rpython, newlist_hint, always_inline
 from rpython.rlib import jit
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper import extregistry
@@ -823,7 +823,7 @@ class rbigint(object):
     @staticmethod
     @jit.elidable
     def mul_int_int_bigint_result(iself, iother):
-        if not SUPPORT_INT128 or not int_in_valid_range(iself):
+        if not SUPPORT_INT128 or SHIFT != 63 or not int_in_valid_range(iself):
             return rbigint.fromint(iself).int_mul(iother)
         if iself == 0 or iother == 0:
             return NULLRBIGINT
@@ -2888,35 +2888,42 @@ def _format_base2_notzero(a, digits, prefix='', suffix='', max_str_digits=0):
         return ''.join(result[next_char_index:])
 
 
+class PartsCacheBase(object):
+    def __init__(self, base):
+        mindigits = 1
+        curr = base
+        while 1:
+            try:
+                next = ovfcheck(curr * base)
+            except OverflowError:
+                break
+            if next >= MASK:
+                break
+            curr = next
+            mindigits += 1
+        self.mindigits = mindigits
+        part = rbigint.fromint(curr)
+        self.lowest_part = curr
+        self.parts_cache = [part]
+
 class _PartsCache(object):
     def __init__(self):
         # 36 - 3, because bases 0, 1 make no sense
         # and 2 is handled differently
         self.parts_cache = [None] * 34
-        self.mindigits = [0] * 34
-
-        for i in range(34):
-            base = i + 3
-            mindigits = 1
-            while base ** mindigits < sys.maxint:
-                mindigits += 1
-            mindigits -= 1
-            self.mindigits[i] = mindigits
 
     def get_cached_parts(self, base):
         index = base - 3
         res = self.parts_cache[index]
         if res is None:
-            rbase = rbigint.fromint(base)
-            part = rbase.pow(rbigint.fromint(self.mindigits[index]))
-            res = [part]
-            self.parts_cache[base - 3] = res
+            res = PartsCacheBase(base)
+            self.parts_cache[index] = res
         return res
 
-    def get_mindigits(self, base):
-        return self.mindigits[base - 3]
 
 _parts_cache = _PartsCache()
+_parts_cache_10 = _parts_cache.get_cached_parts(10)
+
 
 def _format_int_general(val, digits):
     base = len(digits)
@@ -2930,30 +2937,109 @@ def _format_int_general(val, digits):
 def _format_int10(val, digits):
     return str(val)
 
-@specialize.arg(7)
-def _format_recursive(x, i, output, pts, digits, size_prefix, mindigits, _format_int, max_str_digits):
-    # bottomed out with min_digit sized pieces
-    # use str of ints
-    curlen = output.getlength()
-    if max_str_digits > 0 and curlen > max_str_digits:
-        raise MaxIntError("requested output too large")
-    if i < 0:
-        # this checks whether any digit has been appended yet
-        if curlen == size_prefix:
-            if x.get_sign() != 0:
-                s = _format_int(x.toint(), digits)
-                output.append(s)
+_format10_table2 = "".join(str(i // 10) + str(i % 10) for i in range(100))
+
+def _format_int10_18digits(val, builder):
+    assert 0 <= val < 10**18
+    top2 = val // 10**16
+    assert top2 < 100
+    val = val % 10**16
+    a = val // 10**8
+    b = val % 10**8
+
+    aa = a // 10**4
+    ab = a % 10**4
+    ba = b // 10**4
+    bb = b % 10**4
+
+    aaa = aa // 10**2
+    aab = aa % 10**2
+    aba = ab // 10**2
+    abb = ab % 10**2
+    baa = ba // 10**2
+    bab = ba % 10**2
+    bba = bb // 10**2
+    bbb = bb % 10**2
+    builder.append_slice(_format10_table2, 2*top2, 2*top2 + 2)
+    builder.append_slice(_format10_table2, 2*aaa, 2*aaa + 2)
+    builder.append_slice(_format10_table2, 2*aab, 2*aab + 2)
+    builder.append_slice(_format10_table2, 2*aba, 2*aba + 2)
+    builder.append_slice(_format10_table2, 2*abb, 2*abb + 2)
+    builder.append_slice(_format10_table2, 2*baa, 2*baa + 2)
+    builder.append_slice(_format10_table2, 2*bab, 2*bab + 2)
+    builder.append_slice(_format10_table2, 2*bba, 2*bba + 2)
+    builder.append_slice(_format10_table2, 2*bbb, 2*bbb + 2)
+
+@specialize.arg(6)
+def _format_recursive(x, i, output, pcb, digits, size_prefix, _format_int, max_str_digits):
+    while i > 0:
+        top, x = x.divmod(pcb.parts_cache[i]) # split the number
+        if not top.tobool() and output.getlength() == size_prefix:
+            # the top half can often be 0, because the number isn't perfectly a
+            # power of the base
+            pass
         else:
-            s = _format_int(x.toint(), digits)
+            _format_recursive(top, i-1, output, pcb, digits, size_prefix, _format_int, max_str_digits)
+        # do the second recursive call by means of manual tail calling
+        i -= 1
+    # bottomed out with mindigits sized pieces
+    # use str of ints
+    mindigits = pcb.mindigits
+    curlen = output.getlength()
+    # the last divmod is guaranteed to return two ints
+    high, low = _format_lowest_level_divmod_int_results(x, pcb.lowest_part)
+    # this checks whether any digit has been appended yet
+    lowdone = False
+    if curlen == size_prefix:
+        if high:
+            s = _format_int(high, digits)
+            output.append(s)
+            curlen += len(s)
+        else:
+            if low:
+                s = _format_int(low, digits)
+                output.append(s)
+                curlen += len(s)
+            lowdone = True
+    else:
+        if SHIFT == 63 and _format_int is _format_int10 and mindigits == 18:
+            _format_int10_18digits(high, output)
+        else:
+            s = _format_int(high, digits)
             output.append_multiple_char(digits[0], mindigits - len(s))
             output.append(s)
-        curlen = output.getlength()
-        if max_str_digits > 0 and curlen  - size_prefix > max_str_digits:
-            raise MaxIntError("requested output too large")
+        curlen += mindigits
+    if not lowdone:
+        if SHIFT == 63 and _format_int is _format_int10 and mindigits == 18:
+            _format_int10_18digits(low, output)
+        else:
+            s = _format_int(low, digits)
+            output.append_multiple_char(digits[0], mindigits - len(s))
+            output.append(s)
+        curlen += mindigits
+    if max_str_digits > 0 and curlen  - size_prefix > max_str_digits:
+        raise MaxIntError("requested output too large")
+
+@always_inline
+def _format_lowest_level_divmod_int_results(x, iother):
+    # this is only useful in the context of _format_recursive, where we know
+    # that at the lowest levels the division leaves a result that fits into an
+    # int (and the mod does anyway fit into an int)
+    # x must be smaller than iother**2
+    # iother must be positive
+    if not x.tobool():
+        return 0, 0
+    assert iother > 0 and iother <= MASK
+    size = x.numdigits() - 1
+    if size == 1:
+        rem = x.uwidedigit(1)
+        assert rem < iother # otherwise iother ** 2 >= x
     else:
-        top, bot = x.divmod(pts[i]) # split the number
-        _format_recursive(top, i-1, output, pts, digits, size_prefix, mindigits, _format_int, max_str_digits)
-        _format_recursive(bot, i-1, output, pts, digits, size_prefix, mindigits, _format_int, max_str_digits)
+        rem = _unsigned_widen_digit(0)
+    rem = (rem << SHIFT) | x.uwidedigit(0)
+    div = rem // iother
+    rem -= div * iother
+    return rffi.cast(lltype.Signed, div), rffi.cast(lltype.Signed, rem)
 
 def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     if x.get_sign() == 0:
@@ -2966,13 +3052,12 @@ def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     negative = x.get_sign() < 0
     if negative:
         x = x.neg()
-    rbase = rbigint.fromint(base)
-    two = rbigint.fromint(2)
 
-    pts = _parts_cache.get_cached_parts(base)
-    mindigits = _parts_cache.get_mindigits(base)
+    pcb = _parts_cache.get_cached_parts(base)
+    mindigits = pcb.mindigits
     stringsize = mindigits
     startindex = 0
+    pts = pcb.parts_cache
     for startindex, part in enumerate(pts):
         if not part.lt(x):
             break
@@ -2980,7 +3065,7 @@ def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     else:
         # not enough parts computed yet
         while pts[-1].lt(x):
-            pts.append(pts[-1].pow(two))
+            pts.append(pts[-1].int_pow(2))
             stringsize *= 2
 
         startindex = len(pts) - 1
@@ -2988,18 +3073,26 @@ def _format(x, digits, prefix='', suffix='', max_str_digits=0):
     # remove first base**2**i greater than x
     startindex -= 1
 
+    stringsize += len(prefix) + len(suffix) + negative
     output = StringBuilder(stringsize)
     if negative:
         output.append('-')
     output.append(prefix)
-    if digits == BASE10:
-        _format_recursive(
-            x, startindex, output, pts, digits, output.getlength(), mindigits,
-            _format_int10, max_str_digits)
+    if startindex < 0:
+        if digits == BASE10:
+            s = _format_int10(x.toint(), digits)
+        else:
+            s = _format_int_general(x.toint(), digits)
+        output.append(s)
     else:
-        _format_recursive(
-            x, startindex, output, pts, digits, output.getlength(), mindigits,
-            _format_int_general, max_str_digits)
+        if digits == BASE10:
+            _format_recursive(
+                x, startindex, output, pcb, digits, output.getlength(),
+                _format_int10, max_str_digits)
+        else:
+            _format_recursive(
+                x, startindex, output, pcb, digits, output.getlength(),
+                _format_int_general, max_str_digits)
 
     output.append(suffix)
     return output.build()

@@ -2,9 +2,9 @@ name: Translate PyPy
 
 on:
   push:
-    branches: [ "main", "py3.10", "py3.11"]
+    branches: [ "main", "py3.11"]
   pull_request:
-    branches: [ "main", "py3.10", "py3.11"]
+    branches: [ "main", "py3.11"]
   workflow_dispatch:
 
 permissions:
@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-24.04]
 
     steps:
     - uses: actions/checkout@v4

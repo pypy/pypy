@@ -39,9 +39,9 @@ the beginning of each file) the files in the 'pypy' directory are each
 copyrighted by one or more of the following people and organizations:
 
   Armin Rigo
-  Maciej Fijałkowski
   Matti Picus
   Carl Friedrich Bolz-Tereick
+  Maciej Fijałkowski
   Antonio Cuni
   Amaury Forgeot d'Arc
   Ronan Lamy
@@ -75,8 +75,8 @@ copyrighted by one or more of the following people and organizations:
   Alexander Schremmer
   David Edelsohn
   Raffael Tfirst
-  Lawrence Oluyede
   Stefano Rivera
+  Lawrence Oluyede
   Gregor Wegberg
   Jakub Gustak
   Romain Guillebert
@@ -86,10 +86,10 @@ copyrighted by one or more of the following people and organizations:
   Alexander Hesse
   Justin Peel
   Niko Matsakis
+  Nico Rittinghaus
   Toon Verwaest
   Ludovic Aubry
   stian
-  Nico Rittinghaus
   Alex Martelli
   Adrien Di Mascio
   Anders Hammarquist
@@ -183,6 +183,7 @@ copyrighted by one or more of the following people and organizations:
   Jason Chu
   Michael Twomey
   Rocco Moretti
+  da-woods
   Andrews Medina
   Tim Matussek
   Pieter Zieschang
@@ -197,6 +198,7 @@ copyrighted by one or more of the following people and organizations:
   Beatrice During
   Jared Grubb
   Olivier Dormond
+  Christoph Jung
   Nils Müller
   Sergey Matyunin
   Brian Dorsey
@@ -235,6 +237,7 @@ copyrighted by one or more of the following people and organizations:
   Christopher Pope
   Mike Pavone
   Alan McIntyre
+  Thomas Grainger
   Caleb Burns
   Sebastian Berg
   Matt Billenstein
@@ -268,6 +271,7 @@ copyrighted by one or more of the following people and organizations:
   Gabriel
   Aaron Iles
   Jacek Generowicz
+  Ilya Egorov
   Paul Gey
   Alessandro Ogier
   Chris Burr
@@ -292,6 +296,7 @@ copyrighted by one or more of the following people and organizations:
   Jacob Oscarson
   Ignas Mikalajunas
   Lutz Paelike
+  Christian Clauss
   Benjamin Moody
   Renaud Blanch
   h-vertini
@@ -342,8 +347,11 @@ copyrighted by one or more of the following people and organizations:
   Yusei Tahara
   Joshua Gilbert
   Andrew Thompson
+  Ariel Volovik
+  Martin Teichmann
   diath
   robinverduijn
+  obafgkmdh
   Oskar Haarklou Veileborg
   Karl Otness
   Blackasthesky
