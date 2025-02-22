@@ -3,7 +3,7 @@ PyPy v7.3.19: release of python 2.7, 3.10 and 3.11 beta
 =======================================================
 
 ..
-     updated to ef590f639e529e, 08bdaf60c9e
+     updated to release merging
 
 .. note::
     This is a pre-release announcement. When the release actually happens, it
@@ -143,4 +143,4 @@ Bugfixes
 ~~~~~~~~
 - Add missing ``co_qualname`` to code objects, also fix ``PyCode_*`` signatures (:issue:`5203`)
 - Fix printing traceback when the error line has trailing whitespace (:issue:`5219`)
-
+- Fix segfault when ``__getattr__`` raises ``AttributeError`` (:issue:`5222`)
