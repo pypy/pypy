@@ -113,7 +113,8 @@ Speedups and enhancements
 
 Python 3.10
 -----------
-- Remove vendored ``readline`` module, the one used in ``pyrepl`` is vendored into ``pyrepl`` itself.
+- Remove distinfo around vendored ``readline`` module, to be more compatible
+  with CPython.
 
 Bugfixes
 ~~~~~~~~
