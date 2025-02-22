@@ -484,8 +484,7 @@ Miscellaneous
 * PyPy's readline module was rewritten from scratch: it is not GNU's
   readline.  It should be mostly compatible, and it adds multiline
   support (see ``multiline_input()``).  On the other hand,
-  ``parse_and_bind()`` calls are ignored (issue `#2072`_). On PyPy3.11+,
-  readline is now an internal module in ``pyrepl``.
+  ``parse_and_bind()`` calls are ignored (issue `#2072`_).
 
   .. _sys-getsizeof:
 
@@ -609,6 +608,9 @@ Miscellaneous
 
 .. __: https://stackoverflow.com/a/55499713/1556290
 
+* PyPy3 does not implement the ``_pth`` `file protocol`_ to override ``sys.path``.
+
+.. _`file protocol`: https://docs.python.org/3/library/sys_path_init.html#pth-files
 
 .. _extension-modules:
 
