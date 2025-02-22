@@ -144,7 +144,6 @@ from test.support import (cpython_only,
 from test.support.script_helper import assert_python_ok
 from test.support import threading_helper
 from opcode import opmap
-COPY_FREE_VARS = opmap['COPY_FREE_VARS']
 
 
 def consts(t):
@@ -186,6 +185,7 @@ class CodeTest(unittest.TestCase):
     def test_closure_injection(self):
         # From https://bugs.python.org/issue32176
         from types import FunctionType
+        COPY_FREE_VARS = opmap['COPY_FREE_VARS']
 
         def create_closure(__class__):
             return (lambda: __class__).__closure__

@@ -98,6 +98,28 @@ def test_traceback_positions():
     ]
     assert buffer.get_lines()[-3:] == expected_exc_format
 
+def test_traceback_positions_trailing_whitespace():
+    # issue gh-5219
+    def name_error():
+            # note this has excess trailing whitespace
+            a = b          
+
+    with raises(NameError) as exc_info:
+        name_error()
+
+    original_std_err = sys.stderr
+    sys.stderr = buffer = Buffer()
+    original_exc_format = sys.excepthook(
+        exc_info.type, exc_info.value, exc_info.value.__traceback__
+    )
+    sys.stderr = original_exc_format
+    expected_exc_format = [
+        '    a = b',
+        '        ^',
+        "NameError: name 'b' is not defined"
+    ]
+    assert buffer.get_lines()[-3:] == expected_exc_format
+
 def test_traceback_positions_on_cause():
     def foo(x):
         1 + 1/0 + 2

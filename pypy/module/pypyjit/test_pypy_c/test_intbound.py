@@ -299,6 +299,7 @@ class TestIntbound(BaseTestPyPyC):
         """)
 
     def test_abs_branch_free(self):
+        import sys
         def main(start, stop):
             res = 0
             for i in range(start, stop):
@@ -312,11 +313,11 @@ class TestIntbound(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             i63 = int_eq(i58, ...) # check whether it's MININT
             guard_false(i63, descr=...)
-            i65 = int_rshift(i58, 63)
+            i65 = int_rshift(i58, %s)
             i66 = int_xor(i58, i65)
             i67 = int_sub(i66, i65)
             i68 = int_add_ovf(i51, i67)
             guard_no_overflow(descr=...)
             --TICK--
-        """)
+        """ % sys.maxsize.bit_length())
 

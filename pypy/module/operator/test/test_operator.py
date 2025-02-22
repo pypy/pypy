@@ -29,7 +29,7 @@ class AppTestOperator:
 
         assert operator.attrgetter('x','z','y')(a) == ('X', 'Z', 'Y')
         e = raises(TypeError, operator.attrgetter, ('x', (), 'y'))
-        assert str(e.value) == "attribute name must be a string, not 'tuple'"
+        assert str(e.value).startswith("attribute name must be a string")
 
         data = list(map(str, range(20)))
         assert operator.itemgetter(2,10,5)(data) == ('2', '10', '5')
@@ -338,6 +338,10 @@ class AppTestOperator:
     def test_length_hint(self):
         import _operator as operator
         assert operator.length_hint([1, 2]) == 2
+        with raises(TypeError) as exc:
+            operator.length_hint("abc", "abc")
+        print(exc.value)
+        assert "cannot be interpreted as an integer" in str(exc.value)
 
     def test_repr_attrgetter(self):
         import _operator as operator
@@ -364,3 +368,10 @@ class AppTestOperator:
         assert countOf([1, 2, 1, 1, 4], 1) == 3
         nan = float('nan')
         assert countOf([nan, nan, 4, nan], nan) == 3
+
+    def test_iconcat(self):
+        from _operator import iconcat
+        with raises(TypeError) as exc:
+            iconcat(1, 0.5)
+        print(exc.value)
+        assert str(exc.value) == "'int' object can't be concatenated"

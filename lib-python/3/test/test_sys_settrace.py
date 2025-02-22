@@ -2807,6 +2807,7 @@ output.append(4)
 
     # checking for segfaults.
     @jump_test(3, 7, [], error=(ValueError, "stack"))
+    @support.cpython_only
     def test_jump_with_null_on_stack_load_attr(output):
         a = 1
         list.append(

@@ -48,7 +48,6 @@ if sys.platform != 'win32':
         'posix',
         'pty',
         'pwd',
-        'readline',
         'resource',
         'syslog',
         'termios',

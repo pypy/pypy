@@ -7,7 +7,7 @@ class TestCode:
     def test_code_eq_corner_cases(self):
         space = self.space
         def make_code_with_const(w_obj):
-            return PyCode(space, 0, 0, 0, 0, 1, 0, '', [w_obj], [], [], '', '', 0, '', [], [], False)
+            return PyCode(space, 0, 0, 0, 0, 1, 0, '', [w_obj], [], [], '', '', '', 0, '', [], [], False)
         def cmp_code_consts(w_obj1, w_obj2):
             w_code1 = make_code_with_const(w_obj1)
             w_code2 = make_code_with_const(w_obj2)
@@ -204,7 +204,7 @@ class AppTestCodeIntrospection:
 
     def test_issue1844(self):
         import types
-        args = (1, 0, 0, 1, 0, 0, b'', (), (), (), '', 'operator', 0, b'')
+        args = (1, 0, 0, 1, 0, 0, b'', (), (), (), '', 'operator', 'operator', 0, b'')
         # previously raised a MemoryError when translated
         types.CodeType(*args)
 

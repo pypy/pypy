@@ -16,8 +16,8 @@ def test_dump(space):
         sys.stdout = stdout
     print '>>>\n' + output + '\n<<<'
     assert ' 0 (7)' in output
-    assert ' 4 (None)' in output
-    assert ' 16 RETURN_VALUE' in output
+    assert ' 3 (None)' in output
+    assert ' 14 RETURN_VALUE' in output
 
 
 def test_strong_const_equal(space):

@@ -1192,7 +1192,7 @@ class Connection(object):
             """
             encname = name.encode('utf-8')
             flags = _lib.SQLITE_SERIALIZE_NOCOPY
-            sizemem = _ffi.new('int64_t *')
+            sizemem = _ffi.new('sqlite3_int64 *')
             data = _lib.sqlite3_serialize(self._db, encname, sizemem, flags)
             if data:
                 return bytes(_ffi.buffer(data, sizemem[0]))

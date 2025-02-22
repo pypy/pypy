@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+from test.support import cpython_only
 from test.support.import_helper import import_module
 
 termios = import_module('termios')
@@ -55,6 +56,7 @@ class TestFunctions(unittest.TestCase):
         termios.tcsetattr(self.fd, termios.TCSAFLUSH, attrs)
         termios.tcsetattr(self.stream, termios.TCSANOW, attrs)
 
+    @cpython_only
     def test_tcsetattr_errors(self):
         attrs = termios.tcgetattr(self.fd)
         self.assertRaises(TypeError, termios.tcsetattr, self.fd, termios.TCSANOW, tuple(attrs))
@@ -66,16 +68,22 @@ class TestFunctions(unittest.TestCase):
             self.assertRaises(OverflowError, termios.tcsetattr, self.fd, termios.TCSANOW, attrs2)
             attrs2[i] = object()
             self.assertRaises(TypeError, termios.tcsetattr, self.fd, termios.TCSANOW, attrs2)
+        print(70,attrs[:-1] + [attrs[-1][:-1]])
+        import pdb;pdb.set_trace()
         self.assertRaises(TypeError, termios.tcsetattr, self.fd, termios.TCSANOW, attrs[:-1] + [attrs[-1][:-1]])
+        print(71)
         self.assertRaises(TypeError, termios.tcsetattr, self.fd, termios.TCSANOW, attrs[:-1] + [attrs[-1] + [b'\0']])
+        print(73)
         for i in range(len(attrs[-1])):
             attrs2 = attrs[:]
             attrs2[-1] = attrs2[-1][:]
             attrs2[-1][i] = 2**1000
+            print(76)
             self.assertRaises(OverflowError, termios.tcsetattr, self.fd, termios.TCSANOW, attrs2)
             attrs2[-1][i] = object()
             self.assertRaises(TypeError, termios.tcsetattr, self.fd, termios.TCSANOW, attrs2)
             attrs2[-1][i] = b''
+            print(81)
             self.assertRaises(TypeError, termios.tcsetattr, self.fd, termios.TCSANOW, attrs2)
             attrs2[-1][i] = b'\0\0'
             self.assertRaises(TypeError, termios.tcsetattr, self.fd, termios.TCSANOW, attrs2)

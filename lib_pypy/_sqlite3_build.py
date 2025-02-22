@@ -168,8 +168,8 @@ typedef ... sqlite3;
 typedef ... sqlite3_stmt;
 typedef ... sqlite3_context;
 typedef ... sqlite3_value;
-typedef int64_t sqlite3_int64;
-typedef uint64_t sqlite3_uint64;
+typedef long long int sqlite3_int64;
+typedef unsigned long long int sqlite3_uint64;
 
 int sqlite3_open(
     const char *filename,   /* Database filename (UTF-8) */
@@ -226,7 +226,6 @@ int sqlite3_column_type(sqlite3_stmt*, int iCol);
 const char *sqlite3_column_decltype(sqlite3_stmt*,int);
 
 void sqlite3_progress_handler(sqlite3*, int, int(*)(void*), void*);
-void sqlite3_trace(sqlite3*, void(*)(void*, const char*), void*);
 int sqlite3_trace_v2(
   sqlite3*,
   unsigned uMask,

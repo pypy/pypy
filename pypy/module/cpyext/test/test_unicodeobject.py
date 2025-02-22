@@ -859,6 +859,43 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         with raises(TypeError):
             module.fsconverter(42)
 
+    def test_cython_unicode_tests(self):
+        module = self.import_extension("foo", [
+            ('encoderaw', "METH_O",
+             """
+                return PyUnicode_AsRawUnicodeEscapeString(args);
+             """),
+            ('decoderaw', "METH_O",
+            """
+                char* as_c_string;
+                Py_ssize_t size;
+                if (PyBytes_AsStringAndSize(args, &as_c_string, &size) < 0) {
+                    return NULL;
+                }
+                return PyUnicode_DecodeRawUnicodeEscape(as_c_string, size, NULL);
+            """),
+        ])
+        
+        x = u'\U00100000'
+        y = module.decoderaw(module.encoderaw(x))
+        assert y == x
+ 
+        x = b'\U00100000'
+        y = module.encoderaw(module.decoderaw(x))
+        assert y == x
+ 
+        x = b'\U00010000'
+        y = module.encoderaw(module.decoderaw(x))
+        assert y == x
+
+        try:
+            module.decoderaw(br'\U11111111')
+        except UnicodeDecodeError as e:
+            assert e.start == 0
+            assert e.end == 10
+        else:
+            assert False, "Should have raised UnicodeDecodeError"
+
  
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):

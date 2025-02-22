@@ -911,3 +911,15 @@ def test_type_subscription_message():
         Exception[int]
     assert "type 'Exception' is not subscriptable" in str(info.value)
 
+def test_rpow_not_used_when_third_argument():
+    class RPOW(object):
+        def __pow__(self, other, mod=None):
+            print("__pow__")
+            return 123
+        def __rpow__(self, other, mod=None):
+            print("__rpow__")
+            return 321
+
+    a = RPOW()
+    with raises(TypeError):
+        pow(1, a, a)

@@ -17,7 +17,7 @@ from pypy.interpreter.astcompiler.consts import (
     CO_GENERATOR, CO_COROUTINE, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY,
     CO_ITERABLE_COROUTINE, CO_ASYNC_GENERATOR)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.objectmodel import compute_hash, we_are_translated, not_rpython
 from rpython.rlib import jit, rstring
 
@@ -40,7 +40,7 @@ cpython_magic, = struct.unpack("<i", imp.get_magic())   # host magic number
 # time you make pyc files incompatible.  This value ends up in the frozen
 # importlib, via MAGIC_NUMBER in module/_frozen_importlib/__init__.
 
-pypy_incremental_magic = 400 # bump it by 16
+pypy_incremental_magic = 416 # bump it by 16
 assert pypy_incremental_magic % 16 == 0
 assert pypy_incremental_magic < 3000 # the magic number of Python 3. There are
                                      # no known magic numbers below this value
@@ -77,7 +77,7 @@ def replace(self, kwds):
     for attr in ("co_argcount", "co_posonlyargcount", "co_kwonlyargcount",
                  "co_nlocals", "co_stacksize", "co_flags", "co_code",
                  "co_consts", "co_names", "co_varnames", "co_filename",
-                 "co_name", "co_firstlineno", "co_linetable", "co_freevars",
+                 "co_name", "co_qualname", "co_firstlineno", "co_linetable", "co_freevars",
                  "co_cellvars"):
         if attr not in kwds:
             args.append(getattr(self, attr))
@@ -95,6 +95,7 @@ class PyCode(eval.Code):
     _immutable_fields_ = ["_signature", "co_argcount", "co_posonlyargcount", "co_kwonlyargcount",
                           "co_cellvars[*]",
                           "co_code", "co_consts_w[*]", "co_filename", "w_filename",
+                          "co_qualname",
                           "co_firstlineno", "co_flags", "co_freevars[*]",
                           "co_names_w[*]", "co_nlocals",
                           "co_stacksize", "co_varnames[*]",
@@ -106,7 +107,7 @@ class PyCode(eval.Code):
     def __init__(self, space,  argcount, posonlyargcount, kwonlyargcount,
                      nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
-                     name, firstlineno, linetable, freevars, cellvars,
+                     name, qualname, firstlineno, linetable, freevars, cellvars,
                      hidden_applevel=False, magic=default_magic):
         """Initialize a new code object from parameters given by
         the pypy compiler"""
@@ -132,6 +133,11 @@ class PyCode(eval.Code):
         self.co_filename = filename
         self.w_filename = space.newfilename(filename)
         self.co_name = name
+        if qualname is None:
+            qualname = name
+        assert isinstance(qualname, str)
+        self.co_qualname = qualname
+        assert isinstance(firstlineno, int)
         self.co_firstlineno = firstlineno
         self.co_linetable = linetable
         # store the first globals object that the code object is run in in
@@ -307,6 +313,7 @@ class PyCode(eval.Code):
         if not isinstance(w_other, PyCode):
             return space.w_NotImplemented
         areEqual = (self.co_name == w_other.co_name and
+                    self.co_qualname == w_other.co_qualname and
                     self.co_argcount == w_other.co_argcount and
                     self.co_posonlyargcount == w_other.co_posonlyargcount and
                     self.co_kwonlyargcount == w_other.co_kwonlyargcount and
@@ -339,23 +346,28 @@ class PyCode(eval.Code):
         return space.not_(self.descr_code__eq__(w_other))
 
     def descr_code__hash__(self):
+        def scramble_in(result, h):
+            result ^= h
+            return intmask(r_uint(result) * r_uint(1000003))
         space = self.space
-        result =  compute_hash(self.co_name)
-        result ^= self.co_argcount
-        result ^= self.co_posonlyargcount
-        result ^= self.co_kwonlyargcount
-        result ^= self.co_nlocals
-        result ^= self.co_flags
-        result ^= self.co_firstlineno
-        result ^= compute_hash(self.co_code)
-        for name in self.co_varnames:  result ^= compute_hash(name)
-        for name in self.co_freevars:  result ^= compute_hash(name)
-        for name in self.co_cellvars:  result ^= compute_hash(name)
-        w_result = space.newint(intmask(result))
+        result = 20250211
+        result = scramble_in(result, compute_hash(self.co_name))
+        result = scramble_in(result, compute_hash(self.co_qualname))
+        result = scramble_in(result, self.co_argcount)
+        result = scramble_in(result, self.co_posonlyargcount)
+        result = scramble_in(result, self.co_kwonlyargcount)
+        result = scramble_in(result, self.co_nlocals)
+        result = scramble_in(result, self.co_flags)
+        result = scramble_in(result, self.co_firstlineno)
+        result = scramble_in(result, compute_hash(self.co_code))
+        for name in self.co_varnames:  result = scramble_in(result, compute_hash(name))
+        for name in self.co_freevars:  result = scramble_in(result, compute_hash(name))
+        for name in self.co_cellvars:  result = scramble_in(result, compute_hash(name))
         for w_name in self.co_names_w:
-            w_result = space.xor(w_result, space.hash(w_name))
+            result = scramble_in(result, space.hash_w(w_name))
         for w_const in self.co_consts_w:
-            w_result = space.xor(w_result, space.hash(w_const))
+            result = scramble_in(result, space.hash_w(w_const))
+        w_result = space.newint(intmask(result))
         return w_result
 
     @staticmethod
@@ -365,13 +377,13 @@ class PyCode(eval.Code):
     @unwrap_spec(argcount=int, posonlyargcount=int, kwonlyargcount=int,
                  nlocals=int, stacksize=int, flags=int,
                  codestring='bytes',
-                 filename='fsencode', name='text', firstlineno=int,
+                 filename='fsencode', name='text', qualname='text', firstlineno=int,
                  linetable='bytes', magic=int)
     def descr_code__new__(space, w_subtype,
                           argcount, posonlyargcount, kwonlyargcount,
                           nlocals, stacksize, flags,
                           codestring, w_constants, w_names,
-                          w_varnames, filename, name, firstlineno,
+                          w_varnames, filename, name, qualname, firstlineno,
                           linetable, w_freevars=None, w_cellvars=None,
                           magic=default_magic):
         if argcount < 0:
@@ -401,7 +413,7 @@ class PyCode(eval.Code):
             cellvars = []
         code = space.allocate_instance(PyCode, w_subtype)
         PyCode.__init__(code, space, argcount, posonlyargcount, kwonlyargcount, nlocals, stacksize, flags, codestring, consts_w[:], names,
-                      varnames, filename, name, firstlineno, linetable, freevars, cellvars, magic=magic)
+                      varnames, filename, name, qualname, firstlineno, linetable, freevars, cellvars, magic=magic)
         return code
 
     def descr__reduce__(self, space):
@@ -422,6 +434,7 @@ class PyCode(eval.Code):
             space.newtuple([space.newtext(v) for v in self.co_varnames]),
             self.w_filename,
             space.newtext(self.co_name),
+            space.newtext(self.co_qualname),
             space.newint(self.co_firstlineno),
             space.newbytes(self.co_linetable),
             space.newtuple([space.newtext(v) for v in self.co_freevars]),

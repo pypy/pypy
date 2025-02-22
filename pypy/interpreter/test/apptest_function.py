@@ -880,6 +880,16 @@ def test_co_lines_off_by_one():
     c = f.__code__.replace(co_firstlineno=1)
     assert list(c.co_lines()) == [(0, 4, 2), (4, 6, 3), (6, 10, 5), (10, 14, 6)]
 
+def test_co_lines_expr_parens():
+    def expr_with_parens(x):
+        (
+                1
+                /
+                x
+        )
+    c = expr_with_parens.__code__.replace(co_firstlineno=1)
+    assert [x[2] for x in c.co_lines()] == [3, 5, 3]
+
 def test_qualname_in_error():
     class A:
         def f(self, x):

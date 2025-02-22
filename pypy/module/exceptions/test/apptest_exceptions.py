@@ -560,6 +560,20 @@ def test_derive_always_creates_exception_group():
     eg2 = eg.derive([ValueError()])
     assert type(eg2) is ExceptionGroup
 
+def test_init_called():
+    # issue 5218
+    initcalled = []
+
+    class MyException(Exception):
+        def __init__(self, message):
+            initcalled.append(message)
+
+    class MyExceptionGroup(ExceptionGroup, MyException):
+        pass
+
+    MyExceptionGroup("...", [Exception()])
+    assert len(initcalled) == 0
+
 # _prep_reraise_star tests
 
 if sys.implementation.name == 'pypy':

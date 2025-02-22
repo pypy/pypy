@@ -129,10 +129,10 @@ def unwrap_list_of_texts(space, w_list):
 @cpython_api([rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real,
               rffi.INT_real,
               PyObject, PyObject, PyObject, PyObject, PyObject, PyObject,
-              PyObject, PyObject, rffi.INT_real, PyObject], PyCodeObject)
+              PyObject, PyObject, PyObject, rffi.INT_real, PyObject], PyObject)
 def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                w_code, w_consts, w_names, w_varnames, w_freevars, w_cellvars,
-               w_filename, w_funcname, firstlineno, w_linetable):
+               w_filename, w_funcname, w_qualname, firstlineno, w_linetable):
     """Return a new code object.  If you need a dummy code object to
     create a frame, use PyCode_NewEmpty() instead.  Calling
     PyCode_New() directly can bind you to a precise Python
@@ -150,6 +150,7 @@ def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
                   varnames=unwrap_list_of_texts(space, w_varnames),
                   filename=space.fsencode_w(w_filename),
                   name=space.text_w(w_funcname),
+                  qualname=space.text_w(w_qualname),
                   firstlineno=rffi.cast(lltype.Signed, firstlineno),
                   linetable=space.bytes_w(w_linetable),
                   freevars=unwrap_list_of_texts(space, w_freevars),
@@ -180,6 +181,7 @@ def PyCode_NewWithPosOnlyArgs(space, argcount, posonlyargcount, kwonlyargcount,
                   varnames=unwrap_list_of_texts(space, w_varnames),
                   filename=space.fsencode_w(w_filename),
                   name=space.text_w(w_funcname),
+                  qualname=space.text_w(w_qualname),
                   firstlineno=rffi.cast(lltype.Signed, firstlineno),
                   linetable=space.bytes_w(w_linetable),
                   freevars=unwrap_list_of_texts(space, w_freevars),
@@ -199,6 +201,7 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     size_bc = len(raises_assertionerror_bytecode) // 2
     linetable = encode_positions([pos] * size_bc, firstlineno)
 
+    name = rffi.charp2str(funcname)
     return PyCode(space,
                   argcount=0,
                   posonlyargcount=0,
@@ -211,7 +214,8 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
                   names=[],
                   varnames=[],
                   filename=rffi.charp2str(filename),
-                  name=rffi.charp2str(funcname),
+                  name=name,
+                  qualname=name,
                   firstlineno=rffi.cast(lltype.Signed, firstlineno),
                   linetable=linetable,
                   freevars=[],

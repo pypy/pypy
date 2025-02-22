@@ -539,8 +539,8 @@ class StackSummary(list):
 
             line = frame_summary._original_line
             orig_line_len = len(line)
-            frame_line_len = len(frame_summary.line.lstrip())
-            stripped_characters = orig_line_len - frame_line_len
+            orig_lstripped_len = len(line.lstrip())
+            n_lstripped = orig_line_len - orig_lstripped_len
             if (
                 frame_summary.colno is not None
                 and frame_summary.end_colno is not None
@@ -565,14 +565,13 @@ class StackSummary(list):
                         anchors and anchors.right_start_offset - anchors.left_end_offset > 0):
 
                     if colorize:
-                        delta = stripped_characters - 1
                         colorized_line = "".join([
                             "    ",
-                            stripped_line[:start_offset-delta],
+                            stripped_line[:start_offset-n_lstripped],
                             ANSIColors.BOLD_RED,
                             code_segment,
                             ANSIColors.RESET,
-                            stripped_line[end_offset-delta:],
+                            stripped_line[end_offset-n_lstripped:],
                             "\n",
                         ])
                         row[-1] = colorized_line
@@ -580,11 +579,11 @@ class StackSummary(list):
                     # When showing this on a terminal, some of the non-ASCII characters
                     # might be rendered as double-width characters, so we need to take
                     # that into account when calculating the length of the line.
-                    dp_start_offset = _display_width(line, start_offset) + 1
-                    dp_end_offset = _display_width(line, end_offset) + 1
+                    dp_start_offset = _display_width(line, start_offset)
+                    dp_end_offset = _display_width(line, end_offset)
 
                     row.append('    ')
-                    row.append(' ' * (dp_start_offset - stripped_characters))
+                    row.append(' ' * (dp_start_offset - n_lstripped))
 
                     if anchors:
                         dp_left_end_offset = _display_width(code_segment, anchors.left_end_offset)

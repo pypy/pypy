@@ -3,7 +3,7 @@ import pytest
 from .infrastructure import sane_term
 
 import sys
-import readline
+from pyrepl import readline
 
 @pytest.mark.skipif("os.name != 'posix' or 'darwin' in sys.platform or "
                     "'freebsd' in sys.platform")
@@ -28,7 +28,7 @@ def test_get_line_buffer_is_str():
 
 def test_nonascii_history():
     import sys
-    import os, readline
+    import os
     TESTFN = "{}_{}_tmp".format("@test", os.getpid())
 
     is_editline = readline.__doc__ and "libedit" in readline.__doc__
