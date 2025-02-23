@@ -32,7 +32,7 @@ The release includes three different interpreters:
   backported security updates)
 
 - PyPy3.10, which is an interpreter supporting the syntax and the features of
-  Python 3.10, including the stdlib for CPython 3.10.19.
+  Python 3.10, including the stdlib for CPython 3.10.16.
 
 - PyPy3.11, which is an interpreter supporting the syntax and the features of
   Python 3.11, including the stdlib for CPython 3.11.11.

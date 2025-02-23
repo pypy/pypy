@@ -27,7 +27,7 @@ The release includes three different interpreters:
   backported security updates)
 
 - PyPy3.10, which is an interpreter supporting the syntax and the features of
-  Python 3.10, including the stdlib for CPython 3.10.19.
+  Python 3.10, including the stdlib for CPython 3.10.16.
 
 - PyPy3.11, which is an interpreter supporting the syntax and the features of
   Python 3.11, including the stdlib for CPython 3.11.11.
@@ -124,10 +124,14 @@ Bugfixes
   in the first PyPy3.10 release (:issue:`5196`).
 - Use ``BIO_new_file`` not ``BIO_new_fp`` in ``_ssl`` since the later does not
   work on windows.
-- Assign `ht_qualname` on builtin python types (:issue:`5217`)
+- Assign ``ht_qualname`` on builtin python types (:issue:`5217`)
 - Ternary ``pow`` behaves differently with respect to calling ``__rpow__`` in
   the interpreter and via the C-API's ``tp_as_number.nb_power`` (:issue: `5207`)
-- ``len(_weakset)`` could fail due to threading, iterate over a copy instead (:issue:`5193`)
+- ``len(_weakset)`` could fail due to garbage collection while iterating,
+  iterate over a copy instead (:issue:`5193`)
+- Fix the tokenizer for combinations of line-continuations (back-slash) and
+  indentation, a contination of fixes from an earlier fix that was slightly
+  wrong (:issue:`5221`)
 
 
 Speedups and enhancements
