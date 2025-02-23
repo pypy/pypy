@@ -130,8 +130,7 @@ Bugfixes
 - ``len(_weakset)`` could fail due to garbage collection while iterating,
   iterate over a copy instead (:issue:`5193`)
 - Fix the tokenizer for combinations of line-continuations (back-slash) and
-  indentation, a contination of fixes from an earlier fix that was slightly
-  wrong (:issue:`5221`)
+  indentation, fixes from an earlier fix were slightly wrong (:issue:`5221`)
 
 
 Speedups and enhancements
