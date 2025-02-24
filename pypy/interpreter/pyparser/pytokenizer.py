@@ -259,7 +259,8 @@ def generate_tokens(lines, flags):
                         continue
                     else:
                         switch_indents += 1
-                continue
+                else:
+                    continue
             if line[pos] == '\\' and line[pos + 1] in '\r\n':
                 # first non-whitespace char and last char in line is \
                 if lines[lines_index + 1] not in ("\r\n", "\n", "\x0C\n"):
