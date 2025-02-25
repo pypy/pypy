@@ -1212,6 +1212,8 @@ def type_get_text_signature(space, w_type):
     if w_type.text_signature:
         return space.newtext(w_type.text_signature)
     w_doc = descr__doc(space, w_type)
+    if space.is_none(w_doc):
+        return space.w_None
     rawdoc = space.text_w(w_doc)
     txtsig = extract_txtsig(rawdoc, w_type.name)
     if txtsig is not None:
