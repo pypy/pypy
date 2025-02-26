@@ -1172,7 +1172,6 @@ def descr_set__doc(space, w_type, w_value):
         raise oefmt(space.w_TypeError, "cannot set '__doc__' attribute of immutable type '%N'", w_type)
     w_type.setdictvalue(space, '__doc__', w_value)
 
-# Duplicate of code in pypy/module/cpyext/methodobject.py
 def undotted_name(name):
     """Return the last component of a dotted name"""
     dotpos = name.rfind('.')
@@ -1205,7 +1204,6 @@ def extract_txtsig(raw_doc, name):
             #   so end_sig > len(name)
             return raw_doc[len(name): end_sig + 1]
     return None
-# End of duplicate code
 
 def type_get_text_signature(space, w_type):
     w_type = _check(space, w_type)
