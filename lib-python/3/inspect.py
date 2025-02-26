@@ -152,6 +152,10 @@ import builtins
 from keyword import iskeyword
 from operator import attrgetter
 from collections import namedtuple, OrderedDict
+try:
+    from cpyext import is_cpyext_function as _is_cpyext_function
+except ImportError:
+    _is_cpyext_function = lambda obj: False
 
 # Create constants for the compiler flags in Include/code.h
 # We try to get them from dis to avoid duplication
@@ -509,7 +513,7 @@ def isbuiltin(object):
         __doc__         documentation string
         __name__        original name of this function or method
         __self__        instance to which a method is bound, or None"""
-    return isinstance(object, types.BuiltinFunctionType)
+    return isinstance(object, types.BuiltinFunctionType) or _is_cpyext_function(object)
 
 def ismethodwrapper(object):
     """Return true if the object is a method wrapper."""

@@ -48,3 +48,9 @@ def test_text_signature():
         Create a new buffered reader using the given readable raw IO object.
         """
     assert BufferedReader.__text_signature__ == "(raw, buffer_size=DEFAULT_BUFFER_SIZE)"
+
+def test_nodoc_text_signature():
+    class NoDoc(object):
+        pass
+
+    assert NoDoc.__text_signature__ is None
