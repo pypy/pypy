@@ -1,24 +1,16 @@
-=======================================================
-PyPy v7.3.19: release of python 2.7, 3.10 and 3.11 beta
-=======================================================
-
-..
-     updated to release merging
-
-.. note::
-    This is a pre-release announcement. When the release actually happens, it
-    will be announced on the PyPy blog_.
-
-.. note::
-   Need to add release date
+============================================================================
+PyPy v7.3.19: release of python 2.7, 3.10 and 3.11 beta, released 2025-02-26
+============================================================================
 
 The PyPy team is proud to release version 7.3.19 of PyPy. This is primarily a
 bug-fix release fixing JIT-related problems and follows quickly on the heels of
 the previous release on Feb 6, 2025.
 
-This release includes a python 3.11 interpreter. We are still labelling it "beta"
-because it is new. In the next release we will drop 3.10 and remove
-the "beta" label. 
+
+This release includes a python 3.11 interpreter. There were bugs in the first
+beta that could prevent its wider use, so we are continuing to call this
+release "beta". In the next release we will drop 3.10 and remove the "beta"
+label. 
 
 The release includes three different interpreters:
 
