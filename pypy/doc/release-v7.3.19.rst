@@ -126,7 +126,7 @@ Bugfixes
   work on windows.
 - Assign ``ht_qualname`` on builtin python types (:issue:`5217`)
 - Ternary ``pow`` behaves differently with respect to calling ``__rpow__`` in
-  the interpreter and via the C-API's ``tp_as_number.nb_power`` (:issue: `5207`)
+  the interpreter and via the C-API's ``tp_as_number.nb_power`` (:issue:`5207`)
 - ``len(_weakset)`` could fail due to garbage collection while iterating,
   iterate over a copy instead (:issue:`5193`)
 - Fix the tokenizer for combinations of line-continuations (back-slash) and
