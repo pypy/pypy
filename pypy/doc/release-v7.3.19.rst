@@ -147,3 +147,5 @@ Bugfixes
 - Add missing ``co_qualname`` to code objects, also fix ``PyCode_*`` signatures (:issue:`5203`)
 - Fix printing traceback when the error line has trailing whitespace (:issue:`5219`)
 - Fix segfault when ``__getattr__`` raises ``AttributeError`` (:issue:`5222`)
+- Port missed PyPy3.10 fix for ``inspect.isbuiltin`` when ``obj`` is a
+  C-extension function type. Fixes build of SciPy (:issue:`5227`)
