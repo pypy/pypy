@@ -759,6 +759,7 @@ class W_IntObject(W_AbstractIntObject):
 
         @func_renamer(descr_name)
         def descr_binop(self, space, w_other):
+            from pypy.objspace.std.longobject import W_LongObject
             if isinstance(w_other, W_IntObject):
                 x = self.intval
                 y = w_other.intval
@@ -770,6 +771,8 @@ class W_IntObject(W_AbstractIntObject):
                 else:
                     z = op(x, y)
                 return wrapint(space, z)
+            elif type(w_other) is W_LongObject:
+                 return getattr(w_other, descr_rname)(space, self)
             elif isinstance(w_other, W_AbstractIntObject):
                 self = self.as_w_long(space)
                 return getattr(self, descr_name)(space, w_other)

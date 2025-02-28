@@ -138,6 +138,8 @@ class AppTestSmallLong(test_longobject.AppTestLong):
 class TestW_IntObjectWithSmallLong(TestW_IntObject):
     spaceconfig = {"objspace.std.withsmalllong": True}
 
+    def test_mul_int_long_no_conversion(self, monkeypatch):
+        pass # does not make sense with small longs
 
 class AppTestIntWithSmallLong(AppTestInt):
     spaceconfig = {"objspace.std.withsmalllong": True}

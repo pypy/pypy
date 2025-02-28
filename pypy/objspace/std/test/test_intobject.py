@@ -114,6 +114,18 @@ class TestW_IntObject:
         v = f1.descr_gt(space, f2) # does *not* convert f1 to a bigint
         assert space.is_true(v)
 
+    def test_mul_int_long_no_conversion(self, monkeypatch):
+        from pypy.objspace.std.longobject import W_LongObject, rbigint
+
+        space = self.space
+        x = sys.maxint
+        y = 1
+        f1 = iobj.W_IntObject(x)
+        f2 = iobj.W_IntObject(y).as_w_long(space)
+
+        monkeypatch.setattr(iobj.W_IntObject, 'as_w_long', None)
+        v = f1.descr_mul(space, f2) # does *not* convert f1 to a bigint
+
     def test_sub(self):
         space = self.space
         x = 1
