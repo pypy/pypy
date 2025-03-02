@@ -1988,7 +1988,7 @@ def source_as_str(space, w_source, funcname, what, flags):
 
     if not (flags & consts.PyCF_ACCEPT_NULL_BYTES):
         if '\x00' in source:
-            raise oefmt(space.w_ValueError,
+            raise oefmt(space.w_SyntaxError,
                         "source code string cannot contain null bytes")
         source = rstring.assert_str0(source)
     return source, flags
