@@ -84,10 +84,10 @@ def fn(): pass
     assert firstlineno == 1
 
 def test_null_bytes():
-    raises(ValueError, compile, '\x00', 'mymod', 'exec', 0)
+    raises(SyntaxError, compile, '\x00', 'mymod', 'exec', 0)
     src = "#abc\x00def\n"
-    raises(ValueError, compile, src, 'mymod', 'exec')
-    raises(ValueError, compile, src, 'mymod', 'exec', 0)
+    raises(SyntaxError, compile, src, 'mymod', 'exec')
+    raises(SyntaxError, compile, src, 'mymod', 'exec', 0)
 
 @mark.pypy_only
 def test_null_bytes_flag():
