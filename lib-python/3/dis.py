@@ -468,7 +468,8 @@ def _get_instructions_bytes(code, varname_from_oparg=None,
             if deop in hasconst:
                 argval, argrepr = _get_const_info(deop, arg, co_consts)
             elif deop in hasname:
-                if deop == LOAD_GLOBAL:
+                # pypy change: PyPy3.11 did not change LOAD_GLOBAL semantics
+                if deop == LOAD_GLOBAL and not "__pypy__" in sys.builtin_module_names:
                     argval, argrepr = _get_name_info(arg//2, get_name)
                     if (arg & 1) and argrepr:
                         argrepr = "NULL + " + argrepr
