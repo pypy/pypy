@@ -55,6 +55,9 @@ OPTIONS
     Produce a ``ResourceWarning`` whenever a file or socket is closed by the
     garbage collector.
 
+-X disable-remote-debug
+    Disable the remote debugging interface
+
 --version
     Print the PyPy version.
 
@@ -129,6 +132,9 @@ ENVIRONMENT
 
 ``PYPY_DISABLE_JIT``
     If set to a non-empty value, disable JIT.
+
+``PYTHON_DISABLE_REMOTE_DEBUG``
+    If set to a non-empty value, disable the remote debugging interface.
 
 .. include:: ../gc_info.rst
    :start-line: 305

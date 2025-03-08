@@ -43,31 +43,20 @@ We want to be able to freely merge default into the branch and vice-versa;
 thus we need to do a complicate dance to avoid to patch the version number
 when we do a merge::
 
-  $ hg up -r default
+  $ git checkout release-pypy2.7-v7.x
   $ # edit the version to e.g. 7.0.0-final
-  $ hg ci
-  $ hg branch release-pypy2.7-v7.x && hg ci
-  $ hg up -r default
+  $ git commit -a
+  $ git checkout main
   $ # edit the version to 7.1.0-alpha0
-  $ hg ci
-  $ hg up -r release-pypy2.7-v7.x
-  $ hg merge default
-  $ # edit the version to AGAIN 7.0.0-final
-  $ hg ci
+  $ git commit -a
+  $ git checkout release-pypy2.7-v7.x
+  $ git merge main
+  $ # clear merge conflicts in a way that keeps 7.0.0-final
+  $ git commit -a
 
-Then, we need to do the same for the 3.x branch::
+Then, we need to do the same for the ``release-pypy3*`` branch(es)
 
-  $ hg up -r py3.5
-  $ hg merge default # this brings the version of 7.1.0-alpha0
-  $ hg branch release-pypy3.5-v7.x
-  $ # edit the version to 7.0.0-final
-  $ hg ci
-  $ hg up -r py3.5
-  $ hg merge release-pypy3.5-v7.x
-  $ # edit the version to 7.1.0-alpha0
-  $ hg ci
-
-To change the version, you need to edit three files:
+To change the version, you need to edit some files:
 
   - ``module/sys/version.py``: the ``PYPY_VERSION`` should be something like
     ``(7, 3, 10, "final", 0)`` or ``(7, 3, 9, "candidate", 2)`` for rc2.
@@ -76,7 +65,7 @@ To change the version, you need to edit three files:
     something like "7.3.10" for the final release or "7.3.10-candidate3" for
     rc3.
 
-  - ``doc/conf.py``
+  - ``doc/conf.py`` in both ``rpython`` and ``pypy``.
 
 Add tags to the repo. Never change tags once committed: it breaks downstream
 packaging workflows.
@@ -84,7 +73,8 @@ packaging workflows.
   - Make sure the version checks pass (they ensure ``version.py`` and
     ``patchlevel.h`` agree)
   - Make sure the tag matches the version in version.py/patchlevel.h. You
-    can run the repackage.sh script without pushing the tags.
+    can run the repackage.sh script without pushing the tags after the
+    buildbots run.
   - Once the repackage script runs, be sure to push the tags ``git push
     --tags``
 
@@ -112,10 +102,9 @@ Other steps
 
 * Build and upload the release tar-balls
 
-  * go to pypy/tool/release and run
-    ``force-builds.py <release branch>``
-    The following JIT binaries should be built, however, we need more buildbots
-    windows-64, linux-32, linux-64, macos_x86_64, macos_arm64, aarch64, s390x
+  * go to https://buildbot.pypy.org/builders and force builds for the proper
+    branches The following JIT binaries should be built: windows-64, linux-32,
+    linux-64, macos_x86_64, macos_arm64, aarch64
 
   * wait for builds to complete, make sure there are no failures
 
@@ -150,6 +139,8 @@ Other steps
   * update pypy.org_ with the checksum hashes produced from the
     ``repackage.sh`` script or by hand and the download pages
 
+  * update the release note and the index with the release date
+
   * post announcement on pypy.org
   * send announcements to twitter.com, pypy-dev, python-list,
     python-announce, python-dev ...
@@ -160,11 +151,8 @@ Other steps
   * add a tag on the codespeed web site that corresponds to pypy release
   * revise versioning at https://readthedocs.org/projects/pypy
   * suggest updates to multibuild_ and cibuildwheel_
-  * update conda forge's `pypy3.6-feedstock`_ and `pypy-meta-feedstock`_
 
 .. _multibuild: https://github.com/matthew-brett/multibuild
 .. _cibuildwheel: https://github.com/joerick/cibuildwheel
-.. _`pypy3.6-feedstock`: https://github.com/conda-forge/pypy3.6-feedstock
-.. _`pypy-meta-feedstock`: https://github.com/conda-forge/pypy-meta-feedstock
 .. _binary-testing: https://github.com/pypy/binary-testing/actions
 .. _pypy.org: https://github.com/pypy/pypy.org

@@ -86,7 +86,7 @@ class TestMakefile(object):
         for i in range(ncfiles):
             txt += "int func%03d();\n" % i
         txt += "\n__declspec(dllexport) int\n"
-        txt += "pypy_main_startup(int argc, char * argv[])\n"
+        txt += "pypy_main_startup(int argc, wchar_t * argv[])\n"
         txt += "{\n   int i=0;\n"
         for i in range(ncfiles):
             txt += "   i += func%03d();\n" % i

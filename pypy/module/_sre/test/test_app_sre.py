@@ -63,6 +63,10 @@ class AppTestSrePy:
         import _sre
         assert _sre.getcodesize() == _sre.CODESIZE
 
+    def test_opcodes(self):
+        import _sre
+        assert _sre.OPCODES[:4] == 'failure success any any_all'.split()
+
 
 class AppTestSrePattern:
     def setup_class(cls):

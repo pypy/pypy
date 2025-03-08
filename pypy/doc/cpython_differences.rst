@@ -607,6 +607,9 @@ Miscellaneous
 
 .. __: https://stackoverflow.com/a/55499713/1556290
 
+* PyPy3 does not implement the ``_pth`` `file protocol`_ to override ``sys.path``.
+
+.. _`file protocol`: https://docs.python.org/3/library/sys_path_init.html#pth-files
 
 .. _extension-modules:
 

@@ -116,7 +116,7 @@ int vmp_profiles_python_lines(void) {
 #ifdef PYPY_JIT_CODEMAP
     else if (frame->kind == VMPROF_JITTED_TAG) {
         intptr_t pc = ((intptr_t*)(frame->value - sizeof(intptr_t)))[0];
-        *depth = vmprof_write_header_for_jit_addr(result, *depth, pc, max_depth);
+        *depth = vmprof_write_header_for_jit_addr((intptr_t*)result, *depth, pc, max_depth);
     }
 #endif
 
@@ -158,7 +158,7 @@ static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, vo
 #ifdef PYPY_JIT_CODEMAP
     else if (frame->kind == VMPROF_JITTED_TAG) {
         intptr_t pc = ((intptr_t*)(frame->value - sizeof(intptr_t)))[0];
-        *depth = vmprof_write_header_for_jit_addr(result, *depth, pc, max_depth);
+        *depth = vmprof_write_header_for_jit_addr((intptr_t*)result, *depth, pc, max_depth);
     }
 #endif
 
@@ -343,7 +343,7 @@ int vmp_walk_and_record_stack(_PyInterpreterFrame *frame, void ** result,
             return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
 #ifdef PYPY_JIT_CODEMAP
         } else if (pypy_find_codemap_at_addr(rip, &start_addr) != NULL) {
-            depth = vmprof_write_header_for_jit_addr(result, depth, pc, max_depth);
+            depth = vmprof_write_header_for_jit_addr((intptr_t*)result, depth, pc, max_depth);
             return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
 #endif
         } else {
@@ -497,7 +497,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
             return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
 #ifdef PYPY_JIT_CODEMAP
         } else if (pypy_find_codemap_at_addr(rip, &start_addr) != NULL) {
-            depth = vmprof_write_header_for_jit_addr(result, depth, pc, max_depth);
+            depth = vmprof_write_header_for_jit_addr((intptr_t*)result, depth, pc, max_depth);
             return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
 #endif
         } else {

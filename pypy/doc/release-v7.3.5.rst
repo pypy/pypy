@@ -1,6 +1,6 @@
-===================================
-PyPy v7.3.5: release of 2.7 and 3.7
-===================================
+========================================================
+PyPy v7.3.5: release of 2.7 and 3.7, released 2021-05-23
+========================================================
 
 We are releasing a PyPy 7.3.5 with bugfixes for PyPy 7.3.4, released April 4.
 PyPy 7.3.4 was the first release that runs on windows 64-bit, so that support

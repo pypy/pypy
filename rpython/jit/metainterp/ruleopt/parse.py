@@ -618,7 +618,7 @@ def methodcall(p):
 def args(p):
     if len(p) <= 1:
         return p
-    return [p[0], p[2]]
+    return [p[0]] + p[2]
 
 
 parser = pg.build()
@@ -665,13 +665,18 @@ INTBOUND_METHODTYPES = {
     "lshift_bound_cannot_overflow": (IntBound, [IntBound], bool),
     "and_bound": (IntBound, [IntBound], IntBound),
     "or_bound": (IntBound, [IntBound], IntBound),
+    "sub_bound": (IntBound, [IntBound], IntBound),
+    "sub_bound_cannot_overflow": (IntBound, [IntBound], bool),
     "lshift_bound": (IntBound, [IntBound], IntBound),
     "rshift_bound": (IntBound, [IntBound], IntBound),
     "urshift_bound": (IntBound, [IntBound], IntBound),
+    "known_le": (IntBound, [IntBound], bool),
+    "known_gt": (IntBound, [IntBound], bool),
 }
 
 FUNCTYPES = {
-    "highest_bit": ([int], int)
+    "highest_bit": ([int], int),
+    "min": ([int, int], int),
 }
 
 class TypeCheckError(Exception):

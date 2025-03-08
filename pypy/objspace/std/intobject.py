@@ -28,6 +28,7 @@ from pypy.objspace.std.util import (
 
 SENTINEL = object()
 
+MININT = -sys.maxint-1
 
 class W_AbstractIntObject(W_Root):
     __slots__ = ()
@@ -445,17 +446,22 @@ class W_IntObject(W_AbstractIntObject):
 
     def descr_neg(self, space):
         a = self.intval
-        try:
-            b = ovfcheck(-a)
-        except OverflowError:
+        if a == MININT:
             if _recover_with_smalllong(space):
                 from pypy.objspace.std.smalllongobject import W_SmallLongObject
                 x = r_longlong(a)
                 return W_SmallLongObject(-x)
             return self.descr_long(space).descr_neg(space)
-        return wrapint(space, b)
+        return wrapint(space, -a)
 
     def descr_abs(self, space):
+        if type(self) is W_IntObject:
+            if self.intval == MININT:
+                return self.descr_neg(space)
+            # branchless version
+            x = self.intval
+            mask = x >> (LONG_BIT - 1)
+            return space.newint((x ^ mask) - mask)
         pos = self.intval >= 0
         return self.int(space) if pos else self.descr_neg(space)
 

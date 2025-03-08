@@ -45,7 +45,7 @@ class CouldNotProve(ProofProblem):
                                       model.evaluate(bound.upper).as_signed_long(),
                                       r_uint(model.evaluate(bound.tmask).as_signed_long()),
                                       r_uint(model.evaluate(bound.tvalue).as_signed_long()),)
-                details.append("bounds for %s: %s" % (name, bound))
+                detail.append("bounds for %s: %s" % (name, realbound))
             res.append("%s: %s" % (name, model[prover.name_to_z3[name]].as_signed_long()))
         res.append("operation %s with Z3 formula %s" % (rule.pattern, self.lhs))
         res.append("has counterexample result vale: %s" % (model.evaluate(self.lhs).as_signed_long(), ))
@@ -194,6 +194,8 @@ def z3_highest_bit(x):
     x |= z3.LShR(x, 32)
     return popcount64(x) - 1
 
+def z3_min(a, b):
+    return z3.If(a <= b, a, b)
 
 class Prover(parse.Visitor):
     def __init__(self):

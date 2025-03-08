@@ -4009,10 +4009,10 @@ finish()
 
     def test_bug_wrong_minint_generation(self):
         ops = """
-        [i4, i5] 
-        i21 = int_rshift(i4, i5) 
-        i41 = int_and(41, i4) 
-        i44 = int_is_true(i41) 
+        [i4, i5]
+        i21 = int_rshift(i4, i5)
+        i41 = int_and(41, i4)
+        i44 = int_is_true(i41)
         guard_true(i44) []
         jump(i5)
         """
@@ -4149,6 +4149,97 @@ finish()
         i49 = int_and(i14, -16777216)
         jump(i14, i14)
         """
+        self.optimize_loop(ops, expected)
+
+    def test_rshift_max(self):
+        ops = '''
+        [i1]
+        i3 = int_rshift(i1, %s)
+        i4 = int_rshift(i3, %s)
+        jump(i4)
+        ''' % (LONG_BIT//2, LONG_BIT//2)
+        expected = '''
+        [i1]
+        i3 = int_rshift(i1, %s)
+        i4 = int_rshift(i1, %s)
+        jump(i4)
+        ''' % (LONG_BIT//2, LONG_BIT-1)
+        self.optimize_loop(ops, expected)
+
+    def test_urshift_max(self):
+        ops = '''
+        [i1]
+        i3 = uint_rshift(i1, %s)
+        i4 = uint_rshift(i3, %s)
+        jump(i4)
+        ''' % (LONG_BIT//2, LONG_BIT//2)
+        expected = '''
+        [i1]
+        i3 = uint_rshift(i1, %s)
+        jump(0)
+        ''' % (LONG_BIT//2, )
+        self.optimize_loop(ops, expected)
+
+    def test_lshift_max(self):
+        ops = '''
+        [i1]
+        i3 = int_lshift(i1, %s)
+        i4 = int_lshift(i3, %s)
+        jump(i4)
+        ''' % (LONG_BIT//2, LONG_BIT//2)
+        expected = '''
+        [i1]
+        i3 = int_lshift(i1, %s)
+        i4 = int_lshift(i3, %s)
+        jump(0)
+        ''' % (LONG_BIT//2, LONG_BIT//2)
+        self.optimize_loop(ops, expected)
+
+    def test_int_add_int_sub_consts(self):
+        ops = '''
+        [i1]
+        i2 = int_sub(i1, 1)
+        i3 = int_sub(i2, 1)
+        i4 = int_add(i3, 1)
+        jump(i4)
+        '''
+        expected = '''
+        [i1]
+        i2 = int_sub(i1, 1)
+        i3 = int_sub(i1, 2) # dead
+        jump(i2)
+        '''
+        self.optimize_loop(ops, expected)
+
+        ops = '''
+        [i1]
+        i2 = int_sub(-1, i1)
+        i3 = int_add(i2, 1)
+        i4 = int_neg(i1)
+        jump(i4, i3)
+        '''
+        expected = '''
+        [i1]
+        i2 = int_sub(-1, i1)
+        i4 = int_neg(i1)
+        jump(i4, i4)
+        '''
+        self.optimize_loop(ops, expected)
+
+    def dont_test_strlen_int_is_zero_bug(self):
+        ops = '''
+        [p1]
+        i109 = strlen(p1)
+        i111 = int_add(i109, 3)
+        i114 = int_is_zero(i111)
+        jump(i114, 0) # constant
+        '''
+        expected = '''
+        [p1]
+        i109 = strlen(p1)
+        i111 = int_add(i109, 3)
+        jump(0, 0) # constant
+        '''
         self.optimize_loop(ops, expected)
 
 class TestComplexIntOpts(BaseTestBasic):

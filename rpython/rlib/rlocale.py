@@ -205,7 +205,9 @@ if HAVE_LANGINFO:
 
     def nl_langinfo(key):
         if key in constants.values():
-            return rffi.charp2str(_nl_langinfo(rffi.cast(rffi.INT, key)))
+            ret = _nl_langinfo(rffi.cast(rffi.INT, key))
+            if ret:
+                return rffi.charp2str(ret)
         raise ValueError
 
 #___________________________________________________________________

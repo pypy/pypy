@@ -517,6 +517,28 @@ class AppTestTypeObject:
         # also check what the built-in mro() method would return for 'B_mro'
         assert type.mro(B_mro) == [B_mro, A_mro, object]
 
+    def test_mro_mutation_interaction_bug(self):
+        class Base(object):
+            value = 1
+
+        class WeirdClass(object):
+            class __metaclass__(type):
+                def mro(cls):
+                    return (cls, Base, object)
+
+        assert Base.value == 1
+        assert WeirdClass.value == 1
+
+        Base.value = 2
+        assert Base.value == 2
+        assert WeirdClass.value == 2
+
+        Base.value = 3
+        assert Base.value == 3
+        assert WeirdClass.value == 3
+
+        assert len(Base.__subclasses__()) == 0
+
     def test_abstract_mro(self):
         class A1:    # old-style class
             pass

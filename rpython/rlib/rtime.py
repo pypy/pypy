@@ -49,6 +49,8 @@ class CConfig:
                                         ])
     HAVE_GETTIMEOFDAY = rffi_platform.Has('gettimeofday')
     HAVE_FTIME = rffi_platform.Has(FTIME)
+    HAVE_NANOSLEEP = rffi_platform.Has('nanosleep')
+    HAVE_CLOCK_NANOSLEEP = rffi_platform.Has('clock_nanosleep')
     if need_rusage:
         RUSAGE = rffi_platform.Struct('struct rusage', [('ru_utime', TIMEVAL),
                                                         ('ru_stime', TIMEVAL)])
@@ -191,14 +193,16 @@ if _WIN32:
         counter_start = 0
     state = State()
 
-HAS_CLOCK_GETTIME = (CLOCK_MONOTONIC is not None)
+HAS_CLOCK_GETTIME_RUNTIME = (CLOCK_MONOTONIC is not None)
 if sys.platform == 'darwin':
-    HAS_CLOCK_GETTIME = False
+    HAS_CLOCK_GETTIME_RUNTIME = True
     # ^^^ issue #2432 and others
     # (change it manually if you *know* you want to build and run on
     # OS/X 10.12 or later)
+    # 2024-11-11: changed to True since translator.platform.darwin uses
+    #             macos-version-min=10.13
 
-if HAS_CLOCK_GETTIME:
+if HAS_CLOCK_GETTIME_RUNTIME:
     # Linux and other POSIX systems with clock_gettime()
     # TIMESPEC:
     globals().update(rffi_platform.configure(CConfigForClockGetTime))
@@ -253,7 +257,7 @@ def win_perf_counter():
 def clock():
     if _WIN32:
         return win_perf_counter()
-    elif HAS_CLOCK_GETTIME and CLOCK_PROCESS_CPUTIME_ID is not None:
+    elif HAS_CLOCK_GETTIME_RUNTIME and CLOCK_PROCESS_CPUTIME_ID is not None:
         with lltype.scoped_alloc(TIMESPEC) as a:
             if c_clock_gettime(CLOCK_PROCESS_CPUTIME_ID, a) == 0:
                 return (float(rffi.getintfield(a, 'c_tv_sec')) +
@@ -268,7 +272,7 @@ def clock():
 # time.sleep()
 
 if _WIN32:
-    Sleep = external('Sleep', [rffi.ULONG], lltype.Void)
+    Sleep = external('Sleep', [rffi.ULONG], lltype.Void, releasegil=True)
 else:
     c_select = external('select', [rffi.INT, rffi.VOIDP,
                                    rffi.VOIDP, rffi.VOIDP,

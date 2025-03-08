@@ -120,8 +120,8 @@ class OptRewrite(Optimization):
         return self.emit(op)
 
     def postprocess_FLOAT_MUL(self, op):
-        self.optimizer.pure_from_args(rop.FLOAT_MUL,
-                                      [op.getarg(1), op.getarg(0)], op)
+        self.optimizer.pure_from_args2(rop.FLOAT_MUL,
+                                       op.getarg(1), op.getarg(0), op)
 
     def optimize_FLOAT_TRUEDIV(self, op):
         arg1 = op.getarg(0)
@@ -355,7 +355,7 @@ class OptRewrite(Optimization):
         if box1 is not None:
             # we can't use the (current) range analysis for this because
             # "anything but 0" is not a valid range
-            self.pure_from_args(rop.INT_IS_ZERO, [box1.getarg(0)], CONST_0)
+            self.pure_from_args1(rop.INT_IS_ZERO, box1.getarg(0), CONST_0)
         self.make_constant(box, CONST_1)
 
     def optimize_GUARD_FALSE(self, op):
@@ -367,7 +367,7 @@ class OptRewrite(Optimization):
         if box1 is not None:
             # we can't use the (current) range analysis for this because
             # "anything but 0" is not a valid range
-            self.pure_from_args(rop.INT_IS_TRUE, [box1.getarg(0)], CONST_1)
+            self.pure_from_args1(rop.INT_IS_TRUE, box1.getarg(0), CONST_1)
         self.make_constant(box, CONST_0)
 
     def optimize_ASSERT_NOT_NONE(self, op):
@@ -558,13 +558,13 @@ class OptRewrite(Optimization):
     def optimize_INSTANCE_PTR_EQ(self, op):
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))
-        self.pure_from_args(rop.INSTANCE_PTR_EQ, [arg1, arg0], op)
+        self.pure_from_args2(rop.INSTANCE_PTR_EQ, arg1, arg0, op)
         return self._optimize_oois_ooisnot(op, False, True)
 
     def optimize_INSTANCE_PTR_NE(self, op):
         arg0 = get_box_replacement(op.getarg(0))
         arg1 = get_box_replacement(op.getarg(1))
-        self.pure_from_args(rop.INSTANCE_PTR_NE, [arg1, arg0], op)
+        self.pure_from_args2(rop.INSTANCE_PTR_NE, arg1, arg0, op)
         return self._optimize_oois_ooisnot(op, True, True)
 
     def optimize_CALL_N(self, op):
@@ -801,19 +801,19 @@ class OptRewrite(Optimization):
             return True
 
     def optimize_CAST_PTR_TO_INT(self, op):
-        self.optimizer.pure_from_args(rop.CAST_INT_TO_PTR, [op], op.getarg(0))
+        self.optimizer.pure_from_args1(rop.CAST_INT_TO_PTR, op, op.getarg(0))
         return self.emit(op)
 
     def optimize_CAST_INT_TO_PTR(self, op):
-        self.optimizer.pure_from_args(rop.CAST_PTR_TO_INT, [op], op.getarg(0))
+        self.optimizer.pure_from_args1(rop.CAST_PTR_TO_INT, op, op.getarg(0))
         return self.emit(op)
 
     def optimize_CONVERT_FLOAT_BYTES_TO_LONGLONG(self, op):
-        self.optimizer.pure_from_args(rop.CONVERT_LONGLONG_BYTES_TO_FLOAT, [op], op.getarg(0))
+        self.optimizer.pure_from_args1(rop.CONVERT_LONGLONG_BYTES_TO_FLOAT, op, op.getarg(0))
         return self.emit(op)
 
     def optimize_CONVERT_LONGLONG_BYTES_TO_FLOAT(self, op):
-        self.optimizer.pure_from_args(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG, [op], op.getarg(0))
+        self.optimizer.pure_from_args1(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG, op, op.getarg(0))
         return self.emit(op)
 
     def optimize_SAME_AS_I(self, op):
