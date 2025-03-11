@@ -1291,14 +1291,19 @@ def ll_dict_setdefault(dict, key, default):
 
 @jit.look_inside_iff(lambda dict: jit.isvirtual(dict))
 def ll_dict_copy(dict):
-    # we never have to reindex while jitting, because dict is virtual
+    DICT = lltype.typeOf(dict).TO
+    if dict.num_live_items == 0:
+        return ll_newdict(DICT)
+
+    # the only dicts without index are either: empty, or prebuilt. we checked
+    # for empty in the if above. therefore, we never have to reindex while
+    # jitting, because dict is virtual and thus not prebuilt
     if not jit.we_are_jitted():
         ll_ensure_indexes(dict)
     else:
         num = dict.lookup_function_no
         assert (num & FUNC_MASK) != FUNC_MUST_REINDEX
 
-    DICT = lltype.typeOf(dict).TO
     newdict = DICT.allocate()
     newdict.entries = DICT.entries.TO.allocate(len(dict.entries))
 
