@@ -44,6 +44,11 @@ def test_atomic_group():
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "abb").match_end == 3
     assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "ab") is None
 
+def test_atomic_group_fullmatch_bug():
+    r = [ATOMIC_GROUP, 4, LITERAL, ord('t'), SUCCESS, LITERAL, ord('a'), SUCCESS]
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "ta") is not None
+    assert rsre_core.match(rsre_core.CompiledPattern(r, 0), "ta", fullmatch=True) is not None
+
 def test_possessive_repeat_of_atomic_group():
     # (?>x)++x
     r = [POSSESSIVE_REPEAT, 8, 1, MAXREPEAT, ATOMIC_GROUP, 4, LITERAL, ord('x'), SUCCESS, SUCCESS, LITERAL, ord('x'), SUCCESS]

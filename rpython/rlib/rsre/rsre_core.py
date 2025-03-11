@@ -1047,7 +1047,10 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             # Atomic Group Sub Pattern
             # <ATOMIC_GROUP> <skip> pattern <SUCCESS> tail
 
+            saved = ctx.match_mode
+            ctx.match_mode = MODE_ANY
             match = sre_match(ctx, pattern, ppos + 1, ptr, marks)
+            ctx.match_mode = saved
             if match is None:
                 return None
             ptr = ctx.match_end
