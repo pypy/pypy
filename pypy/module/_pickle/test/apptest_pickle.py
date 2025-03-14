@@ -1,25 +1,34 @@
 import pytest
 from _pickle import Pickler, PicklingError, dumps
+from _pickle import Unpickler, UnpicklingError, loads
 
 def test_save_int():
     s = dumps(12)
     assert s == b'\x80\x04K\x0c.'
+    assert loads(s) == 12
     s = dumps(1024)
     assert s == b'\x80\x04M\x00\x04.'
+    assert loads(s) == 1024
     s = dumps(-1024)
     assert s == b'\x80\x04J\x00\xfc\xff\xff.'
+    assert loads(s) == -1024
     s = dumps(2**32)
     assert s == b'\x80\x04\x8a\x05\x00\x00\x00\x00\x01.'
+    assert loads(s) == 2**32
     s = dumps(-3**19999)
     assert s.startswith(b'\x80\x04\x8b{\x0f\x00\x00\xd5\xcd\xc3\x89\xb1\x86$f\xe8+p\x1c@Y')
+    assert loads(s) == -3**19999
 
 def test_save_none_true_false():
     s = dumps(None)
     assert s == b'\x80\x04N.'
+    assert loads(s) is None
     s = dumps(True)
     assert s == b'\x80\x04\x88.'
+    assert loads(s) is True
     s = dumps(False)
     assert s == b'\x80\x04\x89.'
+    assert loads(s) is False
 
 def test_save_bytes():
     s = dumps(b'abc')

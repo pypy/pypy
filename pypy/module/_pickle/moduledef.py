@@ -7,8 +7,8 @@ class Module(MixedModule):
         'PickleError': 'app_pickle.PickleError',
         'PicklingError': 'app_pickle.PicklingError',
         'UnpicklingError': 'app_pickle.UnpicklingError',
-        #'load': 'app_pickle.load',
-        #'loads': 'app_pickle.loads',
+        'load': 'app_pickle.load',
+        'loads': 'app_pickle.loads',
         'dump': 'app_pickle.dump',
         'dumps': 'app_pickle.dumps',
     }
@@ -16,7 +16,7 @@ class Module(MixedModule):
     interpleveldefs = {
         '__name__' : '(space.newtext("_pickle"))',
         'Pickler' : 'interp_pickle.W_Pickler',
-        #'Unpickler' : 'interp_pickle.W_Unpickler',
+        'Unpickler' : 'interp_pickle.W_Unpickler',
     }
 
     def startup(self, space):
