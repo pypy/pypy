@@ -2,7 +2,7 @@ import pytest
 from _pickle import Pickler, PicklingError, dumps
 from _pickle import Unpickler, UnpicklingError, loads
 
-def test_save_int():
+def test_int():
     s = dumps(12)
     assert s == b'\x80\x04K\x0c.'
     assert loads(s) == 12
@@ -19,7 +19,7 @@ def test_save_int():
     assert s.startswith(b'\x80\x04\x8b{\x0f\x00\x00\xd5\xcd\xc3\x89\xb1\x86$f\xe8+p\x1c@Y')
     assert loads(s) == -3**19999
 
-def test_save_none_true_false():
+def test_none_true_false():
     s = dumps(None)
     assert s == b'\x80\x04N.'
     assert loads(s) is None
@@ -30,37 +30,48 @@ def test_save_none_true_false():
     assert s == b'\x80\x04\x89.'
     assert loads(s) is False
 
-def test_save_bytes():
+def test_bytes():
     s = dumps(b'abc')
     assert s == b'\x80\x04C\x03abc\x94.'
+    assert loads(s) == b"abc"
     s = dumps(b'abc' * 1000)
     assert s.startswith(b'\x80\x04B\xb8\x0b\x00\x00abcab')
+    assert loads(s) == b"abc" * 1000
     s = dumps(b'abc' * 1000000)
     assert s.startswith(b'\x80\x04B\xc0\xc6-\x00abcabcabc')
+    assert loads(s) == b"abc" * 1000000
 
-def test_save_unicode():
+def test_unicode():
     s = dumps(u'abc')
     assert s == b'\x80\x04\x8c\x03abc\x94.'
+    assert loads(s) == u"abc"
     s = dumps(u'abc' * 1000)
     assert s.startswith(b'\x80\x04X\xb8\x0b\x00\x00abcabcabc')
+    assert loads(s) == u"abc" * 1000
     s = dumps(u'abc' * 100000)
     assert s.startswith(b'\x80\x04X\xe0\x93\x04\x00abcabcabc')
+    assert loads(s) == u'abc' * 100000
 
-def test_save_tuple():
+def test_tuple():
     s = dumps(())
     assert s == b'\x80\x04).'
+    assert loads(s) == ()
     s = dumps((1, ))
     assert s.startswith(b'\x80\x04K\x01\x85\x94.')
+    assert loads(s) == (1,)
     s = dumps((1, ) * 1000)
     assert s.startswith(b'\x80\x04(K\x01K\x01K')
+    assert loads(s) == (1, ) * 1000
 
 def test_memo():
     a = "abcdefghijkl"
     s = dumps((a, a))
     assert s.count(b'abcdefghijkl') == 1
+    assert loads(s) == (a, a)
     a = (1, )
     s = dumps((a, a))
     assert s.count(b'K\x01\x85') == 1
+    assert loads(s) == (a, a)
 
 def test_save_list():
     s = dumps([])
