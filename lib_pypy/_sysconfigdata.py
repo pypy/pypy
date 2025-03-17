@@ -39,19 +39,19 @@ build_time_vars = {
     'SIZEOF_VOID_P': struct.calcsize("P"),
 }
 
-# LIBDIR should point to where the libpypy3.9-c.so file lives, on CPython
+# LIBDIR should point to where the libpypy3.10-c.so file lives, on CPython
 # it points to "mybase/lib". But that would require rethinking the PyPy
-# packaging process which copies pypy3 and libpypy3.9-c.so to the
+# packaging process which copies pypy3 and libpypy3.10-c.so to the
 # "mybase/bin" directory. Only when making a portable build (the default
 # for the linux buildbots) is there even a "mybase/lib" created, even so
 # the mybase/bin layout is left untouched.
 mybase = sys.base_prefix
 if sys.platform == 'win32':
-    build_time_vars['LDLIBRARY'] = 'libpypy3.9-c.dll'
+    build_time_vars['LDLIBRARY'] = 'libpypy3.10-c.dll'
     build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include')
     build_time_vars['LIBDIR'] = mybase
 else:
-    build_time_vars['LDLIBRARY'] = 'libpypy3.9-c.so'
+    build_time_vars['LDLIBRARY'] = 'libpypy3.10-c.so'
     build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include', 'pypy' + pydot)
     build_time_vars['LIBDIR'] = os.path.join(mybase, 'bin')
     build_time_vars['CONFINCLUDEPY'] = build_time_vars['INCLUDEPY']
@@ -87,7 +87,7 @@ if sys.platform[:6] == "darwin":
     build_time_vars['CC'] += ' -arch %s' % (arch,)
     build_time_vars["LDFLAGS"] = "-undefined dynamic_lookup"
     build_time_vars["LDSHARED"] = build_time_vars['CC'] + " -shared " + build_time_vars["LDFLAGS"]
-    build_time_vars['LDLIBRARY'] = 'libpypy3.9-c.dylib'
+    build_time_vars['LDLIBRARY'] = 'libpypy3.10-c.dylib'
     # scikit-build checks this, it is left over from the NextStep rld linker
     build_time_vars['WITH_DYLD'] = 1
     if "CXX" in build_time_vars:
