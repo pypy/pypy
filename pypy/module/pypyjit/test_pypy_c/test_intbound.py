@@ -321,3 +321,24 @@ class TestIntbound(BaseTestPyPyC):
             --TICK--
         """ % sys.maxsize.bit_length())
 
+    def test_mul_int_long_uses_int_shortcut(self):
+        def main(start, stop):
+            longvalue = 2**100
+            res = 0
+            for i in range(start, stop):
+                longvalue = i * longvalue # ID: mul
+            return res
+
+        log = self.run(main, [-10000, 10000])
+        loop, = log.loops_by_filename(self.filepath)
+        for op in loop.allops():
+            if op.name != "call_r":
+                continue
+            assert 'fromint' not in op.args[0]
+
+        assert loop.match_by_id('mul', """
+            p45 = call_r(ConstClass(rbigint.int_mul), p34, i40, descr=...)
+            setfield_gc(p19, i43, descr=...)
+            guard_no_exception(descr=...)
+            --TICK--
+        """)
