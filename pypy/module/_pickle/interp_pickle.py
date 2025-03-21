@@ -159,6 +159,9 @@ def pack_float(f):
     ieee.pack_float(buf, 0, f, 8, True)
     return buf.finish()
 
+def unpack_float(s):
+    return ieee.unpack_float(s, True)
+
 def pickling_error(space):
     w_module = space.getbuiltinmodule('_pickle')
     return space.getattr(w_module, space.newtext('PicklingError'))
@@ -1132,8 +1135,9 @@ class W_Unpickler(W_Root):
                 raise EOFError
             if key[0] == op.STOP[0]:
                 return self.stack.pop()
+            # print "calling", self.dispatch[key[0]]
             self.dispatch[key[0]](self)
-            print "self.stack", self.stack
+            # print "self.stack", self.stack
 
     # Return a list of items pushed in the stack after last MARK instruction.
     def pop_mark(self):
@@ -1247,7 +1251,8 @@ class W_Unpickler(W_Root):
     dispatch[op.FLOAT[0]] = load_float
 
     def load_binfloat(self):
-        self.append(unpack('>d', self.read(8))[0])
+        f = unpack_float(self.read(8))
+        self.append(self.space.newfloat(f))
     dispatch[op.BINFLOAT[0]] = load_binfloat
 
     def _decode_string(self, value):
@@ -1412,7 +1417,6 @@ class W_Unpickler(W_Root):
 
     def load_frozenset(self):
         items = self.pop_mark()
-        xxx = xxx
         self.append(frozenset(items))
     dispatch[op.FROZENSET[0]] = load_frozenset
 
@@ -1446,9 +1450,9 @@ class W_Unpickler(W_Root):
         self.append(value)
 
     def load_inst(self):
-        module = self.readline()[:-1].decode("ascii")
-        name = self.readline()[:-1].decode("ascii")
-        klass = self.find_class(module, name)
+        w_module = self.readline()[:-1].decode("ascii")
+        w_name = self.readline()[:-1].decode("ascii")
+        klass = self.find_class(w_module, w_name)
         self._instantiate(klass, self.pop_mark())
     dispatch[op.INST[0]] = load_inst
 
@@ -1460,34 +1464,42 @@ class W_Unpickler(W_Root):
     dispatch[op.OBJ[0]] = load_obj
 
     def load_newobj(self):
-        args = self.stack.pop()
-        cls = self.stack.pop()
-        obj = cls.__new__(cls, *args)
-        self.append(obj)
+        space = self.space
+        w_args = self.stack.pop()
+        w_cls = self.stack.pop()
+        w_new = space.getattr(w_cls, space.newtext("__new__"))
+        if space.len_w(w_args) > 0:
+            w_obj = space.call_function(w_new, w_cls, space.listview(w_args))
+        else:
+            w_obj = space.call_function(w_new, w_cls)
+        self.append(w_obj)
     dispatch[op.NEWOBJ[0]] = load_newobj
 
     def load_newobj_ex(self):
-        kwargs = self.stack.pop()
-        args = self.stack.pop()
-        cls = self.stack.pop()
-        obj = cls.__new__(cls, *args, **kwargs)
-        self.append(obj)
+        w_kwargs = self.stack.pop()
+        w_args = self.stack.pop()
+        w_cls = self.stack.pop()
+        w_new = space.getattr(w_cls, space.newtext("__new__"))
+        w_obj = space.call_function(w_new, w_cls, space.listview(w_args), w_kwargs)
+        self.append(w_obj)
     dispatch[op.NEWOBJ_EX[0]] = load_newobj_ex
 
     def load_global(self):
-        module = self.readline()[:-1].decode("utf-8")
-        name = self.readline()[:-1].decode("utf-8")
-        klass = self.find_class(module, name)
-        self.append(klass)
+        w_module = self.readline()[:-1].decode("utf-8")
+        w_name = self.readline()[:-1].decode("utf-8")
+        w_klass = self.find_class(w_module, w_name)
+        self.append(w_klass)
     dispatch[op.GLOBAL[0]] = load_global
 
     def load_stack_global(self):
-        name = self.stack.pop()
-        module = self.stack.pop()
-        if type(name) is not str or type(module) is not str:
+        space = self.space
+        w_name = self.stack.pop()
+        w_module = self.stack.pop()
+        if space.isinstance_w(w_name, space.w_text) and space.isinstance_w(w_module, space.w_text):
+            self.append(self.find_class(w_module, w_name))
+        else:
             raise oefmt(unpickling_error(self.space),
                 "STACK_GLOBAL requires str")
-        self.append(self.find_class(module, name))
     dispatch[op.STACK_GLOBAL[0]] = load_stack_global
 
     def load_ext1(self):
@@ -1521,19 +1533,23 @@ class W_Unpickler(W_Root):
         _extension_cache[code] = obj
         self.append(obj)
 
-    def find_class(self, module, name):
+    def find_class(self, w_module_name, w_name):
         # Subclasses may override this.
-        sys.audit('pickle.find_class', module, name)
+        space = self.space
+        space.audit('pickle.find_class', [w_module_name, w_name])
         if self.proto < 3 and self.fix_imports:
             if (module, name) in _compat_pickle.NAME_MAPPING:
                 module, name = _compat_pickle.NAME_MAPPING[(module, name)]
             elif module in _compat_pickle.IMPORT_MAPPING:
                 module = _compat_pickle.IMPORT_MAPPING[module]
-        __import__(module, level=0)
+        w_import = space.getattr(space.builtin, space.newtext("__import__"))
+        space.call_function(w_import, w_module_name)
+        w_module = space.getitem(space.getattr(space.sys, space.newtext('modules')), w_module_name)
         if self.proto >= 4:
-            return _getattribute(sys.modules[module], name)[0]
+            retval = _getattribute(space, w_module, w_name)
+            return space.listview(retval)[0]
         else:
-            return getattr(sys.modules[module], name)
+            return space.getattr(w_module, w_name)
 
     def load_reduce(self):
         stack = self.stack
@@ -1612,42 +1628,39 @@ class W_Unpickler(W_Root):
 
     def load_append(self):
         stack = self.stack
-        value = stack.pop()
-        list = stack[-1]
-        list.append(value)
+        w_value = stack.pop()
+        w_list = stack[-1]
+        self.space.call_method(w_list, "append", w_value)
     dispatch[op.APPEND[0]] = load_append
 
     def load_appends(self):
-        items = self.pop_mark()
-        list_obj = self.stack[-1]
-        try:
-            extend = list_obj.extend
-        except AttributeError:
-            pass
-        else:
-            extend(items)
+        space = self.space
+        w_items = self.pop_mark()
+        w_list_obj = self.stack[-1]
+        w_extend = space.lookup(w_list_obj, "extend")
+        if w_extend:
+            space.call_method(w_list_obj, "extend", space.newlist(w_items))
             return
         # Even if the PEP 307 requires extend() and append() methods,
         # fall back on append() if the object has no extend() method
         # for backward compatibility.
-        append = list_obj.append
-        for item in items:
-            append(item)
+        for item in space.listview(w_items):
+            space.call_method(w_list_obj, "append", w_item)
     dispatch[op.APPENDS[0]] = load_appends
 
     def load_setitem(self):
         stack = self.stack
-        value = stack.pop()
-        key = stack.pop()
-        dict = stack[-1]
-        dict[key] = value
+        w_value = stack.pop()
+        w_key = stack.pop()
+        w_dict = stack[-1]
+        self.space.setitem(w_dict, w_key, w_value)
     dispatch[op.SETITEM[0]] = load_setitem
 
     def load_setitems(self):
-        items = self.pop_mark()
-        dict = self.stack[-1]
-        for i in range(0, len(items), 2):
-            dict[items[i]] = items[i + 1]
+        items_w = self.pop_mark()
+        w_dict = self.stack[-1]
+        for i in range(0, len(items_w), 2):
+            self.space.setitem(w_dict, items_w[i], items_w[i + 1])
     dispatch[op.SETITEMS[0]] = load_setitems
 
     def load_additems(self):
@@ -1662,27 +1675,23 @@ class W_Unpickler(W_Root):
     dispatch[op.ADDITEMS[0]] = load_additems
 
     def load_build(self):
+        space = self.space
         stack = self.stack
-        state = stack.pop()
-        inst = stack[-1]
-        setstate = getattr(inst, "__setstate__", None)
-        if setstate is not None:
-            setstate(state)
+        w_state = stack.pop()
+        w_inst = stack[-1]
+        w_setstate = space.findattr(w_inst, space.newtext("__setstate__"))
+        if not space.is_none(w_setstate):
+            space.call_function(w_setstate , w_state)
             return
-        slotstate = None
-        if isinstance(state, tuple) and len(state) == 2:
-            state, slotstate = state
-        if state:
-            inst_dict = inst.__dict__
-            intern = sys.intern
-            for k, v in state.items():
-                if type(k) is str:
-                    inst_dict[intern(k)] = v
-                else:
-                    inst_dict[k] = v
-        if slotstate:
-            for k, v in slotstate.items():
-                setattr(inst, k, v)
+        w_slotstate = space.w_None
+        if space.isinstance_w(w_state, space.w_tuple) and space.w_len(w_state) == 2:
+            w_state, w_slotstate = space.listview(state)
+        if not space.is_none(w_state):
+            w_inst_dict = w_inst.getdict(space)
+            space.call_method(w_inst_dict, "update", w_state)
+        if not space.is_none(w_slotstate):
+            for k, v in w_slotstate.items():
+                setattr(w_inst, k, v)
     dispatch[op.BUILD[0]] = load_build
 
     def load_mark(self):
