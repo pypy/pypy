@@ -73,32 +73,45 @@ def test_memo():
     assert s.count(b'K\x01\x85') == 1
     assert loads(s) == (a, a)
 
-def test_save_list():
+def test_list():
     s = dumps([])
     assert s == b'\x80\x04]\x94.'
+    assert loads(s) == []
     s = dumps([1])
     assert s == b'\x80\x04]\x94K\x01a.'
+    assert loads(s) == [1]
     s = dumps([1] * 1000)
     assert s.startswith(b'\x80\x04]\x94(K\x01K\x01K\x01K\x01K\x01K\x01K')
+    assert loads(s) == [1] * 1000
 
-def test_save_list_memo():
+def test_list_memo():
     l = []
     l.append(l)
     s = dumps(l)
     assert s == b'\x80\x04]\x94h\x00a.'
+    l_roundtrip = loads(s)
+    # the comparision fails untranslated
+    # assert l_roundtrip == l
 
     t = (1, 2, 3, [], "abc")
     t[3].append(t)
     s = dumps(t)
     assert s == b'\x80\x04(K\x01K\x02K\x03]\x94(K\x01K\x02K\x03h\x00\x8c\x03abc\x94t\x94ah\x011h\x02.'
+    t_roundtrip = loads(s)
+    # the comparision fails untranslated
+    # assert t_roundtrip == t
 
-def test_save_dict():
+def test_dict():
     s = dumps({})
     assert s == b'\x80\x04}\x94.'
+    assert loads(s) == {}
     s = dumps({1: 2})
     assert s == b'\x80\x04}\x94K\x01K\x02s.'
-    s = dumps(dict([(a, str(a)) for a in range(10000)]))
+    assert loads(s) == {1: 2}
+    d = dict([(a, str(a)) for a in range(10000)])
+    s = dumps(d)
     assert s.startswith(b'\x80\x04}\x94(K\x00\x8c\x010\x94K\x01\x8c\x011\x94K\x02')
+    assert loads(s) == d
 
 def test_reduce():
     import sys
@@ -118,13 +131,18 @@ def test_reduce():
         a.x = 'abc'
         s = dumps(a)
         assert s == b'\x80\x04\x8c\x07fakemod\x94\x8c\x01A\x94\x93\x94)\x81\x94}\x94\x8c\x01x\x94\x8c\x03abc\x94sb.'
+        a_roundtrip = loads(s)
+        assert type(a_roundtrip) == type(a)
+        assert a_roundtrip.x == "abc"
     finally:
         del sys.modules['fakemod']
 
 def test_globals():
     s = dumps(dumps)
     assert s == b'\x80\x04\x8c\x07_pickle\x94\x8c\x05dumps\x94\x93\x94.'
+    assert loads(s) == dumps
 
-def test_save_float():
+def test_float():
     s = dumps(1.234)
     assert s == b'\x80\x04G?\xf3\xbev\xc8\xb49X.'
+    assert loads(s) == 1.234
