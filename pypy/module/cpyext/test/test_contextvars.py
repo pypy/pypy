@@ -37,7 +37,9 @@ class AppTestContext(AppTestCpythonExtensionBase):
                 if (!PyArg_ParseTuple(args, "OO:reset", &obj, &token)) {
                     return NULL;
                 }
-                return PyContextVar_Reset(obj, token);
+                int ret = PyContextVar_Reset(obj, token);
+                if (ret < 0) return NULL;
+                return PyLong_FromLong(ret);
              '''
              ),
             ("get", "METH_VARARGS",

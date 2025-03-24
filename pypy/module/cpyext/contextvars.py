@@ -36,14 +36,15 @@ def PyContextVar_Set(space, w_ovar, w_val):
         return ovar.set(val)
         """)
 
-@cpython_api([PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyContextVar_Reset(space, w_ovar, w_token):
-    return space.appexec([w_ovar, w_token], """(ovar, token):
+    space.appexec([w_ovar, w_token], """(ovar, token):
         from _contextvars import ContextVar
         if not isinstance(ovar, ContextVar):
             raise TypeError('an instance of ContextVar was expected')
         return ovar.reset(token)
         """)
+    return 0
 
 @cpython_api([PyObject, PyObject, PyObjectP], rffi.INT_real, error=-1)
 def PyContextVar_Get(space, w_ovar, default, val):
