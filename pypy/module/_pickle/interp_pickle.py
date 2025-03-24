@@ -145,6 +145,13 @@ def unpackI(s):
         val += x * (1 << 8 * i)
     return val
 
+def unpackQ(s):
+    val = 0
+    for i in range(8):
+        x = ord(s[i])
+        val += x * (1 << 8 * i)
+    return val
+
 
 def packI(opcode, val):
     assert val >= 0
@@ -467,7 +474,7 @@ class W_Pickler(W_Root):
         else:
             as_ascii = space.utf8_w(space.repr(w_obj)) # .encode("ascii")
             self.write(op.FLOAT + as_ascii + '\n')
- 
+
     def save_bytes(self, w_obj):
         space = self.space
         if self.proto < 3:
@@ -826,15 +833,18 @@ class W_Pickler(W_Root):
                     w_obj, w_module_name, w_name)
 
         if self.proto >= 2:
-            #code = _extension_registry.get((module_name, name))
-            if 0: #code:
+            w_mod_and_name = space.newtuple([w_module_name, w_name])
+            state = space.fromcache(State)
+            w_code = space.getitem(state.w_extension_registry, w_mod_and_name)
+            if not space.is_none(w_code):
+                code = space.int_w(w_code)
                 assert code > 0
                 if code <= 0xff:
-                    write(op.EXT1 + _pack("<B", code))
+                    write(packB(op.EXT1, code))
                 elif code <= 0xffff:
-                    write(op.EXT2 + _pack("<H", code))
+                    write(packH(op.EXT2, code))
                 else:
-                    write(op.EXT4 + _pack("<i", code))
+                    write(packi(op.EXT4, code))
                 return
         name = space.utf8_w(w_name)
         lastname = name.split('.')[-1]
@@ -990,7 +1000,7 @@ def decode_long(space, data):
     else:
         w_obj = space.newint(as_int)
     return w_obj
-    
+
 
 @unwrap_spec(proto=int)
 def descr__new__(space, w_subtype, w_file, proto):
@@ -1005,7 +1015,6 @@ W_Pickler.typedef = TypeDef("_pickle.Pickler",
 
 
 class _Unframer(object):
-    
     def __init__(self, space, w_file_read, w_file_readline):
         self.space = space
         self.w_file_read = w_file_read
@@ -1021,7 +1030,7 @@ class _Unframer(object):
                 buf[:] = self.file_read(n)
                 return n
             if n < len(buf):
-                raise UnpicklingError(
+                raise oefmt(unpickling_error(self.space),
                     "pickle exhausted before end of frame")
             return n
         else:
@@ -1037,7 +1046,7 @@ class _Unframer(object):
                 self.current_frame = None
                 return self.file_read(n)
             if len(data) < n:
-                raise UnpicklingError(
+                raise oefmt(unpickling_error(self.space),
                     "pickle exhausted before end of frame")
             return data
         else:
@@ -1051,7 +1060,7 @@ class _Unframer(object):
                 self.current_frame = None
                 return self.file_readline()
             if data[-1] != b'\n'[0]:
-                raise UnpicklingError(
+                raise oefmt(unpickling_error(self.space),
                     "pickle exhausted before end of frame")
             return data
         else:
@@ -1059,7 +1068,7 @@ class _Unframer(object):
 
     def load_frame(self, frame_size):
         if self.current_frame and self.current_frame.read() != b'':
-            raise UnpicklingError(
+            raise oefmt(unpickling_error(self.space),
                 "beginning of a new frame before end of current frame")
         self.current_frame = io.BytesIO(self.file_read(frame_size))
 
@@ -1118,7 +1127,7 @@ class W_Unpickler(W_Root):
 
     def load(self):
         # if not hasattr(self, "w_file_read"):
-        #     raise oefmt(unpickling_error(space),
+        #     raise oefmt(unpickling_error(self.space),
         #         "Unpickler.__init__() was not called by %T", self)
         self._unframer = _Unframer(self.space, self.w_file_read, self.w_file_readline)
         self.read = self._unframer.read
@@ -1147,7 +1156,7 @@ class W_Unpickler(W_Root):
         return items
 
     def persistent_load(self, pid):
-        raise oefmt(unpickling_error(space),
+        raise oefmt(unpickling_error(self.space),
             "unsupported persistent id encountered")
 
     def load_proto(self):
@@ -1159,7 +1168,7 @@ class W_Unpickler(W_Root):
     dispatch[op.PROTO[0]] = load_proto
 
     def load_frame(self):
-        frame_size, = unpack('<Q', self.read(8))
+        frame_size = unpackQ(self.read(8))
         if frame_size > maxsize:
             raise oefmt(self.space.w_ValueError,
                 "frame size > maxsize: %d", frame_size)
@@ -1170,7 +1179,7 @@ class W_Unpickler(W_Root):
         try:
             pid = self.readline()[:-1].decode("ascii")
         except UnicodeDecodeError:
-            raise oefmt(unpickling_error(space),
+            raise oefmt(unpickling_error(self.space),
                 "persistent IDs in protocol 0 must be ASCII strings")
         self.append(self.persistent_load(pid))
     dispatch[op.PERSID[0]] = load_persid
@@ -1194,9 +1203,9 @@ class W_Unpickler(W_Root):
 
     def load_int(self):
         data = self.readline()
-        if data == FALSE[1:]:
+        if data == op.FALSE[1:]:
             val = False
-        elif data == TRUE[1:]:
+        elif data == op.TRUE[1:]:
             val = True
         else:
             val = int(data, 0)
@@ -1205,7 +1214,6 @@ class W_Unpickler(W_Root):
 
     def load_binint(self):
         data = self.read(4)
-        # val = unpack('<i', data) 
         val = unpacki(data)
         self.append(self.space.newint(val))
     dispatch[op.BININT[0]] = load_binint
@@ -1236,11 +1244,10 @@ class W_Unpickler(W_Root):
 
     def load_long4(self):
         data = self.read(4)
-        # n = unpack('<i', data) 
         n = unpacki(data)
         if n < 0:
             # Corrupt or hostile pickle -- we never write one like this
-            raise oefmt(unpickling_error(space),
+            raise oefmt(unpickling_error(self.space),
                 "LONG pickle has negative byte count")
         data = self.read(n)
         self.append(decode_long(self.space, data))
@@ -1266,21 +1273,24 @@ class W_Unpickler(W_Root):
             return value.decode(self.encoding, self.errors)
 
     def load_string(self):
+        raise oefmt(self.space.w_NotImplementedError,
+            "cannot unpickle python2 STRING pickled data")
         data = self.readline()[:-1]
         # Strip outermost quotes
         if len(data) >= 2 and data[0] == data[-1] and data[0] in b'"\'':
             data = data[1:-1]
         else:
-            raise oefmt(unpickling_error(space),
+            raise oefmt(unpickling_error(self.space),
                 "the STRING opcode argument must be quoted")
-        self.append(self._decode_string(codecs.escape_decode(data)[0]))
+        decoded = self._decode_string(codecs.escape_decode(data)[0])
+        self.append()
     dispatch[op.STRING[0]] = load_string
 
     def load_binstring(self):
         # Deprecated BINSTRING uses signed 32-bit length
-        len, = unpack('<i', self.read(4))
+        len = unpacki(self.read(4))
         if len < 0:
-            raise oefmt(unpickling_error(space),
+            raise oefmt(unpickling_error(self.space),
                 "BINSTRING pickle has negative byte count")
         data = self.read(len)
         self.append(self._decode_string(data))
@@ -1427,8 +1437,9 @@ class W_Unpickler(W_Root):
 
     def load_dict(self):
         items = self.pop_mark()
-        d = {items[i]: items[i+1]
-             for i in range(0, len(items), 2)}
+        d = {}
+        for i in range(0, len(items), 2):
+            d[items[i]] = items[i+1]
         self.append(self.newdict(d))
     dispatch[op.DICT[0]] = load_dict
 
@@ -1443,7 +1454,7 @@ class W_Unpickler(W_Root):
             try:
                 value = klass(*args)
             except TypeError as err:
-                raise oefmt(self.space.w_TypeError("in constructor for %s: %s", 
+                raise oefmt(self.space.w_TypeError("in constructor for %s: %s",
                                 klass.__name__, str(err)))
         else:
             value = klass.__new__(klass)
@@ -1476,6 +1487,7 @@ class W_Unpickler(W_Root):
     dispatch[op.NEWOBJ[0]] = load_newobj
 
     def load_newobj_ex(self):
+        space = self.space
         w_kwargs = self.stack.pop()
         w_args = self.stack.pop()
         w_cls = self.stack.pop()
@@ -1503,43 +1515,50 @@ class W_Unpickler(W_Root):
     dispatch[op.STACK_GLOBAL[0]] = load_stack_global
 
     def load_ext1(self):
-        code = self.read(1)[0]
+        code = int(self.read(1))
         self.get_extension(code)
     dispatch[op.EXT1[0]] = load_ext1
 
     def load_ext2(self):
-        code, = unpack('<H', self.read(2))
+        data = self.read(2)
+        # code, = unpack('<H', self.read(2))
+        code = 256 * ord(data[1]) + ord(data[0])
         self.get_extension(code)
     dispatch[op.EXT2[0]] = load_ext2
 
     def load_ext4(self):
-        code, = unpack('<i', self.read(4))
+        code = unpacki(self.read(4))
         self.get_extension(code)
     dispatch[op.EXT4[0]] = load_ext4
 
     def get_extension(self, code):
-        nil = []
-        obj = _extension_cache.get(code, nil)
-        if obj is not nil:
-            self.append(obj)
+        space = self.space
+        w_code = space.newint(code)
+        state = space.fromcache(State)
+        w_obj = space.getitem(state.w_extension_cache, w_code)
+        if not space.is_none(w_obj):
+            self.append(w_obj)
             return
-        key = _inverted_registry.get(code)
-        if not key:
+        w_key = space.getitem(state.w_inverted_registry, w_code)
+        if space.is_none(w_key):
             if code <= 0: # note that 0 is forbidden
                 # Corrupt or hostile pickle.
                 raise oefmt(unpickling_error(self.space), "EXT specifies code <= 0")
             raise oefmt(self.space.w_ValueError, "unregistered extension code %d", code)
-        obj = self.find_class(*key)
-        _extension_cache[code] = obj
-        self.append(obj)
+        w_module_name, w_name = space.listview(w_key)
+        w_obj = self.find_class(w_module_name, w_name)
+        space.setitem(state._extension_cache, w_code, w_obj)
+        self.append(w_obj)
 
     def find_class(self, w_module_name, w_name):
         # Subclasses may override this.
         space = self.space
         space.audit('pickle.find_class', [w_module_name, w_name])
-        if self.proto < 3 and self.fix_imports:
-            if (module, name) in _compat_pickle.NAME_MAPPING:
-                module, name = _compat_pickle.NAME_MAPPING[(module, name)]
+        if 0 and self.proto < 3 and self.fix_imports:
+            w_modname_and_name = space.newtuple([w_module_name, w_name])
+            if w_modname_and_name in _compat_pickle.NAME_MAPPING:
+                w_modname_and_name = _compat_pickle.NAME_MAPPING[w_modname_and_name]
+                w_module_name, w_name = space.listview(w_modname_and_name)
             elif module in _compat_pickle.IMPORT_MAPPING:
                 module = _compat_pickle.IMPORT_MAPPING[module]
         w_import = space.getattr(space.builtin, space.newtext("__import__"))
@@ -1615,7 +1634,7 @@ class W_Unpickler(W_Root):
     dispatch[op.BINPUT[0]] = load_binput
 
     def load_long_binput(self):
-        i, = unpack('<I', self.read(4))
+        i = unpackI(self.read(4))
         if i > maxsize:
             raise oefmt(self.space.w_ValueError, "negative LONG_BINPUT argument")
         self.memo[i] = self.stack[-1]
@@ -1644,7 +1663,7 @@ class W_Unpickler(W_Root):
         # Even if the PEP 307 requires extend() and append() methods,
         # fall back on append() if the object has no extend() method
         # for backward compatibility.
-        for item in space.listview(w_items):
+        for w_item in space.listview(w_items):
             space.call_method(w_list_obj, "append", w_item)
     dispatch[op.APPENDS[0]] = load_appends
 
@@ -1685,7 +1704,7 @@ class W_Unpickler(W_Root):
             return
         w_slotstate = space.w_None
         if space.isinstance_w(w_state, space.w_tuple) and space.w_len(w_state) == 2:
-            w_state, w_slotstate = space.listview(state)
+            w_state, w_slotstate = space.listview(w_state)
         if not space.is_none(w_state):
             w_inst_dict = w_inst.getdict(space)
             space.call_method(w_inst_dict, "update", w_state)
@@ -1700,8 +1719,6 @@ class W_Unpickler(W_Root):
         self.append = self.stack.append
     dispatch[op.MARK[0]] = load_mark
 
-
-       
 
 @unwrap_spec(fix_imports=bool, encoding="text", errors="text")
 def descr__new__unpickler(space, w_subtype, w_file, __kwonly__, fix_imports=True, encoding="ASCII", errors="stricts", w_buffers=None):
