@@ -215,6 +215,16 @@ class ArrayCachedItem(AbstractCachedEntry):
         self.cached_infos = []
         self.cached_structs = []
 
+class ArrayCacheSubMap(object):
+    def __init__(self):
+        self.const_indexes = {} # int -> ArrayCachedItem
+        self.clear_varindex()
+
+    def clear_varindex(self):
+        self.cached_arrayinfo = None
+        self.cached_index = None
+        self.cached_result = None
+
 class OptHeap(Optimization):
     """Cache repeated heap accesses"""
 
@@ -277,8 +287,9 @@ class OptHeap(Optimization):
                 cf.invalidate(descr)
         for descr, submap in self.cached_arrayitems.iteritems():
             if not descr.is_always_pure():
-                for index, cf in submap.iteritems():
+                for index, cf in submap.const_indexes.iteritems():
                     cf.invalidate(None)
+                submap.clear_varindex()
         #self.cached_arrayitems.clear()
         self.cached_dict_reads.clear()
 
@@ -293,11 +304,11 @@ class OptHeap(Optimization):
         try:
             submap = self.cached_arrayitems[descr]
         except KeyError:
-            submap = self.cached_arrayitems[descr] = {}
+            submap = self.cached_arrayitems[descr] = ArrayCacheSubMap()
         try:
-            cf = submap[index]
+            cf = submap.const_indexes[index]
         except KeyError:
-            cf = submap[index] = ArrayCachedItem(index)
+            cf = submap.const_indexes[index] = ArrayCachedItem(index)
         return cf
 
     def emit(self, op):
@@ -468,13 +479,16 @@ class OptHeap(Optimization):
             submap = self.cached_arrayitems[arraydescr]
         except KeyError:
             return
-        for idx, cf in submap.iteritems():
+        for idx, cf in submap.const_indexes.iteritems():
             if indexb is None or indexb.contains(idx):
                 cf.force_lazy_set(self, None, can_cache)
+        if not can_cache:
+            submap.clear_varindex()
 
     def force_lazy_setarrayitem_submap(self, submap, can_cache=True):
-        for cf in submap.itervalues():
+        for cf in submap.const_indexes.itervalues():
             cf.force_lazy_set(self, None, can_cache)
+        submap.clear_varindex()
 
     def force_all_lazy_sets(self):
         items = self.cached_fields.items()
@@ -484,12 +498,13 @@ class OptHeap(Optimization):
         for descr, cf in items:
             cf.force_lazy_set(self, descr)
         for submap in self.cached_arrayitems.itervalues():
-            items = submap.items()
+            items = submap.const_indexes.items()
             if not we_are_translated():
                 # stability for tests
                 items.sort(key=lambda item: item[0])
             for index, cf in items:
                 cf.force_lazy_set(self, None)
+            submap.clear_varindex()
 
     def force_lazy_sets_for_guard(self):
         pendingfields = []
@@ -506,7 +521,7 @@ class OptHeap(Optimization):
                 continue
             cf.force_lazy_set(self, descr)
         for descr, submap in self.cached_arrayitems.iteritems():
-            for index, cf in submap.iteritems():
+            for index, cf in submap.const_indexes.iteritems():
                 op = cf._lazy_set
                 if op is None:
                     continue
@@ -520,6 +535,7 @@ class OptHeap(Optimization):
                     pendingfields.append(op)
                 else:
                     cf.force_lazy_set(self, descr)
+            submap.clear_varindex()
         return pendingfields
 
     def optimize_GETFIELD_GC_I(self, op):
@@ -575,6 +591,15 @@ class OptHeap(Optimization):
             # variable index, so make sure the lazy setarrayitems are done
             self.force_lazy_setarrayitem(op.getdescr(),
                                          self.getintbound(op.getarg(1)))
+            # read cache with variable index
+            try:
+                submap = self.cached_arrayitems[op.getdescr()]
+            except KeyError:
+                submap = self.cached_arrayitems[op.getdescr()] = ArrayCacheSubMap()
+            indexop = get_box_replacement(op.getarg(1))
+            if submap.cached_arrayinfo is arrayinfo and submap.cached_index is indexop:
+                self.make_equal_to(op, submap.cached_result)
+                return
         # default case: produce the operation
         self.make_nonnull(op.getarg(0))
         # return self.emit(op)
@@ -591,6 +616,15 @@ class OptHeap(Optimization):
                               get_box_replacement(op.getarg(0)),
                               get_box_replacement(op), optheap=self,
                               cf=cf)
+        else:
+            # write cache for variable info
+            try:
+                submap = self.cached_arrayitems[op.getdescr()]
+            except KeyError:
+                submap = self.cached_arrayitems[op.getdescr()] = ArrayCacheSubMap()
+            submap.cached_arrayinfo = arrayinfo
+            submap.cached_result = get_box_replacement(op)
+            submap.cached_index = get_box_replacement(op.getarg(1))
     optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_GC_I
     optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I
 
@@ -629,6 +663,11 @@ class OptHeap(Optimization):
             arrayinfo.getlenbound(None).make_gt_const(index)
             cf = self.arrayitem_cache(op.getdescr(), index)
             cf.do_setfield(self, op)
+            try:
+                submap = self.cached_arrayitems[op.getdescr()]
+            except KeyError:
+                submap = self.cached_arrayitems[op.getdescr()] = ArrayCacheSubMap()
+            submap.clear_varindex()
         else:
             # variable index, so make sure the lazy setarrayitems are done
             self.force_lazy_setarrayitem(op.getdescr(), indexb, can_cache=False)
