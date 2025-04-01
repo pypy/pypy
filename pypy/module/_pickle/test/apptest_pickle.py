@@ -1,6 +1,7 @@
 import pytest
 from _pickle import Pickler, PicklingError, dumps
 from _pickle import Unpickler, UnpicklingError, loads
+import pickle
 
 def test_int():
     s = dumps(12)
@@ -146,3 +147,11 @@ def test_float():
     s = dumps(1.234)
     assert s == b'\x80\x04G?\xf3\xbev\xc8\xb49X.'
     assert loads(s) == 1.234
+
+def test_frozenset():
+    f = frozenset((1, 2, 3))
+    s = dumps(f)
+    assert pickle.FROZENSET in s
+    f2 = loads(s)
+    assert isinstance(f2, frozenset)
+    assert f == f2
