@@ -1818,7 +1818,8 @@ try:
 except ImportError:
     pass
 else:
-    Pickler.dispatch[cpyext.FunctionType] = Pickler.save_global
+    import copyreg
+    copyreg.pickle(cpyext.FunctionType, _Pickler.save_global)
 # ================= end of PyPy modification ====================
 
 if __name__ == "__main__":
