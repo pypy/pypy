@@ -10,21 +10,13 @@ class TestOptimizeHeap(BaseTestBasic):
         p3 = getarrayitem_gc_r(p1, 1, descr=arraydescr2)
         p4 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         p5 = getarrayitem_gc_r(p1, 1, descr=arraydescr2)
-        escape_n(p2)
-        escape_n(p3)
-        escape_n(p4)
-        escape_n(p5)
-        jump(p1)
+        jump(p1, p2, p3, p4, p5)
         """
         expected = """
         [p1]
         p2 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         p3 = getarrayitem_gc_r(p1, 1, descr=arraydescr2)
-        escape_n(p2)
-        escape_n(p3)
-        escape_n(p2)
-        escape_n(p3)
-        jump(p1)
+        jump(p1, p2, p3, p2, p3)
         """
         self.optimize_loop(ops, expected)
 
@@ -33,14 +25,12 @@ class TestOptimizeHeap(BaseTestBasic):
         [p1, p2]
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
         p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
-        escape_n(p3)
-        jump(p1, p3)
+        jump(p1, p3, p3)
         """
         expected = """
         [p1, p2]
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
-        escape_n(p2)
-        jump(p1, p2)
+        jump(p1, p2, p2)
         """
         self.optimize_loop(ops, expected)
 
@@ -53,10 +43,7 @@ class TestOptimizeHeap(BaseTestBasic):
         p5 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
         p6 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         p7 = getarrayitem_gc_r(p1, 1, descr=arraydescr2)
-        escape_n(p5)
-        escape_n(p6)
-        escape_n(p7)
-        jump(p1, p2, p3, p4, i1)
+        jump(p1, p2, p3, p4, i1, p5, p6, p7)
         """
         expected = """
         [p1, p2, p3, p4, i1]
@@ -64,10 +51,7 @@ class TestOptimizeHeap(BaseTestBasic):
         setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
         setarrayitem_gc(p1, 1, p4, descr=arraydescr2)
         p5 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
-        escape_n(p5)
-        escape_n(p3)
-        escape_n(p4)
-        jump(p1, p2, p3, p4, i1)
+        jump(p1, p2, p3, p4, i1, p5, p3, p4)
         """
         self.optimize_loop(ops, expected)
 
@@ -83,14 +67,7 @@ class TestOptimizeHeap(BaseTestBasic):
         p8 = getarrayitem_gc_r(p0, 1, descr=arraydescr2)
         p9 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         p10 = getarrayitem_gc_r(p1, 1, descr=arraydescr2)
-        escape_n(p4)
-        escape_n(p5)
-        escape_n(p6)
-        escape_n(p7)
-        escape_n(p8)
-        escape_n(p9)
-        escape_n(p10)
-        jump(p0, p1, p2, p3, i1)
+        jump(p0, p1, p2, p3, i1, p4, p5, p6, p7, p8, p9, p10)
         """
         expected = """
         [p0, p1, p2, p3, i1]
@@ -100,14 +77,7 @@ class TestOptimizeHeap(BaseTestBasic):
         setarrayitem_gc(p1, 1, p3, descr=arraydescr2)
         guard_true(i1) [i1]
         p8 = getarrayitem_gc_r(p0, 1, descr=arraydescr2)
-        escape_n(p4)
-        escape_n(p5)
-        escape_n(p6)
-        escape_n(p4)
-        escape_n(p8)
-        escape_n(p6)
-        escape_n(p3)
-        jump(p0, p1, p2, p3, 1)
+        jump(p0, p1, p2, p3, 1, p4, p5, p6, p4, p8, p6, p3)
         """
         self.optimize_loop(ops, expected)
 
@@ -117,18 +87,12 @@ class TestOptimizeHeap(BaseTestBasic):
         p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         i4 = getfield_gc_i(ConstPtr(myptr3), descr=valuedescr3)
         p5 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
-        escape_n(p3)
-        escape_n(i4)
-        escape_n(p5)
-        jump(p1, p2)
+        jump(p1, p2, p3, i4, p5)
         """
         expected = """
         [p1, p2]
         p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
-        escape_n(p3)
-        escape_n(7)
-        escape_n(p3)
-        jump(p1, p2)
+        jump(p1, p2, p3, 7, p3)
         """
         self.optimize_loop(ops, expected)
 
@@ -139,17 +103,13 @@ class TestOptimizeHeap(BaseTestBasic):
         setarrayitem_gc(p2, 1, p4, descr=arraydescr2)
         p5 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         p6 = getarrayitem_gc_r(p2, 1, descr=arraydescr2)
-        escape_n(p5)
-        escape_n(p6)
-        jump(p1, p2, p3, p4, i1)
+        jump(p1, p2, p3, p4, i1, p5, p6)
         """
         expected = """
         [p1, p2, p3, p4, i1]
         setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
         setarrayitem_gc(p2, 1, p4, descr=arraydescr2)
-        escape_n(p3)
-        escape_n(p4)
-        jump(p1, p2, p3, p4, i1)
+        jump(p1, p2, p3, p4, i1, p3, p4)
         """
         self.optimize_loop(ops, expected)
 
@@ -200,16 +160,12 @@ class TestOptimizeHeap(BaseTestBasic):
         [p1, i1]
         p2 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
         p4 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
-        escape_n(p2)
-        escape_n(p4)
-        jump(p1)
+        jump(p1, p2, p4)
         """
         expected = """
         [p1, i1]
         p2 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
-        escape_n(p2)
-        escape_n(p2)
-        jump(p1)
+        jump(p1, p2, p2)
         """
         self.optimize_loop(ops, expected)
 
@@ -219,9 +175,7 @@ class TestOptimizeHeap(BaseTestBasic):
         p2 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
         setarrayitem_gc(p1, 1, 23, descr=arraydescr2)
         p4 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
-        escape_n(p2)
-        escape_n(p4)
-        jump(p1)
+        jump(p1, p2, p4)
         """
         expected = ops
         self.optimize_loop(ops, expected)
@@ -234,17 +188,13 @@ class TestOptimizeHeap(BaseTestBasic):
         setarrayitem_gc(p1, i1, p3, descr=arraydescr2)
         p4 = getarrayitem_gc_i(p1, 0, descr=arraydescr2)
         p5 = getarrayitem_gc_i(p1, i1, descr=arraydescr2)
-        escape_n(p4)
-        escape_n(p5)
-        jump(p1, p2, p3, i1)
+        jump(p1, p2, p3, i1, p4, p5)
         """
         expected = """
         [p1, p2, p3, i1]
         setarrayitem_gc(p1, 0, p2, descr=arraydescr2)
         setarrayitem_gc(p1, i1, p3, descr=arraydescr2)
         p4 = getarrayitem_gc_i(p1, 0, descr=arraydescr2)
-        escape_n(p4)
-        escape_n(p3)
-        jump(p1, p2, p3, i1)
+        jump(p1, p2, p3, i1, p4, p3)
         """
         self.optimize_loop(ops, expected)

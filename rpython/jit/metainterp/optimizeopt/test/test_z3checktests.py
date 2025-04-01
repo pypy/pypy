@@ -14,6 +14,8 @@ from rpython.jit.metainterp.optimizeopt.test.test_util import (
     BaseTest, convert_old_style_to_targets, FakeJitDriverStaticData)
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeintbound import (
     TestOptimizeIntBounds as TOptimizeIntBounds)
+from rpython.jit.metainterp.optimizeopt.test.test_optimizeheap import (
+    TestOptimizeHeap as TOptimizeHeap)
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, InputArgInt, OpHelpers, InputArgRef)
@@ -93,6 +95,11 @@ class Checker(object):
         self.box_to_z3[box] = result
         return result
 
+    def newheap(self):
+        pointersort = z3.BitVecSort(LONG_BIT)
+        heapobjectsort = z3.ArraySort(z3.BitVecSort(LONG_BIT), z3.BitVecSort(LONG_BIT))
+        return z3.Array('h0', pointersort, heapobjectsort)
+
     def print_chunk(self, chunk, label, model):
         print
         print "=============", label, "=================="
@@ -157,7 +164,7 @@ class Checker(object):
 
             opname = op.getopname()
             # clear state
-            arg0 = arg1 = None
+            arg0 = arg1 = arg2 = None
             if not op.is_guard():
                 state.no_ovf = None
 
@@ -167,6 +174,10 @@ class Checker(object):
             elif op.numargs() == 2:
                 arg0 = self.convert(op.getarg(0))
                 arg1 = self.convert(op.getarg(1))
+            elif op.numargs() == 3:
+                arg0 = self.convert(op.getarg(0))
+                arg1 = self.convert(op.getarg(1))
+                arg2 = self.convert(op.getarg(2))
 
             # compute results
             if opname == "int_add":
@@ -245,6 +256,12 @@ class Checker(object):
                 cond = self.guard_to_condition(op, state) # was optimized away, must be true
                 self.prove(cond, op)
                 continue
+            # heap operations
+            elif opname == "getarrayitem_gc_r" or opname == "getarrayitem_gc_i":
+                expr = state.heap[arg0][arg1]
+            elif opname == "setarrayitem_gc":
+                state.heap = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], arg1, arg2))
+            # end heap operations
             elif opname in ["label", "escape_i"]:
                 # TODO: handling escape this way probably is not correct
                 continue # ignore for now
@@ -264,7 +281,8 @@ class Checker(object):
                     assert 0, "unsupported"
             else:
                 assert 0, "unsupported"
-            self.solver.add(res == expr)
+            if res is not None:
+                self.solver.add(res == expr)
 
     def guard_to_condition(self, guard, state):
         opname = guard.getopname()
@@ -312,6 +330,7 @@ class Checker(object):
 
         state_before = State(before=True)
         state_after = State()
+        state_before.heap = state_after.heap = self.newheap()
         self.chunks = list(chunk_ops(self.beforeops, self.afterops))
         for chunkindex, (beforechunk, beforelast, afterchunk, afterlast) in enumerate(self.chunks):
             self.chunkindex = chunkindex
@@ -591,6 +610,10 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
             print "got exception", e
             print "seed was", seed
             raise
+
+class TestOptimizeHeapZ3(BaseCheckZ3, TOptimizeHeap):
+    def test_getarrayitem_pure_does_not_invalidate(self):
+        pass # skip, can't work yet
 
 if __name__ == '__main__':
     # this code is there so we can use the file to automatically reduce crashes
