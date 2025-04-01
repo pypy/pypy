@@ -74,6 +74,7 @@ class Checker(object):
         self.unsat_count = self.unknown_count = 0
 
         self.result_ovf = None
+        self.heapindex = 0
 
     def convert(self, box):
         if isinstance(box, ConstInt):
@@ -98,7 +99,8 @@ class Checker(object):
     def newheap(self):
         pointersort = z3.BitVecSort(LONG_BIT)
         heapobjectsort = z3.ArraySort(z3.BitVecSort(LONG_BIT), z3.BitVecSort(LONG_BIT))
-        return z3.Array('h0', pointersort, heapobjectsort)
+        self.heapindex += 1
+        return z3.Array('h%s' % self.heapindex, pointersort, heapobjectsort)
 
     def print_chunk(self, chunk, label, model):
         print
@@ -260,7 +262,9 @@ class Checker(object):
             elif opname == "getarrayitem_gc_r" or opname == "getarrayitem_gc_i":
                 expr = state.heap[arg0][arg1]
             elif opname == "setarrayitem_gc":
-                state.heap = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], arg1, arg2))
+                heapexpr = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], arg1, arg2))
+                state.heap = self.newheap()
+                self.solver.add(state.heap == heapexpr)
             # end heap operations
             elif opname in ["label", "escape_i"]:
                 # TODO: handling escape this way probably is not correct
@@ -435,16 +439,33 @@ class TestBuggyTestsFail(BaseCheckZ3):
         i3 = int_le(i2, 0)
         guard_true(i3) []
         i4 = int_ge(i1, 0)
-        guard_true(i4) []
+        jump(i4)
         """
         expected = """
         [i1]
         i2 = int_neg(i1)
         i3 = int_le(i2, 0)
         guard_true(i3) []
+        jump(1)
         """
         with pytest.raises(CheckError):
             self.optimize_loop(ops, expected)
+
+    def test_duplicate_getarrayitem_after_setarrayitem_3(self):
+        ops = """
+        [p1, p2, p3, p4, i1]
+        setarrayitem_gc(p1, i1, p2, descr=arraydescr2)
+        setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
+        p5 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
+        jump(p5)
+        """
+        expected = """
+        [p1, p2, p3, p4, i1]
+        setarrayitem_gc(p1, i1, p2, descr=arraydescr2)
+        setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
+        jump(p2)
+        """
+        self.optimize_loop(ops, expected)
 
 
 class CallIntPyModPyDiv(AbstractOperation):
