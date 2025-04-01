@@ -144,7 +144,7 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
-        def test_duplicate_setfield_1(self):
+    def test_duplicate_setfield_1(self):
         ops = """
         [p1, i1, i2]
         setfield_gc(p1, i1, descr=valuedescr)
@@ -158,7 +158,7 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-        def test_duplicate_setfield_2(self):
+    def test_duplicate_setfield_2(self):
         ops = """
         [p1, i1, i3]
         setfield_gc(p1, i1, descr=valuedescr)
@@ -234,10 +234,11 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-        def test_duplicate_setfield_sideeffects_1(self):
+    def test_duplicate_setfield_sideeffects_1(self):
         ops = """
         [p1, i1, i2]
         setfield_gc(p1, i1, descr=valuedescr)
+        escape_n()
         setfield_gc(p1, i2, descr=valuedescr)
         jump(p1, i1, i2)
         """
