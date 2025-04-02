@@ -13,6 +13,9 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.optimizeopt import info
 
+MUST_ALIAS = 'm'
+CANNOT_ALIAS = 'c'
+UNKNOWN_ALIAS = '?'
 
 class AbstractCachedEntry(object):
     """ abstract base class abstracting over the difference between caching
@@ -61,6 +64,14 @@ class AbstractCachedEntry(object):
         return (self._lazy_set is not None
             and not info.getptrinfo(self._lazy_set.getarg(0)).same_info(opinfo))
 
+    def possible_aliasing_two_infos(self, optheap, opinfo1, opinfo2):
+        """returns MUST_ALIAS, CANNOT_ALIAS, UNKNOWN_ALIAS """
+        if opinfo1.same_info(opinfo2):
+            return MUST_ALIAS
+        if self._cannot_alias_via_classes_or_lengths(optheap, opinfo1, opinfo2):
+            return CANNOT_ALIAS
+        return UNKNOWN_ALIAS
+
     def do_setfield(self, optheap, op):
         # Update the state with the SETFIELD_GC/SETARRAYITEM_GC operation 'op'.
         structinfo = optheap.ensure_ptr_info_arg0(op)
@@ -89,16 +100,22 @@ class AbstractCachedEntry(object):
 
     def getfield_from_cache(self, optheap, opinfo, descr):
         # Returns the up-to-date field's value, or None if not cached.
-        if self.possible_aliasing(opinfo):
-            self.force_lazy_set(optheap, descr)
-        if self._lazy_set is not None:
-            op = self._lazy_set
-            return get_box_replacement(self._get_rhs_from_set_op(op))
-        else:
-            res = self._getfield(opinfo, descr, optheap)
-            if res is not None:
-                return res.get_box_replacement()
-            return None
+        op = self._lazy_set
+        if op:
+            opinfo2 = info.getptrinfo(op.getarg(0))
+            aliasing_state = self.possible_aliasing_two_infos(optheap, opinfo, opinfo2)
+            if aliasing_state == UNKNOWN_ALIAS:
+                self.force_lazy_set(optheap, descr)
+                return None
+            elif aliasing_state == MUST_ALIAS:
+                return get_box_replacement(self._get_rhs_from_set_op(op))
+            else:
+                assert aliasing_state == CANNOT_ALIAS
+                # we don't need to force the lazy set
+        res = self._getfield(opinfo, descr, optheap)
+        if res is not None:
+            return res.get_box_replacement()
+        return None
 
     def force_lazy_set(self, optheap, descr, can_cache=True):
         op = self._lazy_set
@@ -176,6 +193,10 @@ class CachedField(AbstractCachedEntry):
         self.cached_infos = []
         self.cached_structs = []
 
+    def _cannot_alias_via_classes_or_lengths(self, optheap, opinfo1, opinfo2):
+        constclass1 = opinfo1.get_known_class(optheap.optimizer.cpu)
+        constclass2 = opinfo2.get_known_class(optheap.optimizer.cpu)
+        return constclass1 is not None and constclass2 is not None and not constclass1.same_constant(constclass2)
 
 class ArrayCachedItem(AbstractCachedEntry):
     def __init__(self, index):
@@ -214,6 +235,9 @@ class ArrayCachedItem(AbstractCachedEntry):
             #opinfo._items = None #[self.index] = None
         self.cached_infos = []
         self.cached_structs = []
+
+    def _cannot_alias_via_classes_or_lengths(self, optheap, opinfo1, opinfo2):
+        return False # TODO: later
 
 class ArrayCacheSubMap(object):
     def __init__(self):
@@ -766,7 +790,7 @@ class OptHeap(Optimization):
         for descr, indexdict in self.cached_arrayitems.iteritems():
             if descr.get_descr_index() == -1:
                 continue # not reachable via metainterp_sd.all_descrs
-            for index, cf in indexdict.iteritems():
+            for index, cf in indexdict.const_indexes.iteritems():
                 if cf._lazy_set:
                     continue  # XXX safe default for now
                 for i, box1 in enumerate(cf.cached_structs):

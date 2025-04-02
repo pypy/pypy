@@ -375,6 +375,51 @@ class TestOptimizeHeap(BaseTestBasic):
         # other
         self.optimize_loop(ops, expected)
 
+    def test_setfield_aliasing_by_class(self):
+        ops = """
+        [p1, p2, p3, p4]
+        guard_class(p1, ConstClass(node_vtable2)) []
+        guard_class(p2, ConstClass(node_vtable)) []
+        setfield_gc(p1, p3, descr=nextdescr)
+        setfield_gc(p2, p4, descr=nextdescr)
+        p5 = getfield_gc_i(p1, descr=nextdescr)
+        jump(p1, p2, p5)
+        """
+        expected = """
+        [p1, p2, p3, p4]
+        guard_class(p1, ConstClass(node_vtable2)) []
+        guard_class(p2, ConstClass(node_vtable)) []
+        setfield_gc(p1, p3, descr=nextdescr)
+        setfield_gc(p2, p4, descr=nextdescr)
+        jump(p1, p2, p3)
+        """
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.xfail()
+    def test_setfield_aliasing_by_field_content(self):
+        ops = """
+        [p1, p2, p3, p4]
+        i1 = getfield_gc_i(p1, descr=valuedescr)
+        guard_value(i1, 1) []
+        i2 = getfield_gc_i(p2, descr=valuedescr)
+        guard_value(i2, 2) []
+        setfield_gc(p1, p3, descr=nextdescr)
+        setfield_gc(p2, p4, descr=nextdescr)
+        p5 = getfield_gc_i(p1, descr=nextdescr)
+        jump(p1, p2, p5)
+        """
+        expected = """
+        [p1, p2, p3, p4]
+        i1 = getfield_gc_i(p1, descr=valuedescr)
+        guard_value(i1, 1) []
+        i2 = getfield_gc_i(p2, descr=valuedescr)
+        guard_value(i2, 2) []
+        setfield_gc(p1, p3, descr=nextdescr)
+        setfield_gc(p2, p4, descr=nextdescr)
+        jump(p1, p2, p3)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_duplicate_getarrayitem_1(self):
         ops = """
         [p1]
@@ -602,6 +647,32 @@ class TestOptimizeHeap(BaseTestBasic):
         setarrayitem_gc(p2, i1, p4, descr=arraydescr2)
         p5 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
         jump(p3, p4, p5, p4)
+        """
+        self.optimize_loop(ops, expected)
+
+    @pytest.mark.xfail()
+    def test_duplicate_getarrayitem_after_setarrayitem_two_arrays_aliasing_via_length(self):
+        ops = """
+        [p1, p2, p3, p4]
+        i2 = arraylen_gc(p1, descr=arraydescr2)
+        guard_value(i2, 10) []
+        i3 = arraylen_gc(p2, descr=arraydescr2)
+        guard_value(i3, 15) []
+        setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
+        setarrayitem_gc(p2, 0, p4, descr=arraydescr2)
+        p5 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
+        p6 = getarrayitem_gc_r(p2, 0, descr=arraydescr2)
+        jump(p3, p4, p5, p6)
+        """
+        expected = """
+        [p1, p2, p3, p4]
+        i2 = arraylen_gc(p1, descr=arraydescr2)
+        guard_value(i2, 10) []
+        i3 = arraylen_gc(p2, descr=arraydescr2)
+        guard_value(i3, 15) []
+        setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
+        setarrayitem_gc(p2, 0, p4, descr=arraydescr2)
+        jump(p3, p4, p3, p4)
         """
         self.optimize_loop(ops, expected)
 
