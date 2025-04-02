@@ -587,4 +587,46 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_duplicate_getarrayitem_after_setarrayitem_varindex_two_arrays(self):
+        ops = """
+        [p1, p2, p3, p4, i1]
+        setarrayitem_gc(p1, i1, p3, descr=arraydescr2)
+        setarrayitem_gc(p2, i1, p4, descr=arraydescr2)
+        p5 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
+        p6 = getarrayitem_gc_r(p2, i1, descr=arraydescr2)
+        jump(p3, p4, p5, p6)
+        """
+        expected = """
+        [p1, p2, p3, p4, i1]
+        setarrayitem_gc(p1, i1, p3, descr=arraydescr2)
+        setarrayitem_gc(p2, i1, p4, descr=arraydescr2)
+        p5 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
+        jump(p3, p4, p5, p4)
+        """
+        self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail()
+    def test_duplicate_getarrayitem_after_setarrayitem_varindex_two_arrays_aliasing_via_length(self):
+        ops = """
+        [p1, p2, p3, p4, i1]
+        i2 = arraylen_gc(p1, descr=arraydescr2)
+        guard_value(i2, 10) []
+        i3 = arraylen_gc(p2, descr=arraydescr2)
+        guard_value(i3, 15) []
+        setarrayitem_gc(p1, i1, p3, descr=arraydescr2)
+        setarrayitem_gc(p2, i1, p4, descr=arraydescr2)
+        p5 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
+        p6 = getarrayitem_gc_r(p2, i1, descr=arraydescr2)
+        jump(p3, p4, p5, p6)
+        """
+        expected = """
+        [p1, p2, p3, p4, i1]
+        i2 = arraylen_gc(p1, descr=arraydescr2)
+        guard_value(i2, 10) []
+        i3 = arraylen_gc(p2, descr=arraydescr2)
+        guard_value(i3, 15) []
+        setarrayitem_gc(p1, i1, p3, descr=arraydescr2)
+        setarrayitem_gc(p2, i1, p4, descr=arraydescr2)
+        jump(p3, p4, p3, p4)
+        """
+        self.optimize_loop(ops, expected)
