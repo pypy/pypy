@@ -237,7 +237,7 @@ class ArrayCachedItem(AbstractCachedEntry):
         self.cached_structs = []
 
     def _cannot_alias_via_classes_or_lengths(self, optheap, opinfo1, opinfo2):
-        return False # TODO: later
+        return opinfo1.getlenbound(None).known_ne(opinfo2.getlenbound(None))
 
 class ArrayCacheSubMap(object):
     def __init__(self):

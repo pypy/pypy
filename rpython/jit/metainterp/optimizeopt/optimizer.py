@@ -413,11 +413,15 @@ class Optimizer(Optimization):
         # safety-check: if the constant is outside the bounds for the
         # box, then it is an invalid loop
         if (box.get_forwarded() is not None and
-            isinstance(constbox, ConstInt) and
-            not isinstance(box.get_forwarded(), info.AbstractRawPtrInfo)):
-            if not box.get_forwarded().contains(constbox.getint()):
-                raise InvalidLoop("a box is turned into constant that is "
-                                  "outside the range allowed for that box")
+                isinstance(constbox, ConstInt)):
+            info = box.get_forwarded()
+            if isinstance(info, IntBound):
+                if not info.contains(constbox.getint()):
+                    raise InvalidLoop("a box is turned into constant that is "
+                                      "outside the range allowed for that box")
+                else:
+                    # make the range constant, it could be shared with e.g. an arrayinfo's length
+                    info.make_eq_const(constbox.getint())
         if box.is_constant():
             return
         if box.type == 'r' and box.get_forwarded() is not None:
