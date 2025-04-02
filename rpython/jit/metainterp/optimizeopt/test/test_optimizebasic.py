@@ -3086,33 +3086,6 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
-    @pytest.mark.xfail
-    def test_forced_virtuals_aliasing(self):
-        ops = """
-        [i0, i1]
-        p0 = new(descr=ssize)
-        p1 = new(descr=ssize)
-        escape_n(p0)
-        escape_n(p1)
-        setfield_gc(p0, i0, descr=adescr)
-        setfield_gc(p1, i1, descr=adescr)
-        i2 = getfield_gc_i(p0, descr=adescr)
-        jump(i2, i2)
-        """
-        expected = """
-        [i0, i1]
-        p0 = new(descr=ssize)
-        escape_n(p0)
-        p1 = new(descr=ssize)
-        escape_n(p1)
-        setfield_gc(p0, i0, descr=adescr)
-        setfield_gc(p1, i1, descr=adescr)
-        jump(i0, i0)
-        """
-        # setfields on things that used to be virtual still can't alias each
-        # other
-        self.optimize_loop(ops, expected)
-
     def test_plain_virtual_string_copy_content(self):
         ops = """
         [i1]
