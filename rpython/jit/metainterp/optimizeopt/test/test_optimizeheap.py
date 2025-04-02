@@ -395,7 +395,6 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    @pytest.mark.xfail()
     def test_setfield_aliasing_by_field_content(self):
         ops = """
         [p1, p2, p3, p4]

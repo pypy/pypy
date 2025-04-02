@@ -420,8 +420,10 @@ class Optimizer(Optimization):
                     raise InvalidLoop("a box is turned into constant that is "
                                       "outside the range allowed for that box")
                 else:
-                    # make the range constant, it could be shared with e.g. an arrayinfo's length
-                    info.make_eq_const(constbox.getint())
+                    value = constbox.getint()
+                    if isinstance(value, int):
+                        # make the range constant, it could be shared with e.g. an arrayinfo's length
+                        info.make_eq_const(value)
         if box.is_constant():
             return
         if box.type == 'r' and box.get_forwarded() is not None:

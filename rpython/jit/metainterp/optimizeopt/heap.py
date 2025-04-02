@@ -70,6 +70,8 @@ class AbstractCachedEntry(object):
             return MUST_ALIAS
         if self._cannot_alias_via_classes_or_lengths(optheap, opinfo1, opinfo2):
             return CANNOT_ALIAS
+        if self._cannot_alias_via_content(optheap, opinfo1, opinfo2):
+            return CANNOT_ALIAS
         return UNKNOWN_ALIAS
 
     def do_setfield(self, optheap, op):
@@ -198,6 +200,24 @@ class CachedField(AbstractCachedEntry):
         constclass2 = opinfo2.get_known_class(optheap.optimizer.cpu)
         return constclass1 is not None and constclass2 is not None and not constclass1.same_constant(constclass2)
 
+    def _cannot_alias_via_content(self, optheap, opinfo1, opinfo2):
+        content1 = opinfo1.all_items()
+        if content1 is None:
+            return False
+        content2 = opinfo2.all_items()
+        if content2 is None:
+            return False
+        for index in range(min(len(content1), len(content2))):
+            value1 = get_box_replacement(content1[index])
+            value2 = get_box_replacement(content2[index])
+            if value1 is None or value2 is None:
+                continue
+            if not value1.is_constant() or not value2.is_constant():
+                continue
+            if not value1.same_constant(value2):
+                return True
+        return False
+
 class ArrayCachedItem(AbstractCachedEntry):
     def __init__(self, index):
         assert index >= 0
@@ -238,6 +258,9 @@ class ArrayCachedItem(AbstractCachedEntry):
 
     def _cannot_alias_via_classes_or_lengths(self, optheap, opinfo1, opinfo2):
         return opinfo1.getlenbound(None).known_ne(opinfo2.getlenbound(None))
+
+    def _cannot_alias_via_content(self, optheap, opinfo1, opinfo2):
+        return False
 
 class ArrayCacheSubMap(object):
     def __init__(self):
