@@ -552,7 +552,6 @@ class TestOptimizeHeap(BaseTestBasic):
         expected = ops
         self.optimize_loop(ops, expected)
 
-    @pytest.mark.xfail
     def test_duplicate_getarrayitem_after_setarrayitem_2(self):
         ops = """
         [p1, p2, p3, i1]

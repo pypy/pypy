@@ -656,9 +656,9 @@ class OptHeap(Optimization):
 
     def optimize_SETARRAYITEM_GC(self, op):
         indexb = self.getintbound(op.getarg(1))
+        arrayinfo = self.ensure_ptr_info_arg0(op)
         if indexb.is_constant() and indexb.get_constant_int() >= 0:
             index = indexb.get_constant_int()
-            arrayinfo = self.ensure_ptr_info_arg0(op)
             # arraybound
             arrayinfo.getlenbound(None).make_gt_const(index)
             cf = self.arrayitem_cache(op.getdescr(), index)
@@ -672,6 +672,13 @@ class OptHeap(Optimization):
             # variable index, so make sure the lazy setarrayitems are done
             self.force_lazy_setarrayitem(op.getdescr(), indexb, can_cache=False)
             # and then emit the operation
+            try:
+                submap = self.cached_arrayitems[op.getdescr()]
+            except KeyError:
+                submap = self.cached_arrayitems[op.getdescr()] = ArrayCacheSubMap()
+            submap.cached_arrayinfo = arrayinfo
+            submap.cached_result = get_box_replacement(op.getarg(2))
+            submap.cached_index = get_box_replacement(op.getarg(1))
             return self.emit(op)
 
     def optimize_GC_LOAD_I(self, op):
