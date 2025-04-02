@@ -285,7 +285,7 @@ class OptHeap(Optimization):
             d.produce_potential_short_preamble_ops(self.optimizer, sb, descr)
 
         for descr, submap in self.cached_arrayitems.items():
-            for index, d in submap.items():
+            for index, d in submap.const_indexes.items():
                 d.produce_potential_short_preamble_ops(self.optimizer, sb,
                                                        descr, index)
 
