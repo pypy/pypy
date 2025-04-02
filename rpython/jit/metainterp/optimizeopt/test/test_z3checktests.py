@@ -75,6 +75,20 @@ class Checker(object):
 
         self.result_ovf = None
         self.heapindex = 0
+        self._init_heap_types()
+    
+    def _init_heap_types(self):
+        nodetype = z3.BitVec('nodetype', 64)
+        arraytype = z3.BitVec('arraytype', 64)
+        fielddescroffset = z3.BitVec('fielddescroffset', 64)
+
+        self.solver.add(nodetype == z3.BitVecVal(7, 64))
+        self.solver.add(arraytype == z3.BitVecVal(17, 64))
+        self.solver.add(fielddescroffset == z3.BitVecVal(117, 64))
+
+        self.nodetype = nodetype
+        self.arraytype = arraytype
+        self.fielddescroffset = fielddescroffset
 
     def convert(self, box):
         if isinstance(box, ConstInt):
@@ -96,11 +110,16 @@ class Checker(object):
         self.box_to_z3[box] = result
         return result
 
+    def newheaptypes(self):
+        pointersort = typesort = z3.BitVecSort(64)
+        return z3.Array('types', pointersort, typesort)
+          
     def newheap(self):
-        pointersort = z3.BitVecSort(LONG_BIT)
-        heapobjectsort = z3.ArraySort(z3.BitVecSort(LONG_BIT), z3.BitVecSort(LONG_BIT))
+        pointersort = z3.BitVecSort(64)
+        heapobjectsort = z3.ArraySort(pointersort, pointersort)
         self.heapindex += 1
-        return z3.Array('h%s' % self.heapindex, pointersort, heapobjectsort)
+        heap = z3.Array('heap%s'% self.heapindex, pointersort, heapobjectsort)
+        return heap 
 
     def print_chunk(self, chunk, label, model):
         print
@@ -262,12 +281,26 @@ class Checker(object):
                 self.prove(cond, op)
                 continue
             # heap operations
-            elif opname == "getfield_gc_i" or opname == "getfield_gc_r":
-                import pdb;pdb.set_trace()
+            elif opname == "getfield_gc_i" or opname == "getfield_gc_r":# int and reference
+                # we dont differentiate between struct and field in z3 heap structure
+                # so a field is an array at a specific index
+                # thus we need to set the types for array and field writes, so z3 knows they cant interfere
+                expr = state.heap[arg0][self.fielddescroffset]
+            elif opname == "setfield_gc":
+                # copys old heap with new value inserted
+                heapexpr = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], self.fielddescroffset, arg1))
+                # mark ptr of array write as array 
+                # so that fieldwrite and arraywrite cant interfere
+                self.solver.add(state.heaptypes[arg0] == self.nodetype)
+                # create new heap
+                state.heap = self.newheap()
+                # set new heap to modified heap with constraint
+                self.solver.add(state.heap == heapexpr)
             elif opname == "getarrayitem_gc_r" or opname == "getarrayitem_gc_i":
                 expr = state.heap[arg0][arg1]
             elif opname == "setarrayitem_gc":
                 heapexpr = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], arg1, arg2))
+                self.solver.add(state.heaptypes[arg0] == self.arraytype)
                 state.heap = self.newheap()
                 self.solver.add(state.heap == heapexpr)
             # end heap operations
@@ -339,7 +372,9 @@ class Checker(object):
 
         state_before = State(before=True)
         state_after = State()
-        state_before.heap = state_after.heap = self.newheap()
+        state_before.heap = state_after.heap = self.newheap()# heap is created new on every write
+        state_before.heaptypes = self.newheaptypes()# types 'set' by constraints
+        state_after.heaptypes = self.newheaptypes()
         self.chunks = list(chunk_ops(self.beforeops, self.afterops))
         for chunkindex, (beforechunk, beforelast, afterchunk, afterlast) in enumerate(self.chunks):
             self.chunkindex = chunkindex
