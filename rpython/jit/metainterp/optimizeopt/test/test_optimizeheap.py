@@ -541,6 +541,24 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @pytest.mark.xfail
+    def test_duplicate_getarrayitem_varindex_two_arrays(self):
+        ops = """
+        [p1, p2, i1]
+        p3 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
+        p4 = getarrayitem_gc_r(p2, i1, descr=arraydescr2)
+        p5 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
+        p6 = getarrayitem_gc_r(p2, i1, descr=arraydescr2)
+        jump(p3, p4, p5, p6)
+        """
+        expected = """
+        [p1, p2, i1]
+        p3 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
+        p4 = getarrayitem_gc_r(p2, i1, descr=arraydescr2)
+        jump(p3, p4, p3, p4)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_duplicate_getarrayitem_invalidated_varindex(self):
         ops = """
         [p1, i1]
