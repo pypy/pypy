@@ -125,7 +125,10 @@ class Checker(object):
             print "ERROR counterexample:"
             print "inputs:"
             for beforeinput, afterinput in zip(self.beforeinputargs, self.afterinputargs):
-                print beforeinput, afterinput, hex(int(str(model[self.box_to_z3[beforeinput]])))
+                if model[self.box_to_z3[beforeinput]] is not None:
+                    print beforeinput, afterinput, hex(int(str(model[self.box_to_z3[beforeinput]])))
+                else:
+                    print beforeinput, afterinput, "unassigned in the model"
             print "chunks:"
             for i, chunk in enumerate(self.chunks):
                 beforechunk, beforelast, afterchunk, afterlast = chunk
@@ -259,6 +262,8 @@ class Checker(object):
                 self.prove(cond, op)
                 continue
             # heap operations
+            elif opname == "getfield_gc_i" or opname == "getfield_gc_r":
+                import pdb;pdb.set_trace()
             elif opname == "getarrayitem_gc_r" or opname == "getarrayitem_gc_i":
                 expr = state.heap[arg0][arg1]
             elif opname == "setarrayitem_gc":
@@ -408,64 +413,39 @@ class BaseCheckZ3(BaseTest):
 
 
 class TestBuggyTestsFail(BaseCheckZ3):
-    @pytest.mark.xfail()
-    def test_bound_lt_add_before(self, monkeypatch):
-        from rpython.jit.metainterp.optimizeopt.intutils import IntBound
-        # check that if we recreate the original bug, it fails:
-        monkeypatch.setattr(IntBound, "add_bound", IntBound.add_bound_no_overflow)
-        ops = """
-        [i0]
-        i2 = int_add(i0, 10)
-        i3 = int_lt(i2, 15)
-        guard_true(i3) []
-        i1 = int_lt(i0, 6)
-        guard_true(i1) []
-        jump(i0)
-        """
-        expected = """
-        [i0]
-        i2 = int_add(i0, 10)
-        i3 = int_lt(i2, 15)
-        guard_true(i3) []
-        jump(i0)
-        """
+    def check_z3_throws_error(self, ops, optops, call_pure_results=None):
+        from rpython.jit.metainterp.opencoder import Trace, TraceIterator
+        loop = self.parse(ops)
+        token = JitCellToken()
+        if loop.operations[-1].getopnum() == rop.JUMP:
+            loop.operations[-1].setdescr(token)
+        trace = convert_loop_to_trace(loop, self.metainterp_sd)
+        beforeinputargs, beforeops = trace.unpack()
+        loopopt = self.parse(optops)
+        if loopopt.operations[-1].getopnum() == rop.JUMP:
+            loopopt.operations[-1].setdescr(token)
+        opttrace = convert_loop_to_trace(loopopt, self.metainterp_sd)
+        afterinputargs, afterops = opttrace.unpack()
+        for afterop in afterops:
+            assert not afterop.is_guard() # we can't chunk the operations when running in this mode
         with pytest.raises(CheckError):
-            self.optimize_loop(ops, expected)
-
-    def Xtest_int_neg_postprocess(self):
-        ops = """
-        [i1]
-        i2 = int_neg(i1)
-        i3 = int_le(i2, 0)
-        guard_true(i3) []
-        i4 = int_ge(i1, 0)
-        jump(i4)
-        """
-        expected = """
-        [i1]
-        i2 = int_neg(i1)
-        i3 = int_le(i2, 0)
-        guard_true(i3) []
-        jump(1)
-        """
-        with pytest.raises(CheckError):
-            self.optimize_loop(ops, expected)
+            check_z3(beforeinputargs, beforeops, afterinputargs, afterops)
 
     def test_duplicate_getarrayitem_after_setarrayitem_3(self):
         ops = """
-        [p1, p2, p3, p4, i1]
+        [p1, p2, p3, i1]
         setarrayitem_gc(p1, i1, p2, descr=arraydescr2)
         setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
         p5 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
         jump(p5)
         """
         expected = """
-        [p1, p2, p3, p4, i1]
+        [p1, p2, p3, i1]
         setarrayitem_gc(p1, i1, p2, descr=arraydescr2)
         setarrayitem_gc(p1, 0, p3, descr=arraydescr2)
         jump(p2)
         """
-        self.optimize_loop(ops, expected)
+        self.check_z3_throws_error(ops, expected)
 
 
 class CallIntPyModPyDiv(AbstractOperation):
