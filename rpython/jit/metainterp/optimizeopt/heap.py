@@ -221,23 +221,19 @@ class ArrayCacheSubMap(object):
         self.clear_varindex()
 
     def clear_varindex(self):
-        self.cached_arrayinfo = None
-        self.cached_index = None
-        self.cached_result = None
+        self.cached_varindex_triples = []
 
     def cache_varindex_read(self, arrayinfo, indexbox, resbox):
-        self.cached_arrayinfo = arrayinfo
-        self.cached_index = indexbox
-        self.cached_result = resbox
+        # TODO: impose some kind of variable length for self.cached_varindex_triples
+        self.cached_varindex_triples.append((arrayinfo, indexbox, resbox))
 
     def cache_varindex_write(self, arrayinfo, indexbox, resbox):
-        self.cached_arrayinfo = arrayinfo
-        self.cached_index = indexbox
-        self.cached_result = resbox
+        self.cached_varindex_triples = [(arrayinfo, indexbox, resbox)]
 
     def lookup_cached(self, arrayinfo, indexbox):
-        if self.cached_arrayinfo is arrayinfo and self.cached_index is indexbox:
-            return self.cached_result
+        for cached_arrayinfo, cached_index, cached_result in self.cached_varindex_triples:
+            if cached_arrayinfo is arrayinfo and get_box_replacement(cached_index) is indexbox:
+                return get_box_replacement(cached_result)
         return None
 
 class OptHeap(Optimization):
