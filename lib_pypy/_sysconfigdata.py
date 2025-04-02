@@ -86,7 +86,8 @@ if sys.platform[:6] == "darwin":
     arch = platform.machine()
     build_time_vars['CC'] += ' -arch %s' % (arch,)
     build_time_vars["LDFLAGS"] = "-undefined dynamic_lookup"
-    build_time_vars["LDSHARED"] = build_time_vars['CC'] + " -shared " + build_time_vars["LDFLAGS"]
+    build_time_vars["LDSHARED"] = "clang -bundle -undefined dynamic_lookup "
+    build_time_vars["LDCXXSHARED"] = "clang++ -bundle -undefined dynamic_lookup "
     build_time_vars['LDLIBRARY'] = 'libpypy3.11-c.dylib'
     # scikit-build checks this, it is left over from the NextStep rld linker
     build_time_vars['WITH_DYLD'] = 1
