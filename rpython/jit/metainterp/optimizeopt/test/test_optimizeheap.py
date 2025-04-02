@@ -699,3 +699,23 @@ class TestOptimizeHeap(BaseTestBasic):
         jump(p3, p4, p3, p4)
         """
         self.optimize_loop(ops, expected)
+
+    def test_ptr_eq_via_length(self):
+        ops = """
+        [p1, p2, p3, p4]
+        i2 = arraylen_gc(p1, descr=arraydescr2)
+        guard_value(i2, 10) []
+        i3 = arraylen_gc(p2, descr=arraydescr2)
+        guard_value(i3, 15) []
+        i1 = ptr_eq(p1, p2)
+        jump(i1)
+        """
+        expected = """
+        [p1, p2, p3, p4]
+        i2 = arraylen_gc(p1, descr=arraydescr2)
+        guard_value(i2, 10) []
+        i3 = arraylen_gc(p2, descr=arraydescr2)
+        guard_value(i3, 15) []
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
