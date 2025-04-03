@@ -412,8 +412,25 @@ class Checker(object):
             cls = guard.getarg(1)
             vtable = cls.value.adr.ptr
             return state.heaptypes[arg0] == vtable.subclassrange_min
+        elif opname == "guard_nonnull":
+            # returns z3 var, or returns nullptr if no val in box
+            arg0 = self.convertarg(guard, 0)
+            self.set_arg0_to_nullptr_if_not_val(arg0)
+            return arg0 != self.nullpointer
+        elif opname == "guard_isnull":
+            arg0 = self.convertarg(guard, 0)
+            self.set_arg0_to_nullptr_if_not_val(arg0)
+            return arg0 == self.nullpointer
         else:
             assert 0, "unsupported " + opname
+
+    def set_arg0_to_nullptr_if_not_val(self, arg):
+        # if arg is nullptr => set arg0 'officially' to nullptr 
+        # happens e.g. if arg is ConstPTR with no value
+        if arg is self.nullpointer:
+            self.solver.add(arg == self.nullpointer)
+        else:
+            self.solver.add(arg != self.nullpointer)
 
     def check_last(self, beforelast, state_before, afterlast, state_after):
         if beforelast.getopname() in ("jump", "finish"):
