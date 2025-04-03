@@ -20,12 +20,14 @@ from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, InputArgInt, OpHelpers, InputArgRef)
 from rpython.jit.metainterp.history import (
-    JitCellToken, Const, ConstInt, get_const_ptr_for_string)
+    JitCellToken, Const, ConstInt, ConstPtr, get_const_ptr_for_string)
 from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 from rpython.jit.backend.test.test_random import RandomLoop, Random, OperationBuilder, AbstractOperation
 from rpython.jit.backend.llgraph.runner import LLGraphCPU
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.intutils import MININT, MAXINT
+from rpython.jit.metainterp.history import new_ref_dict
+from rpython.rtyper.lltypesystem import lltype
 
 try:
     import z3
@@ -67,6 +69,7 @@ class Checker(object):
             self.solver.set("timeout", pytest.config.option.z3timeout)
         self.box_to_z3 = {}
         self.seen_names = {}
+        self.constptr_to_z3 = new_ref_dict()
         self.beforeinputargs = beforeinputargs
         self.beforeops = beforeops
         self.afterinputargs = afterinputargs
@@ -84,6 +87,8 @@ class Checker(object):
 
         self.solver.add(nodetype == z3.BitVecVal(7, LONG_BIT))
         self.solver.add(arraytype == z3.BitVecVal(17, LONG_BIT))
+        self.nullpointer = z3.BitVec('NULL', LONG_BIT)
+        self.solver.add(self.nullpointer == z3.BitVecVal(0, LONG_BIT))
 
         self.nodetype = nodetype
         self.arraytype = arraytype
@@ -100,6 +105,14 @@ class Checker(object):
     def convert(self, box):
         if isinstance(box, ConstInt):
             return z3.BitVecVal(box.getint(), LONG_BIT)
+        if isinstance(box, ConstPtr):
+            if not box.value:
+                return self.nullpointer
+            if box.value in self.constptr_to_z3:
+                return self.constptr_to_z3[box.value]
+            res = z3.BitVec('constPTR_%s' % len(self.constptr_to_z3), LONG_BIT)
+            self.constptr_to_z3[box.value] = res
+            return res
         assert not isinstance(box, Const) # not supported
         return self.box_to_z3[box]
 
@@ -198,6 +211,7 @@ class Checker(object):
                 res = None
 
             opname = op.getopname()
+            descr = op.getdescr()
             # clear state
             arg0 = arg1 = arg2 = None
             if not op.is_guard():
@@ -296,18 +310,21 @@ class Checker(object):
                 expr = self.cond(arg0 == arg1)
             elif opname == "new_with_vtable":
                 expr = res
-                for box, var in self.box_to_z3.iteritems():
-                    if box.type == "r":
-                        self.solver.add(res != var)
+                self.fresh_pointer(res)
             elif opname == "getfield_gc_i" or opname == "getfield_gc_r":# int and reference
                 # we dont differentiate between struct and field in z3 heap structure
                 # so a field is an array at a specific index
                 # thus we need to set the types for array and field writes, so z3 knows they cant interfere
-                index = self.fielddescr_indexvar(op.getdescr())
+                index = self.fielddescr_indexvar(descr)
                 self.solver.add(state.heaptypes[arg0] == self.nodetype)
                 expr = state.heap[arg0][index]
+                if isinstance(op.getarg(0), ConstPtr) and descr.is_always_pure():
+                    ptr = lltype.cast_opaque_ptr(lltype.Ptr(descr.S), op.getarg(0).value)
+                    const_res = getattr(ptr, descr.fieldname)
+                    assert opname == "getfield_gc_i"
+                    self.solver.add(expr == const_res)                
             elif opname == "setfield_gc":
-                index = self.fielddescr_indexvar(op.getdescr())
+                index = self.fielddescr_indexvar(descr)
                 # copys old heap with new value inserted
                 heapexpr = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], index, arg1))
                 # mark ptr of array write as array 
@@ -327,6 +344,10 @@ class Checker(object):
                 self.solver.add(state.heap == heapexpr)
             elif opname == "arraylen_gc":
                 expr = state.arraylength[arg0]
+            elif opname == "escape_n":
+                # the heap is completely new, but it's the same between
+                # the before and the after state
+                state.heap = state.nextheap(self)
             # end heap operations
             elif opname in ["label", "escape_i", "debug_merge_point"]:
                 # TODO: handling escape this way probably is not correct
@@ -349,6 +370,11 @@ class Checker(object):
                 assert 0, "unsupported"
             if res is not None:
                 self.solver.add(res == expr)
+
+    def fresh_pointer(self, res):
+        for box, var in self.box_to_z3.iteritems():
+            if box.type == "r":
+                self.solver.add(res != var)
 
     def guard_to_condition(self, guard, state):
         opname = guard.getopname()
@@ -399,8 +425,8 @@ class Checker(object):
         for beforeinput, afterinput in zip(self.beforeinputargs, self.afterinputargs):
             self.box_to_z3[beforeinput] = self.newvar(afterinput, "input_%s_%s" % (beforeinput, afterinput))
 
-        state_before = State(before=True)
-        state_after = State()
+        state_before = State()
+        state_after = State(state_before)
         state_before.heap = state_after.heap = self.newheap()# heap is created new on every write
         state_before.heaptypes = state_after.heaptypes = self.newheaptypes()# types 'set' by constraints
         state_before.arraylength = state_after.arraylength = self.newarraylength()
@@ -412,9 +438,23 @@ class Checker(object):
             self.check_last(beforelast, state_before, afterlast, state_after)
 
 class State(object):
-    def __init__(self, before=False):
-        self.before = before
+    def __init__(self, state_before=None):
+        self.before = state_before is None
         self.no_ovf = None
+        if self.before:
+            self.heap_sequence = []
+        else:
+            self.heap_sequence = state_before.heap_sequence
+            self.heap_index = 0
+    
+    def nextheap(self, checker):
+        if self.before:
+            res = checker.newheap()
+            self.heap_sequence.append(res)
+        else:
+            res = self.heap_sequence[self.heap_index]
+            self.heap_index += 1
+        return res
 
 def chunk_ops(beforeops, afterops):
     beforeops = list(reversed(beforeops))
@@ -677,16 +717,8 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
             raise
 
 class TestOptimizeHeapZ3(BaseCheckZ3, TOptimizeHeap):
-    def test_getarrayitem_pure_does_not_invalidate(self):
+    def dont_execute(self):
         pass # skip, can't work yet
-
-    test_duplicate_getfield_constant = test_getarrayitem_pure_does_not_invalidate
-    test_duplicate_getfield_sideeffects_1 = test_getarrayitem_pure_does_not_invalidate
-    test_duplicate_getfield_sideeffects_2 = test_getarrayitem_pure_does_not_invalidate
-    test_duplicate_setfield_sideeffects_1 = test_getarrayitem_pure_does_not_invalidate
-    test_duplicate_setfield_residual_guard_2 = test_getarrayitem_pure_does_not_invalidate
-    test_duplicate_setfield_residual_guard_3 = test_getarrayitem_pure_does_not_invalidate
-    test_duplicate_setfield_guard_value_const = test_getarrayitem_pure_does_not_invalidate
 
 
 if __name__ == '__main__':
