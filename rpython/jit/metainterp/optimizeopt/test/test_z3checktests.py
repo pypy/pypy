@@ -23,6 +23,7 @@ from rpython.jit.metainterp.history import (
     JitCellToken, Const, ConstInt, ConstPtr, get_const_ptr_for_string)
 from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 from rpython.jit.backend.test.test_random import RandomLoop, Random, OperationBuilder, AbstractOperation
+from rpython.jit.backend.test.test_random import GuardPtrOperation
 from rpython.jit.backend.test import test_ll_random
 from rpython.jit.backend.llgraph.runner import LLGraphCPU
 from rpython.jit.codewriter.effectinfo import EffectInfo
@@ -699,7 +700,8 @@ class KnownBitsCheck(AbstractOperation):
         ops.append(op)
 
 
-OPERATIONS = OperationBuilder.OPERATIONS + [ #CallIntPyModPyDiv(rop.CALL_PURE_I)] + [
+OPERATIONS = [op for op in OperationBuilder.OPERATIONS if not isinstance(op, GuardPtrOperation)] + [
+        #CallIntPyModPyDiv(rop.CALL_PURE_I)] + [
         RangeCheck(None), KnownBitsCheck(None)] * 10
 
 for i in range(4):
