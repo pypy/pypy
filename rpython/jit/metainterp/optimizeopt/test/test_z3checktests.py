@@ -9,8 +9,10 @@ generating random traces."""
 import sys
 import time, io
 import pytest
+import struct
 
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
+from rpython.rlib.longlong2float import float2longlong
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     BaseTest, convert_old_style_to_targets, FakeJitDriverStaticData)
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeintbound import (
@@ -23,7 +25,8 @@ from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, InputArgInt, OpHelpers, InputArgRef,
     AbstractResOp)
 from rpython.jit.metainterp.history import (
-    JitCellToken, Const, ConstInt, ConstPtr, get_const_ptr_for_string)
+    JitCellToken, Const, ConstInt, ConstPtr, ConstFloat,
+    get_const_ptr_for_string)
 from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 from rpython.jit.backend.test.test_random import RandomLoop, Random, OperationBuilder, AbstractOperation
 from rpython.jit.backend.test.test_random import GuardPtrOperation
@@ -128,6 +131,11 @@ class Checker(object):
             for freshptr in self.fresh_pointers:
                 self.solver_add(freshptr != res)
             return res
+        if isinstance(box, ConstFloat):
+            if LONG_BIT != 64:
+                pytest.skip("float checking not supported on 32-bit")
+            return z3.BitVecVal(float2longlong(box.getfloat()), LONG_BIT)
+
         assert not isinstance(box, Const) # not supported
         return self.box_to_z3[box]
 
@@ -372,7 +380,7 @@ class Checker(object):
                 # mark arg1 as non-null if arg1 is const or constptr
                 if self.is_const(op.getarg(1)):
                     self.solver_add(arg0 != self.nullpointer)
-            elif opname == "getarrayitem_gc_r" or opname == "getarrayitem_gc_i":
+            elif opname == "getarrayitem_gc_r" or opname == "getarrayitem_gc_i" or opname == "getarrayitem_gc_f":
                 # TODO: immutable arrays
                 self.solver_add(state.heaptypes[arg0] == self.arraytype)
                 expr = state.heap[arg0][arg1]
