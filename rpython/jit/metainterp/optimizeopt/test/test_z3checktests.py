@@ -20,7 +20,8 @@ from rpython.jit.metainterp.optimizeopt.test.test_optimizeheap import (
 from rpython.rtyper import rclass
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.resoperation import (
-    rop, ResOperation, InputArgInt, OpHelpers, InputArgRef)
+    rop, ResOperation, InputArgInt, OpHelpers, InputArgRef,
+    AbstractResOp)
 from rpython.jit.metainterp.history import (
     JitCellToken, Const, ConstInt, ConstPtr, get_const_ptr_for_string)
 from rpython.jit.tool.oparser import parse, convert_loop_to_trace
@@ -470,6 +471,10 @@ class Checker(object):
         if beforelast.getopname() in ("jump", "finish"):
             assert beforelast.numargs() == afterlast.numargs()
             for i in range(beforelast.numargs()):
+                beforearg = beforelast.getarg(i)
+                if beforearg.type == 'r' and isinstance(beforearg, AbstractResOp):
+                    if beforearg.opnum in (rop.NEW_WITH_VTABLE, rop.NEW, rop.NEW_ARRAY, rop.NEW_ARRAY_CLEAR):
+                        continue # the pointer addresses might be different
                 before = self.convertarg(beforelast, i)
                 after = self.convertarg(afterlast, i)
                 self.prove(before == after, beforelast, afterlast)
