@@ -315,6 +315,8 @@ class Checker(object):
             # heap operations
             elif opname == "ptr_eq" or opname == "instance_ptr_eq":
                 expr = self.cond(arg0 == arg1)
+            elif opname == "ptr_ne" or opname == "instance_ptr_ne":
+                expr = self.cond(arg0 != arg1)
             elif opname == "new_with_vtable":
                 expr = res
                 self.fresh_pointer(res)
