@@ -48,6 +48,45 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_oois(self):
+        ops = """
+        [p0, p1, p2]
+        guard_nonnull(p0) []
+        i3 = ptr_ne(p0, NULL)
+        guard_true(i3) []
+        i4 = ptr_eq(p0, NULL)
+        guard_false(i4) []
+        i5 = ptr_ne(NULL, p0)
+        guard_true(i5) []
+        i6 = ptr_eq(NULL, p0)
+        guard_false(i6) []
+        i7 = ptr_ne(p0, p1)
+        guard_true(i7) []
+        i8 = ptr_eq(p0, p1)
+        guard_false(i8) []
+        i9 = ptr_ne(p0, p2)
+        guard_true(i9) []
+        i10 = ptr_eq(p0, p2)
+        guard_false(i10) []
+        i11 = ptr_ne(p2, p1)
+        guard_true(i11) []
+        i12 = ptr_eq(p2, p1)
+        guard_false(i12) []
+        jump(p0, p1, p2)
+        """
+        expected2 = """
+        [p0, p1, p2]
+        guard_nonnull(p0) []
+        i7 = ptr_ne(p0, p1)
+        guard_true(i7) []
+        i9 = ptr_ne(p0, p2)
+        guard_true(i9) []
+        i11 = ptr_ne(p2, p1)
+        guard_true(i11) []
+        jump(p0, p1, p2)
+        """
+        self.optimize_loop(ops, expected2)
+
     def test_instance_ptr_eq_is_symmetric(self):
         ops = """
         [p0, p1]
@@ -100,6 +139,166 @@ class TestOptimizeHeap(BaseTestBasic):
         [p0]
         setfield_gc(p0, 5, descr=valuedescr)
         jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_guard_value_if_constant(self):
+        ops = """
+        [p1]
+        guard_value(p1, ConstPtr(myptr)) []
+        guard_value(p1, ConstPtr(myptr)) []
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        guard_value(p1, ConstPtr(myptr)) []
+        jump(ConstPtr(myptr))
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_ooisnull_oononnull_1(self):
+        ops = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        guard_nonnull(p0) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_oois_1(self):
+        ops = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        i0 = instance_ptr_ne(p0, NULL)
+        guard_true(i0) []
+        i1 = instance_ptr_eq(p0, NULL)
+        guard_false(i1) []
+        i2 = instance_ptr_ne(NULL, p0)
+        guard_true(i0) []
+        i3 = instance_ptr_eq(NULL, p0)
+        guard_false(i1) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_guard_class_1(self):
+        ops = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        guard_class(p0, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        guard_class(p0, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_guard_class_2(self):
+        ops = """
+        [i0]
+        p0 = new_with_vtable(descr=nodesize)
+        escape_n(p0)
+        guard_class(p0, ConstClass(node_vtable)) []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        p0 = new_with_vtable(descr=nodesize)
+        escape_n(p0)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_guard_class_constant(self):
+        ops = """
+        [i0]
+        p0 = same_as_r(ConstPtr(myptr))
+        guard_class(p0, ConstClass(node_vtable)) []
+        jump(i0)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_p123_simple(self):
+        ops = """
+        [i1, p2, p3]
+        i3 = getfield_gc_i(p3, descr=valuedescr)
+        escape_n(i3)
+        p1 = new_with_vtable(descr=nodesize)
+        setfield_gc(p1, i1, descr=valuedescr)
+        jump(i1, p1, p2)
+        """
+        # We cannot track virtuals that survive for more than two iterations.
+        self.optimize_loop(ops, ops)
+
+    def test_p123_nested(self):
+        ops = """
+        [i1, p2, p3]
+        i3 = getfield_gc_i(p3, descr=valuedescr)
+        escape_n(i3)
+        p1 = new_with_vtable(descr=nodesize)
+        p1sub = new_with_vtable(descr=nodesize2)
+        setfield_gc(p1, i1, descr=valuedescr)
+        setfield_gc(p1sub, i1, descr=valuedescr)
+        setfield_gc(p1, p1sub, descr=nextdescr)
+        jump(i1, p1, p2)
+        """
+        expected = """
+        [i1, p2, p3]
+        i3 = getfield_gc_i(p3, descr=valuedescr)
+        escape_n(i3)
+        p1 = new_with_vtable(descr=nodesize)
+        p1sub = new_with_vtable(descr=nodesize2)
+        setfield_gc(p1sub, i1, descr=valuedescr)
+        setfield_gc(p1, i1, descr=valuedescr)
+        setfield_gc(p1, p1sub, descr=nextdescr)
+        jump(i1, p1, p2)
+        """
+        # The same as test_p123_simple, but with a virtual containing another
+        # virtual.
+        self.optimize_loop(ops, expected)
+
+    def test_p123_anti_nested(self):
+        ops = """
+        [i1, p2, p3]
+        p3sub = getfield_gc_r(p3, descr=nextdescr)
+        i3 = getfield_gc_i(p3sub, descr=valuedescr)
+        escape_n(i3)
+        p2sub = new_with_vtable(descr=nodesize2)
+        setfield_gc(p2sub, i1, descr=valuedescr)
+        setfield_gc(p2, p2sub, descr=nextdescr)
+        p1 = new_with_vtable(descr=nodesize)
+        jump(i1, p1, p2)
+        """
+        # The same as test_p123_simple, but in the end the "old" p2 contains
+        # a "young" virtual p2sub.  Make sure it is all forced.
+        self.optimize_loop(ops, ops)
+
+    def test_constptr_guard_value(self):
+        ops = """
+        [p1]
+        guard_value(p1, ConstPtr(myptr)) []
+        jump(p1)
+        """
+        expected = """
+        [p1]
+        guard_value(p1, ConstPtr(myptr)) []
+        jump(ConstPtr(myptr))
         """
         self.optimize_loop(ops, expected)
 
@@ -869,3 +1068,53 @@ class TestOptimizeHeap(BaseTestBasic):
         jump(0)
         """
         self.optimize_loop(ops, expected)
+
+    # ____________________________________________________________
+    # virtuals
+
+    def test_virtual_3(self):
+        ops = """
+        [i]
+        p1 = new_with_vtable(descr=nodesize)
+        setfield_gc(p1, i, descr=valuedescr)
+        i0 = getfield_gc_i(p1, descr=valuedescr)
+        i1 = int_add(i0, 1)
+        jump(i1)
+        """
+        expected = """
+        [i]
+        i1 = int_add(i, 1)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_constant_isnull(self):
+        ops = """
+        [i0]
+        p0 = new_with_vtable(descr=nodesize)
+        setfield_gc(p0, NULL, descr=nextdescr)
+        p2 = getfield_gc_r(p0, descr=nextdescr)
+        i1 = ptr_eq(p2, NULL)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_constant_isnonnull(self):
+        ops = """
+        [i0]
+        p0 = new_with_vtable(descr=nodesize)
+        setfield_gc(p0, ConstPtr(myptr), descr=nextdescr)
+        p2 = getfield_gc_r(p0, descr=nextdescr)
+        i1 = ptr_eq(p2, NULL)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
