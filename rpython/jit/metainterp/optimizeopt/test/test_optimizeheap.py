@@ -19,15 +19,13 @@ class TestOptimizeHeap(BaseTestBasic):
 
     def test_ooisnull_on_null_ptr_1(self):
         ops = """
-        []
-        p0 = escape_r()
+        [p0]
         guard_isnull(p0) []
         guard_isnull(p0) []
         jump()
         """
         expected = """
-        []
-        p0 = escape_r()
+        [p0]
         guard_isnull(p0) []
         jump()
         """
