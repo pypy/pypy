@@ -132,8 +132,12 @@ class Checker(object):
                 return self.constptr_to_z3[box.value]
             res = z3.BitVec('constPTR_%s' % len(self.constptr_to_z3), LONG_BIT)
             self.constptr_to_z3[box.value] = res
-            typeptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, box.value).typeptr
-            self.solver_add(self.state.heaptypes[res] == typeptr.subclassrange_min)
+            try:
+                typeptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, box.value).typeptr
+            except lltype.InvalidCast:
+                pass
+            else:
+                self.solver_add(self.state.heaptypes[res] == typeptr.subclassrange_min)
             for freshptr in self.fresh_pointers:
                 self.solver_add(freshptr != res)
             return res
@@ -202,7 +206,7 @@ class Checker(object):
             print "inputs:"
             for beforeinput, afterinput in zip(self.beforeinputargs, self.afterinputargs):
                 if model[self.box_to_z3[beforeinput]] is not None:
-                    print beforeinput, afterinput, hex(int(str(model[self.box_to_z3[beforeinput]])))
+                    print beforeinput, afterinput, hex(intmask(r_uint(int(str(model[self.box_to_z3[beforeinput]])))))
                 else:
                     print beforeinput, afterinput, "unassigned in the model"
             print "chunks:"
@@ -868,8 +872,8 @@ def check_via_reproducer_string(r):
         enable_opts=t.enable_opts)
     compile_data.forget_optimization_info = lambda *args, **kwargs: None
     jitdriver_sd = FakeJitDriverStaticData()
-    return # TODO: finish rest
     info, ops = compile_data.optimize_trace(t.metainterp_sd, jitdriver_sd, {})
+    return # TODO: finish rest
     beforeinputargs, beforeops = trace.unpack()
     # check that the generated trace is correct
     correct, timeout = check_z3(beforeinputargs, beforeops, info.inputargs, ops)
@@ -902,6 +906,7 @@ from rpython.jit.metainterp.history import TargetToken, TreeLoop
 from rpython.jit.metainterp.history import BasicFailDescr, BasicFinalDescr
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.jit.backend.llgraph.runner import LLGraphCPU as CPU
+from rpython.jit.codewriter import heaptracker
 if 1:
 """
     post = """
