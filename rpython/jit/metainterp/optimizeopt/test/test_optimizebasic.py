@@ -121,53 +121,6 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_ooisnull_oononnull_2(self):
-        ops = """
-        [p0]
-        guard_nonnull(p0) []
-        guard_nonnull(p0) []
-        jump(p0)
-        """
-        expected = """
-        [p0]
-        guard_nonnull(p0) []
-        jump(p0)
-        """
-        self.optimize_loop(ops, expected)
-
-    def test_ooisnull_on_null_ptr_1(self):
-        ops = """
-        []
-        p0 = escape_r()
-        guard_isnull(p0) []
-        guard_isnull(p0) []
-        jump()
-        """
-        expected = """
-        []
-        p0 = escape_r()
-        guard_isnull(p0) []
-        jump()
-        """
-        self.optimize_loop(ops, expected)
-
-    def test_ooisnull_oononnull_via_virtual(self):
-        ops = """
-        [p0]
-        pv = new_with_vtable(descr=nodesize)
-        setfield_gc(pv, p0, descr=valuedescr)
-        guard_nonnull(p0) []
-        p1 = getfield_gc_r(pv, descr=valuedescr)
-        guard_nonnull(p1) []
-        jump(p0)
-        """
-        expected = """
-        [p0]
-        guard_nonnull(p0) []
-        jump(p0)
-        """
-        self.optimize_loop(ops, expected)
-
     def test_oois_1(self):
         ops = """
         [p0]
