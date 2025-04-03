@@ -239,14 +239,34 @@ class OperationBuilder(object):
             rclass.OBJECT: 'rclass.OBJECT',
             rclass.OBJECT_VTABLE: 'rclass.OBJECT_VTABLE',
         }
+        def print_vtable(vtable, seen_vtables={}):
+            tp_name = type_descr(descr.S)
+            if tp_name in seen_vtables:
+                return
+            seen_vtables[tp_name] = True
+            print >> s, """\
+    %s_vtable = vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+    vtable.subclassrange_min = %s
+    vtable.subclassrange_max = %s
+    heaptracker.set_testing_vtable_for_gcstruct(%s, vtable, %r)\
+        """ % (tp_name, vtable.subclassrange_min, vtable.subclassrange_max, tp_name, "".join(vtable.name.chars))
+
         for op in self.loop.operations:
             descr = op.getdescr()
             if hasattr(descr, '_random_info'):
                 tp_name = type_descr(descr._random_type)
                 descr._random_info = descr._random_info.replace('...', tp_name)
+            if hasattr(descr, 'get_parent_descr'):
+                # a field descr
+                parentdescr = descr.get_parent_descr()
+                if parentdescr.is_object():
+                    print_vtable(parentdescr.get_vtable().adr.ptr)
+            if hasattr(descr, 'get_vtable') and descr.is_object():
+                print_vtable(descr.get_vtable().adr.ptr)
 
         #
         def writevar(v, nameprefix, init=''):
+            name = names[v] = '%s%d' % (nameprefix, len(names))
             if nameprefix == 'const_ptr':
                 if not getref_base(v):
                     return 'lltype.nullptr(llmemory.GCREF.TO)'
@@ -261,10 +281,14 @@ class OperationBuilder(object):
                                                       lgt)
                 else:
                     init = 'lltype.malloc(%s)' % TYPE_NAMES[TYPE.TO]
+                    if hasattr(TYPE.TO, 'parent'):
+                        print >> s, '    %s = %s' % (name, init)
+                        tp_name = type_descr(TYPE.TO)
+                        print >> s, '    %s.parent.typeptr = %s_vtable' % (name, tp_name)
+                        init = name
                 init = 'lltype.cast_opaque_ptr(llmemory.GCREF, %s)' % init
-            names[v] = '%s%d' % (nameprefix, len(names))
             if v.is_constant() or isinstance(v, (InputArgInt, InputArgFloat, InputArgRef)):
-                print >>s, '    %s = %s(%s)' % (names[v], v.__class__.__name__,
+                print >>s, '    %s = %s(%s)' % (name, v.__class__.__name__,
                                                 init)
         #
         for v in self.intvars:
