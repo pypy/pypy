@@ -78,6 +78,8 @@ class Checker(object):
 
         self.result_ovf = None
         self.heapindex = 0
+        self.true_for_all_heaps = []
+        self.fresh_pointers = []
         self._init_heap_types()
     
     def _init_heap_types(self):
@@ -112,6 +114,8 @@ class Checker(object):
                 return self.constptr_to_z3[box.value]
             res = z3.BitVec('constPTR_%s' % len(self.constptr_to_z3), LONG_BIT)
             self.constptr_to_z3[box.value] = res
+            for freshptr in self.fresh_pointers:
+                self.solver.add(freshptr != res)
             return res
         assert not isinstance(box, Const) # not supported
         return self.box_to_z3[box]
@@ -143,6 +147,8 @@ class Checker(object):
         heapobjectsort = z3.ArraySort(pointersort, pointersort)
         self.heapindex += 1
         heap = z3.Array('heap%s'% self.heapindex, pointersort, heapobjectsort)
+        for ptr, index, res in self.true_for_all_heaps:
+            self.solver.add(heap[ptr][index] == res)
         return heap 
 
     def print_chunk(self, chunk, label, model):
@@ -318,6 +324,8 @@ class Checker(object):
                 index = self.fielddescr_indexvar(descr)
                 self.solver.add(state.heaptypes[arg0] == self.nodetype)
                 expr = state.heap[arg0][index]
+                if descr.is_always_pure():
+                    self.true_for_all_heaps.append((arg0, index, expr))
                 if isinstance(op.getarg(0), ConstPtr) and descr.is_always_pure():
                     ptr = lltype.cast_opaque_ptr(lltype.Ptr(descr.S), op.getarg(0).value)
                     const_res = getattr(ptr, descr.fieldname)
@@ -335,6 +343,7 @@ class Checker(object):
                 # set new heap to modified heap with constraint
                 self.solver.add(state.heap == heapexpr)
             elif opname == "getarrayitem_gc_r" or opname == "getarrayitem_gc_i":
+                # TODO: immutable arrays
                 self.solver.add(state.heaptypes[arg0] == self.arraytype)
                 expr = state.heap[arg0][arg1]
             elif opname == "setarrayitem_gc":
@@ -373,8 +382,9 @@ class Checker(object):
 
     def fresh_pointer(self, res):
         for box, var in self.box_to_z3.iteritems():
-            if box.type == "r":
+            if box.type == "r" and res is not var:
                 self.solver.add(res != var)
+        self.fresh_pointers.append(res)
 
     def guard_to_condition(self, guard, state):
         opname = guard.getopname()

@@ -234,6 +234,26 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_struct_with_constptr_write(self):
+        ops = """
+        [p0, i1, p3, i5, p4]
+        p1 = new_with_vtable(descr=nodesize)
+        setfield_gc(p1, i1, descr=valuedescr)
+        setfield_gc(p0, p1, descr=nextdescr)
+        setfield_gc(ConstPtr(myptr), 23, descr=valuedescr) # random op with side-effects
+        p2 = getfield_gc_r(p0, descr=nextdescr)
+        i2 = getfield_gc_i(p2, descr=valuedescr)
+        setfield_gc(p0, p4, descr=nextdescr)
+        jump(p0, i1, i2)
+        """
+        expected = """
+        [p0, i1, p3, i5, p4]
+        setfield_gc(p0, p4, descr=nextdescr)
+        setfield_gc(ConstPtr(myptr), 23, descr=valuedescr) # random op with side-effects
+        jump(p0, i1, i1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_duplicate_setfield_sideeffects_1(self):
         ops = """
         [p1, i1, i2]
@@ -509,6 +529,22 @@ class TestOptimizeHeap(BaseTestBasic):
         [p1, p2]
         p3 = getarrayitem_gc_r(p1, 0, descr=arraydescr2)
         jump(p1, p2, p3, 7, p3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_sideeffect_pure_does_not_invalidate(self):
+        ops = """
+        [p1, p2]
+        i4 = getfield_gc_i(p1, descr=valuedescr3)
+        escape_n()
+        i5 = getfield_gc_i(p1, descr=valuedescr3)
+        jump(i4, i5)
+        """
+        expected = """
+        [p1, p2]
+        i4 = getfield_gc_i(p1, descr=valuedescr3)
+        escape_n()
+        jump(i4, i4)
         """
         self.optimize_loop(ops, expected)
 
