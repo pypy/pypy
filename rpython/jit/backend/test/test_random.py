@@ -165,8 +165,8 @@ class OperationBuilder(object):
                     descrstr = ', TargetToken()'
                 else:
                     descrstr = ', descr=' + self.descr_counters.get(op.getdescr(), '...')
-        print >>s, '        %s = ResOperation(rop.%s, [%s]%s),' % (
-            names[op], opname[op.getopnum()], ', '.join(args), descrstr)
+        print >>s, '    %s = ResOperation(rop.%s, [%s]%s); operations.append(%s)' % (
+            names[op], opname[op.getopnum()], ', '.join(args), descrstr, names[op])
 
     def print_loop(self, output, fail_descr=None, fail_args=None):
         def update_names(ops):
@@ -208,6 +208,8 @@ class OperationBuilder(object):
 
         def _type_descr(TP):
             if isinstance(TP, lltype.Ptr):
+                if TP == llmemory.GCREF:
+                    return "llmemory.GCREF"
                 return "lltype.Ptr(%s)" % type_descr(TP.TO)
             if isinstance(TP, lltype.Struct):
                 if TP._gckind == 'gc':
@@ -222,9 +224,12 @@ class OperationBuilder(object):
                                                        ", ".join(fields))
             elif isinstance(TP, lltype.GcArray):
                 return "lltype.GcArray(%s)" % (type_descr(TP.OF),)
-            if TP._name.upper() == TP._name:
-                return 'rffi.%s' % TP._name
-            return 'lltype.%s' % TP._name
+            if hasattr(TP, '_name'):
+                if TP._name.upper() == TP._name:
+                    return 'rffi.%s' % TP._name
+                return 'lltype.%s' % TP._name
+            import pdb;pdb.set_trace()
+
 
         s = output
         names = {None: 'None'}
@@ -258,8 +263,9 @@ class OperationBuilder(object):
                     init = 'lltype.malloc(%s)' % TYPE_NAMES[TYPE.TO]
                 init = 'lltype.cast_opaque_ptr(llmemory.GCREF, %s)' % init
             names[v] = '%s%d' % (nameprefix, len(names))
-            print >>s, '    %s = %s(%s)' % (names[v], v.__class__.__name__,
-                                            init)
+            if v.is_constant() or isinstance(v, (InputArgInt, InputArgFloat, InputArgRef)):
+                print >>s, '    %s = %s(%s)' % (names[v], v.__class__.__name__,
+                                                init)
         #
         for v in self.intvars:
             writevar(v, 'v')
@@ -279,10 +285,9 @@ class OperationBuilder(object):
         else:
             print >>s, '    inputargs = [%s]' % (
                 ', '.join([names[v] for v in fail_args]))
-        print >>s, '    operations = ['
+        print >>s, '    operations = []'
         for op in self.loop.operations:
             self.process_operation(s, op, names)
-        print >>s, '        ]'
         for i, op in enumerate(self.loop.operations):
             if op.is_guard():
                 fa = ", ".join([names[v] for v in op.getfailargs()])

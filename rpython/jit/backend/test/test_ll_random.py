@@ -363,7 +363,7 @@ class SetInteriorFieldOperation(GetInteriorFieldOperation):
 class NewOperation(test_random.AbstractOperation):
     def size_descr(self, builder, S, *vtable):
         descr = builder.cpu.sizeof(S, *vtable)
-        descr._random_info = 'cpu.sizeof(...)'
+        descr._random_info = 'cpu.sizeof(..., Ellipsis)'
         descr._random_type = S
         return descr
 

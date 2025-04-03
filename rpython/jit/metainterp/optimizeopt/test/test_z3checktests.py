@@ -7,6 +7,7 @@ have found the buggy tests in d9616aacbd02/issue #3832.
 It can also be used to do bounded model checking on the optimizer, by
 generating random traces."""
 import sys
+import time, io
 import pytest
 
 from rpython.rlib.rarithmetic import LONG_BIT, r_uint, intmask
@@ -725,12 +726,13 @@ for i in range(4):
 class Z3OperationBuilder(test_ll_random.LLtypeOperationBuilder):
     produce_failing_guards = False
     OPERATIONS = OPERATIONS
+    floatvars = []
 
 class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
     def check_random_function_z3(self, cpu, r, num=None, max=None):
-        import time
         t1 = time.time()
-        loop = RandomLoop(cpu, Z3OperationBuilder, r)
+        output = io.BytesIO()
+        loop = RandomLoop(cpu, Z3OperationBuilder, r, output=output)
         trace = convert_loop_to_trace(loop.loop, self.metainterp_sd)
         compile_data = compile.SimpleCompileData(
             trace, call_pure_results=self._convert_call_pure_results(getattr(loop.builder, 'call_pure_results', None)),
@@ -743,7 +745,14 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
         beforeinputargs, beforeops = trace.unpack()
         # check that the generated trace is correct
         t2 = time.time()
-        correct, timeout = check_z3(beforeinputargs, beforeops, info.inputargs, ops)
+        try:
+            correct, timeout = check_z3(beforeinputargs, beforeops, info.inputargs, ops)
+        except CheckError:
+            print "to reproduce:"
+            print "_" * 60
+            print repr(output.getvalue())
+            print "_" * 60
+            raise
         t3 = time.time()
         print 'generation/optimization [s]:', t2 - t1, 'z3:', t3 - t2, "total:", t3 - t1
         print 'correct conditions:', correct, 'timed out conditions:', timeout
@@ -780,6 +789,23 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
             raise
 
 @given(strategies.randoms())
+def test_random_loop_parses(r):
+    cpu = LLGraphCPU(None)
+    cpu.supports_floats = False
+    cpu.setup_once()
+    output = io.BytesIO()
+    try:
+        loop = RandomLoop(cpu, Z3OperationBuilder, Random(r), output=output)
+    except Exception:
+        raise
+    s = output.getvalue()
+    r = make_reproducer(s)
+    print "_" * 60
+    print r
+    d = {'lltype': lltype}
+    exec r in d
+
+@given(strategies.randoms())
 def test_random_hypothesis(r):
     cpu = LLGraphCPU(None)
     cpu.supports_floats = False
@@ -788,6 +814,28 @@ def test_random_hypothesis(r):
     t.cls_attributes()
     t.check_random_function_z3(cpu, Random(r), 0)
 
+def make_reproducer(s):
+    lines = s.splitlines()
+    assert "cpu.execute_token" in lines[-1]
+    lines.pop()
+    assert "loop_args =" in lines[-1]
+    lines.pop()
+    assert "cpu.compile_loop" in lines[-1]
+    lines.pop()
+    assert "looptoken =" in lines[-1]
+    lines.pop()
+    preamble = """\
+from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
+from rpython.rtyper import rclass
+from rpython.jit.metainterp.resoperation import rop, ResOperation, \
+     InputArgInt, InputArgRef, InputArgFloat
+from rpython.jit.metainterp.history import TargetToken
+from rpython.jit.metainterp.history import BasicFailDescr, BasicFinalDescr
+from rpython.jit.metainterp.history import ConstInt, ConstPtr
+from rpython.jit.backend.llgraph.runner import LLGraphCPU as CPU
+if 1:
+"""
+    return preamble + "\n".join(lines)
 
 class TestOptimizeHeapZ3(BaseCheckZ3, TOptimizeHeap):
     def dont_execute(self):
