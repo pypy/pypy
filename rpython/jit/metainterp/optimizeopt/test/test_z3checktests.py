@@ -354,6 +354,7 @@ class Checker(object):
                 self.fresh_pointer(res)
                 vtable = descr.get_vtable().adr.ptr
                 self.solver_add(state.heaptypes[expr] == vtable.subclassrange_min)
+                self.solver_add(state.heap[expr] == z3.K(z3.BitVecSort(LONG_BIT), z3.BitVecVal(0, LONG_BIT)))
             elif opname == "getfield_gc_i" or opname == "getfield_gc_r":# int and reference
                 # we dont differentiate between struct and field in z3 heap structure
                 # so a field is an array at a specific index
@@ -416,6 +417,7 @@ class Checker(object):
                 self.solver_add(res != self.nullpointer)
                 # store array len
                 self.solver_add(state.arraylength[res] == arg0)
+                self.solver_add(state.heap[expr] == z3.K(z3.BitVecSort(LONG_BIT), z3.BitVecVal(0, LONG_BIT)))
             elif opname == "escape_n":
                 # the heap is completely new, but it's the same between
                 # the before and the after state

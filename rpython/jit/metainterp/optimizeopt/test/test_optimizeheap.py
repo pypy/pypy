@@ -1376,6 +1376,19 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_uninit_read(self):
+        ops = """
+        [i0]
+        p0 = new_with_vtable(descr=nodesize)
+        i1 = getfield_gc_i(p0, descr=valuedescr)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_nonvirtual_1(self):
         ops = """
         [i]
