@@ -248,8 +248,8 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         expected = """
         [p0, i1, p3, i5, p4]
-        setfield_gc(p0, p4, descr=nextdescr)
         setfield_gc(ConstPtr(myptr), 23, descr=valuedescr) # random op with side-effects
+        setfield_gc(p0, p4, descr=nextdescr)
         jump(p0, i1, i1)
         """
         self.optimize_loop(ops, expected)
@@ -436,6 +436,20 @@ class TestOptimizeHeap(BaseTestBasic):
         setfield_gc(p1, p3, descr=nextdescr)
         setfield_gc(p2, p4, descr=nextdescr)
         jump(p1, p2, p3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_getarrayitem_bounds(self):
+        ops = """
+        [p1]
+        i1 = getarrayitem_gc_i(p1, 0, descr=int16arraydescr)
+        i2 = int_gt(i1, 100000)
+        jump(i2)
+        """
+        expected = """
+        [p1]
+        i1 = getarrayitem_gc_i(p1, 0, descr=int16arraydescr)
+        jump(0)
         """
         self.optimize_loop(ops, expected)
 

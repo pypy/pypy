@@ -347,6 +347,9 @@ class Checker(object):
                 # TODO: immutable arrays
                 self.solver.add(state.heaptypes[arg0] == self.arraytype)
                 expr = state.heap[arg0][arg1]
+                if descr.is_item_integer_bounded():
+                    self.solver.add(expr >= descr.get_item_integer_min())
+                    self.solver.add(expr <= descr.get_item_integer_max())
             elif opname == "setarrayitem_gc":
                 heapexpr = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], arg1, arg2))
                 self.solver.add(state.heaptypes[arg0] == self.arraytype)
