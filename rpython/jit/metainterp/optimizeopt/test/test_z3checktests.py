@@ -101,10 +101,16 @@ class Checker(object):
         self.arraytype = arraytype
 
     def solver_add(self, cond):
-        # make sure that we don't add "False" to self.solver
+        if z3.simplify(cond).eq(z3.BoolVal(True)):
+            return
         res = self.solver.check(cond)
+        # make sure that we don't add "False" to self.solver
         if res == z3.unsat:
             assert 0, "programming error, trying to add something to solver that is equivalent to False: " + str(cond)
+        z3res = self.solver.check(z3.Not(cond))
+        if z3res == z3.unsat:
+            print "tautology, not adding:", cond
+            return
         self.solver.add(cond)
 
     def fielddescr_indexvar(self, descr):
