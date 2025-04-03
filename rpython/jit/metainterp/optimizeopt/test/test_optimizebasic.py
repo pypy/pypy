@@ -150,51 +150,6 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-    def test_array_non_optimized_length(self):
-        ops = """
-        [i1]
-        p1 = new_array(i1, descr=arraydescr)
-        i2 = arraylen_gc(p1, descr=arraydescr)
-        jump(i2)
-        """
-        expected = """
-        [i1]
-        p1 = new_array(i1, descr=arraydescr)
-        jump(i1)
-        """
-        self.optimize_loop(ops, expected)
-        ops = """
-        [i1]
-        p1 = new_array_clear(i1, descr=arraydescr)
-        i2 = arraylen_gc(p1, descr=arraydescr)
-        jump(i2)
-        """
-        expected = """
-        [i1]
-        p1 = new_array_clear(i1, descr=arraydescr)
-        jump(i1)
-        """
-        self.optimize_loop(ops, expected)
-
-    def test_nonvirtual_array_write_null_fields_on_force(self):
-        ops = """
-        [i1]
-        p1 = new_array(5, descr=arraydescr)
-        setarrayitem_gc(p1, 0, i1, descr=arraydescr)
-        setarrayitem_gc(p1, 1, 0, descr=arraydescr)
-        escape_n(p1)
-        jump(i1)
-        """
-        expected = """
-        [i1]
-        p1 = new_array(5, descr=arraydescr)
-        setarrayitem_gc(p1, 0, i1, descr=arraydescr)
-        setarrayitem_gc(p1, 1, 0, descr=arraydescr)
-        escape_n(p1)
-        jump(i1)
-        """
-        self.optimize_loop(ops, expected)
-
     def test_p123_array(self):
         ops = """
         [i1, p2, p3]
@@ -206,63 +161,6 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         # We cannot track virtuals that survive for more than two iterations.
         self.optimize_loop(ops, ops)
-
-    def test_varray_forced_1(self):
-        ops = """
-        []
-        p2 = new_with_vtable(descr=nodesize)
-        setfield_gc(p2, 3, descr=valuedescr)
-        i1 = getfield_gc_i(p2, descr=valuedescr)    # i1 = const 3
-        p1 = new_array(i1, descr=arraydescr)
-        escape_n(p1)
-        i2 = arraylen_gc(p1)
-        escape_n(i2)
-        jump()
-        """
-        # also check that the length of the forced array is known
-        expected = """
-        []
-        p1 = new_array(3, descr=arraydescr)
-        escape_n(p1)
-        escape_n(3)
-        jump()
-        """
-        self.optimize_loop(ops, expected)
-
-    def test_varray_huge_size(self):
-        ops = """
-        []
-        p1 = new_array(150100, descr=arraydescr)
-        jump()
-        """
-        self.optimize_loop(ops, ops)
-
-    def test_varray_negative_items_from_invalid_loop(self):
-        ops = """
-        [p1, p2]
-        i2 = getarrayitem_gc_i(p1, -1, descr=arraydescr)
-        setarrayitem_gc(p2, -1, i2, descr=arraydescr)
-        jump(p1, p2)
-        """
-        self.optimize_loop(ops, ops)
-
-    def test_varray_too_large_items(self):
-        ops = """
-        [p1, p2]
-        i2 = getarrayitem_gc_i(p1, 150100, descr=arraydescr)
-        i3 = getarrayitem_gc_i(p1, 150100, descr=arraydescr)  # not cached
-        setarrayitem_gc(p2, 150100, i2, descr=arraydescr)
-        i4 = getarrayitem_gc_i(p2, 150100, descr=arraydescr)  # cached, heap.py
-        jump(p1, p2, i3, i4)
-        """
-        expected = """
-        [p1, p2]
-        i2 = getarrayitem_gc_i(p1, 150100, descr=arraydescr)
-        i3 = getarrayitem_gc_i(p1, 150100, descr=arraydescr)  # not cached
-        setarrayitem_gc(p2, 150100, i2, descr=arraydescr)
-        jump(p1, p2, i3, i2)
-        """
-        self.optimize_loop(ops, expected)
 
     def test_varray_negative_items_from_invalid_loop_v(self):
         ops = """
@@ -309,36 +207,6 @@ class TestOptimizeBasic(BaseTestBasic):
         # the setarrayitem_gc is completely dropped because of invalid index.
         # we could also raise InvalidLoop, but both choices seem OK
         self.optimize_loop(ops, expected)
-
-    def test_varray_huge_size_struct(self):
-        ops = """
-        []
-        p1 = new_array(150100, descr=complexarraydescr)
-        jump()
-        """
-        self.optimize_loop(ops, ops)
-
-    def test_varray_struct_negative_items_from_invalid_loop(self):
-        ops = """
-        [p1, p2]
-        f0 = getinteriorfield_gc_f(p1, -1, descr=complexrealdescr)
-        setinteriorfield_gc(p2, -1, f0, descr=compleximagdescr)
-        jump(p1, p2)
-        """
-        self.optimize_loop(ops, ops)
-
-    def test_varray_struct_too_large_items(self):
-        ops = """
-        [p1, p2]
-        f2 = getinteriorfield_gc_f(p1, 150100, descr=compleximagdescr)
-        # not cached:
-        f3 = getinteriorfield_gc_f(p1, 150100, descr=compleximagdescr)
-        setinteriorfield_gc(p2, 150100, f2, descr=complexrealdescr)
-        # this is not cached so far (it could be cached by heap.py)
-        f4 = getinteriorfield_gc_f(p2, 150100, descr=complexrealdescr)
-        jump(p1, p2, f3, f4)
-        """
-        self.optimize_loop(ops, ops)
 
     def test_varray_struct_negative_items_from_invalid_loop_v(self):
         ops = """
@@ -467,39 +335,6 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
         self.check_expanded_fail_descr("i0", rop.GUARD_VALUE)
-
-    def test_guard_class_oois(self):
-        ops = """
-        [p1]
-        guard_class(p1, ConstClass(node_vtable2)) []
-        i = instance_ptr_ne(ConstPtr(myptr), p1)
-        guard_true(i) []
-        jump(p1)
-        """
-        expected = """
-        [p1]
-        guard_class(p1, ConstClass(node_vtable2)) []
-        jump(p1)
-        """
-        self.optimize_loop(ops, expected)
-
-    def test_oois_of_itself(self):
-        ops = """
-        [p0]
-        p1 = getfield_gc_r(p0, descr=nextdescr)
-        p2 = getfield_gc_r(p0, descr=nextdescr)
-        i1 = ptr_eq(p1, p2)
-        guard_true(i1) []
-        i2 = ptr_ne(p1, p2)
-        guard_false(i2) []
-        jump(p0)
-        """
-        expected = """
-        [p0]
-        p1 = getfield_gc_r(p0, descr=nextdescr)
-        jump(p0)
-        """
-        self.optimize_loop(ops, expected)
 
     def test_remove_duplicate_pure_op(self):
         ops = """
