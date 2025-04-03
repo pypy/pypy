@@ -48,6 +48,61 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_instance_ptr_eq_is_symmetric(self):
+        ops = """
+        [p0, p1]
+        i0 = instance_ptr_eq(p0, p1)
+        guard_false(i0) []
+        i1 = instance_ptr_eq(p1, p0)
+        guard_false(i1) []
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        i0 = instance_ptr_eq(p0, p1)
+        guard_false(i0) []
+        jump(p0, p1)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [p0, p1]
+        i0 = instance_ptr_ne(p0, p1)
+        guard_true(i0) []
+        i1 = instance_ptr_ne(p1, p0)
+        guard_true(i1) []
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        i0 = instance_ptr_ne(p0, p1)
+        guard_true(i0) []
+        jump(p0, p1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_nonnull_from_setfield(self):
+        ops = """
+        [p0]
+        setfield_gc(p0, 5, descr=valuedescr)     # forces p0 != NULL
+        i0 = ptr_ne(p0, NULL)
+        guard_true(i0) []
+        i1 = ptr_eq(p0, NULL)
+        guard_false(i1) []
+        i2 = ptr_ne(NULL, p0)
+        guard_true(i0) []
+        i3 = ptr_eq(NULL, p0)
+        guard_false(i1) []
+        guard_nonnull(p0) []
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        setfield_gc(p0, 5, descr=valuedescr)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_duplicate_getfield_1(self):
         ops = """
         [p1, p2]
