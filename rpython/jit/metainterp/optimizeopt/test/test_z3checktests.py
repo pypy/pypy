@@ -17,6 +17,7 @@ from rpython.jit.metainterp.optimizeopt.test.test_optimizeintbound import (
     TestOptimizeIntBounds as TOptimizeIntBounds)
 from rpython.jit.metainterp.optimizeopt.test.test_optimizeheap import (
     TestOptimizeHeap as TOptimizeHeap)
+from rpython.rtyper import rclass
 from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, InputArgInt, OpHelpers, InputArgRef)
@@ -117,6 +118,8 @@ class Checker(object):
                 return self.constptr_to_z3[box.value]
             res = z3.BitVec('constPTR_%s' % len(self.constptr_to_z3), LONG_BIT)
             self.constptr_to_z3[box.value] = res
+            typeptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, box.value).typeptr
+            self.solver.add(self.state.heaptypes[res] == typeptr.subclassrange_min)
             for freshptr in self.fresh_pointers:
                 self.solver.add(freshptr != res)
             return res
@@ -139,7 +142,9 @@ class Checker(object):
 
     def newheaptypes(self):
         pointersort = typesort = z3.BitVecSort(LONG_BIT)
-        return z3.Array('types', pointersort, typesort)
+        heaptypes = z3.Array('types', pointersort, typesort)
+        self.solver.add(heaptypes[self.nullpointer] == -1)
+        return heaptypes
     
     def newarraylength(self):
         pointersort = arraylengthsort = z3.BitVecSort(LONG_BIT)
@@ -213,6 +218,7 @@ class Checker(object):
         return z3.If(z3expr, TRUEBV, FALSEBV)
 
     def add_to_solver(self, ops, state):
+        self.state = state
         for op in ops:
             if op.type != 'v':
                 res = self.newvar(op)
@@ -225,6 +231,11 @@ class Checker(object):
             arg0 = arg1 = arg2 = None
             if not op.is_guard():
                 state.no_ovf = None
+            else:
+                assert state.before
+                cond = self.guard_to_condition(op, state) # was optimized away, must be true
+                self.prove(cond, op)
+                continue
 
             # convert arguments
             if op.numargs() == 1:
@@ -309,11 +320,6 @@ class Checker(object):
                 expr = z3.Extract(LONG_BIT * 2 - 1, LONG_BIT, zarg0 * zarg1)
             elif opname == "same_as_i":
                 expr = arg0
-            elif op.is_guard():
-                assert state.before
-                cond = self.guard_to_condition(op, state) # was optimized away, must be true
-                self.prove(cond, op)
-                continue
             # heap operations
             elif opname == "ptr_eq" or opname == "instance_ptr_eq":
                 expr = self.cond(arg0 == arg1)
@@ -322,6 +328,8 @@ class Checker(object):
             elif opname == "new_with_vtable":
                 expr = res
                 self.fresh_pointer(res)
+                vtable = descr.get_vtable().adr.ptr
+                self.solver.add(state.heaptypes[expr] == vtable.subclassrange_min)
             elif opname == "getfield_gc_i" or opname == "getfield_gc_r":# int and reference
                 # we dont differentiate between struct and field in z3 heap structure
                 # so a field is an array at a specific index
