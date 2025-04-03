@@ -85,26 +85,30 @@ class Checker(object):
         self.true_for_all_heaps = []
         self.fresh_pointers = []
         self._init_heap_types()
-    
+
     def _init_heap_types(self):
-        nodetype = z3.BitVec('nodetype', LONG_BIT)
         arraytype = z3.BitVec('arraytype', LONG_BIT)
         self.fielddescr_to_z3indexvar = {}
 
-        self.solver.add(nodetype == z3.BitVecVal(7, LONG_BIT))
-        self.solver.add(arraytype == z3.BitVecVal(17, LONG_BIT))
+        self.solver_add(arraytype == z3.BitVecVal(17, LONG_BIT))
         self.nullpointer = z3.BitVec('NULL', LONG_BIT)
-        self.solver.add(self.nullpointer == z3.BitVecVal(0, LONG_BIT))
+        self.solver_add(self.nullpointer == z3.BitVecVal(0, LONG_BIT))
 
-        self.nodetype = nodetype
         self.arraytype = arraytype
-    
+
+    def solver_add(self, cond):
+        # make sure that we don't add "False" to self.solver
+        res = self.solver.check(cond)
+        if res == z3.unsat:
+            assert 0, "programming error, trying to add something to solver that is equivalent to False: " + str(cond)
+        self.solver.add(cond)
+
     def fielddescr_indexvar(self, descr):
         if descr in self.fielddescr_to_z3indexvar:
             return self.fielddescr_to_z3indexvar[descr]
         repr = "%s_%s" % (descr.S._name, descr.fieldname)
         var = z3.BitVec(repr, LONG_BIT)
-        self.solver.add(var == len(self.fielddescr_to_z3indexvar))
+        self.solver_add(var == len(self.fielddescr_to_z3indexvar))
         self.fielddescr_to_z3indexvar[descr] = var
         return var
 
@@ -119,9 +123,9 @@ class Checker(object):
             res = z3.BitVec('constPTR_%s' % len(self.constptr_to_z3), LONG_BIT)
             self.constptr_to_z3[box.value] = res
             typeptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, box.value).typeptr
-            self.solver.add(self.state.heaptypes[res] == typeptr.subclassrange_min)
+            self.solver_add(self.state.heaptypes[res] == typeptr.subclassrange_min)
             for freshptr in self.fresh_pointers:
-                self.solver.add(freshptr != res)
+                self.solver_add(freshptr != res)
             return res
         assert not isinstance(box, Const) # not supported
         return self.box_to_z3[box]
@@ -143,21 +147,21 @@ class Checker(object):
     def newheaptypes(self):
         pointersort = typesort = z3.BitVecSort(LONG_BIT)
         heaptypes = z3.Array('types', pointersort, typesort)
-        self.solver.add(heaptypes[self.nullpointer] == -1)
+        self.solver_add(heaptypes[self.nullpointer] == -1)
         return heaptypes
-    
+
     def newarraylength(self):
         pointersort = arraylengthsort = z3.BitVecSort(LONG_BIT)
         return z3.Array('arraylength', pointersort, arraylengthsort)
-          
+
     def newheap(self):
         pointersort = z3.BitVecSort(LONG_BIT)
         heapobjectsort = z3.ArraySort(pointersort, pointersort)
         self.heapindex += 1
         heap = z3.Array('heap%s'% self.heapindex, pointersort, heapobjectsort)
         for ptr, index, res in self.true_for_all_heaps:
-            self.solver.add(heap[ptr][index] == res)
-        return heap 
+            self.solver_add(heap[ptr][index] == res)
+        return heap
 
     def print_chunk(self, chunk, label, model):
         print
@@ -329,13 +333,17 @@ class Checker(object):
                 expr = res
                 self.fresh_pointer(res)
                 vtable = descr.get_vtable().adr.ptr
-                self.solver.add(state.heaptypes[expr] == vtable.subclassrange_min)
+                self.solver_add(state.heaptypes[expr] == vtable.subclassrange_min)
             elif opname == "getfield_gc_i" or opname == "getfield_gc_r":# int and reference
                 # we dont differentiate between struct and field in z3 heap structure
                 # so a field is an array at a specific index
                 # thus we need to set the types for array and field writes, so z3 knows they cant interfere
                 index = self.fielddescr_indexvar(descr)
-                self.solver.add(state.heaptypes[arg0] == self.nodetype)
+                parentdescr = descr.get_parent_descr()
+                if parentdescr.is_object():
+                    vtable = parentdescr.get_vtable().adr.ptr
+                    self.solver_add(state.heaptypes[arg0] >= vtable.subclassrange_min)
+                    self.solver_add(state.heaptypes[arg0] <= vtable.subclassrange_max)
                 expr = state.heap[arg0][index]
                 if descr.is_always_pure():
                     self.true_for_all_heaps.append((arg0, index, expr))
@@ -343,38 +351,40 @@ class Checker(object):
                     ptr = lltype.cast_opaque_ptr(lltype.Ptr(descr.S), op.getarg(0).value)
                     const_res = getattr(ptr, descr.fieldname)
                     assert opname == "getfield_gc_i"
-                    self.solver.add(expr == const_res)                
+                    self.solver_add(expr == const_res)
                 if descr.is_integer_bounded():
-                    self.solver.add(expr >= descr.get_integer_min())
-                    self.solver.add(expr <= descr.get_integer_max())
+                    self.solver_add(expr >= descr.get_integer_min())
+                    self.solver_add(expr <= descr.get_integer_max())
             elif opname == "setfield_gc":
                 index = self.fielddescr_indexvar(descr)
                 # copys old heap with new value inserted
                 heapexpr = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], index, arg1))
-                # mark ptr of array write as array 
-                # so that fieldwrite and arraywrite cant interfere
-                self.solver.add(state.heaptypes[arg0] == self.nodetype)
+                parentdescr = descr.get_parent_descr()
+                if parentdescr.is_object():
+                    vtable = parentdescr.get_vtable().adr.ptr
+                    self.solver_add(state.heaptypes[arg0] >= vtable.subclassrange_min)
+                    self.solver_add(state.heaptypes[arg0] <= vtable.subclassrange_max)
                 # create new heap
                 state.heap = self.newheap()
                 # set new heap to modified heap with constraint
-                self.solver.add(state.heap == heapexpr)
+                self.solver_add(state.heap == heapexpr)
                 # mark arg1 as non-null if arg1 is const or constptr
                 if self.is_const(op.getarg(1)):
-                    self.solver.add(arg0 != self.nullpointer)
+                    self.solver_add(arg0 != self.nullpointer)
             elif opname == "getarrayitem_gc_r" or opname == "getarrayitem_gc_i":
                 # TODO: immutable arrays
-                self.solver.add(state.heaptypes[arg0] == self.arraytype)
+                self.solver_add(state.heaptypes[arg0] == self.arraytype)
                 expr = state.heap[arg0][arg1]
                 if descr.is_item_integer_bounded():
-                    self.solver.add(expr >= descr.get_item_integer_min())
-                    self.solver.add(expr <= descr.get_item_integer_max())
+                    self.solver_add(expr >= descr.get_item_integer_min())
+                    self.solver_add(expr <= descr.get_item_integer_max())
             elif opname == "setarrayitem_gc":
                 heapexpr = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], arg1, arg2))
-                self.solver.add(state.heaptypes[arg0] == self.arraytype)
+                self.solver_add(state.heaptypes[arg0] == self.arraytype)
                 state.heap = self.newheap()
-                self.solver.add(state.heap == heapexpr)
+                self.solver_add(state.heap == heapexpr)
                 if self.is_const(op.getarg(2)):
-                    self.solver.add(arg0 != self.nullpointer)
+                    self.solver_add(arg0 != self.nullpointer)
             elif opname == "arraylen_gc":
                 expr = state.arraylength[arg0]
             elif opname == "escape_n":
@@ -409,7 +419,7 @@ class Checker(object):
             else:
                 assert 0, "unsupported"
             if res is not None:
-                self.solver.add(res == expr)
+                self.solver_add(res == expr)
 
     def is_const(self, arg):
         return isinstance(arg, Const) or isinstance(arg, ConstPtr)
@@ -417,7 +427,7 @@ class Checker(object):
     def fresh_pointer(self, res):
         for box, var in self.box_to_z3.iteritems():
             if box.type == "r" and res is not var:
-                self.solver.add(res != var)
+                self.solver_add(res != var)
         self.fresh_pointers.append(res)
 
     def guard_to_condition(self, guard, state):
@@ -466,9 +476,9 @@ class Checker(object):
             equivalent = cond_before == cond_after
             self.prove(equivalent, beforelast, afterlast)
         # then assert the true case
-        self.solver.add(cond_before)
+        self.solver_add(cond_before)
         if afterlast:
-            self.solver.add(cond_after)
+            self.solver_add(cond_after)
 
     def check(self):
         for beforeinput, afterinput in zip(self.beforeinputargs, self.afterinputargs):
@@ -495,7 +505,7 @@ class State(object):
         else:
             self.heap_sequence = state_before.heap_sequence
             self.heap_index = 0
-    
+
     def nextheap(self, checker):
         if self.before:
             res = checker.newheap()
@@ -535,6 +545,13 @@ def up_to_guard(oplist):
             return res, op
         res.append(op)
     return res, None
+
+def test_solver_add_false_protection():
+    c = Checker(None, None, None, None)
+    x = z3.BitVec('x', 64)
+    c.solver_add(x == 1)
+    with pytest.raises(AssertionError):
+        c.solver_add(x != 1)
 
 # ____________________________________________________________
 
