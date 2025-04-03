@@ -750,7 +750,7 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
         except CheckError:
             print "to reproduce:"
             print "_" * 60
-            print repr(output.getvalue())
+            print make_reproducer(output.getvalue())
             print "_" * 60
             raise
         t3 = time.time()
@@ -802,8 +802,28 @@ def test_random_loop_parses(r):
     r = make_reproducer(s)
     print "_" * 60
     print r
-    d = {'lltype': lltype}
+    check_via_reproducer_string(r)
+
+def check_via_reproducer_string(r):
+    d = {}
     exec r in d
+    loop = d['loop']
+    cpu = LLGraphCPU(None)
+    cpu.supports_floats = False
+    cpu.setup_once()
+    t = TestOptimizeIntBoundsZ3()
+    t.cls_attributes()
+    trace = convert_loop_to_trace(loop, t.metainterp_sd)
+    compile_data = compile.SimpleCompileData(
+        trace, call_pure_results=None,
+        enable_opts=t.enable_opts)
+    compile_data.forget_optimization_info = lambda *args, **kwargs: None
+    jitdriver_sd = FakeJitDriverStaticData()
+    return # TODO: finish rest
+    info, ops = compile_data.optimize_trace(t.metainterp_sd, jitdriver_sd, {})
+    beforeinputargs, beforeops = trace.unpack()
+    # check that the generated trace is correct
+    correct, timeout = check_z3(beforeinputargs, beforeops, info.inputargs, ops)
 
 @given(strategies.randoms())
 def test_random_hypothesis(r):
@@ -829,13 +849,18 @@ from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
 from rpython.rtyper import rclass
 from rpython.jit.metainterp.resoperation import rop, ResOperation, \
      InputArgInt, InputArgRef, InputArgFloat
-from rpython.jit.metainterp.history import TargetToken
+from rpython.jit.metainterp.history import TargetToken, TreeLoop
 from rpython.jit.metainterp.history import BasicFailDescr, BasicFinalDescr
 from rpython.jit.metainterp.history import ConstInt, ConstPtr
 from rpython.jit.backend.llgraph.runner import LLGraphCPU as CPU
 if 1:
 """
-    return preamble + "\n".join(lines)
+    post = """
+loop = TreeLoop('reproduce')
+loop.inputargs = inputargs
+loop.operations = operations
+"""
+    return preamble + "\n".join(lines) + post
 
 class TestOptimizeHeapZ3(BaseCheckZ3, TOptimizeHeap):
     def dont_execute(self):
