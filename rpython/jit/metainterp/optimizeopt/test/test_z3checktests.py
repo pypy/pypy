@@ -387,6 +387,15 @@ class Checker(object):
                     self.solver_add(arg0 != self.nullpointer)
             elif opname == "arraylen_gc":
                 expr = state.arraylength[arg0]
+            elif opname == "new_array":
+                expr = res
+                self.fresh_pointer(res)
+                # mark res as arraytype
+                self.solver.add(state.heaptypes[res] == self.arraytype)
+                # new_array cant return null 
+                self.solver.add(res != self.nullpointer)
+                # store array len
+                self.solver.add(state.arraylength[res] == arg0)
             elif opname == "escape_n":
                 # the heap is completely new, but it's the same between
                 # the before and the after state
