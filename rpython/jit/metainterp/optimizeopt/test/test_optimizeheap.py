@@ -772,6 +772,21 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_setfield_aliasing_by_field_content_bug(self):
+        ops = """
+        [p2, p3, p4]
+        i1 = getfield_gc_i(ConstPtr(myptr), descr=valuedescr)
+        guard_value(i1, 1) []
+        i2 = getfield_gc_i(p2, descr=valuedescr)
+        guard_value(i2, 2) []
+        setfield_gc(ConstPtr(myptr), p3, descr=nextdescr)
+        setfield_gc(p2, p4, descr=nextdescr)
+        p5 = getfield_gc_i(ConstPtr(myptr), descr=nextdescr)
+        jump(p2, p5)
+        """
+        # could do better, but at least we shouldn't crash
+        self.optimize_loop(ops, ops)
+
     def test_getarrayitem_bounds(self):
         ops = """
         [p1]

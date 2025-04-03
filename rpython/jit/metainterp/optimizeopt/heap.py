@@ -201,6 +201,10 @@ class CachedField(AbstractCachedEntry):
         return constclass1 is not None and constclass2 is not None and not constclass1.same_constant(constclass2)
 
     def _cannot_alias_via_content(self, optheap, opinfo1, opinfo2):
+        if not isinstance(opinfo1, info.AbstractStructPtrInfo):
+            return
+        if not isinstance(opinfo2, info.AbstractStructPtrInfo):
+            return
         content1 = opinfo1.all_items()
         if content1 is None:
             return False
