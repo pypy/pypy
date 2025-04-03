@@ -385,6 +385,13 @@ class Checker(object):
             elif opname in ["label", "escape_i", "debug_merge_point"]:
                 # TODO: handling escape this way probably is not correct
                 continue # ignore for now
+            elif opname == "call_n":
+                effectinfo = op.getdescr().get_extra_info()
+                oopspecindex = effectinfo.oopspecindex
+                if oopspecindex == EffectInfo.OS_ARRAYCOPY:
+                    assert 0, "implement me"
+                else:
+                    assert 0, "unsupported"
             elif opname == "call_pure_i" or opname == "call_i":
                 # only div and mod supported
                 effectinfo = op.getdescr().get_extra_info()
