@@ -22,12 +22,12 @@ class TestOptimizeHeap(BaseTestBasic):
         [p0]
         guard_isnull(p0) []
         guard_isnull(p0) []
-        jump()
+        jump(p0)
         """
         expected = """
         [p0]
         guard_isnull(p0) []
-        jump()
+        jump(NULL)
         """
         self.optimize_loop(ops, expected)
 
