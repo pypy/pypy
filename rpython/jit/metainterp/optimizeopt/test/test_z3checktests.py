@@ -348,6 +348,9 @@ class Checker(object):
                 state.heap = self.newheap()
                 # set new heap to modified heap with constraint
                 self.solver.add(state.heap == heapexpr)
+                # mark arg1 as non-null if arg1 is const or constptr
+                if self.is_const(op.getarg(1)):
+                    self.solver.add(arg0 != self.nullpointer)
             elif opname == "getarrayitem_gc_r" or opname == "getarrayitem_gc_i":
                 # TODO: immutable arrays
                 self.solver.add(state.heaptypes[arg0] == self.arraytype)
@@ -360,6 +363,8 @@ class Checker(object):
                 self.solver.add(state.heaptypes[arg0] == self.arraytype)
                 state.heap = self.newheap()
                 self.solver.add(state.heap == heapexpr)
+                if self.is_const(op.getarg(2)):
+                    self.solver.add(arg0 != self.nullpointer)
             elif opname == "arraylen_gc":
                 expr = state.arraylength[arg0]
             elif opname == "escape_n":
@@ -388,6 +393,9 @@ class Checker(object):
                 assert 0, "unsupported"
             if res is not None:
                 self.solver.add(res == expr)
+
+    def is_const(self, arg):
+        return isinstance(arg, Const) or isinstance(arg, ConstPtr)
 
     def fresh_pointer(self, res):
         for box, var in self.box_to_z3.iteritems():
