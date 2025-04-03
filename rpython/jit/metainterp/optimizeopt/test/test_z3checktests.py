@@ -388,7 +388,7 @@ class Checker(object):
                     self.solver_add(arg0 != self.nullpointer)
             elif opname == "arraylen_gc":
                 expr = state.arraylength[arg0]
-            elif opname == "new_array":
+            elif opname == "new_array" or opname == "new_array_clear":
                 expr = res
                 self.fresh_pointer(res)
                 # mark res as arraytype
