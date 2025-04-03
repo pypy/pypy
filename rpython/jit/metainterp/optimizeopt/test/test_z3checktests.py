@@ -23,6 +23,7 @@ from rpython.jit.metainterp.history import (
     JitCellToken, Const, ConstInt, ConstPtr, get_const_ptr_for_string)
 from rpython.jit.tool.oparser import parse, convert_loop_to_trace
 from rpython.jit.backend.test.test_random import RandomLoop, Random, OperationBuilder, AbstractOperation
+from rpython.jit.backend.test import test_ll_random
 from rpython.jit.backend.llgraph.runner import LLGraphCPU
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.optimizeopt.intutils import MININT, MAXINT
@@ -665,11 +666,28 @@ class KnownBitsCheck(AbstractOperation):
         ops.append(op)
 
 
-OPERATIONS = OperationBuilder.OPERATIONS + [CallIntPyModPyDiv(rop.CALL_PURE_I)] + [
+OPERATIONS = OperationBuilder.OPERATIONS + [ #CallIntPyModPyDiv(rop.CALL_PURE_I)] + [
         RangeCheck(None), KnownBitsCheck(None)] * 10
 
+for i in range(4):
+    OPERATIONS.append(test_ll_random.GetFieldOperation(rop.GETFIELD_GC_I))
+    OPERATIONS.append(test_ll_random.GetFieldOperation(rop.GETFIELD_GC_I))
+    OPERATIONS.append(test_ll_random.SetFieldOperation(rop.SETFIELD_GC))
+    #OPERATIONS.append(test_ll_random.NewOperation(rop.NEW))
+    OPERATIONS.append(test_ll_random.NewOperation(rop.NEW_WITH_VTABLE))
 
-class Z3OperationBuilder(OperationBuilder):
+    OPERATIONS.append(test_ll_random.GetArrayItemOperation(rop.GETARRAYITEM_GC_I))
+    OPERATIONS.append(test_ll_random.GetArrayItemOperation(rop.GETARRAYITEM_GC_I))
+    OPERATIONS.append(test_ll_random.SetArrayItemOperation(rop.SETARRAYITEM_GC))
+    #OPERATIONS.append(test_ll_random.NewArrayOperation(rop.NEW_ARRAY_CLEAR))
+    #OPERATIONS.append(test_ll_random.ArrayLenOperation(rop.ARRAYLEN_GC))
+
+#for i in range(2):
+#    OPERATIONS.append(test_ll_random.GuardClassOperation(rop.GUARD_CLASS))
+
+
+
+class Z3OperationBuilder(test_ll_random.LLtypeOperationBuilder):
     produce_failing_guards = False
     OPERATIONS = OPERATIONS
 

@@ -516,9 +516,16 @@ class GuardPtrOperation(GuardOperation):
         if not builder.ptrvars:
             raise CannotProduceOperation
         box = r.choice(builder.ptrvars)[0]
-        op = ResOperation(self.opnum, [box])
-        passing = ((self.opnum == rop.GUARD_NONNULL and getref_base(box)) or
-                   (self.opnum == rop.GUARD_ISNULL and not getref_base(box)))
+        if not builder.produce_failing_guards:
+            if getref_base(box):
+                opnum = rop.GUARD_NONNULL
+            else:
+                opnum = rop.GUARD_ISNULL
+        else:
+            opnum = self.opnum
+        op = ResOperation(opnum, [box])
+        passing = ((opnum == rop.GUARD_NONNULL and getref_base(box)) or
+                   (opnum == rop.GUARD_ISNULL and not getref_base(box)))
         return op, passing
 
 class GuardValueOperation(GuardOperation):
