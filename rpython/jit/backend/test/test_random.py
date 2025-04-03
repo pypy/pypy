@@ -199,14 +199,14 @@ class OperationBuilder(object):
             elif isinstance(TP, lltype.Primitive):
                 return _type_descr(TP) # don't cache
             else:
-                descr = _type_descr(TP)
                 no = len(TYPE_NAMES)
                 tp_name = 'S' + str(no)
+                descr = _type_descr(TP, tp_name)
                 TYPE_NAMES[TP] = tp_name
                 print >>s, '    %s = %s' % (tp_name, descr)
                 return tp_name
 
-        def _type_descr(TP):
+        def _type_descr(TP, tp_name=None):
             if isinstance(TP, lltype.Ptr):
                 if TP == llmemory.GCREF:
                     return "llmemory.GCREF"
@@ -220,7 +220,7 @@ class OperationBuilder(object):
                 for k in TP._names:
                     v = getattr(TP, k)
                     fields.append('("%s", %s)' % (k, type_descr(v)))
-                return "lltype.%sStruct('Sx', %s)" % (pref,
+                return "lltype.%sStruct(%r, %s)" % (pref, tp_name,
                                                        ", ".join(fields))
             elif isinstance(TP, lltype.GcArray):
                 return "lltype.GcArray(%s)" % (type_descr(TP.OF),)

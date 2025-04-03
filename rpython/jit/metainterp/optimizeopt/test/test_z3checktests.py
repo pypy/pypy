@@ -106,11 +106,12 @@ class Checker(object):
         res = self.solver.check(cond)
         # make sure that we don't add "False" to self.solver
         if res == z3.unsat:
+            import pdb;pdb.set_trace()
             assert 0, "programming error, trying to add something to solver that is equivalent to False: " + str(cond)
-        z3res = self.solver.check(z3.Not(cond))
-        if z3res == z3.unsat:
-            print "tautology, not adding:", cond
-            return
+        #z3res = self.solver.check(z3.Not(cond))
+        #if z3res == z3.unsat:
+        #    print "tautology, not adding:", cond
+        #    return
         self.solver.add(cond)
 
     def fielddescr_indexvar(self, descr):
@@ -853,9 +854,15 @@ def test_random_loop_parses(r):
         raise
     s = output.getvalue()
     r = make_reproducer(s)
-    print "_" * 60
-    print r
-    check_via_reproducer_string(r)
+    try:
+        check_via_reproducer_string(r)
+    except Exception as e:
+        print "error", e
+        print "to reproduce"
+        print "_" * 60
+        print r
+        print "_" * 60
+        raise
 
 def check_via_reproducer_string(r):
     d = {}
@@ -873,7 +880,6 @@ def check_via_reproducer_string(r):
     compile_data.forget_optimization_info = lambda *args, **kwargs: None
     jitdriver_sd = FakeJitDriverStaticData()
     info, ops = compile_data.optimize_trace(t.metainterp_sd, jitdriver_sd, {})
-    return # TODO: finish rest
     beforeinputargs, beforeops = trace.unpack()
     # check that the generated trace is correct
     correct, timeout = check_z3(beforeinputargs, beforeops, info.inputargs, ops)
@@ -938,10 +944,8 @@ if __name__ == '__main__':
         class option:
             z3timeout = 100000
     pytest.config = config
-    b = TestBuggyTestsFail()
     try:
-        b.cls_attributes()
-        b.optimize_loop(ops, ops)
+        check_via_reproducer_string(ops)
     except CheckError as e:
         print e
         os._exit(0)
