@@ -318,7 +318,7 @@ class Checker(object):
                 zarg0 = z3.ZeroExt(LONG_BIT, arg0)
                 zarg1 = z3.ZeroExt(LONG_BIT, arg1)
                 expr = z3.Extract(LONG_BIT * 2 - 1, LONG_BIT, zarg0 * zarg1)
-            elif opname == "same_as_i":
+            elif opname == "same_as_i" or opname == "same_as_r":
                 expr = arg0
             # heap operations
             elif opname == "ptr_eq" or opname == "instance_ptr_eq":
