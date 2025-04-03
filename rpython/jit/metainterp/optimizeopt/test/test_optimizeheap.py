@@ -1231,8 +1231,7 @@ class TestOptimizeHeap(BaseTestBasic):
 
     def test_arraycopy_invalidate_1(self):
         ops = """
-        [i5]
-        p0 = escape_r()
+        [i5, p0]
         p1 = new_array_clear(i5, descr=arraydescr)
         call_n(0, p0, p1, 0, 0, i5, descr=arraycopydescr)
         i2 = getarrayitem_gc_i(p1, 0, descr=arraydescr)   # != NULL
@@ -1242,8 +1241,7 @@ class TestOptimizeHeap(BaseTestBasic):
 
     def test_arraycopy_invalidate_2(self):
         ops = """
-        [i5]
-        p0 = escape_r()
+        [i5, p0]
         p1 = new_array_clear(i5, descr=arraydescr)
         call_n(0, p0, p1, 0, 0, 100, descr=arraycopydescr)
         i2 = getarrayitem_gc_i(p1, 0, descr=arraydescr)   # != NULL
@@ -1253,8 +1251,7 @@ class TestOptimizeHeap(BaseTestBasic):
 
     def test_arraycopy_invalidate_3(self):
         ops = """
-        [i5]
-        p0 = escape_r()
+        [i5, p0]
         p1 = new_array_clear(100, descr=arraydescr)
         call_n(0, p0, p1, 0, 0, i5, descr=arraycopydescr)
         i2 = getarrayitem_gc_i(p1, 0, descr=arraydescr)   # != NULL
@@ -1264,8 +1261,7 @@ class TestOptimizeHeap(BaseTestBasic):
 
     def test_arraycopy_invalidate_4(self):
         ops = """
-        [i5]
-        p0 = escape_r()
+        [i5, p0]
         p1 = new_array_clear(100, descr=arraydescr)
         call_n(0, p0, p1, 0, 0, 100, descr=arraycopydescr)
         i2 = getarrayitem_gc_i(p1, 0, descr=arraydescr)   # != NULL
