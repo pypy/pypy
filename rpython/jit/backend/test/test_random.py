@@ -636,14 +636,15 @@ def do_assert(condition, error_message):
         seed)
     raise AssertionError(message)
 
-def Random():
+def Random(r=None):
     import random
     seed = pytest.config.option.randomseed
-    print
-    print 'Random start seed value is %d.' % (seed,)
-    print
-    r = random.Random()
-    r.seed(seed)
+    if r is None:
+        print
+        print 'Random start seed value is %d.' % (seed,)
+        print
+        r = random.Random()
+        r.seed(seed)
     def get_random_integer():
         while True:
             result = int(r.expovariate(0.05))

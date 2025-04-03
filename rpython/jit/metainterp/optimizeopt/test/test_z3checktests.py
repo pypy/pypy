@@ -313,7 +313,7 @@ class Checker(object):
                 self.prove(cond, op)
                 continue
             # heap operations
-            elif opname == "ptr_eq":
+            elif opname == "ptr_eq" or opname == "instance_ptr_eq":
                 expr = self.cond(arg0 == arg1)
             elif opname == "new_with_vtable":
                 expr = res
@@ -332,6 +332,9 @@ class Checker(object):
                     const_res = getattr(ptr, descr.fieldname)
                     assert opname == "getfield_gc_i"
                     self.solver.add(expr == const_res)                
+                if descr.is_integer_bounded():
+                    self.solver.add(expr >= descr.get_integer_min())
+                    self.solver.add(expr <= descr.get_integer_max())
             elif opname == "setfield_gc":
                 index = self.fielddescr_indexvar(descr)
                 # copys old heap with new value inserted
@@ -410,7 +413,7 @@ class Checker(object):
             vtable = cls.value.adr.ptr
             return state.heaptypes[arg0] == vtable.subclassrange_min
         else:
-            assert 0, "unsupported"
+            assert 0, "unsupported " + opname
 
     def check_last(self, beforelast, state_before, afterlast, state_after):
         if beforelast.getopname() in ("jump", "finish"):
@@ -746,6 +749,16 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
             print "got exception", e
             print "seed was", seed
             raise
+
+@given(strategies.randoms())
+def test_random_hypothesis(r):
+    cpu = LLGraphCPU(None)
+    cpu.supports_floats = False
+    cpu.setup_once()
+    t = TestOptimizeIntBoundsZ3()
+    t.cls_attributes()
+    t.check_random_function_z3(cpu, Random(r), 0)
+
 
 class TestOptimizeHeapZ3(BaseCheckZ3, TOptimizeHeap):
     def dont_execute(self):
