@@ -216,20 +216,20 @@ class TestOptimizeHeap(BaseTestBasic):
 
     def test_duplicate_setfield_5(self):
         ops = """
-        [p0, i1]
+        [p0, i1, p3, i5, p4]
         p1 = new_with_vtable(descr=nodesize)
         setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p0, p1, descr=nextdescr)
-        setfield_raw(i1, i1, descr=valuedescr)    # random op with side-effects
+        setarrayitem_gc(p3, 0, i5, descr=arraydescr) # random op with side-effects
         p2 = getfield_gc_r(p0, descr=nextdescr)
         i2 = getfield_gc_i(p2, descr=valuedescr)
-        setfield_gc(p0, NULL, descr=nextdescr)
+        setfield_gc(p0, p4, descr=nextdescr)
         jump(p0, i1, i2)
         """
         expected = """
-        [p0, i1]
-        setfield_raw(i1, i1, descr=valuedescr)
-        setfield_gc(p0, NULL, descr=nextdescr)
+        [p0, i1, p3, i5, p4]
+        setfield_gc(p0, p4, descr=nextdescr)
+        setarrayitem_gc(p3, 0, i5, descr=arraydescr) # random op with side-effects
         jump(p0, i1, i1)
         """
         self.optimize_loop(ops, expected)

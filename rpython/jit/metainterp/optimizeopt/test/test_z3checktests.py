@@ -78,17 +78,24 @@ class Checker(object):
         self._init_heap_types()
     
     def _init_heap_types(self):
-        nodetype = z3.BitVec('nodetype', 64)
-        arraytype = z3.BitVec('arraytype', 64)
-        fielddescroffset = z3.BitVec('fielddescroffset', 64)
+        nodetype = z3.BitVec('nodetype', LONG_BIT)
+        arraytype = z3.BitVec('arraytype', LONG_BIT)
+        self.fielddescr_to_z3indexvar = {}
 
-        self.solver.add(nodetype == z3.BitVecVal(7, 64))
-        self.solver.add(arraytype == z3.BitVecVal(17, 64))
-        self.solver.add(fielddescroffset == z3.BitVecVal(117, 64))
+        self.solver.add(nodetype == z3.BitVecVal(7, LONG_BIT))
+        self.solver.add(arraytype == z3.BitVecVal(17, LONG_BIT))
 
         self.nodetype = nodetype
         self.arraytype = arraytype
-        self.fielddescroffset = fielddescroffset
+    
+    def fielddescr_indexvar(self, descr):
+        if descr in self.fielddescr_to_z3indexvar:
+            return self.fielddescr_to_z3indexvar[descr]
+        repr = "%s_%s" % (descr.S._name, descr.fieldname)
+        var = z3.BitVec(repr, LONG_BIT)
+        self.solver.add(var == len(self.fielddescr_to_z3indexvar))
+        self.fielddescr_to_z3indexvar[descr] = var
+        return var
 
     def convert(self, box):
         if isinstance(box, ConstInt):
@@ -111,11 +118,15 @@ class Checker(object):
         return result
 
     def newheaptypes(self):
-        pointersort = typesort = z3.BitVecSort(64)
+        pointersort = typesort = z3.BitVecSort(LONG_BIT)
         return z3.Array('types', pointersort, typesort)
+    
+    def newarraylength(self):
+        pointersort = arraylengthsort = z3.BitVecSort(LONG_BIT)
+        return z3.Array('arraylength', pointersort, arraylengthsort)
           
     def newheap(self):
-        pointersort = z3.BitVecSort(64)
+        pointersort = z3.BitVecSort(LONG_BIT)
         heapobjectsort = z3.ArraySort(pointersort, pointersort)
         self.heapindex += 1
         heap = z3.Array('heap%s'% self.heapindex, pointersort, heapobjectsort)
@@ -281,14 +292,24 @@ class Checker(object):
                 self.prove(cond, op)
                 continue
             # heap operations
+            elif opname == "ptr_eq":
+                expr = self.cond(arg0 == arg1)
+            elif opname == "new_with_vtable":
+                expr = res
+                for box, var in self.box_to_z3.iteritems():
+                    if box.type == "r":
+                        self.solver.add(res != var)
             elif opname == "getfield_gc_i" or opname == "getfield_gc_r":# int and reference
                 # we dont differentiate between struct and field in z3 heap structure
                 # so a field is an array at a specific index
                 # thus we need to set the types for array and field writes, so z3 knows they cant interfere
-                expr = state.heap[arg0][self.fielddescroffset]
+                index = self.fielddescr_indexvar(op.getdescr())
+                self.solver.add(state.heaptypes[arg0] == self.nodetype)
+                expr = state.heap[arg0][index]
             elif opname == "setfield_gc":
+                index = self.fielddescr_indexvar(op.getdescr())
                 # copys old heap with new value inserted
-                heapexpr = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], self.fielddescroffset, arg1))
+                heapexpr = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], index, arg1))
                 # mark ptr of array write as array 
                 # so that fieldwrite and arraywrite cant interfere
                 self.solver.add(state.heaptypes[arg0] == self.nodetype)
@@ -297,14 +318,17 @@ class Checker(object):
                 # set new heap to modified heap with constraint
                 self.solver.add(state.heap == heapexpr)
             elif opname == "getarrayitem_gc_r" or opname == "getarrayitem_gc_i":
+                self.solver.add(state.heaptypes[arg0] == self.arraytype)
                 expr = state.heap[arg0][arg1]
             elif opname == "setarrayitem_gc":
                 heapexpr = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], arg1, arg2))
                 self.solver.add(state.heaptypes[arg0] == self.arraytype)
                 state.heap = self.newheap()
                 self.solver.add(state.heap == heapexpr)
+            elif opname == "arraylen_gc":
+                expr = state.arraylength[arg0]
             # end heap operations
-            elif opname in ["label", "escape_i"]:
+            elif opname in ["label", "escape_i", "debug_merge_point"]:
                 # TODO: handling escape this way probably is not correct
                 continue # ignore for now
             elif opname == "call_pure_i" or opname == "call_i":
@@ -340,6 +364,11 @@ class Checker(object):
         elif opname == "guard_overflow":
             assert state.no_ovf is not None
             return z3.Not(state.no_ovf)
+        elif opname == "guard_class":
+            arg0 = self.convertarg(guard, 0)
+            cls = guard.getarg(1)
+            vtable = cls.value.adr.ptr
+            return state.heaptypes[arg0] == vtable.subclassrange_min
         else:
             assert 0, "unsupported"
 
@@ -373,8 +402,8 @@ class Checker(object):
         state_before = State(before=True)
         state_after = State()
         state_before.heap = state_after.heap = self.newheap()# heap is created new on every write
-        state_before.heaptypes = self.newheaptypes()# types 'set' by constraints
-        state_after.heaptypes = self.newheaptypes()
+        state_before.heaptypes = state_after.heaptypes = self.newheaptypes()# types 'set' by constraints
+        state_before.arraylength = state_after.arraylength = self.newarraylength()
         self.chunks = list(chunk_ops(self.beforeops, self.afterops))
         for chunkindex, (beforechunk, beforelast, afterchunk, afterlast) in enumerate(self.chunks):
             self.chunkindex = chunkindex
@@ -650,6 +679,15 @@ class TestOptimizeIntBoundsZ3(BaseCheckZ3, TOptimizeIntBounds):
 class TestOptimizeHeapZ3(BaseCheckZ3, TOptimizeHeap):
     def test_getarrayitem_pure_does_not_invalidate(self):
         pass # skip, can't work yet
+
+    test_duplicate_getfield_constant = test_getarrayitem_pure_does_not_invalidate
+    test_duplicate_getfield_sideeffects_1 = test_getarrayitem_pure_does_not_invalidate
+    test_duplicate_getfield_sideeffects_2 = test_getarrayitem_pure_does_not_invalidate
+    test_duplicate_setfield_sideeffects_1 = test_getarrayitem_pure_does_not_invalidate
+    test_duplicate_setfield_residual_guard_2 = test_getarrayitem_pure_does_not_invalidate
+    test_duplicate_setfield_residual_guard_3 = test_getarrayitem_pure_does_not_invalidate
+    test_duplicate_setfield_guard_value_const = test_getarrayitem_pure_does_not_invalidate
+
 
 if __name__ == '__main__':
     # this code is there so we can use the file to automatically reduce crashes
