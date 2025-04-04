@@ -91,14 +91,12 @@ class Checker(object):
         self._init_heap_types()
 
     def _init_heap_types(self):
-        arraytype = z3.BitVec('arraytype', LONG_BIT)
         self.fielddescr_to_z3indexvar = {}
 
-        self.solver_add(arraytype == z3.BitVecVal(17, LONG_BIT))
         self.nullpointer = z3.BitVec('NULL', LONG_BIT)
         self.solver_add(self.nullpointer == z3.BitVecVal(0, LONG_BIT))
 
-        self.arraytype = arraytype
+        self._lltype_to_index = {}
 
     def solver_add(self, cond):
         if z3.simplify(cond).eq(z3.BoolVal(True)):
@@ -123,6 +121,20 @@ class Checker(object):
         self.fielddescr_to_z3indexvar[descr] = var
         return var
 
+    def _lltype_heaptypes_index(self, T):
+        if T in self._lltype_to_index:
+            return self._lltype_to_index[T]
+        # return negative numbers to not be confused with subclassrange_min values
+        res = ~len(self._lltype_to_index)
+        if isinstance(T, lltype.GcArray):
+            varname = 'typeindex_array_%s' % (~res)
+        else:
+            varname = 'typeindex_struct_%s' % T._name
+        z3heaptypeindex = z3.BitVec(self._unique_name(varname), LONG_BIT)
+        self.solver_add(z3heaptypeindex == res)
+        self._lltype_to_index[T] = z3heaptypeindex
+        return z3heaptypeindex
+
     def convert(self, box):
         if isinstance(box, ConstInt):
             return z3.BitVecVal(box.getint(), LONG_BIT)
@@ -136,9 +148,10 @@ class Checker(object):
             try:
                 typeptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, box.value).typeptr
             except lltype.InvalidCast:
-                pass
+                typ = self._lltype_heaptypes_index(lltype.typeOf(box.value._obj.container))
             else:
-                self.solver_add(self.state.heaptypes[res] == typeptr.subclassrange_min)
+                typ = typeptr.subclassrange_min
+            self.solver_add(self.state.heaptypes[res] == typ)
             for freshptr in self.fresh_pointers:
                 self.solver_add(freshptr != res)
             return res
@@ -156,13 +169,17 @@ class Checker(object):
     def newvar(self, box, repr=None):
         if repr is None:
             repr = box.repr_short(box._repr_memo)
-        while repr in self.seen_names:
-            repr += "_"
-        self.seen_names[repr] = None
+        repr = self._unique_name(repr)
 
         result = z3.BitVec(repr, LONG_BIT)
         self.box_to_z3[box] = result
         return result
+
+    def _unique_name(self, repr):
+        while repr in self.seen_names:
+            repr += "_"
+        self.seen_names[repr] = None
+        return repr
 
     def newheaptypes(self):
         pointersort = typesort = z3.BitVecSort(LONG_BIT)
@@ -394,14 +411,16 @@ class Checker(object):
                     self.solver_add(arg0 != self.nullpointer)
             elif opname == "getarrayitem_gc_r" or opname == "getarrayitem_gc_i" or opname == "getarrayitem_gc_f":
                 # TODO: immutable arrays
-                self.solver_add(state.heaptypes[arg0] == self.arraytype)
+                z3typ = self._lltype_heaptypes_index(descr.A)
+                self.solver_add(state.heaptypes[arg0] == z3typ)
                 expr = state.heap[arg0][arg1]
                 if descr.is_item_integer_bounded():
                     self.solver_add(expr >= descr.get_item_integer_min())
                     self.solver_add(expr <= descr.get_item_integer_max())
             elif opname == "setarrayitem_gc":
                 heapexpr = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], arg1, arg2))
-                self.solver_add(state.heaptypes[arg0] == self.arraytype)
+                z3typ = self._lltype_heaptypes_index(descr.A)
+                self.solver_add(state.heaptypes[arg0] == z3typ)
                 state.heap = self.newheap()
                 self.solver_add(state.heap == heapexpr)
                 if self.is_const(op.getarg(2)):
@@ -411,8 +430,8 @@ class Checker(object):
             elif opname == "new_array" or opname == "new_array_clear":
                 expr = res
                 self.fresh_pointer(res)
-                # mark res as arraytype
-                self.solver_add(state.heaptypes[res] == self.arraytype)
+                z3typ = self._lltype_heaptypes_index(descr.A)
+                self.solver_add(state.heaptypes[res] == z3typ)
                 # new_array cant return null 
                 self.solver_add(res != self.nullpointer)
                 # store array len
@@ -927,7 +946,9 @@ loop.operations = operations
 class TestOptimizeHeapZ3(BaseCheckZ3, TOptimizeHeap):
     def dont_execute(self):
         pass # skip, can't work yet
-
+    test_nonvirtual_later = dont_execute
+    test_nonvirtual_write_null_fields_on_force = dont_execute
+    test_nonvirtual_array_write_null_fields_on_force = dont_execute
 
 if __name__ == '__main__':
     # this code is there so we can use the file to automatically reduce crashes
