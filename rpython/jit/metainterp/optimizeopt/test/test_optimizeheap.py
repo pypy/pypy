@@ -1118,6 +1118,19 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_arraylen_of_constant(self):
+        ops = """
+        []
+        i2 = arraylen_gc(ConstPtr(myarray), descr=arraydescr)
+        jump(i2)
+        """
+        expected = """
+        []
+        jump(13)
+        """
+        self.optimize_loop(ops, expected)
+
+
     def test_remove_duplicate_pure_op_with_descr(self):
         ops = """
         [p1]

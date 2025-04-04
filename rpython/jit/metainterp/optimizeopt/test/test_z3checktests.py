@@ -148,7 +148,10 @@ class Checker(object):
             try:
                 typeptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, box.value).typeptr
             except lltype.InvalidCast:
-                typ = self._lltype_heaptypes_index(lltype.typeOf(box.value._obj.container))
+                T = lltype.typeOf(box.value._obj.container)
+                typ = self._lltype_heaptypes_index(T)
+                if isinstance(T, lltype.GcArray):
+                    self.solver_add(self.state.arraylength[res] == box.value._obj.container.getlength())
             else:
                 typ = typeptr.subclassrange_min
             self.solver_add(self.state.heaptypes[res] == typ)
@@ -790,8 +793,8 @@ for i in range(4):
     OPERATIONS.append(test_ll_random.GetArrayItemOperation(rop.GETARRAYITEM_GC_I))
     OPERATIONS.append(test_ll_random.GetArrayItemOperation(rop.GETARRAYITEM_GC_I))
     OPERATIONS.append(test_ll_random.SetArrayItemOperation(rop.SETARRAYITEM_GC))
-    #OPERATIONS.append(test_ll_random.NewArrayOperation(rop.NEW_ARRAY_CLEAR))
-    #OPERATIONS.append(test_ll_random.ArrayLenOperation(rop.ARRAYLEN_GC))
+    OPERATIONS.append(test_ll_random.NewArrayOperation(rop.NEW_ARRAY_CLEAR))
+    OPERATIONS.append(test_ll_random.ArrayLenOperation(rop.ARRAYLEN_GC))
 
 #for i in range(2):
 #    OPERATIONS.append(test_ll_random.GuardClassOperation(rop.GUARD_CLASS))
