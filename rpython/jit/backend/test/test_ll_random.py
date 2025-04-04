@@ -366,12 +366,6 @@ class NewOperation(test_random.AbstractOperation):
         if vtable:
             vtable, = vtable
             descr._random_info = 'cpu.sizeof(..., Ellipsis)'
-            descr._random_info_predeclare = """
-vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-vtable.subclassrange_min = %s
-vtable.subclassrange_max = %s
-heaptracker.set_testing_vtable_for_gcstruct(..., vtable, %r)
-""" % (vtable.subclassrange_min, vtable.subclassrange_max, "".join(vtable.name.chars))
         else:
             descr._random_info = 'cpu.sizeof(...)'
         descr._random_type = S
