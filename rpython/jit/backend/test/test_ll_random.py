@@ -227,7 +227,7 @@ class GuardClassOperation(test_random.GuardOperation):
         if not ptrvars:
             raise test_random.CannotProduceOperation
         v, S = r.choice(ptrvars)
-        if r.random() < 0.3:
+        if r.random() < 0.3 or not builder.produce_failing_guards:
             v2, S2 = v, S
         else:
             v2, S2 = builder.get_structptr_var(r, must_have_vtable=True)

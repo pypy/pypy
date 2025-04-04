@@ -1130,6 +1130,20 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_arraylen_is_nonnegative(self):
+        ops = """
+        [p0]
+        i2 = arraylen_gc(p0, descr=arraydescr)
+        i3 = int_ge(i2, 0)
+        guard_true(i3) []
+        jump(i2)
+        """
+        expected = """
+        [p0]
+        i2 = arraylen_gc(p0, descr=arraydescr)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_remove_duplicate_pure_op_with_descr(self):
         ops = """

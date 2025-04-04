@@ -145,18 +145,23 @@ class Checker(object):
                 return self.constptr_to_z3[box.value]
             res = z3.BitVec('constPTR_%s' % len(self.constptr_to_z3), LONG_BIT)
             self.constptr_to_z3[box.value] = res
+            is_array = False
             try:
                 typeptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, box.value).typeptr
             except lltype.InvalidCast:
                 T = lltype.typeOf(box.value._obj.container)
                 typ = self._lltype_heaptypes_index(T)
                 if isinstance(T, lltype.GcArray):
-                    self.solver_add(self.state.arraylength[res] == box.value._obj.container.getlength())
+                    is_array = True
             else:
                 typ = typeptr.subclassrange_min
             self.solver_add(self.state.heaptypes[res] == typ)
             for freshptr in self.fresh_pointers:
                 self.solver_add(freshptr != res)
+            if is_array:
+                self.solver_add(self.state.arraylength[res] == box.value._obj.container.getlength())
+            else:
+                self.solver_add(self.state.arraylength[res] == -1)
             return res
         if isinstance(box, ConstFloat):
             if LONG_BIT != 64:
@@ -430,6 +435,7 @@ class Checker(object):
                     self.solver_add(arg0 != self.nullpointer)
             elif opname == "arraylen_gc":
                 expr = state.arraylength[arg0]
+                self.solver_add(expr >= 0)
             elif opname == "new_array" or opname == "new_array_clear":
                 expr = res
                 self.fresh_pointer(res)
@@ -796,8 +802,8 @@ for i in range(4):
     OPERATIONS.append(test_ll_random.NewArrayOperation(rop.NEW_ARRAY_CLEAR))
     OPERATIONS.append(test_ll_random.ArrayLenOperation(rop.ARRAYLEN_GC))
 
-#for i in range(2):
-#    OPERATIONS.append(test_ll_random.GuardClassOperation(rop.GUARD_CLASS))
+for i in range(2):
+    OPERATIONS.append(test_ll_random.GuardClassOperation(rop.GUARD_CLASS))
 
 
 
