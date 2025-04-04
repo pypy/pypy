@@ -1145,6 +1145,23 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_getarrayitem_index_must_be_smaller_than_length(self):
+        ops = """
+        [p0]
+        i4 = getarrayitem_gc_i(p0, 2, descr=arraydescr)
+        i2 = arraylen_gc(p0, descr=arraydescr)
+        i3 = int_gt(i2, 2)
+        guard_true(i3) []
+        jump(i4)
+        """
+        expected = """
+        [p0]
+        i4 = getarrayitem_gc_i(p0, 2, descr=arraydescr)
+        i2 = arraylen_gc(p0, descr=arraydescr)
+        jump(i4)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_remove_duplicate_pure_op_with_descr(self):
         ops = """
         [p1]

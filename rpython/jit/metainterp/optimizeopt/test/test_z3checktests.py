@@ -420,6 +420,8 @@ class Checker(object):
                 # TODO: immutable arrays
                 z3typ = self._lltype_heaptypes_index(descr.A)
                 self.solver_add(state.heaptypes[arg0] == z3typ)
+                self.solver_add(arg1 >= 0)
+                self.solver_add(arg1 < state.arraylength[arg0])
                 expr = state.heap[arg0][arg1]
                 if descr.is_item_integer_bounded():
                     self.solver_add(expr >= descr.get_item_integer_min())
@@ -428,6 +430,8 @@ class Checker(object):
                 heapexpr = z3.Store(state.heap, arg0, z3.Store(state.heap[arg0], arg1, arg2))
                 z3typ = self._lltype_heaptypes_index(descr.A)
                 self.solver_add(state.heaptypes[arg0] == z3typ)
+                self.solver_add(arg1 >= 0)
+                self.solver_add(arg1 < state.arraylength[arg0])
                 state.heap = self.newheap()
                 self.solver_add(state.heap == heapexpr)
                 if self.is_const(op.getarg(2)):
