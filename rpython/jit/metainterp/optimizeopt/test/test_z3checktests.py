@@ -104,7 +104,6 @@ class Checker(object):
         res = self.solver.check(cond)
         # make sure that we don't add "False" to self.solver
         if res == z3.unsat:
-            import pdb;pdb.set_trace()
             assert 0, "programming error, trying to add something to solver that is equivalent to False: " + str(cond)
         #z3res = self.solver.check(z3.Not(cond))
         #if z3res == z3.unsat:
@@ -488,6 +487,8 @@ class Checker(object):
         for box, var in self.box_to_z3.iteritems():
             if box.type == "r" and res is not var:
                 self.solver_add(res != var)
+        for const, z3var in self.constptr_to_z3.iteritems():
+            self.solver_add(res != z3var)
         self.fresh_pointers.append(res)
 
     def guard_to_condition(self, guard, state):
