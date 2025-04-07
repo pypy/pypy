@@ -202,9 +202,9 @@ class CachedField(AbstractCachedEntry):
 
     def _cannot_alias_via_content(self, optheap, opinfo1, opinfo2):
         if not isinstance(opinfo1, info.AbstractStructPtrInfo):
-            return
+            return False
         if not isinstance(opinfo2, info.AbstractStructPtrInfo):
-            return
+            return False
         content1 = opinfo1.all_items()
         if content1 is None:
             return False
