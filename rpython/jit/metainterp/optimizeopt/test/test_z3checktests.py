@@ -86,6 +86,7 @@ class Checker(object):
 
         self.result_ovf = None
         self.heapindex = 0
+        self.arraycopyindex = 0
         self.true_for_all_heaps = []
         self.fresh_pointers = []
         self._init_heap_types()
@@ -461,8 +462,55 @@ class Checker(object):
                 effectinfo = op.getdescr().get_extra_info()
                 oopspecindex = effectinfo.oopspecindex
                 if oopspecindex == EffectInfo.OS_ARRAYCOPY or oopspecindex == EffectInfo.OS_ARRAYMOVE:
-                    pytest.skip()
-                    assert 0, "implement me"
+                    array_from = self.convert(op.getarg(1)) # from array
+                    if oopspecindex == EffectInfo.OS_ARRAYCOPY:
+                        array_to = self.convert(op.getarg(2)) # to array
+                        index_from = self.convert(op.getarg(3)) # from index 
+                        index_to = self.convert(op.getarg(4)) # to index 
+                        len_arg = op.getarg(5)
+                        copy_len = self.convert(len_arg) # len
+                    else:
+                        array_to = array_from # to array
+                        index_from = self.convert(op.getarg(2)) # from index 
+                        index_to = self.convert(op.getarg(3)) # to index 
+                        len_arg = op.getarg(4)
+                        copy_len = self.convert(len_arg) # len 
+                    
+                    # do nothing on len=0 moves/copies
+                    if self.is_const(len_arg) and len_arg.value == 0: continue
+                   
+                    # set types for both arrays
+                    #z3type = self._lltype_heaptypes_index(?) 
+                    #self.solver_add(state.heaptypes[array_from] == z3type)
+                    #if oopspecindex == EffectInfo.OS_ARRAYCOPY:
+                        #self.solver_add(state.heaptypes[array_to] == z3type)
+
+                    # create vars for copy ranges
+                    arr_range_from = z3.BitVec('__arr_index_from_%d' % self.arraycopyindex, LONG_BIT)
+                    arr_range_to = z3.BitVec('__arr_index_to_%d' % self.arraycopyindex, LONG_BIT)
+                    other_range = z3.BitVec('__arr_other_index_%d' % self.arraycopyindex, LONG_BIT)
+                    p = z3.BitVec('__arr_pointer_%d' % self.arraycopyindex, LONG_BIT)
+
+                    # create new heap, but dont set to state yet
+                    new_heap = self.newheap()
+
+                    # constraint copy ranges with index and len
+                    self.solver.add(z3.ForAll([arr_range_from, arr_range_to],                                               # ∀ from_idx, to_idx:
+                                        z3.Implies(z3.And(                                        
+                                            z3.And(arr_range_from >= index_from, arr_range_from < index_from + copy_len), # (index_from <= from_idx < index_from + copy_len &&
+                                            z3.And(arr_range_to >= index_to, arr_range_to < arr_range_to + copy_len)),    #  index_to <= to_idx < index_to + copy_len)  =>                 
+                                        new_heap[array_to][arr_range_to] == state.heap[array_from][arr_range_from])))
+                    
+                    # all other indexes of arg2 stay the same
+                    self.solver.add(z3.ForAll([other_range],                  
+                                        z3.Implies(z3.And(other_range < index_to, other_range >= index_to + copy_len),
+                                        new_heap[array_to][other_range] == state.heap[array_to][other_range])))
+                    
+                    # new heap is same as old heap for all other pointers
+                    self.solver.add(z3.ForAll([p],                    
+                                        z3.Implies(p != array_to, new_heap[p] == state.heap[p]))) 
+                    state.heap = new_heap
+                    self.arraycopyindex += 1
                 else:
                     assert 0, "unsupported"
             elif opname == "call_pure_i" or opname == "call_i":
