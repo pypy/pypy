@@ -1777,7 +1777,7 @@ class W_Unpickler(W_Root):
 
 
 @unwrap_spec(fix_imports=bool, encoding="text", errors="text", w_buffers=WrappedDefault(None))
-def descr__new__unpickler(space, w_subtype, w_file, __kwonly__, fix_imports=True, encoding="ASCII", errors="stricts", w_buffers):
+def descr__new__unpickler(space, w_subtype, w_file, __kwonly__, fix_imports=True, encoding="ASCII", errors="stricts", w_buffers=None):
     w_self = space.allocate_instance(W_Unpickler, w_subtype)
     W_Unpickler.__init__(w_self, space, w_file, fix_imports, encoding, errors, w_buffers)
     return w_self
