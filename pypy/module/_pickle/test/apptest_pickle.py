@@ -2,6 +2,10 @@ import pytest
 from _pickle import Pickler, PicklingError, dumps
 from _pickle import Unpickler, UnpicklingError, loads
 import pickle
+from pickle import _dumps as dumps_py
+import sys
+
+protocols = range(5, -1, -1)
 
 def test_int():
     s = dumps(12)
@@ -19,6 +23,39 @@ def test_int():
     s = dumps(-3**19999)
     assert s.startswith(b'\x80\x04\x8b{\x0f\x00\x00\xd5\xcd\xc3\x89\xb1\x86$f\xe8+p\x1c@Y')
     assert loads(s) == -3**19999
+
+def test_ints():
+    for proto in protocols:
+        n = sys.maxsize
+        while n:
+            for expected in (-n, n):
+                s1= dumps(expected, proto)
+                s2 = dumps_py(expected, proto)
+                assert s1 == s2
+                n2 = loads(s1)
+                assert expected == n2, "expected %d got %d for protocol %d" %(expected, n2, proto)
+            n = n >> 1
+
+
+def test_long():
+    for proto in protocols:
+        # 256 bytes is where LONG4 begins.
+        for nbits in 1, 8, 8*254, 8*255, 8*256, 8*257:
+            nbase = 1 << nbits
+            for npos in nbase-1, nbase, nbase+1:
+                for n in npos, -npos:
+                    pickle = dumps(n, proto)
+                    got = loads(pickle)
+                    assert n == got
+    # Try a monster.  This is quadratic-time in protos 0 & 1, so don't
+    # bother with those.
+    nbase = int("deadbeeffeedface", 16)
+    nbase += nbase << 1000000
+    for n in nbase, -nbase:
+        p = dumps(n, 2)
+        got = loads(p)
+        assert n == got
+
 
 def test_none_true_false():
     s = dumps(None)
