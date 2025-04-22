@@ -1879,6 +1879,7 @@ class AbstractPickleTests:
             while n:
                 for expected in (-n, n):
                     s = self.dumps(expected, proto)
+                    print(expected, proto, s)
                     n2 = self.loads(s)
                     self.assert_is_copy(expected, n2)
                 n = n >> 1

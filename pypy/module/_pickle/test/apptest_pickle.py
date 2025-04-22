@@ -8,21 +8,19 @@ import sys
 protocols = range(5, -1, -1)
 
 def test_int():
-    s = dumps(12)
-    assert s == b'\x80\x04K\x0c.'
-    assert loads(s) == 12
-    s = dumps(1024)
-    assert s == b'\x80\x04M\x00\x04.'
-    assert loads(s) == 1024
-    s = dumps(-1024)
-    assert s == b'\x80\x04J\x00\xfc\xff\xff.'
-    assert loads(s) == -1024
-    s = dumps(2**32)
-    assert s == b'\x80\x04\x8a\x05\x00\x00\x00\x00\x01.'
-    assert loads(s) == 2**32
-    s = dumps(-3**19999)
-    assert s.startswith(b'\x80\x04\x8b{\x0f\x00\x00\xd5\xcd\xc3\x89\xb1\x86$f\xe8+p\x1c@Y')
-    assert loads(s) == -3**19999
+    for proto in protocols:
+        n = sys.maxsize
+        while n:
+            for expected in (-n, n):
+                s = dumps(expected, proto)
+                s2 = pickle._dumps(expected, proto)
+                print(expected, proto, s)
+                if s != s2:
+                    print(s, s2)
+                assert s == s2
+                n2 = loads(s)
+                assert expected == n2
+                n = n >> 1
 
 def test_ints():
     for proto in protocols:
@@ -192,3 +190,23 @@ def test_frozenset():
     f2 = loads(s)
     assert isinstance(f2, frozenset)
     assert f == f2
+
+def test_bytearray():
+    for proto in protocols:
+        for s in b'', b'xyz', b'xyz'*100:
+            b = bytearray(s)
+            p = dumps(b, proto)
+            print(b, p, proto)
+            bb = loads(p)
+            assert bb is not b
+            assert b == bb
+            if proto <= 3:
+                # bytearray is serialized using a global reference
+                assert b'bytearray' in p
+                assert pickle.GLOBAL in p
+            elif proto == 4:
+                assert b'bytearray' in p
+                assert pickle.STACK_GLOBAL in p
+            elif proto == 5:
+                assert b'bytearray' not in p
+                assert pickle.BYTEARRAY8 in p
