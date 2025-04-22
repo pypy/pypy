@@ -291,7 +291,6 @@ class W_Pickler(W_Root):
 
     def __init__(self, space, w_file, protocol=4, fix_imports=True,
                  buffer_callback=None):
-        assert protocol == 4
         self.space = space
         self.w_file = w_file
         self.protocol = protocol
@@ -301,9 +300,7 @@ class W_Pickler(W_Root):
         self.memo = {}
         self.proto = protocol
         self.bin = protocol >= 1
-        assert self.bin
         self.fast = 0
-        self.fix_imports = fix_imports and protocol < 3
         self.pers_func = None
 
     def write(self, data):
@@ -881,9 +878,8 @@ class W_Pickler(W_Root):
             write(op.GLOBAL + module_name + b'\n' +
                   name + b'\n')
         else:
-            # XXX Fixme
-            raise oefmt(pickling_error(space), "cannot use protocol<3")
-            if self.fix_imports:
+            if 0 and self.fix_imports:
+                # XXX Fixme
                 r_name_mapping = _compat_pickle.REVERSE_NAME_MAPPING
                 r_import_mapping = _compat_pickle.REVERSE_IMPORT_MAPPING
                 if (module_name, name) in r_name_mapping:
@@ -891,8 +887,8 @@ class W_Pickler(W_Root):
                 elif module_name in r_import_mapping:
                     module_name = r_import_mapping[module_name]
             try:
-                write(op.GLOBAL + bytes(module_name, "ascii") + b'\n' +
-                      bytes(name, "ascii") + b'\n')
+                write(op.GLOBAL + module_name + b'\n' +
+                      name + b'\n')
             except UnicodeEncodeError:
                 raise oefmt(pickling_error(space),
                     "can't pickle global identifier '%S.%S' using "
@@ -1542,10 +1538,8 @@ class W_Unpickler(W_Root):
     dispatch[op.NEWOBJ_EX[0]] = load_newobj_ex
 
     def load_global(self):
-        raise oefmt(unpickling_error(self.space), "cannot read global with protocol<3")
-        if 0:
-            w_module = self.readline()[:-1].decode("utf-8")
-            w_name = self.readline()[:-1].decode("utf-8")
+            w_module = self.space.newtext(self.readline()[:-1])
+            w_name = self.space.newtext(self.readline()[:-1])
             w_klass = self.find_class(w_module, w_name)
             self.append(w_klass)
     dispatch[op.GLOBAL[0]] = load_global

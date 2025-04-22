@@ -767,6 +767,7 @@ class _Pickler:
     dispatch[bool] = save_bool
 
     def save_long(self, obj):
+        import pdb;pdb.set_trace()
         if self.bin:
             # If the int is small enough to fit in a signed 4-byte 2's-comp
             # format, we can store it more efficiently than the general
