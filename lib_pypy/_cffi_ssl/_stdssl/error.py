@@ -139,6 +139,10 @@ def pyssl_error(obj, ret):
                     reason_str = ERR_CODES_TO_NAMES.get((err_lib, err_reason), None)
                     if reason_str == 'CERTIFICATE_VERIFY_FAILED':
                         errtype = SSLCertVerificationError
+                if lib.ERR_GET_LIB(e) == lib.ERR_LIB_SYS:
+                    # A system error is being reported; reason is set to errno
+                    errno = lib.ERR_GET_REASON(e)
+                    raise OSError(errno, os.strerror(errno))
                 errstr = _str_from_buf(lib.ERR_lib_error_string(e))
                 errval = SSL_ERROR_SYSCALL
         elif err.ssl == SSL_ERROR_SSL:
@@ -161,6 +165,10 @@ def pyssl_error(obj, ret):
                     errval = SSL_ERROR_EOF
                     errtype = SSLEOFError
                     errstr = "EOF occurred in violation of protocol"
+            if lib.ERR_GET_LIB(e) == lib.ERR_LIB_SYS:
+                # A system error is being reported; reason is set to errno
+                errno = lib.ERR_GET_REASON(e)
+                raise OSError(errno, os.strerror(errno))
         else:
             errstr = "Invalid error code"
             errval = SSL_ERROR_INVALID_ERROR_CODE
