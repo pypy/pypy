@@ -107,6 +107,7 @@ class AppTestSrePattern:
         assert ["a", "u"] == re.findall("b(.)", "abalbus")
         assert [("a", "l"), ("u", "s")] == re.findall("b(.)(.)", "abalbus")
         assert [("a", ""), ("s", "s")] == re.findall("b(a|(s))", "babs")
+        assert [(b"a", b""), (b"s", b"s")] == re.findall(b"b(a|(s))", b"babs")
         assert [u"xyz"] == re.findall(u".*yz", u"xyz")
 
     def test_finditer(self):
