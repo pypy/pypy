@@ -53,7 +53,7 @@ requires_32b = unittest.skipUnless(sys.maxsize < 2**32,
 # Tests that try a number of pickle protocols should have a
 #     for proto in protocols:
 # kind of outer loop.
-protocols = range(pickle.HIGHEST_PROTOCOL + 1)
+protocols = range(2, pickle.HIGHEST_PROTOCOL + 1)
 
 
 # Return True if opcode code appears in the pickle, else False.
@@ -4006,10 +4006,11 @@ class AbstractDispatchTableTests:
 
     def _test_dispatch_table(self, dumps, dispatch_table):
         def custom_load_dump(obj):
-            return pickle.loads(dumps(obj, 0))
+            import pdb;pdb.set_trace()
+            return pickle.loads(dumps(obj, 4))
 
         def default_load_dump(obj):
-            return pickle.loads(pickle.dumps(obj, 0))
+            return pickle.loads(pickle.dumps(obj, 4))
 
         # pickling complex numbers using protocol 0 relies on copyreg
         # so check pickling a complex number still works

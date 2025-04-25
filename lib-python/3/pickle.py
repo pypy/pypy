@@ -553,6 +553,7 @@ class _Pickler:
     def save(self, obj, save_persistent_id=True):
         self.framer.commit_frame()
 
+        import pdb;pdb.set_trace()
         # Check for persistent id (defined by a subclass)
         pid = self.persistent_id(obj)
         if pid is not None and save_persistent_id:

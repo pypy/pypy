@@ -20,9 +20,10 @@ class State:
         # from copyreg import (_extension_registry, _inverted_registry,
         # _extension_cache)
         w_copyreg = space.call_function(w_import, space.newtext('copyreg'))
-        w_functools = space.call_function(w_import, space.newtext('functools'))
+        self.w_dispatch_table = space.getattr(w_copyreg, space.newtext('dispatch_table'))
         self.w_extension_registry = space.getattr(w_copyreg, space.newtext('_extension_registry'))
         self.w_extension_cache = space.getattr(w_copyreg, space.newtext('_extension_cache'))
         self.w_inverted_registry = space.getattr(w_copyreg, space.newtext('_inverted_registry'))
+        w_functools = space.call_function(w_import, space.newtext('functools'))
         self.w_partial = space.getattr(w_functools, space.newtext("partial"))
         return
