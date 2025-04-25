@@ -3,6 +3,7 @@ from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct import ieee
 
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.unicodehelper import decode_utf8sp
@@ -202,7 +203,8 @@ class _Framer(object):
             self.current_frame = None
 
     def file_write(self, data):
-        self.space.call_method(self.w_file, 'write', self.space.newbytes(data))
+        w_ret = self.space.call_method(self.w_file, 'write', self.space.newbytes(data))
+        return self.space.int_w(w_ret)
 
     def commit_frame(self, force=False):
         if self.current_frame is not None:
@@ -304,7 +306,7 @@ class W_Pickler(W_Root):
         self.pers_func = None
 
     def write(self, data):
-        self.space.call_method(self.w_file, 'write', self.space.newbytes(data))
+        return self.framer.write(data)
 
     def _write_large_bytes(self, arg0, arg1):
         return self.framer.write_large_bytes(arg0, arg1)
@@ -384,9 +386,9 @@ class W_Pickler(W_Root):
             # Check private dispatch table if any, or else
             # copyreg.dispatch_table
             w_dispatch_table = space.fromcache(State).w_dispatch_table
-            #reduce = getattr(self, 'dispatch_table', dispatch_table).get(t)
-            if 0: # reduce is not None:
-                w_rv = reduce(w_obj)
+            w_reduce = space.findattr(w_dispatch_table, w_type)
+            if w_reduce:
+                w_rv = space.call_function(w_reduce, w_obj)
             else:
                 # Check for a class with a custom metaclass; treat as regular
                 # class
@@ -397,11 +399,11 @@ class W_Pickler(W_Root):
                 # Check for a __reduce_ex__ method, fall back to __reduce__
                 w_reduce = space.lookup(w_obj, "__reduce_ex__")
                 if w_reduce is not None:
-                    w_rv = space.get_and_call_function(w_reduce, w_obj, space.newint(self.proto))
+                    w_rv = space.call_function(w_reduce, w_obj, space.newint(self.proto))
                 else:
                     w_reduce = space.lookup(w_obj, "__reduce__")
                     if w_reduce is not None:
-                        w_rv = space.get_and_call_function(w_reduce, w_obj)
+                        w_rv = space.call_function(w_reduce, w_obj)
                     else:
                         raise oefmt(pickling_error(space), "Can't pickle %T object: %R", w_obj, w_obj)
 
@@ -458,6 +460,8 @@ class W_Pickler(W_Root):
             if -0x80000000 <= obj <= 0x7fffffff:
                 self.write(packi(op.BININT, obj))
                 return
+        if self.proto < 2:
+            raise oefmt(space.w_RuntimeError, "cannot save int/long with proto<2")
         encoded = encode_long(space, w_obj)
         n = len(encoded)
         if n < 256:
@@ -1000,7 +1004,7 @@ def encode_long(space, w_x):
     nbytes = (space.int_w(w_x.descr_bit_length(space)) >> 3) + 1
     result = space.bytes_w(w_x.descr_to_bytes(space, nbytes, byteorder='little', signed=True))
     if space.is_true(space.lt(w_x, space.newint(0))) and nbytes > 1:
-        if result[-1] == b'\xff' and (result[-2] != '\x80'):
+        if result[-1] == b'\xff' and (ord(result[-2]) & 0x080 != 0):
             result = result[:-1]
     return result
 
@@ -1057,16 +1061,18 @@ class _Unframer(object):
 
     def read(self, n):
         assert isinstance(n, int)
+        assert n >= 0
         if self.current_frame:
             data = self.current_frame
-            if not data and n != 0:
+            if not data and n > 0:
                 self.current_frame = None
                 w_ret = self.space.call_function(self.w_file_read, self.space.newint(n))
                 return self.space.bytes_w(w_ret)
             if len(data) < n:
                 raise oefmt(unpickling_error(self.space),
                     "pickle exhausted before end of frame")
-            return data
+            self.current_frame = data[n:]
+            return data[:n]
         else:
             w_ret = self.space.call_function(self.w_file_read, self.space.newint(n))
             return self.space.bytes_w(w_ret)
@@ -1521,7 +1527,8 @@ class W_Unpickler(W_Root):
         w_cls = self.stack.pop()
         w_new = space.getattr(w_cls, space.newtext("__new__"))
         if space.len_w(w_args) > 0:
-            w_obj = space.call_function(w_new, w_cls, w_args)
+            w_arguments = Arguments(space, [w_cls], w_stararg = w_args)
+            w_obj = space.call_args(w_new, w_arguments)
         else:
             w_obj = space.call_function(w_new, w_cls)
         self.append(w_obj)

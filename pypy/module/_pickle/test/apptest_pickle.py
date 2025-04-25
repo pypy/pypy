@@ -5,7 +5,8 @@ import pickle
 from pickle import _dumps as dumps_py
 import sys
 
-protocols = range(5, -1, -1)
+# We don't support protocol < 2
+protocols = range(5, 1, -1)
 
 def test_int():
     for proto in protocols:
@@ -210,3 +211,10 @@ def test_bytearray():
             elif proto == 5:
                 assert b'bytearray' not in p
                 assert pickle.BYTEARRAY8 in p
+
+def test_complex():
+    c = (1+2j)
+    s = dumps(c)
+    c2 = loads(s)
+    assert c2 == c
+
