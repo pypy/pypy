@@ -553,7 +553,6 @@ class _Pickler:
     def save(self, obj, save_persistent_id=True):
         self.framer.commit_frame()
 
-        import pdb;pdb.set_trace()
         # Check for persistent id (defined by a subclass)
         pid = self.persistent_id(obj)
         if pid is not None and save_persistent_id:
@@ -768,7 +767,6 @@ class _Pickler:
     dispatch[bool] = save_bool
 
     def save_long(self, obj):
-        import pdb;pdb.set_trace()
         if self.bin:
             # If the int is small enough to fit in a signed 4-byte 2's-comp
             # format, we can store it more efficiently than the general
