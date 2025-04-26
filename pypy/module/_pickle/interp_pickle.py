@@ -310,6 +310,23 @@ class W_Pickler(W_Root):
         self.fast = 0
         self.pers_func = None
         self.w_dispatch_table = None
+        self.dispatch = {}
+        self.dispatch[space.w_NoneType] = save_none
+        self.dispatch[space.w_bool]   = save_bool
+        self.dispatch[space.w_int]    = save_long
+        self.dispatch[space.w_float]  = save_float
+        self.dispatch[space.w_unicode] = save_str
+        self.dispatch[space.w_bytes]  = save_bytes
+        self.dispatch[space.w_tuple]  = save_tuple
+        self.dispatch[space.w_list]   = save_list
+        self.dispatch[space.w_dict]   = save_dict
+        if self.proto >= 4:
+            self.dispatch[space.w_frozenset] = save_frozenset
+        if self.proto >= 5:
+            self.dispatch[space.w_bytearray]   = save_bytearray
+        w_function = space.type(space.getattr(space.w_text, space.newtext("count")))
+        self.dispatch[w_function]     = save_global
+
 
     def write(self, data):
         return self.framer.write(data)
@@ -337,52 +354,10 @@ class W_Pickler(W_Root):
             if pid is not None:
                 self.save_pers(pid)
                 return
-        if space.is_w(space.w_None, w_obj):
-            self.save_none(w_obj)
-            return
-        if space.is_w(space.w_True, w_obj) or space.is_w(space.w_False, w_obj):
-            self.save_bool(w_obj)
-            return
-        w_type = space.type(w_obj)
-        if space.is_w(space.w_int, w_type):
-            self.save_long(w_obj)
-            return
-        if space.is_w(space.w_float, w_type):
-            self.save_float(w_obj)
-            return
-
         # Check the memo
         x = self.memo.get(w_obj, -1)
         if x >= 0:
             self.write(self.get(x))
-            return
-
-        if space.is_w(space.w_bytes, w_type):
-            self.save_bytes(w_obj)
-            return
-
-        if space.is_w(space.w_unicode, w_type):
-            self.save_str(w_obj)
-            return
-
-        if space.is_w(space.w_tuple, w_type):
-            self.save_tuple(w_obj)
-            return
-
-        if space.is_w(space.w_list, w_type):
-            self.save_list(w_obj)
-            return
-
-        if space.is_w(space.w_dict, w_type):
-            self.save_dict(w_obj)
-            return
-
-        if space.is_w(space.w_frozenset, w_type) and self.proto >= 4:
-            self.save_frozenset(w_obj)
-            return
-
-        if self.proto >= 5 and space.isinstance_w(w_obj, space.w_bytearray):
-            self.save_bytearray(w_obj)
             return
 
         w_rv = space.w_NotImplemented
@@ -394,6 +369,11 @@ class W_Pickler(W_Root):
 
         if w_rv is space.w_NotImplemented:
             # Check private dispatch table if any, or else
+            w_type = space.type(w_obj)
+            f = self.dispatch.get(w_type)
+            if f is not None:
+                f(self, w_obj)
+                return
             # copyreg.dispatch_table
             w_dispatch_table = self.w_dispatch_table
             if not w_dispatch_table:
@@ -405,7 +385,7 @@ class W_Pickler(W_Root):
                 # Check for a class with a custom metaclass; treat as regular
                 # class
                 if space.issubtype_w(w_type, space.w_type):
-                    self.save_global(w_obj)
+                    self.save_global2(w_obj, None)
                     return
 
                 # Check for a __reduce_ex__ method, fall back to __reduce__
@@ -421,7 +401,7 @@ class W_Pickler(W_Root):
 
         # Check for string returned by reduce(), meaning "save as global"
         if space.isinstance_w(w_rv, space.w_unicode):
-            self.save_global(w_obj, w_rv)
+            self.save_global2(w_obj, w_rv)
             return
 
         # Assert that reduce() returned a tuple
@@ -436,151 +416,6 @@ class W_Pickler(W_Root):
 
         # Save the reduce() output and finally memoize the object
         self.save_reduce(w_obj, w_rv)
-
-    def save_none(self, w_obj):
-        self.write(op.NONE)
-
-    def save_bool(self, w_obj):
-        space = self.space
-        if self.proto >= 2:
-            self.write(op.NEWTRUE if space.is_w(space.w_True, w_obj) else op.NEWFALSE)
-        else:
-            self.write(op.TRUE if space.is_w(space.w_True, w_obj) else op.FALSE)
-
-
-    def save_long(self, w_obj):
-        # If the int is small enough to fit in a signed 4-byte 2's-comp
-        # format, we can store it more efficiently than the general
-        # case.
-        # First one- and two-byte unsigned ints:
-        space = self.space
-        try:
-            obj = space.int_w(w_obj)
-        except OperationError as e:
-            if not e.match(space, space.w_OverflowError):
-                raise
-        else:
-            if obj >= 0:
-                if obj <= 0xff:
-                    self.write(packB(op.BININT1, obj))
-                    return
-                if obj <= 0xffff:
-                    self.write(packH(op.BININT2 , obj))
-                    return
-            # Next check for 4-byte signed ints:
-            # XXX 32 bit systems?
-            if -0x80000000 <= obj <= 0x7fffffff:
-                self.write(packi(op.BININT, obj))
-                return
-        if self.proto < 2:
-            raise oefmt(space.w_RuntimeError, "cannot save int/long with proto<2")
-        encoded = encode_long(space, w_obj)
-        n = len(encoded)
-        if n < 256:
-            self.write(packB(op.LONG1, n) + encoded)
-        else:
-            self.write(packi(op.LONG4, n) + encoded)
-        return
-
-    def save_float(self, w_obj):
-        space = self.space
-        if self.bin:
-            obj = space.float_w(w_obj)
-            self.write(op.BINFLOAT + pack_float(obj))
-        else:
-            as_ascii = space.utf8_w(space.repr(w_obj)) # .encode("ascii")
-            self.write(op.FLOAT + as_ascii + '\n')
-
-    def save_bytes(self, w_obj):
-        space = self.space
-        if self.proto < 3:
-            assert 0
-        n = space.len_w(w_obj)
-        obj = space.bytes_w(w_obj)
-        if n <= 0xff:
-            self.write(packB(op.SHORT_BINBYTES, n) + obj)
-        elif n > 0xffffffff and self.proto >= 4:
-            self._write_large_bytes(packQ(op.BINBYTES8, n), obj)
-        elif n >= self.framer._FRAME_SIZE_TARGET:
-            self._write_large_bytes(packI(op.BINBYTES, n), obj)
-        else:
-            self.write(packI(op.BINBYTES, n) + obj)
-        self.memoize(w_obj)
-
-    def save_str(self, w_obj):
-        space = self.space
-        w_encoded = space.call_method(w_obj, "encode", space.newtext('utf-8'), space.newtext('surrogatepass'))
-        encoded = space.bytes_w(w_encoded)
-        n = len(encoded)
-        if n <= 0xff and self.proto >= 4:
-            self.write(packB(op.SHORT_BINUNICODE, n) + encoded)
-        elif n > 0xffffffff and self.proto >= 4:
-            self._write_large_bytes(packQ(op.BINUNICODE8, n), encoded)
-        elif n >= self.framer._FRAME_SIZE_TARGET:
-            self._write_large_bytes(packI(op.BINUNICODE, n), encoded)
-        else:
-            self.write(packI(op.BINUNICODE, n) + encoded)
-        self.memoize(w_obj)
-
-    def save_tuple(self, w_obj):
-        space = self.space
-        n = space.len_w(w_obj)
-        if not n: # tuple is empty
-            if self.bin:
-                self.write(op.EMPTY_TUPLE)
-            else:
-                self.write(op.MARK + op.TUPLE)
-            return
-
-        save = self.save
-        memo = self.memo
-        if n <= 3 and self.proto >= 2:
-            for element in space.unpackiterable(w_obj):
-                save(element)
-            # Subtle.  Same as in the big comment below.
-            if w_obj in memo:
-                get = self.get(memo[w_obj])
-                self.write(op.POP * n + get)
-            else:
-                self.write(op._tuplesize2code[n])
-                self.memoize(w_obj)
-            return
-
-        # proto 0 or proto 1 and tuple isn't empty, or proto > 1 and tuple
-        # has more than 3 elements.
-        write = self.write
-        write(op.MARK)
-        for element in space.unpackiterable(w_obj):
-            save(element)
-
-        if w_obj in memo:
-            # Subtle.  d was not in memo when we entered save_tuple(), so
-            # the process of saving the tuple's elements must have saved
-            # the tuple itself:  the tuple is recursive.  The proper action
-            # now is to throw away everything we put on the stack, and
-            # simply GET the tuple (it's already constructed).  This check
-            # could have been done in the "for element" loop instead, but
-            # recursive tuples are a rare thing.
-            get = self.get(memo[w_obj])
-            if self.bin:
-                write(op.POP_MARK + get)
-            else:   # proto 0 -- POP_MARK not available
-                write(op.POP * (n+1) + get)
-            return
-
-        # No recursion.
-        write(op.TUPLE)
-        self.memoize(w_obj)
-
-    def save_list(self, w_obj):
-        if self.bin:
-            self.write(op.EMPTY_LIST)
-        else:   # proto 0 -- can't use EMPTY_LIST
-            self.write(op.MARK + op.LIST)
-
-        self.memoize(w_obj)
-        self._batch_appends(w_obj)
-
 
     _BATCHSIZE = 1000
     def _batch_appends(self, w_list):
@@ -620,16 +455,6 @@ class W_Pickler(W_Root):
                 if not w_item:
                     break
             self.write(op.APPENDS)
-
-    def save_dict(self, w_obj):
-        if self.bin:
-            self.write(op.EMPTY_DICT)
-        else:   # proto 0 -- can't use EMPTY_DICT
-            self.write(op.MARK + op.DICT)
-
-        self.memoize(w_obj)
-        w_items = self.space.call_method(w_obj, 'items')
-        self._batch_setitems(w_items)
 
     def _batch_setitems(self, w_items):
         def savetup2(self, w_tup):
@@ -675,31 +500,6 @@ class W_Pickler(W_Root):
                 if not w_item:
                     break
             self.write(op.SETITEMS)
-
-    def save_frozenset(self, w_obj):
-        self.write(op.MARK)
-        space = self.space
-        save = self.save
-        memo = self.memo
-        for element in space.unpackiterable(w_obj):
-            save(element)
-        # Subtle.  Avoids recursive writing
-        if w_obj in memo:
-            get = self.get(memo[w_obj])
-            self.write(op.POP + get)
-        else:
-            self.write(op.FROZENSET)
-            self.memoize(w_obj)
-
-    def save_bytearray(self, w_obj):
-        space = self.space
-        n = space.len_w(w_obj)
-        obj = space.buffer_w(w_obj, 0).as_str()
-        if n >= self.framer._FRAME_SIZE_TARGET:
-            self._write_large_bytes(packQ(op.BYTEARRAY8, n), obj)
-        else:
-            self.write(packQ(op.BYTEARRAY8, n))
-            self.write(obj)
 
     def save_reduce(self, w_obj, w_rv):
         space = self.space
@@ -843,7 +643,7 @@ class W_Pickler(W_Root):
                 # the stack.
                 write(op.POP)
 
-    def save_global(self, w_obj, w_name=None):
+    def save_global2(self, w_obj, w_name):
         space = self.space
         write = self.write
         memo = self.memo
@@ -970,6 +770,191 @@ class W_Pickler(W_Root):
         raise oefmt(space.w_AttributeError,
             "%T object has no attribute 'dispatch_table'", self)
 
+def save_global(self, w_obj):
+    return self.save_global2(w_obj, None)
+
+def save_none(self, w_obj):
+    self.write(op.NONE)
+
+def save_bool(self, w_obj):
+    space = self.space
+    if self.proto >= 2:
+        self.write(op.NEWTRUE if space.is_w(space.w_True, w_obj) else op.NEWFALSE)
+    else:
+        self.write(op.TRUE if space.is_w(space.w_True, w_obj) else op.FALSE)
+
+
+def save_long(self, w_obj):
+    # If the int is small enough to fit in a signed 4-byte 2's-comp
+    # format, we can store it more efficiently than the general
+    # case.
+    # First one- and two-byte unsigned ints:
+    space = self.space
+    try:
+        obj = space.int_w(w_obj)
+    except OperationError as e:
+        if not e.match(space, space.w_OverflowError):
+            raise
+    else:
+        if obj >= 0:
+            if obj <= 0xff:
+                self.write(packB(op.BININT1, obj))
+                return
+            if obj <= 0xffff:
+                self.write(packH(op.BININT2 , obj))
+                return
+        # Next check for 4-byte signed ints:
+        # XXX 32 bit systems?
+        if -0x80000000 <= obj <= 0x7fffffff:
+            self.write(packi(op.BININT, obj))
+            return
+    if self.proto < 2:
+        raise oefmt(space.w_RuntimeError, "cannot save int/long with proto<2")
+    encoded = encode_long(space, w_obj)
+    n = len(encoded)
+    if n < 256:
+        self.write(packB(op.LONG1, n) + encoded)
+    else:
+        self.write(packi(op.LONG4, n) + encoded)
+    return
+
+def save_float(self, w_obj):
+    space = self.space
+    if self.bin:
+        obj = space.float_w(w_obj)
+        self.write(op.BINFLOAT + pack_float(obj))
+    else:
+        as_ascii = space.utf8_w(space.repr(w_obj)) # .encode("ascii")
+        self.write(op.FLOAT + as_ascii + '\n')
+
+def save_bytes(self, w_obj):
+    space = self.space
+    if self.proto < 3:
+        assert 0
+    n = space.len_w(w_obj)
+    obj = space.bytes_w(w_obj)
+    if n <= 0xff:
+        self.write(packB(op.SHORT_BINBYTES, n) + obj)
+    elif n > 0xffffffff and self.proto >= 4:
+        self._write_large_bytes(packQ(op.BINBYTES8, n), obj)
+    elif n >= self.framer._FRAME_SIZE_TARGET:
+        self._write_large_bytes(packI(op.BINBYTES, n), obj)
+    else:
+        self.write(packI(op.BINBYTES, n) + obj)
+    self.memoize(w_obj)
+
+def save_str(self, w_obj):
+    space = self.space
+    w_encoded = space.call_method(w_obj, "encode", space.newtext('utf-8'), space.newtext('surrogatepass'))
+    encoded = space.bytes_w(w_encoded)
+    n = len(encoded)
+    if n <= 0xff and self.proto >= 4:
+        self.write(packB(op.SHORT_BINUNICODE, n) + encoded)
+    elif n > 0xffffffff and self.proto >= 4:
+        self._write_large_bytes(packQ(op.BINUNICODE8, n), encoded)
+    elif n >= self.framer._FRAME_SIZE_TARGET:
+        self._write_large_bytes(packI(op.BINUNICODE, n), encoded)
+    else:
+        self.write(packI(op.BINUNICODE, n) + encoded)
+    self.memoize(w_obj)
+
+def save_tuple(self, w_obj):
+    space = self.space
+    n = space.len_w(w_obj)
+    if not n: # tuple is empty
+        if self.bin:
+            self.write(op.EMPTY_TUPLE)
+        else:
+            self.write(op.MARK + op.TUPLE)
+        return
+
+    save = self.save
+    memo = self.memo
+    if n <= 3 and self.proto >= 2:
+        for element in space.unpackiterable(w_obj):
+            save(element)
+        # Subtle.  Same as in the big comment below.
+        if w_obj in memo:
+            get = self.get(memo[w_obj])
+            self.write(op.POP * n + get)
+        else:
+            self.write(op._tuplesize2code[n])
+            self.memoize(w_obj)
+        return
+
+    # proto 0 or proto 1 and tuple isn't empty, or proto > 1 and tuple
+    # has more than 3 elements.
+    write = self.write
+    write(op.MARK)
+    for element in space.unpackiterable(w_obj):
+        save(element)
+
+    if w_obj in memo:
+        # Subtle.  d was not in memo when we entered save_tuple(), so
+        # the process of saving the tuple's elements must have saved
+        # the tuple itself:  the tuple is recursive.  The proper action
+        # now is to throw away everything we put on the stack, and
+        # simply GET the tuple (it's already constructed).  This check
+        # could have been done in the "for element" loop instead, but
+        # recursive tuples are a rare thing.
+        get = self.get(memo[w_obj])
+        if self.bin:
+            write(op.POP_MARK + get)
+        else:   # proto 0 -- POP_MARK not available
+            write(op.POP * (n+1) + get)
+        return
+
+    # No recursion.
+    write(op.TUPLE)
+    self.memoize(w_obj)
+
+def save_list(self, w_obj):
+    if self.bin:
+        self.write(op.EMPTY_LIST)
+    else:   # proto 0 -- can't use EMPTY_LIST
+        self.write(op.MARK + op.LIST)
+
+    self.memoize(w_obj)
+    self._batch_appends(w_obj)
+
+def save_dict(self, w_obj):
+    if self.bin:
+        self.write(op.EMPTY_DICT)
+    else:   # proto 0 -- can't use EMPTY_DICT
+        self.write(op.MARK + op.DICT)
+
+    self.memoize(w_obj)
+    w_items = self.space.call_method(w_obj, 'items')
+    self._batch_setitems(w_items)
+
+def save_frozenset(self, w_obj):
+    self.write(op.MARK)
+    space = self.space
+    save = self.save
+    memo = self.memo
+    for element in space.unpackiterable(w_obj):
+        save(element)
+    # Subtle.  Avoids recursive writing
+    if w_obj in memo:
+        get = self.get(memo[w_obj])
+        self.write(op.POP + get)
+    else:
+        self.write(op.FROZENSET)
+        self.memoize(w_obj)
+
+def save_bytearray(self, w_obj):
+    space = self.space
+    n = space.len_w(w_obj)
+    obj = space.buffer_w(w_obj, 0).as_str()
+    if n >= self.framer._FRAME_SIZE_TARGET:
+        self._write_large_bytes(packQ(op.BYTEARRAY8, n), obj)
+    else:
+        self.write(packQ(op.BYTEARRAY8, n))
+        self.write(obj)
+
+
+
+
 app = applevel('''
 def _getattribute(obj, name):
     for subpath in name.split('.'):
@@ -991,6 +976,7 @@ def whichmodule(obj, name):
         return module_name
     # Protect the iteration by using a list copy of sys.modules against dynamic
     # modules that trigger imports of other modules upon calls to getattr.
+    import sys
     for module_name, module in sys.modules.copy().items():
         if (module_name == '__main__'
             or module_name == '__mp_main__'  # bpo-42406
@@ -1135,7 +1121,7 @@ class _Unframer(object):
             data = space.bytes_w(w_ret)
             if len(data) < 2:
                 raise oefmt(unpickling_error(space),
-                    "pickle data was truncated") 
+                    "pickle data was truncated")
             if data[-1] != b'\n'[0]:
                 raise oefmt(unpickling_error(space),
                     "pickle exhausted before end of frame")

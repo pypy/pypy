@@ -221,7 +221,7 @@ def test_complex():
     assert c2 == c
 
 def test_dispatch_table():
-    c = 1 + 2j 
+    c = 1 + 2j
     f = io.BytesIO()
     p = Pickler(f, 4)
     p.dispatch_table = dispatch_table.copy()
@@ -312,3 +312,11 @@ def test_find_class():
     data = b'\x80\x02c__builtin__\nxrange\nK\x01K\x07K\x01\x87R.'
     got = loads(data)
     assert isinstance(got, range)
+
+def test_function():
+    method = str.count
+    data = dumps(method)
+    pydata = dumps_py(method)
+    assert data == pydata
+    got = loads(data)
+    assert got == str.count
