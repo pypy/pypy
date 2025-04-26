@@ -16,6 +16,8 @@ class State:
     def startup(self, space):
         w_import = space.getattr(space.builtin, space.newtext("__import__"))
         w__compat_pickle = space.call_function(w_import, space.newtext('_compat_pickle'))
+        self.w_NAME_MAPPING = space.getattr(w__compat_pickle, space.newtext("NAME_MAPPING"))
+        self.w_IMPORT_MAPPING = space.getattr(w__compat_pickle, space.newtext("IMPORT_MAPPING"))
         # For the extension opcodes EXT1, EXT2 and EXT4.
         # from copyreg import (_extension_registry, _inverted_registry,
         # _extension_cache)
