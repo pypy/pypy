@@ -4,7 +4,7 @@ from rpython.rlib.rstruct import ieee
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.typedef import TypeDef, make_weakref_descr
+from pypy.interpreter.typedef import TypeDef, make_weakref_descr, GetSetProperty
 from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.unicodehelper import decode_utf8sp
 
@@ -178,6 +178,12 @@ def unpickling_error(space):
     w_module = space.getbuiltinmodule('_pickle')
     return space.getattr(w_module, space.newtext('UnpicklingError'))
 
+def data_pop(space, stack):
+    if len(stack) >= 1:
+        return stack.pop()
+    raise oefmt(unpickling_error(space),
+        "unexpected MARK found")
+
 # An instance of _Stop is raised by Unpickler.load_stop() in response to
 # the STOP opcode, passing the object that is the result of unpickling.
 class _Stop(Exception):
@@ -290,7 +296,6 @@ class W_Pickler(W_Root):
     It is an error if *buffer_callback* is not None and *protocol*
     is None or smaller than 5.
     """
-
     def __init__(self, space, w_file, protocol=4, fix_imports=True,
                  buffer_callback=None):
         self.space = space
@@ -304,6 +309,7 @@ class W_Pickler(W_Root):
         self.bin = protocol >= 1
         self.fast = 0
         self.pers_func = None
+        self.w_dispatch_table = None
 
     def write(self, data):
         return self.framer.write(data)
@@ -375,6 +381,10 @@ class W_Pickler(W_Root):
             self.save_frozenset(w_obj)
             return
 
+        if self.proto >= 5 and space.isinstance_w(w_obj, space.w_bytearray):
+            self.save_bytearray(w_obj)
+            return
+
         w_rv = space.w_NotImplemented
         w_reduce = space.w_None
         if space.findattr(self, space.newtext("reducer_override")):
@@ -385,8 +395,10 @@ class W_Pickler(W_Root):
         if w_rv is space.w_NotImplemented:
             # Check private dispatch table if any, or else
             # copyreg.dispatch_table
-            w_dispatch_table = space.fromcache(State).w_dispatch_table
-            w_reduce = space.findattr(w_dispatch_table, w_type)
+            w_dispatch_table = self.w_dispatch_table
+            if not w_dispatch_table:
+                w_dispatch_table = space.fromcache(State).w_dispatch_table
+            w_reduce = space.finditem(w_dispatch_table, w_type)
             if w_reduce:
                 w_rv = space.call_function(w_reduce, w_obj)
             else:
@@ -616,9 +628,10 @@ class W_Pickler(W_Root):
             self.write(op.MARK + op.DICT)
 
         self.memoize(w_obj)
-        self._batch_setitems(w_obj)
+        w_items = self.space.call_method(w_obj, 'items')
+        self._batch_setitems(w_items)
 
-    def _batch_setitems(self, w_dict):
+    def _batch_setitems(self, w_items):
         def savetup2(self, w_tup):
             space = self.space
             w_k, w_v = space.unpackiterable(w_tup, 2)
@@ -630,7 +643,7 @@ class W_Pickler(W_Root):
         save = self.save
         write = self.write
 
-        w_it = space.iter(space.call_method(w_dict, 'items'))
+        w_it = space.iter(w_items)
         if not self.bin:
             raise oefmt(space.w_RuntimeError, "cannot batch pickle dict with proto<2")
             # for k, v in w_it:
@@ -678,6 +691,15 @@ class W_Pickler(W_Root):
             self.write(op.FROZENSET)
             self.memoize(w_obj)
 
+    def save_bytearray(self, w_obj):
+        space = self.space
+        n = space.len_w(w_obj)
+        obj = space.buffer_w(w_obj, 0).as_str()
+        if n >= self.framer._FRAME_SIZE_TARGET:
+            self._write_large_bytes(packQ(op.BYTEARRAY8, n), obj)
+        else:
+            self.write(packQ(op.BYTEARRAY8, n))
+            self.write(obj)
 
     def save_reduce(self, w_obj, w_rv):
         space = self.space
@@ -939,6 +961,15 @@ class W_Pickler(W_Root):
 
         return "%s%d\n" %(op.GET, idx)
 
+    def set_dispatch_table_w(self, space, w_obj):
+        self.w_dispatch_table = w_obj
+
+    def get_dispatch_table_w(self, space):
+        if self.w_dispatch_table:
+            return self.w_dispatch_table
+        raise oefmt(space.w_AttributeError,
+            "%T object has no attribute 'dispatch_table'", self)
+
 app = applevel('''
 def _getattribute(obj, name):
     for subpath in name.split('.'):
@@ -1021,15 +1052,16 @@ def decode_long(space, data):
     return w_obj
 
 
-@unwrap_spec(proto=int)
-def descr__new__(space, w_subtype, w_file, proto):
+@unwrap_spec(protocol=int)
+def descr__new__(space, w_subtype, w_file, protocol=DEFAULT_PROTOCOL):
     w_self = space.allocate_instance(W_Pickler, w_subtype)
-    W_Pickler.__init__(w_self, space, w_file, proto)
+    W_Pickler.__init__(w_self, space, w_file, protocol)
     return w_self
 
 W_Pickler.typedef = TypeDef("_pickle.Pickler",
     __new__ = interp2app(descr__new__),
     dump = interp2app(W_Pickler.dump),
+    dispatch_table = GetSetProperty(W_Pickler.get_dispatch_table_w, W_Pickler.set_dispatch_table_w),
 )
 
 
@@ -1062,42 +1094,62 @@ class _Unframer(object):
     def read(self, n):
         assert isinstance(n, int)
         assert n >= 0
+        space = self.space
         if self.current_frame:
             data = self.current_frame
             if not data and n > 0:
                 self.current_frame = None
-                w_ret = self.space.call_function(self.w_file_read, self.space.newint(n))
-                return self.space.bytes_w(w_ret)
+                w_ret = space.call_function(self.w_file_read, space.newint(n))
+                ret = space.bytes_w(w_ret)
+                if len(ret) < n:
+                    raise oefmt(space.w_EOFError, "Ran out of input 1")
+                return ret
             if len(data) < n:
-                raise oefmt(unpickling_error(self.space),
+                raise oefmt(unpickling_error(space),
                     "pickle exhausted before end of frame")
             self.current_frame = data[n:]
             return data[:n]
         else:
-            w_ret = self.space.call_function(self.w_file_read, self.space.newint(n))
-            return self.space.bytes_w(w_ret)
+            w_ret = space.call_function(self.w_file_read, space.newint(n))
+            ret = space.bytes_w(w_ret)
+            if len(ret) < n:
+                raise oefmt(unpickling_error(space), "pickle data was truncated")
+            return ret
 
     def readline(self):
+        space = self.space
         if self.current_frame:
             data = self.current_frame
             if not data:
                 self.current_frame = None
-                w_ret = self.space.call_function(self.w_file_readline)
-                return self.space.bytes_w(w_ret)
+                w_ret = space.call_function(self.w_file_readline)
+                data = space.bytes_w(w_ret)
+                if len(data) < 2:
+                    raise oefmt(space.w_EOFError, "Ran out of input 3")
             if data[-1] != b'\n'[0]:
-                raise oefmt(unpickling_error(self.space),
+                raise oefmt(unpickling_error(space),
                     "pickle exhausted before end of frame")
             return data
         else:
-            w_ret = self.space.call_function(self.w_file_readline)
-            return self.space.bytes_w(w_ret)
+            w_ret = space.call_function(self.w_file_readline)
+            data = space.bytes_w(w_ret)
+            if len(data) < 2:
+                raise oefmt(unpickling_error(space),
+                    "pickle data was truncated") 
+            if data[-1] != b'\n'[0]:
+                raise oefmt(unpickling_error(space),
+                    "pickle exhausted before end of frame")
+            return data
 
     def load_frame(self, frame_size):
         if self.current_frame and len(self.current_frame) > 0:
             raise oefmt(unpickling_error(self.space),
                 "beginning of a new frame before end of current frame")
         w_ret = self.space.call_function(self.w_file_read, self.space.newint(frame_size))
-        self.current_frame = self.space.bytes_w(w_ret)
+        ret = self.space.bytes_w(w_ret)
+        if len(ret) < frame_size:
+            raise oefmt(self.space.w_EOFError, "Ran out of input 5")
+        self.current_frame = ret
 
 
 class W_Unpickler(W_Root):
@@ -1167,17 +1219,22 @@ class W_Unpickler(W_Root):
         read = self.read
         while True:
             key = self.read(1)
-            if not key:
-                raise EOFError
             if key[0] == op.STOP[0]:
-                return self.stack.pop()
+                return data_pop(self.space, self.stack)
             # print "calling", self.dispatch[key[0]]
-            self.dispatch[key[0]](self)
+            try:
+                self.dispatch[key[0]](self)
+            except KeyError:
+                raise oefmt(unpickling_error(self.space),
+                    "unkown mark %s", key[0])
             # print "self.stack", self.stack
 
     # Return a list of items pushed in the stack after last MARK instruction.
     def pop_mark(self):
         items = self.stack
+        if len(self.metastack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                "no items on stack")
         self.stack = self.metastack.pop()
         self.append = self.stack.append
         return items
@@ -1191,7 +1248,11 @@ class W_Unpickler(W_Root):
     dispatch[op.PROTO[0]] = load_proto
 
     def load_frame(self):
-        frame_size = unpackQ(self.read(8))
+        try:
+            frame_size = unpackQ(self.read(8))
+        except IndexError:
+            raise oefmt(unpickling_error(self.space),
+                'truncated data in FRAME')
         if frame_size > maxsize:
             raise oefmt(self.space.w_ValueError,
                 "frame size > maxsize: %d", frame_size)
@@ -1213,7 +1274,7 @@ class W_Unpickler(W_Root):
         dispatch[op.PERSID[0]] = load_persid
 
         def load_binpersid(self):
-            w_pid = self.stack.pop()
+            w_pid = data_pop(self.space, self.stack)
             self.append(self.persistent_load(w_pid))
         dispatch[op.BINPERSID[0]] = load_binpersid
 
@@ -1231,19 +1292,26 @@ class W_Unpickler(W_Root):
 
     def load_int(self):
         space = self.space
-        data = self.readline()
+        data = self.readline()[:-1]
         if data == op.FALSE[1:]:
             w_val = space.w_False
         elif data == op.TRUE[1:]:
             w_val = space.w_True
         else:
-            w_val = space.newint(int(data))
+            try:
+                w_val = space.newint(int(data))
+            except ValueError:
+                raise oefmt(space.w_ValueError, "could not convert string to int")
         self.append(w_val)
     dispatch[op.INT[0]] = load_int
 
     def load_binint(self):
         data = self.read(4)
-        val = unpacki(data)
+        try:
+            val = unpacki(data)
+        except IndexError:
+            raise oefmt(unpickling_error(self.space),
+                'truncated data in BININT')
         self.append(self.space.newint(val))
     dispatch[op.BININT[0]] = load_binint
 
@@ -1274,7 +1342,11 @@ class W_Unpickler(W_Root):
 
     def load_long4(self):
         data = self.read(4)
-        n = unpacki(data)
+        try:
+            n = unpacki(data)
+        except IndexError:
+            raise oefmt(unpickling_error(self.space),
+                'truncated data in LONG4')
         if n < 0:
             # Corrupt or hostile pickle -- we never write one like this
             raise oefmt(unpickling_error(self.space),
@@ -1319,22 +1391,35 @@ class W_Unpickler(W_Root):
 
         def load_binstring(self):
             # Deprecated BINSTRING uses signed 32-bit length
-            len = unpacki(self.read(4))
-            if len < 0:
+            try:
+                length = unpacki(self.read(4))
+            except IndexError:
+                raise oefmt(unpickling_error(self.space),
+                    'truncated data in BINSTRING')
+            if length < 0:
                 raise oefmt(unpickling_error(self.space),
                     "BINSTRING pickle has negative byte count")
-            data = self.read(len)
+            data = self.read(length)
+            if len(data) < length:
+                raise oefmt(unpickling_error(self.space),
+                    "trucated data in BINSTRING")
             self.append(self._decode_string(data))
         dispatch[op.BINSTRING[0]] = load_binstring
 
     def load_binbytes(self):
-        length = unpackI(self.read(4))
+        try:
+            length = unpackI(self.read(4))
+        except IndexError:
+            raise oefmt(unpickling_error(self.space),
+                "trucated data in BINBYTES")
         if length > maxsize:
             raise oefmt(unpickling_error(self.space),
                 "BINBYTES exceeds system's maximum size "
                                   "of %d bytes", maxsize)
         data = self.read(length)
-        assert len(data) == length
+        if len(data) < length:
+            raise oefmt(unpickling_error(self.space),
+                "trucated data in BINBYTES")
         self.append(self.space.newbytes(data))
     dispatch[op.BINBYTES[0]] = load_binbytes
 
@@ -1344,42 +1429,70 @@ class W_Unpickler(W_Root):
     dispatch[op.UNICODE[0]] = load_unicode
 
     def load_binunicode(self):
-        length = unpackI(self.read(4))
+        try:
+            length = unpackI(self.read(4))
+        except IndexError:
+            raise oefmt(unpickling_error(self.space),
+                "trucated data in BINUNICODE")
         if length > maxsize:
             raise oefmt(unpickling_error(self.space),
                 "BINUNICODE exceeds system's maximum size "
                                   "of %d bytes", maxsize)
         data = self.read(length)
+        if len(data) < length:
+            raise oefmt(unpickling_error(self.space),
+                "trucated data in BINUNICODE")
         self.append(self.space.newtext(*decode_utf8sp(self.space, data)))
     dispatch[op.BINUNICODE[0]] = load_binunicode
 
     def load_binunicode8(self):
-        length = unpackQ(self.read(8))
+        try:
+            length = unpackQ(self.read(8))
+        except IndexError:
+            raise oefmt(unpickling_error(self.space),
+                "trucated data in BINUNICODE8")
         if length > maxsize:
             raise oefmt(unpickling_error(self.space),
                 "BINUNICODE8 exceeds system's maximum size "
                                   "of %d bytes", maxsize)
         data = self.read(length)
+        if len(data) < length:
+            raise oefmt(unpickling_error(self.space),
+                "trucated data in BINUNICODE8")
         self.append(self.space.newtext(*decode_utf8sp(self.space, data)))
     dispatch[op.BINUNICODE8[0]] = load_binunicode8
 
     def load_binbytes8(self):
-        length = unpackQ(self.read(8))
+        try:
+            length = unpackQ(self.read(8))
+        except IndexError:
+            raise oefmt(unpickling_error(self.space),
+                "trucated data in BINBYTES8")
         if length > maxsize:
             raise oefmt(unpickling_error(self.space),
                 "BINBYTES8 exceeds system's maximum size "
                                   "of %d bytes", maxsize)
         data = self.read(length)
+        if len(data) < length:
+            raise oefmt(unpickling_error(self.space),
+                "trucated data in BINBYTES8")
         self.append(self.space.newbytes(data))
     dispatch[op.BINBYTES8[0]] = load_binbytes8
 
     def load_bytearray8(self):
-        length = unpackQ(self.read(8))
+        try:
+            length = unpackQ(self.read(8))
+        except IndexError:
+            raise oefmt(unpickling_error(self.space),
+                "trucated data in BYTEARRAY8")
         if length > maxsize:
             raise oefmt(unpickling_error(self.space),
                 "BYTEARRAY8 exceeds system's maximum size "
                                   "of %d bytes", maxsize)
         data = self.read(length)
+        if len(data) < length:
+            raise oefmt(unpickling_error(self.space),
+                "trucated data in BYTEARRAY8")
         self.append(self.space.newbytearray([c for c in data]))
     dispatch[op.BYTEARRAY8[0]] = load_bytearray8
 
@@ -1406,19 +1519,30 @@ class W_Unpickler(W_Root):
         dispatch[op.READONLY_BUFFER[0]] = load_readonly_buffer
 
         def load_short_binstring(self):
-            len = ord(self.read(1)[0])
-            data = self.read(len)
+            length = ord(self.read(1)[0])
+            data = self.read(length)
+            if len(data) < length:
+                raise oefmt(unpickling_error(self.space),
+                    "trucated data in SHORT_BINSTRING")
             self.append(self._decode_string(data))
         dispatch[op.SHORT_BINSTRING[0]] = load_short_binstring
 
     def load_short_binbytes(self):
-        len = ord(self.read(1)[0])
-        self.append(self.space.newbytes(self.read(len)))
+        length = ord(self.read(1)[0])
+        data = self.read(length)
+        if len(data) < length:
+            raise oefmt(unpickling_error(self.space),
+                "trucated data in SHORT_BINBYTES")
+        self.append(self.space.newbytes(data))
     dispatch[op.SHORT_BINBYTES[0]] = load_short_binbytes
 
     def load_short_binunicode(self):
-        len = ord(self.read(1)[0])
-        self.append(self.space.newtext(self.read(len)))
+        length = ord(self.read(1)[0])
+        data = self.read(length)
+        if len(data) < length:
+            raise oefmt(unpickling_error(self.space),
+                "trucated data in SHORT_BINUNICODE")
+        self.append(self.space.newtext(data))
     dispatch[op.SHORT_BINUNICODE[0]] = load_short_binunicode
 
     def load_tuple(self):
@@ -1433,21 +1557,27 @@ class W_Unpickler(W_Root):
 
     def load_tuple1(self):
         n1 = len(self.stack) - 1
-        assert n1>= 0
+        if n1 < 0:
+            raise oefmt(unpickling_error(self.space),
+                "stack empty in TUPLE")
         self.stack[n1] = self.space.newtuple([self.stack[n1]])
     dispatch[op.TUPLE1[0]] = load_tuple1
 
     def load_tuple2(self):
         n = len(self.stack)
         n2 = n - 2
-        assert n2>= 0
+        if n2 < 0:
+            raise oefmt(unpickling_error(self.space),
+                "stack empty in TUPLE2")
         self.stack[n2:n] = [self.space.newtuple([self.stack[n2], self.stack[n2+1]])]
     dispatch[op.TUPLE2[0]] = load_tuple2
 
     def load_tuple3(self):
         n = len(self.stack)
         n3 = n - 3
-        assert n3 >= 0
+        if n3 < 0:
+            raise oefmt(unpickling_error(self.space),
+                "stack empty in TUPLE3")
         self.stack[n3:n] = [self.space.newtuple([self.stack[n3], self.stack[n3+1], self.stack[n3+2]])]
     dispatch[op.TUPLE3[0]] = load_tuple3
 
@@ -1523,8 +1653,8 @@ class W_Unpickler(W_Root):
 
     def load_newobj(self):
         space = self.space
-        w_args = self.stack.pop()
-        w_cls = self.stack.pop()
+        w_args = data_pop(self.space, self.stack)
+        w_cls = data_pop(self.space, self.stack)
         w_new = space.getattr(w_cls, space.newtext("__new__"))
         if space.len_w(w_args) > 0:
             w_arguments = Arguments(space, [w_cls], w_stararg = w_args)
@@ -1536,9 +1666,9 @@ class W_Unpickler(W_Root):
 
     def load_newobj_ex(self):
         space = self.space
-        w_kwargs = self.stack.pop()
-        w_args = self.stack.pop()
-        w_cls = self.stack.pop()
+        w_kwargs = data_pop(self.space, self.stack)
+        w_args = data_pop(self.space, self.stack)
+        w_cls = data_pop(self.space, self.stack)
         w_new = space.getattr(w_cls, space.newtext("__new__"))
         w_obj = space.call_function(w_new, w_cls, w_args, w_kwargs)
         self.append(w_obj)
@@ -1553,8 +1683,8 @@ class W_Unpickler(W_Root):
 
     def load_stack_global(self):
         space = self.space
-        w_name = self.stack.pop()
-        w_module = self.stack.pop()
+        w_name = data_pop(self.space, self.stack)
+        w_module = data_pop(self.space, self.stack)
         if space.isinstance_w(w_name, space.w_text) and space.isinstance_w(w_module, space.w_text):
             self.append(self.find_class(w_module, w_name))
         else:
@@ -1570,12 +1700,19 @@ class W_Unpickler(W_Root):
     def load_ext2(self):
         data = self.read(2)
         # code, = unpack('<H', self.read(2))
+        if len(data) < 2:
+            raise oefmt(unpickling_error(self.space),
+                'truncated data in EXT4')
         code = 256 * ord(data[1]) + ord(data[0])
         self.get_extension(code)
     dispatch[op.EXT2[0]] = load_ext2
 
     def load_ext4(self):
-        code = unpacki(self.read(4))
+        try:
+            code = unpacki(self.read(4))
+        except IndexError:
+            raise oefmt(unpickling_error(self.space),
+                'truncated data in EXT4')
         self.get_extension(code)
     dispatch[op.EXT4[0]] = load_ext4
 
@@ -1602,13 +1739,16 @@ class W_Unpickler(W_Root):
         # Subclasses may override this.
         space = self.space
         space.audit('pickle.find_class', [w_module_name, w_name])
-        if 0 and self.proto < 3 and self.fix_imports:
+        if self.proto < 3 and self.fix_imports:
             w_modname_and_name = space.newtuple([w_module_name, w_name])
-            if w_modname_and_name in _compat_pickle.NAME_MAPPING:
-                w_modname_and_name = _compat_pickle.NAME_MAPPING[w_modname_and_name]
-                w_module_name, w_name = space.listview(w_modname_and_name)
-            elif module in _compat_pickle.IMPORT_MAPPING:
-                module = _compat_pickle.IMPORT_MAPPING[module]
+            w_NAME_MAPPING = space.fromcache(State).w_NAME_MAPPING
+            w_IMPORT_MAPPING = space.fromcache(State).w_IMPORT_MAPPING
+            w_1 = space.finditem(w_NAME_MAPPING, w_modname_and_name)
+            w_2 = space.finditem(w_IMPORT_MAPPING, w_module_name)
+            if w_1:
+                w_module_name, w_name = space.listview(w_1)
+            elif w_2:
+                w_module_name = w_2
         w_import = space.getattr(space.builtin, space.newtext("__import__"))
         space.call_function(w_import, w_module_name)
         w_module = space.getitem(space.getattr(space.sys, space.newtext('modules')), w_module_name)
@@ -1620,9 +1760,14 @@ class W_Unpickler(W_Root):
 
     def load_reduce(self):
         stack = self.stack
-        w_args = stack.pop()
+        w_args = data_pop(self.space, stack)
+        if len(self.stack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                "unexpected MARK found")
         w_func = stack[-1]
-        stack[-1] = self.space.call_function(w_func, w_args)
+        w_arguments = Arguments(self.space, [], w_stararg = w_args)
+        w_obj = self.space.call_args(w_func, w_arguments)
+        stack[-1] = w_obj
     dispatch[op.REDUCE[0]] = load_reduce
 
     def load_pop(self):
@@ -1637,6 +1782,9 @@ class W_Unpickler(W_Root):
     dispatch[op.POP_MARK[0]] = load_pop_mark
 
     def load_dup(self):
+        if len(self.stack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                "unexpected MARK found")
         self.append(self.stack[-1])
     dispatch[op.DUP[0]] = load_dup
 
@@ -1659,7 +1807,11 @@ class W_Unpickler(W_Root):
     dispatch[op.BINGET[0]] = load_binget
 
     def load_long_binget(self):
-        i = unpackI(self.read(4))
+        try:
+            i = unpackI(self.read(4))
+        except IndexError:
+            raise oefmt(unpickling_error(self.space),
+                'truncated data in LONG_BINGET')
         try:
             self.append(self.memo[i])
         except KeyError as exc:
@@ -1668,9 +1820,13 @@ class W_Unpickler(W_Root):
     dispatch[op.LONG_BINGET[0]] = load_long_binget
 
     def load_put(self):
-        i = int(self.readline()[:-1])
+        data = self.readline()
+        i = int(data[:-1])
         if i < 0:
             raise oefmt(self.space.w_ValueError, "negative PUT argument")
+        if len(self.stack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                'stack underflow in PUT')
         self.memo[i] = self.stack[-1]
     dispatch[op.PUT[0]] = load_put
 
@@ -1678,24 +1834,40 @@ class W_Unpickler(W_Root):
         i = ord(self.read(1)[0])
         if i < 0:
             raise oefmt(self.space.w_ValueError, "negative BINPUT argument")
+        if len(self.stack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                'stack underflow in BINPUT')
         self.memo[i] = self.stack[-1]
     dispatch[op.BINPUT[0]] = load_binput
 
     def load_long_binput(self):
-        i = unpackI(self.read(4))
+        try:
+            i = unpackI(self.read(4))
+        except IndexError:
+            raise oefmt(unpickling_error(self.space),
+                'stack underflow in LONG_BINPUT')
         if i > maxsize:
             raise oefmt(self.space.w_ValueError, "negative LONG_BINPUT argument")
+        if len(self.stack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                'stack underflow in LONG_BINPUT')
         self.memo[i] = self.stack[-1]
     dispatch[op.LONG_BINPUT[0]] = load_long_binput
 
     def load_memoize(self):
         memo = self.memo
+        if len(self.stack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                'stack underflow in MEMOIZE')
         memo[len(memo)] = self.stack[-1]
     dispatch[op.MEMOIZE[0]] = load_memoize
 
     def load_append(self):
         stack = self.stack
-        w_value = stack.pop()
+        w_value = data_pop(self.space, stack)
+        if len(self.stack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                "unexpected MARK found")
         w_list = stack[-1]
         self.space.call_method(w_list, "append", w_value)
     dispatch[op.APPEND[0]] = load_append
@@ -1703,6 +1875,9 @@ class W_Unpickler(W_Root):
     def load_appends(self):
         space = self.space
         w_items = self.pop_mark()
+        if len(self.stack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                "unexpected MARK found")
         w_list_obj = self.stack[-1]
         w_extend = space.lookup(w_list_obj, "extend")
         if w_extend:
@@ -1717,14 +1892,20 @@ class W_Unpickler(W_Root):
 
     def load_setitem(self):
         stack = self.stack
-        w_value = stack.pop()
-        w_key = stack.pop()
+        w_value = data_pop(self.space, stack)
+        w_key = data_pop(self.space, stack)
+        if len(self.stack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                "unexpected MARK found")
         w_dict = stack[-1]
         self.space.setitem(w_dict, w_key, w_value)
     dispatch[op.SETITEM[0]] = load_setitem
 
     def load_setitems(self):
         items_w = self.pop_mark()
+        if len(self.stack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                "unexpected MARK found")
         w_dict = self.stack[-1]
         for i in range(0, len(items_w), 2):
             self.space.setitem(w_dict, items_w[i], items_w[i + 1])
@@ -1733,6 +1914,9 @@ class W_Unpickler(W_Root):
     def load_additems(self):
         space = self.space
         items = self.pop_mark()
+        if len(self.stack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                "unexpected MARK found")
         w_set_obj = self.stack[-1]
         if space.isinstance_w(w_set_obj, space.w_set):
             w_items = space.newtuple([w_i for w_i in items])
@@ -1745,7 +1929,10 @@ class W_Unpickler(W_Root):
     def load_build(self):
         space = self.space
         stack = self.stack
-        w_state = stack.pop()
+        w_state = data_pop(self.space, stack)
+        if len(self.stack) < 1:
+            raise oefmt(unpickling_error(self.space),
+                "unexpected MARK found")
         w_inst = stack[-1]
         w_setstate = space.findattr(w_inst, space.newtext("__setstate__"))
         if not space.is_none(w_setstate):

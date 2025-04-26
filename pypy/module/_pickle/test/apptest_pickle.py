@@ -3,6 +3,8 @@ from _pickle import Pickler, PicklingError, dumps
 from _pickle import Unpickler, UnpicklingError, loads
 import pickle
 from pickle import _dumps as dumps_py
+from copyreg import dispatch_table
+import io
 import sys
 
 # We don't support protocol < 2
@@ -69,24 +71,25 @@ def test_none_true_false():
 
 def test_bytes():
     s = dumps(b'abc')
-    assert s == b'\x80\x04C\x03abc\x94.'
+    assert s == b'\x80\x04\x95\x07\x00\x00\x00\x00\x00\x00\x00C\x03abc\x94.'
     assert loads(s) == b"abc"
     s = dumps(b'abc' * 1000)
-    assert s.startswith(b'\x80\x04B\xb8\x0b\x00\x00abcab')
+    expected = b'\x80\x04\x95\xbf\x0b\x00\x00\x00\x00\x00\x00B\xb8\x0b\x00\x00abcabcabcab'
+    assert s.startswith(expected)
     assert loads(s) == b"abc" * 1000
     s = dumps(b'abc' * 1000000)
-    assert s.startswith(b'\x80\x04B\xc0\xc6-\x00abcabcabc')
+    assert s.startswith(b'\x80\x04B\xc0\xc6-\x00abcabcabcabc')
     assert loads(s) == b"abc" * 1000000
 
 def test_unicode():
     s = dumps(u'abc')
-    assert s == b'\x80\x04\x8c\x03abc\x94.'
+    assert s == b'\x80\x04\x95\x07\x00\x00\x00\x00\x00\x00\x00\x8c\x03abc\x94.'
     assert loads(s) == u"abc"
     s = dumps(u'abc' * 1000)
-    assert s.startswith(b'\x80\x04X\xb8\x0b\x00\x00abcabcabc')
+    assert s.startswith(b'\x80\x04\x95\xbf\x0b\x00\x00\x00\x00\x00\x00X\xb8\x0b\x00\x00abcabcabc')
     assert loads(s) == u"abc" * 1000
     s = dumps(u'abc' * 100000)
-    assert s.startswith(b'\x80\x04X\xe0\x93\x04\x00abcabcabc')
+    assert s.startswith(b'\x80\x04X\xe0\x93\x04\x00abcabcabcabcabc')
     assert loads(s) == u'abc' * 100000
 
 def test_tuple():
@@ -94,10 +97,10 @@ def test_tuple():
     assert s == b'\x80\x04).'
     assert loads(s) == ()
     s = dumps((1, ))
-    assert s.startswith(b'\x80\x04K\x01\x85\x94.')
+    assert s.startswith(b'\x80\x04\x95\x05\x00\x00\x00\x00\x00\x00\x00K\x01\x85\x94.')
     assert loads(s) == (1,)
     s = dumps((1, ) * 1000)
-    assert s.startswith(b'\x80\x04(K\x01K\x01K')
+    assert s.startswith(b'\x80\x04\x95\xd4\x07\x00\x00\x00\x00\x00\x00(K\x01K\x01K')
     assert loads(s) == (1, ) * 1000
 
 def test_memo():
@@ -115,17 +118,17 @@ def test_list():
     assert s == b'\x80\x04]\x94.'
     assert loads(s) == []
     s = dumps([1])
-    assert s == b'\x80\x04]\x94K\x01a.'
+    assert s == b'\x80\x04\x95\x06\x00\x00\x00\x00\x00\x00\x00]\x94K\x01a.'
     assert loads(s) == [1]
     s = dumps([1] * 1000)
-    assert s.startswith(b'\x80\x04]\x94(K\x01K\x01K\x01K\x01K\x01K\x01K')
+    assert s.startswith(b'\x80\x04\x95\xd5\x07\x00\x00\x00\x00\x00\x00]\x94(K\x01K\x01K\x01K\x01K\x01')
     assert loads(s) == [1] * 1000
 
 def test_list_memo():
     l = []
     l.append(l)
     s = dumps(l)
-    assert s == b'\x80\x04]\x94h\x00a.'
+    assert s == b'\x80\x04\x95\x06\x00\x00\x00\x00\x00\x00\x00]\x94h\x00a.'
     l_roundtrip = loads(s)
     # the comparision fails untranslated
     # assert l_roundtrip == l
@@ -133,7 +136,7 @@ def test_list_memo():
     t = (1, 2, 3, [], "abc")
     t[3].append(t)
     s = dumps(t)
-    assert s == b'\x80\x04(K\x01K\x02K\x03]\x94(K\x01K\x02K\x03h\x00\x8c\x03abc\x94t\x94ah\x011h\x02.'
+    assert s == b'\x80\x04\x95!\x00\x00\x00\x00\x00\x00\x00(K\x01K\x02K\x03]\x94(K\x01K\x02K\x03h\x00\x8c\x03abc\x94t\x94ah\x011h\x02.'
     t_roundtrip = loads(s)
     # the comparision fails untranslated
     # assert t_roundtrip == t
@@ -143,11 +146,11 @@ def test_dict():
     assert s == b'\x80\x04}\x94.'
     assert loads(s) == {}
     s = dumps({1: 2})
-    assert s == b'\x80\x04}\x94K\x01K\x02s.'
+    assert s == b'\x80\x04\x95\x08\x00\x00\x00\x00\x00\x00\x00}\x94K\x01K\x02s.'
     assert loads(s) == {1: 2}
     d = dict([(a, str(a)) for a in range(10000)])
     s = dumps(d)
-    assert s.startswith(b'\x80\x04}\x94(K\x00\x8c\x010\x94K\x01\x8c\x011\x94K\x02')
+    assert s.startswith(b'\x80\x04\x95\x03\x00\x01\x00\x00\x00\x00\x00}\x94(K\x00\x8c\x010\x94K\x01\x8c')
     assert loads(s) == d
 
 def test_reduce():
@@ -167,7 +170,7 @@ def test_reduce():
         a = A()
         a.x = 'abc'
         s = dumps(a)
-        assert s == b'\x80\x04\x8c\x07fakemod\x94\x8c\x01A\x94\x93\x94)\x81\x94}\x94\x8c\x01x\x94\x8c\x03abc\x94sb.'
+        assert s == b'\x80\x04\x95"\x00\x00\x00\x00\x00\x00\x00\x8c\x07fakemod\x94\x8c\x01A\x94\x93\x94)\x81\x94}\x94\x8c\x01x\x94\x8c\x03abc\x94sb.'
         a_roundtrip = loads(s)
         assert type(a_roundtrip) == type(a)
         assert a_roundtrip.x == "abc"
@@ -176,12 +179,12 @@ def test_reduce():
 
 def test_globals():
     s = dumps(dumps)
-    assert s == b'\x80\x04\x8c\x07_pickle\x94\x8c\x05dumps\x94\x93\x94.'
+    assert s == b'\x80\x04\x95\x15\x00\x00\x00\x00\x00\x00\x00\x8c\x07_pickle\x94\x8c\x05dumps\x94\x93\x94.'
     assert loads(s) == dumps
 
 def test_float():
     s = dumps(1.234)
-    assert s == b'\x80\x04G?\xf3\xbev\xc8\xb49X.'
+    assert s == b'\x80\x04\x95\n\x00\x00\x00\x00\x00\x00\x00G?\xf3\xbev\xc8\xb49X.'
     assert loads(s) == 1.234
 
 def test_frozenset():
@@ -197,7 +200,6 @@ def test_bytearray():
         for s in b'', b'xyz', b'xyz'*100:
             b = bytearray(s)
             p = dumps(b, proto)
-            print(b, p, proto)
             bb = loads(p)
             assert bb is not b
             assert b == bb
@@ -213,8 +215,100 @@ def test_bytearray():
                 assert pickle.BYTEARRAY8 in p
 
 def test_complex():
-    c = (1+2j)
+    c = 1+2j
     s = dumps(c)
     c2 = loads(s)
     assert c2 == c
 
+def test_dispatch_table():
+    c = 1 + 2j 
+    f = io.BytesIO()
+    p = Pickler(f, 4)
+    p.dispatch_table = dispatch_table.copy()
+
+    # modify pickling of complex
+    REDUCE_1 = 'reduce_1'
+    def reduce_1(obj):
+        return str, (REDUCE_1,)
+
+    p.dispatch_table[complex] = reduce_1
+    p.dump(c)
+    s = f.getvalue()
+    assert s == b'\x80\x04\x95#\x00\x00\x00\x00\x00\x00\x00\x8c\x08builtins\x94\x8c\x03str\x94\x93\x94\x8c\x08reduce_1\x94\x85\x94R\x94.'
+    c2 = loads(s)
+    assert c2 == 'reduce_1'
+
+def test_bad_mark():
+    badpickles = [
+        b'N(.',                     # STOP
+        b'N(2',                     # DUP
+        b'cbuiltins\nlist\n)(R',    # REDUCE
+        b'cbuiltins\nlist\n()R',
+        b']N(a',                    # APPEND
+                                    # BUILD
+        b'cbuiltins\nValueError\n)R}(b',
+        b'cbuiltins\nValueError\n)R(}b',
+        # b'(Nd',                     # DICT - protocol 0 not supported on PyPy
+        b'N(p1\n',                  # PUT
+        b'N(q\x00',                 # BINPUT
+        b'N(r\x00\x00\x00\x00',     # LONG_BINPUT
+        b'}NN(s',                   # SETITEM
+        b'}N(Ns',
+        b'}(NNs',
+        b'}((u',                    # SETITEMS
+        b'cbuiltins\nlist\n)(\x81', # NEWOBJ
+        b'cbuiltins\nlist\n()\x81',
+        b'N(\x85',                  # TUPLE1
+        b'NN(\x86',                 # TUPLE2
+        b'N(N\x86',
+        b'NNN(\x87',                # TUPLE3
+        b'NN(N\x87',
+        b'N(NN\x87',
+        b']((\x90',                 # ADDITEMS
+                                    # NEWOBJ_EX
+        b'cbuiltins\nlist\n)}(\x92',
+        b'cbuiltins\nlist\n)(}\x92',
+        b'cbuiltins\nlist\n()}\x92',
+                                    # STACK_GLOBAL
+        b'Vbuiltins\n(Vlist\n\x93',
+        b'Vbuiltins\nVlist\n(\x93',
+        b'N(\x94',                  # MEMOIZE
+        b'e',                       # APPENDS
+    ]
+    for data in badpickles:
+        try:
+            loads(data)
+        except (UnpicklingError, IndexError) as exc:
+            pass
+
+def test_truncated():
+    badpickles = [
+        b'',
+        b'B\x03\x00\x00',
+        b'\x8e\x03\x00\x00\x00\x00\x00\x00',
+        b'Np0',
+    ]
+    for data in badpickles:
+        try:
+            loads(data)
+        except (UnpicklingError, EOFError):
+            pass
+
+def test_maxint64():
+    maxint64 = (1 << 63) - 1
+    data = b'I' + str(maxint64).encode("ascii") + b'\n.'
+    got = loads(data)
+    assert maxint64 == got
+
+    # Try too with a bogus literal.
+    data = b'I' + str(maxint64).encode("ascii") + b'JUNK\n.'
+    try:
+        loads(data)
+    except ValueError as e:
+        pass
+        pass
+
+def test_find_class():
+    data = b'\x80\x02c__builtin__\nxrange\nK\x01K\x07K\x01\x87R.'
+    got = loads(data)
+    assert isinstance(got, range)
