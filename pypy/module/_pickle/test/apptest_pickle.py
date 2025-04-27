@@ -152,6 +152,8 @@ def test_dict():
     s = dumps(d)
     assert s.startswith(b'\x80\x04\x95\x03\x00\x01\x00\x00\x00\x00\x00}\x94(K\x00\x8c\x010\x94K\x01\x8c')
     assert loads(s) == d
+    s = dumps({1: 2}, 0)
+    assert s == b'(dp0\nI1\nI2\ns.'
 
 def test_reduce():
     import sys
@@ -315,8 +317,9 @@ def test_find_class():
 
 def test_function():
     method = str.count
-    data = dumps(method)
-    pydata = dumps_py(method)
-    assert data == pydata
-    got = loads(data)
-    assert got == str.count
+    for proto in (3, 4):
+        data = dumps(method, proto)
+        pydata = dumps_py(method, proto)
+        assert data == pydata
+        got = loads(data)
+        assert got == str.count
