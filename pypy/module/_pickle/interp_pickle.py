@@ -812,19 +812,19 @@ def save_long(self, w_obj):
             if -0x80000000 <= obj <= 0x7fffffff:
                 self.write(packi(op.BININT, obj))
                 return
-    if self.proto >= 2:
-        encoded = encode_long(space, w_obj)
-        n = len(encoded)
-        if n < 256:
-            self.write(packB(op.LONG1, n) + encoded)
-        else:
-            self.write(packi(op.LONG4, n) + encoded)
-        return
-    as_ascii = space.utf8_w(space.repr(w_obj))
-    if -0x80000000 <= obj <= 0x7fffffff:
-        self.write(op.INT + as_ascii + b'\n')
+        if self.proto < 2:
+            as_ascii = space.utf8_w(space.repr(w_obj))
+            if -0x80000000 <= obj <= 0x7fffffff:
+                self.write(op.INT + as_ascii + b'\n')
+            else:
+                self.write(op.LONG + as_ascii + b'L\n')
+            return
+    encoded = encode_long(space, w_obj)
+    n = len(encoded)
+    if n < 256:
+        self.write(packB(op.LONG1, n) + encoded)
     else:
-        self.write(op.LONG + as_ascii + b'L\n')
+        self.write(packi(op.LONG4, n) + encoded)
 
 def save_float(self, w_obj):
     space = self.space
@@ -1381,7 +1381,7 @@ class W_Unpickler(W_Root):
                 raise oefmt(unpickling_error(self.space),
                     "the STRING opcode argument must be quoted")
             decoded = self._decode_string(codecs.escape_decode(data)[0])
-        self.append()
+            self.append(decoded)
         dispatch[op.STRING[0]] = load_string
 
         def load_binstring(self):
@@ -1600,17 +1600,14 @@ class W_Unpickler(W_Root):
         self.append(self.space.newlist(items))
     dispatch[op.LIST[0]] = load_list
 
-    if 0:
-        def load_dict(self):
-            # Only for proto==0, so do we really need this?
-            space = self.space
-            items = self.pop_mark()
-            w_d = self.newdict()
-            xxx = xxx
-            for i in range(0, len(items), 2):
-                space.setitem(w_d, items[i], items[i+1])
-            self.append(w_d)
-        dispatch[op.DICT[0]] = load_dict
+    def load_dict(self):
+        space = self.space
+        items = self.pop_mark()
+        w_d = space.newdict()
+        for i in range(0, len(items), 2):
+            space.setitem(w_d, items[i], items[i+1])
+        self.append(w_d)
+    dispatch[op.DICT[0]] = load_dict
 
     if 0:  # Python2 residue?
         # INST and OBJ differ only in how they get a class object.  It's not
