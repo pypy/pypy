@@ -296,7 +296,7 @@ class W_Pickler(W_Root):
     It is an error if *buffer_callback* is not None and *protocol*
     is None or smaller than 5.
     """
-    def __init__(self, space, w_file, protocol=4, fix_imports=True,
+    def __init__(self, space, w_file, protocol=4, fix_imports=1,
                  buffer_callback=None):
         self.space = space
         self.w_file = w_file
@@ -409,13 +409,25 @@ class W_Pickler(W_Root):
             raise oefmt(pickling_error(space), "%S must return string or tuple", w_reduce)
 
         # Assert that it returned an appropriately sized tuple
-        l = space.len_w(w_rv)
-        if not (2 <= l <= 6):
+        rv_w = space.fixedview(w_rv)
+        length = len(rv_w)
+        if not (2 <= length <= 6):
             raise oefmt(pickling_error(space), "Tuple returned by %S must have "
                                 "two to six elements", w_reduce)
-
         # Save the reduce() output and finally memoize the object
-        self.save_reduce(w_obj, w_rv)
+
+        # this does not translate...
+        # self.save_reduce(*rv_w, w_obj=w_obj)
+        if length == 2:
+            self.save_reduce(rv_w[0], rv_w[1], w_obj=w_obj)
+        if length == 3:
+            self.save_reduce(rv_w[0], rv_w[1], rv_w[2], w_obj=w_obj)
+        if length == 4:
+            self.save_reduce(rv_w[0], rv_w[1], rv_w[2], rv_w[3], w_obj=w_obj)
+        if length == 5:
+            self.save_reduce(rv_w[0], rv_w[1], rv_w[2], rv_w[3], rv_w[4], w_obj=w_obj)
+        if length == 6:
+            self.save_reduce(rv_w[0], rv_w[1], rv_w[2], rv_w[3], rv_w[4], rv_w[5], w_obj=w_obj)
 
     _BATCHSIZE = 1000
     def _batch_appends(self, w_list):
@@ -470,12 +482,18 @@ class W_Pickler(W_Root):
 
         w_it = space.iter(w_items)
         if not self.bin:
-            raise oefmt(space.w_RuntimeError, "cannot batch pickle dict with proto<2")
-            # for k, v in w_it:
-            #     save(k)
-            #     save(v)
-            #     write(SETITEM)
-            # return
+            w_item = spacenext(space, w_it)
+            if w_item is None:
+                return
+            while True:
+                w_k, w_v = space.unpackiterable(w_item, 2)
+                save(w_k)
+                save(w_v)
+                write(op.SETITEM)
+                w_item = spacenext(space, w_it)
+                if not w_item:
+                    break
+            return
 
         while True:
             w_firstitem = spacenext(space, w_it)
@@ -501,34 +519,12 @@ class W_Pickler(W_Root):
                     break
             self.write(op.SETITEMS)
 
-    def save_reduce(self, w_obj, w_rv):
+    def save_reduce(self, w_func, w_args, w_state=None, w_listitems=None,
+                    w_dictitems=None, w_state_setter=None, __kwargs__=None, w_obj=None):
         space = self.space
         #func, args, state=None, listitems=None,
         #            dictitems=None, state_setter=None, *, obj=None):
         # This API is called by some subclasses
-        values_w = space.unpackiterable(w_rv)
-        w_func = values_w[0]
-        w_args = values_w[1]
-        w_listitems = space.w_None
-        w_dictitems = space.w_None
-        w_state_setter = None
-        if len(values_w) >= 3:
-            w_state = values_w[2]
-            if len(values_w) >= 4:
-                w_listitems = values_w[3]
-                if len(values_w) >= 5:
-                    w_dictitems = values_w[4]
-                    if len(values_w) == 6:
-                        w_state_setter = values_w[5]
-                    else:
-                        w_state_setter = None
-                else:
-                    w_dictitems = space.w_None
-            else:
-                w_listitems = space.w_None
-        else:
-            w_state = None
-
         if not space.isinstance_w(w_args, space.w_tuple):
             raise oefmt(pickling_error(space), "args from save_reduce() must be a tuple")
         if not space.callable_w(w_func):
@@ -699,7 +695,8 @@ class W_Pickler(W_Root):
             self.save(w_name)
             write(op.STACK_GLOBAL)
         elif not space.is_w(w_parent, w_module):
-            self.save_reduce(space.getattr(space.builtin, space.newtext('getattr')), space.newtuple2(w_parent, space.newtext(lastname)))
+            self.save_reduce(space.getattr(space.builtin, space.newtext('getattr')),
+                             space.newtuple2(w_parent, space.newtext(lastname)))
         elif self.proto >= 3:
             write(op.GLOBAL + module_name + b'\n' +
                   name + b'\n')
@@ -770,6 +767,12 @@ class W_Pickler(W_Root):
         raise oefmt(space.w_AttributeError,
             "%T object has no attribute 'dispatch_table'", self)
 
+    def set_fast_w(self, space, w_val):
+        self.fast = space.int_w(w_val)
+
+    def get_fast_w(self, space):
+        return space.newint(self.fast)
+
 def save_global(self, w_obj):
     return self.save_global2(w_obj, None)
 
@@ -796,27 +799,32 @@ def save_long(self, w_obj):
         if not e.match(space, space.w_OverflowError):
             raise
     else:
-        if obj >= 0:
-            if obj <= 0xff:
-                self.write(packB(op.BININT1, obj))
+        if self.bin:
+            if obj >= 0:
+                if obj <= 0xff:
+                    self.write(packB(op.BININT1, obj))
+                    return
+                if obj <= 0xffff:
+                    self.write(packH(op.BININT2 , obj))
+                    return
+            # Next check for 4-byte signed ints:
+            # XXX 32 bit systems?
+            if -0x80000000 <= obj <= 0x7fffffff:
+                self.write(packi(op.BININT, obj))
                 return
-            if obj <= 0xffff:
-                self.write(packH(op.BININT2 , obj))
-                return
-        # Next check for 4-byte signed ints:
-        # XXX 32 bit systems?
-        if -0x80000000 <= obj <= 0x7fffffff:
-            self.write(packi(op.BININT, obj))
-            return
-    if self.proto < 2:
-        raise oefmt(space.w_RuntimeError, "cannot save int/long with proto<2")
-    encoded = encode_long(space, w_obj)
-    n = len(encoded)
-    if n < 256:
-        self.write(packB(op.LONG1, n) + encoded)
+    if self.proto >= 2:
+        encoded = encode_long(space, w_obj)
+        n = len(encoded)
+        if n < 256:
+            self.write(packB(op.LONG1, n) + encoded)
+        else:
+            self.write(packi(op.LONG4, n) + encoded)
+        return
+    as_ascii = space.utf8_w(space.repr(w_obj))
+    if -0x80000000 <= obj <= 0x7fffffff:
+        self.write(op.INT + as_ascii + b'\n')
     else:
-        self.write(packi(op.LONG4, n) + encoded)
-    return
+        self.write(op.LONG + as_ascii + b'L\n')
 
 def save_float(self, w_obj):
     space = self.space
@@ -1038,16 +1046,17 @@ def decode_long(space, data):
     return w_obj
 
 
-@unwrap_spec(protocol=int)
-def descr__new__(space, w_subtype, w_file, protocol=DEFAULT_PROTOCOL):
+@unwrap_spec(protocol=int, fix_imports=int)
+def descr__new__(space, w_subtype, w_file, protocol=DEFAULT_PROTOCOL, fix_imports=1, w_buffer_callback=None):
     w_self = space.allocate_instance(W_Pickler, w_subtype)
-    W_Pickler.__init__(w_self, space, w_file, protocol)
+    W_Pickler.__init__(w_self, space, w_file, protocol, fix_imports, w_buffer_callback)
     return w_self
 
 W_Pickler.typedef = TypeDef("_pickle.Pickler",
     __new__ = interp2app(descr__new__),
     dump = interp2app(W_Pickler.dump),
     dispatch_table = GetSetProperty(W_Pickler.get_dispatch_table_w, W_Pickler.set_dispatch_table_w),
+    fast = GetSetProperty(W_Pickler.get_fast_w, W_Pickler.set_fast_w),
 )
 
 
