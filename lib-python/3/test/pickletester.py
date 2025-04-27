@@ -4005,7 +4005,6 @@ class AbstractDispatchTableTests:
 
     def _test_dispatch_table(self, dumps, dispatch_table):
         def custom_load_dump(obj):
-            import pdb;pdb.set_trace()
             return pickle.loads(dumps(obj, 4))
 
         def default_load_dump(obj):

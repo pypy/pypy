@@ -154,6 +154,7 @@ def test_dict():
     assert loads(s) == d
     s = dumps({1: 2}, 0)
     assert s == b'(dp0\nI1\nI2\ns.'
+    assert loads(s) == {1: 2}
 
 def test_reduce():
     import sys
