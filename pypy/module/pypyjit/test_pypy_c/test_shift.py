@@ -26,12 +26,11 @@ class TestShift(BaseTestPyPyC):
         assert loop.match_by_id('lshift', "")  # guard optimized away
 
     def test_lshift_and_then_rshift(self):
-        py.test.skip('fixme, this optimization is disabled')
         def main(b):
             res = 0
             a = 0
             while res < 300:
-                assert a >= 0
+                assert 0 <= a <= 300
                 assert 0 <= b <= 10
                 res = (a << b) >> b     # ID: shift
                 a += 1
