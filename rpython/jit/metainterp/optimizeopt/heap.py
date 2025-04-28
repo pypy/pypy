@@ -223,9 +223,10 @@ class CachedField(AbstractCachedEntry):
         return False
 
 class ArrayCachedItem(AbstractCachedEntry):
-    def __init__(self, index):
+    def __init__(self, index, parent): # type: (int, ArrayCacheSubMap) -> None
         assert index >= 0
         self.index = index
+        self.parent = parent
         AbstractCachedEntry.__init__(self)
 
     def _get_rhs_from_set_op(self, op):
@@ -259,6 +260,7 @@ class ArrayCachedItem(AbstractCachedEntry):
             #opinfo._items = None #[self.index] = None
         self.cached_infos = []
         self.cached_structs = []
+        self.parent.clear_varindex()
 
     def _cannot_alias_via_classes_or_lengths(self, optheap, opinfo1, opinfo2):
         return opinfo1.getlenbound(None).known_ne(opinfo2.getlenbound(None))
@@ -272,19 +274,24 @@ class ArrayCacheSubMap(object):
         self.clear_varindex()
 
     def clear_varindex(self):
-        self.cached_varindex_triples = []
+        self.cached_varindex_triples = None
 
     def cache_varindex_read(self, arrayinfo, indexbox, resbox):
         # TODO: impose some kind of variable length for self.cached_varindex_triples
-        self.cached_varindex_triples.append((arrayinfo, indexbox, resbox))
+        entry = (arrayinfo, indexbox, resbox)
+        if self.cached_varindex_triples is None:
+            self.cached_varindex_triples = [entry]
+            return
+        self.cached_varindex_triples.append(entry)
 
     def cache_varindex_write(self, arrayinfo, indexbox, resbox):
         self.cached_varindex_triples = [(arrayinfo, indexbox, resbox)]
 
     def lookup_cached(self, arrayinfo, indexbox):
-        for cached_arrayinfo, cached_index, cached_result in self.cached_varindex_triples:
-            if cached_arrayinfo is arrayinfo and get_box_replacement(cached_index) is indexbox:
-                return get_box_replacement(cached_result)
+        if self.cached_varindex_triples is not None:
+            for cached_arrayinfo, cached_index, cached_result in self.cached_varindex_triples:
+                if cached_arrayinfo is arrayinfo and get_box_replacement(cached_index) is indexbox:
+                    return get_box_replacement(cached_result)
         return None
 
 class OptHeap(Optimization):
@@ -351,7 +358,6 @@ class OptHeap(Optimization):
             if not descr.is_always_pure():
                 for index, cf in submap.const_indexes.iteritems():
                     cf.invalidate(None)
-                submap.clear_varindex()
         self.cached_dict_reads.clear()
 
     def field_cache(self, descr):
@@ -376,7 +382,7 @@ class OptHeap(Optimization):
         try:
             cf = submap.const_indexes[index]
         except KeyError:
-            cf = submap.const_indexes[index] = ArrayCachedItem(index)
+            cf = submap.const_indexes[index] = ArrayCachedItem(index, submap)
         return cf
 
     def emit(self, op):
@@ -549,13 +555,11 @@ class OptHeap(Optimization):
         for idx, cf in submap.const_indexes.iteritems():
             if indexb is None or indexb.contains(idx):
                 cf.force_lazy_set(self, None, can_cache)
-        if not can_cache:
-            submap.clear_varindex()
+
 
     def force_lazy_setarrayitem_submap(self, submap, can_cache=True):
         for cf in submap.const_indexes.itervalues():
             cf.force_lazy_set(self, None, can_cache)
-        submap.clear_varindex()
 
     def force_all_lazy_sets(self):
         items = self.cached_fields.items()
@@ -571,7 +575,6 @@ class OptHeap(Optimization):
                 items.sort(key=lambda item: item[0])
             for index, cf in items:
                 cf.force_lazy_set(self, None)
-            submap.clear_varindex()
 
     def force_lazy_sets_for_guard(self):
         pendingfields = []
@@ -724,7 +727,7 @@ class OptHeap(Optimization):
             arrayinfo.getlenbound(None).make_gt_const(index)
             cf = self.arrayitem_cache(op.getdescr(), index)
             cf.do_setfield(self, op)
-            submap.clear_varindex()
+            submap.clear_varindex() # TODO: is this necessary?
         else:
             # variable index, so make sure the lazy setarrayitems are done
             self.force_lazy_setarrayitem(op.getdescr(), indexb, can_cache=False)
