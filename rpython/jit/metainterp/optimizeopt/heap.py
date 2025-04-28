@@ -264,7 +264,7 @@ class ArrayCachedItem(AbstractCachedEntry):
         return opinfo1.getlenbound(None).known_ne(opinfo2.getlenbound(None))
 
     def _cannot_alias_via_content(self, optheap, opinfo1, opinfo2):
-        return False
+        return False # TODO: implement similar logic here
 
 class ArrayCacheSubMap(object):
     def __init__(self):
@@ -602,7 +602,6 @@ class OptHeap(Optimization):
                     pendingfields.append(op)
                 else:
                     cf.force_lazy_set(self, descr)
-            submap.clear_varindex()
         return pendingfields
 
     def optimize_GETFIELD_GC_I(self, op):

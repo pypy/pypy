@@ -1011,6 +1011,34 @@ class TestOptimizeHeap(BaseTestBasic):
         expected = ops
         self.optimize_loop(ops, expected)
 
+    def test_duplicate_getarrayitem_varindex_guard_does_not_clear_cache(self):
+        ops = """
+        [p1, i1]
+        p2 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
+        guard_nonnull(p2) []
+        p4 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
+        jump(p1, p2, p4)
+        """
+        expected = """
+        [p1, i1]
+        p2 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
+        guard_nonnull(p2) []
+        jump(p1, p2, p2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_lazy_setarrayitem_invalidates_varindex_cache(self):
+        ops = """
+        [p1, i1, p3]
+        p2 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
+        setarrayitem_gc(p1, 1, p3, descr=arraydescr2)
+        guard_nonnull(p2) []
+        p4 = getarrayitem_gc_r(p1, i1, descr=arraydescr2)
+        jump(p1, p2, p4)
+        """
+        expected = ops
+        self.optimize_loop(ops, expected)
+
     def test_duplicate_getarrayitem_after_setarrayitem_2(self):
         ops = """
         [p1, p2, p3, i1]
