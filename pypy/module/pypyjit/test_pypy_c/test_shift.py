@@ -39,7 +39,9 @@ class TestShift(BaseTestPyPyC):
         log = self.run(main, [2])
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
-        assert loop.match_by_id('shift', "")  # optimized away
+        assert loop.match_by_id('shift', """
+i2 = int_lshift(i0, i1)
+""")  # optimized away by the backend
 
     def test_division_to_rshift(self):
         def main(b):
