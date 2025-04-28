@@ -1100,6 +1100,31 @@ class TestOptimizeHeap(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_duplicate_getarrayitem_after_setarrayitem_two_arrays_aliasing_via_content(self):
+        ops = """
+        [p1, p2, i3, i4]
+        i10 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
+        guard_value(i10, 0) []
+        i11 = getarrayitem_gc_i(p2, 1, descr=arraydescr)
+        guard_value(i11, 1) []
+        setarrayitem_gc(p1, 0, i3, descr=arraydescr)
+        setarrayitem_gc(p2, 0, i4, descr=arraydescr)
+        i5 = getarrayitem_gc_i(p1, 0, descr=arraydescr)
+        i6 = getarrayitem_gc_i(p2, 0, descr=arraydescr)
+        jump(i5, i6)
+        """
+        expected = """
+        [p1, p2, i3, i4]
+        i10 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
+        guard_value(i10, 0) []
+        i11 = getarrayitem_gc_i(p2, 1, descr=arraydescr)
+        guard_value(i11, 1) []
+        setarrayitem_gc(p1, 0, i3, descr=arraydescr)
+        setarrayitem_gc(p2, 0, i4, descr=arraydescr)
+        jump(i3, i4)
+        """
+        self.optimize_loop(ops, expected)
+
     @pytest.mark.xfail()
     def test_duplicate_getarrayitem_after_setarrayitem_varindex_two_arrays_aliasing_via_length(self):
         ops = """
