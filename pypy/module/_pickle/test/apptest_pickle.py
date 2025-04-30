@@ -3,10 +3,24 @@ from _pickle import Pickler, PicklingError, dumps
 from _pickle import Unpickler, UnpicklingError, loads
 import pickle
 from pickle import _dumps as dumps_py, PickleBuffer
-from copyreg import dispatch_table, K
+from copyreg import dispatch_table
 import io
 import sys
 import datetime
+
+try:
+    from copyreg import K
+except ImportError:
+    # Hashable immutable key object containing unheshable mutable data.
+    class K():
+        def __init__(self, value):
+            self.value = value
+
+        def __reduce__(self):
+            # Shouldn't support the recursion itself
+            return K, (self.value,)
+
+
 
 protocols = range(5, -1, -1)
 
@@ -243,7 +257,7 @@ def test_frozenset():
     assert f == f2
 
 def test_bytearray():
-    for proto in range(5, 0, -1): # XXX fix to test protocol 0 again
+    for proto in protocols:
         for s in b'', b'xyz', b'xyz'*100:
             b = bytearray(s)
             p = dumps(b, proto)
@@ -334,11 +348,13 @@ def test_truncated():
         b'B\x03\x00\x00',
         b'\x8e\x03\x00\x00\x00\x00\x00\x00',
         b'Np0',
+        b'ibuiltins\nlist\n',
+        b'jens:',
     ]
     for data in badpickles:
         try:
             loads(data)
-        except (UnpicklingError, EOFError):
+        except (UnpicklingError, EOFError) as e:
             pass
 
 def test_maxint64():
