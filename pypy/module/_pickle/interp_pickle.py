@@ -1229,25 +1229,6 @@ class _Unframer(object):
         self.w_file_readline = w_file_readline
         self.current_frame = None
 
-    def readinto(self, buf):
-        if self.current_frame:
-            n = self.current_frame.readinto(buf)
-            if n == 0 and len(buf) != 0:
-                self.current_frame = None
-                n = len(buf)
-                w_ret = self.space.call_function(self.w_file_read, self.space.newint(n))
-                buf[:] = self.space.bytes_w(w_ret)
-                return n
-            if n < len(buf):
-                raise oefmt(unpickling_error(self.space),
-                    "pickle exhausted before end of frame")
-            return n
-        else:
-            n = len(buf)
-            w_ret = self.space.call_function(self.w_file_read, self.space.newint(n))
-            buf[:] = self.space.bytes_w(w_ret)
-            return n
-
     def read(self, n):
         assert isinstance(n, int)
         assert n >= 0
@@ -1276,6 +1257,13 @@ class _Unframer(object):
                     w_err = unpickling_error(space)
                 raise oefmt(w_err, "pickle data was truncated, wanted %d got %d", n, len(ret))
             return ret
+
+    def read1(self):
+        if self.current_frame is not None and len(self.current_frame) >= 1:
+            res = self.current_frame[0]
+            self.current_frame = self.current_frame[1:]
+            return res
+        return self.read(1)[0]
 
     def readline(self):
         space = self.space
@@ -1371,7 +1359,6 @@ class W_Unpickler(W_Root):
         #         "Unpickler.__init__() was not called by %T", self)
         self._unframer = _Unframer(self.space, self.w_file_read, self.w_file_readline)
         self.read = self._unframer.read
-        self.readinto = self._unframer.readinto
         self.readline = self._unframer.readline
         self.metastack = []
         self.stack = []
@@ -1388,6 +1375,9 @@ class W_Unpickler(W_Root):
                 raise oefmt(unpickling_error(self.space),
                     "unkown mark %s", key[0])
             # print "self.stack", self.stack
+
+    def read1(self):
+        return self._unframer.read1()
 
     # Return a list of items pushed in the stack after last MARK instruction.
     def pop_mark(self):
@@ -1476,7 +1466,7 @@ class W_Unpickler(W_Root):
     dispatch[op.BININT[0]] = load_binint
 
     def load_binint1(self):
-        self.append(self.space.newint(ord(self.read(1)[0])))
+        self.append(self.space.newint(ord(self.read1()[0])))
     dispatch[op.BININT1[0]] = load_binint1
 
     def load_binint2(self):
@@ -1495,7 +1485,7 @@ class W_Unpickler(W_Root):
     dispatch[op.LONG[0]] = load_long
 
     def load_long1(self):
-        n = ord(self.read(1)[0])
+        n = ord(self.read1()[0])
         data = self.read(n)
         self.append(decode_long(self.space, data))
     dispatch[op.LONG1[0]] = load_long1
@@ -1679,7 +1669,7 @@ class W_Unpickler(W_Root):
         dispatch[op.READONLY_BUFFER[0]] = load_readonly_buffer
 
         def load_short_binstring(self):
-            length = ord(self.read(1)[0])
+            length = ord(self.read1()[0])
             data = self.read(length)
             if len(data) < length:
                 raise oefmt(unpickling_error(self.space),
@@ -1688,7 +1678,7 @@ class W_Unpickler(W_Root):
         dispatch[op.SHORT_BINSTRING[0]] = load_short_binstring
 
     def load_short_binbytes(self):
-        length = ord(self.read(1)[0])
+        length = ord(self.read1()[0])
         data = self.read(length)
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
@@ -1697,7 +1687,7 @@ class W_Unpickler(W_Root):
     dispatch[op.SHORT_BINBYTES[0]] = load_short_binbytes
 
     def load_short_binunicode(self):
-        length = ord(self.read(1)[0])
+        length = ord(self.read1()[0])
         data = self.read(length)
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
@@ -1854,7 +1844,7 @@ class W_Unpickler(W_Root):
     dispatch[op.STACK_GLOBAL[0]] = load_stack_global
 
     def load_ext1(self):
-        code = int(self.read(1))
+        code = int(self.read1())
         self.get_extension(code)
     dispatch[op.EXT1[0]] = load_ext1
 
@@ -1959,7 +1949,7 @@ class W_Unpickler(W_Root):
     dispatch[op.GET[0]] = load_get
 
     def load_binget(self):
-        i = ord(self.read(1)[0])
+        i = ord(self.read1()[0])
         try:
             self.append(self.memo[i])
         except KeyError as exc:
@@ -1992,7 +1982,7 @@ class W_Unpickler(W_Root):
     dispatch[op.PUT[0]] = load_put
 
     def load_binput(self):
-        i = ord(self.read(1)[0])
+        i = ord(self.read1()[0])
         if i < 0:
             raise oefmt(self.space.w_ValueError, "negative BINPUT argument")
         if len(self.stack) < 1:
