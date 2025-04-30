@@ -204,6 +204,15 @@ def packI(opcode, val):
 def packB(opcode, val):
     return opcode + chr(val)
 
+def append_pack_int(builder, opcode, val, length, extra=None):
+    builder.append(opcode)
+    for i in range(length):
+        builder.append(chr(val & 0xff))
+        val >>= 8
+    if extra:
+        builder.append(extra)
+
+
 def pack_float(f):
     # like marshal, but bigendian, marshal uses littlendian
     buf = MutableStringBuffer(8)
@@ -312,6 +321,25 @@ class _Framer(object):
                 data += extra
             return self.file_write(data)
 
+    def write_packi(self, opcode, val, extra=None):
+        if self.current_frame is not None:
+            append_pack_int(self.current_frame, opcode, val, 4, extra)
+        else:
+            data = packi(opcode, val)
+            if extra:
+                data += extra
+            self.file_write(data)
+
+    def write_packI(self, opcode, val, extra=None):
+        if self.current_frame is not None:
+            append_pack_int(self.current_frame, opcode, val, 4, extra)
+        else:
+            data = packI(opcode, val)
+            if extra:
+                data += extra
+            self.file_write(data)
+
+
 
 def spacenext(space, w_it):
     try:
@@ -401,6 +429,12 @@ class W_Pickler(W_Root):
 
     def write_packB(self, opcode, val, extra=None):
         return self.framer.write_packB(opcode, val, extra)
+
+    def write_packi(self, opcode, val, extra=None):
+        self.framer.write_packi(opcode, val, extra)
+
+    def write_packI(self, opcode, val, extra=None):
+        self.framer.write_packI(opcode, val, extra)
 
     def _write_large_bytes(self, arg0, arg1):
         return self.framer.write_large_bytes(arg0, arg1)
@@ -798,7 +832,7 @@ class W_Pickler(W_Root):
                 elif code <= 0xffff:
                     write(packH(op.EXT2, code))
                 else:
-                    write(packi(op.EXT4, code))
+                    self.write_packi(op.EXT4, code)
                 return
         name = space.utf8_w(w_name)
         lastname = name.split('.')[-1]
@@ -931,7 +965,7 @@ def save_long(self, w_obj):
             # Next check for 4-byte signed ints:
             # XXX 32 bit systems?
             if -0x80000000 <= obj <= 0x7fffffff:
-                self.write(packi(op.BININT, obj))
+                self.write_packi(op.BININT, obj)
                 return
         if self.proto < 2:
             as_ascii = space.utf8_w(space.repr(w_obj))
@@ -945,7 +979,7 @@ def save_long(self, w_obj):
     if n < 256:
         self.write_packB(op.LONG1, n, encoded)
     else:
-        self.write(packi(op.LONG4, n) + encoded)
+        self.write_packi(op.LONG4, n, encoded)
 
 def save_float(self, w_obj):
     space = self.space
@@ -980,7 +1014,7 @@ def save_raw_bytes(self, n, obj):
     elif n >= self.framer._FRAME_SIZE_TARGET:
         self._write_large_bytes(packI(op.BINBYTES, n), obj)
     else:
-        self.write(packI(op.BINBYTES, n) + obj)
+        self.write_packI(op.BINBYTES, n, obj)
 
 def save_str(self, w_obj):
     space = self.space
@@ -995,7 +1029,7 @@ def save_str(self, w_obj):
         elif n >= self.framer._FRAME_SIZE_TARGET:
             self._write_large_bytes(packI(op.BINUNICODE, n), encoded)
         else:
-            self.write(packI(op.BINUNICODE, n) + encoded)
+            self.write_packI(op.BINUNICODE, n, encoded)
     else:
         # Escape what raw-unicode-escape doesn't, but memoize the original.
         w_tmp = space.call_method(w_obj, "replace", space.newtext("\\"), space.newtext("\\u005c"))
