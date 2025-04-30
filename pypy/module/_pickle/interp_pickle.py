@@ -267,6 +267,24 @@ def spacenext(space, w_it):
             raise
         return None
 
+class DispatchCache(object):
+    def __init__(self, space):
+        self.dispatch = {}
+        self.dispatch[space.w_NoneType] = save_none
+        self.dispatch[space.w_bool]   = save_bool
+        self.dispatch[space.w_int]    = save_long
+        self.dispatch[space.w_float]  = save_float
+        self.dispatch[space.w_unicode] = save_str
+        self.dispatch[space.w_bytes]  = save_bytes
+        self.dispatch[space.w_tuple]  = save_tuple
+        self.dispatch[space.w_list]   = save_list
+        self.dispatch[space.w_dict]   = save_dict
+        w_function = space.type(space.getattr(space.w_text, space.newtext("count")))
+        self.dispatch[w_function]     = save_global
+        self.dispatch4 = self.dispatch.copy()
+        self.dispatch4[space.w_frozenset] = save_frozenset
+        self.dispatch5 = self.dispatch4.copy()
+        self.dispatch5[space.w_bytearray]   = save_bytearray
 
 class W_Pickler(W_Root):
     """
@@ -316,22 +334,13 @@ class W_Pickler(W_Root):
         self.pers_func = None
         self.w_dispatch_table = None
         self.w_reducer_override = None
-        self.dispatch = {}
-        self.dispatch[space.w_NoneType] = save_none
-        self.dispatch[space.w_bool]   = save_bool
-        self.dispatch[space.w_int]    = save_long
-        self.dispatch[space.w_float]  = save_float
-        self.dispatch[space.w_unicode] = save_str
-        self.dispatch[space.w_bytes]  = save_bytes
-        self.dispatch[space.w_tuple]  = save_tuple
-        self.dispatch[space.w_list]   = save_list
-        self.dispatch[space.w_dict]   = save_dict
-        if self.proto >= 4:
-            self.dispatch[space.w_frozenset] = save_frozenset
-        if self.proto >= 5:
-            self.dispatch[space.w_bytearray]   = save_bytearray
         self.w_function = space.type(space.getattr(space.w_text, space.newtext("count")))
-        self.dispatch[self.w_function]     = save_global
+        cache = space.fromcache(DispatchCache)
+        self.dispatch = cache.dispatch
+        if self.proto >= 4:
+            self.dispatch = cache.dispatch4
+        if self.proto >= 5:
+            self.dispatch = cache.dispatch5
 
     def write(self, data):
         return self.framer.write(data)
