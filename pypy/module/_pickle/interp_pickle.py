@@ -1,6 +1,7 @@
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct import ieee
+from rpython.rlib import objectmodel
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.argument import Arguments
@@ -131,27 +132,30 @@ def packi(opcode, val):
         val >>= 8
     return res.build()
 
-def unpacki(s):
+def unpacki(s, index=0):
     val = 0
     for i in range(4):
-        x = ord(s[i])
+        x = ord(s[index])
         if i == 3 and x >= 128:
             x -= 256
         val += x * (1 << 8 * i)
+        index += 1
     return val
 
-def unpackI(s):
+def unpackI(s, index=0):
     val = 0
     for i in range(4):
-        x = ord(s[i])
+        x = ord(s[index])
         val += x * (1 << 8 * i)
+        index += 1
     return val
 
-def unpackQ(s):
+def unpackQ(s, index=0):
     val = 0
     for i in range(8):
-        x = ord(s[i])
+        x = ord(s[index])
         val += x * (1 << 8 * i)
+        index += 1
     return val
 
 
@@ -1262,11 +1266,23 @@ class _Unframer(object):
             return ret
 
     def read1(self):
-        if self.current_frame is not None and len(self.current_frame) >= 1:
+        if self.current_frame is not None and self.index < len(self.current_frame):
             res = self.current_frame[self.index]
             self.index += 1
             return res
         return self.read(1)[0]
+
+    @objectmodel.always_inline
+    def read_with_offset(self, n):
+        # returns a string, offset tuple. the resulting values are in string[offset:offset+n]
+        if self.current_frame is not None and self.index + n <= len(self.current_frame):
+            data = self.current_frame
+            index = self.index
+            self.index += n
+        else:
+            data = self.read(n)
+            index = 0
+        return data, index
 
     def readline(self):
         space = self.space
@@ -1385,6 +1401,14 @@ class W_Unpickler(W_Root):
     def read1(self):
         return self._unframer.read1()
 
+    def read_unpackI(self):
+        d, index = self._unframer.read_with_offset(4)
+        return unpackI(d, index)
+
+    def read_unpacki(self):
+        d, index = self._unframer.read_with_offset(4)
+        return unpacki(d, index)
+
     # Return a list of items pushed in the stack after last MARK instruction.
     def pop_mark(self):
         items = self.stack
@@ -1462,12 +1486,7 @@ class W_Unpickler(W_Root):
     dispatch[op.INT[0]] = load_int
 
     def load_binint(self):
-        data = self.read(4)
-        try:
-            val = unpacki(data)
-        except IndexError:
-            raise oefmt(unpickling_error(self.space),
-                'truncated data in BININT')
+        val = self.read_unpacki()
         self.append(self.space.newint(val))
     dispatch[op.BININT[0]] = load_binint
 
@@ -1497,12 +1516,7 @@ class W_Unpickler(W_Root):
     dispatch[op.LONG1[0]] = load_long1
 
     def load_long4(self):
-        data = self.read(4)
-        try:
-            n = unpacki(data)
-        except IndexError:
-            raise oefmt(unpickling_error(self.space),
-                'truncated data in LONG4')
+        n = self.read_unpacki()
         if n < 0:
             # Corrupt or hostile pickle -- we never write one like this
             raise oefmt(unpickling_error(self.space),
@@ -1547,11 +1561,7 @@ class W_Unpickler(W_Root):
 
         def load_binstring(self):
             # Deprecated BINSTRING uses signed 32-bit length
-            try:
-                length = unpacki(self.read(4))
-            except IndexError:
-                raise oefmt(unpickling_error(self.space),
-                    'truncated data in BINSTRING')
+            length = self.read_unpacki()
             if length < 0:
                 raise oefmt(unpickling_error(self.space),
                     "BINSTRING pickle has negative byte count")
@@ -1563,11 +1573,7 @@ class W_Unpickler(W_Root):
         dispatch[op.BINSTRING[0]] = load_binstring
 
     def load_binbytes(self):
-        try:
-            length = unpackI(self.read(4))
-        except IndexError:
-            raise oefmt(unpickling_error(self.space),
-                "trucated data in BINBYTES")
+        length = self.read_unpackI()
         if length > maxsize:
             raise oefmt(unpickling_error(self.space),
                 "BINBYTES exceeds system's maximum size "
@@ -1585,11 +1591,7 @@ class W_Unpickler(W_Root):
     dispatch[op.UNICODE[0]] = load_unicode
 
     def load_binunicode(self):
-        try:
-            length = unpackI(self.read(4))
-        except IndexError:
-            raise oefmt(unpickling_error(self.space),
-                "trucated data in BINUNICODE")
+        length = self.read_unpackI()
         if length > maxsize:
             raise oefmt(unpickling_error(self.space),
                 "BINUNICODE exceeds system's maximum size "
@@ -1865,11 +1867,7 @@ class W_Unpickler(W_Root):
     dispatch[op.EXT2[0]] = load_ext2
 
     def load_ext4(self):
-        try:
-            code = unpacki(self.read(4))
-        except IndexError:
-            raise oefmt(unpickling_error(self.space),
-                'truncated data in EXT4')
+        code = self.read_unpacki()
         self.get_extension(code)
     dispatch[op.EXT4[0]] = load_ext4
 
@@ -1964,11 +1962,7 @@ class W_Unpickler(W_Root):
     dispatch[op.BINGET[0]] = load_binget
 
     def load_long_binget(self):
-        try:
-            i = unpackI(self.read(4))
-        except IndexError:
-            raise oefmt(unpickling_error(self.space),
-                'truncated data in LONG_BINGET')
+        i = self.read_unpackI()
         try:
             self.append(self.memo[i])
         except KeyError as exc:
@@ -1998,11 +1992,7 @@ class W_Unpickler(W_Root):
     dispatch[op.BINPUT[0]] = load_binput
 
     def load_long_binput(self):
-        try:
-            i = unpackI(self.read(4))
-        except IndexError:
-            raise oefmt(unpickling_error(self.space),
-                'stack underflow in LONG_BINPUT')
+        i = self.read_unpackI()
         if i > maxsize:
             raise oefmt(self.space.w_ValueError, "negative LONG_BINPUT argument")
         if len(self.stack) < 1:
