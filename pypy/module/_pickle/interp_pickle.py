@@ -5,7 +5,7 @@ from rpython.rlib.rstruct import ieee
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr, GetSetProperty
-from pypy.interpreter.error import oefmt, OperationError
+from pypy.interpreter.error import oefmt, oefmt_attribute_error, OperationError
 from pypy.interpreter.unicodehelper import decode_utf8sp
 
 from pypy.interpreter.gateway import interp2app, applevel, unwrap_spec, WrappedDefault
@@ -807,8 +807,8 @@ class W_Pickler(W_Root):
     def get_dispatch_table_w(self, space):
         if self.w_dispatch_table:
             return self.w_dispatch_table
-        raise oefmt(space.w_AttributeError,
-            "%T object has no attribute 'dispatch_table'", self)
+        raise oefmt_attribute_error(self, space.newtext('dispatch_table'), 
+           "'%T' object has no attribute %R")
 
     def set_fast_w(self, space, w_val):
         self.fast = space.int_w(w_val)
