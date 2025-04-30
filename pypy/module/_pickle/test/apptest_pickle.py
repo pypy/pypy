@@ -2,13 +2,50 @@ import pytest
 from _pickle import Pickler, PicklingError, dumps
 from _pickle import Unpickler, UnpicklingError, loads
 import pickle
-from pickle import _dumps as dumps_py
-from copyreg import dispatch_table
+from pickle import _dumps as dumps_py, PickleBuffer
+from copyreg import dispatch_table, K
 import io
 import sys
+import datetime
 
-# We don't support protocol < 2
-protocols = range(5, 1, -1)
+protocols = range(5, -1, -1)
+
+DICT = {
+    'ads_flags': 0,
+    'age': 18,
+    'birthday': datetime.date(1980, 5, 7),
+    'bulletin_count': 0,
+    'comment_count': 0,
+    'country': 'BR',
+    'encrypted_id': 'G9urXXAJwjE',
+    'favorite_count': 9,
+    'first_name': '',
+    'flags': 412317970704,
+    'friend_count': 0,
+    'gender': 'm',
+    'gender_for_display': 'Male',
+    'id': 302935349,
+    'is_custom_profile_icon': 0,
+    'last_name': '',
+    'locale_preference': 'pt_BR',
+    'member': 0,
+    'tags': ['a', 'b', 'c', 'd', 'e', 'f', 'g'],
+    'profile_foo_id': 827119638,
+    'secure_encrypted_id': 'Z_xxx2dYx3t4YAdnmfgyKw',
+    'session_number': 2,
+    'signup_id': '201-19225-223',
+    'status': 'A',
+    'theme': 1,
+    'time_created': 1225237014,
+    'time_updated': 1233134493,
+    'unread_message_count': 0,
+    'user_group': '0',
+    'username': 'collinwinter',
+    'play_count': 9,
+    'view_count': 7,
+    'zip': ''}
+
+
 
 def test_int():
     for proto in protocols:
@@ -155,6 +192,13 @@ def test_dict():
     s = dumps({1: 2}, 0)
     assert s == b'(dp0\nI1\nI2\ns.'
     assert loads(s) == {1: 2}
+    for proto in [-1]:
+        s1 = dumps(DICT, proto)
+        s2 = dumps_py(DICT, proto)
+        assert s1 == s2
+        val = loads(s1)
+        assert val == DICT
+        print("ok", proto, s1)
 
 def test_reduce():
     import sys
@@ -317,10 +361,89 @@ def test_find_class():
     assert isinstance(got, range)
 
 def test_function():
-    method = str.count
-    for proto in (3, 4):
-        data = dumps(method, proto)
-        pydata = dumps_py(method, proto)
-        assert data == pydata
-        got = loads(data)
-        assert got == str.count
+    for method in (str.count, set.__contains__):
+        for proto in protocols:
+            data = dumps(method, proto)
+            pydata = dumps_py(method, proto)
+            assert data == pydata
+            got = loads(data)
+            assert got == method
+
+def test_unseekable():
+    class UnseekableIO(io.BytesIO):
+        def peek(self, *args):
+            raise NotImplementedError
+
+        def seekable(self):
+            return False
+
+        def seek(self, *args):
+            raise io.UnsupportedOperation
+
+        def tell(self):
+            raise io.UnsupportedOperation
+
+    data1 = [(x, str(x)) for x in range(2000)] + [b"abcde", len]
+    for proto in range(5):
+        f = UnseekableIO()
+        pickler = Pickler(f, protocol=proto)
+        pickler.dump(data1)
+        pickled = f.getvalue()
+
+        N = 5
+        f = UnseekableIO(pickled * N)
+        unpickler = Unpickler(f)
+        for i in range(N):
+            assert unpickler.load() == data1
+        try:
+            unpickler.load()
+        except EOFError:
+            pass
+
+def test_compat_pickle():
+    tests = [
+        (range(1, 7), '__builtin__', 'xrange'),
+        (map(int, '123'), 'itertools', 'imap'),
+        (Exception(), 'exceptions', 'Exception'),
+    ]
+    for val, mod, name in tests:
+        for proto in range(3):
+            pickled = dumps(val, proto)
+            assert('c%s\n%s' % (mod, name)).encode() in pickled
+            val2 = loads(pickled)
+            assert type(val2) is type(val)
+
+def test_bad_newobj_ex():
+    val = loads(b'cbuiltins\nint\n)}\x92.')
+    assert val == 0
+
+def test_picklebuffer():
+    pb = PickleBuffer(b'foobar')
+    s1 = dumps(pb, 5)
+    s2 = dumps_py(pb, 5)
+    # assert s1 == s2
+    assert loads(s1) == b'foobar'
+
+def test_recursive_set():
+    # Set containing an immutable object containing the original set.
+    y = set()
+    y.add(K(y))
+    for proto in range(4, pickle.HIGHEST_PROTOCOL + 1):
+        s = dumps(y, proto)
+        s2 = dumps_py(y, proto)
+        assert s == s2
+        x = loads(s)
+        assert isinstance(x, set)
+        assert len(x) == 1
+        assert isinstance(list(x)[0], K)
+        assert list(x)[0].value is x
+
+    # Immutable object containing a set containing the original object.
+    y, = y
+    for proto in range(4, pickle.HIGHEST_PROTOCOL + 1):
+        s = dumps(y, proto)
+        x = loads(s)
+        assert isinstance(x, K)
+        assert isinstance(x.value, set)
+        assert len(x.value) == 1
+        assert list(x.value)[0] is x
