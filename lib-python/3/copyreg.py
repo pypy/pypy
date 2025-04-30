@@ -225,3 +225,16 @@ def clear_extension_cache():
 #   256   Inf   Inf  Reserved for future assignment
 
 # Extension codes are assigned by the Python Software Foundation.
+
+# PYPY: Used in tests. We hide it here so it can be imported in the
+# untranslated tests and found as copyreg.K
+# Hashable immutable key object containing unheshable mutable data.
+class K:
+    def __init__(self, value):
+        self.value = value
+
+    def __reduce__(self):
+        # Shouldn't support the recursion itself
+        return K, (self.value,)
+
+

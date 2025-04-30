@@ -10,6 +10,7 @@ from pypy.interpreter.unicodehelper import decode_utf8sp
 
 from pypy.interpreter.gateway import interp2app, applevel, unwrap_spec, WrappedDefault
 from pypy.module._pickle.state import State
+from pypy.module.__pypy__.interp_buffer import W_PickleBuffer
 
 import sys
 maxsize = sys.maxint
@@ -310,6 +311,7 @@ class W_Pickler(W_Root):
         self.fast = 0
         self.pers_func = None
         self.w_dispatch_table = None
+        self.w_reducer_override = None
         self.dispatch = {}
         self.dispatch[space.w_NoneType] = save_none
         self.dispatch[space.w_bool]   = save_bool
@@ -324,9 +326,8 @@ class W_Pickler(W_Root):
             self.dispatch[space.w_frozenset] = save_frozenset
         if self.proto >= 5:
             self.dispatch[space.w_bytearray]   = save_bytearray
-        w_function = space.type(space.getattr(space.w_text, space.newtext("count")))
-        self.dispatch[w_function]     = save_global
-
+        self.w_function = space.type(space.getattr(space.w_text, space.newtext("count")))
+        self.dispatch[self.w_function]     = save_global
 
     def write(self, data):
         return self.framer.write(data)
@@ -336,6 +337,9 @@ class W_Pickler(W_Root):
 
     def dump(self, w_obj):
         """Write a pickled representation of obj to the open file."""
+        space = self.space
+        if space.findattr(self, space.newtext("reducer_override")):
+            self.w_reducer_override = space.getattr(self, space.newtext("reducer_override"))
         if self.proto >= 2:
             self.write(packB(op.PROTO, self.proto))
         if self.proto >= 4:
@@ -354,24 +358,56 @@ class W_Pickler(W_Root):
             if pid is not None:
                 self.save_pers(pid)
                 return
+
+        w_type = space.type(w_obj)
+        # Atom types: these are not memoized
+        if w_type is space.w_None:
+            return save_none(self, w_obj)
+        elif w_type is space.w_bool:
+            return save_bool(self, w_obj)
+        elif w_type is space.w_int:
+            return save_long(self, w_obj) 
+        elif w_type is space.w_float:
+            return save_float(self, w_obj) 
+
         # Check the memo
         x = self.memo.get(w_obj, -1)
         if x >= 0:
             self.write(self.get(x))
             return
 
-        w_rv = space.w_NotImplemented
+        if w_type is space.w_bytes:
+            return save_bytes(self, w_obj)
+        elif w_type is space.w_text:
+            return save_str(self, w_obj)
+
+        # XXX check recursive call
+        if w_type is space.w_dict:
+            return save_dict(self, w_obj)
+        elif w_type is space.w_set:
+            return save_set(self, w_obj)
+        elif w_type is space.w_frozenset and self.proto >= 4:
+            return save_frozenset(self, w_obj)
+        elif w_type is space.w_list:
+            return save_list(self, w_obj)
+        elif w_type is space.w_tuple:
+            return save_tuple(self, w_obj)
+        elif w_type is space.w_bytearray and self.proto >= 5:
+            return save_bytearray(self, w_obj)
+        elif isinstance(w_obj, W_PickleBuffer):
+            return save_picklebuffer(self, w_obj)
+
         w_reduce = space.w_None
-        if space.findattr(self, space.newtext("reducer_override")):
-            w_reduce = space.getattr(self, space.newtext("reducer_override"))
-        if not space.is_w(w_reduce, space.w_None):
+        w_rv = space.w_NotImplemented
+        if self.w_reducer_override:
+            w_reduce = self.w_reducer_override
             w_rv = space.call(w_reduce, w_obj)
 
         if w_rv is space.w_NotImplemented:
             # Check private dispatch table if any, or else
-            w_type = space.type(w_obj)
             f = self.dispatch.get(w_type)
             if f is not None:
+                # This should never happen, we should have checked all cases above!
                 f(self, w_obj)
                 return
             # copyreg.dispatch_table
@@ -398,7 +434,10 @@ class W_Pickler(W_Root):
                         w_rv = space.call_function(w_reduce, w_obj)
                     else:
                         raise oefmt(pickling_error(space), "Can't pickle %T object: %R", w_obj, w_obj)
-
+        else:
+            if w_type is self.w_function:
+                save_global(self, w_obj)
+                return
         # Check for string returned by reduce(), meaning "save as global"
         if space.isinstance_w(w_rv, space.w_unicode):
             self.save_global2(w_obj, w_rv)
@@ -650,7 +689,6 @@ class W_Pickler(W_Root):
             w_name = space.getattr(w_obj, space.newtext('__name__'))
 
         w_module_name = whichmodule(space, w_obj, w_name)
-        module_name = space.utf8_w(w_module_name)
         try:
             w_import = space.getattr(space.builtin, space.newtext("__import__"))
             space.call_function(w_import, w_module_name)
@@ -698,18 +736,23 @@ class W_Pickler(W_Root):
             self.save_reduce(space.getattr(space.builtin, space.newtext('getattr')),
                              space.newtuple2(w_parent, space.newtext(lastname)))
         elif self.proto >= 3:
+            module_name = space.utf8_w(w_module_name)
             write(op.GLOBAL + module_name + b'\n' +
                   name + b'\n')
         else:
-            if 0 and self.fix_imports:
-                # XXX Fixme
-                r_name_mapping = _compat_pickle.REVERSE_NAME_MAPPING
-                r_import_mapping = _compat_pickle.REVERSE_IMPORT_MAPPING
-                if (module_name, name) in r_name_mapping:
-                    module_name, name = r_name_mapping[(module_name, name)]
-                elif module_name in r_import_mapping:
-                    module_name = r_import_mapping[module_name]
+            if self.fix_imports:
+                w_modname_and_name = space.newtuple([w_module_name, w_name])
+                w_r_NAME_MAPPING = space.fromcache(State).w_REVERSE_NAME_MAPPING
+                w_r_IMPORT_MAPPING = space.fromcache(State).w_REVERSE_IMPORT_MAPPING
+                w_1 = space.finditem(w_r_NAME_MAPPING, w_modname_and_name)
+                w_2 = space.finditem(w_r_IMPORT_MAPPING, w_module_name)
+                if w_1:
+                    w_module_name, w_name = space.listview(w_1)
+                elif w_2:
+                    w_module_name = w_2
             try:
+                module_name = space.utf8_w(w_module_name)
+                name = space.utf8_w(w_name)
                 write(op.GLOBAL + module_name + b'\n' +
                       name + b'\n')
             except UnicodeEncodeError:
@@ -837,10 +880,21 @@ def save_float(self, w_obj):
 
 def save_bytes(self, w_obj):
     space = self.space
-    if self.proto < 3:
-        assert 0
     n = space.len_w(w_obj)
+    if self.proto < 3:
+        if n < 1:
+            self.save_reduce(space.w_bytes, space.newtuple([]), w_obj=w_obj)
+        else:
+            w_import = space.getattr(space.builtin, space.newtext("__import__"))
+            w_codecs = space.call_function(w_import, space.newtext('codecs'))
+            w_encode = space.getattr(w_codecs, space.newtext('encode'))
+            self.save_reduce(w_encode, space.newtuple([space.newtext(space.bytes_w(w_obj)), space.newtext('latin1')]), w_obj=w_obj)
+        return
     obj = space.bytes_w(w_obj)
+    save_raw_bytes(self, n, obj)
+    self.memoize(w_obj)
+
+def save_raw_bytes(self, n, obj):
     if n <= 0xff:
         self.write(packB(op.SHORT_BINBYTES, n) + obj)
     elif n > 0xffffffff and self.proto >= 4:
@@ -849,21 +903,33 @@ def save_bytes(self, w_obj):
         self._write_large_bytes(packI(op.BINBYTES, n), obj)
     else:
         self.write(packI(op.BINBYTES, n) + obj)
-    self.memoize(w_obj)
 
 def save_str(self, w_obj):
     space = self.space
-    w_encoded = space.call_method(w_obj, "encode", space.newtext('utf-8'), space.newtext('surrogatepass'))
-    encoded = space.bytes_w(w_encoded)
-    n = len(encoded)
-    if n <= 0xff and self.proto >= 4:
-        self.write(packB(op.SHORT_BINUNICODE, n) + encoded)
-    elif n > 0xffffffff and self.proto >= 4:
-        self._write_large_bytes(packQ(op.BINUNICODE8, n), encoded)
-    elif n >= self.framer._FRAME_SIZE_TARGET:
-        self._write_large_bytes(packI(op.BINUNICODE, n), encoded)
+    if self.bin:
+        w_encoded = space.call_method(w_obj, "encode", space.newtext('utf-8'), space.newtext('surrogatepass'))
+        encoded = space.bytes_w(w_encoded)
+        n = len(encoded)
+        if n <= 0xff and self.proto >= 4:
+            self.write(packB(op.SHORT_BINUNICODE, n) + encoded)
+        elif n > 0xffffffff and self.proto >= 4:
+            self._write_large_bytes(packQ(op.BINUNICODE8, n), encoded)
+        elif n >= self.framer._FRAME_SIZE_TARGET:
+            self._write_large_bytes(packI(op.BINUNICODE, n), encoded)
+        else:
+            self.write(packI(op.BINUNICODE, n) + encoded)
     else:
-        self.write(packI(op.BINUNICODE, n) + encoded)
+        # Escape what raw-unicode-escape doesn't, but memoize the original.
+        w_tmp = space.call_method(w_obj, "replace", space.newtext("\\"), space.newtext("\\u005c"))
+        tmp = space.call_method(w_obj, "replace", space.newtext("\0"), space.newtext("\\u0000"))
+        tmp = space.call_method(w_obj, "replace", space.newtext("\n"), space.newtext("\\u000a"))
+        tmp = space.call_method(w_obj, "replace", space.newtext("\r"), space.newtext("\\u000d"))
+        # EOF on DOS
+        tmp = space.call_method(w_obj, "replace", space.newtext("\x1a"), space.newtext("\\u001a"))
+        w_encoded = space.call_method(w_obj, "encode", space.newtext('utf-8'), space.newtext('raw-unicode-escape'))
+        encoded = space.bytes_w(w_encoded)
+        self.write(op.UNICODE + encoded + b'\n')
+
     self.memoize(w_obj)
 
 def save_tuple(self, w_obj):
@@ -935,6 +1001,35 @@ def save_dict(self, w_obj):
     w_items = self.space.call_method(w_obj, 'items')
     self._batch_setitems(w_items)
 
+def save_set(self, w_obj):
+        save = self.save
+        write = self.write
+        space = self.space
+
+        if self.proto < 4:
+            self.save_reduce(space.w_set, space.newtuple([space.newlist([w_obj])]), w_obj=w_obj)
+            return
+
+        write(op.EMPTY_SET)
+        self.memoize(w_obj)
+        w_iter = space.iter(w_obj)
+        write(op.MARK)
+        length = space.len_w(w_obj)
+        if length == 0:
+            return
+        w_item = space.next(w_iter)
+        save(w_item)
+        for i in range(1, length - 1):
+            if i % self._BATCHSIZE == 0:
+                write(op.ADDITEMS)
+                write(op.MARK)
+            w_item = space.next(w_iter)
+            save(w_item)
+        if length > 1:
+            w_item = space.next(w_iter)
+            save(w_item)
+        write(op.ADDITEMS)
+
 def save_frozenset(self, w_obj):
     self.write(op.MARK)
     space = self.space
@@ -954,13 +1049,74 @@ def save_bytearray(self, w_obj):
     space = self.space
     n = space.len_w(w_obj)
     obj = space.buffer_w(w_obj, 0).as_str()
+    save_raw_bytearray(self, n, obj)
+
+def save_raw_bytearray(self, n, obj):
     if n >= self.framer._FRAME_SIZE_TARGET:
         self._write_large_bytes(packQ(op.BYTEARRAY8, n), obj)
     else:
         self.write(packQ(op.BYTEARRAY8, n))
         self.write(obj)
 
-
+def iscontiguous(buf):
+    # taken from objspace.std.memoryobject._IsCContiguous
+    ndim = buf.getndim()
+    shape = buf.getshape()
+    strides = buf.getstrides()
+    itemsize = buf.getitemsize()
+    if ndim == 0:
+        return 1
+    if not strides:
+        return ndim == 1
+    if ndim == 1:
+        return shape[0] == 1 or itemsize == strides[0]
+    sd = itemsize
+    for i in range(ndim -1, -1 -1):
+        # C order
+        dim = shape[i]
+        if dim == 0:
+            return 1
+        if strides[i] != sd:
+            # Could be Fortran order?
+            break
+        sd *= dim
+    sd = itemsize
+    for i in range(ndim):
+        dim = shape[i]
+        if dim == 0:
+            return 1
+        if strides[i] != sd:
+            return 0
+        sd *= dim
+    return 1
+ 
+def save_picklebuffer(self, w_obj):
+    space = self.space
+    if self.proto < 5:
+        raise oefmt(pickling_error(space),
+            "PickleBuffer can only pickled with protocol >= 5")
+    buf = w_obj.buf
+    if not iscontiguous(buf):
+        raise oefmt(pickling_error(space),
+            "PickleBuffer can not be pickled when "
+            "pointing to a non-contiguous buffer")
+    in_band = 1
+    if self.buffer_callback:
+        w_ret = space.call_function(self.buffer_callback, w_obj)
+        in_band = space.bool_w(w_ret)
+    if in_band:
+        # write data in-band
+        raw = buf.as_str()
+        n = len(raw)
+        if buf.readonly:
+            save_raw_bytes(self, n, raw)
+        else:
+            save_raw_bytearray(self, n, raw)
+    else:
+        # Write data out-of-band
+        self.write(op.NEXT_BUFFER)
+        if buf.readonly:
+            self.write(op.READONLY_BUFFER)
 
 
 app = applevel('''
@@ -1049,6 +1205,12 @@ def decode_long(space, data):
 @unwrap_spec(protocol=int, fix_imports=int)
 def descr__new__(space, w_subtype, w_file, protocol=DEFAULT_PROTOCOL, fix_imports=1, w_buffer_callback=None):
     w_self = space.allocate_instance(W_Pickler, w_subtype)
+    if protocol < 0:
+        protocol = HIGHEST_PROTOCOL
+    elif not 0 <= protocol <= HIGHEST_PROTOCOL:
+        raise oefmt(space.w_ValueError, "pickle protocol must be <= %d", HIGHEST_PROTOCOL)
+    if w_buffer_callback is not None and protocol < 5:
+        raise oefmt(space.w_ValueError, "buffer_callback needs protocol < 5")
     W_Pickler.__init__(w_self, space, w_file, protocol, fix_imports, w_buffer_callback)
     return w_self
 
@@ -1108,7 +1270,11 @@ class _Unframer(object):
             w_ret = space.call_function(self.w_file_read, space.newint(n))
             ret = space.bytes_w(w_ret)
             if len(ret) < n:
-                raise oefmt(unpickling_error(space), "pickle data was truncated")
+                if n == 1:
+                    w_err = space.w_EOFError
+                else:
+                    w_err = unpickling_error(space)
+                raise oefmt(w_err, "pickle data was truncated, wanted %d got %d", n, len(ret))
             return ret
 
     def readline(self):
@@ -1130,7 +1296,7 @@ class _Unframer(object):
             data = space.bytes_w(w_ret)
             if len(data) < 2:
                 raise oefmt(unpickling_error(space),
-                    "pickle data was truncated")
+                    "pickle data was truncated 2")
             if data[-1] != b'\n'[0]:
                 raise oefmt(unpickling_error(space),
                     "pickle exhausted before end of frame")
@@ -1603,6 +1769,9 @@ class W_Unpickler(W_Root):
     def load_dict(self):
         space = self.space
         items = self.pop_mark()
+        if (len(items) % 2) != 0:
+            raise oefmt(unpickling_error(space),
+                "odd number of items for DICT")
         w_d = space.newdict()
         for i in range(0, len(items), 2):
             space.setitem(w_d, items[i], items[i+1])
@@ -1662,7 +1831,8 @@ class W_Unpickler(W_Root):
         w_args = data_pop(self.space, self.stack)
         w_cls = data_pop(self.space, self.stack)
         w_new = space.getattr(w_cls, space.newtext("__new__"))
-        w_obj = space.call_function(w_new, w_cls, w_args, w_kwargs)
+        w_arguments = Arguments(self.space, [w_cls], w_stararg = w_args, w_starstararg=w_kwargs)
+        w_obj = self.space.call_args(w_new, w_arguments)
         self.append(w_obj)
     dispatch[op.NEWOBJ_EX[0]] = load_newobj_ex
 
