@@ -1382,9 +1382,8 @@ class W_Unpickler(W_Root):
             key = self.read(1)
             if key[0] == op.STOP[0]:
                 return data_pop(self.space, self.stack)
-            # print "calling", self.dispatch[key[0]]
             try:
-                self.dispatch[key[0]](self)
+                self.dispatch[ord(key[0])](self)
             except KeyError:
                 raise oefmt(unpickling_error(self.space),
                     "unkown mark %s", key[0])
@@ -2124,6 +2123,8 @@ class W_Unpickler(W_Root):
         self.stack = []
         self.append = self.stack.append
     dispatch[op.MARK[0]] = load_mark
+
+W_Unpickler.dispatch = [W_Unpickler.dispatch.get(chr(i), None) for i in range(256)]
 
 
 @unwrap_spec(fix_imports=bool, encoding="text", errors="text", w_buffers=WrappedDefault(None))
