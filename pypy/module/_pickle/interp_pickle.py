@@ -811,7 +811,7 @@ class W_Pickler(W_Root):
     def get_dispatch_table_w(self, space):
         if self.w_dispatch_table:
             return self.w_dispatch_table
-        raise oefmt_attribute_error(self, space.newtext('dispatch_table'), 
+        raise oefmt_attribute_error(space, self, space.newtext('dispatch_table'), 
            "'%T' object has no attribute %R")
 
     def set_fast_w(self, space, w_val):
@@ -1368,7 +1368,9 @@ class W_Unpickler(W_Root):
         self.w_buffers = w_buffers
         self.w_file_readline = space.getattr(w_file, space.newtext("readline"))
         self.w_file_read = space.getattr(w_file, space.newtext("read"))
-        self.memo = {}
+        MEMO_SIZE = 32
+        self.memo = [None] * MEMO_SIZE
+        self.memo_index = 0 # next free spot
         self.encoding = encoding
         self.errors = errors
         self.proto = 0
@@ -1408,6 +1410,17 @@ class W_Unpickler(W_Root):
     def read_unpacki(self):
         d, index = self._unframer.read_with_offset(4)
         return unpacki(d, index)
+
+    def _memo_put(self, i, w_val):
+        assert i >= 0
+        while i >= len(self.memo):
+            self.memo += [None] * len(self.memo)
+        self.memo[i] = w_val
+
+    def _memo_append(self, w_val):
+        self._memo_put(self.memo_index, w_val)
+        self.memo_index += 1
+
 
     # Return a list of items pushed in the stack after last MARK instruction.
     def pop_mark(self):
@@ -1495,7 +1508,7 @@ class W_Unpickler(W_Root):
     dispatch[op.BININT1[0]] = load_binint1
 
     def load_binint2(self):
-        data, offset = self.read_with_offset(2)
+        data, offset = self._unframer.read_with_offset(2)
         # val = unpack('<H', data)[0]
         val = 256 * ord(data[offset + 1]) + ord(data[offset])
         self.append(self.space.newint(val))
@@ -1978,7 +1991,7 @@ class W_Unpickler(W_Root):
         if len(self.stack) < 1:
             raise oefmt(unpickling_error(self.space),
                 'stack underflow in PUT')
-        self.memo[i] = self.stack[-1]
+        self._memo_put(i, self.stack[-1])
     dispatch[op.PUT[0]] = load_put
 
     def load_binput(self):
@@ -1988,7 +2001,7 @@ class W_Unpickler(W_Root):
         if len(self.stack) < 1:
             raise oefmt(unpickling_error(self.space),
                 'stack underflow in BINPUT')
-        self.memo[i] = self.stack[-1]
+        self._memo_put(i, self.stack[-1])
     dispatch[op.BINPUT[0]] = load_binput
 
     def load_long_binput(self):
@@ -1998,7 +2011,7 @@ class W_Unpickler(W_Root):
         if len(self.stack) < 1:
             raise oefmt(unpickling_error(self.space),
                 'stack underflow in LONG_BINPUT')
-        self.memo[i] = self.stack[-1]
+        self._memo_put(i, self.stack[-1])
     dispatch[op.LONG_BINPUT[0]] = load_long_binput
 
     def load_memoize(self):
@@ -2006,7 +2019,7 @@ class W_Unpickler(W_Root):
         if len(self.stack) < 1:
             raise oefmt(unpickling_error(self.space),
                 'stack underflow in MEMOIZE')
-        memo[len(memo)] = self.stack[-1]
+        self._memo_append(self.stack[-1])
     dispatch[op.MEMOIZE[0]] = load_memoize
 
     def load_append(self):
