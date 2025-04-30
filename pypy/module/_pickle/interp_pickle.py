@@ -1228,6 +1228,7 @@ class _Unframer(object):
         self.w_file_read = w_file_read
         self.w_file_readline = w_file_readline
         self.current_frame = None
+        self.index = 0
 
     def read(self, n):
         assert isinstance(n, int)
@@ -1235,18 +1236,20 @@ class _Unframer(object):
         space = self.space
         if self.current_frame:
             data = self.current_frame
-            if not data and n > 0:
+            if self.index + n > len(data) and n > 0:
                 self.current_frame = None
+                self.index = 0
                 w_ret = space.call_function(self.w_file_read, space.newint(n))
                 ret = space.bytes_w(w_ret)
                 if len(ret) < n:
                     raise oefmt(space.w_EOFError, "Ran out of input 1")
                 return ret
-            if len(data) < n:
+            if len(data) - self.index < n:
                 raise oefmt(unpickling_error(space),
                     "pickle exhausted before end of frame")
-            self.current_frame = data[n:]
-            return data[:n]
+            result = data[self.index:self.index + n]
+            self.index += n
+            return result
         else:
             w_ret = space.call_function(self.w_file_read, space.newint(n))
             ret = space.bytes_w(w_ret)
@@ -1260,8 +1263,8 @@ class _Unframer(object):
 
     def read1(self):
         if self.current_frame is not None and len(self.current_frame) >= 1:
-            res = self.current_frame[0]
-            self.current_frame = self.current_frame[1:]
+            res = self.current_frame[self.index]
+            self.index += 1
             return res
         return self.read(1)[0]
 
@@ -1271,14 +1274,16 @@ class _Unframer(object):
             data = self.current_frame
             if not data:
                 self.current_frame = None
+                self.index = 0
                 w_ret = space.call_function(self.w_file_readline)
                 data = space.bytes_w(w_ret)
                 if len(data) < 2:
                     raise oefmt(space.w_EOFError, "Ran out of input 3")
+            # XXX this looks wrong. we need to find the first '\n'
             if data[-1] != b'\n'[0]:
                 raise oefmt(unpickling_error(space),
-                    "pickle exhausted before end of frame")
-            return data
+                    "pickle exhausted before end of frame readline")
+            return data[self.index:]
         else:
             w_ret = space.call_function(self.w_file_readline)
             data = space.bytes_w(w_ret)
@@ -1299,6 +1304,7 @@ class _Unframer(object):
         if len(ret) < frame_size:
             raise oefmt(self.space.w_EOFError, "Ran out of input 5")
         self.current_frame = ret
+        self.index = 0
 
 
 class W_Unpickler(W_Root):
