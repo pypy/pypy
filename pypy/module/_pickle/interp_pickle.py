@@ -297,6 +297,22 @@ class _Framer(object):
         write(header)
         write(payload)
 
+    def write_packB(self, opcode, val, extra=None):
+        if self.current_frame is not None:
+            self.current_frame.append(opcode)
+            self.current_frame.append(chr(val))
+            res = 2
+            if extra is not None:
+                self.current_frame.append(extra)
+                res += len(extra)
+            return res
+        else:
+            data = packB(opcode, val)
+            if extra:
+                data += extra
+            return self.file_write(data)
+
+
 def spacenext(space, w_it):
     try:
         return space.next(w_it)
@@ -383,6 +399,9 @@ class W_Pickler(W_Root):
     def write(self, data):
         return self.framer.write(data)
 
+    def write_packB(self, opcode, val, extra=None):
+        return self.framer.write_packB(opcode, val, extra)
+
     def _write_large_bytes(self, arg0, arg1):
         return self.framer.write_large_bytes(arg0, arg1)
 
@@ -395,7 +414,7 @@ class W_Pickler(W_Root):
         if space.findattr(self, space.newtext("reducer_override")):
             self.w_reducer_override = space.getattr(self, space.newtext("reducer_override"))
         if self.proto >= 2:
-            self.write(packB(op.PROTO, self.proto))
+            self.write_packB(op.PROTO, self.proto)
         if self.proto >= 4:
             self.framer.start_framing()
         self.save(w_obj)
@@ -904,7 +923,7 @@ def save_long(self, w_obj):
         if self.bin:
             if obj >= 0:
                 if obj <= 0xff:
-                    self.write(packB(op.BININT1, obj))
+                    self.write_packB(op.BININT1, obj)
                     return
                 if obj <= 0xffff:
                     self.write(packH(op.BININT2 , obj))
@@ -924,7 +943,7 @@ def save_long(self, w_obj):
     encoded = encode_long(space, w_obj)
     n = len(encoded)
     if n < 256:
-        self.write(packB(op.LONG1, n) + encoded)
+        self.write_packB(op.LONG1, n, encoded)
     else:
         self.write(packi(op.LONG4, n) + encoded)
 
@@ -955,7 +974,7 @@ def save_bytes(self, w_obj):
 
 def save_raw_bytes(self, n, obj):
     if n <= 0xff:
-        self.write(packB(op.SHORT_BINBYTES, n) + obj)
+        self.write_packB(op.SHORT_BINBYTES, n, obj)
     elif n > 0xffffffff and self.proto >= 4:
         self._write_large_bytes(packQ(op.BINBYTES8, n), obj)
     elif n >= self.framer._FRAME_SIZE_TARGET:
@@ -970,7 +989,7 @@ def save_str(self, w_obj):
         encoded = space.bytes_w(w_encoded)
         n = len(encoded)
         if n <= 0xff and self.proto >= 4:
-            self.write(packB(op.SHORT_BINUNICODE, n) + encoded)
+            self.write_packB(op.SHORT_BINUNICODE, n, encoded)
         elif n > 0xffffffff and self.proto >= 4:
             self._write_large_bytes(packQ(op.BINUNICODE8, n), encoded)
         elif n >= self.framer._FRAME_SIZE_TARGET:
