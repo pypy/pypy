@@ -1388,7 +1388,7 @@ class W_Unpickler(W_Root):
         self.proto = 0
         read = self.read
         while True:
-            key = self.read(1)
+            key = self.read1()
             if key[0] == op.STOP[0]:
                 return data_pop(self.space, self.stack)
             try:
@@ -1420,7 +1420,7 @@ class W_Unpickler(W_Root):
         return items
 
     def load_proto(self):
-        proto = ord(self.read(1)[0])
+        proto = ord(self.read1()[0])
         if not 0 <= proto <= HIGHEST_PROTOCOL:
             raise oefmt(self.space.w_ValueError,
                 "unsupported pickle protocol: %d", proto)
@@ -1495,9 +1495,9 @@ class W_Unpickler(W_Root):
     dispatch[op.BININT1[0]] = load_binint1
 
     def load_binint2(self):
-        data = self.read(2)
+        data, offset = self.read_with_offset(2)
         # val = unpack('<H', data)[0]
-        val = 256 * ord(data[1]) + ord(data[0])
+        val = 256 * ord(data[offset + 1]) + ord(data[offset])
         self.append(self.space.newint(val))
     dispatch[op.BININT2[0]] = load_binint2
 
