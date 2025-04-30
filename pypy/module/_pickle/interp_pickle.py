@@ -1,7 +1,7 @@
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.mutbuffer import MutableStringBuffer
 from rpython.rlib.rstruct import ieee
-from rpython.rlib import objectmodel
+from rpython.rlib import objectmodel, jit
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.argument import Arguments
@@ -18,6 +18,44 @@ maxsize = sys.maxint
 
 HIGHEST_PROTOCOL = 5
 DEFAULT_PROTOCOL = 4
+
+
+def _get_printable_location(typ):
+    return 'Pickler.dump [%s]' % (
+        typ,
+    )
+jitdriver_dump = jit.JitDriver(name="Pickler.dump", greens=["typ"], reds="auto",
+                               get_printable_location=_get_printable_location)
+
+def _get_printable_location(typ, greenkey):
+    return 'Pickler._batch_appends [%s, %s]' % (
+        typ,
+        greenkey.iterator_greenkey_printable()
+    )
+jitdriver_appends = jit.JitDriver(name="Pickler._batch_appends", greens=["typ", "greenkey"], reds="auto",
+                               get_printable_location=_get_printable_location)
+
+def _get_printable_location(typ):
+    return 'Pickler.save_tuple [%s]' % (
+        typ,
+    )
+jitdriver_tuple = jit.JitDriver(name="Pickler.save_tuple", greens=["typ"], reds="auto",
+                               get_printable_location=_get_printable_location)
+
+def _get_printable_location(typ):
+    return 'Pickler.save_frozenset [%s]' % (
+        typ,
+    )
+jitdriver_frozenset = jit.JitDriver(name="Pickler.save_frozenset", greens=["typ"], reds="auto",
+                               get_printable_location=_get_printable_location)
+
+def _get_printable_location(typ, greenkey):
+    return 'Pickler._batch_setitems [%s, %s]' % (
+        typ,
+        greenkey.iterator_greenkey_printable()
+    )
+jitdriver_setitems = jit.JitDriver(name="Pickler._batch_setitems", greens=["typ", "greenkey"], reds="auto",
+                               get_printable_location=_get_printable_location)
 
 class Opcodes(object):
     MARK           = b'('   # push special markobject on stack
@@ -350,6 +388,9 @@ class W_Pickler(W_Root):
 
     def dump(self, w_obj):
         """Write a pickled representation of obj to the open file."""
+        jitdriver_dump.jit_merge_point(typ=type(w_obj))
+        jit.promote(self.proto)
+        jit.promote(self.bin)
         space = self.space
         if space.findattr(self, space.newtext("reducer_override")):
             self.w_reducer_override = space.getattr(self, space.newtext("reducer_override"))
@@ -510,11 +551,13 @@ class W_Pickler(W_Root):
             self.write(op.MARK)
             n = 1
             self.save(w_firstitem)
+            greenkey = space.iterator_greenkey(w_list)
             while 1:
                 self.save(w_item)
                 n += 1
                 if n == self._BATCHSIZE:
                     break
+                jitdriver_appends.jit_merge_point(typ=type(w_item), greenkey=greenkey)
                 w_item = spacenext(space, w_it)
                 if not w_item:
                     break
@@ -526,6 +569,7 @@ class W_Pickler(W_Root):
             w_k, w_v = space.unpackiterable(w_tup, 2)
             self.save(w_k)
             self.save(w_v)
+            return w_k
 
         # Helper to batch up SETITEMS sequences; proto >= 1 only
         space = self.space
@@ -561,11 +605,13 @@ class W_Pickler(W_Root):
             self.write(op.MARK)
             n = 1
             savetup2(self, w_firstitem)
+            greenkey = space.iterator_greenkey(w_items)
             while 1:
-                savetup2(self, w_item)
+                w_k = savetup2(self, w_item)
                 n += 1
                 if n == self._BATCHSIZE:
                     break
+                jitdriver_setitems.jit_merge_point(typ=type(w_k), greenkey=greenkey)
                 w_item = spacenext(space, w_it)
                 if not w_item:
                     break
@@ -729,7 +775,7 @@ class W_Pickler(W_Root):
                 code = space.int_w(w_code)
                 assert code > 0
                 if code <= 0xff:
-                    write(packB(op.EXT1, code))
+                    self.write_packB(op.EXT1, code)
                 elif code <= 0xffff:
                     write(packH(op.EXT2, code))
                 else:
@@ -973,7 +1019,12 @@ def save_tuple(self, w_obj):
     # has more than 3 elements.
     write = self.write
     write(op.MARK)
-    for element in space.unpackiterable(w_obj):
+    w_it = space.iter(w_obj)
+    while 1:
+        jitdriver_tuple.jit_merge_point(typ=type(w_obj))
+        element = spacenext(space, w_it)
+        if element is None:
+            break
         save(element)
 
     if w_obj in memo:
@@ -1048,7 +1099,12 @@ def save_frozenset(self, w_obj):
     space = self.space
     save = self.save
     memo = self.memo
-    for element in space.unpackiterable(w_obj):
+    w_it = space.iter(w_obj)
+    while 1:
+        jitdriver_frozenset.jit_merge_point(typ=type(w_obj))
+        element = spacenext(space, w_it)
+        if element is None:
+            break
         save(element)
     # Subtle.  Avoids recursive writing
     if w_obj in memo:
