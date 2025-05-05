@@ -68,9 +68,9 @@ class AbstractCachedEntry(object):
         """returns MUST_ALIAS, CANNOT_ALIAS, UNKNOWN_ALIAS """
         if opinfo1.same_info(opinfo2):
             return MUST_ALIAS
-        if self._cannot_alias_via_classes_or_lengths(optheap, opinfo1, opinfo2):
+        if self._cannot_alias_via_classes_or_lengths(optheap, opinfo1, opinfo2) == CANNOT_ALIAS:
             return CANNOT_ALIAS
-        if self._cannot_alias_via_content(optheap, opinfo1, opinfo2):
+        if self._cannot_alias_via_content(optheap, opinfo1, opinfo2) == CANNOT_ALIAS:
             return CANNOT_ALIAS
         return UNKNOWN_ALIAS
 
@@ -198,19 +198,22 @@ class CachedField(AbstractCachedEntry):
     def _cannot_alias_via_classes_or_lengths(self, optheap, opinfo1, opinfo2):
         constclass1 = opinfo1.get_known_class(optheap.optimizer.cpu)
         constclass2 = opinfo2.get_known_class(optheap.optimizer.cpu)
-        return constclass1 is not None and constclass2 is not None and not constclass1.same_constant(constclass2)
+        if constclass1 is not None and constclass2 is not None and not constclass1.same_constant(constclass2):
+            return CANNOT_ALIAS
+        else:
+            return UNKNOWN_ALIAS
 
     def _cannot_alias_via_content(self, optheap, opinfo1, opinfo2):
         if not isinstance(opinfo1, info.AbstractStructPtrInfo):
-            return False
+            return UNKNOWN_ALIAS
         if not isinstance(opinfo2, info.AbstractStructPtrInfo):
-            return False
+            return UNKNOWN_ALIAS
         content1 = opinfo1.all_items()
         if content1 is None:
-            return False
+            return UNKNOWN_ALIAS
         content2 = opinfo2.all_items()
         if content2 is None:
-            return False
+            return UNKNOWN_ALIAS
         for index in range(min(len(content1), len(content2))):
             value1 = get_box_replacement(content1[index])
             value2 = get_box_replacement(content2[index])
@@ -219,8 +222,8 @@ class CachedField(AbstractCachedEntry):
             if not value1.is_constant() or not value2.is_constant():
                 continue
             if not value1.same_constant(value2):
-                return True
-        return False
+                return CANNOT_ALIAS
+        return UNKNOWN_ALIAS
 
 class ArrayCachedItem(AbstractCachedEntry):
     def __init__(self, index, parent): # type: (int, ArrayCacheSubMap) -> None
@@ -264,22 +267,25 @@ class ArrayCachedItem(AbstractCachedEntry):
 
     def _cannot_alias_via_classes_or_lengths(self, optheap, opinfo1, opinfo2):
         if not isinstance(opinfo1, info.ArrayPtrInfo):
-            return False
+            return UNKNOWN_ALIAS
         if not isinstance(opinfo2, info.ArrayPtrInfo):
-            return False
-        return opinfo1.getlenbound(None).known_ne(opinfo2.getlenbound(None))
+            return UNKNOWN_ALIAS
+        if opinfo1.getlenbound(None).known_ne(opinfo2.getlenbound(None)):
+            return CANNOT_ALIAS
+        else:
+            return UNKNOWN_ALIAS
 
     def _cannot_alias_via_content(self, optheap, opinfo1, opinfo2):
         if not isinstance(opinfo1, info.ArrayPtrInfo):
-            return False
+            return UNKNOWN_ALIAS
         if not isinstance(opinfo2, info.ArrayPtrInfo):
-            return False
+            return UNKNOWN_ALIAS
         content1 = opinfo1.all_items()
         if content1 is None:
-            return False
+            return UNKNOWN_ALIAS
         content2 = opinfo2.all_items()
         if content2 is None:
-            return False
+            return UNKNOWN_ALIAS
         for index in range(min(len(content1), len(content2))):
             value1 = get_box_replacement(content1[index])
             value2 = get_box_replacement(content2[index])
@@ -288,8 +294,8 @@ class ArrayCachedItem(AbstractCachedEntry):
             if not value1.is_constant() or not value2.is_constant():
                 continue
             if not value1.same_constant(value2):
-                return True
-        return False
+                return CANNOT_ALIAS
+        return UNKNOWN_ALIAS
 
 class ArrayCacheSubMap(object):
     def __init__(self):

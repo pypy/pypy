@@ -480,3 +480,13 @@ class TestInstance(BaseTestPyPyC):
         loop = log.loops_by_filename(self.filepath, is_entry_bridge=True)[1]
         ops = loop.ops_by_id('grow')
         assert "call_n" not in log.opnames(ops) # there used to be two ll_arraycopy calls in the trace
+
+    def test_aliasing_via_class(self):
+        def main():
+            class A:
+                pass
+            class B:
+                pass
+                a = A()
+             a.x = "hallo"
+
