@@ -682,7 +682,7 @@ class W_Pickler(W_Root):
         write = self.write
 
         w_func_name = space.findattr(w_func, space.newtext("__name__"))
-        if self.proto >= 2 and space.eq_w(w_func_name, space.newtext("__newobj_ex__")):
+        if self.proto >= 2 and w_func_name and space.eq_w(w_func_name, space.newtext("__newobj_ex__")):
             w_cls, w_args, w_kwargs = space.unpackiterable(w_args, 3)
             w_new = space.findattr(w_cls, space.newtext("__new__"))
             if not w_new:
@@ -702,7 +702,7 @@ class W_Pickler(W_Root):
                 save(w_func)
                 save(space.newtext("()"))
                 write(op.REDUCE)
-        elif self.proto >= 2 and space.eq_w(w_func_name, space.newtext("__newobj__")):
+        elif self.proto >= 2 and w_func_name and space.eq_w(w_func_name, space.newtext("__newobj__")):
             # A __reduce__ implementation can direct protocol 2 or newer to
             # use the more efficient NEWOBJ opcode, while still
             # allowing protocol 0 and 1 to work normally.  For this to
@@ -1121,7 +1121,7 @@ def save_set(self, w_obj):
         space = self.space
 
         if self.proto < 4:
-            self.save_reduce(space.w_set, space.newtuple([space.newlist([w_obj])]), w_obj=w_obj)
+            self.save_reduce(space.w_set, space.newtuple([space.call_function(space.w_list, w_obj)]), w_obj=w_obj)
             return
 
         write(op.EMPTY_SET)
@@ -1227,10 +1227,10 @@ def save_picklebuffer(self, w_obj):
         raise oefmt(pickling_error(space),
             "PickleBuffer can not be pickled when "
             "pointing to a non-contiguous buffer")
-    in_band = 1
+    in_band = True
     if self.buffer_callback:
         w_ret = space.call_function(self.buffer_callback, w_obj)
-        in_band = space.bool_w(w_ret)
+        in_band = space.is_true(w_ret)
     if in_band:
         # write data in-band
         raw = buf.as_str()
@@ -1329,14 +1329,18 @@ def decode_long(space, data):
     return w_obj
 
 
-@unwrap_spec(protocol=int, fix_imports=int)
-def descr__new__(space, w_subtype, w_file, protocol=DEFAULT_PROTOCOL, fix_imports=1, w_buffer_callback=None):
+@unwrap_spec(fix_imports=int)
+def descr__new__(space, w_subtype, w_file, w_protocol=None, fix_imports=1, w_buffer_callback=None):
     w_self = space.allocate_instance(W_Pickler, w_subtype)
+    if space.is_none(w_protocol):
+        protocol = HIGHEST_PROTOCOL
+    else:
+        protocol = space.int_w(w_protocol)
     if protocol < 0:
         protocol = HIGHEST_PROTOCOL
     elif not 0 <= protocol <= HIGHEST_PROTOCOL:
         raise oefmt(space.w_ValueError, "pickle protocol must be <= %d", HIGHEST_PROTOCOL)
-    if w_buffer_callback is not None and protocol < 5:
+    if not space.is_none(w_buffer_callback) and protocol < 5:
         raise oefmt(space.w_ValueError, "buffer_callback needs protocol < 5")
     W_Pickler.__init__(w_self, space, w_file, protocol, fix_imports, w_buffer_callback)
     return w_self
@@ -1558,7 +1562,7 @@ class W_Unpickler(W_Root):
         return items
 
     def load_proto(self):
-        proto = ord(self.read1()[0])
+        proto = ord(self.read1())
         if not 0 <= proto <= HIGHEST_PROTOCOL:
             raise oefmt(self.space.w_ValueError,
                 "unsupported pickle protocol: %d", proto)
@@ -1629,7 +1633,7 @@ class W_Unpickler(W_Root):
     dispatch[ord(op.BININT[0])] = load_binint
 
     def load_binint1(self):
-        self.append(self.space.newint(ord(self.read1()[0])))
+        self.append(self.space.newint(ord(self.read1())))
     dispatch[ord(op.BININT1[0])] = load_binint1
 
     def load_binint2(self):
@@ -1648,7 +1652,7 @@ class W_Unpickler(W_Root):
     dispatch[ord(op.LONG[0])] = load_long
 
     def load_long1(self):
-        n = ord(self.read1()[0])
+        n = ord(self.read1())
         data = self.read(n)
         self.append(decode_long(self.space, data))
     dispatch[ord(op.LONG1[0])] = load_long1
@@ -1815,7 +1819,7 @@ class W_Unpickler(W_Root):
         dispatch[ord(op.READONLY_BUFFER[0])] = load_readonly_buffer
 
         def load_short_binstring(self):
-            length = ord(self.read1()[0])
+            length = ord(self.read1())
             data = self.read(length)
             if len(data) < length:
                 raise oefmt(unpickling_error(self.space),
@@ -1824,7 +1828,7 @@ class W_Unpickler(W_Root):
         dispatch[ord(op.SHORT_BINSTRING[0])] = load_short_binstring
 
     def load_short_binbytes(self):
-        length = ord(self.read1()[0])
+        length = ord(self.read1())
         data = self.read(length)
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
@@ -1833,7 +1837,7 @@ class W_Unpickler(W_Root):
     dispatch[ord(op.SHORT_BINBYTES[0])] = load_short_binbytes
 
     def load_short_binunicode(self):
-        length = ord(self.read1()[0])
+        length = ord(self.read1())
         data = self.read(length)
         if len(data) < length:
             raise oefmt(unpickling_error(self.space),
@@ -1990,7 +1994,7 @@ class W_Unpickler(W_Root):
     dispatch[ord(op.STACK_GLOBAL[0])] = load_stack_global
 
     def load_ext1(self):
-        code = int(self.read1())
+        code = ord(self.read1())
         self.get_extension(code)
     dispatch[ord(op.EXT1[0])] = load_ext1
 
@@ -2091,7 +2095,7 @@ class W_Unpickler(W_Root):
     dispatch[ord(op.GET[0])] = load_get
 
     def load_binget(self):
-        i = ord(self.read1()[0])
+        i = ord(self.read1())
         try:
             self.append(self.memo[i])
         except IndexError as exc:
@@ -2120,7 +2124,7 @@ class W_Unpickler(W_Root):
     dispatch[ord(op.PUT[0])] = load_put
 
     def load_binput(self):
-        i = ord(self.read1()[0])
+        i = ord(self.read1())
         if i < 0:
             raise oefmt(self.space.w_ValueError, "negative BINPUT argument")
         if len(self.stack) < 1:
