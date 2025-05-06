@@ -1,5 +1,5 @@
 import pytest
-from _pickle import Pickler, PicklingError, dumps
+from _pickle import Pickler, PicklingError, dumps, dump
 from _pickle import Unpickler, UnpicklingError, loads
 import pickle
 from pickle import _dumps as dumps_py, PickleBuffer
@@ -377,13 +377,16 @@ def test_find_class():
     assert isinstance(got, range)
 
 def test_function():
-    for method in (str.count, set.__contains__):
+    for method, args in (
+            ({1, 2}.__contains__, (2,)),
+            (set.__contains__, ({1, 2}, 2)),
+        ):
         for proto in protocols:
             data = dumps(method, proto)
             pydata = dumps_py(method, proto)
             assert data == pydata
             got = loads(data)
-            assert got == method
+            assert got(*args) == method(*args)
 
 def test_unseekable():
     class UnseekableIO(io.BytesIO):
@@ -433,13 +436,6 @@ def test_bad_newobj_ex():
     val = loads(b'cbuiltins\nint\n)}\x92.')
     assert val == 0
 
-def test_picklebuffer():
-    pb = PickleBuffer(b'foobar')
-    s1 = dumps(pb, 5)
-    s2 = dumps_py(pb, 5)
-    # assert s1 == s2
-    assert loads(s1) == b'foobar'
-
 def test_recursive_set():
     # Set containing an immutable object containing the original set.
     y = set()
@@ -463,3 +459,24 @@ def test_recursive_set():
         assert isinstance(x.value, set)
         assert len(x.value) == 1
         assert list(x.value)[0] is x
+
+def test_picklebuffer():
+    pb = PickleBuffer(b'foobar')
+    s1 = dumps(pb, 5)
+    s2 = dumps_py(pb, 5)
+    # assert s1 == s2
+    assert loads(s1) == b'foobar'
+
+def test_buffers_error():
+    pb = PickleBuffer(b"foobar")
+    data = dumps(pb, 5, buffer_callback=[].append)
+    # Non iterable buffers
+    try:
+        loads(data, buffers=object())
+    except TypeError:
+        pass
+    # Buffer iterable exhausts too early
+    try:
+        loads(data, buffers=[])
+    except UnpicklingError:
+        pass
