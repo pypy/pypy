@@ -515,20 +515,14 @@ class MsvcPlatform(Platform):
                    ['echo #define WIN32_LEAN_AND_MEAN > $@.tmp',
                    'echo #include "stdlib.h" >> $@.tmp',
                    'echo #include "windows.h" >> $@.tmp',
-                   'echo #include "shellapi.h" >> $@.tmp',
                    'echo int $(PYPY_MAIN_FUNCTION)(int, wchar_t*[]); >> $@.tmp',
-                   'echo int WINAPI WinMain( >> $@.tmp',
+                   'echo int WINAPI wWinMain( >> $@.tmp',
                    'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@.tmp',
                    'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@.tmp',
                    'echo     LPSTR lpCmdLine,          /* pointer to command line */ >> $@.tmp',
                    'echo     int nCmdShow              /* show state of window */ >> $@.tmp',
                    'echo ) >> $@.tmp',
-                   'echo { >> $@.tmp',
-                   'echo    LPWSTR* szArgList; int argCount; >> $@.tmp',
-                   'echo    szArgList = CommandLineToArgvW(GetCommandLineW(), ^&argCount); >> $@.tmp',
-                   'echo    if (!szArgList) {return 10;} >> $@.tmp',
-                   'echo    return $(PYPY_MAIN_FUNCTION)(argCount, szArgList); >> $@.tmp',
-                   'echo } >> $@.tmp',
+                   'echo { return $(PYPY_MAIN_FUNCTION)(__argc, __wargv); } >> $@.tmp',
                    'move $@.tmp $@',
                    ])
             wdeps = ['wmain.obj']
@@ -547,7 +541,7 @@ class MsvcPlatform(Platform):
                    ['$(CC_LINK) /DEBUG /LARGEADDRESSAWARE /STACK:3145728 ' +
                     '/SUBSYSTEM:WINDOWS '  +
                     ' '.join(wdeps) + ' $(SHARED_IMPORT_LIB) ' +
-                    manifest_args + ' /out:$@ Shell32.lib'
+                    manifest_args + ' /out:$@ '
                     ])
             m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)']+deps,
                    ['$(CC_LINK) /DEBUG /LARGEADDRESSAWARE /STACK:3145728 ' +
