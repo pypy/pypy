@@ -519,7 +519,7 @@ class MsvcPlatform(Platform):
                    'echo int WINAPI wWinMain( >> $@.tmp',
                    'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@.tmp',
                    'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@.tmp',
-                   'echo     LPSTR lpCmdLine,          /* pointer to command line */ >> $@.tmp',
+                   'echo     LPWSTR lpCmdLine,         /* pointer to command line */ >> $@.tmp',
                    'echo     int nCmdShow              /* show state of window */ >> $@.tmp',
                    'echo ) >> $@.tmp',
                    'echo { return $(PYPY_MAIN_FUNCTION)(__argc, __wargv); } >> $@.tmp',
