@@ -483,10 +483,30 @@ class TestInstance(BaseTestPyPyC):
 
     def test_aliasing_via_class(self):
         def main():
-            class A:
+            class A(object):
                 pass
-            class B:
+            class B(object):
                 pass
-                a = A()
-             a.x = "hallo"
-
+            a = A()
+            a.x = "hallo"
+            l1 = [B(), B()]
+            l1[0].x = 'hallo'
+            l1[1].x = 'tchüss'
+            l = [None, "abc"]
+            res = 0
+            for i in range(1000):
+                b = l1[i & 1]
+                s = b.x # read b.x
+                res += len(s)
+                a.x = l[i & 1] # write a.x, but it cannot alias b.x because the classes are different
+                # the following b.x can be reused from above
+                res += len(b.x) # ID: getattr2
+            return res
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        loop.match_by_id('getattr2', '''
+            setfield_gc(p14, p105, descr=...) # this setfield is the delayed write to a.x
+            i106 = int_add_ovf(i103, i102)
+            guard_no_overflow(descr=...)
+            --TICK--
+        ''')
