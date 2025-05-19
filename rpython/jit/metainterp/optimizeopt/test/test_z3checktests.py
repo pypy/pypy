@@ -477,11 +477,28 @@ class Checker(object):
                         len_arg = op.getarg(4)
                         copy_len = self.convert(len_arg) # len
 
-                    # do nothing on len=0 moves/copies
-                    if self.is_const(len_arg) and len_arg.value == 0: continue
-
+                    z3typ = self._lltype_heaptypes_index(effectinfo.single_write_descr_array.A)
                     # set types for both arrays
-                    #z3type = self._lltype_heaptypes_index(?)
+                    self.solver_add(state.heaptypes[array_from] == z3typ)
+                    if oopspecindex == EffectInfo.OS_ARRAYCOPY:
+                        self.solver_add(state.heaptypes[array_to] == z3typ)
+
+                    if self.is_const(len_arg):
+                        len_arg_const = len_arg.getint()
+                        # do nothing on len=0 moves/copies
+                        if len_arg_const == 0:
+                            continue
+                        # do the copy manually, to not need a forall
+                        curr_heap = state.heap
+                        for i in range(len_arg_const):
+                            heapexpr = z3.Store(curr_heap, array_to, z3.Store(curr_heap[array_to], index_to + i, curr_heap[array_from][index_from + i]))
+                            new_heap = self.newheap()
+                            self.solver.add(new_heap == heapexpr)
+                            curr_heap = new_heap
+                        state.heap = curr_heap
+                        continue
+
+                    # general case, use forall
                     #self.solver_add(state.heaptypes[array_from] == z3type)
                     #if oopspecindex == EffectInfo.OS_ARRAYCOPY:
                         #self.solver_add(state.heaptypes[array_to] == z3type)
@@ -1014,6 +1031,7 @@ class TestOptimizeHeapZ3(BaseCheckZ3, TOptimizeHeap):
     test_nonvirtual_array_write_null_fields_on_force = dont_execute
     test_arraycopy_1 = dont_execute
     test_arraycopy_not_virtual = dont_execute
+    test_arraycopy_invalidate_3 = dont_execute
     test_varray_negative_items_from_invalid_loop = dont_execute
     test_virtual_array_of_struct = dont_execute
     test_virtual_array_of_struct_forced = dont_execute
