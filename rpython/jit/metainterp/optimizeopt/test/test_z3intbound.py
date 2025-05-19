@@ -19,6 +19,7 @@ from rpython.jit.metainterp.optimizeopt.intutils import (
     leading_zeros_mask,
     flip_msb,
     msbonly,
+    same_sign,
 )
 from rpython.jit.metainterp.optimize import InvalidLoop
 
@@ -42,13 +43,18 @@ def z3_with_reduced_bitwidth(width):
     def dec(test):
         assert test.func_name.endswith("logic") # doesn't work for code in intutils.py
         def newtest(*args, **kwargs):
-            global LONG_BIT
+            global LONG_BIT, MAXINT, MININT
             old_value = LONG_BIT
             LONG_BIT = width
+            MAXINT = 2 ** (LONG_BIT - 1) - 1
+            MININT = -2 ** (LONG_BIT - 1)
             try:
                 return test(*args, **kwargs)
             finally:
                 LONG_BIT = old_value
+                MAXINT = sys.maxint
+                MININT = -sys.maxint - 1
+        newtest.func_name = test.func_name + "_wrapped"
         return newtest
     return dec
 
@@ -304,6 +310,7 @@ def test_shrink_knownbits_to_bounds(x, y):
 
 @given(ints, ints, uints, uints)
 def test_shrink_mixed(x, y, value, tmask):
+    print x, y, value, tmask
     x, y = sorted([x, y])
     b = IntBound(x, y, value & ~tmask, tmask, do_shrinking=False)
     var1, formula1 = to_z3(b)
@@ -1234,6 +1241,11 @@ def z3_max(*args):
         res = z3.If(res > x, res, x)
     return res
 
+def z3_saturating_mul(a, b):
+    result, no_ovf = z3_mul_overflow(a, b)
+    default = z3.If(same_sign(a, b), BitVecVal(MAXINT), BitVecVal(MININT))
+    return z3.If(no_ovf, result, default)
+
 @z3_with_reduced_bitwidth(16)
 def test_prove_lshift_bound_logic():
     b1 = make_z3_intbounds_instance('self')
@@ -1423,6 +1435,20 @@ def test_prove_mul_bound_cannot_overflow_logic():
         no_ovf_result,
     )
 
+@z3_with_reduced_bitwidth(12)
+def test_prove_square_bound_no_overflow_logic():
+    b1 = make_z3_intbounds_instance('self')
+    result, no_ovf_result = z3_mul_overflow(b1.concrete_variable, b1.concrete_variable)
+    val0 = z3_saturating_mul(b1.lower, b1.lower)
+    val1 = z3_saturating_mul(b1.upper, b1.upper)
+    lower = z3_min(val0, val1)
+    upper = z3_max(val0, val1)
+    lower = z3.If(same_sign(b1.lower, b1.upper), lower, BitVecVal(0))
+    b1.prove_implies(
+        no_ovf_result,
+        z3.And(
+            lower <= result,
+            result <= upper))
 
 def z3_pymod_nonzero(x, y):
     r = x % y

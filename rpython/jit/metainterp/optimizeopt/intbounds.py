@@ -305,9 +305,14 @@ class OptIntBounds(Optimization):
         return self.emit(op)
 
     def postprocess_INT_MUL_OVF(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
-        resbound = b1.mul_bound_no_overflow(b2)
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        b0 = self.getintbound(arg0)
+        if arg0 is arg1:
+            resbound = b0.square_bound_no_overflow()
+        else:
+            b1 = self.getintbound(arg1)
+            resbound = b0.mul_bound_no_overflow(b1)
         r = self.getintbound(op)
         r.intersect(resbound)
 

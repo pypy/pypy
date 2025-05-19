@@ -4274,6 +4274,25 @@ finish()
         jump(i0)
         """
         self.optimize_loop(ops, expected)
+
+    def test_mul_ovf_x_x(self):
+        ops = """
+        [i1]
+        i0 = int_mul_ovf(i1, i1)
+        guard_no_overflow() []
+        i2 = int_ge(i0, 0)
+        guard_true(i2) []
+        jump(i0)
+        """
+        expected = """
+        [i1]
+        i0 = int_mul_ovf(i1, i1)
+        guard_no_overflow() []
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_intmod_bounds(self):
