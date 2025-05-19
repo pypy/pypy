@@ -881,6 +881,16 @@ class IntBound(AbstractInfo):
         upper = self._add_check_overflow(self.upper, other.upper, MAXINT)
         return self.new(lower, upper, tvalue, tmask)
 
+    def mul2_bound_no_overflow(self):
+        """ return the bound that self + self must have, if no overflow occured,
+        eg after an int_add_ovf(a, a), guard_no_overflow() """
+        tvalue, tmask = self._tnum_lshift(1) # to know that the result is even
+
+        # returning add_bound is always correct, but let's improve the range
+        lower = self._add_check_overflow(self.lower, self.lower, MININT)
+        upper = self._add_check_overflow(self.upper, self.upper, MAXINT)
+        return self.new(lower, upper, tvalue, tmask)
+
     def sub_bound(self, other):
         """
         Subtracts the `other` abstract integer from `self` and returns the
