@@ -799,6 +799,21 @@ def test_prove_add_bound_no_overflow():
         b3
     )
 
+def test_prove_mul2_bound_no_overflow():
+    b1 = make_z3_intbounds_instance('self')
+    result, no_ovf = z3_add_overflow(b1.concrete_variable, b1.concrete_variable)
+    b2 = b1.mul2_bound_no_overflow()
+    b2.concrete_variable = result
+    b1.prove_implies(
+        no_ovf,
+        b2
+    )
+    # check that the result is always even
+    b1.prove_implies(
+        no_ovf,
+        z3.And(b2.tvalue & 1 == 0, b2.tmask & 1 == 0)
+    )
+
 def test_prove_neg_logic():
     b1 = make_z3_intbounds_instance('self')
     one = Z3IntBound(BitVecVal(1), BitVecVal(1), BitVecVal(1), BitVecVal(0))

@@ -254,7 +254,7 @@ def test_make():
             gt.make_gt(b1)
             try:
                 gt.make_gt(b2)
-            except InvalidLoop: # 
+            except InvalidLoop: #
                 pass
             else:
                 for n in nbr:
@@ -287,7 +287,7 @@ def test_make():
             ge.make_ge(b1)
             try:
                 ge.make_ge(b2)
-            except InvalidLoop: # 
+            except InvalidLoop: #
                 pass
             else:
                 for n in nbr:
@@ -303,7 +303,7 @@ def test_make():
             gl.make_ge(b1)
             try:
                 gl.make_le(b2)
-            except InvalidLoop: # 
+            except InvalidLoop: #
                 pass
             else:
                 for n in nbr:
@@ -728,6 +728,20 @@ def test_add_random(t1, t2):
     else:
         assert b3.contains(r)
         assert b3noovf.contains(r)
+
+
+@given(knownbits_and_bound_with_contained_number)
+def test_mul2_random(t1):
+    b1, n1 = t1
+    b2 = b1.mul2_bound_no_overflow()
+    try:
+        r = ovfcheck(n1 + n1)
+    except OverflowError:
+        assert not b1.add_bound_cannot_overflow(b1)
+    else:
+        assert b2.contains(r)
+    # check that it's always even
+    assert b2.and_bound(IntBound.from_constant(1)).get_constant_int() == 0
 
 
 @given(knownbits_and_bound_with_contained_number)
@@ -1287,7 +1301,7 @@ def test_shrink_knownbits_by_bounds_invalid():
                   tmask=r_uint(~0b10), do_shrinking=False)
     with pytest.raises(InvalidLoop):
         b1._shrink_knownbits_by_bounds()
-    
+
 
 def test_intbound_repr():
     b = IntBound()

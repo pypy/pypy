@@ -113,11 +113,14 @@ class OptIntBounds(Optimization):
 
     def postprocess_INT_ADD(self, op):
         import sys
-        arg0 = op.getarg(0)
-        arg1 = op.getarg(1)
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
         b0 = self.getintbound(arg0)
-        b1 = self.getintbound(arg1)
-        b = b0.add_bound(b1)
+        if arg0 is arg1: # x + x is even
+            b = b0.lshift_bound(IntBound.from_constant(1))
+        else:
+            b1 = self.getintbound(arg1)
+            b = b0.add_bound(b1)
         self.getintbound(op).intersect(b)
         # Synthesize the reverse op for optimize_default to reuse
         self.optimizer.pure_from_args2(rop.INT_SUB, op, arg1, arg0)
@@ -253,14 +256,19 @@ class OptIntBounds(Optimization):
         return self.emit(op)
 
     def postprocess_INT_ADD_OVF(self, op):
-        b1 = self.getintbound(op.getarg(0))
-        b2 = self.getintbound(op.getarg(1))
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        b0 = self.getintbound(arg0)
+        b1 = self.getintbound(arg1)
         # we can always give the result a bound. if the int_add_ovf is followed
         # by a guard_no_overflow, then we know no overflow occurred, and the
         # bound is correct. Otherwise, it must be followed by a guard_overflow
         # and it is also fine to give the result a bound, because the result
         # box must never be used in the rest of the trace
-        resbound = b1.add_bound_no_overflow(b2)
+        if arg0 is arg1:
+            resbound = b0.mul2_bound_no_overflow()
+        else:
+            resbound = b0.add_bound_no_overflow(b1)
         r = self.getintbound(op)
         r.intersect(resbound)
 

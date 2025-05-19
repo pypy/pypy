@@ -4242,6 +4242,38 @@ finish()
         '''
         self.optimize_loop(ops, expected)
 
+
+    def test_add_x_x(self):
+        ops = """
+        [i1]
+        i0 = int_add(i1, i1)
+        i2 = int_and(i0, 1)
+        guard_value(i2, 0) []
+        jump(i0)
+        """
+        expected = """
+        [i1]
+        i0 = int_add(i1, i1)
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_add_ovf_x_x(self):
+        ops = """
+        [i1]
+        i0 = int_add_ovf(i1, i1)
+        guard_no_overflow() []
+        i2 = int_and(i0, 1)
+        guard_value(i2, 0) []
+        jump(i0)
+        """
+        expected = """
+        [i1]
+        i0 = int_add_ovf(i1, i1)
+        guard_no_overflow() []
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
 class TestComplexIntOpts(BaseTestBasic):
 
     def test_intmod_bounds(self):
@@ -4411,3 +4443,4 @@ class TestComplexIntOpts(BaseTestBasic):
         jump()
         """
         self.optimize_loop(ops, ops) # used to crash
+
