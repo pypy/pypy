@@ -8,7 +8,8 @@ from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlonglong, r_ulon
 from rpython.rtyper.error import TyperError
 from rpython.rtyper.lltypesystem.lltype import (Signed, Unsigned, Bool, Float,
     Char, UniChar, UnsignedLongLong, SignedLongLong, build_number, Number,
-    cast_primitive, typeOf, SignedLongLongLong, UnsignedLongLongLong)
+    cast_primitive, typeOf, SignedLongLongLong, UnsignedLongLongLong,
+    Size_T, SSize_T)
 from rpython.rtyper.rfloat import FloatRepr
 from rpython.rtyper.rmodel import inputconst, log
 from rpython.tool.pairtype import pairtype
@@ -190,10 +191,13 @@ class __extend__(annmodel.SomeInteger):
     def rtyper_makekey(self):
         return self.__class__, self.knowntype
 
+# This creates the integer repr in the _integer_repr global
 signed_repr = getintegerrepr(Signed, 'int_')
+ssize_t_repr = getintegerrepr(SSize_T, 'int_')
 signedlonglong_repr = getintegerrepr(SignedLongLong, 'llong_')
 signedlonglonglong_repr = getintegerrepr(SignedLongLongLong, 'lllong_')
 unsigned_repr = getintegerrepr(Unsigned, 'uint_')
+size_t_repr = getintegerrepr(Size_T, 'uint_')
 unsignedlonglong_repr = getintegerrepr(UnsignedLongLong, 'ullong_')
 unsignedlonglonglong_repr = getintegerrepr(UnsignedLongLongLong, 'ulllong_')
 
