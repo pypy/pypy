@@ -38,3 +38,9 @@ def test_cast_array():
     if sys.version_info > (3, 3):
         b = m.cast('B')
         assert bytes(b) == data
+
+def test_cast_keepalive_bug():
+    p = cast((c_int * 10)(*range(10)), POINTER(c_int))
+    import gc
+    gc.collect()
+    assert [p[i] for i in range(10)] == list(range(10))

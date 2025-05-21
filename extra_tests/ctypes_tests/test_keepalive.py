@@ -261,3 +261,9 @@ def test_c_char_p():
         import gc; gc.collect()
         assert dat.dptr == b"hellohello"
         assert list(dat._objects.keys()) == ['0']
+
+
+def test_cast_addr_wrapped_in_pyfunctype_bug():
+    a = (c_int * 10)(*range(10))
+    p = cast(a, POINTER(c_int))
+    assert p._objects[id(a)] is a
