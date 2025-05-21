@@ -210,16 +210,6 @@ def test_memoryview():
     assert mv.shape == (2, 3)
     assert mv.itemsize == 4
 
-def test_memoryview_endian():
-    class LES(LittleEndianStructure):
-        _pack_ = 1
-        _fields_ = [
-            ('a', c_ubyte * 16),
-            ('i', c_uint64)
-        ]
-    c_les = LES()
-    mv = memoryview(c_les)
-    assert mv.format == 'B'
 def test_weakref():
     # issue 3883: py_object of weakref
     class Empty():
@@ -229,21 +219,7 @@ def test_weakref():
     r = weakref.ref(e)
     pr = py_object(r)
     assert pr.value is e
-def test_deepcopy_struct():
-    # issue 3022: missing __new__ on StructureInstanceAutoFree
-    import copy
 
-    class struct_a(Structure):
-        pass
-        
-    class struct_b(Structure):
-        pass
-        
-    struct_a._fields_ = [('first',struct_b)]
-
-    a = struct_a()
-    b = copy.deepcopy(a)
-    assert isinstance(b.first, struct_b)
 def test_memoryview_endian():
     class LES(LittleEndianStructure):
         _pack_ = 1
