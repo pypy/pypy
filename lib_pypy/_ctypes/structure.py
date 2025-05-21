@@ -239,7 +239,7 @@ class StructOrUnionMeta(_CDataMeta):
                 value = self(*value)
             except Exception as e:
                 # XXX CPython does not even respect the exception type
-                raise RuntimeError("(%s) %s: %s" % (self.__name__, type(e), e))
+                raise RuntimeError("(%s) %s: %s" % (self.__name__, type(e).__name__, e))
         return _CDataMeta.from_param(self, value)
 
     def _CData_output(self, resarray, base=None, index=-1):
