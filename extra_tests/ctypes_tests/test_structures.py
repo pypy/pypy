@@ -218,7 +218,11 @@ def test_weakref():
     e = Empty()
     r = weakref.ref(e)
     pr = py_object(r)
-    assert pr.value is e
+    assert pr.value() is e
+
+def test_pyobject_of_int():
+    pr = py_object(17)
+    assert pr.value == 17
 
 def test_memoryview_endian():
     class LES(LittleEndianStructure):
