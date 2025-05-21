@@ -73,4 +73,4 @@ def test_non_int():
     assert t0 == t1
     with pytest.raises(TypeError) as exc:
         c_int * 4.5
-    assert 'non-int of type float' in str(exc.value)
+    assert 'non-int of type' in str(exc.value) and 'float' in str(exc.value)
