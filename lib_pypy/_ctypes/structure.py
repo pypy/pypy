@@ -277,6 +277,12 @@ class StructOrUnionMeta(_CDataMeta):
             cum_size += self._ffistruct_.fieldsize(name)
         return 'T{' + ''.join(flds) + '}'
 
+    def _has_pointer(self):
+        for fieldname, typ in self._fields_:
+            if typ._is_pointer_like() or typ._has_pointer():
+                return True
+        return False
+
 class StructOrUnion(_CData, metaclass=StructOrUnionMeta):
 
     def __new__(cls, *args, **kwds):

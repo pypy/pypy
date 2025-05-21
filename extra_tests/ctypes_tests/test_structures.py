@@ -239,14 +239,14 @@ def test_deepcopy_struct():
     # issue 3022: missing __new__ on StructureInstanceAutoFree
     import copy
 
-    class struct_a(Structure):
-        pass
-        
     class struct_b(Structure):
-        pass
-        
-    struct_a._fields_ = [('first',struct_b)]
+        _fields_ = [('value', c_int)]
+
+    class struct_a(Structure):
+        _fields_ = [('first',struct_b)]
 
     a = struct_a()
+    a.first.value = 12
     b = copy.deepcopy(a)
     assert isinstance(b.first, struct_b)
+    assert b.first.value == 12

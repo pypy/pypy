@@ -152,6 +152,9 @@ class ArrayMeta(_CDataMeta):
             tp = tp._type_
         return "(%s)%s" % (','.join([str(n) for n in shape]), tp._getformat())
 
+    def _has_pointer(self):
+        return self._type_._is_pointer_like() or self._type_._has_pointer()
+
 
 def array_get_slice_params(self, index):
     if hasattr(self, '_length_'):
