@@ -554,6 +554,14 @@ def ll_clear_indexes(d, n):
     else:
         assert False
 
+@objectmodel.always_inline
+def _ll_write_indexes(d, i, value, T):
+    INDEXES = _ll_ptr_to_array_of(T)
+    indexes = lltype.cast_opaque_ptr(INDEXES, d.indexes)
+    cast_value = rffi.cast(T, value)
+    ll_assert(intmask(cast_value) == value, "indexes are a too small type of array")
+    indexes[i] = cast_value
+
 @jit.dont_look_inside
 def ll_call_insert_clean_function(d, hash, i):
     assert i >= 0
@@ -1059,7 +1067,7 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
     else:
         # pristine entry -- lookup failed
         if store_flag == FLAG_STORE:
-            indexes[i] = rffi.cast(T, d.num_ever_used_items + VALID_OFFSET)
+            _ll_write_indexes(d, i, d.num_ever_used_items + VALID_OFFSET, T)
         return -1
 
     # In the loop, a deleted entry (everused and not valid) is by far
@@ -1074,8 +1082,7 @@ def ll_dict_lookup(d, key, hash, store_flag, T):
             if store_flag == FLAG_STORE:
                 if deletedslot == -1:
                     deletedslot = intmask(i)
-                indexes[deletedslot] = rffi.cast(T, d.num_ever_used_items +
-                                                 VALID_OFFSET)
+                _ll_write_indexes(d, deletedslot, d.num_ever_used_items + VALID_OFFSET, T)
             return -1
         elif index >= VALID_OFFSET:
             checkingkey = entries[index - VALID_OFFSET].key
@@ -1110,7 +1117,7 @@ def ll_dict_store_clean(d, hash, index, T):
         i = (i << 2) + i + perturb + 1
         i = i & mask
         perturb >>= PERTURB_SHIFT
-    indexes[i] = rffi.cast(T, index + VALID_OFFSET)
+    _ll_write_indexes(d, i, index + VALID_OFFSET, T)
 
 # the following function is only called from _ll_dict_del, whose
 # @jit.look_inside_iff condition should control when we get inside
@@ -1133,7 +1140,7 @@ def ll_dict_delete_by_entry_index(d, hash, locate_index, replace_with, T):
         i = (i << 2) + i + perturb + 1
         i = i & mask
         perturb >>= PERTURB_SHIFT
-    indexes[i] = rffi.cast(T, replace_with)
+    _ll_write_indexes(d, i, replace_with, T)
 
 # ____________________________________________________________
 #
