@@ -4,7 +4,7 @@ from rpython.rlib.rbigint import rbigint, InvalidSignednessError
 from rpython.rlib.rarithmetic import maxint, widen
 from pypy.module.cpyext.api import (
     cpython_api, PyObject, build_type_checkers_flags, Py_ssize_t,
-    CONST_STRING, ADDR, CANNOT_FAIL, INTP_real)
+    CONST_STRING, ADDR, CANNOT_FAIL, INTP_real, cts)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.unicodehelper import wcharpsize2utf8
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
@@ -36,13 +36,13 @@ def PyLong_FromLongLong(space, val):
     on failure."""
     return space.newlong_from_rarith_int(val)
 
-@cpython_api([rffi.ULONG], PyObject)
+@cts.decl("PyObject *PyLong_FromUnsignedLong(unsigned long val)")
 def PyLong_FromUnsignedLong(space, val):
     """Return a new PyLongObject object from a C unsigned long, or
     NULL on failure."""
     return space.newlong_from_rarith_int(val)
 
-@cpython_api([rffi.ULONGLONG], PyObject)
+@cts.decl("PyObject *PyLong_FromUnsignedLongLong(unsigned long long val)")
 def PyLong_FromUnsignedLongLong(space, val):
     """Return a new PyLongObject object from a C unsigned long long,
     or NULL on failure."""
@@ -155,15 +155,15 @@ def PyLong_AsSize_t(space, w_long):
     size_t."""
     return space.uint_w(space.index(w_long))
 
-@cpython_api([PyObject], rffi.LONGLONG, error=-1)
+@cts.decl("long long PyLong_AsLongLong(PyObject *val)", error=-1)
 def PyLong_AsLongLong(space, w_long):
     """
     Return a C unsigned long representation of the contents of pylong.
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
-    return rffi.cast(rffi.LONGLONG, space.r_longlong_w(space.index(w_long)))
+    return cts.cast("long long", space.r_longlong_w(space.index(w_long)))
 
-@cpython_api([PyObject], rffi.ULONGLONG, error=-1)
+@cts.decl("unsigned long long PyLong_AsUnsignedLongLong(PyObject *val)", error=-1)
 def PyLong_AsUnsignedLongLong(space, w_long):
     """
     Return a C unsigned long representation of the contents of pylong.
@@ -180,7 +180,7 @@ def PyLong_AsUnsignedLongLong(space, w_long):
             e.w_type = space.w_OverflowError
         raise
 
-@cpython_api([PyObject], rffi.ULONGLONG, error=-1)
+@cts.decl("unsigned long long PyLong_AsUnsignedLongLongMask(PyObject *val)", error=-1)
 def PyLong_AsUnsignedLongLongMask(space, w_long):
     """Will first attempt to cast the object to a PyIntObject or
     PyLongObject, if it is not already one, and then return its value as
@@ -191,8 +191,7 @@ def PyLong_AsUnsignedLongLongMask(space, w_long):
     num = space.bigint_w(space.index(w_long))
     return num.ulonglongmask()
 
-@cpython_api([PyObject, INTP_real], rffi.LONG,
-             error=-1)
+@cpython_api([PyObject, INTP_real], rffi.LONG, error=-1)
 def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
     """Get a C long int from an int object or any object that has an __index__
     method.
@@ -220,8 +219,7 @@ def PyLong_AsLongAndOverflow(space, w_long, overflow_ptr):
         overflow_ptr[0] = rffi.cast(rffi.INT_real, -1)
     return -1
 
-@cpython_api([PyObject, INTP_real], rffi.LONGLONG,
-             error=-1)
+@cts.decl("long long PyLong_AsLongLongAndOverflow(PyObject *val, int*)", error=-1)
 def PyLong_AsLongLongAndOverflow(space, w_long, overflow_ptr):
     """
     Return a C long long representation of the contents of pylong.  If pylong is
