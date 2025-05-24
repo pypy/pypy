@@ -210,8 +210,7 @@ if rtime.HAVE_NANOSLEEP:
             int ret = nanosleep(rqtp, rmtp);
             if (ret == 0)
                 return 0;
-            errno = ret;
-            return ret;
+            return errno;
         }
     """)
 
