@@ -819,26 +819,10 @@ W_AbstractRangeIterator.typedef = TypeDef("range_iterator",
 W_AbstractRangeIterator.typedef.acceptable_as_base_class = False
 
 
-@jit.look_inside_iff(lambda space, args_w, error_name:
+@jit.look_inside_iff(lambda space, args_w:
         jit.isconstant(len(args_w)) and len(args_w) <= 2)
-def build_iterators_from_args(space, args_w, error_name):
-    iterators_w = []
-    i = 0
-    for iterable_w in args_w:
-        try:
-            iterator_w = space.iter(iterable_w)
-        except OperationError as e:
-            if e.match(space, space.w_TypeError):
-                raise oefmt(space.w_TypeError,
-                            "%s argument #%d must support iteration",
-                            error_name, i + 1)
-            else:
-                raise
-        else:
-            iterators_w.append(iterator_w)
-
-        i += 1
-    return iterators_w
+def build_iterators_from_args(space, args_w):
+    return [space.iter(iterable_w) for iterable_w in args_w]
 
 class W_Map(W_Root):
     _immutable_fields_ = ["w_fun", "iterators_w"]
@@ -846,7 +830,7 @@ class W_Map(W_Root):
     def __init__(self, space, w_fun, args_w):
         self.space = space
         self.w_fun = w_fun
-        self.iterators_w = build_iterators_from_args(space, args_w, "map")
+        self.iterators_w = build_iterators_from_args(space, args_w)
 
     def iter_w(self):
         return self
@@ -1018,7 +1002,7 @@ class W_Zip(W_Root):
     def __init__(self, space, args_w, strict=False):
         self.strict = strict
         self.space = space
-        self.iterators_w = build_iterators_from_args(space, args_w, "zip")
+        self.iterators_w = build_iterators_from_args(space, args_w)
         self._iteration_progress = 0
 
     def iter_w(self):
