@@ -376,6 +376,7 @@ class TestRDictDirect(object):
         for i in range(5, 150):
             rordereddict.ll_dict_move_to_first(ll_d, i)
 
+
 class TestRDictDirectDummyKey(TestRDictDirect):
     class dummykeyobj:
         ll_dummy_value = llstr("dupa")
@@ -533,6 +534,8 @@ class ODictSpace(MappingSpace):
 
 
 class ODictSM(MappingSM):
+    HAVE_MOVE_TO_FIRST_END = True
+
     Space = ODictSpace
 
 def test_hypothesis():

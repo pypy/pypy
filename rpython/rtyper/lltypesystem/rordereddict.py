@@ -1563,6 +1563,7 @@ def ll_dict_move_to_first(d, key):
         if old_index < 0:
             raise KeyError
         else:
+            # already at the beginning
             return
 
     # the goal of the following is to set 'idst' to the number of
@@ -1570,20 +1571,33 @@ def ll_dict_move_to_first(d, key):
     must_reindex = False
     if d.entries.valid(0):
         # the first entry is valid, so we need to make room before.
-        new_allocated = _overallocate_entries_len(d.num_ever_used_items)
-        idst = ((new_allocated - d.num_ever_used_items) * 3) // 4
-        ll_assert(idst > 0, "overallocate did not do enough")
-        newitems = lltype.malloc(lltype.typeOf(d).TO.entries.TO, new_allocated)
-        rgc.ll_arraycopy(d.entries, newitems, 0, idst, d.num_ever_used_items)
-        d.entries = newitems
-        i = 0
-        while i < idst:
-            d.entries.mark_deleted(i)
-            i += 1
-        d.num_ever_used_items += idst
-        old_index += idst
+        # to get the complexity right if move_to_first is called a lot, we want
+        # to overallocate
         must_reindex = True
-        idst -= 1
+        new_allocated = _overallocate_entries_len(d.num_ever_used_items)
+        if not _ll_dict_entries_size_too_big(d, new_allocated):
+            # use 75% of the new space at the beginning
+            idst = ((new_allocated - d.num_ever_used_items) * 3) // 4
+            ll_assert(idst > 0, "overallocate did not do enough")
+            newitems = lltype.malloc(lltype.typeOf(d).TO.entries.TO, new_allocated)
+            rgc.ll_arraycopy(d.entries, newitems, 0, idst, d.num_ever_used_items)
+            d.entries = newitems
+            i = 0
+            while i < idst:
+                d.entries.mark_deleted(i)
+                i += 1
+            d.num_ever_used_items += idst
+            old_index += idst
+            idst -= 1
+            # XXX we could set lookup_function_no with idst here
+        else:
+            # see comment in ll_dict_grow: we have lots of deleted entries
+            # towards the end of the dict, but not enough in the front. rescue
+            # this by compacting the live items towards the end
+            ll_assert(d.num_live_items < d.num_ever_used_items, "deleted entries exist, but num_live_items == num_ever_used_items?!")
+            old_index = _ll_dict_move_to_first_shift_items(d, old_index)
+            idst = d.lookup_function_no >> FUNC_SHIFT
+            idst -= 1
     else:
         idst = d.lookup_function_no >> FUNC_SHIFT
         # All entries in range(0, idst) are deleted.  Check if more are
@@ -1627,3 +1641,43 @@ def ll_dict_move_to_first(d, key):
     else:
         ll_call_delete_by_entry_index(d, hash, old_index,
                 replace_with = VALID_OFFSET + idst)
+
+def _ll_dict_move_to_first_shift_items(d, old_index):
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    # situation: lots of deleted keys somewhere in the dict (not at the front).
+    # compact the dict towards the end. num_ever_used_items does not change,
+    # the items are just compacted (leaving free space at the end free).
+    # returns the new index of the entry that used to be at old_index
+    entries = d.entries
+    llop.gc_writebarrier(lltype.Void, entries)
+    #
+    ENTRIES = lltype.typeOf(d).TO.entries.TO
+    ENTRY = ENTRIES.OF
+    idst = isrc = d.num_ever_used_items - 1
+    new_index = -1
+    while isrc >= 0:
+        if entries.valid(isrc):
+            if isrc == old_index:
+                new_index = idst
+            src = entries[isrc]
+            dst = entries[idst]
+            dst.key = src.key
+            dst.value = src.value
+            if hasattr(ENTRY, 'f_hash'):
+                dst.f_hash = src.f_hash
+            if hasattr(ENTRY, 'f_valid'):
+                assert src.f_valid
+                dst.f_valid = True
+            idst -= 1
+        isrc -= 1
+    idst += 1 # range(0, idst) is empty now
+    assert d.num_ever_used_items - d.num_live_items == idst
+    assert new_index >= 0
+    # set the first idst items to be invalid
+    i = 0
+    while i < idst:
+        d.entries.mark_deleted(i)
+        i += 1
+    d.lookup_function_no = ((d.lookup_function_no & FUNC_MASK) |
+                            (idst << FUNC_SHIFT))
+    return new_index
