@@ -745,6 +745,12 @@ class __extend__(pyframe.PyFrame):
                         "code object requires a closure of exactly length %d",
                         needed)
                 closure_w = space.fixedview(w_closure, needed)
+                for cell in closure_w:
+                    if not isinstance(cell, Cell):
+                        raise oefmt(
+                            space.w_TypeError,
+                            "code object requires a closure of exactly length %d",
+                            needed)
                 outer_func = Function(space, code, closure=closure_w)
             else:
                 if not space.is_none(w_closure):

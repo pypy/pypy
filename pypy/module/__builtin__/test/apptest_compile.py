@@ -295,6 +295,10 @@ def test_exec_with_closure_errors():
         exec(g.__code__, locals, globals, closure=my_closure)
     assert str(info.value) == "code object requires a closure of exactly length 2"
 
+    with raises(TypeError) as info:
+        exec(g.__code__, locals, globals, closure=list(my_closure))
+    assert str(info.value) == "code object requires a closure of exactly length 2"
+
     def f():
         pass
     with raises(TypeError) as info:
@@ -305,6 +309,10 @@ def test_exec_with_closure_errors():
         exec('print(1)', locals, globals, closure=my_closure)
     assert str(info.value) == "closure can only be used when source is a code object"
 
+    my_closure = (35, CellType(72), CellType(100))
+    with raises(TypeError) as info:
+        exec(g.__code__, locals, globals, closure=my_closure)
+    assert str(info.value) == "code object requires a closure of exactly length 2"
 
 def test_exec_with_closure_dont_overwrite_cell_vars_from_locals():
     def f(a, b):
