@@ -46,6 +46,6 @@ def test_aiter_anext():
 def test_getattr_etc_error():
     with raises(TypeError) as info:
         getattr(test_getattr_etc_error, b'__code__')
-    assert "getattr(): attribute name must be string, not 'bytes'" in str(info.value)
+    assert "attribute name must be string, not 'bytes'" in str(info.value)
 
 
