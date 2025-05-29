@@ -579,7 +579,30 @@ def generate_tokens(lines, flags):
         logical line; continuation lines are included.
     """
     orig_lines = lines
+    err1 = None
+    try:
+        token_list = _generate_tokens(lines, flags)
+    except TokenError as e:
+        err1 = e
 
+    t = Tokenizer(flags)
+    try:
+        token_list2 = t.tokenize_lines(orig_lines[:])
+    except TokenError as err2:
+        assert err1 is not None
+        if not objectmodel.we_are_translated():
+            assert err1.msg == err2.msg
+            assert err1.offset == err2.offset
+            assert err1.lineno == err2.lineno
+            assert err1.text == err2.text
+        raise
+    #assert len(token_list) == len(token_list2)
+    if not objectmodel.we_are_translated():
+        for index, tok1, tok2 in zip(range(len(token_list)), token_list, token_list2):
+            assert tok1 == tok2
+    return token_list2
+
+def _generate_tokens(lines, flags):
     token_list = []
     lnum = 0
     continued = False
@@ -903,14 +926,7 @@ def generate_tokens(lines, flags):
     token_list.append(tok)
 
     token_list.append(Token(tokens.ENDMARKER, '', lnum, pos, line, level=len(parenstack)))
-
-    t = Tokenizer(flags)
-    token_list2 = t.tokenize_lines(orig_lines[:])
-    #assert len(token_list) == len(token_list2)
-    if not objectmodel.we_are_translated():
-        for index, tok1, tok2 in zip(range(len(token_list)), token_list, token_list2):
-            assert tok1 == tok2
-    return token_list2
+    return token_list
 
 
 def _maybe_raise_number_error(token, line, lnum, start, end, token_list):
