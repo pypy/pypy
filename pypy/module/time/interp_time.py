@@ -177,8 +177,8 @@ with open(os.path.join(my_dir, 'time_module.h')) as fid:
     data = fid.read()
     start = data.find("// parse from here")
     stop = data.find("// stop parsing")
-    src = data[start:stop]
-cts.parse_source(src)
+    time_module_h_bit = data[start:stop]
+cts.parse_source(time_module_h_bit)
 
 compile_extra = ["-DBUILD_TIME_MODULE", "-DHAVE_CLOCK_GETTIME"]
 _includes = ["time.h"]
@@ -239,6 +239,7 @@ if rtime.HAVE_CLOCK_NANOSLEEP:
 class CConfig:
     _compilation_info_ = ExternalCompilationInfo(
         includes=_includes,
+        post_include_bits=[time_module_h_bit],
         include_dirs = [my_dir, cdir],
         libraries=rtime.libraries,
         separate_module_files=[os.path.join(src_dir, "pytime.c")],
