@@ -266,11 +266,14 @@ class Tokenizer(object):
         self.need_line_cont = False
         return res
 
+    def _contstr_raise_unterminated(self, end_lineno, end_col_offset):
+        raise_unterminated_string(self.strstart_is_triple_quoted, self.strstart_starting_line, self.strstart_linenumber,
+                                  self.strstart_offset + 1, self.token_list,
+                                  end_lineno, end_col_offset)
+
     def _tokenize_string_continuation(self, line):
         if not line:
-            raise_unterminated_string(self.strstart_is_triple_quoted, self.strstart_starting_line, self.strstart_linenumber,
-                                      self.strstart_offset + 1, self.token_list,
-                                      self.lnum - 1, len(line))
+            self._contstr_raise_unterminated(self.lnum - 1, len(line))
         endmatch = self.string_end_dfa.recognize(line)
         if endmatch >= 0:
             self.pos = end = endmatch
@@ -280,9 +283,7 @@ class Tokenizer(object):
             self.last_comment = ''
         elif (self.need_line_cont and not line.endswith('\\\n') and
                            not line.endswith('\\\r\n')):
-            raise_unterminated_string(self.strstart_is_triple_quoted, self.strstart_starting_line, self.strstart_linenumber,
-                                      self.strstart_offset + 1, self.token_list,
-                                      self.lnum, len(line))
+            self._contstr_raise_unterminated(self.lnum, len(line))
             assert 0, 'unreachable'
         else:
             self.contstrs.append(line)
