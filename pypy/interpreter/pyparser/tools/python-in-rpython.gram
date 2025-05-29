@@ -1230,10 +1230,10 @@ del_t_atom:
 
 # From here on, there are rules for invalid syntax with specialised error messages
 invalid_arguments[NoReturn]:
-    | ((','.(starred_expression | ( assignment_expression | expression !':=') !'=')+ ',' kwargs) | kwargs) a=',' ','.(starred_expression !'=')+ {
-        self.raise_syntax_error_starting_from(
+    | a=args ',' '*' {
+        self.raise_syntax_error_known_location(
             "iterable argument unpacking follows keyword argument unpacking",
-            a
+            a.keywords[-1] if a.keywords else a.args[-1],
         )
      }
     | a=expression b=for_if_clauses ',' [args | expression for_if_clauses] {
