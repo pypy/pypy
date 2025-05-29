@@ -1392,11 +1392,8 @@ class MappingSM(GenericStateMachine):
             self.st_keys = ann2strategy(self.space.s_key)
             self.st_values = ann2strategy(self.space.s_value)
             return
-        try:
+        with signal_timeout(10):
             action.execute(self.space)
-        except Exception as e:
-            import pdb;pdb.xpm()
-            raise
 
     def teardown(self):
         if self.space:
