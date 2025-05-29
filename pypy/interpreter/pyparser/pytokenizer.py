@@ -168,11 +168,11 @@ class Tokenizer(object):
         self.token_list = []
         self.lnum = 0
         self.continued = False
-        self.numchars = NUMCHARS
-        self.contstrs, self.needcont = [], False
+        self.needcont = False
         self.indents = [0]
         self.altindents = [0]
         self.last_comment = ''
+
         # contains the tokens of the opening parens
         self.parenstack = []
         self.async_hacks = flags & consts.PyCF_ASYNC_HACKS
@@ -180,11 +180,17 @@ class Tokenizer(object):
         self.async_def_nl = False
         self.async_def_indent = 0
 
-        # make the annotator happy
         self.endDFA = DUMMY_DFA
-        # make the annotator happy
         self.line = ''
-        self.strstart = (0, 0, "", False) # linenumber, offset, starting_line, is_triple_quoted
+
+        # attributes for dealing with contiuations of string literals
+        # (triple-quoted or with \\)
+        self.contstrs = []
+        self.strstart_linenumber = 0
+        self.strstart_offset = 0
+        self.strstart_starting_line = ""
+        self.strstart_is_triple_quoted = False
+
         self.cont_line_col = 0
 
     def tokenize_lines(self, lines):
@@ -240,24 +246,30 @@ class Tokenizer(object):
     def _raise_token_error(self, msg, line, lineno, column, end_lineno=0, end_offset=0):
         raise TokenError(msg, line, lineno, column, self.token_list, end_lineno, end_offset)
 
+    def _set_strstart(self, offset, starting_line, is_triple_quoted):
+        self.strstart_linenumber = self.lnum
+        self.strstart_offset = offset
+        self.strstart_starting_line = starting_line
+        self.strstart_is_triple_quoted = is_triple_quoted
+
     def _tokenize_string_continuation(self, line):
         if not line:
-            raise_unterminated_string(self.strstart[3], self.strstart[2], self.strstart[0],
-                                      self.strstart[1] + 1, self.token_list,
+            raise_unterminated_string(self.strstart_is_triple_quoted, self.strstart_starting_line, self.strstart_linenumber,
+                                      self.strstart_offset + 1, self.token_list,
                                       self.lnum - 1, len(line))
         endmatch = self.endDFA.recognize(line)
         if endmatch >= 0:
             self.pos = end = endmatch
             self.contstrs.append(line[:end])
-            self._add_token(tokens.STRING, "".join(self.contstrs), self.strstart[0],
-                   self.strstart[1], line, self.lnum, end)
+            self._add_token(tokens.STRING, "".join(self.contstrs), self.strstart_linenumber,
+                   self.strstart_offset, line, self.lnum, end)
             self.last_comment = ''
             self.contstrs, self.needcont = [], False
         elif (self.needcont and not line.endswith('\\\n') and
                            not line.endswith('\\\r\n')):
             self.contstrs.append(line)
-            raise_unterminated_string(self.strstart[3], self.strstart[2], self.strstart[0],
-                                      self.strstart[1] + 1, self.token_list,
+            raise_unterminated_string(self.strstart_is_triple_quoted, self.strstart_starting_line, self.strstart_linenumber,
+                                      self.strstart_offset + 1, self.token_list,
                                       self.lnum, len(line))
             assert 0, 'unreachable'
         else:
@@ -367,7 +379,9 @@ class Tokenizer(object):
             pseudomatch = pseudoDFA.recognize(line, self.pos)
             start = whiteSpaceDFA.recognize(line, self.pos)
             if pseudomatch >= 0:                            # scan for tokens
-                self._classify_token(start, pseudomatch):
+                done = self._classify_token(line, start, pseudomatch)
+                if done:
+                    return
             else:
                 if start < 0:
                     start = self.pos
@@ -381,7 +395,7 @@ class Tokenizer(object):
                 self.last_comment = ''
                 self.pos += 1
 
-    def _classify_token(self, start, pseudomatch):
+    def _classify_token(self, line, start, pseudomatch):
         if start < 0:
             start = self.pos
         end = pseudomatch
@@ -395,7 +409,7 @@ class Tokenizer(object):
 
         self.pos = end
         token, initial = line[start:end], line[start]
-        if (initial in self.numchars or \
+        if (initial in NUMCHARS or \
            (initial == '.' and token != '.' and token != '...')):
             # ordinary number
             self._add_token(tokens.NUMBER, token, self.lnum, start, line, self.lnum, end)
@@ -438,18 +452,18 @@ class Tokenizer(object):
                 self._add_token(tokens.STRING, token, self.lnum, start, line, self.lnum, self.pos)
                 self.last_comment = ''
             else:
-                self.strstart = (self.lnum, start, line, True)
+                self._set_strstart(start, line, True)
                 self.contstrs = [line[start:]]
-                break
+                return True
         elif initial in single_quoted or \
             token[:2] in single_quoted or \
             token[:3] in single_quoted:
             if token[-1] == '\n':                  # continued string
-                self.strstart = (self.lnum, start, line, False)
+                self._set_strstart(start, line, False)
                 self.endDFA = (endDFAs[initial] or endDFAs[token[1]] or
                            endDFAs[token[2]])
                 self.contstrs, self.needcont = [line[start:]], True
-                break
+                return True
             else:                                  # ordinary string
                 self._add_token(tokens.STRING, token, self.lnum, start, line, self.lnum, self.pos)
                 self.last_comment = ''
@@ -525,6 +539,7 @@ class Tokenizer(object):
                     self._raise_token_error(
                             msg, line, self.lnum, start + 1)
             self.last_comment = ''
+        return False
 
 
 def generate_tokens(lines, flags):
