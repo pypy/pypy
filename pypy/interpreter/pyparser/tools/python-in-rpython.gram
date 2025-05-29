@@ -409,7 +409,7 @@ param[ast.arg]: a=NAME b=annotation? { ast.arg(arg=self.extract_id(a), annotatio
 param_star_annotation[ast.arg]: a=NAME b=star_annotation { ast.arg(arg=self.extract_id(a), annotation=b, type_comment=None, LOCATIONS) }
 annotation: ':' a=expression { a }
 star_annotation: ':' a=star_expression { a }
-default: '=' a=expression { a }
+default: '=' a=expression { a } | invalid_default
 
 # If statement
 # ------------

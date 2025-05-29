@@ -1294,7 +1294,7 @@ class PythonParser(Parser):
         return None
 
     def default(self): # type Optional[Any]
-        # default: '=' expression
+        # default: '=' expression | invalid_default
         mark = self._index
         if self._verbose: log_start(self, 'default')
         literal = self.expect_type(22)
@@ -1303,6 +1303,11 @@ class PythonParser(Parser):
             if a:
                 return a
         self._index = mark
+        if self.call_invalid_rules:
+            invalid_default = self.invalid_default()
+            if invalid_default:
+                assert 0, 'unreachable'
+            self._index = mark
         return None
 
     def if_stmt(self): # type Optional[ast . If]
