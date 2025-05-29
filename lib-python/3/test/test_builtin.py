@@ -2035,7 +2035,11 @@ class BuiltinTest(unittest.TestCase):
             array.clear()
             yield b'A'
             yield b'B'
-        self.assertRaises(BufferError, array.join, iterator())
+        if support.check_impl_detail(cpython=False):
+            # undefined behavior, b'A,B' is arguably also correct
+            self.assertEqual(bytearray(b'AB'), array.join(iterator()))
+        else:
+            self.assertRaises(BufferError, array.join, iterator())
 
     def test_bytearray_join_with_custom_iterator(self):
         # Issue #112625
