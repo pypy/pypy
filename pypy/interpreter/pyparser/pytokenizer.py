@@ -214,7 +214,7 @@ class Tokenizer(object):
         self.line = line
         self.pos, self.max = 0, len(line)
         self.switch_indents = 0
-        if self.string_end_dfa:
+        if self.string_end_dfa: # in the middle of parsing a string literal
             done = self._tokenize_string_continuation(line)
             if done:
                 return
@@ -222,7 +222,9 @@ class Tokenizer(object):
             done = self._tokenize_new_statement(line)
             if done:
                 return
-        else:                                  # continued statement
+        else:
+            # continued statement, either due to \ at end of line
+            # or due to being inside parenthesis
             self._tokenize_continued_statement(line)
         self._tokenize_regular(line)
 
