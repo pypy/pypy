@@ -27,7 +27,7 @@ from textwrap import dedent
 from types import AsyncGeneratorType, FunctionType, CellType
 from operator import neg
 from test import support
-from test.support import (swap_attr, maybe_get_event_loop_policy)
+from test.support import (swap_attr, maybe_get_event_loop_policy, check_impl_detail)
 from test.support.os_helper import (EnvironmentVarGuard, TESTFN, unlink)
 from test.support.script_helper import assert_python_ok
 from test.support.warnings_helper import check_warnings
@@ -735,6 +735,7 @@ class BuiltinTest(unittest.TestCase):
             del l['__builtins__']
         self.assertEqual((g, l), ({'a': 1}, {'b': 2}))
 
+    @support.cpython_only
     def test_exec_globals(self):
         code = compile("print('Hello World!')", "", "exec")
         # no builtin function
@@ -744,6 +745,7 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaises(TypeError,
                           exec, code, {'__builtins__': 123})
 
+    @support.cpython_only
     def test_exec_globals_frozen(self):
         class frozendict_error(Exception):
             pass
@@ -790,11 +792,13 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaises(setonlyerror,
                           exec, code, setonlydict({'globalname': 1}))
 
-        # builtins' `__getitem__` raises
-        code = compile("superglobal", "test", "exec")
-        self.assertRaises(setonlyerror, exec, code,
-                          {'__builtins__': setonlydict({'superglobal': 1})})
+        if check_impl_detail():
+            # builtins' `__getitem__` raises
+            code = compile("superglobal", "test", "exec")
+            self.assertRaises(setonlyerror, exec, code,
+                              {'__builtins__': setonlydict({'superglobal': 1})})
 
+    @support.cpython_only
     def test_exec_globals_dict_subclass(self):
         class customdict(dict):  # this one should not do anything fancy
             pass
@@ -806,6 +810,7 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaisesRegex(NameError, "name 'superglobal' is not defined",
                                exec, code, {'__builtins__': customdict()})
 
+    @support.cpython_only
     def test_eval_builtins_mapping(self):
         code = compile("superglobal", "test", "eval")
         # works correctly
@@ -816,6 +821,7 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaisesRegex(NameError, "name 'superglobal' is not defined",
                                eval, code, ns)
 
+    @support.cpython_only
     def test_exec_builtins_mapping_import(self):
         code = compile("import foo.bar", "test", "exec")
         ns = {'__builtins__': types.MappingProxyType({})}
@@ -824,6 +830,7 @@ class BuiltinTest(unittest.TestCase):
         exec(code, ns)
         self.assertEqual(ns['foo'], ('foo.bar', ns, ns, None, 0))
 
+    @support.cpython_only
     def test_eval_builtins_mapping_reduce(self):
         # list_iterator.__reduce__() calls _PyEval_GetBuiltin("iter")
         code = compile("x.__reduce__()", "test", "eval")
@@ -1187,7 +1194,7 @@ class BuiltinTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             TypeError,
-            'max expected at least 1 argument, got 0'
+            'max.* expected at least (one)|1 argument, got 0'  # PyPy: max(), CPython: max
         ):
             max()
 
@@ -1246,7 +1253,7 @@ class BuiltinTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             TypeError,
-            'min expected at least 1 argument, got 0'
+            'min.* expected at least (one)|1 argument, got 0'  # PyPy: min(), CPython: min
         ):
             min()
 
@@ -2357,6 +2364,8 @@ class TestSorted(unittest.TestCase):
 
 class ShutdownTest(unittest.TestCase):
 
+    # PyPy doesn't do a gc.collect() at shutdown
+    @support.cpython_only
     def test_cleanup(self):
         # Issue #19255: builtins are still available at shutdown
         code = """if 1:
@@ -2479,8 +2488,9 @@ class TestType(unittest.TestCase):
         for doc in 'x', '\xc4', '\U0001f40d', 'x\x00y', b'x', 42, None:
             A = type('A', (), {'__doc__': doc})
             self.assertEqual(A.__doc__, doc)
-        with self.assertRaises(UnicodeEncodeError):
-            type('A', (), {'__doc__': 'x\udcdcy'})
+        if check_impl_detail():     # CPython encodes __doc__ into tp_doc
+            with self.assertRaises(UnicodeEncodeError):
+                type('A', (), {'__doc__': 'x\udcdcy'})
 
         A = type('A', (), {})
         self.assertEqual(A.__doc__, None)
@@ -2512,8 +2522,6 @@ class TestType(unittest.TestCase):
         with self.assertRaises(TypeError):
             type('A', (), {'__slots__': b'x'})
         with self.assertRaises(TypeError):
-            type('A', (int,), {'__slots__': 'x'})
-        with self.assertRaises(TypeError):
             type('A', (), {'__slots__': ''})
         with self.assertRaises(TypeError):
             type('A', (), {'__slots__': '42'})
@@ -2532,6 +2540,12 @@ class TestType(unittest.TestCase):
             type('A', (B,), {'__slots__': '__dict__'})
         with self.assertRaises(TypeError):
             type('A', (B,), {'__slots__': '__weakref__'})
+
+    @support.cpython_only
+    def test_bad_slots_int(self):
+        with self.assertRaises(TypeError):
+            # 'int' is variable-sized on CPython 3.x
+            type('A', (int,), {'__slots__': 'x'})
 
     def test_namespace_order(self):
         # bpo-34320: namespace should preserve order
