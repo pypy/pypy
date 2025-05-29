@@ -436,6 +436,11 @@ if 1:
         assert info.value.offset == 8
         assert info.value.end_offset == 9
 
+    def test_invalid_star(self):
+        info = pytest.raises(SyntaxError, self.parse, "f(**kw, *)")
+        assert "Invalid star expression" in info.value.msg
+        assert info.value.offset == 10
+
 
 class TestPythonParserRevDB(TestPythonParser):
     spaceconfig = {"translation.reverse_debugger": True}
