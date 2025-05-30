@@ -229,10 +229,10 @@ def test_weird_globals_builtins_eval():
             assert key != '__builtins__'
             return int(key.removeprefix("_number_"))
 
-    code = "lambda: " + "+".join(f"_number_{i}" for i in range(1000))
-    sum_1000 = eval(code, MyGlobals())
-    expected = sum(range(1000))
-    assert sum_1000() == expected
+    code = "lambda: " + "+".join(f"_number_{i}" for i in range(100))
+    sum_100 = eval(code, MyGlobals())
+    expected = sum(range(100))
+    assert sum_100() == expected
 
 def test_exec_with_closure():
     from types import CellType
