@@ -390,12 +390,12 @@ class StdObjSpace(ObjSpace):
     def newbytearray(self, l):
         return W_BytearrayObject(l)
 
-    @specialize.arg_or_var(1, 2)
+    @specialize.arg_or_var(1)
     def newtext(self, s, lgt=-1, unused=-1):
         # the unused argument can be from something like
         # newtext(*decode_utf8sp(space, code))
-        if is_annotation_constant(s) and is_annotation_constant(lgt):
-            return self._newtext_memo(s, lgt)
+        if is_annotation_constant(s) and s is not None:
+            return self._newtext_memo(s)
         assert isinstance(s, str)
         if lgt < 0:
             lgt = rutf8.codepoints_in_utf8(s)
@@ -407,16 +407,13 @@ class StdObjSpace(ObjSpace):
         return self.newtext(s, lgt)
 
     @specialize.memo()
-    def _newtext_memo(self, s, lgt):
-        if s is None:
-            return self.w_None # can happen during annotation
+    def _newtext_memo(self, s):
         # try to see whether we exist as an interned string, but don't intern
         # if not
         w_u = self.interned_strings.get(s)
         if w_u is not None:
             return w_u
-        if lgt < 0:
-            lgt = rutf8.codepoints_in_utf8(s)
+        lgt = rutf8.codepoints_in_utf8(s)
         return W_UnicodeObject(s, lgt)
 
     def newutf8(self, utf8s, length):
