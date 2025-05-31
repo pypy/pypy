@@ -45,7 +45,7 @@ jobs:
 
     - name: translate
       run: |
-        pypy rpython/bin/rpython ${{ matrix.revdb && '-O2 --revdb' || '-Ojit' }} pypy/goal/targetpypystandalone.py
+        pypy rpython/bin/rpython ${{ matrix.revdb && '-O2 --revdb' || '-Ojit' }} pypy/goal/targetpypystandalone.py${{ matrix.revdb && ' --withoutmod-_hpy_universal' || '' }}
         mv pypy*-c libpypy*-c.so pypy/goal/
 
     - name: package
