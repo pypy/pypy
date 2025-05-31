@@ -1,5 +1,8 @@
 // This is a slimmed-down copy of includes/pytime.h. It removes all the
 // PyObject interfaces and can be parsed by CTypeSpace
+
+// Do not include it after Python.h
+#ifndef Py_PYTHON_H
 #include <stdint.h>
 #include <limits.h>
 #ifdef HAVE_SYS_TIME_H
@@ -10,7 +13,6 @@
 #include <math.h>
 #include <errno.h>
 #include "src/precommondefs.h"
-
 
 #define PyAPI_FUNC(x) x
 #define PyErr_SetFromErrno(x) 
@@ -207,4 +209,4 @@ _PyTime_AsTimeval(_PyTime_t t, struct timeval *tv, _PyTime_round_t round);
 RPY_EXTERN int
 _PyTime_AsTimespec(_PyTime_t t, struct timespec *ts);
 
-
+#endif

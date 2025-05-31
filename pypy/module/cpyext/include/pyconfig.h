@@ -29,7 +29,9 @@ extern "C" {
 #ifndef _WIN32
 #define VA_LIST_IS_ARRAY
 #ifndef __APPLE__
+#ifndef HAVE_CLOCK_GETTIME
 #define HAVE_CLOCK_GETTIME
+#endif
 #endif
 #endif
 
