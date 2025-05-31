@@ -4877,7 +4877,7 @@ class PythonParser(Parser):
             if literal_1:
                 type_comment = self.type_comment()
                 if type_comment:
-                    return self . raise_indentation_error ( "bare * has associated type comment" )
+                    return self . raise_syntax_error ( "bare * has associated type comment" )
         self._index = mark
         literal = self.expect_type(16)
         if literal:

@@ -1924,6 +1924,10 @@ class TestAstBuilding:
         check_both_ways("try:\n  pass\nfinally:  # type: int\n  pass\n")
         check_both_ways("pass  # type: ignorewhatever\n")
         check_both_ways("pass  # type: ignoreé\n")
+        with pytest.raises(SyntaxError) as e:
+            s = 'def f(\n    *, # type: int\n    a, # type: int\n):\n    pass'
+            self.get_ast(s, flags=consts.PyCF_TYPE_COMMENTS)
+        assert type(e.value) is SyntaxError
 
     def test_walrus(self):
         mod = self.get_ast("(a := 1)")
