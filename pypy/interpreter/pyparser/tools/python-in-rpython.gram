@@ -1003,12 +1003,12 @@ lambda_slash_with_default:
     | a=lambda_param_no_default* b=lambda_param_with_default+ '/' &':' { self.make_slash_with_default(a, b) }
 
 lambda_star_etc[StarEtc]:
+    | invalid_lambda_star_etc
     | '*' a=lambda_param_no_default b=lambda_param_maybe_default* c=[lambda_kwds] {
        self.make_star_etc(a, b, c) }
     | '*' ',' b=lambda_param_maybe_default+ c=[lambda_kwds] {
         self.make_star_etc(None, b, c) }
     | a=lambda_kwds { self.make_star_etc(None, None, a) }
-    | invalid_lambda_star_etc
 
 lambda_kwds[ast.arg]:
     | invalid_lambda_kwds
@@ -1428,6 +1428,9 @@ invalid_lambda_star_etc[NoReturn]:
     | '*' (':' | ',' (':' | '**')) {
         self.raise_syntax_error("named arguments must follow bare *")
      }
+    | '*' lambda_param a='=' { self.raise_syntax_error_known_location("var-positional argument cannot have default value", a) }
+    | '*' (lambda_param_no_default | ',') lambda_param_maybe_default* a='*' (lambda_param_no_default | ',') {
+        self.raise_syntax_error_known_location("* argument may appear only once", a) }
 invalid_lambda_kwds:
     | '**' lambda_param a='=' { self.raise_syntax_error_known_location("var-keyword argument cannot have default value", a) }
     | '**' lambda_param ',' a=lambda_param { self.raise_syntax_error_known_location("arguments cannot follow var-keyword argument", a) }

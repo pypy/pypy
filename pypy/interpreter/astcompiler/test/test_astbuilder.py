@@ -579,6 +579,12 @@ class TestAstBuilding:
         input = "def foo(a,*b=3,c):"
         exc = pytest.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "var-positional argument cannot have default value"
+        input = "lambda a,*b=3,c: 12"
+        exc = pytest.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == "var-positional argument cannot have default value"
+        input = "lambda *b,*d: 12"
+        exc = pytest.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == "* argument may appear only once"
 
     def test_posonly_arguments(self):
         fn = self.get_first_stmt("def f(a, b, c, /, arg): pass")
