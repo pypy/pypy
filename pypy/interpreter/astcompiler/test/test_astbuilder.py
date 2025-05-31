@@ -2116,3 +2116,15 @@ except*:
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast(input)
         assert excinfo.value.msg == "expected one or more exception types"
+
+    def test_invalid_star_no_parens(self):
+        import textwrap
+        s = textwrap.dedent("""
+        try:
+            pass
+        except* A, B, C as zxiensp:
+            pass
+        """)
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast(s)
+        assert excinfo.value.msg == "multiple exception types must be parenthesized"

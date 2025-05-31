@@ -5287,27 +5287,29 @@ class PythonParser(Parser):
         return None
 
     def invalid_except_stmt(self): # type Optional[None]
-        # invalid_except_stmt: 'except' expression ',' expressions ['as' NAME] ':' | 'except' expression ['as' NAME] NEWLINE | 'except' NEWLINE | 'except' '*' (NEWLINE | ':')
+        # invalid_except_stmt: 'except' '*'? expression ',' expressions ['as' NAME] ':' | 'except' '*'? expression ['as' NAME] NEWLINE | 'except' NEWLINE | 'except' '*' (NEWLINE | ':')
         mark = self._index
         if self._verbose: log_start(self, 'invalid_except_stmt')
         literal = self.expect_type(522)
         if literal:
+            opt = self.expect_type(16)
             a = self.expression()
             if a:
                 literal_1 = self.expect_type(12)
                 if literal_1:
                     expressions = self.expressions()
                     if expressions:
-                        opt = self._tmp_215()
+                        opt_1 = self._tmp_215()
                         literal_2 = self.expect_type(11)
                         if literal_2:
                             return self . raise_syntax_error_starting_from ( "multiple exception types must be parenthesized" , a )
         self._index = mark
         a = self.expect_type(522)
         if a:
+            opt = self.expect_type(16)
             expression = self.expression()
             if expression:
-                opt = self._tmp_216()
+                opt_1 = self._tmp_216()
                 n = self.expect_type(4)
                 if n:
                     return self . raise_syntax_error_known_location ( "expected ':'" , n )

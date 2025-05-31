@@ -1490,10 +1490,10 @@ invalid_try_stmt:
     | 'try' ':' block* except_star_block+ a='except' [expression ['as' NAME]] ':' {
         self.raise_syntax_error_known_location("cannot have both 'except' and 'except*' on the same 'try'", a) }
 invalid_except_stmt[None]:
-    | 'except' a=expression ',' expressions ['as' NAME ] ':' {
+    | 'except' '*'? a=expression ',' expressions ['as' NAME ] ':' {
         self.raise_syntax_error_starting_from("multiple exception types must be parenthesized", a)
      }
-    | a='except' expression ['as' NAME ] n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
+    | a='except' '*'? expression ['as' NAME ] n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
     | a='except' n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
     | a='except' '*' (NEWLINE | ':') { self.raise_syntax_error("expected one or more exception types") }
 invalid_finally_stmt[NoReturn]:
