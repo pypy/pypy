@@ -1698,7 +1698,7 @@ class TestAstBuilding:
         args = func.args
         assert eq_w(args.args[0].type_comment, w("List[int]"))
         assert eq_w(args.args[1].type_comment, w("int"))
-        assert self.space.is_w(args.args[2].type_comment, self.space.w_None)
+        assert self.space.is_none(args.args[2].type_comment)
 
     def test_type_comments_func_body(self):
         eq_w, w = self.space.eq_w, self.space.wrap
@@ -1928,6 +1928,10 @@ class TestAstBuilding:
             s = 'def f(\n    *, # type: int\n    a, # type: int\n):\n    pass'
             self.get_ast(s, flags=consts.PyCF_TYPE_COMMENTS)
         assert type(e.value) is SyntaxError
+        with pytest.raises(SyntaxError) as e:
+            s = 'def foo(x, /, y, *, z=2):\npass\n'
+            self.get_ast(s)
+        assert "type comment" not in e.value.msg
 
     def test_walrus(self):
         mod = self.get_ast("(a := 1)")
