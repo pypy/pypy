@@ -621,7 +621,7 @@ class W_ZipLongest(W_Root):
     def __init__(self, space, w_fun, args_w):
         self.space = space
         self.w_fun = w_fun
-        self.iterators_w = build_iterators_from_args(space, args_w, "zip_longest")
+        self.iterators_w = build_iterators_from_args(space, args_w)
 
     def iter_w(self):
         return self
