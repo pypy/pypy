@@ -68,3 +68,8 @@ def test_dont_segfault():
     p = property.__new__(pro)
     p.__set_name__(A, 1)
     p.getter(lambda self: 1) # must not crash
+
+def test_super_error_message():
+    with raises(TypeError) as info:
+        super(1, int)
+    assert str(info.value) == "super() argument 1 must be a type, not int"

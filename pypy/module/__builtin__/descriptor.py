@@ -23,6 +23,8 @@ class W_Super(W_Root):
             w_type = None  # unbound super object
             w_obj_or_type = None
         else:
+            if not space.isinstance_w(w_starttype, space.w_type):
+                raise oefmt(space.w_TypeError, "super() argument 1 must be a type, not %T", w_starttype)
             w_type = _super_check(space, w_starttype, w_obj_or_type)
         self.w_starttype = w_starttype
         self.w_objtype = w_type
