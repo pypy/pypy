@@ -15,15 +15,15 @@ from pypy.objspace.fake.checkmodule import checkmodule
 
 def main(argv):
     if len(argv) != 2:
-        print( >> sys.stderr, __doc__)
+        print(__doc__, file=sys.stderr)
         sys.exit(2)
     modname = argv[1]
     if modname in ('-h', '--help'):
-        print( >> sys.stderr, __doc__)
+        print(__doc__, file=sys.stderr)
         sys.exit(0)
     if modname.startswith('-'):
         print( >> sys.stderr, "Bad command line")
-        print( >> sys.stderr, __doc__)
+        print(__doc__, file=sys.stderr)
         sys.exit(1)
     if os.path.sep in modname:
         if os.path.basename(modname) == '':
