@@ -39,10 +39,27 @@ objects support decompress() and flush()."""
 
 
 for _name in """
-    MAX_WBITS  DEFLATED  DEF_MEM_LEVEL
-    Z_BEST_SPEED  Z_BEST_COMPRESSION  Z_DEFAULT_COMPRESSION
-    Z_FILTERED  Z_HUFFMAN_ONLY  Z_DEFAULT_STRATEGY
-    Z_FINISH  Z_NO_FLUSH  Z_SYNC_FLUSH  Z_FULL_FLUSH
+    MAX_WBITS
+    DEFLATED
+    DEF_MEM_LEVEL
+    DEF_BUF_SIZE
+    Z_NO_COMPRESSION
+    Z_BEST_SPEED
+    Z_BEST_COMPRESSION
+    Z_DEFAULT_COMPRESSION
+    Z_FILTERED
+    Z_HUFFMAN_ONLY
+    Z_RLE
+    Z_FIXED
+    Z_DEFAULT_STRATEGY
+    Z_NO_FLUSH
+    Z_PARTIAL_FLUSH
+    Z_SYNC_FLUSH
+    Z_FULL_FLUSH
+    Z_FINISH
+    Z_FINISH
+    Z_BLOCK
     ZLIB_VERSION
+    ZLIB_RUNTIME_VERSION
     """.split():
     Module.interpleveldefs[_name] = 'space.wrap(%r)' % (getattr(rzlib, _name),)

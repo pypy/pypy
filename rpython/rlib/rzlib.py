@@ -29,12 +29,38 @@ eci = rffi_platform.configure_external_library(
 
 
 constantnames = '''
-    Z_OK  Z_STREAM_ERROR  Z_BUF_ERROR  Z_MEM_ERROR  Z_STREAM_END Z_DATA_ERROR
-    Z_DEFLATED  Z_DEFAULT_STRATEGY  Z_DEFAULT_COMPRESSION
-    Z_NO_FLUSH  Z_FINISH  Z_SYNC_FLUSH  Z_FULL_FLUSH
-    MAX_WBITS  MAX_MEM_LEVEL
-    Z_BEST_SPEED  Z_BEST_COMPRESSION  Z_DEFAULT_COMPRESSION
-    Z_FILTERED  Z_HUFFMAN_ONLY  Z_DEFAULT_STRATEGY Z_NEED_DICT
+    MAX_WBITS
+    MAX_MEM_LEVEL
+    Z_NO_FLUSH
+    Z_PARTIAL_FLUSH
+    Z_SYNC_FLUSH
+    Z_FULL_FLUSH
+    Z_FINISH
+    Z_BLOCK
+    Z_TREES
+    Z_OK
+    Z_STREAM_END
+    Z_NEED_DICT
+    Z_ERRNO
+    Z_STREAM_ERROR
+    Z_DATA_ERROR
+    Z_MEM_ERROR
+    Z_BUF_ERROR
+    Z_VERSION_ERROR
+    Z_NO_COMPRESSION
+    Z_BEST_SPEED
+    Z_BEST_COMPRESSION
+    Z_DEFAULT_COMPRESSION
+    Z_FILTERED
+    Z_HUFFMAN_ONLY
+    Z_RLE
+    Z_FIXED
+    Z_DEFAULT_STRATEGY
+    Z_BINARY
+    Z_TEXT
+    Z_ASCII
+    Z_UNKNOWN
+    Z_DEFLATED
     Z_NULL
     '''.split()
 
@@ -77,6 +103,8 @@ if MAX_MEM_LEVEL >= 8:
     DEF_MEM_LEVEL = 8
 else:
     DEF_MEM_LEVEL = MAX_MEM_LEVEL
+
+DEF_BUF_SIZE = 16*1024
 
 OUTPUT_BUFFER_SIZE = 32*1024
 INPUT_BUFFER_MAX = 2047*1024*1024
@@ -225,6 +253,8 @@ def inflateSetDictionary(stream, string):
 def zlibVersion():
     """Return the runtime version of zlib library"""
     return rffi.charp2str(_zlibVersion())
+
+ZLIB_RUNTIME_VERSION = zlibVersion()
 
 # ____________________________________________________________
 
