@@ -53,3 +53,9 @@ for _name in """
     ZLIB_VERSION
     """.split():
     Module.interpleveldefs[_name] = 'space.wrap(%r)' % (getattr(rzlib, _name),)
+
+
+for _name in """
+    Z_NO_COMPRESSION Z_RLE Z_PARTIAL_FLUSH Z_FIXED Z_BLOCK Z_TREES
+    """.split():
+    Module.interpleveldefs[_name] = 'space.newint(interp_zlib.%s)' % _name
