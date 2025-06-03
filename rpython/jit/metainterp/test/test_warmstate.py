@@ -110,8 +110,7 @@ class FakeWarmRunnerDesc:
     rtyper = None
     jitcounter = DeterministicJitCounter()
     class metainterp_sd:
-        class opencoder_model:
-            MAX_TRACE_LIMIT=2**14
+        pass
 
 def test_make_jitdriver_callbacks_1():
     class FakeJitDriverSD:

@@ -165,6 +165,13 @@ class IntegerRepr(FloatRepr):
         true = inputconst(Bool, True)
         return hop.gendirectcall(ll_int2oct, varg, true)
 
+    def rtype_bin(self, hop):
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2bin
+        self = self.as_int
+        varg = hop.inputarg(self, 0)
+        true = inputconst(Bool, True)
+        return hop.gendirectcall(ll_int2bin, varg, true)
+
 
 _integer_reprs = {}
 def getintegerrepr(lltype, prefix=None):

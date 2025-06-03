@@ -464,3 +464,12 @@ class TestLLOrderedDict(DictTests, LLJitMixin):
 
     def test_unrolling_of_dict_iter(self):
         py.test.skip("XXX fix me: ordereddict generates a mess for now")
+
+    def test_crash_copy_empty(self):
+        def fn():
+            d = {}
+            d2 = d.copy()
+            return len(d2)
+        res = self.interp_operations(fn, []) # used to crash
+        assert res == 0
+

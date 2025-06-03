@@ -67,7 +67,7 @@ class TestResultClass(RVMProfTest):
 
 
 class TestRegisterCode(RVMProfTest):
-    
+
     @rvmprof.vmprof_execute_code("xcode1", lambda self, code, num: code)
     def main(self, code, num):
         print num

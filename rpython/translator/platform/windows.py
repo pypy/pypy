@@ -1,4 +1,5 @@
 """Support for Windows."""
+from __future__ import print_function
 
 import py, os, sys, re, shutil
 
@@ -247,6 +248,7 @@ class MsvcPlatform(Platform):
             if lib.endswith('.dll'):
                 lib = lib[:-4]
             libs.append('%s.lib' % (lib,))
+        libs.append("kernel32.lib")
         return libs
 
     def _libdirs(self, library_dirs):
@@ -261,7 +263,7 @@ class MsvcPlatform(Platform):
     def check___thread(self):
         # __declspec(thread) does not seem to work when using assembler.
         # Returning False will cause the program to use TlsAlloc functions.
-        # see src/thread_nt.h
+        # see src/thread_nt.h or src/thread_win7.h
         return False
 
     def _link_args_from_eci(self, eci, standalone):
@@ -504,22 +506,23 @@ class MsvcPlatform(Platform):
             m.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
             m.rule('main.c', '',
                    'echo '
-                   'int $(PYPY_MAIN_FUNCTION)(int, char*[]); '
-                   'int main(int argc, char* argv[]) '
+                   'typedef unsigned short ARGV_T; '
+                   'int $(PYPY_MAIN_FUNCTION)(int, ARGV_T*[]); '
+                   'int wmain(int argc, ARGV_T* argv[]) '
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
             deps = ['main.obj']
             m.rule('wmain.c', '',
                    ['echo #define WIN32_LEAN_AND_MEAN > $@.tmp',
                    'echo #include "stdlib.h" >> $@.tmp',
                    'echo #include "windows.h" >> $@.tmp',
-                   'echo int $(PYPY_MAIN_FUNCTION)(int, char*[]); >> $@.tmp',
-                   'echo int WINAPI WinMain( >> $@.tmp',
+                   'echo int $(PYPY_MAIN_FUNCTION)(int, wchar_t*[]); >> $@.tmp',
+                   'echo int WINAPI wWinMain( >> $@.tmp',
                    'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@.tmp',
                    'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@.tmp',
-                   'echo     LPSTR lpCmdLine,          /* pointer to command line */ >> $@.tmp',
+                   'echo     LPWSTR lpCmdLine,         /* pointer to command line */ >> $@.tmp',
                    'echo     int nCmdShow              /* show state of window */ >> $@.tmp',
                    'echo ) >> $@.tmp',
-                   'echo    { return $(PYPY_MAIN_FUNCTION)(__argc, __argv); } >> $@.tmp',
+                   'echo { return $(PYPY_MAIN_FUNCTION)(__argc, __wargv); } >> $@.tmp',
                    'move $@.tmp $@',
                    ])
             wdeps = ['wmain.obj']
@@ -586,11 +589,11 @@ class WinDefinition(posix.Definition):
         def write_list(prefix, lst):
             lst = lst or ['']
             for i, fn in enumerate(lst):
-                print >> f, prefix, fn,
+                print(prefix, fn, end=" ", file=f)
                 if i < len(lst)-1:
-                    print >> f, '\\'
+                    print('\\', file=f)
                 else:
-                    print >> f
+                    print(file=f)
                 prefix = ' ' * len(prefix)
         name, value = self.name, self.value
         if isinstance(value, str):

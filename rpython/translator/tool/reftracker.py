@@ -2,6 +2,7 @@
 General-purpose reference tracker.
 Usage: call track(obj).
 """
+from __future__ import print_function
 
 import sys, os, types
 import gc
@@ -78,7 +79,7 @@ class BaseRefTrackerPage(GraphPage):
         if found is not None:
             objectlist = objectlist + [found]
         else:
-            print '*** NOTE: object not found'
+            print('*** NOTE: object not found')
         return self.newpage(objectlist)
 
     def formatobject(self, o):

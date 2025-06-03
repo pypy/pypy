@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.jit.backend.llsupport.regalloc import FrameManager, \
@@ -1184,7 +1186,7 @@ class Regalloc(BaseRegalloc):
 
 
 def notimplemented(self, op, fcond):
-    print "[ARM/regalloc] %s not implemented" % op.getopname()
+    print("[ARM/regalloc] %s not implemented" % op.getopname())
     raise NotImplementedError(op)
 
 

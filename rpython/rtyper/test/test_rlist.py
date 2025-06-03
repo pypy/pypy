@@ -311,22 +311,36 @@ class TestRlist(BaseRtypingTest):
         assert self.ll_to_list(res) == [5, 6, 7, 8, 9]
 
     def test_slice(self):
-        def dummyfn():
+        def dummyfn(i):
             l = [5, 6, 7, 8, 9]
-            return l[:2], l[1:4], l[3:]
-        res = self.interpret(dummyfn, [])
-        assert self.ll_to_list(res.item0) == [5, 6]
-        assert self.ll_to_list(res.item1) == [6, 7, 8]
-        assert self.ll_to_list(res.item2) == [8, 9]
+            if i == 0:
+                return l[:2]
+            elif i == 1:
+                return l[1:4]
+            else:
+                return l[3:]
+        res = self.interpret(dummyfn, [0])
+        assert self.ll_to_list(res) == [5, 6]
+        res = self.interpret(dummyfn, [1])
+        assert self.ll_to_list(res) == [6, 7, 8]
+        res = self.interpret(dummyfn, [2])
+        assert self.ll_to_list(res) == [8, 9]
 
-        def dummyfn():
+        def dummyfn(i):
             l = [5, 6, 7, 8]
             l.append(9)
-            return l[:2], l[1:4], l[3:]
-        res = self.interpret(dummyfn, [])
-        assert self.ll_to_list(res.item0) == [5, 6]
-        assert self.ll_to_list(res.item1) == [6, 7, 8]
-        assert self.ll_to_list(res.item2) == [8, 9]
+            if i == 0:
+                return l[:2]
+            elif i == 1:
+                return l[1:4]
+            else:
+                return l[3:]
+        res = self.interpret(dummyfn, [0])
+        assert self.ll_to_list(res) == [5, 6]
+        res = self.interpret(dummyfn, [1])
+        assert self.ll_to_list(res) == [6, 7, 8]
+        res = self.interpret(dummyfn, [2])
+        assert self.ll_to_list(res) == [8, 9]
 
     def test_getslice_not_constant_folded(self):
         l = list('abcdef')
@@ -1538,6 +1552,29 @@ class TestRlist(BaseRtypingTest):
 
         assert r_A_list.lowleveltype == r_B_list.lowleveltype
 
+    def test_type_erase_gcref(self):
+        class A(object):
+            pass
+
+        def f():
+            return [A()], [str(A())]
+
+        t = TranslationContext()
+        s = t.buildannotator().build_types(f, [])
+        t.config.translation.gc = 'incminimark' # not ref, otherwise this won't work
+        rtyper = t.buildrtyper()
+        rtyper.specialize()
+
+        s_A_list = s.items[0]
+        s_B_list = s.items[1]
+
+        r_A_list = rtyper.getrepr(s_A_list)
+        assert isinstance(r_A_list, self.rlist.FixedSizeListRepr)
+        r_B_list = rtyper.getrepr(s_B_list)
+        assert isinstance(r_B_list, self.rlist.FixedSizeListRepr)
+
+        assert r_A_list.lowleveltype == r_B_list.lowleveltype
+
     def test_type_erase_var_size(self):
         class A(object):
             pass
@@ -1553,6 +1590,33 @@ class TestRlist(BaseRtypingTest):
 
         t = TranslationContext()
         s = t.buildannotator().build_types(f, [])
+        rtyper = t.buildrtyper()
+        rtyper.specialize()
+
+        s_A_list = s.items[0]
+        s_B_list = s.items[1]
+
+        r_A_list = rtyper.getrepr(s_A_list)
+        assert isinstance(r_A_list, self.rlist.ListRepr)
+        r_B_list = rtyper.getrepr(s_B_list)
+        assert isinstance(r_B_list, self.rlist.ListRepr)
+
+        assert r_A_list.lowleveltype == r_B_list.lowleveltype
+
+    def test_type_erase_var_size_gcref(self):
+        class A(object):
+            pass
+
+        def f():
+            la = [A()]
+            lb = ["abc"]
+            la.append(None)
+            lb.append(None)
+            return la, lb
+
+        t = TranslationContext()
+        s = t.buildannotator().build_types(f, [])
+        t.config.translation.gc = 'incminimark' # not ref, otherwise this won't work
         rtyper = t.buildrtyper()
         rtyper.specialize()
 
@@ -1715,3 +1779,25 @@ class TestRlist(BaseRtypingTest):
             assert op.opname == 'direct_call'
             seen += 1
         assert seen == 1
+
+    def test_mul_check_amount_of_arraycopy(self, monkeypatch):
+        from rpython.rlib import rgc
+        from rpython.rtyper.lltypesystem import lltype
+        old_arraycopy = rgc.ll_arraycopy
+        GLOB = lltype.GcStruct('GLOB', ('seen', lltype.Signed))
+        glob = lltype.malloc(GLOB, immortal=True)
+        glob.seen = 0
+        def my_arraycopy(*args):
+            glob.seen += 1
+            return old_arraycopy(*args)
+        monkeypatch.setattr(rgc, 'll_arraycopy', my_arraycopy)
+        def dummyfn(i):
+            lst = [[0], [1, 2, 3, 4]]
+            res = lst[i] * 100
+            return glob.seen + len(res) - len(lst[i]) * 100
+        res = self.interpret(dummyfn, [0])
+        assert res == 0
+        res = self.interpret(dummyfn, [1])
+        # the sizes grow like this
+        # 4, 8, 16, 32, 64, 128, 256, 144
+        assert res == 8

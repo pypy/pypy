@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, uuid
 import py
 from rpython.rlib import rposix_stat
 from rpython.tool.udir import udir
@@ -73,8 +73,9 @@ class TestPosixStatFunctions:
 
     @py.test.mark.skipif(sys.platform != 'win32', reason='win32 test')
     def test_stat3_ino_dev(self):
-        st = rposix_stat.stat('C:\\')
-        assert st.st_dev == st.st_ino == 0
+        # PyPy 2 uses python3 semantics
+        # st = rposix_stat.stat('C:\\')
+        # assert st.st_dev == st.st_ino == 0
         st = rposix_stat.stat3('C:\\')
         assert st.st_dev != 0 and st.st_ino != 0
         assert st.st_file_attributes & 0x16  # FILE_ATTRIBUTE_DIRECTORY
@@ -94,30 +95,39 @@ def test_fstatat(tmpdir):
 
 @py.test.mark.skipif('sys.platform == "darwin"')
 def test_high_precision_stat_time():
+    # we use a fresh dir for our test, as the current directory can
+    # receive changes during testing (especially if testing in parallel)
+    dirname = os.path.abspath(os.path.join(".", "test" + uuid.uuid1().hex))
+    os.mkdir(dirname)
+
     def f():
-        st = os.stat('.')
+        st = os.stat(dirname)
         # should be supported on all platforms, but give a result whose
         # precision might be lower than full nanosecond
         highprec = rposix_stat.get_stat_ns_as_bigint(st, "ctime")
         return '%s;%s' % (st.st_ctime, highprec.str())
-    fc = compile(f, [])
-    as_string = fc()
-    asfloat, highprec = as_string.split(';')
-    asfloat = float(asfloat)
-    highprec = int(highprec)
-    st = os.stat('.')
-    assert abs(asfloat - st.st_ctime) < 500e-9
-    assert abs(highprec - int(st.st_ctime * 1e9)) < 500
-    assert abs(rposix_stat.get_stat_ns_as_bigint(st, "ctime").tolong()
-               - st.st_ctime * 1e9) < 3
-    if rposix_stat.TIMESPEC is not None:
-        with lltype.scoped_alloc(rposix_stat.STAT_STRUCT.TO) as stresult:
-            rposix_stat.c_stat(".", stresult)
-            if sys.platform == "darwin":
-                assert 0 <= stresult.c_st_ctimespec.c_tv_nsec <= 999999999
-                assert highprec == (int(stresult.c_st_ctimespec.c_tv_sec) * 1000000000
-                                    + int(stresult.c_st_ctimespec.c_tv_nsec))
-            else:
-                assert 0 <= stresult.c_st_ctim.c_tv_nsec <= 999999999
-                assert highprec == (int(stresult.c_st_ctim.c_tv_sec) * 1000000000
-                                    + int(stresult.c_st_ctim.c_tv_nsec))
+
+    try:
+        fc = compile(f, [])
+        as_string = fc()
+        asfloat, highprec = as_string.split(';')
+        asfloat = float(asfloat)
+        highprec = int(highprec)
+        st = os.stat(dirname)
+        assert abs(asfloat - st.st_ctime) < 500e-9
+        assert abs(highprec - int(st.st_ctime * 1e9)) < 500
+        assert abs(rposix_stat.get_stat_ns_as_bigint(st, "ctime").tolong()
+                - st.st_ctime * 1e9) < 3
+        if rposix_stat.TIMESPEC is not None:
+            with lltype.scoped_alloc(rposix_stat.STAT_STRUCT.TO) as stresult:
+                rposix_stat.c_stat(".", stresult)
+                if sys.platform == "darwin":
+                    assert 0 <= stresult.c_st_ctimespec.c_tv_nsec <= 999999999
+                    assert highprec == (int(stresult.c_st_ctimespec.c_tv_sec) * 1000000000
+                                        + int(stresult.c_st_ctimespec.c_tv_nsec))
+                else:
+                    assert 0 <= stresult.c_st_ctim.c_tv_nsec <= 999999999
+                    assert highprec == (int(stresult.c_st_ctim.c_tv_sec) * 1000000000
+                                        + int(stresult.c_st_ctim.c_tv_nsec))
+    finally:
+        os.rmdir(dirname)

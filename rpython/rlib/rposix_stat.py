@@ -17,7 +17,8 @@ from rpython.rtyper.rmodel import Repr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.error import TyperError
 
-from rpython.rlib._os_support import _preferred_traits, string_traits
+from rpython.rlib._os_support import utf8_traits
+from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -152,7 +153,7 @@ class SomeStatResult(annmodel.SomeObject):
 
     if sys.platform == 'win32':
         def _get_rmarshall_support_(self):     # for rlib.rmarshal
-            # reduce and recreate stat_result objects from 10-tuples
+            # reduce and recreate stat_result objects from 10-tuples or 12-tuples
             # (we ignore the extra values here for simplicity and portability)
             def stat_result_reduce(st):
                 return (st[0], st[1], st[2], st[3], st[4],
@@ -172,8 +173,8 @@ class SomeStatResult(annmodel.SomeObject):
             s_reduced = annmodel.SomeTuple([lltype_to_annotation(TYPE)
                                         for name, TYPE in PORTABLE_STAT_FIELDS[:7]]
                                  + 3 * [lltype_to_annotation(lltype.Float)]
-                                 + 2 * [lltype_to_annotation(lltype.Int)])
-            extra_zeroes = (0,) * (len(STAT_FIELDS) - len(PORTABLE_STAT_FIELDS) - 3)
+                                 + 2 * [lltype_to_annotation(lltype.Signed)])
+            extra_zeroes = (0,) * (len(STAT_FIELDS) - len(PORTABLE_STAT_FIELDS) - 5)
             return s_reduced, stat_result_reduce, stat_result_recreate
     else:
         def _get_rmarshall_support_(self):     # for rlib.rmarshal
@@ -411,16 +412,10 @@ if sys.platform.startswith('win'):
     _name_struct_stat = '_stati64'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h']
 else:
-    if _LINUX:
-        _name_struct_stat = 'stat64'
-    else:
-        _name_struct_stat = 'stat'
+    _name_struct_stat = 'stat'
     INCLUDES = ['sys/types.h', 'sys/stat.h', 'sys/statvfs.h', 'unistd.h']
 
 compilation_info = ExternalCompilationInfo(
-    # This must be set to 64 on some systems to enable large file support.
-    #pre_include_bits = ['#define _FILE_OFFSET_BITS 64'],
-    # ^^^ nowadays it's always set in all C files we produce.
     includes=INCLUDES
 )
 
@@ -494,7 +489,7 @@ if sys.platform == 'win32':
 else:
     STAT_FIELDS += ALL_STAT_FIELDS[-3:]   # nsec_Xtime
 
-# these two global vars only list the fields defined in the underlying platform
+# these global vars only list the fields defined in the underlying platform
 STAT_FIELD_TYPES = dict(STAT_FIELDS)      # {'st_xxx': TYPE}
 STAT_FIELD_NAMES = [_name for (_name, _TYPE) in STAT_FIELDS]
 del _name, _TYPE
@@ -564,17 +559,17 @@ def build_statvfs_result(st):
 # Implement and register os.stat() & variants
 
 if not _WIN32:
-  c_fstat = rffi.llexternal('fstat64' if _LINUX else 'fstat',
+  c_fstat = rffi.llexternal('fstat',
                             [rffi.INT, STAT_STRUCT], rffi.INT,
                             compilation_info=compilation_info,
                             save_err=rffi.RFFI_SAVE_ERRNO,
                             macro=True)
-  c_stat = rffi.llexternal('stat64' if _LINUX else 'stat',
+  c_stat = rffi.llexternal('stat',
                            [rffi.CCHARP, STAT_STRUCT], rffi.INT,
                            compilation_info=compilation_info,
                            save_err=rffi.RFFI_SAVE_ERRNO,
                            macro=True)
-  c_lstat = rffi.llexternal('lstat64' if _LINUX else 'lstat',
+  c_lstat = rffi.llexternal('lstat',
                             [rffi.CCHARP, STAT_STRUCT], rffi.INT,
                             compilation_info=compilation_info,
                             save_err=rffi.RFFI_SAVE_ERRNO,
@@ -597,7 +592,7 @@ def fstat(fd):
             return build_stat_result(stresult)
     else:
         handle = rwin32.get_osfhandle(fd)
-        win32traits = make_win32_traits(string_traits)
+        win32traits = make_win32_traits(utf8_traits)
         filetype = win32traits.GetFileType(handle)
         if filetype == win32traits.FILE_TYPE_CHAR:
             # console or LPT device
@@ -635,8 +630,8 @@ def stat(path):
             handle_posix_error('stat', c_stat(arg, stresult))
             return build_stat_result(stresult)
     else:
-        traits = _preferred_traits(path)
-        path = traits.as_str0(path)
+        traits = utf8_traits
+        path = traits.as_utf80(path)
         return win32_xstat3(traits, path, traverse=True)
 
 @replace_os_function('lstat')
@@ -648,8 +643,8 @@ def lstat(path):
             handle_posix_error('lstat', c_lstat(arg, stresult))
             return build_stat_result(stresult)
     else:
-        traits = _preferred_traits(path)
-        path = traits.as_str0(path)
+        traits = utf8_traits
+        path = traits.as_utf80(path)
         return win32_xstat3(traits, path, traverse=False)
 
 @specialize.argtype(0)
@@ -657,8 +652,8 @@ def stat3(path):
     if _WIN32:
         # On Windows, the algorithm behind os.stat() changed a lot between
         # Python 2 and Python 3.  This is the Python 3 version.
-        traits = _preferred_traits(path)
-        path = traits.as_str0(path)
+        traits = utf8_traits
+        path = traits.as_utf80(path)
         return win32_xstat3(traits, path, traverse=True)
     else:
         return stat(path)
@@ -668,15 +663,15 @@ def lstat3(path):
     if _WIN32:
         # On Windows, the algorithm behind os.lstat() changed a lot between
         # Python 2 and Python 3.  This is the Python 3 version.
-        traits = _preferred_traits(path)
-        path = traits.as_str0(path)
+        traits = utf8_traits
+        path = traits.as_utf80(path)
         return win32_xstat3(traits, path, traverse=False)
     else:
         return lstat(path)
 
 if rposix.HAVE_FSTATAT:
     from rpython.rlib.rposix import AT_FDCWD, AT_SYMLINK_NOFOLLOW
-    c_fstatat = rffi.llexternal('fstatat64' if _LINUX else 'fstatat',
+    c_fstatat = rffi.llexternal('fstatat',
         [rffi.INT, rffi.CCHARP, STAT_STRUCT, rffi.INT], rffi.INT,
         compilation_info=compilation_info,
         save_err=rffi.RFFI_SAVE_ERRNO, macro=True)
@@ -735,11 +730,10 @@ if _WIN32:
         isUnhandledTag = False
         if not traverse:
             flags |= traits.FILE_FLAG_OPEN_REPARSE_POINT
-        hFile = traits.CreateFile(path, access, 0,
-            lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
-            traits.OPEN_EXISTING,
-            flags,
-            rwin32.NULL_HANDLE)
+        with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+            hFile = traits.CreateFile(buf, access, 0,
+                lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
+                traits.OPEN_EXISTING, flags, rwin32.NULL_HANDLE)
 
         if hFile == rwin32.INVALID_HANDLE_VALUE:
             # Either the path doesn't exist, or the caller lacks access
@@ -756,12 +750,12 @@ if _WIN32:
                                            "win32_xstat failed")
             elif errcode == traits.ERROR_INVALID_PARAMETER:
                 # \\.\con requires read or write access.
-                hFile = traits.CreateFile(path,
-                            access | traits.GENERIC_READ,
-                            traits.FILE_SHARE_READ | traits.FILE_SHARE_WRITE,
-                            lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
-                            traits.OPEN_EXISTING, flags,
-                            rwin32.NULL_HANDLE)
+                with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+                    hFile = traits.CreateFile(buf,
+                                access | traits.GENERIC_READ,
+                                traits.FILE_SHARE_READ | traits.FILE_SHARE_WRITE,
+                                lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
+                                traits.OPEN_EXISTING, flags, rwin32.NULL_HANDLE)
                 if hFile == rwin32.INVALID_HANDLE_VALUE:
                     raise WindowsError(rwin32.GetLastError_saved(),
                                        "win32_xstat failed")
@@ -770,11 +764,12 @@ if _WIN32:
                 if traverse:
                     traverse = False
                     isUnhandledTag = True
-                    hFile = traits.CreateFile(path, access, 0,
-                        lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
-                        traits.OPEN_EXISTING,
-                        flags | traits.FILE_FLAG_OPEN_REPARSE_POINT,
-                        rwin32.NULL_HANDLE)
+                    with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+                        hFile = traits.CreateFile(buf, access, 0,
+                            lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
+                            traits.OPEN_EXISTING,
+                            flags | traits.FILE_FLAG_OPEN_REPARSE_POINT,
+                            rwin32.NULL_HANDLE)
                 if hFile == rwin32.INVALID_HANDLE_VALUE:
                     raise WindowsError(rwin32.GetLastError_saved(),
                                        "win32_xstat failed")
@@ -789,7 +784,8 @@ if _WIN32:
                 if fileType == traits.FILE_TYPE_UNKNOWN and errcode != 0:
                     rwin32.CloseHandle(hFile)
                     raise WindowsError(errcode, "os_stat failed")
-                fileAttributes = widen(traits.GetFileAttributes(path))
+                with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+                    fileAttributes = widen(traits.GetFileAttributes(buf))
                 st_mode = 0
                 if (fileAttributes != traits.INVALID_FILE_ATTRIBUTES and
                         fileAttributes & traits.FILE_ATTRIBUTE_DIRECTORY):
@@ -867,31 +863,7 @@ if _WIN32:
         return m
 
     @specialize.arg(0)
-    def win32_attribute_data_to_stat(win32traits, info):
-        st_mode = win32_attributes_to_mode(win32traits, info.c_dwFileAttributes)
-        st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
-        ctime, extra_ctime = FILE_TIME_to_time_t_nsec(info.c_ftCreationTime)
-        mtime, extra_mtime = FILE_TIME_to_time_t_nsec(info.c_ftLastWriteTime)
-        atime, extra_atime = FILE_TIME_to_time_t_nsec(info.c_ftLastAccessTime)
-
-        st_ino = 0
-        st_dev = 0
-        st_nlink = 0
-        st_file_attributes = info.c_dwFileAttributes
-        st_reparse_tag = 0
-
-        result = (st_mode,
-                  st_ino, st_dev, st_nlink, 0, 0,
-                  st_size,
-                  atime, mtime, ctime,
-                  extra_atime, extra_mtime, extra_ctime,
-                  st_file_attributes, st_reparse_tag)
-
-        return make_stat_result(result)
-
-    @specialize.arg(0)
     def win32_by_handle_info_to_stat(win32traits, info, reparse_tag):
-        # similar to the one above
         st_mode = win32_attributes_to_mode(win32traits, info.c_dwFileAttributes)
         st_size = make_longlong(info.c_nFileSizeHigh, info.c_nFileSizeLow)
         ctime, extra_ctime = FILE_TIME_to_time_t_nsec(info.c_ftCreationTime)
@@ -902,8 +874,14 @@ if _WIN32:
         st_ino = make_longlong(info.c_nFileIndexHigh, info.c_nFileIndexLow)
         st_dev = info.c_dwVolumeSerialNumber
         st_nlink = info.c_nNumberOfLinks
-        st_file_attributes = info.c_dwFileAttributes
-        st_reparse_tag = reparse_tag
+        st_file_attributes = widen(info.c_dwFileAttributes)
+        st_reparse_tag = widen(reparse_tag)
+        if (st_file_attributes & win32traits.FILE_ATTRIBUTE_REPARSE_POINT
+                and st_reparse_tag ==  0xa000000c):  # IO_REPARSE_TAG_SYMLINK
+            # first clear the S_IMFT bits
+            st_mode ^= (st_mode & 0170000)  # S_IFMT
+            # now set the bits that make this a symlink
+            st_mode |= win32traits._S_IFLNK
 
         result = (st_mode,
                   st_ino, st_dev, st_nlink, 0, 0,
@@ -917,7 +895,8 @@ if _WIN32:
     @specialize.arg(0)
     def win32_attributes_from_dir(traits, path, info, tagInfo):
         with lltype.scoped_alloc(traits.WIN32_FIND_DATA) as filedata:
-            hFindFile = traits.FindFirstFile(path, filedata)
+            with rffi.scoped_utf82wcharp(path, codepoints_in_utf8(path)) as buf:
+                hFindFile = traits.FindFirstFile(buf, filedata)
             if hFindFile == rwin32.INVALID_HANDLE_VALUE:
                 return 0
             traits.FindClose(hFindFile)

@@ -20,7 +20,7 @@ def test_assemble_simple():
         ('int_return', i2),
         ]
     assembler = Assembler()
-    jitcode = assembler.assemble(ssarepr)
+    jitcode = assembler.assemble(ssarepr, num_regs={'int': 3})
     assert jitcode.code == ("\x00\x00\x01\x02"
                             "\x01\x02")
     assert assembler.insns == {'int_add/ii>i': 0,
@@ -39,12 +39,12 @@ def test_assemble_consts():
         ('int_return', Constant(-129, lltype.Signed)),
         ]
     assembler = Assembler()
-    jitcode = assembler.assemble(ssarepr)
+    jitcode = assembler.assemble(ssarepr, num_regs={'int': 14})
     assert jitcode.code == ("\x00\x0D"
                             "\x01\x12"   # use int_return/c for one-byte consts
                             "\x01\xFC"
-                            "\x00\xFF"   # use int_return/i for larger consts
-                            "\x00\xFE")
+                            "\x00\x0E"   # use int_return/i for larger consts
+                            "\x00\x0F")
     assert assembler.insns == {'int_return/i': 0,
                                'int_return/c': 1}
     assert jitcode.constants_i == [128, -129]
@@ -58,11 +58,11 @@ def test_assemble_float_consts():
         ('float_return', Constant(128.1, lltype.Float)),
         ]
     assembler = Assembler()
-    jitcode = assembler.assemble(ssarepr)
+    jitcode = assembler.assemble(ssarepr, num_regs={'float': 14})
     assert jitcode.code == ("\x00\x0D"
-                            "\x00\xFF"
-                            "\x00\xFE"
-                            "\x00\xFD")
+                            "\x00\x0e"
+                            "\x00\x0f"
+                            "\x00\x10")
     assert assembler.insns == {'float_return/f': 0}
     assert jitcode.constants_f == [longlong.getfloatstorage(18.0),
                                    longlong.getfloatstorage(-4.0),
@@ -81,8 +81,8 @@ def test_assemble_llong_consts():
         ]
     assembler = Assembler()
     jitcode = assembler.assemble(ssarepr)
-    assert jitcode.code == ("\x00\xFF"
-                            "\x00\xFE")
+    assert jitcode.code == ("\x00\x00"
+                            "\x00\x01")
     assert assembler.insns == {'float_return/f': 0}
     assert jitcode.constants_f == [r_longlong(-18000000000000000),
                                    r_longlong(-8546744073709551616)]
@@ -104,14 +104,14 @@ def test_assemble_cast_consts():
         ('ref_return', Constant(np, lltype.Ptr(S))),
         ]
     assembler = Assembler()
-    jitcode = assembler.assemble(ssarepr)
+    jitcode = assembler.assemble(ssarepr, num_regs={})
     assert jitcode.code == ("\x00\x58"
-                            "\x01\xFF"
-                            "\x01\xFE"
-                            "\x02\xFF"
-                            "\x02\xFE"
-                            "\x02\xFF"
-                            "\x02\xFE")
+                            "\x01\x00"
+                            "\x01\x01"
+                            "\x02\x00"
+                            "\x02\x01"
+                            "\x02\x00"
+                            "\x02\x01")
     assert assembler.insns == {'int_return/c': 0,
                                'int_return/i': 1,
                                'ref_return/r': 2}
@@ -134,7 +134,7 @@ def test_assemble_loop():
         ('int_return', i1),
         ]
     assembler = Assembler()
-    jitcode = assembler.assemble(ssarepr)
+    jitcode = assembler.assemble(ssarepr, num_regs={'int': 0x18})
     assert jitcode.code == ("\x00\x16\x04\x10\x00"
                             "\x01\x17\x16\x17"
                             "\x02\x16\x01\x16"
@@ -154,8 +154,8 @@ def test_assemble_list():
                    ListOfKind('ref', [])),
         ]
     assembler = Assembler()
-    jitcode = assembler.assemble(ssarepr)
-    assert jitcode.code == "\x00\x03\x16\x17\xFF\x00"
+    jitcode = assembler.assemble(ssarepr, num_regs=dict(int=0x18))
+    assert jitcode.code == "\x00\x03\x16\x17\x18\x00"
     assert assembler.insns == {'foobar/IR': 0}
     assert jitcode.constants_i == [42]
 
@@ -171,11 +171,11 @@ def test_assemble_list_semibug():
         ('bok', Constant(41, lltype.Signed)),
         ]
     assembler = Assembler()
-    jitcode = assembler.assemble(ssarepr)
-    assert jitcode.code == ("\x00\x01\xFF"
-                            "\x00\x01\xFF"
+    jitcode = assembler.assemble(ssarepr, num_regs={})
+    assert jitcode.code == ("\x00\x01\x00"
+                            "\x00\x01\x00"
                             "\x01\x2A"
-                            "\x02\xFE")
+                            "\x02\x01")
     assert assembler.insns == {'foobar/I': 0,
                                'baz/c': 1,    # in USE_C_FORM
                                'bok/i': 2}    # not in USE_C_FORM
@@ -188,7 +188,7 @@ def test_assemble_descr():
     ssarepr = SSARepr("test")
     ssarepr.insns = [('foobar', d) for d in descrs[::-1]]
     assembler = Assembler()
-    jitcode = assembler.assemble(ssarepr)
+    jitcode = assembler.assemble(ssarepr, num_regs={})
     assert jitcode.code == ''.join(["\x00" + struct.pack("<H", i)
                                        for i in range(300)])
     assert assembler.insns == {'foobar/d': 0}
@@ -201,14 +201,14 @@ def test_assemble_indirect_call():
     ssarepr.insns = [('foobar', IndirectCallTargets(lst1)),
                      ('foobar', IndirectCallTargets(lst2))]
     assembler = Assembler()
-    assembler.assemble(ssarepr)
+    assembler.assemble(ssarepr, num_regs={})
     assert assembler.indirectcalltargets == set(lst1).union(lst2)
 
 def test_num_regs():
     assembler = Assembler()
     ssarepr = SSARepr("test")
     ssarepr.insns = []
-    jitcode = assembler.assemble(ssarepr)
+    jitcode = assembler.assemble(ssarepr, num_regs={})
     assert jitcode.num_regs_i() == 0
     assert jitcode.num_regs_r() == 0
     assert jitcode.num_regs_f() == 0
@@ -216,7 +216,7 @@ def test_num_regs():
     ssarepr.insns = [('foobar', Register('int', 51),
                                 Register('ref', 27),
                                 Register('int', 12))]
-    jitcode = assembler.assemble(ssarepr)
+    jitcode = assembler.assemble(ssarepr, num_regs={'int': 52, 'ref': 28})
     assert jitcode.num_regs_i() == 52
     assert jitcode.num_regs_r() == 28
     assert jitcode.num_regs_f() == 0
@@ -231,7 +231,7 @@ def test_liveness():
         ('-live-', i2),
         ]
     assembler = Assembler()
-    jitcode = assembler.assemble(ssarepr)
+    jitcode = assembler.assemble(ssarepr, num_regs={'int': 3})
     assert jitcode.code == ("\x00\x00\x0A\x01"   # ends at 4
                             "\x01\x00\x00"
                             "\x00\x00\x03\x02"  # ends at 13
@@ -251,7 +251,7 @@ def test_assemble_error_string_constant():
         ('duh', c),
         ]
     assembler = Assembler()
-    py.test.raises(AssemblerError, assembler.assemble, ssarepr)
+    py.test.raises(AssemblerError, assembler.assemble, ssarepr, num_regs={})
 
 def test_assemble_r_int():
     # r_int is a strange type, which the jit should replace with int.
@@ -263,6 +263,6 @@ def test_assemble_r_int():
         ('int_add', i0, Constant(r_int(42424243), lltype.Signed), '->', i2),
         ]
     assembler = Assembler()
-    jitcode = assembler.assemble(ssarepr)
+    jitcode = assembler.assemble(ssarepr, num_regs={'int': 3})
     assert jitcode.constants_i == [42424242, 42424243]
     assert map(type, jitcode.constants_i) == [int, int]

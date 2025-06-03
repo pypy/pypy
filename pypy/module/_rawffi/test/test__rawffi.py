@@ -6,7 +6,7 @@ from pypy.module._rawffi.tracker import Tracker
 
 import os, sys, py
 
-class AppTestFfi:
+class AppTestFfi(object):
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])
 
     def prepare_c_example():
@@ -58,11 +58,11 @@ class AppTestFfi:
         }
 
         const char *static_str = "xxxxxx";
-        RPY_EXPORTED
+        RPY_EXPORTED long static_int;
         long static_int = 42;
-        RPY_EXPORTED
+        RPY_EXPORTED double static_double;
         double static_double = 42.42;
-        RPY_EXPORTED
+        RPY_EXPORTED long double static_longdouble;
         long double static_longdouble = 42.42;
 
         RPY_EXPORTED
@@ -263,6 +263,7 @@ class AppTestFfi:
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
         cls.w_float_typemap = space.wrap(TYPEMAP_FLOAT_LETTERS)
         cls.w_is64bit = space.wrap(sys.maxint > 2147483647)
+        cls.w_runappdirect = space.wrap(cls.runappdirect)
 
     def test_libload(self):
         import _rawffi
@@ -381,7 +382,10 @@ class AppTestFfi:
             B = _rawffi.Array('i')
             b = B.fromaddress(a.itemaddress(0), 1)
             b[0] = 0xffffffff
-            raises(ValueError, "a[0]")
+            if self.runappdirect:
+                # Fails to run untranslated: ll2ctypes is not up to the task of
+                # creating a unicode char w/value 0xffffffff
+                raises(ValueError, "a[0]")
         a.free()
 
     def test_returning_unicode(self):
@@ -1260,7 +1264,9 @@ class AppTestFfi:
         u = _rawffi.wcharp2rawunicode(arg.itemaddress(0), 1)
         assert u == u'\u1234'
         arg[0] = -1
-        if _rawffi.sizeof('u') == 4:
+        if _rawffi.sizeof('u') == 4 and self.runappdirect:
+            # Fails to run untranslated: ll2ctypes is not up to the task of
+            # creating a unicode char w/value > maxunicode
             raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
             raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
             arg[0] = 0x110000

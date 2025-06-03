@@ -1,4 +1,4 @@
-from __future__ import with_statement
+from __future__ import print_function, with_statement
 import types
 import py
 from contextlib import contextmanager
@@ -8,6 +8,7 @@ from rpython.flowspace.model import (
 from rpython.translator.simplify import simplify_graph
 from rpython.flowspace.objspace import build_flow
 from rpython.flowspace.flowcontext import FlowingError, FlowContext
+from rpython.flowspace.bytecode import HostCode
 from rpython.conftest import option
 from rpython.tool.stdlib_opcode import host_bytecode_spec
 
@@ -22,9 +23,12 @@ def patching_opcodes(**opcodes):
     for name, num in opcodes.items():
         old_name[num] = meth_names[num]
         meth_names[num] = name
+    old_tuple = HostCode.opnames
+    HostCode.opnames = tuple(host_bytecode_spec.method_names)
     yield
     for name in opcodes:
         meth_names[num] = old_name[num]
+    HostCode.opname = old_tuple
 
 
 class Base:
@@ -110,16 +114,25 @@ class TestFlowObjSpace(Base):
 
     #__________________________________________________________
     def print_(i):
-        print i
+        print(i, end=" ")
+        print(i)
 
     def test_print(self):
         x = self.codetest(self.print_)
 
     def test_bad_print(self):
         def f(x):
-            print >> x, "Hello"
+            print("Hello", file=x)
         with py.test.raises(FlowingError):
             self.codetest(f)
+
+    def test_bad_print2(self):
+        def f(x):
+            args = ["Hello", x]
+            print(*args)
+        with py.test.raises(FlowingError):
+            self.codetest(f)
+
     #__________________________________________________________
     def while_(i):
         while i > 0:
@@ -440,14 +453,6 @@ class TestFlowObjSpace(Base):
         assert ops[0].args == [const(g), const(error)]
 
     #__________________________________________________________
-    def raise2(msg):
-        raise IndexError, msg
-
-    def test_raise2(self):
-        x = self.codetest(self.raise2)
-        # XXX can't check the shape of the graph, too complicated...
-
-    #__________________________________________________________
     def raise3(msg):
         raise IndexError(msg)
 
@@ -461,13 +466,6 @@ class TestFlowObjSpace(Base):
 
     def test_raise4(self):
         x = self.codetest(self.raise4)
-
-    #__________________________________________________________
-    def raisez(z, tb):
-        raise z.__class__,z, tb
-
-    def test_raisez(self):
-        x = self.codetest(self.raisez)
 
     #__________________________________________________________
     def raise_and_catch_1(exception_instance):
@@ -1389,6 +1387,11 @@ class TestFlowObjSpace(Base):
         e = py.test.raises(ValueError, build_flow, Exception.__init__)
         assert ' is not RPython:' in str(e.value)
 
+    def test_dont_crash_fold_wrong_arity(self):
+        def f():
+            return str()
+        graph = self.codetest(f)
+        assert graph.startblock.exits[0].args[0].value == ''
 
 DATA = {'x': 5,
         'y': 6}

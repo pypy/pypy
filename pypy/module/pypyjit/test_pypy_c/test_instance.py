@@ -436,3 +436,77 @@ class TestInstance(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
+    def test_add_instance_attr_big(self):
+        def main():
+            class A(object):
+                pass
+            l = []
+            for i in range(10000):
+                a = A()
+                a.attr1 = 'a'
+                a.attr2 = 'a'
+                a.attr3 = 'a'
+                a.attr4 = 'a'
+                a.attr5 = 'a'
+                a.attr6 = 'a'
+                l.append(a)
+
+            for a in l:
+                a.attr7 = 'b' # ID: grow
+
+        log = self.run(main, [])
+        loop = log.loops_by_filename(self.filepath, is_entry_bridge=True)[1]
+        ops = loop.ops_by_id('grow')
+        assert "call_n" not in log.opnames(ops) # there used to be two ll_arraycopy calls in the trace
+
+    def test_add_instance_attr_unboxed(self):
+        def main():
+            class A(object):
+                pass
+            l = []
+            for i in range(10000):
+                a = A()
+                a.attr1 = 'a'
+                a.attr2 = 'a'
+                a.attr3 = 'a'
+                a.attr4 = 'a'
+                a.attr5 = 14
+                l.append(a)
+
+            for a in l:
+                a.attr7 = 12 # ID: grow
+
+        log = self.run(main, [])
+        loop = log.loops_by_filename(self.filepath, is_entry_bridge=True)[1]
+        ops = loop.ops_by_id('grow')
+        assert "call_n" not in log.opnames(ops) # there used to be two ll_arraycopy calls in the trace
+
+    def test_aliasing_via_class(self):
+        def main():
+            class A(object):
+                pass
+            class B(object):
+                pass
+            a = A()
+            a.x = "hallo"
+            l1 = [B(), B()]
+            l1[0].x = 'hallo'
+            l1[1].x = 'tchüss'
+            l = [None, "abc"]
+            res = 0
+            for i in range(1000):
+                b = l1[i & 1]
+                s = b.x # read b.x
+                res += len(s)
+                a.x = l[i & 1] # write a.x, but it cannot alias b.x because the classes are different
+                # the following b.x can be reused from above
+                res += len(b.x) # ID: getattr2
+            return res
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        loop.match_by_id('getattr2', '''
+            setfield_gc(p14, p105, descr=...) # this setfield is the delayed write to a.x
+            i106 = int_add_ovf(i103, i102)
+            guard_no_overflow(descr=...)
+            --TICK--
+        ''')

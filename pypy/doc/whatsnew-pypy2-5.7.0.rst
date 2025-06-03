@@ -33,7 +33,7 @@ Clean-ups in the jit optimizeopt
 
 .. branch: conditional_call_value_4
 
-Add jit.conditional_call_elidable(), a way to tell the JIT "conditonally
+Add jit.conditional_call_elidable(), a way to tell the JIT "conditionally
 call this function" returning a result.
 
 .. branch: desc-specialize
@@ -55,7 +55,7 @@ class loader, etc.) remain the same.  A libcppyy_backend.so library is still
 needed but is now available through PyPI with pip: PyPy-cppyy-backend.
 
 The Cling-backend brings support for modern C++ (11, 14, etc.), dynamic
-template instantations, and improved integration with CFFI for better
+template instantiations, and improved integration with CFFI for better
 performance.  It also provides interactive C++ (and bindings to that).
 
 .. branch: better-PyDict_Next

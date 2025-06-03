@@ -120,7 +120,7 @@ class TestPlatform(object):
         assert 'xyz' in res.out
         os.environ['_SOME_VARIABLE_2'] = 'zyz'
         try:
-            res = self.platform.execute('python', ['-c', cmd % 2])
+            res = self.platform.execute(sys.executable, ['-c', cmd % 2])
             assert 'zyz' in res.out
         finally:
             del os.environ['_SOME_VARIABLE_2']

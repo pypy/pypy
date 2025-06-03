@@ -40,7 +40,7 @@ to cpyext:
   - PyAnySet_CheckExact, PyUnicode_Concat
   - improve support for PyGILState_Ensure, PyGILState_Release, and thread
     primitives, also find a case where CPython will allow thread creation
-    before PyEval_InitThreads is run, dissallow on PyPy 
+    before PyEval_InitThreads is run, disallow on PyPy 
   - create a PyObject-specific list strategy
   - rewrite slot assignment for typeobjects
   - improve tracking of PyObject to rpython object mapping
@@ -61,7 +61,7 @@ generated subclasses.
 CPyExt tweak: instead of "GIL not held when a CPython C extension module
 calls PyXxx", we now silently acquire/release the GIL.  Helps with
 CPython C extension modules that call some PyXxx() functions without
-holding the GIL (arguably, they are theorically buggy).
+holding the GIL (arguably, they are theoretically buggy).
 
 .. branch: cpyext-test-A
 

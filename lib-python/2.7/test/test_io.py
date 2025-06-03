@@ -2376,26 +2376,24 @@ class TextIOWrapperTest(unittest.TestCase):
         u_suffix = "\u8888\n"
         suffix = bytes(u_suffix.encode("utf-8"))
         line = prefix + suffix
-        f = self.open(support.TESTFN, "wb")
-        f.write(line*2)
-        f.close()
-        f = self.open(support.TESTFN, "r", encoding="utf-8")
-        s = f.read(prefix_size)
-        self.assertEqual(s, prefix.decode("ascii"))
-        self.assertEqual(f.tell(), prefix_size)
-        self.assertEqual(f.readline(), u_suffix)
+        with self.open(support.TESTFN, "wb") as f:
+            f.write(line*2)
+        with self.open(support.TESTFN, "r", encoding="utf-8") as f:
+            s = f.read(prefix_size)
+            self.assertEqual(s, prefix.decode("ascii"))
+            self.assertEqual(f.tell(), prefix_size)
+            self.assertEqual(f.readline(), u_suffix)
 
     def test_seeking_too(self):
         # Regression test for a specific bug
         data = b'\xe0\xbf\xbf\n'
-        f = self.open(support.TESTFN, "wb")
-        f.write(data)
-        f.close()
-        f = self.open(support.TESTFN, "r", encoding="utf-8")
-        f._CHUNK_SIZE  # Just test that it exists
-        f._CHUNK_SIZE = 2
-        f.readline()
-        f.tell()
+        with self.open(support.TESTFN, "wb") as f:
+            f.write(data)
+        with self.open(support.TESTFN, "r", encoding="utf-8") as f:
+            f._CHUNK_SIZE  # Just test that it exists
+            f._CHUNK_SIZE = 2
+            f.readline()
+            f.tell()
 
     def test_seek_and_tell(self):
         #Test seek/tell using the StatefulIncrementalDecoder.
@@ -2405,23 +2403,20 @@ class TextIOWrapperTest(unittest.TestCase):
         def test_seek_and_tell_with_data(data, min_pos=0):
             """Tell/seek to various points within a data stream and ensure
             that the decoded data returned by read() is consistent."""
-            f = self.open(support.TESTFN, 'wb')
-            f.write(data)
-            f.close()
-            f = self.open(support.TESTFN, encoding='test_decoder')
-            f._CHUNK_SIZE = CHUNK_SIZE
-            decoded = f.read()
-            f.close()
+            with self.open(support.TESTFN, 'wb') as f:
+                f.write(data)
+            with self.open(support.TESTFN, encoding='test_decoder') as f:
+                f._CHUNK_SIZE = CHUNK_SIZE
+                decoded = f.read()
 
             for i in range(min_pos, len(decoded) + 1): # seek positions
                 for j in [1, 5, len(decoded) - i]: # read lengths
-                    f = self.open(support.TESTFN, encoding='test_decoder')
-                    self.assertEqual(f.read(i), decoded[:i])
-                    cookie = f.tell()
-                    self.assertEqual(f.read(j), decoded[i:i + j])
-                    f.seek(cookie)
-                    self.assertEqual(f.read(), decoded[i:])
-                    f.close()
+                    with self.open(support.TESTFN, encoding='test_decoder') as f:
+                        self.assertEqual(f.read(i), decoded[:i])
+                        cookie = f.tell()
+                        self.assertEqual(f.read(j), decoded[i:i + j])
+                        f.seek(cookie)
+                        self.assertEqual(f.read(), decoded[i:])
 
         # Enable the test decoder.
         StatefulIncrementalDecoder.codecEnabled = 1

@@ -32,7 +32,7 @@ understanding what pypy's JIT is doing while running your program:
     jit hook won't be called for that.
 
     if operations=False, no list of operations will be available. Useful
-    if the hook is supposed to be very lighweight.
+    if the hook is supposed to be very lightweight.
 
 .. function:: set_abort_hook(hook)
 
@@ -120,7 +120,7 @@ Resetting the JIT
 
 .. function:: set_param(*args, **keywords)
 
-    Configure the tunable JIT parameters, paramter names are listed in :ref:`Jit Help<jit-help>` :
+    Configure the tunable JIT parameters, parameter names are listed in :ref:`Jit Help<jit-help>` :
 
     * ``set_param(name=value, ...)`` as keyword arguments
 

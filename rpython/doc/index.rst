@@ -35,6 +35,7 @@ RPython.
    :maxdepth: 1
 
    arm
+   riscv
    logging
 
 

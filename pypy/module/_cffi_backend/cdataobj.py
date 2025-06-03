@@ -244,7 +244,7 @@ class W_CData(W_Root):
                 w_value.get_array_length() == length):
                 # fast path: copying from exactly the correct type
                 with w_value as source:
-                    source = rffi.cast(rffi.VOIDP, source)
+                    source = rffi.cast(rffi.CONST_VOIDP, source)
                     target = rffi.cast(rffi.VOIDP, target)
                     size = rffi.cast(rffi.SIZE_T, ctitemsize * length)
                     rffi.c_memcpy(target, source, size)

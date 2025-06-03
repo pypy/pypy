@@ -6,6 +6,7 @@ from rpython.rlib.rawstorage import misaligned_is_fine
 
 IS_X86 = platform.machine().startswith('x86') or platform.machine() == 'i686'
 IS_S390X = platform.machine() == "s390x"
+IS_RISCV = platform.machine() == 'riscv64'
 
 def no_vector_backend():
     if IS_X86:
@@ -206,18 +207,34 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert log.result is True
         assert len(log.loops) == 1
         loop = log._filter(log.loops[0])
-        loop.match("""
-            %(align_check)s
-            guard_not_invalidated(descr=...)
-            f31 = raw_load_f(i9, i29, descr=<ArrayF 8>)
-            i32 = float_ne(f31, 0.000000)
-            guard_true(i32, descr=...)
-            i36 = int_add(i24, 1)
-            i37 = int_add(i29, 8)
-            i38 = int_ge(i36, i30)
-            guard_false(i38, descr=...)
-            jump(..., descr=...)
-            """ % {'align_check': align_check('i29')})
+        if IS_RISCV:
+            # The order of %(align_check)s and guard_not_invalidated(descr=...)
+            # in the RISCV backend is different from other backends.
+            loop.match("""
+                guard_not_invalidated(descr=...)
+                %(align_check)s
+                f31 = raw_load_f(i9, i29, descr=<ArrayF 8>)
+                i32 = float_ne(f31, 0.000000)
+                guard_true(i32, descr=...)
+                i36 = int_add(i24, 1)
+                i37 = int_add(i29, 8)
+                i38 = int_ge(i36, i30)
+                guard_false(i38, descr=...)
+                jump(..., descr=...)
+                """ % {'align_check': align_check('i29')})
+        else:
+            loop.match("""
+                %(align_check)s
+                guard_not_invalidated(descr=...)
+                f31 = raw_load_f(i9, i29, descr=<ArrayF 8>)
+                i32 = float_ne(f31, 0.000000)
+                guard_true(i32, descr=...)
+                i36 = int_add(i24, 1)
+                i37 = int_add(i29, 8)
+                i38 = int_ge(i36, i30)
+                guard_false(i38, descr=...)
+                jump(..., descr=...)
+                """ % {'align_check': align_check('i29')})
         # vector version
         #assert loop.match("""
         #    guard_not_invalidated(descr=...)
@@ -335,7 +352,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             i91 = int_add(i87, 1)
             i93 = int_add(i89, 8)
             i94 = int_add(i79, 1)
-            i95 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value 0>)
+            i95 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct_inner.c_value 0>)
             setfield_gc(p97, i91, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_index .+>)
             setfield_gc(p97, i93, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
             i96 = int_lt(i95, 0)
@@ -389,12 +406,13 @@ class TestMicroNumPy(BaseTestPyPyC):
             %(align_check)s
             raw_store(i103, i132, 42.000000, descr=<ArrayF 8>)
             i153 = int_add(i120, 1)
-            i154 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value 0>)
+            i154 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct_inner.c_value 0>)
             setfield_gc(p158, i53, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
             setarrayitem_gc(p152, 1, 0, descr=<ArrayS .+>)
             setarrayitem_gc(p152, 0, 0, descr=<ArrayS .+>)
             i157 = int_lt(i154, 0)
             guard_false(i157, descr=...)
+            i158 = arraylen_gc(p152, descr=.*)
             jump(..., descr=...)
         """ % {'align_check': align_check('i132')})
 
@@ -433,9 +451,10 @@ class TestMicroNumPy(BaseTestPyPyC):
             p105 = new_with_vtable(descr=<SizeDescr .*>)
             setfield_gc(p105, f100, descr=<FieldF pypy.module.micronumpy.boxes.W_Float64Box.inst_value .*>)
             setarrayitem_gc(p104, i79, p105, descr=<ArrayP .>)
-            i106 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct.c_value 0>)
+            i106 = getfield_raw_i(#, descr=<FieldS pypysig_long_struct_inner.c_value 0>)
             setfield_gc(p76, i101, descr=<FieldS list.length .*>)
             i107 = int_lt(i106, 0)
             guard_false(i107, descr=...)
+            i158 = arraylen_gc(p104, descr=.*)
             jump(..., descr=...)
         """ % {'align_check': align_check('i97')})

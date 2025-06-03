@@ -60,13 +60,13 @@ class StrPtrInfo(AbstractVirtualPtrInfo):
         self.mode = mode
 
     def getlenbound(self, mode):
-        from rpython.jit.metainterp.optimizeopt import intutils
+        from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 
         if self.lenbound is None:
             if self.length == -1:
-                self.lenbound = intutils.IntBound(0, intutils.MAXINT)
+                self.lenbound = IntBound.nonnegative()
             else:
-                self.lenbound = intutils.ConstIntBound(self.length)
+                self.lenbound = IntBound.from_constant(self.length)
         return self.lenbound
 
     @specialize.arg(2)
@@ -453,10 +453,10 @@ class OptString(Optimization):
             return self.emit(op)
 
     def postprocess_NEWSTR(self, op):
-        self.pure_from_args(mode_string.STRLEN, [op], op.getarg(0))
+        self.pure_from_args1(mode_string.STRLEN, op, op.getarg(0))
 
     def postprocess_NEWUNICODE(self, op):
-        self.pure_from_args(mode_unicode.STRLEN, [op], op.getarg(0))
+        self.pure_from_args1(mode_unicode.STRLEN, op, op.getarg(0))
 
     def optimize_STRSETITEM(self, op):
         opinfo = getptrinfo(op.getarg(0))

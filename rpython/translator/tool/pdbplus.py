@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import pdb, bdb
 import types
 import code
@@ -61,9 +63,9 @@ class PdbPlusShow(pdb.Pdb):
                 exc_type_name = t
             else: exc_type_name = t.__name__
             if not isinstance(arg, str):
-                print '*** %s' % errmsg, "\t[%s: %s]" % (exc_type_name, v)
+                print('*** %s' % errmsg, "\t[%s: %s]" % (exc_type_name, v))
             else:
-                print '*** %s:' % errmsg, arg, "\t[%s: %s]" % (exc_type_name, v)
+                print('*** %s:' % errmsg, arg, "\t[%s: %s]" % (exc_type_name, v))
             raise
 
     def _getobj(self, name):
@@ -89,7 +91,7 @@ in pypy (see help pypyprefixes); the result is assigned to var or _."""
         obj = self._getobj(objarg)
         if obj is None:
             return
-        print obj
+        print(obj)
         self._setvar(var, obj)
 
     def _parse_modif(self, arg, modif='as'):
@@ -112,14 +114,14 @@ in pypy (see help pypyprefixes); the result is assigned to var or _."""
         try:
             return self.translator.annotator.bookkeeper.getuniqueclassdef(cls)
         except Exception:
-            print "*** cannot get classdef: %s" % cls
+            print("*** cannot get classdef: %s" % cls)
             return None
 
     def _make_flt(self, expr):
         try:
             expr = compile(expr, '<filter>', 'eval')
         except SyntaxError:
-            print "*** syntax: %s" % expr
+            print("*** syntax: %s" % expr)
             return None
         def flt(c):
             marker = object()
@@ -192,7 +194,7 @@ if obj is a class or ClassDef the class definition graph is shown"""
         elif isinstance(obj, ClassDef):
             page = graphpage.ClassDefPage(translator, obj)
         else:
-            print "*** Nothing to do"
+            print("*** Nothing to do")
             return
         self._show(page)
 
@@ -210,11 +212,11 @@ find a stack frame that has a certain variable (the default is "graph")
                 frame = self.curframe
                 if varname in frame.f_locals:
                     printfr(self.stack[self.curindex])
-                    print "%s = %s" % (varname, frame.f_locals[varname])
+                    print("%s = %s" % (varname, frame.f_locals[varname]))
                     return
                 num += 1
                 self.do_up(None)
-            print "no %s found" % (varname, )
+            print("no %s found" % (varname, ))
             for i in range(num):
                 self.do_down(None)
         finally:
@@ -253,7 +255,7 @@ find a stack frame that has a certain variable (the default is "graph")
             except self.GiveUp:
                 return
             if attrs:
-                print "%s:" % cdef.name
+                print("%s:" % cdef.name)
                 pr(attrs)
 
     def do_attrs(self, arg):
@@ -264,7 +266,7 @@ obj can be an expression or a dotted name
 expr is an optional filtering expression; cand in it refer to the candidate Attribute
 information object, which has a .name and .s_value."""
         def pr(attrs):
-            print " " + ' '.join([a.name for a in attrs])
+            print(" " + ' '.join([a.name for a in attrs]))
         self._attrs(arg, pr)
 
     def do_attrsann(self, arg):
@@ -276,7 +278,7 @@ expr is an optional filtering expression; cand in it refer to the candidate Attr
 information object, which has a .name and .s_value."""
         def pr(attrs):
             for a in attrs:
-                print ' %s %s' % (a.name, a.s_value)
+                print(' %s %s' % (a.name, a.s_value))
         self._attrs(arg, pr)
 
     def do_readpos(self, arg):
@@ -299,7 +301,7 @@ the list of the read positions functions is set to var or _."""
             expr = 'True'
         args = arg.split()
         if len(args) != 2:
-            print "*** expected obj attrname:", arg
+            print("*** expected obj attrname:", arg)
             return
         arg, attrname = args
         # allow quotes around attrname
@@ -317,7 +319,7 @@ the list of the read positions functions is set to var or _."""
         bk = self.translator.annotator.bookkeeper
         attrs = obj.attrs
         if attrname not in attrs:
-            print "*** bogus:", attrname
+            print("*** bogus:", attrname)
             return
         pos = bk.getattr_locations(obj.classdesc, attrname)
         if not pos:
@@ -335,16 +337,16 @@ the list of the read positions functions is set to var or _."""
                     func = None
                 if flt(Pos(graph, func, block, i)):
                     if func is not None:
-                        print func.__module__ or '?', func.__name__, block, i
+                        print(func.__module__ or '?', func.__name__, block, i)
                     else:
-                        print graph, block, i
+                        print(graph, block, i)
                     if i >= 0:
                         op = block.operations[i]
-                        print " ", op
-                        print " ",
+                        print(" ", op)
+                        print(" ", end=" ")
                         for arg in op.args:
-                            print "%s: %s" % (arg, self.translator.annotator.binding(arg)),
-                        print
+                            print("%s: %s" % (arg, self.translator.annotator.binding(arg)), end=" ")
+                        print()
 
                     r[func] = True
         except self.GiveUp:
@@ -367,7 +369,7 @@ show flow graph for function obj, obj can be an expression or a dotted name
         elif isinstance(obj, FunctionGraph):
             graphs = [obj]
         else:
-            print "*** Not a function"
+            print("*** Not a function")
             return
         self._show(graphpage.FlowGraphPage(self.translator, graphs))
 
@@ -397,7 +399,7 @@ show localized call-graph for function obj, obj can be an expression or a dotted
         elif isinstance(obj, FunctionGraph):
             graphs = [obj]
         else:
-            print "*** Not a function"
+            print("*** Not a function")
             return
         self._show(graphpage.LocalizedCallGraphPage(self.translator, graphs))
 
@@ -420,14 +422,14 @@ show the program's call graph"""
         code.interact("*interactive*", local=ns)
 
     def help_graphs(self):
-        print "graph commands are: callgraph, showg, flowg, callg, classhier"
+        print("graph commands are: callgraph, showg, flowg, callg, classhier")
 
     def help_ann_other(self):
-        print "other annotation related commands are: find, finddescs, attrs, attrsann, readpos"
+        print("other annotation related commands are: find, finddescs, attrs, attrsann, readpos")
 
     def help_pypyprefixes(self):
-        print "these prefixes are tried for dotted names in graph commands:"
-        print self.TRYPREFIXES
+        print("these prefixes are tried for dotted names in graph commands:")
+        print(self.TRYPREFIXES)
 
     # start helpers
     def start(self, tb):

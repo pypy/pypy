@@ -1,5 +1,6 @@
 from pypy.conftest import option
 from pypy.module.micronumpy import constants as NPY
+import platform
 
 
 class BaseNumpyAppTest(object):
@@ -23,3 +24,4 @@ class BaseNumpyAppTest(object):
             """)
         cls.w_non_native_prefix = cls.space.wrap(NPY.OPPBYTE)
         cls.w_native_prefix = cls.space.wrap(NPY.NATBYTE)
+        cls.w_machine = cls.space.newtext(platform.machine())

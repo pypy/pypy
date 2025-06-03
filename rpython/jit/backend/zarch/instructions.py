@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 
 branch_mnemonic_codes = {
     'BRASL':   ('ril',   ['\xC0','\x05']),

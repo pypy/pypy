@@ -2,6 +2,7 @@
 # Contains the logic to decide, based on the policy, which graphs
 # to transform to JitCodes or not.
 #
+from __future__ import print_function
 
 from rpython.jit.codewriter import support
 from rpython.jit.codewriter.jitcode import JitCode
@@ -65,10 +66,10 @@ class CallControl(object):
 
         def callers():
             graph = top_graph
-            print graph
+            print(graph)
             while graph in coming_from:
                 graph = coming_from[graph]
-                print '<-', graph
+                print('<-', graph)
         coming_from = {}
 
         while todo:
@@ -254,7 +255,7 @@ class CallControl(object):
                     "JIT backend does not support natural_arity calls, please wrap it in a helper")
                 tgt_func = llmemory.cast_ptr_to_adr(tgt_func)
                 call_release_gil_target = (tgt_func, tgt_saveerr)
-            
+
         elif op.opname == 'indirect_call':
             # check that we're not trying to call indirectly some
             # function with the special flags

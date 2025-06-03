@@ -563,7 +563,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             i8 = int_add(i4, 1)
             # signal checking stuff
             guard_not_invalidated(descr=...)
-            i10 = getfield_raw_i(..., descr=<.* pypysig_long_struct.c_value .*>)
+            i10 = getfield_raw_i(..., descr=<.* pypysig_long_struct_inner.c_value .*>)
             i14 = int_lt(i10, 0)
             guard_false(i14, descr=...)
             jump(..., descr=...)

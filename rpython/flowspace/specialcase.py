@@ -70,22 +70,27 @@ if hasattr(os.path, 'splitdrive'):
 # a simplified version of the basic printing routines, for RPython programs
 class StdOutBuffer:
     linebuf = []
+    final = True
 stdoutbuffer = StdOutBuffer()
 
 def rpython_print_item(s):
     buf = stdoutbuffer.linebuf
+    if not stdoutbuffer.final:
+        buf.append(' ')
     for c in s:
         buf.append(c)
-    buf.append(' ')
+    stdoutbuffer.final = False
 rpython_print_item._annenforceargs_ = (str,)
 
-def rpython_print_newline():
+def rpython_print_end(s):
     buf = stdoutbuffer.linebuf
-    if buf:
-        buf[-1] = '\n'
-        s = ''.join(buf)
-        del buf[:]
-    else:
-        s = '\n'
-    import os
-    os.write(1, s)
+    stdoutbuffer.final = True
+    for c in s:
+        buf.append(c)
+        if c == '\n':
+            w = ''.join(buf)
+            del buf[:]
+            os.write(1, w)
+
+def rpython_print_newline():
+    rpython_print_end('\n')

@@ -63,6 +63,10 @@ class AppTestSrePy:
         import _sre
         assert _sre.getcodesize() == _sre.CODESIZE
 
+    def test_opcodes(self):
+        import _sre
+        assert _sre.OPCODES[:4] == 'failure success any any_all'.split()
+
 
 class AppTestSrePattern:
     def setup_class(cls):
@@ -442,6 +446,14 @@ class AppTestSreScanner:
                                     p.search().group(0), p.search().group(0))
         assert None == p.search()
 
+    def test_scanner_match_string(self):
+        import re
+        class mystr(type(u"")):
+            pass
+        s = mystr(u"bla")
+        p = re.compile(u".").scanner(s)
+        m = p.match()
+        assert m.string is s
 
 class AppTestGetlower:
     spaceconfig = dict(usemodules=('_locale',))
@@ -1089,6 +1101,14 @@ class AppTestUnicodeExtra:
         # check ascii version too
         match = re.search(u"a", u"bac")
         assert match.string == u"bac"
+
+    def test_string_attribute_is_original_string(self):
+        import re
+        class mystr(type(u"")):
+            pass
+        s = mystr(u"\u1233\u1234\u1235")
+        match = re.search(u"\u1234", s)
+        assert match.string is s
 
     def test_match_start(self):
         import re

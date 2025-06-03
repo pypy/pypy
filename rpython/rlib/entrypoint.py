@@ -72,7 +72,7 @@ def entrypoint_highlevel(key, argtypes, c_name=None):
                     traceback.print_exc()
                     raise
                 else:
-                    print str(e)
+                    print(str(e))
                     pypy_debug_catch_fatal_exception()
                     llop.debug_fatalerror(lltype.Void, "error in c callback")
                     assert 0 # dead code

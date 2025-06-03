@@ -246,8 +246,9 @@ class TestsWithSourceFile(unittest.TestCase):
 
         # Read the ZIP archive
         with zipfile.ZipFile(f, "r") as zipfp:
-            for line, zipline in zip(self.line_gen, zipfp.open(TESTFN)):
-                self.assertEqual(zipline, line + '\n')
+            with zipfp.open(TESTFN) as zipfpfp:
+                for line, zipline in zip(self.line_gen, zipfpfp):
+                    self.assertEqual(zipline, line + '\n')
 
     def test_readline_read_stored(self):
         # Issue #7610: calls to readline() interleaved with calls to read().
@@ -584,17 +585,17 @@ class TestsWithSourceFile(unittest.TestCase):
             os.remove(TESTFN2)
 
     def test_writestr_compression(self):
-        zipfp = zipfile.ZipFile(TESTFN2, "w")
-        zipfp.writestr("a.txt", "hello world", compress_type=zipfile.ZIP_STORED)
-        if zlib:
-            zipfp.writestr("b.txt", "hello world", compress_type=zipfile.ZIP_DEFLATED)
+        with zipfile.ZipFile(TESTFN2, "w") as zipfp:
+            zipfp.writestr("a.txt", "hello world", compress_type=zipfile.ZIP_STORED)
+            if zlib:
+                zipfp.writestr("b.txt", "hello world", compress_type=zipfile.ZIP_DEFLATED)
 
-        info = zipfp.getinfo('a.txt')
-        self.assertEqual(info.compress_type, zipfile.ZIP_STORED)
+            info = zipfp.getinfo('a.txt')
+            self.assertEqual(info.compress_type, zipfile.ZIP_STORED)
 
-        if zlib:
-            info = zipfp.getinfo('b.txt')
-            self.assertEqual(info.compress_type, zipfile.ZIP_DEFLATED)
+            if zlib:
+                info = zipfp.getinfo('b.txt')
+                self.assertEqual(info.compress_type, zipfile.ZIP_DEFLATED)
 
 
     def zip_test_writestr_permissions(self, f, compression):

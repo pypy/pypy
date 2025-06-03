@@ -423,7 +423,8 @@ def getaddrinfo_pydotorg(i, result):
     for family, socktype, protocol, canonname, addr in lst:
         if addr.get_host() in ('138.197.63.241', '104.130.43.121',
                                '23.253.135.79', '45.55.99.72',
-                               '151.101.129.168', '151.101.193.168'):
+                               '151.101.129.168', '151.101.193.168',
+                               '151.101.64.223'):
             found = True
         elif family == AF_INET:
             print 'pydotorg changed to', addr.get_host()
@@ -784,3 +785,7 @@ def test_msg_trunc_weirdness_linux():
     a.send(b'abcdefgh')
     result = b.recv(2, socket.MSG_TRUNC)
     assert result == b'ab'
+
+def test_if_nameindex():
+    nameindex = rsocket.if_nameindex()
+    assert len(nameindex) > 0

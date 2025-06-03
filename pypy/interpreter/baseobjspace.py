@@ -3,7 +3,7 @@ import py
 
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
-from rpython.rlib import jit, types, rutf8
+from rpython.rlib import jit, types, rutf8, rstring
 from rpython.rlib.debug import make_sure_not_resized, check_not_access_directly
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize, not_rpython)
@@ -21,6 +21,8 @@ from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
 
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
+
+_WIN32 = sys.platform.startswith('win')
 
 def get_printable_location(greenkey):
     return "unpackiterable [%s]" % (greenkey.iterator_greenkey_printable(), )
@@ -814,7 +816,13 @@ class ObjSpace(object):
         w_result = w_obj.immutable_unique_id(self)
         if w_result is None:
             # in the common case, returns an unsigned value
-            w_result = self.newint(r_uint(compute_unique_id(w_obj)))
+            id = compute_unique_id(w_obj)
+            if id >= 0:
+                w_result = self.newint(id)
+            else:
+                # the following path returns W_LongObject, but it should happen
+                # only on 32-bit platforms
+                w_result = self.newint(r_uint(id))
         return w_result
 
     def contains_w(self, w_container, w_item):
@@ -1205,13 +1213,14 @@ class ObjSpace(object):
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
 
-    def call_valuestack(self, w_func, nargs, frame, methodcall=False):
+    def call_valuestack(self, w_func, nargs, frame, dropvalues, methodcall=False):
         # methodcall is only used for better error messages in argument.py
         from pypy.interpreter.function import Function, Method, is_builtin_code
         if frame.get_is_being_profiled() and is_builtin_code(w_func):
             # XXX: this code is copied&pasted :-( from the slow path below
             # call_valuestack().
             args = frame.make_arguments(nargs)
+            frame.dropvalues(dropvalues)
             return self.call_args_and_c_profile(frame, w_func, args)
 
         if not self.config.objspace.disable_call_speedhacks:
@@ -1231,10 +1240,12 @@ class ObjSpace(object):
 
             if isinstance(w_func, Function):
                 return w_func.funccall_valuestack(
-                        nargs, frame, methodcall=methodcall)
+                        nargs, frame, methodcall=methodcall, dropvalues=dropvalues)
+
             # end of hack for performance
 
         args = frame.make_arguments(nargs)
+        frame.dropvalues(dropvalues)
         return self.call_args(w_func, args)
 
     def call_args_and_c_profile(self, frame, w_func, args):
@@ -1768,7 +1779,6 @@ class ObjSpace(object):
 
     def bytes0_w(self, w_obj):
         "Like bytes_w, but rejects strings with NUL bytes."
-        from rpython.rlib import rstring
         result = w_obj.str_w(self)
         if '\x00' in result:
             raise oefmt(self.w_TypeError,
@@ -1785,7 +1795,18 @@ class ObjSpace(object):
             from pypy.module.sys.interp_encoding import getfilesystemencoding
             w_obj = self.call_method(self.w_unicode, 'encode', w_obj,
                                      getfilesystemencoding(self))
-        return self.bytes0_w(w_obj)
+            return self.bytes0_w(w_obj)
+        elif _WIN32:
+            # Make sure the w_obj is ascii (utf8)
+            bytestr = w_obj.str_w(self)
+            result = rutf8.decode_latin_1(bytestr)
+            if '\x00' in result:
+                raise oefmt(self.w_TypeError,
+                            "argument must be a string without NUL characters")
+            return rstring.assert_str0(result)
+            
+        else:
+            return self.bytes0_w(w_obj)
 
     def fsencode_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.fsencode_w(w_obj)
@@ -1867,7 +1888,6 @@ class ObjSpace(object):
 
     def unicode0_w(self, w_obj):
         "Like unicode_w, but rejects strings with NUL bytes."
-        from rpython.rlib import rstring
         result = w_obj.utf8_w(self).decode('utf8')
         if u'\x00' in result:
             raise oefmt(self.w_TypeError,

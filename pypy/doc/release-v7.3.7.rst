@@ -1,6 +1,6 @@
-========================================
-PyPy v7.3.7: bug-fix release of 3.7, 3.8
-========================================
+=============================================================
+PyPy v7.3.7: bug-fix release of 3.7, 3.8, released 2021-10-25
+=============================================================
 
 We are releasing a PyPy 7.3.7 to fix the recent 7.3.6 release's binary
 incompatibility with the previous 7.3.x releases. We mistakenly added fields
@@ -16,7 +16,7 @@ Additionally, a few smaller bugs were fixed:
 
 - Use ``uint`` for the ``request`` argument of ``fcntl.ioctl`` (issue 3568_)
 - Fix incorrect tracing of `while True`` body in 3.8 (issue 3577_)
-- Properly close resources when using a ``conncurrent.futures.ProcessPool``
+- Properly close resources when using a ``concurrent.futures.ProcessPool``
   (issue 3317_)
 - Fix the value of ``LIBDIR`` in ``_sysconfigdata`` in 3.8 (issue 3582_)
 

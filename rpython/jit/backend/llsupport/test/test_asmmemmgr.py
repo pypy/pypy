@@ -1,4 +1,8 @@
-import random, py
+import random
+import pytest
+import sys
+
+from rpython.jit.backend import detect_cpu
 from rpython.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
@@ -6,6 +10,11 @@ from rpython.jit.backend.llsupport.codemap import CodemapStorage
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import debug
 
+cpu = detect_cpu.autodetect()
+IS_ARM64 = cpu.startswith('aarch64')
+IS_MACOS = sys.platform == 'darwin'
+IS_PYPY = 'pypyjit' in sys.builtin_module_names
+IS_PYPY_MACOS_ARM64 = IS_ARM64 and IS_MACOS and IS_PYPY
 
 def test_get_index():
     memmgr = AsmMemoryManager(min_fragment=8,
@@ -160,7 +169,9 @@ class TestAsmMemoryManager:
 
     def test_insert_gcroot_marker(self):
         if self.AMMClass is not AsmMemoryManager:
-            py.test.skip("not for TestFakeAsmMemoryManager")
+            pytest.skip("not for TestFakeAsmMemoryManager")
+        if IS_PYPY_MACOS_ARM64:
+            pytest.skip("crashes under PyPy host on macos arm64")
         puts = []
         class FakeGcRootMap:
             def register_asm_addr(self, retaddr, mark):

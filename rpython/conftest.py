@@ -17,6 +17,7 @@ else:
         warnings.warn("Version of hypothesis too old, "
                       "cannot set the deadline to None")
     settings.load_profile('default')
+    settings.register_profile('longrunning', max_examples=20000, deadline=None)
 
 def braindead_deindent(self):
     """monkeypatch that wont end up doing stupid in the python tokenizer"""

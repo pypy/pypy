@@ -62,7 +62,7 @@ def s_isinstance(annotator, s_obj, s_type, variables):
                                             # is quite border case for RPython
         r.const = False
     for v in variables:
-        assert v.annotation == s_obj
+        assert annotator.binding(v) == s_obj
     knowntypedata = defaultdict(dict)
     if not hasattr(typ, '_freeze_') and isinstance(s_type, SomePBC):
         add_knowntypedata(knowntypedata, True, variables, bk.valueoftype(typ))
@@ -179,6 +179,9 @@ class __extend__(SomeObject):
         return SomeString()
 
     def hex(self):
+        return SomeString()
+
+    def bin(self):
         return SomeString()
 
     def oct(self):
@@ -715,6 +718,12 @@ class __extend__(SomeUnicodeString):
 
 
 class __extend__(SomeString):
+    def len(self):
+        if self.is_constant():
+            return immutablevalue(len(self.const))
+        else:
+            return SomeInteger(nonneg=True)
+
     def method_isdigit(self):
         return s_Bool
 

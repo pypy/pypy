@@ -1,0 +1,3 @@
+[tool.codespell]
+ignore-words-list = "buildd,clos,gameboy,ist,som"
+skip = "pypy/doc/contributor.rst"

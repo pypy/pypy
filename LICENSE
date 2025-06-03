@@ -31,462 +31,439 @@ directories is licensed as follows:
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2023
---------------------------------
+PyPy Copyright holders 2003
+---------------------------
 
 Except when otherwise stated (look for LICENSE files or information at
 the beginning of each file) the files in the 'pypy' directory are each
 copyrighted by one or more of the following people and organizations:
 
   Armin Rigo
-  Maciej Fijałkowski
   Matti Picus
   Carl Friedrich Bolz-Tereick
+  Maciej Fijałkowski
   Antonio Cuni
   Amaury Forgeot d'Arc
   Ronan Lamy
   Samuele Pedroni
   Alex Gaynor
-  Philip Jenvey
   Richard Plangger
   Brian Kearns
-  Manuel Jacob
+  Philip Jenvey
   Michael Hudson-Doyle
+  Manuel Jacob
   David Schneider
-  Holger Krekel
   Christian Tismer
+  Holger Krekel
   Håkan Ardö
+  Anders Chrigstrom
   Benjamin Peterson
   Wim Lavrijsen
-  Anders Chrigstrom
   Eric van Riet Paap
-  Dan Villiom Podlaski Christiansen
   Remi Meier
   Richard Emslie
-  Alexander Schremmer
-  Lukas Diekmann
   Sven Hager
+  Lukas Diekmann
   Anders Lehmann
-  Edd Barrett
   Aurelien Campeas
+  Edd Barrett
   Niklaus Haldimann
-  Camillo Bruni
-  Laura Creighton
-  Toon Verwaest
-  Leonardo Santagada
   Seo Sanghyeon
-  Romain Guillebert
-  Ronny Pfannschmidt
   Yusuke Izawa
-  Justin Peel
-  Raffael Tfirst
+  Laura Creighton
+  Leonardo Santagada
+  Alexander Schremmer
   David Edelsohn
-  Anders Hammarquist
-  Jakub Gustak
-  Gregor Wegberg
-  Guido Wesdorp
-  Lawrence Oluyede
+  Raffael Tfirst
   Stefano Rivera
-  Bartosz Skowron
-  Daniel Roberts
-  Adrien Di Mascio
-  Niko Matsakis
+  Lawrence Oluyede
+  Gregor Wegberg
+  Jakub Gustak
+  Romain Guillebert
   Batuhan Taskaya
+  Guido Wesdorp
+  Ronny Pfannschmidt
   Alexander Hesse
+  Justin Peel
+  Niko Matsakis
+  Nico Rittinghaus
+  Toon Verwaest
   Ludovic Aubry
   stian
-  Jacob Hallen
-  Jason Creighton
-  Mark Young
-  Andrew Lawrence
-  Ondrej Baranovič
   Alex Martelli
-  Spenser Bauman
-  Michal Bendowski
-  Jan de Mooij
-  Stefan Beyer
-  Tyler Wade
-  Vincent Legoll
-  Simon Cross
-  Michael Foord
+  Adrien Di Mascio
+  Anders Hammarquist
+  Ondrej Baranovič
+  Logan Chien
+  Mark Young
+  Dan Villiom Podlaski Christiansen
   muke101
+  Vincent Legoll
+  Spenser Bauman
+  Stefan Beyer
+  Jacob Hallen
   Stephan Diehl
-  Jean-Paul Calderone
   Stefan Schwarzer
-  Tomek Meka
   Valentino Volonghi
+  Tomek Meka
+  Andrew Lawrence
   Patrick Maupin
-  Devin Jeanpierre
   Bob Ippolito
-  Bruno Gola
   David Malcolm
+  Bruno Gola
+  Devin Jeanpierre
   Yannick Jadoul
-  Squeaky
-  Timo Paulssen
+  Daniel Roberts
   Marius Gedminas
-  Laurence Tratt
-  Alexandre Fayolle
+  Squeaky
+  Camillo Bruni
   Nicolas Truessel
   Simon Burton
+  Maxwell Bernstein
+  Bartosz Skowron
+  Michael Foord
+  Jean-Paul Calderone
+  Timo Paulssen
+  Alexandre Fayolle
   Martin Matusiak
   Konstantin Lopuhin
-  Wenzhu Man
-  John Witulski
-  Julian Berman
-  Jeremy Thurgood
-  Adrian Kuhn
-  Dario Bertini
+  Simon Cross
+  Laurence Tratt
   Greg Price
-  Ivan Sichmann Freitas
+  Jeremy Thurgood
   Mark Pearse
-  Tobias Pape
-  Andreas Stührk
-  Jean-Philippe St. Pierre
-  Stian Andreassen
-  Guido van Rossum
-  Pavel Vinogradov
-  William Leslie
-  Paweł Piotr Przeradowski
-  Michał Górny
-  Paul deGrandis
-  Ilya Osadchiy
-  Tobias Oberstein
-  marky1991
-  Boris Feigin
-  tav
-  Taavi Burns
-  Joannah Nanjekye
-  Georg Brandl
-  quejebo
-  Tadeu Zagallo
-  Vanessa Freudenberg
-  Gerald Klix
-  Wanja Saatkamp
-  Mike Blume
+  Ivan Sichmann Freitas
+  Adrian Kuhn
+  Julian Berman
   olliemath
+  Wenzhu Man
+  Guido van Rossum
+  Michał Górny
+  Stian Andreassen
+  Mikael Schönenberg
+  Tobias Pape
+  Tyler Wade
+  Paul deGrandis
+  Tadeu Zagallo
+  quejebo
+  Dario Bertini
+  tav
+  Paweł Piotr Przeradowski
+  Mike Blume
   Oscar Nierstrasz
-  Rami Chowdhury
+  Wanja Saatkamp
+  Gerald Klix
+  Taavi Burns
+  Tobias Oberstein
   Stefan H. Muller
+  Jan de Mooij
   Dodan Mihai
-  Tim Felgentreff
-  Eugene Oden
+  Rami Chowdhury
   Colin Valliant
-  Henry Mason
-  Jeff Terrace
-  David Ripton
-  Preston Timmons
+  Eugene Oden
+  marky1991
   Vasily Kuznetsov
-  Pieter Zieschang
+  Boris Feigin
+  David Ripton
+  Ilya Osadchiy
   Lukas Renggli
-  Dusty Phillips
+  Joannah Nanjekye
+  Tim Felgentreff
   Guenter Jantzen
-  Nils Müller
-  Amit Regmi
-  Ned Batchelder
-  Jasper Schulz
-  Anton Gulenko
+  Georg Brandl
+  Andrew Chambers
+  Preston Timmons
+  Jeff Terrace
   Ben Young
   Nicolas Chauvat
-  Andrew Durdin
-  Andrew Chambers
-  Sergey Matyunin
-  Łukasz Langa
-  Nicholas Riley
-  Michael Schneider
+  Vanessa Freudenberg
   Yusuke Tsutsumi
-  Rocco Moretti
-  Gintautas Miliauskas
-  Michael Twomey
-  Igor Trindade Oliveira
+  Dusty Phillips
+  Jasper Schulz
   Jason Chu
-  Yichao Yu
-  Lucian Branescu Mihaila
-  anatoly techtonik
-  Mariano Anaya
-  Olivier Dormond
-  Jared Grubb
-  Karl Bartel
-  Gabriel Lavoie
-  Wouter van Heyst
-  Alecsandru Patrascu
-  Lin Cheng
-  Brian Dorsey
-  Victor Stinner
+  Michael Twomey
+  Rocco Moretti
+  da-woods
   Andrews Medina
-  Sebastian Pawluś
-  Stuart Williams
-  Toby Watson
-  Antoine Pitrou
-  Aaron Iles
-  Christian Hudon
-  Daniel Patrick
-  Justas Sadzevicius
-  Gasper Zejn
-  Neil Shepperd
-  Mikael Schönenberg
-  Michael Cheng
-  Stanislaw Halik
-  Berkin Ilbeyi
-  Mihnea Saracin
-  Matt Jackson
-  Ricky Zhou
-  Jonathan David Riehl
-  Anders Qvist
+  Tim Matussek
+  Pieter Zieschang
+  William Leslie
+  anatoly techtonik
+  Yichao Yu
+  Ned Batchelder
+  Łukasz Langa
+  Alecsandru Patrascu
+  Anton Gulenko
+  Wouter van Heyst
   Beatrice During
-  Elmo Mäntynen
-  Corbin Simpson
+  Jared Grubb
+  Olivier Dormond
+  Christoph Jung
+  Nils Müller
+  Sergey Matyunin
+  Brian Dorsey
+  Mariano Anaya
+  Daniel Patrick
+  Sebastian Pawluś
+  Christian Hudon
+  Gabriel Lavoie
+  Michal Bendowski
+  Jason Creighton
+  Stuart Williams
+  Gintautas Miliauskas
+  devdanzin
+  Matt Jackson
+  Berkin Ilbeyi
+  Stanislaw Halik
+  Michael Cheng
+  Lucian Branescu Mihaila
+  Justas Sadzevicius
+  Oliver Margetts
+  Ricky Zhou
+  Mihnea Saracin
   Chirag Jadwani
+  Elmo Mäntynen
+  Anders Qvist
+  Jonathan David Riehl
+  Rodrigo Tobar
+  Felix C. Stegerman
+  cptpcrd
+  David C Ellis
+  Floris Bruynooghe
+  Robert Zaremba
+  Reuben Cummings
   Faye Zhao
-  Pauli Virtanen
+  Corbin Simpson
+  Christopher Pope
   Mike Pavone
   Alan McIntyre
-  Alexander Sedov
-  Alex Perry
-  Floris Bruynooghe
-  Christopher Pope
-  Attila Gobi
-  Vaibhav Sood
-  Reuben Cummings
-  Robert Zaremba
-  David C Ellis
-  cptpcrd
-  Felix C. Stegerman
-  Jens-Uwe Mager
-  Dan Stromberg
-  Carl Meyer
-  Stefano Parmesan
-  Alexis Daboville
-  Christian Tismer 
-  Marc Abramowitz
-  Arjun Naik
-  Valentina Mukhamedzhanova
-  Florin Papa
-  Aaron Gallagher
-  touilleMan
-  Tristan Arthur
+  Thomas Grainger
+  Caleb Burns
+  Sebastian Berg
+  Matt Billenstein
   Anthony Sottile
   Arianna Avanzini
-  Matt Billenstein
-  Sebastian Berg
-  Tim Matussek
-  Jacek Generowicz
-  Sylvain Thenault
-  Alejandro J. Cura
-  Roberto De Ioris
-  Andrew Dalke
-  Gabriel
-  Nathan Taylor
-  Karl Ramm
-  Vladimir Kryachko
-  Lukas Vacek
-  Jakub Stasiak
-  Omer Katz
-  Kunal Grover
-  Mark Williams
-  Thomas Hisch
-  Barry Hart
-  Tomasz Dziopa
+  Tristan Arthur
+  touilleMan
+  Aaron Gallagher
+  Vaibhav Sood
+  Attila Gobi
+  Marc Abramowitz
+  Alexis Daboville
+  Andreas Stührk
+  Gasper Zejn
+  Jens-Uwe Mager
+  Petr Vaněk
   Wenzel Jakob
-  Lutz Paelike
-  Ignas Mikalajunas
-  Martin Blais
-  Jacob Oscarson
-  Lene Wagner
-  Lucio Torre
-  Henrik Vendelbo
-  Artur Lisiecki
-  Travis Francis Athougies
-  Miguel de Val Borro
-  Kristjan Valur Jonsson
-  Christoph Gerum
-  Yasir Suhail
-  Tomo Cocoa
-  Neil Blakey-Milner
-  Dan Buch
-  Lars Wassermann
-  Sergey Kishchenko
-  Ryan Gonzalez
-  Ian Foote
-  David Lievens
-  Richard Lancaster
-  Philipp Rustemeuer
-  Logan Chien
-  Catalin Gabriel Manciu
-  Miro Hrončok
-  Antoine Dupre
-  Bernd Schoeller
-  Catalin Fierut
+  Pauli Virtanen
+  Tomasz Dziopa
+  Barry Hart
+  Thomas Hisch
+  Mark Williams
+  Florin Papa
+  Kunal Grover
+  Omer Katz
+  Jakub Stasiak
+  Valentina Mukhamedzhanova
+  Lukas Vacek
+  Karl Ramm
+  Nathan Taylor
+  Gabriel
+  Aaron Iles
+  Jacek Generowicz
+  Ilya Egorov
+  Paul Gey
+  Alessandro Ogier
   Chris Burr
   nimaje
-  Pierre-Yves DAVID
-  Alessandro Ogier
-  Gustavo Niemeyer
-  Andrew Thompson
-  Joshua Gilbert
-  Yusei Tahara
-  Christopher Armstrong
-  Anders Sigfridsson
-  Stephan Busemann
-  Godefroid Chappelle
-  Dan Colish
-  Akira Li
-  Bobby Impollonia
-  timo
-  Anna Katrina Dominguez
-  Juan Francisco Cantero Hurtado
-  Ben Darnell
-  Rafał Gałczyński
+  Bernd Schoeller
+  Miro Hrončok
+  Catalin Fierut
+  Catalin Gabriel Manciu
+  Philipp Rustemeuer
+  David Lievens
+  Ian Foote
+  Arjun Naik
+  Ryan Gonzalez
+  Sergey Kishchenko
+  Dan Buch
+  Neil Blakey-Milner
+  Alex Perry
+  Miguel de Val Borro
+  Artur Lisiecki
+  Michael Schneider
+  Lene Wagner
+  Jacob Oscarson
+  Ignas Mikalajunas
+  Lutz Paelike
+  Christian Clauss
+  Benjamin Moody
+  Renaud Blanch
+  h-vertini
+  Alex Orange
+  Dennis Sweeney
+  alexprengere
+  Georges Racinet
+  Lin Cheng
+  Bystroushaak
+  Ram Rachum
+  Vincent Michel
+  Michal Kuffa
+  Ryan Hileman
+  Sreepathi Pai
+  Paul Ganssle
+  Carl Bordum Hansen
+  ashwinahuja
+  Radu Ciorba
+  Andrew Stepanov
+  afteryu
+  Nate Bragg
+  Fabio Niephaus
+  Vasantha Ganesh K
+  florinpapa
+  Amber Brown
+  Matt Bogosian
+  Kim Jin Su
+  Richard Lancaster
+  Markus Holtermann
+  Ruochen Huang
+  Jeong YunWon
+  Lucas Stadler
+  Toni Mattis
+  Jason Michalski
   Yury V. Zaytsev
   Laurens Van Houtven
-  rafalgalczynski@gmail.com
-  Jason Michalski
-  Toni Mattis
-  Lucas Stadler
-  Jeong YunWon
-  Ruochen Huang
-  Markus Holtermann
-  Kim Jin Su
-  Matt Bogosian
-  Aaron Tubbs
-  Amber Brown
-  Nikolay Zinov
-  florinpapa
-  Vasantha Ganesh K
-  Fabio Niephaus
-  Nate Bragg
-  afteryu
-  Andrew Stepanov
-  Radu Ciorba
-  Carl Bordum Hansen
-  Paul Ganssle
-  Michal Kuffa
-  joachim-ballmann@bitbucket.org
-  Vincent Michel
-  Ram Rachum
-  Bystroushaak
-  Ryan Hileman
-  joserubiovidales@gmail.com
-  dakarpov@gmail.com
-  Sreepathi Pai
-  Georges Racinet
-  ashwinahuja
-  Bolutife Ogunsola
-  cjmcdonald@google.com
-  Alex Orange
-  alexprengere
-  Dennis Sweeney
+  Juan Francisco Cantero Hurtado
+  Anna Katrina Dominguez
+  Yasir Suhail
+  Christoph Gerum
+  Bobby Impollonia
+  Dan Colish
+  Akira Li
+  Toby Watson
+  Godefroid Chappelle
+  Stephan Busemann
+  Christopher Armstrong
+  Yusei Tahara
+  Joshua Gilbert
+  Andrew Thompson
+  Ariel Volovik
+  Martin Teichmann
+  diath
+  robinverduijn
+  obafgkmdh
+  Oskar Haarklou Veileborg
+  Karl Otness
+  Blackasthesky
+  Isuru Fernando
+  h-vetinari
+  David Hewitt
+  Ian Clester
+  Michael Cho
   Kevin Lee
-  h-vertini
-  Maxwell Bernstein
-  Renaud Blanch
-  Anna Ravencroft
-  Dinu Gherman
-  Michael Chermside
-  Jim Baker
-  Zooko Wilcox-O Hearn
-  Daniel Neuhäuser
-  Konrad Delong
-  Rodrigo Araújo
-  Armin Ronacher
-  Jim Hunziker
-  Christian Muirhead
-  Brett Cannon
-  Chris Lambacher
-  Dan Loewenherz
-  coolbutuseless@gmail.com
-  Christopher Groskopf
-  Buck Golemon
-  soareschen
-  Even Wiik Thomassen
-  Antony Lee
-  James Lan
-  yrttyr
-  Kristoffer Kleine
-  Julien Phalip
-  shoma hosaka
-  Tomer Chachamu
-  Flavio Percoco
-  Markus Unterwaditzer
-  Mike Bayer
-  OlivierBlanvillain
-  jiaaro
-  James Robert
-  aliceinwire
+  Christoph Reiter
+  Chris AtLee
+  shaolo1
+  Tomas Hrnciar
+  Bolutife Ogunsola
+  mark doerr
+  kotus9
+  Ihar Shabes
+  Sam Edwards
+  paugier
+  Jesdi
+  Ivan
+  Yasen Kiprov
+  Zsolt Cserna
+  DeVerne Jones
+  whitequark
+  Alex Kashirin
+  Joannah Nanjekye nanjekyejoannah@gmail.com
+  Paul Graydon
+  Hervé Beraud
+  John Aldis
+  Evgenii Gorinov
+  Antoine Dupre
+  Johan Forsberg
+  Filip Salomonsson
+  Steve Papanik
+  Caleb Hattingh
+  Min RK
+  Petre Vijiac
+  Iraklis D.
+  Stanisław Halik
+  Graham Markall
+  PavloKapyshin
+  Tomáš Pružina
+  Daniil Yarancev
+  pizi
+  Eli Stevens
+  Diana Popa
+  JohnDoe
+  werat
+  Nikolay Zinov
+  Aaron Tubbs
+  Jonas Pfannschmidt
+  Jason Madden
+  Tobias Diaz
+  Zearin
+  Yaroslav Fedevych
+  Niclas Olofsson
+  Andrey Churin
+  Volodymyr Vladymyrov
+  Donald Stufft
+  Nikolaos-Digenis Karagiannis
+  Roman Podoliaka
+  Henri Tuhola
+  Berker Peksag
+  halgari
+  Chris Pressey
+  Ben Mather
+  Mike Kaplinskiy
+  Dan Sanders
+  Dan Crosta
+  Mads Kiilerich
+  Boglarka Vezer
+  Stefan Marr
+  Asmo Soinio
   Kurt Griffiths
   Matthew Miller
-  Asmo Soinio
-  Stefan Marr
-  Boglarka Vezer
-  Mads Kiilerich
-  Dan Crosta
-  Dan Sanders
-  Ben Mather
-  Chris Pressey
-  halgari
-  Berker Peksag
-  Roman Podoliaka
-  Nikolaos-Digenis Karagiannis
-  Donald Stufft
-  Volodymyr Vladymyrov
-  Andrey Churin
-  Niclas Olofsson
-  Yaroslav Fedevych
-  Zearin
-  Tobias Diaz
-  Jason Madden
-  Jonas Pfannschmidt
-  werat
-  JohnDoe
-  Diana Popa
-  Eli Stevens
-  pizi
-  remarkablerocket
-  reubano@gmail.com
-  Daniil Yarancev
-  PavloKapyshin
-  Graham Markall
-  Stanisław Halik
-  Iraklis D.
-  Petre Vijiac
-  Min RK
-  Caleb Hattingh
-  Steve Papanik
-  m@funkyhat.org
-  Tomáš Pružina
-  gabrielg@ec2-54-146-239-158.compute-1.amazonaws.com
-  Filip Salomonsson
-  Johan Forsberg
-  Evgenii Gorinov
-  John Aldis
-  Hervé Beraud
-  Paul Graydon
-  whitequark
-  DeVerne Jones
-  Zsolt Cserna
-  Yasen Kiprov
-  mkuffa
-  Ivan
-  Jesdi
-  paugier
-  bernd.schoeller@inf.ethz.ch
-  Sam Edwards
-  Joannah Nanjekye nanjekyejoannah@gmail.com
-  Alex Kashirin
-  Ihar Shabes
-  kotus9
-  Mike Kaplinskiy
-  Henri Tuhola
-  mark doerr
-  Tomas Hrnciar
-  shaolo1
-  Chris AtLee
-  Christoph Reiter
-  Brad Kish
-  Michael Cho
-  Ian Clester
-  David Hewitt
-  h-vetinari
-  Isuru Fernando
+  aliceinwire
+  jiaaro
+  OlivierBlanvillain
+  Rafał Gałczyński
+  Mike Bayer
+  Ben Darnell
+  Markus Unterwaditzer
+  Flavio Percoco
+  Tomer Chachamu
+  Carl Meyer
+  Lars Wassermann
+  shoma hosaka
+  Julien Phalip
+  Kristoffer Kleine
+  yrttyr
+  James Lan
+  Antony Lee
+  Even Wiik Thomassen
+  soareschen
+  Buck Golemon
+  Christopher Groskopf
+  Tomo Cocoa
+  Dan Loewenherz
+  Chris Lambacher
+  Brett Cannon
+  Christian Muirhead
+  Armin Ronacher
+  Rodrigo Araújo
+  Konrad Delong
+  Daniel Neuhäuser
+  Victor Stinner
+  Anders Sigfridsson
+  Martin Blais
+  Michael Chermside
+  Dinu Gherman
+  Anna Ravencroft
 
   Heinrich-Heine University, Germany
   Open End AB (formerly AB Strakt), Sweden
@@ -579,12 +556,12 @@ openssl library.  You may see a copy of the License for OpenSSL at
 
     https://www.openssl.org/source/license.html
 
-License for 'gdbm'
+License for '_gdbm'
 ------------------
 
-The gdbm module includes code from gdbm.h, which is distributed under
+The _gdbm module includes code from gdbm.h, which is distributed under
 the terms of the GPL license version 2 or any later version.  Thus the
-gdbm module, provided in the file lib_pypy/gdbm.py, is redistributed
+_gdbm module, provided in the file lib_pypy/_gdbm.py, is redistributed
 under the terms of the GPL license as well.
 
 License for 'rpython/rlib/rvmprof/src'
@@ -593,3 +570,16 @@ License for 'rpython/rlib/rvmprof/src'
 The code is based on gperftools. You may see a copy of the License for it at
 
     https://github.com/gperftools/gperftools/blob/master/COPYING
+
+License for 'liblzma and 'lzmaffi'
+----------------------------------
+
+This copy of PyPy may be linked (dynamically or statically) with the
+liblzma library, which was put in the "public domain":
+
+    http://tukaani.org/xz/
+
+The cffi bindings to liblzma (in lib_pypy/_lzma.py) are derived from
+the lzmaffi project which is distributed under a BSD license:
+
+    https://pypi.python.org/pypi/lzmaffi/0.3.0

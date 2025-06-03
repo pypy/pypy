@@ -317,3 +317,36 @@ def test_roundtrip_state():
     assert sio2.foo == 42
     assert sio2.tell() == 2
 
+def rwbuffer(u, **kwargs):
+    sio = StringIO(u, **kwargs)
+    sio.seek(0)
+    sio.write(u)
+    sio.seek(0)
+    return sio
+
+def test_rwbuffer_read():
+    s = u'12345678'
+    sio = StringIO(s)
+    sio.seek(0)
+    sio.write(u'aaa')
+    sio.seek(0)
+    assert sio.read() == u'aaa45678'
+
+def test_rwbuffer_readline():
+    sio = rwbuffer(u'123\n456')
+    assert sio.readline(0) == ''
+    assert sio.readline(2) == '12'
+    assert sio.readline(None) == '3\n'
+    assert sio.readline() == '456'
+
+def test_rwbuffer_readline():
+    sio = rwbuffer(u'123\n456')
+    assert sio.readline(0) == ''
+    assert sio.readline(2) == '12'
+    assert sio.readline(None) == '3\n'
+    assert sio.readline() == '456'
+
+def test_rwbuffer_newline_none():
+    sio = rwbuffer(u"a\nb\r\nc\rd", newline=None)
+    res = list(sio)
+    assert res == [u"a\n", u"b\n", u"c\n", u"d"]

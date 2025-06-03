@@ -868,6 +868,9 @@ class AppTestPartialEvaluation:
         import sys
         if sys.platform != 'win32':
             return
+        # sanity test
+        from _codecs import mbcs_encode, mbcs_decode
+
         toencode = u'caf\xe9', 'caf\xe9'
         try:
             # test for non-latin1 codepage, more general test needed

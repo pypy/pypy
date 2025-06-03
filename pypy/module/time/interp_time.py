@@ -115,7 +115,6 @@ class CConfig:
     )
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
-    has_gettimeofday = platform.Has('gettimeofday')
 
 if _POSIX:
     calling_conv = 'c'
@@ -170,8 +169,6 @@ clock_t = cConfig.clock_t
 tm = cConfig.tm
 glob_buf = lltype.malloc(tm, flavor='raw', zero=True, immortal=True)
 
-if cConfig.has_gettimeofday:
-    c_gettimeofday = external('gettimeofday', [rffi.VOIDP, rffi.VOIDP], rffi.INT)
 TM_P = lltype.Ptr(tm)
 c_time = external('time', [rffi.TIME_TP], rffi.TIME_T)
 c_ctime = external('ctime', [rffi.TIME_TP], rffi.CCHARP)

@@ -2,8 +2,7 @@ from rpython.jit.metainterp import jitprof, resume, compile
 from rpython.jit.metainterp.executor import execute_nonspec_const
 from rpython.jit.metainterp.history import (
     Const, ConstInt, CONST_NULL, new_ref_dict)
-from rpython.jit.metainterp.optimizeopt.intutils import (
-    IntBound, ConstIntBound, MININT, MAXINT, IntUnbounded)
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.bridgeopt import (
@@ -14,6 +13,7 @@ from .info import getrawptrinfo, getptrinfo
 from rpython.jit.metainterp.optimizeopt import info
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.debug import have_debug_prints_for
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import llmemory
 from rpython.jit.metainterp.optimize import SpeculativeError
@@ -100,15 +100,15 @@ class Optimization(object):
         assert op.type == 'i'
         op = get_box_replacement(op)
         if isinstance(op, ConstInt):
-            return ConstIntBound(op.getint())
+            return IntBound.from_constant(op.getint())
         fw = op.get_forwarded()
         if fw is not None:
             if isinstance(fw, IntBound):
                 return fw
             # rare case: fw might be a RawBufferPtrInfo
-            return IntUnbounded()
+            return IntBound.unbounded()
         assert op.type == 'i'
-        intbound = IntBound(MININT, MAXINT)
+        intbound = IntBound.unbounded()
         op.set_forwarded(intbound)
         return intbound
 
@@ -189,6 +189,14 @@ class Optimization(object):
         if self.optimizer.optpure:
             self.optimizer.optpure.pure_from_args(opnum, args, op, descr)
 
+    def pure_from_args2(self, opnum, arg0, arg1, op):
+        if self.optimizer.optpure:
+            self.optimizer.optpure.pure_from_args2(opnum, arg0, arg1, op)
+
+    def pure_from_args1(self, opnum, arg0, op):
+        if self.optimizer.optpure:
+            self.optimizer.optpure.pure_from_args1(opnum, arg0, op)
+
     def get_pure_result(self, key):
         if self.optimizer.optpure:
             return self.optimizer.optpure.get_pure_result(key)
@@ -247,6 +255,13 @@ class Optimizer(Optimization):
 
         self.set_optimizations(optimizations)
         self.setup()
+        if have_debug_prints_for("jit-log-intbounds"):
+            from rpython.jit.metainterp.optimizeopt.intbounds import IntegerAnalysisLogger
+
+            self.log_operations_intbounds = IntegerAnalysisLogger(self)
+        else:
+            self.log_operations_intbounds = None
+
 
     def set_optimizations(self, optimizations):
         if optimizations:
@@ -348,11 +363,14 @@ class Optimizer(Optimization):
             return info.force_box(op, optforce)
         return op
 
-    def as_operation(self, op):
+    def as_operation(self, op, required_opnum=-1):
         # You should never check "isinstance(op, AbstractResOp" directly.
         # Instead, use this helper.
-        if isinstance(op, AbstractResOp) and op in self._emittedoperations:
-            return op
+        if isinstance(op, AbstractResOp):
+            if required_opnum != -1 and op.opnum != required_opnum:
+                return None # fast return if the opnum is wrong
+            if op in self._emittedoperations:
+                return op
         return None
 
     def get_constant_box(self, box):
@@ -395,11 +413,17 @@ class Optimizer(Optimization):
         # safety-check: if the constant is outside the bounds for the
         # box, then it is an invalid loop
         if (box.get_forwarded() is not None and
-            isinstance(constbox, ConstInt) and
-            not isinstance(box.get_forwarded(), info.AbstractRawPtrInfo)):
-            if not box.get_forwarded().contains(constbox.getint()):
-                raise InvalidLoop("a box is turned into constant that is "
-                                  "outside the range allowed for that box")
+                isinstance(constbox, ConstInt)):
+            info = box.get_forwarded()
+            if isinstance(info, IntBound):
+                if not info.contains(constbox.getint()):
+                    raise InvalidLoop("a box is turned into constant that is "
+                                      "outside the range allowed for that box")
+                else:
+                    value = constbox.getint()
+                    if isinstance(value, int):
+                        # make the range constant, it could be shared with e.g. an arrayinfo's length
+                        info.make_eq_const(value)
         if box.is_constant():
             return
         if box.type == 'r' and box.get_forwarded() is not None:
@@ -491,8 +515,18 @@ class Optimizer(Optimization):
             return CONST_0
 
     def propagate_all_forward(self, trace, call_pure_results=None, flush=True):
+        from rpython.rlib.debug import debug_start, debug_stop
+        debug_start("jit-log-intbounds")
+        try:
+            return self._propagate_all_forward(trace, call_pure_results, flush)
+        finally:
+            debug_stop("jit-log-intbounds")
+
+    def _propagate_all_forward(self, trace, call_pure_results, flush):
         self.trace = trace
-        deadranges = trace.get_dead_ranges()
+        if self.log_operations_intbounds:
+            self.log_operations_intbounds.log_inputargs(trace.inputargs)
+        #deadranges = trace.get_dead_ranges()
         self.call_pure_results = call_pure_results
         last_op = None
         i = 0
@@ -503,9 +537,18 @@ class Optimizer(Optimization):
                 last_op = op
                 break
             self.send_extra_operation(op)
-            trace.kill_cache_at(deadranges[i + trace.start_index])
+            #trace.kill_cache_at(deadranges[i + trace.start_index])
             if op.type != 'v':
                 i += 1
+                newop = self.get_box_replacement(op)
+                if newop is not op:
+                    trace.replace_last_cached(op, newop)
+            if self.log_operations_intbounds and self._really_emitted_operation is op:
+                # logging the result cannot be done in _emit_operation, because
+                # at that point the postprocess functions have not been called,
+                # so the bounds aren't known yet
+                self.log_operations_intbounds.log_result(op)
+
         # accumulate counters
         if flush:
             self.flush()
@@ -602,6 +645,9 @@ class Optimizer(Optimization):
         self._really_emitted_operation = op
         self._newoperations.append(op)
         self._emittedoperations[op] = None
+        if self.log_operations_intbounds:
+            self.log_operations_intbounds.log_op(op)
+
 
     def emit_guard_operation(self, op, pendingfields):
         guard_op = op # self.replace_op_with(op, op.getopnum())

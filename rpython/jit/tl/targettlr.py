@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 py.path.local(__file__)
 from rpython.jit.tl.tlr import interpret
@@ -12,13 +14,13 @@ def entry_point(args):
     # viewcode.py to know the executable whose symbols it should display)
     highleveljitinfo.sys_executable = args[0]
     if len(args) < 3:
-        print "Usage: %s filename x" % (args[0],)
+        print("Usage: %s filename x" % (args[0],))
         return 2
     filename = args[1]
     x = int(args[2])
     bytecode = load_bytecode(filename)
     res = interpret(bytecode, x)
-    print res
+    print(res)
     return 0
 
 def load_bytecode(filename):

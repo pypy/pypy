@@ -43,7 +43,7 @@ def get_deps(binary):
         line = line.strip()
         needed, path = line.split(' => ')
         if path == 'not found':
-            print('Broken dependency in ' + binary)
+            raise ValueError('Broken dependency in ' + binary)
         path = path.split(' ')[0]
         if not path:
             continue

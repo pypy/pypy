@@ -85,15 +85,32 @@ pypysig_poll = external('pypysig_poll', [], rffi.INT, releasegil=False)
 pypysig_pushback = external('pypysig_pushback', [rffi.INT], lltype.Void,
                             releasegil=False)
 
-# don't use rffi.LONGP because the JIT doesn't support raw arrays so far
+# workaround: on CPython2, calling pypysig_getaddr_occurred_fullstruct is
+# extremely slow, due to some weird (ll2)ctypes reason. this made untranslated tests
+# of the signal module time out really badly. therefore we expose the
+# pypysig_getaddr_occurred C function *twice*, with different types. One
+# returns just the one field that we need most of the time (including after
+# every bytecode), and one also returns the other fields that we only need when
+# we poll for signals.
+struct_name = 'pypysig_long_struct_inner'
+STRUCT_ONEFIELD = lltype.Struct('pypysig_long_struct_inner', ('c_value', lltype.Signed),
+                                hints={'c_name': struct_name, 'external' : 'C'})
+
+pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
+                                    lltype.Ptr(STRUCT_ONEFIELD), _nowrapper=True,
+                                    elidable_function=True)
+
 struct_name = 'pypysig_long_struct'
 LONG_STRUCT = lltype.Struct(struct_name, ('c_value', lltype.Signed),
+                                         ('c_cookie', rffi.CFixedArray(lltype.Char, 8)),
+                                         ('c_debugger_pending_call', lltype.Signed),
+                                         ('c_debugger_script_path', lltype.Array(lltype.Char, hints={'nolength': True})),
                             hints={'c_name' : struct_name, 'external' : 'C'})
 del struct_name
 
-pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
-                                    lltype.Ptr(LONG_STRUCT), _nowrapper=True,
-                                    elidable_function=True)
+pypysig_getaddr_occurred_fullstruct = external('pypysig_getaddr_occurred', [],
+                                              lltype.Ptr(LONG_STRUCT), _nowrapper=True,
+                                              elidable_function=True)
 pypysig_check_and_reset = external('pypysig_check_and_reset', [],
                                    lltype.Bool, _nowrapper=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
@@ -140,7 +157,7 @@ if sys.platform != 'win32':
     c_sigfillset = external('sigfillset', [c_sigset_t], rffi.INT)
     c_sigaddset = external('sigaddset', [c_sigset_t, rffi.INT], rffi.INT)
     c_sigismember = external('sigismember', [c_sigset_t, rffi.INT], rffi.INT)
-    c_sigwait = external('sigwait', [c_sigset_t, rffi.INTP], rffi.INT,
+    c_sigwait = external('sigwait', [c_sigset_t, rffi.INT_realP], rffi.INT_real,
                          releasegil=True,
                          save_err=rffi.RFFI_SAVE_ERRNO)
     c_sigpending = external('sigpending', [c_sigset_t], rffi.INT,

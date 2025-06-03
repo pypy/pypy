@@ -7,6 +7,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
     WrappedDefault, interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import TypeDef
+from pypy.objspace.std.objectobject import ObjectObjectDocstrings
 from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
     normalize_simple_slice)
 from pypy.objspace.std.util import negate, IDTAG_SPECIAL, IDTAG_SHIFT
@@ -202,12 +203,23 @@ class W_AbstractTupleObject(W_Root):
         items = self.tolist()
         length = len(items)
         start, stop, step, slicelength = w_index.indices4(space, length)
+        if slicelength == 0:
+            subitems = []
+        elif step == 1:
+            assert 0 <= start <= stop
+            subitems = items[start:stop]
+        else:
+            subitems = self._getslice_advanced(items, start, step, slicelength)
+        return space.newtuple(subitems)
+
+    @staticmethod
+    def _getslice_advanced(items, start, step, slicelength):
         assert slicelength >= 0
         subitems = [None] * slicelength
         for i in range(slicelength):
             subitems[i] = items[start]
             start += step
-        return space.newtuple(subitems)
+        return subitems
 
     def descr_getslice(self, space, w_start, w_stop):
         length = self.length()
@@ -243,6 +255,61 @@ class W_AbstractTupleObject(W_Root):
     def _unroll_condition(self):
         raise NotImplementedError("abstract base class")
 
+class TupleDocstrings:
+
+    def __eq__():
+        """x.__eq__(y) <==> x==y'"""
+
+    def __ne__():
+        """x.__ne__(y) <==> x!=y"""
+
+    def __lt__():
+        """x.__lt__(y) <==> x<y"""
+
+    def __le__():
+        """x.__le__(y) <==> x<=y"""
+
+    def __gt__():
+        """x.__gt__(y) <==> x>y"""
+
+    def __ge__():
+        """x.__ge__(y) <==> x>=y"""
+
+    def __len__():
+        """x.__len__() <==> len(x)"""
+
+    def __iter__():
+        """x.__iter__() <==> iter(x)"""
+
+    def __contains__():
+        """x.__contains__(y) <==> y in x"""
+
+    def __add__():
+        """x.__add__(y) <==> x+y"""
+
+    def __mul__():
+        """x.__mul__(n) <==> x*n"""
+
+    def __rmul__():
+        """x.__rmul__(n) <==> n*x"""
+
+    def __getitem__():
+        """x.__getitem__(y) <==> x[y]"""
+
+    def __getslice__():
+        """x.__getslice__(i, j) <==> x[i:j]
+
+        Use of negative indices is not supported."""
+
+    def __getnewargs__():
+        """""" # empty
+
+    def count():
+        """T.count(value) -> integer -- return number of occurrences of value"""
+
+    def index():
+        """"T.index(value, [start, [stop]]) -> integer -- return first index of value.
+        Raises ValueError if the value is not present."""
 
 W_AbstractTupleObject.typedef = TypeDef(
     "tuple",
@@ -250,31 +317,48 @@ W_AbstractTupleObject.typedef = TypeDef(
 tuple(sequence) -> tuple initialized from sequence's items
 
 If the argument is a tuple, the return value is the same object.""",
-    __new__ = interp2app(W_AbstractTupleObject.descr_new),
-    __repr__ = interp2app(W_AbstractTupleObject.descr_repr),
+    __new__ = interp2app(W_AbstractTupleObject.descr_new,
+                         doc=ObjectObjectDocstrings.__new__.__doc__),
+    __repr__ = interp2app(W_AbstractTupleObject.descr_repr,
+                          doc=ObjectObjectDocstrings.__repr__.__doc__),
     __hash__ = interpindirect2app(W_AbstractTupleObject.descr_hash),
 
     __eq__ = interpindirect2app(W_AbstractTupleObject.descr_eq),
     __ne__ = interpindirect2app(W_AbstractTupleObject.descr_ne),
-    __lt__ = interp2app(W_AbstractTupleObject.descr_lt),
-    __le__ = interp2app(W_AbstractTupleObject.descr_le),
-    __gt__ = interp2app(W_AbstractTupleObject.descr_gt),
-    __ge__ = interp2app(W_AbstractTupleObject.descr_ge),
+    __lt__ = interp2app(W_AbstractTupleObject.descr_lt,
+                        doc=TupleDocstrings.__lt__.__doc__),
+    __le__ = interp2app(W_AbstractTupleObject.descr_le,
+                        doc=TupleDocstrings.__le__.__doc__),
+    __gt__ = interp2app(W_AbstractTupleObject.descr_gt,
+                        doc=TupleDocstrings.__gt__.__doc__),
+    __ge__ = interp2app(W_AbstractTupleObject.descr_ge,
+                        doc=TupleDocstrings.__ge__.__doc__),
 
-    __len__ = interp2app(W_AbstractTupleObject.descr_len),
-    __iter__ = interp2app(W_AbstractTupleObject.descr_iter),
-    __contains__ = interp2app(W_AbstractTupleObject.descr_contains),
+    __len__ = interp2app(W_AbstractTupleObject.descr_len,
+                         doc=TupleDocstrings.__len__.__doc__),
+    __iter__ = interp2app(W_AbstractTupleObject.descr_iter,
+                          doc=TupleDocstrings.__iter__.__doc__),
+    __contains__ = interp2app(W_AbstractTupleObject.descr_contains,
+                              doc=TupleDocstrings.__contains__.__doc__),
 
-    __add__ = interp2app(W_AbstractTupleObject.descr_add),
-    __mul__ = interp2app(W_AbstractTupleObject.descr_mul),
-    __rmul__ = interp2app(W_AbstractTupleObject.descr_mul),
+    __add__ = interp2app(W_AbstractTupleObject.descr_add,
+                         doc=TupleDocstrings.__add__.__doc__),
+    __mul__ = interp2app(W_AbstractTupleObject.descr_mul,
+                         doc=TupleDocstrings.__mul__.__doc__),
+    __rmul__ = interp2app(W_AbstractTupleObject.descr_mul,
+                          doc=TupleDocstrings.__rmul__.__doc__),
 
-    __getitem__ = interp2app(W_AbstractTupleObject.descr_getitem),
-    __getslice__ = interp2app(W_AbstractTupleObject.descr_getslice),
+    __getitem__ = interp2app(W_AbstractTupleObject.descr_getitem,
+                             doc=TupleDocstrings.__getitem__.__doc__),
+    __getslice__ = interp2app(W_AbstractTupleObject.descr_getslice,
+                              doc=TupleDocstrings.__getslice__.__doc__),
 
-    __getnewargs__ = interp2app(W_AbstractTupleObject.descr_getnewargs),
-    count = interp2app(W_AbstractTupleObject.descr_count),
-    index = interp2app(W_AbstractTupleObject.descr_index)
+    __getnewargs__ = interp2app(W_AbstractTupleObject.descr_getnewargs,
+                                doc=TupleDocstrings.__getnewargs__.__doc__),
+    count = interp2app(W_AbstractTupleObject.descr_count,
+                       doc=TupleDocstrings.count.__doc__),
+    index = interp2app(W_AbstractTupleObject.descr_index,
+                       doc=TupleDocstrings.index.__doc__)
 )
 W_AbstractTupleObject.typedef.flag_sequence_bug_compat = True
 
@@ -384,3 +468,4 @@ def wraptuple2(space, w_a, w_b):
         except NotSpecialised:
             pass
     return W_TupleObject([w_a, w_b])
+

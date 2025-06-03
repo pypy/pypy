@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.jit.backend.arm import conditions as cond
 from rpython.jit.backend.arm import instructions
 
@@ -412,7 +414,7 @@ def define_instructions(target):
         try:
             func = globals()['define_%s_func' % name]
         except KeyError:
-            print 'No instr generator for %s instructions' % name
+            print('No instr generator for %s instructions' % name)
             continue
         for key, value in getattr(instructions, name).iteritems():
             define_instruction(func, key, value, target)

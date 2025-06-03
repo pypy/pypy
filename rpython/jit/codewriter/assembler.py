@@ -31,12 +31,14 @@ class Assembler(object):
         self.all_liveness_positions = {}
         self.num_liveness_ops = 0
 
-    def assemble(self, ssarepr, jitcode=None):
+    def assemble(self, ssarepr, jitcode=None, num_regs=None):
         """Take the 'ssarepr' representation of the code and assemble
         it inside the 'jitcode'.  If jitcode is None, make a new one.
         """
         from rpython.jit.codewriter.genextension import GenExtension
         self.setup(ssarepr.name)
+        if num_regs is not None:
+            self.count_regs.update(num_regs)
         ssarepr._insns_pos = []
         for insn in ssarepr.insns:
             ssarepr._insns_pos.append(len(self.code))
@@ -71,9 +73,12 @@ class Assembler(object):
         self.ssareprname = name
 
     def emit_reg(self, reg):
+        assert reg.index < self.count_regs[reg.kind]
+        self.code.append(chr(reg.index))
+
+    def count_reg(self, reg):
         if reg.index >= self.count_regs[reg.kind]:
             self.count_regs[reg.kind] = reg.index + 1
-        self.code.append(chr(reg.index))
 
     def emit_const(self, const, kind, allow_short=False):
         value = const.value
@@ -127,8 +132,8 @@ class Assembler(object):
             val = self.constants_dict[key]
         except KeyError:
             constants.append(value)
-            val = 256 - len(constants)
-            assert val >= 0, "too many constants"
+            val = self.count_regs[kind] + len(constants) - 1
+            assert 0 <= val < 256, "too many constants"
             self.constants_dict[key] = val
         # emit the constant normally, as one byte that is an index in the
         # list of constants

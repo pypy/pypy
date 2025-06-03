@@ -475,7 +475,17 @@ class SmallFunctionSetPBCRepr(FunctionReprBase):
             links.append(Link(inputargs[1:], b, chr(i)))
             links[-1].llexitcase = chr(i)
         startblock.closeblock(*links)
+        graph.name = self._invent_dispatcher_name(row_of_graphs)
         return graph
+
+    def _invent_dispatcher_name(self, row):
+        import os
+        names = [value.name.rsplit(".", 1)[-1] for value in row.itervalues()]
+        commonprefix = os.path.commonprefix(names) # bit silly, but works well
+
+        if not commonprefix:
+            commonprefix = sorted(names)[0] + "_etc" # just pick one
+        return "dispatcher_" + commonprefix
 
     def call(self, hop):
         bk = self.rtyper.annotator.bookkeeper

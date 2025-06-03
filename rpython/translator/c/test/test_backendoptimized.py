@@ -1,3 +1,4 @@
+import gc
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong
 from rpython.translator.c.test.test_typed import TestTypedTestCase as _TestTypedTestCase
 from rpython.translator.c.test.test_genc import compile
@@ -35,6 +36,8 @@ class TestTypedOptimizedTestCase(_TestTypedTestCase):
             a = A()
             for i in range(x):
                 a = A()
+            gc.collect()
+            gc.collect()
             gc.collect()
             return b.num_deleted
 

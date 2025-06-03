@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.annotator import model as annmodel, description
 from rpython.flowspace.argument import Signature
 from rpython.flowspace.model import (Variable, Constant, Block, Link,
@@ -359,14 +361,14 @@ class TotalOrderSymbolic(ComputedIntSymbolic):
                 mapping[classdef._unique_cdef_id] = classdef
         for peer in self.peers:
             if peer is self:
-                print '==>',
+                print('==>', end=" ")
             else:
-                print '   ',
-            print 'value %4s --' % (peer.value,), peer.orderwitness,
+                print('   ', end=" ")
+            print('value %4s --' % (peer.value,), peer.orderwitness, end=" ")
             if peer.orderwitness[-1] in mapping:
-                print mapping[peer.orderwitness[-1]]
+                print(mapping[peer.orderwitness[-1]])
             else:
-                print
+                print()
 
 def assign_inheritance_ids(annotator):
     # we sort the classes by lexicographic order of reversed(mro),

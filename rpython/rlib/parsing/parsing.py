@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 from rpython.rlib.parsing.lexer import SourcePos
 from rpython.rlib.parsing.tree import Node, Symbol, Nonterminal
@@ -147,7 +149,7 @@ class LazyParseTable(object):
             except IndexError:
                 error = ErrorInformation(i)
         return None, 0, error
-    
+
     def terminal_equality(self, symbol, input):
         return symbol == input.name
 
@@ -204,7 +206,7 @@ class PackratParser(object):
                         break
         for nonterminal, follow in follows.iteritems():
             if nonterminal in follow:
-                print "nonterminal %s is in its own follow %s" % (nonterminal, follow)
+                print("nonterminal %s is in its own follow %s" % (nonterminal, follow))
                 return True
         return False
 
@@ -345,4 +347,3 @@ class ParserCompiler(object):
             raise ParseError(None, self.input[result[1]])
         return result[0]""" % (vars()))
         self.allcode.extend(code)
-

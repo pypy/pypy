@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import itertools
 
 import py
@@ -135,10 +137,10 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
     # get the standard 80 columns width
     totwidth = py.io.get_terminal_width()
     width = totwidth / 2 - 1
-    print ' Comparing lists '.center(totwidth, '-')
+    print(' Comparing lists '.center(totwidth, '-'))
     text_right = text_right or 'expected'
     memo = {}
-    print '%s| %s' % ('optimized'.center(width), text_right.center(width))
+    print('%s| %s' % ('optimized'.center(width), text_right.center(width)))
     for op1, op2 in itertools.izip_longest(oplist1, oplist2, fillvalue=''):
         if op1:
             txt1 = op1.repr(memo)
@@ -155,10 +157,10 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
                 sep = '| '
             else:
                 sep = '<>'
-            print '%s%s%s' % (part1.ljust(width), sep, part2)
+            print('%s%s%s' % (part1.ljust(width), sep, part2))
             txt1 = txt1[width:]
             txt2 = txt2[width:]
-    print '-' * totwidth
+    print('-' * totwidth)
 
     for i_count, (op1, op2) in enumerate(zip(oplist1, oplist2)):
         assert op1.getopnum() == op2.getopnum()

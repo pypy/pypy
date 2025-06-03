@@ -340,6 +340,7 @@ class Parser(object):
         # called <cdef source string> from line 1
         csourcelines.append('# 1 "%s"' % (CDEF_SOURCE_STRING,))
         csourcelines.append(csource)
+        csourcelines.append('')
         fullcsource = '\n'.join(csourcelines)
         try:
             ast = _get_parser().parse(fullcsource)
@@ -418,8 +419,16 @@ class Parser(object):
                     self._parse_decl(decl)
                 elif isinstance(decl, pycparser.c_ast.Typedef):
                     self._parse_typedef(decl)
+                elif (decl.__class__.__name__ == 'Pragma' and
+                      'string' in decl.attr_names and
+                      'pack' in decl.string and
+                      not self._options["packed"]
+                    ):
+                    # TODO: check that the pragma matches the kwarg
+                    raise CDefError("'#pragma pack' needs to be paired with "
+                        "the 'packed' keyword argument.")
                 elif decl.__class__.__name__ == 'Pragma':
-                    pass    # skip pragma, only in pycparser 2.15
+                    pass
                 else:
                     raise CDefError("unexpected <%s>: this construct is valid "
                                     "C but not valid in cdef()" %

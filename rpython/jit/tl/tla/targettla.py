@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 py.path.local(__file__)
 from rpython.jit.tl.tla import tla
@@ -8,7 +10,7 @@ def entry_point(args):
     for i in range(len(args)):
         if args[i] == "--jit":
             if len(args) == i + 1:
-                print "missing argument after --jit"
+                print("missing argument after --jit")
                 return 2
             jitarg = args[i + 1]
             del args[i:i+2]
@@ -16,14 +18,14 @@ def entry_point(args):
             break
 
     if len(args) < 3:
-        print "Usage: %s filename x" % (args[0],)
+        print("Usage: %s filename x" % (args[0],))
         return 2
     filename = args[1]
     x = int(args[2])
     w_x = tla.W_IntObject(x)
     bytecode = load_bytecode(filename)
     w_res = tla.run(bytecode, w_x)
-    print w_res.getrepr()
+    print(w_res.getrepr())
     return 0
 
 def load_bytecode(filename):

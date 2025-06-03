@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import sys
 import struct
@@ -41,6 +43,6 @@ def detect_vsx():
     return False
 
 if __name__ == '__main__':
-    print 'The following extensions are supported:'
+    print('The following extensions are supported:')
     if detect_vsx():
-        print '  - AltiVec'
+        print('  - AltiVec')

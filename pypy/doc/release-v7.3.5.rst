@@ -1,13 +1,13 @@
-===================================
-PyPy v7.3.5: release of 2.7 and 3.7
-===================================
+========================================================
+PyPy v7.3.5: release of 2.7 and 3.7, released 2021-05-23
+========================================================
 
 We are releasing a PyPy 7.3.5 with bugfixes for PyPy 7.3.4, released April 4.
 PyPy 7.3.4 was the first release that runs on windows 64-bit, so that support
 is still "beta". We are releasing it in the hopes that we can garner momentum
 for its continued support, but are already aware of some problems, for instance
 it errors in the NumPy test suite (issue 3462_). Please help out with testing
-the releae and reporting successes and failures, financially supporting our
+the release and reporting successes and failures, financially supporting our
 ongoing work, and helping us find the source of these problems.
 
 - The new windows 64-bit builds improperly named c-extension modules

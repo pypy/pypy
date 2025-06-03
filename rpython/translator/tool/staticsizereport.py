@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import print_function, division
 import cPickle as pickle
 
 from rpython.tool.ansicolor import red, yellow, green
@@ -81,7 +81,7 @@ def guess_size_obj(obj):
                 if TYPE._hints.get("nolength", False) and hasattr(obj, "items"):
                     length = len(obj.items)
                 else:
-                    print "couldn't find size of", ptr
+                    print("couldn't find size of", ptr)
                     return 0
     else:
         length = None
@@ -190,7 +190,7 @@ def aggregate_values_by_module_and_type(database, count_modules_separately=False
         reachables.update(seen)
         reports.append(ModuleReport(modulename, size, typereports))
 
-    
+
     allnodes = set([node for node in database.globalcontainers() if node.nodekind != "func"])
     unreachables = allnodes-reachables
     if count_modules_separately:
@@ -252,18 +252,18 @@ def print_report(filename,
         size = format_size(report.totalsize, human_readable)
         globalsize += report.totalsize
         if summary:
-            print "%d\t%s" % (size, report.modulename)
+            print("%d\t%s" % (size, report.modulename))
         else:
-            print '%s: %s' % (red(report.modulename), yellow(size))
-            print green(format_line('Typename', 'Size', 'Num'))
+            print('%s: %s' % (red(report.modulename), yellow(size)))
+            print(green(format_line('Typename', 'Size', 'Num')))
             for typereport in report.typereports:
-                print format_typereport(typereport, human_readable)
-            print
-    print
-    print 'Total size:', format_size(globalsize, human_readable)
+                print(format_typereport(typereport, human_readable))
+            print()
+    print()
+    print('Total size:', format_size(globalsize, human_readable))
 
     if show_unknown_graphs:
-        print
-        print green('Unknown graphs:')
+        print()
+        print(green('Unknown graphs:'))
         for graphname in info.unknown_graphs:
-            print graphname
+            print(graphname)

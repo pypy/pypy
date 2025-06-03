@@ -1,11 +1,19 @@
 # Copied from <cffi>/c/test_c.py
 # Make sure the files are identical starting from the # ________ line below
 
+import contextlib
+import traceback
+
+@contextlib.contextmanager
+def _assert_unraisable(error_type, message='', traceback_tokens=None):
+    """Assert that a given sys.unraisablehook interaction occurred (or did not
+    occur, if error_type is None) while this context was active"""
+    raise RuntimeError("python3 only")
 
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.15.1", ("This test_c.py file is for testing a version"
+assert __version__ == "1.18.0.dev0", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -54,6 +62,8 @@ def find_and_load_library(name, flags=RTLD_NOW):
         path = None
     else:
         path = ctypes.util.find_library(name)
+        if path is None and sys.platform == 'darwin' and sys.version_info[:2] == (3, 8):
+            pytest.xfail("find_library usually broken on MacOS Python 3.8")
         if path is None and name == 'c':
             assert sys.platform == 'win32'
             assert (sys.version_info >= (3,) or
@@ -187,7 +197,7 @@ def test_float_types():
 def test_complex_types():
     INF = 1E200 * 1E200
     for name in ["float", "double"]:
-        p = new_primitive_type(name + " _Complex")
+        p = new_primitive_type("_cffi_" + name + "_complex_t")
         assert bool(cast(p, 0)) is False
         assert bool(cast(p, INF))
         assert bool(cast(p, -INF))
@@ -1186,7 +1196,7 @@ def test_call_function_9():
 
 def test_call_function_24():
     BFloat = new_primitive_type("float")
-    BFloatComplex = new_primitive_type("float _Complex")
+    BFloatComplex = new_primitive_type("_cffi_float_complex_t")
     BFunc3 = new_function_type((BFloat, BFloat), BFloatComplex, False)
     if 0:   # libffi returning nonsense silently, so logic disabled for now
         f = cast(BFunc3, _testfunc(24))
@@ -1200,7 +1210,7 @@ def test_call_function_24():
 
 def test_call_function_25():
     BDouble = new_primitive_type("double")
-    BDoubleComplex = new_primitive_type("double _Complex")
+    BDoubleComplex = new_primitive_type("_cffi_double_complex_t")
     BFunc3 = new_function_type((BDouble, BDouble), BDoubleComplex, False)
     if 0:   # libffi returning nonsense silently, so logic disabled for now
         f = cast(BFunc3, _testfunc(25))
@@ -1299,6 +1309,7 @@ def test_write_variable():
     ll.close_lib()
     pytest.raises(ValueError, ll.write_variable, BVoidP, "stderr", stderr)
 
+
 def test_callback():
     BInt = new_primitive_type("int")
     def make_callback():
@@ -1314,27 +1325,8 @@ def test_callback():
     e = pytest.raises(TypeError, f)
     assert str(e.value) == "'int(*)(int)' expects 1 arguments, got 0"
 
+
 def test_callback_exception():
-    try:
-        import cStringIO
-    except ImportError:
-        import io as cStringIO    # Python 3
-    import linecache
-    def matches(istr, ipattern, ipattern38, ipattern311=None):
-        if sys.version_info >= (3, 8):
-            ipattern = ipattern38
-        if sys.version_info >= (3, 11):
-            ipattern = ipattern311 or ipattern38
-        str, pattern = istr, ipattern
-        while '$' in pattern:
-            i = pattern.index('$')
-            assert str[:i] == pattern[:i]
-            j = str.find(pattern[i+1], i)
-            assert i + 1 <= j <= str.find('\n', i)
-            str = str[j:]
-            pattern = pattern[i+1:]
-        assert str == pattern
-        return True
     def check_value(x):
         if x == 10000:
             raise ValueError(42)
@@ -1343,148 +1335,52 @@ def test_callback_exception():
         return x * 3
     BShort = new_primitive_type("short")
     BFunc = new_function_type((BShort,), BShort, False)
+
     f = callback(BFunc, Zcb1, -42)
-    #
     seen = []
     oops_result = None
     def oops(*args):
         seen.append(args)
         return oops_result
     ff = callback(BFunc, Zcb1, -42, oops)
-    #
-    orig_stderr = sys.stderr
-    orig_getline = linecache.getline
-    try:
-        linecache.getline = lambda *args: 'LINE'    # hack: speed up PyPy tests
-        sys.stderr = cStringIO.StringIO()
-        if hasattr(sys, '__unraisablehook__'):          # work around pytest
-            sys.unraisablehook = sys.__unraisablehook__ # on recent CPythons
+    with _assert_unraisable(None):
         assert f(100) == 300
-        assert sys.stderr.getvalue() == ''
+    with _assert_unraisable(ValueError, '42', ['in Zcb1', 'in check_value']):
         assert f(10000) == -42
-        assert matches(sys.stderr.getvalue(), """\
-From cffi callback <function$Zcb1 at 0x$>:
-Traceback (most recent call last):
-  File "$", line $, in Zcb1
-    $
-  File "$", line $, in check_value
-    $
-ValueError: 42
-""", """\
-Exception ignored from cffi callback <function$Zcb1 at 0x$>:
-Traceback (most recent call last):
-  File "$", line $, in Zcb1
-    $
-  File "$", line $, in check_value
-    $
-ValueError: 42
-""")
-        sys.stderr = cStringIO.StringIO()
-        bigvalue = 20000
+
+    bigvalue = 20000
+    with _assert_unraisable(OverflowError, "integer 60000 does not fit 'short'", ['callback', 'Zcb1']):
         assert f(bigvalue) == -42
-        assert matches(sys.stderr.getvalue(), """\
-From cffi callback <function$Zcb1 at 0x$>:
-Trying to convert the result back to C:
-OverflowError: integer 60000 does not fit 'short'
-""", """\
-Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
-Traceback (most recent call last):
-  File "$", line $, in test_callback_exception
-    $
-OverflowError: integer 60000 does not fit 'short'
-""")
-        sys.stderr = cStringIO.StringIO()
-        bigvalue = 20000
-        assert len(seen) == 0
+    assert len(seen) == 0
+
+    with _assert_unraisable(None):
         assert ff(bigvalue) == -42
-        assert sys.stderr.getvalue() == ""
-        assert len(seen) == 1
-        exc, val, tb = seen[0]
-        assert exc is OverflowError
-        assert str(val) == "integer 60000 does not fit 'short'"
-        #
-        sys.stderr = cStringIO.StringIO()
-        bigvalue = 20000
-        del seen[:]
-        oops_result = 81
+    assert len(seen) == 1
+    exc, val, tb = seen[0]
+    assert exc is OverflowError
+    assert str(val) == "integer 60000 does not fit 'short'"
+
+    del seen[:]
+    oops_result = 81
+    with _assert_unraisable(None):
         assert ff(bigvalue) == 81
-        oops_result = None
-        assert sys.stderr.getvalue() == ""
-        assert len(seen) == 1
-        exc, val, tb = seen[0]
-        assert exc is OverflowError
-        assert str(val) == "integer 60000 does not fit 'short'"
-        #
-        sys.stderr = cStringIO.StringIO()
-        bigvalue = 20000
-        del seen[:]
-        oops_result = "xy"     # not None and not an int!
+
+    assert len(seen) == 1
+    exc, val, tb = seen[0]
+    assert exc is OverflowError
+    assert str(val) == "integer 60000 does not fit 'short'"
+
+    del seen[:]
+    oops_result = "xy"     # not None and not an int!
+
+    with _assert_unraisable(TypeError, "an integer is required", ["integer 60000 does not fit 'short'"]):
         assert ff(bigvalue) == -42
-        oops_result = None
-        assert matches(sys.stderr.getvalue(), """\
-From cffi callback <function$Zcb1 at 0x$>:
-Trying to convert the result back to C:
-OverflowError: integer 60000 does not fit 'short'
 
-During the call to 'onerror', another exception occurred:
-
-TypeError: $integer$
-""", """\
-Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
-Traceback (most recent call last):
-  File "$", line $, in test_callback_exception
-    $
-OverflowError: integer 60000 does not fit 'short'
-Exception ignored during handling of the above exception by 'onerror':
-Traceback (most recent call last):
-  File "$", line $, in test_callback_exception
-    $
-TypeError: $integer$
-""")
-        #
-        sys.stderr = cStringIO.StringIO()
-        seen = "not a list"    # this makes the oops() function crash
+    seen = "not a list"    # this makes the oops() function crash
+    oops_result = None
+    with _assert_unraisable(AttributeError, "'str' object has no attribute 'append", ['Zcb1', 'ff', 'oops']):
         assert ff(bigvalue) == -42
-        # the $ after the AttributeError message are for the suggestions that
-        # will be added in Python 3.10
-        assert matches(sys.stderr.getvalue(), """\
-From cffi callback <function$Zcb1 at 0x$>:
-Trying to convert the result back to C:
-OverflowError: integer 60000 does not fit 'short'
 
-During the call to 'onerror', another exception occurred:
-
-Traceback (most recent call last):
-  File "$", line $, in oops
-    $
-AttributeError: 'str' object has no attribute 'append$
-""", """\
-Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
-Traceback (most recent call last):
-  File "$", line $, in test_callback_exception
-    $
-OverflowError: integer 60000 does not fit 'short'
-Exception ignored during handling of the above exception by 'onerror':
-Traceback (most recent call last):
-  File "$", line $, in oops
-    $
-AttributeError: 'str' object has no attribute 'append$
-""", """\
-Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
-Traceback (most recent call last):
-  File "$", line $, in test_callback_exception
-    $
-OverflowError: integer 60000 does not fit 'short'
-Exception ignored during handling of the above exception by 'onerror':
-Traceback (most recent call last):
-  File "$", line $, in oops
-    $
-    $
-AttributeError: 'str' object has no attribute 'append$
-""")
-    finally:
-        sys.stderr = orig_stderr
-        linecache.getline = orig_getline
 
 def test_callback_return_type():
     for rettype in ["signed char", "short", "int", "long", "long long",
@@ -3050,7 +2946,10 @@ if sys.version_info >= (3,):
 def test_FILE():
     if sys.platform == "win32":
         pytest.skip("testing FILE not implemented")
-    #
+    # XXX patch start
+    if sys.platform == "darwin":
+        pytest.skip("testing variadic broken on macos (issue 4937)")
+    # XXX patch end
     BFILE = new_struct_type("struct _IO_FILE")
     BFILEP = new_pointer_type(BFILE)
     BChar = new_primitive_type("char")
@@ -4590,9 +4489,9 @@ def test_unaligned_types():
     buf = buffer(pbuf)
     #
     for name in ['short', 'int', 'long', 'long long', 'float', 'double',
-                 'float _Complex', 'double _Complex']:
+                 '_cffi_float_complex_t', '_cffi_double_complex_t']:
         p = new_primitive_type(name)
-        if name.endswith(' _Complex'):
+        if name.endswith('_complex_t'):
             num = cast(p, 1.23 - 4.56j)
         else:
             num = cast(p, 0x0123456789abcdef)

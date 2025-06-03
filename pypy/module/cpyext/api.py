@@ -134,7 +134,7 @@ Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
 METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O Py_TPFLAGS_HAVE_INPLACEOPS
 Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS Py_TPFLAGS_HAVE_NEWBUFFER
-Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES Py_MAX_NDIMS
+Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES PyBUF_MAX_NDIM
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_READ PyBUF_WRITE
 PY_SSIZE_T_MAX PY_SSIZE_T_MIN
 """.split()
@@ -1187,7 +1187,7 @@ def attach_c_functions(space, eci, prefix):
         mangle_name(prefix, '_Py_object_dealloc'),
         [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
-    FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT))
+    FUNCPTR = lltype.Ptr(lltype.FuncType([], rffi.INT_real))
     state.C.get_pyos_inputhook = rffi.llexternal(
         mangle_name(prefix, '_Py_get_PyOS_InputHook'), [], FUNCPTR,
         compilation_info=eci, _nowrapper=True)
@@ -1712,15 +1712,11 @@ def load_extension_module(space, path, name):
         path = os.curdir + os.sep + path      # force a '/' in the path
     basename = name.split('.')[-1]
     try:
-        ll_libname = rffi.str2charp(path)
-        try:
-            if WIN32:
-                # Allow other DLLs in the same directory with "path"
-                dll = rdynload.dlopenex(ll_libname)
-            else:
-                dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
-        finally:
-            lltype.free(ll_libname, flavor='raw')
+        if WIN32:
+            # Allow other DLLs in the same directory with "path"
+            dll = rdynload.dlopenex(path)
+        else:
+            dll = rdynload.dlopen(path, space.sys.dlopenflags)
     except rdynload.DLOpenError as e:
         raise oefmt(space.w_ImportError,
                     "unable to load extension module '%s': %s",

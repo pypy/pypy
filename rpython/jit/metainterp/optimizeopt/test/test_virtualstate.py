@@ -1,5 +1,6 @@
 from __future__ import with_statement
 import py
+from rpython.rlib.rarithmetic import r_uint
 from rpython.jit.metainterp.optimizeopt.virtualstate import (
     VirtualStateInfo, VStructStateInfo, LEVEL_CONSTANT, VArrayStateInfo,
     not_virtual, VirtualState, GenerateGuardState, VirtualStatesCantMatch,
@@ -12,8 +13,7 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import rclass
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin, BaseTest, equaloplists)
-from rpython.jit.metainterp.optimizeopt.intutils import (
-    IntBound, ConstIntBound, IntLowerBound, IntUnbounded)
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.history import JitCellToken
 from rpython.jit.metainterp.optimizeopt.optimizer import Optimizer
 from rpython.jit.metainterp.resoperation import ResOperation, rop
@@ -168,8 +168,8 @@ class BaseTestGenerateGuards(BaseTest):
             info2.position = 0
             return VirtualState([info1]).generalization_of(VirtualState([info2]), FakeOptimizer(self.cpu))
 
-        assert isgeneral('i', None, 'i', ConstIntBound(7))
-        assert not isgeneral('i', ConstIntBound(7), 'i', None)
+        assert isgeneral('i', None, 'i', IntBound.from_constant(7))
+        assert not isgeneral('i', IntBound.from_constant(7), 'i', None)
 
         ptr = info.PtrInfo()
         nonnull = info.NonNullPtrInfo()
@@ -183,12 +183,12 @@ class BaseTestGenerateGuards(BaseTest):
                 if i != j:
                     assert not isgeneral('r', inorder[j], 'r', inorder[i])
 
-        i1 = IntUnbounded()
-        i2 = IntLowerBound(10)
+        i1 = IntBound.unbounded()
+        i2 = IntBound(lower=10)
         assert isgeneral('i', i1, 'i', i2)
         assert not isgeneral('i', i2, 'i', i1)
 
-        assert isgeneral('i', ConstIntBound(7), 'i', ConstIntBound(7))
+        assert isgeneral('i', IntBound.from_constant(7), 'i', IntBound.from_constant(7))
         S = lltype.GcStruct('S', ('parent', rclass.OBJECT))
         foo = lltype.malloc(S)
         foo_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
@@ -202,8 +202,8 @@ class BaseTestGenerateGuards(BaseTest):
         assert not isgeneral('r', value1, 'r', value2)
 
     def test_field_matching_generalization(self):
-        const1 = not_virtual(self.cpu, 'i', ConstIntBound(1))
-        const2 = not_virtual(self.cpu, 'i', ConstIntBound(2))
+        const1 = not_virtual(self.cpu, 'i', IntBound.from_constant(1))
+        const2 = not_virtual(self.cpu, 'i', IntBound.from_constant(2))
         const1.position = const2.position = 1
         self.check_invalid(const1, const2)
         self.check_invalid(const2, const1)
@@ -270,7 +270,7 @@ class BaseTestGenerateGuards(BaseTest):
                                        info.InstancePtrInfo(None, classbox2))
 
         constant_info = not_virtual(self.cpu, 'i',
-                                    ConstIntBound(1))
+                                    IntBound.from_constant(1))
         constant_ptr_info = not_virtual(self.cpu, 'r',
                                     info.ConstPtrInfo(ConstPtr(self.nodeaddr)))
         constclass_val = info.ConstPtrInfo(ConstPtr(self.nodeaddr))
@@ -298,7 +298,7 @@ class BaseTestGenerateGuards(BaseTest):
         # unknown constant
         unknown_info_int = not_virtual(self.cpu, 'i', None)
         self.check_no_guards(unknown_info_int, constant_info,
-                             ConstInt(1), ConstIntBound(1))
+                             ConstInt(1), IntBound.from_constant(1))
         self.check_no_guards(unknown_info_int, constant_info)
 
 
@@ -418,7 +418,7 @@ class BaseTestGenerateGuards(BaseTest):
 
         # constant constant
         self.check_no_guards(constant_info, constant_info,
-                             ConstInt(1), ConstIntBound(1))
+                             ConstInt(1), IntBound.from_constant(1))
         self.check_invalid(constant_info, constantnull_info,
                            const_null, info.ConstPtrInfo(const_null))
         self.check_no_guards(constant_info, constant_info)
@@ -426,11 +426,11 @@ class BaseTestGenerateGuards(BaseTest):
 
 
     def test_intbounds(self):
-        value1 = IntUnbounded()
+        value1 = IntBound.unbounded()
         value1.make_ge(IntBound(0, 10))
         value1.make_le(IntBound(20, 30))
         info1 = not_virtual(self.cpu, 'i', value1)
-        info2 = not_virtual(self.cpu, 'i', IntUnbounded())
+        info2 = not_virtual(self.cpu, 'i', IntBound.unbounded())
         expected = """
         [i0]
         i1 = int_ge(i0, 0)
@@ -442,14 +442,14 @@ class BaseTestGenerateGuards(BaseTest):
         self.check_invalid(info1, info2, InputArgInt(50), InputArgInt(50))
 
     def test_intbounds_constant(self):
-        value1 = IntUnbounded()
+        value1 = IntBound.unbounded()
         value1.make_ge(IntBound(0, 10))
         value1.make_le(IntBound(20, 30))
         info1 = not_virtual(self.cpu, 'i', value1)
-        info2 = not_virtual(self.cpu, 'i', ConstIntBound(10000))
+        info2 = not_virtual(self.cpu, 'i', IntBound.from_constant(10000))
         self.check_invalid(info1, info2)
         info1 = not_virtual(self.cpu, 'i', value1)
-        info2 = not_virtual(self.cpu, 'i', ConstIntBound(11))
+        info2 = not_virtual(self.cpu, 'i', IntBound.from_constant(11))
         self.check_no_guards(info1, info2)
 
     def test_known_class(self):
@@ -480,7 +480,7 @@ class BaseTestGenerateGuards(BaseTest):
         self.compare(guards, expected, [box])
 
     def test_known_value(self):
-        value1 = ConstIntBound(1)
+        value1 = IntBound.from_constant(1)
         box = InputArgInt()
         guards = []
         value1.make_guards(box, guards, FakeOptimizer(self.cpu))

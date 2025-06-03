@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 
 """
 Run tinyframe.py <input file> [int value reg0] [int value reg1] ...
@@ -48,7 +50,7 @@ class Code(object):
 class Parser(object):
 
     name = None
-    
+
     def compile(self, strrepr):
         self.code = []
         self.maxregno = 0
@@ -215,7 +217,7 @@ driver = JitDriver(greens = ['i', 'code'], reds = ['self'],
 
 class Frame(object):
     _virtualizable_ = ['registers[*]', 'code']
-    
+
     def __init__(self, code, arg=None):
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         self.code = code
@@ -259,7 +261,7 @@ class Frame(object):
                 i += 4
             elif opcode == PRINT:
                 arg = self.registers[ord(code[i + 1])]
-                print arg.repr()
+                print(arg.repr())
                 i += 2
             elif opcode == INTROSPECT:
                 self.introspect(ord(code[i + 1]), ord(code[i + 2]))
@@ -285,12 +287,12 @@ def main(fname, argv):
     for i in range(len(argv)):
         mainframe.registers[i] = Int(int(argv[i]))
     res = mainframe.interpret()
-    print "Result:", res.repr()
+    print("Result:", res.repr())
 
 if __name__ == '__main__':
     import sys
     if len(sys.argv) < 2:
-        print __doc__
+        print(__doc__)
         sys.exit(1)
     fname = sys.argv[1]
     main(fname, sys.argv[2:])

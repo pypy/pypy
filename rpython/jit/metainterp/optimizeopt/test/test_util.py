@@ -13,6 +13,7 @@ from rpython.jit.metainterp.history import (
     TreeLoop, AbstractDescr, JitCellToken)
 from rpython.jit.metainterp.history import IntFrontendOp, RefFrontendOp
 from rpython.jit.codewriter.effectinfo import EffectInfo, compute_bitstrings
+from rpython.jit.codewriter import heaptracker
 from rpython.jit.tool.oparser import (
     OpParser, pure_parse, convert_loop_to_trace)
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
@@ -98,8 +99,12 @@ def test_equaloplists_fail_args():
 class LLtypeMixin(object):
     node_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable.name = rclass.alloc_array_name('node')
+    node_vtable.subclassrange_min = 0
+    node_vtable.subclassrange_max = 2
     node_vtable2 = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable2.name = rclass.alloc_array_name('node2')
+    node_vtable2.subclassrange_min = 1
+    node_vtable2.subclassrange_max = 1
     node_vtable3 = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable3.name = rclass.alloc_array_name('node3')
     node_vtable3.subclassrange_min = 3
@@ -116,14 +121,17 @@ class LLtypeMixin(object):
                                         ('next', lltype.Ptr(NODE))))
     S.become(lltype.GcStruct('TUPLE', ('a', lltype.Signed), ('abis', lltype.Signed),
                         ('b', lltype.Ptr(NODE))))
+    heaptracker.set_testing_vtable_for_gcstruct(NODE, node_vtable, "NODE")
     NODE2 = lltype.GcStruct('NODE2', ('parent', NODE),
                                      ('other', lltype.Ptr(NODE)))
+    heaptracker.set_testing_vtable_for_gcstruct(NODE2, node_vtable2, "NODE2")
 
     NODE3 = lltype.GcForwardReference()
     NODE3.become(lltype.GcStruct('NODE3', ('parent', OBJECT),
                             ('value', lltype.Signed),
                             ('next', lltype.Ptr(NODE3)),
                             hints={'immutable': True}))
+    heaptracker.set_testing_vtable_for_gcstruct(NODE3, node_vtable3, "NODE3")
 
     big_fields = [('big' + i, lltype.Signed) for i in string.ascii_lowercase]
     BIG = lltype.GcForwardReference()
@@ -476,6 +484,8 @@ class FakeJitDriverStaticData(object):
     class warmstate:
         pureop_historylength = 16
 
+    virtualizable_info = None
+
 class FakeMetaInterpStaticData(object):
     all_descrs = []
 
@@ -512,6 +522,16 @@ class FakeMetaInterpStaticData(object):
             return "".join(addr.ptr.name.chars)
         except AttributeError:
             return ""
+
+    class jitdrivers_sd(object):
+        def __getitem__(self, index):
+            return self
+
+        class warmstate(object):
+            @staticmethod
+            def get_location_str(*args):
+                return "fake location str!"
+    jitdrivers_sd = jitdrivers_sd()
 
 class Info(object):
     def __init__(self, preamble, short_preamble=None, virtual_state=None):

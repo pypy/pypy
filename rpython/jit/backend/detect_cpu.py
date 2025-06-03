@@ -1,8 +1,10 @@
 """
 Processor auto-detection
 """
+from __future__ import print_function
+
 import sys, os
-from rpython.rtyper.tool.rffi_platform import getdefined
+from rpython.rtyper.tool.rffi_platform import getdefined, getdefinedinteger
 from rpython.translator.platform import is_host_build
 
 
@@ -17,6 +19,7 @@ MODEL_ARM         = 'arm'
 MODEL_ARM64       = 'aarch64'
 MODEL_PPC_64      = 'ppc-64'
 MODEL_S390_64     = 's390x'
+MODEL_RISCV_64    = 'riscv64'
 # don't use '_' in the model strings; they are replaced by '-'
 
 
@@ -36,6 +39,8 @@ def detect_model_from_c_compiler():
             if not getdefined(macro, ''):
                 continue
             return k
+    if getdefinedinteger('__riscv_xlen', '') == 64:
+        return MODEL_RISCV_64
     raise ProcessorAutodetectError("Cannot detect processor using compiler macros")
 
 
@@ -75,7 +80,8 @@ def detect_model_from_host_platform():
             'armv7l': MODEL_ARM,
             'armv6l': MODEL_ARM,
             'arm': MODEL_ARM,      # freebsd
-            's390x': MODEL_S390_64
+            's390x': MODEL_S390_64,
+            'riscv64': MODEL_RISCV_64,
             }.get(mach)
 
     if result is None:
@@ -129,6 +135,8 @@ def getcpuclassname(backend_name="auto"):
         return "rpython.jit.backend.ppc.runner", "PPC_CPU"
     elif backend_name == MODEL_S390_64:
         return "rpython.jit.backend.zarch.runner", "CPU_S390_64"
+    elif backend_name == MODEL_RISCV_64:
+        return "rpython.jit.backend.riscv.runner", "CPU_RISCV_64"
     else:
         raise ProcessorAutodetectError(
             "we have no JIT backend for this cpu: '%s'" % backend_name)
@@ -150,6 +158,7 @@ def getcpufeatures(backend_name="auto"):
         MODEL_ARM64: ['floats'],
         MODEL_PPC_64: ['floats'],
         MODEL_S390_64: ['floats'],
+        MODEL_RISCV_64: ['floats'],
     }[backend_name]
 
 if __name__ == '__main__':
@@ -160,6 +169,6 @@ if __name__ == '__main__':
         name = 'auto'
         x = autodetect()
     x = (x, getcpuclassname(name), getcpufeatures(name))
-    print 'autodetect:     ', x[0]
-    print 'getcpuclassname:', x[1]
-    print 'getcpufeatures: ', x[2]
+    print('autodetect:     ', x[0])
+    print('getcpuclassname:', x[1])
+    print('getcpufeatures: ', x[2])

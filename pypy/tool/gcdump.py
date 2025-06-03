@@ -7,6 +7,7 @@ Syntax:  dump.py  <dumpfile>  [<typeids.txt>]
 
 By default, typeids.txt is loaded from the same dir as dumpfile.
 """
+from __future__ import print_function
 import sys, array, struct, os
 
 
@@ -44,26 +45,26 @@ class Stat(object):
         return self.typeids.get(num, '<typenum %d>' % num)
 
     def print_summary(self):
-        items = self.summary.items()
-        items.sort(key=lambda (typenum, stat): stat[1])    # sort by totalsize
+        items = list(self.summary.items())
+        items.sort(key=lambda element: element[1][1])    # sort by totalsize
         totalsize = 0
         for typenum, stat in items:
             totalsize += stat[1]
-            print '%8d %8.2fM  %s' % (stat[0], stat[1] / (1024.0*1024.0),
-                                      self.get_type_name(typenum))
-        print 'total %.1fM' % (totalsize / (1024.0*1024.0),)
+            print('%8d %8.2fM  %s' % (stat[0], stat[1] / (1024.0*1024.0),
+                                      self.get_type_name(typenum)))
+        print('total %.1fM' % (totalsize / (1024.0*1024.0),))
         print
         lst = sorted(self.bigobjs)[-10:]
         if lst:
             if len(lst) == len(self.bigobjs):
-                print '%d objects take at least %d bytes each:' % (len(lst), self.BIGOBJ)
+                print('%d objects take at least %d bytes each:' % (len(lst), self.BIGOBJ))
             else:
-                print '%d largest single objects:' % (len(lst),)
+                print('%d largest single objects:' % (len(lst),))
             for size, typenum in lst:
-                print '%8s %8.2fM  %s' % ('', size / (1024.0*1024.0),
-                                          self.get_type_name(typenum))
+                print('%8s %8.2fM  %s' % ('', size / (1024.0*1024.0),
+                                          self.get_type_name(typenum)))
         else:
-            print 'No object takes at least %d bytes on its own.' % (self.BIGOBJ,)
+            print('No object takes at least %d bytes on its own.' % (self.BIGOBJ,))
 
     def load_dump_file(self, filename):
         f = open(filename, 'rb')
@@ -71,7 +72,7 @@ class Stat(object):
         end = f.tell()
         f.seek(0)
         a = array.array('l')
-        a.fromfile(f, end / struct.calcsize('l'))
+        a.fromfile(f, end // struct.calcsize('l'))
         f.close()
         return a
 
@@ -88,7 +89,7 @@ class Stat(object):
     def walk(self, a, start=0, stop=None):
         assert a[-1] == -1, "invalid or truncated dump file (or 32/64-bit mix)"
         assert a[-2] != -1, "invalid or truncated dump file (or 32/64-bit mix)"
-        print >> sys.stderr, 'walking...',
+        print('walking...', file=sys.stderr)
         i = start
         if stop is None:
             stop = len(a)
@@ -98,12 +99,12 @@ class Stat(object):
                 j += 1
             yield (i, a[i], a[i+1], a[i+2], a[i+3:j])
             i = j + 1
-        print >> sys.stderr, 'done'
+        print('done', file=sys.stderr)
 
 
 if __name__ == '__main__':
     if len(sys.argv) <= 1:
-        print >> sys.stderr, __doc__
+        print(__doc__, file=sys.stderr)
         sys.exit(2)
     stat = Stat()
     stat.summarize(sys.argv[1])

@@ -84,6 +84,49 @@ int vmp_profiles_python_lines(void) {
     return _vmp_profiles_lines;
 }
 
+#if PY_VERSION_HEX >= 0x030B0000 /* < 3.11 */
+    static _PyInterpreterFrame * _write_python_stack_entry(_PyInterpreterFrame * frame, void ** result, int * depth, int max_depth)
+    {
+#ifndef RPYTHON_VMPROF // pypy does not support line profiling
+    if (vmp_profiles_python_lines()) {
+        // In the line profiling mode we save a line number for every frame.
+        // Actual line number isn't stored in the frame directly (f_lineno
+        // points to the beginning of the frame), so we need to compute it
+        // from f_lasti and f_code->co_lnotab. Here is explained what co_lnotab
+        // is:
+        // https://svn.python.org/projects/python/trunk/Objects/lnotab_notes.txt
+
+        // NOTE: the profiling overhead can be reduced by storing co_lnotab in the dump and
+        // moving this computation to the reader instead of doing it here.
+        result[*depth] = (void*) (int64_t) _PyInterpreterFrame_GetLine(frame);
+        *depth = *depth + 1;
+    }
+    PyCodeObject* frame_code = unsafe_PyInterpreterFrame_GetCode(frame);
+    result[*depth] = (void*)CODE_ADDR_TO_UID(frame_code);
+    //Py_DECREF(frame_code);
+    *depth = *depth + 1;
+#else
+
+    if (frame->kind == VMPROF_CODE_TAG) {
+        int n = *depth;
+        result[n++] = (void*)frame->kind;
+        result[n++] = (void*)frame->value;
+        *depth = n;
+    }
+#ifdef PYPY_JIT_CODEMAP
+    else if (frame->kind == VMPROF_JITTED_TAG) {
+        intptr_t pc = ((intptr_t*)(frame->value - sizeof(intptr_t)))[0];
+        *depth = vmprof_write_header_for_jit_addr((intptr_t*)result, *depth, pc, max_depth);
+    }
+#endif
+
+
+#endif
+
+    return unsafe_PyInterpreterFrame_GetBack(frame);
+}
+#else
+
 static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, void ** result, int * depth, int max_depth)
 {
 #ifndef RPYTHON_VMPROF // pypy does not support line profiling
@@ -100,7 +143,9 @@ static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, vo
         result[*depth] = (void*) (int64_t) PyFrame_GetLineNumber(frame);
         *depth = *depth + 1;
     }
-    result[*depth] = (void*)CODE_ADDR_TO_UID(FRAME_CODE(frame));
+    PyCodeObject* frame_code = FRAME_CODE(frame);
+    result[*depth] = (void*)CODE_ADDR_TO_UID(frame_code);
+    Py_DECREF(frame_code);
     *depth = *depth + 1;
 #else
 
@@ -113,7 +158,7 @@ static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, vo
 #ifdef PYPY_JIT_CODEMAP
     else if (frame->kind == VMPROF_JITTED_TAG) {
         intptr_t pc = ((intptr_t*)(frame->value - sizeof(intptr_t)))[0];
-        *depth = vmprof_write_header_for_jit_addr(result, *depth, pc, max_depth);
+        *depth = vmprof_write_header_for_jit_addr((intptr_t*)result, *depth, pc, max_depth);
     }
 #endif
 
@@ -123,14 +168,27 @@ static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, vo
     return FRAME_STEP(frame);
 }
 
-int vmp_walk_and_record_python_stack_only(PY_STACK_FRAME_T *frame, void ** result,
-                                          int max_depth, int depth, intptr_t pc)
-{
-    while ((depth + _per_loop()) <= max_depth && frame) {
-        frame = _write_python_stack_entry(frame, result, &depth, max_depth);
+#endif
+
+#if PY_VERSION_HEX >= 0x030B0000 /* < 3.11 */
+    int vmp_walk_and_record_python_stack_only(_PyInterpreterFrame *frame, void ** result,
+                                            int max_depth, int depth, intptr_t pc)
+    {
+        while ((depth + _per_loop()) <= max_depth && frame) {
+            frame = _write_python_stack_entry(frame, result, &depth, max_depth);
+        }
+        return depth;
     }
-    return depth;
-}
+#else
+    int vmp_walk_and_record_python_stack_only(PY_STACK_FRAME_T *frame, void ** result,
+                                            int max_depth, int depth, intptr_t pc)
+    {
+        while ((depth + _per_loop()) <= max_depth && frame) {
+            frame = _write_python_stack_entry(frame, result, &depth, max_depth);
+        }
+        return depth;
+    }
+#endif
 
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
 int _write_native_stack(void* addr, void ** result, int depth, int max_depth) {
@@ -156,6 +214,161 @@ int _write_native_stack(void* addr, void ** result, int depth, int max_depth) {
 }
 #endif
 
+#if PY_VERSION_HEX >= 0x030B0000 /* < 3.11 */
+int vmp_walk_and_record_stack(_PyInterpreterFrame *frame, void ** result,
+                              int max_depth, int signal, intptr_t pc) {
+
+    // called in signal handler
+    //
+    // This function records the stack trace for a python program. It also
+    // tracks native function calls if libunwind can be found on the system.
+    //
+    // The idea is the following (in the native case):
+    //
+    // 1) Remove frames until the signal frame is found (skipping it as well)
+    // 2) if the current frame corresponds to PyEval_EvalFrameEx (or the equivalent
+    //    for each python version), the jump to 4)
+    // 3) jump to 2)
+    // 4) walk each python frame and record it
+    //
+    //
+    // There are several cases that need to be taken care of.
+    //
+    // CPython supports line profiling, PyPy does not. At the same time
+    // PyPy saves the information of an address in the same way as line information
+    // is saved in CPython. _write_python_stack_entry for details.
+    //
+#ifdef VMP_SUPPORTS_NATIVE_PROFILING
+    void * func_addr;
+    unw_cursor_t cursor;
+    unw_context_t uc;
+    unw_proc_info_t pip;
+    int ret;
+
+    if (vmp_native_enabled() == 0) {
+        return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
+    }
+
+    ret = unw_getcontext(&uc);
+    if (ret < 0) {
+        // could not initialize lib unwind cursor and context
+#if DEBUG
+        fprintf(stderr, "WARNING: unw_getcontext did not retreive context, switching to python profiling mode \n");
+#endif
+        vmp_native_disable();
+        return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
+    }
+    ret = unw_init_local(&cursor, &uc);
+    if (ret < 0) {
+        // could not initialize lib unwind cursor and context
+#if DEBUG
+        fprintf(stderr, "WARNING: unw_init_local did not succeed, switching to python profiling mode \n");
+#endif
+        vmp_native_disable();
+        return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
+    }
+
+    if (signal < 0) {
+        while (signal < 0) {
+            int err = unw_step(&cursor);
+            if (err <= 0) {
+#if DEBUG
+                fprintf(stderr, "WARNING: did not find signal frame, skipping sample\n");
+#endif
+                return 0;
+            }
+            signal++;
+        }
+    } else {
+#ifdef VMPROF_LINUX
+        while (signal) {
+            int is_signal_frame = unw_is_signal_frame(&cursor);
+            if (is_signal_frame) {
+                unw_step(&cursor); // step once more discard signal frame
+                break;
+            }
+            int err = unw_step(&cursor);
+            if (err <= 0) {
+#if DEBUG
+                fprintf(stderr,"WARNING: did not find signal frame, skipping sample\n");
+#endif
+                return 0;
+            }
+        }
+#else
+        // who would have guessed that unw_is_signal_frame does not work on mac os x
+        if (signal) {
+            unw_step(&cursor); // vmp_walk_and_record_stack
+            // get_stack_trace is inlined
+            unw_step(&cursor); // _vmprof_sample_stack
+            unw_step(&cursor); // sigprof_handler
+            unw_step(&cursor); // _sigtramp
+        }
+#endif
+    }
+
+    int depth = 0;
+    //PY_STACK_FRAME_T * top_most_frame = frame;
+    while ((depth + _per_loop()) <= max_depth) {
+        unw_get_proc_info(&cursor, &pip);
+
+        func_addr = (void*)pip.start_ip;
+
+        //{
+        //    char name[64];
+        //    unw_word_t x;
+        //    unw_get_proc_name(&cursor, name, 64, &x);
+        //    printf("  %s %p\n", name, func_addr);
+        //}
+
+        //if (func_addr == 0) {
+        //    unw_word_t rip = 0;
+        //    if (unw_get_reg(&cursor, UNW_REG_IP, &rip) < 0) {
+        //        printf("failed failed failed\n");
+        //    }
+        //    func_addr = rip;
+        //    printf("func_addr is 0, now %p\n", rip);
+        //}
+
+#ifdef PYPY_JIT_CODEMAP
+        long start_addr = 0;
+        unw_word_t rip = 0;
+        if (unw_get_reg(&cursor, UNW_REG_IP, &rip) < 0) {
+            return 0;
+        }
+#endif
+
+        if (IS_VMPROF_EVAL((void*)pip.start_ip)) {
+            // yes we found one stack entry of the python frames!
+            return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
+#ifdef PYPY_JIT_CODEMAP
+        } else if (pypy_find_codemap_at_addr(rip, &start_addr) != NULL) {
+            depth = vmprof_write_header_for_jit_addr((intptr_t*)result, depth, pc, max_depth);
+            return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
+#endif
+        } else {
+            // mark native routines with the first bit set,
+            // this is possible because compiler align to 8 bytes.
+            //
+            if (func_addr != 0x0) {
+                depth = _write_native_stack((void*)(((uint64_t)func_addr) | 0x1), result, depth, max_depth);
+            }
+        }
+
+        int err = unw_step(&cursor);
+        if (err == 0) {
+            break;
+        } else if (err < 0) {
+            // this sample is broken, cannot walk native level... record python level (at least)
+            return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
+        }
+    }
+
+    // if we come here, the found stack trace is removed and only python stacks are recorded
+#endif
+    return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
+}
+#else
 int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
                               int max_depth, int signal, intptr_t pc) {
 
@@ -284,7 +497,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
             return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
 #ifdef PYPY_JIT_CODEMAP
         } else if (pypy_find_codemap_at_addr(rip, &start_addr) != NULL) {
-            depth = vmprof_write_header_for_jit_addr(result, depth, pc, max_depth);
+            depth = vmprof_write_header_for_jit_addr((intptr_t*)result, depth, pc, max_depth);
             return vmp_walk_and_record_python_stack_only(frame, result, max_depth, depth, pc);
 #endif
         } else {
@@ -309,6 +522,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
 #endif
     return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
 }
+#endif
 
 int vmp_native_enabled(void) {
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING

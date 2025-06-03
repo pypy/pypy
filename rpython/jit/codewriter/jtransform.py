@@ -2031,6 +2031,11 @@ class Transformer(object):
                                  [Constant(0, lltype.Signed), v_x],
                                  op.result)
             return self.rewrite_operation(op0)
+        elif oopspec_name == 'int.uint_mul_high':
+            op0 = SpaceOperation('uint_mul_high',
+                                 args,
+                                 op.result)
+            return self.rewrite_operation(op0)
         else:
             # int.py_div, int.udiv, int.py_mod, int.umod
             opname = oopspec_name.replace('.', '_')

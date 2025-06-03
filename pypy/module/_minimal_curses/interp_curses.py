@@ -36,10 +36,10 @@ def setupterm(space, w_termname=None, fd=-1):
         termname = space.text_w(w_termname)
         termname_err = "'%s'" % termname
 
-    p_errret = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    p_errret = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
     try:
         with rffi.scoped_str2charp(termname) as ll_term:
-            _fd = rffi.cast(rffi.INT, _fd)
+            _fd = rffi.cast(rffi.INT_real, _fd)
             errval = fficurses.setupterm(ll_term, _fd, p_errret)
             
         if errval == -1:

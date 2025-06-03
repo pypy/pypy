@@ -49,7 +49,7 @@ class W_CTypePrimitive(W_CType):
         return rutf8.codepoint_at_pos(w_u._utf8, 0)
 
     def cast(self, w_ob):
-        from pypy.module._cffi_backend import ctypeptr
+        from pypy.module._cffi_backend import ctypeptr, wrapper
         space = self.space
         if (isinstance(w_ob, cdataobj.W_CData) and
                isinstance(w_ob.ctype, ctypeptr.W_CTypePtrOrArray)):
@@ -61,6 +61,10 @@ class W_CTypePrimitive(W_CType):
             value = self._cast_result(value)
         elif space.isinstance_w(w_ob, space.w_unicode):
             value = self.cast_unicode(w_ob)
+            value = self._cast_result(value)
+        elif (isinstance(w_ob, wrapper.W_FunctionWrapper)
+                and w_ob.directfnptr):
+            value = rffi.cast(lltype.Signed, w_ob.directfnptr)
             value = self._cast_result(value)
         else:
             value = self._cast_generic(w_ob)

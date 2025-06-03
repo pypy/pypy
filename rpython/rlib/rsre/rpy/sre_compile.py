@@ -494,9 +494,9 @@ def _compile_info(code, pattern, flags):
             elif op is IN:
                 charset = av
 ##     if prefix:
-##         print "*** PREFIX", prefix, prefix_skip
+##         print("*** PREFIX", prefix, prefix_skip)
 ##     if charset:
-##         print "*** CHARSET", charset
+##         print("*** CHARSET", charset)
     # add an info block
     emit = code.append
     emit(OPCODES[INFO])
@@ -575,7 +575,7 @@ def compile(p, flags=0):
 
     code = _code(p, flags)
 
-    # print code
+    # print(code)
 
     # XXX: <fl> get rid of this limitation!
     if p.pattern.groups > 100:

@@ -4,8 +4,9 @@ whatever version you provide. Usage:
 
 import_cffi.py <path-to-cffi>
 """
+from __future__ import print_function
 
-import sys, py
+import sys, py, os
 
 def mangle(lines, ext):
     if ext == '.py':
@@ -31,9 +32,9 @@ def main(cffi_dir):
     cffi_dest.ensure(dir=1)
     test_dest = rootdir / 'extra_tests' / 'cffi_tests'
     test_dest.ensure(dir=1)
-    for p in (list(cffi_dir.join('cffi').visit(fil='*.py')) +
-              list(cffi_dir.join('cffi').visit(fil='*.h'))):
-        cffi_dest.join('..', p.relto(cffi_dir)).write_binary(fixeol(p.read()))
+    for p in (list(cffi_dir.join('src', 'cffi').visit(fil='*.py')) +
+              list(cffi_dir.join('src', 'cffi').visit(fil='*.h'))):
+        cffi_dest.join(p.relto(cffi_dir.join('src', 'cffi'))).write_binary(fixeol(p.read()))
     for p in (list(cffi_dir.join('testing').visit(fil='*.py')) +
               list(cffi_dir.join('testing').visit(fil='*.h')) +
               list(cffi_dir.join('testing').visit(fil='*.c'))):
@@ -41,10 +42,21 @@ def main(cffi_dir):
         path.join('..').ensure(dir=1)
         path.write_binary(fixeol(''.join(mangle(p.readlines(), p.ext))))
     path = test_dest.join('test_c.py')
-    path.write_binary(fixeol(cffi_dir.join('c', 'test_c.py').read()))
+    path.write_binary(fixeol(cffi_dir.join('src', 'c', 'test_c.py').read()))
+    #
+    # hack around a little bit...
+    os.system("cd '%s' && patch -p0 < pypy/tool/import_cffi.patch" % str(rootdir))
 
 if __name__ == '__main__':
+    if sys.version_info > (3, 0):
+        print(__doc__)
+        print("must use python2") 
+        sys.exit(2)
     if len(sys.argv) != 2:
-        print __doc__
+        print(__doc__)
+        sys.exit(2)
+    if not os.path.exists(sys.argv[1]):
+        print(__doc__)
+        print("'%s' is not a valid path" % sys.argv[1])
         sys.exit(2)
     main(sys.argv[1])

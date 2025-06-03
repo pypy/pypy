@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.jit.metainterp.history import AbstractDescr, ConstInt
 from rpython.jit.metainterp.support import adr2int
 from rpython.rlib.objectmodel import we_are_translated, specialize
@@ -52,6 +54,16 @@ class JitCode(AbstractDescr):
     def num_regs_f(self):
         return ord(self.c_num_regs_f)
 
+    def num_regs_and_consts_i(self):
+        return ord(self.c_num_regs_i) + len(self.constants_i)
+
+    def num_regs_and_consts_r(self):
+        return ord(self.c_num_regs_r) + len(self.constants_r)
+
+    def num_regs_and_consts_f(self):
+        return ord(self.c_num_regs_f) + len(self.constants_f)
+
+
     def _live_vars(self, pc, all_liveness, op_live):
         from rpython.jit.codewriter.liveness import LivenessIterator
         # for testing only
@@ -84,7 +96,7 @@ class JitCode(AbstractDescr):
     def _missing_liveness(self, pc):
         msg = "missing liveness[%d] in %s" % (pc, self.name)
         if we_are_translated():
-            print msg
+            print(msg)
             raise AssertionError
         raise MissingLiveness("%s\n%s" % (msg, self.dump()))
 

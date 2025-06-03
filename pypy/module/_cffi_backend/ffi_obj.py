@@ -73,7 +73,7 @@ class W_FFIObject(W_Root):
     def fetch_int_constant(self, name):
         index = parse_c_type.search_in_globals(self.ctxobj.ctx, name)
         if index >= 0:
-            g = self.ctxobj.ctx.c_globals[index]
+            g = rffi.cast(rffi.CArrayPtr(parse_c_type.GLOBAL_S), self.ctxobj.ctx.c_globals)[index]
             op = realize_c_type.getop(g.c_type_op)
             if (op == cffi_opcode.OP_CONSTANT_INT or
                   op == cffi_opcode.OP_ENUM):
@@ -103,7 +103,7 @@ class W_FFIObject(W_Root):
 
     def _ffi_bad_type(self, input_text):
         info = self.ctxobj.info
-        errmsg = rffi.charp2str(info.c_error_message)
+        errmsg = rffi.constcharp2str(info.c_error_message)
         if len(input_text) > 500:
             raise oefmt(self.w_FFIError, "%s", errmsg)
         printable_text = ['?'] * len(input_text)
@@ -114,7 +114,7 @@ class W_FFIObject(W_Root):
                 printable_text[i] = ' '
         num_spaces = rffi.getintfield(info, 'c_error_location')
         raise oefmt(self.w_FFIError, "%s\n%s\n%s^",
-                    rffi.charp2str(info.c_error_message),
+                    rffi.constcharp2str(info.c_error_message),
                     ''.join(printable_text),
                     " " * num_spaces)
 
@@ -632,17 +632,20 @@ This returns a tuple containing three lists of names:
         ctx = self.ctxobj.ctx
 
         lst1_w = []
+        typenames = rffi.cast(rffi.CArrayPtr(parse_c_type.TYPENAME_S), ctx.c_typenames)
+
         for i in range(rffi.getintfield(ctx, 'c_num_typenames')):
-            s = rffi.charp2str(ctx.c_typenames[i].c_name)
+            s = rffi.constcharp2str(typenames[i].c_name)
             lst1_w.append(space.newtext(s))
 
         lst2_w = []
         lst3_w = []
+        unions = rffi.cast(rffi.CArrayPtr(parse_c_type.STRUCT_UNION_S), ctx.c_struct_unions)
         for i in range(rffi.getintfield(ctx, 'c_num_struct_unions')):
-            su = ctx.c_struct_unions[i]
+            su = unions[i]
             if su.c_name[0] == '$':
                 continue
-            s = rffi.charp2str(su.c_name)
+            s = rffi.constcharp2str(su.c_name)
             if rffi.getintfield(su, 'c_flags') & cffi_opcode.F_UNION:
                 lst_w = lst3_w
             else:

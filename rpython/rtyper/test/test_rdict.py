@@ -14,9 +14,10 @@ from rpython.rlib.objectmodel import r_dict
 from rpython.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 
 import py
-from hypothesis import settings
+from hypothesis import settings, assume
 from hypothesis.strategies import (
-    builds, sampled_from, binary, just, integers, text, characters, tuples)
+    builds, sampled_from, binary, just, integers, text, characters, tuples,
+    lists, sets, composite)
 from hypothesis.stateful import GenericStateMachine, run_state_machine_as_test
 
 def ann2strategy(s_value):
@@ -1069,6 +1070,32 @@ class TestRDict(BaseTestRDict):
 
         assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
 
+    def test_type_erase_gcref(self):
+        class A(object):
+            pass
+        class B(object):
+            pass
+
+        def f():
+            d = {}
+            d[A()] = B()
+            d2 = {}
+            d2[B()] = "abc"
+            return d, d2
+
+        t = TranslationContext()
+        t.config.translation.gc = 'incminimark' # not ref, otherwise this won't work
+        s = t.buildannotator().build_types(f, [])
+        rtyper = t.buildrtyper()
+        rtyper.specialize()
+
+        s_AB_dic = s.items[0]
+        s_BA_dic = s.items[1]
+
+        r_AB_dic = rtyper.getrepr(s_AB_dic)
+        r_BA_dic = rtyper.getrepr(s_BA_dic)
+
+        assert r_AB_dic.lowleveltype == r_BA_dic.lowleveltype
 
     def test_opt_dummykeymarker(self):
         def f():
@@ -1175,6 +1202,11 @@ class Action(object):
 
 class PseudoRTyper:
     cache_dummy_values = {}
+    class annotator:
+        class translator:
+            class config:
+                class translation:
+                    gc = 'ref'
 
 # XXX: None keys crash the test, but translation sort-of allows it
 keytypes_s = [
@@ -1224,6 +1256,14 @@ class MappingSpace(object):
     def move_to_first(self, key):
         self.move_to_end(key, last=False)
 
+    def many_move_to_first(self, keys):
+        for key in keys:
+            self.move_to_first(key)
+
+    def many_move_to_end(self, keys):
+        for key in keys:
+            self.move_to_end(key)
+
     def copydict(self):
         self.l_dict = self.ll_copy(self.l_dict)
         assert self.ll_len(self.l_dict) == len(self.reference)
@@ -1269,6 +1309,29 @@ class MappingSpace(object):
                 else:
                     raise AssertionError("removed key still shows up")
 
+    def init_many(self, l):
+        for key, value in l:
+            self.setitem(key, value)
+
+@composite
+def st_many_elements(draw, st_keys, st_values):
+    keys = draw(sets(st_keys, min_size=50))
+    res = [(key, draw(st_values)) for key in keys]
+    return (res, )
+
+@composite
+def st_many_moves(draw, reference):
+    assume(len(reference) > 3)
+    number = draw(integers(3, len(reference) - 1))
+    remaining = set(reference)
+    keys = []
+    for i in range(number):
+        key = draw(sampled_from(list(remaining)))
+        keys.append(key)
+        remaining.remove(key)
+    print("st_many_elements", len(keys), len(reference))
+    return (keys, )
+
 class MappingSM(GenericStateMachine):
     def __init__(self):
         self.space = None
@@ -1276,6 +1339,10 @@ class MappingSM(GenericStateMachine):
     def st_setitem(self):
         return builds(Action,
             just('setitem'), tuples(self.st_keys, self.st_values))
+
+    def st_init_many(self):
+        return builds(Action,
+            just('init_many'), st_many_elements(self.st_keys, self.st_values))
 
     def st_updateitem(self):
         return builds(Action,
@@ -1295,18 +1362,29 @@ class MappingSM(GenericStateMachine):
             just('move_to_first'),
                 tuples(sampled_from(self.space.reference)))
 
+    def st_many_move_to_end(self):
+        return builds(Action,
+            just('many_move_to_end'), st_many_moves(self.space.reference))
+
+    def st_many_move_to_first(self):
+        return builds(Action,
+            just('many_move_to_first'), st_many_moves(self.space.reference))
+
     def steps(self):
         if not self.space:
             return builds(Action, just('setup'), tuples(st_keys, st_values))
         global_actions = [Action('copydict', ()), Action('cleardict', ()),
                           Action('popitem', ()), Action('removeindex', ())]
         if self.space.reference:
-            return (
+            res = (
                 self.st_setitem() | sampled_from(global_actions) |
-                self.st_updateitem() | self.st_delitem() |
-                self.st_move_to_end() | self.st_move_to_first())
+                self.st_updateitem() | self.st_delitem())
+            if self.HAVE_MOVE_TO_FIRST_END:
+                res |= (self.st_move_to_end() | self.st_move_to_first() |
+                    self.st_many_move_to_end() | self.st_many_move_to_first())
+            return res
         else:
-            return (self.st_setitem() | sampled_from(global_actions))
+            return (self.st_setitem() | sampled_from(global_actions) | self.st_init_many())
 
     def execute_step(self, action):
         if action.method == 'setup':
@@ -1314,7 +1392,7 @@ class MappingSM(GenericStateMachine):
             self.st_keys = ann2strategy(self.space.s_key)
             self.st_values = ann2strategy(self.space.s_value)
             return
-        with signal_timeout(10):  # catches infinite loops
+        with signal_timeout(10):
             action.execute(self.space)
 
     def teardown(self):
@@ -1337,6 +1415,8 @@ class DictSpace(MappingSpace):
         return rdict.ll_newdict(repr.DICT)
 
 class DictSM(MappingSM):
+    HAVE_MOVE_TO_FIRST_END = False
+
     Space = DictSpace
 
 def test_hypothesis():

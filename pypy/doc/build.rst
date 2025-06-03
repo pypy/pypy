@@ -3,12 +3,13 @@
 Building PyPy from Source
 =========================
 
-For building PyPy, we recommend installing a pre-built PyPy first (see
-:doc:`install`). It is possible to build PyPy with CPython, but it will take a
-lot longer to run -- depending on your architecture, between two and three
-times as long.
+Building PyPy requires a Python2 interpreter since RPython is a Python2
+dialect. For building PyPy, we recommend installing a pre-built PyPy2.7 first
+(see :doc:`install`). It is possible to build PyPy with CPython2.7, but it will
+take a lot longer to run -- depending on your architecture, between two and
+three times as long.
 
-Even when using PyPy to build PyPy, translation is time-consuming -- 20
+Even when using PyPy2.7 to build PyPy, translation is time-consuming -- 20
 minutes on a fast machine -- and RAM-hungry.  You will need **at least** 3 GB
 of memory on a 32-bit machine and 6GB on a 64-bit machine.
 
@@ -31,7 +32,7 @@ Clone the repository
 If you prefer to compile your own PyPy, or if you want to modify it, you
 will need to obtain a copy of the sources.  This can be done either by
 `downloading them from the download page`_ or by checking them out from the
-repository using mercurial.  We suggest using mercurial if you want to access
+repository using git.  We suggest using git if you want to access
 the current development.
 
 .. _downloading them from the download page: https://www.pypy.org/download.html
@@ -39,24 +40,23 @@ the current development.
 You must issue the following command on your
 command line, DOS box, or terminal::
 
-    hg clone https://foss.heptapod.net/pypy/pypy pypy
+    git clone https://github.com/pypy/pypy.git
 
 This will clone the repository and place it into a directory
 named ``pypy``, and will get you the PyPy source in ``pypy/pypy`` and
 documentation files in ``pypy/pypy/doc``.
 We try to ensure that the tip is always stable, but it might
 occasionally be broken.  You may want to check out `our nightly tests`_:
-find a revision (12-chars alphanumeric string, e.g. "963e808156b3")
-that passed at least the
-``{linux32}`` tests (corresponding to a ``+`` sign on the
+find a revision hash, e.g. "963e808156b3", that passed at least the
+``{linux64}`` tests (corresponding to a ``+`` sign on the
 line ``success``) and then, in your cloned repository, switch to this revision
 using::
 
-    hg up -r XXXXX
+    git checkout XXXXX
 
-where XXXXX is the revision id.
+where XXXXX is the revision hash.
 
-.. _our nightly tests: https://buildbot.pypy.org/summary?branch=%3Ctrunk%3E
+.. _our nightly tests: https://buildbot.pypy.org/summary?branch=main
 
 
 Install build-time dependencies
@@ -67,9 +67,9 @@ Windows, see the `windows document`_ .
 .. _`windows document`: windows.html
 .. _`RPython documentation`: https://rpython.readthedocs.org
 
-The host Python needs to have CFFI installed. If translating on PyPy, CFFI is
-already installed. If translating on CPython, you need to install it, e.g.
-using ``python -mpip install cffi``.
+The host Python2 needs to have CFFI installed. If translating on PyPy, CFFI
+is already installed. If translating on CPython, you need to install it, e.g.
+using ``python2.7 -mpip install cffi``.
 
 To build PyPy on Unix using the C translation backend, you need at least a C
 compiler and ``make`` installed. Further, some optional modules have additional
@@ -97,7 +97,7 @@ after building PyPy, otherwise the corresponding CFFI modules are not
 built (you can run or re-run `lib_pypy/pypy_tools/build_cffi_imports.py`_ to
 build them; you don't need to re-translate the whole PyPy):
 
-.. _`lib_pypy/pypy_tools/build_cffi_imports.py`: https://foss.heptapod.net/pypy/pypy/-/blob/branch/default/lib_pypy/pypy_tools/build_cffi_imports.py
+.. _`lib_pypy/pypy_tools/build_cffi_imports.py`: https://github.com/pypy/pypy/blob/main/lib_pypy/pypy_tools/build_cffi_imports.py
 
 sqlite3
     libsqlite3
@@ -126,21 +126,21 @@ all build-time dependencies::
 
     apt-get install gcc make libffi-dev pkg-config zlib1g-dev libbz2-dev \
     libsqlite3-dev libncurses5-dev libexpat1-dev libssl-dev libgdbm-dev \
-    tk-dev libgc-dev python-cffi \
+    tk-dev libgc-dev \
     liblzma-dev libncursesw5-dev     # these two only needed on PyPy3
 
 On Fedora::
 
     dnf install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
     sqlite-devel ncurses-devel expat-devel openssl-devel tk-devel \
-    gdbm-devel python-cffi gc-devel\
+    gdbm-devel gc-devel\
     xz-devel  # For lzma on PyPy3.
 
 On SLES11::
 
     zypper install gcc make python-devel pkg-config \
     zlib-devel libopenssl-devel libbz2-devel sqlite3-devel \
-    libexpat-devel libffi-devel python-curses python-cffi \
+    libexpat-devel libffi-devel \
     xz-devel # For lzma on PyPy3.
     (XXX plus the SLES11 version of libgdbm-dev and tk-dev)
 
@@ -160,9 +160,10 @@ command:
 
     xcode-select --install
 	brew install openssl pypy pkg-config libx11
+    # expose openssl in the cffi _ssl_build script
+    export CPPFLAGS=$(pkg-config openssl --cflags-only-I)
+    export LDFLAGS=$(pkg-config openssl --libs-only-L)
 
-After setting this up, translation (described next) will find the libs as
-expected via ``pkg-config``.
 
 Set environment variables that will affect translation
 ------------------------------------------------------
@@ -191,37 +192,40 @@ The following environment variables can be used to tweak the result:
 Run the translation
 -------------------
 
+Since the translating Python needs CFFI, it is best to create a virtualenv and
+then ``pip install cffi`` there.
+
 We usually translate in the ``pypy/goal`` directory, so all the following
 commands assume your ``$pwd`` is there.
 
 Translate with JIT::
 
-    pypy ../../rpython/bin/rpython --opt=jit
+    pypy2.7 ../../rpython/bin/rpython --opt=jit
 
 Translate without JIT::
 
-    pypy ../../rpython/bin/rpython --opt=2
+    pypy2.7 ../../rpython/bin/rpython --opt=2
 
 Note this translates pypy via the ``targetpypystandalone.py`` file, so these
 are shorthand for::
 
-    pypy ../../rpython/bin/rpython <rpython options> targetpypystandalone.py <pypy options>
+    pypy2.7 ../../rpython/bin/rpython <rpython options> targetpypystandalone.py <pypy options>
 
-More help is availabe via ``--help`` at either option position, and more info
+More help is available via ``--help`` at either option position, and more info
 can be found in the :doc:`config/index` section.
 
-(You can use ``python`` instead of ``pypy`` here, which will take longer
+(You can use ``python2`` instead of ``pypy2.7`` here, which will take longer
 but works too.)
 
 If everything works correctly this will:
 
 1. Run the rpython `translation chain`_, producing a database of the
-   entire pypy interpreter. This step is currently singe threaded, and RAM
+   entire pypy interpreter. This step is currently single threaded, and RAM
    hungry. As part of this step,  the chain creates a large number of C code
    files and a Makefile to compile them in a
    directory controlled by the ``PYPY_USESSION_DIR`` environment variable.
-2. Create an executable ``pypy-c`` by running the Makefile. This step can
-   utilize all possible cores on the machine.
+2. Create an executable ``pypy-c`` or ``pypy3.XX-c`` by running the Makefile.
+   This step can utilize all possible cores on the machine.
 3. Copy the needed binaries to the current directory.
 4. Generate c-extension modules for any cffi-based stdlib modules.
 

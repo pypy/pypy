@@ -1459,3 +1459,14 @@ def test_likely_unlikely():
     assert tr.rewrite_operation(op) is None
     op = SpaceOperation('unlikely', [v1], v2)
     assert tr.rewrite_operation(op) is None
+
+def test_uint_mul_high():
+    v3 = varoftype(lltype.Signed)
+    for v1 in [varoftype(lltype.Signed), const(42)]:
+        for v2 in [varoftype(lltype.Signed), const(42)]:
+            op = SpaceOperation('direct_call', [Constant('uint_mul_high'), v1], v3)
+            op = Transformer(FakeCPU())._handle_int_special(op, 'int.uint_mul_high',
+                                                                [v1, v2])
+            assert op.opname == 'uint_mul_high'
+            assert op.args == [v1, v2]
+            assert op.result == v3

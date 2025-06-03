@@ -320,10 +320,11 @@ class PyPyTarget(object):
             config.objspace.lonepycfiles = False
 
         if config.objspace.usemodules.cpyext:
-            if config.translation.gc not in ('incminimark', 'boehm'):
-                raise Exception("The 'cpyext' module requires the 'incminimark'"
-                    " or 'boehm' GC.  You need either 'targetpypystandalone.py"
-                    " --withoutmod-cpyext', or use one of these two GCs.")
+            if config.translation.gc != 'incminimark':
+                raise Exception("The 'cpyext' module requires the default"
+                    " 'incminimark' GC.  You need 'targetpypystandalone.py"
+                    " --withoutmod-cpyext' with other GCs.  (It almost"
+                    " works with Boehm, the fix should be quick)")
 
         config.translating = True
 

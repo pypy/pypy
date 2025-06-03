@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from __future__ import print_function
 
 import os
 import sys
@@ -157,31 +158,31 @@ class _CWriter(object):
     def write_header(self):
         f = self.f
         self.eci.write_c_header(f)
-        print >> f, C_HEADER
-        print >> f
+        print(C_HEADER, file=f)
+        print(file=f)
 
     def write_entry(self, key, entry):
         f = self.f
-        print >> f, 'void dump_section_%s(void) {' % (key,)
+        print('void dump_section_%s(void) {' % (key,), file=f)
         for line in entry.prepare_code():
             if line and line[0] != '#':
                 line = '\t' + line
-            print >> f, line
-        print >> f, '}'
-        print >> f
+            print(line, file=f)
+        print('}', file=f)
+        print(file=f)
 
     def write_entry_main(self, key):
-        print >> self.f, '\tprintf("-+- %s\\n");' % (key,)
-        print >> self.f, '\tdump_section_%s();' % (key,)
-        print >> self.f, '\tprintf("---\\n");'
+        print('\tprintf("-+- %s\\n");' % (key,), file=self.f)
+        print('\tdump_section_%s();' % (key,), file=self.f)
+        print('\tprintf("---\\n");', file=self.f)
 
     def start_main(self):
-        print >> self.f, 'int main(int argc, char *argv[]) {'
+        print('int main(int argc, char *argv[]) {', file=self.f)
 
     def close(self):
         f = self.f
-        print >> f, '\treturn 0;'
-        print >> f, '}'
+        print('\treturn 0;', file=f)
+        print('}', file=f)
         f.close()
 
     def ask_gcc(self, question):
@@ -662,6 +663,7 @@ def uniquefilepath(LAST=[0]):
 integer_class = [rffi.SIGNEDCHAR, rffi.UCHAR, rffi.CHAR,
                  rffi.SHORT, rffi.USHORT,
                  rffi.INT, rffi.UINT,
+                 rffi.INT_real, rffi.UINT_real,
                  rffi.LONG, rffi.ULONG,
                  rffi.LONGLONG, rffi.ULONGLONG]
 # XXX SIZE_T?
@@ -891,7 +893,7 @@ if __name__ == '__main__':
     import getopt
     opts, args = getopt.gnu_getopt(sys.argv[1:], 'h:')
     if not args:
-        print >> sys.stderr, doc
+        print(doc, file=sys.stderr)
     else:
         assert len(args) % 2 == 1
         headers = []
@@ -907,4 +909,4 @@ if __name__ == '__main__':
         S = getstruct(name, '\n'.join(headers), fields)
 
         for name in S._names:
-            print name, getattr(S, name)
+            print(name, getattr(S, name))

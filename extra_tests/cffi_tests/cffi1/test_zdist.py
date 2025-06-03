@@ -42,11 +42,11 @@ class TestDist(object):
         tmp_home = mkdtemp()
         assert tmp_home != None, "cannot create temporary homedir"
         env['HOME'] = tmp_home
+        pathlist = sys.path[:]
         if cwd is None:
-            newpath = self.rootdir
-            if 'PYTHONPATH' in env:
-                newpath += os.pathsep + env['PYTHONPATH']
-            env['PYTHONPATH'] = newpath
+            pathlist.insert(0, self.rootdir)
+        if sys.version_info > (3, 0, 0):
+            env['PYTHONPATH'] = os.pathsep.join(pathlist)
         try:
             subprocess.check_call([self.executable] + args, cwd=cwd, env=env)
         finally:
@@ -291,13 +291,7 @@ class TestDist(object):
         with open("setup.py", "w") as f:
             f.write("""if 1:
                 # https://bugs.python.org/issue23246
-                import sys
-                if sys.platform == 'win32':
-                    try:
-                        import setuptools
-                    except ImportError:
-                        pass
-
+                import setuptools
                 import cffi
                 ffi = cffi.FFI()
                 ffi.set_source("pack1.mymod", "/*code would be here*/")

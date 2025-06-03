@@ -1,27 +1,29 @@
+from __future__ import print_function
+
 def jit_simple_loop():
-    print "simple loop"
+    print("simple loop")
 
     i = 0
     while i < 200:
         i = i + 3
-    print i
+    print(i)
     #assert i == 102
 
 def jit_simple_inplace_add():
-    print "simple loop with inplace_add"
+    print("simple loop with inplace_add")
 
     i = 0
     while i < 200:
         i += 3
-    print i
+    print(i)
 
 def jit_range():
-    print "range object, but outside the loop"
+    print("range object, but outside the loop")
 
     s = 0
     for i in range(200):
         s = s + i
-    print s
+    print(s)
 
 def jit_exceptions():
     try:
@@ -42,7 +44,7 @@ def jit_simple_bridge():
             s += 1
         else:
             s += 2
-    print s
+    print(s)
 
 def jit_tuple_indexing():
     t = (1, 2, 3)
@@ -50,10 +52,10 @@ def jit_tuple_indexing():
     while i < 200:
         t = t[1], t[2], t[0]
         i += 1
-    print t
+    print(t)
 
 def jit_nested_loop():
-    print     "Arbitrary test function."
+    print("Arbitrary test function.")
     n = 100
     i = 0
     x = 1
@@ -63,7 +65,7 @@ def jit_nested_loop():
             j = j + 1
             x = x + (i&j)
         i = i + 1
-    print x
+    print(x)
     return x
 
 def jit_another_loop():
@@ -71,7 +73,7 @@ def jit_another_loop():
     i = 0
     while i < 150:
         i = i + 1
-    print n
+    print(n)
 
 def jit_loop_with_call():
     i = 0
@@ -99,4 +101,3 @@ def jit_unicode_formatting():
     d = []
     for i in range(1000):
         d[i] = u'\\xyz%d' % i
-

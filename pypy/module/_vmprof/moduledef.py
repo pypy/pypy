@@ -1,5 +1,7 @@
+import sys
 from pypy.interpreter.mixedmodule import MixedModule
 from rpython.rlib.rvmprof import VMProfPlatformUnsupported
+from rpython.rlib import rvmprof
 from rpython.translator.platform import CompilationError
 
 
@@ -9,6 +11,9 @@ class Module(MixedModule):
     """
     appleveldefs = {
     }
+    if sys.platform.startswith('linux'):
+        appleveldefs['resolve_addr'] = 'app_vmprof.resolve_addr'
+        appleveldefs['resolve_many_addrs'] = 'app_vmprof.resolve_many_addrs'
 
     interpleveldefs = {
         'enable': 'interp_vmprof.enable',

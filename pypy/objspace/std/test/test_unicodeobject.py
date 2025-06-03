@@ -579,7 +579,7 @@ class AppTestUnicodeString:
         assert s.rstrip() == u" a b"
         assert s.lstrip() == u"a b "
         assert u'xyzzyhelloxyzzy'.strip(u'xyz') == u'hello'
-        assert u'xyzzyhelloxyzzy'.lstrip('xyz') == u'helloxyzzy'
+        assert u'xyzzyhelloxyzzy'.lstrip(u'xyz') == u'helloxyzzy'
         assert u'xyzzyhelloxyzzy'.rstrip(u'xyz') == u'xyzzyhello'
         exc = raises(TypeError, s.strip, buffer(' '))
         assert str(exc.value) == 'strip arg must be None, unicode or str'
@@ -587,6 +587,15 @@ class AppTestUnicodeString:
         assert str(exc.value) == 'rstrip arg must be None, unicode or str'
         exc = raises(TypeError, s.lstrip, buffer(' '))
         assert str(exc.value) == 'lstrip arg must be None, unicode or str'
+
+    def test_strip_nonascii(self):
+        s = u" ä b "
+        assert s.strip() == u"ä b"
+        assert s.rstrip() == u" ä b"
+        assert s.lstrip() == u"ä b "
+        assert u'xyzzyh³lloxyzzy'.strip(u'xyzü') == u'h³llo'
+        assert u'xyzzyh³lloxyzzy'.lstrip(u'xyzü') == u'h³lloxyzzy'
+        assert u'xyzzyh³lloxyzzy'.rstrip(u'xyzü') == u'xyzzyh³llo'
 
     def test_strip_str_unicode(self):
         x = "--abc--".strip(u"-")
@@ -598,6 +607,10 @@ class AppTestUnicodeString:
         raises(UnicodeDecodeError, "\x80".strip, u"")
         raises(UnicodeDecodeError, "\x80".lstrip, u"")
         raises(UnicodeDecodeError, "\x80".rstrip, u"")
+
+    def test_rstrip_bug(self):
+        assert u"aaaaaaaaaaaaaaaaaaa".rstrip(u"a") == u""
+        assert u"äääääääääääääääääääääääää".rstrip(u"ä") == u""
 
     def test_long_from_unicode(self):
         assert long(u'12345678901234567890') == 12345678901234567890
@@ -748,13 +761,15 @@ class AppTestUnicodeString:
 
     def test_expandtabs_overflows_gracefully(self):
         import sys
-        if sys.maxint > (1 << 32):
-            skip("Wrong platform")
         raises((OverflowError, MemoryError), u't\tt\t'.expandtabs, sys.maxint)
 
     def test_expandtabs_0(self):
         assert u'x\ty'.expandtabs(0) == u'xy'
         assert u'x\ty'.expandtabs(-42) == u'xy'
+
+    def test_expandtabs_bug(self):
+        assert u"a\u266f\ttest".expandtabs() == u'a\u266f      test'
+        assert u"a\u266f\ttest".expandtabs(0) == u'a\u266ftest'
 
     def test_translate(self):
         assert u'bbbc' == u'abababc'.translate({ord('a'):None})

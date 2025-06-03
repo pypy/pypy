@@ -212,9 +212,12 @@ The ``time`` submodule exposes the platform-dependent clock types such as
   - ``clock_gettime(m)`` which returns the clock type time in seconds and
   - ``clock_getres(m)`` which returns the clock resolution in seconds.
 
+These are in the builtin ``time`` module on Python3.3+ and so have been
+removed from ``__pypy__`` on PyPy3.11+
+
 Extended Signal Handling
 ------------------------
-``thread.signals_enbaled`` is a context manager to use in non-main threads.
+``thread.signals_enabled`` is a context manager to use in non-main threads.
     enables receiving signals in a "with" statement.  More precisely, if a
     signal is received by the process, then the signal handler might be
     called either in the main thread (as usual) or within another thread

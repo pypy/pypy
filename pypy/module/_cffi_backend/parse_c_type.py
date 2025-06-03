@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.objectmodel import specialize
+from rpython.tool.cparser import CTypeSpace
 
 
 src_dir = py.path.local(os.path.dirname(__file__)) / 'src'
@@ -19,68 +20,25 @@ def llexternal(name, args, result, **kwds):
                            _nowrapper=True, **kwds)
 
 _CFFI_OPCODE_T = rffi.VOIDP
-GLOBAL_S = rffi.CStruct('_cffi_global_s',
-                       ('name', rffi.CCHARP),
-                       ('address', rffi.VOIDP),
-                       ('type_op', _CFFI_OPCODE_T),
-                       ('size_or_direct_fn', rffi.CCHARP))
+cts = CTypeSpace()
+INCLUDE_DIR = os.path.join(os.path.dirname(__file__), 'src')
+with open(os.path.join(INCLUDE_DIR, 'parse_c_type.h')) as fid:
+    data = fid.read()
+    end = data.find("#ifdef _CFFI_INTERNAL")
+    cts.parse_source(data[:end])
+
+GLOBAL_S = cts.gettype('struct _cffi_global_s')
 CDL_INTCONST_S = lltype.Struct('cdl_intconst_s',
                        ('value', rffi.ULONGLONG),
                        ('neg', rffi.INT))
-STRUCT_UNION_S = rffi.CStruct('_cffi_struct_union_s',
-                       ('name', rffi.CCHARP),
-                       ('type_index', rffi.INT),
-                       ('flags', rffi.INT),
-                       ('size', rffi.SIZE_T),
-                       ('alignment', rffi.INT),
-                       ('first_field_index', rffi.INT),
-                       ('num_fields', rffi.INT))
-FIELD_S = rffi.CStruct('_cffi_field_s',
-                       ('name', rffi.CCHARP),
-                       ('field_offset', rffi.SIZE_T),
-                       ('field_size', rffi.SIZE_T),
-                       ('field_type_op', _CFFI_OPCODE_T))
-ENUM_S = rffi.CStruct('_cffi_enum_s',
-                       ('name', rffi.CCHARP),
-                       ('type_index', rffi.INT),
-                       ('type_prim', rffi.INT),
-                       ('enumerators', rffi.CCHARP))
-TYPENAME_S = rffi.CStruct('_cffi_typename_s',
-                       ('name', rffi.CCHARP),
-                       ('type_index', rffi.INT))
-
-PCTX = rffi.CStructPtr('_cffi_type_context_s',
-                       ('types', rffi.VOIDPP),
-                       ('globals', rffi.CArrayPtr(GLOBAL_S)),
-                       ('fields', rffi.CArrayPtr(FIELD_S)),
-                       ('struct_unions', rffi.CArrayPtr(STRUCT_UNION_S)),
-                       ('enums', rffi.CArrayPtr(ENUM_S)),
-                       ('typenames', rffi.CArrayPtr(TYPENAME_S)),
-                       ('num_globals', rffi.INT),
-                       ('num_struct_unions', rffi.INT),
-                       ('num_enums', rffi.INT),
-                       ('num_typenames', rffi.INT),
-                       ('includes', rffi.CCHARPP),
-                       ('num_types', rffi.INT),
-                       ('flags', rffi.INT))
-
-PINFO = rffi.CStructPtr('_cffi_parse_info_s',
-                        ('ctx', PCTX),
-                        ('output', rffi.VOIDPP),
-                        ('output_size', rffi.UINT),
-                        ('error_location', rffi.SIZE_T),
-                        ('error_message', rffi.CCHARP))
-
-PEXTERNPY = rffi.CStructPtr('_cffi_externpy_s',
-                            ('name', rffi.CCHARP),
-                            ('size_of_result', rffi.SIZE_T),
-                            ('reserved1', rffi.VOIDP),
-                            ('reserved2', rffi.VOIDP))
-
-GETCONST_S = rffi.CStruct('_cffi_getconst_s',
-                          ('value', rffi.ULONGLONG),
-                          ('ctx', PCTX),
-                          ('gindex', rffi.INT))
+STRUCT_UNION_S = cts.gettype('struct _cffi_struct_union_s')
+FIELD_S = cts.gettype('struct _cffi_field_s')
+ENUM_S = cts.gettype('struct _cffi_enum_s')
+TYPENAME_S = cts.gettype('struct _cffi_typename_s')
+PCTX = lltype.Ptr(cts.gettype('struct _cffi_type_context_s'))
+PINFO = lltype.Ptr(cts.gettype('struct _cffi_parse_info_s'))
+PEXTERNPY = lltype.Ptr(cts.gettype('struct _cffi_externpy_s'))
+GETCONST_S = cts.gettype('struct _cffi_getconst_s')
 
 ll_parse_c_type = llexternal('pypy_parse_c_type', [PINFO, rffi.CCHARP],
                              rffi.INT)
@@ -105,15 +63,15 @@ NULL_CTX = lltype.nullptr(PCTX.TO)
 FFI_COMPLEXITY_OUTPUT = 1200     # xxx should grow as needed
 internal_output = lltype.malloc(rffi.VOIDPP.TO, FFI_COMPLEXITY_OUTPUT,
                                 flavor='raw', zero=True, immortal=True)
-PCTXOBJ = lltype.Ptr(lltype.Struct('cffi_ctxobj',
+CTXOBJ = lltype.Struct('cffi_ctxobj',
                                    ('ctx', PCTX.TO),
-                                   ('info', PINFO.TO)))
+                                   ('info', PINFO.TO))
 
 def allocate_ctxobj(src_ctx):
-    p = lltype.malloc(PCTXOBJ.TO, flavor='raw', zero=True)
+    p = lltype.malloc(CTXOBJ, flavor='raw', zero=True)
     if src_ctx:
         rffi.c_memcpy(rffi.cast(rffi.VOIDP, p.ctx),
-                      rffi.cast(rffi.VOIDP, src_ctx),
+                      rffi.cast(rffi.CONST_VOIDP, src_ctx),
                       rffi.cast(rffi.SIZE_T, rffi.sizeof(PCTX.TO)))
     p.info.c_ctx = p.ctx
     p.info.c_output = internal_output

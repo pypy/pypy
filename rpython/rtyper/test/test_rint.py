@@ -100,6 +100,33 @@ class TestRint(BaseRtypingTest):
         res = self.ll_to_string(res)
         assert res == '-' + oct(sys.maxint+1).replace('L', '').replace('l', '')
 
+    def test_bin_of_int(self):
+        from rpython.rtyper.lltypesystem.ll_str import ll_int2bin
+
+        def dummy(i):
+            return bin(i)
+
+        res = self.interpret(dummy, [0])
+        assert self.ll_to_string(res) == '0b0'
+
+        res = self.interpret(dummy, [1034])
+        assert self.ll_to_string(res) == '0b10000001010'
+
+        res = self.interpret(dummy, [-123])
+        assert self.ll_to_string(res) == '-0b1111011'
+
+        res = self.interpret(dummy, [-sys.maxint-1])
+        res = self.ll_to_string(res)
+        assert res == '-0b1' + '0' * (len(res)-4)
+
+    def test_bin_of_uint(self):
+        def dummy(i):
+            return bin(r_uint(i))
+
+        res = self.interpret(dummy, [-5])
+        res = self.ll_to_string(res)
+        assert res == '0b' + '1' * (len(res)-5) + '011'
+
     def test_str_of_longlong(self):
         def f(i):
             return str(i)

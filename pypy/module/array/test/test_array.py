@@ -13,6 +13,7 @@ class AppTestArray(object):
         cls.w_tempfile = cls.space.wrap(
             str(pytest.ensuretemp('array').join('tmpfile')))
         cls.w_maxint = cls.space.wrap(sys.maxint)
+        cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def test_ctor(self):
         assert len(self.array('c')) == 0
@@ -880,6 +881,8 @@ class AppTestArray(object):
         assert a == b
 
     def test_unicode_outofrange(self):
+        if not self.runappdirect:
+            skip("ll2ctypes cannot represent unichar(sys.maxunicode + 1)")
         input_unicode = u'\x01\u263a\x00\ufeff'
         a = self.array('u', input_unicode)
         b = self.array('u', input_unicode)

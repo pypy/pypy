@@ -977,6 +977,7 @@ class VirtualTests:
 
         mask = -2
         const = Box(X(5))
+        decisions = [True, True] + [False] * 100
         def f():
             # Prevent all retracing of side exits. Ensures that the unroll
             # optimizer will attempt to jump to either the preamble or loop.
@@ -988,9 +989,7 @@ class VirtualTests:
             while i < 17:
                 driver.can_enter_jit(i=i, val=val)
                 driver.jit_merge_point(i=i, val=val)
-                # Logical & rather than comparison to confuse range analysis.
-                # Test only succeeds on the first 2 iterations
-                if i & -2 == 0:
+                if decisions[i]: # only true on the first two iterations
                     val = const.unbox
                 else:
                     val = X(i)

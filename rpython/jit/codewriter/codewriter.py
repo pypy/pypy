@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.jit.codewriter import support, heaptracker
 from rpython.jit.codewriter.regalloc import perform_register_allocation
 from rpython.jit.codewriter.flatten import flatten_graph, KINDS
@@ -57,7 +59,12 @@ class CodeWriter(object):
         # of bytes and lists of constants.  It's during this step that
         # constants are cast to their normalized type (Signed, GCREF or
         # Float).
-        self.assembler.assemble(ssarepr, jitcode)
+        num_regs = {kind:
+                (max(regallocs[kind]._coloring.values()) + 1
+                    if regallocs[kind]._coloring
+                    else 0)
+                for kind in KINDS}
+        self.assembler.assemble(ssarepr, jitcode, num_regs)
         jitcode.index = index
         #
         # print the resulting assembler
@@ -96,8 +103,8 @@ class CodeWriter(object):
 
     def print_ssa_repr(self, ssarepr, portal_jitdriver, verbose):
         if verbose:
-            print '%s:' % (ssarepr.name,)
-            print format_assembler(ssarepr)
+            print('%s:' % (ssarepr.name,))
+            print(format_assembler(ssarepr))
         else:
             log.dot()
         dir = udir.ensure("jitcodes", dir=1)

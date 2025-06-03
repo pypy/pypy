@@ -65,6 +65,8 @@ def test_simple_case():
 def _Wconversion(cdef, source, **kargs):
     if sys.platform in ('win32', 'darwin'):
         pytest.skip("needs GCC")
+    if '-Wno-error=sign-conversion' in extra_compile_args:
+        pytest.skip("gcc 9.2.0 compiler bug exposed by Python 3.12+ prevents compilation with sign-conversion warnings-as-errors")
     ffi = FFI()
     ffi.cdef(cdef)
     pytest.raises(VerificationError, ffi.verify, source, **kargs)
@@ -215,7 +217,7 @@ def test_primitive_category():
         I = tp.is_integer_type()
         assert C == (typename in ('char', 'wchar_t', 'char16_t', 'char32_t'))
         assert F == (typename in ('float', 'double', 'long double'))
-        assert X == (typename in ('float _Complex', 'double _Complex'))
+        assert X == (typename in ('_cffi_float_complex_t', '_cffi_double_complex_t'))
         assert I + F + C + X == 1      # one and only one of them is true
 
 def test_all_integer_and_float_types():
@@ -252,6 +254,27 @@ def test_all_integer_and_float_types():
                 pytest.raises(OverflowError, foo, value)
             else:
                 assert foo(value) == value + 1
+
+def test_all_complex_types():
+    if sys.platform == 'win32':
+        typenames = ['_Fcomplex', '_Dcomplex']
+        header = '#include <complex.h>\n'
+    else:
+        typenames = ['float _Complex', 'double _Complex']
+        header = ''
+    #
+    ffi = FFI()
+    ffi.cdef('\n'.join(["%s foo_%s(%s);" % (tp, tp.replace(' ', '_'), tp)
+                       for tp in typenames]))
+    lib = ffi.verify(
+            header + '\n'.join(["%s foo_%s(%s x) { return x; }" %
+                                (tp, tp.replace(' ', '_'), tp)
+                                for tp in typenames]))
+    for typename in typenames:
+        foo = getattr(lib, 'foo_%s' % typename.replace(' ', '_'))
+        assert foo(42 + 1j) == 42 + 1j
+        assert foo(ffi.cast(typename, 46 - 3j)) == 46 - 3j
+        pytest.raises(TypeError, foo, ffi.NULL)
 
 def test_var_signed_integer_types():
     ffi = FFI()
@@ -1536,7 +1559,8 @@ def test_callback_in_thread():
     pytest.xfail("adapt or remove")
     if sys.platform == 'win32':
         pytest.skip("pthread only")
-    import os, subprocess, imp
+    import os, subprocess
+    from cffi import _imp_emulation as imp
     arg = os.path.join(os.path.dirname(__file__), 'callback_in_thread.py')
     g = subprocess.Popen([sys.executable, arg,
                           os.path.dirname(imp.find_module('cffi')[1])])

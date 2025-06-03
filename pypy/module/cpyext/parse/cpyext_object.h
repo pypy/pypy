@@ -73,8 +73,8 @@ typedef Py_ssize_t (*segcountproc)(PyObject *, Py_ssize_t *);
 typedef Py_ssize_t (*charbufferproc)(PyObject *, Py_ssize_t, char **);
 
 /* Py3k buffer interface, adapted for PyPy */
-/* XXX remove this constant, us a PyObject_VAR_HEAD instead */
-#define Py_MAX_NDIMS 36
+/* Changing this constant changes the ABI */
+#define PyBUF_MAX_NDIM 36
 typedef struct bufferinfo {
     void *buf;
     PyObject *obj;        /* owned reference */
@@ -92,8 +92,8 @@ typedef struct bufferinfo {
     void *internal; /* always NULL for app-level objects */
     /* PyPy extensions */
     int flags;
-    Py_ssize_t _strides[Py_MAX_NDIMS];
-    Py_ssize_t _shape[Py_MAX_NDIMS];
+    Py_ssize_t _strides[PyBUF_MAX_NDIM];
+    Py_ssize_t _shape[PyBUF_MAX_NDIM];
     /* static store for shape and strides of
        mono-dimensional buffers. */
     /* Py_ssize_t smalltable[2]; */

@@ -11,7 +11,7 @@ You can download the PyPy 2.5.0 release here:
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects, as well as our
-volunteers and contributors (10 new commiters joined PyPy since the last
+volunteers and contributors (10 new committers joined PyPy since the last
 release).
 We've shown quite a bit of progress, but we're slowly running out of funds.
 Please consider donating more, or even better convince your employer to donate,
@@ -55,7 +55,7 @@ Highlights
 * The past months have seen pypy mature and grow, as rpython becomes the goto
   solution for writing fast dynamic language interpreters. Our separation of
   rpython and the python interpreter PyPy is now much clearer in the
-  `PyPy documentation`_  and we now have seperate `RPython documentation`_.
+  `PyPy documentation`_  and we now have separate `RPython documentation`_.
 
 * We have improved warmup time as well as jitted code performance: more than 10%
   compared to pypy-2.4.0, due to internal cleanup and gc nursery improvements.
@@ -72,7 +72,7 @@ Highlights
   support the lapack/blas linalg module of numpy. This dovetails with work in the
   pypy/numpy repository to support linalg both through the (slower) cpyext capi
   interface and also via (the faster) pure python cffi interface, using an
-  extended frompyfunc() api. We will soon post a seperate blog post specifically
+  extended frompyfunc() api. We will soon post a separate blog post specifically
   about linalg and PyPy.
 
 * Dictionaries are now ordered by default, see the `blog post`_

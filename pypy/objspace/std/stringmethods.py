@@ -201,14 +201,19 @@ class StringMethods(object):
                 ovfcheck(len(splitted) * tabsize)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "new string is too long")
-        expanded = oldtoken = splitted.pop(0)
+        newlen = self._len() - len(splitted) + 1
+        builder = self._builder(len(value))
+        oldtoken = splitted[0]
+        builder.append(oldtoken)
 
-        for token in splitted:
-            expanded += self._multi_chr(self._chr(' ')) * self._tabindent(oldtoken,
-                                                         tabsize) + token
+        for index in range(1, len(splitted)):
+            token = splitted[index]
+            dist = self._tabindent(oldtoken, tabsize)
+            builder.append_multiple_char(' ', dist)
+            builder.append(token)
+            newlen += dist
             oldtoken = token
-
-        return self._new(expanded)
+        return self._new(builder.build())
 
     def _tabindent(self, token, tabsize):
         """calculates distance behind the token to the next tabstop"""
@@ -665,15 +670,32 @@ class StringMethods(object):
         rpos = len(value)
 
         if left:
-            while lpos < rpos and value[lpos] in chars:
-                lpos += 1
+            lpos = StringMethods._strip_bytes_unboxed_left(value, chars)
 
         if right:
-            while rpos > lpos and value[rpos - 1] in chars:
-                rpos -= 1
+            rpos = StringMethods._strip_bytes_unboxed_right(value, chars, lpos)
 
         assert rpos >= lpos    # annotator hint, don't remove
         return self._sliced(space, value, lpos, rpos, self)
+
+    @staticmethod
+    @jit.elidable
+    @specialize.argtype(0)
+    def _strip_bytes_unboxed_left(value, chars):
+        lpos = 0
+        rpos = len(value)
+        while lpos < rpos and value[lpos] in chars:
+            lpos += 1
+        return lpos
+
+    @staticmethod
+    @jit.elidable
+    @specialize.argtype(0)
+    def _strip_bytes_unboxed_right(value, chars, lpos):
+        rpos = len(value)
+        while rpos > lpos and value[rpos - 1] in chars:
+            rpos -= 1
+        return rpos
 
     def _strip_none(self, space, left, right):
         "internal function called by str_xstrip methods"
@@ -683,15 +705,32 @@ class StringMethods(object):
         rpos = len(value)
 
         if left:
-            while lpos < rpos and self._isspace(value[lpos]):
-                lpos += 1
+            lpos = StringMethods._strip_none_bytes_unboxed_left(value)
 
         if right:
-            while rpos > lpos and self._isspace(value[rpos - 1]):
-                rpos -= 1
+            rpos = StringMethods._strip_none_bytes_unboxed_right(value, lpos)
 
         assert rpos >= lpos    # annotator hint, don't remove
         return self._sliced(space, value, lpos, rpos, self)
+
+    @staticmethod
+    @jit.elidable
+    @specialize.argtype(0)
+    def _strip_none_bytes_unboxed_left(value):
+        lpos = 0
+        rpos = len(value)
+        while lpos < rpos and value[lpos].isspace():
+            lpos += 1
+        return lpos
+
+    @staticmethod
+    @jit.elidable
+    @specialize.argtype(0)
+    def _strip_none_bytes_unboxed_right(value, lpos):
+        rpos = len(value)
+        while rpos > lpos and value[rpos - 1].isspace():
+            rpos -= 1
+        return rpos
 
     def descr_strip(self, space, w_chars=None):
         if space.is_none(w_chars):

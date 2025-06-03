@@ -2630,6 +2630,7 @@ complex_types = []
 _REQ_STRLEN = [0, 3, 5, 10, 10, 20, 20, 20, 20]  # data for can_cast_to()
 def _setup():
     # compute alignment
+    dummyspace = ObjSpace()
     for tp in globals().values():
         if isinstance(tp, type) and hasattr(tp, 'T'):
             tp.alignment = widen(clibffi.cast_type_to_ffitype(tp.T).c_alignment)
@@ -2639,7 +2640,7 @@ def _setup():
             if issubclass(tp, Integer):
                 all_int_types.append((tp, 'int'))
                 int_types.append(tp)
-                elsize = tp(ObjSpace()).get_element_size()
+                elsize = tp(dummyspace).get_element_size()
                 tp.strlen = _REQ_STRLEN[elsize]
                 if tp.kind == NPY.SIGNEDLTR:
                     tp.strlen += 1

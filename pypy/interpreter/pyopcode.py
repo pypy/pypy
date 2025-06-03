@@ -879,10 +879,14 @@ class __extend__(pyframe.PyFrame):
 
     def STORE_ATTR(self, nameindex, next_instr):
         "obj.attributename = newvalue"
-        w_attributename = self.getname_w(nameindex)
         w_obj = self.popvalue()
         w_newvalue = self.popvalue()
-        self.space.setattr(w_obj, w_attributename, w_newvalue)
+        if not jit.we_are_jitted():
+            from pypy.objspace.std.mapdict import STORE_ATTR_caching
+            STORE_ATTR_caching(self.getcode(), w_obj, nameindex, w_newvalue)
+        else:
+            w_attributename = self.getname_w(nameindex)
+            self.space.setattr(w_obj, w_attributename, w_newvalue)
 
     def DELETE_ATTR(self, nameindex, next_instr):
         "del obj.attributename"
@@ -1228,10 +1232,7 @@ class __extend__(pyframe.PyFrame):
             # Only positional arguments
             nargs = oparg & 0xff
             w_function = self.peekvalue(nargs)
-            try:
-                w_result = self.space.call_valuestack(w_function, nargs, self)
-            finally:
-                self.dropvalues(nargs + 1)
+            w_result = self.space.call_valuestack(w_function, nargs, self, dropvalues=nargs+1)
             self.pushvalue(w_result)
         # XXX end of hack for performance
         else:

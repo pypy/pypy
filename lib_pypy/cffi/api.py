@@ -622,7 +622,7 @@ class FFI(object):
                 try:
                     import sysconfig
                 except ImportError:    # 2.6
-                    from distutils import sysconfig
+                    from cffi._shimmed_dist_utils import sysconfig
                 template = "python%d.%d"
                 if sysconfig.get_config_var('DEBUG_EXT'):
                     template += sysconfig.get_config_var('DEBUG_EXT')
@@ -658,7 +658,7 @@ class FFI(object):
         self.set_source(module_name, source, source_extension, **kwds)
 
     def distutils_extension(self, tmpdir='build', verbose=True):
-        from distutils.dir_util import mkpath
+        from cffi._shimmed_dist_utils import mkpath
         from .recompiler import recompile
         #
         if not hasattr(self, '_assigned_source'):
@@ -693,7 +693,8 @@ class FFI(object):
             raise TypeError("emit_c_code() is only for C extension modules, "
                             "not for dlopen()-style pure Python modules")
         recompile(self, module_name, source,
-                  c_file=filename, call_c_compiler=False, **kwds)
+                  c_file=filename, call_c_compiler=False,
+                  uses_ffiplatform=False, **kwds)
 
     def emit_python_code(self, filename):
         from .recompiler import recompile
@@ -705,7 +706,8 @@ class FFI(object):
             raise TypeError("emit_python_code() is only for dlopen()-style "
                             "pure Python modules, not for C extension modules")
         recompile(self, module_name, source,
-                  c_file=filename, call_c_compiler=False, **kwds)
+                  c_file=filename, call_c_compiler=False,
+                  uses_ffiplatform=False, **kwds)
 
     def compile(self, tmpdir='.', verbose=0, target=None, debug=None):
         """The 'target' argument gives the final file name of the

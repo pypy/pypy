@@ -3,7 +3,7 @@
 cffi>=1.4.0
 
 # parse log files in rvmprof tests
-vmprof>=0.4.13; 'x86' in platform.machine
+vmprof>=0.4.13
 
 # hypothesis is used for test generation on untranslated tests
 hypothesis<4.40

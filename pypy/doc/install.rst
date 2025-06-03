@@ -6,7 +6,7 @@ extra packages. The choices for installing the base interpreter are:
 
 - Use conda (x86_64 windows, macOS, linux, arm64 linux)
 - Use your distribution package manager (linux)
-- Use homebew (macOS, but see issue 3697_)
+- Use homebrew (macOS)
 - Use the prebuilt tarballs
 - Build from source
 
@@ -14,8 +14,8 @@ Using conda
 ~~~~~~~~~~~~~~~~~~~~~
 
 If you require compiled (c-extension) modules like SciPy, we
-recommend you use conda, which works on Windows10, macOS, and linux x86_64.
-You can read more about this in the `blog post`_.
+recommend you use conda and pypy3.9, which works on Windows10, macOS, and linux
+x86_64. You can read more about this in the `blog post`_.
 
 .. code-block:: console
 
@@ -26,11 +26,9 @@ You can read more about this in the `blog post`_.
 Using homebrew
 ~~~~~~~~~~~~~~
 
-On macOS you can also use homebrew, which provides signed packages. As of April
-2023, you can find pypy2.7 and pypy3.7 there. Help moving issue 3697_ to
-provide other versions is welcome.
+On macOS you can also use homebrew, which provides signed packages. As of May
+2024, you can find pypy3.9 and pypy3.10 there.
 
-.. _3697: https://foss.heptapod.net/pypy/pypy/-/issues/3697 
 .. _`blog post`: https://www.pypy.org/posts/2022/11/pypy-and-conda-forge.html
 
 Linux distributions
@@ -103,13 +101,13 @@ Installing using virtualenv
 
 It is often convenient to run pypy inside a virtualenv.  To do this
 you need a version of virtualenv -- 1.6.1 or greater.  You can
-then install PyPy both from a precompiled tarball or from a mercurial
+then install PyPy both from a precompiled tarball or from a git
 checkout after translation::
 
 	# from a tarball
 	$ virtualenv -p /opt/pypy-xxx/bin/pypy my-pypy-env
 
-	# from the mercurial checkout
+	# from the git checkout
 	$ virtualenv -p /path/to/pypy/pypy/translator/goal/pypy-c my-pypy-env
 
 	# in any case activate it

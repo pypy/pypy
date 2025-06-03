@@ -12,6 +12,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.translator import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rlib.rarithmetic import intmask, r_longlong, widen
 from rpython.rlib import jit
 
@@ -22,10 +23,10 @@ srcdir = os.path.join(os.path.dirname(__file__), 'src')
 
 if WIN32:
     eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h', 'winreparse.h'],
+        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h', 'winhelpers.h'],
         include_dirs = [srcdir, cdir],
-        libraries = ['kernel32'],
-        separate_module_files = [os.path.join(srcdir, "winreparse.c")],
+        libraries = ['kernel32', 'Advapi32'],
+        separate_module_files = [os.path.join(srcdir, "winhelpers.c")],
         )
 
     def external(name, args, result, compilation_info=eci, **kwds):
@@ -110,7 +111,7 @@ class CConfig:
 
         defines = """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
                        MAX_PATH _MAX_ENV FORMAT_MESSAGE_IGNORE_INSERTS
-                       WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE
+                       WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE WAIT_FAILED
                        ERROR_INVALID_HANDLE
                        DELETE READ_CONTROL SYNCHRONIZE WRITE_DAC
                        WRITE_OWNER PROCESS_ALL_ACCESS
@@ -127,7 +128,7 @@ class CConfig:
                        LOAD_WITH_ALTERED_SEARCH_PATH CT_CTYPE3 C3_HIGHSURROGATE
                        CP_ACP CP_UTF8 CP_UTF7 CP_OEMCP MB_ERR_INVALID_CHARS
                        LOAD_LIBRARY_SEARCH_DEFAULT_DIRS SEM_FAILCRITICALERRORS
-                       LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR
+                       LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR ENABLE_VIRTUAL_TERMINAL_PROCESSING
                        _Py_MAXIMUM_REPARSE_DATA_BUFFER_SIZE
                     """
         from rpython.translator.platform import host_factory
@@ -622,10 +623,10 @@ if WIN32:
         'SetEnvironmentVariableW', [LPWSTR, LPWSTR], BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
-    def SetEnvironmentVariableW(name, value):
-        with rffi.scoped_unicode2wcharp(name) as nameWbuf:
-            with rffi.scoped_unicode2wcharp(value) as valueWbuf:
-                return _SetEnvironmentVariableW(nameWbuf, valueWbuf)
+    def DelEnvironmentVariableW(name):
+        with rffi.scoped_utf82wcharp(name) as nameWbuf:
+            valueWbuf = lltype.nullptr(rffi.CWCHARP.TO)
+            return _SetEnvironmentVariableW(nameWbuf, valueWbuf)
 
     _AddDllDirectory = winexternal('AddDllDirectory', [LPWSTR], rffi.VOIDP,
         save_err=rffi.RFFI_SAVE_LASTERROR)
@@ -652,3 +653,50 @@ if WIN32:
     os_symlink_impl = winexternal("os_symlink_impl",
         [rffi.CWCHARP, rffi.CWCHARP, rffi.INT], rffi.INT,
         save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    os_unlink_impl = winexternal("os_unlink_impl", [rffi.CWCHARP], rffi.INT,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    GetUserNameW = winexternal('GetUserNameW', [LPWSTR, LPDWORD], rffi.INT,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    def getlogin():
+        UNLEN = 256  # from lmcons.h
+        with lltype.scoped_alloc(LPWSTR.TO, UNLEN) as user_name:
+            num_chars = lltype.malloc(LPDWORD.TO, 1, flavor='raw')
+            try:
+                num_chars[0] = rffi.cast(DWORD, UNLEN)
+                n = GetUserNameW(user_name, num_chars)
+                if n == -1:
+                    error = GetLastError_saved()
+                    raise WindowsError(error, "getlogin failed")
+                utf8, codepoints = rffi.wcharp2utf8n(user_name,
+                                                     widen(num_chars[0]))
+                return utf8
+            finally:
+                lltype.free(num_chars, flavor="raw")
+
+    BOOLP = lltype.Ptr(lltype.Array(BOOL, hints={'nolength': True}))
+
+    MultiByteToWideChar = rffi.llexternal('MultiByteToWideChar',
+                                          [rffi.UINT, DWORD,
+                                           LPCSTR, rffi.INT,
+                                           rffi.CWCHARP, rffi.INT],
+                                          rffi.INT,
+                                          calling_conv='win',
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    WideCharToMultiByte = rffi.llexternal('WideCharToMultiByte',
+                                          [rffi.UINT, DWORD,
+                                           rffi.CWCHARP, rffi.INT,
+                                           LPCSTR, rffi.INT,
+                                           LPCSTR, BOOLP],
+                                          rffi.INT,
+                                          calling_conv='win',
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)
+
+
+    os_createdirectory_impl = winexternal("os_createdirectory_impl",
+                                          [rffi.CWCHARP, rffi.INT_real],
+                                          rffi.INT,
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)

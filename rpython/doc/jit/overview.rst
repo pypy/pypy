@@ -27,7 +27,7 @@ This transformation is of course completely transparent to the user,
 i.e. the programmer writing Python programs.  The goal (which we
 achieved) is to support *all* Python features -- including, for example,
 random frame access and debuggers.  But it is also mostly transparent to
-the language implementor, i.e. to the source code of the Python
+the language implementer, i.e. to the source code of the Python
 interpreter.  It only needs a bit of guidance: we had to put a small
 number of hints in the source code of our interpreter.  Based on these
 hints, the *JIT compiler generator* produces a JIT compiler which has

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import py
 import sys
 import random
@@ -444,7 +446,7 @@ class BaseBackendTest(Runner):
     def test_int_operations(self):
         from rpython.jit.metainterp.test.test_executor import get_int_tests
         for opnum, boxargs, retvalue in get_int_tests():
-            print opnum
+            print(opnum)
             res = self.execute_operation(opnum, boxargs, 'int')
             assert res == retvalue
 
@@ -452,7 +454,7 @@ class BaseBackendTest(Runner):
         from rpython.jit.metainterp.test.test_executor import get_float_tests
         from rpython.jit.metainterp.resoperation import opname
         for opnum, boxargs, rettype, retvalue in get_float_tests(self.cpu):
-            print("testing", opname[opnum])
+            print(("testing", opname[opnum]))
             res = self.execute_operation(opnum, boxargs, rettype)
             if rettype == 'float':
                 res = longlong.getrealfloat(res)
@@ -1197,11 +1199,11 @@ class BaseBackendTest(Runner):
         else:
             numkinds = 1
         seed = random.randrange(0, 10000)
-        print 'Seed is', seed    # or choose it by changing the previous line
+        print('Seed is', seed)    # or choose it by changing the previous line
         r = random.Random()
         r.seed(seed)
         for nb_args in range(50):
-            print 'Passing %d arguments to execute_token...' % nb_args
+            print('Passing %d arguments to execute_token...' % nb_args)
             #
             inputargs = []
             values = []
@@ -1248,9 +1250,9 @@ class BaseBackendTest(Runner):
             op2 = ResOperation(rop.FINISH, [], descr=faildescr)
             operations += [op0, op1, op2]
             operations[-2].setfailargs(retboxes)
-            print inputargs
+            print(inputargs)
             for op in operations:
-                print op
+                print(op)
             self.cpu.compile_loop(inputargs, operations, looptoken)
             #
             deadframe = self.cpu.execute_token(looptoken, *values)
@@ -1272,11 +1274,11 @@ class BaseBackendTest(Runner):
         else:
             numkinds = 2
         seed = random.randrange(0, 10000)
-        print 'Seed is', seed    # or choose it by changing the previous line
+        print('Seed is', seed)    # or choose it by changing the previous line
         r = random.Random()
         r.seed(seed)
         for nb_args in range(50):
-            print 'Passing %d arguments around...' % nb_args
+            print('Passing %d arguments around...' % nb_args)
             #
             inputargs = []
             for k in range(nb_args):
@@ -2333,11 +2335,11 @@ class LLtypeBackendTest(BaseBackendTest):
                 # cond=0: GCFLAG_CARDS_SET is never set
                 # cond=1: GCFLAG_CARDS_SET is not set, but the wb sets it
                 # cond=2: GCFLAG_CARDS_SET is already set
-                print
-                print '_'*79
-                print 'BoxIndexCls =', BoxIndexCls
-                print 'testing cond =', cond
-                print
+                print()
+                print('_'*79)
+                print('BoxIndexCls =', BoxIndexCls)
+                print('testing cond =', cond)
+                print()
                 value = random.randrange(-sys.maxint, sys.maxint)
                 if cond >= 0:
                     value |= 4096
@@ -2506,7 +2508,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_force_operations_returning_void(self):
         values = []
         def maybe_force(token, flag):
-            print "CALLED WITH " + str(flag)
+            print("CALLED WITH " + str(flag))
             if flag:
                 deadframe = self.cpu.force(token)
                 values.append(self.cpu.get_latest_descr(deadframe))
@@ -3040,8 +3042,8 @@ class LLtypeBackendTest(BaseBackendTest):
                     assert 0, kind
                 argboxes.append(b1)
             codes = ''.join(codes)     # useful for pdb
-            print
-            print codes
+            print()
+            print(codes)
             #
             argvalues = [func_raw]
             for TP in ARGTYPES:
@@ -3076,7 +3078,7 @@ class LLtypeBackendTest(BaseBackendTest):
                     b1 = b2
                 insideboxes.append(b1)
             loadcodes = ''.join(loadcodes)
-            print loadcodes
+            print(loadcodes)
             ops += [
                 ResOperation(rop.CALL_RELEASE_GIL_N,
                              [ConstInt(0)] + insideboxes,
@@ -3168,8 +3170,8 @@ class LLtypeBackendTest(BaseBackendTest):
             original_result = self.cpu.get_int_value(deadframe, 0)
             result = llerrno.get_debug_saved_errno(self.cpu)
             altresult = llerrno.get_debug_saved_alterrno(self.cpu)
-            print 'saveerr =', saveerr, ': got result =', result, \
-                  'altresult =', altresult
+            print('saveerr =', saveerr, ': got result =', result,
+                  'altresult =', altresult)
             #
             expected = {
                 rffi.RFFI_ERR_NONE: (24, 25),
@@ -3305,8 +3307,8 @@ class LLtypeBackendTest(BaseBackendTest):
             original_result = self.cpu.get_int_value(deadframe, 0)
             result = llerrno.get_debug_saved_lasterror(self.cpu)
             altresult = llerrno.get_debug_saved_altlasterror(self.cpu)
-            print 'saveerr =', saveerr, ': got result =', result,
-            print 'and altresult =', altresult
+            print('saveerr =', saveerr, ': got result =', result, end=" ")
+            print('and altresult =', altresult)
             #
             if saveerr & rffi.RFFI_SAVE_LASTERROR:
                 # one from the C code, the other not touched
@@ -3498,8 +3500,8 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 0
         assert self.cpu.get_int_value(deadframe, 0) == -42
-        print 'step 1 ok'
-        print '-'*79
+        print('step 1 ok')
+        print('-'*79)
 
         # mark as failing
         self.cpu.invalidate_loop(looptoken)
@@ -3508,8 +3510,8 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail is faildescr
         assert self.cpu.get_int_value(deadframe, 0) == 9
-        print 'step 2 ok'
-        print '-'*79
+        print('step 2 ok')
+        print('-'*79)
 
         # attach a bridge
         faildescr2 = BasicFailDescr(2)
@@ -3526,8 +3528,8 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail.identifier == 3
         assert self.cpu.get_int_value(deadframe, 0) == 9
-        print 'step 3 ok'
-        print '-'*79
+        print('step 3 ok')
+        print('-'*79)
 
         # mark as failing again
         self.cpu.invalidate_loop(looptoken)
@@ -3535,8 +3537,8 @@ class LLtypeBackendTest(BaseBackendTest):
         deadframe = self.cpu.execute_token(looptoken, -42, 9)
         fail = self.cpu.get_latest_descr(deadframe)
         assert fail is faildescr2
-        print 'step 4 ok'
-        print '-'*79
+        print('step 4 ok')
+        print('-'*79)
 
     def test_guard_not_invalidated_and_label(self):
         # test that the guard_not_invalidated reserves enough room before
@@ -3734,7 +3736,7 @@ class LLtypeBackendTest(BaseBackendTest):
     def test_assembler_call(self):
         called = []
         def assembler_helper(deadframe, virtualizable):
-            print "CALLED ASSEMBLER HELPER"
+            print("CALLED ASSEMBLER HELPER")
             called.append(self.cpu.get_int_value(deadframe, 0))
             called.append(self.cpu.get_latest_descr(deadframe))
             return 4 + 9
@@ -3859,7 +3861,7 @@ class LLtypeBackendTest(BaseBackendTest):
             x = self.cpu.get_float_value(deadframe, 0)
             assert longlong.getrealfloat(x) == 1.2 + 3.2
             called.append(self.cpu.get_latest_descr(deadframe))
-            print '!' * 30 + 'assembler_helper'
+            print('!' * 30 + 'assembler_helper')
             return 13.5
 
         FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF,
@@ -4022,6 +4024,19 @@ class LLtypeBackendTest(BaseBackendTest):
         f17 = float_sub(f0, f1)
         f18 = float_sub(f0, f1)
         f19 = float_sub(f0, f1)
+        f20 = float_sub(f0, f1)
+        f21 = float_sub(f0, f1)
+        f22 = float_sub(f0, f1)
+        f23 = float_sub(f0, f1)
+        f24 = float_sub(f0, f1)
+        f25 = float_sub(f0, f1)
+        f26 = float_sub(f0, f1)
+        f27 = float_sub(f0, f1)
+        f28 = float_sub(f0, f1)
+        f29 = float_sub(f0, f1)
+        f30 = float_sub(f0, f1)
+        f31 = float_sub(f0, f1)
+        f32 = float_sub(f0, f1)
         i3 = float_eq(f2, f3)
         i4 = float_eq(f2, f4)
         i5 = float_eq(f2, f5)
@@ -4039,6 +4054,19 @@ class LLtypeBackendTest(BaseBackendTest):
         i17 = float_eq(f2, f17)
         i18 = float_eq(f2, f18)
         i19 = float_eq(f2, f19)
+        i20 = float_eq(f2, f20)
+        i21 = float_eq(f2, f21)
+        i22 = float_eq(f2, f22)
+        i23 = float_eq(f2, f23)
+        i24 = float_eq(f2, f24)
+        i25 = float_eq(f2, f25)
+        i26 = float_eq(f2, f26)
+        i27 = float_eq(f2, f27)
+        i28 = float_eq(f2, f28)
+        i29 = float_eq(f2, f29)
+        i30 = float_eq(f2, f30)
+        i31 = float_eq(f2, f31)
+        i32 = float_eq(f2, f32)
         guard_true(i3) []
         guard_true(i4) []
         guard_true(i5) []
@@ -4056,6 +4084,19 @@ class LLtypeBackendTest(BaseBackendTest):
         guard_true(i17) []
         guard_true(i18) []
         guard_true(i19) []
+        guard_true(i20) []
+        guard_true(i21) []
+        guard_true(i22) []
+        guard_true(i23) []
+        guard_true(i24) []
+        guard_true(i25) []
+        guard_true(i26) []
+        guard_true(i27) []
+        guard_true(i28) []
+        guard_true(i29) []
+        guard_true(i30) []
+        guard_true(i31) []
+        guard_true(i32) []
         finish(f2)'''
         loop2 = parse(ops)
         looptoken2 = JitCellToken()
@@ -4547,7 +4588,7 @@ class LLtypeBackendTest(BaseBackendTest):
         numbytes_cases = [1, 2] if IS_32_BIT else [1, 2, 4]
         for spill in ["", "force_spill(i1)"]:
           for numbytes in numbytes_cases:
-            print (spill, numbytes)
+            print((spill, numbytes))
             ops = """
             [i0]
             i1 = int_sub(i0, 0)     # force in register
@@ -4603,9 +4644,9 @@ class LLtypeBackendTest(BaseBackendTest):
         def checkops(mc, ops_regexp):
             import re
             words = []
-            print '----- checkops -----'
+            print('----- checkops -----')
             for line in mc:
-                print line.rstrip()
+                print(line.rstrip())
                 t = line.split("\t")
                 if len(t) <= 2:
                     continue
@@ -4616,7 +4657,7 @@ class LLtypeBackendTest(BaseBackendTest):
                     else:
                         continue
                 words.append(w[0] + ';')
-                print '[[%s]]' % (w[0],)
+                print('[[%s]]' % (w[0],))
             text = ' '.join(words)
             assert re.compile(ops_regexp).match(text)
 
@@ -4985,7 +5026,7 @@ class LLtypeBackendTest(BaseBackendTest):
                                     EffectInfo.MOST_GENERAL)
 
         def func2(a, b, c, d, e, f, g, h, i, j, k, l):
-            print "CALLED"
+            print("CALLED")
 
         FUNC2 = self.FuncType([lltype.Signed] * 12, lltype.Void)
         FPTR2 = self.Ptr(FUNC2)
@@ -5087,7 +5128,7 @@ class LLtypeBackendTest(BaseBackendTest):
         a[0] = rffi.cast(rffi.SHORT, 666)
         a[1] = rffi.cast(rffi.SHORT, 777)
         a_int = ptr2int(a)
-        print 'a_int:', a_int
+        print('a_int:', a_int)
         self.execute_operation(rop.SETARRAYITEM_RAW,
                                [ConstInt(a_int), ConstInt(0), ConstInt(-7654)],
                                'void', descr=arraydescr)
@@ -5161,10 +5202,10 @@ class LLtypeBackendTest(BaseBackendTest):
                                     (0, 4)]:
                 for cls1 in [ConstInt, InputArgInt]:
                     for cls2 in [ConstInt, InputArgInt]:
-                        print 'a_int:', a_int
-                        print 'of:', OF
-                        print 'start:', cls1.__name__, start
-                        print 'length:', cls2.__name__, length
+                        print('a_int:', a_int)
+                        print('of:', OF)
+                        print('start:', cls1.__name__, start)
+                        print('length:', cls2.__name__, length)
                         for i in range(100):
                             if OF == PAIR:
                                 a[i].a = a[i].b = -123456789

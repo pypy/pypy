@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 import time
 from collections import Counter
@@ -65,8 +67,8 @@ _log = None       # patched from tests to be an object of class DebugLog
 
 def debug_print(*args):
     for arg in args:
-        print >> sys.stderr, arg,
-    print >> sys.stderr
+        print(arg, end=" ", file=sys.stderr)
+    print(file=sys.stderr)
     if _log is not None:
         _log.debug_print(*args)
 
@@ -115,8 +117,8 @@ def debug_stop(category, timestamp=False):
 
 def _debug_start(category, timestamp):
     c = int(time.clock() * 100)
-    print >> sys.stderr, '%s[%x] {%s%s' % (_start_colors_1, c,
-                                           category, _stop_colors)
+    print('%s[%x] {%s%s' % (_start_colors_1, c, category, _stop_colors),
+          file=sys.stderr)
     if _log is not None:
         _log.debug_start(category)
 
@@ -126,8 +128,8 @@ def _debug_start(category, timestamp):
 
 def _debug_stop(category, timestamp):
     c = int(time.clock() * 100)
-    print >> sys.stderr, '%s[%x] %s}%s' % (_start_colors_2, c,
-                                           category, _stop_colors)
+    print('%s[%x] %s}%s' % (_start_colors_2, c, category, _stop_colors),
+          file=sys.stderr)
     if _log is not None:
         _log.debug_stop(category)
 
@@ -606,7 +608,7 @@ extern "C" RPY_EXPORTED void AttachToVS() {
                                 compilation_info=make_vs_attach_eci())
     def impl_attach_gdb():
         #ll_attach()
-        print "AttachToVS is disabled at the moment (compilation failure)"
+        print("AttachToVS is disabled at the moment (compilation failure)")
 
 register_external(attach_gdb, [], result=None,
                   export_name="impl_attach_gdb", llimpl=impl_attach_gdb)

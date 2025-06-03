@@ -74,8 +74,14 @@ if not _WIN32:
     else:
         pre_include_bits = []
 
+    library_dirs = platform.library_dirs_for_libffi()
     libraries = ['ffi']
     link_files = []
+    for libdir in library_dirs:
+        candidate = os.path.join(libdir, "libffi.a")
+        if os.path.exists(candidate):
+            link_files.append(candidate)
+            libraries = []
 
     eci = ExternalCompilationInfo(
         pre_include_bits = pre_include_bits,
@@ -84,7 +90,7 @@ if not _WIN32:
         separate_module_sources = separate_module_sources,
         post_include_bits = post_include_bits,
         include_dirs = platform.include_dirs_for_libffi(),
-        library_dirs = platform.library_dirs_for_libffi(),
+        library_dirs = library_dirs,
         link_files = link_files,
         testonly_libraries = ['ffi'],
     )
@@ -693,8 +699,7 @@ class CDLL(RawCDLL):
     def __init__(self, libname, mode=-1):
         """Load the library, or raises DLOpenError."""
         RawCDLL.__init__(self, rffi.cast(DLLHANDLE, -1))
-        with rffi.scoped_str2charp(libname) as ll_libname:
-            self.lib = dlopen(ll_libname, mode)
+        self.lib = dlopen(libname, mode)
 
     def __del__(self):
         if self.lib != rffi.cast(DLLHANDLE, -1):

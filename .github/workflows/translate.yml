@@ -1,0 +1,58 @@
+name: Translate PyPy
+
+on:
+  push:
+    branches: [ "main", "py3.11"]
+  pull_request:
+    branches: [ "main", "py3.11"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04]
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: Set up PyPy 2.7
+      uses: actions/setup-python@v5
+      with:
+        python-version: "pypy-2.7-v7.3.17"
+        cache: 'pip' # caching pip dependencies
+
+    - name: install system dependencies
+      uses: awalsh128/cache-apt-pkgs-action@latest
+      with:
+        packages: libffi-dev pkg-config zlib1g-dev libbz2-dev libsqlite3-dev libncurses5-dev libexpat1-dev libssl-dev libgdbm-dev tk-dev libgc-dev liblzma-dev libncursesw5-dev patchelf
+        version: 1.0
+
+    - name: run objspace unit tests
+      run: |
+        pypy -m pip install -r requirements.txt
+        pypy pytest.py pypy/objspace -v -m "not flaky"
+
+    - name: translate
+      run: |
+        pypy rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
+        mv pypy*-c libpypy*-c.so pypy/goal/
+
+    - name: package
+      run: |
+        ./pypy/goal/pypy*-c pypy/tool/release/package.py --make-portable --target=.
+
+    - name: upload
+      if: success() || failure()
+      uses: actions/upload-artifact@v4.6.0
+      with:
+        name: pypy-ci-build-${{ matrix.os }}
+        path: ./pypy-nightly.tar.bz2

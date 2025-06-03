@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import re, sys
 
 from rpython.jit.metainterp.resoperation import opname
@@ -368,15 +370,15 @@ class Function(object):
         return "[%s]" % ", ".join([repr(chunk) for chunk in self.chunks])
 
     def pretty_print(self, out):
-        print >>out, "Loop starting at %s in %s at %d" % (self.name,
-                                        self.filename, self.startlineno)
+        print("Loop starting at %s in %s at %d" %
+              (self.name, self.filename, self.startlineno), file=out)
         lineno = -1
         for chunk in self.chunks:
             if chunk.filename is not None and chunk.lineno != lineno:
                 lineno = chunk.lineno
                 source = chunk.getcode().source[chunk.lineno -
                                                 chunk.startlineno]
-                print >>out, "  ", source
+                print("  ", source, file=out)
             chunk.pretty_print(out)
 
 
@@ -447,7 +449,7 @@ def import_log(logname, ParserCls=SimpleParser):
     if not cat:
         cat = extract_category(log, 'jit-log-rewritten')
     if not cat:
-        cat = extract_category(log, 'jit-log-noopt')        
+        cat = extract_category(log, 'jit-log-noopt')
     for entry in cat:
         parser = ParserCls(entry, None, {}, 'lltype', None,
                            nonstrict=True)
@@ -521,4 +523,3 @@ def mangle_descr(descr):
 
 if __name__ == '__main__':
     import_log(sys.argv[1])
-

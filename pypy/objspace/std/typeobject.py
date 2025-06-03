@@ -157,9 +157,10 @@ class W_TypeObject(W_Root):
                           'mro_w?[*]',
                           ]
 
-    # wether the class has an overridden __getattribute__
+    # whether the class has an overridden __getattribute__/__setattr__
     # (False is a conservative default, fixed during real usage)
     uses_object_getattribute = False
+    uses_object_setattr = False
 
     # for the IdentityDictStrategy
     compares_by_identity_status = UNKNOWN
@@ -226,6 +227,7 @@ class W_TypeObject(W_Root):
         assert self.is_heaptype() or self.is_cpytype()
 
         self.uses_object_getattribute = False
+        self.uses_object_setattr = False
         # ^^^ conservative default, fixed during real usage
 
         if (key is None or key == '__eq__' or
@@ -277,6 +279,31 @@ class W_TypeObject(W_Root):
 
     def has_object_getattribute(self):
         return self.getattribute_if_not_from_object() is None
+
+    def setattr_if_not_from_object(self):
+        """ this method returns the applevel __setattr__ if that is not
+        the one from object, in which case it returns None """
+        from pypy.objspace.descroperation import object_setattr
+        if not we_are_jitted():
+            if not self.uses_object_setattr:
+                # slow path: look for a custom __setattr__ on the class
+                w_descr = self.lookup('__setattr__')
+                # if it was not actually overriden in the class, we remember this
+                # fact for the next time.
+                if w_descr is object_setattr(self.space):
+                    if self.space._side_effects_ok():
+                        self.uses_object_setattr = True
+                else:
+                    return w_descr
+            return None
+        # in the JIT case, just use a lookup, because it is folded away
+        # correctly using the version_tag
+        w_descr = self.lookup('__setattr__')
+        if w_descr is not object_setattr(self.space):
+            return w_descr
+
+    def has_object_setattr(self):
+        return self.setattr_if_not_from_object() is None
 
     def compares_by_identity(self):
         from pypy.objspace.descroperation import object_hash, type_eq
@@ -592,12 +619,22 @@ class W_TypeObject(W_Root):
                 del self.weak_subclasses[i]
                 return
 
-    def get_subclasses(self):
+    def get_subclasses(self, only_real_subclasses=False):
+        """ return the subclasses of self. if only_real_subclasses is True,
+        then we check whether the subclass has self in its .__bases__ before
+        adding it to the result list (which can be false in the case of
+        metaclasses that override type.mro, see _add_mro_classes_as_subclasses).
+
+        only_real_subclasses should be False for all *invalidation* use cases,
+        and True only for descr___subclasses__"""
         space = self.space
         subclasses_w = []
         for ref in self.weak_subclasses:
             w_ob = ref()
             if w_ob is not None:
+                if only_real_subclasses:
+                    if not space.contains_w(space.getattr(w_ob, space.newtext('__bases__')), self):
+                        continue
                 subclasses_w.append(w_ob)
         return subclasses_w
 
@@ -996,7 +1033,7 @@ def descr_del___abstractmethods__(space, w_type):
 def descr___subclasses__(space, w_type):
     """Return the list of immediate subclasses."""
     w_type = _check(space, w_type)
-    return space.newlist(w_type.get_subclasses())
+    return space.newlist(w_type.get_subclasses(only_real_subclasses=True))
 
 # ____________________________________________________________
 
@@ -1270,6 +1307,7 @@ def ensure_module_attr(w_self):
                 w_self.dict_w['__module__'] = w_name
 
 def compute_mro(w_self):
+    default_mro_w = w_self.compute_default_mro()[:]
     if w_self.is_heaptype():
         space = w_self.space
         w_metaclass = space.type(w_self)
@@ -1279,8 +1317,9 @@ def compute_mro(w_self):
             w_mro = space.call_function(w_mro_meth)
             mro_w = space.fixedview(w_mro)
             w_self.mro_w = validate_custom_mro(space, mro_w)
+            _add_mro_classes_as_subclasses(space, w_self, w_self.mro_w, default_mro_w)
             return    # done
-    w_self.mro_w = w_self.compute_default_mro()[:]
+    w_self.mro_w = default_mro_w
 
 def validate_custom_mro(space, mro_w):
     # do some checking here.  Note that unlike CPython, strange MROs
@@ -1290,6 +1329,17 @@ def validate_custom_mro(space, mro_w):
         if not space.abstract_isclass_w(w_class):
             raise oefmt(space.w_TypeError, "mro() returned a non-class")
     return mro_w
+
+def _add_mro_classes_as_subclasses(space, w_self, mro_w, default_mro_w):
+    # this is for quite annoying situations: if we have a metaclass that
+    # overrides type.mro, the normal subclassing-based mro invalidation
+    # mechanism doesn't work correctly. therefore, we register the entries in
+    # mro_w that aren't in the default mro as a baseclass. see
+    # test_mro_mutation_interaction_bug
+    for w_ancestor in mro_w:
+        if w_ancestor not in default_mro_w:
+            if isinstance(w_ancestor, W_TypeObject):
+                w_ancestor.add_subclass(w_self)
 
 def is_mro_purely_of_types(mro_w):
     for w_class in mro_w:

@@ -26,7 +26,7 @@ def direct_llexternal(*args, **kwargs):
 
 
 DUMP_CALLBACK = lltype.Ptr(lltype.FuncType(
-                     [rffi.INT, rffi.SIGNEDP, lltype.Signed], lltype.Void))
+                     [rffi.INT_real, rffi.VOIDP, rffi.INT_real], lltype.Void))
 
 pypy_faulthandler_setup = direct_llexternal(
     'pypy_faulthandler_setup', [DUMP_CALLBACK], rffi.CCHARP)
@@ -35,7 +35,7 @@ pypy_faulthandler_teardown = direct_llexternal(
     'pypy_faulthandler_teardown', [], lltype.Void)
 
 pypy_faulthandler_enable = direct_llexternal(
-    'pypy_faulthandler_enable', [rffi.INT, rffi.INT], rffi.CCHARP)
+    'pypy_faulthandler_enable', [rffi.INT_real, rffi.INT_real], rffi.CCHARP)
 
 pypy_faulthandler_disable = direct_llexternal(
     'pypy_faulthandler_disable', [], lltype.Void)
@@ -44,19 +44,19 @@ pypy_faulthandler_is_enabled = direct_llexternal(
     'pypy_faulthandler_is_enabled', [], rffi.INT)
 
 pypy_faulthandler_write = direct_llexternal(
-    'pypy_faulthandler_write', [rffi.INT, rffi.CCHARP], lltype.Void)
+    'pypy_faulthandler_write', [rffi.INT_real, rffi.CCHARP], lltype.Void)
 
 pypy_faulthandler_write_uint = direct_llexternal(
-    'pypy_faulthandler_write_uint', [rffi.INT, lltype.Unsigned, rffi.INT],
+    'pypy_faulthandler_write_uint', [rffi.INT_real, lltype.Unsigned, rffi.INT],
                                     lltype.Void)
 
 pypy_faulthandler_dump_traceback = direct_llexternal(
     'pypy_faulthandler_dump_traceback',
-    [rffi.INT, rffi.INT, llmemory.Address], lltype.Void)
+    [rffi.INT_real, rffi.INT_real, llmemory.Address], lltype.Void)
 
 pypy_faulthandler_dump_traceback_later = direct_llexternal(
     'pypy_faulthandler_dump_traceback_later',
-    [rffi.LONGLONG, rffi.INT, rffi.INT, rffi.INT], rffi.CCHARP,
+    [rffi.LONGLONG, rffi.INT, rffi.INT_real, rffi.INT], rffi.CCHARP,
     compilation_info=eci_later)
 
 pypy_faulthandler_cancel_dump_traceback_later = direct_llexternal(
@@ -69,7 +69,7 @@ pypy_faulthandler_check_signum = direct_llexternal(
 
 pypy_faulthandler_register = direct_llexternal(
     'pypy_faulthandler_register',
-    [rffi.INT, rffi.INT, rffi.INT, rffi.INT], rffi.CCHARP,
+    [rffi.INT_real, rffi.INT_real, rffi.INT_real, rffi.INT_real], rffi.CCHARP,
     compilation_info=eci_user)
 
 pypy_faulthandler_unregister = direct_llexternal(

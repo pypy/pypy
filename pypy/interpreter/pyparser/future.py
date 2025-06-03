@@ -90,6 +90,8 @@ def add_future_flags(future_flags, tokens):
     while True:
         it.skip_name("r") or it.skip_name("u") or it.skip_name("ru")
         if docstring_possible and it.skip(pygram.tokens.STRING):
+            while it.skip(pygram.tokens.STRING): # implicit concatenation
+                pass
             it.skip_newlines()
             docstring_possible = False
         if not (it.skip_name("from") and

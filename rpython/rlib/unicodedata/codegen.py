@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from collections import Counter
 
 from rpython.rlib.rarithmetic import r_longlong, r_int32, r_uint32, intmask
@@ -56,15 +58,15 @@ class CodeWriter(object):
     def print_stats(self):
         def kib(size):
             return round(size/1024., 2)
-        print "estimated output sizes [KiB]"
-        print "TOTAL", kib(sum(value for key, value in self.size_estimates.iteritems() if key != "unknown" and key != "code"))
+        print("estimated output sizes [KiB]")
+        print("TOTAL", kib(sum(value for key, value in self.size_estimates.iteritems() if key != "unknown" and key != "code")))
         for category, size in self.size_estimates.most_common():
             if category == "code":
                 continue
-            print category, kib(size)
+            print(category, kib(size))
 
-        print "python code [source KiB]", kib(self.size_estimates['code'])
-        
+        print("python code [source KiB]", kib(self.size_estimates['code']))
+
     def print_listlike(self, name, lst, category=None):
         if not lst:
             self.print_code("def %s(index): raise KeyError" % (name, ))
@@ -109,15 +111,19 @@ def %(name)s(index):
                 import pdb; pdb.set_trace()
 
         if not all(type(x) is int for x in lst):
-            print >> self.outfile, '_%s = [' % (name, )
+            print('_%s = [' % (name, ), file=self.outfile)
             for val in lst:
                 self._estimate_any(name, val, category)
-                print >> self.outfile, '%r,' % val
-            print >> self.outfile, ']'
-            print >> self.outfile
+                print('%r,' % val, file=self.outfile)
+            print(']', file=self.outfile)
+            print(file=self.outfile)
             size = len(lst) * WORDSIZE + WORDSIZE * 2
             self._estimate_any(name, size, category)
-            self.print_code("def %s(index): return _%s[index]" % (name, name))
+            self.print_code("""def %s(index):
+    try:
+        return _%s[index]
+    except IndexError:
+        raise KeyError""" % (name, name))
             return
         itemsize, unsigned = get_size_unsignedness(lst)
         chunksize = 64
@@ -129,7 +135,11 @@ def %(name)s(index):
                 unwrapfunc = "signed_ord"
             self.print_string(
                 "_" + name, "".join(chr(c & 0xff) for c in lst), category)
-            self.print_code("def %s(index): return %s(_%s[index])" % (name, unwrapfunc, name))
+            self.print_code("""def %s(index):
+    try:
+        return %s(_%s[index])
+    except IndexError:
+        raise KeyError""" % (name, unwrapfunc, name))
             return
         unwrapfunc = "intmask"
         if itemsize == 2:
@@ -149,56 +159,60 @@ def %(name)s(index):
         size = len(lst) * itemsize + WORDSIZE * 2
         self.print_comment("estimated %s KiB" % round(size / 1024., 2))
         self._estimate(name, size, category)
-        print >> self.outfile, "_%s = [" % name
+        print("_%s = [" % name, file=self.outfile)
         chunksize = 16
         res = []
         for element in lst:
             assert intmask(typ(element)) == element
             res.append(str(element))
             if len(res) == chunksize:
-                print >> self.outfile, ", ".join(res) + ","
+                print(", ".join(res) + ",", file=self.outfile)
                 res = []
         if res:
-            print >> self.outfile, ", ".join(res) + ","
-        print >> self.outfile, "]"
-        print >> self.outfile, "_%s = %s(_%s)" % (name, conv_func, name)
-        self.print_code("def %s(index): return %s(_%s[index])" % (name, unwrapfunc, name))
+            print(", ".join(res) + ",", file=self.outfile)
+        print("]", file=self.outfile)
+        print("_%s = %s(_%s)" % (name, conv_func, name), file=self.outfile)
+        self.print_code("""def %s(index):
+    try:
+        return %s(_%s[index])
+    except IndexError:
+        raise KeyError""" % (name, unwrapfunc, name))
         return
 
     def print_string(self, name, string, category=None):
         chunksize = 20
         self._estimate_string(name, string, category)
         result = ''
-        print >> self.outfile, "%s = (" % name
+        print("%s = (" % name, file=self.outfile)
         for i in range(0, len(string), chunksize):
-            print >> self.outfile, repr(string[i : i + chunksize])
-        print >> self.outfile, ")"
+            print(repr(string[i : i + chunksize]), file=self.outfile)
+        print(")", file=self.outfile)
 
     def print_dict(self, name, d, category=None, outfunc=repr):
         items = d.items()
         items.sort()
-        print >> self.outfile, '%s = {' % name
+        print('%s = {' % name, file=self.outfile)
         for key, value in items:
             self._estimate_any(name, key, category)
             self._estimate_any(name, value, category)
-            print >> self.outfile, '%s: %s,' % (outfunc(key), outfunc(value))
+            print('%s: %s,' % (outfunc(key), outfunc(value)), file=self.outfile)
         # tough to estimate size, just use something
         size = len(d) * 16 + WORDSIZE * 4
         self._estimate(name, size, category)
-        print >> self.outfile, '}'
-        print >> self.outfile
+        print('}', file=self.outfile)
+        print(file=self.outfile)
 
     def print_set(self, name, s, category=None):
         items = sorted(s)
-        print >> self.outfile, '%s = {' % name
+        print('%s = {' % name, file=self.outfile)
         for key in items:
             self._estimate_any(name, key, category)
-            print >> self.outfile, '%r: None,' % (key, )
+            print('%r: None,' % (key, ), file=self.outfile)
         # tough to estimate size, just use something
         size = len(s) * 16 + WORDSIZE * 4
         self._estimate(name, size, category)
-        print >> self.outfile, '}'
-        print >> self.outfile
+        print('}', file=self.outfile)
+        print(file=self.outfile)
 
     def write(self, s):
         self._estimate("unknown", len(s))
@@ -206,13 +220,13 @@ def %(name)s(index):
 
     def print_code(self, s):
         self._estimate("code", len(s))
-        print >> self.outfile, s
+        print(s, file=self.outfile)
 
     def print_uncounted(self, s):
-        print >> self.outfile, s
+        print(s, file=self.outfile)
 
     def print_comment(self, s):
-        print >> self.outfile, "# " + "\n# ".join(s.splitlines())
+        print("# " + "\n# ".join(s.splitlines()), file=self.outfile)
 
     def _estimate_any(self, name, obj, category):
         if isinstance(obj, str):

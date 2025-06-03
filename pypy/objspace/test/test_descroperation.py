@@ -1,3 +1,5 @@
+from pytest import raises
+
 class Test_DescrOperation:
 
     def test_nonzero(self):

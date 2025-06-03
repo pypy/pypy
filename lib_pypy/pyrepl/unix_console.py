@@ -387,7 +387,10 @@ class UnixConsole(Console):
         except ValueError:
             pass
 
+        self._enable_bracketed_paste()
+
     def restore(self):
+        self._disable_bracketed_paste()
         self.__maybe_write_code(self._rmkx)
         self.flushoutput()
         tcsetattr(self.input_fd, termios.TCSADRAIN, self.__svtermstate)
@@ -572,4 +575,10 @@ class UnixConsole(Console):
         self.__move = self.__move_tall
         self.__posxy = 0, 0
         self.screen = []
+
+    def _enable_bracketed_paste(self):
+        os.write(self.output_fd, b"\x1b[?2004h")
+
+    def _disable_bracketed_paste(self):
+        os.write(self.output_fd, b"\x1b[?2004l")
 

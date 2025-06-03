@@ -48,7 +48,7 @@ def get_profile_path(space):
         return None
 
     with rffi.scoped_alloc_buffer(4096) as buf:
-        length = vmp.cintf.vmprof_get_profile_path(buf.raw, buf.size) 
+        length = vmp.cintf.vmprof_get_profile_path(buf.raw, buf.size)
         if length == -1:
             return ""
         return buf.str(length)

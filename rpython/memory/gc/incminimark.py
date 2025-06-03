@@ -72,8 +72,8 @@ from rpython.memory.support import mangle_hash
 from rpython.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from rpython.rlib.rarithmetic import LONG_BIT_SHIFT
 from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
-from rpython.rlib.objectmodel import specialize
-from rpython.rlib import rgc
+from rpython.rlib.objectmodel import specialize, always_inline, we_are_translated
+from rpython.rlib import rgc, unroll
 from rpython.memory.gc.minimarkpage import out_of_memory
 
 #
@@ -168,6 +168,9 @@ GCFLAG_DUMMY        = first_gcflag << 12
 
 _GCFLAG_FIRST_UNUSED = first_gcflag << 13    # the first unused bit
 
+flagnames_and_values = unroll.unrolling_iterable([
+    (name, value) for name, value in globals().items()
+    if name.startswith("GCFLAG_")])
 
 # States for the incremental GC
 
@@ -672,7 +675,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # there, do a collect first.
             result = self.nursery_free
             ll_assert(result != llmemory.NULL, "uninitialized nursery")
-            self.nursery_free = new_free = result + totalsize
+            self.nursery_free = new_free = self._bump_pointer(result, totalsize)
             if new_free > self.nursery_top:
                 result = self.collect_and_reserve(totalsize)
             #
@@ -731,8 +734,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # Get the memory from the nursery.  If there is not enough space
             # there, do a collect first.
             result = self.nursery_free
-            ll_assert(result != llmemory.NULL, "uninitialized nursery")
-            self.nursery_free = new_free = result + totalsize
+            new_free = self._bump_pointer(result, totalsize)
+            self.nursery_free = new_free
             if new_free > self.nursery_top:
                 result = self.collect_and_reserve(totalsize)
             #
@@ -746,6 +749,18 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
+    @always_inline
+    def _bump_pointer(self, result, totalsize):
+        ll_assert(result != llmemory.NULL, "uninitialized nursery")
+        if not we_are_translated():
+            # grumble grumble, there is a weird heuristic in
+            # fakearenaaddress.__add__ which gets confused if
+            # self.nursery_top is a pinned object. so for direct tests, do
+            # the right thing directly
+            bytes = llmemory.raw_malloc_usage(totalsize)
+            return result.arena.getaddr(result.offset + bytes)
+        else:
+            return result + totalsize
 
     def malloc_fixed_or_varsize_nonmovable(self, typeid, length):
         # length==0 for fixedsize
@@ -921,8 +936,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # nursery_top before this point. Try to reserve totalsize now.
             # If this succeeds break out of loop.
             result = self.nursery_free
-            if self.nursery_free + totalsize <= self.nursery_top:
-                self.nursery_free = result + totalsize
+            new_free = self._bump_pointer(result, totalsize)
+            if new_free <= self.nursery_top:
+                self.nursery_free = new_free
                 ll_assert(self.nursery_free <= self.nursery_top, "nursery overflow")
                 break
             #
@@ -1107,7 +1123,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             return False
         if not self.is_in_nursery(obj):
             # old objects are already non-moving, therefore pinning
-            # makes no sense. If you run into this case, you may forgot
+            # makes no sense. If you run into this case, you maybe forgot
             # to check can_move(obj).
             return False
         if self._is_pinned(obj):
@@ -1203,6 +1219,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # Else, it may be in the set 'young_rawmalloced_objects'
         return (bool(self.young_rawmalloced_objects) and
                 self.young_rawmalloced_objects.contains(addr))
+
+    def _debug_print_flags(self, addr):
+        if self.is_in_nursery(addr):
+            print "in nursery"
+        tid = self.header(addr).tid
+        for name, value in flagnames_and_values:
+            if tid & value:
+                print name
 
     def debug_is_old_object(self, addr):
         return (self.is_valid_gc_object(addr)
@@ -1302,7 +1326,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
                                             self.objects_to_trace.stack2dict()
                 self._debug_objects_to_trace_dict2 = \
                                        self.more_objects_to_trace.stack2dict()
+                self._debug_objects_to_trace_dict3 = \
+                                       self.prebuilt_root_objects.stack2dict()
                 MovingGCBase.debug_check_consistency(self)
+                self._debug_objects_to_trace_dict3.delete()
                 self._debug_objects_to_trace_dict2.delete()
                 self._debug_objects_to_trace_dict1.delete()
             else:
@@ -1357,7 +1384,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.header(obj).tid & GCFLAG_VISITED != 0:
             pass    # black -> black
         elif (self._debug_objects_to_trace_dict1.contains(obj) or
-              self._debug_objects_to_trace_dict2.contains(obj)):
+              self._debug_objects_to_trace_dict2.contains(obj) or
+              self._debug_objects_to_trace_dict3.contains(obj)):
             pass    # black -> gray
         elif self.header(obj).tid & GCFLAG_NO_HEAP_PTRS != 0:
             pass    # black -> white-but-prebuilt-so-dont-care
@@ -1386,6 +1414,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # the GCFLAG_CARDS_SET should not be set between collections
         ll_assert(self.header(obj).tid & GCFLAG_CARDS_SET == 0,
                   "unexpected GCFLAG_CARDS_SET")
+        if self.header(obj).tid & GCFLAG_NO_HEAP_PTRS:
+            ll_assert(bool(self.header(obj).tid & GCFLAG_TRACK_YOUNG_PTRS),
+                      "GCFLAG_NO_HEAP_PTRS is set, but GCFLAG_TRACK_YOUNG_PTRS isn't!")
         # if the GCFLAG_HAS_CARDS is set, check that all bits are zero now
         if self.header(obj).tid & GCFLAG_HAS_CARDS:
             if self.card_page_indices <= 0:
@@ -1469,6 +1500,35 @@ class IncrementalMiniMarkGC(MovingGCBase):
             else:
                 self.remember_young_pointer(addr_array)
 
+    @always_inline
+    def _remember_young_pointer_inlined(self, addr):
+        #
+        # We need to remove the flag GCFLAG_TRACK_YOUNG_PTRS and add
+        # the object to the list 'old_objects_pointing_to_young'.
+        # We know that 'addr' cannot be in the nursery,
+        # because nursery objects never have the flag
+        # GCFLAG_TRACK_YOUNG_PTRS to start with.  Note that in
+        # theory we don't need to do that if the pointer that we're
+        # writing into the object isn't pointing to a young object.
+        # However, it isn't really a win, because then sometimes
+        # we're going to call this function a lot of times for the
+        # same object; moreover we'd need to pass the 'newvalue' as
+        # an argument here.  The JIT has always called a
+        # 'newvalue'-less version, too.  Moreover, the incremental
+        # GC nowadays relies on this fact.
+        self.old_objects_pointing_to_young.append(addr)
+        objhdr = self.header(addr)
+        tid = objhdr.tid
+        tid &= ~GCFLAG_TRACK_YOUNG_PTRS
+        #
+        # Second part: if 'addr' is actually a prebuilt GC
+        # object and it's the first time we see a write to it, we
+        # add it to the list 'prebuilt_root_objects'.
+        if tid & GCFLAG_NO_HEAP_PTRS:
+            tid &= ~GCFLAG_NO_HEAP_PTRS
+            self.prebuilt_root_objects.append(addr)
+        objhdr.tid = tid
+
     def _init_writebarrier_logic(self):
         DEBUG = self.DEBUG
         # The purpose of attaching remember_young_pointer to the instance
@@ -1483,30 +1543,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 ll_assert(self.debug_is_old_object(addr_struct) or
                           self.header(addr_struct).tid & GCFLAG_HAS_CARDS != 0,
                       "young object with GCFLAG_TRACK_YOUNG_PTRS and no cards")
-            #
-            # We need to remove the flag GCFLAG_TRACK_YOUNG_PTRS and add
-            # the object to the list 'old_objects_pointing_to_young'.
-            # We know that 'addr_struct' cannot be in the nursery,
-            # because nursery objects never have the flag
-            # GCFLAG_TRACK_YOUNG_PTRS to start with.  Note that in
-            # theory we don't need to do that if the pointer that we're
-            # writing into the object isn't pointing to a young object.
-            # However, it isn't really a win, because then sometimes
-            # we're going to call this function a lot of times for the
-            # same object; moreover we'd need to pass the 'newvalue' as
-            # an argument here.  The JIT has always called a
-            # 'newvalue'-less version, too.  Moreover, the incremental
-            # GC nowadays relies on this fact.
-            self.old_objects_pointing_to_young.append(addr_struct)
-            objhdr = self.header(addr_struct)
-            objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
-            #
-            # Second part: if 'addr_struct' is actually a prebuilt GC
-            # object and it's the first time we see a write to it, we
-            # add it to the list 'prebuilt_root_objects'.
-            if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
-                objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
-                self.prebuilt_root_objects.append(addr_struct)
+            self._remember_young_pointer_inlined(addr_struct)
 
         remember_young_pointer._dont_inline_ = True
         self.remember_young_pointer = remember_young_pointer
@@ -1530,12 +1567,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                     ll_assert(self.debug_is_old_object(addr_array),
                         "young array with no card but GCFLAG_TRACK_YOUNG_PTRS")
                 #
-                # no cards, use default logic.  Mostly copied from above.
-                self.old_objects_pointing_to_young.append(addr_array)
-                objhdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
-                if objhdr.tid & GCFLAG_NO_HEAP_PTRS:
-                    objhdr.tid &= ~GCFLAG_NO_HEAP_PTRS
-                    self.prebuilt_root_objects.append(addr_array)
+                # no cards, use default logic
+                self._remember_young_pointer_inlined(addr_array)
                 return
             #
             # 'addr_array' is a raw_malloc'ed array with card markers
@@ -1550,10 +1583,14 @@ class IncrementalMiniMarkGC(MovingGCBase):
             if byte & bitmask:
                 return
             #
-            # We set the flag (even if the newly written address does not
-            # actually point to the nursery, which seems to be ok -- actually
-            # it seems more important that remember_young_pointer_from_array2()
-            # does not take 3 arguments).
+            # We set the flag even if the newly written address does not
+            # actually point to the nursery. this is for two reasons:
+            # - during the marking phase it's a correctness question. we rely
+            #   on the write barrier to find out which black objects have been
+            #   mutated and need to be rescanned at some point during the
+            #   marking phase.
+            # - it's cheaper to call remember_young_pointer_from_array2 if it
+            #   does not take 3 arguments
             addr_byte.char[0] = chr(byte | bitmask)
             #
             if objhdr.tid & GCFLAG_CARDS_SET == 0:
@@ -1620,13 +1657,26 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 # Return False to mean "do it manually in ll_arraycopy".
                 return False
             #
-            if source_hdr.tid & GCFLAG_CARDS_SET == 0:
-                # The source object has no young pointers at all.  Done.
-                return True
-            #
             if dest_hdr.tid & GCFLAG_HAS_CARDS == 0:
                 # The dest object doesn't have cards.  Do it manually.
                 return False
+            ll_assert(dest_hdr.tid & GCFLAG_NO_HEAP_PTRS == 0,
+                      "prebuilt object with cards is not supported")
+            #
+            if source_hdr.tid & GCFLAG_CARDS_SET == 0:
+                # The source object has no young pointers at all. Basically we
+                # are done.
+                # But, somewhat obscurely, we need to still set
+                # GCFLAG_CARDS_SET on dest_hdr if we're in the marking phase,
+                # without actually marking any cards. the reason for this is
+                # the whole array needs to be turned gray and rescanned if it's
+                # currently black, which happens at the end of
+                # collect_cardrefs_to_nursery
+                if self.gc_state == STATE_MARKING:
+                    if dest_hdr.tid & GCFLAG_CARDS_SET == 0:
+                        self.old_objects_with_cards_set.append(dest_addr)
+                        dest_hdr.tid |= GCFLAG_CARDS_SET
+                return True
             #
             if source_start != 0 or dest_start != 0:
                 # Misaligned.  Do it manually.
@@ -1634,11 +1684,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
             #
             self.manually_copy_card_bits(source_addr, dest_addr, length)
             return True
-        #
-        if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0:
+        # NB: if we are marking, we must not inspect the state of the
+        # GCFLAG_TRACK_YOUNG_PTRS of source_addr here, because in the marking
+        # phase we rely on the write barrier to also turn black objects back
+        # into gray ones. see also the end of collect_cardrefs_to_nursery
+        if source_hdr.tid & GCFLAG_TRACK_YOUNG_PTRS == 0 or self.gc_state == STATE_MARKING:
             # there might be in source a pointer to a young object
-            self.old_objects_pointing_to_young.append(dest_addr)
-            dest_hdr.tid &= ~GCFLAG_TRACK_YOUNG_PTRS
+            self._remember_young_pointer_inlined(dest_addr)
         #
         if dest_hdr.tid & GCFLAG_NO_HEAP_PTRS:
             if source_hdr.tid & GCFLAG_NO_HEAP_PTRS == 0:
@@ -1689,10 +1741,15 @@ class IncrementalMiniMarkGC(MovingGCBase):
         obj = obj + self.gcheaderbuilder.size_gc_header
         shadow = self.nursery_objects_shadows.get(obj)
         if shadow != llmemory.NULL:
-            # visit shadow to keep it alive
-            # XXX seems like it is save to set GCFLAG_VISITED, however
-            # should be double checked
-            self.header(shadow).tid |= GCFLAG_VISITED
+            if self.gc_state == STATE_MARKING:
+                # if  were in the marking phase, we need to make sure the shadow
+                # stays alive by marking it black.
+                self.header(shadow).tid |= GCFLAG_VISITED
+                # this is only safe because pinned objects cannot themselves hold
+                # references (otherwise we would have to mark the object gray
+                # instead and add it to more_objects_to_trace)
+                typeid = self.get_type_id(obj)
+                ll_assert(not self.has_gcptr(typeid), "pinned object with gcptrs not supported")
             new_shadow_object_dict.setitem(obj, shadow)
 
     def register_finalizer(self, fq_index, gcobj):
@@ -1907,9 +1964,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
         #
         self.root_walker.finished_minor_collection()
         #
-        debug_stop("gc-minor")
         duration = time.time() - start
         self.total_gc_time += duration
+        debug_print("time taken:", duration)
+        debug_stop("gc-minor")
         self.hooks.fire_gc_minor(
             duration=duration,
             total_memory_used=total_memory_used,
@@ -1955,6 +2013,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
             obj = oldlist.pop()
             #
             # Remove the GCFLAG_CARDS_SET flag.
+            ll_assert(self.header(obj).tid & GCFLAG_HAS_CARDS != 0,
+                "!GCFLAG_HAS_CARDS but object in 'old_objects_with_cards_set'")
             ll_assert(self.header(obj).tid & GCFLAG_CARDS_SET != 0,
                 "!GCFLAG_CARDS_SET but object in 'old_objects_with_cards_set'")
             self.header(obj).tid &= ~GCFLAG_CARDS_SET
@@ -2017,6 +2077,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 ll_assert(not self.is_in_nursery(obj),
                           "expected nursery obj in collect_cardrefs_to_nursery")
                 if self.gc_state == STATE_MARKING:
+                    # XXX do we *need* to unconditionally do that? or is it
+                    # enough to do it if GCFLAG_VISITED is not set?
                     self.header(obj).tid &= ~GCFLAG_VISITED
                     self.more_objects_to_trace.append(obj)
 
@@ -2099,6 +2161,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # copy the contents of the object? usually yes, but not for some
         # shadow objects
         copy = True
+        add_gcflag_visited = False
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
         if self.header(obj).tid & (GCFLAG_HAS_SHADOW | GCFLAG_PINNED) == 0:
@@ -2149,6 +2212,13 @@ class IncrementalMiniMarkGC(MovingGCBase):
             # First visit to an object that has already a shadow.
             newobj = self.nursery_objects_shadows.get(obj)
             ll_assert(newobj != llmemory.NULL, "GCFLAG_HAS_SHADOW but no shadow found")
+            if self.header(newobj).tid & GCFLAG_VISITED:
+                # if the shadow is black, we must make sure that it remains
+                # black after we did the copy. by default, the memcopy will
+                # overwrite the flags with the ones that old obj has. if we
+                # don't do that, then the copy can be collected if we're
+                # currently in sweeping phase. see test_pin_id_bug.
+                add_gcflag_visited = True
             newhdr = newobj - size_gc_header
             #
             # The flags GCFLAG_HAS_SHADOW and GCFLAG_SHADOW_INITIALIZED
@@ -2189,6 +2259,8 @@ class IncrementalMiniMarkGC(MovingGCBase):
         if self.has_gcptr(typeid):
             # we only have to do it if we have any gcptrs
             self.old_objects_pointing_to_young.append(newobj)
+        if add_gcflag_visited:
+            self.header(newobj).tid |= GCFLAG_VISITED
 
     _trace_drag_out._always_inline_ = True
 
@@ -2562,9 +2634,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             ll_assert(False, "bogus gc_state")
 
         debug_print("stopping, now in gc state: ", GC_STATES[self.gc_state])
-        debug_stop("gc-collect-step")
         duration = time.time() - start
         self.total_gc_time += duration
+        debug_print("time taken: ", duration)
+        debug_stop("gc-collect-step")
         self.hooks.fire_gc_collect_step(
             duration=duration,
             oldstate=oldstate,
@@ -2756,6 +2829,11 @@ class IncrementalMiniMarkGC(MovingGCBase):
         # the next major collection, at which point we want
         # it to look valid (but ready to be freed).
         shadow = shadowhdr + size_gc_header
+        # XXX is it correct that the full tid (including the flags) is copied?
+        # what about if obj has GCFLAG_PINNED set, won't that mean that the
+        # shadow gets GCFLAG_PINNED_OBJECT_PARENT_KNOWN set (which are the same
+        # value)? maybe it doesn't matter at the moment because pinned objects
+        # cannot have gcptrs
         self.header(shadow).tid = self.header(obj).tid
         typeid = self.get_type_id(obj)
         if self.is_varsize(typeid):
@@ -3161,8 +3239,9 @@ class IncrementalMiniMarkGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
     def rawrefcount_next_dead(self):
-        if self.rrc_dealloc_pending.non_empty():
-            return self.rrc_dealloc_pending.pop()
+        if self.rrc_enabled:
+            if self.rrc_dealloc_pending.non_empty():
+                return self.rrc_dealloc_pending.pop()
         return llmemory.NULL
 
 
@@ -3220,7 +3299,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
                 surviving = False
         elif (bool(self.young_rawmalloced_objects) and
               self.young_rawmalloced_objects.contains(obj)):
-            # young weakref to a young raw-malloced object
+            # young rawrefcount to a young raw-malloced object
             if self.header(obj).tid & GCFLAG_VISITED_RMY:
                 surviving = True    # survives, but does not move
             else:
@@ -3286,6 +3365,10 @@ class IncrementalMiniMarkGC(MovingGCBase):
             intobj = self._pyobj(pyobject).ob_pypy_link
             obj = llmemory.cast_int_to_adr(intobj)
             self.objects_to_trace.append(obj)
+            # XXX ouch, isn't it enough to call visit_all_objects from
+            # rrc_major_collection_trace? and shouldn't we check what color the
+            # object has first? we only need to trace non-black objects after
+            # all
             self.visit_all_objects()
 
     def rrc_major_collection_free(self):

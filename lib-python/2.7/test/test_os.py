@@ -343,9 +343,9 @@ class StatAttributeTests(unittest.TestCase):
         try:
             os.stat(r"c:\pagefile.sys")
         except WindowsError, e:
-            if e.errno == 2: # file does not exist; cannot run test
+            if e.errno in (2, 9): # file does not exist; cannot run test
                 self.skipTest(r'c:\pagefile.sys does not exist')
-            self.fail("Could not stat pagefile.sys")
+            self.fail("Could not stat pagefile.sys: %d, %s" % (e.errno, str(e)))
 
 from test import mapping_tests
 

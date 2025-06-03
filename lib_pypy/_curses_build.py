@@ -338,7 +338,6 @@ int tigetflag(char *);
 int tigetnum(char *);
 char * tigetstr(char *);
 int putp(const char *);
-char * tparm(const char *, ...);
 int getattrs(const WINDOW *);
 int getcurx(const WINDOW *);
 int getcury(const WINDOW *);
@@ -398,6 +397,15 @@ typedef int... wint_t;
 int wget_wch(WINDOW *, wint_t *);
 int mvwget_wch(WINDOW *, int, int, wint_t *);
 int unget_wch(const wchar_t);
+""")
+
+if sys.platform == "darwin":
+    ffi.cdef("""
+        char * tparm(char *, ...);
+""")
+else:
+    ffi.cdef("""
+        char * tparm(const char *, ...);
 """)
 
 

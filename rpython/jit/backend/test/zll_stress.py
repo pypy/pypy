@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.jit.backend.test.test_random import check_random_function, Random
 from rpython.jit.backend.test.test_ll_random import LLtypeOperationBuilder
 from rpython.jit.backend.detect_cpu import getcpuclass
@@ -8,7 +10,10 @@ CPU = getcpuclass()
 
 total_iterations = 1000
 if platform.machine().startswith('arm'):
-    total_iterations = 100
+    if sys.platform == "darwin":
+        total_iterations = 10
+    else:
+        total_iterations = 100
 
 pieces = 4
 per_piece = total_iterations / pieces
@@ -21,7 +26,7 @@ def do_test_stress(piece):
     r.jumpahead(piece*99999999)
     OPERATIONS = LLtypeOperationBuilder.OPERATIONS[:]
     for i in range(piece*per_piece, (piece+1)*per_piece):
-        print "        i = %d; r.setstate(%s)" % (i, r.getstate())
+        print("        i = %d; r.setstate(%s)" % (i, r.getstate()))
         check_random_function(cpu, LLtypeOperationBuilder, r, i, total_iterations)
     # restore the old list
     LLtypeOperationBuilder.OPERATIONS = OPERATIONS

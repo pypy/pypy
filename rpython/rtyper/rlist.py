@@ -673,7 +673,7 @@ def ll_pop(func, l, index):
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
 
-@jit.look_inside_iff(lambda l: jit.isvirtual(l))
+@jit.look_inside_iff(lambda l: jit.isvirtual(l) and jit.isconstant(l.ll_length()))
 def ll_reverse(l):
     length = l.ll_length()
     i = 0
@@ -1047,20 +1047,40 @@ def ll_inplace_mul(l, factor):
     return res
 ll_inplace_mul.oopspec = 'list.inplace_mul(l, factor)'
 
-@jit.look_inside_iff(lambda _, l, factor: jit.isvirtual(l) and
-                     jit.isconstant(factor) and factor < 10)
 def ll_mul(RESLIST, l, factor):
     length = l.ll_length()
-    if factor < 0:
-        factor = 0
+    factor = int_force_ge_zero(factor)
+    if length == 1:
+        item = l.ll_getitem_fast(0)
+        return ll_alloc_and_set(RESLIST, factor, item)
     try:
         resultlen = ovfcheck(length * factor)
     except OverflowError:
         raise MemoryError
     res = RESLIST.ll_newlist(resultlen)
-    j = 0
-    while j < resultlen:
-        ll_arraycopy(l, res, 0, j, length)
-        j += length
+    if not resultlen:
+        return res
+    ll_mul_loop(RESLIST, l, res, resultlen, length, factor)
     return res
-# not inlined by the JIT -- contains a loop
+
+@jit.look_inside_iff(lambda _, l, res, resultlen, length, factor: jit.isvirtual(l) and
+                     jit.isconstant(factor) and factor < 10)
+def ll_mul_loop(RESLIST, l, res, resultlen, length, factor):
+    # grumble, card marking mess. we would really like to use the second
+    # loop in all cases. but due to the way the fast paths in
+    # writebarrier_before_copy in incminimark work, this is actually much
+    # slower
+    if rgc._contains_gcptr(RESLIST.ITEM):
+        j = 0
+        while j < resultlen:
+            ll_arraycopy(l, res, 0, j, length)
+            j += length
+        return
+    else:
+        ll_arraycopy(l, res, 0, 0, length)
+        j = length
+        while j < resultlen:
+            copy_length = min(resultlen - j, j)
+            ll_arraycopy(res, res, 0, j, copy_length)
+            j += copy_length
+        ll_assert(j == resultlen, "list multiplication copied too much or too little")

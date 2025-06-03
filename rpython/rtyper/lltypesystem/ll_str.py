@@ -117,3 +117,40 @@ def ll_int2oct(i, addPrefix):
         result.chars[j] = temp[len-j-1]
         j += 1
     return result
+
+@jit.elidable
+def ll_int2bin(i, addPrefix):
+    from rpython.rtyper.lltypesystem.rstr import mallocstr
+    temp = malloc(CHAR_ARRAY, 67)
+    len = 0
+    sign = 0
+    if i < 0:
+        sign = 1
+        i = ll_unsigned(-i)
+    else:
+        i = ll_unsigned(i)
+    if i == 0:
+        len = 1
+        temp[0] = '0'
+    else:
+        while i:
+            temp[len] = hex_chars[i & 0b1]
+            i >>= 1
+            len += 1
+    len += sign
+    if addPrefix:
+        len += 2
+    result = mallocstr(len)
+    result.hash = 0
+    j = 0
+    if sign:
+        result.chars[0] = '-'
+        j = 1
+    if addPrefix:
+        result.chars[j] = '0'
+        result.chars[j+1] = 'b'
+        j += 2
+    while j < len:
+        result.chars[j] = temp[len-j-1]
+        j += 1
+    return result

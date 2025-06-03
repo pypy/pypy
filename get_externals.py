@@ -6,40 +6,26 @@ from __future__ import print_function
 
 import argparse
 import os
+import shutil
+import sys
 import zipfile
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, check_call
 from rpython.translator.platform import host
 
-def runcmd(cmd, verbose):
-    stdout = stderr = ''
-    report = False
-    try:
-        p = Popen(cmd, stdout=PIPE, stderr=PIPE)
-        stdout, stderr = p.communicate()
-        if p.wait() != 0 or verbose:
-            report = True
-    except Exception as e:
-        stderr = str(e) + '\n' + stderr
-        report = True
-    if report:
-        print('running "%s" returned\n%s\n%s' % (' '.join(cmd), stdout, stderr))
-    if stderr:
-        raise RuntimeError(stderr)
-
 def checkout_repo(dest='externals', org='pypy', branch='default', verbose=False):
-    url = 'https://foss.heptapod.net/{}/externals'.format(org)
+    url = 'https://github.com/{}/externals'.format(org)
     if os.path.exists(dest):
-        cmd = ['hg', '-R', dest, 'pull', url]
+        if os.path.exists(os.path.join(dest, ".git")):
+            cmd = ['git', '-C', dest, 'pull', url]
+        else:
+            # remove a mercurial clone
+            shutil.rmtree(dest)
+            cmd = ['git','clone',url, dest]
     else:
-        cmd = ['hg','clone',url, dest]
-    runcmd(cmd, verbose)
-    cmd = ['hg','-R', dest, 'update',branch]
-    runcmd(cmd, verbose)
-
-def extract_zip(externals_dir, zip_path):
-    with zipfile.ZipFile(os.fspath(zip_path)) as zf:
-        zf.extractall(os.fspath(externals_dir))
-        return externals_dir / zf.namelist()[0].split('/')[0]
+        cmd = ['git','clone',url, dest]
+    check_call(cmd, verbose)
+    cmd = ['git','-C', dest, 'checkout',branch]
+    check_call(cmd)
 
 def parse_args():
     p = argparse.ArgumentParser()
@@ -59,6 +45,8 @@ def parse_args():
 
 
 def main():
+    if sys.platform != "win32":
+        print("only needed on windows")
     args = parse_args()
     checkout_repo(
         dest=args.externals,

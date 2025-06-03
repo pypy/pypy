@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os, sys, py
 from rpython.tool.udir import udir
 from rpython.rlib.jit import JitDriver, unroll_parameters, set_param
@@ -219,7 +221,7 @@ class TranslationTestCallAssembler(CCompiledMixin):
         expected_1 = main(0)
         res = self.meta_interp(mainall, [0, 1], inline=True,
                                policy=StopAtXPolicy(change))
-        print hex(res)
+        print(hex(res))
         assert res & 255 == expected_1
         bound = res & ~255
         assert 1024 <= bound <= 131072

@@ -1,4 +1,5 @@
 """Base support for POSIX-like platforms."""
+from __future__ import print_function
 
 import py, os, sys
 
@@ -285,11 +286,11 @@ class Definition(object):
             lst = lst or ['']
             for i, fn in enumerate(lst):
                 fn = fn.replace('\\', '\\\\')
-                print >> f, prefix, fn,
+                print(prefix, fn, end=" ", file=f)
                 if i < len(lst)-1:
-                    print >> f, '\\'
+                    print('\\', file=f)
                 else:
-                    print >> f
+                    print(file=f)
                 prefix = ' ' * len(prefix)
         name, value = self.name, self.value
         if isinstance(value, str):

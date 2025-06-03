@@ -144,8 +144,10 @@ def test_connection_del(tmpdir):
                     con[i] = None
                     gc.collect(); gc.collect()
 
-        with pytest.raises(_sqlite3.OperationalError):
-            open_many(False)
+        def assert_fds_limit_triggers_operational_error():
+            with pytest.raises(_sqlite3.OperationalError):
+                open_many(False)
+        assert_fds_limit_triggers_operational_error()
         gc.collect(); gc.collect()
         open_many(True)
     finally:

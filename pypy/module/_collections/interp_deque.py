@@ -53,9 +53,34 @@ class Lock(object):
     pass
 
 
-def get_printable_location(tp):
-    return "deque._find [%s]" % (tp.getname(tp.space), )
-find_jmp = jit.JitDriver(greens=['tp'], reds='auto', name='deque._find', get_printable_location=get_printable_location)
+def get_printable_location_find_or_count(is_find, tp):
+    if is_find:
+        name = "deque._find"
+    else:
+        name = "deque.count"
+    return "%s [%s]" % (name, tp.getname(tp.space), )
+
+find_jmp = jit.JitDriver(
+    greens=['is_find', 'tp'],
+    reds='auto',
+    name='deque._find_or_count',
+    get_printable_location=get_printable_location_find_or_count)
+
+
+def get_printable_location_extend(is_extend_right, greenkey):
+    if is_extend_right:
+        name = ""
+    else:
+        name = "left"
+    return "deque.extend%s [%s]" % (name, greenkey.iterator_greenkey_printable())
+
+extend_jmp = jit.JitDriver(
+    name="deque.extend",
+    reds="auto",
+    greens=["is_extend_right", "greenkey"],
+    get_printable_location=get_printable_location_extend
+)
+
 
 # ------------------------------------------------------------
 
@@ -148,39 +173,35 @@ class W_Deque(W_Root):
 
     def count(self, w_x):
         "Return number of occurrences of value."
-        space = self.space
-        result = 0
-        block = self.leftblock
-        index = self.leftindex
-        lock = self.getlock()
-        for i in range(self.len):
-            w_item = block.data[index]
-            if space.eq_w(w_item, w_x):
-                result += 1
-            self.checklock(lock)
-            # Advance the block/index pair
-            index += 1
-            if index >= BLOCKLEN:
-                block = block.rightlink
-                index = 0
-        return space.newint(result)
+        result = self._find_or_count(w_x, is_find=False)
+        return self.space.newint(result)
 
     def extend(self, w_iterable):
         "Extend the right side of the deque with elements from the iterable"
+        self._extend(w_iterable, is_extend_right=True)
+
+    def _extend(self, w_iterable, is_extend_right):
         # Handle case where id(deque) == id(iterable)
         space = self.space
         if space.is_w(self, w_iterable):
             w_iterable = space.call_function(space.w_list, w_iterable)
         #
         w_iter = space.iter(w_iterable)
+        greenkey = space.iterator_greenkey(w_iter)
         while True:
+            extend_jmp.jit_merge_point(
+                is_extend_right=is_extend_right,
+                greenkey=greenkey)
             try:
                 w_obj = space.next(w_iter)
             except OperationError as e:
                 if e.match(space, space.w_StopIteration):
                     break
                 raise
-            self.append(w_obj)
+            if is_extend_right:
+                self.append(w_obj)
+            else:
+                self.appendleft(w_obj)
 
     def iadd(self, w_iterable):
         self.extend(w_iterable)
@@ -188,21 +209,7 @@ class W_Deque(W_Root):
 
     def extendleft(self, w_iterable):
         "Extend the left side of the deque with elements from the iterable"
-        # Handle case where id(deque) == id(iterable)
-        space = self.space
-        if space.is_w(self, w_iterable):
-            w_iterable = space.call_function(space.w_list, w_iterable)
-        #
-        space = self.space
-        w_iter = space.iter(w_iterable)
-        while True:
-            try:
-                w_obj = space.next(w_iter)
-            except OperationError as e:
-                if e.match(space, space.w_StopIteration):
-                    break
-                raise
-            self.appendleft(w_obj)
+        return self._extend(w_iterable, is_extend_right=False)
 
     def pop(self):
         "Remove and return the rightmost element."
@@ -250,29 +257,35 @@ class W_Deque(W_Root):
         self.modified()
         return w_obj
 
-    def _find(self, w_x):
+    def _find_or_count(self, w_x, is_find=True):
         space = self.space
         block = self.leftblock
         index = self.leftindex
         lock = self.getlock()
         tp = space.type(w_x)
+        result = 0
         for i in range(self.len):
-            find_jmp.jit_merge_point(tp=tp)
+            find_jmp.jit_merge_point(tp=tp, is_find=is_find)
             w_item = block.data[index]
             equal = space.eq_w(w_item, w_x)
             self.checklock(lock)
-            if equal:
-                return i
+            if is_find:
+                if equal:
+                    return i
+            else:
+                result += equal
             # Advance the block/index pair
             index += 1
             if index >= BLOCKLEN:
                 block = block.rightlink
                 index = 0
-        return -1
+        if is_find:
+            return -1
+        return result
 
     def remove(self, w_x):
         "Remove first occurrence of value."
-        i = self._find(w_x)
+        i = self._find_or_count(w_x)
         if i < 0:
             raise oefmt(self.space.w_ValueError,
                         "deque.remove(x): x not in deque")

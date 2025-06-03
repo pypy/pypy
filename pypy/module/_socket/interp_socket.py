@@ -1,6 +1,6 @@
 import sys
 from rpython.rlib import rsocket, rweaklist
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import widen
 from rpython.rlib.rsocket import (
     RSocket, AF_INET, SOCK_STREAM, SocketError, SocketErrorWithErrno,
     RSocketError
@@ -120,7 +120,7 @@ def addr_from_object(family, fd, space, w_address):
         else:                 pkttype = 0
         if len(pieces_w) > 3: hatype = space.int_w(pieces_w[3])
         else:                 hatype = 0
-        if len(pieces_w) > 4: haddr = space.text_w(pieces_w[4])
+        if len(pieces_w) > 4: haddr = space.bytes_w(pieces_w[4])
         else:                 haddr = ""
         if len(haddr) > 8:
             raise oefmt(space.w_ValueError,
@@ -162,7 +162,7 @@ class W_Socket(W_Root):
             self.register_finalizer(space)
 
     def _finalize_(self):
-        is_open = self.sock.fd != rsocket.INVALID_SOCKET
+        is_open = widen(self.sock.fd) != rsocket.INVALID_SOCKET
         if is_open and self.space.sys.track_resources:
             w_repr = self.space.repr(self)
             str_repr = self.space.text_w(w_repr)
@@ -179,7 +179,7 @@ class W_Socket(W_Root):
         return space.newint(self.sock.family)
 
     def descr_repr(self, space):
-        fd = intmask(self.sock.fd)  # Force to signed type even on Windows.
+        fd = widen(self.sock.fd)  # Force to signed type even on Windows.
         return space.newtext("<socket object, fd=%d, family=%d,"
                           " type=%d, protocol=%d>" %
                           (fd, self.sock.family,
@@ -208,7 +208,7 @@ class W_Socket(W_Root):
     # convert an app-level object into an Address
     # based on the current socket's family
     def addr_from_object(self, space, w_address):
-        fd = intmask(self.sock.fd)
+        fd = widen(self.sock.fd)
         return addr_from_object(self.sock.family, fd, space, w_address)
 
     def bind_w(self, space, w_addr):
@@ -271,7 +271,7 @@ class W_Socket(W_Root):
 
         Return the integer file descriptor of the socket.
         """
-        return space.newint(intmask(self.sock.fd))
+        return space.newint(widen(self.sock.fd))
 
     def getpeername_w(self, space):
         """getpeername() -> address info

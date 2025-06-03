@@ -98,14 +98,15 @@ Just Work.
 Installing external packages
 ----------------------------
 
-We uses a subrepository_ inside pypy to hold binary compiled versions of the
-build dependencies for windows. As part of the `rpython` setup stage, environment
-variables will be set to use these dependencies. The repository has a README
+We uses a mercurial repository_ inside pypy to hold binary compiled versions of
+the build dependencies for windows. As part of the `rpython` setup stage,
+environment variables will be set to use these dependencies. The repository has a README
 file on how to replicate, and a branch for each supported platform. You may run
 the `get_externals.py` utility to checkout the proper branch for your platform
-and PyPy version.
+and PyPy version. If you miss this step, you will get errors like ``cannot open
+include file: 'ffi.h'``.
 
-.. _subrepository: https://foss.heptapod.net/pypy/externals
+.. _repository: https://foss.heptapod.net/pypy/externals
 
 Using the mingw compiler
 ------------------------
@@ -117,14 +118,14 @@ i.e. x86_64-w64-mingw32-gcc for the 64 bit compiler creating a 64 bit target.
 
 You probably want to set the CPATH, LIBRARY_PATH, and PATH environment
 variables to the header files, lib or dlls, and dlls respectively of the
-locally installed packages if they are not in the mingw directory heirarchy.
+locally installed packages if they are not in the mingw directory hierarchy.
 
 
 libffi for the mingw compiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 To enable the _rawffi (and ctypes) module, you need to compile a mingw
-version of libffi.  Here is one way to do this, wich should allow you to try
+version of libffi.  Here is one way to do this, which should allow you to try
 to build for win64 or win32:
 
 #. Download and unzip a `mingw32 build`_ or `mingw64 build`_, say into c:\mingw

@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -64,13 +66,13 @@ def detect_x32_mode():
 
 if __name__ == '__main__':
     if detect_sse2():
-        print 'Processor supports sse2'
+        print('Processor supports sse2')
     if detect_sse4_1():
-        print 'Processor supports sse4.1'
+        print('Processor supports sse4.1')
     if detect_sse4_2():
-        print 'Processor supports sse4.2'
+        print('Processor supports sse4.2')
     if detect_sse4a():
-        print 'Processor supports sse4a'
+        print('Processor supports sse4a')
 
     if detect_x32_mode():
-        print 'Process is running in "x32" mode.'
+        print('Process is running in "x32" mode.')

@@ -1,12 +1,14 @@
+from __future__ import print_function
+
 from rpython.jit.tl import tiny3_hotpath as tiny3
 from rpython.jit.backend.hlinfo import highleveljitinfo
 from rpython.rlib.jit import set_user_param
 
 def help(err="Invalid command line arguments."):
-    print err
-    print highleveljitinfo.sys_executable,
-    print "[-j param=value,...]",
-    print "'tiny3 program string' arg0 [arg1 [arg2 [...]]]"
+    print(err)
+    print(highleveljitinfo.sys_executable, end=" ")
+    print("[-j param=value,...]", end=" ")
+    print("'tiny3 program string' arg0 [arg1 [arg2 [...]]]")
     return 1
 
 def entry_point(args):
@@ -34,7 +36,7 @@ def entry_point(args):
         except ValueError:
             real_args.append(tiny3.FloatBox(tiny3.myfloat(arg)))
     res = tiny3.interpret(bytecode, real_args)
-    print tiny3.repr(res)
+    print(tiny3.repr(res))
     return 0
 
 def target(driver, args):

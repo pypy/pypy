@@ -17,14 +17,16 @@ from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, L
 from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
     gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError,
-    _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10)
+    _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10,
+    _format_lowest_level_divmod_int_results, _format_int10_18digits)
 from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
 from rpython.rtyper.tool.rfficache import platform
+from rpython.rlib.rstring import StringBuilder
 
-from hypothesis import given, strategies, example, settings
+from hypothesis import given, strategies, example, settings, assume
 
 longs = strategies.builds(
     long, strategies.integers())
@@ -296,6 +298,17 @@ class TestRLong(object):
                 r1 = op1.int_mod_int_result(y)
                 r2 = x % y
                 assert r1 == r2
+
+    def test_int_divmod_int_result(self):
+        for x in gen_signs(long_vals):
+            op1 = rbigint.fromlong(x)
+            for y in signed_int_vals:
+                if not y:
+                    continue
+                r1 = op1.int_mod_int_result(y)
+                r2 = x % y
+                assert r1 == r2
+
 
     def test_pow(self):
         for op1 in gen_signs(long_vals_not_too_big):
@@ -615,6 +628,12 @@ class Test_rbigint(object):
                 result = f1.int_mul(y)
                 assert result.tolong() == x * y
 
+    def test_mul_int_int_rbigint_result(self):
+        for x in signed_int_vals:
+            for y in signed_int_vals:
+                result = rbigint.mul_int_int_bigint_result(x, y)
+                assert result.tolong() == x * y
+
     def test_tofloat(self):
         x = 12345678901234567890L ** 10
         f1 = rbigint.fromlong(x)
@@ -835,8 +854,11 @@ class Test_rbigint(object):
     def test_normalize(self):
         f1 = bigint([1, 0], 1)
         f1._normalize()
-        assert f1.size == 1
+        assert f1.numdigits() == 1
         f0 = bigint([0], 0)
+        f0._normalize()
+        assert f0.numdigits() == 1
+        assert f0._size == 0
         assert f1.sub(f1).eq(f0)
 
     def test_invert(self):
@@ -1358,11 +1380,11 @@ class TestTranslatable(object):
     def test_args_from_rarith_int(self):
         from rpython.rlib.rarithmetic import r_int
         from rpython.rlib.unroll import unrolling_iterable
-        from rpython.rtyper.lltypesystem.rffi import r_int_real
+        from rpython.rtyper.lltypesystem.rffi import r_int_real, r_uint_real
         classlist = platform.numbertype_to_rclass.values()
         cases = [] # tuples of (values, strvalues, typename)
         for r in classlist:
-            if r in (r_int, r_int_real):     # and also r_longlong on 64-bit
+            if r in (r_int, r_int_real, r_uint_real):  # and also r_longlong on 64-bit
                 continue
             if r is int:
                 mask = sys.maxint*2+1
@@ -1400,6 +1422,21 @@ class TestTranslatable(object):
 
         res = interpret(fn, [])
         assert res == -42.0
+
+    def test_isqrt(self):
+        def fn(x):
+            num = rbigint.fromint(3).int_pow(x)
+            return num.mul(num).isqrt().eq(num)
+
+
+        res = interpret(fn, [100])
+        assert res == True
+
+    def test_mul_int_int_rbigint_result(self):
+        def fn(x, y):
+            res = rbigint.mul_int_int_bigint_result(x, y)
+            return len(res.str())
+        res = interpret(fn, [sys.maxint, sys.maxint])
 
 
 class TestTranslated(StandaloneTests):
@@ -1713,8 +1750,11 @@ class TestHypothesis(object):
         r1 = rx.rshift(shift)
         assert r1.tolong() == x >> shift
 
-    @given(longs, strategies.integers(0, 2000), strategies.sampled_from([int((1 << i) - 1) for i in range(1, r_uint.BITS-1)]))
-    def test_abs_rshift_and_mask(self, x, shift, mask):
+    @given(longs, strategies.integers(0, 2000), strategies.data())
+    def test_abs_rshift_and_mask(self, x, shift, data):
+        mask = data.draw(
+            strategies.sampled_from(
+                [int((1 << i) - 1) for i in range(1, min(SHIFT, r_uint.BITS - 1))]))
         rx = rbigint.fromlong(x)
         r1 = rx.abs_rshift_and_mask(r_ulonglong(shift), mask)
         assert r1 == (abs(x) >> shift) & mask
@@ -1807,6 +1847,44 @@ class TestHypothesis(object):
         li = rbigint.fromrarith_int(i)
         assert li.tolong() == int(i)
 
+    @given(biglongs)
+    @example(3**100)
+    def test_isqrt(self, a):
+        a = abs(a)
+        la = rbigint.fromlong(a)
+        lsq = la.isqrt()
+        sq = lsq.tolong()
+        assert sq * sq <= a
+        assert (sq + 1) ** 2 > a
+
+        x = a * a
+        lx = rbigint.fromlong(x)
+        assert lx.isqrt().tolong() == a
+
+    @given(ints, ints)
+    def test_mul_int_int_rbigint_result(self, a, b):
+        res = rbigint.mul_int_int_bigint_result(a, b)
+        assert res.tolong() == a * b
+
+    @given(strategies.data())
+    def test_format_lowest_level_divmod_int_results(self, data):
+        b = data.draw(strategies.integers(1, MASK))
+        a = data.draw(strategies.integers(0, b-1))
+        c = data.draw(strategies.integers(0, b-1))
+        assume(bool(b))
+        atimesbplusb = rbigint.mul_int_int_bigint_result(a, b).int_add(c)
+        div, mod = _format_lowest_level_divmod_int_results(atimesbplusb, b)
+        print a, b, c, atimesbplusb, div, mod
+        assert (div, mod) == divmod(atimesbplusb.tolong(), b)
+
+    @given(strategies.integers(0, 10**18-1))
+    def test_format_int10_18digits(self, val):
+        builder = StringBuilder()
+        _format_int10_18digits(val, builder)
+        s = builder.build()
+        assert len(s) == 18
+        assert s.lstrip('0') == str(val).lstrip('0')
+
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
 def test_hypothesis_small_shift(methname):
@@ -1855,6 +1933,7 @@ def run():
             info = sys.exc_info()
             print(traceback.format_exc())
             pdb.post_mortem(info[2], pdb.Pdb)
+        raise
 
 
 if __name__ == '__main__':

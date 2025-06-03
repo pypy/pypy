@@ -91,7 +91,7 @@ class StringDecoder:
         self.pos = i + 1
         p = rffi.str2charp(self.string[frm : i])
         self.ffi._finalizer.free_mems.append(p)
-        return p
+        return rffi.cast(rffi.CONST_CCHARP, p)
 
 
 def allocate(ffi, nbytes):
@@ -142,10 +142,10 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
         # The int is only used with integer constants.
         globals_w = space.fixedview(w_globals)
         n = len(globals_w) // 2
-        size = n * rffi.sizeof(GLOBAL_S) + n * rffi.sizeof(CDL_INTCONST_S)
+        size = n * rffi.sizeof(GLOBAL_S) + n * llmemory.raw_malloc_usage(rffi.sizeof(CDL_INTCONST_S))
         p = allocate(ffi, size)
         nglobs = rffi.cast(rffi.CArrayPtr(GLOBAL_S), p)
-        p = rffi.ptradd(p, llmemory.raw_malloc_usage(n * rffi.sizeof(GLOBAL_S)))
+        p = rffi.ptradd(p, n * rffi.sizeof(GLOBAL_S))
         nintconsts = rffi.cast(rffi.CArrayPtr(CDL_INTCONST_S), p)
         for i in range(n):
             decoder = StringDecoder(ffi, space.bytes_w(globals_w[i * 2]))
@@ -157,9 +157,9 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
                 ll_set_cdl_realize_global_int(nglobs[i])
                 bigint = space.bigint_w(w_integer)
                 ullvalue = bigint.ulonglongmask()
-                rffi.setintfield(nintconsts[i], 'neg', int(bigint.sign <= 0))
+                rffi.setintfield(nintconsts[i], 'neg', int(bigint.get_sign() <= 0))
                 rffi.setintfield(nintconsts[i], 'value', ullvalue)
-        ffi.ctxobj.ctx.c_globals = nglobs
+        ffi.ctxobj.ctx.c_globals = rffi.cast(lltype.Ptr(GLOBAL_S), nglobs)
         rffi.setintfield(ffi.ctxobj.ctx, 'c_num_globals', n)
 
     if w_struct_unions is not None:
@@ -209,8 +209,8 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
                 nfields[nf].c_name = decoder.next_name()
                 nf += 1
         assert nf == nftot
-        ffi.ctxobj.ctx.c_struct_unions = nstructs
-        ffi.ctxobj.ctx.c_fields = nfields
+        ffi.ctxobj.ctx.c_struct_unions = rffi.cast(lltype.Ptr(STRUCT_UNION_S), nstructs)
+        ffi.ctxobj.ctx.c_fields = rffi.cast(lltype.Ptr(FIELD_S), nfields)
         rffi.setintfield(ffi.ctxobj.ctx, 'c_num_struct_unions', n)
 
     if w_enums:
@@ -224,7 +224,7 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
             rffi.setintfield(nenums[i], 'c_type_prim', decoder.next_4bytes())
             nenums[i].c_name = decoder.next_name()
             nenums[i].c_enumerators = decoder.next_name()
-        ffi.ctxobj.ctx.c_enums = nenums
+        ffi.ctxobj.ctx.c_enums = rffi.cast(lltype.Ptr(ENUM_S), nenums)
         rffi.setintfield(ffi.ctxobj.ctx, 'c_num_enums', n)
 
     if w_typenames:
@@ -237,7 +237,7 @@ def ffiobj_init(ffi, module_name, version, types, w_globals,
             decoder = StringDecoder(ffi, space.bytes_w(typenames_w[i]))
             rffi.setintfield(ntypenames[i],'c_type_index',decoder.next_4bytes())
             ntypenames[i].c_name = decoder.next_name()
-        ffi.ctxobj.ctx.c_typenames = ntypenames
+        ffi.ctxobj.ctx.c_typenames = rffi.cast(lltype.Ptr(TYPENAME_S), ntypenames)
         rffi.setintfield(ffi.ctxobj.ctx, 'c_num_typenames', n)
 
     if w_includes:

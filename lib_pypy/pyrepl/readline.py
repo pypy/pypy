@@ -203,11 +203,14 @@ class maybe_accept(commands.Command):
             # auto-indent the next line like the previous line
             prevlinestart, indent = _get_previous_line_indent(r.buffer, r.pos)
             r.insert("\n")
-            if indent:
-                for i in range(prevlinestart, prevlinestart + indent):
-                    r.insert(r.buffer[i])
-        else:
+            if not self.reader.in_bracketed_paste:
+                if indent:
+                    for i in range(prevlinestart, prevlinestart + indent):
+                        r.insert(r.buffer[i])
+        elif not self.reader.in_bracketed_paste:
             self.finish = 1
+        else:
+            r.insert("\n")
 
 class backspace_dedent(commands.Command):
     def do(self):

@@ -2,6 +2,8 @@
 Syntax:
     python jumpto.py  file.log  b0123456
 """
+from __future__ import print_function
+
 import sys, struct
 from viewcode import World
 
@@ -12,7 +14,7 @@ def find_target(coderange, target):
     for i in range(len(data)-3):
         jtarg = addr + (struct.unpack("i", data[i:i+4])[0] + i + 4)
         if not ((jtarg - target) & 0xFFFFFFFFL):
-            print hex(addr + i + 4)
+            print(hex(addr + i + 4))
 
 
 if __name__ == '__main__':

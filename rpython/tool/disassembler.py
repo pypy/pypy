@@ -5,6 +5,7 @@ view on things
 """
 
 from __future__ import print_function
+
 import sys
 import types
 import inspect
@@ -147,16 +148,16 @@ def disassemble(co, lasti=-1):
 
         #if i == lasti:
         #    xxx
-        #    print '-->',
+        #    print('-->', end=" ")
         #else:
         #    xxx
-        #    print '   ',
+        #    print('   ', end=" ")
         #if i in labels:
         #    xxx
-        #    print '>>',
+        #    print('>>', end=" ")
         #else:
         #    xxx
-        #    print '  ',
+        #    print('  ', end=" ")
         #xxx
         pos = i
         i = i + 1

@@ -1,5 +1,5 @@
 from rpython.tool.udir import udir
-import os, sys, py
+import os, sys, pytest
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import intmask
@@ -67,7 +67,7 @@ class TestMMap:
         
         f.close()
 
-    @py.test.mark.skipif("os.name != 'posix'")
+    @pytest.mark.skipif("os.name != 'posix'")
     def test_unmap_range(self):
         f = open(self.tmpname + "-unmap-range", "w+")
         left, right, size = 100, 200, 500  # in pages
@@ -283,24 +283,24 @@ class TestMMap:
 
     def test_write_readonly(self):
         if os.name == "nt":
-            py.test.skip("Needs PROT_READ")
+            pytest.skip("Needs PROT_READ")
         f = open(self.tmpname + "l", "w+")
         f.write("foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, prot=mmap.PROT_READ)
-        py.test.raises(RTypeError, m.check_writeable)
+        pytest.raises(RTypeError, m.check_writeable)
         m.close()
         f.close()
 
     def test_write_without_protwrite(self):
-        if os.name == "nt":
-            py.test.skip("Needs PROT_WRITE")
+        if sys.platform in ("win32", "darwin"):
+            pytest.skip("Needs PROT_WRITE")
         f = open(self.tmpname + "l2", "w+")
         f.write("foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, prot=mmap.PROT_READ|mmap.PROT_EXEC)
-        py.test.raises(RTypeError, m.check_writeable)
-        py.test.raises(RTypeError, m.check_writeable)
+        pytest.raises(RTypeError, m.check_writeable)
+        pytest.raises(RTypeError, m.check_writeable)
         m.close()
         f.close()
 
@@ -353,7 +353,7 @@ class TestMMap:
     
     def test_resize(self):
         if ("darwin" in sys.platform) or ("freebsd" in sys.platform):
-            py.test.skip("resize does not work under OSX or FreeBSD")
+            pytest.skip("resize does not work under OSX or FreeBSD")
         
         import os
         
@@ -413,11 +413,11 @@ class TestMMap:
             m = mmap.mmap(no, 6, access=mmap.ACCESS_WRITE)
 
             # def f(m): m[1:3] = u'xx'
-            # py.test.raises(IndexError, f, m)
+            # pytest.raises(IndexError, f, m)
             # def f(m): m[1:4] = "zz"
-            # py.test.raises(IndexError, f, m)
+            # pytest.raises(IndexError, f, m)
             # def f(m): m[1:6] = "z" * 6
-            # py.test.raises(IndexError, f, m)
+            # pytest.raises(IndexError, f, m)
             # def f(m): m[:2] = "z" * 5
             # m[1:3] = 'xx'
             # assert m.read(6) == "fxxbar"
@@ -456,7 +456,7 @@ class TestMMap:
 
         compile(func, [int], gcpolicy='boehm')
 
-    @py.test.mark.skipif("not mmap.has_madvise")
+    @pytest.mark.skipif("not mmap.has_madvise")
     def test_translated_madvise_bug(self):
         from rpython.translator.c.test.test_genc import compile
 
@@ -469,7 +469,7 @@ class TestMMap:
 
     def test_windows_crasher_1(self):
         if sys.platform != "win32":
-            py.test.skip("Windows-only test")
+            pytest.skip("Windows-only test")
         def func():
             m = mmap.mmap(-1, 1000, tagname="foo")
             # same tagname, but larger size
@@ -483,7 +483,7 @@ class TestMMap:
 
     def test_windows_crasher_2(self):
         if sys.platform != "win32":
-            py.test.skip("Windows-only test")
+            pytest.skip("Windows-only test")
 
         f = open(self.tmpname + "t", "w+")
         f.write("foobar")
@@ -492,17 +492,18 @@ class TestMMap:
         f = open(self.tmpname + "t", "r+b")
         m = mmap.mmap(f.fileno(), 0)
         f.close()
-        py.test.raises(WindowsError, m.resize, 0)
-        py.test.raises(RValueError, m.getitem, 0)
+        pytest.raises(WindowsError, m.resize, 0)
+        pytest.raises(RValueError, m.getitem, 0)
         m.close()
 
-    @py.test.mark.skipif("not mmap.has_madvise")
+    @pytest.mark.skipif("not mmap.has_madvise")
     def test_madvise(self):
         m = mmap.mmap(-1, 8096)
         m.madvise(mmap.MADV_NORMAL, 0, 8096)
         m.close()
 
 
+@pytest.mark.skipif("sys.platform == 'darwin'", reason="needs entitlement")
 def test_alloc_free():
     map_size = 65536
     data = alloc(map_size)
@@ -514,6 +515,7 @@ def test_alloc_free():
     madvise_free(data, map_size)
     free(data, map_size)
 
+@pytest.mark.skipif("sys.platform == 'darwin'", reason="needs entitlement")
 def test_compile_alloc_free():
     from rpython.translator.c.test.test_genc import compile
 

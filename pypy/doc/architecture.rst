@@ -109,7 +109,7 @@ RPython is not apparent at first.  Built-in modules are written in
 ``pypy/module/*``.  Some modules that CPython implements in C are
 simply written in pure Python; they are in the top-level ``lib_pypy``
 directory.  The standard library of Python (with a few changes to
-accomodate PyPy) is in ``lib-python``.
+accommodate PyPy) is in ``lib-python``.
 
 JIT Compiler
 ~~~~~~~~~~~~
@@ -135,5 +135,5 @@ GC written as more RPython code.  The best one we have so far is in
 ``rpython/memory/gc/incminimark.py``.
 
 .. _`Getting Started with RPython`: https://rpython.readthedocs.io/en/latest/getting-started.html
-.. _RPython By Example: https://mesapy.org/rpython-by-example/
+.. _RPython By Example: https://mssun.github.io/rpython-by-example/index.html
 

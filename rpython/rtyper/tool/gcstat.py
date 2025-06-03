@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 try:
     import psyco
     psyco.full()
@@ -19,7 +21,7 @@ def parse_file(f, callback):
     current = 0
     for i, line in enumerate(f):
         if i % 100000 == 0:
-            print i
+            print(i)
         line = line.split()
         if line[0] == "free":
             _, typeid, address = line
@@ -50,4 +52,3 @@ def collect_all(f):
         all.append(obj)
     parse_file(f, callback)
     return all
-

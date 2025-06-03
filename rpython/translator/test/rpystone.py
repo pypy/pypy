@@ -31,6 +31,7 @@ Version History:
                 of different versions can't be compared directly.
 
 """
+from __future__ import print_function
 
 LOOPS = 50000
 
@@ -66,9 +67,9 @@ FALSE = 0
 def main(loops=LOOPS):
     benchtime, stones = pystones(abs(loops))
     if loops >= 0:
-        print "Pystone(%s) time for %d passes = %g" % \
-              (__version__, loops, benchtime)
-        print "This machine benchmarks at %g pystones/second" % stones
+        print("Pystone(%s) time for %d passes = %g" %
+              (__version__, loops, benchtime))
+        print("This machine benchmarks at %g pystones/second" % stones)
 
 
 def pystones(loops=LOOPS):
@@ -270,13 +271,13 @@ def Func3(EnumParIn):
     return FALSE
 
 def error(msg):
-    print >> sys.stderr, msg,
-    print >> sys.stderr, "usage: %s [number_of_loops]" % sys.argv[0]
+    print(msg, end=" ", file=sys.stderr)
+    print("usage: %s [number_of_loops]" % sys.argv[0], file=sys.stderr)
     sys.exit(100)
 
 def entrypoint(loops=None):
     import string # just a little test
-    print string.replace("import works", "s", "x")
+    print(string.replace("import works", "s", "x"))
     if loops is None:
         loops = LOOPS  # initialize early, for slow space
         nargs = len(sys.argv) - 1

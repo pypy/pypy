@@ -877,9 +877,46 @@ def mulmod(a, b, c):
     else:
         from rpython.rlib.rbigint import rbigint
         a = rbigint.fromint(a)
-        b = rbigint.fromint(b)
-        return a.mul(b).int_mod(c).toint()
+        return a.int_mul(b).int_mod(c).toint()
 
+def uint_mul_high(a, b):
+    """ Computes the high word of the unsigned multiplication a * b """
+    if LONG_BIT < LONGLONG_BIT:
+        a = r_ulonglong(a)
+        b = r_ulonglong(b)
+        return r_uint((a * b) >> LONG_BIT)
+    elif check_support_int128():
+        a = r_ulonglonglong(a)
+        b = r_ulonglonglong(b)
+        return r_uint((a * b) >> LONG_BIT)
+    else:
+        return _uint_mul_high(a, b)
+# can't use decorator due to recursive imports
+uint_mul_high.oopspec = "int.uint_mul_high(a, b)"
+
+def _uint_mul_high(a, b):
+    DIGIT = LONG_BIT / 2
+    MASK = (1 << DIGIT) - 1
+
+    ah = a >> DIGIT
+    al = a & MASK
+    bh = b >> DIGIT
+    bl = b & MASK
+
+    rll = al * bl; assert rll == r_uint(rll)
+    rlh = al * bh; assert rlh == r_uint(rlh)
+    rhl = ah * bl; assert rhl == r_uint(rhl)
+    rhh = ah * bh; assert rhh == r_uint(rhh)
+
+    r1 = (rll >> DIGIT) + rhl
+    assert r1 == r_uint(r1)
+
+    r1 = r_uint(r1)
+    r2 = r_uint(r1 + rlh)
+    borrow = r_uint(r2 < r1) << DIGIT
+
+    r3 = (r2 >> DIGIT) + borrow + r_uint(rhh)
+    return r3
 
 # String parsing support
 # ---------------------------

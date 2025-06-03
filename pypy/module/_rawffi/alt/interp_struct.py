@@ -297,7 +297,7 @@ class SetFieldConverter(FromAppLevelConverter):
     def handle_struct(self, w_ffitype, w_structinstance):
         rawmem = rffi.cast(rffi.CCHARP, self.rawmem)
         dst = rffi.cast(rffi.VOIDP, rffi.ptradd(rawmem, self.offset))
-        src = w_structinstance.rawmem
+        src = rffi.cast(rffi.CONST_VOIDP, w_structinstance.rawmem)
         length = w_ffitype.sizeof()
         rffi.c_memcpy(dst, src, length)
 

@@ -1380,33 +1380,30 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
         l3 = []
 
         def f():
+            typeid_S = -1
             for i in range(10):
                 s = lltype.malloc(S)
+                gcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
+                typeid_S = rgc.get_rpy_type_index(gcref)
                 l1.append(s)
                 l2.append(s)
                 l3.append(s)
+            assert typeid_S > 0
+            gc.collect()
             tb = rgc._heap_stats()
-            a = 0
-            nr = 0
-            b = 0
-            c = 0
+            assert tb[typeid_S].count == 10
+            # find the lists
+            lcount = -1
             for i in range(len(tb)):
-                if tb[i].count == 10:      # the type of S
-                    a += 1
-                    nr = i
-            for i in range(len(tb)):
-                if tb[i].count == 3:       # the type GcArray(Ptr(S))
-                    b += 1
-                    c += tb[i].links[nr]
-            # b can be 1 or 2 here since _heap_stats() is free to return or
-            # ignore the three GcStructs that point to the GcArray(Ptr(S)).
-            # important one is c, a is for check
-            return c * 100 + b * 10 + a
+                if tb[i].count >= 3 and tb[i].links[typeid_S] == 30:
+                    assert lcount == -1
+                    lcount = tb[i].count
+            return lcount
         return f
 
     def test_gc_heap_stats(self):
         res = self.run("gc_heap_stats")
-        assert res == 3011 or res == 3021
+        assert res >= 3
 
     def definestr_string_builder(cls):
         def fn(_):
@@ -1549,6 +1546,32 @@ class TestSemiSpaceGC(UsingFrameworkTest, snippet.SemiSpaceGCTestDefines):
     def test_extra_item_after_alloc(self):
         res = self.run('extra_item_after_alloc')
         assert res == 42
+
+    def define_rerased(cls):
+        from rpython.rlib.rerased import new_erasing_pair, try_cast_erased
+        erase_obj, unerase_obj = new_erasing_pair("test obj")
+        erase_str, unerase_str = new_erasing_pair("test str")
+        class X:
+            pass
+        def f():
+            x = X()
+            for i in range(2):
+                if i:
+                    erased = erase_str('abc')
+                else:
+                    erased = erase_obj(x)
+                obj = try_cast_erased(X, erased)
+                if obj is not None:
+                    assert i == 0
+                    assert obj is x
+                else:
+                    assert unerase_str(erased) == 'abc'
+            return 0
+        return f
+
+    def test_rerased(self):
+        res = self.run('rerased')
+        assert res == 0
 
 
 class TestGenerationalGC(TestSemiSpaceGC):

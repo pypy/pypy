@@ -408,33 +408,39 @@ def test_nan_and_special_values():
     assert math.isinf(inf)
     nan = inf/inf
     assert math.isnan(nan)
+    values_and_checkers = [
+        (inf,   lambda x: math.isinf(x) and x > 0.0),
+        (-inf,  lambda x: math.isinf(x) and x < 0.0),
+        (nan,   math.isnan),
+        (42.0,  isfinite),
+        (0.0,   lambda x: not x and math.copysign(1., x) == 1.),
+        (-0.0,  lambda x: not x and math.copysign(1., x) == -1.),
+    ]
+    unrolling_values = unrolling_iterable(enumerate(values_and_checkers))
+    l = [[value] for value, _ in values_and_checkers]
+    l2 = [[(-value, -value), (value, value)] for value, _ in values_and_checkers]
 
-    for value, checker in [
-            (inf,   lambda x: math.isinf(x) and x > 0.0),
-            (-inf,  lambda x: math.isinf(x) and x < 0.0),
-            (nan,   math.isnan),
-            (42.0,  isfinite),
-            (0.0,   lambda x: not x and math.copysign(1., x) == 1.),
-            (-0.0,  lambda x: not x and math.copysign(1., x) == -1.),
-            ]:
-        def f():
-            return value
-        f1 = compile(f, [])
-        res = f1()
+    def f(variant, index, x):
+        if variant == 0:
+            for i, (value, _) in unrolling_values:
+                if index == i:
+                    return value
+            assert 0
+        if variant == 1:
+            return l[index][x]
+        if variant == 2:
+            return l2[index][x][1]
+        assert 0
+    f1 = compile(f, [int, int, int])
+
+    for index, (value, checker) in enumerate(values_and_checkers):
+        res = f1(0, index, -1)
         assert checker(res)
 
-        l = [value]
-        def g(x):
-            return l[x]
-        g2 = compile(g, [int])
-        res = g2(0)
+        res = f1(1, index, 0)
         assert checker(res)
 
-        l2 = [(-value, -value), (value, value)]
-        def h(x):
-            return l2[x][1]
-        h3 = compile(h, [int])
-        res = h3(1)
+        res = f1(2, index, 1)
         assert checker(res)
 
 def test_prebuilt_instance_with_dict():

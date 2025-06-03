@@ -212,7 +212,10 @@ class Arguments(object):
                 if num_args:
                     starargs_w = starargs_w + args_w
             elif num_args > args_left:
-                starargs_w = args_w[args_left:]
+                if args_left == 0:
+                    starargs_w = args_w # don't need to copy if its the whole list
+                else:
+                    starargs_w = args_w[args_left:]
             else:
                 starargs_w = []
             scope_w[co_argcount] = self.space.newtuple(starargs_w)

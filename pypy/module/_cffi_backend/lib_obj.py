@@ -33,7 +33,7 @@ class W_LibObject(W_Root):
         num = 0
         includes = []
         while c_includes[num]:
-            include_name = rffi.charp2str(c_includes[num])
+            include_name = rffi.constcharp2str(c_includes[num])
             try:
                 w_lib1 = space.appexec([space.newtext(include_name)], """(modname):
                     mod = __import__(modname, None, None, ['ffi', 'lib'])
@@ -64,8 +64,9 @@ class W_LibObject(W_Root):
         #
         ptr = rffi.cast(rffi.CCHARP, g.c_address)
         assert ptr
+        direct_fn = rffi.cast(rffi.CCHARP, g.c_size_or_direct_fn)
         return W_FunctionWrapper(self.space, self.ffi,
-                                 ptr, g.c_size_or_direct_fn,
+                                 ptr, direct_fn,
                                  rawfunctype, fnname, self.libname)
 
     @jit.elidable_promote()
@@ -93,7 +94,7 @@ class W_LibObject(W_Root):
                 return None     # not found at all
         else:
             space = self.space
-            g = self.ctx.c_globals[index]
+            g = rffi.cast(rffi.CArrayPtr(parse_c_type.GLOBAL_S), self.ctx.c_globals)[index]
             op = getop(g.c_type_op)
             if (op == cffi_opcode.OP_CPYTHON_BLTN_V or
                 op == cffi_opcode.OP_CPYTHON_BLTN_N or
@@ -235,7 +236,7 @@ class W_LibObject(W_Root):
     def dir1(self, ignore_global_vars=False):
         space = self.space
         total = rffi.getintfield(self.ctx, 'c_num_globals')
-        g = self.ctx.c_globals
+        g = rffi.cast(rffi.CArrayPtr(parse_c_type.GLOBAL_S), self.ctx.c_globals)
         names_w = []
         for i in range(total):
             if ignore_global_vars:
@@ -243,16 +244,16 @@ class W_LibObject(W_Root):
                 if (op == cffi_opcode.OP_GLOBAL_VAR or
                     op == cffi_opcode.OP_GLOBAL_VAR_F):
                     continue
-            names_w.append(space.newtext(rffi.charp2str(g[i].c_name)))
+            names_w.append(space.newtext(rffi.constcharp2str(g[i].c_name)))
         return space.newlist(names_w)
 
     def full_dict_copy(self):
         space = self.space
         total = rffi.getintfield(self.ctx, 'c_num_globals')
-        g = self.ctx.c_globals
+        g = rffi.cast(rffi.CArrayPtr(parse_c_type.GLOBAL_S), self.ctx.c_globals)
         w_result = space.newdict()
         for i in range(total):
-            w_attr = space.newtext(rffi.charp2str(g[i].c_name))
+            w_attr = space.newtext(rffi.constcharp2str(g[i].c_name))
             w_value = self._get_attr(w_attr)
             space.setitem(w_result, w_attr, w_value)
         return w_result
@@ -268,11 +269,7 @@ class W_LibObject(W_Root):
         #
         if isinstance(w_value, W_FunctionWrapper):
             # '&func' returns a regular cdata pointer-to-function
-            if w_value.directfnptr:
-                ctype = w_value.typeof(self.ffi)
-                return W_CData(space, w_value.directfnptr, ctype)
-            else:
-                return w_value    # backward compatibility
+            return w_value.try_extract_direct_fnptr_as_cdata(space)
         #
         if (isinstance(w_value, W_CData) and
                 isinstance(w_value.ctype, W_CTypeFunc)):

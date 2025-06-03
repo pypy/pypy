@@ -24,6 +24,8 @@ from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rlib.rarithmetic import is_valid_int
 from rpython.rlib.debug import ll_assert
+from rpython.rlib.objectmodel import we_are_translated, specialize
+from rpython.rlib import jit
 
 
 def erase_int(x):
@@ -123,6 +125,24 @@ def new_static_erasing_pair(name):
     erase, unerase = new_erasing_pair(name)
     return staticmethod(erase), staticmethod(unerase)
 
+@specialize.arg(0)
+@jit.dont_look_inside
+def try_cast_erased(Class, erased):
+    if we_are_translated():
+        from rpython.rtyper.rclass import OBJECTPTR, ll_isinstance
+        from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
+        from rpython.rlib.rgc import _is_rpy_instance, _get_llcls_from_cls
+        if _is_rpy_instance(erased):
+            objptr = lltype.cast_opaque_ptr(OBJECTPTR, erased)
+            if objptr.typeptr:   # may be NULL, e.g. in rdict's dummykeyobj
+                clsptr = _get_llcls_from_cls(Class)
+                if ll_isinstance(objptr, clsptr):
+                    return cast_base_ptr_to_instance(Class, objptr)
+        return None
+    else:
+        if isinstance(erased._x, Class):
+            return erased._x
+        return None
 
 # ---------- implementation-specific ----------
 

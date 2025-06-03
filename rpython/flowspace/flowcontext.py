@@ -1,6 +1,6 @@
 """Implements the core parts of flow graph creation.
 """
-
+from __future__ import print_function
 import sys
 import collections
 import types
@@ -13,7 +13,7 @@ from rpython.flowspace.model import (Constant, Variable, Block, Link,
     c_last_exception, const, FSException)
 from rpython.flowspace.framestate import FrameState
 from rpython.flowspace.specialcase import (rpython_print_item,
-    rpython_print_newline)
+    rpython_print_newline, rpython_print_end)
 from rpython.flowspace.operation import op
 from rpython.flowspace.bytecode import BytecodeCorruption
 
@@ -306,6 +306,11 @@ class FlowContext(object):
         The locals are ordered according to self.pycode.signature.
         """
         self.nlocals = code.co_nlocals
+        # locals_w is immutable in the sense that every write should make a new
+        # list first. this means FlowContext.getstate does not have to make a
+        # copy of locals_w. This is a good trade-off, because changes to
+        # locals_w (in STORE_FAST and DELETE_FAST) are much less common that
+        # calls to getstate, which happens after every bytecode
         self.locals_w = [None] * code.co_nlocals
         self.stack = []
 
@@ -339,7 +344,7 @@ class FlowContext(object):
         del self.stack[finaldepth:]
 
     def getstate(self, next_offset):
-        return FrameState(self.locals_w[:], self.stack[:],
+        return FrameState(self.locals_w, self.stack[:],
                 self.last_exception, self.blockstack[:], next_offset)
 
     def setstate(self, state):
@@ -873,6 +878,7 @@ class FlowContext(object):
     def STORE_FAST(self, varindex):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
+        self.locals_w = self.locals_w[:]
         self.locals_w[varindex] = w_newvalue
         if isinstance(w_newvalue, Variable):
             w_newvalue.rename(self.getlocalvarname(varindex))
@@ -950,14 +956,44 @@ class FlowContext(object):
             key = w_key.value
             keywords[key] = w_value
         arguments = self.popvalues(n_arguments)
-        args = CallSpec(arguments, keywords, w_star)
         w_function = self.popvalue()
+        try:
+            # py3-style print function
+            if w_function.value == print:
+                return self.handle_print_function(arguments, keywords, w_star)
+        except (AttributeError, TypeError):
+            pass
+
+        args = CallSpec(arguments, keywords, w_star)
         if args.keywords or isinstance(args.w_stararg, Variable):
             shape, args_w = args.flatten()
             hlop = op.call_args(w_function, Constant(shape), *args_w)
         else:
             hlop = op.simple_call(w_function, *args.as_list())
         self.pushvalue(hlop.eval(self))
+
+    def handle_print_function(self, arguments, keywords, w_star):
+        if w_star:
+            raise FlowingError(
+                "print function with *args is not RPython"
+            )
+
+        bad_kwargs = [k for k in keywords if k != "end"]
+        if bad_kwargs:
+            raise FlowingError(
+                "print function with {}= is not RPython"
+                .format(bad_kwargs[0])
+            )
+
+        for w_arg in arguments:
+            w_s = op.str(w_arg).eval(self)
+            self.appcall(rpython_print_item, w_s)
+
+        if "end" in keywords:
+            self.appcall(rpython_print_end, keywords["end"])
+        else:
+            self.appcall(rpython_print_newline)
+        self.pushvalue(Constant(None))
 
     def CALL_FUNCTION(self, oparg):
         self.call_function(oparg)
@@ -1090,6 +1126,7 @@ class FlowContext(object):
             varname = self.getlocalvarname(varindex)
             message = "local variable '%s' referenced before assignment"
             raise UnboundLocalError(message, varname)
+        self.locals_w = self.locals_w[:]
         self.locals_w[varindex] = None
 
     def STORE_MAP(self, oparg):

@@ -264,6 +264,7 @@ class StdObjSpace(ObjSpace):
 
     @specialize.argtype(1)
     def newint(self, intval):
+        from rpython.rlib.rarithmetic import r_uint, maxint, intmask
         if self.config.objspace.std.withsmalllong and isinstance(intval, base_int):
             from pypy.objspace.std.smalllongobject import W_SmallLongObject
             from rpython.rlib.rarithmetic import r_longlong, r_ulonglong
@@ -662,6 +663,28 @@ class StdObjSpace(ObjSpace):
             raise e
         else:
             raiseattrerror(self, w_obj, name)
+
+    def setattr(space, w_obj, w_name, w_value):
+        w_type = space.type(w_obj)
+        w_descr = w_type.setattr_if_not_from_object()
+        if w_descr is not None:
+            return space.get_and_call_function(w_descr, w_obj, w_name, w_value)
+        # inlined logic from Object.descr__setattr__
+        name = space.text_w(w_name)
+        w_descr = w_type.lookup(name)
+        if w_descr is not None:
+            # shortcut for:
+            # if space.is_data_descr(w_descr):
+            #     return space.set(w_descr, w_obj, w_value)
+            w_set = space.lookup(w_descr, '__set__')
+            if w_set is not None:
+                return space.get_and_call_function(w_set, w_descr, w_obj, w_value)
+            if space.lookup(w_descr, '__delete__') is not None:
+                raise oefmt(space.w_AttributeError,
+                            "'%T' object is not a descriptor with set", w_descr)
+        if w_obj.setdictvalue(space, name, w_value):
+            return
+        raiseattrerror(space, w_obj, name, w_descr)
 
     def finditem_str(self, w_obj, key):
         """ Perform a getitem on w_obj with key (string). Returns found

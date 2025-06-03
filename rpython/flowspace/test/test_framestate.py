@@ -15,6 +15,7 @@ class TestFrameState:
         ctx = FlowContext(graph, code)
         # hack the frame
         ctx.setstate(graph.startblock.framestate)
+        ctx.locals_w = ctx.locals_w[:]
         ctx.locals_w[-1] = Constant(None)
         return ctx
 
@@ -31,6 +32,7 @@ class TestFrameState:
     def test_neq_hacked_framestate(self):
         ctx = self.get_context(self.func_simple)
         fs1 = ctx.getstate(0)
+        ctx.locals_w = ctx.locals_w[:]
         ctx.locals_w[-1] = Variable()
         fs2 = ctx.getstate(0)
         assert not fs1.matches(fs2)
@@ -44,6 +46,7 @@ class TestFrameState:
     def test_union_on_hacked_framestates(self):
         ctx = self.get_context(self.func_simple)
         fs1 = ctx.getstate(0)
+        ctx.locals_w = ctx.locals_w[:]
         ctx.locals_w[-1] = Variable()
         fs2 = ctx.getstate(0)
         assert fs1.union(fs2).matches(fs2)  # fs2 is more general
@@ -52,6 +55,7 @@ class TestFrameState:
     def test_restore_frame(self):
         ctx = self.get_context(self.func_simple)
         fs1 = ctx.getstate(0)
+        ctx.locals_w = ctx.locals_w[:]
         ctx.locals_w[-1] = Variable()
         ctx.setstate(fs1)
         assert fs1.matches(ctx.getstate(0))
@@ -71,6 +75,7 @@ class TestFrameState:
     def test_getoutputargs(self):
         ctx = self.get_context(self.func_simple)
         fs1 = ctx.getstate(0)
+        ctx.locals_w = ctx.locals_w[:]
         ctx.locals_w[-1] = Variable()
         fs2 = ctx.getstate(0)
         outputargs = fs1.getoutputargs(fs2)
@@ -81,6 +86,7 @@ class TestFrameState:
     def test_union_different_constants(self):
         ctx = self.get_context(self.func_simple)
         fs1 = ctx.getstate(0)
+        ctx.locals_w = ctx.locals_w[:]
         ctx.locals_w[-1] = Constant(42)
         fs2 = ctx.getstate(0)
         fs3 = fs1.union(fs2)
@@ -90,6 +96,7 @@ class TestFrameState:
     def test_union_spectag(self):
         ctx = self.get_context(self.func_simple)
         fs1 = ctx.getstate(0)
+        ctx.locals_w = ctx.locals_w[:]
         ctx.locals_w[-1] = Constant(SpecTag())
         fs2 = ctx.getstate(0)
         assert fs1.union(fs2) is None   # UnionError

@@ -7,6 +7,8 @@ Actions:
     draw-time      draw a timeline image of the log (format PNG by default)
     print-summary  print a summary of the log
 """
+from __future__ import print_function
+
 import sys, re
 from rpython.rlib.debug import DebugLog
 from rpython.tool import progressbar
@@ -73,14 +75,14 @@ def parse_log(lines, verbose=False):
         try:
             record(match.group(2), time=int(match.group(1), 16))
         except:
-            print "Line", i
+            print("Line", i)
             raise
     if verbose:
         sys.stderr.write('loaded\n')
     if performance_log and time_decrase:
-        print ("The time decreases!  The log file may have been"
-               " produced on a multi-CPU machine and the process"
-               " moved between CPUs.")
+        print("The time decreases!  The log file may have been"
+              " produced on a multi-CPU machine and the process"
+              " moved between CPUs.")
     return log
 
 def extract_category(log, catprefix='', toplevel=False):
@@ -102,19 +104,19 @@ def extract_category(log, catprefix='', toplevel=False):
 def print_log(log):
     for entry in log:
         if entry[0] == 'debug_print':
-            print entry[1]
+            print(entry[1])
         else:
-            print "{%s" % entry[0]
+            print("{%s" % entry[0])
             if len(entry)>3:
                 print_log(entry[3])
-            print "%s}" % entry[0]
+            print("%s}" % entry[0])
 
 def kill_category(log, catprefix=''):
     newlog = []
     for entry in log:
         if not entry[0].startswith(catprefix):
             if len(entry) > 3:
-                newlog.append(entry[:3] + 
+                newlog.append(entry[:3] +
                               (kill_category(entry[3], catprefix),))
             else:
                 newlog.append(entry)
@@ -412,7 +414,7 @@ def print_summary(log, out):
         if a is None:
             a = 'normal-execution'
         s = " " * (50 - len(a))
-        print >>outfile, a, s, "%.2f" % (b*100./total) + "%"
+        print(a, s, "%.2f" % (b*100./total) + "%", file=outfile)
     if out != '-':
         outfile.close()
 
@@ -430,13 +432,13 @@ ACTIONS = {
 if __name__ == '__main__':
     import getopt
     if len(sys.argv) < 3:
-        print __doc__
+        print(__doc__)
         sys.exit(2)
     action = sys.argv[1]
     func, longopts = ACTIONS[action]
     options, args = getopt.gnu_getopt(sys.argv[2:], '', longopts)
     if len(args) != 2:
-        print __doc__
+        print(__doc__)
         sys.exit(2)
 
     kwds = {}

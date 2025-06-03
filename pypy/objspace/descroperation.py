@@ -235,6 +235,7 @@ class DescrOperation(object):
             return space.get_and_call_function(w_descr, w_obj, w_name)
 
     def setattr(space, w_obj, w_name, w_val):
+        # overridden in StdObjSpace
         w_descr = space.lookup(w_obj, '__setattr__')
         if w_descr is None:
             raise oefmt(space.w_AttributeError,

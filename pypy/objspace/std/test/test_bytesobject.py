@@ -502,8 +502,6 @@ class AppTestBytesObject:
 
     def test_expandtabs_overflows_gracefully(self):
         import sys
-        if sys.maxint > (1 << 32):
-            skip("Wrong platform")
         raises((MemoryError, OverflowError), b't\tt\t'.expandtabs, sys.maxint)
 
     def test_expandtabs_0(self):
@@ -884,9 +882,9 @@ class AppTestBytesObject:
                 assert x.rindex(y) == 0
                 assert x.split(y) == ['', '']
                 assert x.rsplit(y) == ['', '']
-                assert x.strip(y) == ''
-                assert x.rstrip(y) == ''
-                assert x.lstrip(y) == ''
+                assert x.strip(y) == u''
+                assert x.rstrip(y) == u''
+                assert x.lstrip(y) == u''
 
     def test_replace_overflow(self):
         import sys

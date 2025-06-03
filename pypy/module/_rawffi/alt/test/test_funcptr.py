@@ -99,9 +99,7 @@ class AppTestFFI(BaseAppTestFFI):
         from _rawffi.alt import CDLL
         libm = CDLL(self.libm_name)
         pow_addr = libm.getaddressindll('pow')
-        fff = sys.maxint*2-1
-        if sys.platform == 'win32' or sys.platform == 'darwin':
-            fff = sys.maxint*2+1
+        fff = sys.maxint*2+1
         assert pow_addr == self.pow_addr & fff
 
     def test_func_fromaddr(self):

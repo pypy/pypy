@@ -4,6 +4,8 @@ The Translator is a glue class putting together the various pieces of the
 translation-related code.  It can be used for interactive testing of the
 translator; see pypy/bin/translatorshell.py.
 """
+from __future__ import print_function
+
 import sys
 import types
 
@@ -103,16 +105,16 @@ class TranslationContext(object):
         if isinstance(x, Block):
             for graph in self.graphs:
                 if x in graph.iterblocks():
-                    print >>f, '%s is a %s' % (x, x.__class__)
-                    print >>f, 'in %s' % (graph,)
+                    print('%s is a %s' % (x, x.__class__), file=f)
+                    print('in %s' % (graph,), file=f)
                     break
             else:
-                print >>f, '%s is a %s at some unknown location' % (
-                    x, x.__class__.__name__)
-            print >>f, 'containing the following operations:'
+                print('%s is a %s at some unknown location' % (
+                    x, x.__class__.__name__), file=f)
+            print('containing the following operations:', file=f)
             for op in x.operations:
-                print >>f, "   ",op
-            print >>f, '--end--'
+                print("   ",op, file=f)
+            print('--end--', file=f)
             return
         raise TypeError("don't know about %r" % x)
 

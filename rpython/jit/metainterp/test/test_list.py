@@ -1,6 +1,6 @@
 import py
 from rpython.rlib.objectmodel import newlist_hint
-from rpython.rlib.jit import JitDriver, promote
+from rpython.rlib.jit import JitDriver, promote, dont_look_inside
 from rpython.jit.metainterp.test.support import LLJitMixin
 
 
@@ -376,6 +376,32 @@ class ListTests:
         assert res == 0
         self.check_resops(call=0, cond_call=2)
 
+    def test_reverse_unrolling(self):
+        jitdriver = JitDriver(greens = ['constsize'], reds = 'auto')
+
+        def f(n, constsize):
+            l = range(n)
+            l.append(constsize * 100)
+            while n > 0:
+                jitdriver.jit_merge_point(constsize=constsize)
+                if constsize:
+                    promote(len(l))
+                l2 = list(l)
+                l2.reverse()
+                n -= l2[-2]
+                l2.append(constsize * 100) # make resizable
+            return len(l)
+
+        # we know the size, let's unroll reverse
+        res = self.meta_interp(f, [10, True])
+        assert res == 11
+        self.check_resops(getarrayitem_gc_i=20)
+
+        # size unknown, mustn't unroll
+        res = self.meta_interp(f, [10, False])
+        assert res == 11
+        self.check_resops(getarrayitem_gc_i=2, call_n=4)
+
 class TestLLtype(ListTests, LLJitMixin):
     def test_listops_dont_invalidate_caches(self):
         class A(object):
@@ -414,3 +440,10 @@ class TestLLtype(ListTests, LLJitMixin):
         res = self.interp_operations(f, [10], listops=True, inline=True)
         assert res == 11
         self.check_operations_history(new_array_clear=1)
+
+    def test_mul_uses_alloc_and_set(self):
+        def f(n):
+            l = [[5], [1, 2, 3]]
+            return len(l[n] * 100)
+        res = self.interp_operations(f, [0], listops=True, inline=True)
+        self.check_operations_history(setarrayitem_gc=106)

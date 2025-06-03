@@ -1309,14 +1309,25 @@ class RecursiveTests:
 
     def test_get_unique_id(self):
         lst = []
-        
+
         def reg_codemap(self, (start, size, l)):
             lst.append((start, size))
             old_reg_codemap(self, (start, size, l))
-        
+
+        # Mock `CodemapStorage.free()` because `check_get_unique_id` uses
+        # `codemap.unpack_traceback()`. We mock `CodemapStorage.free()` to
+        # extend the lifetime of the codemap; otherwise, the codemap will be
+        # freed before `meta_interp` returns (p.s. `meta_interp` calls
+        # `cpu.finish_once()`, which calls `cpu.codemap.finish_once()`).
+        saved_codemap_storages = []
+        def free_codemap(self):
+            saved_codemap_storages.append(self)
+
         old_reg_codemap = codemap.CodemapStorage.register_codemap
+        old_free = codemap.CodemapStorage.free
         try:
             codemap.CodemapStorage.register_codemap = reg_codemap
+            codemap.CodemapStorage.free = free_codemap
             def get_unique_id(pc, code):
                 return (code + 1) * 2
 
@@ -1338,10 +1349,50 @@ class RecursiveTests:
             self.check_get_unique_id(lst) # overloaded on assembler backends
         finally:
             codemap.CodemapStorage.register_codemap = old_reg_codemap
+            codemap.CodemapStorage.free = old_free
+            for codemap_storage in saved_codemap_storages:
+                old_free(codemap_storage)
+            saved_codemap_storages = []
 
     def check_get_unique_id(self, lst):
         pass
 
+    def test_tco_doesnt_lead_to_infinite_tracing(self):
+        import multiprocessing
+        # this is super annoying to test too! since we have stack overflows in
+        # the llinterp, sort of random things can happen, depending on how much
+        # code in llinterp and pyjitpl are already jitted. therefore we run the
+        # function in a subprocess.
+        import subprocess, sys, os
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.pathsep.join(sys.path)
+        subprocess.check_output("%s %s" % (sys.executable, __file__), shell=True, env=env)
+
 
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
+
+def tco_doesnt_lead_to_infinite_tracing():
+    from rpython.rlib.rstackovf import _StackOverflow
+    self = TestLLtype()
+    myjitdriver = JitDriver(greens=[], reds='auto')
+    def g1(i):
+        if i < 0:
+            return 1
+        return g1(i) # infinite recursion
+    def g(i):
+        set_param(myjitdriver, "threshold", 1)
+        g1(-1)
+        x = i
+        while x < 100:
+            myjitdriver.jit_merge_point()
+            try:
+                g1(100000)
+            except _StackOverflow:
+                return x
+        return x
+    res = self.meta_interp(g, [4])
+    assert res >= 0
+
+if __name__ == '__main__':
+    tco_doesnt_lead_to_infinite_tracing()

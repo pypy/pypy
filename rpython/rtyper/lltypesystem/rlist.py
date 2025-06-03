@@ -60,7 +60,7 @@ class BaseListRepr(AbstractBaseListRepr):
             assert callable(item_repr)
             self._item_repr_computer = item_repr
         else:
-            self.external_item_repr, self.item_repr = externalvsinternal(rtyper, item_repr)
+            self.external_item_repr, self.item_repr = externalvsinternal(rtyper, item_repr, gcref=True)
         self.listitem = listitem
         self.list_cache = {}
         # setup() needs to be called to finish this initialization
@@ -108,7 +108,7 @@ class ListRepr(AbstractListRepr, BaseListRepr):
 
     def _setup_repr(self):
         if 'item_repr' not in self.__dict__:
-            self.external_item_repr, self.item_repr = externalvsinternal(self.rtyper, self._item_repr_computer())
+            self.external_item_repr, self.item_repr = externalvsinternal(self.rtyper, self._item_repr_computer(), gcref=True)
         if isinstance(self.LIST, GcForwardReference):
             ITEM = self.item_repr.lowleveltype
             ITEMARRAY = self.get_itemarray_lowleveltype()
@@ -174,7 +174,7 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
     def _setup_repr(self):
         if 'item_repr' not in self.__dict__:
-            self.external_item_repr, self.item_repr = externalvsinternal(self.rtyper, self._item_repr_computer())
+            self.external_item_repr, self.item_repr = externalvsinternal(self.rtyper, self._item_repr_computer(), gcref=True)
         if isinstance(self.LIST, GcForwardReference):
             ITEMARRAY = self.get_itemarray_lowleveltype()
             self.LIST.become(ITEMARRAY)

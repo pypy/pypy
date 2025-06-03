@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi, rstr
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -148,11 +150,11 @@ class AbstractLLCPU(AbstractCPU):
                 llop.gc_writebarrier(lltype.Void, new_frame)
                 return lltype.cast_opaque_ptr(llmemory.GCREF, new_frame)
             except Exception as e:
-                print "Unhandled exception", e, "in realloc_frame"
+                print("Unhandled exception", e, "in realloc_frame")
                 return lltype.nullptr(llmemory.GCREF.TO)
 
         def realloc_frame_crash(frame, size):
-            print "frame", frame, "size", size
+            print("frame", frame, "size", size)
             return lltype.nullptr(llmemory.GCREF.TO)
 
         if not translate_support_code:

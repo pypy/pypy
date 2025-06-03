@@ -36,8 +36,9 @@ def test_ffi_cache_type():
 def test_ffi_type_not_immortal():
     import weakref, gc
     ffi = _cffi1_backend.FFI()
-    t1 = ffi.typeof("int **")
-    t2 = ffi.typeof("int *")
+    # this test can fail on free-threaded builds lazier GC if the type was used by another test
+    t1 = ffi.typeof("unsigned short int **")
+    t2 = ffi.typeof("unsigned short int *")
     w1 = weakref.ref(t1)
     w2 = weakref.ref(t2)
     del t1, ffi
@@ -45,7 +46,7 @@ def test_ffi_type_not_immortal():
     assert w1() is None
     assert w2() is t2
     ffi = _cffi1_backend.FFI()
-    assert ffi.typeof(ffi.new("int **")[0]) is t2
+    assert ffi.typeof(ffi.new("unsigned short int **")[0]) is t2
     #
     ffi = _cffi1_backend.FFI()
     t1 = ffi.typeof("int ***")
@@ -343,9 +344,9 @@ def test_ffi_new_allocator_1():
     ffi = _cffi1_backend.FFI()
     alloc1 = ffi.new_allocator()
     alloc2 = ffi.new_allocator(should_clear_after_alloc=False)
-    for retry in range(100):
+    for retry in range(400):
         p1 = alloc1("int[10]")
-        p2 = alloc2("int[10]")
+        p2 = alloc2("int[]", 10 + retry * 13)
         combination = 0
         for i in range(10):
             assert p1[i] == 0
@@ -354,8 +355,6 @@ def test_ffi_new_allocator_1():
             p2[i] = -43
         if combination != 0:
             break
-        del p1, p2
-        import gc; gc.collect()
     else:
         raise AssertionError("cannot seem to get an int[10] not "
                              "completely cleared")

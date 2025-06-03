@@ -1,35 +1,29 @@
 # encoding: utf-8
 from __future__ import print_function
 # NOTE: run this script with LANG=en_US.UTF-8
-# works with pip install mercurial==3.0
 
-try:
-    from pathlib import Path
-except ImportError:
-    import py
-    Path = py.path.local
 import sys
 from collections import defaultdict
 import operator
 import re
-import mercurial.hg
-import mercurial.ui
+import subprocess
 
-ROOT = Path(__file__, '..', '..', '..', '..')
 author_re = re.compile('(.*) <.*>')
 pair_programming_re = re.compile(r'^\((.*?)\)')
-excluded = set(["pypy", "convert-repo", "hgattic", '"Miss Islington (bot)"'])
+excluded = set(["pypy", "convert-repo", "hgattic", 'Miss Islington (bot)',
+                "remote-hg", "Unknown"])
 
 alias = {
     'Anders Chrigstrom': ['arre'],
-    'Antonio Cuni': ['antocuni', 'anto'],
+    'Antonio Cuni': ['antocuni', 'anto', 'antonio'],
     'Armin Rigo': ['arigo', 'arfigo', 'armin', 'arigato'],
     'Maciej Fijałkowski': ['fijal', 'Maciej Fijalkowski'],
-    'Carl Friedrich Bolz-Tereick': ['Carl Friedrich Bolz', 'cfbolz', 'cf', 'cbolz'],
+    'Carl Friedrich Bolz-Tereick': ['Carl Friedrich Bolz', 'cfbolz', 'cf',
+                                    'cbolz', 'CF Bolz-Tereick'],
     'Samuele Pedroni': ['pedronis', 'samuele', 'samule'],
     'Richard Plangger': ['planrich', 'plan_rich'],
     'Remi Meier': ['remi'],
-    'Michael Hudson-Doyle': ['mwh', 'Michael Hudson'],
+    'Michael Hudson-Doyle': ['mwh', 'Michael Hudson', 'michaelh'],
     'Holger Krekel': ['hpk', 'holger krekel', 'holger', 'hufpk'],
     "Amaury Forgeot d'Arc": ['afa', 'amauryfa@gmail.com', 'amaury'],
     'Alex Gaynor': ['alex', 'agaynor'],
@@ -63,7 +57,7 @@ alias = {
     'Ludovic Aubry': ['ludal', 'ludovic'],
     'Lukas Diekmann': ['l.diekmann', 'ldiekmann'],
     'Matti Picus': ['Matti Picus matti.picus@gmail.com',
-                    'matthp', 'mattip', 'mattip>'],
+                    'matthp', 'mattip', 'mattip>', 'matti'],
     'Michael Cheng': ['mikefc'],
     'Richard Emslie': ['rxe'],
     'Roberto De Ioris': ['roberto@goyle','roberto@mrspurr'],
@@ -96,7 +90,7 @@ alias = {
     'John Witulski': ['witulski'],
     'Andrew Lawrence': ['andrew.lawrence@siemens.com', 'andrewjlawrence'],
     'Batuhan Taskaya': ['isidentical'],
-    'Ondrej Baranovič': ['nulano'],
+    'Ondrej Baranovič': ['nulano', 'Nulano'],
     'Brad Kish': ['rtkbkish'],
     'Michał Górny': ['mgorny'],
     'David Hewitt': ['davidhewitt'],
@@ -105,6 +99,14 @@ alias = {
     'Simon Cross': ['hodgestar'],
     'Łukasz Langa': ['ambv'],
     'Wenzel Jakob': ['Jakob Wenzel'],
+    'Maxwell Bernstein': ['Max Bernstein'],
+    'Paul Gey': ['narpfel'],
+    'Bartosz Skowron': ['getxsick'],
+    'Beatrice During': ['bea'],
+    'Mikael Schönenberg': ['micke'],
+    'Oscar Nierstrasz': ['oscar'],
+    'Tim Felgentreff': ['timfel'],
+    'Tadeu Zagallo': ['tadeuzagallo'],
     }
 
 alias_map = {}
@@ -127,7 +129,7 @@ def get_more_authors(log):
     ignore_words = ['around', 'consulting', 'yesterday', 'for a bit', 'thanks',
                     'in-progress', 'bits of', 'even a little', 'floating',
                     'a bit', 'reviewing', 'looking', 'advising', 'partly', 'ish',
-                    'watching', 'mostly', 'jumping']
+                    'watching', 'mostly', 'jumping', 'twitch', 's390x']
     sep_words = ['and', ';', '+', '/', 'with special  by']
     nicknames = match.group(1)
     for word in ignore_words:
@@ -137,6 +139,8 @@ def get_more_authors(log):
     nicknames = [nick.strip().lower() for nick in nicknames.split(',')]
     authors = set()
     for nickname in nicknames:
+        if not nickname:
+            continue
         author = alias_map.get(nickname)
         if not author:
             ignored_nicknames[nickname] += 1
@@ -145,27 +149,34 @@ def get_more_authors(log):
     return authors
 
 def main(show_numbers):
-    ui = mercurial.ui.ui()
-    repo = mercurial.hg.repository(ui, str(ROOT).encode('utf-8'))
+    txt = subprocess.check_output(["git", "log", "--all", "--no-merges", '--format="%aN#<%aE>#%s"'], text=True)
     authors_count = defaultdict(int)
-    for i in repo:
-        ctx = repo[i]
+    with open("/tmp/authors", "wt", encoding="utf8") as fid:
+        fid.write(txt)
+    for line in txt.split('\n'):
+        if "#" not in line:
+            continue
+        if "#Notes added by" in line:
+            continue
+        author_src, author_mail, description = line.strip('"').split("#", 2)
         authors = set()
-        authors.add(get_canonical_author(ctx.user().decode('utf-8')))
-        authors.update(get_more_authors(ctx.description().decode('utf-8')))
+        authors.add(get_canonical_author(author_src))
+        authors.update(get_more_authors(description))
         for author in authors:
             if author not in excluded:
                 authors_count[author] += 1
 
-    # uncomment the next lines to get the list of nicknamed which could not be
-    # parsed from commit logs
-    ## items = list(ignored_nicknames.items())
-    ## items.sort(key=operator.itemgetter(1), reverse=True)
-    ## for name, n in items:
-    ##     if show_numbers:
-    ##         print('%5d %s' % (n, name))
-    ##     else:
-    ##         print(name)
+    # enable the next lines to get the list of nicknamed which could not be
+    # parsed from description
+    if 0:
+        items = list(ignored_nicknames.items())
+        items.sort(key=operator.itemgetter(1), reverse=True)
+        for name, n in items:
+            if show_numbers:
+                print("%5d '%s'" % (n, name))
+            else:
+                print("'%s'" % name)
+        return
 
     items = list(authors_count.items())
     items.sort(key=operator.itemgetter(1), reverse=True)

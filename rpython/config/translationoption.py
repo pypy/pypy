@@ -12,7 +12,6 @@ DEFL_INLINE_THRESHOLD = 32.4    # just enough to inline add__Int_Int()
 # and just small enough to prevend inlining of some rlist functions.
 
 DEFL_PROF_BASED_INLINE_THRESHOLD = 32.4
-DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
 DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
 DEFL_GC = "incminimark"   # XXX
@@ -35,7 +34,7 @@ if MACHINE == 'aarch64':
 # already freed!
 
 MAINDIR = os.path.dirname(os.path.dirname(__file__))
-CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache'))
+CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache', MACHINE))
 
 PLATFORMS = [
     'host',
@@ -127,9 +126,6 @@ translation_optiondescription = OptionDescription(
     ChoiceOption("jit_profiler", "integrate profiler support into the JIT",
                  ["off", "oprofile"],
                  default="off"),
-    ChoiceOption("jit_opencoder_model", "the model limits the maximal length"
-                 " of traces. Use big if you want to go bigger than "
-                 "the default", ["big", "normal"], default="normal"),
     BoolOption("check_str_without_nul",
                "Forbid NUL chars in strings in some external function calls",
                default=False, cmdline=None),
@@ -242,21 +238,6 @@ translation_optiondescription = OptionDescription(
                   "for profile based inlining",
                 default="rpython.translator.backendopt.inline.inlining_heuristic",
                 ),  # cmdline="--prof-based-inline-heuristic" fix me
-        # control clever malloc removal
-        BoolOption("clever_malloc_removal",
-                   "Drives inlining to remove mallocs in a clever way",
-                   default=False,
-                   cmdline="--clever-malloc-removal"),
-        FloatOption("clever_malloc_removal_threshold",
-                    "Threshold when to inline functions in "
-                    "clever malloc removal",
-                  default=DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD,
-                  cmdline="--clever-malloc-removal-threshold"),
-        StrOption("clever_malloc_removal_heuristic",
-                  "Dotted name of an heuristic function "
-                  "for inlining in clever malloc removal",
-                default="rpython.translator.backendopt.inline.inlining_heuristic",
-                cmdline="--clever-malloc-removal-heuristic"),
 
         BoolOption("remove_asserts",
                    "Remove operations that look like 'raise AssertionError', "
@@ -267,10 +248,6 @@ translation_optiondescription = OptionDescription(
                    "without relying on the C compiler",
                    default=False),
 
-        BoolOption("stack_optimization",
-                   "Tranform graphs in SSI form into graphs tailored for "
-                   "stack based virtual machines (only for backends that support it)",
-                   default=True),
         BoolOption("storesink", "Perform store sinking", default=True),
         BoolOption("replace_we_are_jitted",
                    "Replace we_are_jitted() calls by False",

@@ -3288,6 +3288,72 @@ class BasicTests:
         res = self.meta_interp(f, args)
         assert res == f(*args)
 
+    def test_tail_recursion_elimination_tracing(self):
+        myjitdriver = JitDriver(greens=[], reds='auto')
+        def g6(i):
+            return g5(i)
+        def g5(i):
+            return g4(i)
+        def g4(i):
+            return g3(i)
+        def g3(i):
+            return g2(i)
+        def g2(i):
+            return g1(i)
+        def g1(i):
+            if i & 1:
+                return i + 1
+            return i + 3
+        def g(i):
+            x = i
+            while x < 100:
+                myjitdriver.jit_merge_point()
+                x = g6(x)
+            return x
+        res = self.meta_interp(g, [4])
+        # used to be 29
+        assert len(get_stats().loops[0].operations[3]._descr.rd_numb.code) == 14
+
+    def test_tail_recursion_elimination_tracing_void(self):
+        myjitdriver = JitDriver(greens=[], reds='auto')
+        def g6():
+            return g5()
+        def g5():
+            return g4()
+        def g4():
+            return g3()
+        def g3():
+            return g2()
+        def g2():
+            return g1()
+        def g1():
+            if a.x & 1:
+                a.x += 1
+            else:
+                a.x += 3
+        class A:
+            pass
+        a = A()
+        a.x = 12
+        def g(i):
+            a.x = i
+            while a.x < 100:
+                myjitdriver.jit_merge_point()
+                g6()
+            return a.x
+        res = self.meta_interp(g, [4])
+        assert res == g(4)
+        # used to be 22
+        assert len(get_stats().loops[0].operations[4]._descr.rd_numb.code) == 12
+
+    def test_uint_mul_high(self):
+        from rpython.rlib.rarithmetic import uint_mul_high, intmask, r_uint
+        def f(x, y):
+            return intmask(uint_mul_high(r_uint(x), r_uint(y)))
+        res = self.interp_operations(f, [40, 2])
+        assert res == 0
+        self.check_operations_history(uint_mul_high=1)
+
 
 class BaseLLtypeTests(BasicTests):
 

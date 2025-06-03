@@ -20,7 +20,7 @@ Add ``DateTime_FromTimestamp`` and ``Date_FromTimestamp``
 .. branch: semlock-deadlock
 
 Test and reduce the probability of a deadlock when acquiring a semaphore by
-moving global state changes closer to the actual aquire.
+moving global state changes closer to the actual acquire.
 
 .. branch: shadowstack-issue2722
 

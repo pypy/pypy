@@ -1,7 +1,7 @@
 from rpython.jit.metainterp.optimizeopt.optimizer import (
     Optimization, OptimizationResult, REMOVED)
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
-     ResOperation
+     ResOperation, opclasses
 from rpython.jit.metainterp.optimizeopt.util import (
     make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
@@ -61,22 +61,25 @@ class RecentPureOps(object):
                 break
             if box0.same_box(get_box_replacement(op.getarg(0))) and op.getdescr() is descr:
                 op = self.force_preamble_op(opt, op, i)
-                return get_box_replacement(op)
+                return op
         return None
 
-    def lookup2(self, opt, box0, box1, descr):
+    def lookup2(self, opt, box0, box1, descr, commutative=False):
         for i in range(len(self.lst)):
             op = self.lst[i]
             if op is None:
                 break
-            if (box0.same_box(get_box_replacement(op.getarg(0))) and
-                box1.same_box(get_box_replacement(op.getarg(1))) and
-                op.getdescr() is descr):
-                op = self.force_preamble_op(opt, op, i)
-                return get_box_replacement(op)
+            oparg0 = get_box_replacement(op.getarg(0))
+            oparg1 = get_box_replacement(op.getarg(1))
+            if ((box0.same_box(oparg0) and box1.same_box(oparg1)) or
+                 (commutative and box1.same_box(oparg0) and box0.same_box(oparg1))):
+                if op.getdescr() is descr:
+                    op = self.force_preamble_op(opt, op, i)
+                    return op
         return None
 
-    def lookup(self, optimizer, op):
+    def lookup(self, optimizer, op, commutative=False):
+        # must not do get_box_replacement, for the benefit of _can_reuse_oldop
         numargs = op.numargs()
         if numargs == 1:
             return self.lookup1(optimizer,
@@ -86,7 +89,8 @@ class RecentPureOps(object):
             return self.lookup2(optimizer,
                                 get_box_replacement(op.getarg(0)),
                                 get_box_replacement(op.getarg(1)),
-                                op.getdescr())
+                                op.getdescr(),
+                                commutative=commutative)
         else:
             assert False
 
@@ -135,10 +139,18 @@ class OptPure(Optimization):
             recentops = self.getrecentops(op.getopnum(), create=False)
             save = True
             if recentops is not None:
-                oldop = recentops.lookup(self.optimizer, op)
+                opnum = op.opnum
+                commutative = (opnum == rop.INT_ADD or
+                               opnum == rop.INT_ADD_OVF or
+                               opnum == rop.INT_MUL or
+                               opnum == rop.INT_MUL_OVF or
+                               opnum == rop.INT_AND or
+                               opnum == rop.INT_OR or
+                               opnum == rop.INT_XOR)
+                oldop = recentops.lookup(self.optimizer, op, commutative=commutative)
                 if oldop is not None and self._can_reuse_oldop(
                             recentops, oldop, op, ovf):
-                    self.optimizer.make_equal_to(op, oldop)
+                    self.optimizer.make_equal_to(op, get_box_replacement(oldop))
                     return
 
         # otherwise, the operation remains
@@ -151,7 +163,7 @@ class OptPure(Optimization):
         if ovf:
             # careful! this is an ovf operation. so we can only
             # re-use the result of a prior ovf operation, but not a
-            # regular int_... up, because that might have
+            # regular int_... op, because that might have
             # overflowed (the other direction is fine). therefore
             # we need to check that the previous op and the current
             # op have the same opnum.
@@ -280,11 +292,26 @@ class OptPure(Optimization):
         newop.set_forwarded(op)
         self.pure(opnum, newop)
 
+    def pure_from_args2(self, opnum, arg0, arg1, op):
+        cls = opclasses[opnum]
+        newop = cls()
+        newop.setarg(0, get_box_replacement(arg0))
+        newop.setarg(1, get_box_replacement(arg1))
+        newop.set_forwarded(op)
+        self.pure(opnum, newop)
+
+    def pure_from_args1(self, opnum, arg0, op):
+        cls = opclasses[opnum]
+        newop = cls()
+        newop.setarg(0, get_box_replacement(arg0))
+        newop.set_forwarded(op)
+        self.pure(opnum, newop)
+
     def get_pure_result(self, op):
         recentops = self.getrecentops(op.getopnum(), create=False)
         if not recentops:
             return None
-        return recentops.lookup(self.optimizer, op)
+        return get_box_replacement(recentops.lookup(self.optimizer, op))
 
     def produce_potential_short_preamble_ops(self, sb):
         ops = self.optimizer._newoperations

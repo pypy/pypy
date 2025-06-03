@@ -1,4 +1,4 @@
-from __future__ import with_statement
+from __future__ import print_function, with_statement
 
 import os
 
@@ -980,7 +980,7 @@ class AssemblerARM(ResOpAssembler):
         self.datablockwrapper.done()      # finish using cpu.asmmemmgr
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
-        size = self.mc.get_relative_pos() 
+        size = self.mc.get_relative_pos()
         res = self.mc.materialize(self.cpu, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
         #self.cpu.codemap.register_codemap(
@@ -1596,7 +1596,7 @@ def not_implemented(msg):
 
 
 def notimplemented_op(self, op, arglocs, regalloc, fcond):
-    print "[ARM/asm] %s not implemented" % op.getopname()
+    print("[ARM/asm] %s not implemented" % op.getopname())
     raise NotImplementedError(op)
 
 

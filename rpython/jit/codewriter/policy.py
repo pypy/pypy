@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from rpython.jit.metainterp import history
 from rpython.tool.udir import udir
 from rpython.tool.ansi_print import AnsiLogger
@@ -27,7 +29,7 @@ class JitPolicy(object):
         strs = [str(graph) for graph in self.unsafe_loopy_graphs]
         strs.sort()
         for graph in strs:
-            print >> f, graph
+            print(graph, file=f)
         f.close()
 
     def look_inside_function(self, func):

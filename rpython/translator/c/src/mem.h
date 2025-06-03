@@ -171,6 +171,7 @@ RPY_EXTERN void *boehm_fq_next_dead(struct boehm_fq_s **);
 #define OP_GC_DUMP_RPY_HEAP(fd, r)       r = 0
 #define OP_GC_SET_EXTRA_THRESHOLD(x, r)  /* nothing */
 #define OP_GC_IGNORE_FINALIZER(x, r)     /* nothing */
+#define OP_GC_INCREASE_ROOT_STACK_DEPTH(x, r)   /* nothing */
 
 /****************************/
 /* misc stuff               */

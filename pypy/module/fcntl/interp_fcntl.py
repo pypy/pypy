@@ -253,7 +253,7 @@ def ioctl(space, w_fd, w_request, w_arg, mutate_flag=-1):
         try:
             with rffi.scoped_alloc_buffer(to_alloc) as buf:
                 rffi.c_memcpy(rffi.cast(rffi.VOIDP, buf.raw),
-                              rffi.cast(rffi.VOIDP, ll_arg), len(arg))
+                              rffi.cast(rffi.CONST_VOIDP, ll_arg), len(arg))
                 rv = ioctl_str(fd, op, buf.raw)
                 if rv < 0:
                     raise _get_error(space, "ioctl")
@@ -281,7 +281,7 @@ def ioctl(space, w_fd, w_request, w_arg, mutate_flag=-1):
         try:
             with rffi.scoped_alloc_buffer(to_alloc) as buf:
                 rffi.c_memcpy(rffi.cast(rffi.VOIDP, buf.raw),
-                              rffi.cast(rffi.VOIDP, ll_arg), len(arg))
+                              rffi.cast(rffi.CONST_VOIDP, ll_arg), len(arg))
                 rv = ioctl_str(fd, op, buf.raw)
                 if rv < 0:
                     raise _get_error(space, "ioctl")

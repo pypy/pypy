@@ -775,3 +775,18 @@ def test_mulmod(a, b, c):
         assert mulmod(a, b, c) == (a * b) % c
     finally:
         rarithmetic.check_support_int128 = prev
+
+@given(strategies.integers(min_value=0, max_value=2**LONG_BIT - 1),
+       strategies.integers(min_value=0, max_value=2**LONG_BIT - 1))
+def test_uint_mul_high(a, b):
+    ua = r_uint(a)
+    ub = r_uint(b)
+    assert uint_mul_high(ua, ub) == (a * b) >> LONG_BIT
+    #
+    import rpython.rlib.rbigint  # import before patching check_support_int128
+    prev = rarithmetic.check_support_int128
+    try:
+        rarithmetic.check_support_int128 = lambda: False
+        assert uint_mul_high(ua, ub) == (a * b) >> LONG_BIT
+    finally:
+        rarithmetic.check_support_int128 = prev

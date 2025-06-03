@@ -5,7 +5,15 @@ Combined releases
 -----------------
 
 .. toctree::
+   :maxdepth: 1
 
+   release-v7.3.19.rst
+   release-v7.3.18.rst
+   release-v7.3.17.rst
+   release-v7.3.16.rst
+   release-v7.3.15.rst
+   release-v7.3.14.rst
+   release-v7.3.13.rst
    release-v7.3.12.rst
    release-v7.3.11.rst
    release-v7.3.10.rst
@@ -35,6 +43,7 @@ CPython 2.7 compatible versions
 -------------------------------
 
 .. toctree::
+   :maxdepth: 1
 
    release-pypy2.7-v5.6.0.rst
    release-pypy2.7-v5.4.1.rst

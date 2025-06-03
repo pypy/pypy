@@ -10,6 +10,7 @@
 #
 
 """Internal support module for sre (copied from CPython)"""
+from __future__ import print_function
 
 # update when constants are added or removed
 
@@ -101,9 +102,10 @@ def _rpython_opcodes():
         if name.startswith('OPCODE') and isinstance(value, int) and value < 70:
             name = name[6:].lstrip('012346789_').lower()
             mapping[value] = name
-    # check that there are no holes
-    assert sorted(mapping.keys()) == range(len(mapping))
-    return [name for value, name in sorted(mapping.items())]
+    opcodes = [None] * (max(mapping) + 1)
+    for value, name in mapping.items():
+        opcodes[value] = name
+    return opcodes
 OPCODES = _rpython_opcodes()
 
 ATCODES = [
@@ -237,4 +239,4 @@ if __name__ == "__main__":
     f.write("#define SRE_INFO_CHARSET %d\n" % SRE_INFO_CHARSET)
 
     f.close()
-    print "done"
+    print("done")

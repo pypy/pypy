@@ -8,8 +8,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rlib import debug, jit, rstring, rthread, types
 from rpython.rlib._os_support import (
     _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
-    POSIX_SIZE_T, POSIX_SSIZE_T,
-    _prefer_unicode, _preferred_traits, _preferred_traits2)
+    POSIX_SIZE_T, POSIX_SSIZE_T, utf8_traits, _LINUX)
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
 from rpython.rlib.rarithmetic import intmask, widen
@@ -108,7 +107,8 @@ errno_eci = ExternalCompilationInfo(
 # Direct getters/setters, don't use directly!
 _get_errno, _set_errno = CExternVariable(INT, 'errno', errno_eci,
                                          CConstantErrno, sandboxsafe=True,
-                                         _nowrapper=True, c_type='int')
+                                         _nowrapper=True, c_type='int',
+                                         declare_as_extern=False)
 
 def get_saved_errno():
     """Return the value of the "saved errno".
@@ -313,23 +313,22 @@ class CConfig:
                                    [('actime', rffi.INT),
                                     ('modtime', rffi.INT)])
     CLOCK_T = rffi_platform.SimpleType('clock_t', rffi.INT)
+    _HAVE_STRUCT_TERMIOS_C_ISPEED = rffi_platform.Defined(
+            '_HAVE_STRUCT_TERMIOS_C_ISPEED')
+    _HAVE_STRUCT_TERMIOS_C_OSPEED = rffi_platform.Defined(
+            '_HAVE_STRUCT_TERMIOS_C_OSPEED')
     if not _WIN32:
-        UID_T = rffi_platform.SimpleType('uid_t', rffi.UINT)
-        GID_T = rffi_platform.SimpleType('gid_t', rffi.UINT)
-        ID_T = rffi_platform.SimpleType('id_t', rffi.UINT)
+        UID_T = rffi_platform.SimpleType('uid_t', rffi.UINT_real)
+        GID_T = rffi_platform.SimpleType('gid_t', rffi.UINT_real)
+        ID_T = rffi_platform.SimpleType('id_t', rffi.UINT_real)
         TIOCGWINSZ = rffi_platform.DefinedConstantInteger('TIOCGWINSZ')
+        NCCS = rffi_platform.DefinedConstantInteger('NCCS')
 
         TMS = rffi_platform.Struct(
             'struct tms', [('tms_utime', rffi.INT),
                            ('tms_stime', rffi.INT),
                            ('tms_cutime', rffi.INT),
                            ('tms_cstime', rffi.INT)])
-
-        WINSIZE = rffi_platform.Struct(
-            'struct winsize', [('ws_row', rffi.USHORT),
-                           ('ws_col', rffi.USHORT),
-                           ('ws_xpixel', rffi.USHORT),
-                           ('ws_ypixel', rffi.USHORT)])
 
     GETPGRP_HAVE_ARG = rffi_platform.Has("getpgrp(0)")
     SETPGRP_HAVE_ARG = rffi_platform.Has("setpgrp(0, 0)")
@@ -391,17 +390,19 @@ def _as_bytes0(path):
     return res
 
 @specialize.argtype(0)
-def _as_unicode(path):
+def _as_utf8(path):
     assert path is not None
-    if isinstance(path, unicode):
+    if isinstance(path, str):
         return path
+    if isinstance(path, unicode):
+        return path.encode("utf8")
     else:
-        return path.as_unicode()
+        return path.as_utf8()
 
 @specialize.argtype(0)
-def _as_unicode0(path):
+def _as_utf80(path):
     """Crashes translation if the path contains NUL characters."""
-    res = _as_unicode(path)
+    res = _as_utf8(path)
     rstring.check_str0(res)
     return res
 
@@ -461,13 +462,15 @@ def dup2(fd, newfd, inheritable=True):
 @specialize.argtype(0)
 @enforceargs(NOT_CONSTANT, int, int, typecheck=False)
 def open(path, flags, mode):
-    if _prefer_unicode(path):
-        fd = c_wopen(_as_unicode0(path), flags, mode)
+    if _WIN32:
+        utf8 = _as_utf80(path)
+        with rffi.scoped_utf82wcharp(utf8) as buf:
+            fd = c_wopen(buf, flags, mode)
     else:
         fd = c_open(_as_bytes0(path), flags, mode)
     return handle_posix_error('open', fd)
 
-if os.name == 'nt':
+if _WIN32:
     c_read = external('wrap_read',
                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
                   save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=errno_eci)
@@ -565,8 +568,8 @@ if not _WIN32:
             POSIX_FADV_NOREUSE = rffi_platform.DefinedConstantInteger('POSIX_FADV_NOREUSE')
             POSIX_FADV_DONTNEED = rffi_platform.DefinedConstantInteger('POSIX_FADV_DONTNEED')
 
-        config = rffi_platform.configure(CConfig)
-        globals().update(config)
+        advise_config = rffi_platform.configure(CConfig)
+        globals().update(advise_config)
 
         c_posix_fadvise = external('posix_fadvise',
                                    [rffi.INT, OFF_T, OFF_T, rffi.INT], rffi.INT,
@@ -632,9 +635,9 @@ def chdir(path):
     if not _WIN32:
         handle_posix_error('chdir', c_chdir(_as_bytes0(path)))
     else:
-        traits = _preferred_traits(path)
+        traits = utf8_traits
         win32traits = make_win32_traits(traits)
-        path = traits.as_str0(path)
+        utf8 = traits.as_utf80(path)
 
         # This is a reimplementation of the C library's chdir
         # function, but one that produces Win32 errors instead of DOS
@@ -643,8 +646,9 @@ def chdir(path):
         # however, it also needs to set "magic" environment variables
         # indicating the per-drive current directory, which are of the
         # form =<drive>:
-        if not win32traits.SetCurrentDirectory(path):
-            raise rwin32.lastSavedWindowsError()
+        with rffi.scoped_utf82wcharp(utf8) as buf:
+            if not win32traits.SetCurrentDirectory(buf):
+                raise rwin32.lastSavedWindowsError()
         MAX_PATH = rwin32.MAX_PATH
         assert MAX_PATH > 0
 
@@ -655,7 +659,7 @@ def chdir(path):
             res = rffi.cast(lltype.Signed, res)
             assert res > 0
             if res <= MAX_PATH + 1:
-                new_path = path.str(res)
+                new_path = path.str(res).encode('utf8')
             else:
                 with traits.scoped_alloc_buffer(res) as path:
                     res = win32traits.GetCurrentDirectory(res, path.raw)
@@ -663,17 +667,15 @@ def chdir(path):
                         raise rwin32.lastSavedWindowsError()
                     res = rffi.cast(lltype.Signed, res)
                     assert res > 0
-                    new_path = path.str(res)
-        if traits.str is unicode:
-            if new_path[0] == u'\\' or new_path[0] == u'/':  # UNC path
+                    new_path = path.str(res).encode('utf8')
+        utf8 = new_path
+        if utf8[0] == '\\' or utf8[0] == '/':  # UNC path
                 return
-            magic_envvar = u'=' + new_path[0] + u':'
-        else:
-            if new_path[0] == '\\' or new_path[0] == '/':  # UNC path
-                return
-            magic_envvar = '=' + new_path[0] + ':'
-        if not win32traits.SetEnvironmentVariable(magic_envvar, new_path):
-            raise rwin32.lastSavedWindowsError()
+        magic_envvar = '=' + new_path[0] + ':'
+        with rffi.scoped_utf82wcharp(utf8) as buf2:
+            with rffi.scoped_utf82wcharp(magic_envvar) as buf1:
+                if not win32traits.SetEnvironmentVariable(buf1, buf2):
+                    raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('fchdir')
 def fchdir(fd):
@@ -685,8 +687,9 @@ def access(path, mode):
     if _WIN32:
         # All files are executable on Windows
         mode = mode & ~os.X_OK
-    if _prefer_unicode(path):
-        error = c_waccess(_as_unicode0(path), mode)
+        utf8 = _as_utf80(path)
+        with rffi.scoped_utf82wcharp(utf8) as buf:
+            error = c_waccess(buf, mode)
     else:
         error = c_access(_as_bytes0(path), mode)
     return error == 0
@@ -696,23 +699,26 @@ def access(path, mode):
 @specialize.argtype(0)
 def getfullpathname(path):
     length = rwin32.MAX_PATH + 1
-    traits = _preferred_traits(path)
-    win32traits = make_win32_traits(traits)
+    win32traits = make_win32_traits(utf8_traits)
+    utf8 = _as_utf80(path)
     while True:      # should run the loop body maximum twice
-        with traits.scoped_alloc_buffer(length) as buf:
-            res = win32traits.GetFullPathName(
-                traits.as_str0(path), rffi.cast(rwin32.DWORD, length),
-                buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
+        with rffi.scoped_alloc_unicodebuffer(length) as out_buf:
+            with rffi.scoped_utf82wcharp(utf8) as in_buf:
+
+                res = win32traits.GetFullPathName(
+                    in_buf, rffi.cast(rwin32.DWORD, length),
+                    out_buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
             res = intmask(res)
             if res == 0:
                 raise rwin32.lastSavedWindowsError("_getfullpathname failed")
             if res >= length:
                 length = res + 1
                 continue
-            result = buf.str(res)
+            result = out_buf.str(res)
+
             assert result is not None
             result = rstring.assert_str0(result)
-            return result
+            return result.encode('utf8')
 
 c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
                     [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP,
@@ -847,28 +853,21 @@ def listdir(path):
             raise OSError(get_saved_errno(), "opendir failed")
         return _listdir(dirp)
     else:  # _WIN32 case
+        traits = utf8_traits
+        win32traits = make_win32_traits(traits)
         if not path:
-            traits = _preferred_traits('')
-            win32traits = make_win32_traits(traits)
             raise OSError(win32traits.ERROR_FILE_NOT_FOUND,
                          "listdir called with invalid path")
-        traits = _preferred_traits(path)
-        win32traits = make_win32_traits(traits)
-        path = traits.as_str0(path)
-
-        if traits.str is unicode:
-            if path and path[-1] not in (u'/', u'\\', u':'):
-                path += u'\\'
-            mask = path + u'*.*'
-        else:
-            if path and path[-1] not in ('/', '\\', ':'):
-                path += '\\'
-            mask = path + '*.*'
+        utf8 = traits.as_utf80(path)
+        if utf8 and utf8[-1] not in ('/', '\\', ':'):
+            utf8 += '\\'
+        mask = utf8 + '*.*'
 
         filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
         try:
             result = []
-            hFindFile = win32traits.FindFirstFile(mask, filedata)
+            with rffi.scoped_utf82wcharp(mask) as buf:
+                hFindFile = win32traits.FindFirstFile(buf, filedata)
             if hFindFile == rwin32.INVALID_HANDLE_VALUE:
                 error = rwin32.GetLastError_saved()
                 if error == win32traits.ERROR_FILE_NOT_FOUND:
@@ -878,12 +877,8 @@ def listdir(path):
             while True:
                 name = traits.charp2str(rffi.cast(traits.CCHARP,
                                                   filedata.c_cFileName))
-                if traits.str is unicode:
-                    if not (name == u"." or name == u".."):
-                        result.append(name)
-                else:
-                    if not (name == "." or name == ".."):
-                        result.append(name)
+                if not (name == "." or name == ".."):
+                    result.append(name)
                 if not win32traits.FindNextFile(hFindFile, filedata):
                     break
             # FindNextFile sets error to ERROR_NO_MORE_FILES if
@@ -959,14 +954,36 @@ def spawnve(mode, path, args, env):
     rffi.free_charpp(l_args)
     return handle_posix_error('spawnve', childpid)
 
-c_fork = external('fork', [], rffi.PID_T, _nowrapper = True)
-c_openpty = external('openpty',
-                     [rffi.INTP, rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
-                     rffi.INT,
-                     save_err=rffi.RFFI_SAVE_ERRNO)
-c_forkpty = external('forkpty',
-                     [rffi.INTP, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP],
-                     rffi.PID_T, _nowrapper = True)
+if not _WIN32:
+    TCFLAG_T = rffi.UINT
+    CC_T = rffi.UCHAR
+    SPEED_T = rffi.UINT
+    _add = []
+    if config['_HAVE_STRUCT_TERMIOS_C_ISPEED']:
+        _add.append(('c_ispeed', SPEED_T))
+    if config['_HAVE_STRUCT_TERMIOS_C_OSPEED']:
+        _add.append(('c_ospeed', SPEED_T))
+
+    TERMIOS = rffi.CStruct('termios', ('c_iflag', TCFLAG_T), ('c_oflag', TCFLAG_T),
+                               ('c_cflag', TCFLAG_T), ('c_lflag', TCFLAG_T),
+                               ('c_line', CC_T),
+                               ('c_cc', lltype.FixedSizeArray(CC_T, NCCS)), *_add)
+    WINSIZE = rffi.CStruct('winsize', ('ws_row', rffi.USHORT),
+                       ('ws_col', rffi.USHORT),
+                       ('ws_xpixel', rffi.USHORT),
+                       ('ws_ypixel', rffi.USHORT))
+
+
+    TERMIOS_P = lltype.Ptr(TERMIOS)
+    WINSIZE_P = lltype.Ptr(WINSIZE)
+    c_fork = external('fork', [], rffi.PID_T, _nowrapper = True)
+    c_openpty = external('openpty',
+                         [rffi.INT_realP, rffi.INT_realP, rffi.VOIDP, TERMIOS_P, WINSIZE_P],
+                         rffi.INT,
+                         save_err=rffi.RFFI_SAVE_ERRNO)
+    c_forkpty = external('forkpty',
+                         [rffi.INT_realP, rffi.VOIDP, TERMIOS_P, WINSIZE_P],
+                         rffi.PID_T, _nowrapper = True)
 
 @replace_os_function('fork')
 @jit.dont_look_inside
@@ -987,11 +1004,13 @@ def fork():
 @replace_os_function('openpty')
 @jit.dont_look_inside
 def openpty():
-    master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-    slave_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    master_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
+    slave_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
     try:
         handle_posix_error(
-            'openpty', c_openpty(master_p, slave_p, None, None, None))
+            'openpty', c_openpty(master_p, slave_p, None,
+                                 rffi.cast(TERMIOS_P, 0),
+                                 rffi.cast(WINSIZE_P, 0)))
         return (widen(master_p[0]), widen(slave_p[0]))
     finally:
         lltype.free(master_p, flavor='raw')
@@ -1000,13 +1019,15 @@ def openpty():
 @replace_os_function('forkpty')
 @jit.dont_look_inside
 def forkpty():
-    master_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-    master_p[0] = rffi.cast(rffi.INT, -1)
+    master_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
+    master_p[0] = rffi.cast(rffi.INT_real, -1)
     null = lltype.nullptr(rffi.VOIDP.TO)
     try:
         ofs = debug.debug_offset()
         opaqueaddr = rthread.gc_thread_before_fork()
-        childpid = c_forkpty(master_p, null, null, null)
+        childpid = c_forkpty(master_p, null,
+                             rffi.cast(TERMIOS_P, 0),
+                             rffi.cast(WINSIZE_P, 0))
         errno = _get_errno()
         rthread.gc_thread_after_fork(childpid, opaqueaddr)
         rthread.tlfield_rpy_errno.setraw(errno)
@@ -1035,13 +1056,17 @@ elif _CYGWIN:
                          save_err=rffi.RFFI_SAVE_ERRNO)
 else:
     c_waitpid = external('waitpid',
-                         [rffi.PID_T, rffi.INTP, rffi.INT], rffi.PID_T,
+                         [rffi.PID_T, rffi.INT_realP, rffi.INT_real], rffi.PID_T,
                          save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('waitpid')
 def waitpid(pid, options):
-    status_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-    status_p[0] = rffi.cast(rffi.INT, 0)
+    if _WIN32 or _CYGWIN:
+        status_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        status_p[0] = rffi.cast(rffi.INT, 0)
+    else:
+        status_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
+        status_p[0] = rffi.cast(rffi.INT_real, 0)
     try:
         result = handle_posix_error('waitpid',
                                     c_waitpid(pid, status_p, options))
@@ -1182,9 +1207,13 @@ def unlink(path):
     if not _WIN32:
         handle_posix_error('unlink', c_unlink(_as_bytes0(path)))
     else:
-        traits = _preferred_traits(path)
-        win32traits = make_win32_traits(traits)
-        if not win32traits.DeleteFile(traits.as_str0(path)):
+        if isinstance(path, str):
+            src_utf8 = path
+        else:
+            src_utf8 = path.as_utf8()
+        with rffi.scoped_utf82wcharp(src_utf8) as src_wch:
+            ret = rwin32.os_unlink_impl(src_wch)
+        if not ret:
             raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('mkdir')
@@ -1193,17 +1222,26 @@ def mkdir(path, mode=0o777):
     if not _WIN32:
         handle_posix_error('mkdir', c_mkdir(_as_bytes0(path), mode))
     else:
-        traits = _preferred_traits(path)
-        win32traits = make_win32_traits(traits)
-        if not win32traits.CreateDirectory(traits.as_str0(path), None):
+        win32traits = make_win32_traits(utf8_traits)
+        if isinstance(path, str):
+            src_utf8 = path
+        else:
+            src_utf8 = path.as_utf8()
+        with rffi.scoped_utf82wcharp(src_utf8) as src_wch:
+            result = rwin32.os_createdirectory_impl(src_wch, mode)
+        if result < 0:
             raise rwin32.lastSavedWindowsError()
+
 
 @replace_os_function('rmdir')
 @specialize.argtype(0)
 @jit.dont_look_inside
 def rmdir(path):
-    if _prefer_unicode(path):
-        handle_posix_error('wrmdir', c_wrmdir(_as_unicode0(path)))
+    if _WIN32:
+        traits = utf8_traits
+        utf8 = _as_utf80(path)
+        with rffi.scoped_utf82wcharp(utf8) as buf:
+            handle_posix_error('wrmdir', c_wrmdir(buf))
     else:
         handle_posix_error('rmdir', c_rmdir(_as_bytes0(path)))
 
@@ -1220,18 +1258,20 @@ def chmod(path, mode):
     if not _WIN32:
         handle_posix_error('chmod', c_chmod(_as_bytes0(path), mode))
     else:
-        traits = _preferred_traits(path)
+        traits = utf8_traits
         win32traits = make_win32_traits(traits)
-        path = traits.as_str0(path)
-        attr = win32traits.GetFileAttributes(path)
+        utf8 = traits.as_utf80(path)
+        with rffi.scoped_utf82wcharp(utf8) as buf:
+            attr = win32traits.GetFileAttributes(buf)
         if attr == win32traits.INVALID_FILE_ATTRIBUTES:
             raise rwin32.lastSavedWindowsError()
         if mode & 0200: # _S_IWRITE
             attr &= ~win32traits.FILE_ATTRIBUTE_READONLY
         else:
             attr |= win32traits.FILE_ATTRIBUTE_READONLY
-        if not win32traits.SetFileAttributes(path, attr):
-            raise rwin32.lastSavedWindowsError()
+        with rffi.scoped_utf82wcharp(utf8) as buf:
+            if not win32traits.SetFileAttributes(buf, attr):
+                raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('fchmod')
 def fchmod(fd, mode):
@@ -1241,12 +1281,14 @@ def fchmod(fd, mode):
 @specialize.argtype(0, 1)
 def rename(path1, path2):
     if _WIN32:
-        traits = _preferred_traits2(path1, path2)
+        traits = utf8_traits
         win32traits = make_win32_traits(traits)
-        path1 = traits.as_str0(path1)
-        path2 = traits.as_str0(path2)
-        if not win32traits.MoveFileEx(path1, path2, 0):
-            raise rwin32.lastSavedWindowsError()
+        utf81 = traits.as_utf80(path1)
+        utf82 = traits.as_utf80(path2)
+        with rffi.scoped_utf82wcharp(utf81) as buf1:
+            with rffi.scoped_utf82wcharp(utf82) as buf2:
+                if not win32traits.MoveFileEx(buf1, buf2, 0):
+                    raise rwin32.lastSavedWindowsError()
     else:
         handle_posix_error('rename',
                            c_rename(_as_bytes0(path1), _as_bytes0(path2)))
@@ -1254,12 +1296,14 @@ def rename(path1, path2):
 @specialize.argtype(0, 1)
 def replace(path1, path2):
     if _WIN32:
-        traits = _preferred_traits2(path1, path2)
+        traits = utf8_traits
         win32traits = make_win32_traits(traits)
-        path1 = traits.as_str0(path1)
-        path2 = traits.as_str0(path2)
-        ret = win32traits.MoveFileEx(path1, path2,
-                     win32traits.MOVEFILE_REPLACE_EXISTING)
+        utf81 = traits.as_utf80(path1)
+        utf82 = traits.as_utf80(path2)
+        with rffi.scoped_utf82wcharp(utf81) as buf1:
+            with rffi.scoped_utf82wcharp(utf82) as buf2:
+                ret = win32traits.MoveFileEx(buf1, buf2,
+                             win32traits.MOVEFILE_REPLACE_EXISTING)
         if not ret:
             raise rwin32.lastSavedWindowsError()
     else:
@@ -1312,12 +1356,12 @@ if _WIN32:
         _compilation_info_ = eci
     for name in constants:
         setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
-    config = rffi_platform.configure(CConfig)
+    pipe_config = rffi_platform.configure(CConfig)
     for name in constants:
-        locals()[name] = config[name]
+        locals()[name] = pipe_config[name]
 else:
-    INT_ARRAY_P = rffi.CArrayPtr(rffi.INT)
-    c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT,
+    INT_ARRAY_P = rffi.CArrayPtr(rffi.INT_real)
+    c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT_real,
                       save_err=rffi.RFFI_SAVE_ERRNO)
     class CConfig:
         _compilation_info_ = eci
@@ -1325,13 +1369,13 @@ else:
         HAVE_DUP3 = rffi_platform.Has('dup3')
     for name in constants:
         setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
-    config = rffi_platform.configure(CConfig)
+    pipe_config = rffi_platform.configure(CConfig)
     for name in constants:
-        locals()[name] = config[name]
-    HAVE_PIPE2 = config['HAVE_PIPE2']
-    HAVE_DUP3 = config['HAVE_DUP3']
+        locals()[name] = pipe_config[name]
+    HAVE_PIPE2 = pipe_config['HAVE_PIPE2']
+    HAVE_DUP3 = pipe_config['HAVE_DUP3']
     if HAVE_PIPE2:
-        c_pipe2 = external('pipe2', [INT_ARRAY_P, rffi.INT], rffi.INT,
+        c_pipe2 = external('pipe2', [INT_ARRAY_P, rffi.INT_real], rffi.INT_real,
                           save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('pipe')
@@ -1396,12 +1440,14 @@ def link(oldpath, newpath):
         newpath = _as_bytes0(newpath)
         handle_posix_error('link', c_link(oldpath, newpath))
     else:
-        traits = _preferred_traits(oldpath)
+        traits = utf8_traits
         win32traits = make_win32_traits(traits)
-        oldpath = traits.as_str0(oldpath)
-        newpath = traits.as_str0(newpath)
-        if not win32traits.CreateHardLink(newpath, oldpath, None):
-            raise rwin32.lastSavedWindowsError()
+        utf8old = traits.as_utf80(oldpath)
+        utf8new = traits.as_utf80(newpath)
+        with rffi.scoped_utf82wcharp(utf8old) as oldbuf:
+            with rffi.scoped_utf82wcharp(utf8new) as newbuf:
+                if not win32traits.CreateHardLink(newbuf, oldbuf, None):
+                    raise rwin32.lastSavedWindowsError()
 
 @replace_os_function('symlink')
 @specialize.argtype(0, 1)
@@ -1446,8 +1492,8 @@ if HAVE_UTIMES:
         TIMEVAL = rffi_platform.Struct('struct timeval', [
             ('tv_sec', rffi.LONG),
             ('tv_usec', rffi.LONG)])
-    config = rffi_platform.configure(CConfig)
-    TIMEVAL = config['TIMEVAL']
+    times_config = rffi_platform.configure(CConfig)
+    TIMEVAL = times_config['TIMEVAL']
     TIMEVAL2P = rffi.CArrayPtr(TIMEVAL)
     c_utimes = external('utimes', [rffi.CCHARP, TIMEVAL2P], rffi.INT,
                         save_err=rffi.RFFI_SAVE_ERRNO)
@@ -1503,14 +1549,16 @@ def utime(path, times):
         handle_posix_error('utime', error)
     else:  # _WIN32 case
         from rpython.rlib.rwin32file import time_t_to_FILE_TIME
-        traits = _preferred_traits(path)
+        traits = utf8_traits
         win32traits = make_win32_traits(traits)
-        path = traits.as_str0(path)
-        hFile = win32traits.CreateFile(path,
-                           win32traits.FILE_WRITE_ATTRIBUTES, 0,
-                           None, win32traits.OPEN_EXISTING,
-                           win32traits.FILE_FLAG_BACKUP_SEMANTICS,
-                           rwin32.NULL_HANDLE)
+        path = traits.as_utf80(path)
+        with rffi.scoped_utf82wcharp(path) as buf:
+
+            hFile = win32traits.CreateFile(buf,
+                               win32traits.FILE_WRITE_ATTRIBUTES, 0,
+                               None, win32traits.OPEN_EXISTING,
+                               win32traits.FILE_FLAG_BACKUP_SEMANTICS,
+                               rwin32.NULL_HANDLE)
         if hFile == rwin32.INVALID_HANDLE_VALUE:
             raise rwin32.lastSavedWindowsError()
         ctime = lltype.nullptr(rwin32.FILETIME)
@@ -1944,13 +1992,13 @@ if not _WIN32:
         return handle_posix_error('sched_yield', c_sched_yield())
 
     c_getgroupslist = external('getgrouplist', [rffi.CCHARP, GID_T,
-                            GID_GROUPS_T, rffi.INTP], rffi.INT,
+                            GID_GROUPS_T, rffi.INT_realP], rffi.INT,
                             save_err=rffi.RFFI_SAVE_ERRNO)
 
     def getgrouplist(user, group):
         groups_p = lltype.malloc(GID_GROUPS_T.TO, 64, flavor='raw')
-        ngroups_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-        ngroups_p[0] = rffi.cast(rffi.INT, 64)
+        ngroups_p = lltype.malloc(rffi.INT_realP.TO, 1, flavor='raw')
+        ngroups_p[0] = rffi.cast(rffi.INT_real, 64)
         try:
             n = handle_posix_error('getgrouplist', c_getgroupslist(user, group,
                              groups_p, ngroups_p))
@@ -1961,13 +2009,13 @@ if not _WIN32:
                     groups_p = lltype.nullptr(GID_GROUPS_T.TO)
                     groups_p = lltype.malloc(GID_GROUPS_T.TO, widen(ngroups_p[0]),
                                              flavor='raw')
-                     
+
                     n = handle_posix_error('getgrouplist', c_getgroupslist(user,
                                                      group, groups_p, ngroups_p))
             ngroups = widen(ngroups_p[0])
             groups = [0] * ngroups
             for i in range(ngroups):
-                groups[i] = groups_p[i]
+                groups[i] = widen_gid(groups_p[i])
             return groups
         finally:
             lltype.free(ngroups_p, flavor='raw')
@@ -1998,8 +2046,8 @@ if not _WIN32:
             ('release',  CHARARRAY1),
             ('version',  CHARARRAY1),
             ('machine',  CHARARRAY1)])
-    config = rffi_platform.configure(CConfig)
-    UTSNAMEP = lltype.Ptr(config['UTSNAME'])
+    uts_config = rffi_platform.configure(CConfig)
+    UTSNAMEP = lltype.Ptr(uts_config['UTSNAME'])
 
     c_uname = external('uname', [UTSNAMEP], rffi.INT,
                        compilation_info=CConfig._compilation_info_,
@@ -2124,6 +2172,12 @@ class CConfig:
             symlinkat unlinkat utimensat sched_getparam""".split():
         locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
 cConfig = rffi_platform.configure(CConfig)
+if _LINUX:
+    # From CPython's configure script:
+    # Force lchmod off for Linux. Linux disallows changing the mode of symbolic
+    # links. Some libc implementations have a stub lchmod implementation that
+    # always returns an error.
+    cConfig["HAVE_LCHMOD"] = False
 globals().update(cConfig)
 
 if not _WIN32:
@@ -2155,7 +2209,7 @@ if not _WIN32:
         _compilation_info_ = ExternalCompilationInfo(
             includes=[ 'unistd.h', ],
         )
-    
+
     # Taken from posixmodule.c. Note the avaialbility is determined at
     # compile time by the host, but filled in by a runtime call to pathconf,
     # sysconf, or confstr.
@@ -2415,7 +2469,7 @@ if not _WIN32:
        setattr(ConfConfig, k, rffi_platform.DefinedConstantInteger(v))
     for k,v in sysconf_consts_defs.items():
        setattr(ConfConfig, k, rffi_platform.DefinedConstantInteger(v))
-            
+
     confConfig = rffi_platform.configure(ConfConfig)
     pathconf_names = {}
     confstr_names = {}
@@ -2901,7 +2955,7 @@ class ENoSysCache(object):
     def fallback(self, res):
         nosys = self.cached_nosys
         if nosys == -1:
-            nosys = (res < 0 and get_saved_errno() == errno.ENOSYS)
+            nosys = (widen(res) < 0 and get_saved_errno() == errno.ENOSYS)
             self.cached_nosys = nosys
         return nosys
 
@@ -3032,11 +3086,12 @@ elif not _WIN32:
         with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_len:
             p_len[0] = rffi.cast(OFF_T, count)
             res = c_sendfile(in_fd, out_fd, offset, p_len, lltype.nullptr(rffi.VOIDP.TO), 0)
+            sbytes = p_len[0]
             if res != 0:
+                if get_saved_errno() in (errno.EAGAIN, errno.EBUSY) and sbytes != 0:
+                    return sbytes
                 return handle_posix_error('sendfile', res)
-            res = p_len[0]
-        return res
-
+            return sbytes
 
 # ____________________________________________________________
 # Support for *xattr functions

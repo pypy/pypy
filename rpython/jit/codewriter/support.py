@@ -477,10 +477,8 @@ class LLtypeHelpers:
 
     _ll_1_odict_keys   = rordereddict.ll_dict_keys
     _ll_1_odict_values = rordereddict.ll_dict_values
-    _ll_1_odict_items  = rordereddict.ll_dict_items
     _ll_1_odict_keys  .need_result_type = True
     _ll_1_odict_values.need_result_type = True
-    _ll_1_odict_items .need_result_type = True
 
     _ll_1_odictiter_next = rordereddict._ll_dictnext
     _ll_1_odict_resize = rordereddict.ll_dict_resize

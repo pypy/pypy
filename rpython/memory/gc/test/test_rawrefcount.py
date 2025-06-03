@@ -289,3 +289,7 @@ class TestRawRefCount(BaseDirectGCTest):
         check_alive(0)
         self._collect(major=True)
         check_alive(0)
+
+    def test_rawrefcount_next_dead_robust_against_non_init(self):
+        # does not crash despite not calling init
+        assert not self.gc.rawrefcount_next_dead()

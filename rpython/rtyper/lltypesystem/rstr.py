@@ -539,6 +539,7 @@ class LLHelpers(AbstractLLHelpers):
     @staticmethod
     def ll_join(s, length, items):
         s_chars = s.chars
+        TYP = typeOf(s)
         s_len = len(s_chars)
         num_items = length
         if num_items == 0:
@@ -547,7 +548,7 @@ class LLHelpers(AbstractLLHelpers):
         i = 0
         while i < num_items:
             try:
-                itemslen = ovfcheck(itemslen + len(items[i].chars))
+                itemslen = ovfcheck(itemslen + len(llmemory.cast_any_ptr(TYP, items[i]).chars))
             except OverflowError:
                 raise MemoryError
             i += 1
@@ -558,14 +559,16 @@ class LLHelpers(AbstractLLHelpers):
         # a single '+' at the end is allowed to overflow: it gets
         # a negative result, and the gc will complain
         result = s.malloc(itemslen + seplen)
-        res_index = len(items[0].chars)
-        s.copy_contents(items[0], result, 0, 0, res_index)
+        items0 = llmemory.cast_any_ptr(TYP, items[0])
+        res_index = len(items0.chars)
+        s.copy_contents(items0, result, 0, 0, res_index)
         i = 1
         while i < num_items:
             s.copy_contents(s, result, 0, res_index, s_len)
             res_index += s_len
-            lgt = len(items[i].chars)
-            s.copy_contents(items[i], result, 0, res_index, lgt)
+            item = llmemory.cast_any_ptr(TYP, items[i])
+            lgt = len(item.chars)
+            s.copy_contents(item, result, 0, res_index, lgt)
             res_index += lgt
             i += 1
         return result
@@ -778,24 +781,25 @@ class LLHelpers(AbstractLLHelpers):
             return rstring._search(hlunicode(s1), hlunicode(s2), start, end, mode)
 
     @staticmethod
-    @signature(types.int(), types.any(), returns=types.any())
-    @jit.look_inside_iff(lambda length, items: jit.loop_unrolling_heuristic(
+    @signature(types.int(), types.any(), types.any(), returns=types.any())
+    @jit.look_inside_iff(lambda length, items, TYP: jit.loop_unrolling_heuristic(
         items, length))
-    def ll_join_strs(length, items):
+    def ll_join_strs(length, items, TYP):
         # Special case for length 1 items, helps both the JIT and other code
         if length == 1:
-            return items[0]
+            return llmemory.cast_any_ptr(TYP, items[0])
 
         num_items = length
         itemslen = 0
         i = 0
         while i < num_items:
             try:
-                itemslen = ovfcheck(itemslen + len(items[i].chars))
+                item = llmemory.cast_any_ptr(TYP, items[i])
+                itemslen = ovfcheck(itemslen + len(item.chars))
             except OverflowError:
                 raise MemoryError
             i += 1
-        if typeOf(items).TO.OF.TO == STR:
+        if TYP.TO == STR:
             malloc = mallocstr
             copy_contents = copy_string_contents
         else:
@@ -805,9 +809,10 @@ class LLHelpers(AbstractLLHelpers):
         res_index = 0
         i = 0
         while i < num_items:
-            item_chars = items[i].chars
+            item = llmemory.cast_any_ptr(TYP, items[i])
+            item_chars = item.chars
             item_len = len(item_chars)
-            copy_contents(items[i], result, 0, res_index, item_len)
+            copy_contents(item, result, 0, res_index, item_len)
             res_index += item_len
             i += 1
         return result
@@ -886,6 +891,10 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         res = LIST.ll_newlist(count)
         items = res.ll_items()
+        ITEM = typeOf(items).TO.OF
+        if count == 1:
+            items[0] = llmemory.cast_any_ptr(ITEM, s)
+            return res
         i = 0
         j = 0
         resindex = 0
@@ -893,15 +902,17 @@ class LLHelpers(AbstractLLHelpers):
             j = strlen
         while j < strlen:
             if chars[j] == c:
-                item = items[resindex] = s.malloc(j - i)
+                item = s.malloc(j - i)
                 item.copy_contents(s, item, i, 0, j - i)
+                items[resindex] = llmemory.cast_any_ptr(ITEM, item)
                 resindex += 1
                 i = j + 1
                 if max >= 0 and resindex >= max:
                     j = strlen
                     break
             j += 1
-        item = items[resindex] = s.malloc(j - i)
+        item = s.malloc(j - i)
+        items[resindex] = llmemory.cast_any_ptr(ITEM, item)
         item.copy_contents(s, item, i, 0, j - i)
         return res
 
@@ -919,22 +930,25 @@ class LLHelpers(AbstractLLHelpers):
             count += 1
         res = LIST.ll_newlist(count)
         items = res.ll_items()
+        ITEM = typeOf(items).TO.OF
+        if count == 1:
+            items[0] = llmemory.cast_any_ptr(ITEM, s)
+            return res
         pos = 0
         count = 0
         pos = s.find(c, 0, last)
         prev_pos = 0
-        if pos < 0:
-            items[0] = s
-            return res
         while pos >= 0 and count < max:
-            item = items[count] = s.malloc(pos - prev_pos)
+            item = s.malloc(pos - prev_pos)
             item.copy_contents(s, item, prev_pos, 0, pos -
                                prev_pos)
+            items[count] = llmemory.cast_any_ptr(ITEM, item)
             count += 1
             prev_pos = pos + markerlen
             pos = s.find(c, pos + markerlen, last)
-        item = items[count] = s.malloc(last - prev_pos)
+        item = s.malloc(last - prev_pos)
         item.copy_contents(s, item, prev_pos, 0, last - prev_pos)
+        items[count] = llmemory.cast_any_ptr(ITEM, item)
         return res
 
     @staticmethod
@@ -953,6 +967,10 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         res = LIST.ll_newlist(count)
         items = res.ll_items()
+        ITEM = typeOf(items).TO.OF
+        if count == 1:
+            items[0] = llmemory.cast_any_ptr(ITEM, s)
+            return res
         i = strlen
         j = strlen
         resindex = count - 1
@@ -962,15 +980,17 @@ class LLHelpers(AbstractLLHelpers):
         while j > 0:
             j -= 1
             if chars[j] == c:
-                item = items[resindex] = s.malloc(i - j - 1)
+                item = s.malloc(i - j - 1)
                 item.copy_contents(s, item, j + 1, 0, i - j - 1)
+                items[resindex] = llmemory.cast_any_ptr(ITEM, item)
                 resindex -= 1
                 i = j
                 if resindex == 0:
                     j = 0
                     break
-        item = items[resindex] = s.malloc(i - j)
+        item = s.malloc(i - j)
         item.copy_contents(s, item, j, 0, i - j)
+        items[resindex] = llmemory.cast_any_ptr(ITEM, item)
         return res
 
     @staticmethod
@@ -986,23 +1006,25 @@ class LLHelpers(AbstractLLHelpers):
             count += 1
         res = LIST.ll_newlist(count)
         items = res.ll_items()
-        pos = 0
+        ITEM = typeOf(items).TO.OF
+        if count == 1:
+            items[0] = llmemory.cast_any_ptr(ITEM, s)
+            return res
         pos = len(s.chars)
         prev_pos = pos
         pos = s.rfind(c, 0, pos)
-        if pos < 0:
-            items[0] = s
-            return res
         count -= 1
         while pos >= 0 and count > 0:
-            item = items[count] = s.malloc(prev_pos - pos - markerlen)
+            item = s.malloc(prev_pos - pos - markerlen)
             item.copy_contents(s, item, pos + markerlen, 0,
                                prev_pos - pos - markerlen)
+            items[count] = llmemory.cast_any_ptr(ITEM, item)
             count -= 1
             prev_pos = pos
             pos = s.rfind(c, 0, pos)
-        item = items[count] = s.malloc(prev_pos)
+        item = s.malloc(prev_pos)
         item.copy_contents(s, item, 0, 0, prev_pos)
+        items[count] = llmemory.cast_any_ptr(ITEM, item)
         return res
 
     @staticmethod
@@ -1163,7 +1185,8 @@ class LLHelpers(AbstractLLHelpers):
             hop.genop('setarrayitem', [vtemp, i, vchunk])
 
         hop.exception_cannot_occur()   # to ignore the ZeroDivisionError of '%'
-        return hop.gendirectcall(cls.ll_join_strs, size, vtemp)
+        c_tp = inputconst(Void, TEMPBUF.OF)
+        return hop.gendirectcall(cls.ll_join_strs, size, vtemp, c_tp)
 
     @staticmethod
     @jit.dont_look_inside

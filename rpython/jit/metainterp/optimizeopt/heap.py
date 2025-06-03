@@ -13,6 +13,9 @@ from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.jit.metainterp.optimizeopt import info
 
+MUST_ALIAS = 'm'
+CANNOT_ALIAS = 'c'
+UNKNOWN_ALIAS = '?'
 
 class AbstractCachedEntry(object):
     """ abstract base class abstracting over the difference between caching
@@ -61,6 +64,16 @@ class AbstractCachedEntry(object):
         return (self._lazy_set is not None
             and not info.getptrinfo(self._lazy_set.getarg(0)).same_info(opinfo))
 
+    def possible_aliasing_two_infos(self, optheap, opinfo1, opinfo2):
+        """returns MUST_ALIAS, CANNOT_ALIAS, UNKNOWN_ALIAS """
+        if opinfo1.same_info(opinfo2):
+            return MUST_ALIAS
+        if self._cannot_alias_via_classes_or_lengths(optheap, opinfo1, opinfo2) == CANNOT_ALIAS:
+            return CANNOT_ALIAS
+        if self._cannot_alias_via_content(optheap, opinfo1, opinfo2) == CANNOT_ALIAS:
+            return CANNOT_ALIAS
+        return UNKNOWN_ALIAS
+
     def do_setfield(self, optheap, op):
         # Update the state with the SETFIELD_GC/SETARRAYITEM_GC operation 'op'.
         structinfo = optheap.ensure_ptr_info_arg0(op)
@@ -89,16 +102,22 @@ class AbstractCachedEntry(object):
 
     def getfield_from_cache(self, optheap, opinfo, descr):
         # Returns the up-to-date field's value, or None if not cached.
-        if self.possible_aliasing(opinfo):
-            self.force_lazy_set(optheap, descr)
-        if self._lazy_set is not None:
-            op = self._lazy_set
-            return get_box_replacement(self._get_rhs_from_set_op(op))
-        else:
-            res = self._getfield(opinfo, descr, optheap)
-            if res is not None:
-                return res.get_box_replacement()
-            return None
+        op = self._lazy_set
+        if op:
+            opinfo2 = info.getptrinfo(op.getarg(0))
+            aliasing_state = self.possible_aliasing_two_infos(optheap, opinfo, opinfo2)
+            if aliasing_state == UNKNOWN_ALIAS:
+                self.force_lazy_set(optheap, descr)
+                return None
+            elif aliasing_state == MUST_ALIAS:
+                return get_box_replacement(self._get_rhs_from_set_op(op))
+            else:
+                assert aliasing_state == CANNOT_ALIAS
+                # we don't need to force the lazy set
+        res = self._getfield(opinfo, descr, optheap)
+        if res is not None:
+            return res.get_box_replacement()
+        return None
 
     def force_lazy_set(self, optheap, descr, can_cache=True):
         op = self._lazy_set
@@ -176,11 +195,41 @@ class CachedField(AbstractCachedEntry):
         self.cached_infos = []
         self.cached_structs = []
 
+    def _cannot_alias_via_classes_or_lengths(self, optheap, opinfo1, opinfo2):
+        constclass1 = opinfo1.get_known_class(optheap.optimizer.cpu)
+        constclass2 = opinfo2.get_known_class(optheap.optimizer.cpu)
+        if constclass1 is not None and constclass2 is not None and not constclass1.same_constant(constclass2):
+            return CANNOT_ALIAS
+        else:
+            return UNKNOWN_ALIAS
+
+    def _cannot_alias_via_content(self, optheap, opinfo1, opinfo2):
+        if not isinstance(opinfo1, info.AbstractStructPtrInfo):
+            return UNKNOWN_ALIAS
+        if not isinstance(opinfo2, info.AbstractStructPtrInfo):
+            return UNKNOWN_ALIAS
+        content1 = opinfo1.all_items()
+        if content1 is None:
+            return UNKNOWN_ALIAS
+        content2 = opinfo2.all_items()
+        if content2 is None:
+            return UNKNOWN_ALIAS
+        for index in range(min(len(content1), len(content2))):
+            value1 = get_box_replacement(content1[index])
+            value2 = get_box_replacement(content2[index])
+            if value1 is None or value2 is None:
+                continue
+            if not value1.is_constant() or not value2.is_constant():
+                continue
+            if not value1.same_constant(value2):
+                return CANNOT_ALIAS
+        return UNKNOWN_ALIAS
 
 class ArrayCachedItem(AbstractCachedEntry):
-    def __init__(self, index):
+    def __init__(self, index, parent): # type: (int, ArrayCacheSubMap) -> None
         assert index >= 0
         self.index = index
+        self.parent = parent
         AbstractCachedEntry.__init__(self)
 
     def _get_rhs_from_set_op(self, op):
@@ -214,6 +263,65 @@ class ArrayCachedItem(AbstractCachedEntry):
             #opinfo._items = None #[self.index] = None
         self.cached_infos = []
         self.cached_structs = []
+        self.parent.clear_varindex()
+
+    def _cannot_alias_via_classes_or_lengths(self, optheap, opinfo1, opinfo2):
+        if not isinstance(opinfo1, info.ArrayPtrInfo):
+            return UNKNOWN_ALIAS
+        if not isinstance(opinfo2, info.ArrayPtrInfo):
+            return UNKNOWN_ALIAS
+        if opinfo1.getlenbound(None).known_ne(opinfo2.getlenbound(None)):
+            return CANNOT_ALIAS
+        else:
+            return UNKNOWN_ALIAS
+
+    def _cannot_alias_via_content(self, optheap, opinfo1, opinfo2):
+        if not isinstance(opinfo1, info.ArrayPtrInfo):
+            return UNKNOWN_ALIAS
+        if not isinstance(opinfo2, info.ArrayPtrInfo):
+            return UNKNOWN_ALIAS
+        content1 = opinfo1.all_items()
+        if content1 is None:
+            return UNKNOWN_ALIAS
+        content2 = opinfo2.all_items()
+        if content2 is None:
+            return UNKNOWN_ALIAS
+        for index in range(min(len(content1), len(content2))):
+            value1 = get_box_replacement(content1[index])
+            value2 = get_box_replacement(content2[index])
+            if value1 is None or value2 is None:
+                continue
+            if not value1.is_constant() or not value2.is_constant():
+                continue
+            if not value1.same_constant(value2):
+                return CANNOT_ALIAS
+        return UNKNOWN_ALIAS
+
+class ArrayCacheSubMap(object):
+    def __init__(self):
+        self.const_indexes = {} # int -> ArrayCachedItem
+        self.clear_varindex()
+
+    def clear_varindex(self):
+        self.cached_varindex_triples = None
+
+    def cache_varindex_read(self, arrayinfo, indexbox, resbox):
+        # TODO: impose some kind of variable length for self.cached_varindex_triples
+        entry = (arrayinfo, indexbox, resbox)
+        if self.cached_varindex_triples is None:
+            self.cached_varindex_triples = [entry]
+            return
+        self.cached_varindex_triples.append(entry)
+
+    def cache_varindex_write(self, arrayinfo, indexbox, resbox):
+        self.cached_varindex_triples = [(arrayinfo, indexbox, resbox)]
+
+    def lookup_cached(self, arrayinfo, indexbox):
+        if self.cached_varindex_triples is not None:
+            for cached_arrayinfo, cached_index, cached_result in self.cached_varindex_triples:
+                if cached_arrayinfo is arrayinfo and get_box_replacement(cached_index) is indexbox:
+                    return get_box_replacement(cached_result)
+        return None
 
 class OptHeap(Optimization):
     """Cache repeated heap accesses"""
@@ -264,7 +372,7 @@ class OptHeap(Optimization):
             d.produce_potential_short_preamble_ops(self.optimizer, sb, descr)
 
         for descr, submap in self.cached_arrayitems.items():
-            for index, d in submap.items():
+            for index, d in submap.const_indexes.items():
                 d.produce_potential_short_preamble_ops(self.optimizer, sb,
                                                        descr, index)
 
@@ -277,9 +385,8 @@ class OptHeap(Optimization):
                 cf.invalidate(descr)
         for descr, submap in self.cached_arrayitems.iteritems():
             if not descr.is_always_pure():
-                for index, cf in submap.iteritems():
+                for index, cf in submap.const_indexes.iteritems():
                     cf.invalidate(None)
-        #self.cached_arrayitems.clear()
         self.cached_dict_reads.clear()
 
     def field_cache(self, descr):
@@ -289,15 +396,22 @@ class OptHeap(Optimization):
             cf = self.cached_fields[descr] = CachedField()
         return cf
 
+    def arrayitem_submap(self, descr, create_if_nonexistant=True):
+        try:
+            return self.cached_arrayitems[descr]
+        except KeyError:
+            if create_if_nonexistant:
+                submap = self.cached_arrayitems[descr] = ArrayCacheSubMap()
+            else:
+                submap = None
+            return submap
+
     def arrayitem_cache(self, descr, index):
+        submap = self.arrayitem_submap(descr)
         try:
-            submap = self.cached_arrayitems[descr]
+            cf = submap.const_indexes[index]
         except KeyError:
-            submap = self.cached_arrayitems[descr] = {}
-        try:
-            cf = submap[index]
-        except KeyError:
-            cf = submap[index] = ArrayCachedItem(index)
+            cf = submap.const_indexes[index] = ArrayCachedItem(index, submap)
         return cf
 
     def emit(self, op):
@@ -407,7 +521,7 @@ class OptHeap(Optimization):
             return False
         else:
             if flag != FLAG_LOOKUP:
-                if not self.getintbound(res_v).known_ge(IntBound(0, 0)):
+                if not self.getintbound(res_v).known_ge_const(0):
                     return False
             self.make_equal_to(op, res_v)
             self.last_emitted_operation = REMOVED
@@ -464,16 +578,16 @@ class OptHeap(Optimization):
         cf.force_lazy_set(self, descr, can_cache)
 
     def force_lazy_setarrayitem(self, arraydescr, indexb=None, can_cache=True):
-        try:
-            submap = self.cached_arrayitems[arraydescr]
-        except KeyError:
+        submap = self.arrayitem_submap(arraydescr, create_if_nonexistant=False)
+        if not submap:
             return
-        for idx, cf in submap.iteritems():
+        for idx, cf in submap.const_indexes.iteritems():
             if indexb is None or indexb.contains(idx):
                 cf.force_lazy_set(self, None, can_cache)
 
+
     def force_lazy_setarrayitem_submap(self, submap, can_cache=True):
-        for cf in submap.itervalues():
+        for cf in submap.const_indexes.itervalues():
             cf.force_lazy_set(self, None, can_cache)
 
     def force_all_lazy_sets(self):
@@ -484,7 +598,7 @@ class OptHeap(Optimization):
         for descr, cf in items:
             cf.force_lazy_set(self, descr)
         for submap in self.cached_arrayitems.itervalues():
-            items = submap.items()
+            items = submap.const_indexes.items()
             if not we_are_translated():
                 # stability for tests
                 items.sort(key=lambda item: item[0])
@@ -506,7 +620,7 @@ class OptHeap(Optimization):
                 continue
             cf.force_lazy_set(self, descr)
         for descr, submap in self.cached_arrayitems.iteritems():
-            for index, cf in submap.iteritems():
+            for index, cf in submap.const_indexes.iteritems():
                 op = cf._lazy_set
                 if op is None:
                     continue
@@ -575,6 +689,14 @@ class OptHeap(Optimization):
             # variable index, so make sure the lazy setarrayitems are done
             self.force_lazy_setarrayitem(op.getdescr(),
                                          self.getintbound(op.getarg(1)))
+            # read cache with variable index
+            submap = self.arrayitem_submap(op.getdescr(), create_if_nonexistant=False)
+            indexop = get_box_replacement(op.getarg(1))
+            if submap is not None:
+                cached_result = submap.lookup_cached(arrayinfo, indexop)
+                if cached_result is not None:
+                    self.make_equal_to(op, cached_result)
+                    return
         # default case: produce the operation
         self.make_nonnull(op.getarg(0))
         # return self.emit(op)
@@ -591,6 +713,10 @@ class OptHeap(Optimization):
                               get_box_replacement(op.getarg(0)),
                               get_box_replacement(op), optheap=self,
                               cf=cf)
+        else:
+            # write cache for variable info
+            submap = self.arrayitem_submap(op.getdescr())
+            submap.cache_varindex_read(arrayinfo, get_box_replacement(op.getarg(1)), get_box_replacement(op))
     optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_GC_I
     optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_GC_I
 
@@ -622,17 +748,20 @@ class OptHeap(Optimization):
 
     def optimize_SETARRAYITEM_GC(self, op):
         indexb = self.getintbound(op.getarg(1))
+        arrayinfo = self.ensure_ptr_info_arg0(op)
+        submap = self.arrayitem_submap(op.getdescr())
         if indexb.is_constant() and indexb.get_constant_int() >= 0:
             index = indexb.get_constant_int()
-            arrayinfo = self.ensure_ptr_info_arg0(op)
             # arraybound
             arrayinfo.getlenbound(None).make_gt_const(index)
             cf = self.arrayitem_cache(op.getdescr(), index)
             cf.do_setfield(self, op)
+            submap.clear_varindex() # TODO: is this necessary?
         else:
             # variable index, so make sure the lazy setarrayitems are done
             self.force_lazy_setarrayitem(op.getdescr(), indexb, can_cache=False)
             # and then emit the operation
+            submap.cache_varindex_write(arrayinfo, get_box_replacement(op.getarg(1)), get_box_replacement(op.getarg(2)))
             return self.emit(op)
 
     def optimize_GC_LOAD_I(self, op):
@@ -719,13 +848,15 @@ class OptHeap(Optimization):
         for descr, indexdict in self.cached_arrayitems.iteritems():
             if descr.get_descr_index() == -1:
                 continue # not reachable via metainterp_sd.all_descrs
-            for index, cf in indexdict.iteritems():
+            for index, cf in indexdict.const_indexes.iteritems():
                 if cf._lazy_set:
                     continue  # XXX safe default for now
                 for i, box1 in enumerate(cf.cached_structs):
                     if not box1.is_constant() and box1 not in available_boxes:
                         continue
                     arrayinfo = cf.cached_infos[i]
+                    if index >= 2**15:
+                        continue
                     box2 = arrayinfo.getitem(descr, index)
                     if box2 is None:
                         # XXX this should not happen, as it is an invariant
