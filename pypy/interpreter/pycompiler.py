@@ -167,6 +167,7 @@ class PythonAstCompiler(PyCodeCompiler):
         except parseerror.IndentationError as e:
             raise OperationError(space.w_IndentationError, e.find_sourceline_and_wrap_info(space, source, info.filename))
         except parseerror.SyntaxError as e:
+            #import pdb;pdb.xpm()
             raise OperationError(space.w_SyntaxError, e.find_sourceline_and_wrap_info(space, source, info.filename))
         return mod
 
