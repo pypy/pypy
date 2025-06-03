@@ -16,9 +16,9 @@ def test_assemble_loop():
         ('int_return', i1),
         ]
     assembler = Assembler()
-    jitcode = assembler.assemble(ssarepr)
+    jitcode = assembler.assemble(ssarepr, num_regs={'int': 0x18})
     assert jitcode._genext_source == """\
-def f(self):
+def jit_shortcut(self):
     pc = self.pc
     while 1:
         if pc == 0:
@@ -45,13 +45,15 @@ def f(self):
             continue
         if pc == 13:
             self.pc = 16
-            self._result_argcode = 'v'
-            self.opimpl_goto(0)
+            pc = self.pc = 0 # goto
+            continue
             pc = 0
             continue
         if pc == 16:
             self.pc = 18
-            self._result_argcode = 'v'
-            self.opimpl_int_return(self.registers_i[23])
-            assert 0 # unreachable"""
+            try:
+                self.opimpl_int_return(self.registers_i[23])
+            except ChangeFrame: return
+            assert 0 # unreachable
+        assert 0 # unreachable"""
 
