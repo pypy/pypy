@@ -94,6 +94,11 @@ def test_exec():
         exec(ret1.__code__)
     assert hook.seen == [("exec", (ret1.__code__, ))]
 
+def test_sys_getframe():
+    with TestHook() as hook:
+        f = sys._getframe()
+    assert hook.seen == [("sys._getframe", (f,))]
+
 def test_donttrace():
     trace_events = []
     audit_events = []
