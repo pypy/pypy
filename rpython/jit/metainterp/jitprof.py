@@ -146,6 +146,8 @@ class Profiler(BaseProfiler):
             debug_print(descr.name, descr.bytecodes_counter, descr.number_calls,
                         descr.traced_operations)
 
+        debug_print("---")
+
         for index in range(len(self.metainterp_sd.opcode_names)):
             count = self.metainterp_sd.opcode_counters[index]
             debug_print(self.metainterp_sd.opcode_names[index], count)
