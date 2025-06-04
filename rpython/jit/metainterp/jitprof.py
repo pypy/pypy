@@ -14,7 +14,8 @@ JITPROF_LINES = Counters.ncounters + 1 + 1
 _CPU_LINES = 4       # the last 4 lines are stored on the cpu
 
 class BaseProfiler(object):
-    pass
+    def __init__(self, metainterp_sd):
+        self.metainterp_sd = metainterp_sd
 
 class EmptyProfiler(BaseProfiler):
     initialized = True
@@ -126,6 +127,28 @@ class Profiler(BaseProfiler):
         if have_debug_prints():
             self._print_stats()
         debug_stop("jit-summary")
+
+        debug_start("jit-jitcode-stats")
+        if have_debug_prints():
+            self._print_jitcode_stats()
+        debug_stop("jit-jitcode-stats")
+
+    def _print_jitcode_stats(self):
+        from rpython.jit.codewriter.jitcode import JitCode
+
+        for descr in self.metainterp_sd.jitcodes:
+            if not isinstance(descr, JitCode):
+                continue
+            if descr.bytecodes_counter == 0 and \
+               descr.number_calls == 0 and \
+               descr.traced_operations == 0:
+                continue
+            debug_print(descr.name, descr.bytecodes_counter, descr.number_calls,
+                        descr.traced_operations)
+
+        for index in range(len(self.metainterp_sd.opcode_names)):
+            count = self.metainterp_sd.opcode_counters[index]
+            debug_print(self.metainterp_sd.opcode_names[index], count)
 
     def _print_stats(self):
         cnt = self.counters

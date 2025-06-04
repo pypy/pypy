@@ -19,6 +19,9 @@ class JitCode(AbstractDescr):
         self._called_from = called_from   # debugging
         self._ssarepr     = None          # debugging
         self.genext_function = None
+        self.bytecodes_counter = 0
+        self.number_calls = 0
+        self.traced_operations = 0
 
     def setup(self, code='', constants_i=[], constants_r=[], constants_f=[],
               num_regs_i=255, num_regs_r=255, num_regs_f=255,

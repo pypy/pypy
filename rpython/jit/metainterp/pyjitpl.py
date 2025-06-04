@@ -74,6 +74,7 @@ class MIFrame(object):
     def setup(self, jitcode, greenkey=None):
         # if not translated, fill the registers with MissingValue()
         assert isinstance(jitcode, JitCode)
+        jitcode.number_calls += 1
         self.jitcode = jitcode
         self.bytecode = jitcode.code
         # this is not None for frames that are recursive portal calls
@@ -1893,12 +1894,15 @@ class MIFrame(object):
             if self.jitcode.genext_function:
                 staticdata.profiler.count(Counters.FAST_TRACING_FUNCTION_EXECUTIONS)
                 return self.jitcode.genext_function(self)
-        
+
             staticdata.profiler.count(Counters.SLOW_TRACING_FUNCTION_EXECUTIONS)
             pc = self.pc
             while True:
                 bytecode = self.bytecode
                 op = ord(bytecode[pc])
+                self.jitcode.bytecodes_counter += 1
+                staticdata.opcode_counters[op] += 1
+
                 if op == staticdata.op_live:
                     pc += OFFSET_SIZE + 1
                     self.pc = pc
@@ -2202,7 +2206,7 @@ class MetaInterpStaticData(object):
         self.jitlog.logger_noopt = self.logger_noopt
         self.jitlog.logger_ops = self.logger_ops
 
-        self.profiler = ProfilerClass()
+        self.profiler = ProfilerClass(self)
         self.profiler.cpu = cpu
         self.warmrunnerdesc = warmrunnerdesc
         if warmrunnerdesc:
@@ -2240,6 +2244,8 @@ class MetaInterpStaticData(object):
         self.op_ref_return = insns.get('ref_return/r', -1)
         self.op_float_return = insns.get('float_return/f', -1)
         self.op_void_return = insns.get('void_return/', -1)
+
+        self.opcode_counters = [0] * len(insns)
 
     def setup_descrs(self, descrs):
         self.opcode_descrs = descrs
@@ -2667,6 +2673,9 @@ class MetaInterp(object):
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, Counters.RECORDED_OPS)
         self.heapcache.invalidate_caches(opnum, descr, *argboxes)
+        if self.framestack:
+            self.framestack[-1].jitcode.traced_operations += 1
+
         if len(argboxes) == 0:
             op = self.history.record0(
                 opnum, resvalue, descr)
