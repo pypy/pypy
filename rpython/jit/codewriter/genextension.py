@@ -225,10 +225,12 @@ class GenExtension(object):
                 next_argcode = next_argcode + 1
                 if argcode == 'i':
                     pos = ord(code[position])
-                    if 255 - pos < len(self.jitcode.constants_i):
-                        value = str(self.jitcode.constants_i[255 - pos])
-                    else:
-                        value = "self.registers_i[%s].getint()" % (pos, )
+                    num_regs_i = self.jitcode.num_regs_i()
+                    value = "self.registers_i[%s].getint()" % (pos, )
+                    if pos >= num_regs_i:
+                        intval = self.jitcode.constants_i[pos - num_regs_i]
+                        if isinstance(intval, int):
+                            value = str(intval)
                 elif argcode == 'c':
                     value = str(signedord(code[position]))
                 else:
