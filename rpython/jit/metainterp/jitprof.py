@@ -136,18 +136,21 @@ class Profiler(BaseProfiler):
     def _print_jitcode_stats(self):
         from rpython.jit.codewriter.jitcode import JitCode
 
-        for descr in self.metainterp_sd.jitcodes:
-            if not isinstance(descr, JitCode):
+        # printing jitcode
+        for jitcode in self.metainterp_sd.jitcodes:
+            if not isinstance(jitcode, JitCode):
                 continue
-            if descr.bytecodes_counter == 0 and \
-               descr.number_calls == 0 and \
-               descr.traced_operations == 0:
+            if jitcode.bytecodes_counter == 0 and \
+               jitcode.number_calls == 0 and \
+               jitcode.traced_operations == 0:
                 continue
-            debug_print(descr.name, descr.bytecodes_counter, descr.number_calls,
-                        descr.traced_operations)
+
+            debug_print(jitcode.name, jitcode.bytecodes_counter,
+                        jitcode.number_calls, jitcode.traced_operations)
 
         debug_print("---")
 
+        # printing opcode names
         for index in range(len(self.metainterp_sd.opcode_names)):
             count = self.metainterp_sd.opcode_counters[index]
             debug_print(self.metainterp_sd.opcode_names[index], count)
