@@ -81,11 +81,17 @@ class GenExtension(object):
             allcode.append(" " * 8 + line)
         jitcode._genext_source = "\n".join(allcode)
         d = {"ConstInt": ConstInt, "JitCode": JitCode, "ChangeFrame": ChangeFrame}
+        d.update(self.globals)
         source = py.code.Source(jitcode._genext_source)
         exec source.compile() in d
         print jitcode._genext_source
         jitcode.genext_function = d['jit_shortcut']
         jitcode.genext_function.__name__ += "_" + jitcode.name
+
+    def _add_global(self, obj):
+        name = "glob%s" % len(self.globals)
+        self.globals[name] = obj
+        return name
 
     def _parse_args(self, index, pc, nextpc):
         from rpython.jit.metainterp.pyjitpl import MIFrame
@@ -126,12 +132,10 @@ class GenExtension(object):
                 assert self.argcodes[next_argcode] == 'd'
                 next_argcode = next_argcode + 1
                 index = ord(code[position]) | (ord(code[position+1])<<8)
-                argname = "arg%s" % position
                 arg_as_object = self.assembler.descrs[index]
-                self.code.append("    %s = self.metainterp.staticdata.opcode_descrs[%s]" % (argname, index))
-                value = argname
+                value = self._add_global(arg_as_object)
                 if argtype == "jitcode":
-                    self.code.append("    assert isinstance(%s, JitCode)" % argname)
+                    self.code.append("    assert isinstance(%s, JitCode)" % value)
                 position += 2
             elif argtype == "label":
                 assert self.argcodes[next_argcode] == 'L'
@@ -188,11 +192,11 @@ class GenExtension(object):
                 next_argcode = next_argcode + 1
                 index = ord(code[position]) | (ord(code[position+1])<<8)
                 value = argname = "arg%s" % position
-                lines.append("jitcode = self.metainterp.staticdata.opcode_descrs[%s]" % (index, ))
-                lines.append("assert isinstance(jitcode, JitCode)")
+                jitcode = self._add_global(self.assembler.descrs[index])
+                lines.append("assert isinstance(%s, JitCode)" % jitcode)
                 position += 2
                 # make a new frame
-                lines.append("%s = self.metainterp.newframe(jitcode)" % (argname, ))
+                lines.append("%s = self.metainterp.newframe(%s)" % (argname, jitcode))
                 lines.append("%s.pc = 0" % (argname, ))
 
                 # generate code to put boxes into the right places
