@@ -24,6 +24,7 @@ class GenExtension(object):
         self.argcodes = None
         self.insn = None
         self.args = None
+        self.args_as_objects = None
         self.returncode = None
         self.returnindex = None
 
@@ -97,6 +98,7 @@ class GenExtension(object):
         # collect arguments, this is a 'timeshifted' version of the code in
         # pyjitpl._get_opimpl_method
         args = []
+        args_as_objects = []
         next_argcode = 0
         code = self.jitcode.code
         orgpc = pc
@@ -105,6 +107,7 @@ class GenExtension(object):
         needed_orgpc = False
         needed_label = None
         for argtype in argtypes:
+            arg_as_object = None
             if argtype == "box":     # a box, of whatever type
                 argcode = self.argcodes[next_argcode]
                 next_argcode = next_argcode + 1
@@ -124,6 +127,7 @@ class GenExtension(object):
                 next_argcode = next_argcode + 1
                 index = ord(code[position]) | (ord(code[position+1])<<8)
                 argname = "arg%s" % position
+                arg_as_object = self.assembler.descrs[index]
                 self.code.append("    %s = self.metainterp.staticdata.opcode_descrs[%s]" % (argname, index))
                 value = argname
                 if argtype == "jitcode":
@@ -231,6 +235,7 @@ class GenExtension(object):
             else:
                 raise AssertionError("bad argtype: %r" % (argtype,))
             args.append(value)
+            args_as_objects.append(arg_as_object)
         num_return_args = len(self.argcodes) - next_argcode
         assert num_return_args == 0 or num_return_args == 2
         if num_return_args:
@@ -240,6 +245,7 @@ class GenExtension(object):
             returncode = 'v'
             resindex = -1
         self.args = args
+        self.args_as_objects = args_as_objects
         self.returncode = returncode
         self.resindex = resindex
         return lines, needed_orgpc, needed_label
