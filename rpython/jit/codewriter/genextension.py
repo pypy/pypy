@@ -260,6 +260,21 @@ class GenExtension(object):
         lines.append("continue")
         return lines
 
+    def emit_switch(self):
+        lines = []
+        arg, descr, pc = self.args_as_objects
+        argvalue, argname, pc = self.args
+        lines.append("arg = %s" % (argvalue))
+        lines.append("if arg.is_constant():")
+        lines.append("    value = arg.getint()")
+        dict_switch = descr.as_dict()
+        for pc in dict_switch:
+            lines.append("    if value == %d:" % pc)
+            lines.append("        pc = self.pc = %d" % dict_switch[pc])
+            lines.append("        continue")
+        newlines = self.emit_default()
+        return lines + newlines
+
     def emit_newframe_function(self):
         return ["self._result_argcode = %r" % (self.returncode, ), "return # change frame"]
     emit_inline_call_r_i = emit_newframe_function
@@ -346,5 +361,3 @@ class GenExtension(object):
             return insn[2].dict.values() + [nextpc]
         else:
             return [nextpc]
-
-
