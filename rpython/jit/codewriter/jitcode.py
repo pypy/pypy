@@ -146,6 +146,9 @@ class SwitchDictDescr(AbstractDescr):
     def _clone_if_mutable(self):
         raise NotImplementedError
 
+    def as_dict(self):
+        return self.dict
+
 
 @specialize.arg(5)
 def enumerate_vars(offset, all_liveness, callback_i, callback_r, callback_f, spec):
