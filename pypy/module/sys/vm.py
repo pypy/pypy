@@ -48,6 +48,7 @@ def getframe(space, depth):
             raise oefmt(space.w_ValueError, "call stack is not deep enough")
         if depth == 0:
             f.mark_as_escaped()
+            audit(space, "sys._getframe", [f])
             return f
         depth -= 1
         f = ec.getnextframe_nohidden(f)
