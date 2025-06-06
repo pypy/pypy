@@ -5,6 +5,7 @@ The rest, dealing with variables in optimized ways, is in nestedscope.py.
 """
 
 from rpython.rlib import jit, rstackovf
+from rpython.rlib.jit import warmup_critical_function
 from rpython.rlib.debug import check_nonneg
 from rpython.rlib.objectmodel import (we_are_translated, always_inline,
         dont_inline, not_rpython)
@@ -53,6 +54,7 @@ class __extend__(pyframe.PyFrame):
 
     ### opcode dispatch ###
 
+    @warmup_critical_function
     def dispatch(self, pycode, next_instr, ec):
         # For the sequel, force 'next_instr' to be unsigned for performance
         next_instr = r_uint(next_instr)
@@ -143,7 +145,7 @@ class __extend__(pyframe.PyFrame):
     def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
         return self.space.call_function(w_func, w_typ, w_val, w_tb)
 
-    #@jit.warmup_critical_function
+    @jit.warmup_critical_function
     @jit.unroll_safe
     def dispatch_bytecode(self, co_code, next_instr, ec):
         while True:
@@ -607,9 +609,9 @@ class __extend__(pyframe.PyFrame):
     BINARY_DIVIDE       = binaryoperation("div")
     # XXX BINARY_DIVIDE must fall back to BINARY_TRUE_DIVIDE with -Qnew
     BINARY_MODULO       = binaryoperation("mod")
-    BINARY_ADD      = binaryoperation("add")
-    BINARY_SUBTRACT = binaryoperation("sub")
-    BINARY_SUBSCR   = binaryoperation("getitem")
+    BINARY_ADD      = warmup_critical_function(binaryoperation("add"))
+    BINARY_SUBTRACT = warmup_critical_function(binaryoperation("sub"))
+    BINARY_SUBSCR   = warmup_critical_function(binaryoperation("getitem"))
     BINARY_LSHIFT   = binaryoperation("lshift")
     BINARY_RSHIFT   = binaryoperation("rshift")
     BINARY_AND = binaryoperation("and_")
@@ -698,6 +700,7 @@ class __extend__(pyframe.PyFrame):
         w_start = self.popvalue()
         self.deleteslice(w_start, w_end)
 
+    @warmup_critical_function
     def STORE_SUBSCR(self, oparg, next_instr):
         "obj[subscr] = newvalue"
         w_subscr = self.popvalue()
@@ -877,6 +880,7 @@ class __extend__(pyframe.PyFrame):
         items = self.space.fixedview_unroll(w_iterable, itemcount)
         self.pushrevvalues(itemcount, items)
 
+    @warmup_critical_function
     def STORE_ATTR(self, nameindex, next_instr):
         "obj.attributename = newvalue"
         w_obj = self.popvalue()
@@ -995,6 +999,7 @@ class __extend__(pyframe.PyFrame):
             space.warn(space.newtext(msg), space.w_DeprecationWarning)
         return space.newbool(space.exception_match(w_1, w_2))
 
+    @warmup_critical_function
     def COMPARE_OP(self, testnum, next_instr):
         w_2 = self.popvalue()
         w_1 = self.popvalue()

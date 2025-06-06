@@ -1,6 +1,7 @@
 from rpython.annotator import model as annmodel
 from rpython.flowspace.model import Constant
 from rpython.rlib import rgc, jit, types
+from rpython.rlib.jit import warmup_critical_function
 from rpython.rtyper.debug import ll_assert
 from rpython.rlib.objectmodel import malloc_zero_filled, enforceargs, specialize
 from rpython.rlib.signature import signature
@@ -732,6 +733,7 @@ def ll_setitem_nonneg(func, l, index, newitem):
 ll_setitem_nonneg._always_inline_ = True
 # no oopspec -- the function is inlined by the JIT
 
+@warmup_critical_function
 def ll_setitem(func, l, index, newitem):
     if func is dum_checkidx:
         length = l.ll_length()

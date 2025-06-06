@@ -3,6 +3,7 @@ from pypy.interpreter.error import OperationError, get_cleared_operation_error
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, not_rpython
 from rpython.rlib import jit, rgc, objectmodel
+from rpython.rlib.jit import warmup_critical_function
 from rpython.rlib.rarithmetic import r_uint
 
 TICK_COUNTER_STEP = 100
@@ -75,6 +76,7 @@ class ExecutionContext(object):
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
+    @warmup_critical_function
     def leave(self, frame, w_exitvalue, got_exception):
         try:
             if self.profilefunc:
@@ -129,6 +131,7 @@ class ExecutionContext(object):
         else:
             self._trace(frame, 'c_exception', w_exc)
 
+    @warmup_critical_function
     def call_trace(self, frame):
         "Trace the call of a function"
         if self.gettrace() is not None or self.profilefunc is not None:
@@ -669,7 +672,7 @@ def report_error(space, e, where, w_obj):
 def make_finalizer_queue(W_Root, space):
     """Make a FinalizerQueue subclass which responds to GC finalizer
     events by 'firing' the UserDelAction class above.  It does not
-    directly fetches the objects to finalize at all; they stay in the 
+    directly fetches the objects to finalize at all; they stay in the
     GC-managed queue, and will only be fetched by UserDelAction
     (between bytecodes)."""
 

@@ -5,6 +5,7 @@ indirection is introduced to make the version tag change less often.
 import weakref
 
 from rpython.rlib import jit, rerased, objectmodel
+from rpython.rlib.jit import warmup_critical_function
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import (
@@ -250,6 +251,7 @@ class GlobalCache(object):
     def getvalue(self, space):
         return unwrap_cell(space, self.cell)
 
+@warmup_critical_function
 def LOAD_GLOBAL_cached(self, nameindex, next_instr):
     w_value = _LOAD_GLOBAL_cached(self, nameindex, next_instr)
     self.pushvalue(w_value)
@@ -324,4 +326,3 @@ def STORE_GLOBAL_cached(self, nameindex, next_instr):
         if cache is not None:
             assert cache.valid and cache.ref is not None
             pycode._globals_caches[nameindex] = cache.ref
-

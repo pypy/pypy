@@ -12,6 +12,7 @@ import operator
 import sys
 
 from rpython.rlib import debug, jit, rerased, rutf8
+from rpython.rlib.jit import warmup_critical_function
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
     import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize)
@@ -1275,6 +1276,7 @@ class BaseRangeListStrategy(ListStrategy):
         w_other.strategy = self
         w_other.lstorage = w_list.lstorage
 
+    @warmup_critical_function
     def getitem(self, w_list, i):
         return self.wrap(self._getitem_unwrapped(w_list, i))
 
@@ -1937,6 +1939,8 @@ class IntegerListStrategy(ListStrategy):
         sorter.sort()
         if reverse:
             l.reverse()
+
+    # TODO: wrap getitem function
 
     def getitems_int(self, w_list):
         return self.unerase(w_list.lstorage)

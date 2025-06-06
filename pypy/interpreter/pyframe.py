@@ -5,7 +5,7 @@ import sys
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized, check_nonneg
 from rpython.rlib.debug import ll_assert_not_none
-from rpython.rlib.jit import hint
+from rpython.rlib.jit import hint, warmup_critical_function
 from rpython.rlib.objectmodel import instantiate, specialize, we_are_translated
 from rpython.rlib.objectmodel import not_rpython
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -69,7 +69,7 @@ class PyFrame(W_Root):
     last_instr               = -1
     last_exception           = None
     f_backref                = jit.vref_None
-    
+
     escaped                  = False  # see mark_as_escaped()
     debugdata                = None
 
@@ -79,7 +79,7 @@ class PyFrame(W_Root):
     lastblock = None
 
     # other fields:
-    
+
     # builtin - builtin cache, only if honor__builtins__ is True
     # defaults to False
 
@@ -88,6 +88,7 @@ class PyFrame(W_Root):
     # additionally JIT uses vable_token field that is representing
     # frame current virtualizable state as seen by the JIT
 
+    @warmup_critical_function
     def __init__(self, space, code, w_globals, outer_func):
         if not we_are_translated():
             assert type(self) == space.FrameClass, (
@@ -252,6 +253,7 @@ class PyFrame(W_Root):
         else:
             return self.execute_frame()
 
+    @warmup_critical_function
     def execute_frame(self, w_inputvalue=None, operr=None):
         """Execute this frame.  Main entry point to the interpreter.
         The optional arguments are there to handle a generator's frame:
@@ -367,6 +369,7 @@ class PyFrame(W_Root):
             values_w[n] = self.locals_cells_stack_w[base+n]
         return values_w
 
+    @warmup_critical_function
     @jit.unroll_safe
     def dropvalues(self, n):
         n = hint(n, promote=True)

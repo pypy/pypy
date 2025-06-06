@@ -1,5 +1,7 @@
 """Generic iterator implementations"""
 
+from rpython.rlib.jit import warmup_critical_function
+
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, interpindirect2app
 from pypy.interpreter.error import OperationError
@@ -76,6 +78,7 @@ class W_SeqIterObject(W_AbstractSeqIterObject):
 class W_FastListIterObject(W_AbstractSeqIterObject):
     """Sequence iterator specialized for lists."""
 
+    @warmup_critical_function
     def descr_next(self, space):
         from pypy.objspace.std.listobject import W_ListObject
         w_seq = self.w_seq
