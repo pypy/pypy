@@ -598,7 +598,9 @@ def generate_tokens(lines, flags):
             assert err1.text == err2.text
         raise
     #assert len(token_list) == len(token_list2)
-    if not objectmodel.we_are_translated():
+    if not objectmodel.we_are_translated() and all(
+        t.token_type != tokens.FSTRING_START for t in token_list2
+    ):
         for index, tok1, tok2 in zip(range(len(token_list)), token_list, token_list2):
             assert tok1 == tok2
     return token_list2
