@@ -1099,6 +1099,7 @@ class __extend__(pyframe.PyFrame):
         next_instr += jumpby
         return next_instr
 
+    @jit.warmup_critical_function
     def POP_JUMP_IF_FALSE(self, target, next_instr):
         w_value = self.popvalue()
         if not self.space.is_true(w_value):

@@ -616,6 +616,7 @@ class StdObjSpace(ObjSpace):
             return bool(w_obj.intval)
         return self._DescrOperation_is_true(w_obj)
 
+    @jit.warmup_critical_function
     def getattr(self, w_obj, w_name):
         # an optional shortcut for performance
 
@@ -686,6 +687,7 @@ class StdObjSpace(ObjSpace):
             return
         raiseattrerror(space, w_obj, name, w_descr)
 
+    @jit.warmup_critical_function
     def finditem_str(self, w_obj, key):
         """ Perform a getitem on w_obj with key (string). Returns found
         element or None on element not found.

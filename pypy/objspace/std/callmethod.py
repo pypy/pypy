@@ -82,6 +82,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     f.pushvalue(w_value)
     f.pushvalue_none()
 
+@jit.warmup_critical_function
 @jit.unroll_safe
 def CALL_METHOD(f, oparg, *ignored):
     # opargs contains the arg, and kwarg count, excluding the implicit 'self'

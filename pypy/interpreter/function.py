@@ -190,6 +190,7 @@ class Function(W_Root):
         frame.dropvalues(dropvalues)
         return self.call_args(args)
 
+    @jit.warmup_critical_function
     @jit.unroll_safe
     def _flat_pycall(self, code, nargs, frame, dropvalues):
         # code is a PyCode
