@@ -33,7 +33,7 @@ class GenExtension(object):
         from rpython.jit.codewriter.jitcode import JitCode
         from rpython.jit.metainterp.pyjitpl import ChangeFrame
         self.setup(ssarepr, jitcode)
-        self.precode.append("def jit_shortcut(self):")
+        self.precode.append("def jit_shortcut(self): # %s" % jitcode.name)
         self.precode.append("    pc = self.pc")
         self.precode.append("    while 1:")
         for index, insn in enumerate(ssarepr.insns):
@@ -42,7 +42,7 @@ class GenExtension(object):
                 continue
             self.insn = insn
             pc = ssarepr._insns_pos[index]
-            self.code.append("if pc == %s:" % pc)
+            self.code.append("if pc == %s: # %s" % (pc, self.insn))
             if index == len(self.ssarepr.insns) - 1:
                 nextpc = len(self.jitcode.code)
             else:
