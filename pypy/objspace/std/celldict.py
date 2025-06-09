@@ -129,6 +129,7 @@ class ModuleDictStrategy(DictStrategy):
             self.switch_to_object_strategy(w_dict)
             return w_dict.getitem(w_key)
 
+    @warmup_critical_function
     def getitem_str(self, w_dict, key):
         cell = self.getdictvalue_no_unwrapping(w_dict, key)
         return unwrap_cell(self.space, cell)

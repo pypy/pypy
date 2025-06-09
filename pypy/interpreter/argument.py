@@ -159,6 +159,7 @@ class Arguments(object):
 
     ###  Parsing for function calls  ###
 
+    @jit.warmup_critical_function
     @jit.unroll_safe
     def _match_signature(self, w_firstarg, scope_w, signature, defaults_w=None,
                          blindargs=0):

@@ -2,6 +2,7 @@
 
 import operator
 
+from rpython.rlib.jit import warmup_critical_function
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.tool.sourcetools import func_renamer
 
@@ -54,10 +55,10 @@ def _intshortcut(spaceopname):
     return opimpl
 
 
-int_BINARY_ADD = _intshortcut('add')
-int_INPLACE_ADD = _intshortcut('inplace_add')
-int_BINARY_SUBTRACT = _intshortcut('sub')
-int_INPLACE_SUBTRACT = _intshortcut('inplace_sub')
+int_BINARY_ADD = warmup_critical_function(_intshortcut('add'))
+int_INPLACE_ADD = warmup_critical_function(_intshortcut('inplace_add'))
+int_BINARY_SUBTRACT = warmup_critical_function(_intshortcut('sub'))
+int_INPLACE_SUBTRACT = warmup_critical_function(_intshortcut('inplace_sub'))
 
 
 def list_BINARY_SUBSCR(self, oparg, next_instr):

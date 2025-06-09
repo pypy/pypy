@@ -21,7 +21,7 @@ from pypy.objspace.std.mapdict import LOOKUP_METHOD_mapdict, \
 # as a version of space.call_method() that uses the same approach.
 # See pypy.objspace.std.objspace for where these functions are used from.
 
-
+@jit.warmup_critical_function
 def LOOKUP_METHOD(f, nameindex, *ignored):
     from pypy.objspace.std.typeobject import MutableCell
     #   stack before                 after

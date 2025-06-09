@@ -123,6 +123,7 @@ class Function(W_Root):
                                               list(args_w[1:])))
         return self.call_args(Arguments(self.space, list(args_w)))
 
+    @jit.warmup_critical_function
     def funccall_valuestack(self, nargs, frame, dropvalues, methodcall=False): # speed hack
         # methodcall is only for better error messages
         from pypy.interpreter import gateway

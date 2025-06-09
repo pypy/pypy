@@ -9,7 +9,7 @@ from pypy.interpreter.astcompiler.misc import mangle
 from pypy.module.__builtin__ import abstractinst
 
 from rpython.rlib.jit import (promote, elidable_promote, we_are_jitted,
-     elidable, dont_look_inside, unroll_safe)
+     elidable, dont_look_inside, unroll_safe, warmup_critical_function)
 from rpython.rlib.objectmodel import current_object_addr_as_int, compute_hash
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -456,6 +456,7 @@ class W_TypeObject(W_Root):
                 return w_class, w_value
         return None, None
 
+    @warmup_critical_function
     def lookup_where_with_method_cache(self, name):
         space = self.space
         promote(self)
@@ -552,6 +553,7 @@ class W_TypeObject(W_Root):
     def set_abstract(self, abstract):
         self.flag_abstract = bool(abstract)
 
+    @warmup_critical_function
     def issubtype(self, w_type):
         promote(self)
         promote(w_type)
