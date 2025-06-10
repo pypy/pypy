@@ -15,7 +15,9 @@ $Id: genPytokenize.py,v 1.1 2003/10/02 17:37:17 jriehl Exp $
 """
 from __future__ import print_function
 
-from pypy.interpreter.pyparser.pylexer import *
+from pypy.interpreter.pyparser.pylexer import EMPTY, nfaToDfa, group, groupStr, \
+    notGroupStr, chain, chainStr, atleastonce, any, maybe, \
+    notChainStr, newArcPair
 from pypy.interpreter.pyparser.automata import NonGreedyDFA, DFA, DEFAULT
 from pypy.interpreter.pyparser import pytoken
 
@@ -160,50 +162,51 @@ def makePyPseudoDFA ():
         return group(states,
                      chain(states,
                            maybe(states, groupStr(states, "rR")),
-                           maybe(states, groupStr(states, "bBfF"))),
+                           maybe(states, groupStr(states, "bB"))),
                      chain(states,
-                           maybe(states, groupStr(states, "bBfF")),
+                           maybe(states, groupStr(states, "bB")),
                            maybe(states, groupStr(states, "rR"))),
                      maybe(states, groupStr(states, "uU")))
+
+    def makeStrCont (quote):
+        return chain(states,
+                     makeStrPrefix(),
+                     newArcPair(states, quote),
+                     any(states, notGroupStr(states, "\r\n%s\\" % quote)),
+                     any(states,
+                         chain(states,
+                               newArcPair(states, "\\"),
+                               newArcPair(states, DEFAULT),
+                               any(states, notGroupStr(states, "\r\n%s\\" % quote)))),
+                     group(states,
+                           newArcPair(states, quote),
+                           makeLineCont()))
+
+    def makeFStr (quote):
+        return chain(states,
+                     group(states,
+                           chain(states,
+                                 groupStr(states, "fF"),
+                                 maybe(states, groupStr(states, "rR"))),
+                           chain(states,
+                                 maybe(states, groupStr(states, "rR")),
+                                 groupStr(states, "fF"))),
+                     chainStr(states, quote))
     # ____________________________________________________________
     contStr = group(states,
-                    chain(states,
-                          makeStrPrefix(),
-                          newArcPair(states, "'"),
-                          any(states,
-                              notGroupStr(states, "\r\n'\\")),
-                          any(states,
-                              chain(states,
-                                    newArcPair(states, "\\"),
-                                    newArcPair(states, DEFAULT),
-                                    any(states,
-                                        notGroupStr(states, "\r\n'\\")))),
-                          group(states,
-                                newArcPair(states, "'"),
-                                makeLineCont())),
-                    chain(states,
-                          makeStrPrefix(),
-                          newArcPair(states, '"'),
-                          any(states,
-                              notGroupStr(states, '\r\n"\\')),
-                          any(states,
-                              chain(states,
-                                    newArcPair(states, "\\"),
-                                    newArcPair(states, DEFAULT),
-                                    any(states,
-                                        notGroupStr(states, '\r\n"\\')))),
-                          group(states,
-                                newArcPair(states, '"'),
-                                makeLineCont())))
+                    makeStrCont("'"),
+                    makeStrCont('"'))
     triple = chain(states,
                    makeStrPrefix(),
                    group(states,
                          chainStr(states, "'''"),
                          chainStr(states, '"""')))
+    fStr = group(states, *[makeFStr(quote) for quote in ("'", '"', "'''", '"""')])
     pseudoExtras = group(states,
                          makeLineCont(),
                          makeComment(),
-                         triple)
+                         triple,
+                         fStr)
     pseudoToken = chain(states,
                         makeWhitespace(),
                         group(states,
