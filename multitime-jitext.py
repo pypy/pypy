@@ -3,6 +3,8 @@ import sys
 import os
 import subprocess
 import statistics
+import random
+import argparse
 
 def format_nonzero_fraction(x, n):
     s = f"{x:.20f}".rstrip("0")  # 十分な桁数で文字列化して末尾の0は削除
@@ -36,43 +38,55 @@ def parse_jit_summary(path):
 
     return result
 
-i = -1
 
 def gen_log_id():
-    global i
-    i += 1
+    i = int(random.random())
     return f"log_{i}"
 
-log_output = f"{gen_log_id()}.log"
-env = os.environ.copy()
-env["PYPYLOG"] = f"jit-summary:{log_output}"
 
-argv = sys.argv
-if len(argv) < 3:
-    exit(1)
-
-number = int(argv[1])
-bin = argv[2]
-target = argv[3]
-
-tracing_times = []
-
-command = [bin, target]
-for _ in range(number):
-    subprocess.run(
-        command,
-        env=env
+def parse_args():
+    parser = argparse.ArgumentParser(
+        prog='Measuring the jit summary data'
     )
-    r = parse_jit_summary(log_output)
-    tracing_times.append(r["Tracing"])
+    parser.add_argument('filename')
+    parser.add_argument('-n', '--number', type=int)
+    args = parser.parse_args()
+    return (args.filename, args.number)
 
-# mean, std.dev., min., median, max
-mean = statistics.mean(tracing_times)
-stdev = statistics.stdev(tracing_times)
-mn = min(tracing_times)
-mx = max(tracing_times)
-median = statistics.median(tracing_times)
+def main():
+    log_output = f"{gen_log_id()}.log"
+    env = os.environ.copy()
+    env["PYPYLOG"] = f"jit-summary:{log_output}"
+    env["PYTHONPATH"] = "benchmarks/lib/chameleon/src:benchmarks/lib/chameleon/src/dulwich-0.19.13:benchmarks/lib/jinja2:benchmarks/lib/pyxl:benchmarks/lib/monte:benchmarks/lib/pytz:benchmarks/lib/sympy:benchmarks/lib/genshi:benchmarks/lib/mako:benchmarks/lib/sqlalchemy:benchmarks/lib/twisted-trunk/twisted"
 
-print("===> jit-summary Tracing time (s) results")
-print("\t{}\t\t{}\t{}\t\t{}\t\t{}".format("Mean", "Std.Dev.", "Min", "Median", "Max"))
-print("\t{}\t{}\t{}\t{}\t{}".format(mean, format_nonzero_fraction(stdev, 5), mn, median, mx))
+    target, number = parse_args()
+    binarie_w_names = [("pypy-main", "pypy/goal/pypy-c"), ("pypy-jit-ext", "pypy/goal/pypy-jit-ext")]
+
+    print("===> jit-summary Tracing time (s) results")
+    for i, (name, bin) in enumerate(binarie_w_names):
+        tracing_times = []
+
+        command = [bin, target]
+        for _ in range(number):
+            subprocess.run(
+                command,
+                stdout=subprocess.DEVNULL,
+                env=env
+            )
+            r = parse_jit_summary(log_output)
+            tracing_times.append(r["Tracing"])
+
+        # mean, std.dev., min., median, max
+        mean = statistics.mean(tracing_times)
+        stdev = statistics.stdev(tracing_times)
+        mn = min(tracing_times)
+        mx = max(tracing_times)
+        median = statistics.median(tracing_times)
+
+        print(f"{i+1}: {bin} {target}")
+        print("\t{}\t\t{}\t{}\t\t{}\t\t{}".format("Mean", "Std.Dev.", "Min", "Median", "Max"))
+        print("\t{}\t{}\t{}\t{}\t{}".format(mean, format_nonzero_fraction(stdev, 5), mn, median, mx))
+
+
+if __name__ == '__main__':
+    main()
