@@ -56,3 +56,23 @@ def jit_shortcut(self): # test
             except ChangeFrame: return
             assert 0 # unreachable
         assert 0 # unreachable"""
+
+def test_switch():
+    pass # TODO: write test
+    # [(Label(codeless block[n_0] with 4 exits(n_0)),),
+    #  ('-live-', %i0),
+    #  ('switch', %i0, <SwitchDictDescr {-5: 9, 2: 14, 7: 19}>),
+    #  ('int_return', (42)),
+    #  ('---',),
+    #  (Label(link from codeless block[n_0] to return block[v0]),),
+    #  ('-live-',),
+    #  ('int_return', (12)),
+    #  ('---',),
+    #  (Label(link from codeless block[n_0] to return block[v0]),),
+    #  ('-live-',),
+    #  ('int_return', (51)),
+    #  ('---',),
+    #  (Label(link from codeless block[n_0] to return block[v0]),),
+    #  ('-live-',),
+    #  ('int_return', (1212)),
+    #  ('---',)]
