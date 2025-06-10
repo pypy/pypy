@@ -83,3 +83,8 @@ for t in ("'", '"',
 
 tabsize = 8
 alttabsize = 1
+
+# ______________________________________________________________________
+
+single_fstring = {t: t for t in single_quoted if 'f' in t.lower()}
+triple_fstring = {t: t for t in triple_quoted if 'f' in t.lower()}

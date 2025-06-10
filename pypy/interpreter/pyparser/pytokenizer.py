@@ -4,7 +4,7 @@ from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.pytoken import python_opmap
 from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError
 from pypy.interpreter.pyparser.pytokenize import tabsize, alttabsize, whiteSpaceDFA, \
-    triple_quoted, endDFAs, single_quoted, pseudoDFA
+    triple_quoted, endDFAs, single_quoted, pseudoDFA, single_fstring, triple_fstring
 from pypy.interpreter.astcompiler import consts
 from rpython.rlib import rutf8, objectmodel
 
@@ -161,6 +161,28 @@ DUMMY_DFA = automata.DFA([], [])
 class Finish(Exception):
     pass
 
+class TokenizerState(object):
+    """Contains the tokenizer state that needs to be saved and restored
+    when tokenizing f-strings."""
+
+    NORMAL = 0
+    FSTRING = 1
+    FSTRING_INTERPOLATION = 2
+
+    def __init__(self, mode):
+        assert self.NORMAL <= mode <= self.FSTRING_INTERPOLATION
+        self.mode = mode
+
+        # attributes for dealing with contiuations of string literals
+        # (triple-quoted or with \\)
+        self.string_end_dfa = None # for matching the end of the string
+        self.contstrs = []
+        self.need_line_cont = False
+        self.strstart_linenumber = 0
+        self.strstart_offset = 0
+        self.strstart_starting_line = ""
+        self.strstart_is_triple_quoted = False
+
 class Tokenizer(object):
     def __init__(self, flags):
         self.flags = flags
@@ -181,17 +203,13 @@ class Tokenizer(object):
 
         self.line = ''
 
-        # attributes for dealing with contiuations of string literals
-        # (triple-quoted or with \\)
-        self.string_end_dfa = None # for matching the end of the string
-        self.contstrs = []
-        self.need_line_cont = False
-        self.strstart_linenumber = 0
-        self.strstart_offset = 0
-        self.strstart_starting_line = ""
-        self.strstart_is_triple_quoted = False
-
         self.cont_line_col = 0
+
+        self.state_stack = [TokenizerState(TokenizerState.NORMAL)]
+
+    @property
+    def state(self):
+        return self.state_stack[-1]
 
     def tokenize_lines(self, lines):
         self.lines = lines
@@ -214,7 +232,7 @@ class Tokenizer(object):
         self.line = line
         self.pos, self.max = 0, len(line)
         self.switch_indents = 0
-        if self.string_end_dfa: # in the middle of parsing a string literal
+        if self.state.string_end_dfa: # in the middle of parsing a string literal
             done = self._tokenize_string_continuation(line)
             if done:
                 return
@@ -249,44 +267,48 @@ class Tokenizer(object):
         raise TokenError(msg, line, lineno, column, self.token_list, end_lineno, end_offset)
 
     def _contstr_start(self, string_end_dfa, offset, starting_line, is_triple_quoted, strstart):
-        assert self.string_end_dfa is None
-        self.string_end_dfa = string_end_dfa
-        self.strstart_linenumber = self.lnum
-        self.strstart_offset = offset
-        self.strstart_starting_line = starting_line
-        self.strstart_is_triple_quoted = is_triple_quoted
-        self.contstrs = [strstart]
-        self.need_line_cont = not is_triple_quoted
+        state = self.state
+        assert state.string_end_dfa is None
+        state.string_end_dfa = string_end_dfa
+        state.strstart_linenumber = self.lnum
+        state.strstart_offset = offset
+        state.strstart_starting_line = starting_line
+        state.strstart_is_triple_quoted = is_triple_quoted
+        state.contstrs = [strstart]
+        state.need_line_cont = not is_triple_quoted
 
     def _contstr_finish(self, rest):
-        self.contstrs.append(rest)
-        res = "".join(self.contstrs)
-        self.string_end_dfa = None
-        self.contstrs = []
-        self.need_line_cont = False
+        state = self.state
+        state.contstrs.append(rest)
+        res = "".join(state.contstrs)
+        state.string_end_dfa = None
+        state.contstrs = []
+        state.need_line_cont = False
         return res
 
     def _contstr_raise_unterminated(self, end_lineno, end_col_offset):
-        raise_unterminated_string(self.strstart_is_triple_quoted, self.strstart_starting_line, self.strstart_linenumber,
-                                  self.strstart_offset + 1, self.token_list,
+        state = self.state
+        raise_unterminated_string(state.strstart_is_triple_quoted, state.strstart_starting_line, state.strstart_linenumber,
+                                  state.strstart_offset + 1, self.token_list,
                                   end_lineno, end_col_offset)
 
     def _tokenize_string_continuation(self, line):
         if not line:
             self._contstr_raise_unterminated(self.lnum - 1, len(line))
-        endmatch = self.string_end_dfa.recognize(line)
+        state = self.state
+        endmatch = state.string_end_dfa.recognize(line)
         if endmatch >= 0:
             self.pos = end = endmatch
             content = self._contstr_finish(line[:end])
-            self._add_token(tokens.STRING, content, self.strstart_linenumber,
-                   self.strstart_offset, line, self.lnum, end)
+            self._add_token(tokens.STRING, content, state.strstart_linenumber,
+                   state.strstart_offset, line, self.lnum, end)
             self.last_comment = ''
-        elif (self.need_line_cont and not line.endswith('\\\n') and
+        elif (state.need_line_cont and not line.endswith('\\\n') and
                            not line.endswith('\\\r\n')):
             self._contstr_raise_unterminated(self.lnum, len(line))
             assert 0, 'unreachable'
         else:
-            self.contstrs.append(line)
+            state.contstrs.append(line)
             return True # done with this line
         return False
 
@@ -466,6 +488,18 @@ class Tokenizer(object):
                 self.last_comment = ''
             else:
                 self._contstr_start(string_end_dfa, start, line, True, line[start:])
+                return True
+        elif token in single_fstring or token in triple_fstring:
+            self._add_token(tokens.FSTRING_START, token, self.lnum, start, line, self.lnum, end)
+            string_end_dfa = endDFAs[token]
+            endmatch = string_end_dfa.recognize(line, self.pos)
+            if endmatch >= 0:
+                self.pos = endmatch
+                token = line[start:self.pos]
+                self._add_token(tokens.FSTRING_MIDDLE, token, self.lnum, start, line, self.lnum, self.pos)
+                self.last_comment = ''
+            else:
+                self._contstr_start(string_end_dfa, start, line, len(token) >= 4, line[start:])
                 return True
         elif initial in single_quoted or \
             token[:2] in single_quoted or \
