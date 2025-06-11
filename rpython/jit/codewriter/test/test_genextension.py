@@ -1,4 +1,5 @@
 from rpython.flowspace.model import Constant
+from rpython.jit.codewriter.jitcode import SwitchDictDescr
 from rpython.jit.codewriter.flatten import SSARepr, Label, TLabel, Register
 from rpython.jit.codewriter.assembler import Assembler, AssemblerError
 from rpython.rtyper.lltypesystem import lltype, llmemory
@@ -58,21 +59,102 @@ def jit_shortcut(self): # test
         assert 0 # unreachable"""
 
 def test_switch():
-    pass # TODO: write test
-    # [(Label(codeless block[n_0] with 4 exits(n_0)),),
-    #  ('-live-', %i0),
-    #  ('switch', %i0, <SwitchDictDescr {-5: 9, 2: 14, 7: 19}>),
-    #  ('int_return', (42)),
-    #  ('---',),
-    #  (Label(link from codeless block[n_0] to return block[v0]),),
-    #  ('-live-',),
-    #  ('int_return', (12)),
-    #  ('---',),
-    #  (Label(link from codeless block[n_0] to return block[v0]),),
-    #  ('-live-',),
-    #  ('int_return', (51)),
-    #  ('---',),
-    #  (Label(link from codeless block[n_0] to return block[v0]),),
-    #  ('-live-',),
-    #  ('int_return', (1212)),
-    #  ('---',)]
+    ssarepr = SSARepr("test", genextension=True)
+    i0 = Register('int', 0x16)
+    switchdescr = SwitchDictDescr()
+    switchdescr._labels = [(-5, Label("L1")), (2, Label("L2")),
+                           (7, Label("L3"))]
+    ssarepr.insns = [
+        (Label("L0"),),
+        ('-live-', i0),
+        ('switch', i0, switchdescr),
+        ('int_return', Constant(42, lltype.Signed)),
+        ('---',),
+        (Label("L1"),),
+        ('-live-',),
+        ('int_return', Constant(12, lltype.Signed)),
+        ('---',),
+        (Label("L2"),),
+        ('-live-',),
+        ('int_return', Constant(51, lltype.Signed)),
+        ('---',),
+        (Label("L3"),),
+        ('-live-',),
+        ('int_return', Constant(1212, lltype.Signed)),
+        ('---',),
+    ]
+    assembler = Assembler()
+    jitcode = assembler.assemble(ssarepr, num_regs={'int': 0x17})
+    assert jitcode._genext_source == """\
+def jit_shortcut(self): # test
+    pc = self.pc
+    while 1:
+        if pc == 0: # ('-live-', %i22)
+            self.pc = 3
+            pass # live
+            pc = 3
+            continue
+        if pc == 3: # ('switch', %i22, <SwitchDictDescr {-5: 9, 2: 14, 7: 19}>)
+            self.pc = 7
+            arg = self.registers_i[22]
+            if arg.is_constant():
+                value = arg.getint()
+                if value == -5:
+                    pc = self.pc = 9
+                    continue
+                if value == 2:
+                    pc = self.pc = 14
+                    continue
+                if value == 7:
+                    pc = self.pc = 19
+                    continue
+            self._result_argcode = 'v'
+            self.opimpl_switch(self.registers_i[22], glob0, 3)
+            pc = self.pc
+            if pc == 9: pc = 9
+            elif pc == 14: pc = 14
+            elif pc == 19: pc = 19
+            elif pc == 7: pc = 7
+            else:
+                assert 0 # unreachable
+            continue
+        if pc == 7: # ('int_return', (42))
+            self.pc = 9
+            try:
+                self.opimpl_int_return(ConstInt(42))
+            except ChangeFrame: return
+            assert 0 # unreachable
+        if pc == 9: # ('-live-',)
+            self.pc = 12
+            pass # live
+            pc = 12
+            continue
+        if pc == 12: # ('int_return', (12))
+            self.pc = 14
+            try:
+                self.opimpl_int_return(ConstInt(12))
+            except ChangeFrame: return
+            assert 0 # unreachable
+        if pc == 14: # ('-live-',)
+            self.pc = 17
+            pass # live
+            pc = 17
+            continue
+        if pc == 17: # ('int_return', (51))
+            self.pc = 19
+            try:
+                self.opimpl_int_return(ConstInt(51))
+            except ChangeFrame: return
+            assert 0 # unreachable
+        if pc == 19: # ('-live-',)
+            self.pc = 22
+            pass # live
+            pc = 22
+            continue
+        if pc == 22: # ('int_return', (1212))
+            self.pc = 24
+            try:
+                self.opimpl_int_return(self.registers_i[23])
+            except ChangeFrame: return
+            assert 0 # unreachable
+        assert 0 # unreachable"""
