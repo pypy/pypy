@@ -161,7 +161,6 @@ def jit_shortcut(self): # test
             assert 0 # unreachable
         assert 0 # unreachable"""
 
-@pytest.mark.xfail
 def test_skip_jump_to_live():
     ssarepr = SSARepr("test", genextension=True)
     i0, i1 = Register('int', 0x0), Register('int', 0x1)

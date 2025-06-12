@@ -74,6 +74,9 @@ class GenExtension(object):
                 self.code.append("    assert 0 # unreachable")
                 continue
             elif len(pcs) == 1:
+                next_insn = self.pc_to_insn[pcs[0]]
+                if next_insn[0] == '-live-':
+                    pcs[0] = self.pc_to_nextpc[pcs[0]]
                 self.code.append("    pc = %s" % pcs[0])
             else:
                 self.code.append("    pc = self.pc")
