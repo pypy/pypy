@@ -75,18 +75,16 @@ class GenExtension(object):
                 continue
             elif len(pcs) == 1:
                 next_insn = self.pc_to_insn[pcs[0]]
-                if next_insn[0] == '-live-':
-                    pcs[0] = self.pc_to_nextpc[pcs[0]]
-                if next_insn[0] == 'goto':
-                    goto_target = self._decode_label(pcs[0]+1)
-                    pcs[0] = goto_target
-                self.code.append("    pc = %s" % pcs[0])
+                goto_target = self._find_actual_jump_target(next_insn[0], pcs[0])
+                self.code.append("    pc = %s" % goto_target)
             else:
                 self.code.append("    pc = self.pc")
                 # do the trick
                 prefix = ''
                 for pc in pcs:
-                    self.code.append("    %sif pc == %s: pc = %s" % (prefix, pc, pc))
+                    next_insn = self.pc_to_insn[pc]
+                    goto_target = self._find_actual_jump_target(next_insn[0], pc)
+                    self.code.append("    %sif pc == %s: pc = %s" % (prefix, pc, goto_target))
                     prefix = "el"
                 self.code.append("    else:")
                 self.code.append("        assert 0 # unreachable")
@@ -114,6 +112,15 @@ class GenExtension(object):
         code = self.jitcode.code
         needed_label = ord(code[position]) | (ord(code[position+1])<<8)
         return needed_label
+
+    def _find_actual_jump_target(self, next_insn, pc):
+        if next_insn == 'goto':
+            return self._decode_label(pc+1)
+        elif next_insn == '-live-':
+            return self.pc_to_nextpc[pc]
+        else:
+            # otherwise, just return pc
+            return pc
 
     def _parse_args(self, index, pc, nextpc):
         from rpython.jit.metainterp.pyjitpl import MIFrame

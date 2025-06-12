@@ -203,7 +203,7 @@ def jit_shortcut(self): # test
             self._result_argcode = 'v'
             self.opimpl_goto_if_not_int_gt(self.registers_i[0], ConstInt(0), 19, 11)
             pc = self.pc
-            if pc == 16: pc = 16
+            if pc == 16: pc = 0
             elif pc == 19: pc = 19
             else:
                 assert 0 # unreachable
