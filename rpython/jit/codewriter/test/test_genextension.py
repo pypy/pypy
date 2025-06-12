@@ -224,4 +224,77 @@ def jit_shortcut(self): # test
 
 
 def test_skip_conditional_jump():
-    pass
+    ssarepr = SSARepr("test", genextension=True)
+    i0, i1 = Register('int', 0x0), Register('int', 0x1)
+    ssarepr.insns = [
+        (Label('L1'),),
+        ('int_sub', i0, Constant(1, lltype.Signed), '->', i0),
+        ('int_add', i1, i0, '->', i1),
+        ('-live-', i1, i0), # goal: make int_add jump to 'goto_if_not_int_gt'
+        ('goto_if_not_int_gt', i0, Constant(0, lltype.Signed), TLabel('L2')),
+        ('goto', TLabel('L1')),
+        ('---',),
+        (Label('L2'),),
+        ('-live-', i1, i0),     # TODO
+        (Label('L3'),),         # optimize -live- and goto L4 chan
+        ('goto', TLabel('L4')), # here
+        (Label('L4'),),
+        ('int_return', i1),
+        ('---',)]
+    assembler = Assembler()
+    jitcode = assembler.assemble(ssarepr, num_regs={'int': 2})
+    assert jitcode._genext_source == """\
+def jit_shortcut(self): # test
+    pc = self.pc
+    while 1:
+        if pc == 0: # ('int_sub', %i0, (1), '->', %i0)
+            self.pc = 4
+            self._result_argcode = 'i'
+            self.registers_i[0] = self.opimpl_int_sub(self.registers_i[0], ConstInt(1))
+            pc = 4
+            continue
+        if pc == 4: # ('int_add', %i1, %i0, '->', %i1)
+            self.pc = 8
+            self._result_argcode = 'i'
+            self.registers_i[1] = self.opimpl_int_add(self.registers_i[1], self.registers_i[0])
+            pc = 11
+            continue
+        if pc == 8: # ('-live-', %i1, %i0)
+            self.pc = 11
+            pass # live
+            pc = 11
+            continue
+        if pc == 11: # ('goto_if_not_int_gt', %i0, (0), TLabel('L2'))
+            self.pc = 16
+            self._result_argcode = 'v'
+            self.opimpl_goto_if_not_int_gt(self.registers_i[0], ConstInt(0), 19, 11)
+            pc = self.pc
+            if pc == 16: pc = 0
+            elif pc == 19: pc = 22
+            else:
+                assert 0 # unreachable
+            continue
+        if pc == 16: # ('goto', TLabel('L1'))
+            self.pc = 19
+            pc = self.pc = 0 # goto
+            continue
+            pc = 0
+            continue
+        if pc == 19: # ('-live-', %i1, %i0)
+            self.pc = 22
+            pass # live
+            pc = 25
+            continue
+        if pc == 22: # ('goto', TLabel('L4'))
+            self.pc = 25
+            pc = self.pc = 25 # goto
+            continue
+            pc = 25
+            continue
+        if pc == 25: # ('int_return', %i1)
+            self.pc = 27
+            try:
+                self.opimpl_int_return(self.registers_i[1])
+            except ChangeFrame: return
+            assert 0 # unreachable
+        assert 0 # unreachable"""
