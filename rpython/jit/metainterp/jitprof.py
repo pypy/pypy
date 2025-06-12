@@ -20,6 +20,9 @@ class BaseProfiler(object):
 class EmptyProfiler(BaseProfiler):
     initialized = True
 
+    def __init__(self, metainterp_sd=None):
+        BaseProfiler.__init__(self, metainterp_sd)
+
     def start(self):
         pass
 
