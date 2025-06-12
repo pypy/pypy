@@ -44,7 +44,7 @@ def jit_shortcut(self): # test
             self.pc = 13
             self._result_argcode = 'i'
             self.registers_i[22] = self.opimpl_int_sub(self.registers_i[22], ConstInt(1))
-            pc = 13
+            pc = 0
             continue
         if pc == 13: # ('goto', TLabel('L1'))
             self.pc = 16

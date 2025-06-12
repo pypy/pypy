@@ -77,6 +77,9 @@ class GenExtension(object):
                 next_insn = self.pc_to_insn[pcs[0]]
                 if next_insn[0] == '-live-':
                     pcs[0] = self.pc_to_nextpc[pcs[0]]
+                if next_insn[0] == 'goto':
+                    goto_target = self._decode_label(pcs[0]+1)
+                    pcs[0] = goto_target
                 self.code.append("    pc = %s" % pcs[0])
             else:
                 self.code.append("    pc = self.pc")
@@ -106,6 +109,11 @@ class GenExtension(object):
         name = "glob%s" % len(self.globals)
         self.globals[name] = obj
         return name
+
+    def _decode_label(self, position):
+        code = self.jitcode.code
+        needed_label = ord(code[position]) | (ord(code[position+1])<<8)
+        return needed_label
 
     def _parse_args(self, index, pc, nextpc):
         from rpython.jit.metainterp.pyjitpl import MIFrame
@@ -155,7 +163,7 @@ class GenExtension(object):
                 assert self.argcodes[next_argcode] == 'L'
                 next_argcode = next_argcode + 1
                 assert needed_label is None # only one label per instruction
-                needed_label = ord(code[position]) | (ord(code[position+1])<<8)
+                needed_label = self._decode_label(position)
                 value = str(needed_label)
                 position += 2
             elif argtype == "boxes":     # a list of boxes of some type
