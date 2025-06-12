@@ -13,6 +13,8 @@ class GenExtension(object):
         self.ssarepr = ssarepr
         self.jitcode = jitcode
         self.precode = []
+        self.pc_to_insn = {}
+        self.pc_to_nextpc = {}
         self.code = []
         self.globals = {}
         self._reset_insn()
@@ -40,13 +42,22 @@ class GenExtension(object):
             self._reset_insn()
             if isinstance(insn[0], Label) or insn[0] == '---':
                 continue
-            self.insn = insn
             pc = ssarepr._insns_pos[index]
-            self.code.append("if pc == %s: # %s" % (pc, self.insn))
+            self.pc_to_insn[pc] = insn
             if index == len(self.ssarepr.insns) - 1:
                 nextpc = len(self.jitcode.code)
             else:
                 nextpc = self.ssarepr._insns_pos[index + 1]
+            self.pc_to_nextpc[pc] = nextpc
+
+        for index, insn in enumerate(ssarepr.insns):
+            self._reset_insn()
+            if isinstance(insn[0], Label) or insn[0] == '---':
+                continue
+            self.insn = insn
+            pc = ssarepr._insns_pos[index]
+            self.code.append("if pc == %s: # %s" % (pc, self.insn))
+            nextpc = self.pc_to_nextpc[pc]
             self.code.append("    self.pc = %s" % (nextpc, ))
             instruction = self.insns[ord(self.jitcode.code[pc])]
             self.name, self.argcodes = instruction.split("/")
@@ -63,13 +74,17 @@ class GenExtension(object):
                 self.code.append("    assert 0 # unreachable")
                 continue
             elif len(pcs) == 1:
-                self.code.append("    pc = %s" % pcs[0])
+                next_insn = self.pc_to_insn[pcs[0]]
+                goto_target = self._find_actual_jump_target(next_insn, pcs[0])
+                self.code.append("    pc = %s" % goto_target)
             else:
                 self.code.append("    pc = self.pc")
                 # do the trick
                 prefix = ''
                 for pc in pcs:
-                    self.code.append("    %sif pc == %s: pc = %s" % (prefix, pc, pc))
+                    next_insn = self.pc_to_insn[pc]
+                    goto_target = self._find_actual_jump_target(next_insn, pc)
+                    self.code.append("    %sif pc == %s: pc = %s" % (prefix, pc, goto_target))
                     prefix = "el"
                 self.code.append("    else:")
                 self.code.append("        assert 0 # unreachable")
@@ -92,6 +107,33 @@ class GenExtension(object):
         name = "glob%s" % len(self.globals)
         self.globals[name] = obj
         return name
+
+    def _decode_label(self, position):
+        code = self.jitcode.code
+        needed_label = ord(code[position]) | (ord(code[position+1])<<8)
+        return needed_label
+
+    def _find_actual_jump_target(self, next_insn, targetpc):
+        if next_insn[0] == 'goto':
+            return self._decode_label(targetpc+1)
+        elif next_insn[0] == '-live-':
+            return self.pc_to_nextpc[targetpc]
+        else:
+            # otherwise, just return pc
+            return targetpc
+
+    def _find_actual_jump_target_chain(self, next_insn, targetpc):
+        # TODO: test this method
+        insn = next_insn[0]
+        while True:
+            if insn == 'goto':
+                targetpc = self._decode_label(targetpc+1)
+            elif insn == '-live-':
+                targetpc = self.pc_to_nextpc[targetpc]
+            else:
+                break
+            insn = self.pc_to_insn[targetpc]
+        return targetpc
 
     def _parse_args(self, index, pc, nextpc):
         from rpython.jit.metainterp.pyjitpl import MIFrame
@@ -141,7 +183,7 @@ class GenExtension(object):
                 assert self.argcodes[next_argcode] == 'L'
                 next_argcode = next_argcode + 1
                 assert needed_label is None # only one label per instruction
-                needed_label = ord(code[position]) | (ord(code[position+1])<<8)
+                needed_label = self._decode_label(position)
                 value = str(needed_label)
                 position += 2
             elif argtype == "boxes":     # a list of boxes of some type
