@@ -221,3 +221,7 @@ def jit_shortcut(self): # test
             except ChangeFrame: return
             assert 0 # unreachable
         assert 0 # unreachable"""
+
+
+def test_skip_conditional_jump():
+    pass
