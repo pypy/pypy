@@ -13,6 +13,8 @@ class GenExtension(object):
         self.ssarepr = ssarepr
         self.jitcode = jitcode
         self.precode = []
+        self.pc_to_insn = {}
+        self.pc_to_nextpc = {}
         self.code = []
         self.globals = {}
         self._reset_insn()
@@ -40,13 +42,22 @@ class GenExtension(object):
             self._reset_insn()
             if isinstance(insn[0], Label) or insn[0] == '---':
                 continue
-            self.insn = insn
             pc = ssarepr._insns_pos[index]
-            self.code.append("if pc == %s: # %s" % (pc, self.insn))
+            self.pc_to_insn[pc] = insn
             if index == len(self.ssarepr.insns) - 1:
                 nextpc = len(self.jitcode.code)
             else:
                 nextpc = self.ssarepr._insns_pos[index + 1]
+            self.pc_to_nextpc[pc] = nextpc
+
+        for index, insn in enumerate(ssarepr.insns):
+            self._reset_insn()
+            if isinstance(insn[0], Label) or insn[0] == '---':
+                continue
+            self.insn = insn
+            pc = ssarepr._insns_pos[index]
+            self.code.append("if pc == %s: # %s" % (pc, self.insn))
+            nextpc = self.pc_to_nextpc[pc]
             self.code.append("    self.pc = %s" % (nextpc, ))
             instruction = self.insns[ord(self.jitcode.code[pc])]
             self.name, self.argcodes = instruction.split("/")
