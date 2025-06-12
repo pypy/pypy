@@ -75,7 +75,7 @@ class GenExtension(object):
                 continue
             elif len(pcs) == 1:
                 next_insn = self.pc_to_insn[pcs[0]]
-                goto_target = self._find_actual_jump_target(next_insn[0], pcs[0])
+                goto_target = self._find_actual_jump_target(next_insn, pcs[0])
                 self.code.append("    pc = %s" % goto_target)
             else:
                 self.code.append("    pc = self.pc")
@@ -83,7 +83,7 @@ class GenExtension(object):
                 prefix = ''
                 for pc in pcs:
                     next_insn = self.pc_to_insn[pc]
-                    goto_target = self._find_actual_jump_target(next_insn[0], pc)
+                    goto_target = self._find_actual_jump_target(next_insn, pc)
                     self.code.append("    %sif pc == %s: pc = %s" % (prefix, pc, goto_target))
                     prefix = "el"
                 self.code.append("    else:")
@@ -113,14 +113,14 @@ class GenExtension(object):
         needed_label = ord(code[position]) | (ord(code[position+1])<<8)
         return needed_label
 
-    def _find_actual_jump_target(self, next_insn, pc):
-        if next_insn == 'goto':
-            return self._decode_label(pc+1)
-        elif next_insn == '-live-':
-            return self.pc_to_nextpc[pc]
+    def _find_actual_jump_target(self, next_insn, targetpc):
+        if next_insn[0] == 'goto':
+            return self._decode_label(targetpc+1)
+        elif next_insn[0] == '-live-':
+            return self.pc_to_nextpc[targetpc]
         else:
             # otherwise, just return pc
-            return pc
+            return targetpc
 
     def _parse_args(self, index, pc, nextpc):
         from rpython.jit.metainterp.pyjitpl import MIFrame
