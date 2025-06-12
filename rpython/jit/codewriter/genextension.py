@@ -122,6 +122,19 @@ class GenExtension(object):
             # otherwise, just return pc
             return targetpc
 
+    def _find_actual_jump_target_chain(self, next_insn, targetpc):
+        # TODO: test this method
+        insn = next_insn[0]
+        while True:
+            if insn == 'goto':
+                targetpc = self._decode_label(targetpc+1)
+            elif insn == '-live-':
+                targetpc = self.pc_to_nextpc[targetpc]
+            else:
+                break
+            insn = self.pc_to_insn[targetpc]
+        return targetpc
+
     def _parse_args(self, index, pc, nextpc):
         from rpython.jit.metainterp.pyjitpl import MIFrame
         from rpython.jit.metainterp.blackhole import signedord
