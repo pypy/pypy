@@ -658,6 +658,11 @@ def _create_instance_subtype(space, w_type, __args__=None):
     w_result = space.call_obj_args(w_newfunc, w_type, __args__)
     return _finish_create_instance(space, w_result, w_type)
 
+def _helper_find_hpy_base(w_type):
+    for w_b in w_type.mro_w:
+        if isinstance(w_b, W_HPyTypeObject):
+            return w_b
+
 def _finish_create_instance(space, w_result, w_type):
     # avoid circular import
     from pypy.module._hpy_universal.interp_cpy_compat import create_pyobject_from_storage
@@ -667,12 +672,8 @@ def _finish_create_instance(space, w_result, w_type):
     else:
         # a subclass?
         assert isinstance(w_type, W_TypeObject)
-        w_hpybase = w_type
-        for w_b in w_type.mro_w:
-            if isinstance(w_b, W_HPyTypeObject):
-                w_hpybase = w_b
-                break
-        else:
+        w_hpybase = _helper_find_hpy_base(w_type)
+        if w_hpybase is None:
             # This can happen via a direct call to HPy_New of a non-hpy type
             return w_result
     assert isinstance(w_hpybase, W_HPyTypeObject)
