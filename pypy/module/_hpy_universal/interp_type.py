@@ -26,7 +26,7 @@ Shapes = llapi.cts.gettype("HPyType_BuiltinShape")
 
 # ========== Implementation of HPy objects ==========
 #
-# HPy objects are instances of HPy types, defined in C. One pecularity of HPy
+# HPy objects are instances of HPy types, defined in C. One peculiarity of HPy
 # objects is that they need a certain amount of "C memory" which contains the
 # user data.
 #
@@ -48,12 +48,12 @@ Shapes = llapi.cts.gettype("HPyType_BuiltinShape")
 # way:
 #
 #   1. a W_HPyObject allocated in the nursery, which contains a pointer to (2)
-#   2. a HPY_STORAGE allocted as non-movable, which contains a GC header + a
+#   2. a HPY_STORAGE allocated as non-movable, which contains a GC header + a
 #      word to store the array size + the data itself
 #
 # So, for each HPy object, we do two allocations and we waste 3 words (one for
 # the pointer, one for the HPY_STORAGE GC header, one for HPY_STORAGE array
-# size).  This means that there is room for at least two improvments:
+# size).  This means that there is room for at least two improvements:
 #
 #   1. RPython support for varsized instances, so that we can inline the user
 #      data directly inside W_HPyObject
@@ -78,7 +78,7 @@ def storage_alloc(size):
     Allocate an HPY_STORAGE containing 'size' bytes of user data. The memory is
     guaranteed to be zeroed.
     """
-    # ideally we sould like to use lltype.malloc(..., zero=True), but this is
+    # ideally we would like to use lltype.malloc(..., zero=True), but this is
     # not supported by the GC transformer if it's varsized, see
     # rpython/memory/gctransform/framework.py:gen_zero_gc_pointers
     s = lltype.malloc(HPY_STORAGE, size, nonmovable=True) #, zero=True)
@@ -117,7 +117,7 @@ hpy_customtrace._skip_collect_analyzer_ = True
 # the GC itself, but here it is confused by the call to tp_traverse, which it
 # cannot analyze and thus assumes to have random effects. We know by design
 # that tp_traverse cannot invoke the GC (because we don't pass a ctx to it),
-# so we just bypass the sanity check. This measn that you need to be extra
+# so we just bypass the sanity check. This means that you need to be extra
 # cautions when modifying hpy_customtrace, and double check that you don't
 # insert any operation which can actually collect.
 
@@ -246,7 +246,7 @@ class W_HPyTypeObject(W_TypeObject):
         # XXX: there is a discussion going on to make it possible to create
         # non-heap types with HPyType_FromSpec. Remember to fix this place
         # when it's the case.
-        W_TypeObject.__init__(self, space, name, 
+        W_TypeObject.__init__(self, space, name,
             bases_w, dict_w, is_heaptype=True)
         assert isinstance(self, W_HPyTypeObject)
         self.basicsize = basicsize
@@ -288,7 +288,7 @@ def _HPy_New(space, handles, ctx, h_type, data):
         w_result = _create_instance_subtype(space, w_type, Arguments(space, []))
     data = llapi.cts.cast('void**', data)
     # XXX if the w_type is a cpyext type, make sure the storage is the same as
-    # the cpyext one. 
+    # the cpyext one.
     storage = w_result._hpy_get_raw_storage(space)
     if not storage:
         # print "HPy_New: setting storage for type '%s' to NULL" % space.text_w(space.repr(w_type))
@@ -746,5 +746,3 @@ def HPyType_IsSubtype(space, handles, ctx, sub, typ):
     w_sub = handles.deref(sub)
     w_type = handles.deref(typ)
     return API.int(abstract_issubclass_w(space, w_sub, w_type))
-    
-
