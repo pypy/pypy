@@ -147,7 +147,7 @@ Py_TPFLAGS_HEAPTYPE METH_METHOD
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE PyBUF_MAX_NDIM
 Py_CLEANUP_SUPPORTED PyBUF_READ
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE PyBUF_WRITE
-PY_SSIZE_T_MAX PY_SSIZE_T_MIN
+PY_SSIZE_T_MAX PY_SSIZE_T_MIN PYTHON_API_VERSION PYTHON_ABI_VERSION
 """.split()
 
 for name in ('LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
@@ -1890,6 +1890,7 @@ initfunctype = lltype.Ptr(lltype.FuncType([], PyObject))
 def create_cpyext_module(space, w_spec, name, path, dll, initptr):
     from rpython.rlib import rdynload
     from pypy.module.cpyext.pyobject import get_w_obj_and_decref
+    from pypy.module.cpyext.modsupport import PyModuleDef
 
     state = space.fromcache(State)
     state.make_sure_cpyext_is_imported()
@@ -1924,7 +1925,8 @@ def create_cpyext_module(space, w_spec, name, path, dll, initptr):
         if rffi.charp2str(tp_name_nonconst) == "moduledef":
             from pypy.module.cpyext.modsupport import \
                     create_module_from_def_and_spec
-            return create_module_from_def_and_spec(space, initret, w_spec,
+            moddef = rffi.cast(PyModuleDef, initret)
+            return create_module_from_def_and_spec(space, moddef, w_spec,
                                                    name)
     finally:
         state.package_context = old_context

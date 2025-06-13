@@ -1,11 +1,13 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, CONST_STRING,
     METH_NOARGS, METH_O, METH_VARARGS, build_type_checkers,
     parse_dir, bootstrap_function, generic_cpy_call, cts, cpython_api,
-    generic_cpy_call_dont_convert_result, slot_function)
+    generic_cpy_call_dont_convert_result, slot_function,
+    PYTHON_ABI_VERSION, PYTHON_API_VERSION)
 from pypy.module.cpyext.pyobject import (PyObject, as_pyobj, make_typedescr,
-    keepalive_until_here)
+    keepalive_until_here, from_ref)
 from pypy.interpreter.module import Module
 from pypy.module.cpyext.methodobject import (
     W_PyCFunctionObject, W_PyCMethodObject,
@@ -279,3 +281,26 @@ def PyModule_ExecDef(space, w_mod, c_def):
     exec_def(space, py_mod, c_def)
     keepalive_until_here(w_mod)
     return 0
+
+@cts.decl("PyObject *PyModule_FromDefAndSpec2(PyModuleDef*, PyObject*, int)")
+def PyModule_FromDefAndSpec2(space, moddef, spec, module_api_version):
+    w_spec = space.w_None
+    if spec:
+        w_spec = from_ref(space, spec)
+    name = space.text_w(space.getattr(w_spec, space.newtext("name")))
+    module_api_version = widen(module_api_version)
+    if module_api_version != PYTHON_API_VERSION and module_api_version != PYTHON_ABI_VERSION:
+        msg = ("Python C API version mismatch for module %s: "
+            "This Python has API version %d, module %s has version %d." %
+             (name[:100],
+             PYTHON_API_VERSION, name[:100], module_api_version))
+        space.warn(space.newtext(msg), space.w_RuntimeWarning)
+    return create_module_from_def_and_spec(space, moddef, w_spec, name)
+
+@cts.decl("PyObject *PyModule_FromDefAndSpec(PyModuleDef*, PyObject*)")
+def PyModule_FromDefAndSpec(space, moddef, spec):
+    w_spec = space.w_None
+    if spec:
+        w_spec = from_ref(space, spec)
+    name = space.text_w(space.getattr(w_spec, space.newtext("name")))
+    return create_module_from_def_and_spec(space, moddef, w_spec, name)

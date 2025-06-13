@@ -379,3 +379,36 @@ class AppTestMultiPhase2(AppTestCpythonExtensionBase):
         print("module", dir(module))
         instance0 = module.StateAccessType()
         assert instance0.get_defining_module() == module
+
+    def test_fromdefandspec(self):
+        import sys
+        import warnings
+        prologue = """
+        static struct PyModuleDef foo2moduledef = {
+                PyModuleDef_HEAD_INIT,
+                "foo2",          /* m_name */
+                NULL,           /* m_doc */
+                0,              /* m_size */
+                NULL            /* m_methods */
+            };
+        """
+        module = self.import_extension("get_mod", [
+            ('fromdefandspec', "METH_O",
+            """
+                return PyModule_FromDefAndSpec2(&foo2moduledef, args, 1013);
+            """),
+            ('fromdefandspec2', "METH_O",
+            """
+                return PyModule_FromDefAndSpec2(&foo2moduledef, args, 2);
+            """),
+            ], prologue=prologue)
+
+        class Spec:
+            name = "foo2"
+        spec = Spec()
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always", RuntimeWarning)
+            foo2 = module.fromdefandspec2(spec)
+        assert foo2.__name__ == "foo2"
+        foo2 = module.fromdefandspec(spec)
+        assert foo2.__name__ == "foo2"
