@@ -102,20 +102,22 @@ def jit_shortcut(self): # test
             if arg.is_constant():
                 value = arg.getint()
                 if value == -5:
-                    pc = self.pc = 9
+                    pc = self.pc = 12
                     continue
-                if value == 2:
-                    pc = self.pc = 14
+                elif value == 2:
+                    pc = self.pc = 17
                     continue
-                if value == 7:
-                    pc = self.pc = 19
+                elif value == 7:
+                    pc = self.pc = 22
                     continue
+                else:
+                    assert 0 # unreachable
             self._result_argcode = 'v'
             self.opimpl_switch(self.registers_i[22], glob0, 3)
             pc = self.pc
-            if pc == 9: pc = 9
-            elif pc == 14: pc = 14
-            elif pc == 19: pc = 19
+            if pc == 9: pc = 12
+            elif pc == 14: pc = 17
+            elif pc == 19: pc = 22
             elif pc == 7: pc = 7
             else:
                 assert 0 # unreachable
@@ -293,6 +295,71 @@ def jit_shortcut(self): # test
             continue
         if pc == 25: # ('int_return', %i1)
             self.pc = 27
+            try:
+                self.opimpl_int_return(self.registers_i[1])
+            except ChangeFrame: return
+            assert 0 # unreachable
+        assert 0 # unreachable"""
+
+
+def test_skip_chained_jump_1():
+    ssarepr = SSARepr("test", genextension=True)
+    i0, i1 = Register('int', 0x0), Register('int', 0x1)
+    ssarepr.insns = [
+        (Label('L1'),),
+        ('int_sub', i0, Constant(1, lltype.Signed), '->', i0),
+        ('int_add', i1, i0, '->', i1),
+        ('goto', TLabel('L2'),),
+        (Label('L3'),),
+        ('-live-', i1, i0),
+        ('goto', TLabel('L1'),),
+        (Label('L2'),),
+        ('goto', TLabel('L3'),),
+        ('int_return', i1),
+        ('---',)]
+    assembler = Assembler()
+    jitcode = assembler.assemble(ssarepr, num_regs={'int': 2})
+    assert jitcode._genext_source == """\
+def jit_shortcut(self): # test
+    pc = self.pc
+    while 1:
+        if pc == 0: # ('int_sub', %i0, (1), '->', %i0)
+            self.pc = 4
+            self._result_argcode = 'i'
+            self.registers_i[0] = self.opimpl_int_sub(self.registers_i[0], ConstInt(1))
+            pc = 4
+            continue
+        if pc == 4: # ('int_add', %i1, %i0, '->', %i1)
+            self.pc = 8
+            self._result_argcode = 'i'
+            self.registers_i[1] = self.opimpl_int_add(self.registers_i[1], self.registers_i[0])
+            pc = 0
+            continue
+        if pc == 8: # ('goto', TLabel('L2'))
+            self.pc = 11
+            pc = self.pc = 0 # goto
+            continue
+            pc = 0
+            continue
+        if pc == 11: # ('-live-', %i1, %i0)
+            self.pc = 14
+            pass # live
+            pc = 0
+            continue
+        if pc == 14: # ('goto', TLabel('L1'))
+            self.pc = 17
+            pc = self.pc = 0 # goto
+            continue
+            pc = 0
+            continue
+        if pc == 17: # ('goto', TLabel('L3'))
+            self.pc = 20
+            pc = self.pc = 0 # goto
+            continue
+            pc = 0
+            continue
+        if pc == 20: # ('int_return', %i1)
+            self.pc = 22
             try:
                 self.opimpl_int_return(self.registers_i[1])
             except ChangeFrame: return

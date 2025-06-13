@@ -75,7 +75,7 @@ class GenExtension(object):
                 continue
             elif len(pcs) == 1:
                 next_insn = self.pc_to_insn[pcs[0]]
-                goto_target = self._find_actual_jump_target(next_insn, pcs[0])
+                goto_target = self._find_actual_jump_target_chain(next_insn, pcs[0])
                 self.code.append("    pc = %s" % goto_target)
             else:
                 self.code.append("    pc = self.pc")
@@ -123,7 +123,6 @@ class GenExtension(object):
             return targetpc
 
     def _find_actual_jump_target_chain(self, next_insn, targetpc):
-        # TODO: test this method
         insn = next_insn[0]
         while True:
             if insn == 'goto':
@@ -132,7 +131,7 @@ class GenExtension(object):
                 targetpc = self.pc_to_nextpc[targetpc]
             else:
                 break
-            insn = self.pc_to_insn[targetpc]
+            insn = self.pc_to_insn[targetpc][0]
         return targetpc
 
     def _parse_args(self, index, pc, nextpc):
@@ -304,7 +303,10 @@ class GenExtension(object):
     def emit_goto(self):
         assert len(self.args) == 1
         lines = []
-        lines.append("pc = self.pc = %s # goto" % (self.args[0], ))
+        targetpc = int(self.args[0])
+        next_insn = self.pc_to_insn[targetpc]
+        goto_target = self._find_actual_jump_target_chain(next_insn, targetpc)
+        lines.append("pc = self.pc = %s # goto" % (goto_target, ))
         lines.append("continue")
         return lines
 
@@ -316,10 +318,17 @@ class GenExtension(object):
         lines.append("if arg.is_constant():")
         lines.append("    value = arg.getint()")
         dict_switch = descr.as_dict()
+        prefix = ''
         for pc in dict_switch:
-            lines.append("    if value == %d:" % pc)
-            lines.append("        pc = self.pc = %d" % dict_switch[pc])
+            targetpc = dict_switch[pc]
+            next_insn = self.pc_to_insn[targetpc]
+            targetpc = self._find_actual_jump_target(next_insn, targetpc)
+            lines.append("    %sif value == %d:" % (prefix, pc))
+            lines.append("        pc = self.pc = %d" % targetpc)
             lines.append("        continue")
+            prefix = 'el'
+        lines.append("    else:")
+        lines.append("        assert 0 # unreachable")
         newlines = self.emit_default()
         return lines + newlines
 
