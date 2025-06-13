@@ -7,9 +7,9 @@ import random
 import argparse
 
 def format_nonzero_fraction(x, n):
-    s = f"{x:.20f}".rstrip("0")  # 十分な桁数で文字列化して末尾の0は削除
+    s = f"{x:.20f}".rstrip("0")
     if "." not in s:
-        return s  # 小数点がない場合（整数）はそのまま
+        return s
 
     int_part, frac_part = s.split(".")
 
