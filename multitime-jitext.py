@@ -35,6 +35,7 @@ def parse_jit_summary(path):
                 items = line.split('\t')
                 time = float(items[-1])
                 result["Tracing"] = time
+    os.remove(path)
 
     return result
 
@@ -57,7 +58,7 @@ def main():
     log_output = f"{gen_log_id()}.log"
     env = os.environ.copy()
     env["PYPYLOG"] = f"jit-summary:{log_output}"
-    env["PYTHONPATH"] = "benchmarks/lib/chameleon/src:benchmarks/lib/chameleon/src/dulwich-0.19.13:benchmarks/lib/jinja2:benchmarks/lib/pyxl:benchmarks/lib/monte:benchmarks/lib/pytz:benchmarks/lib/sympy:benchmarks/lib/genshi:benchmarks/lib/mako:benchmarks/lib/sqlalchemy:benchmarks/lib/twisted-trunk/twisted"
+    env["PYTHONPATH"] = "benchmarks/lib/chameleon/src:benchmarks/lib/dulwich-0.19.13:benchmarks/lib/jinja2:benchmarks/lib/pyxl:benchmarks/lib/monte:benchmarks/lib/pytz:benchmarks/lib/sympy:benchmarks/lib/genshi:benchmarks/lib/mako:benchmarks/lib/sqlalchemy:benchmarks/lib/twisted-trunk/twisted:/benchmarks/lib/genshi"
 
     target, number = parse_args()
     binarie_w_names = [("pypy-main", "pypy/goal/pypy-c"), ("pypy-jit-ext", "pypy/goal/pypy-jit-ext")]
