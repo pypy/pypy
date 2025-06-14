@@ -217,22 +217,29 @@ def makePyPseudoDFA ():
 
 # ______________________________________________________________________
 
-def makePyEndDFA(quote, triple=False):
+def makePyEndDFA(quote, triple=False, f_str=False):
     assert quote in "'\""
+    stop = quote + "\\" + "{}" * f_str
     states = []
     estr = chain(states,
-                any(states, notGroupStr(states, "%s\\" % quote)),
+                any(states, notGroupStr(states, stop)),
                 any(states,
                     chain(states,
                         group(states,
                             chain(states,
                                 newArcPair(states, "\\"),
-                                newArcPair(states, DEFAULT)),
+                                newArcPair(states, DEFAULT) if not f_str else
+                                  notGroupStr(states, "{}")),
+                            # FIXME: needs update for f_str
                             *[chain(states,
                                 newArcPair(states, quote),
                                 notChainStr(states, quote * 2))] if triple else []),
-                        any(states, notGroupStr(states, "%s\\" % quote)))),
-                chainStr(states, quote * (3 if triple else 1)))
+                        any(states, notGroupStr(states, stop)))),
+                group(states,
+                    chainStr(states, quote * (3 if triple else 1)),
+                    *[chain(states,
+                        maybe(states, newArcPair(states, "\\")),
+                        groupStr(states, "{}"))] if f_str else []))
     states, accepts = nfaToDfa(states, *estr)
     return (NonGreedyDFA if triple else DFA)(states, accepts), states
 
@@ -297,15 +304,17 @@ def main ():
     print("from pypy.interpreter.pyparser import automata")
     pseudoDFA, states_pseudoDFA = makePyPseudoDFA()
     print(output("pseudoDFA", pseudoDFA, states_pseudoDFA))
-    for triple in (True, False):
-        # Order is reversed to match the original output
-        for quote in "\"'" if triple else "'\"":
-            dfa, states = makePyEndDFA(quote, triple)
-            name = "%s%sDFA" % (
-                "double" if quote == '"' else "single",
-                3 if triple else "",
-            )
-            print(output(name, dfa, states))
+    for f_str in (False, True):
+        for triple in (True, False):
+            # Order is reversed to match the original output
+            for quote in "\"'" if triple else "'\"":
+                dfa, states = makePyEndDFA(quote, triple, f_str)
+                name = "%s%s%sDFA" % (
+                    "double" if quote == '"' else "single",
+                    "f" if f_str else "",
+                    3 if triple else "",
+                )
+                print(output(name, dfa, states))
 
 # ______________________________________________________________________
 

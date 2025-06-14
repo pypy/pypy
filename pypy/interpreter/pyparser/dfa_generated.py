@@ -513,3 +513,81 @@ states = [
     ]
 doubleDFA = automata.DFA(states, accepts)
 
+accepts = [False, False, False, True, False, False, True]
+states = [
+    # 0
+    {automata.DEFAULT: 0, '"': 1,
+     '\\': 2, '{': 3, '}': 3},
+    # 1
+    {automata.DEFAULT: 5, '"': 4,
+     '\\': 2, '{': 3, '}': 3},
+    # 2
+    {automata.DEFAULT: 5, '{': 3, '}': 3},
+    # 3
+    {},
+    # 4
+    {automata.DEFAULT: 5, '"': 6,
+     '\\': 2, '{': 3, '}': 3},
+    # 5
+    {automata.DEFAULT: 5, '"': 1,
+     '\\': 2, '{': 3, '}': 3},
+    # 6
+    {automata.DEFAULT: 5, '"': 6,
+     '\\': 2, '{': 3, '}': 3},
+    ]
+doublef3DFA = automata.NonGreedyDFA(states, accepts)
+
+accepts = [False, False, False, True, False, False, True]
+states = [
+    # 0
+    {automata.DEFAULT: 0, "'": 1,
+     '\\': 2, '{': 3, '}': 3},
+    # 1
+    {automata.DEFAULT: 5, "'": 4,
+     '\\': 2, '{': 3, '}': 3},
+    # 2
+    {automata.DEFAULT: 5, '{': 3, '}': 3},
+    # 3
+    {},
+    # 4
+    {automata.DEFAULT: 5, "'": 6,
+     '\\': 2, '{': 3, '}': 3},
+    # 5
+    {automata.DEFAULT: 5, "'": 1,
+     '\\': 2, '{': 3, '}': 3},
+    # 6
+    {automata.DEFAULT: 5, "'": 6,
+     '\\': 2, '{': 3, '}': 3},
+    ]
+singlef3DFA = automata.NonGreedyDFA(states, accepts)
+
+accepts = [False, True, False, False]
+states = [
+    # 0
+    {automata.DEFAULT: 0, "'": 1,
+     '\\': 2, '{': 1, '}': 1},
+    # 1
+    {},
+    # 2
+    {automata.DEFAULT: 3, '{': 1, '}': 1},
+    # 3
+    {automata.DEFAULT: 3, "'": 1,
+     '\\': 2, '{': 1, '}': 1},
+    ]
+singlefDFA = automata.DFA(states, accepts)
+
+accepts = [False, True, False, False]
+states = [
+    # 0
+    {automata.DEFAULT: 0, '"': 1,
+     '\\': 2, '{': 1, '}': 1},
+    # 1
+    {},
+    # 2
+    {automata.DEFAULT: 3, '{': 1, '}': 1},
+    # 3
+    {automata.DEFAULT: 3, '"': 1,
+     '\\': 2, '{': 1, '}': 1},
+    ]
+doublefDFA = automata.DFA(states, accepts)
+
