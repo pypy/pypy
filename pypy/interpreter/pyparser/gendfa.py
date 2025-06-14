@@ -217,73 +217,28 @@ def makePyPseudoDFA ():
 
 # ______________________________________________________________________
 
-def makePyEndDFAMap ():
+def makePyEndDFA(quote, triple=False):
+    assert quote in "'\""
     states = []
-    single = chain(states,
-                   any(states, notGroupStr(states, "'\\")),
-                   any(states,
-                       chain(states,
-                             newArcPair(states, "\\"),
-                             newArcPair(states, DEFAULT),
-                             any(states, notGroupStr(states, "'\\")))),
-                   newArcPair(states, "'"))
-    states, accepts = nfaToDfa(states, *single)
-    singleDFA = DFA(states, accepts)
-    states_singleDFA = states
-    states = []
-    double = chain(states,
-                   any(states, notGroupStr(states, '"\\')),
-                   any(states,
-                       chain(states,
-                             newArcPair(states, "\\"),
-                             newArcPair(states, DEFAULT),
-                             any(states, notGroupStr(states, '"\\')))),
-                   newArcPair(states, '"'))
-    states, accepts = nfaToDfa(states, *double)
-    doubleDFA = DFA(states, accepts)
-    states_doubleDFA = states
-    states = []
-    single3 = chain(states,
-                    any(states, notGroupStr(states, "'\\")),
-                    any(states,
-                        chain(states,
-                              group(states,
-                                    chain(states,
-                                          newArcPair(states, "\\"),
-                                          newArcPair(states, DEFAULT)),
-                                    chain(states,
-                                          newArcPair(states, "'"),
-                                          notChainStr(states, "''"))),
-                              any(states, notGroupStr(states, "'\\")))),
-                    chainStr(states, "'''"))
-    states, accepts = nfaToDfa(states, *single3)
-    single3DFA = NonGreedyDFA(states, accepts)
-    states_single3DFA = states
-    states = []
-    double3 = chain(states,
-                    any(states, notGroupStr(states, '"\\')),
-                    any(states,
-                        chain(states,
-                              group(states,
-                                    chain(states,
-                                          newArcPair(states, "\\"),
-                                          newArcPair(states, DEFAULT)),
-                                    chain(states,
-                                          newArcPair(states, '"'),
-                                          notChainStr(states, '""'))),
-                              any(states, notGroupStr(states, '"\\')))),
-                    chainStr(states, '"""'))
-    states, accepts = nfaToDfa(states, *double3)
-    double3DFA = NonGreedyDFA(states, accepts)
-    states_double3DFA = states
-    return {"'" : (singleDFA, states_singleDFA),
-            '"' : (doubleDFA, states_doubleDFA),
-            "'''": (single3DFA, states_single3DFA),
-            '"""': (double3DFA, states_double3DFA)}
+    estr = chain(states,
+                any(states, notGroupStr(states, "%s\\" % quote)),
+                any(states,
+                    chain(states,
+                        group(states,
+                            chain(states,
+                                newArcPair(states, "\\"),
+                                newArcPair(states, DEFAULT)),
+                            *[chain(states,
+                                newArcPair(states, quote),
+                                notChainStr(states, quote * 2))] if triple else []),
+                        any(states, notGroupStr(states, "%s\\" % quote)))),
+                chainStr(states, quote * (3 if triple else 1)))
+    states, accepts = nfaToDfa(states, *estr)
+    return (NonGreedyDFA if triple else DFA)(states, accepts), states
 
 # ______________________________________________________________________
 
-def output(name, dfa_class, dfa, states):
+def output(name, dfa, states):
     import textwrap
     lines = []
     i = 0
@@ -330,7 +285,7 @@ def output(name, dfa_class, dfa, states):
             lines.append('\n')
             i += 1
     lines.append("    ]\n")
-    lines.append("%s = automata.%s(states, accepts)\n" % (name, dfa_class))
+    lines.append("%s = automata.%s(states, accepts)\n" % (name, dfa.__class__.__name__))
     return ''.join(lines)
 
 def main ():
@@ -341,16 +296,16 @@ def main ():
     print()
     print("from pypy.interpreter.pyparser import automata")
     pseudoDFA, states_pseudoDFA = makePyPseudoDFA()
-    print(output("pseudoDFA", "DFA", pseudoDFA, states_pseudoDFA))
-    endDFAMap = makePyEndDFAMap()
-    dfa, states = endDFAMap['"""']
-    print(output("double3DFA", "NonGreedyDFA", dfa, states))
-    dfa, states = endDFAMap["'''"]
-    print(output("single3DFA", "NonGreedyDFA", dfa, states))
-    dfa, states = endDFAMap["'"]
-    print(output("singleDFA", "DFA", dfa, states))
-    dfa, states = endDFAMap['"']
-    print(output("doubleDFA", "DFA", dfa, states))
+    print(output("pseudoDFA", pseudoDFA, states_pseudoDFA))
+    for triple in (True, False):
+        # Order is reversed to match the original output
+        for quote in "\"'" if triple else "'\"":
+            dfa, states = makePyEndDFA(quote, triple)
+            name = "%s%sDFA" % (
+                "double" if quote == '"' else "single",
+                3 if triple else "",
+            )
+            print(output(name, dfa, states))
 
 # ______________________________________________________________________
 
