@@ -410,25 +410,36 @@ class Tokenizer(object):
         self.continued = False
 
     def _tokenize_regular(self, line):
-        while self.pos < self.max:
-            pseudomatch = pseudoDFA.recognize(line, self.pos)
-            start = whiteSpaceDFA.recognize(line, self.pos)
-            if pseudomatch >= 0:                            # scan for tokens
-                done = self._classify_token(line, start, pseudomatch)
-                if done:
-                    return
+        done = False
+        while self.pos < self.max and not done:
+            mode = self.state.mode
+            if mode == TokenizerState.NORMAL:
+                done = self._tokenize_regular_normal(line)
+            elif mode == TokenizerState.FSTRING:
+                done = self._tokenize_fstring(line)
+            elif mode == TokenizerState.FSTRING_INTERPOLATION:
+                raise NotImplementedError
             else:
-                if start < 0:
-                    start = self.pos
-                if start<self.max and line[start] in single_quoted:
-                    raise_unterminated_string(False, line, self.lnum, start+1,
-                                              self.token_list, self.lnum, len(line))
-                if line[self.pos] == "0":
-                    self._raise_token_error("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers",
-                            line, self.lnum, self.pos+1)
-                self._add_token(tokens.ERRORTOKEN, line[self.pos], self.lnum, self.pos, line)
-                self.last_comment = ''
-                self.pos += 1
+                assert 0, "unreachable"
+
+    def _tokenize_regular_normal(self, line):
+        pseudomatch = pseudoDFA.recognize(line, self.pos)
+        start = whiteSpaceDFA.recognize(line, self.pos)
+        if pseudomatch >= 0:                            # scan for tokens
+            done = self._classify_token(line, start, pseudomatch)
+            return done
+
+        if start < 0:
+            start = self.pos
+        if start<self.max and line[start] in single_quoted:
+            raise_unterminated_string(False, line, self.lnum, start+1,
+                                        self.token_list, self.lnum, len(line))
+        if line[self.pos] == "0":
+            self._raise_token_error("leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers",
+                    line, self.lnum, self.pos+1)
+        self._add_token(tokens.ERRORTOKEN, line[self.pos], self.lnum, self.pos, line)
+        self.last_comment = ''
+        self.pos += 1
 
     def _classify_token(self, line, start, pseudomatch):
         if start < 0:
@@ -491,16 +502,8 @@ class Tokenizer(object):
                 return True
         elif token in single_fstring or token in triple_fstring:
             self._add_token(tokens.FSTRING_START, token, self.lnum, start, line, self.lnum, end)
-            string_end_dfa = endDFAs[token]
-            endmatch = string_end_dfa.recognize(line, self.pos)
-            if endmatch >= 0:
-                self.pos = endmatch
-                token = line[start:self.pos]
-                self._add_token(tokens.FSTRING_MIDDLE, token, self.lnum, start, line, self.lnum, self.pos)
-                self.last_comment = ''
-            else:
-                self._contstr_start(string_end_dfa, start, line, len(token) >= 4, line[start:])
-                return True
+            self.state_stack.append(TokenizerState(TokenizerState.FSTRING))
+            self._contstr_start(endDFAs[token], start+len(token), line, len(token) >= 4, "")
         elif initial in single_quoted or \
             token[:2] in single_quoted or \
             token[:3] in single_quoted:
@@ -586,6 +589,38 @@ class Tokenizer(object):
             self.last_comment = ''
         return False
 
+    def _tokenize_fstring(self, line):
+        state = self.state
+        match = state.string_end_dfa.recognize(line, self.pos)
+        if match >= 0:
+            last_c, next_c = line[match - 1], line[match]
+            if last_c in "{}":
+                if last_c == next_c:
+                    raise NotImplementedError("f-string with double braces not implemented")
+
+                # TODO:
+                # state.contstrs.append(line[self.pos:match])
+                # self.pos = match
+                raise NotImplementedError("f-string with single brace not implemented: %s" % (last_c))
+            else:
+                # end of f-string
+                eos = match - (3 if state.strstart_is_triple_quoted else 1)
+                contstrs = state.contstrs
+                contstrs.append(line[self.pos:eos])
+                content = "".join(contstrs)
+                if content:
+                    self._add_token(tokens.FSTRING_MIDDLE, content,
+                                    state.strstart_linenumber, state.strstart_offset,
+                                    line, self.lnum, eos)
+
+                self._add_token(tokens.FSTRING_END, line[eos:match],
+                                self.lnum, eos, line, self.lnum, match)
+                self.state_stack.pop()
+                self.pos = match
+
+        else:
+            raise NotImplementedError("f-string continuation not implemented")
+
 
 def generate_tokens(lines, flags):
     """
@@ -601,7 +636,7 @@ def generate_tokens(lines, flags):
 
     Original docstring ::
 
-        The generate_tokens() generator requires one argment, readline, which
+        The generate_tokens() generator requires one argument, readline, which
         must be a callable object which provides the same interface as the
         readline() method of built-in file objects. Each call to the function
         should return one line of input as a string.

@@ -333,20 +333,23 @@ class TestTokenizer310Changes(object):
         assert levels == [0, 0, 1, 1, 1, 1, 0, 1, 2, 2, 2, 2, 1, 0, 0, 0, 0]
 
 
-class TestTokenizer312Changes(object):
-    def test_empty_f_string(self):
-        line = 'f""'
-        tks = tokenize(line)
-        assert tks[:2] == [
-            Token(tokens.FSTRING_START, 'f"', 1, 0, line, 1, 2),
-            Token(tokens.FSTRING_END, '"', 1, 2, line, 1, 3),
-        ]
+# FIXME: Putting the tests inside a class sets up a testspace that
+# loads the _bootstrap_external module, which uses f-strings, which
+# cannot be parsed by the old parser yet.
+# class TestTokenizer312Changes(object):
+def test_empty_f_string():
+    line = 'f""\n'
+    tks = tokenize(line)
+    assert tks[:2] == [
+        Token(tokens.FSTRING_START, 'f"', 1, 0, line, 1, 2),
+        Token(tokens.FSTRING_END, '"', 1, 2, line, 1, 3),
+    ]
 
-    def test_simple_f_string(self):
-        line = 'f"abc"'
-        tks = tokenize(line)
-        assert tks[:3] == [
-            Token(tokens.FSTRING_START, 'f"', 1, 0, line, 1, 2),
-            Token(tokens.FSTRING_MIDDLE, 'abc', 1, 2, line, 1, 6),
-            Token(tokens.FSTRING_END, '"', 1, 6, line, 1, 7),
-        ]
+def test_simple_f_string():
+    line = 'f"abc"\n'
+    tks = tokenize(line)
+    assert tks[:3] == [
+        Token(tokens.FSTRING_START, 'f"', 1, 0, line, 1, 2),
+        Token(tokens.FSTRING_MIDDLE, 'abc', 1, 2, line, 1, 5),
+        Token(tokens.FSTRING_END, '"', 1, 5, line, 1, 6),
+    ]
