@@ -858,6 +858,9 @@ class AppTestSysSettracePortedFromCpython(object):
 
         def compare_events(line_offset, events, expected_events):
             events = [(l - line_offset, e) for (l, e) in events]
+            print("len(events)", len(events))
+            print("events", [e for e in events])
+            print("len(expected_events)", len(expected_events))
             assert events == expected_events
 
         def run_test2(func):
