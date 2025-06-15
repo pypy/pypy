@@ -125,26 +125,52 @@ static PyType_Spec Example_Type_spec = {
 };
 
 
+static PyModuleDef def_meth_state_access;
+static PyModuleDef def_nonmodule;
+static PyModuleDef def_nonmodule_with_methods;
+
 /*[clinic input]
 _testmultiphase.StateAccessType.get_defining_module
 
     cls: defining_class
 
 Return the module of the defining class.
+
+Also tests that result of PyType_GetModuleByDef matches defining_class's
+module.
 [clinic start generated code]*/
 
 static PyObject *
 _testmultiphase_StateAccessType_get_defining_module_impl(StateAccessTypeObject *self,
                                                          PyTypeObject *cls)
-/*[clinic end generated code: output=ba2a14284a5d0921 input=946149f91cf72c0d]*/
+/*[clinic end generated code: output=ba2a14284a5d0921 input=d2c7245c8a9d06f8]*/
 {
     PyObject *retval;
     retval = PyType_GetModule(cls);
     if (retval == NULL) {
         return NULL;
     }
+    assert(PyType_GetModuleByDef(Py_TYPE(self), &def_meth_state_access) == retval);
     Py_INCREF(retval);
     return retval;
+}
+
+/*[clinic input]
+_testmultiphase.StateAccessType.getmodulebydef_bad_def
+
+    cls: defining_class
+
+Test that result of PyType_GetModuleByDef with a bad def is NULL.
+[clinic start generated code]*/
+
+static PyObject *
+_testmultiphase_StateAccessType_getmodulebydef_bad_def_impl(StateAccessTypeObject *self,
+                                                            PyTypeObject *cls)
+/*[clinic end generated code: output=64509074dfcdbd31 input=edaff09aa4788204]*/
+{
+    PyType_GetModuleByDef(Py_TYPE(self), &def_nonmodule);  // should raise
+    assert(PyErr_Occurred());
+    return NULL;
 }
 
 /*[clinic input]
@@ -243,11 +269,12 @@ _testmultiphase_StateAccessType_get_count_impl(StateAccessTypeObject *self,
 
 static PyMethodDef StateAccessType_methods[] = {
     _TESTMULTIPHASE_STATEACCESSTYPE_GET_DEFINING_MODULE_METHODDEF
+    _TESTMULTIPHASE_STATEACCESSTYPE_GETMODULEBYDEF_BAD_DEF_METHODDEF
     _TESTMULTIPHASE_STATEACCESSTYPE_GET_COUNT_METHODDEF
     _TESTMULTIPHASE_STATEACCESSTYPE_INCREMENT_COUNT_CLINIC_METHODDEF
     {
         "increment_count_noclinic",
-        (PyCFunction)(void(*)(void))_StateAccessType_increment_count_noclinic,
+        _PyCFunction_CAST(_StateAccessType_increment_count_noclinic),
         METH_METHOD|METH_FASTCALL|METH_KEYWORDS,
         _StateAccessType_decrement_count__doc__
     },
