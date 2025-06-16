@@ -337,19 +337,98 @@ class TestTokenizer310Changes(object):
 # loads the _bootstrap_external module, which uses f-strings, which
 # cannot be parsed by the old parser yet.
 # class TestTokenizer312Changes(object):
-def test_empty_f_string():
-    line = 'f""\n'
-    tks = tokenize(line)
-    assert tks[:2] == [
-        Token(tokens.FSTRING_START, 'f"', 1, 0, line, 1, 2),
-        Token(tokens.FSTRING_END, '"', 1, 2, line, 1, 3),
-    ]
+_fstring_tests = [
+    (
+        "empty",
+        'f""\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.FSTRING_END, '"', 1, 2, 1, 3),
+        ],
+    ),
+    (
+        "empty triple",
+        'f""""""\n',
+        [
+            (tokens.FSTRING_START, 'f"""', 1, 0, 1, 4),
+            (tokens.FSTRING_END, '"""', 1, 4, 1, 7),
+        ],
+    ),
+    (
+        "simple",
+        'f"abc"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.FSTRING_MIDDLE, "abc", 1, 2, 1, 5),
+            (tokens.FSTRING_END, '"', 1, 5, 1, 6),
+        ],
+    ),
+    (
+        "simple with continuation",
+        pytest.mark.xfail(
+            (
+                """f"abc\\
+def"
+""",
+                [
+                    (tokens.FSTRING_START, 'f"', 1, 0, 2, 2),
+                    (tokens.FSTRING_MIDDLE, "abc\\\ndef", 1, 2, 2, 3),
+                    (tokens.FSTRING_END, '"', 2, 3, 2, 4),
+                ],
+            ),
+            reason="TODO",
+        ),
+    ),
+    (
+        "triple multi-line",
+        pytest.mark.xfail(
+            (
+                '''f"""\
+abc
+def"""
+''',
+                [
+                    (tokens.FSTRING_START, 'f"""', 1, 0, 3, 4),
+                    (tokens.FSTRING_MIDDLE, "abc\ndef", 1, 4, 3, 3),
+                    (tokens.FSTRING_END, '"""', 3, 3, 3, 6),
+                ],
+            ),
+            reason="TODO",
+        ),
+    ),
+    (
+        "double brace",
+        pytest.mark.xfail(
+            (
+                'f"{{abc}}"',
+                [
+                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+                    (tokens.FSTRING_MIDDLE, "{abc}", 1, 2, 1, 7),
+                    (tokens.FSTRING_END, '"', 1, 7, 1, 8),
+                ],
+            ),
+            reason="TODO",
+        ),
+    ),
+]
 
-def test_simple_f_string():
-    line = 'f"abc"\n'
-    tks = tokenize(line)
-    assert tks[:3] == [
-        Token(tokens.FSTRING_START, 'f"', 1, 0, line, 1, 2),
-        Token(tokens.FSTRING_MIDDLE, 'abc', 1, 2, line, 1, 5),
-        Token(tokens.FSTRING_END, '"', 1, 5, line, 1, 6),
+@pytest.mark.parametrize(
+    "source, expected",
+    [t[1] if len(t) == 2 else t[1:] for t in _fstring_tests],
+    ids=[t[0] for t in _fstring_tests],
+)
+def test_f_string(source, expected):
+    lines = source.splitlines(True)
+    tks = tokenize(source)
+    assert tks[: len(expected)] == [
+        Token(
+            tk_type,
+            value,
+            lineno,
+            col_offset,
+            lines[lineno - 1],
+            end_lineno,
+            end_col_offset,
+        )
+        for tk_type, value, lineno, col_offset, end_lineno, end_col_offset in expected
     ]

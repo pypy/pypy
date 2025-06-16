@@ -489,6 +489,10 @@ class Tokenizer(object):
                 self.token_list.append(type_comment_tok)
             else:
                 self.last_comment = token
+        elif token in single_fstring or token in triple_fstring:
+            self._add_token(tokens.FSTRING_START, token, self.lnum, start, line, self.lnum, end)
+            self.state_stack.append(TokenizerState(TokenizerState.FSTRING))
+            self._contstr_start(endDFAs[token], start+len(token), line, len(token) >= 4, "")
         elif token in triple_quoted:
             string_end_dfa = endDFAs[token]
             endmatch = string_end_dfa.recognize(line, self.pos)
@@ -500,10 +504,6 @@ class Tokenizer(object):
             else:
                 self._contstr_start(string_end_dfa, start, line, True, line[start:])
                 return True
-        elif token in single_fstring or token in triple_fstring:
-            self._add_token(tokens.FSTRING_START, token, self.lnum, start, line, self.lnum, end)
-            self.state_stack.append(TokenizerState(TokenizerState.FSTRING))
-            self._contstr_start(endDFAs[token], start+len(token), line, len(token) >= 4, "")
         elif initial in single_quoted or \
             token[:2] in single_quoted or \
             token[:3] in single_quoted:
