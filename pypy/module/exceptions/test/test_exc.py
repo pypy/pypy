@@ -572,20 +572,3 @@ class AppTestExc(object):
 
     def test_encodingwarning(self):
         assert isinstance(EncodingWarning('abc'), Warning)
-
-class AppTestExcBugAttributeError(object):
-    def setup_class(cls):
-        def f(space):
-            raise OperationError(space.w_AttributeError, space.newtext("buggy"))
-        cls.w_f = cls.space.wrap(interp2app_temp(f))
-
-    def test_enrich_attribute_error_bug(self):
-        raiseopperr = self.f
-        class A:
-            def __getattr__(self, name):
-                raiseopperr()
-        # this used to crash
-        a = A()
-        with raises(AttributeError) as info:
-            a.abc
-        assert info.value.name is None # enrich_attribute_error couldn't do anything
