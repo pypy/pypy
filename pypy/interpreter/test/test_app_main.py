@@ -1220,6 +1220,9 @@ class TestNonInteractive:
                              cwd=str(work_dir))
         res = p.wait()
         out_by_package = p.stdout.read().splitlines()
+        print("------ -sm out_by_package ----------")
+        print(out_by_package)
+        print("----------------------------")
         assert out_by_module == out_by_package
 
         p = subprocess.Popen([get_python3(), app_main, "-Im", "script_pkg"],
@@ -1236,6 +1239,10 @@ class TestNonInteractive:
         res = p.wait()
         stderr = p.stderr.read()
         traceback_lines = stderr.decode().splitlines()
+        out_by_package = p.stdout.read().splitlines()
+        print("------ -Pm out_by_package ----------")
+        print(out_by_package)
+        print("----------------------------")
         assert "No module named script_pkg" in traceback_lines[-1]
  
     def test_error_msg(self):
