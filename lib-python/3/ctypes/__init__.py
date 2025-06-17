@@ -375,7 +375,12 @@ class CDLL(object):
         self._FuncPtr = _FuncPtr
 
         if handle is None:
-            self._handle = _dlopen(self._name, mode)
+            # PyPy change
+            if flags & _FUNCFLAG_CDECL:
+                pypy_dll = _ffi.CDLL(name, mode)
+            else:
+                pypy_dll = _ffi.WinDLL(name, mode)
+            self._handle = pypy_dll
         else:
             self._handle = handle
 
