@@ -398,18 +398,41 @@ def"""
     ),
     (
         "double brace",
+        'f"{{abc}}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.FSTRING_MIDDLE, "{abc}", 1, 2, 1, 9),
+            (tokens.FSTRING_END, '"', 1, 9, 1, 10),
+        ],
+    ),
+    (
+        "simple interpolation",
         pytest.mark.xfail(
             (
-                'f"{{abc}}"',
+                'f"x{y}z"\n',
                 [
                     (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
-                    (tokens.FSTRING_MIDDLE, "{abc}", 1, 2, 1, 7),
+                    (tokens.FSTRING_MIDDLE, "x", 1, 2, 1, 3),
+                    (tokens.LBRACE, "{", 1, 3, 1, 4),
+                    (tokens.NAME, "y", 1, 4, 1, 5),
+                    (tokens.RBRACE, "}", 1, 5, 1, 6),
+                    (tokens.FSTRING_MIDDLE, "z", 1, 6, 1, 7),
                     (tokens.FSTRING_END, '"', 1, 7, 1, 8),
                 ],
             ),
             reason="TODO",
+            raises=NotImplementedError,
         ),
     ),
+    # (
+    #     "escaped brace",
+    #     "f'a\\{}'\n",
+    #     [
+    #         (tokens.FSTRING_START, "f'", 1, 0, 1, 2),
+    #         (tokens.FSTRING_MIDDLE, "a\\{}", 1, 2, 1, 7),
+    #         (tokens.FSTRING_END, '\'', 1, 7, 1, 8),
+    #     ],
+    # ),
 ]
 
 @pytest.mark.parametrize(
@@ -432,3 +455,11 @@ def test_f_string(source, expected):
         )
         for tk_type, value, lineno, col_offset, end_lineno, end_col_offset in expected
     ]
+
+def test_f_string_single_closing_brace():
+    check_token_error(
+        'f"abc}def"',
+        "f-string: single '}' is not allowed",
+        pos=6,
+        line=1,
+    )

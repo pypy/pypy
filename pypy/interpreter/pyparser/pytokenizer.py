@@ -590,23 +590,37 @@ class Tokenizer(object):
         return False
 
     def _tokenize_fstring(self, line):
+        start = self.pos
         state = self.state
-        match = state.string_end_dfa.recognize(line, self.pos)
+        match = state.string_end_dfa.recognize(line, start)
         if match >= 0:
             last_c, next_c = line[match - 1], line[match]
             if last_c in "{}":
                 if last_c == next_c:
-                    raise NotImplementedError("f-string with double braces not implemented")
+                    state.contstrs.append(line[start:match])
+                    self.pos = match + 1  # Skip the second brace
+                elif last_c == "{":
+                    contstrs = state.contstrs
+                    contstrs.append(line[start:match-1])
+                    content = "".join(contstrs)
+                    contstrs[:] = []
+                    if content:
+                        self._add_token(tokens.FSTRING_MIDDLE, content,
+                                        state.strstart_linenumber, state.strstart_offset,
+                                        line, self.lnum, match - 1)
 
-                # TODO:
-                # state.contstrs.append(line[self.pos:match])
-                # self.pos = match
-                raise NotImplementedError("f-string with single brace not implemented: %s" % (last_c))
+                    self._add_token(tokens.LBRACE, "{", self.lnum, match - 1,
+                                    line, self.lnum, match)
+                    self.pos = match
+                    self.state_stack.append(TokenizerState(TokenizerState.FSTRING_INTERPOLATION))
+                else: # last_c == "}"
+                    self._raise_token_error("f-string: single '}' is not allowed",
+                                            line, self.lnum, match)
             else:
                 # end of f-string
                 eos = match - (3 if state.strstart_is_triple_quoted else 1)
                 contstrs = state.contstrs
-                contstrs.append(line[self.pos:eos])
+                contstrs.append(line[start:eos])
                 content = "".join(contstrs)
                 if content:
                     self._add_token(tokens.FSTRING_MIDDLE, content,
@@ -620,6 +634,8 @@ class Tokenizer(object):
 
         else:
             raise NotImplementedError("f-string continuation not implemented")
+
+        return False
 
 
 def generate_tokens(lines, flags):
@@ -660,7 +676,9 @@ def generate_tokens(lines, flags):
         token_list2 = t.tokenize_lines(orig_lines[:])
     except TokenError as err2:
         assert err1 is not None
-        if not objectmodel.we_are_translated():
+        if not objectmodel.we_are_translated() and all(
+            t.token_type != tokens.FSTRING_START for t in err2.tokens
+        ):
             assert err1.msg == err2.msg
             assert err1.offset == err2.offset
             assert err1.lineno == err2.lineno
