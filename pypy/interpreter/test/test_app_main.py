@@ -1199,6 +1199,7 @@ class TestNonInteractive:
         work_dir = _get_next_path(ext='')
         script = textwrap.dedent("""
             import sys
+            print(sys.flags)
             for d in sys.path:
                print(d) 
             """)
