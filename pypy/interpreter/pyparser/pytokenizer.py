@@ -168,9 +168,10 @@ class TokenizerState(object):
     FSTRING = 1
     FSTRING_INTERPOLATION = 2
 
-    def __init__(self, mode):
+    def __init__(self, mode, level=0):
         assert self.NORMAL <= mode <= self.FSTRING_INTERPOLATION
         self.mode = mode
+        self.level = level
 
         # attributes for dealing with contiuations of string literals
         # (triple-quoted or with \\)
@@ -415,14 +416,11 @@ class Tokenizer(object):
         done = False
         while self.pos < self.max and not done:
             mode = self.state.mode
-            if mode == TokenizerState.NORMAL:
-                done = self._tokenize_regular_normal(line)
-            elif mode == TokenizerState.FSTRING:
+            if mode == TokenizerState.FSTRING:
                 done = self._tokenize_fstring(line)
-            elif mode == TokenizerState.FSTRING_INTERPOLATION:
-                raise NotImplementedError
             else:
-                assert 0, "unreachable"
+                assert mode == TokenizerState.NORMAL or mode == TokenizerState.FSTRING_INTERPOLATION
+                done = self._tokenize_regular_normal(line)
 
     def _tokenize_regular_normal(self, line):
         pseudomatch = pseudoDFA.recognize(line, self.pos)
@@ -588,6 +586,18 @@ class Tokenizer(object):
                         msg += " on line " + str(lnum1)
                     self._raise_token_error(
                             msg, line, self.lnum, start + 1)
+
+            if self.state.mode == TokenizerState.FSTRING_INTERPOLATION:
+                if initial == "}" and len(self.parenstack) + 1 == self.state.level:
+                    # exit f-string interpolation
+                    self.state_stack.pop()
+                    self.state.strstart_linenumber = self.lnum
+                    self.state.strstart_offset = start + 1
+                elif initial == ":" and len(self.parenstack) == self.state.level:
+                    raise NotImplementedError(
+                        "f-string: ':' inside f-string interpolation is not implemented"
+                    )
+
             self.last_comment = ''
         return False
 
@@ -611,10 +621,17 @@ class Tokenizer(object):
                                         state.strstart_linenumber, state.strstart_offset,
                                         line, self.lnum, match - 1)
 
-                    self._add_token(tokens.LBRACE, "{", self.lnum, match - 1,
-                                    line, self.lnum, match)
+                    t = self._add_token(
+                        tokens.LBRACE, "{", self.lnum, match - 1, line, self.lnum, match, level_adjustment=1
+                    )
+                    self.parenstack.append(t)
                     self.pos = match
-                    self.state_stack.append(TokenizerState(TokenizerState.FSTRING_INTERPOLATION))
+                    self.state_stack.append(
+                        TokenizerState(
+                            TokenizerState.FSTRING_INTERPOLATION,
+                            level=len(self.parenstack),
+                        )
+                    )
                 else: # last_c == "}"
                     self._raise_token_error("f-string: single '}' is not allowed",
                                             line, self.lnum, match)

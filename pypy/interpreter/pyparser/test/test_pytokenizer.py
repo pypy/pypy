@@ -397,32 +397,56 @@ def"""
     ),
     (
         "simple interpolation",
-        pytest.mark.xfail(
-            (
-                'f"x{y}z"\n',
-                [
-                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
-                    (tokens.FSTRING_MIDDLE, "x", 1, 2, 1, 3),
-                    (tokens.LBRACE, "{", 1, 3, 1, 4),
-                    (tokens.NAME, "y", 1, 4, 1, 5),
-                    (tokens.RBRACE, "}", 1, 5, 1, 6),
-                    (tokens.FSTRING_MIDDLE, "z", 1, 6, 1, 7),
-                    (tokens.FSTRING_END, '"', 1, 7, 1, 8),
-                ],
-            ),
-            reason="TODO",
-            raises=NotImplementedError,
-        ),
+        'f"x{y}z"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.FSTRING_MIDDLE, "x", 1, 2, 1, 3),
+            (tokens.LBRACE, "{", 1, 3, 1, 4),
+            (tokens.NAME, "y", 1, 4, 1, 5),
+            (tokens.RBRACE, "}", 1, 5, 1, 6),
+            (tokens.FSTRING_MIDDLE, "z", 1, 6, 1, 7),
+            (tokens.FSTRING_END, '"', 1, 7, 1, 8),
+        ],
     ),
-    # (
-    #     "escaped brace",
-    #     "f'a\\{}'\n",
-    #     [
-    #         (tokens.FSTRING_START, "f'", 1, 0, 1, 2),
-    #         (tokens.FSTRING_MIDDLE, "a\\{}", 1, 2, 1, 7),
-    #         (tokens.FSTRING_END, '\'', 1, 7, 1, 8),
-    #     ],
-    # ),
+    (
+        "quote reuse in interpolation",
+        'f"{"x"}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.STRING, '"x"', 1, 3, 1, 6),
+            (tokens.RBRACE, "}", 1, 6, 1, 7),
+            (tokens.FSTRING_END, '"', 1, 7, 1, 8),
+        ],
+    ),
+    (
+        "nested interpolation",
+        'f"x{f"y{z}"}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.FSTRING_MIDDLE, "x", 1, 2, 1, 3),
+            (tokens.LBRACE, "{", 1, 3, 1, 4),
+            (tokens.FSTRING_START, 'f"', 1, 4, 1, 6),
+            (tokens.FSTRING_MIDDLE, "y", 1, 6, 1, 7),
+            (tokens.LBRACE, "{", 1, 7, 1, 8),
+            (tokens.NAME, "z", 1, 8, 1, 9),
+            (tokens.RBRACE, "}", 1, 9, 1, 10),
+            (tokens.FSTRING_END, '"', 1, 10, 1, 11),
+            (tokens.RBRACE, "}", 1, 11, 1, 12),
+            (tokens.FSTRING_END, '"', 1, 12, 1, 13),
+        ],
+    ),
+    (
+        "escaped brace",
+        "f'a\\{}'\n",
+        [
+            (tokens.FSTRING_START, "f'", 1, 0, 1, 2),
+            (tokens.FSTRING_MIDDLE, "a\\", 1, 2, 1, 4),
+            (tokens.LBRACE, "{", 1, 4, 1, 5),
+            (tokens.RBRACE, "}", 1, 5, 1, 6),
+            (tokens.FSTRING_END, "'", 1, 6, 1, 7),
+        ],
+    ),
 ]
 
 @pytest.mark.parametrize(
