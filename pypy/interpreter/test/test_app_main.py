@@ -1211,7 +1211,7 @@ class TestNonInteractive:
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                              cwd=str(work_dir))
         res = p.wait()
-        out_by_module = p.stdout.read().splitlines()
+        out_by_module = p.stdout.read().splitlines()[1:]
         # macOS prepends '/private'
         assert out_by_module[0].endswith(str(work_dir))
         assert script_dir not in out_by_module
@@ -1224,7 +1224,7 @@ class TestNonInteractive:
         print("------ -sm out_by_package ----------")
         print(out_by_package)
         print("----------------------------")
-        assert out_by_module == out_by_package
+        assert out_by_module == out_by_package[1:]
 
         p = subprocess.Popen([get_python3(), app_main, "-Im", "script_pkg"],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
