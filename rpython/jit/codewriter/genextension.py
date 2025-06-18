@@ -450,24 +450,65 @@ class Specializer(object):
         if not constant_registers: # not specialized
             assert orig_pc == spec_pc
         self.work_list = work_list
+
         assert self.insn[0] == 'int_add'
+
+        self.name = self.insn[0]
+        self.methodname = "opimpl_" + self.name
+        self.resindex = len(self.insn) - 1 if '->' in self.insn else None
+
+    def _reset_specializer(self):
+        self.name = None
+        self.methoname = None
+        self.resindex = None
+
+    def _get_args(self):
+        if self.resindex:
+            return self.insn[1:-2]
+        else:
+            return self.insn[1:]
 
     def get_pc(self):
         return self.spec_pc
 
+    def is_constant(self, arg):
+        return arg in self.constant_registers
+
     def make_code(self):
-        arg0, arg1 = self.insn[1], self.insn[2]
-        if arg0 not in self.constant_registers or \
-           arg1 not in self.constant_registers:
-            return self._make_code_unspecialized()
+        args = self._get_args()
+        for arg in args:
+            if arg not in self.constant_registers:
+                return self._make_code_unspecialized()
         return self._make_code_specialized()
 
     def _make_code_specialized(self):
-        arg0, arg1 = self.insn[1], self.insn[2]
-        result = self.insn[4]
-        return "i%s = i%s + i%s" % (result.index, arg0.index, arg1.index)
+        meth = getattr(self, "emit_specialized_" + self.name)
+        return '\n'.join(meth())
 
     def _make_code_unspecialized(self):
+        meth = getattr(self, "emit_unspecialized_" + self.name)
+        return '\n'.join(meth())
+
+    def get_next_constant_registers(self):
+        if not self.resindex:
+            return self.constant_registers
+
+        args = self._get_args()
+        for arg in args:
+            if arg not in self.constant_registers:
+                return self.constant_registers - {self.insn[self.resindex]}
+        return self.constant_registers.union({self.insn[self.resindex]})
+
+    def emit_specialized_int_add(self):
+        args = self._get_args()
+        if len(args) == 2:
+            arg0, arg1 = args[0], args[1]
+            result = self.insn[self.resindex]
+            return ["i%s = i%s + i%s" % (result.index, arg0.index, arg1.index)]
+        else:
+            assert False # TODO: add another cases
+
+    def emit_unspecialized_int_add(self):
         lines = []
         arg0, arg1 = self.insn[1], self.insn[2]
         result = self.insn[4]
@@ -481,13 +522,6 @@ class Specializer(object):
         lines.append("    pc = %d" % (specializer.get_pc()))
         lines.append("    continue")
         lines.append("else:")
-        lines.append("    self.registers_i[%d] = self.opimpl_int_add(ri%d, ri%d)" % (result.index, arg0.index, arg1.index))
-        return '\n'.join(lines)
-
-    def get_next_constant_registers(self):
-        arg0, arg1 = self.insn[1], self.insn[2]
-        if arg0 not in self.constant_registers or \
-           arg1 not in self.constant_registers:
-            return self.constant_registers - {self.insn[4]}
-        else:
-            return self.constant_registers.union({self.insn[4]})
+        lines.append("    self.registers_i[%d] = self.%s(ri%d, ri%d)" % (
+            result.index, self.methodname, arg0.index, arg1.index))
+        return lines
