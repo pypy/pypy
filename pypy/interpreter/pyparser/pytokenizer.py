@@ -16,8 +16,8 @@ WHITESPACES = ' \t\n\r\v\f'
 TYPE_COMMENT_PREFIX = 'type'
 TYPE_IGNORE = 'ignore'
 
-TRIPLE_QUOTE_UNTERMINATED_ERROR = "unterminated triple-quoted string literal"
-SINGLE_QUOTE_UNTERMINATED_ERROR = "unterminated string literal"
+TRIPLE_QUOTE_UNTERMINATED_ERROR = "unterminated triple-quoted %sstring literal"
+SINGLE_QUOTE_UNTERMINATED_ERROR = "unterminated %sstring literal"
 EOF_MULTI_LINE_STATEMENT_ERROR = "unexpected end of file (EOF) in multi-line statement"
 
 def match_encoding_declaration(comment):
@@ -131,13 +131,12 @@ def raise_invalid_unicode_char(code, line, lnum, start, token_list):
             rutf8.unichr_as_utf8(code), h)
     raise TokenError(msg, line, lnum, start + 1, token_list)
 
-def raise_unterminated_string(is_triple_quoted, line, lineno, column, tokens,
-        end_lineno, end_offset=0):
+def raise_unterminated_string(
+    is_triple_quoted, line, lineno, column, tokens, end_lineno, end_offset, f_string=False
+):
     # same arguments as TokenError, ie 1-based offsets
-    if is_triple_quoted:
-        msg = TRIPLE_QUOTE_UNTERMINATED_ERROR + " (detected at line %s)" % (end_lineno, )
-    else:
-        msg = SINGLE_QUOTE_UNTERMINATED_ERROR + " (detected at line %s)" % (end_lineno, )
+    base_msg = TRIPLE_QUOTE_UNTERMINATED_ERROR if is_triple_quoted else SINGLE_QUOTE_UNTERMINATED_ERROR
+    msg = (base_msg + " (detected at line %s)") % ("f-" if f_string else "", end_lineno)
     raise TokenError(msg, line, lineno, column, tokens, end_lineno, end_offset)
 
 def potential_identifier_char(ch):
@@ -233,9 +232,14 @@ class Tokenizer(object):
         self.pos, self.max = 0, len(line)
         self.switch_indents = 0
         if self.state.string_end_dfa: # in the middle of parsing a string literal
-            done = self._tokenize_string_continuation(line)
-            if done:
-                return
+            if not line:
+                self._contstr_raise_unterminated(self.lnum - 1, len(line))
+
+            if self.state.mode != TokenizerState.FSTRING:
+                done = self._tokenize_string_continuation(line)
+                if done:
+                    return
+            # else: fall through to regular (f-string) tokenization
         elif not self.parenstack and not self.continued:  # new statement
             done = self._tokenize_new_statement(line)
             if done:
@@ -290,11 +294,9 @@ class Tokenizer(object):
         state = self.state
         raise_unterminated_string(state.strstart_is_triple_quoted, state.strstart_starting_line, state.strstart_linenumber,
                                   state.strstart_offset + 1, self.token_list,
-                                  end_lineno, end_col_offset)
+                                  end_lineno, end_col_offset, state.mode == TokenizerState.FSTRING)
 
     def _tokenize_string_continuation(self, line):
-        if not line:
-            self._contstr_raise_unterminated(self.lnum - 1, len(line))
         state = self.state
         endmatch = state.string_end_dfa.recognize(line)
         if endmatch >= 0:
@@ -632,8 +634,17 @@ class Tokenizer(object):
                 self.state_stack.pop()
                 self.pos = match
 
+        elif (
+            # no end match, check for valid f-string continuation
+            state.need_line_cont
+            and not line.endswith("\\\n")
+            and not line.endswith("\\\r\n")
+        ):
+            self._contstr_raise_unterminated(self.lnum, len(line))
+            assert 0, "unreachable"
         else:
-            raise NotImplementedError("f-string continuation not implemented")
+            state.contstrs.append(line[start:])
+            return True  # done with this line
 
         return False
 
@@ -675,10 +686,10 @@ def generate_tokens(lines, flags):
     try:
         token_list2 = t.tokenize_lines(orig_lines[:])
     except TokenError as err2:
-        assert err1 is not None
         if not objectmodel.we_are_translated() and all(
             t.token_type != tokens.FSTRING_START for t in err2.tokens
         ):
+            assert err1 is not None
             assert err1.msg == err2.msg
             assert err1.offset == err2.offset
             assert err1.lineno == err2.lineno

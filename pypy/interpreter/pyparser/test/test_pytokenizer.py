@@ -365,36 +365,26 @@ _fstring_tests = [
     ),
     (
         "simple with continuation",
-        pytest.mark.xfail(
-            (
-                """f"abc\\
+        """f"abc\\
 def"
 """,
-                [
-                    (tokens.FSTRING_START, 'f"', 1, 0, 2, 2),
-                    (tokens.FSTRING_MIDDLE, "abc\\\ndef", 1, 2, 2, 3),
-                    (tokens.FSTRING_END, '"', 2, 3, 2, 4),
-                ],
-            ),
-            reason="TODO",
-        ),
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.FSTRING_MIDDLE, "abc\\\ndef", 1, 2, 2, 3),
+            (tokens.FSTRING_END, '"', 2, 3, 2, 4),
+        ],
     ),
     (
         "triple multi-line",
-        pytest.mark.xfail(
-            (
-                '''f"""\
+        '''f"""\\
 abc
 def"""
 ''',
-                [
-                    (tokens.FSTRING_START, 'f"""', 1, 0, 3, 4),
-                    (tokens.FSTRING_MIDDLE, "abc\ndef", 1, 4, 3, 3),
-                    (tokens.FSTRING_END, '"""', 3, 3, 3, 6),
-                ],
-            ),
-            reason="TODO",
-        ),
+        [
+            (tokens.FSTRING_START, 'f"""', 1, 0, 1, 4),
+            (tokens.FSTRING_MIDDLE, "\\\nabc\ndef", 1, 4, 3, 3),
+            (tokens.FSTRING_END, '"""', 3, 3, 3, 6),
+        ],
     ),
     (
         "double brace",
@@ -449,17 +439,53 @@ def test_f_string(source, expected):
             value,
             lineno,
             col_offset,
-            lines[lineno - 1],
+            lines[end_lineno - 1],
             end_lineno,
             end_col_offset,
         )
         for tk_type, value, lineno, col_offset, end_lineno, end_col_offset in expected
     ]
 
-def test_f_string_single_closing_brace():
-    check_token_error(
-        'f"abc}def"',
+_fstring_error_tests = [
+    (
+        "single closing brace",
+        'f"abc}def"\n',
         "f-string: single '}' is not allowed",
-        pos=6,
-        line=1,
-    )
+        6,
+        1,
+    ),
+    # TODO: The 'pos' values here are after the f-string start token
+    #  while on CPython they come before it.
+    (
+        "unterminated f-string",
+        'f"abc\n',
+        "unterminated f-string literal (detected at line 1)",
+        3,
+        1,
+    ),
+    (
+        "unterminated f-string after continuation",
+        '''f"abc\\
+def
+''',
+        "unterminated f-string literal (detected at line 2)",
+        3,
+        1,
+    ),
+    (
+        "unterminated f-string triple",
+        '''f"""abc\n''',
+        "unterminated triple-quoted f-string literal (detected at line 1)",
+        5,
+        1,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "source, msg, pos, line",
+    [t[1:] for t in _fstring_error_tests],
+    ids=[t[0] for t in _fstring_error_tests],
+)
+def test_f_string_errors(source, msg, pos, line):
+    check_token_error(source, msg, pos, line)
