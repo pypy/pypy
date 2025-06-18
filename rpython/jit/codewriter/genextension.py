@@ -418,3 +418,76 @@ class GenExtension(object):
             return insn[2].dict.values() + [nextpc]
         else:
             return [nextpc]
+
+
+class WorkList(object):
+    def __init__(self):
+        self.specialize_instruction = dict() # (pc, insn, constant?registers) =? Specializer
+        self.todo = []
+        self.free_pc = 100
+
+    def specialize(self, insn, constant_registers, orig_pc):
+        key = (orig_pc, insn, frozenset(constant_registers))
+        if key in self.specialize_instruction:
+            return self.specialize_instruction[key]
+        else:
+            if not constant_registers:
+                spec_pc = orig_pc
+            else:
+                spec_pc = self.free_pc
+                self.free_pc += 1
+            spec = self.specialize_instruction[key] = Specializer(
+                insn, constant_registers, orig_pc, spec_pc, self)
+            self.todo.append(spec)
+            return spec
+
+class Specializer(object):
+    def __init__(self, insn, constant_registers, orig_pc, spec_pc, work_list):
+        self.insn = insn
+        self.constant_registers = constant_registers
+        self.orig_pc = orig_pc
+        self.spec_pc = spec_pc
+        if not constant_registers: # not specialized
+            assert orig_pc == spec_pc
+        self.work_list = work_list
+        assert self.insn[0] == 'int_add'
+
+    def get_pc(self):
+        return self.spec_pc
+
+    def make_code(self):
+        arg0, arg1 = self.insn[1], self.insn[2]
+        if arg0 not in self.constant_registers or \
+           arg1 not in self.constant_registers:
+            return self._make_code_unspecialized()
+        return self._make_code_specialized()
+
+    def _make_code_specialized(self):
+        arg0, arg1 = self.insn[1], self.insn[2]
+        result = self.insn[4]
+        return "i%s = i%s + i%s" % (result.index, arg0.index, arg1.index)
+
+    def _make_code_unspecialized(self):
+        lines = []
+        arg0, arg1 = self.insn[1], self.insn[2]
+        result = self.insn[4]
+        lines.append("ri%d = self.registers_i[%d]" % (arg0.index, arg0.index))
+        lines.append("ri%d = self.registers_i[%d]" % (arg1.index, arg1.index))
+        lines.append("if ri%d.is_constant() and ri%d.is_constant():" % (arg0.index, arg1.index))
+        lines.append("    i%d = ri%d.getint()" % (arg0.index, arg0.index))
+        lines.append("    i%d = ri%d.getint()" % (arg1.index, arg1.index))
+        specializer = self.work_list.specialize(
+            self.insn, self.constant_registers.union({arg0, arg1}), self.orig_pc)
+        lines.append("    pc = %d" % (specializer.get_pc()))
+        lines.append("    continue")
+        lines.append("else:")
+        lines.append("    self.registers_i[%d] = self.opimpl_int_add(ri%d, ri%d)" % (result.index, arg0.index, arg1.index))
+        return '\n'.join(lines)
+
+    def get_next_constant_registers(self):
+        arg0, arg1 = self.insn[1], self.insn[2]
+        if arg0 not in self.constant_registers or \
+           arg1 not in self.constant_registers:
+            return self.constant_registers - {self.insn[4]}
+        else:
+            return self.constant_registers.union({self.insn[4]})

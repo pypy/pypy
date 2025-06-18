@@ -3,6 +3,7 @@ from rpython.jit.codewriter.jitcode import SwitchDictDescr
 from rpython.jit.codewriter.flatten import SSARepr, Label, TLabel, Register
 from rpython.jit.codewriter.assembler import Assembler, AssemblerError
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.jit.codewriter.genextension import WorkList
 
 import pytest
 
@@ -365,3 +366,60 @@ def jit_shortcut(self): # test
             except ChangeFrame: return
             assert 0 # unreachable
         assert 0 # unreachable"""
+
+
+def test_specialize_int_add():
+    i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
+    insn1 = (
+        'int_add', i1, i0, '->', i1
+    )
+    work_list = WorkList()
+    insn_specializer = work_list.specialize(insn1, {i0, i1}, 5) # i0 and i1 are unboxed in local variables already
+    assert work_list.specialize(insn1, {i0, i1}, 5) is insn_specializer
+    newpc = insn_specializer.get_pc()
+    assert newpc == 100
+    s = insn_specializer.make_code()
+    assert s == "i1 = i1 + i0"
+    next_constant_registers = insn_specializer.get_next_constant_registers()
+    assert next_constant_registers == {i0, i1}
+
+
+    insn2 = (
+        'int_add', i1, i0, '->', i2
+    )
+    insn_specializer = work_list.specialize(insn2, {i0, i1}, 7) # i0 and i1 are unboxed in local variables already
+    s = insn_specializer.make_code()
+    assert s == "i2 = i1 + i0"
+    next_constant_registers = insn_specializer.get_next_constant_registers()
+    assert next_constant_registers == {i0, i1, i2}
+
+    insn_specializer = work_list.specialize(insn1, set(), 5) # i0 and i1 are unboxed in local variables already
+    s = insn_specializer.make_code()
+    assert s == """\
+ri1 = self.registers_i[1]
+ri0 = self.registers_i[0]
+if ri1.is_constant() and ri0.is_constant():
+    i1 = ri1.getint()
+    i0 = ri0.getint()
+    pc = 100
+    continue
+else:
+    self.registers_i[1] = self.opimpl_int_add(ri1, ri0)"""
+    next_constant_registers = insn_specializer.get_next_constant_registers()
+    assert next_constant_registers == set()
+
+
+    insn_specializer = work_list.specialize(insn1, {i2}, 5) # i0 and i1 are unboxed in local variables already
+    s = insn_specializer.make_code()
+    assert s == """\
+ri1 = self.registers_i[1]
+ri0 = self.registers_i[0]
+if ri1.is_constant() and ri0.is_constant():
+    i1 = ri1.getint()
+    i0 = ri0.getint()
+    pc = 103
+    continue
+else:
+    self.registers_i[1] = self.opimpl_int_add(ri1, ri0)"""
+    next_constant_registers = insn_specializer.get_next_constant_registers()
+    assert next_constant_registers == {i2}
