@@ -447,6 +447,127 @@ def"""
             (tokens.FSTRING_END, "'", 1, 6, 1, 7),
         ],
     ),
+    (
+        "format specifier: date + debug",
+        pytest.mark.xfail(
+            (
+                'f"{today=:%B %d, %Y}"\n',
+                [
+                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+                    (tokens.LBRACE, "{", 1, 2, 1, 3),
+                    (tokens.NAME, "today", 1, 3, 1, 8),
+                    (tokens.EQUAL, "=", 1, 8, 1, 9),
+                    (tokens.COLON, ":", 1, 9, 1, 10),
+                    (tokens.FSTRING_MIDDLE, "%B %d, %Y", 1, 10, 1, 24),
+                    (tokens.RBRACE, "}", 1, 24, 1, 25),
+                    (tokens.FSTRING_END, '"', 1, 25, 1, 26),
+                ],
+            ),
+            reason="TODO",
+        ),
+    ),
+    (
+        "format specifier: interpolation",
+        pytest.mark.xfail(
+            (
+                'f"result: {value:{width}.{precision}}"\n',
+                [
+                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+                    (tokens.FSTRING_MIDDLE, "result: ", 1, 2, 1, 10),
+                    (tokens.LBRACE, "{", 1, 10, 1, 11),
+                    (tokens.NAME, "value", 1, 11, 1, 16),
+                    (tokens.COLON, ":", 1, 16, 1, 17),
+                    (tokens.LBRACE, "{", 1, 17, 1, 18),
+                    (tokens.NAME, "width", 1, 18, 1, 23),
+                    (tokens.RBRACE, "}", 1, 23, 1, 24),
+                    (tokens.FSTRING_MIDDLE, ".", 1, 24, 1, 25),
+                    (tokens.LBRACE, "{", 1, 25, 1, 26),
+                    (tokens.NAME, "precision", 1, 26, 1, 35),
+                    (tokens.RBRACE, "}", 1, 35, 1, 36),
+                    (tokens.RBRACE, "}", 1, 36, 1, 37),
+                    (tokens.FSTRING_END, '"', 1, 37, 1, 38),
+                ],
+            ),
+            reason="TODO",
+        ),
+    ),
+    (
+        "format specifier: funky ending",
+        pytest.mark.xfail(
+            (
+                'f"{:"}\n',
+                [
+                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+                    (tokens.LBRACE, "{", 1, 2, 1, 3),
+                    (tokens.COLON, ":", 1, 3, 1, 4),
+                    (tokens.FSTRING_END, '"', 1, 4, 1, 5),
+                    (tokens.RBRACE, "}", 1, 5, 1, 6),
+                ],
+            ),
+            reason="TODO",
+        ),
+    ),
+    (
+        "format specifier: double braces",
+        pytest.mark.xfail(
+            (
+                'f"{x:{{}}b"}\n',
+                [
+                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+                    (tokens.LBRACE, "{", 1, 2, 1, 3),
+                    (tokens.NAME, "x", 1, 3, 1, 4),
+                    (tokens.COLON, ":", 1, 4, 1, 5),
+                    (tokens.LBRACE, "{", 1, 5, 1, 6),
+                    (tokens.LBRACE, "{", 1, 6, 1, 7),
+                    (tokens.RBRACE, "}", 1, 7, 1, 8),
+                    (tokens.RBRACE, "}", 1, 8, 1, 9),
+                    (tokens.FSTRING_MIDDLE, "b", 1, 9, 1, 10),
+                    (tokens.FSTRING_END, '"', 1, 10, 1, 11),
+                    (tokens.RBRACE, "}", 1, 11, 1, 12),
+                ],
+            ),
+            reason="TODO",
+        ),
+    ),
+    (
+        "format specifier: newline",
+        pytest.mark.xfail(
+            (
+                'f"{x:y\nz}w"\n',
+                [
+                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+                    (tokens.LBRACE, "{", 1, 2, 1, 3),
+                    (tokens.NAME, "x", 1, 3, 1, 4),
+                    (tokens.COLON, ":", 1, 4, 1, 5),
+                    (tokens.FSTRING_MIDDLE, "y", 1, 5, 1, 6),
+                    (tokens.NEWLINE, "\n", 1, 6, -1, -1),
+                    (tokens.NAME, "z", 2, 0, 2, 1),
+                    (tokens.RBRACE, "}", 2, 1, 2, 2),
+                    (tokens.FSTRING_MIDDLE, "w", 2, 2, 2, 3),
+                    (tokens.FSTRING_END, '"', 2, 3, 2, 4),
+                ],
+            ),
+            reason="TODO",
+        ),
+    ),
+    (
+        "format specifier: continuation",
+        pytest.mark.xfail(
+            (
+                'f"{x:y\\\nz}"\n',
+                [
+                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+                    (tokens.LBRACE, "{", 1, 2, 1, 3),
+                    (tokens.NAME, "x", 1, 3, 1, 4),
+                    (tokens.COLON, ":", 1, 4, 1, 5),
+                    (tokens.FSTRING_MIDDLE, "y\\\nz", 1, 5, 2, 1),
+                    (tokens.RBRACE, "}", 2, 1, 2, 2),
+                    (tokens.FSTRING_END, '"', 2, 2, 2, 3),
+                ],
+            ),
+            reason="TODO",
+        ),
+    ),
 ]
 
 @pytest.mark.parametrize(
