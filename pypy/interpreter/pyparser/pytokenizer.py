@@ -177,11 +177,15 @@ class TokenizerState(object):
         # (triple-quoted or with \\)
         self.string_end_dfa = None # for matching the end of the string
         self.contstrs = []
-        self.need_line_cont = False
+        self.need_line_cont = False  # TODO: replace with property that negates triple_quoted?
         self.strstart_linenumber = 0
         self.strstart_offset = 0
         self.strstart_starting_line = ""
         self.strstart_is_triple_quoted = False
+
+        # for f-strings
+        self.format_specifier_mode = False
+        # TODO: Refactor modes into two modes with two variations
 
 class Tokenizer(object):
     def __init__(self, flags):
@@ -594,9 +598,19 @@ class Tokenizer(object):
                     self.state.strstart_linenumber = self.lnum
                     self.state.strstart_offset = start + 1
                 elif initial == ":" and len(self.parenstack) == self.state.level:
-                    raise NotImplementedError(
-                        "f-string: ':' inside f-string interpolation is not implemented"
-                    )
+                    prev_state = self.state_stack[-2]
+                    assert prev_state.mode == TokenizerState.FSTRING
+
+                    # enter f-string format specifier mode
+                    state = self.state
+                    state.mode = TokenizerState.FSTRING
+                    state.format_specifier_mode = True
+                    state.strstart_linenumber = self.lnum
+                    state.strstart_offset = start + 1
+                    state.strstart_starting_line = line
+                    state.strstart_is_triple_quoted = prev_state.strstart_is_triple_quoted
+                    state.need_line_cont = prev_state.need_line_cont
+                    state.string_end_dfa = prev_state.string_end_dfa
 
             self.last_comment = ''
         return False
@@ -608,7 +622,7 @@ class Tokenizer(object):
         if match >= 0:
             last_c, next_c = line[match - 1], line[match]
             if last_c in "{}":
-                if last_c == next_c:
+                if not state.format_specifier_mode and last_c == next_c:
                     state.contstrs.append(line[start:match])
                     self.pos = match + 1  # Skip the second brace
                 elif last_c == "{":
@@ -632,7 +646,24 @@ class Tokenizer(object):
                             level=len(self.parenstack),
                         )
                     )
-                else: # last_c == "}"
+                elif state.format_specifier_mode: # last_c == "}"
+                    # end of f-string interpolation
+                    contstrs = state.contstrs
+                    contstrs.append(line[start:match-1])
+                    content = "".join(contstrs)
+                    if content:
+                        self._add_token(tokens.FSTRING_MIDDLE, content,
+                                        state.strstart_linenumber, state.strstart_offset,
+                                        line, self.lnum, match - 1)
+
+                    self._add_token(
+                        tokens.RBRACE, "}", self.lnum, match - 1, line, self.lnum, match, level_adjustment=-1
+                    )
+                    opening = self.parenstack.pop()
+                    assert opening.value == "{"
+                    self.state_stack.pop()
+                    self.pos = match
+                else:
                     self._raise_token_error("f-string: single '}' is not allowed",
                                             line, self.lnum, match)
             else:
@@ -648,6 +679,15 @@ class Tokenizer(object):
 
                 self._add_token(tokens.FSTRING_END, line[eos:match],
                                 self.lnum, eos, line, self.lnum, match)
+
+                if state.format_specifier_mode:
+                    # This is a degenerate case where the f-string
+                    # ends inside the format specifier:
+                    # f"{x:"
+                    # We need to pop both FSTRING modes from the stack
+                    # in this case.
+                    self.state_stack.pop()
+
                 self.state_stack.pop()
                 self.pos = match
 
@@ -660,6 +700,9 @@ class Tokenizer(object):
             self._contstr_raise_unterminated(self.lnum, len(line))
             assert 0, "unreachable"
         else:
+            if state.format_specifier_mode:
+                raise NotImplementedError("newline in f-string format specifier")
+
             state.contstrs.append(line[start:])
             return True  # done with this line
 
