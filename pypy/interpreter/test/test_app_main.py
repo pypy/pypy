@@ -1199,7 +1199,6 @@ class TestNonInteractive:
         work_dir = _get_next_path(ext='')
         script = textwrap.dedent("""
             import sys
-            print(sys.flags)
             for d in sys.path:
                print(d) 
             """)
@@ -1207,28 +1206,26 @@ class TestNonInteractive:
         script_dir.ensure_dir()
         (script_dir / '__main__.py').write(script)
         env = os.environ.copy()
+        min_env = {'PATH': env['PATH']}
         p = subprocess.Popen([get_python3(), app_main, "-sm", "script_pkg.__main__"],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                             cwd=str(work_dir))
+                             cwd=str(work_dir), env=env)
         res = p.wait()
-        out_by_module = p.stdout.read().splitlines()[1:]
+        out_by_module = p.stdout.read().splitlines()
         # macOS prepends '/private'
         assert out_by_module[0].endswith(str(work_dir))
         assert script_dir not in out_by_module
 
         p = subprocess.Popen([get_python3(), app_main, "-sm", "script_pkg"],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                             cwd=str(work_dir))
+                             cwd=str(work_dir), env=env)
         res = p.wait()
         out_by_package = p.stdout.read().splitlines()
-        print("------ -sm out_by_package ----------")
-        print(out_by_package)
-        print("----------------------------")
-        assert out_by_module == out_by_package[1:]
+        assert out_by_module == out_by_package
 
         p = subprocess.Popen([get_python3(), app_main, "-Im", "script_pkg"],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                             cwd=str(work_dir))
+                             cwd=str(work_dir), env=env)
         res = p.wait()
         stderr = p.stderr.read()
         traceback_lines = stderr.decode().splitlines()
@@ -1236,14 +1233,10 @@ class TestNonInteractive:
 
         p = subprocess.Popen([get_python3(), app_main, "-Pm", "script_pkg"],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                             cwd=str(work_dir))
+                             cwd=str(work_dir), env=env)
         res = p.wait()
         stderr = p.stderr.read()
         traceback_lines = stderr.decode().splitlines()
-        out_by_package = p.stdout.read().splitlines()
-        print("------ -Pm out_by_package ----------")
-        print(out_by_package)
-        print("----------------------------")
         assert "No module named script_pkg" in traceback_lines[-1]
  
     def test_error_msg(self):
