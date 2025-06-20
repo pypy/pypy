@@ -626,14 +626,7 @@ class Tokenizer(object):
                     state.contstrs.append(line[start:match])
                     self.pos = match + 1  # Skip the second brace
                 elif last_c == "{":
-                    contstrs = state.contstrs
-                    contstrs.append(line[start:match-1])
-                    content = "".join(contstrs)
-                    contstrs[:] = []
-                    if content:
-                        self._add_token(tokens.FSTRING_MIDDLE, content,
-                                        state.strstart_linenumber, state.strstart_offset,
-                                        line, self.lnum, match - 1)
+                    self._flush_fstring_middle(match - 1)
 
                     t = self._add_token(
                         tokens.LBRACE, "{", self.lnum, match - 1, line, self.lnum, match, level_adjustment=1
@@ -648,13 +641,7 @@ class Tokenizer(object):
                     )
                 elif state.format_specifier_mode: # last_c == "}"
                     # end of f-string interpolation
-                    contstrs = state.contstrs
-                    contstrs.append(line[start:match-1])
-                    content = "".join(contstrs)
-                    if content:
-                        self._add_token(tokens.FSTRING_MIDDLE, content,
-                                        state.strstart_linenumber, state.strstart_offset,
-                                        line, self.lnum, match - 1)
+                    self._flush_fstring_middle(match - 1)
 
                     self._add_token(
                         tokens.RBRACE, "}", self.lnum, match - 1, line, self.lnum, match, level_adjustment=-1
@@ -669,13 +656,7 @@ class Tokenizer(object):
             else:
                 # end of f-string
                 eos = match - (3 if state.strstart_is_triple_quoted else 1)
-                contstrs = state.contstrs
-                contstrs.append(line[start:eos])
-                content = "".join(contstrs)
-                if content:
-                    self._add_token(tokens.FSTRING_MIDDLE, content,
-                                    state.strstart_linenumber, state.strstart_offset,
-                                    line, self.lnum, eos)
+                self._flush_fstring_middle(eos)
 
                 self._add_token(tokens.FSTRING_END, line[eos:match],
                                 self.lnum, eos, line, self.lnum, match)
@@ -695,7 +676,7 @@ class Tokenizer(object):
             # no end match, check for valid f-string continuation
             state.need_line_cont
             and not line.endswith("\\\n")
-            and not line.endswith("\\\r\n")
+            and not line.endswith("\\\r\n")  # TODO: Can this happen after universal_newline(line)?
         ):
             self._contstr_raise_unterminated(self.lnum, len(line))
             assert 0, "unreachable"
@@ -707,6 +688,17 @@ class Tokenizer(object):
             return True  # done with this line
 
         return False
+
+    def _flush_fstring_middle(self, end_offset):
+        state = self.state
+        contstrs = state.contstrs
+        contstrs.append(self.line[self.pos:end_offset])
+        content = "".join(contstrs)
+        if content:
+            self._add_token(tokens.FSTRING_MIDDLE, content,
+                            state.strstart_linenumber, state.strstart_offset,
+                            self.line, self.lnum, end_offset)
+        contstrs[:] = []
 
 
 def generate_tokens(lines, flags):
