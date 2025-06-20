@@ -160,6 +160,8 @@ DUMMY_DFA = automata.DFA([], [])
 class Finish(Exception):
     pass
 
+
+# TODO: Describe state machine & transitions
 class TokenizerState(object):
     """Contains the tokenizer state that needs to be saved and restored
     when tokenizing f-strings."""
@@ -676,14 +678,28 @@ class Tokenizer(object):
             # no end match, check for valid f-string continuation
             state.need_line_cont
             and not line.endswith("\\\n")
-            and not line.endswith("\\\r\n")  # TODO: Can this happen after universal_newline(line)?
+            and not line.endswith("\\\r\n")
         ):
+            if state.format_specifier_mode:
+                # This is a semi-degenerate case where a newline is encountered inside
+                # the format specifier (without the continuation character):
+                # f"{x:y
+                # <...> }"
+                nl_pos = len(line) - 1
+                assert line[nl_pos] == "\n"
+                self._flush_fstring_middle(nl_pos)
+                self._add_token(tokens.NEWLINE, "\n", self.lnum, nl_pos, line)
+
+                # Return to the FSTRING_INTERPOLATION mode
+                state.mode = TokenizerState.FSTRING_INTERPOLATION
+                state.format_specifier_mode = False
+                state.string_end_dfa = None
+                state.need_line_cont = False
+                return True # done with this line
+
             self._contstr_raise_unterminated(self.lnum, len(line))
             assert 0, "unreachable"
         else:
-            if state.format_specifier_mode:
-                raise NotImplementedError("newline in f-string format specifier")
-
             state.contstrs.append(line[start:])
             return True  # done with this line
 

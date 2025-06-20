@@ -512,50 +512,56 @@ def"""
     ),
     (
         "format specifier: newline",
-        pytest.mark.xfail(
-            (
-                'f"{x:y\nz}w"\n',
-                [
-                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
-                    (tokens.LBRACE, "{", 1, 2, 1, 3),
-                    (tokens.NAME, "x", 1, 3, 1, 4),
-                    (tokens.COLON, ":", 1, 4, 1, 5),
-                    (tokens.FSTRING_MIDDLE, "y", 1, 5, 1, 6),
-                    (tokens.NEWLINE, "\n", 1, 6, -1, -1),
-                    (tokens.NAME, "z", 2, 0, 2, 1),
-                    (tokens.RBRACE, "}", 2, 1, 2, 2),
-                    (tokens.FSTRING_MIDDLE, "w", 2, 2, 2, 3),
-                    (tokens.FSTRING_END, '"', 2, 3, 2, 4),
-                ],
-            ),
-            reason="TODO",
-        ),
+        'f"{x:y\nz}w"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.COLON, ":", 1, 4, 1, 5),
+            (tokens.FSTRING_MIDDLE, "y", 1, 5, 1, 6),
+            (tokens.NEWLINE, "\n", 1, 6, -1, -1),
+            (tokens.NAME, "z", 2, 0, 2, 1),
+            (tokens.RBRACE, "}", 2, 1, 2, 2),
+            (tokens.FSTRING_MIDDLE, "w", 2, 2, 2, 3),
+            (tokens.FSTRING_END, '"', 2, 3, 2, 4),
+        ],
     ),
     (
         "format specifier: continuation",
-        pytest.mark.xfail(
-            (
-                'f"{x:y\\\nz}"\n',
-                [
-                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
-                    (tokens.LBRACE, "{", 1, 2, 1, 3),
-                    (tokens.NAME, "x", 1, 3, 1, 4),
-                    (tokens.COLON, ":", 1, 4, 1, 5),
-                    (tokens.FSTRING_MIDDLE, "y\\\nz", 1, 5, 2, 1),
-                    (tokens.RBRACE, "}", 2, 1, 2, 2),
-                    (tokens.FSTRING_END, '"', 2, 2, 2, 3),
-                ],
-            ),
-            reason="TODO",
-        ),
+        'f"{x:y\\\nz}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.COLON, ":", 1, 4, 1, 5),
+            (tokens.FSTRING_MIDDLE, "y\\\nz", 1, 5, 2, 1),
+            (tokens.RBRACE, "}", 2, 1, 2, 2),
+            (tokens.FSTRING_END, '"', 2, 2, 2, 3),
+        ],
+    ),
+    (
+        "format specifier: colon",
+        'f"{x:y:z}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.COLON, ":", 1, 4, 1, 5),
+            (tokens.FSTRING_MIDDLE, "y:z", 1, 5, 1, 8),
+            (tokens.RBRACE, "}", 1, 8, 1, 9),
+            (tokens.FSTRING_END, '"', 1, 9, 1, 10),
+        ],
     ),
 ]
 
-@pytest.mark.parametrize(
-    "source, expected",
-    [t[1] if len(t) == 2 else t[1:] for t in _fstring_tests],
-    ids=[t[0] for t in _fstring_tests],
-)
+def _parametrize(argnames, tests):
+    return pytest.mark.parametrize(
+        argnames,
+        [t[1] if len(t) == 2 else t[1:] for t in tests],
+        ids=[t[0] for t in tests],
+    )
+
+@_parametrize("source, expected", _fstring_tests)
 def test_f_string(source, expected):
     lines = source.splitlines(True)
     tks = tokenize(source)
@@ -591,9 +597,9 @@ _fstring_error_tests = [
     ),
     (
         "unterminated f-string after continuation",
-        '''f"abc\\
+        """f"abc\\
 def
-''',
+""",
         "unterminated f-string literal (detected at line 2)",
         3,
         1,
@@ -605,13 +611,22 @@ def
         5,
         1,
     ),
+    (
+        "lonely f-string quote in interpolation",
+        pytest.mark.xfail(
+            (
+                'f" {"}\n',
+                "f-string: expecting '}'",
+                4,
+                1,
+            ),
+            raises=AssertionError,
+            reason="TODO",
+        ),
+    ),
 ]
 
 
-@pytest.mark.parametrize(
-    "source, msg, pos, line",
-    [t[1:] for t in _fstring_error_tests],
-    ids=[t[0] for t in _fstring_error_tests],
-)
+@_parametrize("source, msg, pos, line", _fstring_error_tests)
 def test_f_string_errors(source, msg, pos, line):
     check_token_error(source, msg, pos, line)
