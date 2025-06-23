@@ -423,3 +423,36 @@ else:
     self.registers_i[1] = self.opimpl_int_add(ri1, ri0)"""
     next_constant_registers = insn_specializer.get_next_constant_registers()
     assert next_constant_registers == {i2}
+
+def test_int_add_const():
+    i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
+    insn1 = (
+        'int_add', i0, Constant(1, lltype.Signed), '->', i1
+    )
+    work_list = WorkList()
+    insn_specializer = work_list.specialize(insn1, {i0}, 5)
+    newpc = insn_specializer.get_pc()
+    assert newpc == 100
+    s = insn_specializer.make_code()
+    assert s == "i1 = i0 + 1"
+    next_constant_registers = insn_specializer.get_next_constant_registers()
+    assert next_constant_registers == {i0, i1}
+
+    insn_specializer = work_list.specialize(insn1, set(), 5)
+    newpc = insn_specializer.get_pc()
+    assert newpc == 5
+    s = insn_specializer.make_code()
+    assert s == """\
+ri0 = self.registers_i[0]
+if ri0.is_constant():
+    i0 = ri0.getint()
+    pc = 100
+    continue
+else:
+    self.registers_i[1] = self.opimpl_int_add(ri0, ConstInt(1))"""
+    next_constant_registers = insn_specializer.get_next_constant_registers()
+    assert next_constant_registers == set()
+
+
+#def test_int_add_sequence():
+ #   ...

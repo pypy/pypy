@@ -1,6 +1,7 @@
 import py
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
     ConstFloat, CONST_NULL)
+from rpython.flowspace.model import Constant
 
 class GenExtension(object):
     def __init__(self, assembler):
@@ -476,10 +477,15 @@ class Specializer(object):
 
     def make_code(self):
         args = self._get_args()
-        for arg in args:
-            if arg not in self.constant_registers:
-                return self._make_code_unspecialized()
+        if not self._check_all_constant_args(args):
+            return self._make_code_unspecialized()
         return self._make_code_specialized()
+
+    def _check_all_constant_args(self, args):
+        for arg in args:
+            if arg not in self.constant_registers and not isinstance(arg, Constant):
+                return False
+        return True
 
     def _make_code_specialized(self):
         meth = getattr(self, "emit_specialized_" + self.name)
@@ -494,9 +500,8 @@ class Specializer(object):
             return self.constant_registers
 
         args = self._get_args()
-        for arg in args:
-            if arg not in self.constant_registers:
-                return self.constant_registers - {self.insn[self.resindex]}
+        if not self._check_all_constant_args(args):
+            return self.constant_registers - {self.insn[self.resindex]}
         return self.constant_registers.union({self.insn[self.resindex]})
 
     def emit_specialized_int_add(self):
@@ -504,24 +509,43 @@ class Specializer(object):
         if len(args) == 2:
             arg0, arg1 = args[0], args[1]
             result = self.insn[self.resindex]
-            return ["i%s = i%s + i%s" % (result.index, arg0.index, arg1.index)]
+            return ["i%s = %s + %s" % (result.index, self._get_as_constant(arg0),
+                                       self._get_as_constant(arg1))]
         else:
             assert False # TODO: add another cases
+
+    def _get_as_constant(self, arg):
+        if isinstance(arg, Constant):
+            return str(arg.value)
+        else:
+            return "i%s" % (arg.index)
+
+    def _get_as_box(self, arg):
+        if isinstance(arg, Constant):
+            return "ConstInt(%d)" % (arg.value)
+        else:
+            return "ri%s" % (arg.index)
 
     def emit_unspecialized_int_add(self):
         lines = []
         arg0, arg1 = self.insn[1], self.insn[2]
         result = self.insn[4]
         lines.append("ri%d = self.registers_i[%d]" % (arg0.index, arg0.index))
-        lines.append("ri%d = self.registers_i[%d]" % (arg1.index, arg1.index))
-        lines.append("if ri%d.is_constant() and ri%d.is_constant():" % (arg0.index, arg1.index))
-        lines.append("    i%d = ri%d.getint()" % (arg0.index, arg0.index))
-        lines.append("    i%d = ri%d.getint()" % (arg1.index, arg1.index))
+        if isinstance(arg1, Constant):
+            lines.append("if ri%d.is_constant():" % (arg0.index))
+            lines.append("    i%d = ri%d.getint()" % (arg0.index, arg0.index))
+            next_constant_registers = {arg0}
+        else:
+            lines.append("ri%d = self.registers_i[%d]" % (arg1.index, arg1.index))
+            lines.append("if ri%d.is_constant() and ri%d.is_constant():" % (arg0.index, arg1.index))
+            lines.append("    i%d = ri%d.getint()" % (arg0.index, arg0.index))
+            lines.append("    i%d = ri%d.getint()" % (arg1.index, arg1.index))
+            next_constant_registers = {arg0, arg1}
         specializer = self.work_list.specialize(
-            self.insn, self.constant_registers.union({arg0, arg1}), self.orig_pc)
+            self.insn, self.constant_registers.union(next_constant_registers), self.orig_pc)
         lines.append("    pc = %d" % (specializer.get_pc()))
         lines.append("    continue")
         lines.append("else:")
-        lines.append("    self.registers_i[%d] = self.%s(ri%d, ri%d)" % (
-            result.index, self.methodname, arg0.index, arg1.index))
+        lines.append("    self.registers_i[%d] = self.%s(%s, %s)" % (
+            result.index, self.methodname, self._get_as_box(arg0), self._get_as_box(arg1)))
         return lines
