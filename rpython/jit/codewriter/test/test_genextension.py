@@ -491,8 +491,35 @@ if ri1.is_constant() and ri0.is_constant():
 else:
     self.registers_i[1] = self.opimpl_int_sub(ri1, ri0)"""
 
-def test_strgetitem():
+def test_int_sub_first_arg_is_const():
     pass
+
+def test_strgetitem():
+    r0, i0, i1 = Register('ref', 0), Register('int', 0), Register('int', 1)
+    insn1 = ('strgetitem', r0, i0, '->', i1)
+    work_list = WorkList()
+
+    insn_specializer = work_list.specialize(insn1, set(), 5) # i0 and i1 are unboxed in local variables already
+    s = insn_specializer.make_code()
+    assert s == """\
+rr0 = self.registers_r[0]
+ri0 = self.registers_i[0]
+if rr0.is_constant() and ri0.is_constant():
+    r0 = ri1.getref_base()
+    i0 = ri0.getint()
+    pc = 100
+    continue
+else:
+    self.registers_i[1] = self.opimpl_strgetitem(rr0, ri0)"""
+
+    insn_specializer = work_list.specialize(insn1, {i0, r0}, 5) # i0 and i1 are unboxed in local variables already
+    assert work_list.specialize(insn1, {i0, r0}, 5) is insn_specializer
+    newpc = insn_specializer.get_pc()
+    assert newpc == 100
+    s = insn_specializer.make_code()
+    assert s == "ord(lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), r0).chars[i0])"
+    next_constant_registers = insn_specializer.get_next_constant_registers()
+    assert next_constant_registers == {i0, i1}
 
 def test_goto_if_not_int_lt():
     pass

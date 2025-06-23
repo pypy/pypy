@@ -425,7 +425,7 @@ class WorkList(object):
     def __init__(self):
         self.specialize_instruction = dict() # (pc, insn, constant?registers) =? Specializer
         self.todo = []
-        self.free_pc = 100
+        self.free_pc = 100 # TODO: will be fixed as a dynamic number
 
     def specialize(self, insn, constant_registers, orig_pc):
         key = (orig_pc, insn, frozenset(constant_registers))
@@ -520,6 +520,9 @@ class Specializer(object):
         else:
             assert False # TODO: add another cases
 
+    def emit_specialized_strgetitem(self):
+        pass
+
     def _get_as_constant(self, arg):
         if isinstance(arg, Constant):
             return str(arg.value)
@@ -556,3 +559,6 @@ class Specializer(object):
             result.index, self.methodname, self._get_as_box(arg0), self._get_as_box(arg1)))
         return lines
     emit_unspecialized_int_sub = emit_unspecialized_int_add
+
+    def emit_unspecialized_strgetitem(self):
+        pass
