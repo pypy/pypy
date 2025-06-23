@@ -528,10 +528,22 @@ class Specializer(object):
         return ["i%s = ord(lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), r%d).chars[%s])" % (
             result.index, arg0.index, self._get_as_constant(arg1))]
 
-    def _get_type_prefix(self, non_const_arg):
-        m = re.search('%([i,r,f])[0-9]+', str(non_const_arg))
-        assert m is not None, "ensure regex match"
-        return m.group(1)
+    def _get_type_prefix(self, arg):
+        if isinstance(arg, Constant):
+            value = arg.value
+            # TODO: is this branching correct?
+            if isinstance(value, int):
+                return 'i'
+            elif isinstance(value, float):
+                return 'f'
+            elif isinstance(value, str):
+                return 'r'
+            else:
+                assert False, "unreachable condition"
+        else:
+            m = re.search('%([i,r,f])[0-9]+', str(arg))
+            assert m is not None, "ensure regex match"
+            return m.group(1)
 
     def _get_as_constant(self, arg):
         if isinstance(arg, Constant):
@@ -542,39 +554,65 @@ class Specializer(object):
 
     def _get_as_box(self, arg):
         if isinstance(arg, Constant):
+            # TODO: consider other types
             return "ConstInt(%d)" % (arg.value)
         else:
             t = self._get_type_prefix(arg)
             return "r%s%d" % (t, arg.index)
 
-    def emit_unspecialized_int_add(self):
-        lines = []
-        arg0, arg1 = self.insn[1], self.insn[2]
-        result = self.insn[self.resindex]
-        lines.append("ri%d = self.registers_i[%d]" % (arg0.index, arg0.index))
-        if isinstance(arg1, Constant):
-            lines.append("if ri%d.is_constant():" % (arg0.index))
-            lines.append("    i%d = ri%d.getint()" % (arg0.index, arg0.index))
-            next_constant_registers = {arg0}
-        elif isinstance(arg0, Constant):
-            lines.append("if ri%d.is_constant():" % (arg1.index))
-            lines.append("    i%d = ri%d.getint()" % (arg1.index, arg1.index))
-            next_constant_registers = {arg1}
+    def _emit_unbox_by_type(self, arg):
+        t = self._get_type_prefix(arg)
+        if t == 'i':
+            return "ri%d.getint()" % (arg.index)
+        elif t == 'r':
+            return "rf%d.getref_base()" % (arg.index)
+        elif t == 'f':
+            return "rf%d.getfloat()" % (arg.index)
         else:
-            lines.append("ri%d = self.registers_i[%d]" % (arg1.index, arg1.index))
-            lines.append("if ri%d.is_constant() and ri%d.is_constant():" % (arg0.index, arg1.index))
-            lines.append("    i%d = ri%d.getint()" % (arg0.index, arg0.index))
-            lines.append("    i%d = ri%d.getint()" % (arg1.index, arg1.index))
+            assert False, "%d is unsupported type" % (arg)
+
+    def _emit_unspecialized_binary(self):
+        lines = []
+        args = self._get_args()
+        assert len(args) == 2
+        arg0, arg1 = args[0], args[1]
+        result = self.insn[self.resindex]
+
+        arg0_type_prefix = self._get_type_prefix(arg0)
+        arg0_reg_rep = "r%s%d" % (arg0_type_prefix, arg0.index)
+        arg0_local_rep = "%s%d" % (arg0_type_prefix, arg0.index)
+
+        res_type_prefix = self._get_type_prefix(result)
+
+        lines.append("%s = self.registers_%s[%d]" % (
+            arg0_reg_rep, arg0_type_prefix, arg0.index))
+        if isinstance(arg1, Constant):
+            lines.append("if %s.is_constant():" % (arg0_reg_rep))
+            lines.append("    %s = %s" % (arg0_local_rep, self._emit_unbox_by_type(arg0)))
+            next_constant_registers = {arg0}
+        else:
+            arg1_type_prefix = self._get_type_prefix(arg1)
+            arg1_reg_rep = "r%s%d" % (arg1_type_prefix, arg1.index)
+            arg1_local_rep = "%s%d" % (arg1_type_prefix, arg1.index)
+            lines.append("%s = self.registers_%s[%d]" % (
+                arg1_reg_rep, arg1_type_prefix, arg1.index))
+            lines.append("if %s.is_constant() and %s.is_constant():" % (
+                arg0_reg_rep, arg1_reg_rep))
+            lines.append("    %s = %s" % (arg0_local_rep, self._emit_unbox_by_type(arg0)))
+            lines.append("    %s = %s" % (arg1_local_rep, self._emit_unbox_by_type(arg1)))
             next_constant_registers = {arg0, arg1}
         specializer = self.work_list.specialize(
             self.insn, self.constant_registers.union(next_constant_registers), self.orig_pc)
         lines.append("    pc = %d" % (specializer.get_pc()))
         lines.append("    continue")
         lines.append("else:")
-        lines.append("    self.registers_i[%d] = self.%s(%s, %s)" % (
-            result.index, self.methodname, self._get_as_box(arg0), self._get_as_box(arg1)))
+        lines.append("    self.registers_%s[%d] = self.%s(%s, %s)" % (
+            res_type_prefix, result.index, self.methodname,
+            self._get_as_box(arg0), self._get_as_box(arg1)))
         return lines
-    emit_unspecialized_int_sub = emit_unspecialized_int_add
+
+    emit_unspecialized_int_add = _emit_unspecialized_binary
+    emit_unspecialized_int_sub = _emit_unspecialized_binary
 
     def emit_unspecialized_strgetitem(self):
         lines = []
