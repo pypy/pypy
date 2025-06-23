@@ -513,30 +513,25 @@ class Specializer(object):
 
     def _emit_specialized_int_binary(self, op):
         args = self._get_args()
-        if len(args) == 2:
-            arg0, arg1 = args[0], args[1]
-            result = self.insn[self.resindex]
-            return ["i%s = %s %s %s" % (result.index, self._get_as_constant(arg0),
-                                        op, self._get_as_constant(arg1))]
-        else:
-            assert False # TODO: add another cases
+        assert len(args) == 2
+        arg0, arg1 = args[0], args[1]
+        result = self.insn[self.resindex]
+        return ["i%s = %s %s %s" % (result.index, self._get_as_constant(arg0),
+                                    op, self._get_as_constant(arg1))]
 
     def emit_specialized_strgetitem(self):
         args = self._get_args()
-        if len(args) == 2:
-            arg0, arg1 = args[0], args[1]
-            # TODO: save result?!
-            #result = self.insn[self.resindex]
-            return ["ord(lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), r%d).chars[%s])" % (
-                arg0.index, self._get_as_constant(arg1))]
-        else:
-            assert False # TODO: Here too?
+        assert len(args) == 2
+        arg0, arg1 = args[0], args[1]
+        result = self.insn[self.resindex]
+        # TODO: save result?!
+        return ["i%s = ord(lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), r%d).chars[%s])" % (
+            result.index, arg0.index, self._get_as_constant(arg1))]
 
     def _get_type_prefix(self, non_const_arg):
-        #t = ('%s' % arg)[1]  # TODO: better way?
-        t = re.search('%([i,r,f])[0-9]+', str(non_const_arg)).group(1)
-        assert t is not None, "ensure regex match"
-        return t
+        m = re.search('%([i,r,f])[0-9]+', str(non_const_arg))
+        assert m is not None, "ensure regex match"
+        return m.group(1)
 
     def _get_as_constant(self, arg):
         if isinstance(arg, Constant):
@@ -555,12 +550,16 @@ class Specializer(object):
     def emit_unspecialized_int_add(self):
         lines = []
         arg0, arg1 = self.insn[1], self.insn[2]
-        result = self.insn[4]  # TODO: use self.resindex
+        result = self.insn[self.resindex]
         lines.append("ri%d = self.registers_i[%d]" % (arg0.index, arg0.index))
         if isinstance(arg1, Constant):
             lines.append("if ri%d.is_constant():" % (arg0.index))
             lines.append("    i%d = ri%d.getint()" % (arg0.index, arg0.index))
             next_constant_registers = {arg0}
+        elif isinstance(arg0, Constant):
+            lines.append("if ri%d.is_constant():" % (arg1.index))
+            lines.append("    i%d = ri%d.getint()" % (arg1.index, arg1.index))
+            next_constant_registers = {arg1}
         else:
             lines.append("ri%d = self.registers_i[%d]" % (arg1.index, arg1.index))
             lines.append("if ri%d.is_constant() and ri%d.is_constant():" % (arg0.index, arg1.index))
@@ -580,7 +579,7 @@ class Specializer(object):
     def emit_unspecialized_strgetitem(self):
         lines = []
         arg0, arg1 = self.insn[1], self.insn[2]
-        result = self.insn[4]
+        result = self.insn[self.resindex]
         lines.append("rr%d = self.registers_r[%d]" % (arg0.index, arg0.index))
 
         if isinstance(arg1, Constant):
@@ -598,8 +597,6 @@ class Specializer(object):
         lines.append("    pc = %d" % (specializer.get_pc()))
         lines.append("    continue")
         lines.append("else:")
-        import pdb; pdb.set_trace()
         lines.append("    self.registers_i[%d] = self.opimpl_strgetitem(%s, %s)" % (
             result.index, self._get_as_box(arg0), self._get_as_box(arg1)))
         return lines
-

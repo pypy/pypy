@@ -517,9 +517,9 @@ else:
     newpc = insn_specializer.get_pc()
     assert newpc == 100
     s = insn_specializer.make_code()
-    assert s == "ord(lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), r0).chars[i0])"
+    assert s == "i1 = ord(lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), r0).chars[i0])"
     next_constant_registers = insn_specializer.get_next_constant_registers()
-    assert next_constant_registers == {i0, i1} # TODO: is the assertion wrong?
+    assert next_constant_registers == {r0, i0, i1}
 
 def test_goto_if_not_int_lt():
     pass
@@ -532,11 +532,9 @@ def test_switch():
 
 def dont_test_int_add_sequence():
     i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
-    insns = [(
-        'int_add', i0, Constant(1, lltype.Signed), '->', i1
-    ),
-        ('int_add', i0, i1, '->', i2)
-    ]
+    insns = [
+        ('int_add', i0, Constant(1, lltype.Signed), '->', i1),
+        ('int_add', i0, i1, '->', i2)]
     work_list = WorkList(insns)
     insn_specializer = work_list.specialize(insn1, {i0}, 5)
     newpc = insn_specializer.get_pc()
