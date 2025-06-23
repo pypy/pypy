@@ -1,4 +1,5 @@
 import py
+import re
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
     ConstFloat, CONST_NULL)
 from rpython.flowspace.model import Constant
@@ -521,24 +522,40 @@ class Specializer(object):
             assert False # TODO: add another cases
 
     def emit_specialized_strgetitem(self):
-        pass
+        args = self._get_args()
+        if len(args) == 2:
+            arg0, arg1 = args[0], args[1]
+            # TODO: save result?!
+            #result = self.insn[self.resindex]
+            return ["ord(lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), r%d).chars[%s])" % (
+                arg0.index, self._get_as_constant(arg1))]
+        else:
+            assert False # TODO: Here too?
+
+    def _get_type_prefix(self, non_const_arg):
+        #t = ('%s' % arg)[1]  # TODO: better way?
+        t = re.search('%([i,r,f])[0-9]+', str(non_const_arg)).group(1)
+        assert t is not None, "ensure regex match"
+        return t
 
     def _get_as_constant(self, arg):
         if isinstance(arg, Constant):
             return str(arg.value)
         else:
-            return "i%s" % (arg.index)
+            t = self._get_type_prefix(arg)
+            return "%s%s" % (t, arg.index)
 
     def _get_as_box(self, arg):
         if isinstance(arg, Constant):
             return "ConstInt(%d)" % (arg.value)
         else:
-            return "ri%s" % (arg.index)
+            t = self._get_type_prefix(arg)
+            return "r%s%d" % (t, arg.index)
 
     def emit_unspecialized_int_add(self):
         lines = []
         arg0, arg1 = self.insn[1], self.insn[2]
-        result = self.insn[4]
+        result = self.insn[4]  # TODO: use self.resindex
         lines.append("ri%d = self.registers_i[%d]" % (arg0.index, arg0.index))
         if isinstance(arg1, Constant):
             lines.append("if ri%d.is_constant():" % (arg0.index))
@@ -561,4 +578,28 @@ class Specializer(object):
     emit_unspecialized_int_sub = emit_unspecialized_int_add
 
     def emit_unspecialized_strgetitem(self):
-        pass
+        lines = []
+        arg0, arg1 = self.insn[1], self.insn[2]
+        result = self.insn[4]
+        lines.append("rr%d = self.registers_r[%d]" % (arg0.index, arg0.index))
+
+        if isinstance(arg1, Constant):
+            lines.append("if rr%d.is_constant():" % (arg0.index))
+            lines.append("    i%d = ri%d.getint()" % (arg1.index, arg1.index))
+            next_constant_registers = {arg0}
+        else:
+            lines.append("ri%d = self.registers_i[%d]" % (arg1.index, arg1.index))
+            lines.append("if rr%d.is_constant() and ri%d.is_constant():" % (arg0.index, arg1.index))
+            lines.append("    r%d = rr%d.getref_base()" % (arg0.index, arg0.index))
+            lines.append("    i%d = ri%d.getint()" % (arg1.index, arg1.index))
+            next_constant_registers = {arg0, arg1}
+        specializer = self.work_list.specialize(
+            self.insn, self.constant_registers.union(next_constant_registers), self.orig_pc)
+        lines.append("    pc = %d" % (specializer.get_pc()))
+        lines.append("    continue")
+        lines.append("else:")
+        import pdb; pdb.set_trace()
+        lines.append("    self.registers_i[%d] = self.opimpl_strgetitem(%s, %s)" % (
+            result.index, self._get_as_box(arg0), self._get_as_box(arg1)))
+        return lines
+

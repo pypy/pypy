@@ -505,7 +505,7 @@ def test_strgetitem():
 rr0 = self.registers_r[0]
 ri0 = self.registers_i[0]
 if rr0.is_constant() and ri0.is_constant():
-    r0 = ri1.getref_base()
+    r0 = rr0.getref_base()
     i0 = ri0.getint()
     pc = 100
     continue
@@ -519,7 +519,7 @@ else:
     s = insn_specializer.make_code()
     assert s == "ord(lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), r0).chars[i0])"
     next_constant_registers = insn_specializer.get_next_constant_registers()
-    assert next_constant_registers == {i0, i1}
+    assert next_constant_registers == {i0, i1} # TODO: is the assertion wrong?
 
 def test_goto_if_not_int_lt():
     pass
