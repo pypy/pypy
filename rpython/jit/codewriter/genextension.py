@@ -452,7 +452,7 @@ class Specializer(object):
             assert orig_pc == spec_pc
         self.work_list = work_list
 
-        assert self.insn[0] == 'int_add'
+        #assert self.insn[0] == 'int_add'
 
         self.name = self.insn[0]
         self.methodname = "opimpl_" + self.name
@@ -505,12 +505,18 @@ class Specializer(object):
         return self.constant_registers.union({self.insn[self.resindex]})
 
     def emit_specialized_int_add(self):
+        return self._emit_specialized_int_binary("+")
+
+    def emit_specialized_int_sub(self):
+        return self._emit_specialized_int_binary("-")
+
+    def _emit_specialized_int_binary(self, op):
         args = self._get_args()
         if len(args) == 2:
             arg0, arg1 = args[0], args[1]
             result = self.insn[self.resindex]
-            return ["i%s = %s + %s" % (result.index, self._get_as_constant(arg0),
-                                       self._get_as_constant(arg1))]
+            return ["i%s = %s %s %s" % (result.index, self._get_as_constant(arg0),
+                                        op, self._get_as_constant(arg1))]
         else:
             assert False # TODO: add another cases
 
@@ -549,3 +555,4 @@ class Specializer(object):
         lines.append("    self.registers_i[%d] = self.%s(%s, %s)" % (
             result.index, self.methodname, self._get_as_box(arg0), self._get_as_box(arg1)))
         return lines
+    emit_unspecialized_int_sub = emit_unspecialized_int_add

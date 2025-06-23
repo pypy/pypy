@@ -453,6 +453,67 @@ else:
     next_constant_registers = insn_specializer.get_next_constant_registers()
     assert next_constant_registers == set()
 
+def test_int_sub():
+    i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
+    insn1 = (
+        'int_sub', i1, i0, '->', i1
+    )
+    work_list = WorkList()
+    insn_specializer = work_list.specialize(insn1, {i0, i1}, 5) # i0 and i1 are unboxed in local variables already
+    assert work_list.specialize(insn1, {i0, i1}, 5) is insn_specializer
+    newpc = insn_specializer.get_pc()
+    assert newpc == 100
+    s = insn_specializer.make_code()
+    assert s == "i1 = i1 - i0"
+    next_constant_registers = insn_specializer.get_next_constant_registers()
+    assert next_constant_registers == {i0, i1}
 
-#def test_int_add_sequence():
- #   ...
+
+    insn2 = (
+        'int_sub', i1, i0, '->', i2
+    )
+    insn_specializer = work_list.specialize(insn2, {i0, i1}, 7) # i0 and i1 are unboxed in local variables already
+    s = insn_specializer.make_code()
+    assert s == "i2 = i1 - i0"
+    next_constant_registers = insn_specializer.get_next_constant_registers()
+    assert next_constant_registers == {i0, i1, i2}
+
+    insn_specializer = work_list.specialize(insn1, set(), 5) # i0 and i1 are unboxed in local variables already
+    s = insn_specializer.make_code()
+    assert s == """\
+ri1 = self.registers_i[1]
+ri0 = self.registers_i[0]
+if ri1.is_constant() and ri0.is_constant():
+    i1 = ri1.getint()
+    i0 = ri0.getint()
+    pc = 100
+    continue
+else:
+    self.registers_i[1] = self.opimpl_int_sub(ri1, ri0)"""
+
+def test_strgetitem():
+    pass
+
+def test_goto_if_not_int_lt():
+    pass
+
+def test_int_guard_value():
+    pass
+
+def test_switch():
+    pass
+
+def dont_test_int_add_sequence():
+    i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
+    insns = [(
+        'int_add', i0, Constant(1, lltype.Signed), '->', i1
+    ),
+        ('int_add', i0, i1, '->', i2)
+    ]
+    work_list = WorkList(insns)
+    insn_specializer = work_list.specialize(insn1, {i0}, 5)
+    newpc = insn_specializer.get_pc()
+    assert newpc == 100
+    s = insn_specializer.make_code()
+
+#def test_fast_to_slow():
