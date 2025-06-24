@@ -350,6 +350,10 @@ def rtype_newlist(hop, v_sizehint=None):
 def rtype_alloc_and_set(hop):
     r_list = hop.r_result
     v_count, v_item = hop.inputargs(Signed, r_list.item_repr)
+    if isinstance(v_item, Constant) and _ll_zero_or_null(r_list.LIST.ITEM, v_item.value):
+        # directly call the 'clear' variant
+        cLIST = hop.inputconst(Void, r_list.LIST)
+        return hop.gendirectcall(_ll_alloc_and_clear, cLIST, v_count)
     cLIST = hop.inputconst(Void, r_list.LIST)
     return hop.gendirectcall(ll_alloc_and_set, cLIST, v_count, v_item)
 
