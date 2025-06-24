@@ -4,7 +4,7 @@ from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.pytoken import python_opmap
 from pypy.interpreter.pyparser.error import TokenError, TokenIndentationError, TabError
 from pypy.interpreter.pyparser.pytokenize import tabsize, alttabsize, whiteSpaceDFA, \
-    triple_quoted, endDFAs, single_quoted, pseudoDFA, single_fstring, triple_fstring
+    triple_quoted, endDFAs, single_quoted, pseudoDFA, fstring_starts
 from pypy.interpreter.astcompiler import consts
 from rpython.rlib import rutf8, objectmodel
 
@@ -16,8 +16,7 @@ WHITESPACES = ' \t\n\r\v\f'
 TYPE_COMMENT_PREFIX = 'type'
 TYPE_IGNORE = 'ignore'
 
-TRIPLE_QUOTE_UNTERMINATED_ERROR = "unterminated triple-quoted %sstring literal"
-SINGLE_QUOTE_UNTERMINATED_ERROR = "unterminated %sstring literal"
+UNTERMINATED_STRING_ERROR = "unterminated %s%sstring literal (detected at line %s)"
 EOF_MULTI_LINE_STATEMENT_ERROR = "unexpected end of file (EOF) in multi-line statement"
 
 def match_encoding_declaration(comment):
@@ -135,8 +134,11 @@ def raise_unterminated_string(
     is_triple_quoted, line, lineno, column, tokens, end_lineno, end_offset, f_string=False
 ):
     # same arguments as TokenError, ie 1-based offsets
-    base_msg = TRIPLE_QUOTE_UNTERMINATED_ERROR if is_triple_quoted else SINGLE_QUOTE_UNTERMINATED_ERROR
-    msg = (base_msg + " (detected at line %s)") % ("f-" if f_string else "", end_lineno)
+    msg = UNTERMINATED_STRING_ERROR % (
+        "triple-quoted " if is_triple_quoted else "",
+        "f-" if f_string else "",
+        end_lineno,
+    )
     raise TokenError(msg, line, lineno, column, tokens, end_lineno, end_offset)
 
 def potential_identifier_char(ch):
@@ -446,6 +448,7 @@ class Tokenizer(object):
         self._add_token(tokens.ERRORTOKEN, line[self.pos], self.lnum, self.pos, line)
         self.last_comment = ''
         self.pos += 1
+        return False
 
     def _classify_token(self, line, start, pseudomatch):
         if start < 0:
@@ -495,7 +498,7 @@ class Tokenizer(object):
                 self.token_list.append(type_comment_tok)
             else:
                 self.last_comment = token
-        elif token in single_fstring or token in triple_fstring:
+        elif token in fstring_starts:
             self._add_token(tokens.FSTRING_START, token, self.lnum, start, line, self.lnum, end)
             self.state_stack.append(TokenizerState(TokenizerState.FSTRING))
             self._contstr_start(endDFAs[token], start+len(token), line, len(token) >= 4, "")
@@ -660,6 +663,7 @@ class Tokenizer(object):
                 eos = match - (3 if state.strstart_is_triple_quoted else 1)
                 self._flush_fstring_middle(eos)
 
+                assert eos >= start  # help the annotator
                 self._add_token(tokens.FSTRING_END, line[eos:match],
                                 self.lnum, eos, line, self.lnum, match)
 
@@ -706,6 +710,7 @@ class Tokenizer(object):
         return False
 
     def _flush_fstring_middle(self, end_offset):
+        assert end_offset >= self.pos  # help the annotator
         state = self.state
         contstrs = state.contstrs
         contstrs.append(self.line[self.pos:end_offset])
@@ -714,7 +719,7 @@ class Tokenizer(object):
             self._add_token(tokens.FSTRING_MIDDLE, content,
                             state.strstart_linenumber, state.strstart_offset,
                             self.line, self.lnum, end_offset)
-        contstrs[:] = []
+        del contstrs[:]
 
 
 def generate_tokens(lines, flags):

@@ -108,5 +108,6 @@ alttabsize = 1
 
 # ______________________________________________________________________
 
-single_fstring = {t: t for t in single_quoted if 'f' in t.lower()}
-triple_fstring = {t: t for t in triple_quoted if 'f' in t.lower()}
+fstring_starts = {
+    t: t for quotes in (single_quoted, triple_quoted) for t in quotes if "f" in t.lower()
+}
