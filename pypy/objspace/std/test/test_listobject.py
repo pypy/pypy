@@ -2098,7 +2098,7 @@ class ListChecks(RuleBasedStateMachine):
     def rule_eq(self, id1, id2):
         l1, w1 = self._get(id1)
         l2, w2 = self._get(id2)
-        assert (l1 == l2) == self.space.is_true(w1._descr_eq(self.space, w2))
+        assert (l1 == l2) == self.space.is_true(w1.descr_eq(self.space, w2))
 
     #def rule___ne__
     #def rule___ge__
@@ -2247,4 +2247,10 @@ def test_stateful_bug2():
     state = ListChecks()
     v1 = state.newsimplerange(len=1)
     v2 = state.rule_add(id1=v1, id2=v1)
+    state.teardown()
+
+def test_stateful_bug3():
+    state = ListChecks()
+    v1 = state.newemptylist()
+    state.rule_eq(id1=v1, id2=v1)
     state.teardown()
