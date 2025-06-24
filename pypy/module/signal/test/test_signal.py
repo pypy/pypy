@@ -1,4 +1,4 @@
-import os, py, sys
+import os, pytest, sys
 import signal as cpy_signal
 
 
@@ -7,9 +7,9 @@ class TestCheckSignals:
 
     def setup_class(cls):
         if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
-            py.test.skip("requires os.kill() and os.getpid()")
+            pytest.skip("requires os.kill() and os.getpid()")
         if not hasattr(cpy_signal, 'SIGUSR1'):
-            py.test.skip("requires SIGUSR1 in signal")
+            pytest.skip("requires SIGUSR1 in signal")
 
     def test_checksignals(self):
         space = self.space
@@ -43,7 +43,7 @@ class AppTestSignal:
     def setup_class(cls):
         cls.w_signal = cls.space.getbuiltinmodule('signal')
         cls.w_temppath = cls.space.wrap(
-            str(py.test.ensuretemp("signal").join("foo.txt")))
+            str(pytest.ensuretemp("signal").join("foo.txt")))
 
     def test_exported_names(self):
         import os
@@ -306,7 +306,7 @@ class AppTestItimer:
 
     def setup_class(cls):
         if sys.platform == 'win32':
-            py.test.skip("Unix only")
+            pytest.skip("Unix only")
 
     def test_itimer_real(self):
         import signal
@@ -329,3 +329,54 @@ class AppTestItimer:
         import signal
 
         raises(signal.ItimerError, signal.setitimer, -1, 0)
+
+
+class AppTestRemotelyTriggeredDebugger:
+    spaceconfig = {
+        "usemodules": ['signal', 'time'] + (['fcntl'] if os.name != 'nt' else []),
+    }
+
+    def setup_class(cls):
+        from pypy.interpreter.gateway import interp2app
+        from rpython.rlib.rsignal import pypysig_getaddr_occurred_fullstruct
+        if cls.runappdirect:
+            pytest.skip("can only be run untranslated")
+        cls.w_signal = cls.space.getbuiltinmodule('signal')
+        tmpdir = pytest.ensuretemp("signal")
+        outfile = tmpdir.join('out.txt')
+        tmpfile = tmpdir.join("debugger.py")
+        tmpfile.write('''
+with open(%r, 'w') as f:
+    f.write('done')
+print('done')
+''' % str(outfile))
+        cls.w_outfile = cls.space.wrap(
+            str(outfile))
+        def trigger_debugger(space):
+            addr = pypysig_getaddr_occurred_fullstruct()
+            for index, c in enumerate(str(tmpfile)):
+                addr.c_debugger_script_path[index] = c
+            addr.c_debugger_script_path[index + 1] = '\x00'
+            addr.c_debugger_pending_call = 1
+            addr.c_value = -1
+        cls.w_trigger_debugger = cls.space.wrap(interp2app(trigger_debugger))
+
+    def test_run_debugger(self):
+        self.trigger_debugger() # should happen right away
+        with open(self.outfile) as f:
+            content = f.read()
+            assert content == 'done'
+
+    def test_disable_debugger(self):
+        import __pypy__
+        with open(self.outfile, 'w') as f:
+            f.write('nothing')
+        assert __pypy__._pypy_disable_remote_debugger == False
+        __pypy__._pypy_disable_remote_debugger = True
+        try:
+            self.trigger_debugger() # should happen right away
+        finally:
+            __pypy__._pypy_disable_remote_debugger = False
+        with open(self.outfile) as f:
+            content = f.read()
+            assert content == 'nothing'

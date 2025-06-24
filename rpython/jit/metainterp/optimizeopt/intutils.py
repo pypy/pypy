@@ -881,6 +881,16 @@ class IntBound(AbstractInfo):
         upper = self._add_check_overflow(self.upper, other.upper, MAXINT)
         return self.new(lower, upper, tvalue, tmask)
 
+    def mul2_bound_no_overflow(self):
+        """ return the bound that self + self must have, if no overflow occured,
+        eg after an int_add_ovf(a, a), guard_no_overflow() """
+        tvalue, tmask = self._tnum_lshift(1) # to know that the result is even
+
+        # returning add_bound is always correct, but let's improve the range
+        lower = self._add_check_overflow(self.lower, self.lower, MININT)
+        upper = self._add_check_overflow(self.upper, self.upper, MAXINT)
+        return self.new(lower, upper, tvalue, tmask)
+
     def sub_bound(self, other):
         """
         Subtracts the `other` abstract integer from `self` and returns the
@@ -948,6 +958,18 @@ class IntBound(AbstractInfo):
         except OverflowError:
             return False
         return True
+
+    def square_bound_no_overflow(self):
+        """
+        returns the bound of self**2, if no overflow occurred.
+        """
+        val0 = saturating_mul(self.lower, self.lower) # self.lower**2, or MAXINT
+        val1 = saturating_mul(self.upper, self.upper) # self.upper**2, or MAXINT
+        lower = min(val0, val1)
+        upper = max(val0, val1)
+        if not same_sign(self.upper, self.lower): # 0 is contained in the range
+            lower = 0
+        return IntBound(lower, upper)
 
     def py_div_bound(self, other):
         """
@@ -1672,3 +1694,19 @@ def unmask_zero(value, mask):
     returns the result.
     """
     return value & ~mask
+
+def saturating_mul(a, b):
+    """
+    Returns a * b. If the multiplication overflows it returns either MININT or
+    MAXINT, whichever is closer to the "correct" value.
+    """
+    try:
+        return ovfcheck(a * b)
+    except OverflowError:
+        if same_sign(a, b):
+            return MAXINT
+        return MININT
+
+def same_sign(a, b):
+    """ Return True iff a and b have the same sign """
+    return (a ^ b) >= 0

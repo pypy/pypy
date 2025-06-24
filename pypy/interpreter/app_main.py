@@ -35,6 +35,7 @@ PyPy options and arguments:
                      a warning if they are not closed explicitly
 -X faulthandler    : attempt to display tracebacks when PyPy crashes
 -X jit-off         : turn the JIT off, equivalent to --jit off
+-X disable-remote-debug: disable the remote debugging interface
 """
 # Missing vs CPython: PYTHONHOME, PYTHONCASEOK
 USAGE2 = """
@@ -47,6 +48,7 @@ PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
                topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
 PYPY_DISABLE_JIT: if set to a non-empty value, disable JIT.
+PYTHON_DISABLE_REMOTE_DEBUG: if set to a non-empty value, disable the remote debugging interface
 """
 
 try:
@@ -276,6 +278,15 @@ def run_faulthandler():
         except ValueError:
             pass      # ignore "2 is not a valid file descriptor"
 
+def disable_remote_debug(options):
+    options['_remote_debug'] = 'off'
+    try:
+        import __pypy__
+    except ImportError:
+        pass
+    else:
+        __pypy__._pypy_disable_remote_debugger = True
+
 def set_runtime_options(options, Xparam, *args):
     if Xparam == 'track-resources':
         sys.pypy_set_track_resources(True)
@@ -283,9 +294,11 @@ def set_runtime_options(options, Xparam, *args):
         run_faulthandler()
     elif Xparam == 'jit-off':
         set_jit_option(options, 'off')
+    elif Xparam == 'disable-remote-debug':
+        disable_remote_debug(options)
     else:
         print >> sys.stderr, 'usage: %s -X [options]' % (get_sys_executable(),)
-        print >> sys.stderr, '[options] can be: track-resources, faulthandler, jit-off'
+        print >> sys.stderr, '[options] can be: track-resources, faulthandler, jit-off, disable-remote-debug'
         raise SystemExit
 
 class CommandLineError(Exception):
@@ -590,6 +603,9 @@ def parse_command_line(argv):
 
     if getenv('PYTHONFAULTHANDLER'):
         run_faulthandler()
+
+    if getenv('PYTHON_DISABLE_REMOTE_DEBUG'):
+        disable_remote_debug(options)
 
 ##    if not WE_ARE_TRANSLATED:
 ##        for key in sorted(options):

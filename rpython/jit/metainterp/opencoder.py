@@ -442,13 +442,13 @@ class BoxArrayIter(object):
         self.data = data
 
     def __repr__(self):
-        if self.length == 0 and self.data == '\x00':
+        if self.length == 0 and self.data == ['\x00', '\x00']:
             return "BoxArrayIter.BOXARRAYITER0"
         return "<BoxArrayIter length=%s>" % self.length
 
     @staticmethod
     def make(index, data):
-        if data[index] == '\x00':
+        if index == 0: # length 0 arrays are always encoded to index 0
             return BoxArrayIter.BOXARRAYITER0
         return BoxArrayIter(index, data)
 
@@ -712,7 +712,7 @@ class Trace(BaseTrace):
     def _list_of_boxes(self, boxes):
         boxes_list_storage = self.new_array(len(boxes))
         for i in range(len(boxes)):
-            self._add_box_to_storage(boxes_list_storage, boxes[i])
+            self._add_box_to_storage(boxes[i])
         return boxes_list_storage
 
     def _list_of_boxes_virtualizable(self, boxes):
@@ -720,9 +720,9 @@ class Trace(BaseTrace):
             return self.new_array(0)
         boxes_list_storage = self.new_array(len(boxes))
         # the virtualizable is at the end, move it to the front in the snapshot
-        self._add_box_to_storage(boxes_list_storage, boxes[-1])
+        self._add_box_to_storage(boxes[-1])
         for i in range(len(boxes) - 1):
-            self._add_box_to_storage(boxes_list_storage, boxes[i])
+            self._add_box_to_storage(boxes[i])
         return boxes_list_storage
 
     def new_array(self, lgt):
@@ -732,9 +732,8 @@ class Trace(BaseTrace):
         self.append_snapshot_array_data_int(lgt)
         return res
 
-    def _add_box_to_storage(self, boxes_list_storage, box):
+    def _add_box_to_storage(self, box):
         self.append_snapshot_array_data_int(self._encode(box))
-        return boxes_list_storage
 
     def append_snapshot_array_data_int(self, i):
         if not MIN_VALUE <= i <= MAX_VALUE:

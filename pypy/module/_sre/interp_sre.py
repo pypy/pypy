@@ -16,6 +16,10 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rsre import rsre_core, rsre_utf8
 from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, getlower, set_unicode_db
 
+from rpython.rlib.rsre.rpy.sre_constants import OPCODES
+
+ORDERED_OPCODE_NAMES = [name for name, value in sorted(OPCODES.items(), key=lambda element: element[1])]
+
 
 @unwrap_spec(char_ord=int, flags=int)
 def w_getlower(space, char_ord, flags):

@@ -32,6 +32,7 @@ class AppTestRecompilerPython:
         struct foo_s;
         typedef struct bar_s { int x; signed char a[]; } bar_t;
         enum foo_e { AA, BB, CC };
+        struct B { struct C* c; }; struct C { struct B b; };
 
         void init_test_re_python(void) { }      /* windows hack */
         void PyInit__test_re_python(void) { }   /* windows hack */
@@ -74,6 +75,7 @@ class AppTestRecompilerPython:
         struct foo_s;
         typedef struct bar_s { int x; signed char a[]; } bar_t;
         enum foo_e { AA, BB, CC };
+        struct B { struct C* c; }; struct C { struct B b; };
         typedef struct selfref { struct selfref *next; } *selfref_ptr_t;
 
         void *dlopen(const char *filename, int flags);
@@ -270,3 +272,16 @@ class AppTestRecompilerPython:
 
         err = lib1.dlclose(handle)
         assert err == 0
+
+    def test_rec_structs_1(self):
+        self.fix_path()
+        from re_python_pysrc import ffi
+        sz = ffi.sizeof("struct B")
+        assert sz == ffi.sizeof("int *")
+
+    def test_rec_structs_2(self):
+        self.fix_path()
+        from re_python_pysrc import ffi
+        sz = ffi.sizeof("struct C")
+        assert sz == ffi.sizeof("int *")
+

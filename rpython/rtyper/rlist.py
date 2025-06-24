@@ -679,7 +679,7 @@ def ll_pop(func, l, index):
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
 
-@jit.look_inside_iff(lambda l: jit.isvirtual(l))
+@jit.look_inside_iff(lambda l: jit.isvirtual(l) and jit.isconstant(l.ll_length()))
 def ll_reverse(l):
     length = l.ll_length()
     i = 0

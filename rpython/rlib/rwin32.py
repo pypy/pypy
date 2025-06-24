@@ -12,6 +12,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.translator import cdir
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rutf8 import codepoints_in_utf8
 from rpython.rlib.rarithmetic import intmask, r_longlong, widen
 from rpython.rlib import jit
 
@@ -22,10 +23,10 @@ srcdir = os.path.join(os.path.dirname(__file__), 'src')
 
 if WIN32:
     eci = ExternalCompilationInfo(
-        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h', 'winreparse.h'],
+        includes = ['windows.h', 'stdio.h', 'stdlib.h', 'io.h', 'winhelpers.h'],
         include_dirs = [srcdir, cdir],
         libraries = ['kernel32', 'Advapi32'],
-        separate_module_files = [os.path.join(srcdir, "winreparse.c")],
+        separate_module_files = [os.path.join(srcdir, "winhelpers.c")],
         )
 
     def external(name, args, result, compilation_info=eci, **kwds):
@@ -110,7 +111,7 @@ class CConfig:
 
         defines = """FORMAT_MESSAGE_ALLOCATE_BUFFER FORMAT_MESSAGE_FROM_SYSTEM
                        MAX_PATH _MAX_ENV FORMAT_MESSAGE_IGNORE_INSERTS
-                       WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE
+                       WAIT_OBJECT_0 WAIT_TIMEOUT INFINITE WAIT_FAILED
                        ERROR_INVALID_HANDLE
                        DELETE READ_CONTROL SYNCHRONIZE WRITE_DAC
                        WRITE_OWNER PROCESS_ALL_ACCESS
@@ -695,4 +696,7 @@ if WIN32:
                                           save_err=rffi.RFFI_SAVE_LASTERROR)
 
 
-
+    os_createdirectory_impl = winexternal("os_createdirectory_impl",
+                                          [rffi.CWCHARP, rffi.INT_real],
+                                          rffi.INT,
+                                          save_err=rffi.RFFI_SAVE_LASTERROR)

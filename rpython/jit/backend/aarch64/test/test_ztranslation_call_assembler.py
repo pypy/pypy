@@ -11,5 +11,9 @@ if sys.platform == 'win32':
     py.test.skip("crashes on Windows (Boehm issue?)")
 
 
+if sys.platform == 'darwin':
+    import py
+    py.test.skip("needs '-Wno-incompatible-function-pointer-types' for clang on macos compilation of memcpy")
+
 class TestTranslationCallAssemblerAarch64(TranslationTestCallAssembler):
     pass

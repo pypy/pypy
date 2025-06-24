@@ -2,9 +2,9 @@ import py
 from rpython.rlib import rurandom
 
 def test_rurandom():
-    context = rurandom.init_urandom()
-    s = rurandom.urandom(context, 5000)
-    assert type(s) is str and len(s) == 5000
+    n = 5000
+    s = rurandom.urandom(n)
+    assert type(s) is str and len(s) == n
     for x in [1, 11, 111, 222]:
         assert s.count(chr(x)) >= 1
 

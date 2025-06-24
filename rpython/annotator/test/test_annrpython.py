@@ -4787,6 +4787,23 @@ class TestAnnotateTestCase:
         ann = self.RPythonAnnotator()
         s = ann.build_types(f, [])
 
+    def test_len_const_str(self):
+        def f():
+            return len('abc') # easy case, the flowspace does it
+        ann = self.RPythonAnnotator()
+        s = ann.build_types(f, [])
+        assert s.is_constant()
+        assert s.const == 3
+
+        def g(s):
+            return len(s)
+        g._annspecialcase_ = "specialize:arg(0)"
+        def f():
+            return g('abc') # harder, need annotation support
+        s = ann.build_types(f, [])
+        assert s.is_constant()
+        assert s.const == 3
+
 
 def g(n):
     return [0, 1, 2, n]
