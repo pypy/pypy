@@ -473,9 +473,8 @@ class AbstractListIteratorRepr(IteratorRepr):
 #  when we compute "ll_length() + 1".
 
 
-def _ll_zero_or_null(item):
+def _ll_zero_or_null(T, item):
     # Check if 'item' is zero/null, or not.
-    T = typeOf(item)
     if T is Char or T is UniChar:
         check = ord(item)
     elif isinstance(T, Number):
@@ -498,7 +497,7 @@ def ll_alloc_and_set(LIST, count, item):
         return _ll_alloc_and_set_nojit(LIST, count, item)
 
 def _ll_alloc_and_set_nojit(LIST, count, item):
-    if _ll_zero_or_null(item):
+    if _ll_zero_or_null(LIST.ITEM, item):
         return _ll_alloc_and_clear(LIST, count)
     l = LIST.ll_newlist(count)
     i = 0
@@ -508,7 +507,7 @@ def _ll_alloc_and_set_nojit(LIST, count, item):
     return l
 
 def _ll_alloc_and_set_jit(LIST, count, item):
-    if _ll_zero_or_null(item):
+    if _ll_zero_or_null(LIST.ITEM, item):
         # 'item' is zero/null.  Do the list allocation with the
         # function _ll_alloc_and_clear(), which the JIT knows about.
         return _ll_alloc_and_clear(LIST, count)
