@@ -1592,6 +1592,30 @@ The argument must be an iterable if specified."""
         l.append(191)
         assert repr(l) == '[1, ouchie]'
 
+    def test_mutate_while_eq(self):
+        class Mean(object):
+            def __init__(self, i):
+                self.i = i
+            def __eq__(self, other):
+                if self.i == 9:
+                    del l1[self.i - 1]
+                return True
+        l1 = [Mean(i) for i in range(10)]
+        l2 = [Mean(i) for i in range(10)]
+        assert l1 != l2
+
+        class Mean(object):
+            def __init__(self, i):
+                self.i = i
+            def __eq__(self, other):
+                if self.i == 9:
+                    del l1[self.i - 1]
+                    del l2[self.i - 1]
+                return True
+        l1 = [Mean(i) for i in range(10)]
+        l2 = [Mean(i) for i in range(10)]
+        assert l1 == l2
+
     def test_unicode(self):
         s = "\ufffd\ufffd\ufffd"
         assert s.encode("ascii", "replace") == b"???"

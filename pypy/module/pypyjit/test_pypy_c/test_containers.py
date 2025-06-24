@@ -390,3 +390,28 @@ class TestOtherContainers(BaseTestPyPyC):
         opnames = log.opnames(ops)
         # only a call to ll_kvi, not to get_strategy_from_list_objects
         assert opnames.count("call_r") == 1
+
+    def test_list_eq(self):
+        def main():
+            l1 = [i * 3 + 1 for i in range(10000)]
+            l2 = [i * 3 + 1 for i in range(10000)]
+            return l1 == l2
+        log = self.run(main, [])
+        loop = log._filter(log.loops[-1], is_entry_bridge=False)
+        loop.match("""
+        i22 = uint_ge(i19, i6)
+        guard_false(i22, descr=...)
+        i23 = getarrayitem_gc_i(p8, i19, descr=...)
+        i24 = uint_ge(i19, i13)
+        guard_false(i24, descr=...)
+        i25 = getarrayitem_gc_i(p15, i19, descr=...)
+        i26 = int_eq(i25, i23)
+        guard_true(i26, descr=...)
+        i28 = int_add(i19, 1)
+        i29 = int_lt(i28, i6)
+        guard_true(i29, descr=...)
+        i30 = int_lt(i28, i13)
+        guard_true(i30, descr=...)
+        i31 = arraylen_gc(p8, descr=...)
+        i32 = arraylen_gc(p15, descr=...)
+        jump(i28, p1, p2, p5, i6, p8, p12, i13, p15, descr=...)""")
