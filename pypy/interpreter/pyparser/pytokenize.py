@@ -50,15 +50,11 @@ for uniPrefix in ("", "b", "B"):
 
 for rawPrefix in ("", "r", "R"):
     for fPrefix in "fF":
-        prefix_1 = rawPrefix + fPrefix
-        prefix_2 = fPrefix + rawPrefix
-
-        endDFAs[prefix_1 + "'"] = singlefDFA
-        endDFAs[prefix_1 + '"'] = doublefDFA
-        endDFAs[prefix_1 + "'''"] = singlef3DFA
-        endDFAs[prefix_1 + '"""'] = doublef3DFA
-        endDFAs[prefix_2 + "'''"] = singlef3DFA
-        endDFAs[prefix_2 + '"""'] = doublef3DFA
+        for prefix in (rawPrefix + fPrefix, fPrefix + rawPrefix):
+            endDFAs[prefix + "'"] = singlefDFA
+            endDFAs[prefix + '"'] = doublefDFA
+            endDFAs[prefix + "'''"] = singlef3DFA
+            endDFAs[prefix + '"""'] = doublef3DFA
 
 for uniPrefix in ("u", "U"):
     endDFAs[uniPrefix + "'''"] = single3DFA

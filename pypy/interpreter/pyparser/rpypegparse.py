@@ -961,7 +961,7 @@ class PythonParser(Parser):
                                 end_lineno, end_col_offset = tok.end_lineno, tok.end_column
                                 return ast . FunctionDef ( name = self . extract_id ( n ) , args = params or self . make_arguments ( None , None , None , [] , None ) , returns = a , body = b , decorator_list = None , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset , )
         self._index = mark
-        _async = self.expect_type(61)
+        _async = self.expect_type(62)
         if _async:
             literal = self.expect_type(515)
             if literal:
@@ -1468,7 +1468,7 @@ class PythonParser(Parser):
         self._index = mark
         if cut: return None
         cut = False
-        _async = self.expect_type(61)
+        _async = self.expect_type(62)
         if _async:
             literal = self.expect_type(518)
             if literal:
@@ -1538,7 +1538,7 @@ class PythonParser(Parser):
                         end_lineno, end_col_offset = tok.end_lineno, tok.end_column
                         return ast . With ( items = a , body = b , type_comment = tc , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
-        _async = self.expect_type(61)
+        _async = self.expect_type(62)
         if _async:
             literal = self.expect_type(520)
             if literal:
@@ -1557,7 +1557,7 @@ class PythonParser(Parser):
                                     end_lineno, end_col_offset = tok.end_lineno, tok.end_column
                                     return self . check_version ( ( 3 , 9 ) , "Parenthesized with items" , ast . AsyncWith ( items = a , body = b , type_comment = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset ) )
         self._index = mark
-        _async = self.expect_type(61)
+        _async = self.expect_type(62)
         if _async:
             literal = self.expect_type(520)
             if literal:
@@ -3239,7 +3239,7 @@ class PythonParser(Parser):
         if self._verbose: log_start(self, 'await_primary')
         tok = self.peek()
         start_lineno, start_col_offset = tok.lineno, tok.column
-        _await = self.expect_type(62)
+        _await = self.expect_type(63)
         if _await:
             a = self.primary()
             if a:
@@ -3387,7 +3387,7 @@ class PythonParser(Parser):
             end_lineno, end_col_offset = tok.end_lineno, tok.end_column
             return ast . Constant ( value = self . parse_number ( a ) , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
         self._index = mark
-        a = self.expect_type(68)
+        a = self.expect_type(69)
         if a:
             tok = self.get_last_non_whitespace_token()
             end_lineno, end_col_offset = tok.end_lineno, tok.end_column
@@ -3811,7 +3811,7 @@ class PythonParser(Parser):
         mark = self._index
         if self._verbose: log_start(self, 'for_if_clause')
         cut = False
-        x = self.expect_type(61)
+        x = self.expect_type(62)
         if x:
             literal = self.expect_type(518)
             if literal:
@@ -5119,7 +5119,7 @@ class PythonParser(Parser):
         # invalid_for_target: ASYNC? 'for' star_expressions
         mark = self._index
         if self._verbose: log_start(self, 'invalid_for_target')
-        opt = self.expect_type(61)
+        opt = self.expect_type(62)
         literal = self.expect_type(518)
         if literal:
             a = self.star_expressions()
@@ -5170,7 +5170,7 @@ class PythonParser(Parser):
         # invalid_with_stmt: ASYNC? 'with' ','.(expression ['as' star_target])+ NEWLINE | ASYNC? 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' NEWLINE
         mark = self._index
         if self._verbose: log_start(self, 'invalid_with_stmt')
-        opt = self.expect_type(61)
+        opt = self.expect_type(62)
         literal = self.expect_type(520)
         if literal:
             _gather_200 = self._gather_200()
@@ -5179,7 +5179,7 @@ class PythonParser(Parser):
                 if n:
                     return self . raise_syntax_error_known_location ( "expected ':'" , n )
         self._index = mark
-        opt = self.expect_type(61)
+        opt = self.expect_type(62)
         literal = self.expect_type(520)
         if literal:
             literal_1 = self.expect_type(10)
@@ -5199,7 +5199,7 @@ class PythonParser(Parser):
         # invalid_with_stmt_indent: ASYNC? 'with' ','.(expression ['as' star_target])+ ':' NEWLINE !INDENT | ASYNC? 'with' '(' ','.(expressions ['as' star_target])+ ','? ')' ':' NEWLINE !INDENT
         mark = self._index
         if self._verbose: log_start(self, 'invalid_with_stmt_indent')
-        opt = self.expect_type(61)
+        opt = self.expect_type(62)
         a = self.expect_type(520)
         if a:
             _gather_204 = self._gather_204()
@@ -5211,7 +5211,7 @@ class PythonParser(Parser):
                         if self.negative_lookahead(PythonParser.expect_type, 5):
                             return self . raise_indentation_error ( "expected an indented block after 'with' statement on line %s" % a . lineno )
         self._index = mark
-        opt = self.expect_type(61)
+        opt = self.expect_type(62)
         a = self.expect_type(520)
         if a:
             literal = self.expect_type(10)
@@ -5588,7 +5588,7 @@ class PythonParser(Parser):
         # invalid_for_stmt: ASYNC? 'for' star_targets 'in' star_expressions NEWLINE | ASYNC? 'for' star_targets 'in' star_expressions ':' NEWLINE !INDENT
         mark = self._index
         if self._verbose: log_start(self, 'invalid_for_stmt')
-        opt = self.expect_type(61)
+        opt = self.expect_type(62)
         literal = self.expect_type(518)
         if literal:
             star_targets = self.star_targets()
@@ -5601,7 +5601,7 @@ class PythonParser(Parser):
                         if n:
                             return self . raise_syntax_error_known_location ( "expected ':'" , n )
         self._index = mark
-        opt = self.expect_type(61)
+        opt = self.expect_type(62)
         a = self.expect_type(518)
         if a:
             star_targets = self.star_targets()
@@ -5623,7 +5623,7 @@ class PythonParser(Parser):
         # invalid_def_raw: ASYNC? 'def' NAME '(' params? ')' ['->' expression] ':' NEWLINE !INDENT
         mark = self._index
         if self._verbose: log_start(self, 'invalid_def_raw')
-        opt = self.expect_type(61)
+        opt = self.expect_type(62)
         a = self.expect_type(515)
         if a:
             name = self.name()
@@ -5941,7 +5941,7 @@ class PythonParser(Parser):
         if literal:
             return literal
         self._index = mark
-        _async = self.expect_type(61)
+        _async = self.expect_type(62)
         if _async:
             return _async
         self._index = mark
@@ -5969,7 +5969,7 @@ class PythonParser(Parser):
         if literal:
             return literal
         self._index = mark
-        _async = self.expect_type(61)
+        _async = self.expect_type(62)
         if _async:
             return _async
         self._index = mark
@@ -5983,7 +5983,7 @@ class PythonParser(Parser):
         if literal:
             return literal
         self._index = mark
-        _async = self.expect_type(61)
+        _async = self.expect_type(62)
         if _async:
             return _async
         self._index = mark

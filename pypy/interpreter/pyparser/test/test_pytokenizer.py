@@ -552,6 +552,31 @@ def"""
             (tokens.FSTRING_END, '"', 1, 9, 1, 10),
         ],
     ),
+    (
+        "equal sign in interpolation",
+        'f"{x=}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.EQUAL, "=", 1, 4, 1, 5),
+            (tokens.RBRACE, "}", 1, 5, 1, 6),
+            (tokens.FSTRING_END, '"', 1, 6, 1, 7),
+        ],
+    ),
+    (
+        "conversion in interpolation",
+        'f"{x!r}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.EXCLAMATION, "!", 1, 4, 1, 5),
+            (tokens.NAME, "r", 1, 5, 1, 6),
+            (tokens.RBRACE, "}", 1, 6, 1, 7),
+            (tokens.FSTRING_END, '"', 1, 7, 1, 8),
+        ],
+    ),
 ]
 
 def _parametrize(argnames, tests):
