@@ -628,8 +628,11 @@ class Tokenizer(object):
             last_c, next_c = line[match - 1], line[match]
             if last_c in "{}":
                 if not state.format_specifier_mode and last_c == next_c:
-                    state.contstrs.append(line[start:match])
-                    self.pos = match + 1  # Skip the second brace
+                    # Could just be:
+                    # state.contstrs.append(line[start:match])
+                    # but for CPython compatibility we do:
+                    self._flush_fstring_middle(match)
+                    state.strstart_offset = self.pos = match + 1  # Skip the second brace
                 elif last_c == "{":
                     self._flush_fstring_middle(match - 1)
 
@@ -654,7 +657,8 @@ class Tokenizer(object):
                     opening = self.parenstack.pop()
                     assert opening.value == "{"
                     self.state_stack.pop()
-                    self.pos = match
+                    self.state.strstart_linenumber = self.lnum
+                    self.state.strstart_offset = self.pos = match
                 else:
                     self._raise_token_error("f-string: single '}' is not allowed",
                                             line, self.lnum, match)
@@ -692,7 +696,7 @@ class Tokenizer(object):
                 nl_pos = len(line) - 1
                 assert line[nl_pos] == "\n"
                 self._flush_fstring_middle(nl_pos)
-                self._add_token(tokens.NEWLINE, "\n", self.lnum, nl_pos, line)
+                # self._add_token(tokens.NL, "\n", self.lnum, nl_pos, line)
 
                 # Return to the FSTRING_INTERPOLATION mode
                 state.mode = TokenizerState.FSTRING_INTERPOLATION

@@ -391,7 +391,8 @@ def"""
         'f"{{abc}}"\n',
         [
             (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
-            (tokens.FSTRING_MIDDLE, "{abc}", 1, 2, 1, 9),
+            (tokens.FSTRING_MIDDLE, "{", 1, 2, 1, 3),
+            (tokens.FSTRING_MIDDLE, "abc}", 1, 4, 1, 8),
             (tokens.FSTRING_END, '"', 1, 9, 1, 10),
         ],
     ),
@@ -519,7 +520,6 @@ def"""
             (tokens.NAME, "x", 1, 3, 1, 4),
             (tokens.COLON, ":", 1, 4, 1, 5),
             (tokens.FSTRING_MIDDLE, "y", 1, 5, 1, 6),
-            (tokens.NEWLINE, "\n", 1, 6, -1, -1),
             (tokens.NAME, "z", 2, 0, 2, 1),
             (tokens.RBRACE, "}", 2, 1, 2, 2),
             (tokens.FSTRING_MIDDLE, "w", 2, 2, 2, 3),
@@ -550,6 +550,20 @@ def"""
             (tokens.FSTRING_MIDDLE, "y:z", 1, 5, 1, 8),
             (tokens.RBRACE, "}", 1, 8, 1, 9),
             (tokens.FSTRING_END, '"', 1, 9, 1, 10),
+        ],
+    ),
+    (
+        "format specifier: trailing text",
+        "f'{x:y}z'\n",
+        [
+            (tokens.FSTRING_START, "f'", 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.COLON, ":", 1, 4, 1, 5),
+            (tokens.FSTRING_MIDDLE, "y", 1, 5, 1, 6),
+            (tokens.RBRACE, "}", 1, 6, 1, 7),
+            (tokens.FSTRING_MIDDLE, "z", 1, 7, 1, 8),
+            (tokens.FSTRING_END, "'", 1, 8, 1, 9),
         ],
     ),
     (
