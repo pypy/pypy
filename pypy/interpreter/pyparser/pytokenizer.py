@@ -443,6 +443,19 @@ class Tokenizer(object):
         if start < 0:
             start = self.pos
         if start<self.max and line[start] in single_quoted:
+            if self._in_fstring_interpolation():
+                prev_state = self.state_stack[-2]
+                fmode = prev_state.mode
+                assert isinstance(fmode, FStringMode)
+                # Check if the quote is the same as the one used to start the f-string
+                sline = prev_state.strstart_starting_line
+                col = prev_state.strstart_offset + 1  # +1 to skip the f/F
+                while sline[col] not in "'\"":
+                    col += 1
+
+                if line[start] == sline[col]:
+                    self._raise_token_error("f-string: expecting '}'", line, self.lnum, start+1)
+
             raise_unterminated_string(False, line, self.lnum, start+1,
                                         self.token_list, self.lnum, len(line))
         if line[self.pos] == "0":

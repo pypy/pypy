@@ -669,16 +669,17 @@ def
     ),
     (
         "lonely f-string quote in interpolation",
-        pytest.mark.xfail(
-            (
-                'f" {"}\n',
-                "f-string: expecting '}'",
-                1,
-                1,
-            ),
-            raises=AssertionError,
-            reason="TODO",
-        ),
+        'f" {"\n',
+        "f-string: expecting '}'",
+        5,
+        1,
+    ),
+    (
+        "lonely f-string quote on new line in format specifier",
+        'f" {x:\n"\n',
+        "f-string: expecting '}'",
+        1,
+        2,
     ),
 ]
 
