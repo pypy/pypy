@@ -591,6 +591,25 @@ def"""
             (tokens.FSTRING_END, '"', 1, 7, 1, 8),
         ],
     ),
+    (
+        "tricky triple quoted",
+        '''f"""
+"{x}
+"{{""{{
+"""
+''',
+        [
+            (tokens.FSTRING_START, 'f"""', 1, 0, 1, 4),
+            (tokens.FSTRING_MIDDLE, '\n"', 1, 4, 2, 1),
+            (tokens.LBRACE, "{", 2, 1, 2, 2),
+            (tokens.NAME, "x", 2, 2, 2, 3),
+            (tokens.RBRACE, "}", 2, 3, 2, 4),
+            (tokens.FSTRING_MIDDLE, '\n"{', 2, 4, 3, 2),
+            (tokens.FSTRING_MIDDLE, '""{', 3, 3, 3, 6),
+            (tokens.FSTRING_MIDDLE, "\n", 3, 7, 4, 0),
+            (tokens.FSTRING_END, '"""', 4, 0, 4, 3),
+        ]
+    ),
 ]
 
 def _parametrize(argnames, tests):
@@ -625,13 +644,11 @@ _fstring_error_tests = [
         6,
         1,
     ),
-    # TODO: The 'pos' values here are after the f-string start token
-    #  while on CPython they come before it.
     (
         "unterminated f-string",
         'f"abc\n',
         "unterminated f-string literal (detected at line 1)",
-        3,
+        1,
         1,
     ),
     (
@@ -640,14 +657,14 @@ _fstring_error_tests = [
 def
 """,
         "unterminated f-string literal (detected at line 2)",
-        3,
+        1,
         1,
     ),
     (
         "unterminated f-string triple",
         '''f"""abc\n''',
         "unterminated triple-quoted f-string literal (detected at line 1)",
-        5,
+        1,
         1,
     ),
     (
@@ -656,7 +673,7 @@ def
             (
                 'f" {"}\n',
                 "f-string: expecting '}'",
-                4,
+                1,
                 1,
             ),
             raises=AssertionError,

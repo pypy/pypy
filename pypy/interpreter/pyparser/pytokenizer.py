@@ -146,7 +146,6 @@ def potential_identifier_char(ch):
             ord(ch) >= 0x80)    # unicode
 
 def raise_unknown_character(line, start, lnum, token_list, flags):
-    from pypy.module.unicodedata.interp_ucd import unicodedb
     code = ord(line[start])
     if code < 128:
         try:
@@ -164,16 +163,25 @@ class Finish(Exception):
 
 
 # TODO: Describe state machine & transitions
+class TokenizerMode(object): pass
+
+NormalMode = TokenizerMode()
+
+class FStringMode(TokenizerMode):
+    def __init__(self, middle_linenumber, middle_offset, format_specifier=False):
+        super(FStringMode, self).__init__()
+
+        self.format_specifier = format_specifier
+        self.middle_linenumber = middle_linenumber
+        self.middle_offset = middle_offset
+
+
 class TokenizerState(object):
     """Contains the tokenizer state that needs to be saved and restored
     when tokenizing f-strings."""
 
-    NORMAL = 0
-    FSTRING = 1
-    FSTRING_INTERPOLATION = 2
-
     def __init__(self, mode, level=0):
-        assert self.NORMAL <= mode <= self.FSTRING_INTERPOLATION
+        assert isinstance(mode, TokenizerMode)
         self.mode = mode
         self.level = level
 
@@ -186,10 +194,6 @@ class TokenizerState(object):
         self.strstart_offset = 0
         self.strstart_starting_line = ""
         self.strstart_is_triple_quoted = False
-
-        # for f-strings
-        self.format_specifier_mode = False
-        # TODO: Refactor modes into two modes with two variations
 
 class Tokenizer(object):
     def __init__(self, flags):
@@ -213,7 +217,7 @@ class Tokenizer(object):
 
         self.cont_line_col = 0
 
-        self.state_stack = [TokenizerState(TokenizerState.NORMAL)]
+        self.state_stack = [TokenizerState(NormalMode)]
 
     @property
     def state(self):
@@ -244,7 +248,7 @@ class Tokenizer(object):
             if not line:
                 self._contstr_raise_unterminated(self.lnum - 1, len(line))
 
-            if self.state.mode != TokenizerState.FSTRING:
+            if self.state.mode is NormalMode:
                 done = self._tokenize_string_continuation(line)
                 if done:
                     return
@@ -303,7 +307,7 @@ class Tokenizer(object):
         state = self.state
         raise_unterminated_string(state.strstart_is_triple_quoted, state.strstart_starting_line, state.strstart_linenumber,
                                   state.strstart_offset + 1, self.token_list,
-                                  end_lineno, end_col_offset, state.mode == TokenizerState.FSTRING)
+                                  end_lineno, end_col_offset, state.mode is not NormalMode)
 
     def _tokenize_string_continuation(self, line):
         state = self.state
@@ -424,10 +428,9 @@ class Tokenizer(object):
         done = False
         while self.pos < self.max and not done:
             mode = self.state.mode
-            if mode == TokenizerState.FSTRING:
-                done = self._tokenize_fstring(line)
+            if isinstance(mode, FStringMode):
+                done = self._tokenize_fstring(mode, line)
             else:
-                assert mode == TokenizerState.NORMAL or mode == TokenizerState.FSTRING_INTERPOLATION
                 done = self._tokenize_regular_normal(line)
 
     def _tokenize_regular_normal(self, line):
@@ -500,8 +503,8 @@ class Tokenizer(object):
                 self.last_comment = token
         elif token in fstring_starts:
             self._add_token(tokens.FSTRING_START, token, self.lnum, start, line, self.lnum, end)
-            self.state_stack.append(TokenizerState(TokenizerState.FSTRING))
-            self._contstr_start(endDFAs[token], start+len(token), line, len(token) >= 4, "")
+            self.state_stack.append(TokenizerState(FStringMode(self.lnum, end)))
+            self._contstr_start(endDFAs[token], start, line, len(token) >= 4, "")
         elif token in triple_quoted:
             string_end_dfa = endDFAs[token]
             endmatch = string_end_dfa.recognize(line, self.pos)
@@ -596,45 +599,52 @@ class Tokenizer(object):
                     self._raise_token_error(
                             msg, line, self.lnum, start + 1)
 
-            if self.state.mode == TokenizerState.FSTRING_INTERPOLATION:
+            if self._in_fstring_interpolation():
                 if initial == "}" and len(self.parenstack) + 1 == self.state.level:
                     # exit f-string interpolation
                     self.state_stack.pop()
-                    self.state.strstart_linenumber = self.lnum
-                    self.state.strstart_offset = start + 1
+                    nmode = self.state.mode
+                    assert isinstance(nmode, FStringMode)
+                    nmode.middle_linenumber = self.lnum
+                    nmode.middle_offset = start + 1
                 elif initial == ":" and len(self.parenstack) == self.state.level:
                     prev_state = self.state_stack[-2]
-                    assert prev_state.mode == TokenizerState.FSTRING
+                    pmode = prev_state.mode
+                    assert isinstance(pmode, FStringMode)
 
                     # enter f-string format specifier mode
                     state = self.state
-                    state.mode = TokenizerState.FSTRING
-                    state.format_specifier_mode = True
-                    state.strstart_linenumber = self.lnum
-                    state.strstart_offset = start + 1
-                    state.strstart_starting_line = line
-                    state.strstart_is_triple_quoted = prev_state.strstart_is_triple_quoted
-                    state.need_line_cont = prev_state.need_line_cont
-                    state.string_end_dfa = prev_state.string_end_dfa
+                    state.mode = FStringMode(self.lnum, start+1, format_specifier=True)
+                    # Copy the string state from the outer FString state
+                    self._contstr_start(
+                        prev_state.string_end_dfa, prev_state.strstart_offset,
+                        prev_state.strstart_starting_line,
+                        prev_state.strstart_is_triple_quoted, "")
+                    state.strstart_linenumber = prev_state.strstart_linenumber
 
             self.last_comment = ''
         return False
 
-    def _tokenize_fstring(self, line):
+    def _in_fstring_interpolation(self):
+        return len(self.state_stack) > 1 and isinstance(self.state_stack[-2].mode, FStringMode)
+
+    def _tokenize_fstring(self, mode, line):
+        format_specifier_mode = mode.format_specifier
         start = self.pos
         state = self.state
         match = state.string_end_dfa.recognize(line, start)
         if match >= 0:
             last_c, next_c = line[match - 1], line[match]
             if last_c in "{}":
-                if not state.format_specifier_mode and last_c == next_c:
+                if not format_specifier_mode and last_c == next_c:
                     # Could just be:
                     # state.contstrs.append(line[start:match])
                     # but for CPython compatibility we do:
-                    self._flush_fstring_middle(match)
-                    state.strstart_offset = self.pos = match + 1  # Skip the second brace
+                    self._flush_fstring_middle(mode, match)
+                    mode.middle_offset = self.pos = match + 1  # Skip the second brace
+                    mode.middle_linenumber = self.lnum
                 elif last_c == "{":
-                    self._flush_fstring_middle(match - 1)
+                    self._flush_fstring_middle(mode, match - 1)
 
                     t = self._add_token(
                         tokens.LBRACE, "{", self.lnum, match - 1, line, self.lnum, match, level_adjustment=1
@@ -642,14 +652,11 @@ class Tokenizer(object):
                     self.parenstack.append(t)
                     self.pos = match
                     self.state_stack.append(
-                        TokenizerState(
-                            TokenizerState.FSTRING_INTERPOLATION,
-                            level=len(self.parenstack),
-                        )
+                        TokenizerState(NormalMode, level=len(self.parenstack))
                     )
-                elif state.format_specifier_mode: # last_c == "}"
+                elif format_specifier_mode: # last_c == "}"
                     # end of f-string interpolation
-                    self._flush_fstring_middle(match - 1)
+                    self._flush_fstring_middle(mode, match - 1)
 
                     self._add_token(
                         tokens.RBRACE, "}", self.lnum, match - 1, line, self.lnum, match, level_adjustment=-1
@@ -657,21 +664,23 @@ class Tokenizer(object):
                     opening = self.parenstack.pop()
                     assert opening.value == "{"
                     self.state_stack.pop()
-                    self.state.strstart_linenumber = self.lnum
-                    self.state.strstart_offset = self.pos = match
+                    nmode = self.state.mode
+                    assert isinstance(nmode, FStringMode)
+                    nmode.middle_linenumber = self.lnum
+                    nmode.middle_offset = self.pos = match
                 else:
                     self._raise_token_error("f-string: single '}' is not allowed",
                                             line, self.lnum, match)
             else:
                 # end of f-string
                 eos = match - (3 if state.strstart_is_triple_quoted else 1)
-                self._flush_fstring_middle(eos)
+                self._flush_fstring_middle(mode, eos)
 
                 assert eos >= start  # help the annotator
                 self._add_token(tokens.FSTRING_END, line[eos:match],
                                 self.lnum, eos, line, self.lnum, match)
 
-                if state.format_specifier_mode:
+                if format_specifier_mode:
                     # This is a degenerate case where the f-string
                     # ends inside the format specifier:
                     # f"{x:"
@@ -688,19 +697,18 @@ class Tokenizer(object):
             and not line.endswith("\\\n")
             and not line.endswith("\\\r\n")
         ):
-            if state.format_specifier_mode:
+            if format_specifier_mode:
                 # This is a semi-degenerate case where a newline is encountered inside
                 # the format specifier (without the continuation character):
                 # f"{x:y
                 # <...> }"
                 nl_pos = len(line) - 1
                 assert line[nl_pos] == "\n"
-                self._flush_fstring_middle(nl_pos)
+                self._flush_fstring_middle(mode, nl_pos)
                 # self._add_token(tokens.NL, "\n", self.lnum, nl_pos, line)
 
-                # Return to the FSTRING_INTERPOLATION mode
-                state.mode = TokenizerState.FSTRING_INTERPOLATION
-                state.format_specifier_mode = False
+                # Return to the normal tokenization mode
+                state.mode = NormalMode
                 state.string_end_dfa = None
                 state.need_line_cont = False
                 return True # done with this line
@@ -713,15 +721,14 @@ class Tokenizer(object):
 
         return False
 
-    def _flush_fstring_middle(self, end_offset):
+    def _flush_fstring_middle(self, mode, end_offset):
         assert end_offset >= self.pos  # help the annotator
-        state = self.state
-        contstrs = state.contstrs
+        contstrs = self.state.contstrs
         contstrs.append(self.line[self.pos:end_offset])
         content = "".join(contstrs)
         if content:
             self._add_token(tokens.FSTRING_MIDDLE, content,
-                            state.strstart_linenumber, state.strstart_offset,
+                            mode.middle_linenumber, mode.middle_offset,
                             self.line, self.lnum, end_offset)
         del contstrs[:]
 
