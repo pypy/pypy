@@ -33,11 +33,12 @@ def test_translate_simple():
                    "INT WHITE KEYWORD").split()
     res = lex("if A a 12341 0 else", True).split("-%-")
     assert res == "KEYWORD VAR ATOM INT INT KEYWORD".split()
+
     func = compile(lex, [str, bool])
-    res = lex("if A a 12341 0 else", False).split("-%-")
+    res = func("if A a 12341 0 else", False).split("-%-")
     assert res == ("KEYWORD WHITE VAR WHITE ATOM WHITE INT WHITE "
                    "INT WHITE KEYWORD").split()
-    res = lex("if A a 12341 0 else", True).split("-%-")
+    res = func("if A a 12341 0 else", True).split("-%-")
     assert res == "KEYWORD VAR ATOM INT INT KEYWORD".split()
 
 
