@@ -230,10 +230,7 @@ def makePyEndDFA(quote, triple=False, f_str=False):
                                 newArcPair(states, "\\"),
                                 newArcPair(states, DEFAULT) if not f_str else
                                   notGroupStr(states, "{}")),
-                            # FIXME: needs update for f_str
-                            *[chain(states,
-                                newArcPair(states, quote),
-                                notChainStr(states, quote * 2))] if triple else []),
+                            *[notChainStr(states, quote * 3)] if triple else []),
                         any(states, notGroupStr(states, stop)))),
                 group(states,
                     chainStr(states, quote * (3 if triple else 1)),

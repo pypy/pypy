@@ -181,7 +181,6 @@ class TokenizerState(object):
     when tokenizing f-strings."""
 
     def __init__(self, mode, level=0):
-        assert isinstance(mode, TokenizerMode)
         self.mode = mode
         self.level = level
 
