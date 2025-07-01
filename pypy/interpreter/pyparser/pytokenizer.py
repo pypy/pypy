@@ -169,8 +169,6 @@ NormalMode = TokenizerMode()
 
 class FStringMode(TokenizerMode):
     def __init__(self, middle_linenumber, middle_offset, format_specifier=False):
-        super(FStringMode, self).__init__()
-
         self.format_specifier = format_specifier
         self.middle_linenumber = middle_linenumber
         self.middle_offset = middle_offset
@@ -188,7 +186,6 @@ class TokenizerState(object):
         # (triple-quoted or with \\)
         self.string_end_dfa = None # for matching the end of the string
         self.contstrs = []
-        self.need_line_cont = False  # TODO: replace with property that negates triple_quoted?
         self.strstart_linenumber = 0
         self.strstart_offset = 0
         self.strstart_starting_line = ""
@@ -291,7 +288,6 @@ class Tokenizer(object):
         state.strstart_starting_line = starting_line
         state.strstart_is_triple_quoted = is_triple_quoted
         state.contstrs = [strstart]
-        state.need_line_cont = not is_triple_quoted
 
     def _contstr_finish(self, rest):
         state = self.state
@@ -299,7 +295,6 @@ class Tokenizer(object):
         res = "".join(state.contstrs)
         state.string_end_dfa = None
         state.contstrs = []
-        state.need_line_cont = False
         return res
 
     def _contstr_raise_unterminated(self, end_lineno, end_col_offset):
@@ -307,6 +302,10 @@ class Tokenizer(object):
         raise_unterminated_string(state.strstart_is_triple_quoted, state.strstart_starting_line, state.strstart_linenumber,
                                   state.strstart_offset + 1, self.token_list,
                                   end_lineno, end_col_offset, state.mode is not NormalMode)
+
+    def _invalid_unterminated_string(self, line):
+        return not self.state.strstart_is_triple_quoted and not \
+            line.endswith("\\\n") and not line.endswith("\\\r\n")
 
     def _tokenize_string_continuation(self, line):
         state = self.state
@@ -317,8 +316,7 @@ class Tokenizer(object):
             self._add_token(tokens.STRING, content, state.strstart_linenumber,
                    state.strstart_offset, line, self.lnum, end)
             self.last_comment = ''
-        elif (state.need_line_cont and not line.endswith('\\\n') and
-                           not line.endswith('\\\r\n')):
+        elif self._invalid_unterminated_string(line):
             self._contstr_raise_unterminated(self.lnum, len(line))
             assert 0, 'unreachable'
         else:
@@ -621,9 +619,6 @@ class Tokenizer(object):
                     nmode.middle_offset = start + 1
                 elif initial == ":" and len(self.parenstack) == self.state.level:
                     prev_state = self.state_stack[-2]
-                    pmode = prev_state.mode
-                    assert isinstance(pmode, FStringMode)
-
                     # enter f-string format specifier mode
                     state = self.state
                     state.mode = FStringMode(self.lnum, start+1, format_specifier=True)
@@ -703,17 +698,15 @@ class Tokenizer(object):
                 self.state_stack.pop()
                 self.pos = match
 
-        elif (
-            # no end match, check for valid f-string continuation
-            state.need_line_cont
-            and not line.endswith("\\\n")
-            and not line.endswith("\\\r\n")
-        ):
+            # no end match, check for unterminated string
+        elif self._invalid_unterminated_string(line):
             if format_specifier_mode:
                 # This is a semi-degenerate case where a newline is encountered inside
                 # the format specifier (without the continuation character):
                 # f"{x:y
                 # <...> }"
+                # Note that this became an error in CPython 3.13.4:
+                # https://docs.python.org/release/3.13.4/whatsnew/changelog.html#core-and-builtins
                 nl_pos = len(line) - 1
                 assert line[nl_pos] == "\n"
                 self._flush_fstring_middle(mode, nl_pos)
@@ -722,7 +715,6 @@ class Tokenizer(object):
                 # Return to the normal tokenization mode
                 state.mode = NormalMode
                 state.string_end_dfa = None
-                state.need_line_cont = False
                 return True # done with this line
 
             self._contstr_raise_unterminated(self.lnum, len(line))
