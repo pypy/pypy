@@ -232,9 +232,10 @@ class RPythonParserGenerator(ParserGenerator, GrammarVisitor):
         self,
         grammar: grammar.Grammar,
         file: Optional[IO[Text]],
-        tokens: Set[str] = set(token.tok_name.values()),
         location_formatting: Optional[str] = None,
     ):
+        import pytoken
+        tokens: Set[str] = set(pytoken.token_names.values())
         tokens.add("SOFT_KEYWORD")
         super().__init__(grammar, tokens, file)
         self.callmakervisitor: PythonCallMakerVisitor = PythonCallMakerVisitor(self)

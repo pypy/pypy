@@ -74,20 +74,6 @@ eval[ast.Expression]: a=expressions NEWLINE* ENDMARKER { ast.Expression(body=a) 
 func_type[ast.FunctionType]: '(' a=[type_expressions] ')' '->' b=expression NEWLINE* ENDMARKER { ast.FunctionType(argtypes=a, returns=b) }
 fstring[ast.Expr]: star_expressions
 
-# TYPING ELEMENTS
-# ---------------
-
-# type_expressions allow */** but ignore them
-type_expressions[list]:
-    | a=','.expression+ ',' '*' b=expression ',' '**' c=expression { a + [b, c] }
-    | a=','.expression+ ',' '*' b=expression { a + [b] }
-    | a=','.expression+ ',' '**' b=expression { a + [b] }
-    | '*' a=expression ',' '**' b=expression { [a, b] }
-    | '*' a=expression { [a] }
-    | '**' a=expression { [a] }
-    | a=','.expression+ {a}
-
-
 # GENERAL STATEMENTS
 # ==================
 
@@ -327,12 +313,6 @@ function_def_raw[Union[ast.FunctionDef, ast.AsyncFunctionDef]]:
             )
         )
      }
-
-func_type_comment:
-    | NEWLINE t=TYPE_COMMENT &(NEWLINE INDENT) { t }  # Must be followed by indented block
-    | invalid_double_type_comments
-    | TYPE_COMMENT
-
 
 # Function parameters
 # -------------------
@@ -944,7 +924,7 @@ atom:
     | 'None' {
         ast.Constant(value=self.space.w_None, kind=None, LOCATIONS)
      }
-    | &STRING strings
+    | &(STRING|FSTRING_START) strings
     | a=NUMBER {
         ast.Constant(value=self.parse_number(a), kind=None, LOCATIONS)
      }
@@ -1031,7 +1011,53 @@ lambda_param[ast.arg]: a=NAME {
 # LITERALS
 # ========
 
-strings[ast.Str] (memo): a=STRING+ { self.generate_ast_for_string(a) }
+fstring_middle:
+    | fstring_replacement_field
+    | t=FSTRING_MIDDLE {
+        # _PyPegen_constant_from_token(p, t)
+        ast.Constant(value=t.value, kind=None, LOCATIONS)
+    }
+fstring_replacement_field:
+    | lbrace='{' a=(yield_expr | star_expressions) debug_expr='='? conversion=[fstring_conversion] format=[fstring_full_format_spec] rbrace='}' {
+        # _PyPegen_formatted_value(p, a, debug_expr, conversion, format, rbrace, EXTRA)
+        self.fstring_formatted_value(lbrace, a, debug_expr, conversion, format, rbrace)
+    }
+    | invalid_replacement_field
+fstring_conversion:
+    | conv_token="!" conv=NAME {
+        # _PyPegen_check_fstring_conversion(p, conv_token, conv)
+        self.fstring_check_conversion(conv_token, conv)
+    }
+fstring_full_format_spec:
+    | colon=':' spec=fstring_format_spec* {
+        # _PyPegen_setup_full_format_spec(p, colon, (asdl_expr_seq *) spec, EXTRA)
+        self.fstring_format_spec_full(colon, spec)
+    }
+
+fstring_format_spec[ast.Constant]:
+    | t=FSTRING_MIDDLE {
+        # _PyPegen_decoded_constant_from_token(p, t)
+        # This ends up calling decode_unicode_with_escapes on the
+        # token value. It doesn't matter if the f-string is raw,
+        # escape sequences are always decoded in the format specifier.
+        self.fstring_format_spec_constant(t)
+    }
+    | fstring_replacement_field
+fstring[ast.JoinedStr]:
+    | a=FSTRING_START b=fstring_middle* c=FSTRING_END {
+        #  _PyPegen_joined_str(p, a, (asdl_expr_seq*)b, c)
+        # for item of type ast.Constant in b:
+        #   _PyPegen_decode_fstring_part(p, is_raw, item, c)
+        #   which calls _PyPegen_decode_string
+        self.generate_ast_for_fstring(a, b, c)
+    }
+
+# pypy change: use string_ instead of string as the rule name to prevent name clash with STRING matcher
+string_[ast.Constant]: s=STRING {
+        #  _PyPegen_constant_from_string(p, s)
+        self.string_constant(s)
+    }
+strings (memo): a=(fstring|string_)+ { self.concatenate_strings(a) }
 
 list[ast.List]:
     | '[' a=[star_named_expressions] ']' { ast.List(elts=a, ctx=Load, LOCATIONS) }
@@ -1218,9 +1244,23 @@ del_t_atom:
     | '(' a=[del_targets] ')' { ast.Tuple(elts=a, ctx=Del, LOCATIONS) }
     | '[' a=[del_targets] ']' { ast.List(elts=a, ctx=Del, LOCATIONS) }
 
+# TYPING ELEMENTS
+# ---------------
 
+# type_expressions allow */** but ignore them
+type_expressions[list]:
+    | a=','.expression+ ',' '*' b=expression ',' '**' c=expression { a + [b, c] }
+    | a=','.expression+ ',' '*' b=expression { a + [b] }
+    | a=','.expression+ ',' '**' b=expression { a + [b] }
+    | '*' a=expression ',' '**' b=expression { [a, b] }
+    | '*' a=expression { [a] }
+    | '**' a=expression { [a] }
+    | a=','.expression+ {a}
 
-
+func_type_comment:
+    | NEWLINE t=TYPE_COMMENT &(NEWLINE INDENT) { t }  # Must be followed by indented block
+    | invalid_double_type_comments
+    | TYPE_COMMENT
 
 # ========================= END OF THE GRAMMAR ===========================
 
@@ -1303,6 +1343,10 @@ invalid_expression[NoReturn]:
     | a=disjunction 'if' b=disjunction !('else'|':') {
         self.raise_syntax_error_known_range("expected 'else' after 'if' expression", a, b)
      }
+    | a='lambda' [lambda_params] b=':' &FSTRING_MIDDLE  {
+        self.raise_syntax_error_known_range("f-string: lambda expressions are not allowed without parentheses", a, b)
+    }
+
 invalid_named_expression[NoReturn]:
     | a=expression ':=' expression {
         self.raise_syntax_error_known_location(
@@ -1627,3 +1671,33 @@ invalid_kvpair[None]:
     | expression a=':' {
         self.raise_syntax_error_known_location("expression expected after dictionary key and ':'", a)
      }
+# XXX: invalid_starred_expression?
+
+
+invalid_replacement_field:
+    | '{' a='=' { self.raise_syntax_error_known_location("f-string: valid expression required before '='", a) }
+    | '{' a='!' { self.raise_syntax_error_known_location("f-string: valid expression required before '!'", a) }
+    | '{' a=':' { self.raise_syntax_error_known_location("f-string: valid expression required before ':'", a) }
+    | '{' a='}' { self.raise_syntax_error_known_location("f-string: valid expression required before '}'", a) }
+    # | '{' !(yield_expr | star_expressions) { RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting a valid expression after '{'")}
+    # | '{' (yield_expr | star_expressions) !('=' | '!' | ':' | '}') {
+    #     PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '=', or '!', or ':', or '}'") }
+    # | '{' (yield_expr | star_expressions) '=' !('!' | ':' | '}') {
+    #     PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '!', or ':', or '}'") }
+    # | '{' (yield_expr | star_expressions) '='? invalid_conversion_character
+    # | '{' (yield_expr | star_expressions) '='? ['!' NAME] !(':' | '}') {
+    #     PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting ':' or '}'") }
+    # | '{' (yield_expr | star_expressions) '='? ['!' NAME] ':' fstring_format_spec* !'}' {
+    #     PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}', or format specs") }
+    # | '{' (yield_expr | star_expressions) '='? ['!' NAME] !'}' {
+    #     PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}'") }
+
+invalid_conversion_character:
+    | '!' &(':' | '}') {
+        #RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: missing conversion character")
+        self.raise_syntax_error("f-string: missing conversion character")
+    }
+    | '!' !NAME {
+        #RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: invalid conversion character")
+        self.raise_syntax_error("f-string: invalid conversion character")
+    }

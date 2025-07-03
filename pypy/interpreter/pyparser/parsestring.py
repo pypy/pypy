@@ -96,6 +96,7 @@ def parsestr(space, encoding, s, token=None, astbuilder=None):
     assert 0 <= ps <= q
     if unicode_literal:
         if saw_f:
+            assert False
             return W_FString(s[ps:q], rawmode, token, ps)
         elif rawmode:
             length = unicodehelper.check_utf8_or_raise(space, s, ps, q)
@@ -260,7 +261,7 @@ def _PyString_DecodeEscape(space, s, errors, recode_encoding):
             if first_escape_error_char == '':
                 first_escape_error_char = ch
             continue
-            # an arbitry number of unescaped UTF-8 bytes may follow.
+            # an arbitrary number of unescaped UTF-8 bytes may follow.
 
     buf = builder.build()
     return buf, first_escape_error_char
