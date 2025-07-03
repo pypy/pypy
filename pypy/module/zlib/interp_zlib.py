@@ -5,8 +5,26 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.rarithmetic import intmask, r_uint, r_uint32
 from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rtyper.tool import rffi_platform
 
 from rpython.rlib import rzlib
+
+# Add constants for CPython3.11+ compatibility
+constantnames = '''
+    Z_NO_COMPRESSION Z_RLE Z_PARTIAL_FLUSH Z_FIXED Z_BLOCK Z_TREES
+    '''.split()
+class SimpleCConfig:
+    """
+    Definitions for additional constants in python3.11+.
+    """
+    _compilation_info_ = rzlib.eci
+
+for _name in constantnames:
+    setattr(SimpleCConfig, _name, rffi_platform.ConstantInteger(_name))
+
+config = rffi_platform.configure(SimpleCConfig)
+for _name in constantnames:
+    globals()[_name] = config[_name]
 
 
 @unwrap_spec(string='bufferstr', start='truncatedint_w')

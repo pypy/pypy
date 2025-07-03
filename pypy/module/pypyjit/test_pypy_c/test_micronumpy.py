@@ -413,6 +413,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             setarrayitem_gc(p152, 0, 0, descr=<ArrayS .+>)
             i157 = int_lt(i154, 0)
             guard_false(i157, descr=...)
+            i158 = arraylen_gc(p152, descr=.*)
             jump(..., descr=...)
         """ % {'align_check': align_check('i132')})
 
@@ -455,5 +456,6 @@ class TestMicroNumPy(BaseTestPyPyC):
             setfield_gc(p76, i101, descr=<FieldS list.length .*>)
             i107 = int_lt(i106, 0)
             guard_false(i107, descr=...)
+            i158 = arraylen_gc(p104, descr=.*)
             jump(..., descr=...)
         """ % {'align_check': align_check('i97')})

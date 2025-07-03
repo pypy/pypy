@@ -311,6 +311,71 @@ class TestOtherContainers(BaseTestPyPyC):
         opnames = log.opnames(ops)
         assert "new_with_vtable" not in opnames
 
+    def test_cache_varindex_from_list(self):
+        def main():
+            l = [1, 2, 3]
+            res = 0
+            for i in range(10000):
+                index = i % 3
+                res += l[index] + l[index] # ID: getitem
+            return res
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        loop.match_by_id('getitem', '''
+        setfield_gc(p18, i69, descr=...) # part of the for loop
+        i77 = uint_ge(i76, i53)
+        guard_false(i77, descr=...)
+        i79 = getarrayitem_gc_i(p55, i76, descr=...) # only a single getarrayitem
+        i80 = int_add_ovf(i79, i79)
+        guard_no_overflow(descr=...)
+        i81 = int_add_ovf(i59, i80)
+        guard_no_overflow(descr=...)
+        --TICK--
+        ''')
+
+    def test_cache_varindex_from_list_write(self):
+        def main():
+            l = [1, 2, 3]
+            res = 0
+            for i in range(10000):
+                index = i % 3
+                l[index] += 1
+                res += l[index] # ID: getitem
+            return res
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        loop.match_by_id('getitem', '''
+        i83 = int_add_ovf(i60, i82)
+        guard_no_overflow(descr=...)
+        --TICK--
+        ''')
+
+    def test_list_aliasing_via_length(self):
+        def main():
+            import __pypy__
+            l = [1, 2, 3]
+            l2 = [4, 5, 6, 7, 8]
+            l3 = [4, 5, 6, 7, 8]
+            list_of_list = [l2, l3]
+            res = 0
+            for i in range(1000):
+                l2 = list_of_list[i & 1]
+                assert __pypy__.list_get_physical_size(l2) == 5
+                res += l2[0]
+                assert __pypy__.list_get_physical_size(l) == 3
+                l[0] += 1 # can't affect l2 because the length is different
+                # reuse previous result in next line
+                res += l2[0] # ID: getitem2
+            return res
+        log = self.run(main, [])
+        loop, = log.loops_by_filename(self.filepath)
+        loop.match_by_id('getitem2', '''
+        setarrayitem_gc(p82, 0, i125, descr=...) # delayed write to l
+        i83 = int_add_ovf(i60, i82) # no second read from l2
+        guard_no_overflow(descr=...)
+        --TICK--
+        ''')
+
     def test_dict_values_single_copy(self):
         def main():
             res = 0
@@ -325,3 +390,24 @@ class TestOtherContainers(BaseTestPyPyC):
         opnames = log.opnames(ops)
         # only a call to ll_kvi, not to get_strategy_from_list_objects
         assert opnames.count("call_r") == 1
+
+    def test_list_eq(self):
+        def main():
+            l1 = [i * 3 + 1 for i in range(10000)]
+            l2 = [i * 3 + 1 for i in range(10000)]
+            return l1 == l2
+        log = self.run(main, [])
+        loop = log._filter(log.loops[-1], is_entry_bridge=False)
+        loop.match("""
+        i22 = uint_ge(i19, i6)
+        guard_false(i22, descr=...)
+        i23 = getarrayitem_gc_i(p8, i19, descr=...)
+        i24 = uint_ge(i19, i13)
+        guard_false(i24, descr=...)
+        i25 = getarrayitem_gc_i(p15, i19, descr=...)
+        i26 = int_eq(i25, i23)
+        guard_true(i26, descr=...)
+        i28 = int_add(i19, 1)
+        i31 = arraylen_gc(p8, descr=...)
+        i32 = arraylen_gc(p15, descr=...)
+        jump(i28, p1, p2, p5, i6, p8, p12, i13, p15, descr=...)""")

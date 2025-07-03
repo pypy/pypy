@@ -430,6 +430,17 @@ if 1:
         assert "Generator expression must be parenthesized" in info.value.msg
         assert info.value.end_offset == 36
 
+    def test_invalid_default(self):
+        info = pytest.raises(SyntaxError, self.parse, "def f(x=): return 1")
+        assert "expected default value expression" in info.value.msg
+        assert info.value.offset == 8
+        assert info.value.end_offset == 9
+
+    def test_invalid_star(self):
+        info = pytest.raises(SyntaxError, self.parse, "f(**kw, *)")
+        assert "Invalid star expression" in info.value.msg
+        assert info.value.offset == 10
+
 
 class TestPythonParserRevDB(TestPythonParser):
     spaceconfig = {"translation.reverse_debugger": True}

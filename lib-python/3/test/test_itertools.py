@@ -1013,7 +1013,6 @@ class TestBasicOps(unittest.TestCase):
             self.pickletest(proto, zip_longest("abc", "defgh", fillvalue=1))
             self.pickletest(proto, zip_longest("", "defgh"))
 
-    @support.impl_detail('CPython is inconsistent here, zip and zip_longest do different things')
     def test_zip_longest_bad_iterable(self):
         exception = TypeError()
 

@@ -72,15 +72,4 @@ class AppTestZip2:
         #assert it1.next() in [4, 5]
 
     def test_zip_wrongargs(self):
-        # Duplicate python 2.4 behaviour for invalid arguments
         raises(TypeError, zip, None, 0)
-
-        # The error message should indicate which argument was dodgy
-        for x in range(10):
-            args = [()] * x + [None] + [()] * (9 - x)
-            try:
-                zip(*args)
-            except TypeError as e:
-                assert str(e).find("#" + str(x + 1) + " ") >= 0
-            else:
-                fail("TypeError expected")

@@ -6,7 +6,7 @@ import operator
 
 from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
      next_pow2_m1, msbonly, MININT, MAXINT, lowest_set_bit_only,
-     leading_zeros_mask)
+     leading_zeros_mask, saturating_mul, same_sign)
 from rpython.jit.metainterp.optimizeopt.info import (INFO_NONNULL,
      INFO_UNKNOWN, INFO_NULL)
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck, r_uint, intmask
@@ -254,7 +254,7 @@ def test_make():
             gt.make_gt(b1)
             try:
                 gt.make_gt(b2)
-            except InvalidLoop: # 
+            except InvalidLoop: #
                 pass
             else:
                 for n in nbr:
@@ -287,7 +287,7 @@ def test_make():
             ge.make_ge(b1)
             try:
                 ge.make_ge(b2)
-            except InvalidLoop: # 
+            except InvalidLoop: #
                 pass
             else:
                 for n in nbr:
@@ -303,7 +303,7 @@ def test_make():
             gl.make_ge(b1)
             try:
                 gl.make_le(b2)
-            except InvalidLoop: # 
+            except InvalidLoop: #
                 pass
             else:
                 for n in nbr:
@@ -429,6 +429,23 @@ def test_mul_bound():
         assert a.contains(i)
     assert not a.contains(4)
     assert not a.contains(-3)
+
+def test_square_bound_no_overflow():
+    b = bound(10, 20)
+    b2 = b.square_bound_no_overflow()
+    assert bound_eq(b2, bound(100, 400))
+    b = bound(-20, -10)
+    b2 = b.square_bound_no_overflow()
+    assert bound_eq(b2, bound(100, 400))
+    b = bound(-20, 10)
+    b2 = b.square_bound_no_overflow()
+    assert bound_eq(b2, bound(0, 400))
+    b = bound(-20, MAXINT)
+    b2 = b.square_bound_no_overflow()
+    assert bound_eq(b2, bound(0, MAXINT))
+    b = bound(MININT, -10)
+    b2 = b.square_bound_no_overflow()
+    assert bound_eq(b2, bound(100, MAXINT))
 
 def test_shift_bound():
     for _, _, b1 in some_bounds():
@@ -731,6 +748,20 @@ def test_add_random(t1, t2):
 
 
 @given(knownbits_and_bound_with_contained_number)
+def test_mul2_random(t1):
+    b1, n1 = t1
+    b2 = b1.mul2_bound_no_overflow()
+    try:
+        r = ovfcheck(n1 + n1)
+    except OverflowError:
+        assert not b1.add_bound_cannot_overflow(b1)
+    else:
+        assert b2.contains(r)
+    # check that it's always even
+    assert b2.and_bound(IntBound.from_constant(1)).get_constant_int() == 0
+
+
+@given(knownbits_and_bound_with_contained_number)
 def test_sub_zero_is_zero_random(t1):
     b1, n1 = t1
     # first check that b1 - 0 is b1
@@ -769,6 +800,35 @@ def test_mul_random(t1, t2):
         assert not b1.mul_bound_cannot_overflow(b2)
     else:
         assert b3.contains(r)
+
+@given(knownbits_and_bound_with_contained_number)
+def test_square_random(t1):
+    b1, n1 = t1
+    b2 = b1.square_bound_no_overflow()
+    try:
+        r = ovfcheck(n1 * n1)
+    except OverflowError:
+        assert not b1.mul_bound_cannot_overflow(b2)
+    else:
+        assert b2.contains(r)
+        if not b2.is_unbounded():
+            assert b2.known_ge_const(0)
+
+@given(ints, ints)
+def test_same_sign_random(a, b):
+    assert same_sign(a, b) == ((a >= 0) == (b >= 0))
+
+@given(ints, ints)
+def test_saturating_mul(a, b):
+    res = a * b
+    satres = saturating_mul(a, b)
+    if res < MININT:
+        assert satres == MININT
+    elif res > MAXINT:
+        assert satres == MAXINT
+    else:
+        assert satres == res
+
 
 @given(knownbits_and_bound_with_contained_number, knownbits_and_bound_with_contained_number)
 def test_div_random(t1, t2):
@@ -1287,7 +1347,7 @@ def test_shrink_knownbits_by_bounds_invalid():
                   tmask=r_uint(~0b10), do_shrinking=False)
     with pytest.raises(InvalidLoop):
         b1._shrink_knownbits_by_bounds()
-    
+
 
 def test_intbound_repr():
     b = IntBound()

@@ -332,11 +332,14 @@ Return None if no position in the string matches."""
         space = self.space
         matchlist_w = []
         ctx = self.make_ctx(w_string, pos, endpos)
+        if space.isinstance_w(w_string, space.w_unicode):
+            w_emptystr = space.newutf8('', 0)
+        else:
+            w_emptystr = space.newbytes('')
         while True:
             if not searchcontext(space, ctx, self.code):
                 break
             num_groups = self.num_groups
-            w_emptystr = space.newtext("")
             if num_groups == 0:
                 w_item = slice_w(space, ctx, ctx.match_start, ctx.match_end,
                                  w_emptystr)

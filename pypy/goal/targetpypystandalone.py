@@ -345,7 +345,11 @@ class PyPyTarget(object):
                        "pypy/goal/targetpypystandalone.py.")
 
         if config.objspace.usemodules.cpyext:
-            if config.translation.gc != 'incminimark':
+            if config.translation.reverse_debugger:
+                assert config.translation.gc == 'boehm'
+                # RevDB uses Boehm but overwrites some operations, which seems
+                # to be sufficient for cpyext.
+            elif config.translation.gc != 'incminimark':
                 raise Exception("The 'cpyext' module requires the default"
                     " 'incminimark' GC.  You need 'targetpypystandalone.py"
                     " --withoutmod-cpyext' with other GCs.  (It almost"

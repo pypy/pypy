@@ -244,6 +244,18 @@ def PyThreadState_Swap(space, tstate):
         ec.cpyext_threadstate_is_current = False
     return old_tstate
 
+@cpython_api([], PyThreadState, error=CANNOT_FAIL)
+def PyGILState_GetThisThreadState(space):
+    """Get the current thread state for this thread.  May return NULL if no
+    GILState API has been used on the current thread.  Note that the main thread
+    always has such a thread-state, even if no auto-thread-state call has been
+    made on the main thread.  This is mainly a helper/diagnostic function."""
+    state = space.fromcache(InterpreterState)
+    tstate = state.get_thread_state(space)
+    if not tstate:
+        return rffi.cast(PyThreadState, 0)
+    return tstate
+
 @cpython_api([PyThreadState], lltype.Void, error=CANNOT_FAIL)
 def PyThreadState_EnterTracing(space, tstate):
     """Suspend tracing and profiling in the Python thread state tstate."""

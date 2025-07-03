@@ -454,7 +454,7 @@ class Parser:
         space = self.space
         if tok.token_type == tokens.TYPE_COMMENT:
             return space.newtext(self.getnext().value)
-        return space.w_None
+        return None
 
     def soft_keyword(self):
         tok = self.peek()

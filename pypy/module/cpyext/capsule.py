@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module.cpyext.api import (bootstrap_function, slot_function,
-    PyObject, build_type_checkers, cts, parse_dir)
+    PyObject, cts, parse_dir)
 from pypy.module.cpyext.pyobject import (make_ref, from_ref,
     make_typedescr, track_reference)
 from pypy.interpreter.error import oefmt

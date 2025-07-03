@@ -95,6 +95,9 @@ class _CDataMeta(type):
     def _is_pointer_like(self):
         return False
 
+    def _has_pointer(self):
+        return False
+
     def in_dll(self, dll, name):
         return self.from_address(dll._handle.getaddressindll(name))
 
@@ -219,6 +222,20 @@ class _CData(bufferable, metaclass=_CDataMeta):
             return None
     _b_base_ = property(_get_b_base)
     _b_needsfree_ = False
+
+    def __reduce__(self):
+        if type(self)._is_pointer_like() or type(self)._has_pointer():
+            raise ValueError("ctypes objects containing pointers cannot be pickled")
+        d = dict(self.__dict__)
+        del d['_buffer']
+        return (_unpickle, (type(self), (d, bytes(self))))
+
+@builtinify
+def _unpickle(cls, tup):
+    dct, buf = tup
+    res = cls.from_buffer_copy(buf)
+    res.__dict__.update(dct)
+    return res
 
 @builtinify
 def sizeof(tp):

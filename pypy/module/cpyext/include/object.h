@@ -815,8 +815,10 @@ PyAPI_FUNC(int) PyType_IsSubtype(PyTypeObject *, PyTypeObject *);
         Py_XDECREF(_py_tmp);                    \
     } while (0)
 
+#define Py_TRASHCAN_BEGIN(op, cond) do {
+#define Py_TRASHCAN_END   ; } while(0);
 
-
+Py_DEPRECATED(3.11) typedef int UsingDeprecatedTrashcanMacro;
 #define Py_TRASHCAN_SAFE_BEGIN(pyObj) do {
 #define Py_TRASHCAN_SAFE_END(pyObj)   ; } while(0);
 /* note: the ";" at the start of Py_TRASHCAN_SAFE_END is needed

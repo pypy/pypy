@@ -6,7 +6,7 @@ def test_simple():
     assert eval(co) == 3
     co = compile(memoryview(b'1+2'), '?', 'eval')
     assert eval(co) == 3
-    exc = raises(ValueError, compile, chr(0), '?', 'eval')
+    exc = raises(SyntaxError, compile, chr(0), '?', 'eval')
     assert str(exc.value) == "source code string cannot contain null bytes"
     compile("from __future__ import with_statement", "<test>", "exec")
     raises(SyntaxError, compile, '-', '?', 'eval')
@@ -84,10 +84,10 @@ def fn(): pass
     assert firstlineno == 1
 
 def test_null_bytes():
-    raises(ValueError, compile, '\x00', 'mymod', 'exec', 0)
+    raises(SyntaxError, compile, '\x00', 'mymod', 'exec', 0)
     src = "#abc\x00def\n"
-    raises(ValueError, compile, src, 'mymod', 'exec')
-    raises(ValueError, compile, src, 'mymod', 'exec', 0)
+    raises(SyntaxError, compile, src, 'mymod', 'exec')
+    raises(SyntaxError, compile, src, 'mymod', 'exec', 0)
 
 @mark.pypy_only
 def test_null_bytes_flag():
@@ -229,10 +229,10 @@ def test_weird_globals_builtins_eval():
             assert key != '__builtins__'
             return int(key.removeprefix("_number_"))
 
-    code = "lambda: " + "+".join(f"_number_{i}" for i in range(1000))
-    sum_1000 = eval(code, MyGlobals())
-    expected = sum(range(1000))
-    assert sum_1000() == expected
+    code = "lambda: " + "+".join(f"_number_{i}" for i in range(100))
+    sum_100 = eval(code, MyGlobals())
+    expected = sum(range(100))
+    assert sum_100() == expected
 
 def test_exec_with_closure():
     from types import CellType
@@ -295,6 +295,10 @@ def test_exec_with_closure_errors():
         exec(g.__code__, locals, globals, closure=my_closure)
     assert str(info.value) == "code object requires a closure of exactly length 2"
 
+    with raises(TypeError) as info:
+        exec(g.__code__, locals, globals, closure=list(my_closure))
+    assert str(info.value) == "code object requires a closure of exactly length 2"
+
     def f():
         pass
     with raises(TypeError) as info:
@@ -305,6 +309,10 @@ def test_exec_with_closure_errors():
         exec('print(1)', locals, globals, closure=my_closure)
     assert str(info.value) == "closure can only be used when source is a code object"
 
+    my_closure = (35, CellType(72), CellType(100))
+    with raises(TypeError) as info:
+        exec(g.__code__, locals, globals, closure=my_closure)
+    assert str(info.value) == "code object requires a closure of exactly length 2"
 
 def test_exec_with_closure_dont_overwrite_cell_vars_from_locals():
     def f(a, b):

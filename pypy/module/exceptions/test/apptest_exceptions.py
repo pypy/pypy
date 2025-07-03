@@ -574,6 +574,15 @@ def test_init_called():
     MyExceptionGroup("...", [Exception()])
     assert len(initcalled) == 0
 
+def test_enrich_attribute_error():
+    class A:
+        def __getattr__(self, name):
+            raise AttributeError("adds_name")
+    a = A()
+    with raises(AttributeError) as info:
+        a.abc
+    assert info.value.name =="abc"
+
 # _prep_reraise_star tests
 
 if sys.implementation.name == 'pypy':
@@ -676,3 +685,5 @@ if sys.implementation.name == 'pypy':
         result = _exception_group_projection(eg, [keep1, keep2])
         assert repr(result) == \
             "ExceptionGroup('abc', [KeyError(), ExceptionGroup('def', [ValueError(2), ValueError(3)]), TypeError()])"
+
+

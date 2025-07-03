@@ -864,8 +864,7 @@ class AST_Tests(unittest.TestCase):
         check_limit("a", "*a")
 
     def test_null_bytes(self):
-        # PyPy raises a ValueError
-        with self.assertRaises((SyntaxError, ValueError),
+        with self.assertRaises(SyntaxError,
             msg="source code string cannot contain null bytes"):
             ast.parse("a\0b")
 

@@ -432,3 +432,12 @@ class AppTestZlib(object):
         dco.flush()
         # multiple flush calls should not raise
         dco.flush()
+
+    def test_constants(self):
+        # issue 5289, these were added for python3
+        import zlib
+        contents = dir(zlib)
+        for c in '''
+                Z_NO_COMPRESSION Z_RLE Z_PARTIAL_FLUSH Z_FIXED Z_BLOCK Z_TREES
+                '''.split():
+           assert c in contents

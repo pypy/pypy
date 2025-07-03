@@ -1,5 +1,10 @@
 import sys
-import __pypy__
+try:
+    import __pypy__
+except ImportError:
+    __pypy__ = None
+
+import pytest
 
 class TestHook:
     __test__ = False
@@ -70,6 +75,7 @@ def test_id_hook():
         x = id(hook)
         assert hook.seen[0] == ("builtins.id", (x, ))
 
+@pytest.mark.pypy_only
 def test_eval():
     def ret1():
         return 1
@@ -79,6 +85,7 @@ def test_eval():
         assert res == 1
     assert hook.seen == [("exec", (ret1.__code__, ))]
 
+@pytest.mark.pypy_only
 def test_exec():
     def ret1():
         return 1
@@ -86,6 +93,11 @@ def test_exec():
     with TestHook() as hook:
         exec(ret1.__code__)
     assert hook.seen == [("exec", (ret1.__code__, ))]
+
+def test_sys_getframe():
+    with TestHook() as hook:
+        f = sys._getframe()
+    assert hook.seen == [("sys._getframe", (f,))]
 
 def test_donttrace():
     trace_events = []
@@ -106,6 +118,7 @@ def test_donttrace():
     print(trace_events)
     assert len(trace_events) == 0
 
+@pytest.mark.pypy_only
 def test_cantrace():
     trace_events = []
     audit_events = []

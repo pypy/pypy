@@ -22,18 +22,17 @@ class PickleTest:
     def loads(self, item):
         return pickle.loads(item)
 
-    @xfail
     def test_simple(self):
         for src in [
             c_int(42),
             c_double(3.14),
             ]:
             dst = self.loads(self.dumps(src))
-            self.assertEqual(src.__dict__, dst.__dict__)
+            # PyPy modification: the dict contains the _buffer, which isn't equal
+            #self.assertEqual(src.__dict__, dst.__dict__)
             self.assertEqual(memoryview(src).tobytes(),
                                  memoryview(dst).tobytes())
 
-    @xfail
     def test_struct(self):
         X.init_called = 0
 
@@ -48,11 +47,12 @@ class PickleTest:
 
         # ctypes instances are identical when the instance __dict__
         # and the memory buffer are identical
-        self.assertEqual(y.__dict__, x.__dict__)
+        # PyPy modification: the __dict__ contains the _buffer
+        self.assertEqual(y.__dict__.keys(), x.__dict__.keys())
+        self.assertEqual(y.a, x.a)
         self.assertEqual(memoryview(y).tobytes(),
                              memoryview(x).tobytes())
 
-    @xfail
     def test_unpickable(self):
         # ctypes objects that are pointers or contain pointers are
         # unpickable.
@@ -70,7 +70,6 @@ class PickleTest:
             ]:
             self.assertRaises(ValueError, lambda: self.dumps(item))
 
-    @xfail
     def test_wchar(self):
         self.dumps(c_char(b"x"))
         # Issue 5049

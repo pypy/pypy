@@ -409,7 +409,7 @@ param[ast.arg]: a=NAME b=annotation? { ast.arg(arg=self.extract_id(a), annotatio
 param_star_annotation[ast.arg]: a=NAME b=star_annotation { ast.arg(arg=self.extract_id(a), annotation=b, type_comment=None, LOCATIONS) }
 annotation: ':' a=expression { a }
 star_annotation: ':' a=star_expression { a }
-default: '=' a=expression { a }
+default: '=' a=expression { a } | invalid_default
 
 # If statement
 # ------------
@@ -1003,12 +1003,12 @@ lambda_slash_with_default:
     | a=lambda_param_no_default* b=lambda_param_with_default+ '/' &':' { self.make_slash_with_default(a, b) }
 
 lambda_star_etc[StarEtc]:
+    | invalid_lambda_star_etc
     | '*' a=lambda_param_no_default b=lambda_param_maybe_default* c=[lambda_kwds] {
        self.make_star_etc(a, b, c) }
     | '*' ',' b=lambda_param_maybe_default+ c=[lambda_kwds] {
         self.make_star_etc(None, b, c) }
     | a=lambda_kwds { self.make_star_etc(None, None, a) }
-    | invalid_lambda_star_etc
 
 lambda_kwds[ast.arg]:
     | invalid_lambda_kwds
@@ -1230,10 +1230,17 @@ del_t_atom:
 
 # From here on, there are rules for invalid syntax with specialised error messages
 invalid_arguments[NoReturn]:
-    | a=args ',' '*' {
-        self.raise_syntax_error_known_location(
+    # pypy change: split this rule into two for typing reasons
+    | ','.(starred_expression | ( assignment_expression | expression !':=') !'=')+ ',' kwargs a=',' ','.(starred_expression !'=')+ {
+        self.raise_syntax_error_starting_from(
             "iterable argument unpacking follows keyword argument unpacking",
-            a.keywords[-1] if a.keywords else a.args[-1],
+            a
+        )
+     }
+    | kwargs a=',' ','.(starred_expression !'=')+ {
+        self.raise_syntax_error_starting_from(
+            "iterable argument unpacking follows keyword argument unpacking",
+            a
         )
      }
     | a=expression b=for_if_clauses ',' [args | expression for_if_clauses] {
@@ -1389,7 +1396,7 @@ invalid_default:
     | a='=' &(')'|',') { self.raise_syntax_error_known_location("expected default value expression", a) }
 invalid_star_etc:
     | a='*' (')' | ',' (')' | '**')) { self.raise_syntax_error_known_location("named arguments must follow bare *", a) }
-    | '*' ',' TYPE_COMMENT { self.raise_indentation_error("bare * has associated type comment") }
+    | '*' ',' TYPE_COMMENT { self.raise_syntax_error("bare * has associated type comment") }
     | '*' param a='=' { self.raise_syntax_error_known_location("var-positional argument cannot have default value", a) }
     | '*' (param_no_default | ',') param_maybe_default* a='*' (param_no_default | ',') {
         self.raise_syntax_error_known_location("* argument may appear only once", a) }
@@ -1421,6 +1428,9 @@ invalid_lambda_star_etc[NoReturn]:
     | '*' (':' | ',' (':' | '**')) {
         self.raise_syntax_error("named arguments must follow bare *")
      }
+    | '*' lambda_param a='=' { self.raise_syntax_error_known_location("var-positional argument cannot have default value", a) }
+    | '*' (lambda_param_no_default | ',') lambda_param_maybe_default* a='*' (lambda_param_no_default | ',') {
+        self.raise_syntax_error_known_location("* argument may appear only once", a) }
 invalid_lambda_kwds:
     | '**' lambda_param a='=' { self.raise_syntax_error_known_location("var-keyword argument cannot have default value", a) }
     | '**' lambda_param ',' a=lambda_param { self.raise_syntax_error_known_location("arguments cannot follow var-keyword argument", a) }
@@ -1480,10 +1490,10 @@ invalid_try_stmt:
     | 'try' ':' block* except_star_block+ a='except' [expression ['as' NAME]] ':' {
         self.raise_syntax_error_known_location("cannot have both 'except' and 'except*' on the same 'try'", a) }
 invalid_except_stmt[None]:
-    | 'except' a=expression ',' expressions ['as' NAME ] ':' {
+    | 'except' '*'? a=expression ',' expressions ['as' NAME ] ':' {
         self.raise_syntax_error_starting_from("multiple exception types must be parenthesized", a)
      }
-    | a='except' expression ['as' NAME ] n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
+    | a='except' '*'? expression ['as' NAME ] n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
     | a='except' n=NEWLINE { self.raise_syntax_error_known_location("expected ':'", n) }
     | a='except' '*' (NEWLINE | ':') { self.raise_syntax_error("expected one or more exception types") }
 invalid_finally_stmt[NoReturn]:

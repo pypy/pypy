@@ -1,7 +1,7 @@
 import sys
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, cpython_struct, bootstrap_function, build_type_checkers,
+    cpython_api, cpython_struct, bootstrap_function,
     CANNOT_FAIL, Py_ssize_t, Py_ssize_tP, PyObjectFields, slot_function)
 from pypy.module.cpyext.pyobject import (
     decref, PyObject, make_ref, make_typedescr)

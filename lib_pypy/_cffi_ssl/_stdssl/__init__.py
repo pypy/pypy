@@ -869,7 +869,7 @@ class _SSLSocket(object):
         return sock
 
     def shutdown(self):
-        sock = self.get_socket_or_None()
+        sock = None
         nonblocking = False
         ssl = self.ssl
 

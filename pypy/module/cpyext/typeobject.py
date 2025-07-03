@@ -1202,7 +1202,11 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
         if not bases_w:
             bases_w = [w_base]
     else:
-        bases_w = space.fixedview(from_ref(space, bases))
+        w_bases = from_ref(space, bases)
+        if not space.isinstance_w(w_bases, space.w_tuple):
+            bases_w = [w_bases]
+        else:
+            bases_w = space.fixedview(w_bases)
     w_base = best_base(space, bases_w)
     base = cts.cast('PyTypeObject*', make_ref(space, w_base))
     if False: # not widen(base.c_tp_flags) & Py_TPFLAGS_BASETYPE:

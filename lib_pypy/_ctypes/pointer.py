@@ -141,7 +141,7 @@ class _Pointer(_CData, metaclass=PointerType):
     def _as_ffi_pointer_(self, ffitype):
         return as_ffi_pointer(self, ffitype)
 
-def _cast_addr(obj, _, tp):
+def _cast_addr(ptr, obj, tp):
     if not (isinstance(tp, _CDataMeta) and tp._is_pointer_like()):
         raise TypeError("cast() argument 2 must be a pointer type, not %s"
                         % (tp,))

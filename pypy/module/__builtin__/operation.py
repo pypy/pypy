@@ -38,23 +38,23 @@ def len(space, w_obj):
     return space.len(w_obj)
 
 
-def checkattrname(space, w_name, msg):
+def checkattrname(space, w_name):
     if not space.isinstance_w(w_name, space.w_text):
         raise oefmt(space.w_TypeError,
-             "%s(): attribute name must be string, not '%T'", msg, w_name)
+             "attribute name must be string, not '%T'", w_name)
     return w_name
 
 def delattr(space, w_object, w_name):
     """Delete a named attribute on an object.
 delattr(x, 'y') is equivalent to ``del x.y''."""
-    w_name = checkattrname(space, w_name, 'delattr')
+    w_name = checkattrname(space, w_name)
     space.delattr(w_object, w_name)
     return space.w_None
 
 def getattr(space, w_object, w_name, w_defvalue=None):
     """Get a named attribute from an object.
 getattr(x, 'y') is equivalent to ``x.y''."""
-    w_name = checkattrname(space, w_name, 'getattr')
+    w_name = checkattrname(space, w_name)
     try:
         return space.getattr(w_object, w_name)
     except OperationError as e:
@@ -66,7 +66,7 @@ getattr(x, 'y') is equivalent to ``x.y''."""
 def hasattr(space, w_object, w_name):
     """Return whether the object has an attribute with the given name.
     (This is done by calling getattr(object, name) and catching exceptions.)"""
-    w_name = checkattrname(space, w_name, 'hasattr')
+    w_name = checkattrname(space, w_name)
     try:
         space.getattr(w_object, w_name)
     except OperationError as e:
@@ -175,7 +175,7 @@ For simple object types, eval(repr(object)) == object."""
 def setattr(space, w_object, w_name, w_val):
     """Store a named attribute into an object.
 setattr(x, 'y', z) is equivalent to ``x.y = z''."""
-    w_name = checkattrname(space, w_name, 'setattr')
+    w_name = checkattrname(space, w_name)
     space.setattr(w_object, w_name, w_val)
     return space.w_None
 

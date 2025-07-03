@@ -1762,7 +1762,7 @@ A[**]
     >>> A[**]
     Traceback (most recent call last):
         ...
-    SyntaxError: Invalid star expression
+    SyntaxError: invalid syntax
 
 A[**b]
 

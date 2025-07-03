@@ -82,6 +82,9 @@ class AppTestThreads(AppTestCpythonExtensionBase):
                      if (tstate != _PyThreadState_UncheckedGet()) {
                          return PyLong_FromLong(4);
                      }
+                     if (tstate != PyGILState_GetThisThreadState()) {
+                         return PyLong_FromLong(8);
+                     }
                      int64_t id = PyThreadState_GetID(tstate);
                      return PyLong_FromLong(id + 100);
                  """),

@@ -103,20 +103,6 @@ class TestLongObject(BaseApiTest):
         assert overflow[0] == -1
         lltype.free(overflow, flavor='raw')
 
-    def test_as_longlong_and_overflow(self, space, api):
-        overflow = lltype.malloc(rffi.CArrayPtr(rffi.INT_real).TO, 1, flavor='raw')
-        assert api.PyLong_AsLongLongAndOverflow(
-            space.wrap(1<<62), overflow) == 1<<62
-        assert api.PyLong_AsLongLongAndOverflow(
-            space.wrap(1<<63), overflow) == -1
-        assert not api.PyErr_Occurred()
-        assert overflow[0] == 1
-        assert api.PyLong_AsLongLongAndOverflow(
-            space.wrap(-1<<64), overflow) == -1
-        assert not api.PyErr_Occurred()
-        assert overflow[0] == -1
-        lltype.free(overflow, flavor='raw')
-
     def test_as_voidptr(self, space, api):
         w_l = api.PyLong_FromVoidPtr(lltype.nullptr(rffi.VOIDP.TO))
         assert space.is_w(space.type(w_l), space.w_int)
@@ -525,3 +511,16 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
             """),
             ])
         assert module.aslongmask(3) == 3
+
+    def test_as_longlong_and_overflow(self):
+        module = self.import_extension('foo', [
+            ("aslonglong_overflow", "METH_O",
+            """
+                int overflow=0;
+                long long ret = PyLong_AsLongLongAndOverflow(args, &overflow);
+                return PyTuple_Pack(2, PyLong_FromLongLong(ret), PyLong_FromLong(overflow));
+            """),
+            ])
+        assert module.aslonglong_overflow(1<<62) == (1<<62, 0)
+        assert module.aslonglong_overflow(1<<63) == (-1, 1)
+        assert module.aslonglong_overflow(-1<<64) == (-1, -1)

@@ -13,11 +13,13 @@ permissions:
 jobs:
   build:
 
+    name: build on ${{ matrix.os }}${{ matrix.revdb && ' (with RevDB)' || '' }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04]
+        revdb: [false, true]
 
     steps:
     - uses: actions/checkout@v4
@@ -43,7 +45,7 @@ jobs:
 
     - name: translate
       run: |
-        pypy rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
+        pypy rpython/bin/rpython ${{ matrix.revdb && '-O2 --revdb' || '-Ojit' }} pypy/goal/targetpypystandalone.py ${{ matrix.revdb && '--withoutmod-_hpy_universal' }}
         mv pypy*-c libpypy*-c.so pypy/goal/
 
     - name: package
@@ -54,5 +56,5 @@ jobs:
       if: success() || failure()
       uses: actions/upload-artifact@v4.6.0
       with:
-        name: pypy-ci-build-${{ matrix.os }}
+        name: pypy-ci-build-${{ matrix.os }}${{ matrix.revdb && '-revdb' || '' }}
         path: ./pypy-nightly.tar.bz2

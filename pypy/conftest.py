@@ -44,6 +44,13 @@ except AttributeError:
     # no need to dedent on py3.10+
     pass
 
+def get_marker(item, name):
+    try:
+        return item.get_closest_marker(name=name)
+    except AttributeError:
+        # pytest < 3.6
+        return item.get_marker(name=name)
+
 def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
@@ -233,7 +240,7 @@ def skip_on_missing_buildoption(**ropts):
 def pytest_runtest_setup(item):
     if isinstance(item, pytest.Function):
         config = item.config
-        if hasattr(item, "get_marker") and item.get_marker(name='pypy_only'):
+        if get_marker(item, name='pypy_only'):
             if config.applevel is not None and not config.applevel.is_pypy:
                 pytest.skip('PyPy-specific test')
         appclass = item.getparent(pytest.Class)

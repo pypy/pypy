@@ -1,6 +1,7 @@
 "Test the functionality of Python classes implementing operators."
 
 import unittest
+from test import support
 
 
 testmeths = [
@@ -584,6 +585,7 @@ class ClassTests(unittest.TestCase):
         a = A(hash(A.f)^(-1))
         hash(a.f)
 
+    @support.cpython_only
     def testSetattrWrapperNameIntern(self):
         # Issue #25794: __setattr__ should intern the attribute name
         class A:

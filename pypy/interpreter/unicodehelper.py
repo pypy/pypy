@@ -577,6 +577,7 @@ def str_decode_unicode_escape(space, s, w_s, errors, final, errorhandler, ud_han
     builder = rutf8.Utf8StringBuilder(len(s))
     pos = 0
     first_escape_error_char = None
+    pos_delta = 0
     while pos < len(s):
         ch = s[pos]
 
@@ -594,9 +595,11 @@ def str_decode_unicode_escape(space, s, w_s, errors, final, errorhandler, ud_han
             if not final:
                 break
             message = "\\ at end of string"
+            prelen = len(s)
             r, pos, rettype, s, w_s = errorhandler(errors, "unicodeescape",
                                     message, w_s, pos - 1, len(s))
             builder.append(r)
+            pos_delta += prelen - len(s)
             continue
         pos += 1
 
@@ -641,7 +644,7 @@ def str_decode_unicode_escape(space, s, w_s, errors, final, errorhandler, ud_han
                             pos += 1
                             x = (x << 3) + ord(ch) - ord('0')
             if x > 0x7F:
-                first_escape_error_char = "\\" + span
+                first_escape_error_char = span
                 builder.append_code(x)
             else:
                 builder.append_char(chr(x))
@@ -653,8 +656,10 @@ def str_decode_unicode_escape(space, s, w_s, errors, final, errorhandler, ud_han
                 pos -= 2
                 break
             message = "truncated \\xXX escape"
+            prelen = len(s)
             pos, s, w_s = hexescape(space, builder, s, w_s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
+            pos_delta += prelen - len(s)
         # \uXXXX
         elif ch == 'u':
             digits = 4
@@ -662,8 +667,10 @@ def str_decode_unicode_escape(space, s, w_s, errors, final, errorhandler, ud_han
                 pos -= 2
                 break
             message = "truncated \\uXXXX escape"
+            prelen = len(s)
             pos, s, w_s = hexescape(space, builder, s, w_s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
+            pos_delta += prelen - len(s)
         #  \UXXXXXXXX
         elif ch == 'U':
             digits = 8
@@ -671,8 +678,10 @@ def str_decode_unicode_escape(space, s, w_s, errors, final, errorhandler, ud_han
                 pos -= 2
                 break
             message = "truncated \\UXXXXXXXX escape"
+            prelen = len(s)
             pos, s, w_s = hexescape(space, builder, s, w_s, pos, digits,
                             "unicodeescape", errorhandler, message, errors)
+            pos_delta += prelen - len(s)
         # \N{name}
         elif ch == 'N' and ud_handler is not None:
             message = "malformed \\N character escape"
@@ -688,10 +697,12 @@ def str_decode_unicode_escape(space, s, w_s, errors, final, errorhandler, ud_han
                     name = s[pos + 1:look]
                     code = ud_handler.call(name)
                     if code < 0:
+                        prelen = len(s)
                         r, pos, rettype, s, w_s = errorhandler(
                             errors, "unicodeescape", message,
                             w_s, pos - 1, look + 1)
                         builder.append(r)
+                        pos_delta += prelen - len(s)
                         continue
                     pos = look + 1
                     builder.append_code(code)
@@ -699,23 +710,27 @@ def str_decode_unicode_escape(space, s, w_s, errors, final, errorhandler, ud_han
                     if not final:
                         pos -= 2
                         break
+                    prelen = len(s)
                     r, pos, rettype, s, w_s = errorhandler(errors, "unicodeescape",
                                             message, w_s, pos - 1, look + 1)
                     builder.append(r)
+                    pos_delta += prelen - len(s)
             else:
                 if not final:
                     pos -= 2
                     break
+                prelen = len(s)
                 r, pos, rettype, s, w_s = errorhandler(errors, "unicodeescape",
 
                                         message, w_s, pos - 1, look + 1)
                 builder.append(r)
+                pos_delta += prelen - len(s)
         else:
             builder.append_char('\\')
             builder.append_code(ord(ch))
             first_escape_error_char = ch
 
-    return builder.build(), builder.getlength(), pos, first_escape_error_char
+    return builder.build(), builder.getlength(), pos + pos_delta, first_escape_error_char
 
 def wcharpsize2utf8(space, wcharp, size):
     """Safe version of rffi.wcharpsize2utf8.

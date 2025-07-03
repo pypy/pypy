@@ -181,7 +181,7 @@ with open(os.path.join(my_dir, 'time_module.h')) as fid:
 cts.parse_source(src)
 
 compile_extra = ["-DBUILD_TIME_MODULE", "-DHAVE_CLOCK_GETTIME"]
-_includes = ["time.h"]
+_includes = ["time.h", os.path.join(my_dir, "time_module.h")]
 if _POSIX:
     _includes.append('sys/time.h')
     _includes.append(os.path.join(my_dir, "time_module_posix.h"))
@@ -210,8 +210,7 @@ if rtime.HAVE_NANOSLEEP:
             int ret = nanosleep(rqtp, rmtp);
             if (ret == 0)
                 return 0;
-            errno = ret;
-            return ret;
+            return errno;
         }
     """)
 

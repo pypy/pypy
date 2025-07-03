@@ -1026,13 +1026,13 @@ class TestPycStuff:
         from hashlib import sha1
         opcode_path = LIB_PYTHON.join('opcode.py')
         h = sha1()
-        # very simple test: hard-code the hash of pypy/stdlib_opcode.py and the
+        # very simple test: hard-code the hash of lib-python/3/opcode.py and the
         # default magic. if you change stdlib_opcode, please update the hash
         # below, as well as incrementing the magic number in pycode.py
         with opcode_path.open("rb") as f:
             h.update(f.read())
-        assert h.hexdigest() == 'd513db36d5f288a2857eba3c800ef47d9300fbf9'
-        assert default_magic == 0xa0d0190
+        assert h.hexdigest() == '74f2f0429909459939dac103871a4592f6953916'
+        assert default_magic == 0xa0d01a0
 
 
 

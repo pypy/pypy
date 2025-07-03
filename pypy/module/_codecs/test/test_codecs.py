@@ -1476,6 +1476,9 @@ class AppTestPartialEvaluation:
         assert isinstance(l[0].message, DeprecationWarning)
         assert isinstance(l[1].message, DeprecationWarning)
         assert isinstance(l[2].message, DeprecationWarning)
+        assert "octal" not in l[0].message.args[0]
+        assert "octal" not in l[1].message.args[0]
+        assert "octal" in l[2].message.args[0]
 
     def test_invalid_type_errors(self):
         # hex is not a text encoding. it works via the codecs functions, but

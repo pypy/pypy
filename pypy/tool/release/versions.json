@@ -1,9 +1,144 @@
 [
   {
-    "pypy_version": "7.3.18",
+    "pypy_version": "7.3.19",
     "python_version": "3.11.11",
     "stable": true,
     "latest_pypy": true,
+    "date": "2025-02-26",
+    "files": [
+      {
+        "filename": "pypy3.11-v7.3.19-aarch64.tar.bz2",
+        "arch": "aarch64",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.19-aarch64.tar.bz2"
+      },
+      {
+        "filename": "pypy3.11-v7.3.19-linux32.tar.bz2",
+        "arch": "i686",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.19-linux32.tar.bz2"
+      },
+      {
+        "filename": "pypy3.11-v7.3.19-linux64.tar.bz2",
+        "arch": "x64",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.19-linux64.tar.bz2"
+      },
+      {
+        "filename": "pypy3.11-v7.3.19-macos_x86_64.tar.bz2",
+        "arch": "x64",
+        "platform": "darwin",
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.19-macos_x86_64.tar.bz2"
+      },
+      {
+        "filename": "pypy3.11-v7.3.19-macos_arm64.tar.bz2",
+        "arch": "arm64",
+        "platform": "darwin",
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.19-macos_arm64.tar.bz2"
+      },
+      {
+        "filename": "pypy3.11-v7.3.19-win64.zip",
+        "arch": "x64",
+        "platform": "win64",
+        "download_url": "https://downloads.python.org/pypy/pypy3.11-v7.3.19-win64.zip"
+      }
+    ]
+  },
+  {
+    "pypy_version": "7.3.19",
+    "python_version": "3.10.16",
+    "stable": true,
+    "latest_pypy": true,
+    "date": "2025-02-26",
+    "files": [
+      {
+        "filename": "pypy3.10-v7.3.19-aarch64.tar.bz2",
+        "arch": "aarch64",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-aarch64.tar.bz2"
+      },
+      {
+        "filename": "pypy3.10-v7.3.19-linux32.tar.bz2",
+        "arch": "i686",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-linux32.tar.bz2"
+      },
+      {
+        "filename": "pypy3.10-v7.3.19-linux64.tar.bz2",
+        "arch": "x64",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-linux64.tar.bz2"
+      },
+      {
+        "filename": "pypy3.10-v7.3.19-macos_x86_64.tar.bz2",
+        "arch": "x64",
+        "platform": "darwin",
+        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-macos_x86_64.tar.bz2"
+      },
+      {
+        "filename": "pypy3.10-v7.3.19-macos_arm64.tar.bz2",
+        "arch": "arm64",
+        "platform": "darwin",
+        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-macos_arm64.tar.bz2"
+      },
+      {
+        "filename": "pypy3.10-v7.3.19-win64.zip",
+        "arch": "x64",
+        "platform": "win64",
+        "download_url": "https://downloads.python.org/pypy/pypy3.10-v7.3.19-win64.zip"
+      }
+    ]
+  },
+  {
+    "pypy_version": "7.3.19",
+    "python_version": "2.7.18",
+    "stable": true,
+    "latest_pypy": true,
+    "date": "2025-02-26",
+    "files": [
+      {
+        "filename": "pypy2.7-v7.3.19-aarch64.tar.bz2",
+        "arch": "aarch64",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.19-aarch64.tar.bz2"
+      },
+      {
+        "filename": "pypy2.7-v7.3.19-linux32.tar.bz2",
+        "arch": "i686",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.19-linux32.tar.bz2"
+      },
+      {
+        "filename": "pypy2.7-v7.3.19-linux64.tar.bz2",
+        "arch": "x64",
+        "platform": "linux",
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.19-linux64.tar.bz2"
+      },
+      {
+        "filename": "pypy2.7-v7.3.19-macos_x86_64.tar.bz2",
+        "arch": "x64",
+        "platform": "darwin",
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.19-macos_x86_64.tar.bz2"
+      },
+      {
+        "filename": "pypy2.7-v7.3.19-macos_arm64.tar.bz2",
+        "arch": "arm64",
+        "platform": "darwin",
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.19-macos_arm64.tar.bz2"
+      },
+      {
+        "filename": "pypy2.7-v7.3.19-win64.zip",
+        "arch": "x64",
+        "platform": "win64",
+        "download_url": "https://downloads.python.org/pypy/pypy2.7-v7.3.19-win64.zip"
+      }
+    ]
+  },
+  {
+    "pypy_version": "7.3.18",
+    "python_version": "3.11.11",
+    "stable": true,
+    "latest_pypy": false,
     "date": "2025-02-06",
     "files": [
       {
@@ -46,9 +181,9 @@
   },
   {
     "pypy_version": "7.3.18",
-    "python_version": "3.10.19",
+    "python_version": "3.10.16",
     "stable": true,
-    "latest_pypy": true,
+    "latest_pypy": false,
     "date": "2025-02-06",
     "files": [
       {
@@ -93,7 +228,7 @@
     "pypy_version": "7.3.18",
     "python_version": "2.7.18",
     "stable": true,
-    "latest_pypy": true,
+    "latest_pypy": false,
     "date": "2025-02-06",
     "files": [
       {

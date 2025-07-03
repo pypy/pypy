@@ -579,6 +579,12 @@ class TestAstBuilding:
         input = "def foo(a,*b=3,c):"
         exc = pytest.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "var-positional argument cannot have default value"
+        input = "lambda a,*b=3,c: 12"
+        exc = pytest.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == "var-positional argument cannot have default value"
+        input = "lambda *b,*d: 12"
+        exc = pytest.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == "* argument may appear only once"
 
     def test_posonly_arguments(self):
         fn = self.get_first_stmt("def f(a, b, c, /, arg): pass")
@@ -1692,7 +1698,7 @@ class TestAstBuilding:
         args = func.args
         assert eq_w(args.args[0].type_comment, w("List[int]"))
         assert eq_w(args.args[1].type_comment, w("int"))
-        assert self.space.is_w(args.args[2].type_comment, self.space.w_None)
+        assert self.space.is_none(args.args[2].type_comment)
 
     def test_type_comments_func_body(self):
         eq_w, w = self.space.eq_w, self.space.wrap
@@ -1918,6 +1924,14 @@ class TestAstBuilding:
         check_both_ways("try:\n  pass\nfinally:  # type: int\n  pass\n")
         check_both_ways("pass  # type: ignorewhatever\n")
         check_both_ways("pass  # type: ignoreé\n")
+        with pytest.raises(SyntaxError) as e:
+            s = 'def f(\n    *, # type: int\n    a, # type: int\n):\n    pass'
+            self.get_ast(s, flags=consts.PyCF_TYPE_COMMENTS)
+        assert type(e.value) is SyntaxError
+        with pytest.raises(SyntaxError) as e:
+            s = 'def foo(x, /, y, *, z=2):\npass\n'
+            self.get_ast(s)
+        assert "type comment" not in e.value.msg
 
     def test_walrus(self):
         mod = self.get_ast("(a := 1)")
@@ -2102,3 +2116,15 @@ except*:
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast(input)
         assert excinfo.value.msg == "expected one or more exception types"
+
+    def test_invalid_star_no_parens(self):
+        import textwrap
+        s = textwrap.dedent("""
+        try:
+            pass
+        except* A, B, C as zxiensp:
+            pass
+        """)
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast(s)
+        assert excinfo.value.msg == "multiple exception types must be parenthesized"
