@@ -13,7 +13,9 @@ PyPy v7.3.20: release of python 2.7, 3.11, released XXXX-XX-XX
       Need to add release date
 
 The PyPy team is proud to release version 7.3.20 of PyPy after the previous
-release on Feb 26, 2025.
+release on Feb 26, 2025. The release fixes some subtle bugs in ``ctypes`` and
+``OrderedDict`` and makes PyPy3.11 compatible with an upcoming release of
+Cython.
 
 The release includes two different interpreters:
 
@@ -89,14 +91,14 @@ Changelog
 
 For all versions
 ----------------
-- Allow building with `--withoutmod-cpyext``
+- Allow building with ``--withoutmod-cpyext``
 
 Bugfixes
 ~~~~~~~~
 
 - Fix crash when the JIT copies an empty virtual dict (:issue:`5245`)
 - Fix ``re.fullmatch`` in the presence of atomic groups (:issue:`5232`) and
-  possessive repeats (:issue: `5049`)
+  possessive repeats (:issue:`5049`)
 - Cleanup duplicate ``errcode`` var in ``pyssl_error()`` and duplicate
   ``get_socket_or_None()`` call in ``_SSLSocket.shutdown()`` (:issue:`5261`)
 - Define ``_FILE_OFFSET_BITS`` and ``_LARGEFILE_SOURCE`` when building on
@@ -129,12 +131,12 @@ Bugfixes
 
 - Raise ``SyntaxError`` rather than ``ValueError`` when parsing null bytes in
   source code (:issue: `5234`)
-- Fix ``LOAD_GLOBAL`` disassembly (:issue: `5238`)
+- Fix ``LOAD_GLOBAL`` disassembly (:issue:`5238`)
 - Fix pure python ``datetime.*.fromisoformat()`` to reject spaces in fraction
   part. Backported to CPython. (:issue:`5240`), (:issue:`python/cpython#130959`)
 - Fix ``LDLIBRARY`` in ``sysconfig`` (:issue:`5249`)
 - Add ``IO_REPARSE_TAG_MOUNT_POINT`` to ``stat`` for windows
-- Fix PyContextVar_Reset return type (:issue:`5252`)
+- Fix ``PyContextVar_Reset`` return type (:issue:`5252`)
 - Add python3.8+ versions of ``Py_TRASHCAN`` macros (:issue:`3958`)
 - Fix macos sysconfig ``LD*`` values (:issue:`pypa/distutils#283`)
 - Add missing ``LIB_ERR_SYS`` handling to ``pyssl_error()``
