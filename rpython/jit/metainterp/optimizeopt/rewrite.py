@@ -8,7 +8,7 @@ from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.optimizer import (
     Optimization, OptimizationResult, REMOVED, CONST_0, CONST_1)
 from rpython.jit.metainterp.optimizeopt.info import (
-    INFO_NONNULL, INFO_NULL, getptrinfo)
+    INFO_NONNULL, INFO_NULL, getptrinfo, ArrayPtrInfo)
 from rpython.jit.metainterp.optimizeopt.util import (
     _findall, make_dispatcher_method, have_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.resoperation import (
@@ -547,6 +547,10 @@ class OptRewrite(Optimization):
                         # class is different
                         self.make_constant_int(op, expect_isnot)
                         return
+            elif isinstance(info0, ArrayPtrInfo) and isinstance(info1, ArrayPtrInfo):
+                if info0.getlenbound(None).known_ne(info1.getlenbound(None)):
+                    self.make_constant_int(op, expect_isnot)
+                    return
             return self.emit(op)
 
     def optimize_PTR_EQ(self, op):

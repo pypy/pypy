@@ -1,24 +1,16 @@
-=======================================================
-PyPy v7.3.19: release of python 2.7, 3.10 and 3.11 beta
-=======================================================
-
-..
-     updated to ef590f639e529e, 08bdaf60c9e
-
-.. note::
-    This is a pre-release announcement. When the release actually happens, it
-    will be announced on the PyPy blog_.
-
-.. note::
-   Need to add release date
+============================================================================
+PyPy v7.3.19: release of python 2.7, 3.10 and 3.11 beta, released 2025-02-26
+============================================================================
 
 The PyPy team is proud to release version 7.3.19 of PyPy. This is primarily a
 bug-fix release fixing JIT-related problems and follows quickly on the heels of
 the previous release on Feb 6, 2025.
 
-This release includes a python 3.11 interpreter. We are still labelling it "beta"
-because it is new. In the next release we will drop 3.10 and remove
-the "beta" label. 
+
+This release includes a python 3.11 interpreter. There were bugs in the first
+beta that could prevent its wider use, so we are continuing to call this
+release "beta". In the next release we will drop 3.10 and remove the "beta"
+label. 
 
 The release includes three different interpreters:
 
@@ -27,7 +19,7 @@ The release includes three different interpreters:
   backported security updates)
 
 - PyPy3.10, which is an interpreter supporting the syntax and the features of
-  Python 3.10, including the stdlib for CPython 3.10.19.
+  Python 3.10, including the stdlib for CPython 3.10.16.
 
 - PyPy3.11, which is an interpreter supporting the syntax and the features of
   Python 3.11, including the stdlib for CPython 3.11.11.
@@ -124,10 +116,13 @@ Bugfixes
   in the first PyPy3.10 release (:issue:`5196`).
 - Use ``BIO_new_file`` not ``BIO_new_fp`` in ``_ssl`` since the later does not
   work on windows.
-- Assign `ht_qualname` on builtin python types (:issue:`5217`)
+- Assign ``ht_qualname`` on builtin python types (:issue:`5217`)
 - Ternary ``pow`` behaves differently with respect to calling ``__rpow__`` in
-  the interpreter and via the C-API's ``tp_as_number.nb_power`` (:issue: `5207`)
-- ``len(_weakset)`` could fail due to threading, iterate over a copy instead (:issue:`5193`)
+  the interpreter and via the C-API's ``tp_as_number.nb_power`` (:issue:`5207`)
+- ``len(_weakset)`` could fail due to garbage collection while iterating,
+  iterate over a copy instead (:issue:`5193`)
+- Fix the tokenizer for combinations of line-continuations (back-slash) and
+  indentation, fixes from an earlier fix were slightly wrong (:issue:`5221`)
 
 
 Speedups and enhancements
@@ -143,4 +138,6 @@ Bugfixes
 ~~~~~~~~
 - Add missing ``co_qualname`` to code objects, also fix ``PyCode_*`` signatures (:issue:`5203`)
 - Fix printing traceback when the error line has trailing whitespace (:issue:`5219`)
-
+- Fix segfault when ``__getattr__`` raises ``AttributeError`` (:issue:`5222`)
+- Port missed PyPy3.10 fix for ``inspect.isbuiltin`` when ``obj`` is a
+  C-extension function type. Fixes build of SciPy (:issue:`5227`)
