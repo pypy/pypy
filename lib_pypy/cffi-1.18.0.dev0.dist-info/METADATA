@@ -24,7 +24,6 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: License :: OSI Approved :: MIT License
 License-File: LICENSE
-Requires-Dist: pycparser
 
 
 CFFI
