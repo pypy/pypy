@@ -3,6 +3,7 @@ import re
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
     ConstFloat, CONST_NULL, getkind)
 from rpython.flowspace.model import Constant
+from rpython.jit.codewriter.flatten import Register
 
 class GenExtension(object):
     def __init__(self, assembler):
@@ -57,6 +58,8 @@ class GenExtension(object):
             if isinstance(insn[0], Label) or insn[0] == '---':
                 continue
             self.insn = insn
+            if insn[0] == 'goto_if_not_int_lt':
+                import pdb; pdb.set_trace()
             pc = ssarepr._insns_pos[index]
             self.code.append("if pc == %s: # %s" % (pc, self.insn))
             nextpc = self.pc_to_nextpc[pc]
@@ -427,8 +430,9 @@ class WorkList(object):
         self.specialize_instruction = dict() # (pc, insn, constant?registers) =? Specializer
         self.todo = []
         self.free_pc = 100 # TODO: will be fixed as a dynamic number
+        self.label_to_pc = {}
 
-    def specialize(self, insn, constant_registers, orig_pc):
+    def _make_spec(self, insn, constant_registers, orig_pc):
         key = (orig_pc, insn, frozenset(constant_registers))
         if key in self.specialize_instruction:
             return self.specialize_instruction[key]
@@ -436,12 +440,27 @@ class WorkList(object):
             if not constant_registers:
                 spec_pc = orig_pc
             else:
-                spec_pc = self.free_pc
-                self.free_pc += 1
+                spec_pc = self._payout_new_free_pc()
             spec = self.specialize_instruction[key] = Specializer(
                 insn, constant_registers, orig_pc, spec_pc, self)
             self.todo.append(spec)
             return spec
+
+    def _payout_new_free_pc(self):
+        free_pc = self.free_pc
+        self.free_pc += 1
+        return free_pc
+
+    def specialize(self, insn, constant_registers, orig_pc, label=None):
+        if insn[0].startswith("goto_if"):
+            assert insn[0].startswith("goto_if")
+            spec = self._make_spec(insn, constant_registers, orig_pc)
+            target_pc = self._payout_new_free_pc()
+            self.label_to_pc[label] = target_pc
+            return spec
+        else:
+            return self._make_spec(insn, constant_registers, orig_pc)
+
 
 class Specializer(object):
     def __init__(self, insn, constant_registers, orig_pc, spec_pc, work_list):
@@ -472,6 +491,9 @@ class Specializer(object):
 
     def get_pc(self):
         return self.spec_pc
+
+    def get_target_pc(self, label):
+        return self.work_list.label_to_pc[label]
 
     def is_constant(self, arg):
         return arg in self.constant_registers
@@ -531,9 +553,12 @@ class Specializer(object):
         return ['pass # int_guard_value, argument is already constant']
 
     def _get_type_prefix(self, arg):
-        if isinstance(arg, Constant):
+        if isinstance(arg, Constant) or isinstance(arg, Register):
             # TODO: this logic also works for the 'else' case. probably.
-            kind = getkind(arg.concretetype)
+            if isinstance(arg, Constant):
+                kind = getkind(arg.concretetype)
+            else:
+                kind = arg.kind
             assert kind in ('int', 'ref')
             return kind[0]
         else:
@@ -570,7 +595,18 @@ class Specializer(object):
         elif t == 'f':
             return "rf%d.getfloat()" % (arg.index)
         else:
-            assert False, "%d is unsupported type" % (arg)
+            assert False, "%s is unsupported type" % (arg)
+
+    def _emit_assignment_from_reg_by_type(self, arg):
+        t = self._get_type_prefix(arg)
+        if t == 'i':
+            return "ri%d = self.registers_i[%d]" % (arg.index, arg.index)
+        elif t == 'r':
+            return "rr%d = self.registers_r[%d]" % (arg.index, arg.index)
+        elif t == 'f':
+            return "rf%d = self.registers_f[%d]" % (arg.index, arg.index)
+        else:
+            assert False, "%s is unsupported type" % (arg)
 
     def _emit_unspecialized_binary(self):
         lines = []
@@ -654,6 +690,28 @@ class Specializer(object):
         self._emit_sync_registers(lines)
         lines.append('self.opimpl_int_guard_value(self.registers_i[%d], %d)' % (arg0.index, self.orig_pc))
 
+        return lines
+
+    def emit_unspecialized_goto_if_not_int_lt(self):
+        lines = []
+        arg0 = self.insn[1]
+        arg1 = self.insn[2]
+        arg2 = self.insn[3]
+
+        target_pc = self.get_target_pc(arg2)
+        lines.append(self._emit_assignment_from_reg_by_type(arg0))
+        lines.append(self._emit_assignment_from_reg_by_type(arg1))
+        lines.append("if r%s%d.is_constant() and r%s%d.is_constant():" % (self._get_type_prefix(arg0), arg0.index,
+                                                                          self._get_type_prefix(arg1), arg1.index))
+        lines.append("    i%d = r%s%d.getint()" % (arg0.index, self._get_type_prefix(arg0), arg0.index))
+        lines.append("    i%d = r%s%d.getint()" % (arg1.index, self._get_type_prefix(arg1), arg1.index))
+        lines.append("    cond = i%d < i%d" % (arg0.index, arg1.index))
+        lines.append("    if not cond: pc = %d" % (target_pc))
+        lines.append("    continue")
+        lines.append("condbox = self.opimpl_int_lt(r%s%d, r%s%d)" % (self._get_type_prefix(arg0), arg0.index,
+                                                                     self._get_type_prefix(arg1), arg1.index))
+        self._emit_sync_registers(lines)
+        lines.append("self.opimpl_goto_if_not(condbox, %d, %d)" % (target_pc, self.get_pc()))
         return lines
 
     def _emit_sync_registers(self, lines):

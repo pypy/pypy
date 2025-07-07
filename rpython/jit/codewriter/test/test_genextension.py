@@ -523,14 +523,14 @@ else:
 
 def test_goto_if_not_int_lt():
     i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
-    insn = ('goto_if_not_int_lt', i0, Constant(0), TLabel('L1'))
+    L1 = TLabel('L1')
+    insn = ('goto_if_not_int_lt', i0, i1, L1)
     work_list = WorkList()
 
-    # FIXME
     # unspecialized case
-    insn_specializer = work_list.specialize(insn, set(), 5)
+    insn_specializer = work_list.specialize(insn, set(), 5, L1)
     newpc = insn_specializer.get_pc()
-    assert newpc == 100
+    assert newpc == 5
     s = insn_specializer.make_code()
     assert s == """\
 ri0 = self.registers_i[0]
@@ -538,14 +538,11 @@ ri1 = self.registers_i[1]
 if ri0.is_constant() and ri1.is_constant():
     i0 = ri0.getint()
     i1 = ri1.getint()
-    ...
+    cond = i0 < i1
+    if not cond: pc = 100
     continue
 condbox = self.opimpl_int_lt(ri0, ri1)
-self.opimpl_goto_if_not(condbox, target, orgpc)
-    """
-    next_constant_registers = insn_specializer.get_next_constant_registers()
-    assert next_constant_registers == {i0}
-    pass
+self.opimpl_goto_if_not(condbox, 100, 5)"""
 
 def test_int_guard_value():
     i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
