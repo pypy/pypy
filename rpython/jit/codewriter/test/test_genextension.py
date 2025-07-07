@@ -522,6 +522,29 @@ else:
     assert next_constant_registers == {r0, i0, i1}
 
 def test_goto_if_not_int_lt():
+    i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
+    insn = ('goto_if_not_int_lt', i0, Constant(0), TLabel('L1'))
+    work_list = WorkList()
+
+    # FIXME
+    # unspecialized case
+    insn_specializer = work_list.specialize(insn, set(), 5)
+    newpc = insn_specializer.get_pc()
+    assert newpc == 100
+    s = insn_specializer.make_code()
+    assert s == """\
+ri0 = self.registers_i[0]
+ri1 = self.registers_i[1]
+if ri0.is_constant() and ri1.is_constant():
+    i0 = ri0.getint()
+    i1 = ri1.getint()
+    ...
+    continue
+condbox = self.opimpl_int_lt(ri0, ri1)
+self.opimpl_goto_if_not(condbox, target, orgpc)
+    """
+    next_constant_registers = insn_specializer.get_next_constant_registers()
+    assert next_constant_registers == {i0}
     pass
 
 def test_int_guard_value():
