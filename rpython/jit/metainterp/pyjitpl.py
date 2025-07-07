@@ -1917,9 +1917,7 @@ class MIFrame(object):
             pass
 
     def implement_guard_value(self, box, orgpc):
-        """Promote the given Box into a Const.  Note: be careful, it's a
-        bit unclear what occurs if a single opcode needs to generate
-        several ones and/or ones not near the beginning."""
+        """Promote the given Box into a Const. """
         if isinstance(box, Const):
             return box     # no promotion needed, already a Const
         else:
