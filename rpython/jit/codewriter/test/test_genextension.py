@@ -525,7 +525,39 @@ def test_goto_if_not_int_lt():
     pass
 
 def test_int_guard_value():
-    pass
+    i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
+    insn = ('int_guard_value', i0)
+    insns = [insn]
+    work_list = WorkList()
+    insn_specializer = work_list.specialize(insn, {i0}, 5)
+    newpc = insn_specializer.get_pc()
+    assert newpc == 100
+    s = insn_specializer.make_code()
+    assert s == 'pass # int_guard_value, argument is already constant'
+    next_constant_registers = insn_specializer.get_next_constant_registers()
+    assert next_constant_registers == {i0}
+
+    insn_specializer = work_list.specialize(insn, set(), 5)
+    s = insn_specializer.make_code()
+    assert s == """\
+ri0 = self.registers_i[0]
+if ri0.is_constant():
+    pc = 100
+    continue
+self.opimpl_int_guard_value(self.registers_i[0], 5)"""
+
+    insn_specializer = work_list.specialize(insn, {i1, i2}, 5)
+    s = insn_specializer.make_code()
+    # we need to sync the registers from the unboxed values to allow the guard to be created
+    # TODO: only do this for registers that are alive at this point
+    assert s == """\
+ri0 = self.registers_i[0]
+if ri0.is_constant():
+    pc = 102
+    continue
+self.registers_i[1] = ConstInt(i1)
+self.registers_i[2] = ConstInt(i2)
+self.opimpl_int_guard_value(self.registers_i[0], 5)"""
 
 def test_switch():
     pass

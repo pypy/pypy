@@ -1,7 +1,7 @@
 import py
 import re
 from rpython.jit.metainterp.history import (Const, ConstInt, ConstPtr,
-    ConstFloat, CONST_NULL)
+    ConstFloat, CONST_NULL, getkind)
 from rpython.flowspace.model import Constant
 
 class GenExtension(object):
@@ -524,22 +524,18 @@ class Specializer(object):
         assert len(args) == 2
         arg0, arg1 = args[0], args[1]
         result = self.insn[self.resindex]
-        # TODO: save result?!
         return ["i%s = ord(lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), r%d).chars[%s])" % (
             result.index, arg0.index, self._get_as_constant(arg1))]
 
+    def emit_specialized_int_guard_value(self):
+        return ['pass # int_guard_value, argument is already constant']
+
     def _get_type_prefix(self, arg):
         if isinstance(arg, Constant):
-            value = arg.value
-            # TODO: is this branching correct?
-            if isinstance(value, int):
-                return 'i'
-            elif isinstance(value, float):
-                return 'f'
-            elif isinstance(value, str):
-                return 'r'
-            else:
-                assert False, "unreachable condition"
+            # TODO: this logic also works for the 'else' case. probably.
+            kind = getkind(arg.concretetype)
+            assert kind in ('int', 'ref')
+            return kind[0]
         else:
             m = re.search('%([i,r,f])[0-9]+', str(arg))
             assert m is not None, "ensure regex match"
@@ -554,8 +550,13 @@ class Specializer(object):
 
     def _get_as_box(self, arg):
         if isinstance(arg, Constant):
+            kind = getkind(arg.concretetype)
             # TODO: consider other types
+            assert kind == 'int'
             return "ConstInt(%d)" % (arg.value)
+        elif arg in self.constant_registers:
+            assert arg.kind == 'int'
+            return "ConstInt(i%s)" % arg.index
         else:
             t = self._get_type_prefix(arg)
             return "r%s%d" % (t, arg.index)
@@ -638,3 +639,24 @@ class Specializer(object):
         lines.append("    self.registers_i[%d] = self.opimpl_strgetitem(%s, %s)" % (
             result.index, self._get_as_box(arg0), self._get_as_box(arg1)))
         return lines
+
+    def emit_unspecialized_int_guard_value(self):
+        lines = []
+        arg0 = self.insn[1]
+
+        lines.append('ri%d = self.registers_i[%d]' % (arg0.index, arg0.index))
+        lines.append('if ri%d.is_constant():' % arg0.index)
+        specializer = self.work_list.specialize(
+            self.insn, self.constant_registers.union({arg0}), self.orig_pc)
+        lines.append('    pc = %d' % specializer.get_pc())
+        lines.append('    continue')
+
+        self._emit_sync_registers(lines)
+        lines.append('self.opimpl_int_guard_value(self.registers_i[%d], %d)' % (arg0.index, self.orig_pc))
+
+        return lines
+
+    def _emit_sync_registers(self, lines):
+        # we need to sync the registers from the unboxed values to e.g. allow a guard to be created
+        for const_reg in self.constant_registers:
+            lines.append('self.registers_%s[%d] = %s' % (const_reg.kind[0], const_reg.index, self._get_as_box(const_reg)))
