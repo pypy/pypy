@@ -526,6 +526,7 @@ def test_goto_if_not_int_lt():
     L1 = TLabel('L1')
     insn = ('goto_if_not_int_lt', i0, i1, L1)
     work_list = WorkList()
+    work_list.label_to_pc[L1] = 17
 
     # unspecialized case
     insn_specializer = work_list.specialize(insn, set(), 5, L1)
@@ -538,11 +539,39 @@ ri1 = self.registers_i[1]
 if ri0.is_constant() and ri1.is_constant():
     i0 = ri0.getint()
     i1 = ri1.getint()
-    cond = i0 < i1
-    if not cond: pc = 100
+    pc = 100
     continue
 condbox = self.opimpl_int_lt(ri0, ri1)
-self.opimpl_goto_if_not(condbox, 100, 5)"""
+self.opimpl_goto_if_not(condbox, 17, 5)"""
+
+    # unspecialized case
+    insn_specializer = work_list.specialize(insn, {i2}, 5, L1)
+    s = insn_specializer.make_code()
+    assert s == """\
+ri0 = self.registers_i[0]
+ri1 = self.registers_i[1]
+if ri0.is_constant() and ri1.is_constant():
+    i0 = ri0.getint()
+    i1 = ri1.getint()
+    pc = 102
+    continue
+condbox = self.opimpl_int_lt(ri0, ri1)
+self.registers_i[2] = ConstInt(i2)
+self.opimpl_goto_if_not(condbox, 17, 5)"""
+
+    # specialized case
+    work_list.label_to_spec_pc[L1] = 200
+    insn_specializer = work_list.specialize(insn, {i0, i1}, 5, L1)
+    newpc = insn_specializer.get_pc()
+    assert newpc == 100
+    s = insn_specializer.make_code()
+    assert s == """\
+cond = i0 < i1
+if not cond:
+    pc = 200
+else:
+    pc = 101
+continue"""
 
 def test_int_guard_value():
     i0, i1, i2 = Register('int', 0), Register('int', 1), Register('int', 2)
