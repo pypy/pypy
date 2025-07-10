@@ -80,7 +80,7 @@ stuff = "nothing"
         assert exc.offset == 5
         assert exc.end_offset == 10
         exc = pytest.raises(SyntaxError, parse, "x = '''\n\n\n").value
-        assert exc.msg == "unterminated triple-quoted string literal (detected at line 1)"
+        assert exc.msg == "unterminated triple-quoted string literal (detected at line 3)"
         assert exc.lineno == 1
         assert exc.offset == 5
         assert exc.end_lineno == 3
@@ -524,6 +524,24 @@ try:
     f(x)
 except* ValueError:
     pass""")
+
+
+class TestFString(BaseTestPythonParser):
+    def test_conversion(self):
+        self.parse('f"{x!r}"')
+        pytest.raises(SyntaxError, self.parse, 'f"{x!}"')
+        pytest.raises(SyntaxError, self.parse, 'f"{x!abc}"')
+        pytest.raises(SyntaxError, self.parse, 'f"{x!y}"')
+
+    @pytest.mark.xfail(reason="TODO")
+    def test_debug_expr(self):
+        self.parse('f"{x=}"')
+
+    @pytest.mark.xfail(reason="TODO")
+    def test_format_spec(self):
+        self.parse('f"{x:{10}}"')
+        self.parse('f"{x:{10}.2f}"')
+
 
 class TestIncompleteInput(object):
     def setup_class(self):
