@@ -653,12 +653,8 @@ def make_formatting_class(for_unicode):
                 dec = "."
                 thousands = ""
                 grouping = "\xFF"    # special value to mean 'stop'
-            if self.is_unicode:
-                self._loc_dec = rutf8.decode_latin_1(dec)
-                self._loc_thousands = rutf8.decode_latin_1(thousands)
-            else:
-                self._loc_dec = dec
-                self._loc_thousands = thousands
+            self._loc_dec = dec
+            self._loc_thousands = thousands
             self._loc_grouping = grouping
 
         def _calc_num_width(self, n_prefix, sign_char, to_number, n_number,
@@ -733,8 +729,7 @@ def make_formatting_class(for_unicode):
         def _fill_digits(buf, digits, d_state, n_chars, n_zeros,
                          thousands_sep):
             if thousands_sep:
-                for c in thousands_sep:
-                    buf.append(c)
+                buf.append(thousands_sep)
             for i in range(d_state - 1, d_state - n_chars - 1, -1):
                 buf.append(digits[i])
             for i in range(n_zeros):
