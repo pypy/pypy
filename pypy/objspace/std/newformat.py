@@ -741,7 +741,7 @@ def make_formatting_class(for_unicode):
             buf = []
             grouping = loc_grouping
             grouping_state = 0
-            n_ts = len(loc_thousands)
+            n_ts = rutf8.codepoints_in_utf8(loc_thousands)
             need_separator = False
             done = False
             previous = 0

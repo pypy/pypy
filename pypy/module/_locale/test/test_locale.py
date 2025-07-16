@@ -346,15 +346,21 @@ class AppTestLocaleTrivia:
                 assert nl_radixchar == li_radixchar, ("nl_langinfo != localeconv "
                                 "(set to %s, using %s)" % ( loc, set_locale))
 
+class AppTestLocaleFormatting:
+    spaceconfig = dict(usemodules=['_locale', 'unicodedata'])
+
     def test_ru_utf8(self):
         import sys
-        if sys.platform == 'win32':
-            skip("Not for windows?")
-        from _locale import setlocale, LC_ALL
-        setlocale(LC_ALL, 'ru_RU.utf-8')
+        import _locale
+        try:
+            _locale.setlocale(_locale.LC_ALL, 'ru_RU.utf-8')
+        except _locale.Error:
+            pytest.skip("locale ru_RU not installed")
         f1 = format(123456789, 'n')
-        assert f1 == '123\u202f456\u202f789'
+        ts = _locale.localeconv()['thousands_sep']
+        expected1 = "123X456X789".replace("X", ts)
+        assert f1 == expected1
         f2 = format(1111111111111.1, '020n')
-        print(f2)
-        print('00\u202f000\u202f001,11111e+12')
-        assert f2 == '00\u202f000\u202f001,11111e+12'
+        assert len(f2) >= 20
+        expected2 = "00X000X001,11111e+12".replace("X", ts)
+        assert f2 == expected2
