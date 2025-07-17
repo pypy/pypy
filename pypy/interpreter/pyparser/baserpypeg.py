@@ -715,7 +715,7 @@ class Parser:
             length = unicodehelper.check_utf8_or_raise(space, s)
             if "\\" not in s: # fast path, no escapes
                 return space.newutf8(s, length)
-            s = decode_unicode_utf8(space, s)
+            s = decode_unicode_utf8(space, s, 0, len(s))
 
         r = decode_unicode_escape(space, s, self, token)
         v, length, pos = r
