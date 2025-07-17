@@ -1,3 +1,4 @@
+from __future__ import print_function
 import py
 from pypy.tool.rest.rst import Rest, Paragraph, Strong, ListItem, Title, Link
 from pypy.tool.rest.rst import Directive, Text
