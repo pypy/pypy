@@ -609,7 +609,35 @@ def"""
             (tokens.FSTRING_MIDDLE, '""{', 3, 3, 3, 6),
             (tokens.FSTRING_MIDDLE, "\n", 3, 7, 4, 0),
             (tokens.FSTRING_END, '"""', 4, 0, 4, 3),
-        ]
+        ],
+    ),
+    (
+        "named unicode escape sequence",
+        pytest.mark.xfail(
+            (
+                'f"\\N{DOG}"\n',
+                [
+                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+                    (tokens.FSTRING_MIDDLE, "\\N{DOG}", 1, 2, 1, 9),
+                    (tokens.FSTRING_END, '"', 1, 9, 1, 10),
+                ],
+            ),
+            reason="TODO",
+        ),
+    ),
+    (
+        "incomplete named unicode escape sequence",
+        pytest.mark.xfail(
+            (
+                'f"\\N{DOG"\n',
+                [
+                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+                    (tokens.FSTRING_MIDDLE, "\\N{DOG", 1, 2, 1, 8),
+                    (tokens.FSTRING_END, '"', 1, 8, 1, 9),
+                ],
+            ),
+            reason="TODO",
+        ),
     ),
 ]
 
