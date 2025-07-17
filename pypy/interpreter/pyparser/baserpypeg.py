@@ -698,10 +698,18 @@ class Parser:
         elif debug_expr is not None and format is None:
             conversion = ord('r')
 
-        assert format is None
-        return ast.FormattedValue(expr, conversion=conversion, format_spec=None,
+        return ast.FormattedValue(expr, conversion=conversion, format_spec=format,
             lineno=lbrace.lineno, col_offset=lbrace.column,
             end_lineno=rbrace.end_lineno, end_col_offset=rbrace.end_column)
+
+    def fstring_format_spec_constant(self, t):
+        from pypy.interpreter.astcompiler.fstring import build
+        return build(
+            ast.Constant,
+            self._decode_unicode(t.value, False, t),
+            None,
+            t,
+        )
 
     def _decode_unicode(self, s, rawmode, token):
         from pypy.interpreter.pyparser.parsestring import decode_unicode_utf8, decode_unicode_escape
@@ -747,6 +755,26 @@ class Parser:
             end_col_offset=end.end_column,
         )
 
+    def fstring_format_spec_full(self, colon, specs):
+        # CPython compatibility: return an empty JoinedStr node if the format spec is empty
+        if len(specs) == 1 and isinstance(specs[0], ast.Constant) and not self.space.is_true(specs[0].value):
+            specs = []
+
+        # CPython compatibility: always return a JoinedStr node
+        if not specs or (len(specs) == 1 and isinstance(specs[0], ast.Constant)):
+            end_lineno, end_col_offset = self.extract_pos_end(specs[-1] if specs else colon)
+            return ast.JoinedStr(
+                specs,
+                lineno=colon.lineno,
+                col_offset=colon.column,
+                end_lineno=end_lineno,
+                end_col_offset=end_col_offset,
+            )
+
+        res = self.concat_strings(specs)
+        res.lineno = colon.lineno
+        res.col_offset = colon.column
+        return res
 
     def extract_import_level(self, tokens):
         """Extract the relative import level from the tokens preceding the module name.
