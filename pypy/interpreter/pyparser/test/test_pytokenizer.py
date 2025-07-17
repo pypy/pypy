@@ -442,6 +442,7 @@ def"""
         "f'a\\{}'\n",
         [
             (tokens.FSTRING_START, "f'", 1, 0, 1, 2),
+            (tokens.WARNING, "invalid escape sequence '{'", 1, 3, 1, 5),
             (tokens.FSTRING_MIDDLE, "a\\", 1, 2, 1, 4),
             (tokens.LBRACE, "{", 1, 4, 1, 5),
             (tokens.RBRACE, "}", 1, 5, 1, 6),

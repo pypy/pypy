@@ -930,11 +930,12 @@ class Parser:
         cls=SyntaxError,
     ):
         line_from_token = start_lineno == -1 and end_lineno == -1
-        tok = self.diagnose()
         if start_lineno == -1:
+            tok = self.diagnose()
             start_lineno = tok.lineno
             start_col_offset = tok.column
         if end_lineno == -1:
+            tok = self.diagnose()
             if tok.end_lineno != -1:
                 end_lineno = tok.end_lineno
                 end_col_offset = tok.end_column

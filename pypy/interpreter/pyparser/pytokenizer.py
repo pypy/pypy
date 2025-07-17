@@ -168,10 +168,11 @@ class TokenizerMode(object): pass
 NormalMode = TokenizerMode()
 
 class FStringMode(TokenizerMode):
-    def __init__(self, middle_linenumber, middle_offset, format_specifier=False):
-        self.format_specifier = format_specifier
+    def __init__(self, middle_linenumber, middle_offset, raw):
         self.middle_linenumber = middle_linenumber
         self.middle_offset = middle_offset
+        self.raw = raw
+        self.format_specifier = False
 
 
 class TokenizerState(object):
@@ -513,7 +514,8 @@ class Tokenizer(object):
                 self.last_comment = token
         elif token in fstring_starts:
             self._add_token(tokens.FSTRING_START, token, self.lnum, start, line, self.lnum, end)
-            self.state_stack.append(TokenizerState(FStringMode(self.lnum, end)))
+            raw = "r" in token or "R" in token
+            self.state_stack.append(TokenizerState(FStringMode(self.lnum, end, raw)))
             self._contstr_start(endDFAs[token], start, line, len(token) >= 4, "")
         elif token in triple_quoted:
             string_end_dfa = endDFAs[token]
@@ -636,6 +638,17 @@ class Tokenizer(object):
         if match >= 0:
             last_c, next_c = line[match - 1], line[match]
             if last_c in "{}":
+                if not mode.raw and match >= 2 and line[match - 2] == "\\":
+                    # count trailing backslashes
+                    i = match - 3
+                    while i >= 0 and line[i] == "\\":
+                        i -= 1
+
+                    if (match - 2 - i) % 2:
+                        # odd number of backslashes
+                        msg = "invalid escape sequence '%s'" % last_c
+                        self._add_token(tokens.WARNING, msg, self.lnum, match - 2, line, self.lnum, match)
+
                 if not format_specifier_mode and last_c == next_c:
                     # Could just be:
                     # state.contstrs.append(line[start:match])
