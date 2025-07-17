@@ -355,7 +355,7 @@ class AppTestLocaleFormatting:
         try:
             _locale.setlocale(_locale.LC_ALL, 'ru_RU.utf-8')
         except _locale.Error:
-            pytest.skip("locale ru_RU not installed")
+            skip("locale ru_RU not installed")
         f1 = format(123456789, 'n')
         ts = _locale.localeconv()['thousands_sep']
         expected1 = "123X456X789".replace("X", ts)
