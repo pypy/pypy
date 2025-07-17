@@ -609,31 +609,24 @@ class Tokenizer(object):
                     self._raise_token_error(
                             msg, line, self.lnum, start + 1)
 
-            if self._in_fstring_interpolation():
-                if initial == "}" and len(self.parenstack) + 1 == self.state.level:
-                    # exit f-string interpolation
-                    self.state_stack.pop()
-                    nmode = self.state.mode
-                    assert isinstance(nmode, FStringMode)
-                    nmode.middle_linenumber = self.lnum
-                    nmode.middle_offset = start + 1
-                elif initial == ":" and len(self.parenstack) == self.state.level:
-                    prev_state = self.state_stack[-2]
-                    # enter f-string format specifier mode
-                    state = self.state
-                    state.mode = FStringMode(self.lnum, start+1, format_specifier=True)
-                    # Copy the string state from the outer FString state
-                    self._contstr_start(
-                        prev_state.string_end_dfa, prev_state.strstart_offset,
-                        prev_state.strstart_starting_line,
-                        prev_state.strstart_is_triple_quoted, "")
-                    state.strstart_linenumber = prev_state.strstart_linenumber
+            if self._in_fstring_interpolation() and (
+                (initial == "}" and len(self.parenstack) + 1 == self.state.level)
+                or (initial == ":" and len(self.parenstack) == self.state.level)
+            ):
+                # exit f-string interpolation
+                self.state_stack.pop()
+                nmode = self.state.mode
+                assert isinstance(nmode, FStringMode)
+                nmode.middle_linenumber = self.lnum
+                nmode.middle_offset = start + 1
+                if initial == ":":
+                    nmode.format_specifier = True
 
             self.last_comment = ''
         return False
 
     def _in_fstring_interpolation(self):
-        return len(self.state_stack) > 1 and isinstance(self.state_stack[-2].mode, FStringMode)
+        return len(self.state_stack) > 1 and self.state.mode is NormalMode
 
     def _tokenize_fstring(self, mode, line):
         format_specifier_mode = mode.format_specifier
@@ -670,11 +663,9 @@ class Tokenizer(object):
                     )
                     opening = self.parenstack.pop()
                     assert opening.value == "{"
-                    self.state_stack.pop()
-                    nmode = self.state.mode
-                    assert isinstance(nmode, FStringMode)
-                    nmode.middle_linenumber = self.lnum
-                    nmode.middle_offset = self.pos = match
+                    mode.middle_linenumber = self.lnum
+                    mode.middle_offset = self.pos = match
+                    mode.format_specifier_mode = False
                 else:
                     self._raise_token_error("f-string: single '}' is not allowed",
                                             line, self.lnum, match)
@@ -686,14 +677,6 @@ class Tokenizer(object):
                 assert eos >= start  # help the annotator
                 self._add_token(tokens.FSTRING_END, line[eos:match],
                                 self.lnum, eos, line, self.lnum, match)
-
-                if format_specifier_mode:
-                    # This is a degenerate case where the f-string
-                    # ends inside the format specifier:
-                    # f"{x:"
-                    # We need to pop both FSTRING modes from the stack
-                    # in this case.
-                    self.state_stack.pop()
 
                 self.state_stack.pop()
                 self.pos = match
@@ -713,9 +696,9 @@ class Tokenizer(object):
                 # self._add_token(tokens.NL, "\n", self.lnum, nl_pos, line)
 
                 # Return to the normal tokenization mode
-                state.mode = NormalMode
-                state.string_end_dfa = None
-                return True # done with this line
+                mode.format_specifier = False
+                self.state_stack.append(TokenizerState(NormalMode, level=len(self.parenstack)))
+                return True  # done with this line
 
             self._contstr_raise_unterminated(self.lnum, len(line))
             assert 0, "unreachable"
