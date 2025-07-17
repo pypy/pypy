@@ -8,7 +8,8 @@ from rpython.rlib.objectmodel import Symbolic
 from rpython.rlib.rarithmetic import (
     base_int, intmask, is_emulated_long, is_valid_int, longlonglongmask,
     longlongmask, maxint, normalizedinttype, r_int, r_longfloat, r_longlong,
-    r_longlonglong, r_singlefloat, r_uint, r_ulonglong, r_ulonglonglong)
+    r_longlonglong, r_singlefloat, r_uint, r_ulonglong, r_ulonglonglong,
+    r_ssize_t, r_size_t)
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool import leakfinder
 from rpython.tool.identity_dict import identity_dict
@@ -702,6 +703,8 @@ else:
 
 Signed   = build_number("Signed", int)
 Unsigned = build_number("Unsigned", r_uint)
+Size_T   = build_number("SIZE_T", r_size_t)
+SSize_T  = build_number("SSIZE_T", r_ssize_t)
 SignedLongLong = build_number("SignedLongLong", r_longlong)
 SignedLongLongLong = build_number("SignedLongLongLong", r_longlonglong)
 UnsignedLongLong = build_number("UnsignedLongLong", r_ulonglong)
