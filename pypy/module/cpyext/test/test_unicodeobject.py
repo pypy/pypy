@@ -293,6 +293,9 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert ret == "abcdef takes no arguments"
         assert module.format_parsing() == "add() takes exactly 2 arguments (1 given)";
 
+        s = module.format_d_str("id:%lli %s", 12, "abc")
+        assert s == "id:12 abc"
+
     def test_fromkind(self):
         module = self.import_extension('foo', [
             ('from_ucs1', 'METH_O',
