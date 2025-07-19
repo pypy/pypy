@@ -540,12 +540,12 @@ def concatenate_strings(astbuilder, nodes):
             add_constant_string2(astbuilder, joined_pieces, node)
         else:
             assert isinstance(node, ast.JoinedStr)
+            fmode = True
             for piece in node.values:
                 if isinstance(piece, ast.Constant):
                     add_constant_string2(astbuilder, joined_pieces, piece)
                 elif isinstance(piece, ast.FormattedValue):
                     joined_pieces.append(piece)
-                    fmode = True
                 else:
                     raise AssertionError("unexpected node type %s" % (type(piece),))
 

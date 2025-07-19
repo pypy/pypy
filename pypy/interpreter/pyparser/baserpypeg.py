@@ -677,6 +677,7 @@ class Parser:
         return concatenate_strings(self, strings)
 
     def fstring_check_conversion(self, conv_token, conv):
+        # Corresponds to CPython's _PyPegen_check_fstring_conversion
         if conv_token.lineno != conv.lineno or \
            conv_token.end_column != conv.col_offset:
             self.raise_syntax_error_known_range(
@@ -687,22 +688,53 @@ class Parser:
         return conv
 
     def fstring_formatted_value(self, lbrace, expr, debug_expr, conversion, format, rbrace):
-        assert debug_expr is None
+        # Corresponds to CPython's _PyPegen_formatted_value
         if conversion is not None:
             first = conversion.id[0]
             if len(conversion.id) > 1 or first not in "sra":
                 self.raise_syntax_error_known_location(
                     "f-string: invalid conversion character %r: expected 's', 'r', or 'a'" % (conversion.id,),
                     conversion)
-            conversion = ord(first)
+            conv = ord(first)
         elif debug_expr is not None and format is None:
-            conversion = ord('r')
+            conv = ord('r')
+        else:
+            conv = -1
 
-        return ast.FormattedValue(expr, conversion=conversion, format_spec=format,
+        fv = ast.FormattedValue(expr, conversion=conv, format_spec=format,
             lineno=lbrace.lineno, col_offset=lbrace.column,
             end_lineno=rbrace.end_lineno, end_col_offset=rbrace.end_column)
+        if debug_expr is None:
+            return fv
+
+        end_lineno, end_col_offset = rbrace.lineno, rbrace.column
+        if conversion is not None:
+            end_lineno, end_col_offset = conversion.lineno, conversion.col_offset-1
+        elif format is not None:
+            end_lineno, end_col_offset = format.lineno, format.col_offset-1
+
+        # TODO: Returns lists instead?
+        assert lbrace.lineno == end_lineno  # TODO
+        debug_text = self._lines.get(lbrace.lineno, "")[lbrace.column:end_col_offset]
+        space = self.space
+        length = unicodehelper.check_utf8_or_raise(space, debug_text)
+        return ast.JoinedStr(
+            [
+                ast.Constant(space.newutf8(debug_text, length), kind=None,
+                    lineno=lbrace.lineno, col_offset=lbrace.column+1,
+                    end_lineno=end_lineno, end_col_offset=end_col_offset),
+                fv,
+            ],
+            # TODO: Do these matter?
+            lineno=lbrace.lineno, col_offset=lbrace.column,
+            end_lineno=rbrace.end_lineno, end_col_offset=rbrace.end_column,
+        )
 
     def fstring_format_spec_constant(self, t):
+        # Corresponds to CPython's _PyPegen_decoded_constant_from_token
+        # In CPython, this ends up calling decode_unicode_with_escapes on the
+        # token value. It doesn't matter if the f-string is raw,
+        # escape sequences are always decoded in the format specifier.
         from pypy.interpreter.astcompiler.fstring import build
         return build(
             ast.Constant,
@@ -730,6 +762,7 @@ class Parser:
         return space.newutf8(v, length)
 
     def generate_ast_for_fstring(self, start, middles, end):
+        # Corresponds to CPython's _PyPegen_joined_str
         space = self.space
         items = []
         rawmode = "r" in start.value or "R" in start.value
@@ -742,8 +775,14 @@ class Parser:
                 )
                 assert space.is_true(item.value)
             else:
+                if isinstance(item, ast.JoinedStr):
+                    # formatted value with debug expr
+                    assert len(item.values) == 2
+                    debug, item = item.values
+                    assert isinstance(debug, ast.Constant)
+                    items.append(debug)
+
                 assert isinstance(item, ast.FormattedValue)
-                # TODO: JoinedStr debug expr special case???
 
             items.append(item)
 
@@ -756,6 +795,7 @@ class Parser:
         )
 
     def fstring_format_spec_full(self, colon, specs):
+        # Corresponds to CPython's _PyPegen_setup_full_format_spec
         # CPython compatibility: return an empty JoinedStr node if the format spec is empty
         if len(specs) == 1 and isinstance(specs[0], ast.Constant) and not self.space.is_true(specs[0].value):
             specs = []
@@ -771,7 +811,7 @@ class Parser:
                 end_col_offset=end_col_offset,
             )
 
-        res = self.concat_strings(specs)
+        res = self.concatenate_strings(specs)
         res.lineno = colon.lineno
         res.col_offset = colon.column
         return res

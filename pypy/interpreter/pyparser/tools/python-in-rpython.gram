@@ -1019,36 +1019,23 @@ fstring_middle:
     }
 fstring_replacement_field:
     | lbrace='{' a=(yield_expr | star_expressions) debug_expr='='? conversion=[fstring_conversion] format=[fstring_full_format_spec] rbrace='}' {
-        # _PyPegen_formatted_value(p, a, debug_expr, conversion, format, rbrace, EXTRA)
         self.fstring_formatted_value(lbrace, a, debug_expr, conversion, format, rbrace)
     }
     | invalid_replacement_field
 fstring_conversion:
     | conv_token="!" conv=NAME {
-        # _PyPegen_check_fstring_conversion(p, conv_token, conv)
         self.fstring_check_conversion(conv_token, conv)
     }
 fstring_full_format_spec:
     | colon=':' spec=fstring_format_spec* {
-        # _PyPegen_setup_full_format_spec(p, colon, (asdl_expr_seq *) spec, EXTRA)
         self.fstring_format_spec_full(colon, spec)
     }
 
 fstring_format_spec[ast.Constant]:
-    | t=FSTRING_MIDDLE {
-        # _PyPegen_decoded_constant_from_token(p, t)
-        # This ends up calling decode_unicode_with_escapes on the
-        # token value. It doesn't matter if the f-string is raw,
-        # escape sequences are always decoded in the format specifier.
-        self.fstring_format_spec_constant(t)
-    }
+    | t=FSTRING_MIDDLE { self.fstring_format_spec_constant(t) }
     | fstring_replacement_field
 fstring[ast.JoinedStr]:
     | a=FSTRING_START b=fstring_middle* c=FSTRING_END {
-        #  _PyPegen_joined_str(p, a, (asdl_expr_seq*)b, c)
-        # for item of type ast.Constant in b:
-        #   _PyPegen_decode_fstring_part(p, is_raw, item, c)
-        #   which calls _PyPegen_decode_string
         self.generate_ast_for_fstring(a, b, c)
     }
 
