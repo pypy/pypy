@@ -639,6 +639,23 @@ def"""
             reason="TODO",
         ),
     ),
+    (
+        # This is a bit annoying...
+        "multiline named unicode escape sequence",
+        pytest.mark.xfail(
+            (
+                '''f"""\\N{DOG
+}"""
+''',
+                [
+                    (tokens.FSTRING_START, 'f"""', 1, 0, 1, 4),
+                    (tokens.FSTRING_MIDDLE, "\\N{DOG\n}", 1, 4, 2, 1),
+                    (tokens.FSTRING_END, '"""', 2, 1, 2, 4),
+                ],
+            ),
+            reason="TODO",
+        ),
+    ),
 ]
 
 def _parametrize(argnames, tests):
