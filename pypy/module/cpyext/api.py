@@ -1563,7 +1563,7 @@ def write_header(header_name, decls, needs_signed=True, add_guards=False):
                   '#endif',
                   '#endif /* !' + guard + ' */',
                  ]
-    decl_h.write('\n'.join(lines))
+    decl_h.write('\n'.join(lines) + '\n')
 
 def generate_decls_and_callbacks(db, prefix=''):
     "NOT_RPYTHON"
