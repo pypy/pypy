@@ -715,7 +715,7 @@ class Parser:
 
         # TODO: Returns lists instead?
         assert lbrace.lineno == end_lineno  # TODO
-        debug_text = self._lines.get(lbrace.lineno, "")[lbrace.column:end_col_offset]
+        debug_text = self._lines.get(lbrace.lineno, "")[lbrace.end_column:end_col_offset]
         space = self.space
         length = unicodehelper.check_utf8_or_raise(space, debug_text)
         return ast.JoinedStr(
