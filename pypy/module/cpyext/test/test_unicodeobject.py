@@ -284,14 +284,16 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
             """
                 /* From getargs.c */ 
                 char *fmt = "%.150s%s takes %s %d argument%s (%ld given)";
-                return PyUnicode_FromFormat(fmt, "add", "()", "exactly", 2, "s", 1);
+                return PyUnicode_FromFormat(fmt, "add", "()", "exactly", 2, "s", 1L);
             """),
             ])
         assert module.format_obj("formatting 100R '%.100R'", 1.0) == "formatting 100R '1.0'"
         assert module.format_d_str("id:%d, name:%s", 12, "abc") == "id:12, name:abc"
         ret = module.format_str_str("%.200s%s takes no arguments", "abc", "def")
         assert ret == "abcdef takes no arguments"
-        assert module.format_parsing() == "add() takes exactly 2 arguments (1 given)";
+        ret = module.format_parsing()
+        print(ret)
+        assert ret == "add() takes exactly 2 arguments (1 given)";
 
         s = module.format_d_str("id:%lli %s", 12, "abc")
         assert s == "id:12 abc"
