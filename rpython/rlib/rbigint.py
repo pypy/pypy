@@ -1773,6 +1773,7 @@ ptwotable = {}
 for x in range(SHIFT-1):
     ptwotable[r_longlong(2 << x)] = x+1
     ptwotable[r_longlong(-2 << x)] = x+1
+del x
 
 def _x_mul(a, b, digit=0):
     """
@@ -2671,19 +2672,43 @@ def _loghelper(func, arg):
 
 BASE_AS_FLOAT = float(1 << SHIFT)     # note that it may not fit an int
 
-BitLengthTable = ''.join(map(chr, [
-    0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4,
-    5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]))
+bit_length_table = [0] * 2**8
+for i in range(1, len(bit_length_table)):
+    bit_length_table[i] = 1 + bit_length_table[i//2]
+bit_length_table = "".join(chr(c) for c in bit_length_table)
+del i
+
 
 def bits_in_digit(d):
     # returns the unique integer k such that 2**(k-1) <= d <
     # 2**k if d is nonzero, else 0.
+    assert d >= 0
     d_bits = 0
-    while d >= 32:
-        d_bits += 6
-        d >>= 6
-    d_bits += ord(BitLengthTable[d])
+    while d >= 2 ** 8:
+        d_bits += 8
+        d >>= 8
+    d_bits += ord(bit_length_table[d])
     return d_bits
+
+
+@jit.elidable
+def bit_length_int(val):
+    if val < 0:
+        # warning, "-val" can overflow here
+        val = -((val + 1) >> 1)
+        count = 1
+    else:
+        count = 0
+    if LONG_BIT > 32 and val >= 2**32:
+        val >>= 32
+        count += 32
+    if val >= 2**16:
+        val >>= 16
+        count += 16
+    if val >= 2**8:
+        val >>= 8
+        count += 8
+    return count + ord(bit_length_table[val])
 
 
 def bit_count_digit(val):
