@@ -711,7 +711,7 @@ class Parser:
         if conversion is not None:
             end_lineno, end_col_offset = conversion.lineno, conversion.col_offset-1
         elif format is not None:
-            end_lineno, end_col_offset = format.lineno, format.col_offset-1
+            end_lineno, end_col_offset = format.lineno, format.col_offset
 
         # TODO: Returns lists instead?
         assert lbrace.lineno == end_lineno  # TODO
