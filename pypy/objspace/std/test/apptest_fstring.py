@@ -235,24 +235,25 @@ def test_crash_debugging():
         eval("f'{4:{/5}}'")
 
 def test_parseerror_lineno():
+    emsg = "f-string: expecting a valid expression after '{'"
     with raises(SyntaxError) as excinfo:
         eval('\n\nf"{,}"')
     assert excinfo.value.lineno == 3
     assert excinfo.value.offset == 4
-    assert excinfo.value.msg == "f-string: invalid syntax"
+    assert excinfo.value.msg == emsg
     with raises(SyntaxError) as excinfo:
         eval('f"\\\n\\\n{,}"')
     assert excinfo.value.lineno == 3
     assert excinfo.value.offset == 2
-    assert excinfo.value.text == '{,}"'
-    assert excinfo.value.msg == "f-string: invalid syntax"
+    assert excinfo.value.text == '{,}"\n'
+    assert excinfo.value.msg == emsg
     with raises(SyntaxError) as excinfo:
         eval('''f"""{
 ,}"""''')
     assert excinfo.value.lineno == 2
     assert excinfo.value.offset == 1
-    assert excinfo.value.text == ',}"""'
-    assert excinfo.value.msg == "f-string: invalid syntax"
+    assert excinfo.value.text == ',}"""\n'
+    assert excinfo.value.msg == emsg
 
 def test_joined_positions():
     expr = """('a'
@@ -278,19 +279,19 @@ def test_tokenerror_lineno():
         eval('f"\\\n\\\n{$}"')
     assert excinfo.value.lineno == 3
     assert excinfo.value.offset == 2
-    assert excinfo.value.text == '{$}"'
+    assert excinfo.value.text == '{$}"\n'
     with raises(SyntaxError) as excinfo:
         eval('''f"""{
 $}"""''')
     assert excinfo.value.lineno == 2
     assert excinfo.value.offset == 1
-    assert excinfo.value.text == '$}"""'
+    assert excinfo.value.text == '$}"""\n'
     with raises(SyntaxError) as excinfo:
         eval("f'''{\xa0}'''")
     assert excinfo.value.lineno == 1
     print(excinfo.value.offset)
     assert excinfo.value.offset == 6
-    assert 'f-string: invalid non-printable character U+00A0' in str(excinfo.value)
+    assert 'invalid non-printable character U+00A0' in str(excinfo.value)
 
 def test_fstring_escape_N_bug():
     with raises(SyntaxError) as excinfo:
@@ -384,5 +385,5 @@ def test_empty_expression_error():
     s = '''f'{  !x:a}' '''
     with raises(SyntaxError) as info:
         eval(s)
-    assert str(info.value).startswith("f-string: expression required before '!'")
+    assert str(info.value).startswith("f-string: valid expression required before '!'")
 

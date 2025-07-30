@@ -1666,25 +1666,23 @@ invalid_replacement_field:
     | '{' a='!' { self.raise_syntax_error_known_location("f-string: valid expression required before '!'", a) }
     | '{' a=':' { self.raise_syntax_error_known_location("f-string: valid expression required before ':'", a) }
     | '{' a='}' { self.raise_syntax_error_known_location("f-string: valid expression required before '}'", a) }
-    # | '{' !(yield_expr | star_expressions) { RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting a valid expression after '{'")}
-    # | '{' (yield_expr | star_expressions) !('=' | '!' | ':' | '}') {
-    #     PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '=', or '!', or ':', or '}'") }
-    # | '{' (yield_expr | star_expressions) '=' !('!' | ':' | '}') {
-    #     PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '!', or ':', or '}'") }
-    # | '{' (yield_expr | star_expressions) '='? invalid_conversion_character
-    # | '{' (yield_expr | star_expressions) '='? ['!' NAME] !(':' | '}') {
-    #     PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting ':' or '}'") }
-    # | '{' (yield_expr | star_expressions) '='? ['!' NAME] ':' fstring_format_spec* !'}' {
-    #     PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}', or format specs") }
-    # | '{' (yield_expr | star_expressions) '='? ['!' NAME] !'}' {
-    #     PyErr_Occurred() ? NULL : RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: expecting '}'") }
+    | '{' !(yield_expr | star_expressions) { self.raise_syntax_error_on_next_token("f-string: expecting a valid expression after '{'") }
+    | '{' (yield_expr | star_expressions) !('=' | '!' | ':' | '}') {
+        self.raise_syntax_error_on_next_token("f-string: expecting '=', or '!', or ':', or '}'") }
+    | '{' (yield_expr | star_expressions) '=' !('!' | ':' | '}') {
+        self.raise_syntax_error_on_next_token("f-string: expecting '!', or ':', or '}'") }
+    | '{' (yield_expr | star_expressions) '='? invalid_conversion_character
+    | '{' (yield_expr | star_expressions) '='? ['!' NAME] !(':' | '}') {
+        self.raise_syntax_error_on_next_token("f-string: expecting ':' or '}'") }
+    | '{' (yield_expr | star_expressions) '='? ['!' NAME] ':' fstring_format_spec* !'}' {
+        self.raise_syntax_error_on_next_token("f-string: expecting '}', or format specs") }
+    | '{' (yield_expr | star_expressions) '='? ['!' NAME] !'}' {
+        self.raise_syntax_error_on_next_token("f-string: expecting '}'") }
 
 invalid_conversion_character:
     | '!' &(':' | '}') {
-        #RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: missing conversion character")
-        self.raise_syntax_error("f-string: missing conversion character")
+        self.raise_syntax_error_on_next_token("f-string: missing conversion character")
     }
     | '!' !NAME {
-        #RAISE_SYNTAX_ERROR_ON_NEXT_TOKEN("f-string: invalid conversion character")
-        self.raise_syntax_error("f-string: invalid conversion character")
+        self.raise_syntax_error_on_next_token("f-string: invalid conversion character")
     }

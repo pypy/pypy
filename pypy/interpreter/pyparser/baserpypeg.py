@@ -1080,6 +1080,9 @@ class Parser:
         end_lineno, end_col_offset = self.extract_pos_end(node_or_tok)
         self._raise_syntax_error(message, start_lineno, start_col_offset, end_lineno, end_col_offset)
 
+    def raise_syntax_error_on_next_token(self, message):
+        self.raise_syntax_error_known_location(message, self.peek())
+
     def make_type_ignores(self):
         type_ignores = []
         for type_ignore in self.type_ignores:

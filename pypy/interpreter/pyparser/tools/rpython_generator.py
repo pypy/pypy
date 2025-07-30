@@ -7,6 +7,7 @@ import ast
 import re
 import token
 import os
+import sys
 
 from typing import IO, Any, Dict, Optional, Sequence, Set, Text, Tuple
 from pegen import grammar
@@ -31,6 +32,8 @@ from pegen.grammar import (
 )
 from pegen.parser_generator import ParserGenerator
 from importlib.machinery import SourceFileLoader
+
+sys.setrecursionlimit(2000)
 
 here = os.path.dirname(__file__)
 pytokenfile = os.path.join(here, "..", "pytoken.py")
