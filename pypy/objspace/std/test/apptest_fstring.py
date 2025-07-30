@@ -196,10 +196,9 @@ def test_debug_conversion():
     assert f'X{x  =  }Y' == 'Xx  =  '+repr(x)+'Y'
 
     # multi-line expressions.
-    # FIXME
-#     assert f'''{
-# 3
-# =}''' =='\n3\n=3'
+    assert f'''{
+3
+=}''' =='\n3\n=3'
 
     # keyword arguments
     def f(a):
