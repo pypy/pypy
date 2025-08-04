@@ -96,22 +96,11 @@ def parsestr(space, encoding, s, token=None, astbuilder=None):
     assert 0 <= ps <= q
     if unicode_literal:
         if saw_f:
-            assert False
+            assert False  # FIXME
             return W_FString(s[ps:q], rawmode, token, ps)
-        elif rawmode:
-            length = unicodehelper.check_utf8_or_raise(space, s, ps, q)
-            return space.newutf8(s[ps:q], length)
-        else:
-            if encoding is None:
-                substr = s[ps:q]
-            else:
-                length = unicodehelper.check_utf8_or_raise(space, s, ps, q)
-                if "\\" not in s: # fast path, no escapes
-                    return space.newutf8(s[ps:q], length)
-                substr = decode_unicode_utf8(space, s, ps, q)
-            r = decode_unicode_escape(space, substr, astbuilder, token)
-            v, length, pos = r
-            return space.newutf8(v, length)
+
+        return decode_unicode_str(space, encoding, s, rawmode,
+                                  astbuilder, token, ps, q)
 
     substr = s[ps : q]
     # Disallow non-ascii characters (but not escapes)
@@ -165,6 +154,39 @@ def decode_unicode_utf8(space, s, ps, q):
             lis.append(s[ps])
             ps += 1
     return ''.join(lis)
+
+
+def decode_unicode_str(space, encoding, s, rawmode, astbuilder=None, token=None, ps=0, q=-1):
+    # Roughly corresponds to _PyPegen_decode_string in CPython
+    if q == -1:
+        q = len(s)
+
+    try:
+        if rawmode:
+            length = unicodehelper.check_utf8_or_raise(space, s, ps, q)
+            return space.newutf8(s[ps:q], length)
+
+        if encoding is None:
+            substr = s[ps:q]
+        else:
+            length = unicodehelper.check_utf8_or_raise(space, s, ps, q)
+            if "\\" not in s: # fast path, no escapes
+                return space.newutf8(s[ps:q], length)
+            substr = decode_unicode_utf8(space, s, ps, q)
+
+        r = decode_unicode_escape(space, substr, astbuilder, token)
+        v, length, pos = r
+        return space.newutf8(v, length)
+    except OperationError as e:
+        if not e.match(space, space.w_UnicodeError) or astbuilder is None:
+            raise
+
+        # Unicode (without position information) in
+        # literal: turn into SyntaxError with position information
+        e.normalize_exception(space)
+        errmsg = space.text_w(space.str(e.get_w_value(space)))
+        raise astbuilder.raise_syntax_error_known_location('(unicode error) %s' % errmsg, token)
+
 
 def _PyString_DecodeEscape(space, s, errors, recode_encoding):
     """

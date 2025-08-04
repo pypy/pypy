@@ -744,28 +744,15 @@ class Parser:
         from pypy.interpreter.astcompiler.fstring import build
         return build(
             ast.Constant,
-            self._decode_unicode(t.value, False, t),
+            self._decode_unicode(False, t),
             None,
             t,
         )
 
-    def _decode_unicode(self, s, rawmode, token):
-        from pypy.interpreter.pyparser.parsestring import decode_unicode_utf8, decode_unicode_escape
-        # Roughly corresponds to _PyPegen_decode_string in CPython
-        space = self.space
-        if rawmode:
-            length = unicodehelper.check_utf8_or_raise(space, s)
-            return space.newutf8(s, length)
-
-        if self.compile_info.encoding is not None:
-            length = unicodehelper.check_utf8_or_raise(space, s)
-            if "\\" not in s: # fast path, no escapes
-                return space.newutf8(s, length)
-            s = decode_unicode_utf8(space, s, 0, len(s))
-
-        r = decode_unicode_escape(space, s, self, token)
-        v, length, pos = r
-        return space.newutf8(v, length)
+    def _decode_unicode(self, rawmode, token):
+        from pypy.interpreter.pyparser.parsestring import decode_unicode_str
+        encoding = self.compile_info.encoding
+        return decode_unicode_str(self.space, encoding, token.value, rawmode, self, token)
 
     def generate_ast_for_fstring(self, start, middles, end):
         # Corresponds to CPython's _PyPegen_joined_str
@@ -774,11 +761,7 @@ class Parser:
         rawmode = "r" in start.value or "R" in start.value
         for item in middles:
             if isinstance(item, ast.Constant):
-                item.value = self._decode_unicode(
-                    item.value,
-                    rawmode or "\\" not in item.value,
-                    item,
-                )
+                item.value = self._decode_unicode(rawmode or "\\" not in item.value, item)
                 assert space.is_true(item.value)
             else:
                 if isinstance(item, ast.JoinedStr):
