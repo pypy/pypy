@@ -640,21 +640,23 @@ class Tokenizer(object):
         if match >= 0:
             last_c, next_c = line[match - 1], line[match]
             if last_c in "{}":
-                if not mode.raw and match >= 2 and _odd_backslash_prefix(line, match - 2):
+                match_m2 = match - 2  # help the annotator
+                if not mode.raw and match_m2 >= 0 and _odd_backslash_prefix(line, match_m2):
                     msg = "invalid escape sequence '%s'" % last_c
-                    self._add_token(tokens.WARNING, msg, self.lnum, match - 2, line, self.lnum, match)
+                    self._add_token(tokens.WARNING, msg, self.lnum, match_m2, line, self.lnum, match)
 
                 if mode.named_unicode_escape:
                     # We are done with the named unicode escape sequence
                     mode.named_unicode_escape = False
                     match -= last_c == "{"
+                    assert match >= 0  # help the annotator
                     self._flush_fstring_middle(mode, match)
                     mode.middle_offset = self.pos = match
                     mode.middle_linenumber = self.lnum
                 elif (
                     not mode.raw
-                    and match >= 3
-                    and line[match - 2 : match] == "N{"
+                    and match_m2 >= 1
+                    and line[match_m2:match] == "N{"
                     and _odd_backslash_prefix(line, match - 3)
                 ):
                     # Named unicode escape sequence: \N{NAME}

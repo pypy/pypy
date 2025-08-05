@@ -1001,6 +1001,7 @@ class Parser:
                 end_col_offset = start_col_offset
 
         if line_from_token:
+            tok = self.diagnose()
             line = tok.line
         else:
             # End is used only to get the proper text
