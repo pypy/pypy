@@ -20,7 +20,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_TUPLE_SUBCLASS, Py_TPFLAGS_UNICODE_SUBCLASS,
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS, Py_TPFLAGS_MANAGED_DICT, Py_TPFLAGS_MANAGED_WEAKREF,
-    Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE,
+    Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DISALLOW_INSTANTIATION,
     PyObject, PyVarObject,
     )
 
@@ -476,6 +476,14 @@ def add_tp_new_wrapper(space, dict_w, pto):
     dict_w["__new__"] = W_PyCFunctionObject(space, get_new_method_def(space),
                                           from_ref(space, pyo), None)
 
+def disallow_new(space, w_type, __args__):
+    raise oefmt(space.w_TypeError, "cannot instantiate %s objects", w_type.name)
+
+def add_disallow_new_wrapper(space, dict_w, pto):
+    from typeobjectdefs import newfunc
+    dict_w["__new__"] = interp2app(disallow_new)
+    pto.c_tp_new = rffi.cast(newfunc, 0)
+
 def inherit_special(space, pto, w_obj, base_pto):
     # if tp_basicsize is zero or too low, we copy it from the base
     if pto.c_tp_basicsize < base_pto.c_tp_basicsize:
@@ -582,7 +590,8 @@ class W_PyCTypeObject(W_TypeObject):
         bases_w = space.fixedview(from_ref(space, pto.c_tp_bases))
         dict_w = {}
 
-        flag_heaptype = widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE
+        flags = widen(pto.c_tp_flags)
+        flag_heaptype = flags & Py_TPFLAGS_HEAPTYPE
         if flag_heaptype:
             type_name = space.text_w(from_ref(space, rffi.cast(PyHeapTypeObject, pto).c_ht_name))
             name = type_name
@@ -597,7 +606,9 @@ class W_PyCTypeObject(W_TypeObject):
         if pto.c_tp_doc:
             raw_doc = rffi.constcharp2str(pto.c_tp_doc)
             dict_w['__doc__'] = space.newtext_or_none(extract_doc(raw_doc, name))
-        if pto.c_tp_new:
+        if flags & Py_TPFLAGS_DISALLOW_INSTANTIATION:
+            add_disallow_new_wrapper(space, dict_w, pto)
+        elif pto.c_tp_new:
             add_tp_new_wrapper(space, dict_w, pto)
 
         w_dict = from_ref(space, pto.c_tp_dict)
@@ -788,10 +799,10 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     if space.is_w(w_type, space.w_tuple):
         pto.c_tp_new = state.C.tuple_new
 
+    flags = widen(pto.c_tp_flags)
     if not pto.c_tp_new:
         base_object_pyo = make_ref(space, space.w_object)
         base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
-        flags = widen(pto.c_tp_flags)
         if pto.c_tp_base != base_object_pto or flags & Py_TPFLAGS_HEAPTYPE:
                 pto.c_tp_new = pto.c_tp_base.c_tp_new
         decref(space, base_object_pyo)
