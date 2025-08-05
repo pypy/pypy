@@ -533,7 +533,6 @@ class TestFString(BaseTestPythonParser):
         pytest.raises(SyntaxError, self.parse, 'f"{x!abc}"')
         pytest.raises(SyntaxError, self.parse, 'f"{x!y}"')
 
-    @pytest.mark.xfail(reason="TODO")
     def test_debug_expr(self):
         self.parse('f"{x=}"')
 
