@@ -123,14 +123,13 @@ def test_backslashes_in_string_part():
     assert f'{2}\U00000394{3}' == '2\u03943'
     assert f'\U00000394{3}' == '\u03943'
 
-    # FIXME
-    # assert f'\N{GREEK CAPITAL LETTER DELTA}' == '\u0394'
-    # assert f'{2}\N{GREEK CAPITAL LETTER DELTA}' == '2\u0394'
-    # assert f'{2}\N{GREEK CAPITAL LETTER DELTA}{3}' == '2\u03943'
-    # assert f'\N{GREEK CAPITAL LETTER DELTA}{3}' == '\u03943'
-    # assert f'2\N{GREEK CAPITAL LETTER DELTA}' == '2\u0394'
-    # assert f'2\N{GREEK CAPITAL LETTER DELTA}3' == '2\u03943'
-    # assert f'\N{GREEK CAPITAL LETTER DELTA}3' == '\u03943'
+    assert f'\N{GREEK CAPITAL LETTER DELTA}' == '\u0394'
+    assert f'{2}\N{GREEK CAPITAL LETTER DELTA}' == '2\u0394'
+    assert f'{2}\N{GREEK CAPITAL LETTER DELTA}{3}' == '2\u03943'
+    assert f'\N{GREEK CAPITAL LETTER DELTA}{3}' == '\u03943'
+    assert f'2\N{GREEK CAPITAL LETTER DELTA}' == '2\u0394'
+    assert f'2\N{GREEK CAPITAL LETTER DELTA}3' == '2\u03943'
+    assert f'\N{GREEK CAPITAL LETTER DELTA}3' == '\u03943'
 
     assert f'\x20' == ' '
     assert r'\x20' == '\\x20'
@@ -154,11 +153,10 @@ def test_backslashes_in_string_part():
     AMPERSAND = 'spam'
     # Get the right unicode character (&), or pick up local variable
     # depending on the number of backslashes.
-    # FIXME
-    # assert f'\N{AMPERSAND}' == '&'
+    assert f'\N{AMPERSAND}' == '&'
     assert f'\\N{AMPERSAND}' == '\\Nspam'
     assert fr'\N{AMPERSAND}' == '\\Nspam'
-    # assert f'\\\N{AMPERSAND}' == '\\&'
+    assert f'\\\N{AMPERSAND}' == '\\&'
 
 def test_debug_conversion():
     x = 'A string'

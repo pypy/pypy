@@ -613,48 +613,37 @@ def"""
     ),
     (
         "named unicode escape sequence",
-        pytest.mark.xfail(
-            (
-                'f"\\N{DOG}"\n',
-                [
-                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
-                    (tokens.FSTRING_MIDDLE, "\\N{DOG}", 1, 2, 1, 9),
-                    (tokens.FSTRING_END, '"', 1, 9, 1, 10),
-                ],
-            ),
-            reason="TODO",
+        (
+            'f"\\N{DOG}"\n',
+            [
+                (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+                (tokens.FSTRING_MIDDLE, "\\N{DOG}", 1, 2, 1, 9),
+                (tokens.FSTRING_END, '"', 1, 9, 1, 10),
+            ],
         ),
     ),
     (
         "incomplete named unicode escape sequence",
-        pytest.mark.xfail(
-            (
-                'f"\\N{DOG"\n',
-                [
-                    (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
-                    (tokens.FSTRING_MIDDLE, "\\N{DOG", 1, 2, 1, 8),
-                    (tokens.FSTRING_END, '"', 1, 8, 1, 9),
-                ],
-            ),
-            reason="TODO",
+        (
+            'f"\\N{DOG"\n',
+            [
+                (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+                (tokens.FSTRING_MIDDLE, "\\N{DOG", 1, 2, 1, 8),
+                (tokens.FSTRING_END, '"', 1, 8, 1, 9),
+            ],
         ),
     ),
     (
         # This is a bit annoying...
         "multiline named unicode escape sequence",
-        pytest.mark.xfail(
-            (
-                '''f"""\\N{DOG
+        '''f"""\\N{DOG
 }"""
 ''',
-                [
-                    (tokens.FSTRING_START, 'f"""', 1, 0, 1, 4),
-                    (tokens.FSTRING_MIDDLE, "\\N{DOG\n}", 1, 4, 2, 1),
-                    (tokens.FSTRING_END, '"""', 2, 1, 2, 4),
-                ],
-            ),
-            reason="TODO",
-        ),
+        [
+            (tokens.FSTRING_START, 'f"""', 1, 0, 1, 4),
+            (tokens.FSTRING_MIDDLE, "\\N{DOG\n}", 1, 4, 2, 1),
+            (tokens.FSTRING_END, '"""', 2, 1, 2, 4),
+        ],
     ),
     (
         "format specifier bug",
@@ -668,6 +657,21 @@ def"""
             (tokens.RBRACE, "}", 1, 6, 1, 7),
             (tokens.FSTRING_MIDDLE, "}", 1, 7, 1, 8),
             (tokens.FSTRING_END, "'", 1, 9, 1, 10),
+        ],
+    ),
+    (
+        "multiple interpolations",
+        'f"{x} {y}"\n',
+        [
+            (tokens.FSTRING_START, 'f"', 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.RBRACE, "}", 1, 4, 1, 5),
+            (tokens.FSTRING_MIDDLE, " ", 1, 5, 1, 6),
+            (tokens.LBRACE, "{", 1, 6, 1, 7),
+            (tokens.NAME, "y", 1, 7, 1, 8),
+            (tokens.RBRACE, "}", 1, 8, 1, 9),
+            (tokens.FSTRING_END, '"', 1, 9, 1, 10),
         ],
     ),
 ]

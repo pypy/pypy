@@ -174,6 +174,8 @@ class FStringMode(TokenizerMode):
         self.raw = raw
         # True if we are in a format specifier part of the f-string (after a ':')
         self.format_specifier = False
+        # True if we are tokenizing a named unicode escape sequence: \N{NAME}
+        self.named_unicode_escape = False
 
 
 class TokenizerState(object):
@@ -638,18 +640,28 @@ class Tokenizer(object):
         if match >= 0:
             last_c, next_c = line[match - 1], line[match]
             if last_c in "{}":
-                if not mode.raw and match >= 2 and line[match - 2] == "\\":
-                    # count trailing backslashes
-                    i = match - 3
-                    while i >= 0 and line[i] == "\\":
-                        i -= 1
+                if not mode.raw and match >= 2 and _odd_backslash_prefix(line, match - 2):
+                    msg = "invalid escape sequence '%s'" % last_c
+                    self._add_token(tokens.WARNING, msg, self.lnum, match - 2, line, self.lnum, match)
 
-                    if (match - 2 - i) % 2:
-                        # odd number of backslashes
-                        msg = "invalid escape sequence '%s'" % last_c
-                        self._add_token(tokens.WARNING, msg, self.lnum, match - 2, line, self.lnum, match)
-
-                if not mode.format_specifier and last_c == next_c:
+                if mode.named_unicode_escape:
+                    # We are done with the named unicode escape sequence
+                    mode.named_unicode_escape = False
+                    match -= last_c == "{"
+                    self._flush_fstring_middle(mode, match)
+                    mode.middle_offset = self.pos = match
+                    mode.middle_linenumber = self.lnum
+                elif (
+                    not mode.raw
+                    and match >= 3
+                    and line[match - 2 : match] == "N{"
+                    and _odd_backslash_prefix(line, match - 3)
+                ):
+                    # Named unicode escape sequence: \N{NAME}
+                    mode.named_unicode_escape = True
+                    state.contstrs.append(line[start:match])
+                    self.pos = match
+                elif not mode.format_specifier and last_c == next_c:
                     # Could just be:
                     # state.contstrs.append(line[start:match])
                     # but for CPython compatibility we do:
@@ -731,6 +743,14 @@ class Tokenizer(object):
                             mode.middle_linenumber, mode.middle_offset,
                             self.line, self.lnum, end_offset)
         del contstrs[:]
+
+
+def _odd_backslash_prefix(line, first_pos):
+    "Returns True if the number of backslashes counting backwards from first_pos is odd."
+    i = first_pos
+    while i >= 0 and line[i] == "\\":
+        i -= 1
+    return (first_pos - i) % 2
 
 
 def generate_tokens(lines, flags):
