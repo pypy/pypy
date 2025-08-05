@@ -172,6 +172,7 @@ class FStringMode(TokenizerMode):
         self.middle_linenumber = middle_linenumber
         self.middle_offset = middle_offset
         self.raw = raw
+        # True if we are in a format specifier part of the f-string (after a ':')
         self.format_specifier = False
 
 
@@ -631,7 +632,6 @@ class Tokenizer(object):
         return len(self.state_stack) > 1 and self.state.mode is NormalMode
 
     def _tokenize_fstring(self, mode, line):
-        format_specifier_mode = mode.format_specifier
         start = self.pos
         state = self.state
         match = state.string_end_dfa.recognize(line, start)
@@ -649,7 +649,7 @@ class Tokenizer(object):
                         msg = "invalid escape sequence '%s'" % last_c
                         self._add_token(tokens.WARNING, msg, self.lnum, match - 2, line, self.lnum, match)
 
-                if not format_specifier_mode and last_c == next_c:
+                if not mode.format_specifier and last_c == next_c:
                     # Could just be:
                     # state.contstrs.append(line[start:match])
                     # but for CPython compatibility we do:
@@ -667,7 +667,7 @@ class Tokenizer(object):
                     self.state_stack.append(
                         TokenizerState(NormalMode, level=len(self.parenstack))
                     )
-                elif format_specifier_mode: # last_c == "}"
+                elif mode.format_specifier: # last_c == "}"
                     # end of f-string interpolation
                     self._flush_fstring_middle(mode, match - 1)
 
@@ -678,7 +678,7 @@ class Tokenizer(object):
                     assert opening.value == "{"
                     mode.middle_linenumber = self.lnum
                     mode.middle_offset = self.pos = match
-                    mode.format_specifier_mode = False
+                    mode.format_specifier = False
                 else:
                     self._raise_token_error("f-string: single '}' is not allowed",
                                             line, self.lnum, match)
@@ -696,7 +696,7 @@ class Tokenizer(object):
 
             # no end match, check for unterminated string
         elif self._invalid_unterminated_string(line):
-            if format_specifier_mode:
+            if mode.format_specifier:
                 # This is a semi-degenerate case where a newline is encountered inside
                 # the format specifier (without the continuation character):
                 # f"{x:y

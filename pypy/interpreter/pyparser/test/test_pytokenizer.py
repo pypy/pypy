@@ -656,6 +656,20 @@ def"""
             reason="TODO",
         ),
     ),
+    (
+        "format specifier bug",
+        "f'{x:y}}}'\n",
+        [
+            (tokens.FSTRING_START, "f'", 1, 0, 1, 2),
+            (tokens.LBRACE, "{", 1, 2, 1, 3),
+            (tokens.NAME, "x", 1, 3, 1, 4),
+            (tokens.COLON, ":", 1, 4, 1, 5),
+            (tokens.FSTRING_MIDDLE, "y", 1, 5, 1, 6),
+            (tokens.RBRACE, "}", 1, 6, 1, 7),
+            (tokens.FSTRING_MIDDLE, "}", 1, 7, 1, 8),
+            (tokens.FSTRING_END, "'", 1, 9, 1, 10),
+        ],
+    ),
 ]
 
 def _parametrize(argnames, tests):
