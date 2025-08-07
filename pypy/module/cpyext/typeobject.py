@@ -6,8 +6,8 @@ from rpython.rlib.rarithmetic import widen
 
 from pypy.interpreter.baseobjspace import DescrMismatch
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.typedef import (
-    GetSetProperty, TypeDef, interp_attrproperty, interp2app)
+from pypy.interpreter.typedef import GetSetProperty, TypeDef, interp_attrproperty
+from pypy.interpreter.gateway import interp2app
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
@@ -476,12 +476,9 @@ def add_tp_new_wrapper(space, dict_w, pto):
     dict_w["__new__"] = W_PyCFunctionObject(space, get_new_method_def(space),
                                           from_ref(space, pyo), None)
 
-def disallow_new(space, w_type, __args__):
-    raise oefmt(space.w_TypeError, "cannot instantiate %s objects", w_type.name)
-
-def add_disallow_new_wrapper(space, dict_w, pto):
+def add_disallow_new(space, dict_w, pto):
     from typeobjectdefs import newfunc
-    dict_w["__new__"] = interp2app(disallow_new)
+    dict_w["__new__"] = space.lookup(space.w_DisallowNew, '__new__')
     pto.c_tp_new = rffi.cast(newfunc, 0)
 
 def inherit_special(space, pto, w_obj, base_pto):
@@ -607,7 +604,8 @@ class W_PyCTypeObject(W_TypeObject):
             raw_doc = rffi.constcharp2str(pto.c_tp_doc)
             dict_w['__doc__'] = space.newtext_or_none(extract_doc(raw_doc, name))
         if flags & Py_TPFLAGS_DISALLOW_INSTANTIATION:
-            add_disallow_new_wrapper(space, dict_w, pto)
+            print(name, flags, Py_TPFLAGS_DISALLOW_INSTANTIATION, flags & Py_TPFLAGS_DISALLOW_INSTANTIATION)
+            add_disallow_new(space, dict_w, pto)
         elif pto.c_tp_new:
             add_tp_new_wrapper(space, dict_w, pto)
 
@@ -799,10 +797,10 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     if space.is_w(w_type, space.w_tuple):
         pto.c_tp_new = state.C.tuple_new
 
-    flags = widen(pto.c_tp_flags)
     if not pto.c_tp_new:
         base_object_pyo = make_ref(space, space.w_object)
         base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
+        flags = widen(pto.c_tp_flags)
         if pto.c_tp_base != base_object_pto or flags & Py_TPFLAGS_HEAPTYPE:
                 pto.c_tp_new = pto.c_tp_base.c_tp_new
         decref(space, base_object_pyo)

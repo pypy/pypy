@@ -64,6 +64,7 @@ class StdObjSpace(ObjSpace):
         self.w_True = W_BoolObject.w_True
         self.w_NotImplemented = self.wrap(special.NotImplemented())
         self.w_Ellipsis = self.wrap(special.Ellipsis())
+        self.w_DisallowNew = self.wrap(special.DisallowNew())
 
         # types
         builtin_type_classes = {

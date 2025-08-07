@@ -2600,6 +2600,5 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             PyObject_SetAttrString(bp, "__bases__", a_tuple_p);
         """)
         assert module.B.__bases__ == (module.A,)
-        print(module.B.__new__.__doc__)
         with raises(TypeError):
             module.B()
