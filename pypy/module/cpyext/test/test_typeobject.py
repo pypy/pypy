@@ -2584,7 +2584,8 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             type->tp_as_sequence = &heap_type->as_sequence;
             type->tp_as_mapping = &heap_type->as_mapping;
             type->tp_as_async = &heap_type->as_async;
-            type->tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE | Py_TPFLAGS_BASETYPE;
+            type->tp_flags |= Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE;
+            type->tp_flags |= Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DISALLOW_INSTANTIATION;
             PyType_Ready(type);
             PyObject_SetAttrString(scope, full_name, (PyObject*)type);
             return (PyObject *) type;
@@ -2599,3 +2600,5 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             PyObject_SetAttrString(bp, "__bases__", a_tuple_p);
         """)
         assert module.B.__bases__ == (module.A,)
+        with raises(TypeError):
+            module.B()

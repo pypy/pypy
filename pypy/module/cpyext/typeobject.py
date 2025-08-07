@@ -6,8 +6,8 @@ from rpython.rlib.rarithmetic import widen
 
 from pypy.interpreter.baseobjspace import DescrMismatch
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.typedef import (
-    GetSetProperty, TypeDef, interp_attrproperty, interp2app)
+from pypy.interpreter.typedef import GetSetProperty, TypeDef, interp_attrproperty
+from pypy.interpreter.gateway import interp2app
 from pypy.module.__builtin__.abstractinst import abstract_issubclass_w
 from pypy.module.cpyext import structmemberdefs
 from pypy.module.cpyext.api import (
@@ -20,7 +20,7 @@ from pypy.module.cpyext.api import (
     Py_TPFLAGS_TUPLE_SUBCLASS, Py_TPFLAGS_UNICODE_SUBCLASS,
     Py_TPFLAGS_DICT_SUBCLASS, Py_TPFLAGS_BASE_EXC_SUBCLASS,
     Py_TPFLAGS_TYPE_SUBCLASS, Py_TPFLAGS_MANAGED_DICT, Py_TPFLAGS_MANAGED_WEAKREF,
-    Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE,
+    Py_TPFLAGS_BYTES_SUBCLASS, Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DISALLOW_INSTANTIATION,
     PyObject, PyVarObject,
     )
 
@@ -476,6 +476,11 @@ def add_tp_new_wrapper(space, dict_w, pto):
     dict_w["__new__"] = W_PyCFunctionObject(space, get_new_method_def(space),
                                           from_ref(space, pyo), None)
 
+def add_disallow_new(space, dict_w, pto):
+    from typeobjectdefs import newfunc
+    dict_w["__new__"] = space.lookup(space.w_DisallowNew, '__new__')
+    pto.c_tp_new = rffi.cast(newfunc, 0)
+
 def inherit_special(space, pto, w_obj, base_pto):
     # if tp_basicsize is zero or too low, we copy it from the base
     if pto.c_tp_basicsize < base_pto.c_tp_basicsize:
@@ -582,7 +587,8 @@ class W_PyCTypeObject(W_TypeObject):
         bases_w = space.fixedview(from_ref(space, pto.c_tp_bases))
         dict_w = {}
 
-        flag_heaptype = widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE
+        flags = widen(pto.c_tp_flags)
+        flag_heaptype = flags & Py_TPFLAGS_HEAPTYPE
         if flag_heaptype:
             type_name = space.text_w(from_ref(space, rffi.cast(PyHeapTypeObject, pto).c_ht_name))
             name = type_name
@@ -597,7 +603,10 @@ class W_PyCTypeObject(W_TypeObject):
         if pto.c_tp_doc:
             raw_doc = rffi.constcharp2str(pto.c_tp_doc)
             dict_w['__doc__'] = space.newtext_or_none(extract_doc(raw_doc, name))
-        if pto.c_tp_new:
+        if flags & Py_TPFLAGS_DISALLOW_INSTANTIATION:
+            print(name, flags, Py_TPFLAGS_DISALLOW_INSTANTIATION, flags & Py_TPFLAGS_DISALLOW_INSTANTIATION)
+            add_disallow_new(space, dict_w, pto)
+        elif pto.c_tp_new:
             add_tp_new_wrapper(space, dict_w, pto)
 
         w_dict = from_ref(space, pto.c_tp_dict)
