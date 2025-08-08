@@ -2490,7 +2490,12 @@ class AppTestFlags(AppTestCpythonExtensionBase):
                 };
 
                 return PyType_FromSpecWithBases(&HeapType_spec, args);
-            """)])
+            """),
+            ("get_qualname", "METH_O",
+            """
+                return PyType_GetQualName(args);
+            """),
+            ])
 
         # bool cannot be a base class
         with raises(TypeError):
@@ -2505,6 +2510,8 @@ class AppTestFlags(AppTestCpythonExtensionBase):
 
         # Make sure the flag passes to app-level
         assert isinstance(inttype(), int)
+
+        assert module.get_qualname(inttype) == "HeapType"
 
     def test_subclass_from_default(self):
         # CPython allows static types to subclass base classes without
