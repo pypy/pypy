@@ -1187,6 +1187,8 @@ class TestNonInteractive:
         assert data.startswith("15\\u20ac ('strict', 'backslashreplace')")
 
     def test_consistent_sys_path_for_module_execution(self):
+        if sys.version_info < (2, 7):
+            skip("test required Python >= 2.7")
         # This test case ensures that the following all give the same
         # sys.path configuration:
         #
