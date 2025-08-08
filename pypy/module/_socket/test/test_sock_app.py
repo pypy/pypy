@@ -808,12 +808,6 @@ class AppTestSocket:
             _socket.getaddrinfo(domain, 0, _socket.AF_UNSPEC, _socket.SOCK_STREAM)
         except _socket.gaierror as ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
-        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
-        try:
-            s.connect((domain, 80))
-        except ConnectionRefusedError as ex:
-            skip("Connection Refused - probably no connection: %s" % str(ex.args))
-        s.close()
         raises(TypeError, s.connect, (domain + '\x00', 80))
 
     def test_socket_close(self):
