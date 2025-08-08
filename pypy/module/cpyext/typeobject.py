@@ -1187,7 +1187,7 @@ def PyType_FromModuleAndSpec(space, module, spec, bases):
     typ = res.c_ht_type
     typ.c_tp_flags = rffi.cast(rffi.ULONG, widen(spec.c_flags) | Py_TPFLAGS_HEAPTYPE)
     res.c_ht_name = make_ref(space, space.newtext(name))
-    res.c_ht_qualname = make_ref(space, space.newtext(specname))
+    res.c_ht_qualname = make_ref(space, space.newtext(name))
     incref(space, res.c_ht_qualname)
     typ.c_tp_name = spec.c_name
     if module:
