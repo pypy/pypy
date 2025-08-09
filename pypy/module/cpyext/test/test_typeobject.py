@@ -2493,7 +2493,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             """),
             ("get_qualname", "METH_O",
             """
-                return PyType_GetQualName(args);
+                return PyType_GetQualName((PyTypeObject *)args);
             """),
             ])
 
