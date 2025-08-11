@@ -2712,12 +2712,35 @@ def bit_length_int(val):
 
 
 def bit_count_digit(val):
+    if SHIFT == 63:
+        return _bitcount64(r_ulonglong(val))
     count = 0
     while val:
         count += val & 1
         val >>= 1
     return count
 
+BITCOUNT_K1 = r_ulonglong(0x5555555555555555) # Repeating 01
+BITCOUNT_K2 = r_ulonglong(0x3333333333333333) # Repeating 0011
+BITCOUNT_K4 = r_ulonglong(0x0f0f0f0f0f0f0f0f) # Repeating 00001111
+BITCOUNT_KF = r_ulonglong(0x0101010101010101) # Repeating 00000001
+
+@jit.elidable
+def _bitcount64(x):
+    # takes an r_ulonglong
+    if x < 0:
+        if x == -2**63:
+            return 1
+        x = -x
+    return intmask(_bitcount64_ops(x))
+
+@always_inline
+def _bitcount64_ops(x, K1=BITCOUNT_K1, K2=BITCOUNT_K2, K4=BITCOUNT_K4, KF=BITCOUNT_KF):
+    # this is a separate function for Z3 testing
+    x -= (x >> 1) & K1
+    x = (x & K2) + ((x >> 2) & K2)
+    x = (x + (x >> 4)) & K4 
+    return (x * KF) >> 56
 
 def _truediv_result(result, negate):
     if negate:
