@@ -182,6 +182,9 @@ cts.parse_source(src)
 
 compile_extra = ["-DBUILD_TIME_MODULE", "-DHAVE_CLOCK_GETTIME"]
 _includes = ["time.h", os.path.join(my_dir, "time_module.h")]
+compile_extra.append("-DSIZEOF_TIME_T=%d" % rffi.sizeof(rffi.TIME_T))
+compile_extra.append("-DSIZEOF_LONG_LONG=%d" % rffi.sizeof(rffi.LONGLONG))
+compile_extra.append("-DSIZEOF_LONG=%d" % rffi.sizeof(rffi.LONG))
 if _POSIX:
     _includes.append('sys/time.h')
     _includes.append(os.path.join(my_dir, "time_module_posix.h"))
