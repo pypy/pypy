@@ -5,6 +5,7 @@ from rpython.jit.backend.test.test_ll_random import LLtypeOperationBuilder
 from rpython.jit.backend.detect_cpu import getcpuclass
 from rpython.jit.metainterp.resoperation import rop
 import platform
+import sys
 
 CPU = getcpuclass()
 
