@@ -134,5 +134,6 @@ class Darwin_x86_64(Darwin):
 
 class Darwin_arm64(Darwin):
     name = 'darwin_arm64'
-    link_flags = Darwin.link_flags + ('-arch', 'arm64')
-    cflags = Darwin.cflags + ('-arch', 'arm64')
+    link_flags = ('-mmacosx-version-min=11.0', '-arch', 'arm64')
+    cflags = ('-O3', '-fomit-frame-pointer', '-Wno-duplicate-decl-specifier',
+              '-mmacosx-version-min=11.0', '-arch', 'arm64')
