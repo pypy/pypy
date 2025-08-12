@@ -101,7 +101,7 @@ pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
                                     elidable_function=True)
 
 struct_name = 'pypysig_long_struct'
-LONG_STRUCT = lltype.Struct(struct_name, ('c_value', lltype.Signed),
+LONG_STRUCT = lltype.Struct(struct_name, ('c_inner', STRUCT_ONEFIELD),
                                          ('c_cookie', rffi.CFixedArray(lltype.Char, 8)),
                                          ('c_debugger_pending_call', lltype.Signed),
                                          ('c_debugger_script_path', lltype.Array(lltype.Char, hints={'nolength': True})),
