@@ -358,7 +358,7 @@ print('done')
                 addr.c_debugger_script_path[index] = c
             addr.c_debugger_script_path[index + 1] = '\x00'
             addr.c_debugger_pending_call = 1
-            addr.c_value = -1
+            addr.c_inner.c_value = -1
         cls.w_trigger_debugger = cls.space.wrap(interp2app(trigger_debugger))
 
     def test_run_debugger(self):
