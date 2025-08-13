@@ -61,7 +61,7 @@ class ReleaseGILTests(BaseFrameworkTests):
                 glob.lst.append(X())
             return rffi.cast(rffi.INT, 1)
         CALLBACK = lltype.Ptr(lltype.FuncType([rffi.CONST_VOIDP,
-                                               rffi.CONST_VOIDP], rffi.INT))
+                                               rffi.CONST_VOIDP], rffi.INT_real))
         #
         @dont_look_inside
         def alloc1():
