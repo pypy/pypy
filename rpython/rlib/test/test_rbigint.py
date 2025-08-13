@@ -19,7 +19,7 @@ from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_big, ONERBIGINT, MaxIntError,
     _str_to_int_big_w5pow, _str_to_int_big_base10, _str_to_int_big_inner10,
     _format_lowest_level_divmod_int_results, _format_int10_18digits,
-    bit_length_int)
+    bit_length_int, _bitcount64)
 from rpython.rlib.rbigint import HOLDER
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
@@ -1804,6 +1804,12 @@ class TestHypothesis(object):
     @given(biglongs)
     def test_bit_count(self, val):
         assert rbigint.fromlong(val).bit_count() == bin(abs(val)).count("1")
+
+    @given(strategies.integers(0, 2**64-1))
+    @example(1)
+    @example(0b110001010111)
+    def test_bitcount64(self, val):
+        assert _bitcount64(r_ulonglong(val)) == bin(val).count("1")
 
     @given(strategies.binary(), strategies.booleans(), strategies.booleans())
     def test_frombytes_tobytes_hypothesis(self, s, big, signed):
