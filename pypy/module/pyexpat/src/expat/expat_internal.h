@@ -147,7 +147,7 @@
   8388608 // 8 MiB, 2^23
 /* NOTE END */
 
-#include "expat.h" // so we can use type XML_Parser below
+#include "__expat.h" // moved for PyPy, included so we can use type XML_Parser below
 
 #ifdef __cplusplus
 extern "C" {

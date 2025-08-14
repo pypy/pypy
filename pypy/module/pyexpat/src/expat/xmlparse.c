@@ -123,7 +123,7 @@
 
 #include "expat_external.h"
 #include "ascii.h"
-#include "expat.h"
+ #include "__expat.h"   /* moved for PyPy */
 #include "siphash.h"
 
 #if defined(HAVE_GETRANDOM) || defined(HAVE_SYSCALL_GETRANDOM)
