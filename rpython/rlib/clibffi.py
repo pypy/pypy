@@ -183,6 +183,9 @@ class cConfig:
 for k, v in rffi_platform.configure(CConfig).items():
     setattr(cConfig, k, v)
 
+# fixup for size_t/signed
+cConfig.ffi_type._flds['c_size'] = rffi.SIZE_T
+
 FFI_TYPE_P.TO.become(cConfig.ffi_type)
 FFI_ABI = cConfig.ffi_abi
 ffi_arg = cConfig.ffi_arg

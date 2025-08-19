@@ -664,14 +664,14 @@ def strftime(space, format, w_tup=None):
         outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
         try:
             with rposix.SuppressIPH():
-                buflen = c_strftime(outbuf, i, format, buf_value)
+                buflen = rffi.cast(rffi.SIGNED, c_strftime(outbuf, i, format, buf_value))
             if buflen > 0 or i >= 256 * len(format):
                 # if the buffer is 256 times as long as the format,
                 # it's probably not failing for lack of room!
                 # More likely, the format yields an empty result,
                 # e.g. an empty format, or %Z when the timezone
                 # is unknown.
-                result = rffi.charp2strn(outbuf, intmask(buflen))
+                result = rffi.charp2strn(outbuf, buflen)
                 return space.newtext(result)
             if buflen == 0 and rposix.get_saved_errno() == errno.EINVAL:
                 raise oefmt(space.w_ValueError, "invalid format string")

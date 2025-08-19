@@ -249,7 +249,7 @@ def most_neg_value_of_same_type(x):
 @specialize.memo()
 def most_neg_value_of(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
-    if tp is lltype.Signed:
+    if tp in (lltype.Signed, lltype.SSize_T):
         return -sys.maxint-1
     r_class = rffi.platform.numbertype_to_rclass[tp]
     assert issubclass(r_class, base_int)

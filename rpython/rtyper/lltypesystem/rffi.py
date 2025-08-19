@@ -1473,6 +1473,7 @@ class scoped_alloc_buffer:
         return self
     def __exit__(self, *args):
         keep_buffer_alive_until_here(self.raw, self.gc_buf, self.case_num)
+    @enforceargs(length=int)
     def str(self, length):
         return str_from_buffer(self.raw, self.gc_buf, self.case_num,
                                self.size, length)
