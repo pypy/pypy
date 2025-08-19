@@ -77,7 +77,13 @@ class Platform:
             return self._make_type(name, signed, size)
 
     def _make_type(self, name, signed, size):
-        inttype = rarithmetic.build_int('r_' + name, signed, size*8, force_creation=False)
+        # Is there already a rarithmetic.r_*?
+        # Skip r_int, r_uint since they are a long :(
+        rtype = 'r_' + name.lower()
+        if name.lower() in ('int', 'uint') or rtype not in dir(rarithmetic):
+            inttype = rarithmetic.build_int('r_' + name, signed, size*8, force_creation=False)
+        else:
+            inttype = getattr(rarithmetic, 'r_' + name.lower())
         tp = lltype.build_number(name, inttype)
         self.numbertype_to_rclass[tp] = inttype
         self.types[name] = tp

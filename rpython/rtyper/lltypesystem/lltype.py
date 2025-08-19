@@ -1365,11 +1365,14 @@ class _abstract_ptr(object):
                             pass
                         else:
                             assert a == value
-                    # None is acceptable for any pointer
                     elif isinstance(ARG, Ptr) and a is None:
+                        # None is acceptable for any pointer
                         pass
-                    # Any pointer is convertible to void*
+                    elif typeOf(a) is rffi.SIGNED and ARG is rffi.SSIZE_T:
+                        # Signed is acceptable as SSIZE_T
+                        pass
                     elif ARG is rffi.VOIDP and isinstance(typeOf(a), Ptr):
+                        # Any pointer is convertible to void*
                         pass
                     # special case: ARG can be a container type, in which
                     # case a should be a pointer to it.  This must also be

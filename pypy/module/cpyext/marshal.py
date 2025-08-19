@@ -1,14 +1,15 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import cpython_api, Py_ssize_t
+from pypy.module.cpyext.api import cpython_api, cts
 from pypy.module.cpyext.pyobject import PyObject
+from rpython.rlib.rarithmetic import widen
 
 
 _HEADER = 'pypy_marshal_decl.h'
 
-@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject, header=_HEADER)
+@cts.decl("PyObject *<>(const char *, Py_ssize_t)", header=_HEADER)
 def PyMarshal_ReadObjectFromString(space, p, size):
     from pypy.module.marshal.interp_marshal import loads
-    s = rffi.charpsize2str(p, size)
+    s = rffi.constcharpsize2str(p, size)
     return loads(space, space.newbytes(s))
 
 @cpython_api([PyObject, rffi.INT_real], PyObject, header=_HEADER)

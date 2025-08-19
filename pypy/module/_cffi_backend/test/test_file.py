@@ -1,7 +1,6 @@
 import urllib2, py
 import pytest
 
-
 @pytest.mark.skip("cffi has moved onto v2.0, the PyPy backend is 1.18")
 def test_same_file():
     # '_backend_test_c.py' is a copy of 'c/test_c.py' from the CFFI repo,

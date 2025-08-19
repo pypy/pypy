@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rutf8
 from pypy.module._multibytecodec import c_codecs
 from pypy.module._multibytecodec.interp_multibytecodec import (
@@ -117,7 +117,8 @@ class MultibyteIncrementalEncoder(MultibyteIncrementalBase):
                                           self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
-        pos = c_codecs.pypy_cjk_enc_inbuf_consumed(self.encodebuf)
+        pos = rffi.cast(rffi.SIGNED,
+                        c_codecs.pypy_cjk_enc_inbuf_consumed(self.encodebuf))
         assert 0 <= pos <= length
         # scan the utf8 string until we hit pos
         i = 0

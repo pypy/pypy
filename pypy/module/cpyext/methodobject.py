@@ -397,14 +397,12 @@ def PyClassMethod_New(space, w_func):
     return ClassMethod(w_func)
 
 @cts.decl("""
-    PyObject *
-    PyDescr_NewClassMethod(PyTypeObject *type, PyMethodDef *method)""")
+    PyObject * <>(PyTypeObject *type, PyMethodDef *method)""")
 def PyDescr_NewMethod(space, w_type, method):
     return W_PyCMethodObject(space, method, w_type)
 
 @cts.decl("""
-    PyObject *
-    PyDescr_NewClassMethod(PyTypeObject *type, PyMethodDef *method)""")
+    PyObject * <>(PyTypeObject *type, PyMethodDef *method)""")
 def PyDescr_NewClassMethod(space, w_type, method):
     return W_PyCClassMethodObject(space, method, w_type)
 
