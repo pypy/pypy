@@ -2398,6 +2398,10 @@ match x:
     def test_type_with_star_311(self):
         self.st("def func1(*args: *(1, )): pass", "func1.__annotations__['args']", 1)
 
+    @pytest.mark.xfail
+    def test_if_call_or_call_bug(self):
+        # used to crash
+        compile_with_astcompiler("def func_if_call_or_call():\n    if a: f1() or g1()\n", 'exec', self.space)
 
 class TestLinenoChanges310(object):
     def get_line_numbers(self, source, expected, function=False):
