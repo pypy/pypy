@@ -139,13 +139,17 @@ class AppTestBytesObject:
         assert bytes.fromhex("ab cd  ef") == b'\xab\xcd\xef'
         assert bytes.fromhex("\nab\tcd  \tef\t") == b'\xab\xcd\xef'
         raises(TypeError, bytes.fromhex, b"abcd")
-        raises(TypeError, bytes.fromhex, True)
+        info = raises(TypeError, bytes.fromhex, True)
+        assert str(info.value) == 'fromhex() argument must be str, not bool'
         raises(ValueError, bytes.fromhex, "hello world")
 
     def test_fromhex_subclass(self):
         class Sub(bytes):
             pass
         assert type(Sub.fromhex("abcd")) is Sub
+        class mystr(str):
+            pass
+        assert bytes.fromhex(mystr("abcd")) == b'\xab\xcd'
 
     def test_format(self):
         raises(TypeError, "foo".__mod__, "bar")
