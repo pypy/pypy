@@ -591,8 +591,8 @@ class W_BytesObject(W_AbstractBytesObject):
         Spaces between two numbers are accepted.
         Example: bytes.fromhex('B9 01EF') -> b'\xb9\x01\xef'.
         """
-        if not space.is_w(space.type(w_hexstring), space.w_unicode):
-            raise oefmt(space.w_TypeError, "must be str, not %T", w_hexstring)
+        if not space.isinstance_w(w_hexstring, space.w_unicode):
+            raise oefmt(space.w_TypeError, "fromhex() argument must be str, not %T", w_hexstring)
         from pypy.objspace.std.bytearrayobject import _hexstring_to_array
         hexstring = space.utf8_w(w_hexstring)
         bytes = ''.join(_hexstring_to_array(space, hexstring))
