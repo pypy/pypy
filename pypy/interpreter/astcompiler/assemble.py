@@ -843,12 +843,12 @@ class PythonCodeMaker(ast.ASTVisitor):
                             copy.jump.marked += 2
                         block.emit_instr(copy)
                     if target.next_block and not block.cant_add_instructions:
-                        print "missing test! please report a bug about the astcompiler", self.name
+                        print "should be unreachable! please report a bug about the astcompiler", self.name
                         assert 0
-                        instr = Instruction(ops.JUMP_ABSOLUTE, position_info=self.position_info)
-                        instr.jump = target.next_block
-                        block.emit_instr(instr)
-                        target.next_block.marked += 2
+                        #instr = Instruction(ops.JUMP_ABSOLUTE, position_info=self.position_info)
+                        #instr.jump = target.next_block
+                        #block.emit_instr(instr)
+                        #target.next_block.marked += 2
 
                 elif (target.marked >> 1) > 1:
                     # copy the block, it has more than one predecessor
