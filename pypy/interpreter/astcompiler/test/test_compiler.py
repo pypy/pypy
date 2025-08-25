@@ -2401,7 +2401,16 @@ match x:
     @pytest.mark.xfail
     def test_if_call_or_call_bug(self):
         # used to crash
-        compile_with_astcompiler("def func_if_call_or_call():\n    if a: f1() or g1()\n", 'exec', self.space)
+        compile_with_astcompiler("""
+def func_if_call_or_call():
+    if a:
+        (f1() or
+        g1())""", 'exec', self.space)
+        compile_with_astcompiler("""
+def func_if_call_and_call():
+    if a:
+        (f1() and
+        g1())""", 'exec', self.space)
 
 class TestLinenoChanges310(object):
     def get_line_numbers(self, source, expected, function=False):
@@ -2626,6 +2635,14 @@ def withreturn():
             v + w
         )
         """, [3, 0, 1])
+
+    def test_or_with_implicit_return(self):
+        code = self.get_line_numbers("""
+def or_with_implicit_return():
+    if a:
+        (g
+         or
+         h)""", [1, 2, 4, 1, 2], function=True)
 
 class TestErrorPositions(BaseTestCompiler):
     def test_import_star_in_function_position(self):

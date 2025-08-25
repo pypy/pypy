@@ -829,7 +829,9 @@ class PythonCodeMaker(ast.ASTVisitor):
 
                 # if it's an unconditional jump, duplicate it
                 if op.opcode in (ops.JUMP_FORWARD, ops.JUMP_ABSOLUTE):
+                    assert block.cant_add_instructions
                     block.instructions.pop()
+                    block.cant_add_instructions = False
                     j -= 1
                     target.marked -= 2 # one fewer incoming links
                     for instr in target.instructions:
@@ -840,18 +842,30 @@ class PythonCodeMaker(ast.ASTVisitor):
                         if copy.jump:
                             copy.jump.marked += 2
                         block.emit_instr(copy)
+                    if target.next_block and not block.cant_add_instructions:
+                        print "missing test! please report a bug about the astcompiler", self.name
+                        assert 0
+                        instr = Instruction(ops.JUMP_ABSOLUTE, position_info=self.position_info)
+                        instr.jump = target.next_block
+                        block.emit_instr(instr)
+                        target.next_block.marked += 2
+
                 elif (target.marked >> 1) > 1:
                     # copy the block, it has more than one predecessor
                     target.marked -= 2 # one fewer incoming links for old target
                     newtarget = target.copy()
                     newtarget.marked = 1 << 1 # new target has one incoming link
                     newtarget.instructions[0].position_info = op.position_info
-                    # maintain marked correctly:
-                    if newtarget.next_block:
-                        newtarget.next_block.marked += 2
                     for copied_op in newtarget.instructions:
                         if copied_op.jump:
                             copied_op.jump.marked += 2
+                    # deal with fall-through of copied target block - rare, but
+                    # see test_if_call_or_call_bug
+                    if target.next_block and not newtarget.cant_add_instructions:
+                        instr = Instruction(ops.JUMP_ABSOLUTE, position_info=self.position_info)
+                        instr.jump = target.next_block
+                        target.next_block.marked += 2
+                        newtarget.emit_instr(instr)
                     op.jump = newtarget
                     blocks.append(newtarget)
 
