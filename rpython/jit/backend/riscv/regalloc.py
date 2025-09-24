@@ -1166,7 +1166,7 @@ class Regalloc(BaseRegalloc):
         return [base_loc]
 
     def compute_hint_frame_locations(self, operations):
-        # Fill in the `hint_frame_pos` dictionary of `frame_manager` based on
+        # Fill in the frame position hints of `frame_manager` based on
         # the JUMP at the end of the loop, by looking at where we would like
         # the boxes to be after the jump.
         #
@@ -1180,7 +1180,7 @@ class Regalloc(BaseRegalloc):
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
         if descr._ll_loop_code != 0:
-            # Set up `hint_frame_pos` if the target LABEL had been compiled
+            # Set up hints if the target LABEL had been compiled
             # already, i.e. if it belongs to some already-compiled piece of
             # code.
             self._compute_hint_frame_locations_from_descr(descr)
@@ -1199,8 +1199,7 @@ class Regalloc(BaseRegalloc):
             if not isinstance(box, Const):
                 loc = arglocs[i]
                 if loc is not None and loc.is_stack():
-                    self.frame_manager.hint_frame_pos[box] = (
-                        self.frame_manager.get_loc_index(loc))
+                    self.frame_manager.add_frame_pos_hint(box, loc)
 
     def prepare_op_label(self, op):
         descr = op.getdescr()
@@ -1364,7 +1363,7 @@ class Regalloc(BaseRegalloc):
         frame_depth = self.frame_manager.get_frame_depth()
         gcmap = allocate_gcmap(self.assembler,
                                frame_depth, JITFRAME_FIXED_SIZE)
-        for box, loc in self.rm.reg_bindings.iteritems():
+        for box, loc in self.rm.reg_bindings_iteritems():
             if loc in forbidden_regs:
                 continue
             if box.type == REF and self.rm.is_still_alive(box):
@@ -1372,7 +1371,7 @@ class Regalloc(BaseRegalloc):
                 assert loc.is_core_reg()
                 val = self.cpu.all_reg_indexes[loc.value]
                 gcmap[val // XLEN // 8] |= r_uint(1) << (val % (XLEN * 8))
-        for box, loc in self.frame_manager.bindings.iteritems():
+        for box, loc in self.frame_manager.bindings_iteritems():
             if box.type == REF and self.rm.is_still_alive(box):
                 assert loc.is_stack()
                 val = loc.position + JITFRAME_FIXED_SIZE

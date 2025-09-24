@@ -381,7 +381,7 @@ class Regalloc(BaseRegalloc):
                 #     to just the line below:
                 val = loc.value
                 gcmap[val // WORD // 8] |= r_uint(1) << (val % (WORD * 8))
-        for box, loc in self.fm.bindings.iteritems():
+        for box, loc in self.fm.bindings_iteritems():
             if box.type == REF and self.rm.is_still_alive(box):
                 assert loc.is_stack()
                 val = loc.position + JITFRAME_FIXED_SIZE
@@ -770,8 +770,7 @@ class Regalloc(BaseRegalloc):
             if not isinstance(box, Const):
                 loc = arglocs[i]
                 if loc is not None and loc.is_stack():
-                    self.frame_manager.hint_frame_pos[box] = (
-                        self.fm.get_loc_index(loc))
+                    self.frame_manager.add_frame_pos_hint(box, loc)
 
     def prepare_op_jump(self, op, fcond):
         assert self.jump_target_descr is None

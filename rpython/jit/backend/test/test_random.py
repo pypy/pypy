@@ -848,6 +848,8 @@ class RandomLoop(object):
                 if box not in self.loop.inputargs:
                     box = constbox(box)
                 args.append(box)
+            for box in self.loop.inputargs:
+                box.set_forwarded(None)
             self.cpu.compile_loop(self.loop.inputargs,
                                   [ResOperation(rop.JUMP, args,
                                                 descr=self.loop._targettoken)],
