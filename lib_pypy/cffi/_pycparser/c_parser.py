@@ -20,9 +20,9 @@ class CParser(PLYParser):
             self,
             lex_optimize=True,
             lexer=CLexer,
-            lextab='pycparser.lextab',
+            lextab='cffi._pycparser.lextab',
             yacc_optimize=True,
-            yacctab='pycparser.yacctab',
+            yacctab='cffi._pycparser.yacctab',
             yacc_debug=False,
             taboutputdir=''):
         """ Create a new CParser.
