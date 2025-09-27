@@ -507,7 +507,7 @@ class Overlapped(object):
 
     def WriteFile(self, handle, buffer):
         self.handle = _int2handle(handle)
-        self.write_buffer = buffer
+        self.write_buffer = bytes(buffer)
         written = _ffi.new('DWORD[1]', [0])
 
         # Check if we have already performed some IO
