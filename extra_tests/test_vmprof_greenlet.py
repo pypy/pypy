@@ -16,7 +16,7 @@ def cpuburn(duration):
         pass
 
 # See https://github.com/vmprof/vmprof-python/issues/274
-@pytest.mark.skipif(IS_32_BIT, "vmprof fails to write profiles with negative addresses")
+@pytest.mark.xfail(IS_32_BIT, reason="vmprof fails to write profiles with negative addresses")
 def test_sampling_inside_callback(tmpdir):
     # see also test_sampling_inside_callback inside
     # pypy/module/_continuation/test/test_stacklet.py
