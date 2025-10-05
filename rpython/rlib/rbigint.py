@@ -2728,10 +2728,6 @@ BITCOUNT_KF = r_ulonglong(0x0101010101010101) # Repeating 00000001
 @jit.elidable
 def _bitcount64(x):
     # takes an r_ulonglong
-    if x < 0:
-        if x == -2**63:
-            return 1
-        x = -x
     return intmask(_bitcount64_ops(x))
 
 @always_inline
