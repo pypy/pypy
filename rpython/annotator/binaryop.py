@@ -735,6 +735,12 @@ def setitem_SomeInstance(annotator, v_ins, v_idx, v_value):
     return [get_setitem,
             op.simple_call(get_setitem.result, v_idx, v_value)]
 
+@op.delitem.register_transform(SomeInstance, SomeObject)
+def delitem_SomeInstance(annotator, v_ins, v_idx):
+    get_delitem = op.getattr(v_ins, const('__delitem__'))
+    return [get_delitem,
+            op.simple_call(get_delitem.result, v_idx)]
+
 @op.contains.register_transform(SomeInstance)
 def contains_SomeInstance(annotator, v_ins, v_idx):
     get_contains = op.getattr(v_ins, const('__contains__'))

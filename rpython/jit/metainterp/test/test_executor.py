@@ -285,8 +285,8 @@ def get_float_tests(cpu):
         yield opnum, boxargs, rettype, retvalue
         if len(args) > 1:
             assert len(args) == 2
-            yield opnum, [boxargs[0], wrap_constant(boxargs[1].getvalue())], rettype, retvalue
-            yield opnum, [wrap_constant(boxargs[0].getvalue()), boxargs[1]], rettype, retvalue
+            yield opnum, [boxfloat(args[0]), wrap_constant(args[1])], rettype, retvalue
+            yield opnum, [wrap_constant(args[0]), boxfloat(args[1])], rettype, retvalue
             if (isinstance(args[0], float) and
                 isinstance(args[1], float) and
                 args[0] == args[1]):

@@ -14,7 +14,7 @@ from rpython.rlib.rarithmetic import (
     LONG_BIT, intmask, is_valid_int, ovfcheck, r_longlong, r_uint,
     string_to_int)
 from rpython.rlib.rbigint import (
-    InvalidEndiannessError, InvalidSignednessError, rbigint)
+    InvalidEndiannessError, InvalidSignednessError, rbigint, bit_length_int)
 from rpython.rlib.rfloat import DBL_MANT_DIG
 from rpython.rlib.rstring import (
     ParseStringError, ParseStringOverflowError, MaxDigitsError)
@@ -511,17 +511,6 @@ def _make_ovf2long(opname, ovf2small=None):
 
     return ovf2long
 
-@jit.elidable
-def _bit_length(val):
-    bits = 0
-    if val < 0:
-        # warning, "-val" overflows here
-        val = -((val + 1) >> 1)
-        bits = 1
-    while val:
-        bits += 1
-        val >>= 1
-    return bits
 
 
 @jit.elidable
@@ -655,7 +644,7 @@ class W_IntObject(W_AbstractIntObject):
         return space.newtuple([wrapint(space, self.intval)])
 
     def descr_bit_length(self, space):
-        return space.newint(_bit_length(self.intval))
+        return space.newint(bit_length_int(self.intval))
 
     def descr_bit_count(self, space):
         return space.newint(_bit_count(self.intval))

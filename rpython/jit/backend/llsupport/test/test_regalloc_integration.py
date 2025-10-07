@@ -7,7 +7,6 @@ from rpython.jit.metainterp.history import BasicFailDescr, JitCellToken,\
      TargetToken
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.backend.detect_cpu import getcpuclass
-from rpython.jit.backend.llsupport.regalloc import is_comparison_or_ovf_op
 from rpython.jit.tool.oparser import parse
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.annlowlevel import llhelper
@@ -15,11 +14,6 @@ from rpython.rtyper.lltypesystem import rstr
 from rpython.rtyper import rclass
 from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.effectinfo import EffectInfo
-
-def test_is_comparison_or_ovf_op():
-    assert not is_comparison_or_ovf_op(rop.INT_ADD)
-    assert is_comparison_or_ovf_op(rop.INT_ADD_OVF)
-    assert is_comparison_or_ovf_op(rop.INT_EQ)
 
 
 def get_zero_division_error(self):
@@ -427,7 +421,7 @@ class TestRegallocSimple(BaseTestRegalloc):
         regalloc = self.prepare_loop(ops)
         # we pass stuff on the frame
         assert len(regalloc.rm.reg_bindings) == 0
-        assert len(regalloc.fm.bindings) == 4
+        assert regalloc.fm.bindings_len_for_tests() == 4
 
     def test_longevity(self):
         ops = """

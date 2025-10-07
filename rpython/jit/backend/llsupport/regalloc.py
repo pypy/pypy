@@ -1,7 +1,8 @@
 import sys
 from rpython.jit.metainterp.history import Const, REF, JitCellToken
 from rpython.rlib.objectmodel import we_are_translated, specialize
-from rpython.jit.metainterp.resoperation import rop, AbstractValue
+from rpython.jit.metainterp.resoperation import rop, AbstractResOpOrInputArg
+from rpython.jit.metainterp.optimizeopt.info import AbstractInfo
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem.lloperation import llop
 
@@ -14,7 +15,7 @@ SAVE_DEFAULT_REGS = 0
 SAVE_GCREF_REGS = 2
 SAVE_ALL_REGS = 1
 
-class TempVar(AbstractValue):
+class TempVar(AbstractResOpOrInputArg): # this base class to get get_forwarded and set_forwarded
     def __init__(self):
         pass
 
@@ -24,126 +25,39 @@ class TempVar(AbstractValue):
 class NoVariableToSpill(Exception):
     pass
 
-class Node(object):
-    def __init__(self, val, next):
-        self.val = val
-        self.next = next
 
-    def __repr__(self):
-        return '<Node %d %r>' % (self.val, next)
+def get_lifetime(box):
+    lifetime = box.get_forwarded()
+    if lifetime is None:
+        return None
+    assert isinstance(lifetime, Lifetime)
+    return lifetime
 
-class LinkedList(object):
-    def __init__(self, fm, lst=None):
-        # assume the list is sorted
-        if lst is not None:
-            node = None
-            for i in range(len(lst) - 1, -1, -1):
-                item = lst[i]
-                node = Node(item, node)
-            self.master_node = node
-        else:
-            self.master_node = None
+class BindingsIterItems(object):
+    def __init__(self, fm):
         self.fm = fm
+        self.index = 0
 
-    def append(self, size, item):
-        key = self.fm.get_loc_index(item)
-        if size == 2:
-            self._append(key)
-            self._append(key + 1)
-        else:
-            assert size == 1
-            self._append(key)
-
-    def _append(self, key):
-        if self.master_node is None or self.master_node.val > key:
-            self.master_node = Node(key, self.master_node)
-        else:
-            node = self.master_node
-            prev_node = self.master_node
-            while node and node.val < key:
-                prev_node = node
-                node = node.next
-            prev_node.next = Node(key, node)
-
-    @specialize.arg(1)
-    def foreach(self, function, arg):
-        # XXX unused?
-        node = self.master_node
-        while node is not None:
-            function(arg, node.val)
-            node = node.next
-
-    def pop(self, size, tp, hint=-1):
-        if size == 2:
-            return self._pop_two(tp)   # 'hint' ignored for floats on 32-bit
-        assert size == 1
-        if not self.master_node:
-            return None
-        node = self.master_node
-        #
-        if hint >= 0:
-            # Look for and remove the Node with the .val matching 'hint'.
-            # If not found, fall back to removing the first Node.
-            # Note that the loop below ignores the first Node, but
-            # even if by chance it is the one with the correct .val,
-            # it will be the one we remove at the end anyway.
-            prev_node = node
-            while prev_node.next:
-                if prev_node.next.val == hint:
-                    node = prev_node.next
-                    prev_node.next = node.next
-                    break
-                prev_node = prev_node.next
-            else:
-                self.master_node = node.next
-        else:
-            self.master_node = node.next
-        #
-        return self.fm.frame_pos(node.val, tp)
-
-    def _candidate(self, node):
-        return (node.val & 1 == 0) and (node.val + 1 == node.next.val)
-
-    def _pop_two(self, tp):
-        node = self.master_node
-        if node is None or node.next is None:
-            return None
-        if self._candidate(node):
-            self.master_node = node.next.next
-            return self.fm.frame_pos(node.val, tp)
-        prev_node = node
-        node = node.next
+    def next(self):
         while True:
-            if node.next is None:
-                return None
-            if self._candidate(node):
-                # pop two
-                prev_node.next = node.next.next
-                return self.fm.frame_pos(node.val, tp)
-            node = node.next
+            index = self.index
+            if index >= self.fm.current_frame_depth:
+                raise StopIteration
+            box = self.fm.boxes_in_frame[index]
+            if box is None:
+                self.index = index + 1
+                continue
+            self.index = index + self.fm.frame_size(box.type)
+            lifetime = get_lifetime(box)
+            assert lifetime is not None
+            loc = lifetime.current_frame_loc
+            assert loc is not None
+            assert self.fm.get_loc_index(loc) == index
+            return box, lifetime.current_frame_loc
 
-    def len(self):
-        node = self.master_node
-        c = 0
-        while node:
-            node = node.next
-            c += 1
-        return c
+    def __iter__(self):
+        return self
 
-    def __len__(self):
-        """ For tests only
-        """
-        return self.len()
-
-    def __repr__(self):
-        if not self.master_node:
-            return 'LinkedList(<empty>)'
-        node = self.master_node
-        l = []
-        while node:
-            l.append(str(node.val))
-            node = node.next
-        return 'LinkedList(%s)' % '->'.join(l)
 
 class FrameManager(object):
     """ Manage frame positions
@@ -152,101 +66,159 @@ class FrameManager(object):
     we like.
     """
     def __init__(self, start_free_depth=0, freelist=None):
-        self.bindings = {}
         self.current_frame_depth = start_free_depth
-        self.hint_frame_pos = {}
-        self.freelist = LinkedList(self, freelist)
+        self.boxes_in_frame = [None] * self.current_frame_depth
+
+    def freelist_len_for_tests(self):
+        res = 0
+        for box in self.boxes_in_frame:
+            res += int(box is None)
+        return res
+
+    def bindings_len_for_tests(self):
+        return len(self.boxes_in_frame) - self.freelist_len_for_tests()
 
     def get_frame_depth(self):
         return self.current_frame_depth
 
-    def get(self, box):
-        return self.bindings.get(box, None)
+    def _increase_frame_depth(self, incby):
+        self.current_frame_depth += incby
+        for i in range(incby):
+            self.boxes_in_frame.append(None)
 
-    def loc(self, box):
+    def get(self, box):
+        lifetime = get_lifetime(box)
+        if lifetime is None:
+            return None
+        return lifetime.current_frame_loc
+
+    def loc(self, box, must_exist=False):
         """Return or create the frame location associated with 'box'."""
         # first check if it's already in the frame_manager
-        try:
-            return self.bindings[box]
-        except KeyError:
-            pass
+        res = self.get(box)
+        if res is not None:
+            return res
+        if must_exist:
+            raise KeyError
         return self.get_new_loc(box)
 
     def get_new_loc(self, box):
         size = self.frame_size(box.type)
-        hint = self.hint_frame_pos.get(box, -1)
+        hint = self.get_frame_pos_hint(box)
         # frame_depth is rounded up to a multiple of 'size', assuming
         # that 'size' is a power of two.  The reason for doing so is to
         # avoid obscure issues in jump.py with stack locations that try
         # to move from position (6,7) to position (7,8).
-        newloc = self.freelist.pop(size, box.type, hint)
+        newloc = self._find_frame_location(size, box.type, hint)
         if newloc is None:
             #
             index = self.get_frame_depth()
-            if index & 1 and size == 2:
+            if size == 2 and index & 1 == 1:
                 # we can't allocate it at odd position
-                self.freelist._append(index)
-                newloc = self.frame_pos(index + 1, box.type)
-                self.current_frame_depth += 3
-                index += 1 # for test
+                if self.boxes_in_frame[index - 1] is None:
+                    index -= 1
+                else:
+                    index += 1
+                newloc = self.frame_pos(index, box.type)
+                self._increase_frame_depth(index + size - self.current_frame_depth)
             else:
                 newloc = self.frame_pos(index, box.type)
-                self.current_frame_depth += size
+                self._increase_frame_depth(size)
             #
             if not we_are_translated():    # extra testing
                 testindex = self.get_loc_index(newloc)
                 assert testindex == index
+                for index in range(testindex, testindex+size):
+                    assert self.boxes_in_frame[index] is None
             #
+        if not we_are_translated():
+            assert self.boxes_in_frame[self.get_loc_index(newloc)] is None
 
-        self.bindings[box] = newloc
+        self.bind(box, newloc)
         if not we_are_translated():
             self._check_invariants()
         return newloc
 
+    def _find_frame_location(self, size, tp, hint=-1):
+        assert size == 1 or size == 2
+        if size == 1:
+            if (0 <= hint < self.current_frame_depth and
+                    self.boxes_in_frame[hint] is None):
+                resindex = hint
+            else:
+                for resindex in range(self.current_frame_depth):
+                    if self.boxes_in_frame[resindex] is None:
+                        break
+                else:
+                    return None # no free location that fits
+        else:
+            assert size == 2
+            for resindex in range(0, (self.current_frame_depth >> 1) << 1, 2):
+                if (self.boxes_in_frame[resindex] is None and
+                        self.boxes_in_frame[resindex + 1] is None):
+                    break
+            else:
+                return None
+        return self.frame_pos(resindex, tp)
+
     def bind(self, box, loc):
         pos = self.get_loc_index(loc)
         size = self.frame_size(box.type)
-        self.current_frame_depth = max(pos + size, self.current_frame_depth)
-        self.bindings[box] = loc
+        if pos + size > self.current_frame_depth:
+            self._increase_frame_depth(pos + size - self.current_frame_depth)
+        assert self.boxes_in_frame[pos] is None
+        if not we_are_translated():
+            assert box not in self.boxes_in_frame
+        for index in range(pos, pos + size):
+            self.boxes_in_frame[index] = box
+        lifetime = get_lifetime(box)
+        assert lifetime is not None
+        lifetime.current_frame_loc = loc
+
+    def bindings_iteritems(self):
+        return BindingsIterItems(self)
 
     def finish_binding(self):
-        all = [0] * self.get_frame_depth()
-        for b, loc in self.bindings.iteritems():
-            size = self.frame_size(b.type)
-            pos = self.get_loc_index(loc)
-            for i in range(pos, pos + size):
-                all[i] = 1
-        self.freelist = LinkedList(self) # we don't care
-        for elem in range(len(all)):
-            if not all[elem]:
-                self.freelist._append(elem)
         if not we_are_translated():
             self._check_invariants()
 
     def mark_as_free(self, box):
-        try:
-            loc = self.bindings[box]
-        except KeyError:
-            return    # already gone
-        del self.bindings[box]
+        loc = self.get(box)
+        if loc is None:
+            return # not in frame
+        lifetime = get_lifetime(box)
+        assert lifetime.current_frame_loc is loc
+        lifetime.current_frame_loc = None
+        pos = self.get_loc_index(loc)
         size = self.frame_size(box.type)
-        self.freelist.append(size, loc)
+        assert self.boxes_in_frame[pos] is box
+        for index in range(pos, pos + size):
+            self.boxes_in_frame[index] = None
+
         if not we_are_translated():
             self._check_invariants()
 
+    def add_frame_pos_hint(self, box, loc):
+        lifetime = get_lifetime(box)
+        assert lifetime is not None
+        lifetime.hint_frame_pos = self.get_loc_index(loc)
+
+    def get_frame_pos_hint(self, box):
+        lifetime = get_lifetime(box)
+        if lifetime is None:
+            return -1
+        return lifetime.hint_frame_pos
+
     def _check_invariants(self):
-        all = [0] * self.get_frame_depth()
-        for b, loc in self.bindings.iteritems():
-            size = self.frame_size(b)
+        assert len(self.boxes_in_frame) == self.current_frame_depth
+        all = [False] * self.get_frame_depth()
+        for b, loc in self.bindings_iteritems():
+            size = self.frame_size(b.type)
             pos = self.get_loc_index(loc)
             for i in range(pos, pos + size):
                 assert not all[i]
-                all[i] = 1
-        node = self.freelist.master_node
-        while node is not None:
-            assert not all[node.val]
-            all[node.val] = 1
-            node = node.next
+                all[i] = True
+                assert self.boxes_in_frame[i] is b
 
     @staticmethod
     def _gather_gcroots(lst, var):
@@ -271,10 +243,121 @@ class FrameManager(object):
         """
         raise NotImplementedError("Purely abstract")
 
+class RegBindingsDict(object):
+    def __init__(self, regman):
+        self.regman = regman
+
+    def _register_index(self, reg):
+        return self.regman.all_regs.index(reg)
+
+    def __contains__(self, box):
+        lifetime = get_lifetime(box)
+        if lifetime is None:
+            return False
+        index = lifetime.current_register_index
+        return index >= 0
+
+    def __getitem__(self, box):
+        res = self.regman.reg_bindings_get(box)
+        if res is None:
+            raise KeyError
+        return res
+
+    def get(self, box, default=None):
+        return self.regman.reg_bindings_get(box, default)
+
+    def pop(self, box):
+        lifetime = get_lifetime(box)
+        if lifetime is None:
+            raise KeyError
+        index = lifetime.current_register_index
+        if index >= 0:
+            result = self.regman.all_regs[index]
+            self.regman.reg_bindings_list[index] = None
+            lifetime.current_register_index = -1
+            return result
+        raise KeyError
+
+    def __setitem__(self, box, reg):
+        lifetime = get_lifetime(box)
+        assert lifetime is not None
+        index = lifetime.current_register_index
+        if index >= 0:
+            self.regman.reg_bindings_list[index] = None
+        newindex = lifetime.current_register_index = self._register_index(reg)
+        self.regman.reg_bindings_list[newindex] = box
+
+    def __delitem__(self, box):
+        lifetime = get_lifetime(box)
+        assert lifetime is not None
+        index = lifetime.current_register_index
+        if index < 0:
+            raise KeyError
+        self.regman.reg_bindings_list[lifetime.current_register_index] = None
+        lifetime.current_register_index = -1
+
+    def __len__(self):
+        res = 0
+        for box in self.regman.reg_bindings_list:
+            if box is not None:
+                res += 1
+        return res
+
+    def values(self):
+        res = []
+        for i in range(len(self.regman.all_regs)):
+            box = self.regman.reg_bindings_list[i]
+            if box is not None:
+                res.append(self.regman.all_regs[i])
+        return res
+
+    def keys(self):
+        return [box for box in self.regman.reg_bindings_list if box is not None]
+
+    def items(self):
+        res = []
+        for i in range(len(self.regman.all_regs)):
+            box = self.regman.reg_bindings_list[i]
+            if box is not None:
+                res.append((box, self.regman.all_regs[i]))
+        return res
+
+    def iteritems(self):
+        return self.regman.reg_bindings_iteritems()
+
+    def __nonzero__(self):
+        assert False, '__nonzero__ is not rpython'
+
+class RegBindingsIterItems(object):
+    def __init__(self, rm):
+        self.rm = rm
+        self.index = -1
+
+    def next(self):
+        index = self.index = RegBindingsIterItems._next(self.index + 1, self.rm)
+        return self.rm.reg_bindings_list[index], self.rm.all_regs[index]
+
+    @staticmethod
+    def _next(index, rm):
+        while True:
+            if index >= len(rm.reg_bindings_list):
+                raise StopIteration
+            box = rm.reg_bindings_list[index]
+            if box is None:
+                index += 1
+                continue
+            return index
+
+    def __iter__(self):
+        return self
+
+
+
 class RegisterManager(object):
 
     """ Class that keeps track of register allocations
     """
+
     box_types             = None       # or a list of acceptable types
     all_regs              = []
     no_lower_byte_regs    = []
@@ -285,13 +368,11 @@ class RegisterManager(object):
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
         self.free_regs.reverse()
+        self.reg_bindings_list = [None] * len(self.all_regs)
         self.longevity = longevity
         self.temp_boxes = []
-        if not we_are_translated():
-            self.reg_bindings = OrderedDict()
-        else:
-            self.reg_bindings = {}
-        self.bindings_to_frame_reg = {}
+        self.reg_bindings = RegBindingsDict(self)
+        self.box_currently_in_frame_reg = None
         self.position = -1
         self.frame_manager = frame_manager
         self.assembler = assembler
@@ -309,6 +390,18 @@ class RegisterManager(object):
     def next_instruction(self, incr=1):
         self.position += incr
 
+    def reg_bindings_get(self, box, default=None):
+        lifetime = get_lifetime(box)
+        if lifetime is None:
+            return default
+        index = lifetime.current_register_index
+        if index >= 0:
+            return self.all_regs[index]
+        return default
+
+    def reg_bindings_iteritems(self):
+        return RegBindingsIterItems(self)
+
     def _check_type(self, v):
         if not we_are_translated() and self.box_types is not None:
             assert isinstance(v, TempVar) or v.type in self.box_types
@@ -322,9 +415,12 @@ class RegisterManager(object):
         if isinstance(v, Const):
             return
         if v not in self.longevity or self.longevity[v].last_usage <= self.position:
-            if v in self.reg_bindings:
-                self.free_regs.append(self.reg_bindings[v])
+            reg = self.reg_bindings_get(v)
+            if reg is not None:
+                self.free_regs.append(reg)
                 del self.reg_bindings[v]
+            if v is self.box_currently_in_frame_reg:
+                self.box_currently_in_frame_reg = None
             if self.frame_manager is not None:
                 self.frame_manager.mark_as_free(v)
 
@@ -350,14 +446,16 @@ class RegisterManager(object):
             for reg in self.free_regs:
                 assert reg not in rev_regs
             assert len(rev_regs) + len(self.free_regs) == len(self.all_regs)
-        else:
-            assert len(self.reg_bindings) + len(self.free_regs) == len(self.all_regs)
+        for index, reg in enumerate(self.all_regs):
+            box = self.reg_bindings_list[index]
+            if reg not in self.free_regs:
+                lifetime = self.longevity[box]
+                assert lifetime is not None
+                assert lifetime.current_register_index == index
+                assert lifetime.last_usage > self.position
+            else:
+                assert box is None
         assert len(self.temp_boxes) == 0
-        if self.longevity:
-            for v in self.reg_bindings:
-                if v not in self.longevity:
-                    llop.debug_print(lltype.Void, "variable %s not in longevity\n" % v.repr({}))
-                assert self.longevity[v].last_usage > self.position
 
     def try_allocate_reg(self, v, selected_reg=None, need_lower_byte=False):
         """ Try to allocate a register, if we have one free.
@@ -373,7 +471,7 @@ class RegisterManager(object):
         # YYY all subtly similar code
         assert not isinstance(v, Const)
         if selected_reg is not None:
-            res = self.reg_bindings.get(v, None)
+            res = self.reg_bindings_get(v)
             if res is not None:
                 if res is selected_reg:
                     return res
@@ -387,7 +485,7 @@ class RegisterManager(object):
                 return selected_reg
             return None
         if need_lower_byte:
-            loc = self.reg_bindings.get(v, None)
+            loc = self.reg_bindings_get(v)
             if loc is not None and loc not in self.no_lower_byte_regs:
                 return loc
             free_regs = [reg for reg in self.free_regs
@@ -401,9 +499,10 @@ class RegisterManager(object):
                 self.free_regs.append(loc)
             self.reg_bindings[v] = newloc
             return newloc
-        try:
-            return self.reg_bindings[v]
-        except KeyError:
+        res = self.reg_bindings_get(v)
+        if res is not None:
+            return res
+        else:
             loc = self.longevity.try_pick_free_reg(
                 self.position, v, self.free_regs)
             if loc is None:
@@ -489,7 +588,7 @@ class RegisterManager(object):
             return loc
         loc = self._spill_var(forbidden_vars, selected_reg,
                               need_lower_byte=need_lower_byte)
-        prev_loc = self.reg_bindings.get(v, None)
+        prev_loc = self.reg_bindings_get(v)
         if prev_loc is not None:
             self.free_regs.append(prev_loc)
         self.reg_bindings[v] = loc
@@ -497,7 +596,8 @@ class RegisterManager(object):
 
     def force_allocate_frame_reg(self, v):
         """ Allocate the new variable v in the frame register."""
-        self.bindings_to_frame_reg[v] = None
+        assert self.box_currently_in_frame_reg is None
+        self.box_currently_in_frame_reg = v
 
     def force_spill_var(self, var):
         self._sync_var_to_stack(var)
@@ -514,14 +614,13 @@ class RegisterManager(object):
         self._check_type(box)
         if isinstance(box, Const):
             return self.convert_to_imm(box)
-        try:
-            return self.reg_bindings[box]
-        except KeyError:
-            if box in self.bindings_to_frame_reg:
-                return self.frame_reg
-            if must_exist:
-                return self.frame_manager.bindings[box]
-            return self.frame_manager.loc(box)
+        res = self.reg_bindings_get(box)
+        if res is not None:
+            return res
+        if box is self.box_currently_in_frame_reg:
+            return self.frame_reg
+        return self.frame_manager.loc(box, must_exist)
+
 
     def return_constant(self, v, forbidden_vars=[], selected_reg=None):
         """ Return the location of the constant v.  If 'selected_reg' is
@@ -809,7 +908,7 @@ class BaseRegalloc(object):
 
 UNDEF_POS = -42
 
-class Lifetime(object):
+class Lifetime(AbstractInfo):
     def __init__(self, definition_pos=UNDEF_POS, last_usage=UNDEF_POS):
         # all positions are indexes into the operations list
 
@@ -833,6 +932,16 @@ class Lifetime(object):
 
         # the other lifetime will have this variable set to self.definition_pos
         self._definition_pos_shared = UNDEF_POS
+
+        # the current register index where the backend stores the box
+        # the index is for the relevant RegisterManager's all_regs list
+        self.current_register_index = -1
+
+        # the frame location where the box currently lives
+        self.current_frame_loc = None
+
+        # the hinted frame location (at the end of the trace)
+        self.hint_frame_pos = -1
 
     def last_usage_including_sharing(self):
         while self.share_with is not None:
@@ -901,7 +1010,16 @@ class Lifetime(object):
             s = " " + ", ".join("@%s in %s" % (index, reg) for (index, reg) in self.fixed_positions)
         else:
             s = ""
-        return "%s:%s(%s)%s" % (self.definition_pos, self.real_usages, self.last_usage, s)
+        register = ""
+        if self.current_register_index >= 0:
+            register = " current register index: %s" % (self.current_register_index, )
+        frame = ""
+        if self.current_frame_loc:
+            frame = " curren frame loc: %s" % (self.current_frame_loc, )
+        frame_hint = ""
+        if self.hint_frame_pos >= 0:
+            frame_hint = " frame hint: %s" % (self.hint_frame_pos, )
+        return "%s:%s(%s)%s%s%s%s" % (self.definition_pos, self.real_usages, self.last_usage, s, register, frame, frame_hint)
 
 
 class FixedRegisterPositions(object):
@@ -934,9 +1052,14 @@ class FixedRegisterPositions(object):
 
 
 class LifetimeManager(object):
-    def __init__(self, longevity):
-        self.longevity = longevity
-
+    def __init__(self, longevity=None):
+        if we_are_translated():
+            assert longevity is None
+        else:
+            if longevity:
+                # old interface for tests
+                for box, lifetime in longevity.iteritems():
+                    self[box] = lifetime
         # dictionary maps register to FixedRegisterPositions
         self.fixed_register_use = {}
 
@@ -947,7 +1070,7 @@ class LifetimeManager(object):
         if var is None:
             definition_pos = opindex
         else:
-            varlifetime = self.longevity[var]
+            varlifetime = self[var]
             definition_pos = varlifetime.fixed_register(opindex, register)
         if register not in self.fixed_register_use:
             self.fixed_register_use[register] = FixedRegisterPositions(register)
@@ -970,7 +1093,6 @@ class LifetimeManager(object):
         that register can remain free, according to the constraints of the
         fixed registers. Find the register that is free the longest. Return a
         tuple (reg, free_until_pos). """
-        free_until_pos = {}
         max_free_pos = position
         best_reg = None
         # reverse for compatibility with old code
@@ -1036,20 +1158,24 @@ class LifetimeManager(object):
         # to do in the current system
         return None
 
-    def __contains__(self, var):
-        return var in self.longevity
+    def __contains__(self, op):
+        info = op.get_forwarded()
+        return info is not None
 
-    def __getitem__(self, var):
-        return self.longevity[var]
+    def __getitem__(self, op):
+        return get_lifetime(op)
 
-    def __setitem__(self, var, val):
-        self.longevity[var] = val
+    def __setitem__(self, op, lifetime):
+        assert op not in self or isinstance(op, TempVar)
+        op.set_forwarded(lifetime)
+
 
 def compute_vars_longevity(inputargs, operations):
-    # compute a dictionary that maps variables to Lifetime information
-    # if a variable is not in the dictionary, it's operation is dead because
-    # it's side-effect-free and the result is unused
-    longevity = {}
+    # compute Lifetime information for every variable, storing it in the
+    # forwarded field of every operation and input arg.
+    # if a variable has no Lifetime, the operation is dead because its
+    # side-effect-free and the result is unused
+    longevity = LifetimeManager()
     for i in range(len(operations)-1, -1, -1):
         op = operations[i]
         opnum = op.getopnum()
@@ -1095,17 +1221,17 @@ def compute_vars_longevity(inputargs, operations):
                 if not isinstance(arg, Const):
                     assert arg in produced
             produced[op] = None
-    for lifetime in longevity.itervalues():
+    for op in operations:
+        if op not in longevity:
+            continue
+        lifetime = longevity[op]
         if lifetime.real_usages is not None:
             lifetime.real_usages.reverse()
         if not we_are_translated():
             lifetime._check_invariants()
 
-    return LifetimeManager(longevity)
+    return longevity
 
-# YYY unused?
-def is_comparison_or_ovf_op(opnum):
-    return rop.is_comparison(opnum) or rop.is_ovf(opnum)
 
 def valid_addressing_size(size):
     return size == 1 or size == 2 or size == 4 or size == 8
