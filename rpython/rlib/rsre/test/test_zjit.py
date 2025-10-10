@@ -195,3 +195,10 @@ class TestJitRSre(support.LLJitMixin):
         text = "a" + "bBbbB" * 1000 + "c"
         res = self.meta_interp_match(pattern, text)
         self.check_enter_count(1)
+
+    def test_set_one_fewer_instruction(self):
+        pattern = "a[bBx12358]*c"
+        text = "a" + "bB2b2bB1" * 2000 + "c"
+        res = self.meta_interp_match(pattern, text)
+        self.check_enter_count(1)
+        self.check_history(int_is_true=0)
