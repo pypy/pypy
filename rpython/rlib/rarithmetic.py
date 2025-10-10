@@ -249,7 +249,7 @@ def most_neg_value_of_same_type(x):
 @specialize.memo()
 def most_neg_value_of(tp):
     from rpython.rtyper.lltypesystem import lltype, rffi
-    if tp is lltype.Signed:
+    if tp in (lltype.Signed, lltype.SSize_T):
         return -sys.maxint-1
     r_class = rffi.platform.numbertype_to_rclass[tp]
     assert issubclass(r_class, base_int)
@@ -626,6 +626,8 @@ else:
     r_int32 = build_int('r_int32', True, 32)     # also needed for rposix_stat.time_t_to_FILE_TIME in the 64 bit case
     r_uint32 = build_int('r_uint32', False, 32)
 
+r_size_t = build_int('r_size_t', False, 64, force_creation=True)
+r_ssize_t = build_int('r_ssize_t', True, 64, force_creation=True)
 
 SHRT_MIN = -2**(_get_bitsize('h') - 1)
 SHRT_MAX = 2**(_get_bitsize('h') - 1) - 1
