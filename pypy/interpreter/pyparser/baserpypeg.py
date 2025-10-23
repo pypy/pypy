@@ -756,12 +756,19 @@ class Parser:
 
     def generate_ast_for_fstring(self, start, middles, end):
         # Corresponds to CPython's _PyPegen_joined_str
+        from pypy.interpreter.astcompiler.fstring import build
+
         space = self.space
         items = []
         rawmode = "r" in start.value or "R" in start.value
         for item in middles:
-            if isinstance(item, ast.Constant):
-                item.value = self._decode_unicode(rawmode or "\\" not in item.value, item)
+            if isinstance(item, Token):
+                item = build(
+                    ast.Constant,
+                    self._decode_unicode(rawmode or "\\" not in item.value, item),
+                    None,
+                    item,
+                )
                 assert space.is_true(item.value)
             else:
                 if isinstance(item, ast.JoinedStr):
@@ -786,8 +793,10 @@ class Parser:
     def fstring_format_spec_full(self, colon, specs):
         # Corresponds to CPython's _PyPegen_setup_full_format_spec
         # CPython compatibility: return an empty JoinedStr node if the format spec is empty
-        if len(specs) == 1 and isinstance(specs[0], ast.Constant) and not self.space.is_true(specs[0].value):
-            specs = []
+        if len(specs) == 1:
+            fst = specs[0]
+            if isinstance(fst, ast.Constant) and not self.space.is_true(fst.value):
+                specs = []
 
         # CPython compatibility: always return a JoinedStr node
         if not specs or (len(specs) == 1 and isinstance(specs[0], ast.Constant)):

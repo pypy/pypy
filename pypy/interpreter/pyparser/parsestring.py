@@ -158,7 +158,7 @@ def decode_unicode_utf8(space, s, ps, q):
 
 def decode_unicode_str(space, encoding, s, rawmode, astbuilder=None, token=None, ps=0, q=-1):
     # Roughly corresponds to _PyPegen_decode_string in CPython
-    if q == -1:
+    if q < 0:
         q = len(s)
 
     try:

@@ -3582,21 +3582,17 @@ class PythonParser(Parser):
         # fstring_middle: fstring_replacement_field | FSTRING_MIDDLE
         mark = self._index
         if self._verbose: log_start(self, 'fstring_middle')
-        tok = self.peek()
-        start_lineno, start_col_offset = tok.lineno, tok.column
         fstring_replacement_field = self.fstring_replacement_field()
         if fstring_replacement_field:
             return fstring_replacement_field
         self._index = mark
-        t = self.FSTRING_MIDDLE()
-        if t:
-            tok = self.get_last_non_whitespace_token()
-            end_lineno, end_col_offset = tok.end_lineno, tok.end_column
-            return ast . Constant ( value = t . value , kind = None , lineno=start_lineno, col_offset=start_col_offset, end_lineno=end_lineno, end_col_offset=end_col_offset )
+        FSTRING_MIDDLE = self.FSTRING_MIDDLE()
+        if FSTRING_MIDDLE:
+            return FSTRING_MIDDLE
         self._index = mark
         return None
 
-    def fstring_replacement_field(self): # type Optional[Any]
+    def fstring_replacement_field(self): # type Optional[ast . FormattedValue | ast . JoinedStr]
         # fstring_replacement_field: '{' (yield_expr | star_expressions) '='? fstring_conversion? fstring_full_format_spec? '}' | invalid_replacement_field
         mark = self._index
         if self._verbose: log_start(self, 'fstring_replacement_field')
@@ -3641,7 +3637,7 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def fstring_format_spec(self): # type Optional[ast . Constant]
+    def fstring_format_spec(self): # type Optional[ast . Constant | ast . FormattedValue | ast . JoinedStr]
         # fstring_format_spec: FSTRING_MIDDLE | fstring_replacement_field
         mark = self._index
         if self._verbose: log_start(self, 'fstring_format_spec')
