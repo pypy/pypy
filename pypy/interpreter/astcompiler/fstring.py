@@ -564,7 +564,8 @@ def concatenate_strings(astbuilder, nodes):
     assert fmode
     # result = f_string_to_ast_node(astbuilder, joined_pieces, tokens)
     # TODO: Remove this
-    assert all(not isinstance(piece, ast.Constant) or space.is_true(piece.value) for piece in joined_pieces)
+    for piece in joined_pieces:
+        assert not isinstance(piece, ast.Constant) or space.is_true(piece.value)
     result = ast.JoinedStr(
         joined_pieces,
         lineno=nodes[0].lineno,

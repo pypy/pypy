@@ -385,3 +385,6 @@ def test_empty_expression_error():
         eval(s)
     assert str(info.value).startswith("f-string: valid expression required before '!'")
 
+
+def test_replacement_in_format_spec():
+    assert f'{42:>{"1"}0}' == '        42'

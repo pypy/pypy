@@ -3592,7 +3592,7 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def fstring_replacement_field(self): # type Optional[ast . FormattedValue | ast . JoinedStr]
+    def fstring_replacement_field(self): # type Optional[ast . JoinedStr]
         # fstring_replacement_field: '{' (yield_expr | star_expressions) '='? fstring_conversion? fstring_full_format_spec? '}' | invalid_replacement_field
         mark = self._index
         if self._verbose: log_start(self, 'fstring_replacement_field')
@@ -3637,7 +3637,7 @@ class PythonParser(Parser):
         self._index = mark
         return None
 
-    def fstring_format_spec(self): # type Optional[ast . Constant | ast . FormattedValue | ast . JoinedStr]
+    def fstring_format_spec(self): # type Optional[ast . Constant | ast . JoinedStr]
         # fstring_format_spec: FSTRING_MIDDLE | fstring_replacement_field
         mark = self._index
         if self._verbose: log_start(self, 'fstring_format_spec')

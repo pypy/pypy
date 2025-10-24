@@ -693,7 +693,7 @@ class Parser:
             first = conversion.id[0]
             if len(conversion.id) > 1 or first not in "sra":
                 self.raise_syntax_error_known_location(
-                    "f-string: invalid conversion character %r: expected 's', 'r', or 'a'" % (conversion.id,),
+                    "f-string: invalid conversion character %s: expected 's', 'r', or 'a'" % (conversion.id,),
                     conversion)
             conv = ord(first)
         elif debug_expr is not None and format is None:
@@ -713,11 +713,14 @@ class Parser:
         elif format is not None:
             end_lineno, end_col_offset = format.lineno, format.col_offset
 
+        # help the annotator
+        lbrace_end_column = lbrace.end_column
+        assert lbrace_end_column >= 0 and end_col_offset >= 0
         if lbrace.lineno == end_lineno:
-            debug_text = self._lines.get(lbrace.lineno, "")[lbrace.end_column:end_col_offset]
+            debug_text = self._lines.get(lbrace.lineno, "")[lbrace_end_column:end_col_offset]
         else:
             lines = [self._lines.get(n, "\n") for n in range(lbrace.lineno, end_lineno + 1)]
-            lines[0] = lines[0][lbrace.end_column:]
+            lines[0] = lines[0][lbrace_end_column:]
             lines[-1] = lines[-1][:end_col_offset]
             debug_text = "".join(lines)
 
@@ -799,20 +802,14 @@ class Parser:
                 specs = []
 
         # CPython compatibility: always return a JoinedStr node
-        if not specs or (len(specs) == 1 and isinstance(specs[0], ast.Constant)):
-            end_lineno, end_col_offset = self.extract_pos_end(specs[-1] if specs else colon)
-            return ast.JoinedStr(
-                specs,
-                lineno=colon.lineno,
-                col_offset=colon.column,
-                end_lineno=end_lineno,
-                end_col_offset=end_col_offset,
-            )
-
-        res = self.concatenate_strings(specs)
-        res.lineno = colon.lineno
-        res.col_offset = colon.column
-        return res
+        end_lineno, end_col_offset = self.extract_pos_end(specs[-1] if specs else colon)
+        return ast.JoinedStr(
+            specs,
+            lineno=colon.lineno,
+            col_offset=colon.column,
+            end_lineno=end_lineno,
+            end_col_offset=end_col_offset,
+        )
 
     def extract_import_level(self, tokens):
         """Extract the relative import level from the tokens preceding the module name.
