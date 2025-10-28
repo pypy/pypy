@@ -256,11 +256,11 @@ def set_charset(ctx, pattern, index, char_code):
     # <CHARSET> <bitmap> (16 bits per code word)
     if CODESIZE == 2:
         match = char_code < 256 and \
-                (pattern.pattern[index+1+(char_code >> 4)] & (1 << (char_code & 15)))
+                (pattern.pattern[index+1+(char_code >> 4)] >> (char_code & 15)) & 1
         return match, index + 17  # skip bitmap
     else:
         match = char_code < 256 and \
-                (pattern.pattern[index+1+(char_code >> 5)] & (1 << (char_code & 31)))
+                (pattern.pattern[index+1+(char_code >> 5)] >> (char_code & 31)) & 1
         return match, index + 9   # skip bitmap
 
 def set_range(ctx, pattern, index, char_code):
