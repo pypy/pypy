@@ -689,3 +689,32 @@ class TestCall(BaseTestPyPyC):
         loop, = log.loops_by_id('call')
         opnames = log.opnames(loop._allops())
         assert opnames.count("new_array_clear") == 2 # for the closure, but not for defaults
+
+    def test_map_with_jitdriver(self):
+        def main():
+            l = range(100000)
+            map(lambda x: x * 2, l)
+            map(lambda x: x + 1, l)
+        log = self.run(main, [])
+        loop1, loop2 = log.loops
+        log._filter(loop2, is_entry_bridge=False).match('''
+    ...
+    i47 = int_ge(i14, i9)
+    guard_false(i47, descr=...)
+    i49 = int_add(i14, 1)
+    setfield_gc(p0, i49, descr=...)
+    guard_not_invalidated(descr=...)
+    p50 = force_token()
+    i55 = int_add(i39, 1)
+    i56 = arraylen_gc(p46, descr=...)
+    i57 = int_lt(i56, i55)
+    cond_call(i57, ConstClass(_ll_list_resize_hint_really_look_inside_iff__listPtr_Signed_Bool), p36, i55, 1, descr=...)
+    guard_no_exception(descr=...)
+    p60 = getfield_gc_r(p36, descr=...)
+    setarrayitem_gc(p60, i39, i49, descr=...)
+    i61 = arraylen_gc(p60, descr=...)
+    setfield_gc(p36, i55, descr=...)
+    ...
+''')
+
+
