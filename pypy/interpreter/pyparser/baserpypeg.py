@@ -693,7 +693,7 @@ class Parser:
             first = conversion.id[0]
             if len(conversion.id) > 1 or first not in "sra":
                 self.raise_syntax_error_known_location(
-                    "f-string: invalid conversion character %s: expected 's', 'r', or 'a'" % (conversion.id,),
+                    "f-string: invalid conversion character '%s': expected 's', 'r', or 'a'" % (conversion.id,),
                     conversion)
             conv = ord(first)
         elif debug_expr is not None and format is None:

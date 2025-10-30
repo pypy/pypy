@@ -4,7 +4,7 @@ from pypy.interpreter import error
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rutf8 import codepoints_in_utf8
 
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 
 @specialize.arg(0)
 def build(cls, *args):
@@ -529,6 +529,11 @@ def string_parse_literal(astbuilder, tokens):
     )
     return result
 
+def _debug_check_fstring_pieces(space, joined_pieces):
+    # TODO: Remove this
+    for piece in joined_pieces:
+        assert not isinstance(piece, ast.Constant) or space.is_true(piece.value)
+
 def concatenate_strings(astbuilder, nodes):
     space = astbuilder.space
     # encoding = astbuilder.compile_info.encoding
@@ -562,10 +567,8 @@ def concatenate_strings(astbuilder, nodes):
                 "cannot mix bytes and nonbytes literals",
                 node)
     assert fmode
-    # result = f_string_to_ast_node(astbuilder, joined_pieces, tokens)
-    # TODO: Remove this
-    for piece in joined_pieces:
-        assert not isinstance(piece, ast.Constant) or space.is_true(piece.value)
+    if not we_are_translated():
+        _debug_check_fstring_pieces(space, joined_pieces)
     result = ast.JoinedStr(
         joined_pieces,
         lineno=nodes[0].lineno,
