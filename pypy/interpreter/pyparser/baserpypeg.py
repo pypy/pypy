@@ -9,6 +9,7 @@ from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.parser import Token
 from pypy.interpreter.pyparser import pytokenizer as tokenize, pytoken
 from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
+from pypy.interpreter.pyparser.parsestring import decode_unicode_str, parsestr
 
 from pypy.interpreter.astcompiler import ast
 from pypy.interpreter.astcompiler.astbuilder import parse_number
@@ -643,7 +644,7 @@ class Parser:
         return w_number
 
     def string_constant(self, tok):
-        from pypy.interpreter.pyparser.parsestring import parsestr
+        from pypy.interpreter import error
         space = self.space
         encoding = self.compile_info.encoding
         # u'' prefix can not be combined with
@@ -667,7 +668,7 @@ class Parser:
             # XXX: parsestr gets the token, so it should have position info?
             e.normalize_exception(space)
             errmsg = space.text_w(space.str(e.get_w_value(space)))
-            raise self.raise_syntax_error_known_location('%s%s' % (kind, errmsg), token)
+            raise self.raise_syntax_error_known_location('%s%s' % (kind, errmsg), tok)
         else:
             return ast.Constant(
                 w_string,
@@ -756,7 +757,6 @@ class Parser:
         )
 
     def _decode_unicode(self, rawmode, token):
-        from pypy.interpreter.pyparser.parsestring import decode_unicode_str
         encoding = self.compile_info.encoding
         return decode_unicode_str(self.space, encoding, token.value, rawmode, self, token)
 

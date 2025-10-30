@@ -1,31 +1,15 @@
 # coding: utf-8
 from rpython.rlib import rutf8
-from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter import unicodehelper
 from pypy.interpreter.pyparser.error import SyntaxError
 from rpython.rlib.rstring import StringBuilder
 
-
-class W_FString(W_Root):
-    def __init__(self, unparsed, raw_mode, token, content_offset=0):
-        assert isinstance(unparsed, str)    # utf-8 encoded string
-        self.unparsed = unparsed     # but the quotes are removed
-        self.raw_mode = raw_mode
-        self.current_index = 0       # for astcompiler.fstring
-        self.token = token
-        # offset behind the start of the string, after f" (or however it
-        # starts)
-        self.content_offset = content_offset
-
-
-
 # this function belongs to astbuilder.fstring somehow...
 
 def parsestr(space, encoding, s, token=None, astbuilder=None):
-    """Parses a string or unicode literal, and return usually
-    a wrapped value.  If we get an f-string, then instead return
-    an unparsed but unquoted W_FString instance.
+    """Parses a string or unicode literal, and return a wrapped
+    value.
 
     If encoding=None, the source string is ascii only.
     In other cases, the source string is in utf-8 encoding.
@@ -43,7 +27,6 @@ def parsestr(space, encoding, s, token=None, astbuilder=None):
     rawmode = False
     unicode_literal = True
     saw_u = False
-    saw_f = False
 
     # string decoration handling
     if quote == 'b' or quote == 'B':
@@ -59,9 +42,7 @@ def parsestr(space, encoding, s, token=None, astbuilder=None):
         quote = s[ps]
         rawmode = True
     elif quote == 'f' or quote == 'F':
-        ps += 1
-        quote = s[ps]
-        saw_f = True
+        raise AssertionError("f-strings should be handled elsewhere")
 
     if not saw_u:
         if quote == 'r' or quote == 'R':
@@ -73,9 +54,7 @@ def parsestr(space, encoding, s, token=None, astbuilder=None):
             quote = s[ps]
             unicode_literal = False
         elif quote == 'f' or quote == 'F':
-            ps += 1
-            quote = s[ps]
-            saw_f = True
+            raise AssertionError("f-strings should be handled elsewhere")
 
     if quote != "'" and quote != '"':
         raise_app_valueerror(space,
@@ -95,10 +74,6 @@ def parsestr(space, encoding, s, token=None, astbuilder=None):
 
     assert 0 <= ps <= q
     if unicode_literal:
-        if saw_f:
-            assert False  # FIXME
-            return W_FString(s[ps:q], rawmode, token, ps)
-
         return decode_unicode_str(space, encoding, s, rawmode,
                                   astbuilder, token, ps, q)
 
