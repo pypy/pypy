@@ -536,7 +536,6 @@ class TestFString(BaseTestPythonParser):
     def test_debug_expr(self):
         self.parse('f"{x=}"')
 
-    @pytest.mark.xfail(reason="TODO")
     def test_format_spec(self):
         self.parse('f"{x:{10}}"')
         self.parse('f"{x:{10}.2f}"')
