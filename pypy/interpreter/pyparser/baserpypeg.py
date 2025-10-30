@@ -12,6 +12,7 @@ from pypy.interpreter.pyparser.error import SyntaxError, IndentationError
 
 from pypy.interpreter.astcompiler import ast
 from pypy.interpreter.astcompiler.astbuilder import parse_number
+from pypy.interpreter.astcompiler.fstring import build, concatenate_strings
 from pypy.interpreter.astcompiler import asthelpers # Side effects
 from pypy.interpreter.astcompiler import consts, misc
 
@@ -295,13 +296,6 @@ class Parser:
         for tok in self._warnings:
             self.deprecation_warn(tok.value, tok)
         return res
-
-    def recursive_parse_to_ast(self, str, info):
-        from pypy.interpreter.pyparser import pytokenizer as tokenize
-        from pypy.interpreter.pyparser import rpypegparse
-        tokenlist = tokenize.generate_tokens(str.splitlines(True), 0)
-        parser = rpypegparse.PythonParser(self.space, tokenlist, self.compile_info, verbose=False)
-        return parser.parse_meth_or_raise(rpypegparse.PythonParser.eval)
 
     def deprecation_warn(self, msg, tok):
         from pypy.interpreter import error
@@ -648,33 +642,43 @@ class Parser:
             self.raise_syntax_error("imaginary  number required in complex literal")
         return w_number
 
-    # def generate_ast_for_string(self, tokens):
-    #     """Generate AST nodes for strings."""
-    #     from pypy.interpreter.astcompiler.fstring import string_parse_literal
-    #     return string_parse_literal(self, tokens)
-
     def string_constant(self, tok):
         from pypy.interpreter.pyparser.parsestring import parsestr
         space = self.space
         encoding = self.compile_info.encoding
-        # FIXME: wrap in try/except to handle decoding errors
         # u'' prefix can not be combined with
         # any other specifier, so it's safe to
         # check the initial letter for determining.
         kind = "u" if tok.value[0] == "u" else None
-        w_string = parsestr(space, encoding, tok.value, tok, self)
-        return ast.Constant(
-            w_string,
-            kind=space.newtext_or_none(kind),
-            lineno=tok.lineno,
-            col_offset=tok.column,
-            end_lineno=tok.end_lineno,
-            end_col_offset=tok.end_column,
-        )
+        try:
+            w_string = parsestr(space, encoding, tok.value, tok, self)
+        except error.OperationError as e:
+            # FIXME: Put this logic in more places?
+            if e.match(space, space.w_UnicodeError):
+                kind = '(unicode error) '
+            elif e.match(space, space.w_ValueError):
+                kind = '(value error) '
+            elif e.match(space, space.w_SyntaxError):
+                kind = ''
+            else:
+                raise
+            # Unicode/ValueError/SyntaxError (without position information) in
+            # literal: turn into SyntaxError with position information
+            # XXX: parsestr gets the token, so it should have position info?
+            e.normalize_exception(space)
+            errmsg = space.text_w(space.str(e.get_w_value(space)))
+            raise self.raise_syntax_error_known_location('%s%s' % (kind, errmsg), token)
+        else:
+            return ast.Constant(
+                w_string,
+                kind=space.newtext_or_none(kind),
+                lineno=tok.lineno,
+                col_offset=tok.column,
+                end_lineno=tok.end_lineno,
+                end_col_offset=tok.end_column,
+            )
 
-    def concatenate_strings(self, strings):
-        from pypy.interpreter.astcompiler.fstring import concatenate_strings
-        return concatenate_strings(self, strings)
+    concatenate_strings = concatenate_strings
 
     def fstring_check_conversion(self, conv_token, conv):
         # Corresponds to CPython's _PyPegen_check_fstring_conversion
@@ -744,7 +748,6 @@ class Parser:
         # In CPython, this ends up calling decode_unicode_with_escapes on the
         # token value. It doesn't matter if the f-string is raw,
         # escape sequences are always decoded in the format specifier.
-        from pypy.interpreter.astcompiler.fstring import build
         return build(
             ast.Constant,
             self._decode_unicode(False, t),
@@ -759,8 +762,6 @@ class Parser:
 
     def generate_ast_for_fstring(self, start, middles, end):
         # Corresponds to CPython's _PyPegen_joined_str
-        from pypy.interpreter.astcompiler.fstring import build
-
         space = self.space
         items = []
         rawmode = "r" in start.value or "R" in start.value
