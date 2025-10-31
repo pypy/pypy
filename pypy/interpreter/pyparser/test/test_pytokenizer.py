@@ -697,6 +697,34 @@ def"""
 """),
     ),
     (
+        "format specifier walrus confusion",
+        'f"{x:=10}"\n',
+        _fstring_test_from_tokenize_output("""\
+1,0-1,2:            FSTRING_START  'f"'
+1,2-1,3:            LBRACE         '{'
+1,3-1,4:            NAME           'x'
+1,4-1,5:            COLON          ':'
+1,5-1,8:            FSTRING_MIDDLE '=10'
+1,8-1,9:            RBRACE         '}'
+1,9-1,10:           FSTRING_END    '"'
+"""),
+    ),
+    (
+        "walrus in interpolation",
+        'f"{(x := 10)}"\n',
+        _fstring_test_from_tokenize_output("""\
+1,0-1,2:            FSTRING_START  'f"'
+1,2-1,3:            LBRACE         '{'
+1,3-1,4:            LPAR           '('
+1,4-1,5:            NAME           'x'
+1,6-1,8:            COLONEQUAL     ':='
+1,9-1,11:           NUMBER         '10'
+1,11-1,12:          RPAR           ')'
+1,12-1,13:          RBRACE         '}'
+1,13-1,14:          FSTRING_END    '"'
+"""),
+    ),
+    (
         "multiple interpolations",
         'f"{x} {y}"\n',
         [

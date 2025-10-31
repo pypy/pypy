@@ -579,7 +579,12 @@ class Tokenizer(object):
                                self.lnum, start, line, self.lnum, self.pos)
             self.last_comment = ''
         else:
-            if token in python_opmap:
+            if token == ':=' and self._in_fstring_interpolation() and len(self.parenstack) == self.state.level:
+                # Special case for := inside f-string interpolation
+                punct = tokens.COLON
+                token = ':'
+                self.pos = end = start + 1
+            elif token in python_opmap:
                 punct = python_opmap[token]
             else:
                 punct = tokens.OP
