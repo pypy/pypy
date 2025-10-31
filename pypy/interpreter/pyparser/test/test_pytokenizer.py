@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -* -
+import re
 import pytest
 from pypy.interpreter.astcompiler import consts
 from pypy.interpreter.pyparser import pytokenizer
@@ -333,6 +334,17 @@ class TestTokenizer310Changes(object):
         assert levels == [0, 0, 1, 1, 1, 1, 0, 1, 2, 2, 2, 2, 1, 0, 0, 0, 0]
 
 
+def _fstring_test_from_tokenize_output(tk_output):
+    # Parses the output of 'python3 -m tokenize -e' to the format used
+    # in the tests below.
+    pat = re.compile(r'^(\d+),(\d+)-(\d+),(\d+):\s+(\w+)\s+(.*)$')
+    result = []
+    for line in tk_output.splitlines():
+        if not line.startswith("#"):
+            groups = pat.match(line).groups()
+            result.append((getattr(tokens, groups[-2]), groups[-1][1:-1]) + tuple(map(int, groups[:4])))
+    return result
+
 # FIXME: Putting the tests inside a class sets up a testspace that
 # loads the _bootstrap_external module, which uses f-strings, which
 # cannot be parsed by the old parser yet.
@@ -658,6 +670,31 @@ def"""
             (tokens.FSTRING_MIDDLE, "}", 1, 7, 1, 8),
             (tokens.FSTRING_END, "'", 1, 9, 1, 10),
         ],
+    ),
+    (
+        "format specifier bug 2",
+        "f'result: {value:{width:0}.{precision:1}}'\n",
+        _fstring_test_from_tokenize_output("""\
+1,0-1,2:            FSTRING_START  "f'"
+1,2-1,10:           FSTRING_MIDDLE 'result: '
+1,10-1,11:          LBRACE         '{'
+1,11-1,16:          NAME           'value'
+1,16-1,17:          COLON          ':'
+1,17-1,18:          LBRACE         '{'
+1,18-1,23:          NAME           'width'
+1,23-1,24:          COLON          ':'
+1,24-1,25:          FSTRING_MIDDLE '0'
+1,25-1,26:          RBRACE         '}'
+1,26-1,27:          FSTRING_MIDDLE '.'
+1,27-1,28:          LBRACE         '{'
+1,28-1,37:          NAME           'precision'
+1,37-1,38:          COLON          ':'
+1,38-1,39:          FSTRING_MIDDLE '1'
+1,39-1,40:          RBRACE         '}'
+#1,40-1,40:          FSTRING_MIDDLE ''
+1,40-1,41:          RBRACE         '}'
+1,41-1,42:          FSTRING_END    "'"
+"""),
     ),
     (
         "multiple interpolations",

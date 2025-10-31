@@ -692,7 +692,8 @@ class Tokenizer(object):
                     assert opening.value == "{"
                     mode.middle_linenumber = self.lnum
                     mode.middle_offset = self.pos = match
-                    mode.format_specifier = False
+                    if len(self.parenstack) == state.level:
+                        mode.format_specifier = False
                 else:
                     self._raise_token_error("f-string: single '}' is not allowed",
                                             line, self.lnum, match)
