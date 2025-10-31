@@ -773,7 +773,9 @@ class Parser:
                     None,
                     item,
                 )
-                assert space.is_true(item.value)
+                if not space.is_true(item.value):
+                    # empty string, can happen for FSTRING_MIDDLE token w. '\\\n'
+                    continue
             else:
                 if isinstance(item, ast.JoinedStr):
                     # formatted value with debug expr
